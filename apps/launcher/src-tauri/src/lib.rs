@@ -16,6 +16,15 @@ fn ping() -> &'static str {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Dev only : charge .env a la racine du monorepo pour que MS_CLIENT_ID
+    // & co. soient visibles depuis le process Tauri lance par `tauri dev`.
+    #[cfg(debug_assertions)]
+    {
+        let _ = dotenvy::from_filename("../../.env");
+        let _ = dotenvy::from_filename("../.env");
+        let _ = dotenvy::dotenv();
+    }
+
     // Logs structures — RUST_LOG=info,launcher_lib=debug pour le dev.
     let _ = tracing_subscriber::fmt()
         .with_env_filter(

@@ -39,3 +39,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # UUID parsing for Minecraft profiles (raw to dashed form)
 uuid = { version = "1", features = ["v4"] }
+
+# Dev convenience: load .env from the workspace root in debug builds.
+dotenvy = "0.15"

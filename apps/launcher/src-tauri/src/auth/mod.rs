@@ -75,6 +75,10 @@ fn ms_client_id() -> AuthResult<String> {
 /// stocke les refresh tokens.
 async fn run_full_login(state: &AuthState, app: &AppHandle<impl Runtime>) -> AuthResult<AuthSession> {
     let client_id = ms_client_id()?;
+    tracing::info!(
+        "lancement OAuth avec client_id prefix={}",
+        client_id.chars().take(8).collect::<String>()
+    );
     let req = microsoft::build_authorize_url(&client_id)?;
 
     // Ouvre l'URL d'autorisation dans le navigateur systeme.
@@ -83,8 +87,27 @@ async fn run_full_login(state: &AuthState, app: &AppHandle<impl Runtime>) -> Aut
         .map_err(|e| AuthError::Internal(format!("impossible d'ouvrir le navigateur : {e}")))?;
     tracing::info!("MS authorize URL ouverte, attente du callback…");
 
-    let code = microsoft::wait_for_code(&req.state).await?;
-    let ms_tokens = microsoft::exchange_code(&state.http, &client_id, &code, &req.verifier).await?;
+    let code = match microsoft::wait_for_code(&req.state).await {
+        Ok(c) => {
+            tracing::info!("callback recu, code de longueur {}", c.len());
+            c
+        }
+        Err(e) => {
+            tracing::warn!("callback echoue : {e}");
+            return Err(e);
+        }
+    };
+
+    let ms_tokens = match microsoft::exchange_code(&state.http, &client_id, &code, &req.verifier).await {
+        Ok(t) => {
+            tracing::info!("MS tokens obtenus (refresh_token={})", t.refresh_token.is_some());
+            t
+        }
+        Err(e) => {
+            tracing::warn!("exchange_code echoue : {e}");
+            return Err(e);
+        }
+    };
 
     finalize_login(state, ms_tokens).await
 }
@@ -92,10 +115,27 @@ async fn run_full_login(state: &AuthState, app: &AppHandle<impl Runtime>) -> Aut
 /// Reprend la chaine apres un refresh MS deja effectue (boot) ou apres
 /// l'echange du code (login interactif).
 async fn finalize_login(state: &AuthState, ms: microsoft::MicrosoftTokens) -> AuthResult<AuthSession> {
-    let xbl_token = xbox::authenticate_xbl(&state.http, &ms.access_token).await?;
-    let xsts = xbox::authorize_xsts(&state.http, &xbl_token).await?;
-    let mc_auth = minecraft::login_with_xbox(&state.http, &xsts.user_hash, &xsts.token).await?;
-    let _profile = minecraft::fetch_profile(&state.http, &mc_auth.access_token).await?;
+    tracing::info!("etape 1/5 : XBL authenticate");
+    let xbl_token = xbox::authenticate_xbl(&state.http, &ms.access_token)
+        .await
+        .inspect_err(|e| tracing::warn!("XBL authenticate echoue : {e}"))?;
+
+    tracing::info!("etape 2/5 : XSTS authorize");
+    let xsts = xbox::authorize_xsts(&state.http, &xbl_token)
+        .await
+        .inspect_err(|e| tracing::warn!("XSTS echoue : {e}"))?;
+
+    tracing::info!("etape 3/5 : login_with_xbox");
+    let mc_auth = minecraft::login_with_xbox(&state.http, &xsts.user_hash, &xsts.token)
+        .await
+        .inspect_err(|e| tracing::warn!("login_with_xbox echoue : {e}"))?;
+
+    tracing::info!("etape 4/5 : fetch profile");
+    let _profile = minecraft::fetch_profile(&state.http, &mc_auth.access_token)
+        .await
+        .inspect_err(|e| tracing::warn!("fetch profile echoue : {e}"))?;
+
+    tracing::info!("etape 5/5 : POST /v1/auth/login");
 
     // Echange contre un JWT Reborn — l'API revalide elle-meme le token
     // contre /minecraft/profile et cree/maj l'utilisateur.
