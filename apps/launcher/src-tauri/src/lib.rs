@@ -41,6 +41,8 @@ pub fn run() {
             auth::auth_login_microsoft,
             auth::auth_resume_session,
             auth::auth_logout,
+            launcher::launcher_check_update,
+            launcher::launcher_apply_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

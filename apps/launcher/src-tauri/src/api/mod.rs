@@ -132,4 +132,21 @@ impl ApiClient {
         }
         Ok(())
     }
+
+    /// Recupere le manifest courant. Le payload est strictement le meme
+    /// que la sortie du CLI manifest-signer (cf §4.3).
+    pub async fn fetch_manifest(
+        &self,
+        access_token: &str,
+    ) -> Result<crate::manifest::SignedManifest, ApiError> {
+        let url = format!("{}/manifest/current", self.base_url);
+        let resp = self.http.get(url).bearer_auth(access_token).send().await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<crate::manifest::SignedManifest>().await?)
+    }
 }

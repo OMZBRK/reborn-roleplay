@@ -42,3 +42,13 @@ uuid = { version = "1", features = ["v4"] }
 
 # Dev convenience: load .env from the workspace root in debug builds.
 dotenvy = "0.15"
+
+# Ed25519 signature verification for the launch manifest (PLAN §4.3).
+ed25519-dalek = "2"
+
+# Pinned constant-time helpers (already used transitively by ed25519-dalek
+# but kept explicit because we'll lean on them for token comparisons).
+subtle = "2"
+
+# Pour limiter la concurrence des telechargements (semaphore).
+futures = "0.3"
