@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  /* Palette Reborn — sombre + accent bleu Zenkai (#3B5BDB) */
+  --color-background: #07080b;
+  --color-surface: #0e1014;
+  --color-surface-elevated: #15181f;
+  --color-border: #1d212a;
+  --color-muted: #6b7280;
+
+  --color-foreground: #e5e7eb;
+  --color-foreground-subtle: #9ca3af;
+
+  --color-accent: #3b5bdb;
+  --color-accent-hover: #4c6ce6;
+  --color-accent-pressed: #2f4cc4;
+
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  --font-sans:
+    "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Cinzel", "Inter", serif;
+
+  --radius-card: 12px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+/* Scrollbar discrete (style Zenkai) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a2f3a;
+}
+
+/* Drag region pour la barre de titre custom Tauri (frameless) */
+.drag-region {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}

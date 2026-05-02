@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RebornLauncher",
+  "version": "0.1.0",
+  "identifier": "fr.reborn-rp.launcher",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Reborn Launcher",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1120,
+        "minHeight": 720,
+        "resizable": true,
+        "decorations": false,
+        "transparent": false,
+        "center": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Reborn Roleplay",
+    "copyright": "© 2026 Reborn Roleplay",
+    "category": "Game",
+    "shortDescription": "Launcher officiel Reborn Roleplay",
+    "longDescription": "Le launcher officiel du network Reborn Roleplay.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["French"],
+        "installMode": "currentUser",
+        "compression": "lzma"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
+  }
+}
