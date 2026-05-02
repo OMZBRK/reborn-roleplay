@@ -1,0 +1,20 @@
+{
+  "name": "reborn-roleplay",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monorepo Reborn Roleplay : launcher Tauri, API NestJS, panel staff Next.js, bot Discord, plugin & mod Minecraft.",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "launcher:dev": "pnpm --filter @reborn/launcher tauri dev",
+    "launcher:build": "pnpm --filter @reborn/launcher tauri build",
+    "api:dev": "pnpm --filter @reborn/api start:dev",
+    "api:build": "pnpm --filter @reborn/api build",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:logs": "docker compose -f infra/docker-compose.yml logs -f"
+  }
+}

@@ -1,0 +1,39 @@
+name: reborn-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: reborn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-reborn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reborn_dev_password_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-reborn}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - reborn_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reborn} -d ${POSTGRES_DB:-reborn}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: reborn-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - reborn_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  reborn_postgres_data:
+  reborn_redis_data:

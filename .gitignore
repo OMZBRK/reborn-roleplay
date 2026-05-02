@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.turbo/
+
+# Tauri / Rust
+target/
+**/src-tauri/target/
+**/src-tauri/gen/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+ed25519_*
+auth_secret*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+*.swp
+*.swo
+
+# Claude Code (user-local state)
+.claude/
+
+# Stray installers
+rustup-init.exe
+*.msi
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Tests / coverage
+coverage/
+.nyc_output/
+
+# Prisma
+**/prisma/migrations/dev.db*
+
+# Misc
+.cache/
+.tmp/
