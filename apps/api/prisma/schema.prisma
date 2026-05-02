@@ -1,0 +1,364 @@
+// Reborn Roleplay — schema Prisma
+// Source de verite : PLAN_CONCEPTION_LAUNCHER.md §5.1
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────────────
+// USERS
+// ──────────────────────────────────────────────────────
+
+model User {
+  id                String   @id @default(uuid())
+  msAccountId       String   @unique
+  minecraftUuid     String   @unique
+  minecraftUsername String
+  email             String?  @unique
+  createdAt         DateTime @default(now())
+  lastLoginAt       DateTime?
+
+  // Liaison Discord
+  discordUserId     String?  @unique
+  discordUsername   String?
+  discordLinkedAt   DateTime?
+
+  // Liaison Steam (optionnelle)
+  steamId           String?  @unique
+  steamUsername     String?
+  steamLinkedAt     DateTime?
+
+  // Liaison Twitch (optionnelle, pour streamers)
+  twitchUserId      String?  @unique
+  twitchUsername    String?
+  twitchLinkedAt    DateTime?
+
+  // Profil
+  displayName       String?
+  avatarUrl         String?
+
+  // Preferences
+  newsletterOptIn   Boolean  @default(false)
+  notifEvents       Boolean  @default(true)
+  notifFriends      Boolean  @default(true)
+  notifTickets      Boolean  @default(true)
+  richPresenceOn    Boolean  @default(true)
+  language          String   @default("fr")
+
+  // Monnaie virtuelle
+  zkCoinBalance     Int      @default(0)
+
+  role              Role     @default(PLAYER)
+  banned            Boolean  @default(false)
+  banReason         String?
+  bannedUntil       DateTime?
+
+  // Securite
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean  @default(false)
+  lastKnownIp       String?
+  lastKnownCountry  String?
+
+  whitelistApp      WhitelistApplication?
+  tickets           Ticket[]
+  purchases         Purchase[]
+  sessions          Session[]
+  incidents         IntegrityIncident[]
+  staffActions      AuditLog[] @relation("StaffActor")
+  targetedActions   AuditLog[] @relation("TargetUser")
+
+  // Systeme social (v1.0.5)
+  friendshipsInitiated Friendship[]    @relation("FriendshipFrom")
+  friendshipsReceived  Friendship[]    @relation("FriendshipTo")
+  blockedUsers         UserBlock[]     @relation("BlockerRelation")
+  blockedByUsers       UserBlock[]     @relation("BlockedRelation")
+  sentMessages         DirectMessage[] @relation("MessageSender")
+  receivedMessages     DirectMessage[] @relation("MessageReceiver")
+
+  @@index([minecraftUuid])
+  @@index([discordUserId])
+  @@index([steamId])
+}
+
+enum Role {
+  PLAYER
+  WHITELISTED
+  HELPER
+  MODERATOR
+  WHITELIST_REVIEWER
+  ADMIN
+  OWNER
+}
+
+model Session {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  refreshToken String    @unique
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+}
+
+// ──────────────────────────────────────────────────────
+// WHITELIST
+// ──────────────────────────────────────────────────────
+
+model WhitelistApplication {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id])
+  status        AppStatus @default(PENDING)
+  characterName String
+  characterAge  Int
+  background    String
+  motivation    String
+  submittedAt   DateTime  @default(now())
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  reviewNotes   String?
+}
+
+enum AppStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+// ──────────────────────────────────────────────────────
+// MANIFEST & PATCH NOTES
+// ──────────────────────────────────────────────────────
+
+model Manifest {
+  id                 String   @id @default(uuid())
+  version            String   @unique
+  minecraftVersion   String
+  files              Json
+  signature          String
+  isCurrent          Boolean  @default(false)
+  minLauncherVersion String
+  publishedAt        DateTime @default(now())
+
+  @@index([isCurrent])
+}
+
+model PatchNote {
+  id          String   @id @default(uuid())
+  version     String
+  title       String
+  content     String
+  thumbnail   String?
+  publishedAt DateTime @default(now())
+  pinned      Boolean  @default(false)
+}
+
+// ──────────────────────────────────────────────────────
+// TICKETS
+// ──────────────────────────────────────────────────────
+
+model Ticket {
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id])
+  category  TicketCategory
+  subject   String
+  status    TicketStatus    @default(OPEN)
+  messages  TicketMessage[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+enum TicketCategory {
+  BUG
+  REPORT_PLAYER
+  WHITELIST_APPEAL
+  PURCHASE_ISSUE
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+}
+
+// ──────────────────────────────────────────────────────
+// SHOP
+// ──────────────────────────────────────────────────────
+
+model ShopProduct {
+  id          String  @id @default(uuid())
+  sku         String  @unique
+  name        String
+  description String
+  priceCents  Int
+  imageUrl    String
+  category    String
+  active      Boolean @default(true)
+  metadata    Json?
+}
+
+model Purchase {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id])
+  productId   String
+  amountCents Int
+  status      PurchaseStatus @default(PENDING)
+  provider    String
+  providerRef String?
+  createdAt   DateTime       @default(now())
+  deliveredAt DateTime?
+}
+
+enum PurchaseStatus {
+  PENDING
+  PAID
+  DELIVERED
+  REFUNDED
+  FAILED
+}
+
+// ──────────────────────────────────────────────────────
+// SECURITE / AUDIT
+// ──────────────────────────────────────────────────────
+
+model IntegrityIncident {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  kind       String
+  details    Json
+  reportedAt DateTime @default(now())
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String
+  actor        User     @relation("StaffActor", fields: [actorId], references: [id])
+  action       String
+  targetUserId String?
+  targetUser   User?    @relation("TargetUser", fields: [targetUserId], references: [id])
+  targetEntity String?
+  metadata     Json
+  ipAddress    String?
+  userAgent    String?
+  source       String
+  createdAt    DateTime @default(now())
+
+  // Hash chaine pour immutabilite (cf §14.5)
+  previousHash String?
+  hash         String   @unique
+
+  @@index([actorId])
+  @@index([targetUserId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model LoginAnomaly {
+  id           String   @id @default(uuid())
+  userId       String
+  ipAddress    String
+  country      String?
+  reason       String
+  acknowledged Boolean  @default(false)
+  notifiedVia  String[]
+  createdAt    DateTime @default(now())
+}
+
+// ──────────────────────────────────────────────────────
+// EVENEMENTS RP
+// ──────────────────────────────────────────────────────
+
+model ScheduledEvent {
+  id          String          @id @default(uuid())
+  title       String
+  description String
+  imageUrl    String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  category    String
+  factions    String[]
+  visibility  EventVisibility @default(PUBLIC)
+  createdAt   DateTime        @default(now())
+
+  @@index([startsAt])
+}
+
+enum EventVisibility {
+  PUBLIC
+  WHITELISTED_ONLY
+  FACTION_ONLY
+}
+
+// ──────────────────────────────────────────────────────
+// SYSTEME SOCIAL (v1.0.5)
+// ──────────────────────────────────────────────────────
+
+model Friendship {
+  id         String           @id @default(uuid())
+  fromUserId String
+  fromUser   User             @relation("FriendshipFrom", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User             @relation("FriendshipTo", fields: [toUserId], references: [id])
+  status     FriendshipStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  acceptedAt DateTime?
+
+  @@unique([fromUserId, toUserId])
+  @@index([fromUserId, status])
+  @@index([toUserId, status])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("BlockerRelation", fields: [blockerId], references: [id])
+  blockedId String
+  blocked   User     @relation("BlockedRelation", fields: [blockedId], references: [id])
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+model DirectMessage {
+  id         String    @id @default(uuid())
+  senderId   String
+  sender     User      @relation("MessageSender", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User      @relation("MessageReceiver", fields: [receiverId], references: [id])
+  content    String
+  readAt     DateTime?
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, readAt])
+}
