@@ -1,31 +1,40 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
+import { asAuthError, explainAuthError, loginWithMicrosoft } from "../lib/auth";
 
 const LAUNCHER_VERSION = "v0.1.0";
 
+type LoginState =
+  | { status: "idle" }
+  | { status: "authenticating" }
+  | { status: "error"; message: string };
+
 export function Login() {
   const navigate = useNavigate();
-  const setUser = useAuthStore((s) => s.setUser);
-  const [authState, setAuthState] = useState<"idle" | "authenticating" | "error">("idle");
+  const setSession = useAuthStore((s) => s.setSession);
+  const [state, setState] = useState<LoginState>({ status: "idle" });
 
-  // Maquette : pas de logique OAuth reelle, on simule.
-  // Le flow Microsoft sera branche en Semaine 2 (cf §7 du plan).
   async function handleLogin() {
-    setAuthState("authenticating");
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    setUser({
-      id: "demo-user",
-      minecraftUuid: "00000000-0000-0000-0000-000000000000",
-      minecraftUsername: "OMZ",
-      displayName: "OMZ",
-      avatarUrl: null,
-      role: "PLAYER",
-    });
-    navigate("/home", { replace: true });
+    setState({ status: "authenticating" });
+    try {
+      const session = await loginWithMicrosoft();
+      setSession(session);
+      navigate("/home", { replace: true });
+    } catch (err) {
+      const parsed = asAuthError(err);
+      // L'utilisateur qui annule volontairement n'est pas une "erreur".
+      if (parsed.kind === "user_canceled") {
+        setState({ status: "idle" });
+        return;
+      }
+      setState({ status: "error", message: explainAuthError(parsed) });
+    }
   }
+
+  const isAuthenticating = state.status === "authenticating";
 
   return (
     <div className="grid h-screen grid-cols-1 lg:grid-cols-2">
@@ -61,25 +70,31 @@ export function Login() {
           <button
             type="button"
             onClick={handleLogin}
-            disabled={authState === "authenticating"}
+            disabled={isAuthenticating}
             className="no-drag mt-10 flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-white px-4 font-medium text-black transition hover:bg-neutral-200 disabled:opacity-60"
           >
-            {authState === "authenticating" ? (
+            {isAuthenticating ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <MicrosoftLogo />
             )}
             <span>
-              {authState === "authenticating"
+              {isAuthenticating
                 ? "Connexion en cours..."
                 : "Se connecter avec Microsoft"}
             </span>
           </button>
 
-          <label className="no-drag mt-6 flex cursor-pointer items-center gap-2 text-sm text-foreground-subtle">
-            <input type="checkbox" defaultChecked className="h-4 w-4 accent-accent" />
-            Se souvenir de moi
-          </label>
+          {state.status === "error" && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="no-drag mt-4 flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <p>{state.message}</p>
+            </motion.div>
+          )}
 
           <p className="mt-10 text-xs text-foreground-subtle">
             Pas de compte Microsoft ?{" "}

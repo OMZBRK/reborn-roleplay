@@ -1,4 +1,4 @@
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import {
   Bell,
   BookOpen,
@@ -7,6 +7,7 @@ import {
   Gavel,
   Home,
   LifeBuoy,
+  LogOut,
   Newspaper,
   Settings,
   ShoppingBag,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
 import { cn } from "../lib/cn";
+import { logout } from "../lib/auth";
 
 const navItems = [
   { to: "/home", label: "Accueil", icon: Home },
@@ -28,6 +30,17 @@ const navItems = [
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user);
+  const setSession = useAuthStore((s) => s.setSession);
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      setSession(null);
+      navigate("/login", { replace: true });
+    }
+  }
 
   return (
     <aside className="flex h-full w-[260px] flex-col border-r border-border bg-surface">
@@ -97,7 +110,7 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Footer : statut serveur */}
+      {/* Footer : statut serveur + logout */}
       <div className="border-t border-border p-4">
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
@@ -113,6 +126,14 @@ export function Sidebar() {
           <span>Ping : 28 ms</span>
           <span>play.reborn-rp.fr</span>
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-border py-1.5 text-xs text-foreground-subtle transition hover:border-danger/50 hover:text-danger"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Se deconnecter
+        </button>
       </div>
     </aside>
   );

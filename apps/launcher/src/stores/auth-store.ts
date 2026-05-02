@@ -11,12 +11,23 @@ export type LauncherUser = {
 
 type AuthState = {
   user: LauncherUser | null;
+  accessToken: string | null;
   isAuthenticated: boolean;
-  setUser: (u: LauncherUser | null) => void;
+  isResuming: boolean;
+  setSession: (session: { user: LauncherUser; accessToken: string } | null) => void;
+  setResuming: (v: boolean) => void;
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  accessToken: null,
   isAuthenticated: false,
-  setUser: (user) => set({ user, isAuthenticated: user !== null }),
+  isResuming: true,
+  setSession: (session) =>
+    set({
+      user: session?.user ?? null,
+      accessToken: session?.accessToken ?? null,
+      isAuthenticated: !!session,
+    }),
+  setResuming: (isResuming) => set({ isResuming }),
 }));

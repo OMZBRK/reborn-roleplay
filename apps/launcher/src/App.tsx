@@ -1,11 +1,42 @@
-import { Route, Routes, Navigate } from "react-router";
+import { useEffect } from "react";
+import { Navigate, Route, Routes } from "react-router";
+import { Loader2 } from "lucide-react";
 import { Login } from "./routes/Login";
 import { Home } from "./routes/Home";
 import { AuthenticatedLayout } from "./components/AuthenticatedLayout";
 import { useAuthStore } from "./stores/auth-store";
+import { resumeSession } from "./lib/auth";
 
 export function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isResuming = useAuthStore((s) => s.isResuming);
+  const setSession = useAuthStore((s) => s.setSession);
+  const setResuming = useAuthStore((s) => s.setResuming);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await resumeSession();
+        if (!cancelled) setSession(session);
+      } catch {
+        // Ignore : si auto-resume echoue, on tombe sur /login proprement.
+      } finally {
+        if (!cancelled) setResuming(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setSession, setResuming]);
+
+  if (isResuming) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-foreground-subtle" />
+      </div>
+    );
+  }
 
   return (
     <Routes>
