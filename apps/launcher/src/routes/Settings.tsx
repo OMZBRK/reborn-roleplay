@@ -1,8 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import { Check, Loader2, MonitorSmartphone, User2, Link2, Gamepad2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Loader2,
+  LogOut,
+  MonitorSmartphone,
+  User2,
+  Link2,
+  Gamepad2,
+  Unlink,
+} from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
 import { getPrefs, setPrefs, type Preferences } from "../lib/prefs";
+import { logout, refreshMe, startDiscordLink, unlinkDiscord } from "../lib/auth";
 import { cn } from "../lib/cn";
 
 const TABS = [
@@ -119,29 +131,164 @@ function ProfileTab() {
 
 function AccountTab() {
   const user = useAuthStore((s) => s.user);
+  const setSession = useAuthStore((s) => s.setSession);
+  const navigate = useNavigate();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await logout();
+      setSession(null);
+      navigate("/login", { replace: true });
+    } catch {
+      // Best-effort : meme si la requete echoue, on degage la session locale.
+      setSession(null);
+      navigate("/login", { replace: true });
+    }
+  }
+
   return (
-    <Section
-      title="Compte"
-      description="Informations liees a ton compte Microsoft. Modifiables uniquement via account.microsoft.com."
-    >
-      <Row label="UUID Minecraft" hint="Identifiant unique attribue par Mojang.">
-        <code className="rounded bg-surface-elevated px-2 py-0.5 text-xs">
-          {user?.minecraftUuid ?? "—"}
-        </code>
-      </Row>
-      <Row label="Identifiant Reborn" hint="Cle interne utilisee par les tickets et l'API.">
-        <code className="rounded bg-surface-elevated px-2 py-0.5 text-xs">
-          {user?.id ?? "—"}
-        </code>
-      </Row>
-      <Row label="Version du launcher">
-        <span className="rounded-md border border-border px-2 py-1 text-xs">v0.1.0</span>
-      </Row>
-    </Section>
+    <>
+      <Section
+        title="Compte"
+        description="Informations liees a ton compte Microsoft. Modifiables uniquement via account.microsoft.com."
+      >
+        <Row label="UUID Minecraft" hint="Identifiant unique attribue par Mojang.">
+          <code className="rounded bg-surface-elevated px-2 py-0.5 text-xs">
+            {user?.minecraftUuid ?? "—"}
+          </code>
+        </Row>
+        <Row label="Identifiant Reborn" hint="Cle interne utilisee par les tickets et l'API.">
+          <code className="rounded bg-surface-elevated px-2 py-0.5 text-xs">
+            {user?.id ?? "—"}
+          </code>
+        </Row>
+        <Row label="Version du launcher">
+          <span className="rounded-md border border-border px-2 py-1 text-xs">v0.1.0</span>
+        </Row>
+      </Section>
+
+      <Section
+        title="Session"
+        description="Deconnecte le launcher. Tu devras te reauthentifier avec Microsoft pour relancer le jeu."
+      >
+        <Row label="Deconnexion" hint="Supprime les tokens locaux et revoque la session API.">
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex h-9 items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 text-xs font-medium text-danger transition hover:bg-danger/20 disabled:opacity-60"
+          >
+            {loggingOut ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <LogOut className="h-3 w-3" />
+            )}
+            Se deconnecter
+          </button>
+        </Row>
+      </Section>
+    </>
   );
 }
 
 function ConnectionsTab() {
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const [busy, setBusy] = useState<"linking" | "unlinking" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [waitingForCallback, setWaitingForCallback] = useState(false);
+  const pollRef = useRef<number | null>(null);
+
+  // Stoppe le polling si on quitte la page (ou si l'etat user change).
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, []);
+
+  function startPolling() {
+    if (pollRef.current) return;
+    let elapsed = 0;
+    const intervalMs = 2500;
+    const timeoutMs = 5 * 60_000;
+    pollRef.current = window.setInterval(async () => {
+      elapsed += intervalMs;
+      try {
+        const fresh = await refreshMe();
+        if (fresh.discord) {
+          setUser(fresh);
+          stopPolling();
+          setWaitingForCallback(false);
+        }
+      } catch {
+        // Reseau en vol -> on retente au prochain tick.
+      }
+      if (elapsed >= timeoutMs) {
+        stopPolling();
+        setWaitingForCallback(false);
+        setError(
+          "Aucune liaison detectee apres 5 min. Si tu as valide cote Discord, clique sur Rafraichir.",
+        );
+      }
+    }, intervalMs);
+  }
+
+  function stopPolling() {
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
+
+  async function handleLink() {
+    setError(null);
+    setBusy("linking");
+    try {
+      await startDiscordLink();
+      setWaitingForCallback(true);
+      startPolling();
+    } catch (err) {
+      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleUnlink() {
+    setError(null);
+    setBusy("unlinking");
+    try {
+      await unlinkDiscord();
+      const fresh = await refreshMe();
+      setUser(fresh);
+    } catch (err) {
+      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleManualRefresh() {
+    setError(null);
+    try {
+      const fresh = await refreshMe();
+      setUser(fresh);
+      if (fresh.discord) {
+        stopPolling();
+        setWaitingForCallback(false);
+      }
+    } catch (err) {
+      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+    }
+  }
+
+  const linked = user?.discord ?? null;
+
   return (
     <Section
       title="Comptes lies"
@@ -152,16 +299,77 @@ function ConnectionsTab() {
           Lie
         </span>
       </Row>
-      <Row label="Discord" hint="A relier avant la candidature whitelist.">
-        <button
-          type="button"
-          disabled
-          className="rounded-md border border-dashed border-border px-3 py-1 text-xs text-foreground-subtle"
-        >
-          A venir
-        </button>
+
+      <Row
+        label="Discord"
+        hint={
+          linked
+            ? `Lie a @${linked.username} (ID ${linked.userId}) depuis le ${new Date(linked.linkedAt).toLocaleDateString(
+                "fr-FR",
+                { day: "2-digit", month: "long", year: "numeric" },
+              )}.`
+            : "A relier avant la candidature whitelist."
+        }
+      >
+        {linked ? (
+          <button
+            type="button"
+            onClick={handleUnlink}
+            disabled={busy !== null}
+            className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-xs font-medium hover:border-danger/40 hover:text-danger disabled:opacity-60"
+          >
+            {busy === "unlinking" ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Unlink className="h-3 w-3" />
+            )}
+            Delier
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleLink}
+            disabled={busy !== null || waitingForCallback}
+            className="flex h-9 items-center gap-2 rounded-md bg-accent px-3 text-xs font-medium text-white transition hover:bg-accent-hover disabled:opacity-60"
+          >
+            {busy === "linking" ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Link2 className="h-3 w-3" />
+            )}
+            Lier Discord
+          </button>
+        )}
       </Row>
-      <Row label="Steam" hint="Optionnel. Donne un signal de confiance pour la modération.">
+
+      {waitingForCallback && (
+        <div className="rounded-md border border-accent/40 bg-accent/5 p-3 text-xs">
+          <p className="font-medium text-accent">
+            En attente de la validation Discord...
+          </p>
+          <p className="mt-1 text-foreground-subtle">
+            Une page Discord vient de s'ouvrir dans ton navigateur. Autorise
+            l'application Reborn puis reviens ici. Le lien apparaitra
+            automatiquement.
+          </p>
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium hover:border-accent/40"
+          >
+            Rafraichir manuellement
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+          <AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <Row label="Steam" hint="Optionnel. Donne un signal de confiance pour la moderation.">
         <button
           type="button"
           disabled

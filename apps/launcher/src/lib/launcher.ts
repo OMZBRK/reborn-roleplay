@@ -95,3 +95,60 @@ export async function onGameStderr(cb: (line: string) => void): Promise<Unlisten
 export async function onTampering(cb: (t: TamperingEvent) => void): Promise<UnlistenFn> {
   return listen<TamperingEvent>("integrity:tampering", (e) => cb(e.payload));
 }
+
+// ──────────────────────────────────────────────────────
+//  Diagnostics auto + nettoyage des mods
+// ──────────────────────────────────────────────────────
+
+export type DiagnosticSeverity = "warning" | "error" | "fatal";
+
+export type GameDiagnostic = {
+  code:
+    | "MOD_MC_VERSION_MISMATCH"
+    | "FABRIC_MOD_RESOLUTION_FAILED"
+    | "JVM_OUT_OF_MEMORY"
+    | "JVM_MAIN_CLASS_NOT_FOUND"
+    | "SERVER_UNREACHABLE"
+    | "MC_AUTH_INVALID"
+    | "GPU_DRIVER_ISSUE"
+    | string;
+  severity: DiagnosticSeverity;
+  message: string;
+  hint: string | null;
+  details: string | null;
+};
+
+export type ModEntry = {
+  fileName: string;
+  absolutePath: string;
+  modId: string | null;
+  modVersion: string | null;
+  minecraftConstraint: string | null;
+  sizeBytes: number;
+  incompatibleWithTarget: boolean;
+};
+
+export type ModsPurgedEvent = {
+  removed: string[];
+  targetMcVersion: string;
+};
+
+export async function onGameDiagnostic(
+  cb: (d: GameDiagnostic) => void,
+): Promise<UnlistenFn> {
+  return listen<GameDiagnostic>("game:diagnostic", (e) => cb(e.payload));
+}
+
+export async function onModsPurged(
+  cb: (e: ModsPurgedEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<ModsPurgedEvent>("mods:purged", (e) => cb(e.payload));
+}
+
+export async function listMods(): Promise<ModEntry[]> {
+  return invoke<ModEntry[]>("launcher_mods_list");
+}
+
+export async function purgeIncompatibleMods(): Promise<string[]> {
+  return invoke<string[]>("launcher_mods_purge");
+}

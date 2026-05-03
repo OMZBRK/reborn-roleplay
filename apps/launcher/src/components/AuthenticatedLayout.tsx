@@ -1,6 +1,7 @@
 import { Outlet } from "react-router";
 import { Sidebar } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
+import { DiagnosticToast } from "./DiagnosticToast";
 
 export function AuthenticatedLayout() {
   return (
@@ -12,6 +13,7 @@ export function AuthenticatedLayout() {
           <Outlet />
         </main>
       </div>
+      <DiagnosticToast />
     </div>
   );
 }

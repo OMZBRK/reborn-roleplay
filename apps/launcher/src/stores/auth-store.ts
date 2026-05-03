@@ -1,5 +1,11 @@
 import { create } from "zustand";
 
+export type DiscordLinkage = {
+  userId: string;
+  username: string;
+  linkedAt: string;
+};
+
 export type LauncherUser = {
   id: string;
   minecraftUuid: string;
@@ -7,6 +13,7 @@ export type LauncherUser = {
   displayName: string | null;
   avatarUrl: string | null;
   role: "PLAYER" | "WHITELISTED" | "HELPER" | "MODERATOR" | "WHITELIST_REVIEWER" | "ADMIN" | "OWNER";
+  discord: DiscordLinkage | null;
 };
 
 type AuthState = {
@@ -15,6 +22,7 @@ type AuthState = {
   isAuthenticated: boolean;
   isResuming: boolean;
   setSession: (session: { user: LauncherUser; accessToken: string } | null) => void;
+  setUser: (user: LauncherUser) => void;
   setResuming: (v: boolean) => void;
 };
 
@@ -29,5 +37,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       accessToken: session?.accessToken ?? null,
       isAuthenticated: !!session,
     }),
+  setUser: (user) => set({ user }),
   setResuming: (isResuming) => set({ isResuming }),
 }));

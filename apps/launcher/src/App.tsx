@@ -3,9 +3,11 @@ import { Navigate, Route, Routes } from "react-router";
 import { Loader2 } from "lucide-react";
 import { Login } from "./routes/Login";
 import { Home } from "./routes/Home";
+import { Lore } from "./routes/Lore";
 import { Patchnotes } from "./routes/Patchnotes";
 import { Rules } from "./routes/Rules";
 import { Settings } from "./routes/Settings";
+import { Tickets } from "./routes/Tickets";
 import { Whitelist } from "./routes/Whitelist";
 import { AuthenticatedLayout } from "./components/AuthenticatedLayout";
 import { useAuthStore } from "./stores/auth-store";
@@ -53,9 +55,9 @@ export function App() {
         <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
         <Route path="/whitelist" element={<Whitelist />} />
         <Route path="/rules" element={<Rules />} />
-        <Route path="/lore" element={<PlaceholderPage title="Lore" />} />
+        <Route path="/lore" element={<Lore />} />
         <Route path="/patchnotes" element={<Patchnotes />} />
-        <Route path="/tickets" element={<PlaceholderPage title="Tickets" />} />
+        <Route path="/tickets" element={<Tickets />} />
         <Route path="/docs" element={<PlaceholderPage title="Documentation" />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

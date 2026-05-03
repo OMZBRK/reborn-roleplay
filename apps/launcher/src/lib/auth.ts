@@ -42,6 +42,22 @@ export async function logout(): Promise<void> {
   await invoke<void>("auth_logout");
 }
 
+/** Re-fetch /v1/auth/me et met a jour le user cote Rust. Utile apres
+ *  une liaison Discord effectuee dans le navigateur. */
+export async function refreshMe(): Promise<LauncherUser> {
+  return invoke<LauncherUser>("auth_me");
+}
+
+/** Lance le flow OAuth Discord : ouvre le navigateur et retourne le
+ *  state. La completion est detectee en pollant `refreshMe()`. */
+export async function startDiscordLink(): Promise<{ url: string; state: string }> {
+  return invoke<{ url: string; state: string }>("discord_link_start");
+}
+
+export async function unlinkDiscord(): Promise<void> {
+  await invoke<void>("discord_unlink");
+}
+
 /** Convertit l'erreur opaque renvoyee par invoke() en payload type. */
 export function asAuthError(err: unknown): AuthErrorPayload {
   if (err && typeof err === "object" && "kind" in err && "message" in err) {
