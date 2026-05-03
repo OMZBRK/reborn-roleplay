@@ -42,4 +42,6 @@ export const config = {
   webhookPort: Number(process.env.BOT_HTTP_PORT ?? 3001),
   /** Secret partage avec l'API pour signer les webhooks (HMAC-SHA256). */
   webhookSecret: require_("REBORN_WEBHOOK_SECRET"),
+  /** URL de base de l'API Reborn, pour les slash commands staff. */
+  apiBaseUrl: process.env.REBORN_API_URL ?? "http://localhost:3000/v1",
 };
