@@ -54,6 +54,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(auth::AuthState::new())
+        .manage(launcher::GameState::new())
         .invoke_handler(tauri::generate_handler![
             ping,
             auth::auth_login_microsoft,
@@ -62,6 +63,8 @@ pub fn run() {
             auth::auth_dev_login,
             launcher::launcher_check_update,
             launcher::launcher_apply_update,
+            launcher::game::launcher_launch_game,
+            launcher::game::launcher_stop_game,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

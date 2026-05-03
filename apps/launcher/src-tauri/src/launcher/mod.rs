@@ -6,8 +6,12 @@
 //! manifest signe, verification Ed25519, diff et telechargement.
 //! Le spawn JVM (etapes [5]..[12]) est laisse en TODO pour la semaine 4.
 
-mod paths;
+pub mod game;
+pub mod jvm;
+pub mod paths;
+pub mod runtime;
 
+pub use game::{launcher_launch_game, launcher_stop_game, GameState};
 pub use paths::game_dir;
 
 use serde::Serialize;
