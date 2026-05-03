@@ -10,6 +10,7 @@ import { PatchnotesModule } from './patchnotes/patchnotes.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RulesModule } from './rules/rules.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { WhitelistModule } from './whitelist/whitelist.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     PatchnotesModule,
     RulesModule,
     TicketsModule,
+    WebhooksModule,
     WhitelistModule,
   ],
   controllers: [AppController],

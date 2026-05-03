@@ -1,6 +1,7 @@
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { config } from "./config.js";
 import { commands } from "./commands/index.js";
+import { startWebhookServer } from "./webhook-server.js";
 
 const client = new Client({
   intents: [
@@ -16,6 +17,7 @@ client.once(Events.ClientReady, (ready) => {
   console.log(
     `Commandes disponibles : ${commands.map((c) => c.data.name).join(", ") || "(aucune)"}`,
   );
+  startWebhookServer(ready);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

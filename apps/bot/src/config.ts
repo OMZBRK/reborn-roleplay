@@ -38,4 +38,8 @@ export const config = {
   guildId: require_("DISCORD_GUILD_ID"),
   /** Salon ou le bot poste les threads tickets / whitelist. */
   ticketsChannelId: require_("DISCORD_TICKETS_CHANNEL_ID"),
+  /** Port HTTP sur lequel le bot ecoute les webhooks signes de l'API. */
+  webhookPort: Number(process.env.BOT_HTTP_PORT ?? 3001),
+  /** Secret partage avec l'API pour signer les webhooks (HMAC-SHA256). */
+  webhookSecret: require_("REBORN_WEBHOOK_SECRET"),
 };

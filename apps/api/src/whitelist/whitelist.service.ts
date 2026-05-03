@@ -2,10 +2,12 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { AppStatus, WhitelistApplication } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { SubmitWhitelistDto } from './dto/whitelist.dto';
 
 export interface WhitelistApplicationDto {
@@ -22,7 +24,12 @@ export interface WhitelistApplicationDto {
 
 @Injectable()
 export class WhitelistService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(WhitelistService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly webhooks: WebhooksService,
+  ) {}
 
   async getMine(userId: string): Promise<{ application: WhitelistApplicationDto | null }> {
     const app = await this.prisma.whitelistApplication.findUnique({ where: { userId } });
@@ -49,6 +56,7 @@ export class WhitelistService {
         status: AppStatus.PENDING,
       },
     });
+    await this.notifyStaff(userId, created);
     return this.toDto(created);
   }
 
@@ -80,7 +88,34 @@ export class WhitelistService {
         reviewNotes: null,
       },
     });
+    await this.notifyStaff(userId, updated);
     return this.toDto(updated);
+  }
+
+  /**
+   * Notifie le bot Discord qu'une candidature vient d'etre creee /
+   * resoumise. Le bot ouvre un thread prive dans le salon staff. Echec
+   * non-bloquant : le user a deja recu sa reponse 200.
+   */
+  private async notifyStaff(userId: string, app: WhitelistApplication) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+    try {
+      await this.webhooks.whitelistSubmitted({
+        applicationId: app.id,
+        userPseudo: user.minecraftUsername,
+        userId: user.id,
+        characterName: app.characterName,
+        characterAge: app.characterAge,
+        background: app.background,
+        motivation: app.motivation,
+        discordUserId: user.discordUserId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Webhook whitelist non transmis : ${(err as Error).message}`,
+      );
+    }
   }
 
   private toDto(app: WhitelistApplication): WhitelistApplicationDto {

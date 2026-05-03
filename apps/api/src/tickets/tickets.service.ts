@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -10,6 +11,7 @@ import {
   TicketStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { CreateTicketDto, PostMessageDto } from './dto/tickets.dto';
 
 export interface TicketSummary {
@@ -42,7 +44,12 @@ export interface TicketDetail {
 
 @Injectable()
 export class TicketsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(TicketsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly webhooks: WebhooksService,
+  ) {}
 
   async listMine(userId: string): Promise<TicketSummary[]> {
     const tickets = await this.prisma.ticket.findMany({
@@ -71,7 +78,32 @@ export class TicketsService {
       },
       include: { messages: { orderBy: { createdAt: 'asc' } } },
     });
+    await this.notifyStaff(userId, ticket, dto.message.trim());
     return this.toDetail(ticket, ticket.messages, userId);
+  }
+
+  /**
+   * Notifie le bot Discord d'un nouveau ticket. Le bot ouvre un thread
+   * prive dans le salon staff. Echec non-bloquant.
+   */
+  private async notifyStaff(userId: string, ticket: Ticket, firstMessage: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+    try {
+      await this.webhooks.ticketCreated({
+        ticketId: ticket.id,
+        userPseudo: user.minecraftUsername,
+        userId: user.id,
+        category: ticket.category,
+        subject: ticket.subject,
+        message: firstMessage,
+        discordUserId: user.discordUserId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Webhook ticket non transmis : ${(err as Error).message}`,
+      );
+    }
   }
 
   async getOne(userId: string, ticketId: string): Promise<TicketDetail> {
