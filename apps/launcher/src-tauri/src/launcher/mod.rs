@@ -51,14 +51,14 @@ pub struct UpdatePreview {
 pub enum LauncherError {
     #[error("non authentifie")]
     NotAuthenticated,
-    #[error("manifest indisponible : {0}")]
-    Manifest(String),
-    #[error("signature manifest invalide : {0}")]
-    Signature(String),
-    #[error("io : {0}")]
-    Io(String),
-    #[error("telechargement : {0}")]
-    Download(String),
+    #[error("manifest indisponible : {message}")]
+    Manifest { message: String },
+    #[error("signature manifest invalide : {message}")]
+    Signature { message: String },
+    #[error("io : {message}")]
+    Io { message: String },
+    #[error("telechargement : {message}")]
+    Download { message: String },
 }
 
 const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -73,23 +73,23 @@ pub async fn launcher_check_update(
     let token = state
         .store
         .get(SecretKey::RebornAccessToken)
-        .map_err(|e| LauncherError::Io(e.to_string()))?
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?
         .ok_or(LauncherError::NotAuthenticated)?;
 
     let manifest = state
         .api
         .fetch_manifest(&token)
         .await
-        .map_err(|e| LauncherError::Manifest(e.to_string()))?;
+        .map_err(|e| LauncherError::Manifest { message: e.to_string() })?;
 
-    verify_signature(&manifest).map_err(|e| LauncherError::Signature(e.to_string()))?;
+    verify_signature(&manifest).map_err(|e| LauncherError::Signature { message: e.to_string() })?;
 
     let outdated = launcher_is_outdated(LAUNCHER_VERSION, &manifest.min_launcher_version);
 
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io(e.to_string()))?;
+    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
     let plan = compute_plan_export(&manifest, &dir)
         .await
-        .map_err(|e| LauncherError::Io(e.to_string()))?;
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
 
     let bytes_total = plan.iter().map(|p| p.file.size).sum();
 
@@ -114,16 +114,16 @@ pub async fn launcher_apply_update<R: Runtime>(
     let token = state
         .store
         .get(SecretKey::RebornAccessToken)
-        .map_err(|e| LauncherError::Io(e.to_string()))?
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?
         .ok_or(LauncherError::NotAuthenticated)?;
 
     let manifest = state
         .api
         .fetch_manifest(&token)
         .await
-        .map_err(|e| LauncherError::Manifest(e.to_string()))?;
+        .map_err(|e| LauncherError::Manifest { message: e.to_string() })?;
 
-    verify_signature(&manifest).map_err(|e| LauncherError::Signature(e.to_string()))?;
+    verify_signature(&manifest).map_err(|e| LauncherError::Signature { message: e.to_string() })?;
 
     if launcher_is_outdated(LAUNCHER_VERSION, &manifest.min_launcher_version) {
         return Ok(UpdateStatus::LauncherOutdated {
@@ -132,10 +132,10 @@ pub async fn launcher_apply_update<R: Runtime>(
         });
     }
 
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io(e.to_string()))?;
+    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
     let plan = compute_plan_export(&manifest, &dir)
         .await
-        .map_err(|e| LauncherError::Io(e.to_string()))?;
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
 
     if plan.is_empty() {
         return Ok(UpdateStatus::UpToDate {
@@ -146,7 +146,7 @@ pub async fn launcher_apply_update<R: Runtime>(
     let count = plan.len();
     download_plan(&app, &state.http, plan, &dir)
         .await
-        .map_err(|e| LauncherError::Download(e.to_string()))?;
+        .map_err(|e| LauncherError::Download { message: e.to_string() })?;
 
     Ok(UpdateStatus::Updated {
         version: manifest.version,

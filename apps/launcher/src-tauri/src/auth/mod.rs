@@ -231,6 +231,39 @@ pub async fn auth_resume_session(
     try_resume(state.inner()).await
 }
 
+/// Dev-only : login factice tant que MS_CLIENT_ID n'est pas approuve.
+/// En release build, retourne `Err(Config)` immediatement (le binaire de
+/// distribution n'expose donc pas ce chemin meme s'il est cable cote IPC).
+#[tauri::command]
+pub async fn auth_dev_login(
+    state: State<'_, AuthState>,
+    username: String,
+) -> AuthResult<AuthSession> {
+    if !cfg!(debug_assertions) {
+        return Err(AuthError::Config("dev-login disabled in release build".into()));
+    }
+
+    let api_resp = state
+        .api
+        .dev_login(&username)
+        .await
+        .map_err(|e| AuthError::Internal(format!("dev-login : {e}")))?;
+
+    state
+        .store
+        .set(SecretKey::RebornRefreshToken, &api_resp.refresh_token)
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+    state
+        .store
+        .set(SecretKey::RebornAccessToken, &api_resp.access_token)
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+    Ok(AuthSession {
+        user: api_resp.user,
+        access_token: api_resp.access_token,
+    })
+}
+
 #[tauri::command]
 pub async fn auth_logout(state: State<'_, AuthState>) -> AuthResult<()> {
     let store = state.store;

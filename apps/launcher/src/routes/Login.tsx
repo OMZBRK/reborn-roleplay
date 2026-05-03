@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
-import { asAuthError, explainAuthError, loginWithMicrosoft } from "../lib/auth";
+import { asAuthError, devLogin, explainAuthError, loginWithMicrosoft } from "../lib/auth";
 
 const LAUNCHER_VERSION = "v0.1.0";
 
@@ -30,6 +30,18 @@ export function Login() {
         setState({ status: "idle" });
         return;
       }
+      setState({ status: "error", message: explainAuthError(parsed) });
+    }
+  }
+
+  async function handleDevLogin() {
+    setState({ status: "authenticating" });
+    try {
+      const session = await devLogin("OMZ");
+      setSession(session);
+      navigate("/home", { replace: true });
+    } catch (err) {
+      const parsed = asAuthError(err);
       setState({ status: "error", message: explainAuthError(parsed) });
     }
   }
@@ -107,6 +119,18 @@ export function Login() {
               En creer un
             </a>
           </p>
+
+          {import.meta.env.DEV && (
+            <button
+              type="button"
+              onClick={handleDevLogin}
+              disabled={isAuthenticating}
+              className="no-drag mt-4 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-warning/50 px-3 text-xs text-warning transition hover:bg-warning/10 disabled:opacity-60"
+              title="Bypass Microsoft — disponible uniquement en dev (debug build)"
+            >
+              [DEV] Connexion sans Microsoft
+            </button>
+          )}
         </div>
 
         <p className="absolute bottom-4 right-6 text-xs text-foreground-subtle">

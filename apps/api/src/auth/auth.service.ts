@@ -160,6 +160,47 @@ export class AuthService {
     return this.toPublic(user);
   }
 
+  /**
+   * Dev-only : cree (ou reutilise) un User factice et emet un JWT,
+   * sans passer par Microsoft. Utilise tant que le Client ID Azure
+   * attend l'approbation Microsoft (cf docs/adr/0001-...).
+   *
+   * **Doit etre desactive en production** — l'endpoint controleur verifie
+   * NODE_ENV avant d'appeler ce service.
+   */
+  async devLogin(
+    username: string,
+    meta: { userAgent?: string; ip?: string },
+  ): Promise<AuthResult> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new HttpException('dev-login disabled in production', HttpStatus.FORBIDDEN);
+    }
+
+    // UUID stable derive du pseudo, format Mojang en clair pour le dev.
+    const fakeUuid = `dev00000-0000-4000-8000-${username.padEnd(12, '0').slice(0, 12)}`;
+    const msAccountId = `dev:${username}`;
+
+    let user = await this.prisma.user.findUnique({ where: { minecraftUuid: fakeUuid } });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          msAccountId,
+          minecraftUuid: fakeUuid,
+          minecraftUsername: username,
+          lastLoginAt: new Date(),
+          lastKnownIp: meta.ip ?? null,
+        },
+      });
+    } else {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date(), lastKnownIp: meta.ip ?? user.lastKnownIp },
+      });
+    }
+
+    return this.issueTokens(user, meta);
+  }
+
   // ──────────────────────────────────────────────────────
 
   private async issueTokens(

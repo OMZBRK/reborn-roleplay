@@ -41,6 +41,11 @@ pub struct LoginRequest {
 }
 
 #[derive(Debug, Serialize)]
+pub struct DevLoginRequest {
+    pub username: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct RefreshRequest {
     #[serde(rename = "refreshToken")]
     pub refresh_token: String,
@@ -89,6 +94,25 @@ impl ApiClient {
             .send()
             .await?;
 
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<AuthResponse>().await?)
+    }
+
+    /// Dev-only : appelle /v1/auth/dev-login avec un pseudo factice.
+    pub async fn dev_login(&self, username: &str) -> Result<AuthResponse, ApiError> {
+        let url = format!("{}/auth/dev-login", self.base_url);
+        let resp = self
+            .http
+            .post(url)
+            .json(&DevLoginRequest {
+                username: username.to_string(),
+            })
+            .send()
+            .await?;
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
             let body = resp.text().await.unwrap_or_default();

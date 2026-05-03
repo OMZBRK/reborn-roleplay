@@ -29,6 +29,11 @@ export async function loginWithMicrosoft(): Promise<AuthSession> {
   return invoke<AuthSession>("auth_login_microsoft");
 }
 
+/** Dev-only : login factice (cf docs/adr/0001-...). */
+export async function devLogin(username: string): Promise<AuthSession> {
+  return invoke<AuthSession>("auth_dev_login", { username });
+}
+
 export async function resumeSession(): Promise<AuthSession | null> {
   return invoke<AuthSession | null>("auth_resume_session");
 }

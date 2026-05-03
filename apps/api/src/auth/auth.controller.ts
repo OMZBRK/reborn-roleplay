@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RefreshDto } from './dto/login.dto';
+import { DevLoginDto, LoginDto, RefreshDto } from './dto/login.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import type { RequestUser } from './current-user.decorator';
@@ -37,6 +37,20 @@ export class AuthController {
     @Ip() ip: string,
   ) {
     return this.auth.refresh(dto.refreshToken, { userAgent, ip });
+  }
+
+  /**
+   * Dev-only : login factice tant que MS_CLIENT_ID n'est pas approuve.
+   * Cf docs/adr/0001-microsoft-app-approval-required.md.
+   */
+  @Post('dev-login')
+  @HttpCode(HttpStatus.OK)
+  async devLogin(
+    @Body() dto: DevLoginDto,
+    @Headers('user-agent') userAgent: string | undefined,
+    @Ip() ip: string,
+  ) {
+    return this.auth.devLogin(dto.username, { userAgent, ip });
   }
 
   @Post('logout')
