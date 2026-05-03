@@ -58,6 +58,7 @@ export function startWebhookServer(client: Client) {
 }
 
 async function handle(client: Client, req: IncomingMessage, res: ServerResponse) {
+  console.log(`[webhook] ${req.method} ${req.url}`);
   if (req.method === "GET" && (req.url === "/" || req.url === "/healthz")) {
     return reply(res, 200, {
       service: "reborn-bot",
@@ -71,6 +72,7 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
 
   const body = await readBody(req);
   if (!verifySignature(body, req.headers["x-reborn-signature"])) {
+    console.warn(`[webhook] ${req.url} 401 signature invalide`);
     return reply(res, 401, { error: "signature invalide" });
   }
 
@@ -84,14 +86,29 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
   const url = req.url ?? "";
   if (url === "/webhooks/whitelist") {
     const data = payload as WhitelistPayload;
-    const threadId = await postWhitelistThread(client, data);
-    return reply(res, 200, { threadId });
+    console.log(`[webhook] whitelist applicationId=${data.applicationId} pseudo=${data.userPseudo}`);
+    try {
+      const threadId = await postWhitelistThread(client, data);
+      console.log(`[webhook] whitelist thread cree : ${threadId}`);
+      return reply(res, 200, { threadId });
+    } catch (err) {
+      console.error(`[webhook] whitelist thread crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
   }
   if (url === "/webhooks/tickets") {
     const data = payload as TicketPayload;
-    const threadId = await postTicketThread(client, data);
-    return reply(res, 200, { threadId });
+    console.log(`[webhook] ticket ticketId=${data.ticketId} pseudo=${data.userPseudo}`);
+    try {
+      const threadId = await postTicketThread(client, data);
+      console.log(`[webhook] ticket thread cree : ${threadId}`);
+      return reply(res, 200, { threadId });
+    } catch (err) {
+      console.error(`[webhook] ticket thread crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
   }
+  console.warn(`[webhook] 404 route inconnue : ${url}`);
   reply(res, 404, { error: "route inconnue" });
 }
 

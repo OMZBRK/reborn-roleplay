@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 
 /**
@@ -36,14 +36,36 @@ export interface TicketWebhookPayload {
 }
 
 @Injectable()
-export class WebhooksService {
+export class WebhooksService implements OnModuleInit {
   private readonly logger = new Logger(WebhooksService.name);
 
+  onModuleInit() {
+    const baseUrl = process.env.REBORN_BOT_WEBHOOK_URL;
+    const hasSecret = !!process.env.REBORN_WEBHOOK_SECRET;
+    if (baseUrl && hasSecret) {
+      this.logger.log(
+        `Webhooks ACTIFS — POST ${baseUrl}/webhooks/* (HMAC OK).`,
+      );
+    } else {
+      this.logger.warn(
+        `Webhooks DESACTIVES — REBORN_BOT_WEBHOOK_URL=${baseUrl ?? '<unset>'}, REBORN_WEBHOOK_SECRET ${
+          hasSecret ? 'OK' : 'manquant'
+        }. Le bot Discord ne recevra rien.`,
+      );
+    }
+  }
+
   async whitelistSubmitted(payload: WhitelistWebhookPayload): Promise<void> {
+    this.logger.log(
+      `webhook whitelist → ${payload.userPseudo} (app ${payload.applicationId})`,
+    );
     await this.dispatch('/webhooks/whitelist', payload);
   }
 
   async ticketCreated(payload: TicketWebhookPayload): Promise<void> {
+    this.logger.log(
+      `webhook ticket → ${payload.userPseudo} cat=${payload.category} (ticket ${payload.ticketId})`,
+    );
     await this.dispatch('/webhooks/tickets', payload);
   }
 
@@ -52,7 +74,7 @@ export class WebhooksService {
     const secret = process.env.REBORN_WEBHOOK_SECRET;
     if (!baseUrl || !secret) {
       this.logger.warn(
-        `Webhook ${path} ignore : REBORN_BOT_WEBHOOK_URL ou REBORN_WEBHOOK_SECRET non configure.`,
+        `Webhook ${path} skip : REBORN_BOT_WEBHOOK_URL ou REBORN_WEBHOOK_SECRET non configure.`,
       );
       return;
     }
@@ -69,7 +91,9 @@ export class WebhooksService {
         body,
         signal: AbortSignal.timeout(5000),
       });
-      if (!res.ok) {
+      if (res.ok) {
+        this.logger.log(`Webhook ${path} → 200 OK`);
+      } else {
         const text = await res.text().catch(() => '');
         this.logger.warn(
           `Webhook ${path} → ${res.status} : ${text.slice(0, 200)}`,
@@ -77,7 +101,7 @@ export class WebhooksService {
       }
     } catch (err) {
       this.logger.warn(
-        `Webhook ${path} echec reseau : ${(err as Error).message}`,
+        `Webhook ${path} echec reseau (${url}) : ${(err as Error).message}`,
       );
     }
   }
