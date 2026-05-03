@@ -2,11 +2,14 @@
 //!
 //! Reference : PLAN_CONCEPTION_LAUNCHER.md §8.1 etapes [5]..[13].
 //!
-//! Ce module n'a pas encore tout ce qu'il faut pour lancer Minecraft pour
-//! de vrai (il manque le download du client jar + libraries vanilla + le
-//! Fabric loader). Il pose la machinerie reutilisable : telecharger le JRE,
-//! demarrer le FS watcher, spawn le binaire, capturer stdout/stderr, gerer
-//! l'arret. Les morceaux manquants seront ajoutes Semaines 5-6.
+//! Etapes implementees :
+//! 1. JRE Mojang via piston-meta (cf runtime.rs)
+//! 2. Version json Mojang pour la version Minecraft cible
+//! 3. Client jar + libraries vanilla + extraction natives
+//! 4. Asset index + assets
+//! 5. Fabric Loader (override main class + libs supplementaires)
+//! 6. Build du LaunchConfig + spawn java avec argv complet
+//! 7. FS watcher + capture stdout/stderr + lifecycle events Tauri
 
 use serde::Serialize;
 use std::path::PathBuf;
@@ -19,10 +22,21 @@ use tokio::sync::Mutex;
 
 use crate::auth::AuthState;
 use crate::integrity::{spawn_watcher, TamperingEvent, WatcherHandle};
-use crate::launcher::{paths, runtime};
+use crate::launcher::{
+    assets, fabric, jvm, libraries, mojang, paths, runtime,
+};
 
-/// State partage par les commandes Tauri qui touchent a la JVM.
-/// Aujourd'hui : un slot pour le PID courant. Plus tard : RAM, win position…
+/// Version Minecraft cible. Plus tard, viendra du manifest courant Reborn.
+const MINECRAFT_VERSION: &str = "1.21.4";
+const DEFAULT_RAM_MB: u32 = 4096;
+const DEFAULT_WIDTH: u32 = 1280;
+const DEFAULT_HEIGHT: u32 = 720;
+/// Token MC factice utilise quand l'auth dev (sans Microsoft) est en cours.
+/// Le client Minecraft accepte n'importe quelle string non-vide ici, mais
+/// refusera de valider auprès des serveurs Mojang (mode online). Suffisant
+/// pour voir le menu principal et tester le launch chain.
+const DEV_PLACEHOLDER_TOKEN: &str = "0";
+
 #[derive(Default)]
 pub struct GameState {
     pub running: Mutex<Option<RunningGame>>,
@@ -52,10 +66,16 @@ pub enum GameError {
     Io { message: String },
     #[error("runtime Java : {message}")]
     Runtime { message: String },
+    #[error("metadata Minecraft : {message}")]
+    Mojang { message: String },
+    #[error("libraries : {message}")]
+    Libraries { message: String },
+    #[error("assets : {message}")]
+    Assets { message: String },
+    #[error("Fabric Loader : {message}")]
+    Fabric { message: String },
     #[error("watcher : {message}")]
     Watcher { message: String },
-    #[error("non implemente : {message}")]
-    NotImplemented { message: String },
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -63,11 +83,10 @@ pub enum GameError {
 pub struct LaunchResult {
     pub pid: u32,
     pub java_path: String,
+    pub minecraft_version: String,
+    pub fabric_version: String,
 }
 
-/// Etape [5] uniquement (pour l'instant) : on prepare le JRE.
-/// Le spawn JVM avec un argv complet attend le download du client jar +
-/// libraries vanilla, qui arrive en S5-S6.
 #[tauri::command]
 pub async fn launcher_launch_game<R: Runtime>(
     app: AppHandle<R>,
@@ -81,55 +100,103 @@ pub async fn launcher_launch_game<R: Runtime>(
         }
     }
 
-    // 1. JRE present localement, ou DL via piston-meta.
+    let user = auth
+        .current_user()
+        .await
+        .ok_or(GameError::NotAuthenticated)?;
+
     let dir = paths::game_dir().map_err(|e| GameError::Io {
         message: e.to_string(),
     })?;
+
+    // Etape 1 : JRE.
+    tracing::info!("launch [1/6] : runtime Java");
     let java_path = runtime::ensure_runtime(&auth.http, &dir)
         .await
         .map_err(|e| GameError::Runtime {
             message: e.to_string(),
         })?;
 
-    // 2. Spawn d'un process Java tres minimal, juste pour valider la chaine
-    //    end-to-end. On lance "java -version" et on capture le retour.
-    //    Le vrai argv MC viendra quand on aura le download du client jar.
-    //
-    //    DEV ONLY : si REBORN_DEV_LINGER_SECS=N est defini, on spawn a la
-    //    place un process qui sleep N secondes — utile pour tester le FS
-    //    watcher sans avoir Minecraft. Java n'a pas de mode eval direct, on
-    //    delegue donc a cmd/sh.
-    let linger_secs: Option<u64> = std::env::var("REBORN_DEV_LINGER_SECS")
-        .ok()
-        .and_then(|s| s.parse().ok());
+    // Etape 2 : version JSON Mojang.
+    tracing::info!("launch [2/6] : metadata Minecraft {MINECRAFT_VERSION}");
+    let version = mojang::fetch_version_json(&auth.http, &dir, MINECRAFT_VERSION)
+        .await
+        .map_err(|e| GameError::Mojang {
+            message: e.to_string(),
+        })?;
 
-    let mut command = if let Some(secs) = linger_secs {
-        tracing::info!("DEV linger {secs}s active (REBORN_DEV_LINGER_SECS)");
-        if cfg!(windows) {
-            // `timeout /t` echoue quand stdin est redirige : on passe par
-            // PowerShell Start-Sleep qui supporte stdin=null.
-            let mut c = Command::new("powershell.exe");
-            c.arg("-NoProfile")
-                .arg("-Command")
-                .arg(format!("Start-Sleep -Seconds {secs}"));
-            c
-        } else {
-            let mut c = Command::new("sh");
-            c.arg("-c").arg(format!("sleep {secs}"));
-            c
-        }
-    } else {
-        let mut c = Command::new(&java_path);
-        c.arg("-version");
-        c
+    // Etape 3 : libraries + client jar + natives.
+    tracing::info!("launch [3/6] : libraries vanilla + natives");
+    let lib_setup = libraries::ensure_libraries(&auth.http, &dir, &version)
+        .await
+        .map_err(|e| GameError::Libraries {
+            message: e.to_string(),
+        })?;
+
+    // Etape 4 : assets (long la premiere fois).
+    tracing::info!("launch [4/6] : assets");
+    let asset_setup = assets::ensure_assets(&auth.http, &dir, &version.asset_index)
+        .await
+        .map_err(|e| GameError::Assets {
+            message: e.to_string(),
+        })?;
+
+    // Etape 5 : Fabric Loader.
+    tracing::info!("launch [5/6] : Fabric Loader");
+    let fabric_setup = fabric::ensure_fabric(&auth.http, &dir, MINECRAFT_VERSION)
+        .await
+        .map_err(|e| GameError::Fabric {
+            message: e.to_string(),
+        })?;
+
+    // Etape 6 : assemble + spawn.
+    tracing::info!("launch [6/6] : spawn JVM (Fabric {})", fabric_setup.loader_version);
+
+    // Classpath = libs vanilla + libs Fabric. Le client.jar est ajoute par
+    // build_command lui-meme.
+    let mut all_libs: Vec<PathBuf> = lib_setup.library_jars.clone();
+    all_libs.extend(fabric_setup.library_jars.clone());
+
+    let cfg = jvm::LaunchConfig {
+        minecraft_version: MINECRAFT_VERSION.to_string(),
+        launcher_version: env!("CARGO_PKG_VERSION").to_string(),
+        minecraft_username: user.minecraft_username.clone(),
+        minecraft_uuid: user.minecraft_uuid.clone(),
+        // Pour l'instant, dev placeholder. Quand l'app MS sera approuvee on
+        // stockera le mc_access_token dans le keyring et on le passera ici.
+        mc_access_token: DEV_PLACEHOLDER_TOKEN.to_string(),
+        natives_dir: lib_setup.natives_dir.display().to_string(),
+        library_jars: all_libs.iter().map(|p| p.display().to_string()).collect(),
+        client_jar: lib_setup.client_jar.display().to_string(),
+        game_dir: dir.display().to_string(),
+        assets_dir: asset_setup.assets_dir.display().to_string(),
+        asset_index: asset_setup.asset_index.clone(),
+        ram_mb: DEFAULT_RAM_MB,
+        width: DEFAULT_WIDTH,
+        height: DEFAULT_HEIGHT,
+        auto_connect: None,
     };
+
+    let mut argv = jvm::build_command(&cfg);
+
+    // Override de la mainClass vanilla par celle de Fabric.
+    if let Some(idx) = argv
+        .iter()
+        .position(|a| a == "net.minecraft.client.main.Main")
+    {
+        argv[idx] = fabric_setup.main_class.clone();
+    }
+
+    let mut command = Command::new(&java_path);
     command
+        .args(&argv)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .stdin(Stdio::null());
+        .stdin(Stdio::null())
+        .current_dir(&dir);
 
     let mut child = command.spawn().map_err(|e| GameError::Io {
-        message: format!("spawn java -version : {e}"),
+        message: format!("spawn java : {e}"),
     })?;
 
     let pid = child.id().unwrap_or(0);
@@ -137,7 +204,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     pump_stdio(&mut child, app.clone());
 
-    // 3. FS watcher.
+    // FS watcher
     let (tamper_tx, _tamper_rx) = mpsc::channel::<TamperingEvent>();
     let watch_dirs: Vec<PathBuf> = vec![dir.join("mods"), dir.join("config")];
     let watcher = spawn_watcher(app.clone(), watch_dirs, tamper_tx).map_err(|e| {
@@ -154,24 +221,21 @@ pub async fn launcher_launch_game<R: Runtime>(
         });
     }
 
-    let _ = app.emit(
-        "game:started",
-        LaunchResult {
-            pid,
-            java_path: java_display.clone(),
-        },
-    );
+    let result = LaunchResult {
+        pid,
+        java_path: java_display,
+        minecraft_version: MINECRAFT_VERSION.to_string(),
+        fabric_version: fabric_setup.loader_version.clone(),
+    };
 
-    // Spawn une task qui attend la fin du process et nettoie l'etat.
+    let _ = app.emit("game:started", result.clone());
+
     let game_state_handle = app.clone();
     tokio::spawn(async move {
         await_game_end(game_state_handle).await;
     });
 
-    Ok(LaunchResult {
-        pid,
-        java_path: java_display,
-    })
+    Ok(result)
 }
 
 #[tauri::command]
@@ -209,8 +273,6 @@ fn pump_stdio<R: Runtime>(child: &mut Child, app: AppHandle<R>) {
 }
 
 async fn await_game_end<R: Runtime>(app: AppHandle<R>) {
-    // Re-acquerir le state via l'AppHandle. La sortie du process stdio + drop
-    // du watcher s'occupent du nettoyage logique, ici on attend juste la fin.
     let Some(state) = app.try_state::<GameState>() else {
         return;
     };

@@ -39,6 +39,10 @@ pub struct AuthState {
     pub http: reqwest::Client,
     pub api: ApiClient,
     pub store: SecretStore,
+    /// Cache du dernier user authentifie. Necessaire pour construire le
+    /// LaunchConfig (uuid + pseudo) sans recoupler launcher::game a la
+    /// chaine API.
+    pub user: tokio::sync::Mutex<Option<ApiUser>>,
 }
 
 impl AuthState {
@@ -52,7 +56,17 @@ impl AuthState {
             http,
             api: ApiClient::new(),
             store: SecretStore::new(),
+            user: tokio::sync::Mutex::new(None),
         }
+    }
+
+    pub async fn set_user(&self, user: Option<ApiUser>) {
+        let mut lock = self.user.lock().await;
+        *lock = user;
+    }
+
+    pub async fn current_user(&self) -> Option<ApiUser> {
+        self.user.lock().await.clone()
     }
 }
 
@@ -161,6 +175,8 @@ async fn finalize_login(state: &AuthState, ms: microsoft::MicrosoftTokens) -> Au
         .set(SecretKey::RebornAccessToken, &api_resp.access_token)
         .map_err(|e| AuthError::Storage(e.to_string()))?;
 
+    state.set_user(Some(api_resp.user.clone())).await;
+
     Ok(AuthSession {
         user: api_resp.user,
         access_token: api_resp.access_token,
@@ -188,6 +204,7 @@ async fn try_resume(state: &AuthState) -> AuthResult<Option<AuthSession>> {
                     .store
                     .set(SecretKey::RebornRefreshToken, &resp.refresh_token)
                     .map_err(|e| AuthError::Storage(e.to_string()))?;
+                state.set_user(Some(resp.user.clone())).await;
                 return Ok(Some(AuthSession {
                     user: resp.user,
                     access_token: resp.access_token,
@@ -258,6 +275,8 @@ pub async fn auth_dev_login(
         .set(SecretKey::RebornAccessToken, &api_resp.access_token)
         .map_err(|e| AuthError::Storage(e.to_string()))?;
 
+    state.set_user(Some(api_resp.user.clone())).await;
+
     Ok(AuthSession {
         user: api_resp.user,
         access_token: api_resp.access_token,
@@ -282,5 +301,6 @@ pub async fn auth_logout(state: State<'_, AuthState>) -> AuthResult<()> {
     store
         .delete(SecretKey::RebornRefreshToken)
         .map_err(|e| AuthError::Storage(e.to_string()))?;
+    state.set_user(None).await;
     Ok(())
 }
