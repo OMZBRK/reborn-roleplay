@@ -1,24 +1,17 @@
 {
-  "version": "1.0.0-dev",
+  "version": "1.0.2-dev",
   "minecraftVersion": "1.21.4",
-  "issuedAt": "2026-05-03T08:00:00Z",
-  "expiresAt": "2026-05-10T08:00:00Z",
+  "issuedAt": "2026-05-03T09:00:00Z",
+  "expiresAt": "2026-05-10T09:00:00Z",
   "minLauncherVersion": "0.1.0",
   "files": [
     {
-      "path": "mods/sodium-fabric-0.6.2.jar",
-      "sha256": "a3f5e7c1d9b2f4a8e6c0d2b4f6a8e0c2d4b6f8a0e2c4b6d8f0a2c4e6d8b0f2a4",
-      "size": 1234567,
-      "url": "https://cdn.reborn-rp.fr/mods/sodium-fabric-0.6.2.jar",
-      "required": true
-    },
-    {
-      "path": "mods/lithium-fabric-0.13.jar",
-      "sha256": "b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2",
-      "size": 987654,
-      "url": "https://cdn.reborn-rp.fr/mods/lithium-fabric-0.13.jar",
+      "path": "mods/sodium-fabric-0.6.13+mc1.21.4.jar",
+      "sha256": "92b79623fc00f0f948005a0ae416cb42a51646f2423b4036e27e867e4001a47e",
+      "size": 1306799,
+      "url": "https://cdn.modrinth.com/data/AANobbMI/versions/c3YkZvne/sodium-fabric-0.6.13%2Bmc1.21.4.jar",
       "required": true
     }
   ],
-  "signature": "ed25519:3188b17b01c5cf7666208784a99fccf79856a4a0416b8487dd0e1c9098775df80644de2dc9c8cb0d4ae11c5060f09ea247feea43facd950b61c098bae598bb0c"
+  "signature": "ed25519:ab3ac3c4a6b00d44e23dc0a93cb2070de707f80d373c96ddcbc3708f8096ed65c7957e5784ca4a8868dd9c5cb1c1fbcdaab6877e591f6374bf3b3ac818009007"
 }

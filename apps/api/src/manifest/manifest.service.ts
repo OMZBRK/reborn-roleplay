@@ -42,11 +42,14 @@ export class ManifestService {
 
     const files = (manifest.files as unknown) as ManifestFile[];
 
+    // Retour BIT-POUR-BIT identique a ce qui a ete signe : toute modification
+    // (timestamps reconstruits, ordre des champs change, etc.) invaliderait
+    // la signature lors de la verification cote launcher.
     return {
       version: manifest.version,
       minecraftVersion: manifest.minecraftVersion,
-      issuedAt: manifest.publishedAt.toISOString(),
-      expiresAt: new Date(manifest.publishedAt.getTime() + 7 * 24 * 3600 * 1000).toISOString(),
+      issuedAt: manifest.issuedAt.toISOString(),
+      expiresAt: manifest.expiresAt.toISOString(),
       minLauncherVersion: manifest.minLauncherVersion,
       files,
       signature: manifest.signature,

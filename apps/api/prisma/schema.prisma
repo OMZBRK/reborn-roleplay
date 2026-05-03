@@ -145,6 +145,11 @@ model Manifest {
   signature          String
   isCurrent          Boolean  @default(false)
   minLauncherVersion String
+  // issuedAt + expiresAt sont les valeurs *exactes* signees dans le manifest.
+  // Modifier ces valeurs apres signature invalide la signature, donc l'API
+  // les retourne tels quels (pas de derivation).
+  issuedAt           DateTime
+  expiresAt          DateTime
   publishedAt        DateTime @default(now())
 
   @@index([isCurrent])

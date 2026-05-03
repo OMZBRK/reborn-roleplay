@@ -58,6 +58,8 @@ async function seedDevManifest() {
       signature: signed.signature,
       isCurrent: true,
       minLauncherVersion: signed.minLauncherVersion,
+      issuedAt: new Date(signed.issuedAt),
+      expiresAt: new Date(signed.expiresAt),
     },
   });
   console.log(`Seeded dev manifest ${version}`);
