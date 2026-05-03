@@ -165,6 +165,16 @@ model PatchNote {
   pinned      Boolean  @default(false)
 }
 
+model Rules {
+  id          String   @id @default(uuid())
+  version     String   @unique
+  content     String
+  publishedAt DateTime @default(now())
+  isCurrent   Boolean  @default(false)
+
+  @@index([isCurrent])
+}
+
 // ──────────────────────────────────────────────────────
 // TICKETS
 // ──────────────────────────────────────────────────────
