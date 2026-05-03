@@ -93,6 +93,26 @@ export class WhitelistService {
   }
 
   /**
+   * Retire la candidature courante. Autorise tant que le statut n'est
+   * pas APPROVED — on ne laisse pas un joueur valide s'auto-supprimer ;
+   * pour ca il doit ouvrir un ticket et passer par le staff.
+   */
+  async withdraw(userId: string): Promise<void> {
+    const app = await this.prisma.whitelistApplication.findUnique({
+      where: { userId },
+    });
+    if (!app) {
+      throw new NotFoundException('Aucune candidature a retirer.');
+    }
+    if (app.status === AppStatus.APPROVED) {
+      throw new ForbiddenException(
+        "Tu as ete accepte. Pour quitter le serveur, contacte le staff via un ticket.",
+      );
+    }
+    await this.prisma.whitelistApplication.delete({ where: { userId } });
+  }
+
+  /**
    * Notifie le bot Discord qu'une candidature vient d'etre creee /
    * resoumise. Le bot ouvre un thread prive dans le salon staff. Echec
    * non-bloquant : le user a deja recu sa reponse 200.

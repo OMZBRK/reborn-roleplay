@@ -83,6 +83,31 @@ export class TicketsService {
   }
 
   /**
+   * Supprime un ticket dont le user est proprietaire. Autorise tant
+   * que le statut est OPEN ou IN_PROGRESS — un ticket RESOLVED/CLOSED
+   * fait partie de l'historique consultable, on ne laisse pas le user
+   * effacer ce que le staff a deja traite.
+   */
+  async remove(userId: string, ticketId: string): Promise<void> {
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) throw new NotFoundException('Ticket introuvable.');
+    if (ticket.userId !== userId) {
+      throw new ForbiddenException("Ce ticket ne t'appartient pas.");
+    }
+    if (
+      ticket.status === TicketStatus.RESOLVED ||
+      ticket.status === TicketStatus.CLOSED
+    ) {
+      throw new ForbiddenException(
+        'Ce ticket est cloture. Tu peux le consulter mais pas le supprimer.',
+      );
+    }
+    // Supprime les messages d'abord (pas de cascade configure cote schema).
+    await this.prisma.ticketMessage.deleteMany({ where: { ticketId } });
+    await this.prisma.ticket.delete({ where: { id: ticketId } });
+  }
+
+  /**
    * Notifie le bot Discord d'un nouveau ticket. Le bot ouvre un thread
    * prive dans le salon staff. Echec non-bloquant.
    */

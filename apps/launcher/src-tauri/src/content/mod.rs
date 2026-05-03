@@ -254,6 +254,18 @@ pub async fn whitelist_resubmit(
         })
 }
 
+#[tauri::command]
+pub async fn whitelist_withdraw(state: State<'_, AuthState>) -> Result<(), ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .delete_no_content(&token, "/whitelist/me")
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
 // ──────────────────────────────────────────────────────
 // Tickets
 // ──────────────────────────────────────────────────────
@@ -372,6 +384,21 @@ pub async fn tickets_post_message(
             &format!("/tickets/{id}/messages"),
             &PostMessageRequest { content },
         )
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+#[tauri::command]
+pub async fn tickets_delete(
+    state: State<'_, AuthState>,
+    id: String,
+) -> Result<(), ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .delete_no_content(&token, &format!("/tickets/{id}"))
         .await
         .map_err(|e| ContentError::Api {
             message: e.to_string(),

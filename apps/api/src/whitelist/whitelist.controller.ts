@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -24,5 +34,11 @@ export class WhitelistController {
   @Patch('me')
   async resubmit(@CurrentUser() user: RequestUser, @Body() dto: SubmitWhitelistDto) {
     return this.service.resubmit(user.sub, dto);
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async withdraw(@CurrentUser() user: RequestUser) {
+    await this.service.withdraw(user.sub);
   }
 }

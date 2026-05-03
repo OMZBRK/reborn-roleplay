@@ -15,10 +15,12 @@ import {
   Plus,
   Send,
   ShieldAlert,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import {
   createTicket,
+  deleteTicket,
   fetchTicket,
   fetchTickets,
   postTicketMessage,
@@ -84,7 +86,10 @@ export function Tickets() {
         />
       )}
       {view.kind === "detail" && (
-        <TicketDetailView ticketId={view.id} />
+        <TicketDetailView
+          ticketId={view.id}
+          onDeleted={() => setView({ kind: "list" })}
+        />
       )}
     </div>
   );
@@ -308,11 +313,38 @@ function CreateTicketForm({
 // Detail
 // ──────────────────────────────────────────────────────
 
-function TicketDetailView({ ticketId }: { ticketId: string }) {
+function TicketDetailView({
+  ticketId,
+  onDeleted,
+}: {
+  ticketId: string;
+  onDeleted: () => void;
+}) {
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [posting, setPosting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (
+      !window.confirm(
+        "Supprimer ce ticket ? Cette action est definitive.",
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setDeleting(true);
+    try {
+      await deleteTicket(ticketId);
+      onDeleted();
+    } catch (err) {
+      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function reload() {
     try {
@@ -380,16 +412,33 @@ function TicketDetailView({ ticketId }: { ticketId: string }) {
           <StatusBadge status={ticket.status} />
         </div>
         <h2 className="font-display text-xl font-semibold">{ticket.subject}</h2>
-        <p className="text-xs text-foreground-subtle">
-          Ouvert le{" "}
-          {new Date(ticket.createdAt).toLocaleDateString("fr-FR", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-foreground-subtle">
+            Ouvert le{" "}
+            {new Date(ticket.createdAt).toLocaleDateString("fr-FR", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+          {!isClosed && ticket.status !== "RESOLVED" && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-danger/40 bg-danger/10 px-2.5 py-1 text-[11px] font-medium text-danger transition hover:bg-danger/20 disabled:opacity-60"
+            >
+              {deleting ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Trash2 className="h-3 w-3" />
+              )}
+              Supprimer
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">

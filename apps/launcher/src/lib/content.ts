@@ -105,6 +105,10 @@ export async function resubmitWhitelist(
   return invoke<WhitelistApplication>("whitelist_resubmit", input);
 }
 
+export async function withdrawWhitelist(): Promise<void> {
+  await invoke<void>("whitelist_withdraw");
+}
+
 // ──────────────────────────────────────────────────────
 // Tickets
 // ──────────────────────────────────────────────────────
@@ -169,4 +173,8 @@ export async function postTicketMessage(
   content: string,
 ): Promise<TicketMessage> {
   return invoke<TicketMessage>("tickets_post_message", { id, content });
+}
+
+export async function deleteTicket(id: string): Promise<void> {
+  await invoke<void>("tickets_delete", { id });
 }

@@ -7,12 +7,14 @@ import {
   Loader2,
   PencilLine,
   Send,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import {
   fetchWhitelistMe,
   resubmitWhitelist,
   submitWhitelist,
+  withdrawWhitelist,
   type WhitelistApplication,
   type WhitelistSubmitInput,
 } from "../lib/content";
@@ -86,6 +88,7 @@ export function Whitelist() {
           onEditRequested={() =>
             setStage({ kind: "form", mode: "edit", previous: stage.application })
           }
+          onWithdrawn={() => setStage({ kind: "form", mode: "create" })}
         />
       )}
     </div>
@@ -241,11 +244,37 @@ function Field({
 function StatusView({
   application,
   onEditRequested,
+  onWithdrawn,
 }: {
   application: WhitelistApplication;
   onEditRequested: () => void;
+  onWithdrawn: () => void;
 }) {
   const palette = STATUS_STYLE[application.status];
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+
+  async function handleWithdraw() {
+    if (
+      !window.confirm(
+        "Retirer ta candidature ? Tu pourras en soumettre une nouvelle ensuite.",
+      )
+    ) {
+      return;
+    }
+    setWithdrawError(null);
+    setWithdrawing(true);
+    try {
+      await withdrawWhitelist();
+      onWithdrawn();
+    } catch (err) {
+      setWithdrawError(
+        typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur",
+      );
+    } finally {
+      setWithdrawing(false);
+    }
+  }
 
   return (
     <motion.div
@@ -272,15 +301,39 @@ function StatusView({
             </div>
           )}
 
-          {(application.status === "NEEDS_REVISION" || application.status === "REJECTED") && (
-            <button
-              type="button"
-              onClick={onEditRequested}
-              className="mt-4 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:border-accent/50 hover:text-accent"
-            >
-              <PencilLine className="h-3.5 w-3.5" />
-              Modifier et resoumettre
-            </button>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {(application.status === "NEEDS_REVISION" || application.status === "REJECTED") && (
+              <button
+                type="button"
+                onClick={onEditRequested}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:border-accent/50 hover:text-accent"
+              >
+                <PencilLine className="h-3.5 w-3.5" />
+                Modifier et resoumettre
+              </button>
+            )}
+            {application.status !== "APPROVED" && (
+              <button
+                type="button"
+                onClick={handleWithdraw}
+                disabled={withdrawing}
+                className="inline-flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-1.5 text-xs font-medium text-danger transition hover:bg-danger/20 disabled:opacity-60"
+              >
+                {withdrawing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                Retirer ma candidature
+              </button>
+            )}
+          </div>
+
+          {withdrawError && (
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+              <span>{withdrawError}</span>
+            </div>
           )}
         </div>
       </div>

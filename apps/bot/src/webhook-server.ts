@@ -58,8 +58,12 @@ export function startWebhookServer(client: Client) {
 }
 
 async function handle(client: Client, req: IncomingMessage, res: ServerResponse) {
-  if (req.method === "GET" && req.url === "/healthz") {
-    return reply(res, 200, { ok: true });
+  if (req.method === "GET" && (req.url === "/" || req.url === "/healthz")) {
+    return reply(res, 200, {
+      service: "reborn-bot",
+      status: "online",
+      hint: "Endpoints : POST /webhooks/whitelist, POST /webhooks/tickets (HMAC requis).",
+    });
   }
   if (req.method !== "POST") {
     return reply(res, 405, { error: "method not allowed" });

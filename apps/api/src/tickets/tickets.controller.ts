@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -47,5 +48,14 @@ export class TicketsController {
     @Body() dto: PostMessageDto,
   ) {
     return this.service.postMessage(user.sub, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.service.remove(user.sub, id);
   }
 }
