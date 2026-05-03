@@ -6,8 +6,12 @@
 //! manifest signe, verification Ed25519, diff et telechargement.
 //! Le spawn JVM (etapes [5]..[12]) est laisse en TODO pour la semaine 4.
 
+pub mod assets;
+pub mod fabric;
 pub mod game;
 pub mod jvm;
+pub mod libraries;
+pub mod mojang;
 pub mod paths;
 pub mod runtime;
 

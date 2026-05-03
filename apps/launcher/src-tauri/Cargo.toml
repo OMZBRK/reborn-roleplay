@@ -58,3 +58,6 @@ sha1 = "0.10"
 
 # FS watcher anti-tampering (mods/ + config/) pendant que la JVM tourne.
 notify = "7"
+
+# Extraction des libraries natives (Mojang livre les .dll/.so/.dylib en jar).
+zip = { version = "2", default-features = false, features = ["deflate"] }
