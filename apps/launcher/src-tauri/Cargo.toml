@@ -19,7 +19,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # Async runtime + HTTP client
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync", "process"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Crypto / encoding utilities
@@ -52,3 +52,9 @@ subtle = "2"
 
 # Pour limiter la concurrence des telechargements (semaphore).
 futures = "0.3"
+
+# SHA-1 (le manifest piston-meta donne des hashs en SHA-1, pas SHA-256).
+sha1 = "0.10"
+
+# FS watcher anti-tampering (mods/ + config/) pendant que la JVM tourne.
+notify = "7"
