@@ -79,11 +79,15 @@ export function PlayButton() {
 
     // Si on a deja tout, on lance directement.
     if (preview && preview.plan.length === 0) {
+      // Bascule optimiste pour eviter les doubles-clics (le DL JRE peut
+      // prendre 15-30s avant que game:started arrive).
+      setPhase("running");
       try {
         await launchGame();
-        // setPhase("running") arrive via l'event game:started
+        // game:started confirmera ensuite, game:exited fera retomber sur "ready"
       } catch (err) {
         setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+        setPhase("ready");
       }
       return;
     }

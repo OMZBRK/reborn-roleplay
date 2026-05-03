@@ -94,9 +94,36 @@ pub async fn launcher_launch_game<R: Runtime>(
     // 2. Spawn d'un process Java tres minimal, juste pour valider la chaine
     //    end-to-end. On lance "java -version" et on capture le retour.
     //    Le vrai argv MC viendra quand on aura le download du client jar.
-    let mut command = Command::new(&java_path);
+    //
+    //    DEV ONLY : si REBORN_DEV_LINGER_SECS=N est defini, on spawn a la
+    //    place un process qui sleep N secondes — utile pour tester le FS
+    //    watcher sans avoir Minecraft. Java n'a pas de mode eval direct, on
+    //    delegue donc a cmd/sh.
+    let linger_secs: Option<u64> = std::env::var("REBORN_DEV_LINGER_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok());
+
+    let mut command = if let Some(secs) = linger_secs {
+        tracing::info!("DEV linger {secs}s active (REBORN_DEV_LINGER_SECS)");
+        if cfg!(windows) {
+            // `timeout /t` echoue quand stdin est redirige : on passe par
+            // PowerShell Start-Sleep qui supporte stdin=null.
+            let mut c = Command::new("powershell.exe");
+            c.arg("-NoProfile")
+                .arg("-Command")
+                .arg(format!("Start-Sleep -Seconds {secs}"));
+            c
+        } else {
+            let mut c = Command::new("sh");
+            c.arg("-c").arg(format!("sleep {secs}"));
+            c
+        }
+    } else {
+        let mut c = Command::new(&java_path);
+        c.arg("-version");
+        c
+    };
     command
-        .arg("-version")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::null());

@@ -17,8 +17,13 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
 
+// Mojang fait tourner le hash de cette URL de temps en temps. Quand un
+// 404 est observe ici, recuperer la nouvelle valeur depuis la version
+// json d'une release recente : `version_manifest_v2.json` -> version json
+// -> javaVersion.component, puis chercher l'URL piston-meta active. Cf
+// https://gist.github.com/skyrising/95a8e6a7287634e097ecafa2f21c240f
 const ALL_JSON_URL: &str =
-    "https://launchermeta.mojang.com/v1/products/java-runtime/2ec0b0db5d4cd96e34c7baea8bc1aa5dccc6bbe5/all.json";
+    "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
 /// Composant JRE recommande pour Minecraft 1.21+ (Java 21).
 pub const RUNTIME_COMPONENT: &str = "java-runtime-delta";
