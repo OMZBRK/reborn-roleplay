@@ -25,12 +25,10 @@ use crate::integrity::{spawn_watcher, TamperingEvent, WatcherHandle};
 use crate::launcher::{
     assets, fabric, jvm, libraries, mojang, paths, runtime,
 };
+use crate::storage::prefs;
 
 /// Version Minecraft cible. Plus tard, viendra du manifest courant Reborn.
 const MINECRAFT_VERSION: &str = "1.21.4";
-const DEFAULT_RAM_MB: u32 = 4096;
-const DEFAULT_WIDTH: u32 = 1280;
-const DEFAULT_HEIGHT: u32 = 720;
 /// Token MC factice utilise quand l'auth dev (sans Microsoft) est en cours.
 /// Le client Minecraft accepte n'importe quelle string non-vide ici, mais
 /// refusera de valider auprès des serveurs Mojang (mode online). Suffisant
@@ -109,6 +107,8 @@ pub async fn launcher_launch_game<R: Runtime>(
         message: e.to_string(),
     })?;
 
+    let user_prefs = prefs::load().await.unwrap_or_default();
+
     // Etape 1 : JRE.
     tracing::info!("launch [1/6] : runtime Java");
     let java_path = runtime::ensure_runtime(&auth.http, &dir)
@@ -175,9 +175,10 @@ pub async fn launcher_launch_game<R: Runtime>(
         game_dir: dir.display().to_string(),
         assets_dir: asset_setup.assets_dir.display().to_string(),
         asset_index: asset_setup.asset_index.clone(),
-        ram_mb: DEFAULT_RAM_MB,
-        width: DEFAULT_WIDTH,
-        height: DEFAULT_HEIGHT,
+        ram_mb: user_prefs.ram_mb,
+        width: user_prefs.width,
+        height: user_prefs.height,
+        // TODO : prefs.auto_connect → ServerAddress du manifest Reborn courant.
         auto_connect: None,
     };
 

@@ -173,4 +173,67 @@ impl ApiClient {
         }
         Ok(resp.json::<crate::manifest::SignedManifest>().await?)
     }
+
+    /// GET generique authentifie. Le caller deserialize. Centralise la
+    /// gestion du JWT pour ne pas avoir a la dupliquer par endpoint.
+    pub async fn get_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        access_token: &str,
+        path: &str,
+    ) -> Result<T, ApiError> {
+        let url = format!("{}{}", self.base_url, path);
+        let resp = self.http.get(url).bearer_auth(access_token).send().await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<T>().await?)
+    }
+
+    /// POST generique authentifie avec body JSON.
+    pub async fn post_json<B: Serialize, T: for<'de> Deserialize<'de>>(
+        &self,
+        access_token: &str,
+        path: &str,
+        body: &B,
+    ) -> Result<T, ApiError> {
+        let url = format!("{}{}", self.base_url, path);
+        let resp = self
+            .http
+            .post(url)
+            .bearer_auth(access_token)
+            .json(body)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<T>().await?)
+    }
+
+    /// PATCH generique authentifie avec body JSON.
+    pub async fn patch_json<B: Serialize, T: for<'de> Deserialize<'de>>(
+        &self,
+        access_token: &str,
+        path: &str,
+        body: &B,
+    ) -> Result<T, ApiError> {
+        let url = format!("{}{}", self.base_url, path);
+        let resp = self
+            .http
+            .patch(url)
+            .bearer_auth(access_token)
+            .json(body)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<T>().await?)
+    }
 }

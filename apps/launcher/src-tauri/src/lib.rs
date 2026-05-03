@@ -2,6 +2,7 @@
 
 mod api;
 mod auth;
+mod content;
 mod hardware;
 mod integrity;
 mod launcher;
@@ -65,6 +66,14 @@ pub fn run() {
             launcher::launcher_apply_update,
             launcher::game::launcher_launch_game,
             launcher::game::launcher_stop_game,
+            content::patchnotes_list,
+            content::patchnotes_detail,
+            content::rules_current,
+            content::whitelist_me,
+            content::whitelist_submit,
+            content::whitelist_resubmit,
+            content::prefs_get,
+            content::prefs_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
