@@ -12,7 +12,7 @@
 //! 7. FS watcher + capture stdout/stderr + lifecycle events Tauri
 
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::mpsc;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
@@ -152,10 +152,14 @@ pub async fn launcher_launch_game<R: Runtime>(
     // Etape 6 : assemble + spawn.
     tracing::info!("launch [6/6] : spawn JVM (Fabric {})", fabric_setup.loader_version);
 
-    // Classpath = libs vanilla + libs Fabric. Le client.jar est ajoute par
-    // build_command lui-meme.
-    let mut all_libs: Vec<PathBuf> = lib_setup.library_jars.clone();
-    all_libs.extend(fabric_setup.library_jars.clone());
+    // Classpath = libs vanilla + libs Fabric, deduplique sur group:artifact.
+    // Fabric apporte parfois une version plus recente d'une lib transitive
+    // (exemple : ASM 9.9 vs ASM 9.6 vanilla) ; Fabric Loader plante avec
+    // "duplicate classes found on classpath" si on garde les deux. On
+    // garde donc la *derniere* version vue (Fabric, ajoutee apres vanilla).
+    let mut vanilla_libs = lib_setup.library_jars.clone();
+    vanilla_libs.extend(fabric_setup.library_jars.clone());
+    let all_libs = dedupe_classpath(vanilla_libs);
 
     let cfg = jvm::LaunchConfig {
         minecraft_version: MINECRAFT_VERSION.to_string(),
@@ -187,11 +191,34 @@ pub async fn launcher_launch_game<R: Runtime>(
         argv[idx] = fabric_setup.main_class.clone();
     }
 
+    // DEBUG : dump l'argv complet dans un fichier pour pouvoir reproduire
+    // la commande a la main, et redirige stderr aussi vers un fichier (les
+    // logs tracing semblent rater quand le process meurt en <1s).
+    let debug_argv_path = dir.join("logs").join("last-argv.txt");
+    let debug_stderr_path = dir.join("logs").join("last-stderr.txt");
+    let _ = tokio::fs::create_dir_all(dir.join("logs")).await;
+    let _ = tokio::fs::write(
+        &debug_argv_path,
+        argv.iter()
+            .map(|s| format!("{s:?}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
+    .await;
+    tracing::info!(
+        "argv dumped to {} ({} args)",
+        debug_argv_path.display(),
+        argv.len()
+    );
+
+    let stderr_file = std::fs::File::create(&debug_stderr_path)
+        .map_err(|e| GameError::Io { message: e.to_string() })?;
+
     let mut command = Command::new(&java_path);
     command
         .args(&argv)
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::from(stderr_file))
         .stdin(Stdio::null())
         .current_dir(&dir);
 
@@ -256,7 +283,7 @@ fn pump_stdio<R: Runtime>(child: &mut Child, app: AppHandle<R>) {
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = reader.next_line().await {
-                tracing::debug!(target: "game", "stdout: {line}");
+                tracing::info!(target: "game", "stdout: {line}");
                 let _ = app2.emit("game:stdout", line);
             }
         });
@@ -265,11 +292,69 @@ fn pump_stdio<R: Runtime>(child: &mut Child, app: AppHandle<R>) {
         tokio::spawn(async move {
             let mut reader = BufReader::new(stderr).lines();
             while let Ok(Some(line)) = reader.next_line().await {
-                tracing::debug!(target: "game", "stderr: {line}");
+                tracing::warn!(target: "game", "stderr: {line}");
                 let _ = app.emit("game:stderr", line);
             }
         });
     }
+}
+
+/// Deduplique le classpath sur (group:artifact). Quand un meme artifact
+/// est present plusieurs fois (typiquement vanilla + Fabric), on garde la
+/// *derniere* occurrence — c'est generalement la version la plus recente
+/// puisque les libs Fabric sont concatenees apres celles de vanilla.
+///
+/// Conserve l'ordre relatif entre artifacts distincts pour la
+/// reproductibilite des launches.
+fn dedupe_classpath(jars: Vec<PathBuf>) -> Vec<PathBuf> {
+    use std::collections::HashMap;
+    let mut last_index: HashMap<String, usize> = HashMap::new();
+    for (i, path) in jars.iter().enumerate() {
+        if let Some(key) = maven_dedupe_key(path) {
+            last_index.insert(key, i);
+        }
+    }
+    let mut out = Vec::with_capacity(jars.len());
+    for (i, path) in jars.into_iter().enumerate() {
+        match maven_dedupe_key(&path) {
+            Some(key) if last_index.get(&key) == Some(&i) => out.push(path),
+            None => out.push(path), // pas un layout maven → on garde
+            _ => {}                  // doublon, on saute
+        }
+    }
+    out
+}
+
+/// Pour un chemin de la forme `<...>/libraries/<group>/<artifact>/<version>/<filename>`,
+/// retourne `<group dot-separated>:<artifact>:<classifier>` (classifier vide pour
+/// le jar principal). Les variantes `natives-*` du meme artifact partagent le
+/// group:artifact mais doivent rester distinctes (sinon on drop le jar contenant
+/// les classes Java au profit d'un jar de .dll). None si le path ne suit pas
+/// la convention Maven du launcher Mojang.
+fn maven_dedupe_key(path: &Path) -> Option<String> {
+    let comps: Vec<&str> = path
+        .components()
+        .filter_map(|c| c.as_os_str().to_str())
+        .collect();
+    let lib_idx = comps.iter().rposition(|s| *s == "libraries")?;
+    let tail = &comps[lib_idx + 1..];
+    if tail.len() < 4 {
+        return None;
+    }
+    let filename = tail[tail.len() - 1];
+    let version = tail[tail.len() - 2];
+    let artifact = tail[tail.len() - 3];
+    let group = tail[..tail.len() - 3].join(".");
+
+    // <artifact>-<version>[-<classifier>].jar → on isole le classifier.
+    let stem = filename.strip_suffix(".jar").unwrap_or(filename);
+    let prefix = format!("{artifact}-{version}");
+    let classifier = stem
+        .strip_prefix(&prefix)
+        .map(|c| c.trim_start_matches('-'))
+        .unwrap_or("");
+
+    Some(format!("{group}:{artifact}:{classifier}"))
 }
 
 async fn await_game_end<R: Runtime>(app: AppHandle<R>) {

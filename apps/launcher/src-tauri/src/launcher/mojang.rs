@@ -310,6 +310,35 @@ impl Library {
             c.replace("${arch}", "64")
         })
     }
+
+    /// Pour les libs au format moderne (1.19+) ou le classifier est dans
+    /// le `name` lui-meme (4eme composant Maven `:`-separe), retourne ce
+    /// classifier. Ex: `org.lwjgl:lwjgl-glfw:3.3.3:natives-windows-x86`
+    /// → `Some("natives-windows-x86")`.
+    pub fn classifier_from_name(&self) -> Option<String> {
+        let mut parts = self.name.split(':');
+        let _group = parts.next()?;
+        let _artifact = parts.next()?;
+        let _version = parts.next()?;
+        parts.next().map(|s| s.to_string())
+    }
+}
+
+/// Filtre supplementaire pour les natives au format moderne : Mojang
+/// publie 3 variantes Windows (natives-windows, natives-windows-arm64,
+/// natives-windows-x86) toutes annotees `os.name=windows` mais sans
+/// preciser l'arch dans les `rules`. Le launcher doit donc choisir.
+pub fn native_classifier_matches_current_arch(classifier: &str) -> bool {
+    let host = std::env::consts::ARCH;
+    let wants_arm64 = classifier.ends_with("-arm64");
+    let wants_x86 = classifier.ends_with("-x86");
+    let is_default = !wants_arm64 && !wants_x86;
+    match host {
+        "x86_64" => is_default,
+        "aarch64" => wants_arm64,
+        "x86" => wants_x86,
+        _ => false,
+    }
 }
 
 fn matches_current_os(os: &RuleOs) -> bool {

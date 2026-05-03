@@ -16,7 +16,9 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Semaphore;
 
-use super::mojang::{download_with_sha1, Library, MojangError, VersionJson};
+use super::mojang::{
+    download_with_sha1, native_classifier_matches_current_arch, MojangError, VersionJson,
+};
 
 const MAX_CONCURRENT_DOWNLOADS: usize = 8;
 
@@ -85,7 +87,47 @@ pub async fn ensure_libraries(
             None => continue,
         };
 
-        // 2a. Artifact principal (pour le classpath).
+        // Mojang utilise deux formats pour les natives :
+        // - Ancien : library + natives map + classifiers map (1 entree par lib)
+        // - Nouveau (1.19+) : une library separee par classifier, avec
+        //   le classifier dans le `name` (4eme champ) et l'artifact direct.
+        // Dans le nouveau format on doit ROUTER l'artifact vers natives_jars
+        // (extraction) plutot que classpath_jars, et ne garder que la
+        // variante qui matche l'arch courante.
+        let classifier_in_name = library.classifier_from_name();
+        let is_natives_variant = classifier_in_name
+            .as_deref()
+            .map(|c| c.starts_with("natives-"))
+            .unwrap_or(false);
+
+        if is_natives_variant {
+            let classifier = classifier_in_name.as_deref().unwrap_or_default();
+            if !native_classifier_matches_current_arch(classifier) {
+                continue;
+            }
+            if let Some(artifact) = &downloads.artifact {
+                let dest = libraries_root.join(&artifact.path);
+                natives_jars.push((
+                    dest.clone(),
+                    library
+                        .extract
+                        .as_ref()
+                        .map(|e| e.exclude.clone())
+                        .unwrap_or_default(),
+                ));
+                let permit = semaphore.clone().acquire_owned().await.unwrap();
+                let http_clone = http.clone();
+                let url = artifact.url.clone();
+                let sha1 = artifact.sha1.clone();
+                tasks.push(tokio::spawn(async move {
+                    let _permit = permit;
+                    download_with_sha1(&http_clone, &url, &sha1, &dest).await
+                }));
+            }
+            continue;
+        }
+
+        // Library normale : artifact principal sur le classpath.
         if let Some(artifact) = &downloads.artifact {
             let dest = libraries_root.join(&artifact.path);
             classpath_jars.push(dest.clone());
@@ -99,7 +141,7 @@ pub async fn ensure_libraries(
             }));
         }
 
-        // 2b. Natives (s'il y en a pour cet OS).
+        // Ancien format : `natives` map + `classifiers` map sur la meme lib.
         if let Some(classifier) = library.current_native_classifier() {
             if let Some(native_artifact) = downloads.classifiers.get(&classifier) {
                 let dest = libraries_root.join(&native_artifact.path);
