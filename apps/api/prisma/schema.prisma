@@ -175,6 +175,16 @@ model Rules {
   @@index([isCurrent])
 }
 
+model Lore {
+  id          String   @id @default(uuid())
+  version     String   @unique
+  content     String
+  publishedAt DateTime @default(now())
+  isCurrent   Boolean  @default(false)
+
+  @@index([isCurrent])
+}
+
 // ──────────────────────────────────────────────────────
 // TICKETS
 // ──────────────────────────────────────────────────────

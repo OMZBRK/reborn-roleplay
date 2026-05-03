@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID, randomBytes } from 'crypto';
+import { randomUUID, randomBytes, createHash } from 'crypto';
 import { Role, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MojangService } from './mojang.service';
@@ -32,9 +32,31 @@ export interface PublicUser {
   displayName: string | null;
   avatarUrl: string | null;
   role: Role;
+  discord: {
+    userId: string;
+    username: string;
+    linkedAt: string;
+  } | null;
 }
 
 const REFRESH_TOKEN_TTL_DAYS = 30;
+
+/**
+ * Calcule l'UUID offline-mode tel que Paper le fait sur un serveur en
+ * `online-mode=false` : MD5("OfflinePlayer:<pseudo>") avec les bits de
+ * version forces a 3 (name-based MD5) et de variant a IETF (RFC 4122).
+ *
+ * Le resultat est un UUID v3 valide, en format dashed, donc parsable par
+ * `UndashedUuid.fromStringLenient` cote MC 1.21+.
+ */
+export function offlineModeUuid(username: string): string {
+  const md5 = createHash('md5').update(`OfflinePlayer:${username}`).digest();
+  // RFC 4122 §4.3 — UUIDv3 : version 0011 dans le 7e octet, variant 10x dans le 9e.
+  md5[6] = (md5[6] & 0x0f) | 0x30;
+  md5[8] = (md5[8] & 0x3f) | 0x80;
+  const hex = md5.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 /**
  * Convertit un UUID Mojang (32 hex sans tirets) en form 8-4-4-4-12.
@@ -176,11 +198,19 @@ export class AuthService {
       throw new HttpException('dev-login disabled in production', HttpStatus.FORBIDDEN);
     }
 
-    // UUID stable derive du pseudo, format Mojang en clair pour le dev.
-    const fakeUuid = `dev00000-0000-4000-8000-${username.padEnd(12, '0').slice(0, 12)}`;
+    // UUID au format **offline-mode Mojang** : MD5("OfflinePlayer:<pseudo>")
+    // avec version=3 (UUID v3, name-based). C'est ce qu'un serveur Paper en
+    // mode offline calcule lui-meme pour ce pseudo, donc le serveur dev
+    // reconnaitra le joueur. Surtout, c'est du hex strict — UndashedUuid
+    // de MC 1.21+ refuse tout char non-hex et plante un NumberFormatException
+    // sur l'ancien format "dev00000-...".
+    const fakeUuid = offlineModeUuid(username);
     const msAccountId = `dev:${username}`;
 
-    let user = await this.prisma.user.findUnique({ where: { minecraftUuid: fakeUuid } });
+    // On lookup par msAccountId (stable au pseudo) et non par UUID, pour
+    // pouvoir migrer en silence les anciens dev users qui avaient l'UUID
+    // casse "dev00000-...-OMZ000000000".
+    let user = await this.prisma.user.findUnique({ where: { msAccountId } });
     if (!user) {
       user = await this.prisma.user.create({
         data: {
@@ -194,7 +224,12 @@ export class AuthService {
     } else {
       user = await this.prisma.user.update({
         where: { id: user.id },
-        data: { lastLoginAt: new Date(), lastKnownIp: meta.ip ?? user.lastKnownIp },
+        data: {
+          minecraftUuid: fakeUuid, // migration silencieuse si UUID legacy.
+          minecraftUsername: username,
+          lastLoginAt: new Date(),
+          lastKnownIp: meta.ip ?? user.lastKnownIp,
+        },
       });
     }
 
@@ -246,6 +281,14 @@ export class AuthService {
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
       role: user.role,
+      discord:
+        user.discordUserId && user.discordUsername && user.discordLinkedAt
+          ? {
+              userId: user.discordUserId,
+              username: user.discordUsername,
+              linkedAt: user.discordLinkedAt.toISOString(),
+            }
+          : null,
     };
   }
 }

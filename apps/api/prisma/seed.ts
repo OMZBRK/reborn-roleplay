@@ -180,9 +180,63 @@ Le staff applique le niveau approprie selon la gravite et l'historique. **Le sta
   console.log('Seeded rules 1.0');
 }
 
+async function seedLore() {
+  const existing = await prisma.lore.findFirst({ where: { version: '1.0' } });
+  if (existing) return;
+  await prisma.lore.updateMany({ where: { isCurrent: true }, data: { isCurrent: false } });
+  await prisma.lore.create({
+    data: {
+      version: '1.0',
+      isCurrent: true,
+      content: `# Lore — Reborn Roleplay
+
+> *"Le monde shinobi se reconstruit, mais les blessures du passe saignent encore."*
+
+## L'ere actuelle
+
+Plusieurs decennies se sont ecoulees depuis la Quatrieme Grande Guerre. Les villages cachees ont reconstruit leurs murs, leurs ecoles et leurs hierarchies — mais l'equilibre reste fragile. Une nouvelle generation grandit dans l'ombre des anciens heros, ignorante des veritables couts de la paix.
+
+## Les cinq grandes nations
+
+### Pays du Feu — **Konohagakure**
+Le village de la feuille, autrefois fer de lance de l'alliance shinobi, traverse une periode de **renouveau politique**. Le Hokage actuel cherche a moderniser les structures du village tout en preservant la **Volonte du Feu**.
+
+### Pays du Vent — **Sunagakure**
+Sune souffre toujours d'une **economie fragile** liee au climat aride. Le Kazekage pousse une politique d'**ouverture commerciale** vers les autres nations, au prix de tensions internes avec les vieilles familles.
+
+### Pays de l'Eau — **Kirigakure**
+Apres des decennies sous la "**Brume Sanglante**", Kiri a rejoint la communaute internationale. Mais des **factions extremistes** persistent dans les iles du sud, refusant la reforme.
+
+### Pays de la Foudre — **Kumogakure**
+Kumo est devenue la **puissance militaire dominante** des cinq nations. Le Raikage actuel maintient une discipline de fer et investit massivement dans la **recherche sur le chakra**.
+
+### Pays de la Terre — **Iwagakure**
+Iwa reste **isolationniste**. Le village conserve ses traditions millenaires et ses techniques ancestrales — au prix d'un retard technologique grandissant.
+
+## Les menaces emergentes
+
+- **Les Sans-Banniere** : ronins shinobi sans village, certains organises en mercenariats, d'autres en sectes mystiques.
+- **Le Reveil** : un mouvement souterrain qui pretend que la **paix actuelle est artificielle** et que l'equilibre du chakra a ete brise.
+- **Phenomenes inexpliques** : des kekkei genkai oublies refont surface chez des civils. Origine inconnue.
+
+## Ton personnage
+
+Tu rejoins ce monde en tant que **shinobi de la nouvelle generation**, **civil ambitieux**, ou **etranger en quete de but**. Ton background s'inscrit forcement dans ce canon — au moment de la **whitelist**, le staff valide la coherence de ton histoire avec l'ere actuelle.
+
+> Le lore evolue avec les **events RP** organises par le staff. Reste a jour via les patch notes.
+
+---
+
+> *Derniere mise a jour : 2026-05-03 — Version 1.0*`,
+    },
+  });
+  console.log('Seeded lore 1.0');
+}
+
 async function main() {
   await seedPatchNotes();
   await seedRules();
+  await seedLore();
   await seedDevManifest();
 }
 
