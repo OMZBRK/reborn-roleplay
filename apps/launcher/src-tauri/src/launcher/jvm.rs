@@ -118,10 +118,14 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
     args.push(cfg.height.to_string());
 
     if let Some(server) = &cfg.auto_connect {
-        args.push("--server".into());
-        args.push(server.host.clone());
-        args.push("--port".into());
-        args.push(server.port.to_string());
+        // Depuis MC 1.20, `--server`/`--port` sont deprecies au profit de
+        // Quick Play. Le client moderne attend une seule string `host:port`.
+        // On envoie quand meme les deux variantes : `--quickPlayMultiplayer`
+        // est respecte par 1.20+, et les anciens `--server`/`--port` sont
+        // toleres pour les versions plus anciennes (et ignores en silence
+        // par 1.21+ qui les juge obsoletes).
+        args.push("--quickPlayMultiplayer".into());
+        args.push(format!("{}:{}", server.host, server.port));
     }
 
     args
@@ -174,12 +178,13 @@ mod tests {
     }
 
     #[test]
-    fn auto_connect_appends_server_and_port() {
+    fn auto_connect_uses_quick_play_multiplayer() {
         let argv = build_command(&sample_cfg());
-        let server_idx = argv.iter().position(|a| a == "--server").unwrap();
-        assert_eq!(argv[server_idx + 1], "play.reborn-rp.fr");
-        assert_eq!(argv[server_idx + 2], "--port");
-        assert_eq!(argv[server_idx + 3], "25565");
+        let idx = argv
+            .iter()
+            .position(|a| a == "--quickPlayMultiplayer")
+            .expect("--quickPlayMultiplayer manquant");
+        assert_eq!(argv[idx + 1], "play.reborn-rp.fr:25565");
     }
 
     #[test]
@@ -187,7 +192,7 @@ mod tests {
         let mut cfg = sample_cfg();
         cfg.auto_connect = None;
         let argv = build_command(&cfg);
-        assert!(!argv.iter().any(|a| a == "--server"));
+        assert!(!argv.iter().any(|a| a == "--quickPlayMultiplayer"));
     }
 
     #[test]

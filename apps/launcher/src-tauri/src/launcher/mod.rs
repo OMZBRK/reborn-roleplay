@@ -7,10 +7,12 @@
 //! Le spawn JVM (etapes [5]..[12]) est laisse en TODO pour la semaine 4.
 
 pub mod assets;
+pub mod diagnostics;
 pub mod fabric;
 pub mod game;
 pub mod jvm;
 pub mod libraries;
+pub mod mods;
 pub mod mojang;
 pub mod paths;
 pub mod runtime;

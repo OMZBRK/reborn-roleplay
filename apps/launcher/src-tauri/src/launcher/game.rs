@@ -23,12 +23,16 @@ use tokio::sync::Mutex;
 use crate::auth::AuthState;
 use crate::integrity::{spawn_watcher, TamperingEvent, WatcherHandle};
 use crate::launcher::{
-    assets, fabric, jvm, libraries, mojang, paths, runtime,
+    assets, diagnostics, fabric, jvm, libraries, mods as mods_inspect, mojang, paths, runtime,
 };
 use crate::storage::prefs;
 
 /// Version Minecraft cible. Plus tard, viendra du manifest courant Reborn.
-const MINECRAFT_VERSION: &str = "1.21.4";
+/// En attendant, lisible via REBORN_MC_VERSION pour faciliter l'alignement
+/// avec le serveur de dev sans recompiler.
+fn minecraft_version() -> String {
+    std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "1.21.1".into())
+}
 /// Token MC factice utilise quand l'auth dev (sans Microsoft) est en cours.
 /// Le client Minecraft accepte n'importe quelle string non-vide ici, mais
 /// refusera de valider auprès des serveurs Mojang (mode online). Suffisant
@@ -108,6 +112,30 @@ pub async fn launcher_launch_game<R: Runtime>(
     })?;
 
     let user_prefs = prefs::load().await.unwrap_or_default();
+    let mc_version = minecraft_version();
+
+    // Etape 0 : nettoie les mods qui ne ciblent pas la version MC active.
+    // Quand on bouge entre versions (ex: 1.21.4 -> 1.21.1), des jars Sodium
+    // / Iris / etc. d'une autre version restent et plantent Fabric Loader
+    // au boot. Cf launcher/diagnostics.rs::parse_mod_version_mismatch.
+    let mods_dir_pre = dir.join("mods");
+    match mods_inspect::purge_incompatible_mods(&mods_dir_pre, &mc_version) {
+        Ok(removed) if !removed.is_empty() => {
+            tracing::info!("nettoyage mods : {} jar(s) incompatibles supprime(s)", removed.len());
+            for path in &removed {
+                tracing::info!("  - {path}");
+            }
+            let _ = app.emit(
+                "mods:purged",
+                serde_json::json!({
+                    "removed": removed,
+                    "targetMcVersion": mc_version,
+                }),
+            );
+        }
+        Ok(_) => {}
+        Err(e) => tracing::warn!("inspection mods impossible : {e}"),
+    }
 
     // Etape 1 : JRE.
     tracing::info!("launch [1/6] : runtime Java");
@@ -118,8 +146,8 @@ pub async fn launcher_launch_game<R: Runtime>(
         })?;
 
     // Etape 2 : version JSON Mojang.
-    tracing::info!("launch [2/6] : metadata Minecraft {MINECRAFT_VERSION}");
-    let version = mojang::fetch_version_json(&auth.http, &dir, MINECRAFT_VERSION)
+    tracing::info!("launch [2/6] : metadata Minecraft {mc_version}");
+    let version = mojang::fetch_version_json(&auth.http, &dir, &mc_version)
         .await
         .map_err(|e| GameError::Mojang {
             message: e.to_string(),
@@ -143,7 +171,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 5 : Fabric Loader.
     tracing::info!("launch [5/6] : Fabric Loader");
-    let fabric_setup = fabric::ensure_fabric(&auth.http, &dir, MINECRAFT_VERSION)
+    let fabric_setup = fabric::ensure_fabric(&auth.http, &dir, &mc_version)
         .await
         .map_err(|e| GameError::Fabric {
             message: e.to_string(),
@@ -162,7 +190,7 @@ pub async fn launcher_launch_game<R: Runtime>(
     let all_libs = dedupe_classpath(vanilla_libs);
 
     let cfg = jvm::LaunchConfig {
-        minecraft_version: MINECRAFT_VERSION.to_string(),
+        minecraft_version: mc_version.clone(),
         launcher_version: env!("CARGO_PKG_VERSION").to_string(),
         minecraft_username: user.minecraft_username.clone(),
         minecraft_uuid: user.minecraft_uuid.clone(),
@@ -178,8 +206,7 @@ pub async fn launcher_launch_game<R: Runtime>(
         ram_mb: user_prefs.ram_mb,
         width: user_prefs.width,
         height: user_prefs.height,
-        // TODO : prefs.auto_connect → ServerAddress du manifest Reborn courant.
-        auto_connect: None,
+        auto_connect: resolve_auto_connect(),
     };
 
     let mut argv = jvm::build_command(&cfg);
@@ -212,14 +239,11 @@ pub async fn launcher_launch_game<R: Runtime>(
         argv.len()
     );
 
-    let stderr_file = std::fs::File::create(&debug_stderr_path)
-        .map_err(|e| GameError::Io { message: e.to_string() })?;
-
     let mut command = Command::new(&java_path);
     command
         .args(&argv)
         .stdout(Stdio::piped())
-        .stderr(Stdio::from(stderr_file))
+        .stderr(Stdio::piped())
         .stdin(Stdio::null())
         .current_dir(&dir);
 
@@ -230,7 +254,7 @@ pub async fn launcher_launch_game<R: Runtime>(
     let pid = child.id().unwrap_or(0);
     let java_display = java_path.display().to_string();
 
-    pump_stdio(&mut child, app.clone());
+    pump_stdio(&mut child, app.clone(), debug_stderr_path.clone());
 
     // FS watcher
     let (tamper_tx, _tamper_rx) = mpsc::channel::<TamperingEvent>();
@@ -252,7 +276,7 @@ pub async fn launcher_launch_game<R: Runtime>(
     let result = LaunchResult {
         pid,
         java_path: java_display,
-        minecraft_version: MINECRAFT_VERSION.to_string(),
+        minecraft_version: mc_version.clone(),
         fabric_version: fabric_setup.loader_version.clone(),
     };
 
@@ -278,23 +302,64 @@ pub async fn launcher_stop_game(game: State<'_, GameState>) -> Result<(), GameEr
     Ok(())
 }
 
-fn pump_stdio<R: Runtime>(child: &mut Child, app: AppHandle<R>) {
+fn pump_stdio<R: Runtime>(child: &mut Child, app: AppHandle<R>, stderr_dump: PathBuf) {
+    use std::sync::Arc;
+    use tokio::sync::Mutex as AsyncMutex;
+
+    // L'analyzer est partage entre les deux pumps : certaines erreurs
+    // arrivent sur stdout (Fabric Loader logge ses warnings ici), d'autres
+    // sur stderr (les vraies stack traces JVM). Un seul detecteur pour
+    // eviter les doublons.
+    let analyzer = Arc::new(AsyncMutex::new(diagnostics::LogAnalyzer::new()));
+
     if let Some(stdout) = child.stdout.take() {
         let app2 = app.clone();
+        let analyzer2 = analyzer.clone();
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = reader.next_line().await {
                 tracing::info!(target: "game", "stdout: {line}");
+                if let Some(diag) = analyzer2.lock().await.ingest(&line) {
+                    tracing::warn!("diagnostic detecte : {} - {}", diag.code, diag.message);
+                    let _ = app2.emit("game:diagnostic", diag);
+                }
                 let _ = app2.emit("game:stdout", line);
             }
         });
     }
+
     if let Some(stderr) = child.stderr.take() {
+        let app3 = app.clone();
+        let analyzer3 = analyzer.clone();
+        let dump_path = stderr_dump.clone();
         tokio::spawn(async move {
+            // Tee : on dump dans last-stderr.txt ET on analyse en stream.
+            let mut writer: Option<tokio::fs::File> = match tokio::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&dump_path)
+                .await
+            {
+                Ok(f) => Some(f),
+                Err(e) => {
+                    tracing::warn!("impossible d'ouvrir {} : {e}", dump_path.display());
+                    None
+                }
+            };
             let mut reader = BufReader::new(stderr).lines();
             while let Ok(Some(line)) = reader.next_line().await {
                 tracing::warn!(target: "game", "stderr: {line}");
-                let _ = app.emit("game:stderr", line);
+                if let Some(file) = writer.as_mut() {
+                    use tokio::io::AsyncWriteExt;
+                    let _ = file.write_all(line.as_bytes()).await;
+                    let _ = file.write_all(b"\n").await;
+                }
+                if let Some(diag) = analyzer3.lock().await.ingest(&line) {
+                    tracing::warn!("diagnostic detecte : {} - {}", diag.code, diag.message);
+                    let _ = app3.emit("game:diagnostic", diag);
+                }
+                let _ = app3.emit("game:stderr", line);
             }
         });
     }
@@ -356,6 +421,59 @@ fn maven_dedupe_key(path: &Path) -> Option<String> {
         .unwrap_or("");
 
     Some(format!("{group}:{artifact}:{classifier}"))
+}
+
+// ──────────────────────────────────────────────────────
+// Commandes Tauri "mods folder"
+// ──────────────────────────────────────────────────────
+
+/// Liste les mods presents dans le game directory avec leur statut
+/// (compatible / incompatible avec la version MC active).
+#[tauri::command]
+pub async fn launcher_mods_list() -> Result<Vec<mods_inspect::ModEntry>, GameError> {
+    let dir = paths::game_dir().map_err(|e| GameError::Io {
+        message: e.to_string(),
+    })?;
+    let mc_version = minecraft_version();
+    let mods_dir = dir.join("mods");
+    mods_inspect::inspect_mods_folder(&mods_dir, &mc_version).map_err(|e| GameError::Io {
+        message: e.to_string(),
+    })
+}
+
+/// Supprime tous les mods marques incompatibles avec la version MC
+/// active. Retourne la liste des fichiers supprimes.
+#[tauri::command]
+pub async fn launcher_mods_purge() -> Result<Vec<String>, GameError> {
+    let dir = paths::game_dir().map_err(|e| GameError::Io {
+        message: e.to_string(),
+    })?;
+    let mc_version = minecraft_version();
+    let mods_dir = dir.join("mods");
+    mods_inspect::purge_incompatible_mods(&mods_dir, &mc_version).map_err(|e| GameError::Io {
+        message: e.to_string(),
+    })
+}
+
+/// Resout l'adresse du serveur Reborn auquel auto-connect le client. En dev,
+/// lit `REBORN_SERVER_HOST` / `REBORN_SERVER_PORT` depuis l'env (charges via
+/// `dotenvy` au boot — cf `lib.rs`). Quand le manifest signe portera l'adresse
+/// du serveur, on la prendra de la et on virera ces fallbacks.
+fn resolve_auto_connect() -> Option<jvm::ServerAddress> {
+    let host = std::env::var("REBORN_SERVER_HOST").ok()?;
+    let host = host.trim();
+    if host.is_empty() {
+        return None;
+    }
+    let port = std::env::var("REBORN_SERVER_PORT")
+        .ok()
+        .and_then(|s| s.trim().parse::<u16>().ok())
+        .unwrap_or(25565);
+    tracing::info!("auto-connect target : {host}:{port}");
+    Some(jvm::ServerAddress {
+        host: host.to_string(),
+        port,
+    })
 }
 
 async fn await_game_end<R: Runtime>(app: AppHandle<R>) {

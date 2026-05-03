@@ -22,7 +22,10 @@ use tokio::sync::Semaphore;
 
 use super::mojang::{download_with_sha1, AssetIndexRef, MojangError};
 
-const MAX_CONCURRENT: usize = 16;
+// Plus on monte, plus le risque de saturation TCP/DNS Windows + de blocage par
+// un AV (real-time scanning) augmente. 8 reste rapide tout en evitant les
+// avalanches d'erreurs reseau qu'on voit sur des reseaux residentiels.
+const MAX_CONCURRENT: usize = 8;
 const RESOURCES_BASE: &str = "https://resources.download.minecraft.net";
 
 #[derive(Debug, thiserror::Error)]

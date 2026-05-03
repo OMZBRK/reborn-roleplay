@@ -210,6 +210,11 @@ fn hex_sha1(bytes: &[u8]) -> String {
 
 /// Telecharge un fichier en streaming SHA-1, cf le pattern reutilise dans
 /// le launcher. Retourne `Ok(())` si le hash matche.
+///
+/// Retry transparent jusqu'a 4 tentatives avec backoff exponentiel
+/// (200ms / 600ms / 1.8s / 5.4s) sur les erreurs reseau ; le CDN Mojang
+/// `resources.download.minecraft.net` drop souvent quelques connexions
+/// quand on telecharge ~5000 assets en parallele.
 pub async fn download_with_sha1(
     http: &reqwest::Client,
     url: &str,
@@ -226,6 +231,39 @@ pub async fn download_with_sha1(
         }
     }
 
+    let mut last_err: Option<MojangError> = None;
+    for attempt in 0..4u32 {
+        if attempt > 0 {
+            let delay_ms = 500u64 * 2u64.pow(attempt - 1);
+            tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+            if let Some(e) = &last_err {
+                tracing::warn!(
+                    "retry {url} (tentative {}/4) apres : {e}",
+                    attempt + 1,
+                );
+            }
+        }
+        match try_download_once(http, url, expected_sha1, dest).await {
+            Ok(()) => return Ok(()),
+            Err(MojangError::HashMismatch { .. }) => {
+                // Hash mismatch -> probleme reel, pas un blip reseau.
+                return Err(last_err.unwrap_or_else(|| MojangError::Schema("hash mismatch".into())));
+            }
+            Err(e) if is_retryable(&e) => {
+                last_err = Some(e);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err.unwrap_or_else(|| MojangError::Schema("retry epuise".into())))
+}
+
+async fn try_download_once(
+    http: &reqwest::Client,
+    url: &str,
+    expected_sha1: &str,
+    dest: &Path,
+) -> Result<(), MojangError> {
     let mut response = http.get(url).send().await?.error_for_status()?;
     let mut hasher = Sha1::new();
     let tmp = dest.with_extension(format!(
@@ -253,6 +291,23 @@ pub async fn download_with_sha1(
 
     fs::rename(&tmp, dest).await?;
     Ok(())
+}
+
+fn is_retryable(err: &MojangError) -> bool {
+    match err {
+        MojangError::Http(e) => {
+            // Connexion / timeout / body interrompu : on retente.
+            // 4xx : on n'y reviendra pas.
+            e.is_timeout()
+                || e.is_connect()
+                || e.is_body()
+                || e.is_decode()
+                || e.is_request()
+                || e.status().map(|s| s.is_server_error()).unwrap_or(true)
+        }
+        MojangError::Io(_) => true,
+        _ => false,
+    }
 }
 
 /// Path de cache pour un fichier de la lib Maven `name` (ex `com.mojang:authlib:6.0.54`).

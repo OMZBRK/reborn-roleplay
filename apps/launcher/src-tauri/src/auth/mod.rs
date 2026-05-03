@@ -21,7 +21,10 @@ use tauri_plugin_opener::OpenerExt;
 use crate::api::{ApiClient, ApiUser};
 use crate::storage::{secrets::SecretKey, SecretStore};
 
-const DEFAULT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
+// 60s : assez generaux pour absorber les transferts lents lors des batchs
+// d'assets (~5000 fichiers en parallele) sur des connexions residentielles.
+// Les calls OAuth/API restent rapides (TLS keep-alive sur 5s typiquement).
+const DEFAULT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthSession {

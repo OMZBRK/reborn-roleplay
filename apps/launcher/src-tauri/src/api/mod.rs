@@ -72,6 +72,15 @@ pub struct ApiUser {
     #[serde(rename = "avatarUrl")]
     pub avatar_url: Option<String>,
     pub role: String,
+    pub discord: Option<DiscordLinkage>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordLinkage {
+    pub user_id: String,
+    pub username: String,
+    pub linked_at: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -212,6 +221,27 @@ impl ApiClient {
             return Err(ApiError::Status { status, body });
         }
         Ok(resp.json::<T>().await?)
+    }
+
+    /// DELETE generique authentifie qui ignore le body de reponse (204).
+    pub async fn delete_no_content(
+        &self,
+        access_token: &str,
+        path: &str,
+    ) -> Result<(), ApiError> {
+        let url = format!("{}{}", self.base_url, path);
+        let resp = self
+            .http
+            .delete(url)
+            .bearer_auth(access_token)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(())
     }
 
     /// PATCH generique authentifie avec body JSON.

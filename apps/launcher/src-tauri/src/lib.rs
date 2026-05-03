@@ -37,7 +37,16 @@ pub fn run() {
                     let ms_preview = std::env::var("MS_CLIENT_ID")
                         .map(|s| s.chars().take(8).collect::<String>())
                         .unwrap_or_else(|_| "<not set>".to_string());
-                    eprintln!("[dev] MS_CLIENT_ID={ms_preview} MANIFEST_PUBLIC_KEY_HEX={pubkey_preview}");
+                    let server_preview = std::env::var("REBORN_SERVER_HOST")
+                        .ok()
+                        .filter(|s| !s.is_empty())
+                        .map(|host| {
+                            let port = std::env::var("REBORN_SERVER_PORT")
+                                .unwrap_or_else(|_| "25565".into());
+                            format!("{host}:{port}")
+                        })
+                        .unwrap_or_else(|| "<not set>".to_string());
+                    eprintln!("[dev] MS_CLIENT_ID={ms_preview} MANIFEST_PUBLIC_KEY_HEX={pubkey_preview} REBORN_SERVER={server_preview}");
                 }
                 Err(e) => eprintln!("[dev] .env not loaded ({}) : {e}", path.display()),
             }
@@ -66,12 +75,22 @@ pub fn run() {
             launcher::launcher_apply_update,
             launcher::game::launcher_launch_game,
             launcher::game::launcher_stop_game,
+            launcher::game::launcher_mods_list,
+            launcher::game::launcher_mods_purge,
             content::patchnotes_list,
             content::patchnotes_detail,
             content::rules_current,
+            content::lore_current,
             content::whitelist_me,
             content::whitelist_submit,
             content::whitelist_resubmit,
+            content::tickets_list,
+            content::tickets_detail,
+            content::tickets_create,
+            content::tickets_post_message,
+            content::discord_link_start,
+            content::discord_unlink,
+            content::auth_me,
             content::prefs_get,
             content::prefs_set,
         ])
