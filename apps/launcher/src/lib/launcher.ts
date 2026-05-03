@@ -51,3 +51,47 @@ export async function onDownloadProgress(
 ): Promise<UnlistenFn> {
   return listen<DownloadProgress>("manifest:progress", (e) => callback(e.payload));
 }
+
+// ──────────────────────────────────────────────────────
+//  Lancement du jeu (Semaine 4)
+// ──────────────────────────────────────────────────────
+
+export type LaunchedGame = {
+  pid: number;
+  javaPath: string;
+};
+
+export type TamperingEvent = {
+  kind: "file_added" | "file_modified" | "file_removed";
+  paths: string[];
+};
+
+export async function launchGame(): Promise<LaunchedGame> {
+  return invoke<LaunchedGame>("launcher_launch_game");
+}
+
+export async function stopGame(): Promise<void> {
+  await invoke<void>("launcher_stop_game");
+}
+
+export async function onGameStarted(
+  cb: (g: LaunchedGame) => void,
+): Promise<UnlistenFn> {
+  return listen<LaunchedGame>("game:started", (e) => cb(e.payload));
+}
+
+export async function onGameExited(cb: (code: number) => void): Promise<UnlistenFn> {
+  return listen<number>("game:exited", (e) => cb(e.payload));
+}
+
+export async function onGameStdout(cb: (line: string) => void): Promise<UnlistenFn> {
+  return listen<string>("game:stdout", (e) => cb(e.payload));
+}
+
+export async function onGameStderr(cb: (line: string) => void): Promise<UnlistenFn> {
+  return listen<string>("game:stderr", (e) => cb(e.payload));
+}
+
+export async function onTampering(cb: (t: TamperingEvent) => void): Promise<UnlistenFn> {
+  return listen<TamperingEvent>("integrity:tampering", (e) => cb(e.payload));
+}

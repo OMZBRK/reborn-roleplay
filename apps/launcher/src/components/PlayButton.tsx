@@ -6,7 +6,10 @@ import { cn } from "../lib/cn";
 import {
   applyUpdate,
   checkUpdate,
+  launchGame,
   onDownloadProgress,
+  onGameExited,
+  onGameStarted,
   type DownloadProgress,
   type UpdatePreview,
 } from "../lib/launcher";
@@ -58,11 +61,34 @@ export function PlayButton() {
     };
   }, []);
 
+  // Subscribe to game lifecycle events.
+  useEffect(() => {
+    const unlistens: Array<() => void> = [];
+    onGameStarted(() => setPhase("running")).then((fn) => unlistens.push(fn));
+    onGameExited(() => setPhase("ready")).then((fn) => unlistens.push(fn));
+    return () => {
+      unlistens.forEach((fn) => fn());
+    };
+  }, [setPhase]);
+
   async function handleClick() {
     if (phase === "blocked" || phase === "running" || phase === "downloading" || phase === "checking") {
       return;
     }
     setError(null);
+
+    // Si on a deja tout, on lance directement.
+    if (preview && preview.plan.length === 0) {
+      try {
+        await launchGame();
+        // setPhase("running") arrive via l'event game:started
+      } catch (err) {
+        setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+      }
+      return;
+    }
+
+    // Sinon, on telecharge ce qui manque puis on relance le check.
     setPhase("downloading");
     setProgress(null);
     try {
@@ -72,11 +98,9 @@ export function PlayButton() {
         setPhase("blocked");
         return;
       }
-      // Re-check pour rafraichir le preview (devrait etre vide).
       const fresh = await checkUpdate();
       setPreview(fresh);
       setPhase(fresh.plan.length === 0 ? "ready" : "idle");
-      // TODO semaine 4 : enchainer sur le spawn JVM ici.
     } catch (err) {
       setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
       setPhase("idle");
