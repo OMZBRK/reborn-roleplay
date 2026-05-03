@@ -72,13 +72,13 @@ export function Sidebar() {
           >
             <Bell className="h-4 w-4" />
           </button>
-          <button
-            type="button"
+          <NavLink
+            to="/settings"
             className="flex h-8 w-8 items-center justify-center rounded-md text-foreground-subtle hover:bg-surface-elevated hover:text-foreground"
             aria-label="Parametres"
           >
             <Settings className="h-4 w-4" />
-          </button>
+          </NavLink>
           <div className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-2.5 py-1 text-xs">
             <Coins className="h-3.5 w-3.5 text-warning" />
             <span className="font-medium">0</span>

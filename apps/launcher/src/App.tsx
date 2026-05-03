@@ -3,6 +3,10 @@ import { Navigate, Route, Routes } from "react-router";
 import { Loader2 } from "lucide-react";
 import { Login } from "./routes/Login";
 import { Home } from "./routes/Home";
+import { Patchnotes } from "./routes/Patchnotes";
+import { Rules } from "./routes/Rules";
+import { Settings } from "./routes/Settings";
+import { Whitelist } from "./routes/Whitelist";
 import { AuthenticatedLayout } from "./components/AuthenticatedLayout";
 import { useAuthStore } from "./stores/auth-store";
 import { resumeSession } from "./lib/auth";
@@ -47,12 +51,13 @@ export function App() {
       >
         <Route path="/home" element={<Home />} />
         <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
-        <Route path="/whitelist" element={<PlaceholderPage title="Whitelist" />} />
-        <Route path="/rules" element={<PlaceholderPage title="Reglement" />} />
+        <Route path="/whitelist" element={<Whitelist />} />
+        <Route path="/rules" element={<Rules />} />
         <Route path="/lore" element={<PlaceholderPage title="Lore" />} />
-        <Route path="/patchnotes" element={<PlaceholderPage title="Patch Notes" />} />
+        <Route path="/patchnotes" element={<Patchnotes />} />
         <Route path="/tickets" element={<PlaceholderPage title="Tickets" />} />
         <Route path="/docs" element={<PlaceholderPage title="Documentation" />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
 
       <Route path="*" element={<Navigate to={isAuthenticated ? "/home" : "/login"} replace />} />
