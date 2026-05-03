@@ -142,11 +142,15 @@ function reply(res: ServerResponse, status: number, body: unknown) {
 
 async function postWhitelistThread(client: Client, p: WhitelistPayload): Promise<string> {
   const channel = await fetchTextChannel(client);
+  // PublicThread : visible directement dans la sidebar du salon, lisible
+  // par tout staff ayant acces au salon. Avant on utilisait PrivateThread
+  // mais ca ne creait que le thread sans inviter personne — staff aurait
+  // du le retrouver manuellement via l'API. Pour scaler en multi-staff
+  // sensible, on switchera en PrivateThread + members.add(staffIds).
   const thread = await channel.threads.create({
     name: `Whitelist · ${p.userPseudo} · ${truncate(p.characterName, 32)}`,
     autoArchiveDuration: 10080,
-    type: ChannelType.PrivateThread,
-    invitable: true,
+    type: ChannelType.PublicThread,
     reason: `Whitelist application ${p.applicationId}`,
   });
   const embed = new EmbedBuilder()
@@ -175,8 +179,7 @@ async function postTicketThread(client: Client, p: TicketPayload): Promise<strin
   const thread = await channel.threads.create({
     name: `Ticket · ${TICKET_CATEGORY_LABEL[p.category] ?? p.category} · ${truncate(p.subject, 40)}`,
     autoArchiveDuration: 10080,
-    type: ChannelType.PrivateThread,
-    invitable: true,
+    type: ChannelType.PublicThread,
     reason: `Ticket ${p.ticketId}`,
   });
   const embed = new EmbedBuilder()
