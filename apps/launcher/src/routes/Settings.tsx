@@ -32,7 +32,7 @@ export function Settings() {
     <div className="px-8 py-8">
       <header className="mb-6">
         <p className="text-xs uppercase tracking-widest text-foreground-subtle">Reborn Roleplay</p>
-        <h1 className="mt-1 font-display text-3xl font-semibold">Parametres</h1>
+        <h1 className="mt-1 font-display text-3xl font-semibold">Paramètres</h1>
       </header>
 
       <nav className="mb-6 flex gap-1 border-b border-border">
@@ -185,7 +185,7 @@ function AccountTab() {
             ) : (
               <LogOut className="h-3 w-3" />
             )}
-            Se deconnecter
+            Se déconnecter
           </button>
         </Row>
       </Section>
@@ -232,7 +232,7 @@ function ConnectionsTab() {
         stopPolling();
         setWaitingForCallback(false);
         setError(
-          "Aucune liaison detectee apres 5 min. Si tu as valide cote Discord, clique sur Rafraichir.",
+          "Aucune liaison détectée après 5 min. Si tu as validé côté Discord, clique sur Rafraîchir.",
         );
       }
     }, intervalMs);
@@ -434,7 +434,7 @@ function GameTab() {
   return (
     <>
       <Section title="Performance" description="Reglages JVM et de fenetre. Pris en compte au prochain lancement.">
-        <Row label="Memoire allouee a Java" hint={`${prefs.ramMb} Mo (recommande : 4096 Mo)`}>
+        <Row label="Mémoire allouée à Java" hint={`${prefs.ramMb} Mo (recommandé : 4096 Mo)`}>
           <input
             type="range"
             min={2048}

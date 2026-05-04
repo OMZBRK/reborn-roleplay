@@ -47,10 +47,10 @@ export function DownloadModal({ open, progress, version, bytesTotal }: Props) {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-widest text-foreground-subtle">
-                  Mise a jour
+                  Mise à jour
                 </p>
                 <h2 className="font-display text-lg font-semibold">
-                  Telechargement {version ?? ""}
+                  Téléchargement {version ?? ""}
                 </h2>
               </div>
             </div>
@@ -83,8 +83,8 @@ export function DownloadModal({ open, progress, version, bytesTotal }: Props) {
             </div>
 
             <p className="mt-6 text-xs text-foreground-subtle">
-              Garde le launcher ouvert. La connexion sera coupee si tu fermes la
-              fenetre. Les fichiers sont verifies par signature Ed25519 et hash
+              Garde le launcher ouvert. La connexion sera coupée si tu fermes la
+              fenêtre. Les fichiers sont vérifiés par signature Ed25519 et hash
               SHA-256.
             </p>
           </motion.div>

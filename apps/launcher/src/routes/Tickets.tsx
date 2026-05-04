@@ -240,7 +240,7 @@ function CreateTicketForm({
       onSubmit={handleSubmit}
       className="grid max-w-3xl grid-cols-1 gap-4 rounded-[--radius-card] border border-border bg-surface p-6"
     >
-      <Field label="Categorie">
+      <Field label="Catégorie">
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as TicketCategory)}

@@ -1,62 +1,58 @@
-import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
-import { fetchLore, type LoreDocument } from "../lib/content";
-import { Markdown } from "../components/Markdown";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { AnimatePresence, motion } from "framer-motion";
+import { SplashHeader } from "../components/content-pages/SplashHeader";
+import { CategoryGrid } from "../components/content-pages/CategoryGrid";
+import { LORE_CATEGORIES, type Category } from "../lib/content-data";
+
+type LocationState = { level?: 1 | 2 } | null;
 
 export function Lore() {
-  const [doc, setDoc] = useState<LoreDocument | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const initialLevel = ((location.state as LocationState)?.level ?? 1) as 1 | 2;
+  const [level, setLevel] = useState<1 | 2>(initialLevel);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchLore()
-      .then((d) => {
-        if (!cancelled) setDoc(d);
-      })
-      .catch((err) => {
-        if (!cancelled)
-          setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  function handlePick(cat: Category) {
+    navigate(`/lore/${cat.id}`);
+  }
 
   return (
-    <div className="px-8 py-8">
-      <header className="mb-8">
-        <p className="text-xs uppercase tracking-widest text-foreground-subtle">
-          Reborn Roleplay
-        </p>
-        <h1 className="mt-1 font-display text-3xl font-semibold">Lore</h1>
-        <p className="mt-1 text-sm text-foreground-subtle">
-          {doc
-            ? `Version ${doc.version} · mise a jour le ${new Date(doc.publishedAt).toLocaleDateString(
-                "fr-FR",
-                { day: "2-digit", month: "long", year: "numeric" },
-              )}`
-            : "L'univers et le canon RP du serveur."}
-        </p>
-      </header>
-
-      {error && (
-        <div className="rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
-          {error}
-        </div>
-      )}
-
-      {!doc && !error && (
-        <div className="flex items-center gap-2 text-sm text-foreground-subtle">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement...
-        </div>
-      )}
-
-      {doc && (
-        <article className="max-w-3xl rounded-[--radius-card] border border-border bg-surface p-8">
-          <Markdown content={doc.content} />
-        </article>
-      )}
+    <div className="relative h-full">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={`lore-${level}`}
+          initial={{ opacity: 0, y: level === 1 ? -40 : 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: level === 2 ? -40 : 40 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-0 flex flex-col"
+        >
+          {level === 1 ? (
+            <SplashHeader
+              variant="lore"
+              title="LORE"
+              subtitle={
+                <>
+                  Le monde a une <em>mémoire</em>
+                </>
+              }
+              badgeLine1="Univers"
+              badgeLine2="REBORN"
+              onScroll={() => setLevel(2)}
+            />
+          ) : (
+            <CategoryGrid
+              variant="lore"
+              title="Le monde Shinobi"
+              accentWord="Shinobi"
+              categories={LORE_CATEGORIES}
+              onPickCategory={handlePick}
+              onCollapse={() => setLevel(1)}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

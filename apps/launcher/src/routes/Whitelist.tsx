@@ -57,7 +57,7 @@ export function Whitelist() {
         <p className="text-xs uppercase tracking-widest text-foreground-subtle">Reborn Roleplay</p>
         <h1 className="mt-1 font-display text-3xl font-semibold">Whitelist</h1>
         <p className="mt-1 text-sm text-foreground-subtle">
-          Pour acceder au serveur, soumets ta candidature au staff. Reponse sous 48h.
+          Pour accéder au serveur, soumets ta candidature au staff. Réponse sous 48h.
         </p>
       </header>
 
