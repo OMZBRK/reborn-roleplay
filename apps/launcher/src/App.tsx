@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router";
-import { Loader2 } from "lucide-react";
 import { Login } from "./routes/Login";
 import { Home } from "./routes/Home";
 import { Lore } from "./routes/Lore";
@@ -13,6 +12,8 @@ import { Tickets } from "./routes/Tickets";
 import { Whitelist } from "./routes/Whitelist";
 import { Character } from "./routes/Character";
 import { AuthenticatedLayout } from "./components/AuthenticatedLayout";
+import { TitleBar } from "./components/TitleBar";
+import { ResumeSplash } from "./components/ResumeSplash";
 import { useAuthStore } from "./stores/auth-store";
 import { resumeSession } from "./lib/auth";
 
@@ -39,37 +40,41 @@ export function App() {
     };
   }, [setSession, setResuming]);
 
-  if (isResuming) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-foreground-subtle" />
-      </div>
-    );
-  }
-
+  // TitleBar liftée ici pour qu'elle soit toujours visible (login, resume,
+  // authenticated). Les écrans en-dessous prennent le reste de la hauteur
+  // via flex-1 + min-height: 0.
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
+    <div className="flex h-screen flex-col bg-background">
+      <TitleBar />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {isResuming ? (
+          <ResumeSplash />
+        ) : (
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
-      <Route
-        element={isAuthenticated ? <AuthenticatedLayout /> : <Navigate to="/login" replace />}
-      >
-        <Route path="/home" element={<Home />} />
-        <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
-        <Route path="/whitelist" element={<Whitelist />} />
-        <Route path="/character" element={<Character />} />
-        <Route path="/rules" element={<Rules />} />
-        <Route path="/rules/:slug" element={<RuleDetail />} />
-        <Route path="/lore" element={<Lore />} />
-        <Route path="/lore/:slug" element={<LoreDetail />} />
-        <Route path="/patchnotes" element={<Patchnotes />} />
-        <Route path="/tickets" element={<Tickets />} />
-        <Route path="/docs" element={<PlaceholderPage title="Documentation" />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
+            <Route
+              element={isAuthenticated ? <AuthenticatedLayout /> : <Navigate to="/login" replace />}
+            >
+              <Route path="/home" element={<Home />} />
+              <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
+              <Route path="/whitelist" element={<Whitelist />} />
+              <Route path="/character" element={<Character />} />
+              <Route path="/rules" element={<Rules />} />
+              <Route path="/rules/:slug" element={<RuleDetail />} />
+              <Route path="/lore" element={<Lore />} />
+              <Route path="/lore/:slug" element={<LoreDetail />} />
+              <Route path="/patchnotes" element={<Patchnotes />} />
+              <Route path="/tickets" element={<Tickets />} />
+              <Route path="/docs" element={<PlaceholderPage title="Documentation" />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
 
-      <Route path="*" element={<Navigate to={isAuthenticated ? "/home" : "/login"} replace />} />
-    </Routes>
+            <Route path="*" element={<Navigate to={isAuthenticated ? "/home" : "/login"} replace />} />
+          </Routes>
+        )}
+      </div>
+    </div>
   );
 }
 

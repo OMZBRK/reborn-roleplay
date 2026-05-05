@@ -22,7 +22,8 @@
         "decorations": false,
         "transparent": false,
         "center": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "backgroundColor": "#07080b"
       }
     ],
     "security": {

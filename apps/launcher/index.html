@@ -7,8 +7,103 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Inline pre-React styles : on évite le flash blanc avant que Vite + React aient mounté.
+         La couleur de fond doit matcher var(--color-background) dans globals.css. -->
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #07080b;
+        color: #e5e7eb;
+        font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+        overflow: hidden;
+      }
+      #reborn-preload {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+        background:
+          radial-gradient(ellipse 60% 50% at 50% 30%,
+            rgba(59, 91, 219, 0.18) 0%,
+            rgba(59, 91, 219, 0.05) 40%,
+            transparent 75%),
+          #07080b;
+        transition: opacity 280ms ease-out, visibility 280ms;
+      }
+      #reborn-preload.is-hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .reborn-preload-title {
+        font-family: "Bebas Neue", "Impact", sans-serif;
+        font-size: 88px;
+        letter-spacing: 0.08em;
+        line-height: 0.9;
+        margin: 0;
+        background: linear-gradient(180deg, #ffffff 0%, #ffffff 55%, rgba(255, 255, 255, 0.55) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter:
+          drop-shadow(0 0 24px rgba(59, 91, 219, 0.4))
+          drop-shadow(0 0 6px rgba(255, 255, 255, 0.12));
+        animation: reborn-preload-fade-in 600ms ease-out;
+      }
+      .reborn-preload-tagline {
+        font-family: "Inter", system-ui, sans-serif;
+        font-size: 11px;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin: 0;
+        animation: reborn-preload-fade-in 600ms 200ms ease-out both;
+      }
+      .reborn-preload-bar {
+        width: 220px;
+        height: 2px;
+        background: rgba(59, 91, 219, 0.15);
+        border-radius: 999px;
+        overflow: hidden;
+        position: relative;
+        animation: reborn-preload-fade-in 600ms 350ms ease-out both;
+      }
+      .reborn-preload-bar::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        width: 40%;
+        background: linear-gradient(90deg,
+          transparent,
+          #3b5bdb 30%,
+          #6b8cff 50%,
+          #3b5bdb 70%,
+          transparent);
+        animation: reborn-preload-bar-slide 1.4s ease-in-out infinite;
+        box-shadow: 0 0 12px rgba(59, 91, 219, 0.6);
+      }
+      @keyframes reborn-preload-bar-slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(350%); }
+      }
+      @keyframes reborn-preload-fade-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
   </head>
   <body>
+    <!-- Preload splash : visible avant que React mount. main.tsx l'enleve une fois React pret. -->
+    <div id="reborn-preload">
+      <h1 class="reborn-preload-title">REBORN</h1>
+      <p class="reborn-preload-tagline">Roleplay · Initialisation</p>
+      <div class="reborn-preload-bar" role="progressbar" aria-label="Chargement"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

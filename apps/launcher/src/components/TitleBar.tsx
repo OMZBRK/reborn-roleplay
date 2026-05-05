@@ -2,6 +2,10 @@ import { Minus, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "../lib/tauri";
 
+// TitleBar — bande de 36px en haut, sans border et sans bg distinct, pour
+// se fondre dans le fond du launcher (pas de "bande de page web"). Reste
+// dans le flow normal du layout (pas absolute), donc les enfants ci-dessous
+// prennent le reste de la hauteur sans overlap.
 export function TitleBar() {
   async function handleMinimize() {
     if (!isTauri) return;
@@ -21,7 +25,12 @@ export function TitleBar() {
   }
 
   return (
-    <div className="drag-region flex h-9 shrink-0 items-center justify-end border-b border-border bg-background/40 backdrop-blur">
+    <div
+      className="drag-region flex h-9 shrink-0 items-center justify-end"
+      // Bg explicite identique au body — pas de border, pas de blur, pas de
+      // /40 transparent qui creait l'effet "barre de page web".
+      style={{ background: "var(--color-background)" }}
+    >
       <div className="no-drag flex h-full">
         <TitleBarButton onClick={handleMinimize} aria-label="Reduire">
           <Minus className="h-3.5 w-3.5" />
@@ -48,7 +57,7 @@ function TitleBarButton({
         "flex h-full w-11 items-center justify-center text-foreground-subtle transition " +
         (variant === "danger"
           ? "hover:bg-danger hover:text-white"
-          : "hover:bg-surface-elevated hover:text-foreground")
+          : "hover:bg-white/5 hover:text-foreground")
       }
       {...rest}
     >

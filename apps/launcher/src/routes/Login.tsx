@@ -49,7 +49,7 @@ export function Login() {
   const isAuthenticating = state.status === "authenticating";
 
   return (
-    <div className="grid h-screen grid-cols-1 lg:grid-cols-2">
+    <div className="grid h-full grid-cols-1 lg:grid-cols-2">
       {/* Panneau gauche : formulaire */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -57,7 +57,6 @@ export function Login() {
         transition={{ duration: 0.5 }}
         className="relative flex flex-col items-center justify-center bg-background px-12"
       >
-        <div className="absolute inset-x-0 top-0 h-10 drag-region" />
 
         <div className="w-full max-w-sm">
           <div className="mb-12 flex items-center gap-3">

@@ -144,6 +144,85 @@ body,
 }
 
 /* ============================================================
+   Resume splash — affiché pendant resumeSession au boot. Doit
+   matcher visuellement le préload HTML défini dans index.html
+   (même titre, même barre, même bg) pour que la transition
+   préload → React soit invisible.
+   ============================================================ */
+
+.reborn-resume-title {
+  font-family: var(--font-display);
+  font-size: 88px;
+  letter-spacing: 0.08em;
+  line-height: 0.9;
+  margin: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 55%, rgba(255, 255, 255, 0.55) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 0 24px rgba(59, 91, 219, 0.4))
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.12));
+  animation: reborn-resume-fade-in 600ms ease-out;
+}
+
+.reborn-resume-tagline {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+  margin: 0;
+  animation: reborn-resume-fade-in 600ms 200ms ease-out both;
+}
+
+.reborn-resume-bar {
+  width: 220px;
+  height: 2px;
+  background: rgba(59, 91, 219, 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  animation: reborn-resume-fade-in 600ms 350ms ease-out both;
+}
+.reborn-resume-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-accent) 30%,
+    #6b8cff 50%,
+    var(--color-accent) 70%,
+    transparent
+  );
+  animation: reborn-resume-bar-slide 1.4s ease-in-out infinite;
+  box-shadow: 0 0 12px var(--color-accent-glow);
+}
+
+@keyframes reborn-resume-bar-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+@keyframes reborn-resume-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
    REBORN — Utility classes
    ============================================================ */
 
