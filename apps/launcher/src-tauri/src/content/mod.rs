@@ -399,11 +399,19 @@ pub struct TicketSummary {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct TicketAttachment {
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TicketMessageDto {
     pub id: String,
-    pub author_id: String,
+    pub author_id: Option<String>,
+    pub author_name: Option<String>,
     pub is_staff: bool,
     pub content: String,
+    pub attachments: Vec<TicketAttachment>,
     pub created_at: String,
 }
 

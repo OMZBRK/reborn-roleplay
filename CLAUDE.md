@@ -92,12 +92,19 @@ Tauri's macro looks up companion symbols (`__cmd__<name>`, `__tauri_command_name
 
 ### API ↔ Bot bidirectional bridge via shared HMAC
 
-The API and the Discord bot run as **two independent processes** that talk over HTTP, both ways:
+The API and the Discord bot run as **two independent processes** that talk over HTTP, both ways. Six bridge directions in total, all signed with HMAC-SHA256 using the same `REBORN_WEBHOOK_SECRET`:
 
-- **API → Bot** (notifications): `WebhooksService` (apps/api/src/webhooks/) POSTs to the bot's `:3001/webhooks/{whitelist,tickets}` after `WhitelistService.submit` or `TicketsService.create`. The bot creates a public Discord thread in `DISCORD_TICKETS_CHANNEL_ID` with an embed whose footer carries the entity ID (`application <uuid>` or `ticket <uuid>`).
-- **Bot → API** (staff actions): `/whitelist accept|reject|revise` and `/ticket progress|resolve|close` slash commands extract the entity ID by reading the bot's own original embed footer in the current thread (`apps/bot/src/thread-context.ts` — filter by footer pattern, **not** by message order, because subsequent status embeds without footer would mask the original), then PATCH `/v1/staff/{whitelist,tickets}/:id`.
+**Lifecycle (creation + decisions):**
+- **API → Bot** (notifications): `WebhooksService` (apps/api/src/webhooks/) POSTs to the bot's `:3001/webhooks/{whitelist,tickets}` after `WhitelistService.submit` or `TicketsService.create`. The bot creates a public Discord thread in `DISCORD_TICKETS_CHANNEL_ID` with an embed whose footer carries the entity ID (`application <uuid>` or `ticket <uuid>`), and **returns the threadId in the response body**. The API persists `discordThreadId` on the entity for later message relay.
+- **Bot → API** (staff slash commands): `/whitelist accept|reject|revise` and `/ticket progress|resolve|close` extract the entity ID by reading the bot's own original embed footer in the current thread (`apps/bot/src/thread-context.ts::extractIdFromThread` — filter by footer pattern, **not** by message order, because subsequent status embeds without footer would mask the original), then PATCH `/v1/staff/{whitelist,tickets}/:id`.
 
-Both directions sign requests with HMAC-SHA256 using the **same** `REBORN_WEBHOOK_SECRET`. The API verifies inbound signatures via `apps/api/src/staff/hmac-signature.guard.ts`; this requires the raw request body, captured in `main.ts` via the `verify` hook on `express.json()` and stashed on `req.rawBody`. Don't re-serialize the parsed JSON — bytes won't match. The whole staff path bypasses JWT and trusts the bot as infrastructure; that simplification will be replaced when real human staff users with role-based permissions land.
+**Chat (per-message relay):**
+- **API → Bot** (user replies in launcher): when a user posts via `POST /v1/{whitelist/me,tickets/:id}/messages`, the API persists the message *and* POSTs `/webhooks/{whitelist,tickets}-message` so the bot replies in the existing thread with a compact embed. The footer `from-launcher <pseudo>` is a marker for the bot's own listener to skip its own posts (loop prevention belt-and-suspenders; the `client.user.id` check is the real guard).
+- **Bot → API** (staff replies in Discord thread): `apps/bot/src/thread-listener.ts` listens to `Events.MessageCreate`, filters by `parentId === DISCORD_TICKETS_CHANNEL_ID`, ignores its own posts, identifies whether the thread is whitelist or ticket via the same footer-extraction trick (`extractIdFromMessage`), then POSTs HMAC-signed `/v1/staff/{whitelist,tickets}/:id/messages` with `{discordMessageId, authorDiscordId, authorName, content, attachmentUrls}`.
+
+Idempotence on the chat path is `discordMessageId`-based: both `WhitelistMessagesService.postStaffMessage` and `TicketsService.postStaffMessage` upsert by that key so retries / re-emits don't create dupes. The launcher polls the user-side endpoints every 5s (`StatusChatPage` for whitelist, `Tickets.tsx` for tickets) — no SSE yet.
+
+The API verifies inbound HMAC signatures via `apps/api/src/staff/hmac-signature.guard.ts`; this requires the raw request body, captured in `main.ts` via the `verify` hook on `express.json()` and stashed on `req.rawBody`. Don't re-serialize the parsed JSON — bytes won't match. The whole staff path bypasses JWT and trusts the bot as infrastructure; that simplification will be replaced when real human staff users with role-based permissions land.
 
 ### Six-step launch flow plus a pre-step
 

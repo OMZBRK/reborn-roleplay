@@ -2092,6 +2092,282 @@ body,
   padding: 18px 0 24px;
 }
 
+/* ============================================================
+   Tickets — layout 2 panes (sidebar liste + chat pane)
+   Reutilise les classes wl-msg-* / wl-chat-* pour le chat lui-meme.
+   ============================================================ */
+
+.tk-shell {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
+.tk-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tk-sidebar-header {
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tk-sidebar-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  margin: 0;
+  color: var(--color-foreground);
+}
+
+.tk-sidebar-sub {
+  font-size: 11.5px;
+  color: var(--color-foreground-subtle);
+  margin: 2px 0 0;
+}
+
+.tk-new-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--color-accent);
+  color: white;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 18px var(--color-accent-glow);
+  transition: background var(--duration-fast), box-shadow var(--duration-base);
+}
+.tk-new-btn:hover {
+  background: var(--color-accent-hover);
+  box-shadow: 0 0 28px var(--color-accent-glow-strong);
+}
+
+.tk-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tk-list-empty {
+  padding: 24px 14px;
+  text-align: center;
+  color: var(--color-foreground-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.tk-item {
+  position: relative;
+  padding: 12px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tk-item:hover {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border);
+}
+.tk-item.is-active {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent-glow);
+}
+.tk-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tk-item-subject {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-foreground);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tk-item-preview {
+  font-size: 11.5px;
+  color: var(--color-foreground-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tk-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground-muted);
+}
+
+/* Badges (catégorie + statut) — partagés avec la sidebar et le chat header */
+.tk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
+}
+.tk-badge-cat {
+  color: var(--color-accent-hover);
+}
+.tk-badge-status-OPEN {
+  color: var(--color-warning);
+}
+.tk-badge-status-IN_PROGRESS {
+  color: var(--color-accent-hover);
+}
+.tk-badge-status-RESOLVED {
+  color: var(--color-success);
+}
+.tk-badge-status-CLOSED {
+  color: var(--color-foreground-muted);
+}
+
+/* Chat pane (right side) */
+.tk-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tk-pane-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  padding: 32px;
+  text-align: center;
+  color: var(--color-foreground-muted);
+}
+.tk-pane-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground-subtle);
+}
+.tk-pane-empty-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+  margin: 0;
+}
+
+.tk-pane-header {
+  padding: 16px 28px 12px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.tk-pane-header-left {
+  flex: 1;
+  min-width: 0;
+}
+.tk-pane-subject {
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.02em;
+  margin: 0 0 6px;
+  color: var(--color-foreground);
+  line-height: 1.15;
+}
+.tk-pane-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-foreground-muted);
+}
+
+.tk-chat-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 28px;
+}
+
+.tk-pane-form {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 32px;
+}
+
+/* Création form (réutilise wl-field-* / wl-input / wl-textarea quand possible) */
+.tk-create-card {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+}
+.tk-create-card select.wl-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  padding-right: 36px;
+  height: 42px;
+}
+
 /* ---------- Result pages (rejected / accepted) ---------- */
 .wl-status-result {
   flex: 1;

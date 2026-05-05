@@ -182,9 +182,11 @@ export type TicketSummary = {
 
 export type TicketMessage = {
   id: string;
-  authorId: string;
+  authorId: string | null;
+  authorName: string | null;
   isStaff: boolean;
   content: string;
+  attachments: { url: string }[];
   createdAt: string;
 };
 
