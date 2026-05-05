@@ -39,16 +39,30 @@ impl DiscordRpcState {
     /// Tente de connecter au client Discord local et publie l'activité
     /// "En jeu sur Reborn". Best-effort : si le client Discord n'est pas
     /// ouvert ou si le client_id env n'est pas configuré, log et continue.
+    ///
+    /// Resolution du client_id :
+    ///   1. DISCORD_RICH_PRESENCE_CLIENT_ID si défini (override pour avoir
+    ///      une app Discord dédiée séparée du bot).
+    ///   2. DISCORD_CLIENT_ID en fallback (la même app Discord que le bot
+    ///      OAuth — c'est le cas par défaut, l'utilisateur ajoute juste
+    ///      les images "logo" et "play" sous Rich Presence > Art Assets
+    ///      dans l'app existante).
     pub async fn start_in_game(&self, mc_version: &str) {
-        let Some(client_id) = std::env::var("DISCORD_RICH_PRESENCE_CLIENT_ID")
+        let client_id = std::env::var("DISCORD_RICH_PRESENCE_CLIENT_ID")
             .ok()
             .filter(|s| !s.trim().is_empty())
-        else {
+            .or_else(|| {
+                std::env::var("DISCORD_CLIENT_ID")
+                    .ok()
+                    .filter(|s| !s.trim().is_empty())
+            });
+        let Some(client_id) = client_id else {
             tracing::debug!(
-                "DISCORD_RICH_PRESENCE_CLIENT_ID non configure — Rich Presence desactivee"
+                "DISCORD_RICH_PRESENCE_CLIENT_ID + DISCORD_CLIENT_ID absents — Rich Presence desactivee"
             );
             return;
         };
+        tracing::info!("Discord RPC : connexion (client_id={}…)", &client_id[..client_id.len().min(8)]);
 
         let inner = self.inner.clone();
         let mc_version = mc_version.to_string();

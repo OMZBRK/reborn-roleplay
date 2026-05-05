@@ -171,7 +171,7 @@ Beyond Postgres/Redis/JWT/MS OAuth (already documented in `.env.example` pattern
 - `REBORN_BOT_WEBHOOK_URL` (default `http://localhost:3001`) — where the API POSTs notifications.
 - `BOT_HTTP_PORT` (default `3001`) — port the bot exposes for webhooks.
 - `REBORN_API_URL` (default `http://localhost:3000/v1`) — used by the bot for outbound calls to `/v1/staff/*`.
-- `DISCORD_RICH_PRESENCE_CLIENT_ID` — Discord application ID for Rich Presence shown while the user is in-game. Create the app at <https://discord.com/developers/applications>, upload "logo" + "play" images under Rich Presence → Art Assets, paste the Application ID here. **Optional** — if unset, the launcher silently skips RPC. The launcher publishes the activity from `discord_rpc.rs::start_in_game` after `game:started` and clears it after `game:exited`. The IPC is local (Unix socket / Windows named pipe), no network.
+- `DISCORD_RICH_PRESENCE_CLIENT_ID` — Discord application ID for Rich Presence shown while the user is in-game. **Optional override** — if unset, the launcher falls back to `DISCORD_CLIENT_ID` (the same app used for OAuth + bot). Reuse is the default flow: open <https://discord.com/developers/applications>, pick the existing Reborn app, upload "logo" + "play" images under Rich Presence → Art Assets — done. Set this env only when you want a separate Discord app dedicated to RPC (e.g., split icon set or different application name). The launcher publishes the activity from `discord_rpc.rs::start_in_game` after `game:started` and clears it after `game:exited`. The IPC is local (Unix socket / Windows named pipe), no network. RPC fires only when the actual game launches — not while the launcher is idle on the main menu.
 
 ## Conventions
 
