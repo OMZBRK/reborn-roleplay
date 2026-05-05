@@ -40,13 +40,15 @@ export function App() {
     };
   }, [setSession, setResuming]);
 
-  // TitleBar liftée ici pour qu'elle soit toujours visible (login, resume,
-  // authenticated). Les écrans en-dessous prennent le reste de la hauteur
-  // via flex-1 + min-height: 0.
+  // TitleBar overlay : positionnée absolute par-dessus le contenu. Le
+  // contenu (sidebar/main/login/resume) remonte à y=0 et ses bgs/gradients
+  // s'étendent naturellement jusqu'au top de la fenêtre. La TitleBar ne
+  // crée plus de bande noire séparante — seuls les boutons minimize/close
+  // flottent en haut à droite. Cf TitleBar.tsx pour le détail des zones
+  // (spacer / drag-region / boutons).
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <TitleBar />
-      <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="relative h-screen overflow-hidden bg-background">
+      <div className="relative flex h-full min-h-0 flex-col">
         {isResuming ? (
           <ResumeSplash />
         ) : (
@@ -74,6 +76,10 @@ export function App() {
           </Routes>
         )}
       </div>
+      {/* TitleBar overlay : reste après le contenu pour être au-dessus dans
+          le z-order (z-50 dans le composant). Visible sur tous les écrans
+          (login, resume, authenticated). */}
+      <TitleBar />
     </div>
   );
 }
