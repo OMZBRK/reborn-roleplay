@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   BookOpen,
@@ -13,10 +13,15 @@ import {
 import { useAuthStore } from "../stores/auth-store";
 import { useWhitelistStore } from "../stores/whitelist-store";
 import { logout } from "../lib/auth";
+import { fetchServerStatus, type ServerStatus } from "../lib/content";
 import { UserBlock } from "./sidebar/UserBlock";
 import { NavSection, type NavSectionConfig } from "./sidebar/NavSection";
 import { ServerStatusFooter } from "./sidebar/ServerStatusFooter";
 import { WhitelistBadge } from "./sidebar/WhitelistBadge";
+
+// Polling toutes les 30s pour le statut serveur. Coté API on a un cache 10s
+// donc 3 requêtes max par minute par client — pas de pression sur Paper.
+const SERVER_POLL_MS = 30_000;
 
 export function Sidebar() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -59,14 +64,47 @@ export function Sidebar() {
     [whitelistStatus],
   );
 
-  // TODO: brancher sur un endpoint /v1/server/status quand il existera
-  const server = {
-    online: true,
-    players: 23,
-    capacity: 200,
-    ping: 28,
-    ip: "play.reborn-rp.fr",
-  };
+  // État du serveur Minecraft (ping via /v1/server/status). null pendant la
+  // toute première fetch — affichage "—" pour les chiffres.
+  const [server, setServer] = useState<ServerStatus | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    async function poll() {
+      try {
+        const data = await fetchServerStatus();
+        if (!cancelled) setServer(data);
+      } catch (err) {
+        // L'API peut être down (dev local). On retombe sur l'état "offline"
+        // visuellement plutôt que de laisser des chiffres factices.
+        if (!cancelled) {
+          console.warn("[sidebar] server status failed:", err);
+          setServer((prev) =>
+            prev ?? {
+              online: false,
+              players: 0,
+              capacity: 0,
+              ping: null,
+              version: null,
+              motd: null,
+              ip: "—",
+              measuredAt: new Date().toISOString(),
+            },
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          timer = window.setTimeout(poll, SERVER_POLL_MS);
+        }
+      }
+    }
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, []);
 
   // Offsets cumulés pour que la stagger animation s'enchaîne sur toute la liste
   const itemOffsets = useMemo(() => {
@@ -107,11 +145,11 @@ export function Sidebar() {
       </nav>
 
       <ServerStatusFooter
-        online={server.online}
-        players={server.players}
-        capacity={server.capacity}
-        ping={server.ping}
-        ip={server.ip}
+        online={server?.online ?? false}
+        players={server?.players ?? 0}
+        capacity={server?.capacity ?? 0}
+        ping={server?.ping ?? null}
+        ip={server?.ip ?? "—"}
         onLogout={handleLogout}
       />
     </aside>

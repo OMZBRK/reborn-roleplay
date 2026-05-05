@@ -4,7 +4,8 @@ type Props = {
   online: boolean;
   players: number;
   capacity: number;
-  ping: number;
+  // null = pas encore mesuré (server hors ligne ou première fetch en cours).
+  ping: number | null;
   ip: string;
   onLogout: () => void;
 };
@@ -74,7 +75,7 @@ export function ServerStatusFooter({ online, players, capacity, ping, ip, onLogo
           className="flex items-center justify-between font-mono text-[10px]"
           style={{ color: "var(--color-foreground-muted)" }}
         >
-          <span>Ping · {ping} ms</span>
+          <span>Ping · {ping !== null ? `${ping} ms` : "—"}</span>
           <span className="ml-2 truncate">{ip}</span>
         </div>
       </div>

@@ -228,3 +228,22 @@ export async function postTicketMessage(
 export async function deleteTicket(id: string): Promise<void> {
   await invoke<void>("tickets_delete", { id });
 }
+
+// ──────────────────────────────────────────────────────
+// Server status
+// ──────────────────────────────────────────────────────
+
+export type ServerStatus = {
+  online: boolean;
+  players: number;
+  capacity: number;
+  ping: number | null;
+  version: string | null;
+  motd: string | null;
+  ip: string;
+  measuredAt: string;
+};
+
+export async function fetchServerStatus(): Promise<ServerStatus> {
+  return invoke<ServerStatus>("server_status");
+}

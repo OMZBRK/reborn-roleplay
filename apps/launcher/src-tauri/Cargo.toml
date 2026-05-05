@@ -61,3 +61,6 @@ notify = "7"
 
 # Extraction des libraries natives (Mojang livre les .dll/.so/.dylib en jar).
 zip = { version = "2", default-features = false, features = ["deflate"] }
+
+# Discord Rich Presence (IPC vers le client Discord local).
+discord-rich-presence = "0.2"

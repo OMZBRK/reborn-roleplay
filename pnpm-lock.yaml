@@ -43,6 +43,9 @@ importers:
       class-validator:
         specifier: ^0.14.1
         version: 0.14.4
+      minecraft-server-util:
+        specifier: ^5.4.4
+        version: 5.4.4
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -3239,6 +3242,15 @@ packages:
   mimic-fn@2.1.0:
     resolution: {integrity: sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg==}
     engines: {node: '>=6'}
+
+  minecraft-motd-util@1.1.12:
+    resolution: {integrity: sha512-5TuTRjrRupSTruea0nRC37r0FdhkS1O4wIJKAYfwJRCQd/X4Zyl/dVIs96h9UVW6N8jhIuz9pNkrDsqyN7VBdA==}
+    deprecated: no longer maintained
+
+  minecraft-server-util@5.4.4:
+    resolution: {integrity: sha512-uaE0N9PHPtJudi8BlCvKDD9K30w23ZpeS1I53wEJo9nX0HSmg5qFvwj8gMG0CYCUwWH/g5hjKaGAwXXN/vhMJw==}
+    engines: {node: '>=10.0.0'}
+    deprecated: no longer maintained, please use https://mcstatus.io
 
   minimatch@10.2.5:
     resolution: {integrity: sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg==}
@@ -7423,6 +7435,12 @@ snapshots:
   mime@2.6.0: {}
 
   mimic-fn@2.1.0: {}
+
+  minecraft-motd-util@1.1.12: {}
+
+  minecraft-server-util@5.4.4:
+    dependencies:
+      minecraft-motd-util: 1.1.12
 
   minimatch@10.2.5:
     dependencies:

@@ -21,6 +21,7 @@ use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
 use crate::auth::AuthState;
+use crate::discord_rpc::DiscordRpcState;
 use crate::integrity::{spawn_watcher, TamperingEvent, WatcherHandle};
 use crate::launcher::{
     assets, diagnostics, fabric, jvm, libraries, mods as mods_inspect, mojang, paths, runtime,
@@ -282,6 +283,11 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     let _ = app.emit("game:started", result.clone());
 
+    // Discord Rich Presence — best-effort, ne bloque pas le launch.
+    if let Some(rpc) = app.try_state::<DiscordRpcState>() {
+        rpc.start_in_game(&result.minecraft_version).await;
+    }
+
     let game_state_handle = app.clone();
     tokio::spawn(async move {
         await_game_end(game_state_handle).await;
@@ -495,4 +501,9 @@ async fn await_game_end<R: Runtime>(app: AppHandle<R>) {
     let code = exit_status.and_then(|s| s.code()).unwrap_or(-1);
     let _ = app.emit("game:exited", code);
     tracing::info!("game process exited with code {code}");
+
+    // Clear Discord Rich Presence — le user n'est plus en jeu.
+    if let Some(rpc) = app.try_state::<DiscordRpcState>() {
+        rpc.stop().await;
+    }
 }

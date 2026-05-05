@@ -577,6 +577,35 @@ pub async fn discord_unlink(state: State<'_, AuthState>) -> Result<(), ContentEr
 
 /// Refresh l'objet User cote frontend (utile apres une liaison Discord
 /// completee dans le navigateur). Hit /v1/auth/me + met a jour le cache
+// ──────────────────────────────────────────────────────
+// Server status (ping Minecraft via API)
+// ──────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerStatus {
+    pub online: bool,
+    pub players: i32,
+    pub capacity: i32,
+    pub ping: Option<i32>, // ms
+    pub version: Option<String>,
+    pub motd: Option<String>,
+    pub ip: String,
+    pub measured_at: String,
+}
+
+#[tauri::command]
+pub async fn server_status(state: State<'_, AuthState>) -> Result<ServerStatus, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .get_json(&token, "/server/status")
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
 /// in-memory du backend.
 #[tauri::command]
 pub async fn auth_me(state: State<'_, AuthState>) -> Result<ApiUser, ContentError> {

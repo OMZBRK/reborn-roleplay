@@ -9,6 +9,7 @@ import { ManifestModule } from './manifest/manifest.module';
 import { PatchnotesModule } from './patchnotes/patchnotes.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RulesModule } from './rules/rules.module';
+import { ServerStatusModule } from './server-status/server-status.module';
 import { StaffModule } from './staff/staff.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -27,6 +28,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     ManifestModule,
     PatchnotesModule,
     RulesModule,
+    ServerStatusModule,
     StaffModule,
     TicketsModule,
     WebhooksModule,

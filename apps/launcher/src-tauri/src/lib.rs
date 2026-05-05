@@ -3,6 +3,7 @@
 mod api;
 mod auth;
 mod content;
+mod discord_rpc;
 mod hardware;
 mod integrity;
 mod launcher;
@@ -65,6 +66,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(auth::AuthState::new())
         .manage(launcher::GameState::new())
+        .manage(discord_rpc::DiscordRpcState::new())
         .invoke_handler(tauri::generate_handler![
             ping,
             auth::auth_login_microsoft,
@@ -92,6 +94,7 @@ pub fn run() {
             content::tickets_create,
             content::tickets_post_message,
             content::tickets_delete,
+            content::server_status,
             content::discord_link_start,
             content::discord_unlink,
             content::auth_me,
