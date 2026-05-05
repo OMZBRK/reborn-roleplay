@@ -316,6 +316,71 @@ pub async fn whitelist_withdraw(state: State<'_, AuthState>) -> Result<(), Conte
         })
 }
 
+// ── Messages whitelist (chat staff↔candidat via thread Discord) ──────
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WhitelistAttachment {
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WhitelistMessageDto {
+    pub id: String,
+    pub application_id: String,
+    pub author_type: String, // USER / STAFF / SYSTEM
+    pub author_id: Option<String>,
+    pub author_name: Option<String>,
+    pub content: String,
+    pub attachments: Vec<WhitelistAttachment>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PostWhitelistMessageRequest {
+    pub content: String,
+    pub attachment_urls: Option<Vec<String>>,
+}
+
+#[tauri::command]
+pub async fn whitelist_messages_list(
+    state: State<'_, AuthState>,
+) -> Result<Vec<WhitelistMessageDto>, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .get_json(&token, "/whitelist/me/messages")
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+#[tauri::command]
+pub async fn whitelist_messages_post(
+    state: State<'_, AuthState>,
+    content: String,
+    attachment_urls: Option<Vec<String>>,
+) -> Result<WhitelistMessageDto, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .post_json(
+            &token,
+            "/whitelist/me/messages",
+            &PostWhitelistMessageRequest {
+                content,
+                attachment_urls,
+            },
+        )
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
 // ──────────────────────────────────────────────────────
 // Tickets
 // ──────────────────────────────────────────────────────

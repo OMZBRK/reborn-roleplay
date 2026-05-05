@@ -136,6 +136,46 @@ model WhitelistApplication {
   reviewedAt   DateTime?
   reviewedBy   String?
   reviewNotes  String?
+
+  // ID du thread Discord cree par le bot lors de la soumission. Permet de
+  // relayer les messages user → thread (cf WhitelistMessage). Null tant que
+  // le webhook n'a pas repondu (best-effort).
+  discordThreadId String?
+
+  messages     WhitelistMessage[]
+}
+
+// Conversation staff↔candidat liee a une candidature whitelist. Le canal
+// physique reste un thread Discord ; cette table est la source de verite
+// cote launcher (le user voit ses messages dans le launcher, le staff dans
+// Discord). Le bot synchronise les deux sens via /webhooks/whitelist-message
+// (user → discord) et /staff/whitelist/:id/messages (discord → user).
+model WhitelistMessage {
+  id            String              @id @default(uuid())
+  applicationId String
+  application   WhitelistApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  authorType    MessageAuthor
+  // Pour USER : id du Reborn User. Pour STAFF : id Discord du staff qui a
+  // poste dans le thread (snowflake). Pour SYSTEM : null.
+  authorId      String?
+  // Pseudonyme affichable (user.minecraftUsername ou Discord member.username).
+  authorName    String?
+  content       String
+  // Liste de pieces jointes (URL Discord CDN ou data:URL relayee). On
+  // garde simple : juste les URLs + nom + taille. Pas de stockage local.
+  attachments   Json                @default("[]")
+  // ID du message Discord d'origine (cote staff) ou copy poste par le bot
+  // (cote user). Permet de dedup quand le bot s'auto-reproduit.
+  discordMessageId String?
+  createdAt     DateTime            @default(now())
+
+  @@index([applicationId, createdAt])
+}
+
+enum MessageAuthor {
+  USER
+  STAFF
+  SYSTEM
 }
 
 enum AppStatus {
@@ -209,6 +249,10 @@ model Ticket {
   subject   String
   status    TicketStatus    @default(OPEN)
   messages  TicketMessage[]
+  // ID du thread Discord cree par le bot lors de la creation du ticket.
+  // Meme logique que WhitelistApplication.discordThreadId : permet le
+  // relais bidirectionnel des messages staff↔candidat.
+  discordThreadId String?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 }
@@ -229,12 +273,21 @@ enum TicketStatus {
 }
 
 model TicketMessage {
-  id        String   @id @default(uuid())
-  ticketId  String
-  ticket    Ticket   @relation(fields: [ticketId], references: [id])
-  authorId  String
-  content   String
-  createdAt DateTime @default(now())
+  id          String        @id @default(uuid())
+  ticketId    String
+  ticket      Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorType  MessageAuthor @default(USER)
+  // Pour USER : id du Reborn User. Pour STAFF : snowflake Discord du staff.
+  // Reste authorId pour backward compat avec le service existant qui pose
+  // userId pour les messages user.
+  authorId    String?
+  authorName  String?
+  content     String
+  attachments Json          @default("[]")
+  discordMessageId String?
+  createdAt   DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
 }
 
 // ──────────────────────────────────────────────────────

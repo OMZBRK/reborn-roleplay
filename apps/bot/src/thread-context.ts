@@ -1,6 +1,8 @@
 import {
   ChannelType,
   type ChatInputCommandInteraction,
+  type Client,
+  type Message,
   type ThreadChannel,
 } from "discord.js";
 
@@ -16,7 +18,27 @@ export async function extractIdFromThread(
 ): Promise<string | null> {
   const channel = interaction.channel;
   if (!channel || !channel.isThread()) return null;
-  const thread = channel as ThreadChannel;
+  return await extractIdFromThreadChannel(channel, interaction.client, prefix);
+}
+
+/**
+ * Variante utilisable depuis messageCreate (Message au lieu de
+ * ChatInputCommandInteraction). Memes regles : on cherche un embed du bot
+ * dont le footer matche `<prefix> <uuid>`.
+ */
+export async function extractIdFromMessage(
+  message: Message,
+  prefix: "application" | "ticket",
+): Promise<string | null> {
+  if (!message.channel.isThread()) return null;
+  return await extractIdFromThreadChannel(message.channel, message.client, prefix);
+}
+
+async function extractIdFromThreadChannel(
+  thread: ThreadChannel,
+  client: Client,
+  prefix: "application" | "ticket",
+): Promise<string | null> {
   if (
     thread.parent?.type !== ChannelType.GuildText &&
     thread.parent?.type !== ChannelType.GuildAnnouncement
@@ -35,7 +57,7 @@ export async function extractIdFromThread(
   const messages = await thread.messages.fetch({ limit: 50 });
   const pattern = new RegExp(`^${prefix}\\s+([\\w-]+)$`);
   for (const m of messages.values()) {
-    if (m.author.id !== interaction.client.user?.id) continue;
+    if (m.author.id !== client.user?.id) continue;
     for (const embed of m.embeds) {
       const footer = embed.footer?.text ?? "";
       const match = pattern.exec(footer);

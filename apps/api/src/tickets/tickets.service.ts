@@ -26,9 +26,11 @@ export interface TicketSummary {
 
 export interface TicketMessageDto {
   id: string;
-  authorId: string;
+  authorId: string | null;
+  authorName: string | null;
   isStaff: boolean;
   content: string;
+  attachments: { url: string }[];
   createdAt: string;
 }
 
@@ -40,6 +42,14 @@ export interface TicketDetail {
   createdAt: string;
   updatedAt: string;
   messages: TicketMessageDto[];
+}
+
+export interface PostStaffMessageInput {
+  discordMessageId: string;
+  authorDiscordId: string;
+  authorName: string;
+  content: string;
+  attachmentUrls?: string[];
 }
 
 @Injectable()
@@ -71,6 +81,7 @@ export class TicketsService {
         status: TicketStatus.OPEN,
         messages: {
           create: {
+            authorType: 'USER',
             authorId: userId,
             content: dto.message.trim(),
           },
@@ -102,20 +113,21 @@ export class TicketsService {
         'Ce ticket est cloture. Tu peux le consulter mais pas le supprimer.',
       );
     }
-    // Supprime les messages d'abord (pas de cascade configure cote schema).
-    await this.prisma.ticketMessage.deleteMany({ where: { ticketId } });
+    // Cascade configurée côté schema (onDelete: Cascade), pas besoin de
+    // deleteMany en amont.
     await this.prisma.ticket.delete({ where: { id: ticketId } });
   }
 
   /**
    * Notifie le bot Discord d'un nouveau ticket. Le bot ouvre un thread
-   * prive dans le salon staff. Echec non-bloquant.
+   * public dans le salon staff. Echec non-bloquant. On persiste le
+   * threadId retourne pour relayer les messages user → discord.
    */
   private async notifyStaff(userId: string, ticket: Ticket, firstMessage: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return;
     try {
-      await this.webhooks.ticketCreated({
+      const result = await this.webhooks.ticketCreated({
         ticketId: ticket.id,
         userPseudo: user.minecraftUsername,
         userId: user.id,
@@ -124,6 +136,13 @@ export class TicketsService {
         message: firstMessage,
         discordUserId: user.discordUserId,
       });
+      if (result?.threadId) {
+        await this.prisma.ticket.update({
+          where: { id: ticket.id },
+          data: { discordThreadId: result.threadId },
+        });
+        this.logger.log(`ticket ${ticket.id} → thread ${result.threadId}`);
+      }
     } catch (err) {
       this.logger.warn(
         `Webhook ticket non transmis : ${(err as Error).message}`,
@@ -158,10 +177,13 @@ export class TicketsService {
         'Ce ticket est ferme. Ouvre un nouveau ticket pour continuer.',
       );
     }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const message = await this.prisma.ticketMessage.create({
       data: {
         ticketId,
+        authorType: 'USER',
         authorId: userId,
+        authorName: user?.minecraftUsername ?? null,
         content: dto.content.trim(),
       },
     });
@@ -169,7 +191,71 @@ export class TicketsService {
       where: { id: ticketId },
       data: { updatedAt: new Date() },
     });
+
+    // Relay best-effort vers le thread Discord. Skip si pas de threadId
+    // stocke (ex: bot etait down a la creation du ticket).
+    if (ticket.discordThreadId) {
+      try {
+        const relay = await this.webhooks.ticketMessageRelay({
+          threadId: ticket.discordThreadId,
+          authorPseudo: user?.minecraftUsername ?? 'Joueur',
+          content: dto.content.trim(),
+        });
+        if (relay?.messageId) {
+          await this.prisma.ticketMessage.update({
+            where: { id: message.id },
+            data: { discordMessageId: relay.messageId },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Relay ticket message échec : ${(err as Error).message}`,
+        );
+      }
+    }
+
     return this.toMessageDto(message, userId);
+  }
+
+  /**
+   * Reception d'un message staff depuis le bot Discord (listener
+   * messageCreate). Idempotent : dédupliqué par discordMessageId.
+   */
+  async postStaffMessage(
+    ticketId: string,
+    input: PostStaffMessageInput,
+  ): Promise<TicketMessageDto> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+    if (!ticket) throw new NotFoundException('Ticket introuvable.');
+
+    const existing = await this.prisma.ticketMessage.findFirst({
+      where: { ticketId, discordMessageId: input.discordMessageId },
+    });
+    if (existing) {
+      return this.toMessageDto(existing, ticket.userId);
+    }
+
+    const created = await this.prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        authorType: 'STAFF',
+        authorId: input.authorDiscordId,
+        authorName: input.authorName,
+        content: input.content,
+        attachments: (input.attachmentUrls ?? []).map((url) => ({ url })),
+        discordMessageId: input.discordMessageId,
+      },
+    });
+    await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: { updatedAt: new Date() },
+    });
+    this.logger.log(
+      `ticket ${ticketId} ← staff message ${created.id} from ${input.authorName}`,
+    );
+    return this.toMessageDto(created, ticket.userId);
   }
 
   private toSummary(ticket: Ticket, lastMessage?: TicketMessage): TicketSummary {
@@ -189,7 +275,7 @@ export class TicketsService {
   private toDetail(
     ticket: Ticket,
     messages: TicketMessage[],
-    userId: string,
+    viewerId: string,
   ): TicketDetail {
     return {
       id: ticket.id,
@@ -198,16 +284,31 @@ export class TicketsService {
       status: ticket.status,
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt.toISOString(),
-      messages: messages.map((m) => this.toMessageDto(m, userId)),
+      messages: messages.map((m) => this.toMessageDto(m, viewerId)),
     };
   }
 
   private toMessageDto(message: TicketMessage, viewerId: string): TicketMessageDto {
+    let attachments: { url: string }[] = [];
+    if (Array.isArray(message.attachments)) {
+      attachments = (message.attachments as unknown[])
+        .filter((a): a is { url: string } => {
+          return typeof a === 'object' && a !== null && 'url' in a;
+        })
+        .map((a) => ({ url: a.url }));
+    }
+    // isStaff = true si authorType=STAFF, ou si authorId !== viewerId pour
+    // les anciens messages avant migration (backward compat).
+    const isStaff =
+      message.authorType === 'STAFF' ||
+      (message.authorType === 'USER' && message.authorId !== viewerId);
     return {
       id: message.id,
       authorId: message.authorId,
-      isStaff: message.authorId !== viewerId,
+      authorName: message.authorName,
+      isStaff,
       content: message.content,
+      attachments,
       createdAt: message.createdAt.toISOString(),
     };
   }

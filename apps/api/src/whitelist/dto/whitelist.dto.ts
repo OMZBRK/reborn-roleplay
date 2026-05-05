@@ -1,7 +1,9 @@
 import {
+  IsArray,
   IsDateString,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   MaxLength,
   MinLength,
@@ -72,4 +74,20 @@ export class SubmitWhitelistDto {
   @MinLength(400)
   @MaxLength(8000)
   objectives!: string;
+}
+
+// DTO pour POST /whitelist/me/messages (user → staff via Discord).
+export class PostMessageDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(4000)
+  content!: string;
+
+  // URLs des pièces jointes — l'upload réel se fait ailleurs (TODO :
+  // route dédiée ou direct upload Discord CDN). Ici on accepte juste
+  // les URLs déjà accessibles publiquement.
+  @IsOptional()
+  @IsArray()
+  @IsUrl({}, { each: true })
+  attachmentUrls?: string[];
 }

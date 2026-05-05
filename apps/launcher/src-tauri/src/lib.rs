@@ -85,6 +85,8 @@ pub fn run() {
             content::whitelist_submit,
             content::whitelist_resubmit,
             content::whitelist_withdraw,
+            content::whitelist_messages_list,
+            content::whitelist_messages_post,
             content::tickets_list,
             content::tickets_detail,
             content::tickets_create,

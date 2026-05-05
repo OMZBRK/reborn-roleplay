@@ -128,6 +128,35 @@ export async function withdrawWhitelist(): Promise<void> {
   await invoke<void>("whitelist_withdraw");
 }
 
+// ── Messages whitelist (chat staff↔candidat) ───────────────────────
+
+export type WhitelistMessageAuthor = "USER" | "STAFF" | "SYSTEM";
+
+export type WhitelistMessage = {
+  id: string;
+  applicationId: string;
+  authorType: WhitelistMessageAuthor;
+  authorId: string | null;
+  authorName: string | null;
+  content: string;
+  attachments: { url: string }[];
+  createdAt: string;
+};
+
+export async function fetchWhitelistMessages(): Promise<WhitelistMessage[]> {
+  return invoke<WhitelistMessage[]>("whitelist_messages_list");
+}
+
+export async function postWhitelistMessage(
+  content: string,
+  attachmentUrls?: string[],
+): Promise<WhitelistMessage> {
+  return invoke<WhitelistMessage>("whitelist_messages_post", {
+    content,
+    attachmentUrls: attachmentUrls ?? null,
+  });
+}
+
 // ──────────────────────────────────────────────────────
 // Tickets
 // ──────────────────────────────────────────────────────

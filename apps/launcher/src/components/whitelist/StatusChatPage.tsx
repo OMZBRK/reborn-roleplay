@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
+  AlertTriangle,
   FileText,
   Loader2,
   MessageSquare,
@@ -11,6 +12,11 @@ import {
 } from "lucide-react";
 import { useWhitelistStore } from "../../stores/whitelist-store";
 import { formatDateFr } from "../../lib/whitelist-validation";
+import {
+  fetchWhitelistMessages,
+  postWhitelistMessage,
+  type WhitelistMessage,
+} from "../../lib/content";
 import { RecapField } from "./RecapField";
 
 type Tab = "chat" | "application";
@@ -20,57 +26,92 @@ type Props = {
   withdrawing?: boolean;
 };
 
-type AttachmentDraft = {
+type LocalAttachment = {
   id: string;
   name: string;
   size: number;
+  // URL si l'utilisateur a déjà uploadé (sinon on ne peut pas relayer côté
+  // bot — placeholder pour l'instant). TODO : route /v1/upload qui pousse
+  // vers Discord CDN ou un store interne et retourne l'URL.
+  url?: string;
 };
 
-type ChatMessage = {
-  id: string;
-  author: "me";
-  content: string;
-  attachments: AttachmentDraft[];
-  sentAt: number;
-};
+const POLL_INTERVAL_MS = 5000;
 
 // Page Statut + Chat (state 7).
 //
-// Conception du chat : seul le message système initial est affiché par défaut
-// ("Votre candidature a été soumise, le staff va l'examiner"). Le staff répond
-// depuis Discord (via le bridge bot ↔ API), pas depuis le launcher — donc
-// aucun pré-remplissage de bulles staff côté UI. Les messages du joueur
-// envoyés ici se répercuteront sur Discord via webhook (TODO côté API).
+// Le chat affiche les messages réellement persistés côté API (POST
+// /v1/whitelist/me/messages côté user, /v1/staff/whitelist/:id/messages
+// côté bot après messageCreate). Polling toutes les 5s en attendant SSE.
 //
 // Onglets :
 //  - "Chat" : conversation avec le staff
 //  - "Ma candidature" : récap des champs HRP + RP soumis (read-only)
 //
-// Pièces jointes : géréees localement comme drafts (objet AttachmentDraft).
-// Quand l'envoi sera branché à l'API, on POST multipart avec ces fichiers.
-//
-// Bouton "Retirer ma candidature" : visible en haut, propose à l'utilisateur
-// de supprimer sa candidature côté serveur (DELETE /whitelist/me) et de
-// repartir d'un brouillon vide. Géré par le parent (Whitelist.tsx) qui
-// appelle withdrawWhitelist + reset le store.
+// Limitation actuelle : les pièces jointes ne sont pas uploadées (pas
+// d'endpoint d'upload côté API). On les affiche localement dans le draft
+// mais elles ne sont pas envoyées avec le message tant que l'URL n'est
+// pas resolvable. À implémenter en phase suivante.
 export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
   const draft = useWhitelistStore((s) => s.draft);
+  const applicationId = useWhitelistStore((s) => s.applicationId);
   const [tab, setTab] = useState<Tab>("chat");
   const [draftMsg, setDraftMsg] = useState("");
-  const [attachments, setAttachments] = useState<AttachmentDraft[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
+  const [messages, setMessages] = useState<WhitelistMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Polling : on fetch au mount + toutes les 5s tant que l'onglet est ouvert.
+  // On n'autorise le poll que si on a un applicationId — sinon ce serait
+  // un appel inutile (le serveur retournerait toujours []).
+  useEffect(() => {
+    if (!applicationId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    let timer: number | undefined;
+
+    async function poll() {
+      try {
+        const list = await fetchWhitelistMessages();
+        if (!cancelled) {
+          setMessages(list);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          // En dev local sans API, on log mais on n'affiche pas pour ne pas
+          // polluer la UI à chaque tick.
+          console.warn("[whitelist-chat] fetch failed:", err);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          timer = window.setTimeout(poll, POLL_INTERVAL_MS);
+        }
+      }
+    }
+
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [applicationId]);
 
   function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
-    const next: AttachmentDraft[] = files.map((f) => ({
+    const next: LocalAttachment[] = files.map((f) => ({
       id: `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`,
       name: f.name,
       size: f.size,
     }));
     setAttachments((prev) => [...prev, ...next]);
-    // Permet de re-sélectionner le même fichier consécutivement.
     e.target.value = "";
   }
 
@@ -78,27 +119,36 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
-  function handleSend() {
+  async function handleSend() {
     const trimmed = draftMsg.trim();
-    if (!trimmed && attachments.length === 0) return;
-    // TODO: brancher sur POST /v1/whitelist/me/messages côté API quand le
-    // canal staff↔candidat sera implémenté (équivalent du flow Tickets).
-    const msg: ChatMessage = {
-      id: `${Date.now()}`,
-      author: "me",
-      content: trimmed,
-      attachments,
-      sentAt: Date.now(),
-    };
-    setMessages((prev) => [...prev, msg]);
-    setDraftMsg("");
-    setAttachments([]);
+    if (!trimmed) {
+      // On exige un contenu textuel pour l'instant (pas d'upload routé).
+      return;
+    }
+    setSending(true);
+    setError(null);
+    try {
+      // Les attachments sans URL sont ignorées le temps qu'on ait un endpoint
+      // d'upload. Côté UX on garde les chips le temps de l'envoi puis on les
+      // jette aussi.
+      const urls = attachments
+        .map((a) => a.url)
+        .filter((u): u is string => !!u);
+      const created = await postWhitelistMessage(trimmed, urls.length > 0 ? urls : undefined);
+      setMessages((prev) => [...prev, created]);
+      setDraftMsg("");
+      setAttachments([]);
+    } catch (err) {
+      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Envoi échoué");
+    } finally {
+      setSending(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   }
 
@@ -168,6 +218,9 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
         {tab === "chat" ? (
           <ChatPanel
             messages={messages}
+            loading={loading}
+            error={error}
+            sending={sending}
             draftMsg={draftMsg}
             attachments={attachments}
             onDraftChange={setDraftMsg}
@@ -188,6 +241,9 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
 
 function ChatPanel({
   messages,
+  loading,
+  error,
+  sending,
   draftMsg,
   attachments,
   onDraftChange,
@@ -198,9 +254,12 @@ function ChatPanel({
   fileInputRef,
   onFiles,
 }: {
-  messages: ChatMessage[];
+  messages: WhitelistMessage[];
+  loading: boolean;
+  error: string | null;
+  sending: boolean;
   draftMsg: string;
-  attachments: AttachmentDraft[];
+  attachments: LocalAttachment[];
   onDraftChange: (v: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
@@ -224,47 +283,24 @@ function ChatPanel({
           </em>
         </motion.div>
 
+        {loading && messages.length === 0 && (
+          <div className="flex items-center justify-center gap-2 py-4 text-xs text-foreground-muted">
+            <Loader2 size={14} className="animate-spin" />
+            Chargement des messages…
+          </div>
+        )}
+
         {messages.map((m) => (
-          <motion.div
-            key={m.id}
-            className="wl-msg wl-msg-me"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="wl-msg-body">
-              <div className="wl-msg-meta" style={{ justifyContent: "flex-end" }}>
-                <span
-                  style={{
-                    color: "var(--color-foreground-muted)",
-                    fontSize: 11,
-                    fontFamily: "var(--font-mono)",
-                  }}
-                >
-                  {formatTime(m.sentAt)}
-                </span>
-                <span className="wl-msg-author">Vous</span>
-              </div>
-              {m.content && (
-                <div className="wl-msg-bubble wl-msg-bubble-me">{m.content}</div>
-              )}
-              {m.attachments.length > 0 && (
-                <div className="wl-msg-attachments">
-                  {m.attachments.map((a) => (
-                    <span key={a.id} className="wl-attachment-chip">
-                      <Paperclip size={12} />
-                      <span className="truncate">{a.name}</span>
-                      <span className="wl-attachment-size">
-                        {formatBytes(a.size)}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </motion.div>
+          <ChatBubble key={m.id} message={m} />
         ))}
       </div>
+
+      {error && (
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+          <AlertTriangle size={14} />
+          {error}
+        </div>
+      )}
 
       <div className="wl-chat-input-wrap">
         <textarea
@@ -274,6 +310,7 @@ function ChatPanel({
           value={draftMsg}
           onChange={(e) => onDraftChange(e.target.value)}
           onKeyDown={onKeyDown}
+          disabled={sending}
         />
         {attachments.length > 0 && (
           <div className="wl-chat-pending-attachments">
@@ -307,6 +344,7 @@ function ChatPanel({
             className="wl-chat-icon-btn"
             onClick={onPickClick}
             aria-label="Joindre un fichier"
+            disabled={sending}
           >
             <Paperclip size={16} />
           </button>
@@ -315,12 +353,132 @@ function ChatPanel({
             className="wl-chat-send"
             aria-label="Envoyer"
             onClick={onSend}
+            disabled={sending || draftMsg.trim().length === 0}
           >
-            <Send size={16} />
+            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
       </div>
     </>
+  );
+}
+
+// Bulle individuelle. Un message USER s'affiche aligné à droite avec
+// l'auteur "Vous" ; un message STAFF aligné à gauche avec un avatar +
+// badge violet "Staff" + nom Discord ; un message SYSTEM en bandeau central.
+function ChatBubble({ message }: { message: WhitelistMessage }) {
+  const time = formatTime(message.createdAt);
+
+  if (message.authorType === "SYSTEM") {
+    return (
+      <motion.div
+        className="wl-msg-system"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <em>{message.content}</em>
+      </motion.div>
+    );
+  }
+
+  if (message.authorType === "STAFF") {
+    return (
+      <motion.div
+        className="wl-msg wl-msg-staff"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div
+          className="wl-msg-avatar"
+          style={{ background: "linear-gradient(135deg,#8b5cf6,#a78bfa)" }}
+        >
+          {(message.authorName ?? "S").charAt(0).toUpperCase()}
+        </div>
+        <div className="wl-msg-body">
+          <div className="wl-msg-meta">
+            <span className="wl-msg-author">{message.authorName ?? "Staff"}</span>
+            <span
+              className="wl-role-badge"
+              style={{ ["--role-color" as string]: "var(--color-role-staff)" }}
+            >
+              Staff
+            </span>
+            <span
+              style={{
+                color: "var(--color-foreground-muted)",
+                fontSize: 11,
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              {time}
+            </span>
+          </div>
+          <div className="wl-msg-bubble wl-msg-bubble-staff">{message.content}</div>
+          {message.attachments.length > 0 && (
+            <div className="wl-msg-attachments">
+              {message.attachments.map((a, i) => (
+                <a
+                  key={i}
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="wl-attachment-chip"
+                >
+                  <Paperclip size={12} />
+                  <span className="truncate">{shortenUrl(a.url)}</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // USER
+  return (
+    <motion.div
+      className="wl-msg wl-msg-me"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="wl-msg-body">
+        <div className="wl-msg-meta" style={{ justifyContent: "flex-end" }}>
+          <span
+            style={{
+              color: "var(--color-foreground-muted)",
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {time}
+          </span>
+          <span className="wl-msg-author">Vous</span>
+        </div>
+        {message.content && (
+          <div className="wl-msg-bubble wl-msg-bubble-me">{message.content}</div>
+        )}
+        {message.attachments.length > 0 && (
+          <div className="wl-msg-attachments">
+            {message.attachments.map((a, i) => (
+              <a
+                key={i}
+                href={a.url}
+                target="_blank"
+                rel="noreferrer"
+                className="wl-attachment-chip"
+              >
+                <Paperclip size={12} />
+                <span className="truncate">{shortenUrl(a.url)}</span>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 }
 
@@ -387,7 +545,18 @@ function formatBytes(n: number): string {
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} Go`;
 }
 
-function formatTime(ts: number): string {
-  const d = new Date(ts);
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function shortenUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split("/").filter(Boolean);
+    return parts[parts.length - 1] ?? u.host;
+  } catch {
+    return url.slice(0, 32);
+  }
 }

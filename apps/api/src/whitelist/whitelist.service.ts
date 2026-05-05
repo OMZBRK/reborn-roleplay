@@ -143,12 +143,15 @@ export class WhitelistService {
    * Notifie le bot Discord qu'une candidature vient d'etre creee /
    * resoumise. Le bot ouvre un thread public dans le salon staff. Echec
    * non-bloquant : le user a deja recu sa reponse 200.
+   *
+   * Le bot retourne l'id du thread cree → on le persiste sur l'application
+   * pour pouvoir relayer les messages user→discord (cf phase 2 chat).
    */
   private async notifyStaff(userId: string, app: WhitelistApplication) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return;
     try {
-      await this.webhooks.whitelistSubmitted({
+      const result = await this.webhooks.whitelistSubmitted({
         applicationId: app.id,
         userPseudo: user.minecraftUsername,
         userId: user.id,
@@ -165,6 +168,13 @@ export class WhitelistService {
         appearance: app.appearance,
         objectives: app.objectives,
       });
+      if (result?.threadId) {
+        await this.prisma.whitelistApplication.update({
+          where: { id: app.id },
+          data: { discordThreadId: result.threadId },
+        });
+        this.logger.log(`whitelist app ${app.id} → thread ${result.threadId}`);
+      }
     } catch (err) {
       this.logger.warn(
         `Webhook whitelist non transmis : ${(err as Error).message}`,

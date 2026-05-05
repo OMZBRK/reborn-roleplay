@@ -49,6 +49,20 @@ interface TicketPayload {
   discordUserId: string | null;
 }
 
+// Payload de relais user→thread : l'API recoit un POST de l'utilisateur
+// (POST /v1/whitelist/me/messages ou POST /v1/tickets/:id/messages) puis
+// nous relaie le contenu pour qu'on l'affiche dans le thread Discord
+// associe. On renvoie l'id du message Discord cree pour permettre la
+// dedup cote API (eviter de re-relayer ce qu'on vient nous-meme de poster
+// si messageCreate listener fires).
+interface MessageRelayPayload {
+  threadId: string;
+  authorPseudo: string;
+  content: string;
+  // URLs des pieces jointes (CDN Discord ou autres). Vide si aucune.
+  attachmentUrls?: string[];
+}
+
 export function startWebhookServer(client: Client) {
   const server = createServer(async (req, res) => {
     try {
@@ -112,6 +126,20 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
       return reply(res, 200, { threadId });
     } catch (err) {
       console.error(`[webhook] ticket thread crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
+  }
+  // Routes de relais user → discord thread. Symetriques pour whitelist
+  // et tickets : meme payload, on poste juste un message dans le thread
+  // pre-existant cote Discord (cree par les routes /webhooks/* ci-dessus).
+  if (url === "/webhooks/whitelist-message" || url === "/webhooks/tickets-message") {
+    const data = payload as MessageRelayPayload;
+    console.log(`[webhook] relay ${url} thread=${data.threadId} from=${data.authorPseudo}`);
+    try {
+      const messageId = await postRelayMessage(client, data);
+      return reply(res, 200, { messageId });
+    } catch (err) {
+      console.error(`[webhook] relay crash :`, err);
       return reply(res, 500, { error: (err as Error).message });
     }
   }
@@ -266,6 +294,37 @@ async function fetchTextChannel(client: Client): Promise<TextChannel> {
     );
   }
   return channel;
+}
+
+/**
+ * Poste un message utilisateur dans un thread existant (relais user→discord).
+ * Le format est volontairement simple : un embed compact avec le pseudo
+ * Reborn et le contenu, et eventuellement les pieces jointes en lien.
+ *
+ * Le message a un footer `from-launcher <pseudo>` qui sert de signal au
+ * listener messageCreate cote bot pour eviter de re-relayer ce qu'on vient
+ * de poster nous-meme (sinon on creerait une boucle user→bot→API→bot).
+ */
+async function postRelayMessage(client: Client, p: MessageRelayPayload): Promise<string> {
+  const thread = await client.channels.fetch(p.threadId);
+  if (!thread || !thread.isThread()) {
+    throw new Error(`thread ${p.threadId} introuvable ou pas un thread`);
+  }
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: `${p.authorPseudo} · joueur` })
+    .setDescription(clip(p.content || "*(piece jointe seule)*", 4000))
+    .setColor(0x3b5bdb)
+    .setFooter({ text: `from-launcher ${p.authorPseudo}` })
+    .setTimestamp(new Date());
+  const attachments =
+    p.attachmentUrls && p.attachmentUrls.length > 0
+      ? p.attachmentUrls.map((u, i) => `[Pièce jointe ${i + 1}](${u})`).join("\n")
+      : null;
+  if (attachments) {
+    embed.addFields({ name: "Fichiers", value: attachments });
+  }
+  const sent = await thread.send({ embeds: [embed] });
+  return sent.id;
 }
 
 function truncate(s: string, max: number): string {
