@@ -10,13 +10,26 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { SubmitWhitelistDto } from './dto/whitelist.dto';
 
+// Schéma riche v2 (cf launcher WhitelistDraft + Prisma model WhitelistApplication).
+// On expose tout au launcher pour qu'il puisse réafficher la candidature en
+// récap (ApplicationPanel sur StatusChatPage), pas juste les champs de base.
 export interface WhitelistApplicationDto {
   id: string;
   status: AppStatus;
-  characterName: string;
-  characterAge: number;
-  background: string;
+  // Étape 1
+  dob: string; // ISO YYYY-MM-DD
   motivation: string;
+  experience: string;
+  availability: string;
+  // Étape 2
+  firstName: string;
+  lastName: string;
+  village: string;
+  support: string | null;
+  history: string;
+  appearance: string;
+  objectives: string;
+  // Méta
   submittedAt: string;
   reviewedAt: string | null;
   reviewNotes: string | null;
@@ -49,10 +62,7 @@ export class WhitelistService {
     const created = await this.prisma.whitelistApplication.create({
       data: {
         userId,
-        characterName: dto.characterName.trim(),
-        characterAge: dto.characterAge,
-        background: dto.background.trim(),
-        motivation: dto.motivation.trim(),
+        ...this.normalize(dto),
         status: AppStatus.PENDING,
       },
     });
@@ -78,10 +88,7 @@ export class WhitelistService {
     const updated = await this.prisma.whitelistApplication.update({
       where: { userId },
       data: {
-        characterName: dto.characterName.trim(),
-        characterAge: dto.characterAge,
-        background: dto.background.trim(),
-        motivation: dto.motivation.trim(),
+        ...this.normalize(dto),
         status: AppStatus.PENDING,
         submittedAt: new Date(),
         reviewedAt: null,
@@ -110,11 +117,31 @@ export class WhitelistService {
       );
     }
     await this.prisma.whitelistApplication.delete({ where: { userId } });
+    this.logger.log(`whitelist withdrawn by user ${userId} (app ${app.id})`);
+  }
+
+  // Normalise : trim les chaines + parse la date. Sépare la logique de
+  // serialisation pour pouvoir la réutiliser entre submit et resubmit.
+  private normalize(dto: SubmitWhitelistDto) {
+    const support = dto.support?.trim() ?? '';
+    return {
+      dob: new Date(dto.dob),
+      motivation: dto.motivation.trim(),
+      experience: dto.experience.trim(),
+      availability: dto.availability.trim(),
+      firstName: dto.firstName.trim(),
+      lastName: dto.lastName.trim(),
+      village: dto.village.trim(),
+      support: support === '' ? null : support,
+      history: dto.history.trim(),
+      appearance: dto.appearance.trim(),
+      objectives: dto.objectives.trim(),
+    };
   }
 
   /**
    * Notifie le bot Discord qu'une candidature vient d'etre creee /
-   * resoumise. Le bot ouvre un thread prive dans le salon staff. Echec
+   * resoumise. Le bot ouvre un thread public dans le salon staff. Echec
    * non-bloquant : le user a deja recu sa reponse 200.
    */
   private async notifyStaff(userId: string, app: WhitelistApplication) {
@@ -125,11 +152,18 @@ export class WhitelistService {
         applicationId: app.id,
         userPseudo: user.minecraftUsername,
         userId: user.id,
-        characterName: app.characterName,
-        characterAge: app.characterAge,
-        background: app.background,
-        motivation: app.motivation,
         discordUserId: user.discordUserId,
+        firstName: app.firstName,
+        lastName: app.lastName,
+        village: app.village,
+        support: app.support,
+        dob: app.dob.toISOString(),
+        motivation: app.motivation,
+        experience: app.experience,
+        availability: app.availability,
+        history: app.history,
+        appearance: app.appearance,
+        objectives: app.objectives,
       });
     } catch (err) {
       this.logger.warn(
@@ -139,13 +173,23 @@ export class WhitelistService {
   }
 
   private toDto(app: WhitelistApplication): WhitelistApplicationDto {
+    // dob est stocké en DateTime mais on l'expose en YYYY-MM-DD côté client
+    // (cohérent avec l'input <input type="date"> qui produit ce format).
+    const dobIso = app.dob.toISOString().slice(0, 10);
     return {
       id: app.id,
       status: app.status,
-      characterName: app.characterName,
-      characterAge: app.characterAge,
-      background: app.background,
+      dob: dobIso,
       motivation: app.motivation,
+      experience: app.experience,
+      availability: app.availability,
+      firstName: app.firstName,
+      lastName: app.lastName,
+      village: app.village,
+      support: app.support,
+      history: app.history,
+      appearance: app.appearance,
+      objectives: app.objectives,
       submittedAt: app.submittedAt.toISOString(),
       reviewedAt: app.reviewedAt?.toISOString() ?? null,
       reviewNotes: app.reviewNotes,

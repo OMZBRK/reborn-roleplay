@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { NavLink } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
@@ -5,6 +6,8 @@ export type NavItemConfig = {
   to: string;
   label: string;
   icon: LucideIcon;
+  // Slot optionnel rendu à droite du label (ex: badge sablier whitelist).
+  badge?: ReactNode;
 };
 
 type Props = {
@@ -70,7 +73,7 @@ export function NavItem({ item, mountIndex }: Props) {
             }}
           />
           <span
-            className="relative tracking-wide"
+            className="relative flex-1 tracking-wide"
             style={{
               fontWeight: isActive ? 500 : 400,
               letterSpacing: "0.005em",
@@ -78,6 +81,7 @@ export function NavItem({ item, mountIndex }: Props) {
           >
             {item.label}
           </span>
+          {item.badge && <span className="relative">{item.badge}</span>}
         </>
       )}
     </NavLink>

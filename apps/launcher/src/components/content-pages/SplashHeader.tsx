@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 export type SplashVariant = "rules" | "lore";
 
@@ -13,14 +13,35 @@ type Props = {
   onScroll: () => void;
 };
 
+// Seuil minimal de deltaY (cumulé sur ~150ms) pour déclencher la transition
+// vers le niveau 2 — évite qu'un trackpad capricieux saute la splash dès qu'on
+// effleure la roulette.
+const WHEEL_THRESHOLD = 30;
+
 export function SplashHeader({ variant, title, subtitle, badgeLine1, badgeLine2, onScroll }: Props) {
   const isLore = variant === "lore";
   const accent = isLore ? "var(--color-lore)" : "var(--color-rules)";
   const titleGlow = isLore ? "rgba(139,92,246,0.45)" : "rgba(74,222,128,0.4)";
 
+  // Anti-rebond : on ignore les wheel events après une transition pendant
+  // ~700ms (laisse le temps à AnimatePresence de finir).
+  const lockedRef = useRef(false);
+
+  function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
+    if (lockedRef.current) return;
+    if (e.deltaY > WHEEL_THRESHOLD) {
+      lockedRef.current = true;
+      onScroll();
+      window.setTimeout(() => {
+        lockedRef.current = false;
+      }, 700);
+    }
+  }
+
   return (
     <div
       className={`reborn-splash ${isLore ? "is-lore" : "is-rules"}`}
+      onWheel={handleWheel}
       style={{
         // CSS vars consommées par les classes splash-* dans globals.css
         ["--accent-color" as string]: accent,

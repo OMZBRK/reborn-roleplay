@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { motion } from "framer-motion";
 import { ChevronUp } from "lucide-react";
 import type { Category } from "../../lib/content-data";
@@ -12,6 +13,11 @@ type Props = {
   onCollapse: () => void;
 };
 
+// Seuil minimal cumulé pour replier vers le splash. Côté inverse de
+// SplashHeader — on veut que l'utilisateur soit clairement en train de scroll
+// vers le haut (pas un mouvement diagonal).
+const WHEEL_THRESHOLD = 30;
+
 export function CategoryGrid({
   variant,
   title,
@@ -21,9 +27,26 @@ export function CategoryGrid({
   onCollapse,
 }: Props) {
   const isLore = variant === "lore";
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const lockedRef = useRef(false);
+
+  // Quand on est tout en haut de la grille et qu'on continue à scroller vers
+  // le haut, on remonte vers le splash. Symétrique de SplashHeader.handleWheel.
+  function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
+    if (lockedRef.current) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (e.deltaY < -WHEEL_THRESHOLD && el.scrollTop <= 0) {
+      lockedRef.current = true;
+      onCollapse();
+      window.setTimeout(() => {
+        lockedRef.current = false;
+      }, 700);
+    }
+  }
 
   return (
-    <div className="reborn-grid-page">
+    <div ref={scrollerRef} onWheel={handleWheel} className="reborn-grid-page">
       <div className="mb-8 flex items-center justify-between">
         <motion.h1
           initial={{ opacity: 0, y: 12 }}

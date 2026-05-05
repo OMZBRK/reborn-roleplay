@@ -1,23 +1,75 @@
-import { IsInt, IsString, MaxLength, Min, MinLength, Max } from 'class-validator';
+import {
+  IsDateString,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
+// DTO design v2 — schéma riche aligné sur le wizard 2 étapes du launcher
+// (cf apps/launcher/src/stores/whitelist-store.ts WhitelistDraft).
+// Les contraintes de longueur reproduisent celles validées côté client
+// (lib/whitelist-validation.ts) — l'API reste source de vérité.
 export class SubmitWhitelistDto {
-  @IsString()
-  @MinLength(2)
-  @MaxLength(32)
-  characterName!: string;
-
-  @IsInt()
-  @Min(13)
-  @Max(120)
-  characterAge!: number;
+  // ── Étape 1 : HRP ─────────────────────────────────────────
+  @IsDateString({}, { message: 'dob doit etre une date ISO YYYY-MM-DD' })
+  // Pas de regex sur YYYY-MM-DD ici car IsDateString accepte aussi le format
+  // long ; on reformate côté service avec new Date(...).
+  dob!: string;
 
   @IsString()
-  @MinLength(50)
+  @MinLength(150)
   @MaxLength(4000)
-  background!: string;
+  motivation!: string;
+
+  @IsString()
+  @MinLength(150)
+  @MaxLength(4000)
+  experience!: string;
 
   @IsString()
   @MinLength(20)
   @MaxLength(2000)
-  motivation!: string;
+  availability!: string;
+
+  // ── Étape 2 : RP ──────────────────────────────────────────
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  firstName!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  lastName!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  village!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  // Accepte une URL ou une chaîne vide (côté front, support reste optionnel).
+  @Matches(/^(|https?:\/\/.+|\s*)$/, {
+    message: 'support doit etre une URL http(s) ou vide',
+  })
+  support?: string;
+
+  @IsString()
+  @MinLength(150)
+  @MaxLength(4000)
+  history!: string;
+
+  @IsString()
+  @MinLength(150)
+  @MaxLength(4000)
+  appearance!: string;
+
+  @IsString()
+  @MinLength(400)
+  @MaxLength(8000)
+  objectives!: string;
 }

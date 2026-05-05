@@ -18,11 +18,20 @@ export interface WhitelistWebhookPayload {
   applicationId: string;
   userPseudo: string;
   userId: string;
-  characterName: string;
-  characterAge: number;
-  background: string;
-  motivation: string;
   discordUserId: string | null;
+  // Étape 1 — HRP
+  dob: string; // ISO datetime
+  motivation: string;
+  experience: string;
+  availability: string;
+  // Étape 2 — RP
+  firstName: string;
+  lastName: string;
+  village: string;
+  support: string | null;
+  history: string;
+  appearance: string;
+  objectives: string;
 }
 
 export interface TicketWebhookPayload {

@@ -11,6 +11,7 @@ import { RuleDetail } from "./routes/RuleDetail";
 import { Settings } from "./routes/Settings";
 import { Tickets } from "./routes/Tickets";
 import { Whitelist } from "./routes/Whitelist";
+import { Character } from "./routes/Character";
 import { AuthenticatedLayout } from "./components/AuthenticatedLayout";
 import { useAuthStore } from "./stores/auth-store";
 import { resumeSession } from "./lib/auth";
@@ -56,6 +57,7 @@ export function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
         <Route path="/whitelist" element={<Whitelist />} />
+        <Route path="/character" element={<Character />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/rules/:slug" element={<RuleDetail />} />
         <Route path="/lore" element={<Lore />} />

@@ -114,6 +114,9 @@ function resolveWhitelistContent(state: WhitelistState) {
   if (state === "loading") return WHITELIST_CARD_STATES.loading;
   if (state === "error") return WHITELIST_CARD_STATES.error;
   if (state === null) return WHITELIST_CARD_STATES.none;
-  if (state.status === "APPROVED") return WHITELIST_CARD_STATES.APPROVED(state.characterName);
+  if (state.status === "APPROVED") {
+    const characterName = `${state.firstName} ${state.lastName}`.trim();
+    return WHITELIST_CARD_STATES.APPROVED(characterName);
+  }
   return WHITELIST_CARD_STATES[state.status];
 }

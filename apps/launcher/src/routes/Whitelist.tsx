@@ -1,446 +1,361 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  PencilLine,
-  Send,
-  Trash2,
-  XCircle,
-} from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router";
 import {
   fetchWhitelistMe,
-  resubmitWhitelist,
   submitWhitelist,
+  resubmitWhitelist,
   withdrawWhitelist,
   type WhitelistApplication,
-  type WhitelistSubmitInput,
+  type WhitelistAppStatus,
 } from "../lib/content";
+import {
+  useWhitelistStore,
+  type WhitelistDraft,
+  type WhitelistStatus,
+} from "../stores/whitelist-store";
+import { PrerequisitesModal } from "../components/whitelist/PrerequisitesModal";
+import { IntroStepsPage } from "../components/whitelist/IntroStepsPage";
+import { Step1HRP } from "../components/whitelist/steps/Step1HRP";
+import { Step2RP } from "../components/whitelist/steps/Step2RP";
+import { Step3Validation } from "../components/whitelist/steps/Step3Validation";
+import { SubmittedPage } from "../components/whitelist/SubmittedPage";
+import { StatusChatPage } from "../components/whitelist/StatusChatPage";
+import { RejectedPage } from "../components/whitelist/RejectedPage";
+import { AcceptedPage } from "../components/whitelist/AcceptedPage";
+import { WhitelistDevToolbar } from "../components/whitelist/WhitelistDevToolbar";
 
-type Stage =
-  | { kind: "loading" }
-  | { kind: "form"; mode: "create" | "edit"; previous?: WhitelistApplication }
-  | { kind: "view"; application: WhitelistApplication }
-  | { kind: "error"; message: string };
+// Étapes du module whitelist :
+// — intro     : "En Trois Étapes" (landing). "Let's go" ouvre la modal "Avant
+//               de commencer" en surcouche (overlay au-dessus d'intro).
+// — hrp/rp/valid : wizard 3 étapes
+// — submitted : confirmation après envoi
+// — chat      : statut + chat staff (status="pending")
+// — rejected  : candidature refusée (status="rejected" / "needs_revision")
+// — accepted  : candidature acceptée (status="accepted")
+export type WizardStage =
+  | "intro"
+  | "hrp"
+  | "rp"
+  | "valid"
+  | "submitted"
+  | "chat"
+  | "rejected"
+  | "accepted";
+
+// Mappe le statut serveur (PENDING/APPROVED/...) → status local (4 valeurs)
+// utilisé par la sidebar et le mapping écran. NEEDS_REVISION retombe sur
+// "rejected" : design v2 ne distingue pas les deux côté UI (l'utilisateur
+// peut refaire dans les deux cas), seul le message diffère via reviewNotes.
+function mapServerStatus(s: WhitelistAppStatus): WhitelistStatus {
+  switch (s) {
+    case "PENDING":
+      return "pending";
+    case "APPROVED":
+      return "accepted";
+    case "REJECTED":
+    case "NEEDS_REVISION":
+      return "rejected";
+  }
+}
+
+// Mappe le statut → écran à afficher. Le wizard (intro/hrp/rp/valid) reste
+// piloté par l'état local de la route ; ce mapping ne concerne que les
+// écrans "post-soumission" et la landing par défaut.
+function stageFromStatus(status: WhitelistStatus): WizardStage {
+  switch (status) {
+    case "pending":
+      return "chat";
+    case "accepted":
+      return "accepted";
+    case "rejected":
+      return "rejected";
+    case "draft":
+    default:
+      return "intro";
+  }
+}
+
+function applicationToHydrate(app: WhitelistApplication) {
+  const draft: WhitelistDraft = {
+    dob: app.dob,
+    motivation: app.motivation,
+    experience: app.experience,
+    availability: app.availability,
+    firstName: app.firstName,
+    lastName: app.lastName,
+    village: app.village,
+    support: app.support ?? "",
+    history: app.history,
+    appearance: app.appearance,
+    objectives: app.objectives,
+  };
+  return {
+    applicationId: app.id,
+    status: mapServerStatus(app.status),
+    reviewNotes: app.reviewNotes,
+    draft,
+  };
+}
 
 export function Whitelist() {
-  const [stage, setStage] = useState<Stage>({ kind: "loading" });
+  const status = useWhitelistStore((s) => s.status);
+  const draft = useWhitelistStore((s) => s.draft);
+  const applicationId = useWhitelistStore((s) => s.applicationId);
+  const reviewNotes = useWhitelistStore((s) => s.reviewNotes);
+  const setStatus = useWhitelistStore((s) => s.setStatus);
+  const reset = useWhitelistStore((s) => s.reset);
+  const hydrateFromServer = useWhitelistStore((s) => s.hydrateFromServer);
+  const navigate = useNavigate();
 
+  const [stage, setStage] = useState<WizardStage>(() => stageFromStatus(status));
+  const [modalOpen, setModalOpen] = useState(false);
+  // Bloque les actions concurrentes (submit/withdraw) pendant un round-trip API.
+  const [busy, setBusy] = useState(false);
+  // Erreur API affichée dans une bannière sur l'écran courant.
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // Au mount : on hydrate depuis le serveur. Le draft local reste valide pour
+  // un user qui n'a jamais soumis (status="draft"), sinon on overwrite avec
+  // ce que le serveur connaît (source of truth).
   useEffect(() => {
     let cancelled = false;
     fetchWhitelistMe()
       .then((res) => {
         if (cancelled) return;
-        if (!res.application) {
-          setStage({ kind: "form", mode: "create" });
+        if (res.application) {
+          hydrateFromServer(applicationToHydrate(res.application));
         } else {
-          setStage({ kind: "view", application: res.application });
+          hydrateFromServer(null);
         }
       })
       .catch((err) => {
-        if (cancelled) return;
-        setStage({
-          kind: "error",
-          message: typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur",
-        });
+        // L'API peut être down (dev local). On log mais on ne bloque pas le
+        // user — il peut continuer à éditer son brouillon offline.
+        console.warn("[whitelist] fetchWhitelistMe failed:", err);
       });
     return () => {
       cancelled = true;
     };
+  }, [hydrateFromServer]);
+
+  // Quand le statut change (hydrate ou setStatus côté dev), on reflète sur le
+  // stage. Le user peut être en train de remplir le wizard (stage hrp/rp/valid)
+  // sans que le statut serveur soit "pending" — dans ce cas on garde le stage
+  // courant. On ne force que pour les transitions "vers" un état serveur.
+  useEffect(() => {
+    if (status === "pending" || status === "accepted" || status === "rejected") {
+      setStage(stageFromStatus(status));
+    } else if (status === "draft") {
+      // Si on revient à "draft" depuis pending/accepted/rejected (ex: withdraw),
+      // on retombe sur intro. Mais si l'utilisateur est déjà sur un wizard step,
+      // pas la peine de l'éjecter.
+      if (
+        stage === "submitted" ||
+        stage === "chat" ||
+        stage === "rejected" ||
+        stage === "accepted"
+      ) {
+        setStage("intro");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  // Dev menu : Ctrl+Shift+W pour le toggle (debug-only, gated import.meta.env.DEV).
+  const [devOpen, setDevOpen] = useState(false);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === "W" || e.key === "w")) {
+        e.preventDefault();
+        setDevOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  return (
-    <div className="px-8 py-8">
-      <header className="mb-8">
-        <p className="text-xs uppercase tracking-widest text-foreground-subtle">Reborn Roleplay</p>
-        <h1 className="mt-1 font-display text-3xl font-semibold">Whitelist</h1>
-        <p className="mt-1 text-sm text-foreground-subtle">
-          Pour accéder au serveur, soumets ta candidature au staff. Réponse sous 48h.
-        </p>
-      </header>
-
-      {stage.kind === "loading" && (
-        <div className="flex items-center gap-2 text-sm text-foreground-subtle">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Chargement...
-        </div>
-      )}
-
-      {stage.kind === "error" && (
-        <div className="rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
-          {stage.message}
-        </div>
-      )}
-
-      {stage.kind === "form" && (
-        <ApplicationForm
-          mode={stage.mode}
-          previous={stage.previous}
-          onDone={(application) => setStage({ kind: "view", application })}
-        />
-      )}
-
-      {stage.kind === "view" && (
-        <StatusView
-          application={stage.application}
-          onEditRequested={() =>
-            setStage({ kind: "form", mode: "edit", previous: stage.application })
-          }
-          onWithdrawn={() => setStage({ kind: "form", mode: "create" })}
-        />
-      )}
-    </div>
-  );
-}
-
-function ApplicationForm({
-  mode,
-  previous,
-  onDone,
-}: {
-  mode: "create" | "edit";
-  previous?: WhitelistApplication;
-  onDone: (app: WhitelistApplication) => void;
-}) {
-  const [characterName, setCharacterName] = useState(previous?.characterName ?? "");
-  const [characterAge, setCharacterAge] = useState<number | "">(previous?.characterAge ?? "");
-  const [background, setBackground] = useState(previous?.background ?? "");
-  const [motivation, setMotivation] = useState(previous?.motivation ?? "");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (typeof characterAge !== "number") {
-      setError("L'age doit etre un nombre.");
-      return;
+  // Centralise la gestion d'erreur API : extrait un message lisible.
+  function errMessage(err: unknown): string {
+    if (typeof err === "string") return err;
+    if (err && typeof err === "object" && "message" in err) {
+      return String((err as { message?: unknown }).message ?? "Erreur API");
     }
-    setSubmitting(true);
-    const payload: WhitelistSubmitInput = {
-      characterName: characterName.trim(),
-      characterAge,
-      background: background.trim(),
-      motivation: motivation.trim(),
-    };
-    try {
-      const result = mode === "edit" ? await resubmitWhitelist(payload) : await submitWhitelist(payload);
-      onDone(result);
-    } catch (err) {
-      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
-    } finally {
-      setSubmitting(false);
-    }
+    return "Erreur API inconnue";
   }
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="grid max-w-3xl grid-cols-1 gap-4 rounded-[--radius-card] border border-border bg-surface p-6"
-    >
-      {previous?.reviewNotes && (
-        <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
-          <p className="font-semibold">Note du staff</p>
-          <p className="mt-1 text-foreground-subtle">{previous.reviewNotes}</p>
-        </div>
-      )}
-
-      <Field label="Pseudo RP du personnage" hint="Ton nom in-game pour le RP — different du pseudo MC.">
-        <input
-          required
-          minLength={2}
-          maxLength={32}
-          value={characterName}
-          onChange={(e) => setCharacterName(e.target.value)}
-          className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm focus:border-accent focus:outline-none"
-          placeholder="ex: Hikamatsu Nara"
-        />
-      </Field>
-
-      <Field label="Age du personnage" hint="Entre 13 et 120 ans.">
-        <input
-          required
-          type="number"
-          min={13}
-          max={120}
-          value={characterAge}
-          onChange={(e) => setCharacterAge(e.target.value === "" ? "" : Number(e.target.value))}
-          className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm focus:border-accent focus:outline-none"
-          placeholder="ex: 22"
-        />
-      </Field>
-
-      <Field
-        label="Background du personnage"
-        hint="Min 50 caracteres. Raconte d'ou il vient, ses motivations profondes."
-      >
-        <textarea
-          required
-          minLength={50}
-          maxLength={4000}
-          value={background}
-          onChange={(e) => setBackground(e.target.value)}
-          className="min-h-[140px] w-full resize-y rounded-md border border-border bg-background p-3 text-sm focus:border-accent focus:outline-none"
-          placeholder="Ne dans le pays du Feu, …"
-        />
-      </Field>
-
-      <Field
-        label="Motivation a rejoindre Reborn"
-        hint="Min 20 caracteres. Pourquoi toi, pourquoi maintenant ?"
-      >
-        <textarea
-          required
-          minLength={20}
-          maxLength={2000}
-          value={motivation}
-          onChange={(e) => setMotivation(e.target.value)}
-          className="min-h-[100px] w-full resize-y rounded-md border border-border bg-background p-3 text-sm focus:border-accent focus:outline-none"
-          placeholder="J'ai suivi le serveur depuis…"
-        />
-      </Field>
-
-      {error && (
-        <div className="flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="mt-2 flex h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 font-medium text-white transition hover:bg-accent-hover disabled:opacity-60"
-      >
-        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        {mode === "edit" ? "Renvoyer la candidature" : "Soumettre la candidature"}
-      </button>
-    </form>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium uppercase tracking-wider text-foreground-subtle">
-        {label}
-      </span>
-      {children}
-      {hint && <span className="text-[11px] text-foreground-subtle">{hint}</span>}
-    </label>
-  );
-}
-
-function StatusView({
-  application,
-  onEditRequested,
-  onWithdrawn,
-}: {
-  application: WhitelistApplication;
-  onEditRequested: () => void;
-  onWithdrawn: () => void;
-}) {
-  const palette = STATUS_STYLE[application.status];
-  const [withdrawing, setWithdrawing] = useState(false);
-  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  async function handleSubmit() {
+    setApiError(null);
+    setBusy(true);
+    try {
+      // Si une application existait (status="rejected" et l'utilisateur a
+      // cliqué "Refaire une candidature"), on PATCH /whitelist/me. Sinon
+      // POST /whitelist pour créer.
+      const payload = {
+        dob: draft.dob,
+        motivation: draft.motivation,
+        experience: draft.experience,
+        availability: draft.availability,
+        firstName: draft.firstName,
+        lastName: draft.lastName,
+        village: draft.village,
+        support: draft.support === "" ? null : draft.support,
+        history: draft.history,
+        appearance: draft.appearance,
+        objectives: draft.objectives,
+      };
+      const result = applicationId
+        ? await resubmitWhitelist(payload)
+        : await submitWhitelist(payload);
+      hydrateFromServer(applicationToHydrate(result));
+      setStage("submitted");
+      // Après ~2.5s on bascule sur le chat (status="pending" côté server).
+      window.setTimeout(() => {
+        setStage("chat");
+      }, 2500);
+    } catch (err) {
+      setApiError(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleWithdraw() {
     if (
       !window.confirm(
-        "Retirer ta candidature ? Tu pourras en soumettre une nouvelle ensuite.",
+        "Retirer ta candidature ? Ton brouillon sera vidé et tu pourras en soumettre une nouvelle.",
       )
     ) {
       return;
     }
-    setWithdrawError(null);
-    setWithdrawing(true);
+    setApiError(null);
+    setBusy(true);
     try {
       await withdrawWhitelist();
-      onWithdrawn();
+      reset();
+      setStage("intro");
     } catch (err) {
-      setWithdrawError(
-        typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur",
-      );
+      setApiError(errMessage(err));
     } finally {
-      setWithdrawing(false);
+      setBusy(false);
     }
   }
 
+  async function handleRetry() {
+    // Refus → l'utilisateur peut refaire une candidature. Le draft sur
+    // l'écran "rejected" est encore celui qui a été refusé (hydraté par
+    // applicationToHydrate). On ne reset PAS pour qu'il puisse repartir du
+    // contenu existant et corriger ; le PATCH gérera le resubmit.
+    setStage("intro");
+  }
+
+  function renderStage() {
+    switch (stage) {
+      case "intro":
+        return <IntroStepsPage onStart={() => setModalOpen(true)} />;
+      case "hrp":
+        return (
+          <Step1HRP
+            onCancel={() => setStage("intro")}
+            onNext={() => setStage("rp")}
+          />
+        );
+      case "rp":
+        return (
+          <Step2RP
+            onPrev={() => setStage("hrp")}
+            onNext={() => setStage("valid")}
+          />
+        );
+      case "valid":
+        return (
+          <Step3Validation
+            onPrev={() => setStage("rp")}
+            onSubmit={handleSubmit}
+            submitting={busy}
+          />
+        );
+      case "submitted":
+        return <SubmittedPage />;
+      case "chat":
+        return <StatusChatPage onWithdraw={handleWithdraw} withdrawing={busy} />;
+      case "rejected":
+        return (
+          <RejectedPage
+            onRetry={handleRetry}
+            onWithdraw={handleWithdraw}
+            withdrawing={busy}
+            reason={reviewNotes ?? undefined}
+          />
+        );
+      case "accepted":
+        return (
+          <AcceptedPage
+            onCreate={() => navigate("/character")}
+            staffNote={reviewNotes ?? undefined}
+          />
+        );
+    }
+  }
+
+  // Les wizards (hrp/rp/valid) ont leur layout interne (max-width 980px,
+  // centrage), il leur faut un wrapper avec padding adapté. Les autres
+  // écrans gèrent leur propre layout — on les laisse fill le main.
+  const isWizardScreen = stage === "hrp" || stage === "rp" || stage === "valid";
+  const showModal = modalOpen && stage === "intro";
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-3xl space-y-4"
-    >
+    <div className="relative flex h-full w-full flex-col">
+      {apiError && (
+        <div className="mx-9 mt-4 rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {apiError}
+        </div>
+      )}
+
       <div
-        className={`flex items-start gap-3 rounded-[--radius-card] border p-5 ${palette.border} ${palette.bg}`}
+        className={
+          isWizardScreen
+            ? "flex-1 overflow-y-auto px-9 py-7"
+            : "flex min-h-0 flex-1 flex-col"
+        }
       >
-        <div className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-md ${palette.iconBg}`}>
-          <palette.Icon className={`h-5 w-5 ${palette.iconColor}`} />
-        </div>
-        <div className="flex-1">
-          <p className={`text-xs uppercase tracking-widest ${palette.eyebrow}`}>
-            {STATUS_LABEL[application.status]}
-          </p>
-          <h2 className="mt-1 font-display text-lg font-semibold">{palette.title}</h2>
-          <p className="mt-1 text-sm text-foreground-subtle">{palette.description}</p>
-          {application.reviewNotes && (
-            <div className="mt-3 rounded-md border border-border bg-background/50 p-3 text-xs">
-              <p className="font-semibold text-foreground">Note du staff</p>
-              <p className="mt-1 text-foreground-subtle">{application.reviewNotes}</p>
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {(application.status === "NEEDS_REVISION" || application.status === "REJECTED") && (
-              <button
-                type="button"
-                onClick={onEditRequested}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:border-accent/50 hover:text-accent"
-              >
-                <PencilLine className="h-3.5 w-3.5" />
-                Modifier et resoumettre
-              </button>
-            )}
-            {application.status !== "APPROVED" && (
-              <button
-                type="button"
-                onClick={handleWithdraw}
-                disabled={withdrawing}
-                className="inline-flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-1.5 text-xs font-medium text-danger transition hover:bg-danger/20 disabled:opacity-60"
-              >
-                {withdrawing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
-                )}
-                Retirer ma candidature
-              </button>
-            )}
-          </div>
-
-          {withdrawError && (
-            <div className="mt-3 flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-              <span>{withdrawError}</span>
-            </div>
-          )}
-        </div>
+        <AnimatePresence mode="wait">{renderStage()}</AnimatePresence>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-[--radius-card] border border-border bg-surface p-5 md:grid-cols-2">
-        <Detail label="Personnage" value={application.characterName} />
-        <Detail label="Age" value={`${application.characterAge} ans`} />
-        <Detail
-          label="Soumise"
-          value={new Date(application.submittedAt).toLocaleDateString("fr-FR", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-          })}
-        />
-        {application.reviewedAt && (
-          <Detail
-            label="Examinee"
-            value={new Date(application.reviewedAt).toLocaleDateString("fr-FR", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })}
+      <AnimatePresence>
+        {showModal && (
+          <PrerequisitesModal
+            onCancel={() => setModalOpen(false)}
+            onStart={() => {
+              setModalOpen(false);
+              setStage("hrp");
+            }}
           />
         )}
-      </div>
+      </AnimatePresence>
 
-      <div className="rounded-[--radius-card] border border-border bg-surface p-5">
-        <p className="text-xs uppercase tracking-widest text-foreground-subtle">Background</p>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-foreground-subtle">{application.background}</p>
-      </div>
-
-      <div className="rounded-[--radius-card] border border-border bg-surface p-5">
-        <p className="text-xs uppercase tracking-widest text-foreground-subtle">Motivation</p>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-foreground-subtle">{application.motivation}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] uppercase tracking-wider text-foreground-subtle">{label}</p>
-      <p className="mt-0.5 text-sm">{value}</p>
+      {import.meta.env.DEV && devOpen && (
+        <WhitelistDevToolbar
+          stage={stage}
+          modalOpen={modalOpen}
+          onStageChange={(s) => {
+            setStage(s);
+            setModalOpen(false);
+            // Synchroniser le statut store avec l'écran sélectionné côté dev,
+            // pour que la sidebar / les transitions reflètent l'état choisi.
+            if (s === "chat" || s === "submitted") setStatus("pending");
+            else if (s === "accepted") setStatus("accepted");
+            else if (s === "rejected") setStatus("rejected");
+            else setStatus("draft");
+          }}
+          onModalToggle={(open) => {
+            if (open) setStage("intro");
+            setModalOpen(open);
+          }}
+          onClose={() => setDevOpen(false)}
+        />
+      )}
     </div>
   );
 }
-
-const STATUS_LABEL: Record<WhitelistApplication["status"], string> = {
-  PENDING: "En attente",
-  APPROVED: "Acceptee",
-  REJECTED: "Refusee",
-  NEEDS_REVISION: "Revision demandee",
-};
-
-const STATUS_STYLE: Record<
-  WhitelistApplication["status"],
-  {
-    border: string;
-    bg: string;
-    iconBg: string;
-    iconColor: string;
-    eyebrow: string;
-    Icon: typeof Clock;
-    title: string;
-    description: string;
-  }
-> = {
-  PENDING: {
-    border: "border-warning/40",
-    bg: "bg-warning/5",
-    iconBg: "bg-warning/15",
-    iconColor: "text-warning",
-    eyebrow: "text-warning",
-    Icon: Clock,
-    title: "Le staff regarde ta candidature",
-    description: "Reponse sous 48h en moyenne. Tu seras notifie via Discord (si lie).",
-  },
-  APPROVED: {
-    border: "border-success/40",
-    bg: "bg-success/5",
-    iconBg: "bg-success/15",
-    iconColor: "text-success",
-    eyebrow: "text-success",
-    Icon: CheckCircle2,
-    title: "Bienvenue dans le RP",
-    description: "Tu peux maintenant rejoindre le serveur. Lis le reglement avant ta premiere session.",
-  },
-  REJECTED: {
-    border: "border-danger/40",
-    bg: "bg-danger/5",
-    iconBg: "bg-danger/15",
-    iconColor: "text-danger",
-    eyebrow: "text-danger",
-    Icon: XCircle,
-    title: "Candidature refusee",
-    description: "Tu peux corriger et resoumettre une nouvelle candidature.",
-  },
-  NEEDS_REVISION: {
-    border: "border-accent/40",
-    bg: "bg-accent/5",
-    iconBg: "bg-accent/15",
-    iconColor: "text-accent",
-    eyebrow: "text-accent",
-    Icon: PencilLine,
-    title: "Le staff te demande des precisions",
-    description: "Lis la note du staff ci-dessous, modifie ta candidature et renvoie-la.",
-  },
-};

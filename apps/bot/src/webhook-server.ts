@@ -25,11 +25,18 @@ interface WhitelistPayload {
   applicationId: string;
   userPseudo: string;
   userId: string;
-  characterName: string;
-  characterAge: number;
-  background: string;
-  motivation: string;
   discordUserId: string | null;
+  dob: string;
+  motivation: string;
+  experience: string;
+  availability: string;
+  firstName: string;
+  lastName: string;
+  village: string;
+  support: string | null;
+  history: string;
+  appearance: string;
+  objectives: string;
 }
 
 interface TicketPayload {
@@ -142,19 +149,28 @@ function reply(res: ServerResponse, status: number, body: unknown) {
 
 async function postWhitelistThread(client: Client, p: WhitelistPayload): Promise<string> {
   const channel = await fetchTextChannel(client);
+  const characterName = `${p.firstName} ${p.lastName}`.trim();
   // PublicThread : visible directement dans la sidebar du salon, lisible
   // par tout staff ayant acces au salon. Avant on utilisait PrivateThread
   // mais ca ne creait que le thread sans inviter personne — staff aurait
   // du le retrouver manuellement via l'API. Pour scaler en multi-staff
   // sensible, on switchera en PrivateThread + members.add(staffIds).
   const thread = await channel.threads.create({
-    name: `Whitelist · ${p.userPseudo} · ${truncate(p.characterName, 32)}`,
+    name: `Whitelist · ${p.userPseudo} · ${truncate(characterName, 32)}`,
     autoArchiveDuration: 10080,
     type: ChannelType.PublicThread,
     reason: `Whitelist application ${p.applicationId}`,
   });
-  const embed = new EmbedBuilder()
-    .setTitle(`Candidature whitelist — ${p.characterName}`)
+
+  // L'embed Discord a une limite globale de 6000 chars + 1024/champ. La
+  // candidature v2 contient ~3000-5000 chars sur 7-8 champs longs. On split
+  // donc en deux embeds : "Identité + HRP" et "RP" (history/appearance/
+  // objectives). Si on dépasse encore, on tronque par champ avec clip().
+  const age = computeAge(p.dob);
+  const dobDisplay = formatDateFr(p.dob);
+
+  const embedHeader = new EmbedBuilder()
+    .setTitle(`Candidature whitelist — ${characterName}`)
     .setColor(0x3b5bdb)
     .addFields(
       { name: "Joueur Reborn", value: `\`${p.userPseudo}\``, inline: true },
@@ -163,15 +179,56 @@ async function postWhitelistThread(client: Client, p: WhitelistPayload): Promise
         value: p.discordUserId ? `<@${p.discordUserId}>` : "*non lie*",
         inline: true,
       },
-      { name: "Personnage", value: p.characterName, inline: true },
-      { name: "Age IC", value: String(p.characterAge), inline: true },
-      { name: "Background", value: clip(p.background, 1024) },
+      { name: "Village", value: p.village, inline: true },
+      { name: "Personnage", value: characterName, inline: true },
+      {
+        name: "Date de naissance",
+        value: age !== null ? `${dobDisplay} (${age} ans)` : dobDisplay,
+        inline: true,
+      },
+      {
+        name: "Support",
+        value: p.support ? p.support : "*aucun*",
+        inline: true,
+      },
       { name: "Motivation", value: clip(p.motivation, 1024) },
+      { name: "Expérience RP", value: clip(p.experience, 1024) },
+      { name: "Disponibilité", value: clip(p.availability, 1024) },
     )
     .setFooter({ text: `application ${p.applicationId}` })
     .setTimestamp(new Date());
-  await thread.send({ embeds: [embed] });
+
+  const embedRP = new EmbedBuilder()
+    .setTitle(`Personnage — ${characterName}`)
+    .setColor(0x3b5bdb)
+    .addFields(
+      { name: "Histoire", value: clip(p.history, 1024) },
+      { name: "Apparence et personnalité", value: clip(p.appearance, 1024) },
+      { name: "Objectifs", value: clip(p.objectives, 1024) },
+    );
+
+  await thread.send({ embeds: [embedHeader, embedRP] });
   return thread.id;
+}
+
+function computeAge(iso: string): number | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
+function formatDateFr(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const months = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+  ];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 async function postTicketThread(client: Client, p: TicketPayload): Promise<string> {

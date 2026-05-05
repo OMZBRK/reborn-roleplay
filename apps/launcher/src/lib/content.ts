@@ -64,15 +64,27 @@ export async function fetchLore(): Promise<LoreDocument> {
 // Whitelist
 // ──────────────────────────────────────────────────────
 
-export type WhitelistStatus = "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION";
+export type WhitelistAppStatus = "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION";
 
+// Schéma riche v2 — chaque champ correspond à un input du wizard 2 étapes
+// (cf stores/whitelist-store.ts WhitelistDraft + apps/api Prisma model).
 export type WhitelistApplication = {
   id: string;
-  status: WhitelistStatus;
-  characterName: string;
-  characterAge: number;
-  background: string;
+  status: WhitelistAppStatus;
+  // Étape 1
+  dob: string; // ISO YYYY-MM-DD
   motivation: string;
+  experience: string;
+  availability: string;
+  // Étape 2
+  firstName: string;
+  lastName: string;
+  village: string;
+  support: string | null;
+  history: string;
+  appearance: string;
+  objectives: string;
+  // Méta
   submittedAt: string;
   reviewedAt: string | null;
   reviewNotes: string | null;
@@ -87,10 +99,17 @@ export async function fetchWhitelistMe(): Promise<WhitelistMeResponse> {
 }
 
 export type WhitelistSubmitInput = {
-  characterName: string;
-  characterAge: number;
-  background: string;
+  dob: string;
   motivation: string;
+  experience: string;
+  availability: string;
+  firstName: string;
+  lastName: string;
+  village: string;
+  support: string | null;
+  history: string;
+  appearance: string;
+  objectives: string;
 };
 
 export async function submitWhitelist(

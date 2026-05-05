@@ -11,40 +11,53 @@ import {
   Swords,
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
+import { useWhitelistStore } from "../stores/whitelist-store";
 import { logout } from "../lib/auth";
 import { UserBlock } from "./sidebar/UserBlock";
 import { NavSection, type NavSectionConfig } from "./sidebar/NavSection";
 import { ServerStatusFooter } from "./sidebar/ServerStatusFooter";
-
-const NAV_SECTIONS: NavSectionConfig[] = [
-  {
-    label: "Principal",
-    items: [
-      { to: "/home", label: "Accueil", icon: Home },
-      { to: "/shop", label: "Boutique", icon: ShoppingBag },
-    ],
-  },
-  {
-    label: "Communauté",
-    items: [
-      { to: "/whitelist", label: "Whitelist", icon: Swords },
-      { to: "/tickets", label: "Tickets", icon: LifeBuoy },
-    ],
-  },
-  {
-    label: "Contenu",
-    items: [
-      { to: "/rules", label: "Règlement", icon: Gavel },
-      { to: "/lore", label: "Lore", icon: BookOpen },
-      { to: "/patchnotes", label: "Patch Notes", icon: Newspaper },
-      { to: "/docs", label: "Documentation", icon: FileText },
-    ],
-  },
-];
+import { WhitelistBadge } from "./sidebar/WhitelistBadge";
 
 export function Sidebar() {
   const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
+  const whitelistStatus = useWhitelistStore((s) => s.status);
+
+  // Sections déclarées dans le composant pour pouvoir injecter le badge
+  // contextuel "Whitelist" en fonction du statut courant (pending/accepted).
+  const navSections: NavSectionConfig[] = useMemo(
+    () => [
+      {
+        label: "Principal",
+        items: [
+          { to: "/home", label: "Accueil", icon: Home },
+          { to: "/shop", label: "Boutique", icon: ShoppingBag },
+        ],
+      },
+      {
+        label: "Communauté",
+        items: [
+          {
+            to: "/whitelist",
+            label: "Whitelist",
+            icon: Swords,
+            badge: <WhitelistBadge status={whitelistStatus} />,
+          },
+          { to: "/tickets", label: "Tickets", icon: LifeBuoy },
+        ],
+      },
+      {
+        label: "Contenu",
+        items: [
+          { to: "/rules", label: "Règlement", icon: Gavel },
+          { to: "/lore", label: "Lore", icon: BookOpen },
+          { to: "/patchnotes", label: "Patch Notes", icon: Newspaper },
+          { to: "/docs", label: "Documentation", icon: FileText },
+        ],
+      },
+    ],
+    [whitelistStatus],
+  );
 
   // TODO: brancher sur un endpoint /v1/server/status quand il existera
   const server = {
@@ -59,12 +72,12 @@ export function Sidebar() {
   const itemOffsets = useMemo(() => {
     const out: number[] = [];
     let acc = 0;
-    NAV_SECTIONS.forEach((s) => {
+    navSections.forEach((s) => {
       out.push(acc);
       acc += s.items.length;
     });
     return out;
-  }, []);
+  }, [navSections]);
 
   async function handleLogout() {
     try {
@@ -83,7 +96,7 @@ export function Sidebar() {
       <UserBlock />
 
       <nav className="flex-1 overflow-y-auto py-2">
-        {NAV_SECTIONS.map((section, i) => (
+        {navSections.map((section, i) => (
           <NavSection
             key={section.label}
             section={section}

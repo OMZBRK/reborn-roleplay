@@ -155,15 +155,28 @@ pub async fn lore_current(state: State<'_, AuthState>) -> Result<LoreDocument, C
 // Whitelist
 // ──────────────────────────────────────────────────────
 
+// Schéma riche v2 : aligné sur le wizard 2-étapes du launcher
+// (cf src/stores/whitelist-store.ts WhitelistDraft) et le DTO API
+// (cf apps/api/src/whitelist/whitelist.service.ts WhitelistApplicationDto).
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WhitelistApplicationDto {
     pub id: String,
     pub status: String, // PENDING / APPROVED / REJECTED / NEEDS_REVISION
-    pub character_name: String,
-    pub character_age: i32,
-    pub background: String,
+    // Étape 1
+    pub dob: String, // ISO YYYY-MM-DD
     pub motivation: String,
+    pub experience: String,
+    pub availability: String,
+    // Étape 2
+    pub first_name: String,
+    pub last_name: String,
+    pub village: String,
+    pub support: Option<String>,
+    pub history: String,
+    pub appearance: String,
+    pub objectives: String,
+    // Méta
     pub submitted_at: String,
     pub reviewed_at: Option<String>,
     pub review_notes: Option<String>,
@@ -178,10 +191,17 @@ pub struct WhitelistStatus {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubmitWhitelistRequest {
-    pub character_name: String,
-    pub character_age: i32,
-    pub background: String,
+    pub dob: String,
     pub motivation: String,
+    pub experience: String,
+    pub availability: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub village: String,
+    pub support: Option<String>,
+    pub history: String,
+    pub appearance: String,
+    pub objectives: String,
 }
 
 #[tauri::command]
@@ -201,12 +221,20 @@ pub async fn whitelist_me(state: State<'_, AuthState>) -> Result<WhitelistStatus
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn whitelist_submit(
     state: State<'_, AuthState>,
-    character_name: String,
-    character_age: i32,
-    background: String,
+    dob: String,
     motivation: String,
+    experience: String,
+    availability: String,
+    first_name: String,
+    last_name: String,
+    village: String,
+    support: Option<String>,
+    history: String,
+    appearance: String,
+    objectives: String,
 ) -> Result<WhitelistApplicationDto, ContentError> {
     let token = jwt(state.inner()).await?;
     state
@@ -215,10 +243,17 @@ pub async fn whitelist_submit(
             &token,
             "/whitelist",
             &SubmitWhitelistRequest {
-                character_name,
-                character_age,
-                background,
+                dob,
                 motivation,
+                experience,
+                availability,
+                first_name,
+                last_name,
+                village,
+                support,
+                history,
+                appearance,
+                objectives,
             },
         )
         .await
@@ -228,12 +263,20 @@ pub async fn whitelist_submit(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn whitelist_resubmit(
     state: State<'_, AuthState>,
-    character_name: String,
-    character_age: i32,
-    background: String,
+    dob: String,
     motivation: String,
+    experience: String,
+    availability: String,
+    first_name: String,
+    last_name: String,
+    village: String,
+    support: Option<String>,
+    history: String,
+    appearance: String,
+    objectives: String,
 ) -> Result<WhitelistApplicationDto, ContentError> {
     let token = jwt(state.inner()).await?;
     state
@@ -242,10 +285,17 @@ pub async fn whitelist_resubmit(
             &token,
             "/whitelist/me",
             &SubmitWhitelistRequest {
-                character_name,
-                character_age,
-                background,
+                dob,
                 motivation,
+                experience,
+                availability,
+                first_name,
+                last_name,
+                village,
+                support,
+                history,
+                appearance,
+                objectives,
             },
         )
         .await

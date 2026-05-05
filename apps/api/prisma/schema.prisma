@@ -112,18 +112,30 @@ model Session {
 // ──────────────────────────────────────────────────────
 
 model WhitelistApplication {
-  id            String    @id @default(uuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id])
-  status        AppStatus @default(PENDING)
-  characterName String
-  characterAge  Int
-  background    String
-  motivation    String
-  submittedAt   DateTime  @default(now())
-  reviewedAt    DateTime?
-  reviewedBy    String?
-  reviewNotes   String?
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id])
+  status       AppStatus @default(PENDING)
+
+  // Etape 1 — HRP (hors roleplay)
+  dob          DateTime
+  motivation   String
+  experience   String
+  availability String
+
+  // Etape 2 — RP (le personnage)
+  firstName    String
+  lastName     String
+  village      String
+  support      String?  // URL YouTube/Canva, optionnelle
+  history      String
+  appearance   String
+  objectives   String
+
+  submittedAt  DateTime  @default(now())
+  reviewedAt   DateTime?
+  reviewedBy   String?
+  reviewNotes  String?
 }
 
 enum AppStatus {
