@@ -2642,3 +2642,68 @@ body,
   color: var(--color-foreground);
   background: var(--color-surface-elevated);
 }
+
+/* ============================================================
+   Settings page — v2
+   ============================================================ */
+
+/* Subtle background ambient — gradient ninja-ish */
+.reborn-settings-bg {
+  position: relative;
+  background:
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(59, 91, 219, 0.06), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(139, 92, 246, 0.04), transparent 60%);
+}
+
+/* RAM slider — invisible track (we render our own filled rail), styled thumb */
+.reborn-ram-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 1.5rem;
+  cursor: pointer;
+}
+.reborn-ram-slider::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 1.5rem;
+}
+.reborn-ram-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid var(--color-accent);
+  box-shadow:
+    0 0 0 4px rgba(59, 91, 219, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+  margin-top: 3px;
+  transition: box-shadow 150ms ease, transform 120ms ease;
+}
+.reborn-ram-slider::-webkit-slider-thumb:hover {
+  box-shadow:
+    0 0 0 6px rgba(59, 91, 219, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.6);
+  transform: scale(1.08);
+}
+.reborn-ram-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.12);
+}
+.reborn-ram-slider::-moz-range-track {
+  background: transparent;
+  height: 1.5rem;
+}
+.reborn-ram-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid var(--color-accent);
+  box-shadow:
+    0 0 0 4px rgba(59, 91, 219, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+}
