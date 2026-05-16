@@ -26,7 +26,7 @@ use crate::integrity::{spawn_watcher, TamperingEvent, WatcherHandle};
 use crate::launcher::{
     assets, diagnostics, fabric, jvm, libraries, mods as mods_inspect, mojang, paths, runtime,
 };
-use crate::storage::prefs;
+use crate::storage::{prefs, secrets::SecretKey};
 
 /// Version Minecraft cible. Plus tard, viendra du manifest courant Reborn.
 /// En attendant, lisible via REBORN_MC_VERSION pour faciliter l'alignement
@@ -61,6 +61,8 @@ impl GameState {
 pub enum GameError {
     #[error("non authentifie : connecte-toi avant de lancer le jeu")]
     NotAuthenticated,
+    #[error("whitelist requise pour rejoindre le serveur")]
+    NotWhitelisted,
     #[error("le jeu tourne deja")]
     AlreadyRunning,
     #[error("aucune partie en cours a arreter")]
@@ -79,6 +81,8 @@ pub enum GameError {
     Fabric { message: String },
     #[error("watcher : {message}")]
     Watcher { message: String },
+    #[error("play-token : {message}")]
+    PlayToken { message: String },
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -108,9 +112,60 @@ pub async fn launcher_launch_game<R: Runtime>(
         .await
         .ok_or(GameError::NotAuthenticated)?;
 
+    // Gate whitelist : seul un user dont la candidature a ete acceptee
+    // (role promu a WHITELISTED ou superieur par staff.service) peut
+    // rejoindre le serveur. Cote serveur, le plugin Reborn Guardian
+    // appliquera la meme regle ; le check ici evite juste d'avoir un user
+    // qui se fait kick par le serveur 3s apres le lancement.
+    if user.role == "PLAYER" {
+        return Err(GameError::NotWhitelisted);
+    }
+
+    // Token MC pour Mojang sessionserver. Sans ca le serveur rejecte avec
+    // "Invalid session". `ensure_mc_token` renvoie None pour un dev-login
+    // (pas de chaine MS) : on tombe sur le placeholder qui ne marche que
+    // sur un serveur en offline-mode (utile pour tester localement).
+    let mc_access_token = match auth.ensure_mc_token().await {
+        Ok(Some(token)) => token,
+        Ok(None) => {
+            tracing::warn!(
+                "aucun token MC disponible (dev-login ?), utilise le placeholder — la connexion serveur online-mode echouera"
+            );
+            DEV_PLACEHOLDER_TOKEN.to_string()
+        }
+        Err(e) => {
+            tracing::warn!("rafraichissement MS->MC echoue : {e} — utilise le placeholder");
+            DEV_PLACEHOLDER_TOKEN.to_string()
+        }
+    };
+
     let dir = paths::game_dir().map_err(|e| GameError::Io {
         message: e.to_string(),
     })?;
+
+    // Play-token : signe HMAC par l'API, lu par le mod Reborn Integrity au
+    // boot et pousse au serveur via custom payload `reborn:auth`. Sans ca,
+    // le plugin Guardian kick le joueur a T+8s du JOIN. Echec ici =>
+    // bloque le launch (on ne sait pas attester, autant ne pas lancer).
+    let reborn_token = auth
+        .store
+        .get(SecretKey::RebornAccessToken)
+        .map_err(|e| GameError::Io { message: e.to_string() })?
+        .ok_or(GameError::NotAuthenticated)?;
+    let play_session = auth
+        .api
+        .fetch_play_token(&reborn_token)
+        .await
+        .map_err(|e| GameError::PlayToken { message: e.to_string() })?;
+    let play_token_path = dir.join(".reborn-play-token");
+    tokio::fs::write(&play_token_path, play_session.play_token.as_bytes())
+        .await
+        .map_err(|e| GameError::Io { message: format!("write play-token : {e}") })?;
+    tracing::info!(
+        "play-token ecrit ({} bytes), expire a {}",
+        play_session.play_token.len(),
+        play_session.expires_at
+    );
 
     let user_prefs = prefs::load().await.unwrap_or_default();
     let mc_version = minecraft_version();
@@ -195,9 +250,7 @@ pub async fn launcher_launch_game<R: Runtime>(
         launcher_version: env!("CARGO_PKG_VERSION").to_string(),
         minecraft_username: user.minecraft_username.clone(),
         minecraft_uuid: user.minecraft_uuid.clone(),
-        // Pour l'instant, dev placeholder. Quand l'app MS sera approuvee on
-        // stockera le mc_access_token dans le keyring et on le passera ici.
-        mc_access_token: DEV_PLACEHOLDER_TOKEN.to_string(),
+        mc_access_token,
         natives_dir: lib_setup.natives_dir.display().to_string(),
         library_jars: all_libs.iter().map(|p| p.display().to_string()).collect(),
         client_jar: lib_setup.client_jar.display().to_string(),
@@ -208,6 +261,7 @@ pub async fn launcher_launch_game<R: Runtime>(
         width: user_prefs.width,
         height: user_prefs.height,
         auto_connect: resolve_auto_connect(),
+        play_token_path: Some(play_token_path.display().to_string()),
     };
 
     let mut argv = jvm::build_command(&cfg);

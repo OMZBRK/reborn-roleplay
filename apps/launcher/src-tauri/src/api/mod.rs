@@ -83,6 +83,13 @@ pub struct DiscordLinkage {
     pub linked_at: String,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaySession {
+    pub play_token: String,
+    pub expires_at: String,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("requete HTTP echouee : {0}")]
@@ -164,6 +171,21 @@ impl ApiClient {
             return Err(ApiError::Status { status, body });
         }
         Ok(())
+    }
+
+    /// Demande un play-token court (~5min) signe HMAC par l'API. Sera
+    /// passe a la JVM via sysprop, puis pousse au serveur par le mod
+    /// Reborn Integrity au JOIN. L'API gate sur role != PLAYER, donc cet
+    /// appel echoue (403) si le user n'est pas whitelist.
+    pub async fn fetch_play_token(&self, access_token: &str) -> Result<PlaySession, ApiError> {
+        let url = format!("{}/play/session", self.base_url);
+        let resp = self.http.post(url).bearer_auth(access_token).send().await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<PlaySession>().await?)
     }
 
     /// Recupere le manifest courant. Le payload est strictement le meme

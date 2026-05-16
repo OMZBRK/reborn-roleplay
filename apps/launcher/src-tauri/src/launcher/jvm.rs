@@ -34,6 +34,10 @@ pub struct LaunchConfig {
     pub height: u32,
     /// Auto-connect au serveur. None = menu principal.
     pub auto_connect: Option<ServerAddress>,
+    /// Chemin absolu vers le fichier contenant le play-token (lu par le mod
+    /// Reborn Integrity au boot pour s'attester aupres du plugin Guardian).
+    /// None = pas d'attestation (dev local sans plugin).
+    pub play_token_path: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -72,6 +76,14 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
     args.push(format!("-Djava.library.path={}", cfg.natives_dir));
     args.push("-Dminecraft.launcher.brand=reborn-launcher".into());
     args.push(format!("-Dminecraft.launcher.version={}", cfg.launcher_version));
+    if let Some(path) = cfg.play_token_path.as_deref() {
+        // Le mod Reborn Integrity lit ce path et envoie son contenu via
+        // custom payload `reborn:auth` au serveur (cf plugin Guardian).
+        // Sysprop pointant vers un fichier plutot que le token brut : evite
+        // que la valeur fuite dans `ps` / Task Manager (le path est court
+        // et inoffensif).
+        args.push(format!("-Dreborn.playTokenPath={path}"));
+    }
 
     // Classpath = libraries + client jar
     let cp_separator = if cfg!(target_os = "windows") { ";" } else { ":" };
@@ -163,7 +175,26 @@ mod tests {
                 host: "play.reborn-rp.fr".into(),
                 port: 25565,
             }),
+            play_token_path: None,
         }
+    }
+
+    #[test]
+    fn play_token_path_emitted_as_sysprop() {
+        let mut cfg = sample_cfg();
+        cfg.play_token_path = Some("C:/game/.reborn-play-token".into());
+        let argv = build_command(&cfg);
+        assert!(
+            argv.iter()
+                .any(|a| a == "-Dreborn.playTokenPath=C:/game/.reborn-play-token"),
+            "argv must carry the play-token sysprop"
+        );
+    }
+
+    #[test]
+    fn no_play_token_path_omits_sysprop() {
+        let argv = build_command(&sample_cfg());
+        assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.playTokenPath=")));
     }
 
     #[test]
