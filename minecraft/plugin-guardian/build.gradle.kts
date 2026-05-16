@@ -42,6 +42,10 @@ dependencies {
     // Aligne avec le serveur dev Reborn (qui tourne 1.21.1). Quand on bumpera
     // le serveur, on bumpera ces deux versions ensemble.
     paperweight.paperDevBundle("1.21.1-R0.1-SNAPSHOT")
+
+    // Tests unitaires (PlayTokenVerifier surtout : code crypto critique).
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks {
@@ -63,10 +67,24 @@ tasks {
         // Accepte l'EULA Mojang automatiquement pour le serveur de test local.
         systemProperty("com.mojang.eula.agree", "true")
 
+        // Le plugin a besoin de REBORN_PLAY_TOKEN_SECRET pour valider les
+        // attestations. En dev, on relaie depuis l'env du shell ou on tombe
+        // sur un placeholder bien identifiable qui matche celui qu'il faudra
+        // utiliser cote API (.env du monorepo) si tu veux tester le E2E.
+        environment(
+            "REBORN_PLAY_TOKEN_SECRET",
+            System.getenv("REBORN_PLAY_TOKEN_SECRET")
+                ?: "dev-placeholder-secret-please-override-32chars-min!!!"
+        )
+
         // IMPORTANT — runDirectory hors du dossier Desktop (donc hors OneDrive).
         // Sinon OneDrive verrouille `world/session.lock` au demarrage et le
         // serveur crashe avec "Le processus ne peut pas acceder au fichier
         // car un autre processus en a verrouille une partie".
         runDirectory = file(System.getProperty("user.home") + "/.reborn-guardian-run")
+    }
+
+    test {
+        useJUnitPlatform()
     }
 }

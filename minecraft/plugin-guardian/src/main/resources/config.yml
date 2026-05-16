@@ -1,0 +1,15 @@
+# Reborn Guardian — configuration du plugin.
+#
+# play-token-secret : secret HMAC-SHA256 partage avec l'API Reborn
+# (cf .env du monorepo : REBORN_PLAY_TOKEN_SECRET). Doit etre EXACTEMENT
+# la meme valeur, sinon les attestations seront systematiquement rejetees.
+#
+# 32+ chars requis. Genere via :
+#   openssl rand -base64 48
+#   ou : node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+#
+# Priorite de lecture :
+#   1. Variable d'environnement REBORN_PLAY_TOKEN_SECRET (preferee, plus
+#      secure : pas dans le filesystem)
+#   2. Cette valeur (fallback pour les serveurs sans gestion d'env vars)
+play-token-secret: ''
