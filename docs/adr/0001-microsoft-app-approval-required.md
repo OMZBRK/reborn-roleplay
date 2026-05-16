@@ -1,6 +1,8 @@
 # ADR 0001 — Approbation Microsoft du Client ID pour Minecraft Services
 
-**Statut** : Accepte — 2026-05-03
+**Statut** : Resolu — 2026-05-16 (approbation Mojang recue, mail
+`enforcement@mojang.com` du 2026-05-08 "AppID Review Complete").
+**Statut precedent** : Accepte — 2026-05-03
 **Contexte de la decision** : test live de la Semaine 2 (auth MS).
 
 ## Contexte
@@ -52,6 +54,20 @@ que Microsoft n'a pas valide le Client ID.
 
 ## A faire
 
-- [ ] Soumettre le Client ID `affd0327-...` via le formulaire Microsoft
-- [ ] Mettre l'email de notification a jour dans le profil developpeur MS
+- [x] Soumettre le Client ID `affd0327-...` via le formulaire Microsoft
+- [x] Mettre l'email de notification a jour dans le profil developpeur MS
 - [ ] Ajouter une checklist "post-approbation" dans la doc de release v1.0
+
+## Resolution (2026-05-16)
+
+Mojang Studios IP Enforcement a confirme par mail que le Client ID est
+ajoute a leur allow list. Tests live :
+
+- `auth_login_microsoft` retourne la session Reborn avec le bon pseudo MC.
+- Pas de modification de code necessaire cote auth (la chaine fonctionnait
+  deja, seul `login_with_xbox` 403ait).
+
+Suivi : `launcher::game` consomme desormais le `mc_access_token` reel
+(cache memoire dans `AuthState`, refresh lazy via la chaine MS si absent
+au lancement). Sans ca, le client se presentait au serveur avec le
+placeholder `"0"` et Mojang sessionserver rejetait avec "Invalid session".

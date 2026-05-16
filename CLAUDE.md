@@ -139,7 +139,7 @@ The dev public key is loaded from the `MANIFEST_PUBLIC_KEY_HEX` env var in debug
 
 ### Auth has two paths, both populating the same keyring
 
-- **Microsoft OAuth** (`auth/microsoft.rs` → `xbox.rs` → `minecraft.rs`) — the real one. **Currently blocked at `login_with_xbox` (403 "Invalid app registration")** until Microsoft approves our App ID via <https://aka.ms/mce-reviewappid>; see ADR 0001.
+- **Microsoft OAuth** (`auth/microsoft.rs` → `xbox.rs` → `minecraft.rs`) — the real one. Microsoft approved our App ID in May 2026, the chain is unblocked end-to-end (see ADR 0001 for context). The MC access token obtained at `login_with_xbox` is cached in `AuthState::mc_access_token` (in-memory only, MC tokens are short-lived) and consumed by `launcher::game` as `--accessToken` for the JVM. If the cache is empty at launch time (boot resumed via Reborn JWT refresh path), `AuthState::ensure_mc_token` lazy-refreshes via the MS chain using the persisted MS refresh token. Without this, the server rejects the client with "Invalid session" because Mojang sessionserver can't validate the placeholder token.
 - **Discord OAuth** (`apps/api/src/discord/`) — links a Discord account to a Reborn user. The launcher calls `GET /v1/auth/discord/start` (returns a state-prefixed URL), opens it via `tauri-plugin-opener`, and polls `auth_me` until `discordUserId` populates server-side. The state-to-userId mapping lives in-RAM with a 5-min TTL — fine for a single API instance, will move to Redis when scaled.
 - **`/v1/auth/dev-login` + `auth_dev_login` Tauri command** — debug-only bypass. Gated by `process.env.NODE_ENV !== 'production'` server-side and `cfg!(debug_assertions)` client-side. The fake UUID is computed via **Mojang offline-mode format**: `MD5("OfflinePlayer:" + pseudo)` with bits version=3 / variant=IETF, so MC 1.21+'s `UndashedUuid.fromStringLenient` accepts it (the previous `dev00000-...` form failed with NumberFormatException because non-hex chars). Lookup is by `msAccountId="dev:<pseudo>"` so an existing dev user gets their UUID migrated silently.
 
@@ -148,6 +148,22 @@ The dev public key is loaded from the `MANIFEST_PUBLIC_KEY_HEX` env var in debug
 ### Error types crossing the IPC boundary must be struct-shaped
 
 `AuthError`, `LauncherError`, `GameError`, `ContentError` all use `#[serde(tag = "kind", rename_all = "snake_case")]`. Serde **cannot** serialise a tagged newtype variant carrying a single value — `Foo(String)` blows up at runtime with "cannot serialize tagged newtype variant". Always write `Foo { message: String }` for variants that carry data; unit variants like `NotAuthenticated` are fine.
+
+### Integrity loop : 4 acteurs, 1 secret partagé
+
+L'attestation client → serveur passe par quatre composants distincts mais joue sur **un seul secret HMAC**, `REBORN_PLAY_TOKEN_SECRET` (32+ chars, root `.env`) :
+
+1. **API** (`apps/api/src/play/`) — endpoint `POST /v1/play/session` (JWT auth + gate `role != PLAYER`). Émet un play-token de 5 min : `base64url(JSON{sub,mcUuid,mcUsername,iat,exp}).base64url(HMAC-SHA256(secret, payload))`. Pas un JWT complet (pas de header) pour minimiser le code de vérification côté plugin Java.
+2. **Launcher** (`apps/launcher/src-tauri/src/launcher/game.rs`) — avant `build_command`, appelle `ApiClient::fetch_play_token`, écrit le token dans `<game_dir>/.reborn-play-token`, passe `-Dreborn.playTokenPath=<path>` à la JVM. Le launcher ne stocke pas le secret HMAC — il fait juste passe-plat.
+3. **Mod Reborn Integrity** (`minecraft/mod-integrity/`, Fabric client) — `RebornIntegrityClient.onInitializeClient` lit le fichier pointé par la sysprop, registre `AuthPayload` sur le canal C2S `reborn:auth`, et sur `ClientPlayConnectionEvents.JOIN` envoie le token au serveur. Le codec écrit les bytes UTF-8 bruts sans préfixe de longueur — le packet custom payload de MC porte déjà la taille totale, donc côté serveur on lit `byte[] message` direct.
+4. **Plugin Guardian** (`minecraft/plugin-guardian/`, Paper) — `PendingAuthListener` schedule un kick à T+8s sur `PlayerJoinEvent`. `AuthChannelListener` reçoit le payload sur `reborn:auth`, appelle `PlayTokenVerifier.verify(token)`, **vérifie en plus** que `payload.mcUuid == player.getUniqueId()` (sinon : token volé d'un autre joueur → kick). Si tout passe, `AuthSessionState.markAuthenticated` annule le kick.
+
+Pièges spécifiques :
+- **Le secret doit être présent dans deux endroits seulement** : `.env` côté API et `System.getenv()` côté plugin. Le mod et le launcher ne le voient jamais. Si tu patches le client, tu ne peux pas forger un play-token sans appeler l'API.
+- **Le timing du kick (8s)** doit couvrir le RTT du custom payload sur connexions résidentielles lentes. Si tu vois des faux kicks sur de bonnes connexions, le problème est plus probablement côté Fabric API (ordering de `ClientPlayConnectionEvents.JOIN` vs `ServerPlayConnectionEvents.JOIN`).
+- **Comparaison `MessageDigest.isEqual`** est constant-time depuis JDK 6u17 ; ne pas la remplacer par `Arrays.equals` qui short-circuite et expose le token aux timing attacks.
+- **`./gradlew runServer` du plugin** ne lit pas le `.env` du monorepo. Le `build.gradle.kts` du plugin a un fallback dev hardcodé (`dev-placeholder-secret-...`) — si tu utilises ce fallback, mets le même côté API (`REBORN_PLAY_TOKEN_SECRET=dev-placeholder-secret-please-override-32chars-min!!!` dans le `.env`) sinon la signature ne matchera pas et le kick partira systématiquement.
+- **`AuthChannelListener#kick` doit re-poster sur le main thread** via `Bukkit#getScheduler#runTask` parce que les plugin messages peuvent arriver async selon les versions Paper, et `Player#kick` n'est pas thread-safe.
 
 ## Dev environment quirks
 
@@ -171,6 +187,7 @@ Beyond Postgres/Redis/JWT/MS OAuth (already documented in `.env.example` pattern
 - `REBORN_BOT_WEBHOOK_URL` (default `http://localhost:3001`) — where the API POSTs notifications.
 - `BOT_HTTP_PORT` (default `3001`) — port the bot exposes for webhooks.
 - `REBORN_API_URL` (default `http://localhost:3000/v1`) — used by the bot for outbound calls to `/v1/staff/*`.
+- `REBORN_PLAY_TOKEN_SECRET` — shared HMAC-SHA256 secret between the API (issues play-tokens) and the plugin Guardian (verifies them). 32+ chars. Generate with `openssl rand -base64 48` or `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`. **Same value** must be in the root `.env` (read by Nest) and exported in the env of the Paper server process (read by `System.getenv()` in `RebornGuardian.onEnable`). The launcher and the mod don't see this secret — only the API and the plugin.
 - `DISCORD_RICH_PRESENCE_CLIENT_ID` — Discord application ID for Rich Presence shown while the user is in-game. **Optional override** — if unset, the launcher falls back to `DISCORD_CLIENT_ID` (the same app used for OAuth + bot). Reuse is the default flow: open <https://discord.com/developers/applications>, pick the existing Reborn app, upload "logo" + "play" images under Rich Presence → Art Assets — done. Set this env only when you want a separate Discord app dedicated to RPC (e.g., split icon set or different application name). The launcher publishes the activity from `discord_rpc.rs::start_in_game` after `game:started` and clears it after `game:exited`. The IPC is local (Unix socket / Windows named pipe), no network. RPC fires only when the actual game launches — not while the launcher is idle on the main menu.
 
 ## Conventions
