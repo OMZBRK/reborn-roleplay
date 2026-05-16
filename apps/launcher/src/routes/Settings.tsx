@@ -4,17 +4,21 @@ import { motion } from "framer-motion";
 import {
   AlertTriangle,
   Check,
+  Cpu,
   Loader2,
   LogOut,
+  MemoryStick,
   MonitorSmartphone,
   User2,
   Link2,
   Gamepad2,
   Unlink,
+  Wand2,
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
 import { getPrefs, setPrefs, type Preferences } from "../lib/prefs";
 import { logout, refreshMe, startDiscordLink, unlinkDiscord } from "../lib/auth";
+import { getSystemSpecs, type SystemSpecs } from "../lib/system";
 import { cn } from "../lib/cn";
 
 const TABS = [
@@ -384,6 +388,7 @@ function ConnectionsTab() {
 
 function GameTab() {
   const [prefs, setPrefsState] = useState<Preferences | null>(null);
+  const [specs, setSpecs] = useState<SystemSpecs | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingState, setSavingState] = useState<"idle" | "saving" | "saved">("idle");
 
@@ -396,6 +401,15 @@ function GameTab() {
       .catch((err) => {
         if (!cancelled)
           setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+      });
+    // Detection des specs systeme en parallele — non-bloquante, si ca
+    // echoue on n'affiche juste pas la section recommandation.
+    getSystemSpecs()
+      .then((s) => {
+        if (!cancelled) setSpecs(s);
+      })
+      .catch(() => {
+        /* swallow : la section recommandation n'apparait simplement pas. */
       });
     return () => {
       cancelled = true;
@@ -431,19 +445,64 @@ function GameTab() {
       </div>
     );
 
+  const recommended = specs?.recommendedRamMb ?? 4096;
+
   return (
     <>
+      {specs && (
+        <Section
+          title="Configuration detectee"
+          description="Lecture automatique au chargement de la page. Sert de base aux recommandations."
+        >
+          <Row label="Memoire totale" hint={`${specs.freeRamMb.toLocaleString()} Mo libres a l'instant.`}>
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+              <MemoryStick className="h-3.5 w-3.5 text-foreground-subtle" />
+              {(specs.totalRamMb / 1024).toFixed(1)} Go
+            </span>
+          </Row>
+          <Row label="Processeur" hint={`${specs.cpuCores} thread${specs.cpuCores > 1 ? "s" : ""} logiques.`}>
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+              <Cpu className="h-3.5 w-3.5 text-foreground-subtle" />
+              {specs.cpuBrand}
+            </span>
+          </Row>
+          <Row label="Systeme">
+            <span className="text-sm">{specs.osName}</span>
+          </Row>
+        </Section>
+      )}
+
       <Section title="Performance" description="Reglages JVM et de fenetre. Pris en compte au prochain lancement.">
-        <Row label="Mémoire allouée à Java" hint={`${prefs.ramMb} Mo (recommandé : 4096 Mo)`}>
-          <input
-            type="range"
-            min={2048}
-            max={16384}
-            step={512}
-            value={prefs.ramMb}
-            onChange={(e) => update({ ramMb: Number(e.target.value) })}
-            className="w-48 accent-accent"
-          />
+        <Row
+          label="Memoire allouee a Java"
+          hint={
+            specs
+              ? `${prefs.ramMb} Mo (recommande : ${recommended} Mo pour ${(specs.totalRamMb / 1024).toFixed(1)} Go de RAM)`
+              : `${prefs.ramMb} Mo`
+          }
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={2048}
+              max={16384}
+              step={512}
+              value={prefs.ramMb}
+              onChange={(e) => update({ ramMb: Number(e.target.value) })}
+              className="w-48 accent-accent"
+            />
+            {specs && prefs.ramMb !== recommended && (
+              <button
+                type="button"
+                onClick={() => update({ ramMb: recommended })}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium hover:border-accent/40 hover:text-accent"
+                title={`Pose le slider sur ${recommended} Mo`}
+              >
+                <Wand2 className="h-3 w-3" />
+                Auto
+              </button>
+            )}
+          </div>
         </Row>
         <Row label="Resolution" hint="Taille de la fenetre Minecraft a l'ouverture.">
           <select

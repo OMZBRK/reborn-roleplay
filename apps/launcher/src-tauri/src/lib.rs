@@ -100,6 +100,7 @@ pub fn run() {
             content::auth_me,
             content::prefs_get,
             content::prefs_set,
+            hardware::system_specs_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
