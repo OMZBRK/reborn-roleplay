@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Lock, Play, RefreshCw } from "lucide-react";
 import { useLaunchStore } from "../../stores/launch-store";
+import { useAuthStore } from "../../stores/auth-store";
 import {
   applyUpdate,
   checkUpdate,
@@ -11,7 +12,6 @@ import {
   type DownloadProgress,
   type UpdatePreview,
 } from "../../lib/launcher";
-import { DownloadModal } from "../DownloadModal";
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} o`;
@@ -23,6 +23,11 @@ function formatBytes(n: number): string {
 export function PlayButton() {
   const phase = useLaunchStore((s) => s.phase);
   const setPhase = useLaunchStore((s) => s.setPhase);
+  const user = useAuthStore((s) => s.user);
+  // role === PLAYER = compte cree mais whitelist non acceptee. Le backend
+  // refusera launch_game (GameError::NotWhitelisted), on bloque ici aussi
+  // pour eviter un clic perdu et afficher le bon tooltip.
+  const isWhitelistGated = user?.role === "PLAYER";
 
   const [preview, setPreview] = useState<UpdatePreview | null>(null);
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
@@ -113,7 +118,7 @@ export function PlayButton() {
     }
   }
 
-  const isBlocked = phase === "blocked";
+  const isBlocked = phase === "blocked" || isWhitelistGated;
   const isDownloading = phase === "downloading";
   const isChecking = phase === "checking";
   const isRunning = phase === "running";
@@ -127,7 +132,8 @@ export function PlayButton() {
     : 0;
 
   const caption = (() => {
-    if (isBlocked) return "Demande de whitelist requise";
+    if (isWhitelistGated) return "Demande de whitelist requise";
+    if (isBlocked) return "Launcher trop ancien, mise à jour requise";
     if (isChecking) return "Vérification en cours...";
     if (isDownloading) {
       const dl = progress ? formatBytes(progress.bytesDownloaded) : "0 Mo";
@@ -145,46 +151,37 @@ export function PlayButton() {
   })();
 
   return (
-    <>
-      <div className="flex flex-col items-center gap-3">
-        {isBlocked ? (
-          <LockedButton />
-        ) : isDownloading ? (
-          <DownloadingButton percent={percent} />
-        ) : (
-          <PrimaryButton
-            label={isChecking ? "Vérification" : isRunning ? "En jeu" : hasUpdate ? "METTRE À JOUR" : "JOUER"}
-            disabled={isChecking || isRunning}
-            checking={isChecking}
-            onClick={handleClick}
-          />
-        )}
+    <div className="flex flex-col items-center gap-3">
+      {isBlocked ? (
+        <LockedButton label={isWhitelistGated ? "Whitelist requise" : "Inaccessible"} />
+      ) : isDownloading ? (
+        <DownloadingButton percent={percent} />
+      ) : (
+        <PrimaryButton
+          label={isChecking ? "Vérification" : isRunning ? "En jeu" : hasUpdate ? "METTRE À JOUR" : "JOUER"}
+          disabled={isChecking || isRunning}
+          checking={isChecking}
+          onClick={handleClick}
+        />
+      )}
 
-        <div className="h-5 text-[11px] uppercase tracking-[0.18em] text-foreground-muted">
-          {caption}
-        </div>
-
-        {error && (
-          <div className="mt-1 flex max-w-md items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
-            <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-            <span className="truncate" title={error}>
-              {error}
-            </span>
-          </div>
-        )}
+      <div className="h-5 text-[11px] uppercase tracking-[0.18em] text-foreground-muted">
+        {caption}
       </div>
 
-      <DownloadModal
-        open={isDownloading}
-        progress={progress}
-        version={preview?.version ?? null}
-        bytesTotal={preview?.bytesTotal ?? 0}
-      />
-    </>
+      {error && (
+        <div className="mt-1 flex max-w-md items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="truncate" title={error}>
+            {error}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
-function LockedButton() {
+function LockedButton({ label }: { label: string }) {
   return (
     <div className="group relative inline-block">
       <button
@@ -194,14 +191,8 @@ function LockedButton() {
         style={{ minWidth: 240, cursor: "not-allowed" }}
       >
         <Lock className="h-[22px] w-[22px]" strokeWidth={2.2} />
-        <span>Inaccessible</span>
+        <span>{label}</span>
       </button>
-      <div
-        className="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border-strong bg-surface-elevated px-2.5 py-1.5 text-[11px] uppercase tracking-[0.06em] text-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-        style={{ bottom: "calc(100% + 6px)" }}
-      >
-        Whitelist requise
-      </div>
     </div>
   );
 }
