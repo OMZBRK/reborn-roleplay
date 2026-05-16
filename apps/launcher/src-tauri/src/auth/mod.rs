@@ -46,6 +46,10 @@ pub struct AuthState {
     /// LaunchConfig (uuid + pseudo) sans recoupler launcher::game a la
     /// chaine API.
     pub user: tokio::sync::Mutex<Option<ApiUser>>,
+    /// Cache memoire du Minecraft access token (Mojang sessionserver).
+    /// Pas persiste : duree de vie courte (~24h) et `ensure_mc_token` sait
+    /// le regenerer a la volee via le refresh token MS du keyring.
+    mc_access_token: tokio::sync::Mutex<Option<String>>,
 }
 
 impl AuthState {
@@ -60,6 +64,7 @@ impl AuthState {
             api: ApiClient::new(),
             store: SecretStore::new(),
             user: tokio::sync::Mutex::new(None),
+            mc_access_token: tokio::sync::Mutex::new(None),
         }
     }
 
@@ -70,6 +75,45 @@ impl AuthState {
 
     pub async fn current_user(&self) -> Option<ApiUser> {
         self.user.lock().await.clone()
+    }
+
+    pub async fn set_mc_token(&self, token: Option<String>) {
+        let mut lock = self.mc_access_token.lock().await;
+        *lock = token;
+    }
+
+    /// Retourne un access token Minecraft frais, ou `None` si l'utilisateur
+    /// n'a pas de refresh MS stocke (typiquement : dev-login).
+    ///
+    /// Strategie : utilise le cache memoire en priorite (rempli apres un
+    /// `finalize_login`), puis tombe sur un refresh complet de la chaine
+    /// MS → XBL → XSTS → login_with_xbox via le refresh token persiste.
+    /// C'est ce qui couvre le cas "boot via Reborn JWT refresh" ou le
+    /// finalize_login n'a pas tourne mais le user est quand meme connecte.
+    pub async fn ensure_mc_token(&self) -> AuthResult<Option<String>> {
+        if let Some(token) = self.mc_access_token.lock().await.clone() {
+            return Ok(Some(token));
+        }
+        let Some(ms_refresh) = self
+            .store
+            .get(SecretKey::MicrosoftRefresh)
+            .map_err(|e| AuthError::Storage(e.to_string()))?
+        else {
+            return Ok(None);
+        };
+        let client_id = ms_client_id()?;
+        let ms_tokens = microsoft::refresh_tokens(&self.http, &client_id, &ms_refresh).await?;
+        let xbl_token = xbox::authenticate_xbl(&self.http, &ms_tokens.access_token).await?;
+        let xsts = xbox::authorize_xsts(&self.http, &xbl_token).await?;
+        let mc_auth = minecraft::login_with_xbox(&self.http, &xsts.user_hash, &xsts.token).await?;
+
+        // Microsoft fait tourner le refresh token : persiste le nouveau.
+        if let Some(new_refresh) = ms_tokens.refresh_token.as_deref() {
+            let _ = self.store.set(SecretKey::MicrosoftRefresh, new_refresh);
+        }
+
+        self.set_mc_token(Some(mc_auth.access_token.clone())).await;
+        Ok(Some(mc_auth.access_token))
     }
 }
 
@@ -146,6 +190,11 @@ async fn finalize_login(state: &AuthState, ms: microsoft::MicrosoftTokens) -> Au
     let mc_auth = minecraft::login_with_xbox(&state.http, &xsts.user_hash, &xsts.token)
         .await
         .inspect_err(|e| tracing::warn!("login_with_xbox echoue : {e}"))?;
+
+    // Cache memoire du MC access token — consomme par launcher::game pour le
+    // --accessToken passe a la JVM. Sans ca, le serveur reject avec
+    // "Invalid session" car le client se presente avec un token bidon.
+    state.set_mc_token(Some(mc_auth.access_token.clone())).await;
 
     tracing::info!("etape 4/5 : fetch profile");
     let _profile = minecraft::fetch_profile(&state.http, &mc_auth.access_token)
@@ -305,5 +354,6 @@ pub async fn auth_logout(state: State<'_, AuthState>) -> AuthResult<()> {
         .delete(SecretKey::RebornRefreshToken)
         .map_err(|e| AuthError::Storage(e.to_string()))?;
     state.set_user(None).await;
+    state.set_mc_token(None).await;
     Ok(())
 }
