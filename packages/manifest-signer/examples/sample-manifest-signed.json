@@ -1,17 +1,9 @@
 {
-  "version": "1.0.2-dev",
-  "minecraftVersion": "1.21.4",
-  "issuedAt": "2026-05-03T09:00:00Z",
-  "expiresAt": "2026-05-10T09:00:00Z",
+  "version": "1.0.3-dev",
+  "minecraftVersion": "1.21.1",
+  "issuedAt": "2026-05-16T00:00:00Z",
+  "expiresAt": "2027-05-16T00:00:00Z",
   "minLauncherVersion": "0.1.0",
-  "files": [
-    {
-      "path": "mods/sodium-fabric-0.6.13+mc1.21.4.jar",
-      "sha256": "92b79623fc00f0f948005a0ae416cb42a51646f2423b4036e27e867e4001a47e",
-      "size": 1306799,
-      "url": "https://cdn.modrinth.com/data/AANobbMI/versions/c3YkZvne/sodium-fabric-0.6.13%2Bmc1.21.4.jar",
-      "required": true
-    }
-  ],
-  "signature": "ed25519:ab3ac3c4a6b00d44e23dc0a93cb2070de707f80d373c96ddcbc3708f8096ed65c7957e5784ca4a8868dd9c5cb1c1fbcdaab6877e591f6374bf3b3ac818009007"
+  "files": [],
+  "signature": "ed25519:61de2cc6585ef03b308a794b5066002de7e456634ae99292aacd71ec98b23d4b8c95ea970b375bb7c8dd95ef6b3c79b316ae1c5b66047497a5998daf9a3ed105"
 }
