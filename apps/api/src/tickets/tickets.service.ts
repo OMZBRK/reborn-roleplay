@@ -227,8 +227,33 @@ export class TicketsService {
       data: { updatedAt: new Date() },
     });
 
-    // Relay best-effort vers le thread Discord. Skip si pas de threadId
-    // stocke (ex: bot etait down a la creation du ticket).
+    // DM relay vers le staff assigne (flow C4). Best-effort.
+    if (ticket.assignedToUserId) {
+      const assignee = await this.prisma.user.findUnique({
+        where: { id: ticket.assignedToUserId },
+        select: { discordUserId: true },
+      });
+      if (assignee?.discordUserId) {
+        void this.webhooks
+          .directMessage({
+            discordUserId: assignee.discordUserId,
+            context: {
+              kind: 'ticket',
+              entityId: ticket.id,
+              subject: ticket.subject,
+            },
+            fromPseudo: user?.minecraftUsername ?? 'Joueur',
+            content: dto.content.trim(),
+          })
+          .catch((err) =>
+            this.logger.warn(
+              `DM relay ticket echec : ${(err as Error).message}`,
+            ),
+          );
+      }
+    }
+
+    // Legacy : relais vers le thread Discord (flow pre-C4).
     if (ticket.discordThreadId) {
       try {
         const relay = await this.webhooks.ticketMessageRelay({

@@ -102,8 +102,36 @@ export class WhitelistMessagesService {
       },
     });
 
-    // Relais best-effort vers Discord. Si le thread n'existe pas encore
-    // (webhook initial n'a pas encore repondu) on log et on continue.
+    // DM relay vers le staff assigne (flow C3 — plus de thread Discord).
+    // Best-effort : on ne bloque pas la creation du message si le DM
+    // echoue (user a desactive les DM serveur, deconnexion, etc).
+    if (app.assignedToUserId) {
+      const assignee = await this.prisma.user.findUnique({
+        where: { id: app.assignedToUserId },
+        select: { discordUserId: true },
+      });
+      if (assignee?.discordUserId) {
+        void this.webhooks
+          .directMessage({
+            discordUserId: assignee.discordUserId,
+            context: {
+              kind: 'whitelist',
+              entityId: app.id,
+              subject: `${app.firstName} ${app.lastName}`,
+            },
+            fromPseudo: user?.minecraftUsername ?? 'Joueur',
+            content: input.content,
+          })
+          .catch((err) =>
+            this.logger.warn(
+              `DM relay whitelist echec : ${(err as Error).message}`,
+            ),
+          );
+      }
+    }
+
+    // Legacy : relais vers le thread Discord (flow pre-C3). Reste pour
+    // les anciennes candidatures qui ont encore un thread.
     if (app.discordThreadId) {
       try {
         const relay = await this.webhooks.whitelistMessageRelay({

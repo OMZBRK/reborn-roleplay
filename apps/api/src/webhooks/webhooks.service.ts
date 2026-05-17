@@ -53,6 +53,30 @@ export interface MessageRelayPayload {
   attachmentUrls?: string[];
 }
 
+// Push d'un nouveau message du joueur vers le DM du staff assigne. Le
+// bot fait `client.users.fetch(discordUserId).createDM().send(embed)`.
+export interface DirectMessagePayload {
+  discordUserId: string;
+  context: {
+    kind: 'whitelist' | 'ticket';
+    entityId: string;
+    subject?: string;
+  };
+  fromPseudo: string;
+  content: string;
+}
+
+// Notif d'un changement d'assignation (claim / release / reclaim).
+// Reflete cote Discord : edite le message public pour mettre/retirer
+// le bouton "Prendre en charge" et marquer "Pris par X" / "Disponible".
+export interface AssignmentChangedPayload {
+  kind: 'whitelist' | 'ticket';
+  entityId: string;
+  messageId: string | null;
+  action: 'claimed' | 'released';
+  actorName: string;
+}
+
 // Notif que l'API envoie au bot a chaque changement de statut declenche
 // cote panel staff ou launcher user. Le bot reflete cote Discord :
 //
@@ -146,6 +170,14 @@ export class WebhooksService implements OnModuleInit {
    */
   async statusUpdate(payload: StatusUpdatePayload): Promise<void> {
     await this.dispatch('/webhooks/status-update', payload);
+  }
+
+  async assignmentChanged(payload: AssignmentChangedPayload): Promise<void> {
+    await this.dispatch('/webhooks/assignment-update', payload);
+  }
+
+  async directMessage(payload: DirectMessagePayload): Promise<void> {
+    await this.dispatch('/webhooks/dm', payload);
   }
 
   private async dispatch<T = unknown>(

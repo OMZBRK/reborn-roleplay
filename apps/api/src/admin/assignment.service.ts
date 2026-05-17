@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 export type AssignKind = 'whitelist' | 'ticket';
 
@@ -53,7 +54,39 @@ function roleAtLeast(role: Role, min: Role): boolean {
 export class AssignmentService {
   private readonly logger = new Logger(AssignmentService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly webhooks: WebhooksService,
+  ) {}
+
+  /**
+   * Best-effort : notifie le bot d'un claim/release pour qu'il edite
+   * le message public du salon staff (mettre/retirer le bouton
+   * "Prendre en charge"). Fire-and-forget — un fail webhook ne bloque
+   * pas la mutation cote API.
+   */
+  private notifyAssignmentChange(
+    kind: AssignKind,
+    entityId: string,
+    messageId: string | null,
+    action: 'claimed' | 'released',
+    actorName: string,
+  ) {
+    if (!messageId) return;
+    void this.webhooks
+      .assignmentChanged({
+        kind,
+        entityId,
+        messageId,
+        action,
+        actorName,
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `assignmentChanged ${kind} ${entityId} echec : ${(err as Error).message}`,
+        ),
+      );
+  }
 
   // ── Whitelist ──────────────────────────────────────────
 
@@ -81,6 +114,13 @@ export class AssignmentService {
     });
     this.logger.log(
       `whitelist ${applicationId} claim par ${staff.minecraftUsername} (id=${staff.id})`,
+    );
+    this.notifyAssignmentChange(
+      'whitelist',
+      applicationId,
+      app.discordMessageId,
+      'claimed',
+      staff.discordUsername ?? staff.minecraftUsername,
     );
     return this.toAssignmentDto('whitelist', updated);
   }
@@ -111,6 +151,13 @@ export class AssignmentService {
     this.logger.log(
       `whitelist ${applicationId} release par ${staff.minecraftUsername}` +
         (isSelf ? '' : ' (force ADMIN)'),
+    );
+    this.notifyAssignmentChange(
+      'whitelist',
+      applicationId,
+      app.discordMessageId,
+      'released',
+      staff.discordUsername ?? staff.minecraftUsername,
     );
     return this.toAssignmentDto('whitelist', updated);
   }
@@ -156,6 +203,13 @@ export class AssignmentService {
     this.logger.log(
       `ticket ${ticketId} claim par ${staff.minecraftUsername}`,
     );
+    this.notifyAssignmentChange(
+      'ticket',
+      ticketId,
+      ticket.discordMessageId,
+      'claimed',
+      staff.discordUsername ?? staff.minecraftUsername,
+    );
     return this.toAssignmentDto('ticket', updated);
   }
 
@@ -184,6 +238,13 @@ export class AssignmentService {
     this.logger.log(
       `ticket ${ticketId} release par ${staff.minecraftUsername}` +
         (isSelf ? '' : ' (force ADMIN)'),
+    );
+    this.notifyAssignmentChange(
+      'ticket',
+      ticketId,
+      ticket.discordMessageId,
+      'released',
+      staff.discordUsername ?? staff.minecraftUsername,
     );
     return this.toAssignmentDto('ticket', updated);
   }
@@ -254,6 +315,18 @@ export class AssignmentService {
           });
     this.logger.log(
       `${kind} ${entity.id} reclame par le joueur (etait assigne a ${entity.assignedTo?.minecraftUsername ?? '?'})`,
+    );
+    // Reclaim joueur = release special : on emet le meme event que pour
+    // un release classique, mais l'actorName indique que c'est le joueur.
+    const updatedWithMsg = updated as typeof updated & {
+      discordMessageId?: string | null;
+    };
+    this.notifyAssignmentChange(
+      kind,
+      entity.id,
+      updatedWithMsg.discordMessageId ?? null,
+      'released',
+      'le joueur (réclamation 4h)',
     );
     return this.toAssignmentDto(kind, updated);
   }

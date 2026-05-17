@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ChannelType,
   Client,
   EmbedBuilder,
@@ -57,6 +60,31 @@ interface MessageRelayPayload {
 // associe : embed annonce le changement, et on lock+archive le thread si
 // le statut est terminal pour eviter que la conversation continue dans le
 // vide cote Discord pendant que l'API/launcher la considere finie.
+// Push d'un nouveau message du joueur vers le DM du staff assigne.
+// Envoye par l'API quand le joueur poste dans le launcher et que la
+// candidature/ticket a un staff assigne avec discordUserId lie.
+interface DirectMessagePayload {
+  discordUserId: string;
+  context: {
+    kind: "whitelist" | "ticket";
+    entityId: string;
+    subject?: string;
+  };
+  fromPseudo: string;
+  content: string;
+}
+
+// Notif d'un claim/release pour qu'on edite le message public du salon
+// staff : ajoute/retire le bouton "Prendre en charge" et marque
+// "Pris par X" / "Disponible".
+interface AssignmentChangedPayload {
+  kind: "whitelist" | "ticket";
+  entityId: string;
+  messageId: string | null;
+  action: "claimed" | "released";
+  actorName: string;
+}
+
 interface StatusUpdatePayload {
   kind: "whitelist" | "ticket";
   // Legacy flow : id du thread Discord cree a la soumission.
@@ -146,6 +174,32 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
       return reply(res, 200, { messageId, threadId: null });
     } catch (err) {
       console.error(`[webhook] ticket message crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
+  }
+  if (url === "/webhooks/dm") {
+    const data = payload as DirectMessagePayload;
+    console.log(
+      `[webhook] dm → ${data.discordUserId} (${data.context.kind} ${data.context.entityId})`,
+    );
+    try {
+      await postDirectMessage(client, data);
+      return reply(res, 200, { ok: true });
+    } catch (err) {
+      console.error(`[webhook] dm crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
+  }
+  if (url === "/webhooks/assignment-update") {
+    const data = payload as AssignmentChangedPayload;
+    console.log(
+      `[webhook] assignment-update ${data.kind} ${data.entityId} → ${data.action} par ${data.actorName}`,
+    );
+    try {
+      await postAssignmentUpdate(client, data);
+      return reply(res, 200, { ok: true });
+    } catch (err) {
+      console.error(`[webhook] assignment-update crash :`, err);
       return reply(res, 500, { error: (err as Error).message });
     }
   }
@@ -428,6 +482,87 @@ async function fetchChannelMessage(client: Client, messageId: string) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Edite le message public d'annonce dans le salon staff selon l'action :
+ *   - "claimed"  : retire le bouton "Prendre en charge", ajoute le footer
+ *     "Pris par X" en remplacant un eventuel "Disponible".
+ *   - "released" : remet le bouton "Prendre en charge", remplace le footer
+ *     par "Disponible (libéré par X)".
+ *
+ * Le message est resolu via fetchChannelMessage(messageId). Si introuvable
+ * (supprime manuellement, ancienne candidature sans messageId, etc.), on
+ * log et on no-op.
+ */
+async function postDirectMessage(
+  client: Client,
+  p: DirectMessagePayload,
+): Promise<void> {
+  const user = await client.users.fetch(p.discordUserId);
+  const dm = await user.createDM();
+  const panelPath = p.context.kind === "whitelist" ? "whitelist" : "tickets";
+  const panelUrl = `${config.adminBaseUrl}/${panelPath}/${p.context.entityId}`;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x3b5bdb)
+    .setAuthor({ name: `${p.fromPseudo} · ${p.context.kind === "whitelist" ? "candidature" : "ticket"}` })
+    .setTitle(p.context.subject ?? "Nouveau message")
+    .setDescription(p.content.length > 4000 ? p.content.slice(0, 4000) + "…" : p.content)
+    .setTimestamp(new Date())
+    .setFooter({ text: "Répondre depuis le panel" });
+
+  const openButton = new ButtonBuilder()
+    .setURL(panelUrl)
+    .setLabel("Ouvrir dans le panel")
+    .setStyle(ButtonStyle.Link)
+    .setEmoji("💬");
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(openButton);
+
+  await dm.send({ embeds: [embed], components: [row] });
+}
+
+async function postAssignmentUpdate(
+  client: Client,
+  p: AssignmentChangedPayload,
+): Promise<void> {
+  if (!p.messageId) {
+    console.warn(`[assignment-update] pas de messageId, skip.`);
+    return;
+  }
+  const msg = await fetchChannelMessage(client, p.messageId);
+  if (!msg) {
+    console.warn(`[assignment-update] message ${p.messageId} introuvable, skip.`);
+    return;
+  }
+  const original = msg.embeds[0]?.toJSON() ?? {};
+  // On nettoie un eventuel suffixe " · Pris par ..." ou " · Disponible
+  // ..." accumule des cycles precedents pour eviter la concat infinie.
+  const baseFooter = (original.footer?.text ?? "")
+    .replace(/\s·\s(?:Pris par|Disponible).*$/u, "")
+    .trim();
+
+  if (p.action === "claimed") {
+    const updated = new EmbedBuilder(original).setFooter({
+      text: `${baseFooter} · Pris par ${p.actorName}`,
+    });
+    await msg.edit({ embeds: [updated], components: [] });
+    return;
+  }
+
+  // released : re-attache le bouton de claim et indique "Disponible".
+  const prefix = p.kind === "whitelist" ? "wl" : "tk";
+  const claimButton = new ButtonBuilder()
+    .setCustomId(`${prefix}:claim:${p.entityId}`)
+    .setLabel("Prendre en charge")
+    .setStyle(ButtonStyle.Primary)
+    .setEmoji("📥");
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(claimButton);
+  const updated = new EmbedBuilder(original).setFooter({
+    text: `${baseFooter} · Disponible (libéré par ${p.actorName})`,
+  });
+  await msg.edit({ embeds: [updated], components: [row] });
 }
 
 const TICKET_CATEGORY_LABEL: Record<string, string> = {
