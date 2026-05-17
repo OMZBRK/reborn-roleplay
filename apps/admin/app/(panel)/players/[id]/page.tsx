@@ -11,6 +11,7 @@ import {
   IconShield,
   IconWhitelist,
 } from '@/components/icons';
+import { MCAvatar } from '@/components/MCAvatar';
 import { RoleBadge } from '@/components/RoleBadge';
 import { api } from '@/lib/api';
 import type {
@@ -55,11 +56,6 @@ export default function PlayerProfilePage({
   }
   if (!data) return null;
 
-  const initials = data.minecraftUsername
-    .replace(/[^a-z]/gi, '')
-    .slice(0, 2)
-    .toUpperCase();
-
   return (
     <div className="px-10 py-10 max-w-5xl mx-auto">
       <Link
@@ -70,15 +66,23 @@ export default function PlayerProfilePage({
       </Link>
 
       <header className="mt-4 mb-8 flex items-start gap-5">
-        <div
-          className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 text-2xl font-medium ${
-            data.banned
-              ? 'border-[var(--color-danger)]/50 bg-[var(--color-danger-soft)] text-[var(--color-danger)]'
-              : 'border-[var(--color-accent)]/50 bg-[var(--color-accent-soft)] text-[var(--color-accent)]'
-          }`}
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          {initials || '?'}
+        <div className="relative shrink-0">
+          <MCAvatar
+            uuid={data.minecraftUuid}
+            username={data.minecraftUsername}
+            size={84}
+            rounded="lg"
+            className={`ring-2 shadow-[var(--shadow-md)] ${
+              data.banned
+                ? 'ring-[var(--color-danger)]/50'
+                : 'ring-[var(--color-accent)]/40'
+            }`}
+          />
+          {data.banned && (
+            <div className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-danger)] text-white shadow-[var(--shadow-md)]">
+              <IconBan className="h-4 w-4" />
+            </div>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
@@ -94,7 +98,7 @@ export default function PlayerProfilePage({
             <RoleBadge role={data.role} />
             {data.banned && (
               <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-2.5 py-0.5 text-xs text-[var(--color-danger)]">
-                <IconBan /> Banni
+                <IconBan className="h-3.5 w-3.5" /> Banni
               </span>
             )}
           </div>

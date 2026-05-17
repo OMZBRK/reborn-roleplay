@@ -135,6 +135,21 @@ export interface Paginated<T> {
   items: T[];
 }
 
+/** Reponse de GET /v1/auth/me — le staff connecte. */
+export interface CurrentUser {
+  id: string;
+  minecraftUuid: string;
+  minecraftUsername: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: Role;
+  discord: {
+    userId: string;
+    username: string;
+    linkedAt: string;
+  } | null;
+}
+
 export interface PlayerListItem {
   id: string;
   minecraftUsername: string;

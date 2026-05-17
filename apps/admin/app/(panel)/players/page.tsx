@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { IconBan, IconSearch } from '@/components/icons';
+import { MCAvatar } from '@/components/MCAvatar';
 import { RoleBadge } from '@/components/RoleBadge';
 import { api } from '@/lib/api';
 import type { PlayerListItem } from '@/lib/types';
@@ -86,33 +87,33 @@ export default function PlayersPage() {
 }
 
 function PlayerCard({ player }: { player: PlayerListItem }) {
-  const initials = player.minecraftUsername
-    .replace(/[^a-z]/gi, '')
-    .slice(0, 2)
-    .toUpperCase();
   return (
     <Link
       href={`/players/${player.id}`}
       className="group block rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:bg-[var(--color-surface-elevated)] hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 transition-all"
     >
       <div className="flex items-start gap-3">
-        <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-sm font-medium ${
-            player.banned
-              ? 'border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] text-[var(--color-danger)]'
-              : 'border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] text-[var(--color-accent)]'
-          }`}
-        >
-          {initials || '?'}
+        <div className="relative shrink-0">
+          <MCAvatar
+            uuid={player.minecraftUuid}
+            username={player.minecraftUsername}
+            size={44}
+            rounded="lg"
+            className={`ring-2 ${
+              player.banned
+                ? 'ring-[var(--color-danger)]/40'
+                : 'ring-[var(--color-accent)]/30'
+            }`}
+          />
+          {player.banned && (
+            <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-danger)] text-white">
+              <IconBan className="h-3 w-3" />
+            </div>
+          )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <div className="truncate text-sm font-medium">
-              {player.minecraftUsername}
-            </div>
-            {player.banned && (
-              <IconBan className="shrink-0 text-[var(--color-danger)]" />
-            )}
+          <div className="truncate text-sm font-medium">
+            {player.minecraftUsername}
           </div>
           {player.discordUsername && (
             <div className="truncate text-xs text-[var(--color-foreground-muted)]">
@@ -142,7 +143,7 @@ function SkeletonGrid() {
           className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 animate-pulse"
         >
           <div className="flex items-start gap-3">
-            <div className="h-11 w-11 rounded-full bg-[var(--color-surface-elevated)]" />
+            <div className="h-11 w-11 rounded-[14px] bg-[var(--color-surface-elevated)]" />
             <div className="flex-1">
               <div className="h-4 w-32 rounded bg-[var(--color-surface-elevated)]" />
               <div className="mt-2 h-3 w-20 rounded bg-[var(--color-surface-elevated)]" />

@@ -10,6 +10,7 @@ import {
   IconTickets,
   IconWhitelist,
 } from '@/components/icons';
+import { StaffIdentity } from '@/components/StaffIdentity';
 import { clearTokens, isAuthenticated } from '@/lib/auth';
 
 interface NavItem {
@@ -88,6 +89,8 @@ export default function PanelLayout({
             );
           })}
         </nav>
+
+        <StaffIdentity />
 
         <button
           type="button"

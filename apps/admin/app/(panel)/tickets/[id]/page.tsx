@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { use, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import type { AdminMessage, TicketDetail, TicketStatus } from '@/lib/types';
 
@@ -49,6 +50,11 @@ export default function TicketDetailPage({
       qc.invalidateQueries({ queryKey: ['admin', 'tickets', id] });
       qc.invalidateQueries({ queryKey: ['admin', 'tickets'] });
     },
+    onError: (err) => {
+      toast.error("Message non envoye", {
+        description: (err as Error).message,
+      });
+    },
   });
 
   const statusMut = useMutation({
@@ -57,10 +63,22 @@ export default function TicketDetailPage({
         method: 'PATCH',
         body: { status },
       }),
-    onSuccess: () => {
+    onSuccess: (_data, status) => {
       qc.invalidateQueries({ queryKey: ['admin', 'tickets', id] });
       qc.invalidateQueries({ queryKey: ['admin', 'tickets'] });
       qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+      const labels: Record<TicketStatus, string> = {
+        OPEN: 'Ticket re-ouvert',
+        IN_PROGRESS: 'Ticket pris en charge',
+        RESOLVED: 'Ticket marque resolu',
+        CLOSED: 'Ticket ferme',
+      };
+      toast.success(labels[status]);
+    },
+    onError: (err) => {
+      toast.error('Changement de statut echoue', {
+        description: (err as Error).message,
+      });
     },
   });
 

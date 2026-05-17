@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import type { AppStatus, WhitelistDetail } from '@/lib/types';
 
@@ -29,12 +30,25 @@ export default function WhitelistDetailPage({
   const decideMut = useMutation({
     mutationFn: (input: { status: Decision; reviewNotes?: string }) =>
       api(`/admin/whitelist/${id}`, { method: 'PATCH', body: input }),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['admin', 'whitelist'] });
       qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
       setPendingDecision(null);
       setNotes('');
+      const labels: Record<Decision, string> = {
+        APPROVED: 'Candidature acceptee',
+        REJECTED: 'Candidature refusee',
+        NEEDS_REVISION: 'Revision demandee au joueur',
+      };
+      toast.success(labels[vars.status], {
+        description: 'Notification envoyee dans Discord et dans le launcher.',
+      });
       router.push('/whitelist');
+    },
+    onError: (err) => {
+      toast.error('Echec de la decision', {
+        description: (err as Error).message,
+      });
     },
   });
 
