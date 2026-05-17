@@ -180,6 +180,18 @@ pub struct WhitelistApplicationDto {
     pub submitted_at: String,
     pub reviewed_at: Option<String>,
     pub review_notes: Option<String>,
+    // Assignation staff (cf C5 — flow DM Discord). assignee est null
+    // tant que personne n'a pris en charge ; assigned_at sert au
+    // launcher pour decider si le bouton "Demander une reprise" est
+    // dispo (>= 4h).
+    pub assignee: Option<AssigneeDto>,
+    pub assigned_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AssigneeDto {
+    pub username: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -316,6 +328,21 @@ pub async fn whitelist_withdraw(state: State<'_, AuthState>) -> Result<(), Conte
         })
 }
 
+/// Demande au backend de liberer le staff actuellement assigne sur la
+/// candidature, si la prise en charge dure depuis > 4h. L'API refuse
+/// (HTTP 400) si le delai n'est pas atteint ou si rien n'est assigne.
+#[tauri::command]
+pub async fn whitelist_reclaim(state: State<'_, AuthState>) -> Result<Json, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .post_json::<_, Json>(&token, "/whitelist/me/reclaim", &serde_json::json!({}))
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
 // ── Messages whitelist (chat staff↔candidat via thread Discord) ──────
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -425,6 +452,9 @@ pub struct TicketDetail {
     pub created_at: String,
     pub updated_at: String,
     pub messages: Vec<TicketMessageDto>,
+    // Cf C5 — meme principe que WhitelistApplicationDto.
+    pub assignee: Option<AssigneeDto>,
+    pub assigned_at: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -522,6 +552,27 @@ pub async fn tickets_delete(
     state
         .api
         .delete_no_content(&token, &format!("/tickets/{id}"))
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+/// Idem whitelist_reclaim mais pour un ticket precis. L'API verifie
+/// que le ticket appartient au user et que le delai 4h est ecoule.
+#[tauri::command]
+pub async fn tickets_reclaim(
+    state: State<'_, AuthState>,
+    id: String,
+) -> Result<Json, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .post_json::<_, Json>(
+            &token,
+            &format!("/tickets/{id}/reclaim"),
+            &serde_json::json!({}),
+        )
         .await
         .map_err(|e| ContentError::Api {
             message: e.to_string(),

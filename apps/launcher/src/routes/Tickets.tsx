@@ -24,6 +24,7 @@ import {
   deleteTicket,
   fetchTicket,
   fetchTickets,
+  reclaimTicket,
   postTicketMessage,
   type CreateTicketInput,
   type TicketCategory,
@@ -426,7 +427,36 @@ function ChatPane({
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [sending, setSending] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reclaiming, setReclaiming] = useState(false);
+  const [reclaimMsg, setReclaimMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Refresh chaque minute pour que la duree "depuis Xh" reste fraiche
+  // sans dependre du polling 5s qui peut ne pas changer la ref ticket.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!ticket?.assignedAt) return;
+    const t = window.setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(t);
+  }, [ticket?.assignedAt]);
+
+  async function handleReclaim() {
+    setReclaiming(true);
+    setReclaimMsg(null);
+    try {
+      await reclaimTicket(ticketId);
+      const detail = await fetchTicket(ticketId);
+      setTicket(detail);
+      setReclaimMsg("Reprise demandee — un autre staff peut reprendre.");
+    } catch (err) {
+      setReclaimMsg(
+        typeof err === "string"
+          ? err
+          : (err as { message?: string }).message ?? "Echec",
+      );
+    } finally {
+      setReclaiming(false);
+    }
+  }
 
   // Reset le draft + attachments quand on change de ticket sélectionné.
   useEffect(() => {
@@ -598,6 +628,63 @@ function ChatPane({
           </button>
         )}
       </div>
+
+      {ticket.assignee && ticket.assignedAt && (() => {
+        const elapsed = Date.now() - new Date(ticket.assignedAt).getTime();
+        const RECLAIM_AFTER_MS = 4 * 60 * 60 * 1000;
+        const canReclaim = elapsed >= RECLAIM_AFTER_MS && !isClosed && ticket.status !== "RESOLVED";
+        const minutes = Math.max(1, Math.floor(elapsed / 60_000));
+        const hours = Math.floor(minutes / 60);
+        const since =
+          hours >= 1
+            ? `${hours}h${minutes % 60 > 0 ? ` ${minutes % 60}min` : ""}`
+            : `${minutes} min`;
+        return (
+          <div
+            className="mx-3 mb-2 flex items-center justify-between gap-3 rounded-[10px] border px-3 py-2 text-xs"
+            style={{
+              background: canReclaim
+                ? "var(--color-warning-soft)"
+                : "var(--color-accent-soft)",
+              borderColor: canReclaim
+                ? "rgba(245, 158, 11, 0.4)"
+                : "rgba(59, 91, 219, 0.4)",
+              color: canReclaim
+                ? "var(--color-warning)"
+                : "var(--color-accent)",
+            }}
+          >
+            <span>
+              Pris en charge par @{ticket.assignee.username ?? "?"} depuis {since}.
+            </span>
+            {canReclaim && (
+              <button
+                type="button"
+                className="wl-btn-mini-ghost"
+                onClick={handleReclaim}
+                disabled={reclaiming}
+                style={{
+                  borderColor: "rgba(245, 158, 11, 0.5)",
+                  color: "var(--color-warning)",
+                }}
+              >
+                {reclaiming ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : null}
+                Demander une reprise
+              </button>
+            )}
+          </div>
+        );
+      })()}
+      {reclaimMsg && (
+        <div
+          className="mx-3 mb-2 text-xs"
+          style={{ color: "var(--color-foreground-subtle)" }}
+        >
+          {reclaimMsg}
+        </div>
+      )}
 
       <div className="tk-chat-area">
         <div className="wl-chat">

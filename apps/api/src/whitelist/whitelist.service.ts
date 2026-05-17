@@ -33,6 +33,12 @@ export interface WhitelistApplicationDto {
   submittedAt: string;
   reviewedAt: string | null;
   reviewNotes: string | null;
+  // Assignation staff (cf C3 — flow DM bot). Permet au launcher
+  // d'afficher "Pris en charge par @X depuis Yh" et, apres 4h sans
+  // suite, un bouton "Demander une reprise" qui appelle POST
+  // /v1/whitelist/me/reclaim.
+  assignee: { username: string | null } | null;
+  assignedAt: string | null;
 }
 
 @Injectable()
@@ -45,7 +51,12 @@ export class WhitelistService {
   ) {}
 
   async getMine(userId: string): Promise<{ application: WhitelistApplicationDto | null }> {
-    const app = await this.prisma.whitelistApplication.findUnique({ where: { userId } });
+    const app = await this.prisma.whitelistApplication.findUnique({
+      where: { userId },
+      include: {
+        assignedTo: { select: { minecraftUsername: true, discordUsername: true } },
+      },
+    });
     return { application: app ? this.toDto(app) : null };
   }
 
@@ -213,7 +224,11 @@ export class WhitelistService {
     }
   }
 
-  private toDto(app: WhitelistApplication): WhitelistApplicationDto {
+  private toDto(
+    app: WhitelistApplication & {
+      assignedTo?: { minecraftUsername: string; discordUsername: string | null } | null;
+    },
+  ): WhitelistApplicationDto {
     // dob est stocké en DateTime mais on l'expose en YYYY-MM-DD côté client
     // (cohérent avec l'input <input type="date"> qui produit ce format).
     const dobIso = app.dob.toISOString().slice(0, 10);
@@ -234,6 +249,14 @@ export class WhitelistService {
       submittedAt: app.submittedAt.toISOString(),
       reviewedAt: app.reviewedAt?.toISOString() ?? null,
       reviewNotes: app.reviewNotes,
+      assignee: app.assignedTo
+        ? {
+            username:
+              app.assignedTo.discordUsername ??
+              app.assignedTo.minecraftUsername,
+          }
+        : null,
+      assignedAt: app.assignedAt?.toISOString() ?? null,
     };
   }
 }

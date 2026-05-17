@@ -42,6 +42,8 @@ export interface TicketDetail {
   createdAt: string;
   updatedAt: string;
   messages: TicketMessageDto[];
+  assignee: { username: string | null } | null;
+  assignedAt: string | null;
 }
 
 export interface PostStaffMessageInput {
@@ -183,7 +185,10 @@ export class TicketsService {
   async getOne(userId: string, ticketId: string): Promise<TicketDetail> {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
-      include: { messages: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        messages: { orderBy: { createdAt: 'asc' } },
+        assignedTo: { select: { minecraftUsername: true, discordUsername: true } },
+      },
     });
     if (!ticket) throw new NotFoundException('Ticket introuvable.');
     if (ticket.userId !== userId) {
@@ -383,7 +388,9 @@ export class TicketsService {
   }
 
   private toDetail(
-    ticket: Ticket,
+    ticket: Ticket & {
+      assignedTo?: { minecraftUsername: string; discordUsername: string | null } | null;
+    },
     messages: TicketMessage[],
     viewerId: string,
   ): TicketDetail {
@@ -395,6 +402,14 @@ export class TicketsService {
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt.toISOString(),
       messages: messages.map((m) => this.toMessageDto(m, viewerId)),
+      assignee: ticket.assignedTo
+        ? {
+            username:
+              ticket.assignedTo.discordUsername ??
+              ticket.assignedTo.minecraftUsername,
+          }
+        : null,
+      assignedAt: ticket.assignedAt?.toISOString() ?? null,
     };
   }
 

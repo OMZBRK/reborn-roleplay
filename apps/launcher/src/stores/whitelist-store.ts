@@ -78,6 +78,10 @@ type WhitelistState = {
   // Note du staff renvoyée par le serveur lors d'un rejet/acceptation.
   // Affichée par RejectedPage / AcceptedPage quand non-null.
   reviewNotes: string | null;
+  // Cf C5 — assignation staff. Affiche dans StatusChatPage "Pris par
+  // @X depuis Yh" et debloque le bouton "Demander une reprise" apres 4h.
+  assigneeName: string | null;
+  assignedAt: string | null;
 
   // Actions
   updateField: <K extends keyof WhitelistDraft>(key: K, value: WhitelistDraft[K]) => void;
@@ -95,6 +99,8 @@ export type HydrateInput = {
   status: WhitelistStatus;
   reviewNotes: string | null;
   draft: WhitelistDraft;
+  assigneeName: string | null;
+  assignedAt: string | null;
 };
 
 // On utilise localStorage (via zustand/middleware) en attendant tauri-plugin-store —
@@ -107,6 +113,8 @@ export const useWhitelistStore = create<WhitelistState>()(
       status: "draft",
       applicationId: null,
       reviewNotes: null,
+      assigneeName: null,
+      assignedAt: null,
       updateField: (key, value) =>
         set((s) => ({ draft: { ...s.draft, [key]: value } })),
       setDraft: (draft) => set({ draft }),
@@ -114,10 +122,13 @@ export const useWhitelistStore = create<WhitelistState>()(
       setStatus: (status) => set({ status }),
       hydrateFromServer: (data) => {
         if (!data) {
-          // Aucune candidature côté serveur — on garde le brouillon local
-          // (l'utilisateur peut être en train de remplir le wizard) mais on
-          // remet le status à "draft".
-          set({ status: "draft", applicationId: null, reviewNotes: null });
+          set({
+            status: "draft",
+            applicationId: null,
+            reviewNotes: null,
+            assigneeName: null,
+            assignedAt: null,
+          });
           return;
         }
         set({
@@ -125,6 +136,8 @@ export const useWhitelistStore = create<WhitelistState>()(
           status: data.status,
           reviewNotes: data.reviewNotes,
           draft: data.draft,
+          assigneeName: data.assigneeName,
+          assignedAt: data.assignedAt,
         });
       },
       reset: () =>
@@ -133,6 +146,8 @@ export const useWhitelistStore = create<WhitelistState>()(
           status: "draft",
           applicationId: null,
           reviewNotes: null,
+          assigneeName: null,
+          assignedAt: null,
         }),
     }),
     {
@@ -143,6 +158,8 @@ export const useWhitelistStore = create<WhitelistState>()(
         status: s.status,
         applicationId: s.applicationId,
         reviewNotes: s.reviewNotes,
+        assigneeName: s.assigneeName,
+        assignedAt: s.assignedAt,
       }),
     },
   ),

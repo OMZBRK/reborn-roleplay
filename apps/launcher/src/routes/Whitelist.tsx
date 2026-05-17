@@ -95,6 +95,8 @@ function applicationToHydrate(app: WhitelistApplication) {
     status: mapServerStatus(app.status),
     reviewNotes: app.reviewNotes,
     draft,
+    assigneeName: app.assignee?.username ?? null,
+    assignedAt: app.assignedAt,
   };
 }
 

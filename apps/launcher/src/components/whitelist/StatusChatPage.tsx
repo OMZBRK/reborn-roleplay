@@ -13,11 +13,45 @@ import {
 import { useWhitelistStore } from "../../stores/whitelist-store";
 import { formatDateFr } from "../../lib/whitelist-validation";
 import {
+  fetchWhitelistMe,
   fetchWhitelistMessages,
   postWhitelistMessage,
+  reclaimWhitelist,
   type WhitelistMessage,
 } from "../../lib/content";
 import { RecapField } from "./RecapField";
+
+const RECLAIM_AFTER_MS = 4 * 60 * 60 * 1000;
+
+/**
+ * Hook qui ramene une struct prete a render pour le bandeau
+ * d'assignation : phrase "Pris par @X depuis Yh" + flag canReclaim
+ * (vrai si l'assignation a + de 4h). Rafraichit chaque minute pour que
+ * le compteur reste vivant sans qu'on ait a forcer un re-render.
+ */
+function useAssignmentInfo(
+  assigneeName: string | null,
+  assignedAt: string | null,
+): { text: string; canReclaim: boolean } | null {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!assignedAt) return;
+    const t = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(t);
+  }, [assignedAt]);
+  if (!assigneeName || !assignedAt) return null;
+  const elapsed = now - new Date(assignedAt).getTime();
+  const minutes = Math.floor(elapsed / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const since =
+    hours >= 1
+      ? `${hours}h${minutes % 60 > 0 ? ` ${minutes % 60}min` : ""}`
+      : `${Math.max(minutes, 1)} min`;
+  return {
+    text: `Pris en charge par @${assigneeName} depuis ${since}.`,
+    canReclaim: elapsed >= RECLAIM_AFTER_MS,
+  };
+}
 
 type Tab = "chat" | "application";
 
@@ -55,6 +89,9 @@ const POLL_INTERVAL_MS = 5000;
 export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
   const draft = useWhitelistStore((s) => s.draft);
   const applicationId = useWhitelistStore((s) => s.applicationId);
+  const assigneeName = useWhitelistStore((s) => s.assigneeName);
+  const assignedAt = useWhitelistStore((s) => s.assignedAt);
+  const hydrateFromServer = useWhitelistStore((s) => s.hydrateFromServer);
   const [tab, setTab] = useState<Tab>("chat");
   const [draftMsg, setDraftMsg] = useState("");
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
@@ -62,7 +99,55 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reclaiming, setReclaiming] = useState(false);
+  const [reclaimMsg, setReclaimMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Calcul du delai pour le bouton "Demander une reprise".
+  const assignmentInfo = useAssignmentInfo(assigneeName, assignedAt);
+
+  async function handleReclaim() {
+    setReclaiming(true);
+    setReclaimMsg(null);
+    try {
+      await reclaimWhitelist();
+      const res = await fetchWhitelistMe();
+      if (res.application) {
+        hydrateFromServer({
+          applicationId: res.application.id,
+          status: res.application.status === "PENDING"
+            ? "pending"
+            : res.application.status === "APPROVED"
+              ? "accepted"
+              : res.application.status === "REJECTED"
+                ? "rejected"
+                : "pending",
+          reviewNotes: res.application.reviewNotes,
+          draft: {
+            dob: res.application.dob,
+            motivation: res.application.motivation,
+            experience: res.application.experience,
+            availability: res.application.availability,
+            firstName: res.application.firstName,
+            lastName: res.application.lastName,
+            village: res.application.village,
+            support: res.application.support ?? "",
+            history: res.application.history,
+            appearance: res.application.appearance,
+            objectives: res.application.objectives,
+          },
+          assigneeName: res.application.assignee?.username ?? null,
+          assignedAt: res.application.assignedAt,
+        });
+      }
+      setReclaimMsg("Reprise demandee — un autre staff peut reprendre.");
+    } catch (err) {
+      const msg = typeof err === "string" ? err : (err as { message?: string }).message ?? "Echec";
+      setReclaimMsg(msg);
+    } finally {
+      setReclaiming(false);
+    }
+  }
 
   // Polling : on fetch au mount + toutes les 5s tant que l'onglet est ouvert.
   // On n'autorise le poll que si on a un applicationId — sinon ce serait
@@ -187,6 +272,47 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
               </button>
             )}
           </div>
+
+          {assignmentInfo && (
+            <div
+              className="mt-3 flex items-center justify-between gap-3 rounded-[10px] border px-3 py-2 text-xs"
+              style={{
+                background: assignmentInfo.canReclaim
+                  ? "var(--color-warning-soft)"
+                  : "var(--color-accent-soft)",
+                borderColor: assignmentInfo.canReclaim
+                  ? "rgba(245, 158, 11, 0.4)"
+                  : "rgba(59, 91, 219, 0.4)",
+                color: assignmentInfo.canReclaim
+                  ? "var(--color-warning)"
+                  : "var(--color-accent)",
+              }}
+            >
+              <span>{assignmentInfo.text}</span>
+              {assignmentInfo.canReclaim && (
+                <button
+                  type="button"
+                  className="wl-btn-mini-ghost"
+                  onClick={handleReclaim}
+                  disabled={reclaiming}
+                  style={{
+                    borderColor: "rgba(245, 158, 11, 0.5)",
+                    color: "var(--color-warning)",
+                  }}
+                >
+                  {reclaiming ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : null}
+                  Demander une reprise
+                </button>
+              )}
+            </div>
+          )}
+          {reclaimMsg && (
+            <div className="mt-2 text-xs" style={{ color: "var(--color-foreground-subtle)" }}>
+              {reclaimMsg}
+            </div>
+          )}
         </div>
 
         <div className="wl-status-tabs">

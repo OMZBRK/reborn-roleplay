@@ -88,6 +88,11 @@ export type WhitelistApplication = {
   submittedAt: string;
   reviewedAt: string | null;
   reviewNotes: string | null;
+  // Cf API C3 — flow DM bot. Si non-null, un staff a clique "Prendre
+  // en charge" : le launcher peut afficher "@X depuis Yh" et, apres 4h
+  // sans suite, proposer "Demander une reprise" (cf reclaimWhitelist).
+  assignee: { username: string | null } | null;
+  assignedAt: string | null;
 };
 
 export type WhitelistMeResponse = {
@@ -96,6 +101,16 @@ export type WhitelistMeResponse = {
 
 export async function fetchWhitelistMe(): Promise<WhitelistMeResponse> {
   return invoke<WhitelistMeResponse>("whitelist_me");
+}
+
+/**
+ * Libere l'assignation staff si elle date de plus de 4h et que la
+ * candidature n'est pas decidee. L'API refuse avec 400 si pas eligible.
+ * Cote bot, le message public du salon staff redevient disponible pour
+ * un autre staff.
+ */
+export async function reclaimWhitelist(): Promise<void> {
+  await invoke("whitelist_reclaim");
 }
 
 export type WhitelistSubmitInput = {
@@ -198,7 +213,16 @@ export type TicketDetail = {
   createdAt: string;
   updatedAt: string;
   messages: TicketMessage[];
+  // Cf C5 — assignation staff. Si != null, un staff a clique
+  // "Prendre en charge" cote Discord. assignedAt > 4h → bouton
+  // "Demander une reprise" disponible (reclaimTicket).
+  assignee: { username: string | null } | null;
+  assignedAt: string | null;
 };
+
+export async function reclaimTicket(id: string): Promise<void> {
+  await invoke("tickets_reclaim", { id });
+}
 
 export async function fetchTickets(): Promise<TicketSummary[]> {
   return invoke<TicketSummary[]>("tickets_list");
