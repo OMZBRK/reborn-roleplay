@@ -1,6 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { FadeUp } from '@/components/anim';
+import { Skeleton } from '@/components/Skeleton';
 import { api } from '@/lib/api';
 import type { DashboardStats } from '@/lib/types';
 
@@ -26,55 +28,61 @@ export default function DashboardPage() {
         <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
       </header>
 
-      {isLoading ? (
-        <div className="text-[var(--color-foreground-subtle)]">Chargement…</div>
+      {isLoading && !data ? (
+        <DashboardSkeleton />
       ) : error ? (
         <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
           {(error as Error).message}
         </div>
       ) : !data ? null : (
         <div className="space-y-10">
-          <Section title="Whitelist" hint="Candidatures en cours et historique">
-            <StatGrid>
-              <StatCard
-                label="A traiter"
-                value={data.whitelist.pending}
-                tone="accent"
-              />
-              <StatCard
-                label="A reviser"
-                value={data.whitelist.needsRevision}
-                tone="warning"
-              />
-              <StatCard label="Approuvees" value={data.whitelist.approved} />
-              <StatCard label="Refusees" value={data.whitelist.rejected} />
-            </StatGrid>
-          </Section>
+          <FadeUp delay={0}>
+            <Section title="Whitelist" hint="Candidatures en cours et historique">
+              <StatGrid>
+                <StatCard
+                  label="A traiter"
+                  value={data.whitelist.pending}
+                  tone="accent"
+                />
+                <StatCard
+                  label="A reviser"
+                  value={data.whitelist.needsRevision}
+                  tone="warning"
+                />
+                <StatCard label="Approuvees" value={data.whitelist.approved} />
+                <StatCard label="Refusees" value={data.whitelist.rejected} />
+              </StatGrid>
+            </Section>
+          </FadeUp>
 
-          <Section title="Tickets" hint="Files par statut">
-            <StatGrid>
-              <StatCard label="Ouverts" value={data.tickets.open} tone="accent" />
-              <StatCard
-                label="En cours"
-                value={data.tickets.inProgress}
-                tone="warning"
-              />
-              <StatCard label="Resolus" value={data.tickets.resolved} />
-              <StatCard label="Fermes" value={data.tickets.closed} />
-            </StatGrid>
-          </Section>
+          <FadeUp delay={0.06}>
+            <Section title="Tickets" hint="Files par statut">
+              <StatGrid>
+                <StatCard label="Ouverts" value={data.tickets.open} tone="accent" />
+                <StatCard
+                  label="En cours"
+                  value={data.tickets.inProgress}
+                  tone="warning"
+                />
+                <StatCard label="Resolus" value={data.tickets.resolved} />
+                <StatCard label="Fermes" value={data.tickets.closed} />
+              </StatGrid>
+            </Section>
+          </FadeUp>
 
-          <Section title="Communaute" hint="Population et acquisition">
-            <StatGrid cols={3}>
-              <StatCard label="Total joueurs" value={data.users.total} />
-              <StatCard label="Whitelistes+" value={data.users.whitelisted} />
-              <StatCard
-                label="Nouveaux 24h"
-                value={data.users.last24h}
-                tone="accent"
-              />
-            </StatGrid>
-          </Section>
+          <FadeUp delay={0.12}>
+            <Section title="Communaute" hint="Population et acquisition">
+              <StatGrid cols={3}>
+                <StatCard label="Total joueurs" value={data.users.total} />
+                <StatCard label="Whitelistes+" value={data.users.whitelisted} />
+                <StatCard
+                  label="Nouveaux 24h"
+                  value={data.users.last24h}
+                  tone="accent"
+                />
+              </StatGrid>
+            </Section>
+          </FadeUp>
         </div>
       )}
     </div>
@@ -122,6 +130,29 @@ function StatGrid({
       }`}
     >
       {children}
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-10">
+      {Array.from({ length: 3 }).map((_, s) => (
+        <div key={s}>
+          <Skeleton className="h-7 w-40" />
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+              >
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="mt-3 h-9 w-12" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

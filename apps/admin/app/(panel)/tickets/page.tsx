@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { StaggerItem } from '@/components/anim';
+import { IconSearch } from '@/components/icons';
+import { SkeletonRows } from '@/components/Skeleton';
 import { api } from '@/lib/api';
 import type { Paginated, TicketListItem, TicketStatus } from '@/lib/types';
 
@@ -16,6 +19,7 @@ const STATUS_TABS: Array<{ value: TicketStatus | 'ALL'; label: string }> = [
 
 export default function TicketsListPage() {
   const [status, setStatus] = useState<TicketStatus | 'ALL'>('OPEN');
+  const [search, setSearch] = useState('');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'tickets', status],
@@ -24,6 +28,24 @@ export default function TicketsListPage() {
       return api<Paginated<TicketListItem>>(`/admin/tickets${q}`);
     },
   });
+
+  const filtered = useMemo(() => {
+    if (!data) return null;
+    const term = search.trim().toLowerCase();
+    if (term.length === 0) return data.items;
+    return data.items.filter((item) => {
+      const haystack = [
+        item.subject,
+        item.category,
+        item.user.minecraftUsername,
+        item.user.discordUsername ?? '',
+        item.lastMessagePreview ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [data, search]);
 
   return (
     <div className="px-10 py-10 max-w-6xl mx-auto">
@@ -40,7 +62,7 @@ export default function TicketsListPage() {
         <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
       </header>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {STATUS_TABS.map((tab) => {
           const active = status === tab.value;
           return (
@@ -60,24 +82,37 @@ export default function TicketsListPage() {
         })}
       </div>
 
-      {isLoading ? (
-        <div className="text-[var(--color-foreground-subtle)]">Chargement…</div>
+      <div className="mb-6 relative">
+        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-foreground-muted)]" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filtrer par sujet, categorie, joueur, contenu…"
+          className="w-full rounded-[12px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-2.5 pl-11 pr-4 text-sm focus:border-[var(--color-accent)] focus:outline-none transition-colors"
+        />
+      </div>
+
+      {isLoading && !data ? (
+        <SkeletonRows count={5} />
       ) : error ? (
         <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
           {(error as Error).message}
         </div>
-      ) : !data || data.items.length === 0 ? (
+      ) : !filtered || filtered.length === 0 ? (
         <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] py-16 text-center text-[var(--color-foreground-muted)]">
-          Aucun ticket dans cette categorie.
+          {search.trim().length > 0
+            ? `Aucun ticket ne matche "${search}" dans cette categorie.`
+            : 'Aucun ticket dans cette categorie.'}
         </div>
       ) : (
         <div className="space-y-3">
-          {data.items.map((item) => (
-            <Link
-              key={item.id}
-              href={`/tickets/${item.id}`}
-              className="block rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:bg-[var(--color-surface-elevated)] hover:border-[var(--color-accent)]/40 transition-colors"
-            >
+          {filtered.map((item, i) => (
+            <StaggerItem key={item.id} index={i}>
+              <Link
+                href={`/tickets/${item.id}`}
+                className="block rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:bg-[var(--color-surface-elevated)] hover:border-[var(--color-accent)]/40 transition-colors"
+              >
               <div className="flex items-start gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -106,6 +141,7 @@ export default function TicketsListPage() {
                 </div>
               </div>
             </Link>
+          </StaggerItem>
           ))}
         </div>
       )}

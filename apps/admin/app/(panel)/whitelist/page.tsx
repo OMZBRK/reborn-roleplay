@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { IconSearch } from '@/components/icons';
+import { FadeUp } from '@/components/anim';
+import { SkeletonTable } from '@/components/Skeleton';
 import { api } from '@/lib/api';
 import type { AppStatus, Paginated, WhitelistListItem } from '@/lib/types';
 
@@ -16,6 +19,7 @@ const STATUS_TABS: Array<{ value: AppStatus | 'ALL'; label: string }> = [
 
 export default function WhitelistListPage() {
   const [status, setStatus] = useState<AppStatus | 'ALL'>('PENDING');
+  const [search, setSearch] = useState('');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'whitelist', status],
@@ -24,6 +28,27 @@ export default function WhitelistListPage() {
       return api<Paginated<WhitelistListItem>>(`/admin/whitelist${q}`);
     },
   });
+
+  // Filtre client : la pagination serveur reste bornee a 50 items par
+  // page, le search ne couvre que la page chargee. Pour scaler on
+  // poussera le filtre cote API quand on ajoutera la pagination UI.
+  const filtered = useMemo(() => {
+    if (!data) return null;
+    const term = search.trim().toLowerCase();
+    if (term.length === 0) return data.items;
+    return data.items.filter((item) => {
+      const haystack = [
+        item.user.minecraftUsername,
+        item.user.discordUsername ?? '',
+        item.firstName,
+        item.lastName,
+        item.village,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [data, search]);
 
   return (
     <div className="px-10 py-10 max-w-6xl mx-auto">
@@ -40,7 +65,7 @@ export default function WhitelistListPage() {
         <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
       </header>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {STATUS_TABS.map((tab) => {
           const active = status === tab.value;
           return (
@@ -60,18 +85,31 @@ export default function WhitelistListPage() {
         })}
       </div>
 
-      {isLoading ? (
-        <div className="text-[var(--color-foreground-subtle)]">Chargement…</div>
+      <div className="mb-6 relative">
+        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-foreground-muted)]" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filtrer par pseudo, personnage, village…"
+          className="w-full rounded-[12px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-2.5 pl-11 pr-4 text-sm focus:border-[var(--color-accent)] focus:outline-none transition-colors"
+        />
+      </div>
+
+      {isLoading && !data ? (
+        <SkeletonTable rows={6} />
       ) : error ? (
         <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
           {(error as Error).message}
         </div>
-      ) : !data || data.items.length === 0 ? (
+      ) : !filtered || filtered.length === 0 ? (
         <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] py-16 text-center text-[var(--color-foreground-muted)]">
-          Aucune candidature dans cette categorie.
+          {search.trim().length > 0
+            ? `Aucune candidature ne matche "${search}" dans cette categorie.`
+            : 'Aucune candidature dans cette categorie.'}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
+        <FadeUp className="overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-surface-elevated)] text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
               <tr>
@@ -83,7 +121,7 @@ export default function WhitelistListPage() {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((item) => (
+              {filtered.map((item) => (
                 <tr
                   key={item.id}
                   className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-elevated)] transition-colors"
@@ -131,12 +169,15 @@ export default function WhitelistListPage() {
               ))}
             </tbody>
           </table>
-          {data.total > data.items.length && (
+          {data && data.total > data.items.length && (
             <div className="border-t border-[var(--color-border)] px-4 py-3 text-xs text-[var(--color-foreground-muted)]">
-              Affichage de {data.items.length} sur {data.total}.
+              Affichage de {filtered.length} sur {data.total}
+              {search.trim().length > 0 && data.items.length !== filtered.length && (
+                <> · filtre actif sur la page courante</>
+              )}.
             </div>
           )}
-        </div>
+        </FadeUp>
       )}
     </div>
   );
