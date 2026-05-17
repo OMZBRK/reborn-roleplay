@@ -145,42 +145,11 @@ export default function WhitelistDetailPage({
             </Field>
           </Card>
 
-          {data.messages.length > 0 && (
-            <Card title="Echanges">
-              <div className="space-y-3 -m-2">
-                {data.messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`rounded-[10px] p-3 ${
-                      m.authorType === 'STAFF'
-                        ? 'bg-[var(--color-accent-soft)] border border-[var(--color-accent)]/30'
-                        : 'bg-[var(--color-surface-elevated)] border border-[var(--color-border)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1 text-xs text-[var(--color-foreground-muted)]">
-                      <span
-                        className={
-                          m.authorType === 'STAFF'
-                            ? 'text-[var(--color-accent)] font-medium'
-                            : ''
-                        }
-                      >
-                        {m.authorName ?? (m.authorType === 'STAFF' ? 'Staff' : 'Joueur')}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        {new Date(m.createdAt).toLocaleString('fr-FR', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-sm whitespace-pre-wrap">{m.content}</div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
+          <WhitelistChat
+            applicationId={data.id}
+            messages={data.messages}
+            canSend={data.status === 'PENDING' || data.status === 'NEEDS_REVISION'}
+          />
         </div>
 
         <aside className="space-y-6">
@@ -332,6 +301,131 @@ export default function WhitelistDetailPage({
 
 function decisionLabel(d: Decision): string {
   return d === 'APPROVED' ? 'Accepter' : d === 'REJECTED' ? 'Refuser' : 'Demander une revision';
+}
+
+function WhitelistChat({
+  applicationId,
+  messages,
+  canSend,
+}: {
+  applicationId: string;
+  messages: WhitelistDetail['messages'];
+  canSend: boolean;
+}) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState('');
+
+  const sendMut = useMutation({
+    mutationFn: (content: string) =>
+      api(`/admin/whitelist/${applicationId}/messages`, {
+        method: 'POST',
+        body: { content },
+      }),
+    onSuccess: () => {
+      setDraft('');
+      qc.invalidateQueries({ queryKey: ['admin', 'whitelist', applicationId] });
+    },
+    onError: (err) => {
+      toast.error('Message non envoyé', {
+        description: (err as Error).message,
+      });
+    },
+  });
+
+  return (
+    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="mb-4 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
+        Échanges
+      </div>
+
+      {messages.length === 0 ? (
+        <div className="rounded-[10px] border border-dashed border-[var(--color-border-strong)] py-6 text-center text-sm text-[var(--color-foreground-muted)]">
+          Aucun message — le joueur peut t'écrire depuis son launcher et tu
+          peux lui répondre ci-dessous.
+        </div>
+      ) : (
+        <div className="space-y-3 mb-4">
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`rounded-[10px] p-3 ${
+                m.authorType === 'STAFF'
+                  ? 'bg-[var(--color-accent-soft)] border border-[var(--color-accent)]/30'
+                  : 'bg-[var(--color-surface-elevated)] border border-[var(--color-border)]'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1 text-xs text-[var(--color-foreground-muted)]">
+                <span
+                  className={
+                    m.authorType === 'STAFF'
+                      ? 'text-[var(--color-accent)] font-medium'
+                      : ''
+                  }
+                >
+                  {m.authorName ??
+                    (m.authorType === 'STAFF' ? 'Staff' : 'Joueur')}
+                </span>
+                <span>·</span>
+                <span>
+                  {new Date(m.createdAt).toLocaleString('fr-FR', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                </span>
+              </div>
+              <div className="text-sm whitespace-pre-wrap">{m.content}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {canSend ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const content = draft.trim();
+            if (content.length === 0 || sendMut.isPending) return;
+            sendMut.mutate(content);
+          }}
+          className="space-y-2"
+        >
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const content = draft.trim();
+                if (content.length > 0 && !sendMut.isPending) {
+                  sendMut.mutate(content);
+                }
+              }
+            }}
+            rows={3}
+            placeholder="Répondre au candidat… (Entrée pour envoyer, Maj+Entrée pour saut de ligne)"
+            className="w-full resize-none rounded-[10px] border border-[var(--color-border-strong)] bg-[var(--color-background)] p-3 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+          />
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs text-[var(--color-foreground-muted)]">
+              Le joueur reçoit la notif dans son launcher.
+            </div>
+            <button
+              type="submit"
+              disabled={draft.trim().length === 0 || sendMut.isPending}
+              className="rounded-[10px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-4 py-2 text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-[var(--shadow-glow-accent)]"
+            >
+              {sendMut.isPending ? 'Envoi…' : 'Envoyer'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="rounded-[10px] border border-dashed border-[var(--color-border-strong)] py-3 text-center text-xs text-[var(--color-foreground-muted)]">
+          Conversation cloturée — la candidature est {''}
+          {messages.length > 0 ? 'décidée' : 'inactive'}.
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
