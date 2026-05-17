@@ -258,6 +258,73 @@ export class TicketsService {
     return this.toMessageDto(created, ticket.userId);
   }
 
+  /**
+   * Message staff envoye depuis le panel Next (apps/admin). Distinct du
+   * flow Discord : pas de discordMessageId source (le staff a tape dans
+   * le panel, pas dans Discord), donc on relaie vers le thread Discord
+   * apres persistance pour que la conversation reste consultable des
+   * deux cotes.
+   *
+   * Pas de risque de boucle : la relay genere un message poste par le
+   * bot lui-meme, et le listener `messageCreate` ignore ses propres
+   * posts via `client.user.id` (cf apps/bot/src/thread-listener.ts).
+   */
+  async postPanelStaffMessage(
+    ticketId: string,
+    input: { staffUserId: string; content: string },
+  ): Promise<TicketMessageDto> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+    if (!ticket) throw new NotFoundException('Ticket introuvable.');
+    if (ticket.status === TicketStatus.CLOSED) {
+      throw new ForbiddenException(
+        'Ce ticket est ferme. Reouvre-le avant de poster un message.',
+      );
+    }
+    const staff = await this.prisma.user.findUnique({
+      where: { id: input.staffUserId },
+      select: { id: true, minecraftUsername: true, discordUsername: true },
+    });
+    const authorName = staff?.discordUsername ?? staff?.minecraftUsername ?? 'Staff';
+
+    const created = await this.prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        authorType: 'STAFF',
+        authorId: input.staffUserId,
+        authorName,
+        content: input.content.trim(),
+      },
+    });
+    await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: { updatedAt: new Date() },
+    });
+
+    if (ticket.discordThreadId) {
+      try {
+        const relay = await this.webhooks.ticketMessageRelay({
+          threadId: ticket.discordThreadId,
+          authorPseudo: `[Staff] ${authorName}`,
+          content: created.content,
+        });
+        if (relay?.messageId) {
+          await this.prisma.ticketMessage.update({
+            where: { id: created.id },
+            data: { discordMessageId: relay.messageId },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Relay staff message échec : ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return this.toMessageDto(created, ticket.userId);
+  }
+
   private toSummary(ticket: Ticket, lastMessage?: TicketMessage): TicketSummary {
     return {
       id: ticket.id,

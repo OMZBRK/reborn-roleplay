@@ -173,6 +173,63 @@ export class WhitelistMessagesService {
     return this.toDto(created);
   }
 
+  /**
+   * Message staff envoye depuis le panel Next (apps/admin). Pas de
+   * discordMessageId source (tape dans le panel, pas dans Discord) :
+   * on persiste d'abord puis on relaie vers le thread Discord pour
+   * que la conversation reste synchronisee. Le `client.user.id`-filter
+   * cote bot evite la boucle (relay = bot post → listener skip).
+   */
+  async postPanelStaffMessage(
+    applicationId: string,
+    input: { staffUserId: string; content: string },
+  ): Promise<WhitelistMessageDto> {
+    const app = await this.prisma.whitelistApplication.findUnique({
+      where: { id: applicationId },
+    });
+    if (!app) {
+      throw new NotFoundException('Candidature introuvable.');
+    }
+    const staff = await this.prisma.user.findUnique({
+      where: { id: input.staffUserId },
+      select: { id: true, minecraftUsername: true, discordUsername: true },
+    });
+    const authorName =
+      staff?.discordUsername ?? staff?.minecraftUsername ?? 'Staff';
+
+    const created = await this.prisma.whitelistMessage.create({
+      data: {
+        applicationId,
+        authorType: 'STAFF',
+        authorId: input.staffUserId,
+        authorName,
+        content: input.content.trim(),
+      },
+    });
+
+    if (app.discordThreadId) {
+      try {
+        const relay = await this.webhooks.whitelistMessageRelay({
+          threadId: app.discordThreadId,
+          authorPseudo: `[Staff] ${authorName}`,
+          content: created.content,
+        });
+        if (relay?.messageId) {
+          await this.prisma.whitelistMessage.update({
+            where: { id: created.id },
+            data: { discordMessageId: relay.messageId },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Relay panel staff message échec : ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return this.toDto(created);
+  }
+
   private toDto(m: WhitelistMessage): WhitelistMessageDto {
     // Le champ `attachments` est un Json côté Prisma — on le caste vers la
     // forme attendue côté client. Si la donnée est mal formée (ex: legacy

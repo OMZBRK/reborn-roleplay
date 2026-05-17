@@ -2,21 +2,29 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MinRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { StaffService } from '../staff/staff.service';
+import { TicketsService } from '../tickets/tickets.service';
+import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import { AdminService } from './admin.service';
 import {
   ListTicketsQueryDto,
   ListWhitelistQueryDto,
+  PanelMessageDto,
   TicketStatusUpdateDto,
   WhitelistDecisionDto,
 } from './dto/admin.dto';
@@ -39,6 +47,8 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly staff: StaffService,
+    private readonly tickets: TicketsService,
+    private readonly whitelistMessages: WhitelistMessagesService,
   ) {}
 
   @Get('dashboard')
@@ -69,6 +79,20 @@ export class AdminController {
     return this.staff.decideWhitelist(id, dto);
   }
 
+  @Post('whitelist/:id/messages')
+  @MinRole(Role.WHITELIST_REVIEWER)
+  @HttpCode(HttpStatus.CREATED)
+  postWhitelistMessage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PanelMessageDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.whitelistMessages.postPanelStaffMessage(id, {
+      staffUserId: user.sub,
+      content: dto.content,
+    });
+  }
+
   // ── Tickets ────────────────────────────────────────────
 
   @Get('tickets')
@@ -87,5 +111,18 @@ export class AdminController {
     @Body() dto: TicketStatusUpdateDto,
   ) {
     return this.staff.setTicketStatus(id, dto);
+  }
+
+  @Post('tickets/:id/messages')
+  @HttpCode(HttpStatus.CREATED)
+  postTicketMessage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PanelMessageDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.tickets.postPanelStaffMessage(id, {
+      staffUserId: user.sub,
+      content: dto.content,
+    });
   }
 }
