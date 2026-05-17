@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 import { toast } from 'sonner';
+import { AssignmentBlock } from '@/components/AssignmentBlock';
 import { api } from '@/lib/api';
 import type { AppStatus, WhitelistDetail } from '@/lib/types';
 
@@ -183,6 +184,13 @@ export default function WhitelistDetailPage({
         </div>
 
         <aside className="space-y-6">
+          <AssignmentBlock
+            kind="whitelist"
+            id={data.id}
+            assignee={data.assignee}
+            assignedAt={data.assignedAt}
+          />
+
           <Card title="Joueur">
             <Field label="Pseudo MC">
               <Link

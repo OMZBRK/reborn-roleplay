@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { use, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { AssignmentBlock } from '@/components/AssignmentBlock';
 import { api } from '@/lib/api';
 import type { AdminMessage, TicketDetail, TicketStatus } from '@/lib/types';
 
@@ -147,6 +148,14 @@ export default function TicketDetailPage({
                 timeStyle: 'short',
               })}
             </div>
+          </div>
+          <div className="w-[240px] shrink-0">
+            <AssignmentBlock
+              kind="tickets"
+              id={data.id}
+              assignee={data.assignee}
+              assignedAt={data.assignedAt}
+            />
           </div>
           <StatusActions
             current={data.status}

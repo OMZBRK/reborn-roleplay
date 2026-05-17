@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { AssigneeBadge } from '@/components/AssignmentBlock';
 import { IconSearch } from '@/components/icons';
 import { FadeUp } from '@/components/anim';
 import { SkeletonTable } from '@/components/Skeleton';
@@ -151,7 +152,12 @@ export default function WhitelistListPage() {
                     {item.village}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={item.status} />
+                    <div className="space-y-1">
+                      <StatusBadge status={item.status} />
+                      <div>
+                        <AssigneeBadge assignee={item.assignee} />
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-[var(--color-foreground-muted)]">
                     {new Date(item.submittedAt).toLocaleString('fr-FR', {

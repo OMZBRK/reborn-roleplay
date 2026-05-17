@@ -43,6 +43,11 @@ export interface DashboardStats {
   };
 }
 
+export interface Assignee {
+  id: string;
+  username: string;
+}
+
 export interface WhitelistListItem {
   id: string;
   status: AppStatus;
@@ -57,6 +62,8 @@ export interface WhitelistListItem {
     minecraftUuid: string;
     discordUsername: string | null;
   };
+  assignee: Assignee | null;
+  assignedAt: string | null;
 }
 
 export interface WhitelistDetail {
@@ -77,6 +84,8 @@ export interface WhitelistDetail {
   reviewedAt: string | null;
   reviewNotes: string | null;
   discordThreadId: string | null;
+  assignee: Assignee | null;
+  assignedAt: string | null;
   user: {
     id: string;
     minecraftUsername: string;
@@ -101,6 +110,8 @@ export interface TicketListItem {
     minecraftUsername: string;
     discordUsername: string | null;
   };
+  assignee: Assignee | null;
+  assignedAt: string | null;
 }
 
 export interface TicketDetail {
@@ -111,6 +122,8 @@ export interface TicketDetail {
   createdAt: string;
   updatedAt: string;
   discordThreadId: string | null;
+  assignee: Assignee | null;
+  assignedAt: string | null;
   user: {
     id: string;
     minecraftUsername: string;

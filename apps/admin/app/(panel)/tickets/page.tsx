@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { StaggerItem } from '@/components/anim';
+import { AssigneeBadge } from '@/components/AssignmentBlock';
 import { IconSearch } from '@/components/icons';
 import { SkeletonRows } from '@/components/Skeleton';
 import { api } from '@/lib/api';
@@ -120,6 +121,7 @@ export default function TicketsListPage() {
                       {item.category}
                     </span>
                     <TicketStatusBadge status={item.status} />
+                    <AssigneeBadge assignee={item.assignee} />
                   </div>
                   <div className="text-sm font-medium truncate">
                     {item.subject}

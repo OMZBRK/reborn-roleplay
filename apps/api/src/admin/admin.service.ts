@@ -40,6 +40,10 @@ export interface WhitelistListItem {
     minecraftUuid: string;
     discordUsername: string | null;
   };
+  // Assignation staff (cf C3 — flow DM bot). null si personne ne s'en
+  // occupe.
+  assignee: { id: string; username: string } | null;
+  assignedAt: string | null;
 }
 
 export interface WhitelistDetail {
@@ -60,6 +64,8 @@ export interface WhitelistDetail {
   reviewedAt: string | null;
   reviewNotes: string | null;
   discordThreadId: string | null;
+  assignee: { id: string; username: string } | null;
+  assignedAt: string | null;
   user: {
     id: string;
     minecraftUsername: string;
@@ -90,6 +96,8 @@ export interface TicketListItem {
     minecraftUsername: string;
     discordUsername: string | null;
   };
+  assignee: { id: string; username: string } | null;
+  assignedAt: string | null;
 }
 
 export interface TicketDetail {
@@ -100,6 +108,8 @@ export interface TicketDetail {
   createdAt: string;
   updatedAt: string;
   discordThreadId: string | null;
+  assignee: { id: string; username: string } | null;
+  assignedAt: string | null;
   user: {
     id: string;
     minecraftUsername: string;
@@ -268,6 +278,9 @@ export class AdminService {
               discordUsername: true,
             },
           },
+          assignedTo: {
+            select: { id: true, minecraftUsername: true, discordUsername: true },
+          },
         },
       }),
     ]);
@@ -282,6 +295,15 @@ export class AdminService {
         lastName: row.lastName,
         village: row.village,
         user: row.user,
+        assignee: row.assignedTo
+          ? {
+              id: row.assignedTo.id,
+              username:
+                row.assignedTo.discordUsername ??
+                row.assignedTo.minecraftUsername,
+            }
+          : null,
+        assignedAt: row.assignedAt?.toISOString() ?? null,
       })),
     };
   }
@@ -299,6 +321,9 @@ export class AdminService {
             discordUsername: true,
             role: true,
           },
+        },
+        assignedTo: {
+          select: { id: true, minecraftUsername: true, discordUsername: true },
         },
         messages: { orderBy: { createdAt: 'asc' } },
       },
@@ -322,6 +347,15 @@ export class AdminService {
       reviewedAt: app.reviewedAt?.toISOString() ?? null,
       reviewNotes: app.reviewNotes,
       discordThreadId: app.discordThreadId,
+      assignee: app.assignedTo
+        ? {
+            id: app.assignedTo.id,
+            username:
+              app.assignedTo.discordUsername ??
+              app.assignedTo.minecraftUsername,
+          }
+        : null,
+      assignedAt: app.assignedAt?.toISOString() ?? null,
       user: app.user,
       messages: app.messages.map((m) => ({
         id: m.id,
@@ -352,6 +386,9 @@ export class AdminService {
               discordUsername: true,
             },
           },
+          assignedTo: {
+            select: { id: true, minecraftUsername: true, discordUsername: true },
+          },
           messages: { orderBy: { createdAt: 'desc' }, take: 1 },
         },
       }),
@@ -367,6 +404,15 @@ export class AdminService {
         updatedAt: row.updatedAt.toISOString(),
         lastMessagePreview: row.messages[0]?.content.slice(0, 140) ?? null,
         user: row.user,
+        assignee: row.assignedTo
+          ? {
+              id: row.assignedTo.id,
+              username:
+                row.assignedTo.discordUsername ??
+                row.assignedTo.minecraftUsername,
+            }
+          : null,
+        assignedAt: row.assignedAt?.toISOString() ?? null,
       })),
     };
   }
@@ -466,6 +512,9 @@ export class AdminService {
             role: true,
           },
         },
+        assignedTo: {
+          select: { id: true, minecraftUsername: true, discordUsername: true },
+        },
         messages: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -478,6 +527,15 @@ export class AdminService {
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt.toISOString(),
       discordThreadId: ticket.discordThreadId,
+      assignee: ticket.assignedTo
+        ? {
+            id: ticket.assignedTo.id,
+            username:
+              ticket.assignedTo.discordUsername ??
+              ticket.assignedTo.minecraftUsername,
+          }
+        : null,
+      assignedAt: ticket.assignedAt?.toISOString() ?? null,
       user: ticket.user,
       messages: ticket.messages.map((m) => ({
         id: m.id,
