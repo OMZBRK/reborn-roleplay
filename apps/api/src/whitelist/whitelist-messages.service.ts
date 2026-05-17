@@ -146,6 +146,16 @@ export class WhitelistMessagesService {
     if (!app) {
       throw new NotFoundException('Candidature introuvable.');
     }
+    // Une candidature decidee n'accepte plus de messages staff : la
+    // conversation est cloturee cote API meme si le thread Discord
+    // existe encore. Le bot devrait avoir lock+archive le thread via
+    // status-update, mais un staff avec manage_threads peut quand meme
+    // poster — on rejette ici pour eviter l'incoherence cote launcher.
+    if (app.status === 'APPROVED' || app.status === 'REJECTED') {
+      throw new ForbiddenException(
+        `Candidature ${app.status} : pas de nouveau message accepte.`,
+      );
+    }
 
     // Dedup par discordMessageId. Le bot peut re-emettre dans certains
     // cas (rate limit, retry) — on ne veut pas creer de doublons.

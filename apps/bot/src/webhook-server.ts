@@ -63,6 +63,23 @@ interface MessageRelayPayload {
   attachmentUrls?: string[];
 }
 
+// Notification d'un changement de statut declenche cote API (panel staff,
+// launcher user, ou bot). On vient le refleter dans le thread Discord
+// associe : embed annonce le changement, et on lock+archive le thread si
+// le statut est terminal pour eviter que la conversation continue dans le
+// vide cote Discord pendant que l'API/launcher la considere finie.
+interface StatusUpdatePayload {
+  kind: "whitelist" | "ticket";
+  threadId: string;
+  // AppStatus | TicketStatus | "DELETED" (cas withdraw/remove).
+  status: string;
+  // Qui a fait l'action : "@pseudo (staff)", "le joueur", "système", etc.
+  actorName: string;
+  // Notes/raison eventuelles (review notes pour whitelist, contexte
+  // libre pour un close de ticket). Optionnel.
+  reason?: string;
+}
+
 export function startWebhookServer(client: Client) {
   const server = createServer(async (req, res) => {
     try {
@@ -126,6 +143,19 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
       return reply(res, 200, { threadId });
     } catch (err) {
       console.error(`[webhook] ticket thread crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
+  }
+  if (url === "/webhooks/status-update") {
+    const data = payload as StatusUpdatePayload;
+    console.log(
+      `[webhook] status-update ${data.kind} thread=${data.threadId} → ${data.status}`,
+    );
+    try {
+      await postStatusUpdate(client, data);
+      return reply(res, 200, { ok: true });
+    } catch (err) {
+      console.error(`[webhook] status-update crash :`, err);
       return reply(res, 500, { error: (err as Error).message });
     }
   }
@@ -427,6 +457,86 @@ async function postRelayMessage(client: Client, p: MessageRelayPayload): Promise
 
 function truncate(s: string, max: number): string {
   return s.length <= max ? s : s.slice(0, max - 1) + "…";
+}
+
+interface StatusDescriptor {
+  label: string;
+  color: number;
+  terminal: boolean; // si true → thread locked + archived apres post
+}
+
+const WHITELIST_STATUS: Record<string, StatusDescriptor> = {
+  PENDING: { label: "En attente", color: 0x6b7280, terminal: false },
+  APPROVED: { label: "Acceptée", color: 0x16a34a, terminal: true },
+  REJECTED: { label: "Refusée", color: 0xef4444, terminal: true },
+  NEEDS_REVISION: {
+    label: "Révision demandée",
+    color: 0xf59e0b,
+    terminal: false,
+  },
+  DELETED: { label: "Retirée par le joueur", color: 0x6b7280, terminal: true },
+};
+
+const TICKET_STATUS: Record<string, StatusDescriptor> = {
+  OPEN: { label: "Ouvert", color: 0x3b5bdb, terminal: false },
+  IN_PROGRESS: { label: "En cours", color: 0xf59e0b, terminal: false },
+  RESOLVED: { label: "Résolu", color: 0x16a34a, terminal: false },
+  CLOSED: { label: "Fermé", color: 0x6b7280, terminal: true },
+  DELETED: { label: "Supprimé par le joueur", color: 0x6b7280, terminal: true },
+};
+
+async function postStatusUpdate(
+  client: Client,
+  p: StatusUpdatePayload,
+): Promise<void> {
+  const channel = await client.channels.fetch(p.threadId);
+  if (!channel || !channel.isThread()) {
+    // Le thread peut avoir ete supprime manuellement par un staff. Pas
+    // d'erreur bloquante cote API — on log et on no-op.
+    console.warn(`[status-update] thread ${p.threadId} introuvable, skip.`);
+    return;
+  }
+
+  const table = p.kind === "whitelist" ? WHITELIST_STATUS : TICKET_STATUS;
+  const desc = table[p.status] ?? {
+    label: p.status,
+    color: 0x6b7280,
+    terminal: false,
+  };
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Statut → ${desc.label}`)
+    .setColor(desc.color)
+    .setDescription(
+      `Mis à jour par **${p.actorName}**.${
+        desc.terminal
+          ? "\n\nLe thread est désormais verrouillé : la conversation continue côté launcher / panel si besoin."
+          : ""
+      }`,
+    )
+    .setTimestamp(new Date());
+  if (p.reason) {
+    embed.addFields({ name: "Notes", value: p.reason.slice(0, 1024) });
+  }
+
+  await channel.send({ embeds: [embed] });
+
+  if (desc.terminal && !channel.locked) {
+    try {
+      await channel.setLocked(
+        true,
+        `Reborn ${p.kind} status ${p.status} par ${p.actorName}`,
+      );
+      // Archive le thread pour qu'il sorte de la sidebar active. Reste
+      // consultable via "View archived threads" — on ne supprime jamais.
+      await channel.setArchived(
+        true,
+        `Reborn ${p.kind} status ${p.status} par ${p.actorName}`,
+      );
+    } catch (err) {
+      console.warn(`[status-update] lock/archive echec :`, err);
+    }
+  }
 }
 
 const TICKET_CATEGORY_LABEL: Record<string, string> = {

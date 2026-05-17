@@ -75,8 +75,9 @@ export class AdminController {
   decideWhitelist(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: WhitelistDecisionDto,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.staff.decideWhitelist(id, dto);
+    return this.staff.decideWhitelist(id, dto, { userId: user.sub });
   }
 
   @Post('whitelist/:id/messages')
@@ -109,8 +110,9 @@ export class AdminController {
   setTicketStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: TicketStatusUpdateDto,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.staff.setTicketStatus(id, dto);
+    return this.staff.setTicketStatus(id, dto, { userId: user.sub });
   }
 
   @Post('tickets/:id/messages')

@@ -113,9 +113,29 @@ export class TicketsService {
         'Ce ticket est cloture. Tu peux le consulter mais pas le supprimer.',
       );
     }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { minecraftUsername: true },
+    });
+    const threadId = ticket.discordThreadId;
     // Cascade configurée côté schema (onDelete: Cascade), pas besoin de
     // deleteMany en amont.
     await this.prisma.ticket.delete({ where: { id: ticketId } });
+
+    if (threadId) {
+      void this.webhooks
+        .statusUpdate({
+          kind: 'ticket',
+          threadId,
+          status: 'DELETED',
+          actorName: user?.minecraftUsername ?? 'le joueur',
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `statusUpdate ticket remove echec : ${(err as Error).message}`,
+          ),
+        );
+    }
   }
 
   /**
@@ -229,6 +249,19 @@ export class TicketsService {
       where: { id: ticketId },
     });
     if (!ticket) throw new NotFoundException('Ticket introuvable.');
+    // Ticket cloture cote API : on rejette tout nouveau message staff,
+    // meme via le relay bot. Le thread Discord devrait avoir ete
+    // lock+archive par status-update, mais un staff avec manage_threads
+    // pourrait quand meme poster — ce filtre garde l'etat coherent
+    // cote launcher/panel.
+    if (
+      ticket.status === TicketStatus.CLOSED ||
+      ticket.status === TicketStatus.RESOLVED
+    ) {
+      throw new ForbiddenException(
+        `Ticket ${ticket.status} : pas de nouveau message accepte.`,
+      );
+    }
 
     const existing = await this.prisma.ticketMessage.findFirst({
       where: { ticketId, discordMessageId: input.discordMessageId },

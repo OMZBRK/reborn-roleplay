@@ -116,8 +116,28 @@ export class WhitelistService {
         "Tu as ete accepte. Pour quitter le serveur, contacte le staff via un ticket.",
       );
     }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { minecraftUsername: true },
+    });
+    const threadId = app.discordThreadId;
     await this.prisma.whitelistApplication.delete({ where: { userId } });
     this.logger.log(`whitelist withdrawn by user ${userId} (app ${app.id})`);
+
+    if (threadId) {
+      void this.webhooks
+        .statusUpdate({
+          kind: 'whitelist',
+          threadId,
+          status: 'DELETED',
+          actorName: user?.minecraftUsername ?? 'le joueur',
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `statusUpdate whitelist withdraw echec : ${(err as Error).message}`,
+          ),
+        );
+    }
   }
 
   // Normalise : trim les chaines + parse la date. Sépare la logique de

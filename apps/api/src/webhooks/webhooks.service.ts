@@ -53,6 +53,18 @@ export interface MessageRelayPayload {
   attachmentUrls?: string[];
 }
 
+// Notif que l'API envoie au bot a chaque changement de statut declenche
+// cote panel staff ou launcher user. Le bot poste un embed dans le
+// thread Discord associe et verrouille le thread si le statut est
+// terminal (whitelist APPROVED/REJECTED/DELETED, ticket CLOSED/DELETED).
+export interface StatusUpdatePayload {
+  kind: 'whitelist' | 'ticket';
+  threadId: string;
+  status: string;
+  actorName: string;
+  reason?: string;
+}
+
 @Injectable()
 export class WebhooksService implements OnModuleInit {
   private readonly logger = new Logger(WebhooksService.name);
@@ -110,6 +122,16 @@ export class WebhooksService implements OnModuleInit {
       '/webhooks/tickets-message',
       payload,
     );
+  }
+
+  /**
+   * Notifie le bot d'un changement de statut pour qu'il poste un embed
+   * recap dans le thread Discord, et eventuellement lock+archive le
+   * thread si le statut est terminal. Best-effort comme tout le reste :
+   * un echec ne bloque pas la transaction cote API.
+   */
+  async statusUpdate(payload: StatusUpdatePayload): Promise<void> {
+    await this.dispatch('/webhooks/status-update', payload);
   }
 
   private async dispatch<T = unknown>(
