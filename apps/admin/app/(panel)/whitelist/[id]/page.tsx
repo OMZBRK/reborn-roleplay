@@ -117,8 +117,8 @@ export default function WhitelistDetailPage({
         <StatusBadge status={data.status} />
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
+        <div className="space-y-6 min-w-0">
           <Card title="HRP — Hors roleplay">
             <Field label="Date de naissance">
               {new Date(data.dob).toLocaleDateString('fr-FR')}
@@ -147,20 +147,20 @@ export default function WhitelistDetailPage({
               {data.objectives}
             </Field>
           </Card>
-
-          <WhitelistChat
-            applicationId={data.id}
-            messages={data.messages}
-            canSend={data.status === 'PENDING' || data.status === 'NEEDS_REVISION'}
-          />
         </div>
 
-        <aside className="space-y-6">
+        <aside className="space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
           <AssignmentBlock
             kind="whitelist"
             id={data.id}
             assignee={data.assignee}
             assignedAt={data.assignedAt}
+          />
+
+          <WhitelistChat
+            applicationId={data.id}
+            messages={data.messages}
+            canSend={data.status === 'PENDING' || data.status === 'NEEDS_REVISION'}
           />
 
           <Card title="Joueur">

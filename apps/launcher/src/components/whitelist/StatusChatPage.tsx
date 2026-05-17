@@ -252,25 +252,6 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
                   : "Récapitulatif de la candidature soumise — visible par le staff côté Discord."}
               </p>
             </div>
-            {onWithdraw && (
-              <button
-                type="button"
-                className="wl-btn-mini-ghost"
-                onClick={onWithdraw}
-                disabled={withdrawing}
-                style={{
-                  borderColor: "rgba(239, 68, 68, 0.4)",
-                  color: "var(--color-danger)",
-                }}
-              >
-                {withdrawing ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Trash2 size={13} />
-                )}
-                Retirer ma candidature
-              </button>
-            )}
           </div>
 
           {assignmentInfo && (
@@ -358,7 +339,11 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
             onFiles={handlePickFiles}
           />
         ) : (
-          <ApplicationPanel draft={draft} />
+          <ApplicationPanel
+            draft={draft}
+            onWithdraw={onWithdraw}
+            withdrawing={withdrawing}
+          />
         )}
       </div>
     </div>
@@ -610,8 +595,12 @@ function ChatBubble({ message }: { message: WhitelistMessage }) {
 
 function ApplicationPanel({
   draft,
+  onWithdraw,
+  withdrawing,
 }: {
   draft: ReturnType<typeof useWhitelistStore.getState>["draft"];
+  onWithdraw?: () => void;
+  withdrawing?: boolean;
 }) {
   const dobDisplay = formatDateFr(draft.dob) ?? draft.dob;
   return (
@@ -659,7 +648,60 @@ function ApplicationPanel({
           />
           <RecapField label="Objectifs du personnage" value={draft.objectives} />
         </div>
+
       </motion.div>
+
+      {onWithdraw && (
+        <motion.div
+          className="wl-recap-card"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          style={{
+            borderColor: "rgba(239, 68, 68, 0.25)",
+          }}
+        >
+          <div className="wl-recap-header">
+            <div
+              className="wl-step-badge"
+              style={{
+                background: "rgba(239, 68, 68, 0.18)",
+                color: "var(--color-danger)",
+              }}
+            >
+              !
+            </div>
+            <h3 className="wl-recap-title">Zone sensible</h3>
+          </div>
+          <p
+            className="text-xs leading-relaxed mt-2"
+            style={{ color: "var(--color-foreground-subtle)" }}
+          >
+            Retirer ta candidature te ramene a l'ecran d'accueil. Tu pourras
+            en soumettre une nouvelle. Action irreversible — tes echanges
+            avec le staff seront perdus.
+          </p>
+          <div className="mt-3">
+            <button
+              type="button"
+              className="wl-btn-mini-ghost"
+              onClick={onWithdraw}
+              disabled={withdrawing}
+              style={{
+                borderColor: "rgba(239, 68, 68, 0.4)",
+                color: "var(--color-danger)",
+              }}
+            >
+              {withdrawing ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Trash2 size={13} />
+              )}
+              Retirer ma candidature
+            </button>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

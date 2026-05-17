@@ -498,6 +498,99 @@ export class AdminService {
     };
   }
 
+  /**
+   * Renvoie la liste de tout ce qui est assigne au staff donne :
+   * candidatures whitelist (non terminees) + tickets ouverts (non
+   * CLOSED). Sert a la page "Mes prises en charge" du panel.
+   */
+  async myInbox(staffUserId: string): Promise<{
+    whitelist: WhitelistListItem[];
+    tickets: TicketListItem[];
+  }> {
+    const [whitelistRows, ticketRows] = await Promise.all([
+      this.prisma.whitelistApplication.findMany({
+        where: {
+          assignedToUserId: staffUserId,
+          status: { in: ['PENDING', 'NEEDS_REVISION'] },
+        },
+        orderBy: { assignedAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              minecraftUsername: true,
+              minecraftUuid: true,
+              discordUsername: true,
+            },
+          },
+          assignedTo: {
+            select: { id: true, minecraftUsername: true, discordUsername: true },
+          },
+        },
+      }),
+      this.prisma.ticket.findMany({
+        where: {
+          assignedToUserId: staffUserId,
+          status: { in: ['OPEN', 'IN_PROGRESS'] },
+        },
+        orderBy: { assignedAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              minecraftUsername: true,
+              discordUsername: true,
+            },
+          },
+          assignedTo: {
+            select: { id: true, minecraftUsername: true, discordUsername: true },
+          },
+          messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+      }),
+    ]);
+    return {
+      whitelist: whitelistRows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        submittedAt: row.submittedAt.toISOString(),
+        reviewedAt: row.reviewedAt?.toISOString() ?? null,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        village: row.village,
+        user: row.user,
+        assignee: row.assignedTo
+          ? {
+              id: row.assignedTo.id,
+              username:
+                row.assignedTo.discordUsername ??
+                row.assignedTo.minecraftUsername,
+            }
+          : null,
+        assignedAt: row.assignedAt?.toISOString() ?? null,
+      })),
+      tickets: ticketRows.map((row) => ({
+        id: row.id,
+        subject: row.subject,
+        category: row.category,
+        status: row.status,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+        lastMessagePreview: row.messages[0]?.content.slice(0, 140) ?? null,
+        user: row.user,
+        assignee: row.assignedTo
+          ? {
+              id: row.assignedTo.id,
+              username:
+                row.assignedTo.discordUsername ??
+                row.assignedTo.minecraftUsername,
+            }
+          : null,
+        assignedAt: row.assignedAt?.toISOString() ?? null,
+      })),
+    };
+  }
+
   async getTicket(id: string): Promise<TicketDetail> {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id },

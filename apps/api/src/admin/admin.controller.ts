@@ -60,6 +60,11 @@ export class AdminController {
     return this.admin.dashboard();
   }
 
+  @Get('me/inbox')
+  myInbox(@CurrentUser() user: RequestUser) {
+    return this.admin.myInbox(user.sub);
+  }
+
   // ── Whitelist ──────────────────────────────────────────
 
   @Get('whitelist')

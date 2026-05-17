@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   IconDashboard,
+  IconInbox,
   IconLogout,
   IconPlayers,
   IconTickets,
@@ -21,6 +22,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', Icon: IconDashboard },
+  { href: '/inbox', label: 'Mes prises', Icon: IconInbox },
   { href: '/whitelist', label: 'Whitelist', Icon: IconWhitelist },
   { href: '/tickets', label: 'Tickets', Icon: IconTickets },
   { href: '/players', label: 'Joueurs', Icon: IconPlayers },
