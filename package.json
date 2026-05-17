@@ -15,6 +15,8 @@
     "api:build": "pnpm --filter @reborn/api build",
     "bot:dev": "pnpm --filter @reborn/bot start:dev",
     "bot:register": "pnpm --filter @reborn/bot register",
+    "admin:dev": "pnpm --filter @reborn/admin dev",
+    "admin:build": "pnpm --filter @reborn/admin build",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "infra:logs": "docker compose -f infra/docker-compose.yml logs -f"

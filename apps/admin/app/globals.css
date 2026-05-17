@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* ============================================================
+   REBORN ADMIN — Design tokens v2
+   Aligne sur apps/launcher/src/styles/globals.css (Zenkai-inspired
+   anime ninja gaming). Les valeurs sont identiques pour conserver
+   une coherence visuelle launcher ↔ panel staff.
+   ============================================================ */
+
+@theme {
+  /* Surfaces */
+  --color-background: #07080b;
+  --color-surface: #0e1014;
+  --color-surface-elevated: #15181f;
+  --color-surface-overlay: #1a1e27;
+  --color-border: #1d212a;
+  --color-border-strong: #2a2f3a;
+
+  /* Foreground */
+  --color-foreground: #e5e7eb;
+  --color-foreground-subtle: #9ca3af;
+  --color-foreground-muted: #6b7280;
+
+  /* Accent (Zenkai blue) */
+  --color-accent: #3b5bdb;
+  --color-accent-hover: #4c6ce6;
+  --color-accent-pressed: #2f4cc4;
+  --color-accent-soft: #1a2550;
+  --color-accent-glow: rgba(59, 91, 219, 0.35);
+
+  /* Semantic */
+  --color-success: #16a34a;
+  --color-success-soft: #0f3a22;
+  --color-warning: #f59e0b;
+  --color-warning-soft: #3a2a0a;
+  --color-danger: #ef4444;
+  --color-danger-soft: #3a1414;
+
+  /* Typography */
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Bebas Neue", "Inter", "Impact", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+  --shadow-glow-accent: 0 0 24px 0 rgba(59, 91, 219, 0.35),
+    0 0 4px 0 rgba(59, 91, 219, 0.55);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html,
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient backdrop pour les pages d'auth (login + callback). */
+.reborn-auth-bg {
+  background: radial-gradient(
+      ellipse 80% 50% at 50% 0%,
+      rgba(59, 91, 219, 0.18) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 20% 80%,
+      rgba(139, 92, 246, 0.12) 0%,
+      transparent 60%
+    ),
+    var(--color-background);
+}
+
+/* Scrollbar styling — discrete, accent on hover. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
