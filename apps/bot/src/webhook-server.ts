@@ -178,11 +178,6 @@ function reply(res: ServerResponse, status: number, body: unknown) {
 async function postWhitelistThread(client: Client, p: WhitelistPayload): Promise<string> {
   const channel = await fetchTextChannel(client);
   const characterName = `${p.firstName} ${p.lastName}`.trim();
-  // PublicThread : visible directement dans la sidebar du salon, lisible
-  // par tout staff ayant acces au salon. Avant on utilisait PrivateThread
-  // mais ca ne creait que le thread sans inviter personne — staff aurait
-  // du le retrouver manuellement via l'API. Pour scaler en multi-staff
-  // sensible, on switchera en PrivateThread + members.add(staffIds).
   const thread = await channel.threads.create({
     name: `Whitelist · ${p.userPseudo} · ${truncate(characterName, 32)}`,
     autoArchiveDuration: 10080,
@@ -190,10 +185,11 @@ async function postWhitelistThread(client: Client, p: WhitelistPayload): Promise
     reason: `Whitelist application ${p.applicationId}`,
   });
 
-  // L'embed Discord a une limite globale de 6000 chars + 1024/champ. La
-  // candidature v2 contient ~3000-5000 chars sur 7-8 champs longs. On split
-  // donc en deux embeds : "Identité + HRP" et "RP" (history/appearance/
-  // objectives). Si on dépasse encore, on tronque par champ avec clip().
+  // Header : que les champs courts qui rentrent forcement dans 1024 chars
+  // (identite + village + date + support). Les champs longs (motivation,
+  // experience, disponibilite, histoire, apparence, objectifs) sont emis
+  // comme embeds dedies via paginateLong : si > 4000 chars, split en
+  // "X (1/2)", "X (2/2)" — Discord cap embed.description = 4096.
   const age = computeAge(p.dob);
   const dobDisplay = formatDateFr(p.dob);
 
@@ -219,24 +215,79 @@ async function postWhitelistThread(client: Client, p: WhitelistPayload): Promise
         value: p.support ? p.support : "*aucun*",
         inline: true,
       },
-      { name: "Motivation", value: clip(p.motivation, 1024) },
-      { name: "Expérience RP", value: clip(p.experience, 1024) },
-      { name: "Disponibilité", value: clip(p.availability, 1024) },
     )
     .setFooter({ text: `application ${p.applicationId}` })
     .setTimestamp(new Date());
 
-  const embedRP = new EmbedBuilder()
-    .setTitle(`Personnage — ${characterName}`)
-    .setColor(0x3b5bdb)
-    .addFields(
-      { name: "Histoire", value: clip(p.history, 1024) },
-      { name: "Apparence et personnalité", value: clip(p.appearance, 1024) },
-      { name: "Objectifs", value: clip(p.objectives, 1024) },
-    );
+  const narrative: EmbedBuilder[] = [
+    ...paginateLong("Motivation", 0x3b5bdb, p.motivation),
+    ...paginateLong("Expérience RP", 0x3b5bdb, p.experience),
+    ...paginateLong("Disponibilité", 0x3b5bdb, p.availability),
+    ...paginateLong("Histoire", 0x8b5cf6, p.history),
+    ...paginateLong("Apparence et personnalité", 0x8b5cf6, p.appearance),
+    ...paginateLong("Objectifs", 0x8b5cf6, p.objectives),
+  ];
 
-  await thread.send({ embeds: [embedHeader, embedRP] });
+  // Discord cap : 10 embeds / message. On envoie le header seul puis
+  // on pagine la narrative en groupes de 10. L'id du premier message
+  // (header) est retourne pour la footer extraction cote thread-context.
+  await thread.send({ embeds: [embedHeader] });
+  for (const batch of chunk(narrative, 10)) {
+    await thread.send({ embeds: batch });
+  }
   return thread.id;
+}
+
+/**
+ * Split un champ texte en autant d'embeds que necessaires pour respecter
+ * la limite Discord embed.description (4096 chars). Le suffixe "(i/total)"
+ * n'apparait que quand on a effectivement plusieurs pages.
+ */
+function paginateLong(
+  title: string,
+  color: number,
+  content: string,
+): EmbedBuilder[] {
+  const trimmed = content.trim();
+  if (trimmed.length === 0) {
+    return [
+      new EmbedBuilder()
+        .setTitle(title)
+        .setColor(color)
+        .setDescription("*(vide)*"),
+    ];
+  }
+  // 4000 chars / page : on garde une marge sous 4096 pour eviter les
+  // crashes en cas d'echappement markdown qui rajoute des chars.
+  const PAGE_SIZE = 4000;
+  if (trimmed.length <= PAGE_SIZE) {
+    return [
+      new EmbedBuilder()
+        .setTitle(title)
+        .setColor(color)
+        .setDescription(trimmed),
+    ];
+  }
+  const total = Math.ceil(trimmed.length / PAGE_SIZE);
+  const out: EmbedBuilder[] = [];
+  for (let i = 0; i < total; i++) {
+    const slice = trimmed.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE);
+    out.push(
+      new EmbedBuilder()
+        .setTitle(`${title} (${i + 1}/${total})`)
+        .setColor(color)
+        .setDescription(slice),
+    );
+  }
+  return out;
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
 }
 
 function computeAge(iso: string): number | null {
@@ -267,9 +318,10 @@ async function postTicketThread(client: Client, p: TicketPayload): Promise<strin
     type: ChannelType.PublicThread,
     reason: `Ticket ${p.ticketId}`,
   });
-  const embed = new EmbedBuilder()
+  const color = TICKET_CATEGORY_COLOR[p.category] ?? 0x6b7280;
+  const header = new EmbedBuilder()
     .setTitle(`Ticket — ${p.subject}`)
-    .setColor(TICKET_CATEGORY_COLOR[p.category] ?? 0x6b7280)
+    .setColor(color)
     .addFields(
       { name: "Auteur", value: `\`${p.userPseudo}\``, inline: true },
       {
@@ -277,12 +329,22 @@ async function postTicketThread(client: Client, p: TicketPayload): Promise<strin
         value: p.discordUserId ? `<@${p.discordUserId}>` : "*non lie*",
         inline: true,
       },
-      { name: "Categorie", value: TICKET_CATEGORY_LABEL[p.category] ?? p.category, inline: true },
-      { name: "Message", value: clip(p.message, 1900) },
+      {
+        name: "Categorie",
+        value: TICKET_CATEGORY_LABEL[p.category] ?? p.category,
+        inline: true,
+      },
     )
     .setFooter({ text: `ticket ${p.ticketId}` })
     .setTimestamp(new Date());
-  await thread.send({ embeds: [embed] });
+
+  await thread.send({ embeds: [header] });
+  // Le premier message peut etre long (description detaillee d'un bug,
+  // historique d'un signalement, etc.). On le pagine au-dela de 4000 chars
+  // au lieu de tronquer silencieusement comme avant.
+  for (const batch of chunk(paginateLong("Message initial", color, p.message), 10)) {
+    await thread.send({ embeds: batch });
+  }
   return thread.id;
 }
 
@@ -310,30 +372,61 @@ async function postRelayMessage(client: Client, p: MessageRelayPayload): Promise
   if (!thread || !thread.isThread()) {
     throw new Error(`thread ${p.threadId} introuvable ou pas un thread`);
   }
-  const embed = new EmbedBuilder()
-    .setAuthor({ name: `${p.authorPseudo} · joueur` })
-    .setDescription(clip(p.content || "*(piece jointe seule)*", 4000))
-    .setColor(0x3b5bdb)
-    .setFooter({ text: `from-launcher ${p.authorPseudo}` })
-    .setTimestamp(new Date());
+  const content = p.content || "*(piece jointe seule)*";
+  const PAGE_SIZE = 4000;
+  const pages: string[] =
+    content.length <= PAGE_SIZE
+      ? [content]
+      : Array.from(
+          { length: Math.ceil(content.length / PAGE_SIZE) },
+          (_, i) => content.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE),
+        );
+
+  // On envoie une suite d'embeds : un par page. Le footer `from-launcher`
+  // sert au listener messageCreate du bot pour eviter une boucle de
+  // relais ; on le pose sur chaque page pour qu'aucune ne soit "relayee
+  // par accident".
+  const embeds: EmbedBuilder[] = pages.map((page, i) =>
+    new EmbedBuilder()
+      .setAuthor({
+        name:
+          pages.length > 1
+            ? `${p.authorPseudo} · joueur (${i + 1}/${pages.length})`
+            : `${p.authorPseudo} · joueur`,
+      })
+      .setDescription(page)
+      .setColor(0x3b5bdb)
+      .setFooter({ text: `from-launcher ${p.authorPseudo}` })
+      .setTimestamp(new Date()),
+  );
+
   const attachments =
     p.attachmentUrls && p.attachmentUrls.length > 0
       ? p.attachmentUrls.map((u, i) => `[Pièce jointe ${i + 1}](${u})`).join("\n")
       : null;
   if (attachments) {
-    embed.addFields({ name: "Fichiers", value: attachments });
+    // On accroche les pieces jointes au dernier embed pour qu'elles
+    // soient visuellement contigues au texte de fin. `embeds` est
+    // toujours non-vide ici (pages.length >= 1 garanti).
+    const last = embeds[embeds.length - 1];
+    if (last) last.addFields({ name: "Fichiers", value: attachments });
   }
-  const sent = await thread.send({ embeds: [embed] });
-  return sent.id;
+
+  // L'id du PREMIER message est celui qu'on persiste cote API comme
+  // discordMessageId (cf WhitelistMessagesService / TicketsService) ;
+  // c'est lui qui sert d'ancre pour la dedup. Les pages suivantes sont
+  // visuellement separees mais n'apparaissent pas en double cote launcher
+  // car le user n'a poste qu'un seul message original.
+  let firstId: string | null = null;
+  for (const batch of chunk(embeds, 10)) {
+    const sent = await thread.send({ embeds: batch });
+    if (firstId === null) firstId = sent.id;
+  }
+  return firstId ?? "";
 }
 
 function truncate(s: string, max: number): string {
   return s.length <= max ? s : s.slice(0, max - 1) + "…";
-}
-
-function clip(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max - 1) + "…";
 }
 
 const TICKET_CATEGORY_LABEL: Record<string, string> = {
