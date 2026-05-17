@@ -30,6 +30,16 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": false,
+      "endpoints": [
+        "http://localhost:3000/v1/launcher/update?current={{current_version}}&target={{target}}&arch={{arch}}"
+      ],
+      "pubkey": "REPLACE_WITH_OUTPUT_OF_pnpm_tauri_signer_generate"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],

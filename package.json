@@ -11,6 +11,8 @@
   "scripts": {
     "launcher:dev": "pnpm --filter @reborn/launcher tauri dev",
     "launcher:build": "pnpm --filter @reborn/launcher tauri build",
+    "launcher:sign-keys": "pnpm --filter @reborn/launcher exec tauri signer generate -w ../../secrets/tauri-updater.key",
+    "launcher:sign": "pnpm --filter @reborn/launcher exec tauri signer sign -k ../../secrets/tauri-updater.key",
     "api:dev": "pnpm --filter @reborn/api start:dev",
     "api:build": "pnpm --filter @reborn/api build",
     "bot:dev": "pnpm --filter @reborn/bot start:dev",

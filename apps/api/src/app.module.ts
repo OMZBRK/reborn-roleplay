@@ -10,6 +10,7 @@ import { ManifestModule } from './manifest/manifest.module';
 import { PatchnotesModule } from './patchnotes/patchnotes.module';
 import { PlayModule } from './play/play.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ReleasesModule } from './releases/releases.module';
 import { RulesModule } from './rules/rules.module';
 import { ServerStatusModule } from './server-status/server-status.module';
 import { StaffModule } from './staff/staff.module';
@@ -31,6 +32,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     ManifestModule,
     PatchnotesModule,
     PlayModule,
+    ReleasesModule,
     RulesModule,
     ServerStatusModule,
     StaffModule,

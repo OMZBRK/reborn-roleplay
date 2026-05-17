@@ -1,6 +1,7 @@
 import { Outlet } from "react-router";
 import { Sidebar } from "./Sidebar";
 import { DiagnosticToast } from "./DiagnosticToast";
+import { UpdateChecker } from "./UpdateChecker";
 
 // Layout des écrans authentifiés. La TitleBar est rendue plus haut dans
 // App.tsx (visible aussi sur /login + pendant le resume), donc on n'a
@@ -13,6 +14,7 @@ export function AuthenticatedLayout() {
         <Outlet />
       </main>
       <DiagnosticToast />
+      <UpdateChecker />
     </div>
   );
 }

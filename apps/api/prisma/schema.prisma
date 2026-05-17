@@ -203,6 +203,32 @@ enum AppStatus {
 }
 
 // ──────────────────────────────────────────────────────
+// LAUNCHER RELEASES (auto-update Tauri)
+// ──────────────────────────────────────────────────────
+
+// Une entry par version × target. Le launcher poll GET /v1/launcher/update
+// avec sa version courante + target (windows-x86_64 / darwin-aarch64 / ...)
+// et l'API retourne la release la plus recente strictement superieure si
+// elle existe, dans le format Tauri (version, pub_date, url, signature, notes).
+//
+// La signature Ed25519 base64 est generee localement par le maintainer via
+// `pnpm tauri signer sign` apres le build NSIS, puis POSTee a /admin/releases
+// par le panel staff (workflow doc dans docs/RELEASING.md).
+model LauncherRelease {
+  id          String   @id @default(uuid())
+  version     String   // ex: "0.2.0"
+  channel     String   @default("stable")
+  target      String   // "windows-x86_64", "darwin-aarch64", "linux-x86_64"
+  url         String   // URL absolue du binaire (NSIS .exe / .app.tar.gz / .AppImage)
+  signature   String   // Signature Ed25519 base64 du binaire (cf tauri signer sign)
+  notes       String?
+  publishedAt DateTime @default(now())
+
+  @@unique([version, target])
+  @@index([target, channel, publishedAt])
+}
+
+// ──────────────────────────────────────────────────────
 // MANIFEST & PATCH NOTES
 // ──────────────────────────────────────────────────────
 
