@@ -258,11 +258,12 @@ async function postWhitelistThread(client: Client, p: WhitelistPayload): Promise
     ...paginateLong("Objectifs", 0x8b5cf6, p.objectives),
   ];
 
-  // Discord cap : 10 embeds / message. On envoie le header seul puis
-  // on pagine la narrative en groupes de 10. L'id du premier message
-  // (header) est retourne pour la footer extraction cote thread-context.
+  // On envoie le header seul (footer id sert d'ancrage pour les slash
+  // commands /whitelist accept|reject) puis on pack la narrative en
+  // autant de messages que necessaire pour respecter les caps Discord
+  // (10 embeds + 6000 chars cumules par message).
   await thread.send({ embeds: [embedHeader] });
-  for (const batch of chunk(narrative, 10)) {
+  for (const batch of packEmbedsForMessages(narrative)) {
     await thread.send({ embeds: batch });
   }
   return thread.id;
@@ -312,12 +313,54 @@ function paginateLong(
   return out;
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    out.push(arr.slice(i, i + size));
+/**
+ * Pack des embeds en batches respectant les **deux** caps Discord
+ * par message : 10 embeds max ET 6000 chars cumules (toutes proprietes
+ * confondues — title + description + fields + author + footer).
+ *
+ * Avant on chunkait juste par count : une candidature avec 6 champs
+ * RP de 1500+ chars depassait 6000 chars et Discord rejetait silencieusement
+ * le `thread.send`, ce qui faisait crash le webhook → l'API ne persistait
+ * pas le discordThreadId → toutes les status-updates ulterieures etaient
+ * skip.
+ *
+ * On garde 200 chars de marge sous 6000 pour absorber les overheads JSON
+ * (timestamps, colors, etc).
+ */
+function packEmbedsForMessages(
+  embeds: EmbedBuilder[],
+): EmbedBuilder[][] {
+  const MAX_COUNT = 10;
+  const MAX_CHARS = 5800;
+  const out: EmbedBuilder[][] = [];
+  let current: EmbedBuilder[] = [];
+  let currentChars = 0;
+  for (const e of embeds) {
+    const size = embedCharSize(e);
+    const wouldOverflow =
+      current.length >= MAX_COUNT ||
+      (current.length > 0 && currentChars + size > MAX_CHARS);
+    if (wouldOverflow) {
+      out.push(current);
+      current = [];
+      currentChars = 0;
+    }
+    current.push(e);
+    currentChars += size;
   }
+  if (current.length > 0) out.push(current);
   return out;
+}
+
+function embedCharSize(e: EmbedBuilder): number {
+  const d = e.toJSON();
+  let n = 0;
+  if (d.title) n += d.title.length;
+  if (d.description) n += d.description.length;
+  if (d.footer?.text) n += d.footer.text.length;
+  if (d.author?.name) n += d.author.name.length;
+  for (const f of d.fields ?? []) n += f.name.length + f.value.length;
+  return n;
 }
 
 function computeAge(iso: string): number | null {
@@ -372,7 +415,9 @@ async function postTicketThread(client: Client, p: TicketPayload): Promise<strin
   // Le premier message peut etre long (description detaillee d'un bug,
   // historique d'un signalement, etc.). On le pagine au-dela de 4000 chars
   // au lieu de tronquer silencieusement comme avant.
-  for (const batch of chunk(paginateLong("Message initial", color, p.message), 10)) {
+  for (const batch of packEmbedsForMessages(
+    paginateLong("Message initial", color, p.message),
+  )) {
     await thread.send({ embeds: batch });
   }
   return thread.id;
@@ -448,7 +493,7 @@ async function postRelayMessage(client: Client, p: MessageRelayPayload): Promise
   // visuellement separees mais n'apparaissent pas en double cote launcher
   // car le user n'a poste qu'un seul message original.
   let firstId: string | null = null;
-  for (const batch of chunk(embeds, 10)) {
+  for (const batch of packEmbedsForMessages(embeds)) {
     const sent = await thread.send({ embeds: batch });
     if (firstId === null) firstId = sent.id;
   }
