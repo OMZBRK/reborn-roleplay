@@ -107,11 +107,14 @@ export class WebhooksService implements OnModuleInit {
 
   async ticketCreated(
     payload: TicketWebhookPayload,
-  ): Promise<{ threadId: string } | null> {
+  ): Promise<{ threadId?: string; messageId?: string } | null> {
     this.logger.log(
       `webhook ticket → ${payload.userPseudo} cat=${payload.category} (ticket ${payload.ticketId})`,
     );
-    return await this.dispatch<{ threadId: string }>('/webhooks/tickets', payload);
+    return await this.dispatch<{ threadId?: string; messageId?: string }>(
+      '/webhooks/tickets',
+      payload,
+    );
   }
 
   // Relais user → discord pour un message individuel sur une candidature

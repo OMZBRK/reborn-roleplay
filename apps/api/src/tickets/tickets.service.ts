@@ -158,12 +158,20 @@ export class TicketsService {
         message: firstMessage,
         discordUserId: user.discordUserId,
       });
-      if (result?.threadId) {
+      // Nouveau flow C4 : le bot retourne {messageId} (message public
+      // dans le salon staff avec bouton Prendre en charge). Legacy
+      // {threadId} reste supporte.
+      const data: { discordMessageId?: string; discordThreadId?: string } = {};
+      if (result?.messageId) data.discordMessageId = result.messageId;
+      if (result?.threadId) data.discordThreadId = result.threadId;
+      if (Object.keys(data).length > 0) {
         await this.prisma.ticket.update({
           where: { id: ticket.id },
-          data: { discordThreadId: result.threadId },
+          data,
         });
-        this.logger.log(`ticket ${ticket.id} → thread ${result.threadId}`);
+        this.logger.log(
+          `ticket ${ticket.id} → ${result?.messageId ? `message ${result.messageId}` : `thread ${result?.threadId}`}`,
+        );
       }
     } catch (err) {
       this.logger.warn(

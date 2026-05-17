@@ -1,5 +1,6 @@
 import type { Client, Interaction } from "discord.js";
 import { MessageFlags } from "discord.js";
+import { handleTicketButton } from "./ticket.js";
 import {
   handleWhitelistButton,
   handleWhitelistModal,
@@ -22,7 +23,10 @@ export async function dispatchComponentInteraction(
         await handleWhitelistButton(client, interaction);
         return;
       }
-      // (ticket: cf C4)
+      if (prefix === "tk") {
+        await handleTicketButton(client, interaction);
+        return;
+      }
       await interaction.reply({
         content: `Composant inconnu : ${interaction.customId}`,
         flags: MessageFlags.Ephemeral,

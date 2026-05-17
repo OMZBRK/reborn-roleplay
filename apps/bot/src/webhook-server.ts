@@ -7,7 +7,12 @@ import {
   type TextChannel,
 } from "discord.js";
 import { config } from "./config.js";
-import { packEmbedsForMessages, paginateLong, truncate } from "./embeds.js";
+import { packEmbedsForMessages, paginateLong } from "./embeds.js";
+import {
+  buildTicketAnnouncement,
+  cacheTicketPayload,
+  type TicketPayloadFull,
+} from "./interactions/ticket.js";
 import {
   buildWhitelistAnnouncement,
   cacheWhitelistPayload,
@@ -30,15 +35,8 @@ import {
 // WhitelistPayload extrait dans interactions/whitelist.ts sous le
 // nom WhitelistPayloadFull (utilise aussi par le DM handler).
 
-interface TicketPayload {
-  ticketId: string;
-  userPseudo: string;
-  userId: string;
-  category: string;
-  subject: string;
-  message: string;
-  discordUserId: string | null;
-}
+// TicketPayload extrait dans interactions/ticket.ts sous le nom
+// TicketPayloadFull (utilise aussi par le DM handler).
 
 // Payload de relais user→thread : l'API recoit un POST de l'utilisateur
 // (POST /v1/whitelist/me/messages ou POST /v1/tickets/:id/messages) puis
@@ -139,14 +137,15 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
     }
   }
   if (url === "/webhooks/tickets") {
-    const data = payload as TicketPayload;
+    const data = payload as TicketPayloadFull;
     console.log(`[webhook] ticket ticketId=${data.ticketId} pseudo=${data.userPseudo}`);
     try {
-      const threadId = await postTicketThread(client, data);
-      console.log(`[webhook] ticket thread cree : ${threadId}`);
-      return reply(res, 200, { threadId });
+      cacheTicketPayload(data);
+      const messageId = await postTicketAnnouncement(client, data);
+      console.log(`[webhook] ticket message cree : ${messageId}`);
+      return reply(res, 200, { messageId, threadId: null });
     } catch (err) {
-      console.error(`[webhook] ticket thread crash :`, err);
+      console.error(`[webhook] ticket message crash :`, err);
       return reply(res, 500, { error: (err as Error).message });
     }
   }
@@ -223,44 +222,14 @@ async function postWhitelistAnnouncement(
 // computeAge / formatDateFr / truncate sont desormais dans embeds.ts —
 // partages entre ce module et interactions/whitelist.ts.
 
-async function postTicketThread(client: Client, p: TicketPayload): Promise<string> {
+async function postTicketAnnouncement(
+  client: Client,
+  payload: TicketPayloadFull,
+): Promise<string> {
   const channel = await fetchTextChannel(client);
-  const thread = await channel.threads.create({
-    name: `Ticket · ${TICKET_CATEGORY_LABEL[p.category] ?? p.category} · ${truncate(p.subject, 40)}`,
-    autoArchiveDuration: 10080,
-    type: ChannelType.PublicThread,
-    reason: `Ticket ${p.ticketId}`,
-  });
-  const color = TICKET_CATEGORY_COLOR[p.category] ?? 0x6b7280;
-  const header = new EmbedBuilder()
-    .setTitle(`Ticket — ${p.subject}`)
-    .setColor(color)
-    .addFields(
-      { name: "Auteur", value: `\`${p.userPseudo}\``, inline: true },
-      {
-        name: "Discord",
-        value: p.discordUserId ? `<@${p.discordUserId}>` : "*non lie*",
-        inline: true,
-      },
-      {
-        name: "Categorie",
-        value: TICKET_CATEGORY_LABEL[p.category] ?? p.category,
-        inline: true,
-      },
-    )
-    .setFooter({ text: `ticket ${p.ticketId}` })
-    .setTimestamp(new Date());
-
-  await thread.send({ embeds: [header] });
-  // Le premier message peut etre long (description detaillee d'un bug,
-  // historique d'un signalement, etc.). On le pagine au-dela de 4000 chars
-  // au lieu de tronquer silencieusement comme avant.
-  for (const batch of packEmbedsForMessages(
-    paginateLong("Message initial", color, p.message),
-  )) {
-    await thread.send({ embeds: batch });
-  }
-  return thread.id;
+  const { embeds, components } = buildTicketAnnouncement(payload);
+  const sent = await channel.send({ embeds, components });
+  return sent.id;
 }
 
 async function fetchTextChannel(client: Client): Promise<TextChannel> {
