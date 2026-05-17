@@ -7,6 +7,12 @@ import {
   type TextChannel,
 } from "discord.js";
 import { config } from "./config.js";
+import { packEmbedsForMessages, paginateLong, truncate } from "./embeds.js";
+import {
+  buildWhitelistAnnouncement,
+  cacheWhitelistPayload,
+  type WhitelistPayloadFull,
+} from "./interactions/whitelist.js";
 
 /**
  * Serveur HTTP minimal qui ecoute les webhooks de l'API Reborn et cree
@@ -21,23 +27,8 @@ import { config } from "./config.js";
  *   GET  /healthz             → 200 ok (pour readiness probe)
  */
 
-interface WhitelistPayload {
-  applicationId: string;
-  userPseudo: string;
-  userId: string;
-  discordUserId: string | null;
-  dob: string;
-  motivation: string;
-  experience: string;
-  availability: string;
-  firstName: string;
-  lastName: string;
-  village: string;
-  support: string | null;
-  history: string;
-  appearance: string;
-  objectives: string;
-}
+// WhitelistPayload extrait dans interactions/whitelist.ts sous le
+// nom WhitelistPayloadFull (utilise aussi par le DM handler).
 
 interface TicketPayload {
   ticketId: string;
@@ -70,7 +61,11 @@ interface MessageRelayPayload {
 // vide cote Discord pendant que l'API/launcher la considere finie.
 interface StatusUpdatePayload {
   kind: "whitelist" | "ticket";
-  threadId: string;
+  // Legacy flow : id du thread Discord cree a la soumission.
+  threadId?: string | null;
+  // Nouveau flow C3 : id du message public dans le salon staff (avec
+  // bouton Prendre en charge).
+  messageId?: string | null;
   // AppStatus | TicketStatus | "DELETED" (cas withdraw/remove).
   status: string;
   // Qui a fait l'action : "@pseudo (staff)", "le joueur", "système", etc.
@@ -123,14 +118,23 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
 
   const url = req.url ?? "";
   if (url === "/webhooks/whitelist") {
-    const data = payload as WhitelistPayload;
-    console.log(`[webhook] whitelist applicationId=${data.applicationId} pseudo=${data.userPseudo}`);
+    const data = payload as WhitelistPayloadFull;
+    console.log(
+      `[webhook] whitelist applicationId=${data.applicationId} pseudo=${data.userPseudo}`,
+    );
     try {
-      const threadId = await postWhitelistThread(client, data);
-      console.log(`[webhook] whitelist thread cree : ${threadId}`);
-      return reply(res, 200, { threadId });
+      // Nouveau flow C3 : message public dans le salon staff (pas un
+      // thread) avec un bouton "Prendre en charge". Le contenu RP
+      // detaille n'est pas dans le canal — il part en DM quand un staff
+      // clique. On cache la payload pour pouvoir construire le DM sans
+      // recharger l'API.
+      cacheWhitelistPayload(data);
+      const messageId = await postWhitelistAnnouncement(client, data);
+      console.log(`[webhook] whitelist message cree : ${messageId}`);
+      // Retourne aussi threadId=null pour clarte cote API logs.
+      return reply(res, 200, { messageId, threadId: null });
     } catch (err) {
-      console.error(`[webhook] whitelist thread crash :`, err);
+      console.error(`[webhook] whitelist message crash :`, err);
       return reply(res, 500, { error: (err as Error).message });
     }
   }
@@ -205,183 +209,19 @@ function reply(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-async function postWhitelistThread(client: Client, p: WhitelistPayload): Promise<string> {
+async function postWhitelistAnnouncement(
+  client: Client,
+  payload: WhitelistPayloadFull,
+): Promise<string> {
   const channel = await fetchTextChannel(client);
-  const characterName = `${p.firstName} ${p.lastName}`.trim();
-  const thread = await channel.threads.create({
-    name: `Whitelist · ${p.userPseudo} · ${truncate(characterName, 32)}`,
-    autoArchiveDuration: 10080,
-    type: ChannelType.PublicThread,
-    reason: `Whitelist application ${p.applicationId}`,
-  });
-
-  // Header : que les champs courts qui rentrent forcement dans 1024 chars
-  // (identite + village + date + support). Les champs longs (motivation,
-  // experience, disponibilite, histoire, apparence, objectifs) sont emis
-  // comme embeds dedies via paginateLong : si > 4000 chars, split en
-  // "X (1/2)", "X (2/2)" — Discord cap embed.description = 4096.
-  const age = computeAge(p.dob);
-  const dobDisplay = formatDateFr(p.dob);
-
-  const embedHeader = new EmbedBuilder()
-    .setTitle(`Candidature whitelist — ${characterName}`)
-    .setColor(0x3b5bdb)
-    .addFields(
-      { name: "Joueur Reborn", value: `\`${p.userPseudo}\``, inline: true },
-      {
-        name: "Discord",
-        value: p.discordUserId ? `<@${p.discordUserId}>` : "*non lie*",
-        inline: true,
-      },
-      { name: "Village", value: p.village, inline: true },
-      { name: "Personnage", value: characterName, inline: true },
-      {
-        name: "Date de naissance",
-        value: age !== null ? `${dobDisplay} (${age} ans)` : dobDisplay,
-        inline: true,
-      },
-      {
-        name: "Support",
-        value: p.support ? p.support : "*aucun*",
-        inline: true,
-      },
-    )
-    .setFooter({ text: `application ${p.applicationId}` })
-    .setTimestamp(new Date());
-
-  const narrative: EmbedBuilder[] = [
-    ...paginateLong("Motivation", 0x3b5bdb, p.motivation),
-    ...paginateLong("Expérience RP", 0x3b5bdb, p.experience),
-    ...paginateLong("Disponibilité", 0x3b5bdb, p.availability),
-    ...paginateLong("Histoire", 0x8b5cf6, p.history),
-    ...paginateLong("Apparence et personnalité", 0x8b5cf6, p.appearance),
-    ...paginateLong("Objectifs", 0x8b5cf6, p.objectives),
-  ];
-
-  // On envoie le header seul (footer id sert d'ancrage pour les slash
-  // commands /whitelist accept|reject) puis on pack la narrative en
-  // autant de messages que necessaire pour respecter les caps Discord
-  // (10 embeds + 6000 chars cumules par message).
-  await thread.send({ embeds: [embedHeader] });
-  for (const batch of packEmbedsForMessages(narrative)) {
-    await thread.send({ embeds: batch });
-  }
-  return thread.id;
+  const { embeds, components } = buildWhitelistAnnouncement(payload);
+  const sent = await channel.send({ embeds, components });
+  return sent.id;
 }
 
-/**
- * Split un champ texte en autant d'embeds que necessaires pour respecter
- * la limite Discord embed.description (4096 chars). Le suffixe "(i/total)"
- * n'apparait que quand on a effectivement plusieurs pages.
- */
-function paginateLong(
-  title: string,
-  color: number,
-  content: string,
-): EmbedBuilder[] {
-  const trimmed = content.trim();
-  if (trimmed.length === 0) {
-    return [
-      new EmbedBuilder()
-        .setTitle(title)
-        .setColor(color)
-        .setDescription("*(vide)*"),
-    ];
-  }
-  // 4000 chars / page : on garde une marge sous 4096 pour eviter les
-  // crashes en cas d'echappement markdown qui rajoute des chars.
-  const PAGE_SIZE = 4000;
-  if (trimmed.length <= PAGE_SIZE) {
-    return [
-      new EmbedBuilder()
-        .setTitle(title)
-        .setColor(color)
-        .setDescription(trimmed),
-    ];
-  }
-  const total = Math.ceil(trimmed.length / PAGE_SIZE);
-  const out: EmbedBuilder[] = [];
-  for (let i = 0; i < total; i++) {
-    const slice = trimmed.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE);
-    out.push(
-      new EmbedBuilder()
-        .setTitle(`${title} (${i + 1}/${total})`)
-        .setColor(color)
-        .setDescription(slice),
-    );
-  }
-  return out;
-}
-
-/**
- * Pack des embeds en batches respectant les **deux** caps Discord
- * par message : 10 embeds max ET 6000 chars cumules (toutes proprietes
- * confondues — title + description + fields + author + footer).
- *
- * Avant on chunkait juste par count : une candidature avec 6 champs
- * RP de 1500+ chars depassait 6000 chars et Discord rejetait silencieusement
- * le `thread.send`, ce qui faisait crash le webhook → l'API ne persistait
- * pas le discordThreadId → toutes les status-updates ulterieures etaient
- * skip.
- *
- * On garde 200 chars de marge sous 6000 pour absorber les overheads JSON
- * (timestamps, colors, etc).
- */
-function packEmbedsForMessages(
-  embeds: EmbedBuilder[],
-): EmbedBuilder[][] {
-  const MAX_COUNT = 10;
-  const MAX_CHARS = 5800;
-  const out: EmbedBuilder[][] = [];
-  let current: EmbedBuilder[] = [];
-  let currentChars = 0;
-  for (const e of embeds) {
-    const size = embedCharSize(e);
-    const wouldOverflow =
-      current.length >= MAX_COUNT ||
-      (current.length > 0 && currentChars + size > MAX_CHARS);
-    if (wouldOverflow) {
-      out.push(current);
-      current = [];
-      currentChars = 0;
-    }
-    current.push(e);
-    currentChars += size;
-  }
-  if (current.length > 0) out.push(current);
-  return out;
-}
-
-function embedCharSize(e: EmbedBuilder): number {
-  const d = e.toJSON();
-  let n = 0;
-  if (d.title) n += d.title.length;
-  if (d.description) n += d.description.length;
-  if (d.footer?.text) n += d.footer.text.length;
-  if (d.author?.name) n += d.author.name.length;
-  for (const f of d.fields ?? []) n += f.name.length + f.value.length;
-  return n;
-}
-
-function computeAge(iso: string): number | null {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - d.getFullYear();
-  const m = now.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
-  return age;
-}
-
-function formatDateFr(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const months = [
-    "janvier", "février", "mars", "avril", "mai", "juin",
-    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-  ];
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
+// Helpers paginateLong / packEmbedsForMessages / embedCharSize /
+// computeAge / formatDateFr / truncate sont desormais dans embeds.ts —
+// partages entre ce module et interactions/whitelist.ts.
 
 async function postTicketThread(client: Client, p: TicketPayload): Promise<string> {
   const channel = await fetchTextChannel(client);
@@ -500,10 +340,6 @@ async function postRelayMessage(client: Client, p: MessageRelayPayload): Promise
   return firstId ?? "";
 }
 
-function truncate(s: string, max: number): string {
-  return s.length <= max ? s : s.slice(0, max - 1) + "…";
-}
-
 interface StatusDescriptor {
   label: string;
   color: number;
@@ -534,14 +370,6 @@ async function postStatusUpdate(
   client: Client,
   p: StatusUpdatePayload,
 ): Promise<void> {
-  const channel = await client.channels.fetch(p.threadId);
-  if (!channel || !channel.isThread()) {
-    // Le thread peut avoir ete supprime manuellement par un staff. Pas
-    // d'erreur bloquante cote API — on log et on no-op.
-    console.warn(`[status-update] thread ${p.threadId} introuvable, skip.`);
-    return;
-  }
-
   const table = p.kind === "whitelist" ? WHITELIST_STATUS : TICKET_STATUS;
   const desc = table[p.status] ?? {
     label: p.status,
@@ -549,38 +377,87 @@ async function postStatusUpdate(
     terminal: false,
   };
 
-  const embed = new EmbedBuilder()
+  const recap = new EmbedBuilder()
     .setTitle(`Statut → ${desc.label}`)
     .setColor(desc.color)
-    .setDescription(
+    .setDescription(`Mis à jour par **${p.actorName}**.`)
+    .setTimestamp(new Date());
+  if (p.reason) {
+    recap.addFields({ name: "Notes", value: p.reason.slice(0, 1024) });
+  }
+
+  // Nouveau flow C3 : messageId set → on edite le message public dans
+  // le salon staff (badge statut + footer + retire les boutons). On
+  // n'archive plus rien parce que ce n'est plus un thread.
+  if (p.messageId) {
+    try {
+      const fetched = await fetchChannelMessage(client, p.messageId);
+      if (fetched) {
+        const original = fetched.embeds[0]?.toJSON() ?? {};
+        const updatedHeader = new EmbedBuilder(original)
+          .setColor(desc.color)
+          .setFooter({
+            text: `${original.footer?.text ?? ""} · Statut : ${desc.label} (${p.actorName})`,
+          });
+        await fetched.edit({
+          embeds: [updatedHeader, recap],
+          components: [], // retire le bouton "Prendre en charge" s'il restait
+        });
+        return;
+      }
+      console.warn(`[status-update] message ${p.messageId} introuvable, skip.`);
+    } catch (err) {
+      console.warn(`[status-update] edit message echec :`, err);
+    }
+    return;
+  }
+
+  // Legacy : threadId set → ancien comportement (poste recap + lock).
+  if (p.threadId) {
+    const channel = await client.channels.fetch(p.threadId);
+    if (!channel || !channel.isThread()) {
+      console.warn(`[status-update] thread ${p.threadId} introuvable, skip.`);
+      return;
+    }
+    const embedLegacy = new EmbedBuilder(recap.toJSON()).setDescription(
       `Mis à jour par **${p.actorName}**.${
         desc.terminal
           ? "\n\nLe thread est désormais verrouillé : la conversation continue côté launcher / panel si besoin."
           : ""
       }`,
-    )
-    .setTimestamp(new Date());
-  if (p.reason) {
-    embed.addFields({ name: "Notes", value: p.reason.slice(0, 1024) });
+    );
+    await channel.send({ embeds: [embedLegacy] });
+    if (desc.terminal && !channel.locked) {
+      try {
+        await channel.setLocked(
+          true,
+          `Reborn ${p.kind} status ${p.status} par ${p.actorName}`,
+        );
+        await channel.setArchived(
+          true,
+          `Reborn ${p.kind} status ${p.status} par ${p.actorName}`,
+        );
+      } catch (err) {
+        console.warn(`[status-update] lock/archive echec :`, err);
+      }
+    }
+    return;
   }
 
-  await channel.send({ embeds: [embed] });
+  console.warn(`[status-update] aucun threadId ni messageId fourni, skip.`);
+}
 
-  if (desc.terminal && !channel.locked) {
-    try {
-      await channel.setLocked(
-        true,
-        `Reborn ${p.kind} status ${p.status} par ${p.actorName}`,
-      );
-      // Archive le thread pour qu'il sorte de la sidebar active. Reste
-      // consultable via "View archived threads" — on ne supprime jamais.
-      await channel.setArchived(
-        true,
-        `Reborn ${p.kind} status ${p.status} par ${p.actorName}`,
-      );
-    } catch (err) {
-      console.warn(`[status-update] lock/archive echec :`, err);
-    }
+/**
+ * Resout un message Discord par son ID dans le salon staff configure.
+ * Discord n'expose pas un endpoint global fetch-by-id, on doit specifier
+ * un channel. On tape le salon principal staff par defaut.
+ */
+async function fetchChannelMessage(client: Client, messageId: string) {
+  try {
+    const channel = await fetchTextChannel(client);
+    return await channel.messages.fetch(messageId);
+  } catch {
+    return null;
   }
 }
 

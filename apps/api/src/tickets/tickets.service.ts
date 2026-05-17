@@ -118,15 +118,17 @@ export class TicketsService {
       select: { minecraftUsername: true },
     });
     const threadId = ticket.discordThreadId;
+    const messageId = ticket.discordMessageId;
     // Cascade configurée côté schema (onDelete: Cascade), pas besoin de
     // deleteMany en amont.
     await this.prisma.ticket.delete({ where: { id: ticketId } });
 
-    if (threadId) {
+    if (threadId || messageId) {
       void this.webhooks
         .statusUpdate({
           kind: 'ticket',
           threadId,
+          messageId,
           status: 'DELETED',
           actorName: user?.minecraftUsername ?? 'le joueur',
         })

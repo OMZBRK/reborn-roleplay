@@ -82,16 +82,15 @@ export class StaffService {
       this.logger.log(`user ${app.userId} role → WHITELISTED`);
     }
 
-    // Reflete dans Discord : embed recap dans le thread + lock+archive
-    // si la decision est terminale (APPROVED/REJECTED) pour eviter que
-    // la conversation continue dans le vide cote Discord. Best-effort :
-    // un fail webhook ne bloque pas la decision.
-    if (app.discordThreadId) {
+    // Reflete dans Discord : embed recap dans le thread (legacy) ou edit
+    // du message public C3 (nouveau flow DM). Best-effort.
+    if (app.discordThreadId || app.discordMessageId) {
       const actorName = await this.resolveActorName(actor);
       void this.webhooks
         .statusUpdate({
           kind: 'whitelist',
           threadId: app.discordThreadId,
+          messageId: app.discordMessageId,
           status: dto.status,
           actorName,
           reason: dto.reviewNotes ?? undefined,
@@ -134,12 +133,13 @@ export class StaffService {
 
     this.logger.log(`staff ticket ${ticketId} → ${dto.status}`);
 
-    if (ticket.discordThreadId) {
+    if (ticket.discordThreadId || ticket.discordMessageId) {
       const actorName = await this.resolveActorName(actor);
       void this.webhooks
         .statusUpdate({
           kind: 'ticket',
           threadId: ticket.discordThreadId,
+          messageId: ticket.discordMessageId,
           status: dto.status,
           actorName,
         })

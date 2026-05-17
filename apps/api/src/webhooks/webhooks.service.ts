@@ -54,12 +54,18 @@ export interface MessageRelayPayload {
 }
 
 // Notif que l'API envoie au bot a chaque changement de statut declenche
-// cote panel staff ou launcher user. Le bot poste un embed dans le
-// thread Discord associe et verrouille le thread si le statut est
-// terminal (whitelist APPROVED/REJECTED/DELETED, ticket CLOSED/DELETED).
+// cote panel staff ou launcher user. Le bot reflete cote Discord :
+//
+//   - flow legacy (discordThreadId set) : poste un embed recap dans le
+//     thread + lock+archive si terminal.
+//   - flow C3 DM (discordMessageId set) : edite le message public dans
+//     le salon (badge "Statut → X") + retire les boutons.
+//
+// Au moins un des deux ids doit etre fourni.
 export interface StatusUpdatePayload {
   kind: 'whitelist' | 'ticket';
-  threadId: string;
+  threadId?: string | null;
+  messageId?: string | null;
   status: string;
   actorName: string;
   reason?: string;
@@ -87,11 +93,16 @@ export class WebhooksService implements OnModuleInit {
 
   async whitelistSubmitted(
     payload: WhitelistWebhookPayload,
-  ): Promise<{ threadId: string } | null> {
+  ): Promise<{ threadId?: string; messageId?: string } | null> {
     this.logger.log(
       `webhook whitelist → ${payload.userPseudo} (app ${payload.applicationId})`,
     );
-    return await this.dispatch<{ threadId: string }>('/webhooks/whitelist', payload);
+    // C3 : le bot retourne {messageId} (message public + bouton). Legacy
+    // {threadId} reste accepte pour compat avec d'anciens deploys du bot.
+    return await this.dispatch<{ threadId?: string; messageId?: string }>(
+      '/webhooks/whitelist',
+      payload,
+    );
   }
 
   async ticketCreated(

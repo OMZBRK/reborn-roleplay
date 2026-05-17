@@ -141,10 +141,14 @@ model WhitelistApplication {
   reviewedBy   String?
   reviewNotes  String?
 
-  // ID du thread Discord cree par le bot lors de la soumission. Permet de
-  // relayer les messages user → thread (cf WhitelistMessage). Null tant que
-  // le webhook n'a pas repondu (best-effort).
+  // Legacy : ID du thread Discord cree par le bot AVANT le passage au
+  // flow DM (C3). Conserve pour les anciennes candidatures qui ont encore
+  // leur thread, mais les nouvelles ne le settent plus.
   discordThreadId String?
+  // Nouveau flow DM (C3) : ID du message public dans le salon staff
+  // (avec bouton "Prendre en charge"). Le bot l'edite pour refleter le
+  // claim / le statut.
+  discordMessageId String?
 
   // Assignation staff : qui s'occupe de cette candidature, depuis quand.
   // Permet a la fois (a) d'eviter qu'un autre staff la traite en double
@@ -262,10 +266,11 @@ model Ticket {
   subject   String
   status    TicketStatus    @default(OPEN)
   messages  TicketMessage[]
-  // ID du thread Discord cree par le bot lors de la creation du ticket.
-  // Meme logique que WhitelistApplication.discordThreadId : permet le
-  // relais bidirectionnel des messages staff↔candidat.
+  // Legacy : ID du thread Discord avant le flow DM (cf
+  // WhitelistApplication.discordThreadId).
   discordThreadId String?
+  // Nouveau flow DM (C3/C4) : message public dans le salon staff.
+  discordMessageId String?
 
   // Cf WhitelistApplication.assignedTo* : meme mecanique de claim
   // staff + escalation 4h cote joueur.

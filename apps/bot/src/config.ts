@@ -44,4 +44,7 @@ export const config = {
   webhookSecret: require_("REBORN_WEBHOOK_SECRET"),
   /** URL de base de l'API Reborn, pour les slash commands staff. */
   apiBaseUrl: process.env.REBORN_API_URL ?? "http://localhost:3000/v1",
+  /** URL du panel staff Next.js — sert dans les DM bot pour pointer
+   *  vers la candidature/le ticket dans le panel ("Voir dans le panel"). */
+  adminBaseUrl: process.env.ADMIN_BASE_URL ?? "http://localhost:3002",
 };

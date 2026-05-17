@@ -46,6 +46,81 @@ export async function setTicketStatus(
   return patchSigned(`/staff/tickets/${ticketId}`, { status });
 }
 
+export interface AssignmentResponse {
+  kind: "whitelist" | "ticket";
+  id: string;
+  assignee: {
+    id: string;
+    minecraftUsername: string;
+    discordUsername: string | null;
+  } | null;
+  assignedAt: string | null;
+}
+
+/** Claim / release flows pour le bouton "Prendre en charge". */
+export async function claimAssignment(
+  kind: "whitelist" | "ticket",
+  id: string,
+  discordUserId: string,
+  force = false,
+): Promise<AssignmentResponse> {
+  return sendSigned("POST", `/staff/${kind}/${id}/assign`, {
+    discordUserId,
+    force,
+  });
+}
+
+export async function releaseAssignment(
+  kind: "whitelist" | "ticket",
+  id: string,
+  discordUserId: string,
+): Promise<AssignmentResponse> {
+  return sendSigned("DELETE", `/staff/${kind}/${id}/assign`, {
+    discordUserId,
+  });
+}
+
+async function sendSigned<T>(
+  method: "POST" | "DELETE" | "PATCH",
+  path: string,
+  payload: object,
+): Promise<T> {
+  const body = JSON.stringify(payload);
+  const signature = createHmac("sha256", config.webhookSecret)
+    .update(body)
+    .digest("hex");
+  const url = `${config.apiBaseUrl.replace(/\/$/, "")}${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      "content-type": "application/json",
+      "x-reborn-signature": signature,
+    },
+    body,
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) {
+    let errorMessage = `${res.status}`;
+    try {
+      const errorBody = (await res.json()) as { message?: string | string[] };
+      const m = errorBody.message;
+      errorMessage = Array.isArray(m) ? m.join(", ") : m ?? errorMessage;
+    } catch {
+      // Reponse pas en JSON — on garde juste le status.
+    }
+    throw new ApiError(res.status, errorMessage);
+  }
+  // DELETE peut retourner du contenu (assignment dto) ou rien (204). On
+  // garde JSON.parse en best-effort.
+  const text = await res.text();
+  if (text.length === 0) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined as T;
+  }
+}
+
 async function patchSigned<T>(path: string, payload: object): Promise<T> {
   const body = JSON.stringify(payload);
   const signature = createHmac("sha256", config.webhookSecret)

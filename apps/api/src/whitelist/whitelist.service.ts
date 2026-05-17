@@ -121,14 +121,16 @@ export class WhitelistService {
       select: { minecraftUsername: true },
     });
     const threadId = app.discordThreadId;
+    const messageId = app.discordMessageId;
     await this.prisma.whitelistApplication.delete({ where: { userId } });
     this.logger.log(`whitelist withdrawn by user ${userId} (app ${app.id})`);
 
-    if (threadId) {
+    if (threadId || messageId) {
       void this.webhooks
         .statusUpdate({
           kind: 'whitelist',
           threadId,
+          messageId,
           status: 'DELETED',
           actorName: user?.minecraftUsername ?? 'le joueur',
         })
@@ -188,12 +190,21 @@ export class WhitelistService {
         appearance: app.appearance,
         objectives: app.objectives,
       });
-      if (result?.threadId) {
+      // Nouveau flow C3 : le bot retourne {messageId} (message public
+      // dans le salon staff avec bouton Prendre en charge). Legacy
+      // {threadId} reste supporte pour les anciens deploys mais ne
+      // devrait plus etre renvoye.
+      const data: { discordMessageId?: string; discordThreadId?: string } = {};
+      if (result?.messageId) data.discordMessageId = result.messageId;
+      if (result?.threadId) data.discordThreadId = result.threadId;
+      if (Object.keys(data).length > 0) {
         await this.prisma.whitelistApplication.update({
           where: { id: app.id },
-          data: { discordThreadId: result.threadId },
+          data,
         });
-        this.logger.log(`whitelist app ${app.id} → thread ${result.threadId}`);
+        this.logger.log(
+          `whitelist app ${app.id} → ${result?.messageId ? `message ${result.messageId}` : `thread ${result?.threadId}`}`,
+        );
       }
     } catch (err) {
       this.logger.warn(
