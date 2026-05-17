@@ -26,6 +26,19 @@ export class TicketStatusDto {
   status!: TicketStatus;
 }
 
+// Posté par le bot quand un staff clique sur "Prendre en charge" ou
+// "Liberer" depuis Discord. Le snowflake Discord est resolu cote API
+// en User Reborn via discordUserId.
+export class AssignFromDiscordDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  discordUserId!: string;
+
+  @IsOptional()
+  force?: boolean;
+}
+
 // Posté par le bot quand un staff répond dans le thread Discord d'une
 // candidature whitelist ou d'un ticket. authorDiscordId est le snowflake
 // Discord du staff (utilisé pour debug + idempotence).

@@ -13,13 +13,17 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AssignmentService } from '../admin/assignment.service';
 import { CreateTicketDto, PostMessageDto } from './dto/tickets.dto';
 import { TicketsService } from './tickets.service';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard)
 export class TicketsController {
-  constructor(private readonly service: TicketsService) {}
+  constructor(
+    private readonly service: TicketsService,
+    private readonly assignment: AssignmentService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: RequestUser) {
@@ -57,5 +61,14 @@ export class TicketsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     await this.service.remove(user.sub, id);
+  }
+
+  @Post(':id/reclaim')
+  @HttpCode(HttpStatus.OK)
+  async reclaim(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.assignment.reclaimTicketByUser(user.sub, id);
   }
 }

@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { AssignmentModule } from '../admin/assignment.module';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, AssignmentModule],
   controllers: [TicketsController],
   providers: [TicketsService],
   // Exporté pour StaffModule (postStaffMessage déclenché par le listener

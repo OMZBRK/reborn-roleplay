@@ -5,9 +5,16 @@ import { TicketsModule } from '../tickets/tickets.module';
 import { WhitelistModule } from '../whitelist/whitelist.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AssignmentModule } from './assignment.module';
 
 @Module({
-  imports: [AuthModule, StaffModule, TicketsModule, WhitelistModule],
+  imports: [
+    AuthModule,
+    AssignmentModule,
+    StaffModule,
+    TicketsModule,
+    WhitelistModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService],
 })

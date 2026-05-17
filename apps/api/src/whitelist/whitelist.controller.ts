@@ -12,6 +12,7 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AssignmentService } from '../admin/assignment.service';
 import { PostMessageDto, SubmitWhitelistDto } from './dto/whitelist.dto';
 import { WhitelistService } from './whitelist.service';
 import { WhitelistMessagesService } from './whitelist-messages.service';
@@ -22,6 +23,7 @@ export class WhitelistController {
   constructor(
     private readonly service: WhitelistService,
     private readonly messages: WhitelistMessagesService,
+    private readonly assignment: AssignmentService,
   ) {}
 
   @Get('me')
@@ -65,5 +67,17 @@ export class WhitelistController {
       content: dto.content,
       attachmentUrls: dto.attachmentUrls,
     });
+  }
+
+  /**
+   * Le joueur demande la liberation de sa candidature si > 4h sans
+   * suite de la part du staff assigne. Idempotent en cas de
+   * re-deja-libere : l'API refuse avec 400 si pas eligible (pas
+   * assigne, ou < 4h).
+   */
+  @Post('me/reclaim')
+  @HttpCode(HttpStatus.OK)
+  async reclaim(@CurrentUser() user: RequestUser) {
+    return this.assignment.reclaimWhitelistByUser(user.sub);
   }
 }

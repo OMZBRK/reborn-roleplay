@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   HttpCode,
   HttpStatus,
   Param,
@@ -10,12 +11,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  AssignFromDiscordDto,
   StaffMessageDto,
   TicketStatusDto,
   WhitelistDecisionDto,
 } from './dto/staff.dto';
 import { HmacSignatureGuard } from './hmac-signature.guard';
 import { StaffService } from './staff.service';
+import { AssignmentService } from '../admin/assignment.service';
 import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import { TicketsService } from '../tickets/tickets.service';
 
@@ -31,6 +34,7 @@ export class StaffController {
     private readonly service: StaffService,
     private readonly whitelistMessages: WhitelistMessagesService,
     private readonly tickets: TicketsService,
+    private readonly assignment: AssignmentService,
   ) {}
 
   @Patch('whitelist/:id')
@@ -78,6 +82,52 @@ export class StaffController {
       authorName: dto.authorName,
       content: dto.content,
       attachmentUrls: dto.attachmentUrls,
+    });
+  }
+
+  // Claim/release depuis le bot (HMAC). Le bot envoie le snowflake
+  // Discord du staff qui a clique sur le bouton ; l'API resoud vers
+  // le User Reborn via discordUserId. Refuse si pas lie ou role <
+  // HELPER.
+  @Post('whitelist/:id/assign')
+  claimWhitelist(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignFromDiscordDto,
+  ) {
+    return this.assignment.claimWhitelist(id, {
+      discordUserId: dto.discordUserId,
+      force: dto.force === true,
+    });
+  }
+
+  @Delete('whitelist/:id/assign')
+  releaseWhitelist(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignFromDiscordDto,
+  ) {
+    return this.assignment.releaseWhitelist(id, {
+      discordUserId: dto.discordUserId,
+    });
+  }
+
+  @Post('tickets/:id/assign')
+  claimTicket(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignFromDiscordDto,
+  ) {
+    return this.assignment.claimTicket(id, {
+      discordUserId: dto.discordUserId,
+      force: dto.force === true,
+    });
+  }
+
+  @Delete('tickets/:id/assign')
+  releaseTicket(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignFromDiscordDto,
+  ) {
+    return this.assignment.releaseTicket(id, {
+      discordUserId: dto.discordUserId,
     });
   }
 }

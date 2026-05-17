@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -21,6 +22,7 @@ import { StaffService } from '../staff/staff.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import { AdminService } from './admin.service';
+import { AssignmentService } from './assignment.service';
 import {
   ListTicketsQueryDto,
   ListWhitelistQueryDto,
@@ -50,6 +52,7 @@ export class AdminController {
     private readonly staff: StaffService,
     private readonly tickets: TicketsService,
     private readonly whitelistMessages: WhitelistMessagesService,
+    private readonly assignment: AssignmentService,
   ) {}
 
   @Get('dashboard')
@@ -95,6 +98,28 @@ export class AdminController {
     });
   }
 
+  @Post('whitelist/:id/assign')
+  @MinRole(Role.WHITELIST_REVIEWER)
+  claimWhitelist(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { force?: boolean } = {},
+  ) {
+    return this.assignment.claimWhitelist(id, {
+      userId: user.sub,
+      force: body.force === true,
+    });
+  }
+
+  @Delete('whitelist/:id/assign')
+  @MinRole(Role.WHITELIST_REVIEWER)
+  releaseWhitelist(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.assignment.releaseWhitelist(id, { userId: user.sub });
+  }
+
   // ── Tickets ────────────────────────────────────────────
 
   @Get('tickets')
@@ -127,6 +152,26 @@ export class AdminController {
       staffUserId: user.sub,
       content: dto.content,
     });
+  }
+
+  @Post('tickets/:id/assign')
+  claimTicket(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { force?: boolean } = {},
+  ) {
+    return this.assignment.claimTicket(id, {
+      userId: user.sub,
+      force: body.force === true,
+    });
+  }
+
+  @Delete('tickets/:id/assign')
+  releaseTicket(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.assignment.releaseTicket(id, { userId: user.sub });
   }
 
   // ── Players ────────────────────────────────────────────

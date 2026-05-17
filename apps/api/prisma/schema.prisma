@@ -72,6 +72,10 @@ model User {
   staffActions      AuditLog[] @relation("StaffActor")
   targetedActions   AuditLog[] @relation("TargetUser")
 
+  // Cas/tickets actuellement assignes a ce staff (cf C3/C4 — bot DM flow).
+  assignedWhitelists WhitelistApplication[] @relation("WhitelistAssignee")
+  assignedTickets    Ticket[]               @relation("TicketAssignee")
+
   // Systeme social (v1.0.5)
   friendshipsInitiated Friendship[]    @relation("FriendshipFrom")
   friendshipsReceived  Friendship[]    @relation("FriendshipTo")
@@ -141,6 +145,15 @@ model WhitelistApplication {
   // relayer les messages user → thread (cf WhitelistMessage). Null tant que
   // le webhook n'a pas repondu (best-effort).
   discordThreadId String?
+
+  // Assignation staff : qui s'occupe de cette candidature, depuis quand.
+  // Permet a la fois (a) d'eviter qu'un autre staff la traite en double
+  // et (b) la mecanique d'escalation : si le user voit que personne ne
+  // bouge depuis > 4h, il peut "demander une reprise" qui release ces
+  // deux champs.
+  assignedToUserId String?
+  assignedTo       User?     @relation("WhitelistAssignee", fields: [assignedToUserId], references: [id])
+  assignedAt       DateTime?
 
   messages     WhitelistMessage[]
 }
@@ -253,6 +266,13 @@ model Ticket {
   // Meme logique que WhitelistApplication.discordThreadId : permet le
   // relais bidirectionnel des messages staff↔candidat.
   discordThreadId String?
+
+  // Cf WhitelistApplication.assignedTo* : meme mecanique de claim
+  // staff + escalation 4h cote joueur.
+  assignedToUserId String?
+  assignedTo       User?     @relation("TicketAssignee", fields: [assignedToUserId], references: [id])
+  assignedAt       DateTime?
+
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 }
