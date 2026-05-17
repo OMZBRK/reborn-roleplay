@@ -7,7 +7,47 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import type { AdminMessage, CurrentUser } from '@/lib/types';
 import { MCAvatar } from './MCAvatar';
-import { IconChat, IconSend } from './icons';
+import { IconBell, IconBellOff, IconChat, IconSend } from './icons';
+
+const SOUND_PREF_KEY = 'reborn-admin.chat.sound';
+
+function readSoundPref(): boolean {
+  if (typeof window === 'undefined') return true;
+  const v = window.localStorage.getItem(SOUND_PREF_KEY);
+  // Default ON.
+  return v !== 'off';
+}
+
+/**
+ * Beep court genere via Web Audio API — pas de fichier asset a embarquer.
+ * Sin onde a 880Hz / 0.15s avec decay exponentiel. Volume ~10% pour ne
+ * pas surprendre.
+ */
+function playBeep() {
+  try {
+    const w = window as unknown as {
+      AudioContext?: typeof AudioContext;
+      webkitAudioContext?: typeof AudioContext;
+    };
+    const AudioCtor = w.AudioContext ?? w.webkitAudioContext;
+    if (!AudioCtor) return;
+    const ctx = new AudioCtor();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.1, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.2);
+    osc.onended = () => ctx.close().catch(() => {});
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * ChatPanel : composant unifie pour la conversation staff↔candidat
@@ -45,8 +85,14 @@ export function ChatPanel({
 }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState('');
+  const [soundOn, setSoundOn] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastCountRef = useRef(0);
+
+  // Hydrate la pref son depuis localStorage au mount.
+  useEffect(() => {
+    setSoundOn(readSoundPref());
+  }, []);
 
   const { data: me } = useQuery({
     queryKey: ['admin', 'me'],
@@ -54,16 +100,32 @@ export function ChatPanel({
     staleTime: 5 * 60_000,
   });
 
-  // Auto-scroll en bas quand un nouveau message arrive.
+  // Auto-scroll + son sur nouveau message (autre que moi). Skip le tout
+  // premier render (hydratation messages au mount) pour eviter un beep
+  // au load de la page.
   useEffect(() => {
     if (messages.length > lastCountRef.current) {
+      const isFirstRender = lastCountRef.current === 0;
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
-        behavior: lastCountRef.current === 0 ? 'auto' : 'smooth',
+        behavior: isFirstRender ? 'auto' : 'smooth',
       });
+      if (!isFirstRender && soundOn) {
+        const last = messages[messages.length - 1];
+        const fromOther = !me || last?.authorId !== me.id;
+        if (fromOther) playBeep();
+      }
       lastCountRef.current = messages.length;
     }
-  }, [messages]);
+  }, [messages, me, soundOn]);
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(SOUND_PREF_KEY, next ? 'on' : 'off');
+    }
+  }
 
   const sendMut = useMutation({
     mutationFn: (content: string) =>
@@ -92,9 +154,19 @@ export function ChatPanel({
             </span>
           )}
         </div>
-        <div className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-          live
-          <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={toggleSound}
+            title={soundOn ? 'Désactiver les notifications sonores' : 'Activer les notifications sonores'}
+            className="text-[var(--color-foreground-muted)] hover:text-[var(--color-foreground)] transition-colors"
+          >
+            {soundOn ? <IconBell /> : <IconBellOff />}
+          </button>
+          <div className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)] flex items-center">
+            live
+            <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
+          </div>
         </div>
       </div>
 

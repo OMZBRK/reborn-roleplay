@@ -2,11 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { use, useEffect, useRef, useState } from 'react';
+import { use, useState } from 'react';
 import { toast } from 'sonner';
 import { AssignmentBlock } from '@/components/AssignmentBlock';
+import { ChatPanel } from '@/components/ChatPanel';
 import { api } from '@/lib/api';
-import type { AdminMessage, TicketDetail, TicketStatus } from '@/lib/types';
+import type { TicketDetail, TicketStatus } from '@/lib/types';
 
 export default function TicketDetailPage({
   params,
@@ -24,39 +25,8 @@ export default function TicketDetailPage({
     refetchInterval: 5_000,
   });
 
-  const [draft, setDraft] = useState('');
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const lastMessageCountRef = useRef(0);
-
-  // Auto-scroll en bas quand un nouveau message arrive.
-  useEffect(() => {
-    if (!data) return;
-    if (data.messages.length > lastMessageCountRef.current) {
-      scrollRef.current?.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
-      lastMessageCountRef.current = data.messages.length;
-    }
-  }, [data]);
-
-  const sendMut = useMutation({
-    mutationFn: (content: string) =>
-      api<AdminMessage>(`/admin/tickets/${id}/messages`, {
-        method: 'POST',
-        body: { content },
-      }),
-    onSuccess: () => {
-      setDraft('');
-      qc.invalidateQueries({ queryKey: ['admin', 'tickets', id] });
-      qc.invalidateQueries({ queryKey: ['admin', 'tickets'] });
-    },
-    onError: (err) => {
-      toast.error("Message non envoye", {
-        description: (err as Error).message,
-      });
-    },
-  });
+  // Envoi des messages + scroll auto delegues a <ChatPanel /> (composant
+  // unifie). Plus de state local pour le draft ici.
 
   const statusMut = useMutation({
     mutationFn: (status: TicketStatus) =>
@@ -165,93 +135,17 @@ export default function TicketDetailPage({
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-10 py-6">
-        <div className="max-w-3xl mx-auto space-y-3">
-          {data.messages.map((m) => (
-            <MessageBubble key={m.id} message={m} />
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t border-[var(--color-border)] bg-[var(--color-surface)] px-10 py-4">
-        <div className="max-w-3xl mx-auto">
-          {isClosed ? (
-            <div className="rounded-[10px] border border-dashed border-[var(--color-border-strong)] py-4 text-center text-sm text-[var(--color-foreground-muted)]">
-              Ce ticket est ferme. Re-ouvre-le pour repondre.
-            </div>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const content = draft.trim();
-                if (content.length === 0 || sendMut.isPending) return;
-                sendMut.mutate(content);
-              }}
-              className="flex items-end gap-3"
-            >
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    const content = draft.trim();
-                    if (content.length > 0 && !sendMut.isPending) {
-                      sendMut.mutate(content);
-                    }
-                  }
-                }}
-                rows={2}
-                placeholder="Repondre au joueur… (Entree pour envoyer, Maj+Entree pour saut de ligne)"
-                className="flex-1 resize-none rounded-[10px] border border-[var(--color-border-strong)] bg-[var(--color-background)] p-3 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={draft.trim().length === 0 || sendMut.isPending}
-                className="rounded-[10px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-[var(--shadow-glow-accent)]"
-              >
-                {sendMut.isPending ? 'Envoi…' : 'Envoyer'}
-              </button>
-            </form>
-          )}
-          {sendMut.error && (
-            <div className="mt-2 text-xs text-[var(--color-danger)]">
-              {(sendMut.error as Error).message}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MessageBubble({ message }: { message: AdminMessage }) {
-  const isStaff = message.authorType === 'STAFF';
-  return (
-    <div className={`flex ${isStaff ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[80%] rounded-[12px] px-4 py-3 ${
-          isStaff
-            ? 'bg-[var(--color-accent-soft)] border border-[var(--color-accent)]/30'
-            : 'bg-[var(--color-surface-elevated)] border border-[var(--color-border)]'
-        }`}
-      >
-        <div
-          className={`mb-1 text-xs ${
-            isStaff
-              ? 'text-[var(--color-accent)] font-medium'
-              : 'text-[var(--color-foreground-muted)]'
-          }`}
-        >
-          {message.authorName ?? (isStaff ? 'Staff' : 'Joueur')}
-          <span className="ml-2 text-[var(--color-foreground-muted)] font-normal">
-            {new Date(message.createdAt).toLocaleString('fr-FR', {
-              dateStyle: 'short',
-              timeStyle: 'short',
-            })}
-          </span>
-        </div>
-        <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+      <div className="flex-1 p-4 overflow-hidden">
+        <ChatPanel
+          endpoint={`/admin/tickets/${data.id}/messages`}
+          queryKey={['admin', 'tickets', data.id]}
+          messages={data.messages}
+          canSend={!isClosed}
+          playerUuid={data.user.minecraftUuid}
+          playerName={data.user.minecraftUsername}
+          emptyLabel={`Aucun message — répondez à ${data.user.minecraftUsername} ci-dessous.`}
+          closedLabel="Ce ticket est fermé. Réouvre-le pour répondre."
+        />
       </div>
     </div>
   );
