@@ -5,17 +5,19 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { Role } from '@prisma/client';
+import { AuthService, AuthResult } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const STATE_TTL_MS = 5 * 60_000;
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
-interface PendingState {
-  userId: string;
-  expiresAt: number;
-}
+type PendingState =
+  | { kind: 'link'; userId: string; expiresAt: number }
+  | { kind: 'staff-login'; expiresAt: number };
 
 interface DiscordTokenResponse {
   access_token: string;
@@ -55,7 +57,10 @@ export class DiscordService {
   private readonly logger = new Logger(DiscordService.name);
   private readonly states = new Map<string, PendingState>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthService,
+  ) {}
 
   /**
    * Genere un state lie a `userId` et retourne l'URL d'autorisation Discord.
@@ -67,7 +72,43 @@ export class DiscordService {
     const redirectUri = this.requireEnv('DISCORD_REDIRECT_URI');
 
     const state = randomBytes(24).toString('hex');
-    this.states.set(state, { userId, expiresAt: Date.now() + STATE_TTL_MS });
+    this.states.set(state, {
+      kind: 'link',
+      userId,
+      expiresAt: Date.now() + STATE_TTL_MS,
+    });
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'identify',
+      state,
+      prompt: 'consent',
+    });
+
+    return {
+      url: `https://discord.com/oauth2/authorize?${params.toString()}`,
+      state,
+    };
+  }
+
+  /**
+   * Login flow for the staff panel (apps/admin). No userId yet — we'll
+   * resolve the Reborn user via `discordUserId` after the callback. The
+   * redirect URI lands on a dedicated `/staff/callback` endpoint so we
+   * don't have to multiplex callbacks on `state.kind`.
+   */
+  startStaffLogin(): { url: string; state: string } {
+    this.gcStates();
+    const clientId = this.requireEnv('DISCORD_CLIENT_ID');
+    const redirectUri = this.requireEnv('DISCORD_STAFF_REDIRECT_URI');
+
+    const state = randomBytes(24).toString('hex');
+    this.states.set(state, {
+      kind: 'staff-login',
+      expiresAt: Date.now() + STATE_TTL_MS,
+    });
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -90,14 +131,14 @@ export class DiscordService {
   async completeLinkFlow(code: string, state: string): Promise<void> {
     this.gcStates();
     const pending = this.states.get(state);
-    if (!pending) {
+    if (!pending || pending.kind !== 'link') {
       throw new BadRequestException(
         'State invalide ou expire. Recommence la liaison depuis le launcher.',
       );
     }
     this.states.delete(state);
 
-    const token = await this.exchangeCode(code);
+    const token = await this.exchangeCode(code, 'DISCORD_REDIRECT_URI');
     const profile = await this.fetchProfile(token.access_token);
 
     const existing = await this.prisma.user.findUnique({
@@ -122,6 +163,41 @@ export class DiscordService {
     });
   }
 
+  /**
+   * Staff login : exchange the code, find the Reborn user matching the
+   * Discord identity, issue a token pair gated on role ≥ HELPER.
+   */
+  async completeStaffLogin(
+    code: string,
+    state: string,
+    meta: { userAgent?: string; ip?: string },
+  ): Promise<AuthResult> {
+    this.gcStates();
+    const pending = this.states.get(state);
+    if (!pending || pending.kind !== 'staff-login') {
+      throw new BadRequestException(
+        'State invalide ou expire. Recommence la connexion staff.',
+      );
+    }
+    this.states.delete(state);
+
+    const token = await this.exchangeCode(code, 'DISCORD_STAFF_REDIRECT_URI');
+    const profile = await this.fetchProfile(token.access_token);
+
+    const user = await this.prisma.user.findUnique({
+      where: { discordUserId: profile.id },
+    });
+    if (!user) {
+      throw new UnauthorizedException(
+        'Aucun compte Reborn lie a ce Discord. Connecte-toi d\'abord via le launcher pour lier ton compte.',
+      );
+    }
+
+    return this.auth.issueTokensForUserId(user.id, meta, {
+      requireMinRole: Role.HELPER,
+    });
+  }
+
   async unlink(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Utilisateur introuvable.');
@@ -138,10 +214,13 @@ export class DiscordService {
     });
   }
 
-  private async exchangeCode(code: string): Promise<DiscordTokenResponse> {
+  private async exchangeCode(
+    code: string,
+    redirectEnvKey: 'DISCORD_REDIRECT_URI' | 'DISCORD_STAFF_REDIRECT_URI',
+  ): Promise<DiscordTokenResponse> {
     const clientId = this.requireEnv('DISCORD_CLIENT_ID');
     const clientSecret = this.requireEnv('DISCORD_CLIENT_SECRET');
-    const redirectUri = this.requireEnv('DISCORD_REDIRECT_URI');
+    const redirectUri = this.requireEnv(redirectEnvKey);
 
     const body = new URLSearchParams({
       client_id: clientId,

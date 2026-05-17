@@ -183,6 +183,45 @@ export class AuthService {
   }
 
   /**
+   * Issue a token pair for an existing user (no MS/MC validation).
+   * Used by the staff Discord-login flow once we've matched a Discord
+   * identity to a Reborn user. Refuses banned users and, when
+   * `requireMinRole` is provided, refuses anyone below that role.
+   */
+  async issueTokensForUserId(
+    userId: string,
+    meta: { userAgent?: string; ip?: string },
+    opts?: { requireMinRole?: Role },
+  ): Promise<AuthResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.banned) {
+      throw new UnauthorizedException();
+    }
+    if (opts?.requireMinRole) {
+      const ranks: Role[] = [
+        Role.PLAYER,
+        Role.WHITELISTED,
+        Role.HELPER,
+        Role.WHITELIST_REVIEWER,
+        Role.MODERATOR,
+        Role.ADMIN,
+        Role.OWNER,
+      ];
+      if (ranks.indexOf(user.role) < ranks.indexOf(opts.requireMinRole)) {
+        throw new HttpException(
+          `Rôle insuffisant : ${user.role} < ${opts.requireMinRole}.`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date(), lastKnownIp: meta.ip ?? user.lastKnownIp },
+    });
+    return this.issueTokens(user, meta);
+  }
+
+  /**
    * Dev-only : cree (ou reutilise) un User factice et emet un JWT,
    * sans passer par Microsoft. Utilise tant que le Client ID Azure
    * attend l'approbation Microsoft (cf docs/adr/0001-...).

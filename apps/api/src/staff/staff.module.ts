@@ -8,5 +8,6 @@ import { TicketsModule } from '../tickets/tickets.module';
   imports: [WhitelistModule, TicketsModule],
   controllers: [StaffController],
   providers: [StaffService],
+  exports: [StaffService],
 })
 export class StaffModule {}

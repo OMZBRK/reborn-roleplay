@@ -4,11 +4,13 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -16,7 +18,68 @@ import { DiscordService } from './discord.service';
 
 @Controller('auth/discord')
 export class DiscordController {
+  private readonly logger = new Logger(DiscordController.name);
+
   constructor(private readonly service: DiscordService) {}
+
+  /**
+   * Staff panel — entry point. Redirects directly to Discord. The
+   * Next.js admin app just sets `window.location` here; no JWT yet.
+   */
+  @Get('staff/start')
+  staffStart(@Res() res: Response) {
+    const { url } = this.service.startStaffLogin();
+    return res.redirect(HttpStatus.FOUND, url);
+  }
+
+  /**
+   * Staff panel — callback. Exchanges the code, looks up the user by
+   * Discord ID, issues a token pair (gated on role ≥ HELPER), then
+   * redirects to the admin app with tokens in the URL fragment.
+   */
+  @Get('staff/callback')
+  async staffCallback(
+    @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
+    @Query('error') error: string | undefined,
+    @Query('error_description') errorDescription: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const adminBase = process.env.ADMIN_BASE_URL ?? 'http://localhost:3002';
+    const callbackPath = process.env.ADMIN_AUTH_CALLBACK_PATH ?? '/auth/callback';
+    const target = new URL(callbackPath, adminBase);
+
+    if (error) {
+      target.hash = new URLSearchParams({
+        error: errorDescription ?? error,
+      }).toString();
+      return res.redirect(HttpStatus.FOUND, target.toString());
+    }
+    if (!code || !state) {
+      target.hash = new URLSearchParams({ error: 'missing_params' }).toString();
+      return res.redirect(HttpStatus.FOUND, target.toString());
+    }
+
+    try {
+      const tokens = await this.service.completeStaffLogin(code, state, {
+        userAgent: req.headers['user-agent'],
+        ip: req.ip,
+      });
+      // Fragment > query so tokens never hit referer/proxy logs.
+      target.hash = new URLSearchParams({
+        access: tokens.accessToken,
+        refresh: tokens.refreshToken,
+      }).toString();
+      return res.redirect(HttpStatus.FOUND, target.toString());
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Erreur inattendue.';
+      this.logger.warn(`staff login failed: ${message}`);
+      target.hash = new URLSearchParams({ error: message }).toString();
+      return res.redirect(HttpStatus.FOUND, target.toString());
+    }
+  }
 
   /**
    * Le launcher (authentifie) appelle cet endpoint pour obtenir l'URL
