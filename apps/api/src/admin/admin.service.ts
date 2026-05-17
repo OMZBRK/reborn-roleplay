@@ -117,6 +117,81 @@ export interface TicketDetail {
   }>;
 }
 
+export interface PlayerListItem {
+  id: string;
+  minecraftUsername: string;
+  minecraftUuid: string;
+  discordUsername: string | null;
+  role: string;
+  banned: boolean;
+  lastLoginAt: string | null;
+}
+
+export interface PlayerDetail {
+  id: string;
+  minecraftUsername: string;
+  minecraftUuid: string;
+  discordUserId: string | null;
+  discordUsername: string | null;
+  steamUsername: string | null;
+  role: string;
+  banned: boolean;
+  banReason: string | null;
+  bannedUntil: string | null;
+  createdAt: string;
+  lastLoginAt: string | null;
+  lastKnownIp: string | null;
+  lastKnownCountry: string | null;
+  whitelist: {
+    id: string;
+    status: AppStatus;
+    firstName: string;
+    lastName: string;
+    village: string;
+    submittedAt: string;
+    reviewedAt: string | null;
+  } | null;
+  tickets: Array<{
+    id: string;
+    subject: string;
+    category: string;
+    status: TicketStatus;
+    createdAt: string;
+    updatedAt: string;
+    lastMessagePreview: string | null;
+  }>;
+}
+
+const PLAYER_SELECT = {
+  id: true,
+  minecraftUsername: true,
+  minecraftUuid: true,
+  discordUsername: true,
+  role: true,
+  banned: true,
+  lastLoginAt: true,
+} as const;
+
+function toPlayerListItem(row: {
+  id: string;
+  minecraftUsername: string;
+  minecraftUuid: string;
+  discordUsername: string | null;
+  role: string;
+  banned: boolean;
+  lastLoginAt: Date | null;
+}): PlayerListItem {
+  return {
+    id: row.id,
+    minecraftUsername: row.minecraftUsername,
+    minecraftUuid: row.minecraftUuid,
+    discordUsername: row.discordUsername,
+    role: row.role,
+    banned: row.banned,
+    lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
+  };
+}
+
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
@@ -292,6 +367,87 @@ export class AdminService {
         updatedAt: row.updatedAt.toISOString(),
         lastMessagePreview: row.messages[0]?.content.slice(0, 140) ?? null,
         user: row.user,
+      })),
+    };
+  }
+
+  async searchPlayers(
+    q: string,
+    take = 30,
+  ): Promise<PlayerListItem[]> {
+    const term = q.trim();
+    if (term.length === 0) {
+      // Sans query : retourne les derniers connectes pour donner au staff
+      // une vue de demarrage utile (plutot qu'une liste vide).
+      const rows = await this.prisma.user.findMany({
+        orderBy: { lastLoginAt: { sort: 'desc', nulls: 'last' } },
+        take,
+        select: PLAYER_SELECT,
+      });
+      return rows.map(toPlayerListItem);
+    }
+    const rows = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { minecraftUsername: { contains: term, mode: 'insensitive' } },
+          { discordUsername: { contains: term, mode: 'insensitive' } },
+          { minecraftUuid: { contains: term, mode: 'insensitive' } },
+          { id: { equals: term } },
+        ],
+      },
+      orderBy: { minecraftUsername: 'asc' },
+      take,
+      select: PLAYER_SELECT,
+    });
+    return rows.map(toPlayerListItem);
+  }
+
+  async getPlayer(id: string): Promise<PlayerDetail> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        whitelistApp: true,
+        tickets: {
+          orderBy: { updatedAt: 'desc' },
+          include: { messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('Joueur introuvable.');
+    return {
+      id: user.id,
+      minecraftUsername: user.minecraftUsername,
+      minecraftUuid: user.minecraftUuid,
+      discordUserId: user.discordUserId,
+      discordUsername: user.discordUsername,
+      steamUsername: user.steamUsername,
+      role: user.role,
+      banned: user.banned,
+      banReason: user.banReason,
+      bannedUntil: user.bannedUntil?.toISOString() ?? null,
+      createdAt: user.createdAt.toISOString(),
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      lastKnownIp: user.lastKnownIp,
+      lastKnownCountry: user.lastKnownCountry,
+      whitelist: user.whitelistApp
+        ? {
+            id: user.whitelistApp.id,
+            status: user.whitelistApp.status,
+            firstName: user.whitelistApp.firstName,
+            lastName: user.whitelistApp.lastName,
+            village: user.whitelistApp.village,
+            submittedAt: user.whitelistApp.submittedAt.toISOString(),
+            reviewedAt: user.whitelistApp.reviewedAt?.toISOString() ?? null,
+          }
+        : null,
+      tickets: user.tickets.map((t) => ({
+        id: t.id,
+        subject: t.subject,
+        category: t.category,
+        status: t.status,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
+        lastMessagePreview: t.messages[0]?.content.slice(0, 140) ?? null,
       })),
     };
   }

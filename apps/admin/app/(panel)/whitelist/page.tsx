@@ -91,7 +91,7 @@ export default function WhitelistListPage() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/whitelist/${item.id}`}
-                      className="text-[var(--color-foreground)] hover:text-[var(--color-accent)]"
+                      className="block text-[var(--color-foreground)] hover:text-[var(--color-accent)]"
                     >
                       {item.user.minecraftUsername}
                     </Link>
@@ -102,7 +102,12 @@ export default function WhitelistListPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-[var(--color-foreground-subtle)]">
-                    {item.firstName} {item.lastName}
+                    <Link
+                      href={`/whitelist/${item.id}`}
+                      className="hover:text-[var(--color-foreground)]"
+                    >
+                      {item.firstName} {item.lastName}
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-[var(--color-foreground-subtle)]">
                     {item.village}
@@ -115,6 +120,12 @@ export default function WhitelistListPage() {
                       dateStyle: 'short',
                       timeStyle: 'short',
                     })}
+                    <Link
+                      href={`/players/${item.user.id}`}
+                      className="mt-1 block text-[10px] text-[var(--color-accent)] hover:underline"
+                    >
+                      Voir profil →
+                    </Link>
                   </td>
                 </tr>
               ))}

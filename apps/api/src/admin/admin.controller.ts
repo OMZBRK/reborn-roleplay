@@ -25,6 +25,7 @@ import {
   ListTicketsQueryDto,
   ListWhitelistQueryDto,
   PanelMessageDto,
+  SearchPlayersQueryDto,
   TicketStatusUpdateDto,
   WhitelistDecisionDto,
 } from './dto/admin.dto';
@@ -126,5 +127,17 @@ export class AdminController {
       staffUserId: user.sub,
       content: dto.content,
     });
+  }
+
+  // ── Players ────────────────────────────────────────────
+
+  @Get('players/search')
+  searchPlayers(@Query() query: SearchPlayersQueryDto) {
+    return this.admin.searchPlayers(query.q ?? '', query.take);
+  }
+
+  @Get('players/:id')
+  getPlayer(@Param('id', ParseUUIDPipe) id: string) {
+    return this.admin.getPlayer(id);
   }
 }

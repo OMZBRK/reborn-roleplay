@@ -113,7 +113,13 @@ export default function TicketDetailPage({
               {data.subject}
             </h1>
             <div className="mt-1 text-sm text-[var(--color-foreground-subtle)]">
-              par <strong>{data.user.minecraftUsername}</strong>
+              par{' '}
+              <Link
+                href={`/players/${data.user.id}`}
+                className="font-medium text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
+              >
+                {data.user.minecraftUsername}
+              </Link>
               {data.user.discordUsername && (
                 <> · @{data.user.discordUsername}</>
               )}

@@ -70,3 +70,17 @@ export class PanelMessageDto {
   @MaxLength(4000)
   content!: string;
 }
+
+export class SearchPlayersQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  q?: string = '';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  take?: number = 30;
+}

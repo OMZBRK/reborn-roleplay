@@ -84,7 +84,13 @@ export default function WhitelistDetailPage({
             {data.firstName} {data.lastName}
           </h1>
           <div className="mt-2 text-sm text-[var(--color-foreground-subtle)]">
-            par <strong>{data.user.minecraftUsername}</strong>
+            par{' '}
+            <Link
+              href={`/players/${data.user.id}`}
+              className="font-medium text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
+            >
+              {data.user.minecraftUsername}
+            </Link>
             {data.user.discordUsername && (
               <> · @{data.user.discordUsername}</>
             )}
@@ -164,7 +170,14 @@ export default function WhitelistDetailPage({
 
         <aside className="space-y-6">
           <Card title="Joueur">
-            <Field label="Pseudo MC">{data.user.minecraftUsername}</Field>
+            <Field label="Pseudo MC">
+              <Link
+                href={`/players/${data.user.id}`}
+                className="hover:text-[var(--color-accent)] hover:underline"
+              >
+                {data.user.minecraftUsername}
+              </Link>
+            </Field>
             <Field label="UUID">
               <code className="text-xs font-mono text-[var(--color-foreground-subtle)]">
                 {data.user.minecraftUuid}
@@ -174,6 +187,12 @@ export default function WhitelistDetailPage({
             {data.user.discordUsername && (
               <Field label="Discord">@{data.user.discordUsername}</Field>
             )}
+            <Link
+              href={`/players/${data.user.id}`}
+              className="mt-2 block rounded-[8px] border border-[var(--color-border-strong)] text-center py-2 text-xs text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] transition-colors"
+            >
+              Voir le profil complet →
+            </Link>
           </Card>
 
           <Card title="Meta">

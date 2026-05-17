@@ -134,3 +134,48 @@ export interface Paginated<T> {
   total: number;
   items: T[];
 }
+
+export interface PlayerListItem {
+  id: string;
+  minecraftUsername: string;
+  minecraftUuid: string;
+  discordUsername: string | null;
+  role: Role;
+  banned: boolean;
+  lastLoginAt: string | null;
+}
+
+export interface PlayerDetail {
+  id: string;
+  minecraftUsername: string;
+  minecraftUuid: string;
+  discordUserId: string | null;
+  discordUsername: string | null;
+  steamUsername: string | null;
+  role: Role;
+  banned: boolean;
+  banReason: string | null;
+  bannedUntil: string | null;
+  createdAt: string;
+  lastLoginAt: string | null;
+  lastKnownIp: string | null;
+  lastKnownCountry: string | null;
+  whitelist: {
+    id: string;
+    status: AppStatus;
+    firstName: string;
+    lastName: string;
+    village: string;
+    submittedAt: string;
+    reviewedAt: string | null;
+  } | null;
+  tickets: Array<{
+    id: string;
+    subject: string;
+    category: TicketCategory;
+    status: TicketStatus;
+    createdAt: string;
+    updatedAt: string;
+    lastMessagePreview: string | null;
+  }>;
+}
