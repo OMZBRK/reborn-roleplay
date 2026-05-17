@@ -23,6 +23,9 @@ export default function WhitelistDetailPage({
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'whitelist', id],
     queryFn: () => api<WhitelistDetail>(`/admin/whitelist/${id}`),
+    // Polling 5s identique aux tickets — le launcher poste cote candidat,
+    // on veut voir ses messages arriver sans F5.
+    refetchInterval: 5_000,
   });
 
   const [pendingDecision, setPendingDecision] = useState<Decision | null>(null);

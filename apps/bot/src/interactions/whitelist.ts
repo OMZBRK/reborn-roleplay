@@ -166,6 +166,11 @@ function buildReleaseRow(applicationId: string): ActionRowBuilder<ButtonBuilder>
       .setLabel("Libérer (passer la main)")
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("↩️"),
+    new ButtonBuilder()
+      .setURL(`${config.adminBaseUrl}/whitelist/${applicationId}`)
+      .setLabel("Ouvrir dans le panel")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("🪟"),
   );
 }
 
