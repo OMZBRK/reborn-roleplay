@@ -138,6 +138,9 @@ export interface TicketDetail {
 export interface AdminMessage {
   id: string;
   authorType: MessageAuthor;
+  /** Pour STAFF : id User Reborn de l'auteur si poste depuis le panel,
+   *  sinon snowflake Discord si poste via bot. Pour USER : id User. */
+  authorId: string | null;
   authorName: string | null;
   content: string;
   createdAt: string;

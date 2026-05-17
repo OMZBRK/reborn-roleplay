@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 import { toast } from 'sonner';
 import { AssignmentBlock } from '@/components/AssignmentBlock';
+import { ChatPanel } from '@/components/ChatPanel';
 import { api } from '@/lib/api';
 import type { AppStatus, WhitelistDetail } from '@/lib/types';
 
@@ -117,7 +118,8 @@ export default function WhitelistDetailPage({
         <StatusBadge status={data.status} />
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6 items-start">
+        {/* Colonne gauche : contenu narratif + info froides */}
         <div className="space-y-6 min-w-0">
           <Card title="HRP — Hors roleplay">
             <Field label="Date de naissance">
@@ -147,21 +149,6 @@ export default function WhitelistDetailPage({
               {data.objectives}
             </Field>
           </Card>
-        </div>
-
-        <aside className="space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
-          <AssignmentBlock
-            kind="whitelist"
-            id={data.id}
-            assignee={data.assignee}
-            assignedAt={data.assignedAt}
-          />
-
-          <WhitelistChat
-            applicationId={data.id}
-            messages={data.messages}
-            canSend={data.status === 'PENDING' || data.status === 'NEEDS_REVISION'}
-          />
 
           <Card title="Joueur">
             <Field label="Pseudo MC">
@@ -173,7 +160,7 @@ export default function WhitelistDetailPage({
               </Link>
             </Field>
             <Field label="UUID">
-              <code className="text-xs font-mono text-[var(--color-foreground-subtle)]">
+              <code className="text-xs font-mono text-[var(--color-foreground-subtle)] break-all">
                 {data.user.minecraftUuid}
               </code>
             </Field>
@@ -209,20 +196,26 @@ export default function WhitelistDetailPage({
                 {data.reviewNotes}
               </Field>
             )}
-            {data.discordThreadId && (
-              <Field label="Thread Discord">
-                <code className="text-xs font-mono text-[var(--color-foreground-subtle)]">
-                  {data.discordThreadId}
-                </code>
-              </Field>
-            )}
           </Card>
+        </div>
+
+        {/* Colonne droite : assignation + decision + chat sticky */}
+        <aside className="lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] flex flex-col gap-4">
+          <AssignmentBlock
+            kind="whitelist"
+            id={data.id}
+            assignee={data.assignee}
+            assignedAt={data.assignedAt}
+          />
 
           {canDecide && (
-            <Card title="Decision">
+            <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+              <div className="mb-3 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
+                Décision
+              </div>
               {pendingDecision ? (
                 <div>
-                  <div className="mb-3 text-xs text-[var(--color-foreground-subtle)]">
+                  <div className="mb-2 text-xs text-[var(--color-foreground-subtle)]">
                     Action : <strong>{decisionLabel(pendingDecision)}</strong>
                   </div>
                   {needsReason.includes(pendingDecision) && (
@@ -234,11 +227,11 @@ export default function WhitelistDetailPage({
                           ? 'Raison du refus (visible par le joueur)…'
                           : 'Que doit preciser le joueur ?'
                       }
-                      rows={4}
-                      className="w-full rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-background)] p-3 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+                      rows={3}
+                      className="w-full rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-background)] p-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
                     />
                   )}
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-2 flex gap-2">
                     <button
                       type="button"
                       disabled={
@@ -273,29 +266,49 @@ export default function WhitelistDetailPage({
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
                   <DecisionButton
                     onClick={() => setPendingDecision('APPROVED')}
                     tone="success"
+                    compact
                   >
                     Accepter
                   </DecisionButton>
                   <DecisionButton
                     onClick={() => setPendingDecision('NEEDS_REVISION')}
                     tone="warning"
+                    compact
                   >
-                    Demander une revision
+                    Réviser
                   </DecisionButton>
                   <DecisionButton
                     onClick={() => setPendingDecision('REJECTED')}
                     tone="danger"
+                    compact
                   >
                     Refuser
                   </DecisionButton>
                 </div>
               )}
-            </Card>
+            </div>
           )}
+
+          <div className="flex-1 min-h-0">
+            <ChatPanel
+              endpoint={`/admin/whitelist/${data.id}/messages`}
+              queryKey={['admin', 'whitelist', data.id]}
+              messages={data.messages}
+              canSend={
+                data.status === 'PENDING' || data.status === 'NEEDS_REVISION'
+              }
+              playerUuid={data.user.minecraftUuid}
+              playerName={data.user.minecraftUsername}
+              emptyLabel="Aucun message — le candidat peut t'écrire depuis son launcher."
+              closedLabel={`Candidature ${
+                data.status === 'APPROVED' ? 'acceptée' : 'refusée'
+              } — conversation cloturée.`}
+            />
+          </div>
         </aside>
       </div>
     </div>
@@ -306,130 +319,8 @@ function decisionLabel(d: Decision): string {
   return d === 'APPROVED' ? 'Accepter' : d === 'REJECTED' ? 'Refuser' : 'Demander une revision';
 }
 
-function WhitelistChat({
-  applicationId,
-  messages,
-  canSend,
-}: {
-  applicationId: string;
-  messages: WhitelistDetail['messages'];
-  canSend: boolean;
-}) {
-  const qc = useQueryClient();
-  const [draft, setDraft] = useState('');
-
-  const sendMut = useMutation({
-    mutationFn: (content: string) =>
-      api(`/admin/whitelist/${applicationId}/messages`, {
-        method: 'POST',
-        body: { content },
-      }),
-    onSuccess: () => {
-      setDraft('');
-      qc.invalidateQueries({ queryKey: ['admin', 'whitelist', applicationId] });
-    },
-    onError: (err) => {
-      toast.error('Message non envoyé', {
-        description: (err as Error).message,
-      });
-    },
-  });
-
-  return (
-    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-      <div className="mb-4 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-        Échanges
-      </div>
-
-      {messages.length === 0 ? (
-        <div className="rounded-[10px] border border-dashed border-[var(--color-border-strong)] py-6 text-center text-sm text-[var(--color-foreground-muted)]">
-          Aucun message — le joueur peut t'écrire depuis son launcher et tu
-          peux lui répondre ci-dessous.
-        </div>
-      ) : (
-        <div className="space-y-3 mb-4">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`rounded-[10px] p-3 ${
-                m.authorType === 'STAFF'
-                  ? 'bg-[var(--color-accent-soft)] border border-[var(--color-accent)]/30'
-                  : 'bg-[var(--color-surface-elevated)] border border-[var(--color-border)]'
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-1 text-xs text-[var(--color-foreground-muted)]">
-                <span
-                  className={
-                    m.authorType === 'STAFF'
-                      ? 'text-[var(--color-accent)] font-medium'
-                      : ''
-                  }
-                >
-                  {m.authorName ??
-                    (m.authorType === 'STAFF' ? 'Staff' : 'Joueur')}
-                </span>
-                <span>·</span>
-                <span>
-                  {new Date(m.createdAt).toLocaleString('fr-FR', {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })}
-                </span>
-              </div>
-              <div className="text-sm whitespace-pre-wrap">{m.content}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {canSend ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const content = draft.trim();
-            if (content.length === 0 || sendMut.isPending) return;
-            sendMut.mutate(content);
-          }}
-          className="space-y-2"
-        >
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                const content = draft.trim();
-                if (content.length > 0 && !sendMut.isPending) {
-                  sendMut.mutate(content);
-                }
-              }
-            }}
-            rows={3}
-            placeholder="Répondre au candidat… (Entrée pour envoyer, Maj+Entrée pour saut de ligne)"
-            className="w-full resize-none rounded-[10px] border border-[var(--color-border-strong)] bg-[var(--color-background)] p-3 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-          />
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs text-[var(--color-foreground-muted)]">
-              Le joueur reçoit la notif dans son launcher.
-            </div>
-            <button
-              type="submit"
-              disabled={draft.trim().length === 0 || sendMut.isPending}
-              className="rounded-[10px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-4 py-2 text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-[var(--shadow-glow-accent)]"
-            >
-              {sendMut.isPending ? 'Envoi…' : 'Envoyer'}
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div className="rounded-[10px] border border-dashed border-[var(--color-border-strong)] py-3 text-center text-xs text-[var(--color-foreground-muted)]">
-          Conversation cloturée — la candidature est {''}
-          {messages.length > 0 ? 'décidée' : 'inactive'}.
-        </div>
-      )}
-    </div>
-  );
-}
+// WhitelistChat retire — remplace par <ChatPanel /> (components/ChatPanel.tsx),
+// composant reutilise aussi sur la page detail ticket.
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -475,10 +366,12 @@ function DecisionButton({
   tone,
   onClick,
   children,
+  compact = false,
 }: {
   tone: 'success' | 'warning' | 'danger';
   onClick: () => void;
   children: React.ReactNode;
+  compact?: boolean;
 }) {
   const cls =
     tone === 'success'
@@ -490,7 +383,7 @@ function DecisionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-[8px] border py-2 text-sm transition-colors ${cls}`}
+      className={`w-full rounded-[8px] border ${compact ? 'py-1.5 text-xs' : 'py-2 text-sm'} transition-colors ${cls}`}
     >
       {children}
     </button>

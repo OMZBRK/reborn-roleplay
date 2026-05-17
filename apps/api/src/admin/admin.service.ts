@@ -77,6 +77,7 @@ export interface WhitelistDetail {
   messages: Array<{
     id: string;
     authorType: MessageAuthor;
+    authorId: string | null;
     authorName: string | null;
     content: string;
     createdAt: string;
@@ -121,6 +122,7 @@ export interface TicketDetail {
   messages: Array<{
     id: string;
     authorType: MessageAuthor;
+    authorId: string | null;
     authorName: string | null;
     content: string;
     createdAt: string;
@@ -360,6 +362,7 @@ export class AdminService {
       messages: app.messages.map((m) => ({
         id: m.id,
         authorType: m.authorType,
+        authorId: m.authorId,
         authorName: m.authorName,
         content: m.content,
         createdAt: m.createdAt.toISOString(),
@@ -633,6 +636,7 @@ export class AdminService {
       messages: ticket.messages.map((m) => ({
         id: m.id,
         authorType: m.authorType,
+        authorId: m.authorId,
         authorName: m.authorName,
         content: m.content,
         createdAt: m.createdAt.toISOString(),
