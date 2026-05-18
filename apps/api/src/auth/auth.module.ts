@@ -7,6 +7,8 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { MojangService } from './mojang.service';
 import { RolesGuard } from './roles.guard';
+import { TwoFactorController } from './twofa.controller';
+import { TwoFactorService } from './twofa.service';
 
 @Module({
   imports: [
@@ -32,8 +34,14 @@ import { RolesGuard } from './roles.guard';
       },
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, MojangService, RolesGuard],
-  exports: [AuthService, JwtStrategy, RolesGuard],
+  controllers: [AuthController, TwoFactorController],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    MojangService,
+    RolesGuard,
+    TwoFactorService,
+  ],
+  exports: [AuthService, JwtStrategy, RolesGuard, TwoFactorService],
 })
 export class AuthModule {}

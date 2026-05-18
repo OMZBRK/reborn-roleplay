@@ -22,6 +22,16 @@ export default function AuthCallbackPage() {
       setError(err);
       return;
     }
+    const challenge = params.get('challenge');
+    if (challenge) {
+      // 2FA actif cote API → on stocke le challenge en sessionStorage
+      // (volatile, non-persistant) et on bascule sur la page de
+      // verification TOTP.
+      window.sessionStorage.setItem('reborn-admin.2fa.challenge', challenge);
+      window.history.replaceState({}, '', '/auth/callback');
+      router.replace('/auth/2fa');
+      return;
+    }
     const access = params.get('access');
     const refresh = params.get('refresh');
     if (!access || !refresh) {

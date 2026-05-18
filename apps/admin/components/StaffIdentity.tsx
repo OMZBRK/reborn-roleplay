@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { MCAvatar } from './MCAvatar';
 import { RoleBadge } from './RoleBadge';
 import { api } from '@/lib/api';
@@ -35,7 +36,10 @@ export function StaffIdentity() {
   }
 
   return (
-    <div className="mx-3 mb-3 flex items-center gap-3 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-3 py-2.5">
+    <Link
+      href="/settings"
+      className="mx-3 mb-3 flex items-center gap-3 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-3 py-2.5 hover:border-[var(--color-accent)]/40 transition-colors"
+    >
       <MCAvatar
         uuid={data.minecraftUuid}
         username={data.minecraftUsername}
@@ -49,6 +53,6 @@ export function StaffIdentity() {
           <RoleBadge role={data.role} />
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

@@ -62,15 +62,23 @@ export class DiscordController {
     }
 
     try {
-      const tokens = await this.service.completeStaffLogin(code, state, {
+      const result = await this.service.completeStaffLogin(code, state, {
         userAgent: req.headers['user-agent'],
         ip: req.ip,
       });
-      // Fragment > query so tokens never hit referer/proxy logs.
-      target.hash = new URLSearchParams({
-        access: tokens.accessToken,
-        refresh: tokens.refreshToken,
-      }).toString();
+      // Fragment > query so secrets never hit referer/proxy logs.
+      if (result.kind === 'challenge') {
+        // 2FA actif → redirige avec un challenge id ; le panel
+        // demandera le code TOTP avant d'obtenir les tokens.
+        target.hash = new URLSearchParams({
+          challenge: result.challenge,
+        }).toString();
+      } else {
+        target.hash = new URLSearchParams({
+          access: result.tokens.accessToken,
+          refresh: result.tokens.refreshToken,
+        }).toString();
+      }
       return res.redirect(HttpStatus.FOUND, target.toString());
     } catch (err) {
       const message =

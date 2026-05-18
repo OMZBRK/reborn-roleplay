@@ -10,6 +10,7 @@ import {
 import { randomBytes } from 'node:crypto';
 import { Role } from '@prisma/client';
 import { AuthService, AuthResult } from '../auth/auth.service';
+import { TwoFactorChallengeStore } from '../auth/twofa.controller';
 import { PrismaService } from '../prisma/prisma.service';
 
 const STATE_TTL_MS = 5 * 60_000;
@@ -165,13 +166,18 @@ export class DiscordService {
 
   /**
    * Staff login : exchange the code, find the Reborn user matching the
-   * Discord identity, issue a token pair gated on role ≥ HELPER.
+   * Discord identity. Si twoFactorEnabled, on cree un challenge 2FA
+   * temporaire (TTL 5min) et le frontend devra POST /auth/2fa/verify
+   * avec le code TOTP pour recevoir les tokens. Sinon emission directe.
    */
   async completeStaffLogin(
     code: string,
     state: string,
     meta: { userAgent?: string; ip?: string },
-  ): Promise<AuthResult> {
+  ): Promise<
+    | { kind: 'tokens'; tokens: AuthResult }
+    | { kind: 'challenge'; challenge: string }
+  > {
     this.gcStates();
     const pending = this.states.get(state);
     if (!pending || pending.kind !== 'staff-login') {
@@ -186,16 +192,43 @@ export class DiscordService {
 
     const user = await this.prisma.user.findUnique({
       where: { discordUserId: profile.id },
+      select: { id: true, role: true, banned: true, twoFactorEnabled: true },
     });
     if (!user) {
       throw new UnauthorizedException(
         'Aucun compte Reborn lie a ce Discord. Connecte-toi d\'abord via le launcher pour lier ton compte.',
       );
     }
+    // Le check role est fait DANS issueTokensForUserId pour le flow
+    // direct ; pour le flow 2FA on doit l'avancer ici car on emet pas
+    // de tokens tant que le code n'est pas verifie.
+    if (user.banned) {
+      throw new UnauthorizedException('Compte banni.');
+    }
+    const ranks: Role[] = [
+      Role.PLAYER,
+      Role.WHITELISTED,
+      Role.HELPER,
+      Role.WHITELIST_REVIEWER,
+      Role.MODERATOR,
+      Role.ADMIN,
+      Role.OWNER,
+    ];
+    if (ranks.indexOf(user.role) < ranks.indexOf(Role.HELPER)) {
+      throw new UnauthorizedException(
+        `Role insuffisant (${user.role}) pour acceder au panel staff.`,
+      );
+    }
 
-    return this.auth.issueTokensForUserId(user.id, meta, {
+    if (user.twoFactorEnabled) {
+      const challenge = TwoFactorChallengeStore.create(user.id);
+      return { kind: 'challenge', challenge };
+    }
+
+    const tokens = await this.auth.issueTokensForUserId(user.id, meta, {
       requireMinRole: Role.HELPER,
     });
+    return { kind: 'tokens', tokens };
   }
 
   async unlink(userId: string): Promise<void> {
