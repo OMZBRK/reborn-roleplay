@@ -13,6 +13,7 @@ import { PlayModule } from './play/play.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReleasesModule } from './releases/releases.module';
 import { RulesModule } from './rules/rules.module';
+import { SecurityModule } from './security/security.module';
 import { ServerStatusModule } from './server-status/server-status.module';
 import { StaffModule } from './staff/staff.module';
 import { TicketsModule } from './tickets/tickets.module';
@@ -36,6 +37,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     PlayModule,
     ReleasesModule,
     RulesModule,
+    SecurityModule,
     ServerStatusModule,
     StaffModule,
     TicketsModule,

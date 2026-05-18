@@ -9,6 +9,7 @@ import {
   IconInbox,
   IconLogout,
   IconPlayers,
+  IconShield,
   IconTickets,
   IconWhitelist,
 } from '@/components/icons';
@@ -28,6 +29,7 @@ const NAV: NavItem[] = [
   { href: '/tickets', label: 'Tickets', Icon: IconTickets },
   { href: '/players', label: 'Joueurs', Icon: IconPlayers },
   { href: '/audit', label: 'Audit', Icon: IconAudit },
+  { href: '/anomalies', label: 'Anomalies', Icon: IconShield },
 ];
 
 export default function PanelLayout({

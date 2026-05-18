@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID, randomBytes, createHash } from 'crypto';
 import { Role, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { LoginAnomalyService } from '../security/login-anomaly.service';
 import { MojangService } from './mojang.service';
 
 export interface JwtPayload {
@@ -78,6 +79,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly mojang: MojangService,
+    private readonly loginAnomaly: LoginAnomalyService,
   ) {}
 
   /**
@@ -119,7 +121,9 @@ export class AuthService {
       );
     }
 
-    return this.issueTokens(user, meta);
+    const tokens = await this.issueTokens(user, meta);
+    void this.loginAnomaly.check(user.id, meta.ip, meta.userAgent);
+    return tokens;
   }
 
   /**
@@ -218,7 +222,12 @@ export class AuthService {
       where: { id: user.id },
       data: { lastLoginAt: new Date(), lastKnownIp: meta.ip ?? user.lastKnownIp },
     });
-    return this.issueTokens(user, meta);
+    const tokens = await this.issueTokens(user, meta);
+    // Detection anomalie login : nouveau pays vs lastKnownCountry.
+    // Best-effort, fire-and-forget (best ne pas await pour pas
+    // ralentir le login).
+    void this.loginAnomaly.check(user.id, meta.ip, meta.userAgent);
+    return tokens;
   }
 
   /**

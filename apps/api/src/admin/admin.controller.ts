@@ -18,6 +18,7 @@ import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MinRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { LoginAnomalyService } from '../security/login-anomaly.service';
 import { StaffService } from '../staff/staff.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
@@ -54,6 +55,7 @@ export class AdminController {
     private readonly tickets: TicketsService,
     private readonly whitelistMessages: WhitelistMessagesService,
     private readonly assignment: AssignmentService,
+    private readonly anomalies: LoginAnomalyService,
   ) {}
 
   @Get('dashboard')
@@ -198,5 +200,22 @@ export class AdminController {
   @MinRole(Role.ADMIN)
   listAudit(@Query() query: ListAuditQueryDto) {
     return this.admin.listAudit(query);
+  }
+
+  // ── Anomalies de login ────────────────────────────────
+
+  @Get('anomalies')
+  @MinRole(Role.ADMIN)
+  listAnomalies(@Query('unack') unack?: string) {
+    return this.anomalies.list({
+      unacknowledgedOnly: unack === 'true' || unack === '1',
+    });
+  }
+
+  @Post('anomalies/:id/ack')
+  @MinRole(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async ackAnomaly(@Param('id', ParseUUIDPipe) id: string) {
+    await this.anomalies.acknowledge(id);
   }
 }

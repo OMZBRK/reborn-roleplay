@@ -60,6 +60,17 @@ interface MessageRelayPayload {
 // associe : embed annonce le changement, et on lock+archive le thread si
 // le statut est terminal pour eviter que la conversation continue dans le
 // vide cote Discord pendant que l'API/launcher la considere finie.
+// Alerte securite (anomalie login p.ex.) postee dans le salon staff.
+interface SecurityAlertPayload {
+  userPseudo: string;
+  userId: string;
+  kind: string;
+  reason: string;
+  ip?: string;
+  country?: string;
+  userAgent?: string;
+}
+
 // Push d'un nouveau message du joueur vers le DM du staff assigne.
 // Envoye par l'API quand le joueur poste dans le launcher et que la
 // candidature/ticket a un staff assigne avec discordUserId lie.
@@ -174,6 +185,19 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
       return reply(res, 200, { messageId, threadId: null });
     } catch (err) {
       console.error(`[webhook] ticket message crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
+  }
+  if (url === "/webhooks/security-alert") {
+    const data = payload as SecurityAlertPayload;
+    console.log(
+      `[webhook] security-alert ${data.kind} userPseudo=${data.userPseudo}`,
+    );
+    try {
+      await postSecurityAlert(client, data);
+      return reply(res, 200, { ok: true });
+    } catch (err) {
+      console.error(`[webhook] security-alert crash :`, err);
       return reply(res, 500, { error: (err as Error).message });
     }
   }
@@ -495,6 +519,24 @@ async function fetchChannelMessage(client: Client, messageId: string) {
  * (supprime manuellement, ancienne candidature sans messageId, etc.), on
  * log et on no-op.
  */
+async function postSecurityAlert(
+  client: Client,
+  p: SecurityAlertPayload,
+): Promise<void> {
+  const channel = await fetchTextChannel(client);
+  const embed = new EmbedBuilder()
+    .setColor(0xf59e0b)
+    .setTitle(`⚠️ Alerte sécurité — ${p.kind}`)
+    .setDescription(`**${p.userPseudo}** : ${p.reason}`)
+    .setTimestamp(new Date());
+  if (p.country) embed.addFields({ name: 'Pays', value: p.country, inline: true });
+  if (p.ip) embed.addFields({ name: 'IP', value: `\`${p.ip}\``, inline: true });
+  if (p.userAgent)
+    embed.addFields({ name: 'User-Agent', value: p.userAgent.slice(0, 1024) });
+  embed.setFooter({ text: `user ${p.userId}` });
+  await channel.send({ embeds: [embed] });
+}
+
 async function postDirectMessage(
   client: Client,
   p: DirectMessagePayload,

@@ -53,6 +53,19 @@ export interface MessageRelayPayload {
   attachmentUrls?: string[];
 }
 
+// Alerte securite pushee dans le salon staff. Pour l'instant un seul
+// type ("login.new-country") mais on garde un champ `kind` pour
+// router cote bot.
+export interface SecurityAlertPayload {
+  userPseudo: string;
+  userId: string;
+  kind: 'login.new-country' | string;
+  reason: string;
+  ip?: string;
+  country?: string;
+  userAgent?: string;
+}
+
 // Push d'un nouveau message du joueur vers le DM du staff assigne. Le
 // bot fait `client.users.fetch(discordUserId).createDM().send(embed)`.
 export interface DirectMessagePayload {
@@ -178,6 +191,10 @@ export class WebhooksService implements OnModuleInit {
 
   async directMessage(payload: DirectMessagePayload): Promise<void> {
     await this.dispatch('/webhooks/dm', payload);
+  }
+
+  async securityAlert(payload: SecurityAlertPayload): Promise<void> {
+    await this.dispatch('/webhooks/security-alert', payload);
   }
 
   private async dispatch<T = unknown>(
