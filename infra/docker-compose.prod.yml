@@ -69,6 +69,7 @@ services:
       REBORN_BOT_WEBHOOK_URL: http://bot:3001
       REBORN_PLAY_TOKEN_SECRET: ${REBORN_PLAY_TOKEN_SECRET}
       MANIFEST_PUBLIC_KEY_HEX: ${MANIFEST_PUBLIC_KEY_HEX}
+      LAUNCHER_BETA_GATE: ${LAUNCHER_BETA_GATE:-}
     networks:
       - reborn-edge
       - reborn-internal

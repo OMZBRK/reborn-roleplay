@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ManifestFile {
@@ -19,9 +21,22 @@ export interface SignedManifestResponse {
   signature: string;
 }
 
+export interface PublishManifestInput {
+  version: string;
+  minecraftVersion: string;
+  minLauncherVersion: string;
+  issuedAt: string;
+  expiresAt: string;
+  files: ManifestFile[];
+  signature: string;
+}
+
 @Injectable()
 export class ManifestService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * Retourne le manifest courant (le seul ou le plus recent
@@ -54,5 +69,65 @@ export class ManifestService {
       files,
       signature: manifest.signature,
     };
+  }
+
+  async list() {
+    return this.prisma.manifest.findMany({
+      orderBy: { publishedAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  /**
+   * Publie un nouveau manifest signe. Le payload est cense venir du CLI
+   * packages/manifest-signer/src/cli.ts (`sign` command) — la signature
+   * est calculee LOCALEMENT par le maintainer, jamais cote API. L'API
+   * stocke tel quel et bascule isCurrent.
+   *
+   * Les timestamps issuedAt/expiresAt doivent etre les valeurs EXACTES
+   * signees (cf comments dans CLAUDE.md sur le round-trip Postgres).
+   */
+  async publish(input: PublishManifestInput, actorUserId: string) {
+    const issuedAt = new Date(input.issuedAt);
+    const expiresAt = new Date(input.expiresAt);
+    if (Number.isNaN(issuedAt.getTime()) || Number.isNaN(expiresAt.getTime())) {
+      throw new ConflictException('issuedAt / expiresAt invalides.');
+    }
+
+    // Transactionnel : bascule isCurrent=false sur tous les anciens
+    // ET cree le nouveau en `isCurrent=true`. Si la creation throw
+    // (version dupliquee p.ex.) on rollback les flips.
+    const created = await this.prisma.$transaction(async (tx) => {
+      await tx.manifest.updateMany({
+        where: { isCurrent: true },
+        data: { isCurrent: false },
+      });
+      return tx.manifest.create({
+        data: {
+          version: input.version,
+          minecraftVersion: input.minecraftVersion,
+          minLauncherVersion: input.minLauncherVersion,
+          issuedAt,
+          expiresAt,
+          files: input.files as unknown as Prisma.InputJsonValue,
+          signature: input.signature,
+          isCurrent: true,
+        },
+      });
+    });
+
+    void this.audit.log({
+      actorId: actorUserId,
+      action: 'manifest.publish',
+      targetEntity: `manifest:${created.id}`,
+      metadata: {
+        version: created.version,
+        minecraftVersion: created.minecraftVersion,
+        files: input.files.length,
+      },
+      source: 'panel',
+    });
+
+    return created;
   }
 }

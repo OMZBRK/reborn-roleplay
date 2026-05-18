@@ -121,6 +121,29 @@ export class AuthService {
       );
     }
 
+    // Gate beta fermee : si LAUNCHER_BETA_GATE est set (typiquement
+    // 'helper'), on refuse les comptes en-dessous du role specifie.
+    // A l'ouverture publique on supprime/comente la var d'env.
+    const gate = (process.env.LAUNCHER_BETA_GATE ?? '').trim().toUpperCase();
+    if (gate) {
+      const ranks: Role[] = [
+        Role.PLAYER,
+        Role.WHITELISTED,
+        Role.HELPER,
+        Role.WHITELIST_REVIEWER,
+        Role.MODERATOR,
+        Role.ADMIN,
+        Role.OWNER,
+      ];
+      const minRoleIdx = ranks.indexOf(gate as Role);
+      if (minRoleIdx >= 0 && ranks.indexOf(user.role) < minRoleIdx) {
+        throw new HttpException(
+          `Le launcher est en beta fermee. Acces reserve aux comptes ${gate}+. Patiente l'ouverture publique ou contacte un admin.`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
     const tokens = await this.issueTokens(user, meta);
     void this.loginAnomaly.check(user.id, meta.ip, meta.userAgent);
     return tokens;
