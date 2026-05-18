@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReleaseDto, GetUpdateQueryDto } from './releases.dto';
 
@@ -47,7 +48,10 @@ export interface TauriUpdateResponse {
 export class ReleasesService {
   private readonly logger = new Logger(ReleasesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * Cherche la release la plus recente pour target+channel ET version
@@ -88,7 +92,7 @@ export class ReleasesService {
     });
   }
 
-  async create(dto: CreateReleaseDto) {
+  async create(dto: CreateReleaseDto, actorUserId: string) {
     try {
       const created = await this.prisma.launcherRelease.create({
         data: {
@@ -103,6 +107,18 @@ export class ReleasesService {
       this.logger.log(
         `release publiee : ${created.target} v${created.version} (${created.channel})`,
       );
+      void this.audit.log({
+        actorId: actorUserId,
+        action: 'release.publish',
+        targetEntity: `release:${created.id}`,
+        metadata: {
+          version: created.version,
+          target: created.target,
+          channel: created.channel,
+          url: created.url,
+        },
+        source: 'panel',
+      });
       return created;
     } catch (err) {
       // Prisma P2002 = unique constraint violation (version+target deja
@@ -121,12 +137,23 @@ export class ReleasesService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, actorUserId: string) {
     const found = await this.prisma.launcherRelease.findUnique({
       where: { id },
     });
     if (!found) throw new NotFoundException('Release introuvable.');
     await this.prisma.launcherRelease.delete({ where: { id } });
     this.logger.log(`release supprimee : ${found.target} v${found.version}`);
+    void this.audit.log({
+      actorId: actorUserId,
+      action: 'release.delete',
+      targetEntity: `release:${id}`,
+      metadata: {
+        version: found.version,
+        target: found.target,
+        channel: found.channel,
+      },
+      source: 'panel',
+    });
   }
 }

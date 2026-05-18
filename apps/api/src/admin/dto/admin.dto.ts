@@ -84,3 +84,38 @@ export class SearchPlayersQueryDto {
   @Max(100)
   take?: number = 30;
 }
+
+export class ListAuditQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  actor?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  action?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  source?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  targetUserId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  take?: number = 50;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  skip?: number = 0;
+}

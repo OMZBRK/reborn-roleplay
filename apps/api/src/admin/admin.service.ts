@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { AppStatus, MessageAuthor, TicketStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  ListAuditQueryDto,
   ListTicketsQueryDto,
   ListWhitelistQueryDto,
 } from './dto/admin.dto';
@@ -129,6 +130,18 @@ export interface TicketDetail {
   }>;
 }
 
+export interface AuditLogItem {
+  id: string;
+  action: string;
+  actor: { id: string; username: string };
+  targetUser: { id: string; username: string } | null;
+  targetEntity: string | null;
+  metadata: unknown;
+  source: string;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
 export interface PlayerListItem {
   id: string;
   minecraftUsername: string;
@@ -207,6 +220,59 @@ function toPlayerListItem(row: {
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listAudit(
+    query: ListAuditQueryDto,
+  ): Promise<{ total: number; items: AuditLogItem[] }> {
+    const where: Record<string, unknown> = {};
+    if (query.actor) where.actorId = query.actor;
+    if (query.action) where.action = { contains: query.action };
+    if (query.source) where.source = query.source;
+    if (query.targetUserId) where.targetUserId = query.targetUserId;
+    const [total, rows] = await Promise.all([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: query.take ?? 50,
+        skip: query.skip ?? 0,
+        include: {
+          actor: {
+            select: { id: true, minecraftUsername: true, discordUsername: true },
+          },
+          targetUser: {
+            select: { id: true, minecraftUsername: true, discordUsername: true },
+          },
+        },
+      }),
+    ]);
+    return {
+      total,
+      items: rows.map((r) => ({
+        id: r.id,
+        action: r.action,
+        actor: {
+          id: r.actor.id,
+          username:
+            r.actor.discordUsername ?? r.actor.minecraftUsername ?? '—',
+        },
+        targetUser: r.targetUser
+          ? {
+              id: r.targetUser.id,
+              username:
+                r.targetUser.discordUsername ??
+                r.targetUser.minecraftUsername ??
+                '—',
+            }
+          : null,
+        targetEntity: r.targetEntity,
+        metadata: r.metadata,
+        source: r.source,
+        ipAddress: r.ipAddress,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    };
+  }
 
   async dashboard(): Promise<DashboardStats> {
     const since24h = new Date(Date.now() - 24 * 3600 * 1000);

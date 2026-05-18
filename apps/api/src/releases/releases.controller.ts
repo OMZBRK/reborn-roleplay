@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { Role } from '@prisma/client';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MinRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -59,13 +61,16 @@ export class AdminReleasesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() dto: CreateReleaseDto) {
-    return this.releases.create(dto);
+  create(@Body() dto: CreateReleaseDto, @CurrentUser() user: RequestUser) {
+    return this.releases.create(dto, user.sub);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
-    await this.releases.remove(id);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    await this.releases.remove(id, user.sub);
   }
 }

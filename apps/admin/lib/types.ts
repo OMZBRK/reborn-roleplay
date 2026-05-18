@@ -151,6 +151,18 @@ export interface Paginated<T> {
   items: T[];
 }
 
+export interface AuditLogItem {
+  id: string;
+  action: string;
+  actor: { id: string; username: string };
+  targetUser: { id: string; username: string } | null;
+  targetEntity: string | null;
+  metadata: unknown;
+  source: 'panel' | 'discord' | 'launcher' | 'system' | string;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
 /** Reponse de GET /v1/auth/me — le staff connecte. */
 export interface CurrentUser {
   id: string;

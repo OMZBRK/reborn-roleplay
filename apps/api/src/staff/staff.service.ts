@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AppStatus, TicketStatus } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { TicketStatusDto, WhitelistDecisionDto } from './dto/staff.dto';
@@ -23,6 +24,7 @@ export class StaffService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly webhooks: WebhooksService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -102,6 +104,22 @@ export class StaffService {
         );
     }
 
+    // Audit log : actorId fourni → on log avec source panel/discord.
+    if (actor.userId) {
+      void this.audit.log({
+        actorId: actor.userId,
+        action: `whitelist.${dto.status.toLowerCase()}`,
+        targetUserId: app.userId,
+        targetEntity: `whitelist:${applicationId}`,
+        metadata: {
+          previousStatus: app.status,
+          newStatus: dto.status,
+          reviewNotes: dto.reviewNotes ?? null,
+        },
+        source: 'panel',
+      });
+    }
+
     return {
       id: updated.id,
       status: updated.status,
@@ -148,6 +166,21 @@ export class StaffService {
             `statusUpdate ticket ${ticketId} echec : ${(err as Error).message}`,
           ),
         );
+    }
+
+    if (actor.userId) {
+      void this.audit.log({
+        actorId: actor.userId,
+        action: `ticket.${dto.status.toLowerCase()}`,
+        targetUserId: ticket.userId,
+        targetEntity: `ticket:${ticketId}`,
+        metadata: {
+          previousStatus: ticket.status,
+          newStatus: dto.status,
+          subject: ticket.subject,
+        },
+        source: 'panel',
+      });
     }
 
     return {

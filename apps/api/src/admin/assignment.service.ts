@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 
@@ -57,6 +58,7 @@ export class AssignmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly webhooks: WebhooksService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -122,6 +124,14 @@ export class AssignmentService {
       'claimed',
       staff.discordUsername ?? staff.minecraftUsername,
     );
+    void this.audit.log({
+      actorId: staff.id,
+      action: 'whitelist.claim',
+      targetUserId: app.userId,
+      targetEntity: `whitelist:${applicationId}`,
+      metadata: { force: actor.force === true },
+      source: actor.discordUserId ? 'discord' : 'panel',
+    });
     return this.toAssignmentDto('whitelist', updated);
   }
 
@@ -159,6 +169,17 @@ export class AssignmentService {
       'released',
       staff.discordUsername ?? staff.minecraftUsername,
     );
+    void this.audit.log({
+      actorId: staff.id,
+      action: isSelf ? 'whitelist.release' : 'whitelist.release.force',
+      targetUserId: app.userId,
+      targetEntity: `whitelist:${applicationId}`,
+      metadata: {
+        previousAssignee: app.assignedToUserId,
+        force: !isSelf,
+      },
+      source: actor.discordUserId ? 'discord' : 'panel',
+    });
     return this.toAssignmentDto('whitelist', updated);
   }
 
@@ -210,6 +231,14 @@ export class AssignmentService {
       'claimed',
       staff.discordUsername ?? staff.minecraftUsername,
     );
+    void this.audit.log({
+      actorId: staff.id,
+      action: 'ticket.claim',
+      targetUserId: ticket.userId,
+      targetEntity: `ticket:${ticketId}`,
+      metadata: { force: actor.force === true },
+      source: actor.discordUserId ? 'discord' : 'panel',
+    });
     return this.toAssignmentDto('ticket', updated);
   }
 
@@ -246,6 +275,17 @@ export class AssignmentService {
       'released',
       staff.discordUsername ?? staff.minecraftUsername,
     );
+    void this.audit.log({
+      actorId: staff.id,
+      action: isSelf ? 'ticket.release' : 'ticket.release.force',
+      targetUserId: ticket.userId,
+      targetEntity: `ticket:${ticketId}`,
+      metadata: {
+        previousAssignee: ticket.assignedToUserId,
+        force: !isSelf,
+      },
+      source: actor.discordUserId ? 'discord' : 'panel',
+    });
     return this.toAssignmentDto('ticket', updated);
   }
 

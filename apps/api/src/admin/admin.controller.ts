@@ -24,6 +24,7 @@ import { WhitelistMessagesService } from '../whitelist/whitelist-messages.servic
 import { AdminService } from './admin.service';
 import { AssignmentService } from './assignment.service';
 import {
+  ListAuditQueryDto,
   ListTicketsQueryDto,
   ListWhitelistQueryDto,
   PanelMessageDto,
@@ -189,5 +190,13 @@ export class AdminController {
   @Get('players/:id')
   getPlayer(@Param('id', ParseUUIDPipe) id: string) {
     return this.admin.getPlayer(id);
+  }
+
+  // ── Audit ─────────────────────────────────────────────
+
+  @Get('audit')
+  @MinRole(Role.ADMIN)
+  listAudit(@Query() query: ListAuditQueryDto) {
+    return this.admin.listAudit(query);
   }
 }

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
+  IconAudit,
   IconDashboard,
   IconInbox,
   IconLogout,
@@ -26,6 +27,7 @@ const NAV: NavItem[] = [
   { href: '/whitelist', label: 'Whitelist', Icon: IconWhitelist },
   { href: '/tickets', label: 'Tickets', Icon: IconTickets },
   { href: '/players', label: 'Joueurs', Icon: IconPlayers },
+  { href: '/audit', label: 'Audit', Icon: IconAudit },
 ];
 
 export default function PanelLayout({
