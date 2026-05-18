@@ -4,7 +4,8 @@
   "package": "fr.reborn.integrity.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "TitleScreenMixin"
+    "TitleScreenMixin",
+    "OptionsScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
