@@ -11,4 +11,12 @@ pluginManagement {
     }
 }
 
+// Auto-download de la JDK 21 via Foojay (Adoptium/Temurin) si pas
+// presente sur la machine. Sans ca, Loom plante au configure avec
+// "Minecraft 1.21.1 requires Java 21 but Gradle is using 17".
+// La JDK est cachee dans ~/.gradle/jdks/.
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+}
+
 rootProject.name = "reborn-integrity"
