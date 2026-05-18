@@ -21,6 +21,9 @@
     "admin:build": "pnpm --filter @reborn/admin build",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
-    "infra:logs": "docker compose -f infra/docker-compose.yml logs -f"
+    "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
+    "prod:up": "docker compose -f infra/docker-compose.prod.yml --env-file .env.prod up -d --build",
+    "prod:down": "docker compose -f infra/docker-compose.prod.yml down",
+    "prod:logs": "docker compose -f infra/docker-compose.prod.yml logs -f"
   }
 }

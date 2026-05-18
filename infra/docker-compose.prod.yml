@@ -1,0 +1,170 @@
+name: reborn-prod
+
+# Stack production complete : reverse-proxy auto-TLS (Caddy) → api +
+# admin + bot. Postgres + Redis isoles dans un network interne (pas
+# d'expose vers l'hote). Postgres et Caddy ont des volumes persistants.
+#
+# A lancer depuis la racine du repo :
+#   docker compose -f infra/docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Cf docs/DEPLOY.md pour le setup VPS complet (DNS, premier deploy,
+# backup).
+
+services:
+  # ────────────────────────────────────────────────────────
+  # Reverse proxy auto-TLS via Let's Encrypt (Caddy fait tout seul).
+  # ────────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: reborn-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - reborn_caddy_data:/data
+      - reborn_caddy_config:/config
+    environment:
+      # Les domaines sont lus dans le Caddyfile via {$VAR}.
+      API_DOMAIN: ${API_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    networks:
+      - reborn-edge
+    depends_on:
+      - api
+      - admin
+
+  # ────────────────────────────────────────────────────────
+  # API NestJS
+  # ────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    image: reborn-api:latest
+    container_name: reborn-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-reborn-rp}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-reborn-launcher}
+      MS_CLIENT_ID: ${MS_CLIENT_ID}
+      MS_REDIRECT_URI: ${MS_REDIRECT_URI}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
+      DISCORD_TICKETS_CHANNEL_ID: ${DISCORD_TICKETS_CHANNEL_ID}
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
+      DISCORD_STAFF_REDIRECT_URI: ${DISCORD_STAFF_REDIRECT_URI}
+      ADMIN_BASE_URL: ${ADMIN_BASE_URL}
+      ADMIN_AUTH_CALLBACK_PATH: ${ADMIN_AUTH_CALLBACK_PATH:-/auth/callback}
+      REBORN_WEBHOOK_SECRET: ${REBORN_WEBHOOK_SECRET}
+      REBORN_BOT_WEBHOOK_URL: http://bot:3001
+      REBORN_PLAY_TOKEN_SECRET: ${REBORN_PLAY_TOKEN_SECRET}
+      MANIFEST_PUBLIC_KEY_HEX: ${MANIFEST_PUBLIC_KEY_HEX}
+    networks:
+      - reborn-edge
+      - reborn-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ────────────────────────────────────────────────────────
+  # Bot Discord (expose :3001 uniquement sur le network interne).
+  # ────────────────────────────────────────────────────────
+  bot:
+    build:
+      context: ..
+      dockerfile: apps/bot/Dockerfile
+    image: reborn-bot:latest
+    container_name: reborn-bot
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
+      DISCORD_TICKETS_CHANNEL_ID: ${DISCORD_TICKETS_CHANNEL_ID}
+      REBORN_WEBHOOK_SECRET: ${REBORN_WEBHOOK_SECRET}
+      REBORN_API_URL: http://api:3000/v1
+      ADMIN_BASE_URL: ${ADMIN_BASE_URL}
+      BOT_HTTP_PORT: 3001
+    networks:
+      - reborn-internal
+    depends_on:
+      - api
+
+  # ────────────────────────────────────────────────────────
+  # Panel staff Next.js
+  # ────────────────────────────────────────────────────────
+  admin:
+    build:
+      context: ..
+      dockerfile: apps/admin/Dockerfile
+      args:
+        # Inline au build — le panel hit l'API depuis le client (browser).
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    image: reborn-admin:latest
+    container_name: reborn-admin
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    networks:
+      - reborn-edge
+
+  # ────────────────────────────────────────────────────────
+  # Postgres : pas expose en-dehors du network interne.
+  # ────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: reborn-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - reborn_pg_data:/var/lib/postgresql/data
+    networks:
+      - reborn-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: reborn-redis-prod
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - reborn_redis_data:/data
+    networks:
+      - reborn-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  reborn_pg_data:
+  reborn_redis_data:
+  reborn_caddy_data:
+  reborn_caddy_config:
+
+networks:
+  # Edge : caddy + apps qui doivent etre accessibles via reverse proxy.
+  reborn-edge:
+  # Internal : bdd, redis, bot (jamais expose publiquement).
+  reborn-internal:

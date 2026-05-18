@@ -1,0 +1,63 @@
+# Caddyfile production Reborn. Caddy s'occupe automatiquement de
+# Let's Encrypt (HTTPS + renouvellement) pour chaque domaine declare.
+#
+# Variables d'env attendues (injectees via le docker-compose) :
+#   API_DOMAIN   ex: api.reborn-rp.fr
+#   ADMIN_DOMAIN ex: panel.reborn-rp.fr
+#   ACME_EMAIL   ex: admin@reborn-rp.fr (pour les notifs Let's Encrypt)
+
+{
+	email {$ACME_EMAIL}
+	# Decommenter pour debug local sans TLS :
+	# auto_https off
+}
+
+# ────────────────────────────────────────────────────────
+# API NestJS
+# ────────────────────────────────────────────────────────
+{$API_DOMAIN} {
+	encode gzip zstd
+
+	# CORS — autorise le panel admin (origin separe).
+	@cors_preflight method OPTIONS
+	handle @cors_preflight {
+		header {
+			Access-Control-Allow-Origin "https://{$ADMIN_DOMAIN}"
+			Access-Control-Allow-Methods "GET, POST, PATCH, DELETE, OPTIONS"
+			Access-Control-Allow-Headers "Content-Type, Authorization, X-Reborn-Signature"
+			Access-Control-Max-Age "86400"
+		}
+		respond 204
+	}
+
+	header {
+		Access-Control-Allow-Origin "https://{$ADMIN_DOMAIN}"
+		# Securite : pas de frame, pas de sniffing, etc.
+		X-Content-Type-Options "nosniff"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	reverse_proxy api:3000 {
+		health_uri /v1/health
+		health_interval 30s
+	}
+}
+
+# ────────────────────────────────────────────────────────
+# Panel staff Next.js
+# ────────────────────────────────────────────────────────
+{$ADMIN_DOMAIN} {
+	encode gzip zstd
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Anti-clickjacking : le panel ne doit pas etre embarque dans
+		# une iframe externe.
+		X-Frame-Options "DENY"
+	}
+
+	reverse_proxy admin:3000
+}

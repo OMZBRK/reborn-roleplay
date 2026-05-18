@@ -1,0 +1,49 @@
+# Exclu du build context Docker — sinon des Go de node_modules + secrets
+# se baladent dans chaque build, lent + risque de leak.
+
+# Build artifacts
+**/node_modules/
+**/dist/
+**/.next/
+**/target/
+**/build/
+
+# Secrets
+secrets/
+.env
+.env.local
+.env.*.local
+**/secrets/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docs (pas necessaire dans l'image)
+docs/
+
+# Tests + coverage
+**/coverage/
+**/*.spec.ts
+**/*.test.ts
+
+# Logs locaux
+*.log
+logs/
+
+# Tauri (le launcher ne se build pas en Docker)
+apps/launcher/src-tauri/target/
+apps/launcher/src-tauri/gen/
+
+# Minecraft plugin / mod (build standalone hors Docker)
+minecraft/
+
+# Infra (compose lui-meme + caddy)
+infra/docker-compose*.yml
