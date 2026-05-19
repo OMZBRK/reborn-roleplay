@@ -102,57 +102,59 @@ public abstract class TitleScreenMixin extends Screen {
         }
         REBORN_LOGGER.info("title screen : {} boutons vanilla retires", toRemove.size());
 
-        // 2. Ajoute les boutons Reborn. Position : centre, sous le
-        //    logo Minecraft. Width 200 height 20 (standard vanilla).
-        int centerX = this.width / 2 - 100;
-        int baseY = this.height / 4 + 48;
+        // 2. Ajoute les boutons Reborn — 5 boutons empiles verticalement
+        //    au centre, label MAJUSCULES, dimensions uniformes.
+        //
+        //    Actions :
+        //    - REJOINDRE LE SERVEUR : auto-connect au serveur Reborn
+        //    - REGLEMENT & LORE     : (PR #6) RulesLoreScreen — placeholder = openSite()
+        //    - DISCORD              : ouvre l'invite Discord dans le browser
+        //    - PARAMETRES           : (PR #6) RebornOptionsScreen — placeholder = OptionsScreen vanilla
+        //    - QUITTER              : scheduleStop()
+        final int btnW = 240;
+        final int btnH = 26;
+        final int spacing = 6;
+        final int totalH = 5 * btnH + 4 * spacing;
+        final int startY = Math.max(120, (this.height - totalH) / 2 + 20);
+        final int centerX = this.width / 2 - btnW / 2;
 
         this.addDrawableChild(
             ButtonWidget.builder(
-                Text.literal("⚔  Connecter à Reborn"),
+                Text.literal("REJOINDRE LE SERVEUR"),
                 button -> RebornBranding.connectToReborn(client, this)
-            ).dimensions(centerX, baseY, 200, 22).build()
+            ).dimensions(centerX, startY, btnW, btnH).build()
         );
 
         this.addDrawableChild(
             ButtonWidget.builder(
-                Text.literal("Site web"),
-                button -> RebornBranding.openSite()
-            ).dimensions(centerX, baseY + 28, 98, 20).build()
+                Text.literal("RÈGLEMENT & LORE"),
+                button -> RebornBranding.openSite() // TODO PR #6 : RulesLoreScreen
+            ).dimensions(centerX, startY + (btnH + spacing), btnW, btnH).build()
         );
+
         this.addDrawableChild(
             ButtonWidget.builder(
-                Text.literal("Discord"),
+                Text.literal("DISCORD"),
                 button -> RebornBranding.openDiscord()
-            ).dimensions(centerX + 102, baseY + 28, 98, 20).build()
+            ).dimensions(centerX, startY + 2 * (btnH + spacing), btnW, btnH).build()
         );
 
-        // 3. Empile encore plus bas un "Options" + "Quitter" pour
-        //    que le user puisse acceder aux settings + quit
-        //    (autrement il ne pourrait plus jamais fermer le jeu
-        //    proprement depuis le menu).
         this.addDrawableChild(
             ButtonWidget.builder(
-                Text.translatable("menu.options"),
+                Text.literal("PARAMÈTRES"),
                 button -> client.setScreen(
+                    // TODO PR #6 : RebornOptionsScreen custom
                     new net.minecraft.client.gui.screen.option.OptionsScreen(this, client.options)
                 )
-            ).dimensions(centerX, baseY + 56, 98, 20).build()
-        );
-        this.addDrawableChild(
-            ButtonWidget.builder(
-                Text.translatable("menu.quit"),
-                button -> client.scheduleStop()
-            ).dimensions(centerX + 102, baseY + 56, 98, 20).build()
+            ).dimensions(centerX, startY + 3 * (btnH + spacing), btnW, btnH).build()
         );
 
-        // 4. Cache les boutons restants qu'on n'a pas pu identifier
-        //    par label (translation differente, mod ajoute un truc, etc.)
-        //    et qui sont positionnes au-dessus de nos nouveaux boutons.
-        //    Heuristique conservatrice : on laisse vivre tout ce qui n'est
-        //    pas un ClickableWidget plus large que 100px.
-        @SuppressWarnings("unused")
-        int reservedForFutureUse = 0;
+        this.addDrawableChild(
+            ButtonWidget.builder(
+                Text.literal("QUITTER"),
+                button -> client.scheduleStop()
+            ).dimensions(centerX, startY + 4 * (btnH + spacing), btnW, btnH).build()
+        );
     }
 
     /**
