@@ -13,7 +13,6 @@ COPY apps/bot/package.json apps/bot/
 COPY apps/admin/package.json apps/admin/
 COPY apps/launcher/package.json apps/launcher/
 COPY packages/manifest-signer/package.json packages/manifest-signer/
-COPY packages/shared-types/package.json packages/shared-types/
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter @reborn/admin...
 
