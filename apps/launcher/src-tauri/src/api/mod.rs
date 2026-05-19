@@ -1,12 +1,24 @@
 //! Client HTTP fin vers l'API Reborn (cf §3.1 : pas d'appels HTTP cote
 //! frontend, tout passe par le backend Rust).
 //!
-//! En dev, l'URL de l'API est lue depuis `REBORN_API_URL` ou tombe sur
-//! `http://localhost:3000/v1` par defaut.
+//! Priorite des sources pour l'URL API :
+//!   1. Env runtime `REBORN_API_URL` (debug local override)
+//!   2. Env compile-time `REBORN_API_URL_BUILD` (positionne par le
+//!      maintainer avant `pnpm launcher:build` pour cibler prod)
+//!   3. Fallback `http://localhost:3000/v1` (dev sans config)
 
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_API_URL: &str = "http://localhost:3000/v1";
+const FALLBACK_API_URL: &str = "http://localhost:3000/v1";
+
+fn default_api_url() -> String {
+    if let Ok(runtime) = std::env::var("REBORN_API_URL") {
+        return runtime;
+    }
+    option_env!("REBORN_API_URL_BUILD")
+        .unwrap_or(FALLBACK_API_URL)
+        .to_string()
+}
 
 #[derive(Debug, Clone)]
 pub struct ApiClient {
@@ -16,7 +28,7 @@ pub struct ApiClient {
 
 impl ApiClient {
     pub fn new() -> Self {
-        let base_url = std::env::var("REBORN_API_URL").unwrap_or_else(|_| DEFAULT_API_URL.into());
+        let base_url = default_api_url();
         let http = reqwest::Client::builder()
             .user_agent(format!("RebornLauncher/{}", env!("CARGO_PKG_VERSION")))
             .timeout(std::time::Duration::from_secs(15))

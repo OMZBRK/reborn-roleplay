@@ -17,13 +17,15 @@ use serde::{Deserialize, Serialize};
 
 /// Cle publique Ed25519 du manifest, en hex (32 octets).
 ///
-/// En dev (`debug_assertions`), on peut surcharger via `MANIFEST_PUBLIC_KEY_HEX`
-/// pour pointer sur la cle generee par `secrets/manifest_ed25519_public.hex`.
-/// En prod, la valeur en dur ci-dessous est seule autoritative.
+/// Priorite : env compile-time `MANIFEST_PUBLIC_KEY_HEX_BUILD` (positionne
+/// avant `pnpm launcher:build` pour cibler prod) > fallback dev en dur.
 ///
-/// **TODO release v1.0** : remplacer par la cle de prod et retirer
-/// le fallback dev (cf §14.7 — rotation des secrets).
-pub const PUBLIC_KEY_HEX: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+/// En dev (`debug_assertions`), `MANIFEST_PUBLIC_KEY_HEX` env runtime peut
+/// surcharger pour pointer sur la cle locale.
+pub const PUBLIC_KEY_HEX: &str = match option_env!("MANIFEST_PUBLIC_KEY_HEX_BUILD") {
+    Some(s) => s,
+    None => "0000000000000000000000000000000000000000000000000000000000000000",
+};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ManifestFile {
