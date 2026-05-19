@@ -1,5 +1,6 @@
 package fr.reborn.integrity.mixin;
 
+import fr.reborn.integrity.ui.OSTPlayerWidget;
 import fr.reborn.integrity.ui.RebornBranding;
 import fr.reborn.integrity.ui.RebornLogo;
 import net.minecraft.client.MinecraftClient;
@@ -16,7 +17,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import net.minecraft.client.gui.Drawable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -154,6 +154,14 @@ public abstract class TitleScreenMixin extends Screen {
                 Text.literal("QUITTER"),
                 button -> client.scheduleStop()
             ).dimensions(centerX, startY + 4 * (btnH + spacing), btnW, btnH).build()
+        );
+
+        // 3. Lecteur OST en coin haut-droite (PR #4). Dimensions 240x56,
+        //    a 10px du bord droit + 10px du haut.
+        int ostW = 240;
+        int ostH = 56;
+        this.addDrawableChild(
+            new OSTPlayerWidget(this.width - ostW - 10, 10, this.textRenderer)
         );
     }
 
