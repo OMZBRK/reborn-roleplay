@@ -6,6 +6,7 @@ ARG NODE_VERSION=20-alpine
 
 FROM node:${NODE_VERSION} AS deps
 RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+ENV CI=true
 WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
@@ -18,6 +19,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 
 FROM node:${NODE_VERSION} AS builder
 RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+ENV CI=true
 WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 COPY --from=deps /repo/apps/admin/node_modules ./apps/admin/node_modules

@@ -9,6 +9,10 @@ ARG NODE_VERSION=20-alpine
 # ────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION} AS deps
 RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+# CI=true desactive les prompts interactifs pnpm (ex: confirmer une purge
+# de node_modules quand on passe en mode --prod apres avoir installe les
+# devDeps). Sans ca, le install --prod plante en NO_TTY dans Docker.
+ENV CI=true
 WORKDIR /repo
 
 # Copy les manifests pour rendre la couche cachable tant que les deps ne
@@ -30,6 +34,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 # ────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION} AS builder
 RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+ENV CI=true
 WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 COPY --from=deps /repo/apps/api/node_modules ./apps/api/node_modules
