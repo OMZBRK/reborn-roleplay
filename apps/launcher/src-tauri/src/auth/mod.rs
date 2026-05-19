@@ -123,12 +123,21 @@ impl Default for AuthState {
     }
 }
 
+/// Priorite : env runtime > compile-time `MS_CLIENT_ID_BUILD` (baker
+/// par le maintainer pour les builds release distribues). Sans aucune
+/// des deux : erreur user-friendly.
 fn ms_client_id() -> AuthResult<String> {
-    std::env::var("MS_CLIENT_ID").map_err(|_| {
-        AuthError::Config(
-            "MS_CLIENT_ID n'est pas configuree. Enregistre une app Azure (cf annexe A du plan) puis copie le Client ID dans .env.".into(),
-        )
-    })
+    if let Ok(v) = std::env::var("MS_CLIENT_ID") {
+        return Ok(v);
+    }
+    if let Some(v) = option_env!("MS_CLIENT_ID_BUILD") {
+        if !v.is_empty() {
+            return Ok(v.to_string());
+        }
+    }
+    Err(AuthError::Config(
+        "MS_CLIENT_ID manquant. Le launcher n'a pas ete builde avec MS_CLIENT_ID_BUILD positionne. Contacte le maintainer.".into(),
+    ))
 }
 
 /// Phase 1 (PKCE + URL) -> ouvre dans le navigateur -> attend callback ->

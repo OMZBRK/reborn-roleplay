@@ -515,25 +515,27 @@ pub async fn launcher_mods_purge() -> Result<Vec<String>, GameError> {
     })
 }
 
-/// Resout l'adresse du serveur Reborn auquel auto-connect le client. En dev,
-/// lit `REBORN_SERVER_HOST` / `REBORN_SERVER_PORT` depuis l'env (charges via
-/// `dotenvy` au boot — cf `lib.rs`). Quand le manifest signe portera l'adresse
-/// du serveur, on la prendra de la et on virera ces fallbacks.
+/// Resout l'adresse du serveur Reborn auquel auto-connect le client.
+/// Priorite : env runtime `REBORN_SERVER_HOST` (dev/override) > compile-time
+/// `REBORN_SERVER_HOST_BUILD` (baker au build release). Idem pour port.
+/// Quand le manifest signe portera l'adresse du serveur, on la prendra de
+/// la et on virera ces fallbacks.
 fn resolve_auto_connect() -> Option<jvm::ServerAddress> {
-    let host = std::env::var("REBORN_SERVER_HOST").ok()?;
-    let host = host.trim();
-    if host.is_empty() {
-        return None;
-    }
+    let host = std::env::var("REBORN_SERVER_HOST")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| option_env!("REBORN_SERVER_HOST_BUILD").map(|s| s.to_string()))
+        .filter(|s| !s.trim().is_empty())?;
+    let host = host.trim().to_string();
     let port = std::env::var("REBORN_SERVER_PORT")
         .ok()
         .and_then(|s| s.trim().parse::<u16>().ok())
+        .or_else(|| {
+            option_env!("REBORN_SERVER_PORT_BUILD").and_then(|s| s.trim().parse::<u16>().ok())
+        })
         .unwrap_or(25565);
     tracing::info!("auto-connect target : {host}:{port}");
-    Some(jvm::ServerAddress {
-        host: host.to_string(),
-        port,
-    })
+    Some(jvm::ServerAddress { host, port })
 }
 
 async fn await_game_end<R: Runtime>(app: AppHandle<R>) {

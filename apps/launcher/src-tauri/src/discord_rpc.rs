@@ -48,6 +48,7 @@ impl DiscordRpcState {
     ///      les images "logo" et "play" sous Rich Presence > Art Assets
     ///      dans l'app existante).
     pub async fn start_in_game(&self, mc_version: &str) {
+        // Priorite : env runtime > compile-time (build prod) > None.
         let client_id = std::env::var("DISCORD_RICH_PRESENCE_CLIENT_ID")
             .ok()
             .filter(|s| !s.trim().is_empty())
@@ -55,6 +56,16 @@ impl DiscordRpcState {
                 std::env::var("DISCORD_CLIENT_ID")
                     .ok()
                     .filter(|s| !s.trim().is_empty())
+            })
+            .or_else(|| {
+                option_env!("DISCORD_RICH_PRESENCE_CLIENT_ID_BUILD")
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|s| s.to_string())
+            })
+            .or_else(|| {
+                option_env!("DISCORD_CLIENT_ID_BUILD")
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|s| s.to_string())
             });
         let Some(client_id) = client_id else {
             tracing::debug!(
