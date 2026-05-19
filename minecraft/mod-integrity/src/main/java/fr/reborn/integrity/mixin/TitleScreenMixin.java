@@ -3,6 +3,7 @@ package fr.reborn.integrity.mixin;
 import fr.reborn.integrity.ui.OSTPlayerWidget;
 import fr.reborn.integrity.ui.RebornBranding;
 import fr.reborn.integrity.ui.RebornLogo;
+import fr.reborn.integrity.ui.ServerInfoWidget;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
@@ -162,6 +163,12 @@ public abstract class TitleScreenMixin extends Screen {
         int ostH = 56;
         this.addDrawableChild(
             new OSTPlayerWidget(this.width - ostW - 10, 10, this.textRenderer)
+        );
+
+        // 4. Server info card en coin haut-gauche (PR #5). Dimensions
+        //    200x40, a 10px du bord gauche + 10px du haut.
+        this.addDrawableChild(
+            new ServerInfoWidget(10, 10, this.textRenderer)
         );
     }
 
