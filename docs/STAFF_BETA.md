@@ -1,7 +1,15 @@
 # Première release staff-only — checklist complète
 
+> **Si l'infra tourne déjà** (cas actuel — VPS OVH up, manifest publié,
+> staffs branchés) : tu n'as PAS besoin de ce fichier. Lis plutôt
+> [**MAINTENANCE.md**](./MAINTENANCE.md) qui décrit les opérations
+> courantes (mettre à jour un mod, promote un user, rebuild le launcher,
+> etc.) avec les vraies commandes pour notre setup.
+
 Document end-to-end pour passer d'un repo en local à un launcher
-distribué à 5-10 staffs qui se connectent au serveur Minecraft.
+distribué à 5-10 staffs qui se connectent au serveur Minecraft. À
+utiliser **uniquement pour un setup from scratch** (nouvelle instance,
+migration, fork).
 
 Si tu n'as encore aucune infrastructure en ligne, suivre dans l'ordre.
 Sinon, saute les sections déjà faites.

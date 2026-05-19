@@ -68,8 +68,15 @@ pnpm launcher:dev
 
 ## Documents clés
 
-- [Plan de conception](./PLAN_CONCEPTION_LAUNCHER.md) — vision produit, architecture, sécurité
-- [ADR](./docs/adr/) — décisions techniques
+- [Plan de conception](./PLAN_CONCEPTION_LAUNCHER.md) — vision produit, architecture, sécurité (~2500 lignes, source de vérité)
+- [CLAUDE.md](./CLAUDE.md) — guide architectural pour Claude Code (pièges cross-fichiers, conventions)
+- **Opérations courantes :**
+  - [docs/MAINTENANCE.md](./docs/MAINTENANCE.md) — **comment faire les MAJ** (mods, users, env, redéploiement) — premier réflexe
+  - [docs/RELEASING.md](./docs/RELEASING.md) — workflow auto-update du launcher
+- **Setup from scratch (rare) :**
+  - [docs/STAFF_BETA.md](./docs/STAFF_BETA.md) — checklist déploiement complète
+  - [docs/DEPLOY.md](./docs/DEPLOY.md) — détails infra VPS
+- [docs/adr/](./docs/adr/) — décisions techniques
 
 ---
 
