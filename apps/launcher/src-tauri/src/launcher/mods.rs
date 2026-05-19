@@ -177,6 +177,11 @@ fn constraint_accepts(constraint: &str, target: &str) -> bool {
     if constraint.is_empty() || constraint == "*" || constraint.eq_ignore_ascii_case("any") {
         return true;
     }
+    // Contraintes composees (Fabric autorise ">=1.21- <1.22-" ou ">=1.21 <1.22").
+    // Si on detecte un espace, on n'essaye pas de parser : conservateur = accepter.
+    if constraint.contains(char::is_whitespace) {
+        return true;
+    }
     // Wildcard suffix : 1.21.x / 1.21.*
     if let Some(prefix) = constraint
         .strip_suffix(".x")
@@ -210,8 +215,26 @@ fn constraint_accepts(constraint: &str, target: &str) -> bool {
             return cmp_versions(&min, &target_parts).is_le();
         }
     }
-    // Exact match (sans operateur).
-    parse_version(constraint) == target_parts
+    // Exact match (sans operateur). Si la contrainte a moins de segments
+    // que la target (ex: "1.21" vs target "1.21.1"), on considere que la
+    // contrainte est un prefixe et on accepte toute version qui partage
+    // ces segments. C'est la convention Fabric : sodium declare souvent
+    // "minecraft": "1.21" pour accepter tous les 1.21.x.
+    let c_segs: Vec<u32> = constraint
+        .split('.')
+        .map(|p| {
+            p.chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect::<String>()
+                .parse()
+                .unwrap_or(0)
+        })
+        .collect();
+    let t_segs = [target_parts.0, target_parts.1, target_parts.2];
+    c_segs
+        .iter()
+        .zip(t_segs.iter())
+        .all(|(c, t)| c == t)
 }
 
 fn parse_version(s: &str) -> (u32, u32, u32) {
