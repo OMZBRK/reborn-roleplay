@@ -79,5 +79,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # entrypoint applique les migrations Prisma puis lance Nest. Si migrate
 # fail (BDD pas prête, lock), on retry plus tard via le restart docker.
+# Note : nest build sort dans dist/src/main.js (pas dist/main.js)
+# parce que sourceRoot=src dans nest-cli.json.
 WORKDIR /app/apps/api
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main.js"]
