@@ -1,7 +1,7 @@
 package fr.reborn.integrity.ui;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ConnectScreen;
+import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
@@ -29,15 +29,15 @@ public final class RebornBranding {
      * {@code -Dreborn.server.host} / {@code .port} en sysprop, et
      * le mod les lit ici.
      */
-    private static final String DEFAULT_HOST = "play.reborn-rp.fr";
-    private static final int DEFAULT_PORT = 25565;
+    private static final String DEFAULT_HOST = "play.reborn-rp.com";
+    private static final int DEFAULT_PORT = 27106;
 
     private RebornBranding() {}
 
     /**
      * URL du site Reborn pour le bouton "Site web" du title screen.
      */
-    public static final String SITE_URL = "https://reborn-rp.fr";
+    public static final String SITE_URL = "https://reborn-rp.com";
     /**
      * Invite Discord publique.
      */

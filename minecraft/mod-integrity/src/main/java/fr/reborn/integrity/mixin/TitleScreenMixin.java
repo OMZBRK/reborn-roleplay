@@ -1,7 +1,9 @@
 package fr.reborn.integrity.mixin;
 
 import fr.reborn.integrity.ui.RebornBranding;
+import fr.reborn.integrity.ui.RebornLogo;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
@@ -14,6 +16,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.client.gui.Drawable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +55,14 @@ public abstract class TitleScreenMixin extends Screen {
         "menu.modded", // Fabric/Forge "Mods" label
         "fml.menu.mods", // Forge legacy
         "modmenu.title", // Mod Menu mod
+        // PR #1 : on retire aussi les boutons Options/Quit vanilla
+        // parce qu'on les recree nous-meme plus bas. Sinon doublon.
+        "menu.options",
+        "menu.quit",
+        // Boutons accessibility + language en bas — on les masque pour
+        // un menu epure (a re-evaluer pour PR #6/RebornOptionsScreen).
+        "narrator.button.accessibility",
+        "narrator.button.language",
     };
 
     protected TitleScreenMixin(Text title) {
@@ -63,16 +74,25 @@ public abstract class TitleScreenMixin extends Screen {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
 
-        // 1. Collecte tous les widgets vanilla a virer.
+        // 1. Collecte tous les widgets vanilla a virer. Deux criteres :
+        //    (a) label texte qui matche un translation key blacklistee
+        //    (b) widget icon-only : width <= 30 (les boutons accessibility
+        //        + language en bas n'ont pas de label mais sont des icones).
         List<Element> toRemove = new ArrayList<>();
         for (Element child : this.children()) {
-            if (child instanceof ButtonWidget btn) {
-                String label = btn.getMessage().getString();
-                for (String key : HIDDEN_VANILLA_KEYS) {
-                    String translated = Text.translatable(key).getString();
-                    if (label.equalsIgnoreCase(translated)) {
-                        toRemove.add(child);
-                        break;
+            if (child instanceof ClickableWidget w) {
+                if (w.getWidth() <= 30) {
+                    toRemove.add(child);
+                    continue;
+                }
+                if (child instanceof ButtonWidget btn) {
+                    String label = btn.getMessage().getString();
+                    for (String key : HIDDEN_VANILLA_KEYS) {
+                        String translated = Text.translatable(key).getString();
+                        if (label.equalsIgnoreCase(translated)) {
+                            toRemove.add(child);
+                            break;
+                        }
                     }
                 }
             }
@@ -133,6 +153,35 @@ public abstract class TitleScreenMixin extends Screen {
         //    pas un ClickableWidget plus large que 100px.
         @SuppressWarnings("unused")
         int reservedForFutureUse = 0;
+    }
+
+    /**
+     * Apres le render vanilla complet, on COUVRE tout avec un fill noir
+     * opaque et on re-dessine uniquement ce qu'on veut : logo REBORN +
+     * boutons Reborn. C'est plus robuste que cancel(HEAD) — n'importe
+     * quel autre mixin ou code post-render (copyright Mojang, overlays
+     * Realms) sera ecrase par notre fill final.
+     *
+     * <p>Cout : on rerender les drawables 2 fois par frame (vanilla puis
+     * nous). Negligeable pour un title screen statique.
+     *
+     * <p>PR ulterieure : remplacer fill noir par panorama Reborn custom.
+     */
+    /**
+     * Dessine un masque sur la zone du logo Minecraft vanilla, puis notre
+     * logo REBORN par-dessus. Le panorama qui tourne, le splash text, la
+     * version Fabric et le copyright Mojang en bas restent vanilla — c'est
+     * ce que le user veut garder dans la PR #1.
+     *
+     * <p>Push une matrice Z+=400 pour passer au-dessus des drawText
+     * vanilla qui sont batches sur un autre z-layer.
+     */
+    @Inject(method = "render", at = @At("RETURN"))
+    private void reborn$drawLogo(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        context.getMatrices().push();
+        context.getMatrices().translate(0, 0, 400);
+        RebornLogo.render(context, this.width, this.height);
+        context.getMatrices().pop();
     }
 
     @SuppressWarnings("unused")
