@@ -22,23 +22,32 @@ export function App() {
   const isResuming = useAuthStore((s) => s.isResuming);
   const setSession = useAuthStore((s) => s.setSession);
   const setResuming = useAuthStore((s) => s.setResuming);
+  const loadSavedAccounts = useAuthStore((s) => s.loadSavedAccounts);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Hydrate la liste des comptes connus (carousel LoginScreen) en
+      // parallele du resume session. Les deux operations sont
+      // independantes : plugin-store local vs refresh token MS/API.
+      const loadAccounts = loadSavedAccounts().catch(() => {
+        // Premier boot : fichier saved-accounts.json absent → on demarre
+        // avec savedAccounts = []. Pas d'erreur a remonter.
+      });
       try {
         const session = await resumeSession();
         if (!cancelled) setSession(session);
       } catch {
         // Ignore : si auto-resume echoue, on tombe sur /login proprement.
       } finally {
+        await loadAccounts;
         if (!cancelled) setResuming(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [setSession, setResuming]);
+  }, [setSession, setResuming, loadSavedAccounts]);
 
   // TitleBar overlay : positionnée absolute par-dessus le contenu. Le
   // contenu (sidebar/main/login/resume) remonte à y=0 et ses bgs/gradients

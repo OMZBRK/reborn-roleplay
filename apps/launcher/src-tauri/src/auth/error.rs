@@ -36,6 +36,16 @@ pub enum AuthError {
 
     #[error("erreur interne : {0}")]
     Internal(String),
+
+    // Erreurs specifiques au "switch silencieux" (auth_login_with_saved_account).
+    // Le frontend declenche le fallback OAuth interactif uniquement sur ces deux
+    // kinds — les autres (http, internal) sont des erreurs reseau/serveur qu'il
+    // faut afficher sans re-ouvrir la fenetre MS.
+    #[error("aucun token stocke pour ce compte")]
+    NoStoredCredentials,
+
+    #[error("tokens stockes invalides ou revoques")]
+    StoredCredentialsExpired,
 }
 
 /// Payload serialisable cote frontend pour distinguer les erreurs metier
@@ -61,6 +71,8 @@ impl From<&AuthError> for AuthErrorPayload {
             AuthError::Timeout(_) => ("timeout", None),
             AuthError::Storage(_) => ("storage", None),
             AuthError::Internal(_) => ("internal", None),
+            AuthError::NoStoredCredentials => ("no_stored_credentials", None),
+            AuthError::StoredCredentialsExpired => ("stored_credentials_expired", None),
         };
         Self {
             kind,

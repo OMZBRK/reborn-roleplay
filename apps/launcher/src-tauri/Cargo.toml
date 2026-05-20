@@ -19,6 +19,10 @@ tauri-plugin-opener = "2"
 # telecharge l'installer + restart. Endpoint + pubkey dans tauri.conf.json.
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# Persistance JSON cote frontend (liste des comptes Microsoft enregistres
+# pour le carousel du LoginScreen). AUCUN secret n'y est ecrit — les
+# refresh tokens restent dans le keyring OS (storage/secrets.rs).
+tauri-plugin-store = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

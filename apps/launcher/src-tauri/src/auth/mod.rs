@@ -221,15 +221,29 @@ async fn finalize_login(state: &AuthState, ms: microsoft::MicrosoftTokens) -> Au
         .map_err(|e| AuthError::Internal(format!("API Reborn : {e}")))?;
 
     // Persiste les refresh tokens dans le keyring.
+    //
+    // Double-ecriture : slots legacy (clef unique globale, preserve la
+    // session des staffs deja en beta + utilise par try_resume) ET slots
+    // per-uuid (necessaires au switch silencieux du carousel — sans eux on
+    // ne saurait pas distinguer plusieurs comptes).
+    let uuid = api_resp.user.minecraft_uuid.as_str();
     if let Some(refresh) = ms.refresh_token.as_deref() {
         state
             .store
             .set(SecretKey::MicrosoftRefresh, refresh)
             .map_err(|e| AuthError::Storage(e.to_string()))?;
+        state
+            .store
+            .set_ms_refresh_token_for(uuid, refresh)
+            .map_err(|e| AuthError::Storage(e.to_string()))?;
     }
     state
         .store
         .set(SecretKey::RebornRefreshToken, &api_resp.refresh_token)
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+    state
+        .store
+        .set_reborn_refresh_token_for(uuid, &api_resp.refresh_token)
         .map_err(|e| AuthError::Storage(e.to_string()))?;
     state
         .store
@@ -342,6 +356,106 @@ pub async fn auth_dev_login(
         user: api_resp.user,
         access_token: api_resp.access_token,
     })
+}
+
+/// "Switch silencieux" depuis le carousel : essaie de reconnecter le compte
+/// identifie par son `minecraft_uuid` sans rouvrir la fenetre OAuth Microsoft.
+///
+/// Strategie (defensive, suit le contrat documente dans PLAN §7.2 etendu) :
+///   1. Refresh JWT API per-uuid → si OK, persiste les nouveaux tokens et
+///      retourne la session (chemin rapide, ~200ms).
+///   2. Si l'API rejette (401) ou si on n'a pas de refresh API : essaie le
+///      refresh MS per-uuid → chaine XBL/XSTS/MC → /v1/auth/login.
+///   3. Sinon : retourne une erreur typee pour que le frontend declenche
+///      l'OAuth interactif.
+///
+/// Erreurs typees consommees par le frontend :
+///   - `NoStoredCredentials`     : aucun token trouve pour cet UUID
+///   - `StoredCredentialsExpired`: tokens revoques cote MS (slots nettoyes)
+/// Tout autre kind (`http`, `internal`, ...) = erreur reseau/serveur : le
+/// frontend doit afficher le message, PAS basculer en OAuth automatiquement.
+#[tauri::command]
+pub async fn auth_login_with_saved_account(
+    state: State<'_, AuthState>,
+    uuid: String,
+) -> AuthResult<AuthSession> {
+    let inner = state.inner();
+
+    // ── 1) Tentative refresh JWT API
+    let api_refresh = inner
+        .store
+        .get_reborn_refresh_token_for(&uuid)
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+    if let Some(token) = api_refresh {
+        match inner.api.refresh(&token).await {
+            Ok(resp) => {
+                // Persiste tokens (legacy + per-uuid) puis retourne la session.
+                let new_uuid = resp.user.minecraft_uuid.as_str();
+                inner
+                    .store
+                    .set(SecretKey::RebornAccessToken, &resp.access_token)
+                    .map_err(|e| AuthError::Storage(e.to_string()))?;
+                inner
+                    .store
+                    .set(SecretKey::RebornRefreshToken, &resp.refresh_token)
+                    .map_err(|e| AuthError::Storage(e.to_string()))?;
+                inner
+                    .store
+                    .set_reborn_refresh_token_for(new_uuid, &resp.refresh_token)
+                    .map_err(|e| AuthError::Storage(e.to_string()))?;
+                inner.set_user(Some(resp.user.clone())).await;
+                return Ok(AuthSession {
+                    user: resp.user,
+                    access_token: resp.access_token,
+                });
+            }
+            Err(crate::api::ApiError::Status { status: 401, .. }) => {
+                tracing::info!("refresh API per-uuid expire pour {uuid}, fallback MS");
+                // Fall through au refresh MS.
+            }
+            Err(crate::api::ApiError::Http(e)) => {
+                return Err(AuthError::Http(e));
+            }
+            Err(crate::api::ApiError::Status { status, body }) => {
+                return Err(AuthError::Internal(format!(
+                    "API a repondu {status} : {body}"
+                )));
+            }
+        }
+    }
+
+    // ── 2) Tentative refresh MS chain
+    let ms_refresh = inner
+        .store
+        .get_ms_refresh_token_for(&uuid)
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+    let Some(ms_refresh) = ms_refresh else {
+        return Err(AuthError::NoStoredCredentials);
+    };
+
+    let client_id = ms_client_id()?;
+    match microsoft::refresh_tokens(&inner.http, &client_id, &ms_refresh).await {
+        Ok(ms_tokens) => {
+            // finalize_login s'occupe de la double-ecriture (legacy + per-uuid)
+            // a partir de l'UUID renvoye par l'API Reborn.
+            finalize_login(inner, ms_tokens).await
+        }
+        Err(AuthError::MicrosoftResponse(msg)) => {
+            // MS a explicitement rejete le refresh token (invalid_grant, etc.)
+            // → tokens revoques, on nettoie les slots per-uuid de ce compte
+            // pour eviter que le carousel re-essaie en boucle. La carte du
+            // plugin-store reste (UX : l'utilisateur saura quel compte
+            // re-authentifier), elle pointera juste vers des slots vides → le
+            // prochain clic ira directement en OAuth interactif via le
+            // fallback frontend.
+            tracing::warn!("refresh MS revoque pour {uuid} : {msg}");
+            let _ = inner.store.delete_account_tokens(&uuid);
+            Err(AuthError::StoredCredentialsExpired)
+        }
+        Err(other) => Err(other),
+    }
 }
 
 #[tauri::command]

@@ -1,182 +1,199 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Loader2, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import pkg from "../../package.json";
 import { useAuthStore } from "../stores/auth-store";
-import { asAuthError, devLogin, explainAuthError, loginWithMicrosoft } from "../lib/auth";
+import type { LauncherUser } from "../stores/auth-store";
+import {
+  asAuthError,
+  devLogin,
+  explainAuthError,
+  loginWithMicrosoft,
+  loginWithSavedAccount,
+} from "../lib/auth";
+import { MicrosoftLoginButton } from "../components/login/MicrosoftLoginButton";
+import { SavedAccountsCarousel } from "../components/login/SavedAccountsCarousel";
+import type { SavedAccount } from "../lib/types";
 
-const LAUNCHER_VERSION = "v0.1.0";
-
-type LoginState =
-  | { status: "idle" }
-  | { status: "authenticating" }
-  | { status: "error"; message: string };
+const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export function Login() {
   const navigate = useNavigate();
   const setSession = useAuthStore((s) => s.setSession);
-  const [state, setState] = useState<LoginState>({ status: "idle" });
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const authError = useAuthStore((s) => s.error);
+  const savedAccounts = useAuthStore((s) => s.savedAccounts);
+  const setLoading = useAuthStore((s) => s.setLoading);
+  const setError = useAuthStore((s) => s.setError);
+  const addSavedAccount = useAuthStore((s) => s.addSavedAccount);
 
-  async function handleLogin() {
-    setState({ status: "authenticating" });
+  const btnState: "idle" | "loading" | "error" = isLoading
+    ? "loading"
+    : authError
+    ? "error"
+    : "idle";
+
+  async function runInteractiveLogin() {
+    setLoading(true);
+    setError(null);
     try {
       const session = await loginWithMicrosoft();
+      await persistAccount(session.user, addSavedAccount);
       setSession(session);
       navigate("/home", { replace: true });
     } catch (err) {
       const parsed = asAuthError(err);
-      // L'utilisateur qui annule volontairement n'est pas une "erreur".
       if (parsed.kind === "user_canceled") {
-        setState({ status: "idle" });
+        setError(null);
         return;
       }
-      setState({ status: "error", message: explainAuthError(parsed) });
+      setError(explainAuthError(parsed));
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleDevLogin() {
-    setState({ status: "authenticating" });
+    setLoading(true);
+    setError(null);
     try {
       const session = await devLogin("OMZ");
+      await persistAccount(session.user, addSavedAccount);
       setSession(session);
       navigate("/home", { replace: true });
     } catch (err) {
       const parsed = asAuthError(err);
-      setState({ status: "error", message: explainAuthError(parsed) });
+      setError(explainAuthError(parsed));
+    } finally {
+      setLoading(false);
     }
   }
 
-  const isAuthenticating = state.status === "authenticating";
+  async function handlePickSaved(account: SavedAccount) {
+    setLoading(true);
+    setError(null);
+    try {
+      const session = await loginWithSavedAccount(account.minecraftUuid);
+      await persistAccount(session.user, addSavedAccount);
+      setSession(session);
+      navigate("/home", { replace: true });
+    } catch (err) {
+      const parsed = asAuthError(err);
+      if (
+        parsed.kind === "no_stored_credentials" ||
+        parsed.kind === "stored_credentials_expired"
+      ) {
+        // Fallback : pas de refresh utilisable → OAuth interactif. La
+        // fenetre MS s'ouvrira ; passe `setLoading(false)` avant pour que
+        // l'UI affiche bien "Connexion…" mais permette au flow interactif
+        // de prendre le relais sans concurrence.
+        setLoading(false);
+        await runInteractiveLogin();
+        return;
+      }
+      setError(explainAuthError(parsed));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <div className="grid h-full grid-cols-1 lg:grid-cols-2">
-      {/* Panneau gauche : formulaire */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative flex flex-col items-center justify-center bg-background px-12"
-      >
-
-        <div className="w-full max-w-sm">
-          <div className="mb-12 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent">
-              <span className="font-display text-xl font-bold text-white">R</span>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-widest text-foreground-subtle">
-                Reborn
-              </p>
-              <p className="font-display text-lg font-semibold">Roleplay</p>
-            </div>
-          </div>
-
-          <h1 className="font-display text-4xl font-semibold leading-tight">
-            Bienvenue.
-          </h1>
-          <p className="mt-3 text-foreground-subtle">
-            Connecte-toi avec ton compte Microsoft pour acceder au serveur.
-          </p>
-
-          <button
-            type="button"
-            onClick={handleLogin}
-            disabled={isAuthenticating}
-            className="no-drag mt-10 flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-white px-4 font-medium text-black transition hover:bg-neutral-200 disabled:opacity-60"
+    <div className="reborn-radial-bg-strong reborn-pattern-overlay relative flex h-full w-full items-center justify-center px-8">
+      <div className="flex w-full max-w-lg flex-col items-center gap-8">
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05, ease: EASE_OUT_EXPO }}
+          className="flex flex-col items-center text-center"
+        >
+          <h1
+            className="font-display text-6xl font-semibold tracking-[0.08em] text-[var(--color-foreground)]"
+            style={{
+              filter:
+                "drop-shadow(0 0 24px rgba(59,91,219,0.4)) drop-shadow(0 0 6px rgba(255,255,255,0.12))",
+            }}
           >
-            {isAuthenticating ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <MicrosoftLogo />
-            )}
-            <span>
-              {isAuthenticating
-                ? "Connexion en cours..."
-                : "Se connecter avec Microsoft"}
-            </span>
-          </button>
+            REBORN
+          </h1>
+          <p className="mt-2 text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
+            Roleplay · Naruto Edition
+          </p>
+        </motion.div>
 
-          {state.status === "error" && (
+        {savedAccounts.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15, ease: EASE_OUT_EXPO }}
+            className="w-full"
+          >
+            <SavedAccountsCarousel
+              accounts={savedAccounts}
+              onPick={handlePickSaved}
+              onAdd={runInteractiveLogin}
+            />
+          </motion.div>
+        )}
+
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25, ease: EASE_OUT_EXPO }}
+          className="flex w-full max-w-sm flex-col gap-3"
+        >
+          <MicrosoftLoginButton state={btnState} onClick={runInteractiveLogin} />
+
+          {authError && (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="no-drag mt-4 flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger"
+              className="no-drag flex items-start gap-2 rounded-md border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)]/40 p-3 text-sm text-[var(--color-danger)]"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <p>{state.message}</p>
+              <p>{authError}</p>
             </motion.div>
           )}
-
-          <p className="mt-10 text-xs text-foreground-subtle">
-            Pas de compte Microsoft ?{" "}
-            <a
-              href="https://signup.live.com"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent hover:underline"
-            >
-              En creer un
-            </a>
-          </p>
 
           {import.meta.env.DEV && (
             <button
               type="button"
               onClick={handleDevLogin}
-              disabled={isAuthenticating}
-              className="no-drag mt-4 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-warning/50 px-3 text-xs text-warning transition hover:bg-warning/10 disabled:opacity-60"
-              title="Bypass Microsoft — disponible uniquement en dev (debug build)"
+              disabled={isLoading}
+              className="no-drag mt-1 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-[var(--color-warning)]/50 px-3 text-xs text-[var(--color-warning)] transition-colors hover:bg-[var(--color-warning-soft)] disabled:opacity-60"
+              title="Bypass Microsoft — disponible uniquement en dev"
             >
               [DEV] Connexion sans Microsoft
             </button>
           )}
-        </div>
+        </motion.div>
 
-        <p className="absolute bottom-4 right-6 text-xs text-foreground-subtle">
-          {LAUNCHER_VERSION}
-        </p>
-      </motion.div>
-
-      {/* Panneau droit : artwork RP plein ecran */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.7 }}
-        className="relative hidden overflow-hidden lg:block"
-        style={{
-          background:
-            "radial-gradient(ellipse at 30% 20%, #1f2a4a 0%, #0a0d18 55%, #07080b 100%)",
-        }}
-      >
-        <div
-          className="absolute inset-0 opacity-50 mix-blend-screen"
-          style={{
-            background:
-              "radial-gradient(circle at 80% 80%, rgba(59, 91, 219, 0.4), transparent 60%)",
-          }}
-        />
-        <div className="absolute inset-0 flex flex-col justify-end p-12">
-          <p className="font-display text-2xl text-white drop-shadow-lg">
-            « Dans l'ombre ou la lumiere,
-            <br />
-            chaque ninja ecrit sa propre destinee. »
-          </p>
-          <p className="mt-3 text-sm uppercase tracking-widest text-foreground-subtle">
-            — Reborn Roleplay
-          </p>
-        </div>
-      </motion.div>
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.35, ease: EASE_OUT_EXPO }}
+          className="mt-4 text-xs text-[var(--color-foreground-muted)]"
+        >
+          v{pkg.version} — Non affilié à Microsoft ou Mojang
+        </motion.p>
+      </div>
     </div>
   );
 }
 
-function MicrosoftLogo() {
-  return (
-    <svg viewBox="0 0 21 21" className="h-5 w-5" aria-hidden="true">
-      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-    </svg>
-  );
+async function persistAccount(
+  user: LauncherUser,
+  add: (a: SavedAccount) => Promise<void>,
+): Promise<void> {
+  try {
+    await add({
+      pseudo: user.minecraftUsername,
+      lastSeen: new Date().toISOString(),
+      seed: user.minecraftUuid,
+      minecraftUuid: user.minecraftUuid,
+    });
+  } catch {
+    // Si l'ecriture du plugin-store echoue (disque plein, permissions), on
+    // ne bloque pas la connexion — la liste se reconstruira au prochain
+    // login reussi.
+  }
 }

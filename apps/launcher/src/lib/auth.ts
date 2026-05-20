@@ -20,13 +20,26 @@ export type AuthErrorPayload = {
     | "user_canceled"
     | "timeout"
     | "storage"
-    | "internal";
+    | "internal"
+    // Emis par auth_login_with_saved_account uniquement — le handler frontend
+    // bascule sur loginWithMicrosoft() (OAuth interactif) quand on voit ces
+    // deux kinds.
+    | "no_stored_credentials"
+    | "stored_credentials_expired";
   message: string;
   code?: string | null;
 };
 
 export async function loginWithMicrosoft(): Promise<AuthSession> {
   return invoke<AuthSession>("auth_login_microsoft");
+}
+
+/** Switch silencieux : tente de reconnecter le compte identifie par son UUID
+ *  Mojang sans rouvrir la fenetre OAuth. Le handler appelant doit catcher les
+ *  erreurs `no_stored_credentials` / `stored_credentials_expired` et
+ *  basculer sur `loginWithMicrosoft()` (OAuth interactif). */
+export async function loginWithSavedAccount(uuid: string): Promise<AuthSession> {
+  return invoke<AuthSession>("auth_login_with_saved_account", { uuid });
 }
 
 /** Dev-only : login factice (cf docs/adr/0001-...). */
@@ -88,6 +101,12 @@ export function explainAuthError(err: AuthErrorPayload): string {
     case "http":
     case "io":
       return "Probleme reseau pendant la connexion. Verifie ta connexion Internet.";
+    case "no_stored_credentials":
+    case "stored_credentials_expired":
+      // Ces deux kinds ne devraient jamais arriver jusqu'a l'utilisateur : le
+      // handler du carousel bascule sur OAuth interactif avant. Texte de
+      // secours au cas ou.
+      return "Reconnexion requise. Ouverture de la fenetre Microsoft…";
     default:
       return err.message;
   }

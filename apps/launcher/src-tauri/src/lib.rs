@@ -66,6 +66,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .manage(auth::AuthState::new())
         .manage(launcher::GameState::new())
         .manage(discord_rpc::DiscordRpcState::new())
@@ -75,6 +76,7 @@ pub fn run() {
             auth::auth_resume_session,
             auth::auth_logout,
             auth::auth_dev_login,
+            auth::auth_login_with_saved_account,
             launcher::launcher_check_update,
             launcher::launcher_apply_update,
             launcher::game::launcher_launch_game,
