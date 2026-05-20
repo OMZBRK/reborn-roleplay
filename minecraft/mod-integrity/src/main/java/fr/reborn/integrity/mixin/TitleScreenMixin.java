@@ -4,6 +4,8 @@ import fr.reborn.integrity.ui.OSTPlayerWidget;
 import fr.reborn.integrity.ui.RebornBranding;
 import fr.reborn.integrity.ui.RebornLogo;
 import fr.reborn.integrity.ui.ServerInfoWidget;
+import fr.reborn.integrity.ui.screens.RebornOptionsScreen;
+import fr.reborn.integrity.ui.screens.RulesLoreScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
@@ -129,7 +131,7 @@ public abstract class TitleScreenMixin extends Screen {
         this.addDrawableChild(
             ButtonWidget.builder(
                 Text.literal("RÈGLEMENT & LORE"),
-                button -> RebornBranding.openSite() // TODO PR #6 : RulesLoreScreen
+                button -> client.setScreen(new RulesLoreScreen(this))
             ).dimensions(centerX, startY + (btnH + spacing), btnW, btnH).build()
         );
 
@@ -143,10 +145,7 @@ public abstract class TitleScreenMixin extends Screen {
         this.addDrawableChild(
             ButtonWidget.builder(
                 Text.literal("PARAMÈTRES"),
-                button -> client.setScreen(
-                    // TODO PR #6 : RebornOptionsScreen custom
-                    new net.minecraft.client.gui.screen.option.OptionsScreen(this, client.options)
-                )
+                button -> client.setScreen(new RebornOptionsScreen(this))
             ).dimensions(centerX, startY + 3 * (btnH + spacing), btnW, btnH).build()
         );
 
