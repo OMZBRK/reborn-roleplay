@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { HeroSection } from "../components/home/HeroSection";
+import { HomeHeader } from "../components/home/HomeHeader";
+import { HeroLaunchCard } from "../components/home/HeroLaunchCard";
 import { NewsCard } from "../components/home/NewsCard";
+import { PartnersRow } from "../components/home/PartnersRow";
+import { FooterMega } from "../components/home/FooterMega";
 import {
   fetchPatchnotes,
   fetchWhitelistMe,
@@ -51,50 +54,53 @@ export function Home() {
   const whitelistContent = resolveWhitelistContent(whitelist);
 
   return (
-    <div className="flex h-full flex-col">
-      <HeroSection />
+    <div className="reborn-home-page">
+      <HomeHeader />
 
-      <section
-        className="flex shrink-0 gap-5 bg-background px-10 pb-6 pt-2"
-        style={{ height: 288 }}
-      >
-        <div className="min-w-0 flex-1">
-          <NewsCard
-            kicker={patchContent.kicker}
-            title={patchContent.title}
-            excerpt={patchContent.excerpt}
-            link={patchContent.link}
-            gradient={PATCH_CARD.gradient}
-            icon={PATCH_CARD.icon}
-            delay={0.1}
-            onClick={() => navigate(PATCH_CARD.href)}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <NewsCard
-            kicker={whitelistContent.kicker}
-            title={whitelistContent.title}
-            excerpt={whitelistContent.excerpt}
-            link={whitelistContent.link}
-            gradient={WHITELIST_CARD.gradient}
-            icon={WHITELIST_CARD.icon}
-            delay={0.2}
-            onClick={() => navigate(WHITELIST_CARD.href)}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <NewsCard
-            kicker={NEWS_RP_CARD.kicker}
-            title={NEWS_RP_CARD.title}
-            excerpt={NEWS_RP_CARD.excerpt}
-            link={NEWS_RP_CARD.link}
-            gradient={NEWS_RP_CARD.gradient}
-            icon={NEWS_RP_CARD.icon}
-            delay={0.3}
-            onClick={() => navigate(NEWS_RP_CARD.href)}
-          />
-        </div>
-      </section>
+      <HeroLaunchCard />
+
+        <section className="reborn-home-section">
+          <div className="reborn-home-section-head">
+            <h2 className="reborn-home-section-title">Actualités</h2>
+          </div>
+          <div className="reborn-home-news-grid">
+            <NewsCard
+              size="large"
+              kicker={patchContent.kicker}
+              title={patchContent.title}
+              excerpt={patchContent.excerpt}
+              link={patchContent.link}
+              gradient={PATCH_CARD.gradient}
+              icon={PATCH_CARD.icon}
+              delay={0.05}
+              onClick={() => navigate(PATCH_CARD.href)}
+            />
+            <NewsCard
+              kicker={whitelistContent.kicker}
+              title={whitelistContent.title}
+              excerpt={whitelistContent.excerpt}
+              link={whitelistContent.link}
+              gradient={WHITELIST_CARD.gradient}
+              icon={WHITELIST_CARD.icon}
+              delay={0.12}
+              onClick={() => navigate(WHITELIST_CARD.href)}
+            />
+            <NewsCard
+              kicker={NEWS_RP_CARD.kicker}
+              title={NEWS_RP_CARD.title}
+              excerpt={NEWS_RP_CARD.excerpt}
+              link={NEWS_RP_CARD.link}
+              gradient={NEWS_RP_CARD.gradient}
+              icon={NEWS_RP_CARD.icon}
+              delay={0.18}
+              onClick={() => navigate(NEWS_RP_CARD.href)}
+            />
+          </div>
+        </section>
+
+      <PartnersRow />
+
+      <FooterMega />
     </div>
   );
 }

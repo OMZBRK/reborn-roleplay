@@ -3,22 +3,29 @@ import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
+  Bell,
   Check,
+  ChevronRight,
   Cpu,
   Gamepad2,
   Globe,
+  Info,
   Link2,
   Loader2,
   LogOut,
   MemoryStick,
   Monitor,
+  RefreshCw,
   ShieldCheck,
   User2,
   Unlink,
+  Volume2,
   Wand2,
   Zap,
 } from "lucide-react";
+import pkg from "../../package.json";
 import { useAuthStore } from "../stores/auth-store";
+import { useSettingsStore } from "../stores/settings-store";
 import { getPrefs, setPrefs, type Preferences } from "../lib/prefs";
 import { logout, refreshMe, startDiscordLink, unlinkDiscord } from "../lib/auth";
 import { getSystemSpecs, type SystemSpecs } from "../lib/system";
@@ -29,7 +36,11 @@ const TABS = [
   { id: "profile", label: "Profil", hint: "Identite & role", icon: User2 },
   { id: "account", label: "Compte", hint: "Identifiants & session", icon: ShieldCheck },
   { id: "connections", label: "Connexions", hint: "Discord, Steam, Twitch", icon: Link2 },
-  { id: "game", label: "Jeu", hint: "Performance & comportement", icon: Gamepad2 },
+  { id: "game", label: "Jeu", hint: "RAM & comportement", icon: Gamepad2 },
+  { id: "perf", label: "Performance", hint: "FPS, vsync, low-spec", icon: Zap },
+  { id: "audio", label: "Audio", hint: "Volumes & mute", icon: Volume2 },
+  { id: "notif", label: "Notifications", hint: "Push, email, alertes", icon: Bell },
+  { id: "about", label: "À propos", hint: "Version & support", icon: Info },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -37,61 +48,57 @@ export function Settings() {
   const [tab, setTab] = useState<TabId>("profile");
 
   return (
-    <div className="reborn-settings-bg relative min-h-full px-10 py-10">
-      <Header />
+    <div className="reborn-settings-page">
+      <div className="reborn-settings-scroll">
+        <Header />
 
-      <nav className="mt-8 mb-6 flex flex-wrap gap-2">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={cn(
-                "group relative flex items-center gap-3 rounded-[12px] border px-4 py-2.5 text-left transition-all duration-200",
-                active
-                  ? "border-accent/40 bg-accent/8 text-foreground shadow-[0_0_20px_-4px_var(--color-accent-glow)]"
-                  : "border-border bg-surface text-foreground-subtle hover:border-border-strong hover:bg-surface-elevated hover:text-foreground",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-                  active
-                    ? "bg-accent/15 text-accent"
-                    : "bg-background text-foreground-subtle group-hover:text-foreground",
-                )}
+        <div className="reborn-settings-body">
+          <nav className="reborn-settings-sidebar" aria-label="Catégories">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  data-active={active || undefined}
+                  className="reborn-settings-cat"
+                >
+                  <span className="reborn-settings-cat-icon">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="reborn-settings-cat-meta">
+                    <span className="reborn-settings-cat-label">{t.label}</span>
+                    <span className="reborn-settings-cat-hint">{t.hint}</span>
+                  </span>
+                  <ChevronRight className="reborn-settings-cat-chevron h-3 w-3" />
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="reborn-settings-content">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={tab}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               >
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="flex flex-col leading-tight">
-                <span className="text-[13px] font-semibold tracking-wide">{t.label}</span>
-                <span className="text-[10.5px] uppercase tracking-[0.16em] text-foreground-muted">
-                  {t.hint}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className="max-w-4xl">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {tab === "profile" && <ProfileTab />}
-            {tab === "account" && <AccountTab />}
-            {tab === "connections" && <ConnectionsTab />}
-            {tab === "game" && <GameTab />}
-          </motion.div>
-        </AnimatePresence>
+                {tab === "profile" && <ProfileTab />}
+                {tab === "account" && <AccountTab />}
+                {tab === "connections" && <ConnectionsTab />}
+                {tab === "game" && <GameTab />}
+                {tab === "perf" && <PerformanceTab />}
+                {tab === "audio" && <AudioTab />}
+                {tab === "notif" && <NotificationsTab />}
+                {tab === "about" && <AboutTab />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -935,24 +942,386 @@ function Toggle({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
+  // Sizing : pill 40×22, knob 16×16. translate-x = pill_width - knob - 2*padding
+  // = 40 - 16 - 6 = 18px. Knob reste integralement dans le pill, plus de
+  // depassement visuel (cf depassement.png feedback utilisateur).
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-11 rounded-full transition-all duration-200",
+        "relative inline-flex h-[22px] w-10 flex-shrink-0 rounded-full border transition-colors duration-200",
         checked
-          ? "bg-accent shadow-[0_0_12px_-2px_var(--color-accent-glow-strong)]"
-          : "bg-border hover:bg-border-strong",
+          ? "border-accent bg-accent"
+          : "border-border-strong bg-surface-overlay hover:border-border-strong",
       )}
       aria-pressed={checked}
     >
       <span
         className={cn(
-          "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200",
-          checked ? "translate-x-5" : "translate-x-0.5",
+          "absolute top-[2px] h-[16px] w-[16px] rounded-full bg-white shadow-sm transition-transform duration-200",
+          checked ? "translate-x-[20px]" : "translate-x-[2px]",
         )}
       />
     </button>
+  );
+}
+
+// Slider compact reutilise par Perf/Audio. Affiche un pourcent ou un
+// suffix custom (fps, %, etc.).
+function Slider({
+  value,
+  min,
+  max,
+  step = 1,
+  suffix = "",
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  suffix?: string;
+  onChange: (v: number) => void;
+}) {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <div className="w-full">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-mono text-[11px] text-foreground-muted">
+          {min}
+          {suffix}
+        </span>
+        <span className="font-display text-base tabular-nums text-foreground">
+          {value}
+          {suffix}
+        </span>
+        <span className="font-mono text-[11px] text-foreground-muted">
+          {max}
+          {suffix}
+        </span>
+      </div>
+      <div className="relative">
+        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-border">
+          <div
+            className="h-full rounded-full transition-all duration-200"
+            style={{
+              width: `${pct}%`,
+              background:
+                "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
+              boxShadow: "0 0 10px var(--color-accent-glow)",
+            }}
+          />
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="reborn-ram-slider relative z-10 w-full"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────
+//  PERFORMANCE
+// ──────────────────────────────────────────────────────
+
+function PerformanceTab() {
+  const perf = useSettingsStore((s) => s.perf);
+  const setPerf = useSettingsStore((s) => s.setPerf);
+
+  return (
+    <Card
+      title="Performance"
+      description="Réglages avancés du moteur de rendu. Persistés localement — branchement sur le game launcher à venir."
+      icon={<Zap className="h-4 w-4" />}
+    >
+      <Row
+        label="Distance de rendu automatique"
+        hint="Adapte la distance selon ton GPU et ta RAM disponible."
+      >
+        <Toggle
+          checked={perf.autoRenderDistance}
+          onChange={(v) => setPerf("autoRenderDistance", v)}
+        />
+      </Row>
+      <div className="px-6 py-5">
+        <div className="mb-3 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium text-foreground">FPS maximum</p>
+            <p className="mt-1 text-[11.5px] text-foreground-subtle">
+              {perf.fpsMax >= 240
+                ? "Illimité — utilise toute la puissance disponible."
+                : `Cap à ${perf.fpsMax} images par seconde.`}
+            </p>
+          </div>
+        </div>
+        <Slider
+          value={perf.fpsMax}
+          min={30}
+          max={240}
+          suffix=" fps"
+          onChange={(v) => setPerf("fpsMax", v)}
+        />
+      </div>
+      <Row
+        label="Synchronisation verticale (VSync)"
+        hint="Évite le tearing mais peut introduire de l'input lag."
+      >
+        <Toggle checked={perf.vsync} onChange={(v) => setPerf("vsync", v)} />
+      </Row>
+      <Row
+        label="Mode low-spec"
+        hint="Désactive les effets coûteux : ombres, particules, animations d'eau."
+      >
+        <Toggle
+          checked={perf.lowSpecMode}
+          onChange={(v) => setPerf("lowSpecMode", v)}
+        />
+      </Row>
+    </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────
+//  AUDIO
+// ──────────────────────────────────────────────────────
+
+function AudioTab() {
+  const audio = useSettingsStore((s) => s.audio);
+  const setAudio = useSettingsStore((s) => s.setAudio);
+
+  return (
+    <Card
+      title="Audio"
+      description="Volumes du jeu. Persistés localement — appliqués à la JVM au prochain lancement quand le branchement sera fait."
+      icon={<Volume2 className="h-4 w-4" />}
+    >
+      <AudioRow
+        label="Volume principal"
+        value={audio.master}
+        onChange={(v) => setAudio("master", v)}
+      />
+      <AudioRow
+        label="Musique"
+        value={audio.music}
+        onChange={(v) => setAudio("music", v)}
+      />
+      <AudioRow
+        label="Effets sonores"
+        value={audio.sfx}
+        onChange={(v) => setAudio("sfx", v)}
+      />
+      <AudioRow
+        label="Voix RP"
+        hint="Volume du système de proximity chat."
+        value={audio.voice}
+        onChange={(v) => setAudio("voice", v)}
+      />
+      <Row
+        label="Couper le son en perdant le focus"
+        hint="Pratique quand tu joues avec Discord en parallèle."
+      >
+        <Toggle
+          checked={audio.muteOnBlur}
+          onChange={(v) => setAudio("muteOnBlur", v)}
+        />
+      </Row>
+    </Card>
+  );
+}
+
+function AudioRow({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="px-6 py-4">
+      <div className="mb-2 flex items-baseline justify-between gap-4">
+        <div>
+          <p className="text-[13px] font-medium text-foreground">{label}</p>
+          {hint && (
+            <p className="mt-0.5 text-[11.5px] text-foreground-subtle">{hint}</p>
+          )}
+        </div>
+        <span className="font-display text-lg tabular-nums text-foreground">
+          {value}
+          <span className="ml-0.5 text-xs text-foreground-muted">%</span>
+        </span>
+      </div>
+      <Slider value={value} min={0} max={100} suffix="%" onChange={onChange} />
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────
+//  NOTIFICATIONS
+// ──────────────────────────────────────────────────────
+
+function NotificationsTab() {
+  const notif = useSettingsStore((s) => s.notif);
+  const setNotif = useSettingsStore((s) => s.setNotif);
+
+  return (
+    <Card
+      title="Notifications"
+      description="Choisis ce que tu veux recevoir et par quel canal. Persisté localement — l'envoi serveur arrivera quand l'API exposera /v1/notifications."
+      icon={<Bell className="h-4 w-4" />}
+    >
+      <Row
+        label="Whitelist"
+        hint="Étapes de candidature et résultats."
+      >
+        <div className="flex items-center gap-2">
+          <PrettySelect
+            value={notif.whitelistChannel}
+            onChange={(v) =>
+              setNotif("whitelistChannel", v as "push" | "email" | "both")
+            }
+            options={[
+              { value: "push", label: "Push" },
+              { value: "email", label: "Email" },
+              { value: "both", label: "Les deux" },
+            ]}
+          />
+          <Toggle
+            checked={notif.whitelistEnabled}
+            onChange={(v) => setNotif("whitelistEnabled", v)}
+          />
+        </div>
+      </Row>
+      <Row
+        label="Tickets staff"
+        hint="Réponses sur tes signalements et demandes."
+      >
+        <Toggle
+          checked={notif.ticketsEnabled}
+          onChange={(v) => setNotif("ticketsEnabled", v)}
+        />
+      </Row>
+      <Row
+        label="Patch notes"
+        hint="Reçois un résumé à chaque nouvelle version client."
+      >
+        <Toggle
+          checked={notif.patchEnabled}
+          onChange={(v) => setNotif("patchEnabled", v)}
+        />
+      </Row>
+      <Row
+        label="Événements RP"
+        hint="Tournois, arcs narratifs et annonces in-game."
+      >
+        <Toggle
+          checked={notif.eventsEnabled}
+          onChange={(v) => setNotif("eventsEnabled", v)}
+        />
+      </Row>
+    </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────
+//  À PROPOS
+// ──────────────────────────────────────────────────────
+
+function AboutTab() {
+  return (
+    <>
+      <Card
+        title="Version"
+        description="État de ton installation client."
+        icon={<Info className="h-4 w-4" />}
+      >
+        <Row label="Version du launcher">
+          <code className="rounded-md bg-background px-2.5 py-1 font-mono text-[11px] text-foreground-subtle">
+            v{pkg.version}
+          </code>
+        </Row>
+        <Row label="Canal de build">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-[11px] font-semibold tracking-wide text-success">
+            <Check className="h-3 w-3" strokeWidth={3} />
+            Stable
+          </span>
+        </Row>
+        <Row label="Mise à jour automatique" hint="Vérification toutes les 30 minutes via l'endpoint /v1/launcher/update.">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground-subtle">
+            <RefreshCw className="h-3 w-3" />
+            Active
+          </span>
+        </Row>
+      </Card>
+      <Card
+        title="Support"
+        description="Trouve de l'aide si quelque chose ne va pas."
+        icon={<Link2 className="h-4 w-4" />}
+      >
+        <Row label="Ouvrir un ticket" hint="Le moyen le plus rapide d'avoir une réponse du staff.">
+          <a
+            href="#"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:border-accent hover:bg-surface-elevated"
+            onClick={(e) => e.preventDefault()}
+          >
+            Voir les tickets
+          </a>
+        </Row>
+        <Row label="Documentation" hint="Règlement complet, lore, guides RP.">
+          <a
+            href="#"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:border-accent hover:bg-surface-elevated"
+            onClick={(e) => e.preventDefault()}
+          >
+            Consulter
+          </a>
+        </Row>
+      </Card>
+      <Card
+        title="Crédits"
+        description="Construit avec amour par l'équipe Reborn."
+        icon={<User2 className="h-4 w-4" />}
+      >
+        <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-4">
+          {[
+            { name: "OMZ", role: "Founder · Backend" },
+            { name: "Hikami", role: "Design · Frontend" },
+            { name: "Kazama", role: "Game systems" },
+            { name: "Yumi", role: "Lore · Writing" },
+          ].map((c) => (
+            <div
+              key={c.name}
+              className="flex flex-col items-center gap-2 rounded-[12px] border border-border bg-background/60 p-3 text-center"
+            >
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%)",
+                }}
+              >
+                {c.name[0]}
+              </div>
+              <div className="text-[12px] font-semibold text-foreground">
+                {c.name}
+              </div>
+              <div className="text-[10px] uppercase tracking-wider text-foreground-muted">
+                {c.role}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </>
   );
 }

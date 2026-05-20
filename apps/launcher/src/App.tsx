@@ -8,14 +8,23 @@ import { Patchnotes } from "./routes/Patchnotes";
 import { Rules } from "./routes/Rules";
 import { RuleDetail } from "./routes/RuleDetail";
 import { Settings } from "./routes/Settings";
+import { Map } from "./routes/Map";
+import { Mods } from "./routes/Mods";
+import { Screenshots } from "./routes/Screenshots";
 import { Tickets } from "./routes/Tickets";
 import { Whitelist } from "./routes/Whitelist";
 import { Character } from "./routes/Character";
 import { AuthenticatedLayout } from "./components/AuthenticatedLayout";
-import { TitleBar } from "./components/TitleBar";
 import { ResumeSplash } from "./components/ResumeSplash";
+import { WindowControls } from "./components/shell/WindowControls";
 import { useAuthStore } from "./stores/auth-store";
 import { resumeSession } from "./lib/auth";
+
+// Largeur du rail sidebar pour positionner le spacer non-draggable au-dessus
+// de la sidebar quand un user est authentifie (ses 32px du haut contiennent
+// le logo R cliquable, on ne veut pas que la zone drag avale ce click).
+const SIDEBAR_WIDTH = 72;
+const DRAG_HEIGHT = 32;
 
 export function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -27,9 +36,6 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Hydrate la liste des comptes connus (carousel LoginScreen) en
-      // parallele du resume session. Les deux operations sont
-      // independantes : plugin-store local vs refresh token MS/API.
       const loadAccounts = loadSavedAccounts().catch(() => {
         // Premier boot : fichier saved-accounts.json absent → on demarre
         // avec savedAccounts = []. Pas d'erreur a remonter.
@@ -49,12 +55,12 @@ export function App() {
     };
   }, [setSession, setResuming, loadSavedAccounts]);
 
-  // TitleBar overlay : positionnée absolute par-dessus le contenu. Le
-  // contenu (sidebar/main/login/resume) remonte à y=0 et ses bgs/gradients
-  // s'étendent naturellement jusqu'au top de la fenêtre. La TitleBar ne
-  // crée plus de bande noire séparante — seuls les boutons minimize/close
-  // flottent en haut à droite. Cf TitleBar.tsx pour le détail des zones
-  // (spacer / drag-region / boutons).
+  // Bande haute drag-region : transparente, 32px, full-width sur les ecrans
+  // sans sidebar (login + resume), avec un spacer non-interactif de 72px
+  // au-dessus de la sidebar sur les ecrans auth pour ne pas avaler le click
+  // du logo R. WindowControls passent au-dessus en z-50 (cf composant).
+  const showSidebarSpacer = isAuthenticated && !isResuming;
+
   return (
     <div className="relative h-screen overflow-hidden bg-background">
       <div className="relative flex h-full min-h-0 flex-col">
@@ -71,6 +77,9 @@ export function App() {
               <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
               <Route path="/whitelist" element={<Whitelist />} />
               <Route path="/character" element={<Character />} />
+              <Route path="/mods" element={<Mods />} />
+              <Route path="/map" element={<Map />} />
+              <Route path="/screenshots" element={<Screenshots />} />
               <Route path="/rules" element={<Rules />} />
               <Route path="/rules/:slug" element={<RuleDetail />} />
               <Route path="/lore" element={<Lore />} />
@@ -85,16 +94,28 @@ export function App() {
           </Routes>
         )}
       </div>
-      {/* TitleBar overlay : reste après le contenu pour être au-dessus dans
-          le z-order (z-50 dans le composant). Visible sur tous les écrans
-          (login, resume, authenticated). */}
-      <TitleBar />
+
+      {/* Drag-region + WindowControls : top-level, visibles sur tous les
+          ecrans (login, resume, authenticated). */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-40 flex"
+        style={{ height: DRAG_HEIGHT }}
+        aria-hidden
+      >
+        {showSidebarSpacer && (
+          <div style={{ width: SIDEBAR_WIDTH }} aria-hidden />
+        )}
+        <div className="drag-region pointer-events-auto flex-1" />
+      </div>
+      <WindowControls />
     </div>
   );
 }
 
-// TODO: implémenter ces routes (Boutique, Documentation) — actuellement
-// montées sur ce placeholder en attendant les composants dédiés.
+// TODO: implémenter ces routes (Boutique, Documentation, Mods, Carte) —
+// actuellement montées sur ce placeholder en attendant les composants
+// dédiés. /screenshots est désormais brancher sur le composant
+// Screenshots (CHANTIER C).
 function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="flex h-full items-center justify-center">

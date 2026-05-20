@@ -374,69 +374,321 @@ body,
 }
 
 /* ============================================================
-   Sidebar — animations d'entrée + dots pulsés (online / status)
+   Sidebar v2 — 72px fine sidebar (icon-only nav + user popover)
+   Refonte design v3 : la sidebar 280px de la v2 est remplacee par un
+   rail icone-only de 72px. Les anciennes classes (.reborn-nav-item-mount,
+   .reborn-status-dot, etc.) ont ete supprimees avec les composants v1.
    ============================================================ */
 
-/* Slide-in de la sidebar au mount, 400ms ease-out custom. */
-@keyframes reborn-sidebar-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(-24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
+/* Pas d'animation de mount sur la sidebar — feedback utilisateur :
+   le slide-in donnait une sensation instable, on prefere un rail
+   statique qui apparait directement a sa place. */
 .reborn-sidebar-mount {
-  animation: reborn-sidebar-slide-in 400ms var(--ease-out) both;
+  /* Hook conserve pour de futurs styles globaux mais sans animation. */
 }
 
-/* Stagger des nav items — chaque item décale son entrée via animationDelay. */
-@keyframes reborn-nav-item-in {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+/* Nav rail : si jamais il y a overflow vertical (rare : 12-13 items
+   tiennent dans 720px mais marge faible), on masque la scrollbar pour
+   garder le rail propre. Le scroll reste fonctionnel a la molette. */
+.reborn-sidebar-nav {
+  scrollbar-width: none;
 }
-.reborn-nav-item-mount {
-  animation: reborn-nav-item-in 360ms var(--ease-out) both;
+.reborn-sidebar-nav::-webkit-scrollbar {
+  display: none;
 }
 
-/* Pulse ring autour du dot online de l'avatar utilisateur. */
+/* Logo R en haut de la sidebar — cliquable, pulse quand update dispo. */
+.reborn-sidebar-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 0 1px var(--color-accent-soft), 0 4px 12px -2px rgba(59, 91, 219, 0.4);
+}
+.reborn-sidebar-logo:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Pulse halo bleu quand une update launcher est dispo. */
+@keyframes reborn-sidebar-logo-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 var(--color-accent-glow),
+      0 4px 12px -2px rgba(59, 91, 219, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(59, 91, 219, 0),
+      0 4px 14px -2px rgba(59, 91, 219, 0.55);
+  }
+}
+.reborn-sidebar-logo--pulse {
+  animation: reborn-sidebar-logo-pulse 1.8s ease-in-out infinite;
+}
+
+/* Separateur fin sous le logo. */
+.reborn-sidebar-divider {
+  width: 32px;
+  height: 1px;
+  background: var(--color-border);
+  margin: 12px 0;
+}
+
+/* Bouton icone d'un item de nav — taille reduite pour serrer la sidebar
+   visuellement (moins charge entre les items, gap 2px au lieu de 4). */
+.reborn-sidebar-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--color-foreground-subtle);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.reborn-sidebar-btn:hover {
+  color: var(--color-foreground);
+  background: var(--color-surface-elevated);
+}
+.reborn-sidebar-btn[data-active="true"] {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+/* Liseré bleu vertical à gauche de l'item actif — restauré sur demande. */
+.reborn-sidebar-btn[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent-glow);
+}
+
+/* Badge texte (compteur) en haut-droite du bouton. */
+.reborn-sidebar-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--color-surface);
+}
+/* Pastille bleue 8px (sans texte). */
+.reborn-sidebar-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+/* Tooltip qui apparait a droite de l'icone au hover. Rendu via portal
+   dans document.body avec position:fixed pour echapper au clipping du
+   nav parent (overflow-y-auto). Coordonnees absolues calculees a partir
+   du rect du bouton (cf SidebarIconButton.tsx::showTooltip). */
+.reborn-sidebar-tooltip {
+  position: fixed;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  background: var(--color-surface-overlay);
+  color: var(--color-foreground);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  z-index: 110;
+}
+
+/* Avatar utilisateur en bas de sidebar. */
+.reborn-sidebar-user {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.reborn-sidebar-user-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 0 0 1.5px var(--color-accent), 0 4px 8px -2px rgba(59, 91, 219, 0.4);
+}
+.reborn-sidebar-user-status {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+  border: 2px solid var(--color-surface);
+  animation: reborn-online-ring-pulse 2.2s ease-out infinite;
+}
+
+/* Popover du menu utilisateur — position: fixed pour echapper aux
+   stacking contexts du flex layout AuthenticatedLayout (sinon le main
+   column rendu apres la sidebar dans le DOM passe au-dessus du popover
+   meme avec z-index eleve, parce que la stacking est resolue au niveau
+   des freres flex). Ancrage : 80px = 72 (sidebar) + 8 (gap), 12px depuis
+   le bas = matche le padding-y de la sidebar. */
+.reborn-user-popover {
+  position: fixed;
+  left: 80px;
+  bottom: 12px;
+  width: 220px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: 100;
+}
+.reborn-user-popover-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 10px 8px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 6px;
+}
+.reborn-user-popover-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.reborn-user-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--color-foreground);
+  font-size: 13px;
+  background: transparent;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.reborn-user-popover-item:hover {
+  background: var(--color-surface-overlay);
+}
+.reborn-user-popover-item--danger {
+  color: var(--color-foreground-subtle);
+}
+.reborn-user-popover-item--danger:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* Pulse ring vert pour le dot de statut online. */
 @keyframes reborn-online-ring-pulse {
-  0%,
-  100% {
+  0%, 100% {
     box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55);
   }
   50% {
     box-shadow: 0 0 0 4px rgba(22, 163, 74, 0);
   }
 }
-.reborn-online-dot {
-  animation: reborn-online-ring-pulse 2.2s ease-out infinite;
+
+/* ============================================================
+   System modals — Update, GameCrash, Offline
+   ============================================================ */
+
+/* Spinner circulaire pour le state "installing" de l'UpdateModal. */
+@keyframes reborn-update-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+.reborn-update-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--color-accent-soft);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: reborn-update-spinner-rotate 0.9s linear infinite;
 }
 
-/* Pulse ring + halo lumineux pour le dot de statut serveur. */
-@keyframes reborn-status-dot-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 0 rgba(22, 163, 74, 0.55),
-      0 0 8px rgba(22, 163, 74, 0.7);
-  }
-  50% {
-    box-shadow:
-      0 0 0 6px rgba(22, 163, 74, 0),
-      0 0 12px rgba(22, 163, 74, 0.9);
-  }
+/* Barre de progression du download. */
+.reborn-update-progress {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  overflow: hidden;
 }
-.reborn-status-dot {
-  animation: reborn-status-dot-pulse 2.2s ease-out infinite;
+.reborn-update-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+  transition: width 0.3s var(--ease-out);
+}
+
+/* Shake animation pour l'icone du GameCrashModal. */
+@keyframes reborn-crash-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+  20%, 40%, 60%, 80% { transform: translateX(3px); }
+}
+.reborn-crash-icon {
+  animation: reborn-crash-shake 0.6s ease-in-out;
 }
 
 /* ============================================================
@@ -2706,4 +2958,1981 @@ body,
     0 0 0 4px rgba(59, 91, 219, 0.18),
     0 2px 6px rgba(0, 0, 0, 0.5);
   cursor: grab;
+}
+
+/* ============================================================
+   Screenshots gallery — toolbar / grid / list / detailed / filters /
+   lightbox. Toutes les classes prefixees reborn-shots- pour ne pas
+   collisionner avec d'eventuelles utility classes Tailwind.
+   ============================================================ */
+
+.reborn-shots-page {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+.reborn-shots-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 32px 36px 24px;
+}
+
+/* --- Header --- */
+.reborn-shots-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.reborn-shots-subhead {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-shots-subhead-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-foreground-muted);
+}
+.reborn-shots-head-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-foreground);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-head-btn:hover {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-accent);
+}
+.reborn-shots-head-btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+.reborn-shots-head-btn--primary:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+/* --- Layout (main + filters) --- */
+.reborn-shots-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 24px;
+}
+
+/* --- Toolbar --- */
+.reborn-shots-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-foreground-subtle);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-search:focus-within {
+  border-color: var(--color-accent);
+}
+.reborn-shots-search input {
+  background: transparent;
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-foreground);
+}
+.reborn-shots-search input::placeholder {
+  color: var(--color-foreground-muted);
+}
+.reborn-shots-viewtoggle {
+  display: inline-flex;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+.reborn-shots-viewtoggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-foreground-subtle);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-viewtoggle button:hover {
+  color: var(--color-foreground);
+}
+.reborn-shots-viewtoggle button[data-active="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* --- Grid layout --- */
+.reborn-shots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.reborn-shots-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  padding: 0;
+}
+.reborn-shots-thumb-art {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+.reborn-shots-thumb-server {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(7, 8, 11, 0.65);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(4px);
+}
+.reborn-shots-thumb-pin {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 8, 11, 0.65);
+  color: var(--color-warning);
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(4px);
+}
+.reborn-shots-thumb-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 24px 10px 10px;
+  background: linear-gradient(to top, rgba(7, 8, 11, 0.92), transparent);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+  display: flex;
+  flex-direction: column;
+}
+.reborn-shots-thumb:hover .reborn-shots-thumb-overlay {
+  opacity: 1;
+}
+.reborn-shots-thumb-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reborn-shots-thumb-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reborn-shots-thumb-sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--color-foreground-subtle);
+}
+
+/* --- List layout --- */
+.reborn-shots-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+}
+.reborn-shots-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-row:hover {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-accent);
+}
+.reborn-shots-row-thumb {
+  display: block;
+  width: 80px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background-size: cover;
+}
+.reborn-shots-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.reborn-shots-row-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reborn-shots-row-sub {
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-shots-row-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface-overlay);
+  border-radius: var(--radius-sm);
+}
+
+/* --- Detailed layout --- */
+.reborn-shots-detailed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.reborn-shots-detail-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.reborn-shots-detail-art {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+.reborn-shots-detail-body {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reborn-shots-detail-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reborn-shots-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--color-foreground-muted);
+}
+.reborn-shots-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.reborn-shots-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 10px;
+  color: var(--color-foreground);
+  background: var(--color-surface-overlay);
+  border-radius: var(--radius-full);
+}
+.reborn-shots-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.reborn-shots-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.reborn-shots-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--color-foreground);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-action-btn:hover {
+  background: var(--color-surface-elevated);
+}
+.reborn-shots-action-btn--danger:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* --- Filters --- */
+.reborn-shots-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  height: fit-content;
+  position: sticky;
+  top: 0;
+}
+.reborn-shots-filters-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.reborn-shots-filters-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-foreground-muted);
+}
+.reborn-shots-sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+}
+.reborn-shots-sort-btn:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-foreground);
+}
+.reborn-shots-sort-btn[data-active="true"] {
+  color: var(--color-foreground);
+}
+.reborn-shots-sort-btn[data-active="true"] .reborn-shots-sort-dot {
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent-glow);
+}
+.reborn-shots-sort-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+.reborn-shots-avatar-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-avatar-chip:hover {
+  color: var(--color-foreground);
+  border-color: var(--color-accent);
+}
+.reborn-shots-avatar-chip[data-active="true"] {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+.reborn-shots-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.reborn-shots-checkbox:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-foreground);
+}
+.reborn-shots-checkbox[data-active="true"] {
+  color: var(--color-foreground);
+}
+.reborn-shots-checkbox-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-checkbox[data-active="true"] .reborn-shots-checkbox-box {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.reborn-shots-checkbox-count {
+  font-size: 10px;
+  color: var(--color-foreground-muted);
+  font-family: var(--font-mono);
+}
+.reborn-shots-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-reset-btn:hover {
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground);
+}
+
+/* --- Empty state --- */
+.reborn-shots-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 60px 24px;
+  text-align: center;
+  margin-top: 16px;
+}
+.reborn-shots-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground-subtle);
+}
+.reborn-shots-empty-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-foreground-muted);
+}
+.reborn-shots-empty-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 0 var(--color-border-strong);
+}
+
+/* --- Footer stats --- */
+.reborn-shots-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 4px 0;
+  border-top: 1px solid var(--color-border);
+}
+.reborn-shots-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-shots-stats b {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+
+/* --- Lightbox --- */
+.reborn-shots-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: rgba(7, 8, 11, 0.96);
+  backdrop-filter: blur(6px);
+}
+.reborn-shots-lightbox-topbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px;
+}
+.reborn-shots-lightbox-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--color-foreground);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-lightbox-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.reborn-shots-lightbox-viewport {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 60px;
+  min-height: 0;
+}
+.reborn-shots-lightbox-img {
+  width: 100%;
+  max-width: 1080px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 20px 60px -8px rgba(0, 0, 0, 0.75),
+              0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.reborn-shots-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-foreground);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.reborn-shots-lightbox-nav--prev {
+  left: 16px;
+}
+.reborn-shots-lightbox-nav--next {
+  right: 16px;
+}
+.reborn-shots-lightbox-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 24px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.reborn-shots-lightbox-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+.reborn-shots-lightbox-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+  margin-top: 4px;
+}
+.reborn-shots-lightbox-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.reborn-shots-lightbox-strip {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.reborn-shots-lightbox-strip-item {
+  width: 48px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.55;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-lightbox-strip-item[data-active="true"] {
+  opacity: 1;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+/* ============================================================
+   Home v3 — header, hero, news, partners, footer
+   ============================================================ */
+
+/* Pattern identique a Lore/Rules (.reborn-grid-page) : le scroll est sur
+   le container direct, le bg radial subtil y est attache. Plus de
+   double-wrapper avec un bg qui reste fixed — comportement coherent. */
+.reborn-home-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 36px 56px 28px;
+  overflow-y: auto;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59, 91, 219, 0.08) 0%, transparent 60%);
+  background-color: var(--color-background);
+}
+
+/* --- Header (greeting + actions) --- */
+.reborn-home-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.reborn-home-greeting-line {
+  font-family: var(--font-display);
+  font-size: 26px;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+  line-height: 1.1;
+}
+.reborn-home-greeting-name {
+  color: var(--color-accent);
+}
+.reborn-home-greeting-meta {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-home-greeting-sep {
+  color: var(--color-foreground-muted);
+}
+.reborn-home-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.reborn-home-currency {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--radius-full);
+}
+.reborn-home-iconbtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--color-foreground-subtle);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.reborn-home-iconbtn:hover {
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground);
+}
+.reborn-home-iconbtn-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  border: 1.5px solid var(--color-surface);
+}
+
+/* --- Hero launch card --- */
+.reborn-home-hero {
+  position: relative;
+  min-height: 220px;
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 60% 80% at 0% 50%, rgba(59, 91, 219, 0.18) 0%, transparent 60%),
+    linear-gradient(135deg, var(--color-surface-elevated) 0%, var(--color-surface) 100%);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  animation: reborn-home-fadein 0.5s var(--ease-out) both;
+}
+@keyframes reborn-home-fadein {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reborn-home-hero-inner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding: 26px 28px;
+  min-height: 220px;
+  position: relative;
+  z-index: 1;
+}
+.reborn-home-hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--color-foreground-muted);
+  text-transform: uppercase;
+}
+.reborn-home-hero-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-foreground-muted);
+}
+.reborn-home-hero-title {
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 56px;
+  line-height: 0.95;
+  letter-spacing: 0.08em;
+  color: var(--color-foreground);
+  filter:
+    drop-shadow(0 0 24px rgba(59, 91, 219, 0.32))
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.06));
+}
+.reborn-home-hero-sub {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--color-foreground-subtle);
+  max-width: 420px;
+}
+.reborn-home-hero-meta {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.reborn-home-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface-overlay);
+  border-radius: var(--radius-sm);
+}
+.reborn-home-hero-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- Section heading (Actualités, Partenaires) --- */
+.reborn-home-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.reborn-home-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.reborn-home-section-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+
+/* --- News grid : 1 large gauche (full height) + 2 small empilees droite --- */
+.reborn-home-news-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  height: 280px;
+}
+.reborn-news-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
+  min-height: 0;
+}
+.reborn-news-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6),
+              0 0 0 1px var(--color-accent-soft);
+}
+.reborn-news-card--large {
+  grid-row: span 2;
+  flex-direction: column;
+}
+.reborn-news-card--large .reborn-news-card-art {
+  height: 140px;
+}
+.reborn-news-card--small {
+  flex-direction: row;
+}
+.reborn-news-card--small .reborn-news-card-art {
+  width: 110px;
+  height: 100%;
+  flex-shrink: 0;
+}
+.reborn-news-card-art {
+  height: 90px;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reborn-news-card-icon {
+  width: 28px;
+  height: 28px;
+  color: rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+}
+.reborn-news-card-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.reborn-news-card-kicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.reborn-news-card-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+}
+.reborn-news-card-excerpt {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.reborn-news-card-link {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-accent);
+}
+.reborn-news-card--large .reborn-news-card-title {
+  font-size: 22px;
+}
+
+/* --- Partners row --- */
+.reborn-home-partners {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+.reborn-home-partner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 72px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-home-partner:hover {
+  border-color: var(--color-accent);
+}
+.reborn-home-partner-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  color: var(--color-foreground);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.4);
+}
+
+/* --- Mega-footer --- */
+.reborn-home-footer {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 0.8fr;
+  gap: 24px;
+  padding: 20px 0 16px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-foreground-subtle);
+  font-size: 12px;
+}
+.reborn-home-footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.reborn-home-footer-col-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.reborn-home-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.reborn-home-footer-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 10px -2px rgba(59, 91, 219, 0.4);
+}
+.reborn-home-footer-brand-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.reborn-home-footer-brand-sub {
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+  margin-top: 2px;
+}
+.reborn-home-footer-copy {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-foreground-muted);
+}
+.reborn-home-footer-tech-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reborn-home-footer-tech-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  border-radius: var(--radius-sm);
+}
+.reborn-home-footer-tech-mark--mc {
+  background: linear-gradient(135deg, #4a7a3c, #2d5022);
+}
+.reborn-home-footer-tech-mark--fb {
+  background: linear-gradient(135deg, #6b3a8c, #4a276b);
+}
+.reborn-home-footer-tech-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+.reborn-home-footer-tech-ver {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-foreground-muted);
+}
+.reborn-home-footer-socials {
+  display: flex;
+  gap: 6px;
+}
+.reborn-home-footer-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.reborn-home-footer-social:hover {
+  background: var(--color-surface-elevated);
+  color: var(--color-accent);
+}
+.reborn-home-footer-server {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-foreground-subtle);
+}
+.reborn-home-footer-server-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+}
+.reborn-home-footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.reborn-home-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-foreground-subtle);
+  text-decoration: none;
+  font-size: 11px;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.reborn-home-footer-links a:hover {
+  color: var(--color-accent);
+}
+
+/* ============================================================
+   Map page — stub design (en attendant le vrai viewer)
+   ============================================================ */
+
+.reborn-map-page {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+}
+.reborn-map-stub {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 36px 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.reborn-map-stub-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 24px rgba(59, 91, 219, 0.2);
+}
+.reborn-map-stub-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+}
+.reborn-map-stub-title {
+  font-family: var(--font-display);
+  font-size: 36px;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.reborn-map-stub-sub {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+  max-width: 520px;
+}
+
+/* Preview mockup */
+.reborn-map-preview {
+  position: relative;
+  width: 100%;
+  max-width: 820px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  margin-top: 8px;
+}
+.reborn-map-preview-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 35% at 30% 40%, oklch(0.45 0.12 140) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 75% 65%, oklch(0.4 0.1 280) 0%, transparent 65%),
+    repeating-linear-gradient(0deg,
+      rgba(59, 91, 219, 0.05) 0,
+      rgba(59, 91, 219, 0.05) 1px,
+      transparent 1px,
+      transparent 28px),
+    repeating-linear-gradient(90deg,
+      rgba(59, 91, 219, 0.05) 0,
+      rgba(59, 91, 219, 0.05) 1px,
+      transparent 1px,
+      transparent 28px),
+    linear-gradient(180deg, oklch(0.18 0.04 250) 0%, oklch(0.1 0.03 250) 100%);
+}
+.reborn-map-preview-overlay {
+  position: absolute;
+  inset: 0;
+}
+.reborn-map-preview-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.reborn-map-ctrl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  background: rgba(7, 8, 11, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.reborn-map-preview-pins {
+  position: absolute;
+  inset: 0;
+}
+.reborn-map-pin {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 0 12px var(--color-accent-glow);
+  transform: translate(-50%, -100%);
+}
+.reborn-map-pin--alt {
+  background: var(--color-success);
+  box-shadow: 0 0 12px rgba(22, 163, 74, 0.5);
+}
+.reborn-map-pin--gold {
+  background: var(--color-warning);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
+.reborn-map-preview-coord {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-foreground-subtle);
+  background: rgba(7, 8, 11, 0.7);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(4px);
+}
+.reborn-map-preview-coord-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-foreground-muted);
+}
+.reborn-map-preview-locked {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 8, 11, 0.5);
+  backdrop-filter: blur(2px);
+}
+.reborn-map-preview-locked-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  background: rgba(7, 8, 11, 0.85);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+}
+
+/* Roadmap 3 etapes */
+.reborn-map-roadmap {
+  margin-top: 8px;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  max-width: 820px;
+}
+.reborn-map-roadmap-step {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+.reborn-map-roadmap-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.reborn-map-roadmap-step--done .reborn-map-roadmap-dot {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.4);
+}
+.reborn-map-roadmap-step--active .reborn-map-roadmap-dot {
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+  animation: reborn-online-ring-pulse 2.2s ease-out infinite;
+}
+.reborn-map-roadmap-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.reborn-map-roadmap-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-map-roadmap-line {
+  flex-shrink: 0;
+  align-self: center;
+  width: 16px;
+  height: 1px;
+  background: var(--color-border-strong);
+}
+
+/* ============================================================
+   Toggle reutilisable (Mods, Settings)
+   ============================================================ */
+
+.reborn-toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-toggle:hover:not([data-locked]) {
+  border-color: var(--color-accent);
+}
+.reborn-toggle[data-on] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.reborn-toggle[data-locked] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.reborn-toggle-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform var(--duration-fast) var(--ease-spring);
+}
+.reborn-toggle[data-on] .reborn-toggle-knob {
+  transform: translateX(16px);
+}
+
+/* ============================================================
+   Mods page (Mods / Shaders / Resource Packs)
+   ============================================================ */
+
+.reborn-mods-page {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+.reborn-mods-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 32px 36px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Header generique reutilise par Mods + Settings */
+.reborn-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.reborn-page-kicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.reborn-page-title {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 32px;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.reborn-page-sub {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+  max-width: 520px;
+}
+.reborn-page-header-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reborn-mods-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 240px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-foreground-subtle);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-mods-search:focus-within {
+  border-color: var(--color-accent);
+}
+.reborn-mods-search input {
+  background: transparent;
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-foreground);
+}
+.reborn-mods-search input::placeholder {
+  color: var(--color-foreground-muted);
+}
+
+/* Layout : tabs sidebar + main content */
+.reborn-mods-body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 20px;
+}
+
+/* Tabs sidebar */
+.reborn-mods-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  height: fit-content;
+  position: sticky;
+  top: 0;
+}
+.reborn-mods-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-foreground-subtle);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+  text-align: left;
+}
+.reborn-mods-tab:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-foreground);
+}
+.reborn-mods-tab[data-active] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.reborn-mods-tab-count {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-foreground-muted);
+  background: var(--color-surface);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+.reborn-mods-tab[data-active] .reborn-mods-tab-count {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+/* Grid des cards */
+.reborn-mods-main {
+  min-width: 0;
+}
+.reborn-mods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 10px;
+}
+
+/* ModCard */
+.reborn-mod-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out);
+}
+.reborn-mod-card:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface-elevated);
+}
+.reborn-mod-card[data-required] {
+  border-color: rgba(59, 91, 219, 0.3);
+}
+.reborn-mod-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.reborn-mod-body {
+  min-width: 0;
+}
+.reborn-mod-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.reborn-mod-desc {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-foreground-subtle);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.reborn-mod-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.reborn-mod-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  color: var(--color-foreground-muted);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+}
+.reborn-mod-badge[data-installed] {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+  border-color: var(--color-success);
+}
+.reborn-mod-badge[data-required] {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+.reborn-mod-badge[data-incompatible] {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger);
+}
+.reborn-mod-card[data-incompatible] {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.reborn-mod-version {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-foreground-muted);
+  font-weight: normal;
+  letter-spacing: 0;
+}
+
+/* Etats Mods page */
+.reborn-mods-main-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.reborn-mods-loading,
+.reborn-mods-empty-filter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+.reborn-mods-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+.reborn-mods-stat--warn {
+  color: var(--color-warning) !important;
+}
+.reborn-mods-stat-dot--warn {
+  background: var(--color-warning);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+}
+.reborn-mods-stat--muted {
+  color: var(--color-foreground-muted);
+}
+.reborn-mods-reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Settings v3 — sidebar verticale 8 catégories
+   ============================================================ */
+
+.reborn-settings-page {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+.reborn-settings-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 36px 56px 28px;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59, 91, 219, 0.08) 0%, transparent 60%);
+  background-color: var(--color-background);
+}
+.reborn-settings-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 32px;
+}
+
+/* Sidebar verticale */
+.reborn-settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  height: fit-content;
+  position: sticky;
+  top: 0;
+}
+.reborn-settings-cat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.reborn-settings-cat:hover {
+  background: var(--color-surface-overlay);
+}
+.reborn-settings-cat[data-active] {
+  background: var(--color-accent-soft);
+}
+.reborn-settings-cat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface-overlay);
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out);
+}
+.reborn-settings-cat[data-active] .reborn-settings-cat-icon {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+.reborn-settings-cat-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.reborn-settings-cat-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-foreground-subtle);
+  letter-spacing: 0.02em;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.reborn-settings-cat[data-active] .reborn-settings-cat-label {
+  color: var(--color-foreground);
+}
+.reborn-settings-cat-hint {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reborn-settings-cat-chevron {
+  color: var(--color-foreground-muted);
+  opacity: 0.5;
+  transition: opacity var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.reborn-settings-cat[data-active] .reborn-settings-cat-chevron {
+  opacity: 1;
+  color: var(--color-accent);
+}
+
+/* Contenu panel */
+.reborn-settings-content {
+  min-width: 0;
+}
+
+/* Empty state Resource Packs (locked) */
+.reborn-mods-locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 24px;
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+.reborn-mods-locked-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.reborn-mods-locked-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--color-foreground);
+}
+.reborn-mods-locked-desc {
+  max-width: 420px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+}
+.reborn-mods-locked-meta {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-foreground-muted);
+  padding: 4px 10px;
+  background: var(--color-surface-overlay);
+  border-radius: var(--radius-sm);
+}
+
+/* Footer stats */
+.reborn-mods-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+.reborn-mods-footer-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.reborn-mods-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-mods-stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.reborn-mods-stat-dot--required {
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent-glow);
+}
+.reborn-mods-stat-dot--optional {
+  background: var(--color-success);
+}
+.reborn-mods-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.reborn-mods-reset-btn:hover {
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground);
 }

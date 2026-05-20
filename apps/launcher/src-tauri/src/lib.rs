@@ -8,6 +8,7 @@ mod hardware;
 mod integrity;
 mod launcher;
 mod manifest;
+mod network;
 mod social;
 mod storage;
 
@@ -108,6 +109,7 @@ pub fn run() {
             content::prefs_get,
             content::prefs_set,
             hardware::system_specs_get,
+            network::network_ping_health,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

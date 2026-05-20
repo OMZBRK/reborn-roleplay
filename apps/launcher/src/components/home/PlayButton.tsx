@@ -208,24 +208,29 @@ function PrimaryButton({
   checking: boolean;
   onClick: () => void;
 }) {
+  // Icone absolute-positioned a gauche pour ne pas decaler le centrage du
+  // texte. Sans ca, "Créer mon personnage" (21 chars) tirait le label
+  // hors-centre vs "JOUER" (5 chars) qui paraissait centre.
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="reborn-pulse-glow group inline-flex items-center gap-3 rounded-[14px] px-10 py-4 font-display text-[28px] tracking-[0.08em] text-white transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-80"
+      className="reborn-pulse-glow group relative flex items-center justify-center rounded-[14px] px-12 py-4 font-display text-[28px] tracking-[0.08em] text-white transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-80"
       style={{
         background: "linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%)",
         border: "1px solid rgba(255,255,255,0.08)",
         minWidth: 240,
       }}
     >
-      {checking ? (
-        <RefreshCw className="h-[26px] w-[26px] animate-spin" strokeWidth={2} />
-      ) : (
-        <Play className="h-[26px] w-[26px]" strokeWidth={2} fill="currentColor" />
-      )}
-      <span>{label}</span>
+      <span className="absolute left-5 flex items-center">
+        {checking ? (
+          <RefreshCw className="h-[26px] w-[26px] animate-spin" strokeWidth={2} />
+        ) : (
+          <Play className="h-[26px] w-[26px]" strokeWidth={2} fill="currentColor" />
+        )}
+      </span>
+      <span className="text-center">{label}</span>
     </button>
   );
 }

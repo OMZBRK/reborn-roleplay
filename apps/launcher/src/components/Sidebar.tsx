@@ -1,157 +1,172 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useMemo, useState, type ComponentType } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { AnimatePresence } from "framer-motion";
 import {
+  Book,
   BookOpen,
+  FileQuestion,
   FileText,
-  Gavel,
-  Home,
+  Image,
   LifeBuoy,
-  Newspaper,
+  Home,
+  Map,
+  Package,
   ShoppingBag,
-  Swords,
+  Sparkles,
+  User,
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
 import { useWhitelistStore } from "../stores/whitelist-store";
-import { logout } from "../lib/auth";
-import { fetchServerStatus, type ServerStatus } from "../lib/content";
-import { UserBlock } from "./sidebar/UserBlock";
-import { NavSection, type NavSectionConfig } from "./sidebar/NavSection";
-import { ServerStatusFooter } from "./sidebar/ServerStatusFooter";
-import { WhitelistBadge } from "./sidebar/WhitelistBadge";
+import { useUpdateStore } from "../stores/update-store";
+import { SidebarIconButton } from "./shell/SidebarIconButton";
+import { UserMenuPopover } from "./shell/UserMenuPopover";
 
-// Polling toutes les 30s pour le statut serveur. Coté API on a un cache 10s
-// donc 3 requêtes max par minute par client — pas de pression sur Paper.
-const SERVER_POLL_MS = 30_000;
+// Sidebar fine 72px : logo R (cliquable → /home, pulse si update dispo),
+// nav verticale, spacer, avatar utilisateur en bas qui ouvre un popover.
+// La structure des items vient des consignes de la maquette — un seul
+// regroupement contigu (plus de sections Principal / Communaute / Contenu
+// de la v1, l'iconographie + tooltip suffisent a la navigation).
+
+type SidebarItem = {
+  id: string;
+  label: string;
+  route: string;
+  icon: ComponentType<{ size?: number; className?: string }>;
+  badge?: string;
+  dotBadge?: boolean;
+};
 
 export function Sidebar() {
-  const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
+  const location = useLocation();
+  const user = useAuthStore((s) => s.user);
   const whitelistStatus = useWhitelistStore((s) => s.status);
+  const updateAvailable = useUpdateStore((s) => s.available);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  // Sections déclarées dans le composant pour pouvoir injecter le badge
-  // contextuel "Whitelist" en fonction du statut courant (pending/accepted).
-  const navSections: NavSectionConfig[] = useMemo(
-    () => [
+  const items = useMemo<SidebarItem[]>(() => {
+    // Whitelist : dot badge bleu uniquement sur "pending" (review en cours).
+    // Icone FileText constante. Sur "accepted", l'item "Mon personnage"
+    // s'ajoute juste apres pour materialiser le statut.
+    const base: SidebarItem[] = [
+      { id: "home", label: "Accueil", route: "/home", icon: Home },
+      { id: "shop", label: "Boutique", route: "/shop", icon: ShoppingBag },
       {
-        label: "Principal",
-        items: [
-          { to: "/home", label: "Accueil", icon: Home },
-          { to: "/shop", label: "Boutique", icon: ShoppingBag },
-        ],
+        id: "whitelist",
+        label: "Whitelist",
+        route: "/whitelist",
+        icon: FileText,
+        dotBadge: whitelistStatus === "pending",
       },
-      {
-        label: "Communauté",
-        items: [
-          {
-            to: "/whitelist",
-            label: "Whitelist",
-            icon: Swords,
-            badge: <WhitelistBadge status={whitelistStatus} />,
-          },
-          { to: "/tickets", label: "Tickets", icon: LifeBuoy },
-        ],
-      },
-      {
-        label: "Contenu",
-        items: [
-          { to: "/rules", label: "Règlement", icon: Gavel },
-          { to: "/lore", label: "Lore", icon: BookOpen },
-          { to: "/patchnotes", label: "Patch Notes", icon: Newspaper },
-          { to: "/docs", label: "Documentation", icon: FileText },
-        ],
-      },
-    ],
-    [whitelistStatus],
-  );
+    ];
 
-  // État du serveur Minecraft (ping via /v1/server/status). null pendant la
-  // toute première fetch — affichage "—" pour les chiffres.
-  const [server, setServer] = useState<ServerStatus | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: number | undefined;
-    async function poll() {
-      try {
-        const data = await fetchServerStatus();
-        if (!cancelled) setServer(data);
-      } catch (err) {
-        // L'API peut être down (dev local). On retombe sur l'état "offline"
-        // visuellement plutôt que de laisser des chiffres factices.
-        if (!cancelled) {
-          console.warn("[sidebar] server status failed:", err);
-          setServer((prev) =>
-            prev ?? {
-              online: false,
-              players: 0,
-              capacity: 0,
-              ping: null,
-              version: null,
-              motd: null,
-              ip: "—",
-              measuredAt: new Date().toISOString(),
-            },
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          timer = window.setTimeout(poll, SERVER_POLL_MS);
-        }
-      }
+    if (whitelistStatus === "accepted") {
+      base.push({
+        id: "character",
+        label: "Mon personnage",
+        route: "/character",
+        icon: User,
+      });
     }
-    poll();
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, []);
 
-  // Offsets cumulés pour que la stagger animation s'enchaîne sur toute la liste
-  const itemOffsets = useMemo(() => {
-    const out: number[] = [];
-    let acc = 0;
-    navSections.forEach((s) => {
-      out.push(acc);
-      acc += s.items.length;
-    });
-    return out;
-  }, [navSections]);
+    base.push(
+      { id: "mods", label: "Mods", route: "/mods", icon: Package },
+      { id: "map", label: "Carte", route: "/map", icon: Map },
+      {
+        id: "screenshots",
+        label: "Screenshots",
+        route: "/screenshots",
+        icon: Image,
+      },
+      {
+        id: "tickets",
+        label: "Tickets",
+        route: "/tickets",
+        icon: LifeBuoy,
+        // TODO: brancher sur un compteur de tickets non-lus quand l'API
+        // exposera un endpoint /v1/tickets/me/unread-count.
+      },
+      { id: "rules", label: "Règlement", route: "/rules", icon: Book },
+      { id: "lore", label: "Lore", route: "/lore", icon: BookOpen },
+      {
+        id: "patchnotes",
+        label: "Patch Notes",
+        route: "/patchnotes",
+        icon: Sparkles,
+        // TODO: brancher sur "patchnote non lu" quand le store/endpoint
+        // existera (LastReadPatchnoteAt cote user).
+      },
+      { id: "docs", label: "Documentation", route: "/docs", icon: FileQuestion },
+    );
 
-  async function handleLogout() {
-    try {
-      await logout();
-    } finally {
-      setSession(null);
-      navigate("/login", { replace: true });
-    }
-  }
+    return base;
+  }, [whitelistStatus]);
+
+  // Determine l'item actif via le pathname. On match sur le prefix pour que
+  // /rules/<slug> reste actif sur l'item Reglement.
+  const activeId = useMemo(() => {
+    const path = location.pathname;
+    const match = items.find(
+      (it) => path === it.route || path.startsWith(`${it.route}/`),
+    );
+    return match?.id ?? null;
+  }, [items, location.pathname]);
+
+  const pseudo = user?.displayName ?? user?.minecraftUsername ?? "Joueur";
+  const initial = pseudo.charAt(0).toUpperCase();
 
   return (
-    <aside
-      className="reborn-sidebar-mount flex h-full shrink-0 flex-col border-r border-border bg-surface"
-      style={{ width: 280 }}
-    >
-      <UserBlock />
+    <aside className="reborn-sidebar-mount flex h-full w-[72px] shrink-0 flex-col items-center border-r border-[var(--color-border)] bg-[var(--color-surface)] py-3">
+      <button
+        type="button"
+        onClick={() => navigate("/home")}
+        title={
+          updateAvailable
+            ? "Mise à jour disponible — clic pour ouvrir l'accueil"
+            : "Accueil"
+        }
+        aria-label="Accueil"
+        className={[
+          "reborn-sidebar-logo",
+          updateAvailable && "reborn-sidebar-logo--pulse",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        R
+      </button>
 
-      <nav className="flex-1 overflow-y-auto py-2">
-        {navSections.map((section, i) => (
-          <NavSection
-            key={section.label}
-            section={section}
-            isFirst={i === 0}
-            itemOffset={itemOffsets[i]}
+      <div className="reborn-sidebar-divider" />
+
+      <nav className="reborn-sidebar-nav flex flex-1 flex-col items-center gap-[2px] overflow-y-auto py-1">
+        {items.map((it) => (
+          <SidebarIconButton
+            key={it.id}
+            icon={it.icon}
+            label={it.label}
+            active={activeId === it.id}
+            badge={it.badge}
+            dotBadge={it.dotBadge}
+            onClick={() => navigate(it.route)}
           />
         ))}
       </nav>
 
-      <ServerStatusFooter
-        online={server?.online ?? false}
-        players={server?.players ?? 0}
-        capacity={server?.capacity ?? 0}
-        ping={server?.ping ?? null}
-        ip={server?.ip ?? "—"}
-        onLogout={handleLogout}
-      />
+      <div className="relative mt-2">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="Menu utilisateur"
+          aria-expanded={menuOpen}
+          className="reborn-sidebar-user"
+        >
+          <span className="reborn-sidebar-user-initial">{initial}</span>
+          <span className="reborn-sidebar-user-status" />
+        </button>
+        <AnimatePresence>
+          {menuOpen && <UserMenuPopover onClose={() => setMenuOpen(false)} />}
+        </AnimatePresence>
+      </div>
     </aside>
   );
 }
