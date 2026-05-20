@@ -30,6 +30,14 @@ export class GetUpdateQueryDto {
   @IsString()
   @MaxLength(32)
   channel?: string;
+
+  // Tauri passe `{{arch}}` dans l'URL d'endpoint (cf tauri.conf.json).
+  // On l'accepte (optionnel, ignore) pour ne pas planter en 400 sur les
+  // launchers existants qui mettent ce param systematiquement.
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  arch?: string;
 }
 
 export class CreateReleaseDto {
