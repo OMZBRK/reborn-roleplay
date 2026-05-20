@@ -7,9 +7,10 @@ type Props = {
   accounts: SavedAccount[];
   onPick: (a: SavedAccount) => void;
   onAdd: () => void;
+  onRemove?: (a: SavedAccount) => void;
 };
 
-export function SavedAccountsCarousel({ accounts, onPick, onAdd }: Props) {
+export function SavedAccountsCarousel({ accounts, onPick, onAdd, onRemove }: Props) {
   if (accounts.length === 0) return null;
 
   return (
@@ -21,6 +22,7 @@ export function SavedAccountsCarousel({ accounts, onPick, onAdd }: Props) {
           lastSeen={a.lastSeen}
           seed={a.seed}
           onClick={() => onPick(a)}
+          onRemove={onRemove ? () => onRemove(a) : undefined}
         />
       ))}
       <motion.button

@@ -42,6 +42,14 @@ export async function loginWithSavedAccount(uuid: string): Promise<AuthSession> 
   return invoke<AuthSession>("auth_login_with_saved_account", { uuid });
 }
 
+/** Supprime les slots keyring per-uuid d'un compte (refresh MS + refresh
+ *  API). N'affecte pas la session courante si le compte oublie est le user
+ *  actif — le retrait du carousel cote frontend (removeSavedAccount du
+ *  store) est complementaire. */
+export async function forgetAccount(uuid: string): Promise<void> {
+  await invoke<void>("auth_forget_account", { uuid });
+}
+
 /** Dev-only : login factice (cf docs/adr/0001-...). */
 export async function devLogin(username: string): Promise<AuthSession> {
   return invoke<AuthSession>("auth_dev_login", { username });

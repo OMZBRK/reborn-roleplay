@@ -77,6 +77,7 @@ pub fn run() {
             auth::auth_logout,
             auth::auth_dev_login,
             auth::auth_login_with_saved_account,
+            auth::auth_forget_account,
             launcher::launcher_check_update,
             launcher::launcher_apply_update,
             launcher::game::launcher_launch_game,

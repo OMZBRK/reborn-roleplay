@@ -8,6 +8,7 @@ import {
   asAuthError,
   devLogin,
   explainAuthError,
+  forgetAccount,
   loginWithMicrosoft,
   loginWithSavedAccount,
 } from "../lib/auth";
@@ -26,6 +27,7 @@ export function Login() {
   const setLoading = useAuthStore((s) => s.setLoading);
   const setError = useAuthStore((s) => s.setError);
   const addSavedAccount = useAuthStore((s) => s.addSavedAccount);
+  const removeSavedAccount = useAuthStore((s) => s.removeSavedAccount);
 
   const btnState: "idle" | "loading" | "error" = isLoading
     ? "loading"
@@ -67,6 +69,19 @@ export function Login() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleRemoveSaved(account: SavedAccount) {
+    // Best-effort : on supprime d'abord les slots keyring per-uuid (Rust),
+    // puis l'entree carousel (plugin-store). Si le keyring fail (rare), on
+    // retire quand meme la carte du UI — sinon l'utilisateur ne peut plus
+    // s'en debarrasser.
+    try {
+      await forgetAccount(account.minecraftUuid);
+    } catch {
+      // Slots deja vides ou keyring inaccessible : on continue.
+    }
+    await removeSavedAccount(account.pseudo);
   }
 
   async function handlePickSaved(account: SavedAccount) {
@@ -131,6 +146,7 @@ export function Login() {
               accounts={savedAccounts}
               onPick={handlePickSaved}
               onAdd={runInteractiveLogin}
+              onRemove={handleRemoveSaved}
             />
           </motion.div>
         )}

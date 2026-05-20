@@ -458,6 +458,27 @@ pub async fn auth_login_with_saved_account(
     }
 }
 
+/// "Oublier ce compte" depuis le carousel : supprime les slots keyring
+/// per-uuid (refresh MS + refresh API) pour qu'un futur clic sur la carte
+/// re-bascule en OAuth interactif (chemin `NoStoredCredentials` cote
+/// frontend). Les slots legacy ne sont PAS touches : si le compte oublie
+/// se trouve aussi etre le user actuellement connecte via try_resume, sa
+/// session courante reste intacte — l'oubli est purement "scoped au
+/// carousel". Le retrait de l'entree saved-accounts.json est fait cote
+/// frontend via le store Zustand (removeSavedAccount).
+#[tauri::command]
+pub async fn auth_forget_account(
+    state: State<'_, AuthState>,
+    uuid: String,
+) -> AuthResult<()> {
+    state
+        .inner()
+        .store
+        .delete_account_tokens(&uuid)
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn auth_logout(state: State<'_, AuthState>) -> AuthResult<()> {
     let store = state.store;
