@@ -61,14 +61,13 @@ public final class CentralLogo {
         // Responsive scale — réduit l'ensemble du logo sur petites fenêtres.
         float responsive = fr.reborn.integrity.ui.menu.MainMenuRenderer.responsiveScale(screenW);
 
-        int sigilDisplay = Math.round(SIGIL_DISPLAY_BASE * responsive);
-        float textScale = TEXT_SCALE_BASE * responsive;
-        int gapTextSigil = Math.round(GAP_TEXT_SIGIL_BASE * responsive);
+        // Sigil seul (sans le texte "RE" / "ORN") — version épurée.
+        int sigilDisplay = Math.round(SIGIL_DISPLAY_BASE * 1.4f * responsive);
 
         int sigilY = Math.round(screenH * TOP_FRACTION);
         int sigilX = (screenW - sigilDisplay) / 2;
 
-        // ─── Sigil PNG ───
+        // ─── Sigil PNG centré ───
         ctx.getMatrices().push();
         ctx.getMatrices().translate(sigilX, sigilY, 0);
         float sigilScale = (float) sigilDisplay / SIGIL_NATIVE;
@@ -77,31 +76,7 @@ public final class CentralLogo {
         ctx.drawTexture(SIGIL, 0, 0, 0f, 0f, SIGIL_NATIVE, SIGIL_NATIVE, SIGIL_NATIVE, SIGIL_NATIVE);
         ctx.getMatrices().pop();
 
-        // ─── Texte "RE" et "ORN" en Bebas Neue (size 32 dans le JSON) ───
-        Text textLeft = RebornFont.display("RE");
-        Text textRight = RebornFont.display("ORN");
-
-        int rawTextWLeft = tr.getWidth(textLeft);
-        int rawTextWRight = tr.getWidth(textRight);
-        int scaledTextHeight = Math.round(tr.fontHeight * textScale);
-
-        int textY = sigilY + sigilDisplay / 2 - scaledTextHeight / 2;
-
-        int textXLeft = sigilX - gapTextSigil - Math.round(rawTextWLeft * textScale);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(textXLeft, textY, 0);
-        ctx.getMatrices().scale(textScale, textScale, 1f);
-        ctx.drawText(tr, textLeft, 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
-
-        int textXRight = sigilX + sigilDisplay + gapTextSigil;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(textXRight, textY, 0);
-        ctx.getMatrices().scale(textScale, textScale, 1f);
-        ctx.drawText(tr, textRight, 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
-
-        // ─── Sous-titre "ROLEPLAY · SHINOBI CHRONICLE" ───
+        // ─── Sous-titre "ROLEPLAY · SHINOBI CHRONICLE" sous le sigil ───
         Text sub = RebornFont.body("ROLEPLAY  ·  SHINOBI CHRONICLE");
         float subScale = 1.3f * responsive;
         int subWidth = Math.round(tr.getWidth(sub) * subScale);

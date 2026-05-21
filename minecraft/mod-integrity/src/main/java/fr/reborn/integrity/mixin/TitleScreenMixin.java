@@ -209,24 +209,19 @@ public abstract class TitleScreenMixin extends Screen {
         context.getMatrices().push();
         context.getMatrices().translate(0, 0, 400);
 
-        // Rend l'UI Reborn par-dessus tout ce que vanilla a dessiné
-        // (panorama + logo MC + splash + copyright). Le logo central Reborn
-        // est positionné pour couvrir le logo MC vanilla. Les credits
-        // couvrent la version Fabric + copyright Mojang en bas. Le splash
-        // jaune dépasse à droite — accepté volontairement.
+        // Rend l'UI Reborn par-dessus tout ce que vanilla a dessiné.
+        // Le BackgroundRenderer couvre intégralement l'écran (gradient
+        // bleu nuit), donc on doit ensuite re-render TOUS les widgets
+        // cliquables (PressSpacePrompt, OST controls, OST overlays,
+        // bottom icons, X close) par-dessus, sinon ils sont masqués.
         MainMenuRenderer.render(context, this.width, this.height);
 
-        // Re-render les 4 IconButton OST controls par-dessus le BG de la
-        // card OST. Sans ça, le BG (dessiné par MainMenuRenderer) masque
-        // les contrôles qui ont été rendus en avance par super.render().
-        for (IconButton ctrl : reborn$ostControls) {
-            ctrl.render(context, mouseX, mouseY, delta);
-        }
-        // Idem pour les icons persistants (bottom-center + top-right X) —
-        // ils sont COUVERTS par les bandeaux gradient haut/bas de
-        // MainMenuRenderer. On les re-render au-dessus.
-        for (IconButton ic : reborn$persistentIcons) {
-            ic.render(context, mouseX, mouseY, delta);
+        // Re-render tous les widgets cliquables par-dessus le background.
+        // On itère sur children() pour ne rater aucun widget ajouté.
+        for (Element e : this.children()) {
+            if (e instanceof ClickableWidget cw) {
+                cw.render(context, mouseX, mouseY, delta);
+            }
         }
 
         context.getMatrices().pop();
