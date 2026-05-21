@@ -1,13 +1,13 @@
 package fr.reborn.integrity.ui.screens;
 
 import fr.reborn.integrity.ui.RebornBranding;
+import fr.reborn.integrity.ui.RebornButton;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.ControlsOptionsScreen;
 import net.minecraft.client.gui.screen.option.SoundOptionsScreen;
 import net.minecraft.client.gui.screen.option.VideoOptionsScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
 /**
@@ -41,30 +41,25 @@ public class RebornOptionsScreen extends Screen {
         int startY = Math.max(80, (this.height - totalH) / 2);
         int centerX = this.width / 2 - btnW / 2;
 
-        this.addDrawableChild(ButtonWidget.builder(
+        this.addDrawableChild(new RebornButton(centerX, startY, btnW, btnH,
             Text.literal("VIDÉO"),
-            b -> client.setScreen(new VideoOptionsScreen(this, client, client.options))
-        ).dimensions(centerX, startY, btnW, btnH).build());
+            b -> client.setScreen(new VideoOptionsScreen(this, client, client.options))));
 
-        this.addDrawableChild(ButtonWidget.builder(
+        this.addDrawableChild(new RebornButton(centerX, startY + (btnH + spacing), btnW, btnH,
             Text.literal("AUDIO"),
-            b -> client.setScreen(new SoundOptionsScreen(this, client.options))
-        ).dimensions(centerX, startY + (btnH + spacing), btnW, btnH).build());
+            b -> client.setScreen(new SoundOptionsScreen(this, client.options))));
 
-        this.addDrawableChild(ButtonWidget.builder(
+        this.addDrawableChild(new RebornButton(centerX, startY + 2 * (btnH + spacing), btnW, btnH,
             Text.literal("CONTRÔLES"),
-            b -> client.setScreen(new ControlsOptionsScreen(this, client.options))
-        ).dimensions(centerX, startY + 2 * (btnH + spacing), btnW, btnH).build());
+            b -> client.setScreen(new ControlsOptionsScreen(this, client.options))));
 
-        this.addDrawableChild(ButtonWidget.builder(
+        this.addDrawableChild(new RebornButton(centerX, startY + 3 * (btnH + spacing), btnW, btnH,
             Text.literal("DISCORD"),
-            b -> RebornBranding.openDiscord()
-        ).dimensions(centerX, startY + 3 * (btnH + spacing), btnW, btnH).build());
+            b -> RebornBranding.openDiscord()));
 
-        this.addDrawableChild(ButtonWidget.builder(
+        this.addDrawableChild(new RebornButton(centerX, startY + 4 * (btnH + spacing) + 16, btnW, btnH,
             Text.literal("RETOUR"),
-            b -> close()
-        ).dimensions(centerX, startY + 4 * (btnH + spacing) + 16, btnW, btnH).build());
+            b -> close()));
     }
 
     @Override

@@ -1,9 +1,9 @@
 package fr.reborn.integrity.ui.screens;
 
+import fr.reborn.integrity.ui.RebornButton;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
 /**
@@ -47,17 +47,19 @@ public class RulesLoreScreen extends Screen {
 
         for (int i = 0; i < TAB_LABELS.length; i++) {
             final int tab = i;
-            this.addDrawableChild(ButtonWidget.builder(
+            this.addDrawableChild(new RebornButton(
+                sidebarX, sidebarY + i * (btnH + spacing), btnW, btnH,
                 Text.literal(TAB_LABELS[i]),
                 b -> { this.activeTab = tab; this.scrollY = 0; }
-            ).dimensions(sidebarX, sidebarY + i * (btnH + spacing), btnW, btnH).build());
+            ));
         }
 
         // Bouton retour en bas.
-        this.addDrawableChild(ButtonWidget.builder(
+        this.addDrawableChild(new RebornButton(
+            sidebarX, this.height - 50, btnW, btnH,
             Text.literal("RETOUR"),
             b -> close()
-        ).dimensions(sidebarX, this.height - 50, btnW, btnH).build());
+        ));
     }
 
     @Override

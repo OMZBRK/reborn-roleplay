@@ -2,6 +2,7 @@ package fr.reborn.integrity.mixin;
 
 import fr.reborn.integrity.ui.OSTPlayerWidget;
 import fr.reborn.integrity.ui.RebornBranding;
+import fr.reborn.integrity.ui.RebornButton;
 import fr.reborn.integrity.ui.RebornLogo;
 import fr.reborn.integrity.ui.ServerInfoWidget;
 import fr.reborn.integrity.ui.screens.RebornOptionsScreen;
@@ -121,40 +122,21 @@ public abstract class TitleScreenMixin extends Screen {
         final int startY = Math.max(120, (this.height - totalH) / 2 + 20);
         final int centerX = this.width / 2 - btnW / 2;
 
-        this.addDrawableChild(
-            ButtonWidget.builder(
-                Text.literal("REJOINDRE LE SERVEUR"),
-                button -> RebornBranding.connectToReborn(client, this)
-            ).dimensions(centerX, startY, btnW, btnH).build()
-        );
-
-        this.addDrawableChild(
-            ButtonWidget.builder(
-                Text.literal("RÈGLEMENT & LORE"),
-                button -> client.setScreen(new RulesLoreScreen(this))
-            ).dimensions(centerX, startY + (btnH + spacing), btnW, btnH).build()
-        );
-
-        this.addDrawableChild(
-            ButtonWidget.builder(
-                Text.literal("DISCORD"),
-                button -> RebornBranding.openDiscord()
-            ).dimensions(centerX, startY + 2 * (btnH + spacing), btnW, btnH).build()
-        );
-
-        this.addDrawableChild(
-            ButtonWidget.builder(
-                Text.literal("PARAMÈTRES"),
-                button -> client.setScreen(new RebornOptionsScreen(this))
-            ).dimensions(centerX, startY + 3 * (btnH + spacing), btnW, btnH).build()
-        );
-
-        this.addDrawableChild(
-            ButtonWidget.builder(
-                Text.literal("QUITTER"),
-                button -> client.scheduleStop()
-            ).dimensions(centerX, startY + 4 * (btnH + spacing), btnW, btnH).build()
-        );
+        this.addDrawableChild(new RebornButton(centerX, startY, btnW, btnH,
+            Text.literal("REJOINDRE LE SERVEUR"),
+            b -> RebornBranding.connectToReborn(client, this)));
+        this.addDrawableChild(new RebornButton(centerX, startY + (btnH + spacing), btnW, btnH,
+            Text.literal("RÈGLEMENT & LORE"),
+            b -> client.setScreen(new RulesLoreScreen(this))));
+        this.addDrawableChild(new RebornButton(centerX, startY + 2 * (btnH + spacing), btnW, btnH,
+            Text.literal("DISCORD"),
+            b -> RebornBranding.openDiscord()));
+        this.addDrawableChild(new RebornButton(centerX, startY + 3 * (btnH + spacing), btnW, btnH,
+            Text.literal("PARAMÈTRES"),
+            b -> client.setScreen(new RebornOptionsScreen(this))));
+        this.addDrawableChild(new RebornButton(centerX, startY + 4 * (btnH + spacing), btnW, btnH,
+            Text.literal("QUITTER"),
+            b -> client.scheduleStop()));
 
         // 3. Lecteur OST en coin haut-droite (PR #4). Dimensions 240x56,
         //    a 10px du bord droit + 10px du haut.
