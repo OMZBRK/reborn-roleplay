@@ -9,11 +9,13 @@ import fr.reborn.integrity.ui.menu.OSTPlayerV2;
 import fr.reborn.integrity.ui.menu.PressSpacePrompt;
 import fr.reborn.integrity.ui.menu.QuitConfirmScreen;
 import fr.reborn.integrity.ui.screens.RebornOptionsScreen;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.world.SelectWorldScreen;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 import org.slf4j.Logger;
@@ -157,6 +159,24 @@ public abstract class TitleScreenMixin extends Screen {
             .withTooltipPlacement(IconButton.TooltipPlacement.LEFT);
         this.addDrawableChild(quit);
         reborn$persistentIcons.add(quit);
+
+        // 6. DEV ONLY — bouton "Solo (Dev)" à coté du X close pour pouvoir
+        //    tester l'ESC menu sans avoir besoin d'un compte MC vrai/serveur.
+        //    Détecté uniquement en runClient via FabricLoader. Invisible
+        //    sur le build de prod.
+        if (FabricLoader.getInstance().isDevelopmentEnvironment()) {
+            IconButton soloDev = new IconButton(
+                this.width - quitSize - 18 - quitSize - 6, 14, quitSize,
+                IconPack::play, "Solo (Dev)", true,
+                b -> client.setScreen(new SelectWorldScreen(this))
+            )
+                .ghost()
+                .withIdleColor(Colors.WARNING)
+                .withHoverColor(Colors.WHITE_PURE)
+                .withTooltipPlacement(IconButton.TooltipPlacement.LEFT);
+            this.addDrawableChild(soloDev);
+            reborn$persistentIcons.add(soloDev);
+        }
     }
 
     /**

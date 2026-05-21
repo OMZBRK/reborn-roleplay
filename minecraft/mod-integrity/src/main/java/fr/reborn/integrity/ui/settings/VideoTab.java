@@ -121,9 +121,9 @@ public class VideoTab implements SettingsTab {
         ButtonWidget vanillaBtn = ButtonWidget.builder(
             RebornFont.body("→ Options avancées Minecraft"),
             b -> {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc != null) {
-                    mc.setScreen(new VideoOptionsScreen(parent, mc, mc.options));
+                MinecraftClient mc1 = MinecraftClient.getInstance();
+                if (mc1 != null) {
+                    mc1.setScreen(new VideoOptionsScreen(parent, mc1, mc1.options));
                 }
             }
         ).dimensions(x + width - 220, cursorY + 16, 220, 22).build();
@@ -133,7 +133,7 @@ public class VideoTab implements SettingsTab {
         contentHeight = cursorY - y;
     }
 
-    /** Applique un changement à mc.options et persiste options.txt. */
+    /** Applique un changement à mc1.options et persiste options.txt. */
     private static void applyMcOption(java.util.function.Consumer<net.minecraft.client.option.GameOptions> consumer) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.options == null) return;
