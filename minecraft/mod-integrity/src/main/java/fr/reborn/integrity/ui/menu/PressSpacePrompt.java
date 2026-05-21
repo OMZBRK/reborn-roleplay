@@ -112,7 +112,7 @@ public class PressSpacePrompt extends ButtonWidget {
     }
 
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
+    public void appendClickableNarrations(NarrationMessageBuilder builder) {
         builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
             "Appuyez sur Espace pour entrer dans Reborn");
     }

@@ -22,7 +22,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,6 +65,11 @@ public abstract class TitleScreenMixin extends Screen {
     @Unique
     private final List<IconButton> reborn$ostControls = new ArrayList<>();
 
+    /** Références aux 3 boutons centrés en bas (Settings/Globe/Discord) +
+     *  bouton X quit top-right — re-rendered après MainMenuRenderer en TAIL. */
+    @Unique
+    private final List<IconButton> reborn$persistentIcons = new ArrayList<>();
+
     protected TitleScreenMixin(Text title) {
         super(title);
     }
@@ -106,38 +110,46 @@ public abstract class TitleScreenMixin extends Screen {
             reborn$ostControls.add(ctrl);
         }
 
-        // 4. Bottom-right icons : 3 boutons (Settings / Globe / Discord).
-        int iconSize = 32;
-        int iconGap = 8;
-        int brX = MainMenuRenderer.bottomRightX(this.width);
-        int brY = MainMenuRenderer.bottomRightY(this.height);
-        // Discord (le plus à droite).
-        this.addDrawableChild(new IconButton(
-            brX - iconSize, brY, iconSize,
-            IconPack::discord, "Discord", true,
-            b -> RebornBranding.openDiscord()
-        ));
-        // Globe (centre).
-        this.addDrawableChild(new IconButton(
-            brX - 2 * (iconSize + iconGap) + iconGap, brY, iconSize,
-            IconPack::globe, "Site web", true,
-            b -> RebornBranding.openSite()
-        ));
-        // Settings (le plus à gauche).
-        this.addDrawableChild(new IconButton(
-            brX - 3 * (iconSize + iconGap) + 2 * iconGap, brY, iconSize,
-            IconPack::settings, "Paramètres", true,
-            b -> client.setScreen(new RebornOptionsScreen(this))
-        ));
+        // 4. Bottom-center icons : 3 boutons style Lunar Client (Settings /
+        //    Globe / Discord) centrés en bas, compacts, avec pill BG.
+        reborn$persistentIcons.clear();
+        int iconSize = MainMenuRenderer.BOTTOM_ICON_SIZE;
+        int iconGap = MainMenuRenderer.BOTTOM_ICON_SPACING;
+        int totalW = 3 * iconSize + 2 * iconGap;
+        int startX = MainMenuRenderer.bottomIconsCenterX(this.width) - totalW / 2;
+        int iconsY = MainMenuRenderer.bottomIconsY(this.height);
 
-        // 5. Top-right quit (X ghost, sans fond).
-        int quitSize = 28;
+        IconButton btnSettings = new IconButton(
+            startX, iconsY, iconSize,
+            IconPack::settings, "Paramètres", false,
+            b -> client.setScreen(new RebornOptionsScreen(this))
+        );
+        IconButton btnGlobe = new IconButton(
+            startX + (iconSize + iconGap), iconsY, iconSize,
+            IconPack::globe, "Site web", false,
+            b -> RebornBranding.openSite()
+        );
+        IconButton btnDiscord = new IconButton(
+            startX + 2 * (iconSize + iconGap), iconsY, iconSize,
+            IconPack::discord, "Discord", false,
+            b -> RebornBranding.openDiscord()
+        );
+        this.addDrawableChild(btnSettings);
+        this.addDrawableChild(btnGlobe);
+        this.addDrawableChild(btnDiscord);
+        reborn$persistentIcons.add(btnSettings);
+        reborn$persistentIcons.add(btnGlobe);
+        reborn$persistentIcons.add(btnDiscord);
+
+        // 5. Top-right quit (X visible avec fond rouge subtle).
+        int quitSize = 32;
         IconButton quit = new IconButton(
-            this.width - quitSize - 18, 18, quitSize,
+            this.width - quitSize - 24, 24, quitSize,
             IconPack::close, "Quitter Reborn", true,
             b -> client.setScreen(new QuitConfirmScreen(this))
-        ).ghost();
+        );
         this.addDrawableChild(quit);
+        reborn$persistentIcons.add(quit);
     }
 
     /**
@@ -164,25 +176,22 @@ public abstract class TitleScreenMixin extends Screen {
         for (IconButton ctrl : reborn$ostControls) {
             ctrl.render(context, mouseX, mouseY, delta);
         }
+        // Idem pour les icons persistants (bottom-center + top-right X) —
+        // ils sont COUVERTS par les bandeaux gradient haut/bas de
+        // MainMenuRenderer. On les re-render au-dessus.
+        for (IconButton ic : reborn$persistentIcons) {
+            ic.render(context, mouseX, mouseY, delta);
+        }
 
         context.getMatrices().pop();
     }
 
-    /**
-     * Intercept Espace → connect au serveur Reborn directement.
-     * Match le comportement du {@link PressSpacePrompt} (qui est aussi
-     * cliquable).
-     */
-    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
-    private void reborn$onSpacePressed(int keyCode, int scanCode, int modifiers,
-                                       CallbackInfoReturnable<Boolean> cir) {
-        // GLFW.GLFW_KEY_SPACE = 32
-        if (keyCode == 32) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client != null) {
-                RebornBranding.connectToReborn(client, this);
-                cir.setReturnValue(true);
-            }
-        }
-    }
+    // Note : pas de @Inject sur keyPressed — la méthode est déclarée dans
+    // Screen parent, pas dans TitleScreen, donc Mixin ne peut pas la hooker
+    // depuis ce mixin enfant. Le shortcut Espace = connect sera rebranché
+    // via setInitialFocus(promptWidget) ou un Mixin séparé sur Screen
+    // dans une PR ultérieure. Pour l'instant le PressSpacePrompt reste
+    // cliquable à la souris ; vanilla MC active de toute façon les boutons
+    // focused via Espace, et le PressSpacePrompt est ajouté en premier
+    // donc focused par défaut.
 }

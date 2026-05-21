@@ -2,7 +2,7 @@
   "providers": [
     {
       "type": "ttf",
-      "file": "reborn:Inter_18pt-Medium.ttf",
+      "file": "reborn:inter-medium.ttf",
       "shift": [0, 0],
       "size": 9,
       "oversample": 4,

@@ -106,7 +106,7 @@ public class IconButton extends ButtonWidget {
     }
 
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
+    public void appendClickableNarrations(NarrationMessageBuilder builder) {
         if (tooltip != null && !tooltip.isEmpty()) {
             builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE, tooltip);
         }

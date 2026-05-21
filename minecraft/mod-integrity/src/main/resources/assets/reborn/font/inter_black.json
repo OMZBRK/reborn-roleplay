@@ -2,7 +2,7 @@
   "providers": [
     {
       "type": "ttf",
-      "file": "reborn:Inter_18pt-Black.ttf",
+      "file": "reborn:inter-black.ttf",
       "shift": [0, 0],
       "size": 10,
       "oversample": 4,

@@ -33,12 +33,12 @@ import net.minecraft.text.Text;
  */
 public final class OSTPlayerV2 {
 
-    public static final int CARD_W = 360;
-    public static final int CARD_H = 80;
-    private static final int PADDING = 12;
-    private static final int COVER_SIZE = 56;
-    private static final int CONTROL_SIZE = 28;
-    private static final int CONTROL_SPACING = 4;
+    public static final int CARD_W = 280;
+    public static final int CARD_H = 72;
+    private static final int PADDING = 10;
+    private static final int COVER_SIZE = 48;
+    private static final int CONTROL_SIZE = 22;
+    private static final int CONTROL_SPACING = 2;
 
     private OSTPlayerV2() {}
 
@@ -74,28 +74,18 @@ public final class OSTPlayerV2 {
         ctx.fill(noteX + 2, noteY - 2, noteX + 3, noteY + 8, Colors.WHITE_PURE);
         ctx.fill(noteX + 3, noteY - 4, noteX + 8, noteY - 2, Colors.WHITE_PURE);
 
-        // ─── Meta — titre + sous-titre ───
-        int metaX = x + PADDING + COVER_SIZE + 14;
-        int metaY = y + PADDING + 4;
+        // ─── Meta — titre + sous-titre seulement, layout vertical compact ───
+        int metaX = x + PADDING + COVER_SIZE + 12;
+        int metaY = y + PADDING + 8;
 
         String trackName = ost.getCurrentTrackName();
         ctx.drawText(tr, RebornFont.bold(trackName), metaX, metaY, Colors.WHITE_PURE, false);
 
         String artist = "Reborn OST · Original Score";
         ctx.getMatrices().push();
-        ctx.getMatrices().translate(metaX, metaY + 14, 0);
-        ctx.getMatrices().scale(0.9f, 0.9f, 1f);
-        ctx.drawText(tr, RebornFont.body(artist), 0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
-
-        // Volume label en petit.
-        String volLabel = Math.round(ost.getVolume() * 100) + "%";
-        int volX = metaX;
-        int volY = metaY + 30;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(volX, volY, 0);
+        ctx.getMatrices().translate(metaX, metaY + 12, 0);
         ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-        ctx.drawText(tr, RebornFont.body("Volume · " + volLabel), 0, 0, Colors.FOREGROUND_MUTED, false);
+        ctx.drawText(tr, RebornFont.body(artist), 0, 0, Colors.FOREGROUND_SUBTLE, false);
         ctx.getMatrices().pop();
 
         // ─── Progress bar en bas ───

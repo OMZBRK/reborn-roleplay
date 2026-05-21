@@ -55,9 +55,12 @@ public class QuitConfirmScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Garde le main menu visible derrière + backdrop sombre par-dessus.
+        // Re-render le main menu derrière (mais sans hover des widgets parent
+        // via mouseX/Y impossibles), puis assombrit avec un backdrop semi-
+        // opaque. Match le design de référence : on voit le main menu en
+        // sourdine sous la modal.
         if (parent != null) {
-            parent.render(context, 0, 0, delta); // mouseX/Y à 0 pour pas faire pop des tooltips
+            parent.render(context, -1, -1, delta);
         }
         context.fill(0, 0, this.width, this.height, Colors.BACKDROP_85);
     }

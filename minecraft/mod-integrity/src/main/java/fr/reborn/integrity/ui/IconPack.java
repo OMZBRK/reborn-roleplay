@@ -176,14 +176,15 @@ public final class IconPack {
         ctx.fill(cx - r, cy, cx + r, cy + 1, color);
     }
 
-    /** ❌ Close (croix). */
+    /** ❌ Close (croix) — 3 passes parallèles pour épaisseur ~3px. */
     public static void close(DrawContext ctx, int x, int y, int size, int color) {
         int margin = Math.max(1, size / 6);
-        DrawHelpers.line(ctx, x + margin, y + margin, x + size - margin, y + size - margin, color);
-        DrawHelpers.line(ctx, x + size - margin, y + margin, x + margin, y + size - margin, color);
-        // Double passe pour épaisseur 2px.
-        DrawHelpers.line(ctx, x + margin + 1, y + margin, x + size - margin, y + size - margin - 1, color);
-        DrawHelpers.line(ctx, x + size - margin - 1, y + margin, x + margin, y + size - margin - 1, color);
+        for (int off = -1; off <= 1; off++) {
+            DrawHelpers.line(ctx, x + margin + off, y + margin,
+                x + size - margin + off, y + size - margin, color);
+            DrawHelpers.line(ctx, x + size - margin + off, y + margin,
+                x + margin + off, y + size - margin, color);
+        }
     }
 
     /** ‹ Chevron left. */

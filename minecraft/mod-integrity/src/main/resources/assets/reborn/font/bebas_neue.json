@@ -2,10 +2,10 @@
   "providers": [
     {
       "type": "ttf",
-      "file": "reborn:BebasNeue-Regular.ttf",
+      "file": "reborn:bebas-neue.ttf",
       "shift": [0, 0],
-      "size": 11,
-      "oversample": 4,
+      "size": 32,
+      "oversample": 2,
       "skip": []
     }
   ]
