@@ -65,12 +65,28 @@ public class PressSpacePrompt extends ButtonWidget {
         int h = getHeight();
         boolean hovered = isHovered();
 
-        // Fond rounded sombre.
+        // Pulse continu — 2.2s cycle, sin-modulated 0..1.
+        float t = (System.currentTimeMillis() % 2200L) / 2200f;
+        float pulse = 0.5f + 0.5f * (float) Math.sin(t * Math.PI * 2.0);
+
+        // Halo extérieur — anneau de glow qui respire autour de la card.
+        // Plus prononcé au hover, mais toujours visible idle pour attirer
+        // l'œil sur le CTA principal.
+        int haloLayers = 6;
+        for (int i = haloLayers; i >= 1; i--) {
+            float layerAlpha = (hovered ? 0.18f : 0.10f) * (1f - i / (float) (haloLayers + 1)) * pulse;
+            int alpha = Math.round(layerAlpha * 255);
+            int color = (alpha << 24) | (Colors.ACCENT & 0x00FFFFFF);
+            context.fill(x0 - i, y0 - i, x0 + w + i, y0 + h + i, color);
+        }
+
+        // Fond rounded sombre — border anime aussi (BORDER_STRONG -> ACCENT
+        // via lerp sur le pulse).
         int bg = hovered ? Colors.SURFACE_ELEVATED : Colors.SURFACE;
-        int border = hovered ? Colors.ACCENT : Colors.BORDER_STRONG;
+        int border = lerpColor(Colors.BORDER_STRONG, Colors.ACCENT, pulse * (hovered ? 1f : 0.7f));
         DrawHelpers.roundedOutlinedRect(context, x0, y0, w, h, 8, bg, border);
 
-        // Keycap "ESPACE" à gauche.
+        // Keycap "ESPACE" à gauche — son border pulse aussi.
         int keyTextW = tr.getWidth(RebornFont.bold(KEY_LABEL));
         int keyTextH = tr.fontHeight;
         int keyW = keyTextW + 2 * KEYCAP_PADDING_X;
@@ -78,17 +94,31 @@ public class PressSpacePrompt extends ButtonWidget {
         int keyX = x0 + PADDING_X;
         int keyY = y0 + (h - keyH) / 2;
 
+        int keycapBorder = lerpColor(Colors.BORDER_STRONG, Colors.ACCENT_HOVER, pulse * (hovered ? 1f : 0.6f));
         DrawHelpers.roundedOutlinedRect(context, keyX, keyY, keyW, keyH, 4,
-            Colors.BACKGROUND, hovered ? Colors.ACCENT : Colors.BORDER_STRONG);
+            Colors.BACKGROUND, keycapBorder);
         context.drawText(tr, RebornFont.bold(KEY_LABEL),
             keyX + KEYCAP_PADDING_X, keyY + KEYCAP_PADDING_Y, Colors.WHITE_PURE, false);
 
-        // Texte du prompt à droite.
+        // Texte du prompt à droite — alpha pulse léger pour vivre.
         int promptX = keyX + keyW + GAP_KEYCAP_TEXT;
         int promptY = y0 + (h - tr.fontHeight) / 2;
-        int promptColor = hovered ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE;
+        int baseColor = hovered ? Colors.WHITE_PURE : Colors.FOREGROUND;
+        int promptColor = lerpColor(Colors.FOREGROUND_SUBTLE, baseColor, 0.5f + 0.5f * pulse);
         context.drawText(tr, RebornFont.body(PROMPT_TEXT),
             promptX, promptY, promptColor, false);
+    }
+
+    /** Interpolation linéaire entre 2 couleurs ARGB. {@code t} ∈ [0, 1]. */
+    private static int lerpColor(int from, int to, float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        int fa = (from >> 24) & 0xFF, fr = (from >> 16) & 0xFF, fg = (from >> 8) & 0xFF, fb = from & 0xFF;
+        int ta = (to >> 24) & 0xFF,   tr = (to >> 16) & 0xFF,   tg = (to >> 8) & 0xFF,   tb = to & 0xFF;
+        int a = Math.round(fa + (ta - fa) * t);
+        int r = Math.round(fr + (tr - fr) * t);
+        int g = Math.round(fg + (tg - fg) * t);
+        int b = Math.round(fb + (tb - fb) * t);
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     @Override

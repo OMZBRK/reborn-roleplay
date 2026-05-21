@@ -2,6 +2,7 @@ package fr.reborn.integrity.mixin;
 
 import fr.reborn.integrity.ui.Colors;
 import fr.reborn.integrity.ui.IconPack;
+import fr.reborn.integrity.ui.IconTextures;
 import fr.reborn.integrity.ui.RebornBranding;
 import fr.reborn.integrity.ui.menu.IconButton;
 import fr.reborn.integrity.ui.menu.MainMenuRenderer;
@@ -128,17 +129,20 @@ public abstract class TitleScreenMixin extends Screen {
 
         IconButton btnSettings = new IconButton(
             startX, iconsY, iconSize,
-            IconPack::settings, "Paramètres", false,
+            IconTextures.or(IconTextures.SETTINGS, IconPack::settings),
+            "Paramètres", false,
             b -> client.setScreen(new RebornOptionsScreen(this))
         ).ghost();
         IconButton btnGlobe = new IconButton(
             startX + (iconSize + iconGap), iconsY, iconSize,
-            IconPack::globe, "Site web", false,
+            IconTextures.or(IconTextures.GLOBE, IconPack::globe),
+            "Site web", false,
             b -> RebornBranding.openSite()
         ).ghost();
         IconButton btnDiscord = new IconButton(
             startX + 2 * (iconSize + iconGap), iconsY, iconSize,
-            IconPack::discord, "Discord", false,
+            IconTextures.or(IconTextures.DISCORD, IconPack::discord),
+            "Discord", false,
             b -> RebornBranding.openDiscord()
         ).ghost();
         this.addDrawableChild(btnSettings);
@@ -152,7 +156,8 @@ public abstract class TitleScreenMixin extends Screen {
         int quitSize = 16;
         IconButton quit = new IconButton(
             this.width - quitSize - 14, 14, quitSize,
-            IconPack::close, "Quitter Reborn", true,
+            IconTextures.or(IconTextures.CLOSE, IconPack::close),
+            "Quitter Reborn", true,
             b -> client.setScreen(new QuitConfirmScreen(this))
         )
             .ghost()

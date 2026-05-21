@@ -1,43 +1,36 @@
 package fr.reborn.integrity.ui.connect;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import fr.reborn.integrity.ui.Colors;
 import fr.reborn.integrity.ui.DrawHelpers;
 import fr.reborn.integrity.ui.RebornFont;
 import fr.reborn.integrity.ui.SakuraParticles;
-import fr.reborn.integrity.ui.menu.BackgroundRenderer;
 import fr.reborn.integrity.ui.menu.MainMenuRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 /**
  * Rendu de l'écran de connexion Reborn — appelé par
- * {@code ConnectScreenMixin} en lieu et place du rendu vanilla.
+ * {@code ConnectScreenMixin}. Référence visuelle : {@code chargementref.png}.
  *
- * <p>Composition (centrée verticalement) :
+ * <p>Composition centrée verticalement (~50% du screen) :
  * <ol>
- *   <li>Background bleu nuit + sakura overlay.</li>
- *   <li>Sigil au centre, entouré d'un anneau pointillé rotatif (spinner).</li>
- *   <li>Titre "CONNEXION AU SERVEUR" en Bebas Neue, taille modérée.</li>
- *   <li>Status vanilla (handshake, login…) wrapped en Inter body.</li>
- *   <li>3 dots pulsants ornement.</li>
+ *   <li>Background quasi-noir avec halo radial discret en haut-droite.</li>
+ *   <li>Sakura particles (atténuées pour rester sobre).</li>
+ *   <li>Anneau seul (sans logo dedans) — base sombre + arc bleu rotatif
+ *       + petite tête blanche.</li>
+ *   <li>Titre "CONNEXION À REBORN ROLEPLAY…" Bebas Neue letter-spaced.</li>
+ *   <li>Sous-ligne : "Étape … · {status vanilla}" — étape déduite par
+ *       keyword matching sur le status.</li>
+ *   <li>Barre de progression linéaire indéterminée (segment qui glisse).</li>
+ *   <li>Hint italic gris "Cela peut prendre quelques secondes".</li>
  * </ol>
  *
- * <p>Le bouton Annuler vanilla est repositionné par
- * {@code ConnectScreenMixin#init} vers le bas de l'écran — il ne se trouve
- * plus au milieu de notre composition. Le rendu de ce bouton se fait via
- * l'iteration {@code children()} dans le mixin.
+ * <p>Le bouton Annuler vanilla est repositionné à {@code height-48} par
+ * {@code ConnectScreenMixin#init} — il n'overlap plus la composition.
  */
 public final class ConnectingRenderer {
-
-    private static final Identifier SIGIL =
-        Identifier.of("reborn", "textures/gui/logo_sigil.png");
-
-    private static final int SIGIL_NATIVE = 256;
-    private static final int SIGIL_DISPLAY_BASE = 64;
 
     private static final long BORN_AT = System.currentTimeMillis();
 
@@ -51,79 +44,133 @@ public final class ConnectingRenderer {
         float responsive = MainMenuRenderer.responsiveScale(screenW);
         float t = (System.currentTimeMillis() - BORN_AT) / 1000f;
 
-        // 1. Background bleu nuit + sakura.
-        BackgroundRenderer.render(ctx, screenW, screenH);
+        // 1. Background quasi-noir uniforme — pas de gradient bandes.
+        ctx.fill(0, 0, screenW, screenH, 0xFF050608);
+
+        // 1b. Halo radial doux en haut-droite (effet cinéma vignette).
+        int haloCx = (int) (screenW * 0.82f);
+        int haloCy = (int) (screenH * 0.18f);
+        int haloRBig = Math.round(screenW * 0.30f);
+        for (int layer = 0; layer < 5; layer++) {
+            float layerT = layer / 5f;
+            int r = Math.round(haloRBig * (1f - layerT));
+            int alpha = Math.round((1f - layerT) * 18);
+            int color = (alpha << 24) | 0x3B5BDB;
+            DrawHelpers.disc(ctx, haloCx, haloCy, r, color);
+        }
+
+        // 2. Sakura overlay — atténué (alpha de chaque pétale est déjà
+        //    aléatoire entre 0.25 et 0.75 dans la classe).
         SakuraParticles.INSTANCE.render(ctx, screenW, screenH);
 
-        // 2. Position centrale (un peu au-dessus du milieu).
-        int sigilDisplay = Math.round(SIGIL_DISPLAY_BASE * responsive);
+        // 3. Anneau spinner — centré ~42% de la hauteur. PAS de sigil
+        //    dedans cette fois : le ring SEUL fait le focal point, plus
+        //    propre / minimaliste.
         int centerX = screenW / 2;
         int centerY = Math.round(screenH * 0.42f);
-        int sigilX = centerX - sigilDisplay / 2;
-        int sigilY = centerY - sigilDisplay / 2;
+        int spinnerR = Math.round(40 * responsive);
 
-        // 3. Halo doux derrière le sigil (statique, juste une lueur).
-        int haloR = sigilDisplay;
-        DrawHelpers.disc(ctx, centerX, centerY, haloR, 0x223B5BDB);
-        DrawHelpers.disc(ctx, centerX, centerY, (int) (haloR * 0.7f), 0x33304CB8);
-
-        // 4. Spinner — anneau pointillé de base + arc rotatif lumineux.
-        int spinnerR = sigilDisplay / 2 + Math.round(18 * responsive);
-        // Anneau gris très subtil (50% du tour en dashs courts).
-        DrawHelpers.ring(ctx, centerX, centerY, spinnerR, 1, 0x33FFFFFF);
-        // Arc principal qui tourne — 90° d'arc, rotation à 90°/sec.
-        float rotation = (t * 90f) % 360f;
+        // Base ring très subtile.
+        DrawHelpers.ring(ctx, centerX, centerY, spinnerR, 2, 0x33FFFFFF);
+        // Arc principal (90° d'arc), rotation 100°/sec.
+        float rotation = (t * 100f) % 360f;
         DrawHelpers.dashedRing(ctx, centerX, centerY, spinnerR, 2,
-            Colors.ACCENT_HOVER, 90f, 270f, rotation);
-        // Petit arc trailing lumineux (15°) blanc pur à la tête.
+            Colors.ACCENT_HOVER, 100f, 260f, rotation);
+        // Tête lumineuse 12° blanc pur.
         DrawHelpers.dashedRing(ctx, centerX, centerY, spinnerR, 2,
-            Colors.WHITE_PURE, 15f, 345f, rotation);
+            Colors.WHITE_PURE, 12f, 348f, rotation + 88f);
 
-        // 5. Sigil au-dessus du spinner.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(sigilX, sigilY, 0);
-        float sigilScale = (float) sigilDisplay / SIGIL_NATIVE;
-        ctx.getMatrices().scale(sigilScale, sigilScale, 1f);
-        RenderSystem.enableBlend();
-        ctx.drawTexture(SIGIL, 0, 0, 0f, 0f, SIGIL_NATIVE, SIGIL_NATIVE, SIGIL_NATIVE, SIGIL_NATIVE);
-        ctx.getMatrices().pop();
-
-        // 6. Titre "CONNEXION AU SERVEUR" — taille modérée, sous le sigil.
-        Text title = RebornFont.display("CONNEXION AU SERVEUR");
-        float titleScale = 1.0f * responsive;
+        // 4. Titre "CONNEXION À REBORN ROLEPLAY…" — Bebas Neue display
+        //    sous le spinner.
+        String titleStr = "CONNEXION À REBORN ROLEPLAY" + animDots(t);
+        Text title = RebornFont.display(titleStr);
+        float titleScale = 1.1f * responsive;
         int titleW = Math.round(tr.getWidth(title) * titleScale);
         int titleX = (screenW - titleW) / 2;
-        int titleY = centerY + sigilDisplay / 2 + Math.round(36 * responsive);
+        int titleY = centerY + spinnerR + Math.round(40 * responsive);
         ctx.getMatrices().push();
         ctx.getMatrices().translate(titleX, titleY, 0);
         ctx.getMatrices().scale(titleScale, titleScale, 1f);
         ctx.drawText(tr, title, 0, 0, Colors.WHITE_PURE, false);
         ctx.getMatrices().pop();
 
-        // 7. Status vanilla — wrap en Inter body pour cohérence visuelle.
-        if (status != null) {
-            Text statusWrapped = RebornFont.body(status.getString());
-            float statusScale = 0.9f * responsive;
-            int statusW = Math.round(tr.getWidth(statusWrapped) * statusScale);
-            int statusX = (screenW - statusW) / 2;
-            int statusY = titleY + Math.round(22 * responsive);
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(statusX, statusY, 0);
-            ctx.getMatrices().scale(statusScale, statusScale, 1f);
-            ctx.drawText(tr, statusWrapped, 0, 0, Colors.FOREGROUND_SUBTLE, false);
-            ctx.getMatrices().pop();
-        }
+        // 5. Sous-ligne "Étape X · Phase" — déduit l'étape via keyword
+        //    matching sur le status vanilla.
+        String phaseLabel = status != null ? status.getString() : "Connexion en cours";
+        String stepLabel = deriveStepLabel(phaseLabel);
+        String subLine = stepLabel + " · " + phaseLabel;
+        Text sub = RebornFont.body(subLine);
+        float subScale = 0.95f * responsive;
+        int subW = Math.round(tr.getWidth(sub) * subScale);
+        int subX = (screenW - subW) / 2;
+        int subY = titleY + Math.round(22 * responsive);
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(subX, subY, 0);
+        ctx.getMatrices().scale(subScale, subScale, 1f);
+        ctx.drawText(tr, sub, 0, 0, Colors.FOREGROUND_SUBTLE, false);
+        ctx.getMatrices().pop();
 
-        // 8. Trois dots pulsants sous le status.
-        int dotsY = titleY + Math.round(46 * responsive);
-        int dotSpacing = Math.round(10 * responsive);
-        int dotRadius = Math.round(2 * responsive);
-        for (int i = -1; i <= 1; i++) {
-            float phase = t * 2.5f + i * 0.5f;
-            float pulse = 0.3f + 0.7f * (0.5f + 0.5f * (float) Math.sin(phase));
-            int alpha = Math.round(pulse * 255);
-            int color = (alpha << 24) | (Colors.ACCENT_HOVER & 0x00FFFFFF);
-            DrawHelpers.disc(ctx, centerX + i * dotSpacing, dotsY, dotRadius, color);
+        // 6. Barre de progression linéaire indéterminée — un segment
+        //    glisse d'aller-retour le long de la barre.
+        int barW = Math.round(360 * responsive);
+        int barH = Math.max(2, Math.round(3 * responsive));
+        int barX = (screenW - barW) / 2;
+        int barY = subY + Math.round(28 * responsive);
+        // Track gris.
+        ctx.fill(barX, barY, barX + barW, barY + barH, 0x33FFFFFF);
+        // Segment lumineux ~25% qui glisse en aller-retour.
+        float segCycle = (t / 1.6f) % 1.0f; // 1.6s pour un aller, idem retour
+        float ping = (segCycle < 0.5f) ? (segCycle * 2f) : (2f - segCycle * 2f);
+        int segW = barW / 4;
+        int segX = barX + Math.round(ping * (barW - segW));
+        // Dégradé au-dessus pour fade aux bords.
+        ctx.fillGradient(segX, barY, segX + segW / 3, barY + barH, 0x003B5BDB, 0xFF4C6CE6);
+        ctx.fill(segX + segW / 3, barY, segX + 2 * segW / 3, barY + barH, 0xFF4C6CE6);
+        ctx.fillGradient(segX + 2 * segW / 3, barY, segX + segW, barY + barH, 0xFF4C6CE6, 0x003B5BDB);
+
+        // 7. Hint italic gris "Cela peut prendre quelques secondes".
+        Text hint = RebornFont.body("Cela peut prendre quelques secondes");
+        float hintScale = 0.85f * responsive;
+        int hintW = Math.round(tr.getWidth(hint) * hintScale);
+        int hintX = (screenW - hintW) / 2;
+        int hintY = barY + barH + Math.round(14 * responsive);
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(hintX, hintY, 0);
+        ctx.getMatrices().scale(hintScale, hintScale, 1f);
+        ctx.drawText(tr, hint, 0, 0, Colors.FOREGROUND_MUTED, false);
+        ctx.getMatrices().pop();
+    }
+
+    /**
+     * Anime un ellipsis 0..3 dots, change toutes les 400ms.
+     */
+    private static String animDots(float seconds) {
+        int dots = ((int) (seconds * 2.5f)) % 4; // 0, 1, 2, 3
+        return ".".repeat(dots);
+    }
+
+    /**
+     * Mappe le {@code status} vanilla vers un label "Étape X / 4".
+     * Vanilla ne nous expose pas un compteur natif, on infère via
+     * keywords. C'est volontairement approximatif — l'utilisateur voit
+     * une progression cohérente même si pas atomiquement exacte.
+     */
+    private static String deriveStepLabel(String status) {
+        if (status == null) return "Étape 1 / 4";
+        String s = status.toLowerCase();
+        if (s.contains("authenti") || s.contains("login") || s.contains("connexion en cours")) {
+            return "Étape 1 / 4";
         }
+        if (s.contains("negotiat") || s.contains("handshake")) {
+            return "Étape 2 / 4";
+        }
+        if (s.contains("encrypt") || s.contains("crypt")) {
+            return "Étape 3 / 4";
+        }
+        if (s.contains("downloading") || s.contains("terrain") || s.contains("chargement")
+            || s.contains("joining") || s.contains("loading")) {
+            return "Étape 4 / 4";
+        }
+        return "Étape 1 / 4";
     }
 }

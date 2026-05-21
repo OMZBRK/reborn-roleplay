@@ -3,6 +3,7 @@ package fr.reborn.integrity.ui.menu;
 import fr.reborn.integrity.ui.Colors;
 import fr.reborn.integrity.ui.DrawHelpers;
 import fr.reborn.integrity.ui.IconPack;
+import fr.reborn.integrity.ui.IconTextures;
 import fr.reborn.integrity.ui.OSTPlayer;
 import fr.reborn.integrity.ui.RebornFont;
 import net.minecraft.client.MinecraftClient;
@@ -118,9 +119,9 @@ public final class OSTPlayerV2 {
             ctrlBaseX, ctrlY, CONTROL_SIZE,
             (ctx, x, y, size, color) -> {
                 if (OSTPlayer.INSTANCE.isPlaying()) {
-                    IconPack.pause(ctx, x, y, size, color);
+                    IconTextures.or(IconTextures.PAUSE, IconPack::pause).draw(ctx, x, y, size, color);
                 } else {
-                    IconPack.play(ctx, x, y, size, color);
+                    IconTextures.or(IconTextures.PLAY, IconPack::play).draw(ctx, x, y, size, color);
                 }
             },
             "Lecture / Pause", false,
@@ -129,13 +130,15 @@ public final class OSTPlayerV2 {
 
         IconButton volume = new IconButton(
             ctrlBaseX + (CONTROL_SIZE + CONTROL_SPACING), ctrlY, CONTROL_SIZE,
-            IconPack::volume, "Volume", false,
+            IconTextures.or(IconTextures.VOLUME, IconPack::volume),
+            "Volume", false,
             b -> ost.toggleVolumePopup()
         ).ghost();
 
         IconButton menu = new IconButton(
             ctrlBaseX + 2 * (CONTROL_SIZE + CONTROL_SPACING), ctrlY, CONTROL_SIZE,
-            IconPack::menu, "Playlist", false,
+            IconTextures.or(IconTextures.MENU, IconPack::menu),
+            "Playlist", false,
             b -> ost.togglePlaylist()
         ).ghost();
 
