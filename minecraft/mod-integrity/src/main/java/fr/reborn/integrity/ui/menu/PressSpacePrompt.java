@@ -41,10 +41,10 @@ public class PressSpacePrompt extends ButtonWidget {
     public static int computeWidth(TextRenderer tr, float responsiveScale) {
         int keyW = tr.getWidth(RebornFont.bold(KEY_LABEL)) + 2 * KEYCAP_PADDING_X;
         int textW = tr.getWidth(RebornFont.body(PROMPT_TEXT));
-        // Buffer +24px de sécurité : tr.getWidth() peut sous-estimer la
+        // Buffer +40px de sécurité : tr.getWidth() peut sous-estimer la
         // largeur réelle des TTF customs Inter (advance values imprécises
-        // sur certains glyphs).
-        int total = PADDING_X * 2 + keyW + GAP_KEYCAP_TEXT + textW + 24;
+        // sur certains glyphs). 40 > 24 pour confort visuel.
+        int total = PADDING_X * 2 + keyW + GAP_KEYCAP_TEXT + textW + 40;
         return Math.round(total * responsiveScale);
     }
 
