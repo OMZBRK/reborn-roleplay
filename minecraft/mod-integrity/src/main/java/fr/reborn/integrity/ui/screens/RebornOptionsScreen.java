@@ -1,88 +1,156 @@
 package fr.reborn.integrity.ui.screens;
 
-import fr.reborn.integrity.ui.RebornBranding;
-import fr.reborn.integrity.ui.RebornButton;
+import fr.reborn.integrity.ui.Colors;
+import fr.reborn.integrity.ui.IconPack;
+import fr.reborn.integrity.ui.RebornFont;
+import fr.reborn.integrity.ui.menu.IconButton;
+import fr.reborn.integrity.ui.settings.AccountTab;
+import fr.reborn.integrity.ui.settings.AudioTab;
+import fr.reborn.integrity.ui.settings.ControlsTab;
+import fr.reborn.integrity.ui.settings.DiscordTab;
+import fr.reborn.integrity.ui.settings.RebornPrefs;
+import fr.reborn.integrity.ui.settings.SettingsTab;
+import fr.reborn.integrity.ui.settings.TabButton;
+import fr.reborn.integrity.ui.settings.VideoTab;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.option.ControlsOptionsScreen;
-import net.minecraft.client.gui.screen.option.SoundOptionsScreen;
-import net.minecraft.client.gui.screen.option.VideoOptionsScreen;
+import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 
 /**
- * Screen Paramètres custom Reborn — remplace l'OptionsScreen vanilla
- * pour limiter les options expose au joueur a 4 categories :
- * Video / Audio / Controles / Discord.
+ * Screen Paramètres Reborn — refonte v2 avec 5 tabs horizontaux.
+ * Référence : {@code settings.jsx::SettingsScreen}.
  *
- * <p>Pas de skin, pas de resource pack, pas de language, pas de
- * accessibility, pas de online/Realms — toutes ces categories sont
- * masquees par cohérence avec un serveur RP qui gere tout cote serveur.
+ * <p>Switch de tab via clearAndInit() — re-build complet de l'écran.
+ * Simple et fiable, suffisant pour une UI statique sans animation
+ * de transition.
  */
 public class RebornOptionsScreen extends Screen {
 
     private final Screen parent;
+    private final TabDef[] tabs;
+    private int activeTabIdx;
+    private SettingsTab activeTab;
 
-    private static final int BG = 0xFF0A0A0A;
-    private static final int ACCENT = 0xFFC9A66B;
-    private static final int FG = 0xFFFFFAF0;
+    private static final int HEADER_H = 56;
+    private static final int TABS_H = 36;
+    private static final int CONTENT_PADDING_X = 80;
+    private static final int CONTENT_TOP_PADDING = 36;
+
+    private record TabDef(String id, String label, SettingsTab tab) {}
 
     public RebornOptionsScreen(Screen parent) {
-        super(Text.literal("Paramètres"));
+        this(parent, 0);
+    }
+
+    public RebornOptionsScreen(Screen parent, int initialTabIdx) {
+        super(Text.literal("Paramètres Reborn"));
         this.parent = parent;
+        RebornPrefs.INSTANCE.ensureLoaded();
+        this.tabs = new TabDef[] {
+            new TabDef("video", "Vidéo", new VideoTab(this)),
+            new TabDef("audio", "Audio", new AudioTab()),
+            new TabDef("controls", "Contrôles", new ControlsTab(this)),
+            new TabDef("discord", "Discord", new DiscordTab()),
+            new TabDef("account", "Compte", new AccountTab()),
+        };
+        this.activeTabIdx = Math.max(0, Math.min(tabs.length - 1, initialTabIdx));
+        this.activeTab = tabs[this.activeTabIdx].tab;
     }
 
     @Override
     protected void init() {
-        int btnW = 220;
-        int btnH = 26;
-        int spacing = 6;
-        int totalH = 5 * btnH + 4 * spacing + 30;
-        int startY = Math.max(80, (this.height - totalH) / 2);
-        int centerX = this.width / 2 - btnW / 2;
+        // ─── Header : bouton retour gauche + X close droite ───
+        this.addDrawableChild(new IconButton(
+            18, 18, 18,
+            IconPack::chevronLeft, "Retour", false,
+            b -> close()
+        ).ghost().withIdleColor(Colors.FOREGROUND_SUBTLE));
 
-        this.addDrawableChild(new RebornButton(centerX, startY, btnW, btnH,
-            Text.literal("VIDÉO"),
-            b -> client.setScreen(new VideoOptionsScreen(this, client, client.options))));
+        this.addDrawableChild(new IconButton(
+            this.width - 18 - 16, 18, 16,
+            IconPack::close, "Fermer", true,
+            b -> close()
+        ).ghost()
+            .withIdleColor(Colors.FOREGROUND_MUTED)
+            .withHoverColor(Colors.DANGER)
+            .withTooltipPlacement(IconButton.TooltipPlacement.LEFT));
 
-        this.addDrawableChild(new RebornButton(centerX, startY + (btnH + spacing), btnW, btnH,
-            Text.literal("AUDIO"),
-            b -> client.setScreen(new SoundOptionsScreen(this, client.options))));
+        // ─── Tabs horizontaux ───
+        int totalTabsW = Math.min(this.width - 80, 540);
+        int tabW = totalTabsW / tabs.length;
+        int startX = (this.width - totalTabsW) / 2;
+        int tabsY = HEADER_H;
 
-        this.addDrawableChild(new RebornButton(centerX, startY + 2 * (btnH + spacing), btnW, btnH,
-            Text.literal("CONTRÔLES"),
-            b -> client.setScreen(new ControlsOptionsScreen(this, client.options))));
+        for (int i = 0; i < tabs.length; i++) {
+            final int idx = i;
+            this.addDrawableChild(new TabButton(
+                startX + i * tabW, tabsY, tabW, TABS_H,
+                tabs[i].label,
+                () -> idx == activeTabIdx,
+                b -> {
+                    if (idx != activeTabIdx) {
+                        activeTabIdx = idx;
+                        activeTab = tabs[idx].tab;
+                        this.clearAndInit();
+                    }
+                }
+            ));
+        }
 
-        this.addDrawableChild(new RebornButton(centerX, startY + 3 * (btnH + spacing), btnW, btnH,
-            Text.literal("DISCORD"),
-            b -> RebornBranding.openDiscord()));
-
-        this.addDrawableChild(new RebornButton(centerX, startY + 4 * (btnH + spacing) + 16, btnW, btnH,
-            Text.literal("RETOUR"),
-            b -> close()));
+        // ─── Layout du tab actif ───
+        int contentX = CONTENT_PADDING_X;
+        int contentY = HEADER_H + TABS_H + CONTENT_TOP_PADDING;
+        int contentW = this.width - 2 * CONTENT_PADDING_X;
+        activeTab.layout(contentX, contentY, contentW);
+        for (ClickableWidget w : activeTab.widgets()) {
+            this.addDrawableChild(w);
+        }
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Override pour eviter le panorama vanilla — fond noir uni.
-        context.fill(0, 0, this.width, this.height, BG);
+    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        ctx.fill(0, 0, this.width, this.height, Colors.BACKGROUND);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        super.render(ctx, mouseX, mouseY, delta);
 
-        // Ligne d'accent en haut.
-        context.fill(0, 50, this.width, 51, ACCENT);
-        // Titre — pas de scale (le scale linear sur la font MC floute). On
-        // utilise drawCenteredTextWithShadow qui rend pixel-perfect.
-        context.drawCenteredTextWithShadow(textRenderer,
-            Text.literal("PARAMÈTRES"),
-            this.width / 2, 28, FG);
+        var tr = MinecraftClient.getInstance().textRenderer;
+
+        // ─── Titre centré ───
+        Text title = RebornFont.bold("PARAMÈTRES REBORN");
+        float titleScale = 1.4f;
+        int titleW = Math.round(tr.getWidth(title) * titleScale);
+        int titleX = (this.width - titleW) / 2;
+        int titleY = 18;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(titleX, titleY, 0);
+        ctx.getMatrices().scale(titleScale, titleScale, 1f);
+        ctx.drawText(tr, title, 0, 0, Colors.WHITE_PURE, false);
+        ctx.getMatrices().pop();
+
+        // ─── Séparations ───
+        ctx.fill(40, HEADER_H - 1, this.width - 40, HEADER_H, Colors.BORDER);
+        ctx.fill(40, HEADER_H + TABS_H, this.width - 40, HEADER_H + TABS_H + 1, Colors.BORDER);
+
+        // ─── Contenu du tab actif (passif) ───
+        int contentX = CONTENT_PADDING_X;
+        int contentY = HEADER_H + TABS_H + CONTENT_TOP_PADDING;
+        int contentW = this.width - 2 * CONTENT_PADDING_X;
+        activeTab.renderPassive(ctx, contentX, contentY, contentW);
+    }
+
+    @Override
+    public boolean shouldPause() {
+        return false;
     }
 
     @Override
     public void close() {
+        RebornPrefs.INSTANCE.save();
         MinecraftClient.getInstance().setScreen(parent);
     }
 }
