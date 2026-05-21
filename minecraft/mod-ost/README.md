@@ -5,11 +5,19 @@ Lecteur audio in-game pour la BGM Reborn Roleplay. 100% client-side
 
 ## Build
 
+**JDK 21 requis.** Fabric Loom refuse de configurer le projet avec un
+Java daemon < 21. Si tu as Corretto 21 installé en parallèle d'un autre
+JDK (ex: 17 par défaut), exporte `JAVA_HOME` avant chaque commande :
+
 ```pwsh
+$env:JAVA_HOME = "C:\Program Files\Amazon Corretto\jdk21.0.9_10"
 ./gradlew build       # → build/libs/reborn-ost-<ver>.jar
 ./gradlew runClient   # client MC 1.21.1 avec le mod
 ./gradlew test        # JUnit5 — codec packets + scan filesystem
 ```
+
+Ou lance via IntelliJ qui détecte le toolchain `JavaLanguageVersion.of(21)`
+automatiquement (cf `build.gradle.kts`).
 
 ## Fichiers audio
 

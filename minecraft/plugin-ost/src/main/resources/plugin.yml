@@ -1,4 +1,6 @@
-# Format Paper-natif (cf plugin-guardian).
+# Bukkit-style plugin.yml — supporte le bloc `commands:` (contrairement
+# à paper-plugin.yml qui exige le Paper Command API Brigadier).
+# Paper accepte plugin.yml en parallele, donc on garde le format simple.
 
 name: RebornOst
 version: '${version}'

@@ -48,7 +48,7 @@ tasks {
     processResources {
         val tokens = mapOf("version" to project.version.toString())
         inputs.properties(tokens)
-        filesMatching("paper-plugin.yml") { expand(tokens) }
+        filesMatching("plugin.yml") { expand(tokens) }
     }
 
     runServer {
