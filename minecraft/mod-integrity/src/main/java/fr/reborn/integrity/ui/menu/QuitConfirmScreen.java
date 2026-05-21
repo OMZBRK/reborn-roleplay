@@ -7,7 +7,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
 /**
@@ -36,21 +35,22 @@ public class QuitConfirmScreen extends Screen {
         int cardY = (this.height - CARD_H) / 2;
 
         int btnW = 130;
-        int btnH = 32;
-        int gap = 12;
+        int btnH = 34;
+        int gap = 14;
         int btnY = cardY + CARD_H - 24 - btnH;
 
-        // Annuler (ghost) à gauche.
-        this.addDrawableChild(ButtonWidget.builder(
-            RebornFont.bold("Annuler"),
-            b -> close()
-        ).dimensions(cardX + CARD_W / 2 - btnW - gap / 2, btnY, btnW, btnH).build());
+        // Annuler — RebornButton ghost (frame fin + hover lerp vers accent).
+        this.addDrawableChild(RebornButton.ghost(
+            cardX + CARD_W / 2 - btnW - gap / 2, btnY, btnW, btnH,
+            "Annuler", b -> close()
+        ));
 
-        // Quitter (rouge) à droite.
-        this.addDrawableChild(ButtonWidget.builder(
-            RebornFont.bold("Quitter"),
-            b -> MinecraftClient.getInstance().scheduleStop()
-        ).dimensions(cardX + CARD_W / 2 + gap / 2, btnY, btnW, btnH).build());
+        // Quitter — RebornButton danger (fond rouge + hover lumineux + halo
+        // pulsant rouge au survol).
+        this.addDrawableChild(RebornButton.danger(
+            cardX + CARD_W / 2 + gap / 2, btnY, btnW, btnH,
+            "Quitter", b -> MinecraftClient.getInstance().scheduleStop()
+        ));
     }
 
     @Override
@@ -91,12 +91,17 @@ public class QuitConfirmScreen extends Screen {
         context.drawText(tr, title, 0, 0, Colors.WHITE_PURE, false);
         context.getMatrices().pop();
 
-        // Description.
+        // Description plus petite et muted, sous-titre style placeholder.
         Text desc = RebornFont.body("Tu vas être déconnecté du serveur et fermer Minecraft.");
-        int descW = tr.getWidth(desc);
+        float descScale = 0.85f;
+        int descW = Math.round(tr.getWidth(desc) * descScale);
         int descX = cardX + (CARD_W - descW) / 2;
-        int descY = cardY + 60;
-        context.drawText(tr, desc, descX, descY, Colors.FOREGROUND_SUBTLE, false);
+        int descY = cardY + 64;
+        context.getMatrices().push();
+        context.getMatrices().translate(descX, descY, 0);
+        context.getMatrices().scale(descScale, descScale, 1f);
+        context.drawText(tr, desc, 0, 0, Colors.FOREGROUND_MUTED, false);
+        context.getMatrices().pop();
     }
 
     @Override

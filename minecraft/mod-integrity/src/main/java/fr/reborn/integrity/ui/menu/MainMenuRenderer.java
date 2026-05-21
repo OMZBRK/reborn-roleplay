@@ -1,5 +1,6 @@
 package fr.reborn.integrity.ui.menu;
 
+import fr.reborn.integrity.ui.ChakraGlow;
 import fr.reborn.integrity.ui.Colors;
 import fr.reborn.integrity.ui.SakuraParticles;
 import net.minecraft.client.gui.DrawContext;
@@ -84,9 +85,12 @@ public final class MainMenuRenderer {
         //    bandeaux gradients pour masquer.
         BackgroundRenderer.render(ctx, screenW, screenH);
 
-        // 2. Sakura particles overlay — par-dessus le background, donne
-        //    une couche de mouvement diagonal descendant en contrepoint
-        //    des chakra particles qui montent.
+        // 2a. Chakra glow — 12 petits points lumineux bleus qui montent
+        //     lentement, contre-point énergétique aux sakura qui tombent.
+        ChakraGlow.INSTANCE.render(ctx, screenW, screenH);
+
+        // 2b. Sakura particles overlay — par-dessus le background, donne
+        //     une couche de mouvement diagonal descendant.
         SakuraParticles.INSTANCE.render(ctx, screenW, screenH);
 
         // 3. Logo central Reborn.

@@ -69,15 +69,17 @@ public class PressSpacePrompt extends ButtonWidget {
         float t = (System.currentTimeMillis() % 2200L) / 2200f;
         float pulse = 0.5f + 0.5f * (float) Math.sin(t * Math.PI * 2.0);
 
-        // Halo extérieur — anneau de glow qui respire autour de la card.
-        // Plus prononcé au hover, mais toujours visible idle pour attirer
-        // l'œil sur le CTA principal.
+        // Halo extérieur — anneau de glow qui respire autour de la card,
+        // respectant la forme arrondie (radius 8 + i par layer pour suivre
+        // l'expansion). Plus prononcé au hover, toujours visible idle pour
+        // attirer l'œil sur le CTA principal.
         int haloLayers = 6;
         for (int i = haloLayers; i >= 1; i--) {
             float layerAlpha = (hovered ? 0.18f : 0.10f) * (1f - i / (float) (haloLayers + 1)) * pulse;
             int alpha = Math.round(layerAlpha * 255);
             int color = (alpha << 24) | (Colors.ACCENT & 0x00FFFFFF);
-            context.fill(x0 - i, y0 - i, x0 + w + i, y0 + h + i, color);
+            DrawHelpers.roundedRect(context, x0 - i, y0 - i,
+                w + 2 * i, h + 2 * i, 8 + i, color);
         }
 
         // Fond rounded sombre — border anime aussi (BORDER_STRONG -> ACCENT
