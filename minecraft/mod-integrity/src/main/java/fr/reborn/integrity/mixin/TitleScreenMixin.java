@@ -6,6 +6,8 @@ import fr.reborn.integrity.ui.RebornBranding;
 import fr.reborn.integrity.ui.menu.IconButton;
 import fr.reborn.integrity.ui.menu.MainMenuRenderer;
 import fr.reborn.integrity.ui.menu.OSTPlayerV2;
+import fr.reborn.integrity.ui.menu.OSTPlaylistOverlay;
+import fr.reborn.integrity.ui.menu.OSTVolumePopup;
 import fr.reborn.integrity.ui.menu.PressSpacePrompt;
 import fr.reborn.integrity.ui.menu.QuitConfirmScreen;
 import fr.reborn.integrity.ui.screens.RebornOptionsScreen;
@@ -160,7 +162,24 @@ public abstract class TitleScreenMixin extends Screen {
         this.addDrawableChild(quit);
         reborn$persistentIcons.add(quit);
 
-        // 6. DEV ONLY — bouton "Solo (Dev)" à coté du X close pour pouvoir
+        // 6. Overlays OST (volume popup + playlist). Toujours présents dans
+        //    le screen mais conditionnellement visibles selon OSTPlayer state.
+        int[] volAnchor = OSTPlayerV2.volumeButtonAnchor(ostX, ostY);
+        OSTVolumePopup volPopup = new OSTVolumePopup(
+            volAnchor[0] - OSTVolumePopup.WIDTH / 2,
+            volAnchor[1] - OSTVolumePopup.HEIGHT - 8
+        );
+        this.addDrawableChild(volPopup);
+
+        int playlistH = Math.min(360, this.height - 80);
+        OSTPlaylistOverlay playlist = new OSTPlaylistOverlay(
+            ostX,
+            ostY - playlistH - 8,
+            playlistH
+        );
+        this.addDrawableChild(playlist);
+
+        // 7. DEV ONLY — bouton "Solo (Dev)" à coté du X close pour pouvoir
         //    tester l'ESC menu sans avoir besoin d'un compte MC vrai/serveur.
         //    Détecté uniquement en runClient via FabricLoader. Invisible
         //    sur le build de prod.

@@ -34,6 +34,15 @@ public final class OSTPlayerV2 {
     private static final int CONTROL_SIZE = 14;
     private static final int CONTROL_SPACING = 2;
 
+    /** Position absolue (centre X, top Y) du bouton volume — utilisée pour
+     *  positionner l'OSTVolumePopup au-dessus. */
+    public static int[] volumeButtonAnchor(int cardX, int cardY) {
+        int ctrlBaseX = cardX + CARD_W - PADDING - (CONTROL_SIZE * 3 + CONTROL_SPACING * 2);
+        int btnVolX = ctrlBaseX + (CONTROL_SIZE + CONTROL_SPACING);
+        int btnY = cardY + PADDING + 2;
+        return new int[] {btnVolX + CONTROL_SIZE / 2, btnY};
+    }
+
     private OSTPlayerV2() {}
 
     public static void renderBackground(DrawContext ctx, int x, int y) {
@@ -114,13 +123,13 @@ public final class OSTPlayerV2 {
         IconButton volume = new IconButton(
             ctrlBaseX + (CONTROL_SIZE + CONTROL_SPACING), ctrlY, CONTROL_SIZE,
             IconPack::volume, "Volume", false,
-            b -> { /* TODO PR #2.1 : volume popup */ }
+            b -> ost.toggleVolumePopup()
         ).ghost();
 
         IconButton menu = new IconButton(
             ctrlBaseX + 2 * (CONTROL_SIZE + CONTROL_SPACING), ctrlY, CONTROL_SIZE,
             IconPack::menu, "Playlist", false,
-            b -> ost.next() // TODO PR #2.1 : playlist overlay
+            b -> ost.togglePlaylist()
         ).ghost();
 
         return new IconButton[]{playPause, volume, menu};

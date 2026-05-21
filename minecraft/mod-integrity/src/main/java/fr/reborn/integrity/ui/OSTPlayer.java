@@ -45,7 +45,40 @@ public final class OSTPlayer {
     /** Timestamp de debut de la piste actuelle (millis epoch). */
     private long startTimeMs = 0;
 
+    /** True quand le popup volume est ouvert (toggle au click). */
+    private boolean volumePopupOpen = false;
+    /** True quand l'overlay playlist est ouvert. */
+    private boolean playlistOpen = false;
+
     private OSTPlayer() {}
+
+    public boolean isVolumePopupOpen() { return volumePopupOpen; }
+    public boolean isPlaylistOpen() { return playlistOpen; }
+
+    public void toggleVolumePopup() {
+        volumePopupOpen = !volumePopupOpen;
+        if (volumePopupOpen) playlistOpen = false; // mutually exclusive
+    }
+    public void togglePlaylist() {
+        playlistOpen = !playlistOpen;
+        if (playlistOpen) volumePopupOpen = false;
+    }
+    public void closeOverlays() {
+        volumePopupOpen = false;
+        playlistOpen = false;
+    }
+
+    /** Saut direct à une piste par son index (1-indexed). */
+    public void playTrack(int trackIdx) {
+        currentTrack = Math.max(1, Math.min(TOTAL_TRACKS, trackIdx));
+        play();
+    }
+
+    /** Label d'une piste donnée — placeholder "Track NN" tant qu'on n'a
+     *  pas de metadata propre par piste. */
+    public String getTrackNameAt(int trackIdx) {
+        return String.format("Track %02d", trackIdx);
+    }
 
     public int getCurrentTrack() {
         return currentTrack;
