@@ -51,6 +51,12 @@ public final class OSTPlayerV2 {
         TextRenderer tr = client.textRenderer;
         OSTPlayer ost = OSTPlayer.INSTANCE;
 
+        // Auto-skip à la fin d'une piste — appelé à chaque frame depuis
+        // ici, le main menu render se fait quasiment à 60 fps donc la
+        // détection de fin (via SoundManager.isPlaying false + grace 2s)
+        // se déclenche dans la frame suivante.
+        ost.tickAutoAdvance();
+
         // ─── Card BG ───
         DrawHelpers.roundedOutlinedRect(ctx, x, y, CARD_W, CARD_H, 8,
             Colors.SURFACE, Colors.BORDER_STRONG);
