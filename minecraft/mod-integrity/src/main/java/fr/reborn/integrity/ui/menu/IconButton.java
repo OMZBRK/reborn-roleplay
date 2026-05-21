@@ -33,9 +33,12 @@ public class IconButton extends ButtonWidget {
     private final String tooltip;
     /** Position du tooltip : true = en-dessous, false = au-dessus. */
     private final boolean tooltipBelow;
-    /** Si true, le bouton n'a pas de fond — juste l'icône. Utilisé pour
-     *  les contrôles flottants comme le X de quit en haut-droite. */
+    /** Si true, le bouton n'a pas de fond — juste l'icône. */
     private boolean ghost = false;
+    /** Couleur de l'icône au hover. Par défaut blanc pur. */
+    private int hoverIconColor = Colors.WHITE_PURE;
+    /** Couleur de l'icône en idle. Par défaut FOREGROUND_SUBTLE. */
+    private int idleIconColor = Colors.FOREGROUND_SUBTLE;
 
     public IconButton(int x, int y, int size, IconDrawer iconDrawer, String tooltip,
                       boolean tooltipBelow, PressAction onPress) {
@@ -48,6 +51,18 @@ public class IconButton extends ButtonWidget {
 
     public IconButton ghost() {
         this.ghost = true;
+        return this;
+    }
+
+    /** Spécifie une couleur custom pour l'icône au hover (ex: rouge pour X). */
+    public IconButton withHoverColor(int hoverColor) {
+        this.hoverIconColor = hoverColor;
+        return this;
+    }
+
+    /** Spécifie une couleur custom pour l'icône en idle. */
+    public IconButton withIdleColor(int idleColor) {
+        this.idleIconColor = idleColor;
         return this;
     }
 
@@ -72,7 +87,7 @@ public class IconButton extends ButtonWidget {
         int iconSize = s - (ghost ? 4 : 10);
         int iconX = x0 + (s - iconSize) / 2;
         int iconY = y0 + (s - iconSize) / 2;
-        int iconColor = hovered ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE;
+        int iconColor = hovered ? hoverIconColor : idleIconColor;
         if (!active) iconColor = Colors.MUTED;
         iconDrawer.draw(context, iconX, iconY, iconSize, iconColor);
 

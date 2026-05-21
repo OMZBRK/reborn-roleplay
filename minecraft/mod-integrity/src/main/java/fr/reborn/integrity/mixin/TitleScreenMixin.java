@@ -1,5 +1,6 @@
 package fr.reborn.integrity.mixin;
 
+import fr.reborn.integrity.ui.Colors;
 import fr.reborn.integrity.ui.IconPack;
 import fr.reborn.integrity.ui.RebornBranding;
 import fr.reborn.integrity.ui.menu.IconButton;
@@ -91,9 +92,10 @@ public abstract class TitleScreenMixin extends Screen {
         }
         LOG.info("title screen v2 : {} widgets vanilla/v1 retirés", toRemove.size());
 
-        // 2. PressSpacePrompt — centré, fraction Y = 0.55.
-        int promptW = PressSpacePrompt.computeWidth(this.textRenderer);
-        int promptH = PressSpacePrompt.computeHeight(this.textRenderer);
+        // 2. PressSpacePrompt — texte centré animé pulse.
+        float responsive = MainMenuRenderer.responsiveScale(this.width);
+        int promptW = PressSpacePrompt.computeWidth(this.textRenderer, responsive);
+        int promptH = PressSpacePrompt.computeHeight(this.textRenderer, responsive);
         int promptX = (this.width - promptW) / 2;
         int promptY = MainMenuRenderer.promptY(this.height);
         this.addDrawableChild(new PressSpacePrompt(
@@ -110,30 +112,31 @@ public abstract class TitleScreenMixin extends Screen {
             reborn$ostControls.add(ctrl);
         }
 
-        // 4. Bottom-center icons : 3 boutons style Lunar Client (Settings /
-        //    Globe / Discord) centrés en bas, compacts, avec pill BG.
+        // 4. Bottom-right icons : 3 boutons épurés (Settings/Globe/Discord)
+        //    ghost-style sans fond, alignés à DROITE sous les credits.
         reborn$persistentIcons.clear();
-        int iconSize = MainMenuRenderer.BOTTOM_ICON_SIZE;
-        int iconGap = MainMenuRenderer.BOTTOM_ICON_SPACING;
+        int iconSize = MainMenuRenderer.RIGHT_ICON_SIZE;
+        int iconGap = MainMenuRenderer.RIGHT_ICON_SPACING;
         int totalW = 3 * iconSize + 2 * iconGap;
-        int startX = MainMenuRenderer.bottomIconsCenterX(this.width) - totalW / 2;
-        int iconsY = MainMenuRenderer.bottomIconsY(this.height);
+        int rightEdge = MainMenuRenderer.rightIconsRightEdge(this.width);
+        int iconsY = MainMenuRenderer.rightIconsY(this.height);
+        int startX = rightEdge - totalW;
 
         IconButton btnSettings = new IconButton(
             startX, iconsY, iconSize,
             IconPack::settings, "Paramètres", false,
             b -> client.setScreen(new RebornOptionsScreen(this))
-        );
+        ).ghost();
         IconButton btnGlobe = new IconButton(
             startX + (iconSize + iconGap), iconsY, iconSize,
             IconPack::globe, "Site web", false,
             b -> RebornBranding.openSite()
-        );
+        ).ghost();
         IconButton btnDiscord = new IconButton(
             startX + 2 * (iconSize + iconGap), iconsY, iconSize,
             IconPack::discord, "Discord", false,
             b -> RebornBranding.openDiscord()
-        );
+        ).ghost();
         this.addDrawableChild(btnSettings);
         this.addDrawableChild(btnGlobe);
         this.addDrawableChild(btnDiscord);
@@ -141,13 +144,16 @@ public abstract class TitleScreenMixin extends Screen {
         reborn$persistentIcons.add(btnGlobe);
         reborn$persistentIcons.add(btnDiscord);
 
-        // 5. Top-right quit (X visible avec fond rouge subtle).
-        int quitSize = 32;
+        // 5. Top-right quit (X ghost 24px, hover rouge danger).
+        int quitSize = 24;
         IconButton quit = new IconButton(
-            this.width - quitSize - 24, 24, quitSize,
+            this.width - quitSize - 18, 18, quitSize,
             IconPack::close, "Quitter Reborn", true,
             b -> client.setScreen(new QuitConfirmScreen(this))
-        );
+        )
+            .ghost()
+            .withIdleColor(Colors.FOREGROUND_MUTED)
+            .withHoverColor(Colors.DANGER);
         this.addDrawableChild(quit);
         reborn$persistentIcons.add(quit);
     }

@@ -9,15 +9,17 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 
 /**
- * Coin "credits" en bas-gauche du main menu — 3 lignes de version /
- * disclaimer / copyright. Toutes en Inter Medium muté.
+ * Coin "credits" en bas-DROITE du main menu — 3 lignes de version /
+ * disclaimer / copyright, alignées à droite. Toutes en Inter Medium muté.
  *
- * <p>Référence design : {@code main-menu.jsx::CreditsCorner}.
+ * <p>Référence design : {@code ref1mainmenu.png}.
  */
 public final class CreditsCorner {
 
-    private static final int LEFT_PADDING = 18;
-    private static final int BOTTOM_PADDING = 18;
+    /** Marge depuis le bord droit en pixels. */
+    private static final int RIGHT_PADDING = 18;
+    /** Distance depuis le bas (au-dessus des icons sociaux). */
+    private static final int BOTTOM_OFFSET = 70;
     private static final int LINE_HEIGHT = 11;
     private static final float TEXT_SCALE = 0.9f;
 
@@ -28,18 +30,20 @@ public final class CreditsCorner {
         if (client == null) return;
         TextRenderer tr = client.textRenderer;
 
-        int x = LEFT_PADDING;
-        int yBottom = screenH - BOTTOM_PADDING;
+        int rightEdge = screenW - RIGHT_PADDING;
+        int yBottom = screenH - BOTTOM_OFFSET;
         int yTop = yBottom - LINE_HEIGHT * 3;
 
-        drawScaled(ctx, tr, RebornVersion.shortVersion(), x, yTop, Colors.FOREGROUND_SUBTLE);
-        drawScaled(ctx, tr, RebornVersion.DISCLAIMER, x, yTop + LINE_HEIGHT, Colors.FOREGROUND_MUTED);
-        drawScaled(ctx, tr, RebornVersion.COPYRIGHT, x, yTop + LINE_HEIGHT * 2, Colors.FOREGROUND_MUTED);
+        drawRightAligned(ctx, tr, RebornVersion.shortVersion(), rightEdge, yTop, Colors.FOREGROUND_SUBTLE);
+        drawRightAligned(ctx, tr, RebornVersion.DISCLAIMER, rightEdge, yTop + LINE_HEIGHT, Colors.FOREGROUND_MUTED);
+        drawRightAligned(ctx, tr, RebornVersion.COPYRIGHT, rightEdge, yTop + LINE_HEIGHT * 2, Colors.FOREGROUND_MUTED);
     }
 
-    private static void drawScaled(DrawContext ctx, TextRenderer tr, String content,
-                                   int x, int y, int color) {
+    private static void drawRightAligned(DrawContext ctx, TextRenderer tr, String content,
+                                         int rightEdge, int y, int color) {
         Text t = RebornFont.body(content);
+        int scaledW = Math.round(tr.getWidth(t) * TEXT_SCALE);
+        int x = rightEdge - scaledW;
         ctx.getMatrices().push();
         ctx.getMatrices().translate(x, y, 0);
         ctx.getMatrices().scale(TEXT_SCALE, TEXT_SCALE, 1f);
