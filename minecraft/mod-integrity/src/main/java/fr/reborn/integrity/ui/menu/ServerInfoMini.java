@@ -63,13 +63,37 @@ public final class ServerInfoMini {
         int line1X = centerX - line1Width / 2;
         int line1Y = topY;
 
-        // Dot status.
+        // Dot status — vivant : double halo pulsant + cœur stable.
         int dotColor = online ? Colors.SUCCESS : Colors.DANGER;
-        DrawHelpers.disc(ctx, line1X + DOT_SIZE / 2, line1Y + tr.fontHeight / 2 + 1,
-            DOT_SIZE / 2, dotColor);
-        // Petit halo derrière le dot.
-        DrawHelpers.disc(ctx, line1X + DOT_SIZE / 2, line1Y + tr.fontHeight / 2 + 1,
-            DOT_SIZE / 2 + 2, Colors.withAlpha(dotColor, 0.25f));
+        int dotCx = line1X + DOT_SIZE / 2;
+        int dotCy = line1Y + tr.fontHeight / 2 + 1;
+
+        if (online) {
+            float t = (System.currentTimeMillis() % 4_000L) / 4_000f;
+            // Halo extérieur — grandit + fade (0 → 1 → 0).
+            float wave1 = (float) Math.sin(t * Math.PI * 2.0) * 0.5f + 0.5f;
+            int wave1Radius = DOT_SIZE / 2 + 2 + Math.round(wave1 * 4);
+            int wave1Alpha = Math.round((1f - wave1) * 110);
+            int wave1Color = (wave1Alpha << 24) | (dotColor & 0x00FFFFFF);
+            DrawHelpers.disc(ctx, dotCx, dotCy, wave1Radius, wave1Color);
+
+            // Halo intermédiaire — décalé de PI pour effet double-pulse.
+            float wave2 = (float) Math.sin(t * Math.PI * 2.0 + Math.PI) * 0.5f + 0.5f;
+            int wave2Radius = DOT_SIZE / 2 + 1 + Math.round(wave2 * 3);
+            int wave2Alpha = Math.round((1f - wave2) * 80);
+            int wave2Color = (wave2Alpha << 24) | (dotColor & 0x00FFFFFF);
+            DrawHelpers.disc(ctx, dotCx, dotCy, wave2Radius, wave2Color);
+        } else {
+            // Hors-ligne : pas d'animation, juste un halo fixe sobre.
+            DrawHelpers.disc(ctx, dotCx, dotCy, DOT_SIZE / 2 + 2,
+                Colors.withAlpha(dotColor, 0.25f));
+        }
+        // Cœur central plein — toujours visible, indépendant du pulse.
+        DrawHelpers.disc(ctx, dotCx, dotCy, DOT_SIZE / 2, dotColor);
+        // Highlight blanc en haut-gauche pour effet 3D / vivant.
+        if (online) {
+            DrawHelpers.disc(ctx, dotCx - 1, dotCy - 1, 1, 0xCCFFFFFF);
+        }
 
         // Texte status.
         int cursor = line1X + DOT_SIZE + 6;

@@ -38,24 +38,20 @@ public final class IconPack {
     // Media controls
     // ──────────────────────────────────────────────
 
-    /** ▶ Triangle play (rempli). */
+    /** ▶ Triangle play (rempli pointant à droite). */
     public static void play(DrawContext ctx, int x, int y, int size, int color) {
-        int s = size;
-        int rows = Math.max(5, s);
-        int margin = Math.max(1, s / 6);
+        int marginX = Math.max(1, size / 5);
+        int marginY = Math.max(1, size / 7);
+        int tipX = x + size - marginX;
+        int baseX = x + marginX;
+        int topY = y + marginY;
+        int botY = y + size - marginY;
+        int rows = botY - topY;
         for (int row = 0; row < rows; row++) {
-            float t = (float) row / (rows - 1);
-            int barX0 = x + margin;
-            int barX1 = x + s - margin - Math.round(t * (s - 2 * margin));
-            int barY = y + Math.round(t * (s - 1));
-            int barH = Math.max(1, (s - 1) / rows + 1);
-            ctx.fill(barX0, barY, barX1, barY + barH, color);
-        }
-        // Approximation plus propre : triangle rempli ligne par ligne.
-        int[] tri = triangleRows(s);
-        for (int row = 0; row < s; row++) {
-            int w = tri[row];
-            if (w > 0) ctx.fill(x + margin, y + row, x + margin + w, y + row + 1, color);
+            float t = Math.abs((row - rows / 2f) / (rows / 2f));
+            int rowW = Math.round((1f - t) * (tipX - baseX));
+            if (rowW < 1) rowW = 1;
+            ctx.fill(baseX, topY + row, baseX + rowW, topY + row + 1, color);
         }
     }
 
@@ -105,24 +101,34 @@ public final class IconPack {
         ctx.fill(x + size - bar, y + size / 6, x + size, y + size - size / 6, color);
     }
 
-    /** 🔉 Speaker simple (cône + corps). */
+    /** 🔉 Speaker simple (rectangle haut-parleur + cône + 2 arcs de son). */
     public static void volume(DrawContext ctx, int x, int y, int size, int color) {
         int mid = y + size / 2;
-        // Corps du haut-parleur (carré central).
-        int bodyTop = mid - size / 6;
-        int bodyBot = mid + size / 6;
-        ctx.fill(x + size / 6, bodyTop, x + size / 3, bodyBot, color);
-        // Cône (triangle qui s'élargit).
-        for (int i = 0; i < size / 3; i++) {
-            int spread = (i * size) / (size + 2);
-            ctx.fill(x + size / 3 + i, mid - spread - 1, x + size / 3 + i + 1, mid + spread + 1, color);
+
+        // Corps rectangulaire du haut-parleur (à gauche).
+        int bodyX0 = x + Math.max(1, size / 8);
+        int bodyX1 = x + size / 3;
+        int bodyTop = mid - size / 7;
+        int bodyBot = mid + size / 7;
+        ctx.fill(bodyX0, bodyTop, bodyX1, bodyBot + 1, color);
+
+        // Cône triangulaire qui s'élargit vers la droite.
+        int coneStart = bodyX1;
+        int coneEnd = x + size * 5 / 9;
+        int coneLen = coneEnd - coneStart;
+        for (int i = 0; i <= coneLen; i++) {
+            float t = i / (float) Math.max(1, coneLen);
+            int spread = Math.round(t * (size * 3 / 8));
+            ctx.fill(coneStart + i, mid - spread, coneStart + i + 1, mid + spread + 1, color);
         }
-        // Deux arcs de son (approximation 2 demi-cercles dégradés).
-        int arcStart = x + size * 2 / 3;
-        for (int i = 0; i < size / 4; i++) {
-            int arcY = mid - size / 4 + i * 2;
-            ctx.fill(arcStart, arcY, arcStart + 1, arcY + 1, color);
-        }
+
+        // 2 arcs de son courbes — petit (proche) et grand (loin).
+        int arcCx = coneEnd;
+        int arcCy = mid;
+        // Petit arc 90° (étroit côté droit) — épaisseur 1.
+        DrawHelpers.dashedRing(ctx, arcCx, arcCy, size / 5 + 1, 1, color, 90f, 270f, -45f);
+        // Grand arc, plus loin.
+        DrawHelpers.dashedRing(ctx, arcCx, arcCy, size / 3 + 1, 1, color, 90f, 270f, -45f);
     }
 
     /** 🔇 Speaker barré (muet). */
@@ -148,32 +154,78 @@ public final class IconPack {
         }
     }
 
-    /** ⚙️ Settings (carré central + 4 picots). */
+    /**
+     * ⚙️ Settings — cog wheel à 8 dents équidistantes, anneau central
+     * creux + petit disque au cœur.
+     */
     public static void settings(DrawContext ctx, int x, int y, int size, int color) {
         int cx = x + size / 2;
         int cy = y + size / 2;
-        DrawHelpers.ring(ctx, cx, cy, size / 3, Math.max(1, size / 10), color);
-        DrawHelpers.disc(ctx, cx, cy, size / 8, color);
-        // 4 picots (haut, bas, gauche, droite).
-        int pickW = Math.max(2, size / 6);
-        int pickH = Math.max(1, size / 8);
-        ctx.fill(cx - pickH / 2, y, cx + pickH / 2 + 1, y + pickW, color);
-        ctx.fill(cx - pickH / 2, y + size - pickW, cx + pickH / 2 + 1, y + size, color);
-        ctx.fill(x, cy - pickH / 2, x + pickW, cy + pickH / 2 + 1, color);
-        ctx.fill(x + size - pickW, cy - pickH / 2, x + size, cy + pickH / 2 + 1, color);
+        int ringR = size * 3 / 8;
+        int ringThickness = Math.max(1, size / 8);
+
+        // 8 dents tout autour, espacées de 45°.
+        int toothLen = Math.max(2, size / 7);
+        int toothW = Math.max(1, size / 9);
+        for (int i = 0; i < 8; i++) {
+            double angle = Math.toRadians(i * 45);
+            double dx = Math.cos(angle);
+            double dy = Math.sin(angle);
+            int innerR = ringR - 1;
+            int outerR = ringR + toothLen;
+            // Approximation : petit rectangle perpendiculaire à l'angle.
+            int midR = (innerR + outerR) / 2;
+            int midX = cx + (int) Math.round(dx * midR);
+            int midY = cy + (int) Math.round(dy * midR);
+            // Rectangle plus large perpendiculairement à (dx, dy).
+            int px = -(int) Math.round(dy * toothW / 2);
+            int py = (int) Math.round(dx * toothW / 2);
+            for (int k = -(outerR - innerR) / 2; k <= (outerR - innerR) / 2; k++) {
+                int sx = midX + (int) Math.round(dx * k);
+                int sy = midY + (int) Math.round(dy * k);
+                ctx.fill(sx + px, sy + py, sx + px + 1, sy + py + 1, color);
+                ctx.fill(sx - px, sy - py, sx - px + 1, sy - py + 1, color);
+                ctx.fill(sx, sy, sx + 1, sy + 1, color);
+            }
+        }
+
+        // Anneau extérieur de l'engrenage.
+        DrawHelpers.ring(ctx, cx, cy, ringR, ringThickness, color);
+        // Trou central (creux noir).
+        DrawHelpers.disc(ctx, cx, cy, Math.max(2, size / 6), Colors.BACKGROUND);
+        // Cœur central plein.
+        DrawHelpers.disc(ctx, cx, cy, Math.max(1, size / 10), color);
     }
 
-    /** 🌐 Globe (cercle + méridiens). */
+    /** 🌐 Globe — cercle + équateur + 2 méridiens (ellipses étroites). */
     public static void globe(DrawContext ctx, int x, int y, int size, int color) {
         int cx = x + size / 2;
         int cy = y + size / 2;
         int r = size / 2 - 1;
+        // Anneau extérieur 1px.
         DrawHelpers.ring(ctx, cx, cy, r, 1, color);
-        // Méridien vertical (ellipse approximée).
-        DrawHelpers.ring(ctx, cx, cy, r, 1, Colors.withAlpha(color, 0.6f));
-        ctx.fill(cx, cy - r, cx + 1, cy + r, color);
-        // Méridien horizontal (équateur).
-        ctx.fill(cx - r, cy, cx + r, cy + 1, color);
+        // Equateur (ligne horizontale 1px).
+        ctx.fill(cx - r, cy, cx + r + 1, cy + 1, color);
+        // Tropique nord (ligne horizontale demi-largeur, plus haut).
+        int tropicY = cy - r / 2;
+        int tropicW = (int) Math.round(Math.sqrt(r * r - (r / 2.0) * (r / 2.0)));
+        ctx.fill(cx - tropicW, tropicY, cx + tropicW + 1, tropicY + 1, color);
+        // Tropique sud.
+        int tropicY2 = cy + r / 2;
+        ctx.fill(cx - tropicW, tropicY2, cx + tropicW + 1, tropicY2 + 1, color);
+        // Méridien central (ellipse étroite : ligne verticale au centre).
+        ctx.fill(cx, cy - r, cx + 1, cy + r + 1, color);
+        // 2 méridiens latéraux — arcs verticaux à demi-largeur.
+        int meridianX = r / 2;
+        for (int dy = -r; dy <= r; dy++) {
+            float t = dy / (float) r;
+            // Demi-cercle aplati : largeur varie en sqrt(1 - t²).
+            int meridianHalf = (int) Math.round(meridianX * Math.sqrt(Math.max(0, 1 - t * t)));
+            if (meridianHalf > 0) {
+                ctx.fill(cx - meridianHalf, cy + dy, cx - meridianHalf + 1, cy + dy + 1, color);
+                ctx.fill(cx + meridianHalf, cy + dy, cx + meridianHalf + 1, cy + dy + 1, color);
+            }
+        }
     }
 
     /** ❌ Close (croix) — 3 passes parallèles pour épaisseur ~3px. */
@@ -214,27 +266,46 @@ public final class IconPack {
     // ──────────────────────────────────────────────
 
     /**
-     * Discord — silhouette stylisée : capsule avec 2 yeux blancs. Pas un
-     * rendu exact du logo officiel (qui est trademark), mais reconnaissable
-     * pour usage UI.
+     * Discord — silhouette mascotte façon logo officiel : capsule arrondie
+     * avec sourire impliciste, 2 yeux ovales noirs, et 2 petits "pieds"
+     * (corner bumps) en bas. Pas une copie pixel-perfect du logo trademark,
+     * mais visuellement reconnaissable.
      */
     public static void discord(DrawContext ctx, int x, int y, int size, int color) {
         int cx = x + size / 2;
         int cy = y + size / 2;
-        int rx = size * 2 / 5;
-        int ry = size / 3;
-        // Capsule (ellipse remplie).
-        for (int dy = -ry; dy <= ry; dy++) {
-            int dx = (int) Math.round(rx * Math.sqrt(1 - (dy * dy) / (double) (ry * ry)));
+        int bodyRx = size * 9 / 20;
+        int bodyRy = size * 3 / 8;
+
+        // Corps : ellipse remplie (capsule horizontale).
+        for (int dy = -bodyRy; dy <= bodyRy; dy++) {
+            float t = dy / (float) bodyRy;
+            int dx = (int) Math.round(bodyRx * Math.sqrt(Math.max(0, 1 - t * t)));
             ctx.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
         }
-        // 2 yeux blancs.
-        int eyeW = Math.max(1, size / 12);
-        int eyeH = Math.max(2, size / 7);
-        int eyeY = cy - eyeH / 2;
-        int eyeOff = size / 6;
-        ctx.fill(cx - eyeOff - eyeW / 2, eyeY, cx - eyeOff + eyeW / 2 + 1, eyeY + eyeH, Colors.WHITE_PURE);
-        ctx.fill(cx + eyeOff - eyeW / 2, eyeY, cx + eyeOff + eyeW / 2 + 1, eyeY + eyeH, Colors.WHITE_PURE);
+
+        // 2 petits "pieds" en bas (asymétrie iconique du logo).
+        int footY = cy + bodyRy - 1;
+        int footH = Math.max(2, size / 8);
+        int footW = Math.max(2, size / 7);
+        int footOff = size / 5;
+        ctx.fill(cx - footOff - footW / 2, footY, cx - footOff + footW / 2 + 1, footY + footH, color);
+        ctx.fill(cx + footOff - footW / 2, footY, cx + footOff + footW / 2 + 1, footY + footH, color);
+
+        // 2 yeux ovales (en couleur de fond pour effet "trou").
+        int eyeW = Math.max(2, size / 9);
+        int eyeH = Math.max(3, size / 5);
+        int eyeY = cy - eyeH / 2 - 1;
+        int eyeOff = size / 5;
+        // Eyes en BACKGROUND pour contraster sur le body.
+        for (int dy = 0; dy < eyeH; dy++) {
+            float t = (dy - eyeH / 2f) / (eyeH / 2f);
+            int dx = (int) Math.round((eyeW / 2f) * Math.sqrt(Math.max(0, 1 - t * t)));
+            ctx.fill(cx - eyeOff - dx, eyeY + dy, cx - eyeOff + dx + 1, eyeY + dy + 1,
+                Colors.BACKGROUND);
+            ctx.fill(cx + eyeOff - dx, eyeY + dy, cx + eyeOff + dx + 1, eyeY + dy + 1,
+                Colors.BACKGROUND);
+        }
     }
 
     /** X (Twitter) — deux lignes diagonales croisées. */

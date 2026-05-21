@@ -5,6 +5,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,6 +35,27 @@ public abstract class ConnectScreenMixin extends Screen {
 
     protected ConnectScreenMixin(Text title) {
         super(title);
+    }
+
+    /**
+     * Repositionne le bouton Annuler vanilla en bas de l'écran, à l'écart
+     * du titre Reborn et du spinner. La taille est aussi réduite (140×20)
+     * pour un look plus discret.
+     */
+    @Inject(method = "init", at = @At("TAIL"))
+    private void reborn$repositionCancel(CallbackInfo ci) {
+        int buttonW = 140;
+        int buttonH = 20;
+        int buttonX = (this.width - buttonW) / 2;
+        int buttonY = this.height - 48;
+        for (Element e : this.children()) {
+            if (e instanceof ButtonWidget btn) {
+                btn.setX(buttonX);
+                btn.setY(buttonY);
+                btn.setWidth(buttonW);
+                break;
+            }
+        }
     }
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
