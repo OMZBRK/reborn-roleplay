@@ -50,6 +50,12 @@ public final class OSTPlayer {
     /** True quand l'overlay playlist est ouvert. */
     private boolean playlistOpen = false;
 
+    /** Durées effectives par piste — apprises au fil des lectures via
+     *  SoundManager.isPlaying() qui passe à false en fin de piste. Permet
+     *  d'avoir une progress bar exacte dès la 2e écoute d'une piste. */
+    private final java.util.Map<Integer, Long> learnedDurationsMs =
+        new java.util.HashMap<>();
+
     private OSTPlayer() {}
 
     public boolean isVolumePopupOpen() { return volumePopupOpen; }
@@ -171,12 +177,26 @@ public final class OSTPlayer {
         return client.getSoundManager().isPlaying(currentInstance);
     }
 
-    /** Si la piste s'est terminee naturellement, passe a la suivante. */
+    /** Si la piste s'est terminee naturellement, passe a la suivante.
+     *  Apprend aussi la durée réelle de la piste pour les futures écoutes. */
     public void tickAutoAdvance() {
         if (playing && !isStillSoundingInManager() && getElapsedMs() > 2000) {
             // 2s grace : SoundManager.isPlaying peut etre false momentanement
             // au tout debut du play (chargement async du fichier).
+            // On capture la durée réelle avant de passer à la suivante.
+            learnedDurationsMs.put(currentTrack, getElapsedMs());
             next();
         }
+    }
+
+    /**
+     * Retourne le progress 0..1 de la piste en cours. Utilise la durée
+     * apprise si déjà jouée auparavant, sinon estimation à 180s par défaut
+     * (donc imprécise sur la 1ère écoute, exacte ensuite).
+     */
+    public float getProgress() {
+        if (!playing) return 0f;
+        long durationMs = learnedDurationsMs.getOrDefault(currentTrack, 180_000L);
+        return Math.min(1f, getElapsedMs() / (float) durationMs);
     }
 }

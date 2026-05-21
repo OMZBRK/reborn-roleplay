@@ -78,18 +78,18 @@ public final class MainMenuRenderer {
     private MainMenuRenderer() {}
 
     public static void render(DrawContext ctx, int screenW, int screenH) {
-        // 1. Sakura particles overlay.
+        // 1. BackgroundRenderer en premier — 5 couches procédurales qui
+        //    couvrent tout l'écran et masquent intégralement le panorama
+        //    vanilla + logo MC + splash + copyright. Plus besoin de
+        //    bandeaux gradients pour masquer.
+        BackgroundRenderer.render(ctx, screenW, screenH);
+
+        // 2. Sakura particles overlay — par-dessus le background, donne
+        //    une couche de mouvement diagonal descendant en contrepoint
+        //    des chakra particles qui montent.
         SakuraParticles.INSTANCE.render(ctx, screenW, screenH);
 
-        // 2. Bandeau gradient HAUT — masque logo MC vanilla + splash.
-        ctx.fill(0, 0, screenW, 80, Colors.BACKGROUND);
-        ctx.fillGradient(0, 80, screenW, 180, Colors.BACKGROUND, 0x00050608);
-
-        // 3. Bandeau gradient BAS — masque version Fabric + copyright Mojang.
-        ctx.fillGradient(0, screenH - 100, screenW, screenH - 50, 0x00050608, Colors.BACKGROUND);
-        ctx.fill(0, screenH - 50, screenW, screenH, Colors.BACKGROUND);
-
-        // 4. Logo central Reborn.
+        // 3. Logo central Reborn.
         CentralLogo.render(ctx, screenW, screenH);
 
         // 5. ServerInfo CENTRÉ en bas (sous le footer).

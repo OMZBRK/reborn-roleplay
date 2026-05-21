@@ -98,8 +98,9 @@ public final class OSTPlayerV2 {
         int progX1 = x + CARD_W - PADDING;
         ctx.fill(progX0, progY, progX1, progY + 1, Colors.BORDER_STRONG);
         if (ost.isPlaying()) {
-            float progress = Math.min(1f, (ost.getElapsedMs() / 1000f) / 180f);
-            int fill = Math.round((progX1 - progX0) * progress);
+            // Progress basé sur la durée apprise (exacte à la 2e écoute,
+            // estimation à 180s par défaut pour la 1ère).
+            int fill = Math.round((progX1 - progX0) * ost.getProgress());
             ctx.fill(progX0, progY, progX0 + fill, progY + 1, Colors.ACCENT);
         }
     }
