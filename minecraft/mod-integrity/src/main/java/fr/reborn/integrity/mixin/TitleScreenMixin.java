@@ -144,16 +144,17 @@ public abstract class TitleScreenMixin extends Screen {
         reborn$persistentIcons.add(btnGlobe);
         reborn$persistentIcons.add(btnDiscord);
 
-        // 5. Top-right quit (X ghost 24px, hover rouge danger).
-        int quitSize = 24;
+        // 5. Top-right quit (X ghost 16px, hover rouge danger, tooltip LEFT).
+        int quitSize = 16;
         IconButton quit = new IconButton(
-            this.width - quitSize - 18, 18, quitSize,
+            this.width - quitSize - 14, 14, quitSize,
             IconPack::close, "Quitter Reborn", true,
             b -> client.setScreen(new QuitConfirmScreen(this))
         )
             .ghost()
             .withIdleColor(Colors.FOREGROUND_MUTED)
-            .withHoverColor(Colors.DANGER);
+            .withHoverColor(Colors.DANGER)
+            .withTooltipPlacement(IconButton.TooltipPlacement.LEFT);
         this.addDrawableChild(quit);
         reborn$persistentIcons.add(quit);
     }

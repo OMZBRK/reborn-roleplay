@@ -1,6 +1,7 @@
 package fr.reborn.integrity.ui.menu;
 
 import fr.reborn.integrity.ui.Colors;
+import fr.reborn.integrity.ui.DrawHelpers;
 import fr.reborn.integrity.ui.RebornFont;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -10,20 +11,27 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
 /**
- * Prompt "APPUYER POUR ENTRER DANS REBORN" — version épurée :
- * juste un texte centré qui pulse (alpha qui varie de 0.55 à 1.0 en
- * sinusoïde lente). Pas de fond ni de bordure — c'est un widget
- * cliquable invisible (hit area large = toute la zone du texte).
+ * Prompt "Appuyez pour entrer dans Reborn" — style référence
+ * ({@code renduprompt.png}) : card rounded sombre avec keycap "ESPACE"
+ * à gauche + texte body à droite.
  *
- * <p>Au hover, l'animation pulse s'arrête sur l'alpha max et la couleur
- * vire vers blanc pur. Effet "ça réagit, mais sobre".
+ * <p>Layout :
+ * <pre>
+ *   ┌────────────────────────────────────────────────┐
+ *   │  [ ESPACE ]  Appuyez pour entrer dans Reborn   │
+ *   └────────────────────────────────────────────────┘
+ * </pre>
  */
 public class PressSpacePrompt extends ButtonWidget {
 
-    private static final String PROMPT_TEXT = "APPUYER POUR ENTRER DANS REBORN";
-    private static final float TEXT_SCALE_BASE = 1.0f;
+    private static final String KEY_LABEL = "ESPACE";
+    private static final String PROMPT_TEXT = "Appuyez pour entrer dans Reborn";
 
-    private final long bornAtMs = System.currentTimeMillis();
+    private static final int PADDING_X = 14;
+    private static final int PADDING_Y = 8;
+    private static final int KEYCAP_PADDING_X = 8;
+    private static final int KEYCAP_PADDING_Y = 4;
+    private static final int GAP_KEYCAP_TEXT = 12;
 
     public PressSpacePrompt(int x, int y, int width, int height, PressAction onPress) {
         super(x, y, width, height, Text.literal(PROMPT_TEXT),
@@ -31,12 +39,15 @@ public class PressSpacePrompt extends ButtonWidget {
     }
 
     public static int computeWidth(TextRenderer tr, float responsiveScale) {
-        float scale = TEXT_SCALE_BASE * responsiveScale;
-        return Math.round(tr.getWidth(RebornFont.body(PROMPT_TEXT)) * scale) + 60;
+        int keyW = tr.getWidth(RebornFont.bold(KEY_LABEL)) + 2 * KEYCAP_PADDING_X;
+        int textW = tr.getWidth(RebornFont.body(PROMPT_TEXT));
+        int total = PADDING_X * 2 + keyW + GAP_KEYCAP_TEXT + textW;
+        return Math.round(total * responsiveScale);
     }
 
     public static int computeHeight(TextRenderer tr, float responsiveScale) {
-        return Math.round(tr.fontHeight * TEXT_SCALE_BASE * responsiveScale) + 16;
+        int base = tr.fontHeight + 2 * KEYCAP_PADDING_Y + 2 * PADDING_Y;
+        return Math.round(base * responsiveScale);
     }
 
     @Override
@@ -45,43 +56,41 @@ public class PressSpacePrompt extends ButtonWidget {
         if (client == null) return;
         TextRenderer tr = client.textRenderer;
 
+        int x0 = getX();
+        int y0 = getY();
+        int w = getWidth();
+        int h = getHeight();
         boolean hovered = isHovered();
 
-        // Animation pulse en idle, fixe en hover.
-        float alpha;
-        if (hovered) {
-            alpha = 1.0f;
-        } else {
-            float t = (System.currentTimeMillis() - bornAtMs) / 1000f;
-            // Sinusoïde 2.4s par cycle, range 0.45..1.0.
-            float pulse = (float) (0.5 + 0.5 * Math.sin(t * Math.PI * 2.0 / 2.4));
-            alpha = 0.45f + pulse * 0.55f;
-        }
+        // Fond rounded sombre.
+        int bg = hovered ? Colors.SURFACE_ELEVATED : Colors.SURFACE;
+        int border = hovered ? Colors.ACCENT : Colors.BORDER_STRONG;
+        DrawHelpers.roundedOutlinedRect(context, x0, y0, w, h, 8, bg, border);
 
-        // Determine la scale responsive depuis la largeur du widget vs le
-        // computeWidth de base.
-        float widgetScale = (getWidth() - 60f) / Math.max(1, tr.getWidth(RebornFont.body(PROMPT_TEXT)));
-        widgetScale = Math.max(0.7f, Math.min(1.8f, widgetScale));
+        // Keycap "ESPACE" à gauche.
+        int keyTextW = tr.getWidth(RebornFont.bold(KEY_LABEL));
+        int keyTextH = tr.fontHeight;
+        int keyW = keyTextW + 2 * KEYCAP_PADDING_X;
+        int keyH = keyTextH + 2 * KEYCAP_PADDING_Y;
+        int keyX = x0 + PADDING_X;
+        int keyY = y0 + (h - keyH) / 2;
 
-        Text promptText = RebornFont.body(PROMPT_TEXT);
-        int textWidth = Math.round(tr.getWidth(promptText) * widgetScale);
-        int textHeight = Math.round(tr.fontHeight * widgetScale);
-        int textX = getX() + (getWidth() - textWidth) / 2;
-        int textY = getY() + (getHeight() - textHeight) / 2;
+        DrawHelpers.roundedOutlinedRect(context, keyX, keyY, keyW, keyH, 4,
+            Colors.BACKGROUND, hovered ? Colors.ACCENT : Colors.BORDER_STRONG);
+        context.drawText(tr, RebornFont.bold(KEY_LABEL),
+            keyX + KEYCAP_PADDING_X, keyY + KEYCAP_PADDING_Y, Colors.WHITE_PURE, false);
 
-        int baseColor = hovered ? Colors.WHITE_PURE : Colors.FOREGROUND;
-        int finalColor = Colors.withAlpha(baseColor, alpha);
-
-        context.getMatrices().push();
-        context.getMatrices().translate(textX, textY, 0);
-        context.getMatrices().scale(widgetScale, widgetScale, 1f);
-        context.drawText(tr, promptText, 0, 0, finalColor, false);
-        context.getMatrices().pop();
+        // Texte du prompt à droite.
+        int promptX = keyX + keyW + GAP_KEYCAP_TEXT;
+        int promptY = y0 + (h - tr.fontHeight) / 2;
+        int promptColor = hovered ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE;
+        context.drawText(tr, RebornFont.body(PROMPT_TEXT),
+            promptX, promptY, promptColor, false);
     }
 
     @Override
     public void appendClickableNarrations(NarrationMessageBuilder builder) {
         builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
-            "Appuyer pour entrer dans Reborn");
+            "Appuyez sur Espace pour entrer dans Reborn");
     }
 }

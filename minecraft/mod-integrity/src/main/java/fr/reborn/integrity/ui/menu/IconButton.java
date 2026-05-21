@@ -29,10 +29,16 @@ public class IconButton extends ButtonWidget {
         void draw(DrawContext ctx, int x, int y, int size, int color);
     }
 
+    /** Position relative du tooltip par rapport au widget. */
+    public enum TooltipPlacement { ABOVE, BELOW, LEFT, RIGHT }
+
     private final IconDrawer iconDrawer;
     private final String tooltip;
-    /** Position du tooltip : true = en-dessous, false = au-dessus. */
+    /** Position du tooltip : true = en-dessous, false = au-dessus.
+     *  Utilisé seulement si placement est null (compat ascendante). */
     private final boolean tooltipBelow;
+    /** Placement explicite du tooltip — override le bool tooltipBelow. */
+    private TooltipPlacement tooltipPlacement = null;
     /** Si true, le bouton n'a pas de fond — juste l'icône. */
     private boolean ghost = false;
     /** Couleur de l'icône au hover. Par défaut blanc pur. */
@@ -66,6 +72,12 @@ public class IconButton extends ButtonWidget {
         return this;
     }
 
+    /** Spécifie le placement du tooltip (override tooltipBelow). */
+    public IconButton withTooltipPlacement(TooltipPlacement placement) {
+        this.tooltipPlacement = placement;
+        return this;
+    }
+
     @Override
     protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -93,11 +105,11 @@ public class IconButton extends ButtonWidget {
 
         // Tooltip simple — petit cartouche sombre avec texte body.
         if (hovered && tooltip != null && !tooltip.isEmpty()) {
-            renderTooltip(context, client, x0 + s / 2, y0);
+            renderTooltip(context, client);
         }
     }
 
-    private void renderTooltip(DrawContext context, MinecraftClient client, int anchorX, int anchorY) {
+    private void renderTooltip(DrawContext context, MinecraftClient client) {
         var tr = client.textRenderer;
         Text tipText = RebornFont.body(tooltip);
         int textW = tr.getWidth(tipText);
@@ -105,8 +117,36 @@ public class IconButton extends ButtonWidget {
         int paddingY = 4;
         int tipW = textW + 2 * paddingX;
         int tipH = tr.fontHeight + 2 * paddingY;
-        int tipX = anchorX - tipW / 2;
-        int tipY = tooltipBelow ? (anchorY + getHeight() + 6) : (anchorY - tipH - 6);
+
+        // Calcul position selon placement.
+        TooltipPlacement place = tooltipPlacement;
+        if (place == null) {
+            place = tooltipBelow ? TooltipPlacement.BELOW : TooltipPlacement.ABOVE;
+        }
+        int tipX, tipY;
+        int gap = 6;
+        switch (place) {
+            case LEFT -> {
+                tipX = getX() - tipW - gap;
+                tipY = getY() + (getHeight() - tipH) / 2;
+            }
+            case RIGHT -> {
+                tipX = getX() + getWidth() + gap;
+                tipY = getY() + (getHeight() - tipH) / 2;
+            }
+            case BELOW -> {
+                tipX = getX() + getWidth() / 2 - tipW / 2;
+                tipY = getY() + getHeight() + gap;
+            }
+            case ABOVE -> {
+                tipX = getX() + getWidth() / 2 - tipW / 2;
+                tipY = getY() - tipH - gap;
+            }
+            default -> {
+                tipX = getX();
+                tipY = getY() - tipH - gap;
+            }
+        }
 
         // Tooltip rendu PAR-DESSUS le reste — push Z+200.
         context.getMatrices().push();

@@ -18,10 +18,10 @@ public final class CreditsCorner {
 
     /** Marge depuis le bord droit en pixels. */
     private static final int RIGHT_PADDING = 18;
-    /** Distance depuis le bas (au-dessus des icons sociaux). */
-    private static final int BOTTOM_OFFSET = 70;
-    private static final int LINE_HEIGHT = 11;
-    private static final float TEXT_SCALE = 0.9f;
+    /** Distance depuis le bas — juste au-dessus des 3 icons sociaux. */
+    private static final int BOTTOM_OFFSET = 44;
+    private static final int LINE_HEIGHT = 10;
+    private static final float TEXT_SCALE = 0.85f;
 
     private CreditsCorner() {}
 
