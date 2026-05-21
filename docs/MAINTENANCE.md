@@ -197,6 +197,53 @@ Au boot, tu dois voir :
 
 ---
 
+## 6bis. Update le plugin OST (côté serveur Minecraft)
+
+Le plugin `reborn-ost-plugin.jar` broadcast les pistes OST aux clients
+équipés du mod `reborn-ost` via le canal custom `reborn:ost`.
+
+Compatible serveur Paper vanilla, aucune dépendance à d'autres plugins.
+Les clients sans le mod ignorent silencieusement les broadcasts.
+
+### Si tu modifies le code
+
+```pwsh
+cd "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\minecraft\plugin-ost"
+.\gradlew build
+# → build\libs\reborn-ost-plugin-0.1.0-dev.jar (~12 KB)
+```
+
+### Upload + restart
+
+1. Sur Minestrator → **Fichiers** → `plugins/`
+2. Supprime l'ancien `reborn-ost-plugin-*.jar` (si présent)
+3. Upload le nouveau (drag-drop)
+4. **Redémarre le serveur** (Stop puis Start)
+
+### Vérifier dans la console serveur
+
+Au boot :
+```
+[RebornOst] Enabling RebornOst v0.1.0-dev
+[RebornOst] Canal reborn:ost enregistre (outgoing).
+```
+
+### Commandes (perm `reborn.ost.broadcast`, op par défaut)
+
+| Commande | Effet |
+|---|---|
+| `/ost play <trackId> <radius> [volume]` | Broadcast positionnel depuis sender |
+| `/ost playat <world> <x> <y> <z> <trackId> <radius> [volume]` | Coords explicites |
+| `/ost playglobal <trackId> [volume]` | Tous joueurs en ligne |
+| `/ost stop [radius]` | Stop (radius ou tous) |
+
+`trackId` format `categorie/nom` (sans extension `.ogg`), ex.
+`combat/track-12`. Le client résout vers
+`~/.minecraft/reborn/ost/<categorie>/<nom>.ogg`. Fichier absent
+côté client → warning log uniquement, pas de crash.
+
+---
+
 ## 7. Update le launcher (code Rust ou React)
 
 Après modif dans `apps/launcher/`, il faut rebuild et redistribuer.

@@ -1,0 +1,16 @@
+{
+  "key.categories.reborn-ost": "Reborn OST",
+  "key.reborn-ost.open_menu": "Ouvrir le menu OST",
+  "reborn-ost.screen.title": "Reborn OST",
+  "reborn-ost.screen.search.placeholder": "Rechercher une piste…",
+  "reborn-ost.screen.volume": "Volume",
+  "reborn-ost.screen.distance": "Distance (broadcast)",
+  "reborn-ost.screen.mode_solo": "Mode Solo (ignorer les broadcasts serveur)",
+  "reborn-ost.category.apaisant": "Apaisant",
+  "reborn-ost.category.combat": "Combat",
+  "reborn-ost.category.mission": "Mission",
+  "reborn-ost.category.motivation": "Motivation",
+  "reborn-ost.category.mystere": "Mystère",
+  "reborn-ost.category.triste": "Triste",
+  "reborn-ost.category.favoris": "Favoris"
+}

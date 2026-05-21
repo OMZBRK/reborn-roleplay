@@ -1,0 +1,20 @@
+# Format Paper-natif (cf plugin-guardian).
+
+name: RebornOst
+version: '${version}'
+main: fr.reborn.ost.plugin.RebornOstPlugin
+api-version: '1.21'
+authors: ['Reborn Team']
+description: 'Broadcast OST aux clients Reborn via canal reborn:ost.'
+website: 'https://reborn-rp.fr'
+
+commands:
+  ost:
+    description: 'Commandes broadcast OST (play, playat, playglobal, stop).'
+    usage: '/ost <play|playat|playglobal|stop> [args...]'
+    permission: reborn.ost.broadcast
+
+permissions:
+  reborn.ost.broadcast:
+    description: 'Autorise les commandes /ost (broadcast OST aux clients).'
+    default: op
