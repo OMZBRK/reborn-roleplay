@@ -7,6 +7,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.text.Text;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -81,27 +82,22 @@ public class AccountTab implements SettingsTab {
             cursorY += ROW_HEIGHT;
         }
 
-        // Danger zone.
+        // Danger zone — informative, bouton "Se déconnecter" sera ajouté en
+        // PR ulterieure quand l'API /v1/auth/logout sera dispo.
         cursorY += 24;
-        int dangerH = 56;
+        int dangerH = 60;
         DrawHelpers.roundedOutlinedRect(ctx, x, cursorY, width, dangerH, 8,
             Colors.DANGER_SOFT, Colors.withAlpha(Colors.DANGER, 0.4f));
-        ctx.drawText(tr, RebornFont.bold("Quitter le serveur"),
-            x + 14, cursorY + 12, Colors.WHITE_PURE, false);
+        // Icone alerte à gauche.
+        fr.reborn.integrity.ui.IconPack.alertTriangle(ctx, x + 14, cursorY + 18, 18, Colors.DANGER);
+        ctx.drawText(tr, RebornFont.bold("ZONE SENSIBLE"),
+            x + 40, cursorY + 12, Colors.DANGER, false);
         ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + 14, cursorY + 26, 0);
-        ctx.getMatrices().scale(0.85f, 0.85f, 1f);
+        ctx.getMatrices().translate(x + 40, cursorY + 28, 0);
+        ctx.getMatrices().scale(0.9f, 0.9f, 1f);
         ctx.drawText(tr, RebornFont.body(
-            "Tu seras renvoyé au menu principal. Ta progression est sauvegardée."),
+            "Pour quitter le serveur, utilise le bouton X en haut à droite du menu principal."),
             0, 0, Colors.FOREGROUND_SUBTLE, false);
         ctx.getMatrices().pop();
-        // Bouton "Se déconnecter" — non câblé en MVP.
-        Text btnText = RebornFont.bold("Se déconnecter");
-        int btnW = tr.getWidth(btnText) + 28;
-        int btnX = x + width - btnW - 14;
-        int btnY = cursorY + (dangerH - 22) / 2;
-        DrawHelpers.roundedOutlinedRect(ctx, btnX, btnY, btnW, 22, 4,
-            Colors.withAlpha(Colors.DANGER, 0.15f), Colors.DANGER);
-        ctx.drawText(tr, btnText, btnX + 14, btnY + 7, Colors.DANGER, false);
     }
 }

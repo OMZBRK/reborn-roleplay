@@ -43,6 +43,15 @@ public class VideoTab implements SettingsTab {
     public void layout(int x, int y, int width) {
         widgets.clear();
         RebornPrefs prefs = RebornPrefs.INSTANCE;
+
+        // Sync depuis mc.options pour afficher les vraies valeurs actuelles.
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc != null && mc.options != null) {
+            prefs.fpsMax = mc.options.getMaxFps().getValue();
+            prefs.vsync = mc.options.getEnableVsync().getValue();
+            prefs.renderDistance = mc.options.getViewDistance().getValue();
+        }
+
         int cursorY = y;
         int controlX = x + width - CONTROL_W;
 
@@ -75,29 +84,35 @@ public class VideoTab implements SettingsTab {
         widgets.add(modeCtrl);
         cursorY += ROW_HEIGHT;
 
-        // FPS Max.
+        // FPS Max — câblé aux mc.options.getMaxFps() en live.
         SliderWidget fpsSlider = new SliderWidget(
             controlX, cursorY + 4, CONTROL_W, 24,
             prefs.fpsMax, 30, 240, " fps",
-            v -> { prefs.fpsMax = v; prefs.save(); }
+            v -> { prefs.fpsMax = v;
+                   applyMcOption(opts -> opts.getMaxFps().setValue(v));
+                   prefs.save(); }
         );
         widgets.add(fpsSlider);
         cursorY += ROW_HEIGHT;
 
-        // Distance de rendu.
+        // Distance de rendu — câblé aux mc.options.getViewDistance().
         SliderWidget chunkSlider = new SliderWidget(
             controlX, cursorY + 4, CONTROL_W, 24,
             prefs.renderDistance, 4, 32, " chunks",
-            v -> { prefs.renderDistance = v; prefs.save(); }
+            v -> { prefs.renderDistance = v;
+                   applyMcOption(opts -> opts.getViewDistance().setValue(v));
+                   prefs.save(); }
         );
         widgets.add(chunkSlider);
         cursorY += ROW_HEIGHT;
 
-        // V-Sync toggle.
+        // V-Sync — câblé aux mc.options.getEnableVsync().
         ToggleBig vsyncToggle = new ToggleBig(
             controlX + CONTROL_W - ToggleBig.DEFAULT_WIDTH, cursorY + 4,
             prefs.vsync,
-            v -> { prefs.vsync = v; prefs.save(); }
+            v -> { prefs.vsync = v;
+                   applyMcOption(opts -> opts.getEnableVsync().setValue(v));
+                   prefs.save(); }
         );
         widgets.add(vsyncToggle);
         cursorY += ROW_HEIGHT;
@@ -116,6 +131,14 @@ public class VideoTab implements SettingsTab {
         cursorY += 60;
 
         contentHeight = cursorY - y;
+    }
+
+    /** Applique un changement à mc.options et persiste options.txt. */
+    private static void applyMcOption(java.util.function.Consumer<net.minecraft.client.option.GameOptions> consumer) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || mc.options == null) return;
+        consumer.accept(mc.options);
+        mc.options.write();
     }
 
     @Override

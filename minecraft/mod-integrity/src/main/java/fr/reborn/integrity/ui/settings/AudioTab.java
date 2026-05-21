@@ -6,6 +6,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.sound.SoundCategory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,27 +35,56 @@ public class AudioTab implements SettingsTab {
     public void layout(int x, int y, int width) {
         widgets.clear();
         RebornPrefs prefs = RebornPrefs.INSTANCE;
+
+        // Sync depuis mc.options pour afficher les vrais volumes actuels.
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc != null && mc.options != null) {
+            prefs.volumeMaster = (int) Math.round(
+                mc.options.getSoundVolumeOption(SoundCategory.MASTER).getValue() * 100);
+            prefs.volumeMusic = (int) Math.round(
+                mc.options.getSoundVolumeOption(SoundCategory.MUSIC).getValue() * 100);
+            prefs.volumeSfx = (int) Math.round(
+                mc.options.getSoundVolumeOption(SoundCategory.BLOCKS).getValue() * 100);
+            prefs.volumeVoice = (int) Math.round(
+                mc.options.getSoundVolumeOption(SoundCategory.VOICE).getValue() * 100);
+        }
+
         int cursorY = y;
         int controlX = x + width - CONTROL_W;
 
         widgets.add(new SliderWidget(controlX, cursorY + 4, CONTROL_W, 24,
             prefs.volumeMaster, 0, 100, "%",
-            v -> { prefs.volumeMaster = v; prefs.save(); }));
+            v -> { prefs.volumeMaster = v;
+                   applyVolume(SoundCategory.MASTER, v);
+                   prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
         widgets.add(new SliderWidget(controlX, cursorY + 4, CONTROL_W, 24,
             prefs.volumeMusic, 0, 100, "%",
-            v -> { prefs.volumeMusic = v; prefs.save(); }));
+            v -> { prefs.volumeMusic = v;
+                   applyVolume(SoundCategory.MUSIC, v);
+                   prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
         widgets.add(new SliderWidget(controlX, cursorY + 4, CONTROL_W, 24,
             prefs.volumeSfx, 0, 100, "%",
-            v -> { prefs.volumeSfx = v; prefs.save(); }));
+            v -> { prefs.volumeSfx = v;
+                   // SFX = somme des catégories d'effets sonores du jeu.
+                   applyVolume(SoundCategory.BLOCKS, v);
+                   applyVolume(SoundCategory.HOSTILE, v);
+                   applyVolume(SoundCategory.NEUTRAL, v);
+                   applyVolume(SoundCategory.PLAYERS, v);
+                   applyVolume(SoundCategory.AMBIENT, v);
+                   applyVolume(SoundCategory.WEATHER, v);
+                   applyVolume(SoundCategory.RECORDS, v);
+                   prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
         widgets.add(new SliderWidget(controlX, cursorY + 4, CONTROL_W, 24,
             prefs.volumeVoice, 0, 100, "%",
-            v -> { prefs.volumeVoice = v; prefs.save(); }));
+            v -> { prefs.volumeVoice = v;
+                   applyVolume(SoundCategory.VOICE, v);
+                   prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
         widgets.add(new ToggleBig(controlX + CONTROL_W - ToggleBig.DEFAULT_WIDTH,
@@ -63,6 +93,14 @@ public class AudioTab implements SettingsTab {
         cursorY += ROW_HEIGHT;
 
         contentHeight = cursorY - y;
+    }
+
+    /** Applique un volume Reborn (0..100) à une SoundCategory MC vanilla. */
+    private static void applyVolume(SoundCategory category, int percent) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || mc.options == null) return;
+        mc.options.getSoundVolumeOption(category).setValue(percent / 100.0);
+        mc.options.write();
     }
 
     @Override public List<ClickableWidget> widgets() { return widgets; }
