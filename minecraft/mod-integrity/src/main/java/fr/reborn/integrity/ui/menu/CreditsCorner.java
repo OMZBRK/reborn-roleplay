@@ -18,9 +18,11 @@ public final class CreditsCorner {
 
     /** Marge depuis le bord droit en pixels. */
     private static final int RIGHT_PADDING = 18;
-    /** Distance depuis le bas — juste au-dessus des 3 icons sociaux. */
-    private static final int BOTTOM_OFFSET = 38;
-    private static final int LINE_HEIGHT = 10;
+    /** Distance depuis le bas — laisse ~24px de gap entre la dernière
+     *  ligne des credits et le top des icons sociaux. Avant : 38px
+     *  donnait seulement 8px de gap, trop serré visuellement. */
+    private static final int BOTTOM_OFFSET = 60;
+    private static final int LINE_HEIGHT = 11;
     private static final float TEXT_SCALE = 0.85f;
 
     private CreditsCorner() {}

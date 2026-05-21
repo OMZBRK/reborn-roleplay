@@ -35,13 +35,17 @@ public final class OSTPlayerV2 {
     private static final int CONTROL_SIZE = 14;
     private static final int CONTROL_SPACING = 2;
 
+    /** Y vertical-center des contrôles dans la card. */
+    private static int controlsY(int cardY) {
+        return cardY + (CARD_H - CONTROL_SIZE) / 2;
+    }
+
     /** Position absolue (centre X, top Y) du bouton volume — utilisée pour
      *  positionner l'OSTVolumePopup au-dessus. */
     public static int[] volumeButtonAnchor(int cardX, int cardY) {
         int ctrlBaseX = cardX + CARD_W - PADDING - (CONTROL_SIZE * 3 + CONTROL_SPACING * 2);
         int btnVolX = ctrlBaseX + (CONTROL_SIZE + CONTROL_SPACING);
-        int btnY = cardY + PADDING + 2;
-        return new int[] {btnVolX + CONTROL_SIZE / 2, btnY};
+        return new int[] {btnVolX + CONTROL_SIZE / 2, controlsY(cardY)};
     }
 
     private OSTPlayerV2() {}
@@ -111,7 +115,10 @@ public final class OSTPlayerV2 {
      */
     public static IconButton[] buildControls(int cardX, int cardY) {
         int ctrlBaseX = cardX + CARD_W - PADDING - (CONTROL_SIZE * 3 + CONTROL_SPACING * 2);
-        int ctrlY = cardY + PADDING + 2;
+        // Centre vertical de la card — sinon les boutons étaient collés
+        // au haut de la card pendant que le titre/sous-titre vivaient en
+        // dessous → désalignement visuel.
+        int ctrlY = controlsY(cardY);
 
         OSTPlayer ost = OSTPlayer.INSTANCE;
 

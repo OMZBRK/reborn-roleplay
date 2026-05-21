@@ -153,9 +153,11 @@ public abstract class TitleScreenMixin extends Screen {
         reborn$persistentIcons.add(btnDiscord);
 
         // 5. Top-right quit (X ghost 16px, hover rouge danger, tooltip LEFT).
+        // Y=22 (au lieu de 14) pour ne pas coller au bord supérieur de
+        // la fenêtre — donne plus de respiration visuelle au coin.
         int quitSize = 16;
         IconButton quit = new IconButton(
-            this.width - quitSize - 14, 14, quitSize,
+            this.width - quitSize - 18, 22, quitSize,
             IconTextures.or(IconTextures.CLOSE, IconPack::close),
             "Quitter Reborn", true,
             b -> client.setScreen(new QuitConfirmScreen(this))
@@ -190,7 +192,7 @@ public abstract class TitleScreenMixin extends Screen {
         //    sur le build de prod.
         if (FabricLoader.getInstance().isDevelopmentEnvironment()) {
             IconButton soloDev = new IconButton(
-                this.width - quitSize - 18 - quitSize - 6, 14, quitSize,
+                this.width - quitSize - 18 - quitSize - 6, 22, quitSize,
                 IconPack::play, "Solo (Dev)", true,
                 b -> client.setScreen(new SelectWorldScreen(this))
             )
