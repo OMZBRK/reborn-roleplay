@@ -51,7 +51,7 @@ public final class MainMenuRenderer {
 
     /** Position Y top du groupe d'icons à droite — juste sous les credits. */
     public static int rightIconsY(int screenH) {
-        return screenH - 22;
+        return screenH - 32;
     }
 
     /** Taille de chaque icon button du groupe droit. */
