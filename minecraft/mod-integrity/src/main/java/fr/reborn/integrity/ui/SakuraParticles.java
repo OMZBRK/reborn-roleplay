@@ -21,7 +21,7 @@ import java.util.Random;
  */
 public final class SakuraParticles {
 
-    public static final SakuraParticles INSTANCE = new SakuraParticles(14);
+    public static final SakuraParticles INSTANCE = new SakuraParticles(8);
 
     private static final Identifier PETAL_TEXTURE =
         Identifier.of("reborn", "textures/gui/petal.png");
