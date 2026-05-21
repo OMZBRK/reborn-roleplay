@@ -1,189 +1,188 @@
 package fr.reborn.integrity.mixin;
 
-import fr.reborn.integrity.ui.OSTPlayerWidget;
+import fr.reborn.integrity.ui.IconPack;
 import fr.reborn.integrity.ui.RebornBranding;
-import fr.reborn.integrity.ui.RebornButton;
-import fr.reborn.integrity.ui.RebornLogo;
-import fr.reborn.integrity.ui.ServerInfoWidget;
+import fr.reborn.integrity.ui.menu.IconButton;
+import fr.reborn.integrity.ui.menu.MainMenuRenderer;
+import fr.reborn.integrity.ui.menu.OSTPlayerV2;
+import fr.reborn.integrity.ui.menu.PressSpacePrompt;
+import fr.reborn.integrity.ui.menu.QuitConfirmScreen;
 import fr.reborn.integrity.ui.screens.RebornOptionsScreen;
-import fr.reborn.integrity.ui.screens.RulesLoreScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Re-skin du title screen : enleve les boutons vanilla
- * (Singleplayer, Multiplayer, Realms, Mods, ...) et ajoute trois
- * boutons Reborn (Connecter, Site, Discord) plus une option pour
- * acceder aux Settings.
+ * Refonte complète du title screen — implémentation du design v2
+ * (cf {@code reborn-design-prep/minecraft-main-menu/main-menu.jsx}).
  *
- * <p>Approche : on s'injecte a la fin de {@code init()} apres que
- * vanilla a tout cree, on filtre les widgets indesirables (par
- * leur texte de translation key) et on ajoute les notres a la
- * place.
+ * <p>Strategie :
+ * <ol>
+ *   <li>{@code init()} : on supprime TOUS les widgets vanilla (Singleplayer,
+ *       Multiplayer, Realms, Mods, Options, Quit, accessibility, language)
+ *       et tous les widgets v1 (RebornButton, OSTPlayerWidget,
+ *       ServerInfoWidget). On ajoute les nouveaux widgets v2 :
+ *       PressSpacePrompt, 4 contrôles OST (prev/play/next/playlist),
+ *       3 IconButton bottom-right (settings/globe/discord), 1 IconButton
+ *       top-right (X quit).</li>
+ *   <li>{@code render()} : on garde le panorama vanilla en background
+ *       (rendu par {@code super.render()}). Puis on dessine TOUT notre
+ *       contenu par-dessus via {@link MainMenuRenderer} dans un push
+ *       matrix Z+=400 pour passer au-dessus des éléments vanilla
+ *       (logo MC, splash text, version Fabric, copyright Mojang).</li>
+ *   <li>{@code keyPressed()} : intercept Espace → connecte au serveur.</li>
+ * </ol>
  *
- * <p>Plus robuste qu'un screen 100% custom : si Mojang change la
- * structure interne (ajoute un bouton "Quick Play", deplace les
- * positions...), notre code marche encore parce qu'on filtre par
- * label connu et on ne touche pas au panorama / splash text.
+ * <p>Les widgets v1 ({@code RebornButton}, {@code OSTPlayerWidget},
+ * {@code ServerInfoWidget}) ne sont plus instanciés. Leurs classes
+ * restent en référence pour la PR #3+ qui peut s'en inspirer.
  */
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen {
 
-    private static final Logger REBORN_LOGGER =
-        LoggerFactory.getLogger("reborn-integrity/title-mixin");
+    private static final Logger LOG = LoggerFactory.getLogger("reborn-integrity/title-mixin-v2");
 
     /**
-     * Clefs de translation Yarn 1.21.1 des boutons vanilla qu'on veut
-     * masquer. On filtre par la string brute du translation key pour
-     * eviter les imports de TranslationKeys (qui changent souvent).
+     * Références aux 4 IconButton de contrôle OST. On les garde pour les
+     * re-render dans {@code @Inject TAIL} après le background de la card
+     * (qui les masquerait sinon, vu qu'ils sont dessinés en avance par
+     * {@code super.render()}).
      */
-    private static final String[] HIDDEN_VANILLA_KEYS = {
-        "menu.singleplayer",
-        "menu.multiplayer",
-        "menu.online", // Realms
-        "menu.modded", // Fabric/Forge "Mods" label
-        "fml.menu.mods", // Forge legacy
-        "modmenu.title", // Mod Menu mod
-        // PR #1 : on retire aussi les boutons Options/Quit vanilla
-        // parce qu'on les recree nous-meme plus bas. Sinon doublon.
-        "menu.options",
-        "menu.quit",
-        // Boutons accessibility + language en bas — on les masque pour
-        // un menu epure (a re-evaluer pour PR #6/RebornOptionsScreen).
-        "narrator.button.accessibility",
-        "narrator.button.language",
-    };
+    @Unique
+    private final List<IconButton> reborn$ostControls = new ArrayList<>();
 
     protected TitleScreenMixin(Text title) {
         super(title);
     }
 
     @Inject(method = "init", at = @At("RETURN"))
-    private void reborn$replaceMenu(CallbackInfo ci) {
+    private void reborn$rebuildMenu(CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
 
-        // 1. Collecte tous les widgets vanilla a virer. Deux criteres :
-        //    (a) label texte qui matche un translation key blacklistee
-        //    (b) widget icon-only : width <= 30 (les boutons accessibility
-        //        + language en bas n'ont pas de label mais sont des icones).
+        // 1. Drop TOUS les widgets vanilla et v1 — on reconstruit from scratch.
         List<Element> toRemove = new ArrayList<>();
         for (Element child : this.children()) {
-            if (child instanceof ClickableWidget w) {
-                if (w.getWidth() <= 30) {
-                    toRemove.add(child);
-                    continue;
-                }
-                if (child instanceof ButtonWidget btn) {
-                    String label = btn.getMessage().getString();
-                    for (String key : HIDDEN_VANILLA_KEYS) {
-                        String translated = Text.translatable(key).getString();
-                        if (label.equalsIgnoreCase(translated)) {
-                            toRemove.add(child);
-                            break;
-                        }
-                    }
-                }
+            if (child instanceof ClickableWidget) {
+                toRemove.add(child);
             }
         }
         for (Element e : toRemove) {
             this.remove(e);
         }
-        REBORN_LOGGER.info("title screen : {} boutons vanilla retires", toRemove.size());
+        LOG.info("title screen v2 : {} widgets vanilla/v1 retirés", toRemove.size());
 
-        // 2. Ajoute les boutons Reborn — 5 boutons empiles verticalement
-        //    au centre, label MAJUSCULES, dimensions uniformes.
-        //
-        //    Actions :
-        //    - REJOINDRE LE SERVEUR : auto-connect au serveur Reborn
-        //    - REGLEMENT & LORE     : (PR #6) RulesLoreScreen — placeholder = openSite()
-        //    - DISCORD              : ouvre l'invite Discord dans le browser
-        //    - PARAMETRES           : (PR #6) RebornOptionsScreen — placeholder = OptionsScreen vanilla
-        //    - QUITTER              : scheduleStop()
-        final int btnW = 240;
-        final int btnH = 26;
-        final int spacing = 6;
-        final int totalH = 5 * btnH + 4 * spacing;
-        final int startY = Math.max(120, (this.height - totalH) / 2 + 20);
-        final int centerX = this.width / 2 - btnW / 2;
+        // 2. PressSpacePrompt — centré, fraction Y = 0.55.
+        int promptW = PressSpacePrompt.computeWidth(this.textRenderer);
+        int promptH = PressSpacePrompt.computeHeight(this.textRenderer);
+        int promptX = (this.width - promptW) / 2;
+        int promptY = MainMenuRenderer.promptY(this.height);
+        this.addDrawableChild(new PressSpacePrompt(
+            promptX, promptY, promptW, promptH,
+            b -> RebornBranding.connectToReborn(client, this)
+        ));
 
-        this.addDrawableChild(new RebornButton(centerX, startY, btnW, btnH,
-            Text.literal("REJOINDRE LE SERVEUR"),
-            b -> RebornBranding.connectToReborn(client, this)));
-        this.addDrawableChild(new RebornButton(centerX, startY + (btnH + spacing), btnW, btnH,
-            Text.literal("RÈGLEMENT & LORE"),
-            b -> client.setScreen(new RulesLoreScreen(this))));
-        this.addDrawableChild(new RebornButton(centerX, startY + 2 * (btnH + spacing), btnW, btnH,
-            Text.literal("DISCORD"),
-            b -> RebornBranding.openDiscord()));
-        this.addDrawableChild(new RebornButton(centerX, startY + 3 * (btnH + spacing), btnW, btnH,
-            Text.literal("PARAMÈTRES"),
-            b -> client.setScreen(new RebornOptionsScreen(this))));
-        this.addDrawableChild(new RebornButton(centerX, startY + 4 * (btnH + spacing), btnW, btnH,
-            Text.literal("QUITTER"),
-            b -> client.scheduleStop()));
+        // 3. OST controls (4 IconButton : prev / play|pause / next / playlist).
+        int ostX = MainMenuRenderer.ostCardX(this.width);
+        int ostY = MainMenuRenderer.ostCardY(this.height);
+        reborn$ostControls.clear();
+        for (IconButton ctrl : OSTPlayerV2.buildControls(ostX, ostY)) {
+            this.addDrawableChild(ctrl);
+            reborn$ostControls.add(ctrl);
+        }
 
-        // 3. Lecteur OST en coin haut-droite (PR #4). Dimensions 240x56,
-        //    a 10px du bord droit + 10px du haut.
-        int ostW = 240;
-        int ostH = 56;
-        this.addDrawableChild(
-            new OSTPlayerWidget(this.width - ostW - 10, 10, this.textRenderer)
-        );
+        // 4. Bottom-right icons : 3 boutons (Settings / Globe / Discord).
+        int iconSize = 32;
+        int iconGap = 8;
+        int brX = MainMenuRenderer.bottomRightX(this.width);
+        int brY = MainMenuRenderer.bottomRightY(this.height);
+        // Discord (le plus à droite).
+        this.addDrawableChild(new IconButton(
+            brX - iconSize, brY, iconSize,
+            IconPack::discord, "Discord", true,
+            b -> RebornBranding.openDiscord()
+        ));
+        // Globe (centre).
+        this.addDrawableChild(new IconButton(
+            brX - 2 * (iconSize + iconGap) + iconGap, brY, iconSize,
+            IconPack::globe, "Site web", true,
+            b -> RebornBranding.openSite()
+        ));
+        // Settings (le plus à gauche).
+        this.addDrawableChild(new IconButton(
+            brX - 3 * (iconSize + iconGap) + 2 * iconGap, brY, iconSize,
+            IconPack::settings, "Paramètres", true,
+            b -> client.setScreen(new RebornOptionsScreen(this))
+        ));
 
-        // 4. Server info card en coin haut-gauche (PR #5). Dimensions
-        //    200x40, a 10px du bord gauche + 10px du haut.
-        this.addDrawableChild(
-            new ServerInfoWidget(10, 10, this.textRenderer)
-        );
+        // 5. Top-right quit (X ghost, sans fond).
+        int quitSize = 28;
+        IconButton quit = new IconButton(
+            this.width - quitSize - 18, 18, quitSize,
+            IconPack::close, "Quitter Reborn", true,
+            b -> client.setScreen(new QuitConfirmScreen(this))
+        ).ghost();
+        this.addDrawableChild(quit);
     }
 
     /**
-     * Apres le render vanilla complet, on COUVRE tout avec un fill noir
-     * opaque et on re-dessine uniquement ce qu'on veut : logo REBORN +
-     * boutons Reborn. C'est plus robuste que cancel(HEAD) — n'importe
-     * quel autre mixin ou code post-render (copyright Mojang, overlays
-     * Realms) sera ecrase par notre fill final.
-     *
-     * <p>Cout : on rerender les drawables 2 fois par frame (vanilla puis
-     * nous). Negligeable pour un title screen statique.
-     *
-     * <p>PR ulterieure : remplacer fill noir par panorama Reborn custom.
+     * Rendu Reborn par-dessus le panorama vanilla. On utilise @Inject TAIL
+     * + push Z+=400 pour s'assurer que notre UI passe par-dessus tout ce
+     * que vanilla a buffered (logo MC, splash text, drawText du copyright /
+     * version Fabric).
      */
-    /**
-     * Dessine un masque sur la zone du logo Minecraft vanilla, puis notre
-     * logo REBORN par-dessus. Le panorama qui tourne, le splash text, la
-     * version Fabric et le copyright Mojang en bas restent vanilla — c'est
-     * ce que le user veut garder dans la PR #1.
-     *
-     * <p>Push une matrice Z+=400 pour passer au-dessus des drawText
-     * vanilla qui sont batches sur un autre z-layer.
-     */
-    @Inject(method = "render", at = @At("RETURN"))
-    private void reborn$drawLogo(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    @Inject(method = "render", at = @At("TAIL"))
+    private void reborn$renderOverlay(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         context.getMatrices().push();
         context.getMatrices().translate(0, 0, 400);
-        RebornLogo.render(context, this.width, this.height);
+
+        // Rend l'UI Reborn par-dessus tout ce que vanilla a dessiné
+        // (panorama + logo MC + splash + copyright). Le logo central Reborn
+        // est positionné pour couvrir le logo MC vanilla. Les credits
+        // couvrent la version Fabric + copyright Mojang en bas. Le splash
+        // jaune dépasse à droite — accepté volontairement.
+        MainMenuRenderer.render(context, this.width, this.height);
+
+        // Re-render les 4 IconButton OST controls par-dessus le BG de la
+        // card OST. Sans ça, le BG (dessiné par MainMenuRenderer) masque
+        // les contrôles qui ont été rendus en avance par super.render().
+        for (IconButton ctrl : reborn$ostControls) {
+            ctrl.render(context, mouseX, mouseY, delta);
+        }
+
         context.getMatrices().pop();
     }
 
-    @SuppressWarnings("unused")
-    private void reborn$noop(ClickableWidget w) {
-        // Reserve si on ajoute un helper plus tard (renamer/wrapper boutons).
+    /**
+     * Intercept Espace → connect au serveur Reborn directement.
+     * Match le comportement du {@link PressSpacePrompt} (qui est aussi
+     * cliquable).
+     */
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    private void reborn$onSpacePressed(int keyCode, int scanCode, int modifiers,
+                                       CallbackInfoReturnable<Boolean> cir) {
+        // GLFW.GLFW_KEY_SPACE = 32
+        if (keyCode == 32) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client != null) {
+                RebornBranding.connectToReborn(client, this);
+                cir.setReturnValue(true);
+            }
+        }
     }
 }
