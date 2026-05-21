@@ -6,7 +6,8 @@
   "client": [
     "TitleScreenMixin",
     "OptionsScreenMixin",
-    "GameMenuScreenMixin"
+    "GameMenuScreenMixin",
+    "ConnectScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
