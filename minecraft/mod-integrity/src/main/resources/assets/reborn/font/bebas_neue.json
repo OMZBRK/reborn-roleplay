@@ -1,0 +1,12 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "reborn:BebasNeue-Regular.ttf",
+      "shift": [0, 0],
+      "size": 11,
+      "oversample": 4,
+      "skip": []
+    }
+  ]
+}
