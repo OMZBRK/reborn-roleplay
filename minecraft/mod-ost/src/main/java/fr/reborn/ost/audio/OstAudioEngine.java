@@ -152,7 +152,20 @@ public final class OstAudioEngine {
         return state == AL10.AL_PLAYING;
     }
 
+    /**
+     * Renvoie la piste en cours, ou empty. <strong>Effet de bord :</strong>
+     * si la source OpenAL a fini de jouer naturellement (état AL_STOPPED),
+     * on libère les ressources et on remet l'état à zéro — sinon la HUD
+     * et le bouton ▶ du menu continueraient d'afficher une piste fantôme
+     * jusqu'au prochain {@link #play} ou {@link #stop}.
+     */
     public synchronized Optional<OstTrack> currentTrack() {
+        if (currentTrack != null && currentSource != -1) {
+            int state = AL10.alGetSourcei(currentSource, AL10.AL_SOURCE_STATE);
+            if (state == AL10.AL_STOPPED) {
+                stop();
+            }
+        }
         return Optional.ofNullable(currentTrack);
     }
 

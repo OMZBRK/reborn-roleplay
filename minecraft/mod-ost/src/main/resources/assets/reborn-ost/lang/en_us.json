@@ -6,6 +6,7 @@
   "reborn-ost.screen.volume": "Volume",
   "reborn-ost.screen.distance": "Distance (broadcast)",
   "reborn-ost.screen.mode_solo": "Solo Mode (ignore server broadcasts)",
+  "reborn-ost.screen.stop": "Stop",
   "reborn-ost.category.apaisant": "Calm",
   "reborn-ost.category.combat": "Combat",
   "reborn-ost.category.mission": "Mission",

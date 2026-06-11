@@ -132,6 +132,15 @@ public class OstScreen extends Screen {
             b.setMessage(soloLabel());
         }).dimensions(soloX, footerY, 180, 16).build();
         this.addDrawableChild(soloToggle);
+
+        // Bouton Stop — stoppe la piste en cours côté client. Pratique pour
+        // couper un broadcast serveur ou une track déclenchée manuellement
+        // sans devoir attendre la fin ni passer par /ost stop.
+        int stopX = soloX + 180 + 6;
+        ButtonWidget stopButton = ButtonWidget.builder(
+            Text.translatable("reborn-ost.screen.stop"), b -> engine.stop()
+        ).dimensions(stopX, footerY, 60, 16).build();
+        this.addDrawableChild(stopButton);
     }
 
     private Text soloLabel() {

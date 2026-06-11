@@ -32,8 +32,10 @@ public final class OstConfig {
     private float volume = 0.5f;
     /** Radius par défaut pour les broadcasts manuels (utilisé par les slider UI). */
     private float broadcastDistance = 32f;
-    /** Mode Solo : ignore les broadcasts serveur. ON par défaut. */
-    private boolean soloMode = true;
+    /** Mode Solo : ignore les broadcasts serveur. OFF par défaut — l'UX
+     *  attendue est que les joueurs entendent les broadcasts RP, et qu'ils
+     *  opt-out explicitement via le toggle du menu OST si besoin. */
+    private boolean soloMode = false;
     /** TrackIds favoris (preserve insertion order pour l'affichage). */
     private LinkedHashSet<String> favorites = new LinkedHashSet<>();
     /** Dernier trackId joué — restauré au prochain lancement si présent. */

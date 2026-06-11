@@ -38,6 +38,22 @@ repositories {
     maven("https://maven.fabricmc.net/") { name = "Fabric" }
 }
 
+// Deuxième client de dev — pratique pour tester l'attenuation positionnelle
+// du broadcast OST avec deux instances connectées au même serveur. Run dir
+// séparée (`run-clientB`) pour ne pas se battre sur les locks de world / lock
+// de config / Credentials. Username "DevB" pour que Paper accepte les deux
+// connexions simultanées.
+loom {
+    runs {
+        register("clientB") {
+            client()
+            ideConfigGenerated(true)
+            runDir("run-clientB")
+            programArgs("--username", "DevB")
+        }
+    }
+}
+
 dependencies {
     minecraft("com.mojang:minecraft:${minecraft_version}")
     mappings("net.fabricmc:yarn:${yarn_mappings}:v2")

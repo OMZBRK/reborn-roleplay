@@ -55,6 +55,15 @@ public final class OstHudOverlay {
             lastChangeAtMs = now;
         }
 
+        // Un écran ouvert (OstScreen, ESC, inventaire) occulte la HUD. On
+        // gèle le timer pour que l'utilisateur ait son 5s plein une fois
+        // l'écran fermé (sinon le menu OST consomme le délai et la HUD
+        // n'apparaît jamais après sélection d'une piste).
+        if (client.currentScreen != null) {
+            lastChangeAtMs = now;
+            return;
+        }
+
         // Auto-hide après le délai : la piste continue mais on n'affiche
         // plus la HUD jusqu'au prochain changement.
         if (now - lastChangeAtMs > AUTO_HIDE_DELAY_MS) return;
