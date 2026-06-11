@@ -22,7 +22,7 @@ class OstPayloadTest {
     @Test
     void roundTripPlayAtPosition() {
         OstPayload original = new OstPayload.PlayAtPosition(
-            12.5, 64.0, -33.25, 48.0f, "combat/duel-1", 0.85f);
+            12.5, 64.0, -33.25, 48.0f, "combat/duel-1", 0.85f, 17.25f);
 
         PacketByteBuf buf = newBuf();
         OstPayload.CODEC.encode(buf, original);
@@ -37,6 +37,7 @@ class OstPayloadTest {
         assertEquals(48.0f, p.radius());
         assertEquals("combat/duel-1", p.trackId());
         assertEquals(0.85f, p.volume());
+        assertEquals(17.25f, p.secOffset());
     }
 
     @Test

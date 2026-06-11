@@ -53,20 +53,21 @@ public final class OstNetworking {
         }
         switch (payload) {
             case OstPayload.StopBroadcast ignored -> client.execute(engine::stop);
-            case OstPayload.PlayGlobal p -> resolveAndPlay(p.trackId(), p.volume(), null, 0f, library, engine, client);
+            case OstPayload.PlayGlobal p -> resolveAndPlay(p.trackId(), p.volume(), null, 0f, 0f, library, engine, client);
             case OstPayload.PlayAtPosition p -> resolveAndPlay(
                 p.trackId(),
                 p.volume(),
                 new float[]{(float) p.x(), (float) p.y(), (float) p.z()},
                 p.radius(),
+                p.secOffset(),
                 library, engine, client
             );
         }
     }
 
     private static void resolveAndPlay(String trackId, float volume, float[] worldPos,
-                                       float radius, OstLibrary library, OstAudioEngine engine,
-                                       MinecraftClient client) {
+                                       float radius, float secOffset, OstLibrary library,
+                                       OstAudioEngine engine, MinecraftClient client) {
         Optional<OstTrack> resolved = library.resolve(trackId);
         if (resolved.isEmpty()) {
             LOGGER.warn("broadcast reçu pour trackId inconnu : '{}'. Drop ses fichiers .ogg dans le dossier OST local et /ost reload.", trackId);
@@ -75,6 +76,6 @@ public final class OstNetworking {
         OstTrack track = resolved.get();
         // L'audio engine doit être appelé depuis le main thread MC (OpenAL
         // single-thread). client.execute déferre sur la prochaine tick.
-        client.execute(() -> engine.play(track, volume, worldPos, radius));
+        client.execute(() -> engine.play(track, volume, worldPos, radius, secOffset));
     }
 }

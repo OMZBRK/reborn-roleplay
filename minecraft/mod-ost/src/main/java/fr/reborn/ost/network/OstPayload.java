@@ -12,9 +12,14 @@ import net.minecraft.util.Identifier;
  * <pre>
  *   PLAY_AT_POSITION (0x01) : type:byte x:double y:double z:double
  *                              radius:float trackId:string volume:float
+ *                              secOffset:float
  *   STOP_BROADCAST   (0x02) : type:byte
  *   PLAY_GLOBAL      (0x03) : type:byte trackId:string volume:float
  * </pre>
+ *
+ * <p>{@code secOffset} (secondes depuis le début de la track) permet à un
+ * joueur qui rejoint une zone déjà active d'attaquer la lecture au
+ * timestamp courant via {@code AL_SEC_OFFSET}, et pas de réentendre depuis 0.
  *
  * <p>{@code string} = {@link PacketByteBuf#writeString} = VarInt(len) +
  * UTF-8 bytes. Le plugin produit le même encoding via
@@ -52,7 +57,8 @@ public sealed interface OstPayload extends CustomPayload
                     float radius = buf.readFloat();
                     String trackId = buf.readString();
                     float volume = buf.readFloat();
-                    yield new PlayAtPosition(x, y, z, radius, trackId, volume);
+                    float secOffset = buf.readFloat();
+                    yield new PlayAtPosition(x, y, z, radius, trackId, volume, secOffset);
                 }
                 case STOP_BROADCAST -> new StopBroadcast();
                 case PLAY_GLOBAL -> {
@@ -74,6 +80,7 @@ public sealed interface OstPayload extends CustomPayload
                     buf.writeFloat(p.radius());
                     buf.writeString(p.trackId());
                     buf.writeFloat(p.volume());
+                    buf.writeFloat(p.secOffset());
                 }
                 case StopBroadcast ignored -> buf.writeByte(OstPacketType.STOP_BROADCAST.code());
                 case PlayGlobal p -> {
@@ -90,12 +97,16 @@ public sealed interface OstPayload extends CustomPayload
         return ID;
     }
 
-    /** Son positionnel — le mod calcule l'attenuation locale (radius). */
+    /** Son positionnel — le mod calcule l'attenuation locale (radius).
+     *  {@code secOffset} = secondes depuis le début de la track, pour
+     *  permettre à un joueur qui rejoint une zone active d'attaquer au
+     *  bon timestamp. 0 = lecture depuis le début. */
     record PlayAtPosition(double x, double y, double z, float radius,
-                          String trackId, float volume) implements OstPayload {
+                          String trackId, float volume, float secOffset) implements OstPayload {
         @Override
         public String summary() {
-            return "PLAY_AT(" + trackId + " @" + x + "," + y + "," + z + " r=" + radius + ")";
+            return "PLAY_AT(" + trackId + " @" + x + "," + y + "," + z
+                + " r=" + radius + " off=" + secOffset + "s)";
         }
     }
 

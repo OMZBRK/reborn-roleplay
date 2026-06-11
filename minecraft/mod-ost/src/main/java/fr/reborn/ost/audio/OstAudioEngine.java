@@ -1,6 +1,7 @@
 package fr.reborn.ost.audio;
 
 import org.lwjgl.openal.AL10;
+import org.lwjgl.openal.AL11;
 import org.lwjgl.stb.STBVorbis;
 import org.lwjgl.stb.STBVorbisInfo;
 import org.lwjgl.system.MemoryStack;
@@ -84,11 +85,15 @@ public final class OstAudioEngine {
     /**
      * Joue une piste. Si une autre joue déjà, elle est stoppée avant.
      *
-     * @param worldPos null = son global, sinon coordonnées monde
-     * @param radius   ignored si worldPos == null, sinon AL_MAX_DISTANCE
+     * @param worldPos        null = son global, sinon coordonnées monde
+     * @param radius          ignored si worldPos == null, sinon distance fade-to-0
+     * @param secOffsetSeconds skip dans la track, en secondes. 0 = depuis le
+     *                        début ; > 0 utilisé quand le serveur nous fait
+     *                        rejoindre un broadcast déjà entamé.
      */
     public synchronized void play(OstTrack track, float volumeMultiplier,
-                                  float[] worldPos, float radius) {
+                                  float[] worldPos, float radius,
+                                  float secOffsetSeconds) {
         stop();
 
         DecodedOgg decoded;
@@ -141,15 +146,28 @@ public final class OstAudioEngine {
                     clamp(globalVolume * volumeMultiplier, 0f, 2f));
             }
 
+            // Seek si demandé. AL11.AL_SEC_OFFSET prend des secondes et clamp
+            // automatiquement à la durée du buffer — un offset au-delà fait
+            // passer la source en AL_STOPPED tout de suite, ce qui est OK
+            // (mode "track déjà finie" géré par currentTrack auto-clear).
+            float clampedOffset = Math.max(0f, secOffsetSeconds);
+            if (clampedOffset > 0f) {
+                AL10.alSourcef(source, AL11.AL_SEC_OFFSET, clampedOffset);
+            }
+
             AL10.alSourcePlay(source);
             this.currentBuffer = buffer;
             this.currentSource = source;
             this.currentTrack = track;
-            this.currentStartedAtMs = System.currentTimeMillis();
+            // On recule startedAt par l'offset pour que elapsedMs() renvoie
+            // le timestamp courant dans la track et pas "depuis qu'on a
+            // appelé play()" — la HUD affiche 0:42 / 2:30 correctement.
+            this.currentStartedAtMs = System.currentTimeMillis() - (long) (clampedOffset * 1000f);
             this.currentDurationMs = decoded.durationMs;
-            LOGGER.info("OST play '{}' ({}ch @ {}Hz, dur {}ms{})", track.trackId(),
+            LOGGER.info("OST play '{}' ({}ch @ {}Hz, dur {}ms{}{})", track.trackId(),
                 decoded.channels, decoded.sampleRate, decoded.durationMs,
-                worldPos != null ? ", positional r=" + currentMaxDistance : ", global");
+                worldPos != null ? ", positional r=" + currentMaxDistance : ", global",
+                clampedOffset > 0f ? ", seek +" + clampedOffset + "s" : "");
         } catch (RuntimeException e) {
             LOGGER.warn("OpenAL setup failed for '{}' : {}", track.trackId(), e.getMessage());
         }

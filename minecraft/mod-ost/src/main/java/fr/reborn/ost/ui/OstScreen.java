@@ -232,7 +232,7 @@ public class OstScreen extends Screen {
             config.toggleFavorite(t.trackId());
             config.save();
         } else {
-            engine.play(t, 1.0f, null, 0f);
+            engine.play(t, 1.0f, null, 0f, 0f);
             config.setLastTrackId(t.trackId());
             config.save();
         }

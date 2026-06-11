@@ -10,10 +10,15 @@ package fr.reborn.ost.plugin.network;
  *
  * <ul>
  *   <li>{@code 0x01} PLAY_AT_POSITION : x:double y:double z:double
- *       radius:float trackId:string volume:float</li>
+ *       radius:float trackId:string volume:float secOffset:float</li>
  *   <li>{@code 0x02} STOP_BROADCAST   : aucun arg</li>
  *   <li>{@code 0x03} PLAY_GLOBAL      : trackId:string volume:float</li>
  * </ul>
+ *
+ * <p>{@code secOffset} (PLAY_AT_POSITION) : nombre de secondes depuis le
+ * début de la track. Utilisé quand un joueur rejoint une zone broadcast
+ * déjà active — il attaque la lecture au timestamp courant via
+ * {@code AL_SEC_OFFSET} côté mod. 0 = lecture depuis le début.
  */
 public final class OstPacket {
 
@@ -24,7 +29,7 @@ public final class OstPacket {
     private OstPacket() {}
 
     public static byte[] playAtPosition(double x, double y, double z, float radius,
-                                        String trackId, float volume) {
+                                        String trackId, float volume, float secOffset) {
         return OstWireFormat.writer()
             .writeByte(TYPE_PLAY_AT_POSITION)
             .writeDouble(x)
@@ -33,6 +38,7 @@ public final class OstPacket {
             .writeFloat(radius)
             .writeString(trackId)
             .writeFloat(volume)
+            .writeFloat(secOffset)
             .toByteArray();
     }
 

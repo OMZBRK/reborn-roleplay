@@ -19,7 +19,7 @@ class OstPacketTest {
 
     @Test
     void playAtPositionEncodesExpectedBytes() {
-        byte[] out = OstPacket.playAtPosition(1.0, 2.0, 3.0, 16.0f, "ab", 0.5f);
+        byte[] out = OstPacket.playAtPosition(1.0, 2.0, 3.0, 16.0f, "ab", 0.5f, 12.5f);
 
         ByteBuffer buf = ByteBuffer.wrap(out);
         assertEquals(OstPacket.TYPE_PLAY_AT_POSITION, buf.get());
@@ -32,6 +32,7 @@ class OstPacketTest {
         assertEquals('a', buf.get());
         assertEquals('b', buf.get());
         assertEquals(0.5f, buf.getFloat());
+        assertEquals(12.5f, buf.getFloat());
         assertFalse(buf.hasRemaining());
     }
 
