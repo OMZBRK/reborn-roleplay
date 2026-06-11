@@ -1,7 +1,6 @@
 package fr.reborn.ost.audio;
 
 import org.lwjgl.openal.AL10;
-import org.lwjgl.openal.AL11;
 import org.lwjgl.stb.STBVorbis;
 import org.lwjgl.stb.STBVorbisInfo;
 import org.lwjgl.system.MemoryStack;
@@ -57,13 +56,26 @@ public final class OstAudioEngine {
     private OstTrack currentTrack = null;
     /** Volume gain global (0..1) appliqué à la source active. */
     private float globalVolume = 0.5f;
+    /** Volume multiplier passé par le caller (broadcast packet ou UI). */
+    private float currentVolumeMultiplier = 1f;
+    /** Position monde de la source positionnelle, ou null si globale. */
+    private float[] currentWorldPos = null;
+    /** Distance à laquelle le gain commence à fade (= 1.0 en deçà). */
+    private float currentReferenceDistance = 1f;
+    /** Distance à laquelle le gain atteint 0. */
+    private float currentMaxDistance = 0f;
 
     public OstAudioEngine() {}
 
     public synchronized void setGlobalVolume(float volume) {
         this.globalVolume = clamp(volume, 0f, 1f);
-        if (currentSource != -1) {
-            AL10.alSourcef(currentSource, AL10.AL_GAIN, globalVolume);
+        if (currentSource != -1 && currentWorldPos == null) {
+            // Sources globales : on applique directement. Pour les sources
+            // positionnelles, tickPositional réapplique le gain avec le facteur
+            // distance à chaque tick — on ne touche pas ici pour ne pas créer
+            // un flash de volume entre la modif du slider et le prochain tick.
+            AL10.alSourcef(currentSource, AL10.AL_GAIN,
+                clamp(globalVolume * currentVolumeMultiplier, 0f, 2f));
         }
     }
 
@@ -100,21 +112,33 @@ public final class OstAudioEngine {
 
             int source = AL10.alGenSources();
             AL10.alSourcei(source, AL10.AL_BUFFER, buffer);
-            AL10.alSourcef(source, AL10.AL_GAIN, clamp(globalVolume * volumeMultiplier, 0f, 2f));
 
+            // Toujours source-relative au listener : on bypasse complètement
+            // le distance model d'OpenAL parce qu'il refuse de fade les
+            // buffers stéréo (spec AL). On fait l'attenuation à la main
+            // dans tickPositional pour garder le master stéréo du .ogg.
+            AL10.alSourcei(source, AL10.AL_SOURCE_RELATIVE, AL10.AL_TRUE);
+            AL10.alSource3f(source, AL10.AL_POSITION, 0f, 0f, 0f);
+            AL10.alSourcef(source, AL10.AL_ROLLOFF_FACTOR, 0.0f);
+
+            this.currentVolumeMultiplier = volumeMultiplier;
             if (worldPos != null) {
-                AL10.alSourcei(source, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
-                AL10.alSource3f(source, AL10.AL_POSITION, worldPos[0], worldPos[1], worldPos[2]);
-                AL10.alSourcef(source, AL10.AL_REFERENCE_DISTANCE, 1.0f);
-                AL10.alSourcef(source, AL10.AL_MAX_DISTANCE, Math.max(1f, radius));
-                AL10.alSourcef(source, AL10.AL_ROLLOFF_FACTOR, 1.0f);
-                AL11.alDistanceModel(AL11.AL_LINEAR_DISTANCE_CLAMPED);
+                this.currentWorldPos = new float[]{worldPos[0], worldPos[1], worldPos[2]};
+                this.currentMaxDistance = Math.max(1f, radius);
+                // refDistance = 25% du radius — donne un "core" à plein volume
+                // proche de la source, puis fade linéaire vers 0 jusqu'au bord.
+                // Empirique mais cohérent musicalement (pas de point unique).
+                this.currentReferenceDistance = Math.max(1f, currentMaxDistance * 0.25f);
+                // Gain initial = on suppose le joueur au point d'origine du
+                // broadcast jusqu'au premier tick. Sinon le client entendrait
+                // un flash plein volume à t=0 avant que tick réajuste.
+                AL10.alSourcef(source, AL10.AL_GAIN, 0f);
             } else {
-                // Son non-positionnel : relative à la tête de l'auditeur,
-                // donc gain constant indépendant de la position monde.
-                AL10.alSourcei(source, AL10.AL_SOURCE_RELATIVE, AL10.AL_TRUE);
-                AL10.alSource3f(source, AL10.AL_POSITION, 0f, 0f, 0f);
-                AL10.alSourcef(source, AL10.AL_ROLLOFF_FACTOR, 0.0f);
+                this.currentWorldPos = null;
+                this.currentMaxDistance = 0f;
+                this.currentReferenceDistance = 1f;
+                AL10.alSourcef(source, AL10.AL_GAIN,
+                    clamp(globalVolume * volumeMultiplier, 0f, 2f));
             }
 
             AL10.alSourcePlay(source);
@@ -123,11 +147,47 @@ public final class OstAudioEngine {
             this.currentTrack = track;
             this.currentStartedAtMs = System.currentTimeMillis();
             this.currentDurationMs = decoded.durationMs;
-            LOGGER.info("OST play '{}' ({}ch @ {}Hz, dur {}ms)", track.trackId(),
-                decoded.channels, decoded.sampleRate, decoded.durationMs);
+            LOGGER.info("OST play '{}' ({}ch @ {}Hz, dur {}ms{})", track.trackId(),
+                decoded.channels, decoded.sampleRate, decoded.durationMs,
+                worldPos != null ? ", positional r=" + currentMaxDistance : ", global");
         } catch (RuntimeException e) {
             LOGGER.warn("OpenAL setup failed for '{}' : {}", track.trackId(), e.getMessage());
         }
+    }
+
+    /**
+     * Recalcule le gain d'une source positionnelle en fonction de la
+     * distance entre le listener et le point d'origine du broadcast.
+     * No-op pour les sources globales (et quand aucune source n'est active).
+     *
+     * <p>Appel à hooker sur {@code ClientTickEvents.END_CLIENT_TICK}
+     * (20 Hz) — l'overhead est négligeable (un sqrt + un alSourcef).
+     */
+    public synchronized void tickPositional(double listenerX, double listenerY, double listenerZ) {
+        if (currentSource == -1 || currentWorldPos == null) return;
+        double dx = listenerX - currentWorldPos[0];
+        double dy = listenerY - currentWorldPos[1];
+        double dz = listenerZ - currentWorldPos[2];
+        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        float factor = distanceFactor(distance, currentReferenceDistance, currentMaxDistance);
+        float gain = clamp(globalVolume * currentVolumeMultiplier * factor, 0f, 2f);
+        AL10.alSourcef(currentSource, AL10.AL_GAIN, gain);
+    }
+
+    /**
+     * Courbe d'atténuation linéaire clamped :
+     * <ul>
+     *   <li>distance ≤ refDistance → 1.0 (full)</li>
+     *   <li>distance ≥ maxDistance → 0.0 (silence)</li>
+     *   <li>entre → lerp linéaire de 1.0 à 0.0</li>
+     * </ul>
+     * Static pour permettre les tests unitaires sans contexte OpenAL.
+     */
+    public static float distanceFactor(double distance, float refDistance, float maxDistance) {
+        if (maxDistance <= refDistance) return distance <= maxDistance ? 1.0f : 0.0f;
+        if (distance <= refDistance) return 1.0f;
+        if (distance >= maxDistance) return 0.0f;
+        return (float) ((maxDistance - distance) / (maxDistance - refDistance));
     }
 
     public synchronized void stop() {
@@ -144,6 +204,10 @@ public final class OstAudioEngine {
         currentTrack = null;
         currentDurationMs = 0L;
         currentStartedAtMs = 0L;
+        currentWorldPos = null;
+        currentMaxDistance = 0f;
+        currentReferenceDistance = 1f;
+        currentVolumeMultiplier = 1f;
     }
 
     public synchronized boolean isPlaying() {

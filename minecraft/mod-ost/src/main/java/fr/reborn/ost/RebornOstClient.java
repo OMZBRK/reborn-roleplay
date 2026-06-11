@@ -8,7 +8,9 @@ import fr.reborn.ost.keybind.OstKeybinds;
 import fr.reborn.ost.network.OstNetworking;
 import fr.reborn.ost.ui.OstHudOverlay;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.util.math.Vec3d;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,6 +73,16 @@ public final class RebornOstClient implements ClientModInitializer {
         // 5. Keybind + HUD overlay.
         OstKeybinds.registerClient();
         new OstHudOverlay(AUDIO_ENGINE).registerClient();
+
+        // 6. Tick handler — recalcule le gain par distance pour les broadcasts
+        //    positionnels. OpenAL n'attenue pas les buffers stéréo (spec AL),
+        //    on bricole donc à la main : 20Hz suffit largement pour suivre
+        //    le déplacement du joueur sans artefact audible.
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.player == null) return;
+            Vec3d pos = client.player.getEyePos();
+            AUDIO_ENGINE.tickPositional(pos.x, pos.y, pos.z);
+        });
 
         LOGGER.info("Reborn OST mod ready.");
     }
