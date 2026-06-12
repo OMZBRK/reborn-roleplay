@@ -22,8 +22,7 @@ public final class RebornHudClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         CONFIG = HudConfig.load();
-        LOGGER.info("config loaded ({} offsets stored)",
-            CONFIG.snapshot().size());
+        LOGGER.info("config loaded");
 
         HudKeybinds.registerClient();
 

@@ -1,6 +1,8 @@
 {
   "key.categories.reborn-hud": "Reborn HUD",
   "key.reborn-hud.open_editor": "Open HUD editor",
-  "reborn-hud.screen.title": "Reborn HUD - Edit positions",
+  "reborn-hud.screen.title": "Reborn HUD - Edit",
+  "reborn-hud.screen.hint": "Drag to move  -  Scroll to resize  -  Click eye to hide",
+  "reborn-hud.screen.reset_all": "Reset all",
   "reborn-hud.screen.close": "Close"
 }
