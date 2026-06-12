@@ -6,6 +6,7 @@ import fr.reborn.ost.plugin.network.OstChannel;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -32,6 +33,13 @@ public final class RebornOstPlugin extends JavaPlugin implements Listener {
     /** Période en ticks du scheduler de subscription scan. 20 = 1 Hz. */
     private static final long ZONE_TICK_PERIOD = 20L;
 
+    /** Délai (ticks) après PlayerJoinEvent avant le scan ciblé. À la
+     *  reconnexion, le canal réseau client met quelques secondes à être
+     *  prêt à recevoir des plugin messages — si on envoie trop tôt, le
+     *  packet part dans le vide silencieusement. 60 ticks = 3 s, marge
+     *  empirique qui fait passer les late-joins fiables. */
+    private static final long JOIN_SCAN_DELAY = 60L;
+
     private OstBroadcaster broadcaster;
 
     @Override
@@ -57,6 +65,26 @@ public final class RebornOstPlugin extends JavaPlugin implements Listener {
         getLogger().info("Scheduler zone-tick demarre (periode " + ZONE_TICK_PERIOD + " ticks).");
 
         getServer().getPluginManager().registerEvents(this, this);
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        if (broadcaster == null) return;
+        var player = event.getPlayer();
+        getLogger().info("Join detecte pour " + player.getName()
+            + " — scan zones planifie dans " + JOIN_SCAN_DELAY + " ticks");
+        getServer().getScheduler().runTaskLater(this, () -> {
+            // Pas de bug si le joueur a redéco entre temps — scanPlayer
+            // itère les zones et envoie aux joueurs online (le joueur retire
+            // de la liste s'il est offline). Mais on garde la simplicité.
+            if (player.isOnline()) {
+                int added = broadcaster.scanPlayer(player);
+                if (added == 0) {
+                    getLogger().info("Scan delayed " + player.getName()
+                        + " : aucune zone active dans le rayon.");
+                }
+            }
+        }, JOIN_SCAN_DELAY);
     }
 
     @EventHandler

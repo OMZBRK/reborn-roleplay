@@ -16,7 +16,7 @@ plugins {
 }
 
 group = "fr.reborn"
-version = "0.1.1-dev"
+version = "0.1.2-dev"
 description = "Plugin Reborn Roleplay : broadcast OST aux clients via canal reborn:ost."
 
 java {

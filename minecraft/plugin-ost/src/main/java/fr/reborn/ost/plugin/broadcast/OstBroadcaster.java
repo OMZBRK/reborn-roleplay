@@ -124,27 +124,44 @@ public final class OstBroadcaster {
      */
     public int tick() {
         int added = 0;
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            added += scanPlayer(p);
+        }
+        return added;
+    }
+
+    /**
+     * Scan zones pour UN seul joueur. Utilisé depuis {@link #tick()} (boucle)
+     * et depuis le listener {@code PlayerJoinEvent} avec un delay
+     * ({@code runTaskLater}) parce qu'à la reconnexion le canal client n'est
+     * pas immédiatement prêt — le tick périodique peut envoyer le packet
+     * dans le vide pendant les ~3 premières secondes. Avec le scan ciblé
+     * après delay, on garantit que le late-join arrive bien quand le client
+     * est ready.
+     *
+     * @return nombre de subscriptions ajoutées pour ce joueur
+     */
+    public int scanPlayer(Player p) {
+        int added = 0;
         long now = System.currentTimeMillis();
         Logger log = plugin.getLogger();
+        Location loc = p.getLocation();
+        UUID worldId = loc.getWorld() != null ? loc.getWorld().getUID() : null;
         for (OstZoneRegistry.ZoneRecord zone : registry.allZones()) {
+            if (registry.isSubscribed(p.getUniqueId(), zone.id())) continue;
             double r2 = (double) zone.radius() * (double) zone.radius();
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (registry.isSubscribed(p.getUniqueId(), zone.id())) continue;
-                Location loc = p.getLocation();
-                UUID worldId = loc.getWorld() != null ? loc.getWorld().getUID() : null;
-                double d2 = zone.distanceSquaredFrom(worldId, loc.getX(), loc.getY(), loc.getZ());
-                if (d2 > r2) continue;
+            double d2 = zone.distanceSquaredFrom(worldId, loc.getX(), loc.getY(), loc.getZ());
+            if (d2 > r2) continue;
 
-                float secOffset = (now - zone.startedAtMs()) / 1000f;
-                byte[] packet = OstPacket.playAtPosition(
-                    zone.x(), zone.y(), zone.z(), zone.radius(),
-                    zone.trackId(), zone.volume(), secOffset);
-                p.sendPluginMessage(plugin, OstChannel.NAME, packet);
-                registry.markSubscribed(p.getUniqueId(), zone.id());
-                added++;
-                log.info(String.format("Late-join: %s -> zone %s (track=%s, seek=%.1fs)",
-                    p.getName(), zone.id(), zone.trackId(), secOffset));
-            }
+            float secOffset = (now - zone.startedAtMs()) / 1000f;
+            byte[] packet = OstPacket.playAtPosition(
+                zone.x(), zone.y(), zone.z(), zone.radius(),
+                zone.trackId(), zone.volume(), secOffset);
+            p.sendPluginMessage(plugin, OstChannel.NAME, packet);
+            registry.markSubscribed(p.getUniqueId(), zone.id());
+            added++;
+            log.info(String.format("Late-join: %s -> zone %s (track=%s, seek=%.1fs)",
+                p.getName(), zone.id(), zone.trackId(), secOffset));
         }
         return added;
     }
