@@ -54,19 +54,21 @@ public final class RebornOstPlugin extends JavaPlugin implements Listener {
         // Scheduler Phase 2 : scanne les nouveaux entrants dans les zones actives.
         getServer().getScheduler().runTaskTimer(this, broadcaster::tick,
             ZONE_TICK_PERIOD, ZONE_TICK_PERIOD);
+        getLogger().info("Scheduler zone-tick demarre (periode " + ZONE_TICK_PERIOD + " ticks).");
 
         getServer().getPluginManager().registerEvents(this, this);
-    }
-
-    @Override
-    public void onDisable() {
-        getLogger().info("Reborn OST plugin arrete.");
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         if (broadcaster != null) {
             broadcaster.registry().onPlayerQuit(event.getPlayer().getUniqueId());
+            getLogger().info("Subscriptions purgees pour " + event.getPlayer().getName());
         }
+    }
+
+    @Override
+    public void onDisable() {
+        getLogger().info("Reborn OST plugin arrete.");
     }
 }

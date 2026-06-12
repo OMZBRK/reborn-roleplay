@@ -11,6 +11,7 @@ import org.bukkit.plugin.Plugin;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 /**
  * Logique de broadcast OST. Sépare le filtrage des joueurs cibles de
@@ -60,6 +61,10 @@ public final class OstBroadcaster {
             p.sendPluginMessage(plugin, OstChannel.NAME, packet);
             registry.markSubscribed(p.getUniqueId(), zone.id());
         }
+        Logger log = plugin.getLogger();
+        log.info(String.format("Zone enregistree id=%s track=%s r=%.1f at %s(%.1f,%.1f,%.1f), %d joueur(s) subscribed",
+            zone.id(), trackId, radius, target.getWorld().getName(),
+            target.getX(), target.getY(), target.getZ(), recipients.size()));
         return recipients.size();
     }
 
@@ -120,6 +125,7 @@ public final class OstBroadcaster {
     public int tick() {
         int added = 0;
         long now = System.currentTimeMillis();
+        Logger log = plugin.getLogger();
         for (OstZoneRegistry.ZoneRecord zone : registry.allZones()) {
             double r2 = (double) zone.radius() * (double) zone.radius();
             for (Player p : Bukkit.getOnlinePlayers()) {
@@ -136,6 +142,8 @@ public final class OstBroadcaster {
                 p.sendPluginMessage(plugin, OstChannel.NAME, packet);
                 registry.markSubscribed(p.getUniqueId(), zone.id());
                 added++;
+                log.info(String.format("Late-join: %s -> zone %s (track=%s, seek=%.1fs)",
+                    p.getName(), zone.id(), zone.trackId(), secOffset));
             }
         }
         return added;
