@@ -108,12 +108,30 @@ public final class OstAudioEngine {
         }
 
         try {
+            // Consomme toute erreur OpenAL sticky d'une op précédente — sinon
+            // alFailed() ci-dessous rapporte une vieille erreur (SoundEngine
+            // vanilla qui a touché AL_, source d'un broadcast précédent mal
+            // libérée à la déco, etc.) et on jette un buffer qui était valide.
+            // Bug observé après reconnexion : alGenBuffers réussit mais une
+            // erreur AL_INVALID_OPERATION pendante était lue et on droppait.
+            AL10.alGetError();
             int buffer = AL10.alGenBuffers();
-            if (alFailed()) { LOGGER.warn("alGenBuffers failed"); MemoryUtil.memFree(decoded.pcm); return; }
+            int genErr = AL10.alGetError();
+            if (genErr != AL10.AL_NO_ERROR || buffer == 0) {
+                LOGGER.warn("alGenBuffers failed (err=0x{}, buf={})",
+                    Integer.toHexString(genErr), buffer);
+                MemoryUtil.memFree(decoded.pcm);
+                return;
+            }
             int format = decoded.channels == 1 ? AL10.AL_FORMAT_MONO16 : AL10.AL_FORMAT_STEREO16;
             AL10.alBufferData(buffer, format, decoded.pcm, decoded.sampleRate);
             MemoryUtil.memFree(decoded.pcm);
-            if (alFailed()) { LOGGER.warn("alBufferData failed"); AL10.alDeleteBuffers(buffer); return; }
+            int bufErr = AL10.alGetError();
+            if (bufErr != AL10.AL_NO_ERROR) {
+                LOGGER.warn("alBufferData failed (err=0x{})", Integer.toHexString(bufErr));
+                AL10.alDeleteBuffers(buffer);
+                return;
+            }
 
             int source = AL10.alGenSources();
             AL10.alSourcei(source, AL10.AL_BUFFER, buffer);
@@ -305,10 +323,6 @@ public final class OstAudioEngine {
                 MemoryUtil.memFree(fileBuf);
             }
         }
-    }
-
-    private static boolean alFailed() {
-        return AL10.alGetError() != AL10.AL_NO_ERROR;
     }
 
     private static float clamp(float v, float min, float max) {
