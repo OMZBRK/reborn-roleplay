@@ -4,6 +4,7 @@ import fr.reborn.hud.RebornHudClient;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.element.HudElementState;
+import fr.reborn.hud.ui.ChatPanelStyle;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.ChatHud;
@@ -38,13 +39,15 @@ public abstract class ChatHudMixin {
             ci.cancel();
             return;
         }
-        if (state.x() == 0 && state.y() == 0 && state.scale() == 1.0f) return;
 
         MinecraftClient mc = MinecraftClient.getInstance();
         int screenW = mc.getWindow().getScaledWidth();
         int screenH = mc.getWindow().getScaledHeight();
         HudElementBounds anchor = HudElementBounds.vanillaFor(HudElement.CHAT, screenW, screenH);
 
+        // Toujours push : on dessine notre panel style dans le matrix
+        // transforme, et il faut pop dans @RETURN. Pas de short-circuit
+        // "state vide → no-op" car on veut le panel meme a (0, 0, 1.0).
         ctx.getMatrices().push();
         ctx.getMatrices().translate(state.x(), state.y(), 0);
         if (state.scale() != 1.0f) {
@@ -54,6 +57,12 @@ public abstract class ChatHudMixin {
             ctx.getMatrices().scale(state.scale(), state.scale(), 1.0f);
             ctx.getMatrices().translate(-anchor.x(), -anchor.y(), 0);
         }
+
+        // Dessine le panel style derriere le chat history vanilla. Comme
+        // on est entre le push et le run de render(), nos drawcalls sont
+        // sous le matrix transforme et arrivent BEFORE les messages —
+        // donc visuellement en arriere-plan.
+        ChatPanelStyle.drawPanel(ctx, screenW, screenH);
     }
 
     @Inject(method = "render", at = @At("RETURN"))
@@ -61,7 +70,6 @@ public abstract class ChatHudMixin {
                                   boolean focused, CallbackInfo ci) {
         HudElementState state = readStateSafely();
         if (!state.visible()) return; // HEAD a cancel, jamais entre dans render
-        if (state.x() == 0 && state.y() == 0 && state.scale() == 1.0f) return;
         ctx.getMatrices().pop();
     }
 

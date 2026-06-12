@@ -79,6 +79,13 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        // Override deliberement vide : on NE veut PAS le blur vanilla qui rend
+        // le HUD illisible derriere le menu. Notre propre overlay leger est
+        // dessine dans render() ci-dessous.
+    }
+
+    @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         // Overlay sombre tres leger : on veut voir le HUD derriere
         ctx.fill(0, 0, this.width, this.height, 0x30000000);
