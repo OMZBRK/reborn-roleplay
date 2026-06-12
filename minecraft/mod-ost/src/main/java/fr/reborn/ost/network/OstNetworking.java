@@ -35,6 +35,7 @@ public final class OstNetworking {
         PayloadTypeRegistry.playS2C().register(OstPayload.ID, OstPayload.CODEC);
 
         ClientPlayNetworking.registerGlobalReceiver(OstPayload.ID, (payload, ctx) -> {
+            LOGGER.info("payload recu : {}", payload.summary());
             try {
                 handle(payload, library, engine, config, ctx.client());
             } catch (Exception e) {
@@ -48,7 +49,7 @@ public final class OstNetworking {
     private static void handle(OstPayload payload, OstLibrary library, OstAudioEngine engine,
                                OstConfig config, MinecraftClient client) {
         if (config.isSoloMode()) {
-            LOGGER.debug("solo mode actif — payload ignoré : {}", payload.summary());
+            LOGGER.info("solo mode actif — payload IGNORE : {}", payload.summary());
             return;
         }
         switch (payload) {
