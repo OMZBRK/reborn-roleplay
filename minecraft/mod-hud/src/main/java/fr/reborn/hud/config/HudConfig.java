@@ -3,6 +3,7 @@ package fr.reborn.hud.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
+import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementState;
 import net.fabricmc.loader.api.FabricLoader;
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -30,6 +32,85 @@ public final class HudConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private Map<String, HudElementState> states = new HashMap<>();
+
+    /**
+     * Presets sauvegardés : preset-id → map element-id → state.
+     * Initialisé via {@link HudPresets#defaults()} au premier boot.
+     */
+    private Map<String, Map<String, HudElementState>> presets = new LinkedHashMap<>();
+
+    /** ID du preset actuellement actif (purement informatif côté UI). */
+    private String activePreset = HudPresets.DEFAULT;
+
+    /**
+     * Toggle global du chat custom Zenkai-like. Si false, le chat reste
+     * vanilla (offset/scale appliqués comme avant CHANTIER B).
+     * Default true — le chantier B est livré actif.
+     */
+    private boolean enableCustomChat = true;
+
+    /** Settings du chat (timestamps, mention highlights, etc.). Init lazy. */
+    private ChatSettings chatSettings = null;
+
+    public ChatSettings getChatSettings() {
+        if (chatSettings == null) chatSettings = ChatSettings.defaults();
+        return chatSettings;
+    }
+
+    public void setChatSettings(ChatSettings settings) {
+        this.chatSettings = settings;
+    }
+
+    public boolean isEnableCustomChat() {
+        return enableCustomChat;
+    }
+
+    public void setEnableCustomChat(boolean enable) {
+        this.enableCustomChat = enable;
+    }
+
+    // ─── Presets ───
+
+    public Map<String, Map<String, HudElementState>> getPresets() {
+        if (presets == null) presets = new LinkedHashMap<>();
+        return presets;
+    }
+
+    public String getActivePreset() { return activePreset; }
+    public void setActivePreset(String id) { this.activePreset = id; }
+
+    /**
+     * Applique un preset : copie ses states sur les éléments courants
+     * et marque le preset comme actif. Save inclus.
+     */
+    public void applyPreset(String id) {
+        Map<String, HudElementState> p = getPresets().get(id);
+        if (p == null) return;
+        for (HudElement e : HudElement.values()) {
+            HudElementState s = p.getOrDefault(e.id(), HudElementState.DEFAULT);
+            setState(e, s);
+        }
+        this.activePreset = id;
+        save();
+    }
+
+    /** Crée un nouveau preset à partir des states actuels. */
+    public void saveAsNewPreset(String id) {
+        Map<String, HudElementState> snapshot = new LinkedHashMap<>();
+        for (HudElement e : HudElement.values()) {
+            snapshot.put(e.id(), stateOf(e));
+        }
+        getPresets().put(id, snapshot);
+        this.activePreset = id;
+        save();
+    }
+
+    public void deletePreset(String id) {
+        if (HudPresets.DEFAULT.equals(id)) return; // Default est protégé
+        getPresets().remove(id);
+        if (id.equals(activePreset)) activePreset = HudPresets.DEFAULT;
+        save();
+    }
 
     public HudElementState stateOf(HudElement element) {
         if (states == null) return HudElementState.DEFAULT;
@@ -51,21 +132,32 @@ public final class HudConfig {
 
     public static HudConfig load() {
         Path path = defaultPath();
+        HudConfig parsed;
         if (!Files.exists(path)) {
-            HudConfig fresh = new HudConfig();
-            fresh.save();
-            return fresh;
+            parsed = new HudConfig();
+        } else {
+            try {
+                String json = Files.readString(path);
+                parsed = GSON.fromJson(json, HudConfig.class);
+                if (parsed == null) parsed = new HudConfig();
+                if (parsed.states == null) parsed.states = new HashMap<>();
+                if (parsed.activePreset == null) parsed.activePreset = HudPresets.DEFAULT;
+            } catch (IOException | JsonSyntaxException e) {
+                LOGGER.warn("config invalide ({}), reset to defaults : {}", path, e.getMessage());
+                parsed = new HudConfig();
+            }
         }
-        try {
-            String json = Files.readString(path);
-            HudConfig parsed = GSON.fromJson(json, HudConfig.class);
-            if (parsed == null) parsed = new HudConfig();
-            if (parsed.states == null) parsed.states = new HashMap<>();
-            return parsed;
-        } catch (IOException | JsonSyntaxException e) {
-            LOGGER.warn("config invalide ({}), reset to defaults : {}", path, e.getMessage());
-            return new HudConfig();
+        // Initialise les presets par défaut s'ils manquent (premier boot ou migration)
+        if (parsed.presets == null || parsed.presets.isEmpty()) {
+            parsed.presets = HudPresets.defaults();
+        } else {
+            // Garantit la présence de Default au minimum (final ref pour lambda)
+            final HudConfig fParsed = parsed;
+            HudPresets.defaults().forEach((id, snap) ->
+                fParsed.presets.putIfAbsent(id, snap));
         }
+        parsed.save();
+        return parsed;
     }
 
     public synchronized void save() {

@@ -1,0 +1,139 @@
+package fr.reborn.hud.ui;
+
+import fr.reborn.hud.ui.style.RebornColors;
+import fr.reborn.hud.ui.style.RoundedRect;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
+
+/**
+ * Modal d'aide affichant tous les raccourcis du HUD editor groupés par
+ * catégorie. Ouverte par click sur le {@code "?"} du keybar.
+ */
+public final class HudHelpScreen extends Screen {
+
+    private static final int CARD_WIDTH = 380;
+    private final Screen parent;
+
+    public HudHelpScreen(Screen parent) {
+        super(Text.literal("Reborn HUD — Aide"));
+        this.parent = parent;
+    }
+
+    @Override
+    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        ctx.fill(0, 0, this.width, this.height, 0x80000000);
+    }
+
+    @Override
+    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        renderBackground(ctx, mouseX, mouseY, delta);
+        TextRenderer tr = this.textRenderer;
+
+        // Sections (catégorie, [keys])
+        String[][] sections = {
+            {"NAVIGATION",
+                "H · Ouvrir / Fermer l'éditeur HUD",
+                "Échap · Fermer (panel ou éditeur)",
+                "Ctrl+M · Paramètres chat"
+            },
+            {"ÉDITION",
+                "Clic + drag · Déplacer une box",
+                "↑ ↓ ← → · Nudge 1px (Shift = 10px)",
+                "Molette · Modifier la taille (scale)",
+                "Shift + drag · Mouvement libre (sans snap)",
+                "Ctrl + clic · Sélection multiple"
+            },
+            {"HISTORIQUE",
+                "Ctrl+Z / Ctrl+W · Annuler",
+                "Ctrl+Y · Refaire"
+            },
+            {"BOXES",
+                "Clic œil · Toggle visibilité",
+                "Clic engrenage · Ouvrir panneau de réglages",
+                "Drag poignée bleue · Redimensionner"
+            },
+            {"PRESETS",
+                "Clic preset · Appliquer",
+                "Clic droit · Renommer / Dupliquer / Supprimer"
+            }
+        };
+
+        int cardH = 36 + countLines(sections) * 14 + 32;
+        int cardX = (this.width - CARD_WIDTH) / 2;
+        int cardY = (this.height - cardH) / 2;
+
+        // Drop shadow
+        for (int i = 1; i <= 6; i++) {
+            int a = (7 - i) * 8;
+            ctx.fill(cardX - i, cardY + 4, cardX + CARD_WIDTH + i, cardY + cardH + i, a << 24);
+        }
+        RoundedRect.fill(ctx, cardX, cardY, CARD_WIDTH, cardH, 8, RebornColors.BG_PANEL_ELEVATED);
+        RoundedRect.border(ctx, cardX, cardY, CARD_WIDTH, cardH, 8, RebornColors.BORDER_STRONG);
+
+        ctx.drawText(tr, Text.literal("RACCOURCIS · Reborn HUD").formatted(Formatting.BOLD),
+            cardX + 14, cardY + 12, RebornColors.FOREGROUND, false);
+        ctx.fill(cardX + 14, cardY + 26, cardX + CARD_WIDTH - 14, cardY + 27, RebornColors.BORDER);
+
+        int y = cardY + 36;
+        for (String[] section : sections) {
+            ctx.drawText(tr, Text.literal(section[0]).formatted(Formatting.BOLD),
+                cardX + 14, y, RebornColors.ACCENT_HOVER, false);
+            y += 12;
+            for (int i = 1; i < section.length; i++) {
+                String line = section[i];
+                int sepIdx = line.indexOf(" · ");
+                if (sepIdx > 0) {
+                    String keys = line.substring(0, sepIdx);
+                    String desc = line.substring(sepIdx + 3);
+                    // Keys en accent + description en muted
+                    ctx.drawText(tr, Text.literal(keys),
+                        cardX + 22, y, RebornColors.ACCENT_HOVER, false);
+                    int kW = tr.getWidth(keys);
+                    ctx.drawText(tr, Text.literal(" · " + desc),
+                        cardX + 22 + kW, y, RebornColors.FOREGROUND_MUTED, false);
+                } else {
+                    ctx.drawText(tr, Text.literal(line),
+                        cardX + 22, y, RebornColors.FOREGROUND_MUTED, false);
+                }
+                y += 12;
+            }
+            y += 4;
+        }
+
+        // Close hint
+        ctx.drawText(tr, Text.literal("Clique n'importe où pour fermer").formatted(Formatting.ITALIC),
+            cardX + (CARD_WIDTH - tr.getWidth("Clique n'importe où pour fermer")) / 2,
+            cardY + cardH - 14, RebornColors.FOREGROUND_MUTED, false);
+    }
+
+    private static int countLines(String[][] sections) {
+        int n = 0;
+        for (String[] s : sections) n += s.length;
+        n += sections.length; // les separators
+        return n;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        close();
+        return true;
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        close();
+        return true;
+    }
+
+    @Override
+    public void close() {
+        MinecraftClient.getInstance().setScreen(parent);
+    }
+
+    @Override
+    public boolean shouldPause() { return false; }
+}

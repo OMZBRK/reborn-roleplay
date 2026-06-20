@@ -2,6 +2,7 @@ package fr.reborn.hud;
 
 import fr.reborn.hud.config.HudConfig;
 import fr.reborn.hud.keybind.HudKeybinds;
+import fr.reborn.hud.ui.style.IconTextures;
 import net.fabricmc.api.ClientModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ public final class RebornHudClient implements ClientModInitializer {
         CONFIG = HudConfig.load();
         LOGGER.info("config loaded");
 
+        IconTextures.registerAll();
         HudKeybinds.registerClient();
 
         LOGGER.info("Reborn HUD mod ready.");

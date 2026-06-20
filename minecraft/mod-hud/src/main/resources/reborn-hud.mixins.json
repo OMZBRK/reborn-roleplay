@@ -5,7 +5,11 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "ChatHudMixin",
-    "ChatScreenMixin"
+    "ChatHudAddMessageMixin",
+    "ChatScreenMixin",
+    "BossBarHudMixin",
+    "InGameHudMixin",
+    "InGameHudInvoker"
   ],
   "injectors": {
     "defaultRequire": 1
