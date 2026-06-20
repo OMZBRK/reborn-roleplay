@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBModel Viewer</title>
+    <script src="https://unpkg.com/three@0.134.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://unpkg.com/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/three@0.134.0/examples/js/loaders/RGBELoader.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+        #debug-overlay {
+            display: none;
+            position: fixed;
+            left: 8px;
+            bottom: 8px;
+            max-width: min(420px, 90vw);
+            max-height: 40vh;
+            overflow-y: auto;
+            padding: 8px 10px;
+            font: 11px/1.35 Consolas, 'Courier New', monospace;
+            color: #e8e8e8;
+            background: rgba(0, 0, 0, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 9999;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        #debug-overlay.visible { display: block; }
+        #debug-overlay .line-error { color: #f87171; }
+        #debug-overlay .line-warn { color: #fbbf24; }
+    </style>
+</head>
+<body>
+    <div id="debug-overlay" aria-hidden="true"></div>
+
+    <!-- Local modules (order matters: each depends on previous) -->
+    <script src="js/config.js"></script>
+    <script src="js/scene.js"></script>
+    <script src="js/model.js"></script>
+    <script src="js/skin.js"></script>
+    <script src="js/lighting_debug.js"></script>
+
+    <script>
+        // ============================================================
+        // INIT — orchestrates loading, skin priority, polling, timeout
+        // ============================================================
+        async function init() {
+            loadStartTime = clock.getElapsedTime();
+            updateViewportSize();
+            initPixelation();
+            resizePixelTarget();
+            renderLoop();
+            initLightDebug();
+            await loadHDRI();
+
+            log('Model mode: ' + MODEL_MODE);
+            await loadBBModelMetadata();
+            await loadModel();
+
+            modelReady = true;
+
+            // Priority 1: UUID passed via URL parameter (FancyMenu placeholder)
+            if (URL_UUID && URL_UUID.trim()) {
+                log('Loading skin from URL UUID: ' + URL_UUID.trim().substring(0, 8) + '...');
+                await skinManager.loadFromUUID(URL_UUID.trim());
+                if (skinManager.currentTexture) {
+                    skinReady = true;
+                    tryShowAndFade();
+                    return;
+                }
+            }
+
+            // Priority 2: Explicit skin URL
+            if (SKIN_URL) {
+                var url = SKIN_URL.startsWith('http') ? SKIN_URL : new URL(SKIN_URL, location.href).href;
+                await skinManager.loadTextureFromUrl(url);
+                if (skinManager.currentTexture) {
+                    skinReady = true;
+                    tryShowAndFade();
+                    return;
+                }
+            }
+
+            // Priority 3: Dev player name
+            if (DEV_PLAYER) {
+                await skinManager.loadFromPlayerName(DEV_PLAYER);
+                if (skinManager.currentTexture) {
+                    skinReady = true;
+                    tryShowAndFade();
+                    return;
+                }
+            }
+
+            // Priority 4: FancyMenu bridge (polling for when running standalone)
+            var fancymenuInitialized = false;
+            window.addEventListener('fancymenu-ready', function () {
+                fancymenuInitialized = true;
+            });
+
+            var pollAttempts = 0;
+
+            async function pollFancyMenu() {
+                pollAttempts++;
+
+                if (fancymenuInitialized) {
+                    log('FancyMenu ready (event)');
+                    var gotSkin = await skinManager.fetchFromFancyMenu();
+                    if (gotSkin) {
+                        skinReady = true;
+                        tryShowAndFade();
+                        return;
+                    }
+                }
+
+                var bridge = window.fancymenu || window.FancyMenu;
+                if (bridge && bridge.placeholders) {
+                    fancymenuInitialized = true;
+                    log('FancyMenu ready (poll)');
+                    var gotSkin = await skinManager.fetchFromFancyMenu();
+                    if (gotSkin) {
+                        skinReady = true;
+                        tryShowAndFade();
+                        return;
+                    }
+                }
+
+                if (pollAttempts < MAX_SKIN_POLLS) {
+                    setTimeout(pollFancyMenu, SKIN_POLL_INTERVAL);
+                    return;
+                }
+
+                log('FancyMenu not available after polls, loading fallback', 'warn');
+                await skinManager.loadDevFallbackSkin();
+                if (skinManager.currentTexture) {
+                    skinReady = true;
+                    tryShowAndFade();
+                }
+            }
+
+            setTimeout(pollFancyMenu, SKIN_POLL_INTERVAL);
+
+            setTimeout(async function () {
+                if (fadeStarted) return;
+
+                log('Skin load timeout — showing model anyway', 'warn');
+                modelReady = true;
+
+                if (!skinManager.currentTexture) {
+                    await skinManager.loadDevFallbackSkin();
+                }
+
+                skinReady = true;
+                if (gltfScene) gltfScene.visible = true;
+                startFadeIn();
+            }, SKIN_TIMEOUT);
+        }
+
+        // ============================================================
+        // PUBLIC API — exposed for FancyMenu / external control
+        // ============================================================
+        window.bbViewer = {
+            reloadModel: function () {
+                animationsStarted = false;
+                cameraAnimationsStarted = false;
+                return loadModel();
+            },
+            refreshSkin: function () {
+                return skinManager.fetchFromFancyMenu();
+            },
+            setSlim: function (slim) {
+                skinManager.isSlim = !!slim;
+                applySkinToRig();
+                if (animationMixer && !STATIC_POSE) {
+                    var idle = animationClips.get('idle');
+                    if (idle) playClip(idle, animationClips.size === 1);
+                }
+            },
+            getAnimations: function () {
+                return Array.from(animationClips.keys());
+            },
+            playAnimation: function (name) {
+                var clip = animationClips.get(name);
+                if (clip) playClip(clip, animationClips.size === 1);
+            },
+            getCameraAnimations: function () {
+                return Array.from(cameraAnimationClips.keys());
+            },
+            playCameraAnimation: function (name) {
+                var clip = cameraAnimationClips.get(name);
+                if (clip) playCameraClip(clip, cameraAnimationClips.size === 1);
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,6 +1,5 @@
 package fr.reborn.integrity.ui.menu;
 
-import fr.reborn.integrity.ui.Colors;
 import fr.reborn.integrity.ui.RebornFont;
 import fr.reborn.integrity.ui.RebornVersion;
 import net.minecraft.client.MinecraftClient;
@@ -9,21 +8,22 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 
 /**
- * Coin "credits" en bas-DROITE du main menu — 3 lignes de version /
- * disclaimer / copyright, alignées à droite. Toutes en Inter Medium muté.
+ * Ligne credits CENTRÉE sous le groupe d'icons (settings/globe/discord)
+ * lui-même sous le ServerInfoMini. Pile centre-bas du main menu.
  *
- * <p>Référence design : {@code ref1mainmenu.png}.
+ * <p>Référence : {@code reborn-design-prep/reference-screen/mainmenu.png}
+ * — une seule ligne courte "Minecraft 1.21.1 · Fabric Loader 0.16.5" en
+ * gris clair avec drop shadow pour lisibilité sur les BG MCEF.
  */
 public final class CreditsCorner {
 
-    /** Marge depuis le bord droit en pixels. */
-    private static final int RIGHT_PADDING = 18;
-    /** Distance depuis le bas — laisse ~24px de gap entre la dernière
-     *  ligne des credits et le top des icons sociaux. Avant : 38px
-     *  donnait seulement 8px de gap, trop serré visuellement. */
-    private static final int BOTTOM_OFFSET = 60;
-    private static final int LINE_HEIGHT = 11;
+    /** Distance depuis le bottom-edge — sous les icons (qui vivent à
+     *  screenH-48 → bottom screenH-28). 12px de gap avant la baseline. */
+    private static final int BOTTOM_OFFSET = 16;
     private static final float TEXT_SCALE = 0.85f;
+
+    /** Cache : RebornVersion.shortVersion() ne change pas en runtime. */
+    private static final Text VERSION_TEXT = RebornFont.body(RebornVersion.shortVersion());
 
     private CreditsCorner() {}
 
@@ -32,24 +32,14 @@ public final class CreditsCorner {
         if (client == null) return;
         TextRenderer tr = client.textRenderer;
 
-        int rightEdge = screenW - RIGHT_PADDING;
-        int yBottom = screenH - BOTTOM_OFFSET;
-        int yTop = yBottom - LINE_HEIGHT * 3;
+        int scaledW = Math.round(tr.getWidth(VERSION_TEXT) * TEXT_SCALE);
+        int x = (screenW - scaledW) / 2;
+        int y = screenH - BOTTOM_OFFSET;
 
-        drawRightAligned(ctx, tr, RebornVersion.shortVersion(), rightEdge, yTop, Colors.FOREGROUND_SUBTLE);
-        drawRightAligned(ctx, tr, RebornVersion.DISCLAIMER, rightEdge, yTop + LINE_HEIGHT, Colors.FOREGROUND_MUTED);
-        drawRightAligned(ctx, tr, RebornVersion.COPYRIGHT, rightEdge, yTop + LINE_HEIGHT * 2, Colors.FOREGROUND_MUTED);
-    }
-
-    private static void drawRightAligned(DrawContext ctx, TextRenderer tr, String content,
-                                         int rightEdge, int y, int color) {
-        Text t = RebornFont.body(content);
-        int scaledW = Math.round(tr.getWidth(t) * TEXT_SCALE);
-        int x = rightEdge - scaledW;
         ctx.getMatrices().push();
         ctx.getMatrices().translate(x, y, 0);
         ctx.getMatrices().scale(TEXT_SCALE, TEXT_SCALE, 1f);
-        ctx.drawText(tr, t, 0, 0, color, false);
+        ctx.drawText(tr, VERSION_TEXT, 0, 0, 0xFFD1D5DB, true);
         ctx.getMatrices().pop();
     }
 }

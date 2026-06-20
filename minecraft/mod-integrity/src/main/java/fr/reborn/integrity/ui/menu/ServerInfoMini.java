@@ -27,6 +27,11 @@ public final class ServerInfoMini {
     private static final int LINE_HEIGHT = 14;
     private static final int SEPARATOR_X_PADDING = 6;
 
+    /** Cache des Text constants — évite 3 allocs Text par frame. */
+    private static final Text STATUS_ONLINE_TEXT  = RebornFont.bold("Reborn · En ligne");
+    private static final Text STATUS_OFFLINE_TEXT = RebornFont.bold("Serveur hors ligne");
+    private static final Text SEPARATOR_TEXT      = RebornFont.body("·");
+
     private ServerInfoMini() {}
 
     /**
@@ -44,8 +49,7 @@ public final class ServerInfoMini {
         boolean online = state.isOnline();
 
         // ─── Ligne 1 ───
-        String line1Status = online ? "Reborn · En ligne" : "Serveur hors ligne";
-        Text line1Status_t = RebornFont.bold(line1Status);
+        Text line1Status_t = online ? STATUS_ONLINE_TEXT : STATUS_OFFLINE_TEXT;
         int line1StatusW = tr.getWidth(line1Status_t);
 
         String line1Players = online ? state.getPlayers() + " / " + state.getMaxPlayers() + " joueurs" : "";
@@ -67,44 +71,36 @@ public final class ServerInfoMini {
         int dotCy = line1Y + tr.fontHeight / 2 + 1;
 
         if (online) {
-            float t = (System.currentTimeMillis() % 4_000L) / 4_000f;
-            // Halo extérieur — grandit + fade (0 → 1 → 0).
-            float wave1 = (float) Math.sin(t * Math.PI * 2.0) * 0.5f + 0.5f;
-            int wave1Radius = DOT_SIZE / 2 + 2 + Math.round(wave1 * 4);
-            int wave1Alpha = Math.round((1f - wave1) * 110);
-            int wave1Color = (wave1Alpha << 24) | (dotColor & 0x00FFFFFF);
-            DrawHelpers.disc(ctx, dotCx, dotCy, wave1Radius, wave1Color);
-
-            // Halo intermédiaire — décalé de PI pour effet double-pulse.
-            float wave2 = (float) Math.sin(t * Math.PI * 2.0 + Math.PI) * 0.5f + 0.5f;
-            int wave2Radius = DOT_SIZE / 2 + 1 + Math.round(wave2 * 3);
-            int wave2Alpha = Math.round((1f - wave2) * 80);
-            int wave2Color = (wave2Alpha << 24) | (dotColor & 0x00FFFFFF);
-            DrawHelpers.disc(ctx, dotCx, dotCy, wave2Radius, wave2Color);
+            // Halo unique pulsant doux — un seul ring qui respire, plus
+            // discret que le double-pulse précédent qui faisait trop "alerte".
+            float t = (System.currentTimeMillis() % 3_000L) / 3_000f;
+            float wave = (float) Math.sin(t * Math.PI * 2.0) * 0.5f + 0.5f;
+            int radius = DOT_SIZE / 2 + 2 + Math.round(wave * 2);
+            int alpha = Math.round((1f - wave) * 90);
+            int color = (alpha << 24) | (dotColor & 0x00FFFFFF);
+            DrawHelpers.disc(ctx, dotCx, dotCy, radius, color);
         } else {
             // Hors-ligne : pas d'animation, juste un halo fixe sobre.
             DrawHelpers.disc(ctx, dotCx, dotCy, DOT_SIZE / 2 + 2,
                 Colors.withAlpha(dotColor, 0.25f));
         }
-        // Cœur central plein — toujours visible, indépendant du pulse.
         DrawHelpers.disc(ctx, dotCx, dotCy, DOT_SIZE / 2, dotColor);
-        // Highlight blanc en haut-gauche pour effet 3D / vivant.
         if (online) {
             DrawHelpers.disc(ctx, dotCx - 1, dotCy - 1, 1, 0xCCFFFFFF);
         }
 
-        // Texte status.
+        // Texte status — drop shadow=true pour lisibilite garantie sur
+        // les fonds clairs (sunset HDRI, ciel jour, etc.) generes par
+        // le browser MCEF du DynamicPlayerBackground.
         int cursor = line1X + DOT_SIZE + 6;
-        ctx.drawText(tr, line1Status_t, cursor, line1Y, Colors.WHITE_PURE, false);
+        ctx.drawText(tr, line1Status_t, cursor, line1Y, Colors.WHITE_PURE, true);
         cursor += line1StatusW;
 
         if (online) {
-            // Séparateur ·
-            ctx.drawText(tr, RebornFont.body("·"),
-                cursor + SEPARATOR_X_PADDING, line1Y, Colors.FOREGROUND_MUTED, false);
+            ctx.drawText(tr, SEPARATOR_TEXT,
+                cursor + SEPARATOR_X_PADDING, line1Y, 0xFFD1D5DB, true);
             cursor += SEPARATOR_X_PADDING * 2 + 4;
-            // Players.
-            ctx.drawText(tr, line1Players_t, cursor, line1Y, Colors.FOREGROUND_SUBTLE, false);
+            ctx.drawText(tr, line1Players_t, cursor, line1Y, 0xFFE5E7EB, true);
         }
 
         // Plus de ligne 2 ici — la version MC/Fabric est déjà affichée

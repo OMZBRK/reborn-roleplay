@@ -117,15 +117,14 @@ public abstract class TitleScreenMixin extends Screen {
             reborn$ostControls.add(ctrl);
         }
 
-        // 4. Bottom-right icons : 3 boutons épurés (Settings/Globe/Discord)
-        //    ghost-style sans fond, alignés à DROITE sous les credits.
+        // 4. Bottom-CENTER icons : 3 boutons épurés (Settings/Globe/Discord)
+        //    ghost-style sans fond, centrés horizontalement sous ServerInfoMini.
         reborn$persistentIcons.clear();
-        int iconSize = MainMenuRenderer.RIGHT_ICON_SIZE;
-        int iconGap = MainMenuRenderer.RIGHT_ICON_SPACING;
+        int iconSize = MainMenuRenderer.CENTER_ICON_SIZE;
+        int iconGap = MainMenuRenderer.CENTER_ICON_SPACING;
         int totalW = 3 * iconSize + 2 * iconGap;
-        int rightEdge = MainMenuRenderer.rightIconsRightEdge(this.width);
-        int iconsY = MainMenuRenderer.rightIconsY(this.height);
-        int startX = rightEdge - totalW;
+        int iconsY = MainMenuRenderer.centerIconsY(this.height);
+        int startX = (this.width - totalW) / 2;
 
         IconButton btnSettings = new IconButton(
             startX, iconsY, iconSize,
@@ -163,7 +162,7 @@ public abstract class TitleScreenMixin extends Screen {
             b -> client.setScreen(new QuitConfirmScreen(this))
         )
             .ghost()
-            .withIdleColor(Colors.FOREGROUND_MUTED)
+            .withIdleColor(Colors.WHITE_PURE)
             .withHoverColor(Colors.DANGER)
             .withTooltipPlacement(IconButton.TooltipPlacement.LEFT);
         this.addDrawableChild(quit);
@@ -178,9 +177,13 @@ public abstract class TitleScreenMixin extends Screen {
         );
         this.addDrawableChild(volPopup);
 
+        // Playlist : 260px de large vs card 220px → ancré au right-edge du
+        // card (sinon avec la card en bottom-right, le surplus 40px sort
+        // de l'écran).
         int playlistH = Math.min(360, this.height - 80);
+        int playlistX = ostX + OSTPlayerV2.CARD_W - OSTPlaylistOverlay.WIDTH;
         OSTPlaylistOverlay playlist = new OSTPlaylistOverlay(
-            ostX,
+            playlistX,
             ostY - playlistH - 8,
             playlistH
         );

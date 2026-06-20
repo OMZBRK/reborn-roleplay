@@ -45,8 +45,8 @@ public final class DrawHelpers {
 
     /**
      * Rectangle aux coins arrondis. Approximation par escalier de pixels
-     * (test de distance par rapport au centre du corner). Acceptable pour
-     * radius ≤ 12. Coût : ~4*r² fill calls.
+     * (test de distance² par rapport au centre du corner, math int 2x).
+     * Acceptable pour radius ≤ 12. Coût : ~4*r² fill calls.
      */
     public static void roundedRect(DrawContext ctx, int x, int y, int w, int h,
                                    int radius, int color) {
@@ -60,12 +60,15 @@ public final class DrawHelpers {
         // Bandes latérales (sans les coins).
         ctx.fill(x, y + r, x + r, y + h - r, color);
         ctx.fill(x + w - r, y + r, x + w, y + h - r, color);
-        // Coins arrondis : pixels dont la distance au centre du corner ≤ r.
+        // Coins arrondis : test |2 * (r - i - 0.5)|² + |2 * (r - j - 0.5)|²
+        // <= (2r)². Math int seulement — pas de Math.sqrt ni double.
+        int r2x4 = 4 * r * r;
         for (int i = 0; i < r; i++) {
+            int dx = 2 * (r - i) - 1;
+            int dx2 = dx * dx;
             for (int j = 0; j < r; j++) {
-                double cx = r - i - 0.5;
-                double cy = r - j - 0.5;
-                if (cx * cx + cy * cy <= r * r) {
+                int dy = 2 * (r - j) - 1;
+                if (dx2 + dy * dy <= r2x4) {
                     ctx.fill(x + i, y + j, x + i + 1, y + j + 1, color);
                     ctx.fill(x + w - 1 - i, y + j, x + w - i, y + j + 1, color);
                     ctx.fill(x + i, y + h - 1 - j, x + i + 1, y + h - j, color);

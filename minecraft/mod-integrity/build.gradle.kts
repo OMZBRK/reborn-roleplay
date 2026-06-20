@@ -41,6 +41,9 @@ java {
 repositories {
     mavenCentral()
     maven("https://maven.fabricmc.net/") { name = "Fabric" }
+    // MCEF (CinemaMod) : Chromium embedded pour le main menu background dynamic
+    // animated player. Pas sur Maven Central — repo dédié CinemaMod.
+    maven("https://mcef-download.cinemamod.com/repositories/releases") { name = "CinemaMod" }
 }
 
 dependencies {
@@ -51,6 +54,16 @@ dependencies {
     // ClientPlayConnectionEvents (sinon il faudrait poser un mixin sur
     // ClientPlayNetworkHandler). On reste sur Fabric API pour la lisibilite.
     modImplementation("net.fabricmc.fabric-api:fabric-api:${fabric_version}")
+
+    // MCEF (Minecraft Chromium Embedded Framework) — render le bbmodel_viewer.html
+    // de Dynamic Animated Player en background du main menu Reborn.
+    // - mcef (commun) en compile-only : l'API publique (MCEF, MCEFBrowser, ...)
+    // - mcef-fabric en runtime : la glue Fabric (loader, init mixin) + tire mcef
+    //   transitivement, donc pas besoin de le redéclarer en runtime.
+    // Au premier lancement, MCEF télécharge ~150 MB de natives Chromium depuis
+    // mcef-download.cinemamod.com. Cf README pour le UX first-launch.
+    modCompileOnly("com.cinemamod:mcef:2.1.6-1.21.1")
+    modRuntimeOnly("com.cinemamod:mcef-fabric:2.1.6-1.21.1")
 }
 
 tasks {

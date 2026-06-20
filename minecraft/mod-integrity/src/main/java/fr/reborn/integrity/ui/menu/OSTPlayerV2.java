@@ -35,6 +35,10 @@ public final class OSTPlayerV2 {
     private static final int CONTROL_SIZE = 14;
     private static final int CONTROL_SPACING = 2;
 
+    /** Sous-titre constant — caché pour éviter une alloc Text par frame. */
+    private static final net.minecraft.text.Text ARTIST_TEXT =
+        fr.reborn.integrity.ui.RebornFont.body("Reborn OST · Original Score");
+
     /** Y vertical-center des contrôles dans la card. */
     private static int controlsY(int cardY) {
         return cardY + (CARD_H - CONTROL_SIZE) / 2;
@@ -90,11 +94,10 @@ public final class OSTPlayerV2 {
         ctx.drawText(tr, RebornFont.bold(trackName), 0, 0, Colors.WHITE_PURE, false);
         ctx.getMatrices().pop();
 
-        String artist = "Reborn OST · Original Score";
         ctx.getMatrices().push();
         ctx.getMatrices().translate(metaX, metaY + 11, 0);
         ctx.getMatrices().scale(0.75f, 0.75f, 1f);
-        ctx.drawText(tr, RebornFont.body(artist), 0, 0, Colors.FOREGROUND_SUBTLE, false);
+        ctx.drawText(tr, ARTIST_TEXT, 0, 0, Colors.FOREGROUND_SUBTLE, false);
         ctx.getMatrices().pop();
 
         // ─── Progress bar (1px) en bas de la card ───
