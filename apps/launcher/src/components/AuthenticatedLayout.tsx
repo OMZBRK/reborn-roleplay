@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Outlet } from "react-router";
 import { Sidebar } from "./Sidebar";
 import { DiagnosticToast } from "./DiagnosticToast";
-import { UpdateController } from "./system/UpdateController";
 import { OfflineBanner } from "./system/OfflineBanner";
 import { GameCrashModal } from "./system/GameCrashModal";
 import { CrashStub } from "./system/CrashStub";
@@ -15,12 +14,15 @@ import { startNetworkStatusPolling } from "../lib/network-status";
 // Modals systeme et banner offline montes ici car ils n'ont de sens que
 // pour un utilisateur connecte :
 //   - OfflineBanner : pilote par network-store (ping API /health 12s)
-//   - UpdateController : useUpdater + UpdateModal (4 etats)
 //   - GameCrashModal : pilote par crash-store (stub via window.__triggerCrash
 //     en dev, vrai branchement Tauri events a venir)
 //   - CrashStub : pose window.__triggerCrash en dev uniquement, no-op en
 //     release. Composant invisible.
 //   - DiagnosticToast : toasts in-app du LogAnalyzer pendant le launch.
+//
+// UpdateController est rendu top-level dans App.tsx pour poller des le
+// boot meme sur l'ecran de login (sinon un user qui ne se connecte pas
+// rate la modale de MAJ).
 export function AuthenticatedLayout() {
   // Polling /v1/health toutes les 12s pour piloter l'OfflineBanner.
   // Demarre quand l'utilisateur est connecte, stoppe au logout (cleanup).
@@ -38,7 +40,6 @@ export function AuthenticatedLayout() {
         </div>
       </main>
       <DiagnosticToast />
-      <UpdateController />
       <GameCrashModal />
       <CrashStub />
       <DevHelpers />

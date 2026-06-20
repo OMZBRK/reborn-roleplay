@@ -17,6 +17,7 @@ import { Character } from "./routes/Character";
 import { AuthenticatedLayout } from "./components/AuthenticatedLayout";
 import { ResumeSplash } from "./components/ResumeSplash";
 import { WindowControls } from "./components/shell/WindowControls";
+import { UpdateController } from "./components/system/UpdateController";
 import { useAuthStore } from "./stores/auth-store";
 import { resumeSession } from "./lib/auth";
 
@@ -108,6 +109,14 @@ export function App() {
         <div className="drag-region pointer-events-auto flex-1" />
       </div>
       <WindowControls />
+
+      {/* Updater monte au top-level pour poller des le boot, meme sur
+          l'ecran de login / resume — sinon le user qui ne se connecte
+          pas tout de suite ne voit jamais la modale de MAJ. La modale
+          de UpdateController est elle-meme conditionnelle (rend null
+          quand state.kind === 'idle'), donc zero overhead visuel
+          tant qu'aucune MAJ n'est dispo. */}
+      <UpdateController />
     </div>
   );
 }
