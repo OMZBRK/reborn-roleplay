@@ -41,60 +41,107 @@ scp .\fichier.txt ubuntu@91.134.136.120:/opt/reborn/
 
 ---
 
-## 2. Ajouter, changer ou mettre à jour un mod du serveur
+## 2. Ajouter, changer ou mettre à jour un mod du manifest
 
-**Cas concret** : tu remplaces Sodium 0.6.13 par 0.7.0, ou tu ajoutes Iris,
-ou tu update le mod `reborn-integrity` après modif du code.
+**Cas concrets** :
+- Tu bumpes Sodium 0.6.13 → 0.7.0 (changement de version d'un mod existant)
+- Tu ajoutes un nouveau mod tiers (ex: Bobby pour les chunks pre-load)
+- Tu rebuilt `reborn-integrity` après modif du code
 
-### a) Mettre à jour les jars locaux
+### Workflow tout-en-un via le script
 
-```pwsh
-cd "C:\Users\omarb\Desktop\Reborn - Gestion\mods-release"
-# Supprime l'ancien jar :
-Remove-Item .\sodium-fabric-0.6.13+mc1.21.1.jar
-# Drag-drop le nouveau dans ce dossier
+Depuis 2026-06-20, le pipeline est entièrement automatisé par
+`scripts/publish-mod-manifest.ps1`. Tu n'as plus à toucher manuellement à
+build-from-folder.ts, à curl pour DL un mod tiers, ou à éditer un dossier
+mods-release séparé.
+
+#### a) Modifier le script `publish-mod-manifest.ps1`
+
+Édite `$ExternalDeps` (vers le haut du fichier). Chaque entrée :
+- `Name` : nom du jar tel qu'il apparaîtra dans le manifest (et la
+  release GitHub). Important : le **prefix** sert au flag optional + à
+  la garde-fou de purge.
+- `Url` : URL absolue du jar (Modrinth CDN, Maven Fabric, etc.).
+
+Exemple : ajouter Bobby (chunk loader) en optionnel :
+
+```powershell
+@{
+    Name = "bobby-5.0.0+1.21.1.jar"
+    Url  = "https://cdn.modrinth.com/data/3qsfQtE9/versions/.../bobby-5.0.0+1.21.1.jar"
+}
 ```
 
-### b) Mettre à jour la GitHub Release `mods-v1`
+Et étendre `$OptionalPrefixes` pour le marquer optionnel :
 
-1. Va sur https://github.com/OMZBRK/reborn-roleplay/releases/tag/mods-v1
-2. Clique **"Edit release"**
-3. Dans les assets, supprime l'ancien jar (croix à droite)
-4. Drag-drop le nouveau jar
-5. **"Update release"**
-
-### c) Régénérer + signer + publier le manifest
-
-```pwsh
-cd "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\packages\manifest-signer"
-
-# 1. Génère le manifest unsigned depuis le dossier (bump --version à chaque fois)
-pnpm exec tsx src/build-from-folder.ts "C:\Users\omarb\Desktop\Reborn - Gestion\mods-release" `
-  --base-url https://github.com/OMZBRK/reborn-roleplay/releases/download/mods-v1 `
-  --version 1.0.2 `
-  --mc 1.21.1 `
-  --out "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\secrets\manifest-unsigned.json"
-
-# 2. Signe
-pnpm exec tsx src/cli.ts sign "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\secrets\manifest-unsigned.json" `
-  --key "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\secrets\manifest_ed25519_private.pem" `
-  --out "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\secrets\manifest-signed.json"
-
-# 3. Publie sur l'API (lit le JWT depuis le Credential Manager du launcher)
-cd ..\manifest-uploader
-cargo run --release -- `
-  --api https://api.reborn-rp.com/v1 `
-  --file "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\secrets\manifest-signed.json"
+```powershell
+$OptionalPrefixes = "iris-,modmenu-,plasmovoice-,emotecraft-,continuity-,NoChatReports-,zoomify-,replaymod-,entity_model_features-,bobby-"
 ```
 
-**Important** : bump le `--version` à chaque manifest (1.0.0 → 1.0.1 → 1.0.2…).
-Le launcher détecte le changement et purge l'ancien jar du dossier local
-des joueurs.
+Sans ajout dans `$OptionalPrefixes`, le mod est **required** (DL automatique
+pour tout le monde).
 
-### d) Côté staffs
+#### b) Pour modifier un mod **Reborn** (mod-hud, mod-integrity, mod-ost)
 
-Au prochain lancement, le launcher DL le diff (nouveaux jars uniquement,
-les inchangés restent en cache local). Aucune action staff requise.
+Édite le code, bumpe `mod_version` dans `gradle.properties`, puis rebuild :
+
+```pwsh
+$env:JAVA_HOME = "C:\Program Files\Amazon Corretto\jdk21.0.9_10"
+cd minecraft\mod-<nom>
+./gradlew build
+```
+
+Le jar sort dans `build/libs/`. Le script `publish-mod-manifest.ps1` le
+prendra automatiquement quand tu lanceras la publication.
+
+> ⚠️ **Si tu bumpes la version d'un mod Reborn**, supprime l'ancien jar de
+> `build/libs/` (ou les anciens vont coexister et le script peut prendre
+> le mauvais via `Select-Object -First 1` alphabétique).
+
+#### c) Bumper et publier le manifest
+
+```pwsh
+# -SkipBuild si tu n'as pas modifié les mods Reborn (juste ajouté/changé
+# des deps externes). Sinon retire le flag pour rebuild auto les 3 mods.
+.\scripts\publish-mod-manifest.ps1 -Version 1.5.0 -SkipBuild
+```
+
+Le script enchaîne :
+1. Build des mods Reborn (sauf si `-SkipBuild`).
+2. Stage les jars Reborn dans `secrets/manifest-staging/`.
+3. Télécharge tous les `$ExternalDeps` depuis leur URL Maven/CDN.
+4. Génère le manifest unsigned avec flags REQ/OPT par prefix.
+5. Signe avec `secrets/manifest_ed25519_private.pem`.
+6. Affiche les commandes pour les 2 étapes manuelles restantes
+   (gh release create + manifest-uploader release).
+
+#### d) Upload sur GitHub Release + API
+
+Le script imprime exactement la commande `gh release create mods-vX.Y.Z`
+à exécuter (avec la liste des jars). Copie-colle, exécute. Puis :
+
+```pwsh
+.\packages\manifest-uploader\target\release\manifest-uploader.exe `
+  manifest --file .\secrets\manifest-signed.json
+```
+
+HTTP 201 + `isCurrent=true` → manifest actif sur l'API.
+
+#### e) Côté staffs
+
+Au prochain `launcher_check_update` (boot du launcher), le diff est
+calculé contre le nouveau manifest :
+- Nouveaux REQUIRED → DL auto.
+- Optionnels nouveaux → apparaissent décochés dans la page **Mods**
+  → onglet "Mods optionnels disponibles".
+- Anciens REQUIRED retirés du manifest → purgés du dossier `mods/`.
+- Mods optionnels que l'utilisateur a coché et qui sont toujours dans
+  le manifest → préservés.
+
+> ℹ️ La purge est **prefix-restreinte** (`reborn-`, `mcef-`, `fabric-api-`
+> + tout ce qui est dans le manifest). Les mods que l'utilisateur a
+> installé manuellement dans `mods/` hors-manifest sont préservés (cf
+> `purge_orphan_mods` dans `launcher/src-tauri/src/manifest/download.rs`).
 
 ---
 

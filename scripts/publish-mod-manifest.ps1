@@ -74,6 +74,18 @@ $ExternalDeps = @(
         Name = "indium-1.0.35+mc1.21.jar"
         Url  = "https://cdn.modrinth.com/data/Orvt0mRa/versions/Z8VpxxGh/indium-1.0.35%2Bmc1.21.jar"
     },
+    @{ # ModernFix : boot plus rapide + optim memory, sans impact gameplay.
+        Name = "modernfix-fabric-5.25.1+mc1.21.1.jar"
+        Url  = "https://cdn.modrinth.com/data/nmDcB62a/versions/NnNX8LBn/modernfix-fabric-5.25.1%2Bmc1.21.1.jar"
+    },
+    @{ # EntityCulling : skip render des entites hors champ (gros FPS gain en RP avec mobs).
+        Name = "entityculling-fabric-1.10.5-mc1.21.1.jar"
+        Url  = "https://cdn.modrinth.com/data/NNAgCjsB/versions/hsWvcyFJ/entityculling-fabric-1.10.5-mc1.21.1.jar"
+    },
+    @{ # Sodium Extra : knobs perf supplementaires pour Sodium (clouds, fog, particles).
+        Name = "sodium-extra-fabric-0.6.0+mc1.21.1.jar"
+        Url  = "https://cdn.modrinth.com/data/PtjYWJkn/versions/anDafurZ/sodium-extra-fabric-0.6.0%2Bmc1.21.1.jar"
+    },
     # ─── OPTIONAL : RP essentials (UI sectionnable cocher/decocher) ─
     # Cf $OptionalPrefixes plus bas pour la liste des prefixes flagges
     # required:false dans le manifest.
@@ -93,6 +105,26 @@ $ExternalDeps = @(
     @{ # Emotecraft : animations/emotes RP (synced via canal Fabric).
         Name = "emotecraft-for-MC1.21.1-2.4.12-fabric.jar"
         Url  = "https://cdn.modrinth.com/data/pZ2wrerK/versions/daqt5qcK/emotecraft-for-MC1.21.1-2.4.12-fabric.jar"
+    },
+    @{ # Continuity : connected textures Optifine-style (mur de pierres "continues").
+        Name = "continuity-3.0.0+1.21.jar"
+        Url  = "https://cdn.modrinth.com/data/1IjD5062/versions/kSPJ4hQv/continuity-3.0.0%2B1.21.jar"
+    },
+    @{ # No Chat Reports : retire le report system Mojang -> meilleur pour la confidentialite RP.
+        Name = "NoChatReports-FABRIC-1.21.1-v2.9.1.jar"
+        Url  = "https://cdn.modrinth.com/data/qQyHxfxd/versions/D8K0KJXM/NoChatReports-FABRIC-1.21.1-v2.9.1.jar"
+    },
+    @{ # Zoomify : zoom configurable (cinematique RP, sniper screenshots).
+        Name = "zoomify-2.15.2+1.21.1.jar"
+        Url  = "https://cdn.modrinth.com/data/w7ThoJFB/versions/6jrMC48Z/zoomify-2.15.2%2B1.21.1.jar"
+    },
+    @{ # ReplayMod : enregistre une session RP pour montage video (gros mais essentiel content RP).
+        Name = "replaymod-1.21-2.6.23.jar"
+        Url  = "https://cdn.modrinth.com/data/Nv2fQJo5/versions/Ebft1Ejk/replaymod-1.21-2.6.23.jar"
+    },
+    @{ # Entity Model Features : custom mob models (compat OptiFine CEM, utile pour resource packs RP).
+        Name = "entity_model_features-3.2.4-1.21-fabric.jar"
+        Url  = "https://cdn.modrinth.com/data/4I1XuqiY/versions/NLDNY8vg/entity_model_features-3.2.4-1.21-fabric.jar"
     }
 )
 
@@ -100,7 +132,7 @@ $ExternalDeps = @(
 # Tout fichier dans staging dont le nom commence par un de ces prefixes
 # sera marque "optional" dans le manifest. Le launcher (cf Mods.tsx)
 # affichera les optionnels avec un toggle et ne les DL que si active.
-$OptionalPrefixes = "iris-,modmenu-,plasmovoice-,emotecraft-"
+$OptionalPrefixes = "iris-,modmenu-,plasmovoice-,emotecraft-,continuity-,NoChatReports-,zoomify-,replaymod-,entity_model_features-"
 
 $ErrorActionPreference = "Stop"
 
