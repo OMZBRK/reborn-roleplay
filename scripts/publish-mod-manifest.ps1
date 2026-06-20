@@ -16,7 +16,7 @@
 #         - POST le manifest signe sur l'API
 #
 # Usage :
-#   ./scripts/publish-mod-manifest.ps1 -Version 1.0.5 [-Mods @("reborn-ost","reborn-integrity")]
+#   ./scripts/publish-mod-manifest.ps1 -Version 1.1.0 [-Mods @("mod-ost","mod-integrity","mod-hud")]
 #
 # Pre-requis :
 #   - JAVA_HOME pointe sur JDK 21 (Corretto 21)
@@ -31,7 +31,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Version,
 
-    [string[]]$Mods = @("mod-ost", "mod-integrity"),
+    [string[]]$Mods = @("mod-ost", "mod-integrity", "mod-hud"),
 
     [string]$McVersion = "1.21.1",
 
