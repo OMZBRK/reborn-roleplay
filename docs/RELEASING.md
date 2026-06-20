@@ -75,9 +75,22 @@ Nom typique : `RebornLauncher_0.2.0_x64-setup.exe`.
 ```pwsh
 cd apps/launcher
 pnpm exec tauri signer sign `
-  -k ../../secrets/tauri-updater.key `
-  src-tauri/target/release/bundle/nsis/RebornLauncher_0.2.0_x64-setup.exe
+  -f ../../secrets/tauri-updater.key `
+  -p rebornlauncher `
+  src-tauri/target/release/bundle/nsis/RebornLauncher_0.3.0_x64-setup.exe
 ```
+
+> **Piège CLI Tauri 2** — `-k` = `--private-key` (clé en **string base64**),
+> `-f` = `--private-key-path` (**fichier**). Si tu passes un chemin avec `-k`,
+> tauri-signer essaie de le décoder en base64 et plante avec
+> `failed to decode base64 key: Invalid symbol 46, offset 0` (le `.` du
+> chemin relatif). Utiliser `-f` est l'usage normal.
+
+> **Autre piège env** — si `.env` contient `TAURI_SIGNING_PRIVATE_KEY=./secrets/tauri-updater.key`
+> (un chemin au lieu de la clé), tauri-signer est confus et override les flags
+> CLI. Soit retire l'entree du `.env` et utilise `-f`, soit y mets la valeur
+> base64 du contenu du fichier. La meme remarque vaut pour
+> `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` qui passe en `-p`.
 
 Tu obtiens un fichier `.sig` à côté du `.exe`. Ouvre-le, c'est la signature
 base64 à envoyer à l'API. Tu peux aussi pipe vers le clipboard avec
