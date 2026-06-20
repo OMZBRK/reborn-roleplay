@@ -120,16 +120,43 @@ body,
   color: #fff;
 }
 
-/* Scrollbar discrete (style Zenkai) */
-::-webkit-scrollbar {
+/* Scrollbar entierement masquee globalement (style Zenkai) : le scroll
+   reste pleinement fonctionnel (molette, touch, drag), c'est juste le
+   visuel de la barre qui disparait. Sans ca, la track Windows par
+   defaut ressort agressivement sur les ecrans avec contenu long
+   (Home, Mods, Settings).
+   - WebKit/Chromium (Tauri) : display:none sur l'element scrollbar.
+   - Firefox : scrollbar-width: none.
+   - IE/Edge legacy : -ms-overflow-style: none.
+   Si tu veux re-afficher la scrollbar sur un container specifique
+   (zone code, console), utilise .reborn-show-scrollbar (cf bas du
+   fichier). */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Echappatoire : ajoute cette classe a un container pour re-afficher
+   une scrollbar discrete (utile pour des logs/code). */
+.reborn-show-scrollbar {
+  scrollbar-width: thin;
+  -ms-overflow-style: auto;
+}
+.reborn-show-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+  display: block;
 }
-::-webkit-scrollbar-thumb {
+.reborn-show-scrollbar::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
+.reborn-show-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-strong);
 }
 

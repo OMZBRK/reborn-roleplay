@@ -77,7 +77,8 @@ const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// le diff, retourne un preview que l'UI peut afficher avant de declencher
 /// le download.
 #[tauri::command]
-pub async fn launcher_check_update(
+pub async fn launcher_check_update<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AuthState>,
 ) -> Result<UpdatePreview, LauncherError> {
     let token = state
@@ -100,6 +101,21 @@ pub async fn launcher_check_update(
     let plan = compute_plan_export(&manifest, &dir)
         .await
         .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+
+    // Purge les orphans des le check : si l'utilisateur est deja a jour
+    // (plan vide), apply_update ne sera pas appele et la purge ne s'executerait
+    // pas. On la fait ici a la place pour garantir que les jars d'une
+    // version anterieure du manifest sont retires des le prochain "Jouer".
+    match purge_orphan_mods(&manifest, &dir).await {
+        Ok(removed) if !removed.is_empty() => {
+            tracing::info!(?removed, "check_update: orphan mods supprimes");
+            let _ = app.emit("mods:purged", &removed);
+        }
+        Ok(_) => {}
+        Err(e) => {
+            tracing::warn!(error = ?e, "check_update: purge orphans failed");
+        }
+    }
 
     let bytes_total = plan.iter().map(|p| p.file.size).sum();
 
