@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { useUpdateStore } from "../stores/update-store";
 
 // Poll toutes les 30min — meme cadence que la version v1 de UpdateChecker
@@ -32,6 +37,35 @@ export type UseUpdater = {
 // Necessite de persister une string version dans le store + comparer au
 // `update.version` du prochain check. Pas dans le scope du chantier B.
 
+// Persiste la version qu'on a deja annoncee via notification OS, pour ne pas
+// re-spam le user a chaque poll de 30min sur la meme release.
+const NOTIFIED_VERSION_KEY = "reborn:updater:notified-version";
+
+async function maybeNotifyOs(update: Update): Promise<void> {
+  try {
+    const lastNotified = localStorage.getItem(NOTIFIED_VERSION_KEY);
+    if (lastNotified === update.version) return; // deja signalee
+
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      const perm = await requestPermission();
+      granted = perm === "granted";
+    }
+    if (!granted) return;
+
+    sendNotification({
+      title: "Reborn Launcher",
+      body: `Mise a jour disponible ${update.version}\nUne nouvelle version est prete a etre telechargee.`,
+    });
+    localStorage.setItem(NOTIFIED_VERSION_KEY, update.version);
+  } catch (err) {
+    // Notif OS non bloquante. Le UpdateModal in-app fait deja le job
+    // visuel, la notif est juste un plus pour les users qui ont le
+    // launcher en arriere-plan.
+    console.warn("[updater] notif OS skipped:", err);
+  }
+}
+
 export function useUpdater(): UseUpdater {
   const [state, setState] = useState<UpdaterState>({ kind: "idle" });
   const setAvailable = useUpdateStore((s) => s.setAvailable);
@@ -53,6 +87,9 @@ export function useUpdater(): UseUpdater {
             return { kind: "available", update };
           });
           setAvailable(true);
+          // Notification OS native (Windows toast bas-droite). Idempotente
+          // grace au localStorage : une seule notif par version.
+          void maybeNotifyOs(update);
           // Le polling re-detecte la meme version : on ne reset pas
           // l'ignored, l'utilisateur a deja choisi. Reset uniquement
           // quand une NOUVELLE version sort (cf TODO ci-dessus).

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight, Download, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Download, RefreshCw } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 import { Modal } from "./Modal";
 import type { UpdaterState } from "../../hooks/use-updater";
@@ -12,9 +12,14 @@ type Props = {
   onIgnoreVersion: () => void;
 };
 
-// 4 sous-etats : available | downloading | installing | error.
-// Comportement bloquant : on autorise la fermeture (croix, ESC, click-out)
-// uniquement sur "available" et "error" — pas pendant download/install.
+// Modale auto-update style Zenkai : card compacte (340px), titre a gauche +
+// X discret a droite, carte ACTUELLE -> NOUVELLE side-by-side, CTA
+// "Installer" full-width avec icone download. Comportement :
+//   - available  : dismissable (Plus tard) + Installer
+//   - downloading: bloquante, barre de progression + bytes
+//   - installing : bloquante, message rassurant + spinner
+//   - error      : Ignorer + Reessayer
+//
 // La pulse du logo sidebar reste alimentee par setIgnored(true) cote hook
 // quand l'utilisateur clique "Plus tard".
 export function UpdateModal({
@@ -30,164 +35,132 @@ export function UpdateModal({
   const isError = state.kind === "error";
   const isDownloading = state.kind === "downloading";
   const isInstalling = state.kind === "installing";
-
-  // Bloquant pendant les phases reseau/install. L'utilisateur peut
-  // "Plus tard" depuis "available" et "Ignorer" depuis "error".
   const dismissable = state.kind === "available";
+
+  const title =
+    state.kind === "available"
+      ? "Mise à jour disponible"
+      : isDownloading
+        ? "Téléchargement…"
+        : isInstalling
+          ? "Installation…"
+          : "Échec de la mise à jour";
 
   return (
     <Modal
       open
       onClose={dismissable ? onPostpone : undefined}
       variant={isError ? "danger" : "info"}
+      size="sm"
     >
-      {/* Icone d'etat */}
-      <div className="mb-4 flex justify-center">
-        {isInstalling ? (
-          <div className="reborn-update-spinner" aria-hidden />
-        ) : isError ? (
-          <div
-            className="flex h-14 w-14 items-center justify-center rounded-full"
-            style={{
-              background: "var(--color-danger-soft)",
-              color: "var(--color-danger)",
-            }}
-          >
-            <AlertTriangle className="h-7 w-7" strokeWidth={2} />
-          </div>
-        ) : (
-          <div
-            className="flex h-14 w-14 items-center justify-center rounded-full"
-            style={{
-              background: "var(--color-accent-soft)",
-              color: "var(--color-accent)",
-            }}
-          >
-            <Download className="h-7 w-7" strokeWidth={2.5} />
-          </div>
-        )}
-      </div>
-
-      {/* Titre */}
-      <h2 className="text-center font-display text-2xl tracking-wide">
-        {state.kind === "available" && "Mise à jour disponible"}
-        {isDownloading && "Téléchargement de la mise à jour"}
-        {isInstalling && "Installation en cours…"}
-        {isError && "Échec de la mise à jour"}
+      {/* Header : titre a gauche, X via Modal a droite (pt-1 pour aligner
+          avec le bouton fermer). */}
+      <h2 className="pr-7 pt-1 font-display text-[17px] font-semibold leading-tight tracking-wide">
+        {title}
       </h2>
 
-      {/* Sous-titre */}
-      <p className="mt-2 text-center text-sm text-[var(--color-foreground-subtle)]">
-        {state.kind === "available" && (
-          <>
-            Une nouvelle version de Reborn Launcher est prête à être installée.
-            <br />
-            Quelques améliorations t'attendent.
-          </>
-        )}
-        {isDownloading && "Patience : la mise à jour s'installera dès la fin du téléchargement."}
-        {isInstalling && (
-          <>
-            Le launcher va redémarrer automatiquement dans quelques instants.
-            <br />
-            Ne ferme pas Reborn.
-          </>
-        )}
-        {isError && (
-          <>
-            Une erreur est survenue pendant la mise à jour.
-            <br />
-            Vérifie ta connexion ou attends la prochaine release.
-          </>
-        )}
-      </p>
-
-      {/* Carte details (idle) — ACTUELLE -> NOUVELLE side-by-side
-          facon Zenkai. La fleche separe les 2 colonnes pour appuyer le
-          "direction" de l'upgrade. */}
+      {/* Banner sous le titre (variant selon etat) */}
       {state.kind === "available" && (
-        <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-stretch gap-0 overflow-hidden rounded-lg border"
+        <div
+          className="mt-3 rounded-md border-l-2 px-3 py-2 text-[11.5px] leading-snug"
+          style={{
+            background: "var(--color-accent-soft)",
+            borderColor: "var(--color-accent)",
+            color: "var(--color-accent)",
+          }}
+        >
+          Une nouvelle version est prête à être installée. Quelques
+          améliorations t'attendent.
+        </div>
+      )}
+
+      {isDownloading && (
+        <p className="mt-3 text-[11.5px] leading-snug text-[var(--color-foreground-subtle)]">
+          La mise à jour s'installera dès la fin du téléchargement.
+        </p>
+      )}
+
+      {isInstalling && (
+        <p className="mt-3 text-[11.5px] leading-snug text-[var(--color-foreground-subtle)]">
+          Le launcher va redémarrer automatiquement. Ne ferme pas Reborn.
+        </p>
+      )}
+
+      {isError && (
+        <div
+          className="mt-3 rounded-md border-l-2 px-3 py-2 text-[11.5px] leading-snug"
+          style={{
+            background: "var(--color-danger-soft)",
+            borderColor: "var(--color-danger)",
+            color: "var(--color-danger)",
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span>{state.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Carte details (available) — ACTUELLE -> NOUVELLE side-by-side
+          facon Zenkai, ratio 1:auto:1. La fleche en colonne centrale
+          appuie le sens de l'upgrade sans empieter sur les versions. */}
+      {state.kind === "available" && (
+        <div
+          className="mt-4 grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden rounded-md border"
           style={{
             background: "var(--color-surface-overlay)",
             borderColor: "var(--color-border)",
           }}
         >
-          <div className="flex flex-col items-center justify-center px-3 py-3">
-            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-foreground-muted)]">
+          <div className="flex flex-col items-center px-3 py-2.5">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-foreground-muted)]">
               Actuelle
             </span>
-            <span className="mt-1 font-mono text-base font-semibold tabular-nums text-[var(--color-foreground-subtle)]">
+            <span className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums text-[var(--color-foreground-subtle)]">
               v{currentVersion ?? "—"}
             </span>
           </div>
           <div className="flex items-center justify-center px-1 text-[var(--color-foreground-muted)]">
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-3.5 w-3.5" />
           </div>
-          <div className="flex flex-col items-center justify-center px-3 py-3"
+          <div
+            className="flex flex-col items-center px-3 py-2.5"
             style={{ background: "var(--color-accent-soft)" }}
           >
-            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-accent)]">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">
               Nouvelle
             </span>
-            <span className="mt-1 font-mono text-base font-semibold tabular-nums text-[var(--color-accent)]">
+            <span className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums text-[var(--color-accent)]">
               v{state.update.version}
             </span>
           </div>
         </div>
       )}
 
-      {/* Notes de version (separe de la carte ACTUELLE/NOUVELLE pour
-          garder cette derniere visuellement legere comme Zenkai). */}
+      {/* Notes de version (collapse a 3 lignes pour ne pas faire deborder
+          la card 340px). */}
       {state.kind === "available" && state.update.body && (
-        <div
-          className="mt-3 rounded-md border p-3 text-xs"
-          style={{
-            background: "var(--color-surface-overlay)",
-            borderColor: "var(--color-border)",
-          }}
-        >
-          <div className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
+        <details className="mt-2.5">
+          <summary className="cursor-pointer text-[10.5px] font-medium text-[var(--color-foreground-muted)] hover:text-[var(--color-foreground-subtle)]">
             Notes de version
-          </div>
-          <p className="mt-1 line-clamp-5 whitespace-pre-line leading-relaxed text-[var(--color-foreground-subtle)]">
+          </summary>
+          <p className="mt-1.5 line-clamp-4 whitespace-pre-line text-[11px] leading-relaxed text-[var(--color-foreground-subtle)]">
             {state.update.body}
           </p>
-        </div>
-      )}
-
-      {/* Carte erreur */}
-      {isError && (
-        <div
-          className="mt-5 rounded-md border p-3"
-          style={{
-            background: "var(--color-danger-soft)",
-            borderColor: "var(--color-danger)",
-          }}
-        >
-          <div className="flex gap-2 text-xs">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0 text-[var(--color-danger)]" />
-            <div>
-              <div className="font-semibold text-[var(--color-danger)]">
-                Erreur du flow auto-update
-              </div>
-              <div className="mt-1 text-[var(--color-foreground-subtle)]">
-                {state.message}
-              </div>
-            </div>
-          </div>
-        </div>
+        </details>
       )}
 
       {/* Barre de progression (downloading) */}
       {isDownloading && (
-        <div className="mt-6">
+        <div className="mt-4">
           <div className="reborn-update-progress">
             <div
               className="reborn-update-progress-fill"
               style={{ width: `${Math.round(state.progress * 100)}%` }}
             />
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-[var(--color-foreground-subtle)]">
+          <div className="mt-1.5 flex items-center justify-between text-[10.5px] text-[var(--color-foreground-subtle)]">
             <span className="font-medium">
               {Math.round(state.progress * 100)}%
             </span>
@@ -201,30 +174,29 @@ export function UpdateModal({
       )}
 
       {/* Actions */}
-      <div className="mt-6 flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-1.5">
         {state.kind === "available" && (
           <>
             <button
               type="button"
               onClick={onInstall}
-              className="flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--color-accent)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+              className="flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--color-accent)] text-[13px] font-semibold tracking-wide text-white shadow-sm transition-colors hover:bg-[var(--color-accent-hover)]"
             >
-              <Download className="h-4 w-4" />
-              Installer maintenant
+              <Download className="h-4 w-4" strokeWidth={2.4} />
+              Installer
             </button>
             <button
               type="button"
               onClick={onPostpone}
-              className="flex h-8 items-center justify-center gap-1 text-xs text-[var(--color-foreground-subtle)] transition-colors hover:text-[var(--color-foreground)]"
+              className="h-7 text-[11px] text-[var(--color-foreground-muted)] transition-colors hover:text-[var(--color-foreground)]"
             >
-              <X className="h-3 w-3" />
               Plus tard
             </button>
           </>
         )}
 
         {isInstalling && (
-          <div className="flex items-center justify-center gap-2 text-xs text-[var(--color-foreground-subtle)]">
+          <div className="flex items-center justify-center gap-2 py-2 text-[11px] text-[var(--color-foreground-subtle)]">
             <RefreshCw className="h-3 w-3 animate-spin" />
             Vérification · décompression · finalisation
           </div>
@@ -235,15 +207,15 @@ export function UpdateModal({
             <button
               type="button"
               onClick={onInstall}
-              className="flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--color-accent)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+              className="flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--color-accent)] text-[13px] font-semibold tracking-wide text-white shadow-sm transition-colors hover:bg-[var(--color-accent-hover)]"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" strokeWidth={2.4} />
               Réessayer
             </button>
             <button
               type="button"
               onClick={onIgnoreVersion}
-              className="flex h-8 items-center justify-center text-xs text-[var(--color-foreground-subtle)] transition-colors hover:text-[var(--color-foreground)]"
+              className="h-7 text-[11px] text-[var(--color-foreground-muted)] transition-colors hover:text-[var(--color-foreground)]"
             >
               Ignorer cette version
             </button>

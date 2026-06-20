@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
 export type ModalVariant = "info" | "warning" | "danger";
+export type ModalSize = "sm" | "md";
 
 type Props = {
   open: boolean;
@@ -14,6 +15,8 @@ type Props = {
    */
   onClose?: () => void;
   variant?: ModalVariant;
+  /** "sm" = 340px (UpdateModal style Zenkai), "md" = 420px (default). */
+  size?: ModalSize;
   children: ReactNode;
 };
 
@@ -28,7 +31,7 @@ type Props = {
 //     <p>Body</p>
 //     <button>Action</button>
 //   </Modal>
-export function Modal({ open, onClose, variant = "info", children }: Props) {
+export function Modal({ open, onClose, variant = "info", size = "md", children }: Props) {
   // ESC ferme uniquement si onClose est fourni (modale dismissable).
   useEffect(() => {
     if (!open || !onClose) return;
@@ -63,7 +66,10 @@ export function Modal({ open, onClose, variant = "info", children }: Props) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0 }}
             transition={{ type: "spring", stiffness: 320, damping: 26 }}
-            className="relative w-[420px] max-w-[90vw] rounded-[14px] border bg-[var(--color-surface-elevated)] p-6 shadow-2xl"
+            className={[
+              "relative max-w-[90vw] rounded-[14px] border bg-[var(--color-surface-elevated)] shadow-2xl",
+              size === "sm" ? "w-[340px] p-5" : "w-[420px] p-6",
+            ].join(" ")}
             style={{
               borderColor: "var(--color-border-strong)",
               boxShadow: `0 12px 32px -4px rgba(0,0,0,.6), 0 0 0 1px ${ringColor}`,

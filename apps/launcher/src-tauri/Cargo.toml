@@ -1,6 +1,6 @@
 [package]
 name = "launcher"
-version = "0.3.3"
+version = "0.3.4"
 description = "Reborn Roleplay launcher (Tauri 2 backend)"
 authors = ["Reborn Roleplay"]
 edition = "2021"
@@ -19,6 +19,10 @@ tauri-plugin-opener = "2"
 # telecharge l'installer + restart. Endpoint + pubkey dans tauri.conf.json.
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# Notifications OS natives (toast Windows en bas-droite, Notification Center
+# macOS, libnotify Linux). Utilise par UpdateController pour signaler une
+# nouvelle release meme quand le launcher est en arriere-plan.
+tauri-plugin-notification = "2"
 # Persistance JSON cote frontend (liste des comptes Microsoft enregistres
 # pour le carousel du LoginScreen). AUCUN secret n'y est ecrit — les
 # refresh tokens restent dans le keyring OS (storage/secrets.rs).
