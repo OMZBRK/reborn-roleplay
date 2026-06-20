@@ -21,10 +21,10 @@ pub use game::{launcher_launch_game, launcher_stop_game, GameState};
 pub use paths::game_dir;
 
 use serde::Serialize;
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, Emitter, Runtime, State};
 
 use crate::auth::AuthState;
-use crate::manifest::{compute_plan_export, download_plan, verify_signature, PlanItem};
+use crate::manifest::{compute_plan_export, download_plan, purge_orphan_mods, verify_signature, PlanItem};
 use crate::storage::secrets::SecretKey;
 
 #[derive(Debug, Serialize)]
@@ -146,6 +146,22 @@ pub async fn launcher_apply_update<R: Runtime>(
     let plan = compute_plan_export(&manifest, &dir)
         .await
         .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+
+    // Purge les .jar dans mods/ qui ne sont plus dans le manifest courant
+    // (typique : ancienne version d'un mod laissee orpheline apres bump de
+    // version manifest, sinon Fabric charge les 2 et c'est la collision).
+    // Idempotent : retourne [] si rien a purger. Erreur non bloquante : on
+    // log seulement, le launch peut continuer meme si la purge a foire.
+    match purge_orphan_mods(&manifest, &dir).await {
+        Ok(removed) if !removed.is_empty() => {
+            tracing::info!(?removed, "manifest sync: orphan mods supprimes");
+            let _ = app.emit("mods:purged", &removed);
+        }
+        Ok(_) => {}
+        Err(e) => {
+            tracing::warn!(error = ?e, "manifest sync: purge orphans failed");
+        }
+    }
 
     if plan.is_empty() {
         return Ok(UpdateStatus::UpToDate {

@@ -10,7 +10,7 @@
 mod download;
 mod verify;
 
-pub use download::{compute_plan as compute_plan_export, download_plan, PlanItem};
+pub use download::{compute_plan as compute_plan_export, download_plan, purge_orphan_mods, PlanItem};
 pub use verify::{verify_signature, ManifestVerifyError};
 
 use serde::{Deserialize, Serialize};

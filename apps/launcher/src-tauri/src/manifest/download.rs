@@ -215,3 +215,58 @@ async fn download_one(
         size: total_size,
     })
 }
+
+/// Supprime les .jar dans `mods/` qui ne sont PAS listes dans le manifest
+/// courant. Necessaire pour le passage d'une version de manifest a la
+/// suivante : sinon les anciennes versions cohabitent avec les nouvelles
+/// (typiquement reborn-integrity-0.1.0-dev.jar ET reborn-integrity-0.2.0-dev.jar
+/// chargees simultanement par Fabric -> mod ID collision ou comportement
+/// imprevisible).
+///
+/// Politique : seul `mods/` est purge (cf §9.1 PLAN "Aucun mod ajoute
+/// manuellement n'est tolere"). Les autres dossiers (config/, runtime/,
+/// versions/, assets/) ne sont pas touches — leur cycle de vie est gere
+/// par les autres `ensure_*`.
+pub async fn purge_orphan_mods(
+    manifest: &SignedManifest,
+    game_dir: &Path,
+) -> std::io::Result<Vec<String>> {
+    let mods_dir = game_dir.join("mods");
+    if !fs::try_exists(&mods_dir).await? {
+        return Ok(Vec::new());
+    }
+
+    // Collecte les chemins manifest dont le parent est exactement `mods/`.
+    let expected: std::collections::HashSet<String> = manifest
+        .files
+        .iter()
+        .filter_map(|f| {
+            let p = std::path::Path::new(&f.path);
+            (p.parent().map(|x| x.to_string_lossy().replace('\\', "/")) == Some("mods".into()))
+                .then(|| p.file_name()?.to_str().map(|s| s.to_string()))
+                .flatten()
+        })
+        .collect();
+
+    let mut removed = Vec::new();
+    let mut entries = fs::read_dir(&mods_dir).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if !name.ends_with(".jar") {
+            continue;
+        }
+        if expected.contains(name) {
+            continue;
+        }
+        match fs::remove_file(&path).await {
+            Ok(()) => removed.push(name.to_string()),
+            Err(e) => {
+                tracing::warn!(?path, error = ?e, "purge_orphan_mods: remove failed");
+            }
+        }
+    }
+    Ok(removed)
+}
