@@ -3,12 +3,7 @@
   "minVersion": "0.8",
   "package": "fr.reborn.integrity.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": [
-    "TitleScreenMixin",
-    "OptionsScreenMixin",
-    "GameMenuScreenMixin",
-    "ConnectScreenMixin"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   }

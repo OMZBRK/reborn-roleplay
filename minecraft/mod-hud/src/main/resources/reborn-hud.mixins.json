@@ -9,7 +9,11 @@
     "ChatScreenMixin",
     "BossBarHudMixin",
     "InGameHudMixin",
-    "InGameHudInvoker"
+    "InGameHudInvoker",
+    "menu.TitleScreenMixin",
+    "menu.OptionsScreenMixin",
+    "menu.GameMenuScreenMixin",
+    "menu.ConnectScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

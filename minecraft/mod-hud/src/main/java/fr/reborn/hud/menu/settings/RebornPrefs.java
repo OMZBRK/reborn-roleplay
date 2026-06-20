@@ -1,0 +1,117 @@
+package fr.reborn.hud.menu.settings;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import net.fabricmc.loader.api.FabricLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/**
+ * État global des préférences UI Reborn — persisté en JSON dans
+ * {@code <config_dir>/reborn_prefs.json}.
+ *
+ * <p>Pas de connection au gameplay (options.txt) pour la PR #3 : on
+ * persiste seulement entre sessions du launcher. Quand le câblage
+ * options.txt sera nécessaire (PR ultérieure), on ajoute un sync
+ * dans {@link #save()}.
+ *
+ * <p>Le lien "Options avancées Minecraft" du VideoTab ouvre l'écran
+ * options vanilla pour les vraies prefs gameplay (FPS, VSync, etc.).
+ *
+ * <p>Singleton chargé une fois au boot du title screen.
+ */
+public final class RebornPrefs {
+
+    private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/prefs");
+
+    public static final RebornPrefs INSTANCE = new RebornPrefs();
+
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final String FILENAME = "reborn_prefs.json";
+
+    // ────────────────── Video ──────────────────
+    public String resolution = "fhd";     // hd | fhd | qhd | 4k
+    public String windowMode = "fullscreen"; // fullscreen | borderless | windowed
+    public int fpsMax = 144;              // 30..240
+    public int renderDistance = 16;       // 4..32 chunks
+    public boolean vsync = true;
+
+    // ────────────────── Audio ──────────────────
+    public int volumeMaster = 80;
+    public int volumeMusic = 62;
+    public int volumeSfx = 75;
+    public int volumeVoice = 90;
+    public boolean muteOnUnfocus = true;
+
+    // ────────────────── Discord ────────────────
+    public boolean discordEnabled = true;
+    public boolean discordShowCharacter = true;
+    public boolean discordShowMap = false;
+
+    private boolean loaded = false;
+
+    private RebornPrefs() {}
+
+    /** Lazy load — appelé automatiquement au premier accès depuis l'UI. */
+    public void ensureLoaded() {
+        if (loaded) return;
+        loaded = true;
+        Path path = configPath();
+        if (path == null) return;
+        if (!Files.exists(path)) {
+            LOG.info("prefs file not found ({}), using defaults", path);
+            return;
+        }
+        try {
+            String json = Files.readString(path);
+            RebornPrefs loaded = GSON.fromJson(json, RebornPrefs.class);
+            if (loaded != null) {
+                copyFrom(loaded);
+                LOG.info("loaded prefs from {}", path);
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("failed to load prefs: {}", e.getMessage());
+        }
+    }
+
+    /** Sauvegarde immédiate sur disque. */
+    public void save() {
+        Path path = configPath();
+        if (path == null) return;
+        try {
+            Files.createDirectories(path.getParent());
+            Files.writeString(path, GSON.toJson(this));
+            LOG.debug("saved prefs to {}", path);
+        } catch (IOException e) {
+            LOG.warn("failed to save prefs: {}", e.getMessage());
+        }
+    }
+
+    private Path configPath() {
+        try {
+            return FabricLoader.getInstance().getConfigDir().resolve(FILENAME);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void copyFrom(RebornPrefs other) {
+        this.resolution = other.resolution != null ? other.resolution : this.resolution;
+        this.windowMode = other.windowMode != null ? other.windowMode : this.windowMode;
+        this.fpsMax = other.fpsMax;
+        this.renderDistance = other.renderDistance;
+        this.vsync = other.vsync;
+        this.volumeMaster = other.volumeMaster;
+        this.volumeMusic = other.volumeMusic;
+        this.volumeSfx = other.volumeSfx;
+        this.volumeVoice = other.volumeVoice;
+        this.muteOnUnfocus = other.muteOnUnfocus;
+        this.discordEnabled = other.discordEnabled;
+        this.discordShowCharacter = other.discordShowCharacter;
+        this.discordShowMap = other.discordShowMap;
+    }
+}

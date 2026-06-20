@@ -3,11 +3,11 @@
   "id": "reborn-integrity",
   "version": "${version}",
   "name": "Reborn Integrity",
-  "description": "Atteste le client aupres du serveur Reborn via play-token signe par l'API.",
+  "description": "Atteste le client aupres du serveur Reborn via play-token signe par l'API. Aucune autre responsabilite (UI vit dans reborn-hud).",
   "authors": ["Reborn Team"],
   "contact": {
     "homepage": "https://reborn-rp.fr",
-    "sources": "https://github.com/reborn-rp/launcher"
+    "sources": "https://github.com/OMZBRK/reborn-roleplay"
   },
   "license": "All-Rights-Reserved",
   "environment": "client",
@@ -21,7 +21,6 @@
     "fabricloader": ">=${loader_version}",
     "minecraft": "${minecraft_version}",
     "java": ">=21",
-    "fabric-api": "*",
-    "mcef": "*"
+    "fabric-api": "*"
   }
 }

@@ -1,6 +1,5 @@
 package fr.reborn.integrity;
 
-import fr.reborn.integrity.ui.menu.DynamicPlayerBackground;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -13,7 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Entree client du mod Reborn Integrity.
+ * Entree client du mod Reborn Integrity — attestation uniquement.
  *
  * <p>Boot :
  * <ol>
@@ -41,10 +40,6 @@ public final class RebornIntegrityClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         loadPlayToken();
-        // Extrait les assets dynamic-player + schedule la création du
-        // browser MCEF pour le main menu background. Le browser est créé
-        // une fois CEF initialisé (~1-2s après le boot du client).
-        DynamicPlayerBackground.init();
         // Enregistre le type de payload cote C2S (client → server). Sans
         // ca, ClientPlayNetworking.send refuse de transmettre par securite.
         PayloadTypeRegistry.playC2S().register(AuthPayload.ID, AuthPayload.CODEC);
