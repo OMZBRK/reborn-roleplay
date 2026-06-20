@@ -1,6 +1,9 @@
-import { AlertTriangle, Download, RefreshCw, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, ArrowRight, Download, RefreshCw, X } from "lucide-react";
+import { getVersion } from "@tauri-apps/api/app";
 import { Modal } from "./Modal";
 import type { UpdaterState } from "../../hooks/use-updater";
+import { isTauri } from "../../lib/tauri";
 
 type Props = {
   state: UpdaterState;
@@ -20,6 +23,8 @@ export function UpdateModal({
   onPostpone,
   onIgnoreVersion,
 }: Props) {
+  const currentVersion = useCurrentLauncherVersion();
+
   if (state.kind === "idle") return null;
 
   const isError = state.kind === "error";
@@ -97,34 +102,56 @@ export function UpdateModal({
         )}
       </p>
 
-      {/* Carte details (idle) */}
+      {/* Carte details (idle) — ACTUELLE -> NOUVELLE side-by-side
+          facon Zenkai. La fleche separe les 2 colonnes pour appuyer le
+          "direction" de l'upgrade. */}
       {state.kind === "available" && (
+        <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-stretch gap-0 overflow-hidden rounded-lg border"
+          style={{
+            background: "var(--color-surface-overlay)",
+            borderColor: "var(--color-border)",
+          }}
+        >
+          <div className="flex flex-col items-center justify-center px-3 py-3">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-foreground-muted)]">
+              Actuelle
+            </span>
+            <span className="mt-1 font-mono text-base font-semibold tabular-nums text-[var(--color-foreground-subtle)]">
+              v{currentVersion ?? "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-center px-1 text-[var(--color-foreground-muted)]">
+            <ArrowRight className="h-4 w-4" />
+          </div>
+          <div className="flex flex-col items-center justify-center px-3 py-3"
+            style={{ background: "var(--color-accent-soft)" }}
+          >
+            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-accent)]">
+              Nouvelle
+            </span>
+            <span className="mt-1 font-mono text-base font-semibold tabular-nums text-[var(--color-accent)]">
+              v{state.update.version}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Notes de version (separe de la carte ACTUELLE/NOUVELLE pour
+          garder cette derniere visuellement legere comme Zenkai). */}
+      {state.kind === "available" && state.update.body && (
         <div
-          className="mt-5 rounded-md border p-4"
+          className="mt-3 rounded-md border p-3 text-xs"
           style={{
             background: "var(--color-surface-overlay)",
             borderColor: "var(--color-border)",
           }}
         >
           <div className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-            Détails de la mise à jour
+            Notes de version
           </div>
-          <div className="mt-2 flex items-center justify-between text-sm">
-            <span className="text-[var(--color-foreground-subtle)]">Nouvelle version</span>
-            <span className="font-semibold text-[var(--color-accent)]">
-              v{state.update.version}
-            </span>
-          </div>
-          {state.update.body && (
-            <div className="mt-3 border-t border-[var(--color-border)] pt-3 text-xs text-[var(--color-foreground-subtle)]">
-              <div className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                Notes de version
-              </div>
-              <p className="mt-1 line-clamp-5 whitespace-pre-line leading-relaxed">
-                {state.update.body}
-              </p>
-            </div>
-          )}
+          <p className="mt-1 line-clamp-5 whitespace-pre-line leading-relaxed text-[var(--color-foreground-subtle)]">
+            {state.update.body}
+          </p>
         </div>
       )}
 
@@ -231,4 +258,23 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Hook utilitaire : recupere la version du launcher (Cargo.toml ->
+// tauri.conf.json -> package.json, synchronisees au release). En mode
+// browser (vite dev hors Tauri) renvoie null pour eviter le crash sur
+// getVersion(). Le composant gere alors un placeholder "—".
+function useCurrentLauncherVersion(): string | null {
+  const [version, setVersion] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isTauri) return;
+    let cancelled = false;
+    void getVersion().then((v) => {
+      if (!cancelled) setVersion(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return version;
 }
