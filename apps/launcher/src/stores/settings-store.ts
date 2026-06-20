@@ -29,6 +29,12 @@ export type AudioPrefs = {
   sfx: number;
   voice: number;
   muteOnBlur: boolean;
+  // ─────────── OST Reborn (mod broadcast) ───────────
+  // Volume independant du music slider vanilla : l'OST passe par OpenAL en
+  // SOURCE_RELATIVE pour le control fin de l'attenuation par distance, donc
+  // ne suit pas le volume "Music" de Minecraft.
+  ostVolume: number; // 0..100, applique au gain global du mod
+  ostEnabled: boolean; // toggle global : si false, le mod skip toutes les zones
 };
 
 export type NotifChannel = "push" | "email" | "both";
@@ -63,6 +69,8 @@ const DEFAULTS: Pick<SettingsState, "perf" | "audio" | "notif"> = {
     sfx: 70,
     voice: 85,
     muteOnBlur: true,
+    ostVolume: 70,
+    ostEnabled: true,
   },
   notif: {
     whitelistEnabled: true,
@@ -87,6 +95,20 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: "reborn:settings",
       storage: createJSONStorage(() => localStorage),
+      version: 2,
+      // Quand un user vient d'une version pre-OST, ostVolume/ostEnabled
+      // n'existent pas dans le state persiste -> on les remplit depuis
+      // DEFAULTS pour eviter un NaN dans le slider.
+      migrate: (persisted: unknown, _version: number) => {
+        const p = persisted as Partial<SettingsState> | undefined;
+        return {
+          ...DEFAULTS,
+          ...(p ?? {}),
+          audio: { ...DEFAULTS.audio, ...(p?.audio ?? {}) },
+          perf: { ...DEFAULTS.perf, ...(p?.perf ?? {}) },
+          notif: { ...DEFAULTS.notif, ...(p?.notif ?? {}) },
+        } as SettingsState;
+      },
     },
   ),
 );

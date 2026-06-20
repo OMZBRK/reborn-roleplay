@@ -15,6 +15,7 @@ import {
   LogOut,
   MemoryStick,
   Monitor,
+  Music,
   RefreshCw,
   ShieldCheck,
   User2,
@@ -1097,42 +1098,84 @@ function AudioTab() {
   const setAudio = useSettingsStore((s) => s.setAudio);
 
   return (
-    <Card
-      title="Audio"
-      description="Volumes du jeu. Persistés localement — appliqués à la JVM au prochain lancement quand le branchement sera fait."
-      icon={<Volume2 className="h-4 w-4" />}
-    >
-      <AudioRow
-        label="Volume principal"
-        value={audio.master}
-        onChange={(v) => setAudio("master", v)}
-      />
-      <AudioRow
-        label="Musique"
-        value={audio.music}
-        onChange={(v) => setAudio("music", v)}
-      />
-      <AudioRow
-        label="Effets sonores"
-        value={audio.sfx}
-        onChange={(v) => setAudio("sfx", v)}
-      />
-      <AudioRow
-        label="Voix RP"
-        hint="Volume du système de proximity chat."
-        value={audio.voice}
-        onChange={(v) => setAudio("voice", v)}
-      />
-      <Row
-        label="Couper le son en perdant le focus"
-        hint="Pratique quand tu joues avec Discord en parallèle."
+    <>
+      <Card
+        title="Audio"
+        description="Volumes du jeu. Persistés localement — appliqués à la JVM au prochain lancement quand le branchement sera fait."
+        icon={<Volume2 className="h-4 w-4" />}
       >
-        <Toggle
-          checked={audio.muteOnBlur}
-          onChange={(v) => setAudio("muteOnBlur", v)}
+        <AudioRow
+          label="Volume principal"
+          value={audio.master}
+          onChange={(v) => setAudio("master", v)}
         />
-      </Row>
-    </Card>
+        <AudioRow
+          label="Musique"
+          value={audio.music}
+          onChange={(v) => setAudio("music", v)}
+        />
+        <AudioRow
+          label="Effets sonores"
+          value={audio.sfx}
+          onChange={(v) => setAudio("sfx", v)}
+        />
+        <AudioRow
+          label="Voix RP"
+          hint="Volume du système de proximity chat."
+          value={audio.voice}
+          onChange={(v) => setAudio("voice", v)}
+        />
+        <Row
+          label="Couper le son en perdant le focus"
+          hint="Pratique quand tu joues avec Discord en parallèle."
+        >
+          <Toggle
+            checked={audio.muteOnBlur}
+            onChange={(v) => setAudio("muteOnBlur", v)}
+          />
+        </Row>
+      </Card>
+
+      <Card
+        title="OST Reborn"
+        description="Musique d'ambiance diffusée par les zones du serveur. Indépendant du volume musique de Minecraft."
+        icon={<Music className="h-4 w-4" />}
+      >
+        <Row
+          label="Activer l'OST"
+          hint="Si désactivé, le mod ignore tous les broadcasts de zone du serveur."
+        >
+          <Toggle
+            checked={audio.ostEnabled}
+            onChange={(v) => setAudio("ostEnabled", v)}
+          />
+        </Row>
+        <div
+          className={cn(
+            "transition-opacity",
+            audio.ostEnabled ? "opacity-100" : "pointer-events-none opacity-40",
+          )}
+        >
+          <AudioRow
+            label="Volume OST"
+            hint="Gain global appliqué avant l'atténuation par distance du mod."
+            value={audio.ostVolume}
+            onChange={(v) => setAudio("ostVolume", v)}
+          />
+        </div>
+        <div className="px-6 py-4 text-[11.5px] leading-relaxed text-foreground-subtle">
+          <p className="flex items-start gap-2">
+            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-accent" />
+            <span>
+              Le branchement vers le mod arrivera dans une prochaine version : pour
+              l'instant, ces réglages sont persistés localement et seront lus par
+              le mod-ost au démarrage du jeu une fois la passerelle Tauri → mod en
+              place.
+            </span>
+          </p>
+        </div>
+      </Card>
+    </>
   );
 }
 
