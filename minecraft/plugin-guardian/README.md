@@ -69,12 +69,42 @@ plugin-guardian/
         └── paper-plugin.yml
 ```
 
+## Mission actuelle
+
+Vérification de l'attestation **play-token** envoyée par le mod
+`reborn-integrity` au JOIN :
+
+1. `PlayerJoinEvent` -> schedule un kick à T+8s via le scheduler
+   Bukkit (`PendingAuthListener`).
+2. `AuthChannelListener` reçoit le payload sur le canal Plugin
+   Messaging `reborn:auth`.
+3. `PlayTokenVerifier.verify(token)` recalcule HMAC-SHA256 avec
+   `REBORN_PLAY_TOKEN_SECRET` partagé avec l'API, vérifie `exp`, et
+   décode le payload JSON.
+4. Vérification additionnelle : `payload.mcUuid == player.getUniqueId()`
+   (sinon = token volé d'un autre joueur -> kick).
+5. Si tout passe, `AuthSessionState.markAuthenticated` annule le kick.
+
+### Pièges connus
+
+- Le secret HMAC vit **uniquement** dans `.env` (API) et
+  `System.getenv()` (plugin Paper). Le mod et le launcher ne le voient
+  jamais.
+- `./gradlew runServer` du plugin ne lit pas le `.env` du monorepo —
+  le `build.gradle.kts` a un fallback dev hardcodé. Si tu l'utilises,
+  mets la même valeur côté API.
+- `MessageDigest.isEqual` est constant-time (JDK 6u17+) ; **ne pas**
+  le remplacer par `Arrays.equals` qui short-circuite.
+- `AuthChannelListener#kick` re-poste sur le main thread via
+  `Bukkit#getScheduler#runTask` parce que les plugin messages peuvent
+  arriver async selon les versions Paper.
+
 ## Roadmap
 
-| Etape | Etat |
+| Étape | État |
 |---|---|
 | Scaffold + listener bidon | Fait |
-| Validation token Reborn (`AsyncPlayerPreLoginEvent`) | TODO §9.5 |
+| Validation play-token HMAC (`PlayerJoinEvent` + canal `reborn:auth`) | Fait (`f43ae65`) |
 | Webhook Discord (kick/ban) | TODO §10.12 |
 | API HTTP interne (sanctions live de l'API Reborn) | TODO §9.5 |
 | Anti-cheat passif (mouvement, NBT, vitesse) | v1.x |

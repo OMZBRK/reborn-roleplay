@@ -1,10 +1,11 @@
 # Plan de conception — Launcher Reborn Roleplay
 
-> **Document de référence v1.3**  
+> **Document de référence v1.4**  
 > À utiliser comme contexte permanent dans Claude Code pendant le développement.  
 > Ce document est la source de vérité du projet : toute décision technique non documentée ici doit être ajoutée avant implémentation.
 >
 > **Changelog**  
+> v1.4 — Réécriture §9.4/§9.5 pour refléter le pivot vers play-token signé API (au lieu du challenge nonce + modlist_hash initial). Ajout §9.6 décrivant l'écosystème mods Reborn complet (HUD + OST). Mise à jour roadmap §11 MVP.  
 > v1.3 — Restructuration des paramètres en onglets, ajout de Steam OAuth, nouvelle release v1.0.5 dédiée au social (amis + DM + mini-fenêtre)  
 > v1.2 — Ajout des sections 14 (sécurité avancée), 15 (staff tooling Discord+panel), 16 (features inspirées d'autres launchers)  
 > v1.1 — Ajout de la section 13 (Packaging & expérience d'installation)  
@@ -1028,23 +1029,82 @@ Comme le serveur est **vanilla + plugins**, les mods doivent être :
 - Optifine (préférer Sodium+Iris pour des raisons de licence et de modularité)
 
 ### 9.4 Mod système "Reborn Integrity"
-Un mod Fabric custom embarqué obligatoirement, qui :
-1. À l'init, calcule le SHA-256 de chaque jar dans `mods/`
-2. Construit un `modlist_hash` = SHA-256 de la concaténation triée
-3. S'enregistre comme handler du Plugin Messaging channel `reborn:integrity`
-4. À la connexion, répond au défi serveur (cf §4.6)
-5. Reporte tout chargement de classpath suspect (via `Instrumentation` API)
 
-Ce mod est signé par notre clé Ed25519 et son hash est en dur dans le binaire du launcher (impossible à substituer sans rebuild).
+> **Implémentation actuelle (depuis `f43ae65`)** — la spec initiale parlait d'un challenge nonce + HMAC sur `modlist_hash` envoyé par le serveur. L'implémentation a pivoté vers un **play-token signé par l'API** : c'est plus simple, plus difficile à forger côté client (le secret HMAC ne descend jamais), et compatible mod-loading dynamique.
+
+Mod Fabric **client-side** embarqué obligatoirement, dont le rôle est limité à **prouver au serveur que le client a bien obtenu un play-token via l'API authentifiée** :
+
+1. À l'init, lit la sysprop `reborn.playTokenPath` écrite par le launcher.
+2. Charge le contenu du fichier (le play-token) en mémoire.
+3. Enregistre le payload `AuthPayload` sur le canal C2S `reborn:auth`.
+4. Sur `ClientPlayConnectionEvents.JOIN`, envoie le payload au serveur.
+
+Le mod **ne voit jamais le secret HMAC** — il est passe-plat entre le launcher (qui pose le fichier) et le plugin Guardian (qui vérifie). Un client patché/recompilé ne peut donc pas forger d'attestation sans appeler l'API authentifiée d'abord.
+
+Le hash du jar est dans le manifest signé Reborn, téléchargé par le launcher dans `<gameDir>/mods/`, donc impossible à substituer sans compromettre l'API ou le binaire du launcher.
+
+**Périmètre du mod** : uniquement l'attestation. Toute la couche UI (menu principal custom, ESC menu, ConnectScreen, sub-screens, HUD in-game, chat custom) vit dans `mod-hud/` — cf §9.6.
 
 ### 9.5 Plugin serveur "Reborn Guardian"
-Plugin Paper qui :
-1. À chaque join, ouvre un canal `reborn:integrity` avec le client
-2. Envoie un nonce
-3. Attend la réponse HMAC dans 5s ; sinon kick
-4. Vérifie que le `modlist_hash` reçu est dans la liste blanche du manifest courant
-5. Log toute tentative échouée (BDD partagée avec l'API)
-6. Synchronise la whitelist depuis l'API toutes les 60s
+
+Plugin Paper Java 21 qui vérifie le play-token côté serveur :
+
+1. Sur `PlayerJoinEvent`, schedule un kick à T+8s (`PendingAuthListener`). 8s = marge empirique pour absorber le RTT du custom payload sur connexions résidentielles lentes.
+2. Sur réception du payload sur le canal `reborn:auth` (`AuthChannelListener`) :
+   - `PlayTokenVerifier.verify(token)` : recalcule HMAC-SHA256 avec `REBORN_PLAY_TOKEN_SECRET` (32+ chars, partagé uniquement entre API et plugin), vérifie `exp`, décode le payload JSON.
+   - Vérification additionnelle : `payload.mcUuid == player.getUniqueId()` (sinon = token volé d'un autre joueur → kick).
+   - Si tout passe, `AuthSessionState.markAuthenticated` annule le kick.
+3. Log toute tentative échouée (à brancher sur la BDD API quand le webhook sera prêt).
+4. *(TODO)* Synchronise la whitelist depuis l'API toutes les 60s.
+
+**Pièges importants** :
+- `MessageDigest.isEqual` (constant-time, JDK 6u17+) — **jamais** `Arrays.equals` qui short-circuite.
+- `Player#kick` n'est pas thread-safe : re-poster sur le main thread via `Bukkit#getScheduler#runTask`.
+- Le `runServer` Gradle ne lit pas le `.env` du monorepo — fallback dev hardcodé dans `build.gradle.kts`.
+
+### 9.6 Mods écosystème Reborn
+
+En complément de l'integrity loop (mod-integrity + plugin-guardian), trois mods/plugins additionnels constituent l'expérience Reborn côté Minecraft. Tous sont signés et listés dans le manifest, donc impossibles à substituer.
+
+#### Reborn HUD (`minecraft/mod-hud`)
+
+Mod Fabric client. Regroupe **toute la couche UI Reborn** côté jeu :
+
+- **En jeu** :
+  - Éditeur visuel drag/resize/hide pour tous les éléments HUD vanilla (chat, scoreboard, bossbar, action bar, hotbar, health/hunger/armor/air, experience bar). Touche **H** par défaut. Snapping/alignment guides, undo/redo, presets.
+  - Chat custom Reborn : onglets, classifier de messages, détecteur de mentions, timestamps, dropdown quick-commands, écran de settings dédié.
+- **Hors jeu (cible post-migration depuis `mod-integrity`)** :
+  - TitleScreen custom : logo REBORN, background procédural ou `DynamicPlayerBackground` (scène 3D du joueur via MCEF), boutons Reborn empilés, server info card, lecteur OST UI, masque des entrées vanilla non pertinentes (Skin / RP / Realms).
+  - ConnectScreen custom (`ConnectingRenderer`).
+  - GameMenuScreen (ESC) refondu en 4 panels + community bar.
+  - OptionsScreen redirigé vers `RebornOptionsScreen` (5 onglets) avec persistance dans `RebornPrefs`.
+  - `RulesLoreScreen` (règlement + lore in-game).
+
+Persistance dans `config/reborn-hud.json` (positions, presets, préférences chat).
+
+#### Reborn OST (`minecraft/mod-ost` + `minecraft/plugin-ost`)
+
+Système de BGM contextuelle pilotable par le serveur. 100% optionnel côté serveur vanilla (les clients sans le mod ignorent les plugin messages).
+
+- **Côté client (`mod-ost`)** : décodage Ogg Vorbis via `STBVorbis` + lecture OpenAL directe. Scan `~/.minecraft/reborn/ost/<categorie>/<nom>.ogg`. Touche **M** ouvre `OstScreen`. Deux modes : Solo (contrôle local) ou broadcast (écoute le plugin).
+  - Atténuation positionnelle **stéréo** calculée à la main (Phase 1) — bypass du distance model OpenAL qui refuse les buffers stéréo.
+  - Late-join via `AL_SEC_OFFSET` (Phase 2).
+- **Côté serveur (`plugin-ost`)** : 4 commandes (`/ost play|playat|playglobal|stop`), broadcast via plugin messaging `reborn:ost`. `OstZoneRegistry` + tick 1Hz pour late-join sync : un joueur qui rejoint une zone active reçoit un PLAY avec `secOffset = now - startedAtMs` calculé serveur-side.
+- **UI lecteur OST in-menu** : pilote l'audio depuis `mod-hud` (séparation : `mod-ost` = audio, `mod-hud` = UI).
+
+**Trade-off non encore tranché** : livraison des 43 .ogg côté joueur. Options :
+- Embed dans le jar du mod (~74 MB, simple, force re-DL à chaque MAJ track).
+- Archive séparée listée dans le manifest signé (jar léger, MAJ track sans rebuild, cache local, recommandé).
+
+#### Recap responsabilités
+
+| Mod/Plugin | Côté | Responsabilité |
+|---|---|---|
+| `mod-integrity` | Client | Attestation play-token au JOIN |
+| `plugin-guardian` | Serveur | Vérification play-token + kick si invalide |
+| `mod-hud` | Client | UI complète (menu, ESC, ConnectScreen, sub-screens, HUD in-game, chat) |
+| `mod-ost` | Client | Décodage et lecture audio Ogg Vorbis |
+| `plugin-ost` | Serveur | Broadcast OST + zone registry + late-join sync |
 
 ---
 
@@ -1209,6 +1269,8 @@ L'API envoie des webhooks signés HMAC vers le bot pour notifier d'événements.
 | Allowlist mods + FS watcher | ✅ requis |
 | Plugin Paper Reborn Guardian | ✅ requis |
 | Mod Reborn Integrity | ✅ requis |
+| Mod Reborn HUD (UI menu + HUD in-game + chat custom) | ✅ requis |
+| Mod Reborn OST + plugin (BGM contextuelle pilotée serveur) | ✅ requis |
 | Sidebar + écran Accueil + cartes patch/whitelist/actus | ✅ requis |
 | Page Configurations système (avec auto-détection) | ✅ requis |
 | Whitelist (form + statut + Discord DM via bot) | ✅ requis |

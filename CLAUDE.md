@@ -16,8 +16,12 @@ ADRs live in `docs/adr/` and capture the hard, non-obvious calls — start with 
 - `apps/bot` — discord.js v14 bot (ESM strict). Serves slash commands AND an HTTP server on `:3001` for inbound webhooks from the API
 - `packages/manifest-signer` — TypeScript CLI that signs the launch manifest with Ed25519
 - `packages/shared-types` — placeholder for shared DTOs
-- `minecraft/plugin-guardian` — Paper plugin (Java 21 + Gradle Kotlin DSL). Real scaffold; isolated from the pnpm monorepo (open it standalone in IntelliJ)
-- `minecraft/{mod-integrity,server-config}` — placeholders
+- `minecraft/plugin-guardian` — Paper plugin (Java 21 + Gradle Kotlin DSL). Vérifie le play-token au JOIN. Isolated from the pnpm monorepo (open it standalone in IntelliJ).
+- `minecraft/plugin-ost` — Paper plugin (Java 21). Broadcast OST + zone registry + late-join sync (commandes `/ost play|playat|playglobal|stop`).
+- `minecraft/mod-integrity` — Fabric client mod, **attestation only** (envoie le play-token sur `reborn:auth` au JOIN). UI legacy (menu vanilla custom) en cours de migration vers `mod-hud/`.
+- `minecraft/mod-ost` — Fabric client mod. Décodage Ogg Vorbis (STBVorbis) + lecture OpenAL. Phase 1 atténuation stéréo, Phase 2 late-join via `AL_SEC_OFFSET`.
+- `minecraft/mod-hud` — Fabric client mod. **Toute la couche UI Reborn** : éditeur HUD drag/resize/hide, chat custom, et (post-migration) menu principal + ESC + ConnectScreen + sub-screens.
+- `minecraft/server-config` — placeholder
 - `infra/docker-compose.yml` — Postgres 16 + Redis 7 for local dev
 
 ## Prerequisites
