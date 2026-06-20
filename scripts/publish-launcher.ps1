@@ -102,9 +102,19 @@ try {
         # que la valeur dans .env est un chemin (et tauri attend la cle
         # base64). Le signage se fait au step 2 via le flag -f explicite.
 
-        & pnpm launcher:build
+        # PS 5.1 traite la stderr des native commands comme NativeCommandError
+        # avec $ErrorActionPreference=Stop -> n'importe quel "Info" Tauri sur
+        # stderr fait planter le script. On baisse temporairement le niveau
+        # le temps du build, et on s'appuie sur $LASTEXITCODE pour la verite.
+        $oldEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            & pnpm launcher:build
+        } finally {
+            $ErrorActionPreference = $oldEAP
+        }
         if ($LASTEXITCODE -ne 0) {
-            throw "Build launcher failed."
+            throw "Build launcher failed (exit $LASTEXITCODE)."
         }
     }
 

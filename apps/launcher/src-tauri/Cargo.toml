@@ -1,6 +1,6 @@
 [package]
 name = "launcher"
-version = "0.3.5"
+version = "0.3.6"
 description = "Reborn Roleplay launcher (Tauri 2 backend)"
 authors = ["Reborn Roleplay"]
 edition = "2021"

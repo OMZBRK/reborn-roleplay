@@ -55,6 +55,15 @@ $ExternalDeps = @(
     @{
         Name = "mcef-fabric-2.1.6-1.21.1.jar"
         Url  = "https://mcef-download.cinemamod.com/repositories/releases/com/cinemamod/mcef-fabric/2.1.6-1.21.1/mcef-fabric-2.1.6-1.21.1.jar"
+    },
+    # fabric-api : require par tous nos mods (reborn-hud, reborn-integrity,
+    # reborn-ost). Sans lui, Fabric refuse de loader avec
+    # "Mod 'X' requires any version of fabric-api, which is missing!".
+    # Version pinnee sur celle utilisee au build de nos mods (cf
+    # minecraft/mod-*/gradle.properties fabric_version=0.102.1+1.21.1).
+    @{
+        Name = "fabric-api-0.102.1+1.21.1.jar"
+        Url  = "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.102.1+1.21.1/fabric-api-0.102.1+1.21.1.jar"
     }
 )
 

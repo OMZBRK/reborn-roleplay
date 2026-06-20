@@ -216,17 +216,29 @@ async fn download_one(
     })
 }
 
-/// Supprime les .jar dans `mods/` qui ne sont PAS listes dans le manifest
-/// courant. Necessaire pour le passage d'une version de manifest a la
-/// suivante : sinon les anciennes versions cohabitent avec les nouvelles
-/// (typiquement reborn-integrity-0.1.0-dev.jar ET reborn-integrity-0.2.0-dev.jar
-/// chargees simultanement par Fabric -> mod ID collision ou comportement
-/// imprevisible).
+/// Prefixes des jars geres par notre manifest. Tout .jar dans `mods/`
+/// dont le nom commence par un de ces prefixes ET qui n'est plus liste
+/// dans le manifest courant sera supprime par `purge_orphan_mods`.
 ///
-/// Politique : seul `mods/` est purge (cf §9.1 PLAN "Aucun mod ajoute
-/// manuellement n'est tolere"). Les autres dossiers (config/, runtime/,
-/// versions/, assets/) ne sont pas touches — leur cycle de vie est gere
-/// par les autres `ensure_*`.
+/// On EVITE volontairement de purger les autres jars (sodium, lithium,
+/// iris, etc.) meme s'ils ne sont pas dans le manifest : ce sont des
+/// mods optionnels que l'utilisateur peut avoir installes a la main et
+/// les effacer sans warning = data loss + jeu casse. La PLAN §9.1 dit
+/// "Aucun mod ajoute manuellement n'est tolere" mais l'enforcement doit
+/// se faire cote serveur (manifest_hash check au JOIN, plus tard).
+const MANAGED_PREFIXES: &[&str] = &["reborn-", "mcef-", "mcef_", "fabric-api-"];
+
+/// Supprime les .jar **geres** dans `mods/` (cf [`MANAGED_PREFIXES`])
+/// qui ne sont PAS listes dans le manifest courant. Necessaire pour le
+/// passage d'une version de manifest a la suivante : sinon les anciennes
+/// versions cohabitent avec les nouvelles (typiquement
+/// reborn-integrity-0.1.0-dev.jar ET reborn-integrity-0.2.0-dev.jar
+/// chargees simultanement par Fabric -> mod ID collision).
+///
+/// **Garde-fou anti data-loss** : on ne touche qu'aux jars dont le nom
+/// matche un prefix Reborn-managed. Les mods optionnels installes par
+/// l'utilisateur (sodium, lithium, iris, ...) sont preserves. Cf PR
+/// "v0.3.5 too aggressive purge".
 pub async fn purge_orphan_mods(
     manifest: &SignedManifest,
     game_dir: &Path,
@@ -256,6 +268,11 @@ pub async fn purge_orphan_mods(
             continue;
         };
         if !name.ends_with(".jar") {
+            continue;
+        }
+        // Garde-fou : seul un jar managed (prefix Reborn / mcef / fabric-api)
+        // est candidat a la purge. Autres mods utilisateur preserves.
+        if !MANAGED_PREFIXES.iter().any(|p| name.starts_with(p)) {
             continue;
         }
         if expected.contains(name) {
