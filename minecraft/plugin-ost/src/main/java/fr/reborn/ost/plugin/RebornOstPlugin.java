@@ -40,6 +40,11 @@ public final class RebornOstPlugin extends JavaPlugin implements Listener {
      *  empirique qui fait passer les late-joins fiables. */
     private static final long JOIN_SCAN_DELAY = 60L;
 
+    /** Tentative rapide à T+1s pour les reconnexions sur bonne connexion.
+     *  scanPlayer est idempotent (skip si déjà subscribed) donc inoffensif
+     *  si le canal n'est pas encore prêt — le scan à 60 ticks rattrapera. */
+    private static final long JOIN_SCAN_FAST_DELAY = 20L;
+
     private OstBroadcaster broadcaster;
 
     @Override
@@ -72,19 +77,25 @@ public final class RebornOstPlugin extends JavaPlugin implements Listener {
         if (broadcaster == null) return;
         var player = event.getPlayer();
         getLogger().info("Join detecte pour " + player.getName()
-            + " — scan zones planifie dans " + JOIN_SCAN_DELAY + " ticks");
-        getServer().getScheduler().runTaskLater(this, () -> {
-            // Pas de bug si le joueur a redéco entre temps — scanPlayer
-            // itère les zones et envoie aux joueurs online (le joueur retire
-            // de la liste s'il est offline). Mais on garde la simplicité.
-            if (player.isOnline()) {
-                int added = broadcaster.scanPlayer(player);
-                if (added == 0) {
-                    getLogger().info("Scan delayed " + player.getName()
-                        + " : aucune zone active dans le rayon.");
-                }
-            }
-        }, JOIN_SCAN_DELAY);
+            + " — scans planifies dans " + JOIN_SCAN_FAST_DELAY + " et "
+            + JOIN_SCAN_DELAY + " ticks");
+        // Scan rapide à 1s : si le canal est déjà prêt (bonne connexion,
+        // reco rapide), la musique reprend immédiatement.
+        getServer().getScheduler().runTaskLater(this,
+            () -> tryScan(player, "fast"), JOIN_SCAN_FAST_DELAY);
+        // Scan principal à 3s : safety net pour les connexions lentes ou les
+        // premiers joins (canal pas ready à 1s).
+        getServer().getScheduler().runTaskLater(this,
+            () -> tryScan(player, "delayed"), JOIN_SCAN_DELAY);
+    }
+
+    private void tryScan(org.bukkit.entity.Player player, String label) {
+        if (!player.isOnline()) return;
+        int added = broadcaster.scanPlayer(player);
+        if (added > 0) {
+            getLogger().info("Scan " + label + " " + player.getName()
+                + " : " + added + " zone(s) souscrite(s).");
+        }
     }
 
     @EventHandler

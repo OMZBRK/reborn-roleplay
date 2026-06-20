@@ -211,19 +211,24 @@ public final class OstAudioEngine {
     }
 
     /**
-     * Courbe d'atténuation linéaire clamped :
+     * Courbe d'atténuation smoothstep clamped :
      * <ul>
      *   <li>distance ≤ refDistance → 1.0 (full)</li>
      *   <li>distance ≥ maxDistance → 0.0 (silence)</li>
-     *   <li>entre → lerp linéaire de 1.0 à 0.0</li>
+     *   <li>entre → smoothstep 3t² - 2t³ de 1.0 à 0.0 (ease-in-ease-out)</li>
      * </ul>
+     * Smoothstep evite le pop audible au passage de refDistance / maxDistance
+     * comparé à un lerp linéaire (pente nulle aux bornes au lieu d'un coin sec).
      * Static pour permettre les tests unitaires sans contexte OpenAL.
      */
     public static float distanceFactor(double distance, float refDistance, float maxDistance) {
         if (maxDistance <= refDistance) return distance <= maxDistance ? 1.0f : 0.0f;
         if (distance <= refDistance) return 1.0f;
         if (distance >= maxDistance) return 0.0f;
-        return (float) ((maxDistance - distance) / (maxDistance - refDistance));
+        double t = (distance - refDistance) / (maxDistance - refDistance);
+        // Smoothstep : pente nulle a t=0 et t=1, transition plus douce.
+        double smooth = t * t * (3.0 - 2.0 * t);
+        return (float) (1.0 - smooth);
     }
 
     public synchronized void stop() {

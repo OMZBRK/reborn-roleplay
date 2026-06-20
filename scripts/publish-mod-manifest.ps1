@@ -10,7 +10,7 @@
 #   2. Copie des jars dans une dir staging
 #   3. Compute SHA256 + size + URL pour chaque jar
 #   4. Genere le manifest unsigned JSON
-#   5. Signe avec la cle privee Ed25519 locale (secrets/manifest-private.pem)
+#   5. Signe avec la cle privee Ed25519 locale (secrets/manifest_ed25519_private.pem)
 #   6. Imprime les commandes a executer toi-meme pour :
 #         - upload les jars sur GitHub Release
 #         - POST le manifest signe sur l'API
@@ -20,7 +20,7 @@
 #
 # Pre-requis :
 #   - JAVA_HOME pointe sur JDK 21 (Corretto 21)
-#   - secrets/manifest-private.pem present (cle privee Ed25519)
+#   - secrets/manifest_ed25519_private.pem present (cle privee Ed25519)
 #   - pnpm install deja execute
 #   - gh CLI installe et authentifie (pour l'upload)
 #   - manifest-uploader compile (cargo build dans packages/manifest-uploader)
@@ -31,7 +31,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Version,
 
-    [string[]]$Mods = @("reborn-ost", "reborn-integrity"),
+    [string[]]$Mods = @("mod-ost", "mod-integrity"),
 
     [string]$McVersion = "1.21.1",
 
@@ -40,7 +40,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Configuration : ou les jars seront hostes une fois uploadés.
+# Force JAVA_HOME sur Corretto 21 (mod Fabric 1.21.1 exige Java 21).
+# Si Corretto 21 n'est pas a cet emplacement, ajuste ici.
+$Jdk21Path = "C:\Program Files\Amazon Corretto\jdk21.0.9_10"
+if (Test-Path $Jdk21Path) {
+    $env:JAVA_HOME = $Jdk21Path
+    $env:PATH = "$Jdk21Path\bin;$env:PATH"
+    Write-Host "JAVA_HOME force a $Jdk21Path" -ForegroundColor Gray
+} else {
+    Write-Warning "Corretto 21 introuvable a $Jdk21Path - ajuste `$Jdk21Path dans le script."
+}
+
+# Configuration : ou les jars seront hostes une fois uploades.
 # Format : un tag GitHub Release par version manifest.
 $BaseUrl = "https://github.com/OMZBRK/reborn-roleplay/releases/download/mods-v$Version"
 
@@ -86,7 +97,8 @@ try {
             throw "Aucun .jar release trouve dans $libsDir"
         }
         Copy-Item $jar.FullName $Staging
-        Write-Host "    -> copie $($jar.Name) ($('{0:N1}' -f ($jar.Length / 1MB)) MB)"
+        $sizeMb = [Math]::Round($jar.Length / 1048576, 1)
+        Write-Host ("    -> copie " + $jar.Name + " (" + $sizeMb + " MB)")
     }
 
     # ---------------------------------------------------------------
@@ -109,7 +121,7 @@ try {
     # ---------------------------------------------------------------
     # 5. Sign avec la cle privee Ed25519
     # ---------------------------------------------------------------
-    $PrivateKey = Join-Path $RepoRoot "secrets\manifest-private.pem"
+    $PrivateKey = Join-Path $RepoRoot "secrets\manifest_ed25519_private.pem"
     $Signed = Join-Path $RepoRoot "secrets\manifest-signed.json"
     if (-not (Test-Path $PrivateKey)) {
         throw "Cle privee absente : $PrivateKey. Generer avec : pnpm exec tsx packages/manifest-signer/src/cli.ts gen-keys --out-dir secrets"
