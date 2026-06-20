@@ -6,6 +6,7 @@
 //! Keychain / Secret Service Linux). Migration future possible vers
 //! Tauri Stronghold pour un coffre chiffre par mot de passe local.
 
+pub mod mod_prefs;
 pub mod prefs;
 pub mod secrets;
 

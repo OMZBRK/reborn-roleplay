@@ -35,12 +35,22 @@ pub enum PlanReason {
 
 /// Calcule le diff entre le manifest et les fichiers locaux.
 /// Retourne uniquement les entrees a (re-)telecharger.
+///
+/// Respecte le flag `required` + les preferences user :
+///   - required:true  -> toujours dans le plan si missing/mismatch
+///   - required:false :
+///       - prefs[filename] = true  -> traite comme required
+///       - sinon                   -> skip (mod optionnel non active)
 pub async fn compute_plan(
     manifest: &SignedManifest,
     game_dir: &Path,
+    prefs: &crate::storage::mod_prefs::ModPrefs,
 ) -> std::io::Result<Vec<PlanItem>> {
     let mut plan = Vec::new();
     for file in &manifest.files {
+        if !is_file_active(file, prefs) {
+            continue;
+        }
         let local = game_dir.join(&file.path);
         let reason = check_one(&local, &file.sha256).await?;
         if let Some(reason) = reason {
@@ -51,6 +61,20 @@ pub async fn compute_plan(
         }
     }
     Ok(plan)
+}
+
+/// True si le fichier doit etre present cote launcher : required ou
+/// (optionnel + prefs enabled). Centralise pour partage entre compute_plan
+/// et purge_orphan_mods.
+fn is_file_active(file: &super::ManifestFile, prefs: &crate::storage::mod_prefs::ModPrefs) -> bool {
+    if file.required {
+        return true;
+    }
+    let name = std::path::Path::new(&file.path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    prefs.is_enabled(name)
 }
 
 async fn check_one(path: &Path, expected_sha256: &str) -> std::io::Result<Option<PlanReason>> {
@@ -242,21 +266,40 @@ const MANAGED_PREFIXES: &[&str] = &["reborn-", "mcef-", "mcef_", "fabric-api-"];
 pub async fn purge_orphan_mods(
     manifest: &SignedManifest,
     game_dir: &Path,
+    prefs: &crate::storage::mod_prefs::ModPrefs,
 ) -> std::io::Result<Vec<String>> {
     let mods_dir = game_dir.join("mods");
     if !fs::try_exists(&mods_dir).await? {
         return Ok(Vec::new());
     }
 
-    // Collecte les chemins manifest dont le parent est exactement `mods/`.
+    // Collecte les chemins manifest "actifs" dont le parent est `mods/`.
+    // Un optionnel non-enabled n'est PAS dans "expected" -> sera purge
+    // s'il est present (effet du toggle off : retire le jar de mods/).
     let expected: std::collections::HashSet<String> = manifest
         .files
         .iter()
+        .filter(|f| is_file_active(f, prefs))
         .filter_map(|f| {
             let p = std::path::Path::new(&f.path);
             (p.parent().map(|x| x.to_string_lossy().replace('\\', "/")) == Some("mods".into()))
                 .then(|| p.file_name()?.to_str().map(|s| s.to_string()))
                 .flatten()
+        })
+        .collect();
+
+    // Set des filenames du manifest (toutes versions confondues, sans tenir
+    // compte du flag active) -> permet de detecter les jars "manages" qui
+    // ont change de version ou ont ete toggle off. Les jars hors-manifest
+    // qui ne matchent pas un MANAGED_PREFIXES static restent preserves.
+    let in_manifest_any: std::collections::HashSet<String> = manifest
+        .files
+        .iter()
+        .filter_map(|f| {
+            std::path::Path::new(&f.path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
         })
         .collect();
 
@@ -270,9 +313,18 @@ pub async fn purge_orphan_mods(
         if !name.ends_with(".jar") {
             continue;
         }
-        // Garde-fou : seul un jar managed (prefix Reborn / mcef / fabric-api)
-        // est candidat a la purge. Autres mods utilisateur preserves.
-        if !MANAGED_PREFIXES.iter().any(|p| name.starts_with(p)) {
+        // Garde-fou anti data-loss : un jar est candidat a la purge si
+        //   (a) il est dans le manifest courant (toutes versions, meme
+        //       les optionnels desactives -> purge sur toggle off), OU
+        //   (b) son nom commence par un MANAGED_PREFIXES static (catch
+        //       les anciennes versions retirees du manifest entre 2 bumps,
+        //       p.ex. reborn-integrity-0.1.0-dev.jar laisse apres bump
+        //       0.2.0).
+        // Tout autre jar (mods user manuels : sodium-extra, etc.) est
+        // preserve sans question.
+        let is_managed = in_manifest_any.contains(name)
+            || MANAGED_PREFIXES.iter().any(|p| name.starts_with(p));
+        if !is_managed {
             continue;
         }
         if expected.contains(name) {

@@ -45,6 +45,23 @@ export async function applyUpdate(): Promise<UpdateStatus> {
   return invoke<UpdateStatus>("launcher_apply_update");
 }
 
+// ───────────── Mods optionnels (toggle UI dans Mods.tsx) ─────────────
+
+export type OptionalMod = {
+  filename: string;
+  sizeBytes: number;
+  enabled: boolean;
+  installed: boolean;
+};
+
+export async function listOptionalMods(): Promise<OptionalMod[]> {
+  return invoke<OptionalMod[]>("launcher_list_optional_mods");
+}
+
+export async function setModPref(filename: string, enabled: boolean): Promise<void> {
+  await invoke<void>("launcher_set_mod_pref", { filename, enabled });
+}
+
 /** Souscrit aux events de progression du download. Retourne la fonction de cleanup. */
 export async function onDownloadProgress(
   callback: (p: DownloadProgress) => void,

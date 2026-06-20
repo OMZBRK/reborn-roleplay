@@ -10,10 +10,13 @@ import {
 } from "lucide-react";
 import {
   listMods,
+  listOptionalMods,
   onModsPurged,
   purgeIncompatibleMods,
+  setModPref,
   type ModEntry,
   type ModsPurgedEvent,
+  type OptionalMod,
 } from "../lib/launcher";
 import { ModCard } from "../components/mods/ModCard";
 import { ModsTabs, type ModsTab } from "../components/mods/ModsTabs";
@@ -35,16 +38,28 @@ export function Mods() {
   const [tab, setTab] = useState<ModsTab>("mods");
   const [query, setQuery] = useState("");
   const [mods, setMods] = useState<ModEntry[]>([]);
+  const [optionals, setOptionals] = useState<OptionalMod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [purging, setPurging] = useState(false);
+  const [togglingFile, setTogglingFile] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await listMods();
+      // listOptionalMods peut planter si non-authentifie (fetch_manifest
+      // exige le JWT). On le tolere : on garde la liste optionnels vide
+      // au lieu d'effacer toute la page.
+      const [list, opt] = await Promise.all([
+        listMods(),
+        listOptionalMods().catch((e) => {
+          console.warn("[mods] listOptionalMods failed:", e);
+          return [] as OptionalMod[];
+        }),
+      ]);
       setMods(list);
+      setOptionals(opt);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Impossible de lire le dossier des mods.",
@@ -53,6 +68,31 @@ export function Mods() {
       setLoading(false);
     }
   }, []);
+
+  async function handleToggleOptional(filename: string, nextEnabled: boolean) {
+    setTogglingFile(filename);
+    // Optimistic update : flip immediatement la valeur, refetch en fond.
+    setOptionals((prev) =>
+      prev.map((m) => (m.filename === filename ? { ...m, enabled: nextEnabled } : m)),
+    );
+    try {
+      await setModPref(filename, nextEnabled);
+      // Pas de re-fetch immediat : l'effet (DL/purge) ne s'applique qu'au
+      // prochain "Jouer". Le state local est cohérent avec la pref persistée.
+    } catch (err) {
+      // Rollback optimistic + remonter l'erreur.
+      setOptionals((prev) =>
+        prev.map((m) => (m.filename === filename ? { ...m, enabled: !nextEnabled } : m)),
+      );
+      setError(
+        err instanceof Error
+          ? `Impossible de basculer ${filename} : ${err.message}`
+          : `Impossible de basculer ${filename}.`,
+      );
+    } finally {
+      setTogglingFile(null);
+    }
+  }
 
   useEffect(() => {
     void refresh();
@@ -179,6 +219,35 @@ export function Mods() {
                       ))}
                     </div>
                   )}
+
+                  {optionals.length > 0 && (
+                    <section className="mt-6">
+                      <div className="mb-3 flex items-baseline justify-between">
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-foreground-muted)]">
+                          Mods optionnels disponibles
+                        </h2>
+                        <span className="text-[10.5px] text-[var(--color-foreground-muted)]">
+                          {optionals.filter((m) => m.enabled).length} / {optionals.length}{" "}
+                          activé{optionals.filter((m) => m.enabled).length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <p className="mb-3 text-[11.5px] leading-relaxed text-[var(--color-foreground-subtle)]">
+                        Mods recommandés pour l'expérience RP Reborn. Coche pour les
+                        installer au prochain lancement, décoche pour les retirer
+                        proprement (le launcher purgera le .jar du dossier mods/).
+                      </p>
+                      <div className="grid gap-2">
+                        {optionals.map((m) => (
+                          <OptionalModRow
+                            key={m.filename}
+                            mod={m}
+                            disabled={togglingFile === m.filename}
+                            onToggle={(next) => void handleToggleOptional(m.filename, next)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  )}
                 </motion.div>
               )}
 
@@ -276,6 +345,69 @@ export function Mods() {
         </footer>
       </div>
     </div>
+  );
+}
+
+function OptionalModRow({
+  mod,
+  disabled,
+  onToggle,
+}: {
+  mod: OptionalMod;
+  disabled: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  const sizeMb = (mod.sizeBytes / (1024 * 1024)).toFixed(1);
+  // Affiche le nom "lisible" en retirant les patterns de version courants
+  // (X.Y.Z+mc1.21.1, X.Y.Z-fabric, etc.) pour eviter de polluer la liste.
+  const displayName = mod.filename
+    .replace(/-fabric/, "")
+    .replace(/-\d+\.\d+(\.\d+)?(?:-[\w.]+)?(?:\+mc\d+(?:\.\d+)*)?/, "")
+    .replace(/-for-MC[\d.]+/, "")
+    .replace(/\.jar$/, "");
+  return (
+    <label
+      className={[
+        "flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors",
+        mod.enabled
+          ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+          : "border-[var(--color-border)] bg-[var(--color-surface-overlay)] hover:border-[var(--color-border-strong)]",
+        disabled && "opacity-60",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <input
+        type="checkbox"
+        checked={mod.enabled}
+        disabled={disabled}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="h-4 w-4 cursor-pointer accent-[var(--color-accent)]"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[12.5px] font-medium text-[var(--color-foreground)]">
+          {displayName}
+        </div>
+        <div className="mt-0.5 truncate text-[10.5px] text-[var(--color-foreground-muted)]">
+          {mod.filename} · {sizeMb} MB
+        </div>
+      </div>
+      {mod.installed && mod.enabled && (
+        <span className="rounded-sm bg-[var(--color-success-soft)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-[var(--color-success)]">
+          Installé
+        </span>
+      )}
+      {!mod.installed && mod.enabled && (
+        <span className="rounded-sm bg-[var(--color-accent-soft)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-[var(--color-accent)]">
+          DL au lancement
+        </span>
+      )}
+      {mod.installed && !mod.enabled && (
+        <span className="rounded-sm bg-[var(--color-warning-soft)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-[var(--color-warning)]">
+          Sera retiré
+        </span>
+      )}
+    </label>
   );
 }
 

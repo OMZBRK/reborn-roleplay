@@ -52,20 +52,55 @@ param(
 # a shipper pour satisfaire la dep "mcef: *" du mod-hud (background
 # dynamique 3D du main menu).
 $ExternalDeps = @(
+    # ─── REQUIRED : runtime + performance ─────────────────────────
     @{
         Name = "mcef-fabric-2.1.6-1.21.1.jar"
         Url  = "https://mcef-download.cinemamod.com/repositories/releases/com/cinemamod/mcef-fabric/2.1.6-1.21.1/mcef-fabric-2.1.6-1.21.1.jar"
     },
-    # fabric-api : require par tous nos mods (reborn-hud, reborn-integrity,
-    # reborn-ost). Sans lui, Fabric refuse de loader avec
-    # "Mod 'X' requires any version of fabric-api, which is missing!".
-    # Version pinnee sur celle utilisee au build de nos mods (cf
-    # minecraft/mod-*/gradle.properties fabric_version=0.102.1+1.21.1).
     @{
+        # Require par tous nos mods (cf gradle.properties fabric_version=0.102.1).
         Name = "fabric-api-0.102.1+1.21.1.jar"
         Url  = "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.102.1+1.21.1/fabric-api-0.102.1+1.21.1.jar"
+    },
+    @{ # Sodium : rendering performance (gros boost FPS).
+        Name = "sodium-fabric-0.6.13+mc1.21.1.jar"
+        Url  = "https://cdn.modrinth.com/data/AANobbMI/versions/u1OEbNKx/sodium-fabric-0.6.13%2Bmc1.21.1.jar"
+    },
+    @{ # Lithium : optimisations physics / chunk processing serveur-safe.
+        Name = "lithium-fabric-0.15.3+mc1.21.1.jar"
+        Url  = "https://cdn.modrinth.com/data/gvQqBUqZ/versions/XQJtuOTA/lithium-fabric-0.15.3%2Bmc1.21.1.jar"
+    },
+    @{ # Indium : compat Fabric Rendering API pour Sodium (require par mods qui draw via FRAPI).
+        Name = "indium-1.0.35+mc1.21.jar"
+        Url  = "https://cdn.modrinth.com/data/Orvt0mRa/versions/Z8VpxxGh/indium-1.0.35%2Bmc1.21.jar"
+    },
+    # ─── OPTIONAL : RP essentials (UI sectionnable cocher/decocher) ─
+    # Cf $OptionalPrefixes plus bas pour la liste des prefixes flagges
+    # required:false dans le manifest.
+    @{ # Iris : shaders (Complementary, BSL, etc.). Ajoute du visuel mais
+       # double facilement la VRAM utilisee — d'ou optionnel.
+        Name = "iris-fabric-1.8.8+mc1.21.1.jar"
+        Url  = "https://cdn.modrinth.com/data/YL57xq9U/versions/zsoi0dso/iris-fabric-1.8.8%2Bmc1.21.1.jar"
+    },
+    @{ # Mod Menu : ecran Mods in-game (Esc -> Mods). QoL pur.
+        Name = "modmenu-11.0.4.jar"
+        Url  = "https://cdn.modrinth.com/data/mOgUt4GM/versions/v6Xx3fbU/modmenu-11.0.4.jar"
+    },
+    @{ # Plasmo Voice : proximity chat audio (necessite plugin Plasmo cote serveur).
+        Name = "plasmovoice-fabric-1.21.1-2.1.10.jar"
+        Url  = "https://cdn.modrinth.com/data/1bZhdhsH/versions/b78ntfSB/plasmovoice-fabric-1.21.1-2.1.10.jar"
+    },
+    @{ # Emotecraft : animations/emotes RP (synced via canal Fabric).
+        Name = "emotecraft-for-MC1.21.1-2.4.12-fabric.jar"
+        Url  = "https://cdn.modrinth.com/data/pZ2wrerK/versions/daqt5qcK/emotecraft-for-MC1.21.1-2.4.12-fabric.jar"
     }
 )
+
+# Patterns prefixes pour flagger les mods en required:false (UI cocher).
+# Tout fichier dans staging dont le nom commence par un de ces prefixes
+# sera marque "optional" dans le manifest. Le launcher (cf Mods.tsx)
+# affichera les optionnels avec un toggle et ne les DL que si active.
+$OptionalPrefixes = "iris-,modmenu-,plasmovoice-,emotecraft-"
 
 $ErrorActionPreference = "Stop"
 
@@ -176,6 +211,7 @@ try {
             --base-url $BaseUrl `
             --version $Version `
             --mc $McVersion `
+            --optional $OptionalPrefixes `
             --out $Unsigned
         if ($LASTEXITCODE -ne 0) { throw "build-from-folder.ts failed" }
     } finally {

@@ -36,6 +36,14 @@ const baseUrl = arg("--base-url", rest);
 const version = arg("--version", rest);
 const mcVersion = arg("--mc", rest) ?? "1.21.1";
 const outPath = arg("--out", rest) ?? resolve(dir, "manifest-unsigned.json");
+// --optional <patterns> : virgule-separes, chaque pattern match sur prefix
+// du filename. Tout jar dont le nom commence par un pattern listed sera
+// marque required: false dans le manifest (cf use-mods UI checkboxes).
+// Exemple : --optional "iris-,modmenu-,plasmovoice-,emotecraft-"
+const optionalPatterns = (arg("--optional", rest) ?? "")
+  .split(",")
+  .map((p) => p.trim())
+  .filter((p) => p.length > 0);
 
 if (!baseUrl || !version) {
   console.error("Missing --base-url or --version.");
@@ -58,12 +66,13 @@ const files: ManifestFile[] = jars.map((filename) => {
   const data = readFileSync(fullPath);
   const sha256 = createHash("sha256").update(data).digest("hex");
   const size = statSync(fullPath).size;
+  const isOptional = optionalPatterns.some((p) => filename.startsWith(p));
   return {
     path: `mods/${filename}`,
     sha256,
     size,
     url: `${trimmedBase}/${encodeURIComponent(filename)}`,
-    required: true,
+    required: !isOptional,
   };
 });
 
@@ -83,7 +92,8 @@ writeFileSync(outPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(`Manifest non-signe ecrit : ${outPath}`);
 console.log(`  ${files.length} fichier(s), version ${version}, MC ${mcVersion}`);
 for (const f of files) {
-  console.log(`  - ${f.path}  ${(f.size / 1024).toFixed(1)} KB  ${f.sha256.slice(0, 12)}…`);
+  const flag = f.required ? "[REQ]" : "[OPT]";
+  console.log(`  ${flag} ${f.path}  ${(f.size / 1024).toFixed(1)} KB  ${f.sha256.slice(0, 12)}…`);
 }
 console.log(``);
 console.log(`Etape suivante :`);

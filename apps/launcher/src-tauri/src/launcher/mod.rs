@@ -98,7 +98,10 @@ pub async fn launcher_check_update<R: Runtime>(
     let outdated = launcher_is_outdated(LAUNCHER_VERSION, &manifest.min_launcher_version);
 
     let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let plan = compute_plan_export(&manifest, &dir)
+    let mod_prefs = crate::storage::mod_prefs::load()
+        .await
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let plan = compute_plan_export(&manifest, &dir, &mod_prefs)
         .await
         .map_err(|e| LauncherError::Io { message: e.to_string() })?;
 
@@ -106,7 +109,7 @@ pub async fn launcher_check_update<R: Runtime>(
     // (plan vide), apply_update ne sera pas appele et la purge ne s'executerait
     // pas. On la fait ici a la place pour garantir que les jars d'une
     // version anterieure du manifest sont retires des le prochain "Jouer".
-    match purge_orphan_mods(&manifest, &dir).await {
+    match purge_orphan_mods(&manifest, &dir, &mod_prefs).await {
         Ok(removed) if !removed.is_empty() => {
             tracing::info!(?removed, "check_update: orphan mods supprimes");
             let _ = app.emit("mods:purged", &removed);
@@ -159,7 +162,10 @@ pub async fn launcher_apply_update<R: Runtime>(
     }
 
     let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let plan = compute_plan_export(&manifest, &dir)
+    let mod_prefs = crate::storage::mod_prefs::load()
+        .await
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let plan = compute_plan_export(&manifest, &dir, &mod_prefs)
         .await
         .map_err(|e| LauncherError::Io { message: e.to_string() })?;
 
@@ -168,7 +174,7 @@ pub async fn launcher_apply_update<R: Runtime>(
     // version manifest, sinon Fabric charge les 2 et c'est la collision).
     // Idempotent : retourne [] si rien a purger. Erreur non bloquante : on
     // log seulement, le launch peut continuer meme si la purge a foire.
-    match purge_orphan_mods(&manifest, &dir).await {
+    match purge_orphan_mods(&manifest, &dir, &mod_prefs).await {
         Ok(removed) if !removed.is_empty() => {
             tracing::info!(?removed, "manifest sync: orphan mods supprimes");
             let _ = app.emit("mods:purged", &removed);
@@ -194,6 +200,98 @@ pub async fn launcher_apply_update<R: Runtime>(
         version: manifest.version,
         files_downloaded: count,
     })
+}
+
+/// Retourne la map enabled actuelle des mods optionnels du user.
+/// Cle = filename (ex "iris-fabric-1.8.8+mc1.21.1.jar"). Valeur = bool.
+/// Cles absentes = false (opt-in).
+#[tauri::command]
+pub async fn launcher_get_mod_prefs() -> Result<std::collections::HashMap<String, bool>, LauncherError> {
+    let prefs = crate::storage::mod_prefs::load()
+        .await
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    Ok(prefs.enabled)
+}
+
+/// Description d'un mod optionnel exposee a l'UI pour la liste cocher.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OptionalMod {
+    pub filename: String,
+    pub size_bytes: u64,
+    pub enabled: bool,
+    pub installed: bool,
+}
+
+/// Retourne la liste des mods optionnels du manifest courant (flag
+/// required:false), avec leur etat enabled (depuis ModPrefs) + installed
+/// (fichier present dans mods/). UI : Mods.tsx affiche un toggle par
+/// entree, le clic appelle launcher_set_mod_pref puis re-fetch.
+#[tauri::command]
+pub async fn launcher_list_optional_mods(
+    state: State<'_, AuthState>,
+) -> Result<Vec<OptionalMod>, LauncherError> {
+    let token = state
+        .store
+        .get(SecretKey::RebornAccessToken)
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?
+        .ok_or(LauncherError::NotAuthenticated)?;
+
+    let manifest = state
+        .api
+        .fetch_manifest(&token)
+        .await
+        .map_err(|e| LauncherError::Manifest { message: e.to_string() })?;
+    verify_signature(&manifest).map_err(|e| LauncherError::Signature { message: e.to_string() })?;
+
+    let prefs = crate::storage::mod_prefs::load()
+        .await
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
+
+    let mut out = Vec::new();
+    for f in &manifest.files {
+        if f.required {
+            continue;
+        }
+        let filename = std::path::Path::new(&f.path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        if filename.is_empty() {
+            continue;
+        }
+        let installed = tokio::fs::try_exists(dir.join(&f.path))
+            .await
+            .unwrap_or(false);
+        out.push(OptionalMod {
+            filename: filename.clone(),
+            size_bytes: f.size,
+            enabled: prefs.is_enabled(&filename),
+            installed,
+        });
+    }
+    out.sort_by(|a, b| a.filename.cmp(&b.filename));
+    Ok(out)
+}
+
+/// Toggle (ou set explicite) un mod optionnel a enabled=true|false.
+/// L'effet (DL ou purge du jar) s'applique au prochain `launcher_check_update`
+/// — typiquement quand l'utilisateur arrive sur Home ou clique Jouer.
+#[tauri::command]
+pub async fn launcher_set_mod_pref(
+    filename: String,
+    enabled: bool,
+) -> Result<(), LauncherError> {
+    let mut prefs = crate::storage::mod_prefs::load()
+        .await
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    prefs.set(filename, enabled);
+    crate::storage::mod_prefs::save(&prefs)
+        .await
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    Ok(())
 }
 
 /// Comparaison naive de versions semver "x.y.z". Retourne `true` si `current < min`.
