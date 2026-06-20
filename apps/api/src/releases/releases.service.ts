@@ -54,6 +54,24 @@ export class ReleasesService {
   ) {}
 
   /**
+   * Normalise la valeur `target` envoyee par le launcher pour la rendre
+   * compatible avec ce qu'on stocke en DB. Tauri 2 expose deux
+   * placeholders `{{target}}` (court : "windows") et `{{arch}}`
+   * ("x86_64"), et la config endpoint du launcher v0.3.x envoie
+   * `target={{target}}&arch={{arch}}`. On combine alors les deux pour
+   * reconstruire la forme stockee en DB ("windows-x86_64").
+   *
+   * Si `target` contient deja un `-` (forme longue envoyee par les
+   * tests ou un client mis a jour), on prend tel quel sans regarder
+   * `arch`.
+   */
+  static normalizeTarget(target: string, arch?: string): string {
+    if (target.includes('-')) return target;
+    const a = (arch ?? 'x86_64').trim();
+    return `${target}-${a}`;
+  }
+
+  /**
    * Cherche la release la plus recente pour target+channel ET version
    * strictement superieure a `current`. Retourne null si pas d'update.
    */
@@ -61,9 +79,10 @@ export class ReleasesService {
     query: GetUpdateQueryDto,
   ): Promise<TauriUpdateResponse | null> {
     const channel = query.channel ?? 'stable';
+    const target = ReleasesService.normalizeTarget(query.target, query.arch);
     const candidates = await this.prisma.launcherRelease.findMany({
       where: {
-        target: query.target,
+        target,
         channel,
       },
       orderBy: { publishedAt: 'desc' },
