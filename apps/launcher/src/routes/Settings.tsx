@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   Bell,
   Check,
-  ChevronRight,
   Cpu,
   Gamepad2,
   Globe,
@@ -51,53 +50,54 @@ export function Settings() {
   return (
     <div className="reborn-settings-page">
       <div className="reborn-settings-scroll">
-        <Header />
+        <div className="reborn-settings-container">
+          <Header />
 
-        <div className="reborn-settings-body">
-          <nav className="reborn-settings-sidebar" aria-label="Catégories">
-            {TABS.map((t) => {
-              const Icon = t.icon;
-              const active = tab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  data-active={active || undefined}
-                  className="reborn-settings-cat"
+          <div className="reborn-settings-body">
+            <nav className="reborn-settings-sidebar" aria-label="Catégories">
+              {TABS.map((t) => {
+                const Icon = t.icon;
+                const active = tab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTab(t.id)}
+                    data-active={active || undefined}
+                    className="reborn-settings-cat"
+                  >
+                    <span className="reborn-settings-cat-icon">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="reborn-settings-cat-meta">
+                      <span className="reborn-settings-cat-label">{t.label}</span>
+                      <span className="reborn-settings-cat-hint">{t.hint}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="reborn-settings-content">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={tab}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <span className="reborn-settings-cat-icon">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="reborn-settings-cat-meta">
-                    <span className="reborn-settings-cat-label">{t.label}</span>
-                    <span className="reborn-settings-cat-hint">{t.hint}</span>
-                  </span>
-                  <ChevronRight className="reborn-settings-cat-chevron h-3 w-3" />
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="reborn-settings-content">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={tab}
-                initial={{ opacity: 0, x: 12 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -8 }}
-                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              >
-                {tab === "profile" && <ProfileTab />}
-                {tab === "account" && <AccountTab />}
-                {tab === "connections" && <ConnectionsTab />}
-                {tab === "game" && <GameTab />}
-                {tab === "perf" && <PerformanceTab />}
-                {tab === "audio" && <AudioTab />}
-                {tab === "notif" && <NotificationsTab />}
-                {tab === "about" && <AboutTab />}
-              </motion.div>
-            </AnimatePresence>
+                  {tab === "profile" && <ProfileTab />}
+                  {tab === "account" && <AccountTab />}
+                  {tab === "connections" && <ConnectionsTab />}
+                  {tab === "game" && <GameTab />}
+                  {tab === "perf" && <PerformanceTab />}
+                  {tab === "audio" && <AudioTab />}
+                  {tab === "notif" && <NotificationsTab />}
+                  {tab === "about" && <AboutTab />}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
@@ -107,33 +107,31 @@ export function Settings() {
 
 function Header() {
   return (
-    <header className="relative">
-      <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-foreground-muted">
-        Reborn Roleplay <span className="mx-2 opacity-60">—</span> Préférences
-      </p>
-      <h1
-        className="mt-2 font-display"
-        style={{
-          fontSize: 42,
-          lineHeight: 1.05,
-          letterSpacing: "0.02em",
-          background:
-            "linear-gradient(180deg, #ffffff 0%, #ffffff 55%, rgba(255,255,255,0.55) 100%)",
-          WebkitBackgroundClip: "text",
-          backgroundClip: "text",
-          color: "transparent",
-        }}
-      >
-        Paramètres
-      </h1>
-      <div
-        className="mt-3 h-[2px] w-24 rounded-full"
-        style={{
-          background:
-            "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 60%, transparent 100%)",
-          boxShadow: "0 0 10px var(--color-accent-glow)",
-        }}
-      />
+    <header className="relative flex items-end justify-between gap-6 border-b border-border/60 pb-5">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-foreground-muted">
+          Reborn Roleplay
+        </p>
+        <h1
+          className="mt-1.5 font-display"
+          style={{
+            fontSize: 32,
+            lineHeight: 1.05,
+            letterSpacing: "0.03em",
+            color: "var(--color-foreground)",
+          }}
+        >
+          Paramètres
+        </h1>
+      </div>
+      <div className="hidden text-right sm:block">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">
+          Identité visuelle
+        </p>
+        <p className="mt-1 text-[11.5px] text-foreground-subtle">
+          Direction Akatsuki <span className="mx-1 opacity-40">·</span> v3
+        </p>
+      </div>
     </header>
   );
 }
@@ -230,53 +228,67 @@ function ProfileTab() {
 
   return (
     <>
-      {/* Hero card avatar + pseudo + role */}
-      <section className="relative mb-5 overflow-hidden rounded-[14px] border border-border bg-surface/80">
+      {/* Hero card horizontal — avatar a gauche, infos a droite. Plus
+          compact que la version centree precedente, plus dense en info. */}
+      <section
+        className="relative mb-5 overflow-hidden rounded-[14px] border"
+        style={{
+          borderColor: "var(--color-border)",
+          background:
+            "linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-elevated) 100%)",
+        }}
+      >
         <div
-          className="pointer-events-none absolute inset-0 opacity-40"
+          className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(160, 24, 43, 0.18), transparent 70%)",
+              "radial-gradient(circle 240px at 88% 0%, var(--color-accent-glow) 0%, transparent 70%)",
           }}
         />
-        <div className="relative flex flex-col items-center gap-4 px-6 py-8 text-center">
-          <div className="relative">
-            <div
-              className="flex h-24 w-24 items-center justify-center rounded-full font-display text-4xl text-white"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%)",
-                border: "3px solid var(--color-surface)",
-                boxShadow:
-                  "0 0 0 2px var(--color-accent), 0 0 32px -4px var(--color-accent-glow-strong)",
-                letterSpacing: "0.02em",
-              }}
-            >
-              {initial}
-            </div>
+        <div className="relative flex items-center gap-5 p-5">
+          <div
+            className="flex h-[72px] w-[72px] flex-shrink-0 items-center justify-center rounded-full font-display"
+            style={{
+              fontSize: 30,
+              color: "var(--color-foreground)",
+              background:
+                "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%)",
+              boxShadow:
+                "0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-accent), 0 0 24px -4px var(--color-accent-glow-strong)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {initial}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h2
-              className="font-display tracking-wide text-white"
-              style={{ fontSize: 28, letterSpacing: "0.04em" }}
+              className="font-display"
+              style={{
+                fontSize: 22,
+                lineHeight: 1.1,
+                letterSpacing: "0.03em",
+                color: "var(--color-foreground)",
+              }}
             >
               {pseudo}
             </h2>
-            <p className="mt-1 text-xs uppercase tracking-[0.22em] text-foreground-muted">
+            <p className="mt-0.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
               @{user?.minecraftUsername ?? "—"}
             </p>
+            <div className="mt-2.5 flex items-center gap-2">
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold tracking-wide"
+                style={{
+                  background: `color-mix(in oklab, ${roleMeta.color} 14%, transparent)`,
+                  border: `1px solid color-mix(in oklab, ${roleMeta.color} 38%, transparent)`,
+                  color: roleMeta.color,
+                }}
+              >
+                <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                {roleMeta.label}
+              </span>
+            </div>
           </div>
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide"
-            style={{
-              background: `color-mix(in oklab, ${roleMeta.color} 14%, transparent)`,
-              border: `1px solid color-mix(in oklab, ${roleMeta.color} 40%, transparent)`,
-              color: roleMeta.color,
-            }}
-          >
-            <Check className="h-3 w-3" strokeWidth={3} />
-            {roleMeta.label}
-          </span>
         </div>
       </section>
 
@@ -348,11 +360,11 @@ function AccountTab() {
         </Row>
         <Row label="Version du launcher" hint="Mise a jour automatique au prochain demarrage si une nouvelle est dispo.">
           <span
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-[11px] font-medium"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 font-mono text-[11px] font-medium"
             style={{ color: "var(--color-foreground-subtle)" }}
           >
             <Zap className="h-3 w-3 text-accent" />
-            v0.1.0
+            v{pkg.version}
           </span>
         </Row>
       </Card>
