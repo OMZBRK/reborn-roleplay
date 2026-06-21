@@ -7,7 +7,7 @@ function SubmittedGlyph() {
       <defs>
         <linearGradient id="wl-submitted-grad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#6b8cff" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="#3b5bdb" stopOpacity="0.7" />
+          <stop offset="100%" stopColor="#a0182b" stopOpacity="0.7" />
         </linearGradient>
       </defs>
       <g stroke="#6b8cff" strokeWidth="1.5">

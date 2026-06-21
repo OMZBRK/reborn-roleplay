@@ -258,7 +258,7 @@ function DownloadingButton({ percent }: { percent: number }) {
           rx={R + 2}
           ry={R + 2}
           fill="none"
-          stroke="rgba(59, 91, 219, 0.18)"
+          stroke="rgba(160, 24, 43, 0.18)"
           strokeWidth="2"
         />
         <rect
@@ -277,7 +277,7 @@ function DownloadingButton({ percent }: { percent: number }) {
           strokeDashoffset={100 - percent}
           style={{
             transition: "stroke-dashoffset 220ms linear",
-            filter: "drop-shadow(0 0 6px rgba(59, 91, 219, 0.6))",
+            filter: "drop-shadow(0 0 6px rgba(160, 24, 43, 0.6))",
           }}
         />
       </svg>
@@ -287,9 +287,9 @@ function DownloadingButton({ percent }: { percent: number }) {
           width: SIZE,
           height: HEIGHT,
           background:
-            "linear-gradient(180deg, rgba(59,91,219,0.95) 0%, var(--color-accent-pressed) 100%)",
+            "linear-gradient(180deg, rgba(160, 24, 43, 0.95) 0%, var(--color-accent-pressed) 100%)",
           border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 0 24px rgba(59, 91, 219, 0.4)",
+          boxShadow: "0 0 24px rgba(160, 24, 43, 0.4)",
         }}
       >
         <span className="text-[22px] leading-none">Téléchargement</span>

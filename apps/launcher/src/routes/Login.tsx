@@ -125,7 +125,7 @@ export function Login() {
             className="font-display text-6xl font-semibold tracking-[0.08em] text-[var(--color-foreground)]"
             style={{
               filter:
-                "drop-shadow(0 0 24px rgba(59,91,219,0.4)) drop-shadow(0 0 6px rgba(255,255,255,0.12))",
+                "drop-shadow(0 0 24px rgba(160, 24, 43, 0.4)) drop-shadow(0 0 6px rgba(255,255,255,0.12))",
             }}
           >
             REBORN

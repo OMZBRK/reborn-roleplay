@@ -45,8 +45,8 @@ export const RULES_CATEGORIES: RulesCategory[] = [
     id: "roleplay",
     num: 1,
     name: "Roleplay",
-    color: "#3b5bdb",
-    glow: "rgba(59,91,219,0.4)",
+    color: "#a0182b",
+    glow: "rgba(160, 24, 43, 0.4)",
     silhouette: (
       <path d="M50 18a14 14 0 0 1 14 14 14 14 0 0 1-14 14 14 14 0 0 1-14-14A14 14 0 0 1 50 18zm-26 64c0-12 12-20 26-20s26 8 26 20v8H24z" />
     ),

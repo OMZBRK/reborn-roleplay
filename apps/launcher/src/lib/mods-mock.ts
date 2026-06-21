@@ -9,7 +9,7 @@
 // reellement dans le dossier mods/ du launcher.
 
 const ICON_PALETTE = [
-  "#3b5bdb", // accent
+  "#a0182b", // accent
   "#8b5cf6", // violet
   "#16a34a", // green
   "#f59e0b", // gold

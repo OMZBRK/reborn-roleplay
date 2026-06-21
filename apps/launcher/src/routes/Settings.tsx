@@ -166,7 +166,7 @@ function Card({
         style={{
           background: danger
             ? "linear-gradient(90deg, transparent, rgba(239,68,68,0.5) 50%, transparent)"
-            : "linear-gradient(90deg, transparent, rgba(59,91,219,0.45) 50%, transparent)",
+            : "linear-gradient(90deg, transparent, rgba(160, 24, 43, 0.45) 50%, transparent)",
         }}
       />
       <div className="flex items-start gap-3 border-b border-border/60 px-6 pb-4 pt-5">
@@ -236,7 +236,7 @@ function ProfileTab() {
           className="pointer-events-none absolute inset-0 opacity-40"
           style={{
             background:
-              "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(59,91,219,0.18), transparent 70%)",
+              "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(160, 24, 43, 0.18), transparent 70%)",
           }}
         />
         <div className="relative flex flex-col items-center gap-4 px-6 py-8 text-center">
@@ -865,7 +865,7 @@ function SpecCard({
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
         style={{
           background:
-            "linear-gradient(90deg, transparent, rgba(59,91,219,0.4) 50%, transparent)",
+            "linear-gradient(90deg, transparent, rgba(160, 24, 43, 0.4) 50%, transparent)",
         }}
       />
       <div className="flex items-center gap-2">

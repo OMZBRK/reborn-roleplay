@@ -1,58 +1,63 @@
 @import "tailwindcss";
 
 /* ============================================================
-   REBORN — Design Tokens v2
-   Dark + blue accent (Zenkai-inspired) "anime ninja gaming"
+   REBORN — Design Tokens v3 (Akatsuki direction)
+   Dark warm + crimson accent (Stray/Sineru inspired)
+   Cf docs/REBORN_ASEPRITE_PALETTE.md pour les sources de verite.
    ============================================================ */
 
 @theme {
-  /* ---------- Surfaces ---------- */
-  --color-background: #07080b;
-  --color-surface: #0e1014;
-  --color-surface-elevated: #15181f;
-  --color-surface-overlay: #1a1e27;
-  --color-border: #1d212a;
-  --color-border-strong: #2a2f3a;
-  --color-muted: #6b7280;
+  /* ---------- Surfaces (teintees bordeaux profond, plus chaudes que les neutres bleutes v2) ---------- */
+  --color-background: #0a0608;        /* bg-deep — main background */
+  --color-surface: #15090b;           /* bg-surface — cards / sidebars */
+  --color-surface-elevated: #1f0e11;  /* bg-elevated — modals / popovers */
+  --color-surface-overlay: #2a1418;   /* hover state au-dessus de elevated */
+  --color-border: #2d181c;            /* borderlines discretes warm */
+  --color-border-strong: #4a2127;     /* borderlines marquees / focus */
+  --color-muted: #7a6e5c;             /* greys-warm */
 
-  /* ---------- Foreground ---------- */
-  --color-foreground: #e5e7eb;
-  --color-foreground-subtle: #9ca3af;
-  --color-foreground-muted: #6b7280;
+  /* ---------- Foreground (ivoire chaud, pas blanc froid) ---------- */
+  --color-foreground: #f5e9d0;        /* text-primary — texte sur fond sombre */
+  --color-foreground-subtle: #c2b59a; /* text intermediaire (cards, descriptions) */
+  --color-foreground-muted: #7a6e5c;  /* text-muted — metadata, captions */
 
-  /* ---------- Accent (Zenkai blue) ---------- */
-  --color-accent: #3b5bdb;
-  --color-accent-hover: #4c6ce6;
-  --color-accent-pressed: #2f4cc4;
-  --color-accent-soft: #1a2550;
-  --color-accent-glow: rgba(59, 91, 219, 0.35);
-  --color-accent-glow-strong: rgba(59, 91, 219, 0.55);
+  /* ---------- Accent (Akatsuki crimson) ---------- */
+  --color-accent: #a0182b;            /* crimson-core — CTA primaire */
+  --color-accent-hover: #c01e35;      /* hover, +20% lightness */
+  --color-accent-pressed: #7a1322;    /* pressed, -15% lightness */
+  --color-accent-soft: #3a0a12;       /* bg pour les chips / banners accent */
+  --color-accent-glow: rgba(160, 24, 43, 0.35);
+  --color-accent-glow-strong: rgba(192, 30, 53, 0.55);
+
+  /* ---------- Accent secondaire (gold) ---------- */
+  --color-gold: #d9a95e;
+  --color-gold-soft: #3a2c14;
 
   /* ---------- Semantic states ---------- */
-  --color-success: #16a34a;
+  --color-success: #4ade80;           /* vert + brillant pour contraster le warm bg */
   --color-success-soft: #0f3a22;
   --color-warning: #f59e0b;
   --color-warning-soft: #3a2a0a;
   --color-danger: #ef4444;
   --color-danger-soft: #3a1414;
 
-  /* ---------- RP Roles (aligné sur l'enum backend LauncherUser.role) ---------- */
-  --color-role-player: #9ca3af;        /* gris — PLAYER */
+  /* ---------- RP Roles ---------- */
+  --color-role-player: #c2b59a;        /* ivoire muted — PLAYER */
   --color-role-whitelisted: #8b5cf6;   /* violet — WHITELISTED */
-  --color-role-helper: #16a34a;        /* vert — HELPER */
-  --color-role-moderator: #3b5bdb;     /* bleu accent — MODERATOR / WHITELIST_REVIEWER */
-  --color-role-admin: #ef4444;         /* rouge — ADMIN */
-  --color-role-owner: #f59e0b;         /* or — OWNER */
+  --color-role-helper: #4ade80;        /* vert — HELPER */
+  --color-role-moderator: #d9a95e;     /* gold — MODERATOR / WHITELIST_REVIEWER */
+  --color-role-admin: #a0182b;         /* crimson core — ADMIN */
+  --color-role-owner: #f5e9d0;         /* ivoire eclatant — OWNER */
   /* Legacy alias gardé pour compat design system v2 (ex: reborn-app.jsx référence) */
   --color-role-staff: var(--color-role-whitelisted);
   --color-role-founder: var(--color-role-owner);
 
   /* ---------- Content pages palettes ---------- */
-  /* Lore = violet/blue-night */
+  /* Lore = violet/blue-night (preserve, c'est l'identite Lore) */
   --color-lore: #8b5cf6;
   --color-lore-soft: #2a1f4a;
   --color-lore-glow: rgba(139, 92, 246, 0.35);
-  /* Rules = green ninja */
+  /* Rules = green ninja (preserve) */
   --color-rules: #4ade80;
   --color-rules-soft: #0f3a22;
   --color-rules-glow: rgba(74, 222, 128, 0.30);
@@ -77,8 +82,8 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.6), 0 4px 8px -2px rgba(0, 0, 0, 0.4);
-  --shadow-glow-accent: 0 0 24px 0 rgba(59, 91, 219, 0.35), 0 0 4px 0 rgba(59, 91, 219, 0.55);
-  --shadow-glow-accent-strong: 0 0 40px 0 rgba(59, 91, 219, 0.55), 0 0 8px 0 rgba(59, 91, 219, 0.7);
+  --shadow-glow-accent: 0 0 24px 0 rgba(160, 24, 43, 0.35), 0 0 4px 0 rgba(160, 24, 43, 0.55);
+  --shadow-glow-accent-strong: 0 0 40px 0 rgba(192, 30, 53, 0.55), 0 0 8px 0 rgba(192, 30, 53, 0.7);
 
   /* ---------- Motion ---------- */
   --duration-fast: 150ms;
@@ -188,7 +193,7 @@ body,
   background-clip: text;
   color: transparent;
   filter:
-    drop-shadow(0 0 24px rgba(59, 91, 219, 0.4))
+    drop-shadow(0 0 24px rgba(160, 24, 43, 0.4))
     drop-shadow(0 0 6px rgba(255, 255, 255, 0.12));
   animation: reborn-resume-fade-in 600ms ease-out;
 }
@@ -206,7 +211,7 @@ body,
 .reborn-resume-bar {
   width: 220px;
   height: 2px;
-  background: rgba(59, 91, 219, 0.15);
+  background: rgba(160, 24, 43, 0.15);
   border-radius: 999px;
   overflow: hidden;
   position: relative;
@@ -259,8 +264,8 @@ body,
   background-image:
     radial-gradient(
       ellipse 80% 60% at 50% 35%,
-      rgba(59, 91, 219, 0.08) 0%,
-      rgba(59, 91, 219, 0.03) 35%,
+      rgba(160, 24, 43, 0.08) 0%,
+      rgba(160, 24, 43, 0.03) 35%,
       transparent 70%
     ),
     radial-gradient(
@@ -275,8 +280,8 @@ body,
   background-image:
     radial-gradient(
       ellipse 70% 50% at 50% 30%,
-      rgba(59, 91, 219, 0.18) 0%,
-      rgba(59, 91, 219, 0.06) 40%,
+      rgba(160, 24, 43, 0.18) 0%,
+      rgba(160, 24, 43, 0.06) 40%,
       transparent 75%
     ),
     radial-gradient(
@@ -296,7 +301,7 @@ body,
 
 /* Pattern SVG inline ultra-subtil — vagues seigaiha (japonais traditionnel) */
 .reborn-pattern-bg {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='28' viewBox='0 0 56 28'><g fill='none' stroke='%233b5bdb' stroke-width='1' opacity='1'><path d='M0 28 A14 14 0 0 1 28 28'/><path d='M14 28 A14 14 0 0 1 42 28'/><path d='M28 28 A14 14 0 0 1 56 28'/><path d='M-14 28 A14 14 0 0 1 14 28'/><path d='M42 28 A14 14 0 0 1 70 28'/></g></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='28' viewBox='0 0 56 28'><g fill='none' stroke='%23a0182b' stroke-width='1' opacity='1'><path d='M0 28 A14 14 0 0 1 28 28'/><path d='M14 28 A14 14 0 0 1 42 28'/><path d='M28 28 A14 14 0 0 1 56 28'/><path d='M-14 28 A14 14 0 0 1 14 28'/><path d='M42 28 A14 14 0 0 1 70 28'/></g></svg>");
   background-size: 56px 28px;
   background-repeat: repeat;
   opacity: 1;
@@ -314,7 +319,7 @@ body,
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='28' viewBox='0 0 56 28'><g fill='none' stroke='%233b5bdb' stroke-width='1.2'><path d='M0 28 A14 14 0 0 1 28 28'/><path d='M14 28 A14 14 0 0 1 42 28'/><path d='M28 28 A14 14 0 0 1 56 28'/><path d='M-14 28 A14 14 0 0 1 14 28'/><path d='M42 28 A14 14 0 0 1 70 28'/></g></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='28' viewBox='0 0 56 28'><g fill='none' stroke='%23a0182b' stroke-width='1.2'><path d='M0 28 A14 14 0 0 1 28 28'/><path d='M14 28 A14 14 0 0 1 42 28'/><path d='M28 28 A14 14 0 0 1 56 28'/><path d='M-14 28 A14 14 0 0 1 14 28'/><path d='M42 28 A14 14 0 0 1 70 28'/></g></svg>");
   background-size: 56px 28px;
   background-repeat: repeat;
   opacity: 0.03;
@@ -336,8 +341,8 @@ body,
   z-index: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, rgba(59, 91, 219, 1) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(59, 91, 219, 1) 1px, transparent 1px);
+    linear-gradient(to right, rgba(160, 24, 43, 1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(160, 24, 43, 1) 1px, transparent 1px);
   background-size: 32px 32px;
   opacity: 0.03;
 }
@@ -368,8 +373,8 @@ body,
   background-image:
     radial-gradient(
       ellipse 70% 55% at 50% 18%,
-      rgba(59, 91, 219, 0.22) 0%,
-      rgba(59, 91, 219, 0.08) 40%,
+      rgba(160, 24, 43, 0.22) 0%,
+      rgba(160, 24, 43, 0.08) 40%,
       transparent 75%
     ),
     radial-gradient(
@@ -388,8 +393,8 @@ body,
   }
   50% {
     box-shadow:
-      0 0 40px 0 rgba(59, 91, 219, 0.6),
-      0 0 8px 0 rgba(59, 91, 219, 0.85);
+      0 0 40px 0 rgba(160, 24, 43, 0.6),
+      0 0 8px 0 rgba(160, 24, 43, 0.85);
   }
 }
 .reborn-pulse-glow {
@@ -440,7 +445,7 @@ body,
   letter-spacing: 0.04em;
   cursor: pointer;
   border: none;
-  box-shadow: 0 0 0 1px var(--color-accent-soft), 0 4px 12px -2px rgba(59, 91, 219, 0.4);
+  box-shadow: 0 0 0 1px var(--color-accent-soft), 0 4px 12px -2px rgba(160, 24, 43, 0.4);
 }
 .reborn-sidebar-logo:focus-visible {
   outline: 2px solid var(--color-accent);
@@ -452,12 +457,12 @@ body,
   0%, 100% {
     box-shadow:
       0 0 0 0 var(--color-accent-glow),
-      0 4px 12px -2px rgba(59, 91, 219, 0.4);
+      0 4px 12px -2px rgba(160, 24, 43, 0.4);
   }
   50% {
     box-shadow:
-      0 0 0 8px rgba(59, 91, 219, 0),
-      0 4px 14px -2px rgba(59, 91, 219, 0.55);
+      0 0 0 8px rgba(160, 24, 43, 0),
+      0 4px 14px -2px rgba(160, 24, 43, 0.55);
   }
 }
 .reborn-sidebar-logo--pulse {
@@ -584,7 +589,7 @@ body,
   color: #fff;
   font-weight: 600;
   font-size: 14px;
-  box-shadow: 0 0 0 1.5px var(--color-accent), 0 4px 8px -2px rgba(59, 91, 219, 0.4);
+  box-shadow: 0 0 0 1.5px var(--color-accent), 0 4px 8px -2px rgba(160, 24, 43, 0.4);
 }
 .reborn-sidebar-user-status {
   position: absolute;
@@ -748,7 +753,7 @@ body,
     radial-gradient(
       ellipse 65% 55% at 50% 40%,
       rgba(139, 92, 246, 0.20) 0%,
-      rgba(59, 91, 219, 0.08) 45%,
+      rgba(160, 24, 43, 0.08) 45%,
       transparent 75%
     ),
     radial-gradient(ellipse 100% 100% at 50% 50%, #0c0d18 0%, #07080b 100%);
@@ -931,7 +936,7 @@ body,
   flex-direction: column;
   padding: 36px 56px 28px;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59, 91, 219, 0.05) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(160, 24, 43, 0.05) 0%, transparent 60%);
   background-color: var(--color-background);
   overflow-y: auto;
 }
@@ -1442,11 +1447,11 @@ body,
   height: 42px;
   border-radius: var(--radius-md);
   background: var(--color-accent-soft);
-  border: 1px solid rgba(59, 91, 219, 0.4);
+  border: 1px solid rgba(160, 24, 43, 0.4);
   display: grid;
   place-items: center;
   color: var(--color-accent-hover);
-  box-shadow: 0 0 16px rgba(59, 91, 219, 0.2) inset;
+  box-shadow: 0 0 16px rgba(160, 24, 43, 0.2) inset;
 }
 .wl-modal-title {
   font-family: var(--font-display);
@@ -1594,7 +1599,7 @@ body,
   display: flex;
   width: 100%;
   background: var(--color-accent-soft);
-  border: 1px solid rgba(59, 91, 219, 0.35);
+  border: 1px solid rgba(160, 24, 43, 0.35);
   color: var(--color-accent-hover);
   margin-top: 24px;
   padding: 14px 18px;
@@ -1651,7 +1656,7 @@ body,
   display: grid;
   place-items: center;
   color: rgba(255, 255, 255, 0.18);
-  background: radial-gradient(ellipse at center, rgba(59, 91, 219, 0.05), transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(160, 24, 43, 0.05), transparent 70%);
   border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.03);
 }
@@ -1866,7 +1871,7 @@ body,
   outline: none;
   border-color: var(--color-accent);
   background: var(--color-surface-elevated);
-  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.15);
+  box-shadow: 0 0 0 3px rgba(160, 24, 43, 0.15);
 }
 .wl-input::placeholder,
 .wl-textarea::placeholder {
@@ -1937,7 +1942,7 @@ body,
 }
 .wl-select.open {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.15);
+  box-shadow: 0 0 0 3px rgba(160, 24, 43, 0.15);
 }
 .wl-select svg {
   transition: transform var(--duration-base);
@@ -2000,7 +2005,7 @@ body,
 }
 .wl-date-wrap:focus-within {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.15);
+  box-shadow: 0 0 0 3px rgba(160, 24, 43, 0.15);
 }
 .wl-date-input {
   position: absolute;
@@ -2104,7 +2109,7 @@ body,
 }
 .wl-submitted-icon {
   margin-bottom: 28px;
-  filter: drop-shadow(0 0 24px rgba(59, 91, 219, 0.5));
+  filter: drop-shadow(0 0 24px rgba(160, 24, 43, 0.5));
 }
 .wl-submitted-title {
   font-family: var(--font-display);
@@ -2112,7 +2117,7 @@ body,
   letter-spacing: 0.04em;
   margin: 0 0 18px;
   color: white;
-  text-shadow: 0 0 32px rgba(59, 91, 219, 0.4);
+  text-shadow: 0 0 32px rgba(160, 24, 43, 0.4);
   line-height: 1;
 }
 .wl-submitted-text {
@@ -2301,7 +2306,7 @@ body,
 }
 .wl-msg-bubble-me {
   background: var(--color-accent-soft);
-  border: 1px solid rgba(59, 91, 219, 0.4);
+  border: 1px solid rgba(160, 24, 43, 0.4);
   color: var(--color-foreground);
 }
 .wl-chat-input-wrap {
@@ -2317,7 +2322,7 @@ body,
 }
 .wl-chat-input-wrap:focus-within {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.15);
+  box-shadow: 0 0 0 3px rgba(160, 24, 43, 0.15);
 }
 .wl-chat-input {
   flex: 1;
@@ -2837,8 +2842,8 @@ body,
   border-radius: 5px;
   background: var(--color-accent-soft);
   color: var(--color-accent-hover);
-  border: 1px solid rgba(59, 91, 219, 0.4);
-  box-shadow: 0 0 8px rgba(59, 91, 219, 0.2);
+  border: 1px solid rgba(160, 24, 43, 0.4);
+  box-shadow: 0 0 8px rgba(160, 24, 43, 0.2);
 }
 .wl-nav-accepted-dot {
   display: inline-block;
@@ -2864,7 +2869,7 @@ body,
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(59, 91, 219, 0.12) inset;
+    0 0 0 1px rgba(160, 24, 43, 0.12) inset;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   font-family: var(--font-mono);
@@ -2930,7 +2935,7 @@ body,
 .reborn-settings-bg {
   position: relative;
   background:
-    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(59, 91, 219, 0.06), transparent 60%),
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(160, 24, 43, 0.06), transparent 60%),
     radial-gradient(ellipse 60% 40% at 0% 100%, rgba(139, 92, 246, 0.04), transparent 60%);
 }
 
@@ -2955,7 +2960,7 @@ body,
   background: #ffffff;
   border: 2px solid var(--color-accent);
   box-shadow:
-    0 0 0 4px rgba(59, 91, 219, 0.18),
+    0 0 0 4px rgba(160, 24, 43, 0.18),
     0 2px 6px rgba(0, 0, 0, 0.5);
   cursor: grab;
   margin-top: 3px;
@@ -2963,7 +2968,7 @@ body,
 }
 .reborn-ram-slider::-webkit-slider-thumb:hover {
   box-shadow:
-    0 0 0 6px rgba(59, 91, 219, 0.25),
+    0 0 0 6px rgba(160, 24, 43, 0.25),
     0 2px 8px rgba(0, 0, 0, 0.6);
   transform: scale(1.08);
 }
@@ -2982,7 +2987,7 @@ body,
   background: #ffffff;
   border: 2px solid var(--color-accent);
   box-shadow:
-    0 0 0 4px rgba(59, 91, 219, 0.18),
+    0 0 0 4px rgba(160, 24, 43, 0.18),
     0 2px 6px rgba(0, 0, 0, 0.5);
   cursor: grab;
 }
@@ -3715,7 +3720,7 @@ body,
   padding: 36px 56px 28px;
   overflow-y: auto;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59, 91, 219, 0.08) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(160, 24, 43, 0.08) 0%, transparent 60%);
   background-color: var(--color-background);
 }
 
@@ -3802,7 +3807,7 @@ body,
   min-height: 220px;
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(ellipse 60% 80% at 0% 50%, rgba(59, 91, 219, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 0% 50%, rgba(160, 24, 43, 0.18) 0%, transparent 60%),
     linear-gradient(135deg, var(--color-surface-elevated) 0%, var(--color-surface) 100%);
   border: 1px solid var(--color-border);
   overflow: hidden;
@@ -3847,7 +3852,7 @@ body,
   letter-spacing: 0.08em;
   color: var(--color-foreground);
   filter:
-    drop-shadow(0 0 24px rgba(59, 91, 219, 0.32))
+    drop-shadow(0 0 24px rgba(160, 24, 43, 0.32))
     drop-shadow(0 0 4px rgba(255, 255, 255, 0.06));
 }
 .reborn-home-hero-sub {
@@ -4072,7 +4077,7 @@ body,
   color: #fff;
   background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
   border-radius: var(--radius-sm);
-  box-shadow: 0 4px 10px -2px rgba(59, 91, 219, 0.4);
+  box-shadow: 0 4px 10px -2px rgba(160, 24, 43, 0.4);
 }
 .reborn-home-footer-brand-name {
   font-size: 13px;
@@ -4208,7 +4213,7 @@ body,
   color: var(--color-accent);
   background: var(--color-accent-soft);
   border-radius: var(--radius-full);
-  box-shadow: 0 0 24px rgba(59, 91, 219, 0.2);
+  box-shadow: 0 0 24px rgba(160, 24, 43, 0.2);
 }
 .reborn-map-stub-tag {
   font-size: 10px;
@@ -4252,13 +4257,13 @@ body,
     radial-gradient(ellipse 50% 35% at 30% 40%, oklch(0.45 0.12 140) 0%, transparent 65%),
     radial-gradient(ellipse 40% 30% at 75% 65%, oklch(0.4 0.1 280) 0%, transparent 65%),
     repeating-linear-gradient(0deg,
-      rgba(59, 91, 219, 0.05) 0,
-      rgba(59, 91, 219, 0.05) 1px,
+      rgba(160, 24, 43, 0.05) 0,
+      rgba(160, 24, 43, 0.05) 1px,
       transparent 1px,
       transparent 28px),
     repeating-linear-gradient(90deg,
-      rgba(59, 91, 219, 0.05) 0,
-      rgba(59, 91, 219, 0.05) 1px,
+      rgba(160, 24, 43, 0.05) 0,
+      rgba(160, 24, 43, 0.05) 1px,
       transparent 1px,
       transparent 28px),
     linear-gradient(180deg, oklch(0.18 0.04 250) 0%, oklch(0.1 0.03 250) 100%);
@@ -4622,7 +4627,7 @@ body,
   background: var(--color-surface-elevated);
 }
 .reborn-mod-card[data-required] {
-  border-color: rgba(59, 91, 219, 0.3);
+  border-color: rgba(160, 24, 43, 0.3);
 }
 .reborn-mod-icon {
   display: flex;
@@ -4764,7 +4769,7 @@ body,
   overflow-y: auto;
   padding: 36px 56px 28px;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59, 91, 219, 0.08) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(160, 24, 43, 0.08) 0%, transparent 60%);
   background-color: var(--color-background);
 }
 .reborn-settings-body {

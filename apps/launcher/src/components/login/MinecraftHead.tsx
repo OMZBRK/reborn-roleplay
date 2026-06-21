@@ -8,7 +8,7 @@ type Props = {
 // vers une palette donnee.
 const HAIR_PALETTE = ["#3a2616", "#5a3a1c", "#0f0f12", "#7a4a22", "#a35a2a", "#d99a52"];
 const SKIN_PALETTE = ["#f1c79a", "#e3a679", "#c98a5a", "#8c5a36", "#5a3a22", "#e6c4a0"];
-const SHIRT_PALETTE = ["#3b5bdb", "#2a7d4f", "#7a3a8c", "#a33a3a", "#1f2a4a", "#0e1014"];
+const SHIRT_PALETTE = ["#a0182b", "#2a7d4f", "#7a3a8c", "#a33a3a", "#1f2a4a", "#0e1014"];
 
 const PATTERN: readonly string[] = [
   "HHHHHHHH",

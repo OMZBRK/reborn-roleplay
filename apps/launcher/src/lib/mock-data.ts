@@ -12,7 +12,7 @@ export type HomeCardSlotConfig = {
 };
 
 export const HOME_CARD_GRADIENTS = {
-  blue: "linear-gradient(135deg, #1e2a6b 0%, #3b5bdb 55%, #6f8aff 100%)",
+  blue: "linear-gradient(135deg, #1e2a6b 0%, #a0182b 55%, #6f8aff 100%)",
   green: "linear-gradient(135deg, #0f3a22 0%, #16a34a 55%, #5be6a0 100%)",
   purple: "linear-gradient(135deg, #2b1b5c 0%, #6d3fd1 55%, #b89bff 100%)",
 } as const;

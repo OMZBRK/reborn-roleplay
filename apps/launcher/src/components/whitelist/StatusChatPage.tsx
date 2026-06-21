@@ -263,7 +263,7 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
                   : "var(--color-accent-soft)",
                 borderColor: assignmentInfo.canReclaim
                   ? "rgba(245, 158, 11, 0.4)"
-                  : "rgba(59, 91, 219, 0.4)",
+                  : "rgba(160, 24, 43, 0.4)",
                 color: assignmentInfo.canReclaim
                   ? "var(--color-warning)"
                   : "var(--color-accent)",
