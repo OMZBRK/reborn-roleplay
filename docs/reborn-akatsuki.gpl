@@ -1,0 +1,14 @@
+GIMP Palette
+Name: Reborn Akatsuki
+Columns: 4
+#
+ 10   6   8	bg-deep
+ 21   9  11	bg-surface
+ 31  14  17	bg-elevated
+160  24  43	crimson-core
+ 92  14  24	crimson-soft
+217 169  94	gold-core
+245 233 208	text-primary
+122 110  92	text-muted
+255 255 255	pure-white
+  0   0   0	pure-black

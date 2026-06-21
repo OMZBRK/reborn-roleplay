@@ -58,9 +58,14 @@ $ExternalDeps = @(
         Url  = "https://mcef-download.cinemamod.com/repositories/releases/com/cinemamod/mcef-fabric/2.1.6-1.21.1/mcef-fabric-2.1.6-1.21.1.jar"
     },
     @{
-        # Require par tous nos mods (cf gradle.properties fabric_version=0.102.1).
-        Name = "fabric-api-0.102.1+1.21.1.jar"
-        Url  = "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.102.1+1.21.1/fabric-api-0.102.1+1.21.1.jar"
+        # Require par tous nos mods. Versions :
+        # - 0.102.1+1.21.1 minimum (cf gradle.properties de nos mods),
+        # - 0.104.0+1.21.1 minimum requis par YACL 3.8.2,
+        # - 0.116.12+1.21.1 = derniere stable Modrinth (forward-compat).
+        # On pin la plus recente pour eviter le mismatch transitif quand
+        # de nouveaux mods optionnels ont des deps plus strictes.
+        Name = "fabric-api-0.116.12+1.21.1.jar"
+        Url  = "https://cdn.modrinth.com/data/P7dR8mSH/versions/Lwt6YYHL/fabric-api-0.116.12%2B1.21.1.jar"
     },
     @{ # Sodium : rendering performance (gros boost FPS).
         Name = "sodium-fabric-0.6.13+mc1.21.1.jar"
