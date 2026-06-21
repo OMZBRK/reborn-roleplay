@@ -86,6 +86,22 @@ $ExternalDeps = @(
         Name = "sodium-extra-fabric-0.6.0+mc1.21.1.jar"
         Url  = "https://cdn.modrinth.com/data/PtjYWJkn/versions/anDafurZ/sodium-extra-fabric-0.6.0%2Bmc1.21.1.jar"
     },
+    # ─── REQUIRED : libs partagees (deps transitives des autres mods) ──
+    @{ # Fabric Language Kotlin : indispensable pour Zoomify et tous les
+       # mods ecrits en Kotlin (commun dans l'ecosysteme Fabric).
+        Name = "fabric-language-kotlin-1.13.12+kotlin.2.4.0.jar"
+        Url  = "https://cdn.modrinth.com/data/Ha28R6CL/versions/Pd0xrHCw/fabric-language-kotlin-1.13.12%2Bkotlin.2.4.0.jar"
+    },
+    @{ # YACL (Yet Another Config Lib v3) : framework de menu de config,
+       # require par Zoomify (et d'autres mods config-heavy).
+        Name = "yet_another_config_lib_v3-3.8.2+1.21.1-fabric.jar"
+        Url  = "https://cdn.modrinth.com/data/1eAoo2KR/versions/o3cDn8Vp/yet_another_config_lib_v3-3.8.2%2B1.21.1-fabric.jar"
+    },
+    @{ # Entity Texture Features (ETF) : require par Entity Model Features
+       # (textures dynamiques des mobs custom).
+        Name = "entity_texture_features_1.21-fabric-7.1.jar"
+        Url  = "https://cdn.modrinth.com/data/BVzZfTc1/versions/udcdeUXw/entity_texture_features_1.21-fabric-7.1.jar"
+    },
     # ─── OPTIONAL : RP essentials (UI sectionnable cocher/decocher) ─
     # Cf $OptionalPrefixes plus bas pour la liste des prefixes flagges
     # required:false dans le manifest.

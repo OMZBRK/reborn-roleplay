@@ -2,11 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
+  Boxes,
+  Film,
+  Layers,
   Lock,
+  Mic,
   Package,
   RefreshCw,
   Search,
+  ShieldOff,
+  Smile,
   Sparkles,
+  ZoomIn,
 } from "lucide-react";
 import {
   listMods,
@@ -236,9 +243,9 @@ export function Mods() {
                         installer au prochain lancement, décoche pour les retirer
                         proprement (le launcher purgera le .jar du dossier mods/).
                       </p>
-                      <div className="grid gap-2">
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                         {optionals.map((m) => (
-                          <OptionalModRow
+                          <OptionalModCard
                             key={m.filename}
                             mod={m}
                             disabled={togglingFile === m.filename}
@@ -348,7 +355,82 @@ export function Mods() {
   );
 }
 
-function OptionalModRow({
+// Mapping mod-prefix -> {icon, gradient, label} pour rendre les cards
+// optionnelles plus identifiables visuellement (style Feather Client).
+// Les mods non-mappes tombent sur un fallback "Package" generique.
+const MOD_META: Record<
+  string,
+  { icon: typeof Sparkles; gradient: string; label: string; tag: string }
+> = {
+  "iris-": {
+    icon: Sparkles,
+    gradient: "from-cyan-500/40 to-blue-600/40",
+    label: "Iris Shaders",
+    tag: "Shaders",
+  },
+  "modmenu-": {
+    icon: Layers,
+    gradient: "from-violet-500/40 to-purple-700/40",
+    label: "Mod Menu",
+    tag: "UI",
+  },
+  "plasmovoice-": {
+    icon: Mic,
+    gradient: "from-emerald-500/40 to-teal-700/40",
+    label: "Plasmo Voice",
+    tag: "Audio",
+  },
+  "emotecraft-": {
+    icon: Smile,
+    gradient: "from-amber-400/40 to-orange-600/40",
+    label: "Emotecraft",
+    tag: "RP",
+  },
+  "continuity-": {
+    icon: Boxes,
+    gradient: "from-stone-400/40 to-stone-700/40",
+    label: "Continuity",
+    tag: "Textures",
+  },
+  "NoChatReports-": {
+    icon: ShieldOff,
+    gradient: "from-rose-500/40 to-pink-700/40",
+    label: "No Chat Reports",
+    tag: "Privacy",
+  },
+  "zoomify-": {
+    icon: ZoomIn,
+    gradient: "from-sky-500/40 to-indigo-700/40",
+    label: "Zoomify",
+    tag: "QoL",
+  },
+  "replaymod-": {
+    icon: Film,
+    gradient: "from-red-500/40 to-rose-700/40",
+    label: "Replay Mod",
+    tag: "Capture",
+  },
+  "entity_model_features-": {
+    icon: Sparkles,
+    gradient: "from-fuchsia-500/40 to-pink-700/40",
+    label: "Entity Model Features",
+    tag: "Mobs",
+  },
+};
+
+function lookupModMeta(filename: string) {
+  for (const [prefix, meta] of Object.entries(MOD_META)) {
+    if (filename.startsWith(prefix)) return meta;
+  }
+  return {
+    icon: Package,
+    gradient: "from-slate-500/40 to-slate-700/40",
+    label: filename.replace(/\.jar$/, ""),
+    tag: "Mod",
+  };
+}
+
+function OptionalModCard({
   mod,
   disabled,
   onToggle,
@@ -357,57 +439,89 @@ function OptionalModRow({
   disabled: boolean;
   onToggle: (next: boolean) => void;
 }) {
+  const meta = lookupModMeta(mod.filename);
+  const Icon = meta.icon;
   const sizeMb = (mod.sizeBytes / (1024 * 1024)).toFixed(1);
-  // Affiche le nom "lisible" en retirant les patterns de version courants
-  // (X.Y.Z+mc1.21.1, X.Y.Z-fabric, etc.) pour eviter de polluer la liste.
-  const displayName = mod.filename
-    .replace(/-fabric/, "")
-    .replace(/-\d+\.\d+(\.\d+)?(?:-[\w.]+)?(?:\+mc\d+(?:\.\d+)*)?/, "")
-    .replace(/-for-MC[\d.]+/, "")
-    .replace(/\.jar$/, "");
+
   return (
-    <label
+    <div
       className={[
-        "flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors",
+        "group relative flex overflow-hidden rounded-lg border transition-colors",
         mod.enabled
-          ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
-          : "border-[var(--color-border)] bg-[var(--color-surface-overlay)] hover:border-[var(--color-border-strong)]",
+          ? "border-[var(--color-accent)]"
+          : "border-[var(--color-border)] hover:border-[var(--color-border-strong)]",
         disabled && "opacity-60",
       ]
         .filter(Boolean)
         .join(" ")}
+      style={{
+        background: "var(--color-surface-overlay)",
+      }}
     >
-      <input
-        type="checkbox"
-        checked={mod.enabled}
-        disabled={disabled}
-        onChange={(e) => onToggle(e.target.checked)}
-        className="h-4 w-4 cursor-pointer accent-[var(--color-accent)]"
-      />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[12.5px] font-medium text-[var(--color-foreground)]">
-          {displayName}
+      {/* Vignette icone gauche avec degrade thematique */}
+      <div
+        className={[
+          "flex h-[84px] w-[84px] flex-shrink-0 items-center justify-center bg-gradient-to-br",
+          meta.gradient,
+        ].join(" ")}
+      >
+        <Icon className="h-8 w-8 text-white drop-shadow" strokeWidth={1.8} />
+      </div>
+
+      {/* Contenu droit : nom + tag + metas + switch */}
+      <div className="flex flex-1 flex-col justify-between p-3">
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="truncate text-[13px] font-semibold tracking-tight text-[var(--color-foreground)]">
+              {meta.label}
+            </h3>
+            <span className="rounded-sm bg-[var(--color-surface-elevated)] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[var(--color-foreground-muted)]">
+              {meta.tag}
+            </span>
+          </div>
+          <div className="mt-0.5 truncate text-[10.5px] text-[var(--color-foreground-muted)]">
+            {sizeMb} MB
+            {mod.installed && mod.enabled && (
+              <span className="ml-2 text-[var(--color-success)]">● Installé</span>
+            )}
+            {!mod.installed && mod.enabled && (
+              <span className="ml-2 text-[var(--color-accent)]">● Au prochain launch</span>
+            )}
+            {mod.installed && !mod.enabled && (
+              <span className="ml-2 text-[var(--color-warning)]">● Sera retiré</span>
+            )}
+          </div>
         </div>
-        <div className="mt-0.5 truncate text-[10.5px] text-[var(--color-foreground-muted)]">
-          {mod.filename} · {sizeMb} MB
+
+        {/* Switch toggle style Feather (pill avec circle) */}
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={mod.enabled}
+            aria-label={`Activer ${meta.label}`}
+            disabled={disabled}
+            onClick={() => onToggle(!mod.enabled)}
+            className={[
+              "relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors",
+              mod.enabled
+                ? "bg-[var(--color-accent)]"
+                : "bg-[var(--color-surface-elevated)] hover:bg-[var(--color-border-strong)]",
+              disabled && "cursor-not-allowed",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <span
+              className={[
+                "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md transition-transform",
+                mod.enabled ? "translate-x-[18px]" : "translate-x-[3px]",
+              ].join(" ")}
+            />
+          </button>
         </div>
       </div>
-      {mod.installed && mod.enabled && (
-        <span className="rounded-sm bg-[var(--color-success-soft)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-[var(--color-success)]">
-          Installé
-        </span>
-      )}
-      {!mod.installed && mod.enabled && (
-        <span className="rounded-sm bg-[var(--color-accent-soft)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-[var(--color-accent)]">
-          DL au lancement
-        </span>
-      )}
-      {mod.installed && !mod.enabled && (
-        <span className="rounded-sm bg-[var(--color-warning-soft)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-[var(--color-warning)]">
-          Sera retiré
-        </span>
-      )}
-    </label>
+    </div>
   );
 }
 
