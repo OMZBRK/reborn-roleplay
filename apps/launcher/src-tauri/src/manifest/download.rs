@@ -194,7 +194,51 @@ struct DownloadDone {
     size: u64,
 }
 
+/// Retry transparent jusqu'a 4 tentatives avec backoff exponentiel
+/// (500ms / 1s / 2s / 4s) sur les erreurs reseau transientes — meme pattern
+/// que `mojang::download_with_sha1`. Indispensable quand l'AV du user
+/// (typiquement McAfee qui scanne les .jar comme des archives Java) coupe
+/// un stream au milieu : sans retry, tout le batch de 158 Mo s'arrete sur
+/// un seul chunk corrompu.
+///
+/// Hash mismatch -> pas un blip reseau, on abandonne tout de suite.
 async fn download_one(
+    http: &reqwest::Client,
+    item: &PlanItem,
+    game_dir: &Path,
+) -> Result<DownloadDone, DownloadError> {
+    let mut last_err: Option<DownloadError> = None;
+    for attempt in 0..4u32 {
+        if attempt > 0 {
+            let delay_ms = 500u64 * 2u64.pow(attempt - 1);
+            tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+            if let Some(e) = &last_err {
+                tracing::warn!(
+                    path = %item.file.path,
+                    "retry download (tentative {}/4) apres : {e}",
+                    attempt + 1,
+                );
+            }
+        }
+        match try_download_once(http, item, game_dir).await {
+            Ok(done) => return Ok(done),
+            Err(DownloadError::HashMismatch { .. }) => {
+                // Corruption reelle -> ne pas retry, le serveur servirait le
+                // meme contenu.
+                return Err(last_err.unwrap_or_else(|| {
+                    DownloadError::Internal("hash mismatch".into())
+                }));
+            }
+            Err(e) if is_retryable(&e) => {
+                last_err = Some(e);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err.unwrap_or_else(|| DownloadError::Internal("retry epuise".into())))
+}
+
+async fn try_download_once(
     http: &reqwest::Client,
     item: &PlanItem,
     game_dir: &Path,
@@ -238,6 +282,21 @@ async fn download_one(
         path: item.file.path.clone(),
         size: total_size,
     })
+}
+
+fn is_retryable(err: &DownloadError) -> bool {
+    match err {
+        DownloadError::Http(e) => {
+            e.is_timeout()
+                || e.is_connect()
+                || e.is_body()
+                || e.is_decode()
+                || e.is_request()
+                || e.status().map(|s| s.is_server_error()).unwrap_or(true)
+        }
+        DownloadError::Io(_) => true,
+        _ => false,
+    }
 }
 
 /// Prefixes des jars geres par notre manifest. Tout .jar dans `mods/`
