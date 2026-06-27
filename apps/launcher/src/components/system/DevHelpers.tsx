@@ -50,6 +50,10 @@ const DEMO_CRASH: GameCrashReport = {
     reason: "Mod incompatible avec Fabric Loader courant",
   },
   logPath: null,
+  stderrTail:
+    "java.lang.NoSuchMethodError: 'void net.minecraft.class_2680.<init>'\n" +
+    "\tat me.jellysquid.mods.lithium.common.LithiumMixin (lithium.jar)\n" +
+    "\t... 42 more",
 };
 
 export function DevHelpers() {

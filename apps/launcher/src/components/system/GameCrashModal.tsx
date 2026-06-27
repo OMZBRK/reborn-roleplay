@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Copy, FolderOpen, Package, RefreshCw, X } from "lucide-react";
+import { Copy, FileText, Package, RefreshCw, X } from "lucide-react";
 import { Modal } from "./Modal";
+import { readCrashLog } from "../../lib/launcher";
 import { useCrashStore, type GameCrashReport } from "../../stores/crash-store";
 
 type Props = {
@@ -14,7 +16,9 @@ type Props = {
 // Affiche le rapport de crash post-game. Volontairement bloquant (pas de
 // dismissable sans action explicite) : le crash peut etre serieux et on
 // veut que l'utilisateur acquitte. Bouton Relaunch en primary, log Copy /
-// Open en secondary.
+// Voir le log complet en secondary. Le tail de stderr (~100 lignes) est
+// affiche immediatement ; "Voir le log complet" lit le fichier via la
+// commande Tauri read_crash_log (plafonne a 200 Ko).
 export function GameCrashModal({ report: reportProp, onClose, onRelaunch }: Props) {
   const reportFromStore = useCrashStore((s) => s.report);
   const closeFromStore = useCrashStore((s) => s.close);
@@ -22,22 +26,48 @@ export function GameCrashModal({ report: reportProp, onClose, onRelaunch }: Prop
   const report = reportProp !== undefined ? reportProp : reportFromStore;
   const handleClose = onClose ?? closeFromStore;
 
+  // Log complet charge a la demande. Reset des qu'on change de rapport.
+  const [fullLog, setFullLog] = useState<string | null>(null);
+  const [loadingLog, setLoadingLog] = useState(false);
+  const [logError, setLogError] = useState<string | null>(null);
+
+  const reportKey = report ? `${report.exitCode}-${report.logPath}` : null;
+  useEffect(() => {
+    setFullLog(null);
+    setLoadingLog(false);
+    setLogError(null);
+  }, [reportKey]);
+
   if (!report) return null;
 
-  function copyLog() {
-    if (!report || !report.logPath) return;
-    // TODO: brancher sur fs::read_to_string via Tauri command pour vraiment
-    // copier le contenu. Pour l'instant on copie juste le chemin du log,
-    // suffisant pour debug si le user nous l'envoie.
-    void navigator.clipboard.writeText(report.logPath);
+  // Ce qu'on affiche dans la zone log : le log complet s'il est charge,
+  // sinon le tail stderr remonte par l'event.
+  const logText = fullLog ?? report.stderrTail;
+
+  async function loadFullLog() {
+    if (!report?.logPath || loadingLog) return;
+    setLoadingLog(true);
+    setLogError(null);
+    try {
+      const content = await readCrashLog(report.logPath);
+      setFullLog(content);
+    } catch (err) {
+      setLogError(
+        typeof err === "string"
+          ? err
+          : (err as { message?: string }).message ?? "Lecture du log impossible",
+      );
+    } finally {
+      setLoadingLog(false);
+    }
   }
 
-  function openLog() {
-    // TODO: Tauri command opener::open_url(`file://${report.logPath}`).
-    // Pas dans le scope du stub crash modal pour cette PR.
-    if (report?.logPath) {
-      console.warn("[crash] open log:", report.logPath);
-    }
+  function copyLog() {
+    // Copie le contenu reellement affiche (log complet si charge, sinon le
+    // tail). Fallback sur le chemin si on n'a aucun texte.
+    const text = logText ?? report?.logPath;
+    if (!text) return;
+    void navigator.clipboard.writeText(text);
   }
 
   return (
@@ -74,7 +104,7 @@ export function GameCrashModal({ report: reportProp, onClose, onRelaunch }: Prop
           className="font-mono text-[11px]"
           style={{ color: "var(--color-danger)" }}
         >
-          Exit code: {report.exitCode}
+          Exit code: {report.exitCode ?? "inconnu"}
         </span>
       </p>
 
@@ -109,6 +139,30 @@ export function GameCrashModal({ report: reportProp, onClose, onRelaunch }: Prop
         </div>
       )}
 
+      {logText && (
+        <div className="mt-5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
+              {fullLog ? "Journal complet" : "Dernières lignes du journal"}
+            </span>
+            {logError && (
+              <span className="text-[10px]" style={{ color: "var(--color-danger)" }}>
+                {logError}
+              </span>
+            )}
+          </div>
+          <pre
+            className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border p-3 font-mono text-[11px] leading-relaxed text-[var(--color-foreground-subtle)]"
+            style={{
+              background: "var(--color-surface-overlay)",
+              borderColor: "var(--color-border)",
+            }}
+          >
+            {logText}
+          </pre>
+        </div>
+      )}
+
       <div className="mt-6 flex flex-col gap-2">
         <button
           type="button"
@@ -123,7 +177,7 @@ export function GameCrashModal({ report: reportProp, onClose, onRelaunch }: Prop
           <button
             type="button"
             onClick={copyLog}
-            disabled={!report.logPath}
+            disabled={!logText && !report.logPath}
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-elevated)] disabled:opacity-50"
           >
             <Copy className="h-3 w-3" />
@@ -131,12 +185,16 @@ export function GameCrashModal({ report: reportProp, onClose, onRelaunch }: Prop
           </button>
           <button
             type="button"
-            onClick={openLog}
-            disabled={!report.logPath}
+            onClick={loadFullLog}
+            disabled={!report.logPath || loadingLog || fullLog !== null}
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-elevated)] disabled:opacity-50"
           >
-            <FolderOpen className="h-3 w-3" />
-            Ouvrir le log
+            <FileText className="h-3 w-3" />
+            {loadingLog
+              ? "Chargement…"
+              : fullLog !== null
+                ? "Log complet chargé"
+                : "Voir le log complet"}
           </button>
         </div>
       </div>

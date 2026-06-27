@@ -1,48 +1,37 @@
 import { useEffect } from "react";
-import { useCrashStore, type GameCrashReport } from "../../stores/crash-store";
+import { onGameCrashed } from "../../lib/launcher";
+import { useCrashStore } from "../../stores/crash-store";
 
-// Expose window.__triggerCrash en dev pour pouvoir ouvrir le modal de
-// crash depuis la console DevTools sans avoir a faire crasher la JVM
-// (utile pour tester le visuel avant le branchement events Tauri).
+// Branche le modal de crash sur le vrai event Tauri `game:crashed`, emis par
+// le backend (src-tauri/src/launcher/game.rs::await_game_end) quand la JVM se
+// termine avec un status non-zero qui n'a pas ete sollicite par l'utilisateur
+// (un arret volontaire via `launcher_stop_game` ne declenche pas de crash).
 //
-// Usage console :
-//   window.__triggerCrash()                         // payload demo
-//   window.__triggerCrash({ exitCode: 134, ... })  // payload custom
+// Le LogAnalyzer (src-tauri/src/launcher/diagnostics.rs) continue d'emettre
+// game:diagnostic en parallele pendant le run (toasts in-app) ; ici on ne
+// gere que le rapport post-mortem avec le tail de stderr.
 //
-// TODO(crash-pipeline): brancher le vrai trigger sur les events Tauri du
-// game launcher. Le LogAnalyzer (src-tauri/src/launcher/diagnostics.rs)
-// emet deja game:diagnostic avec une variante JVM_OUT_OF_MEMORY / etc.
-// Un event game:crashed devra remonter l'exit code de la JVM et le
-// suspectedMod du dernier diagnostic MOD_MC_VERSION_MISMATCH. Ici on
-// fait juste un setup useEffect, le composant ne rend rien.
-
-declare global {
-  interface Window {
-    __triggerCrash?: (report?: Partial<GameCrashReport>) => void;
-  }
-}
-
-const DEMO_REPORT: GameCrashReport = {
-  exitCode: 255,
-  summary:
-    "Le serveur interne a rencontré une erreur fatale en mettant à jour un block entity.",
-  suspectedMod: {
-    filename: "lithium-fabric-mc1.21.1-0.12.2.jar",
-    reason: "Mod patché incompatible avec Fabric Loader courant",
-  },
-  logPath: null,
-};
-
+// Composant invisible : il ne fait que poser le listener au montage. Le
+// declenchement manuel en dev passe par window.__reborn.crash (DevHelpers).
 export function CrashStub() {
   const openCrash = useCrashStore((s) => s.open);
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    window.__triggerCrash = (override) => {
-      openCrash({ ...DEMO_REPORT, ...override });
-    };
+    let unlisten: (() => void) | null = null;
+    onGameCrashed((c) => {
+      openCrash({
+        exitCode: c.exitCode,
+        summary:
+          "Le jeu s'est fermé de manière inattendue. Consulte le journal ci-dessous pour en identifier la cause.",
+        suspectedMod: null,
+        logPath: c.stderrPath,
+        stderrTail: c.stderrTail.trim().length > 0 ? c.stderrTail : null,
+      });
+    }).then((fn) => {
+      unlisten = fn;
+    });
     return () => {
-      delete window.__triggerCrash;
+      if (unlisten) unlisten();
     };
   }, [openCrash]);
 

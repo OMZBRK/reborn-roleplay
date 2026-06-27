@@ -117,6 +117,28 @@ export async function onGameExited(cb: (code: number) => void): Promise<Unlisten
   return listen<number>("game:exited", (e) => cb(e.payload));
 }
 
+/** Payload de l'event `game:crashed` (JVM sortie non-zero non sollicitee). */
+export type GameCrashedEvent = {
+  /** Code de sortie, ou null si tue par signal / illisible. */
+  exitCode: number | null;
+  /** Chemin du fichier last-stderr.txt complet. */
+  stderrPath: string;
+  /** Dernieres ~100 lignes de stderr, pour affichage immediat. */
+  stderrTail: string;
+};
+
+/** Souscrit a l'event `game:crashed`. Retourne la fonction de cleanup. */
+export async function onGameCrashed(
+  cb: (c: GameCrashedEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<GameCrashedEvent>("game:crashed", (e) => cb(e.payload));
+}
+
+/** Lit le contenu (plafonne a 200 Ko, fin du fichier) d'un log de crash. */
+export async function readCrashLog(path: string): Promise<string> {
+  return invoke<string>("read_crash_log", { path });
+}
+
 export async function onGameStdout(cb: (line: string) => void): Promise<UnlistenFn> {
   return listen<string>("game:stdout", (e) => cb(e.payload));
 }

@@ -89,6 +89,7 @@ pub fn run() {
             launcher::game::launcher_stop_game,
             launcher::game::launcher_mods_list,
             launcher::game::launcher_mods_purge,
+            launcher::game::read_crash_log,
             content::patchnotes_list,
             content::patchnotes_detail,
             content::rules_current,

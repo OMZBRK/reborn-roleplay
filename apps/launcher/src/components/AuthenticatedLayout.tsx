@@ -14,10 +14,10 @@ import { startNetworkStatusPolling } from "../lib/network-status";
 // Modals systeme et banner offline montes ici car ils n'ont de sens que
 // pour un utilisateur connecte :
 //   - OfflineBanner : pilote par network-store (ping API /health 12s)
-//   - GameCrashModal : pilote par crash-store (stub via window.__triggerCrash
-//     en dev, vrai branchement Tauri events a venir)
-//   - CrashStub : pose window.__triggerCrash en dev uniquement, no-op en
-//     release. Composant invisible.
+//   - GameCrashModal : pilote par crash-store, alimente par l'event Tauri
+//     game:crashed (et window.__reborn.crash en dev via DevHelpers)
+//   - CrashStub : pose le listener game:crashed -> crash-store. Composant
+//     invisible.
 //   - DiagnosticToast : toasts in-app du LogAnalyzer pendant le launch.
 //
 // UpdateController est rendu top-level dans App.tsx pour poller des le

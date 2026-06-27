@@ -43,6 +43,10 @@ const DEV_PLACEHOLDER_TOKEN: &str = "0";
 #[derive(Default)]
 pub struct GameState {
     pub running: Mutex<Option<RunningGame>>,
+    /// Vrai quand l'arret a ete demande par l'utilisateur (`launcher_stop_game`).
+    /// Sert a distinguer un arret volontaire (pas de modal de crash) d'une
+    /// sortie non-zero subie (crash → on remonte `game:crashed`).
+    pub stop_requested: std::sync::atomic::AtomicBool,
 }
 
 pub struct RunningGame {
@@ -99,6 +103,19 @@ pub struct LaunchResult {
 /// preparation (notamment le DL des ~3900 assets au premier lancement) et
 /// donne l'impression d'un freeze. `current`/`total` ne sont remplis que
 /// pour l'etape assets (la seule a sous-progression utile).
+/// Payload de l'event `game:crashed`, emis quand la JVM se termine avec un
+/// status non-zero (et que l'arret n'a pas ete demande par l'utilisateur).
+/// `stderr_tail` porte les ~100 dernieres lignes de last-stderr.txt pour un
+/// affichage immediat dans le modal ; le log complet est recupere a la
+/// demande via la commande `read_crash_log`.
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GameCrashPayload {
+    pub exit_code: Option<i32>,
+    pub stderr_path: String,
+    pub stderr_tail: String,
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchProgress {
@@ -142,6 +159,11 @@ pub async fn launcher_launch_game<R: Runtime>(
             return Err(GameError::AlreadyRunning);
         }
     }
+
+    // Reset du flag d'arret volontaire : un lancement frais ne doit pas
+    // heriter d'un `stop_requested` laisse par une session precedente.
+    game.stop_requested
+        .store(false, std::sync::atomic::Ordering::SeqCst);
 
     let user = auth
         .current_user()
@@ -394,8 +416,9 @@ pub async fn launcher_launch_game<R: Runtime>(
     }
 
     let game_state_handle = app.clone();
+    let crash_stderr_path = debug_stderr_path.clone();
     tokio::spawn(async move {
-        await_game_end(game_state_handle).await;
+        await_game_end(game_state_handle, crash_stderr_path).await;
     });
 
     Ok(result)
@@ -407,10 +430,99 @@ pub async fn launcher_stop_game(game: State<'_, GameState>) -> Result<(), GameEr
     let Some(running) = lock.as_mut() else {
         return Err(GameError::NotRunning);
     };
+    // Marque l'arret comme volontaire AVANT le kill : `await_game_end` lira
+    // ce flag pour ne pas remonter un faux `game:crashed` (un kill produit un
+    // exit-code non-zero qui ressemble a un crash).
+    game.stop_requested
+        .store(true, std::sync::atomic::Ordering::SeqCst);
     running.child.start_kill().map_err(|e| GameError::Io {
         message: e.to_string(),
     })?;
     Ok(())
+}
+
+/// Taille max lue par `read_crash_log` : on plafonne a 200 Ko (derniers
+/// octets) pour eviter de charger un last-stderr.txt de plusieurs Mo dans
+/// la WebView.
+const CRASH_LOG_MAX_BYTES: u64 = 200 * 1024;
+
+/// Lit le contenu d'un fichier log pour affichage dans le modal de crash.
+/// Plafonne a `CRASH_LOG_MAX_BYTES` (on garde la fin, la plus pertinente).
+/// Restreint la lecture au dossier de jeu pour ne pas exposer un read
+/// arbitraire de fichiers via l'IPC.
+#[tauri::command]
+pub async fn read_crash_log(path: String) -> Result<String, GameError> {
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
+    let requested = PathBuf::from(&path);
+    let canon = tokio::fs::canonicalize(&requested)
+        .await
+        .map_err(|e| GameError::Io {
+            message: format!("chemin log introuvable : {e}"),
+        })?;
+
+    let dir = paths::game_dir().map_err(|e| GameError::Io {
+        message: e.to_string(),
+    })?;
+    let dir_canon = tokio::fs::canonicalize(&dir).await.unwrap_or(dir);
+    if !canon.starts_with(&dir_canon) {
+        return Err(GameError::Io {
+            message: "chemin log hors du dossier de jeu".into(),
+        });
+    }
+
+    let meta = tokio::fs::metadata(&canon)
+        .await
+        .map_err(|e| GameError::Io {
+            message: e.to_string(),
+        })?;
+    let len = meta.len();
+
+    if len <= CRASH_LOG_MAX_BYTES {
+        return tokio::fs::read_to_string(&canon)
+            .await
+            .map_err(|e| GameError::Io {
+                message: e.to_string(),
+            });
+    }
+
+    let mut file = tokio::fs::File::open(&canon)
+        .await
+        .map_err(|e| GameError::Io {
+            message: e.to_string(),
+        })?;
+    file.seek(std::io::SeekFrom::Start(len - CRASH_LOG_MAX_BYTES))
+        .await
+        .map_err(|e| GameError::Io {
+            message: e.to_string(),
+        })?;
+    let mut buf = Vec::with_capacity(CRASH_LOG_MAX_BYTES as usize);
+    file.read_to_end(&mut buf)
+        .await
+        .map_err(|e| GameError::Io {
+            message: e.to_string(),
+        })?;
+    let text = String::from_utf8_lossy(&buf).into_owned();
+    // Le seek peut tomber au milieu d'une ligne (et d'un caractere UTF-8) :
+    // on jette le premier fragment partiel et on signale la troncature.
+    let body = match text.find('\n') {
+        Some(idx) => &text[idx + 1..],
+        None => &text,
+    };
+    Ok(format!("[… log tronqué — derniers {} Ko …]\n{body}", CRASH_LOG_MAX_BYTES / 1024))
+}
+
+/// Lit les `max_lines` dernieres lignes d'un fichier, best-effort (chaine
+/// vide si le fichier n'existe pas / illisible).
+async fn read_stderr_tail(path: &Path, max_lines: usize) -> String {
+    match tokio::fs::read_to_string(path).await {
+        Ok(content) => {
+            let lines: Vec<&str> = content.lines().collect();
+            let start = lines.len().saturating_sub(max_lines);
+            lines[start..].join("\n")
+        }
+        Err(_) => String::new(),
+    }
 }
 
 fn pump_stdio<R: Runtime>(child: &mut Child, app: AppHandle<R>, stderr_dump: PathBuf) {
@@ -589,7 +701,7 @@ fn resolve_auto_connect() -> Option<jvm::ServerAddress> {
     Some(jvm::ServerAddress { host, port })
 }
 
-async fn await_game_end<R: Runtime>(app: AppHandle<R>) {
+async fn await_game_end<R: Runtime>(app: AppHandle<R>, stderr_path: PathBuf) {
     let Some(state) = app.try_state::<GameState>() else {
         return;
     };
@@ -605,9 +717,32 @@ async fn await_game_end<R: Runtime>(app: AppHandle<R>) {
         let mut lock = state.running.lock().await;
         *lock = None;
     }
-    let code = exit_status.and_then(|s| s.code()).unwrap_or(-1);
-    let _ = app.emit("game:exited", code);
-    tracing::info!("game process exited with code {code}");
+
+    // `code()` est None quand le process a ete tue par un signal (unix) ou
+    // dans certains cas de kill ; on traite ce cas comme un echec sauf si
+    // l'arret etait volontaire.
+    let code = exit_status.and_then(|s| s.code());
+    let stop_requested = state
+        .stop_requested
+        .swap(false, std::sync::atomic::Ordering::SeqCst);
+
+    // On continue d'emettre `game:exited` pour le chemin normal (PlayButton
+    // remet la phase a "ready" dessus, crash ou pas).
+    let _ = app.emit("game:exited", code.unwrap_or(-1));
+
+    let is_crash = !stop_requested && code != Some(0);
+    if is_crash {
+        let stderr_tail = read_stderr_tail(&stderr_path, 100).await;
+        let payload = GameCrashPayload {
+            exit_code: code,
+            stderr_path: stderr_path.display().to_string(),
+            stderr_tail,
+        };
+        tracing::warn!("game crash detecte (exit={:?}) — emit game:crashed", code);
+        let _ = app.emit("game:crashed", payload);
+    } else {
+        tracing::info!("game process exited with code {:?}", code);
+    }
 
     // Clear Discord Rich Presence — le user n'est plus en jeu.
     if let Some(rpc) = app.try_state::<DiscordRpcState>() {
