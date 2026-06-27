@@ -29,14 +29,31 @@ public final class EscMenuRenderer {
         ctx.fill(0, 0, screenW, screenH, Colors.withAlpha(Colors.ACCENT_SOFT, 0.15f));
     }
 
-    /** Calcule les dimensions des 4 panels de la grille 2×2. */
+    /**
+     * Calcule les dimensions des 4 panels de la grille 2×2.
+     *
+     * <p>Adaptatif : marges latérales et offset header proportionnels à la
+     * taille de l'écran (sans descendre sous un plancher), bornes clampées
+     * pour ne jamais produire de panels négatifs/minuscules sur petit
+     * viewport (GUI Scale élevé). Évite que la grille déborde l'écran ou
+     * chevauche la community bar.
+     */
     public static int[] panelGridBounds(int screenW, int screenH) {
-        int gridTop = HEADER_H + 30;
-        int gridBottom = screenH - COMMUNITY_BAR_H - 20;
-        int gridLeft = 80;
-        int gridRight = screenW - 80;
-        int gridW = gridRight - gridLeft;
-        int gridH = gridBottom - gridTop;
+        // Marge latérale : 80px sur grand écran, réduite jusqu'à 16px quand
+        // la largeur se resserre (≈ screenW/12).
+        int sideMargin = Math.max(16, Math.min(80, screenW / 12));
+        // Offset sous le header : réduit sur écran court pour rendre de la
+        // hauteur aux panels.
+        int topOffset = screenH < 480 ? 12 : 30;
+
+        int gridTop = HEADER_H + topOffset;
+        int gridBottom = screenH - COMMUNITY_BAR_H - 16;
+        int gridLeft = sideMargin;
+        int gridRight = screenW - sideMargin;
+
+        int gridW = Math.max(2 * 120 + PANEL_GAP, gridRight - gridLeft);
+        int gridH = Math.max(2 * 70 + PANEL_GAP, gridBottom - gridTop);
+
         int panelW = (gridW - PANEL_GAP) / 2;
         int panelH = (gridH - PANEL_GAP) / 2;
         return new int[] {gridLeft, gridTop, panelW, panelH};

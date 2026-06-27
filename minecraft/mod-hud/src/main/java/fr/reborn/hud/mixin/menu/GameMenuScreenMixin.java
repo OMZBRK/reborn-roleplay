@@ -62,13 +62,17 @@ public abstract class GameMenuScreenMixin extends Screen {
         LOG.info("esc menu : {} widgets vanilla retirés", toRemove.size());
 
         // 2. Ajoute les 4 tabs Reborn (Reprendre / Paramètres / Report / Déconnexion).
+        // Dimensions adaptatives (cf EscTabs) pour tenir dans la largeur même
+        // à GUI Scale élevé — rendu et hitbox restent cohérents.
         int tabsY = 18;
+        int tabW = EscTabs.tabW(this.width);
+        int tabH = EscTabs.tabH();
         for (int i = 0; i < 4; i++) {
             final int idx = i;
             int tabX = EscTabs.tabX(this.width, i);
             boolean isDanger = (i == 3); // Déconnexion = rouge.
             this.addDrawableChild(new EscTabButton(
-                tabX, tabsY, EscTabs.TAB_W, EscTabs.TAB_H,
+                tabX, tabsY, tabW, tabH,
                 EscTabs.tabLabel(i),
                 isDanger,
                 b -> handleTab(client, idx)
