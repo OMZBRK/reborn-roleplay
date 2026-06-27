@@ -9,6 +9,12 @@ import {
 import * as OTPAuth from 'otpauth';
 import * as QRCode from 'qrcode';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  decryptSecret,
+  encryptSecret,
+  isEncrypted,
+  loadEncryptionKey,
+} from './twofa-crypto';
 
 const ISSUER = 'Reborn Roleplay Staff';
 const ALGORITHM = 'SHA1';
@@ -42,6 +48,13 @@ function gcPending() {
 @Injectable()
 export class TwoFactorService {
   private readonly logger = new Logger(TwoFactorService.name);
+
+  /**
+   * Cle AES-256-GCM pour chiffrer les secrets TOTP au repos. Chargee et
+   * validee a la construction (fail-fast) — en prod, une cle absente/invalide
+   * fait planter le boot plutot que de stocker des secrets en clair.
+   */
+  private readonly encKey = loadEncryptionKey();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -92,8 +105,8 @@ export class TwoFactorService {
   /**
    * Verifie un code 6-chiffres contre le secret en attente puis
    * persiste {twoFactorSecret, twoFactorEnabled=true} sur le User.
-   * Le secret est stocke en clair dans la DB — pas chiffre dans le MVP.
-   * (TODO: chiffrer avec une cle KMS-managed en prod.)
+   * Le secret est chiffre au repos en AES-256-GCM (cf. twofa-crypto.ts)
+   * avant d'etre ecrit en DB.
    */
   async confirm(userId: string, code: string): Promise<void> {
     gcPending();
@@ -109,7 +122,7 @@ export class TwoFactorService {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        twoFactorSecret: pending.secret,
+        twoFactorSecret: encryptSecret(pending.secret, this.encKey),
         twoFactorEnabled: true,
       },
     });
@@ -130,7 +143,7 @@ export class TwoFactorService {
     if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
       throw new BadRequestException('2FA non actif.');
     }
-    if (!this.verifyCode(user.twoFactorSecret, code)) {
+    if (!this.verifyCode(decryptSecret(user.twoFactorSecret, this.encKey), code)) {
       throw new UnauthorizedException('Code invalide.');
     }
     await this.prisma.user.update({
@@ -151,7 +164,26 @@ export class TwoFactorService {
       select: { twoFactorSecret: true, twoFactorEnabled: true },
     });
     if (!user?.twoFactorEnabled || !user.twoFactorSecret) return false;
-    return this.verifyCode(user.twoFactorSecret, code);
+    const stored = user.twoFactorSecret;
+    const plain = decryptSecret(stored, this.encKey);
+    const ok = this.verifyCode(plain, code);
+    // Re-encryption opportuniste : si la ligne est encore en clair (legacy)
+    // et que le code est valide, on la migre vers le format chiffre. Best
+    // effort — une erreur de DB ne doit pas faire echouer le login.
+    if (ok && !isEncrypted(stored)) {
+      try {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { twoFactorSecret: encryptSecret(plain, this.encKey) },
+        });
+        this.logger.log(`Secret 2FA migre (chiffre) pour user ${userId}`);
+      } catch (err) {
+        this.logger.warn(
+          `Echec migration chiffrement 2FA pour user ${userId}: ${String(err)}`,
+        );
+      }
+    }
+    return ok;
   }
 
   /** Status pour la page Settings. */
