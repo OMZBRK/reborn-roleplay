@@ -55,6 +55,27 @@ public class VideoTab implements SettingsTab {
         int cursorY = y;
         int controlX = x + width - CONTROL_W;
 
+        // Échelle de l'interface (GUI Scale) — câblé à mc.options.getGuiScale().
+        // C'est LE réglage qui corrige les menus trop grands : à échelle Auto
+        // sur un grand écran, MC choisit 3-4 et nos écrans custom débordent.
+        // Place en premier pour rester visible même si le contenu dépasse.
+        int guiScale = (mc != null && mc.options != null)
+            ? mc.options.getGuiScale().getValue()
+            : 0;
+        SegmentedControl guiScaleCtrl = new SegmentedControl(
+            controlX, cursorY + 4, CONTROL_W, 24,
+            new SegmentedControl.Option[] {
+                new SegmentedControl.Option("0", "Auto"),
+                new SegmentedControl.Option("1", "1"),
+                new SegmentedControl.Option("2", "2"),
+                new SegmentedControl.Option("3", "3"),
+            },
+            String.valueOf(guiScale),
+            v -> applyGuiScale(parseScale(v))
+        );
+        widgets.add(guiScaleCtrl);
+        cursorY += ROW_HEIGHT;
+
         // Résolution.
         SegmentedControl resCtrl = new SegmentedControl(
             controlX, cursorY + 4, CONTROL_W, 24,
@@ -141,6 +162,29 @@ public class VideoTab implements SettingsTab {
         mc.options.write();
     }
 
+    private static int parseScale(String v) {
+        try {
+            return Integer.parseInt(v);
+        } catch (NumberFormatException e) {
+            return 0; // Auto
+        }
+    }
+
+    /**
+     * Applique l'échelle GUI immédiatement. setValue() seul ne suffit pas :
+     * il faut onResolutionChanged() pour recalculer la résolution scaled et
+     * re-layout l'écran courant (sinon l'échelle ne change qu'au prochain
+     * resize). 0 = Auto. Le SimpleOption clamp tout seul au max supporté par
+     * la fenêtre, donc une valeur trop haute est ramenée sans crash.
+     */
+    private static void applyGuiScale(int scale) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || mc.options == null) return;
+        mc.options.getGuiScale().setValue(scale);
+        mc.options.write();
+        mc.onResolutionChanged();
+    }
+
     @Override
     public List<ClickableWidget> widgets() {
         return widgets;
@@ -166,6 +210,7 @@ public class VideoTab implements SettingsTab {
 
         // Lignes label + hint.
         String[][] rows = {
+            {"Échelle interface (GUI)", "Réduisez si les menus dépassent de l'écran"},
             {"Résolution", "Affecte uniquement l'affichage en jeu"},
             {"Mode fenêtre", null},
             {"FPS Max", null},
