@@ -192,7 +192,7 @@ pub async fn launcher_apply_update<R: Runtime>(
     }
 
     let count = plan.len();
-    download_plan(&app, &state.http, plan, &dir)
+    download_plan(&app, &state.download_http, plan, &dir)
         .await
         .map_err(|e| LauncherError::Download { message: e.to_string() })?;
 

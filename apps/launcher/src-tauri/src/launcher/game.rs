@@ -195,7 +195,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 1 : JRE.
     tracing::info!("launch [1/6] : runtime Java");
-    let java_path = runtime::ensure_runtime(&auth.http, &dir)
+    let java_path = runtime::ensure_runtime(&auth.download_http, &dir)
         .await
         .map_err(|e| GameError::Runtime {
             message: e.to_string(),
@@ -203,7 +203,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 2 : version JSON Mojang.
     tracing::info!("launch [2/6] : metadata Minecraft {mc_version}");
-    let version = mojang::fetch_version_json(&auth.http, &dir, &mc_version)
+    let version = mojang::fetch_version_json(&auth.download_http, &dir, &mc_version)
         .await
         .map_err(|e| GameError::Mojang {
             message: e.to_string(),
@@ -211,7 +211,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 3 : libraries + client jar + natives.
     tracing::info!("launch [3/6] : libraries vanilla + natives");
-    let lib_setup = libraries::ensure_libraries(&auth.http, &dir, &version)
+    let lib_setup = libraries::ensure_libraries(&auth.download_http, &dir, &version)
         .await
         .map_err(|e| GameError::Libraries {
             message: e.to_string(),
@@ -219,7 +219,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 4 : assets (long la premiere fois).
     tracing::info!("launch [4/6] : assets");
-    let asset_setup = assets::ensure_assets(&auth.http, &dir, &version.asset_index)
+    let asset_setup = assets::ensure_assets(&auth.download_http, &dir, &version.asset_index)
         .await
         .map_err(|e| GameError::Assets {
             message: e.to_string(),
@@ -227,7 +227,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 5 : Fabric Loader.
     tracing::info!("launch [5/6] : Fabric Loader");
-    let fabric_setup = fabric::ensure_fabric(&auth.http, &dir, &mc_version)
+    let fabric_setup = fabric::ensure_fabric(&auth.download_http, &dir, &mc_version)
         .await
         .map_err(|e| GameError::Fabric {
             message: e.to_string(),

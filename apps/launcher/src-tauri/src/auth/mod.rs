@@ -21,10 +21,22 @@ use tauri_plugin_opener::OpenerExt;
 use crate::api::{ApiClient, ApiUser};
 use crate::storage::{secrets::SecretKey, SecretStore};
 
-// 60s : assez generaux pour absorber les transferts lents lors des batchs
-// d'assets (~5000 fichiers en parallele) sur des connexions residentielles.
-// Les calls OAuth/API restent rapides (TLS keep-alive sur 5s typiquement).
+// 60s : timeout TOTAL de requete pour les calls API/OAuth (payloads petits,
+// reponse rapide). NE PAS reutiliser ce client pour telecharger des
+// fichiers : `.timeout()` borne la requete entiere *corps compris*, donc un
+// gros jar (mcef, ReplayMod...) qui depasse 60s avorte systematiquement.
 const DEFAULT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
+// Client de telechargement : PAS de timeout total (un fichier peut
+// legitimement prendre plusieurs minutes sur une connexion lente). On borne
+// uniquement :
+//   - la connexion (`connect_timeout`) : detecte un hote injoignable,
+//   - chaque lecture (`read_timeout`) : detecte une socket morte / stall
+//     (aucun octet recu pendant ce delai) sans plafonner la duree totale.
+// Resultat : les gros fichiers passent, les vraies connexions mortes sont
+// coupees rapidement.
+const DOWNLOAD_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+const DOWNLOAD_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthSession {
@@ -40,6 +52,10 @@ pub struct AuthSession {
 /// State injecte dans Tauri — porte l'HTTP client + le store de secrets.
 pub struct AuthState {
     pub http: reqwest::Client,
+    /// Client dedie au telechargement de fichiers (manifest mods + assets/
+    /// libraries/JRE du jeu). Sans timeout total, avec connect+read timeouts
+    /// — cf [`DOWNLOAD_CONNECT_TIMEOUT`] / [`DOWNLOAD_READ_TIMEOUT`].
+    pub download_http: reqwest::Client,
     pub api: ApiClient,
     pub store: SecretStore,
     /// Cache du dernier user authentifie. Necessaire pour construire le
@@ -59,8 +75,15 @@ impl AuthState {
             .timeout(DEFAULT_HTTP_TIMEOUT)
             .build()
             .expect("reqwest client doit pouvoir s'initialiser");
+        let download_http = reqwest::Client::builder()
+            .user_agent(format!("RebornLauncher/{}", env!("CARGO_PKG_VERSION")))
+            .connect_timeout(DOWNLOAD_CONNECT_TIMEOUT)
+            .read_timeout(DOWNLOAD_READ_TIMEOUT)
+            .build()
+            .expect("reqwest download client doit pouvoir s'initialiser");
         Self {
             http,
+            download_http,
             api: ApiClient::new(),
             store: SecretStore::new(),
             user: tokio::sync::Mutex::new(None),

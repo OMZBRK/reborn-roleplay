@@ -2162,7 +2162,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "0.3.12"
+version = "0.3.14"
 dependencies = [
  "base64 0.22.1",
  "discord-rich-presence",
