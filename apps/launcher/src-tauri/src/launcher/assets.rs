@@ -59,10 +59,15 @@ pub struct AssetSetup {
     pub asset_index: String,
 }
 
+/// `on_progress(completed, total)` est appele au fil de l'eau (throttle a
+/// ~1% pres) pendant le download des objects, pour que l'UI puisse afficher
+/// une vraie barre de progression au lieu d'un "En jeu" fige (cf etape [4]
+/// du launch, la plus longue au premier lancement : ~3900 petits fichiers).
 pub async fn ensure_assets(
     http: &reqwest::Client,
     game_dir: &Path,
     asset_ref: &AssetIndexRef,
+    on_progress: impl Fn(usize, usize),
 ) -> Result<AssetSetup, AssetsError> {
     let assets_dir = game_dir.join("assets");
     let indexes_dir = assets_dir.join("indexes");
@@ -98,11 +103,18 @@ pub async fn ensure_assets(
 
     let mut completed = 0usize;
     let total = tasks.len();
+    // Throttle des events : on en emet ~100 max sur tout le batch (1% de pas),
+    // pour ne pas inonder l'IPC Tauri avec 3900 events.
+    let emit_every = (total / 100).max(1);
+    on_progress(0, total);
     while let Some(joined) = tasks.next().await {
         joined
             .map_err(|e| AssetsError::Internal(format!("task : {e}")))?
             .map_err(AssetsError::Mojang)?;
         completed += 1;
+        if completed % emit_every == 0 || completed == total {
+            on_progress(completed, total);
+        }
         if completed % 200 == 0 {
             tracing::info!("assets : {completed}/{total}");
         }

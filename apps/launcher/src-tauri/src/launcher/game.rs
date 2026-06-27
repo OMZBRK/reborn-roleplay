@@ -94,6 +94,42 @@ pub struct LaunchResult {
     pub fabric_version: String,
 }
 
+/// Progression du flux de lancement (etapes [1]..[6]) emise sur l'event
+/// `launch:progress`. Sans ca, l'UI affiche "En jeu" pendant toute la
+/// preparation (notamment le DL des ~3900 assets au premier lancement) et
+/// donne l'impression d'un freeze. `current`/`total` ne sont remplis que
+/// pour l'etape assets (la seule a sous-progression utile).
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchProgress {
+    pub step: u8,
+    pub total_steps: u8,
+    pub label: String,
+    pub current: Option<usize>,
+    pub total: Option<usize>,
+}
+
+const LAUNCH_TOTAL_STEPS: u8 = 6;
+
+fn emit_launch<R: Runtime>(
+    app: &AppHandle<R>,
+    step: u8,
+    label: &str,
+    current: Option<usize>,
+    total: Option<usize>,
+) {
+    let _ = app.emit(
+        "launch:progress",
+        LaunchProgress {
+            step,
+            total_steps: LAUNCH_TOTAL_STEPS,
+            label: label.to_string(),
+            current,
+            total,
+        },
+    );
+}
+
 #[tauri::command]
 pub async fn launcher_launch_game<R: Runtime>(
     app: AppHandle<R>,
@@ -195,6 +231,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 1 : JRE.
     tracing::info!("launch [1/6] : runtime Java");
+    emit_launch(&app, 1, "Runtime Java", None, None);
     let java_path = runtime::ensure_runtime(&auth.download_http, &dir)
         .await
         .map_err(|e| GameError::Runtime {
@@ -203,6 +240,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 2 : version JSON Mojang.
     tracing::info!("launch [2/6] : metadata Minecraft {mc_version}");
+    emit_launch(&app, 2, "Métadonnées Minecraft", None, None);
     let version = mojang::fetch_version_json(&auth.download_http, &dir, &mc_version)
         .await
         .map_err(|e| GameError::Mojang {
@@ -211,15 +249,26 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 3 : libraries + client jar + natives.
     tracing::info!("launch [3/6] : libraries vanilla + natives");
+    emit_launch(&app, 3, "Bibliothèques & natives", None, None);
     let lib_setup = libraries::ensure_libraries(&auth.download_http, &dir, &version)
         .await
         .map_err(|e| GameError::Libraries {
             message: e.to_string(),
         })?;
 
-    // Etape 4 : assets (long la premiere fois).
+    // Etape 4 : assets (long la premiere fois -> sous-progression emise).
     tracing::info!("launch [4/6] : assets");
-    let asset_setup = assets::ensure_assets(&auth.download_http, &dir, &version.asset_index)
+    emit_launch(&app, 4, "Téléchargement des ressources", Some(0), None);
+    let asset_setup =
+        assets::ensure_assets(&auth.download_http, &dir, &version.asset_index, |done, total| {
+            emit_launch(
+                &app,
+                4,
+                "Téléchargement des ressources",
+                Some(done),
+                Some(total),
+            );
+        })
         .await
         .map_err(|e| GameError::Assets {
             message: e.to_string(),
@@ -227,6 +276,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 5 : Fabric Loader.
     tracing::info!("launch [5/6] : Fabric Loader");
+    emit_launch(&app, 5, "Fabric Loader", None, None);
     let fabric_setup = fabric::ensure_fabric(&auth.download_http, &dir, &mc_version)
         .await
         .map_err(|e| GameError::Fabric {
@@ -235,6 +285,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // Etape 6 : assemble + spawn.
     tracing::info!("launch [6/6] : spawn JVM (Fabric {})", fabric_setup.loader_version);
+    emit_launch(&app, 6, "Démarrage du jeu", None, None);
 
     // Classpath = libs vanilla + libs Fabric, deduplique sur group:artifact.
     // Fabric apporte parfois une version plus recente d'une lib transitive

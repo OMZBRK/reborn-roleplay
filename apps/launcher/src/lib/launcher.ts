@@ -83,8 +83,24 @@ export type TamperingEvent = {
   paths: string[];
 };
 
+/** Progression du flux de lancement (etapes 1..6), event `launch:progress`.
+ *  `current`/`total` ne sont remplis que pour l'etape assets (la plus longue). */
+export type LaunchProgress = {
+  step: number;
+  totalSteps: number;
+  label: string;
+  current: number | null;
+  total: number | null;
+};
+
 export async function launchGame(): Promise<LaunchedGame> {
   return invoke<LaunchedGame>("launcher_launch_game");
+}
+
+export async function onLaunchProgress(
+  cb: (p: LaunchProgress) => void,
+): Promise<UnlistenFn> {
+  return listen<LaunchProgress>("launch:progress", (e) => cb(e.payload));
 }
 
 export async function stopGame(): Promise<void> {

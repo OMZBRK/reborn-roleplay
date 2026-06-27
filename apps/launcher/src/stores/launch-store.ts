@@ -1,6 +1,13 @@
 import { create } from "zustand";
 
-export type LaunchPhase = "idle" | "checking" | "downloading" | "ready" | "running" | "blocked";
+export type LaunchPhase =
+  | "idle"
+  | "checking"
+  | "downloading"
+  | "launching"
+  | "ready"
+  | "running"
+  | "blocked";
 
 type LaunchState = {
   phase: LaunchPhase;

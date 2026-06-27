@@ -9,7 +9,9 @@ import {
   onDownloadProgress,
   onGameExited,
   onGameStarted,
+  onLaunchProgress,
   type DownloadProgress,
+  type LaunchProgress,
   type UpdatePreview,
 } from "../../lib/launcher";
 
@@ -31,6 +33,7 @@ export function PlayButton() {
 
   const [preview, setPreview] = useState<UpdatePreview | null>(null);
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
+  const [launch, setLaunch] = useState<LaunchProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Pre-check au montage — manifest, signature, diff. C'est ce qui distingue
@@ -70,8 +73,23 @@ export function PlayButton() {
   }, []);
 
   useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    onLaunchProgress((p) => setLaunch(p)).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  useEffect(() => {
     const unlistens: Array<() => void> = [];
-    onGameStarted(() => setPhase("running")).then((fn) => unlistens.push(fn));
+    // game:started => la fenetre Minecraft est lancee : on passe de
+    // "launching" (preparation visible) a "running" (en jeu).
+    onGameStarted(() => {
+      setLaunch(null);
+      setPhase("running");
+    }).then((fn) => unlistens.push(fn));
     onGameExited(() => setPhase("ready")).then((fn) => unlistens.push(fn));
     return () => {
       unlistens.forEach((fn) => fn());
@@ -82,6 +100,7 @@ export function PlayButton() {
     if (
       phase === "blocked" ||
       phase === "running" ||
+      phase === "launching" ||
       phase === "downloading" ||
       phase === "checking"
     ) {
@@ -90,11 +109,16 @@ export function PlayButton() {
     setError(null);
 
     if (preview && preview.plan.length === 0) {
-      setPhase("running");
+      // Le jeu se prepare (JRE, libs, ~3900 assets, Fabric) AVANT de spawn.
+      // On affiche "launching" avec progression au lieu de sauter direct a
+      // "running"/"En jeu" qui donnait l'impression d'un freeze.
+      setLaunch(null);
+      setPhase("launching");
       try {
         await launchGame();
       } catch (err) {
         setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+        setLaunch(null);
         setPhase("ready");
       }
       return;
@@ -120,6 +144,7 @@ export function PlayButton() {
 
   const isBlocked = phase === "blocked" || isWhitelistGated;
   const isDownloading = phase === "downloading";
+  const isLaunching = phase === "launching";
   const isChecking = phase === "checking";
   const isRunning = phase === "running";
   const hasUpdate = !!preview && preview.plan.length > 0;
@@ -130,6 +155,13 @@ export function PlayButton() {
         Math.round((progress.bytesDownloaded / Math.max(progress.bytesTotal, 1)) * 100),
       )
     : 0;
+
+  // % de l'etape assets (seule a sous-progression). null pour les autres
+  // etapes -> l'anneau pulse sans valeur figee.
+  const launchPercent =
+    launch && launch.total
+      ? Math.min(100, Math.round((launch.current ?? 0) / Math.max(launch.total, 1) * 100))
+      : null;
 
   const caption = (() => {
     if (isWhitelistGated) return "Demande de whitelist requise";
@@ -144,6 +176,11 @@ export function PlayButton() {
           : "";
       return `${preview?.version ? `Patch ${preview.version} · ` : ""}${dl}${tot ? ` / ${tot}` : ""}`;
     }
+    if (isLaunching) {
+      if (!launch) return "Préparation du lancement...";
+      const pct = launchPercent != null ? ` ${launchPercent}%` : "…";
+      return `Étape ${launch.step}/${launch.totalSteps} · ${launch.label}${pct}`;
+    }
     if (isRunning) return "Le jeu est en cours";
     if (hasUpdate && preview) return `Mise à jour ${preview.version} · ${formatBytes(preview.bytesTotal)}`;
     if (preview) return `v${preview.version} · prêt à lancer`;
@@ -156,6 +193,8 @@ export function PlayButton() {
         <LockedButton label={isWhitelistGated ? "Whitelist requise" : "Inaccessible"} />
       ) : isDownloading ? (
         <DownloadingButton percent={percent} />
+      ) : isLaunching ? (
+        <LaunchingButton percent={launchPercent} />
       ) : (
         <PrimaryButton
           label={isChecking ? "Vérification" : isRunning ? "En jeu" : hasUpdate ? "METTRE À JOUR" : "JOUER"}
@@ -232,6 +271,80 @@ function PrimaryButton({
       </span>
       <span className="text-center">{label}</span>
     </button>
+  );
+}
+
+function LaunchingButton({ percent }: { percent: number | null }) {
+  // Meme anneau que DownloadingButton. percent=null (etapes hors assets :
+  // runtime, libs, fabric, spawn) => anneau vide + icone qui tourne pour
+  // signaler l'activite indeterminee. percent!=null (assets) => anneau qui
+  // se remplit.
+  const SIZE = 240;
+  const HEIGHT = 60;
+  const R = 14;
+  const indeterminate = percent == null;
+  const offset = indeterminate ? 100 : 100 - percent;
+
+  return (
+    <div className="relative inline-block" style={{ padding: 4 }}>
+      <svg
+        className="pointer-events-none absolute inset-0"
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${SIZE + 8} ${HEIGHT + 8}`}
+        preserveAspectRatio="none"
+      >
+        <rect
+          x="2"
+          y="2"
+          width={SIZE + 4}
+          height={HEIGHT + 4}
+          rx={R + 2}
+          ry={R + 2}
+          fill="none"
+          stroke="rgba(160, 24, 43, 0.18)"
+          strokeWidth="2"
+        />
+        {!indeterminate && (
+          <rect
+            x="2"
+            y="2"
+            width={SIZE + 4}
+            height={HEIGHT + 4}
+            rx={R + 2}
+            ry={R + 2}
+            fill="none"
+            stroke="var(--color-accent)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            pathLength="100"
+            strokeDasharray="100"
+            strokeDashoffset={offset}
+            style={{
+              transition: "stroke-dashoffset 220ms linear",
+              filter: "drop-shadow(0 0 6px rgba(160, 24, 43, 0.6))",
+            }}
+          />
+        )}
+      </svg>
+      <div
+        className="inline-flex items-center justify-center gap-3 rounded-[14px] px-8 font-display tracking-[0.06em] text-white"
+        style={{
+          width: SIZE,
+          height: HEIGHT,
+          background:
+            "linear-gradient(180deg, rgba(160, 24, 43, 0.95) 0%, var(--color-accent-pressed) 100%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 0 24px rgba(160, 24, 43, 0.4)",
+        }}
+      >
+        <RefreshCw className="h-[22px] w-[22px] animate-spin" strokeWidth={2} />
+        <span className="text-[22px] leading-none">Préparation</span>
+        {!indeterminate && (
+          <span className="font-mono text-[16px] tabular-nums">{percent}%</span>
+        )}
+      </div>
+    </div>
   );
 }
 
