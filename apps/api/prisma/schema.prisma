@@ -50,6 +50,11 @@ model User {
   richPresenceOn    Boolean  @default(true)
   language          String   @default("fr")
 
+  // Marqueurs de lecture pour les compteurs non-lus (cloche + sidebar).
+  // null = jamais consulté → tout est considéré comme non-lu.
+  ticketsReadAt     DateTime?
+  patchnotesReadAt  DateTime?
+
   // Monnaie virtuelle
   zkCoinBalance     Int      @default(0)
 
