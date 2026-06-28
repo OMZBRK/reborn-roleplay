@@ -234,6 +234,22 @@ impl ApiClient {
         Ok(resp.json::<T>().await?)
     }
 
+    /// GET generique PUBLIC (sans JWT) — pour les endpoints non
+    /// authentifies comme `/server/status`.
+    pub async fn get_json_public<T: for<'de> Deserialize<'de>>(
+        &self,
+        path: &str,
+    ) -> Result<T, ApiError> {
+        let url = format!("{}{}", self.base_url, path);
+        let resp = self.http.get(url).send().await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<T>().await?)
+    }
+
     /// POST generique authentifie avec body JSON.
     pub async fn post_json<B: Serialize, T: for<'de> Deserialize<'de>>(
         &self,

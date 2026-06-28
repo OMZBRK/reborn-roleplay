@@ -634,23 +634,29 @@ pub async fn discord_unlink(state: State<'_, AuthState>) -> Result<(), ContentEr
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ServerStatus {
-    pub online: bool,
-    pub players: i32,
-    pub capacity: i32,
-    pub ping: Option<i32>, // ms
-    pub version: Option<String>,
-    pub motd: Option<String>,
-    pub ip: String,
-    pub measured_at: String,
+pub struct ServerPlayers {
+    pub online: i32,
+    pub max: i32,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerStatus {
+    pub online: bool,
+    pub players: ServerPlayers,
+    pub version: Option<String>,
+    pub motd: Option<String>,
+    pub latency_ms: Option<i64>,
+    pub fetched_at: String,
+}
+
+/// Statut serveur via SLP. L'endpoint API est PUBLIC (pas de JWT) — on
+/// l'appelle donc sans bearer pour qu'il marche aussi avant login si besoin.
 #[tauri::command]
 pub async fn server_status(state: State<'_, AuthState>) -> Result<ServerStatus, ContentError> {
-    let token = jwt(state.inner()).await?;
     state
         .api
-        .get_json(&token, "/server/status")
+        .get_json_public("/server/status")
         .await
         .map_err(|e| ContentError::Api {
             message: e.to_string(),

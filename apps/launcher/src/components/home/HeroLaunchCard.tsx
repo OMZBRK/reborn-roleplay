@@ -1,5 +1,6 @@
-import { Cpu, Layers, Wifi } from "lucide-react";
+import { Cpu, Layers } from "lucide-react";
 import { PlayButton } from "./PlayButton";
+import { ServerStatusChip } from "./ServerStatusChip";
 
 // Bloc hero principal : texte branding a gauche + PlayButton existant a
 // droite. Reutilise integralement le PlayButton v2 qui porte deja toute
@@ -32,10 +33,7 @@ export function HeroLaunchCard() {
               <Layers className="h-2.5 w-2.5" />
               Minecraft 1.21.1
             </span>
-            <span className="reborn-home-hero-chip">
-              <Wifi className="h-2.5 w-2.5" />
-              VPS connecté
-            </span>
+            <ServerStatusChip />
           </div>
         </div>
         <div className="reborn-home-hero-right">

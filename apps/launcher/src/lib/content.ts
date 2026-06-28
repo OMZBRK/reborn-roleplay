@@ -259,13 +259,11 @@ export async function deleteTicket(id: string): Promise<void> {
 
 export type ServerStatus = {
   online: boolean;
-  players: number;
-  capacity: number;
-  ping: number | null;
+  players: { online: number; max: number };
   version: string | null;
   motd: string | null;
-  ip: string;
-  measuredAt: string;
+  latencyMs: number | null;
+  fetchedAt: string;
 };
 
 export async function fetchServerStatus(): Promise<ServerStatus> {
