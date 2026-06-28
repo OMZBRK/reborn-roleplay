@@ -173,6 +173,39 @@ export async function postWhitelistMessage(
 }
 
 // ──────────────────────────────────────────────────────
+// Upload de pièces jointes (screenshots whitelist / tickets)
+// ──────────────────────────────────────────────────────
+
+/**
+ * Upload une pièce jointe (image) et retourne son URL publique à joindre à
+ * un message. Le WebView ne fait pas d'HTTP direct (cf §3.1) : on lit le
+ * fichier en base64 puis on délègue le POST multipart au backend Rust.
+ */
+export async function uploadAttachment(file: File): Promise<string> {
+  const dataBase64 = await fileToBase64(file);
+  return invoke<string>("upload_attachment", {
+    fileName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    dataBase64,
+  });
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // readAsDataURL → "data:<mime>;base64,XXXX" : on ne garde que le payload.
+      const result = reader.result as string;
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("Lecture du fichier échouée"));
+    reader.readAsDataURL(file);
+  });
+}
+
+// ──────────────────────────────────────────────────────
 // Tickets
 // ──────────────────────────────────────────────────────
 
@@ -245,8 +278,13 @@ export async function createTicket(input: CreateTicketInput): Promise<TicketDeta
 export async function postTicketMessage(
   id: string,
   content: string,
+  attachmentUrls?: string[],
 ): Promise<TicketMessage> {
-  return invoke<TicketMessage>("tickets_post_message", { id, content });
+  return invoke<TicketMessage>("tickets_post_message", {
+    id,
+    content,
+    attachmentUrls: attachmentUrls ?? null,
+  });
 }
 
 export async function deleteTicket(id: string): Promise<void> {

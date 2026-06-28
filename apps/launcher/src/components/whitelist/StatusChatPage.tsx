@@ -17,6 +17,7 @@ import {
   fetchWhitelistMessages,
   postWhitelistMessage,
   reclaimWhitelist,
+  uploadAttachment,
   type WhitelistMessage,
 } from "../../lib/content";
 import { RecapField } from "./RecapField";
@@ -64,10 +65,10 @@ type LocalAttachment = {
   id: string;
   name: string;
   size: number;
-  // URL si l'utilisateur a déjà uploadé (sinon on ne peut pas relayer côté
-  // bot — placeholder pour l'instant). TODO : route /v1/upload qui pousse
-  // vers Discord CDN ou un store interne et retourne l'URL.
+  // URL publique une fois l'upload terminé (POST /v1/upload via le backend
+  // Rust). Tant que `uploading` est vrai, l'envoi du message est bloqué.
   url?: string;
+  uploading?: boolean;
 };
 
 const POLL_INTERVAL_MS = 5000;
@@ -188,16 +189,38 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
     };
   }, [applicationId]);
 
-  function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-    const next: LocalAttachment[] = files.map((f) => ({
-      id: `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`,
-      name: f.name,
-      size: f.size,
-    }));
-    setAttachments((prev) => [...prev, ...next]);
     e.target.value = "";
+    if (files.length === 0) return;
+
+    // L'API n'accepte que des images. On filtre + signale le reste.
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (images.length < files.length) {
+      setError("Seules les images peuvent être jointes.");
+    }
+
+    for (const f of images) {
+      const id = `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`;
+      setAttachments((prev) => [
+        ...prev,
+        { id, name: f.name, size: f.size, uploading: true },
+      ]);
+      try {
+        const url = await uploadAttachment(f);
+        setAttachments((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, url, uploading: false } : a)),
+        );
+      } catch (err) {
+        // Échec : on retire la chip et on affiche l'erreur.
+        setAttachments((prev) => prev.filter((a) => a.id !== id));
+        setError(
+          typeof err === "string"
+            ? err
+            : (err as { message?: string }).message ?? "Upload échoué",
+        );
+      }
+    }
   }
 
   function removeAttachment(id: string) {
@@ -206,16 +229,14 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
 
   async function handleSend() {
     const trimmed = draftMsg.trim();
-    if (!trimmed) {
-      // On exige un contenu textuel pour l'instant (pas d'upload routé).
+    // Contenu textuel requis ; on n'envoie pas tant qu'une pièce jointe est
+    // encore en cours d'upload (son URL ne serait pas prête).
+    if (!trimmed || attachments.some((a) => a.uploading)) {
       return;
     }
     setSending(true);
     setError(null);
     try {
-      // Les attachments sans URL sont ignorées le temps qu'on ait un endpoint
-      // d'upload. Côté UX on garde les chips le temps de l'envoi puis on les
-      // jette aussi.
       const urls = attachments
         .map((a) => a.url)
         .filter((u): u is string => !!u);
@@ -427,9 +448,15 @@ function ChatPanel({
           <div className="wl-chat-pending-attachments">
             {attachments.map((a) => (
               <span key={a.id} className="wl-attachment-chip">
-                <Paperclip size={12} />
+                {a.uploading ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Paperclip size={12} />
+                )}
                 <span className="truncate">{a.name}</span>
-                <span className="wl-attachment-size">{formatBytes(a.size)}</span>
+                <span className="wl-attachment-size">
+                  {a.uploading ? "envoi…" : formatBytes(a.size)}
+                </span>
                 <button
                   type="button"
                   className="wl-attachment-remove"
@@ -446,6 +473,7 @@ function ChatPanel({
           <input
             ref={fileInputRef}
             type="file"
+            accept="image/*"
             multiple
             style={{ display: "none" }}
             onChange={onFiles}
@@ -464,7 +492,11 @@ function ChatPanel({
             className="wl-chat-send"
             aria-label="Envoyer"
             onClick={onSend}
-            disabled={sending || draftMsg.trim().length === 0}
+            disabled={
+              sending ||
+              draftMsg.trim().length === 0 ||
+              attachments.some((a) => a.uploading)
+            }
           >
             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>

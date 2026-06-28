@@ -32,7 +32,7 @@ serde_json = "1"
 
 # Async runtime + HTTP client
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync", "process"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "multipart"] }
 
 # Crypto / encoding utilities
 sha2 = "0.10"

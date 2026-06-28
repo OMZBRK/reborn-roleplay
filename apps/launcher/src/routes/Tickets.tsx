@@ -26,6 +26,7 @@ import {
   fetchTickets,
   reclaimTicket,
   postTicketMessage,
+  uploadAttachment,
   type CreateTicketInput,
   type TicketCategory,
   type TicketDetail,
@@ -411,6 +412,7 @@ type LocalAttachment = {
   name: string;
   size: number;
   url?: string;
+  uploading?: boolean;
 };
 
 function ChatPane({
@@ -500,16 +502,36 @@ function ChatPane({
     };
   }, [ticketId]);
 
-  function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-    const next: LocalAttachment[] = files.map((f) => ({
-      id: `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`,
-      name: f.name,
-      size: f.size,
-    }));
-    setAttachments((prev) => [...prev, ...next]);
     e.target.value = "";
+    if (files.length === 0) return;
+
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (images.length < files.length) {
+      setError("Seules les images peuvent être jointes.");
+    }
+
+    for (const f of images) {
+      const id = `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`;
+      setAttachments((prev) => [
+        ...prev,
+        { id, name: f.name, size: f.size, uploading: true },
+      ]);
+      try {
+        const url = await uploadAttachment(f);
+        setAttachments((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, url, uploading: false } : a)),
+        );
+      } catch (err) {
+        setAttachments((prev) => prev.filter((a) => a.id !== id));
+        setError(
+          typeof err === "string"
+            ? err
+            : (err as { message?: string }).message ?? "Upload échoué",
+        );
+      }
+    }
   }
 
   function removeAttachment(id: string) {
@@ -518,11 +540,14 @@ function ChatPane({
 
   async function handleSend() {
     const trimmed = draft.trim();
-    if (!trimmed) return;
+    if (!trimmed || attachments.some((a) => a.uploading)) return;
     setSending(true);
     setError(null);
     try {
-      await postTicketMessage(ticketId, trimmed);
+      const urls = attachments
+        .map((a) => a.url)
+        .filter((u): u is string => !!u);
+      await postTicketMessage(ticketId, trimmed, urls.length > 0 ? urls : undefined);
       setDraft("");
       setAttachments([]);
       // Refetch immédiatement plutôt que d'attendre le prochain tick.
@@ -732,10 +757,14 @@ function ChatPane({
               <div className="wl-chat-pending-attachments">
                 {attachments.map((a) => (
                   <span key={a.id} className="wl-attachment-chip">
-                    <Paperclip size={12} />
+                    {a.uploading ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Paperclip size={12} />
+                    )}
                     <span className="truncate">{a.name}</span>
                     <span className="wl-attachment-size">
-                      {formatBytes(a.size)}
+                      {a.uploading ? "envoi…" : formatBytes(a.size)}
                     </span>
                     <button
                       type="button"
@@ -753,6 +782,7 @@ function ChatPane({
               <input
                 ref={fileInputRef}
                 type="file"
+                accept="image/*"
                 multiple
                 style={{ display: "none" }}
                 onChange={handlePickFiles}
@@ -771,7 +801,11 @@ function ChatPane({
                 className="wl-chat-send"
                 aria-label="Envoyer"
                 onClick={handleSend}
-                disabled={sending || draft.trim().length === 0}
+                disabled={
+                  sending ||
+                  draft.trim().length === 0 ||
+                  attachments.some((a) => a.uploading)
+                }
               >
                 {sending ? (
                   <Loader2 size={16} className="animate-spin" />

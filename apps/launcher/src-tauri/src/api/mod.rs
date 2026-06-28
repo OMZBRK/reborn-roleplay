@@ -97,6 +97,12 @@ pub struct DiscordLinkage {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct UploadResponse {
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PlaySession {
     pub play_token: String,
     pub expires_at: String,
@@ -248,6 +254,35 @@ impl ApiClient {
             return Err(ApiError::Status { status, body });
         }
         Ok(resp.json::<T>().await?)
+    }
+
+    /// Upload multipart d'un fichier vers `/upload` (authentifie). Le champ
+    /// du form s'appelle `file`. Retourne l'URL publique du fichier stocke.
+    pub async fn upload_file(
+        &self,
+        access_token: &str,
+        file_name: &str,
+        mime: &str,
+        bytes: Vec<u8>,
+    ) -> Result<UploadResponse, ApiError> {
+        let url = format!("{}/upload", self.base_url);
+        let part = reqwest::multipart::Part::bytes(bytes)
+            .file_name(file_name.to_string())
+            .mime_str(mime)?;
+        let form = reqwest::multipart::Form::new().part("file", part);
+        let resp = self
+            .http
+            .post(url)
+            .bearer_auth(access_token)
+            .multipart(form)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<UploadResponse>().await?)
     }
 
     /// POST generique authentifie avec body JSON.

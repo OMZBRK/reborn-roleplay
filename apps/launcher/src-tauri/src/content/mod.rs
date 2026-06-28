@@ -469,6 +469,8 @@ struct CreateTicketRequest {
 #[serde(rename_all = "camelCase")]
 struct PostMessageRequest {
     content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    attachment_urls: Option<Vec<String>>,
 }
 
 #[tauri::command]
@@ -528,6 +530,7 @@ pub async fn tickets_post_message(
     state: State<'_, AuthState>,
     id: String,
     content: String,
+    attachment_urls: Option<Vec<String>>,
 ) -> Result<TicketMessageDto, ContentError> {
     let token = jwt(state.inner()).await?;
     state
@@ -535,7 +538,10 @@ pub async fn tickets_post_message(
         .post_json(
             &token,
             &format!("/tickets/{id}/messages"),
-            &PostMessageRequest { content },
+            &PostMessageRequest {
+                content,
+                attachment_urls,
+            },
         )
         .await
         .map_err(|e| ContentError::Api {
@@ -661,6 +667,38 @@ pub async fn server_status(state: State<'_, AuthState>) -> Result<ServerStatus, 
         .map_err(|e| ContentError::Api {
             message: e.to_string(),
         })
+}
+
+// ──────────────────────────────────────────────────────
+// Upload de pièces jointes (screenshots whitelist / tickets)
+// ──────────────────────────────────────────────────────
+
+/// Upload d'une pièce jointe. Le frontend lit le fichier en base64 (le
+/// WebView ne peut pas faire d'HTTP direct, cf §3.1) et passe les bytes ici ;
+/// le backend POST en multipart vers /v1/upload et renvoie l'URL publique à
+/// joindre au message. base64 standard (avec padding).
+#[tauri::command]
+pub async fn upload_attachment(
+    state: State<'_, AuthState>,
+    file_name: String,
+    mime_type: String,
+    data_base64: String,
+) -> Result<String, ContentError> {
+    use base64::Engine as _;
+    let token = jwt(state.inner()).await?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data_base64.as_bytes())
+        .map_err(|e| ContentError::Io {
+            message: format!("base64 invalide : {e}"),
+        })?;
+    let resp = state
+        .api
+        .upload_file(&token, &file_name, &mime_type, bytes)
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })?;
+    Ok(resp.url)
 }
 
 /// in-memory du backend.
