@@ -1,0 +1,3 @@
+# Dossier de stockage par defaut des images uploadees (POST /v1/upload).
+# Surchargable via REBORN_UPLOAD_DIR. Ne jamais committer les fichiers uploades.
+uploads/

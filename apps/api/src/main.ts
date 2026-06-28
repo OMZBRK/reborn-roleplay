@@ -1,7 +1,8 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { json } from 'express';
+import express, { json } from 'express';
 import { AppModule } from './app.module';
+import { resolveUploadDir, UPLOADS_ROUTE } from './upload/upload.config';
 
 async function bootstrap() {
   // CORS gere par Caddy en prod (cf infra/Caddyfile §API) : il pose
@@ -34,6 +35,12 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Sert les images uploadées en lecture PUBLIQUE (pas de JwtAuthGuard) sous
+  // /uploads, hors du préfixe global /v1 — le launcher rend l'image via l'URL
+  // absolue renvoyee par POST /v1/upload. UploadService a deja cree le dossier
+  // au boot (constructeur).
+  app.use(UPLOADS_ROUTE, express.static(resolveUploadDir()));
 
   app.setGlobalPrefix('v1');
   app.useGlobalPipes(

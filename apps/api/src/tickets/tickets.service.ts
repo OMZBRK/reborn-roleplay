@@ -220,6 +220,7 @@ export class TicketsService {
         authorId: userId,
         authorName: user?.minecraftUsername ?? null,
         content: dto.content.trim(),
+        attachments: (dto.attachmentUrls ?? []).map((url) => ({ url })),
       },
     });
     await this.prisma.ticket.update({

@@ -17,6 +17,7 @@ import { SecurityModule } from './security/security.module';
 import { ServerStatusModule } from './server-status/server-status.module';
 import { StaffModule } from './staff/staff.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { UploadModule } from './upload/upload.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { WhitelistModule } from './whitelist/whitelist.module';
 
@@ -41,6 +42,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     ServerStatusModule,
     StaffModule,
     TicketsModule,
+    UploadModule,
     WebhooksModule,
     WhitelistModule,
   ],
