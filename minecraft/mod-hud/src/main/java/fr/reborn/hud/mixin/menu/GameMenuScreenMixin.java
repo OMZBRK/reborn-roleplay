@@ -4,7 +4,7 @@ import fr.reborn.hud.menu.esc.EscMenuRenderer;
 import fr.reborn.hud.menu.esc.EscPanels;
 import fr.reborn.hud.menu.esc.EscTabButton;
 import fr.reborn.hud.menu.esc.EscTabs;
-import fr.reborn.hud.menu.screens.RebornOptionsScreen;
+import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
@@ -83,7 +83,7 @@ public abstract class GameMenuScreenMixin extends Screen {
     private void handleTab(MinecraftClient client, int idx) {
         switch (idx) {
             case 0 -> client.setScreen(null); // Reprendre : ferme le menu, retour au jeu.
-            case 1 -> client.setScreen(new RebornOptionsScreen(this));
+            case 1 -> client.setScreen(new ConfigShellScreen(this));
             case 2 -> { /* TODO : Report — ouvrir un Screen Report (PR ulterieure) */ }
             case 3 -> {
                 // Déconnexion : retour au title screen via disconnect.

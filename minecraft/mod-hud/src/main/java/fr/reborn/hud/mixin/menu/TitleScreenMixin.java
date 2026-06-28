@@ -11,7 +11,7 @@ import fr.reborn.hud.menu.widget.OSTPlaylistOverlay;
 import fr.reborn.hud.menu.widget.OSTVolumePopup;
 import fr.reborn.hud.menu.widget.PressSpacePrompt;
 import fr.reborn.hud.menu.widget.QuitConfirmScreen;
-import fr.reborn.hud.menu.screens.RebornOptionsScreen;
+import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -130,7 +130,7 @@ public abstract class TitleScreenMixin extends Screen {
             startX, iconsY, iconSize,
             IconTextures.or(IconTextures.SETTINGS, IconPack::settings),
             "Paramètres", false,
-            b -> client.setScreen(new RebornOptionsScreen(this))
+            b -> client.setScreen(new ConfigShellScreen(this))
         ).ghost();
         IconButton btnGlobe = new IconButton(
             startX + (iconSize + iconGap), iconsY, iconSize,
