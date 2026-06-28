@@ -50,23 +50,24 @@ public class AudioTab implements SettingsTab {
         }
 
         int cursorY = y;
-        int controlX = x + width - CONTROL_W;
+        int controlW = Math.max(150, Math.min(CONTROL_W, width - 130));
+        int controlX = x + width - controlW;
 
-        widgets.add(new SliderWidget(controlX, cursorY + 4, CONTROL_W, 24,
+        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
             prefs.volumeMaster, 0, 100, "%",
             v -> { prefs.volumeMaster = v;
                    applyVolume(SoundCategory.MASTER, v);
                    prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
-        widgets.add(new SliderWidget(controlX, cursorY + 4, CONTROL_W, 24,
+        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
             prefs.volumeMusic, 0, 100, "%",
             v -> { prefs.volumeMusic = v;
                    applyVolume(SoundCategory.MUSIC, v);
                    prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
-        widgets.add(new SliderWidget(controlX, cursorY + 4, CONTROL_W, 24,
+        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
             prefs.volumeSfx, 0, 100, "%",
             v -> { prefs.volumeSfx = v;
                    // SFX = somme des catégories d'effets sonores du jeu.
@@ -80,14 +81,14 @@ public class AudioTab implements SettingsTab {
                    prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
-        widgets.add(new SliderWidget(controlX, cursorY + 4, CONTROL_W, 24,
+        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
             prefs.volumeVoice, 0, 100, "%",
             v -> { prefs.volumeVoice = v;
                    applyVolume(SoundCategory.VOICE, v);
                    prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
-        widgets.add(new ToggleBig(controlX + CONTROL_W - ToggleBig.DEFAULT_WIDTH,
+        widgets.add(new ToggleBig(controlX + controlW - ToggleBig.DEFAULT_WIDTH,
             cursorY + 4, prefs.muteOnUnfocus,
             v -> { prefs.muteOnUnfocus = v; prefs.save(); }));
         cursorY += ROW_HEIGHT;

@@ -53,7 +53,10 @@ public class VideoTab implements SettingsTab {
         }
 
         int cursorY = y;
-        int controlX = x + width - CONTROL_W;
+        // Largeur de contrôle adaptative : se réduit sur contenu étroit (GUI
+        // Scale élevé) pour garder ≥130px au label/description à gauche.
+        int controlW = Math.max(150, Math.min(CONTROL_W, width - 130));
+        int controlX = x + width - controlW;
 
         // Échelle de l'interface (GUI Scale) — câblé à mc.options.getGuiScale().
         // C'est LE réglage qui corrige les menus trop grands : à échelle Auto
@@ -63,7 +66,7 @@ public class VideoTab implements SettingsTab {
             ? mc.options.getGuiScale().getValue()
             : 0;
         SegmentedControl guiScaleCtrl = new SegmentedControl(
-            controlX, cursorY + 4, CONTROL_W, 24,
+            controlX, cursorY + 4, controlW, 24,
             new SegmentedControl.Option[] {
                 new SegmentedControl.Option("0", "Auto"),
                 new SegmentedControl.Option("1", "1"),
@@ -78,7 +81,7 @@ public class VideoTab implements SettingsTab {
 
         // Résolution.
         SegmentedControl resCtrl = new SegmentedControl(
-            controlX, cursorY + 4, CONTROL_W, 24,
+            controlX, cursorY + 4, controlW, 24,
             new SegmentedControl.Option[] {
                 new SegmentedControl.Option("hd", "HD"),
                 new SegmentedControl.Option("fhd", "FHD"),
@@ -93,7 +96,7 @@ public class VideoTab implements SettingsTab {
 
         // Mode fenêtre.
         SegmentedControl modeCtrl = new SegmentedControl(
-            controlX, cursorY + 4, CONTROL_W, 24,
+            controlX, cursorY + 4, controlW, 24,
             new SegmentedControl.Option[] {
                 new SegmentedControl.Option("fullscreen", "Plein écran"),
                 new SegmentedControl.Option("borderless", "Sans bordure"),
@@ -107,7 +110,7 @@ public class VideoTab implements SettingsTab {
 
         // FPS Max — câblé aux mc.options.getMaxFps() en live.
         SliderWidget fpsSlider = new SliderWidget(
-            controlX, cursorY + 4, CONTROL_W, 24,
+            controlX, cursorY + 4, controlW, 24,
             prefs.fpsMax, 30, 240, " fps",
             v -> { prefs.fpsMax = v;
                    applyMcOption(opts -> opts.getMaxFps().setValue(v));
@@ -118,7 +121,7 @@ public class VideoTab implements SettingsTab {
 
         // Distance de rendu — câblé aux mc.options.getViewDistance().
         SliderWidget chunkSlider = new SliderWidget(
-            controlX, cursorY + 4, CONTROL_W, 24,
+            controlX, cursorY + 4, controlW, 24,
             prefs.renderDistance, 4, 32, " chunks",
             v -> { prefs.renderDistance = v;
                    applyMcOption(opts -> opts.getViewDistance().setValue(v));
@@ -129,7 +132,7 @@ public class VideoTab implements SettingsTab {
 
         // V-Sync — câblé aux mc.options.getEnableVsync().
         ToggleBig vsyncToggle = new ToggleBig(
-            controlX + CONTROL_W - ToggleBig.DEFAULT_WIDTH, cursorY + 4,
+            controlX + controlW - ToggleBig.DEFAULT_WIDTH, cursorY + 4,
             prefs.vsync,
             v -> { prefs.vsync = v;
                    applyMcOption(opts -> opts.getEnableVsync().setValue(v));

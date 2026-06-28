@@ -28,19 +28,20 @@ public class DiscordTab implements SettingsTab {
         widgets.clear();
         RebornPrefs prefs = RebornPrefs.INSTANCE;
         int cursorY = y;
-        int controlX = x + width - CONTROL_W;
+        int controlW = Math.max(150, Math.min(CONTROL_W, width - 130));
+        int controlX = x + width - controlW;
 
-        widgets.add(new ToggleBig(controlX + CONTROL_W - ToggleBig.DEFAULT_WIDTH,
+        widgets.add(new ToggleBig(controlX + controlW - ToggleBig.DEFAULT_WIDTH,
             cursorY + 4, prefs.discordEnabled,
             v -> { prefs.discordEnabled = v; prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
-        widgets.add(new ToggleBig(controlX + CONTROL_W - ToggleBig.DEFAULT_WIDTH,
+        widgets.add(new ToggleBig(controlX + controlW - ToggleBig.DEFAULT_WIDTH,
             cursorY + 4, prefs.discordShowCharacter,
             v -> { prefs.discordShowCharacter = v; prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
-        widgets.add(new ToggleBig(controlX + CONTROL_W - ToggleBig.DEFAULT_WIDTH,
+        widgets.add(new ToggleBig(controlX + controlW - ToggleBig.DEFAULT_WIDTH,
             cursorY + 4, prefs.discordShowMap,
             v -> { prefs.discordShowMap = v; prefs.save(); }));
         cursorY += ROW_HEIGHT + 20;

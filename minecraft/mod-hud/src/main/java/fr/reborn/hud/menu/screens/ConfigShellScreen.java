@@ -50,7 +50,8 @@ public class ConfigShellScreen extends Screen {
     private int activeIdx;
 
     private static final int HEADER_H = 52;
-    private static final int SIDEBAR_W = 200;
+    private static final int SIDEBAR_MAX = 200;
+    private static final int SIDEBAR_MIN = 132;
     private static final int CONTENT_PAD = 28;
     private static final int CONTENT_TOP_PAD = 40;
     private static final int MAX_CONTENT_W = 560;
@@ -117,7 +118,13 @@ public class ConfigShellScreen extends Screen {
     private int viewportTop() { return HEADER_H + 1; }
     private int viewportBottom() { return this.height - VIEWPORT_BOTTOM_PAD; }
     private int viewportH() { return Math.max(0, viewportBottom() - viewportTop()); }
-    private int contentX() { return SIDEBAR_W + CONTENT_PAD; }
+    /** Largeur de sidebar adaptative : se resserre sur petit écran / GUI Scale
+     *  élevé pour laisser de la place au contenu (sinon les contrôles fixes
+     *  écrasent les labels). */
+    private int sidebarW() {
+        return Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, Math.round(this.width * 0.24f)));
+    }
+    private int contentX() { return sidebarW() + CONTENT_PAD; }
     private int contentW() {
         return Math.max(220, Math.min(MAX_CONTENT_W, this.width - contentX() - CONTENT_PAD));
     }
@@ -126,7 +133,7 @@ public class ConfigShellScreen extends Screen {
     private int maxScroll() { return Math.max(0, contentBottom() - viewportBottom()); }
     private boolean hasScroll() { return maxScroll() > 0; }
 
-    private int searchX() { return SIDEBAR_W + CONTENT_PAD; }
+    private int searchX() { return sidebarW() + CONTENT_PAD; }
     private int searchY() { return (HEADER_H - 18) / 2; }
     private int searchW() { return Math.min(240, this.width - searchX() - 60); }
 
@@ -169,21 +176,35 @@ public class ConfigShellScreen extends Screen {
         navButtons.clear();
 
         String q = searchQuery.trim().toLowerCase(Locale.ROOT);
-        int navX = 12;
-        int navW = SIDEBAR_W - 24;
-        int cursorY = HEADER_H + 14;
+
+        // Indices des catégories affichées (filtre recherche).
+        List<Integer> shown = new ArrayList<>();
         for (int i = 0; i < categories.length; i++) {
-            final int idx = i;
-            if (!q.isEmpty() && !categories[i].label.toLowerCase(Locale.ROOT).contains(q)) {
-                continue;
+            if (q.isEmpty() || categories[i].label.toLowerCase(Locale.ROOT).contains(q)) {
+                shown.add(i);
             }
+        }
+        if (shown.isEmpty()) return;
+
+        // Espacement adaptatif : on tasse les lignes pour que toutes les
+        // catégories tiennent dans la hauteur dispo (évite l'empilement à GUI
+        // Scale élevé). Plancher pour rester lisible/cliquable.
+        int navX = 12;
+        int navW = sidebarW() - 24;
+        int top = HEADER_H + 14;
+        int avail = this.height - top - 12;
+        int spacing = Math.min(32, Math.max(22, avail / shown.size()));
+        int rowH = spacing - 2;
+
+        int cursorY = top;
+        for (int idx : shown) {
             ConfigNavButton btn = new ConfigNavButton(
-                navX, cursorY, navW, 30, categories[i].label,
+                navX, cursorY, navW, rowH, categories[idx].label,
                 () -> idx == activeIdx,
                 b -> selectCategory(idx));
             this.addDrawableChild(btn);
             navButtons.add(btn);
-            cursorY += 32;
+            cursorY += spacing;
         }
     }
 
@@ -234,10 +255,10 @@ public class ConfigShellScreen extends Screen {
         ctx.fill(0, 0, this.width, this.height, Colors.BACKGROUND);
         // Top bar + sidebar en surface, pour détacher le contenu.
         ctx.fill(0, 0, this.width, HEADER_H, Colors.SURFACE);
-        ctx.fill(0, HEADER_H, SIDEBAR_W, this.height, Colors.SURFACE);
+        ctx.fill(0, HEADER_H, sidebarW(), this.height, Colors.SURFACE);
         // Séparateurs.
         ctx.fill(0, HEADER_H, this.width, HEADER_H + 1, Colors.BORDER);
-        ctx.fill(SIDEBAR_W, HEADER_H, SIDEBAR_W + 1, this.height, Colors.BORDER);
+        ctx.fill(sidebarW(), HEADER_H, sidebarW() + 1, this.height, Colors.BORDER);
 
         // Titre dans la top bar.
         Text title = RebornFont.bold("PARAMÈTRES");
@@ -262,7 +283,7 @@ public class ConfigShellScreen extends Screen {
         int contentW = contentW();
         int contentYScrolled = contentTopBase() - scrollY;
 
-        ctx.enableScissor(SIDEBAR_W + 1, viewportTop(), this.width, viewportBottom());
+        ctx.enableScissor(sidebarW() + 1, viewportTop(), this.width, viewportBottom());
         activeTab().renderPassive(ctx, contentX, contentYScrolled, contentW);
         for (ClickableWidget w : contentWidgets) {
             if (w.visible) {
@@ -306,7 +327,7 @@ public class ConfigShellScreen extends Screen {
     }
 
     private boolean inContentViewport(double mouseX, double mouseY) {
-        return mouseX >= SIDEBAR_W && mouseY >= viewportTop() && mouseY <= viewportBottom();
+        return mouseX >= sidebarW() && mouseY >= viewportTop() && mouseY <= viewportBottom();
     }
 
     @Override

@@ -62,7 +62,7 @@ public class ControlsTab implements SettingsTab {
                     mc.setScreen(new ControlsOptionsScreen(parent, mc.options));
                 }
             }
-        ).dimensions(x + width - 240, cursorY, 240, 22).build();
+        ).dimensions(x + width - Math.min(240, width), cursorY, Math.min(240, width), 22).build();
         widgets.add(advBtn);
         cursorY += 40;
 
