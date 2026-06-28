@@ -4,6 +4,7 @@ import { Copy, FileText, Package, RefreshCw, X } from "lucide-react";
 import { Modal } from "./Modal";
 import { readCrashLog } from "../../lib/launcher";
 import { useCrashStore, type GameCrashReport } from "../../stores/crash-store";
+import { useLaunchStore } from "../../stores/launch-store";
 
 type Props = {
   /** Optionnel : si on veut driver le state depuis le parent. Sinon le
@@ -23,8 +24,22 @@ export function GameCrashModal({ report: reportProp, onClose, onRelaunch }: Prop
   const reportFromStore = useCrashStore((s) => s.report);
   const closeFromStore = useCrashStore((s) => s.close);
 
+  const requestRelaunch = useLaunchStore((s) => s.requestRelaunch);
+
   const report = reportProp !== undefined ? reportProp : reportFromStore;
   const handleClose = onClose ?? closeFromStore;
+
+  // Relaunch : si le parent fournit onRelaunch on l'utilise, sinon comportement
+  // par défaut piloté par le store — ferme le modal puis demande à PlayButton
+  // de rejouer sa logique de lancement (update-check + phases) via le nonce.
+  // Marche quand l'écran Accueil (PlayButton) est monté, le cas courant juste
+  // après un crash.
+  const handleRelaunch =
+    onRelaunch ??
+    (() => {
+      handleClose();
+      requestRelaunch();
+    });
 
   // Log complet charge a la demande. Reset des qu'on change de rapport.
   const [fullLog, setFullLog] = useState<string | null>(null);
@@ -166,8 +181,7 @@ export function GameCrashModal({ report: reportProp, onClose, onRelaunch }: Prop
       <div className="mt-6 flex flex-col gap-2">
         <button
           type="button"
-          onClick={() => onRelaunch?.()}
-          disabled={!onRelaunch}
+          onClick={handleRelaunch}
           className="flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--color-accent)] font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
         >
           <RefreshCw className="h-4 w-4" />

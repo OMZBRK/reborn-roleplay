@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Lock, Play, RefreshCw } from "lucide-react";
 import { useLaunchStore } from "../../stores/launch-store";
 import { useAuthStore } from "../../stores/auth-store";
+import { useDiagnosticsStore } from "../../stores/diagnostics-store";
 import {
   applyUpdate,
   checkUpdate,
@@ -25,6 +26,7 @@ function formatBytes(n: number): string {
 export function PlayButton() {
   const phase = useLaunchStore((s) => s.phase);
   const setPhase = useLaunchStore((s) => s.setPhase);
+  const relaunchNonce = useLaunchStore((s) => s.relaunchNonce);
   const user = useAuthStore((s) => s.user);
   // role === PLAYER = compte cree mais whitelist non acceptee. Le backend
   // refusera launch_game (GameError::NotWhitelisted), on bloque ici aussi
@@ -35,6 +37,11 @@ export function PlayButton() {
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
   const [launch, setLaunch] = useState<LaunchProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Ref vers le dernier handleClick (recréé à chaque render) pour que l'effet
+  // de relaunch puisse l'appeler sans se ré-exécuter à chaque render.
+  const handleClickRef = useRef<() => void>(() => {});
+  const relaunchSeen = useRef(false);
 
   // Pre-check au montage — manifest, signature, diff. C'est ce qui distingue
   // "Jouer" de "Mettre a jour" / "Telechargement X%".
@@ -96,6 +103,18 @@ export function PlayButton() {
     };
   }, [setPhase]);
 
+  // Relaunch demandé depuis l'extérieur (bouton "Relancer" du modal de crash).
+  // On rejoue handleClick — qui early-return si la phase n'est pas lançable
+  // (après un crash, game:exited a remis la phase à "ready", donc ça passe).
+  // On ignore la valeur initiale du nonce au montage.
+  useEffect(() => {
+    if (!relaunchSeen.current) {
+      relaunchSeen.current = true;
+      return;
+    }
+    handleClickRef.current();
+  }, [relaunchNonce]);
+
   async function handleClick() {
     if (
       phase === "blocked" ||
@@ -107,6 +126,9 @@ export function PlayButton() {
       return;
     }
     setError(null);
+    // Nouveau run : on oublie le diagnostic mod d'un run précédent pour ne pas
+    // le re-corréler par erreur dans un éventuel crash de ce run.
+    useDiagnosticsStore.getState().clear();
 
     if (preview && preview.plan.length === 0) {
       // Le jeu se prepare (JRE, libs, ~3900 assets, Fabric) AVANT de spawn.
@@ -141,6 +163,9 @@ export function PlayButton() {
       setPhase("idle");
     }
   }
+
+  // Garde la ref à jour à chaque render pour l'effet de relaunch.
+  handleClickRef.current = handleClick;
 
   const isBlocked = phase === "blocked" || isWhitelistGated;
   const isDownloading = phase === "downloading";
