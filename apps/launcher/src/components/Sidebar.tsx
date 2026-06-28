@@ -18,6 +18,7 @@ import {
 import { useAuthStore } from "../stores/auth-store";
 import { useWhitelistStore } from "../stores/whitelist-store";
 import { useUpdateStore } from "../stores/update-store";
+import { useBadgesStore } from "../stores/badges-store";
 import { SidebarIconButton } from "./shell/SidebarIconButton";
 import { UserMenuPopover } from "./shell/UserMenuPopover";
 
@@ -42,6 +43,8 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const whitelistStatus = useWhitelistStore((s) => s.status);
   const updateAvailable = useUpdateStore((s) => s.available);
+  const unreadTickets = useBadgesStore((s) => s.badges.unreadTickets);
+  const unreadPatchnotes = useBadgesStore((s) => s.badges.unreadPatchnotes);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const items = useMemo<SidebarItem[]>(() => {
@@ -83,8 +86,8 @@ export function Sidebar() {
         label: "Tickets",
         route: "/tickets",
         icon: LifeBuoy,
-        // TODO: brancher sur un compteur de tickets non-lus quand l'API
-        // exposera un endpoint /v1/tickets/me/unread-count.
+        // Compteur de messages staff non-lus (cf /v1/me/badges).
+        badge: unreadTickets > 0 ? String(Math.min(unreadTickets, 9)) : undefined,
       },
       { id: "rules", label: "Règlement", route: "/rules", icon: Book },
       { id: "lore", label: "Lore", route: "/lore", icon: BookOpen },
@@ -93,14 +96,14 @@ export function Sidebar() {
         label: "Patch Notes",
         route: "/patchnotes",
         icon: Sparkles,
-        // TODO: brancher sur "patchnote non lu" quand le store/endpoint
-        // existera (LastReadPatchnoteAt cote user).
+        // Pastille si des patch notes ont été publiés depuis la dernière visite.
+        dotBadge: unreadPatchnotes > 0,
       },
       { id: "docs", label: "Documentation", route: "/docs", icon: FileQuestion },
     );
 
     return base;
-  }, [whitelistStatus]);
+  }, [whitelistStatus, unreadTickets, unreadPatchnotes]);
 
   // Determine l'item actif via le pathname. On match sur le prefix pour que
   // /rules/<slug> reste actif sur l'item Reglement.

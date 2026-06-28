@@ -8,12 +8,18 @@ import {
   type PatchNoteSummary,
 } from "../lib/content";
 import { Markdown } from "../components/Markdown";
+import { useBadgesStore } from "../stores/badges-store";
 
 export function Patchnotes() {
   const [items, setItems] = useState<PatchNoteSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<PatchNoteDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // Ouvrir la page = marquer les patch notes comme lus (efface la pastille).
+  useEffect(() => {
+    void useBadgesStore.getState().markRead("patchnotes");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

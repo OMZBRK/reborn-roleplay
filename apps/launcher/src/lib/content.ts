@@ -190,6 +190,26 @@ export async function uploadAttachment(file: File): Promise<string> {
   });
 }
 
+// ──────────────────────────────────────────────────────
+// Badges (compteurs non-lus + monnaie)
+// ──────────────────────────────────────────────────────
+
+export type Badges = {
+  unreadTickets: number;
+  unreadPatchnotes: number;
+  coins: number;
+};
+
+export async function fetchBadges(): Promise<Badges> {
+  return invoke<Badges>("me_badges");
+}
+
+export async function markRead(
+  scope: "tickets" | "patchnotes",
+): Promise<Badges> {
+  return invoke<Badges>("me_mark_read", { scope });
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

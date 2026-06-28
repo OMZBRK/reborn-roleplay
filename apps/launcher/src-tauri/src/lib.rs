@@ -111,6 +111,8 @@ pub fn run() {
             content::discord_link_start,
             content::discord_unlink,
             content::auth_me,
+            content::me_badges,
+            content::me_mark_read,
             content::upload_attachment,
             content::prefs_get,
             content::prefs_set,

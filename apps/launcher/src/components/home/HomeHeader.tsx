@@ -1,21 +1,21 @@
 import { Bell, Coins } from "lucide-react";
 import { useAuthStore } from "../../stores/auth-store";
+import { useBadgesStore } from "../../stores/badges-store";
 
 // Header de la Home : salutation + currency + bell.
 //
 // Pas d'avatar ici : la sidebar 72px contient deja l'avatar utilisateur
 // (qui ouvre le UserMenuPopover). Eviter le doublon visuel.
 //
-// TODO(coins): valeur hardcodee a 0 — brancher quand un endpoint
-// /v1/user/me/currency existera (ou un store equivalent).
-// TODO(notifications): brancher sur un endpoint /v1/notifications/unread-count
-// pour le dot-badge.
+// Coins + dot-badge cloche alimentés par /v1/me/badges (badges-store,
+// pollé depuis AuthenticatedLayout).
 export function HomeHeader() {
   const user = useAuthStore((s) => s.user);
   const pseudo = user?.displayName ?? user?.minecraftUsername ?? "Joueur";
 
-  const coins = 0;
-  const hasUnreadNotif = false;
+  const badges = useBadgesStore((s) => s.badges);
+  const coins = badges.coins;
+  const hasUnreadNotif = badges.unreadTickets + badges.unreadPatchnotes > 0;
 
   return (
     <header className="reborn-home-header">

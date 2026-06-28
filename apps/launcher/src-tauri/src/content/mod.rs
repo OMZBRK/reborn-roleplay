@@ -701,6 +701,51 @@ pub async fn upload_attachment(
     Ok(resp.url)
 }
 
+// ──────────────────────────────────────────────────────
+// Badges (compteurs non-lus + monnaie) — cloche / sidebar
+// ──────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Badges {
+    pub unread_tickets: u32,
+    pub unread_patchnotes: u32,
+    pub coins: i64,
+}
+
+#[tauri::command]
+pub async fn me_badges(state: State<'_, AuthState>) -> Result<Badges, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .get_json(&token, "/me/badges")
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+#[derive(Debug, Serialize)]
+struct MarkReadRequest<'a> {
+    scope: &'a str,
+}
+
+/// Marque "tickets" ou "patchnotes" comme lu et renvoie les badges à jour.
+#[tauri::command]
+pub async fn me_mark_read(
+    state: State<'_, AuthState>,
+    scope: String,
+) -> Result<Badges, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .post_json(&token, "/me/badges/read", &MarkReadRequest { scope: &scope })
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
 /// in-memory du backend.
 #[tauri::command]
 pub async fn auth_me(state: State<'_, AuthState>) -> Result<ApiUser, ContentError> {

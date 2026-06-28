@@ -7,6 +7,7 @@ import { GameCrashModal } from "./system/GameCrashModal";
 import { CrashStub } from "./system/CrashStub";
 import { DevHelpers } from "./system/DevHelpers";
 import { startNetworkStatusPolling } from "../lib/network-status";
+import { useBadgesStore } from "../stores/badges-store";
 
 // AppShell : sidebar 72px + main 1fr. WindowControls + drag-region sont
 // rendus depuis App.tsx (top-level).
@@ -28,6 +29,15 @@ export function AuthenticatedLayout() {
   // Demarre quand l'utilisateur est connecte, stoppe au logout (cleanup).
   useEffect(() => {
     return startNetworkStatusPolling();
+  }, []);
+
+  // Compteurs non-lus (cloche + sidebar) : refresh au montage puis toutes
+  // les 30s tant que l'utilisateur est connecté.
+  useEffect(() => {
+    const refresh = useBadgesStore.getState().refresh;
+    void refresh();
+    const id = window.setInterval(() => void refresh(), 30_000);
+    return () => window.clearInterval(id);
   }, []);
 
   return (

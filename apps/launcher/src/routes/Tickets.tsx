@@ -34,6 +34,7 @@ import {
   type TicketStatus,
   type TicketSummary,
 } from "../lib/content";
+import { useBadgesStore } from "../stores/badges-store";
 
 // Layout 2 panes : sidebar liste à gauche, chat embarqué à droite. Le user
 // reste toujours sur la même page — pas de view-switching brutal. Le pattern
@@ -57,6 +58,11 @@ export function Tickets() {
   const [list, setList] = useState<TicketSummary[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
+
+  // Ouvrir la page tickets = tout marquer comme lu (efface le badge sidebar).
+  useEffect(() => {
+    void useBadgesStore.getState().markRead("tickets");
+  }, []);
 
   // Polling de la liste : on rafraîchit aussi pour catcher les nouveaux
   // status (staff change OPEN → IN_PROGRESS → RESOLVED) et les nouveaux
