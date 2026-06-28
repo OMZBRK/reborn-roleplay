@@ -1,19 +1,17 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ServerStatusService } from './server-status.service';
+import { Controller, Get } from '@nestjs/common';
+import { ServerStatusDto, ServerStatusService } from './server-status.service';
 
-// Endpoint JWT-protégé : seul un user authentifié peut voir l'état du
-// serveur (cohérent avec le reste du launcher — la sidebar n'apparaît
-// qu'après login). Si on veut le rendre public un jour (page web "live
-// status"), splitter en deux : /v1/server/status (public, basique) et
-// /v1/server/status/full (JWT, infos étendues).
+// Endpoint PUBLIC (PLAN §10.7) : aucun JwtAuthGuard n'est appliqué. Dans cette
+// codebase il n'y a pas de guard global — les routes protégées opt-in via
+// `@UseGuards(JwtAuthGuard)`. L'absence de guard ici rend donc la route
+// accessible sans JWT, pour que la home du launcher (et une éventuelle page
+// web "live status") affiche l'état réel du serveur Minecraft.
 @Controller('server')
-@UseGuards(JwtAuthGuard)
 export class ServerStatusController {
   constructor(private readonly service: ServerStatusService) {}
 
   @Get('status')
-  async getStatus() {
+  async getStatus(): Promise<ServerStatusDto> {
     return this.service.getStatus();
   }
 }
