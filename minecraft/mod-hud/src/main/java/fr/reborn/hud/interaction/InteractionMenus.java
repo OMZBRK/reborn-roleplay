@@ -46,19 +46,29 @@ public final class InteractionMenus {
     }
 
     public static List<InteractionItem> forPlayer(String name) {
+        // NB : les commandes ShinobiCore /rencontrer /amitier /osculter ciblent
+        // « la personne regardée » (pas d'argument) → fonctionnent si la cible est
+        // à peu près devant. Les autres (porter/fouiller…) attendent un plugin.
         return List.of(
-            InteractionItem.action("Saluer", () -> sendCommand("saluer " + name)),
+            InteractionItem.action("Saluer", () -> sendCommand("me salue " + name)),
+            InteractionItem.action("Se présenter", () -> sendCommand("rencontrer")),
             InteractionItem.action("Message privé", () -> sendCommand("msg " + name + " ")),
+            InteractionItem.action("Demander en ami", () -> sendCommand("amitier")),
+            InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")),
             InteractionItem.action("Porter", () -> sendCommand("porter " + name)),
             InteractionItem.action("Fouiller", () -> sendCommand("fouiller " + name)),
+            InteractionItem.action("Échanger", () -> sendCommand("trade " + name)),
             InteractionItem.submenu("Animations", List.of(
                 InteractionItem.action("Saluer (geste)", () -> sendCommand("emote wave")),
-                InteractionItem.action("S'asseoir", () -> sendCommand("emote sit")),
-                InteractionItem.action("Applaudir", () -> sendCommand("emote clap"))
+                InteractionItem.action("S'incliner", () -> sendCommand("emote bow")),
+                InteractionItem.action("Applaudir", () -> sendCommand("emote clap")),
+                InteractionItem.action("S'asseoir", () -> sendCommand("emote sit"))
             )),
-            InteractionItem.submenu("Admin", List.of(
-                InteractionItem.action("Informations", () -> sendCommand("staff info " + name)),
-                InteractionItem.action("Téléporter à", () -> sendCommand("tp " + name))
+            InteractionItem.submenu("Staff", List.of(
+                InteractionItem.action("Informations", () -> sendCommand("staff lookup " + name)),
+                InteractionItem.action("Téléporter à", () -> sendCommand("tp " + name)),
+                InteractionItem.action("Geler", () -> sendCommand("freeze " + name)),
+                InteractionItem.action("Sanctionner", () -> sendCommand("sanction " + name))
             ))
         );
     }
@@ -85,6 +95,8 @@ public final class InteractionMenus {
                 info("§e" + Registries.BLOCK.getId(bs.getBlock())
                     + " §7@ " + pos.toShortString());
             }),
+            InteractionItem.action("Verrouiller / Cadenas", () -> sendCommand("lock")),
+            InteractionItem.action("Gestion", () -> sendCommand("manage")),
             InteractionItem.action("Copier les coordonnées",
                 () -> copy(pos.getX() + " " + pos.getY() + " " + pos.getZ())),
             InteractionItem.submenu("Outils de debug", List.of(
