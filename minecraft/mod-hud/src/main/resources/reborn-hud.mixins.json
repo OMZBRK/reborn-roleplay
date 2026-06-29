@@ -10,6 +10,7 @@
     "BossBarHudMixin",
     "InGameHudMixin",
     "InGameHudInvoker",
+    "CrosshairHitMixin",
     "menu.TitleScreenMixin",
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",

@@ -31,9 +31,11 @@ public class CrosshairTab implements SettingsTab {
     private static final int CONTROL_W = 240;
     private static final int TILE = 40;
     private static final int TILE_GAP = 8;
+    /** Nombre de lignes de réglages avant la grille de modèles. */
+    private static final int SETTING_ROWS = 6;
     /** Offset (depuis y) du label "MODÈLES", puis de la grille. */
-    private static final int GRID_LABEL_OFF = 4 * ROW_HEIGHT + 10;
-    private static final int GRID_TOP_OFF = 4 * ROW_HEIGHT + 28;
+    private static final int GRID_LABEL_OFF = SETTING_ROWS * ROW_HEIGHT + 10;
+    private static final int GRID_TOP_OFF = SETTING_ROWS * ROW_HEIGHT + 28;
 
     // Swatches de couleur (ARGB).
     private static final int C_WHITE = 0xFFFFFFFF;
@@ -90,6 +92,20 @@ public class CrosshairTab implements SettingsTab {
             v -> { prefs.crosshairRainbow = v; prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
+        // Dynamique.
+        widgets.add(new ToggleBig(
+            controlX + controlW - ToggleBig.DEFAULT_WIDTH, cursorY + 4,
+            prefs.crosshairDynamic,
+            v -> { prefs.crosshairDynamic = v; prefs.save(); }));
+        cursorY += ROW_HEIGHT;
+
+        // Hit-marker.
+        widgets.add(new ToggleBig(
+            controlX + controlW - ToggleBig.DEFAULT_WIDTH, cursorY + 4,
+            prefs.crosshairHitMarker,
+            v -> { prefs.crosshairHitMarker = v; prefs.save(); }));
+        cursorY += ROW_HEIGHT;
+
         // Grille de presets.
         int cols = Math.max(3, (width + TILE_GAP) / (TILE + TILE_GAP));
         int gridTop = y + GRID_TOP_OFF;
@@ -136,6 +152,8 @@ public class CrosshairTab implements SettingsTab {
             {"Échelle", null},
             {"Couleur", null},
             {"Arc-en-ciel", "Cycle de teinte — ignore la couleur"},
+            {"Dynamique", "S'écarte selon le cooldown d'attaque"},
+            {"Hit-marker", "Croix quand tu touches une cible"},
         };
         int cursorY = y;
         for (String[] row : rows) {

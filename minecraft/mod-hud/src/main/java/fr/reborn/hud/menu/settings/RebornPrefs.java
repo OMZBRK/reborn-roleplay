@@ -58,6 +58,8 @@ public final class RebornPrefs {
     public int crosshairScale = 100;         // % (50..200), 100 = 1.0
     public int crosshairColor = 0xFFFFFFFF;  // ARGB, blanc par défaut
     public boolean crosshairRainbow = false;
+    public boolean crosshairDynamic = false;   // réagit au cooldown d'attaque
+    public boolean crosshairHitMarker = true;  // croix au moment du hit
 
     private boolean loaded = false;
 
@@ -125,5 +127,7 @@ public final class RebornPrefs {
         this.crosshairScale = other.crosshairScale;
         this.crosshairColor = other.crosshairColor;
         this.crosshairRainbow = other.crosshairRainbow;
+        this.crosshairDynamic = other.crosshairDynamic;
+        this.crosshairHitMarker = other.crosshairHitMarker;
     }
 }
