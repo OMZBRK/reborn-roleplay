@@ -43,12 +43,13 @@ public final class HudConfig {
     private String activePreset = HudPresets.DEFAULT;
 
     /**
-     * Toggle du rendu chat Reborn. true = rendu léger des lignes (quasi-vanilla,
-     * déplaçable via l'éditeur HUD) + features RP (têtes de joueurs, typing,
-     * blocage). Le gros panneau Zenkai (tabs/accent/header) a été retiré.
-     * false = vanilla pur.
+     * Toggle du rendu chat Reborn. false (défaut) = chat VANILLA normal :
+     * position en bas, saisie attachée, scroll natif — ce que veut le RP.
+     * Les features RP (blocage) sont greffées de façon additive (mixins) sans
+     * casser ce layout. true = ancien rendu custom léger (positionnement
+     * expérimental, peut décoller la saisie) — déconseillé.
      */
-    private boolean enableCustomChat = true;
+    private boolean enableCustomChat = false;
 
     /** Settings du chat (timestamps, mention highlights, etc.). Init lazy. */
     private ChatSettings chatSettings = null;
