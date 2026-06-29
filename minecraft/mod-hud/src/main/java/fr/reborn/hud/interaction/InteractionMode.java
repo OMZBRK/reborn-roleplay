@@ -15,10 +15,11 @@ import java.util.List;
 
 /**
  * Menu d'interaction <b>live</b> (style GTA) : petit overlay HUD près de la
- * cible visée. Il N'EMPÊCHE PAS de jouer — déplacement ET vue restent libres.
- * On navigue à la <b>molette</b>, on choisit au <b>clic gauche</b> (sur l'item
- * sélectionné), et on ferme seulement par <b>Échap</b> ou en re-pressant la
- * touche bind (R). Pas d'écran, pas de curseur, pas de gel caméra.
+ * cible. Un <b>curseur</b> est affiché et déplacé par la souris ; la caméra
+ * NE bouge PAS (figée tant que le menu est ouvert) et le déplacement reste
+ * libre. On survole un item avec le curseur, on le choisit au <b>clic gauche</b>,
+ * et on ferme seulement par <b>Échap</b> ou en re-pressant la touche bind (R) —
+ * jamais en cliquant ailleurs.
  */
 public final class InteractionMode {
 
@@ -33,9 +34,10 @@ public final class InteractionMode {
     private String title = "";
     private List<InteractionItem> items = List.of();
 
-    private int level = 0;       // 0 = menu principal, 1 = sous-menu
-    private int selMain = 0;
-    private int selSub = 0;
+    private double cursorX, cursorY;
+    private int hovered = -1;
+    private int submenuOwner = -1;
+    private int subHovered = -1;
 
     private int panelX, panelY, panelW, panelH;
     private int[] subW = new int[0];
@@ -72,10 +74,11 @@ public final class InteractionMode {
             title = "Interaction";
             items = InteractionMenus.generic();
         }
-        level = 0;
-        selMain = 0;
-        selSub = 0;
         layout(mc);
+        // Curseur posé au niveau du crosshair (centre).
+        cursorX = mc.getWindow().getScaledWidth() / 2.0;
+        cursorY = mc.getWindow().getScaledHeight() / 2.0;
+        hovered = submenuOwner = subHovered = -1;
         active = true;
     }
 
@@ -90,16 +93,11 @@ public final class InteractionMode {
         panelW = Math.max(96, maxW + PAD_X * 2 + ARROW_W);
         panelH = HEADER_H + items.size() * ROW_H + 4;
 
-        // Près de la cible : la cible est sous le crosshair (centre écran), donc
-        // on pose le panneau juste à droite du centre, centré verticalement
-        // sur le crosshair.
+        // Près de la cible (sous le crosshair) : à droite du centre.
         int cx = mc.getWindow().getScaledWidth() / 2;
         int cy = mc.getWindow().getScaledHeight() / 2;
-        panelX = cx + 14;
-        panelY = cy - panelH / 2;
-        // Garde-fous bords d'écran.
-        panelX = Math.min(panelX, mc.getWindow().getScaledWidth() - panelW - 4);
-        panelY = Math.max(4, Math.min(panelY, mc.getWindow().getScaledHeight() - panelH - 4));
+        panelX = Math.min(cx + 14, mc.getWindow().getScaledWidth() - panelW - 4);
+        panelY = Math.max(4, Math.min(cy - panelH / 2, mc.getWindow().getScaledHeight() - panelH - 4));
 
         subW = new int[items.size()];
         for (int i = 0; i < items.size(); i++) {
@@ -111,33 +109,39 @@ public final class InteractionMode {
         }
     }
 
-    /** Molette : navigue dans le niveau courant (dir = +1 bas / -1 haut). */
-    public void scroll(int dir) {
+    /** Déplace le curseur d'un delta souris brut (px fenêtre → coords GUI). */
+    public void onMouseMove(double dxPx, double dyPx, double scaleFactor) {
         if (!active) return;
-        if (level == 1 && selMain < items.size() && items.get(selMain).hasChildren()) {
-            int n = items.get(selMain).children().size();
-            selSub = wrap(selSub + dir, n);
-        } else {
-            selMain = wrap(selMain + dir, items.size());
-            selSub = 0;
-        }
+        MinecraftClient mc = MinecraftClient.getInstance();
+        double sf = scaleFactor <= 0 ? 1 : scaleFactor;
+        cursorX = clamp(cursorX + dxPx / sf, 0, mc.getWindow().getScaledWidth());
+        cursorY = clamp(cursorY + dyPx / sf, 0, mc.getWindow().getScaledHeight());
+        updateHover();
     }
 
-    /** Clic gauche : valide l'item sélectionné (entre dans un sous-menu ou exécute). */
-    public void activateSelected() {
-        if (!active || items.isEmpty()) return;
-        if (level == 1 && selMain < items.size() && items.get(selMain).hasChildren()) {
-            List<InteractionItem> ch = items.get(selMain).children();
-            if (selSub < ch.size()) run(ch.get(selSub));
-            return;
+    private void updateHover() {
+        hovered = mainRowAt(cursorX, cursorY);
+        if (hovered >= 0 && items.get(hovered).hasChildren()) submenuOwner = hovered;
+        else if (hovered >= 0) submenuOwner = -1;
+        subHovered = submenuOwner >= 0 ? subRowAt(submenuOwner, cursorX, cursorY) : -1;
+    }
+
+    /** Clic gauche : valide l'item survolé (entre dans un sous-menu ou exécute).
+     *  Un clic ailleurs ne ferme PAS le menu. */
+    public void onClick() {
+        if (!active) return;
+        if (submenuOwner >= 0) {
+            int j = subRowAt(submenuOwner, cursorX, cursorY);
+            if (j >= 0) {
+                run(items.get(submenuOwner).children().get(j));
+                return;
+            }
         }
-        InteractionItem it = items.get(selMain);
-        if (it.hasChildren()) {
-            level = 1;
-            selSub = 0;
-        } else {
-            run(it);
+        int row = mainRowAt(cursorX, cursorY);
+        if (row >= 0 && !items.get(row).hasChildren()) {
+            run(items.get(row));
         }
+        // Sinon (parent à sous-menu, ou clic en dehors) : on ne ferme pas.
     }
 
     private void run(InteractionItem it) {
@@ -145,13 +149,33 @@ public final class InteractionMode {
         deactivate();
     }
 
-    private static int wrap(int i, int n) {
-        if (n <= 0) return 0;
-        return ((i % n) + n) % n;
+    private static double clamp(double v, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, v));
     }
 
     private int rowY(int i) {
         return panelY + HEADER_H + i * ROW_H;
+    }
+
+    private int mainRowAt(double mx, double my) {
+        if (mx < panelX || mx > panelX + panelW) return -1;
+        for (int i = 0; i < items.size(); i++) {
+            int y = rowY(i);
+            if (my >= y && my < y + ROW_H) return i;
+        }
+        return -1;
+    }
+
+    private int subRowAt(int owner, double mx, double my) {
+        if (owner < 0 || !items.get(owner).hasChildren()) return -1;
+        int sx = panelX + panelW + 3, sw = subW[owner], sy = rowY(owner) - 4;
+        if (mx < sx || mx > sx + sw) return -1;
+        var ch = items.get(owner).children();
+        for (int j = 0; j < ch.size(); j++) {
+            int y = sy + 3 + j * ROW_H;
+            if (my >= y && my < y + ROW_H) return j;
+        }
+        return -1;
     }
 
     public void render(DrawContext ctx) {
@@ -167,30 +191,43 @@ public final class InteractionMode {
         for (int i = 0; i < items.size(); i++) {
             InteractionItem it = items.get(i);
             int y = rowY(i);
-            boolean sel = (i == selMain);
-            if (sel) DrawHelpers.roundedRect(ctx, panelX + 2, y, panelW - 4, ROW_H, 3, Colors.ACCENT_SOFT);
+            boolean hot = (i == hovered) || (i == submenuOwner);
+            if (hot) DrawHelpers.roundedRect(ctx, panelX + 2, y, panelW - 4, ROW_H, 3, Colors.ACCENT_SOFT);
             ctx.drawText(tr, RebornFont.body(it.label()), panelX + PAD_X, y + 2,
-                sel ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
+                hot ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
             if (it.hasChildren()) {
                 ctx.drawText(tr, RebornFont.body("›"), panelX + panelW - ARROW_W, y + 2,
-                    sel ? Colors.ACCENT_HOVER : Colors.FOREGROUND_MUTED, false);
+                    hot ? Colors.ACCENT_HOVER : Colors.FOREGROUND_MUTED, false);
             }
         }
 
-        // Sous-menu (niveau 1).
-        if (level == 1 && selMain < items.size() && items.get(selMain).hasChildren()) {
-            List<InteractionItem> ch = items.get(selMain).children();
-            int sx = panelX + panelW + 3, sw = subW[selMain], sy = rowY(selMain) - 4;
+        if (submenuOwner >= 0 && items.get(submenuOwner).hasChildren()) {
+            var ch = items.get(submenuOwner).children();
+            int sx = panelX + panelW + 3, sw = subW[submenuOwner], sy = rowY(submenuOwner) - 4;
             int sh = ch.size() * ROW_H + 6;
             sy = Math.max(4, Math.min(sy, mc.getWindow().getScaledHeight() - sh - 4));
             DrawHelpers.roundedOutlinedRect(ctx, sx, sy, sw, sh, 5, Colors.BACKDROP_85, Colors.BORDER_STRONG);
             for (int j = 0; j < ch.size(); j++) {
                 int y = sy + 3 + j * ROW_H;
-                boolean sel = j == selSub;
-                if (sel) DrawHelpers.roundedRect(ctx, sx + 2, y, sw - 4, ROW_H, 3, Colors.ACCENT_SOFT);
+                boolean hot = j == subHovered;
+                if (hot) DrawHelpers.roundedRect(ctx, sx + 2, y, sw - 4, ROW_H, 3, Colors.ACCENT_SOFT);
                 ctx.drawText(tr, RebornFont.body(ch.get(j).label()), sx + PAD_X, y + 2,
-                    sel ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
+                    hot ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
             }
+        }
+
+        drawCursor(ctx, (int) cursorX, (int) cursorY);
+    }
+
+    /** Petit curseur flèche (blanc bordé noir). */
+    private void drawCursor(DrawContext ctx, int x, int y) {
+        for (int i = 0; i < 10; i++) {
+            int w = i <= 6 ? i + 1 : (i == 7 ? 6 : (i == 8 ? 4 : 3));
+            ctx.fill(x - 1, y + i, x + w + 1, y + i + 1, 0xFF000000);
+        }
+        for (int i = 0; i < 9; i++) {
+            int w = i <= 6 ? i : (i == 7 ? 5 : 2);
+            ctx.fill(x, y + i, x + Math.max(1, w), y + i + 1, 0xFFFFFFFF);
         }
     }
 }
