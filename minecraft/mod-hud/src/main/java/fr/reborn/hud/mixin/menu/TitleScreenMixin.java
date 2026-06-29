@@ -189,11 +189,13 @@ public abstract class TitleScreenMixin extends Screen {
         );
         this.addDrawableChild(playlist);
 
-        // 7. DEV ONLY — bouton "Solo (Dev)" à coté du X close pour pouvoir
-        //    tester l'ESC menu sans avoir besoin d'un compte MC vrai/serveur.
-        //    Détecté uniquement en runClient via FabricLoader. Invisible
-        //    sur le build de prod.
-        if (FabricLoader.getInstance().isDevelopmentEnvironment()) {
+        // 7. DEV ONLY — bouton "Solo (Dev)" à coté du X close pour tester en
+        //    monde solo (HUD, crosshair, ESC menu) sans serveur. Visible en
+        //    runClient (FabricLoader dev) OU si la sysprop -Dreborn.devMenu=true
+        //    est passée à la JVM (test du jar buildé hors launcher). Invisible
+        //    en prod (le launcher ne passe pas cette prop).
+        if (FabricLoader.getInstance().isDevelopmentEnvironment()
+                || Boolean.getBoolean("reborn.devMenu")) {
             IconButton soloDev = new IconButton(
                 this.width - quitSize - 18 - quitSize - 6, 22, quitSize,
                 IconPack::play, "Solo (Dev)", true,
