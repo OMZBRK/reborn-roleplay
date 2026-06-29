@@ -44,10 +44,13 @@ public final class HudConfig {
 
     /**
      * Toggle global du chat custom Zenkai-like. Si false, le chat reste
-     * vanilla (offset/scale appliqués comme avant CHANTIER B).
-     * Default true — le chantier B est livré actif.
+     * vanilla (offset/scale appliqués comme avant CHANTIER B) → déplaçable
+     * via l'éditeur HUD, sans le panneau custom.
+     * Default false — refonte chat RP : on repart d'un chat vanilla bougeable
+     * et on y greffe les features RP (têtes, badges, blocage…) au fur et à
+     * mesure plutôt que le gros panneau Zenkai.
      */
-    private boolean enableCustomChat = true;
+    private boolean enableCustomChat = false;
 
     /** Settings du chat (timestamps, mention highlights, etc.). Init lazy. */
     private ChatSettings chatSettings = null;
