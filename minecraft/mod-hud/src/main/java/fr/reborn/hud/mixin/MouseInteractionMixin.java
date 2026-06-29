@@ -5,6 +5,7 @@ import net.minecraft.client.Mouse;
 import net.minecraft.client.MinecraftClient;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,27 +20,36 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Mouse.class)
 public abstract class MouseInteractionMixin {
 
+    // Position interne du curseur de Mouse — on la garde synchro même quand on
+    // annule onCursorPos, sinon la caméra "saute" à la fermeture du menu (gros
+    // delta accumulé).
+    @Shadow private double x;
+    @Shadow private double y;
+
     @Unique private double reborn$lastX;
     @Unique private double reborn$lastY;
     @Unique private boolean reborn$has;
 
     @Inject(method = "onCursorPos", at = @At("HEAD"), cancellable = true)
-    private void reborn$onCursorPos(long window, double x, double y, CallbackInfo ci) {
+    private void reborn$onCursorPos(long window, double cx, double cy, CallbackInfo ci) {
         if (!InteractionMode.INSTANCE.isActive()) {
             reborn$has = false;
             return;
         }
         if (!reborn$has) {
-            reborn$lastX = x;
-            reborn$lastY = y;
+            reborn$lastX = cx;
+            reborn$lastY = cy;
             reborn$has = true;
         }
-        double dx = x - reborn$lastX;
-        double dy = y - reborn$lastY;
-        reborn$lastX = x;
-        reborn$lastY = y;
+        double dx = cx - reborn$lastX;
+        double dy = cy - reborn$lastY;
+        reborn$lastX = cx;
+        reborn$lastY = cy;
         double sf = MinecraftClient.getInstance().getWindow().getScaleFactor();
         InteractionMode.INSTANCE.onMouseMove(dx, dy, sf);
+        // Garde la position interne de Mouse à jour → pas de saut caméra ensuite.
+        this.x = cx;
+        this.y = cy;
         ci.cancel(); // caméra figée
     }
 

@@ -5,7 +5,6 @@ import fr.reborn.hud.chat.ChatBlockList;
 import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
-import fr.reborn.hud.chat.RebornChatRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -72,8 +71,6 @@ public abstract class ChatHudAddMessageMixin {
             int tick = MinecraftClient.getInstance().inGameHud.getTicks();
             MessageTimestamps.record(tick);
 
-            RebornChatRenderer.onMessageReceived(message.getString());
-
             ChatSettings settings = RebornHudClient.config().getChatSettings();
             if (!settings.highlightMentions) return;
 
@@ -83,7 +80,6 @@ public abstract class ChatHudAddMessageMixin {
             String pseudo = player.getGameProfile().getName();
 
             if (MentionDetector.isMentioned(message.getString(), pseudo)) {
-                RebornChatRenderer.triggerMentionFlash();
                 if (settings.soundOnMention && mc.getSoundManager() != null) {
                     mc.getSoundManager().play(
                         net.minecraft.client.sound.PositionedSoundInstance.master(

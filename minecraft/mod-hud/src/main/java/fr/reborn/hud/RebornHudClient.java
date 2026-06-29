@@ -46,6 +46,19 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
             (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
 
+        // Désactive le narrateur Minecraft (demande user) — une fois, quand les
+        // options sont prêtes.
+        final boolean[] narratorDone = {false};
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (narratorDone[0] || client.options == null) return;
+            narratorDone[0] = true;
+            if (client.options.getNarrator().getValue() != net.minecraft.client.option.NarratorMode.OFF) {
+                client.options.getNarrator().setValue(net.minecraft.client.option.NarratorMode.OFF);
+                client.options.write();
+                LOGGER.info("narrateur Minecraft désactivé");
+            }
+        });
+
         // Extrait les assets dynamic-player + schedule la creation du
         // browser MCEF pour le main menu background.
         DynamicPlayerBackground.init();

@@ -31,6 +31,8 @@ public final class ChatSettings {
     public boolean chatHeads = true;
     /** Effet machine à écrire sur le dernier message reçu. */
     public boolean chatTyping = true;
+    /** Couleur du surlignage quand on est mentionné (ARGB, alpha ignoré). */
+    public int highlightColor = 0xFFA0182B;
 
     public static ChatSettings defaults() {
         return new ChatSettings();
@@ -47,6 +49,7 @@ public final class ChatSettings {
         c.textSize           = this.textSize;
         c.chatHeads          = this.chatHeads;
         c.chatTyping         = this.chatTyping;
+        c.highlightColor     = this.highlightColor;
         return c;
     }
 }

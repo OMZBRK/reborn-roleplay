@@ -31,6 +31,12 @@ public final class ChatSettingsScreen extends Screen {
     private final List<Toggle> toggles = new ArrayList<>();
     /** Rects des sliders. */
     private final List<Slider> sliders = new ArrayList<>();
+    /** Rects des pastilles de couleur. */
+    private final List<Swatch> swatches = new ArrayList<>();
+
+    private static final int[] HL_COLORS = {
+        0xFFA0182B, 0xFFEF4444, 0xFFD9A95E, 0xFF4ADE80, 0xFF38BDF8, 0xFF8B5CF6
+    };
 
     public ChatSettingsScreen(Screen parent) {
         super(Text.literal("Paramètres Chat"));
@@ -48,9 +54,10 @@ public final class ChatSettingsScreen extends Screen {
         renderBackground(ctx, mouseX, mouseY, delta);
         toggles.clear();
         sliders.clear();
+        swatches.clear();
 
         TextRenderer tr = this.textRenderer;
-        int cardH = 290;
+        int cardH = 318;
         int cardX = (this.width - CARD_WIDTH) / 2;
         int cardY = (this.height - cardH) / 2;
 
@@ -78,6 +85,7 @@ public final class ChatSettingsScreen extends Screen {
             settings.highlightMentions, mouseX, mouseY, b -> settings.highlightMentions = b);
         y = renderToggle(ctx, cardX, y, "Son sur mention",
             settings.soundOnMention, mouseX, mouseY, b -> settings.soundOnMention = b);
+        y = renderColorRow(ctx, cardX, y, "Couleur du highlight", settings.highlightColor);
 
         // Separator
         y += 2;
@@ -153,6 +161,22 @@ public final class ChatSettingsScreen extends Screen {
         return y + 22;
     }
 
+    private int renderColorRow(DrawContext ctx, int cardX, int y, String label, int current) {
+        TextRenderer tr = this.textRenderer;
+        ctx.drawText(tr, Text.literal(label), cardX + 14, y + 3, RebornColors.FOREGROUND, false);
+        int size = 12, gap = 4;
+        int total = HL_COLORS.length * size + (HL_COLORS.length - 1) * gap;
+        int sx = cardX + CARD_WIDTH - 14 - total;
+        for (int color : HL_COLORS) {
+            boolean selected = (color & 0xFFFFFF) == (current & 0xFFFFFF);
+            if (selected) RoundedRect.fill(ctx, sx - 1, y - 1, size + 2, size + 2, 3, RebornColors.FOREGROUND);
+            RoundedRect.fill(ctx, sx, y, size, size, 2, color);
+            swatches.add(new Swatch(sx, y, size, color));
+            sx += size + gap;
+        }
+        return y + 20;
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
@@ -172,8 +196,15 @@ public final class ChatSettingsScreen extends Screen {
                 return true;
             }
         }
+        for (Swatch sw : swatches) {
+            if (inside((int) mouseX, (int) mouseY, sw.x, sw.y, sw.size, sw.size)) {
+                settings.highlightColor = sw.color;
+                RebornHudClient.config().save();
+                return true;
+            }
+        }
         // Close button hit-test
-        int cardH = 290;
+        int cardH = 318;
         int cardX = (this.width - CARD_WIDTH) / 2;
         int cardY = (this.height - cardH) / 2;
         int closeBtnY = cardY + cardH - 28;
@@ -206,4 +237,5 @@ public final class ChatSettingsScreen extends Screen {
                           java.util.function.Consumer<Boolean> onSet) {}
     private record Slider(int x, int y, int w, int h, int min, int max,
                           java.util.function.IntConsumer onSet) {}
+    private record Swatch(int x, int y, int size, int color) {}
 }

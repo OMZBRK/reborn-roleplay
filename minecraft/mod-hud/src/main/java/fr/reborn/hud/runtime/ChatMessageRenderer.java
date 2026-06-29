@@ -114,7 +114,7 @@ public final class ChatMessageRenderer {
                 && MentionDetector.isMentioned(plain, playerName);
             if (isMention) {
                 int bgAlpha = Math.max(40, (alpha * 60) / 255);
-                int bgColor = (bgAlpha << 24) | (RebornColors.ACCENT & 0x00FFFFFF);
+                int bgColor = (bgAlpha << 24) | (settings.highlightColor & 0x00FFFFFF);
                 ctx.fill(textX - 2, lineY - 1, leftX + areaW + 2, lineY + LINE_H - 1, bgColor);
             }
 
