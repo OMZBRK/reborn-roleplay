@@ -28,6 +28,7 @@ public final class EmojiPicker {
     private static final int COLS = 6;
     private static final int CELL_W = 28;
     private static final int CELL_H = 15;
+    private static final int HDR = 12;
 
     private EmojiPicker() {}
 
@@ -39,7 +40,7 @@ public final class EmojiPicker {
 
     private static int rows() { return (EMOTES.length + COLS - 1) / COLS; }
     private static int pickerW() { return COLS * CELL_W + 8; }
-    private static int pickerH() { return rows() * CELL_H + 8; }
+    private static int pickerH() { return rows() * CELL_H + 8 + HDR; }
     private static int pickerX(int screenW) { return Math.max(4, buttonX(screenW) + BTN - pickerW()); }
     private static int pickerY(int screenH) { return buttonY(screenH) - pickerH() - 3; }
 
@@ -48,13 +49,11 @@ public final class EmojiPicker {
         var tr = mc.textRenderer;
 
         int bx = buttonX(screenW), by = buttonY(screenH);
-        // Bouton.
+        // Bouton rouge (façon Paladium), smiley blanc.
         boolean btnHover = inside(mouseX, mouseY, bx, by, BTN, BTN);
         DrawHelpers.roundedOutlinedRect(ctx, bx, by, BTN, BTN, 3,
-            open ? Colors.ACCENT : (btnHover ? Colors.SURFACE_ELEVATED : Colors.SURFACE),
-            open ? Colors.ACCENT_HOVER : Colors.BORDER_STRONG);
-        // Petit smiley dessiné.
-        int eye = open ? 0xFFFFFFFF : Colors.GOLD;
+            (btnHover || open) ? Colors.ACCENT_HOVER : Colors.ACCENT, Colors.ACCENT_PRESSED);
+        int eye = 0xFFFFFFFF;
         ctx.fill(bx + 4, by + 4, bx + 5, by + 5, eye);
         ctx.fill(bx + 8, by + 4, bx + 9, by + 5, eye);
         ctx.fill(bx + 4, by + 8, bx + 5, by + 9, eye);
@@ -66,10 +65,14 @@ public final class EmojiPicker {
         int px = pickerX(screenW), py = pickerY(screenH);
         DrawHelpers.roundedOutlinedRect(ctx, px, py, pickerW(), pickerH(), 5,
             Colors.BACKDROP_85, Colors.BORDER_STRONG);
+        // Header "EMOJI".
+        ctx.drawText(tr, fr.reborn.hud.menu.RebornFont.bold("EMOJI"),
+            px + 6, py + 3, Colors.FOREGROUND_SUBTLE, false);
+        ctx.fill(px + 4, py + HDR - 1, px + pickerW() - 4, py + HDR, Colors.BORDER);
         for (int i = 0; i < EMOTES.length; i++) {
             int col = i % COLS, row = i / COLS;
             int cx = px + 4 + col * CELL_W;
-            int cy = py + 4 + row * CELL_H;
+            int cy = py + 4 + HDR + row * CELL_H;
             boolean hot = inside(mouseX, mouseY, cx, cy, CELL_W, CELL_H);
             if (hot) DrawHelpers.roundedRect(ctx, cx, cy, CELL_W, CELL_H, 3, Colors.ACCENT_SOFT);
             int w = tr.getWidth(EMOTES[i]);
@@ -91,7 +94,7 @@ public final class EmojiPicker {
         for (int i = 0; i < EMOTES.length; i++) {
             int col = i % COLS, row = i / COLS;
             int cx = px + 4 + col * CELL_W;
-            int cy = py + 4 + row * CELL_H;
+            int cy = py + 4 + HDR + row * CELL_H;
             if (inside((int) mx, (int) my, cx, cy, CELL_W, CELL_H)) {
                 insert.accept(EMOTES[i] + " ");
                 return true; // reste ouvert pour en ajouter plusieurs

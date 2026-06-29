@@ -33,6 +33,8 @@ public final class ChatSettings {
     public boolean chatTyping = true;
     /** Couleur du surlignage quand on est mentionné (ARGB, alpha ignoré). */
     public int highlightColor = 0xFFA0182B;
+    /** Affiche le badge de rang (préfixe d'équipe scoreboard, ex. LuckPerms). */
+    public boolean chatBadges = true;
 
     public static ChatSettings defaults() {
         return new ChatSettings();
@@ -50,6 +52,7 @@ public final class ChatSettings {
         c.chatHeads          = this.chatHeads;
         c.chatTyping         = this.chatTyping;
         c.highlightColor     = this.highlightColor;
+        c.chatBadges         = this.chatBadges;
         return c;
     }
 }

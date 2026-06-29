@@ -109,6 +109,20 @@ public final class ChatMessageRenderer {
                 drewHead = true;
             }
 
+            // Badge de rang : préfixe d'équipe scoreboard (rempli par le serveur
+            // depuis LuckPerms). Rien à afficher si le serveur ne le fournit pas.
+            if (settings.chatBadges && sender != null && mc != null && mc.world != null) {
+                var sb = mc.world.getScoreboard();
+                var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
+                if (team != null) {
+                    var prefix = team.getPrefix();
+                    if (prefix != null && !prefix.getString().isEmpty()) {
+                        ctx.drawText(tr, prefix, textX, lineY, (alpha << 24) | 0x00FFFFFF, true);
+                        textX += tr.getWidth(prefix) + 2;
+                    }
+                }
+            }
+
             boolean isMention = settings.highlightMentions && playerName != null
                 && !playerName.isBlank()
                 && MentionDetector.isMentioned(plain, playerName);

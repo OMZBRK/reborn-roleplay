@@ -108,6 +108,18 @@ public final class InteractionMenus {
         );
     }
 
+    /** Menu « sur soi » (clic dans le vide). Mappe de vraies commandes ShinobiCore. */
+    public static List<InteractionItem> forSelf() {
+        return List.of(
+            InteractionItem.action("Ma fiche personnage", () -> sendCommand("character")),
+            InteractionItem.action("Mon état", () -> sendCommand("etat")),
+            InteractionItem.action("Méditer", () -> sendCommand("meditation")),
+            InteractionItem.action("Mes emotes", () -> info(
+                "§7Ouvre la roue d'emotes avec la touche EmoteCraft (Options → Contrôles).")),
+            InteractionItem.action("Action RP (/me)", () -> sendCommand("me "))
+        );
+    }
+
     public static List<InteractionItem> generic() {
         return List.of(
             InteractionItem.action("Rien à proximité", () -> {})

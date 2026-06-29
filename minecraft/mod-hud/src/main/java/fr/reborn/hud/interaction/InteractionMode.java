@@ -89,9 +89,10 @@ public final class InteractionMode {
         MinecraftClient mc = MinecraftClient.getInstance();
 
         if (!menuOpen) {
-            // Mode curseur → raycast la cible sous le curseur et ouvre son menu.
+            // Mode curseur → raycast la cible ; rien sous le curseur = menu « sur soi ».
             HitResult hit = CursorRaycast.raycast(mc, cursorX, cursorY);
             if (hit != null) openMenuFor(mc, hit);
+            else openSelfMenu(mc);
             return;
         }
 
@@ -111,6 +112,15 @@ public final class InteractionMode {
         }
         // Clic en dehors du menu → referme le menu, retour au curseur.
         menuOpen = false;
+    }
+
+    private void openSelfMenu(MinecraftClient mc) {
+        title = "Moi";
+        items = InteractionMenus.forSelf();
+        layoutAtCursor(mc);
+        hovered = submenuOwner = subHovered = -1;
+        menuOpen = true;
+        updateHover();
     }
 
     private void openMenuFor(MinecraftClient mc, HitResult hit) {
@@ -246,7 +256,20 @@ public final class InteractionMode {
         drawCursor(ctx, (int) cursorX, (int) cursorY);
     }
 
+    /** Curseur custom 16×16 (pointe en haut-gauche) si présent dans les assets,
+     *  sinon flèche procédurale. */
+    private static final net.minecraft.util.Identifier CURSOR_TEX =
+        net.minecraft.util.Identifier.of("reborn", "textures/gui/cursor.png");
+    private static final int CURSOR_SIZE = 16;
+
     private void drawCursor(DrawContext ctx, int x, int y) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.getResourceManager().getResource(CURSOR_TEX).isPresent()) {
+            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+            ctx.drawTexture(CURSOR_TEX, x, y, 0f, 0f,
+                CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE);
+            return;
+        }
         for (int i = 0; i < 10; i++) {
             int w = i <= 6 ? i + 1 : (i == 7 ? 6 : (i == 8 ? 4 : 3));
             ctx.fill(x - 1, y + i, x + w + 1, y + i + 1, 0xFF000000);
