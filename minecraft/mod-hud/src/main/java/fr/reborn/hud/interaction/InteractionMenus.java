@@ -1,11 +1,11 @@
 package fr.reborn.hud.interaction;
 
+import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.registry.Registries;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
@@ -31,29 +31,18 @@ public final class InteractionMenus {
         }
     }
 
-    /** Ouvre le menu pour ce que le joueur vise actuellement (crosshairTarget). */
-    public static void openForCrosshair(MinecraftClient mc) {
-        if (mc == null || mc.currentScreen != null || mc.player == null) return;
-        HitResult hit = mc.crosshairTarget;
-        String title;
-        List<InteractionItem> items;
-        if (hit instanceof EntityHitResult ehr) {
-            Entity e = ehr.getEntity();
-            if (e instanceof PlayerEntity pe) {
-                title = pe.getGameProfile().getName();
-                items = forPlayer(title);
-            } else {
-                title = e.getType().getName().getString();
-                items = forEntity(e);
-            }
-        } else if (hit instanceof BlockHitResult bhr) {
-            title = "Bloc";
-            items = forBlock(bhr.getBlockPos());
-        } else {
-            title = "Interaction";
-            items = generic();
+    /** Affiche un message d'info côté client (chat local, pas envoyé au serveur). */
+    public static void info(String text) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.inGameHud != null) {
+            mc.inGameHud.getChatHud().addMessage(Text.literal("§6[Reborn] §f" + text));
         }
-        mc.setScreen(new InteractionMenuScreen(title, items));
+    }
+
+    /** Copie du texte dans le presse-papiers. */
+    public static void copy(String text) {
+        MinecraftClient.getInstance().keyboard.setClipboard(text);
+        info("Copié : §e" + text);
     }
 
     public static List<InteractionItem> forPlayer(String name) {
@@ -77,19 +66,32 @@ public final class InteractionMenus {
     public static List<InteractionItem> forEntity(Entity e) {
         String type = e.getType().getName().getString();
         return List.of(
-            InteractionItem.action("Inspecter (" + type + ")", () -> {}),
-            InteractionItem.action("Outils de debug", () -> {})
+            InteractionItem.action("Inspecter (" + type + ")", () -> {
+                String hp = (e instanceof LivingEntity le)
+                    ? " §7| PV " + (int) le.getHealth() + "/" + (int) le.getMaxHealth() : "";
+                info("§e" + type + " §7| pos " + e.getBlockPos().toShortString() + hp);
+            }),
+            InteractionItem.action("Copier la position",
+                () -> copy(e.getBlockX() + " " + e.getBlockY() + " " + e.getBlockZ()))
         );
     }
 
     public static List<InteractionItem> forBlock(BlockPos pos) {
         return List.of(
-            InteractionItem.action("Ouvrir / Interagir", () -> {}),
-            InteractionItem.action("Inspecter le bloc", () -> {}),
+            InteractionItem.action("Inspecter le bloc", () -> {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.world == null) return;
+                BlockState bs = mc.world.getBlockState(pos);
+                info("§e" + Registries.BLOCK.getId(bs.getBlock())
+                    + " §7@ " + pos.toShortString());
+            }),
+            InteractionItem.action("Copier les coordonnées",
+                () -> copy(pos.getX() + " " + pos.getY() + " " + pos.getZ())),
             InteractionItem.submenu("Outils de debug", List.of(
-                InteractionItem.action("Copier les coordonnées",
-                    () -> MinecraftClient.getInstance().keyboard.setClipboard(
-                        pos.getX() + " " + pos.getY() + " " + pos.getZ()))
+                InteractionItem.action("Afficher l'état complet", () -> {
+                    MinecraftClient mc = MinecraftClient.getInstance();
+                    if (mc.world != null) info("§7" + mc.world.getBlockState(pos).toString());
+                })
             ))
         );
     }

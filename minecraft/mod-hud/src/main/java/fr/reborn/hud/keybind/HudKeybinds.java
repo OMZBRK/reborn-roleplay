@@ -1,7 +1,7 @@
 package fr.reborn.hud.keybind;
 
 import fr.reborn.hud.crosshair.CrosshairScreen;
-import fr.reborn.hud.interaction.InteractionMenus;
+import fr.reborn.hud.interaction.InteractionMode;
 import fr.reborn.hud.ui.HudEditScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -57,7 +57,7 @@ public final class HudKeybinds {
                 }
             }
             while (openInteraction.wasPressed()) {
-                InteractionMenus.openForCrosshair(MinecraftClient.getInstance());
+                InteractionMode.INSTANCE.toggle();
             }
         });
     }

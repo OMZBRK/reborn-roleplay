@@ -42,6 +42,10 @@ public final class RebornHudClient implements ClientModInitializer {
         HudKeybinds.registerClient();
         fr.reborn.hud.chat.ChatBlockCommands.register();
 
+        // Overlay du menu d'interaction live (rendu HUD, pas un écran).
+        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
+            (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
+
         // Extrait les assets dynamic-player + schedule la creation du
         // browser MCEF pour le main menu background.
         DynamicPlayerBackground.init();
