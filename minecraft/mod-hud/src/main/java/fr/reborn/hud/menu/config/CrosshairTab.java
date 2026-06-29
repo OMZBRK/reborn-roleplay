@@ -32,7 +32,7 @@ public class CrosshairTab implements SettingsTab {
     private static final int TILE = 40;
     private static final int TILE_GAP = 8;
     /** Nombre de lignes de réglages avant la grille de modèles. */
-    private static final int SETTING_ROWS = 10;
+    private static final int SETTING_ROWS = 11;
     /** Offset (depuis y) du label "MODÈLES", puis de la grille. */
     private static final int GRID_LABEL_OFF = SETTING_ROWS * ROW_HEIGHT + 10;
     private static final int GRID_TOP_OFF = SETTING_ROWS * ROW_HEIGHT + 28;
@@ -137,6 +137,19 @@ public class CrosshairTab implements SettingsTab {
             v -> { prefs.crosshairThickness = v; prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
+        // Curseur du menu d'interaction (R + clic) — plusieurs au choix.
+        fr.reborn.hud.config.HudConfig cfg = fr.reborn.hud.RebornHudClient.config();
+        widgets.add(new SegmentedControl(
+            controlX, cursorY + 4, controlW, 24,
+            new SegmentedControl.Option[] {
+                new SegmentedControl.Option("0", "Défaut"),
+                new SegmentedControl.Option("1", "Curseur 1"),
+                new SegmentedControl.Option("2", "Curseur 2"),
+            },
+            String.valueOf(cfg.getInteractionCursor()),
+            v -> { cfg.setInteractionCursor(Integer.parseInt(v)); cfg.save(); }));
+        cursorY += ROW_HEIGHT;
+
         // Grille de presets.
         int cols = Math.max(3, (width + TILE_GAP) / (TILE + TILE_GAP));
         int gridTop = y + GRID_TOP_OFF;
@@ -189,6 +202,7 @@ public class CrosshairTab implements SettingsTab {
             {"Espacement", "Gap au centre (croix / cercle)"},
             {"Longueur", "Branches / rayon (procédural)"},
             {"Épaisseur", "Trait (procédural)"},
+            {"Curseur du menu d'interaction", "Style du curseur (R + clic) — pour en proposer plusieurs"},
         };
         int cursorY = y;
         for (String[] row : rows) {

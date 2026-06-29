@@ -128,7 +128,7 @@ public final class ChatMessageRenderer {
             if (isMention) {
                 int bgAlpha = Math.max(40, (alpha * 60) / 255);
                 int bgColor = (bgAlpha << 24) | (settings.highlightColor & 0x00FFFFFF);
-                ctx.fill(textX - 2, lineY - 1, boxW - 2, lineY + LINE_H - 1, bgColor);
+                ctx.fill(textX - 2, lineY - 1, ChatLayout.LEFT + boxW - 2, lineY + LINE_H - 1, bgColor);
             }
 
             if (settings.showTimestamps) {

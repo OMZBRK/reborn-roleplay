@@ -41,8 +41,14 @@ public final class EmojiPicker {
     private static int rows() { return (EMOTES.length + COLS - 1) / COLS; }
     private static int pickerW() { return COLS * CELL_W + 8; }
     private static int pickerH() { return rows() * CELL_H + 8 + HDR; }
-    private static int pickerX(int screenW) { return Math.max(4, buttonX(screenW) + BTN - pickerW()); }
-    private static int pickerY(int screenH) { return buttonY(screenH) - pickerH() - 3; }
+    // S'ouvre à DROITE du chat (aligné au bouton), pas par-dessus les messages.
+    private static int pickerX(int screenW) {
+        return Math.min(buttonX(screenW), screenW - pickerW() - 2);
+    }
+    // Bas aligné avec le bouton, grandit vers le haut.
+    private static int pickerY(int screenH) {
+        return (buttonY(screenH) + BTN) - pickerH();
+    }
 
     public static void render(DrawContext ctx, int mouseX, int mouseY, int screenW, int screenH) {
         MinecraftClient mc = MinecraftClient.getInstance();

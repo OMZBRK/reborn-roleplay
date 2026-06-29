@@ -54,6 +54,19 @@ public final class HudConfig {
     /** Settings du chat (timestamps, mention highlights, etc.). Init lazy. */
     private ChatSettings chatSettings = null;
 
+    /**
+     * Curseur du menu d'interaction : 0 = flèche procédurale par défaut,
+     * N≥1 = texture {@code reborn:textures/gui/cursorN.png}. Permet d'en
+     * proposer plusieurs au goût des joueurs.
+     */
+    private int interactionCursor = 1;
+
+    public int getInteractionCursor() { return interactionCursor; }
+
+    public void setInteractionCursor(int n) {
+        this.interactionCursor = Math.max(0, n);
+    }
+
     public ChatSettings getChatSettings() {
         if (chatSettings == null) chatSettings = ChatSettings.defaults();
         return chatSettings;

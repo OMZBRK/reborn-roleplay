@@ -256,19 +256,24 @@ public final class InteractionMode {
         drawCursor(ctx, (int) cursorX, (int) cursorY);
     }
 
-    /** Curseur custom 16×16 (pointe en haut-gauche) si présent dans les assets,
-     *  sinon flèche procédurale. */
-    private static final net.minecraft.util.Identifier CURSOR_TEX =
-        net.minecraft.util.Identifier.of("reborn", "textures/gui/cursor.png");
+    /** Curseur custom 16×16 (pointe en haut-gauche). Le numéro est choisi via
+     *  le réglage {@code interactionCursor} → reborn:textures/gui/cursorN.png.
+     *  0 ou texture absente = flèche procédurale. */
     private static final int CURSOR_SIZE = 16;
 
     private void drawCursor(DrawContext ctx, int x, int y) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getResourceManager().getResource(CURSOR_TEX).isPresent()) {
-            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-            ctx.drawTexture(CURSOR_TEX, x, y, 0f, 0f,
-                CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE);
-            return;
+        int sel = 1;
+        try { sel = fr.reborn.hud.RebornHudClient.config().getInteractionCursor(); }
+        catch (RuntimeException ignored) {}
+        if (sel >= 1) {
+            var id = net.minecraft.util.Identifier.of("reborn", "textures/gui/cursor" + sel + ".png");
+            if (mc.getResourceManager().getResource(id).isPresent()) {
+                com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+                ctx.drawTexture(id, x, y, 0f, 0f,
+                    CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE);
+                return;
+            }
         }
         for (int i = 0; i < 10; i++) {
             int w = i <= 6 ? i + 1 : (i == 7 ? 6 : (i == 8 ? 4 : 3));
