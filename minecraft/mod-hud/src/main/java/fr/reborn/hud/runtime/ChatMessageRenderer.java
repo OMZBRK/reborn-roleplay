@@ -4,6 +4,8 @@ import fr.reborn.hud.chat.ChatBlockList;
 import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
+import fr.reborn.hud.menu.Colors;
+import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.ui.style.RebornColors;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -53,6 +55,18 @@ public final class ChatMessageRenderer {
         int bottomY = screenH - 40;
         int leftX = 4;
         int areaW = Math.min(Math.max(160, screenW - 8), 320);
+
+        // Panneau sombre arrondi (façon Paladium) derrière les messages quand
+        // le chat est ouvert. Dimensionné au nombre de lignes affichables.
+        if (focused) {
+            int avail = Math.max(1, Math.min(maxLines, visibleMessages.size() - scrolledLines));
+            int panelTop = bottomY - avail * LINE_H - 3;
+            int panelH = (bottomY + 1) - panelTop;
+            DrawHelpers.roundedRect(ctx, leftX - 4, panelTop, areaW + 8, panelH, 5, 0xC00A0608);
+            // Liseré accent fin en haut.
+            ctx.fill(leftX - 4, panelTop, leftX - 4 + areaW + 8, panelTop + 1,
+                fr.reborn.hud.menu.Colors.withAlpha(fr.reborn.hud.menu.Colors.ACCENT, 0.5f));
+        }
 
         int rendered = 0;
         for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
