@@ -40,6 +40,7 @@ public final class RebornHudClient implements ClientModInitializer {
 
         IconTextures.registerAll();
         HudKeybinds.registerClient();
+        fr.reborn.hud.chat.ChatBlockCommands.register();
 
         // Extrait les assets dynamic-player + schedule la creation du
         // browser MCEF pour le main menu background.

@@ -27,6 +27,10 @@ public final class ChatSettings {
     public int opacity = 92;
     /** Taille du texte du chat (echelle, 10-16). */
     public int textSize = 12;
+    /** Affiche la tête du joueur à côté de ses messages (façon chat_heads). */
+    public boolean chatHeads = true;
+    /** Effet machine à écrire sur le dernier message reçu. */
+    public boolean chatTyping = true;
 
     public static ChatSettings defaults() {
         return new ChatSettings();
@@ -41,6 +45,8 @@ public final class ChatSettings {
         c.soundOnMention     = this.soundOnMention;
         c.opacity            = this.opacity;
         c.textSize           = this.textSize;
+        c.chatHeads          = this.chatHeads;
+        c.chatTyping         = this.chatTyping;
         return c;
     }
 }

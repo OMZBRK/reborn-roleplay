@@ -2,7 +2,6 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.RebornHudClient;
 import fr.reborn.hud.chat.ChatSettings;
-import fr.reborn.hud.chat.RebornChatRenderer;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.element.HudElementState;
@@ -73,20 +72,17 @@ public abstract class ChatHudMixin {
 
         // Custom path : cancel vanilla, on rend nous-meme.
         boolean chatOpen = mc.currentScreen instanceof ChatScreen;
-        int opacity = 92;
         ChatSettings settings = ChatSettings.defaults();
         String playerName = null;
         try {
             settings = RebornHudClient.config().getChatSettings();
-            opacity  = settings.opacity;
             ClientPlayerEntity player = mc.player;
             if (player != null) playerName = player.getGameProfile().getName();
         } catch (RuntimeException ignored) {}
 
-        if (chatOpen) {
-            // Panel custom (rounded + accent bar + tabs + input)
-            RebornChatRenderer.render(ctx, mc.textRenderer, screenW, screenH, opacity);
-        }
+        // Le gros panneau Zenkai (RebornChatRenderer) a été retiré dans la
+        // refonte chat RP : on garde un rendu léger des lignes (déplaçable)
+        // sur lequel on greffe les features (têtes, typing, blocage).
         // Messages custom (toujours, fermé ou ouvert) — pas de fond noir vanilla
         ChatMessageRenderer.renderMessages(ctx, mc.textRenderer,
             visibleMessages, scrolledLines,
