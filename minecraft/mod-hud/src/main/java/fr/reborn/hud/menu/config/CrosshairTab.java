@@ -32,7 +32,7 @@ public class CrosshairTab implements SettingsTab {
     private static final int TILE = 40;
     private static final int TILE_GAP = 8;
     /** Nombre de lignes de réglages avant la grille de modèles. */
-    private static final int SETTING_ROWS = 6;
+    private static final int SETTING_ROWS = 10;
     /** Offset (depuis y) du label "MODÈLES", puis de la grille. */
     private static final int GRID_LABEL_OFF = SETTING_ROWS * ROW_HEIGHT + 10;
     private static final int GRID_TOP_OFF = SETTING_ROWS * ROW_HEIGHT + 28;
@@ -58,6 +58,19 @@ public class CrosshairTab implements SettingsTab {
             controlX + controlW - ToggleBig.DEFAULT_WIDTH, cursorY + 4,
             prefs.crosshairEnabled,
             v -> { prefs.crosshairEnabled = v; prefs.save(); }));
+        cursorY += ROW_HEIGHT;
+
+        // Style.
+        widgets.add(new SegmentedControl(
+            controlX, cursorY + 4, controlW, 24,
+            new SegmentedControl.Option[] {
+                new SegmentedControl.Option("preset", "Modèles"),
+                new SegmentedControl.Option("cross", "Croix"),
+                new SegmentedControl.Option("dot", "Point"),
+                new SegmentedControl.Option("circle", "Cercle"),
+            },
+            prefs.crosshairStyle,
+            v -> { prefs.crosshairStyle = v; prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
         // Échelle.
@@ -106,6 +119,24 @@ public class CrosshairTab implements SettingsTab {
             v -> { prefs.crosshairHitMarker = v; prefs.save(); }));
         cursorY += ROW_HEIGHT;
 
+        // Espacement (procédural).
+        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
+            prefs.crosshairGap, 0, 20, " px",
+            v -> { prefs.crosshairGap = v; prefs.save(); }));
+        cursorY += ROW_HEIGHT;
+
+        // Longueur (procédural).
+        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
+            prefs.crosshairLength, 0, 20, " px",
+            v -> { prefs.crosshairLength = v; prefs.save(); }));
+        cursorY += ROW_HEIGHT;
+
+        // Épaisseur (procédural).
+        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
+            prefs.crosshairThickness, 1, 8, " px",
+            v -> { prefs.crosshairThickness = v; prefs.save(); }));
+        cursorY += ROW_HEIGHT;
+
         // Grille de presets.
         int cols = Math.max(3, (width + TILE_GAP) / (TILE + TILE_GAP));
         int gridTop = y + GRID_TOP_OFF;
@@ -149,11 +180,15 @@ public class CrosshairTab implements SettingsTab {
         // Labels des 4 lignes.
         String[][] rows = {
             {"Activer le viseur Reborn", "Remplace le viseur vanilla en vue 1ère personne"},
+            {"Style", "Modèles PNG ou formes procédurales"},
             {"Échelle", null},
             {"Couleur", null},
             {"Arc-en-ciel", "Cycle de teinte — ignore la couleur"},
             {"Dynamique", "S'écarte selon le cooldown d'attaque"},
             {"Hit-marker", "Croix quand tu touches une cible"},
+            {"Espacement", "Gap au centre (croix / cercle)"},
+            {"Longueur", "Branches / rayon (procédural)"},
+            {"Épaisseur", "Trait (procédural)"},
         };
         int cursorY = y;
         for (String[] row : rows) {

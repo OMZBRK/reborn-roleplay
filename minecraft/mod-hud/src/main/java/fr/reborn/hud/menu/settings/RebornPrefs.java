@@ -60,6 +60,11 @@ public final class RebornPrefs {
     public boolean crosshairRainbow = false;
     public boolean crosshairDynamic = false;   // réagit au cooldown d'attaque
     public boolean crosshairHitMarker = true;  // croix au moment du hit
+    // Style : "preset" (PNG) | "cross" | "dot" | "circle" (procéduraux).
+    public String crosshairStyle = "preset";
+    public int crosshairGap = 4;        // px depuis le centre (procédural)
+    public int crosshairLength = 6;     // longueur des branches / rayon (procédural)
+    public int crosshairThickness = 2;  // épaisseur (procédural)
 
     private boolean loaded = false;
 
@@ -129,5 +134,9 @@ public final class RebornPrefs {
         this.crosshairRainbow = other.crosshairRainbow;
         this.crosshairDynamic = other.crosshairDynamic;
         this.crosshairHitMarker = other.crosshairHitMarker;
+        this.crosshairStyle = other.crosshairStyle != null ? other.crosshairStyle : this.crosshairStyle;
+        this.crosshairGap = other.crosshairGap;
+        this.crosshairLength = other.crosshairLength;
+        this.crosshairThickness = other.crosshairThickness;
     }
 }

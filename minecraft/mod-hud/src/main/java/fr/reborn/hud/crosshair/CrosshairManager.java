@@ -63,26 +63,60 @@ public final class CrosshairManager {
         }
 
         int color = p.crosshairRainbow ? rainbow() : p.crosshairColor;
-        float a = ((color >>> 24) & 0xFF) / 255f;
-        if (a <= 0f) a = 1f; // alpha non fixé → opaque
-        float r = ((color >>> 16) & 0xFF) / 255f;
-        float g = ((color >>> 8) & 0xFF) / 255f;
-        float b = (color & 0xFF) / 255f;
-
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(cx, cy, 0);
-        ctx.getMatrices().scale(scale, scale, 1f);
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(r, g, b, a);
-        ctx.drawTexture(preset(p.crosshairPreset), -TEX / 2, -TEX / 2,
-            0f, 0f, TEX, TEX, TEX, TEX);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        ctx.getMatrices().pop();
+        drawBody(ctx, cx, cy, scale, color);
 
         if (p.crosshairHitMarker) {
             drawHitMarker(ctx, cx, cy);
         }
         return true;
+    }
+
+    /**
+     * Dessine le corps du viseur (preset PNG ou forme procédurale) centré en
+     * (cx,cy), mis à l'échelle, teinté en {@code color}.
+     */
+    private static void drawBody(DrawContext ctx, int cx, int cy, float scale, int color) {
+        RebornPrefs p = RebornPrefs.INSTANCE;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(cx, cy, 0);
+        ctx.getMatrices().scale(scale, scale, 1f);
+        RenderSystem.enableBlend();
+        if ("preset".equals(p.crosshairStyle)) {
+            float a = ((color >>> 24) & 0xFF) / 255f;
+            if (a <= 0f) a = 1f;
+            float r = ((color >>> 16) & 0xFF) / 255f;
+            float g = ((color >>> 8) & 0xFF) / 255f;
+            float b = (color & 0xFF) / 255f;
+            RenderSystem.setShaderColor(r, g, b, a);
+            ctx.drawTexture(preset(p.crosshairPreset), -TEX / 2, -TEX / 2,
+                0f, 0f, TEX, TEX, TEX, TEX);
+            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        } else {
+            drawProcedural(ctx, p.crosshairStyle,
+                p.crosshairGap, p.crosshairLength, p.crosshairThickness, color);
+        }
+        ctx.getMatrices().pop();
+    }
+
+    /** Formes procédurales (croix / point / cercle) dessinées autour de (0,0). */
+    private static void drawProcedural(DrawContext ctx, String style,
+                                       int gap, int len, int thick, int color) {
+        if (((color >>> 24) & 0xFF) == 0) color |= 0xFF000000; // force opaque si alpha non fixé
+        int t = Math.max(1, thick);
+        int half = Math.max(1, t / 2);
+        switch (style) {
+            case "dot" -> {
+                int s = Math.max(1, t);
+                ctx.fill(-s, -s, s, s, color);
+            }
+            case "circle" -> DrawHelpers.ring(ctx, 0, 0, Math.max(2, len + gap), t, color);
+            default -> { // "cross"
+                ctx.fill(-half, -(gap + len), t - half, -gap, color); // haut
+                ctx.fill(-half, gap, t - half, gap + len, color);      // bas
+                ctx.fill(-(gap + len), -half, -gap, t - half, color);  // gauche
+                ctx.fill(gap, -half, gap + len, t - half, color);      // droite
+            }
+        }
     }
 
     /**
@@ -94,21 +128,7 @@ public final class CrosshairManager {
         RebornPrefs p = RebornPrefs.INSTANCE;
         float scale = Math.max(0.5f, Math.min(2.0f, p.crosshairScale / 100f)) * scaleMul;
         int color = p.crosshairRainbow ? rainbow() : p.crosshairColor;
-        float a = ((color >>> 24) & 0xFF) / 255f;
-        if (a <= 0f) a = 1f;
-        float r = ((color >>> 16) & 0xFF) / 255f;
-        float g = ((color >>> 8) & 0xFF) / 255f;
-        float b = (color & 0xFF) / 255f;
-
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(cx, cy, 0);
-        ctx.getMatrices().scale(scale, scale, 1f);
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(r, g, b, a);
-        ctx.drawTexture(preset(p.crosshairPreset), -TEX / 2, -TEX / 2,
-            0f, 0f, TEX, TEX, TEX, TEX);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        ctx.getMatrices().pop();
+        drawBody(ctx, cx, cy, scale, color);
     }
 
     /** Hit-marker (X blanc) qui s'estompe sur {@link #HIT_MS} après un coup. */
