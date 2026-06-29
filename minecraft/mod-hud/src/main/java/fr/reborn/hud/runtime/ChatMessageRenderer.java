@@ -1,6 +1,7 @@
 package fr.reborn.hud.runtime;
 
 import fr.reborn.hud.chat.ChatBlockList;
+import fr.reborn.hud.chat.ChatLayout;
 import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
@@ -52,25 +53,23 @@ public final class ChatMessageRenderer {
         // vanilla (scrolledLines) est respecté.
         int maxLines = focused ? 18 : 10;
         int bottomY = screenH - 40;
-        int leftX = 4;
-        int areaW = Math.min(Math.max(160, screenW - 8), 320);
+        int leftX = ChatLayout.TEXT_X;
+        int areaW = ChatLayout.areaW(screenW);
+        int boxW = ChatLayout.boxW(screenW);
 
-        // Panneau sombre arrondi (façon Paladium) derrière les messages quand
-        // le chat est ouvert. Dimensionné au nombre de lignes affichables.
+        // Panneau sombre carré (façon Paladium) derrière les messages quand le
+        // chat est ouvert. MÊME largeur que la barre de saisie (boxW) → aligné,
+        // et assez large pour tête + ligne pleine (pas de débordement).
         if (focused) {
             int avail = Math.max(1, Math.min(maxLines, visibleMessages.size() - scrolledLines));
             int panelTop = bottomY - avail * LINE_H - 4;
-            int px = leftX - 4;
-            int pw = areaW + 8;
+            int px = ChatLayout.LEFT;
             int pbottom = bottomY + 1;
-            // Panneau carré sombre.
-            ctx.fill(px, panelTop, px + pw, pbottom, 0xC00A0608);
-            // Liseré accent épais en haut (3px, dégradé vers le bas).
-            ctx.fill(px, panelTop, px + pw, panelTop + 1, Colors.ACCENT);
-            ctx.fill(px, panelTop + 1, px + pw, panelTop + 2, Colors.withAlpha(Colors.ACCENT, 0.55f));
-            ctx.fill(px, panelTop + 2, px + pw, panelTop + 3, Colors.withAlpha(Colors.ACCENT, 0.22f));
-            // Liseré bas discret.
-            ctx.fill(px, pbottom - 1, px + pw, pbottom, Colors.withAlpha(Colors.ACCENT, 0.3f));
+            ctx.fill(px, panelTop, px + boxW, pbottom, 0xC00A0608);
+            ctx.fill(px, panelTop, px + boxW, panelTop + 1, Colors.ACCENT);
+            ctx.fill(px, panelTop + 1, px + boxW, panelTop + 2, Colors.withAlpha(Colors.ACCENT, 0.55f));
+            ctx.fill(px, panelTop + 2, px + boxW, panelTop + 3, Colors.withAlpha(Colors.ACCENT, 0.22f));
+            ctx.fill(px, pbottom - 1, px + boxW, pbottom, Colors.withAlpha(Colors.ACCENT, 0.3f));
         }
 
         int rendered = 0;
@@ -129,7 +128,7 @@ public final class ChatMessageRenderer {
             if (isMention) {
                 int bgAlpha = Math.max(40, (alpha * 60) / 255);
                 int bgColor = (bgAlpha << 24) | (settings.highlightColor & 0x00FFFFFF);
-                ctx.fill(textX - 2, lineY - 1, leftX + areaW + 2, lineY + LINE_H - 1, bgColor);
+                ctx.fill(textX - 2, lineY - 1, boxW - 2, lineY + LINE_H - 1, bgColor);
             }
 
             if (settings.showTimestamps) {

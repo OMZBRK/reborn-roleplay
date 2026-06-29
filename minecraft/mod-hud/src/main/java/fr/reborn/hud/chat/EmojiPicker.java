@@ -34,8 +34,8 @@ public final class EmojiPicker {
 
     public static void close() { open = false; }
 
-    // ─── Géométrie ───
-    private static int buttonX(int screenW) { return screenW - 6 - BTN; }
+    // ─── Géométrie ─── bouton au bout de la barre de saisie (largeur du chat).
+    private static int buttonX(int screenW) { return ChatLayout.emojiBtnX(screenW); }
     private static int buttonY(int screenH) { return screenH - BTN - 2; }
 
     private static int rows() { return (EMOTES.length + COLS - 1) / COLS; }
