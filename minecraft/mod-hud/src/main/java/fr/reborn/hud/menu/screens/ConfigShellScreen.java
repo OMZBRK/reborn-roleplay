@@ -5,6 +5,7 @@ import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.IconPack;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.config.ConfigNavButton;
+import fr.reborn.hud.menu.config.CrosshairTab;
 import fr.reborn.hud.menu.config.PlaceholderTab;
 import fr.reborn.hud.menu.settings.AccountTab;
 import fr.reborn.hud.menu.settings.AudioTab;
@@ -101,9 +102,7 @@ public class ConfigShellScreen extends Screen {
                     MinecraftClient mc = MinecraftClient.getInstance();
                     if (mc != null) mc.setScreen(new ChatSettingsScreen(this));
                 })),
-            new CategoryDef("crosshair", "Viseur", new PlaceholderTab(
-                "Viseur",
-                "Forme, couleur, dynamique et presets — bientôt.")),
+            new CategoryDef("crosshair", "Viseur", new CrosshairTab()),
             new CategoryDef("discord", "Discord", new DiscordTab()),
             new CategoryDef("account", "Compte", new AccountTab()),
         };

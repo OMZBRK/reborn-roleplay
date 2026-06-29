@@ -52,6 +52,13 @@ public final class RebornPrefs {
     public boolean discordShowCharacter = true;
     public boolean discordShowMap = false;
 
+    // ────────────────── Viseur (crosshair) ──────
+    public boolean crosshairEnabled = false; // false = crosshair vanilla
+    public int crosshairPreset = 0;          // index 0..(N-1)
+    public int crosshairScale = 100;         // % (50..200), 100 = 1.0
+    public int crosshairColor = 0xFFFFFFFF;  // ARGB, blanc par défaut
+    public boolean crosshairRainbow = false;
+
     private boolean loaded = false;
 
     private RebornPrefs() {}
@@ -113,5 +120,10 @@ public final class RebornPrefs {
         this.discordEnabled = other.discordEnabled;
         this.discordShowCharacter = other.discordShowCharacter;
         this.discordShowMap = other.discordShowMap;
+        this.crosshairEnabled = other.crosshairEnabled;
+        this.crosshairPreset = other.crosshairPreset;
+        this.crosshairScale = other.crosshairScale;
+        this.crosshairColor = other.crosshairColor;
+        this.crosshairRainbow = other.crosshairRainbow;
     }
 }
