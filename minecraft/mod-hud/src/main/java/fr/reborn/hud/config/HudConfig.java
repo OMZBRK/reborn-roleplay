@@ -162,6 +162,13 @@ public final class HudConfig {
                 parsed = new HudConfig();
             }
         }
+        // Placement par défaut du chat : offset (0, +23) à l'échelle 1.0 → les
+        // messages se posent pile au-dessus de la barre de saisie. Modifiable
+        // dans l'éditeur HUD (putIfAbsent → ne touche pas un placement existant).
+        if (parsed.states == null) parsed.states = new HashMap<>();
+        parsed.states.putIfAbsent(HudElement.CHAT.id(),
+            new HudElementState(0, 23, 1.0f, true, null));
+
         // Initialise les presets par défaut s'ils manquent (premier boot ou migration)
         if (parsed.presets == null || parsed.presets.isEmpty()) {
             parsed.presets = HudPresets.defaults();

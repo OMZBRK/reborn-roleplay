@@ -47,6 +47,8 @@ public final class HudPresets {
         for (HudElement e : HudElement.values()) {
             m.put(e.id(), HudElementState.DEFAULT);
         }
+        // Chat pile au-dessus de la barre de saisie (offset +23 en Y).
+        m.put(HudElement.CHAT.id(), new HudElementState(0, 23, 1.0f, true, null));
         return m;
     }
 
