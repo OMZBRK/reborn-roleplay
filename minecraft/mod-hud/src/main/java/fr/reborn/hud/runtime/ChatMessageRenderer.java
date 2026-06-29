@@ -4,8 +4,6 @@ import fr.reborn.hud.chat.ChatBlockList;
 import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
-import fr.reborn.hud.element.HudElement;
-import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.ui.style.RebornColors;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -48,11 +46,13 @@ public final class ChatMessageRenderer {
         if (visibleMessages == null || visibleMessages.isEmpty()) return;
         MinecraftClient mc = MinecraftClient.getInstance();
 
-        HudElementBounds chat = HudElementBounds.vanillaFor(HudElement.CHAT, screenW, screenH);
-
-        int maxLines = focused ? Math.max(1, chat.height() / LINE_H) : 1;
-        int bottomY = chat.bottom() - 2;
-        int leftX = chat.x();
+        // Géométrie vanilla : messages ancrés en bas, juste au-dessus de la
+        // barre de saisie (à screenH-40 comme vanilla), à gauche. Le scroll
+        // vanilla (scrolledLines) est respecté.
+        int maxLines = focused ? 18 : 10;
+        int bottomY = screenH - 40;
+        int leftX = 4;
+        int areaW = Math.min(Math.max(160, screenW - 8), 320);
 
         int rendered = 0;
         for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
@@ -77,7 +77,7 @@ public final class ChatMessageRenderer {
             }
 
             int lineY = bottomY - (rendered + 1) * LINE_H;
-            if (lineY < chat.y()) break;
+            if (lineY < 4) break;
 
             int textX = leftX;
 
@@ -96,7 +96,7 @@ public final class ChatMessageRenderer {
             if (isMention) {
                 int bgAlpha = Math.max(40, (alpha * 60) / 255);
                 int bgColor = (bgAlpha << 24) | (RebornColors.ACCENT & 0x00FFFFFF);
-                ctx.fill(textX - 2, lineY - 1, leftX + chat.width() + 2, lineY + LINE_H - 1, bgColor);
+                ctx.fill(textX - 2, lineY - 1, leftX + areaW + 2, lineY + LINE_H - 1, bgColor);
             }
 
             if (settings.showTimestamps) {

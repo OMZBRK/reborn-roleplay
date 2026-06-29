@@ -1,39 +1,78 @@
 package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.RebornHudClient;
+import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.element.HudElement;
+import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.element.HudElementState;
+import fr.reborn.hud.runtime.ChatMessageRenderer;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.ChatHud;
+import net.minecraft.client.gui.hud.ChatHudLine;
+import net.minecraft.client.gui.screen.ChatScreen;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.List;
+
 /**
  * Mixin sur {@link ChatHud#render}.
  *
- * <p>Le rendu chat custom (ancien panneau Zenkai + renderer léger avec offset)
- * a été ABANDONNÉ : il décollait les messages de la barre de saisie et cassait
- * le scroll. Le chat est désormais rendu <b>100% vanilla</b> (position en bas,
- * saisie attachée, scroll natif). On conserve uniquement le respect du toggle
- * de visibilité de l'élément CHAT (masquage via l'éditeur HUD).
- *
- * <p>Les features RP (blocage) sont greffées ailleurs de façon additive
- * (cf {@code ChatHudAddMessageMixin}). Têtes de joueurs + typing seront
- * ré-ajoutés en additif (mixin façon chat_heads) sans toucher au layout.
+ * <p>On remplace le rendu vanilla des messages par {@link ChatMessageRenderer}
+ * (features RP : têtes de joueurs, highlight de mention, timestamp) — mais à la
+ * <b>géométrie vanilla</b> (messages ancrés en bas, juste au-dessus de la barre
+ * de saisie). La barre de saisie elle-même reste à sa position vanilla normale
+ * (cf {@code ChatScreenMixin} qui ne la déplace plus). Le scroll vanilla
+ * ({@code scrolledLines}) est respecté.
  */
 @Mixin(ChatHud.class)
 public abstract class ChatHudMixin {
 
+    @Shadow private List<ChatHudLine.Visible> visibleMessages;
+    @Shadow private int scrolledLines;
+
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void reborn$chatVisibility(DrawContext ctx, int currentTick, int mouseX, int mouseY,
-                                       boolean focused, CallbackInfo ci) {
+    private void reborn$renderCustomChat(DrawContext ctx, int currentTick, int mouseX, int mouseY,
+                                         boolean focused, CallbackInfo ci) {
         HudElementState state = readStateSafely();
         if (!state.visible()) {
-            ci.cancel(); // chat masqué via l'éditeur HUD
+            ci.cancel();
+            return;
         }
-        // Sinon : on laisse le rendu vanilla natif (aucun offset appliqué).
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int screenW = mc.getWindow().getScaledWidth();
+        int screenH = mc.getWindow().getScaledHeight();
+        HudElementBounds anchor = HudElementBounds.vanillaFor(HudElement.CHAT, screenW, screenH);
+
+        // Offset/scale (déplacement via l'éditeur HUD). Par défaut (0,0,1) =
+        // position vanilla pure.
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(state.x(), state.y(), 0);
+        if (state.scale() != 1.0f) {
+            ctx.getMatrices().translate(anchor.x(), anchor.y(), 0);
+            ctx.getMatrices().scale(state.scale(), state.scale(), 1.0f);
+            ctx.getMatrices().translate(-anchor.x(), -anchor.y(), 0);
+        }
+
+        boolean chatOpen = mc.currentScreen instanceof ChatScreen;
+        ChatSettings settings = ChatSettings.defaults();
+        String playerName = null;
+        try {
+            settings = RebornHudClient.config().getChatSettings();
+            if (mc.player != null) playerName = mc.player.getGameProfile().getName();
+        } catch (RuntimeException ignored) {}
+
+        ChatMessageRenderer.renderMessages(ctx, mc.textRenderer,
+            visibleMessages, scrolledLines, currentTick, chatOpen,
+            screenW, screenH, settings, playerName);
+
+        ctx.getMatrices().pop();
+        ci.cancel(); // on a tout rendu nous-mêmes
     }
 
     private static HudElementState readStateSafely() {
