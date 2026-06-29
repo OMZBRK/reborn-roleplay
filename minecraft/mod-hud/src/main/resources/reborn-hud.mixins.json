@@ -12,6 +12,7 @@
     "InGameHudInvoker",
     "CrosshairHitMixin",
     "MouseInteractionMixin",
+    "KeyboardInteractionMixin",
     "menu.TitleScreenMixin",
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",
