@@ -5,7 +5,6 @@ import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
 import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.ui.style.RebornColors;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -60,12 +59,18 @@ public final class ChatMessageRenderer {
         // le chat est ouvert. Dimensionné au nombre de lignes affichables.
         if (focused) {
             int avail = Math.max(1, Math.min(maxLines, visibleMessages.size() - scrolledLines));
-            int panelTop = bottomY - avail * LINE_H - 3;
-            int panelH = (bottomY + 1) - panelTop;
-            DrawHelpers.roundedRect(ctx, leftX - 4, panelTop, areaW + 8, panelH, 5, 0xC00A0608);
-            // Liseré accent fin en haut.
-            ctx.fill(leftX - 4, panelTop, leftX - 4 + areaW + 8, panelTop + 1,
-                fr.reborn.hud.menu.Colors.withAlpha(fr.reborn.hud.menu.Colors.ACCENT, 0.5f));
+            int panelTop = bottomY - avail * LINE_H - 4;
+            int px = leftX - 4;
+            int pw = areaW + 8;
+            int pbottom = bottomY + 1;
+            // Panneau carré sombre.
+            ctx.fill(px, panelTop, px + pw, pbottom, 0xC00A0608);
+            // Liseré accent épais en haut (3px, dégradé vers le bas).
+            ctx.fill(px, panelTop, px + pw, panelTop + 1, Colors.ACCENT);
+            ctx.fill(px, panelTop + 1, px + pw, panelTop + 2, Colors.withAlpha(Colors.ACCENT, 0.55f));
+            ctx.fill(px, panelTop + 2, px + pw, panelTop + 3, Colors.withAlpha(Colors.ACCENT, 0.22f));
+            // Liseré bas discret.
+            ctx.fill(px, pbottom - 1, px + pw, pbottom, Colors.withAlpha(Colors.ACCENT, 0.3f));
         }
 
         int rendered = 0;

@@ -21,7 +21,10 @@ import net.minecraft.world.RaycastContext;
  */
 public final class CursorRaycast {
 
-    private static final double REACH = 6.0;
+    // Longue portée : on peut viser/ouvrir le menu sur une cible éloignée
+    // (style GTA). C'est le SERVEUR qui refusera ensuite les actions RP hors
+    // de portée — les actions non-RP (DM…) restent possibles.
+    private static final double REACH = 64.0;
 
     private CursorRaycast() {}
 
@@ -32,7 +35,9 @@ public final class CursorRaycast {
         Camera camera = mc.gameRenderer.getCamera();
         float camYaw = camera.getYaw();
         float camPitch = camera.getPitch();
-        Vec3d eye = mc.player.getCameraPosVec(1.0f);
+        // Origine = position de la CAMÉRA (pas l'œil joueur) → fonctionne aussi
+        // en 3e personne (on vise depuis le point de vue réel).
+        Vec3d eye = camera.getPos();
 
         double fovDeg = mc.options.getFov().getValue();
         int w = mc.getWindow().getFramebufferWidth();
@@ -61,8 +66,8 @@ public final class CursorRaycast {
         double blockDistSq = block.getType() == HitResult.Type.MISS
             ? REACH * REACH : block.getPos().squaredDistanceTo(eye);
 
-        // Entités (plus proches que le bloc).
-        Box box = mc.player.getBoundingBox().stretch(dir.multiply(REACH)).expand(1.0);
+        // Entités (plus proches que le bloc) — box couvrant tout le segment.
+        Box box = new Box(eye, end).expand(1.0);
         EntityHitResult entity = ProjectileUtil.raycast(mc.player, eye, end, box,
             e -> e != mc.player && !e.isSpectator() && e.isAlive(), blockDistSq);
         if (entity != null) return entity;
