@@ -85,6 +85,32 @@ public final class CrosshairManager {
         return true;
     }
 
+    /**
+     * Dessine le viseur courant (preset + couleur/rainbow, échelle ×scaleMul)
+     * à un point donné, indépendamment de l'état activé / vue. Pour l'aperçu
+     * live dans l'éditeur {@code CrosshairScreen}.
+     */
+    public static void drawPreview(DrawContext ctx, int cx, int cy, float scaleMul) {
+        RebornPrefs p = RebornPrefs.INSTANCE;
+        float scale = Math.max(0.5f, Math.min(2.0f, p.crosshairScale / 100f)) * scaleMul;
+        int color = p.crosshairRainbow ? rainbow() : p.crosshairColor;
+        float a = ((color >>> 24) & 0xFF) / 255f;
+        if (a <= 0f) a = 1f;
+        float r = ((color >>> 16) & 0xFF) / 255f;
+        float g = ((color >>> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(cx, cy, 0);
+        ctx.getMatrices().scale(scale, scale, 1f);
+        RenderSystem.enableBlend();
+        RenderSystem.setShaderColor(r, g, b, a);
+        ctx.drawTexture(preset(p.crosshairPreset), -TEX / 2, -TEX / 2,
+            0f, 0f, TEX, TEX, TEX, TEX);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ctx.getMatrices().pop();
+    }
+
     /** Hit-marker (X blanc) qui s'estompe sur {@link #HIT_MS} après un coup. */
     private static void drawHitMarker(DrawContext ctx, int cx, int cy) {
         long age = System.currentTimeMillis() - lastHitMs;

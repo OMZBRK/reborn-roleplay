@@ -1,5 +1,6 @@
 package fr.reborn.hud.keybind;
 
+import fr.reborn.hud.crosshair.CrosshairScreen;
 import fr.reborn.hud.ui.HudEditScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -25,6 +26,13 @@ public final class HudKeybinds {
             "key.categories.reborn-hud"
         ));
 
+        KeyBinding openCrosshair = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.open_crosshair",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_J,
+            "key.categories.reborn-hud"
+        ));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
@@ -32,6 +40,12 @@ public final class HudKeybinds {
                 MinecraftClient mc = MinecraftClient.getInstance();
                 if (mc.currentScreen == null) {
                     mc.setScreen(new HudEditScreen(null));
+                }
+            }
+            while (openCrosshair.wasPressed()) {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.currentScreen == null) {
+                    mc.setScreen(new CrosshairScreen(null));
                 }
             }
         });
