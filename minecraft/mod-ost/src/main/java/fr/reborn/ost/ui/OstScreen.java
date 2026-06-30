@@ -172,7 +172,7 @@ public class OstScreen extends Screen {
             roundRect(ctx, tabX, hy - 2, w, 18, sel ? ACCENT : (hov ? ROW_HOVER : SECTION));
             ctx.drawText(tr, Text.literal(cat.displayName()), tabX + 5, hy + 3,
                 sel ? 0xFFFFFFFF : TEXT_MUTED, false);
-            tabX += w + 13;
+            tabX += w + 8;
         }
 
         boolean closeHov = in(mouseX, mouseY, px + pw - 22, hy - 2, 16, 16);
@@ -342,7 +342,7 @@ public class OstScreen extends Screen {
                 if (searchField != null) searchField.setText("");
                 return true;
             }
-            tabX += w + 13;
+            tabX += w + 8;
         }
 
         // Contrôles now-playing (icônes 16x16) — pressedCtrl pour l'animation.
