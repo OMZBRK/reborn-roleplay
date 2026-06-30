@@ -15,6 +15,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
@@ -73,6 +74,20 @@ public abstract class ChatHudMixin {
 
         ctx.getMatrices().pop();
         ci.cancel(); // on a tout rendu nous-mêmes
+    }
+
+    /**
+     * Le chat custom est dessiné décalé par l'offset HUD (ex. +23 en Y). La
+     * détection de clic sur un lien ({@code getTextStyleAt}) utilise la géométrie
+     * vanilla → on retranche l'offset pour que le clic suive le rendu réel.
+     */
+    @ModifyVariable(method = "getTextStyleAt", at = @At("HEAD"), ordinal = 1, argsOnly = true)
+    private double reborn$adjustClickY(double y) {
+        try {
+            return y - readStateSafely().y();
+        } catch (RuntimeException e) {
+            return y;
+        }
     }
 
     private static HudElementState readStateSafely() {

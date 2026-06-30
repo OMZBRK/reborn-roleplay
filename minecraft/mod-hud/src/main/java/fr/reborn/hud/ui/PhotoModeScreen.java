@@ -9,22 +9,31 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
 /**
- * Écran du Mode Photo : la scène 3D reste visible (pas de fond assombri), un
- * <b>panneau</b> à droite avec un bouton <b>Capturer</b> et un bouton Quitter.
- * On regarde en <b>glissant</b> (clic gauche maintenu hors du panneau), on se
- * déplace en ZQSD (géré par {@link PhotoMode}). Curseur libre (écran) → le
- * bouton est cliquable.
+ * Écran du Mode Photo (façon Zenkai) :
+ * <ul>
+ *   <li><b>Idle</b> : panneau d'options à droite — vitesse caméra, réinitialiser
+ *       position, bouton Capturer, Quitter.</li>
+ *   <li><b>En mouvement</b> (ZQSD ou glisser) : le panneau se réduit à un petit
+ *       indicateur « ● Photo Mode » pour dégager la vue.</li>
+ * </ul>
+ * Scène 3D visible (pas de fond assombri). Regarder = glisser hors du panneau.
  */
 public class PhotoModeScreen extends Screen {
 
-    private static final int BG = 0xCC0C0709;
+    private static final int BG = 0xE60C0709;
     private static final int BORDER = 0xFF6E1B27;
     private static final int ACCENT = 0xFFA0182B;
     private static final int ACCENT_HOV = 0xFFC2364A;
+    private static final int GREEN = 0xFF3FA85B;
+    private static final int GREEN_HOV = 0xFF4ECE6F;
     private static final int GOLD = 0xFFD9A95E;
     private static final int TEXT = 0xFFE8DCC8;
+    private static final int MUTED = 0xFF9A8B78;
+    private static final int SUB = 0xFF170C10;
 
-    private int pX, pY, pW, pH;
+    private static final int PW = 172, PH = 150;
+    private int pX, pY;
+    private boolean dragging = false;
 
     public PhotoModeScreen() {
         super(Text.literal("Photo Mode"));
@@ -33,40 +42,67 @@ public class PhotoModeScreen extends Screen {
     @Override
     protected void init() {
         PhotoMode.INSTANCE.begin(MinecraftClient.getInstance());
-        pW = 156;
-        pH = 116;
-        pX = this.width - pW - 12;
-        pY = (this.height - pH) / 2;
+        pX = this.width - PW - 12;
+        pY = (this.height - PH) / 2;
     }
 
-    private int capX() { return pX + 12; }
-    private int capY() { return pY + 30; }
-    private int capW() { return pW - 24; }
-    private int quitY() { return capY() + 30; }
+    // Rects (sync render/clic).
+    private int spdMinusX() { return pX + PW - 58; }
+    private int spdPlusX()  { return pX + PW - 22; }
+    private int spdY()      { return pY + 28; }
+    private int capY()      { return pY + 50; }
+    private int resetY()    { return pY + 78; }
+    private int quitY()     { return pY + 100; }
+    private int btnX()      { return pX + 12; }
+    private int btnW()      { return PW - 24; }
+
+    private boolean moving() {
+        return dragging || PhotoMode.INSTANCE.anyMoveKeyDown(MinecraftClient.getInstance());
+    }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // Pas de renderBackground : on veut voir la scène.
         TextRenderer tr = this.textRenderer;
 
-        ctx.fill(pX, pY, pX + pW, pY + pH, BG);
-        ctx.fill(pX, pY, pX + pW, pY + 1, BORDER);
-        ctx.fill(pX, pY + pH - 1, pX + pW, pY + pH, BORDER);
-        ctx.fill(pX, pY, pX + 1, pY + pH, BORDER);
-        ctx.fill(pX + pW - 1, pY, pX + pW, pY + pH, BORDER);
+        if (moving()) {
+            // Mini-indicateur en bas.
+            String s = "● Photo Mode";
+            int w = tr.getWidth(s) + 16;
+            int x = (this.width - w) / 2, y = this.height - 26;
+            ctx.fill(x, y, x + w, y + 16, BG);
+            ctx.fill(x, y, x + w, y + 1, ACCENT);
+            ctx.drawText(tr, Text.literal(s), x + 8, y + 4, GOLD, false);
+            return;
+        }
 
-        ctx.drawText(tr, Text.literal("PHOTO MODE").styled(s -> s.withBold(true)), pX + 12, pY + 10, GOLD, false);
+        // Panneau complet.
+        ctx.fill(pX, pY, pX + PW, pY + PH, BG);
+        border(ctx, pX, pY, PW, PH);
+        ctx.drawText(tr, Text.literal("● PHOTO MODE").styled(s -> s.withBold(true)), pX + 12, pY + 10, GOLD, false);
 
-        boolean capHov = in(mouseX, mouseY, capX(), capY(), capW(), 22);
-        ctx.fill(capX(), capY(), capX() + capW(), capY() + 22, capHov ? ACCENT_HOV : ACCENT);
-        center(ctx, tr, "Capturer", capX(), capY() + 7, capW(), 0xFFFFFFFF);
+        // Vitesse caméra.
+        ctx.drawText(tr, Text.literal("Vitesse"), pX + 12, spdY() + 3, TEXT, false);
+        button(ctx, tr, "-", spdMinusX(), spdY(), 16, 14, in(mouseX, mouseY, spdMinusX(), spdY(), 16, 14), SUB);
+        String spd = String.format("%.2f", PhotoMode.INSTANCE.getCameraSpeed());
+        ctx.drawText(tr, Text.literal(spd), spdMinusX() + 19, spdY() + 3, GOLD, false);
+        button(ctx, tr, "+", spdPlusX(), spdY(), 16, 14, in(mouseX, mouseY, spdPlusX(), spdY(), 16, 14), SUB);
 
-        boolean qHov = in(mouseX, mouseY, capX(), quitY(), capW(), 16);
-        ctx.fill(capX(), quitY(), capX() + capW(), quitY() + 16, qHov ? 0x40FFFFFF : 0x22FFFFFF);
-        center(ctx, tr, "Quitter [" + quitKey() + "]", capX(), quitY() + 4, capW(), TEXT);
+        // Capturer (vert, façon Zenkai).
+        boolean capHov = in(mouseX, mouseY, btnX(), capY(), btnW(), 22);
+        ctx.fill(btnX(), capY(), btnX() + btnW(), capY() + 22, capHov ? GREEN_HOV : GREEN);
+        center(ctx, tr, "Capturer", btnX(), capY() + 7, btnW(), 0xFF0A1A0E);
 
-        ctx.drawText(tr, Text.literal("Glisser : regarder"), pX + 12, quitY() + 24, 0xFF9A8B78, false);
-        ctx.drawText(tr, Text.literal("ZQSD/Espace : bouger"), pX + 12, quitY() + 34, 0xFF9A8B78, false);
+        // Réinitialiser position.
+        button(ctx, tr, "Réinitialiser position", btnX(), resetY(), btnW(), 16,
+            in(mouseX, mouseY, btnX(), resetY(), btnW(), 16), SUB);
+
+        // Quitter [touche].
+        boolean qHov = in(mouseX, mouseY, btnX(), quitY(), btnW(), 16);
+        ctx.fill(btnX(), quitY(), btnX() + btnW(), quitY() + 16, qHov ? ACCENT_HOV : ACCENT);
+        center(ctx, tr, "Quitter [" + quitKey() + "]", btnX(), quitY() + 4, btnW(), 0xFFFFFFFF);
+
+        ctx.drawText(tr, Text.literal("Glisser : regarder"), pX + 12, quitY() + 22, MUTED, false);
+        ctx.drawText(tr, Text.literal("ZQSD/Espace : bouger"), pX + 12, quitY() + 32, MUTED, false);
     }
 
     private String quitKey() {
@@ -76,27 +112,31 @@ public class PhotoModeScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (button == 0) {
-            if (in((int) mx, (int) my, capX(), capY(), capW(), 22)) {
-                PhotoMode.INSTANCE.requestCapture();
-                return true;
-            }
-            if (in((int) mx, (int) my, capX(), quitY(), capW(), 16)) {
-                close();
-                return true;
-            }
+        if (button == 0 && !moving()) {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (in((int) mx, (int) my, spdMinusX(), spdY(), 16, 14)) { PhotoMode.INSTANCE.addCameraSpeed(-0.05f); return true; }
+            if (in((int) mx, (int) my, spdPlusX(), spdY(), 16, 14)) { PhotoMode.INSTANCE.addCameraSpeed(0.05f); return true; }
+            if (in((int) mx, (int) my, btnX(), capY(), btnW(), 22)) { PhotoMode.INSTANCE.requestCapture(); return true; }
+            if (in((int) mx, (int) my, btnX(), resetY(), btnW(), 16)) { PhotoMode.INSTANCE.resetPosition(mc); return true; }
+            if (in((int) mx, (int) my, btnX(), quitY(), btnW(), 16)) { close(); return true; }
         }
         return super.mouseClicked(mx, my, button);
     }
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        // Glisser hors du panneau → regarder.
-        if (button == 0 && !in((int) mx, (int) my, pX, pY, pW, pH)) {
+        if (button == 0 && !in((int) mx, (int) my, pX, pY, PW, PH)) {
+            dragging = true;
             PhotoMode.INSTANCE.rotate(dx, dy);
             return true;
         }
         return super.mouseDragged(mx, my, button, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(double mx, double my, int button) {
+        dragging = false;
+        return super.mouseReleased(mx, my, button);
     }
 
     @Override
@@ -116,6 +156,19 @@ public class PhotoModeScreen extends Screen {
     @Override
     public boolean shouldPause() {
         return false;
+    }
+
+    private static void border(DrawContext ctx, int x, int y, int w, int h) {
+        ctx.fill(x, y, x + w, y + 1, BORDER);
+        ctx.fill(x, y + h - 1, x + w, y + h, BORDER);
+        ctx.fill(x, y, x + 1, y + h, BORDER);
+        ctx.fill(x + w - 1, y, x + w, y + h, BORDER);
+    }
+
+    private static void button(DrawContext ctx, TextRenderer tr, String label, int x, int y, int w, int h,
+                               boolean hover, int bg) {
+        ctx.fill(x, y, x + w, y + h, hover ? 0x40FFFFFF : bg);
+        center(ctx, tr, label, x, y + (h - 8) / 2, w, hover ? 0xFFFFFFFF : TEXT);
     }
 
     private static void center(DrawContext ctx, TextRenderer tr, String s, int x, int y, int w, int color) {

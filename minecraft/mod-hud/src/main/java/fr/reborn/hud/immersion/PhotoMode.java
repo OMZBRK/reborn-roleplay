@@ -19,7 +19,6 @@ public final class PhotoMode {
 
     public static final PhotoMode INSTANCE = new PhotoMode();
 
-    private static final float MOVE_SPEED = 0.35f;
     private static final float SENS = 0.15f;
 
     private boolean active = false;
@@ -27,6 +26,30 @@ public final class PhotoMode {
     private float yaw, pitch;
     private boolean pendingCapture = false;
     private Perspective savedPerspective = Perspective.FIRST_PERSON;
+    /** Vitesse de déplacement de la caméra (réglable dans le panneau). */
+    private float cameraSpeed = 0.35f;
+
+    public float getCameraSpeed() { return cameraSpeed; }
+    public void setCameraSpeed(float s) { this.cameraSpeed = Math.max(0.05f, Math.min(2.0f, s)); }
+    public void addCameraSpeed(float d) { setCameraSpeed(cameraSpeed + d); }
+
+    /** Replace la caméra sur le joueur (position + regard actuels). */
+    public void resetPosition(MinecraftClient mc) {
+        if (mc.player == null) return;
+        Vec3d eye = mc.player.getEyePos();
+        x = eye.x; y = eye.y; z = eye.z;
+        yaw = mc.player.getYaw();
+        pitch = mc.player.getPitch();
+    }
+
+    /** true si une touche de déplacement est physiquement enfoncée. */
+    public boolean anyMoveKeyDown(MinecraftClient mc) {
+        if (mc.options == null) return false;
+        long w = mc.getWindow().getHandle();
+        return down(mc, w, mc.options.forwardKey) || down(mc, w, mc.options.backKey)
+            || down(mc, w, mc.options.leftKey) || down(mc, w, mc.options.rightKey)
+            || down(mc, w, mc.options.jumpKey) || down(mc, w, mc.options.sneakKey);
+    }
 
     private PhotoMode() {}
 
@@ -77,7 +100,7 @@ public final class PhotoMode {
         double yr = Math.toRadians(yaw);
         double fx = -Math.sin(yr), fz = Math.cos(yr);
         double rx = -Math.cos(yr), rz = -Math.sin(yr);
-        double spd = MOVE_SPEED * (down(mc, win, mc.options.sprintKey) ? 2.5 : 1.0);
+        double spd = cameraSpeed * (down(mc, win, mc.options.sprintKey) ? 2.5 : 1.0);
         x += (fx * f + rx * s) * spd;
         z += (fz * f + rz * s) * spd;
         y += up * spd;
