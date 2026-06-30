@@ -83,11 +83,12 @@ public class OstScreen extends Screen {
 
     private int fx(int v) { return Math.round(v / (float) DW * pw); }
     private int fy(int v) { return Math.round(v / (float) DH * ph); }
-    private int cx0() { return px + fx(10); }
-    private int cw()  { return fx(600); }
+    // Contenu décalé à droite (+180) pour laisser apparaître le watermark REBORN.
+    private int cx0() { return px + fx(190); }
+    private int cw()  { return fx(420); }
 
     // Zones (Y) — design 620x360.
-    private int headerY() { return py + fy(10); }
+    private int headerY() { return py + fy(13); }
     private int npY()     { return py + fy(46); }
     private int npH()     { return fy(78); }
     private int searchY() { return py + fy(132); }
@@ -156,15 +157,15 @@ public class OstScreen extends Screen {
             ctx.drawText(tr, Text.literal("MENU").styled(s -> s.withBold(true)), cx0() + 18, hy + 9, ACCENT_HOV, false);
         }
 
-        int tabX = cx0() + 48;
+        int tabX = cx0();
         for (OstCategory cat : OstCategory.values()) {
-            int w = tr.getWidth(cat.displayName()) + 14;
+            int w = tr.getWidth(cat.displayName()) + 10;
             boolean sel = cat == selectedCategory && searchBlank();
             boolean hov = in(mouseX, mouseY, tabX, hy - 2, w, 18);
             roundRect(ctx, tabX, hy - 2, w, 18, sel ? ACCENT : (hov ? ROW_HOVER : SECTION));
-            ctx.drawText(tr, Text.literal(cat.displayName()), tabX + 7, hy + 3,
+            ctx.drawText(tr, Text.literal(cat.displayName()), tabX + 5, hy + 3,
                 sel ? 0xFFFFFFFF : TEXT_MUTED, false);
-            tabX += w + 4;
+            tabX += w + 3;
         }
 
         boolean closeHov = in(mouseX, mouseY, px + pw - 22, hy - 2, 16, 16);
@@ -238,10 +239,10 @@ public class OstScreen extends Screen {
         ctx.disableScissor();
     }
 
-    private int volBarX()  { return cx0() + 60; }
-    private int volBarW()  { return 150; }
-    private int distBarX() { return cx0() + 280; }
-    private int distBarW() { return 150; }
+    private int volBarX()  { return cx0() + 48; }
+    private int volBarW()  { return 100; }
+    private int distBarX() { return cx0() + 218; }
+    private int distBarW() { return 100; }
     private int sliderY()  { return footerY() + 16; }
 
     private void renderFooter(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
@@ -322,15 +323,15 @@ public class OstScreen extends Screen {
         if (in(mxi, myi, px + pw - 22, hy - 2, 16, 16)) { close(); return true; }
 
         // Onglets.
-        int tabX = cx0() + 48;
+        int tabX = cx0();
         for (OstCategory cat : OstCategory.values()) {
-            int w = this.textRenderer.getWidth(cat.displayName()) + 14;
+            int w = this.textRenderer.getWidth(cat.displayName()) + 10;
             if (in(mxi, myi, tabX, hy - 2, w, 18)) {
                 selectedCategory = cat; scrollOffset = 0;
                 if (searchField != null) searchField.setText("");
                 return true;
             }
-            tabX += w + 4;
+            tabX += w + 3;
         }
 
         // Contrôles now-playing (icônes 16x16).
