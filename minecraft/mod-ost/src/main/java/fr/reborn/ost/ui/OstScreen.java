@@ -73,6 +73,7 @@ public class OstScreen extends Screen {
     private int pressedCtrl = -1;
 
     private int px, py, pw, ph;
+    private long openedAt;
 
     public OstScreen(Screen parent) {
         super(Text.literal("Menu des OST"));
@@ -123,6 +124,13 @@ public class OstScreen extends Screen {
         searchField.setDrawsBackground(false);
         searchField.setPlaceholder(Text.literal("Rechercher une piste…"));
         this.addDrawableChild(searchField);
+        openedAt = System.currentTimeMillis();
+    }
+
+    /** Slide/fade d'ouverture (ease-out cubic, 200 ms). */
+    private float animEase() {
+        float t = Math.min(1f, (System.currentTimeMillis() - openedAt) / 200f);
+        return 1f - (1f - t) * (1f - t) * (1f - t);
     }
 
     // ─── Rendu ───
@@ -132,6 +140,10 @@ public class OstScreen extends Screen {
         layout();
         ctx.fill(0, 0, this.width, this.height, DIM);
         TextRenderer tr = this.textRenderer;
+
+        // Animation d'ouverture : léger slide vers le haut.
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(0, (1f - animEase()) * 22f, 0);
 
         MinecraftClient mc = MinecraftClient.getInstance();
         boolean hasFrame = mc.getResourceManager().getResource(FRAME).isPresent();
@@ -154,6 +166,7 @@ public class OstScreen extends Screen {
         renderFooter(ctx, tr, mouseX, mouseY);
 
         if (searchField != null) searchField.render(ctx, mouseX, mouseY, delta);
+        ctx.getMatrices().pop();
     }
 
     private void renderHeader(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY, boolean hasFrame) {

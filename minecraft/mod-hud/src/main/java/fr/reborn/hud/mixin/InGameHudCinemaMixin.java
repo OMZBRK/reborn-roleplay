@@ -42,7 +42,12 @@ public abstract class InGameHudCinemaMixin {
                 ScreenshotRecorder.saveScreenshot(mc.runDirectory, mc.getFramebuffer(),
                     text -> this.chatHud.addMessage(text));
             }
-            // Le panneau est dessiné par PhotoModeScreen. Ici on masque juste le HUD.
+            // Bandes cinéma de cadrage (dessinées APRÈS la capture → absentes du
+            // screenshot, juste pour composer). Le panneau est dessiné par l'écran.
+            int w = ctx.getScaledWindowWidth(), h = ctx.getScaledWindowHeight();
+            int barH = Math.round(h * 0.10f);
+            ctx.fill(0, 0, w, barH, 0xFF000000);
+            ctx.fill(0, h - barH, w, h, 0xFF000000);
             ci.cancel();
             return;
         }

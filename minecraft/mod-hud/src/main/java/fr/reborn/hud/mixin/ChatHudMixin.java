@@ -15,8 +15,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import net.minecraft.text.Style;
 
 import java.util.List;
 
@@ -81,12 +82,18 @@ public abstract class ChatHudMixin {
      * détection de clic sur un lien ({@code getTextStyleAt}) utilise la géométrie
      * vanilla → on retranche l'offset pour que le clic suive le rendu réel.
      */
-    @ModifyVariable(method = "getTextStyleAt", at = @At("HEAD"), ordinal = 1, argsOnly = true)
-    private double reborn$adjustClickY(double y) {
+    @Inject(method = "getTextStyleAt", at = @At("HEAD"), cancellable = true)
+    private void reborn$styleAt(double x, double y, CallbackInfoReturnable<Style> cir) {
         try {
-            return y - readStateSafely().y();
-        } catch (RuntimeException e) {
-            return y;
+            MinecraftClient mc = MinecraftClient.getInstance();
+            HudElementState st = readStateSafely();
+            ChatSettings settings = RebornHudClient.config().getChatSettings();
+            Style s = ChatMessageRenderer.styleAt(mc, mc.textRenderer, visibleMessages, scrolledLines,
+                mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight(), settings,
+                x, y, st.x(), st.y());
+            cir.setReturnValue(s);
+        } catch (RuntimeException ignored) {
+            // en cas d'erreur, laisse vanilla gérer
         }
     }
 

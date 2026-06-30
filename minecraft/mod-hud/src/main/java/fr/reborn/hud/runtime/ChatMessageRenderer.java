@@ -158,6 +158,54 @@ public final class ChatMessageRenderer {
         }
     }
 
+    /**
+     * Style cliquable sous la souris, calculé avec NOTRE géométrie de rendu
+     * (offset HUD + LINE_H + têtes/badges/timestamp) pour que les liens du chat
+     * custom se cliquent là où ils sont réellement affichés. {@code null} si rien.
+     */
+    public static net.minecraft.text.Style styleAt(MinecraftClient mc, TextRenderer tr,
+            List<ChatHudLine.Visible> visibleMessages, int scrolledLines,
+            int screenW, int screenH, ChatSettings settings,
+            double mouseX, double mouseY, int offsetX, int offsetY) {
+        if (visibleMessages == null || visibleMessages.isEmpty()) return null;
+        int maxLines = 18; // chat ouvert
+        int bottomY = screenH - 40;
+        int leftX = ChatLayout.TEXT_X;
+        double mx = mouseX - offsetX;
+        double my = mouseY - offsetY;
+
+        int rendered = 0;
+        for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
+            ChatHudLine.Visible visible = visibleMessages.get(i + scrolledLines);
+            if (visible == null) continue;
+            OrderedText content = visible.content();
+            String plain = orderedToPlainString(content);
+            PlayerListEntry sender = findSender(mc, plain);
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) continue;
+
+            int lineY = bottomY - (rendered + 1) * LINE_H;
+            if (lineY < 4) break;
+            int textX = leftX;
+            if (settings.chatHeads && sender != null) textX += HEAD + HEAD_GAP;
+            if (settings.chatBadges && sender != null && mc.world != null) {
+                var sb = mc.world.getScoreboard();
+                var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
+                if (team != null && team.getPrefix() != null && !team.getPrefix().getString().isEmpty()) {
+                    textX += tr.getWidth(team.getPrefix()) + 2;
+                }
+            }
+            if (settings.showTimestamps) {
+                textX += tr.getWidth("[" + MessageTimestamps.formattedFor(visible.addedTime()) + "] ");
+            }
+
+            if (my >= lineY && my < lineY + LINE_H && mx >= textX) {
+                return tr.getTextHandler().getStyleAt(content, (int) (mx - textX));
+            }
+            rendered++;
+        }
+        return null;
+    }
+
     /** Cherche le premier joueur en ligne dont le pseudo apparaît dans le texte. */
     private static PlayerListEntry findSender(MinecraftClient mc, String plain) {
         if (mc == null || mc.getNetworkHandler() == null) return null;

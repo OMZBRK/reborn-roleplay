@@ -9,14 +9,12 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
 /**
- * Écran du Mode Photo (façon Zenkai) :
+ * Écran du Mode Photo (façon Zenkai) avec animation de slide à l'ouverture :
  * <ul>
  *   <li><b>Idle</b> : panneau d'options à droite — vitesse caméra, réinitialiser
- *       position, bouton Capturer, Quitter.</li>
- *   <li><b>En mouvement</b> (ZQSD ou glisser) : le panneau se réduit à un petit
- *       indicateur « ● Photo Mode » pour dégager la vue.</li>
+ *       position, Capturer, Quitter.</li>
+ *   <li><b>En mouvement</b> (ZQSD/glisser) : mini-indicateur « ● Photo Mode ».</li>
  * </ul>
- * Scène 3D visible (pas de fond assombri). Regarder = glisser hors du panneau.
  */
 public class PhotoModeScreen extends Screen {
 
@@ -31,9 +29,10 @@ public class PhotoModeScreen extends Screen {
     private static final int MUTED = 0xFF9A8B78;
     private static final int SUB = 0xFF170C10;
 
-    private static final int PW = 172, PH = 150;
+    private static final int PW = 180, PH = 150, ANIM_MS = 200;
     private int pX, pY;
     private boolean dragging = false;
+    private long openedAt;
 
     public PhotoModeScreen() {
         super(Text.literal("Photo Mode"));
@@ -44,11 +43,17 @@ public class PhotoModeScreen extends Screen {
         PhotoMode.INSTANCE.begin(MinecraftClient.getInstance());
         pX = this.width - PW - 12;
         pY = (this.height - PH) / 2;
+        openedAt = System.currentTimeMillis();
     }
 
-    // Rects (sync render/clic).
-    private int spdMinusX() { return pX + PW - 58; }
-    private int spdPlusX()  { return pX + PW - 22; }
+    private float ease() {
+        float t = Math.min(1f, (System.currentTimeMillis() - openedAt) / (float) ANIM_MS);
+        return 1f - (1f - t) * (1f - t) * (1f - t); // ease-out cubic
+    }
+
+    // Rects (coords finales — les clics utilisent la position finale).
+    private int spdMinusX() { return pX + PW - 60; }
+    private int spdPlusX()  { return pX + PW - 18; }
     private int spdY()      { return pY + 28; }
     private int capY()      { return pY + 50; }
     private int resetY()    { return pY + 78; }
@@ -65,7 +70,6 @@ public class PhotoModeScreen extends Screen {
         TextRenderer tr = this.textRenderer;
 
         if (moving()) {
-            // Mini-indicateur en bas.
             String s = "● Photo Mode";
             int w = tr.getWidth(s) + 16;
             int x = (this.width - w) / 2, y = this.height - 26;
@@ -75,34 +79,36 @@ public class PhotoModeScreen extends Screen {
             return;
         }
 
-        // Panneau complet.
+        // Slide depuis la droite.
+        float slide = (1f - ease()) * 44f;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(slide, 0, 0);
+
         ctx.fill(pX, pY, pX + PW, pY + PH, BG);
         border(ctx, pX, pY, PW, PH);
         ctx.drawText(tr, Text.literal("● PHOTO MODE").styled(s -> s.withBold(true)), pX + 12, pY + 10, GOLD, false);
 
-        // Vitesse caméra.
+        // Vitesse : label  [-]  valeur  [+]
         ctx.drawText(tr, Text.literal("Vitesse"), pX + 12, spdY() + 3, TEXT, false);
-        button(ctx, tr, "-", spdMinusX(), spdY(), 16, 14, in(mouseX, mouseY, spdMinusX(), spdY(), 16, 14), SUB);
-        String spd = String.format("%.2f", PhotoMode.INSTANCE.getCameraSpeed());
-        ctx.drawText(tr, Text.literal(spd), spdMinusX() + 19, spdY() + 3, GOLD, false);
-        button(ctx, tr, "+", spdPlusX(), spdY(), 16, 14, in(mouseX, mouseY, spdPlusX(), spdY(), 16, 14), SUB);
+        button(ctx, tr, "-", spdMinusX(), spdY(), 14, 14, in(mouseX - slide, mouseY, spdMinusX(), spdY(), 14, 14), SUB);
+        center(ctx, tr, String.format("%.2f", PhotoMode.INSTANCE.getCameraSpeed()), spdMinusX() + 16, spdY() + 3, 24, GOLD);
+        button(ctx, tr, "+", spdPlusX(), spdY(), 14, 14, in(mouseX - slide, mouseY, spdPlusX(), spdY(), 14, 14), SUB);
 
-        // Capturer (vert, façon Zenkai).
-        boolean capHov = in(mouseX, mouseY, btnX(), capY(), btnW(), 22);
+        boolean capHov = in(mouseX - slide, mouseY, btnX(), capY(), btnW(), 22);
         ctx.fill(btnX(), capY(), btnX() + btnW(), capY() + 22, capHov ? GREEN_HOV : GREEN);
         center(ctx, tr, "Capturer", btnX(), capY() + 7, btnW(), 0xFF0A1A0E);
 
-        // Réinitialiser position.
         button(ctx, tr, "Réinitialiser position", btnX(), resetY(), btnW(), 16,
-            in(mouseX, mouseY, btnX(), resetY(), btnW(), 16), SUB);
+            in(mouseX - slide, mouseY, btnX(), resetY(), btnW(), 16), SUB);
 
-        // Quitter [touche].
-        boolean qHov = in(mouseX, mouseY, btnX(), quitY(), btnW(), 16);
+        boolean qHov = in(mouseX - slide, mouseY, btnX(), quitY(), btnW(), 16);
         ctx.fill(btnX(), quitY(), btnX() + btnW(), quitY() + 16, qHov ? ACCENT_HOV : ACCENT);
         center(ctx, tr, "Quitter [" + quitKey() + "]", btnX(), quitY() + 4, btnW(), 0xFFFFFFFF);
 
         ctx.drawText(tr, Text.literal("Glisser : regarder"), pX + 12, quitY() + 22, MUTED, false);
         ctx.drawText(tr, Text.literal("ZQSD/Espace : bouger"), pX + 12, quitY() + 32, MUTED, false);
+
+        ctx.getMatrices().pop();
     }
 
     private String quitKey() {
@@ -114,18 +120,18 @@ public class PhotoModeScreen extends Screen {
     public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0 && !moving()) {
             MinecraftClient mc = MinecraftClient.getInstance();
-            if (in((int) mx, (int) my, spdMinusX(), spdY(), 16, 14)) { PhotoMode.INSTANCE.addCameraSpeed(-0.05f); return true; }
-            if (in((int) mx, (int) my, spdPlusX(), spdY(), 16, 14)) { PhotoMode.INSTANCE.addCameraSpeed(0.05f); return true; }
-            if (in((int) mx, (int) my, btnX(), capY(), btnW(), 22)) { PhotoMode.INSTANCE.requestCapture(); return true; }
-            if (in((int) mx, (int) my, btnX(), resetY(), btnW(), 16)) { PhotoMode.INSTANCE.resetPosition(mc); return true; }
-            if (in((int) mx, (int) my, btnX(), quitY(), btnW(), 16)) { close(); return true; }
+            if (in(mx, my, spdMinusX(), spdY(), 14, 14)) { PhotoMode.INSTANCE.addCameraSpeed(-0.05f); return true; }
+            if (in(mx, my, spdPlusX(), spdY(), 14, 14)) { PhotoMode.INSTANCE.addCameraSpeed(0.05f); return true; }
+            if (in(mx, my, btnX(), capY(), btnW(), 22)) { PhotoMode.INSTANCE.requestCapture(); return true; }
+            if (in(mx, my, btnX(), resetY(), btnW(), 16)) { PhotoMode.INSTANCE.resetPosition(mc); return true; }
+            if (in(mx, my, btnX(), quitY(), btnW(), 16)) { close(); return true; }
         }
         return super.mouseClicked(mx, my, button);
     }
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (button == 0 && !in((int) mx, (int) my, pX, pY, PW, PH)) {
+        if (button == 0 && !in(mx, my, pX, pY, PW, PH)) {
             dragging = true;
             PhotoMode.INSTANCE.rotate(dx, dy);
             return true;
@@ -175,7 +181,7 @@ public class PhotoModeScreen extends Screen {
         ctx.drawText(tr, Text.literal(s), x + (w - tr.getWidth(s)) / 2, y, color, false);
     }
 
-    private static boolean in(int mx, int my, int x, int y, int w, int h) {
+    private static boolean in(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 }
