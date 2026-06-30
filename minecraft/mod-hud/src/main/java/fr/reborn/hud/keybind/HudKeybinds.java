@@ -59,6 +59,13 @@ public final class HudKeybinds {
         ));
         PHOTO = togglePhoto;
 
+        KeyBinding openGallery = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.open_gallery",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_G,
+            "key.categories.reborn-hud"
+        ));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
@@ -84,6 +91,12 @@ public final class HudKeybinds {
                 MinecraftClient mc = MinecraftClient.getInstance();
                 if (mc.currentScreen == null) {
                     mc.setScreen(new fr.reborn.hud.ui.PhotoModeScreen());
+                }
+            }
+            while (openGallery.wasPressed()) {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.currentScreen == null) {
+                    mc.setScreen(new fr.reborn.hud.ui.GalleryScreen(null));
                 }
             }
             // Déplacement free-cam du mode photo (lecture clavier brute).
