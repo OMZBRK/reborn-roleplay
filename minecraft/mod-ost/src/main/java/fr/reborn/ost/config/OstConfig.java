@@ -40,6 +40,19 @@ public final class OstConfig {
     private LinkedHashSet<String> favorites = new LinkedHashSet<>();
     /** Dernier trackId joué — restauré au prochain lancement si présent. */
     private String lastTrackId = null;
+    /** Lecture aléatoire. */
+    private boolean shuffle = false;
+    /** Mode répétition : 0 = off, 1 = répète la piste, 2 = répète la liste. */
+    private int repeatMode = 0;
+
+    public static final int REPEAT_OFF = 0, REPEAT_ONE = 1, REPEAT_ALL = 2;
+
+    public boolean isShuffle() { return shuffle; }
+    public void setShuffle(boolean s) { this.shuffle = s; }
+
+    public int getRepeatMode() { return repeatMode; }
+    public void setRepeatMode(int m) { this.repeatMode = ((m % 3) + 3) % 3; }
+    public void cycleRepeat() { setRepeatMode(repeatMode + 1); }
 
     public float getVolume() { return volume; }
     public void setVolume(float v) { this.volume = v; }

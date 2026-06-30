@@ -79,6 +79,8 @@ public final class RebornOstClient implements ClientModInitializer {
         //    on bricole donc à la main : 20Hz suffit largement pour suivre
         //    le déplacement du joueur sans artefact audible.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // Lecture continue (auto-next / repeat) — indépendant du joueur.
+            fr.reborn.ost.audio.OstPlayback.INSTANCE.tick(AUDIO_ENGINE, CONFIG);
             if (client.player == null) return;
             Vec3d pos = client.player.getEyePos();
             AUDIO_ENGINE.tickPositional(pos.x, pos.y, pos.z);

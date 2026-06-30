@@ -4,6 +4,7 @@ import fr.reborn.ost.RebornOstClient;
 import fr.reborn.ost.audio.OstAudioEngine;
 import fr.reborn.ost.audio.OstCategory;
 import fr.reborn.ost.audio.OstLibrary;
+import fr.reborn.ost.audio.OstPlayback;
 import fr.reborn.ost.audio.OstTrack;
 import fr.reborn.ost.audio.OstTrackMeta;
 import fr.reborn.ost.config.OstConfig;
@@ -217,6 +218,17 @@ public class OstScreen extends Screen {
         drawIconBtn(ctx, pp, cx + 22, cy, mouseX, mouseY);
         drawIconBtn(ctx, pressedCtrl == 2 ? IC_NEXT_P : IC_NEXT, cx + 44, cy, mouseX, mouseY);
         drawIconBtn(ctx, pressedCtrl == 3 ? IC_STOP_P : IC_STOP, cx + 66, cy, mouseX, mouseY);
+
+        // Shuffle (aléatoire) + Repeat (off / une / liste) — toggles.
+        boolean sh = config.isShuffle();
+        boolean shHov = in(mouseX, mouseY, cx + 90, cy, 16, 16);
+        roundRect(ctx, cx + 90, cy, 16, 16, sh ? ACCENT : (shHov ? ROW_HOVER : SECTION));
+        ctx.drawText(tr, Text.literal("S"), cx + 96, cy + 4, sh ? 0xFFFFFFFF : TEXT_MUTED, false);
+        int rm = config.getRepeatMode();
+        boolean rpHov = in(mouseX, mouseY, cx + 112, cy, 16, 16);
+        roundRect(ctx, cx + 112, cy, 16, 16, rm != 0 ? ACCENT : (rpHov ? ROW_HOVER : SECTION));
+        ctx.drawText(tr, Text.literal("R"), cx + 118, cy + 4, rm != 0 ? 0xFFFFFFFF : TEXT_MUTED, false);
+        if (rm == 1) ctx.drawText(tr, Text.literal("1"), cx + 123, cy - 2, GOLD, false);
     }
 
     private void drawIconBtn(DrawContext ctx, Identifier icon, int x, int y, int mouseX, int mouseY) {
@@ -350,7 +362,10 @@ public class OstScreen extends Screen {
         if (in(mxi, myi, ccx, cy, 16, 16)) { pressedCtrl = 0; playRelative(-1); return true; }
         if (in(mxi, myi, ccx + 22, cy, 16, 16)) { pressedCtrl = 1; engine.togglePause(); return true; }
         if (in(mxi, myi, ccx + 44, cy, 16, 16)) { pressedCtrl = 2; playRelative(1); return true; }
-        if (in(mxi, myi, ccx + 66, cy, 16, 16)) { pressedCtrl = 3; engine.stop(); return true; }
+        if (in(mxi, myi, ccx + 66, cy, 16, 16)) { pressedCtrl = 3; OstPlayback.INSTANCE.stop(engine); return true; }
+        // Shuffle / Repeat.
+        if (in(mxi, myi, ccx + 90, cy, 16, 16)) { config.setShuffle(!config.isShuffle()); config.save(); return true; }
+        if (in(mxi, myi, ccx + 112, cy, 16, 16)) { config.cycleRepeat(); config.save(); return true; }
 
         // Solo.
         int sy = sliderY(), soloX = cx0() + cw() - 84;
@@ -366,9 +381,8 @@ public class OstScreen extends Screen {
             int idx = (myi - top) / ROW_H + scrollOffset;
             if (idx >= 0 && idx < tracks.size()) {
                 OstTrack t = tracks.get(idx);
-                if (mxi > right - 18) config.toggleFavorite(t.trackId());
-                else { engine.play(t, 1.0f, null, 0f, 0f); config.setLastTrackId(t.trackId()); }
-                config.save();
+                if (mxi > right - 18) { config.toggleFavorite(t.trackId()); config.save(); }
+                else OstPlayback.INSTANCE.play(engine, config, tracks, idx);
                 return true;
             }
         }
@@ -423,10 +437,7 @@ public class OstScreen extends Screen {
             }
             idx = (idx + dir + list.size()) % list.size();
         }
-        OstTrack t = list.get(idx);
-        engine.play(t, 1.0f, null, 0f, 0f);
-        config.setLastTrackId(t.trackId());
-        config.save();
+        OstPlayback.INSTANCE.play(engine, config, list, idx);
     }
 
     private static float clamp01(double v) { return (float) Math.max(0, Math.min(1, v)); }
