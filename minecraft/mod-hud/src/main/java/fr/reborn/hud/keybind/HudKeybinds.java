@@ -17,6 +17,9 @@ import org.lwjgl.glfw.GLFW;
  */
 public final class HudKeybinds {
 
+    /** Exposée pour que l'écran Photo affiche/teste la touche de sortie. */
+    public static KeyBinding PHOTO;
+
     private HudKeybinds() {}
 
     public static void registerClient() {
@@ -54,6 +57,7 @@ public final class HudKeybinds {
             GLFW.GLFW_KEY_P,
             "key.categories.reborn-hud"
         ));
+        PHOTO = togglePhoto;
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
@@ -77,10 +81,13 @@ public final class HudKeybinds {
                 fr.reborn.hud.immersion.CinemaBars.INSTANCE.toggle();
             }
             while (togglePhoto.wasPressed()) {
-                fr.reborn.hud.immersion.PhotoMode.INSTANCE.toggle();
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.currentScreen == null) {
+                    mc.setScreen(new fr.reborn.hud.ui.PhotoModeScreen());
+                }
             }
-            // Déplacement free-cam du mode photo.
-            fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(client);
+            // Déplacement free-cam du mode photo (lecture clavier brute).
+            fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(MinecraftClient.getInstance());
         });
     }
 }

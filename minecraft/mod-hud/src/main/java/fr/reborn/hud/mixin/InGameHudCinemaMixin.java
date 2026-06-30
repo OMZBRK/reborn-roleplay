@@ -3,14 +3,12 @@ package fr.reborn.hud.mixin;
 import fr.reborn.hud.immersion.CinemaBars;
 import fr.reborn.hud.immersion.PhotoMode;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.ScreenshotRecorder;
-import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -44,7 +42,7 @@ public abstract class InGameHudCinemaMixin {
                 ScreenshotRecorder.saveScreenshot(mc.runDirectory, mc.getFramebuffer(),
                     text -> this.chatHud.addMessage(text));
             }
-            reborn$photoOverlay(ctx, mc);
+            // Le panneau est dessiné par PhotoModeScreen. Ici on masque juste le HUD.
             ci.cancel();
             return;
         }
@@ -61,24 +59,5 @@ public abstract class InGameHudCinemaMixin {
             }
             ci.cancel();
         }
-    }
-
-    private void reborn$photoOverlay(DrawContext ctx, MinecraftClient mc) {
-        int w = ctx.getScaledWindowWidth(), h = ctx.getScaledWindowHeight();
-        int barH = Math.round(h * 0.10f);
-        ctx.fill(0, 0, w, barH, 0xFF000000);
-        ctx.fill(0, h - barH, w, h, 0xFF000000);
-
-        TextRenderer tr = mc.textRenderer;
-        ctx.drawText(tr, Text.literal("● PHOTO MODE"), 10, barH + 6, 0xFFD9A95E, true);
-
-        String cap = "[ Capturer ]";
-        int cw = tr.getWidth(cap) + 16;
-        int cx = (w - cw) / 2, cy = h - barH - 24;
-        ctx.fill(cx, cy, cx + cw, cy + 16, 0xD0A0182B);
-        ctx.drawText(tr, Text.literal(cap), cx + 8, cy + 4, 0xFFFFFFFF, false);
-
-        String hint = "ZQSD: deplacer  -  Souris: regarder  -  Clic gauche: capturer  -  P: quitter";
-        ctx.drawText(tr, Text.literal(hint), (w - tr.getWidth(hint)) / 2, h - barH + 5, 0xFFE8DCC8, true);
     }
 }
