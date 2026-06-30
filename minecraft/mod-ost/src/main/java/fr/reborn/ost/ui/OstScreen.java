@@ -18,15 +18,25 @@ import net.minecraft.util.Identifier;
 import java.util.List;
 
 /**
- * Menu OST compact — 3 panneaux (maquette Reborn) : sidebar catégories à gauche,
- * liste des pistes en haut-droite, lecteur (now-playing + temps + volume + zone)
- * en bas-droite. Cadre = texture Aseprite, contenu calé en fractions.
+ * Menu OST — layout « Zenkai » : barre du haut (logo + onglets catégories +
+ * fermer), carte now-playing proéminente (pochette vinyl tournante + titre +
+ * barre de progression + contrôles), recherche, liste des pistes, et pied de
+ * page avec sliders Volume / Distance + Solo.
+ *
+ * <p>Prototype dessiné en code (palette Akatsuki). Le cadre image
+ * {@code reborn-ost:textures/gui/ost_menu.png} (design 620x360), s'il est
+ * présent, est affiché en fond ; sinon panneaux dessinés.
  */
 public class OstScreen extends Screen {
 
-    private static final int DIM        = 0xC0000000;
-    private static final int ZONE_BG    = 0xF21C0A0E;
-    private static final int ZONE_BORD  = 0xFF6E1B27;
+    // Design de référence (donne les dimensions de la maquette).
+    private static final int DW = 620, DH = 360;
+
+    private static final int DIM        = 0xC8000000;
+    private static final int BG         = 0xF2120A0E;
+    private static final int CARD       = 0xFF1E1014;
+    private static final int SECTION    = 0xFF170C10;
+    private static final int BORDER     = 0xFF3A2A2E;
     private static final int ACCENT     = 0xFFA0182B;
     private static final int ACCENT_HOV = 0xFFC2364A;
     private static final int GOLD       = 0xFFD9A95E;
@@ -35,11 +45,10 @@ public class OstScreen extends Screen {
     private static final int ROW_HOVER  = 0x22FFFFFF;
     private static final int ROW_PLAY   = 0x66A0182B;
 
-    private static final Identifier FRAME = Identifier.of("reborn-ost", "textures/gui/ost_frame.png");
+    private static final Identifier FRAME = Identifier.of("reborn-ost", "textures/gui/ost_menu.png");
     private static final Identifier VINYL = Identifier.of("reborn-ost", "textures/gui/vinyl.png");
-    private static final int FRAME_W = 600, FRAME_H = 384;
-    private static final int ROW_H = 22, THUMB = 18, COVER_PX = 64;
-    private static final int CAT_ROW_H = 24;
+    private static final int COVER_PX = 64;
+    private static final int ROW_H = 20, THUMB = 16;
 
     private final Screen parent;
     private final OstLibrary library;
@@ -51,9 +60,6 @@ public class OstScreen extends Screen {
     private int scrollOffset = 0;
 
     private int px, py, pw, ph;
-    private int sbX, sbY, sbW, sbH;
-    private int mainX, mainY, mainW, mainH;
-    private int footY, footH;
 
     public OstScreen(Screen parent) {
         super(Text.literal("Menu des OST"));
@@ -64,26 +70,44 @@ public class OstScreen extends Screen {
     }
 
     private void layout() {
-        pw = Math.min(FRAME_W, this.width - 50);
-        ph = Math.min(FRAME_H, this.height - 50);
+        pw = Math.min(DW, this.width - 40);
+        ph = Math.min(DH, this.height - 40);
         px = (this.width - pw) / 2;
         py = (this.height - ph) / 2;
-        sbX = px + fx(8);    sbW = fx(128);  sbY = py + fy(8);   sbH = fy(368);
-        mainX = px + fx(148); mainW = fx(444); mainY = py + fy(8); mainH = fy(300);
-        footY = py + fy(320); footH = fy(56);
     }
 
-    private int fx(int v) { return Math.round(v / (float) FRAME_W * pw); }
-    private int fy(int v) { return Math.round(v / (float) FRAME_H * ph); }
+    private int fx(int v) { return Math.round(v / (float) DW * pw); }
+    private int fy(int v) { return Math.round(v / (float) DH * ph); }
+    private int cx0() { return px + fx(10); }
+    private int cw()  { return fx(600); }
+
+    // Zones (Y) — design 620x360.
+    private int headerY() { return py + fy(10); }
+    private int npY()     { return py + fy(46); }
+    private int npH()     { return fy(78); }
+    private int searchY() { return py + fy(132); }
+    private int listTop() { return py + fy(160); }
+    private int footerY() { return py + fy(320); }
+    private int listBottom() { return footerY() - fy(8); }
+
+    // Carte now-playing : pochette + zone texte.
+    private int artX() { return cx0() + 8; }
+    private int artY() { return npY() + 7; }
+    private int artSize() { return npH() - 14; }
+    private int npTextX() { return artX() + artSize() + 12; }
+    private int ctrlY() { return npY() + npH() - 22; }
+    private int progBarX() { return npTextX(); }
+    private int progBarY() { return npY() + 40; }
+    private int progBarW() { return (cx0() + cw() - 12) - npTextX(); }
 
     @Override
     protected void init() {
         layout();
-        int sw = 132;
+        int sw = cw() - 40;
         searchField = new TextFieldWidget(this.textRenderer,
-            mainX + mainW - sw - 24, mainY + 5, sw, 14, Text.literal("Rechercher"));
+            cx0() + 24, searchY() + 4, sw, 12, Text.literal("Rechercher"));
         searchField.setDrawsBackground(false);
-        searchField.setPlaceholder(Text.literal("Rechercher…"));
+        searchField.setPlaceholder(Text.literal("Rechercher une piste…"));
         this.addDrawableChild(searchField);
     }
 
@@ -97,159 +121,180 @@ public class OstScreen extends Screen {
 
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.getResourceManager().getResource(FRAME).isPresent()) {
-            ctx.drawTexture(FRAME, px, py, 0f, 0f, pw, ph, FRAME_W, FRAME_H);
+            ctx.drawTexture(FRAME, px, py, 0f, 0f, pw, ph, DW, DH);
         } else {
-            panel(ctx, sbX, sbY, sbW, sbH);
-            panel(ctx, mainX, mainY, mainW, mainH);
-            panel(ctx, mainX, footY, mainW, footH);
+            panel(ctx, px, py, pw, ph, BG);
+            panel(ctx, cx0(), npY(), cw(), npH(), CARD);
+            panel(ctx, cx0(), searchY(), cw(), fy(20), SECTION);
+            panel(ctx, cx0(), listTop() - 4, cw(), listBottom() - listTop() + 8, SECTION);
+            panel(ctx, cx0(), footerY(), cw(), fy(30), SECTION);
         }
 
-        renderSidebar(ctx, tr, mouseX, mouseY);
-        renderMain(ctx, tr, mouseX, mouseY);
+        renderHeader(ctx, tr, mouseX, mouseY);
+        renderNowPlaying(ctx, tr, mouseX, mouseY);
+        // Loupe recherche.
+        ctx.drawText(tr, Text.literal("⌕"), cx0() + 8, searchY() + 6, TEXT_MUTED, false);
+        renderList(ctx, tr, mouseX, mouseY);
         renderFooter(ctx, tr, mouseX, mouseY);
 
         if (searchField != null) searchField.render(ctx, mouseX, mouseY, delta);
     }
 
-    private int catTop() { return sbY + 40; }
+    private void renderHeader(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
+        int hy = headerY();
+        ctx.drawText(tr, Text.literal("♫").styled(s -> s.withBold(true)), cx0() + 6, hy + 2, GOLD, false);
+        ctx.drawText(tr, Text.literal("OST").styled(s -> s.withBold(true)), cx0() + 18, hy - 1, GOLD, false);
+        ctx.drawText(tr, Text.literal("MENU").styled(s -> s.withBold(true)), cx0() + 18, hy + 9, ACCENT_HOV, false);
 
-    private void renderSidebar(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
-        Text l1 = Text.literal("MENU DES").styled(s -> s.withBold(true));
-        Text l2 = Text.literal("OST").styled(s -> s.withBold(true));
-        ctx.drawText(tr, l1, sbX + (sbW - tr.getWidth(l1)) / 2, sbY + 9, GOLD, false);
-        ctx.drawText(tr, l2, sbX + (sbW - tr.getWidth(l2)) / 2, sbY + 19, ACCENT_HOV, false);
-        ctx.fill(sbX + 12, sbY + 32, sbX + sbW - 12, sbY + 33, ZONE_BORD);
-
-        int cy = catTop();
+        int tabX = cx0() + 48;
         for (OstCategory cat : OstCategory.values()) {
+            int w = tr.getWidth(cat.displayName()) + 14;
             boolean sel = cat == selectedCategory && searchBlank();
-            boolean hov = in(mouseX, mouseY, sbX + 6, cy, sbW - 12, CAT_ROW_H);
-            if (sel) ctx.fill(sbX + 6, cy, sbX + sbW - 6, cy + CAT_ROW_H, ACCENT);
-            else if (hov) ctx.fill(sbX + 6, cy, sbX + sbW - 6, cy + CAT_ROW_H, ROW_HOVER);
-            int tw = tr.getWidth(cat.displayName());
-            ctx.drawText(tr, Text.literal(cat.displayName()), sbX + (sbW - tw) / 2, cy + 8,
+            boolean hov = in(mouseX, mouseY, tabX, hy - 2, w, 18);
+            roundRect(ctx, tabX, hy - 2, w, 18, sel ? ACCENT : (hov ? ROW_HOVER : SECTION));
+            ctx.drawText(tr, Text.literal(cat.displayName()), tabX + 7, hy + 3,
                 sel ? 0xFFFFFFFF : TEXT_MUTED, false);
-            cy += CAT_ROW_H + 2;
+            tabX += w + 4;
         }
+
+        boolean closeHov = in(mouseX, mouseY, px + pw - 22, hy - 2, 16, 16);
+        ctx.drawText(tr, Text.literal("✕"), px + pw - 19, hy + 1, closeHov ? ACCENT_HOV : TEXT_MUTED, false);
     }
 
-    private void renderMain(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
-        String head = searchBlank() ? selectedCategory.displayName() : "Recherche";
-        ctx.drawText(tr, Text.literal(head).styled(s -> s.withBold(true)), mainX + 10, mainY + 7, GOLD, false);
-        ctx.fill(mainX + mainW - 158, mainY + 3, mainX + mainW - 22, mainY + 18, 0x40000000);
-        boolean closeHov = in(mouseX, mouseY, mainX + mainW - 18, mainY + 4, 14, 14);
-        ctx.drawText(tr, Text.literal("✕"), mainX + mainW - 15, mainY + 6, closeHov ? ACCENT_HOV : TEXT_MUTED, false);
-        ctx.fill(mainX + 6, mainY + 21, mainX + mainW - 6, mainY + 22, ZONE_BORD);
+    private void renderNowPlaying(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
+        var cur = engine.currentTrack();
+        int ax = artX(), ay = artY(), as = artSize();
+        if (cur.isPresent()) {
+            OstTrack t = cur.get();
+            drawCover(ctx, t, ax, ay, as, engine.elapsedMs() / 1000f * 70f);
+            ctx.drawText(tr, Text.literal(OstTrackMeta.title(t.trackId(), t.displayName())).styled(s -> s.withBold(true)),
+                npTextX(), npY() + 12, GOLD, false);
+            ctx.drawText(tr, Text.literal(t.category().displayName()), npTextX(), npY() + 26, TEXT_MUTED, false);
 
+            long el = engine.elapsedMs(), du = engine.durationMs();
+            int bx = progBarX(), bw = progBarW(), byp = progBarY();
+            ctx.drawText(tr, Text.literal(mmss(el)), bx, byp - 9, TEXT_MUTED, false);
+            String tot = mmss(du);
+            ctx.drawText(tr, Text.literal(tot), bx + bw - tr.getWidth(tot), byp - 9, TEXT_MUTED, false);
+            ctx.fill(bx, byp, bx + bw, byp + 3, 0x40FFFFFF);
+            if (du > 0) {
+                int fw = (int) (bw * Math.min(1.0, el / (double) du));
+                ctx.fill(bx, byp, bx + fw, byp + 3, GOLD);
+                ctx.fill(bx + fw - 1, byp - 2, bx + fw + 1, byp + 5, ACCENT_HOV);
+            }
+        } else {
+            drawVinylPlaceholder(ctx, ax, ay, as);
+            ctx.drawText(tr, Text.literal("Aucune piste en lecture").styled(s -> s.withBold(true)),
+                npTextX(), npY() + 14, TEXT_MUTED, false);
+            ctx.drawText(tr, Text.literal("Choisis une piste dans la liste"), npTextX(), npY() + 28, TEXT_MUTED, false);
+        }
+
+        // Contrôles : prev / play(grand) / next / stop, centrés dans la carte.
+        boolean has = cur.isPresent();
+        int ccx = npTextX() + 26, cy = ctrlY();
+        drawCtrl(ctx, tr, "<<", ccx - 26, cy, 20, mouseX, mouseY, false);
+        // Play/pause = pastille accent.
+        boolean ppHov = in(mouseX, mouseY, ccx, cy - 3, 20, 20);
+        fillDisc(ctx, ccx + 10, cy + 7, 10, has ? (ppHov ? ACCENT_HOV : ACCENT) : 0xFF333033);
+        ctx.drawText(tr, Text.literal(engine.isPlaying() ? "II" : "▶"), ccx + 6, cy + 3, 0xFFFFFFFF, false);
+        drawCtrl(ctx, tr, ">>", ccx + 26, cy, 20, mouseX, mouseY, false);
+        drawCtrl(ctx, tr, "Stop", ccx + 52, cy, 36, mouseX, mouseY, true);
+    }
+
+    private void drawCtrl(DrawContext ctx, TextRenderer tr, String label, int x, int y, int w,
+                          int mouseX, int mouseY, boolean filled) {
+        boolean hov = in(mouseX, mouseY, x, y, w, 16);
+        if (filled || hov) roundRect(ctx, x, y, w, 16, hov ? ACCENT_HOV : ACCENT);
+        ctx.drawText(tr, Text.literal(label), x + (w - tr.getWidth(label)) / 2, y + 4, 0xFFFFFFFF, false);
+    }
+
+    private void renderList(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
         List<OstTrack> tracks = resolveVisibleTracks();
-        int listTop = mainY + 26;
-        int listBottom = mainY + mainH - 5;
-        ctx.enableScissor(mainX + 5, listTop, mainX + mainW - 5, listBottom);
+        int top = listTop(), bottom = listBottom(), left = cx0() + 4, right = cx0() + cw() - 4;
+        ctx.enableScissor(left, top, right, bottom);
         for (int i = 0; i < tracks.size(); i++) {
-            int rowY = listTop + (i - scrollOffset) * ROW_H;
-            if (rowY + ROW_H < listTop || rowY > listBottom) continue;
-            renderRow(ctx, tr, tracks.get(i), rowY, listBottom, mouseX, mouseY);
+            int rowY = top + (i - scrollOffset) * ROW_H;
+            if (rowY + ROW_H < top || rowY > bottom) continue;
+            OstTrack track = tracks.get(i);
+            boolean hovered = in(mouseX, mouseY, left, rowY, right - left, ROW_H) && mouseY < bottom;
+            boolean playing = engine.currentTrack().map(t -> t.trackId().equals(track.trackId())).orElse(false);
+            if (playing) ctx.fill(left, rowY, right, rowY + ROW_H, ROW_PLAY);
+            else if (hovered) ctx.fill(left, rowY, right, rowY + ROW_H, ROW_HOVER);
+
+            int thumbY = rowY + (ROW_H - THUMB) / 2;
+            drawCover(ctx, track, left + 4, thumbY, THUMB);
+            ctx.drawText(tr, Text.literal((playing ? "▶ " : "") + OstTrackMeta.title(track.trackId(), track.displayName())),
+                left + 4 + THUMB + 8, rowY + 6, playing ? 0xFFFFFFFF : TEXT, false);
+
+            boolean fav = config.isFavorite(track.trackId());
+            ctx.drawText(tr, Text.literal(fav ? "★" : "☆"), right - 14, rowY + 6, fav ? GOLD : TEXT_MUTED, false);
+            String dur = OstTrackMeta.formatDuration(OstTrackMeta.duration(track.trackId()));
+            if (!dur.isEmpty()) ctx.drawText(tr, Text.literal(dur), right - 28 - tr.getWidth(dur), rowY + 6, TEXT_MUTED, false);
         }
         ctx.disableScissor();
     }
 
-    private void renderRow(DrawContext ctx, TextRenderer tr, OstTrack track,
-                           int rowY, int listBottom, int mouseX, int mouseY) {
-        int left = mainX + 6, right = mainX + mainW - 6;
-        boolean hovered = in(mouseX, mouseY, left, rowY, right - left, ROW_H) && mouseY < listBottom;
-        boolean playing = engine.currentTrack().map(t -> t.trackId().equals(track.trackId())).orElse(false);
-        if (playing) ctx.fill(left, rowY, right, rowY + ROW_H, ROW_PLAY);
-        else if (hovered) ctx.fill(left, rowY, right, rowY + ROW_H, ROW_HOVER);
-
-        int thumbX = left + 3, thumbY = rowY + (ROW_H - THUMB) / 2;
-        drawCover(ctx, track, thumbX, thumbY, THUMB);
-
-        String title = OstTrackMeta.title(track.trackId(), track.displayName());
-        ctx.drawText(tr, Text.literal((playing ? "▶ " : "") + title), thumbX + THUMB + 8, rowY + 7,
-            playing ? 0xFFFFFFFF : TEXT, false);
-
-        boolean fav = config.isFavorite(track.trackId());
-        ctx.drawText(tr, Text.literal(fav ? "♥" : "♡"), right - 14, rowY + 7, fav ? ACCENT_HOV : TEXT_MUTED, false);
-        String dur = OstTrackMeta.formatDuration(OstTrackMeta.duration(track.trackId()));
-        if (!dur.isEmpty()) {
-            ctx.drawText(tr, Text.literal(dur), right - 24 - tr.getWidth(dur), rowY + 7, TEXT_MUTED, false);
-        }
-    }
-
-    // Positions Y du footer (partagées render/clic pour rester synchro).
-    private int btnRowY()  { return footY + 12; }
-    private int volBarY()  { return footY + 33; }
-    private int zoneBarY() { return footY + 44; }
-    private int timeBarY() { return footY + 39; }
+    private int volBarX()  { return cx0() + 60; }
+    private int volBarW()  { return 150; }
+    private int distBarX() { return cx0() + 280; }
+    private int distBarW() { return 150; }
+    private int sliderY()  { return footerY() + 16; }
 
     private void renderFooter(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
-        var cur = engine.currentTrack();
-        boolean has = cur.isPresent();
-        int npX = mainX + 8;
+        int sy = sliderY();
+        ctx.drawText(tr, Text.literal("VOLUME").styled(s -> s.withBold(true)), cx0() + 8, sy - 8, TEXT_MUTED, false);
+        slider(ctx, volBarX(), sy, volBarW(), config.getVolume(), ACCENT);
+        ctx.drawText(tr, Text.literal("DISTANCE").styled(s -> s.withBold(true)), distBarX() - 60, sy - 8, TEXT_MUTED, false);
+        slider(ctx, distBarX(), sy, distBarW(), Math.min(1f, config.getBroadcastDistance() / 128f), 0xFF3A6BB2);
 
-        if (has) {
-            OstTrack t = cur.get();
-            drawCover(ctx, t, npX, footY + 13, 30);
-            ctx.drawText(tr, Text.literal("♪ " + OstTrackMeta.title(t.trackId(), t.displayName())),
-                npX + 36, footY + 11, GOLD, false);
-        } else {
-            ctx.drawText(tr, Text.literal("Aucune piste en lecture"), npX, footY + 13, TEXT_MUTED, false);
-        }
-
-        long el = engine.elapsedMs(), du = engine.durationMs();
-        int tbX = npX + 36, tbY = timeBarY(), tbW = 168;
-        ctx.drawText(tr, Text.literal(mmss(el) + " / " + mmss(du)), tbX, footY + 25, TEXT_MUTED, false);
-        ctx.fill(tbX, tbY, tbX + tbW, tbY + 3, 0x40FFFFFF);
-        if (du > 0) {
-            int fw = (int) (tbW * Math.min(1.0, el / (double) du));
-            ctx.fill(tbX, tbY, tbX + fw, tbY + 3, GOLD);
-            ctx.fill(tbX + fw - 1, tbY - 2, tbX + fw + 1, tbY + 5, ACCENT_HOV);
-        }
-
-        int rx = mainX + mainW, by = btnRowY();
-        boolean ppHov = in(mouseX, mouseY, rx - 152, by, 22, 14);
-        ctx.fill(rx - 152, by, rx - 130, by + 14, has ? (ppHov ? ACCENT_HOV : ACCENT) : ROW_HOVER);
-        ctx.drawText(tr, Text.literal(engine.isPlaying() ? "II" : "▶"), rx - 145, by + 3, 0xFFFFFFFF, false);
-        boolean stopHov = in(mouseX, mouseY, rx - 126, by, 42, 14);
-        ctx.fill(rx - 126, by, rx - 84, by + 14, stopHov ? ACCENT_HOV : ACCENT);
-        ctx.drawText(tr, Text.literal("Stop"), rx - 116, by + 3, 0xFFFFFFFF, false);
         boolean solo = config.isSoloMode();
-        ctx.fill(rx - 80, by, rx - 8, by + 14, solo ? ACCENT : ROW_HOVER);
-        ctx.drawText(tr, Text.literal(solo ? "Solo ON" : "Solo OFF"), rx - 72, by + 3,
+        int soloX = cx0() + cw() - 84;
+        boolean soloHov = in(mouseX, mouseY, soloX, sy - 6, 78, 16);
+        roundRect(ctx, soloX, sy - 6, 78, 16, solo ? ACCENT : (soloHov ? ROW_HOVER : SECTION));
+        ctx.drawText(tr, Text.literal(solo ? "Mode Solo ON" : "Mode Solo OFF"), soloX + 6, sy - 2,
             solo ? 0xFFFFFFFF : TEXT_MUTED, false);
-
-        int barX = rx - 116, barW = 108, vY = volBarY(), zY = zoneBarY();
-        ctx.drawText(tr, Text.literal("Vol"), barX - 22, vY - 2, TEXT_MUTED, false);
-        ctx.fill(barX, vY, barX + barW, vY + 3, 0x40FFFFFF);
-        int vfw = (int) (barW * config.getVolume());
-        ctx.fill(barX, vY, barX + vfw, vY + 3, ACCENT);
-        ctx.fill(barX + vfw - 1, vY - 2, barX + vfw + 1, vY + 5, GOLD);
-        ctx.drawText(tr, Text.literal("Zone"), barX - 26, zY - 2, TEXT_MUTED, false);
-        ctx.fill(barX, zY, barX + barW, zY + 3, 0x40FFFFFF);
-        int zfw = (int) (barW * Math.min(1f, config.getBroadcastDistance() / 128f));
-        ctx.fill(barX, zY, barX + zfw, zY + 3, 0xFF3A6BB2);
-        ctx.fill(barX + zfw - 1, zY - 2, barX + zfw + 1, zY + 5, GOLD);
     }
 
-    private static String mmss(long ms) {
-        long s = Math.max(0, ms) / 1000;
-        return String.format("%d:%02d", s / 60, s % 60);
+    private void slider(DrawContext ctx, int x, int y, int w, float frac, int color) {
+        ctx.fill(x, y, x + w, y + 3, 0x40FFFFFF);
+        int fw = (int) (w * Math.max(0f, Math.min(1f, frac)));
+        ctx.fill(x, y, x + fw, y + 3, color);
+        ctx.fill(x + fw - 1, y - 3, x + fw + 1, y + 6, GOLD);
     }
 
     private void drawCover(DrawContext ctx, OstTrack track, int x, int y, int size) {
+        drawCover(ctx, track, x, y, size, 0f);
+    }
+
+    private void drawCover(DrawContext ctx, OstTrack track, int x, int y, int size, float angle) {
         MinecraftClient mc = MinecraftClient.getInstance();
         Identifier cover = OstTrackMeta.coverTexture(track);
+        boolean rot = angle != 0f;
+        if (rot) {
+            ctx.getMatrices().push();
+            ctx.getMatrices().translate(x + size / 2f, y + size / 2f, 0);
+            ctx.getMatrices().multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Z.rotationDegrees(angle));
+            ctx.getMatrices().translate(-(x + size / 2f), -(y + size / 2f), 0);
+        }
         if (cover != null && mc.getResourceManager().getResource(cover).isPresent()) {
             ctx.drawTexture(cover, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
-            return;
-        }
-        if (mc.getResourceManager().getResource(VINYL).isPresent()) {
+        } else if (mc.getResourceManager().getResource(VINYL).isPresent()) {
             ctx.drawTexture(VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
             int cx = x + size / 2, cy = y + size / 2;
             fillDisc(ctx, cx, cy, Math.max(2, Math.round(size * 0.22f)), categoryColor(track.category()));
             fillDisc(ctx, cx, cy, Math.max(1, Math.round(size * 0.07f)), 0xFF101010);
         } else {
             ctx.fill(x, y, x + size, y + size, categoryColor(track.category()));
+        }
+        if (rot) ctx.getMatrices().pop();
+    }
+
+    private void drawVinylPlaceholder(DrawContext ctx, int x, int y, int size) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.getResourceManager().getResource(VINYL).isPresent()) {
+            ctx.drawTexture(VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
+        } else {
+            ctx.fill(x, y, x + size, y + size, 0xFF2A1A1E);
         }
     }
 
@@ -266,34 +311,44 @@ public class OstScreen extends Screen {
     public boolean mouseClicked(double mx, double my, int button) {
         if (super.mouseClicked(mx, my, button)) return true;
         int mxi = (int) mx, myi = (int) my;
+        int hy = headerY();
 
-        if (in(mxi, myi, mainX + mainW - 18, mainY + 4, 16, 14)) { close(); return true; }
+        if (in(mxi, myi, px + pw - 22, hy - 2, 16, 16)) { close(); return true; }
 
-        int cy = catTop();
+        // Onglets.
+        int tabX = cx0() + 48;
         for (OstCategory cat : OstCategory.values()) {
-            if (in(mxi, myi, sbX + 6, cy, sbW - 12, CAT_ROW_H)) {
+            int w = this.textRenderer.getWidth(cat.displayName()) + 14;
+            if (in(mxi, myi, tabX, hy - 2, w, 18)) {
                 selectedCategory = cat; scrollOffset = 0;
                 if (searchField != null) searchField.setText("");
                 return true;
             }
-            cy += CAT_ROW_H + 2;
+            tabX += w + 4;
         }
 
-        int rx = mainX + mainW, by = btnRowY();
-        if (in(mxi, myi, rx - 152, by, 22, 14)) { engine.togglePause(); return true; }
-        if (in(mxi, myi, rx - 126, by, 42, 14)) { engine.stop(); return true; }
-        if (in(mxi, myi, rx - 80, by, 72, 14)) {
+        // Contrôles now-playing.
+        int ccx = npTextX() + 26, cy = ctrlY();
+        if (in(mxi, myi, ccx - 26, cy, 20, 16)) { playRelative(-1); return true; }
+        if (in(mxi, myi, ccx, cy - 3, 20, 20)) { engine.togglePause(); return true; }
+        if (in(mxi, myi, ccx + 26, cy, 20, 16)) { playRelative(1); return true; }
+        if (in(mxi, myi, ccx + 52, cy, 36, 16)) { engine.stop(); return true; }
+
+        // Solo.
+        int sy = sliderY(), soloX = cx0() + cw() - 84;
+        if (in(mxi, myi, soloX, sy - 6, 78, 16)) {
             config.setSoloMode(!config.isSoloMode()); config.save(); return true;
         }
-        if (handleBars(mx, my)) return true;
+        if (handleSliders(mx, my)) return true;
 
+        // Lignes liste.
         List<OstTrack> tracks = resolveVisibleTracks();
-        int listTop = mainY + 26, listBottom = mainY + mainH - 5;
-        if (myi >= listTop && myi < listBottom && mxi >= mainX + 6 && mxi < mainX + mainW - 6) {
-            int idx = (myi - listTop) / ROW_H + scrollOffset;
+        int top = listTop(), bottom = listBottom(), left = cx0() + 4, right = cx0() + cw() - 4;
+        if (myi >= top && myi < bottom && mxi >= left && mxi < right) {
+            int idx = (myi - top) / ROW_H + scrollOffset;
             if (idx >= 0 && idx < tracks.size()) {
                 OstTrack t = tracks.get(idx);
-                if (mxi > mainX + mainW - 20) config.toggleFavorite(t.trackId());
+                if (mxi > right - 18) config.toggleFavorite(t.trackId());
                 else { engine.play(t, 1.0f, null, 0f, 0f); config.setLastTrackId(t.trackId()); }
                 config.save();
                 return true;
@@ -304,36 +359,57 @@ public class OstScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (handleBars(mx, my)) return true;
+        if (handleSliders(mx, my)) return true;
         return super.mouseDragged(mx, my, button, dx, dy);
     }
 
-    private boolean handleBars(double mx, double my) {
-        int rx = mainX + mainW, barX = rx - 116, barW = 108;
-        int vY = volBarY(), zY = zoneBarY();
-        if (mx >= barX && mx <= barX + barW) {
-            if (my >= vY - 4 && my <= vY + 7) {
-                float v = clamp01((mx - barX) / barW);
+    private boolean handleSliders(double mx, double my) {
+        int sy = sliderY();
+        if (my >= sy - 4 && my <= sy + 7) {
+            if (mx >= volBarX() && mx <= volBarX() + volBarW()) {
+                float v = clamp01((mx - volBarX()) / volBarW());
                 config.setVolume(v); engine.setGlobalVolume(v); config.save();
                 return true;
             }
-            if (my >= zY - 4 && my <= zY + 7) {
-                config.setBroadcastDistance(clamp01((mx - barX) / barW) * 128f);
+            if (mx >= distBarX() && mx <= distBarX() + distBarW()) {
+                config.setBroadcastDistance(clamp01((mx - distBarX()) / distBarW()) * 128f);
                 config.save();
                 return true;
             }
         }
-        int tbX = mainX + 8 + 36, tbY = timeBarY(), tbW = 168;
-        if (mx >= tbX && mx <= tbX + tbW && my >= tbY - 4 && my <= tbY + 7) {
+        // Barre de progression (seek).
+        int bx = progBarX(), bw = progBarW(), byp = progBarY();
+        if (mx >= bx && mx <= bx + bw && my >= byp - 4 && my <= byp + 7) {
             long du = engine.durationMs();
-            if (du > 0) engine.seekMs((long) (du * clamp01((mx - tbX) / tbW)));
+            if (du > 0) engine.seekMs((long) (du * clamp01((mx - bx) / bw)));
             return true;
         }
         return false;
     }
 
-    private static float clamp01(double v) {
-        return (float) Math.max(0, Math.min(1, v));
+    private void playRelative(int dir) {
+        var cur = engine.currentTrack();
+        OstCategory cat = cur.map(OstTrack::category).orElse(selectedCategory);
+        List<OstTrack> list = library.tracks(cat);
+        if (list.isEmpty()) return;
+        int idx = 0;
+        if (cur.isPresent()) {
+            for (int i = 0; i < list.size(); i++) {
+                if (list.get(i).trackId().equals(cur.get().trackId())) { idx = i; break; }
+            }
+            idx = (idx + dir + list.size()) % list.size();
+        }
+        OstTrack t = list.get(idx);
+        engine.play(t, 1.0f, null, 0f, 0f);
+        config.setLastTrackId(t.trackId());
+        config.save();
+    }
+
+    private static float clamp01(double v) { return (float) Math.max(0, Math.min(1, v)); }
+
+    private static String mmss(long ms) {
+        long s = Math.max(0, ms) / 1000;
+        return String.format("%d:%02d", s / 60, s % 60);
     }
 
     @Override
@@ -367,14 +443,20 @@ public class OstScreen extends Screen {
         };
     }
 
-    private static void panel(DrawContext ctx, int x, int y, int w, int h) {
-        ctx.fill(x + 2, y, x + w - 2, y + h, ZONE_BG);
-        ctx.fill(x, y + 2, x + 2, y + h - 2, ZONE_BG);
-        ctx.fill(x + w - 2, y + 2, x + w, y + h - 2, ZONE_BG);
-        ctx.fill(x + 2, y, x + w - 2, y + 1, ZONE_BORD);
-        ctx.fill(x + 2, y + h - 1, x + w - 2, y + h, ZONE_BORD);
-        ctx.fill(x, y + 2, x + 1, y + h - 2, ZONE_BORD);
-        ctx.fill(x + w - 1, y + 2, x + w, y + h - 2, ZONE_BORD);
+    private static void panel(DrawContext ctx, int x, int y, int w, int h, int bg) {
+        ctx.fill(x + 2, y, x + w - 2, y + h, bg);
+        ctx.fill(x, y + 2, x + 2, y + h - 2, bg);
+        ctx.fill(x + w - 2, y + 2, x + w, y + h - 2, bg);
+        ctx.fill(x + 2, y, x + w - 2, y + 1, BORDER);
+        ctx.fill(x + 2, y + h - 1, x + w - 2, y + h, BORDER);
+        ctx.fill(x, y + 2, x + 1, y + h - 2, BORDER);
+        ctx.fill(x + w - 1, y + 2, x + w, y + h - 2, BORDER);
+    }
+
+    private static void roundRect(DrawContext ctx, int x, int y, int w, int h, int color) {
+        ctx.fill(x + 1, y, x + w - 1, y + h, color);
+        ctx.fill(x, y + 1, x + 1, y + h - 1, color);
+        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 
     private static boolean in(int mx, int my, int x, int y, int w, int h) {
