@@ -47,6 +47,11 @@ public class OstScreen extends Screen {
 
     private static final Identifier FRAME = Identifier.of("reborn-ost", "textures/gui/ost_menu.png");
     private static final Identifier VINYL = Identifier.of("reborn-ost", "textures/gui/vinyl.png");
+    private static final Identifier IC_PREV  = Identifier.of("reborn-ost", "textures/gui/beforebutton.png");
+    private static final Identifier IC_NEXT  = Identifier.of("reborn-ost", "textures/gui/afterbutton.png");
+    private static final Identifier IC_PLAY  = Identifier.of("reborn-ost", "textures/gui/playbutton.png");
+    private static final Identifier IC_PAUSE = Identifier.of("reborn-ost", "textures/gui/pausebutton.png");
+    private static final Identifier IC_STOP  = Identifier.of("reborn-ost", "textures/gui/stopbutton.png");
     private static final int COVER_PX = 64;
     private static final int ROW_H = 20, THUMB = 16;
 
@@ -95,9 +100,9 @@ public class OstScreen extends Screen {
     private int artY() { return npY() + 7; }
     private int artSize() { return npH() - 14; }
     private int npTextX() { return artX() + artSize() + 12; }
-    private int ctrlY() { return npY() + npH() - 22; }
+    private int ctrlY() { return npY() + npH() - 20; }
     private int progBarX() { return npTextX(); }
-    private int progBarY() { return npY() + 40; }
+    private int progBarY() { return npY() + 46; }
     private int progBarW() { return (cx0() + cw() - 12) - npTextX(); }
 
     @Override
@@ -120,17 +125,19 @@ public class OstScreen extends Screen {
         TextRenderer tr = this.textRenderer;
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getResourceManager().getResource(FRAME).isPresent()) {
+        boolean hasFrame = mc.getResourceManager().getResource(FRAME).isPresent();
+        if (hasFrame) {
             ctx.drawTexture(FRAME, px, py, 0f, 0f, pw, ph, DW, DH);
         } else {
             panel(ctx, px, py, pw, ph, BG);
-            panel(ctx, cx0(), npY(), cw(), npH(), CARD);
-            panel(ctx, cx0(), searchY(), cw(), fy(20), SECTION);
-            panel(ctx, cx0(), listTop() - 4, cw(), listBottom() - listTop() + 8, SECTION);
-            panel(ctx, cx0(), footerY(), cw(), fy(30), SECTION);
         }
+        // Panneaux de sections (bordures) — toujours dessinés, par-dessus le cadre.
+        panel(ctx, cx0(), npY(), cw(), npH(), CARD);
+        panel(ctx, cx0(), searchY(), cw(), fy(20), SECTION);
+        panel(ctx, cx0(), listTop() - 4, cw(), listBottom() - listTop() + 8, SECTION);
+        panel(ctx, cx0(), footerY(), cw(), fy(30), SECTION);
 
-        renderHeader(ctx, tr, mouseX, mouseY);
+        renderHeader(ctx, tr, mouseX, mouseY, hasFrame);
         renderNowPlaying(ctx, tr, mouseX, mouseY);
         // Loupe recherche.
         ctx.drawText(tr, Text.literal("⌕"), cx0() + 8, searchY() + 6, TEXT_MUTED, false);
@@ -140,11 +147,14 @@ public class OstScreen extends Screen {
         if (searchField != null) searchField.render(ctx, mouseX, mouseY, delta);
     }
 
-    private void renderHeader(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
+    private void renderHeader(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY, boolean hasFrame) {
         int hy = headerY();
-        ctx.drawText(tr, Text.literal("♫").styled(s -> s.withBold(true)), cx0() + 6, hy + 2, GOLD, false);
-        ctx.drawText(tr, Text.literal("OST").styled(s -> s.withBold(true)), cx0() + 18, hy - 1, GOLD, false);
-        ctx.drawText(tr, Text.literal("MENU").styled(s -> s.withBold(true)), cx0() + 18, hy + 9, ACCENT_HOV, false);
+        if (!hasFrame) {
+            // Logo dessiné seulement si le cadre ne le fournit pas déjà.
+            ctx.drawText(tr, Text.literal("♫").styled(s -> s.withBold(true)), cx0() + 6, hy + 2, GOLD, false);
+            ctx.drawText(tr, Text.literal("OST").styled(s -> s.withBold(true)), cx0() + 18, hy - 1, GOLD, false);
+            ctx.drawText(tr, Text.literal("MENU").styled(s -> s.withBold(true)), cx0() + 18, hy + 9, ACCENT_HOV, false);
+        }
 
         int tabX = cx0() + 48;
         for (OstCategory cat : OstCategory.values()) {
@@ -168,8 +178,8 @@ public class OstScreen extends Screen {
             OstTrack t = cur.get();
             drawCover(ctx, t, ax, ay, as, engine.elapsedMs() / 1000f * 70f);
             ctx.drawText(tr, Text.literal(OstTrackMeta.title(t.trackId(), t.displayName())).styled(s -> s.withBold(true)),
-                npTextX(), npY() + 12, GOLD, false);
-            ctx.drawText(tr, Text.literal(t.category().displayName()), npTextX(), npY() + 26, TEXT_MUTED, false);
+                npTextX(), npY() + 10, GOLD, false);
+            ctx.drawText(tr, Text.literal(t.category().displayName()), npTextX(), npY() + 22, TEXT_MUTED, false);
 
             long el = engine.elapsedMs(), du = engine.durationMs();
             int bx = progBarX(), bw = progBarW(), byp = progBarY();
@@ -189,23 +199,17 @@ public class OstScreen extends Screen {
             ctx.drawText(tr, Text.literal("Choisis une piste dans la liste"), npTextX(), npY() + 28, TEXT_MUTED, false);
         }
 
-        // Contrôles : prev / play(grand) / next / stop, centrés dans la carte.
-        boolean has = cur.isPresent();
-        int ccx = npTextX() + 26, cy = ctrlY();
-        drawCtrl(ctx, tr, "<<", ccx - 26, cy, 20, mouseX, mouseY, false);
-        // Play/pause = pastille accent.
-        boolean ppHov = in(mouseX, mouseY, ccx, cy - 3, 20, 20);
-        fillDisc(ctx, ccx + 10, cy + 7, 10, has ? (ppHov ? ACCENT_HOV : ACCENT) : 0xFF333033);
-        ctx.drawText(tr, Text.literal(engine.isPlaying() ? "II" : "▶"), ccx + 6, cy + 3, 0xFFFFFFFF, false);
-        drawCtrl(ctx, tr, ">>", ccx + 26, cy, 20, mouseX, mouseY, false);
-        drawCtrl(ctx, tr, "Stop", ccx + 52, cy, 36, mouseX, mouseY, true);
+        // Contrôles (icônes 16x16 du pack) : précédent / play-pause / suivant / stop.
+        int cx = npTextX(), cy = ctrlY();
+        drawIconBtn(ctx, IC_PREV, cx, cy, mouseX, mouseY);
+        drawIconBtn(ctx, engine.isPlaying() ? IC_PAUSE : IC_PLAY, cx + 22, cy, mouseX, mouseY);
+        drawIconBtn(ctx, IC_NEXT, cx + 44, cy, mouseX, mouseY);
+        drawIconBtn(ctx, IC_STOP, cx + 66, cy, mouseX, mouseY);
     }
 
-    private void drawCtrl(DrawContext ctx, TextRenderer tr, String label, int x, int y, int w,
-                          int mouseX, int mouseY, boolean filled) {
-        boolean hov = in(mouseX, mouseY, x, y, w, 16);
-        if (filled || hov) roundRect(ctx, x, y, w, 16, hov ? ACCENT_HOV : ACCENT);
-        ctx.drawText(tr, Text.literal(label), x + (w - tr.getWidth(label)) / 2, y + 4, 0xFFFFFFFF, false);
+    private void drawIconBtn(DrawContext ctx, Identifier icon, int x, int y, int mouseX, int mouseY) {
+        if (in(mouseX, mouseY, x, y, 16, 16)) roundRect(ctx, x - 1, y - 1, 18, 18, ROW_HOVER);
+        ctx.drawTexture(icon, x, y, 0f, 0f, 16, 16, 16, 16);
     }
 
     private void renderList(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
@@ -281,8 +285,10 @@ public class OstScreen extends Screen {
         } else if (mc.getResourceManager().getResource(VINYL).isPresent()) {
             ctx.drawTexture(VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
             int cx = x + size / 2, cy = y + size / 2;
-            fillDisc(ctx, cx, cy, Math.max(2, Math.round(size * 0.22f)), categoryColor(track.category()));
-            fillDisc(ctx, cx, cy, Math.max(1, Math.round(size * 0.07f)), 0xFF101010);
+            // Tint SUBTIL du centre selon le thème (semi-transparent → garde le
+            // détail/relief du vinyl d'origine au lieu d'un disque plein).
+            int tint = (categoryColor(track.category()) & 0x00FFFFFF) | 0x88000000;
+            fillDisc(ctx, cx, cy, Math.max(2, Math.round(size * 0.20f)), tint);
         } else {
             ctx.fill(x, y, x + size, y + size, categoryColor(track.category()));
         }
@@ -327,12 +333,12 @@ public class OstScreen extends Screen {
             tabX += w + 4;
         }
 
-        // Contrôles now-playing.
-        int ccx = npTextX() + 26, cy = ctrlY();
-        if (in(mxi, myi, ccx - 26, cy, 20, 16)) { playRelative(-1); return true; }
-        if (in(mxi, myi, ccx, cy - 3, 20, 20)) { engine.togglePause(); return true; }
-        if (in(mxi, myi, ccx + 26, cy, 20, 16)) { playRelative(1); return true; }
-        if (in(mxi, myi, ccx + 52, cy, 36, 16)) { engine.stop(); return true; }
+        // Contrôles now-playing (icônes 16x16).
+        int ccx = npTextX(), cy = ctrlY();
+        if (in(mxi, myi, ccx, cy, 16, 16)) { playRelative(-1); return true; }
+        if (in(mxi, myi, ccx + 22, cy, 16, 16)) { engine.togglePause(); return true; }
+        if (in(mxi, myi, ccx + 44, cy, 16, 16)) { playRelative(1); return true; }
+        if (in(mxi, myi, ccx + 66, cy, 16, 16)) { engine.stop(); return true; }
 
         // Solo.
         int sy = sliderY(), soloX = cx0() + cw() - 84;
