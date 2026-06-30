@@ -275,10 +275,33 @@ public final class OstAudioEngine {
     }
 
     public synchronized long elapsedMs() {
-        return currentSource == -1 ? 0L : System.currentTimeMillis() - currentStartedAtMs;
+        if (currentSource == -1) return 0L;
+        // Position réelle de lecture (AL_SEC_OFFSET) → gèle correctement en pause.
+        float sec = AL10.alGetSourcef(currentSource, AL11.AL_SEC_OFFSET);
+        return (long) (sec * 1000f);
     }
 
     public synchronized long durationMs() { return currentDurationMs; }
+
+    public synchronized boolean isPaused() {
+        if (currentSource == -1) return false;
+        return AL10.alGetSourcei(currentSource, AL10.AL_SOURCE_STATE) == AL10.AL_PAUSED;
+    }
+
+    /** Bascule lecture/pause de la source courante. */
+    public synchronized void togglePause() {
+        if (currentSource == -1) return;
+        int state = AL10.alGetSourcei(currentSource, AL10.AL_SOURCE_STATE);
+        if (state == AL10.AL_PLAYING) AL10.alSourcePause(currentSource);
+        else if (state == AL10.AL_PAUSED) AL10.alSourcePlay(currentSource);
+    }
+
+    /** Saute à une position (ms) dans la piste courante. */
+    public synchronized void seekMs(long ms) {
+        if (currentSource == -1) return;
+        float sec = Math.max(0f, ms / 1000f);
+        AL10.alSourcef(currentSource, AL11.AL_SEC_OFFSET, sec);
+    }
 
     // ──────────────────────────────────────────────────────────
     // Décodage Ogg Vorbis via STBVorbis (LWJGL, sans dep externe)

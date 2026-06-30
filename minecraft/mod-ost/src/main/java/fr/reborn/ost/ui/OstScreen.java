@@ -110,10 +110,13 @@ public class OstScreen extends Screen {
         renderSidebar(ctx, tr, mouseX, mouseY);
         renderMain(ctx, tr, mouseX, mouseY);
         renderFooter(ctx, tr, mouseX, mouseY);
+
+        // Le widget recherche (sinon invisible : on ne fait pas super.render()).
+        if (searchField != null) searchField.render(ctx, mouseX, mouseY, delta);
     }
 
     private void renderSidebar(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
-        ctx.drawText(tr, Text.literal("REBORN").styled(s -> s.withBold(true)), sbX + 12, sbY + 10, GOLD, false);
+        ctx.drawText(tr, Text.literal("MENU DES").styled(s -> s.withBold(true)), sbX + 12, sbY + 10, GOLD, false);
         ctx.drawText(tr, Text.literal("OST").styled(s -> s.withBold(true)), sbX + 12, sbY + 20, ACCENT_HOV, false);
         ctx.fill(sbX + 8, sbY + 34, sbX + sbW - 8, sbY + 35, ZONE_BORD);
 
@@ -176,34 +179,61 @@ public class OstScreen extends Screen {
 
     private void renderFooter(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
         var cur = engine.currentTrack();
+        boolean has = cur.isPresent();
         int npX = mainX + 8;
-        if (cur.isPresent()) {
+
+        if (has) {
             OstTrack t = cur.get();
-            drawCover(ctx, t, npX, footY + 10, 32);
+            drawCover(ctx, t, npX, footY + 11, 30);
             ctx.drawText(tr, Text.literal("♪ " + OstTrackMeta.title(t.trackId(), t.displayName())),
-                npX + 38, footY + 12, GOLD, false);
-            ctx.drawText(tr, Text.literal(t.category().displayName()), npX + 38, footY + 26, TEXT_MUTED, false);
+                npX + 36, footY + 7, GOLD, false);
         } else {
-            ctx.drawText(tr, Text.literal("— Aucune piste —"), npX, footY + 20, TEXT_MUTED, false);
+            ctx.drawText(tr, Text.literal("— Aucune piste —"), npX, footY + 9, TEXT_MUTED, false);
+        }
+
+        // Barre de temps (seek) + compteur.
+        long el = engine.elapsedMs(), du = engine.durationMs();
+        int tbX = npX + 36, tbY = footY + 36, tbW = 168;
+        ctx.drawText(tr, Text.literal(mmss(el) + " / " + mmss(du)), tbX, footY + 21, TEXT_MUTED, false);
+        ctx.fill(tbX, tbY, tbX + tbW, tbY + 3, 0x40FFFFFF);
+        if (du > 0) {
+            int fw = (int) (tbW * Math.min(1.0, el / (double) du));
+            ctx.fill(tbX, tbY, tbX + fw, tbY + 3, GOLD);
+            ctx.fill(tbX + fw - 1, tbY - 2, tbX + fw + 1, tbY + 5, ACCENT_HOV);
         }
 
         int rx = mainX + mainW;
-        boolean stopHov = in(mouseX, mouseY, rx - 56, footY + 8, 48, 14);
-        ctx.fill(rx - 56, footY + 8, rx - 8, footY + 22, stopHov ? ACCENT_HOV : ACCENT);
-        ctx.drawText(tr, Text.literal("Stop"), rx - 44, footY + 11, 0xFFFFFFFF, false);
-
+        // Pause / Play.
+        boolean ppHov = in(mouseX, mouseY, rx - 152, footY + 8, 22, 14);
+        ctx.fill(rx - 152, footY + 8, rx - 130, footY + 22, has ? (ppHov ? ACCENT_HOV : ACCENT) : ROW_HOVER);
+        ctx.drawText(tr, Text.literal(engine.isPlaying() ? "II" : "▶"), rx - 145, footY + 11, 0xFFFFFFFF, false);
+        // Stop.
+        boolean stopHov = in(mouseX, mouseY, rx - 126, footY + 8, 42, 14);
+        ctx.fill(rx - 126, footY + 8, rx - 84, footY + 22, stopHov ? ACCENT_HOV : ACCENT);
+        ctx.drawText(tr, Text.literal("Stop"), rx - 116, footY + 11, 0xFFFFFFFF, false);
+        // Solo.
         boolean solo = config.isSoloMode();
-        boolean soloHov = in(mouseX, mouseY, rx - 116, footY + 8, 56, 14);
-        ctx.fill(rx - 116, footY + 8, rx - 60, footY + 22, solo ? ACCENT : ROW_HOVER);
-        ctx.drawText(tr, Text.literal(solo ? "Solo ON" : "Solo OFF"), rx - 111, footY + 11,
+        ctx.fill(rx - 80, footY + 8, rx - 8, footY + 22, solo ? ACCENT : ROW_HOVER);
+        ctx.drawText(tr, Text.literal(solo ? "Solo ON" : "Solo OFF"), rx - 72, footY + 11,
             solo ? 0xFFFFFFFF : TEXT_MUTED, false);
 
-        int volX = rx - 116, volY = footY + 32, volW = 108;
-        ctx.drawText(tr, Text.literal("Vol"), volX - 22, volY - 2, TEXT_MUTED, false);
-        ctx.fill(volX, volY, volX + volW, volY + 3, 0x40FFFFFF);
-        int fillW = (int) (volW * config.getVolume());
-        ctx.fill(volX, volY, volX + fillW, volY + 3, ACCENT);
-        ctx.fill(volX + fillW - 1, volY - 2, volX + fillW + 1, volY + 5, GOLD);
+        // Barres Vol + Zone.
+        int barX = rx - 116, barW = 108, volY = footY + 30, zoneY = footY + 41;
+        ctx.drawText(tr, Text.literal("Vol"), barX - 22, volY - 2, TEXT_MUTED, false);
+        ctx.fill(barX, volY, barX + barW, volY + 3, 0x40FFFFFF);
+        int vfw = (int) (barW * config.getVolume());
+        ctx.fill(barX, volY, barX + vfw, volY + 3, ACCENT);
+        ctx.fill(barX + vfw - 1, volY - 2, barX + vfw + 1, volY + 5, GOLD);
+        ctx.drawText(tr, Text.literal("Zone"), barX - 26, zoneY - 2, TEXT_MUTED, false);
+        ctx.fill(barX, zoneY, barX + barW, zoneY + 3, 0x40FFFFFF);
+        int zfw = (int) (barW * Math.min(1f, config.getBroadcastDistance() / 128f));
+        ctx.fill(barX, zoneY, barX + zfw, zoneY + 3, 0xFF3A6BB2);
+        ctx.fill(barX + zfw - 1, zoneY - 2, barX + zfw + 1, zoneY + 5, GOLD);
+    }
+
+    private static String mmss(long ms) {
+        long s = Math.max(0, ms) / 1000;
+        return String.format("%d:%02d", s / 60, s % 60);
     }
 
     private void drawCover(DrawContext ctx, OstTrack track, int x, int y, int size) {
@@ -241,11 +271,12 @@ public class OstScreen extends Screen {
         }
 
         int rx = mainX + mainW;
-        if (in(mxi, myi, rx - 56, footY + 8, 48, 14)) { engine.stop(); return true; }
-        if (in(mxi, myi, rx - 116, footY + 8, 56, 14)) {
+        if (in(mxi, myi, rx - 152, footY + 8, 22, 14)) { engine.togglePause(); return true; }
+        if (in(mxi, myi, rx - 126, footY + 8, 42, 14)) { engine.stop(); return true; }
+        if (in(mxi, myi, rx - 80, footY + 8, 72, 14)) {
             config.setSoloMode(!config.isSoloMode()); config.save(); return true;
         }
-        if (setVolumeFromMouse(mx, my)) return true;
+        if (handleBars(mx, my)) return true;
 
         // Lignes liste.
         List<OstTrack> tracks = resolveVisibleTracks();
@@ -265,18 +296,36 @@ public class OstScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (setVolumeFromMouse(mx, my)) return true;
+        if (handleBars(mx, my)) return true;
         return super.mouseDragged(mx, my, button, dx, dy);
     }
 
-    private boolean setVolumeFromMouse(double mx, double my) {
-        int rx = mainX + mainW, volX = rx - 116, volY = footY + 32, volW = 108;
-        if (mx >= volX && mx <= volX + volW && my >= volY - 4 && my <= volY + 7) {
-            float v = (float) Math.max(0, Math.min(1, (mx - volX) / volW));
-            config.setVolume(v); engine.setGlobalVolume(v); config.save();
+    private boolean handleBars(double mx, double my) {
+        int rx = mainX + mainW, barX = rx - 116, barW = 108;
+        int volY = footY + 30, zoneY = footY + 41;
+        if (mx >= barX && mx <= barX + barW) {
+            if (my >= volY - 4 && my <= volY + 7) {
+                float v = clamp01((mx - barX) / barW);
+                config.setVolume(v); engine.setGlobalVolume(v); config.save();
+                return true;
+            }
+            if (my >= zoneY - 4 && my <= zoneY + 7) {
+                config.setBroadcastDistance(clamp01((mx - barX) / barW) * 128f);
+                config.save();
+                return true;
+            }
+        }
+        int tbX = mainX + 8 + 36, tbY = footY + 36, tbW = 168;
+        if (mx >= tbX && mx <= tbX + tbW && my >= tbY - 4 && my <= tbY + 7) {
+            long du = engine.durationMs();
+            if (du > 0) engine.seekMs((long) (du * clamp01((mx - tbX) / tbW)));
             return true;
         }
         return false;
+    }
+
+    private static float clamp01(double v) {
+        return (float) Math.max(0, Math.min(1, v));
     }
 
     @Override
