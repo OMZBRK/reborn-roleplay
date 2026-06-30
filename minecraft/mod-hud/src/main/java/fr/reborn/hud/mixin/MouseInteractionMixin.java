@@ -1,5 +1,6 @@
 package fr.reborn.hud.mixin;
 
+import fr.reborn.hud.immersion.PhotoMode;
 import fr.reborn.hud.interaction.InteractionMode;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.MinecraftClient;
@@ -32,10 +33,9 @@ public abstract class MouseInteractionMixin {
 
     @Inject(method = "onCursorPos", at = @At("HEAD"), cancellable = true)
     private void reborn$onCursorPos(long window, double cx, double cy, CallbackInfo ci) {
-        if (!InteractionMode.INSTANCE.isActive()) {
-            reborn$has = false;
-            return;
-        }
+        boolean photo = PhotoMode.INSTANCE.isActive();
+        boolean interact = InteractionMode.INSTANCE.isActive();
+        if (!photo && !interact) { reborn$has = false; return; }
         if (!reborn$has) {
             reborn$lastX = cx;
             reborn$lastY = cy;
@@ -45,16 +45,28 @@ public abstract class MouseInteractionMixin {
         double dy = cy - reborn$lastY;
         reborn$lastX = cx;
         reborn$lastY = cy;
-        double sf = MinecraftClient.getInstance().getWindow().getScaleFactor();
-        InteractionMode.INSTANCE.onMouseMove(dx, dy, sf);
+        if (photo) {
+            // Mode photo : la souris pilote la caméra libre.
+            PhotoMode.INSTANCE.rotate(dx, dy);
+        } else {
+            double sf = MinecraftClient.getInstance().getWindow().getScaleFactor();
+            InteractionMode.INSTANCE.onMouseMove(dx, dy, sf);
+        }
         // Garde la position interne de Mouse à jour → pas de saut caméra ensuite.
         this.x = cx;
         this.y = cy;
-        ci.cancel(); // caméra figée
+        ci.cancel(); // caméra figée côté joueur
     }
 
     @Inject(method = "onMouseButton", at = @At("HEAD"), cancellable = true)
     private void reborn$onMouseButton(long window, int button, int action, int mods, CallbackInfo ci) {
+        if (PhotoMode.INSTANCE.isActive()) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && action == GLFW.GLFW_PRESS) {
+                PhotoMode.INSTANCE.requestCapture();
+            }
+            ci.cancel(); // aucune interaction monde en mode photo
+            return;
+        }
         if (!InteractionMode.INSTANCE.isActive()) return;
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW.GLFW_PRESS) {

@@ -48,6 +48,13 @@ public final class HudKeybinds {
             "key.categories.reborn-hud"
         ));
 
+        KeyBinding togglePhoto = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.toggle_photo",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_P,
+            "key.categories.reborn-hud"
+        ));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
@@ -69,6 +76,11 @@ public final class HudKeybinds {
             while (toggleCinema.wasPressed()) {
                 fr.reborn.hud.immersion.CinemaBars.INSTANCE.toggle();
             }
+            while (togglePhoto.wasPressed()) {
+                fr.reborn.hud.immersion.PhotoMode.INSTANCE.toggle();
+            }
+            // Déplacement free-cam du mode photo.
+            fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(client);
         });
     }
 }

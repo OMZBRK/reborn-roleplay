@@ -1,14 +1,15 @@
 package fr.reborn.hud.immersion;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
 /**
- * Bandes noires « cinéma » (letterbox) en haut et en bas de l'écran, pour
- * l'immersion / les screenshots RP. Toggle (touche bind) avec une animation
- * de glissement. Chaque bande fait ~12% de la hauteur écran.
+ * Bandes noires « cinéma » (letterbox) en haut et en bas, pour l'immersion / les
+ * screenshots RP. Quand actives, <b>tout le HUD est masqué sauf le chat</b> (via
+ * {@code InGameHudCinemaMixin}). Toggle (touche bind) avec animation de
+ * glissement. Le rendu des bandes + chat est piloté par le mixin (pas un
+ * HudRenderCallback, sinon il serait annulé en même temps que le HUD).
  */
 public final class CinemaBars {
 
@@ -25,8 +26,10 @@ public final class CinemaBars {
     public void toggle() { enabled = !enabled; }
     public boolean isEnabled() { return enabled; }
 
+    /** true tant que les bandes sont (au moins partiellement) visibles. */
+    public boolean isProgressActive() { return progress > 0.005f; }
+
     public void registerClient() {
-        HudRenderCallback.EVENT.register((ctx, tickDelta) -> render(ctx));
         ClientTickEvents.END_CLIENT_TICK.register(client -> tick());
     }
 
@@ -36,7 +39,8 @@ public final class CinemaBars {
         if (Math.abs(target - progress) < 0.004f) progress = target;
     }
 
-    private void render(DrawContext ctx) {
+    /** Dessine les bandes (appelé par le mixin InGameHud). */
+    public void renderBars(DrawContext ctx) {
         if (progress <= 0.001f) return;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.options.hudHidden) return;
