@@ -3,6 +3,7 @@
   "key.reborn-hud.open_editor": "Open HUD editor",
   "key.reborn-hud.open_crosshair": "Open crosshair editor",
   "key.reborn-hud.open_interaction": "Open interaction menu",
+  "key.reborn-hud.toggle_cinema": "Toggle cinema bars",
   "reborn-hud.screen.title": "Reborn HUD - Edit",
   "reborn-hud.screen.hint": "Drag to move  -  Scroll to resize  -  Click eye to hide",
   "reborn-hud.screen.reset_all": "Reset all",

@@ -46,6 +46,9 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
             (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
 
+        // Bandes noires cinéma (immersion) — toggle touche K.
+        fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
+
         // Désactive le narrateur Minecraft (demande user) — une fois, quand les
         // options sont prêtes.
         final boolean[] narratorDone = {false};

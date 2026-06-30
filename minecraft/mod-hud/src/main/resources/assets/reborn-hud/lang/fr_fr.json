@@ -3,6 +3,7 @@
   "key.reborn-hud.open_editor": "Ouvrir l'editeur HUD",
   "key.reborn-hud.open_crosshair": "Ouvrir l'editeur de viseur",
   "key.reborn-hud.open_interaction": "Ouvrir le menu d'interaction",
+  "key.reborn-hud.toggle_cinema": "Bandes noires cinéma",
   "reborn-hud.screen.title": "Reborn HUD - Edition",
   "reborn-hud.screen.hint": "Drag pour deplacer  -  Molette pour resize  -  Clic sur l'oeil pour cacher",
   "reborn-hud.screen.reset_all": "Tout reinitialiser",

@@ -41,6 +41,13 @@ public final class HudKeybinds {
             "key.categories.reborn-hud"
         ));
 
+        KeyBinding toggleCinema = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.toggle_cinema",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_K,
+            "key.categories.reborn-hud"
+        ));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
@@ -58,6 +65,9 @@ public final class HudKeybinds {
             }
             while (openInteraction.wasPressed()) {
                 InteractionMode.INSTANCE.toggle();
+            }
+            while (toggleCinema.wasPressed()) {
+                fr.reborn.hud.immersion.CinemaBars.INSTANCE.toggle();
             }
         });
     }
