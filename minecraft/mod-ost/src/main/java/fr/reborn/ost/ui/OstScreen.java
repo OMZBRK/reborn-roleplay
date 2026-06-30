@@ -52,6 +52,11 @@ public class OstScreen extends Screen {
     private static final Identifier IC_PLAY  = Identifier.of("reborn-ost", "textures/gui/playbutton.png");
     private static final Identifier IC_PAUSE = Identifier.of("reborn-ost", "textures/gui/pausebutton.png");
     private static final Identifier IC_STOP  = Identifier.of("reborn-ost", "textures/gui/stopbutton.png");
+    private static final Identifier IC_PREV_P  = Identifier.of("reborn-ost", "textures/gui/pressedbeforebutton.png");
+    private static final Identifier IC_NEXT_P  = Identifier.of("reborn-ost", "textures/gui/pressedafterbutton.png");
+    private static final Identifier IC_PLAY_P  = Identifier.of("reborn-ost", "textures/gui/pressedplaybutton.png");
+    private static final Identifier IC_PAUSE_P = Identifier.of("reborn-ost", "textures/gui/pressedpausebutton.png");
+    private static final Identifier IC_STOP_P  = Identifier.of("reborn-ost", "textures/gui/pressedstopbutton.png");
     private static final int COVER_PX = 64;
     private static final int ROW_H = 20, THUMB = 16;
 
@@ -63,6 +68,8 @@ public class OstScreen extends Screen {
     private OstCategory selectedCategory = OstCategory.APAISANT;
     private TextFieldWidget searchField;
     private int scrollOffset = 0;
+    /** Contrôle en cours d'appui (0=prev 1=play 2=next 3=stop), -1 = aucun. */
+    private int pressedCtrl = -1;
 
     private int px, py, pw, ph;
 
@@ -165,7 +172,7 @@ public class OstScreen extends Screen {
             roundRect(ctx, tabX, hy - 2, w, 18, sel ? ACCENT : (hov ? ROW_HOVER : SECTION));
             ctx.drawText(tr, Text.literal(cat.displayName()), tabX + 5, hy + 3,
                 sel ? 0xFFFFFFFF : TEXT_MUTED, false);
-            tabX += w + 3;
+            tabX += w + 13;
         }
 
         boolean closeHov = in(mouseX, mouseY, px + pw - 22, hy - 2, 16, 16);
@@ -200,12 +207,16 @@ public class OstScreen extends Screen {
             ctx.drawText(tr, Text.literal("Choisis une piste dans la liste"), npTextX(), npY() + 28, TEXT_MUTED, false);
         }
 
-        // Contrôles (icônes 16x16 du pack) : précédent / play-pause / suivant / stop.
+        // Contrôles (icônes 16x16 du pack) avec animation "pressed" à l'appui.
         int cx = npTextX(), cy = ctrlY();
-        drawIconBtn(ctx, IC_PREV, cx, cy, mouseX, mouseY);
-        drawIconBtn(ctx, engine.isPlaying() ? IC_PAUSE : IC_PLAY, cx + 22, cy, mouseX, mouseY);
-        drawIconBtn(ctx, IC_NEXT, cx + 44, cy, mouseX, mouseY);
-        drawIconBtn(ctx, IC_STOP, cx + 66, cy, mouseX, mouseY);
+        boolean playing = engine.isPlaying();
+        drawIconBtn(ctx, pressedCtrl == 0 ? IC_PREV_P : IC_PREV, cx, cy, mouseX, mouseY);
+        Identifier pp = playing
+            ? (pressedCtrl == 1 ? IC_PAUSE_P : IC_PAUSE)
+            : (pressedCtrl == 1 ? IC_PLAY_P : IC_PLAY);
+        drawIconBtn(ctx, pp, cx + 22, cy, mouseX, mouseY);
+        drawIconBtn(ctx, pressedCtrl == 2 ? IC_NEXT_P : IC_NEXT, cx + 44, cy, mouseX, mouseY);
+        drawIconBtn(ctx, pressedCtrl == 3 ? IC_STOP_P : IC_STOP, cx + 66, cy, mouseX, mouseY);
     }
 
     private void drawIconBtn(DrawContext ctx, Identifier icon, int x, int y, int mouseX, int mouseY) {
@@ -331,15 +342,15 @@ public class OstScreen extends Screen {
                 if (searchField != null) searchField.setText("");
                 return true;
             }
-            tabX += w + 3;
+            tabX += w + 13;
         }
 
-        // Contrôles now-playing (icônes 16x16).
+        // Contrôles now-playing (icônes 16x16) — pressedCtrl pour l'animation.
         int ccx = npTextX(), cy = ctrlY();
-        if (in(mxi, myi, ccx, cy, 16, 16)) { playRelative(-1); return true; }
-        if (in(mxi, myi, ccx + 22, cy, 16, 16)) { engine.togglePause(); return true; }
-        if (in(mxi, myi, ccx + 44, cy, 16, 16)) { playRelative(1); return true; }
-        if (in(mxi, myi, ccx + 66, cy, 16, 16)) { engine.stop(); return true; }
+        if (in(mxi, myi, ccx, cy, 16, 16)) { pressedCtrl = 0; playRelative(-1); return true; }
+        if (in(mxi, myi, ccx + 22, cy, 16, 16)) { pressedCtrl = 1; engine.togglePause(); return true; }
+        if (in(mxi, myi, ccx + 44, cy, 16, 16)) { pressedCtrl = 2; playRelative(1); return true; }
+        if (in(mxi, myi, ccx + 66, cy, 16, 16)) { pressedCtrl = 3; engine.stop(); return true; }
 
         // Solo.
         int sy = sliderY(), soloX = cx0() + cw() - 84;
@@ -362,6 +373,12 @@ public class OstScreen extends Screen {
             }
         }
         return false;
+    }
+
+    @Override
+    public boolean mouseReleased(double mx, double my, int button) {
+        pressedCtrl = -1; // relâche l'animation pressed
+        return super.mouseReleased(mx, my, button);
     }
 
     @Override
