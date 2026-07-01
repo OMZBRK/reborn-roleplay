@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 # Auto-update du launcher : verifie la signature Ed25519 du release,
 # telecharge l'installer + restart. Endpoint + pubkey dans tauri.conf.json.

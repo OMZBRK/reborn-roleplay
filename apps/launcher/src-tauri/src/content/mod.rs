@@ -8,8 +8,9 @@ use serde_json::Value as Json;
 use tauri::{AppHandle, Runtime, State};
 use tauri_plugin_opener::OpenerExt;
 
-use crate::api::ApiUser;
+use crate::api::{ApiUser, ShotView};
 use crate::auth::AuthState;
+use crate::launcher::paths::game_dir;
 use crate::storage::prefs::{self, Preferences};
 use crate::storage::secrets::SecretKey;
 
@@ -778,4 +779,269 @@ pub async fn prefs_set(value: Preferences) -> Result<Preferences, ContentError> 
         message: e.to_string(),
     })?;
     Ok(value)
+}
+
+// ──────────────────────────────────────────────────────
+// Screenshots — galerie locale + partage social
+//
+// Le launcher et le mod-hud partagent le même dossier de jeu
+// (`game_dir()` == gameDir de Fabric), donc :
+//   • les captures vivent dans `<game_dir>/screenshots/*.png`
+//   • les favoris dans `<game_dir>/reborn/screenshots-fav.json` (tableau
+//     JSON de noms de fichier) — le MÊME fichier que la galerie in-game,
+//     donc les favoris se synchronisent entre le jeu et le launcher.
+// Le rendu des vignettes se fait via `convertFileSrc(path)` côté front
+// (protocole asset activé dans tauri.conf.json).
+// ──────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScreenshotItem {
+    /// Nom de fichier (sert d'id + de clé favori). Ex: `2026-07-01_23.42.15.png`.
+    pub file_name: String,
+    /// Chemin absolu — à passer à `convertFileSrc` pour l'affichage.
+    pub path: String,
+    /// Date de modification en millisecondes epoch (tri + affichage).
+    pub modified_ms: u64,
+    pub size_bytes: u64,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub favorite: bool,
+}
+
+fn screenshots_dir() -> Result<std::path::PathBuf, ContentError> {
+    Ok(game_dir()
+        .map_err(|e| ContentError::Io {
+            message: e.to_string(),
+        })?
+        .join("screenshots"))
+}
+
+fn favorites_file() -> Result<std::path::PathBuf, ContentError> {
+    Ok(game_dir()
+        .map_err(|e| ContentError::Io {
+            message: e.to_string(),
+        })?
+        .join("reborn")
+        .join("screenshots-fav.json"))
+}
+
+fn read_favorites() -> Vec<String> {
+    let Ok(path) = favorites_file() else {
+        return Vec::new();
+    };
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    serde_json::from_str::<Vec<String>>(&raw).unwrap_or_default()
+}
+
+/// Dimensions d'un PNG via son en-tête IHDR (largeur @16, hauteur @20,
+/// big-endian). `None` si ce n'est pas un PNG (jpg/webp non gérés — le front
+/// affiche alors l'image sans résolution).
+fn png_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.len() >= 24 && bytes[0] == 0x89 && bytes[1] == 0x50 {
+        let w = u32::from_be_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
+        let h = u32::from_be_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
+        return Some((w, h));
+    }
+    None
+}
+
+/// Liste les captures locales, plus récentes d'abord.
+#[tauri::command]
+pub async fn screenshots_list() -> Result<Vec<ScreenshotItem>, ContentError> {
+    let dir = screenshots_dir()?;
+    let favorites = read_favorites();
+    let mut items: Vec<ScreenshotItem> = Vec::new();
+
+    let entries = match std::fs::read_dir(&dir) {
+        Ok(e) => e,
+        // Dossier absent = pas encore de capture : liste vide, pas une erreur.
+        Err(_) => return Ok(items),
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let is_image = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| {
+                let e = e.to_ascii_lowercase();
+                e == "png" || e == "jpg" || e == "jpeg"
+            })
+            .unwrap_or(false);
+        if !is_image {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else { continue };
+        if !meta.is_file() {
+            continue;
+        }
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        let modified_ms = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        // Lit uniquement les 24 premiers octets pour les dimensions PNG.
+        let dims = {
+            use std::io::Read as _;
+            std::fs::File::open(&path)
+                .ok()
+                .and_then(|mut f| {
+                    let mut header = [0u8; 24];
+                    f.read_exact(&mut header).ok().map(|_| header)
+                })
+                .and_then(|h| png_dimensions(&h))
+        };
+
+        items.push(ScreenshotItem {
+            favorite: favorites.contains(&file_name),
+            path: path.to_string_lossy().to_string(),
+            file_name,
+            modified_ms,
+            size_bytes: meta.len(),
+            width: dims.map(|(w, _)| w),
+            height: dims.map(|(_, h)| h),
+        });
+    }
+
+    items.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms));
+    Ok(items)
+}
+
+/// Ouvre le dossier des captures dans l'explorateur système.
+#[tauri::command]
+pub async fn screenshots_open_folder<R: Runtime>(app: AppHandle<R>) -> Result<(), ContentError> {
+    let dir = screenshots_dir()?;
+    std::fs::create_dir_all(&dir).map_err(|e| ContentError::Io {
+        message: e.to_string(),
+    })?;
+    app.opener()
+        .open_path(dir.to_string_lossy().to_string(), None::<String>)
+        .map_err(|e| ContentError::Io {
+            message: format!("impossible d'ouvrir le dossier : {e}"),
+        })
+}
+
+/// Bascule l'état favori d'une capture (partagé avec la galerie in-game).
+/// Retourne la liste à jour des noms favoris.
+#[tauri::command]
+pub async fn screenshots_toggle_favorite(file_name: String) -> Result<Vec<String>, ContentError> {
+    let mut favorites = read_favorites();
+    if let Some(pos) = favorites.iter().position(|f| f == &file_name) {
+        favorites.remove(pos);
+    } else {
+        favorites.push(file_name);
+    }
+    let path = favorites_file()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| ContentError::Io {
+            message: e.to_string(),
+        })?;
+    }
+    let json = serde_json::to_string(&favorites).map_err(|e| ContentError::Io {
+        message: e.to_string(),
+    })?;
+    std::fs::write(&path, json).map_err(|e| ContentError::Io {
+        message: e.to_string(),
+    })?;
+    Ok(favorites)
+}
+
+/// Supprime une capture du disque (+ la retire des favoris si besoin).
+#[tauri::command]
+pub async fn screenshots_delete(file_name: String) -> Result<(), ContentError> {
+    // Garde-fou : refuse tout nom qui tenterait de sortir du dossier.
+    if file_name.contains('/') || file_name.contains('\\') || file_name.contains("..") {
+        return Err(ContentError::Io {
+            message: "nom de fichier invalide".into(),
+        });
+    }
+    let path = screenshots_dir()?.join(&file_name);
+    std::fs::remove_file(&path).map_err(|e| ContentError::Io {
+        message: e.to_string(),
+    })?;
+    // Nettoie l'entrée favori éventuelle (best-effort).
+    let mut favorites = read_favorites();
+    if let Some(pos) = favorites.iter().position(|f| f == &file_name) {
+        favorites.remove(pos);
+        if let Ok(fav_path) = favorites_file() {
+            if let Ok(json) = serde_json::to_string(&favorites) {
+                let _ = std::fs::write(&fav_path, json);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Partage une capture locale sur le feed social (`POST /v1/shots`). Le
+/// launcher détient l'auth : il lit le fichier et l'upload en multipart.
+#[tauri::command]
+pub async fn screenshots_share(
+    state: State<'_, AuthState>,
+    file_name: String,
+    caption: Option<String>,
+) -> Result<ShotView, ContentError> {
+    if file_name.contains('/') || file_name.contains('\\') || file_name.contains("..") {
+        return Err(ContentError::Io {
+            message: "nom de fichier invalide".into(),
+        });
+    }
+    let token = jwt(state.inner()).await?;
+    let path = screenshots_dir()?.join(&file_name);
+    let bytes = std::fs::read(&path).map_err(|e| ContentError::Io {
+        message: e.to_string(),
+    })?;
+    let mime = if file_name.to_ascii_lowercase().ends_with(".png") {
+        "image/png"
+    } else {
+        "image/jpeg"
+    };
+    state
+        .api
+        .upload_shot(&token, &file_name, mime, bytes, caption)
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+/// Feed social (screenshots partagés par la communauté).
+#[tauri::command]
+pub async fn shots_feed(
+    state: State<'_, AuthState>,
+    cursor: Option<String>,
+) -> Result<Json, ContentError> {
+    let token = jwt(state.inner()).await?;
+    let path = match cursor {
+        Some(c) => format!("/shots/feed?cursor={c}"),
+        None => "/shots/feed".to_string(),
+    };
+    state
+        .api
+        .get_json(&token, &path)
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+/// Toggle like sur un screenshot du feed.
+#[tauri::command]
+pub async fn shots_toggle_like(
+    state: State<'_, AuthState>,
+    shot_id: String,
+) -> Result<Json, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .post_json(&token, &format!("/shots/{shot_id}/like"), &Json::Null)
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
 }

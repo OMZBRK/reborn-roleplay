@@ -3152,6 +3152,46 @@ body,
   inset: 0;
   background-size: cover;
   background-position: center;
+  background-color: rgba(10, 11, 16, 0.9);
+}
+
+/* Feedback éphémère (partage / suppression) dans le header. */
+.reborn-shots-flash {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+/* État de chargement (lecture du dossier de captures). */
+.reborn-shots-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 64px 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* Étoile favori cliquable (vue détaillée). */
+.reborn-shots-fav-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-fav-toggle:hover {
+  transform: scale(1.15);
 }
 .reborn-shots-thumb-server {
   position: absolute;

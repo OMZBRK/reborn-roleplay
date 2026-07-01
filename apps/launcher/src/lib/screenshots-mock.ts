@@ -22,8 +22,17 @@ export type ScreenshotRecord = {
   size: string;   // affichable ("412 KB")
   resolution: string; // affichable ("1920 × 1080")
   pinned: boolean;
-  /** Background CSS string utilisee comme stand-in pour l'image reelle. */
+  /** Background CSS string utilisee comme stand-in / fallback de l'image. */
   art: string;
+  // ── Champs remplis par le scanner FS réel (lib/screenshots.ts) ──
+  /** Nom de fichier sur disque (id + clé favori partagée avec le mod). */
+  fileName?: string;
+  /** URL asset (convertFileSrc) de l'image réelle. Absent = mock. */
+  src?: string;
+  /** Epoch ms de dernière modif, pour le tri réel. */
+  modifiedMs?: number;
+  /** Taille en octets, pour le tri réel. */
+  sizeBytes?: number;
 };
 
 export type ScreenshotServerOption = {

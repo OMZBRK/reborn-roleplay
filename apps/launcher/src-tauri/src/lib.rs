@@ -116,6 +116,13 @@ pub fn run() {
             content::upload_attachment,
             content::prefs_get,
             content::prefs_set,
+            content::screenshots_list,
+            content::screenshots_open_folder,
+            content::screenshots_toggle_favorite,
+            content::screenshots_delete,
+            content::screenshots_share,
+            content::shots_feed,
+            content::shots_toggle_like,
             hardware::system_specs_get,
             network::network_ping_health,
         ])

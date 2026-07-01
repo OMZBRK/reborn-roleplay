@@ -4,15 +4,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Download,
   Image as ImageIcon,
   Maximize2,
   Server,
   Share2,
+  Star,
+  Trash2,
   User,
   X,
 } from "lucide-react";
 import type { ScreenshotRecord } from "../../lib/screenshots-mock";
+import { shotBackground } from "../../lib/screenshots";
 
 type Props = {
   shot: ScreenshotRecord | null;
@@ -20,6 +22,9 @@ type Props = {
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
+  onShare?: (shot: ScreenshotRecord) => void;
+  onDelete?: (shot: ScreenshotRecord) => void;
+  onToggleFavorite?: (shot: ScreenshotRecord) => void;
 };
 
 // Lightbox plein-ecran : navigation prev/next via boutons + fleches clavier
@@ -27,7 +32,16 @@ type Props = {
 //
 // La nav clavier est interceptee uniquement quand `shot` n'est pas null
 // pour eviter d'avaler les fleches sur les autres pages.
-export function ScreenshotLightbox({ shot, shots, onClose, onPrev, onNext }: Props) {
+export function ScreenshotLightbox({
+  shot,
+  shots,
+  onClose,
+  onPrev,
+  onNext,
+  onShare,
+  onDelete,
+  onToggleFavorite,
+}: Props) {
   useEffect(() => {
     if (!shot) return;
     const onKey = (e: KeyboardEvent) => {
@@ -53,18 +67,33 @@ export function ScreenshotLightbox({ shot, shots, onClose, onPrev, onNext }: Pro
             <button
               type="button"
               className="reborn-shots-lightbox-btn"
-              aria-label="Télécharger"
+              aria-label={shot.pinned ? "Retirer des favoris" : "Ajouter aux favoris"}
+              onClick={() => onToggleFavorite?.(shot)}
             >
-              <Download className="h-3.5 w-3.5" />
-              Télécharger
+              <Star
+                className="h-3.5 w-3.5"
+                fill={shot.pinned ? "currentColor" : "none"}
+                style={shot.pinned ? { color: "var(--color-warning)" } : undefined}
+              />
+              {shot.pinned ? "Favori" : "Favoris"}
             </button>
             <button
               type="button"
               className="reborn-shots-lightbox-btn"
               aria-label="Partager"
+              onClick={() => onShare?.(shot)}
             >
               <Share2 className="h-3.5 w-3.5" />
               Partager
+            </button>
+            <button
+              type="button"
+              className="reborn-shots-lightbox-btn"
+              aria-label="Supprimer"
+              onClick={() => onDelete?.(shot)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
             </button>
             <button
               type="button"
@@ -89,7 +118,7 @@ export function ScreenshotLightbox({ shot, shots, onClose, onPrev, onNext }: Pro
             <motion.div
               key={shot.id}
               className="reborn-shots-lightbox-img"
-              style={{ background: shot.art }}
+              style={shotBackground(shot)}
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.2 }}
@@ -121,7 +150,7 @@ export function ScreenshotLightbox({ shot, shots, onClose, onPrev, onNext }: Pro
                   key={s.id}
                   className="reborn-shots-lightbox-strip-item"
                   data-active={s.id === shot.id}
-                  style={{ background: s.art }}
+                  style={shotBackground(s)}
                 />
               ))}
             </div>

@@ -1,9 +1,7 @@
-import { Check, Clock, Maximize2, RefreshCw, Sparkles } from "lucide-react";
-import {
-  MOCK_PLAYERS,
-  MOCK_SERVERS,
-  type ScreenshotPlayerOption,
-  type ScreenshotServerOption,
+import { Check, Clock, Maximize2, RefreshCw, Sparkles, Star } from "lucide-react";
+import type {
+  ScreenshotPlayerOption,
+  ScreenshotServerOption,
 } from "../../lib/screenshots-mock";
 
 export type ScreenshotSort = "newest" | "oldest" | "size";
@@ -11,10 +9,14 @@ export type ScreenshotSort = "newest" | "oldest" | "size";
 type Props = {
   sort: ScreenshotSort;
   setSort: (v: ScreenshotSort) => void;
+  players: ScreenshotPlayerOption[];
   selectedPlayers: string[];
   togglePlayer: (id: string) => void;
+  servers: ScreenshotServerOption[];
   selectedServers: string[];
   toggleServer: (id: string) => void;
+  onlyFavorites: boolean;
+  setOnlyFavorites: (v: boolean) => void;
   onReset: () => void;
 };
 
@@ -31,14 +33,36 @@ const SORT_OPTIONS: { id: ScreenshotSort; label: string; icon: typeof Sparkles }
 export function ScreenshotsFilters({
   sort,
   setSort,
+  players,
   selectedPlayers,
   togglePlayer,
+  servers,
   selectedServers,
   toggleServer,
+  onlyFavorites,
+  setOnlyFavorites,
   onReset,
 }: Props) {
   return (
     <aside className="reborn-shots-filters">
+      <div className="reborn-shots-filters-section">
+        <div className="reborn-shots-filters-title">Affichage</div>
+        <button
+          type="button"
+          data-active={onlyFavorites}
+          onClick={() => setOnlyFavorites(!onlyFavorites)}
+          className="reborn-shots-sort-btn"
+          aria-pressed={onlyFavorites}
+        >
+          <span className="reborn-shots-sort-dot" />
+          <Star
+            className="h-3 w-3"
+            fill={onlyFavorites ? "currentColor" : "none"}
+          />
+          <span>Favoris uniquement</span>
+        </button>
+      </div>
+
       <div className="reborn-shots-filters-section">
         <div className="reborn-shots-filters-title">Tri</div>
         <div className="flex flex-col gap-1">
@@ -61,34 +85,37 @@ export function ScreenshotsFilters({
         </div>
       </div>
 
-      <div className="reborn-shots-filters-section">
-        <div className="reborn-shots-filters-title">Joueur</div>
-        <div className="flex flex-wrap gap-1.5">
-          {MOCK_PLAYERS.map((p: ScreenshotPlayerOption) => {
-            const active = selectedPlayers.includes(p.id);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                title={p.name}
-                data-active={active}
-                onClick={() => togglePlayer(p.id)}
-                className="reborn-shots-avatar-chip"
-                aria-pressed={active}
-              >
-                {p.initial}
-              </button>
-            );
-          })}
+      {players.length > 0 && (
+        <div className="reborn-shots-filters-section">
+          <div className="reborn-shots-filters-title">Joueur</div>
+          <div className="flex flex-wrap gap-1.5">
+            {players.map((p: ScreenshotPlayerOption) => {
+              const active = selectedPlayers.includes(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  title={p.name}
+                  data-active={active}
+                  onClick={() => togglePlayer(p.id)}
+                  className="reborn-shots-avatar-chip"
+                  aria-pressed={active}
+                >
+                  {p.initial}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="reborn-shots-filters-section">
-        <div className="reborn-shots-filters-title">Serveur</div>
-        <div className="flex flex-col gap-1">
-          {MOCK_SERVERS.map((s: ScreenshotServerOption) => {
-            const active = selectedServers.includes(s.id);
-            return (
+      {servers.length > 0 && (
+        <div className="reborn-shots-filters-section">
+          <div className="reborn-shots-filters-title">Serveur</div>
+          <div className="flex flex-col gap-1">
+            {servers.map((s: ScreenshotServerOption) => {
+              const active = selectedServers.includes(s.id);
+              return (
               <button
                 key={s.id}
                 type="button"
@@ -105,8 +132,9 @@ export function ScreenshotsFilters({
               </button>
             );
           })}
+          </div>
         </div>
-      </div>
+      )}
 
       <button type="button" onClick={onReset} className="reborn-shots-reset-btn">
         <RefreshCw className="h-3 w-3" />

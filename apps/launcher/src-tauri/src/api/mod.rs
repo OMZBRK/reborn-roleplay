@@ -101,6 +101,30 @@ pub struct UploadResponse {
     pub url: String,
 }
 
+/// Miroir Rust de `ShotView` côté API (`apps/api/src/shots`). Représente un
+/// screenshot partagé sur le feed social.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ShotView {
+    pub id: String,
+    pub url: String,
+    pub caption: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub like_count: u32,
+    pub liked_by_me: bool,
+    pub created_at: String,
+    pub author: ShotAuthor,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ShotAuthor {
+    pub id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaySession {
@@ -283,6 +307,39 @@ impl ApiClient {
             return Err(ApiError::Status { status, body });
         }
         Ok(resp.json::<UploadResponse>().await?)
+    }
+
+    /// Partage un screenshot sur le feed social (`POST /shots`, multipart
+    /// `file` + `caption` optionnel). Retourne le `ShotView` créé.
+    pub async fn upload_shot(
+        &self,
+        access_token: &str,
+        file_name: &str,
+        mime: &str,
+        bytes: Vec<u8>,
+        caption: Option<String>,
+    ) -> Result<ShotView, ApiError> {
+        let url = format!("{}/shots", self.base_url);
+        let part = reqwest::multipart::Part::bytes(bytes)
+            .file_name(file_name.to_string())
+            .mime_str(mime)?;
+        let mut form = reqwest::multipart::Form::new().part("file", part);
+        if let Some(caption) = caption.filter(|c| !c.trim().is_empty()) {
+            form = form.text("caption", caption);
+        }
+        let resp = self
+            .http
+            .post(url)
+            .bearer_auth(access_token)
+            .multipart(form)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<ShotView>().await?)
     }
 
     /// POST generique authentifie avec body JSON.
