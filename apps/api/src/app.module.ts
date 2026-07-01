@@ -16,6 +16,7 @@ import { ReleasesModule } from './releases/releases.module';
 import { RulesModule } from './rules/rules.module';
 import { SecurityModule } from './security/security.module';
 import { ServerStatusModule } from './server-status/server-status.module';
+import { ShotsModule } from './shots/shots.module';
 import { StaffModule } from './staff/staff.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { UploadModule } from './upload/upload.module';
@@ -42,6 +43,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     RulesModule,
     SecurityModule,
     ServerStatusModule,
+    ShotsModule,
     StaffModule,
     TicketsModule,
     UploadModule,

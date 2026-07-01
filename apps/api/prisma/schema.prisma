@@ -89,6 +89,10 @@ model User {
   sentMessages         DirectMessage[] @relation("MessageSender")
   receivedMessages     DirectMessage[] @relation("MessageReceiver")
 
+  // Screenshots partagés (galerie sociale)
+  shots                Shot[]
+  shotLikes            ShotLike[]
+
   @@index([minecraftUuid])
   @@index([discordUserId])
   @@index([steamId])
@@ -507,4 +511,34 @@ model DirectMessage {
 
   @@index([senderId, receiverId, createdAt])
   @@index([receiverId, readAt])
+}
+
+// ──────────────────────────────────────────────────────
+// SCREENSHOTS (galerie sociale — partage + feed)
+// ──────────────────────────────────────────────────────
+
+model Shot {
+  id        String     @id @default(uuid())
+  authorId  String
+  author    User       @relation(fields: [authorId], references: [id])
+  filename  String // fichier stocké dans le dossier d'upload (servi via /uploads)
+  caption   String?
+  width     Int?
+  height    Int?
+  likeCount Int        @default(0)
+  createdAt DateTime   @default(now())
+  likes     ShotLike[]
+
+  @@index([createdAt])
+  @@index([authorId])
+}
+
+model ShotLike {
+  shotId    String
+  shot      Shot     @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([shotId, userId])
 }
