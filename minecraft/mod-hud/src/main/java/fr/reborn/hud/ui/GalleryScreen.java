@@ -118,7 +118,8 @@ public class GalleryScreen extends Screen {
         ctx.fill(x - 1, y - 1, x + cw + 1, y + cih + 1, hov ? Colors.ACCENT : Colors.BORDER);
         ScreenshotTextures.Tex t = ScreenshotTextures.get(e.path());
         if (t != null) {
-            ctx.drawTexture(t.id(), x, y, 0f, 0f, cw, cih, t.w(), t.h());
+            // Image entière mise à l'échelle dans la cellule (region = image complète).
+            ctx.drawTexture(t.id(), x, y, cw, cih, 0f, 0f, t.w(), t.h(), t.w(), t.h());
         } else {
             ctx.fill(x, y, x + cw, y + cih, 0xFF1A0E12);
             ctx.drawText(tr, Text.literal("…"), x + cw / 2 - 2, y + cih / 2 - 4, Colors.FOREGROUND_MUTED, false);
@@ -178,12 +179,12 @@ public class GalleryScreen extends Screen {
             if (button == 1) { // clic droit → menu contextuel
                 ctxEntry = hit; ctxX = mxi; ctxY = myi; return true;
             }
-            // Cœur (coin haut-droit) ou ouvrir.
+            // Cœur (coin haut-droit) → favori, sinon → vue détail.
             if (in(mxi, myi, cx + cellW() - 14, cy, 14, 12)) {
                 ScreenshotLibrary.toggleFavorite(hit.name());
                 if (onlyFav) refresh();
             } else {
-                Util.getOperatingSystem().open(hit.path().toFile());
+                MinecraftClient.getInstance().setScreen(new ScreenshotDetailScreen(this, entries, entries.indexOf(hit)));
             }
             return true;
         }

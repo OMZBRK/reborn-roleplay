@@ -21,8 +21,12 @@ public final class PhotoMode {
 
     private static final float SENS = 0.15f;
 
+    /** Demi-étendue de la zone autorisée (100×100×100 autour du point de départ). */
+    private static final double HALF = 50.0;
+
     private boolean active = false;
     private double x, y, z;
+    private double anchorX, anchorY, anchorZ;
     private float yaw, pitch;
     private boolean pendingCapture = false;
     private Perspective savedPerspective = Perspective.FIRST_PERSON;
@@ -60,6 +64,7 @@ public final class PhotoMode {
         if (mc.player == null) return;
         Vec3d eye = mc.player.getEyePos();
         x = eye.x; y = eye.y; z = eye.z;
+        anchorX = x; anchorY = y; anchorZ = z;
         yaw = mc.player.getYaw();
         pitch = mc.player.getPitch();
         savedPerspective = mc.options.getPerspective();
@@ -101,9 +106,27 @@ public final class PhotoMode {
         double fx = -Math.sin(yr), fz = Math.cos(yr);
         double rx = -Math.cos(yr), rz = -Math.sin(yr);
         double spd = cameraSpeed * (down(mc, win, mc.options.sprintKey) ? 2.5 : 1.0);
-        x += (fx * f + rx * s) * spd;
-        z += (fz * f + rz * s) * spd;
-        y += up * spd;
+        double dx = (fx * f + rx * s) * spd;
+        double dz = (fz * f + rz * s) * spd;
+        double dy = up * spd;
+        // Zone autorisée (anti-fuite) + pas de traversée de blocs (anti-xray),
+        // testé par axe pour permettre de glisser le long des murs.
+        double nx = clamp(x + dx, anchorX - HALF, anchorX + HALF);
+        if (!solid(mc, nx, y, z)) x = nx;
+        double nz = clamp(z + dz, anchorZ - HALF, anchorZ + HALF);
+        if (!solid(mc, x, y, nz)) z = nz;
+        double ny = clamp(y + dy, anchorY - HALF, anchorY + HALF);
+        if (!solid(mc, x, ny, z)) y = ny;
+    }
+
+    private static double clamp(double v, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+
+    private static boolean solid(MinecraftClient mc, double x, double y, double z) {
+        if (mc.world == null) return false;
+        net.minecraft.util.math.BlockPos pos = net.minecraft.util.math.BlockPos.ofFloored(x, y, z);
+        return !mc.world.getBlockState(pos).getCollisionShape(mc.world, pos).isEmpty();
     }
 
     /** État physique d'une touche (marche même avec un écran ouvert). */
