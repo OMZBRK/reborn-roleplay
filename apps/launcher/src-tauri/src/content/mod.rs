@@ -1133,9 +1133,11 @@ pub async fn shots_toggle_like(
     shot_id: String,
 ) -> Result<Json, ContentError> {
     let token = jwt(state.inner()).await?;
+    // Body `{}` et non `Json::Null` : l'API prod utilise express.json({strict:true})
+    // qui rejette les primitives JSON (null) → 400. L'endpoint ignore le body.
     state
         .api
-        .post_json(&token, &format!("/shots/{shot_id}/like"), &Json::Null)
+        .post_json(&token, &format!("/shots/{shot_id}/like"), &serde_json::json!({}))
         .await
         .map_err(|e| ContentError::Api {
             message: e.to_string(),

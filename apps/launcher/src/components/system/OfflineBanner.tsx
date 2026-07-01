@@ -46,7 +46,7 @@ export function OfflineBanner() {
           exit={{ y: -44, opacity: 0 }}
           transition={{ type: "spring", stiffness: 380, damping: 30 }}
           className={[
-            "no-drag relative z-30 mx-4 mt-1 flex items-center gap-3 rounded-md border px-4 py-2 text-sm",
+            "no-drag relative z-30 ml-4 mr-[68px] mt-2 flex items-center gap-3 rounded-md border px-4 py-2 text-sm",
             isSuccess
               ? "border-[var(--color-success)]/40 bg-[var(--color-success-soft)]/40 text-[var(--color-success)]"
               : "border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)]/40 text-[var(--color-danger)]",

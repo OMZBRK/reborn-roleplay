@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Heart, Loader2, RefreshCw, Users } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Heart, Loader2, RefreshCw, Users, X } from "lucide-react";
 import {
   fetchShotFeed,
   processPendingShares,
@@ -29,6 +30,7 @@ export function Feed() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openShot, setOpenShot] = useState<ShotView | null>(null);
   const likeInFlight = useRef<Set<string>>(new Set());
 
   const load = useCallback(async (reset: boolean) => {
@@ -61,43 +63,36 @@ export function Feed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ESC ferme la grande vue.
+  useEffect(() => {
+    if (!openShot) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenShot(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [openShot]);
+
+  // Applique un état de like à la fois à la grille et au shot ouvert en grand.
+  function applyLike(id: string, likedByMe: boolean, likeCount: number) {
+    setItems((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, likedByMe, likeCount } : s)),
+    );
+    setOpenShot((cur) =>
+      cur && cur.id === id ? { ...cur, likedByMe, likeCount } : cur,
+    );
+  }
+
   async function onLike(shot: ShotView) {
     if (likeInFlight.current.has(shot.id)) return;
     likeInFlight.current.add(shot.id);
     // Optimiste
-    setItems((prev) =>
-      prev.map((s) =>
-        s.id === shot.id
-          ? {
-              ...s,
-              likedByMe: !s.likedByMe,
-              likeCount: s.likeCount + (s.likedByMe ? -1 : 1),
-            }
-          : s,
-      ),
-    );
+    applyLike(shot.id, !shot.likedByMe, shot.likeCount + (shot.likedByMe ? -1 : 1));
     try {
       const res = await toggleShotLike(shot.id);
-      setItems((prev) =>
-        prev.map((s) =>
-          s.id === shot.id
-            ? { ...s, likedByMe: res.liked, likeCount: res.likeCount }
-            : s,
-        ),
-      );
+      applyLike(shot.id, res.liked, res.likeCount);
     } catch {
-      // rollback
-      setItems((prev) =>
-        prev.map((s) =>
-          s.id === shot.id
-            ? {
-                ...s,
-                likedByMe: shot.likedByMe,
-                likeCount: shot.likeCount,
-              }
-            : s,
-        ),
-      );
+      applyLike(shot.id, shot.likedByMe, shot.likeCount); // rollback
     } finally {
       likeInFlight.current.delete(shot.id);
     }
@@ -163,14 +158,19 @@ export function Feed() {
             <div className="reborn-feed-grid">
               {items.map((shot) => (
                 <article key={shot.id} className="reborn-feed-card">
-                  <div className="reborn-feed-card-img-wrap">
+                  <button
+                    type="button"
+                    className="reborn-feed-card-img-wrap"
+                    onClick={() => setOpenShot(shot)}
+                    aria-label="Agrandir"
+                  >
                     <img
                       className="reborn-feed-card-img"
                       src={shot.url}
                       alt={shot.caption ?? "Capture"}
                       loading="lazy"
                     />
-                  </div>
+                  </button>
                   <div className="reborn-feed-card-body">
                     <div className="reborn-feed-card-author">
                       <span className="reborn-feed-avatar">
@@ -228,6 +228,75 @@ export function Feed() {
           </>
         )}
       </div>
+
+      <AnimatePresence>
+        {openShot && (
+          <motion.div
+            className="reborn-feed-lightbox"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setOpenShot(null);
+            }}
+          >
+            <button
+              type="button"
+              className="reborn-feed-lightbox-close"
+              onClick={() => setOpenShot(null)}
+              aria-label="Fermer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <motion.div
+              className="reborn-feed-lightbox-inner"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 32 }}
+            >
+              <img
+                className="reborn-feed-lightbox-img"
+                src={openShot.url}
+                alt={openShot.caption ?? "Capture"}
+              />
+              <div className="reborn-feed-lightbox-bar">
+                <span className="reborn-feed-avatar">
+                  {openShot.author.avatarUrl ? (
+                    <img src={openShot.author.avatarUrl} alt="" />
+                  ) : (
+                    openShot.author.name.charAt(0).toUpperCase()
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="reborn-feed-author-name">
+                    {openShot.author.name}
+                  </div>
+                  {openShot.caption && (
+                    <div className="reborn-feed-lightbox-caption">
+                      {openShot.caption}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="reborn-feed-like"
+                  data-liked={openShot.likedByMe}
+                  onClick={() => onLike(openShot)}
+                  aria-label={openShot.likedByMe ? "Ne plus aimer" : "Aimer"}
+                >
+                  <Heart
+                    className="h-3.5 w-3.5"
+                    fill={openShot.likedByMe ? "currentColor" : "none"}
+                  />
+                  <span>{openShot.likeCount}</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

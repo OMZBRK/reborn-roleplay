@@ -20,6 +20,7 @@ import {
 import { ScreenshotThumb } from "../components/screenshots/ScreenshotThumb";
 import { ScreenshotsEmpty } from "../components/screenshots/ScreenshotsEmpty";
 import { ScreenshotLightbox } from "../components/screenshots/ScreenshotLightbox";
+import { ShareCaptionModal } from "../components/screenshots/ShareCaptionModal";
 
 // Page Screenshots — branchée sur le vrai dossier de captures via les
 // commandes Tauri `screenshots_*` (cf lib/screenshots.ts). Les captures et
@@ -45,6 +46,7 @@ export function Screenshots() {
   const [sort, setSort] = useState<ScreenshotSort>("newest");
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [openShot, setOpenShot] = useState<ScreenshotRecord | null>(null);
+  const [sharingShot, setSharingShot] = useState<ScreenshotRecord | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -151,17 +153,19 @@ export function Screenshots() {
     }
   }
 
-  async function handleShare(shot: ScreenshotRecord) {
+  function handleShare(shot: ScreenshotRecord) {
     if (!shot.fileName) return;
-    const caption = window.prompt(
-      "Légende (optionnelle) pour le partage sur le feed :",
-      "",
-    );
-    if (caption === null) return; // annulé
+    setSharingShot(shot); // ouvre la modale centrée (remplace window.prompt)
+  }
+
+  async function confirmShare(caption: string) {
+    const shot = sharingShot;
+    if (!shot?.fileName) return;
     setBusy(shot.id);
     try {
-      await shareScreenshot(shot.fileName, caption.trim() || undefined);
+      await shareScreenshot(shot.fileName, caption || undefined);
       toast("Partagé sur le feed 🎉");
+      setSharingShot(null);
     } catch (e) {
       toast(`Échec du partage : ${String(e)}`);
     } finally {
@@ -330,6 +334,13 @@ export function Screenshots() {
         onShare={handleShare}
         onDelete={handleDelete}
         onToggleFavorite={handleToggleFavorite}
+      />
+
+      <ShareCaptionModal
+        shot={sharingShot}
+        busy={busy === sharingShot?.id}
+        onCancel={() => setSharingShot(null)}
+        onConfirm={confirmShare}
       />
     </div>
   );
