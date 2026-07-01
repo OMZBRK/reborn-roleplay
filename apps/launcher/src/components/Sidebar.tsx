@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Sparkles,
   User,
+  Users,
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
 import { useWhitelistStore } from "../stores/whitelist-store";
@@ -81,6 +82,7 @@ export function Sidebar() {
         route: "/screenshots",
         icon: Image,
       },
+      { id: "feed", label: "Feed communautaire", route: "/feed", icon: Users },
       {
         id: "tickets",
         label: "Tickets",

@@ -121,6 +121,7 @@ pub fn run() {
             content::screenshots_toggle_favorite,
             content::screenshots_delete,
             content::screenshots_share,
+            content::screenshots_process_pending_shares,
             content::shots_feed,
             content::shots_toggle_like,
             hardware::system_specs_get,

@@ -11,6 +11,7 @@ import { Settings } from "./routes/Settings";
 import { Map } from "./routes/Map";
 import { Mods } from "./routes/Mods";
 import { Screenshots } from "./routes/Screenshots";
+import { Feed } from "./routes/Feed";
 import { Tickets } from "./routes/Tickets";
 import { Whitelist } from "./routes/Whitelist";
 import { Character } from "./routes/Character";
@@ -81,6 +82,7 @@ export function App() {
               <Route path="/mods" element={<Mods />} />
               <Route path="/map" element={<Map />} />
               <Route path="/screenshots" element={<Screenshots />} />
+              <Route path="/feed" element={<Feed />} />
               <Route path="/rules" element={<Rules />} />
               <Route path="/rules/:slug" element={<RuleDetail />} />
               <Route path="/lore" element={<Lore />} />

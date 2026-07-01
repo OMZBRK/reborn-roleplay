@@ -69,6 +69,22 @@ export async function shareScreenshot(
   return invoke<ShotView>("screenshots_share", { fileName, caption });
 }
 
+export type PendingSharesResult = { shared: number; failed: number };
+
+/**
+ * Traite la file de partages déposée par le mod in-game (bouton « Partager »
+ * de la galerie du jeu) : upload chaque capture en attente vers /v1/shots.
+ * À appeler à l'ouverture du feed.
+ */
+export async function processPendingShares(): Promise<PendingSharesResult> {
+  return (
+    (await invoke<PendingSharesResult>("screenshots_process_pending_shares")) ?? {
+      shared: 0,
+      failed: 0,
+    }
+  );
+}
+
 export async function fetchShotFeed(cursor?: string): Promise<ShotFeed> {
   return (
     (await invoke<ShotFeed>("shots_feed", { cursor })) ?? {

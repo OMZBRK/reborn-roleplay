@@ -3178,6 +3178,135 @@ body,
   font-size: 13px;
 }
 
+/* ── Feed communautaire ─────────────────────────────────────────── */
+.reborn-feed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  padding: 4px 0 8px;
+}
+.reborn-feed-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  transition: border-color var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
+}
+.reborn-feed-card:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+.reborn-feed-card-img-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: rgba(10, 11, 16, 0.9);
+  overflow: hidden;
+}
+.reborn-feed-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.reborn-feed-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+.reborn-feed-card-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reborn-feed-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.reborn-feed-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.reborn-feed-author-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reborn-feed-time {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.reborn-feed-caption {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-secondary, var(--color-text));
+  opacity: 0.9;
+  word-break: break-word;
+}
+.reborn-feed-like {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-feed-like:hover {
+  color: var(--color-text);
+  border-color: var(--color-accent);
+}
+.reborn-feed-like[data-liked="true"] {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.reborn-feed-more {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 8px;
+}
+.reborn-feed-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 64px 0;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.reborn-feed-empty-sub {
+  font-size: 12px;
+  opacity: 0.7;
+  max-width: 360px;
+}
+
 /* Étoile favori cliquable (vue détaillée). */
 .reborn-shots-fav-toggle {
   display: inline-flex;

@@ -1010,6 +1010,102 @@ pub async fn screenshots_share(
         })
 }
 
+/// Une demande de partage en attente, écrite par le mod-hud in-game dans
+/// `<game_dir>/reborn/pending-shares.json`.
+#[derive(Debug, Deserialize)]
+struct PendingShare {
+    file: String,
+    #[serde(default)]
+    caption: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingSharesResult {
+    pub shared: u32,
+    pub failed: u32,
+}
+
+fn pending_shares_file() -> Result<std::path::PathBuf, ContentError> {
+    Ok(game_dir()
+        .map_err(|e| ContentError::Io {
+            message: e.to_string(),
+        })?
+        .join("reborn")
+        .join("pending-shares.json"))
+}
+
+/// Traite la file de partages déposée par le mod in-game : upload chaque
+/// capture vers `/v1/shots`, puis réécrit la file avec seulement les entrées
+/// encore en échec (les captures disparues du disque sont abandonnées). Appelé
+/// par le launcher à l'ouverture du feed. No-op si la file est vide/absente.
+#[tauri::command]
+pub async fn screenshots_process_pending_shares(
+    state: State<'_, AuthState>,
+) -> Result<PendingSharesResult, ContentError> {
+    let path = pending_shares_file()?;
+    let raw = match std::fs::read_to_string(&path) {
+        Ok(r) => r,
+        Err(_) => return Ok(PendingSharesResult { shared: 0, failed: 0 }),
+    };
+    let queue: Vec<PendingShare> = serde_json::from_str(&raw).unwrap_or_default();
+    if queue.is_empty() {
+        return Ok(PendingSharesResult { shared: 0, failed: 0 });
+    }
+
+    let token = jwt(state.inner()).await?;
+    let dir = screenshots_dir()?;
+    let mut shared = 0u32;
+    let mut remaining: Vec<serde_json::Value> = Vec::new();
+
+    for item in queue {
+        // Garde-fou path traversal.
+        if item.file.contains('/') || item.file.contains('\\') || item.file.contains("..") {
+            continue;
+        }
+        let file_path = dir.join(&item.file);
+        let bytes = match std::fs::read(&file_path) {
+            Ok(b) => b,
+            // Fichier disparu : on abandonne l'entrée (pas de retry infini).
+            Err(_) => continue,
+        };
+        let mime = if item.file.to_ascii_lowercase().ends_with(".png") {
+            "image/png"
+        } else {
+            "image/jpeg"
+        };
+        let caption = if item.caption.trim().is_empty() {
+            None
+        } else {
+            Some(item.caption.clone())
+        };
+        match state
+            .api
+            .upload_shot(&token, &item.file, mime, bytes, caption)
+            .await
+        {
+            Ok(_) => shared += 1,
+            // Échec réseau/API : on garde l'entrée pour un prochain passage.
+            Err(_) => remaining.push(serde_json::json!({
+                "file": item.file,
+                "caption": item.caption,
+            })),
+        }
+    }
+
+    // Réécrit (ou supprime) la file selon ce qui reste.
+    if remaining.is_empty() {
+        let _ = std::fs::remove_file(&path);
+    } else if let Ok(json) = serde_json::to_string(&remaining) {
+        let _ = std::fs::write(&path, json);
+    }
+
+    Ok(PendingSharesResult {
+        shared,
+        failed: remaining.len() as u32,
+    })
+}
+
 /// Feed social (screenshots partagés par la communauté).
 #[tauri::command]
 pub async fn shots_feed(
