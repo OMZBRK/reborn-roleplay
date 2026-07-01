@@ -70,6 +70,9 @@ services:
       REBORN_PLAY_TOKEN_SECRET: ${REBORN_PLAY_TOKEN_SECRET}
       MANIFEST_PUBLIC_KEY_HEX: ${MANIFEST_PUBLIC_KEY_HEX}
       LAUNCHER_BETA_GATE: ${LAUNCHER_BETA_GATE:-}
+      # Cible du ping serveur (endpoint /v1/server/status).
+      REBORN_SERVER_HOST: ${REBORN_SERVER_HOST}
+      REBORN_SERVER_PORT: ${REBORN_SERVER_PORT:-25565}
       # Chiffrement des secrets 2FA au repos (fail-fast en prod). Générer :
       # openssl rand -hex 32 — puis poser REBORN_2FA_ENC_KEY dans .env.prod.
       REBORN_2FA_ENC_KEY: ${REBORN_2FA_ENC_KEY}
