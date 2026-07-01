@@ -49,6 +49,9 @@ public final class RebornHudClient implements ClientModInitializer {
         // Bandes noires cinéma (immersion) — toggle touche K.
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
 
+        // Preview auto après capture d'écran.
+        fr.reborn.hud.screenshot.CapturePreview.INSTANCE.registerClient();
+
         // Désactive le narrateur Minecraft (demande user) — une fois, quand les
         // options sont prêtes.
         final boolean[] narratorDone = {false};
