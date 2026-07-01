@@ -77,13 +77,16 @@ public class ScreenshotDetailScreen extends Screen {
         buttons.clear();
         Entry e = cur();
         boolean fav = ScreenshotLibrary.isFavorite(e.name());
+        boolean pending = fr.reborn.hud.screenshot.ShareQueue.isPending(e.name());
         String[][] defs = {
-            {"◀"}, {fav ? "♥ Favori" : "♡ Favori"}, {"Éditer"}, {"Ouvrir"}, {"Supprimer"}, {"Retour"}, {"▶"},
+            {"◀"}, {fav ? "♥ Favori" : "♡ Favori"}, {"Éditer"},
+            {pending ? "✓ Partagé" : "Partager"}, {"Ouvrir"}, {"Supprimer"}, {"Retour"}, {"▶"},
         };
         Runnable[] acts = {
             () -> nav(-1),
             () -> { ScreenshotLibrary.toggleFavorite(e.name()); },
             () -> openEditor(),
+            this::openShare,
             () -> Util.getOperatingSystem().open(e.path().toFile()),
             () -> deleteCurrent(),
             this::close,
@@ -103,6 +106,10 @@ public class ScreenshotDetailScreen extends Screen {
 
     private void openEditor() {
         MinecraftClient.getInstance().setScreen(new ScreenshotEditorScreen(this, cur()));
+    }
+
+    private void openShare() {
+        MinecraftClient.getInstance().setScreen(new ScreenshotShareScreen(this, cur()));
     }
 
     private void nav(int d) {
