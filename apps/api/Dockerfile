@@ -71,6 +71,13 @@ COPY --from=builder --chown=reborn:reborn /repo/apps/api/prisma ./apps/api/prism
 COPY --from=builder --chown=reborn:reborn /repo/apps/api/package.json ./apps/api/
 COPY --from=builder --chown=reborn:reborn /repo/package.json /repo/pnpm-workspace.yaml ./
 
+# Dossier de stockage des uploads (screenshots feed + pièces jointes),
+# créé + possédé par reborn AVANT le mount du volume. Ainsi, quand le
+# volume nommé reborn_uploads s'initialise depuis l'image, il hérite de
+# la propriété reborn → l'appli (user reborn) peut y écrire. Sans ça, un
+# volume vide est créé root → EACCES à l'écriture → 500 sur POST /shots.
+RUN mkdir -p /app/apps/api/uploads && chown -R reborn:reborn /app/apps/api/uploads
+
 USER reborn
 
 EXPOSE 3000
