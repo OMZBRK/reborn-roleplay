@@ -70,6 +70,18 @@ services:
       REBORN_PLAY_TOKEN_SECRET: ${REBORN_PLAY_TOKEN_SECRET}
       MANIFEST_PUBLIC_KEY_HEX: ${MANIFEST_PUBLIC_KEY_HEX}
       LAUNCHER_BETA_GATE: ${LAUNCHER_BETA_GATE:-}
+      # Chiffrement des secrets 2FA au repos (fail-fast en prod). Générer :
+      # openssl rand -hex 32 — puis poser REBORN_2FA_ENC_KEY dans .env.prod.
+      REBORN_2FA_ENC_KEY: ${REBORN_2FA_ENC_KEY}
+      # Base des URLs publiques des fichiers uploadés (screenshots partagés,
+      # pièces jointes). Sinon défaut localhost → images cassées dans le feed.
+      REBORN_PUBLIC_API_URL: ${REBORN_PUBLIC_API_URL:-https://api.reborn-rp.com}
+      # Dossier de stockage des uploads — monté sur un volume persistant.
+      REBORN_UPLOAD_DIR: /app/apps/api/uploads
+    volumes:
+      # Persiste les uploads (screenshots feed + pièces jointes) entre les
+      # rebuilds du conteneur — sinon perdus à chaque `up --build`.
+      - reborn_uploads:/app/apps/api/uploads
     networks:
       - reborn-edge
       - reborn-internal
@@ -163,6 +175,7 @@ volumes:
   reborn_redis_data:
   reborn_caddy_data:
   reborn_caddy_config:
+  reborn_uploads:
 
 networks:
   # Edge : caddy + apps qui doivent etre accessibles via reverse proxy.
