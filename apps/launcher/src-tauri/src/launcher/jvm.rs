@@ -32,7 +32,11 @@ pub struct LaunchConfig {
     /// Resolution X / Y de la fenetre de jeu.
     pub width: u32,
     pub height: u32,
-    /// Auto-connect au serveur. None = menu principal.
+    /// Adresse du serveur Reborn passée au mod HUD via sysprops
+    /// (`-Dreborn.server.host` / `.port`). Le mod l'utilise pour le bouton
+    /// « Espace » du main menu — on ne connecte PLUS automatiquement, le
+    /// client boote sur le menu principal Reborn. None = menu sans cible
+    /// (le mod retombe sur son host par défaut).
     pub auto_connect: Option<ServerAddress>,
     /// Chemin absolu vers le fichier contenant le play-token (lu par le mod
     /// Reborn Integrity au boot pour s'attester aupres du plugin Guardian).
@@ -84,6 +88,15 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
         // et inoffensif).
         args.push(format!("-Dreborn.playTokenPath={path}"));
     }
+    if let Some(server) = cfg.auto_connect.as_ref() {
+        // Adresse du serveur transmise au mod HUD. Le main menu Reborn
+        // lit ces sysprops et connecte le joueur quand il appuie sur
+        // Espace — on ne passe volontairement PAS `--quickPlayMultiplayer`
+        // pour laisser le menu principal s'afficher au lieu de se
+        // connecter directement.
+        args.push(format!("-Dreborn.server.host={}", server.host));
+        args.push(format!("-Dreborn.server.port={}", server.port));
+    }
 
     // Classpath = libraries + client jar
     let cp_separator = if cfg!(target_os = "windows") { ";" } else { ":" };
@@ -129,16 +142,11 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
     args.push("--height".into());
     args.push(cfg.height.to_string());
 
-    if let Some(server) = &cfg.auto_connect {
-        // Depuis MC 1.20, `--server`/`--port` sont deprecies au profit de
-        // Quick Play. Le client moderne attend une seule string `host:port`.
-        // On envoie quand meme les deux variantes : `--quickPlayMultiplayer`
-        // est respecte par 1.20+, et les anciens `--server`/`--port` sont
-        // toleres pour les versions plus anciennes (et ignores en silence
-        // par 1.21+ qui les juge obsoletes).
-        args.push("--quickPlayMultiplayer".into());
-        args.push(format!("{}:{}", server.host, server.port));
-    }
+    // NB : plus de `--quickPlayMultiplayer` ici. On veut afficher le main
+    // menu Reborn au lancement plutôt que de connecter directement le
+    // joueur. L'adresse serveur est transmise au mod via sysprops (cf.
+    // `-Dreborn.server.host` / `.port` plus haut) ; c'est le bouton
+    // « Espace » du menu qui déclenche la connexion.
 
     args
 }
@@ -209,21 +217,33 @@ mod tests {
     }
 
     #[test]
-    fn auto_connect_uses_quick_play_multiplayer() {
+    fn server_hint_emitted_as_sysprops() {
         let argv = build_command(&sample_cfg());
-        let idx = argv
-            .iter()
-            .position(|a| a == "--quickPlayMultiplayer")
-            .expect("--quickPlayMultiplayer manquant");
-        assert_eq!(argv[idx + 1], "play.reborn-rp.fr:25565");
+        assert!(
+            argv.iter()
+                .any(|a| a == "-Dreborn.server.host=play.reborn-rp.fr"),
+            "argv doit porter le sysprop host"
+        );
+        assert!(
+            argv.iter().any(|a| a == "-Dreborn.server.port=25565"),
+            "argv doit porter le sysprop port"
+        );
     }
 
     #[test]
-    fn no_auto_connect_omits_server_args() {
+    fn no_quick_play_multiplayer_ever() {
+        // On ne connecte jamais automatiquement — le menu Reborn s'affiche.
+        let argv = build_command(&sample_cfg());
+        assert!(!argv.iter().any(|a| a == "--quickPlayMultiplayer"));
+    }
+
+    #[test]
+    fn no_server_hint_omits_sysprops() {
         let mut cfg = sample_cfg();
         cfg.auto_connect = None;
         let argv = build_command(&cfg);
-        assert!(!argv.iter().any(|a| a == "--quickPlayMultiplayer"));
+        assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.server.host=")));
+        assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.server.port=")));
     }
 
     #[test]
