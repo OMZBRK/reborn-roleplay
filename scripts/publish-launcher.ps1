@@ -97,6 +97,13 @@ try {
         $env:REBORN_SERVER_PORT_BUILD = $envMap['REBORN_SERVER_PORT']
         $env:REBORN_API_URL_BUILD = $ApiUrl
         $env:MANIFEST_PUBLIC_KEY_HEX_BUILD = $manifestPubkeyHex
+        # Serveur DEV (toggle Build/Dev staff-only). Optionnel : si absent du
+        # .env, le build sort sans serveur dev (aucun toggle cote mod).
+        if ($envMap.ContainsKey('REBORN_SERVER_DEV_HOST') -and $envMap['REBORN_SERVER_DEV_HOST']) {
+            $env:REBORN_SERVER_DEV_HOST_BUILD = $envMap['REBORN_SERVER_DEV_HOST']
+            $env:REBORN_SERVER_DEV_PORT_BUILD = $envMap['REBORN_SERVER_DEV_PORT']
+            Write-Host "    REBORN_SERVER_DEV_HOST_BUILD= $($envMap['REBORN_SERVER_DEV_HOST']):$($envMap['REBORN_SERVER_DEV_PORT'])" -ForegroundColor Gray
+        }
 
         # NB : on NE positionne PAS TAURI_SIGNING_PRIVATE_KEY ici, parce
         # que la valeur dans .env est un chemin (et tauri attend la cle
