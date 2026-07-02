@@ -15,7 +15,9 @@ package fr.reborn.ost.network;
 public enum OstPacketType {
     PLAY_AT_POSITION((byte) 0x01),
     STOP_BROADCAST((byte) 0x02),
-    PLAY_GLOBAL((byte) 0x03);
+    PLAY_GLOBAL((byte) 0x03),
+    /** Met en pause / reprend le son broadcast en cours (owner-only côté serveur). */
+    PAUSE_BROADCAST((byte) 0x04);
 
     private final byte code;
 

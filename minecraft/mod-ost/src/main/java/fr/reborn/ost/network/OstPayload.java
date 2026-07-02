@@ -30,7 +30,8 @@ import net.minecraft.util.Identifier;
  * {@code OstNetworking}, loggée en WARNING, et n'impacte pas le client.
  */
 public sealed interface OstPayload extends CustomPayload
-    permits OstPayload.PlayAtPosition, OstPayload.StopBroadcast, OstPayload.PlayGlobal {
+    permits OstPayload.PlayAtPosition, OstPayload.StopBroadcast, OstPayload.PlayGlobal,
+            OstPayload.PauseBroadcast {
 
     Identifier IDENTIFIER = Identifier.of("reborn", "ost");
     CustomPayload.Id<OstPayload> ID = new CustomPayload.Id<>(IDENTIFIER);
@@ -66,6 +67,7 @@ public sealed interface OstPayload extends CustomPayload
                     float volume = buf.readFloat();
                     yield new PlayGlobal(trackId, volume);
                 }
+                case PAUSE_BROADCAST -> new PauseBroadcast(buf.readBoolean());
             };
         }
 
@@ -87,6 +89,10 @@ public sealed interface OstPayload extends CustomPayload
                     buf.writeByte(OstPacketType.PLAY_GLOBAL.code());
                     buf.writeString(p.trackId());
                     buf.writeFloat(p.volume());
+                }
+                case PauseBroadcast p -> {
+                    buf.writeByte(OstPacketType.PAUSE_BROADCAST.code());
+                    buf.writeBoolean(p.paused());
                 }
             }
         }
@@ -122,5 +128,11 @@ public sealed interface OstPayload extends CustomPayload
         public String summary() {
             return "PLAY_GLOBAL(" + trackId + " vol=" + volume + ")";
         }
+    }
+
+    /** Met en pause ({@code true}) ou reprend ({@code false}) le broadcast en cours. */
+    record PauseBroadcast(boolean paused) implements OstPayload {
+        @Override
+        public String summary() { return "PAUSE_BROADCAST(" + paused + ")"; }
     }
 }

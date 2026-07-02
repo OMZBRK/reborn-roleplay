@@ -21,8 +21,12 @@ package fr.reborn.ost.plugin.network;
  */
 public final class OstChannel {
 
-    /** Nom complet du canal Bukkit/Paper. */
+    /** Nom complet du canal Bukkit/Paper (serveur → client). */
     public static final String NAME = "reborn:ost";
+
+    /** Canal entrant (client → serveur) : requêtes de broadcast de zone d'un
+     *  joueur (play/stop/pause). Cf {@code OstRequestListener}. */
+    public static final String REQUEST_NAME = "reborn:ost_request";
 
     private OstChannel() {}
 }

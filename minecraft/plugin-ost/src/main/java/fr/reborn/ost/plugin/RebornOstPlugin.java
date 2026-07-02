@@ -55,6 +55,13 @@ public final class RebornOstPlugin extends JavaPlugin implements Listener {
         getLogger().info("Canal " + OstChannel.NAME + " enregistre (outgoing).");
 
         this.broadcaster = new OstBroadcaster(this);
+
+        // Canal entrant : broadcasts de zone demandés par les joueurs (menu OST
+        // solo OFF) + stop/pause owner-only. Anti-abus dans le listener.
+        getServer().getMessenger().registerIncomingPluginChannel(this, OstChannel.REQUEST_NAME,
+            new fr.reborn.ost.plugin.network.OstRequestListener(broadcaster, getLogger()));
+        getLogger().info("Canal " + OstChannel.REQUEST_NAME + " enregistre (incoming).");
+
         PluginCommand cmd = getCommand("ost");
         if (cmd != null) {
             OstCommand executor = new OstCommand(broadcaster);

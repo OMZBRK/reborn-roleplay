@@ -44,7 +44,10 @@ public final class OstZoneRegistry {
         float radius,
         String trackId,
         float volume,
-        long startedAtMs
+        long startedAtMs,
+        /** Joueur qui a déclenché ce broadcast (null = commande /ost serveur).
+         *  Seul lui peut le stopper / mettre en pause pour la zone. */
+        UUID owner
     ) {
         /**
          * Distance² (skip {@code sqrt}) entre la zone et un point monde.
@@ -74,6 +77,12 @@ public final class OstZoneRegistry {
      */
     public ZoneRecord addZone(UUID worldId, double x, double y, double z,
                               float radius, String trackId, float volume) {
+        return addZone(worldId, x, y, z, radius, trackId, volume, null);
+    }
+
+    /** Variante avec propriétaire (broadcast déclenché par un joueur). */
+    public ZoneRecord addZone(UUID worldId, double x, double y, double z,
+                              float radius, String trackId, float volume, UUID owner) {
         Objects.requireNonNull(worldId, "worldId");
         ZoneRecord r = new ZoneRecord(
             UUID.randomUUID(),
@@ -82,10 +91,21 @@ public final class OstZoneRegistry {
             radius,
             trackId,
             volume,
-            System.currentTimeMillis()
+            System.currentTimeMillis(),
+            owner
         );
         zones.put(r.id(), r);
         return r;
+    }
+
+    /** Zones détenues par ce joueur (broadcasts qu'il a déclenchés). */
+    public List<ZoneRecord> zonesOwnedBy(UUID owner) {
+        List<ZoneRecord> out = new ArrayList<>();
+        if (owner == null) return out;
+        for (ZoneRecord z : zones.values()) {
+            if (owner.equals(z.owner())) out.add(z);
+        }
+        return out;
     }
 
     /** Marque un joueur comme subscribed à une zone. Idempotent. */
@@ -121,6 +141,13 @@ public final class OstZoneRegistry {
         });
         purgeOrphanSubscriptions();
         return removed;
+    }
+
+    /** Supprime une zone précise (par id). Renvoie le record ou null. */
+    public ZoneRecord remove(UUID zoneId) {
+        ZoneRecord r = zones.remove(zoneId);
+        if (r != null) purgeOrphanSubscriptions();
+        return r;
     }
 
     /** Supprime toutes les zones, peu importe le monde ou la position. */

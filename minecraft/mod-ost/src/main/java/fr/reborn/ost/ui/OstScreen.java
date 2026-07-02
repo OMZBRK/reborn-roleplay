@@ -8,6 +8,7 @@ import fr.reborn.ost.audio.OstPlayback;
 import fr.reborn.ost.audio.OstTrack;
 import fr.reborn.ost.audio.OstTrackMeta;
 import fr.reborn.ost.config.OstConfig;
+import fr.reborn.ost.network.OstNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -373,9 +374,21 @@ public class OstScreen extends Screen {
         // Contrôles now-playing (icônes 16x16) — pressedCtrl pour l'animation.
         int ccx = npTextX(), cy = ctrlY();
         if (in(mxi, myi, ccx, cy, 16, 16)) { pressedCtrl = 0; playRelative(-1); return true; }
-        if (in(mxi, myi, ccx + 22, cy, 16, 16)) { pressedCtrl = 1; engine.togglePause(); return true; }
+        if (in(mxi, myi, ccx + 22, cy, 16, 16)) {
+            pressedCtrl = 1;
+            engine.togglePause();
+            // Owner d'un broadcast → la pause se propage à toute la zone.
+            if (OstNetworking.isBroadcastOwner()) OstNetworking.requestPause(engine.isPaused());
+            return true;
+        }
         if (in(mxi, myi, ccx + 44, cy, 16, 16)) { pressedCtrl = 2; playRelative(1); return true; }
-        if (in(mxi, myi, ccx + 66, cy, 16, 16)) { pressedCtrl = 3; OstPlayback.INSTANCE.stop(engine); return true; }
+        if (in(mxi, myi, ccx + 66, cy, 16, 16)) {
+            pressedCtrl = 3;
+            OstPlayback.INSTANCE.stop(engine);
+            // Owner → stop pour toute la zone (no-op sinon, reset owner).
+            OstNetworking.requestStop();
+            return true;
+        }
         // Shuffle / Repeat.
         if (in(mxi, myi, ccx + 90, cy, 16, 16)) { config.setShuffle(!config.isShuffle()); config.save(); return true; }
         if (in(mxi, myi, ccx + 112, cy, 16, 16)) { config.cycleRepeat(); config.save(); return true; }
@@ -383,7 +396,11 @@ public class OstScreen extends Screen {
         // Solo.
         int sy = sliderY(), soloX = cx0() + cw() - 84;
         if (in(mxi, myi, soloX, sy - 6, 78, 16)) {
-            config.setSoloMode(!config.isSoloMode()); config.save(); return true;
+            config.setSoloMode(!config.isSoloMode()); config.save();
+            // Opt-out : passer en Solo coupe chez soi le broadcast serveur en
+            // cours (on écoutera sa propre playlist). N'affecte que ce client.
+            if (config.isSoloMode()) engine.stop();
+            return true;
         }
         if (handleSliders(mx, my)) return true;
 
@@ -395,7 +412,7 @@ public class OstScreen extends Screen {
             if (idx >= 0 && idx < tracks.size()) {
                 OstTrack t = tracks.get(idx);
                 if (mxi > right - 18) { config.toggleFavorite(t.trackId()); config.save(); }
-                else OstPlayback.INSTANCE.play(engine, config, tracks, idx);
+                else playAndMaybeBroadcast(tracks, idx);
                 return true;
             }
         }
@@ -450,7 +467,17 @@ public class OstScreen extends Screen {
             }
             idx = (idx + dir + list.size()) % list.size();
         }
+        playAndMaybeBroadcast(list, idx);
+    }
+
+    /** Joue la piste localement ; en solo OFF, la diffuse aussi à la zone
+     *  (broadcast serveur) et devient propriétaire du son. */
+    private void playAndMaybeBroadcast(List<OstTrack> list, int idx) {
         OstPlayback.INSTANCE.play(engine, config, list, idx);
+        if (!config.isSoloMode()) {
+            OstTrack t = list.get(idx);
+            OstNetworking.requestPlay(t.trackId(), config.getBroadcastDistance(), config.getVolume());
+        }
     }
 
     private static float clamp01(double v) { return (float) Math.max(0, Math.min(1, v)); }

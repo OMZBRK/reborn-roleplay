@@ -24,15 +24,21 @@ public final class OstNetworking {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("reborn-ost/net");
 
+    /** Vrai si CE client est le propriétaire du broadcast de zone actif
+     *  (il a lancé un son en solo OFF). Seul le propriétaire peut stop/pause
+     *  pour tout le monde. Passé à false dès qu'un broadcast tiers arrive ou
+     *  qu'un stop survient. */
+    private static volatile boolean broadcastOwner = false;
+
+    public static boolean isBroadcastOwner() { return broadcastOwner; }
+
     private OstNetworking() {}
 
     public static void registerClient(OstLibrary library, OstAudioEngine engine, OstConfig config) {
-        // Canal S2C (serveur → client) — le client ne push jamais ici
-        // dans cette version. Si plus tard on veut un auto-DJ partagé
-        // (le client request une lecture), il faudra ajouter une
-        // signature HMAC pour éviter qu'un client malveillant déclenche
-        // un son chez tous les voisins — TODO documenté dans le plugin.
         PayloadTypeRegistry.playS2C().register(OstPayload.ID, OstPayload.CODEC);
+        // Canal C2S (client → serveur) : le joueur demande un broadcast de zone
+        // / stop / pause. Le plugin applique cooldown + cap rayon + owner-only.
+        PayloadTypeRegistry.playC2S().register(OstRequestPayload.ID, OstRequestPayload.CODEC);
 
         ClientPlayNetworking.registerGlobalReceiver(OstPayload.ID, (payload, ctx) -> {
             LOGGER.info("payload recu : {}", payload.summary());
@@ -43,7 +49,33 @@ public final class OstNetworking {
             }
         });
 
-        LOGGER.info("OST channel registered (reborn:ost S2C)");
+        LOGGER.info("OST channels registered (reborn:ost S2C + reborn:ost_request C2S)");
+    }
+
+    // ── Envois C2S (le menu OST les appelle) ──
+
+    /** Demande au serveur de diffuser {@code trackId} autour du joueur. Marque
+     *  ce client comme propriétaire du broadcast. */
+    public static void requestPlay(String trackId, float radius, float volume) {
+        broadcastOwner = true;
+        if (ClientPlayNetworking.canSend(OstRequestPayload.ID)) {
+            ClientPlayNetworking.send(new OstRequestPayload.RequestPlay(trackId, radius, volume));
+        }
+    }
+
+    /** Demande au serveur de stopper le broadcast dont on est propriétaire. */
+    public static void requestStop() {
+        if (broadcastOwner && ClientPlayNetworking.canSend(OstRequestPayload.ID)) {
+            ClientPlayNetworking.send(new OstRequestPayload.RequestStop());
+        }
+        broadcastOwner = false;
+    }
+
+    /** Demande pause/reprise du broadcast dont on est propriétaire. */
+    public static void requestPause(boolean paused) {
+        if (broadcastOwner && ClientPlayNetworking.canSend(OstRequestPayload.ID)) {
+            ClientPlayNetworking.send(new OstRequestPayload.RequestPause(paused));
+        }
     }
 
     private static void handle(OstPayload payload, OstLibrary library, OstAudioEngine engine,
@@ -53,16 +85,29 @@ public final class OstNetworking {
             return;
         }
         switch (payload) {
-            case OstPayload.StopBroadcast ignored -> client.execute(engine::stop);
-            case OstPayload.PlayGlobal p -> resolveAndPlay(p.trackId(), p.volume(), null, 0f, 0f, library, engine, client);
-            case OstPayload.PlayAtPosition p -> resolveAndPlay(
-                p.trackId(),
-                p.volume(),
-                new float[]{(float) p.x(), (float) p.y(), (float) p.z()},
-                p.radius(),
-                p.secOffset(),
-                library, engine, client
-            );
+            case OstPayload.StopBroadcast ignored -> {
+                broadcastOwner = false;
+                client.execute(engine::stop);
+            }
+            case OstPayload.PauseBroadcast p -> client.execute(() -> {
+                // Aligne l'état de pause local sur la consigne owner.
+                if (engine.isPlaying() && engine.isPaused() != p.paused()) engine.togglePause();
+            });
+            case OstPayload.PlayGlobal p -> {
+                broadcastOwner = false; // broadcast d'un tiers → je ne suis pas owner
+                resolveAndPlay(p.trackId(), p.volume(), null, 0f, 0f, library, engine, client);
+            }
+            case OstPayload.PlayAtPosition p -> {
+                broadcastOwner = false;
+                resolveAndPlay(
+                    p.trackId(),
+                    p.volume(),
+                    new float[]{(float) p.x(), (float) p.y(), (float) p.z()},
+                    p.radius(),
+                    p.secOffset(),
+                    library, engine, client
+                );
+            }
         }
     }
 

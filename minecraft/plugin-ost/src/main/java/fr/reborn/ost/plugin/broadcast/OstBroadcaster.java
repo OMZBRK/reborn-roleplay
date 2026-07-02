@@ -48,16 +48,30 @@ public final class OstBroadcaster {
      * @return nombre de joueurs notifiés initialement
      */
     public int playAtPosition(Location target, float radius, String trackId, float volume) {
+        return playAtPosition(target, radius, trackId, volume, null);
+    }
+
+    /**
+     * Variante avec {@code owner} (broadcast déclenché par un joueur via le
+     * menu). Le propriétaire n'est PAS renvoyé le packet (il joue déjà sa
+     * piste en local) mais est marqué subscribed pour que le late-join tick ne
+     * la lui repousse pas. Seul lui pourra stop/pause la zone.
+     */
+    public int playAtPosition(Location target, float radius, String trackId, float volume, UUID owner) {
         if (target == null || target.getWorld() == null) return 0;
         OstZoneRegistry.ZoneRecord zone = registry.addZone(
             target.getWorld().getUID(), target.getX(), target.getY(), target.getZ(),
-            radius, trackId, volume);
+            radius, trackId, volume, owner);
 
         byte[] packet = OstPacket.playAtPosition(
             target.getX(), target.getY(), target.getZ(), radius, trackId, volume, 0f);
 
         List<Player> recipients = playersInRange(target, radius);
         for (Player p : recipients) {
+            if (owner != null && owner.equals(p.getUniqueId())) {
+                registry.markSubscribed(p.getUniqueId(), zone.id()); // joue en local
+                continue;
+            }
             p.sendPluginMessage(plugin, OstChannel.NAME, packet);
             registry.markSubscribed(p.getUniqueId(), zone.id());
         }
@@ -106,6 +120,38 @@ public final class OstBroadcaster {
             p.sendPluginMessage(plugin, OstChannel.NAME, packet);
         }
         return recipients.size();
+    }
+
+    /** Stoppe une zone précise (broadcast d'un joueur) : envoie StopBroadcast à
+     *  ses auditeurs et retire la zone du registry. */
+    public int stopZone(OstZoneRegistry.ZoneRecord zone) {
+        int n = 0;
+        World world = Bukkit.getWorld(zone.worldId());
+        if (world != null) {
+            Location loc = new Location(world, zone.x(), zone.y(), zone.z());
+            byte[] packet = OstPacket.stopBroadcast();
+            for (Player p : playersInRange(loc, zone.radius())) {
+                p.sendPluginMessage(plugin, OstChannel.NAME, packet);
+                n++;
+            }
+        }
+        registry.remove(zone.id());
+        return n;
+    }
+
+    /** Met en pause / reprend une zone précise pour ses auditeurs. */
+    public int pauseZone(OstZoneRegistry.ZoneRecord zone, boolean paused) {
+        int n = 0;
+        World world = Bukkit.getWorld(zone.worldId());
+        if (world != null) {
+            Location loc = new Location(world, zone.x(), zone.y(), zone.z());
+            byte[] packet = OstPacket.pauseBroadcast(paused);
+            for (Player p : playersInRange(loc, zone.radius())) {
+                p.sendPluginMessage(plugin, OstChannel.NAME, packet);
+                n++;
+            }
+        }
+        return n;
     }
 
     /**
