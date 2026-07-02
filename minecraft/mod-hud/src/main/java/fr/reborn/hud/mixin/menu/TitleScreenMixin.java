@@ -14,7 +14,7 @@ import fr.reborn.hud.menu.widget.OSTPlaylistOverlay;
 import fr.reborn.hud.menu.widget.OSTPlayerV2;
 import fr.reborn.hud.menu.widget.OSTVolumePopup;
 import fr.reborn.hud.menu.widget.QuitConfirmScreen;
-import fr.reborn.hud.menu.widget.ServerToggleChip;
+import fr.reborn.hud.menu.widget.ServerPickerWidget;
 import fr.reborn.hud.menu.widget.SplashOverlay;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import net.fabricmc.loader.api.FabricLoader;
@@ -159,20 +159,21 @@ public abstract class TitleScreenMixin extends Screen {
             MainMenuRenderer.MENU_ENTRY_SCALE_PRIMARY, MainMenuRenderer.MENU_ENTRY_H_PRIMARY,
             b -> RebornBranding.connectToReborn(client, this));
         jouer.withHoverInfo(() -> {
-            ServerInfoState s = ServerInfoState.INSTANCE;
+            // Compteur de la cible sélectionnée (BUILD par défaut ; DEV si un
+            // staff l'a choisi via le sélecteur ci-dessous).
+            ServerInfoState s = ServerInfoState.forTarget(RebornBranding.target());
             return s.isOnline() ? s.getPlayers() + " EN LIGNE" : "HORS LIGNE";
         });
 
-        // Toggle serveur Build/Dev — staff-only, juste sous JOUER. Le launcher
-        // pousse -Dreborn.staff + -Dreborn.server.dev.* ; invisible sinon.
+        // Sélecteur de serveur Build/Dev — staff-only, juste sous JOUER. On
+        // RÉSERVE sa ligne ici mais on ajoute le widget EN DERNIER (plus bas)
+        // pour que son overlay déplié se dessine AU-DESSUS des entrées
+        // suivantes. Le launcher pousse -Dreborn.staff + -Dreborn.server.dev.*
+        // ; invisible sinon.
+        int pickerY = -1;
         if (RebornBranding.serverToggleAvailable()) {
-            int chipW = 96;
-            int chipH = 15;
-            ServerToggleChip chip = new ServerToggleChip(
-                MainMenuRenderer.MENU_X + 16, reborn$nextEntryY, chipW, chipH);
-            this.addDrawableChild(chip);
-            reborn$menuOnly.add(chip);
-            reborn$nextEntryY += chipH + MainMenuRenderer.MENU_ENTRY_GAP;
+            pickerY = reborn$nextEntryY;
+            reborn$nextEntryY += ServerPickerWidget.HEIGHT + MainMenuRenderer.MENU_ENTRY_GAP;
         }
 
         float sc = MainMenuRenderer.MENU_ENTRY_SCALE;
@@ -183,6 +184,14 @@ public abstract class TitleScreenMixin extends Screen {
             b -> client.setScreen(new ConfigShellScreen(this)));
         reborn$addEntry(client, "QUITTER", false, sc, hh,
             b -> client.setScreen(new QuitConfirmScreen(this)));
+
+        // Ajouté après les entrées → dernier enfant → rendu par-dessus.
+        if (pickerY >= 0) {
+            ServerPickerWidget picker = new ServerPickerWidget(
+                MainMenuRenderer.MENU_X + 16, pickerY, 150);
+            this.addDrawableChild(picker);
+            reborn$menuOnly.add(picker);
+        }
     }
 
     @Unique

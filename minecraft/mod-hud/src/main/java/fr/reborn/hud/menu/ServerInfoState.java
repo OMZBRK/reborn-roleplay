@@ -26,18 +26,38 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class ServerInfoState {
 
-    public static final ServerInfoState INSTANCE = new ServerInfoState();
-
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/server-info");
 
-    private static final String HOST = "play.reborn-rp.com";
-    private static final int PORT = 27106;
+    private static final String DEFAULT_HOST = "play.reborn-rp.com";
+    private static final int DEFAULT_PORT = 27106;
+
+    /** Serveur principal (BUILD) — host/port du launcher (sysprop) ou défaut. */
+    public static final ServerInfoState INSTANCE =
+        fromSysprops("reborn.server.host", "reborn.server.port");
+
+    /** Serveur DEV — seulement si le launcher l'a configuré (staff). Sinon null. */
+    private static final ServerInfoState DEV_INSTANCE =
+        (System.getProperty("reborn.server.dev.host") != null
+            && !System.getProperty("reborn.server.dev.host").isBlank())
+            ? fromSysprops("reborn.server.dev.host", "reborn.server.dev.port")
+            : null;
+
+    /** Le pinger du serveur dev, ou null si non configuré. */
+    public static ServerInfoState dev() { return DEV_INSTANCE; }
+
+    /** Pinger de la cible passée (retombe sur BUILD si dev absent). */
+    public static ServerInfoState forTarget(RebornBranding.ServerTarget t) {
+        return (t == RebornBranding.ServerTarget.DEV && DEV_INSTANCE != null) ? DEV_INSTANCE : INSTANCE;
+    }
 
     /** Protocol version MC 1.21.1 (utilise dans le handshake). */
     private static final int PROTOCOL_VERSION = 767;
 
     /** Interval de refresh en millis. */
     private static final long REFRESH_INTERVAL_MS = 30_000;
+
+    private final String host;
+    private final int port;
 
     private volatile boolean online = false;
     private volatile int players = 0;
@@ -46,7 +66,25 @@ public final class ServerInfoState {
     private volatile long lastPingMs = 0;
     private final AtomicBoolean pingInFlight = new AtomicBoolean(false);
 
-    private ServerInfoState() {}
+    private ServerInfoState(String host, int port) {
+        this.host = host;
+        this.port = port;
+    }
+
+    /** Construit un pinger depuis des sysprops host/port (défauts Reborn). */
+    private static ServerInfoState fromSysprops(String hostProp, String portProp) {
+        String h = System.getProperty(hostProp, DEFAULT_HOST);
+        if (h == null || h.isBlank()) h = DEFAULT_HOST;
+        int p = DEFAULT_PORT;
+        try {
+            String raw = System.getProperty(portProp);
+            if (raw != null && !raw.isBlank()) {
+                int n = Integer.parseInt(raw.trim());
+                if (n > 0 && n < 65536) p = n;
+            }
+        } catch (NumberFormatException ignored) { /* défaut */ }
+        return new ServerInfoState(h, p);
+    }
 
     public boolean isOnline() { return online; }
     public int getPlayers() { return players; }
@@ -81,7 +119,7 @@ public final class ServerInfoState {
 
     private void doPing() throws IOException {
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(HOST, PORT), 3000);
+            socket.connect(new InetSocketAddress(host, port), 3000);
             socket.setSoTimeout(3000);
 
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
@@ -93,9 +131,9 @@ public final class ServerInfoState {
             ByteArrayOutputStream handshake = new ByteArrayOutputStream();
             writeVarInt(handshake, 0x00);
             writeVarInt(handshake, PROTOCOL_VERSION);
-            writeString(handshake, HOST);
-            handshake.write((PORT >> 8) & 0xFF);
-            handshake.write(PORT & 0xFF);
+            writeString(handshake, host);
+            handshake.write((port >> 8) & 0xFF);
+            handshake.write(port & 0xFF);
             writeVarInt(handshake, 1);
 
             writeVarInt(out, handshake.size());
