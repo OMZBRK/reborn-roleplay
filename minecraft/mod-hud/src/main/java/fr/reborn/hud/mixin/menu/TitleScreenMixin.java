@@ -14,6 +14,7 @@ import fr.reborn.hud.menu.widget.OSTPlaylistOverlay;
 import fr.reborn.hud.menu.widget.OSTPlayerV2;
 import fr.reborn.hud.menu.widget.OSTVolumePopup;
 import fr.reborn.hud.menu.widget.QuitConfirmScreen;
+import fr.reborn.hud.menu.widget.ServerToggleChip;
 import fr.reborn.hud.menu.widget.SplashOverlay;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import net.fabricmc.loader.api.FabricLoader;
@@ -161,6 +162,18 @@ public abstract class TitleScreenMixin extends Screen {
             ServerInfoState s = ServerInfoState.INSTANCE;
             return s.isOnline() ? s.getPlayers() + " EN LIGNE" : "HORS LIGNE";
         });
+
+        // Toggle serveur Build/Dev — staff-only, juste sous JOUER. Le launcher
+        // pousse -Dreborn.staff + -Dreborn.server.dev.* ; invisible sinon.
+        if (RebornBranding.serverToggleAvailable()) {
+            int chipW = 96;
+            int chipH = 15;
+            ServerToggleChip chip = new ServerToggleChip(
+                MainMenuRenderer.MENU_X + 16, reborn$nextEntryY, chipW, chipH);
+            this.addDrawableChild(chip);
+            reborn$menuOnly.add(chip);
+            reborn$nextEntryY += chipH + MainMenuRenderer.MENU_ENTRY_GAP;
+        }
 
         float sc = MainMenuRenderer.MENU_ENTRY_SCALE;
         int hh = MainMenuRenderer.MENU_ENTRY_H;

@@ -38,6 +38,15 @@ pub struct LaunchConfig {
     /// client boote sur le menu principal Reborn. None = menu sans cible
     /// (le mod retombe sur son host par défaut).
     pub auto_connect: Option<ServerAddress>,
+    /// Serveur de DEV (build/dev en période de développement) passé au mod via
+    /// `-Dreborn.server.dev.host` / `.port`. Le mod n'expose le sélecteur
+    /// Build/Dev qu'aux comptes staff (cf `is_staff`). None = pas de serveur
+    /// dev configuré → le mod n'affiche que le serveur principal.
+    pub dev_server: Option<ServerAddress>,
+    /// Vrai si le compte connecté est staff (role HELPER ou supérieur). Passé
+    /// au mod via `-Dreborn.staff=true` pour déverrouiller les features dev
+    /// (sélecteur de serveur, 2e instance). Les joueurs normaux ne voient rien.
+    pub is_staff: bool,
     /// Chemin absolu vers le fichier contenant le play-token (lu par le mod
     /// Reborn Integrity au boot pour s'attester aupres du plugin Guardian).
     /// None = pas d'attestation (dev local sans plugin).
@@ -96,6 +105,15 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
         // connecter directement.
         args.push(format!("-Dreborn.server.host={}", server.host));
         args.push(format!("-Dreborn.server.port={}", server.port));
+    }
+    if let Some(dev) = cfg.dev_server.as_ref() {
+        // Serveur dev — le mod n'affiche le toggle Build/Dev qu'aux staffs.
+        args.push(format!("-Dreborn.server.dev.host={}", dev.host));
+        args.push(format!("-Dreborn.server.dev.port={}", dev.port));
+    }
+    if cfg.is_staff {
+        // Déverrouille les features dev côté mod (sélecteur de serveur, etc.).
+        args.push("-Dreborn.staff=true".into());
     }
 
     // Classpath = libraries + client jar
@@ -183,6 +201,8 @@ mod tests {
                 host: "play.reborn-rp.fr".into(),
                 port: 25565,
             }),
+            dev_server: None,
+            is_staff: false,
             play_token_path: None,
         }
     }
@@ -235,6 +255,27 @@ mod tests {
         // On ne connecte jamais automatiquement — le menu Reborn s'affiche.
         let argv = build_command(&sample_cfg());
         assert!(!argv.iter().any(|a| a == "--quickPlayMultiplayer"));
+    }
+
+    #[test]
+    fn dev_server_and_staff_flag_emitted_when_set() {
+        let mut cfg = sample_cfg();
+        cfg.dev_server = Some(ServerAddress {
+            host: "91.197.6.51".into(),
+            port: 26547,
+        });
+        cfg.is_staff = true;
+        let argv = build_command(&cfg);
+        assert!(argv.iter().any(|a| a == "-Dreborn.server.dev.host=91.197.6.51"));
+        assert!(argv.iter().any(|a| a == "-Dreborn.server.dev.port=26547"));
+        assert!(argv.iter().any(|a| a == "-Dreborn.staff=true"));
+    }
+
+    #[test]
+    fn no_dev_server_no_staff_flag_by_default() {
+        let argv = build_command(&sample_cfg());
+        assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.server.dev.")));
+        assert!(!argv.iter().any(|a| a == "-Dreborn.staff=true"));
     }
 
     #[test]

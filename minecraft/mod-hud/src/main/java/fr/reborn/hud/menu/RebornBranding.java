@@ -32,7 +32,46 @@ public final class RebornBranding {
     private static final String DEFAULT_HOST = "play.reborn-rp.com";
     private static final int DEFAULT_PORT = 27106;
 
+    /** Cible de connexion : serveur principal (BUILD) ou serveur de DEV. */
+    public enum ServerTarget { BUILD, DEV }
+
+    /** Cible sélectionnée (session). Par défaut BUILD. Basculée par le toggle
+     *  du menu, visible uniquement pour les staffs. */
+    private static ServerTarget target = ServerTarget.BUILD;
+
     private RebornBranding() {}
+
+    /** Vrai si le launcher a marqué ce compte comme staff (grade HELPER+). */
+    public static boolean isStaff() {
+        return Boolean.getBoolean("reborn.staff");
+    }
+
+    /** Vrai si un serveur de dev est configuré (sysprop du launcher). */
+    public static boolean hasDevServer() {
+        String h = System.getProperty("reborn.server.dev.host");
+        return h != null && !h.isBlank();
+    }
+
+    /** Le toggle Build/Dev n'apparaît que pour un staff avec un serveur dev. */
+    public static boolean serverToggleAvailable() {
+        return isStaff() && hasDevServer();
+    }
+
+    public static ServerTarget target() { return target; }
+
+    public static void setTarget(ServerTarget t) {
+        if (t == ServerTarget.DEV && !hasDevServer()) return; // garde-fou
+        target = t;
+    }
+
+    public static void toggleTarget() {
+        setTarget(target == ServerTarget.BUILD ? ServerTarget.DEV : ServerTarget.BUILD);
+    }
+
+    private static String buildHost() { return System.getProperty("reborn.server.host", DEFAULT_HOST); }
+    private static int buildPort() { return parsePort(System.getProperty("reborn.server.port")); }
+    private static String devHost() { return System.getProperty("reborn.server.dev.host", DEFAULT_HOST); }
+    private static int devPort() { return parsePort(System.getProperty("reborn.server.dev.port")); }
 
     /**
      * URL du site Reborn pour le bouton "Site web" du title screen.
@@ -43,17 +82,20 @@ public final class RebornBranding {
      */
     public static final String DISCORD_URL = "https://discord.gg/reborn";
 
-    /** Bouton "Connecter à Reborn" → ConnectScreen direct. */
+    /** Bouton "JOUER" → ConnectScreen direct vers la cible sélectionnée
+     *  (BUILD par défaut ; DEV seulement si staff + serveur dev configuré). */
     public static void connectToReborn(MinecraftClient client, Screen parent) {
-        String host = System.getProperty("reborn.server.host", DEFAULT_HOST);
-        int port = parsePort(System.getProperty("reborn.server.port"));
+        boolean dev = target == ServerTarget.DEV && hasDevServer();
+        String host = dev ? devHost() : buildHost();
+        int port = dev ? devPort() : buildPort();
+        String label = dev ? "Reborn Roleplay (DEV)" : "Reborn Roleplay";
         ServerInfo info = new ServerInfo(
-            "Reborn Roleplay",
+            label,
             host + (port == 25565 ? "" : ":" + port),
             ServerInfo.ServerType.OTHER
         );
         ServerAddress address = new ServerAddress(host, port);
-        LOGGER.info("connexion directe a {}:{}", host, port);
+        LOGGER.info("connexion directe a {}:{} (cible={})", host, port, target);
         ConnectScreen.connect(parent, client, address, info, false, null);
     }
 

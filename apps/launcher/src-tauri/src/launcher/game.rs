@@ -334,6 +334,8 @@ pub async fn launcher_launch_game<R: Runtime>(
         width: user_prefs.width,
         height: user_prefs.height,
         auto_connect: resolve_auto_connect(),
+        dev_server: resolve_dev_server(),
+        is_staff: is_staff_role(&user.role),
         play_token_path: Some(play_token_path.display().to_string()),
     };
 
@@ -699,6 +701,41 @@ fn resolve_auto_connect() -> Option<jvm::ServerAddress> {
         .unwrap_or(25565);
     tracing::info!("auto-connect target : {host}:{port}");
     Some(jvm::ServerAddress { host, port })
+}
+
+/// Resout l'adresse du serveur de DEV (build/dev pendant le développement).
+/// Même priorité que `resolve_auto_connect` : env runtime
+/// `REBORN_SERVER_DEV_HOST` > compile-time `REBORN_SERVER_DEV_HOST_BUILD`.
+/// None = pas de serveur dev configuré (le mod n'affiche alors que le serveur
+/// principal, aucun toggle). Le port par défaut suit le serveur principal.
+fn resolve_dev_server() -> Option<jvm::ServerAddress> {
+    let host = std::env::var("REBORN_SERVER_DEV_HOST")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| option_env!("REBORN_SERVER_DEV_HOST_BUILD").map(|s| s.to_string()))
+        .filter(|s| !s.trim().is_empty())?;
+    let host = host.trim().to_string();
+    let port = std::env::var("REBORN_SERVER_DEV_PORT")
+        .ok()
+        .and_then(|s| s.trim().parse::<u16>().ok())
+        .or_else(|| {
+            option_env!("REBORN_SERVER_DEV_PORT_BUILD").and_then(|s| s.trim().parse::<u16>().ok())
+        })
+        .unwrap_or(25565);
+    tracing::info!("dev server target : {host}:{port}");
+    Some(jvm::ServerAddress { host, port })
+}
+
+/// Un compte est « staff » dès le grade HELPER (au-dessus de WHITELISTED).
+/// Débloque les features dev côté mod (sélecteur Build/Dev, 2e instance).
+/// Rôles API : PLAYER < WHITELISTED < HELPER < MODERATOR < WHITELIST_REVIEWER
+/// < ADMIN < OWNER (cf schema.prisma). On liste explicitement le staff pour
+/// éviter qu'un futur rôle non-staff passe par erreur.
+fn is_staff_role(role: &str) -> bool {
+    matches!(
+        role,
+        "HELPER" | "MODERATOR" | "WHITELIST_REVIEWER" | "ADMIN" | "OWNER"
+    )
 }
 
 async fn await_game_end<R: Runtime>(app: AppHandle<R>, stderr_path: PathBuf) {
