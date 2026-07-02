@@ -284,9 +284,17 @@ public class OstScreen extends Screen {
 
     private void renderFooter(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
         int sy = sliderY();
+        // Volume : label à gauche, valeur % alignée à droite du slider.
         ctx.drawText(tr, Text.literal("VOLUME").styled(s -> s.withBold(true)), cx0() + 8, sy - 8, TEXT_MUTED, false);
+        String volVal = Math.round(config.getVolume() * 100f) + " %";
+        ctx.drawText(tr, Text.literal(volVal),
+            volBarX() + volBarW() - tr.getWidth(volVal), sy - 8, GOLD, false);
         slider(ctx, volBarX(), sy, volBarW(), config.getVolume(), ACCENT);
+        // Distance : label + valeur en blocs alignée à droite du slider.
         ctx.drawText(tr, Text.literal("DISTANCE").styled(s -> s.withBold(true)), distBarX() - 60, sy - 8, TEXT_MUTED, false);
+        String distVal = Math.round(config.getBroadcastDistance()) + " blocs";
+        ctx.drawText(tr, Text.literal(distVal),
+            distBarX() + distBarW() - tr.getWidth(distVal), sy - 8, 0xFF6FA8DA, false);
         slider(ctx, distBarX(), sy, distBarW(), Math.min(1f, config.getBroadcastDistance() / 128f), 0xFF3A6BB2);
 
         boolean solo = config.isSoloMode();
