@@ -148,24 +148,7 @@ impl AuthState {
     /// Le compte doit avoir des tokens sauvegardés (carousel) : refresh Reborn
     /// per-uuid ET refresh MS per-uuid. Sinon `NoStoredCredentials`.
     pub async fn prepare_alt_account(&self, uuid: &str) -> AuthResult<AltAccountLaunch> {
-        // 1) Session Reborn (JWT + profil) via le refresh per-uuid.
-        let reborn_refresh = self
-            .store
-            .get_reborn_refresh_token_for(uuid)
-            .map_err(|e| AuthError::Storage(e.to_string()))?
-            .ok_or(AuthError::NoStoredCredentials)?;
-        let resp = self
-            .api
-            .refresh(&reborn_refresh)
-            .await
-            .map_err(|e| AuthError::Internal(format!("refresh Reborn (alt) : {e}")))?;
-        // Persiste le refresh roté SUR LE SLOT PER-UUID uniquement.
-        let acct_uuid = resp.user.minecraft_uuid.clone();
-        let _ = self
-            .store
-            .set_reborn_refresh_token_for(&acct_uuid, &resp.refresh_token);
-
-        // 2) Access token Minecraft via la chaîne MS per-uuid (non-mutating :
+        // 1) Access token Minecraft via la chaîne MS per-uuid (non-mutating :
         //    on n'appelle PAS set_mc_token, qui écraserait le token courant).
         let ms_refresh = self
             .store
@@ -177,13 +160,29 @@ impl AuthState {
         let xbl_token = xbox::authenticate_xbl(&self.http, &ms_tokens.access_token).await?;
         let xsts = xbox::authorize_xsts(&self.http, &xbl_token).await?;
         let mc_auth = minecraft::login_with_xbox(&self.http, &xsts.user_hash, &xsts.token).await?;
+
+        // 2) Échange le MC token contre un JWT Reborn FRAIS via /auth/login
+        //    (comme finalize_login) plutôt que via le refresh Reborn per-uuid,
+        //    qui peut être périmé/déjà consommé (→ 401). Toujours non-mutating :
+        //    on ne touche NI self.user, NI self.mc_access_token, NI les slots
+        //    legacy — seulement les slots keyring per-uuid (refresh rotés).
+        let api_resp = self
+            .api
+            .login(&mc_auth.access_token)
+            .await
+            .map_err(|e| AuthError::Internal(format!("login Reborn (alt) : {e}")))?;
+
+        let acct_uuid = api_resp.user.minecraft_uuid.clone();
         if let Some(new_refresh) = ms_tokens.refresh_token.as_deref() {
             let _ = self.store.set_ms_refresh_token_for(&acct_uuid, new_refresh);
         }
+        let _ = self
+            .store
+            .set_reborn_refresh_token_for(&acct_uuid, &api_resp.refresh_token);
 
         Ok(AltAccountLaunch {
-            user: resp.user,
-            reborn_jwt: resp.access_token,
+            user: api_resp.user,
+            reborn_jwt: api_resp.access_token,
             mc_access_token: mc_auth.access_token,
         })
     }
