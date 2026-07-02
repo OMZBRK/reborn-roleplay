@@ -182,7 +182,12 @@ try {
     }
 
     Write-Host "==> GitHub Release $tag" -ForegroundColor Cyan
-    & gh release create $tag $exePath $sigPath --title $title --notes ($Notes | Out-String).Trim()
+    # Notes JAMAIS vides : un `--notes ""` fait echouer gh avec
+    # "flag needs an argument" (PowerShell n'envoie pas la string vide comme
+    # argument distinct au binaire natif). On retombe sur le titre par defaut.
+    $notesText = ($Notes | Out-String).Trim()
+    if (-not $notesText) { $notesText = "Launcher v$Version" }
+    & gh release create $tag $exePath $sigPath --title $title --notes $notesText
     if ($LASTEXITCODE -ne 0) {
         throw "gh release create failed (peut-etre le tag existe deja ?)."
     }
