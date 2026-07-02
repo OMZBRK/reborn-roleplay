@@ -60,10 +60,16 @@ public final class MovementAnimations {
     private int selectedWalk = 0;
     private boolean narutoTest = false;
 
+    /** false si PlayerAnimator/Emotecraft absent au runtime → feature inerte
+     *  (au lieu de faire crasher tout l'init du mod). */
+    private boolean available = false;
+
     private MoveState currentState = MoveState.NONE;
     private int currentWalkIndex = -1; // pour re-fade si on change de style en marchant
 
     private MovementAnimations() {}
+
+    public boolean isAvailable() { return available; }
 
     // ── Sélection de style ──
     public int walkStyleCount() { return WALK_STYLES.length; }
@@ -80,21 +86,36 @@ public final class MovementAnimations {
     public void cycleWalkStyle() { setWalkStyle((selectedWalk + 1) % WALK_STYLES.length); }
     public void toggleNarutoTest() { narutoTest = !narutoTest; }
 
-    /** À appeler une fois au client init. Enregistre le layer + charge les anims. */
+    /**
+     * À appeler une fois au client init. Enregistre le layer + charge les anims.
+     *
+     * <p>PlayerAnimator/Emotecraft sont fournis par le modpack au runtime
+     * (compileOnly ici). S'ils sont absents, on capte le {@link Throwable}
+     * ({@code NoClassDefFoundError} est une {@link Error}, pas une exception)
+     * et on laisse la feature inerte plutôt que d'aborter tout l'init du mod
+     * (ce qui tuerait HUD + menu Reborn).
+     */
     public void register() {
-        PlayerAnimationFactory.ANIMATION_DATA_FACTORY.registerFactory(
-            LAYER, PRIORITY, player -> new ModifierLayer<>());
+        try {
+            PlayerAnimationFactory.ANIMATION_DATA_FACTORY.registerFactory(
+                LAYER, PRIORITY, player -> new ModifierLayer<>());
 
-        for (String[] style : WALK_STYLES) {
-            walkAnims.add(load(style[1]));
+            for (String[] style : WALK_STYLES) {
+                walkAnims.add(load(style[1]));
+            }
+            run = load("run.emotecraft");
+            narutoRun = load("naruto_run.emotecraft");
+
+            RebornPrefs.INSTANCE.ensureLoaded();
+            selectedWalk = Math.max(0, Math.min(WALK_STYLES.length - 1, RebornPrefs.INSTANCE.walkStyle));
+            available = true;
+            LOG.info("anims : {} styles marche, run={}, naruto={}",
+                walkAnims.size(), run != null, narutoRun != null);
+        } catch (Throwable t) {
+            available = false;
+            LOG.warn("PlayerAnimator/Emotecraft absent — démarches animées désactivées ({})",
+                t.toString());
         }
-        run = load("run.emotecraft");
-        narutoRun = load("naruto_run.emotecraft");
-
-        RebornPrefs.INSTANCE.ensureLoaded();
-        selectedWalk = Math.max(0, Math.min(WALK_STYLES.length - 1, RebornPrefs.INSTANCE.walkStyle));
-        LOG.info("anims : {} styles marche, run={}, naruto={}",
-            walkAnims.size(), run != null, narutoRun != null);
     }
 
     private KeyframeAnimation load(String file) {
@@ -111,6 +132,7 @@ public final class MovementAnimations {
 
     /** À appeler chaque client tick. Pilote l'anim du joueur local. */
     public void tick(MinecraftClient mc) {
+        if (!available) return; // PlayerAnimator absent → ne pas toucher ses classes.
         AbstractClientPlayerEntity player = mc.player;
         if (player == null) return;
         ModifierLayer<IAnimation> layer = layerOf(player);
