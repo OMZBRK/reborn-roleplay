@@ -86,6 +86,7 @@ pub fn run() {
             launcher::launcher_set_mod_pref,
             launcher::launcher_list_optional_mods,
             launcher::game::launcher_launch_game,
+            launcher::game::launcher_launch_second_instance,
             launcher::game::launcher_stop_game,
             launcher::game::launcher_mods_list,
             launcher::game::launcher_mods_purge,

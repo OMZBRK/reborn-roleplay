@@ -97,6 +97,14 @@ export async function launchGame(): Promise<LaunchedGame> {
   return invoke<LaunchedGame>("launcher_launch_game");
 }
 
+/** Lance une 2e instance de jeu (dev, staff-only) avec un autre compte
+ *  Microsoft déjà enregistré. Fire-and-forget côté backend : pas d'events de
+ *  cycle de vie, le staff ferme la fenêtre à la main. `altUuid` = minecraftUuid
+ *  du compte alternatif (carousel). */
+export async function launchSecondInstance(altUuid: string): Promise<LaunchedGame> {
+  return invoke<LaunchedGame>("launcher_launch_second_instance", { altUuid });
+}
+
 export async function onLaunchProgress(
   cb: (p: LaunchProgress) => void,
 ): Promise<UnlistenFn> {

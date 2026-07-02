@@ -67,6 +67,8 @@ pub enum GameError {
     NotAuthenticated,
     #[error("whitelist requise pour rejoindre le serveur")]
     NotWhitelisted,
+    #[error("réservé au staff (grade HELPER ou supérieur)")]
+    NotStaff,
     #[error("le jeu tourne deja")]
     AlreadyRunning,
     #[error("aucune partie en cours a arreter")]
@@ -424,6 +426,174 @@ pub async fn launcher_launch_game<R: Runtime>(
     });
 
     Ok(result)
+}
+
+/// Lance une **2e instance de jeu (dev, staff-only)** avec un autre compte
+/// Microsoft — pour tester à deux (double compte) sans changer les paramètres
+/// serveur. Volontairement « fire-and-forget » : on ne l'intègre PAS au cycle
+/// de vie de l'instance principale (pas de `game.running`, pas d'events
+/// `game:started/exited/crashed`, pas de Rich Presence, pas de bouton stop, pas
+/// de watcher). Le staff ferme la fenêtre à la main. Ça garantit ZÉRO impact
+/// sur le launch normal des joueurs.
+///
+/// `alt_uuid` = UUID Minecraft du compte alternatif (déjà sauvegardé dans le
+/// carousel : il faut ses refresh tokens MS + Reborn per-uuid). Le compte doit
+/// être whitelisté (role != PLAYER) pour obtenir un play-token et passer
+/// Guardian. L'appelant (compte courant) doit être staff.
+#[tauri::command]
+pub async fn launcher_launch_second_instance<R: Runtime>(
+    _app: AppHandle<R>,
+    auth: State<'_, AuthState>,
+    alt_uuid: String,
+) -> Result<LaunchResult, GameError> {
+    // Gate staff : la fonctionnalité n'est ouverte qu'au staff (compte courant).
+    let current = auth.current_user().await.ok_or(GameError::NotAuthenticated)?;
+    if !is_staff_role(&current.role) {
+        return Err(GameError::NotStaff);
+    }
+
+    // Prépare le compte alt SANS toucher la session courante.
+    let alt = auth
+        .prepare_alt_account(&alt_uuid)
+        .await
+        .map_err(|e| GameError::Io {
+            message: format!("compte alt : {e}"),
+        })?;
+    if alt.user.role == "PLAYER" {
+        return Err(GameError::NotWhitelisted);
+    }
+    tracing::info!(
+        "2e instance : compte alt {} (role {})",
+        alt.user.minecraft_username,
+        alt.user.role
+    );
+
+    let dir = paths::game_dir().map_err(|e| GameError::Io {
+        message: e.to_string(),
+    })?;
+
+    // Play-token du compte alt (fichier séparé pour ne pas écraser celui de
+    // l'instance principale).
+    let play_session = auth
+        .api
+        .fetch_play_token(&alt.reborn_jwt)
+        .await
+        .map_err(|e| GameError::PlayToken {
+            message: e.to_string(),
+        })?;
+    let play_token_path = dir.join(".reborn-play-token-alt");
+    tokio::fs::write(&play_token_path, play_session.play_token.as_bytes())
+        .await
+        .map_err(|e| GameError::Io {
+            message: format!("write play-token alt : {e}"),
+        })?;
+
+    let user_prefs = prefs::load().await.unwrap_or_default();
+    let mc_version = minecraft_version();
+
+    // Setup partagé (runtime / version / libs / assets / fabric) — ces
+    // fonctions sont idempotentes et déjà en cache (l'instance principale les a
+    // téléchargées), donc quasi instantané. On les rappelle ici plutôt que de
+    // refactorer `launcher_launch_game`, pour ne prendre AUCUN risque sur le
+    // chemin de lancement principal.
+    let java_path = runtime::ensure_runtime(&auth.download_http, &dir)
+        .await
+        .map_err(|e| GameError::Runtime {
+            message: e.to_string(),
+        })?;
+    let version = mojang::fetch_version_json(&auth.download_http, &dir, &mc_version)
+        .await
+        .map_err(|e| GameError::Mojang {
+            message: e.to_string(),
+        })?;
+    let lib_setup = libraries::ensure_libraries(&auth.download_http, &dir, &version)
+        .await
+        .map_err(|e| GameError::Libraries {
+            message: e.to_string(),
+        })?;
+    let asset_setup = assets::ensure_assets(&auth.download_http, &dir, &version.asset_index, |_, _| {})
+        .await
+        .map_err(|e| GameError::Assets {
+            message: e.to_string(),
+        })?;
+    let fabric_setup = fabric::ensure_fabric(&auth.download_http, &dir, &mc_version)
+        .await
+        .map_err(|e| GameError::Fabric {
+            message: e.to_string(),
+        })?;
+
+    let mut vanilla_libs = lib_setup.library_jars.clone();
+    vanilla_libs.extend(fabric_setup.library_jars.clone());
+    let all_libs = dedupe_classpath(vanilla_libs);
+
+    let cfg = jvm::LaunchConfig {
+        minecraft_version: mc_version.clone(),
+        launcher_version: env!("CARGO_PKG_VERSION").to_string(),
+        minecraft_username: alt.user.minecraft_username.clone(),
+        minecraft_uuid: alt.user.minecraft_uuid.clone(),
+        mc_access_token: alt.mc_access_token.clone(),
+        natives_dir: lib_setup.natives_dir.display().to_string(),
+        library_jars: all_libs.iter().map(|p| p.display().to_string()).collect(),
+        client_jar: lib_setup.client_jar.display().to_string(),
+        game_dir: dir.display().to_string(),
+        assets_dir: asset_setup.assets_dir.display().to_string(),
+        asset_index: asset_setup.asset_index.clone(),
+        ram_mb: user_prefs.ram_mb,
+        width: user_prefs.width,
+        height: user_prefs.height,
+        auto_connect: resolve_auto_connect(),
+        dev_server: resolve_dev_server(),
+        is_staff: is_staff_role(&alt.user.role),
+        play_token_path: Some(play_token_path.display().to_string()),
+    };
+
+    let mut argv = jvm::build_command(&cfg);
+    if let Some(idx) = argv
+        .iter()
+        .position(|a| a == "net.minecraft.client.main.Main")
+    {
+        argv[idx] = fabric_setup.main_class.clone();
+    }
+
+    // stdout/stderr → un log dédié (pas d'analyzer ni de pipeline de crash).
+    let _ = tokio::fs::create_dir_all(dir.join("logs")).await;
+    let alt_log = dir.join("logs").join("alt-instance.log");
+    let log_out = std::fs::File::create(&alt_log).map_err(|e| GameError::Io {
+        message: format!("log alt : {e}"),
+    })?;
+    let log_err = log_out.try_clone().map_err(|e| GameError::Io {
+        message: e.to_string(),
+    })?;
+
+    let mut command = Command::new(&java_path);
+    command
+        .args(&argv)
+        .stdout(Stdio::from(log_out))
+        .stderr(Stdio::from(log_err))
+        .stdin(Stdio::null())
+        .current_dir(&dir);
+
+    // Détaché : on ne conserve pas le Child (tokio n'a pas kill_on_drop par
+    // défaut → le process survit au drop). Le staff ferme la fenêtre à la main.
+    let child = command.spawn().map_err(|e| GameError::Io {
+        message: format!("spawn 2e instance : {e}"),
+    })?;
+    let pid = child.id().unwrap_or(0);
+    drop(child);
+
+    tracing::info!(
+        "2e instance (dev) lancée : {} (pid {}), logs → {}",
+        alt.user.minecraft_username,
+        pid,
+        alt_log.display()
+    );
+
+    Ok(LaunchResult {
+        pid,
+        java_path: java_path.display().to_string(),
+        minecraft_version: mc_version,
+        fabric_version: fabric_setup.loader_version,
+    })
 }
 
 #[tauri::command]
