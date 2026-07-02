@@ -125,12 +125,23 @@ public final class OstBroadcaster {
     /** Stoppe une zone précise (broadcast d'un joueur) : envoie StopBroadcast à
      *  ses auditeurs et retire la zone du registry. */
     public int stopZone(OstZoneRegistry.ZoneRecord zone) {
+        return stopZone(zone, null);
+    }
+
+    /**
+     * Variante avec {@code exclude} : ne pas envoyer StopBroadcast à ce joueur.
+     * Utilisé quand un joueur REMPLACE son propre broadcast — il joue déjà la
+     * nouvelle piste en local, un StopBroadcast le couperait à tort (et son
+     * client enchaînerait sur la piste suivante).
+     */
+    public int stopZone(OstZoneRegistry.ZoneRecord zone, UUID exclude) {
         int n = 0;
         World world = Bukkit.getWorld(zone.worldId());
         if (world != null) {
             Location loc = new Location(world, zone.x(), zone.y(), zone.z());
             byte[] packet = OstPacket.stopBroadcast();
             for (Player p : playersInRange(loc, zone.radius())) {
+                if (exclude != null && exclude.equals(p.getUniqueId())) continue;
                 p.sendPluginMessage(plugin, OstChannel.NAME, packet);
                 n++;
             }

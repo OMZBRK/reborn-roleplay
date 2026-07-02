@@ -23,6 +23,11 @@ public final class OstPlayback {
     private int index = -1;
     /** Piste attendue en lecture ; null = rien / stop explicite (pas d'auto-next). */
     private OstTrack expected = null;
+    /** Dernière position/durée observées pendant la lecture — sert à distinguer
+     *  une fin NATURELLE (elapsed ≈ durée) d'un stop EXTERNE (StopBroadcast,
+     *  remplacement de broadcast…). Sans ça, l'auto-next s'enchaînait à tort. */
+    private long lastElapsedMs = 0;
+    private long lastDurationMs = 0;
 
     private OstPlayback() {}
 
@@ -46,11 +51,29 @@ public final class OstPlayback {
     public void next(OstAudioEngine engine, OstConfig cfg) { step(engine, cfg, +1, true); }
     public void prev(OstAudioEngine engine, OstConfig cfg) { step(engine, cfg, -1, true); }
 
-    /** Appelé chaque tick : enchaîne quand la piste courante est terminée. */
+    /** Appelé chaque tick : enchaîne UNIQUEMENT quand la piste courante s'est
+     *  terminée NATURELLEMENT (jouée jusqu'au bout). Un arrêt externe
+     *  (StopBroadcast reçu, remplacement d'un broadcast, coupure) NE doit PAS
+     *  déclencher d'auto-next — sinon le lanceur sautait à la piste suivante. */
     public void tick(OstAudioEngine engine, OstConfig cfg) {
         if (expected == null) return;
+        // Mémorise la position TANT QUE la source joue (avant que currentTrack()
+        // ne la libère à la fin). En pause on ne touche pas (elapsed gelé).
+        if (engine.isPlaying()) {
+            lastElapsedMs = engine.elapsedMs();
+            lastDurationMs = engine.durationMs();
+        }
+        // currentTrack() a un effet de bord : libère la source si AL_STOPPED.
         if (engine.currentTrack().isPresent() || engine.isPaused()) return;
-        // Plus de source + pas en pause → la piste s'est terminée naturellement.
+
+        // La source a disparu. Fin naturelle = on était proche de la fin.
+        boolean naturalEnd = lastDurationMs > 0 && lastElapsedMs >= lastDurationMs - 1500;
+        lastElapsedMs = 0;
+        lastDurationMs = 0;
+        if (!naturalEnd) {
+            expected = null; // stop externe → pas d'enchaînement
+            return;
+        }
         if (cfg.getRepeatMode() == OstConfig.REPEAT_ONE) {
             engine.play(expected, 1f, null, 0f, 0f);
         } else {

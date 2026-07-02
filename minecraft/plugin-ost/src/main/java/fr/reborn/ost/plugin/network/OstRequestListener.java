@@ -82,8 +82,10 @@ public final class OstRequestListener implements PluginMessageListener {
         float volume = Math.max(0f, Math.min(1f, p.volume()));
 
         // Une seule zone active par owner : on remplace le broadcast précédent.
+        // On exclut le joueur du StopBroadcast (il joue déjà la nouvelle piste
+        // en local ; le stopper le couperait / le ferait sauter à la suivante).
         for (OstZoneRegistry.ZoneRecord z : broadcaster.registry().zonesOwnedBy(player.getUniqueId())) {
-            broadcaster.stopZone(z);
+            broadcaster.stopZone(z, player.getUniqueId());
         }
         int n = broadcaster.playAtPosition(player.getLocation(), radius, p.trackId(), volume, player.getUniqueId());
         log.info("ost broadcast de " + player.getName() + " track=" + p.trackId()
