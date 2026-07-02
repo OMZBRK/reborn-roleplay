@@ -8,19 +8,20 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 
 /**
- * Logo central du main menu — composition Stray/Sineru-style :
+ * Wordmark central du main menu — version epuree.
+ *
+ * <p>Composition minimaliste, aucun effet decoratif :
  * <ul>
- *   <li>Light beam vertical doux derriere (gradient transparent -> accent
- *       soft -> transparent) qui donne l'impression d'un projecteur.</li>
- *   <li>"REBORN" en font display gros au centre, ivoire chaud + glow accent.</li>
- *   <li>"ROLEPLAY" sub-line en petit, espacement letterspacing, accent gold.</li>
- *   <li>Underline accent crimson fine sous le sub-line.</li>
+ *   <li>"REBORN" en font display, ivoire chaud, une seule ombre douce
+ *       pour le detacher du BG MCEF.</li>
+ *   <li>"ROLEPLAY" sub-line discrete en foreground attenue, letterspacing.</li>
+ *   <li>Fine hairline statique sous le sub-line (1px, sobre).</li>
  * </ul>
  *
- * <p>Tout est text-based pour eviter une dependance asset PNG. L'user
- * pourra remplacer le rendu texte par une texture custom dessinee dans
- * Aseprite (cf docs/REBORN_ASEPRITE_PALETTE.md) en remplaçant le bloc
- * du title par un drawTexture sur un Identifier reborn:textures/gui/title/reborn.png.
+ * <p>Plus de light beam, de halo radial ni de glow accent : le fond 3D
+ * MCEF porte deja la richesse visuelle, le wordmark reste net et calme.
+ * Tout est text-based ; on pourra le remplacer par une texture PNG custom
+ * en swappant le bloc du titre par un drawTexture.
  */
 public final class RebornLogoMark {
 
@@ -29,15 +30,18 @@ public final class RebornLogoMark {
     private static final Text TITLE_TEXT = RebornFont.display(TITLE);
     private static final Text SUB_TEXT = RebornFont.body(SUB);
 
-    /** Hauteur totale approximative de la composition (logo + sub + underline). */
+    /** Echelle du titre — plus sobre que l'ancien 4.5f. */
+    private static final float TITLE_SCALE = 3.4f;
+
+    /** Hauteur totale approximative de la composition (logo + sub + hairline). */
     public static int totalHeight() {
-        return 64 + 12 + 14; // big text + gap + sub + underline area
+        return 48 + 12 + 12;
     }
 
     /** Position Y du centre logique du logo (titre baseline approx). */
     public static int centerY(int screenH) {
-        // ~37% from top — donne de la place au prompt en dessous.
-        return Math.round(screenH * 0.36f);
+        // ~35% from top — donne de la place au prompt en dessous.
+        return Math.round(screenH * 0.35f);
     }
 
     private RebornLogoMark() {}
@@ -46,96 +50,35 @@ public final class RebornLogoMark {
         int cx = screenW / 2;
         int cy = centerY(screenH);
 
-        // ── (1) Light beam vertical derriere le logo ────────────
-        // Fauche douce du haut vers le bas — 3 couches alpha descendantes
-        // pour effet projecteur "diffuse". Largeur ~screenW/2.
-        int beamW = Math.min(screenW / 2, 720);
-        int beamHTop = (int) (screenH * 0.30f);
-        int beamHBot = (int) (screenH * 0.30f);
-        int beamX = cx - beamW / 2;
-
-        // Top half : transparent -> accent_soft (au niveau du logo)
-        verticalFade(ctx, beamX, cy - beamHTop, beamW, beamHTop,
-            0x00000000, Colors.withAlpha(Colors.ACCENT, 0.10f));
-        // Bottom half : accent_soft -> transparent
-        verticalFade(ctx, beamX, cy, beamW, beamHBot,
-            Colors.withAlpha(Colors.ACCENT, 0.10f), 0x00000000);
-
-        // Halo radial central plus serre (glow autour du logo)
-        int haloR = 110;
-        for (int r = haloR; r >= 10; r -= 10) {
-            float t = (float) r / haloR;
-            int alpha = Math.round((1f - t) * 18); // max alpha 18, fade vers 0
-            if (alpha <= 0) continue;
-            int color = (alpha << 24) | (Colors.ACCENT & 0xFFFFFF);
-            ctx.fill(cx - r, cy - r / 4, cx + r, cy + r / 4, color);
-        }
-
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
         TextRenderer tr = client.textRenderer;
 
-        // ── (2) "REBORN" en font display tres gros centre ──────
-        // On utilise le scale matrix pour rendre le texte 3x plus gros
-        // sans dependre d'une font separee.
-        float titleScale = 4.5f;
-        int titleW = (int) (tr.getWidth(TITLE_TEXT) * titleScale);
-        int titleH = (int) (tr.fontHeight * titleScale);
+        // ── "REBORN" — font display, ombre douce unique ──────────
+        int titleW = (int) (tr.getWidth(TITLE_TEXT) * TITLE_SCALE);
+        int titleH = (int) (tr.fontHeight * TITLE_SCALE);
         int titleX = cx - titleW / 2;
         int titleY = cy - titleH / 2;
 
         ctx.getMatrices().push();
         ctx.getMatrices().translate(titleX, titleY, 0);
-        ctx.getMatrices().scale(titleScale, titleScale, 1f);
-        // Shadow soft derriere le titre pour le detacher du BG
-        ctx.drawText(tr, TITLE_TEXT, 1, 1, 0x70000000, false);
+        ctx.getMatrices().scale(TITLE_SCALE, TITLE_SCALE, 1f);
+        ctx.drawText(tr, TITLE_TEXT, 1, 1, 0x66000000, false);
         ctx.drawText(tr, TITLE_TEXT, 0, 0, Colors.FOREGROUND, false);
         ctx.getMatrices().pop();
 
-        // Glow rouge subtil sous le titre (overlay accent halo)
-        int glowAlpha = 28;
-        for (int i = 1; i <= 3; i++) {
-            int color = ((glowAlpha / i) << 24) | (Colors.ACCENT_HOVER & 0xFFFFFF);
-            ctx.fill(titleX - i * 2, titleY + titleH - 2 - i,
-                titleX + titleW + i * 2, titleY + titleH + i + 4, color);
-        }
-
-        // ── (3) Sub-line "ROLEPLAY" en gold, letterspacing ─────
-        // Le texte est deja espace dans la string ("R O L E P L A Y"),
-        // on l'affiche en small caps gold sous le titre.
+        // ── "ROLEPLAY" — sub-line discrete, foreground attenue ──
         int subW = tr.getWidth(SUB_TEXT);
         int subX = cx - subW / 2;
-        int subY = titleY + titleH + 14;
-        ctx.drawText(tr, SUB_TEXT, subX + 1, subY + 1, 0x80000000, false);
-        ctx.drawText(tr, SUB_TEXT, subX, subY, Colors.GOLD, false);
+        int subY = titleY + titleH + 10;
+        ctx.drawText(tr, SUB_TEXT, subX + 1, subY + 1, 0x66000000, false);
+        ctx.drawText(tr, SUB_TEXT, subX, subY, Colors.FOREGROUND_SUBTLE, false);
 
-        // ── (4) Underline accent fine ───────────────────────────
-        int underlineW = Math.min(subW + 24, 180);
-        int underlineX = cx - underlineW / 2;
-        int underlineY = subY + tr.fontHeight + 6;
-        // Ligne centrale plus opaque, fade vers les extremites
-        for (int i = 0; i < underlineW / 2; i++) {
-            float t = (float) i / (underlineW / 2);
-            int alpha = Math.round((1f - t) * 200);
-            int color = (alpha << 24) | (Colors.ACCENT & 0xFFFFFF);
-            ctx.fill(underlineX + (underlineW / 2) - i, underlineY,
-                underlineX + (underlineW / 2) - i + 1, underlineY + 1, color);
-            ctx.fill(underlineX + (underlineW / 2) + i, underlineY,
-                underlineX + (underlineW / 2) + i + 1, underlineY + 1, color);
-        }
-    }
-
-    /**
-     * Helper : remplit un rectangle avec un gradient vertical entre 2 couleurs
-     * ARGB. Implementation lineaire en N rangees de 1px (suffisant pour notre
-     * usage, alternative serait un shader custom).
-     */
-    private static void verticalFade(DrawContext ctx, int x, int y, int w, int h, int colorTop, int colorBot) {
-        if (h <= 0 || w <= 0) return;
-        for (int i = 0; i < h; i++) {
-            float t = (float) i / h;
-            int color = Colors.lerp(colorTop, colorBot, t);
-            ctx.fill(x, y + i, x + w, y + i + 1, color);
-        }
+        // ── Hairline statique fine sous le sub-line ─────────────
+        int hairW = Math.min(subW, 160);
+        int hairX = cx - hairW / 2;
+        int hairY = subY + tr.fontHeight + 5;
+        ctx.fill(hairX, hairY, hairX + hairW, hairY + 1,
+            Colors.withAlpha(Colors.FOREGROUND_SUBTLE, 0.35f));
     }
 }

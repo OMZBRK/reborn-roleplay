@@ -39,17 +39,22 @@ public final class RebornFont {
     public static final Identifier BOLD     = Identifier.of("reborn", "inter_bold");
     public static final Identifier BLACK    = Identifier.of("reborn", "inter_black");
     public static final Identifier FALLBACK = Identifier.of("reborn", "reborn");
+    /** ArcadePix (Reekee) — police pixel arcade pour le title screen. */
+    public static final Identifier ARCADE   = Identifier.of("reborn", "arcadepix");
 
     public static final Style DISPLAY_STYLE  = Style.EMPTY.withFont(DISPLAY);
     public static final Style BODY_STYLE     = Style.EMPTY.withFont(BODY);
     public static final Style BOLD_STYLE     = Style.EMPTY.withFont(BOLD);
     public static final Style BLACK_STYLE    = Style.EMPTY.withFont(BLACK);
     public static final Style FALLBACK_STYLE = Style.EMPTY.withFont(FALLBACK);
+    public static final Style ARCADE_STYLE   = Style.EMPTY.withFont(ARCADE);
 
     public static MutableText display(String content)  { return Text.literal(content).setStyle(DISPLAY_STYLE); }
     public static MutableText body(String content)     { return Text.literal(content).setStyle(BODY_STYLE); }
     public static MutableText bold(String content)     { return Text.literal(content).setStyle(BOLD_STYLE); }
     public static MutableText black(String content)    { return Text.literal(content).setStyle(BLACK_STYLE); }
+    /** Texte en police pixel ArcadePix (majuscules ASCII conseillées). */
+    public static MutableText arcade(String content)   { return Text.literal(content).setStyle(ARCADE_STYLE); }
 
     /**
      * @deprecated PR #1 — gardé pour compat avec {@code RebornLogo}

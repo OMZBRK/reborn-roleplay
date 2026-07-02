@@ -2,15 +2,19 @@ package fr.reborn.hud.mixin.menu;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.IconPack;
-import fr.reborn.hud.menu.IconTextures;
+import fr.reborn.hud.menu.MainMenuFlow;
+import fr.reborn.hud.menu.OSTPlayer;
 import fr.reborn.hud.menu.RebornBranding;
+import fr.reborn.hud.menu.ServerInfoState;
+import fr.reborn.hud.menu.widget.DynamicPlayerBackground;
 import fr.reborn.hud.menu.widget.IconButton;
 import fr.reborn.hud.menu.widget.MainMenuRenderer;
-import fr.reborn.hud.menu.widget.OSTPlayerV2;
+import fr.reborn.hud.menu.widget.MenuEntryButton;
 import fr.reborn.hud.menu.widget.OSTPlaylistOverlay;
+import fr.reborn.hud.menu.widget.OSTPlayerV2;
 import fr.reborn.hud.menu.widget.OSTVolumePopup;
-import fr.reborn.hud.menu.widget.PressSpacePrompt;
 import fr.reborn.hud.menu.widget.QuitConfirmScreen;
+import fr.reborn.hud.menu.widget.SplashOverlay;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
@@ -33,48 +37,43 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Refonte complète du title screen — implémentation du design v2
- * (cf {@code reborn-design-prep/minecraft-main-menu/main-menu.jsx}).
+ * Refonte du title screen — layout v5 façon Paladium Reforged, piloté par
+ * {@link MainMenuFlow} (SPLASH → MENU).
  *
- * <p>Strategie :
+ * <p>Stratégie :
  * <ol>
- *   <li>{@code init()} : on supprime TOUS les widgets vanilla (Singleplayer,
- *       Multiplayer, Realms, Mods, Options, Quit, accessibility, language)
- *       et tous les widgets v1 (RebornButton, OSTPlayerWidget,
- *       ServerInfoWidget). On ajoute les nouveaux widgets v2 :
- *       PressSpacePrompt, 4 contrôles OST (prev/play/next/playlist),
- *       3 IconButton bottom-right (settings/globe/discord), 1 IconButton
- *       top-right (X quit).</li>
- *   <li>{@code render()} : on garde le panorama vanilla en background
- *       (rendu par {@code super.render()}). Puis on dessine TOUT notre
- *       contenu par-dessus via {@link MainMenuRenderer} dans un push
- *       matrix Z+=400 pour passer au-dessus des éléments vanilla
- *       (logo MC, splash text, version Fabric, copyright Mojang).</li>
- *   <li>{@code keyPressed()} : intercept Espace → connecte au serveur.</li>
+ *   <li>{@code init()} : on retire TOUS les widgets vanilla, on repose
+ *       l'étage courant ({@link MainMenuFlow#onTitleInit()}), puis on
+ *       ajoute nos widgets : les entrées du menu vertical gauche (JOUER /
+ *       NEWS / BOUTIQUE / OPTIONS / QUITTER), les contrôles OST (révélés
+ *       au hover de la marque top-left) et leurs overlays.</li>
+ *   <li>{@code render()} : le panorama vanilla est masqué par le BG MCEF
+ *       de {@link MainMenuRenderer}. On calcule l'étage + la révélation
+ *       OST, on ajuste la visibilité des widgets en conséquence, on dessine
+ *       le chrome passif puis on re-render les widgets par-dessus.</li>
  * </ol>
  *
- * <p>Les widgets v1 ({@code RebornButton}, {@code OSTPlayerWidget},
- * {@code ServerInfoWidget}) ne sont plus instanciés. Leurs classes
- * restent en référence pour la PR #3+ qui peut s'en inspirer.
+ * <p>Le passage SPLASH → MENU (« appuie sur une touche ») est câblé dans
+ * {@code RebornHudClient} via les événements clavier/souris du Screen API
+ * Fabric (le mixin ne peut pas hooker {@code keyPressed}, hérité de
+ * {@link Screen} et non redéclaré par {@link TitleScreen}).
  */
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen {
 
-    private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/title-mixin-v2");
+    private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/title-mixin-v5");
 
-    /**
-     * Références aux 4 IconButton de contrôle OST. On les garde pour les
-     * re-render dans {@code @Inject TAIL} après le background de la card
-     * (qui les masquerait sinon, vu qu'ils sont dessinés en avance par
-     * {@code super.render()}).
-     */
+    /** Entrées du menu vertical gauche (visibles seulement en MENU). */
     @Unique
-    private final List<IconButton> reborn$ostControls = new ArrayList<>();
+    private final List<MenuEntryButton> reborn$menuEntries = new ArrayList<>();
 
-    /** Références aux 3 boutons centrés en bas (Settings/Globe/Discord) +
-     *  bouton X quit top-right — re-rendered après MainMenuRenderer en TAIL. */
+    /** Contrôles OST (play / volume / playlist) — visibles au hover. */
     @Unique
-    private final List<IconButton> reborn$persistentIcons = new ArrayList<>();
+    private final List<ClickableWidget> reborn$ostControls = new ArrayList<>();
+
+    /** Widgets divers dont la visibilité suit l'étage MENU (dev solo). */
+    @Unique
+    private final List<ClickableWidget> reborn$menuOnly = new ArrayList<>();
 
     protected TitleScreenMixin(Text title) {
         super(title);
@@ -85,7 +84,9 @@ public abstract class TitleScreenMixin extends Screen {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
 
-        // 1. Drop TOUS les widgets vanilla et v1 — on reconstruit from scratch.
+        MainMenuFlow.onTitleInit();
+
+        // 1. Drop TOUS les widgets vanilla — on reconstruit from scratch.
         List<Element> toRemove = new ArrayList<>();
         for (Element child : this.children()) {
             if (child instanceof ClickableWidget) {
@@ -95,109 +96,38 @@ public abstract class TitleScreenMixin extends Screen {
         for (Element e : toRemove) {
             this.remove(e);
         }
-        LOG.info("title screen v2 : {} widgets vanilla/v1 retirés", toRemove.size());
-
-        // 2. PressSpacePrompt — texte centré animé pulse.
-        float responsive = MainMenuRenderer.responsiveScale(this.width);
-        int promptW = PressSpacePrompt.computeWidth(this.textRenderer, responsive);
-        int promptH = PressSpacePrompt.computeHeight(this.textRenderer, responsive);
-        int promptX = (this.width - promptW) / 2;
-        int promptY = MainMenuRenderer.promptY(this.height);
-        this.addDrawableChild(new PressSpacePrompt(
-            promptX, promptY, promptW, promptH,
-            b -> RebornBranding.connectToReborn(client, this)
-        ));
-
-        // 3. OST controls (4 IconButton : prev / play|pause / next / playlist).
-        int ostX = MainMenuRenderer.ostCardX(this.width);
-        int ostY = MainMenuRenderer.ostCardY(this.height);
+        reborn$menuEntries.clear();
         reborn$ostControls.clear();
+        reborn$menuOnly.clear();
+
+        // 2. Menu vertical gauche (ordre Paladium).
+        buildMenuEntries(client);
+
+        // 3. Contrôles OST + overlays (ancrés sous la marque top-left).
+        int ostX = MainMenuRenderer.ostPanelX();
+        int ostY = MainMenuRenderer.ostPanelY();
         for (IconButton ctrl : OSTPlayerV2.buildControls(ostX, ostY)) {
             this.addDrawableChild(ctrl);
             reborn$ostControls.add(ctrl);
         }
-
-        // 4. Bottom-CENTER icons : 3 boutons épurés (Settings/Globe/Discord)
-        //    ghost-style sans fond, centrés horizontalement sous ServerInfoMini.
-        reborn$persistentIcons.clear();
-        int iconSize = MainMenuRenderer.CENTER_ICON_SIZE;
-        int iconGap = MainMenuRenderer.CENTER_ICON_SPACING;
-        int totalW = 3 * iconSize + 2 * iconGap;
-        int iconsY = MainMenuRenderer.centerIconsY(this.height);
-        int startX = (this.width - totalW) / 2;
-
-        IconButton btnSettings = new IconButton(
-            startX, iconsY, iconSize,
-            IconTextures.or(IconTextures.SETTINGS, IconPack::settings),
-            "Paramètres", false,
-            b -> client.setScreen(new ConfigShellScreen(this))
-        ).ghost();
-        IconButton btnGlobe = new IconButton(
-            startX + (iconSize + iconGap), iconsY, iconSize,
-            IconTextures.or(IconTextures.GLOBE, IconPack::globe),
-            "Site web", false,
-            b -> RebornBranding.openSite()
-        ).ghost();
-        IconButton btnDiscord = new IconButton(
-            startX + 2 * (iconSize + iconGap), iconsY, iconSize,
-            IconTextures.or(IconTextures.DISCORD, IconPack::discord),
-            "Discord", false,
-            b -> RebornBranding.openDiscord()
-        ).ghost();
-        this.addDrawableChild(btnSettings);
-        this.addDrawableChild(btnGlobe);
-        this.addDrawableChild(btnDiscord);
-        reborn$persistentIcons.add(btnSettings);
-        reborn$persistentIcons.add(btnGlobe);
-        reborn$persistentIcons.add(btnDiscord);
-
-        // 5. Top-right quit (X ghost 16px, hover rouge danger, tooltip LEFT).
-        // Y=22 (au lieu de 14) pour ne pas coller au bord supérieur de
-        // la fenêtre — donne plus de respiration visuelle au coin.
-        int quitSize = 16;
-        IconButton quit = new IconButton(
-            this.width - quitSize - 18, 22, quitSize,
-            IconTextures.or(IconTextures.CLOSE, IconPack::close),
-            "Quitter Reborn", true,
-            b -> client.setScreen(new QuitConfirmScreen(this))
-        )
-            .ghost()
-            .withIdleColor(Colors.WHITE_PURE)
-            .withHoverColor(Colors.DANGER)
-            .withTooltipPlacement(IconButton.TooltipPlacement.LEFT);
-        this.addDrawableChild(quit);
-        reborn$persistentIcons.add(quit);
-
-        // 6. Overlays OST (volume popup + playlist). Toujours présents dans
-        //    le screen mais conditionnellement visibles selon OSTPlayer state.
+        int panelBottom = ostY + OSTPlayerV2.CARD_H;
         int[] volAnchor = OSTPlayerV2.volumeButtonAnchor(ostX, ostY);
         OSTVolumePopup volPopup = new OSTVolumePopup(
-            volAnchor[0] - OSTVolumePopup.WIDTH / 2,
-            volAnchor[1] - OSTVolumePopup.HEIGHT - 8
-        );
+            volAnchor[0] - OSTVolumePopup.WIDTH / 2, panelBottom + 6);
         this.addDrawableChild(volPopup);
+        reborn$ostControls.add(volPopup);
 
-        // Playlist : 260px de large vs card 220px → ancré au right-edge du
-        // card (sinon avec la card en bottom-right, le surplus 40px sort
-        // de l'écran).
-        int playlistH = Math.min(360, this.height - 80);
-        int playlistX = ostX + OSTPlayerV2.CARD_W - OSTPlaylistOverlay.WIDTH;
-        OSTPlaylistOverlay playlist = new OSTPlaylistOverlay(
-            playlistX,
-            ostY - playlistH - 8,
-            playlistH
-        );
+        int playlistH = Math.min(360, this.height - panelBottom - 16);
+        OSTPlaylistOverlay playlist = new OSTPlaylistOverlay(ostX, panelBottom + 6, playlistH);
         this.addDrawableChild(playlist);
+        reborn$ostControls.add(playlist);
 
-        // 7. DEV ONLY — bouton "Solo (Dev)" à coté du X close pour tester en
-        //    monde solo (HUD, crosshair, ESC menu) sans serveur. Visible en
-        //    runClient (FabricLoader dev) OU si la sysprop -Dreborn.devMenu=true
-        //    est passée à la JVM (test du jar buildé hors launcher). Invisible
-        //    en prod (le launcher ne passe pas cette prop).
+        // 4. DEV ONLY — bouton "Solo (Dev)" top-right pour tester en solo.
         if (FabricLoader.getInstance().isDevelopmentEnvironment()
                 || Boolean.getBoolean("reborn.devMenu")) {
+            int quitSize = 16;
             IconButton soloDev = new IconButton(
-                this.width - quitSize - 18 - quitSize - 6, 22, quitSize,
+                this.width - quitSize - 18, 44, quitSize,
                 IconPack::play, "Solo (Dev)", true,
                 b -> client.setScreen(new SelectWorldScreen(this))
             )
@@ -206,45 +136,112 @@ public abstract class TitleScreenMixin extends Screen {
                 .withHoverColor(Colors.WHITE_PURE)
                 .withTooltipPlacement(IconButton.TooltipPlacement.LEFT);
             this.addDrawableChild(soloDev);
-            reborn$persistentIcons.add(soloDev);
+            reborn$menuOnly.add(soloDev);
         }
+
+        LOG.info("title screen v5 : {} vanilla retirés, {} entrées menu, étage={}",
+            toRemove.size(), reborn$menuEntries.size(), MainMenuFlow.stage());
+    }
+
+    /** Compteur Y courant pendant le build du menu (évite un état partagé). */
+    @Unique
+    private int reborn$nextEntryY = 0;
+
+    @Unique
+    private void buildMenuEntries(MinecraftClient client) {
+        // 5 entrées empilées (ordre Paladium). Pas de record/inner-class ici
+        // volontairement : Mixin gère mal les classes locales dans un mixin.
+        reborn$nextEntryY = MainMenuRenderer.menuStartY(this.height, 5);
+
+        // JOUER = entrée primaire (plus grosse que les autres).
+        MenuEntryButton jouer = reborn$addEntry(client, "JOUER", false,
+            MainMenuRenderer.MENU_ENTRY_SCALE_PRIMARY, MainMenuRenderer.MENU_ENTRY_H_PRIMARY,
+            b -> RebornBranding.connectToReborn(client, this));
+        jouer.withHoverInfo(() -> {
+            ServerInfoState s = ServerInfoState.INSTANCE;
+            return s.isOnline() ? s.getPlayers() + " EN LIGNE" : "HORS LIGNE";
+        });
+
+        float sc = MainMenuRenderer.MENU_ENTRY_SCALE;
+        int hh = MainMenuRenderer.MENU_ENTRY_H;
+        reborn$addEntry(client, "NEWS", true, sc, hh, b -> {});
+        reborn$addEntry(client, "BOUTIQUE", true, sc, hh, b -> {});
+        reborn$addEntry(client, "OPTIONS", false, sc, hh,
+            b -> client.setScreen(new ConfigShellScreen(this)));
+        reborn$addEntry(client, "QUITTER", false, sc, hh,
+            b -> client.setScreen(new QuitConfirmScreen(this)));
+    }
+
+    @Unique
+    private MenuEntryButton reborn$addEntry(MinecraftClient client, String label,
+                                            boolean placeholder, float scale, int height,
+                                            net.minecraft.client.gui.widget.ButtonWidget.PressAction action) {
+        int w = Math.max(140,
+            MenuEntryButton.labelWidth(client.textRenderer, label, scale) + 24);
+        MenuEntryButton entry = new MenuEntryButton(
+            MainMenuRenderer.MENU_X, reborn$nextEntryY, w, height, label, scale, action);
+        if (placeholder) entry.placeholder();
+        this.addDrawableChild(entry);
+        reborn$menuEntries.add(entry);
+        reborn$nextEntryY += height + MainMenuRenderer.MENU_ENTRY_GAP;
+        return entry;
     }
 
     /**
-     * Rendu Reborn par-dessus le panorama vanilla. On utilise @Inject TAIL
-     * + push Z+=400 pour s'assurer que notre UI passe par-dessus tout ce
-     * que vanilla a buffered (logo MC, splash text, drawText du copyright /
-     * version Fabric).
+     * Rendu Reborn par-dessus le panorama vanilla. Push Z+=400 pour passer
+     * au-dessus de tout ce que vanilla a buffered (logo MC, splash text,
+     * version Fabric, copyright).
      */
     @Inject(method = "render", at = @At("TAIL"))
     private void reborn$renderOverlay(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        boolean menu = !MainMenuFlow.isSplash();
+        boolean ostRevealed = menu && (
+            MainMenuRenderer.isOverOstReveal(mouseX, mouseY)
+                || OSTPlayer.INSTANCE.isVolumePopupOpen()
+                || OSTPlayer.INSTANCE.isPlaylistOpen());
+
+        // Ping serveur (pour le compteur joueurs sur JOUER) tant qu'on est
+        // sur le menu — le refresh est throttlé à 30s en interne.
+        if (menu) {
+            ServerInfoState.INSTANCE.maybeRefresh();
+        }
+
+        // Visibilité des widgets selon l'étage / la révélation OST.
+        for (MenuEntryButton e : reborn$menuEntries) {
+            e.visible = menu;
+            e.active = menu;
+        }
+        for (ClickableWidget c : reborn$ostControls) {
+            c.visible = ostRevealed;
+            c.active = ostRevealed;
+        }
+        for (ClickableWidget c : reborn$menuOnly) {
+            c.visible = menu;
+            c.active = menu;
+        }
+
         context.getMatrices().push();
         context.getMatrices().translate(0, 0, 400);
 
-        // Rend l'UI Reborn par-dessus tout ce que vanilla a dessiné.
-        // Le BackgroundRenderer couvre intégralement l'écran (gradient
-        // bleu nuit), donc on doit ensuite re-render TOUS les widgets
-        // cliquables (PressSpacePrompt, OST controls, OST overlays,
-        // bottom icons, X close) par-dessus, sinon ils sont masqués.
-        MainMenuRenderer.render(context, this.width, this.height);
-
-        // Re-render tous les widgets cliquables par-dessus le background.
-        // On itère sur children() pour ne rater aucun widget ajouté.
-        for (Element e : this.children()) {
-            if (e instanceof ClickableWidget cw) {
-                cw.render(context, mouseX, mouseY, delta);
+        if (MainMenuFlow.isSplash()) {
+            // SPLASH : fond MCEF → flou gaussien du framebuffer → contenu net.
+            // `applyBlur` (hérité de Screen) applique le post-effect de flou du
+            // menu (réglage « Menu background blurriness ») sur tout ce qui est
+            // déjà dans le framebuffer — d'où le flou du décor derrière le logo.
+            DynamicPlayerBackground.render(context, this.width, this.height);
+            context.draw();
+            this.applyBlur(delta);
+            SplashOverlay.render(context, this.width, this.height);
+        } else {
+            // Chrome menu (BG MCEF + chrome + widgets par-dessus).
+            MainMenuRenderer.render(context, this.width, this.height, mouseX, mouseY, ostRevealed);
+            for (Element e : this.children()) {
+                if (e instanceof ClickableWidget cw && cw.visible) {
+                    cw.render(context, mouseX, mouseY, delta);
+                }
             }
         }
 
         context.getMatrices().pop();
     }
-
-    // Note : pas de @Inject sur keyPressed — la méthode est déclarée dans
-    // Screen parent, pas dans TitleScreen, donc Mixin ne peut pas la hooker
-    // depuis ce mixin enfant. Le shortcut Espace = connect sera rebranché
-    // via setInitialFocus(promptWidget) ou un Mixin séparé sur Screen
-    // dans une PR ultérieure. Pour l'instant le PressSpacePrompt reste
-    // cliquable à la souris ; vanilla MC active de toute façon les boutons
-    // focused via Espace, et le PressSpacePrompt est ajouté en premier
-    // donc focused par défaut.
 }

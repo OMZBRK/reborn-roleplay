@@ -40,6 +40,8 @@ public final class RebornHudClient implements ClientModInitializer {
 
         IconTextures.registerAll();
         HudKeybinds.registerClient();
+        fr.reborn.hud.camera.RebornCamera.INSTANCE.loadFromPrefs();
+        fr.reborn.hud.animation.MovementAnimations.INSTANCE.register();
         fr.reborn.hud.chat.ChatBlockCommands.register();
 
         // Overlay du menu d'interaction live (rendu HUD, pas un écran).
@@ -64,6 +66,23 @@ public final class RebornHudClient implements ClientModInitializer {
                 LOGGER.info("narrateur Minecraft désactivé");
             }
         });
+
+        // SPLASH → MENU : n'importe quelle touche ou clic sur le TitleScreen
+        // fait passer l'ecran d'accroche au menu. On passe par le Screen API
+        // Fabric parce qu'un Mixin sur TitleScreen ne peut pas hooker
+        // keyPressed (herite de Screen, non redeclare par TitleScreen).
+        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
+            (client, screen, scaledW, scaledH) -> {
+                if (!(screen instanceof net.minecraft.client.gui.screen.TitleScreen)) return;
+                net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents
+                    .afterKeyPress(screen)
+                    .register((scr, key, scancode, mods) ->
+                        fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
+                net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents
+                    .afterMouseClick(screen)
+                    .register((scr, mouseX, mouseY, button) ->
+                        fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
+            });
 
         // Extrait les assets dynamic-player + schedule la creation du
         // browser MCEF pour le main menu background.

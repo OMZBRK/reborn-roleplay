@@ -66,6 +66,48 @@ public final class HudKeybinds {
             "key.categories.reborn-hud"
         ));
 
+        // Caméra épaule Reborn. Défauts sur des touches LIBRES (V=ReplayMod,
+        // X=lâcher, B=émote Emotecraft, N=menu OST, M=PlasmoVoice sont pris).
+        // Y = toggle, U = swap épaule, I = cycle preset. Rebindables.
+        KeyBinding toggleShoulderCam = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.cam_toggle",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_Y,
+            "key.categories.reborn-hud"
+        ));
+        KeyBinding swapShoulder = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.cam_swap",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_U,
+            "key.categories.reborn-hud"
+        ));
+        KeyBinding cyclePreset = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.cam_preset",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_I,
+            "key.categories.reborn-hud"
+        ));
+        KeyBinding openCamMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.cam_menu",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_O,
+            "key.categories.reborn-hud"
+        ));
+        // TEST : bascule le naruto-run (en attendant le trigger plugin).
+        KeyBinding narutoTest = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.naruto_test",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_L,
+            "key.categories.reborn-hud"
+        ));
+        // Menu de sélection du style de marche (GTA-RP).
+        KeyBinding walkMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.reborn-hud.walk_menu",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_PERIOD,
+            "key.categories.reborn-hud"
+        ));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
@@ -99,6 +141,38 @@ public final class HudKeybinds {
                     mc.setScreen(new fr.reborn.hud.ui.GalleryScreen(null));
                 }
             }
+            while (toggleShoulderCam.wasPressed()) {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.currentScreen == null && mc.player != null) {
+                    fr.reborn.hud.camera.RebornCamera.INSTANCE.toggleFirstPerson(mc);
+                }
+            }
+            while (swapShoulder.wasPressed()) {
+                fr.reborn.hud.camera.RebornCamera.INSTANCE.swapShoulder();
+            }
+            while (cyclePreset.wasPressed()) {
+                fr.reborn.hud.camera.RebornCamera.INSTANCE.cyclePreset();
+            }
+            while (openCamMenu.wasPressed()) {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.currentScreen == null && mc.player != null) {
+                    mc.setScreen(new fr.reborn.hud.camera.CameraScreen(null));
+                }
+            }
+            while (narutoTest.wasPressed()) {
+                fr.reborn.hud.animation.MovementAnimations.INSTANCE.toggleNarutoTest();
+            }
+            while (walkMenu.wasPressed()) {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.currentScreen == null && mc.player != null) {
+                    mc.setScreen(new fr.reborn.hud.animation.AnimationMenuScreen(null));
+                }
+            }
+            // Verrouille la vue selon le mode (épaule par défaut) + neutralise F5.
+            fr.reborn.hud.camera.RebornCamera.INSTANCE.tickView(MinecraftClient.getInstance());
+            // Anims de mouvement (marche/course/naruto-run) du joueur local.
+            fr.reborn.hud.animation.MovementAnimations.INSTANCE.tick(MinecraftClient.getInstance());
+
             // Déplacement free-cam du mode photo (lecture clavier brute).
             fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(MinecraftClient.getInstance());
         });

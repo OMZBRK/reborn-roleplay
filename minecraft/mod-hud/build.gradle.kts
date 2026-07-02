@@ -63,6 +63,14 @@ dependencies {
     modCompileOnly("com.cinemamod:mcef:2.1.6-1.21.1")
     modRuntimeOnly("com.cinemamod:mcef-fabric:2.1.6-1.21.1")
 
+    // Animations joueur (Naruto run / styles de mouvement GTA-RP). La lib
+    // PlayerAnimator + le serializer .emotecraft sont fournis au runtime par
+    // Emotecraft (dans le modpack) → compileOnly local. Jars extraits du jar
+    // Emotecraft (META-INF/jars) + jar Emotecraft pour UniversalEmoteSerializer.
+    modCompileOnly(files("libs/player-animation-lib-fabric-2.0.1+1.21.1.jar"))
+    modCompileOnly(files("libs/bendy-lib-fabric-5.1.jar"))
+    modCompileOnly(files("libs/emotecraft-2.4.12.jar"))
+
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

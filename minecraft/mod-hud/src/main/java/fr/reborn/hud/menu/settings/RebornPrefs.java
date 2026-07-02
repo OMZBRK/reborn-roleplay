@@ -66,6 +66,17 @@ public final class RebornPrefs {
     public int crosshairLength = 6;     // longueur des branches / rayon (procédural)
     public int crosshairThickness = 2;  // épaisseur (procédural)
 
+    // ────────────────── Caméra épaule (3e pers. RP) ──────
+    public double camDistance = 3.4;    // blocs (2.0..6.5)
+    public double camRight = 0.50;      // décalage latéral magnitude (0..1.2)
+    public double camUp = 0.15;         // décalage vertical (-0.6..1.2)
+    public int camSide = 1;             // +1 épaule droite, -1 gauche
+    public double camTurnSpeed = 0.5;   // vitesse de rotation du corps (0.1..1.0)
+    public int camPreset = 0;           // index CameraPreset
+
+    // ────────────────── Animations de mouvement (GTA-RP) ──────
+    public int walkStyle = 0;           // index du style de marche choisi
+
     private boolean loaded = false;
 
     private RebornPrefs() {}
@@ -138,5 +149,12 @@ public final class RebornPrefs {
         this.crosshairGap = other.crosshairGap;
         this.crosshairLength = other.crosshairLength;
         this.crosshairThickness = other.crosshairThickness;
+        this.camDistance = other.camDistance;
+        this.camRight = other.camRight;
+        this.camUp = other.camUp;
+        this.camSide = other.camSide;
+        this.camTurnSpeed = other.camTurnSpeed;
+        this.camPreset = other.camPreset;
+        this.walkStyle = other.walkStyle;
     }
 }

@@ -13,19 +13,18 @@ import net.minecraft.text.Text;
 /**
  * CTA principal du main menu — "Appuyez pour entrer dans Reborn".
  *
- * <p>Composition (gauche → droite) :
+ * <p>Version epuree — plus d'ombre portee ni de halo qui respire.
+ * Composition (gauche → droite) :
  * <ol>
- *   <li>Drop shadow doux sous le pill (lift + détache du fond MCEF clair).</li>
- *   <li>Outer glow blanc translucide qui respire (slow breathing).</li>
  *   <li>Pill : surface foncée + border blanche subtile + highlight 1px top
  *       (specular "glass").</li>
  *   <li>Keycap ESPACE : look raised (top highlight + bottom shadow inset)
  *       avec border accent au hover.</li>
- *   <li>Texte prompt avec luminosité respirante.</li>
+ *   <li>Texte prompt avec une luminosité qui respire très légèrement.</li>
  * </ol>
  *
- * <p>Objectif esthétique : feel premium / minimalist, type Lunar / Feather
- * UI — beaucoup de subtilités plutôt qu'une grosse animation.
+ * <p>Objectif esthétique : sobre et net. Le fond 3D MCEF porte la richesse
+ * visuelle ; le CTA reste calme et lisible.
  */
 public class PressSpacePrompt extends ButtonWidget {
 
@@ -42,10 +41,6 @@ public class PressSpacePrompt extends ButtonWidget {
     private static final int GAP_KEYCAP_TEXT = 14;
     private static final int PILL_RADIUS = 10;
     private static final int KEYCAP_RADIUS = 4;
-
-    /** Couches de glow extérieur (anneau de lumière diffus). 3 couches
-     *  suffisent visuellement, moitié moins de fill calls que 5. */
-    private static final int GLOW_LAYERS = 3;
 
     // ─── Palette dédiée prompt ──────────────────────────────────
     // Fond pill : noir bleuté très opaque pour bien ressortir sur les
@@ -102,37 +97,12 @@ public class PressSpacePrompt extends ButtonWidget {
         int h = getHeight();
         boolean hovered = isHovered();
 
-        // Breath cycle ~3s. 0..1 sinusoidal.
-        float t = (System.currentTimeMillis() % 3000L) / 3000f;
+        // Respiration tres douce, uniquement sur la luminosite du texte.
+        // Plus d'ombre portee ni de halo qui respire : on reste sobre.
+        float t = (System.currentTimeMillis() % 3600L) / 3600f;
         float breath = 0.5f + 0.5f * (float) Math.sin(t * Math.PI * 2.0);
 
-        // ── (1) Drop shadow sous le pill ───────────────────────
-        // 3 couches descendantes pour effet diffus naturel.
-        for (int i = 1; i <= 3; i++) {
-            int alpha = 60 - i * 15;
-            int shadow = (alpha << 24);
-            DrawHelpers.roundedRect(context,
-                x0 + i, y0 + h - 2 + i, w - 2 * i, 4,
-                Math.max(0, PILL_RADIUS - i), shadow);
-        }
-
-        // ── (2) Outer glow blanc qui respire ───────────────────
-        // Halo subtil — l'amplitude grandit au hover.
-        float glowStrength = hovered ? 0.85f : 0.45f;
-        for (int i = GLOW_LAYERS; i >= 1; i--) {
-            float layerStrength = (1f - (float) i / (GLOW_LAYERS + 1));
-            // 0.15f par couche : compense la réduction 5→3 layers (intégrale
-            // cumulée alpha quasi identique au précédent design).
-            float alphaF = 0.15f * layerStrength * glowStrength * (0.55f + 0.45f * breath);
-            int alpha = Math.round(alphaF * 255);
-            if (alpha <= 0) continue;
-            int color = (alpha << 24) | 0xFFFFFF;
-            DrawHelpers.roundedRect(context,
-                x0 - i, y0 - i, w + 2 * i, h + 2 * i,
-                PILL_RADIUS + i, color);
-        }
-
-        // ── (3) Pill BG avec faux gradient vertical ────────────
+        // ── (1) Pill BG avec faux gradient vertical ────────────
         // On dessine 2 rounded rects empilés : top color sur la moitié
         // supérieure (radius normal), bottom color sur la moitié inférieure
         // (radius bottom only, mais notre helper round 4 corners → on
@@ -151,12 +121,12 @@ public class PressSpacePrompt extends ButtonWidget {
             x0 + 1, y0 + 1, w - 2, topHalfH - 1,
             PILL_RADIUS - 1, bgTop);
 
-        // ── (3 bis) Highlight specular 1px en haut du pill ─────
+        // ── (1 bis) Highlight specular 1px en haut du pill ─────
         // Bande horizontale fine dans la partie supérieure pour effet
         // "verre dépoli" — donne du relief.
         context.fill(x0 + PILL_RADIUS, y0 + 1, x0 + w - PILL_RADIUS, y0 + 2, PILL_HIGHLIGHT);
 
-        // ── (4) Keycap "ESPACE" — raised look ──────────────────
+        // ── (2) Keycap "ESPACE" — raised look ──────────────────
         int keyTextW = tr.getWidth(KEY_TEXT);
         int keyTextH = tr.fontHeight;
         int keyW = keyTextW + 2 * KEYCAP_PADDING_X;
@@ -183,7 +153,7 @@ public class PressSpacePrompt extends ButtonWidget {
         context.drawText(tr, KEY_TEXT,
             keyX + KEYCAP_PADDING_X, keyY + KEYCAP_PADDING_Y, Colors.WHITE_PURE, true);
 
-        // ── (5) Texte du prompt avec luminosité respirante ─────
+        // ── (3) Texte du prompt avec luminosité respirante ─────
         int promptX = keyX + keyW + GAP_KEYCAP_TEXT;
         int promptY = y0 + (h - tr.fontHeight) / 2;
         int alpha = hovered ? 255 : Math.round(215 + 40 * breath);
