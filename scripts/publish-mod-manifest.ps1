@@ -124,8 +124,17 @@ $ExternalDeps = @(
         Url  = "https://cdn.modrinth.com/data/1bZhdhsH/versions/b78ntfSB/plasmovoice-fabric-1.21.1-2.1.10.jar"
     },
     @{ # Emotecraft : animations/emotes RP (synced via canal Fabric).
+       # REQUIRED : embarque PlayerAnimator + bendy-lib (jarjar META-INF/jars)
+       # dont depend le systeme de demarches animees de mod-hud
+       # (fr.reborn.hud.animation). Sans lui, les demarches sont desactivees.
         Name = "emotecraft-for-MC1.21.1-2.4.12-fabric.jar"
         Url  = "https://cdn.modrinth.com/data/pZ2wrerK/versions/daqt5qcK/emotecraft-for-MC1.21.1-2.4.12-fabric.jar"
+    },
+    @{ # Fresh First Person : rend le modele 3e personne du joueur en 1re
+       # personne (on voit son corps). REQUIRED : complete la camera epaule
+       # Reborn (mod-hud camera) quand le joueur bascule en 1re personne (Y).
+        Name = "FFP_1.21.0-1.21.1_1.3.0.jar"
+        Url  = "https://cdn.modrinth.com/data/sIaiUIR8/versions/FO6NDcHb/FFP_1.21.0-1.21.1_1.3.0.jar"
     },
     @{ # Continuity : connected textures Optifine-style (mur de pierres "continues").
         Name = "continuity-3.0.0+1.21.jar"
@@ -153,7 +162,7 @@ $ExternalDeps = @(
 # Tout fichier dans staging dont le nom commence par un de ces prefixes
 # sera marque "optional" dans le manifest. Le launcher (cf Mods.tsx)
 # affichera les optionnels avec un toggle et ne les DL que si active.
-$OptionalPrefixes = "iris-,modmenu-,plasmovoice-,emotecraft-,continuity-,NoChatReports-,zoomify-,replaymod-,entity_model_features-"
+$OptionalPrefixes = "iris-,modmenu-,plasmovoice-,continuity-,NoChatReports-,zoomify-,replaymod-,entity_model_features-"
 
 $ErrorActionPreference = "Stop"
 
