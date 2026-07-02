@@ -14,27 +14,41 @@ import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 
 /**
- * Sélecteur de serveur sous JOUER — <b>staff-only</b> (le launcher pousse
- * {@code -Dreborn.staff=true} + le serveur dev). Affiche les <b>deux</b>
- * serveurs (BUILD / DEV) en deux lignes compactes, chacune avec son nombre de
- * joueurs en ligne (ping SLP live). La ligne sélectionnée est surlignée ;
- * cliquer une ligne choisit la cible et JOUER connecte à ce serveur. Le
- * compteur du serveur sélectionné s'affiche aussi au survol de JOUER.
+ * Sélecteur de serveur en <b>popup au survol de JOUER</b> — staff-only. Le menu
+ * reste propre (aucune ligne fixe) ; quand la souris passe sur l'entrée JOUER,
+ * un petit panneau apparaît <b>à droite</b> (dans le vide, sans recouvrir les
+ * autres entrées) avec les deux serveurs BUILD / DEV et leur nombre de joueurs
+ * en ligne. Cliquer une ligne choisit la cible ; JOUER connecte au serveur
+ * sélectionné.
  *
- * <p>Deux lignes toujours visibles (pas d'overlay) : évite tout recouvrement /
- * conflit d'ordre de clic avec les entrées du menu en dessous.
+ * <p>Ancré sur l'entrée JOUER ({@link MenuEntryButton}) : le popup se
+ * positionne à sa droite et la zone de survol couvre JOUER + le popup (gap
+ * inclus) pour qu'on puisse glisser de l'un à l'autre sans qu'il disparaisse.
  */
 public class ServerPickerWidget extends ClickableWidget {
 
-    private static final int ROW_H = 15;
-    /** Hauteur totale (2 lignes) — pour la réservation d'espace du menu. */
-    public static final int HEIGHT = 2 * ROW_H;
+    private static final int ROW_H = 16;
+    private static final int POPUP_W = 150;
+    private static final int GAP = 14;
 
-    public ServerPickerWidget(int x, int y, int width) {
-        super(x, y, width, HEIGHT, Text.literal("Serveur"));
+    private final MenuEntryButton anchor;
+
+    public ServerPickerWidget(MenuEntryButton anchor) {
+        super(anchor.getX() + anchor.getWidth() + GAP,
+              anchor.getY() + (anchor.getHeight() - 2 * ROW_H) / 2,
+              POPUP_W, 2 * ROW_H, Text.literal("Serveur"));
+        this.anchor = anchor;
     }
 
-    /** Rafraîchit les deux pings actifs (throttlés en interne à 30s). */
+    /** Zone de survol = boîte englobante JOUER + popup (gap compris). */
+    private boolean revealed(double mx, double my) {
+        int left = anchor.getX();
+        int right = getX() + getWidth();
+        int top = Math.min(anchor.getY(), getY());
+        int bottom = Math.max(anchor.getY() + anchor.getHeight(), getY() + getHeight());
+        return mx >= left && mx < right && my >= top && my < bottom;
+    }
+
     private void refreshPings() {
         ServerInfoState.INSTANCE.maybeRefresh();
         if (ServerInfoState.dev() != null) ServerInfoState.dev().maybeRefresh();
@@ -49,24 +63,31 @@ public class ServerPickerWidget extends ClickableWidget {
     protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
         refreshPings();
+        if (!revealed(mouseX, mouseY)) return; // rien hors survol de JOUER
 
+        TextRenderer tr = mc.textRenderer;
         int x = getX(), y = getY(), w = getWidth();
         ServerTarget target = RebornBranding.target();
 
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(0, 0, 30); // au-dessus du décor/menu
+        // Panneau.
+        ctx.fill(x, y, x + w, y + 2 * ROW_H, Colors.BACKDROP_85);
         drawRow(ctx, tr, "BUILD", ServerInfoState.INSTANCE, x, y, w,
             target == ServerTarget.BUILD, mouseX, mouseY);
         drawRow(ctx, tr, "DEV", ServerInfoState.dev(), x, y + ROW_H, w,
             target == ServerTarget.DEV, mouseX, mouseY);
+        outline(ctx, x, y, w, 2 * ROW_H, Colors.BORDER_STRONG);
+        ctx.getMatrices().pop();
     }
 
     private void drawRow(DrawContext ctx, TextRenderer tr, String name, ServerInfoState s,
                          int x, int y, int w, boolean active, int mx, int my) {
         boolean hover = mx >= x && mx < x + w && my >= y && my < y + ROW_H;
-        int bg = active ? Colors.ACCENT_SOFT : (hover ? Colors.SURFACE_ELEVATED : Colors.SURFACE);
-        ctx.fill(x, y, x + w, y + ROW_H, bg);
-        if (active) ctx.fill(x, y, x + 2, y + ROW_H, Colors.ACCENT); // liseré gauche
+        if (active) ctx.fill(x, y, x + w, y + ROW_H, Colors.ACCENT_SOFT);
+        else if (hover) ctx.fill(x, y, x + w, y + ROW_H, Colors.SURFACE_ELEVATED);
+        if (active) ctx.fill(x, y, x + 2, y + ROW_H, Colors.ACCENT);
 
         drawDot(ctx, x + 8, y + ROW_H / 2 - 1, s != null && s.isOnline());
         int nameColor = active ? Colors.WHITE_PURE
@@ -79,15 +100,24 @@ public class ServerPickerWidget extends ClickableWidget {
             (s != null && s.isOnline()) ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED, false);
     }
 
-    /** Petit point d'état (vert en ligne / rouge hors ligne). */
     private static void drawDot(DrawContext ctx, int x, int y, boolean online) {
         ctx.fill(x, y, x + 3, y + 3, online ? Colors.SUCCESS : Colors.DANGER);
+    }
+
+    private static void outline(DrawContext ctx, int x, int y, int w, int h, int c) {
+        ctx.fill(x, y, x + w, y + 1, c);
+        ctx.fill(x, y + h - 1, x + w, y + h, c);
+        ctx.fill(x, y, x + 1, y + h, c);
+        ctx.fill(x + w - 1, y, x + w, y + h, c);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || !this.active || !this.visible) return false;
+        // On ne réagit qu'aux clics DANS le popup (le reste de la zone de survol
+        // — dont JOUER — reste géré par l'entrée JOUER elle-même).
         int x = getX(), w = getWidth(), y = getY();
+        if (!revealed(mouseX, mouseY)) return false;
         if (mouseX < x || mouseX >= x + w) return false;
         if (mouseY >= y && mouseY < y + ROW_H) {
             select(ServerTarget.BUILD);

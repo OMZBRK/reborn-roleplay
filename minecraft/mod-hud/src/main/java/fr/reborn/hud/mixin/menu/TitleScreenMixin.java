@@ -158,22 +158,16 @@ public abstract class TitleScreenMixin extends Screen {
         MenuEntryButton jouer = reborn$addEntry(client, "JOUER", false,
             MainMenuRenderer.MENU_ENTRY_SCALE_PRIMARY, MainMenuRenderer.MENU_ENTRY_H_PRIMARY,
             b -> RebornBranding.connectToReborn(client, this));
-        jouer.withHoverInfo(() -> {
-            // Compteur de la cible sélectionnée (BUILD par défaut ; DEV si un
-            // staff l'a choisi via le sélecteur ci-dessous).
-            ServerInfoState s = ServerInfoState.forTarget(RebornBranding.target());
-            return s.isOnline() ? s.getPlayers() + " EN LIGNE" : "HORS LIGNE";
-        });
 
-        // Sélecteur de serveur Build/Dev — staff-only, juste sous JOUER. On
-        // RÉSERVE sa ligne ici mais on ajoute le widget EN DERNIER (plus bas)
-        // pour que son overlay déplié se dessine AU-DESSUS des entrées
-        // suivantes. Le launcher pousse -Dreborn.staff + -Dreborn.server.dev.*
-        // ; invisible sinon.
-        int pickerY = -1;
-        if (RebornBranding.serverToggleAvailable()) {
-            pickerY = reborn$nextEntryY;
-            reborn$nextEntryY += ServerPickerWidget.HEIGHT + MainMenuRenderer.MENU_ENTRY_GAP;
+        // Staff + serveur dev → au survol de JOUER on affiche un popup de choix
+        // Build/Dev (à droite) AU LIEU du compteur. Sinon (joueur normal) : le
+        // compteur du serveur principal comme avant.
+        boolean staffPicker = RebornBranding.serverToggleAvailable();
+        if (!staffPicker) {
+            jouer.withHoverInfo(() -> {
+                ServerInfoState s = ServerInfoState.INSTANCE;
+                return s.isOnline() ? s.getPlayers() + " EN LIGNE" : "HORS LIGNE";
+            });
         }
 
         float sc = MainMenuRenderer.MENU_ENTRY_SCALE;
@@ -185,10 +179,10 @@ public abstract class TitleScreenMixin extends Screen {
         reborn$addEntry(client, "QUITTER", false, sc, hh,
             b -> client.setScreen(new QuitConfirmScreen(this)));
 
-        // Ajouté après les entrées → dernier enfant → rendu par-dessus.
-        if (pickerY >= 0) {
-            ServerPickerWidget picker = new ServerPickerWidget(
-                MainMenuRenderer.MENU_X + 16, pickerY, 150);
+        // Popup sélecteur ancré sur JOUER — ajouté en dernier (rendu par-dessus).
+        // Le menu garde sa disposition d'origine (aucune ligne fixe insérée).
+        if (staffPicker) {
+            ServerPickerWidget picker = new ServerPickerWidget(jouer);
             this.addDrawableChild(picker);
             reborn$menuOnly.add(picker);
         }
