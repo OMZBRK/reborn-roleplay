@@ -57,17 +57,18 @@ public final class ChatSettingsScreen extends Screen {
         swatches.clear();
 
         TextRenderer tr = this.textRenderer;
-        int cardH = 318;
-        int cardX = (this.width - CARD_WIDTH) / 2;
+        int cardW = Math.min(CARD_WIDTH, this.width - 24);
+        int cardH = Math.min(318, this.height - 24);
+        int cardX = (this.width - cardW) / 2;
         int cardY = (this.height - cardH) / 2;
 
-        RoundedRect.fill(ctx, cardX, cardY, CARD_WIDTH, cardH, 10, RebornColors.BG_PANEL_ELEVATED);
-        RoundedRect.border(ctx, cardX, cardY, CARD_WIDTH, cardH, 10, RebornColors.BORDER_STRONG);
+        RoundedRect.fill(ctx, cardX, cardY, cardW, cardH, 10, RebornColors.BG_PANEL_ELEVATED);
+        RoundedRect.border(ctx, cardX, cardY, cardW, cardH, 10, RebornColors.BORDER_STRONG);
 
         // Header
         ctx.drawText(tr, Text.literal("PARAMÈTRES CHAT").formatted(Formatting.BOLD),
             cardX + 14, cardY + 12, RebornColors.FOREGROUND, false);
-        ctx.fill(cardX + 14, cardY + 26, cardX + CARD_WIDTH - 14, cardY + 27, RebornColors.BORDER);
+        ctx.fill(cardX + 14, cardY + 26, cardX + cardW - 14, cardY + 27, RebornColors.BORDER);
 
         // Section Affichage
         int y = cardY + 36;
@@ -89,7 +90,7 @@ public final class ChatSettingsScreen extends Screen {
 
         // Separator
         y += 2;
-        ctx.fill(cardX + 14, y, cardX + CARD_WIDTH - 14, y + 1, RebornColors.BORDER);
+        ctx.fill(cardX + 14, y, cardX + cardW - 14, y + 1, RebornColors.BORDER);
         y += 8;
 
         // Section Dimensions
@@ -104,7 +105,7 @@ public final class ChatSettingsScreen extends Screen {
 
         // Close button bottom
         int closeBtnY = cardY + cardH - 28;
-        int closeBtnW = CARD_WIDTH - 28;
+        int closeBtnW = cardW - 28;
         int closeBtnH = 20;
         boolean closeHover = inside(mouseX, mouseY, cardX + 14, closeBtnY, closeBtnW, closeBtnH);
         RoundedRect.fill(ctx, cardX + 14, closeBtnY, closeBtnW, closeBtnH, 6,
@@ -123,8 +124,9 @@ public final class ChatSettingsScreen extends Screen {
         ctx.drawText(tr, Text.literal(label),
             cardX + 14, y + 4, RebornColors.FOREGROUND, false);
 
+        int cardW = Math.min(CARD_WIDTH, this.width - 24);
         int switchW = 32, switchH = 14;
-        int switchX = cardX + CARD_WIDTH - 14 - switchW;
+        int switchX = cardX + cardW - 14 - switchW;
         int switchY = y;
         int bg = state ? RebornColors.SUCCESS : 0x1FFFFFFF;
         RoundedRect.fill(ctx, switchX, switchY, switchW, switchH, switchH / 2, bg);
@@ -142,14 +144,15 @@ public final class ChatSettingsScreen extends Screen {
         TextRenderer tr = this.textRenderer;
         ctx.drawText(tr, Text.literal(label),
             cardX + 14, y, RebornColors.FOREGROUND, false);
+        int cardW = Math.min(CARD_WIDTH, this.width - 24);
         String vStr = value + unit;
         int vW = tr.getWidth(vStr);
         ctx.drawText(tr, Text.literal(vStr),
-            cardX + CARD_WIDTH - 14 - vW, y, RebornColors.ACCENT_HOVER, false);
+            cardX + cardW - 14 - vW, y, RebornColors.ACCENT_HOVER, false);
 
         int trackY = y + 12;
         int trackX = cardX + 14;
-        int trackW = CARD_WIDTH - 28;
+        int trackW = cardW - 28;
         int fillX = trackX + (value - min) * trackW / Math.max(1, max - min);
         RoundedRect.fill(ctx, trackX, trackY, trackW, 3, 1, 0x1FFFFFFF);
         RoundedRect.fill(ctx, trackX, trackY, fillX - trackX, 3, 1, RebornColors.ACCENT);
@@ -164,9 +167,10 @@ public final class ChatSettingsScreen extends Screen {
     private int renderColorRow(DrawContext ctx, int cardX, int y, String label, int current) {
         TextRenderer tr = this.textRenderer;
         ctx.drawText(tr, Text.literal(label), cardX + 14, y + 3, RebornColors.FOREGROUND, false);
+        int cardW = Math.min(CARD_WIDTH, this.width - 24);
         int size = 12, gap = 4;
         int total = HL_COLORS.length * size + (HL_COLORS.length - 1) * gap;
-        int sx = cardX + CARD_WIDTH - 14 - total;
+        int sx = cardX + cardW - 14 - total;
         for (int color : HL_COLORS) {
             boolean selected = (color & 0xFFFFFF) == (current & 0xFFFFFF);
             if (selected) RoundedRect.fill(ctx, sx - 1, y - 1, size + 2, size + 2, 3, RebornColors.FOREGROUND);
@@ -204,16 +208,17 @@ public final class ChatSettingsScreen extends Screen {
             }
         }
         // Close button hit-test
-        int cardH = 318;
-        int cardX = (this.width - CARD_WIDTH) / 2;
+        int cardW = Math.min(CARD_WIDTH, this.width - 24);
+        int cardH = Math.min(318, this.height - 24);
+        int cardX = (this.width - cardW) / 2;
         int cardY = (this.height - cardH) / 2;
         int closeBtnY = cardY + cardH - 28;
-        if (inside((int) mouseX, (int) mouseY, cardX + 14, closeBtnY, CARD_WIDTH - 28, 20)) {
+        if (inside((int) mouseX, (int) mouseY, cardX + 14, closeBtnY, cardW - 28, 20)) {
             close();
             return true;
         }
         // Click outside card → close
-        if (!inside((int) mouseX, (int) mouseY, cardX, cardY, CARD_WIDTH, cardH)) {
+        if (!inside((int) mouseX, (int) mouseY, cardX, cardY, cardW, cardH)) {
             close();
             return true;
         }

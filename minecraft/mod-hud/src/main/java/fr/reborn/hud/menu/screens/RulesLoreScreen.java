@@ -41,7 +41,8 @@ public class RulesLoreScreen extends Screen {
     protected void init() {
         int sidebarX = 20;
         int sidebarY = 70;
-        int btnW = 200;
+        int sidebarW = Math.min(200, Math.max(120, this.width / 4));
+        int btnW = sidebarW;
         int btnH = 30;
         int spacing = 8;
 
@@ -80,10 +81,13 @@ public class RulesLoreScreen extends Screen {
             Text.literal("RÈGLEMENT & LORE"),
             this.width / 2, 28, FG);
 
-        // Zone de contenu (cote droit).
-        int contentX = 240;
+        // Zone de contenu (cote droit). Largeurs dérivées de la sidebar
+        // responsive pour ne jamais passer sous zéro sur fenêtre étroite.
+        int sidebarX = 20;
+        int sidebarW = Math.min(200, Math.max(120, this.width / 4));
+        int contentX = sidebarX + sidebarW + 20;
         int contentY = 70;
-        int contentW = this.width - contentX - 20;
+        int contentW = Math.max(160, this.width - contentX - 20);
         int contentH = this.height - contentY - 30;
         context.fill(contentX, contentY, contentX + contentW, contentY + contentH, CARD_BG);
         context.fill(contentX, contentY, contentX + contentW, contentY + 1, ACCENT);
@@ -111,7 +115,9 @@ public class RulesLoreScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        int contentX = 240;
+        int sidebarX = 20;
+        int sidebarW = Math.min(200, Math.max(120, this.width / 4));
+        int contentX = sidebarX + sidebarW + 20;
         if (mouseX >= contentX) {
             scrollY = Math.max(0, scrollY - (int) (verticalAmount * 18));
             return true;

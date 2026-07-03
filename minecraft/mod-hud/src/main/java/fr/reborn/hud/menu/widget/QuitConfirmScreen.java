@@ -40,20 +40,22 @@ public class QuitConfirmScreen extends Screen {
 
     @Override
     protected void init() {
-        int cardX = (this.width - CARD_W) / 2;
-        int cardY = (this.height - CARD_H) / 2;
+        int cardW = Math.min(CARD_W, this.width - 24);
+        int cardH = Math.min(CARD_H, this.height - 24);
+        int cardX = (this.width - cardW) / 2;
+        int cardY = (this.height - cardH) / 2;
 
         int btnW = 120;
         int btnH = 32;
         int gap = 12;
-        int btnY = cardY + CARD_H - 22 - btnH;
+        int btnY = cardY + cardH - 22 - btnH;
 
         this.addDrawableChild(RebornButton.ghost(
-            cardX + CARD_W / 2 - btnW - gap / 2, btnY, btnW, btnH,
+            cardX + cardW / 2 - btnW - gap / 2, btnY, btnW, btnH,
             "Annuler", b -> close()
         ));
         this.addDrawableChild(RebornButton.danger(
-            cardX + CARD_W / 2 + gap / 2, btnY, btnW, btnH,
+            cardX + cardW / 2 + gap / 2, btnY, btnW, btnH,
             "Quitter", b -> MinecraftClient.getInstance().scheduleStop()
         ));
     }
@@ -87,21 +89,23 @@ public class QuitConfirmScreen extends Screen {
         if (client == null) return;
         TextRenderer tr = client.textRenderer;
 
-        int cardX = (this.width - CARD_W) / 2;
-        int cardY = (this.height - CARD_H) / 2;
+        int cardW = Math.min(CARD_W, this.width - 24);
+        int cardH = Math.min(CARD_H, this.height - 24);
+        int cardX = (this.width - cardW) / 2;
+        int cardY = (this.height - cardH) / 2;
 
         // Drop shadow + card BG.
-        DrawHelpers.dropShadow(context, cardX, cardY, CARD_W, CARD_H, 6);
-        DrawHelpers.roundedOutlinedRect(context, cardX, cardY, CARD_W, CARD_H, 12,
+        DrawHelpers.dropShadow(context, cardX, cardY, cardW, cardH, 6);
+        DrawHelpers.roundedOutlinedRect(context, cardX, cardY, cardW, cardH, 12,
             Colors.SURFACE_ELEVATED, Colors.BORDER_STRONG);
         // Trait d'accent bleu en haut.
-        context.fill(cardX + 12, cardY, cardX + CARD_W - 12, cardY + 2, Colors.ACCENT);
+        context.fill(cardX + 12, cardY, cardX + cardW - 12, cardY + 2, Colors.ACCENT);
 
         // Titre — Bebas Neue display équilibré (1.4x).
         Text title = RebornFont.bold("Quitter Reborn ?");
         float titleScale = 1.4f;
         int titleW = Math.round(tr.getWidth(title) * titleScale);
-        int titleX = cardX + (CARD_W - titleW) / 2;
+        int titleX = cardX + (cardW - titleW) / 2;
         int titleY = cardY + 22;
         context.getMatrices().push();
         context.getMatrices().translate(titleX, titleY, 0);
@@ -115,9 +119,9 @@ public class QuitConfirmScreen extends Screen {
         int descW = tr.getWidth(desc);
         int desc2W = tr.getWidth(desc2);
         int descY = cardY + 60;
-        context.drawText(tr, desc, cardX + (CARD_W - descW) / 2, descY,
+        context.drawText(tr, desc, cardX + (cardW - descW) / 2, descY,
             Colors.FOREGROUND_SUBTLE, false);
-        context.drawText(tr, desc2, cardX + (CARD_W - desc2W) / 2, descY + 12,
+        context.drawText(tr, desc2, cardX + (cardW - desc2W) / 2, descY + 12,
             Colors.FOREGROUND_SUBTLE, false);
     }
 

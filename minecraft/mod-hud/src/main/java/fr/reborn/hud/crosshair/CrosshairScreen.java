@@ -7,10 +7,10 @@ import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.config.CrosshairTab;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import fr.reborn.hud.menu.widget.IconButton;
+import fr.reborn.hud.menu.widget.RebornButton;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 
@@ -77,10 +77,9 @@ public class CrosshairScreen extends Screen {
             .withTooltipPlacement(IconButton.TooltipPlacement.LEFT));
 
         // Réinitialiser (à gauche du X).
-        this.addDrawableChild(ButtonWidget.builder(
-            RebornFont.body("Réinitialiser"), b -> resetSettings())
-            .dimensions(this.width - 18 - 16 - 8 - 96, (HEADER_H - 20) / 2, 96, 20)
-            .build());
+        this.addDrawableChild(RebornButton.ghost(
+            this.width - 18 - 16 - 8 - 96, (HEADER_H - 20) / 2, 96, 20,
+            "Réinitialiser", b -> resetSettings()));
 
         rebuildContent();
     }

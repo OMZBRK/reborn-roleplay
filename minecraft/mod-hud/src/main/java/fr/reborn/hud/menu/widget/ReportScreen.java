@@ -72,9 +72,11 @@ public class ReportScreen extends Screen {
 
     @Override
     protected void init() {
-        int cardX = (this.width - CARD_W) / 2;
-        int cardY = (this.height - CARD_H) / 2;
-        int fieldW = CARD_W - 40;
+        int cardW = Math.min(CARD_W, this.width - 24);
+        int cardH = Math.min(CARD_H, this.height - 24);
+        int cardX = (this.width - cardW) / 2;
+        int cardY = (this.height - cardH) / 2;
+        int fieldW = cardW - 40;
         int fieldX = cardX + 20;
 
         subjectField = new TextFieldWidget(this.textRenderer, fieldX, cardY + 74, fieldW, 16,
@@ -91,7 +93,7 @@ public class ReportScreen extends Screen {
         this.setInitialFocus(subjectField);
 
         int btnH = 26;
-        int btnY = cardY + CARD_H - 20 - btnH;
+        int btnY = cardY + cardH - 20 - btnH;
         // Catégorie (cyclable) sur toute la largeur au-dessus des champs.
         categoryButton = RebornButton.ghost(fieldX, cardY + 40, fieldW, 18,
             "Catégorie : " + CATEGORIES[categoryIdx][1], b -> cycleCategory());
@@ -192,15 +194,17 @@ public class ReportScreen extends Screen {
         ctx.drawTexture(LOGO, (this.width - logoW) / 2, 14, logoW, logoH,
             0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
-        int cardX = (this.width - CARD_W) / 2;
-        int cardY = (this.height - CARD_H) / 2;
-        DrawHelpers.dropShadow(ctx, cardX, cardY, CARD_W, CARD_H, 6);
-        DrawHelpers.roundedOutlinedRect(ctx, cardX, cardY, CARD_W, CARD_H, 12,
+        int cardW = Math.min(CARD_W, this.width - 24);
+        int cardH = Math.min(CARD_H, this.height - 24);
+        int cardX = (this.width - cardW) / 2;
+        int cardY = (this.height - cardH) / 2;
+        DrawHelpers.dropShadow(ctx, cardX, cardY, cardW, cardH, 6);
+        DrawHelpers.roundedOutlinedRect(ctx, cardX, cardY, cardW, cardH, 12,
             Colors.SURFACE_ELEVATED, Colors.BORDER_STRONG);
-        ctx.fill(cardX + 12, cardY, cardX + CARD_W - 12, cardY + 2, Colors.ACCENT);
+        ctx.fill(cardX + 12, cardY, cardX + cardW - 12, cardY + 2, Colors.ACCENT);
 
         Text title = RebornFont.arcade("SIGNALER UN PROBLEME");
-        ctx.drawText(tr, title, cardX + (CARD_W - tr.getWidth(title)) / 2, cardY + 16,
+        ctx.drawText(tr, title, cardX + (cardW - tr.getWidth(title)) / 2, cardY + 16,
             Colors.WHITE_PURE, false);
 
         // Labels champs.
@@ -220,7 +224,7 @@ public class ReportScreen extends Screen {
                 default -> Colors.FOREGROUND_MUTED;
             };
             ctx.drawCenteredTextWithShadow(tr, RebornFont.body(feedback),
-                this.width / 2, cardY + CARD_H + 12, color);
+                this.width / 2, cardY + cardH + 12, color);
         }
     }
 

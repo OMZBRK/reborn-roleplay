@@ -1,102 +1,58 @@
 package fr.reborn.hud.menu.settings;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.option.GameOptions;
 import net.minecraft.sound.SoundCategory;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Tab Audio — 4 sliders volumes + 1 toggle mute-on-unfocus.
- * Référence : {@code settings.jsx::AudioTab}.
+ * Onglet Audio — 4 volumes câblés sur les {@link SoundCategory} vanilla + un
+ * toggle sous-titres. Le « mute si fenêtre inactive » (mort, sans consommateur)
+ * a été retiré.
  */
-public class AudioTab implements SettingsTab {
-
-    private final List<ClickableWidget> widgets = new ArrayList<>();
-    private int contentHeight = 0;
-
-    private static final int ROW_HEIGHT = 38;
-    private static final int CONTROL_W = 240;
-
-    private static final String[][] LABELS = {
-        {"Volume principal", null},
-        {"Musique", "Contrôle aussi le lecteur du menu principal"},
-        {"Effets sonores", null},
-        {"Voix", "Chat vocal RP de proximité"},
-        {"Mute si fenêtre inactive", null},
-    };
+public class AudioTab extends SectionedTab {
 
     @Override
-    public void layout(int x, int y, int width) {
-        widgets.clear();
-        RebornPrefs prefs = RebornPrefs.INSTANCE;
-
-        // Sync depuis mc.options pour afficher les vrais volumes actuels.
+    protected void build() {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc != null && mc.options != null) {
-            prefs.volumeMaster = (int) Math.round(
-                mc.options.getSoundVolumeOption(SoundCategory.MASTER).getValue() * 100);
-            prefs.volumeMusic = (int) Math.round(
-                mc.options.getSoundVolumeOption(SoundCategory.MUSIC).getValue() * 100);
-            prefs.volumeSfx = (int) Math.round(
-                mc.options.getSoundVolumeOption(SoundCategory.BLOCKS).getValue() * 100);
-            prefs.volumeVoice = (int) Math.round(
-                mc.options.getSoundVolumeOption(SoundCategory.VOICE).getValue() * 100);
-        }
+        if (mc == null || mc.options == null) return;
+        GameOptions o = mc.options;
 
-        int cursorY = y;
-        int controlW = Math.max(150, Math.min(CONTROL_W, width - 130));
-        int controlX = x + width - controlW;
+        section("Volumes");
 
-        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
-            prefs.volumeMaster, 0, 100, "%",
-            v -> { prefs.volumeMaster = v;
-                   applyVolume(SoundCategory.MASTER, v);
-                   prefs.save(); }));
-        cursorY += ROW_HEIGHT;
+        row("Volume principal", null,
+            (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
+                pct(o, SoundCategory.MASTER), 0, 100, "%",
+                v -> applyVolume(SoundCategory.MASTER, v)));
 
-        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
-            prefs.volumeMusic, 0, 100, "%",
-            v -> { prefs.volumeMusic = v;
-                   applyVolume(SoundCategory.MUSIC, v);
-                   prefs.save(); }));
-        cursorY += ROW_HEIGHT;
+        row("Musique", "Contrôle aussi le lecteur du menu principal",
+            (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
+                pct(o, SoundCategory.MUSIC), 0, 100, "%",
+                v -> applyVolume(SoundCategory.MUSIC, v)));
 
-        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
-            prefs.volumeSfx, 0, 100, "%",
-            v -> { prefs.volumeSfx = v;
-                   // SFX = somme des catégories d'effets sonores du jeu.
-                   applyVolume(SoundCategory.BLOCKS, v);
-                   applyVolume(SoundCategory.HOSTILE, v);
-                   applyVolume(SoundCategory.NEUTRAL, v);
-                   applyVolume(SoundCategory.PLAYERS, v);
-                   applyVolume(SoundCategory.AMBIENT, v);
-                   applyVolume(SoundCategory.WEATHER, v);
-                   applyVolume(SoundCategory.RECORDS, v);
-                   prefs.save(); }));
-        cursorY += ROW_HEIGHT;
+        row("Effets sonores", null,
+            (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
+                pct(o, SoundCategory.BLOCKS), 0, 100, "%",
+                v -> applySfx(v)));
 
-        widgets.add(new SliderWidget(controlX, cursorY + 4, controlW, 24,
-            prefs.volumeVoice, 0, 100, "%",
-            v -> { prefs.volumeVoice = v;
-                   applyVolume(SoundCategory.VOICE, v);
-                   prefs.save(); }));
-        cursorY += ROW_HEIGHT;
+        row("Voix", "Chat vocal RP de proximité",
+            (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
+                pct(o, SoundCategory.VOICE), 0, 100, "%",
+                v -> applyVolume(SoundCategory.VOICE, v)));
 
-        widgets.add(new ToggleBig(controlX + controlW - ToggleBig.DEFAULT_WIDTH,
-            cursorY + 4, prefs.muteOnUnfocus,
-            v -> { prefs.muteOnUnfocus = v; prefs.save(); }));
-        cursorY += ROW_HEIGHT;
+        section("Divers");
 
-        contentHeight = cursorY - y;
+        row("Sous-titres", "Affiche les bruitages sous forme de texte",
+            (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
+                o.getShowSubtitles().getValue(),
+                v -> { o.getShowSubtitles().setValue(v); o.write(); }));
+
+        spacer(4);
     }
 
-    /** Applique un volume Reborn (0..100) à une SoundCategory MC vanilla. */
+    private static int pct(GameOptions o, SoundCategory cat) {
+        return (int) Math.round(o.getSoundVolumeOption(cat).getValue() * 100);
+    }
+
     private static void applyVolume(SoundCategory category, int percent) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.options == null) return;
@@ -104,32 +60,14 @@ public class AudioTab implements SettingsTab {
         mc.options.write();
     }
 
-    @Override public List<ClickableWidget> widgets() { return widgets; }
-    @Override public int height() { return contentHeight; }
-
-    @Override
-    public void renderPassive(DrawContext ctx, int x, int y, int width) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
-
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y - 28, 0);
-        ctx.getMatrices().scale(1.2f, 1.2f, 1f);
-        ctx.drawText(tr, RebornFont.bold("VOLUMES"), 0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
-
-        int cursorY = y;
-        for (String[] row : LABELS) {
-            ctx.drawText(tr, RebornFont.bold(row[0]), x, cursorY + 8, Colors.WHITE_PURE, false);
-            if (row[1] != null) {
-                ctx.getMatrices().push();
-                ctx.getMatrices().translate(x, cursorY + 20, 0);
-                ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-                ctx.drawText(tr, RebornFont.body(row[1]), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.getMatrices().pop();
-            }
-            cursorY += ROW_HEIGHT;
-        }
+    /** SFX = somme des catégories d'effets sonores du jeu. */
+    private static void applySfx(int percent) {
+        applyVolume(SoundCategory.BLOCKS, percent);
+        applyVolume(SoundCategory.HOSTILE, percent);
+        applyVolume(SoundCategory.NEUTRAL, percent);
+        applyVolume(SoundCategory.PLAYERS, percent);
+        applyVolume(SoundCategory.AMBIENT, percent);
+        applyVolume(SoundCategory.WEATHER, percent);
+        applyVolume(SoundCategory.RECORDS, percent);
     }
 }

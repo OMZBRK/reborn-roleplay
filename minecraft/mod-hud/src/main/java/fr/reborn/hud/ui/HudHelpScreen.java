@@ -62,21 +62,22 @@ public final class HudHelpScreen extends Screen {
             }
         };
 
-        int cardH = 36 + countLines(sections) * 14 + 32;
-        int cardX = (this.width - CARD_WIDTH) / 2;
+        int cardW = Math.min(CARD_WIDTH, this.width - 24);
+        int cardH = Math.min(36 + countLines(sections) * 14 + 32, this.height - 24);
+        int cardX = (this.width - cardW) / 2;
         int cardY = (this.height - cardH) / 2;
 
         // Drop shadow
         for (int i = 1; i <= 6; i++) {
             int a = (7 - i) * 8;
-            ctx.fill(cardX - i, cardY + 4, cardX + CARD_WIDTH + i, cardY + cardH + i, a << 24);
+            ctx.fill(cardX - i, cardY + 4, cardX + cardW + i, cardY + cardH + i, a << 24);
         }
-        RoundedRect.fill(ctx, cardX, cardY, CARD_WIDTH, cardH, 8, RebornColors.BG_PANEL_ELEVATED);
-        RoundedRect.border(ctx, cardX, cardY, CARD_WIDTH, cardH, 8, RebornColors.BORDER_STRONG);
+        RoundedRect.fill(ctx, cardX, cardY, cardW, cardH, 8, RebornColors.BG_PANEL_ELEVATED);
+        RoundedRect.border(ctx, cardX, cardY, cardW, cardH, 8, RebornColors.BORDER_STRONG);
 
         ctx.drawText(tr, Text.literal("RACCOURCIS · Reborn HUD").formatted(Formatting.BOLD),
             cardX + 14, cardY + 12, RebornColors.FOREGROUND, false);
-        ctx.fill(cardX + 14, cardY + 26, cardX + CARD_WIDTH - 14, cardY + 27, RebornColors.BORDER);
+        ctx.fill(cardX + 14, cardY + 26, cardX + cardW - 14, cardY + 27, RebornColors.BORDER);
 
         int y = cardY + 36;
         for (String[] section : sections) {
@@ -106,7 +107,7 @@ public final class HudHelpScreen extends Screen {
 
         // Close hint
         ctx.drawText(tr, Text.literal("Clique n'importe où pour fermer").formatted(Formatting.ITALIC),
-            cardX + (CARD_WIDTH - tr.getWidth("Clique n'importe où pour fermer")) / 2,
+            cardX + (cardW - tr.getWidth("Clique n'importe où pour fermer")) / 2,
             cardY + cardH - 14, RebornColors.FOREGROUND_MUTED, false);
     }
 

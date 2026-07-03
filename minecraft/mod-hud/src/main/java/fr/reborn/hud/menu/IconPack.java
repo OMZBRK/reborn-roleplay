@@ -439,6 +439,22 @@ public final class IconPack {
         ctx.fill(bx + 2, by + bh - 2 - eh, bx + bw - 2, by + bh - 2, color);
     }
 
+    /** 📷 Caméra (corps + objectif + bosse viseur) — onglet Caméra (vue 3e pers). */
+    public static void camera(DrawContext ctx, int x, int y, int size, int color) {
+        int bx = x + size / 8, bw = size - 2 * (size / 8);
+        int by = y + size * 5 / 16, bh = size * 7 / 16;
+        // Bosse viseur au-dessus du corps.
+        int bumpW = Math.max(3, bw / 3), bumpH = Math.max(2, size / 8);
+        ctx.fill(bx + bw / 6, by - bumpH, bx + bw / 6 + bumpW, by, color);
+        // Corps de l'appareil.
+        DrawHelpers.roundedOutlinedRect(ctx, bx, by, bw, bh, Math.max(1, size / 10),
+            Colors.BACKGROUND, color);
+        // Objectif centré.
+        int cx = x + size / 2, cy = by + bh / 2;
+        int r = Math.max(2, bh / 3);
+        DrawHelpers.ring(ctx, cx, cy, r, Math.max(1, size / 12), color);
+    }
+
     /** ⚠️ Triangle alerte avec point d'exclamation. */
     public static void alertTriangle(DrawContext ctx, int x, int y, int size, int color) {
         int[] tri = triangleRows(size);

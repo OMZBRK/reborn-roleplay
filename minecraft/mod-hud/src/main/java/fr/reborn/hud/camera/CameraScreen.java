@@ -4,6 +4,7 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.settings.SliderWidget;
+import fr.reborn.hud.menu.widget.RebornButton;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -69,30 +70,32 @@ public class CameraScreen extends Screen {
         y += ROW_H + LABEL_H + GAP + 6;
 
         // Preset (cycle) + Swap épaule.
-        presetBtn = ButtonWidget.builder(presetLabel(), b -> {
-            cam.cyclePreset();
-            syncSlidersToCam();
-        }).dimensions(x, y, w, 20).build();
+        presetBtn = RebornButton.ghost(x, y, w, 20,
+            "Preset : " + cam.preset().label, b -> {
+                cam.cyclePreset();
+                syncSlidersToCam();
+            });
         this.addDrawableChild(presetBtn);
         y += 20 + 6;
 
-        swapBtn = ButtonWidget.builder(swapLabel(), b -> {
-            cam.swapShoulder();
-            syncSlidersToCam();
-        }).dimensions(x, y, w, 20).build();
+        swapBtn = RebornButton.ghost(x, y, w, 20,
+            "Épaule : " + (cam.side() > 0 ? "Droite" : "Gauche"), b -> {
+                cam.swapShoulder();
+                syncSlidersToCam();
+            });
         this.addDrawableChild(swapBtn);
         y += 20 + 6;
 
         // Réinitialiser + Fermer.
         int half = (w - 6) / 2;
-        this.addDrawableChild(ButtonWidget.builder(RebornFont.body("Réinitialiser"), b -> {
+        this.addDrawableChild(RebornButton.ghost(x, y, half, 20, "Réinitialiser", b -> {
             cam.setPreset(CameraPreset.DEFAUT);
             cam.setSide(1);
             cam.setTurnSpeed(0.5);
             syncSlidersToCam();
-        }).dimensions(x, y, half, 20).build());
-        this.addDrawableChild(ButtonWidget.builder(RebornFont.body("Fermer"), b -> close())
-            .dimensions(x + half + 6, y, w - half - 6, 20).build());
+        }));
+        this.addDrawableChild(RebornButton.accent(x + half + 6, y, w - half - 6, 20, "Fermer",
+            b -> close()));
 
         this.addDrawableChild(distSlider);
         this.addDrawableChild(sideSlider);
@@ -111,11 +114,11 @@ public class CameraScreen extends Screen {
     }
 
     private Text presetLabel() {
-        return RebornFont.body("Preset : " + RebornCamera.INSTANCE.preset().label);
+        return RebornFont.bold("Preset : " + RebornCamera.INSTANCE.preset().label);
     }
 
     private Text swapLabel() {
-        return RebornFont.body("Épaule : " + (RebornCamera.INSTANCE.side() > 0 ? "Droite" : "Gauche"));
+        return RebornFont.bold("Épaule : " + (RebornCamera.INSTANCE.side() > 0 ? "Droite" : "Gauche"));
     }
 
     @Override

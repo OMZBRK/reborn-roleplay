@@ -1,140 +1,43 @@
 package fr.reborn.hud.menu.settings;
 
 import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ClickableWidget;
+import fr.reborn.hud.menu.RebornBranding;
+import fr.reborn.hud.menu.esc.EscData;
+import net.minecraft.util.Util;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.net.URI;
 
 /**
- * Tab Discord — 3 toggles + preview card live de la Rich Presence.
- * Référence : {@code settings.jsx::DiscordTab}.
+ * Onglet Discord — infos communauté réelles (compteur live via
+ * {@link EscData}) + bouton « Rejoindre ». Les anciens toggles Rich Presence
+ * étaient factices (le RPC est géré par le launcher, pas par le mod) : retirés.
  */
-public class DiscordTab implements SettingsTab {
-
-    private final List<ClickableWidget> widgets = new ArrayList<>();
-    private int contentHeight = 0;
-
-    private static final int ROW_HEIGHT = 38;
-    private static final int CONTROL_W = 240;
+public class DiscordTab extends SectionedTab {
 
     @Override
-    public void layout(int x, int y, int width) {
-        widgets.clear();
-        RebornPrefs prefs = RebornPrefs.INSTANCE;
-        int cursorY = y;
-        int controlW = Math.max(150, Math.min(CONTROL_W, width - 130));
-        int controlX = x + width - controlW;
+    protected void build() {
+        EscData.refreshIfStale();
+        EscData.Snapshot snap = EscData.get();
 
-        widgets.add(new ToggleBig(controlX + controlW - ToggleBig.DEFAULT_WIDTH,
-            cursorY + 4, prefs.discordEnabled,
-            v -> { prefs.discordEnabled = v; prefs.save(); }));
-        cursorY += ROW_HEIGHT;
+        section("Communauté");
 
-        widgets.add(new ToggleBig(controlX + controlW - ToggleBig.DEFAULT_WIDTH,
-            cursorY + 4, prefs.discordShowCharacter,
-            v -> { prefs.discordShowCharacter = v; prefs.save(); }));
-        cursorY += ROW_HEIGHT;
+        if (snap != null && snap.discordMembers() >= 0) {
+            valueRow("Membres", "Rejoignez la communauté Reborn",
+                snap.discordMembers() + " membres", Colors.WHITE_PURE);
+            valueRow("En ligne", null,
+                snap.discordOnline() + " en ligne", Colors.SUCCESS);
+        } else {
+            labelRow("Membres", "Compteur indisponible (API injoignable)");
+        }
 
-        widgets.add(new ToggleBig(controlX + controlW - ToggleBig.DEFAULT_WIDTH,
-            cursorY + 4, prefs.discordShowMap,
-            v -> { prefs.discordShowMap = v; prefs.save(); }));
-        cursorY += ROW_HEIGHT + 20;
-
-        // Preview card height (calculée dans renderPassive).
-        cursorY += 100;
-
-        contentHeight = cursorY - y;
-    }
-
-    @Override public List<ClickableWidget> widgets() { return widgets; }
-    @Override public int height() { return contentHeight; }
-
-    @Override
-    public void renderPassive(DrawContext ctx, int x, int y, int width) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
-        RebornPrefs prefs = RebornPrefs.INSTANCE;
-
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y - 28, 0);
-        ctx.getMatrices().scale(1.2f, 1.2f, 1f);
-        ctx.drawText(tr, RebornFont.bold("DISCORD RICH PRESENCE"), 0, 0,
-            Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
-
-        String[][] rows = {
-            {"Activer Rich Presence", "Affiche ton activité Reborn sur Discord"},
-            {"Afficher mon personnage RP", null},
-            {"Afficher la map actuelle", null},
-        };
-
-        int cursorY = y;
-        for (String[] row : rows) {
-            ctx.drawText(tr, RebornFont.bold(row[0]), x, cursorY + 8, Colors.WHITE_PURE, false);
-            if (row[1] != null) {
-                ctx.getMatrices().push();
-                ctx.getMatrices().translate(x, cursorY + 20, 0);
-                ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-                ctx.drawText(tr, RebornFont.body(row[1]), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.getMatrices().pop();
+        actionButton("→ Rejoindre le Discord", () -> {
+            try {
+                Util.getOperatingSystem().open(URI.create(RebornBranding.DISCORD_URL));
+            } catch (Exception ignored) {
+                // Ouverture navigateur best-effort ; on n'échoue pas l'UI.
             }
-            cursorY += ROW_HEIGHT;
-        }
+        });
 
-        // Preview card.
-        cursorY += 20;
-        ctx.drawText(tr, RebornFont.bold("APERÇU"), x, cursorY, Colors.FOREGROUND_SUBTLE, false);
-        cursorY += 14;
-
-        int previewH = 80;
-        DrawHelpers.roundedOutlinedRect(ctx, x, cursorY, width, previewH, 8,
-            Colors.SURFACE, Colors.BORDER_STRONG);
-
-        // Avatar carré "RB".
-        int avatarSize = 48;
-        DrawHelpers.roundedRect(ctx, x + 12, cursorY + 16, avatarSize, avatarSize, 6,
-            Colors.ACCENT_SOFT);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + 12 + avatarSize / 2 - 8, cursorY + 16 + avatarSize / 2 - 6, 0);
-        ctx.getMatrices().scale(1.4f, 1.4f, 1f);
-        ctx.drawText(tr, RebornFont.bold("RB"), 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
-
-        // Texte preview.
-        int textX = x + 12 + avatarSize + 12;
-        ctx.drawText(tr, RebornFont.bold("Joue à Reborn Roleplay"),
-            textX, cursorY + 14, Colors.WHITE_PURE, false);
-        int lineY = cursorY + 28;
-        if (prefs.discordShowCharacter) {
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(textX, lineY, 0);
-            ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-            ctx.drawText(tr, RebornFont.body("Personnage · Hikami Yorishiro"),
-                0, 0, Colors.FOREGROUND_SUBTLE, false);
-            ctx.getMatrices().pop();
-            lineY += 11;
-        }
-        if (prefs.discordShowMap) {
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(textX, lineY, 0);
-            ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-            ctx.drawText(tr, RebornFont.body("Région · Vallée des Lanternes"),
-                0, 0, Colors.FOREGROUND_SUBTLE, false);
-            ctx.getMatrices().pop();
-            lineY += 11;
-        }
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(textX, cursorY + previewH - 16, 0);
-        ctx.getMatrices().scale(0.8f, 0.8f, 1f);
-        ctx.drawText(tr, RebornFont.body("Joue depuis 2 h 12"),
-            0, 0, Colors.FOREGROUND_MUTED, false);
-        ctx.getMatrices().pop();
+        spacer(4);
     }
 }

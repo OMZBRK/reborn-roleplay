@@ -1,185 +1,93 @@
 package fr.reborn.hud.menu.settings;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.option.VideoOptionsScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.option.GameOptions;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.function.Consumer;
 
 /**
- * Tab Vidéo des paramètres Reborn. Référence : {@code settings.jsx::VideoTab}.
- *
- * <p>5 lignes de paramètres + 1 lien "Options avancées Minecraft" qui
- * ouvre le {@code VideoOptionsScreen} vanilla pour les vrais réglages
- * gameplay (FPS cap effectif, vsync OpenGL, render distance jeu).
- *
- * <p>NB : les valeurs ici sont persistées dans {@link RebornPrefs} mais
- * NE sont PAS câblées sur options.txt (consigne MVP du user).
+ * Onglet Vidéo — <b>uniquement des réglages réellement câblés</b> sur
+ * {@code mc.options} (client-side). Les anciens contrôles morts (Résolution,
+ * Mode fenêtre) et le bouton « Options avancées Minecraft » ont été retirés :
+ * toute redirection vanilla vit désormais dans l'onglet Minecraft.
  */
-public class VideoTab implements SettingsTab {
+public class VideoTab extends SectionedTab {
 
+    @SuppressWarnings("unused")
     private final Screen parent;
-    private final List<ClickableWidget> widgets = new ArrayList<>();
-    private int contentHeight = 0;
-
-    private static final int ROW_HEIGHT = 38;
-    private static final int LABEL_W = 200;
-    private static final int CONTROL_W = 240;
 
     public VideoTab(Screen parent) {
         this.parent = parent;
     }
 
     @Override
-    public void layout(int x, int y, int width) {
-        widgets.clear();
-        RebornPrefs prefs = RebornPrefs.INSTANCE;
-
-        // Sync depuis mc.options pour afficher les vraies valeurs actuelles.
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc != null && mc.options != null) {
-            prefs.fpsMax = mc.options.getMaxFps().getValue();
-            prefs.vsync = mc.options.getEnableVsync().getValue();
-            prefs.renderDistance = mc.options.getViewDistance().getValue();
-        }
-
-        int cursorY = y;
-        // Largeur de contrôle adaptative : se réduit sur contenu étroit (GUI
-        // Scale élevé) pour garder ≥130px au label/description à gauche.
-        int controlW = Math.max(150, Math.min(CONTROL_W, width - 130));
-        int controlX = x + width - controlW;
-
-        // Échelle de l'interface (GUI Scale) — câblé à mc.options.getGuiScale().
-        // C'est LE réglage qui corrige les menus trop grands : à échelle Auto
-        // sur un grand écran, MC choisit 3-4 et nos écrans custom débordent.
-        // Place en premier pour rester visible même si le contenu dépasse.
-        int guiScale = (mc != null && mc.options != null)
-            ? mc.options.getGuiScale().getValue()
-            : 0;
-        SegmentedControl guiScaleCtrl = new SegmentedControl(
-            controlX, cursorY + 4, controlW, 24,
-            new SegmentedControl.Option[] {
-                new SegmentedControl.Option("0", "Auto"),
-                new SegmentedControl.Option("1", "1"),
-                new SegmentedControl.Option("2", "2"),
-                new SegmentedControl.Option("3", "3"),
-            },
-            String.valueOf(guiScale),
-            v -> applyGuiScale(parseScale(v))
-        );
-        widgets.add(guiScaleCtrl);
-        cursorY += ROW_HEIGHT;
-
-        // Résolution.
-        SegmentedControl resCtrl = new SegmentedControl(
-            controlX, cursorY + 4, controlW, 24,
-            new SegmentedControl.Option[] {
-                new SegmentedControl.Option("hd", "HD"),
-                new SegmentedControl.Option("fhd", "FHD"),
-                new SegmentedControl.Option("qhd", "QHD"),
-                new SegmentedControl.Option("4k", "4K"),
-            },
-            prefs.resolution,
-            v -> { prefs.resolution = v; prefs.save(); }
-        );
-        widgets.add(resCtrl);
-        cursorY += ROW_HEIGHT;
-
-        // Mode fenêtre.
-        SegmentedControl modeCtrl = new SegmentedControl(
-            controlX, cursorY + 4, controlW, 24,
-            new SegmentedControl.Option[] {
-                new SegmentedControl.Option("fullscreen", "Plein écran"),
-                new SegmentedControl.Option("borderless", "Sans bordure"),
-                new SegmentedControl.Option("windowed", "Fenêtré"),
-            },
-            prefs.windowMode,
-            v -> { prefs.windowMode = v; prefs.save(); }
-        );
-        widgets.add(modeCtrl);
-        cursorY += ROW_HEIGHT;
-
-        // FPS Max — câblé aux mc.options.getMaxFps() en live.
-        SliderWidget fpsSlider = new SliderWidget(
-            controlX, cursorY + 4, controlW, 24,
-            prefs.fpsMax, 30, 240, " fps",
-            v -> { prefs.fpsMax = v;
-                   applyMcOption(opts -> opts.getMaxFps().setValue(v));
-                   prefs.save(); }
-        );
-        widgets.add(fpsSlider);
-        cursorY += ROW_HEIGHT;
-
-        // Distance de rendu — câblé aux mc.options.getViewDistance().
-        SliderWidget chunkSlider = new SliderWidget(
-            controlX, cursorY + 4, controlW, 24,
-            prefs.renderDistance, 4, 32, " chunks",
-            v -> { prefs.renderDistance = v;
-                   applyMcOption(opts -> opts.getViewDistance().setValue(v));
-                   prefs.save(); }
-        );
-        widgets.add(chunkSlider);
-        cursorY += ROW_HEIGHT;
-
-        // V-Sync — câblé aux mc.options.getEnableVsync().
-        ToggleBig vsyncToggle = new ToggleBig(
-            controlX + controlW - ToggleBig.DEFAULT_WIDTH, cursorY + 4,
-            prefs.vsync,
-            v -> { prefs.vsync = v;
-                   applyMcOption(opts -> opts.getEnableVsync().setValue(v));
-                   prefs.save(); }
-        );
-        widgets.add(vsyncToggle);
-        cursorY += ROW_HEIGHT;
-
-        // Bouton "Options avancées Minecraft" (ouvre OptionsScreen vanilla).
-        ButtonWidget vanillaBtn = ButtonWidget.builder(
-            RebornFont.body("→ Options avancées Minecraft"),
-            b -> {
-                MinecraftClient mc1 = MinecraftClient.getInstance();
-                if (mc1 != null) {
-                    mc1.setScreen(new VideoOptionsScreen(parent, mc1, mc1.options));
-                }
-            }
-        ).dimensions(x + width - 220, cursorY + 16, 220, 22).build();
-        widgets.add(vanillaBtn);
-        cursorY += 60;
-
-        contentHeight = cursorY - y;
-    }
-
-    /** Applique un changement à mc1.options et persiste options.txt. */
-    private static void applyMcOption(java.util.function.Consumer<net.minecraft.client.option.GameOptions> consumer) {
+    protected void build() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.options == null) return;
-        consumer.accept(mc.options);
-        mc.options.write();
+        GameOptions o = mc.options;
+
+        section("Affichage");
+
+        // Échelle interface (GUI) — LE réglage anti-menus-géants.
+        int guiScale = o.getGuiScale().getValue();
+        row("Échelle de l'interface", "Réduisez si les menus dépassent de l'écran",
+            (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,
+                new SegmentedControl.Option[] {
+                    new SegmentedControl.Option("0", "Auto"),
+                    new SegmentedControl.Option("1", "1"),
+                    new SegmentedControl.Option("2", "2"),
+                    new SegmentedControl.Option("3", "3"),
+                },
+                String.valueOf(guiScale),
+                v -> applyGuiScale(parseInt(v, 0))));
+
+        // FPS Max.
+        row("FPS max", null,
+            (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
+                o.getMaxFps().getValue(), 30, 260, " fps",
+                v -> apply(o, opts -> opts.getMaxFps().setValue(v))));
+
+        // Distance de rendu.
+        row("Distance de rendu", "Plus haut = plus lourd à charger",
+            (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
+                o.getViewDistance().getValue(), 4, 32, " chunks",
+                v -> apply(o, opts -> opts.getViewDistance().setValue(v))));
+
+        // Luminosité (gamma 0..1 exposé en %).
+        int gammaPct = (int) Math.round(o.getGamma().getValue() * 100);
+        row("Luminosité", null,
+            (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
+                gammaPct, 0, 100, "%",
+                v -> apply(o, opts -> opts.getGamma().setValue(v / 100.0))));
+
+        section("Fenêtre");
+
+        // V-Sync.
+        row("V-Sync", "Limite le tearing, plafonne aux Hz de l'écran",
+            (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
+                o.getEnableVsync().getValue(),
+                v -> apply(o, opts -> opts.getEnableVsync().setValue(v))));
+
+        // Plein écran — bascule la vraie fenêtre.
+        row("Plein écran", null,
+            (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
+                mc.getWindow().isFullscreen(),
+                v -> applyFullscreen(v)));
+
+        spacer(4);
     }
 
-    private static int parseScale(String v) {
-        try {
-            return Integer.parseInt(v);
-        } catch (NumberFormatException e) {
-            return 0; // Auto
-        }
+    private static void apply(GameOptions o, Consumer<GameOptions> change) {
+        change.accept(o);
+        o.write();
     }
 
-    /**
-     * Applique l'échelle GUI immédiatement. setValue() seul ne suffit pas :
-     * il faut onResolutionChanged() pour recalculer la résolution scaled et
-     * re-layout l'écran courant (sinon l'échelle ne change qu'au prochain
-     * resize). 0 = Auto. Le SimpleOption clamp tout seul au max supporté par
-     * la fenêtre, donc une valeur trop haute est ramenée sans crash.
-     */
+    private static int parseInt(String v, int def) {
+        try { return Integer.parseInt(v); } catch (NumberFormatException e) { return def; }
+    }
+
+    /** Applique l'échelle GUI + re-layout immédiat (sinon effet au prochain resize). */
     private static void applyGuiScale(int scale) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.options == null) return;
@@ -188,65 +96,14 @@ public class VideoTab implements SettingsTab {
         mc.onResolutionChanged();
     }
 
-    @Override
-    public List<ClickableWidget> widgets() {
-        return widgets;
-    }
-
-    @Override
-    public int height() {
-        return contentHeight;
-    }
-
-    @Override
-    public void renderPassive(DrawContext ctx, int x, int y, int width) {
+    /** Bascule le plein écran réel de la fenêtre (idempotent via l'état courant). */
+    private static void applyFullscreen(boolean fullscreen) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
-
-        // Titre de section.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y - 28, 0);
-        ctx.getMatrices().scale(1.2f, 1.2f, 1f);
-        ctx.drawText(tr, RebornFont.bold("AFFICHAGE"), 0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
-
-        // Lignes label + hint.
-        String[][] rows = {
-            {"Échelle interface (GUI)", "Réduisez si les menus dépassent de l'écran"},
-            {"Résolution", "Affecte uniquement l'affichage en jeu"},
-            {"Mode fenêtre", null},
-            {"FPS Max", null},
-            {"Distance de rendu", "Plus haut = serveur plus lourd à charger"},
-            {"V-Sync", null},
-        };
-
-        int cursorY = y;
-        for (String[] row : rows) {
-            ctx.drawText(tr, RebornFont.bold(row[0]), x, cursorY + 8, Colors.WHITE_PURE, false);
-            if (row[1] != null) {
-                ctx.getMatrices().push();
-                ctx.getMatrices().translate(x, cursorY + 20, 0);
-                ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-                ctx.drawText(tr, RebornFont.body(row[1]), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.getMatrices().pop();
-            }
-            cursorY += ROW_HEIGHT;
+        if (mc == null || mc.options == null) return;
+        if (mc.getWindow().isFullscreen() != fullscreen) {
+            mc.getWindow().toggleFullscreen();
         }
-
-        // Info banner sur resource pack forcé.
-        cursorY += 16;
-        int bannerH = 36;
-        DrawHelpers.roundedOutlinedRect(ctx, x, cursorY + 14, width, bannerH, 6,
-            Colors.ACCENT_SOFT, Colors.withAlpha(Colors.ACCENT, 0.35f));
-        ctx.drawText(tr, RebornFont.bold("INFO"),
-            x + 12, cursorY + 22, Colors.ACCENT_HOVER, false);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + 56, cursorY + 24, 0);
-        ctx.getMatrices().scale(0.9f, 0.9f, 1f);
-        ctx.drawText(tr, RebornFont.body(
-            "Le pack de textures Reborn est appliqué automatiquement."),
-            0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
+        mc.options.getFullscreen().setValue(fullscreen);
+        mc.options.write();
     }
 }
