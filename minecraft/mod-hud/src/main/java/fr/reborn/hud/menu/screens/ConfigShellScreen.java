@@ -5,6 +5,7 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.IconPack;
 import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.menu.esc.EscData;
 import fr.reborn.hud.menu.config.PlaceholderTab;
 import fr.reborn.hud.menu.settings.AccountTab;
 import fr.reborn.hud.menu.settings.AudioTab;
@@ -22,6 +23,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,19 +44,30 @@ public class ConfigShellScreen extends Screen {
     private final CategoryDef[] categories;
     private int activeIdx;
 
-    private static final int RETURN_Y = 12;
-    private static final int TABBAR_Y = 40;
-    private static final int TAB_H = 24;
-    private static final int TAB_PAD = 12;      // padding horizontal interne d'un onglet
+    private static final Identifier LOGO = Identifier.of("reborn", "textures/gui/title/logo.png");
+    private static final int LOGO_TEX_W = 2048;
+    private static final int LOGO_TEX_H = 717;
+
+    private static final int RETURN_Y = 14;
+    private static final int LOGO_Y = 10;
+    private static final int TABBAR_Y = 62;
+    private static final int TAB_H = 36;         // icône + label ArcadePix
+    private static final int TAB_ICON = 16;
+    private static final int TAB_PAD = 10;       // padding horizontal interne d'un onglet
     private static final int TAB_GAP = 4;
-    private static final int CONTENT_TOP_PAD = 26;
+    private static final int CONTENT_TOP_PAD = 22;
     private static final int MAX_CONTENT_W = 560;
     private static final int VIEWPORT_BOTTOM_PAD = 16;
     private static final int BOTTOM_MARGIN = 24;
     private static final int SCROLLBAR_W = 4;
     private static final int SCROLLBAR_MIN_THUMB = 28;
 
-    private record CategoryDef(String id, String label, SettingsTab tab) {}
+    @FunctionalInterface
+    private interface Icon {
+        void draw(DrawContext ctx, int x, int y, int size, int color);
+    }
+
+    private record CategoryDef(String id, String label, Icon icon, SettingsTab tab) {}
 
     private int scrollY = 0;
     private List<ClickableWidget> contentWidgets = List.of();
@@ -75,10 +88,10 @@ public class ConfigShellScreen extends Screen {
         this.parent = parent;
         RebornPrefs.INSTANCE.ensureLoaded();
         this.categories = new CategoryDef[] {
-            new CategoryDef("video", "Vidéo", new VideoTab(this)),
-            new CategoryDef("audio", "Audio", new AudioTab()),
-            new CategoryDef("controls", "Contrôles", new ControlsTab(this)),
-            new CategoryDef("hud", "HUD", new PlaceholderTab(
+            new CategoryDef("video", "Vidéo", IconPack::monitor, new VideoTab(this)),
+            new CategoryDef("audio", "Audio", IconPack::volume, new AudioTab()),
+            new CategoryDef("controls", "Contrôles", IconPack::keyboard, new ControlsTab(this)),
+            new CategoryDef("hud", "HUD", IconPack::layout, new PlaceholderTab(
                 "Éditeur HUD",
                 "Placez et personnalisez vos éléments d'interface.",
                 "Ouvrir l'éditeur HUD",
@@ -86,7 +99,7 @@ public class ConfigShellScreen extends Screen {
                     MinecraftClient mc = MinecraftClient.getInstance();
                     if (mc != null) mc.setScreen(new HudEditScreen(this));
                 })),
-            new CategoryDef("chat", "Chat", new PlaceholderTab(
+            new CategoryDef("chat", "Chat", IconPack::chatBubble, new PlaceholderTab(
                 "Chat Reborn",
                 "Onglets, filtres et apparence du chat.",
                 "Réglages du chat",
@@ -94,7 +107,7 @@ public class ConfigShellScreen extends Screen {
                     MinecraftClient mc = MinecraftClient.getInstance();
                     if (mc != null) mc.setScreen(new ChatSettingsScreen(this));
                 })),
-            new CategoryDef("crosshair", "Viseur", new PlaceholderTab(
+            new CategoryDef("crosshair", "Viseur", IconPack::crosshair, new PlaceholderTab(
                 "Éditeur de viseur",
                 "Modèle, couleur, dynamique, hit-marker — aperçu en direct.",
                 "Ouvrir l'éditeur de viseur",
@@ -102,9 +115,9 @@ public class ConfigShellScreen extends Screen {
                     MinecraftClient mc = MinecraftClient.getInstance();
                     if (mc != null) mc.setScreen(new CrosshairScreen(this));
                 })),
-            new CategoryDef("discord", "Discord", new DiscordTab()),
-            new CategoryDef("account", "Compte", new AccountTab()),
-            new CategoryDef("minecraft", "Minecraft", new MinecraftTab(this)),
+            new CategoryDef("discord", "Discord", IconPack::discord, new DiscordTab()),
+            new CategoryDef("account", "Compte", IconPack::user, new AccountTab()),
+            new CategoryDef("minecraft", "Minecraft", IconPack::cube, new MinecraftTab(this)),
         };
         this.activeIdx = Math.max(0, Math.min(categories.length - 1, initialIdx));
     }
@@ -128,9 +141,10 @@ public class ConfigShellScreen extends Screen {
     private boolean hasScroll() { return maxScroll() > 0; }
 
     // ─── Onglets (barre horizontale centrée) ─────────────
-    /** Largeur d'un onglet (label * scale + padding). */
+    /** Largeur d'un onglet = max(label ArcadePix, icône) + padding. */
     private int tabWidth(TextRenderer tr, String label) {
-        return Math.round(tr.getWidth(label) * tabScale) + TAB_PAD * 2;
+        int labelW = tr.getWidth(RebornFont.arcade(EscData.arcadeSafe(label, 20)));
+        return Math.max(labelW, TAB_ICON) + TAB_PAD * 2;
     }
 
     /** Recalcule l'échelle des onglets pour tenir dans la largeur dispo. */
@@ -211,16 +225,24 @@ public class ConfigShellScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        ctx.fill(0, 0, this.width, this.height, Colors.BACKGROUND);
+        // Même fond que le menu ÉCHAP : un seul dégradé vertical doux.
+        int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
+        DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
         TextRenderer tr = this.textRenderer;
         computeTabScale(tr);
 
-        // « ← Retour » haut-gauche (hit-test dans mouseClicked).
+        // Logo top-centre (comme l'ÉCHAP).
+        int logoW = Math.min(Math.round(this.width * 0.10f), 132);
+        int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
+        ctx.drawTexture(LOGO, (this.width - logoW) / 2, LOGO_Y, logoW, logoH,
+            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+
+        // « ‹ RETOUR » haut-gauche (hit-test dans mouseClicked).
         boolean backHover = overBack(mouseX, mouseY);
-        ctx.drawText(tr, RebornFont.body("< Retour"), 16, RETURN_Y,
+        ctx.drawText(tr, RebornFont.arcade("< RETOUR"), 16, RETURN_Y,
             backHover ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
 
-        // Barre d'onglets centrée.
+        // Barre d'onglets centrée : icône au-dessus du label ArcadePix.
         for (int i = 0; i < categories.length; i++) {
             int x = tabX(tr, i);
             int w = tabWidth(tr, categories[i].label);
@@ -231,14 +253,15 @@ public class ConfigShellScreen extends Screen {
             if (bg != Colors.TRANSPARENT) {
                 DrawHelpers.roundedRect(ctx, x, TABBAR_Y, w, TAB_H, 8, bg);
             }
+            int fg = active ? Colors.WHITE_PURE : (hover ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED);
+            categories[i].icon.draw(ctx, x + (w - TAB_ICON) / 2, TABBAR_Y + 4, TAB_ICON, fg);
+            Text label = RebornFont.arcade(EscData.arcadeSafe(categories[i].label, 20));
+            int lw = tr.getWidth(label);
+            ctx.drawText(tr, label, x + (w - lw) / 2, TABBAR_Y + 4 + TAB_ICON + 3, fg, false);
             if (active) {
-                DrawHelpers.roundedRect(ctx, x + TAB_PAD, TABBAR_Y + TAB_H - 3,
+                DrawHelpers.roundedRect(ctx, x + TAB_PAD, TABBAR_Y + TAB_H - 2,
                     w - 2 * TAB_PAD, 2, 1, Colors.ACCENT);
             }
-            int color = active ? Colors.WHITE_PURE : (hover ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED);
-            Text label = RebornFont.body(categories[i].label);
-            int lw = tr.getWidth(label);
-            ctx.drawText(tr, label, x + (w - lw) / 2, TABBAR_Y + (TAB_H - 8) / 2, color, false);
         }
         // Séparateur sous les onglets.
         ctx.fill(0, viewportTop() - 4, this.width, viewportTop() - 3, Colors.BORDER);
@@ -300,7 +323,7 @@ public class ConfigShellScreen extends Screen {
     }
 
     private boolean overBack(double mouseX, double mouseY) {
-        int w = this.textRenderer.getWidth("< Retour");
+        int w = this.textRenderer.getWidth(RebornFont.arcade("< RETOUR"));
         return mouseX >= 12 && mouseX <= 16 + w + 6 && mouseY >= RETURN_Y - 4 && mouseY <= RETURN_Y + 14;
     }
 

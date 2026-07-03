@@ -81,6 +81,15 @@ services:
       REBORN_PUBLIC_API_URL: ${REBORN_PUBLIC_API_URL:-https://api.reborn-rp.com}
       # Dossier de stockage des uploads — monté sur un volume persistant.
       REBORN_UPLOAD_DIR: /app/apps/api/uploads
+      # Menu ESC in-game (endpoint public /v1/menu/panel) : liste des streamers
+      # + statut live via Twitch Helix. TWITCH_CLIENT_ID/SECRET sont secrets
+      # (à poser dans .env.prod) ; sans eux, les streams restent listés mais
+      # toujours "hors ligne". La liste des logins n'est pas secrète.
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
+      REBORN_STREAMERS: ${REBORN_STREAMERS:-kameto,etostark,mehditdonc,omzbrk,jltomy}
+      # Base web des liens patch notes ouverts au clic depuis le menu ESC.
+      REBORN_WEB_URL: ${REBORN_WEB_URL:-https://reborn-rp.fr}
     volumes:
       # Persiste les uploads (screenshots feed + pièces jointes) entre les
       # rebuilds du conteneur — sinon perdus à chaque `up --build`.

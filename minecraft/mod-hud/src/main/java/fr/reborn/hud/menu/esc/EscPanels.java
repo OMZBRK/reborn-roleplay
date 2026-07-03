@@ -208,10 +208,10 @@ public final class EscPanels {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
             Colors.SURFACE, Colors.BORDER_STRONG);
 
-        ctx.drawText(tr, RebornFont.bold("RÉCOMPENSES"),
+        ctx.drawText(tr, RebornFont.arcade("RECOMPENSES"),
             x + 16, y + 14, Colors.FOREGROUND_SUBTLE, false);
 
-        Text badgeText = RebornFont.bold("3 / 5 ACTIVES");
+        Text badgeText = RebornFont.arcade("3/5 ACTIVES");
         int badgeW = tr.getWidth(badgeText) + 10;
         ctx.getMatrices().push();
         ctx.getMatrices().translate(x + w - badgeW - 14, y + 16, 0);
@@ -221,11 +221,11 @@ public final class EscPanels {
 
         // TODO: GET /v1/me/rewards
         String[][] rewards = {
-            {"Premium", "+5 ZK / h", "on"},
-            {"Booster", "+5 ZK / h", "on"},
-            {"Tag", "+5 ZK / h", "off"},
-            {"Bio", "+5 ZK / h", "on"},
-            {"Steam", "+5 ZK / h", "off"},
+            {"PREMIUM", "+5 ZK/H", "on"},
+            {"BOOSTER", "+5 ZK/H", "on"},
+            {"TAG", "+5 ZK/H", "off"},
+            {"BIO", "+5 ZK/H", "on"},
+            {"STREAM", "+5 ZK/H", "off"},
         };
 
         int rowY = y + 36;
@@ -234,25 +234,17 @@ public final class EscPanels {
             // Dot status.
             DrawHelpers.disc(ctx, x + 22, rowY + 8, 4,
                 on ? Colors.SUCCESS : Colors.MUTED);
-            ctx.drawText(tr, RebornFont.bold(r[0]), x + 36, rowY + 4,
+            ctx.drawText(tr, RebornFont.arcade(r[0]), x + 36, rowY + 4,
                 Colors.WHITE_PURE, false);
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(x + w - 70, rowY + 4, 0);
-            ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-            ctx.drawText(tr, RebornFont.body(r[1]), 0, 0,
+            Text val = RebornFont.arcade(r[1]);
+            ctx.drawText(tr, val, x + w - 16 - tr.getWidth(val), rowY + 4,
                 on ? Colors.SUCCESS : Colors.FOREGROUND_MUTED, false);
-            ctx.getMatrices().pop();
             rowY += 18;
         }
 
         // Timer en bas.
-        int timerY = y + h - 24;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + 16, timerY, 0);
-        ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-        ctx.drawText(tr, RebornFont.body("Prochaine: 01:00:00"), 0, 0,
+        ctx.drawText(tr, RebornFont.arcade("PROCHAINE 01:00:00"), x + 16, y + h - 18,
             Colors.FOREGROUND_MUTED, false);
-        ctx.getMatrices().pop();
     }
 
     /** Community bar floating en bas — quote + 4 social bubbles. */
@@ -264,16 +256,22 @@ public final class EscPanels {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
             Colors.SURFACE_ELEVATED, Colors.BORDER_STRONG);
 
-        // Handle @RebornOff à gauche.
-        ctx.drawText(tr, RebornFont.bold("Reborn Roleplay · @RebornOff"),
-            x + 16, y + 12, Colors.WHITE_PURE, false);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + 16, y + 28, 0);
-        ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-        ctx.drawText(tr, RebornFont.body(
-            "Suis-nous pour ne rien rater de l'actu serveur."),
-            0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
+        // Handle + compteur Discord à gauche (ArcadePix). Données live via
+        // EscData (endpoint public /menu/panel) ; fallback si indisponible.
+        ctx.drawText(tr, RebornFont.arcade("REBORN ROLEPLAY  @REBORNOFF"),
+            x + 16, y + 13, Colors.WHITE_PURE, false);
+        EscData.Snapshot snap = EscData.get();
+        String discordLine;
+        if (snap != null && snap.discordMembers() >= 0) {
+            discordLine = "DISCORD  " + snap.discordMembers() + " MEMBRES";
+            if (snap.discordOnline() >= 0) {
+                discordLine += "  " + snap.discordOnline() + " EN LIGNE";
+            }
+        } else {
+            discordLine = "DISCORD  REJOINS LA COMMUNAUTE";
+        }
+        ctx.drawText(tr, RebornFont.arcade(discordLine),
+            x + 16, y + 28, Colors.FOREGROUND_SUBTLE, false);
 
         // 4 social bubbles à droite (positions calculées).
         int bubbleSize = 28;

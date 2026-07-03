@@ -9,6 +9,7 @@ import { DiscordAuthModule } from './discord/discord.module';
 import { LoreModule } from './lore/lore.module';
 import { ManifestModule } from './manifest/manifest.module';
 import { MeModule } from './me/me.module';
+import { MenuModule } from './menu/menu.module';
 import { PatchnotesModule } from './patchnotes/patchnotes.module';
 import { PlayModule } from './play/play.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -37,6 +38,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     LoreModule,
     ManifestModule,
     MeModule,
+    MenuModule,
     PatchnotesModule,
     PlayModule,
     ReleasesModule,

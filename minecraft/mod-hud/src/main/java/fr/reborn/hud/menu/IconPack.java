@@ -350,6 +350,95 @@ public final class IconPack {
         DrawHelpers.line(ctx, arrX, arrY, arrX + 2, arrY - 2, color);
     }
 
+    // ──────────────────────────────────────────────
+    // Onglets Paramètres
+    // ──────────────────────────────────────────────
+
+    /** 🖥️ Moniteur (écran + pied) — onglet Vidéo. */
+    public static void monitor(DrawContext ctx, int x, int y, int size, int color) {
+        int mx = x + size / 8, my = y + size / 6;
+        int mw = size - 2 * (size / 8), mh = size * 11 / 20;
+        DrawHelpers.roundedOutlinedRect(ctx, mx, my, mw, mh, Math.max(1, size / 10),
+            Colors.BACKGROUND, color);
+        int cx = x + size / 2;
+        ctx.fill(cx - 1, my + mh, cx + 1, my + mh + size / 8, color);
+        ctx.fill(cx - size / 6, my + mh + size / 8, cx + size / 6,
+            my + mh + size / 8 + Math.max(1, size / 12), color);
+    }
+
+    /** ⌨️ Clavier (cadre + touches) — onglet Contrôles. */
+    public static void keyboard(DrawContext ctx, int x, int y, int size, int color) {
+        int kx = x + size / 10, ky = y + size / 4;
+        int kw = size - 2 * (size / 10), kh = size / 2;
+        DrawHelpers.roundedOutlinedRect(ctx, kx, ky, kw, kh, Math.max(1, size / 10),
+            Colors.BACKGROUND, color);
+        int dot = Math.max(1, size / 12);
+        for (int r = 0; r < 2; r++) {
+            for (int c = 0; c < 3; c++) {
+                int dx = kx + kw * (c + 1) / 4 - dot / 2;
+                int dy = ky + kh * (r + 1) / 3 - dot / 2;
+                ctx.fill(dx, dy, dx + dot, dy + dot, color);
+            }
+        }
+    }
+
+    /** 💬 Bulle de chat — onglet Chat. */
+    public static void chatBubble(DrawContext ctx, int x, int y, int size, int color) {
+        int bx = x + size / 8, by = y + size / 6;
+        int bw = size - 2 * (size / 8), bh = size * 9 / 20;
+        DrawHelpers.roundedOutlinedRect(ctx, bx, by, bw, bh, Math.max(2, size / 6),
+            Colors.BACKGROUND, color);
+        int tx = bx + bw / 4;
+        for (int i = 0; i < size / 6; i++) {
+            ctx.fill(tx + i, by + bh, tx + i + 1, by + bh + (size / 6 - i), color);
+        }
+        int dot = Math.max(1, size / 12);
+        int dy = by + bh / 2 - dot / 2;
+        ctx.fill(bx + bw / 3 - dot / 2, dy, bx + bw / 3 + dot / 2, dy + dot, color);
+        ctx.fill(bx + 2 * bw / 3 - dot / 2, dy, bx + 2 * bw / 3 + dot / 2, dy + dot, color);
+    }
+
+    /** ✛ Viseur (anneau + ticks + point) — onglet Viseur. */
+    public static void crosshair(DrawContext ctx, int x, int y, int size, int color) {
+        int cx = x + size / 2, cy = y + size / 2, r = size / 2 - 2;
+        DrawHelpers.ring(ctx, cx, cy, r, 1, color);
+        int len = size / 4;
+        ctx.fill(cx, cy - r, cx + 1, cy - r + len, color);
+        ctx.fill(cx, cy + r - len, cx + 1, cy + r, color);
+        ctx.fill(cx - r, cy, cx - r + len, cy + 1, color);
+        ctx.fill(cx + r - len, cy, cx + r, cy + 1, color);
+        DrawHelpers.disc(ctx, cx, cy, Math.max(1, size / 12), color);
+    }
+
+    /** 👤 Utilisateur (tête + épaules) — onglet Compte. */
+    public static void user(DrawContext ctx, int x, int y, int size, int color) {
+        int cx = x + size / 2;
+        DrawHelpers.disc(ctx, cx, y + size / 3, size / 6, color);
+        int shR = size * 2 / 5, shCy = y + size - 1;
+        for (int dy = -shR; dy <= 0; dy++) {
+            int w = (int) Math.round(shR * Math.sqrt(Math.max(0, 1 - ((double) dy / shR) * ((double) dy / shR))));
+            ctx.fill(cx - w, shCy + dy, cx + w + 1, shCy + dy + 1, color);
+        }
+    }
+
+    /** ⬛ Bloc (façon grass block) — onglet Minecraft. */
+    public static void cube(DrawContext ctx, int x, int y, int size, int color) {
+        int m = size / 6;
+        int bx = x + m, by = y + m, bw = size - 2 * m, bh = size - 2 * m;
+        DrawHelpers.roundedOutlinedRect(ctx, bx, by, bw, bh, 1, Colors.BACKGROUND, color);
+        ctx.fill(bx, by, bx + bw, by + bh / 3, color);
+    }
+
+    /** ▟ Layout HUD (cadre + élément) — onglet HUD. */
+    public static void layout(DrawContext ctx, int x, int y, int size, int color) {
+        int m = size / 6;
+        int bx = x + m, by = y + m, bw = size - 2 * m, bh = size - 2 * m;
+        DrawHelpers.roundedOutlinedRect(ctx, bx, by, bw, bh, 1, Colors.BACKGROUND, color);
+        int ew = bw / 3, eh = bh / 4;
+        ctx.fill(bx + 2, by + 2, bx + 2 + ew, by + 2 + eh, color);
+        ctx.fill(bx + 2, by + bh - 2 - eh, bx + bw - 2, by + bh - 2, color);
+    }
+
     /** ⚠️ Triangle alerte avec point d'exclamation. */
     public static void alertTriangle(DrawContext ctx, int x, int y, int size, int color) {
         int[] tri = triangleRows(size);

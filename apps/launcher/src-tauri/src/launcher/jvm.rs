@@ -51,6 +51,11 @@ pub struct LaunchConfig {
     /// Reborn Integrity au boot pour s'attester aupres du plugin Guardian).
     /// None = pas d'attestation (dev local sans plugin).
     pub play_token_path: Option<String>,
+    /// URL de base de l'API Reborn (ex: `https://api.reborn-rp.com/v1`) passée
+    /// au mod HUD via `-Dreborn.apiUrl`. Le mod l'utilise pour alimenter le
+    /// menu ÉCHAP (compteur Discord, patch notes, streams) via l'endpoint
+    /// public `/menu/panel`. None = le mod retombe sur son URL prod par défaut.
+    pub api_url: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +101,10 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
         // que la valeur fuite dans `ps` / Task Manager (le path est court
         // et inoffensif).
         args.push(format!("-Dreborn.playTokenPath={path}"));
+    }
+    if let Some(api) = cfg.api_url.as_deref() {
+        // Le menu ÉCHAP du mod HUD fetch /menu/panel sur cette base.
+        args.push(format!("-Dreborn.apiUrl={api}"));
     }
     if let Some(server) = cfg.auto_connect.as_ref() {
         // Adresse du serveur transmise au mod HUD. Le main menu Reborn
@@ -204,6 +213,7 @@ mod tests {
             dev_server: None,
             is_staff: false,
             play_token_path: None,
+            api_url: None,
         }
     }
 

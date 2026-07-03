@@ -339,6 +339,7 @@ pub async fn launcher_launch_game<R: Runtime>(
         dev_server: resolve_dev_server(),
         is_staff: is_staff_role(&user.role),
         play_token_path: Some(play_token_path.display().to_string()),
+        api_url: Some(auth.api.base_url.clone()),
     };
 
     let mut argv = jvm::build_command(&cfg);
@@ -545,6 +546,7 @@ pub async fn launcher_launch_second_instance<R: Runtime>(
         dev_server: resolve_dev_server(),
         is_staff: is_staff_role(&alt.user.role),
         play_token_path: Some(play_token_path.display().to_string()),
+        api_url: Some(auth.api.base_url.clone()),
     };
 
     let mut argv = jvm::build_command(&cfg);

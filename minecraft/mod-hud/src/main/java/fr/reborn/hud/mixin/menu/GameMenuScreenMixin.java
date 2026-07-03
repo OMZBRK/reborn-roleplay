@@ -1,21 +1,29 @@
 package fr.reborn.hud.mixin.menu;
 
 import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.esc.EscMenuRenderer;
+import fr.reborn.hud.menu.DrawHelpers;
+import fr.reborn.hud.menu.IconPack;
+import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.menu.esc.EscData;
 import fr.reborn.hud.menu.esc.EscPanels;
 import fr.reborn.hud.menu.esc.EscTabButton;
-import fr.reborn.hud.menu.esc.EscTabs;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import fr.reborn.hud.menu.widget.DisconnectConfirmScreen;
 import fr.reborn.hud.menu.widget.RebornButton;
+import fr.reborn.hud.menu.widget.ReportScreen;
+import fr.reborn.hud.menu.widget.ShopScreen;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -23,22 +31,19 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Menu pause (ESC) Reborn — layout façon <b>Zenkai</b> :
- * <ul>
- *   <li>logo REBORN centré en haut + rangée d'onglets (Reprendre / Paramètres /
- *       Report / Déconnexion) ;</li>
- *   <li>colonne GAUCHE : carte profil (perso + nom / rôle / monnaie) ;</li>
- *   <li>colonne DROITE : panneau Blog/News + bouton Boutique.</li>
- * </ul>
+ * Menu pause (ESC) Reborn — layout façon <b>Zenkai</b>, cluster COMPACT centré.
+ * GAUCHE : Boutique. DROITE : Stream + Dev Blog côte à côte (carrés) puis
+ * Récompenses. BAS : barre communauté (Discord).
  *
- * <p>Comme {@code TitleScreenMixin} : on retire les widgets vanilla dans
- * {@code initWidgets}, on ajoute nos widgets cliquables (onglets + boutique),
- * et on dessine le chrome dans {@code render}@TAIL (Z+400) puis on re-render
- * les enfants cliquables par-dessus.
+ * <p>Le titre vanilla « Game Menu » est un {@code TextWidget} ajouté dans
+ * {@code init()} — on retire donc TOUS les enfants au RETURN de {@code init}
+ * (après leur ajout) puis on rebuild. Le render vanilla est annulé pour tout
+ * dessiner nous-mêmes (fond opaque + dégradés + halo).
  */
 @Mixin(GameMenuScreen.class)
 public abstract class GameMenuScreenMixin extends Screen {
@@ -49,113 +54,344 @@ public abstract class GameMenuScreenMixin extends Screen {
     private static final int LOGO_TEX_W = 2048;
     private static final int LOGO_TEX_H = 717;
 
+    private static final String[] TAB_LABELS = {"REPRENDRE", "PARAMETRES", "REPORT", "DECONNEXION"};
+    private static final int TAB_H = 18;
+    private static final int TAB_PAD = 11;
+    private static final int TAB_GAP = 8;
+    private static final int GAP = 12;
+    private static final int BOTTOM_H = 46;
+    private static final int RADIUS = 10;
+    private static final long ROTATE_MS = 6000L;
+    private static final int ARROW_W = 12;
+
+    // Carrousels Stream / Dev Blog : index courant + horodatage de la dernière
+    // rotation (auto toutes les ROTATE_MS ; reset au clic manuel sur une flèche).
+    private int reborn$streamIdx = 0;
+    private int reborn$blogIdx = 0;
+    private long reborn$lastStreamRotate = 0L;
+    private long reborn$lastBlogRotate = 0L;
+
     protected GameMenuScreenMixin(Text title) {
         super(title);
     }
 
-    // ── Layout partagé (initWidgets ↔ render) ──
-    private int reborn$margin() { return Math.max(24, Math.round(this.width * 0.06f)); }
-    private int reborn$tabsY() { return 52; }
-    private int reborn$contentTop() { return reborn$tabsY() + EscTabs.tabH() + 18; }
-    private int reborn$contentBottom() { return this.height - 34; }
-    private int reborn$colGap() { return 16; }
-    private int reborn$leftW() {
-        return Math.round((this.width - 2 * reborn$margin() - reborn$colGap()) * 0.42f);
-    }
-    private int reborn$rightX() { return reborn$margin() + reborn$leftW() + reborn$colGap(); }
-    private int reborn$rightW() { return this.width - reborn$margin() - reborn$rightX(); }
-    private static final int BOUTIQUE_H = 30;
-    private int reborn$boutiqueY() { return reborn$contentBottom() - BOUTIQUE_H; }
+    // ── Layout ──
+    private int reborn$logoW() { return Math.min(Math.round(this.width * 0.125f), 168); }
+    private int reborn$logoH() { return Math.round(reborn$logoW() * (float) LOGO_TEX_H / LOGO_TEX_W); }
+    private int reborn$logoY() { return 12; }
+    private int reborn$tabsY() { return reborn$logoY() + reborn$logoH() + 8; }
+    private int reborn$availTop() { return reborn$tabsY() + TAB_H + 16; }
+    private int reborn$availBottom() { return this.height - 26; }
 
-    @Inject(method = "initWidgets", at = @At("RETURN"))
+    private int reborn$boxW() { return Math.min(this.width - 100, 700); }
+    private int reborn$boxH() { return Math.min(reborn$availBottom() - reborn$availTop(), 400); }
+    private int reborn$boxX() { return (this.width - reborn$boxW()) / 2; }
+    private int reborn$boxY() {
+        int slack = (reborn$availBottom() - reborn$availTop()) - reborn$boxH();
+        return reborn$availTop() + Math.max(0, slack / 2);
+    }
+    private int reborn$contentH() { return reborn$boxH() - BOTTOM_H - GAP; }
+    private int reborn$leftW() { return Math.round(reborn$boxW() * 0.46f); }
+    private int reborn$rightX() { return reborn$boxX() + reborn$leftW() + GAP; }
+    private int reborn$rightW() { return reborn$boxW() - reborn$leftW() - GAP; }
+    private int reborn$squareW() { return (reborn$rightW() - GAP) / 2; }
+    private int reborn$squareH() { return Math.min(reborn$squareW(), Math.round(reborn$contentH() * 0.42f)); }
+
+    private int reborn$tabW(TextRenderer tr, String label) {
+        return tr.getWidth(RebornFont.arcade(label)) + 2 * TAB_PAD;
+    }
+
+    private int reborn$tabsTotalW(TextRenderer tr) {
+        int total = 0;
+        for (int i = 0; i < TAB_LABELS.length; i++) {
+            total += reborn$tabW(tr, TAB_LABELS[i]);
+            if (i < TAB_LABELS.length - 1) total += TAB_GAP;
+        }
+        return total;
+    }
+
+    // Le titre « Game Menu » est ajouté dans init() ; on retire au RETURN de init.
+    @Inject(method = "init", at = @At("RETURN"))
     private void reborn$rebuildEscMenu(CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
+        TextRenderer tr = client.textRenderer;
 
-        // 1. Drop tous les widgets vanilla.
-        List<Element> toRemove = new ArrayList<>();
-        for (Element child : this.children()) {
-            if (child instanceof ClickableWidget) {
-                toRemove.add(child);
-            }
-        }
-        for (Element e : toRemove) {
-            this.remove(e);
-        }
+        // Rafraîchit la data live (Discord / patch notes / streams) en fond.
+        EscData.refreshIfStale();
 
-        // 2. Onglets (rangée centrée sous le logo).
+        List<Element> toRemove = new ArrayList<>(this.children());
+        for (Element e : toRemove) this.remove(e);
+
+        int x = (this.width - reborn$tabsTotalW(tr)) / 2;
         int tabsY = reborn$tabsY();
-        int tabW = EscTabs.tabW(this.width);
-        int tabH = EscTabs.tabH();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < TAB_LABELS.length; i++) {
             final int idx = i;
-            int tabX = EscTabs.tabX(this.width, i);
-            boolean isDanger = (i == 3);
+            int w = reborn$tabW(tr, TAB_LABELS[i]);
             this.addDrawableChild(new EscTabButton(
-                tabX, tabsY, tabW, tabH,
-                EscTabs.tabLabel(i), isDanger,
-                b -> handleTab(client, idx)));
+                x, tabsY, w, TAB_H, RebornFont.arcade(TAB_LABELS[i]),
+                i == 3, b -> handleTab(client, idx)));
+            x += w + TAB_GAP;
         }
 
-        // 3. Bouton Boutique (bas de la colonne droite) — placeholder.
-        int pad = 12;
+        // Boutique — carte cliquable à GAUCHE (contenu dessiné par-dessus).
         this.addDrawableChild(RebornButton.ghost(
-            reborn$rightX() + pad, reborn$boutiqueY(),
-            reborn$rightW() - 2 * pad, BOUTIQUE_H,
-            "Boutique", b -> { /* TODO : ouvrir la boutique */ }));
+            reborn$boxX(), reborn$boxY(), reborn$leftW(), reborn$contentH(),
+            " ", b -> client.setScreen(new ShopScreen(this))));
 
-        LOG.info("esc menu Zenkai : {} vanilla retirés", toRemove.size());
+        LOG.info("esc menu Zenkai : {} widgets vanilla retirés", toRemove.size());
     }
 
     private void handleTab(MinecraftClient client, int idx) {
         switch (idx) {
-            case 0 -> client.setScreen(null); // Reprendre.
+            case 0 -> client.setScreen(null);
             case 1 -> client.setScreen(new ConfigShellScreen(this));
-            case 2 -> { /* TODO : Report */ }
-            case 3 -> client.setScreen(new DisconnectConfirmScreen(this)); // confirmation.
+            case 2 -> client.setScreen(new ReportScreen(this));
+            case 3 -> client.setScreen(new DisconnectConfirmScreen(this));
         }
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void reborn$renderOverlay(DrawContext ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(0, 0, 400);
+        TextRenderer tr = this.textRenderer;
 
-        // Fond assombri.
-        EscMenuRenderer.renderBackground(ctx, this.width, this.height);
+        // Fond : UN seul dégradé vertical doux intégré (sombre en haut → légère
+        // teinte accent en bas). Pas de rectangles/halos = pas d'effet couches.
+        int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
+        DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
 
-        // Logo REBORN centré en haut.
-        int logoW = Math.min(Math.round(this.width * 0.20f), 260);
-        int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
+        // Logo (top-centre).
+        int logoW = reborn$logoW();
+        int logoH = reborn$logoH();
         int logoX = (this.width - logoW) / 2;
-        ctx.drawTexture(LOGO, logoX, 8, logoW, logoH, 0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.drawTexture(LOGO, logoX, reborn$logoY(), logoW, logoH,
+            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
-        // Colonnes.
-        int top = reborn$contentTop();
-        int bottom = reborn$contentBottom();
-        int cardH = bottom - top;
-        int leftX = reborn$margin();
-        int leftW = reborn$leftW();
+        // Panneaux (dessinés avant les enfants : Boutique-content + tabs par-dessus).
+        int boxY = reborn$boxY();
         int rightX = reborn$rightX();
         int rightW = reborn$rightW();
+        int sqW = reborn$squareW();
+        int sqH = reborn$squareH();
+        reborn$streamSquare(ctx, tr, rightX, boxY, sqW, sqH);
+        reborn$blogSquare(ctx, tr, rightX + sqW + GAP, boxY, sqW, sqH);
+        int rewY = boxY + sqH + GAP;
+        int rewH = reborn$contentH() - sqH - GAP;
+        EscPanels.renderRewards(ctx, rightX, rewY, rightW, rewH);
 
-        // Gauche : carte profil (perso + nom/rôle/monnaie).
-        EscPanels.renderProfile(ctx, leftX, top, leftW, cardH);
+        // Barre communauté (message + Discord) en bas.
+        EscPanels.renderCommunityBar(ctx, reborn$boxX(),
+            boxY + reborn$contentH() + GAP, reborn$boxW(), BOTTOM_H);
 
-        // Droite : blog/news (au-dessus du bouton Boutique).
-        int blogH = reborn$boutiqueY() - top - 12;
-        EscPanels.renderBlog(ctx, rightX, top, rightW, blogH);
-
-        // Re-render des enfants cliquables (onglets + boutique) par-dessus le chrome.
+        // Enfants (bouton Boutique = fond+clic, onglets) par-dessus.
         for (Element e : this.children()) {
             if (e instanceof ClickableWidget cw && cw.visible) {
                 cw.render(ctx, mouseX, mouseY, delta);
             }
         }
+        // Contenu de la carte Boutique par-dessus son fond.
+        reborn$boutiqueContent(ctx, tr, reborn$boxX(), boxY, reborn$leftW(), reborn$contentH());
 
-        // Fine bordure d'ambiance sous les onglets (séparateur discret).
-        ctx.fill(reborn$margin(), top - 10, this.width - reborn$margin(), top - 9, Colors.BORDER);
+        ci.cancel();
+    }
 
+    // Clics sur les carrousels Stream / Dev Blog (flèches + corps → URL). On
+    // OVERRIDE mouseClicked (GameMenuScreen ne le déclare pas, il l'hérite de
+    // Screen — un @Inject ne trouverait pas la cible) : si le clic tombe dans un
+    // carré carrousel on le consomme, sinon super() gère onglets + Boutique.
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (button == 0) {
+            EscData.Snapshot snap = EscData.get();
+            if (snap != null) {
+                int boxY = reborn$boxY();
+                int rightX = reborn$rightX();
+                int sqW = reborn$squareW();
+                int sqH = reborn$squareH();
+                if (reborn$handleCarousel(mx, my, rightX, boxY, sqW, sqH, snap, true)) return true;
+                int blogX = rightX + sqW + GAP;
+                if (reborn$handleCarousel(mx, my, blogX, boxY, sqW, sqH, snap, false)) return true;
+            }
+        }
+        return super.mouseClicked(mx, my, button);
+    }
+
+    private boolean reborn$handleCarousel(double mx, double my, int x, int y, int w, int h,
+                                          EscData.Snapshot snap, boolean stream) {
+        if (mx < x || mx >= x + w || my < y || my >= y + h) return false;
+        int size = stream ? snap.streams().size() : snap.patchNotes().size();
+        if (size <= 0) return false;
+        long now = System.currentTimeMillis();
+
+        boolean leftZone = mx < x + ARROW_W + 6;
+        boolean rightZone = mx >= x + w - ARROW_W - 6;
+        if (size > 1 && (leftZone || rightZone)) {
+            int delta = rightZone ? 1 : -1;
+            if (stream) {
+                reborn$streamIdx = Math.floorMod(reborn$streamIdx + delta, size);
+                reborn$lastStreamRotate = now;
+            } else {
+                reborn$blogIdx = Math.floorMod(reborn$blogIdx + delta, size);
+                reborn$lastBlogRotate = now;
+            }
+            reborn$click();
+            return true;
+        }
+
+        // Corps du carré → ouvre l'URL (chaîne Twitch ou patch note web).
+        String url = stream
+            ? snap.streams().get(Math.floorMod(reborn$streamIdx, size)).url()
+            : snap.patchNotes().get(Math.floorMod(reborn$blogIdx, size)).url();
+        if (url != null && !url.isBlank()) {
+            reborn$openUrl(url);
+            reborn$click();
+            return true;
+        }
+        return false;
+    }
+
+    private void reborn$openUrl(String url) {
+        try {
+            Util.getOperatingSystem().open(URI.create(url));
+        } catch (Exception e) {
+            LOG.warn("ouverture URL échouée ({}) : {}", url, e.toString());
+        }
+    }
+
+    private void reborn$click() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc != null) {
+            mc.getSoundManager().play(
+                PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0f));
+        }
+    }
+
+    /** Carré « Stream » — carrousel des streamers (flèches ‹ ›, auto-rotation,
+     *  badge LIVE/OFFLINE par chaîne, clic → ouvre la chaîne Twitch). */
+    private void reborn$streamSquare(DrawContext ctx, TextRenderer tr, int x, int y, int w, int h) {
+        EscData.Snapshot snap = EscData.get();
+        List<EscData.Stream> streams = snap != null ? snap.streams() : List.of();
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, RADIUS, Colors.SURFACE, Colors.BORDER_STRONG);
+        IconPack.twitch(ctx, x + 14, y + 11, 14, Colors.FOREGROUND_SUBTLE);
+        ctx.drawText(tr, RebornFont.arcade("STREAM"), x + 34, y + 13, Colors.FOREGROUND_SUBTLE, false);
+
+        if (streams.isEmpty()) {
+            Text none = RebornFont.arcade("AUCUN STREAM");
+            ctx.drawText(tr, none, x + (w - tr.getWidth(none)) / 2, y + h / 2, Colors.FOREGROUND_MUTED, false);
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (streams.size() > 1 && now - reborn$lastStreamRotate > ROTATE_MS) {
+            reborn$streamIdx = (reborn$streamIdx + 1) % streams.size();
+            reborn$lastStreamRotate = now;
+        }
+        int idx = Math.floorMod(reborn$streamIdx, streams.size());
+        EscData.Stream s = streams.get(idx);
+
+        // Badge LIVE / OFFLINE de la chaîne courante.
+        Text badge = RebornFont.arcade(s.live() ? "LIVE" : "OFFLINE");
+        int bw = tr.getWidth(badge) + 10;
+        int badgeBg = s.live() ? Colors.withAlpha(Colors.SUCCESS, 0.18f) : Colors.DANGER_SOFT;
+        int badgeFg = s.live() ? Colors.SUCCESS : Colors.DANGER;
+        DrawHelpers.roundedRect(ctx, x + w - bw - 12, y + 11, bw, 14, 6, badgeBg);
+        ctx.drawText(tr, badge, x + w - bw - 7, y + 14, badgeFg, false);
+
+        // Nom de la chaîne (cliquable) + titre si en live.
+        String name = reborn$fit(tr, s.name() != null ? s.name() : "STREAM", w - 2 * (ARROW_W + 6));
+        Text nameT = RebornFont.arcade(name);
+        int nameY = s.live() && s.title() != null ? y + h / 2 - 7 : y + h / 2 - 2;
+        ctx.drawText(tr, nameT, x + (w - tr.getWidth(nameT)) / 2, nameY,
+            s.live() ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
+        if (s.live() && s.title() != null && !s.title().isEmpty()) {
+            String title = reborn$fit(tr, s.title(), w - 2 * (ARROW_W + 6));
+            Text tt = RebornFont.arcade(title);
+            ctx.drawText(tr, tt, x + (w - tr.getWidth(tt)) / 2, nameY + 12, Colors.FOREGROUND_MUTED, false);
+        }
+
+        reborn$carouselChrome(ctx, tr, x, y, w, h, streams.size(), idx);
+    }
+
+    /** Carré « Dev Blog » — carrousel des patch notes (flèches ‹ ›, auto-rotation,
+     *  clic → ouvre la patch note sur le web). */
+    private void reborn$blogSquare(DrawContext ctx, TextRenderer tr, int x, int y, int w, int h) {
+        EscData.Snapshot snap = EscData.get();
+        List<EscData.PatchNote> notes = snap != null ? snap.patchNotes() : List.of();
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, RADIUS, Colors.SURFACE, Colors.BORDER_STRONG);
+        ctx.drawText(tr, RebornFont.arcade("DEV BLOG"), x + 14, y + 13, Colors.FOREGROUND_SUBTLE, false);
+
+        int thumbY = y + 30;
+        int thumbH = h - 30 - 30;
+        DrawHelpers.roundedRect(ctx, x + 12, thumbY, w - 24, thumbH, 6, Colors.ACCENT_SOFT);
+
+        if (notes.isEmpty()) {
+            Text ph = RebornFont.arcade("12 MAI - PATCH 1.0.5");
+            ctx.drawText(tr, reborn$fit(tr, "12 MAI - PATCH 1.0.5", w - 24),
+                x + 12, y + h - 14, Colors.FOREGROUND_MUTED, false);
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (notes.size() > 1 && now - reborn$lastBlogRotate > ROTATE_MS) {
+            reborn$blogIdx = (reborn$blogIdx + 1) % notes.size();
+            reborn$lastBlogRotate = now;
+        }
+        int idx = Math.floorMod(reborn$blogIdx, notes.size());
+        EscData.PatchNote n = notes.get(idx);
+
+        // Date en haut à droite.
+        if (n.date() != null) {
+            Text dt = RebornFont.arcade(n.date());
+            ctx.drawText(tr, dt, x + w - 12 - tr.getWidth(dt), y + 13, Colors.FOREGROUND_MUTED, false);
+        }
+
+        // Version - titre (cliquable) au-dessus du bas.
+        String line = n.version() != null ? n.version() : "";
+        if (n.title() != null && !n.title().isEmpty()) {
+            line = line.isEmpty() ? n.title() : line + " - " + n.title();
+        }
+        line = reborn$fit(tr, line, w - 2 * (ARROW_W + 6));
+        Text lt = RebornFont.arcade(line);
+        ctx.drawText(tr, lt, x + (w - tr.getWidth(lt)) / 2, y + h - 26, Colors.WHITE_PURE, false);
+
+        reborn$carouselChrome(ctx, tr, x, y, w, h, notes.size(), idx);
+    }
+
+    /** Flèches ‹ › + indicateur i/N, communs aux deux carrousels. */
+    private void reborn$carouselChrome(DrawContext ctx, TextRenderer tr, int x, int y, int w, int h,
+                                       int size, int idx) {
+        if (size > 1) {
+            Text l = RebornFont.arcade("<");
+            Text r = RebornFont.arcade(">");
+            int midY = y + h / 2 - 4;
+            ctx.drawText(tr, l, x + 5, midY, Colors.FOREGROUND_SUBTLE, false);
+            ctx.drawText(tr, r, x + w - 5 - tr.getWidth(r), midY, Colors.FOREGROUND_SUBTLE, false);
+            Text ind = RebornFont.arcade((idx + 1) + "/" + size);
+            ctx.drawText(tr, ind, x + (w - tr.getWidth(ind)) / 2, y + h - 12, Colors.FOREGROUND_MUTED, false);
+        }
+    }
+
+    /** Tronque une chaîne ArcadePix pour qu'elle tienne dans {@code maxW} px. */
+    private String reborn$fit(TextRenderer tr, String s, int maxW) {
+        if (tr.getWidth(RebornFont.arcade(s)) <= maxW) return s;
+        while (s.length() > 1 && tr.getWidth(RebornFont.arcade(s + "..")) > maxW) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s.trim() + "..";
+    }
+
+    /** Contenu de la carte Boutique (header + gros libellé centré). ArcadePix. */
+    private void reborn$boutiqueContent(DrawContext ctx, TextRenderer tr, int x, int y, int w, int h) {
+        ctx.drawText(tr, RebornFont.arcade("BOUTIQUE"), x + 14, y + 13, Colors.FOREGROUND_SUBTLE, false);
+        Text big = RebornFont.arcade("BOUTIQUE");
+        float sc = 2.0f;
+        int bw = Math.round(tr.getWidth(big) * sc);
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x + (w - bw) / 2f, y + h / 2f - 12, 0);
+        ctx.getMatrices().scale(sc, sc, 1f);
+        ctx.drawText(tr, big, 0, 0, Colors.WHITE_PURE, false);
         ctx.getMatrices().pop();
+        Text hint = RebornFont.arcade("BIENTOT DISPONIBLE");
+        ctx.drawText(tr, hint, x + (w - tr.getWidth(hint)) / 2, y + h / 2 + 14, Colors.FOREGROUND_MUTED, false);
     }
 }

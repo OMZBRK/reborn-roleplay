@@ -117,6 +117,34 @@ export class PlayService {
     if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return null;
     return payload;
   }
+
+  /**
+   * Vérifie la signature HMAC d'un play-token SANS exiger la fraîcheur (exp).
+   * Utilisé par le report in-game : le menu ÉCHAP peut être ouvert bien après
+   * les 5min de validité, mais la signature prouve toujours que l'API a émis
+   * ce token pour ce compte — donc l'identité (`sub`) reste digne de confiance.
+   */
+  verifyPlayTokenSignature(token: string): PlayTokenPayload | null {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [payloadB64, sigB64] = parts;
+
+    const expectedSig = createHmac('sha256', this.secret).update(payloadB64).digest();
+    let providedSig: Buffer;
+    try {
+      providedSig = base64urlDecode(sigB64);
+    } catch {
+      return null;
+    }
+    if (providedSig.length !== expectedSig.length) return null;
+    if (!timingSafeEqual(providedSig, expectedSig)) return null;
+
+    try {
+      return JSON.parse(base64urlDecode(payloadB64).toString('utf8')) as PlayTokenPayload;
+    } catch {
+      return null;
+    }
+  }
 }
 
 function base64url(buf: Buffer): string {
