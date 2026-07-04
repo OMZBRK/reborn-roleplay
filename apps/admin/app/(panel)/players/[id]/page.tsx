@@ -1,8 +1,9 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { use } from 'react';
+import { toast } from 'sonner';
 import {
   IconArrowLeft,
   IconBan,
@@ -16,7 +17,9 @@ import { RoleBadge } from '@/components/RoleBadge';
 import { api } from '@/lib/api';
 import type {
   AppStatus,
+  CurrentUser,
   PlayerDetail,
+  Role,
   TicketStatus,
 } from '@/lib/types';
 
@@ -191,7 +194,7 @@ export default function PlayerProfilePage({
             </Field>
             <Field label="Steam">{data.steamUsername ?? '—'}</Field>
             <Field label="Role">
-              <RoleBadge role={data.role} />
+              <RoleEditor playerId={id} currentRole={data.role} />
             </Field>
           </Card>
 
@@ -286,6 +289,89 @@ function Field({
         {children}
       </div>
     </div>
+  );
+}
+
+// Ordre croissant de privilège (identique à l'API).
+const ROLE_RANKS: Role[] = [
+  'PLAYER',
+  'WHITELISTED',
+  'HELPER',
+  'WHITELIST_REVIEWER',
+  'MODERATOR',
+  'ADMIN',
+  'OWNER',
+];
+const ROLE_LABELS: Record<Role, string> = {
+  PLAYER: 'Joueur',
+  WHITELISTED: 'Whitelisté',
+  HELPER: 'Helper',
+  WHITELIST_REVIEWER: 'Reviewer WL',
+  MODERATOR: 'Modérateur',
+  ADMIN: 'Admin',
+  OWNER: 'Owner',
+};
+
+/**
+ * Éditeur de rôle inline, gardé côté client (l'API re-vérifie tout) : visible
+ * uniquement si le staff connecté est ADMIN+ et strictement au-dessus de la
+ * cible. Ne propose que des rôles strictement en dessous du sien (OWNER exclu).
+ */
+function RoleEditor({
+  playerId,
+  currentRole,
+}: {
+  playerId: string;
+  currentRole: Role;
+}) {
+  const qc = useQueryClient();
+  const { data: me } = useQuery({
+    queryKey: ['admin', 'me'],
+    queryFn: () => api<CurrentUser>('/auth/me'),
+    staleTime: 5 * 60_000,
+  });
+
+  const mut = useMutation({
+    mutationFn: (role: Role) =>
+      api(`/admin/players/${playerId}/role`, { method: 'PATCH', body: { role } }),
+    onSuccess: (_d, role) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'players', playerId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'players', 'search'] });
+      toast.success(`Rôle mis à jour → ${ROLE_LABELS[role]}`);
+    },
+    onError: (err) =>
+      toast.error('Échec du changement de rôle', {
+        description: (err as Error).message,
+      }),
+  });
+
+  const myRank = me ? ROLE_RANKS.indexOf(me.role) : -1;
+  const canEdit =
+    myRank >= ROLE_RANKS.indexOf('ADMIN') &&
+    ROLE_RANKS.indexOf(currentRole) < myRank;
+
+  if (!canEdit) return <RoleBadge role={currentRole} />;
+
+  const options = ROLE_RANKS.filter(
+    (r) => ROLE_RANKS.indexOf(r) < myRank && r !== 'OWNER',
+  );
+
+  return (
+    <select
+      value={currentRole}
+      disabled={mut.isPending}
+      onChange={(e) => {
+        const r = e.target.value as Role;
+        if (r !== currentRole) mut.mutate(r);
+      }}
+      className="rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] px-2 py-1 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+    >
+      {options.map((r) => (
+        <option key={r} value={r}>
+          {ROLE_LABELS[r]}
+        </option>
+      ))}
+    </select>
   );
 }
 

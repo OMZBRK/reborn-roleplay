@@ -7,6 +7,7 @@ import type {
 import * as ping from "./ping.js";
 import * as whitelist from "./whitelist.js";
 import * as ticket from "./ticket.js";
+import * as role from "./role.js";
 
 export interface SlashCommand {
   data:
@@ -16,4 +17,4 @@ export interface SlashCommand {
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
 
-export const commands: SlashCommand[] = [ping, whitelist, ticket];
+export const commands: SlashCommand[] = [ping, whitelist, ticket, role];

@@ -80,6 +80,37 @@ export async function releaseAssignment(
   });
 }
 
+export type RebornRole =
+  | "PLAYER"
+  | "WHITELISTED"
+  | "HELPER"
+  | "WHITELIST_REVIEWER"
+  | "MODERATOR"
+  | "ADMIN"
+  | "OWNER";
+
+export interface RoleChangeResponse {
+  id: string;
+  minecraftUsername: string;
+  role: RebornRole;
+  previousRole: RebornRole;
+  changed: boolean;
+}
+
+/** `/role set` : change le rôle d'un joueur. Garde-fous côté API (l'acteur =
+ *  actorDiscordId doit être ADMIN+, pas de self/pair/supérieur). */
+export async function setPlayerRole(
+  actorDiscordId: string,
+  minecraftUsername: string,
+  role: RebornRole,
+): Promise<RoleChangeResponse> {
+  return sendSigned("POST", "/staff/role", {
+    actorDiscordId,
+    minecraftUsername,
+    role,
+  });
+}
+
 async function sendSigned<T>(
   method: "POST" | "DELETE" | "PATCH",
   path: string,

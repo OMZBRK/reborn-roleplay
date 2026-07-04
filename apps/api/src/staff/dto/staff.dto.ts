@@ -1,4 +1,4 @@
-import { AppStatus, TicketStatus } from '@prisma/client';
+import { AppStatus, Role, TicketStatus } from '@prisma/client';
 import {
   IsArray,
   IsEnum,
@@ -8,6 +8,24 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+
+/**
+ * Corps de POST /v1/staff/role (bot Discord `/role set`). `actorDiscordId` =
+ * snowflake du staff qui exécute la commande (interaction.user.id) — l'API
+ * l'utilise pour le garde-fou de rôle ; le bot ne fait aucune vérif lui-même.
+ */
+export class StaffRoleDto {
+  @IsString()
+  actorDiscordId!: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(32)
+  minecraftUsername!: string;
+
+  @IsEnum(Role)
+  role!: Role;
+}
 
 export class WhitelistDecisionDto {
   /** Doit etre APPROVED, REJECTED ou NEEDS_REVISION (pas PENDING). */

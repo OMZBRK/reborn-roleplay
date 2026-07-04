@@ -13,12 +13,14 @@ import {
 import {
   AssignFromDiscordDto,
   StaffMessageDto,
+  StaffRoleDto,
   TicketStatusDto,
   WhitelistDecisionDto,
 } from './dto/staff.dto';
 import { HmacSignatureGuard } from './hmac-signature.guard';
 import { StaffService } from './staff.service';
 import { AssignmentService } from '../admin/assignment.service';
+import { RoleService } from '../admin/role.service';
 import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import { TicketsService } from '../tickets/tickets.service';
 
@@ -35,7 +37,19 @@ export class StaffController {
     private readonly whitelistMessages: WhitelistMessagesService,
     private readonly tickets: TicketsService,
     private readonly assignment: AssignmentService,
+    private readonly roles: RoleService,
   ) {}
+
+  /** `/role set <pseudo> <role>` depuis le bot. Garde-fous dans RoleService
+   *  (l'acteur = actorDiscordId doit être ADMIN+, pas de pair/supérieur). */
+  @Post('role')
+  setPlayerRole(@Body() dto: StaffRoleDto) {
+    return this.roles.changeRoleFromDiscord(
+      dto.actorDiscordId,
+      dto.minecraftUsername,
+      dto.role,
+    );
+  }
 
   @Patch('whitelist/:id')
   decideWhitelist(

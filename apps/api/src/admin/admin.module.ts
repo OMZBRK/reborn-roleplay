@@ -6,11 +6,13 @@ import { WhitelistModule } from '../whitelist/whitelist.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AssignmentModule } from './assignment.module';
+import { RoleModule } from './role.module';
 
 @Module({
   imports: [
     AuthModule,
     AssignmentModule,
+    RoleModule,
     StaffModule,
     TicketsModule,
     WhitelistModule,

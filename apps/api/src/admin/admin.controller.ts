@@ -24,7 +24,9 @@ import { TicketsService } from '../tickets/tickets.service';
 import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import { AdminService } from './admin.service';
 import { AssignmentService } from './assignment.service';
+import { RoleService } from './role.service';
 import {
+  ChangeRoleDto,
   ListAuditQueryDto,
   ListTicketsQueryDto,
   ListWhitelistQueryDto,
@@ -56,6 +58,7 @@ export class AdminController {
     private readonly whitelistMessages: WhitelistMessagesService,
     private readonly assignment: AssignmentService,
     private readonly anomalies: LoginAnomalyService,
+    private readonly roles: RoleService,
   ) {}
 
   @Get('dashboard')
@@ -192,6 +195,18 @@ export class AdminController {
   @Get('players/:id')
   getPlayer(@Param('id', ParseUUIDPipe) id: string) {
     return this.admin.getPlayer(id);
+  }
+
+  /** Change le rôle Reborn d'un joueur. ADMIN+ uniquement ; garde-fous dans
+   *  RoleService (pas de self-change, pas de pair/supérieur). */
+  @Patch('players/:id/role')
+  @MinRole(Role.ADMIN)
+  changePlayerRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ChangeRoleDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.roles.changeRoleByUserId(user.sub, id, dto.role);
   }
 
   // ── Audit ─────────────────────────────────────────────

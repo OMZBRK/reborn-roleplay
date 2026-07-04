@@ -1,4 +1,4 @@
-import { AppStatus, TicketStatus } from '@prisma/client';
+import { AppStatus, Role, TicketStatus } from '@prisma/client';
 import {
   IsEnum,
   IsInt,
@@ -10,6 +10,12 @@ import {
   MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+/** Corps de PATCH /v1/admin/players/:id/role (panel staff). */
+export class ChangeRoleDto {
+  @IsEnum(Role)
+  role!: Role;
+}
 
 export class ListWhitelistQueryDto {
   @IsOptional()
