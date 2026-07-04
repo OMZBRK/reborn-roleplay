@@ -7,7 +7,6 @@
     "ChatHudMixin",
     "ChatHudAddMessageMixin",
     "ChatScreenMixin",
-    "BossBarHudMixin",
     "InGameHudMixin",
     "InGameHudInvoker",
     "MusicTrackerMixin",

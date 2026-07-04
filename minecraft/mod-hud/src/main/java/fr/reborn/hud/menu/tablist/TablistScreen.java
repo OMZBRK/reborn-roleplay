@@ -12,6 +12,7 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -39,6 +40,7 @@ public class TablistScreen extends Screen {
     private static final int TAB_H = 22;
     private static final int COLHEAD = 14;
     private static final int ROW_H = 20;
+    private static final int SECTION_H = 15;   // hauteur d'un en-tête de groupe (onglet Général)
 
     private int activeTab = 3; // Général
     private int scrollY = 0;
@@ -107,23 +109,78 @@ public class TablistScreen extends Screen {
             if (!q.isEmpty() && !e.name().toLowerCase(Locale.ROOT).contains(q)) continue;
             out.add(e);
         }
+        // Regroupement : Toi → Staff → Amis → Connaissances → Inconnus, puis
+        // alphabétique dans chaque groupe. Les entrées d'un même groupe se
+        // retrouvent contiguës (surtout visible dans l'onglet Général).
+        out.sort(Comparator.comparingInt(TablistScreen::groupRank)
+            .thenComparing(TabEntry::name, String.CASE_INSENSITIVE_ORDER));
         return out;
+    }
+
+    /** Ordre de groupe pour le tri du tablist. */
+    private static int groupRank(TabEntry e) {
+        if (e.relation() == TabEntry.Relation.SOI) return 0;
+        if (e.staff()) return 1;
+        return switch (e.relation()) {
+            case AMI -> 2;
+            case CONNAISSANCE -> 3;
+            default -> 4; // INCONNU
+        };
+    }
+
+    private static String groupLabel(int rank) {
+        return switch (rank) {
+            case 0 -> "MOI";
+            case 1 -> "STAFF";
+            case 2 -> "AMIS";
+            case 3 -> "CONNAISSANCES";
+            default -> "INCONNUS";
+        };
+    }
+
+    /**
+     * Modèle d'affichage : liste plate d'items où, dans l'onglet Général, un
+     * en-tête de groupe (String) précède chaque groupe. Ailleurs : que des
+     * {@link TabEntry}. Partagé par le rendu et le hit-test pour rester synchro.
+     */
+    private static List<Object> displayItems(List<TabEntry> rows, boolean grouped) {
+        List<Object> items = new ArrayList<>(rows.size() + 5);
+        if (!grouped) { items.addAll(rows); return items; }
+        int last = -1;
+        for (TabEntry e : rows) {
+            int gr = groupRank(e);
+            if (gr != last) { items.add(groupLabel(gr)); last = gr; }
+            items.add(e);
+        }
+        return items;
+    }
+
+    private static int itemH(Object o) { return o instanceof TabEntry ? ROW_H : SECTION_H; }
+
+    private static int contentHeight(List<Object> items) {
+        int h = 0;
+        for (Object o : items) h += itemH(o);
+        return h;
     }
 
     private List<TabEntry> filtered() {
         return filtered(TablistData.entries(selfName), activeTab, search != null ? search.getText() : "");
     }
 
-    private int maxScroll(Geom g, List<TabEntry> rows) {
-        return Math.max(0, rows.size() * ROW_H - g.viewH());
+    /** Items d'affichage (entrées + en-têtes de groupe dans l'onglet Général). */
+    private List<Object> items() {
+        return displayItems(filtered(), activeTab == 3);
+    }
+
+    private int maxScroll(Geom g) {
+        return Math.max(0, contentHeight(items()) - g.viewH());
     }
 
     // ─── Rendu écran interactif ──────────────────────────
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         Geom g = geom();
-        List<TabEntry> rows = filtered();
-        scrollY = Math.max(0, Math.min(scrollY, maxScroll(g, rows)));
+        scrollY = Math.max(0, Math.min(scrollY, maxScroll(g)));
 
         drawPanel(ctx, this.textRenderer, g, TablistData.entries(selfName), activeTab,
             search != null ? search.getText() : "", TablistData.rpDate(), true, selected, scrollY, mouseX, mouseY);
@@ -146,23 +203,29 @@ public class TablistScreen extends Screen {
         ctx.fill(g.px(), g.py(), g.px() + g.pw(), g.py() + g.ph(), 0x59000000);
 
         List<TabEntry> rows = filtered(all, activeTab, searchText);
+        List<Object> items = displayItems(rows, activeTab == 3);
 
         drawHeader(ctx, tr, g, all.size(), searchText, rpDate, interactive);
         drawTabs(ctx, tr, g, activeTab, interactive, mouseX, mouseY);
         drawColumnHeaders(ctx, tr, g);
 
-        // Liste scrollée + clippée.
+        // Liste scrollée + clippée (entrées + en-têtes de groupe).
         ctx.enableScissor(g.px(), g.listTop(), g.px() + g.pw(), g.listBottom());
         int y = g.listTop() - scrollY;
-        for (TabEntry e : rows) {
-            if (y + ROW_H > g.listTop() && y < g.listBottom()) {
-                drawRow(ctx, tr, g, e, y, e == selected, interactive, mouseX, mouseY);
+        for (Object o : items) {
+            int h = itemH(o);
+            if (y + h > g.listTop() && y < g.listBottom()) {
+                if (o instanceof TabEntry e) {
+                    drawRow(ctx, tr, g, e, y, e == selected, interactive, mouseX, mouseY);
+                } else {
+                    drawSection(ctx, tr, g, (String) o, y);
+                }
             }
-            y += ROW_H;
+            y += h;
         }
         ctx.disableScissor();
 
-        drawScrollbar(ctx, g, rows.size(), scrollY);
+        drawScrollbar(ctx, g, contentHeight(items), scrollY);
 
         if (interactive && selected != null) drawDetail(ctx, tr, g, selected);
     }
@@ -305,8 +368,21 @@ public class TablistScreen extends Screen {
         ctx.fill(cx, cy - r, cx + 1, cy + r + 1, color);
     }
 
-    private static void drawScrollbar(DrawContext ctx, Geom g, int rowCount, int scrollY) {
-        int total = rowCount * ROW_H, vh = g.viewH();
+    /** En-tête de groupe dans la liste (onglet Général) : label discret + trait. */
+    private static void drawSection(DrawContext ctx, TextRenderer tr, Geom g, String label, int y) {
+        int ly = y + SECTION_H - 6;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(g.listX() + 2, ly - tr.fontHeight * 0.8f, 0);
+        ctx.getMatrices().scale(0.8f, 0.8f, 1f);
+        ctx.drawText(tr, RebornFont.arcade(label), 0, 0, Colors.FOREGROUND_MUTED, false);
+        ctx.getMatrices().pop();
+        int lw = Math.round(tr.getWidth(RebornFont.arcade(label)) * 0.8f);
+        ctx.fill(g.listX() + 2 + lw + 6, ly - 2, g.listX() + g.listW(), ly - 1,
+            Colors.withAlpha(Colors.BORDER, 0.5f));
+    }
+
+    private static void drawScrollbar(DrawContext ctx, Geom g, int total, int scrollY) {
+        int vh = g.viewH();
         int max = Math.max(0, total - vh);
         if (max <= 0) return;
         int x = g.listX() + g.listW() + 4, top = g.listTop();
@@ -368,7 +444,7 @@ public class TablistScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double hx, double vy) {
         Geom g = geom();
         if (selected == null && my >= g.listTop() && my <= g.listBottom()) {
-            scrollY = Math.max(0, Math.min(maxScroll(g, filtered()), scrollY - (int) (vy * 20)));
+            scrollY = Math.max(0, Math.min(maxScroll(g), scrollY - (int) (vy * 20)));
             return true;
         }
         return super.mouseScrolled(mx, my, hx, vy);
@@ -389,9 +465,17 @@ public class TablistScreen extends Screen {
                 }
             }
             if (mx >= g.listX() && mx < g.listX() + g.listW() && my >= g.listTop() && my < g.listBottom()) {
-                int idx = (int) ((my - g.listTop() + scrollY) / ROW_H);
-                List<TabEntry> rows = filtered();
-                if (idx >= 0 && idx < rows.size()) { selected = rows.get(idx); return true; }
+                // Retrouve l'entrée cliquée en parcourant les items (en-têtes de
+                // groupe inclus) à hauteur variable.
+                int cy = g.listTop() - scrollY;
+                for (Object o : items()) {
+                    int h = itemH(o);
+                    if (my >= cy && my < cy + h) {
+                        if (o instanceof TabEntry e) { selected = e; return true; }
+                        break; // clic sur un en-tête : rien
+                    }
+                    cy += h;
+                }
             }
         }
         return super.mouseClicked(mx, my, button);
