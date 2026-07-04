@@ -1,6 +1,5 @@
 package fr.reborn.hud.mixin;
 
-import fr.reborn.hud.menu.settings.RebornPrefs;
 import fr.reborn.hud.menu.tablist.TablistScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -25,12 +24,15 @@ public class PlayerListHudMixin {
     private void reborn$tablistRender(DrawContext ctx, int scaledWindowWidth,
                                       Scoreboard scoreboard, ScoreboardObjective objective,
                                       CallbackInfo ci) {
-        // On neutralise l'overlay vanilla dans deux cas : l'écran interactif
-        // Reborn est ouvert, ou le mode Hold est actif (le panneau Reborn est
-        // alors dessiné par le HudRenderCallback dans RebornHudClient). On ne
-        // dessine PAS ici : en solo ce render n'est même pas appelé.
-        if (MinecraftClient.getInstance().currentScreen instanceof TablistScreen
-            || RebornPrefs.INSTANCE.tablistHold) {
+        // On remplace TOUJOURS le tablist vanilla par celui de Reborn, donc on
+        // neutralise le rendu vanilla dès que : l'écran interactif est ouvert,
+        // OU la touche liste-joueurs est pressée (mode hold, ET fenêtre de
+        // frames entre l'appui et l'ouverture de l'écran en mode toggle — sinon
+        // le tab vanilla « flashe » une demi-seconde). Le panneau Reborn est
+        // dessiné soit par l'écran, soit par le HudRenderCallback (mode hold).
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.currentScreen instanceof TablistScreen
+            || (mc.options != null && mc.options.playerListKey.isPressed())) {
             ci.cancel();
         }
     }

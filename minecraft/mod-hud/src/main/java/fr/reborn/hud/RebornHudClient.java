@@ -59,6 +59,18 @@ public final class RebornHudClient implements ClientModInitializer {
             fr.reborn.hud.menu.tablist.TablistScreen.renderHoldOverlay(ctx);
         });
 
+        // Réception du tablist serveur (canal reborn:tablist depuis ShinobiCore).
+        // Le mod ne fait que rendre ; les données sont server-authoritative.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
+            fr.reborn.hud.menu.tablist.TablistPayload.ID,
+            fr.reborn.hud.menu.tablist.TablistPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.menu.tablist.TablistPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.menu.tablist.TablistData.update(payload.json())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.menu.tablist.TablistData.clear());
+
         // Bandes noires cinéma (immersion) — toggle touche K.
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
 

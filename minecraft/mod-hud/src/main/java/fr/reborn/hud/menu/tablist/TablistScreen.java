@@ -44,7 +44,7 @@ public class TablistScreen extends Screen {
     private int scrollY = 0;
     private TextFieldWidget search;
     private TabEntry selected;
-    private List<TabEntry> all = List.of();
+    private String selfName = "Vous";
 
     public TablistScreen() {
         super(Text.literal("Tablist Reborn"));
@@ -79,9 +79,8 @@ public class TablistScreen extends Screen {
 
     @Override
     protected void init() {
-        String self = (this.client != null && this.client.player != null)
+        selfName = (this.client != null && this.client.player != null)
             ? this.client.player.getGameProfile().getName() : "Vous";
-        all = MockTablist.build(self);
 
         Geom g = geom();
         search = new TextFieldWidget(this.textRenderer, g.searchX() + 2, g.searchY() + 2,
@@ -112,7 +111,7 @@ public class TablistScreen extends Screen {
     }
 
     private List<TabEntry> filtered() {
-        return filtered(all, activeTab, search != null ? search.getText() : "");
+        return filtered(TablistData.entries(selfName), activeTab, search != null ? search.getText() : "");
     }
 
     private int maxScroll(Geom g, List<TabEntry> rows) {
@@ -126,8 +125,8 @@ public class TablistScreen extends Screen {
         List<TabEntry> rows = filtered();
         scrollY = Math.max(0, Math.min(scrollY, maxScroll(g, rows)));
 
-        drawPanel(ctx, this.textRenderer, g, all, activeTab, search != null ? search.getText() : "",
-            MockTablist.rpDate(), true, selected, scrollY, mouseX, mouseY);
+        drawPanel(ctx, this.textRenderer, g, TablistData.entries(selfName), activeTab,
+            search != null ? search.getText() : "", TablistData.rpDate(), true, selected, scrollY, mouseX, mouseY);
 
         // Champ de recherche par-dessus la boîte dessinée par drawPanel.
         if (search != null) search.render(ctx, mouseX, mouseY, delta);
@@ -360,8 +359,8 @@ public class TablistScreen extends Screen {
         int w = mc.getWindow().getScaledWidth();
         int h = mc.getWindow().getScaledHeight();
         Geom g = geom(w, h);
-        List<TabEntry> all = MockTablist.build(mc.player.getGameProfile().getName());
-        drawPanel(ctx, mc.textRenderer, g, all, 3, "", MockTablist.rpDate(), false, null, 0, -1, -1);
+        List<TabEntry> all = TablistData.entries(mc.player.getGameProfile().getName());
+        drawPanel(ctx, mc.textRenderer, g, all, 3, "", TablistData.rpDate(), false, null, 0, -1, -1);
     }
 
     // ─── Interaction ─────────────────────────────────────
