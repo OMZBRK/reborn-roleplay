@@ -77,6 +77,10 @@ public final class RebornPrefs {
     // ────────────────── Animations de mouvement (GTA-RP) ──────
     public int walkStyle = 0;           // index du style de marche choisi
 
+    // ────────────────── Tablist ──────
+    /** true = maintenir Tab (overlay lecture seule) ; false = presser pour ouvrir l'écran interactif. */
+    public boolean tablistHold = false;
+
     private boolean loaded = false;
 
     private RebornPrefs() {}
@@ -156,5 +160,6 @@ public final class RebornPrefs {
         this.camTurnSpeed = other.camTurnSpeed;
         this.camPreset = other.camPreset;
         this.walkStyle = other.walkStyle;
+        this.tablistHold = other.tablistHold;
     }
 }

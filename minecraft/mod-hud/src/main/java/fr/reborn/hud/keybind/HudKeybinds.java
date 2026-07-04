@@ -23,6 +23,9 @@ public final class HudKeybinds {
     private HudKeybinds() {}
 
     public static void registerClient() {
+        // S'assure que les prefs (dont tablistHold) sont chargées avant lecture.
+        fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.ensureLoaded();
+
         KeyBinding openEditScreen = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.reborn-hud.open_editor",
             InputUtil.Type.KEYSYM,
@@ -166,6 +169,19 @@ public final class HudKeybinds {
                 MinecraftClient mc = MinecraftClient.getInstance();
                 if (mc.currentScreen == null && mc.player != null) {
                     mc.setScreen(new fr.reborn.hud.animation.AnimationMenuScreen(null));
+                }
+            }
+            // Tablist Reborn (touche liste-joueurs = Tab). Mode Toggle (défaut) :
+            // presser ouvre l'écran interactif. Mode Hold : on ne fait rien ici,
+            // l'overlay lecture seule est dessiné par PlayerListHudMixin tant que
+            // la touche est maintenue. On draine toujours la file d'events.
+            if (client.options != null) {
+                boolean hold = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold;
+                while (client.options.playerListKey.wasPressed()) {
+                    MinecraftClient mc = MinecraftClient.getInstance();
+                    if (!hold && mc.currentScreen == null && mc.player != null) {
+                        mc.setScreen(new fr.reborn.hud.menu.tablist.TablistScreen());
+                    }
                 }
             }
             // Verrouille la vue selon le mode (épaule par défaut) + neutralise F5.

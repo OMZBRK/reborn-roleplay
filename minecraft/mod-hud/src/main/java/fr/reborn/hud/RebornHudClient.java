@@ -48,6 +48,17 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
             (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
 
+        // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
+        // Rendu HUD fiable — même en solo où Minecraft ne rend PAS le
+        // PlayerListHud vanilla (1 seul joueur, pas d'objectif scoreboard).
+        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((ctx, tickCounter) -> {
+            net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+            if (mc == null || mc.player == null || mc.currentScreen != null || mc.options == null) return;
+            if (!fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold) return;
+            if (!mc.options.playerListKey.isPressed()) return;
+            fr.reborn.hud.menu.tablist.TablistScreen.renderHoldOverlay(ctx);
+        });
+
         // Bandes noires cinéma (immersion) — toggle touche K.
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
 

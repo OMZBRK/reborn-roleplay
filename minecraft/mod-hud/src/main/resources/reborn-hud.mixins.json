@@ -21,6 +21,7 @@
     "CameraPhotoMixin",
     "KeyboardInputPhotoMixin",
     "ScreenshotRecorderMixin",
+    "PlayerListHudMixin",
     "menu.TitleScreenMixin",
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",

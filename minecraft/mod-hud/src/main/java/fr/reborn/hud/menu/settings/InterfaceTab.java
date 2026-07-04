@@ -35,6 +35,12 @@ public class InterfaceTab extends SectionedTab {
         actionButton("→ Ouvrir l'éditeur de viseur",
             () -> open(new CrosshairScreen(parent)));
 
+        section("Tablist");
+        row("Maintenir pour afficher", "Sinon : presser Tab ouvre le tablist interactif",
+            (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
+                RebornPrefs.INSTANCE.tablistHold,
+                v -> { RebornPrefs.INSTANCE.tablistHold = v; RebornPrefs.INSTANCE.save(); }));
+
         spacer(4);
     }
 
