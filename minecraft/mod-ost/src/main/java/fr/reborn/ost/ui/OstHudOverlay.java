@@ -4,26 +4,31 @@ import fr.reborn.ost.audio.OstAudioEngine;
 import fr.reborn.ost.audio.OstCategory;
 import fr.reborn.ost.audio.OstTrack;
 import fr.reborn.ost.audio.OstTrackMeta;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import java.util.Optional;
 
 /**
- * HUD top-right « now-playing » (style Reborn) : petit vinyl tournant + titre +
- * barre de progression. Auto-masquage après 5 s sans changement de piste ;
- * masqué quand un écran est ouvert.
+ * HUD top-right « now-playing » (style Reborn) : petit disque + titre +
+ * barre de progression. Auto-masquage après 5 s sans changement de piste.
+ *
+ * <p>26.1 : porté sur la nouvelle API HUD Fabric ({@link HudElementRegistry}
+ * + rendu via {@link GuiGraphicsExtractor}). Le vinyl texturé tournant est
+ * temporairement simplifié en pastille couleur (TODO polish : blit +
+ * rotation Matrix3x2fStack sur la nouvelle pipeline de rendu).
  */
 public final class OstHudOverlay {
 
     private static final long AUTO_HIDE_DELAY_MS = 5_000L;
     private static final int PAD = 6, RIGHT_MARGIN = 8, TOP_MARGIN = 8, VINYL_SZ = 22;
 
-    private static final Identifier VINYL = Identifier.of("reborn-ost", "textures/gui/vinyl.png");
+    private static final Identifier HUD_ID = Identifier.fromNamespaceAndPath("reborn-ost", "now-playing");
     private static final int BACKDROP = 0xCC0C0709;
     private static final int ACCENT   = 0xFFA0182B;
     private static final int GOLD     = 0xFFD9A95E;
@@ -38,12 +43,12 @@ public final class OstHudOverlay {
     }
 
     public void registerClient() {
-        HudRenderCallback.EVENT.register((ctx, tickDelta) -> render(ctx));
+        HudElementRegistry.addLast(HUD_ID, this::render);
     }
 
-    private void render(DrawContext ctx) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.options.hudHidden) return;
+    private void render(GuiGraphicsExtractor g, DeltaTracker delta) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null) return;
 
         Optional<OstTrack> currentOpt = engine.currentTrack();
         if (currentOpt.isEmpty()) { lastSeenTrackId = null; return; }
@@ -54,57 +59,40 @@ public final class OstHudOverlay {
             lastSeenTrackId = current.trackId();
             lastChangeAtMs = now;
         }
-        if (client.currentScreen != null) { lastChangeAtMs = now; return; }
+        if (client.screen != null) { lastChangeAtMs = now; return; }
         if (now - lastChangeAtMs > AUTO_HIDE_DELAY_MS) return;
 
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
         String title = OstTrackMeta.title(current.trackId(), current.displayName());
         long el = engine.elapsedMs(), du = engine.durationMs();
         String time = mmss(el / 1000) + " / " + mmss(du / 1000);
 
-        int textW = Math.max(tr.getWidth("♪ " + title), tr.getWidth(time));
+        int textW = Math.max(tr.width("♪ " + title), tr.width(time));
         int w = PAD + VINYL_SZ + 8 + textW + PAD;
         int h = PAD + VINYL_SZ + PAD;
-        int x = ctx.getScaledWindowWidth() - w - RIGHT_MARGIN;
+        int x = g.guiWidth() - w - RIGHT_MARGIN;
         int y = TOP_MARGIN;
 
-        ctx.fill(x, y, x + w, y + h, BACKDROP);
-        ctx.fill(x, y, x + w, y + 1, ACCENT);
-        ctx.fill(x, y + h - 1, x + w, y + h, ACCENT);
+        g.fill(x, y, x + w, y + h, BACKDROP);
+        g.fill(x, y, x + w, y + 1, ACCENT);
+        g.fill(x, y + h - 1, x + w, y + h, ACCENT);
 
-        drawVinyl(ctx, client, current, x + PAD, y + PAD, VINYL_SZ, el / 1000f * 70f);
+        // Pastille categorie (placeholder du vinyl texture, TODO polish).
+        int vx = x + PAD, vy = y + PAD;
+        g.fill(vx, vy, vx + VINYL_SZ, vy + VINYL_SZ, categoryColor(current.category()));
+        int cx = vx + VINYL_SZ / 2, cy = vy + VINYL_SZ / 2;
+        g.fill(cx - 2, cy - 2, cx + 2, cy + 2, 0x88000000);
 
         int tx = x + PAD + VINYL_SZ + 8;
-        ctx.drawText(tr, Text.literal("♪ " + title), tx, y + PAD, GOLD, false);
-        ctx.drawText(tr, Text.literal(time), tx, y + PAD + 11, MUTED, false);
+        g.text(tr, Component.literal("♪ " + title), tx, y + PAD, GOLD, false);
+        g.text(tr, Component.literal(time), tx, y + PAD + 11, MUTED, false);
 
         int bx = tx, bw = (x + w - PAD) - tx, by = y + h - PAD + 1;
-        ctx.fill(bx, by, bx + bw, by + 2, 0x40FFFFFF);
+        g.fill(bx, by, bx + bw, by + 2, 0x40FFFFFF);
         if (du > 0) {
             int fw = (int) (bw * Math.min(1.0, el / (double) du));
-            ctx.fill(bx, by, bx + fw, by + 2, GOLD);
+            g.fill(bx, by, bx + fw, by + 2, GOLD);
         }
-    }
-
-    private void drawVinyl(DrawContext ctx, MinecraftClient mc, OstTrack track,
-                           int x, int y, int size, float angle) {
-        if (!mc.getResourceManager().getResource(VINYL).isPresent()) {
-            ctx.fill(x, y, x + size, y + size, categoryColor(track.category()));
-            return;
-        }
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + size / 2f, y + size / 2f, 0);
-        ctx.getMatrices().multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Z.rotationDegrees(angle));
-        ctx.getMatrices().translate(-(x + size / 2f), -(y + size / 2f), 0);
-        ctx.drawTexture(VINYL, x, y, 0f, 0f, size, size, 64, 64);
-        int cx = x + size / 2, cy = y + size / 2;
-        int tint = (categoryColor(track.category()) & 0x00FFFFFF) | 0x88000000;
-        int r = Math.max(2, Math.round(size * 0.20f));
-        for (int dy = -r; dy <= r; dy++) {
-            int dx = (int) Math.round(Math.sqrt((double) r * r - dy * dy));
-            ctx.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, tint);
-        }
-        ctx.getMatrices().pop();
     }
 
     private static int categoryColor(OstCategory cat) {

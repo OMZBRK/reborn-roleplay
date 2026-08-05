@@ -9,13 +9,13 @@ import fr.reborn.ost.audio.OstTrack;
 import fr.reborn.ost.audio.OstTrackMeta;
 import fr.reborn.ost.config.OstConfig;
 import fr.reborn.ost.network.OstNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import java.util.List;
 
@@ -47,18 +47,18 @@ public class OstScreen extends Screen {
     private static final int ROW_HOVER  = 0x22FFFFFF;
     private static final int ROW_PLAY   = 0x66A0182B;
 
-    private static final Identifier FRAME = Identifier.of("reborn-ost", "textures/gui/ost_menu.png");
-    private static final Identifier VINYL = Identifier.of("reborn-ost", "textures/gui/vinyl.png");
-    private static final Identifier IC_PREV  = Identifier.of("reborn-ost", "textures/gui/beforebutton.png");
-    private static final Identifier IC_NEXT  = Identifier.of("reborn-ost", "textures/gui/afterbutton.png");
-    private static final Identifier IC_PLAY  = Identifier.of("reborn-ost", "textures/gui/playbutton.png");
-    private static final Identifier IC_PAUSE = Identifier.of("reborn-ost", "textures/gui/pausebutton.png");
-    private static final Identifier IC_STOP  = Identifier.of("reborn-ost", "textures/gui/stopbutton.png");
-    private static final Identifier IC_PREV_P  = Identifier.of("reborn-ost", "textures/gui/pressedbeforebutton.png");
-    private static final Identifier IC_NEXT_P  = Identifier.of("reborn-ost", "textures/gui/pressedafterbutton.png");
-    private static final Identifier IC_PLAY_P  = Identifier.of("reborn-ost", "textures/gui/pressedplaybutton.png");
-    private static final Identifier IC_PAUSE_P = Identifier.of("reborn-ost", "textures/gui/pressedpausebutton.png");
-    private static final Identifier IC_STOP_P  = Identifier.of("reborn-ost", "textures/gui/pressedstopbutton.png");
+    private static final Identifier FRAME = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/ost_menu.png");
+    private static final Identifier VINYL = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/vinyl.png");
+    private static final Identifier IC_PREV  = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/beforebutton.png");
+    private static final Identifier IC_NEXT  = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/afterbutton.png");
+    private static final Identifier IC_PLAY  = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/playbutton.png");
+    private static final Identifier IC_PAUSE = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/pausebutton.png");
+    private static final Identifier IC_STOP  = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/stopbutton.png");
+    private static final Identifier IC_PREV_P  = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/pressedbeforebutton.png");
+    private static final Identifier IC_NEXT_P  = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/pressedafterbutton.png");
+    private static final Identifier IC_PLAY_P  = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/pressedplaybutton.png");
+    private static final Identifier IC_PAUSE_P = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/pressedpausebutton.png");
+    private static final Identifier IC_STOP_P  = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/pressedstopbutton.png");
     private static final int COVER_PX = 64;
     private static final int ROW_H = 20, THUMB = 16;
 
@@ -68,7 +68,7 @@ public class OstScreen extends Screen {
     private final OstConfig config;
 
     private OstCategory selectedCategory = OstCategory.APAISANT;
-    private TextFieldWidget searchField;
+    private EditBox searchField;
     private int scrollOffset = 0;
     /** Contrôle en cours d'appui (0=prev 1=play 2=next 3=stop), -1 = aucun. */
     private int pressedCtrl = -1;
@@ -77,7 +77,7 @@ public class OstScreen extends Screen {
     private long openedAt;
 
     public OstScreen(Screen parent) {
-        super(Text.literal("Menu des OST"));
+        super(Component.literal("Menu des OST"));
         this.parent = parent;
         this.library = RebornOstClient.library();
         this.engine = RebornOstClient.audioEngine();
@@ -120,11 +120,11 @@ public class OstScreen extends Screen {
     protected void init() {
         layout();
         int sw = cw() - 40;
-        searchField = new TextFieldWidget(this.textRenderer,
-            cx0() + 24, searchY() + 4, sw, 12, Text.literal("Rechercher"));
-        searchField.setDrawsBackground(false);
-        searchField.setPlaceholder(Text.literal("Rechercher une piste…"));
-        this.addDrawableChild(searchField);
+        searchField = new EditBox(this.font,
+            cx0() + 24, searchY() + 4, sw, 12, Component.literal("Rechercher"));
+        searchField.setBordered(false);
+        searchField.setHint(Component.literal("Rechercher une piste…"));
+        this.addRenderableWidget(searchField);
         openedAt = System.currentTimeMillis();
     }
 
@@ -137,143 +137,143 @@ public class OstScreen extends Screen {
     // ─── Rendu ───
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         layout();
-        ctx.fill(0, 0, this.width, this.height, DIM);
-        TextRenderer tr = this.textRenderer;
+        g.fill(0, 0, this.width, this.height, DIM);
+        Font tr = this.font;
 
         // Animation d'ouverture : léger slide vers le haut.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(0, (1f - animEase()) * 22f, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, (1f - animEase()) * 22f);
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         boolean hasFrame = mc.getResourceManager().getResource(FRAME).isPresent();
         if (hasFrame) {
-            ctx.drawTexture(FRAME, px, py, 0f, 0f, pw, ph, DW, DH);
+            g.blit(FRAME, px, py, pw, ph, 0f, 0f, 1f, 1f);
         } else {
-            panel(ctx, px, py, pw, ph, BG);
+            panel(g, px, py, pw, ph, BG);
         }
         // Panneaux de sections (bordures) — toujours dessinés, par-dessus le cadre.
-        panel(ctx, cx0(), npY(), cw(), npH(), CARD);
-        panel(ctx, cx0(), searchY(), cw(), fy(20), SECTION);
-        panel(ctx, cx0(), listTop() - 4, cw(), listBottom() - listTop() + 8, SECTION);
-        panel(ctx, cx0(), footerY(), cw(), fy(30), SECTION);
+        panel(g, cx0(), npY(), cw(), npH(), CARD);
+        panel(g, cx0(), searchY(), cw(), fy(20), SECTION);
+        panel(g, cx0(), listTop() - 4, cw(), listBottom() - listTop() + 8, SECTION);
+        panel(g, cx0(), footerY(), cw(), fy(30), SECTION);
 
-        renderHeader(ctx, tr, mouseX, mouseY, hasFrame);
-        renderNowPlaying(ctx, tr, mouseX, mouseY);
+        renderHeader(g, tr, mouseX, mouseY, hasFrame);
+        renderNowPlaying(g, tr, mouseX, mouseY);
         // Loupe recherche.
-        ctx.drawText(tr, Text.literal("⌕"), cx0() + 8, searchY() + 6, TEXT_MUTED, false);
-        renderList(ctx, tr, mouseX, mouseY);
-        renderFooter(ctx, tr, mouseX, mouseY);
+        g.text(tr, Component.literal("⌕"), cx0() + 8, searchY() + 6, TEXT_MUTED, false);
+        renderList(g, tr, mouseX, mouseY);
+        renderFooter(g, tr, mouseX, mouseY);
 
-        if (searchField != null) searchField.render(ctx, mouseX, mouseY, delta);
-        ctx.getMatrices().pop();
+        if (searchField != null) searchField.extractRenderState(g, mouseX, mouseY, delta);
+        g.pose().popMatrix();
     }
 
-    private void renderHeader(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY, boolean hasFrame) {
+    private void renderHeader(GuiGraphicsExtractor g, Font tr, int mouseX, int mouseY, boolean hasFrame) {
         int hy = headerY();
         if (!hasFrame) {
             // Logo dessiné seulement si le cadre ne le fournit pas déjà.
-            ctx.drawText(tr, Text.literal("♫").styled(s -> s.withBold(true)), cx0() + 6, hy + 2, GOLD, false);
-            ctx.drawText(tr, Text.literal("OST").styled(s -> s.withBold(true)), cx0() + 18, hy - 1, GOLD, false);
-            ctx.drawText(tr, Text.literal("MENU").styled(s -> s.withBold(true)), cx0() + 18, hy + 9, ACCENT_HOV, false);
+            g.text(tr, Component.literal("♫").withStyle(s -> s.withBold(true)), cx0() + 6, hy + 2, GOLD, false);
+            g.text(tr, Component.literal("OST").withStyle(s -> s.withBold(true)), cx0() + 18, hy - 1, GOLD, false);
+            g.text(tr, Component.literal("MENU").withStyle(s -> s.withBold(true)), cx0() + 18, hy + 9, ACCENT_HOV, false);
         }
 
         int tabX = cx0();
         for (OstCategory cat : OstCategory.values()) {
-            int w = tr.getWidth(cat.displayName()) + 10;
+            int w = tr.width(cat.displayName()) + 10;
             boolean sel = cat == selectedCategory && searchBlank();
             boolean hov = in(mouseX, mouseY, tabX, hy - 2, w, 18);
-            roundRect(ctx, tabX, hy - 2, w, 18, sel ? ACCENT : (hov ? ROW_HOVER : SECTION));
-            ctx.drawText(tr, Text.literal(cat.displayName()), tabX + 5, hy + 3,
+            roundRect(g, tabX, hy - 2, w, 18, sel ? ACCENT : (hov ? ROW_HOVER : SECTION));
+            g.text(tr, Component.literal(cat.displayName()), tabX + 5, hy + 3,
                 sel ? 0xFFFFFFFF : TEXT_MUTED, false);
             tabX += w + 8;
         }
 
         boolean closeHov = in(mouseX, mouseY, px + pw - 22, hy - 2, 16, 16);
-        ctx.drawText(tr, Text.literal("✕"), px + pw - 19, hy + 1, closeHov ? ACCENT_HOV : TEXT_MUTED, false);
+        g.text(tr, Component.literal("✕"), px + pw - 19, hy + 1, closeHov ? ACCENT_HOV : TEXT_MUTED, false);
     }
 
-    private void renderNowPlaying(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
+    private void renderNowPlaying(GuiGraphicsExtractor g, Font tr, int mouseX, int mouseY) {
         var cur = engine.currentTrack();
         int ax = artX(), ay = artY(), as = artSize();
         if (cur.isPresent()) {
             OstTrack t = cur.get();
-            drawCover(ctx, t, ax, ay, as, engine.elapsedMs() / 1000f * 70f);
-            ctx.drawText(tr, Text.literal(OstTrackMeta.title(t.trackId(), t.displayName())).styled(s -> s.withBold(true)),
+            drawCover(g, t, ax, ay, as, engine.elapsedMs() / 1000f * 70f);
+            g.text(tr, Component.literal(OstTrackMeta.title(t.trackId(), t.displayName())).withStyle(s -> s.withBold(true)),
                 npTextX(), npY() + 10, GOLD, false);
-            ctx.drawText(tr, Text.literal(t.category().displayName()), npTextX(), npY() + 22, TEXT_MUTED, false);
+            g.text(tr, Component.literal(t.category().displayName()), npTextX(), npY() + 22, TEXT_MUTED, false);
 
             long el = engine.elapsedMs(), du = engine.durationMs();
             int bx = progBarX(), bw = progBarW(), byp = progBarY();
-            ctx.drawText(tr, Text.literal(mmss(el)), bx, byp - 9, TEXT_MUTED, false);
+            g.text(tr, Component.literal(mmss(el)), bx, byp - 9, TEXT_MUTED, false);
             String tot = mmss(du);
-            ctx.drawText(tr, Text.literal(tot), bx + bw - tr.getWidth(tot), byp - 9, TEXT_MUTED, false);
-            ctx.fill(bx, byp, bx + bw, byp + 3, 0x40FFFFFF);
+            g.text(tr, Component.literal(tot), bx + bw - tr.width(tot), byp - 9, TEXT_MUTED, false);
+            g.fill(bx, byp, bx + bw, byp + 3, 0x40FFFFFF);
             if (du > 0) {
                 int fw = (int) (bw * Math.min(1.0, el / (double) du));
-                ctx.fill(bx, byp, bx + fw, byp + 3, GOLD);
-                ctx.fill(bx + fw - 1, byp - 2, bx + fw + 1, byp + 5, ACCENT_HOV);
+                g.fill(bx, byp, bx + fw, byp + 3, GOLD);
+                g.fill(bx + fw - 1, byp - 2, bx + fw + 1, byp + 5, ACCENT_HOV);
             }
         } else {
-            drawVinylPlaceholder(ctx, ax, ay, as);
-            ctx.drawText(tr, Text.literal("Aucune piste en lecture").styled(s -> s.withBold(true)),
+            drawVinylPlaceholder(g, ax, ay, as);
+            g.text(tr, Component.literal("Aucune piste en lecture").withStyle(s -> s.withBold(true)),
                 npTextX(), npY() + 14, TEXT_MUTED, false);
-            ctx.drawText(tr, Text.literal("Choisis une piste dans la liste"), npTextX(), npY() + 28, TEXT_MUTED, false);
+            g.text(tr, Component.literal("Choisis une piste dans la liste"), npTextX(), npY() + 28, TEXT_MUTED, false);
         }
 
         // Contrôles (icônes 16x16 du pack) avec animation "pressed" à l'appui.
         int cx = npTextX(), cy = ctrlY();
         boolean playing = engine.isPlaying();
-        drawIconBtn(ctx, pressedCtrl == 0 ? IC_PREV_P : IC_PREV, cx, cy, mouseX, mouseY);
+        drawIconBtn(g, pressedCtrl == 0 ? IC_PREV_P : IC_PREV, cx, cy, mouseX, mouseY);
         Identifier pp = playing
             ? (pressedCtrl == 1 ? IC_PAUSE_P : IC_PAUSE)
             : (pressedCtrl == 1 ? IC_PLAY_P : IC_PLAY);
-        drawIconBtn(ctx, pp, cx + 22, cy, mouseX, mouseY);
-        drawIconBtn(ctx, pressedCtrl == 2 ? IC_NEXT_P : IC_NEXT, cx + 44, cy, mouseX, mouseY);
-        drawIconBtn(ctx, pressedCtrl == 3 ? IC_STOP_P : IC_STOP, cx + 66, cy, mouseX, mouseY);
+        drawIconBtn(g, pp, cx + 22, cy, mouseX, mouseY);
+        drawIconBtn(g, pressedCtrl == 2 ? IC_NEXT_P : IC_NEXT, cx + 44, cy, mouseX, mouseY);
+        drawIconBtn(g, pressedCtrl == 3 ? IC_STOP_P : IC_STOP, cx + 66, cy, mouseX, mouseY);
 
         // Shuffle (aléatoire) + Repeat (off / une / liste) — toggles.
         boolean sh = config.isShuffle();
         boolean shHov = in(mouseX, mouseY, cx + 90, cy, 16, 16);
-        roundRect(ctx, cx + 90, cy, 16, 16, sh ? ACCENT : (shHov ? ROW_HOVER : SECTION));
-        ctx.drawText(tr, Text.literal("S"), cx + 96, cy + 4, sh ? 0xFFFFFFFF : TEXT_MUTED, false);
+        roundRect(g, cx + 90, cy, 16, 16, sh ? ACCENT : (shHov ? ROW_HOVER : SECTION));
+        g.text(tr, Component.literal("S"), cx + 96, cy + 4, sh ? 0xFFFFFFFF : TEXT_MUTED, false);
         int rm = config.getRepeatMode();
         boolean rpHov = in(mouseX, mouseY, cx + 112, cy, 16, 16);
-        roundRect(ctx, cx + 112, cy, 16, 16, rm != 0 ? ACCENT : (rpHov ? ROW_HOVER : SECTION));
-        ctx.drawText(tr, Text.literal("R"), cx + 118, cy + 4, rm != 0 ? 0xFFFFFFFF : TEXT_MUTED, false);
-        if (rm == 1) ctx.drawText(tr, Text.literal("1"), cx + 123, cy - 2, GOLD, false);
+        roundRect(g, cx + 112, cy, 16, 16, rm != 0 ? ACCENT : (rpHov ? ROW_HOVER : SECTION));
+        g.text(tr, Component.literal("R"), cx + 118, cy + 4, rm != 0 ? 0xFFFFFFFF : TEXT_MUTED, false);
+        if (rm == 1) g.text(tr, Component.literal("1"), cx + 123, cy - 2, GOLD, false);
     }
 
-    private void drawIconBtn(DrawContext ctx, Identifier icon, int x, int y, int mouseX, int mouseY) {
-        if (in(mouseX, mouseY, x, y, 16, 16)) roundRect(ctx, x - 1, y - 1, 18, 18, ROW_HOVER);
-        ctx.drawTexture(icon, x, y, 0f, 0f, 16, 16, 16, 16);
+    private void drawIconBtn(GuiGraphicsExtractor g, Identifier icon, int x, int y, int mouseX, int mouseY) {
+        if (in(mouseX, mouseY, x, y, 16, 16)) roundRect(g, x - 1, y - 1, 18, 18, ROW_HOVER);
+        g.blit(icon, x, y, 16, 16, 0f, 0f, 1f, 1f);
     }
 
-    private void renderList(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
+    private void renderList(GuiGraphicsExtractor g, Font tr, int mouseX, int mouseY) {
         List<OstTrack> tracks = resolveVisibleTracks();
         int top = listTop(), bottom = listBottom(), left = cx0() + 4, right = cx0() + cw() - 4;
-        ctx.enableScissor(left, top, right, bottom);
+        g.enableScissor(left, top, right, bottom);
         for (int i = 0; i < tracks.size(); i++) {
             int rowY = top + (i - scrollOffset) * ROW_H;
             if (rowY + ROW_H < top || rowY > bottom) continue;
             OstTrack track = tracks.get(i);
             boolean hovered = in(mouseX, mouseY, left, rowY, right - left, ROW_H) && mouseY < bottom;
             boolean playing = engine.currentTrack().map(t -> t.trackId().equals(track.trackId())).orElse(false);
-            if (playing) ctx.fill(left, rowY, right, rowY + ROW_H, ROW_PLAY);
-            else if (hovered) ctx.fill(left, rowY, right, rowY + ROW_H, ROW_HOVER);
+            if (playing) g.fill(left, rowY, right, rowY + ROW_H, ROW_PLAY);
+            else if (hovered) g.fill(left, rowY, right, rowY + ROW_H, ROW_HOVER);
 
             int thumbY = rowY + (ROW_H - THUMB) / 2;
-            drawCover(ctx, track, left + 4, thumbY, THUMB);
-            ctx.drawText(tr, Text.literal((playing ? "▶ " : "") + OstTrackMeta.title(track.trackId(), track.displayName())),
+            drawCover(g, track, left + 4, thumbY, THUMB);
+            g.text(tr, Component.literal((playing ? "▶ " : "") + OstTrackMeta.title(track.trackId(), track.displayName())),
                 left + 4 + THUMB + 8, rowY + 6, playing ? 0xFFFFFFFF : TEXT, false);
 
             boolean fav = config.isFavorite(track.trackId());
-            ctx.drawText(tr, Text.literal(fav ? "★" : "☆"), right - 14, rowY + 6, fav ? GOLD : TEXT_MUTED, false);
+            g.text(tr, Component.literal(fav ? "★" : "☆"), right - 14, rowY + 6, fav ? GOLD : TEXT_MUTED, false);
             String dur = OstTrackMeta.formatDuration(OstTrackMeta.duration(track.trackId()));
-            if (!dur.isEmpty()) ctx.drawText(tr, Text.literal(dur), right - 28 - tr.getWidth(dur), rowY + 6, TEXT_MUTED, false);
+            if (!dur.isEmpty()) g.text(tr, Component.literal(dur), right - 28 - tr.width(dur), rowY + 6, TEXT_MUTED, false);
         }
-        ctx.disableScissor();
+        g.disableScissor();
     }
 
     private int volBarX()  { return cx0() + 48; }
@@ -282,98 +282,100 @@ public class OstScreen extends Screen {
     private int distBarW() { return 100; }
     private int sliderY()  { return footerY() + 16; }
 
-    private void renderFooter(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
+    private void renderFooter(GuiGraphicsExtractor g, Font tr, int mouseX, int mouseY) {
         int sy = sliderY();
         // Volume : label à gauche, valeur % alignée à droite du slider.
-        ctx.drawText(tr, Text.literal("VOLUME").styled(s -> s.withBold(true)), cx0() + 8, sy - 8, TEXT_MUTED, false);
+        g.text(tr, Component.literal("VOLUME").withStyle(s -> s.withBold(true)), cx0() + 8, sy - 8, TEXT_MUTED, false);
         String volVal = Math.round(config.getVolume() * 100f) + " %";
-        ctx.drawText(tr, Text.literal(volVal),
-            volBarX() + volBarW() - tr.getWidth(volVal), sy - 8, GOLD, false);
-        slider(ctx, volBarX(), sy, volBarW(), config.getVolume(), ACCENT);
+        g.text(tr, Component.literal(volVal),
+            volBarX() + volBarW() - tr.width(volVal), sy - 8, GOLD, false);
+        slider(g, volBarX(), sy, volBarW(), config.getVolume(), ACCENT);
         // Distance : label + valeur en blocs alignée à droite du slider.
-        ctx.drawText(tr, Text.literal("DISTANCE").styled(s -> s.withBold(true)), distBarX() - 60, sy - 8, TEXT_MUTED, false);
+        g.text(tr, Component.literal("DISTANCE").withStyle(s -> s.withBold(true)), distBarX() - 60, sy - 8, TEXT_MUTED, false);
         String distVal = Math.round(config.getBroadcastDistance()) + " blocs";
-        ctx.drawText(tr, Text.literal(distVal),
-            distBarX() + distBarW() - tr.getWidth(distVal), sy - 8, 0xFF6FA8DA, false);
-        slider(ctx, distBarX(), sy, distBarW(), Math.min(1f, config.getBroadcastDistance() / 128f), 0xFF3A6BB2);
+        g.text(tr, Component.literal(distVal),
+            distBarX() + distBarW() - tr.width(distVal), sy - 8, 0xFF6FA8DA, false);
+        slider(g, distBarX(), sy, distBarW(), Math.min(1f, config.getBroadcastDistance() / 128f), 0xFF3A6BB2);
 
         boolean solo = config.isSoloMode();
         int soloX = cx0() + cw() - 84;
         boolean soloHov = in(mouseX, mouseY, soloX, sy - 6, 78, 16);
-        roundRect(ctx, soloX, sy - 6, 78, 16, solo ? ACCENT : (soloHov ? ROW_HOVER : SECTION));
-        ctx.drawText(tr, Text.literal(solo ? "Mode Solo ON" : "Mode Solo OFF"), soloX + 6, sy - 2,
+        roundRect(g, soloX, sy - 6, 78, 16, solo ? ACCENT : (soloHov ? ROW_HOVER : SECTION));
+        g.text(tr, Component.literal(solo ? "Mode Solo ON" : "Mode Solo OFF"), soloX + 6, sy - 2,
             solo ? 0xFFFFFFFF : TEXT_MUTED, false);
     }
 
-    private void slider(DrawContext ctx, int x, int y, int w, float frac, int color) {
-        ctx.fill(x, y, x + w, y + 3, 0x40FFFFFF);
+    private void slider(GuiGraphicsExtractor g, int x, int y, int w, float frac, int color) {
+        g.fill(x, y, x + w, y + 3, 0x40FFFFFF);
         int fw = (int) (w * Math.max(0f, Math.min(1f, frac)));
-        ctx.fill(x, y, x + fw, y + 3, color);
-        ctx.fill(x + fw - 1, y - 3, x + fw + 1, y + 6, GOLD);
+        g.fill(x, y, x + fw, y + 3, color);
+        g.fill(x + fw - 1, y - 3, x + fw + 1, y + 6, GOLD);
     }
 
-    private void drawCover(DrawContext ctx, OstTrack track, int x, int y, int size) {
-        drawCover(ctx, track, x, y, size, 0f);
+    private void drawCover(GuiGraphicsExtractor g, OstTrack track, int x, int y, int size) {
+        drawCover(g, track, x, y, size, 0f);
     }
 
-    private void drawCover(DrawContext ctx, OstTrack track, int x, int y, int size, float angle) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private void drawCover(GuiGraphicsExtractor g, OstTrack track, int x, int y, int size, float angle) {
+        Minecraft mc = Minecraft.getInstance();
         Identifier cover = OstTrackMeta.coverTexture(track);
         boolean rot = angle != 0f;
         if (rot) {
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(x + size / 2f, y + size / 2f, 0);
-            ctx.getMatrices().multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Z.rotationDegrees(angle));
-            ctx.getMatrices().translate(-(x + size / 2f), -(y + size / 2f), 0);
+            g.pose().pushMatrix();
+            g.pose().translate(x + size / 2f, y + size / 2f);
+            g.pose().rotate((float) Math.toRadians(angle));
+            g.pose().translate(-(x + size / 2f), -(y + size / 2f));
         }
         if (cover != null && mc.getResourceManager().getResource(cover).isPresent()) {
-            ctx.drawTexture(cover, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
+            g.blit(cover, x, y, size, size, 0f, 0f, 1f, 1f);
         } else if (mc.getResourceManager().getResource(VINYL).isPresent()) {
-            ctx.drawTexture(VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
+            g.blit(VINYL, x, y, size, size, 0f, 0f, 1f, 1f);
             int cx = x + size / 2, cy = y + size / 2;
             // Tint SUBTIL du centre selon le thème (semi-transparent → garde le
             // détail/relief du vinyl d'origine au lieu d'un disque plein).
             int tint = (categoryColor(track.category()) & 0x00FFFFFF) | 0x88000000;
-            fillDisc(ctx, cx, cy, Math.max(2, Math.round(size * 0.20f)), tint);
+            fillDisc(g, cx, cy, Math.max(2, Math.round(size * 0.20f)), tint);
         } else {
-            ctx.fill(x, y, x + size, y + size, categoryColor(track.category()));
+            g.fill(x, y, x + size, y + size, categoryColor(track.category()));
         }
-        if (rot) ctx.getMatrices().pop();
+        if (rot) g.pose().popMatrix();
     }
 
-    private void drawVinylPlaceholder(DrawContext ctx, int x, int y, int size) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private void drawVinylPlaceholder(GuiGraphicsExtractor g, int x, int y, int size) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc.getResourceManager().getResource(VINYL).isPresent()) {
-            ctx.drawTexture(VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
+            g.blit(VINYL, x, y, size, size, 0f, 0f, 1f, 1f);
         } else {
-            ctx.fill(x, y, x + size, y + size, 0xFF2A1A1E);
+            g.fill(x, y, x + size, y + size, 0xFF2A1A1E);
         }
     }
 
-    private static void fillDisc(DrawContext ctx, int cx, int cy, int r, int color) {
+    private static void fillDisc(GuiGraphicsExtractor g, int cx, int cy, int r, int color) {
         for (int dy = -r; dy <= r; dy++) {
             int dx = (int) Math.round(Math.sqrt((double) r * r - dy * dy));
-            ctx.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
+            g.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
         }
     }
 
     // ─── Interaction ───
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        if (super.mouseClicked(mx, my, button)) return true;
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        if (super.mouseClicked(event, doubleClick)) return true;
+        double mx = event.x(), my = event.y();
+        int button = event.button();
         int mxi = (int) mx, myi = (int) my;
         int hy = headerY();
 
-        if (in(mxi, myi, px + pw - 22, hy - 2, 16, 16)) { close(); return true; }
+        if (in(mxi, myi, px + pw - 22, hy - 2, 16, 16)) { onClose(); return true; }
 
         // Onglets.
         int tabX = cx0();
         for (OstCategory cat : OstCategory.values()) {
-            int w = this.textRenderer.getWidth(cat.displayName()) + 10;
+            int w = this.font.width(cat.displayName()) + 10;
             if (in(mxi, myi, tabX, hy - 2, w, 18)) {
                 selectedCategory = cat; scrollOffset = 0;
-                if (searchField != null) searchField.setText("");
+                if (searchField != null) searchField.setValue("");
                 return true;
             }
             tabX += w + 8;
@@ -428,15 +430,15 @@ public class OstScreen extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
         pressedCtrl = -1; // relâche l'animation pressed
-        return super.mouseReleased(mx, my, button);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (handleSliders(mx, my)) return true;
-        return super.mouseDragged(mx, my, button, dx, dy);
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
+        if (handleSliders(event.x(), event.y())) return true;
+        return super.mouseDragged(event, dx, dy);
     }
 
     private boolean handleSliders(double mx, double my) {
@@ -504,11 +506,11 @@ public class OstScreen extends Screen {
     }
 
     private boolean searchBlank() {
-        return searchField == null || searchField.getText().isBlank();
+        return searchField == null || searchField.getValue().isBlank();
     }
 
     private List<OstTrack> resolveVisibleTracks() {
-        String q = searchField != null ? searchField.getText() : "";
+        String q = searchField != null ? searchField.getValue() : "";
         if (q != null && !q.isBlank()) return library.search(q);
         if (selectedCategory == OstCategory.FAVORIS) return library.favorites(config.getFavorites());
         return library.tracks(selectedCategory);
@@ -526,20 +528,20 @@ public class OstScreen extends Screen {
         };
     }
 
-    private static void panel(DrawContext ctx, int x, int y, int w, int h, int bg) {
-        ctx.fill(x + 2, y, x + w - 2, y + h, bg);
-        ctx.fill(x, y + 2, x + 2, y + h - 2, bg);
-        ctx.fill(x + w - 2, y + 2, x + w, y + h - 2, bg);
-        ctx.fill(x + 2, y, x + w - 2, y + 1, BORDER);
-        ctx.fill(x + 2, y + h - 1, x + w - 2, y + h, BORDER);
-        ctx.fill(x, y + 2, x + 1, y + h - 2, BORDER);
-        ctx.fill(x + w - 1, y + 2, x + w, y + h - 2, BORDER);
+    private static void panel(GuiGraphicsExtractor g, int x, int y, int w, int h, int bg) {
+        g.fill(x + 2, y, x + w - 2, y + h, bg);
+        g.fill(x, y + 2, x + 2, y + h - 2, bg);
+        g.fill(x + w - 2, y + 2, x + w, y + h - 2, bg);
+        g.fill(x + 2, y, x + w - 2, y + 1, BORDER);
+        g.fill(x + 2, y + h - 1, x + w - 2, y + h, BORDER);
+        g.fill(x, y + 2, x + 1, y + h - 2, BORDER);
+        g.fill(x + w - 1, y + 2, x + w, y + h - 2, BORDER);
     }
 
-    private static void roundRect(DrawContext ctx, int x, int y, int w, int h, int color) {
-        ctx.fill(x + 1, y, x + w - 1, y + h, color);
-        ctx.fill(x, y + 1, x + 1, y + h - 1, color);
-        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+    private static void roundRect(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
+        g.fill(x + 1, y, x + w - 1, y + h, color);
+        g.fill(x, y + 1, x + 1, y + h - 1, color);
+        g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 
     private static boolean in(int mx, int my, int x, int y, int w, int h) {
@@ -547,12 +549,12 @@ public class OstScreen extends Screen {
     }
 
     @Override
-    public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+    public void onClose() {
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

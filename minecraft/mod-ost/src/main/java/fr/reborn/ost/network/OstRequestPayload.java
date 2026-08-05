@@ -1,16 +1,16 @@
 package fr.reborn.ost.network;
 
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * Custom payload <b>client → serveur</b> {@code reborn:ost_request} — le joueur
  * demande au plugin de diffuser / stopper / mettre en pause un son de zone.
  * C'est le pendant C2S du canal {@link OstPayload} (S2C).
  *
- * <p>Format wire (compatible {@code PacketByteBuf} / {@code OstRequestReader}
+ * <p>Format wire (compatible {@code FriendlyByteBuf} / {@code OstRequestReader}
  * côté plugin) :
  * <pre>
  *   REQUEST_PLAY  (0x01) : type:byte trackId:string radius:float volume:float
@@ -21,23 +21,23 @@ import net.minecraft.util.Identifier;
  * <p>Anti-abus : le plugin applique un cooldown par joueur + un cap de rayon,
  * et n'autorise stop/pause qu'au <b>propriétaire</b> du broadcast en cours.
  */
-public sealed interface OstRequestPayload extends CustomPayload
+public sealed interface OstRequestPayload extends CustomPacketPayload
     permits OstRequestPayload.RequestPlay, OstRequestPayload.RequestStop,
             OstRequestPayload.RequestPause {
 
-    Identifier IDENTIFIER = Identifier.of("reborn", "ost_request");
-    CustomPayload.Id<OstRequestPayload> ID = new CustomPayload.Id<>(IDENTIFIER);
+    Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "ost_request");
+    CustomPacketPayload.Type<OstRequestPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);
 
     byte TYPE_PLAY  = 0x01;
     byte TYPE_STOP  = 0x02;
     byte TYPE_PAUSE = 0x03;
 
-    PacketCodec<PacketByteBuf, OstRequestPayload> CODEC = new PacketCodec<>() {
+    StreamCodec<FriendlyByteBuf, OstRequestPayload> CODEC = new StreamCodec<>() {
         @Override
-        public OstRequestPayload decode(PacketByteBuf buf) {
+        public OstRequestPayload decode(FriendlyByteBuf buf) {
             byte type = buf.readByte();
             return switch (type) {
-                case TYPE_PLAY -> new RequestPlay(buf.readString(), buf.readFloat(), buf.readFloat());
+                case TYPE_PLAY -> new RequestPlay(buf.readUtf(), buf.readFloat(), buf.readFloat());
                 case TYPE_STOP -> new RequestStop();
                 case TYPE_PAUSE -> new RequestPause(buf.readBoolean());
                 default -> throw new IllegalArgumentException("type ost-request inconnu: " + type);
@@ -45,11 +45,11 @@ public sealed interface OstRequestPayload extends CustomPayload
         }
 
         @Override
-        public void encode(PacketByteBuf buf, OstRequestPayload value) {
+        public void encode(FriendlyByteBuf buf, OstRequestPayload value) {
             switch (value) {
                 case RequestPlay p -> {
                     buf.writeByte(TYPE_PLAY);
-                    buf.writeString(p.trackId());
+                    buf.writeUtf(p.trackId());
                     buf.writeFloat(p.radius());
                     buf.writeFloat(p.volume());
                 }
@@ -63,7 +63,7 @@ public sealed interface OstRequestPayload extends CustomPayload
     };
 
     @Override
-    default Id<? extends CustomPayload> getId() {
+    default Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 

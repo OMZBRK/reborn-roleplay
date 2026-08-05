@@ -3,7 +3,7 @@ package fr.reborn.ost.audio;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,7 +75,7 @@ public final class OstTrackMeta {
         String name = (e != null && e.cover != null && !e.cover.isBlank())
             ? e.cover : track.fileName();
         if (name == null || name.isBlank()) return null;
-        return Identifier.of("reborn-ost", "textures/cover/" + name + ".png");
+        return Identifier.fromNamespaceAndPath("reborn-ost", "textures/cover/" + name + ".png");
     }
 
     /** Formate une durée en mm:ss, ou chaîne vide si 0. */

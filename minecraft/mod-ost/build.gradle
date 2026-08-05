@@ -1,0 +1,61 @@
+// Reborn OST — mod Fabric client-side (lecteur audio BGM/OST).
+//
+// Config Groovy 26.1.2 / Java 25 (client Mojang deobfusque, Yarn discontinue) :
+// Loom deobf, aucune ligne `mappings(...)`, fabric-api complet remappe via
+// `implementation` (Loom deobf auto-remap). Cf mod-integrity/build.gradle.
+
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'
+}
+
+version = project.mod_version
+group = project.maven_group
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+// Deuxieme client de dev (test attenuation positionnelle a 2 instances).
+loom {
+    runs {
+        register('clientB') {
+            client()
+            ideConfigGenerated(true)
+            runDir('run-clientB')
+            programArgs('--username', 'DevB')
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+processResources {
+    def props = [
+        version          : project.version,
+        minecraft_version: project.minecraft_version,
+        loader_version   : project.loader_version,
+    ]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}

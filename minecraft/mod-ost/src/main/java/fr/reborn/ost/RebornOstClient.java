@@ -10,7 +10,7 @@ import fr.reborn.ost.ui.OstHudOverlay;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +32,7 @@ import java.nio.file.Path;
  *
  * <p>Les singletons {@code library()}, {@code audioEngine()}, {@code config()}
  * sont exposés statiquement — ils sont nécessaires depuis le Screen UI
- * qui est instancié par le KeyBinding handler.
+ * qui est instancié par le KeyMapping handler.
  */
 public final class RebornOstClient implements ClientModInitializer {
 
@@ -82,7 +82,7 @@ public final class RebornOstClient implements ClientModInitializer {
             // Lecture continue (auto-next / repeat) — indépendant du joueur.
             fr.reborn.ost.audio.OstPlayback.INSTANCE.tick(AUDIO_ENGINE, CONFIG);
             if (client.player == null) return;
-            Vec3d pos = client.player.getEyePos();
+            Vec3 pos = client.player.getEyePosition();
             AUDIO_ENGINE.tickPositional(pos.x, pos.y, pos.z);
         });
 

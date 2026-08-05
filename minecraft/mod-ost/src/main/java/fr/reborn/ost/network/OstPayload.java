@@ -1,9 +1,9 @@
 package fr.reborn.ost.network;
 
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * Custom payload {@code reborn:ost} reçu depuis le plugin serveur.
@@ -21,7 +21,7 @@ import net.minecraft.util.Identifier;
  * joueur qui rejoint une zone déjà active d'attaquer la lecture au
  * timestamp courant via {@code AL_SEC_OFFSET}, et pas de réentendre depuis 0.
  *
- * <p>{@code string} = {@link PacketByteBuf#writeString} = VarInt(len) +
+ * <p>{@code string} = {@link FriendlyByteBuf#writeString} = VarInt(len) +
  * UTF-8 bytes. Le plugin produit le même encoding via
  * {@code OstWireFormat#writeVarIntString}.
  *
@@ -29,12 +29,12 @@ import net.minecraft.util.Identifier;
  * inconnu, le codec lève une exception qui est attrapée dans
  * {@code OstNetworking}, loggée en WARNING, et n'impacte pas le client.
  */
-public sealed interface OstPayload extends CustomPayload
+public sealed interface OstPayload extends CustomPacketPayload
     permits OstPayload.PlayAtPosition, OstPayload.StopBroadcast, OstPayload.PlayGlobal,
             OstPayload.PauseBroadcast {
 
-    Identifier IDENTIFIER = Identifier.of("reborn", "ost");
-    CustomPayload.Id<OstPayload> ID = new CustomPayload.Id<>(IDENTIFIER);
+    Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "ost");
+    CustomPacketPayload.Type<OstPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);
 
     /** Trace fixe pour les logs / la HUD. */
     String summary();
@@ -45,9 +45,9 @@ public sealed interface OstPayload extends CustomPayload
      * symétrique pour permettre les tests unitaires (encode → decode)
      * sans avoir à dupliquer la logique dans le plugin.
      */
-    PacketCodec<PacketByteBuf, OstPayload> CODEC = new PacketCodec<>() {
+    StreamCodec<FriendlyByteBuf, OstPayload> CODEC = new StreamCodec<>() {
         @Override
-        public OstPayload decode(PacketByteBuf buf) {
+        public OstPayload decode(FriendlyByteBuf buf) {
             byte typeCode = buf.readByte();
             OstPacketType type = OstPacketType.fromCode(typeCode);
             return switch (type) {
@@ -56,14 +56,14 @@ public sealed interface OstPayload extends CustomPayload
                     double y = buf.readDouble();
                     double z = buf.readDouble();
                     float radius = buf.readFloat();
-                    String trackId = buf.readString();
+                    String trackId = buf.readUtf();
                     float volume = buf.readFloat();
                     float secOffset = buf.readFloat();
                     yield new PlayAtPosition(x, y, z, radius, trackId, volume, secOffset);
                 }
                 case STOP_BROADCAST -> new StopBroadcast();
                 case PLAY_GLOBAL -> {
-                    String trackId = buf.readString();
+                    String trackId = buf.readUtf();
                     float volume = buf.readFloat();
                     yield new PlayGlobal(trackId, volume);
                 }
@@ -72,7 +72,7 @@ public sealed interface OstPayload extends CustomPayload
         }
 
         @Override
-        public void encode(PacketByteBuf buf, OstPayload value) {
+        public void encode(FriendlyByteBuf buf, OstPayload value) {
             switch (value) {
                 case PlayAtPosition p -> {
                     buf.writeByte(OstPacketType.PLAY_AT_POSITION.code());
@@ -80,14 +80,14 @@ public sealed interface OstPayload extends CustomPayload
                     buf.writeDouble(p.y());
                     buf.writeDouble(p.z());
                     buf.writeFloat(p.radius());
-                    buf.writeString(p.trackId());
+                    buf.writeUtf(p.trackId());
                     buf.writeFloat(p.volume());
                     buf.writeFloat(p.secOffset());
                 }
                 case StopBroadcast ignored -> buf.writeByte(OstPacketType.STOP_BROADCAST.code());
                 case PlayGlobal p -> {
                     buf.writeByte(OstPacketType.PLAY_GLOBAL.code());
-                    buf.writeString(p.trackId());
+                    buf.writeUtf(p.trackId());
                     buf.writeFloat(p.volume());
                 }
                 case PauseBroadcast p -> {
@@ -99,7 +99,7 @@ public sealed interface OstPayload extends CustomPayload
     };
 
     @Override
-    default Id<? extends CustomPayload> getId() {
+    default Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 

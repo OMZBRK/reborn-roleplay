@@ -6,7 +6,7 @@ import fr.reborn.ost.audio.OstTrack;
 import fr.reborn.ost.config.OstConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,10 +35,10 @@ public final class OstNetworking {
     private OstNetworking() {}
 
     public static void registerClient(OstLibrary library, OstAudioEngine engine, OstConfig config) {
-        PayloadTypeRegistry.playS2C().register(OstPayload.ID, OstPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(OstPayload.ID, OstPayload.CODEC);
         // Canal C2S (client → serveur) : le joueur demande un broadcast de zone
         // / stop / pause. Le plugin applique cooldown + cap rayon + owner-only.
-        PayloadTypeRegistry.playC2S().register(OstRequestPayload.ID, OstRequestPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(OstRequestPayload.ID, OstRequestPayload.CODEC);
 
         ClientPlayNetworking.registerGlobalReceiver(OstPayload.ID, (payload, ctx) -> {
             LOGGER.info("payload recu : {}", payload.summary());
@@ -79,7 +79,7 @@ public final class OstNetworking {
     }
 
     private static void handle(OstPayload payload, OstLibrary library, OstAudioEngine engine,
-                               OstConfig config, MinecraftClient client) {
+                               OstConfig config, Minecraft client) {
         if (config.isSoloMode()) {
             LOGGER.info("solo mode actif — payload IGNORE : {}", payload.summary());
             return;
@@ -113,7 +113,7 @@ public final class OstNetworking {
 
     private static void resolveAndPlay(String trackId, float volume, float[] worldPos,
                                        float radius, float secOffset, OstLibrary library,
-                                       OstAudioEngine engine, MinecraftClient client) {
+                                       OstAudioEngine engine, Minecraft client) {
         Optional<OstTrack> resolved = library.resolve(trackId);
         if (resolved.isEmpty()) {
             LOGGER.warn("broadcast reçu pour trackId inconnu : '{}'. Drop ses fichiers .ogg dans le dossier OST local et /ost reload.", trackId);
