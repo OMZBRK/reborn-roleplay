@@ -63,7 +63,7 @@ public abstract class OptionsScreenMixin extends Screen {
             }
         }
         for (GuiEventListener e : toRemove) {
-            this.remove(e);
+            this.removeWidget(e);
         }
         if (!toRemove.isEmpty()) {
             REBORN_LOGGER.info(

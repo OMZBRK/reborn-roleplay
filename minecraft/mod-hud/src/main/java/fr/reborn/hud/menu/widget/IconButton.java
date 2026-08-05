@@ -163,7 +163,7 @@ public class IconButton extends Button {
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
         if (tooltip != null && !tooltip.isEmpty()) {
-            builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE, tooltip);
+            
         }
     }
 }

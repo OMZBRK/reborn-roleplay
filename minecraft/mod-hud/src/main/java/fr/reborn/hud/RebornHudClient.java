@@ -55,7 +55,7 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
             if (mc == null || mc.player == null || mc.screen != null || mc.options == null) return;
             if (!fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold) return;
-            if (!mc.options.playerListKey.isPressed()) return;
+            if (!mc.options.keyPlayerList.isDown()) return;
             fr.reborn.hud.menu.tablist.TablistScreen.renderHoldOverlay(ctx);
         });
 
@@ -83,9 +83,9 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (narratorDone[0] || client.options == null) return;
             narratorDone[0] = true;
-            if (client.options.getNarrator().getValue() != net.minecraft.client.NarratorMode.OFF) {
-                client.options.getNarrator().setValue(net.minecraft.client.NarratorMode.OFF);
-                client.options.write();
+            if (client.options.narrator().get() != net.minecraft.client.NarratorMode.OFF) {
+                client.options.narrator().set(net.minecraft.client.NarratorMode.OFF);
+                client.options.save();
                 LOGGER.info("narrateur Minecraft désactivé");
             }
         });

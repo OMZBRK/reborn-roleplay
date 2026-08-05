@@ -24,13 +24,13 @@ public final class HudHelpScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0x80000000);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        renderBackground(ctx, mouseX, mouseY, delta);
+        extractBackground(ctx, mouseX, mouseY, delta);
         Font tr = this.font;
 
         // Sections (catégorie, [keys])
@@ -119,22 +119,24 @@ public final class HudHelpScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        close();
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
+        onClose();
         return true;
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        close();
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+        onClose();
         return true;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 }

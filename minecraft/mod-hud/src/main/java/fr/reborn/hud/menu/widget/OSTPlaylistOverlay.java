@@ -54,7 +54,7 @@ public class OSTPlaylistOverlay extends AbstractWidget {
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         if (!isOpen()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
@@ -149,7 +149,8 @@ public class OSTPlaylistOverlay extends AbstractWidget {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         if (!isOpen()) return;
 
         int bodyTop = getY() + HEADER_H;
@@ -176,7 +177,6 @@ public class OSTPlaylistOverlay extends AbstractWidget {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            "Playlist OST — " + OSTPlayer.TOTAL_TRACKS + " pistes");
+        
     }
 }

@@ -59,12 +59,12 @@ public class RulesLoreScreen extends Screen {
         this.addRenderableWidget(new RebornButton(
             sidebarX, this.height - 50, btnW, btnH,
             Component.literal("RETOUR"),
-            b -> close()
+            b -> onClose()
         ));
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         // Override pour eviter le panorama vanilla — fond noir uni.
         context.fill(0, 0, this.width, this.height, BG);
     }
@@ -77,7 +77,7 @@ public class RulesLoreScreen extends Screen {
         context.fill(0, 55, this.width, 56, ACCENT);
         // Titre — pixel-perfect via centeredText (le scale 2x
         // floute la font MC).
-        context.centeredText(textRenderer,
+        context.centeredText(font,
             Component.literal("RÈGLEMENT & LORE"),
             this.width / 2, 28, FG);
 
@@ -99,14 +99,14 @@ public class RulesLoreScreen extends Screen {
         for (String line : lines) {
             if (line.startsWith("# ")) {
                 // Titre h1 : plus gros + accent
-                context.text(textRenderer, line.substring(2), contentX + 16, textY, ACCENT, true);
+                context.text(font, line.substring(2), contentX + 16, textY, ACCENT, true);
                 textY += 16;
             } else if (line.startsWith("## ")) {
                 // Titre h2
-                context.text(textRenderer, line.substring(3), contentX + 16, textY, FG, true);
+                context.text(font, line.substring(3), contentX + 16, textY, FG, true);
                 textY += 14;
             } else {
-                context.text(textRenderer, line, contentX + 16, textY, FG_DIM, false);
+                context.text(font, line, contentX + 16, textY, FG_DIM, false);
                 textY += 12;
             }
         }
@@ -126,7 +126,7 @@ public class RulesLoreScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 

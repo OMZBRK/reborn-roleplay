@@ -33,7 +33,7 @@ public class CrosshairTile extends AbstractWidget {
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         boolean selected = current.getAsInt() == index;
         boolean hovered = isHovered();
 
@@ -57,7 +57,8 @@ public class CrosshairTile extends AbstractWidget {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         onSelect.accept(index);
     }
 

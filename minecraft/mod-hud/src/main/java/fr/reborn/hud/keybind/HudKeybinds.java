@@ -26,89 +26,89 @@ public final class HudKeybinds {
         // S'assure que les prefs (dont tablistHold) sont chargées avant lecture.
         fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.ensureLoaded();
 
-        KeyMapping openEditScreen = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping openEditScreen = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.open_editor",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_H,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
-        KeyMapping openCrosshair = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping openCrosshair = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.open_crosshair",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_J,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
-        KeyMapping openInteraction = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping openInteraction = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.open_interaction",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_R,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
-        KeyMapping toggleCinema = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping toggleCinema = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.toggle_cinema",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_K,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
-        KeyMapping togglePhoto = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping togglePhoto = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.toggle_photo",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_P,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
         PHOTO = togglePhoto;
 
-        KeyMapping openGallery = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping openGallery = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.open_gallery",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_G,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
         // Caméra épaule Reborn. Défauts sur des touches LIBRES (V=ReplayMod,
         // X=lâcher, B=émote Emotecraft, N=menu OST, M=PlasmoVoice sont pris).
         // Y = toggle, U = swap épaule, I = cycle preset. Rebindables.
-        KeyMapping toggleShoulderCam = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping toggleShoulderCam = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.cam_toggle",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_Y,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
-        KeyMapping swapShoulder = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping swapShoulder = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.cam_swap",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_U,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
-        KeyMapping cyclePreset = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping cyclePreset = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.cam_preset",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_I,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
-        KeyMapping openCamMenu = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping openCamMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.cam_menu",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_O,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
         // TEST : bascule le naruto-run (en attendant le trigger plugin).
-        KeyMapping narutoTest = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping narutoTest = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.naruto_test",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_L,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
         // Menu de sélection du style de marche (GTA-RP).
-        KeyMapping walkMenu = KeyMappingHelper.registerKeyBinding(new KeyMapping(
+        KeyMapping walkMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.walk_menu",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_PERIOD,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -177,7 +177,7 @@ public final class HudKeybinds {
             // la touche est maintenue. On draine toujours la file d'events.
             if (client.options != null) {
                 boolean hold = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold;
-                while (client.options.playerListKey.consumeClick()) {
+                while (client.options.keyPlayerList.consumeClick()) {
                     Minecraft mc = Minecraft.getInstance();
                     if (!hold && mc.screen == null && mc.player != null) {
                         mc.setScreen(new fr.reborn.hud.menu.tablist.TablistScreen());

@@ -45,13 +45,13 @@ public final class ChatSettingsScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0x66000000);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        renderBackground(ctx, mouseX, mouseY, delta);
+        extractBackground(ctx, mouseX, mouseY, delta);
         toggles.clear();
         sliders.clear();
         swatches.clear();
@@ -182,8 +182,9 @@ public final class ChatSettingsScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
+        if (button != 0) return super.mouseClicked(event, doubleClick);
         for (Toggle t : toggles) {
             if (inside((int) mouseX, (int) mouseY, t.x, t.y, t.w, t.h)) {
                 t.onSet.accept(!t.state);
@@ -214,25 +215,25 @@ public final class ChatSettingsScreen extends Screen {
         int cardY = (this.height - cardH) / 2;
         int closeBtnY = cardY + cardH - 28;
         if (inside((int) mouseX, (int) mouseY, cardX + 14, closeBtnY, cardW - 28, 20)) {
-            close();
+            onClose();
             return true;
         }
         // Click outside card → close
         if (!inside((int) mouseX, (int) mouseY, cardX, cardY, cardW, cardH)) {
-            close();
+            onClose();
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         RebornHudClient.config().save();
         Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     private static boolean inside(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;

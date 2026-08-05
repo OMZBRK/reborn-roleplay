@@ -32,15 +32,15 @@ public class ServerInfoWidget extends AbstractWidget {
     private static final int PADDING = 8;
     private static final int DOT_SIZE = 6;
 
-    private final Font textRenderer;
+    private final Font font;
 
-    public ServerInfoWidget(int x, int y, Font textRenderer) {
+    public ServerInfoWidget(int x, int y, Font font) {
         super(x, y, 200, 40, Component.literal("Reborn Server"));
-        this.font = textRenderer;
+        this.font = font;
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ServerInfoState st = ServerInfoState.INSTANCE;
         st.maybeRefresh();
 
@@ -61,7 +61,7 @@ public class ServerInfoWidget extends AbstractWidget {
 
         // Ligne 1 : nom serveur.
         String title = st.isOnline() ? "Reborn Roleplay" : "Serveur hors ligne";
-        context.text(textRenderer, title, dotX + DOT_SIZE + 6, y0 + 9, FG, false);
+        context.text(font, title, dotX + DOT_SIZE + 6, y0 + 9, FG, false);
 
         // Ligne 2 : compteur joueurs ou message.
         String line2;
@@ -70,15 +70,16 @@ public class ServerInfoWidget extends AbstractWidget {
         } else {
             line2 = "Reconnexion...";
         }
-        context.text(textRenderer, line2, x0 + PADDING, y0 + 23, FG_DIM, false);
+        context.text(font, line2, x0 + PADDING, y0 + 23, FG_DIM, false);
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         // No-op pour l'instant. PR ulterieure : ouvrir un mini-dashboard
         // serveur (latence, MOTD, version) au click.
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase 2 */ }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase2 */ }
 }

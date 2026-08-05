@@ -50,16 +50,16 @@ public abstract class CameraThirdPersonMixin {
             -Math.sin(yr) * Math.cos(pr),
             -Math.sin(pr),
             Math.cos(yr) * Math.cos(pr));
-        Vec3 backDir = viewDir.multiply(-1.0);            // de l'oeil vers la caméra
-        Vec3 right = viewDir.crossProduct(new Vec3(0, 1, 0));
+        Vec3 backDir = viewDir.scale(-1.0);            // de l'oeil vers la caméra
+        Vec3 right = viewDir.cross(new Vec3(0, 1, 0));
         if (right.lengthSquared() < 1.0e-6) {
             right = new Vec3(1, 0, 0);
         } else {
             right = right.normalize();
         }
-        Vec3 up = right.crossProduct(viewDir).normalize();
+        Vec3 up = right.cross(viewDir).normalize();
 
-        Vec3 eye = focusedEntity.getCameraPosVec(tickDelta);
+        Vec3 eye = focusedEntity.getEyePosition(tickDelta);
         Vec3 target = eye
             .add(backDir.multiply(cam.distance()))
             .add(right.multiply(cam.rightOffset()))
@@ -73,9 +73,9 @@ public abstract class CameraThirdPersonMixin {
     @Unique
     private Vec3 reborn$clip(Entity e, Vec3 from, Vec3 to) {
         HitResult hit = e.getWorld().raycast(new ClipContext(
-            from, to, ClipContext.ShapeType.VISUAL, ClipContext.FluidHandling.NONE, e));
+            from, to, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, e));
         if (hit.getType() != HitResult.Type.BLOCK) return to;
-        Vec3 hp = hit.position();
+        Vec3 hp = hit.getLocation();
         Vec3 dir = to.subtract(from);
         double len = dir.length();
         // Recule de 0.2 bloc vers l'oeil pour ne pas coller/clipper dans le mur.

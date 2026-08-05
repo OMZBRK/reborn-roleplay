@@ -57,7 +57,6 @@ public class TabButton extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            "Onglet " + label);
+        
     }
 }

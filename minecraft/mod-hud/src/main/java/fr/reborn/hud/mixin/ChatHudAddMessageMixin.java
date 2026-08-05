@@ -52,7 +52,7 @@ public abstract class ChatHudAddMessageMixin {
         if (mc.getConnection() == null) return false;
         String earliest = null;
         int bestIdx = Integer.MAX_VALUE;
-        for (PlayerInfo e : mc.getConnection().getPlayerList()) {
+        for (PlayerInfo e : mc.getConnection().getOnlinePlayers()) {
             String name = e.getProfile() != null ? e.getProfile().getName() : null;
             if (name == null || name.isEmpty()) continue;
             int idx = plain.indexOf(name);
@@ -77,7 +77,7 @@ public abstract class ChatHudAddMessageMixin {
             Minecraft mc = Minecraft.getInstance();
             LocalPlayer player = mc.player;
             if (player == null) return;
-            String pseudo = player.getGameProfile().getName();
+            String pseudo = player.getProfile().getName();
 
             if (MentionDetector.isMentioned(message.getString(), pseudo)) {
                 if (settings.soundOnMention && mc.getSoundManager() != null) {

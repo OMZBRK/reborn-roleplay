@@ -85,7 +85,7 @@ public class AnimationMenuScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, Colors.BACKDROP_60);
         int py = panelY();
         DrawHelpers.roundedOutlinedRect(ctx, PANEL_X, py, PANEL_W, panelH(), 10,
@@ -158,7 +158,8 @@ public class AnimationMenuScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0) {
             // Onglets.
             int tabW = PANEL_W / 2;
@@ -179,16 +180,16 @@ public class AnimationMenuScreen extends Screen {
                 y += ROW_H;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 }

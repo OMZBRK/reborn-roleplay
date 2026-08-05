@@ -43,7 +43,7 @@ public class DisconnectConfirmScreen extends Screen {
 
         this.addRenderableWidget(RebornButton.ghost(
             cardX + cardW / 2 - btnW - gap / 2, btnY, btnW, btnH,
-            "Annuler", b -> close()
+            "Annuler", b -> onClose()
         ));
         this.addRenderableWidget(RebornButton.danger(
             cardX + cardW / 2 + gap / 2, btnY, btnW, btnH,
@@ -61,13 +61,13 @@ public class DisconnectConfirmScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, Colors.BACKDROP_85);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context, mouseX, mouseY, delta);
+        this.extractBackground(context, mouseX, mouseY, delta);
         drawCard(context);
         for (GuiEventListener e : this.children()) {
             if (e instanceof Renderable d) {
@@ -114,12 +114,12 @@ public class DisconnectConfirmScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 }

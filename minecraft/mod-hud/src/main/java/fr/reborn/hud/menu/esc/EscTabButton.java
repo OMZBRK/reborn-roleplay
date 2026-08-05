@@ -55,7 +55,6 @@ public class EscTabButton extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            label.getString());
+        
     }
 }

@@ -37,7 +37,7 @@ public class ToggleBig extends AbstractWidget {
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         int x0 = getX();
         int y0 = getY();
         int w = getWidth();
@@ -59,14 +59,14 @@ public class ToggleBig extends AbstractWidget {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         checked = !checked;
         if (onChange != null) onChange.accept(checked);
     }
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            checked ? "Activé" : "Désactivé");
+        
     }
 }

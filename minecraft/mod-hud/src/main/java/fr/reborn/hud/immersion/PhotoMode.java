@@ -50,9 +50,9 @@ public final class PhotoMode {
     public boolean anyMoveKeyDown(Minecraft mc) {
         if (mc.options == null) return false;
         long w = mc.getWindow().getHandle();
-        return down(mc, w, mc.options.forwardKey) || down(mc, w, mc.options.backKey)
-            || down(mc, w, mc.options.leftKey) || down(mc, w, mc.options.rightKey)
-            || down(mc, w, mc.options.jumpKey) || down(mc, w, mc.options.sneakKey);
+        return down(mc, w, mc.options.keyUp) || down(mc, w, mc.options.keyDown)
+            || down(mc, w, mc.options.keyLeft) || down(mc, w, mc.options.keyRight)
+            || down(mc, w, mc.options.keyJump) || down(mc, w, mc.options.keyShift);
     }
 
     private PhotoMode() {}
@@ -96,16 +96,16 @@ public final class PhotoMode {
         }
         long win = mc.getWindow().getHandle();
         float f = 0, s = 0, up = 0;
-        if (down(mc, win, mc.options.forwardKey)) f += 1;
-        if (down(mc, win, mc.options.backKey)) f -= 1;
-        if (down(mc, win, mc.options.rightKey)) s += 1;
-        if (down(mc, win, mc.options.leftKey)) s -= 1;
-        if (down(mc, win, mc.options.jumpKey)) up += 1;
-        if (down(mc, win, mc.options.sneakKey)) up -= 1;
+        if (down(mc, win, mc.options.keyUp)) f += 1;
+        if (down(mc, win, mc.options.keyDown)) f -= 1;
+        if (down(mc, win, mc.options.keyRight)) s += 1;
+        if (down(mc, win, mc.options.keyLeft)) s -= 1;
+        if (down(mc, win, mc.options.keyJump)) up += 1;
+        if (down(mc, win, mc.options.keyShift)) up -= 1;
         double yr = Math.toRadians(yaw);
         double fx = -Math.sin(yr), fz = Math.cos(yr);
         double rx = -Math.cos(yr), rz = -Math.sin(yr);
-        double spd = cameraSpeed * (down(mc, win, mc.options.sprintKey) ? 2.5 : 1.0);
+        double spd = cameraSpeed * (down(mc, win, mc.options.keySprint) ? 2.5 : 1.0);
         double dx = (fx * f + rx * s) * spd;
         double dz = (fz * f + rz * s) * spd;
         double dy = up * spd;

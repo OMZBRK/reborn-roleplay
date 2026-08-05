@@ -148,7 +148,6 @@ public class RebornButton extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            getMessage().getString());
+        
     }
 }

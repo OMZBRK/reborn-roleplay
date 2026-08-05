@@ -32,7 +32,7 @@ public class PlayerListHudMixin {
         // dessiné soit par l'écran, soit par le HudRenderCallback (mode hold).
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof TablistScreen
-            || (mc.options != null && mc.options.playerListKey.isPressed())) {
+            || (mc.options != null && mc.options.keyPlayerList.isDown())) {
             ci.cancel();
         }
     }

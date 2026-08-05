@@ -18,8 +18,8 @@ public class AccountTab extends SectionedTab {
         String username = "—";
         String uuid = "—";
         if (mc != null && mc.getUser() != null) {
-            username = mc.getUser().getUsername();
-            UUID id = mc.getUser().getUuidOrNull();
+            username = mc.getUser().getName();
+            UUID id = mc.getUser().getProfileId();
             if (id != null) uuid = id.toString();
         }
 

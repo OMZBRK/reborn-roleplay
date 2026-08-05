@@ -52,7 +52,7 @@ public class QuitConfirmScreen extends Screen {
 
         this.addRenderableWidget(RebornButton.ghost(
             cardX + cardW / 2 - btnW - gap / 2, btnY, btnW, btnH,
-            "Annuler", b -> close()
+            "Annuler", b -> onClose()
         ));
         this.addRenderableWidget(RebornButton.danger(
             cardX + cardW / 2 + gap / 2, btnY, btnW, btnH,
@@ -61,7 +61,7 @@ public class QuitConfirmScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         // Fond noir total. Pas de blur natif sans shader custom, donc
         // overlay opaque qui focus l'attention sur la modal.
         context.fill(0, 0, this.width, this.height, Colors.BACKGROUND);
@@ -72,7 +72,7 @@ public class QuitConfirmScreen extends Screen {
         // Ordre critique : background → card+contenu → enfants (boutons).
         // Sinon super.extractRenderState() dessine les boutons EN PREMIER, puis on
         // dessine la card par-dessus et les boutons sont masqués.
-        this.renderBackground(context, mouseX, mouseY, delta);
+        this.extractBackground(context, mouseX, mouseY, delta);
 
         drawCard(context);
 
@@ -126,12 +126,12 @@ public class QuitConfirmScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 }

@@ -109,7 +109,7 @@ public final class OSTPlayer {
         if (client == null) return;
         stop();
         Identifier id = Identifier.fromNamespaceAndPath("reborn", String.format("ost.track%02d", currentTrack));
-        SoundEvent event = SoundEvent.of(id);
+        SoundEvent event = SoundEvent.createVariableRangeEvent(id);
         currentInstance = SimpleSoundInstance.master(event, 1.0F, volume);
         client.getSoundManager().play(currentInstance);
         playing = true;

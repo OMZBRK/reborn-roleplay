@@ -41,7 +41,7 @@ public final class InteractionMenus {
 
     /** Copie du texte dans le presse-papiers. */
     public static void copy(String text) {
-        Minecraft.getInstance().keyboard.setClipboard(text);
+        Minecraft.getInstance().keyboardHandler.setClipboard(text);
         info("Copié : §e" + text);
     }
 
@@ -74,7 +74,7 @@ public final class InteractionMenus {
     }
 
     public static List<InteractionItem> forEntity(Entity e) {
-        String type = e.getType().getName().getString();
+        String type = e.getType().getDescription().getString();
         return List.of(
             InteractionItem.action("Inspecter (" + type + ")", () -> {
                 String hp = (e instanceof LivingEntity le)

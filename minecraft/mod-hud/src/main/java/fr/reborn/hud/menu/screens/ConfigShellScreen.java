@@ -124,7 +124,7 @@ public class ConfigShellScreen extends Screen {
     }
     private int contentX() { return (this.width - contentW()) / 2; }
     private int contentTopBase() { return viewportTop() + CONTENT_TOP_PAD; }
-    private int contentBottom() { return contentTopBase() + activeTab().height() + BOTTOM_MARGIN; }
+    private int contentBottom() { return contentTopBase() + activeTab().getHeight() + BOTTOM_MARGIN; }
     private int maxScroll() { return Math.max(0, contentBottom() - viewportBottom()); }
     private boolean hasScroll() { return maxScroll() > 0; }
 
@@ -194,7 +194,7 @@ public class ConfigShellScreen extends Screen {
 
     private void rebuildContent() {
         for (AbstractWidget w : contentWidgets) {
-            this.remove(w);
+            this.removeWidget(w);
         }
         activeTab().layout(contentX(), contentTopBase(), contentW());
         contentWidgets = activeTab().widgets();
@@ -202,7 +202,7 @@ public class ConfigShellScreen extends Screen {
         for (int i = 0; i < contentWidgets.size(); i++) {
             AbstractWidget w = contentWidgets.get(i);
             baseWidgetY[i] = w.getY();
-            this.addSelectableChild(w);
+            this.addWidget(w);
         }
         clampScroll();
         applyScroll();
@@ -233,7 +233,7 @@ public class ConfigShellScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Même fond que le menu ÉCHAP : un seul dégradé vertical doux.
         int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
         DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
@@ -348,11 +348,12 @@ public class ConfigShellScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0) {
             // « ← Retour ».
             if (overBack(mouseX, mouseY)) {
-                close();
+                onClose();
                 return true;
             }
             // Onglets (positions calculées par computeTabLayout, multi-rangées).
@@ -377,25 +378,27 @@ public class ConfigShellScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dX, double dY) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dX, double dY) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (draggingScrollbar) {
             dragScrollbarTo(mouseY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dX, dY);
+        return super.mouseDragged(event, dX, dY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0 && draggingScrollbar) {
             draggingScrollbar = false;
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     private boolean overScrollbar(double mouseX, double mouseY) {
@@ -416,12 +419,12 @@ public class ConfigShellScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         RebornPrefs.INSTANCE.save();
         Minecraft.getInstance().setScreen(parent);
     }

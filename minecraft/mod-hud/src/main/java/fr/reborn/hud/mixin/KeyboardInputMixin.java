@@ -45,7 +45,7 @@ public abstract class KeyboardInputMixin {
         // s'aligne sur la caméra pour que minage / combat / placement visent le
         // viseur. « Collant » ~10 ticks après le dernier clic pour un PVP fluide
         // (on peut strafe autour de la cible en gardant l'aim).
-        if (mc.options.attackKey.isPressed() || mc.options.useKey.isPressed()) {
+        if (mc.options.keyAttack.isDown() || mc.options.keyUse.isDown()) {
             reborn$aimHold = 10;
         }
         if (reborn$aimHold > 0) {

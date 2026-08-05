@@ -89,7 +89,7 @@ public class ScreenshotDetailScreen extends Screen {
             this::openShare,
             () -> Util.getPlatform().openUri(e.path().toFile()),
             () -> deleteCurrent(),
-            this::close,
+            this::onClose,
             () -> nav(1),
         };
         int y = this.height - 30;
@@ -125,27 +125,29 @@ public class ScreenshotDetailScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y(); int button = event.button();
         for (Btn b : buttons) {
             if (in((int) mx, (int) my, b.x, b.y, b.w, 16)) { b.action().run(); return true; }
         }
-        return super.mouseClicked(mx, my, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
         if (keyCode == GLFW.GLFW_KEY_LEFT) { nav(-1); return true; }
         if (keyCode == GLFW.GLFW_KEY_RIGHT) { nav(1); return true; }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     private static boolean in(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;

@@ -89,7 +89,7 @@ public final class TablistData {
         try {
             Minecraft mc = Minecraft.getInstance();
             if (mc.getConnection() == null) return 0;
-            var entry = mc.getConnection().getPlayerListEntry(UUID.fromString(uuidStr));
+            var entry = mc.getConnection().getPlayerInfo(UUID.fromString(uuidStr));
             return entry != null ? Math.max(0, entry.getLatency()) : 0;
         } catch (Exception e) {
             return 0;

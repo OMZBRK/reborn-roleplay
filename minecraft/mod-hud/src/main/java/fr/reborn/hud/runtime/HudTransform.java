@@ -56,8 +56,8 @@ public final class HudTransform {
         int screenH = mc.getWindow().getGuiScaledHeight();
         HudAnchor anchor = state.effectiveAnchor(element);
         HudElementBounds vanilla = HudElementBounds.vanillaFor(element, screenW, screenH);
-        int ax = vanilla.x() + Math.round(vanilla.width()  * anchor.fx);
-        int ay = vanilla.y() + Math.round(vanilla.height() * anchor.fy);
+        int ax = vanilla.x() + Math.round(vanilla.getWidth()  * anchor.fx);
+        int ay = vanilla.y() + Math.round(vanilla.getHeight() * anchor.fy);
 
         ctx.pose().pushMatrix();
         ctx.pose().translate(state.x(), state.y());

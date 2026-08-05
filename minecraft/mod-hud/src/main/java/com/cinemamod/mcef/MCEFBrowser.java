@@ -5,5 +5,5 @@ public final class MCEFBrowser {
     private final MCEFRenderer renderer = new MCEFRenderer();
     public MCEFRenderer getRenderer() { return renderer; }
     public void resize(int width, int height) {}
-    public void close() {}
+    public void onClose() {}
 }

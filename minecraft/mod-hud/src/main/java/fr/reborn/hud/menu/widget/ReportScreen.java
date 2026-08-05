@@ -101,7 +101,7 @@ public class ReportScreen extends Screen {
 
         int half = (fieldW - 10) / 2;
         this.addRenderableWidget(RebornButton.ghost(fieldX, btnY, half, btnH,
-            "Annuler", b -> close()));
+            "Annuler", b -> onClose()));
         this.addRenderableWidget(RebornButton.accent(fieldX + half + 10, btnY, half, btnH,
             "Envoyer", b -> submit()));
     }
@@ -179,14 +179,14 @@ public class ReportScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
         DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        this.renderBackground(ctx, mouseX, mouseY, delta);
+        this.extractBackground(ctx, mouseX, mouseY, delta);
         Font tr = this.font;
 
         int logoW = Math.min(Math.round(this.width * 0.11f), 150);
@@ -229,12 +229,12 @@ public class ReportScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 }

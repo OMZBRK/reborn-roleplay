@@ -34,18 +34,18 @@ public class ShopScreen extends Screen {
     @Override
     protected void init() {
         this.addRenderableWidget(RebornButton.ghost(
-            20, 18, 96, 26, "< Retour", b -> close()));
+            20, 18, 96, 26, "< Retour", b -> onClose()));
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
         DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        this.renderBackground(ctx, mouseX, mouseY, delta);
+        this.extractBackground(ctx, mouseX, mouseY, delta);
 
         int logoW = Math.min(Math.round(this.width * 0.14f), 190);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
@@ -74,12 +74,12 @@ public class ShopScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 }

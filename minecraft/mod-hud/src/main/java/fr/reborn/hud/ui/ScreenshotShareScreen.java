@@ -107,33 +107,35 @@ public class ScreenshotShareScreen extends Screen {
         int total = wShare + wCancel + gap;
         int x = (this.width - total) / 2;
         buttons.add(new Btn("Partager", x, y, wShare, h, this::confirmShare));
-        buttons.add(new Btn("Annuler", x + wShare + gap, y, wCancel, h, this::close));
+        buttons.add(new Btn("Annuler", x + wShare + gap, y, wCancel, h, this::onClose));
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y(); int button = event.button();
         for (Btn b : buttons) {
             if (in((int) mx, (int) my, b.x, b.y, b.w, b.h)) { b.action().run(); return true; }
         }
-        return super.mouseClicked(mx, my, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             if (doneAtMs == 0) { confirmShare(); return true; }
         }
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) { close(); return true; }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     private static boolean in(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;

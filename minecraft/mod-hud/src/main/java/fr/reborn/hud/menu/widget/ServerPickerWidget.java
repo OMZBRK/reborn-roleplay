@@ -34,7 +34,7 @@ public class ServerPickerWidget extends AbstractWidget {
     private final MenuEntryButton anchor;
 
     public ServerPickerWidget(MenuEntryButton anchor) {
-        super(anchor.getX() + anchor.width() + GAP,
+        super(anchor.getX() + anchor.getWidth() + GAP,
               anchor.getY() + (anchor.getHeight() - 2 * ROW_H) / 2,
               POPUP_W, 2 * ROW_H, Component.literal("Serveur"));
         this.anchor = anchor;
@@ -60,7 +60,7 @@ public class ServerPickerWidget extends AbstractWidget {
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
         refreshPings();
@@ -112,7 +112,8 @@ public class ServerPickerWidget extends AbstractWidget {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button != 0 || !this.active || !this.visible) return false;
         // On ne réagit qu'aux clics DANS le popup (le reste de la zone de survol
         // — dont JOUER — reste géré par l'entrée JOUER elle-même).
@@ -136,5 +137,5 @@ public class ServerPickerWidget extends AbstractWidget {
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase 2 */ }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase2 */ }
 }

@@ -10,7 +10,7 @@ import fr.reborn.hud.ui.style.RebornColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.ChatComponentLine;
+import net.minecraft.client.GuiMessage;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.resources.Identifier;
@@ -40,7 +40,7 @@ public final class ChatMessageRenderer {
     private ChatMessageRenderer() {}
 
     public static void renderMessages(GuiGraphicsExtractor ctx, Font tr,
-                                       List<ChatHudLine.Visible> visibleMessages,
+                                       List<GuiMessage.Line> visibleMessages,
                                        int scrolledLines,
                                        int currentTick, boolean focused,
                                        int screenW, int screenH,
@@ -75,7 +75,7 @@ public final class ChatMessageRenderer {
         int rendered = 0;
         for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
             int messageIdx = i + scrolledLines;
-            ChatHudLine.Visible visible = visibleMessages.get(messageIdx);
+            GuiMessage.Line visible = visibleMessages.get(messageIdx);
             if (visible == null) continue;
 
             int age = currentTick - visible.addedTime();
@@ -102,7 +102,7 @@ public final class ChatMessageRenderer {
             // Tête du joueur (chat_heads).
             boolean drewHead = false;
             if (settings.chatHeads && sender != null) {
-                Identifier skin = sender.getSkinTextures().texture();
+                Identifier skin = sender.getSkin().texture();
                 drawHead(ctx, skin, leftX, lineY - 1, alpha);
                 textX += HEAD + HEAD_GAP;
                 drewHead = true;
@@ -112,7 +112,7 @@ public final class ChatMessageRenderer {
             // depuis LuckPerms). Rien à afficher si le serveur ne le fournit pas.
             if (settings.chatBadges && sender != null && mc != null && mc.level != null) {
                 var sb = mc.level.getScoreboard();
-                var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().getName()) : null;
                 if (team != null) {
                     var prefix = team.getPrefix();
                     if (prefix != null && !prefix.getString().isEmpty()) {
@@ -164,7 +164,7 @@ public final class ChatMessageRenderer {
      * custom se cliquent là où ils sont réellement affichés. {@code null} si rien.
      */
     public static net.minecraft.network.chat.Style styleAt(Minecraft mc, Font tr,
-            List<ChatHudLine.Visible> visibleMessages, int scrolledLines,
+            List<GuiMessage.Line> visibleMessages, int scrolledLines,
             int screenW, int screenH, ChatSettings settings,
             double mouseX, double mouseY, int offsetX, int offsetY) {
         if (visibleMessages == null || visibleMessages.isEmpty()) return null;
@@ -176,7 +176,7 @@ public final class ChatMessageRenderer {
 
         int rendered = 0;
         for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
-            ChatHudLine.Visible visible = visibleMessages.get(i + scrolledLines);
+            GuiMessage.Line visible = visibleMessages.get(i + scrolledLines);
             if (visible == null) continue;
             FormattedCharSequence content = visible.content();
             String plain = orderedToPlainString(content);
@@ -189,7 +189,7 @@ public final class ChatMessageRenderer {
             if (settings.chatHeads && sender != null) textX += HEAD + HEAD_GAP;
             if (settings.chatBadges && sender != null && mc.level != null) {
                 var sb = mc.level.getScoreboard();
-                var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().getName()) : null;
                 if (team != null && team.getPrefix() != null && !team.getPrefix().getString().isEmpty()) {
                     textX += tr.width(team.getPrefix()) + 2;
                 }
@@ -211,7 +211,7 @@ public final class ChatMessageRenderer {
         if (mc == null || mc.getConnection() == null) return null;
         PlayerInfo best = null;
         int bestIdx = Integer.MAX_VALUE;
-        for (PlayerInfo e : mc.getConnection().getPlayerList()) {
+        for (PlayerInfo e : mc.getConnection().getOnlinePlayers()) {
             String name = e.getProfile() != null ? e.getProfile().getName() : null;
             if (name == null || name.isEmpty()) continue;
             int idx = plain.indexOf(name);

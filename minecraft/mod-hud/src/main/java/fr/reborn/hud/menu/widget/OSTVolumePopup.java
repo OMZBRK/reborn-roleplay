@@ -50,7 +50,7 @@ public class OSTVolumePopup extends AbstractWidget {
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         if (!isOpen()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
@@ -96,20 +96,23 @@ public class OSTVolumePopup extends AbstractWidget {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         if (!isOpen()) return;
         dragging = true;
         applyMouseVolume(mouseY);
     }
 
     @Override
-    protected void onDrag(double mouseX, double mouseY, double deltaX, double deltaY) {
+    protected void onDrag(net.minecraft.client.input.MouseButtonEvent event, double deltaX, double deltaY) {
+        double mouseX = event.x(), mouseY = event.y();
         if (!isOpen() || !dragging) return;
         applyMouseVolume(mouseY);
     }
 
     @Override
-    public void onRelease(double mouseX, double mouseY) {
+    public void onRelease(net.minecraft.client.input.MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y();
         dragging = false;
     }
 
@@ -124,7 +127,6 @@ public class OSTVolumePopup extends AbstractWidget {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            "Volume " + Math.round(OSTPlayer.INSTANCE.getVolume() * 100) + " pourcent");
+        
     }
 }

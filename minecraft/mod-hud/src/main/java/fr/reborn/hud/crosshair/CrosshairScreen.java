@@ -60,7 +60,7 @@ public class CrosshairScreen extends Screen {
     private int viewportBottom() { return this.height - VIEWPORT_BOTTOM_PAD; }
     private int viewportH() { return Math.max(0, viewportBottom() - viewportTop()); }
     private int contentTopBase() { return viewportTop() + CONTENT_TOP_PAD; }
-    private int contentBottom() { return contentTopBase() + tab.height() + BOTTOM_MARGIN; }
+    private int contentBottom() { return contentTopBase() + tab.getHeight() + BOTTOM_MARGIN; }
     private int maxScroll() { return Math.max(0, contentBottom() - viewportBottom()); }
     private boolean hasScroll() { return maxScroll() > 0; }
 
@@ -70,7 +70,7 @@ public class CrosshairScreen extends Screen {
         this.addRenderableWidget(new IconButton(
             this.width - 18 - 16, (HEADER_H - 16) / 2, 16,
             IconPack::close, "Fermer", true,
-            b -> close()
+            b -> onClose()
         ).ghost()
             .withIdleColor(Colors.FOREGROUND_MUTED)
             .withHoverColor(Colors.DANGER)
@@ -86,7 +86,7 @@ public class CrosshairScreen extends Screen {
 
     private void rebuildContent() {
         for (AbstractWidget w : contentWidgets) {
-            this.remove(w);
+            this.removeWidget(w);
         }
         tab.layout(contentX(), contentTopBase(), contentW());
         contentWidgets = tab.widgets();
@@ -94,7 +94,7 @@ public class CrosshairScreen extends Screen {
         for (int i = 0; i < contentWidgets.size(); i++) {
             AbstractWidget w = contentWidgets.get(i);
             baseWidgetY[i] = w.getY();
-            this.addSelectableChild(w);
+            this.addWidget(w);
         }
         clampScroll();
         applyScroll();
@@ -110,7 +110,7 @@ public class CrosshairScreen extends Screen {
         p.crosshairHitMarker = true;
         p.save();
         scrollY = 0;
-        this.clearAndInit();
+        this.rebuildWidgets();
     }
 
     private void applyScroll() {
@@ -131,7 +131,7 @@ public class CrosshairScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, Colors.BACKGROUND);
         ctx.fill(0, 0, this.width, HEADER_H, Colors.SURFACE);
         ctx.fill(0, HEADER_H, this.width, HEADER_H + 1, Colors.BORDER);
@@ -231,7 +231,8 @@ public class CrosshairScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0 && hasScroll() && overScrollbar(mouseX, mouseY)) {
             draggingScrollbar = true;
             int thumbY = thumbY();
@@ -244,25 +245,27 @@ public class CrosshairScreen extends Screen {
             }
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dX, double dY) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dX, double dY) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (draggingScrollbar) {
             dragScrollbarTo(mouseY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dX, dY);
+        return super.mouseDragged(event, dX, dY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0 && draggingScrollbar) {
             draggingScrollbar = false;
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     private boolean overScrollbar(double mouseX, double mouseY) {
@@ -283,12 +286,12 @@ public class CrosshairScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         RebornPrefs.INSTANCE.save();
         Minecraft.getInstance().setScreen(parent);
     }

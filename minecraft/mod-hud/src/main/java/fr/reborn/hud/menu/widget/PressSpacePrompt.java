@@ -74,7 +74,7 @@ public class PressSpacePrompt extends Button {
     public static int computeWidth(Font tr, float responsiveScale) {
         int keyW = tr.width(KEY_TEXT) + 2 * KEYCAP_PADDING_X;
         int textW = tr.width(PROMPT_TEXT_STYLED);
-        // Buffer +40px de sécurité : tr.width() peut sous-estimer la
+        // Buffer +40px de sécurité : tr.getWidth() peut sous-estimer la
         // largeur des TTF customs Inter (advance imprécise sur certains glyphs).
         int total = PADDING_X * 2 + keyW + GAP_KEYCAP_TEXT + textW + 40;
         return Math.round(total * responsiveScale);
@@ -164,7 +164,6 @@ public class PressSpacePrompt extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            "Appuyez sur Espace pour entrer dans Reborn");
+        
     }
 }

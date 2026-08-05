@@ -21,7 +21,7 @@ public final class EscMenuRenderer {
 
     private EscMenuRenderer() {}
 
-    public static void renderBackground(GuiGraphicsExtractor ctx, int screenW, int screenH) {
+    public static void extractBackground(GuiGraphicsExtractor ctx, int screenW, int screenH) {
         // Backdrop sombre qui masque le jeu derrière.
         ctx.fill(0, 0, screenW, screenH, Colors.BACKDROP_85);
 

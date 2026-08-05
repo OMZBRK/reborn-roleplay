@@ -45,7 +45,7 @@ public class SegmentedControl extends AbstractWidget {
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft client = Minecraft.getInstance();
         if (client == null || options.length == 0) return;
         var tr = client.font;
@@ -83,7 +83,8 @@ public class SegmentedControl extends AbstractWidget {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         if (options.length == 0) return;
         int segW = getWidth() / options.length;
         int idx = (int) ((mouseX - getX()) / segW);
@@ -98,7 +99,6 @@ public class SegmentedControl extends AbstractWidget {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            "Sélecteur — valeur " + currentValue);
+        
     }
 }

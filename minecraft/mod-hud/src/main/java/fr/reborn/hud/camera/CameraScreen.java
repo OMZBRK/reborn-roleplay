@@ -95,7 +95,7 @@ public class CameraScreen extends Screen {
             syncSlidersToCam();
         }));
         this.addRenderableWidget(RebornButton.accent(x + half + 6, y, w - half - 6, 20, "Fermer",
-            b -> close()));
+            b -> onClose()));
 
         this.addRenderableWidget(distSlider);
         this.addRenderableWidget(sideSlider);
@@ -122,7 +122,7 @@ public class CameraScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Pas de fond plein écran : on laisse le jeu visible pour le live.
         // Juste le panneau latéral semi-opaque.
         int px = panelX();
@@ -156,12 +156,12 @@ public class CameraScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false; // live : la caméra bouge en temps réel derrière le menu.
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         RebornCamera.INSTANCE.saveToPrefs();
         Minecraft.getInstance().setScreen(parent);
     }

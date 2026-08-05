@@ -118,7 +118,7 @@ public final class MainMenuRenderer {
         // Fond du panneau OST (les contrôles sont des widgets rendus
         // par-dessus par le screen).
         if (ostRevealed) {
-            OSTPlayerV2.renderBackground(ctx, ostPanelX(), ostPanelY());
+            OSTPlayerV2.extractBackground(ctx, ostPanelX(), ostPanelY());
         }
     }
 

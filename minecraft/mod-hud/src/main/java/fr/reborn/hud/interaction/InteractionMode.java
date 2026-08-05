@@ -127,10 +127,10 @@ public final class InteractionMode {
         if (hit instanceof EntityHitResult ehr) {
             Entity e = ehr.getEntity();
             if (e instanceof Player pe) {
-                title = pe.getGameProfile().getName();
+                title = pe.getProfile().getName();
                 items = InteractionMenus.forPlayer(title);
             } else {
-                title = e.getType().getName().getString();
+                title = e.getType().getDescription().getString();
                 items = InteractionMenus.forEntity(e);
             }
         } else if (hit instanceof BlockHitResult bhr) {

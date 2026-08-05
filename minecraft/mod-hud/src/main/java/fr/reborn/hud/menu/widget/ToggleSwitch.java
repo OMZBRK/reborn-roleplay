@@ -38,7 +38,7 @@ public class ToggleSwitch extends AbstractWidget {
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         boolean on = getter.getAsBoolean();
         float target = on ? 1f : 0f;
         anim += (target - anim) * 0.30f; // slide fps-léger (suffisant pour un toggle)
@@ -64,7 +64,8 @@ public class ToggleSwitch extends AbstractWidget {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0 && this.active && this.visible && clicked(mouseX, mouseY)) {
             onToggle.accept(!getter.getAsBoolean());
             playDownSound(Minecraft.getInstance().getSoundManager());
@@ -74,5 +75,5 @@ public class ToggleSwitch extends AbstractWidget {
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase 2 */ }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase2 */ }
 }

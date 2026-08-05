@@ -121,7 +121,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         EscData.refreshIfStale();
 
         List<GuiEventListener> toRemove = new ArrayList<>(this.children());
-        for (GuiEventListener e : toRemove) this.remove(e);
+        for (GuiEventListener e : toRemove) this.removeWidget(e);
 
         int x = (this.width - reborn$tabsTotalW(tr)) / 2;
         int tabsY = reborn$tabsY();
@@ -200,7 +200,8 @@ public abstract class GameMenuScreenMixin extends Screen {
     // Screen — un @Inject ne trouverait pas la cible) : si le clic tombe dans un
     // carré carrousel on le consomme, sinon super() gère onglets + Boutique.
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y(); int button = event.button();
         if (button == 0) {
             EscData.Snapshot snap = EscData.get();
             if (snap != null) {
@@ -213,7 +214,7 @@ public abstract class GameMenuScreenMixin extends Screen {
                 if (reborn$handleCarousel(mx, my, blogX, boxY, sqW, sqH, snap, false)) return true;
             }
         }
-        return super.mouseClicked(mx, my, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     private boolean reborn$handleCarousel(double mx, double my, int x, int y, int w, int h,

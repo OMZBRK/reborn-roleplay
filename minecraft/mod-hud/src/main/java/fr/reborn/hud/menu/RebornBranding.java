@@ -1,7 +1,7 @@
 package fr.reborn.hud.menu;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.multiplayer.ConnectScreen;
+import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.multiplayer.ServerData;
@@ -92,7 +92,7 @@ public final class RebornBranding {
         ServerData info = new ServerData(
             label,
             host + (port == 25565 ? "" : ":" + port),
-            ServerData.ServerType.OTHER
+            ServerData.Type.OTHER
         );
         ServerAddress address = new ServerAddress(host, port);
         LOGGER.info("connexion directe a {}:{} (cible={})", host, port, target);

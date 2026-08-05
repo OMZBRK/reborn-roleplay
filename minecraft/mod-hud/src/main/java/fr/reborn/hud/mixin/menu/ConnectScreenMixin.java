@@ -6,7 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.multiplayer.ConnectScreen;
+import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.ClientConnection;
@@ -69,7 +69,7 @@ public abstract class ConnectScreenMixin extends Screen {
         for (GuiEventListener e : this.children()) {
             if (e instanceof Button) toRemove.add(e);
         }
-        for (GuiEventListener e : toRemove) this.remove(e);
+        for (GuiEventListener e : toRemove) this.removeWidget(e);
 
         // 2. Ajoute un RebornButton ghost à la place, en bas centré.
         int buttonW = 140;

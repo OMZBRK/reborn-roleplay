@@ -9,7 +9,7 @@ import fr.reborn.hud.runtime.ChatMessageRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.gui.components.ChatComponentLine;
+import net.minecraft.client.GuiMessage;
 import net.minecraft.client.gui.screens.ChatScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -34,7 +34,7 @@ import java.util.List;
 @Mixin(ChatComponent.class)
 public abstract class ChatHudMixin {
 
-    @Shadow private List<ChatHudLine.Visible> visibleMessages;
+    @Shadow private List<GuiMessage.Line> visibleMessages;
     @Shadow private int scrolledLines;
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
@@ -66,7 +66,7 @@ public abstract class ChatHudMixin {
         String playerName = null;
         try {
             settings = RebornHudClient.config().getChatSettings();
-            if (mc.player != null) playerName = mc.player.getGameProfile().getName();
+            if (mc.player != null) playerName = mc.player.getProfile().getName();
         } catch (RuntimeException ignored) {}
 
         ChatMessageRenderer.renderMessages(ctx, mc.font,

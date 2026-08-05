@@ -95,7 +95,7 @@ public abstract class TitleScreenMixin extends Screen {
             }
         }
         for (GuiEventListener e : toRemove) {
-            this.remove(e);
+            this.removeWidget(e);
         }
         reborn$menuEntries.clear();
         reborn$ostControls.clear();

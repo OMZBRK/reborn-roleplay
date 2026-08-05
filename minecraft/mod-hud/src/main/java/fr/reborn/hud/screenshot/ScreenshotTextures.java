@@ -44,7 +44,7 @@ public final class ScreenshotTextures {
             DynamicTexture t = new DynamicTexture(img);
             Identifier id = Identifier.fromNamespaceAndPath("reborn-shots", "g/" + sanitize(name));
             Minecraft.getInstance().getTextureManager().registerTexture(id, t);
-            return new Tex(id, img.width(), img.getHeight());
+            return new Tex(id, img.getWidth(), img.getHeight());
         } catch (Exception e) {
             LOGGER.warn("load {} échec : {}", name, e.getMessage());
             return null;

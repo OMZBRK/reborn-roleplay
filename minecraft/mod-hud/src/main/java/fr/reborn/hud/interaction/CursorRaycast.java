@@ -32,16 +32,16 @@ public final class CursorRaycast {
     public static HitResult raycast(Minecraft mc, double cursorX, double cursorY) {
         if (mc == null || mc.player == null || mc.level == null) return null;
 
-        Camera camera = mc.gameRenderer.getCamera();
+        Camera camera = mc.gameRenderer.getMainCamera();
         float camYaw = camera.getYRot();
         float camPitch = camera.getXRot();
         // Origine = position de la CAMÉRA (pas l'œil joueur) → fonctionne aussi
         // en 3e personne (on vise depuis le point de vue réel).
         Vec3 eye = camera.position();
 
-        double fovDeg = mc.options.getFov().getValue();
-        int w = mc.getWindow().getFramebufferWidth();
-        int h = mc.getWindow().getFramebufferHeight();
+        double fovDeg = mc.options.fov().get();
+        int w = mc.getWindow().getWidth();
+        int h = mc.getWindow().getHeight();
         if (w <= 0 || h <= 0) return null;
         double sf = mc.getWindow().getGuiScale();
         double px = cursorX * sf;
@@ -57,12 +57,12 @@ public final class CursorRaycast {
         float rayYaw = camYaw + (float) Math.toDegrees(Math.atan(vx));
         float rayPitch = camPitch - (float) Math.toDegrees(Math.atan(vy));
 
-        Vec3 dir = Vec3.fromPolar(rayPitch, rayYaw);
-        Vec3 end = eye.add(dir.multiply(REACH));
+        Vec3 dir = Vec3.directionFromRotation(rayPitch, rayYaw);
+        Vec3 end = eye.add(dir.scale(REACH));
 
         // Blocs.
         HitResult block = mc.level.raycast(new ClipContext(eye, end,
-            ClipContext.ShapeType.OUTLINE, ClipContext.FluidHandling.NONE, mc.player));
+            ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, mc.player));
         double blockDistSq = block.getType() == HitResult.Type.MISS
             ? REACH * REACH : block.position().squaredDistanceTo(eye);
 

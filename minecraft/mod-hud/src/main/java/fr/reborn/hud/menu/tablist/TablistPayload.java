@@ -33,7 +33,7 @@ public record TablistPayload(String json) implements CustomPacketPayload {
     };
 
     @Override
-    public Id<? extends CustomPacketPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

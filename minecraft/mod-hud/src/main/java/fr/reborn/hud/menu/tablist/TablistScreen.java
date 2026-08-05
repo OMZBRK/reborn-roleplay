@@ -79,8 +79,8 @@ public class TablistScreen extends Screen {
 
     @Override
     protected void init() {
-        selfName = (this.client != null && this.client.player != null)
-            ? this.client.player.getGameProfile().getName() : "Vous";
+        selfName = (this.minecraft != null && this.minecraft.player != null)
+            ? this.minecraft.player.getProfile().getName() : "Vous";
 
         Geom g = geom();
         search = new EditBox(this.font, g.searchX() + 2, g.searchY() + 2,
@@ -88,8 +88,8 @@ public class TablistScreen extends Screen {
         search.setBordered(false);
         search.setMaxLength(24);
         search.setHint(Component.literal("Rechercher un joueur…"));
-        search.setChangedListener(s -> { scrollY = 0; });
-        this.addSelectableChild(search);
+        search.setResponder(s -> { scrollY = 0; });
+        this.addWidget(search);
     }
 
     // ─── Filtrage ────────────────────────────────────────
@@ -358,7 +358,7 @@ public class TablistScreen extends Screen {
         int w = mc.getWindow().getGuiScaledWidth();
         int h = mc.getWindow().getGuiScaledHeight();
         Geom g = geom(w, h);
-        List<TabEntry> all = TablistData.entries(mc.player.getGameProfile().getName());
+        List<TabEntry> all = TablistData.entries(mc.player.getProfile().getName());
         drawPanel(ctx, mc.font, g, all, 3, "", TablistData.rpDate(), false, null, 0, -1, -1);
     }
 
@@ -374,7 +374,8 @@ public class TablistScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y(); int button = event.button();
         if (button == 0) {
             if (selected != null) { selected = null; return true; }
             Geom g = geom();
@@ -393,20 +394,21 @@ public class TablistScreen extends Screen {
                 if (idx >= 0 && idx < rows.size()) { selected = rows.get(idx); return true; }
             }
         }
-        return super.mouseClicked(mx, my, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
         boolean typing = search != null && search.isFocused();
         if (!typing && (keyCode == 258 /* TAB */
-            || (this.client != null && this.client.options.playerListKey.matchesKey(keyCode, scanCode)))) {
-            close();
+            || (this.minecraft != null && this.minecraft.options.keyPlayerList.matchesKey(keyCode, scanCode)))) {
+            onClose();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 }

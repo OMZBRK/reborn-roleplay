@@ -5,12 +5,7 @@ import com.cinemamod.mcef.MCEFBrowser;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.BufferRenderer;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.VertexFormat;
-import net.minecraft.client.renderer.VertexFormats;
 import org.joml.Matrix4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +82,7 @@ public final class DynamicPlayerBackground {
     private static String buildViewerUrl(Path html) {
         String absolute = html.toAbsolutePath().toString().replace('\\', '/');
         if (!absolute.startsWith("/")) absolute = "/" + absolute;
-        var uuid = Minecraft.getInstance().getUser().getUuidOrNull();
+        var uuid = Minecraft.getInstance().getUser().getProfileId();
         String uuidStr = uuid != null ? uuid.toString() : "";
         return "file://" + absolute + (uuidStr.isEmpty() ? "" : "?uuid=" + uuidStr);
     }
@@ -152,25 +147,10 @@ public final class DynamicPlayerBackground {
      * passer au-dessus du panorama vanilla).
      */
     private static void renderTextureFullscreen(GuiGraphicsExtractor ctx, int textureId, int w, int h) {
-        RenderSystem.disableDepthTest();
-        RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
-        RenderSystem.setShaderTexture(0, textureId);
-
-        Matrix4f matrix = ctx.pose().peek().getPositionMatrix();
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buf = tessellator.begin(
-            VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
-
-        // Winding identique à ExampleScreen : BL -> BR -> TR -> TL.
-        // UV (0,1)/(1,1)/(1,0)/(0,0) — Y-flip implicite (CEF rend top-down,
-        // GL texture coordinate origin bottom-left).
-        buf.vertex(matrix, 0, h, 0).texture(0, 1).color(255, 255, 255, 255);
-        buf.vertex(matrix, w, h, 0).texture(1, 1).color(255, 255, 255, 255);
-        buf.vertex(matrix, w, 0, 0).texture(1, 0).color(255, 255, 255, 255);
-        buf.vertex(matrix, 0, 0, 0).texture(0, 0).color(255, 255, 255, 255);
-
-        BufferRenderer.drawWithGlobalProgram(buf.end());
-        RenderSystem.enableDepthTest();
+        // ⚠️ STUB 26.1 (phase 2) — le rendu GL immédiat (Tessellator/BufferBuilder/
+        // RenderSystem.setShader) a été supprimé en 26.x, et MCEF est stubbé
+        // (browser jamais initialisé, textureId=0). À réimplémenter avec le fork
+        // mcef-modern + la nouvelle pipeline de rendu quand on ré-active le fond.
     }
 
     /** À appeler si le mod se décharge (rare, mais propre). */

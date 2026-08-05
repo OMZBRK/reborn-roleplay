@@ -157,7 +157,8 @@ public class GalleryScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y(); int button = event.button();
         int mxi = (int) mx, myi = (int) my;
 
         // Menu contextuel ouvert.
@@ -188,7 +189,7 @@ public class GalleryScreen extends Screen {
             }
             return true;
         }
-        return super.mouseClicked(mx, my, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     private void handleContextClick(int mxi, int myi) {
@@ -235,12 +236,12 @@ public class GalleryScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     private static void outline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
         ctx.fill(x, y, x + w, y + 1, c);

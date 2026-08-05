@@ -28,33 +28,33 @@ public class ControlsTab extends SectionedTab {
         section("Souris");
 
         // Sensibilité — vanilla stocke 0..1 où 1 = "HYPERSPEED" (×2).
-        int sensPct = (int) Math.round(o.getMouseSensitivity().getValue() * 200);
+        int sensPct = (int) Math.round(o.sensitivity().get() * 200);
         row("Sensibilité", null,
             (cx, cy, cw) -> new SliderWidget(cx, cy, cw, 24,
                 sensPct, 0, 200, "%",
-                v -> { o.getMouseSensitivity().setValue(v / 200.0); o.write(); }));
+                v -> { o.sensitivity().set(v / 200.0); o.save(); }));
 
         row("Inverser l'axe Y", "Haut/bas de la souris inversés",
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
-                o.getInvertYMouse().getValue(),
-                v -> { o.getInvertYMouse().setValue(v); o.write(); }));
+                o.invertYMouse().get(),
+                v -> { o.invertYMouse().set(v); o.save(); }));
 
         section("Déplacement");
 
         row("Saut automatique", "Grimpe les blocs sans appuyer sur Saut",
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
-                o.getAutoJump().getValue(),
-                v -> { o.getAutoJump().setValue(v); o.write(); }));
+                o.autoJump().get(),
+                v -> { o.autoJump().set(v); o.save(); }));
 
         row("Sprint (bascule)", "Maintenir plutôt que basculer si désactivé",
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
-                o.getSprintToggled().getValue(),
-                v -> { o.getSprintToggled().setValue(v); o.write(); }));
+                o.toggleSprint().get(),
+                v -> { o.toggleSprint().set(v); o.save(); }));
 
         row("Accroupi (bascule)", null,
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
-                o.getSneakToggled().getValue(),
-                v -> { o.getSneakToggled().setValue(v); o.write(); }));
+                o.toggleCrouch().get(),
+                v -> { o.toggleCrouch().set(v); o.save(); }));
 
         spacer(4);
     }

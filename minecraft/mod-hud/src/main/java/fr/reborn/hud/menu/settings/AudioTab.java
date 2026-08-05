@@ -43,8 +43,8 @@ public class AudioTab extends SectionedTab {
 
         row("Sous-titres", "Affiche les bruitages sous forme de texte",
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
-                o.getShowSubtitles().getValue(),
-                v -> { o.getShowSubtitles().setValue(v); o.write(); }));
+                o.showSubtitles().get(),
+                v -> { o.showSubtitles().set(v); o.save(); }));
 
         spacer(4);
     }
@@ -57,7 +57,7 @@ public class AudioTab extends SectionedTab {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
         mc.options.getSoundVolumeOption(category).setValue(percent / 100.0);
-        mc.options.write();
+        mc.options.save();
     }
 
     /** SFX = somme des catégories d'effets sonores du jeu. */

@@ -141,7 +141,7 @@ public final class IconTextures {
                 String row = yy < pattern.length ? pattern[yy] : "";
                 for (int xx = 0; xx < LAZY_SIZE; xx++) {
                     char c = xx < row.length() ? row.charAt(xx) : '.';
-                    img.setColor(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
+                    img.setPixelRGBA(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
                 }
             }
             DynamicTexture tex = new DynamicTexture(img);

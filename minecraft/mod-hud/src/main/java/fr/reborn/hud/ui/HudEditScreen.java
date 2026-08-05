@@ -131,12 +131,12 @@ public class HudEditScreen extends Screen {
             searchX + 26, searchY + 6, searchW - 32, 10, Component.literal("Rechercher un élément..."));
         searchField.setBordered(false);
         searchField.setMaxLength(40);
-        searchField.setChangedListener(s -> searchQuery = s == null ? "" : s.toLowerCase());
+        searchField.setResponder(s -> searchQuery = s == null ? "" : s.toLowerCase());
         this.addRenderableWidget(searchField);
     }
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Pas de blur vanilla : on veut voir le HUD derrière clairement.
     }
 
@@ -488,14 +488,15 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         // Right-click dans le side panel → context actions (delete preset par ex.)
         if (button == 1 && sidePanelOpen
                 && mouseX >= this.width - HudEditSidePanel.WIDTH
                 && mouseY >= HudEditChrome.TOPBAR_HEIGHT) {
             if (sidePanel.handleRightClick(mouseX, mouseY)) return true;
         }
-        if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
+        if (button != 0) return super.mouseClicked(event, doubleClick);
 
         // 1. Click "?" du keybar → ouvre HelpScreen
         if (keybarToggleRect != null
@@ -519,11 +520,11 @@ public class HudEditScreen extends Screen {
         // 3. Top bar buttons
         if (mouseY < HudEditChrome.TOPBAR_HEIGHT) {
             if (handleTopBarClick(mouseX, mouseY)) return true;
-            return super.mouseClicked(mouseX, mouseY, button);
+            return super.mouseClicked(event, doubleClick);
         }
 
         // 4. Vanilla widget pass (search input)
-        if (super.mouseClicked(mouseX, mouseY, button)) return true;
+        if (super.mouseClicked(event, doubleClick)) return true;
 
         // 5. HUD box
         HudElement element = elementUnderMouse((int) mouseX, (int) mouseY);
@@ -624,7 +625,7 @@ public class HudEditScreen extends Screen {
         int undoX     = redoX - gap - btnSz;
 
         if (inside((int) mouseX, (int) mouseY, closeX, btnY, btnSz, btnSz)) {
-            close();
+            onClose();
             return true;
         }
         if (inside((int) mouseX, (int) mouseY, settingsX, btnY, btnSz, btnSz)) {
@@ -661,9 +662,10 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button != 0 || draggedElement == null) {
-            return super.mouseDragged(mouseX, mouseY, button, dx, dy);
+            return super.mouseDragged(event, dx, dy);
         }
         HudElementState state = config.stateOf(draggedElement);
 
@@ -671,8 +673,8 @@ public class HudEditScreen extends Screen {
             // Drag-resize : ratio drag / taille originale → nouveau scale
             int dxFromTL = (int) mouseX - resizeStartBounds.x();
             int dyFromTL = (int) mouseY - resizeStartBounds.y();
-            int origW = Math.max(8, resizeStartBounds.width());
-            int origH = Math.max(8, resizeStartBounds.height());
+            int origW = Math.max(8, resizeStartBounds.getWidth());
+            int origH = Math.max(8, resizeStartBounds.getHeight());
             float scaleW = dxFromTL / (float) origW;
             float scaleH = dyFromTL / (float) origH;
             // On prend la moyenne pour avoir un scale isotrope
@@ -716,7 +718,8 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0 && draggedElement != null) {
             config.save();
             // Push snapshot APRES action pour pouvoir undo
@@ -729,11 +732,12 @@ public class HudEditScreen extends Screen {
             activeGuides = List.of();
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
         // Ctrl+Z (QWERTY) ou Ctrl+W (AZERTY — meme position physique que Z) = undo
         // Ctrl+Y = redo (Y a la meme position en QWERTY et AZERTY).
         if (rebornHasCtrlDown()) {
@@ -799,7 +803,7 @@ public class HudEditScreen extends Screen {
             }
         }
 
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     // ───── Toast feedback (fade-in + hold + fade-out) ─────
@@ -930,7 +934,7 @@ public class HudEditScreen extends Screen {
             String json = new Gson().toJson(snap);
             String encoded = "reborn-hud-v1:" + Base64.getEncoder().encodeToString(
                 json.getBytes(StandardCharsets.UTF_8));
-            Minecraft.getInstance().keyboard.setClipboard(encoded);
+            Minecraft.getInstance().keyboardHandler.setClipboard(encoded);
 
             // Écriture disque dans ~/.minecraft/config/reborn-hud-exports/
             java.nio.file.Path exportDir = net.fabricmc.loader.api.FabricLoader.getInstance()
@@ -952,7 +956,7 @@ public class HudEditScreen extends Screen {
     /** Lit le clipboard, decode base64, parse JSON, applique. */
     private void importConfigFromClipboard() {
         try {
-            String content = Minecraft.getInstance().keyboard.getClipboard();
+            String content = Minecraft.getInstance().keyboardHandler.getClipboard();
             if (content == null || content.isBlank()) {
                 LOGGER.warn("clipboard vide");
                 showToast("Presse-papier vide");
@@ -983,12 +987,12 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

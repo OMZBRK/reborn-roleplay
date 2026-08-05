@@ -44,17 +44,17 @@ public class OSTPlayerWidget extends AbstractWidget {
     private static final int VOLUME_SLIDER_X = 100;
     private static final int VOLUME_SLIDER_W = 120;
 
-    private final Font textRenderer;
+    private final Font font;
     /** True si le user est en train de drag le slider de volume. */
     private boolean draggingVolume = false;
 
-    public OSTPlayerWidget(int x, int y, Font textRenderer) {
+    public OSTPlayerWidget(int x, int y, Font font) {
         super(x, y, 240, 56, Component.literal("OST Player"));
-        this.font = textRenderer;
+        this.font = font;
     }
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         OSTPlayer ost = OSTPlayer.INSTANCE;
         ost.tickAutoAdvance();
 
@@ -68,7 +68,7 @@ public class OSTPlayerWidget extends AbstractWidget {
         context.fill(x0, y0, x1, y0 + 1, ACCENT);
 
         // Ligne 1 : pictogramme note + nom de la piste.
-        context.text(textRenderer, "♪ " + ost.getCurrentTrackName(),
+        context.text(font, "♪ " + ost.getCurrentTrackName(),
             x0 + PADDING, y0 + LINE1_Y, FG, false);
 
         // Ligne 2 : 3 boutons controles (formes geometriques).
@@ -165,7 +165,8 @@ public class OSTPlayerWidget extends AbstractWidget {
     // ──────────────────────────────────────────────────────────────────
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         OSTPlayer ost = OSTPlayer.INSTANCE;
         int relX = (int) (mouseX - getX());
         int relY = (int) (mouseY - getY());
@@ -198,7 +199,8 @@ public class OSTPlayerWidget extends AbstractWidget {
     }
 
     @Override
-    protected void onDrag(double mouseX, double mouseY, double deltaX, double deltaY) {
+    protected void onDrag(net.minecraft.client.input.MouseButtonEvent event, double deltaX, double deltaY) {
+        double mouseX = event.x(), mouseY = event.y();
         if (draggingVolume) {
             int relX = (int) (mouseX - getX());
             float v = Math.max(0, Math.min(1, (relX - VOLUME_SLIDER_X) / (float) VOLUME_SLIDER_W));
@@ -207,10 +209,11 @@ public class OSTPlayerWidget extends AbstractWidget {
     }
 
     @Override
-    public void onRelease(double mouseX, double mouseY) {
+    public void onRelease(net.minecraft.client.input.MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y();
         draggingVolume = false;
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase 2 */ }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase2 */ }
 }

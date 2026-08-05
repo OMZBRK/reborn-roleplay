@@ -54,7 +54,7 @@ public final class OSTPlayerV2 {
 
     private OSTPlayerV2() {}
 
-    public static void renderBackground(GuiGraphicsExtractor ctx, int x, int y) {
+    public static void extractBackground(GuiGraphicsExtractor ctx, int x, int y) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
         Font tr = client.font;

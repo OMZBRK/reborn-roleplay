@@ -27,7 +27,7 @@ import net.minecraft.resources.Identifier;
  *
  * <p>Usage standard :
  * <pre>{@code
- *   context.text(textRenderer, RebornFont.display("REBORN"), x, y, color, false);
+ *   context.text(font, RebornFont.display("REBORN"), x, y, color, false);
  * }</pre>
  */
 public final class RebornFont {
@@ -42,12 +42,12 @@ public final class RebornFont {
     /** ArcadePix (Reekee) — police pixel arcade pour le title screen. */
     public static final Identifier ARCADE   = Identifier.fromNamespaceAndPath("reborn", "arcadepix");
 
-    public static final Style DISPLAY_STYLE  = Style.EMPTY.withFont(DISPLAY);
-    public static final Style BODY_STYLE     = Style.EMPTY.withFont(BODY);
-    public static final Style BOLD_STYLE     = Style.EMPTY.withFont(BOLD);
-    public static final Style BLACK_STYLE    = Style.EMPTY.withFont(BLACK);
-    public static final Style FALLBACK_STYLE = Style.EMPTY.withFont(FALLBACK);
-    public static final Style ARCADE_STYLE   = Style.EMPTY.withFont(ARCADE);
+    public static final Style DISPLAY_STYLE  = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(DISPLAY));
+    public static final Style BODY_STYLE     = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(BODY));
+    public static final Style BOLD_STYLE     = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(BOLD));
+    public static final Style BLACK_STYLE    = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(BLACK));
+    public static final Style FALLBACK_STYLE = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(FALLBACK));
+    public static final Style ARCADE_STYLE   = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(ARCADE));
 
     public static MutableComponent display(String content)  { return Component.literal(content).setStyle(DISPLAY_STYLE); }
     public static MutableComponent body(String content)     { return Component.literal(content).setStyle(BODY_STYLE); }
