@@ -58,6 +58,36 @@ recette de build 26.1 est **prouvée** (voir « RECETTE » ci-dessous).
 **❌ `DrawContext`/`GuiGraphics` : SUPPRIMÉ en 26.x** (refonte rendu → réécriture, pas un rename).
 fabric-api : **`PayloadTypeRegistry.playC2S()`→`serverboundPlay()`** (`playS2C`→`clientboundPlay`).
 
+### 🎨 Nouveau rendu GUI 26.x (mode « extraction / retained ») — recette de réécriture UI
+La 26.x sépare **extraction de l'état de rendu** et rendu. Nouvelle classe =
+**`net.minecraft.client.gui.GuiGraphicsExtractor`** (API impérative, proche de l'ancien
+DrawContext). Mapping des `Screen`/widgets :
+- **Override** : `render(DrawContext, mx, my, delta)` → **`extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta)`** ;
+  fond via `extractBackground(GuiGraphicsExtractor, ...)` / `extractMenuBackground(...)`.
+- **Primitives** (méthodes sur `g`) :
+  `context.fill(x1,y1,x2,y2,argb)`→`g.fill(...)` (identique) ·
+  `fillGradient`→`g.fillGradient(...)` (identique) ·
+  `drawText(font,txt,x,y,color,shadow)`→**`g.text(font,txt,x,y,color,shadow)`** ·
+  `drawCenteredText...`→**`g.centeredText(font,txt,x,y,color)`** ·
+  `textWithWordWrap`, `outline`, `horizontalLine/verticalLine`, `enableScissor/disableScissor` (identiques) ·
+  **texture** `drawTexture(...)`→**`g.blit(RenderPipeline, Identifier, x,y, u,v, w,h, texW,texH)`** ou
+  `g.blitSprite(RenderPipeline, Identifier, x,y,w,h)` (⚠️ nouvel arg `RenderPipeline`) ·
+  item : `g.item(ItemStack,x,y)`.
+- **Matrices** : `context.getMatrices()` (3D `MatrixStack`) → **`g.pose()` = `org.joml.Matrix3x2fStack` (2D !)**
+  (push/popMatrix, translate/scale 2D ; plus de Z via la pose).
+- **Font** : `textRenderer.getWidth`→`font.width` ; `TextRenderer`→`Font`.
+- ⚠️ **Rendu d'entité GUI** (`InventoryScreen.drawEntity`, modèle perso des écrans character) =
+  refondu (render-state entités) → à revoir spécifiquement. L'astuce caméra 3e-pers-face du
+  character-select (`Perspective.THIRD_PERSON_FRONT`) n'utilise PAS drawEntity → devrait survivre.
+- **fabric-api HUD** : `HudRenderCallback` (rendering.v1) supprimé → nouveau
+  `HudElementRegistry` / `HudLayerRegistrationCallback` (fabric-api 26.1, à câbler pour OstHudOverlay + PlayerPanel).
+- **Mixins** ciblant les anciennes méthodes `render(...)` → recibler sur `extractRenderState`/les
+  nouvelles méthodes (vérifier chaque descripteur dans le jar déobfusqué).
+
+> **Ampleur** : mod-ost `OstScreen` = ~100 sites d'appel ; mod-hud = **bien plus** (tablist,
+> character select/create, HUD panel, ~21 mixins). Faisable mécaniquement mais **exige une
+> validation en jeu** (positions/couleurs/layout) → à faire en session avec le client lancé.
+
 ---
 
 ## 0. État des lieux constaté (SFTP + code, 2026-08-05)
