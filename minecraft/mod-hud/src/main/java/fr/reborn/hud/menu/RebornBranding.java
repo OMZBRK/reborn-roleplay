@@ -121,7 +121,7 @@ public final class RebornBranding {
 
     private static void openUri(String url) {
         try {
-            Util.getPlatform().open(URI.create(url));
+            Util.getPlatform().openUri(URI.create(url));
         } catch (Exception e) {
             LOGGER.warn("openUri {} echec", url, e);
         }

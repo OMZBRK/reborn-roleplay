@@ -74,7 +74,5 @@ public class ToggleSwitch extends AbstractWidget {
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput builder) {
-        // narration neutralisée (phase 2)
-    }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase 2 */ }
 }

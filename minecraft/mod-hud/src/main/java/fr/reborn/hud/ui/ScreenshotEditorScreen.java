@@ -67,7 +67,7 @@ public class ScreenshotEditorScreen extends Screen {
         hue = hsv[0]; sat = hsv[1]; val = hsv[2];
         hexField = new EditBox(this.font, panelX + 34, 32, 100, 14, Component.literal("hex"));
         hexField.setMaxLength(7);
-        hexField.setText(hex(color));
+        hexField.setValue(hex(color));
         hexField.setChangedListener(this::onHex);
         this.addRenderableWidget(hexField);
         if (history.isEmpty()) { history.add(new ArrayList<>()); histIdx = 0; }
@@ -87,7 +87,7 @@ public class ScreenshotEditorScreen extends Screen {
 
     private void setColorFromHsv() {
         color = hsvToArgb(hue, sat, val);
-        if (hexField != null) hexField.setText(hex(color));
+        if (hexField != null) hexField.setValue(hex(color));
     }
 
     private void computeFit() {

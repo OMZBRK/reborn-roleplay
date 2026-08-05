@@ -212,8 +212,5 @@ public class OSTPlayerWidget extends AbstractWidget {
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
-            "Lecteur OST : " + OSTPlayer.INSTANCE.getCurrentTrackName());
-    }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase 2 */ }
 }

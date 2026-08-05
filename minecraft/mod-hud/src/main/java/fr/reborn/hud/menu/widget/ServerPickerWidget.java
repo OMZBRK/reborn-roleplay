@@ -136,7 +136,5 @@ public class ServerPickerWidget extends AbstractWidget {
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput builder) {
-        ;
-    }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase 2 */ }
 }

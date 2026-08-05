@@ -199,10 +199,10 @@ public class GalleryScreen extends Screen {
             int iy = y + 2 + i * CTX_ROW;
             if (in(mxi, myi, x, iy, CTX_W, CTX_ROW)) {
                 switch (i) {
-                    case 0 -> Util.getPlatform().open(ctxEntry.path().toFile());
+                    case 0 -> Util.getPlatform().openUri(ctxEntry.path().toFile());
                     case 1 -> { ScreenshotLibrary.toggleFavorite(ctxEntry.name()); if (onlyFav) refresh(); }
                     case 2 -> { ScreenshotLibrary.delete(ctxEntry); refresh(); }
-                    case 3 -> Util.getPlatform().open(ScreenshotLibrary.dir().toFile());
+                    case 3 -> Util.getPlatform().openUri(ScreenshotLibrary.dir().toFile());
                 }
                 return;
             }

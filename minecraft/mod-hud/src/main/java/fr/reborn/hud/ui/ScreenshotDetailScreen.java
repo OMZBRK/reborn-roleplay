@@ -87,7 +87,7 @@ public class ScreenshotDetailScreen extends Screen {
             () -> { ScreenshotLibrary.toggleFavorite(e.name()); },
             () -> openEditor(),
             this::openShare,
-            () -> Util.getPlatform().open(e.path().toFile()),
+            () -> Util.getPlatform().openUri(e.path().toFile()),
             () -> deleteCurrent(),
             this::close,
             () -> nav(1),

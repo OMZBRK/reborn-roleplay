@@ -80,11 +80,5 @@ public class ServerInfoWidget extends AbstractWidget {
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput builder) {
-        ServerInfoState st = ServerInfoState.INSTANCE;
-        String narration = st.isOnline()
-            ? "Serveur Reborn en ligne, " + st.getPlayers() + " joueurs"
-            : "Serveur Reborn hors ligne";
-        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE, narration);
-    }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase 2 */ }
 }

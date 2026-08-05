@@ -52,10 +52,10 @@ public abstract class KeyboardInputMixin {
             reborn$aimHold--;
             float cyaw = (float) cam.camYaw();
             float cpitch = (float) cam.camPitch();
-            player.setYaw(cyaw);
-            player.setPitch(cpitch);
-            player.setBodyYaw(cyaw);
-            player.setHeadYaw(cyaw);
+            player.setYRot(cyaw);
+            player.setXRot(cpitch);
+            player.setYBodyRot(cyaw);
+            player.setYHeadRot(cyaw);
             return; // déplacement reste relatif caméra (yaw = camYaw)
         }
 
@@ -74,9 +74,9 @@ public abstract class KeyboardInputMixin {
 
         float target = (float) Math.toDegrees(Math.atan2(-dx, dz));
         float ny = Mth.lerpAngleDegrees((float) cam.turnSpeed(), player.getYRot(), target);
-        player.setYaw(ny);
-        player.setBodyYaw(ny);
-        player.setHeadYaw(ny);
+        player.setYRot(ny);
+        player.setYBodyRot(ny);
+        player.setYHeadRot(ny);
 
         // Le perso court « tout droit » dans son orientation (magnitude conservée
         // pour garder le ralenti sneak/objet).

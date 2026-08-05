@@ -252,7 +252,7 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     private void reborn$openUrl(String url) {
         try {
-            Util.getPlatform().open(URI.create(url));
+            Util.getPlatform().openUri(URI.create(url));
         } catch (Exception e) {
             LOG.warn("ouverture URL échouée ({}) : {}", url, e.toString());
         }
