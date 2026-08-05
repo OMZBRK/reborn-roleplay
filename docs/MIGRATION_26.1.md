@@ -70,8 +70,9 @@ DrawContext). Mapping des `Screen`/widgets :
   `drawText(font,txt,x,y,color,shadow)`→**`g.text(font,txt,x,y,color,shadow)`** ·
   `drawCenteredText...`→**`g.centeredText(font,txt,x,y,color)`** ·
   `textWithWordWrap`, `outline`, `horizontalLine/verticalLine`, `enableScissor/disableScissor` (identiques) ·
-  **texture** `drawTexture(...)`→**`g.blit(RenderPipeline, Identifier, x,y, u,v, w,h, texW,texH)`** ou
-  `g.blitSprite(RenderPipeline, Identifier, x,y,w,h)` (⚠️ nouvel arg `RenderPipeline`) ·
+  **texture** `drawTexture(id, x,y, u,v, w,h, texW,texH)`→**`g.blit(RenderPipelines.GUI_TEXTURED, id, x,y, u,v, w,h, texW,texH)`**
+  (import `net.minecraft.client.renderer.RenderPipelines` ; équivalent direct de drawTexture,
+  juste le pipeline en 1er arg — ⚠️ la variante `blit(id,x,y,w,h,u0,v0,u1,v1)` sans pipeline ne rend PAS) ·
   item : `g.item(ItemStack,x,y)`.
 - **Matrices** : `context.getMatrices()` (3D `MatrixStack`) → **`g.pose()` = `org.joml.Matrix3x2fStack` (2D !)**
   (push/popMatrix, translate/scale 2D ; plus de Z via la pose).
