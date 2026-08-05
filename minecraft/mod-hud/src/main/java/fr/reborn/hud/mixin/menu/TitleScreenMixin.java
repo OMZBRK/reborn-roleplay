@@ -18,14 +18,14 @@ import fr.reborn.hud.menu.widget.ServerPickerWidget;
 import fr.reborn.hud.menu.widget.SplashOverlay;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.screen.world.SelectWorldScreen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.world.SelectWorldScreen;
+import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -76,13 +76,13 @@ public abstract class TitleScreenMixin extends Screen {
     @Unique
     private final List<ClickableWidget> reborn$menuOnly = new ArrayList<>();
 
-    protected TitleScreenMixin(Text title) {
+    protected TitleScreenMixin(Component title) {
         super(title);
     }
 
     @Inject(method = "init", at = @At("RETURN"))
     private void reborn$rebuildMenu(CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
         MainMenuFlow.onTitleInit();
@@ -108,19 +108,19 @@ public abstract class TitleScreenMixin extends Screen {
         int ostX = MainMenuRenderer.ostPanelX();
         int ostY = MainMenuRenderer.ostPanelY();
         for (IconButton ctrl : OSTPlayerV2.buildControls(ostX, ostY)) {
-            this.addDrawableChild(ctrl);
+            this.addRenderableWidget(ctrl);
             reborn$ostControls.add(ctrl);
         }
         int panelBottom = ostY + OSTPlayerV2.CARD_H;
         int[] volAnchor = OSTPlayerV2.volumeButtonAnchor(ostX, ostY);
         OSTVolumePopup volPopup = new OSTVolumePopup(
             volAnchor[0] - OSTVolumePopup.WIDTH / 2, panelBottom + 6);
-        this.addDrawableChild(volPopup);
+        this.addRenderableWidget(volPopup);
         reborn$ostControls.add(volPopup);
 
         int playlistH = Math.min(360, this.height - panelBottom - 16);
         OSTPlaylistOverlay playlist = new OSTPlaylistOverlay(ostX, panelBottom + 6, playlistH);
-        this.addDrawableChild(playlist);
+        this.addRenderableWidget(playlist);
         reborn$ostControls.add(playlist);
 
         // 4. DEV ONLY — bouton "Solo (Dev)" top-right pour tester en solo.
@@ -136,7 +136,7 @@ public abstract class TitleScreenMixin extends Screen {
                 .withIdleColor(Colors.WARNING)
                 .withHoverColor(Colors.WHITE_PURE)
                 .withTooltipPlacement(IconButton.TooltipPlacement.LEFT);
-            this.addDrawableChild(soloDev);
+            this.addRenderableWidget(soloDev);
             reborn$menuOnly.add(soloDev);
         }
 
@@ -149,7 +149,7 @@ public abstract class TitleScreenMixin extends Screen {
     private int reborn$nextEntryY = 0;
 
     @Unique
-    private void buildMenuEntries(MinecraftClient client) {
+    private void buildMenuEntries(Minecraft client) {
         // 5 entrées empilées (ordre Paladium). Pas de record/inner-class ici
         // volontairement : Mixin gère mal les classes locales dans un mixin.
         reborn$nextEntryY = MainMenuRenderer.menuStartY(this.height, 5);
@@ -183,21 +183,21 @@ public abstract class TitleScreenMixin extends Screen {
         // Le menu garde sa disposition d'origine (aucune ligne fixe insérée).
         if (staffPicker) {
             ServerPickerWidget picker = new ServerPickerWidget(jouer);
-            this.addDrawableChild(picker);
+            this.addRenderableWidget(picker);
             reborn$menuOnly.add(picker);
         }
     }
 
     @Unique
-    private MenuEntryButton reborn$addEntry(MinecraftClient client, String label,
+    private MenuEntryButton reborn$addEntry(Minecraft client, String label,
                                             boolean placeholder, float scale, int height,
-                                            net.minecraft.client.gui.widget.ButtonWidget.PressAction action) {
+                                            net.minecraft.client.gui.components.Button.PressAction action) {
         int w = Math.max(140,
             MenuEntryButton.labelWidth(client.textRenderer, label, scale) + 24);
         MenuEntryButton entry = new MenuEntryButton(
             MainMenuRenderer.MENU_X, reborn$nextEntryY, w, height, label, scale, action);
         if (placeholder) entry.placeholder();
-        this.addDrawableChild(entry);
+        this.addRenderableWidget(entry);
         reborn$menuEntries.add(entry);
         reborn$nextEntryY += height + MainMenuRenderer.MENU_ENTRY_GAP;
         return entry;
@@ -209,7 +209,7 @@ public abstract class TitleScreenMixin extends Screen {
      * version Fabric, copyright).
      */
     @Inject(method = "render", at = @At("TAIL"))
-    private void reborn$renderOverlay(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    private void reborn$renderOverlay(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         boolean menu = !MainMenuFlow.isSplash();
         boolean ostRevealed = menu && (
             MainMenuRenderer.isOverOstReveal(mouseX, mouseY)
@@ -236,8 +236,8 @@ public abstract class TitleScreenMixin extends Screen {
             c.active = menu;
         }
 
-        context.getMatrices().push();
-        context.getMatrices().translate(0, 0, 400);
+        context.pose().pushMatrix();
+        context.pose().translate(0, 0, 400);
 
         if (MainMenuFlow.isSplash()) {
             // SPLASH : fond MCEF → flou gaussien du framebuffer → contenu net.
@@ -258,6 +258,6 @@ public abstract class TitleScreenMixin extends Screen {
             }
         }
 
-        context.getMatrices().pop();
+        context.pose().popMatrix();
     }
 }

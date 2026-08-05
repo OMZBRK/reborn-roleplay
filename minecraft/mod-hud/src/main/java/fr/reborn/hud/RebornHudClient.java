@@ -52,7 +52,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // Rendu HUD fiable — même en solo où Minecraft ne rend PAS le
         // PlayerListHud vanilla (1 seul joueur, pas d'objectif scoreboard).
         net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((ctx, tickCounter) -> {
-            net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
             if (mc == null || mc.player == null || mc.currentScreen != null || mc.options == null) return;
             if (!fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold) return;
             if (!mc.options.playerListKey.isPressed()) return;
@@ -61,7 +61,7 @@ public final class RebornHudClient implements ClientModInitializer {
 
         // Réception du tablist serveur (canal reborn:tablist depuis ShinobiCore).
         // Le mod ne fait que rendre ; les données sont server-authoritative.
-        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
             fr.reborn.hud.menu.tablist.TablistPayload.ID,
             fr.reborn.hud.menu.tablist.TablistPayload.CODEC);
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
@@ -83,8 +83,8 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (narratorDone[0] || client.options == null) return;
             narratorDone[0] = true;
-            if (client.options.getNarrator().getValue() != net.minecraft.client.option.NarratorMode.OFF) {
-                client.options.getNarrator().setValue(net.minecraft.client.option.NarratorMode.OFF);
+            if (client.options.getNarrator().getValue() != net.minecraft.client.NarratorMode.OFF) {
+                client.options.getNarrator().setValue(net.minecraft.client.NarratorMode.OFF);
                 client.options.write();
                 LOGGER.info("narrateur Minecraft désactivé");
             }
@@ -96,7 +96,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // keyPressed (herite de Screen, non redeclare par TitleScreen).
         net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
             (client, screen, scaledW, scaledH) -> {
-                if (!(screen instanceof net.minecraft.client.gui.screen.TitleScreen)) return;
+                if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) return;
                 net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents
                     .afterKeyPress(screen)
                     .register((scr, key, scancode, mods) ->

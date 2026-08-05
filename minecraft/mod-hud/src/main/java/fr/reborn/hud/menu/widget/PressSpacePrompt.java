@@ -3,12 +3,12 @@ package fr.reborn.hud.menu.widget;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 /**
  * CTA principal du main menu — "Appuyez pour entrer dans Reborn".
@@ -26,13 +26,13 @@ import net.minecraft.text.Text;
  * <p>Objectif esthétique : sobre et net. Le fond 3D MCEF porte la richesse
  * visuelle ; le CTA reste calme et lisible.
  */
-public class PressSpacePrompt extends ButtonWidget {
+public class PressSpacePrompt extends Button {
 
     private static final String KEY_LABEL = "ESPACE";
     private static final String PROMPT_TEXT = "Appuyez pour entrer dans Reborn";
-    /** Cache des Text stylés — évite une alloc par frame (3×/render). */
-    private static final Text KEY_TEXT    = RebornFont.bold(KEY_LABEL);
-    private static final Text PROMPT_TEXT_STYLED = RebornFont.body(PROMPT_TEXT);
+    /** Cache des Component stylés — évite une alloc par frame (3×/render). */
+    private static final Component KEY_TEXT    = RebornFont.bold(KEY_LABEL);
+    private static final Component PROMPT_TEXT_STYLED = RebornFont.body(PROMPT_TEXT);
 
     private static final int PADDING_X = 16;
     private static final int PADDING_Y = 10;
@@ -67,29 +67,29 @@ public class PressSpacePrompt extends ButtonWidget {
     private static final int KEY_BORDER_HOVER  = Colors.ACCENT_HOVER;
 
     public PressSpacePrompt(int x, int y, int width, int height, PressAction onPress) {
-        super(x, y, width, height, Text.literal(PROMPT_TEXT),
-              onPress, ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, width, height, Component.literal(PROMPT_TEXT),
+              onPress, Button.DEFAULT_NARRATION_SUPPLIER);
     }
 
-    public static int computeWidth(TextRenderer tr, float responsiveScale) {
-        int keyW = tr.getWidth(KEY_TEXT) + 2 * KEYCAP_PADDING_X;
-        int textW = tr.getWidth(PROMPT_TEXT_STYLED);
-        // Buffer +40px de sécurité : tr.getWidth() peut sous-estimer la
+    public static int computeWidth(Font tr, float responsiveScale) {
+        int keyW = tr.width(KEY_TEXT) + 2 * KEYCAP_PADDING_X;
+        int textW = tr.width(PROMPT_TEXT_STYLED);
+        // Buffer +40px de sécurité : tr.width() peut sous-estimer la
         // largeur des TTF customs Inter (advance imprécise sur certains glyphs).
         int total = PADDING_X * 2 + keyW + GAP_KEYCAP_TEXT + textW + 40;
         return Math.round(total * responsiveScale);
     }
 
-    public static int computeHeight(TextRenderer tr, float responsiveScale) {
-        int base = tr.fontHeight + 2 * KEYCAP_PADDING_Y + 2 * PADDING_Y;
+    public static int computeHeight(Font tr, float responsiveScale) {
+        int base = tr.lineHeight + 2 * KEYCAP_PADDING_Y + 2 * PADDING_Y;
         return Math.round(base * responsiveScale);
     }
 
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.textRenderer;
 
         int x0 = getX();
         int y0 = getY();
@@ -127,8 +127,8 @@ public class PressSpacePrompt extends ButtonWidget {
         context.fill(x0 + PILL_RADIUS, y0 + 1, x0 + w - PILL_RADIUS, y0 + 2, PILL_HIGHLIGHT);
 
         // ── (2) Keycap "ESPACE" — raised look ──────────────────
-        int keyTextW = tr.getWidth(KEY_TEXT);
-        int keyTextH = tr.fontHeight;
+        int keyTextW = tr.width(KEY_TEXT);
+        int keyTextH = tr.lineHeight;
         int keyW = keyTextW + 2 * KEYCAP_PADDING_X;
         int keyH = keyTextH + 2 * KEYCAP_PADDING_Y;
         int keyX = x0 + PADDING_X;
@@ -150,21 +150,21 @@ public class PressSpacePrompt extends ButtonWidget {
             keyX + keyW - KEYCAP_RADIUS, keyY + keyH - 1, KEY_SHADOW_BOT);
 
         // Texte ESPACE — pure blanc + shadow pour lisibilité.
-        context.drawText(tr, KEY_TEXT,
+        context.text(tr, KEY_TEXT,
             keyX + KEYCAP_PADDING_X, keyY + KEYCAP_PADDING_Y, Colors.WHITE_PURE, true);
 
         // ── (3) Texte du prompt avec luminosité respirante ─────
         int promptX = keyX + keyW + GAP_KEYCAP_TEXT;
-        int promptY = y0 + (h - tr.fontHeight) / 2;
+        int promptY = y0 + (h - tr.lineHeight) / 2;
         int alpha = hovered ? 255 : Math.round(215 + 40 * breath);
         int promptColor = (alpha << 24) | 0xFFFFFF;
-        context.drawText(tr, PROMPT_TEXT_STYLED,
+        context.text(tr, PROMPT_TEXT_STYLED,
             promptX, promptY, promptColor, true);
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
+    public void updateWidgetNarration(NarrationElementOutput builder) {
+        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
             "Appuyez sur Espace pour entrer dans Reborn");
     }
 }

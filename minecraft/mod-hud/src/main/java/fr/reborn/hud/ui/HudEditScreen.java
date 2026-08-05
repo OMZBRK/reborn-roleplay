@@ -14,12 +14,12 @@ import fr.reborn.hud.ui.style.BackgroundGrid;
 import fr.reborn.hud.ui.style.Glow;
 import fr.reborn.hud.ui.style.RebornColors;
 import fr.reborn.hud.ui.style.RoundedRect;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Formatting;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
@@ -69,7 +69,7 @@ public class HudEditScreen extends Screen {
     private final Set<HudElement> selectedElements = EnumSet.of(HudElement.CHAT);
     private int dragOffsetX = 0;
     private int dragOffsetY = 0;
-    private TextFieldWidget searchField;
+    private EditBox searchField;
     private String searchQuery = "";
 
     /** True quand le drag courant est un drag-resize sur la poignée BR, false = move. */
@@ -99,10 +99,10 @@ public class HudEditScreen extends Screen {
     private static final float SCALE_STEP = 0.05f;
 
     public HudEditScreen(Screen parent) {
-        super(Text.translatable("reborn-hud.screen.title"));
+        super(Component.translatable("reborn-hud.screen.title"));
         this.parent = parent;
         this.config = RebornHudClient.config();
-        this.sidePanel = new HudEditSidePanel(config, MinecraftClient.getInstance().textRenderer);
+        this.sidePanel = new HudEditSidePanel(config, Minecraft.getInstance().textRenderer);
         this.sidePanel.setSelectedElement(this.selectedElement);
         this.sidePanel.onResetAll = () -> {
             config.resetAll();
@@ -127,21 +127,21 @@ public class HudEditScreen extends Screen {
         int rightEdge = this.width - 8; // 8px margin du bord droit
         int searchX = rightEdge - btnsTotalW - searchW - 8;
         int searchY = (HudEditChrome.TOPBAR_HEIGHT - 22) / 2;
-        searchField = new TextFieldWidget(this.textRenderer,
-            searchX + 26, searchY + 6, searchW - 32, 10, Text.literal("Rechercher un élément..."));
-        searchField.setDrawsBackground(false);
+        searchField = new EditBox(this.textRenderer,
+            searchX + 26, searchY + 6, searchW - 32, 10, Component.literal("Rechercher un élément..."));
+        searchField.setBordered(false);
         searchField.setMaxLength(40);
         searchField.setChangedListener(s -> searchQuery = s == null ? "" : s.toLowerCase());
-        this.addDrawableChild(searchField);
+        this.addRenderableWidget(searchField);
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Pas de blur vanilla : on veut voir le HUD derrière clairement.
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Edit zone : largeur effective depend de l'etat du side panel
         int editRight = sidePanelOpen ? this.width - HudEditSidePanel.WIDTH : this.width;
 
@@ -225,7 +225,7 @@ public class HudEditScreen extends Screen {
         return n;
     }
 
-    private void renderSearchBox(DrawContext ctx, int mouseX, int mouseY) {
+    private void renderSearchBox(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         int searchW = HudEditChrome.SEARCH_WIDTH;
         int btnsTotalW = HudEditChrome.ICONBTN_SIZE * 3 + HudEditChrome.ICONBTN_GAP * 2 + 12;
         int rightEdge = this.width - 8;
@@ -243,12 +243,12 @@ public class HudEditScreen extends Screen {
 
         // Placeholder si vide et pas focus
         if (!focused && (searchQuery == null || searchQuery.isBlank())) {
-            ctx.drawText(this.textRenderer, Text.literal("Rechercher un élément..."),
+            ctx.text(this.textRenderer, Component.literal("Rechercher un élément..."),
                 x + 26, y + 7, RebornColors.FOREGROUND_MUTED, false);
         }
     }
 
-    private void renderTopBarButtons(DrawContext ctx, int mouseX, int mouseY) {
+    private void renderTopBarButtons(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         int btnsRightEdge = this.width - 8;
         int btnY = (HudEditChrome.TOPBAR_HEIGHT - HudEditChrome.ICONBTN_SIZE) / 2;
         int btnSz = HudEditChrome.ICONBTN_SIZE;
@@ -295,7 +295,7 @@ public class HudEditScreen extends Screen {
             undoHovered ? RebornColors.ACCENT_HOVER : RebornColors.FOREGROUND_SUBTLE);
     }
 
-    private void renderHudBox(DrawContext ctx, HudElement element, boolean hovered, boolean selected,
+    private void renderHudBox(GuiGraphicsExtractor ctx, HudElement element, boolean hovered, boolean selected,
                               boolean dragging, int mouseX, int mouseY) {
         HudElementState state = config.stateOf(element);
         HudElementBounds bounds = HudElementBounds.currentFor(
@@ -369,7 +369,7 @@ public class HudEditScreen extends Screen {
     }
 
     /** Engrenage — vrai PNG settings.png + bg subtil + border hover. */
-    private void renderGearButton(DrawContext ctx, int x, int y, boolean hovered) {
+    private void renderGearButton(GuiGraphicsExtractor ctx, int x, int y, boolean hovered) {
         int bg = hovered ? 0xCC0A0B0F : 0xB3070811;
         int border = hovered ? RebornColors.ACCENT : RebornColors.BORDER_STRONG;
         RoundedRect.fill(ctx, x, y, GEAR_BTN_SIZE, GEAR_BTN_SIZE, 4, bg);
@@ -383,7 +383,7 @@ public class HudEditScreen extends Screen {
             iconSize, color);
     }
 
-    private void renderLabelPill(DrawContext ctx, HudElement element, HudElementState state,
+    private void renderLabelPill(GuiGraphicsExtractor ctx, HudElement element, HudElementState state,
                                   int bx, int by, int bw, int bh) {
         String name = element.displayName().toUpperCase();
         String coords = String.format("(%+d, %+d) · x%.2f", state.x(), state.y(), state.scale());
@@ -391,8 +391,8 @@ public class HudEditScreen extends Screen {
 
         boolean modified = isStateModified(state);
 
-        int nameW = this.textRenderer.getWidth(name);
-        int coordW = this.textRenderer.getWidth(coords);
+        int nameW = this.textRenderer.width(name);
+        int coordW = this.textRenderer.width(coords);
         int dotW = modified ? 8 : 0;
         int pillW = nameW + 8 + coordW + 14 + dotW;
         int pillH = 14;
@@ -413,11 +413,11 @@ public class HudEditScreen extends Screen {
             textX += 7;
         }
 
-        ctx.drawText(this.textRenderer, Text.literal(name).formatted(Formatting.BOLD),
+        ctx.text(this.textRenderer, Component.literal(name).formatted(Formatting.BOLD),
             textX, pillY + 3,
             state.visible() ? RebornColors.FOREGROUND : RebornColors.FOREGROUND_SUBTLE, false);
 
-        ctx.drawText(this.textRenderer, Text.literal(coords),
+        ctx.text(this.textRenderer, Component.literal(coords),
             textX + nameW + 6, pillY + 3, RebornColors.FOREGROUND_SUBTLE, false);
     }
 
@@ -442,7 +442,7 @@ public class HudEditScreen extends Screen {
         return false;
     }
 
-    private void renderEyeButton(DrawContext ctx, int x, int y, boolean visible, boolean hovered) {
+    private void renderEyeButton(GuiGraphicsExtractor ctx, int x, int y, boolean visible, boolean hovered) {
         int bg = hovered ? 0xCC0A0B0F : 0xB3070811;
         int border = hovered ? RebornColors.BORDER_STRONG : RebornColors.BORDER;
         RoundedRect.fill(ctx, x, y, EYE_BTN_SIZE, EYE_BTN_SIZE, 5, bg);
@@ -455,7 +455,7 @@ public class HudEditScreen extends Screen {
             iconSize, color);
     }
 
-    private void renderResizeHandle(DrawContext ctx, int x, int y, boolean hovered) {
+    private void renderResizeHandle(GuiGraphicsExtractor ctx, int x, int y, boolean hovered) {
         int s = RESIZE_HANDLE_SIZE;
         RoundedRect.fill(ctx, x, y, s, s, 3, RebornColors.ACCENT);
         if (hovered) {
@@ -503,7 +503,7 @@ public class HudEditScreen extends Screen {
                 && mouseX < keybarToggleRect[0] + keybarToggleRect[2]
                 && mouseY >= keybarToggleRect[1]
                 && mouseY < keybarToggleRect[1] + keybarToggleRect[3]) {
-            MinecraftClient.getInstance().setScreen(new HudHelpScreen(this));
+            Minecraft.getInstance().setScreen(new HudHelpScreen(this));
             return true;
         }
 
@@ -650,7 +650,7 @@ public class HudEditScreen extends Screen {
 
     /** Ouvre le settings panel du chat. */
     public void openChatSettings() {
-        MinecraftClient.getInstance().setScreen(new ChatSettingsScreen(this));
+        Minecraft.getInstance().setScreen(new ChatSettingsScreen(this));
     }
 
     private void selectElement(HudElement element) {
@@ -768,7 +768,7 @@ public class HudEditScreen extends Screen {
 
         // F1 = ouvre HelpScreen
         if (keyCode == GLFW.GLFW_KEY_F1) {
-            MinecraftClient.getInstance().setScreen(new HudHelpScreen(this));
+            Minecraft.getInstance().setScreen(new HudHelpScreen(this));
             return true;
         }
 
@@ -814,7 +814,7 @@ public class HudEditScreen extends Screen {
         this.toastShownAtMs = System.currentTimeMillis();
     }
 
-    private void renderToast(DrawContext ctx) {
+    private void renderToast(GuiGraphicsExtractor ctx) {
         if (toastText == null) return;
         long age = System.currentTimeMillis() - toastShownAtMs;
         if (age > TOAST_DURATION_MS) { toastText = null; return; }
@@ -830,7 +830,7 @@ public class HudEditScreen extends Screen {
         // Slide-up subtil pendant fade-in (translate vers haut)
         int slideOffset = (int) ((1f - opacity) * 6f * (age < TOAST_FADE_IN_MS ? 1 : 0));
         int alpha = (int) (opacity * 255);
-        int pillW = this.textRenderer.getWidth(toastText) + 24;
+        int pillW = this.textRenderer.width(toastText) + 24;
         int pillH = 22;
         int pillX = (this.width - pillW) / 2;
         int pillY = this.height - 80 + slideOffset;
@@ -838,20 +838,20 @@ public class HudEditScreen extends Screen {
             (alpha << 24) | (RebornColors.BG_PANEL_ELEVATED & 0x00FFFFFF));
         RoundedRect.border(ctx, pillX, pillY, pillW, pillH, 6,
             (alpha << 24) | (RebornColors.ACCENT & 0x00FFFFFF));
-        ctx.drawText(this.textRenderer, Text.literal(toastText),
+        ctx.text(this.textRenderer, Component.literal(toastText),
             pillX + 12, pillY + 7,
             (alpha << 24) | (RebornColors.FOREGROUND & 0x00FFFFFF), false);
     }
 
     // ───── Live coords pill pendant drag ─────
-    private void renderLiveCoordsPill(DrawContext ctx, int mouseX, int mouseY) {
+    private void renderLiveCoordsPill(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         if (draggedElement == null || draggingResize) return;
         HudElementState state = config.stateOf(draggedElement);
         String text = String.format("%+d, %+d", state.x(), state.y());
         if (selectedElements.size() > 1) {
             text = "(" + selectedElements.size() + ") " + text;
         }
-        int w = this.textRenderer.getWidth(text) + 14;
+        int w = this.textRenderer.width(text) + 14;
         int h = 16;
         // Position : a droite-bas du curseur, avec 14px d'offset pour ne pas occluder
         int x = mouseX + 14;
@@ -860,12 +860,12 @@ public class HudEditScreen extends Screen {
         if (y + h > this.height - 4) y = mouseY - h - 14;
         RoundedRect.fill(ctx, x, y, w, h, 4, 0xE6070811);
         RoundedRect.border(ctx, x, y, w, h, 4, RebornColors.ACCENT);
-        ctx.drawText(this.textRenderer, Text.literal(text),
+        ctx.text(this.textRenderer, Component.literal(text),
             x + 7, y + 4, RebornColors.FOREGROUND, false);
     }
 
     // ───── Tooltip pour icon buttons ─────
-    private void renderIconButtonTooltip(DrawContext ctx, int mouseX, int mouseY) {
+    private void renderIconButtonTooltip(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         if (mouseY >= HudEditChrome.TOPBAR_HEIGHT) return;
         int btnY = (HudEditChrome.TOPBAR_HEIGHT - HudEditChrome.ICONBTN_SIZE) / 2;
         int btnSz = HudEditChrome.ICONBTN_SIZE;
@@ -889,7 +889,7 @@ public class HudEditScreen extends Screen {
         }
         if (label == null) return;
 
-        int w = this.textRenderer.getWidth(label) + 10;
+        int w = this.textRenderer.width(label) + 10;
         int h = 14;
         int x = hoverX + btnSz / 2 - w / 2;
         if (x + w > this.width - 4) x = this.width - 4 - w;
@@ -897,7 +897,7 @@ public class HudEditScreen extends Screen {
         int y = btnY + btnSz + 4;
         RoundedRect.fill(ctx, x, y, w, h, 3, 0xE6070811);
         RoundedRect.border(ctx, x, y, w, h, 3, RebornColors.BORDER_STRONG);
-        ctx.drawText(this.textRenderer, Text.literal(label),
+        ctx.text(this.textRenderer, Component.literal(label),
             x + 5, y + 3, RebornColors.FOREGROUND, false);
     }
 
@@ -930,7 +930,7 @@ public class HudEditScreen extends Screen {
             String json = new Gson().toJson(snap);
             String encoded = "reborn-hud-v1:" + Base64.getEncoder().encodeToString(
                 json.getBytes(StandardCharsets.UTF_8));
-            MinecraftClient.getInstance().keyboard.setClipboard(encoded);
+            Minecraft.getInstance().keyboard.setClipboard(encoded);
 
             // Écriture disque dans ~/.minecraft/config/reborn-hud-exports/
             java.nio.file.Path exportDir = net.fabricmc.loader.api.FabricLoader.getInstance()
@@ -952,7 +952,7 @@ public class HudEditScreen extends Screen {
     /** Lit le clipboard, decode base64, parse JSON, applique. */
     private void importConfigFromClipboard() {
         try {
-            String content = MinecraftClient.getInstance().keyboard.getClipboard();
+            String content = Minecraft.getInstance().keyboard.getClipboard();
             if (content == null || content.isBlank()) {
                 LOGGER.warn("clipboard vide");
                 showToast("Presse-papier vide");
@@ -984,7 +984,7 @@ public class HudEditScreen extends Screen {
 
     @Override
     public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override

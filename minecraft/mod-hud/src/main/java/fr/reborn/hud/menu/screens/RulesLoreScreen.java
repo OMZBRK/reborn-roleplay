@@ -1,10 +1,10 @@
 package fr.reborn.hud.menu.screens;
 
 import fr.reborn.hud.menu.RebornButton;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * Screen Règlement & Lore — sidebar à gauche avec 3 catégories
@@ -33,7 +33,7 @@ public class RulesLoreScreen extends Screen {
     };
 
     public RulesLoreScreen(Screen parent) {
-        super(Text.literal("Règlement & Lore"));
+        super(Component.literal("Règlement & Lore"));
         this.parent = parent;
     }
 
@@ -48,29 +48,29 @@ public class RulesLoreScreen extends Screen {
 
         for (int i = 0; i < TAB_LABELS.length; i++) {
             final int tab = i;
-            this.addDrawableChild(new RebornButton(
+            this.addRenderableWidget(new RebornButton(
                 sidebarX, sidebarY + i * (btnH + spacing), btnW, btnH,
-                Text.literal(TAB_LABELS[i]),
+                Component.literal(TAB_LABELS[i]),
                 b -> { this.activeTab = tab; this.scrollY = 0; }
             ));
         }
 
         // Bouton retour en bas.
-        this.addDrawableChild(new RebornButton(
+        this.addRenderableWidget(new RebornButton(
             sidebarX, this.height - 50, btnW, btnH,
-            Text.literal("RETOUR"),
+            Component.literal("RETOUR"),
             b -> close()
         ));
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         // Override pour eviter le panorama vanilla — fond noir uni.
         context.fill(0, 0, this.width, this.height, BG);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
         // Ligne d'accent header.
@@ -78,7 +78,7 @@ public class RulesLoreScreen extends Screen {
         // Titre — pixel-perfect via drawCenteredTextWithShadow (le scale 2x
         // floute la font MC).
         context.drawCenteredTextWithShadow(textRenderer,
-            Text.literal("RÈGLEMENT & LORE"),
+            Component.literal("RÈGLEMENT & LORE"),
             this.width / 2, 28, FG);
 
         // Zone de contenu (cote droit). Largeurs dérivées de la sidebar
@@ -99,14 +99,14 @@ public class RulesLoreScreen extends Screen {
         for (String line : lines) {
             if (line.startsWith("# ")) {
                 // Titre h1 : plus gros + accent
-                context.drawText(textRenderer, line.substring(2), contentX + 16, textY, ACCENT, true);
+                context.text(textRenderer, line.substring(2), contentX + 16, textY, ACCENT, true);
                 textY += 16;
             } else if (line.startsWith("## ")) {
                 // Titre h2
-                context.drawText(textRenderer, line.substring(3), contentX + 16, textY, FG, true);
+                context.text(textRenderer, line.substring(3), contentX + 16, textY, FG, true);
                 textY += 14;
             } else {
-                context.drawText(textRenderer, line, contentX + 16, textY, FG_DIM, false);
+                context.text(textRenderer, line, contentX + 16, textY, FG_DIM, false);
                 textY += 12;
             }
         }
@@ -127,7 +127,7 @@ public class RulesLoreScreen extends Screen {
 
     @Override
     public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 
     /**

@@ -1,6 +1,6 @@
 package fr.reborn.hud.ui.style;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Dessin de rectangles à coins arrondis sans textures.
@@ -22,7 +22,7 @@ public final class RoundedRect {
     private RoundedRect() {}
 
     /** Remplit un rectangle à coins arrondis avec {@code color}. */
-    public static void fill(DrawContext ctx, int x, int y, int w, int h, int r, int color) {
+    public static void fill(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
         if (r <= 0) {
             ctx.fill(x, y, x + w, y + h, color);
@@ -52,7 +52,7 @@ public final class RoundedRect {
     }
 
     /** Dessine un border 1px à coins arrondis. Pas de remplissage. */
-    public static void border(DrawContext ctx, int x, int y, int w, int h, int r, int color) {
+    public static void border(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
         if (r <= 0) {
             ctx.fill(x,         y,         x + w,     y + 1,     color);
@@ -90,7 +90,7 @@ public final class RoundedRect {
      * Border épaisseur 2px (visuellement plus présente). Implémentée comme
      * une succession de 2 anneaux pour rester propre sur les coins.
      */
-    public static void borderThick(DrawContext ctx, int x, int y, int w, int h, int r, int color) {
+    public static void borderThick(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r, int color) {
         border(ctx, x, y, w, h, r, color);
         if (w > 2 && h > 2) {
             border(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, r - 1), color);

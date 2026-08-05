@@ -5,12 +5,12 @@ import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.screenshot.ScreenshotLibrary.Entry;
 import fr.reborn.hud.screenshot.ScreenshotTextures;
 import fr.reborn.hud.screenshot.ShareQueue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -22,14 +22,14 @@ public class ScreenshotShareScreen extends Screen {
 
     private final Screen parent;
     private final Entry entry;
-    private TextFieldWidget captionField;
+    private EditBox captionField;
     private long doneAtMs = 0L; // > 0 quand la demande est empilée (feedback)
 
     private record Btn(String label, int x, int y, int w, int h, Runnable action) {}
     private final java.util.List<Btn> buttons = new java.util.ArrayList<>();
 
     public ScreenshotShareScreen(Screen parent, Entry entry) {
-        super(Text.literal("Partager"));
+        super(Component.literal("Partager"));
         this.parent = parent;
         this.entry = entry;
     }
@@ -39,11 +39,11 @@ public class ScreenshotShareScreen extends Screen {
         int fieldW = Math.min(320, this.width - 80);
         int fieldX = (this.width - fieldW) / 2;
         int fieldY = this.height / 2 + 20;
-        captionField = new TextFieldWidget(this.textRenderer, fieldX, fieldY, fieldW, 16,
-            Text.literal("caption"));
+        captionField = new EditBox(this.textRenderer, fieldX, fieldY, fieldW, 16,
+            Component.literal("caption"));
         captionField.setMaxLength(280);
-        captionField.setPlaceholder(Text.literal("Légende (optionnelle)…"));
-        this.addDrawableChild(captionField);
+        captionField.setHint(Component.literal("Légende (optionnelle)…"));
+        this.addRenderableWidget(captionField);
         this.setInitialFocus(captionField);
     }
 
@@ -53,13 +53,13 @@ public class ScreenshotShareScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0xE6000000);
-        TextRenderer tr = this.textRenderer;
+        Font tr = this.textRenderer;
 
         int cx = this.width / 2;
         ctx.drawCenteredTextWithShadow(tr, RebornFont.bold("Partager sur le feed"), cx, this.height / 2 - 90, Colors.GOLD);
-        ctx.drawCenteredTextWithShadow(tr, Text.literal(entry.name()), cx, this.height / 2 - 74, Colors.FOREGROUND_MUTED);
+        ctx.drawCenteredTextWithShadow(tr, Component.literal(entry.name()), cx, this.height / 2 - 74, Colors.FOREGROUND_MUTED);
 
         // Aperçu de l'image (fit dans une petite zone).
         int previewH = 96, previewW = 170;
@@ -75,7 +75,7 @@ public class ScreenshotShareScreen extends Screen {
 
         // Label + champ légende (rendu explicite, comme l'éditeur — pas de
         // super.render qui repeindrait le fond par-dessus notre contenu).
-        ctx.drawText(tr, Text.literal("Légende"), captionField.getX(), captionField.getY() - 12,
+        ctx.text(tr, Component.literal("Légende"), captionField.getX(), captionField.getY() - 12,
             Colors.FOREGROUND_SUBTLE, false);
         captionField.render(ctx, mouseX, mouseY, delta);
 
@@ -86,14 +86,14 @@ public class ScreenshotShareScreen extends Screen {
             boolean primary = b.label.startsWith("Partager");
             int bg = primary ? (hov ? Colors.ACCENT_HOVER : Colors.ACCENT) : (hov ? Colors.ACCENT_HOVER : Colors.BACKDROP_85);
             ctx.fill(b.x, b.y, b.x + b.w, b.y + b.h, bg);
-            ctx.drawText(tr, Text.literal(b.label), b.x + (b.w - tr.getWidth(b.label)) / 2, b.y + (b.h - 8) / 2,
+            ctx.text(tr, Component.literal(b.label), b.x + (b.w - tr.width(b.label)) / 2, b.y + (b.h - 8) / 2,
                 Colors.WHITE_PURE, false);
         }
 
         // Feedback après confirmation.
         if (doneAtMs > 0) {
             ctx.drawCenteredTextWithShadow(tr,
-                Text.literal("✓ Ajouté — sera publié via le launcher"),
+                Component.literal("✓ Ajouté — sera publié via le launcher"),
                 cx, captionField.getY() + 44, 0xFF4ECE6F);
         }
     }
@@ -102,8 +102,8 @@ public class ScreenshotShareScreen extends Screen {
         buttons.clear();
         int y = captionField.getY() + 26;
         int h = 18, gap = 8;
-        int wShare = this.textRenderer.getWidth("Partager") + 28;
-        int wCancel = this.textRenderer.getWidth("Annuler") + 28;
+        int wShare = this.textRenderer.width("Partager") + 28;
+        int wCancel = this.textRenderer.width("Annuler") + 28;
         int total = wShare + wCancel + gap;
         int x = (this.width - total) / 2;
         buttons.add(new Btn("Partager", x, y, wShare, h, this::confirmShare));
@@ -129,7 +129,7 @@ public class ScreenshotShareScreen extends Screen {
 
     @Override
     public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override

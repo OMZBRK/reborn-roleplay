@@ -2,8 +2,8 @@ package fr.reborn.hud.chat;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.function.Consumer;
 
@@ -61,8 +61,8 @@ public final class EmojiPicker {
         return (buttonY(screenH) + BTN) - pickerH();
     }
 
-    public static void render(DrawContext ctx, int mouseX, int mouseY, int screenW, int screenH) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    public static void render(GuiGraphicsExtractor ctx, int mouseX, int mouseY, int screenW, int screenH) {
+        Minecraft mc = Minecraft.getInstance();
         var tr = mc.textRenderer;
 
         int bx = buttonX(screenW), by = buttonY(screenH);
@@ -82,7 +82,7 @@ public final class EmojiPicker {
         int px = pickerX(screenW), py = pickerY(screenH);
         DrawHelpers.roundedOutlinedRect(ctx, px, py, pickerW(), pickerH(), 5,
             Colors.BACKDROP_85, Colors.BORDER_STRONG);
-        ctx.drawText(tr, fr.reborn.hud.menu.RebornFont.bold("EMOJI"),
+        ctx.text(tr, fr.reborn.hud.menu.RebornFont.bold("EMOJI"),
             px + 6, py + 3, Colors.FOREGROUND_SUBTLE, false);
         ctx.fill(px + 4, py + HDR - 1, px + pickerW() - 4, py + HDR, Colors.BORDER);
 
@@ -93,12 +93,12 @@ public final class EmojiPicker {
             boolean hot = inside(mouseX, mouseY, cx, cy, CELL_W, CELL_H);
             if (hot) DrawHelpers.roundedRect(ctx, cx, cy, CELL_W, CELL_H, 3, Colors.ACCENT_SOFT);
             // Emoji agrandi, centré, tint blanc (= vraies couleurs du glyphe).
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(cx + CELL_W / 2f, cy + CELL_H / 2f, 0);
-            ctx.getMatrices().scale(EMOJI_SCALE, EMOJI_SCALE, 1f);
-            int gw = tr.getWidth(EMOTES[i]);
-            ctx.drawText(tr, EMOTES[i], -gw / 2, -tr.fontHeight / 2, 0xFFFFFFFF, false);
-            ctx.getMatrices().pop();
+            ctx.pose().pushMatrix();
+            ctx.pose().translate(cx + CELL_W / 2f, cy + CELL_H / 2f);
+            ctx.pose().scale(EMOJI_SCALE, EMOJI_SCALE);
+            int gw = tr.width(EMOTES[i]);
+            ctx.text(tr, EMOTES[i], -gw / 2, -tr.lineHeight / 2, 0xFFFFFFFF, false);
+            ctx.pose().popMatrix();
         }
     }
 

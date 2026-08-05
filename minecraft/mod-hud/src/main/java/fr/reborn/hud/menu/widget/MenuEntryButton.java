@@ -2,13 +2,13 @@ package fr.reborn.hud.menu.widget;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.screen.narration.NarrationPart;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarrationPart;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.Supplier;
 
@@ -29,7 +29,7 @@ import java.util.function.Supplier;
  *       encore fonctionnelles (NEWS / BOUTIQUE).</li>
  * </ul>
  */
-public class MenuEntryButton extends ButtonWidget {
+public class MenuEntryButton extends Button {
 
     /** Espace réservé à gauche pour la flèche curseur. */
     private static final int ARROW_SLOT = 16;
@@ -38,7 +38,7 @@ public class MenuEntryButton extends ButtonWidget {
 
     private final String rawLabel;
     /** Police Minecraft vanilla en gras (pixel) — proche du look Paladium. */
-    private final Text label;
+    private final Component label;
     private final float scale;
 
     private boolean placeholder = false;
@@ -50,8 +50,8 @@ public class MenuEntryButton extends ButtonWidget {
 
     public MenuEntryButton(int x, int y, int width, int height,
                            String text, float scale, PressAction onPress) {
-        super(x, y, width, height, Text.literal(text), onPress,
-              ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, width, height, Component.literal(text), onPress,
+              Button.DEFAULT_NARRATION_SUPPLIER);
         this.rawLabel = text;
         this.label = RebornFont.arcade(text);
         this.scale = scale;
@@ -70,15 +70,15 @@ public class MenuEntryButton extends ButtonWidget {
     }
 
     /** Largeur du label rendu (scaled) — utile au parent pour le layout. */
-    public static int labelWidth(TextRenderer tr, String text, float scale) {
-        return ARROW_SLOT + Math.round(tr.getWidth(RebornFont.arcade(text)) * scale);
+    public static int labelWidth(Font tr, String text, float scale) {
+        return ARROW_SLOT + Math.round(tr.width(RebornFont.arcade(text)) * scale);
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.textRenderer;
 
         boolean active = isHovered() || isFocused();
 
@@ -110,31 +110,31 @@ public class MenuEntryButton extends ButtonWidget {
 
         // ── Label display, aligné à gauche, centré verticalement ─
         int labelX = x0 + ARROW_SLOT;
-        int scaledH = Math.round(tr.fontHeight * scale);
+        int scaledH = Math.round(tr.lineHeight * scale);
         int labelY = y0 + (h - scaledH) / 2;
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(labelX, labelY, 0);
-        ctx.getMatrices().scale(scale, scale, 1f);
-        ctx.drawText(tr, label, 1, 1, 0x66000000, false);
-        ctx.drawText(tr, label, 0, 0, color, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(labelX, labelY);
+        ctx.pose().scale(scale, scale);
+        ctx.text(tr, label, 1, 1, 0x66000000, false);
+        ctx.text(tr, label, 0, 0, color, false);
+        ctx.pose().popMatrix();
 
         // ── Info survol (ex : joueurs en ligne) à droite du label ─
         if (active && hoverInfo != null) {
             String info = hoverInfo.get();
             if (info != null && !info.isEmpty()) {
-                int scaledLabelW = Math.round(tr.getWidth(label) * scale);
+                int scaledLabelW = Math.round(tr.width(label) * scale);
                 int infoX = labelX + scaledLabelW + 10;
-                int infoY = y0 + (h - tr.fontHeight) / 2;
-                ctx.drawText(tr, RebornFont.arcade(info), infoX, infoY,
+                int infoY = y0 + (h - tr.lineHeight) / 2;
+                ctx.text(tr, RebornFont.arcade(info), infoX, infoY,
                     Colors.FOREGROUND_SUBTLE, true);
             }
         }
     }
 
     /** Petit chevron plein pointant à droite (►), dessiné en lignes. */
-    private static void drawRightArrow(DrawContext ctx, int x, int y, int size, int color) {
+    private static void drawRightArrow(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         for (int i = 0; i < size; i++) {
             // Largeur du triangle décroît du centre vers les pointes.
             int half = Math.min(i, size - 1 - i);
@@ -144,7 +144,7 @@ public class MenuEntryButton extends ButtonWidget {
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
+    public void updateWidgetNarration(NarrationElementOutput builder) {
         builder.put(NarrationPart.TITLE, rawLabel);
     }
 }

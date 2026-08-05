@@ -1,10 +1,10 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.client.sound.SoundInstance;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.PositionedSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.resources.Identifier;
 
 /**
  * Audio state machine du lecteur OST Reborn. Singleton process-wide pour
@@ -105,10 +105,10 @@ public final class OSTPlayer {
 
     /** Demarre la piste courante. Stop l'ancienne si presente. */
     public void play() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
         stop();
-        Identifier id = Identifier.of("reborn", String.format("ost.track%02d", currentTrack));
+        Identifier id = Identifier.fromNamespaceAndPath("reborn", String.format("ost.track%02d", currentTrack));
         SoundEvent event = SoundEvent.of(id);
         currentInstance = PositionedSoundInstance.master(event, 1.0F, volume);
         client.getSoundManager().play(currentInstance);
@@ -119,7 +119,7 @@ public final class OSTPlayer {
     /** Stop la piste en cours sans memoire de position. */
     public void stop() {
         if (currentInstance != null) {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client != null) {
                 client.getSoundManager().stop(currentInstance);
             }
@@ -172,7 +172,7 @@ public final class OSTPlayer {
      */
     public boolean isStillSoundingInManager() {
         if (currentInstance == null) return false;
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return false;
         return client.getSoundManager().isPlaying(currentInstance);
     }

@@ -3,9 +3,9 @@ package fr.reborn.hud.crosshair;
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.settings.RebornPrefs;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 
 /**
  * Rendu du viseur Reborn (pilier 2 — cf {@code docs/MOD_HUD_REDESIGN.md}).
@@ -36,7 +36,7 @@ public final class CrosshairManager {
 
     public static Identifier preset(int index) {
         int i = Math.max(0, Math.min(PRESET_COUNT - 1, index)) + 1;
-        return Identifier.of("reborn", "textures/gui/crosshairs/" + i + ".png");
+        return Identifier.fromNamespaceAndPath("reborn", "textures/gui/crosshairs/" + i + ".png");
     }
 
     /**
@@ -44,10 +44,10 @@ public final class CrosshairManager {
      * personne. Retourne {@code true} si on a pris la main (le mixin annule
      * alors le crosshair vanilla).
      */
-    public static boolean tryRender(DrawContext ctx) {
+    public static boolean tryRender(GuiGraphicsExtractor ctx) {
         RebornPrefs p = RebornPrefs.INSTANCE;
         if (!p.crosshairEnabled) return false;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null || mc.player == null) return false;
         if (!mc.options.getPerspective().isFirstPerson()) return false;
 
@@ -75,11 +75,11 @@ public final class CrosshairManager {
      * Dessine le corps du viseur (preset PNG ou forme procédurale) centré en
      * (cx,cy), mis à l'échelle, teinté en {@code color}.
      */
-    private static void drawBody(DrawContext ctx, int cx, int cy, float scale, int color) {
+    private static void drawBody(GuiGraphicsExtractor ctx, int cx, int cy, float scale, int color) {
         RebornPrefs p = RebornPrefs.INSTANCE;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(cx, cy, 0);
-        ctx.getMatrices().scale(scale, scale, 1f);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(cx, cy);
+        ctx.pose().scale(scale, scale);
         RenderSystem.enableBlend();
         if ("preset".equals(p.crosshairStyle)) {
             float a = ((color >>> 24) & 0xFF) / 255f;
@@ -95,11 +95,11 @@ public final class CrosshairManager {
             drawProcedural(ctx, p.crosshairStyle,
                 p.crosshairGap, p.crosshairLength, p.crosshairThickness, color);
         }
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
     }
 
     /** Formes procédurales (croix / point / cercle) dessinées autour de (0,0). */
-    private static void drawProcedural(DrawContext ctx, String style,
+    private static void drawProcedural(GuiGraphicsExtractor ctx, String style,
                                        int gap, int len, int thick, int color) {
         if (((color >>> 24) & 0xFF) == 0) color |= 0xFF000000; // force opaque si alpha non fixé
         int t = Math.max(1, thick);
@@ -124,7 +124,7 @@ public final class CrosshairManager {
      * à un point donné, indépendamment de l'état activé / vue. Pour l'aperçu
      * live dans l'éditeur {@code CrosshairScreen}.
      */
-    public static void drawPreview(DrawContext ctx, int cx, int cy, float scaleMul) {
+    public static void drawPreview(GuiGraphicsExtractor ctx, int cx, int cy, float scaleMul) {
         RebornPrefs p = RebornPrefs.INSTANCE;
         float scale = Math.max(0.5f, Math.min(2.0f, p.crosshairScale / 100f)) * scaleMul;
         int color = p.crosshairRainbow ? rainbow() : p.crosshairColor;
@@ -132,7 +132,7 @@ public final class CrosshairManager {
     }
 
     /** Hit-marker (X blanc) qui s'estompe sur {@link #HIT_MS} après un coup. */
-    private static void drawHitMarker(DrawContext ctx, int cx, int cy) {
+    private static void drawHitMarker(GuiGraphicsExtractor ctx, int cx, int cy) {
         long age = System.currentTimeMillis() - lastHitMs;
         if (lastHitMs <= 0L || age > HIT_MS) return;
         float t = 1f - age / (float) HIT_MS; // 1 → 0

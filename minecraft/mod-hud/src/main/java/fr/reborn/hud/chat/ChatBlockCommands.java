@@ -3,7 +3,7 @@ package fr.reborn.hud.chat;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 /**
  * Commandes client de blocage chat : {@code /rblock <pseudo>},
@@ -22,7 +22,7 @@ public final class ChatBlockCommands {
                     .executes(ctx -> {
                         String name = StringArgumentType.getString(ctx, "pseudo");
                         boolean ok = ChatBlockList.INSTANCE.block(name);
-                        ctx.getSource().sendFeedback(Text.literal(
+                        ctx.getSource().sendFeedback(Component.literal(
                             ok ? "§cJoueur bloqué : §f" + name
                                : "§7Déjà bloqué : §f" + name));
                         return 1;
@@ -33,7 +33,7 @@ public final class ChatBlockCommands {
                     .executes(ctx -> {
                         String name = StringArgumentType.getString(ctx, "pseudo");
                         boolean ok = ChatBlockList.INSTANCE.unblock(name);
-                        ctx.getSource().sendFeedback(Text.literal(
+                        ctx.getSource().sendFeedback(Component.literal(
                             ok ? "§aJoueur débloqué : §f" + name
                                : "§7Ce joueur n'était pas bloqué : §f" + name));
                         return 1;
@@ -42,7 +42,7 @@ public final class ChatBlockCommands {
             dispatcher.register(ClientCommandManager.literal("rblocklist")
                 .executes(ctx -> {
                     var names = ChatBlockList.INSTANCE.names();
-                    ctx.getSource().sendFeedback(Text.literal(
+                    ctx.getSource().sendFeedback(Component.literal(
                         names.isEmpty() ? "§7Aucun joueur bloqué."
                                         : "§cBloqués (§f" + names.size() + "§c) : §f"
                                           + String.join(", ", names)));

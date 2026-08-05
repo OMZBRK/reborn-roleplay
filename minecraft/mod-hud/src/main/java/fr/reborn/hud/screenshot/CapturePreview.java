@@ -3,9 +3,9 @@ package fr.reborn.hud.screenshot;
 import fr.reborn.hud.menu.Colors;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -52,9 +52,9 @@ public final class CapturePreview {
         }
     }
 
-    private void render(DrawContext ctx) {
+    private void render(GuiGraphicsExtractor ctx) {
         if (path == null) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.options.hudHidden) return;
         long age = System.currentTimeMillis() - shownAt;
         if (age > DISPLAY_MS) return;
@@ -83,8 +83,8 @@ public final class CapturePreview {
         }
         ctx.fill(ix - 1, iy - 1, ix + TW + 1, iy, Colors.BORDER);
 
-        ctx.drawText(tr, Text.literal("Capture enregistrée").styled(s -> s.withBold(true)),
+        ctx.text(tr, Component.literal("Capture enregistrée").withStyle(s -> s.withBold(true)),
             x + PAD, y + TH + PAD + 2, Colors.GOLD, false);
-        ctx.drawText(tr, Text.literal("[G] Galerie"), x + PAD, y + TH + PAD + 12, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, Component.literal("[G] Galerie"), x + PAD, y + TH + PAD + 12, Colors.FOREGROUND_MUTED, false);
     }
 }

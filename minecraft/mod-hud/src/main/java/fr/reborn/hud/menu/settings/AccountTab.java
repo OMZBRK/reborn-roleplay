@@ -1,7 +1,7 @@
 package fr.reborn.hud.menu.settings;
 
 import fr.reborn.hud.menu.Colors;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.util.UUID;
 
@@ -14,7 +14,7 @@ public class AccountTab extends SectionedTab {
 
     @Override
     protected void build() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         String username = "—";
         String uuid = "—";
         if (mc != null && mc.getSession() != null) {

@@ -1,9 +1,9 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Icônes UI Reborn — rendues en primitives DrawContext (pas de PNG)
+ * Icônes UI Reborn — rendues en primitives GuiGraphicsExtractor (pas de PNG)
  * pour éviter la dépendance à des textures externes et garder le mod
  * léger. Chaque icône est dessinée dans une box {@code size×size} dont
  * (x, y) est le coin haut-gauche.
@@ -39,7 +39,7 @@ public final class IconPack {
     // ──────────────────────────────────────────────
 
     /** ▶ Triangle play (rempli pointant à droite). */
-    public static void play(DrawContext ctx, int x, int y, int size, int color) {
+    public static void play(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int marginX = Math.max(1, size / 5);
         int marginY = Math.max(1, size / 7);
         int tipX = x + size - marginX;
@@ -66,7 +66,7 @@ public final class IconPack {
     }
 
     /** ⏸ Pause (2 rectangles verticaux). */
-    public static void pause(DrawContext ctx, int x, int y, int size, int color) {
+    public static void pause(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int bar = Math.max(2, size / 5);
         int gap = Math.max(1, size / 6);
         int top = y + size / 6;
@@ -77,7 +77,7 @@ public final class IconPack {
     }
 
     /** ⏮ Previous (triangle + barre verticale à gauche). */
-    public static void skipPrev(DrawContext ctx, int x, int y, int size, int color) {
+    public static void skipPrev(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int bar = Math.max(1, size / 8);
         ctx.fill(x, y + size / 6, x + bar, y + size - size / 6, color);
         int[] tri = triangleRows(size);
@@ -91,7 +91,7 @@ public final class IconPack {
     }
 
     /** ⏭ Next (triangle + barre verticale à droite). */
-    public static void skipNext(DrawContext ctx, int x, int y, int size, int color) {
+    public static void skipNext(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int bar = Math.max(1, size / 8);
         int[] tri = triangleRows(size);
         for (int row = 0; row < size; row++) {
@@ -102,7 +102,7 @@ public final class IconPack {
     }
 
     /** 🔉 Speaker simple (rectangle haut-parleur + cône + 2 arcs de son). */
-    public static void volume(DrawContext ctx, int x, int y, int size, int color) {
+    public static void volume(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int mid = y + size / 2;
 
         // Corps rectangulaire du haut-parleur (à gauche).
@@ -132,7 +132,7 @@ public final class IconPack {
     }
 
     /** 🔇 Speaker barré (muet). */
-    public static void volumeMuted(DrawContext ctx, int x, int y, int size, int color) {
+    public static void volumeMuted(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         volume(ctx, x, y, size, color);
         // Barre diagonale à travers.
         DrawHelpers.line(ctx, x + 2, y + 2, x + size - 2, y + size - 2, Colors.DANGER);
@@ -143,7 +143,7 @@ public final class IconPack {
     // ──────────────────────────────────────────────
 
     /** ☰ Menu hamburger (3 lignes horizontales). */
-    public static void menu(DrawContext ctx, int x, int y, int size, int color) {
+    public static void menu(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int barH = Math.max(1, size / 12);
         int marginX = size / 6;
         int spacing = (size - 3 * barH) / 4;
@@ -158,7 +158,7 @@ public final class IconPack {
      * ⚙️ Settings — cog wheel à 8 dents équidistantes, anneau central
      * creux + petit disque au cœur.
      */
-    public static void settings(DrawContext ctx, int x, int y, int size, int color) {
+    public static void settings(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int cx = x + size / 2;
         int cy = y + size / 2;
         int ringR = size * 3 / 8;
@@ -198,7 +198,7 @@ public final class IconPack {
     }
 
     /** 🌐 Globe — cercle + équateur + 2 méridiens (ellipses étroites). */
-    public static void globe(DrawContext ctx, int x, int y, int size, int color) {
+    public static void globe(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int cx = x + size / 2;
         int cy = y + size / 2;
         int r = size / 2 - 1;
@@ -229,7 +229,7 @@ public final class IconPack {
     }
 
     /** ❌ Close (croix) — 3 passes parallèles pour épaisseur ~3px. */
-    public static void close(DrawContext ctx, int x, int y, int size, int color) {
+    public static void close(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int margin = Math.max(1, size / 6);
         for (int off = -1; off <= 1; off++) {
             DrawHelpers.line(ctx, x + margin + off, y + margin,
@@ -240,7 +240,7 @@ public final class IconPack {
     }
 
     /** ‹ Chevron left. */
-    public static void chevronLeft(DrawContext ctx, int x, int y, int size, int color) {
+    public static void chevronLeft(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int cx = x + size * 5 / 8;
         int cy = y + size / 2;
         int reach = size / 3;
@@ -251,7 +251,7 @@ public final class IconPack {
     }
 
     /** › Chevron right. */
-    public static void chevronRight(DrawContext ctx, int x, int y, int size, int color) {
+    public static void chevronRight(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int cx = x + size * 3 / 8;
         int cy = y + size / 2;
         int reach = size / 3;
@@ -271,7 +271,7 @@ public final class IconPack {
      * (corner bumps) en bas. Pas une copie pixel-perfect du logo trademark,
      * mais visuellement reconnaissable.
      */
-    public static void discord(DrawContext ctx, int x, int y, int size, int color) {
+    public static void discord(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int cx = x + size / 2;
         int cy = y + size / 2;
         int bodyRx = size * 9 / 20;
@@ -309,14 +309,14 @@ public final class IconPack {
     }
 
     /** X (Twitter) — deux lignes diagonales croisées. */
-    public static void xLogo(DrawContext ctx, int x, int y, int size, int color) {
+    public static void xLogo(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int margin = Math.max(1, size / 6);
         DrawHelpers.thickLine(ctx, x + margin, y + margin, x + size - margin, y + size - margin, 2, color);
         DrawHelpers.thickLine(ctx, x + size - margin, y + margin, x + margin, y + size - margin, 2, color);
     }
 
     /** Twitch — rectangle stylisé avec encoche en bas. */
-    public static void twitch(DrawContext ctx, int x, int y, int size, int color) {
+    public static void twitch(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int margin = Math.max(1, size / 8);
         // Rectangle principal.
         ctx.fill(x + margin, y + margin, x + size - margin, y + size - margin * 2, color);
@@ -337,7 +337,7 @@ public final class IconPack {
     // ──────────────────────────────────────────────
 
     /** 🔄 Refresh (cercle ouvert avec flèche). */
-    public static void refresh(DrawContext ctx, int x, int y, int size, int color) {
+    public static void refresh(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int cx = x + size / 2;
         int cy = y + size / 2;
         int r = size / 2 - 2;
@@ -355,7 +355,7 @@ public final class IconPack {
     // ──────────────────────────────────────────────
 
     /** 🖥️ Moniteur (écran + pied) — onglet Vidéo. */
-    public static void monitor(DrawContext ctx, int x, int y, int size, int color) {
+    public static void monitor(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int mx = x + size / 8, my = y + size / 6;
         int mw = size - 2 * (size / 8), mh = size * 11 / 20;
         DrawHelpers.roundedOutlinedRect(ctx, mx, my, mw, mh, Math.max(1, size / 10),
@@ -367,7 +367,7 @@ public final class IconPack {
     }
 
     /** ⌨️ Clavier (cadre + touches) — onglet Contrôles. */
-    public static void keyboard(DrawContext ctx, int x, int y, int size, int color) {
+    public static void keyboard(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int kx = x + size / 10, ky = y + size / 4;
         int kw = size - 2 * (size / 10), kh = size / 2;
         DrawHelpers.roundedOutlinedRect(ctx, kx, ky, kw, kh, Math.max(1, size / 10),
@@ -383,7 +383,7 @@ public final class IconPack {
     }
 
     /** 💬 Bulle de chat — onglet Chat. */
-    public static void chatBubble(DrawContext ctx, int x, int y, int size, int color) {
+    public static void chatBubble(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int bx = x + size / 8, by = y + size / 6;
         int bw = size - 2 * (size / 8), bh = size * 9 / 20;
         DrawHelpers.roundedOutlinedRect(ctx, bx, by, bw, bh, Math.max(2, size / 6),
@@ -399,7 +399,7 @@ public final class IconPack {
     }
 
     /** ✛ Viseur (anneau + ticks + point) — onglet Viseur. */
-    public static void crosshair(DrawContext ctx, int x, int y, int size, int color) {
+    public static void crosshair(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int cx = x + size / 2, cy = y + size / 2, r = size / 2 - 2;
         DrawHelpers.ring(ctx, cx, cy, r, 1, color);
         int len = size / 4;
@@ -411,7 +411,7 @@ public final class IconPack {
     }
 
     /** 👤 Utilisateur (tête + épaules) — onglet Compte. */
-    public static void user(DrawContext ctx, int x, int y, int size, int color) {
+    public static void user(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int cx = x + size / 2;
         DrawHelpers.disc(ctx, cx, y + size / 3, size / 6, color);
         int shR = size * 2 / 5, shCy = y + size - 1;
@@ -422,7 +422,7 @@ public final class IconPack {
     }
 
     /** ⬛ Bloc (façon grass block) — onglet Minecraft. */
-    public static void cube(DrawContext ctx, int x, int y, int size, int color) {
+    public static void cube(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int m = size / 6;
         int bx = x + m, by = y + m, bw = size - 2 * m, bh = size - 2 * m;
         DrawHelpers.roundedOutlinedRect(ctx, bx, by, bw, bh, 1, Colors.BACKGROUND, color);
@@ -430,7 +430,7 @@ public final class IconPack {
     }
 
     /** ▟ Layout HUD (cadre + élément) — onglet HUD. */
-    public static void layout(DrawContext ctx, int x, int y, int size, int color) {
+    public static void layout(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int m = size / 6;
         int bx = x + m, by = y + m, bw = size - 2 * m, bh = size - 2 * m;
         DrawHelpers.roundedOutlinedRect(ctx, bx, by, bw, bh, 1, Colors.BACKGROUND, color);
@@ -440,7 +440,7 @@ public final class IconPack {
     }
 
     /** 📷 Caméra (corps + objectif + bosse viseur) — onglet Caméra (vue 3e pers). */
-    public static void camera(DrawContext ctx, int x, int y, int size, int color) {
+    public static void camera(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int bx = x + size / 8, bw = size - 2 * (size / 8);
         int by = y + size * 5 / 16, bh = size * 7 / 16;
         // Bosse viseur au-dessus du corps.
@@ -456,7 +456,7 @@ public final class IconPack {
     }
 
     /** ⚠️ Triangle alerte avec point d'exclamation. */
-    public static void alertTriangle(DrawContext ctx, int x, int y, int size, int color) {
+    public static void alertTriangle(GuiGraphicsExtractor ctx, int x, int y, int size, int color) {
         int[] tri = triangleRows(size);
         for (int row = 0; row < size; row++) {
             int w = tri[row];

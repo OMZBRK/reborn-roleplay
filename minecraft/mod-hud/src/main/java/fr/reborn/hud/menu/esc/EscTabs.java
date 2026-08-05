@@ -3,11 +3,11 @@ package fr.reborn.hud.menu.esc;
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
  * Rendu de la barre de tabs du ESC menu — texte stylisé avec
@@ -31,7 +31,7 @@ import net.minecraft.util.Identifier;
 public final class EscTabs {
 
     private static final Identifier SIGIL =
-        Identifier.of("reborn", "textures/gui/logo_sigil.png");
+        Identifier.fromNamespaceAndPath("reborn", "textures/gui/logo_sigil.png");
     private static final int SIGIL_NATIVE = 256;
 
     /** Métriques de base (échelle 1.0), compressées par fitScale sur petit écran. */
@@ -79,10 +79,10 @@ public final class EscTabs {
         return Math.round(BASE_SIGIL * fitScale(screenW));
     }
 
-    public static void renderPassive(DrawContext ctx, int screenW, int barY) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    public static void renderPassive(GuiGraphicsExtractor ctx, int screenW, int barY) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
+        Font tr = mc.textRenderer;
 
         int sigilDisplay = sigilDisplay(screenW);
         int sideGap = sideGap(screenW);
@@ -90,21 +90,21 @@ public final class EscTabs {
         // Sigil au centre.
         int sigilX = (screenW - sigilDisplay) / 2;
         int sigilY = barY + (TAB_H - sigilDisplay) / 2;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(sigilX, sigilY, 0);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(sigilX, sigilY);
         float scale = (float) sigilDisplay / SIGIL_NATIVE;
-        ctx.getMatrices().scale(scale, scale, 1f);
+        ctx.pose().scale(scale, scale);
         RenderSystem.enableBlend();
         ctx.drawTexture(SIGIL, 0, 0, 0f, 0f, SIGIL_NATIVE, SIGIL_NATIVE,
             SIGIL_NATIVE, SIGIL_NATIVE);
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
 
         // Séparateurs · à gauche et à droite du sigil.
         int sepLeftX = sigilX - sideGap / 2;
         int sepRightX = sigilX + sideGap / 2 + sigilDisplay;
-        int sepY = barY + (TAB_H - tr.fontHeight) / 2;
-        ctx.drawText(tr, RebornFont.body("·"), sepLeftX, sepY, Colors.FOREGROUND_MUTED, false);
-        ctx.drawText(tr, RebornFont.body("·"), sepRightX, sepY, Colors.FOREGROUND_MUTED, false);
+        int sepY = barY + (TAB_H - tr.lineHeight) / 2;
+        ctx.text(tr, RebornFont.body("·"), sepLeftX, sepY, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, RebornFont.body("·"), sepRightX, sepY, Colors.FOREGROUND_MUTED, false);
     }
 
     /** Calcule la position X du tab d'index (0 ou 1 = gauche du sigil, 2 ou 3 = droite). */
@@ -123,7 +123,7 @@ public final class EscTabs {
         }
     }
 
-    public static Text tabLabel(int index) {
+    public static Component tabLabel(int index) {
         switch (index) {
             case 0: return RebornFont.bold("REPRENDRE");
             case 1: return RebornFont.bold("PARAMÈTRES");

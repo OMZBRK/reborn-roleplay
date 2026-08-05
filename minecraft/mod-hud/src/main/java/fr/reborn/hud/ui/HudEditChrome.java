@@ -3,9 +3,9 @@ package fr.reborn.hud.ui;
 import fr.reborn.hud.ui.style.Glow;
 import fr.reborn.hud.ui.style.RebornColors;
 import fr.reborn.hud.ui.style.RoundedRect;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Formatting;
 
 /**
@@ -38,7 +38,7 @@ public final class HudEditChrome {
     // ──────────────────────────────────────────
 
     /** Render le fond du top bar + divider en bas + drop shadow. */
-    public static void renderTopBar(DrawContext ctx, int screenWidth) {
+    public static void renderTopBar(GuiGraphicsExtractor ctx, int screenWidth) {
         // Background avec léger fondu vers le bas pour suggérer le blur
         ctx.fill(0, 0, screenWidth, TOPBAR_HEIGHT, 0xCC0A0B0F);
         // Border bottom 1px
@@ -55,36 +55,36 @@ public final class HudEditChrome {
      * Render le logo "REBORN" + divider + titre. Renvoie le X de fin pour
      * placer la search à droite.
      */
-    public static int renderLogoAndTitle(DrawContext ctx, TextRenderer tr, int screenHeight) {
+    public static int renderLogoAndTitle(GuiGraphicsExtractor ctx, Font tr, int screenHeight) {
         int xCursor = 12;
         int centerY = TOPBAR_HEIGHT / 2;
 
         // Logo : R en accent, EBORN en blanc — bold sans scale pour rester
-        // compact (le TextRenderer vanilla est deja gros aux GUI Size > 1).
-        ctx.drawText(tr, Text.literal("R").formatted(Formatting.BOLD),
+        // compact (le Font vanilla est deja gros aux GUI Size > 1).
+        ctx.text(tr, Component.literal("R").formatted(Formatting.BOLD),
             xCursor, centerY - 4, RebornColors.ACCENT_HOVER, false);
-        int rWidth = tr.getWidth("R");
-        ctx.drawText(tr, Text.literal("EBORN").formatted(Formatting.BOLD),
+        int rWidth = tr.width("R");
+        ctx.text(tr, Component.literal("EBORN").formatted(Formatting.BOLD),
             xCursor + rWidth, centerY - 4, RebornColors.FOREGROUND, false);
-        xCursor += rWidth + tr.getWidth("EBORN") + 12;
+        xCursor += rWidth + tr.width("EBORN") + 12;
 
         // Divider vertical 1×16
         ctx.fill(xCursor, centerY - 8, xCursor + 1, centerY + 8, RebornColors.BORDER_STRONG);
         xCursor += 12;
 
         // Titre "EDITEUR HUD"
-        ctx.drawText(tr, Text.literal("ÉDITEUR ").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("ÉDITEUR ").formatted(Formatting.BOLD),
             xCursor, centerY - 4, RebornColors.FOREGROUND_SUBTLE, false);
-        int eW = tr.getWidth("ÉDITEUR ");
-        ctx.drawText(tr, Text.literal("HUD").formatted(Formatting.BOLD),
+        int eW = tr.width("ÉDITEUR ");
+        ctx.text(tr, Component.literal("HUD").formatted(Formatting.BOLD),
             xCursor + eW, centerY - 4, RebornColors.FOREGROUND, false);
-        xCursor += eW + tr.getWidth("HUD") + 12;
+        xCursor += eW + tr.width("HUD") + 12;
 
         return xCursor;
     }
 
     /** Render l'icon button : carré 36×36 avec optionnel badge count en haut-droite. */
-    public static void renderIconButton(DrawContext ctx, int x, int y, boolean hovered,
+    public static void renderIconButton(GuiGraphicsExtractor ctx, int x, int y, boolean hovered,
                                         boolean danger, int badge) {
         int bg = hovered
             ? (danger ? RebornColors.DANGER_SOFT : 0x14FFFFFF)
@@ -111,7 +111,7 @@ public final class HudEditChrome {
      * {@link fr.reborn.hud.ui.style.IconTextures}. Centrée sur (cx, cy)
      * avec une taille de 12×12 (zoom out du 16×16 source).
      */
-    public static void renderIconGlyph(DrawContext ctx, String type, int cx, int cy, int color) {
+    public static void renderIconGlyph(GuiGraphicsExtractor ctx, String type, int cx, int cy, int color) {
         int size = 12;
         fr.reborn.hud.ui.style.IconTextures.draw(ctx, type, cx - size / 2, cy - size / 2, size, color);
     }
@@ -119,7 +119,7 @@ public final class HudEditChrome {
     // ─────────── Icones cleanees v2 ───────────
     // Approche : 2px stroke, geometrie claire, alignement strict sur grille.
 
-    private static void drawClose(DrawContext ctx, int cx, int cy, int color) {
+    private static void drawClose(GuiGraphicsExtractor ctx, int cx, int cy, int color) {
         // X 10×10, 2px stroke diagonal
         for (int i = 0; i < 6; i++) {
             // Diagonale \ : (cx-3+i, cy-3+i)
@@ -131,7 +131,7 @@ public final class HudEditChrome {
         }
     }
 
-    private static void drawUndo(DrawContext ctx, int cx, int cy, int color, boolean mirror) {
+    private static void drawUndo(GuiGraphicsExtractor ctx, int cx, int cy, int color, boolean mirror) {
         // Arrow curved : arc top + verticale + pointe
         int s = mirror ? -1 : 1;
         // Arc horizontal en haut (epaisseur 2)
@@ -156,7 +156,7 @@ public final class HudEditChrome {
         }
     }
 
-    private static void drawSearch(DrawContext ctx, int cx, int cy, int color) {
+    private static void drawSearch(GuiGraphicsExtractor ctx, int cx, int cy, int color) {
         // Cercle creux 7×7 + queue diagonale
         int[] ring = {
             //  ##
@@ -177,7 +177,7 @@ public final class HudEditChrome {
         ctx.fill(cx + 3, cy + 3, cx + 5, cy + 5, color);
     }
 
-    private static void drawEye(DrawContext ctx, int cx, int cy, int color, boolean open) {
+    private static void drawEye(GuiGraphicsExtractor ctx, int cx, int cy, int color, boolean open) {
         // Ovale stroke 2px + pupille centrée
         // Top & bottom edges
         ctx.fill(cx - 4, cy - 2, cx + 4, cy - 1, color);
@@ -197,7 +197,7 @@ public final class HudEditChrome {
         }
     }
 
-    private static void drawGear(DrawContext ctx, int cx, int cy, int color) {
+    private static void drawGear(GuiGraphicsExtractor ctx, int cx, int cy, int color) {
         // Couronne externe 7x7 carrée avec dents
         // 4 dents N/S/E/W (carrés 2x2 collés au bord)
         ctx.fill(cx - 1, cy - 6, cx + 1, cy - 4, color);
@@ -229,7 +229,7 @@ public final class HudEditChrome {
      * @return rect [x, y, w, h] du toggle (collapse en mode etendu / le pill
      *         entier en mode collapsed) pour le hit-test cote screen.
      */
-    public static int[] renderKeybar(DrawContext ctx, TextRenderer tr, int screenWidth,
+    public static int[] renderKeybar(GuiGraphicsExtractor ctx, Font tr, int screenWidth,
                                      int totalElements, int modifiedElements, boolean collapsed) {
         // Place le keybar a TOP-LEFT (x=8) pour ne pas conflicter avec la
         // boss bar centrée ou la zone de search top-right.
@@ -243,8 +243,8 @@ public final class HudEditChrome {
             RoundedRect.border(ctx, x, y, size, size, 5, RebornColors.BORDER_STRONG);
             // "?" centre
             String q = "?";
-            ctx.drawText(tr, Text.literal(q).formatted(Formatting.BOLD),
-                x + size / 2 - tr.getWidth(q) / 2, y + (size - tr.fontHeight) / 2 + 1,
+            ctx.text(tr, Component.literal(q).formatted(Formatting.BOLD),
+                x + size / 2 - tr.width(q) / 2, y + (size - tr.lineHeight) / 2 + 1,
                 RebornColors.FOREGROUND_SUBTLE, false);
             return new int[]{x, y, size, size};
         }
@@ -258,16 +258,16 @@ public final class HudEditChrome {
         String meta = totalElements + " éléments · " + modifiedElements + " modifiés";
 
         int padX = 10, padY = 5, kbdPadX = 4, gap = 10, collapseBtnW = 16;
-        int itemHeight = tr.fontHeight;
+        int itemHeight = tr.lineHeight;
 
         int totalW = 0;
         for (String[] k : keys) {
-            int kbdW = tr.getWidth(k[0]) + kbdPadX * 2;
-            int descW = tr.getWidth(k[1]);
+            int kbdW = tr.width(k[0]) + kbdPadX * 2;
+            int descW = tr.width(k[1]);
             totalW += kbdW + 4 + descW + gap;
         }
         totalW -= gap;
-        int metaW = tr.getWidth(meta);
+        int metaW = tr.width(meta);
         int barWidth = Math.max(totalW, metaW) + padX * 2 + collapseBtnW + 4;
         int barHeight = itemHeight + 2 + itemHeight + padY * 2;
 
@@ -281,26 +281,26 @@ public final class HudEditChrome {
         // Collapse toggle "−" left
         int collapseX = barX + 4;
         int collapseY = barY + (barHeight - collapseBtnW) / 2;
-        ctx.drawText(tr, Text.literal("−").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("−").formatted(Formatting.BOLD),
             collapseX + 4, collapseY + 4, RebornColors.FOREGROUND_MUTED, false);
 
         // Lignes keys
         int x = barX + collapseBtnW + (barWidth - totalW - collapseBtnW) / 2;
         int y = barY + padY;
         for (String[] k : keys) {
-            int kbdW = tr.getWidth(k[0]) + kbdPadX * 2;
+            int kbdW = tr.width(k[0]) + kbdPadX * 2;
             RoundedRect.fill(ctx, x, y - 1, kbdW, itemHeight + 3, 3, RebornColors.BG_INPUT);
             RoundedRect.border(ctx, x, y - 1, kbdW, itemHeight + 3, 3, RebornColors.BORDER_STRONG);
-            ctx.drawText(tr, Text.literal(k[0]), x + kbdPadX, y, RebornColors.FOREGROUND, false);
+            ctx.text(tr, Component.literal(k[0]), x + kbdPadX, y, RebornColors.FOREGROUND, false);
             x += kbdW + 4;
-            ctx.drawText(tr, Text.literal(k[1]), x, y, RebornColors.FOREGROUND_SUBTLE, false);
-            x += tr.getWidth(k[1]) + gap;
+            ctx.text(tr, Component.literal(k[1]), x, y, RebornColors.FOREGROUND_SUBTLE, false);
+            x += tr.width(k[1]) + gap;
         }
 
         // Ligne meta
         int metaX = barX + (barWidth - metaW) / 2;
         int metaY = barY + padY + itemHeight + 4;
-        ctx.drawText(tr, Text.literal(meta), metaX, metaY, RebornColors.FOREGROUND_MUTED, false);
+        ctx.text(tr, Component.literal(meta), metaX, metaY, RebornColors.FOREGROUND_MUTED, false);
 
         // Le hit-test du collapse toggle est sur la zone gauche du pill
         return new int[]{collapseX - 2, collapseY - 4, collapseBtnW + 4, collapseBtnW + 8};
@@ -310,16 +310,16 @@ public final class HudEditChrome {
     // VERSION BADGE
     // ──────────────────────────────────────────
 
-    public static void renderVersionBadge(DrawContext ctx, TextRenderer tr, int screenHeight) {
+    public static void renderVersionBadge(GuiGraphicsExtractor ctx, Font tr, int screenHeight) {
         int x = 8, y = screenHeight - 24;
         // R mark : square 18×18 accent-soft + R bold accent
         RoundedRect.fill(ctx, x, y, 18, 18, 4, RebornColors.ACCENT_SOFT);
         RoundedRect.border(ctx, x, y, 18, 18, 4, RebornColors.withAlpha(RebornColors.ACCENT, 0x66));
         // R centered
-        ctx.drawText(tr, Text.literal("R").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("R").formatted(Formatting.BOLD),
             x + 7, y + 5, RebornColors.ACCENT_HOVER, false);
         // Label
-        ctx.drawText(tr, Text.literal("Reborn HUD v0.2.0"),
+        ctx.text(tr, Component.literal("Reborn HUD v0.2.0"),
             x + 24, y + 5, RebornColors.FOREGROUND_MUTED, false);
     }
 }

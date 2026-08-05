@@ -1,10 +1,10 @@
 package fr.reborn.hud.immersion;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Perspective;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Mode Photo : caméra libre (free-cam) pendant que le joueur reste figé. On vole
@@ -38,16 +38,16 @@ public final class PhotoMode {
     public void addCameraSpeed(float d) { setCameraSpeed(cameraSpeed + d); }
 
     /** Replace la caméra sur le joueur (position + regard actuels). */
-    public void resetPosition(MinecraftClient mc) {
+    public void resetPosition(Minecraft mc) {
         if (mc.player == null) return;
-        Vec3d eye = mc.player.getEyePos();
+        Vec3 eye = mc.player.getEyePosition();
         x = eye.x; y = eye.y; z = eye.z;
         yaw = mc.player.getYaw();
         pitch = mc.player.getPitch();
     }
 
     /** true si une touche de déplacement est physiquement enfoncée. */
-    public boolean anyMoveKeyDown(MinecraftClient mc) {
+    public boolean anyMoveKeyDown(Minecraft mc) {
         if (mc.options == null) return false;
         long w = mc.getWindow().getHandle();
         return down(mc, w, mc.options.forwardKey) || down(mc, w, mc.options.backKey)
@@ -60,9 +60,9 @@ public final class PhotoMode {
     public boolean isActive() { return active; }
 
     /** Démarre le mode depuis la caméra joueur actuelle. */
-    public void begin(MinecraftClient mc) {
+    public void begin(Minecraft mc) {
         if (mc.player == null) return;
-        Vec3d eye = mc.player.getEyePos();
+        Vec3 eye = mc.player.getEyePosition();
         x = eye.x; y = eye.y; z = eye.z;
         anchorX = x; anchorY = y; anchorZ = z;
         yaw = mc.player.getYaw();
@@ -72,12 +72,12 @@ public final class PhotoMode {
         active = true;
     }
 
-    public void end(MinecraftClient mc) {
+    public void end(Minecraft mc) {
         active = false;
         if (mc.options != null) mc.options.setPerspective(savedPerspective);
     }
 
-    public Vec3d pos() { return new Vec3d(x, y, z); }
+    public Vec3 pos() { return new Vec3(x, y, z); }
     public float yaw() { return yaw; }
     public float pitch() { return pitch; }
 
@@ -88,7 +88,7 @@ public final class PhotoMode {
     }
 
     /** Déplacement free-cam + maintien de la 3e personne. Appelé chaque tick. */
-    public void tickMovement(MinecraftClient mc) {
+    public void tickMovement(Minecraft mc) {
         if (!active || mc.options == null) return;
         // Bloque le changement de vue (F5) pendant le mode.
         if (mc.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
@@ -123,17 +123,17 @@ public final class PhotoMode {
         return Math.max(lo, Math.min(hi, v));
     }
 
-    private static boolean solid(MinecraftClient mc, double x, double y, double z) {
+    private static boolean solid(Minecraft mc, double x, double y, double z) {
         if (mc.world == null) return false;
-        net.minecraft.util.math.BlockPos pos = net.minecraft.util.math.BlockPos.ofFloored(x, y, z);
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.ofFloored(x, y, z);
         return !mc.world.getBlockState(pos).getCollisionShape(mc.world, pos).isEmpty();
     }
 
     /** État physique d'une touche (marche même avec un écran ouvert). */
-    private static boolean down(MinecraftClient mc, long win, KeyBinding kb) {
+    private static boolean down(Minecraft mc, long win, KeyMapping kb) {
         try {
-            InputUtil.Key key = InputUtil.fromTranslationKey(kb.getBoundKeyTranslationKey());
-            return InputUtil.isKeyPressed(win, key.getCode());
+            InputConstants.Key key = InputConstants.fromTranslationKey(kb.getBoundKeyTranslationKey());
+            return InputConstants.isKeyPressed(win, key.getCode());
         } catch (RuntimeException e) {
             return false;
         }

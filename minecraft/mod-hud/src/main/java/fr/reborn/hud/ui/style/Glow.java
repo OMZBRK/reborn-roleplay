@@ -1,6 +1,6 @@
 package fr.reborn.hud.ui.style;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Effet de glow par fills concentriques à alpha décroissant. Fallback sans
@@ -19,7 +19,7 @@ public final class Glow {
     private Glow() {}
 
     /** Glow autour d'un rect droit. */
-    public static void rect(DrawContext ctx, int x, int y, int w, int h, int baseColor) {
+    public static void rect(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int baseColor) {
         int baseAlpha = (baseColor >>> 24) & 0xFF;
         int rgb = baseColor & 0x00FFFFFF;
         for (int i = STEPS; i >= 1; i--) {
@@ -30,7 +30,7 @@ public final class Glow {
     }
 
     /** Glow autour d'un rect arrondi. */
-    public static void roundedRect(DrawContext ctx, int x, int y, int w, int h, int r, int baseColor) {
+    public static void roundedRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int r, int baseColor) {
         int baseAlpha = (baseColor >>> 24) & 0xFF;
         int rgb = baseColor & 0x00FFFFFF;
         for (int i = STEPS; i >= 1; i--) {

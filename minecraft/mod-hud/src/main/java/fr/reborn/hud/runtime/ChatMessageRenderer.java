@@ -7,13 +7,13 @@ import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.ui.style.RebornColors;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.hud.ChatHudLine;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.text.OrderedText;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.multiplayer.PlayerListEntry;
+import net.minecraft.network.chat.OrderedText;
+import net.minecraft.resources.Identifier;
 
 import java.util.List;
 
@@ -39,14 +39,14 @@ public final class ChatMessageRenderer {
 
     private ChatMessageRenderer() {}
 
-    public static void renderMessages(DrawContext ctx, TextRenderer tr,
+    public static void renderMessages(GuiGraphicsExtractor ctx, Font tr,
                                        List<ChatHudLine.Visible> visibleMessages,
                                        int scrolledLines,
                                        int currentTick, boolean focused,
                                        int screenW, int screenH,
                                        ChatSettings settings, String playerName) {
         if (visibleMessages == null || visibleMessages.isEmpty()) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         // Géométrie vanilla : messages ancrés en bas, juste au-dessus de la
         // barre de saisie (à screenH-40 comme vanilla), à gauche. Le scroll
@@ -116,8 +116,8 @@ public final class ChatMessageRenderer {
                 if (team != null) {
                     var prefix = team.getPrefix();
                     if (prefix != null && !prefix.getString().isEmpty()) {
-                        ctx.drawText(tr, prefix, textX, lineY, (alpha << 24) | 0x00FFFFFF, true);
-                        textX += tr.getWidth(prefix) + 2;
+                        ctx.text(tr, prefix, textX, lineY, (alpha << 24) | 0x00FFFFFF, true);
+                        textX += tr.width(prefix) + 2;
                     }
                 }
             }
@@ -134,8 +134,8 @@ public final class ChatMessageRenderer {
             if (settings.showTimestamps) {
                 String ts = "[" + MessageTimestamps.formattedFor(visible.addedTime()) + "] ";
                 int tsColor = (alpha << 24) | (RebornColors.FOREGROUND_MUTED & 0x00FFFFFF);
-                ctx.drawText(tr, ts, textX, lineY, tsColor, true);
-                textX += tr.getWidth(ts);
+                ctx.text(tr, ts, textX, lineY, tsColor, true);
+                textX += tr.width(ts);
             }
 
             // Typing : effet machine à écrire sur LE message le plus récent
@@ -151,7 +151,7 @@ public final class ChatMessageRenderer {
             }
 
             int textColor = (alpha << 24) | 0x00FFFFFF;
-            ctx.drawText(tr, drawContent, textX, lineY, textColor, true);
+            ctx.text(tr, drawContent, textX, lineY, textColor, true);
             if (drewHead) { /* tête déjà dessinée, rien à finaliser */ }
 
             rendered++;
@@ -163,7 +163,7 @@ public final class ChatMessageRenderer {
      * (offset HUD + LINE_H + têtes/badges/timestamp) pour que les liens du chat
      * custom se cliquent là où ils sont réellement affichés. {@code null} si rien.
      */
-    public static net.minecraft.text.Style styleAt(MinecraftClient mc, TextRenderer tr,
+    public static net.minecraft.network.chat.Style styleAt(Minecraft mc, Font tr,
             List<ChatHudLine.Visible> visibleMessages, int scrolledLines,
             int screenW, int screenH, ChatSettings settings,
             double mouseX, double mouseY, int offsetX, int offsetY) {
@@ -191,11 +191,11 @@ public final class ChatMessageRenderer {
                 var sb = mc.world.getScoreboard();
                 var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
                 if (team != null && team.getPrefix() != null && !team.getPrefix().getString().isEmpty()) {
-                    textX += tr.getWidth(team.getPrefix()) + 2;
+                    textX += tr.width(team.getPrefix()) + 2;
                 }
             }
             if (settings.showTimestamps) {
-                textX += tr.getWidth("[" + MessageTimestamps.formattedFor(visible.addedTime()) + "] ");
+                textX += tr.width("[" + MessageTimestamps.formattedFor(visible.addedTime()) + "] ");
             }
 
             if (my >= lineY && my < lineY + LINE_H && mx >= textX) {
@@ -207,7 +207,7 @@ public final class ChatMessageRenderer {
     }
 
     /** Cherche le premier joueur en ligne dont le pseudo apparaît dans le texte. */
-    private static PlayerListEntry findSender(MinecraftClient mc, String plain) {
+    private static PlayerListEntry findSender(Minecraft mc, String plain) {
         if (mc == null || mc.getNetworkHandler() == null) return null;
         PlayerListEntry best = null;
         int bestIdx = Integer.MAX_VALUE;
@@ -224,7 +224,7 @@ public final class ChatMessageRenderer {
     }
 
     /** Dessine la tête (face + chapeau) 8×8 depuis la skin du joueur. */
-    private static void drawHead(DrawContext ctx, Identifier skin, int x, int y, int alpha) {
+    private static void drawHead(GuiGraphicsExtractor ctx, Identifier skin, int x, int y, int alpha) {
         com.mojang.blaze3d.systems.RenderSystem.enableBlend();
         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha / 255f);
         ctx.drawTexture(skin, x, y, 8f, 8f, HEAD, HEAD, 64, 64);   // visage

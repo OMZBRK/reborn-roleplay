@@ -5,11 +5,11 @@ import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.settings.SliderWidget;
 import fr.reborn.hud.menu.widget.RebornButton;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 /**
  * Menu de repositionnement de la caméra épaule — panneau latéral <b>live</b>
@@ -29,10 +29,10 @@ public class CameraScreen extends Screen {
     private static final int GAP = 8;
 
     private SliderWidget distSlider, sideSlider, upSlider, turnSlider;
-    private ButtonWidget presetBtn, swapBtn;
+    private Button presetBtn, swapBtn;
 
     public CameraScreen(Screen parent) {
-        super(Text.literal("Caméra"));
+        super(Component.literal("Caméra"));
         this.parent = parent;
     }
 
@@ -75,7 +75,7 @@ public class CameraScreen extends Screen {
                 cam.cyclePreset();
                 syncSlidersToCam();
             });
-        this.addDrawableChild(presetBtn);
+        this.addRenderableWidget(presetBtn);
         y += 20 + 6;
 
         swapBtn = RebornButton.ghost(x, y, w, 20,
@@ -83,24 +83,24 @@ public class CameraScreen extends Screen {
                 cam.swapShoulder();
                 syncSlidersToCam();
             });
-        this.addDrawableChild(swapBtn);
+        this.addRenderableWidget(swapBtn);
         y += 20 + 6;
 
         // Réinitialiser + Fermer.
         int half = (w - 6) / 2;
-        this.addDrawableChild(RebornButton.ghost(x, y, half, 20, "Réinitialiser", b -> {
+        this.addRenderableWidget(RebornButton.ghost(x, y, half, 20, "Réinitialiser", b -> {
             cam.setPreset(CameraPreset.DEFAUT);
             cam.setSide(1);
             cam.setTurnSpeed(0.5);
             syncSlidersToCam();
         }));
-        this.addDrawableChild(RebornButton.accent(x + half + 6, y, w - half - 6, 20, "Fermer",
+        this.addRenderableWidget(RebornButton.accent(x + half + 6, y, w - half - 6, 20, "Fermer",
             b -> close()));
 
-        this.addDrawableChild(distSlider);
-        this.addDrawableChild(sideSlider);
-        this.addDrawableChild(upSlider);
-        this.addDrawableChild(turnSlider);
+        this.addRenderableWidget(distSlider);
+        this.addRenderableWidget(sideSlider);
+        this.addRenderableWidget(upSlider);
+        this.addRenderableWidget(turnSlider);
     }
 
     private void syncSlidersToCam() {
@@ -113,16 +113,16 @@ public class CameraScreen extends Screen {
         swapBtn.setMessage(swapLabel());
     }
 
-    private Text presetLabel() {
+    private Component presetLabel() {
         return RebornFont.bold("Preset : " + RebornCamera.INSTANCE.preset().label);
     }
 
-    private Text swapLabel() {
+    private Component swapLabel() {
         return RebornFont.bold("Épaule : " + (RebornCamera.INSTANCE.side() > 0 ? "Droite" : "Gauche"));
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Pas de fond plein écran : on laisse le jeu visible pour le live.
         // Juste le panneau latéral semi-opaque.
         int px = panelX();
@@ -131,17 +131,17 @@ public class CameraScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
 
         int x = panelX() + PAD;
 
         // Titre.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, 24, 0);
-        ctx.getMatrices().scale(1.3f, 1.3f, 1f);
-        ctx.drawText(this.textRenderer, RebornFont.bold("CAMÉRA"), 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, 24);
+        ctx.pose().scale(1.3f, 1.3f);
+        ctx.text(this.textRenderer, RebornFont.bold("CAMÉRA"), 0, 0, Colors.WHITE_PURE, false);
+        ctx.pose().popMatrix();
 
         // Labels au-dessus des sliders.
         label(ctx, "Distance", distSlider);
@@ -150,8 +150,8 @@ public class CameraScreen extends Screen {
         label(ctx, "Vitesse de rotation", turnSlider);
     }
 
-    private void label(DrawContext ctx, String text, SliderWidget s) {
-        ctx.drawText(this.textRenderer, RebornFont.body(text),
+    private void label(GuiGraphicsExtractor ctx, String text, SliderWidget s) {
+        ctx.text(this.textRenderer, RebornFont.body(text),
             s.getX(), s.getY() - LABEL_H, Colors.FOREGROUND_SUBTLE, false);
     }
 
@@ -163,6 +163,6 @@ public class CameraScreen extends Screen {
     @Override
     public void close() {
         RebornCamera.INSTANCE.saveToPrefs();
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 }

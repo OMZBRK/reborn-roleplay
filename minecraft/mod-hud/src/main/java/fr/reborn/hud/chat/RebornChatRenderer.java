@@ -3,9 +3,9 @@ package fr.reborn.hud.chat;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.ui.style.RebornColors;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Formatting;
 
 /**
@@ -54,11 +54,11 @@ public final class RebornChatRenderer {
 
     private RebornChatRenderer() {}
 
-    public static void render(DrawContext ctx, TextRenderer tr, int screenW, int screenH) {
+    public static void render(GuiGraphicsExtractor ctx, Font tr, int screenW, int screenH) {
         render(ctx, tr, screenW, screenH, 92);
     }
 
-    public static void render(DrawContext ctx, TextRenderer tr, int screenW, int screenH,
+    public static void render(GuiGraphicsExtractor ctx, Font tr, int screenW, int screenH,
                               int opacityPct) {
         HudElementBounds b = HudElementBounds.vanillaFor(HudElement.CHAT, screenW, screenH);
         int x  = b.x()  - 2;
@@ -99,17 +99,17 @@ public final class RebornChatRenderer {
     }
 
     /** Header minimal sans tabs — juste le label "Chat" aligné gauche. */
-    private static void renderHeaderSimple(DrawContext ctx, TextRenderer tr, int hx, int hy, int hw) {
-        int baseY = hy + (HEADER_HEIGHT - tr.fontHeight) / 2;
-        ctx.drawText(tr, Text.literal("CHAT").formatted(Formatting.BOLD),
+    private static void renderHeaderSimple(GuiGraphicsExtractor ctx, Font tr, int hx, int hy, int hw) {
+        int baseY = hy + (HEADER_HEIGHT - tr.lineHeight) / 2;
+        ctx.text(tr, Component.literal("CHAT").formatted(Formatting.BOLD),
             hx + TAB_PAD_X, baseY, RebornColors.FOREGROUND, false);
         // Vider les hit-test caches : pas de tab cliquable
         lastTabRects = new int[ChatTab.values().length][];
     }
 
-    private static void renderHeader(DrawContext ctx, TextRenderer tr, int hx, int hy, int hw) {
+    private static void renderHeader(GuiGraphicsExtractor ctx, Font tr, int hx, int hy, int hw) {
         int xCursor = hx + TAB_PAD_X;
-        int baseY = hy + (HEADER_HEIGHT - tr.fontHeight) / 2;
+        int baseY = hy + (HEADER_HEIGHT - tr.lineHeight) / 2;
 
         ChatTab[] tabs = ChatTab.values();
         for (int i = 0; i < tabs.length; i++) {
@@ -118,7 +118,7 @@ public final class RebornChatRenderer {
             int unread = TAB_STATE.unreadOf(tab);
 
             int textColor = active ? RebornColors.FOREGROUND : RebornColors.FOREGROUND_MUTED;
-            int labelW = tr.getWidth(tab.displayName());
+            int labelW = tr.width(tab.displayName());
 
             // Petit dot rond accent à gauche (sauf GENERAL qui n'en a pas)
             int dotX = xCursor;
@@ -129,7 +129,7 @@ public final class RebornChatRenderer {
             }
 
             int labelX = xCursor + dotW;
-            ctx.drawText(tr, Text.literal(tab.displayName()).formatted(Formatting.BOLD),
+            ctx.text(tr, Component.literal(tab.displayName()).formatted(Formatting.BOLD),
                 labelX, baseY, textColor, false);
             int labelEnd = labelX + labelW;
 
@@ -137,14 +137,14 @@ public final class RebornChatRenderer {
             int badgeEnd = labelEnd;
             if (unread > 0) {
                 String s = unread > 99 ? "99+" : String.valueOf(unread);
-                int badgeW = tr.getWidth(s) + 4;
+                int badgeW = tr.width(s) + 4;
                 int badgeH = 9;
                 int badgeX = labelEnd + 4;
                 int badgeY = baseY;
                 int badgeBg = tab.accentColor() != 0 ? tab.accentColor() : RebornColors.ACCENT;
                 ctx.fill(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH, badgeBg);
-                int sW = tr.getWidth(s);
-                ctx.drawText(tr, Text.literal(s),
+                int sW = tr.width(s);
+                ctx.text(tr, Component.literal(s),
                     badgeX + (badgeW - sW) / 2, badgeY + 1, 0xFF000000, false);
                 badgeEnd = badgeX + badgeW;
             }
@@ -170,9 +170,9 @@ public final class RebornChatRenderer {
         }
     }
 
-    private static void renderInputBar(DrawContext ctx, TextRenderer tr, int ix, int iy, int iw) {
+    private static void renderInputBar(GuiGraphicsExtractor ctx, Font tr, int ix, int iy, int iw) {
         String pillLabel = "/me ▾";
-        int pillW = tr.getWidth(pillLabel) + 10;
+        int pillW = tr.width(pillLabel) + 10;
         int pillH = 12;
         int pillX = ix + 6;
         int pillY = iy + (INPUT_HEIGHT - pillH) / 2;
@@ -183,7 +183,7 @@ public final class RebornChatRenderer {
         ctx.fill(pillX, pillY + pillH - 1, pillX + pillW, pillY + pillH, RebornColors.BORDER_STRONG);
         ctx.fill(pillX, pillY, pillX + 1, pillY + pillH, RebornColors.BORDER_STRONG);
         ctx.fill(pillX + pillW - 1, pillY, pillX + pillW, pillY + pillH, RebornColors.BORDER_STRONG);
-        ctx.drawText(tr, Text.literal(pillLabel),
+        ctx.text(tr, Component.literal(pillLabel),
             pillX + 5, pillY + 2, RebornColors.ACCENT_HOVER, false);
 
         lastCommandPillRect = new int[]{pillX, pillY, pillW, pillH};
@@ -197,10 +197,10 @@ public final class RebornChatRenderer {
      * par {@code ChatScreenMixin}.
      * @return rect (x, y, w, h)
      */
-    public static int[] inputFieldRect(TextRenderer tr, int screenW, int screenH) {
+    public static int[] inputFieldRect(Font tr, int screenW, int screenH) {
         HudElementBounds b = HudElementBounds.vanillaFor(HudElement.CHAT, screenW, screenH);
         int inputTop = b.bottom() + 2; // 2px de padding sous chat history
-        int pillW = tr.getWidth("/me ▾") + 10;
+        int pillW = tr.width("/me ▾") + 10;
         int fieldX = b.x() + 1 + 6 + pillW + 6;   // panel left + padding + pill + gap
         int fieldY = inputTop + (INPUT_HEIGHT - 8) / 2;  // centré dans input bar
         int fieldW = b.width() - (fieldX - b.x()) - 6;

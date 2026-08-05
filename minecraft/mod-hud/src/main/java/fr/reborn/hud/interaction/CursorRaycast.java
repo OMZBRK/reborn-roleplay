@@ -1,13 +1,13 @@
 package fr.reborn.hud.interaction;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.projectile.ProjectileUtil;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Box;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.RaycastContext;
 
 /**
@@ -29,7 +29,7 @@ public final class CursorRaycast {
     private CursorRaycast() {}
 
     /** @return un BlockHitResult / EntityHitResult, ou null si rien à portée. */
-    public static HitResult raycast(MinecraftClient mc, double cursorX, double cursorY) {
+    public static HitResult raycast(Minecraft mc, double cursorX, double cursorY) {
         if (mc == null || mc.player == null || mc.world == null) return null;
 
         Camera camera = mc.gameRenderer.getCamera();
@@ -37,7 +37,7 @@ public final class CursorRaycast {
         float camPitch = camera.getPitch();
         // Origine = position de la CAMÉRA (pas l'œil joueur) → fonctionne aussi
         // en 3e personne (on vise depuis le point de vue réel).
-        Vec3d eye = camera.getPos();
+        Vec3 eye = camera.getPos();
 
         double fovDeg = mc.options.getFov().getValue();
         int w = mc.getWindow().getFramebufferWidth();
@@ -57,8 +57,8 @@ public final class CursorRaycast {
         float rayYaw = camYaw + (float) Math.toDegrees(Math.atan(vx));
         float rayPitch = camPitch - (float) Math.toDegrees(Math.atan(vy));
 
-        Vec3d dir = Vec3d.fromPolar(rayPitch, rayYaw);
-        Vec3d end = eye.add(dir.multiply(REACH));
+        Vec3 dir = Vec3.fromPolar(rayPitch, rayYaw);
+        Vec3 end = eye.add(dir.multiply(REACH));
 
         // Blocs.
         HitResult block = mc.world.raycast(new RaycastContext(eye, end,

@@ -1,0 +1,65 @@
+// Reborn HUD — mod Fabric client-side (toute la couche UI Reborn).
+//
+// Port 26.1.2 / Java 25 (client Mojang deobfusque, Yarn discontinue) : Loom
+// deobf, aucune ligne mappings(), fabric-api complet remappe via implementation.
+// Voir docs/MIGRATION_26.1.md pour la recette de port UI (extractRenderState /
+// GuiGraphicsExtractor / blit GUI_TEXTURED / MouseButtonEvent / HudElementRegistry).
+//
+// ⚠️ Intégrations lourdes à re-porter (phase 2) : MCEF (fond menu Chromium ->
+// fork net.dimaskama:mcef-modern, API differente), PlasmoVoice (micro),
+// PlayerAnimator (anims). Neutralisees le temps de faire compiler le coeur UI.
+
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'
+}
+
+version = project.mod_version
+group = project.maven_group
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://repo.plasmoverse.com/releases' }   // PlasmoVoice
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // --- Intégrations phase 2 (neutralisées le temps du port coeur UI) ---
+    // MCEF (fond menu) : le fork mcef-modern a une API differente
+    //   (net.dimaskama.mcef.api.*) -> port dedie des 11 fichiers menu.
+    // modCompileOnly files('libs/mcef-modern-0.3.3.jar')
+    // PlasmoVoice (micro) :
+    // compileOnly 'su.plo.voice.api:client:2.1.13'
+    // Animations (PlayerAnimator/Emotecraft) :
+    // modCompileOnly files('libs/player-animation-lib-fabric-26.1.jar')
+}
+
+processResources {
+    def props = [
+        version          : project.version,
+        minecraft_version: project.minecraft_version,
+        loader_version   : project.loader_version,
+    ]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+    it.options.encoding = 'UTF-8'
+    it.options.compilerArgs.addAll(['-Xmaxerrs', '2000'])
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}

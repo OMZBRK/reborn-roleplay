@@ -2,7 +2,7 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.interaction.InteractionMode;
 import net.minecraft.client.Mouse;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -45,7 +45,7 @@ public abstract class MouseInteractionMixin {
         double dy = cy - reborn$lastY;
         reborn$lastX = cx;
         reborn$lastY = cy;
-        double sf = MinecraftClient.getInstance().getWindow().getScaleFactor();
+        double sf = Minecraft.getInstance().getWindow().getScaleFactor();
         InteractionMode.INSTANCE.onMouseMove(dx, dy, sf);
         // Garde la position interne de Mouse à jour → pas de saut caméra ensuite.
         this.x = cx;

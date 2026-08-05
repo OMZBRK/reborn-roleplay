@@ -6,9 +6,9 @@ import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementState;
 import fr.reborn.hud.ui.style.RebornColors;
 import fr.reborn.hud.ui.style.RoundedRect;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Formatting;
 
 import java.util.ArrayList;
@@ -44,7 +44,7 @@ public final class HudEditSidePanel {
     private static final int LINE_HEIGHT = 11;
 
     private final HudConfig config;
-    private final TextRenderer tr;
+    private final Font tr;
 
     private int x0, y0, height;
     private HudElement selectedElement = HudElement.CHAT;
@@ -62,7 +62,7 @@ public final class HudEditSidePanel {
     /** Cache des rect des preset rows pour right-click handling. */
     private final java.util.Map<String, int[]> presetRects = new java.util.HashMap<>();
 
-    public HudEditSidePanel(HudConfig config, TextRenderer tr) {
+    public HudEditSidePanel(HudConfig config, Font tr) {
         this.config = config;
         this.tr = tr;
     }
@@ -80,7 +80,7 @@ public final class HudEditSidePanel {
     // RENDER
     // ──────────────────────────────────────────────
 
-    public void render(DrawContext ctx, int mouseX, int mouseY) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         hitTargets.clear();
         presetRects.clear();
 
@@ -101,20 +101,20 @@ public final class HudEditSidePanel {
         renderFooterActions(ctx, y0 + height - 56, mouseX, mouseY);
     }
 
-    private int renderHeader(DrawContext ctx, int y) {
-        ctx.drawText(tr,
-            Text.literal("ÉLÉMENT").formatted(Formatting.BOLD),
+    private int renderHeader(GuiGraphicsExtractor ctx, int y) {
+        ctx.text(tr,
+            Component.literal("ÉLÉMENT").formatted(Formatting.BOLD),
             x0 + PAD, y + PAD, RebornColors.FOREGROUND_SUBTLE, false);
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x0 + PAD, y + PAD + 11, 0);
-        ctx.getMatrices().scale(1.3f, 1.3f, 1f);
-        ctx.drawText(tr,
-            Text.literal(selectedElement.displayName().toUpperCase()).formatted(Formatting.BOLD),
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x0 + PAD, y + PAD + 11);
+        ctx.pose().scale(1.3f, 1.3f);
+        ctx.text(tr,
+            Component.literal(selectedElement.displayName().toUpperCase()).formatted(Formatting.BOLD),
             0, 0, RebornColors.FOREGROUND, false);
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
 
-        ctx.drawText(tr, Text.literal(selectedElement.description()),
+        ctx.text(tr, Component.literal(selectedElement.description()),
             x0 + PAD, y + PAD + 25, RebornColors.FOREGROUND_MUTED, false);
 
         int bottom = y + 48;
@@ -122,9 +122,9 @@ public final class HudEditSidePanel {
         return bottom;
     }
 
-    private int renderPresets(DrawContext ctx, int y, int mouseX, int mouseY) {
-        ctx.drawText(tr,
-            Text.literal("PRESETS").formatted(Formatting.BOLD),
+    private int renderPresets(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
+        ctx.text(tr,
+            Component.literal("PRESETS").formatted(Formatting.BOLD),
             x0 + PAD, y + PAD, RebornColors.FOREGROUND_MUTED, false);
 
         int rowY = y + PAD + LINE_HEIGHT + 2;
@@ -145,7 +145,7 @@ public final class HudEditSidePanel {
         return bottom + 6;
     }
 
-    private void renderSaveCurrentButton(DrawContext ctx, int y, int mouseX, int mouseY) {
+    private void renderSaveCurrentButton(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
         int x = x0 + PAD;
         int w = WIDTH - PAD * 2;
         int h = 18;
@@ -155,9 +155,9 @@ public final class HudEditSidePanel {
         RoundedRect.fill(ctx, x, y, w, h, 4, bg);
         RoundedRect.border(ctx, x, y, w, h, 4, border);
         String label = "+ Sauvegarder l'état";
-        int lW = tr.getWidth(label);
-        ctx.drawText(tr, Text.literal(label).formatted(Formatting.BOLD),
-            x + (w - lW) / 2, y + (h - tr.fontHeight) / 2, RebornColors.ACCENT_HOVER, false);
+        int lW = tr.width(label);
+        ctx.text(tr, Component.literal(label).formatted(Formatting.BOLD),
+            x + (w - lW) / 2, y + (h - tr.lineHeight) / 2, RebornColors.ACCENT_HOVER, false);
         hitTargets.add(new HitTarget(x, y, w, h, this::saveCurrentAsPreset));
     }
 
@@ -173,7 +173,7 @@ public final class HudEditSidePanel {
         config.saveAsNewPreset(id);
     }
 
-    private void renderPresetRow(DrawContext ctx, int y, String id, boolean active,
+    private void renderPresetRow(GuiGraphicsExtractor ctx, int y, String id, boolean active,
                                  int mouseX, int mouseY) {
         int rowX = x0 + PAD;
         int rowW = WIDTH - PAD * 2;
@@ -197,9 +197,9 @@ public final class HudEditSidePanel {
             RoundedRect.border(ctx, cbX, cbY, 12, 12, 3, RebornColors.BORDER_STRONG);
         }
 
-        ctx.drawText(tr, Text.literal(HudPresets.displayName(id)).formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal(HudPresets.displayName(id)).formatted(Formatting.BOLD),
             cbX + 18, y + 4, RebornColors.FOREGROUND, false);
-        ctx.drawText(tr, Text.literal(HudPresets.description(id)),
+        ctx.text(tr, Component.literal(HudPresets.description(id)),
             cbX + 18, y + 14, RebornColors.FOREGROUND_MUTED, false);
 
         hitTargets.add(new HitTarget(rowX, y, rowW, rowH, () -> applyPreset(id)));
@@ -232,25 +232,25 @@ public final class HudEditSidePanel {
         return false;
     }
 
-    private void renderVisibilitySection(DrawContext ctx, int y, int mouseX, int mouseY) {
+    private void renderVisibilitySection(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
         HudElementState state = config.stateOf(selectedElement);
 
         // Section ÉCHELLE (boutons preset rapides)
-        ctx.drawText(tr,
-            Text.literal("ÉCHELLE").formatted(Formatting.BOLD),
+        ctx.text(tr,
+            Component.literal("ÉCHELLE").formatted(Formatting.BOLD),
             x0 + PAD, y + PAD, RebornColors.FOREGROUND_MUTED, false);
         int scaleY = y + PAD + LINE_HEIGHT + 4;
         renderScalePresets(ctx, scaleY, state.scale(), mouseX, mouseY);
 
         // Section VISIBILITÉ
         int visY = scaleY + 22;
-        ctx.drawText(tr,
-            Text.literal("VISIBILITÉ").formatted(Formatting.BOLD),
+        ctx.text(tr,
+            Component.literal("VISIBILITÉ").formatted(Formatting.BOLD),
             x0 + PAD, visY, RebornColors.FOREGROUND_MUTED, false);
         renderVisibilityToggle(ctx, visY + LINE_HEIGHT + 4, state.visible(), mouseX, mouseY);
     }
 
-    private void renderScalePresets(DrawContext ctx, int y, float currentScale, int mouseX, int mouseY) {
+    private void renderScalePresets(GuiGraphicsExtractor ctx, int y, float currentScale, int mouseX, int mouseY) {
         float[] presets = {0.5f, 1.0f, 1.5f, 2.0f};
         String[] labels = {"0.5×", "1.0×", "1.5×", "2.0×"};
         int totalW = WIDTH - PAD * 2;
@@ -268,9 +268,9 @@ public final class HudEditSidePanel {
             int color = active ? RebornColors.FOREGROUND : RebornColors.FOREGROUND_SUBTLE;
             RoundedRect.fill(ctx, x, y, btnW, btnH, 4, bg);
             RoundedRect.border(ctx, x, y, btnW, btnH, 4, border);
-            int lW = tr.getWidth(labels[i]);
-            ctx.drawText(tr, Text.literal(labels[i]).formatted(Formatting.BOLD),
-                x + (btnW - lW) / 2, y + (btnH - tr.fontHeight) / 2, color, false);
+            int lW = tr.width(labels[i]);
+            ctx.text(tr, Component.literal(labels[i]).formatted(Formatting.BOLD),
+                x + (btnW - lW) / 2, y + (btnH - tr.lineHeight) / 2, color, false);
             final float fp = p;
             hitTargets.add(new HitTarget(x, y, btnW, btnH,
                 () -> mutateState(s -> s.withScale(fp))));
@@ -278,8 +278,8 @@ public final class HudEditSidePanel {
         }
     }
 
-    private void renderVisibilityToggle(DrawContext ctx, int y, boolean isOn, int mouseX, int mouseY) {
-        ctx.drawText(tr, Text.literal("Afficher cet élément"),
+    private void renderVisibilityToggle(GuiGraphicsExtractor ctx, int y, boolean isOn, int mouseX, int mouseY) {
+        ctx.text(tr, Component.literal("Afficher cet élément"),
             x0 + PAD, y + 4, RebornColors.FOREGROUND, false);
 
         int switchW = 32, switchH = 16;
@@ -296,7 +296,7 @@ public final class HudEditSidePanel {
             () -> mutateState(s -> s.withVisible(!s.visible()))));
     }
 
-    private void renderFooterActions(DrawContext ctx, int y, int mouseX, int mouseY) {
+    private void renderFooterActions(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
         ctx.fill(x0, y, x0 + WIDTH, y + 1, RebornColors.BORDER);
         ctx.fill(x0, y, x0 + WIDTH, y + 56, 0x99000000);
 
@@ -313,7 +313,7 @@ public final class HudEditSidePanel {
             onImport);
     }
 
-    private void renderActionButton(DrawContext ctx, int x, int y, int w, int h, String label,
+    private void renderActionButton(GuiGraphicsExtractor ctx, int x, int y, int w, int h, String label,
                                     boolean danger, int mouseX, int mouseY, Runnable onClick) {
         boolean hovered = inside(mouseX, mouseY, x, y, w, h);
         int bg = hovered
@@ -324,9 +324,9 @@ public final class HudEditSidePanel {
 
         RoundedRect.fill(ctx, x, y, w, h, 5, bg);
         RoundedRect.border(ctx, x, y, w, h, 5, border);
-        int lW = tr.getWidth(label);
-        ctx.drawText(tr, Text.literal(label).formatted(Formatting.BOLD),
-            x + (w - lW) / 2, y + (h - tr.fontHeight) / 2, textColor, false);
+        int lW = tr.width(label);
+        ctx.text(tr, Component.literal(label).formatted(Formatting.BOLD),
+            x + (w - lW) / 2, y + (h - tr.lineHeight) / 2, textColor, false);
         hitTargets.add(new HitTarget(x, y, w, h, onClick));
     }
 

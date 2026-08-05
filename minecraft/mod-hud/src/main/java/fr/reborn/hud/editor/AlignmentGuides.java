@@ -4,7 +4,7 @@ import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.element.HudElementState;
 import fr.reborn.hud.ui.style.RebornColors;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -126,27 +126,27 @@ public final class AlignmentGuides {
     }
 
     /** Render les guides détectés dans une SnapResult. */
-    public static void renderGuides(DrawContext ctx, List<Guide> guides, int screenW, int screenH,
-                                    net.minecraft.client.font.TextRenderer tr) {
+    public static void renderGuides(GuiGraphicsExtractor ctx, List<Guide> guides, int screenW, int screenH,
+                                    net.minecraft.client.gui.Font tr) {
         for (Guide g : guides) {
             if (g.vertical) {
                 // Ligne verticale pleine hauteur
                 ctx.fill(g.pos - 1, 0, g.pos + 1, screenH, RebornColors.DANGER);
                 // Pill label en haut
-                int labelW = tr.getWidth(g.label) + 10;
+                int labelW = tr.width(g.label) + 10;
                 int labelX = g.pos - labelW / 2;
                 int labelY = 24;
                 ctx.fill(labelX, labelY, labelX + labelW, labelY + 14, RebornColors.DANGER);
-                ctx.drawText(tr, net.minecraft.text.Text.literal(g.label),
+                ctx.text(tr, net.minecraft.network.chat.Component.literal(g.label),
                     labelX + 5, labelY + 3, 0xFFFFFFFF, false);
             } else {
                 // Ligne horizontale pleine largeur
                 ctx.fill(0, g.pos - 1, screenW, g.pos + 1, RebornColors.DANGER);
-                int labelW = tr.getWidth(g.label) + 10;
+                int labelW = tr.width(g.label) + 10;
                 int labelX = 24;
                 int labelY = g.pos - 7;
                 ctx.fill(labelX, labelY, labelX + labelW, labelY + 14, RebornColors.DANGER);
-                ctx.drawText(tr, net.minecraft.text.Text.literal(g.label),
+                ctx.text(tr, net.minecraft.network.chat.Component.literal(g.label),
                     labelX + 5, labelY + 3, 0xFFFFFFFF, false);
             }
         }

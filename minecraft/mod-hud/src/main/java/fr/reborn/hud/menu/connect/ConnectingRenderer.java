@@ -5,10 +5,10 @@ import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.SakuraParticles;
 import fr.reborn.hud.menu.widget.MainMenuRenderer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 /**
  * Rendu de l'écran de connexion Reborn — appelé par
@@ -36,10 +36,10 @@ public final class ConnectingRenderer {
 
     private ConnectingRenderer() {}
 
-    public static void render(DrawContext ctx, int screenW, int screenH, Text status) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH, Component status) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.textRenderer;
 
         float responsive = MainMenuRenderer.responsiveScale(screenW);
         float t = (System.currentTimeMillis() - BORN_AT) / 1000f;
@@ -83,32 +83,32 @@ public final class ConnectingRenderer {
         // 4. Titre "CONNEXION À REBORN ROLEPLAY…" — Bebas Neue display
         //    sous le spinner.
         String titleStr = "CONNEXION À REBORN ROLEPLAY" + animDots(t);
-        Text title = RebornFont.display(titleStr);
+        Component title = RebornFont.display(titleStr);
         float titleScale = 1.1f * responsive;
-        int titleW = Math.round(tr.getWidth(title) * titleScale);
+        int titleW = Math.round(tr.width(title) * titleScale);
         int titleX = (screenW - titleW) / 2;
         int titleY = centerY + spinnerR + Math.round(40 * responsive);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(titleX, titleY, 0);
-        ctx.getMatrices().scale(titleScale, titleScale, 1f);
-        ctx.drawText(tr, title, 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(titleX, titleY);
+        ctx.pose().scale(titleScale, titleScale);
+        ctx.text(tr, title, 0, 0, Colors.WHITE_PURE, false);
+        ctx.pose().popMatrix();
 
         // 5. Sous-ligne "Étape X · Phase" — déduit l'étape via keyword
         //    matching sur le status vanilla.
         String phaseLabel = status != null ? status.getString() : "Connexion en cours";
         String stepLabel = deriveStepLabel(phaseLabel);
         String subLine = stepLabel + " · " + phaseLabel;
-        Text sub = RebornFont.body(subLine);
+        Component sub = RebornFont.body(subLine);
         float subScale = 0.95f * responsive;
-        int subW = Math.round(tr.getWidth(sub) * subScale);
+        int subW = Math.round(tr.width(sub) * subScale);
         int subX = (screenW - subW) / 2;
         int subY = titleY + Math.round(22 * responsive);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(subX, subY, 0);
-        ctx.getMatrices().scale(subScale, subScale, 1f);
-        ctx.drawText(tr, sub, 0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(subX, subY);
+        ctx.pose().scale(subScale, subScale);
+        ctx.text(tr, sub, 0, 0, Colors.FOREGROUND_SUBTLE, false);
+        ctx.pose().popMatrix();
 
         // 6. Barre de progression linéaire indéterminée — un segment
         //    glisse d'aller-retour le long de la barre.
@@ -129,16 +129,16 @@ public final class ConnectingRenderer {
         ctx.fillGradient(segX + 2 * segW / 3, barY, segX + segW, barY + barH, 0xFF4C6CE6, 0x003B5BDB);
 
         // 7. Hint italic gris "Cela peut prendre quelques secondes".
-        Text hint = RebornFont.body("Cela peut prendre quelques secondes");
+        Component hint = RebornFont.body("Cela peut prendre quelques secondes");
         float hintScale = 0.85f * responsive;
-        int hintW = Math.round(tr.getWidth(hint) * hintScale);
+        int hintW = Math.round(tr.width(hint) * hintScale);
         int hintX = (screenW - hintW) / 2;
         int hintY = barY + barH + Math.round(14 * responsive);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(hintX, hintY, 0);
-        ctx.getMatrices().scale(hintScale, hintScale, 1f);
-        ctx.drawText(tr, hint, 0, 0, Colors.FOREGROUND_MUTED, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(hintX, hintY);
+        ctx.pose().scale(hintScale, hintScale);
+        ctx.text(tr, hint, 0, 0, Colors.FOREGROUND_MUTED, false);
+        ctx.pose().popMatrix();
     }
 
     /**

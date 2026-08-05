@@ -6,10 +6,10 @@ import fr.reborn.hud.menu.IconPack;
 import fr.reborn.hud.menu.IconTextures;
 import fr.reborn.hud.menu.OSTPlayer;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 /**
  * OST Player V2 compact — coin bas-gauche du main menu, version finale.
@@ -35,8 +35,8 @@ public final class OSTPlayerV2 {
     private static final int CONTROL_SIZE = 14;
     private static final int CONTROL_SPACING = 2;
 
-    /** Sous-titre constant — caché pour éviter une alloc Text par frame. */
-    private static final net.minecraft.text.Text ARTIST_TEXT =
+    /** Sous-titre constant — caché pour éviter une alloc Component par frame. */
+    private static final net.minecraft.network.chat.Component ARTIST_TEXT =
         fr.reborn.hud.menu.RebornFont.body("Reborn OST · Original Score");
 
     /** Y vertical-center des contrôles dans la card. */
@@ -54,10 +54,10 @@ public final class OSTPlayerV2 {
 
     private OSTPlayerV2() {}
 
-    public static void renderBackground(DrawContext ctx, int x, int y) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public static void renderBackground(GuiGraphicsExtractor ctx, int x, int y) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.textRenderer;
         OSTPlayer ost = OSTPlayer.INSTANCE;
 
         // Auto-skip à la fin d'une piste — appelé à chaque frame depuis
@@ -88,17 +88,17 @@ public final class OSTPlayerV2 {
         int metaY = y + PADDING + 2;
 
         String trackName = ost.getCurrentTrackName();
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(metaX, metaY, 0);
-        ctx.getMatrices().scale(0.9f, 0.9f, 1f);
-        ctx.drawText(tr, RebornFont.bold(trackName), 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(metaX, metaY);
+        ctx.pose().scale(0.9f, 0.9f);
+        ctx.text(tr, RebornFont.bold(trackName), 0, 0, Colors.WHITE_PURE, false);
+        ctx.pose().popMatrix();
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(metaX, metaY + 11, 0);
-        ctx.getMatrices().scale(0.75f, 0.75f, 1f);
-        ctx.drawText(tr, ARTIST_TEXT, 0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(metaX, metaY + 11);
+        ctx.pose().scale(0.75f, 0.75f);
+        ctx.text(tr, ARTIST_TEXT, 0, 0, Colors.FOREGROUND_SUBTLE, false);
+        ctx.pose().popMatrix();
 
         // ─── Progress bar (1px) en bas de la card ───
         int progY = y + CARD_H - 4;

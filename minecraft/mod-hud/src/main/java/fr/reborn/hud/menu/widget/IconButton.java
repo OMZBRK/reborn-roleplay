@@ -3,11 +3,11 @@ package fr.reborn.hud.menu.widget;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 /**
  * Bouton icône Reborn — fond rond léger + icône custom centrée +
@@ -21,12 +21,12 @@ import net.minecraft.text.Text;
  * c'est l'appelant qui passe sa fonction d'icône (typiquement une méthode
  * statique d'{@link fr.reborn.hud.menu.IconPack}).
  */
-public class IconButton extends ButtonWidget {
+public class IconButton extends Button {
 
     /** Fonction qui dessine une icône dans un carré (x, y, size, color). */
     @FunctionalInterface
     public interface IconDrawer {
-        void draw(DrawContext ctx, int x, int y, int size, int color);
+        void draw(GuiGraphicsExtractor ctx, int x, int y, int size, int color);
     }
 
     /** Position relative du tooltip par rapport au widget. */
@@ -48,8 +48,8 @@ public class IconButton extends ButtonWidget {
 
     public IconButton(int x, int y, int size, IconDrawer iconDrawer, String tooltip,
                       boolean tooltipBelow, PressAction onPress) {
-        super(x, y, size, size, Text.literal(tooltip == null ? "" : tooltip),
-              onPress, ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, size, size, Component.literal(tooltip == null ? "" : tooltip),
+              onPress, Button.DEFAULT_NARRATION_SUPPLIER);
         this.iconDrawer = iconDrawer;
         this.tooltip = tooltip;
         this.tooltipBelow = tooltipBelow;
@@ -79,8 +79,8 @@ public class IconButton extends ButtonWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
         int x0 = getX();
@@ -109,14 +109,14 @@ public class IconButton extends ButtonWidget {
         }
     }
 
-    private void renderTooltip(DrawContext context, MinecraftClient client) {
+    private void renderTooltip(GuiGraphicsExtractor context, Minecraft client) {
         var tr = client.textRenderer;
-        Text tipText = RebornFont.body(tooltip);
-        int textW = tr.getWidth(tipText);
+        Component tipText = RebornFont.body(tooltip);
+        int textW = tr.width(tipText);
         int paddingX = 8;
         int paddingY = 4;
         int tipW = textW + 2 * paddingX;
-        int tipH = tr.fontHeight + 2 * paddingY;
+        int tipH = tr.lineHeight + 2 * paddingY;
 
         // Calcul position selon placement.
         TooltipPlacement place = tooltipPlacement;
@@ -149,21 +149,21 @@ public class IconButton extends ButtonWidget {
         }
 
         // Tooltip rendu PAR-DESSUS le reste — push Z+200.
-        context.getMatrices().push();
-        context.getMatrices().translate(0, 0, 200);
+        context.pose().pushMatrix();
+        context.pose().translate(0, 0, 200);
         DrawHelpers.roundedOutlinedRect(
             context, tipX, tipY, tipW, tipH, 4,
             Colors.SURFACE_OVERLAY, Colors.BORDER_STRONG
         );
-        context.drawText(tr, tipText,
+        context.text(tr, tipText,
             tipX + paddingX, tipY + paddingY, Colors.FOREGROUND, false);
-        context.getMatrices().pop();
+        context.pose().popMatrix();
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
+    public void updateWidgetNarration(NarrationElementOutput builder) {
         if (tooltip != null && !tooltip.isEmpty()) {
-            builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE, tooltip);
+            builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE, tooltip);
         }
     }
 }

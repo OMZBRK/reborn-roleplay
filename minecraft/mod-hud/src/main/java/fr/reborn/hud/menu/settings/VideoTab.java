@@ -1,8 +1,8 @@
 package fr.reborn.hud.menu.settings;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.GameOptions;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.Options;
 
 import java.util.function.Consumer;
 
@@ -23,9 +23,9 @@ public class VideoTab extends SectionedTab {
 
     @Override
     protected void build() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
-        GameOptions o = mc.options;
+        Options o = mc.options;
 
         section("Affichage");
 
@@ -78,7 +78,7 @@ public class VideoTab extends SectionedTab {
         spacer(4);
     }
 
-    private static void apply(GameOptions o, Consumer<GameOptions> change) {
+    private static void apply(Options o, Consumer<Options> change) {
         change.accept(o);
         o.write();
     }
@@ -89,7 +89,7 @@ public class VideoTab extends SectionedTab {
 
     /** Applique l'échelle GUI + re-layout immédiat (sinon effet au prochain resize). */
     private static void applyGuiScale(int scale) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
         mc.options.getGuiScale().setValue(scale);
         mc.options.write();
@@ -98,7 +98,7 @@ public class VideoTab extends SectionedTab {
 
     /** Bascule le plein écran réel de la fenêtre (idempotent via l'état courant). */
     private static void applyFullscreen(boolean fullscreen) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
         if (mc.getWindow().isFullscreen() != fullscreen) {
             mc.getWindow().toggleFullscreen();

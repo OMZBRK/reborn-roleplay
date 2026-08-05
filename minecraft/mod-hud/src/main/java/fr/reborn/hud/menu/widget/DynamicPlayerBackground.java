@@ -3,14 +3,14 @@ package fr.reborn.hud.menu.widget;
 import com.cinemamod.mcef.MCEF;
 import com.cinemamod.mcef.MCEFBrowser;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.BufferRenderer;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.VertexFormat;
+import net.minecraft.client.renderer.VertexFormats;
 import org.joml.Matrix4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +87,7 @@ public final class DynamicPlayerBackground {
     private static String buildViewerUrl(Path html) {
         String absolute = html.toAbsolutePath().toString().replace('\\', '/');
         if (!absolute.startsWith("/")) absolute = "/" + absolute;
-        var uuid = MinecraftClient.getInstance().getSession().getUuidOrNull();
+        var uuid = Minecraft.getInstance().getSession().getUuidOrNull();
         String uuidStr = uuid != null ? uuid.toString() : "";
         return "file://" + absolute + (uuidStr.isEmpty() ? "" : "?uuid=" + uuidStr);
     }
@@ -97,7 +97,7 @@ public final class DynamicPlayerBackground {
      * (CEF still booting, ~1-2s after launch), on dessine le fallback
      * solid color pour ne pas laisser un trou noir transparent.
      */
-    public static void render(DrawContext ctx, int screenW, int screenH) {
+    public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH) {
         if (schedulingFailed || browser == null) {
             ctx.fill(0, 0, screenW, screenH, FALLBACK_COLOR);
             return;
@@ -105,7 +105,7 @@ public final class DynamicPlayerBackground {
         // MCEF travaille en pixels réels (le framebuffer offscreen est créé
         // à la taille demandée). On scale par window.getScaleFactor() pour
         // ne pas avoir un rendu basse-res quand le GUI scale est > 1.
-        double scale = MinecraftClient.getInstance().getWindow().getScaleFactor();
+        double scale = Minecraft.getInstance().getWindow().getScaleFactor();
         int realW = (int) Math.max(1, Math.round(screenW * scale));
         int realH = (int) Math.max(1, Math.round(screenH * scale));
         if (realW != lastResizeW || realH != lastResizeH) {
@@ -143,20 +143,20 @@ public final class DynamicPlayerBackground {
     /**
      * Blit la texture OpenGL du browser CEF sur un quad plein écran. On
      * passe par RenderSystem + Tessellator + BufferRenderer plutôt que
-     * par DrawContext.drawTexture parce que la texture est un ID GL brut
+     * par GuiGraphicsExtractor.drawTexture parce que la texture est un ID GL brut
      * (pas un Identifier MC).
      *
      * <p>Pattern repris de {@code com.cinemamod.mcef.example.ExampleScreen}
      * mais adapté en plein écran et en respectant la matrix transform du
-     * DrawContext (le TitleScreenMixin pousse un translate Z=400 pour
+     * GuiGraphicsExtractor (le TitleScreenMixin pousse un translate Z=400 pour
      * passer au-dessus du panorama vanilla).
      */
-    private static void renderTextureFullscreen(DrawContext ctx, int textureId, int w, int h) {
+    private static void renderTextureFullscreen(GuiGraphicsExtractor ctx, int textureId, int w, int h) {
         RenderSystem.disableDepthTest();
         RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
         RenderSystem.setShaderTexture(0, textureId);
 
-        Matrix4f matrix = ctx.getMatrices().peek().getPositionMatrix();
+        Matrix4f matrix = ctx.pose().peek().getPositionMatrix();
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder buf = tessellator.begin(
             VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);

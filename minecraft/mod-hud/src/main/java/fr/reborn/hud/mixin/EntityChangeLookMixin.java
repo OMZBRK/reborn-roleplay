@@ -1,8 +1,8 @@
 package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.camera.RebornCamera;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -22,7 +22,7 @@ public abstract class EntityChangeLookMixin {
 
     @Inject(method = "changeLookDirection", at = @At("HEAD"), cancellable = true)
     private void reborn$routeMouseToCamera(double cursorDeltaX, double cursorDeltaY, CallbackInfo ci) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (RebornCamera.INSTANCE.isEnabled() && (Object) this == mc.player) {
             RebornCamera.INSTANCE.rotateCamera(cursorDeltaX, cursorDeltaY);
             ci.cancel();

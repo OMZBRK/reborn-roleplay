@@ -2,9 +2,9 @@ package fr.reborn.hud.chat.command;
 
 import fr.reborn.hud.ui.style.RebornColors;
 import fr.reborn.hud.ui.style.RoundedRect;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Formatting;
 
 import java.util.function.Consumer;
@@ -29,7 +29,7 @@ public final class QuickCommandDropdown {
      * Side-effect : si click détecté sur une commande, exécute
      * {@code onPick} avec la commande choisie.
      */
-    public static int[] render(DrawContext ctx, TextRenderer tr, int anchorX, int anchorY,
+    public static int[] render(GuiGraphicsExtractor ctx, Font tr, int anchorX, int anchorY,
                                 int mouseX, int mouseY, int selectionIdx,
                                 Consumer<QuickCommand> onPick) {
         QuickCommand[] all = QuickCommand.values();
@@ -37,8 +37,8 @@ public final class QuickCommandDropdown {
         // Compute width = max command + max description + padding
         int maxCmdW = 0, maxDescW = 0;
         for (QuickCommand c : all) {
-            maxCmdW  = Math.max(maxCmdW,  tr.getWidth(c.command()));
-            maxDescW = Math.max(maxDescW, tr.getWidth(c.description()));
+            maxCmdW  = Math.max(maxCmdW,  tr.width(c.command()));
+            maxDescW = Math.max(maxDescW, tr.width(c.description()));
         }
         int popW = PAD_X * 2 + maxCmdW + 8 + maxDescW + 6;
         int popH = 18 + ROW_HEIGHT * all.length + 4;
@@ -51,7 +51,7 @@ public final class QuickCommandDropdown {
         RoundedRect.border(ctx, popX, popY, popW, popH, 6, RebornColors.BORDER_STRONG);
 
         // Header "COMMANDES RAPIDES"
-        ctx.drawText(tr, Text.literal("COMMANDES RAPIDES").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("COMMANDES RAPIDES").formatted(Formatting.BOLD),
             popX + PAD_X, popY + 6, RebornColors.FOREGROUND_MUTED, false);
 
         // Items
@@ -64,9 +64,9 @@ public final class QuickCommandDropdown {
                 RoundedRect.fill(ctx, popX + 3, rowY, popW - 6, ROW_HEIGHT, 4,
                     RebornColors.ACCENT_SOFT);
             }
-            ctx.drawText(tr, Text.literal(c.command()),
+            ctx.text(tr, Component.literal(c.command()),
                 popX + PAD_X, rowY + 4, RebornColors.ACCENT_HOVER, false);
-            ctx.drawText(tr, Text.literal(c.description()),
+            ctx.text(tr, Component.literal(c.description()),
                 popX + PAD_X + maxCmdW + 8, rowY + 4, RebornColors.FOREGROUND_MUTED, false);
         }
 

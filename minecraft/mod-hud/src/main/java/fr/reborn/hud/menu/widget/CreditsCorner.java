@@ -2,10 +2,10 @@ package fr.reborn.hud.menu.widget;
 
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornVersion;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 /**
  * Ligne credits CENTRÉE sous le groupe d'icons (settings/globe/discord)
@@ -23,23 +23,23 @@ public final class CreditsCorner {
     private static final float TEXT_SCALE = 0.85f;
 
     /** Cache : RebornVersion.shortVersion() ne change pas en runtime. */
-    private static final Text VERSION_TEXT = RebornFont.body(RebornVersion.shortVersion());
+    private static final Component VERSION_TEXT = RebornFont.body(RebornVersion.shortVersion());
 
     private CreditsCorner() {}
 
-    public static void render(DrawContext ctx, int screenW, int screenH) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.textRenderer;
 
-        int scaledW = Math.round(tr.getWidth(VERSION_TEXT) * TEXT_SCALE);
+        int scaledW = Math.round(tr.width(VERSION_TEXT) * TEXT_SCALE);
         int x = (screenW - scaledW) / 2;
         int y = screenH - BOTTOM_OFFSET;
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y, 0);
-        ctx.getMatrices().scale(TEXT_SCALE, TEXT_SCALE, 1f);
-        ctx.drawText(tr, VERSION_TEXT, 0, 0, 0xFFD1D5DB, true);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y);
+        ctx.pose().scale(TEXT_SCALE, TEXT_SCALE);
+        ctx.text(tr, VERSION_TEXT, 0, 0, 0xFFD1D5DB, true);
+        ctx.pose().popMatrix();
     }
 }

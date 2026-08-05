@@ -5,11 +5,11 @@ import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.screenshot.ScreenshotLibrary;
 import fr.reborn.hud.screenshot.ScreenshotLibrary.Entry;
 import fr.reborn.hud.screenshot.ScreenshotTextures;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Util;
 
 import java.util.List;
@@ -37,7 +37,7 @@ public class GalleryScreen extends Screen {
     private int px, py, pw, ph;
 
     public GalleryScreen(Screen parent) {
-        super(Text.literal("Galerie"));
+        super(Component.literal("Galerie"));
         this.parent = parent;
     }
 
@@ -70,12 +70,12 @@ public class GalleryScreen extends Screen {
     private int cellH() { return cellImgH() + 14; }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0xC8000000);
-        TextRenderer tr = this.textRenderer;
+        Font tr = this.textRenderer;
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(0, (1f - ease()) * 20f, 0);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(0, (1f - ease()) * 20f);
 
         // Panneau.
         ctx.fill(px, py, px + pw, py + ph, 0xF2120A0E);
@@ -84,17 +84,17 @@ public class GalleryScreen extends Screen {
         // Header.
         ctx.fill(px, py, px + pw, py + 30, 0xFF170C10);
         ctx.fill(px, py + 30, px + pw, py + 31, Colors.ACCENT);
-        ctx.drawText(tr, RebornFont.bold("GALERIE"), px + 12, py + 11, Colors.GOLD, false);
+        ctx.text(tr, RebornFont.bold("GALERIE"), px + 12, py + 11, Colors.GOLD, false);
         tab(ctx, tr, "Tous", px + 90, py + 8, !onlyFav, mouseX, mouseY);
         tab(ctx, tr, "Favoris", px + 140, py + 8, onlyFav, mouseX, mouseY);
         boolean closeHov = in(mouseX, mouseY, px + pw - 22, py + 8, 16, 16);
-        ctx.drawText(tr, Text.literal("✕"), px + pw - 18, py + 11, closeHov ? Colors.ACCENT_HOVER : Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, Component.literal("✕"), px + pw - 18, py + 11, closeHov ? Colors.ACCENT_HOVER : Colors.FOREGROUND_MUTED, false);
 
         // Grille.
         ctx.enableScissor(px + 6, gridTop(), px + pw - 6, gridBottom());
         int cw = cellW(), cih = cellImgH(), ch = cellH();
         if (entries.isEmpty()) {
-            ctx.drawText(tr, Text.literal("Aucun screenshot" + (onlyFav ? " favori" : "") + "."),
+            ctx.text(tr, Component.literal("Aucun screenshot" + (onlyFav ? " favori" : "") + "."),
                 gridX(), gridTop() + 10, Colors.FOREGROUND_MUTED, false);
         }
         for (int i = 0; i < entries.size(); i++) {
@@ -109,10 +109,10 @@ public class GalleryScreen extends Screen {
         // Menu contextuel.
         if (ctxEntry != null) renderContext(ctx, tr, mouseX, mouseY);
 
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
     }
 
-    private void renderCell(DrawContext ctx, TextRenderer tr, Entry e, int x, int y, int cw, int cih,
+    private void renderCell(GuiGraphicsExtractor ctx, Font tr, Entry e, int x, int y, int cw, int cih,
                             int mouseX, int mouseY) {
         boolean hov = in(mouseX, mouseY, x, y, cw, cih);
         ctx.fill(x - 1, y - 1, x + cw + 1, y + cih + 1, hov ? Colors.ACCENT : Colors.BORDER);
@@ -122,17 +122,17 @@ public class GalleryScreen extends Screen {
             ctx.drawTexture(t.id(), x, y, cw, cih, 0f, 0f, t.w(), t.h(), t.w(), t.h());
         } else {
             ctx.fill(x, y, x + cw, y + cih, 0xFF1A0E12);
-            ctx.drawText(tr, Text.literal("…"), x + cw / 2 - 2, y + cih / 2 - 4, Colors.FOREGROUND_MUTED, false);
+            ctx.text(tr, Component.literal("…"), x + cw / 2 - 2, y + cih / 2 - 4, Colors.FOREGROUND_MUTED, false);
         }
         // Cœur favori.
         boolean fav = ScreenshotLibrary.isFavorite(e.name());
-        ctx.drawText(tr, Text.literal(fav ? "♥" : "♡"), x + cw - 12, y + 3, fav ? Colors.ACCENT_HOVER : 0xFFDDDDDD, false);
+        ctx.text(tr, Component.literal(fav ? "♥" : "♡"), x + cw - 12, y + 3, fav ? Colors.ACCENT_HOVER : 0xFFDDDDDD, false);
         // Nom (tronqué).
         String n = e.name().length() > 22 ? e.name().substring(0, 21) + "…" : e.name();
-        ctx.drawText(tr, Text.literal(n), x, y + cih + 3, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, Component.literal(n), x, y + cih + 3, Colors.FOREGROUND_SUBTLE, false);
     }
 
-    private void renderContext(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
+    private void renderContext(GuiGraphicsExtractor ctx, Font tr, int mouseX, int mouseY) {
         String[] items = { "Ouvrir", ScreenshotLibrary.isFavorite(ctxEntry.name()) ? "Retirer favori" : "Favori",
             "Supprimer", "Dossier" };
         int h = items.length * CTX_ROW + 4;
@@ -144,16 +144,16 @@ public class GalleryScreen extends Screen {
             boolean hov = in(mouseX, mouseY, x, iy, CTX_W, CTX_ROW);
             if (hov) ctx.fill(x + 1, iy, x + CTX_W - 1, iy + CTX_ROW, Colors.ACCENT_SOFT);
             int col = i == 2 ? Colors.ACCENT_HOVER : Colors.FOREGROUND_SUBTLE;
-            ctx.drawText(tr, Text.literal(items[i]), x + 8, iy + 3, hov ? Colors.WHITE_PURE : col, false);
+            ctx.text(tr, Component.literal(items[i]), x + 8, iy + 3, hov ? Colors.WHITE_PURE : col, false);
         }
     }
 
-    private void tab(DrawContext ctx, TextRenderer tr, String label, int x, int y, boolean sel, int mouseX, int mouseY) {
-        int w = tr.getWidth(label) + 8;
+    private void tab(GuiGraphicsExtractor ctx, Font tr, String label, int x, int y, boolean sel, int mouseX, int mouseY) {
+        int w = tr.width(label) + 8;
         boolean hov = in(mouseX, mouseY, x, y, w, 16);
         if (sel) ctx.fill(x, y, x + w, y + 16, Colors.ACCENT);
         else if (hov) ctx.fill(x, y, x + w, y + 16, 0x22FFFFFF);
-        ctx.drawText(tr, Text.literal(label), x + 4, y + 4, sel ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, Component.literal(label), x + 4, y + 4, sel ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
     }
 
     @Override
@@ -168,8 +168,8 @@ public class GalleryScreen extends Screen {
         }
 
         if (in(mxi, myi, px + pw - 22, py + 8, 16, 16)) { close(); return true; }
-        if (in(mxi, myi, px + 90, py + 8, this.textRenderer.getWidth("Tous") + 8, 16)) { onlyFav = false; refresh(); return true; }
-        if (in(mxi, myi, px + 140, py + 8, this.textRenderer.getWidth("Favoris") + 8, 16)) { onlyFav = true; refresh(); return true; }
+        if (in(mxi, myi, px + 90, py + 8, this.textRenderer.width("Tous") + 8, 16)) { onlyFav = false; refresh(); return true; }
+        if (in(mxi, myi, px + 140, py + 8, this.textRenderer.width("Favoris") + 8, 16)) { onlyFav = true; refresh(); return true; }
 
         Entry hit = cellAt(mxi, myi);
         if (hit != null) {
@@ -184,7 +184,7 @@ public class GalleryScreen extends Screen {
                 ScreenshotLibrary.toggleFavorite(hit.name());
                 if (onlyFav) refresh();
             } else {
-                MinecraftClient.getInstance().setScreen(new ScreenshotDetailScreen(this, entries, entries.indexOf(hit)));
+                Minecraft.getInstance().setScreen(new ScreenshotDetailScreen(this, entries, entries.indexOf(hit)));
             }
             return true;
         }
@@ -236,13 +236,13 @@ public class GalleryScreen extends Screen {
 
     @Override
     public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
     public boolean shouldPause() { return false; }
 
-    private static void outline(DrawContext ctx, int x, int y, int w, int h, int c) {
+    private static void outline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
         ctx.fill(x, y, x + w, y + 1, c);
         ctx.fill(x, y + h - 1, x + w, y + h, c);
         ctx.fill(x, y, x + 1, y + h, c);

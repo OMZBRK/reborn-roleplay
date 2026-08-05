@@ -5,13 +5,13 @@ import fr.reborn.hud.menu.RebornBranding;
 import fr.reborn.hud.menu.RebornBranding.ServerTarget;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.ServerInfoState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.screen.narration.NarrationPart;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarrationPart;
+import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.network.chat.Component;
 
 /**
  * Sélecteur de serveur en <b>popup au survol de JOUER</b> — staff-only. Le menu
@@ -34,9 +34,9 @@ public class ServerPickerWidget extends ClickableWidget {
     private final MenuEntryButton anchor;
 
     public ServerPickerWidget(MenuEntryButton anchor) {
-        super(anchor.getX() + anchor.getWidth() + GAP,
+        super(anchor.getX() + anchor.width() + GAP,
               anchor.getY() + (anchor.getHeight() - 2 * ROW_H) / 2,
-              POPUP_W, 2 * ROW_H, Text.literal("Serveur"));
+              POPUP_W, 2 * ROW_H, Component.literal("Serveur"));
         this.anchor = anchor;
     }
 
@@ -60,18 +60,18 @@ public class ServerPickerWidget extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
         refreshPings();
         if (!revealed(mouseX, mouseY)) return; // rien hors survol de JOUER
 
-        TextRenderer tr = mc.textRenderer;
+        Font tr = mc.textRenderer;
         int x = getX(), y = getY(), w = getWidth();
         ServerTarget target = RebornBranding.target();
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(0, 0, 30); // au-dessus du décor/menu
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(0, 0, 30); // au-dessus du décor/menu
         // Panneau.
         ctx.fill(x, y, x + w, y + 2 * ROW_H, Colors.BACKDROP_85);
         drawRow(ctx, tr, "BUILD", ServerInfoState.INSTANCE, x, y, w,
@@ -79,10 +79,10 @@ public class ServerPickerWidget extends ClickableWidget {
         drawRow(ctx, tr, "DEV", ServerInfoState.dev(), x, y + ROW_H, w,
             target == ServerTarget.DEV, mouseX, mouseY);
         outline(ctx, x, y, w, 2 * ROW_H, Colors.BORDER_STRONG);
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
     }
 
-    private void drawRow(DrawContext ctx, TextRenderer tr, String name, ServerInfoState s,
+    private void drawRow(GuiGraphicsExtractor ctx, Font tr, String name, ServerInfoState s,
                          int x, int y, int w, boolean active, int mx, int my) {
         boolean hover = mx >= x && mx < x + w && my >= y && my < y + ROW_H;
         if (active) ctx.fill(x, y, x + w, y + ROW_H, Colors.ACCENT_SOFT);
@@ -92,19 +92,19 @@ public class ServerPickerWidget extends ClickableWidget {
         drawDot(ctx, x + 8, y + ROW_H / 2 - 1, s != null && s.isOnline());
         int nameColor = active ? Colors.WHITE_PURE
             : (hover ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED);
-        ctx.drawText(tr, RebornFont.arcade(name), x + 16, y + (ROW_H - 8) / 2, nameColor, false);
+        ctx.text(tr, RebornFont.arcade(name), x + 16, y + (ROW_H - 8) / 2, nameColor, false);
 
-        Text count = RebornFont.arcade(countLabel(s));
-        int cw = tr.getWidth(count);
-        ctx.drawText(tr, count, x + w - 8 - cw, y + (ROW_H - 8) / 2,
+        Component count = RebornFont.arcade(countLabel(s));
+        int cw = tr.width(count);
+        ctx.text(tr, count, x + w - 8 - cw, y + (ROW_H - 8) / 2,
             (s != null && s.isOnline()) ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED, false);
     }
 
-    private static void drawDot(DrawContext ctx, int x, int y, boolean online) {
+    private static void drawDot(GuiGraphicsExtractor ctx, int x, int y, boolean online) {
         ctx.fill(x, y, x + 3, y + 3, online ? Colors.SUCCESS : Colors.DANGER);
     }
 
-    private static void outline(DrawContext ctx, int x, int y, int w, int h, int c) {
+    private static void outline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
         ctx.fill(x, y, x + w, y + 1, c);
         ctx.fill(x, y + h - 1, x + w, y + h, c);
         ctx.fill(x, y, x + 1, y + h, c);
@@ -132,11 +132,11 @@ public class ServerPickerWidget extends ClickableWidget {
 
     private void select(ServerTarget t) {
         RebornBranding.setTarget(t);
-        playDownSound(MinecraftClient.getInstance().getSoundManager());
+        playDownSound(Minecraft.getInstance().getSoundManager());
     }
 
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(NarrationPart.TITLE, Text.literal("Sélecteur de serveur BUILD / DEV"));
+    protected void updateWidgetNarration(NarrationElementOutput builder) {
+        builder.put(NarrationPart.TITLE, Component.literal("Sélecteur de serveur BUILD / DEV"));
     }
 }

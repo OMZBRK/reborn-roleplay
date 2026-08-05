@@ -3,11 +3,11 @@ package fr.reborn.hud.chat;
 import fr.reborn.hud.RebornHudClient;
 import fr.reborn.hud.ui.style.RebornColors;
 import fr.reborn.hud.ui.style.RoundedRect;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Formatting;
 
 import java.util.ArrayList;
@@ -39,24 +39,24 @@ public final class ChatSettingsScreen extends Screen {
     };
 
     public ChatSettingsScreen(Screen parent) {
-        super(Text.literal("Paramètres Chat"));
+        super(Component.literal("Paramètres Chat"));
         this.parent = parent;
         this.settings = RebornHudClient.config().getChatSettings();
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0x66000000);
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         renderBackground(ctx, mouseX, mouseY, delta);
         toggles.clear();
         sliders.clear();
         swatches.clear();
 
-        TextRenderer tr = this.textRenderer;
+        Font tr = this.textRenderer;
         int cardW = Math.min(CARD_WIDTH, this.width - 24);
         int cardH = Math.min(318, this.height - 24);
         int cardX = (this.width - cardW) / 2;
@@ -66,13 +66,13 @@ public final class ChatSettingsScreen extends Screen {
         RoundedRect.border(ctx, cardX, cardY, cardW, cardH, 10, RebornColors.BORDER_STRONG);
 
         // Header
-        ctx.drawText(tr, Text.literal("PARAMÈTRES CHAT").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("PARAMÈTRES CHAT").formatted(Formatting.BOLD),
             cardX + 14, cardY + 12, RebornColors.FOREGROUND, false);
         ctx.fill(cardX + 14, cardY + 26, cardX + cardW - 14, cardY + 27, RebornColors.BORDER);
 
         // Section Affichage
         int y = cardY + 36;
-        ctx.drawText(tr, Text.literal("AFFICHAGE").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("AFFICHAGE").formatted(Formatting.BOLD),
             cardX + 14, y, RebornColors.FOREGROUND_MUTED, false);
         y += 14;
 
@@ -94,7 +94,7 @@ public final class ChatSettingsScreen extends Screen {
         y += 8;
 
         // Section Dimensions
-        ctx.drawText(tr, Text.literal("DIMENSIONS").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("DIMENSIONS").formatted(Formatting.BOLD),
             cardX + 14, y, RebornColors.FOREGROUND_MUTED, false);
         y += 14;
 
@@ -112,16 +112,16 @@ public final class ChatSettingsScreen extends Screen {
             closeHover ? RebornColors.ACCENT_SOFT : RebornColors.BG_INPUT);
         RoundedRect.border(ctx, cardX + 14, closeBtnY, closeBtnW, closeBtnH, 6,
             closeHover ? RebornColors.ACCENT : RebornColors.BORDER_STRONG);
-        int closeLabelW = tr.getWidth("Fermer");
-        ctx.drawText(tr, Text.literal("Fermer").formatted(Formatting.BOLD),
-            cardX + 14 + (closeBtnW - closeLabelW) / 2, closeBtnY + (closeBtnH - tr.fontHeight) / 2,
+        int closeLabelW = tr.width("Fermer");
+        ctx.text(tr, Component.literal("Fermer").formatted(Formatting.BOLD),
+            cardX + 14 + (closeBtnW - closeLabelW) / 2, closeBtnY + (closeBtnH - tr.lineHeight) / 2,
             closeHover ? RebornColors.ACCENT_HOVER : RebornColors.FOREGROUND, false);
     }
 
-    private int renderToggle(DrawContext ctx, int cardX, int y, String label, boolean state,
+    private int renderToggle(GuiGraphicsExtractor ctx, int cardX, int y, String label, boolean state,
                              int mouseX, int mouseY, java.util.function.Consumer<Boolean> onSet) {
-        TextRenderer tr = this.textRenderer;
-        ctx.drawText(tr, Text.literal(label),
+        Font tr = this.textRenderer;
+        ctx.text(tr, Component.literal(label),
             cardX + 14, y + 4, RebornColors.FOREGROUND, false);
 
         int cardW = Math.min(CARD_WIDTH, this.width - 24);
@@ -138,16 +138,16 @@ public final class ChatSettingsScreen extends Screen {
         return y + 18;
     }
 
-    private int renderSlider(DrawContext ctx, int cardX, int y, String label, int value,
+    private int renderSlider(GuiGraphicsExtractor ctx, int cardX, int y, String label, int value,
                              int min, int max, String unit, int mouseX, int mouseY,
                              java.util.function.IntConsumer onSet) {
-        TextRenderer tr = this.textRenderer;
-        ctx.drawText(tr, Text.literal(label),
+        Font tr = this.textRenderer;
+        ctx.text(tr, Component.literal(label),
             cardX + 14, y, RebornColors.FOREGROUND, false);
         int cardW = Math.min(CARD_WIDTH, this.width - 24);
         String vStr = value + unit;
-        int vW = tr.getWidth(vStr);
-        ctx.drawText(tr, Text.literal(vStr),
+        int vW = tr.width(vStr);
+        ctx.text(tr, Component.literal(vStr),
             cardX + cardW - 14 - vW, y, RebornColors.ACCENT_HOVER, false);
 
         int trackY = y + 12;
@@ -164,9 +164,9 @@ public final class ChatSettingsScreen extends Screen {
         return y + 22;
     }
 
-    private int renderColorRow(DrawContext ctx, int cardX, int y, String label, int current) {
-        TextRenderer tr = this.textRenderer;
-        ctx.drawText(tr, Text.literal(label), cardX + 14, y + 3, RebornColors.FOREGROUND, false);
+    private int renderColorRow(GuiGraphicsExtractor ctx, int cardX, int y, String label, int current) {
+        Font tr = this.textRenderer;
+        ctx.text(tr, Component.literal(label), cardX + 14, y + 3, RebornColors.FOREGROUND, false);
         int cardW = Math.min(CARD_WIDTH, this.width - 24);
         int size = 12, gap = 4;
         int total = HL_COLORS.length * size + (HL_COLORS.length - 1) * gap;
@@ -228,7 +228,7 @@ public final class ChatSettingsScreen extends Screen {
     @Override
     public void close() {
         RebornHudClient.config().save();
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override

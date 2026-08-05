@@ -1,8 +1,8 @@
 package fr.reborn.hud.menu.settings;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.GameOptions;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.Options;
 
 /**
  * Onglet Contrôles — réglages souris/déplacement câblés sur {@code mc.options}.
@@ -21,9 +21,9 @@ public class ControlsTab extends SectionedTab {
 
     @Override
     protected void build() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
-        GameOptions o = mc.options;
+        Options o = mc.options;
 
         section("Souris");
 

@@ -9,10 +9,10 @@ import fr.reborn.hud.menu.settings.SegmentedControl;
 import fr.reborn.hud.menu.settings.SettingsTab;
 import fr.reborn.hud.menu.settings.SliderWidget;
 import fr.reborn.hud.menu.settings.ToggleBig;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.ClickableWidget;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -178,17 +178,17 @@ public class CrosshairTab implements SettingsTab {
     }
 
     @Override
-    public void renderPassive(DrawContext ctx, int x, int y, int width) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    public void renderPassive(GuiGraphicsExtractor ctx, int x, int y, int width) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
+        Font tr = mc.textRenderer;
 
         // Section.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y - 28, 0);
-        ctx.getMatrices().scale(1.2f, 1.2f, 1f);
-        ctx.drawText(tr, RebornFont.bold("VISEUR"), 0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y - 28);
+        ctx.pose().scale(1.2f, 1.2f);
+        ctx.text(tr, RebornFont.bold("VISEUR"), 0, 0, Colors.FOREGROUND_SUBTLE, false);
+        ctx.pose().popMatrix();
 
         // Labels des 4 lignes.
         String[][] rows = {
@@ -206,19 +206,19 @@ public class CrosshairTab implements SettingsTab {
         };
         int cursorY = y;
         for (String[] row : rows) {
-            ctx.drawText(tr, RebornFont.bold(row[0]), x, cursorY + 8, Colors.WHITE_PURE, false);
+            ctx.text(tr, RebornFont.bold(row[0]), x, cursorY + 8, Colors.WHITE_PURE, false);
             if (row[1] != null) {
-                ctx.getMatrices().push();
-                ctx.getMatrices().translate(x, cursorY + 20, 0);
-                ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-                ctx.drawText(tr, RebornFont.body(row[1]), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.getMatrices().pop();
+                ctx.pose().pushMatrix();
+                ctx.pose().translate(x, cursorY + 20);
+                ctx.pose().scale(0.85f, 0.85f);
+                ctx.text(tr, RebornFont.body(row[1]), 0, 0, Colors.FOREGROUND_MUTED, false);
+                ctx.pose().popMatrix();
             }
             cursorY += ROW_HEIGHT;
         }
 
         // En-tête de la grille.
-        ctx.drawText(tr, RebornFont.bold("MODÈLES"), x, y + GRID_LABEL_OFF,
+        ctx.text(tr, RebornFont.bold("MODÈLES"), x, y + GRID_LABEL_OFF,
             Colors.FOREGROUND_SUBTLE, false);
     }
 

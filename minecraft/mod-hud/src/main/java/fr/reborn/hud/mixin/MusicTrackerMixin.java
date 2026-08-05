@@ -1,6 +1,6 @@
 package fr.reborn.hud.mixin;
 
-import net.minecraft.client.sound.MusicTracker;
+import net.minecraft.client.resources.sounds.MusicTracker;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

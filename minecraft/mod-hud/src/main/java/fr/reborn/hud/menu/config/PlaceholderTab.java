@@ -4,12 +4,12 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.settings.SettingsTab;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +47,7 @@ public class PlaceholderTab implements SettingsTab {
         widgets.clear();
         int cursorY = y + 64;
         if (actionLabel != null && action != null) {
-            ButtonWidget btn = ButtonWidget.builder(
+            Button btn = Button.builder(
                 RebornFont.body(actionLabel), b -> action.run())
                 .dimensions(x, cursorY, 220, 22).build();
             widgets.add(btn);
@@ -67,34 +67,34 @@ public class PlaceholderTab implements SettingsTab {
     }
 
     @Override
-    public void renderPassive(DrawContext ctx, int x, int y, int width) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    public void renderPassive(GuiGraphicsExtractor ctx, int x, int y, int width) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
+        Font tr = mc.textRenderer;
 
         // Badge BIENTÔT.
-        Text badge = RebornFont.bold("BIENTÔT");
-        int badgeW = tr.getWidth(badge) + 16;
+        Component badge = RebornFont.bold("BIENTÔT");
+        int badgeW = tr.width(badge) + 16;
         DrawHelpers.roundedOutlinedRect(ctx, x, y, badgeW, 16, 8,
             Colors.GOLD_SOFT, Colors.withAlpha(Colors.GOLD, 0.4f));
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + 8, y + 4, 0);
-        ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-        ctx.drawText(tr, badge, 0, 0, Colors.GOLD, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x + 8, y + 4);
+        ctx.pose().scale(0.85f, 0.85f);
+        ctx.text(tr, badge, 0, 0, Colors.GOLD, false);
+        ctx.pose().popMatrix();
 
         // Titre.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y + 26, 0);
-        ctx.getMatrices().scale(1.3f, 1.3f, 1f);
-        ctx.drawText(tr, RebornFont.bold(title), 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y + 26);
+        ctx.pose().scale(1.3f, 1.3f);
+        ctx.text(tr, RebornFont.bold(title), 0, 0, Colors.WHITE_PURE, false);
+        ctx.pose().popMatrix();
 
         // Sous-titre.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y + 46, 0);
-        ctx.getMatrices().scale(0.9f, 0.9f, 1f);
-        ctx.drawText(tr, RebornFont.body(subtitle), 0, 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y + 46);
+        ctx.pose().scale(0.9f, 0.9f);
+        ctx.text(tr, RebornFont.body(subtitle), 0, 0, Colors.FOREGROUND_SUBTLE, false);
+        ctx.pose().popMatrix();
     }
 }

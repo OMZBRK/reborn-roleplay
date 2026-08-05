@@ -4,7 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -87,7 +87,7 @@ public final class TablistData {
     private static int pingOf(String uuidStr) {
         if (uuidStr == null) return 0;
         try {
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
             if (mc.getNetworkHandler() == null) return 0;
             var entry = mc.getNetworkHandler().getPlayerListEntry(UUID.fromString(uuidStr));
             return entry != null ? Math.max(0, entry.getLatency()) : 0;

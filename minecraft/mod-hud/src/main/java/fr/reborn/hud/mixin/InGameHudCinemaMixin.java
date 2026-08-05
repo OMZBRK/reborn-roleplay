@@ -2,12 +2,12 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.immersion.CinemaBars;
 import fr.reborn.hud.immersion.PhotoMode;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.InGameHud;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.renderer.RenderTickCounter;
 import net.minecraft.client.util.ScreenshotRecorder;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,8 +33,8 @@ public abstract class InGameHudCinemaMixin {
     @Shadow private int ticks;
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void reborn$immersionHud(DrawContext ctx, RenderTickCounter counter, CallbackInfo ci) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private void reborn$immersionHud(GuiGraphicsExtractor ctx, RenderTickCounter counter, CallbackInfo ci) {
+        Minecraft mc = Minecraft.getInstance();
 
         if (PhotoMode.INSTANCE.isActive()) {
             if (PhotoMode.INSTANCE.consumeCapture()) {
@@ -52,7 +52,7 @@ public abstract class InGameHudCinemaMixin {
             if (!mc.options.hudHidden) {
                 int sw = mc.getWindow().getScaledWidth();
                 int sh = mc.getWindow().getScaledHeight();
-                int mx = (int) (mc.mouse.getX() * sw / mc.getWindow().getWidth());
+                int mx = (int) (mc.mouse.getX() * sw / mc.getWindow().width());
                 int my = (int) (mc.mouse.getY() * sh / mc.getWindow().getHeight());
                 boolean focused = mc.currentScreen instanceof ChatScreen;
                 this.chatHud.render(ctx, this.ticks, mx, my, focused);

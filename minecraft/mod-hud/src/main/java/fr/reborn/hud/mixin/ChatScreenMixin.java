@@ -6,10 +6,10 @@ import fr.reborn.hud.chat.EmojiPicker;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementState;
 import fr.reborn.hud.menu.Colors;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.components.EditBox;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -28,7 +28,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin {
 
-    @Shadow protected TextFieldWidget chatField;
+    @Shadow protected EditBox chatField;
 
     @Inject(method = "init", at = @At("TAIL"))
     private void reborn$chatFieldVisibility(CallbackInfo ci) {
@@ -38,7 +38,7 @@ public abstract class ChatScreenMixin {
             chatField.visible = false;
         }
         // Rétrécit la saisie à la largeur du chat (laisse la place au bouton emoji).
-        int sw = MinecraftClient.getInstance().getWindow().getScaledWidth();
+        int sw = Minecraft.getInstance().getWindow().getScaledWidth();
         chatField.setX(ChatLayout.TEXT_X);
         chatField.setWidth(ChatLayout.inputW(sw));
         EmojiPicker.close(); // picker fermé à chaque ouverture du chat
@@ -49,9 +49,9 @@ public abstract class ChatScreenMixin {
      * remplace par une barre à la largeur du chat, stylée Reborn.
      */
     @Redirect(method = "render",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/DrawContext;fill(IIIII)V"))
-    private void reborn$narrowInputBar(DrawContext ctx, int x1, int y1, int x2, int y2, int color) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;fill(IIIII)V"))
+    private void reborn$narrowInputBar(GuiGraphicsExtractor ctx, int x1, int y1, int x2, int y2, int color) {
+        Minecraft mc = Minecraft.getInstance();
         int sw = mc.getWindow().getScaledWidth();
         int sh = mc.getWindow().getScaledHeight();
         if (y2 >= sh - 2 && (y2 - y1) <= 16 && x2 >= sw - 4) {
@@ -66,8 +66,8 @@ public abstract class ChatScreenMixin {
 
     // Dessine le bouton emoji + le picker par-dessus l'écran de chat.
     @Inject(method = "render", at = @At("TAIL"))
-    private void reborn$renderEmoji(DrawContext ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private void reborn$renderEmoji(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        Minecraft mc = Minecraft.getInstance();
         EmojiPicker.render(ctx, mouseX, mouseY,
             mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
     }
@@ -77,7 +77,7 @@ public abstract class ChatScreenMixin {
     private void reborn$clickEmoji(double mx, double my, int button,
                                    CallbackInfoReturnable<Boolean> cir) {
         if (button != 0) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         boolean handled = EmojiPicker.handleClick(mx, my,
             mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight(),
             s -> { if (chatField != null) chatField.write(s); });

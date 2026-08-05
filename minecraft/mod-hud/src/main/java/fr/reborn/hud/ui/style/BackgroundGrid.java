@@ -1,6 +1,6 @@
 package fr.reborn.hud.ui.style;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Pattern de grille subtil dessiné par dots — purement esthétique, donne
@@ -26,7 +26,7 @@ public final class BackgroundGrid {
      * Les "major dots" toutes les 4 cellules sont legerement plus visibles
      * pour aider à mesurer.
      */
-    public static void render(DrawContext ctx, int x0, int y0, int x1, int y1) {
+    public static void render(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1) {
         int startCol = 0;
         int startRow = 0;
         int cols = (x1 - x0) / CELL + 1;

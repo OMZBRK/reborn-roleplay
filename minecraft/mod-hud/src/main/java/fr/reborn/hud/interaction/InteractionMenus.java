@@ -1,12 +1,12 @@
 package fr.reborn.hud.interaction;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
 
 import java.util.List;
 
@@ -25,7 +25,7 @@ public final class InteractionMenus {
 
     /** Envoie une commande au serveur (sans le slash). */
     public static void sendCommand(String command) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.getNetworkHandler() != null) {
             mc.getNetworkHandler().sendChatCommand(command);
         }
@@ -33,15 +33,15 @@ public final class InteractionMenus {
 
     /** Affiche un message d'info côté client (chat local, pas envoyé au serveur). */
     public static void info(String text) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.inGameHud != null) {
-            mc.inGameHud.getChatHud().addMessage(Text.literal("§6[Reborn] §f" + text));
+            mc.inGameHud.getChatHud().addMessage(Component.literal("§6[Reborn] §f" + text));
         }
     }
 
     /** Copie du texte dans le presse-papiers. */
     public static void copy(String text) {
-        MinecraftClient.getInstance().keyboard.setClipboard(text);
+        Minecraft.getInstance().keyboard.setClipboard(text);
         info("Copié : §e" + text);
     }
 
@@ -89,7 +89,7 @@ public final class InteractionMenus {
     public static List<InteractionItem> forBlock(BlockPos pos) {
         return List.of(
             InteractionItem.action("Inspecter le bloc", () -> {
-                MinecraftClient mc = MinecraftClient.getInstance();
+                Minecraft mc = Minecraft.getInstance();
                 if (mc.world == null) return;
                 BlockState bs = mc.world.getBlockState(pos);
                 info("§e" + Registries.BLOCK.getId(bs.getBlock())
@@ -101,7 +101,7 @@ public final class InteractionMenus {
                 () -> copy(pos.getX() + " " + pos.getY() + " " + pos.getZ())),
             InteractionItem.submenu("Outils de debug", List.of(
                 InteractionItem.action("Afficher l'état complet", () -> {
-                    MinecraftClient mc = MinecraftClient.getInstance();
+                    Minecraft mc = Minecraft.getInstance();
                     if (mc.world != null) info("§7" + mc.world.getBlockState(pos).toString());
                 })
             ))

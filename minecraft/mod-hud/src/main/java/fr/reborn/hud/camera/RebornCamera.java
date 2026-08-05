@@ -1,8 +1,8 @@
 package fr.reborn.hud.camera;
 
 import fr.reborn.hud.menu.settings.RebornPrefs;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.Perspective;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Perspective;
 
 /**
  * État de la caméra épaule Reborn (style Zenkai / anime-RP).
@@ -130,7 +130,7 @@ public final class RebornCamera {
      * (et ré-initialise l'orbite quand on (re)passe en 3e pers). En 1ère
      * personne : verrouille la 1ère personne.
      */
-    public void tickView(MinecraftClient mc) {
+    public void tickView(Minecraft mc) {
         if (mc.player == null || mc.options == null) return;
         if (mode == Mode.SHOULDER) {
             if (mc.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
@@ -145,7 +145,7 @@ public final class RebornCamera {
     }
 
     /** Bascule vue ÉPAULE ↔ vraie 1ère personne (touche dédiée). */
-    public void toggleFirstPerson(MinecraftClient mc) {
+    public void toggleFirstPerson(Minecraft mc) {
         mode = (mode == Mode.SHOULDER) ? Mode.FIRST : Mode.SHOULDER;
         tickView(mc); // applique tout de suite la perspective + init orbite.
     }

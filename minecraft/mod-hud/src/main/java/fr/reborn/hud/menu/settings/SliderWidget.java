@@ -3,11 +3,11 @@ package fr.reborn.hud.menu.settings;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.IntConsumer;
 
@@ -35,7 +35,7 @@ public class SliderWidget extends ClickableWidget {
     public SliderWidget(int x, int y, int width, int height,
                         int initialValue, int min, int max, String suffix,
                         IntConsumer onChange) {
-        super(x, y, width, height, Text.literal(""));
+        super(x, y, width, height, Component.literal(""));
         this.value = initialValue;
         this.min = min;
         this.max = max;
@@ -56,8 +56,8 @@ public class SliderWidget extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
         // Layout : track à gauche prend ~70% de la largeur, valeur à droite.
@@ -89,11 +89,11 @@ public class SliderWidget extends ClickableWidget {
         // Valeur à droite (texte body).
         var tr = client.textRenderer;
         String valueStr = value + suffix;
-        Text valueText = RebornFont.bold(valueStr);
-        int valueW = tr.getWidth(valueText);
+        Component valueText = RebornFont.bold(valueStr);
+        int valueW = tr.width(valueText);
         int valueX = x0 + w - valueW - 4;
-        int valueY = y0 + (h - tr.fontHeight) / 2;
-        ctx.drawText(tr, valueText, valueX, valueY, Colors.FOREGROUND, false);
+        int valueY = y0 + (h - tr.lineHeight) / 2;
+        ctx.text(tr, valueText, valueX, valueY, Colors.FOREGROUND, false);
     }
 
     @Override
@@ -121,8 +121,8 @@ public class SliderWidget extends ClickableWidget {
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
+    public void updateWidgetNarration(NarrationElementOutput builder) {
+        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
             "Slider valeur " + value + suffix);
     }
 }

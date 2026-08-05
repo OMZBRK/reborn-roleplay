@@ -1,11 +1,11 @@
 package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.camera.RebornCamera;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.input.KeyboardInput;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -37,8 +37,8 @@ public abstract class KeyboardInputMixin {
     private void reborn$cameraRelativeMovement(boolean slowDown, float slowDownFactor, CallbackInfo ci) {
         RebornCamera cam = RebornCamera.INSTANCE;
         if (!cam.isEnabled()) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
         if (player == null || mc.options == null) return;
 
         // AIM-MODE : attaquer (clic gauche) / utiliser (clic droit) → le perso
@@ -73,7 +73,7 @@ public abstract class KeyboardInputMixin {
         double dz = fz * mf - lz * ms;
 
         float target = (float) Math.toDegrees(Math.atan2(-dx, dz));
-        float ny = MathHelper.lerpAngleDegrees((float) cam.turnSpeed(), player.getYaw(), target);
+        float ny = Mth.lerpAngleDegrees((float) cam.turnSpeed(), player.getYaw(), target);
         player.setYaw(ny);
         player.setBodyYaw(ny);
         player.setHeadYaw(ny);

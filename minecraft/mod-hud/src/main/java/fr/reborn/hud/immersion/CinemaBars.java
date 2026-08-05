@@ -1,8 +1,8 @@
 package fr.reborn.hud.immersion;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Bandes noires « cinéma » (letterbox) en haut et en bas, pour l'immersion / les
@@ -40,9 +40,9 @@ public final class CinemaBars {
     }
 
     /** Dessine les bandes (appelé par le mixin InGameHud). */
-    public void renderBars(DrawContext ctx) {
+    public void renderBars(GuiGraphicsExtractor ctx) {
         if (progress <= 0.001f) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.options.hudHidden) return;
         int w = ctx.getScaledWindowWidth();
         int h = ctx.getScaledWindowHeight();

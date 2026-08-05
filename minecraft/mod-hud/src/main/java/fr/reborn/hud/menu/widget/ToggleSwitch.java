@@ -2,12 +2,12 @@ package fr.reborn.hud.menu.widget;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.screen.narration.NarrationPart;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarrationPart;
+import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -31,14 +31,14 @@ public class ToggleSwitch extends ClickableWidget {
     private float anim;
 
     public ToggleSwitch(int x, int y, BooleanSupplier getter, Consumer<Boolean> onToggle) {
-        super(x, y, W, H, Text.literal("Interrupteur"));
+        super(x, y, W, H, Component.literal("Interrupteur"));
         this.getter = getter;
         this.onToggle = onToggle;
         this.anim = getter.getAsBoolean() ? 1f : 0f;
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         boolean on = getter.getAsBoolean();
         float target = on ? 1f : 0f;
         anim += (target - anim) * 0.30f; // slide fps-léger (suffisant pour un toggle)
@@ -67,15 +67,15 @@ public class ToggleSwitch extends ClickableWidget {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0 && this.active && this.visible && clicked(mouseX, mouseY)) {
             onToggle.accept(!getter.getAsBoolean());
-            playDownSound(MinecraftClient.getInstance().getSoundManager());
+            playDownSound(Minecraft.getInstance().getSoundManager());
             return true;
         }
         return false;
     }
 
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
+    protected void updateWidgetNarration(NarrationElementOutput builder) {
         builder.put(NarrationPart.TITLE,
-            Text.literal(getter.getAsBoolean() ? "Activé" : "Désactivé"));
+            Component.literal(getter.getAsBoolean() ? "Activé" : "Désactivé"));
     }
 }

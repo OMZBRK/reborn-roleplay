@@ -1,10 +1,10 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.network.chat.Component;
 
 /**
  * Widget OST player en coin haut droite du title screen — style moderne
@@ -22,7 +22,7 @@ import net.minecraft.text.Text;
  * </pre>
  *
  * Toutes les icones (play/pause/prev/next/volume) sont dessinees en
- * shapes via {@code DrawContext.fill}, pas via font caracters.
+ * shapes via {@code GuiGraphicsExtractor.fill}, pas via font caracters.
  */
 public class OSTPlayerWidget extends ClickableWidget {
 
@@ -44,17 +44,17 @@ public class OSTPlayerWidget extends ClickableWidget {
     private static final int VOLUME_SLIDER_X = 100;
     private static final int VOLUME_SLIDER_W = 120;
 
-    private final TextRenderer textRenderer;
+    private final Font textRenderer;
     /** True si le user est en train de drag le slider de volume. */
     private boolean draggingVolume = false;
 
-    public OSTPlayerWidget(int x, int y, TextRenderer textRenderer) {
-        super(x, y, 240, 56, Text.literal("OST Player"));
+    public OSTPlayerWidget(int x, int y, Font textRenderer) {
+        super(x, y, 240, 56, Component.literal("OST Player"));
         this.textRenderer = textRenderer;
     }
 
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         OSTPlayer ost = OSTPlayer.INSTANCE;
         ost.tickAutoAdvance();
 
@@ -68,7 +68,7 @@ public class OSTPlayerWidget extends ClickableWidget {
         context.fill(x0, y0, x1, y0 + 1, ACCENT);
 
         // Ligne 1 : pictogramme note + nom de la piste.
-        context.drawText(textRenderer, "♪ " + ost.getCurrentTrackName(),
+        context.text(textRenderer, "♪ " + ost.getCurrentTrackName(),
             x0 + PADDING, y0 + LINE1_Y, FG, false);
 
         // Ligne 2 : 3 boutons controles (formes geometriques).
@@ -116,7 +116,7 @@ public class OSTPlayerWidget extends ClickableWidget {
     // ──────────────────────────────────────────────────────────────────
 
     /** ▶ Triangle pointant a droite. */
-    private void drawPlayIcon(DrawContext context, int x, int y) {
+    private void drawPlayIcon(GuiGraphicsExtractor context, int x, int y) {
         // Triangle equilateral via 5 lignes horizontales.
         context.fill(x,     y,     x + 2, y + 10, FG);
         context.fill(x + 2, y + 1, x + 4, y + 9, FG);
@@ -126,13 +126,13 @@ public class OSTPlayerWidget extends ClickableWidget {
     }
 
     /** ⏸ Deux rectangles verticaux. */
-    private void drawPauseIcon(DrawContext context, int x, int y) {
+    private void drawPauseIcon(GuiGraphicsExtractor context, int x, int y) {
         context.fill(x,     y, x + 3,  y + 10, FG);
         context.fill(x + 6, y, x + 9, y + 10, FG);
     }
 
     /** ⏮ Triangle pointant a gauche + barre verticale. */
-    private void drawPrevIcon(DrawContext context, int x, int y) {
+    private void drawPrevIcon(GuiGraphicsExtractor context, int x, int y) {
         context.fill(x, y, x + 2, y + 10, FG);
         // Triangle inverse
         context.fill(x + 2, y + 4, x + 4,  y + 6, FG);
@@ -142,7 +142,7 @@ public class OSTPlayerWidget extends ClickableWidget {
     }
 
     /** ⏭ Triangle a droite + barre verticale. */
-    private void drawNextIcon(DrawContext context, int x, int y) {
+    private void drawNextIcon(GuiGraphicsExtractor context, int x, int y) {
         context.fill(x,     y + 1, x + 2, y + 9, FG);
         context.fill(x + 2, y + 2, x + 4, y + 8, FG);
         context.fill(x + 4, y + 3, x + 6, y + 7, FG);
@@ -151,7 +151,7 @@ public class OSTPlayerWidget extends ClickableWidget {
     }
 
     /** 🔉 Haut-parleur simplifie (carre + triangle). */
-    private void drawSpeakerIcon(DrawContext context, int x, int y) {
+    private void drawSpeakerIcon(GuiGraphicsExtractor context, int x, int y) {
         // Corps carre.
         context.fill(x, y + 3, x + 3, y + 7, FG);
         // Cone.
@@ -212,8 +212,8 @@ public class OSTPlayerWidget extends ClickableWidget {
     }
 
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
+    protected void updateWidgetNarration(NarrationElementOutput builder) {
+        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
             "Lecteur OST : " + OSTPlayer.INSTANCE.getCurrentTrackName());
     }
 }

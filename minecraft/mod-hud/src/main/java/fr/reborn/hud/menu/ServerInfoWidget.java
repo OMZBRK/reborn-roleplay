@@ -1,10 +1,10 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.network.chat.Component;
 
 /**
  * Widget mini-card en coin haut-gauche affichant l'etat du serveur
@@ -32,15 +32,15 @@ public class ServerInfoWidget extends ClickableWidget {
     private static final int PADDING = 8;
     private static final int DOT_SIZE = 6;
 
-    private final TextRenderer textRenderer;
+    private final Font textRenderer;
 
-    public ServerInfoWidget(int x, int y, TextRenderer textRenderer) {
-        super(x, y, 200, 40, Text.literal("Reborn Server"));
+    public ServerInfoWidget(int x, int y, Font textRenderer) {
+        super(x, y, 200, 40, Component.literal("Reborn Server"));
         this.textRenderer = textRenderer;
     }
 
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ServerInfoState st = ServerInfoState.INSTANCE;
         st.maybeRefresh();
 
@@ -61,7 +61,7 @@ public class ServerInfoWidget extends ClickableWidget {
 
         // Ligne 1 : nom serveur.
         String title = st.isOnline() ? "Reborn Roleplay" : "Serveur hors ligne";
-        context.drawText(textRenderer, title, dotX + DOT_SIZE + 6, y0 + 9, FG, false);
+        context.text(textRenderer, title, dotX + DOT_SIZE + 6, y0 + 9, FG, false);
 
         // Ligne 2 : compteur joueurs ou message.
         String line2;
@@ -70,7 +70,7 @@ public class ServerInfoWidget extends ClickableWidget {
         } else {
             line2 = "Reconnexion...";
         }
-        context.drawText(textRenderer, line2, x0 + PADDING, y0 + 23, FG_DIM, false);
+        context.text(textRenderer, line2, x0 + PADDING, y0 + 23, FG_DIM, false);
     }
 
     @Override
@@ -80,11 +80,11 @@ public class ServerInfoWidget extends ClickableWidget {
     }
 
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
+    protected void updateWidgetNarration(NarrationElementOutput builder) {
         ServerInfoState st = ServerInfoState.INSTANCE;
         String narration = st.isOnline()
             ? "Serveur Reborn en ligne, " + st.getPlayers() + " joueurs"
             : "Serveur Reborn hors ligne";
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE, narration);
+        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE, narration);
     }
 }

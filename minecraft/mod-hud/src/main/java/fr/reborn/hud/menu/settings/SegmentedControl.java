@@ -3,11 +3,11 @@ package fr.reborn.hud.menu.settings;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.Consumer;
 
@@ -34,7 +34,7 @@ public class SegmentedControl extends ClickableWidget {
     public SegmentedControl(int x, int y, int width, int height,
                             Option[] options, String initialValue,
                             Consumer<String> onChange) {
-        super(x, y, width, height, Text.literal(""));
+        super(x, y, width, height, Component.literal(""));
         this.options = options;
         this.currentValue = initialValue;
         this.onChange = onChange;
@@ -45,8 +45,8 @@ public class SegmentedControl extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || options.length == 0) return;
         var tr = client.textRenderer;
 
@@ -72,13 +72,13 @@ public class SegmentedControl extends ClickableWidget {
                     Colors.SURFACE_ELEVATED);
             }
 
-            Text label = RebornFont.body(opt.label);
-            int labelW = tr.getWidth(label);
+            Component label = RebornFont.body(opt.label);
+            int labelW = tr.width(label);
             int textX = sx + (segW - labelW) / 2;
-            int textY = getY() + (h - tr.fontHeight) / 2;
+            int textY = getY() + (h - tr.lineHeight) / 2;
             int color = active ? Colors.WHITE_PURE :
                         hovered ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE;
-            ctx.drawText(tr, label, textX, textY, color, false);
+            ctx.text(tr, label, textX, textY, color, false);
         }
     }
 
@@ -97,8 +97,8 @@ public class SegmentedControl extends ClickableWidget {
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
+    public void updateWidgetNarration(NarrationElementOutput builder) {
+        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
             "Sélecteur — valeur " + currentValue);
     }
 }

@@ -3,8 +3,8 @@ package fr.reborn.hud.menu.settings;
 import fr.reborn.hud.chat.ChatSettingsScreen;
 import fr.reborn.hud.crosshair.CrosshairScreen;
 import fr.reborn.hud.ui.HudEditScreen;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 
 /**
  * Onglet Interface — regroupe les trois éditeurs UI Reborn (HUD, Chat, Viseur)
@@ -45,7 +45,7 @@ public class InterfaceTab extends SectionedTab {
     }
 
     private static void open(Screen screen) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc != null) mc.setScreen(screen);
     }
 }

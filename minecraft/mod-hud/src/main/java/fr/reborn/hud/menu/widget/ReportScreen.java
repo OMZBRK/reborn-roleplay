@@ -6,15 +6,15 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.esc.EscData;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +41,7 @@ public class ReportScreen extends Screen {
     private static final HttpClient HTTP = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5)).build();
 
-    private static final Identifier LOGO = Identifier.of("reborn", "textures/gui/title/logo.png");
+    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reborn", "textures/gui/title/logo.png");
     private static final int LOGO_TEX_W = 2048;
     private static final int LOGO_TEX_H = 717;
 
@@ -53,8 +53,8 @@ public class ReportScreen extends Screen {
     };
 
     private final Screen parent;
-    private TextFieldWidget subjectField;
-    private TextFieldWidget messageField;
+    private EditBox subjectField;
+    private EditBox messageField;
     private RebornButton categoryButton;
     private int categoryIdx = 0;
 
@@ -66,7 +66,7 @@ public class ReportScreen extends Screen {
     private static final int CARD_H = 230;
 
     public ReportScreen(Screen parent) {
-        super(Text.literal("Report"));
+        super(Component.literal("Report"));
         this.parent = parent;
     }
 
@@ -79,17 +79,17 @@ public class ReportScreen extends Screen {
         int fieldW = cardW - 40;
         int fieldX = cardX + 20;
 
-        subjectField = new TextFieldWidget(this.textRenderer, fieldX, cardY + 74, fieldW, 16,
-            Text.literal("sujet"));
+        subjectField = new EditBox(this.textRenderer, fieldX, cardY + 74, fieldW, 16,
+            Component.literal("sujet"));
         subjectField.setMaxLength(120);
-        subjectField.setPlaceholder(Text.literal("Sujet (ex: pseudo du joueur, résumé)…"));
-        this.addDrawableChild(subjectField);
+        subjectField.setHint(Component.literal("Sujet (ex: pseudo du joueur, résumé)…"));
+        this.addRenderableWidget(subjectField);
 
-        messageField = new TextFieldWidget(this.textRenderer, fieldX, cardY + 116, fieldW, 16,
-            Text.literal("message"));
+        messageField = new EditBox(this.textRenderer, fieldX, cardY + 116, fieldW, 16,
+            Component.literal("message"));
         messageField.setMaxLength(500);
-        messageField.setPlaceholder(Text.literal("Décris ce qu'il s'est passé…"));
-        this.addDrawableChild(messageField);
+        messageField.setHint(Component.literal("Décris ce qu'il s'est passé…"));
+        this.addRenderableWidget(messageField);
         this.setInitialFocus(subjectField);
 
         int btnH = 26;
@@ -97,12 +97,12 @@ public class ReportScreen extends Screen {
         // Catégorie (cyclable) sur toute la largeur au-dessus des champs.
         categoryButton = RebornButton.ghost(fieldX, cardY + 40, fieldW, 18,
             "Catégorie : " + CATEGORIES[categoryIdx][1], b -> cycleCategory());
-        this.addDrawableChild(categoryButton);
+        this.addRenderableWidget(categoryButton);
 
         int half = (fieldW - 10) / 2;
-        this.addDrawableChild(RebornButton.ghost(fieldX, btnY, half, btnH,
+        this.addRenderableWidget(RebornButton.ghost(fieldX, btnY, half, btnH,
             "Annuler", b -> close()));
-        this.addDrawableChild(RebornButton.accent(fieldX + half + 10, btnY, half, btnH,
+        this.addRenderableWidget(RebornButton.accent(fieldX + half + 10, btnY, half, btnH,
             "Envoyer", b -> submit()));
     }
 
@@ -179,15 +179,15 @@ public class ReportScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
         DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         this.renderBackground(ctx, mouseX, mouseY, delta);
-        TextRenderer tr = this.textRenderer;
+        Font tr = this.textRenderer;
 
         int logoW = Math.min(Math.round(this.width * 0.11f), 150);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
@@ -203,14 +203,14 @@ public class ReportScreen extends Screen {
             Colors.SURFACE_ELEVATED, Colors.BORDER_STRONG);
         ctx.fill(cardX + 12, cardY, cardX + cardW - 12, cardY + 2, Colors.ACCENT);
 
-        Text title = RebornFont.arcade("SIGNALER UN PROBLEME");
-        ctx.drawText(tr, title, cardX + (cardW - tr.getWidth(title)) / 2, cardY + 16,
+        Component title = RebornFont.arcade("SIGNALER UN PROBLEME");
+        ctx.text(tr, title, cardX + (cardW - tr.width(title)) / 2, cardY + 16,
             Colors.WHITE_PURE, false);
 
         // Labels champs.
-        ctx.drawText(tr, RebornFont.body("Sujet"), subjectField.getX(), subjectField.getY() - 10,
+        ctx.text(tr, RebornFont.body("Sujet"), subjectField.getX(), subjectField.getY() - 10,
             Colors.FOREGROUND_SUBTLE, false);
-        ctx.drawText(tr, RebornFont.body("Message"), messageField.getX(), messageField.getY() - 10,
+        ctx.text(tr, RebornFont.body("Message"), messageField.getX(), messageField.getY() - 10,
             Colors.FOREGROUND_SUBTLE, false);
 
         for (Element e : this.children()) {
@@ -235,6 +235,6 @@ public class ReportScreen extends Screen {
 
     @Override
     public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 }

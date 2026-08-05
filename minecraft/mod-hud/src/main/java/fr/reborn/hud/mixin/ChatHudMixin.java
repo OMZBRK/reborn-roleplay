@@ -6,18 +6,18 @@ import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.element.HudElementState;
 import fr.reborn.hud.runtime.ChatMessageRenderer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.ChatHudLine;
-import net.minecraft.client.gui.screen.ChatScreen;
+import net.minecraft.client.gui.screens.ChatScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import net.minecraft.text.Style;
+import net.minecraft.network.chat.Style;
 
 import java.util.List;
 
@@ -38,7 +38,7 @@ public abstract class ChatHudMixin {
     @Shadow private int scrolledLines;
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void reborn$renderCustomChat(DrawContext ctx, int currentTick, int mouseX, int mouseY,
+    private void reborn$renderCustomChat(GuiGraphicsExtractor ctx, int currentTick, int mouseX, int mouseY,
                                          boolean focused, CallbackInfo ci) {
         HudElementState state = readStateSafely();
         if (!state.visible()) {
@@ -46,19 +46,19 @@ public abstract class ChatHudMixin {
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         int screenW = mc.getWindow().getScaledWidth();
         int screenH = mc.getWindow().getScaledHeight();
         HudElementBounds anchor = HudElementBounds.vanillaFor(HudElement.CHAT, screenW, screenH);
 
         // Offset/scale (déplacement via l'éditeur HUD). Par défaut (0,0,1) =
         // position vanilla pure.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(state.x(), state.y(), 0);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(state.x(), state.y());
         if (state.scale() != 1.0f) {
-            ctx.getMatrices().translate(anchor.x(), anchor.y(), 0);
-            ctx.getMatrices().scale(state.scale(), state.scale(), 1.0f);
-            ctx.getMatrices().translate(-anchor.x(), -anchor.y(), 0);
+            ctx.pose().translate(anchor.x(), anchor.y());
+            ctx.pose().scale(state.scale(), state.scale());
+            ctx.pose().translate(-anchor.x(), -anchor.y());
         }
 
         boolean chatOpen = mc.currentScreen instanceof ChatScreen;
@@ -73,7 +73,7 @@ public abstract class ChatHudMixin {
             visibleMessages, scrolledLines, currentTick, chatOpen,
             screenW, screenH, settings, playerName);
 
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
         ci.cancel(); // on a tout rendu nous-mêmes
     }
 
@@ -85,7 +85,7 @@ public abstract class ChatHudMixin {
     @Inject(method = "getTextStyleAt", at = @At("HEAD"), cancellable = true)
     private void reborn$styleAt(double x, double y, CallbackInfoReturnable<Style> cir) {
         try {
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
             HudElementState st = readStateSafely();
             ChatSettings settings = RebornHudClient.config().getChatSettings();
             Style s = ChatMessageRenderer.styleAt(mc, mc.textRenderer, visibleMessages, scrolledLines,

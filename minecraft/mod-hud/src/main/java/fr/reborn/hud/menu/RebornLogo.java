@@ -1,9 +1,9 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 /**
  * Masque le logo Minecraft vanilla et dessine le logo "REBORN" a la place.
@@ -48,10 +48,10 @@ public final class RebornLogo {
 
     private RebornLogo() {}
 
-    public static void render(DrawContext context, int screenWidth, int screenHeight) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public static void render(GuiGraphicsExtractor context, int screenWidth, int screenHeight) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.textRenderer;
 
         // 1. Masque la zone du logo MC. On ne couvre pas le splash
         //    (qui depasse a droite a 20° de rotation).
@@ -65,16 +65,16 @@ public final class RebornLogo {
         );
 
         // 2. Dessine "REBORN" centre dans le masque.
-        Text logo = Text.literal(LOGO_TEXT);
-        int textWidth = tr.getWidth(logo);
-        int textHeight = tr.fontHeight;
+        Component logo = Component.literal(LOGO_TEXT);
+        int textWidth = tr.width(logo);
+        int textHeight = tr.lineHeight;
         float cx = screenWidth / 2.0f;
         float cy = LOGO_MC_Y + LOGO_MC_HEIGHT / 2.0f;
 
-        context.getMatrices().push();
-        context.getMatrices().translate(cx, cy, 0);
-        context.getMatrices().scale(LOGO_SCALE, LOGO_SCALE, 1.0f);
-        context.drawText(
+        context.pose().pushMatrix();
+        context.pose().translate(cx, cy);
+        context.pose().scale(LOGO_SCALE, LOGO_SCALE);
+        context.text(
             tr,
             logo,
             -textWidth / 2,
@@ -82,6 +82,6 @@ public final class RebornLogo {
             LOGO_COLOR,
             true
         );
-        context.getMatrices().pop();
+        context.pose().popMatrix();
     }
 }

@@ -1,8 +1,8 @@
 package fr.reborn.hud.menu.settings;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.sound.SoundCategory;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.sounds.SoundCategory;
 
 /**
  * Onglet Audio — 4 volumes câblés sur les {@link SoundCategory} vanilla + un
@@ -13,9 +13,9 @@ public class AudioTab extends SectionedTab {
 
     @Override
     protected void build() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
-        GameOptions o = mc.options;
+        Options o = mc.options;
 
         section("Volumes");
 
@@ -49,12 +49,12 @@ public class AudioTab extends SectionedTab {
         spacer(4);
     }
 
-    private static int pct(GameOptions o, SoundCategory cat) {
+    private static int pct(Options o, SoundCategory cat) {
         return (int) Math.round(o.getSoundVolumeOption(cat).getValue() * 100);
     }
 
     private static void applyVolume(SoundCategory category, int percent) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
         mc.options.getSoundVolumeOption(category).setValue(percent / 100.0);
         mc.options.write();

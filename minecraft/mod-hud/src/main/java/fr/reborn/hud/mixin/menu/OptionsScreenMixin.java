@@ -1,10 +1,10 @@
 package fr.reborn.hud.mixin.menu;
 
 import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.option.OptionsScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.OptionsScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -44,7 +44,7 @@ public abstract class OptionsScreenMixin extends Screen {
         "options.online",
     };
 
-    protected OptionsScreenMixin(Text title) {
+    protected OptionsScreenMixin(Component title) {
         super(title);
     }
 
@@ -52,10 +52,10 @@ public abstract class OptionsScreenMixin extends Screen {
     private void reborn$hideUnwantedOptions(CallbackInfo ci) {
         List<Element> toRemove = new ArrayList<>();
         for (Element child : this.children()) {
-            if (child instanceof ButtonWidget btn) {
+            if (child instanceof Button btn) {
                 String label = btn.getMessage().getString();
                 for (String key : HIDDEN_KEYS) {
-                    if (label.equalsIgnoreCase(Text.translatable(key).getString())) {
+                    if (label.equalsIgnoreCase(Component.translatable(key).getString())) {
                         toRemove.add(child);
                         break;
                     }

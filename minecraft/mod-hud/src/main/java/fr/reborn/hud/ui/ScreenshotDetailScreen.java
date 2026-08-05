@@ -5,11 +5,11 @@ import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.screenshot.ScreenshotLibrary;
 import fr.reborn.hud.screenshot.ScreenshotLibrary.Entry;
 import fr.reborn.hud.screenshot.ScreenshotTextures;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Util;
 import org.lwjgl.glfw.GLFW;
 
@@ -30,7 +30,7 @@ public class ScreenshotDetailScreen extends Screen {
     private java.util.List<Btn> buttons = new java.util.ArrayList<>();
 
     public ScreenshotDetailScreen(Screen parent, List<Entry> entries, int index) {
-        super(Text.literal("Screenshot"));
+        super(Component.literal("Screenshot"));
         this.parent = parent;
         this.entries = entries;
         this.index = index;
@@ -39,15 +39,15 @@ public class ScreenshotDetailScreen extends Screen {
     private Entry cur() { return entries.get(index); }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0xE6000000);
-        TextRenderer tr = this.textRenderer;
+        Font tr = this.textRenderer;
         Entry e = cur();
 
         // Nom + position.
-        ctx.drawText(tr, RebornFont.bold(e.name()), 12, 10, Colors.GOLD, false);
+        ctx.text(tr, RebornFont.bold(e.name()), 12, 10, Colors.GOLD, false);
         String pos = (index + 1) + " / " + entries.size();
-        ctx.drawText(tr, Text.literal(pos), this.width - tr.getWidth(pos) - 12, 10, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, Component.literal(pos), this.width - tr.width(pos) - 12, 10, Colors.FOREGROUND_MUTED, false);
 
         // Image (fit).
         int top = 28, bottom = this.height - 40;
@@ -60,7 +60,7 @@ public class ScreenshotDetailScreen extends Screen {
             ctx.fill(ix - 1, iy - 1, ix + dw + 1, iy + dh + 1, Colors.BORDER_STRONG);
             ctx.drawTexture(t.id(), ix, iy, dw, dh, 0f, 0f, t.w(), t.h(), t.w(), t.h());
         } else {
-            ctx.drawText(tr, Text.literal("Image illisible"), this.width / 2 - 30, this.height / 2, Colors.FOREGROUND_MUTED, false);
+            ctx.text(tr, Component.literal("Image illisible"), this.width / 2 - 30, this.height / 2, Colors.FOREGROUND_MUTED, false);
         }
 
         // Barre d'actions.
@@ -68,7 +68,7 @@ public class ScreenshotDetailScreen extends Screen {
         for (Btn b : buttons) {
             boolean hov = in(mouseX, mouseY, b.x, b.y, b.w, 16);
             ctx.fill(b.x, b.y, b.x + b.w, b.y + 16, hov ? Colors.ACCENT_HOVER : Colors.BACKDROP_85);
-            ctx.drawText(tr, Text.literal(b.label), b.x + (b.w - tr.getWidth(b.label)) / 2, b.y + 4,
+            ctx.text(tr, Component.literal(b.label), b.x + (b.w - tr.width(b.label)) / 2, b.y + 4,
                 hov ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
         }
     }
@@ -95,7 +95,7 @@ public class ScreenshotDetailScreen extends Screen {
         int y = this.height - 30;
         int totalW = 0, gap = 6;
         int[] ws = new int[defs.length];
-        for (int i = 0; i < defs.length; i++) { ws[i] = this.textRenderer.getWidth(defs[i][0]) + 16; totalW += ws[i]; }
+        for (int i = 0; i < defs.length; i++) { ws[i] = this.textRenderer.width(defs[i][0]) + 16; totalW += ws[i]; }
         totalW += gap * (defs.length - 1);
         int x = (this.width - totalW) / 2;
         for (int i = 0; i < defs.length; i++) {
@@ -105,11 +105,11 @@ public class ScreenshotDetailScreen extends Screen {
     }
 
     private void openEditor() {
-        MinecraftClient.getInstance().setScreen(new ScreenshotEditorScreen(this, cur()));
+        Minecraft.getInstance().setScreen(new ScreenshotEditorScreen(this, cur()));
     }
 
     private void openShare() {
-        MinecraftClient.getInstance().setScreen(new ScreenshotShareScreen(this, cur()));
+        Minecraft.getInstance().setScreen(new ScreenshotShareScreen(this, cur()));
     }
 
     private void nav(int d) {
@@ -141,7 +141,7 @@ public class ScreenshotDetailScreen extends Screen {
 
     @Override
     public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override

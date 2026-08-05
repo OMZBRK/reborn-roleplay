@@ -3,13 +3,13 @@ package fr.reborn.hud.menu.config;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.screen.narration.NarrationPart;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarrationPart;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.BooleanSupplier;
 
@@ -18,24 +18,24 @@ import java.util.function.BooleanSupplier;
  * gauche, fond hover discret, barre d'accent à gauche quand actif. Style
  * sobre — pas d'underline, on s'appuie sur le fond + la barre.
  */
-public class ConfigNavButton extends ButtonWidget {
+public class ConfigNavButton extends Button {
 
     private final String label;
     private final BooleanSupplier isActive;
 
     public ConfigNavButton(int x, int y, int width, int height, String label,
                            BooleanSupplier isActive, PressAction onPress) {
-        super(x, y, width, height, Text.literal(label), onPress,
-              ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, width, height, Component.literal(label), onPress,
+              Button.DEFAULT_NARRATION_SUPPLIER);
         this.label = label;
         this.isActive = isActive;
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
+        Font tr = mc.textRenderer;
 
         boolean active = isActive.getAsBoolean();
         boolean hovered = isHovered();
@@ -53,13 +53,13 @@ public class ConfigNavButton extends ButtonWidget {
         int color = active ? Colors.WHITE_PURE
                   : hovered ? Colors.FOREGROUND
                   : Colors.FOREGROUND_SUBTLE;
-        Text text = active ? RebornFont.bold(label) : RebornFont.body(label);
-        int textY = getY() + (getHeight() - tr.fontHeight) / 2;
-        ctx.drawText(tr, text, getX() + 14, textY, color, false);
+        Component text = active ? RebornFont.bold(label) : RebornFont.body(label);
+        int textY = getY() + (getHeight() - tr.lineHeight) / 2;
+        ctx.text(tr, text, getX() + 14, textY, color, false);
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
+    public void updateWidgetNarration(NarrationElementOutput builder) {
         builder.put(NarrationPart.TITLE, label);
     }
 }

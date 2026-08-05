@@ -2,15 +2,15 @@ package fr.reborn.hud.mixin.menu;
 
 import fr.reborn.hud.menu.connect.ConnectingRenderer;
 import fr.reborn.hud.menu.widget.RebornButton;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.ConnectScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ClickableWidget;
 import net.minecraft.network.ClientConnection;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -41,7 +41,7 @@ import java.util.List;
 public abstract class ConnectScreenMixin extends Screen {
 
     @Shadow
-    private Text status;
+    private Component status;
 
     @Shadow
     volatile boolean connectingCancelled;
@@ -53,7 +53,7 @@ public abstract class ConnectScreenMixin extends Screen {
     @org.spongepowered.asm.mixin.Final
     private Screen parent;
 
-    protected ConnectScreenMixin(Text title) {
+    protected ConnectScreenMixin(Component title) {
         super(title);
     }
 
@@ -64,10 +64,10 @@ public abstract class ConnectScreenMixin extends Screen {
      */
     @Inject(method = "init", at = @At("TAIL"))
     private void reborn$replaceCancelButton(CallbackInfo ci) {
-        // 1. Retire le ButtonWidget vanilla Cancel.
+        // 1. Retire le Button vanilla Cancel.
         List<Element> toRemove = new ArrayList<>();
         for (Element e : this.children()) {
-            if (e instanceof ButtonWidget) toRemove.add(e);
+            if (e instanceof Button) toRemove.add(e);
         }
         for (Element e : toRemove) this.remove(e);
 
@@ -76,7 +76,7 @@ public abstract class ConnectScreenMixin extends Screen {
         int buttonH = 30;
         int buttonX = (this.width - buttonW) / 2;
         int buttonY = this.height - 56;
-        this.addDrawableChild(RebornButton.ghost(
+        this.addRenderableWidget(RebornButton.ghost(
             buttonX, buttonY, buttonW, buttonH,
             "Annuler",
             b -> reborn$cancelConnect()
@@ -92,13 +92,13 @@ public abstract class ConnectScreenMixin extends Screen {
     private void reborn$cancelConnect() {
         this.connectingCancelled = true;
         if (this.connection != null) {
-            this.connection.disconnect(Text.translatable("connect.aborted"));
+            this.connection.disconnect(Component.translatable("connect.aborted"));
         }
-        MinecraftClient.getInstance().setScreen(this.parent);
+        Minecraft.getInstance().setScreen(this.parent);
     }
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void reborn$customRender(DrawContext ctx, int mouseX, int mouseY,
+    private void reborn$customRender(GuiGraphicsExtractor ctx, int mouseX, int mouseY,
                                      float delta, CallbackInfo ci) {
         // 1. Rendu Reborn (background, spinner, status text, progress bar).
         ConnectingRenderer.render(ctx, this.width, this.height, this.status);
