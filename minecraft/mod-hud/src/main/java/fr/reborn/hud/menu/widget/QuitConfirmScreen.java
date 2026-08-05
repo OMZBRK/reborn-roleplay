@@ -6,8 +6,8 @@ import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -70,16 +70,16 @@ public class QuitConfirmScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         // Ordre critique : background → card+contenu → enfants (boutons).
-        // Sinon super.render() dessine les boutons EN PREMIER, puis on
+        // Sinon super.extractRenderState() dessine les boutons EN PREMIER, puis on
         // dessine la card par-dessus et les boutons sont masqués.
         this.renderBackground(context, mouseX, mouseY, delta);
 
         drawCard(context);
 
         // Enfants (RebornButton ghost + danger) au-dessus de la card.
-        for (Element e : this.children()) {
-            if (e instanceof Drawable d) {
-                d.render(context, mouseX, mouseY, delta);
+        for (GuiEventListener e : this.children()) {
+            if (e instanceof Renderable d) {
+                d.extractRenderState(context, mouseX, mouseY, delta);
             }
         }
     }
@@ -87,7 +87,7 @@ public class QuitConfirmScreen extends Screen {
     private void drawCard(GuiGraphicsExtractor context) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         int cardW = Math.min(CARD_W, this.width - 24);
         int cardH = Math.min(CARD_H, this.height - 24);

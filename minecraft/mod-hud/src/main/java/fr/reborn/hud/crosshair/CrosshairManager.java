@@ -49,10 +49,10 @@ public final class CrosshairManager {
         if (!p.crosshairEnabled) return false;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null || mc.player == null) return false;
-        if (!mc.options.getPerspective().isFirstPerson()) return false;
+        if (!mc.options.getCameraType().isFirstPerson()) return false;
 
-        int cx = mc.getWindow().getScaledWidth() / 2;
-        int cy = mc.getWindow().getScaledHeight() / 2;
+        int cx = mc.getWindow().getGuiScaledWidth() / 2;
+        int cy = mc.getWindow().getGuiScaledHeight() / 2;
         float scale = Math.max(0.5f, Math.min(2.0f, p.crosshairScale / 100f));
 
         // Dynamique : module l'échelle avec le cooldown d'attaque — petit juste
@@ -80,17 +80,17 @@ public final class CrosshairManager {
         ctx.pose().pushMatrix();
         ctx.pose().translate(cx, cy);
         ctx.pose().scale(scale, scale);
-        RenderSystem.enableBlend();
+        ;
         if ("preset".equals(p.crosshairStyle)) {
             float a = ((color >>> 24) & 0xFF) / 255f;
             if (a <= 0f) a = 1f;
             float r = ((color >>> 16) & 0xFF) / 255f;
             float g = ((color >>> 8) & 0xFF) / 255f;
             float b = (color & 0xFF) / 255f;
-            RenderSystem.setShaderColor(r, g, b, a);
-            ctx.drawTexture(preset(p.crosshairPreset), -TEX / 2, -TEX / 2,
+            ;
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, preset(p.crosshairPreset), -TEX / 2, -TEX / 2,
                 0f, 0f, TEX, TEX, TEX, TEX);
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            ;
         } else {
             drawProcedural(ctx, p.crosshairStyle,
                 p.crosshairGap, p.crosshairLength, p.crosshairThickness, color);
@@ -138,7 +138,7 @@ public final class CrosshairManager {
         float t = 1f - age / (float) HIT_MS; // 1 → 0
         int alpha = Math.max(0, Math.min(255, Math.round(255 * t)));
         int color = (alpha << 24) | 0x00FFFFFF;
-        RenderSystem.enableBlend();
+        ;
         // 4 branches diagonales avec un gap au centre.
         DrawHelpers.thickLine(ctx, cx - 9, cy - 9, cx - 3, cy - 3, 2, color);
         DrawHelpers.thickLine(ctx, cx + 9, cy - 9, cx + 3, cy - 3, 2, color);

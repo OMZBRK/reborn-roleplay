@@ -34,7 +34,7 @@ public final class EscPanels {
     public static void renderProfile(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         // Card BG.
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
@@ -53,8 +53,8 @@ public final class EscPanels {
         ctx.pose().translate(artX, artY);
         float artScale = (float) artW / NINJA_NATIVE_W;
         ctx.pose().scale(artScale, artScale);
-        RenderSystem.enableBlend();
-        ctx.drawTexture(NINJA_SILHOUETTE, 0, 0, 0f, 0f,
+        ;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, NINJA_SILHOUETTE, 0, 0, 0f, 0f,
             NINJA_NATIVE_W, NINJA_NATIVE_H, NINJA_NATIVE_W, NINJA_NATIVE_H);
         ctx.pose().popMatrix();
 
@@ -119,7 +119,7 @@ public final class EscPanels {
     public static void renderStream(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
             Colors.SURFACE, Colors.BORDER_STRONG);
@@ -165,7 +165,7 @@ public final class EscPanels {
     public static void renderBlog(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
             Colors.SURFACE, Colors.BORDER_STRONG);
@@ -203,7 +203,7 @@ public final class EscPanels {
     public static void renderRewards(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
             Colors.SURFACE, Colors.BORDER_STRONG);
@@ -251,7 +251,7 @@ public final class EscPanels {
     public static void renderCommunityBar(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
             Colors.SURFACE_ELEVATED, Colors.BORDER_STRONG);

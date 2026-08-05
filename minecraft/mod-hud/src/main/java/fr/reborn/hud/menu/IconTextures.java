@@ -122,9 +122,9 @@ public final class IconTextures {
         float r = ((color >> 16) & 0xFF) / 255f;
         float g = ((color >>  8) & 0xFF) / 255f;
         float b = ( color        & 0xFF) / 255f;
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(r, g, b, a);
-        ctx.drawTexture(texId, x, y, 0f, 0f, size, size, size, size);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ;
+        ;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, texId, x, y, 0f, 0f, size, size, size, size);
+        ;
     }
 }

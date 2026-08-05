@@ -3,7 +3,7 @@ package fr.reborn.hud.menu;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -20,7 +20,7 @@ import net.minecraft.network.chat.Component;
  *
  * Le dot est vert si online, rouge si offline.
  */
-public class ServerInfoWidget extends ClickableWidget {
+public class ServerInfoWidget extends AbstractWidget {
 
     private static final int FG = 0xFFFFFAF0;
     private static final int FG_DIM = 0xAAFFFAF0;
@@ -36,11 +36,11 @@ public class ServerInfoWidget extends ClickableWidget {
 
     public ServerInfoWidget(int x, int y, Font textRenderer) {
         super(x, y, 200, 40, Component.literal("Reborn Server"));
-        this.textRenderer = textRenderer;
+        this.font = textRenderer;
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ServerInfoState st = ServerInfoState.INSTANCE;
         st.maybeRefresh();
 
@@ -85,6 +85,6 @@ public class ServerInfoWidget extends ClickableWidget {
         String narration = st.isOnline()
             ? "Serveur Reborn en ligne, " + st.getPlayers() + " joueurs"
             : "Serveur Reborn hors ligne";
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE, narration);
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE, narration);
     }
 }

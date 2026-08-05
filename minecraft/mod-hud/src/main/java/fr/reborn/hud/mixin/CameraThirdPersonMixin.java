@@ -2,12 +2,12 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.camera.RebornCamera;
 import fr.reborn.hud.immersion.PhotoMode;
-import net.minecraft.client.renderer.Camera;
+import net.minecraft.client.Camera;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.ClipContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -34,7 +34,7 @@ public abstract class CameraThirdPersonMixin {
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
     @Inject(method = "update", at = @At("TAIL"))
-    private void reborn$shoulderCamera(BlockView area, Entity focusedEntity, boolean thirdPerson,
+    private void reborn$shoulderCamera(BlockGetter area, Entity focusedEntity, boolean thirdPerson,
                                        boolean inverseView, float tickDelta, CallbackInfo ci) {
         if (!thirdPerson || inverseView) return;
         if (PhotoMode.INSTANCE.isActive()) return;
@@ -72,10 +72,10 @@ public abstract class CameraThirdPersonMixin {
     /** Réduit la distance si un mur est entre l'oeil et la caméra cible. */
     @Unique
     private Vec3 reborn$clip(Entity e, Vec3 from, Vec3 to) {
-        HitResult hit = e.getWorld().raycast(new RaycastContext(
-            from, to, RaycastContext.ShapeType.VISUAL, RaycastContext.FluidHandling.NONE, e));
+        HitResult hit = e.getWorld().raycast(new ClipContext(
+            from, to, ClipContext.ShapeType.VISUAL, ClipContext.FluidHandling.NONE, e));
         if (hit.getType() != HitResult.Type.BLOCK) return to;
-        Vec3 hp = hit.getPos();
+        Vec3 hp = hit.position();
         Vec3 dir = to.subtract(from);
         double len = dir.length();
         // Recule de 0.2 bloc vers l'oeil pour ne pas coller/clipper dans le mur.

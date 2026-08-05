@@ -6,7 +6,7 @@ import fr.reborn.hud.ui.style.RoundedRect;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 /**
  * Composants chrome du {@link HudEditScreen} (top bar + footer keybar +
@@ -61,10 +61,10 @@ public final class HudEditChrome {
 
         // Logo : R en accent, EBORN en blanc — bold sans scale pour rester
         // compact (le Font vanilla est deja gros aux GUI Size > 1).
-        ctx.text(tr, Component.literal("R").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("R").withStyle(ChatFormatting.BOLD),
             xCursor, centerY - 4, RebornColors.ACCENT_HOVER, false);
         int rWidth = tr.width("R");
-        ctx.text(tr, Component.literal("EBORN").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("EBORN").withStyle(ChatFormatting.BOLD),
             xCursor + rWidth, centerY - 4, RebornColors.FOREGROUND, false);
         xCursor += rWidth + tr.width("EBORN") + 12;
 
@@ -73,10 +73,10 @@ public final class HudEditChrome {
         xCursor += 12;
 
         // Titre "EDITEUR HUD"
-        ctx.text(tr, Component.literal("ÉDITEUR ").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("ÉDITEUR ").withStyle(ChatFormatting.BOLD),
             xCursor, centerY - 4, RebornColors.FOREGROUND_SUBTLE, false);
         int eW = tr.width("ÉDITEUR ");
-        ctx.text(tr, Component.literal("HUD").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("HUD").withStyle(ChatFormatting.BOLD),
             xCursor + eW, centerY - 4, RebornColors.FOREGROUND, false);
         xCursor += eW + tr.width("HUD") + 12;
 
@@ -243,7 +243,7 @@ public final class HudEditChrome {
             RoundedRect.border(ctx, x, y, size, size, 5, RebornColors.BORDER_STRONG);
             // "?" centre
             String q = "?";
-            ctx.text(tr, Component.literal(q).formatted(Formatting.BOLD),
+            ctx.text(tr, Component.literal(q).withStyle(ChatFormatting.BOLD),
                 x + size / 2 - tr.width(q) / 2, y + (size - tr.lineHeight) / 2 + 1,
                 RebornColors.FOREGROUND_SUBTLE, false);
             return new int[]{x, y, size, size};
@@ -281,7 +281,7 @@ public final class HudEditChrome {
         // Collapse toggle "−" left
         int collapseX = barX + 4;
         int collapseY = barY + (barHeight - collapseBtnW) / 2;
-        ctx.text(tr, Component.literal("−").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("−").withStyle(ChatFormatting.BOLD),
             collapseX + 4, collapseY + 4, RebornColors.FOREGROUND_MUTED, false);
 
         // Lignes keys
@@ -316,7 +316,7 @@ public final class HudEditChrome {
         RoundedRect.fill(ctx, x, y, 18, 18, 4, RebornColors.ACCENT_SOFT);
         RoundedRect.border(ctx, x, y, 18, 18, 4, RebornColors.withAlpha(RebornColors.ACCENT, 0x66));
         // R centered
-        ctx.text(tr, Component.literal("R").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("R").withStyle(ChatFormatting.BOLD),
             x + 7, y + 5, RebornColors.ACCENT_HOVER, false);
         // Label
         ctx.text(tr, Component.literal("Reborn HUD v0.2.0"),

@@ -1,6 +1,6 @@
 package fr.reborn.hud.mixin.menu;
 
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.client.gui.components.Button;
@@ -50,8 +50,8 @@ public abstract class OptionsScreenMixin extends Screen {
 
     @Inject(method = "init", at = @At("RETURN"))
     private void reborn$hideUnwantedOptions(CallbackInfo ci) {
-        List<Element> toRemove = new ArrayList<>();
-        for (Element child : this.children()) {
+        List<GuiEventListener> toRemove = new ArrayList<>();
+        for (GuiEventListener child : this.children()) {
             if (child instanceof Button btn) {
                 String label = btn.getMessage().getString();
                 for (String key : HIDDEN_KEYS) {
@@ -62,7 +62,7 @@ public abstract class OptionsScreenMixin extends Screen {
                 }
             }
         }
-        for (Element e : toRemove) {
+        for (GuiEventListener e : toRemove) {
             this.remove(e);
         }
         if (!toRemove.isEmpty()) {

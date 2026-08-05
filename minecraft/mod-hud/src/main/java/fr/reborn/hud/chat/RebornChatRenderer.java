@@ -6,7 +6,7 @@ import fr.reborn.hud.ui.style.RebornColors;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 /**
  * Chat custom Zenkai-like — version épurée carrée.
@@ -101,7 +101,7 @@ public final class RebornChatRenderer {
     /** Header minimal sans tabs — juste le label "Chat" aligné gauche. */
     private static void renderHeaderSimple(GuiGraphicsExtractor ctx, Font tr, int hx, int hy, int hw) {
         int baseY = hy + (HEADER_HEIGHT - tr.lineHeight) / 2;
-        ctx.text(tr, Component.literal("CHAT").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("CHAT").withStyle(ChatFormatting.BOLD),
             hx + TAB_PAD_X, baseY, RebornColors.FOREGROUND, false);
         // Vider les hit-test caches : pas de tab cliquable
         lastTabRects = new int[ChatTab.values().length][];
@@ -129,7 +129,7 @@ public final class RebornChatRenderer {
             }
 
             int labelX = xCursor + dotW;
-            ctx.text(tr, Component.literal(tab.displayName()).formatted(Formatting.BOLD),
+            ctx.text(tr, Component.literal(tab.displayName()).withStyle(ChatFormatting.BOLD),
                 labelX, baseY, textColor, false);
             int labelEnd = labelX + labelW;
 

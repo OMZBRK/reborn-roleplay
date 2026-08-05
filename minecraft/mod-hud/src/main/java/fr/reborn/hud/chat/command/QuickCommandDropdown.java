@@ -5,7 +5,7 @@ import fr.reborn.hud.ui.style.RoundedRect;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 import java.util.function.Consumer;
 
@@ -51,7 +51,7 @@ public final class QuickCommandDropdown {
         RoundedRect.border(ctx, popX, popY, popW, popH, 6, RebornColors.BORDER_STRONG);
 
         // Header "COMMANDES RAPIDES"
-        ctx.text(tr, Component.literal("COMMANDES RAPIDES").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("COMMANDES RAPIDES").withStyle(ChatFormatting.BOLD),
             popX + PAD_X, popY + 6, RebornColors.FOREGROUND_MUTED, false);
 
         // Items

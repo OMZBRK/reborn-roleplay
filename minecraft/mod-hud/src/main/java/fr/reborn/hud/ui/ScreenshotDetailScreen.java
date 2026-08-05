@@ -41,7 +41,7 @@ public class ScreenshotDetailScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0xE6000000);
-        Font tr = this.textRenderer;
+        Font tr = this.font;
         Entry e = cur();
 
         // Nom + position.
@@ -58,7 +58,7 @@ public class ScreenshotDetailScreen extends Screen {
             int dw = Math.round(t.w() * scale), dh = Math.round(t.h() * scale);
             int ix = (this.width - dw) / 2, iy = top + (availH - dh) / 2;
             ctx.fill(ix - 1, iy - 1, ix + dw + 1, iy + dh + 1, Colors.BORDER_STRONG);
-            ctx.drawTexture(t.id(), ix, iy, dw, dh, 0f, 0f, t.w(), t.h(), t.w(), t.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), ix, iy, dw, dh, 0f, 0f, t.w(), t.h(), t.w(), t.h());
         } else {
             ctx.text(tr, Component.literal("Image illisible"), this.width / 2 - 30, this.height / 2, Colors.FOREGROUND_MUTED, false);
         }
@@ -87,7 +87,7 @@ public class ScreenshotDetailScreen extends Screen {
             () -> { ScreenshotLibrary.toggleFavorite(e.name()); },
             () -> openEditor(),
             this::openShare,
-            () -> Util.getOperatingSystem().open(e.path().toFile()),
+            () -> Util.getPlatform().open(e.path().toFile()),
             () -> deleteCurrent(),
             this::close,
             () -> nav(1),
@@ -95,7 +95,7 @@ public class ScreenshotDetailScreen extends Screen {
         int y = this.height - 30;
         int totalW = 0, gap = 6;
         int[] ws = new int[defs.length];
-        for (int i = 0; i < defs.length; i++) { ws[i] = this.textRenderer.width(defs[i][0]) + 16; totalW += ws[i]; }
+        for (int i = 0; i < defs.length; i++) { ws[i] = this.font.width(defs[i][0]) + 16; totalW += ws[i]; }
         totalW += gap * (defs.length - 1);
         int x = (this.width - totalW) / 2;
         for (int i = 0; i < defs.length; i++) {

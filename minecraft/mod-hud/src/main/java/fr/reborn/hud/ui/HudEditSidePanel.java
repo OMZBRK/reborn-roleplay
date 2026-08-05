@@ -9,7 +9,7 @@ import fr.reborn.hud.ui.style.RoundedRect;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -103,14 +103,14 @@ public final class HudEditSidePanel {
 
     private int renderHeader(GuiGraphicsExtractor ctx, int y) {
         ctx.text(tr,
-            Component.literal("ÉLÉMENT").formatted(Formatting.BOLD),
+            Component.literal("ÉLÉMENT").withStyle(ChatFormatting.BOLD),
             x0 + PAD, y + PAD, RebornColors.FOREGROUND_SUBTLE, false);
 
         ctx.pose().pushMatrix();
         ctx.pose().translate(x0 + PAD, y + PAD + 11);
         ctx.pose().scale(1.3f, 1.3f);
         ctx.text(tr,
-            Component.literal(selectedElement.displayName().toUpperCase()).formatted(Formatting.BOLD),
+            Component.literal(selectedElement.displayName().toUpperCase()).withStyle(ChatFormatting.BOLD),
             0, 0, RebornColors.FOREGROUND, false);
         ctx.pose().popMatrix();
 
@@ -124,7 +124,7 @@ public final class HudEditSidePanel {
 
     private int renderPresets(GuiGraphicsExtractor ctx, int y, int mouseX, int mouseY) {
         ctx.text(tr,
-            Component.literal("PRESETS").formatted(Formatting.BOLD),
+            Component.literal("PRESETS").withStyle(ChatFormatting.BOLD),
             x0 + PAD, y + PAD, RebornColors.FOREGROUND_MUTED, false);
 
         int rowY = y + PAD + LINE_HEIGHT + 2;
@@ -156,7 +156,7 @@ public final class HudEditSidePanel {
         RoundedRect.border(ctx, x, y, w, h, 4, border);
         String label = "+ Sauvegarder l'état";
         int lW = tr.width(label);
-        ctx.text(tr, Component.literal(label).formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal(label).withStyle(ChatFormatting.BOLD),
             x + (w - lW) / 2, y + (h - tr.lineHeight) / 2, RebornColors.ACCENT_HOVER, false);
         hitTargets.add(new HitTarget(x, y, w, h, this::saveCurrentAsPreset));
     }
@@ -197,7 +197,7 @@ public final class HudEditSidePanel {
             RoundedRect.border(ctx, cbX, cbY, 12, 12, 3, RebornColors.BORDER_STRONG);
         }
 
-        ctx.text(tr, Component.literal(HudPresets.displayName(id)).formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal(HudPresets.displayName(id)).withStyle(ChatFormatting.BOLD),
             cbX + 18, y + 4, RebornColors.FOREGROUND, false);
         ctx.text(tr, Component.literal(HudPresets.description(id)),
             cbX + 18, y + 14, RebornColors.FOREGROUND_MUTED, false);
@@ -237,7 +237,7 @@ public final class HudEditSidePanel {
 
         // Section ÉCHELLE (boutons preset rapides)
         ctx.text(tr,
-            Component.literal("ÉCHELLE").formatted(Formatting.BOLD),
+            Component.literal("ÉCHELLE").withStyle(ChatFormatting.BOLD),
             x0 + PAD, y + PAD, RebornColors.FOREGROUND_MUTED, false);
         int scaleY = y + PAD + LINE_HEIGHT + 4;
         renderScalePresets(ctx, scaleY, state.scale(), mouseX, mouseY);
@@ -245,7 +245,7 @@ public final class HudEditSidePanel {
         // Section VISIBILITÉ
         int visY = scaleY + 22;
         ctx.text(tr,
-            Component.literal("VISIBILITÉ").formatted(Formatting.BOLD),
+            Component.literal("VISIBILITÉ").withStyle(ChatFormatting.BOLD),
             x0 + PAD, visY, RebornColors.FOREGROUND_MUTED, false);
         renderVisibilityToggle(ctx, visY + LINE_HEIGHT + 4, state.visible(), mouseX, mouseY);
     }
@@ -269,7 +269,7 @@ public final class HudEditSidePanel {
             RoundedRect.fill(ctx, x, y, btnW, btnH, 4, bg);
             RoundedRect.border(ctx, x, y, btnW, btnH, 4, border);
             int lW = tr.width(labels[i]);
-            ctx.text(tr, Component.literal(labels[i]).formatted(Formatting.BOLD),
+            ctx.text(tr, Component.literal(labels[i]).withStyle(ChatFormatting.BOLD),
                 x + (btnW - lW) / 2, y + (btnH - tr.lineHeight) / 2, color, false);
             final float fp = p;
             hitTargets.add(new HitTarget(x, y, btnW, btnH,
@@ -325,7 +325,7 @@ public final class HudEditSidePanel {
         RoundedRect.fill(ctx, x, y, w, h, 5, bg);
         RoundedRect.border(ctx, x, y, w, h, 5, border);
         int lW = tr.width(label);
-        ctx.text(tr, Component.literal(label).formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal(label).withStyle(ChatFormatting.BOLD),
             x + (w - lW) / 2, y + (h - tr.lineHeight) / 2, textColor, false);
         hitTargets.add(new HitTarget(x, y, w, h, onClick));
     }

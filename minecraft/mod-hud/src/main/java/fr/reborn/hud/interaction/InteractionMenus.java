@@ -26,16 +26,16 @@ public final class InteractionMenus {
     /** Envoie une commande au serveur (sans le slash). */
     public static void sendCommand(String command) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.getNetworkHandler() != null) {
-            mc.getNetworkHandler().sendChatCommand(command);
+        if (mc.getConnection() != null) {
+            mc.getConnection().sendChatCommand(command);
         }
     }
 
     /** Affiche un message d'info côté client (chat local, pas envoyé au serveur). */
     public static void info(String text) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.inGameHud != null) {
-            mc.inGameHud.getChatHud().addMessage(Component.literal("§6[Reborn] §f" + text));
+        if (mc.gui != null) {
+            mc.gui.getChatHud().addMessage(Component.literal("§6[Reborn] §f" + text));
         }
     }
 
@@ -90,8 +90,8 @@ public final class InteractionMenus {
         return List.of(
             InteractionItem.action("Inspecter le bloc", () -> {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.world == null) return;
-                BlockState bs = mc.world.getBlockState(pos);
+                if (mc.level == null) return;
+                BlockState bs = mc.level.getBlockState(pos);
                 info("§e" + Registries.BLOCK.getId(bs.getBlock())
                     + " §7@ " + pos.toShortString());
             }),
@@ -102,7 +102,7 @@ public final class InteractionMenus {
             InteractionItem.submenu("Outils de debug", List.of(
                 InteractionItem.action("Afficher l'état complet", () -> {
                     Minecraft mc = Minecraft.getInstance();
-                    if (mc.world != null) info("§7" + mc.world.getBlockState(pos).toString());
+                    if (mc.level != null) info("§7" + mc.level.getBlockState(pos).toString());
                 })
             ))
         );

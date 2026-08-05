@@ -10,9 +10,9 @@ import fr.reborn.hud.ui.style.RebornColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.hud.ChatHudLine;
-import net.minecraft.client.multiplayer.PlayerListEntry;
-import net.minecraft.network.chat.OrderedText;
+import net.minecraft.client.gui.components.ChatComponentLine;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.resources.Identifier;
 
 import java.util.List;
@@ -85,11 +85,11 @@ public final class ChatMessageRenderer {
             int alpha = (int) (255.0 * opacity);
             if (alpha < 8) continue;
 
-            OrderedText content = visible.content();
+            FormattedCharSequence content = visible.content();
             String plain = orderedToPlainString(content);
 
             // Expéditeur (pour tête + blocage) : premier pseudo en ligne du texte.
-            PlayerListEntry sender = findSender(mc, plain);
+            PlayerInfo sender = findSender(mc, plain);
             if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) {
                 continue; // message masqué — ne consomme pas de ligne
             }
@@ -110,8 +110,8 @@ public final class ChatMessageRenderer {
 
             // Badge de rang : préfixe d'équipe scoreboard (rempli par le serveur
             // depuis LuckPerms). Rien à afficher si le serveur ne le fournit pas.
-            if (settings.chatBadges && sender != null && mc != null && mc.world != null) {
-                var sb = mc.world.getScoreboard();
+            if (settings.chatBadges && sender != null && mc != null && mc.level != null) {
+                var sb = mc.level.getScoreboard();
                 var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
                 if (team != null) {
                     var prefix = team.getPrefix();
@@ -140,7 +140,7 @@ public final class ChatMessageRenderer {
 
             // Typing : effet machine à écrire sur LE message le plus récent
             // (messageIdx 0) tant qu'il est frais.
-            OrderedText drawContent = content;
+            FormattedCharSequence drawContent = content;
             if (settings.chatTyping && messageIdx == 0 && !plain.isEmpty()) {
                 int revealTicks = Math.min(40, Math.max(6, plain.length()));
                 float prog = age / (float) revealTicks;
@@ -178,17 +178,17 @@ public final class ChatMessageRenderer {
         for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
             ChatHudLine.Visible visible = visibleMessages.get(i + scrolledLines);
             if (visible == null) continue;
-            OrderedText content = visible.content();
+            FormattedCharSequence content = visible.content();
             String plain = orderedToPlainString(content);
-            PlayerListEntry sender = findSender(mc, plain);
+            PlayerInfo sender = findSender(mc, plain);
             if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) continue;
 
             int lineY = bottomY - (rendered + 1) * LINE_H;
             if (lineY < 4) break;
             int textX = leftX;
             if (settings.chatHeads && sender != null) textX += HEAD + HEAD_GAP;
-            if (settings.chatBadges && sender != null && mc.world != null) {
-                var sb = mc.world.getScoreboard();
+            if (settings.chatBadges && sender != null && mc.level != null) {
+                var sb = mc.level.getScoreboard();
                 var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
                 if (team != null && team.getPrefix() != null && !team.getPrefix().getString().isEmpty()) {
                     textX += tr.width(team.getPrefix()) + 2;
@@ -207,11 +207,11 @@ public final class ChatMessageRenderer {
     }
 
     /** Cherche le premier joueur en ligne dont le pseudo apparaît dans le texte. */
-    private static PlayerListEntry findSender(Minecraft mc, String plain) {
-        if (mc == null || mc.getNetworkHandler() == null) return null;
-        PlayerListEntry best = null;
+    private static PlayerInfo findSender(Minecraft mc, String plain) {
+        if (mc == null || mc.getConnection() == null) return null;
+        PlayerInfo best = null;
         int bestIdx = Integer.MAX_VALUE;
-        for (PlayerListEntry e : mc.getNetworkHandler().getPlayerList()) {
+        for (PlayerInfo e : mc.getConnection().getPlayerList()) {
             String name = e.getProfile() != null ? e.getProfile().getName() : null;
             if (name == null || name.isEmpty()) continue;
             int idx = plain.indexOf(name);
@@ -225,15 +225,12 @@ public final class ChatMessageRenderer {
 
     /** Dessine la tête (face + chapeau) 8×8 depuis la skin du joueur. */
     private static void drawHead(GuiGraphicsExtractor ctx, Identifier skin, int x, int y, int alpha) {
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha / 255f);
-        ctx.drawTexture(skin, x, y, 8f, 8f, HEAD, HEAD, 64, 64);   // visage
-        ctx.drawTexture(skin, x, y, 40f, 8f, HEAD, HEAD, 64, 64);  // calque chapeau
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, skin, x, y, 8f, 8f, HEAD, HEAD, 64, 64);   // visage
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, skin, x, y, 40f, 8f, HEAD, HEAD, 64, 64);  // calque chapeau
     }
 
-    /** OrderedText tronqué aux {@code max} premiers code points (style préservé). */
-    private static OrderedText truncate(OrderedText src, int max) {
+    /** FormattedCharSequence tronqué aux {@code max} premiers code points (style préservé). */
+    private static FormattedCharSequence truncate(FormattedCharSequence src, int max) {
         return visitor -> {
             int[] count = {0};
             src.accept((index, style, cp) -> {
@@ -251,7 +248,7 @@ public final class ChatMessageRenderer {
         return 1.0 - (age - 180) / 20.0;
     }
 
-    private static String orderedToPlainString(OrderedText ordered) {
+    private static String orderedToPlainString(FormattedCharSequence ordered) {
         StringBuilder sb = new StringBuilder();
         ordered.accept((index, style, codePoint) -> {
             sb.appendCodePoint(codePoint);

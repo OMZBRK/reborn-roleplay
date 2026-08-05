@@ -7,7 +7,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 /**
  * Modal d'aide affichant tous les raccourcis du HUD editor groupés par
@@ -31,7 +31,7 @@ public final class HudHelpScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         renderBackground(ctx, mouseX, mouseY, delta);
-        Font tr = this.textRenderer;
+        Font tr = this.font;
 
         // Sections (catégorie, [keys])
         String[][] sections = {
@@ -75,13 +75,13 @@ public final class HudHelpScreen extends Screen {
         RoundedRect.fill(ctx, cardX, cardY, cardW, cardH, 8, RebornColors.BG_PANEL_ELEVATED);
         RoundedRect.border(ctx, cardX, cardY, cardW, cardH, 8, RebornColors.BORDER_STRONG);
 
-        ctx.text(tr, Component.literal("RACCOURCIS · Reborn HUD").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("RACCOURCIS · Reborn HUD").withStyle(ChatFormatting.BOLD),
             cardX + 14, cardY + 12, RebornColors.FOREGROUND, false);
         ctx.fill(cardX + 14, cardY + 26, cardX + cardW - 14, cardY + 27, RebornColors.BORDER);
 
         int y = cardY + 36;
         for (String[] section : sections) {
-            ctx.text(tr, Component.literal(section[0]).formatted(Formatting.BOLD),
+            ctx.text(tr, Component.literal(section[0]).withStyle(ChatFormatting.BOLD),
                 cardX + 14, y, RebornColors.ACCENT_HOVER, false);
             y += 12;
             for (int i = 1; i < section.length; i++) {
@@ -106,7 +106,7 @@ public final class HudHelpScreen extends Screen {
         }
 
         // Close hint
-        ctx.text(tr, Component.literal("Clique n'importe où pour fermer").formatted(Formatting.ITALIC),
+        ctx.text(tr, Component.literal("Clique n'importe où pour fermer").withStyle(ChatFormatting.ITALIC),
             cardX + (cardW - tr.width("Clique n'importe où pour fermer")) / 2,
             cardY + cardH - 14, RebornColors.FOREGROUND_MUTED, false);
     }

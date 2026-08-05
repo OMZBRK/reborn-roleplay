@@ -6,7 +6,7 @@ import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.IntConsumer;
@@ -23,7 +23,7 @@ import java.util.function.IntConsumer;
  *   └──────────────────────────────────┘
  * </pre>
  */
-public class SliderWidget extends ClickableWidget {
+public class SliderWidget extends AbstractWidget {
 
     private int value;
     private final int min;
@@ -56,7 +56,7 @@ public class SliderWidget extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
@@ -87,7 +87,7 @@ public class SliderWidget extends ClickableWidget {
         DrawHelpers.disc(ctx, thumbX, thumbY, 4, Colors.ACCENT);
 
         // Valeur à droite (texte body).
-        var tr = client.textRenderer;
+        var tr = client.font;
         String valueStr = value + suffix;
         Component valueText = RebornFont.bold(valueStr);
         int valueW = tr.width(valueText);
@@ -122,7 +122,7 @@ public class SliderWidget extends ClickableWidget {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
             "Slider valeur " + value + suffix);
     }
 }

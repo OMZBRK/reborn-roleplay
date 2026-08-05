@@ -8,7 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -30,7 +30,7 @@ import net.minecraft.network.chat.Component;
  *   └──────────────────────┘
  * </pre>
  */
-public class OSTPlaylistOverlay extends ClickableWidget {
+public class OSTPlaylistOverlay extends AbstractWidget {
 
     public static final int WIDTH = 260;
     private static final int HEADER_H = 36;
@@ -54,11 +54,11 @@ public class OSTPlaylistOverlay extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         if (!isOpen()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         int x = getX();
         int y = getY();
@@ -176,7 +176,7 @@ public class OSTPlaylistOverlay extends ClickableWidget {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
             "Playlist OST — " + OSTPlayer.TOTAL_TRACKS + " pistes");
     }
 }

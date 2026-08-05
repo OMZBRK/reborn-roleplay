@@ -5,8 +5,8 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.narration.NarrationPart;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.narration.NarratedElementType;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.IntConsumer;
@@ -16,7 +16,7 @@ import java.util.function.IntSupplier;
  * Vignette cliquable d'un preset de viseur dans la grille de l'onglet Viseur.
  * Affiche un aperçu du crosshair centré ; bordure accent si sélectionné.
  */
-public class CrosshairTile extends ClickableWidget {
+public class CrosshairTile extends AbstractWidget {
 
     private static final int TEX = 33;
 
@@ -33,7 +33,7 @@ public class CrosshairTile extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         boolean selected = current.getAsInt() == index;
         boolean hovered = isHovered();
 
@@ -49,9 +49,9 @@ public class CrosshairTile extends ClickableWidget {
         ctx.pose().pushMatrix();
         ctx.pose().translate(getX() + getWidth() / 2f, getY() + getHeight() / 2f);
         ctx.pose().scale(scale, scale);
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        ctx.drawTexture(CrosshairManager.preset(index), -TEX / 2, -TEX / 2,
+        ;
+        ;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, CrosshairManager.preset(index), -TEX / 2, -TEX / 2,
             0f, 0f, TEX, TEX, TEX, TEX);
         ctx.pose().popMatrix();
     }
@@ -63,6 +63,6 @@ public class CrosshairTile extends ClickableWidget {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(NarrationPart.TITLE, "Viseur " + (index + 1));
+        ;
     }
 }

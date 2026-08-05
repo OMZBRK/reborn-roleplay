@@ -42,7 +42,7 @@ public final class SplashOverlay {
     public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         // Léger voile sombre par-dessus le fond flouté — donne du contraste
         // au logo/texte sans habiller l'écran (le flou fait le reste).
@@ -53,7 +53,7 @@ public final class SplashOverlay {
         int destH = Math.round(destW * (float) LOGO_TEX_H / LOGO_TEX_W);
         int logoX = (screenW - destW) / 2;
         int logoY = Math.round(screenH * 0.36f) - destH / 2;
-        ctx.drawTexture(LOGO, logoX, logoY, destW, destH,
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, destW, destH,
             0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // ── Prompt gras clignotant (~72% hauteur) ───────────────

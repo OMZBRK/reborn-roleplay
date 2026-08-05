@@ -8,7 +8,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +56,7 @@ public final class ChatSettingsScreen extends Screen {
         sliders.clear();
         swatches.clear();
 
-        Font tr = this.textRenderer;
+        Font tr = this.font;
         int cardW = Math.min(CARD_WIDTH, this.width - 24);
         int cardH = Math.min(318, this.height - 24);
         int cardX = (this.width - cardW) / 2;
@@ -66,13 +66,13 @@ public final class ChatSettingsScreen extends Screen {
         RoundedRect.border(ctx, cardX, cardY, cardW, cardH, 10, RebornColors.BORDER_STRONG);
 
         // Header
-        ctx.text(tr, Component.literal("PARAMÈTRES CHAT").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("PARAMÈTRES CHAT").withStyle(ChatFormatting.BOLD),
             cardX + 14, cardY + 12, RebornColors.FOREGROUND, false);
         ctx.fill(cardX + 14, cardY + 26, cardX + cardW - 14, cardY + 27, RebornColors.BORDER);
 
         // Section Affichage
         int y = cardY + 36;
-        ctx.text(tr, Component.literal("AFFICHAGE").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("AFFICHAGE").withStyle(ChatFormatting.BOLD),
             cardX + 14, y, RebornColors.FOREGROUND_MUTED, false);
         y += 14;
 
@@ -94,7 +94,7 @@ public final class ChatSettingsScreen extends Screen {
         y += 8;
 
         // Section Dimensions
-        ctx.text(tr, Component.literal("DIMENSIONS").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("DIMENSIONS").withStyle(ChatFormatting.BOLD),
             cardX + 14, y, RebornColors.FOREGROUND_MUTED, false);
         y += 14;
 
@@ -113,14 +113,14 @@ public final class ChatSettingsScreen extends Screen {
         RoundedRect.border(ctx, cardX + 14, closeBtnY, closeBtnW, closeBtnH, 6,
             closeHover ? RebornColors.ACCENT : RebornColors.BORDER_STRONG);
         int closeLabelW = tr.width("Fermer");
-        ctx.text(tr, Component.literal("Fermer").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("Fermer").withStyle(ChatFormatting.BOLD),
             cardX + 14 + (closeBtnW - closeLabelW) / 2, closeBtnY + (closeBtnH - tr.lineHeight) / 2,
             closeHover ? RebornColors.ACCENT_HOVER : RebornColors.FOREGROUND, false);
     }
 
     private int renderToggle(GuiGraphicsExtractor ctx, int cardX, int y, String label, boolean state,
                              int mouseX, int mouseY, java.util.function.Consumer<Boolean> onSet) {
-        Font tr = this.textRenderer;
+        Font tr = this.font;
         ctx.text(tr, Component.literal(label),
             cardX + 14, y + 4, RebornColors.FOREGROUND, false);
 
@@ -141,7 +141,7 @@ public final class ChatSettingsScreen extends Screen {
     private int renderSlider(GuiGraphicsExtractor ctx, int cardX, int y, String label, int value,
                              int min, int max, String unit, int mouseX, int mouseY,
                              java.util.function.IntConsumer onSet) {
-        Font tr = this.textRenderer;
+        Font tr = this.font;
         ctx.text(tr, Component.literal(label),
             cardX + 14, y, RebornColors.FOREGROUND, false);
         int cardW = Math.min(CARD_WIDTH, this.width - 24);
@@ -165,7 +165,7 @@ public final class ChatSettingsScreen extends Screen {
     }
 
     private int renderColorRow(GuiGraphicsExtractor ctx, int cardX, int y, String label, int current) {
-        Font tr = this.textRenderer;
+        Font tr = this.font;
         ctx.text(tr, Component.literal(label), cardX + 14, y + 3, RebornColors.FOREGROUND, false);
         int cardW = Math.min(CARD_WIDTH, this.width - 24);
         int size = 12, gap = 4;

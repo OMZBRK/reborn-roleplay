@@ -51,7 +51,7 @@ public final class RebornLogo {
     public static void render(GuiGraphicsExtractor context, int screenWidth, int screenHeight) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         // 1. Masque la zone du logo MC. On ne couvre pas le splash
         //    (qui depasse a droite a 20° de rotation).

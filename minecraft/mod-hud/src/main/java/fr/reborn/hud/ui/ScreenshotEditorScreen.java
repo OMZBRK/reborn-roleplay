@@ -9,7 +9,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.texture.NativeImage;
+import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
@@ -65,7 +65,7 @@ public class ScreenshotEditorScreen extends Screen {
         panelX = this.width - PANEL_W;
         float[] hsv = rgbToHsv(color);
         hue = hsv[0]; sat = hsv[1]; val = hsv[2];
-        hexField = new EditBox(this.textRenderer, panelX + 34, 32, 100, 14, Component.literal("hex"));
+        hexField = new EditBox(this.font, panelX + 34, 32, 100, 14, Component.literal("hex"));
         hexField.setMaxLength(7);
         hexField.setText(hex(color));
         hexField.setChangedListener(this::onHex);
@@ -117,7 +117,7 @@ public class ScreenshotEditorScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0xE6000000);
-        Font tr = this.textRenderer;
+        Font tr = this.font;
         computeFit();
 
         ctx.text(tr, RebornFont.bold("ÉDITEUR"), 12, 8, Colors.GOLD, false);
@@ -125,14 +125,14 @@ public class ScreenshotEditorScreen extends Screen {
 
         if (tex != null) {
             ctx.fill(imgX - 1, imgY - 1, imgX + drawW + 1, imgY + drawH + 1, Colors.BORDER_STRONG);
-            ctx.drawTexture(tex.id(), imgX, imgY, drawW, drawH, 0f, 0f, tex.w(), tex.h(), tex.w(), tex.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), imgX, imgY, drawW, drawH, 0f, 0f, tex.w(), tex.h(), tex.w(), tex.h());
             float sc = drawW / (float) tex.w();
             for (Stroke s : strokes) drawStrokeScreen(ctx, s, sc);
             if (current != null) drawStrokeScreen(ctx, current, sc);
         }
 
         renderPanel(ctx, tr, mouseX, mouseY);
-        if (hexField != null) hexField.render(ctx, mouseX, mouseY, delta);
+        if (hexField != null) hexField.extractRenderState(ctx, mouseX, mouseY, delta);
     }
 
     private void renderPanel(GuiGraphicsExtractor ctx, Font tr, int mouseX, int mouseY) {

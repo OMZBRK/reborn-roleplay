@@ -39,7 +39,7 @@ public final class ConnectingRenderer {
     public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH, Component status) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         float responsive = MainMenuRenderer.responsiveScale(screenW);
         float t = (System.currentTimeMillis() - BORN_AT) / 1000f;

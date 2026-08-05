@@ -5,8 +5,8 @@ import fr.reborn.hud.menu.DrawHelpers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.narration.NarrationPart;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.narration.NarratedElementType;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.BooleanSupplier;
@@ -20,7 +20,7 @@ import java.util.function.Consumer;
  * <p>Découplé de tout état : on lui passe un getter (état courant) et un
  * callback appelé au clic avec la nouvelle valeur — au caller de persister.
  */
-public class ToggleSwitch extends ClickableWidget {
+public class ToggleSwitch extends AbstractWidget {
 
     public static final int W = 30;
     public static final int H = 16;
@@ -38,7 +38,7 @@ public class ToggleSwitch extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         boolean on = getter.getAsBoolean();
         float target = on ? 1f : 0f;
         anim += (target - anim) * 0.30f; // slide fps-léger (suffisant pour un toggle)
@@ -75,7 +75,6 @@ public class ToggleSwitch extends ClickableWidget {
 
     @Override
     protected void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(NarrationPart.TITLE,
-            Component.literal(getter.getAsBoolean() ? "Activé" : "Désactivé"));
+        // narration neutralisée (phase 2)
     }
 }

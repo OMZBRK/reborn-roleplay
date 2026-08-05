@@ -33,15 +33,15 @@ public class RebornButton extends Button {
 
     private static final int ACCENT_WIDTH_IDLE = 3;
 
-    public RebornButton(int x, int y, int width, int height, Component message, PressAction onPress) {
-        super(x, y, width, height, message, onPress, Button.DEFAULT_NARRATION_SUPPLIER);
+    public RebornButton(int x, int y, int width, int height, Component message, Button.OnPress onPress) {
+        super(x, y, width, height, message, onPress, Button.DEFAULT_NARRATION);
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         int x0 = getX();
         int y0 = getY();

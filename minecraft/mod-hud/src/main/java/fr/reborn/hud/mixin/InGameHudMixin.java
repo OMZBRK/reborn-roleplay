@@ -4,10 +4,10 @@ import fr.reborn.hud.crosshair.CrosshairManager;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.runtime.HudTransform;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.hud.InGameHud;
-import net.minecraft.client.renderer.RenderTickCounter;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.world.scores.Objective;
 import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Mixin sur {@link InGameHud} pour intercepter les render methods des
+ * Mixin sur {@link Gui} pour intercepter les render methods des
  * elements HUD vanilla et leur appliquer l'offset/scale/visibilite
  * configures.
  *
@@ -32,14 +32,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *   <li>{@code renderScoreboardSidebar} -> {@link HudElement#SCOREBOARD}</li>
  * </ul>
  */
-@Mixin(InGameHud.class)
+@Mixin(Gui.class)
 public abstract class InGameHudMixin {
 
     // ------------ CROSSHAIR (viseur Reborn) ------------
     // À HEAD : si le viseur Reborn est actif, on le dessine et on annule le
     // crosshair vanilla. Le gating vue-1ère-personne est dans CrosshairManager.
     @Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
-    private void reborn$crosshair(GuiGraphicsExtractor ctx, RenderTickCounter tickCounter, CallbackInfo ci) {
+    private void reborn$crosshair(GuiGraphicsExtractor ctx, DeltaTracker tickCounter, CallbackInfo ci) {
         if (CrosshairManager.tryRender(ctx)) {
             ci.cancel();
         }
@@ -47,7 +47,7 @@ public abstract class InGameHudMixin {
 
     // ------------ HOTBAR ------------
     @Inject(method = "renderHotbar", at = @At("HEAD"), cancellable = true)
-    private void reborn$pushHotbar(GuiGraphicsExtractor ctx, RenderTickCounter tickCounter, CallbackInfo ci) {
+    private void reborn$pushHotbar(GuiGraphicsExtractor ctx, DeltaTracker tickCounter, CallbackInfo ci) {
         if (!HudTransform.isVisible(HudElement.HOTBAR)) {
             ci.cancel();
             return;
@@ -56,7 +56,7 @@ public abstract class InGameHudMixin {
     }
 
     @Inject(method = "renderHotbar", at = @At("RETURN"))
-    private void reborn$popHotbar(GuiGraphicsExtractor ctx, RenderTickCounter tickCounter, CallbackInfo ci) {
+    private void reborn$popHotbar(GuiGraphicsExtractor ctx, DeltaTracker tickCounter, CallbackInfo ci) {
         if (!HudTransform.isVisible(HudElement.HOTBAR)) return;
         HudTransform.revert(ctx);
     }
@@ -66,7 +66,7 @@ public abstract class InGameHudMixin {
     // ARMOR (private static) : wrap l'invocation avec transform ARMOR, skip si invisible.
     @Redirect(method = "renderStatusBars",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/hud/InGameHud;renderArmor(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/entity/player/Player;IIII)V"))
+                    target = "Lnet/minecraft/client/gui/hud/Gui;renderArmor(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/entity/player/Player;IIII)V"))
     private void reborn$redirectArmor(GuiGraphicsExtractor ctx, Player player, int top, int rowOff, int armorIcon, int left) {
         if (!HudTransform.isVisible(HudElement.ARMOR)) return;
         HudTransform.apply(ctx, HudElement.ARMOR);
@@ -77,8 +77,8 @@ public abstract class InGameHudMixin {
     // HEALTH (private virtual) : wrap avec transform HEALTH, skip si invisible.
     @Redirect(method = "renderStatusBars",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/hud/InGameHud;renderHealthBar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/entity/player/Player;IIIIFIIIZ)V"))
-    private void reborn$redirectHealth(InGameHud self, GuiGraphicsExtractor ctx, Player player, int x, int y, int lines, int regenOff, float maxHealth, int lastHealth, int health, int absorption, boolean blinking) {
+                    target = "Lnet/minecraft/client/gui/hud/Gui;renderHealthBar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/entity/player/Player;IIIIFIIIZ)V"))
+    private void reborn$redirectHealth(Gui self, GuiGraphicsExtractor ctx, Player player, int x, int y, int lines, int regenOff, float maxHealth, int lastHealth, int health, int absorption, boolean blinking) {
         if (!HudTransform.isVisible(HudElement.HEALTH)) return;
         HudTransform.apply(ctx, HudElement.HEALTH);
         ((InGameHudInvoker) self).reborn$invokeRenderHealthBar(ctx, player, x, y, lines, regenOff, maxHealth, lastHealth, health, absorption, blinking);
@@ -88,8 +88,8 @@ public abstract class InGameHudMixin {
     // HUNGER (private virtual) : wrap avec transform HUNGER, skip si invisible.
     @Redirect(method = "renderStatusBars",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/hud/InGameHud;renderFood(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/entity/player/Player;II)V"))
-    private void reborn$redirectFood(InGameHud self, GuiGraphicsExtractor ctx, Player player, int top, int right) {
+                    target = "Lnet/minecraft/client/gui/hud/Gui;renderFood(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/entity/player/Player;II)V"))
+    private void reborn$redirectFood(Gui self, GuiGraphicsExtractor ctx, Player player, int top, int right) {
         if (!HudTransform.isVisible(HudElement.HUNGER)) return;
         HudTransform.apply(ctx, HudElement.HUNGER);
         ((InGameHudInvoker) self).reborn$invokeRenderFood(ctx, player, top, right);
@@ -142,9 +142,9 @@ public abstract class InGameHudMixin {
     }
 
     // ------------ SCOREBOARD ------------
-    @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/scoreboard/ScoreboardObjective;)V",
+    @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/scoreboard/Objective;)V",
             at = @At("HEAD"), cancellable = true)
-    private void reborn$pushScoreboard(GuiGraphicsExtractor ctx, ScoreboardObjective objective, CallbackInfo ci) {
+    private void reborn$pushScoreboard(GuiGraphicsExtractor ctx, Objective objective, CallbackInfo ci) {
         if (!HudTransform.isVisible(HudElement.SCOREBOARD)) {
             ci.cancel();
             return;
@@ -152,9 +152,9 @@ public abstract class InGameHudMixin {
         HudTransform.apply(ctx, HudElement.SCOREBOARD);
     }
 
-    @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/scoreboard/ScoreboardObjective;)V",
+    @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/scoreboard/Objective;)V",
             at = @At("RETURN"))
-    private void reborn$popScoreboard(GuiGraphicsExtractor ctx, ScoreboardObjective objective, CallbackInfo ci) {
+    private void reborn$popScoreboard(GuiGraphicsExtractor ctx, Objective objective, CallbackInfo ci) {
         if (!HudTransform.isVisible(HudElement.SCOREBOARD)) return;
         HudTransform.revert(ctx);
     }

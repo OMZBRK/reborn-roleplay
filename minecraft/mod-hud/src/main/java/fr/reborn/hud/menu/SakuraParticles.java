@@ -46,7 +46,7 @@ public final class SakuraParticles {
         }
         // Reset shader color au cas où — sinon les frames suivantes ont
         // une teinte parasite.
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ;
     }
 
     private static final class Petal {
@@ -90,10 +90,10 @@ public final class SakuraParticles {
 
             // Color shader pour appliquer l'opacity (le PNG est blanc-rose,
             // multiplied par la couleur shader).
-            RenderSystem.enableBlend();
-            RenderSystem.setShaderColor(1f, 1f, 1f, opacity);
-            ctx.drawTexture(PETAL_TEXTURE, -16, -16, 0f, 0f, 32, 32, 32, 32);
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            ;
+            ;
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, PETAL_TEXTURE, -16, -16, 0f, 0f, 32, 32, 32, 32);
+            ;
 
             ctx.pose().popMatrix();
         }

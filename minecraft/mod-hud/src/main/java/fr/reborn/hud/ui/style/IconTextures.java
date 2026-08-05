@@ -3,8 +3,8 @@ package fr.reborn.hud.ui.style;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.platform.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,9 +126,9 @@ public final class IconTextures {
         float r = ((colorArgb >>> 16) & 0xFF) / 255f;
         float g = ((colorArgb >>>  8) & 0xFF) / 255f;
         float b = ( colorArgb         & 0xFF) / 255f;
-        RenderSystem.setShaderColor(r, g, b, a);
-        ctx.drawTexture(id, x, y, 0, 0, size, size, size, size);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, size, size, size, size);
+        ;
     }
 
     /** Crée la texture lazy depuis le pattern, ou null si pas trouvé. */
@@ -144,7 +144,7 @@ public final class IconTextures {
                     img.setColor(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
                 }
             }
-            NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
+            DynamicTexture tex = new DynamicTexture(img);
             Identifier id = Identifier.fromNamespaceAndPath("reborn-hud", "icons/lazy/" + name);
             Minecraft.getInstance().getTextureManager().registerTexture(id, tex);
             lazyRegistered.put(name, id);

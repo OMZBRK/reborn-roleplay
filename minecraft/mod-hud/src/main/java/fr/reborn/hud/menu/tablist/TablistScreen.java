@@ -83,7 +83,7 @@ public class TablistScreen extends Screen {
             ? this.client.player.getGameProfile().getName() : "Vous";
 
         Geom g = geom();
-        search = new EditBox(this.textRenderer, g.searchX() + 2, g.searchY() + 2,
+        search = new EditBox(this.font, g.searchX() + 2, g.searchY() + 2,
             g.searchW() - 4, 12, Component.literal("Rechercher"));
         search.setBordered(false);
         search.setMaxLength(24);
@@ -111,7 +111,7 @@ public class TablistScreen extends Screen {
     }
 
     private List<TabEntry> filtered() {
-        return filtered(TablistData.entries(selfName), activeTab, search != null ? search.getText() : "");
+        return filtered(TablistData.entries(selfName), activeTab, search != null ? search.getValue() : "");
     }
 
     private int maxScroll(Geom g) {
@@ -124,11 +124,11 @@ public class TablistScreen extends Screen {
         Geom g = geom();
         scrollY = Math.max(0, Math.min(scrollY, maxScroll(g)));
 
-        drawPanel(ctx, this.textRenderer, g, TablistData.entries(selfName), activeTab,
-            search != null ? search.getText() : "", TablistData.rpDate(), true, selected, scrollY, mouseX, mouseY);
+        drawPanel(ctx, this.font, g, TablistData.entries(selfName), activeTab,
+            search != null ? search.getValue() : "", TablistData.rpDate(), true, selected, scrollY, mouseX, mouseY);
 
         // Champ de recherche par-dessus la boîte dessinée par drawPanel.
-        if (search != null) search.render(ctx, mouseX, mouseY, delta);
+        if (search != null) search.extractRenderState(ctx, mouseX, mouseY, delta);
     }
 
     /**
@@ -355,11 +355,11 @@ public class TablistScreen extends Screen {
     public static void renderHoldOverlay(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.player == null) return;
-        int w = mc.getWindow().getScaledWidth();
-        int h = mc.getWindow().getScaledHeight();
+        int w = mc.getWindow().getGuiScaledWidth();
+        int h = mc.getWindow().getGuiScaledHeight();
         Geom g = geom(w, h);
         List<TabEntry> all = TablistData.entries(mc.player.getGameProfile().getName());
-        drawPanel(ctx, mc.textRenderer, g, all, 3, "", TablistData.rpDate(), false, null, 0, -1, -1);
+        drawPanel(ctx, mc.font, g, all, 3, "", TablistData.rpDate(), false, null, 0, -1, -1);
     }
 
     // ─── Interaction ─────────────────────────────────────
@@ -378,10 +378,10 @@ public class TablistScreen extends Screen {
         if (button == 0) {
             if (selected != null) { selected = null; return true; }
             Geom g = geom();
-            int[] xs = tabXs(this.textRenderer, g);
+            int[] xs = tabXs(this.font, g);
             if (my >= g.tabsY() && my < g.tabsY() + TAB_H) {
                 for (int i = 0; i < TABS.length; i++) {
-                    int w = this.textRenderer.width(RebornFont.arcade(EscData.arcadeSafe(TABS[i], 20)));
+                    int w = this.font.width(RebornFont.arcade(EscData.arcadeSafe(TABS[i], 20)));
                     if (mx >= xs[i] - 6 && mx < xs[i] + w + 6) {
                         activeTab = i; scrollY = 0; selected = null; return true;
                     }

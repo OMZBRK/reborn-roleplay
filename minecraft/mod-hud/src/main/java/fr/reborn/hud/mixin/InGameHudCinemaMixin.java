@@ -4,10 +4,10 @@ import fr.reborn.hud.immersion.CinemaBars;
 import fr.reborn.hud.immersion.PhotoMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.gui.hud.InGameHud;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.screens.ChatScreen;
-import net.minecraft.client.renderer.RenderTickCounter;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.util.ScreenshotRecorder;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -26,14 +26,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Annuler tout le {@code render} coupe aussi les HudRenderCallback, d'où le
  * dessin manuel ici.
  */
-@Mixin(InGameHud.class)
+@Mixin(Gui.class)
 public abstract class InGameHudCinemaMixin {
 
-    @Shadow @Final private ChatHud chatHud;
+    @Shadow @Final private ChatComponent chatHud;
     @Shadow private int ticks;
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void reborn$immersionHud(GuiGraphicsExtractor ctx, RenderTickCounter counter, CallbackInfo ci) {
+    private void reborn$immersionHud(GuiGraphicsExtractor ctx, DeltaTracker counter, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
 
         if (PhotoMode.INSTANCE.isActive()) {
@@ -49,12 +49,12 @@ public abstract class InGameHudCinemaMixin {
 
         if (CinemaBars.INSTANCE.isProgressActive()) {
             CinemaBars.INSTANCE.renderBars(ctx);
-            if (!mc.options.hudHidden) {
-                int sw = mc.getWindow().getScaledWidth();
-                int sh = mc.getWindow().getScaledHeight();
+            if (!mc.options.hideGui) {
+                int sw = mc.getWindow().getGuiScaledWidth();
+                int sh = mc.getWindow().getGuiScaledHeight();
                 int mx = (int) (mc.mouse.getX() * sw / mc.getWindow().width());
                 int my = (int) (mc.mouse.getY() * sh / mc.getWindow().getHeight());
-                boolean focused = mc.currentScreen instanceof ChatScreen;
+                boolean focused = mc.screen instanceof ChatScreen;
                 this.chatHud.render(ctx, this.ticks, mx, my, focused);
             }
             ci.cancel();

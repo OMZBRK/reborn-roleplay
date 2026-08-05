@@ -82,7 +82,7 @@ public final class EscTabs {
     public static void renderPassive(GuiGraphicsExtractor ctx, int screenW, int barY) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         int sigilDisplay = sigilDisplay(screenW);
         int sideGap = sideGap(screenW);
@@ -94,8 +94,8 @@ public final class EscTabs {
         ctx.pose().translate(sigilX, sigilY);
         float scale = (float) sigilDisplay / SIGIL_NATIVE;
         ctx.pose().scale(scale, scale);
-        RenderSystem.enableBlend();
-        ctx.drawTexture(SIGIL, 0, 0, 0f, 0f, SIGIL_NATIVE, SIGIL_NATIVE,
+        ;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, SIGIL, 0, 0, 0f, 0f, SIGIL_NATIVE, SIGIL_NATIVE,
             SIGIL_NATIVE, SIGIL_NATIVE);
         ctx.pose().popMatrix();
 

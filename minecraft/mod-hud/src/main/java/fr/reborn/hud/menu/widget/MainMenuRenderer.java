@@ -15,7 +15,7 @@ import net.minecraft.network.chat.Component;
  * Paladium Reforged, en deux étages ({@link MainMenuFlow}).
  *
  * <p>Composants passifs (les éléments cliquables — entrées de menu,
- * contrôles OST — restent des ClickableWidget gérés par le screen) :
+ * contrôles OST — restent des AbstractWidget gérés par le screen) :
  * <ul>
  *   <li>BG plein écran : Dynamic Animated Player 3D via MCEF browser.</li>
  *   <li>Voile de lisibilité sobre (dégradés haut/bas, aucun accent).</li>
@@ -136,7 +136,7 @@ public final class MainMenuRenderer {
      * Petite marque Reborn top-left — PLACEHOLDER. À remplacer par la
      * texture nuage Akatsuki dessinée sous Aseprite (déposer un PNG dans
      * {@code assets/reborn/textures/gui/title/cloud.png} et swapper ce
-     * bloc par un {@code ctx.drawTexture(...)}).
+     * bloc par un {@code ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, ...)}).
      *
      * <p>Pour l'instant : blob crimson arrondi + « R » display. Bordure qui
      * s'éclaire au survol pour indiquer que c'est interactif (révèle l'OST).
@@ -144,7 +144,7 @@ public final class MainMenuRenderer {
     private static void renderTopLeftMark(GuiGraphicsExtractor ctx, boolean hovered) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         int x = LOGO_X;
         int y = LOGO_Y;
@@ -170,7 +170,7 @@ public final class MainMenuRenderer {
     private static void renderVersionTopRight(GuiGraphicsExtractor ctx, int screenW) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         // ArcadePix, majuscules, plus petit, même couleur pour les 2 lignes.
         Component line1 = RebornFont.arcade("REBORN " + RebornVersion.MOD_VERSION.toUpperCase());
@@ -188,7 +188,7 @@ public final class MainMenuRenderer {
     private static void renderCreditsBottomRight(GuiGraphicsExtractor ctx, int screenW, int screenH) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         float scale = 0.6f;
         Component l1 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_1);

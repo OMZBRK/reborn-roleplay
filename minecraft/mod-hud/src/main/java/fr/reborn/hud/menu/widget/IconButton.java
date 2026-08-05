@@ -47,9 +47,9 @@ public class IconButton extends Button {
     private int idleIconColor = Colors.FOREGROUND_SUBTLE;
 
     public IconButton(int x, int y, int size, IconDrawer iconDrawer, String tooltip,
-                      boolean tooltipBelow, PressAction onPress) {
+                      boolean tooltipBelow, Button.OnPress onPress) {
         super(x, y, size, size, Component.literal(tooltip == null ? "" : tooltip),
-              onPress, Button.DEFAULT_NARRATION_SUPPLIER);
+              onPress, Button.DEFAULT_NARRATION);
         this.iconDrawer = iconDrawer;
         this.tooltip = tooltip;
         this.tooltipBelow = tooltipBelow;
@@ -79,7 +79,7 @@ public class IconButton extends Button {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
@@ -110,7 +110,7 @@ public class IconButton extends Button {
     }
 
     private void renderTooltip(GuiGraphicsExtractor context, Minecraft client) {
-        var tr = client.textRenderer;
+        var tr = client.font;
         Component tipText = RebornFont.body(tooltip);
         int textW = tr.width(tipText);
         int paddingX = 8;
@@ -163,7 +163,7 @@ public class IconButton extends Button {
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
         if (tooltip != null && !tooltip.isEmpty()) {
-            builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE, tooltip);
+            builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE, tooltip);
         }
     }
 }

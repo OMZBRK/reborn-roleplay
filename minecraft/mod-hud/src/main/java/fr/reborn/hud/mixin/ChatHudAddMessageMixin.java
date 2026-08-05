@@ -6,9 +6,9 @@ import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.hud.ChatHud;
+import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.multiplayer.PlayerListEntry;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Mixin sur {@code ChatHud.addMessage(Component)} pour détecter les mentions
+ * Mixin sur {@code ChatComponent.addMessage(Component)} pour détecter les mentions
  * du joueur local et déclencher :
  * <ul>
  *   <li>Un son de notification discret (cloche).</li>
@@ -30,7 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * tout. Le toggle {@code chatSettings.soundOnMention} contrôle séparément
  * le son (parfois on veut le flash sans bip).
  */
-@Mixin(ChatHud.class)
+@Mixin(ChatComponent.class)
 public abstract class ChatHudAddMessageMixin {
 
     /**
@@ -49,10 +49,10 @@ public abstract class ChatHudAddMessageMixin {
 
     private static boolean reborn$isFromBlocked(String plain) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.getNetworkHandler() == null) return false;
+        if (mc.getConnection() == null) return false;
         String earliest = null;
         int bestIdx = Integer.MAX_VALUE;
-        for (PlayerListEntry e : mc.getNetworkHandler().getPlayerList()) {
+        for (PlayerInfo e : mc.getConnection().getPlayerList()) {
             String name = e.getProfile() != null ? e.getProfile().getName() : null;
             if (name == null || name.isEmpty()) continue;
             int idx = plain.indexOf(name);
@@ -68,7 +68,7 @@ public abstract class ChatHudAddMessageMixin {
     private void reborn$detectMention(Component message, CallbackInfo ci) {
         try {
             // Record real-time timestamp pour le custom render
-            int tick = Minecraft.getInstance().inGameHud.getTicks();
+            int tick = Minecraft.getInstance().gui.getTicks();
             MessageTimestamps.record(tick);
 
             ChatSettings settings = RebornHudClient.config().getChatSettings();
@@ -82,7 +82,7 @@ public abstract class ChatHudAddMessageMixin {
             if (MentionDetector.isMentioned(message.getString(), pseudo)) {
                 if (settings.soundOnMention && mc.getSoundManager() != null) {
                     mc.getSoundManager().play(
-                        net.minecraft.client.resources.sounds.PositionedSoundInstance.master(
+                        net.minecraft.client.resources.sounds.SimpleSoundInstance.master(
                             SoundEvents.BLOCK_NOTE_BLOCK_BELL.value(), 1.5f, 0.6f));
                 }
             }

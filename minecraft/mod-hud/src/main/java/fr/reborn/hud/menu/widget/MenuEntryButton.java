@@ -6,7 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.narration.NarrationPart;
+import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -49,9 +49,9 @@ public class MenuEntryButton extends Button {
     private long lastFrameMs = 0L;
 
     public MenuEntryButton(int x, int y, int width, int height,
-                           String text, float scale, PressAction onPress) {
+                           String text, float scale, Button.OnPress onPress) {
         super(x, y, width, height, Component.literal(text), onPress,
-              Button.DEFAULT_NARRATION_SUPPLIER);
+              Button.DEFAULT_NARRATION);
         this.rawLabel = text;
         this.label = RebornFont.arcade(text);
         this.scale = scale;
@@ -75,10 +75,10 @@ public class MenuEntryButton extends Button {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         boolean active = isHovered() || isFocused();
 
@@ -145,6 +145,6 @@ public class MenuEntryButton extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(NarrationPart.TITLE, rawLabel);
+        ;
     }
 }

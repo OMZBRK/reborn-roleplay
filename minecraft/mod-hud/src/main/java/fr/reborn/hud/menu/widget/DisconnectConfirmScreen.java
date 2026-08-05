@@ -6,8 +6,8 @@ import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
@@ -53,8 +53,8 @@ public class DisconnectConfirmScreen extends Screen {
 
     private void disconnect() {
         Minecraft client = Minecraft.getInstance();
-        if (client.world != null) {
-            client.world.disconnect();
+        if (client.level != null) {
+            client.level.disconnect();
         }
         client.disconnect();
         client.setScreen(new TitleScreen());
@@ -69,9 +69,9 @@ public class DisconnectConfirmScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         this.renderBackground(context, mouseX, mouseY, delta);
         drawCard(context);
-        for (Element e : this.children()) {
-            if (e instanceof Drawable d) {
-                d.render(context, mouseX, mouseY, delta);
+        for (GuiEventListener e : this.children()) {
+            if (e instanceof Renderable d) {
+                d.extractRenderState(context, mouseX, mouseY, delta);
             }
         }
     }
@@ -79,7 +79,7 @@ public class DisconnectConfirmScreen extends Screen {
     private void drawCard(GuiGraphicsExtractor context) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         int cardW = Math.min(CARD_W, this.width - 24);
         int cardH = Math.min(CARD_H, this.height - 24);

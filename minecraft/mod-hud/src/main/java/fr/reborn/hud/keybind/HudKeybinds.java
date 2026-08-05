@@ -116,13 +116,13 @@ public final class HudKeybinds {
             // sans transition pressed.
             while (openEditScreen.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.currentScreen == null) {
+                if (mc.screen == null) {
                     mc.setScreen(new HudEditScreen(null));
                 }
             }
             while (openCrosshair.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.currentScreen == null) {
+                if (mc.screen == null) {
                     mc.setScreen(new CrosshairScreen(null));
                 }
             }
@@ -134,19 +134,19 @@ public final class HudKeybinds {
             }
             while (togglePhoto.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.currentScreen == null) {
+                if (mc.screen == null) {
                     mc.setScreen(new fr.reborn.hud.ui.PhotoModeScreen());
                 }
             }
             while (openGallery.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.currentScreen == null) {
+                if (mc.screen == null) {
                     mc.setScreen(new fr.reborn.hud.ui.GalleryScreen(null));
                 }
             }
             while (toggleShoulderCam.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.currentScreen == null && mc.player != null) {
+                if (mc.screen == null && mc.player != null) {
                     fr.reborn.hud.camera.RebornCamera.INSTANCE.toggleFirstPerson(mc);
                 }
             }
@@ -158,7 +158,7 @@ public final class HudKeybinds {
             }
             while (openCamMenu.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.currentScreen == null && mc.player != null) {
+                if (mc.screen == null && mc.player != null) {
                     mc.setScreen(new fr.reborn.hud.camera.CameraScreen(null));
                 }
             }
@@ -167,7 +167,7 @@ public final class HudKeybinds {
             }
             while (walkMenu.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.currentScreen == null && mc.player != null) {
+                if (mc.screen == null && mc.player != null) {
                     mc.setScreen(new fr.reborn.hud.animation.AnimationMenuScreen(null));
                 }
             }
@@ -179,7 +179,7 @@ public final class HudKeybinds {
                 boolean hold = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold;
                 while (client.options.playerListKey.consumeClick()) {
                     Minecraft mc = Minecraft.getInstance();
-                    if (!hold && mc.currentScreen == null && mc.player != null) {
+                    if (!hold && mc.screen == null && mc.player != null) {
                         mc.setScreen(new fr.reborn.hud.menu.tablist.TablistScreen());
                     }
                 }

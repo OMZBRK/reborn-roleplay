@@ -66,9 +66,9 @@ public class PressSpacePrompt extends Button {
     private static final int KEY_BORDER_IDLE   = 0x99FFFFFF;
     private static final int KEY_BORDER_HOVER  = Colors.ACCENT_HOVER;
 
-    public PressSpacePrompt(int x, int y, int width, int height, PressAction onPress) {
+    public PressSpacePrompt(int x, int y, int width, int height, Button.OnPress onPress) {
         super(x, y, width, height, Component.literal(PROMPT_TEXT),
-              onPress, Button.DEFAULT_NARRATION_SUPPLIER);
+              onPress, Button.DEFAULT_NARRATION);
     }
 
     public static int computeWidth(Font tr, float responsiveScale) {
@@ -86,10 +86,10 @@ public class PressSpacePrompt extends Button {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         int x0 = getX();
         int y0 = getY();
@@ -164,7 +164,7 @@ public class PressSpacePrompt extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
             "Appuyez sur Espace pour entrer dans Reborn");
     }
 }

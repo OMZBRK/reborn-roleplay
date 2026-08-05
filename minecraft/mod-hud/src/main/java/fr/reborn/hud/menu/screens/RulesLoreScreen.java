@@ -71,13 +71,13 @@ public class RulesLoreScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+        super.extractRenderState(context, mouseX, mouseY, delta);
 
         // Ligne d'accent header.
         context.fill(0, 55, this.width, 56, ACCENT);
-        // Titre — pixel-perfect via drawCenteredTextWithShadow (le scale 2x
+        // Titre — pixel-perfect via centeredText (le scale 2x
         // floute la font MC).
-        context.drawCenteredTextWithShadow(textRenderer,
+        context.centeredText(textRenderer,
             Component.literal("RÈGLEMENT & LORE"),
             this.width / 2, 28, FG);
 

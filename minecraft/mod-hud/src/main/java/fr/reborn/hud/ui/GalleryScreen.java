@@ -72,7 +72,7 @@ public class GalleryScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0xC8000000);
-        Font tr = this.textRenderer;
+        Font tr = this.font;
 
         ctx.pose().pushMatrix();
         ctx.pose().translate(0, (1f - ease()) * 20f);
@@ -119,7 +119,7 @@ public class GalleryScreen extends Screen {
         ScreenshotTextures.Tex t = ScreenshotTextures.get(e.path());
         if (t != null) {
             // Image entière mise à l'échelle dans la cellule (region = image complète).
-            ctx.drawTexture(t.id(), x, y, cw, cih, 0f, 0f, t.w(), t.h(), t.w(), t.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), x, y, cw, cih, 0f, 0f, t.w(), t.h(), t.w(), t.h());
         } else {
             ctx.fill(x, y, x + cw, y + cih, 0xFF1A0E12);
             ctx.text(tr, Component.literal("…"), x + cw / 2 - 2, y + cih / 2 - 4, Colors.FOREGROUND_MUTED, false);
@@ -168,8 +168,8 @@ public class GalleryScreen extends Screen {
         }
 
         if (in(mxi, myi, px + pw - 22, py + 8, 16, 16)) { close(); return true; }
-        if (in(mxi, myi, px + 90, py + 8, this.textRenderer.width("Tous") + 8, 16)) { onlyFav = false; refresh(); return true; }
-        if (in(mxi, myi, px + 140, py + 8, this.textRenderer.width("Favoris") + 8, 16)) { onlyFav = true; refresh(); return true; }
+        if (in(mxi, myi, px + 90, py + 8, this.font.width("Tous") + 8, 16)) { onlyFav = false; refresh(); return true; }
+        if (in(mxi, myi, px + 140, py + 8, this.font.width("Favoris") + 8, 16)) { onlyFav = true; refresh(); return true; }
 
         Entry hit = cellAt(mxi, myi);
         if (hit != null) {
@@ -199,10 +199,10 @@ public class GalleryScreen extends Screen {
             int iy = y + 2 + i * CTX_ROW;
             if (in(mxi, myi, x, iy, CTX_W, CTX_ROW)) {
                 switch (i) {
-                    case 0 -> Util.getOperatingSystem().open(ctxEntry.path().toFile());
+                    case 0 -> Util.getPlatform().open(ctxEntry.path().toFile());
                     case 1 -> { ScreenshotLibrary.toggleFavorite(ctxEntry.name()); if (onlyFav) refresh(); }
                     case 2 -> { ScreenshotLibrary.delete(ctxEntry); refresh(); }
-                    case 3 -> Util.getOperatingSystem().open(ScreenshotLibrary.dir().toFile());
+                    case 3 -> Util.getPlatform().open(ScreenshotLibrary.dir().toFile());
                 }
                 return;
             }

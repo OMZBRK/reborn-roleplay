@@ -6,8 +6,8 @@ import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -49,11 +49,11 @@ public class ShopScreen extends Screen {
 
         int logoW = Math.min(Math.round(this.width * 0.14f), 190);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.drawTexture(LOGO, (this.width - logoW) / 2, 14, logoW, logoH,
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, 14, logoW, logoH,
             0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         Minecraft mc = Minecraft.getInstance();
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         Component title = RebornFont.arcade("BOUTIQUE");
         float sc = 2.4f;
@@ -68,8 +68,8 @@ public class ShopScreen extends Screen {
         ctx.text(tr, hint, (this.width - tr.width(hint)) / 2, this.height / 2 + 16,
             Colors.FOREGROUND_MUTED, false);
 
-        for (Element e : this.children()) {
-            if (e instanceof Drawable d) d.render(ctx, mouseX, mouseY, delta);
+        for (GuiEventListener e : this.children()) {
+            if (e instanceof Renderable d) d.extractRenderState(ctx, mouseX, mouseY, delta);
         }
     }
 

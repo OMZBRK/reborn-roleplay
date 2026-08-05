@@ -7,7 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.narration.NarrationPart;
+import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -24,18 +24,18 @@ public class ConfigNavButton extends Button {
     private final BooleanSupplier isActive;
 
     public ConfigNavButton(int x, int y, int width, int height, String label,
-                           BooleanSupplier isActive, PressAction onPress) {
+                           BooleanSupplier isActive, Button.OnPress onPress) {
         super(x, y, width, height, Component.literal(label), onPress,
-              Button.DEFAULT_NARRATION_SUPPLIER);
+              Button.DEFAULT_NARRATION);
         this.label = label;
         this.isActive = isActive;
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         boolean active = isActive.getAsBoolean();
         boolean hovered = isHovered();
@@ -60,6 +60,6 @@ public class ConfigNavButton extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(NarrationPart.TITLE, label);
+        ;
     }
 }

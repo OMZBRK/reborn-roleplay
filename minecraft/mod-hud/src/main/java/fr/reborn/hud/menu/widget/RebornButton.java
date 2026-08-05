@@ -37,28 +37,28 @@ public class RebornButton extends Button {
     private float hoverProgress = 0f;
     private long lastFrameMs = System.currentTimeMillis();
 
-    private RebornButton(int x, int y, int w, int h, Component label, Style style, PressAction onPress) {
-        super(x, y, w, h, label, onPress, Button.DEFAULT_NARRATION_SUPPLIER);
+    private RebornButton(int x, int y, int w, int h, Component label, Style style, Button.OnPress onPress) {
+        super(x, y, w, h, label, onPress, Button.DEFAULT_NARRATION);
         this.style = style;
     }
 
-    public static RebornButton ghost(int x, int y, int w, int h, String label, PressAction onPress) {
+    public static RebornButton ghost(int x, int y, int w, int h, String label, Button.OnPress onPress) {
         return new RebornButton(x, y, w, h, RebornFont.bold(label), Style.GHOST, onPress);
     }
 
-    public static RebornButton danger(int x, int y, int w, int h, String label, PressAction onPress) {
+    public static RebornButton danger(int x, int y, int w, int h, String label, Button.OnPress onPress) {
         return new RebornButton(x, y, w, h, RebornFont.bold(label), Style.DANGER, onPress);
     }
 
-    public static RebornButton accent(int x, int y, int w, int h, String label, PressAction onPress) {
+    public static RebornButton accent(int x, int y, int w, int h, String label, Button.OnPress onPress) {
         return new RebornButton(x, y, w, h, RebornFont.bold(label), Style.ACCENT, onPress);
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         // Smooth hover transition (~140ms).
         long now = System.currentTimeMillis();
@@ -148,7 +148,7 @@ public class RebornButton extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
             getMessage().getString());
     }
 }

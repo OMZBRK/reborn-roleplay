@@ -55,7 +55,7 @@ public final class CapturePreview {
     private void render(GuiGraphicsExtractor ctx) {
         if (path == null) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hudHidden) return;
+        if (mc.options.hideGui) return;
         long age = System.currentTimeMillis() - shownAt;
         if (age > DISPLAY_MS) return;
 
@@ -65,7 +65,7 @@ public final class CapturePreview {
         float t = Math.max(0f, Math.min(in, out));
         float ease = 1f - (1f - t) * (1f - t);
 
-        var tr = mc.textRenderer;
+        var tr = mc.font;
         int w = TW + PAD * 2, h = TH + PAD * 2 + 22;
         int fullX = ctx.getScaledWindowWidth() - w - 8;
         int x = fullX + (int) ((1f - ease) * (w + 12));
@@ -77,7 +77,7 @@ public final class CapturePreview {
         ScreenshotTextures.Tex tex = ScreenshotTextures.get(path);
         int ix = x + PAD, iy = y + PAD;
         if (tex != null) {
-            ctx.drawTexture(tex.id(), ix, iy, TW, TH, 0f, 0f, tex.w(), tex.h(), tex.w(), tex.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), ix, iy, TW, TH, 0f, 0f, tex.w(), tex.h(), tex.w(), tex.h());
         } else {
             ctx.fill(ix, iy, ix + TW, iy + TH, 0xFF1A0E12);
         }

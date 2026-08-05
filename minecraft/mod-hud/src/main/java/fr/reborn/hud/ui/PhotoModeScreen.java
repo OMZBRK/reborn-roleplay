@@ -67,7 +67,7 @@ public class PhotoModeScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        Font tr = this.textRenderer;
+        Font tr = this.font;
 
         if (moving()) {
             String s = "● Photo Mode";

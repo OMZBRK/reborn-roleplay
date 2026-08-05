@@ -20,17 +20,17 @@ public class EscTabButton extends Button {
     private final boolean isDanger;
 
     public EscTabButton(int x, int y, int width, int height, Component label,
-                        boolean isDanger, PressAction onPress) {
-        super(x, y, width, height, label, onPress, Button.DEFAULT_NARRATION_SUPPLIER);
+                        boolean isDanger, Button.OnPress onPress) {
+        super(x, y, width, height, label, onPress, Button.DEFAULT_NARRATION);
         this.label = label;
         this.isDanger = isDanger;
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         boolean hovered = isHovered();
 
@@ -55,7 +55,7 @@ public class EscTabButton extends Button {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
             label.getString());
     }
 }

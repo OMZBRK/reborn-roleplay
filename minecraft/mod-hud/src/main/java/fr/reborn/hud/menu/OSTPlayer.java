@@ -1,7 +1,7 @@
 package fr.reborn.hud.menu;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.PositionedSoundInstance;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.resources.Identifier;
@@ -110,7 +110,7 @@ public final class OSTPlayer {
         stop();
         Identifier id = Identifier.fromNamespaceAndPath("reborn", String.format("ost.track%02d", currentTrack));
         SoundEvent event = SoundEvent.of(id);
-        currentInstance = PositionedSoundInstance.master(event, 1.0F, volume);
+        currentInstance = SimpleSoundInstance.master(event, 1.0F, volume);
         client.getSoundManager().play(currentInstance);
         playing = true;
         startTimeMs = System.currentTimeMillis();

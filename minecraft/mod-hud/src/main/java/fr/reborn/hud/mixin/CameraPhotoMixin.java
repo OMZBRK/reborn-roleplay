@@ -1,10 +1,10 @@
 package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.immersion.PhotoMode;
-import net.minecraft.client.renderer.Camera;
+import net.minecraft.client.Camera;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.BlockView;
+import net.minecraft.world.level.BlockGetter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,7 +22,7 @@ public abstract class CameraPhotoMixin {
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
     @Inject(method = "update", at = @At("TAIL"))
-    private void reborn$photoCamera(BlockView area, Entity focusedEntity, boolean thirdPerson,
+    private void reborn$photoCamera(BlockGetter area, Entity focusedEntity, boolean thirdPerson,
                                     boolean inverseView, float tickDelta, CallbackInfo ci) {
         if (!PhotoMode.INSTANCE.isActive()) return;
         this.setRotation(PhotoMode.INSTANCE.yaw(), PhotoMode.INSTANCE.pitch());

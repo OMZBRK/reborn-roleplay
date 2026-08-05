@@ -20,11 +20,11 @@ import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.client.gui.screens.world.SelectWorldScreen;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.screens.level.SelectWorldScreen;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,11 +70,11 @@ public abstract class TitleScreenMixin extends Screen {
 
     /** Contrôles OST (play / volume / playlist) — visibles au hover. */
     @Unique
-    private final List<ClickableWidget> reborn$ostControls = new ArrayList<>();
+    private final List<AbstractWidget> reborn$ostControls = new ArrayList<>();
 
     /** Widgets divers dont la visibilité suit l'étage MENU (dev solo). */
     @Unique
-    private final List<ClickableWidget> reborn$menuOnly = new ArrayList<>();
+    private final List<AbstractWidget> reborn$menuOnly = new ArrayList<>();
 
     protected TitleScreenMixin(Component title) {
         super(title);
@@ -88,13 +88,13 @@ public abstract class TitleScreenMixin extends Screen {
         MainMenuFlow.onTitleInit();
 
         // 1. Drop TOUS les widgets vanilla — on reconstruit from scratch.
-        List<Element> toRemove = new ArrayList<>();
-        for (Element child : this.children()) {
-            if (child instanceof ClickableWidget) {
+        List<GuiEventListener> toRemove = new ArrayList<>();
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof AbstractWidget) {
                 toRemove.add(child);
             }
         }
-        for (Element e : toRemove) {
+        for (GuiEventListener e : toRemove) {
             this.remove(e);
         }
         reborn$menuEntries.clear();
@@ -191,9 +191,9 @@ public abstract class TitleScreenMixin extends Screen {
     @Unique
     private MenuEntryButton reborn$addEntry(Minecraft client, String label,
                                             boolean placeholder, float scale, int height,
-                                            net.minecraft.client.gui.components.Button.PressAction action) {
+                                            net.minecraft.client.gui.components.Button.OnPress action) {
         int w = Math.max(140,
-            MenuEntryButton.labelWidth(client.textRenderer, label, scale) + 24);
+            MenuEntryButton.labelWidth(client.font, label, scale) + 24);
         MenuEntryButton entry = new MenuEntryButton(
             MainMenuRenderer.MENU_X, reborn$nextEntryY, w, height, label, scale, action);
         if (placeholder) entry.placeholder();
@@ -227,11 +227,11 @@ public abstract class TitleScreenMixin extends Screen {
             e.visible = menu;
             e.active = menu;
         }
-        for (ClickableWidget c : reborn$ostControls) {
+        for (AbstractWidget c : reborn$ostControls) {
             c.visible = ostRevealed;
             c.active = ostRevealed;
         }
-        for (ClickableWidget c : reborn$menuOnly) {
+        for (AbstractWidget c : reborn$menuOnly) {
             c.visible = menu;
             c.active = menu;
         }
@@ -251,9 +251,9 @@ public abstract class TitleScreenMixin extends Screen {
         } else {
             // Chrome menu (BG MCEF + chrome + widgets par-dessus).
             MainMenuRenderer.render(context, this.width, this.height, mouseX, mouseY, ostRevealed);
-            for (Element e : this.children()) {
-                if (e instanceof ClickableWidget cw && cw.visible) {
-                    cw.render(context, mouseX, mouseY, delta);
+            for (GuiEventListener e : this.children()) {
+                if (e instanceof AbstractWidget cw && cw.visible) {
+                    cw.extractRenderState(context, mouseX, mouseY, delta);
                 }
             }
         }

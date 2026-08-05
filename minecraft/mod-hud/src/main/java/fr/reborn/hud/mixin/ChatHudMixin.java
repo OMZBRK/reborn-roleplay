@@ -8,8 +8,8 @@ import fr.reborn.hud.element.HudElementState;
 import fr.reborn.hud.runtime.ChatMessageRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.gui.hud.ChatHudLine;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.gui.components.ChatComponentLine;
 import net.minecraft.client.gui.screens.ChatScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,7 +22,7 @@ import net.minecraft.network.chat.Style;
 import java.util.List;
 
 /**
- * Mixin sur {@link ChatHud#render}.
+ * Mixin sur {@link ChatComponent#render}.
  *
  * <p>On remplace le rendu vanilla des messages par {@link ChatMessageRenderer}
  * (features RP : têtes de joueurs, highlight de mention, timestamp) — mais à la
@@ -31,7 +31,7 @@ import java.util.List;
  * (cf {@code ChatScreenMixin} qui ne la déplace plus). Le scroll vanilla
  * ({@code scrolledLines}) est respecté.
  */
-@Mixin(ChatHud.class)
+@Mixin(ChatComponent.class)
 public abstract class ChatHudMixin {
 
     @Shadow private List<ChatHudLine.Visible> visibleMessages;
@@ -47,8 +47,8 @@ public abstract class ChatHudMixin {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        int screenW = mc.getWindow().getScaledWidth();
-        int screenH = mc.getWindow().getScaledHeight();
+        int screenW = mc.getWindow().getGuiScaledWidth();
+        int screenH = mc.getWindow().getGuiScaledHeight();
         HudElementBounds anchor = HudElementBounds.vanillaFor(HudElement.CHAT, screenW, screenH);
 
         // Offset/scale (déplacement via l'éditeur HUD). Par défaut (0,0,1) =
@@ -61,7 +61,7 @@ public abstract class ChatHudMixin {
             ctx.pose().translate(-anchor.x(), -anchor.y());
         }
 
-        boolean chatOpen = mc.currentScreen instanceof ChatScreen;
+        boolean chatOpen = mc.screen instanceof ChatScreen;
         ChatSettings settings = ChatSettings.defaults();
         String playerName = null;
         try {
@@ -69,7 +69,7 @@ public abstract class ChatHudMixin {
             if (mc.player != null) playerName = mc.player.getGameProfile().getName();
         } catch (RuntimeException ignored) {}
 
-        ChatMessageRenderer.renderMessages(ctx, mc.textRenderer,
+        ChatMessageRenderer.renderMessages(ctx, mc.font,
             visibleMessages, scrolledLines, currentTick, chatOpen,
             screenW, screenH, settings, playerName);
 
@@ -88,8 +88,8 @@ public abstract class ChatHudMixin {
             Minecraft mc = Minecraft.getInstance();
             HudElementState st = readStateSafely();
             ChatSettings settings = RebornHudClient.config().getChatSettings();
-            Style s = ChatMessageRenderer.styleAt(mc, mc.textRenderer, visibleMessages, scrolledLines,
-                mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight(), settings,
+            Style s = ChatMessageRenderer.styleAt(mc, mc.font, visibleMessages, scrolledLines,
+                mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), settings,
                 x, y, st.x(), st.y());
             cir.setReturnValue(s);
         } catch (RuntimeException ignored) {

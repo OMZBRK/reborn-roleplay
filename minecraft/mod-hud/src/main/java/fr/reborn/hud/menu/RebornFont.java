@@ -1,6 +1,6 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.network.chat.MutableText;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -49,12 +49,12 @@ public final class RebornFont {
     public static final Style FALLBACK_STYLE = Style.EMPTY.withFont(FALLBACK);
     public static final Style ARCADE_STYLE   = Style.EMPTY.withFont(ARCADE);
 
-    public static MutableText display(String content)  { return Component.literal(content).setStyle(DISPLAY_STYLE); }
-    public static MutableText body(String content)     { return Component.literal(content).setStyle(BODY_STYLE); }
-    public static MutableText bold(String content)     { return Component.literal(content).setStyle(BOLD_STYLE); }
-    public static MutableText black(String content)    { return Component.literal(content).setStyle(BLACK_STYLE); }
+    public static MutableComponent display(String content)  { return Component.literal(content).setStyle(DISPLAY_STYLE); }
+    public static MutableComponent body(String content)     { return Component.literal(content).setStyle(BODY_STYLE); }
+    public static MutableComponent bold(String content)     { return Component.literal(content).setStyle(BOLD_STYLE); }
+    public static MutableComponent black(String content)    { return Component.literal(content).setStyle(BLACK_STYLE); }
     /** Texte en police pixel ArcadePix (majuscules ASCII conseillées). */
-    public static MutableText arcade(String content)   { return Component.literal(content).setStyle(ARCADE_STYLE); }
+    public static MutableComponent arcade(String content)   { return Component.literal(content).setStyle(ARCADE_STYLE); }
 
     /**
      * @deprecated PR #1 — gardé pour compat avec {@code RebornLogo}
@@ -62,7 +62,7 @@ public final class RebornFont {
      *     vers {@link #display(String)}.
      */
     @Deprecated
-    public static MutableText styled(String content) {
+    public static MutableComponent styled(String content) {
         return Component.literal(content).setStyle(FALLBACK_STYLE);
     }
 }

@@ -57,7 +57,7 @@ public final class OSTPlayerV2 {
     public static void renderBackground(GuiGraphicsExtractor ctx, int x, int y) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
         OSTPlayer ost = OSTPlayer.INSTANCE;
 
         // Auto-skip à la fin d'une piste — appelé à chaque frame depuis

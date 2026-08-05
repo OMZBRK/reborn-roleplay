@@ -6,7 +6,7 @@ import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.Consumer;
@@ -22,7 +22,7 @@ import java.util.function.Consumer;
  *   └────────┴────────┴────────┴────────┘
  * </pre>
  */
-public class SegmentedControl extends ClickableWidget {
+public class SegmentedControl extends AbstractWidget {
 
     /** Une option du segmented control : (valueKey, label affiché). */
     public record Option(String value, String label) {}
@@ -45,10 +45,10 @@ public class SegmentedControl extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft client = Minecraft.getInstance();
         if (client == null || options.length == 0) return;
-        var tr = client.textRenderer;
+        var tr = client.font;
 
         int segW = getWidth() / options.length;
         int h = getHeight();
@@ -98,7 +98,7 @@ public class SegmentedControl extends ClickableWidget {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
             "Sélecteur — valeur " + currentValue);
     }
 }

@@ -4,11 +4,11 @@ import fr.reborn.hud.menu.connect.ConnectingRenderer;
 import fr.reborn.hud.menu.widget.RebornButton;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.multiplayer.ConnectScreen;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -65,11 +65,11 @@ public abstract class ConnectScreenMixin extends Screen {
     @Inject(method = "init", at = @At("TAIL"))
     private void reborn$replaceCancelButton(CallbackInfo ci) {
         // 1. Retire le Button vanilla Cancel.
-        List<Element> toRemove = new ArrayList<>();
-        for (Element e : this.children()) {
+        List<GuiEventListener> toRemove = new ArrayList<>();
+        for (GuiEventListener e : this.children()) {
             if (e instanceof Button) toRemove.add(e);
         }
-        for (Element e : toRemove) this.remove(e);
+        for (GuiEventListener e : toRemove) this.remove(e);
 
         // 2. Ajoute un RebornButton ghost à la place, en bas centré.
         int buttonW = 140;
@@ -104,9 +104,9 @@ public abstract class ConnectScreenMixin extends Screen {
         ConnectingRenderer.render(ctx, this.width, this.height, this.status);
 
         // 2. Re-render des widgets cliquables (RebornButton Annuler) par-dessus.
-        for (Element e : this.children()) {
-            if (e instanceof ClickableWidget cw) {
-                cw.render(ctx, mouseX, mouseY, delta);
+        for (GuiEventListener e : this.children()) {
+            if (e instanceof AbstractWidget cw) {
+                cw.extractRenderState(ctx, mouseX, mouseY, delta);
             }
         }
 

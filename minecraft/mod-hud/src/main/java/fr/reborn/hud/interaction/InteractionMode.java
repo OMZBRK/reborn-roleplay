@@ -61,11 +61,11 @@ public final class InteractionMode {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.player == null || mc.currentScreen != null) return;
+        if (mc == null || mc.player == null || mc.screen != null) return;
         active = true;
         menuOpen = false;
-        cursorX = mc.getWindow().getScaledWidth() / 2.0;
-        cursorY = mc.getWindow().getScaledHeight() / 2.0;
+        cursorX = mc.getWindow().getGuiScaledWidth() / 2.0;
+        cursorY = mc.getWindow().getGuiScaledHeight() / 2.0;
     }
 
     public void deactivate() {
@@ -78,8 +78,8 @@ public final class InteractionMode {
         if (!active) return;
         Minecraft mc = Minecraft.getInstance();
         double sf = scaleFactor <= 0 ? 1 : scaleFactor;
-        cursorX = clamp(cursorX + dxPx / sf, 0, mc.getWindow().getScaledWidth());
-        cursorY = clamp(cursorY + dyPx / sf, 0, mc.getWindow().getScaledHeight());
+        cursorX = clamp(cursorX + dxPx / sf, 0, mc.getWindow().getGuiScaledWidth());
+        cursorY = clamp(cursorY + dyPx / sf, 0, mc.getWindow().getGuiScaledHeight());
         if (menuOpen) updateHover();
     }
 
@@ -146,14 +146,14 @@ public final class InteractionMode {
     }
 
     private void layoutAtCursor(Minecraft mc) {
-        var tr = mc.textRenderer;
+        var tr = mc.font;
         int maxW = tr.width(title);
         for (InteractionItem it : items) maxW = Math.max(maxW, tr.width(it.label()));
         panelW = Math.max(96, maxW + PAD_X * 2 + ARROW_W);
         panelH = HEADER_H + items.size() * ROW_H + 4;
         // Au point du clic (curseur), clampé à l'écran.
-        panelX = (int) Math.min(cursorX, mc.getWindow().getScaledWidth() - panelW - 4);
-        panelY = (int) Math.max(4, Math.min(cursorY - 6, mc.getWindow().getScaledHeight() - panelH - 4));
+        panelX = (int) Math.min(cursorX, mc.getWindow().getGuiScaledWidth() - panelW - 4);
+        panelY = (int) Math.max(4, Math.min(cursorY - 6, mc.getWindow().getGuiScaledHeight() - panelH - 4));
 
         subW = new int[items.size()];
         for (int i = 0; i < items.size(); i++) {
@@ -209,8 +209,8 @@ public final class InteractionMode {
     public void extractRenderState(GuiGraphicsExtractor ctx) {
         if (!active) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.currentScreen != null) return;
-        var tr = mc.textRenderer;
+        if (mc.player == null || mc.screen != null) return;
+        var tr = mc.font;
 
         if (menuOpen) {
             DrawHelpers.roundedOutlinedRect(ctx, panelX, panelY, panelW, panelH, 5,
@@ -234,7 +234,7 @@ public final class InteractionMode {
                 var ch = items.get(submenuOwner).children();
                 int sx = panelX + panelW + 3, sw = subW[submenuOwner], sy = rowY(submenuOwner) - 4;
                 int sh = ch.size() * ROW_H + 6;
-                sy = Math.max(4, Math.min(sy, mc.getWindow().getScaledHeight() - sh - 4));
+                sy = Math.max(4, Math.min(sy, mc.getWindow().getGuiScaledHeight() - sh - 4));
                 DrawHelpers.roundedOutlinedRect(ctx, sx, sy, sw, sh, 5, Colors.BACKDROP_85, Colors.BORDER_STRONG);
                 for (int j = 0; j < ch.size(); j++) {
                     int y = sy + 3 + j * ROW_H;
@@ -269,8 +269,7 @@ public final class InteractionMode {
         if (sel >= 1) {
             var id = net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/cursor" + sel + ".png");
             if (mc.getResourceManager().getResource(id).isPresent()) {
-                com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-                ctx.drawTexture(id, x, y, 0f, 0f,
+                ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0f, 0f,
                     CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE);
                 return;
             }

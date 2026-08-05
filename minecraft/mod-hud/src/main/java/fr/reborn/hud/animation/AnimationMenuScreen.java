@@ -94,11 +94,11 @@ public class AnimationMenuScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
+        super.extractRenderState(ctx, mouseX, mouseY, delta);
         int py = panelY();
 
         // Titre.
-        ctx.text(this.textRenderer, RebornFont.bold("REBORN"),
+        ctx.text(this.font, RebornFont.bold("REBORN"),
             PANEL_X + 14, py + 12, Colors.WHITE_PURE, false);
 
         // Onglets ANIMATIONS | OPTIONS.
@@ -125,8 +125,8 @@ public class AnimationMenuScreen extends Screen {
             ctx.fill(x + 2, y + TAB_H - 3, x + w - 2, y + TAB_H - 1, Colors.ACCENT);
         }
         Component t = RebornFont.arcade(label);
-        int tw = this.textRenderer.width(t);
-        ctx.text(this.textRenderer, t, x + (w - tw) / 2, y + (TAB_H - 8) / 2,
+        int tw = this.font.width(t);
+        ctx.text(this.font, t, x + (w - tw) / 2, y + (TAB_H - 8) / 2,
             active ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
     }
 
@@ -139,13 +139,13 @@ public class AnimationMenuScreen extends Screen {
         }
         int color = row.placeholder() ? Colors.FOREGROUND_MUTED
             : (hovered ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE);
-        ctx.text(this.textRenderer, RebornFont.arcade(row.label()),
+        ctx.text(this.font, RebornFont.arcade(row.label()),
             PANEL_X + 26, y + (ROW_H - 8) / 2, color, false);
 
         if (row.marker() != null) {
             Component m = RebornFont.arcade(row.marker());
-            int mw = this.textRenderer.width(m);
-            ctx.text(this.textRenderer, m, PANEL_X + PANEL_W - 18 - mw, y + (ROW_H - 8) / 2,
+            int mw = this.font.width(m);
+            ctx.text(this.font, m, PANEL_X + PANEL_W - 18 - mw, y + (ROW_H - 8) / 2,
                 "●".equals(row.marker()) ? Colors.ACCENT_HOVER : Colors.FOREGROUND_MUTED, false);
         }
     }

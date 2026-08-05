@@ -1,8 +1,8 @@
 package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.immersion.PhotoMode;
-import net.minecraft.client.input.Input;
-import net.minecraft.client.input.KeyboardInput;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.client.player.KeyboardInput;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

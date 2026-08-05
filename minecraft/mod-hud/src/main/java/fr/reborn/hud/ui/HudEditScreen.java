@@ -20,7 +20,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +102,7 @@ public class HudEditScreen extends Screen {
         super(Component.translatable("reborn-hud.screen.title"));
         this.parent = parent;
         this.config = RebornHudClient.config();
-        this.sidePanel = new HudEditSidePanel(config, Minecraft.getInstance().textRenderer);
+        this.sidePanel = new HudEditSidePanel(config, Minecraft.getInstance().font);
         this.sidePanel.setSelectedElement(this.selectedElement);
         this.sidePanel.onResetAll = () -> {
             config.resetAll();
@@ -127,7 +127,7 @@ public class HudEditScreen extends Screen {
         int rightEdge = this.width - 8; // 8px margin du bord droit
         int searchX = rightEdge - btnsTotalW - searchW - 8;
         int searchY = (HudEditChrome.TOPBAR_HEIGHT - 22) / 2;
-        searchField = new EditBox(this.textRenderer,
+        searchField = new EditBox(this.font,
             searchX + 26, searchY + 6, searchW - 32, 10, Component.literal("Rechercher un élément..."));
         searchField.setBordered(false);
         searchField.setMaxLength(40);
@@ -159,12 +159,12 @@ public class HudEditScreen extends Screen {
 
         // 4) Chrome top bar
         HudEditChrome.renderTopBar(ctx, this.width);
-        HudEditChrome.renderLogoAndTitle(ctx, this.textRenderer, this.height);
+        HudEditChrome.renderLogoAndTitle(ctx, this.font, this.height);
         renderSearchBox(ctx, mouseX, mouseY);
         renderTopBarButtons(ctx, mouseX, mouseY);
 
         // 5) Vanilla widget render (search input field text)
-        super.render(ctx, mouseX, mouseY, delta);
+        super.extractRenderState(ctx, mouseX, mouseY, delta);
 
         // 6) Boxes HUD rendues par-dessus le chrome — sinon boss bar (y=12)
         //    et scoreboard (right edge) seraient invisibles / unclickables.
@@ -189,16 +189,16 @@ public class HudEditScreen extends Screen {
         // 7) Keybar top-left sous le top bar (collapsible)
         int modified = countModifiedElements();
         this.keybarToggleRect = HudEditChrome.renderKeybar(
-            ctx, this.textRenderer, this.width,
+            ctx, this.font, this.width,
             HudElement.values().length, modified, keybarCollapsed);
 
         // 8) Alignment guides — uniquement pendant un drag-move actif
         if (!activeGuides.isEmpty() && draggedElement != null && !draggingResize) {
-            AlignmentGuides.renderGuides(ctx, activeGuides, this.width, this.height, this.textRenderer);
+            AlignmentGuides.renderGuides(ctx, activeGuides, this.width, this.height, this.font);
         }
 
         // 9) Version badge bottom-left
-        HudEditChrome.renderVersionBadge(ctx, this.textRenderer, this.height);
+        HudEditChrome.renderVersionBadge(ctx, this.font, this.height);
 
         // 10) Live coords pendant un drag (close-by floating pill)
         renderLiveCoordsPill(ctx, mouseX, mouseY);
@@ -243,7 +243,7 @@ public class HudEditScreen extends Screen {
 
         // Placeholder si vide et pas focus
         if (!focused && (searchQuery == null || searchQuery.isBlank())) {
-            ctx.text(this.textRenderer, Component.literal("Rechercher un élément..."),
+            ctx.text(this.font, Component.literal("Rechercher un élément..."),
                 x + 26, y + 7, RebornColors.FOREGROUND_MUTED, false);
         }
     }
@@ -391,8 +391,8 @@ public class HudEditScreen extends Screen {
 
         boolean modified = isStateModified(state);
 
-        int nameW = this.textRenderer.width(name);
-        int coordW = this.textRenderer.width(coords);
+        int nameW = this.font.width(name);
+        int coordW = this.font.width(coords);
         int dotW = modified ? 8 : 0;
         int pillW = nameW + 8 + coordW + 14 + dotW;
         int pillH = 14;
@@ -413,15 +413,15 @@ public class HudEditScreen extends Screen {
             textX += 7;
         }
 
-        ctx.text(this.textRenderer, Component.literal(name).formatted(Formatting.BOLD),
+        ctx.text(this.font, Component.literal(name).withStyle(ChatFormatting.BOLD),
             textX, pillY + 3,
             state.visible() ? RebornColors.FOREGROUND : RebornColors.FOREGROUND_SUBTLE, false);
 
-        ctx.text(this.textRenderer, Component.literal(coords),
+        ctx.text(this.font, Component.literal(coords),
             textX + nameW + 6, pillY + 3, RebornColors.FOREGROUND_SUBTLE, false);
     }
 
-    /** Element a un state ≠ defaut → afficher indicateur. */
+    /** GuiEventListener a un state ≠ defaut → afficher indicateur. */
     private static boolean isStateModified(HudElementState state) {
         return state.x() != 0 || state.y() != 0 || state.scale() != 1.0f
             || !state.visible() || state.anchor() != null;
@@ -830,7 +830,7 @@ public class HudEditScreen extends Screen {
         // Slide-up subtil pendant fade-in (translate vers haut)
         int slideOffset = (int) ((1f - opacity) * 6f * (age < TOAST_FADE_IN_MS ? 1 : 0));
         int alpha = (int) (opacity * 255);
-        int pillW = this.textRenderer.width(toastText) + 24;
+        int pillW = this.font.width(toastText) + 24;
         int pillH = 22;
         int pillX = (this.width - pillW) / 2;
         int pillY = this.height - 80 + slideOffset;
@@ -838,7 +838,7 @@ public class HudEditScreen extends Screen {
             (alpha << 24) | (RebornColors.BG_PANEL_ELEVATED & 0x00FFFFFF));
         RoundedRect.border(ctx, pillX, pillY, pillW, pillH, 6,
             (alpha << 24) | (RebornColors.ACCENT & 0x00FFFFFF));
-        ctx.text(this.textRenderer, Component.literal(toastText),
+        ctx.text(this.font, Component.literal(toastText),
             pillX + 12, pillY + 7,
             (alpha << 24) | (RebornColors.FOREGROUND & 0x00FFFFFF), false);
     }
@@ -851,7 +851,7 @@ public class HudEditScreen extends Screen {
         if (selectedElements.size() > 1) {
             text = "(" + selectedElements.size() + ") " + text;
         }
-        int w = this.textRenderer.width(text) + 14;
+        int w = this.font.width(text) + 14;
         int h = 16;
         // Position : a droite-bas du curseur, avec 14px d'offset pour ne pas occluder
         int x = mouseX + 14;
@@ -860,7 +860,7 @@ public class HudEditScreen extends Screen {
         if (y + h > this.height - 4) y = mouseY - h - 14;
         RoundedRect.fill(ctx, x, y, w, h, 4, 0xE6070811);
         RoundedRect.border(ctx, x, y, w, h, 4, RebornColors.ACCENT);
-        ctx.text(this.textRenderer, Component.literal(text),
+        ctx.text(this.font, Component.literal(text),
             x + 7, y + 4, RebornColors.FOREGROUND, false);
     }
 
@@ -889,7 +889,7 @@ public class HudEditScreen extends Screen {
         }
         if (label == null) return;
 
-        int w = this.textRenderer.width(label) + 10;
+        int w = this.font.width(label) + 10;
         int h = 14;
         int x = hoverX + btnSz / 2 - w / 2;
         if (x + w > this.width - 4) x = this.width - 4 - w;
@@ -897,7 +897,7 @@ public class HudEditScreen extends Screen {
         int y = btnY + btnSz + 4;
         RoundedRect.fill(ctx, x, y, w, h, 3, 0xE6070811);
         RoundedRect.border(ctx, x, y, w, h, 3, RebornColors.BORDER_STRONG);
-        ctx.text(this.textRenderer, Component.literal(label),
+        ctx.text(this.font, Component.literal(label),
             x + 5, y + 3, RebornColors.FOREGROUND, false);
     }
 

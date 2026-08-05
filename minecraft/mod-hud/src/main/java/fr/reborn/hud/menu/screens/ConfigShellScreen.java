@@ -19,7 +19,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
@@ -72,7 +72,7 @@ public class ConfigShellScreen extends Screen {
     private record CategoryDef(String id, String label, Icon icon, SettingsTab tab) {}
 
     private int scrollY = 0;
-    private List<ClickableWidget> contentWidgets = List.of();
+    private List<AbstractWidget> contentWidgets = List.of();
     private int[] baseWidgetY = new int[0];
 
     private boolean draggingScrollbar = false;
@@ -188,19 +188,19 @@ public class ConfigShellScreen extends Screen {
     protected void init() {
         // La géométrie du contenu dépend de la hauteur de barre → calculer les
         // rangées d'onglets AVANT de layouter le contenu (et à chaque resize).
-        computeTabLayout(this.textRenderer);
+        computeTabLayout(this.font);
         rebuildContent();
     }
 
     private void rebuildContent() {
-        for (ClickableWidget w : contentWidgets) {
+        for (AbstractWidget w : contentWidgets) {
             this.remove(w);
         }
         activeTab().layout(contentX(), contentTopBase(), contentW());
         contentWidgets = activeTab().widgets();
         baseWidgetY = new int[contentWidgets.size()];
         for (int i = 0; i < contentWidgets.size(); i++) {
-            ClickableWidget w = contentWidgets.get(i);
+            AbstractWidget w = contentWidgets.get(i);
             baseWidgetY[i] = w.getY();
             this.addSelectableChild(w);
         }
@@ -219,7 +219,7 @@ public class ConfigShellScreen extends Screen {
         int top = viewportTop();
         int bottom = viewportBottom();
         for (int i = 0; i < contentWidgets.size(); i++) {
-            ClickableWidget w = contentWidgets.get(i);
+            AbstractWidget w = contentWidgets.get(i);
             int y = baseWidgetY[i] - scrollY;
             w.setY(y);
             boolean outside = (y + w.getHeight() < top) || (y > bottom);
@@ -237,13 +237,13 @@ public class ConfigShellScreen extends Screen {
         // Même fond que le menu ÉCHAP : un seul dégradé vertical doux.
         int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
         DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
-        Font tr = this.textRenderer;
+        Font tr = this.font;
         computeTabLayout(tr);
 
         // Logo top-centre (comme l'ÉCHAP).
         int logoW = Math.min(Math.round(this.width * 0.10f), 132);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.drawTexture(LOGO, (this.width - logoW) / 2, LOGO_Y, logoW, logoH,
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, LOGO_Y, logoW, logoH,
             0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // « ‹ RETOUR » haut-gauche (hit-test dans mouseClicked).
@@ -279,7 +279,7 @@ public class ConfigShellScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
+        super.extractRenderState(ctx, mouseX, mouseY, delta);
 
         int contentX = contentX();
         int contentW = contentW();
@@ -287,9 +287,9 @@ public class ConfigShellScreen extends Screen {
 
         ctx.enableScissor(0, viewportTop(), this.width, viewportBottom());
         activeTab().renderPassive(ctx, contentX, contentYScrolled, contentW);
-        for (ClickableWidget w : contentWidgets) {
+        for (AbstractWidget w : contentWidgets) {
             if (w.visible) {
-                w.render(ctx, mouseX, mouseY, delta);
+                w.extractRenderState(ctx, mouseX, mouseY, delta);
             }
         }
         ctx.disableScissor();
@@ -333,7 +333,7 @@ public class ConfigShellScreen extends Screen {
     }
 
     private boolean overBack(double mouseX, double mouseY) {
-        int w = this.textRenderer.width(RebornFont.arcade("< RETOUR"));
+        int w = this.font.width(RebornFont.arcade("< RETOUR"));
         return mouseX >= 12 && mouseX <= 16 + w + 6 && mouseY >= RETURN_Y - 4 && mouseY <= RETURN_Y + 14;
     }
 

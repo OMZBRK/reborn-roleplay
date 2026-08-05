@@ -87,7 +87,7 @@ public final class DynamicPlayerBackground {
     private static String buildViewerUrl(Path html) {
         String absolute = html.toAbsolutePath().toString().replace('\\', '/');
         if (!absolute.startsWith("/")) absolute = "/" + absolute;
-        var uuid = Minecraft.getInstance().getSession().getUuidOrNull();
+        var uuid = Minecraft.getInstance().getUser().getUuidOrNull();
         String uuidStr = uuid != null ? uuid.toString() : "";
         return "file://" + absolute + (uuidStr.isEmpty() ? "" : "?uuid=" + uuidStr);
     }
@@ -103,9 +103,9 @@ public final class DynamicPlayerBackground {
             return;
         }
         // MCEF travaille en pixels réels (le framebuffer offscreen est créé
-        // à la taille demandée). On scale par window.getScaleFactor() pour
+        // à la taille demandée). On scale par window.getGuiScale() pour
         // ne pas avoir un rendu basse-res quand le GUI scale est > 1.
-        double scale = Minecraft.getInstance().getWindow().getScaleFactor();
+        double scale = Minecraft.getInstance().getWindow().getGuiScale();
         int realW = (int) Math.max(1, Math.round(screenW * scale));
         int realH = (int) Math.max(1, Math.round(screenH * scale));
         if (realW != lastResizeW || realH != lastResizeH) {

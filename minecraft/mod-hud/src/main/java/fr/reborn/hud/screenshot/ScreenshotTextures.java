@@ -1,8 +1,8 @@
 package fr.reborn.hud.screenshot;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.platform.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +41,7 @@ public final class ScreenshotTextures {
     private static Tex load(Path path, String name) {
         try (InputStream in = Files.newInputStream(path)) {
             NativeImage img = NativeImage.read(in);
-            NativeImageBackedTexture t = new NativeImageBackedTexture(img);
+            DynamicTexture t = new DynamicTexture(img);
             Identifier id = Identifier.fromNamespaceAndPath("reborn-shots", "g/" + sanitize(name));
             Minecraft.getInstance().getTextureManager().registerTexture(id, t);
             return new Tex(id, img.width(), img.getHeight());

@@ -17,9 +17,9 @@ public class AccountTab extends SectionedTab {
         Minecraft mc = Minecraft.getInstance();
         String username = "—";
         String uuid = "—";
-        if (mc != null && mc.getSession() != null) {
-            username = mc.getSession().getUsername();
-            UUID id = mc.getSession().getUuidOrNull();
+        if (mc != null && mc.getUser() != null) {
+            username = mc.getUser().getUsername();
+            UUID id = mc.getUser().getUuidOrNull();
             if (id != null) uuid = id.toString();
         }
 

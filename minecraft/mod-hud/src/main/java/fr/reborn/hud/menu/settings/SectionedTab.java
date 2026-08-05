@@ -6,7 +6,7 @@ import fr.reborn.hud.menu.widget.RebornButton;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +35,7 @@ public abstract class SectionedTab implements SettingsTab {
     protected static final int BUTTON_GAP = 12;
     protected static final int CONTROL_W = 240;
 
-    private final List<ClickableWidget> widgets = new ArrayList<>();
+    private final List<AbstractWidget> widgets = new ArrayList<>();
     private int contentHeight = 0;
 
     private enum Pass { LAYOUT, RENDER }
@@ -73,7 +73,7 @@ public abstract class SectionedTab implements SettingsTab {
         if (mc == null) return;
         this.pass = Pass.RENDER;
         this.ctx = ctx;
-        this.tr = mc.textRenderer;
+        this.tr = mc.font;
         this.originX = x;
         this.width = width;
         this.controlW = Math.max(150, Math.min(CONTROL_W, width - 130));
@@ -85,7 +85,7 @@ public abstract class SectionedTab implements SettingsTab {
     }
 
     @Override
-    public List<ClickableWidget> widgets() {
+    public List<AbstractWidget> widgets() {
         return widgets;
     }
 
@@ -189,6 +189,6 @@ public abstract class SectionedTab implements SettingsTab {
 
     @FunctionalInterface
     protected interface WidgetFactory {
-        ClickableWidget create(int controlX, int controlY, int controlW);
+        AbstractWidget create(int controlX, int controlY, int controlW);
     }
 }

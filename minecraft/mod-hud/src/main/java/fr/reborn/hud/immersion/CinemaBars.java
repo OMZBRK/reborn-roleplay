@@ -39,11 +39,11 @@ public final class CinemaBars {
         if (Math.abs(target - progress) < 0.004f) progress = target;
     }
 
-    /** Dessine les bandes (appelé par le mixin InGameHud). */
+    /** Dessine les bandes (appelé par le mixin Gui). */
     public void renderBars(GuiGraphicsExtractor ctx) {
         if (progress <= 0.001f) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hudHidden) return;
+        if (mc.options.hideGui) return;
         int w = ctx.getScaledWindowWidth();
         int h = ctx.getScaledWindowHeight();
         int barH = Math.round(h * BAR_FRACTION * progress);

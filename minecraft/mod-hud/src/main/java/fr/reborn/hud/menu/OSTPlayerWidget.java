@@ -3,7 +3,7 @@ package fr.reborn.hud.menu;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -24,7 +24,7 @@ import net.minecraft.network.chat.Component;
  * Toutes les icones (play/pause/prev/next/volume) sont dessinees en
  * shapes via {@code GuiGraphicsExtractor.fill}, pas via font caracters.
  */
-public class OSTPlayerWidget extends ClickableWidget {
+public class OSTPlayerWidget extends AbstractWidget {
 
     private static final int FG = 0xFFFFFAF0; // blanc chaud
     private static final int FG_DIM = 0x66FFFAF0; // semi-transparent
@@ -50,11 +50,11 @@ public class OSTPlayerWidget extends ClickableWidget {
 
     public OSTPlayerWidget(int x, int y, Font textRenderer) {
         super(x, y, 240, 56, Component.literal("OST Player"));
-        this.textRenderer = textRenderer;
+        this.font = textRenderer;
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         OSTPlayer ost = OSTPlayer.INSTANCE;
         ost.tickAutoAdvance();
 
@@ -213,7 +213,7 @@ public class OSTPlayerWidget extends ClickableWidget {
 
     @Override
     protected void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
             "Lecteur OST : " + OSTPlayer.INSTANCE.getCurrentTrackName());
     }
 }

@@ -19,7 +19,7 @@ import java.util.UUID;
  * <p>Le serveur envoie les rangs/affinités en clé enum (ex. {@code GENIN}) ;
  * on les mappe en libellés FR côté client (seul endroit qui connaît la langue
  * du menu). Le ping n'est pas transmis — on le lit en direct depuis la latence
- * du {@code PlayerListEntry} vanilla par UUID.
+ * du {@code PlayerInfo} vanilla par UUID.
  */
 public final class TablistData {
 
@@ -88,8 +88,8 @@ public final class TablistData {
         if (uuidStr == null) return 0;
         try {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.getNetworkHandler() == null) return 0;
-            var entry = mc.getNetworkHandler().getPlayerListEntry(UUID.fromString(uuidStr));
+            if (mc.getConnection() == null) return 0;
+            var entry = mc.getConnection().getPlayerListEntry(UUID.fromString(uuidStr));
             return entry != null ? Math.max(0, entry.getLatency()) : 0;
         } catch (Exception e) {
             return 0;

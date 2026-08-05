@@ -15,11 +15,11 @@ import fr.reborn.hud.menu.widget.ShopScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.GameMenuScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.ClickableWidget;
-import net.minecraft.client.resources.sounds.PositionedSoundInstance;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -115,13 +115,13 @@ public abstract class GameMenuScreenMixin extends Screen {
     private void reborn$rebuildEscMenu(CallbackInfo ci) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         // Rafraîchit la data live (Discord / patch notes / streams) en fond.
         EscData.refreshIfStale();
 
-        List<Element> toRemove = new ArrayList<>(this.children());
-        for (Element e : toRemove) this.remove(e);
+        List<GuiEventListener> toRemove = new ArrayList<>(this.children());
+        for (GuiEventListener e : toRemove) this.remove(e);
 
         int x = (this.width - reborn$tabsTotalW(tr)) / 2;
         int tabsY = reborn$tabsY();
@@ -153,7 +153,7 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void reborn$renderOverlay(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        Font tr = this.textRenderer;
+        Font tr = this.font;
 
         // Fond : UN seul dégradé vertical doux intégré (sombre en haut → légère
         // teinte accent en bas). Pas de rectangles/halos = pas d'effet couches.
@@ -164,7 +164,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         int logoW = reborn$logoW();
         int logoH = reborn$logoH();
         int logoX = (this.width - logoW) / 2;
-        ctx.drawTexture(LOGO, logoX, reborn$logoY(), logoW, logoH,
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, reborn$logoY(), logoW, logoH,
             0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // Panneaux (dessinés avant les enfants : Boutique-content + tabs par-dessus).
@@ -184,9 +184,9 @@ public abstract class GameMenuScreenMixin extends Screen {
             boxY + reborn$contentH() + GAP, reborn$boxW(), BOTTOM_H);
 
         // Enfants (bouton Boutique = fond+clic, onglets) par-dessus.
-        for (Element e : this.children()) {
-            if (e instanceof ClickableWidget cw && cw.visible) {
-                cw.render(ctx, mouseX, mouseY, delta);
+        for (GuiEventListener e : this.children()) {
+            if (e instanceof AbstractWidget cw && cw.visible) {
+                cw.extractRenderState(ctx, mouseX, mouseY, delta);
             }
         }
         // Contenu de la carte Boutique par-dessus son fond.
@@ -252,7 +252,7 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     private void reborn$openUrl(String url) {
         try {
-            Util.getOperatingSystem().open(URI.create(url));
+            Util.getPlatform().open(URI.create(url));
         } catch (Exception e) {
             LOG.warn("ouverture URL échouée ({}) : {}", url, e.toString());
         }
@@ -262,7 +262,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (mc != null) {
             mc.getSoundManager().play(
-                PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0f));
+                SimpleSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0f));
         }
     }
 

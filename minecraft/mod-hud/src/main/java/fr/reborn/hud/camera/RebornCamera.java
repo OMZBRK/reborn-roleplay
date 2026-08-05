@@ -2,7 +2,7 @@ package fr.reborn.hud.camera;
 
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Perspective;
+import net.minecraft.client.CameraType;
 
 /**
  * État de la caméra épaule Reborn (style Zenkai / anime-RP).
@@ -133,13 +133,13 @@ public final class RebornCamera {
     public void tickView(Minecraft mc) {
         if (mc.player == null || mc.options == null) return;
         if (mode == Mode.SHOULDER) {
-            if (mc.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
-                mc.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-                initOrientation(mc.player.getYaw(), mc.player.getPitch());
+            if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
+                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+                initOrientation(mc.player.getYRot(), mc.player.getXRot());
             }
         } else {
-            if (mc.options.getPerspective() != Perspective.FIRST_PERSON) {
-                mc.options.setPerspective(Perspective.FIRST_PERSON);
+            if (mc.options.getCameraType() != CameraType.FIRST_PERSON) {
+                mc.options.setCameraType(CameraType.FIRST_PERSON);
             }
         }
     }

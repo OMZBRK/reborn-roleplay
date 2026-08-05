@@ -9,8 +9,8 @@ import fr.reborn.hud.menu.esc.EscData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
@@ -79,13 +79,13 @@ public class ReportScreen extends Screen {
         int fieldW = cardW - 40;
         int fieldX = cardX + 20;
 
-        subjectField = new EditBox(this.textRenderer, fieldX, cardY + 74, fieldW, 16,
+        subjectField = new EditBox(this.font, fieldX, cardY + 74, fieldW, 16,
             Component.literal("sujet"));
         subjectField.setMaxLength(120);
         subjectField.setHint(Component.literal("Sujet (ex: pseudo du joueur, résumé)…"));
         this.addRenderableWidget(subjectField);
 
-        messageField = new EditBox(this.textRenderer, fieldX, cardY + 116, fieldW, 16,
+        messageField = new EditBox(this.font, fieldX, cardY + 116, fieldW, 16,
             Component.literal("message"));
         messageField.setMaxLength(500);
         messageField.setHint(Component.literal("Décris ce qu'il s'est passé…"));
@@ -113,8 +113,8 @@ public class ReportScreen extends Screen {
 
     private void submit() {
         if (state == State.SENDING) return;
-        String subject = subjectField.getText().trim();
-        String message = messageField.getText().trim();
+        String subject = subjectField.getValue().trim();
+        String message = messageField.getValue().trim();
         if (subject.length() < 4) { setError("Sujet trop court (4 caractères min)."); return; }
         if (message.length() < 10) { setError("Message trop court (10 caractères min)."); return; }
 
@@ -187,11 +187,11 @@ public class ReportScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         this.renderBackground(ctx, mouseX, mouseY, delta);
-        Font tr = this.textRenderer;
+        Font tr = this.font;
 
         int logoW = Math.min(Math.round(this.width * 0.11f), 150);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.drawTexture(LOGO, (this.width - logoW) / 2, 14, logoW, logoH,
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, 14, logoW, logoH,
             0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         int cardW = Math.min(CARD_W, this.width - 24);
@@ -213,8 +213,8 @@ public class ReportScreen extends Screen {
         ctx.text(tr, RebornFont.body("Message"), messageField.getX(), messageField.getY() - 10,
             Colors.FOREGROUND_SUBTLE, false);
 
-        for (Element e : this.children()) {
-            if (e instanceof Drawable d) d.render(ctx, mouseX, mouseY, delta);
+        for (GuiEventListener e : this.children()) {
+            if (e instanceof Renderable d) d.extractRenderState(ctx, mouseX, mouseY, delta);
         }
 
         if (!feedback.isEmpty()) {
@@ -223,7 +223,7 @@ public class ReportScreen extends Screen {
                 case ERROR -> Colors.DANGER;
                 default -> Colors.FOREGROUND_MUTED;
             };
-            ctx.drawCenteredTextWithShadow(tr, RebornFont.body(feedback),
+            ctx.centeredText(tr, RebornFont.body(feedback),
                 this.width / 2, cardY + cardH + 12, color);
         }
     }

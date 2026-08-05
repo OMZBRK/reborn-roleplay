@@ -38,7 +38,7 @@ public abstract class ChatScreenMixin {
             chatField.visible = false;
         }
         // Rétrécit la saisie à la largeur du chat (laisse la place au bouton emoji).
-        int sw = Minecraft.getInstance().getWindow().getScaledWidth();
+        int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
         chatField.setX(ChatLayout.TEXT_X);
         chatField.setWidth(ChatLayout.inputW(sw));
         EmojiPicker.close(); // picker fermé à chaque ouverture du chat
@@ -52,8 +52,8 @@ public abstract class ChatScreenMixin {
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;fill(IIIII)V"))
     private void reborn$narrowInputBar(GuiGraphicsExtractor ctx, int x1, int y1, int x2, int y2, int color) {
         Minecraft mc = Minecraft.getInstance();
-        int sw = mc.getWindow().getScaledWidth();
-        int sh = mc.getWindow().getScaledHeight();
+        int sw = mc.getWindow().getGuiScaledWidth();
+        int sh = mc.getWindow().getGuiScaledHeight();
         if (y2 >= sh - 2 && (y2 - y1) <= 16 && x2 >= sw - 4) {
             int bw = ChatLayout.boxW(sw);
             ctx.fill(ChatLayout.LEFT, y1, ChatLayout.LEFT + bw, y2, 0xC00A0608);
@@ -69,7 +69,7 @@ public abstract class ChatScreenMixin {
     private void reborn$renderEmoji(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
         EmojiPicker.render(ctx, mouseX, mouseY,
-            mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
     }
 
     // Intercepte les clics sur le bouton/picker avant le reste de l'écran.
@@ -79,7 +79,7 @@ public abstract class ChatScreenMixin {
         if (button != 0) return;
         Minecraft mc = Minecraft.getInstance();
         boolean handled = EmojiPicker.handleClick(mx, my,
-            mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight(),
+            mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(),
             s -> { if (chatField != null) chatField.write(s); });
         if (handled) cir.setReturnValue(true);
     }

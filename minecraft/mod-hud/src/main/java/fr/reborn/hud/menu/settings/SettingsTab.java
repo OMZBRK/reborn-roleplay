@@ -1,7 +1,7 @@
 package fr.reborn.hud.menu.settings;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 
 import java.util.List;
 
@@ -25,7 +25,7 @@ public interface SettingsTab {
     void layout(int x, int y, int width);
 
     /** Widgets cliquables à addRenderableWidget dans le parent Screen. */
-    List<ClickableWidget> widgets();
+    List<AbstractWidget> widgets();
 
     /** Hauteur totale du contenu de ce tab (pour scroll). */
     int height();

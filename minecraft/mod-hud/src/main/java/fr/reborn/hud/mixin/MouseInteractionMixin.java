@@ -45,7 +45,7 @@ public abstract class MouseInteractionMixin {
         double dy = cy - reborn$lastY;
         reborn$lastX = cx;
         reborn$lastY = cy;
-        double sf = Minecraft.getInstance().getWindow().getScaleFactor();
+        double sf = Minecraft.getInstance().getWindow().getGuiScale();
         InteractionMode.INSTANCE.onMouseMove(dx, dy, sf);
         // Garde la position interne de Mouse à jour → pas de saut caméra ensuite.
         this.x = cx;

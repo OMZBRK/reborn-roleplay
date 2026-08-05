@@ -3,9 +3,9 @@ package fr.reborn.hud.mixin;
 import fr.reborn.hud.menu.tablist.TablistScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.hud.PlayerListHud;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.client.gui.PlayerListHud;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.Objective;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -22,7 +22,7 @@ public class PlayerListHudMixin {
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void reborn$tablistRender(GuiGraphicsExtractor ctx, int scaledWindowWidth,
-                                      Scoreboard scoreboard, ScoreboardObjective objective,
+                                      Scoreboard scoreboard, Objective objective,
                                       CallbackInfo ci) {
         // On remplace TOUJOURS le tablist vanilla par celui de Reborn, donc on
         // neutralise le rendu vanilla dès que : l'écran interactif est ouvert,
@@ -31,7 +31,7 @@ public class PlayerListHudMixin {
         // le tab vanilla « flashe » une demi-seconde). Le panneau Reborn est
         // dessiné soit par l'écran, soit par le HudRenderCallback (mode hold).
         Minecraft mc = Minecraft.getInstance();
-        if (mc.currentScreen instanceof TablistScreen
+        if (mc.screen instanceof TablistScreen
             || (mc.options != null && mc.options.playerListKey.isPressed())) {
             ci.cancel();
         }

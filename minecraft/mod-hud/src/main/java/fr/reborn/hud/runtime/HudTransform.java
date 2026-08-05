@@ -9,7 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Helper utilise par les mixins HUD (BossBarHud, InGameHud, ChatHud) pour
+ * Helper utilise par les mixins HUD (BossBarHud, Gui, ChatComponent) pour
  * appliquer offset + scale + visibilité d'un élément.
  *
  * <p>Doit etre HORS du package {@code fr.reborn.hud.mixin.*} parce que
@@ -52,8 +52,8 @@ public final class HudTransform {
     public static void apply(GuiGraphicsExtractor ctx, HudElement element) {
         HudElementState state = readStateSafely(element);
         Minecraft mc = Minecraft.getInstance();
-        int screenW = mc.getWindow().getScaledWidth();
-        int screenH = mc.getWindow().getScaledHeight();
+        int screenW = mc.getWindow().getGuiScaledWidth();
+        int screenH = mc.getWindow().getGuiScaledHeight();
         HudAnchor anchor = state.effectiveAnchor(element);
         HudElementBounds vanilla = HudElementBounds.vanillaFor(element, screenW, screenH);
         int ax = vanilla.x() + Math.round(vanilla.width()  * anchor.fx);

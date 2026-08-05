@@ -8,7 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ public class PlaceholderTab implements SettingsTab {
     private final String subtitle;
     private final String actionLabel; // nullable
     private final Runnable action;    // nullable
-    private final List<ClickableWidget> widgets = new ArrayList<>();
+    private final List<AbstractWidget> widgets = new ArrayList<>();
     private int contentHeight = 0;
 
     public PlaceholderTab(String title, String subtitle, String actionLabel, Runnable action) {
@@ -57,7 +57,7 @@ public class PlaceholderTab implements SettingsTab {
     }
 
     @Override
-    public List<ClickableWidget> widgets() {
+    public List<AbstractWidget> widgets() {
         return widgets;
     }
 
@@ -70,7 +70,7 @@ public class PlaceholderTab implements SettingsTab {
     public void renderPassive(GuiGraphicsExtractor ctx, int x, int y, int width) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         // Badge BIENTÔT.
         Component badge = RebornFont.bold("BIENTÔT");

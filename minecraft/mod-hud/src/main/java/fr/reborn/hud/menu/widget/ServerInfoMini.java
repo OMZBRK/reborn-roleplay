@@ -41,7 +41,7 @@ public final class ServerInfoMini {
     public static void render(GuiGraphicsExtractor ctx, int centerX, int topY) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         ServerInfoState state = ServerInfoState.INSTANCE;
         state.maybeRefresh();

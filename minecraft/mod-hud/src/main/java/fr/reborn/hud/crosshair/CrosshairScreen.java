@@ -11,7 +11,7 @@ import fr.reborn.hud.menu.widget.RebornButton;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -37,7 +37,7 @@ public class CrosshairScreen extends Screen {
     private static final int SCROLLBAR_MIN_THUMB = 28;
 
     private int scrollY = 0;
-    private List<ClickableWidget> contentWidgets = List.of();
+    private List<AbstractWidget> contentWidgets = List.of();
     private int[] baseWidgetY = new int[0];
     private boolean draggingScrollbar = false;
     private int scrollbarGrabDy = 0;
@@ -85,14 +85,14 @@ public class CrosshairScreen extends Screen {
     }
 
     private void rebuildContent() {
-        for (ClickableWidget w : contentWidgets) {
+        for (AbstractWidget w : contentWidgets) {
             this.remove(w);
         }
         tab.layout(contentX(), contentTopBase(), contentW());
         contentWidgets = tab.widgets();
         baseWidgetY = new int[contentWidgets.size()];
         for (int i = 0; i < contentWidgets.size(); i++) {
-            ClickableWidget w = contentWidgets.get(i);
+            AbstractWidget w = contentWidgets.get(i);
             baseWidgetY[i] = w.getY();
             this.addSelectableChild(w);
         }
@@ -117,7 +117,7 @@ public class CrosshairScreen extends Screen {
         int top = viewportTop();
         int bottom = viewportBottom();
         for (int i = 0; i < contentWidgets.size(); i++) {
-            ClickableWidget w = contentWidgets.get(i);
+            AbstractWidget w = contentWidgets.get(i);
             int y = baseWidgetY[i] - scrollY;
             w.setY(y);
             boolean outside = (y + w.getHeight() < top) || (y > bottom);
@@ -140,13 +140,13 @@ public class CrosshairScreen extends Screen {
         ctx.pose().pushMatrix();
         ctx.pose().translate(20, (HEADER_H - 14) / 2f);
         ctx.pose().scale(1.2f, 1.2f);
-        ctx.text(this.textRenderer, title, 0, 0, Colors.WHITE_PURE, false);
+        ctx.text(this.font, title, 0, 0, Colors.WHITE_PURE, false);
         ctx.pose().popMatrix();
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
+        super.extractRenderState(ctx, mouseX, mouseY, delta);
 
         // ─── Panneau d'aperçu (gauche) ───
         int px = previewX(), py = previewY(), pw = previewW(), ph = previewH();
@@ -154,7 +154,7 @@ public class CrosshairScreen extends Screen {
             Colors.BACKGROUND, Colors.BORDER_STRONG);
         // Damier subtil pour juger la lisibilité sur fond clair/sombre.
         drawCheckerboard(ctx, px + 1, py + 1, pw - 2, ph - 2);
-        ctx.text(this.textRenderer, RebornFont.bold("APERÇU"),
+        ctx.text(this.font, RebornFont.bold("APERÇU"),
             px + 12, py + 10, Colors.FOREGROUND_SUBTLE, false);
         // Viseur centré (×2 pour bien le voir).
         CrosshairManager.drawPreview(ctx, px + pw / 2, py + ph / 2, 2.0f);
@@ -163,9 +163,9 @@ public class CrosshairScreen extends Screen {
         int contentYScrolled = contentTopBase() - scrollY;
         ctx.enableScissor(contentX() - 4, viewportTop(), this.width, viewportBottom());
         tab.renderPassive(ctx, contentX(), contentYScrolled, contentW());
-        for (ClickableWidget w : contentWidgets) {
+        for (AbstractWidget w : contentWidgets) {
             if (w.visible) {
-                w.render(ctx, mouseX, mouseY, delta);
+                w.extractRenderState(ctx, mouseX, mouseY, delta);
             }
         }
         ctx.disableScissor();

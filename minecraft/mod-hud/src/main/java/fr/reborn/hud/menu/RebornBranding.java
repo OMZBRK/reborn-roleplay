@@ -3,8 +3,8 @@ package fr.reborn.hud.menu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.multiplayer.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.multiplayer.ServerAddress;
-import net.minecraft.client.multiplayer.ServerInfo;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,10 +89,10 @@ public final class RebornBranding {
         String host = dev ? devHost() : buildHost();
         int port = dev ? devPort() : buildPort();
         String label = dev ? "Reborn Roleplay (DEV)" : "Reborn Roleplay";
-        ServerInfo info = new ServerInfo(
+        ServerData info = new ServerData(
             label,
             host + (port == 25565 ? "" : ":" + port),
-            ServerInfo.ServerType.OTHER
+            ServerData.ServerType.OTHER
         );
         ServerAddress address = new ServerAddress(host, port);
         LOGGER.info("connexion directe a {}:{} (cible={})", host, port, target);
@@ -109,7 +109,7 @@ public final class RebornBranding {
         }
     }
 
-    /** Bouton "Site web" → ouvre le navigateur systeme via Util.getOperatingSystem(). */
+    /** Bouton "Site web" → ouvre le navigateur systeme via Util.getPlatform(). */
     public static void openSite() {
         openUri(SITE_URL);
     }
@@ -121,7 +121,7 @@ public final class RebornBranding {
 
     private static void openUri(String url) {
         try {
-            Util.getOperatingSystem().open(URI.create(url));
+            Util.getPlatform().open(URI.create(url));
         } catch (Exception e) {
             LOGGER.warn("openUri {} echec", url, e);
         }

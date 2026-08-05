@@ -63,7 +63,7 @@ public final class EmojiPicker {
 
     public static void render(GuiGraphicsExtractor ctx, int mouseX, int mouseY, int screenW, int screenH) {
         Minecraft mc = Minecraft.getInstance();
-        var tr = mc.textRenderer;
+        var tr = mc.font;
 
         int bx = buttonX(screenW), by = buttonY(screenH);
         // Bouton rouge (façon Paladium), smiley blanc.

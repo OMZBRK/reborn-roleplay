@@ -1,6 +1,6 @@
 package fr.reborn.hud.animation;
 
-import fr.reborn.hud.config.RebornPrefs;
+import fr.reborn.hud.menu.settings.RebornPrefs;
 import net.minecraft.client.Minecraft;
 
 /**

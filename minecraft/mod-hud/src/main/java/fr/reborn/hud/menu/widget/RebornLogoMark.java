@@ -52,7 +52,7 @@ public final class RebornLogoMark {
 
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         // ── "REBORN" — font display, ombre douce unique ──────────
         int titleW = (int) (tr.width(TITLE_TEXT) * TITLE_SCALE);

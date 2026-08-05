@@ -53,7 +53,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // PlayerListHud vanilla (1 seul joueur, pas d'objectif scoreboard).
         net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((ctx, tickCounter) -> {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc == null || mc.player == null || mc.currentScreen != null || mc.options == null) return;
+            if (mc == null || mc.player == null || mc.screen != null || mc.options == null) return;
             if (!fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold) return;
             if (!mc.options.playerListKey.isPressed()) return;
             fr.reborn.hud.menu.tablist.TablistScreen.renderHoldOverlay(ctx);

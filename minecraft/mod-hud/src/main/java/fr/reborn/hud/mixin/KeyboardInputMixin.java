@@ -2,8 +2,8 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.camera.RebornCamera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.input.Input;
-import net.minecraft.client.input.KeyboardInput;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.client.player.KeyboardInput;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Mixin;
@@ -73,7 +73,7 @@ public abstract class KeyboardInputMixin {
         double dz = fz * mf - lz * ms;
 
         float target = (float) Math.toDegrees(Math.atan2(-dx, dz));
-        float ny = Mth.lerpAngleDegrees((float) cam.turnSpeed(), player.getYaw(), target);
+        float ny = Mth.lerpAngleDegrees((float) cam.turnSpeed(), player.getYRot(), target);
         player.setYaw(ny);
         player.setBodyYaw(ny);
         player.setHeadYaw(ny);

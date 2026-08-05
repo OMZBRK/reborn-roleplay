@@ -132,7 +132,7 @@ public class CameraScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
+        super.extractRenderState(ctx, mouseX, mouseY, delta);
 
         int x = panelX() + PAD;
 
@@ -140,7 +140,7 @@ public class CameraScreen extends Screen {
         ctx.pose().pushMatrix();
         ctx.pose().translate(x, 24);
         ctx.pose().scale(1.3f, 1.3f);
-        ctx.text(this.textRenderer, RebornFont.bold("CAMÉRA"), 0, 0, Colors.WHITE_PURE, false);
+        ctx.text(this.font, RebornFont.bold("CAMÉRA"), 0, 0, Colors.WHITE_PURE, false);
         ctx.pose().popMatrix();
 
         // Labels au-dessus des sliders.
@@ -151,7 +151,7 @@ public class CameraScreen extends Screen {
     }
 
     private void label(GuiGraphicsExtractor ctx, String text, SliderWidget s) {
-        ctx.text(this.textRenderer, RebornFont.body(text),
+        ctx.text(this.font, RebornFont.body(text),
             s.getX(), s.getY() - LABEL_H, Colors.FOREGROUND_SUBTLE, false);
     }
 

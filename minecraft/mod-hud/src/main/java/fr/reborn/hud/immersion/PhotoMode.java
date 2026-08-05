@@ -2,7 +2,7 @@ package fr.reborn.hud.immersion;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Perspective;
+import net.minecraft.client.CameraType;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.world.phys.Vec3;
 
@@ -29,7 +29,7 @@ public final class PhotoMode {
     private double anchorX, anchorY, anchorZ;
     private float yaw, pitch;
     private boolean pendingCapture = false;
-    private Perspective savedPerspective = Perspective.FIRST_PERSON;
+    private CameraType savedPerspective = CameraType.FIRST_PERSON;
     /** Vitesse de déplacement de la caméra (réglable dans le panneau). */
     private float cameraSpeed = 0.35f;
 
@@ -42,8 +42,8 @@ public final class PhotoMode {
         if (mc.player == null) return;
         Vec3 eye = mc.player.getEyePosition();
         x = eye.x; y = eye.y; z = eye.z;
-        yaw = mc.player.getYaw();
-        pitch = mc.player.getPitch();
+        yaw = mc.player.getYRot();
+        pitch = mc.player.getXRot();
     }
 
     /** true si une touche de déplacement est physiquement enfoncée. */
@@ -65,16 +65,16 @@ public final class PhotoMode {
         Vec3 eye = mc.player.getEyePosition();
         x = eye.x; y = eye.y; z = eye.z;
         anchorX = x; anchorY = y; anchorZ = z;
-        yaw = mc.player.getYaw();
-        pitch = mc.player.getPitch();
-        savedPerspective = mc.options.getPerspective();
-        mc.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+        yaw = mc.player.getYRot();
+        pitch = mc.player.getXRot();
+        savedPerspective = mc.options.getCameraType();
+        mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
         active = true;
     }
 
     public void end(Minecraft mc) {
         active = false;
-        if (mc.options != null) mc.options.setPerspective(savedPerspective);
+        if (mc.options != null) mc.options.setCameraType(savedPerspective);
     }
 
     public Vec3 pos() { return new Vec3(x, y, z); }
@@ -91,8 +91,8 @@ public final class PhotoMode {
     public void tickMovement(Minecraft mc) {
         if (!active || mc.options == null) return;
         // Bloque le changement de vue (F5) pendant le mode.
-        if (mc.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
-            mc.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+        if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
+            mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
         }
         long win = mc.getWindow().getHandle();
         float f = 0, s = 0, up = 0;
@@ -124,9 +124,9 @@ public final class PhotoMode {
     }
 
     private static boolean solid(Minecraft mc, double x, double y, double z) {
-        if (mc.world == null) return false;
+        if (mc.level == null) return false;
         net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.ofFloored(x, y, z);
-        return !mc.world.getBlockState(pos).getCollisionShape(mc.world, pos).isEmpty();
+        return !mc.level.getBlockState(pos).getCollisionShape(mc.level, pos).isEmpty();
     }
 
     /** État physique d'une touche (marche même avec un écran ouvert). */

@@ -3,7 +3,7 @@ package fr.reborn.hud.mixin;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.runtime.HudTransform;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.hud.BossBarHud;
+import net.minecraft.client.gui.BossBarHud;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

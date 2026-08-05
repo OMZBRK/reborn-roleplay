@@ -30,7 +30,7 @@ public final class CreditsCorner {
     public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        Font tr = client.textRenderer;
+        Font tr = client.font;
 
         int scaledW = Math.round(tr.width(VERSION_TEXT) * TEXT_SCALE);
         int x = (screenW - scaledW) / 2;

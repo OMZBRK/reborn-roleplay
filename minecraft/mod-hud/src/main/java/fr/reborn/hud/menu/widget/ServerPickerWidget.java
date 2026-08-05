@@ -9,8 +9,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.narration.NarrationPart;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.narration.NarratedElementType;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -25,7 +25,7 @@ import net.minecraft.network.chat.Component;
  * positionne à sa droite et la zone de survol couvre JOUER + le popup (gap
  * inclus) pour qu'on puisse glisser de l'un à l'autre sans qu'il disparaisse.
  */
-public class ServerPickerWidget extends ClickableWidget {
+public class ServerPickerWidget extends AbstractWidget {
 
     private static final int ROW_H = 16;
     private static final int POPUP_W = 150;
@@ -60,13 +60,13 @@ public class ServerPickerWidget extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
         refreshPings();
         if (!revealed(mouseX, mouseY)) return; // rien hors survol de JOUER
 
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
         int x = getX(), y = getY(), w = getWidth();
         ServerTarget target = RebornBranding.target();
 
@@ -137,6 +137,6 @@ public class ServerPickerWidget extends ClickableWidget {
 
     @Override
     protected void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(NarrationPart.TITLE, Component.literal("Sélecteur de serveur BUILD / DEV"));
+        ;
     }
 }

@@ -7,7 +7,7 @@ import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -26,7 +26,7 @@ import net.minecraft.network.chat.Component;
  *   └────┘
  * </pre>
  */
-public class OSTVolumePopup extends ClickableWidget {
+public class OSTVolumePopup extends AbstractWidget {
 
     public static final int WIDTH = 36;
     public static final int HEIGHT = 100;
@@ -50,11 +50,11 @@ public class OSTVolumePopup extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         if (!isOpen()) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        var tr = mc.textRenderer;
+        var tr = mc.font;
 
         int x = getX();
         int y = getY();
@@ -124,7 +124,7 @@ public class OSTVolumePopup extends ClickableWidget {
 
     @Override
     public void updateWidgetNarration(NarrationElementOutput builder) {
-        builder.put(net.minecraft.client.gui.narration.NarrationPart.TITLE,
+        builder.put(net.minecraft.client.gui.narration.NarratedElementType.TITLE,
             "Volume " + Math.round(OSTPlayer.INSTANCE.getVolume() * 100) + " pourcent");
     }
 }

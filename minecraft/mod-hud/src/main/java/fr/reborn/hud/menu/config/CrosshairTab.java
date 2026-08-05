@@ -12,7 +12,7 @@ import fr.reborn.hud.menu.settings.ToggleBig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.ClickableWidget;
+import net.minecraft.client.gui.components.AbstractWidget;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +24,7 @@ import java.util.List;
  */
 public class CrosshairTab implements SettingsTab {
 
-    private final List<ClickableWidget> widgets = new ArrayList<>();
+    private final List<AbstractWidget> widgets = new ArrayList<>();
     private int contentHeight = 0;
 
     private static final int ROW_HEIGHT = 38;
@@ -168,7 +168,7 @@ public class CrosshairTab implements SettingsTab {
     }
 
     @Override
-    public List<ClickableWidget> widgets() {
+    public List<AbstractWidget> widgets() {
         return widgets;
     }
 
@@ -181,7 +181,7 @@ public class CrosshairTab implements SettingsTab {
     public void renderPassive(GuiGraphicsExtractor ctx, int x, int y, int width) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        Font tr = mc.textRenderer;
+        Font tr = mc.font;
 
         // Section.
         ctx.pose().pushMatrix();
