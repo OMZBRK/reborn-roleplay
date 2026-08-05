@@ -12,6 +12,7 @@ import fr.reborn.ost.network.OstNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
@@ -149,7 +150,7 @@ public class OstScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         boolean hasFrame = mc.getResourceManager().getResource(FRAME).isPresent();
         if (hasFrame) {
-            g.blit(FRAME, px, py, pw, ph, 0f, 0f, 1f, 1f);
+            g.blit(RenderPipelines.GUI_TEXTURED, FRAME, px, py, 0f, 0f, pw, ph, DW, DH);
         } else {
             panel(g, px, py, pw, ph, BG);
         }
@@ -247,7 +248,7 @@ public class OstScreen extends Screen {
 
     private void drawIconBtn(GuiGraphicsExtractor g, Identifier icon, int x, int y, int mouseX, int mouseY) {
         if (in(mouseX, mouseY, x, y, 16, 16)) roundRect(g, x - 1, y - 1, 18, 18, ROW_HOVER);
-        g.blit(icon, x, y, 16, 16, 0f, 0f, 1f, 1f);
+        g.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0f, 0f, 16, 16, 16, 16);
     }
 
     private void renderList(GuiGraphicsExtractor g, Font tr, int mouseX, int mouseY) {
@@ -327,9 +328,9 @@ public class OstScreen extends Screen {
             g.pose().translate(-(x + size / 2f), -(y + size / 2f));
         }
         if (cover != null && mc.getResourceManager().getResource(cover).isPresent()) {
-            g.blit(cover, x, y, size, size, 0f, 0f, 1f, 1f);
+            g.blit(RenderPipelines.GUI_TEXTURED, cover, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
         } else if (mc.getResourceManager().getResource(VINYL).isPresent()) {
-            g.blit(VINYL, x, y, size, size, 0f, 0f, 1f, 1f);
+            g.blit(RenderPipelines.GUI_TEXTURED, VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
             int cx = x + size / 2, cy = y + size / 2;
             // Tint SUBTIL du centre selon le thème (semi-transparent → garde le
             // détail/relief du vinyl d'origine au lieu d'un disque plein).
@@ -344,7 +345,7 @@ public class OstScreen extends Screen {
     private void drawVinylPlaceholder(GuiGraphicsExtractor g, int x, int y, int size) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getResourceManager().getResource(VINYL).isPresent()) {
-            g.blit(VINYL, x, y, size, size, 0f, 0f, 1f, 1f);
+            g.blit(RenderPipelines.GUI_TEXTURED, VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
         } else {
             g.fill(x, y, x + size, y + size, 0xFF2A1A1E);
         }
