@@ -15,3 +15,4 @@ out/
 
 # fabric-loom runs
 run/
+e*.txt
