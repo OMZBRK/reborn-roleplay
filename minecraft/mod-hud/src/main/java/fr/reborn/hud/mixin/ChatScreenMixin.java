@@ -28,19 +28,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin {
 
-    @Shadow protected EditBox chatField;
+    @Shadow protected EditBox input;
 
     @Inject(method = "init", at = @At("TAIL"))
     private void reborn$chatFieldVisibility(CallbackInfo ci) {
-        if (chatField == null) return;
+        if (input == null) return;
         HudElementState state = readStateSafely();
         if (!state.visible()) {
-            chatField.visible = false;
+            input.visible = false;
         }
         // Rétrécit la saisie à la largeur du chat (laisse la place au bouton emoji).
         int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
-        chatField.setX(ChatLayout.TEXT_X);
-        chatField.setWidth(ChatLayout.inputW(sw));
+        input.setX(ChatLayout.TEXT_X);
+        input.setWidth(ChatLayout.inputW(sw));
         EmojiPicker.onClose(); // picker fermé à chaque ouverture du chat
     }
 
@@ -73,17 +73,15 @@ public abstract class ChatScreenMixin {
     }
 
     // Intercepte les clics sur le bouton/picker avant le reste de l'écran.
-    // FIXME 26.1 (phase 2) : Screen#mouseClicked est devenu
-    // mouseClicked(MouseButtonEvent, boolean) — ce handler (double,double,int) ne s'appliquera
-    // plus tel quel ; adapter la signature (event.x()/y()/button()) au recâblage.
+    // 26.1 : Screen#mouseClicked(double,double,int) -> mouseClicked(MouseButtonEvent, boolean).
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
-    private void reborn$clickEmoji(double mx, double my, int button,
+    private void reborn$clickEmoji(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick,
                                    CallbackInfoReturnable<Boolean> cir) {
-        if (button != 0) return;
+        if (event.button() != 0) return;
         Minecraft mc = Minecraft.getInstance();
-        boolean handled = EmojiPicker.handleClick(mx, my,
+        boolean handled = EmojiPicker.handleClick(event.x(), event.y(),
             mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(),
-            s -> { if (chatField != null) chatField.insertText(s); });
+            s -> { if (input != null) input.insertText(s); });
         if (handled) cir.setReturnValue(true);
     }
 

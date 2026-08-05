@@ -8,16 +8,13 @@
     "ChatHudAddMessageMixin",
     "ChatScreenMixin",
     "InGameHudMixin",
-    "InGameHudInvoker",
     "MusicTrackerMixin",
     "CrosshairHitMixin",
-    "CameraThirdPersonMixin",
     "EntityChangeLookMixin",
     "KeyboardInputMixin",
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",
     "InGameHudCinemaMixin",
-    "CameraPhotoMixin",
     "KeyboardInputPhotoMixin",
     "ScreenshotRecorderMixin",
     "PlayerListHudMixin",
@@ -27,6 +24,6 @@
     "menu.ConnectScreenMixin"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   }
 }
