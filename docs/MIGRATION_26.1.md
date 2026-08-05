@@ -22,20 +22,41 @@
   `_26.1-migration/` (SFTP), configs backupées, `CUTOVER.md` écrit. **Non-destructif**
   (serveur 1.21.1 en cours intact) → bascule = geste manuel admin (Java 25 panel + snapshot monde).
 
-**⛔ BLOQUÉ — mods client Reborn (reborn-hud / ost / integrity) :**
-- Découverte : depuis 26.x **le client Mojang est livré DÉOBFUSQUÉ** (noms officiels dans
-  le jar), **Yarn ET les mappings Mojang n'existent plus**. Nouveau Loom (`net.fabricmc.fabric-loom`
-  snapshot) requis. Source des mods remappée vers les noms réels (ex `ResourceLocation`→**`Identifier`**,
-  `PacketByteBuf`→`FriendlyByteBuf`, `PacketCodec`→`StreamCodec`, `CustomPayload`→`CustomPacketPayload`).
-- **mod-integrity compile déjà le code MC** (custom payload OK). **Blocage restant** : le nouveau
-  Loom déobf ne remappe pas les modules **fabric-api** vers les noms nommés → `PayloadTypeRegistry.playC2S()`
-  introuvable. La config `implementation include(fabricApi.module("fabric-networking-api-v1", …))`
-  (pattern ModMenu 26.1) n'a pas suffi ici. **À finir** : trouver l'incantation Loom exacte qui
-  remappe fabric-api pour un mod réseau (piste : Loom dev channel / vrai mod réseau 26.1 open-source).
-- **mod-hud** (le gros) en plus : port **MCEF officiel → `mcef-modern 0.3.3+mc26.1`** (API à adapter),
-  ~21 mixins à re-valider, addon PlasmoVoice `2.1.13`, rendu (`GuiGraphics`/`drawEntity`…) — **nécessite
-  validation in-game** (impossible en headless).
+**✅ mod-integrity BUILDÉ (reborn-integrity 0.3.0)** — réseau uniquement, aucun UI. La
+recette de build 26.1 est **prouvée** (voir « RECETTE » ci-dessous).
+
+**⛔ mod-ost + mod-hud = chantier de RÉÉCRITURE UI (pas un simple remap) :**
+- **26.x a refondu tout le système de rendu GUI** : `DrawContext`/`GuiGraphics` **n'existe plus**
+  (remplacé par un nouveau pipeline de rendu). Tout code UI (`OstScreen`/`OstHudOverlay` de mod-ost,
+  et **la totalité de mod-hud** : tablist, character screens, HUD panel, ~21 mixins) doit être
+  **réécrit** contre la nouvelle API 26.x, + **validé en jeu** (impossible en headless).
+- mod-hud en plus : swap **MCEF → `mcef-modern 0.3.3+mc26.1`** (API à adapter), addon PlasmoVoice `2.1.13`.
 - ⇒ **Modpack 26.1 + republication launcher/manifest = EN ATTENTE** des 3 mods (ne pas pousser en prod).
+
+### 🍳 RECETTE build mod client 26.1 (PROUVÉE sur mod-integrity)
+1. **build.gradle Groovy** (pas .kts) : `id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'`,
+   **AUCUNE ligne `mappings(...)`** (client déobfusqué → noms officiels par défaut),
+   `implementation "net.fabricmc:fabric-loader:0.19.3"`, fabric-api soit complet
+   `implementation "net.fabricmc.fabric-api:fabric-api:0.155.2+26.1.2"` soit par module
+   `implementation fabricApi.module("fabric-networking-api-v1", …)`. **Plus de `modImplementation`**
+   (supprimé par le Loom déobf). `release/VERSION_25`.
+2. **settings** : pluginManagement repos = Fabric maven + mavenCentral + gradlePluginPortal.
+3. **gradle.properties** : minecraft `26.1.2`, loader `0.19.3`, fabric `0.155.2+26.1.2` (plus de yarn).
+4. **fabric.mod.json** : `minecraft: ">=26.1 <26.2"`, `java: ">=25"`. **mixins.json** : `JAVA_25`.
+5. **Build** : `JAVA_HOME=D:\dev-cache\jdk25\jdk-25.0.4+7  ./gradlew build -x test --no-daemon`.
+
+### 🗺️ Renames Yarn → noms réels 26.1 (VÉRIFIÉS via javap sur le jar déobfusqué)
+⚠️ Les vrais noms Mojang ≠ « mojmap » : **vérifier chaque classe** dans le jar
+(`$CLAUDE_JOB_DIR/tmp/client2612.jar`, `javap -classpath …`). Confirmés :
+`net.minecraft.util.Identifier`→**`net.minecraft.resources.Identifier`** (nom identique, package change) ·
+`PacketByteBuf`→`net.minecraft.network.FriendlyByteBuf` · `PacketCodec`→`net.minecraft.network.codec.StreamCodec` ·
+`CustomPayload`→`net.minecraft.network.protocol.common.custom.CustomPacketPayload` (+ nested **`.Id`→`.Type`**, `getId()`→`type()`) ·
+`MinecraftClient`→`net.minecraft.client.Minecraft` · `TextRenderer`→`net.minecraft.client.gui.Font` ·
+`KeyBinding`→`net.minecraft.client.KeyMapping` · `Screen`→`net.minecraft.client.gui.screens.Screen` ·
+`TextFieldWidget`→`net.minecraft.client.gui.components.EditBox` (package `gui.widget`→`gui.components`) ·
+`Text`→`net.minecraft.network.chat.Component`.
+**❌ `DrawContext`/`GuiGraphics` : SUPPRIMÉ en 26.x** (refonte rendu → réécriture, pas un rename).
+fabric-api : **`PayloadTypeRegistry.playC2S()`→`serverboundPlay()`** (`playS2C`→`clientboundPlay`).
 
 ---
 

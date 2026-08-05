@@ -33,12 +33,13 @@ repositories {
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    // ⚠️ WIP 26.1 : le client Mojang est deobfusque (noms officiels), Loom deobf
-    // (net.fabricmc.fabric-loom snapshot) a supprime `modImplementation`. Le code
-    // MC compile (custom payload OK) mais fabric-api n'est pas remappe vers les
-    // noms officiels -> PayloadTypeRegistry.playC2S() introuvable. Incantation
-    // Loom exacte pour remapper fabric-api (mod reseau) restant a trouver.
-    implementation include(fabricApi.module("fabric-networking-api-v1", project.fabric_version))
+    // 26.x deobf : Loom (net.fabricmc.fabric-loom snapshot) supprime
+    // `modImplementation` ; les modules fabric-api passent par le helper
+    // `fabricApi.module(...)` (remap vers les noms officiels). Pas de `include`
+    // (fabric-api est fourni par le modpack au runtime, on ne le bundle pas).
+    // fabric-networking-api-v1 = ClientPlayConnectionEvents / ClientPlayNetworking
+    // / PayloadTypeRegistry (6.x : serverboundPlay() ex-playC2S()).
+    implementation fabricApi.module("fabric-networking-api-v1", project.fabric_version)
 }
 
 processResources {

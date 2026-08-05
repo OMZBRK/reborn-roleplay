@@ -42,7 +42,8 @@ public final class RebornIntegrityClient implements ClientModInitializer {
         loadPlayToken();
         // Enregistre le type de payload cote C2S (client → server). Sans
         // ca, ClientPlayNetworking.send refuse de transmettre par securite.
-        PayloadTypeRegistry.playC2S().register(AuthPayload.ID, AuthPayload.CODEC);
+        // fabric-networking-api-v1 6.x : playC2S() renomme serverboundPlay().
+        PayloadTypeRegistry.serverboundPlay().register(AuthPayload.ID, AuthPayload.CODEC);
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (playToken == null || playToken.isBlank()) {
