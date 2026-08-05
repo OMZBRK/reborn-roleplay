@@ -3,7 +3,7 @@ package fr.reborn.hud.mixin;
 import fr.reborn.hud.menu.tablist.TablistScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.PlayerListHud;
+import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.Objective;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,10 +17,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * maintenue. Le reste du temps, les clients sans le mod gardent l'affichage
  * serveur normal.
  */
-@Mixin(PlayerListHud.class)
+@Mixin(PlayerTabOverlay.class)
 public class PlayerListHudMixin {
 
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    // 26.1 : PlayerListHud → PlayerTabOverlay, render → extractRenderState.
+    @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
     private void reborn$tablistRender(GuiGraphicsExtractor ctx, int scaledWindowWidth,
                                       Scoreboard scoreboard, Objective objective,
                                       CallbackInfo ci) {

@@ -9,7 +9,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.network.ClientConnection;
+import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -30,7 +30,7 @@ import java.util.List;
  * <p>Le bouton Annuler vanilla (pixelisé gris) est <strong>remplacé</strong>
  * par un {@link RebornButton#ghost} en bas de l'écran. L'action de
  * fallback reproduit le comportement vanilla : passe {@code
- * connectingCancelled} à true, disconnect la {@link ClientConnection}
+ * aborted} à true, disconnect la {@link Connection}
  * si déjà ouverte, et revient à l'écran parent — tous accédés via
  * {@code @Shadow}.
  *
@@ -43,11 +43,12 @@ public abstract class ConnectScreenMixin extends Screen {
     @Shadow
     private Component status;
 
+    // 26.1 : ClientConnection → Connection ; connectingCancelled → aborted.
     @Shadow
-    volatile boolean connectingCancelled;
+    volatile boolean aborted;
 
     @Shadow
-    volatile ClientConnection connection;
+    volatile Connection connection;
 
     @Shadow
     @org.spongepowered.asm.mixin.Final
@@ -85,19 +86,19 @@ public abstract class ConnectScreenMixin extends Screen {
 
     /**
      * Reproduit l'action vanilla du bouton Cancel : marque la connexion
-     * comme cancellée, disconnect la {@link ClientConnection} si
+     * comme cancellée, disconnect la {@link Connection} si
      * ouverte, retourne au screen parent.
      */
     @org.spongepowered.asm.mixin.Unique
     private void reborn$cancelConnect() {
-        this.connectingCancelled = true;
+        this.aborted = true;
         if (this.connection != null) {
             this.connection.disconnect(Component.translatable("connect.aborted"));
         }
         Minecraft.getInstance().setScreen(this.parent);
     }
 
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
     private void reborn$customRender(GuiGraphicsExtractor ctx, int mouseX, int mouseY,
                                      float delta, CallbackInfo ci) {
         // 1. Rendu Reborn (background, spinner, status text, progress bar).

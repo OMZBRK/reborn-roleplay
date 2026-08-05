@@ -125,7 +125,7 @@ public class OSTPlaylistOverlay extends AbstractWidget {
         }
 
         // Indicateur play à gauche.
-        if (active && ost.isPlaying()) {
+        if (active && ost.isActive()) {
             // Mini triangle play.
             int triX = parentX + 12;
             int triCy = rowY + ROW_H / 2;

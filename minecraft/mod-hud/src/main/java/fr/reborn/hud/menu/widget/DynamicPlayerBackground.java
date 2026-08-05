@@ -157,7 +157,7 @@ public final class DynamicPlayerBackground {
     public static void dispose() {
         if (browser != null) {
             try {
-                browser.close();
+                browser.onClose();
             } catch (Throwable ignored) {
                 // best-effort
             }

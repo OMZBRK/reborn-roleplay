@@ -23,7 +23,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.client.gui.screens.level.SelectWorldScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
@@ -208,7 +208,7 @@ public abstract class TitleScreenMixin extends Screen {
      * au-dessus de tout ce que vanilla a buffered (logo MC, splash text,
      * version Fabric, copyright).
      */
-    @Inject(method = "render", at = @At("TAIL"))
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void reborn$renderOverlay(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         boolean menu = !MainMenuFlow.isSplash();
         boolean ostRevealed = menu && (
@@ -236,8 +236,10 @@ public abstract class TitleScreenMixin extends Screen {
             c.active = menu;
         }
 
+        // 26.1 : la pose GUI est une Matrix3x2fStack (2D) — plus d'axe Z. Le
+        // @Inject à TAIL de extractRenderState nous place déjà par-dessus tout ce
+        // que vanilla a dessiné, donc l'ancien push Z+=400 n'a plus lieu d'être.
         context.pose().pushMatrix();
-        context.pose().translate(0, 0, 400);
 
         if (MainMenuFlow.isSplash()) {
             // SPLASH : fond MCEF → flou gaussien du framebuffer → contenu net.
@@ -245,8 +247,11 @@ public abstract class TitleScreenMixin extends Screen {
             // menu (réglage « Menu background blurriness ») sur tout ce qui est
             // déjà dans le framebuffer — d'où le flou du décor derrière le logo.
             DynamicPlayerBackground.render(context, this.width, this.height);
-            context.draw();
-            this.applyBlur(delta);
+            // STUB 26.1 (phase 2) : plus de flush manuel (context.draw()) dans le
+            // modèle « extraction » — le rendu est différé par le moteur.
+            // applyBlur(float) → extractBlurredBackground(GuiGraphicsExtractor) :
+            // applique le flou du menu sur le framebuffer déjà dessiné.
+            this.extractBlurredBackground(context);
             SplashOverlay.render(context, this.width, this.height);
         } else {
             // Chrome menu (BG MCEF + chrome + widgets par-dessus).

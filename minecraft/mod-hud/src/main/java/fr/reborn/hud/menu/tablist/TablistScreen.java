@@ -80,7 +80,7 @@ public class TablistScreen extends Screen {
     @Override
     protected void init() {
         selfName = (this.minecraft != null && this.minecraft.player != null)
-            ? this.minecraft.player.getProfile().getName() : "Vous";
+            ? this.minecraft.player.getProfile().name().orElse("Vous") : "Vous";
 
         Geom g = geom();
         search = new EditBox(this.font, g.searchX() + 2, g.searchY() + 2,
@@ -358,7 +358,7 @@ public class TablistScreen extends Screen {
         int w = mc.getWindow().getGuiScaledWidth();
         int h = mc.getWindow().getGuiScaledHeight();
         Geom g = geom(w, h);
-        List<TabEntry> all = TablistData.entries(mc.player.getProfile().getName());
+        List<TabEntry> all = TablistData.entries(mc.player.getProfile().name().orElse("Vous"));
         drawPanel(ctx, mc.font, g, all, 3, "", TablistData.rpDate(), false, null, 0, -1, -1);
     }
 
@@ -402,7 +402,7 @@ public class TablistScreen extends Screen {
         int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
         boolean typing = search != null && search.isFocused();
         if (!typing && (keyCode == 258 /* TAB */
-            || (this.minecraft != null && this.minecraft.options.keyPlayerList.matchesKey(keyCode, scanCode)))) {
+            || (this.minecraft != null && this.minecraft.options.keyPlayerList.matches(event)))) {
             onClose();
             return true;
         }

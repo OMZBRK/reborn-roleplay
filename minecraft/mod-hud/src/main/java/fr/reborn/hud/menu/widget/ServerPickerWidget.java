@@ -71,7 +71,7 @@ public class ServerPickerWidget extends AbstractWidget {
         ServerTarget target = RebornBranding.target();
 
         ctx.pose().pushMatrix();
-        ctx.pose().translate(0, 0, 30); // au-dessus du décor/menu
+        ctx.pose().translate(0, 0); // 26.1 : pose GUI 2D, l'ordre de dessin gère la superposition
         // Panneau.
         ctx.fill(x, y, x + w, y + 2 * ROW_H, Colors.BACKDROP_85);
         drawRow(ctx, tr, "BUILD", ServerInfoState.INSTANCE, x, y, w,

@@ -49,7 +49,7 @@ public class PlaceholderTab implements SettingsTab {
         if (actionLabel != null && action != null) {
             Button btn = Button.builder(
                 RebornFont.body(actionLabel), b -> action.run())
-                .dimensions(x, cursorY, 220, 22).build();
+                .bounds(x, cursorY, 220, 22).build();
             widgets.add(btn);
             cursorY += 40;
         }

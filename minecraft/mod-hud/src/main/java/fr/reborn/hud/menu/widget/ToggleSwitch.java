@@ -66,7 +66,7 @@ public class ToggleSwitch extends AbstractWidget {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x(), mouseY = event.y(); int button = event.button();
-        if (button == 0 && this.active && this.visible && clicked(mouseX, mouseY)) {
+        if (button == 0 && this.active && this.visible && isMouseOver(mouseX, mouseY)) {
             onToggle.accept(!getter.getAsBoolean());
             playDownSound(Minecraft.getInstance().getSoundManager());
             return true;

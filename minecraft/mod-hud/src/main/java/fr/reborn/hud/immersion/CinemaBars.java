@@ -44,8 +44,8 @@ public final class CinemaBars {
         if (progress <= 0.001f) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui) return;
-        int w = ctx.getScaledWindowWidth();
-        int h = ctx.getScaledWindowHeight();
+        int w = ctx.guiWidth();
+        int h = ctx.guiHeight();
         int barH = Math.round(h * BAR_FRACTION * progress);
         if (barH <= 0) return;
         ctx.fill(0, 0, w, barH, 0xFF000000);

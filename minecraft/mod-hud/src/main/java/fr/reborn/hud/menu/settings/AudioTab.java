@@ -50,13 +50,13 @@ public class AudioTab extends SectionedTab {
     }
 
     private static int pct(Options o, SoundSource cat) {
-        return (int) Math.round(o.getSoundVolumeOption(cat).getValue() * 100);
+        return (int) Math.round(o.getSoundSourceOptionInstance(cat).get() * 100);
     }
 
     private static void applyVolume(SoundSource category, int percent) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
-        mc.options.getSoundVolumeOption(category).setValue(percent / 100.0);
+        mc.options.getSoundSourceOptionInstance(category).set(percent / 100.0);
         mc.options.save();
     }
 

@@ -1,10 +1,10 @@
 package fr.reborn.hud.interaction;
 
-import net.minecraft.world.level.block.BlockState;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 
@@ -27,7 +27,7 @@ public final class InteractionMenus {
     public static void sendCommand(String command) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getConnection() != null) {
-            mc.getConnection().sendChatCommand(command);
+            mc.getConnection().sendCommand(command);
         }
     }
 
@@ -35,7 +35,7 @@ public final class InteractionMenus {
     public static void info(String text) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.gui != null) {
-            mc.gui.getChatHud().addMessage(Component.literal("§6[Reborn] §f" + text));
+            mc.gui.getChat().addClientSystemMessage(Component.literal("§6[Reborn] §f" + text));
         }
     }
 
@@ -79,7 +79,7 @@ public final class InteractionMenus {
             InteractionItem.action("Inspecter (" + type + ")", () -> {
                 String hp = (e instanceof LivingEntity le)
                     ? " §7| PV " + (int) le.getHealth() + "/" + (int) le.getMaxHealth() : "";
-                info("§e" + type + " §7| pos " + e.getBlockPos().toShortString() + hp);
+                info("§e" + type + " §7| pos " + e.blockPosition().toShortString() + hp);
             }),
             InteractionItem.action("Copier la position",
                 () -> copy(e.getBlockX() + " " + e.getBlockY() + " " + e.getBlockZ()))
@@ -92,7 +92,7 @@ public final class InteractionMenus {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.level == null) return;
                 BlockState bs = mc.level.getBlockState(pos);
-                info("§e" + Registries.BLOCK.getId(bs.getBlock())
+                info("§e" + BuiltInRegistries.BLOCK.getKey(bs.getBlock())
                     + " §7@ " + pos.toShortString());
             }),
             InteractionItem.action("Verrouiller / Cadenas", () -> sendCommand("lock")),

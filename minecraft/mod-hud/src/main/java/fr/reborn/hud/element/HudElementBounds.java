@@ -58,12 +58,12 @@ public record HudElementBounds(int x, int y, int width, int height) {
     public static HudElementBounds currentFor(HudElement element, HudElementState state,
                                               int screenWidth, int screenHeight) {
         HudElementBounds v = vanillaFor(element, screenWidth, screenHeight);
-        int newW = Math.max(8, Math.round(v.getWidth()  * state.scale()));
-        int newH = Math.max(8, Math.round(v.getHeight() * state.scale()));
+        int newW = Math.max(8, Math.round(v.width()  * state.scale()));
+        int newH = Math.max(8, Math.round(v.height() * state.scale()));
 
         HudAnchor anchor = state.effectiveAnchor(element);
-        int anchorX = v.x() + Math.round(v.getWidth()  * anchor.fx);
-        int anchorY = v.y() + Math.round(v.getHeight() * anchor.fy);
+        int anchorX = v.x() + Math.round(v.width()  * anchor.fx);
+        int anchorY = v.y() + Math.round(v.height() * anchor.fy);
         int targetX = anchorX + state.x();
         int targetY = anchorY + state.y();
         int newX = targetX - Math.round(newW * anchor.fx);

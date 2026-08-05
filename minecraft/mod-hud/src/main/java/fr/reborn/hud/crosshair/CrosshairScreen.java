@@ -60,7 +60,7 @@ public class CrosshairScreen extends Screen {
     private int viewportBottom() { return this.height - VIEWPORT_BOTTOM_PAD; }
     private int viewportH() { return Math.max(0, viewportBottom() - viewportTop()); }
     private int contentTopBase() { return viewportTop() + CONTENT_TOP_PAD; }
-    private int contentBottom() { return contentTopBase() + tab.getHeight() + BOTTOM_MARGIN; }
+    private int contentBottom() { return contentTopBase() + tab.height() + BOTTOM_MARGIN; }
     private int maxScroll() { return Math.max(0, contentBottom() - viewportBottom()); }
     private boolean hasScroll() { return maxScroll() > 0; }
 

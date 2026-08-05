@@ -127,7 +127,7 @@ public final class InteractionMode {
         if (hit instanceof EntityHitResult ehr) {
             Entity e = ehr.getEntity();
             if (e instanceof Player pe) {
-                title = pe.getProfile().getName();
+                title = pe.getGameProfile().name();
                 items = InteractionMenus.forPlayer(title);
             } else {
                 title = e.getType().getDescription().getString();
@@ -247,7 +247,7 @@ public final class InteractionMode {
         } else {
             // Mode curseur (pas encore de menu) : petit indice.
             ctx.pose().pushMatrix();
-            ctx.pose().translate(cursorX + 10, cursorY + 2);
+            ctx.pose().translate((float) (cursorX + 10), (float) (cursorY + 2));
             ctx.pose().scale(0.85f, 0.85f);
             ctx.text(tr, RebornFont.body("Clic : interagir"), 0, 0, Colors.FOREGROUND_MUTED, false);
             ctx.pose().popMatrix();

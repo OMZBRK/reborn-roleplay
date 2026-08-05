@@ -2,7 +2,7 @@ package fr.reborn.hud.screenshot;
 
 import fr.reborn.hud.menu.Colors;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -36,7 +36,9 @@ public final class CapturePreview {
     }
 
     public void registerClient() {
-        HudRenderCallback.EVENT.register((ctx, tickDelta) -> render(ctx));
+        HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "capture-preview"),
+            (ctx, tickCounter) -> render(ctx));
         ClientTickEvents.END_CLIENT_TICK.register(client -> tick());
     }
 
@@ -67,9 +69,9 @@ public final class CapturePreview {
 
         var tr = mc.font;
         int w = TW + PAD * 2, h = TH + PAD * 2 + 22;
-        int fullX = ctx.getScaledWindowWidth() - w - 8;
+        int fullX = ctx.guiWidth() - w - 8;
         int x = fullX + (int) ((1f - ease) * (w + 12));
-        int y = ctx.getScaledWindowHeight() - h - 8;
+        int y = ctx.guiHeight() - h - 8;
 
         ctx.fill(x, y, x + w, y + h, 0xE60C0709);
         ctx.fill(x, y, x + w, y + 1, Colors.ACCENT);
@@ -77,7 +79,7 @@ public final class CapturePreview {
         ScreenshotTextures.Tex tex = ScreenshotTextures.get(path);
         int ix = x + PAD, iy = y + PAD;
         if (tex != null) {
-            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), ix, iy, TW, TH, 0f, 0f, tex.w(), tex.h(), tex.w(), tex.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), ix, iy, 0f, 0f, TW, TH, tex.w(), tex.h());
         } else {
             ctx.fill(ix, iy, ix + TW, iy + TH, 0xFF1A0E12);
         }

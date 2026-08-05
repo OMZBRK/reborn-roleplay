@@ -20,7 +20,7 @@ import net.minecraft.resources.Identifier;
  *   <li>{@code SoundInstance.getVolume()} fige la valeur au moment du
  *       play. Changer le volume necessite stop + replay.</li>
  *   <li>Pas de callback "track ended" — on poll via
- *       {@code SoundManager.isPlaying(instance)} dans le widget.</li>
+ *       {@code SoundManager.isActive(instance)} dans le widget.</li>
  * </ul>
  */
 public final class OSTPlayer {
@@ -51,7 +51,7 @@ public final class OSTPlayer {
     private boolean playlistOpen = false;
 
     /** Durées effectives par piste — apprises au fil des lectures via
-     *  SoundManager.isPlaying() qui passe à false en fin de piste. Permet
+     *  SoundManager.isActive() qui passe à false en fin de piste. Permet
      *  d'avoir une progress bar exacte dès la 2e écoute d'une piste. */
     private final java.util.Map<Integer, Long> learnedDurationsMs =
         new java.util.HashMap<>();
@@ -94,6 +94,11 @@ public final class OSTPlayer {
         return playing;
     }
 
+    /** Alias historique utilisé par les widgets OST — équivalent à {@link #isPlaying()}. */
+    public boolean isActive() {
+        return playing;
+    }
+
     public float getVolume() {
         return volume;
     }
@@ -110,7 +115,7 @@ public final class OSTPlayer {
         stop();
         Identifier id = Identifier.fromNamespaceAndPath("reborn", String.format("ost.track%02d", currentTrack));
         SoundEvent event = SoundEvent.createVariableRangeEvent(id);
-        currentInstance = SimpleSoundInstance.master(event, 1.0F, volume);
+        currentInstance = SimpleSoundInstance.forUI(event, 1.0F, volume);
         client.getSoundManager().play(currentInstance);
         playing = true;
         startTimeMs = System.currentTimeMillis();
@@ -174,7 +179,7 @@ public final class OSTPlayer {
         if (currentInstance == null) return false;
         Minecraft client = Minecraft.getInstance();
         if (client == null) return false;
-        return client.getSoundManager().isPlaying(currentInstance);
+        return client.getSoundManager().isActive(currentInstance);
     }
 
     /** Si la piste s'est terminee naturellement, passe a la suivante.

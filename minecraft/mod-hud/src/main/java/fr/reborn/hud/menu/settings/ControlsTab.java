@@ -36,8 +36,8 @@ public class ControlsTab extends SectionedTab {
 
         row("Inverser l'axe Y", "Haut/bas de la souris inversés",
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
-                o.invertYMouse().get(),
-                v -> { o.invertYMouse().set(v); o.save(); }));
+                o.invertMouseY().get(),
+                v -> { o.invertMouseY().set(v); o.save(); }));
 
         section("Déplacement");
 

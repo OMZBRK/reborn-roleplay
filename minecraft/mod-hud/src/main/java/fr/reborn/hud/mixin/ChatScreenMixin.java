@@ -41,7 +41,7 @@ public abstract class ChatScreenMixin {
         int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
         chatField.setX(ChatLayout.TEXT_X);
         chatField.setWidth(ChatLayout.inputW(sw));
-        EmojiPicker.close(); // picker fermé à chaque ouverture du chat
+        EmojiPicker.onClose(); // picker fermé à chaque ouverture du chat
     }
 
     /**
@@ -73,6 +73,9 @@ public abstract class ChatScreenMixin {
     }
 
     // Intercepte les clics sur le bouton/picker avant le reste de l'écran.
+    // FIXME 26.1 (phase 2) : Screen#mouseClicked est devenu
+    // mouseClicked(MouseButtonEvent, boolean) — ce handler (double,double,int) ne s'appliquera
+    // plus tel quel ; adapter la signature (event.x()/y()/button()) au recâblage.
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void reborn$clickEmoji(double mx, double my, int button,
                                    CallbackInfoReturnable<Boolean> cir) {
@@ -80,7 +83,7 @@ public abstract class ChatScreenMixin {
         Minecraft mc = Minecraft.getInstance();
         boolean handled = EmojiPicker.handleClick(mx, my,
             mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(),
-            s -> { if (chatField != null) chatField.write(s); });
+            s -> { if (chatField != null) chatField.insertText(s); });
         if (handled) cir.setReturnValue(true);
     }
 

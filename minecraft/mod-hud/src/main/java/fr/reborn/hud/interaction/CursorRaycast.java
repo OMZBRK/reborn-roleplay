@@ -33,8 +33,8 @@ public final class CursorRaycast {
         if (mc == null || mc.player == null || mc.level == null) return null;
 
         Camera camera = mc.gameRenderer.getMainCamera();
-        float camYaw = camera.getYRot();
-        float camPitch = camera.getXRot();
+        float camYaw = camera.yRot();
+        float camPitch = camera.xRot();
         // Origine = position de la CAMÉRA (pas l'œil joueur) → fonctionne aussi
         // en 3e personne (on vise depuis le point de vue réel).
         Vec3 eye = camera.position();
@@ -61,14 +61,14 @@ public final class CursorRaycast {
         Vec3 end = eye.add(dir.scale(REACH));
 
         // Blocs.
-        HitResult block = mc.level.raycast(new ClipContext(eye, end,
+        HitResult block = mc.level.clip(new ClipContext(eye, end,
             ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, mc.player));
         double blockDistSq = block.getType() == HitResult.Type.MISS
-            ? REACH * REACH : block.position().squaredDistanceTo(eye);
+            ? REACH * REACH : block.getLocation().distanceToSqr(eye);
 
         // Entités (plus proches que le bloc) — box couvrant tout le segment.
-        AABB box = new AABB(eye, end).expand(1.0);
-        EntityHitResult entity = ProjectileUtil.raycast(mc.player, eye, end, box,
+        AABB box = new AABB(eye, end).inflate(1.0);
+        EntityHitResult entity = ProjectileUtil.getEntityHitResult(mc.player, eye, end, box,
             e -> e != mc.player && !e.isSpectator() && e.isAlive(), blockDistSq);
         if (entity != null) return entity;
 

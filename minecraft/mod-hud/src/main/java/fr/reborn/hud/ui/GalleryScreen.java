@@ -119,7 +119,7 @@ public class GalleryScreen extends Screen {
         ScreenshotTextures.Tex t = ScreenshotTextures.get(e.path());
         if (t != null) {
             // Image entière mise à l'échelle dans la cellule (region = image complète).
-            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), x, y, cw, cih, 0f, 0f, t.w(), t.h(), t.w(), t.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), x, y, 0f, 0f, cw, cih, t.w(), t.h());
         } else {
             ctx.fill(x, y, x + cw, y + cih, 0xFF1A0E12);
             ctx.text(tr, Component.literal("…"), x + cw / 2 - 2, y + cih / 2 - 4, Colors.FOREGROUND_MUTED, false);
@@ -168,7 +168,7 @@ public class GalleryScreen extends Screen {
             return true;
         }
 
-        if (in(mxi, myi, px + pw - 22, py + 8, 16, 16)) { close(); return true; }
+        if (in(mxi, myi, px + pw - 22, py + 8, 16, 16)) { onClose(); return true; }
         if (in(mxi, myi, px + 90, py + 8, this.font.width("Tous") + 8, 16)) { onlyFav = false; refresh(); return true; }
         if (in(mxi, myi, px + 140, py + 8, this.font.width("Favoris") + 8, 16)) { onlyFav = true; refresh(); return true; }
 
@@ -200,10 +200,10 @@ public class GalleryScreen extends Screen {
             int iy = y + 2 + i * CTX_ROW;
             if (in(mxi, myi, x, iy, CTX_W, CTX_ROW)) {
                 switch (i) {
-                    case 0 -> Util.getPlatform().openUri(ctxEntry.path().toFile());
+                    case 0 -> Util.getPlatform().openUri(ctxEntry.path().toUri());
                     case 1 -> { ScreenshotLibrary.toggleFavorite(ctxEntry.name()); if (onlyFav) refresh(); }
                     case 2 -> { ScreenshotLibrary.delete(ctxEntry); refresh(); }
-                    case 3 -> Util.getPlatform().openUri(ScreenshotLibrary.dir().toFile());
+                    case 3 -> Util.getPlatform().openUri(ScreenshotLibrary.dir().toUri());
                 }
                 return;
             }

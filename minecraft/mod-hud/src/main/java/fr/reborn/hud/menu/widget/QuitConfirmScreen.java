@@ -14,7 +14,7 @@ import net.minecraft.network.chat.Component;
 /**
  * Modal de confirmation "Quitter Reborn ?" — overlay au-dessus du
  * main menu. Click en dehors / Annuler ramène au main menu. Quitter
- * appelle {@code Minecraft#scheduleStop}.
+ * appelle {@code Minecraft#stop}.
  *
  * <p>Layout : backdrop noir + card centrée (320×170) avec :
  * <ol>
@@ -56,7 +56,7 @@ public class QuitConfirmScreen extends Screen {
         ));
         this.addRenderableWidget(RebornButton.danger(
             cardX + cardW / 2 + gap / 2, btnY, btnW, btnH,
-            "Quitter", b -> Minecraft.getInstance().scheduleStop()
+            "Quitter", b -> Minecraft.getInstance().stop()
         ));
     }
 

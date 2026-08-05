@@ -10,7 +10,7 @@ import fr.reborn.hud.ui.style.RebornColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.resources.Identifier;
@@ -90,7 +90,7 @@ public final class ChatMessageRenderer {
 
             // Expéditeur (pour tête + blocage) : premier pseudo en ligne du texte.
             PlayerInfo sender = findSender(mc, plain);
-            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) {
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().name())) {
                 continue; // message masqué — ne consomme pas de ligne
             }
 
@@ -102,7 +102,7 @@ public final class ChatMessageRenderer {
             // Tête du joueur (chat_heads).
             boolean drewHead = false;
             if (settings.chatHeads && sender != null) {
-                Identifier skin = sender.getSkin().texture();
+                Identifier skin = sender.getSkin().body().texturePath();
                 drawHead(ctx, skin, leftX, lineY - 1, alpha);
                 textX += HEAD + HEAD_GAP;
                 drewHead = true;
@@ -112,9 +112,9 @@ public final class ChatMessageRenderer {
             // depuis LuckPerms). Rien à afficher si le serveur ne le fournit pas.
             if (settings.chatBadges && sender != null && mc != null && mc.level != null) {
                 var sb = mc.level.getScoreboard();
-                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().getName()) : null;
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().name()) : null;
                 if (team != null) {
-                    var prefix = team.getPrefix();
+                    var prefix = team.getPlayerPrefix();
                     if (prefix != null && !prefix.getString().isEmpty()) {
                         ctx.text(tr, prefix, textX, lineY, (alpha << 24) | 0x00FFFFFF, true);
                         textX += tr.width(prefix) + 2;
@@ -181,7 +181,7 @@ public final class ChatMessageRenderer {
             FormattedCharSequence content = visible.content();
             String plain = orderedToPlainString(content);
             PlayerInfo sender = findSender(mc, plain);
-            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) continue;
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().name())) continue;
 
             int lineY = bottomY - (rendered + 1) * LINE_H;
             if (lineY < 4) break;
@@ -189,9 +189,9 @@ public final class ChatMessageRenderer {
             if (settings.chatHeads && sender != null) textX += HEAD + HEAD_GAP;
             if (settings.chatBadges && sender != null && mc.level != null) {
                 var sb = mc.level.getScoreboard();
-                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().getName()) : null;
-                if (team != null && team.getPrefix() != null && !team.getPrefix().getString().isEmpty()) {
-                    textX += tr.width(team.getPrefix()) + 2;
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().name()) : null;
+                if (team != null && team.getPlayerPrefix() != null && !team.getPlayerPrefix().getString().isEmpty()) {
+                    textX += tr.width(team.getPlayerPrefix()) + 2;
                 }
             }
             if (settings.showTimestamps) {
@@ -199,7 +199,7 @@ public final class ChatMessageRenderer {
             }
 
             if (my >= lineY && my < lineY + LINE_H && mx >= textX) {
-                return tr.getTextHandler().getStyleAt(content, (int) (mx - textX));
+                return null;
             }
             rendered++;
         }
@@ -212,7 +212,7 @@ public final class ChatMessageRenderer {
         PlayerInfo best = null;
         int bestIdx = Integer.MAX_VALUE;
         for (PlayerInfo e : mc.getConnection().getOnlinePlayers()) {
-            String name = e.getProfile() != null ? e.getProfile().getName() : null;
+            String name = e.getProfile() != null ? e.getProfile().name() : null;
             if (name == null || name.isEmpty()) continue;
             int idx = plain.indexOf(name);
             if (idx >= 0 && idx < bestIdx) {

@@ -9,7 +9,7 @@ import fr.reborn.hud.runtime.ChatMessageRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.gui.screens.ChatScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -34,9 +34,14 @@ import java.util.List;
 @Mixin(ChatComponent.class)
 public abstract class ChatHudMixin {
 
-    @Shadow private List<GuiMessage.Line> visibleMessages;
-    @Shadow private int scrolledLines;
+    // 26.1 : visibleMessages→trimmedMessages, scrolledLines→chatScrollbarPos.
+    @Shadow private List<GuiMessage.Line> trimmedMessages;
+    @Shadow private int chatScrollbarPos;
 
+    // FIXME 26.1 (phase 2) : ChatComponent#render est devenu
+    // extractRenderState(GuiGraphicsExtractor, Font, int, int, int, DisplayMode, boolean)
+    // (mode extraction). Cette injection sur "render" ne s'appliquera plus telle quelle :
+    // le rendu chat custom doit être recâblé sur la nouvelle API extraction/ChatGraphicsAccess.
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void reborn$renderCustomChat(GuiGraphicsExtractor ctx, int currentTick, int mouseX, int mouseY,
                                          boolean focused, CallbackInfo ci) {
@@ -66,11 +71,11 @@ public abstract class ChatHudMixin {
         String playerName = null;
         try {
             settings = RebornHudClient.config().getChatSettings();
-            if (mc.player != null) playerName = mc.player.getProfile().getName();
+            if (mc.player != null) playerName = mc.player.getGameProfile().name();
         } catch (RuntimeException ignored) {}
 
         ChatMessageRenderer.renderMessages(ctx, mc.font,
-            visibleMessages, scrolledLines, currentTick, chatOpen,
+            trimmedMessages, chatScrollbarPos, currentTick, chatOpen,
             screenW, screenH, settings, playerName);
 
         ctx.pose().popMatrix();
@@ -82,13 +87,16 @@ public abstract class ChatHudMixin {
      * détection de clic sur un lien ({@code getTextStyleAt}) utilise la géométrie
      * vanilla → on retranche l'offset pour que le clic suive le rendu réel.
      */
+    // FIXME 26.1 (phase 2) : ChatComponent#getTextStyleAt n'existe plus ; la détection de
+    // clic sur texte passe désormais par captureClickableText(ActiveTextCollector, ...) en
+    // mode extraction. Cette injection ne s'appliquera pas ; à recâbler côté 26.1.
     @Inject(method = "getTextStyleAt", at = @At("HEAD"), cancellable = true)
     private void reborn$styleAt(double x, double y, CallbackInfoReturnable<Style> cir) {
         try {
             Minecraft mc = Minecraft.getInstance();
             HudElementState st = readStateSafely();
             ChatSettings settings = RebornHudClient.config().getChatSettings();
-            Style s = ChatMessageRenderer.styleAt(mc, mc.font, visibleMessages, scrolledLines,
+            Style s = ChatMessageRenderer.styleAt(mc, mc.font, trimmedMessages, chatScrollbarPos,
                 mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), settings,
                 x, y, st.x(), st.y());
             cir.setReturnValue(s);

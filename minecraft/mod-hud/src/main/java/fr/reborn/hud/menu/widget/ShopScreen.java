@@ -49,8 +49,7 @@ public class ShopScreen extends Screen {
 
         int logoW = Math.min(Math.round(this.width * 0.14f), 190);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, 14, logoW, logoH,
-            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, 14, 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H);
 
         Minecraft mc = Minecraft.getInstance();
         Font tr = mc.font;

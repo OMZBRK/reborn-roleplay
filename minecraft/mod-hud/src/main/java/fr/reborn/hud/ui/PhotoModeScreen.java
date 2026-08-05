@@ -112,7 +112,7 @@ public class PhotoModeScreen extends Screen {
     }
 
     private String quitKey() {
-        if (HudKeybinds.PHOTO != null) return HudKeybinds.PHOTO.getBoundKeyLocalizedText().getString();
+        if (HudKeybinds.PHOTO != null) return HudKeybinds.PHOTO.getTranslatedKeyMessage().getString();
         return "P";
     }
 
@@ -125,7 +125,7 @@ public class PhotoModeScreen extends Screen {
             if (in(mx, my, spdPlusX(), spdY(), 14, 14)) { PhotoMode.INSTANCE.addCameraSpeed(0.05f); return true; }
             if (in(mx, my, btnX(), capY(), btnW(), 22)) { PhotoMode.INSTANCE.requestCapture(); return true; }
             if (in(mx, my, btnX(), resetY(), btnW(), 16)) { PhotoMode.INSTANCE.resetPosition(mc); return true; }
-            if (in(mx, my, btnX(), quitY(), btnW(), 16)) { close(); return true; }
+            if (in(mx, my, btnX(), quitY(), btnW(), 16)) { onClose(); return true; }
         }
         return super.mouseClicked(event, doubleClick);
     }
@@ -151,7 +151,7 @@ public class PhotoModeScreen extends Screen {
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
-        if (HudKeybinds.PHOTO != null && HudKeybinds.PHOTO.matchesKey(keyCode, scanCode)) {
+        if (HudKeybinds.PHOTO != null && HudKeybinds.PHOTO.matches(event)) {
             onClose();
             return true;
         }

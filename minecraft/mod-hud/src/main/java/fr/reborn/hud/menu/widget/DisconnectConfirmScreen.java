@@ -54,10 +54,11 @@ public class DisconnectConfirmScreen extends Screen {
     private void disconnect() {
         Minecraft client = Minecraft.getInstance();
         if (client.level != null) {
-            client.level.disconnect();
+            client.level.disconnect(Component.translatable("menu.disconnect"));
         }
-        client.disconnect();
-        client.setScreen(new TitleScreen());
+        // 26.1 : Minecraft#disconnect prend l'écran de destination + un flag
+        // (garde des resource packs). On revient au menu principal Reborn.
+        client.disconnect(new TitleScreen(), false);
     }
 
     @Override

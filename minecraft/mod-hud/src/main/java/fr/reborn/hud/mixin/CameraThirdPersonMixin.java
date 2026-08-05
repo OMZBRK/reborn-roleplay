@@ -29,10 +29,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Camera.class)
 public abstract class CameraThirdPersonMixin {
 
-    @Shadow public abstract Vec3 getPos();
-    @Shadow protected abstract void setPos(Vec3 pos);
+    // 26.1 : getPos→position, setPos→setPosition (setRotation inchangé).
+    @Shadow public abstract Vec3 position();
+    @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
+    // FIXME 26.1 (phase 2) : en 26.1 Camera#update a pour signature update(DeltaTracker) —
+    // il ne fournit plus (area, focusedEntity, thirdPerson, inverseView, tickDelta). Ce handler
+    // ne s'appliquera donc pas tel quel au runtime ; la caméra épaule devra être recâblée
+    // (lire l'entité/vue via Minecraft + options plutôt que par les params).
     @Inject(method = "update", at = @At("TAIL"))
     private void reborn$shoulderCamera(BlockGetter area, Entity focusedEntity, boolean thirdPerson,
                                        boolean inverseView, float tickDelta, CallbackInfo ci) {
@@ -52,7 +57,7 @@ public abstract class CameraThirdPersonMixin {
             Math.cos(yr) * Math.cos(pr));
         Vec3 backDir = viewDir.scale(-1.0);            // de l'oeil vers la caméra
         Vec3 right = viewDir.cross(new Vec3(0, 1, 0));
-        if (right.lengthSquared() < 1.0e-6) {
+        if (right.lengthSqr() < 1.0e-6) {
             right = new Vec3(1, 0, 0);
         } else {
             right = right.normalize();
@@ -61,24 +66,24 @@ public abstract class CameraThirdPersonMixin {
 
         Vec3 eye = focusedEntity.getEyePosition(tickDelta);
         Vec3 target = eye
-            .add(backDir.multiply(cam.distance()))
-            .add(right.multiply(cam.rightOffset()))
-            .add(up.multiply(cam.upOffset()));
+            .add(backDir.scale(cam.distance()))
+            .add(right.scale(cam.rightOffset()))
+            .add(up.scale(cam.upOffset()));
 
         setRotation(cy, cp);
-        setPos(reborn$clip(focusedEntity, eye, target));
+        setPosition(reborn$clip(focusedEntity, eye, target));
     }
 
     /** Réduit la distance si un mur est entre l'oeil et la caméra cible. */
     @Unique
     private Vec3 reborn$clip(Entity e, Vec3 from, Vec3 to) {
-        HitResult hit = e.getWorld().raycast(new ClipContext(
+        HitResult hit = e.level().clip(new ClipContext(
             from, to, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, e));
         if (hit.getType() != HitResult.Type.BLOCK) return to;
         Vec3 hp = hit.getLocation();
         Vec3 dir = to.subtract(from);
         double len = dir.length();
         // Recule de 0.2 bloc vers l'oeil pour ne pas coller/clipper dans le mur.
-        return len < 1.0e-4 ? hp : hp.subtract(dir.multiply(0.2 / len));
+        return len < 1.0e-4 ? hp : hp.subtract(dir.scale(0.2 / len));
     }
 }

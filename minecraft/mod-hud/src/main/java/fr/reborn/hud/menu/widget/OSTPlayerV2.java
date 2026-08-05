@@ -105,7 +105,7 @@ public final class OSTPlayerV2 {
         int progX0 = x + PADDING;
         int progX1 = x + CARD_W - PADDING;
         ctx.fill(progX0, progY, progX1, progY + 1, Colors.BORDER_STRONG);
-        if (ost.isPlaying()) {
+        if (ost.isActive()) {
             // Progress basé sur la durée apprise (exacte à la 2e écoute,
             // estimation à 180s par défaut pour la 1ère).
             int fill = Math.round((progX1 - progX0) * ost.getProgress());
@@ -128,7 +128,7 @@ public final class OSTPlayerV2 {
         IconButton playPause = new IconButton(
             ctrlBaseX, ctrlY, CONTROL_SIZE,
             (ctx, x, y, size, color) -> {
-                if (OSTPlayer.INSTANCE.isPlaying()) {
+                if (OSTPlayer.INSTANCE.isActive()) {
                     IconTextures.or(IconTextures.PAUSE, IconPack::pause).draw(ctx, x, y, size, color);
                 } else {
                     IconTextures.or(IconTextures.PLAY, IconPack::play).draw(ctx, x, y, size, color);

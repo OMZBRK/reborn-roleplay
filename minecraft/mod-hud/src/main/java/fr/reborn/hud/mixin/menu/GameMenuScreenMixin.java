@@ -16,7 +16,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.screens.GameMenuScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -45,7 +45,7 @@ import java.util.List;
  * (après leur ajout) puis on rebuild. Le render vanilla est annulé pour tout
  * dessiner nous-mêmes (fond opaque + dégradés + halo).
  */
-@Mixin(GameMenuScreen.class)
+@Mixin(PauseScreen.class) // 26.1 : GameMenuScreen → PauseScreen
 public abstract class GameMenuScreenMixin extends Screen {
 
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/esc-mixin");
@@ -151,7 +151,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         }
     }
 
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
     private void reborn$renderOverlay(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         Font tr = this.font;
 
@@ -164,8 +164,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         int logoW = reborn$logoW();
         int logoH = reborn$logoH();
         int logoX = (this.width - logoW) / 2;
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, reborn$logoY(), logoW, logoH,
-            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, reborn$logoY(), 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H);
 
         // Panneaux (dessinés avant les enfants : Boutique-content + tabs par-dessus).
         int boxY = reborn$boxY();
@@ -263,7 +262,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (mc != null) {
             mc.getSoundManager().play(
-                SimpleSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0f));
+                SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f));
         }
     }
 

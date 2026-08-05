@@ -1,0 +1,1591 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/D:/dev-cache/gradle/wrapper/dists/gradle-9.6.1-bin/4ticwg1pgcbps2hj28r8so764/gradle-9.6.1/lib/native-platform-0.22-milestone-29.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.15.5
+
+> Task :compileJava
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:4: error: cannot find symbol
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+                                                ^
+  symbol:   class ClientCommandManager
+  location: package net.fabricmc.fabric.api.client.command.v2
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:3: error: cannot find symbol
+import net.minecraft.world.level.block.BlockState;
+                                      ^
+  symbol:   class BlockState
+  location: package net.minecraft.world.level.block
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\SakuraParticles.java:6: error: cannot find symbol
+import net.minecraft.world.phys.RotationAxis;
+                               ^
+  symbol:   class RotationAxis
+  location: package net.minecraft.world.phys
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:6: error: cannot find symbol
+import net.minecraft.client.gui.screens.options.ControlsOptionsScreen;
+                                               ^
+  symbol:   class ControlsOptionsScreen
+  location: package net.minecraft.client.gui.screens.options
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:7: error: cannot find symbol
+import net.minecraft.client.gui.screens.options.LanguageOptionsScreen;
+                                               ^
+  symbol:   class LanguageOptionsScreen
+  location: package net.minecraft.client.gui.screens.options
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:10: error: cannot find symbol
+import net.minecraft.client.gui.screens.options.VideoOptionsScreen;
+                                               ^
+  symbol:   class VideoOptionsScreen
+  location: package net.minecraft.client.gui.screens.options
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\BossBarHudMixin.java:6: error: cannot find symbol
+import net.minecraft.client.gui.BossBarHud;
+                               ^
+  symbol:   class BossBarHud
+  location: package net.minecraft.client.gui
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CrosshairHitMixin.java:4: error: cannot find symbol
+import net.minecraft.client.multiplayer.ClientPlayerInteractionManager;
+                                       ^
+  symbol:   class ClientPlayerInteractionManager
+  location: package net.minecraft.client.multiplayer
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInteractionMixin.java:4: error: cannot find symbol
+import net.minecraft.client.Keyboard;
+                           ^
+  symbol:   class Keyboard
+  location: package net.minecraft.client
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\ConnectScreenMixin.java:12: error: cannot find symbol
+import net.minecraft.network.ClientConnection;
+                            ^
+  symbol:   class ClientConnection
+  location: package net.minecraft.network
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\ConnectScreenMixin.java:50: error: cannot find symbol
+    volatile ClientConnection connection;
+             ^
+  symbol:   class ClientConnection
+  location: class ConnectScreenMixin
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\GameMenuScreenMixin.java:19: error: cannot find symbol
+import net.minecraft.client.gui.screens.GameMenuScreen;
+                                       ^
+  symbol:   class GameMenuScreen
+  location: package net.minecraft.client.gui.screens
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:26: error: package net.minecraft.client.gui.screens.level does not exist
+import net.minecraft.client.gui.screens.level.SelectWorldScreen;
+                                             ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MouseInteractionMixin.java:4: error: cannot find symbol
+import net.minecraft.client.Mouse;
+                           ^
+  symbol:   class Mouse
+  location: package net.minecraft.client
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MusicTrackerMixin.java:3: error: cannot find symbol
+import net.minecraft.client.resources.sounds.MusicTracker;
+                                            ^
+  symbol:   class MusicTracker
+  location: package net.minecraft.client.resources.sounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\PlayerListHudMixin.java:6: error: cannot find symbol
+import net.minecraft.client.gui.PlayerListHud;
+                               ^
+  symbol:   class PlayerListHud
+  location: package net.minecraft.client.gui
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\CapturePreview.java:5: error: cannot find symbol
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+                                                  ^
+  symbol:   class HudRenderCallback
+  location: package net.fabricmc.fabric.api.client.rendering.v1
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\ScreenshotTextures.java:5: error: cannot find symbol
+import com.mojang.blaze3d.platform.DynamicTexture;
+                                  ^
+  symbol:   class DynamicTexture
+  location: package com.mojang.blaze3d.platform
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\style\IconTextures.java:7: error: cannot find symbol
+import com.mojang.blaze3d.platform.DynamicTexture;
+                                  ^
+  symbol:   class DynamicTexture
+  location: package com.mojang.blaze3d.platform
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\BossBarHudMixin.java:17: error: cannot find symbol
+@Mixin(BossBarHud.class)
+       ^
+  symbol: class BossBarHud
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CrosshairHitMixin.java:16: error: cannot find symbol
+@Mixin(ClientPlayerInteractionManager.class)
+       ^
+  symbol: class ClientPlayerInteractionManager
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInteractionMixin.java:15: error: cannot find symbol
+@Mixin(Keyboard.class)
+       ^
+  symbol: class Keyboard
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\GameMenuScreenMixin.java:48: error: cannot find symbol
+@Mixin(GameMenuScreen.class)
+       ^
+  symbol: class GameMenuScreen
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MouseInteractionMixin.java:20: error: cannot find symbol
+@Mixin(Mouse.class)
+       ^
+  symbol: class Mouse
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MusicTrackerMixin.java:20: error: cannot find symbol
+@Mixin(MusicTracker.class)
+       ^
+  symbol: class MusicTracker
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\PlayerListHudMixin.java:20: error: cannot find symbol
+@Mixin(PlayerListHud.class)
+       ^
+  symbol: class PlayerListHud
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:20: error: cannot find symbol
+            dispatcher.register(ClientCommandManager.literal("rblock")
+                                ^
+  symbol:   variable ClientCommandManager
+  location: class ChatBlockCommands
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:21: error: cannot find symbol
+                .then(ClientCommandManager.argument("pseudo", StringArgumentType.word())
+                      ^
+  symbol:   variable ClientCommandManager
+  location: class ChatBlockCommands
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:31: error: cannot find symbol
+            dispatcher.register(ClientCommandManager.literal("runblock")
+                                ^
+  symbol:   variable ClientCommandManager
+  location: class ChatBlockCommands
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:32: error: cannot find symbol
+                .then(ClientCommandManager.argument("pseudo", StringArgumentType.word())
+                      ^
+  symbol:   variable ClientCommandManager
+  location: class ChatBlockCommands
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:42: error: cannot find symbol
+            dispatcher.register(ClientCommandManager.literal("rblocklist")
+                                ^
+  symbol:   variable ClientCommandManager
+  location: class ChatBlockCommands
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\RebornChatRenderer.java:206: error: cannot find symbol
+        int fieldW = b.getWidth() - (fieldX - b.x()) - 6;
+                      ^
+  symbol:   method getWidth()
+  location: variable b of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\crosshair\CrosshairManager.java:61: error: cannot find symbol
+            float cd = mc.player.getAttackCooldownProgress(0f);
+                                ^
+  symbol:   method getAttackCooldownProgress(float)
+  location: variable player of type LocalPlayer
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\crosshair\CrosshairScreen.java:63: error: cannot find symbol
+    private int contentBottom() { return contentTopBase() + tab.getHeight() + BOTTOM_MARGIN; }
+                                                               ^
+  symbol:   method getHeight()
+  location: variable tab of type CrosshairTab
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\element\HudElementBounds.java:61: error: cannot find symbol
+        int newW = Math.max(8, Math.round(v.getWidth()  * state.scale()));
+                                           ^
+  symbol:   method getWidth()
+  location: variable v of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\element\HudElementBounds.java:62: error: cannot find symbol
+        int newH = Math.max(8, Math.round(v.getHeight() * state.scale()));
+                                           ^
+  symbol:   method getHeight()
+  location: variable v of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\element\HudElementBounds.java:65: error: cannot find symbol
+        int anchorX = v.x() + Math.round(v.getWidth()  * anchor.fx);
+                                          ^
+  symbol:   method getWidth()
+  location: variable v of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\element\HudElementBounds.java:66: error: cannot find symbol
+        int anchorY = v.y() + Math.round(v.getHeight() * anchor.fy);
+                                          ^
+  symbol:   method getHeight()
+  location: variable v of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\CinemaBars.java:47: error: cannot find symbol
+        int w = ctx.getScaledWindowWidth();
+                   ^
+  symbol:   method getScaledWindowWidth()
+  location: variable ctx of type GuiGraphicsExtractor
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\CinemaBars.java:48: error: cannot find symbol
+        int h = ctx.getScaledWindowHeight();
+                   ^
+  symbol:   method getScaledWindowHeight()
+  location: variable ctx of type GuiGraphicsExtractor
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:52: error: cannot find symbol
+        long w = mc.getWindow().getHandle();
+                               ^
+  symbol:   method getHandle()
+  location: class Window
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:97: error: cannot find symbol
+        long win = mc.getWindow().getHandle();
+                                 ^
+  symbol:   method getHandle()
+  location: class Window
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:128: error: cannot find symbol
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.ofFloored(x, y, z);
+                                                                     ^
+  symbol:   method ofFloored(double,double,double)
+  location: class BlockPos
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:135: error: cannot find symbol
+            InputConstants.Key key = InputConstants.fromTranslationKey(kb.getBoundKeyTranslationKey());
+                                                                         ^
+  symbol:   method getBoundKeyTranslationKey()
+  location: variable kb of type KeyMapping
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:136: error: incompatible types: long cannot be converted to Window
+            return InputConstants.isKeyDown(win, key.getValue());
+                                            ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:36: error: cannot find symbol
+        float camYaw = camera.getYRot();
+                             ^
+  symbol:   method getYRot()
+  location: variable camera of type Camera
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:37: error: cannot find symbol
+        float camPitch = camera.getXRot();
+                               ^
+  symbol:   method getXRot()
+  location: variable camera of type Camera
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:64: error: cannot find symbol
+        HitResult block = mc.level.raycast(new ClipContext(eye, end,
+                                  ^
+  symbol:   method raycast(ClipContext)
+  location: variable level of type ClientLevel
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:67: error: cannot find symbol
+            ? REACH * REACH : block.position().squaredDistanceTo(eye);
+                                   ^
+  symbol:   method position()
+  location: variable block of type HitResult
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:70: error: cannot find symbol
+        AABB box = new AABB(eye, end).expand(1.0);
+                                     ^
+  symbol:   method expand(double)
+  location: class AABB
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:71: error: cannot find symbol
+        EntityHitResult entity = ProjectileUtil.raycast(mc.player, eye, end, box,
+                                               ^
+  symbol:   method raycast(LocalPlayer,Vec3,Vec3,AABB,(e)->e != [...]ive(),double)
+  location: class ProjectileUtil
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:30: error: cannot find symbol
+            mc.getConnection().sendChatCommand(command);
+                              ^
+  symbol:   method sendChatCommand(String)
+  location: class ClientPacketListener
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:38: error: cannot find symbol
+            mc.gui.getChatHud().addMessage(Component.literal("§6[Reborn] §f" + text));
+                  ^
+  symbol:   method getChatHud()
+  location: variable gui of type Gui
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:82: error: cannot find symbol
+                info("§e" + type + " §7| pos " + e.getBlockPos().toShortString() + hp);
+                                                  ^
+  symbol:   method getBlockPos()
+  location: variable e of type Entity
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:94: error: cannot find symbol
+                BlockState bs = mc.level.getBlockState(pos);
+                ^
+  symbol:   class BlockState
+  location: class InteractionMenus
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMode.java:130: error: cannot find symbol
+                title = pe.getProfile().getName();
+                                       ^
+  symbol:   method getName()
+  location: class ResolvableProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMode.java:250: error: no suitable method found for translate(double,double)
+            ctx.pose().translate(cursorX + 10, cursorY + 2);
+                      ^
+    method Matrix3x2f.translate(float,float) is not applicable
+      (argument mismatch; possible lossy conversion from double to float)
+    method Matrix3x2f.translate(Vector2fc,Matrix3x2f) is not applicable
+      (argument mismatch; double cannot be converted to Vector2fc)
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\config\PlaceholderTab.java:52: error: cannot find symbol
+                .dimensions(x, cursorY, 220, 22).build();
+                ^
+  symbol:   method dimensions(int,int,int,int)
+  location: class Builder
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\connect\ConnectingRenderer.java:64: error: cannot find symbol
+        SakuraParticles.INSTANCE.render(ctx, screenW, screenH);
+                                ^
+  symbol:   method render(GuiGraphicsExtractor,int,int)
+  location: variable INSTANCE of type SakuraParticles
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\IconButton.java:153: error: incompatible types: int cannot be converted to Matrix3x2f
+        context.pose().translate(0, 0, 200);
+                                       ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\OSTPlayer.java:113: error: cannot find symbol
+        currentInstance = SimpleSoundInstance.master(event, 1.0F, volume);
+                                             ^
+  symbol:   method master(SoundEvent,float,float)
+  location: class SimpleSoundInstance
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\OSTPlayerWidget.java:77: error: cannot find symbol
+        if (ost.isActive()) {
+               ^
+  symbol:   method isActive()
+  location: variable ost of type OSTPlayer
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\OSTPlayerWidget.java:102: error: cannot find symbol
+        if (ost.isActive()) {
+               ^
+  symbol:   method isActive()
+  location: variable ost of type OSTPlayer
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\RebornBranding.java:99: error: method connect in class ConnectScreen cannot be applied to given types;
+        ConnectScreen.connect(parent, client, address, info, false, null);
+                     ^
+  required: Minecraft,ServerAddress,ServerData,TransferState
+  found:    Screen,Minecraft,ServerAddress,ServerData,boolean,<null>
+  reason: actual and formal argument lists differ in length
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\SakuraParticles.java:87: error: package RotationAxis does not exist
+            ctx.pose().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rot));
+                                            ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\screens\ConfigShellScreen.java:127: error: cannot find symbol
+    private int contentBottom() { return contentTopBase() + activeTab().getHeight() + BOTTOM_MARGIN; }
+                                                                       ^
+  symbol:   method getHeight()
+  location: interface SettingsTab
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\screens\ConfigShellScreen.java:247: error: incompatible types: possible lossy conversion from float to int
+            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+            ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\AudioTab.java:53: error: cannot find symbol
+        return (int) Math.round(o.getSoundSourceOptionInstance(cat).getValue() * 100);
+                                                                   ^
+  symbol:   method getValue()
+  location: class OptionInstance<Double>
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\AudioTab.java:59: error: cannot find symbol
+        mc.options.getSoundSourceOptionInstance(category).setValue(percent / 100.0);
+                                                         ^
+  symbol:   method setValue(double)
+  location: class OptionInstance<Double>
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\ControlsTab.java:39: error: cannot find symbol
+                o.invertYMouse().get(),
+                 ^
+  symbol:   method invertYMouse()
+  location: variable o of type Options
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\ControlsTab.java:40: error: cannot find symbol
+                v -> { o.invertYMouse().set(v); o.save(); }));
+                        ^
+  symbol:   method invertYMouse()
+  location: variable o of type Options
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:34: error: constructor OptionsScreen in class OptionsScreen cannot be applied to given types;
+            () -> mc.setScreen(new OptionsScreen(parent, mc.options)));
+                               ^
+  required: Screen,Options,boolean
+  found:    Screen,Options
+  reason: actual and formal argument lists differ in length
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:36: error: cannot find symbol
+            () -> mc.setScreen(new VideoOptionsScreen(parent, mc, mc.options)));
+                                   ^
+  symbol:   class VideoOptionsScreen
+  location: class MinecraftTab
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:40: error: cannot find symbol
+            () -> mc.setScreen(new ControlsOptionsScreen(parent, mc.options)));
+                                   ^
+  symbol:   class ControlsOptionsScreen
+  location: class MinecraftTab
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:42: error: cannot find symbol
+            () -> mc.setScreen(new LanguageOptionsScreen(parent, mc.options, mc.getLanguageManager())));
+                                   ^
+  symbol:   class LanguageOptionsScreen
+  location: class MinecraftTab
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:33: error: cannot find symbol
+        int guiScale = o.getGuiScale().getValue();
+                        ^
+  symbol:   method getGuiScale()
+  location: variable o of type Options
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:94: error: cannot find symbol
+        mc.options.getGuiScale().setValue(scale);
+                  ^
+  symbol:   method getGuiScale()
+  location: variable options of type Options
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:96: error: cannot find symbol
+        mc.onResolutionChanged();
+          ^
+  symbol:   method onResolutionChanged()
+  location: variable mc of type Minecraft
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:104: error: cannot find symbol
+            mc.getWindow().toggleFullscreen();
+                          ^
+  symbol:   method toggleFullscreen()
+  location: class Window
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:106: error: cannot find symbol
+        mc.options.getFullscreen().setValue(fullscreen);
+                  ^
+  symbol:   method getFullscreen()
+  location: variable options of type Options
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\tablist\TablistScreen.java:83: error: cannot find symbol
+            ? this.minecraft.player.getProfile().getName() : "Vous";
+                                                ^
+  symbol:   method getName()
+  location: class ResolvableProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\tablist\TablistScreen.java:361: error: cannot find symbol
+        List<TabEntry> all = TablistData.entries(mc.player.getProfile().getName());
+                                                                       ^
+  symbol:   method getName()
+  location: class ResolvableProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\tablist\TablistScreen.java:405: error: cannot find symbol
+            || (this.minecraft != null && this.minecraft.options.keyPlayerList.matchesKey(keyCode, scanCode)))) {
+                                                                              ^
+  symbol:   method matchesKey(int,int)
+  location: variable keyPlayerList of type KeyMapping
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\DisconnectConfirmScreen.java:57: error: method disconnect in class ClientLevel cannot be applied to given types;
+            client.level.disconnect();
+                        ^
+  required: Component
+  found:    no arguments
+  reason: actual and formal argument lists differ in length
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\DisconnectConfirmScreen.java:59: error: no suitable method found for disconnect(no arguments)
+        client.disconnect();
+              ^
+    method Minecraft.disconnect(Screen,boolean) is not applicable
+      (actual and formal argument lists differ in length)
+    method Minecraft.disconnect(Screen,boolean,boolean) is not applicable
+      (actual and formal argument lists differ in length)
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\DynamicPlayerBackground.java:160: error: cannot find symbol
+                browser.close();
+                       ^
+  symbol:   method close()
+  location: variable browser of type MCEFBrowser
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\OSTPlayerV2.java:108: error: cannot find symbol
+        if (ost.isActive()) {
+               ^
+  symbol:   method isActive()
+  location: variable ost of type OSTPlayer
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\OSTPlayerV2.java:131: error: cannot find symbol
+                if (OSTPlayer.INSTANCE.isActive()) {
+                                      ^
+  symbol:   method isActive()
+  location: variable INSTANCE of type OSTPlayer
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\OSTPlaylistOverlay.java:128: error: cannot find symbol
+        if (active && ost.isActive()) {
+                         ^
+  symbol:   method isActive()
+  location: variable ost of type OSTPlayer
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\QuitConfirmScreen.java:59: error: cannot find symbol
+            "Quitter", b -> Minecraft.getInstance().scheduleStop()
+                                                   ^
+  symbol:   method scheduleStop()
+  location: class Minecraft
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\ReportScreen.java:195: error: incompatible types: possible lossy conversion from float to int
+            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+            ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\ServerPickerWidget.java:74: error: incompatible types: int cannot be converted to Matrix3x2f
+        ctx.pose().translate(0, 0, 30); // au-dessus du décor/menu
+                                   ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\ShopScreen.java:53: error: incompatible types: possible lossy conversion from float to int
+            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+            ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\SplashOverlay.java:57: error: incompatible types: possible lossy conversion from float to int
+            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+            ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\ToggleSwitch.java:69: error: cannot find symbol
+        if (button == 0 && this.active && this.visible && clicked(mouseX, mouseY)) {
+                                                          ^
+  symbol:   method clicked(double,double)
+  location: class ToggleSwitch
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:55: error: cannot find symbol
+        if (right.lengthSquared() < 1.0e-6) {
+                 ^
+  symbol:   method lengthSquared()
+  location: variable right of type Vec3
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:64: error: incompatible types: double cannot be converted to Vec3
+            .add(backDir.multiply(cam.distance()))
+                                              ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:65: error: incompatible types: double cannot be converted to Vec3
+            .add(right.multiply(cam.rightOffset()))
+                                               ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:66: error: incompatible types: double cannot be converted to Vec3
+            .add(up.multiply(cam.upOffset()));
+                                         ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:75: error: cannot find symbol
+        HitResult hit = e.getWorld().raycast(new ClipContext(
+                         ^
+  symbol:   method getWorld()
+  location: variable e of type Entity
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:56: error: cannot find symbol
+            String name = e.getProfile() != null ? e.getProfile().getName() : null;
+                                                                 ^
+  symbol:   method getName()
+  location: class GameProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:71: error: cannot find symbol
+            int tick = Minecraft.getInstance().gui.getTicks();
+                                                  ^
+  symbol:   method getTicks()
+  location: variable gui of type Gui
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:80: error: cannot find symbol
+            String pseudo = player.getProfile().getName();
+                                               ^
+  symbol:   method getName()
+  location: class ResolvableProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:86: error: cannot find symbol
+                            SoundEvents.BLOCK_NOTE_BLOCK_BELL.value(), 1.5f, 0.6f));
+                                       ^
+  symbol:   variable BLOCK_NOTE_BLOCK_BELL
+  location: class SoundEvents
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudMixin.java:69: error: cannot find symbol
+            if (mc.player != null) playerName = mc.player.getProfile().getName();
+                                                                      ^
+  symbol:   method getName()
+  location: class ResolvableProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatScreenMixin.java:44: error: cannot find symbol
+        EmojiPicker.close(); // picker fermé à chaque ouverture du chat
+                   ^
+  symbol:   method close()
+  location: class EmojiPicker
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatScreenMixin.java:83: error: cannot find symbol
+            s -> { if (chatField != null) chatField.write(s); });
+                                                   ^
+  symbol:   method write(String)
+  location: variable chatField of type EditBox
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\InGameHudCinemaMixin.java:43: error: method addMessage in class ChatComponent cannot be applied to given types;
+                    text -> this.chatHud.addMessage(text));
+                                        ^
+  required: Component,MessageSignature,GuiMessageSource,GuiMessageTag
+  found:    Component
+  reason: actual and formal argument lists differ in length
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\InGameHudCinemaMixin.java:58: error: cannot find symbol
+                this.chatHud.render(ctx, this.ticks, mx, my, focused);
+                            ^
+  symbol:   method render(GuiGraphicsExtractor,int,int,int,boolean)
+  location: variable chatHud of type ChatComponent
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\InGameHudMixin.java:108: error: cannot find symbol
+        ctx.drawGuiTexture(id, x, y, width, height);
+           ^
+  symbol:   method drawGuiTexture(Identifier,int,int,int,int)
+  location: variable ctx of type GuiGraphicsExtractor
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:63: error: cannot find symbol
+        float mf = in.movementForward;
+                     ^
+  symbol:   variable movementForward
+  location: variable in of type Input
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:64: error: cannot find symbol
+        float ms = in.movementSideways;
+                     ^
+  symbol:   variable movementSideways
+  location: variable in of type Input
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:76: error: cannot find symbol
+        float ny = Mth.lerpAngleDegrees((float) cam.turnSpeed(), player.getYRot(), target);
+                      ^
+  symbol:   method lerpAngleDegrees(float,float,float)
+  location: class Mth
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:83: error: cannot find symbol
+        in.movementForward = (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms));
+          ^
+  symbol:   variable movementForward
+  location: variable in of type Input
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:84: error: cannot find symbol
+        in.movementSideways = 0f;
+          ^
+  symbol:   variable movementSideways
+  location: variable in of type Input
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputPhotoMixin.java:24: error: cannot find symbol
+        self.movementForward = 0f;
+            ^
+  symbol:   variable movementForward
+  location: variable self of type Input
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputPhotoMixin.java:25: error: cannot find symbol
+        self.movementSideways = 0f;
+            ^
+  symbol:   variable movementSideways
+  location: variable self of type Input
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputPhotoMixin.java:26: error: cannot find symbol
+        self.jumping = false;
+            ^
+  symbol:   variable jumping
+  location: variable self of type Input
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputPhotoMixin.java:27: error: cannot find symbol
+        self.sneaking = false;
+            ^
+  symbol:   variable sneaking
+  location: variable self of type Input
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\GameMenuScreenMixin.java:168: error: incompatible types: possible lossy conversion from float to int
+            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+            ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\GameMenuScreenMixin.java:266: error: cannot find symbol
+                SimpleSoundInstance.master(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f));
+                                   ^
+  symbol:   method master(SoundEvent,float)
+  location: class SimpleSoundInstance
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:133: error: cannot find symbol
+                b -> client.setScreen(new SelectWorldScreen(this))
+                                          ^
+  symbol:   class SelectWorldScreen
+  location: class TitleScreenMixin
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:240: error: incompatible types: int cannot be converted to Matrix3x2f
+        context.pose().translate(0, 0, 400);
+                                       ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:248: error: cannot find symbol
+            context.draw();
+                   ^
+  symbol:   method draw()
+  location: variable context of type GuiGraphicsExtractor
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:249: error: cannot find symbol
+            this.applyBlur(delta);
+                ^
+  symbol: method applyBlur(float)
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\RebornHudClient.java:50: error: cannot find symbol
+            (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
+                                                                                    ^
+  symbol:   method render(GuiGraphicsExtractor)
+  location: variable INSTANCE of type InteractionMode
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\RebornHudClient.java:89: error: cannot find symbol
+            if (client.options.narrator().get() != net.minecraft.client.NarratorMode.OFF) {
+                                                                       ^
+  symbol:   class NarratorMode
+  location: package net.minecraft.client
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\RebornHudClient.java:90: error: cannot find symbol
+                client.options.narrator().set(net.minecraft.client.NarratorMode.OFF);
+                                                                  ^
+  symbol:   class NarratorMode
+  location: package net.minecraft.client
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:93: error: cannot find symbol
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) {
+                                                                                      ^
+  symbol:   method getName()
+  location: class GameProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:115: error: cannot find symbol
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().getName()) : null;
+                                                                             ^
+  symbol:   method getName()
+  location: class GameProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:184: error: cannot find symbol
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) continue;
+                                                                                      ^
+  symbol:   method getName()
+  location: class GameProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:192: error: cannot find symbol
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().getName()) : null;
+                                                                             ^
+  symbol:   method getName()
+  location: class GameProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:215: error: cannot find symbol
+            String name = e.getProfile() != null ? e.getProfile().getName() : null;
+                                                                 ^
+  symbol:   method getName()
+  location: class GameProfile
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\HudTransform.java:59: error: cannot find symbol
+        int ax = vanilla.x() + Math.round(vanilla.getWidth()  * anchor.fx);
+                                                 ^
+  symbol:   method getWidth()
+  location: variable vanilla of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\HudTransform.java:60: error: cannot find symbol
+        int ay = vanilla.y() + Math.round(vanilla.getHeight() * anchor.fy);
+                                                 ^
+  symbol:   method getHeight()
+  location: variable vanilla of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\CapturePreview.java:39: error: package HudRenderCallback does not exist
+        HudRenderCallback.EVENT.register((ctx, tickDelta) -> render(ctx));
+                         ^
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\CapturePreview.java:70: error: cannot find symbol
+        int fullX = ctx.getScaledWindowWidth() - w - 8;
+                       ^
+  symbol:   method getScaledWindowWidth()
+  location: variable ctx of type GuiGraphicsExtractor
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\CapturePreview.java:72: error: cannot find symbol
+        int y = ctx.getScaledWindowHeight() - h - 8;
+                   ^
+  symbol:   method getScaledWindowHeight()
+  location: variable ctx of type GuiGraphicsExtractor
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\ScreenshotTextures.java:44: error: cannot find symbol
+            DynamicTexture t = new DynamicTexture(() -> "reborn-tex", img);
+            ^
+  symbol:   class DynamicTexture
+  location: class ScreenshotTextures
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\ScreenshotTextures.java:44: error: cannot find symbol
+            DynamicTexture t = new DynamicTexture(() -> "reborn-tex", img);
+                                   ^
+  symbol:   class DynamicTexture
+  location: class ScreenshotTextures
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\GalleryScreen.java:171: error: cannot find symbol
+        if (in(mxi, myi, px + pw - 22, py + 8, 16, 16)) { close(); return true; }
+                                                          ^
+  symbol:   method close()
+  location: class GalleryScreen
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\GalleryScreen.java:203: error: no suitable method found for openUri(File)
+                    case 0 -> Util.getPlatform().openUri(ctxEntry.path().toFile());
+                                                ^
+    method OS.openUri(URI) is not applicable
+      (argument mismatch; File cannot be converted to URI)
+    method OS.openUri(String) is not applicable
+      (argument mismatch; File cannot be converted to String)
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\GalleryScreen.java:206: error: no suitable method found for openUri(File)
+                    case 3 -> Util.getPlatform().openUri(ScreenshotLibrary.dir().toFile());
+                                                ^
+    method OS.openUri(URI) is not applicable
+      (argument mismatch; File cannot be converted to URI)
+    method OS.openUri(String) is not applicable
+      (argument mismatch; File cannot be converted to String)
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:157: error: cannot find symbol
+            sidePanel.render(ctx, mouseX, mouseY);
+                     ^
+  symbol:   method render(GuiGraphicsExtractor,int,int)
+  location: variable sidePanel of type HudEditSidePanel
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:612: error: cannot find symbol
+    private static boolean rebornHasShiftDown() { return Screen.hasShiftDown(); }
+                                                               ^
+  symbol:   method hasShiftDown()
+  location: class Screen
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:613: error: cannot find symbol
+    private static boolean rebornHasCtrlDown()  { return Screen.hasControlDown(); }
+                                                               ^
+  symbol:   method hasControlDown()
+  location: class Screen
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:676: error: cannot find symbol
+            int origW = Math.max(8, resizeStartBounds.getWidth());
+                                                     ^
+  symbol:   method getWidth()
+  location: variable resizeStartBounds of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:677: error: cannot find symbol
+            int origH = Math.max(8, resizeStartBounds.getHeight());
+                                                     ^
+  symbol:   method getHeight()
+  location: variable resizeStartBounds of type HudElementBounds
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\PhotoModeScreen.java:115: error: cannot find symbol
+        if (HudKeybinds.PHOTO != null) return HudKeybinds.PHOTO.getBoundKeyLocalizedText().getString();
+                                                               ^
+  symbol:   method getBoundKeyLocalizedText()
+  location: variable PHOTO of type KeyMapping
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\PhotoModeScreen.java:128: error: cannot find symbol
+            if (in(mx, my, btnX(), quitY(), btnW(), 16)) { close(); return true; }
+                                                           ^
+  symbol:   method close()
+  location: class PhotoModeScreen
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\PhotoModeScreen.java:154: error: cannot find symbol
+        if (HudKeybinds.PHOTO != null && HudKeybinds.PHOTO.matchesKey(keyCode, scanCode)) {
+                                                          ^
+  symbol:   method matchesKey(int,int)
+  location: variable PHOTO of type KeyMapping
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotDetailScreen.java:90: error: no suitable method found for openUri(File)
+            () -> Util.getPlatform().openUri(e.path().toFile()),
+                                    ^
+    method OS.openUri(URI) is not applicable
+      (argument mismatch; File cannot be converted to URI)
+    method OS.openUri(String) is not applicable
+      (argument mismatch; File cannot be converted to String)
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotDetailScreen.java:123: error: cannot find symbol
+        if (entries.isEmpty()) { close(); return; }
+                                 ^
+  symbol:   method close()
+  location: class ScreenshotDetailScreen
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotEditorScreen.java:276: error: cannot find symbol
+        if (in(mx, my, x + 12, ay + 60, 126, 16)) { close(); return true; }
+                                                    ^
+  symbol:   method close()
+  location: class ScreenshotEditorScreen
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotEditorScreen.java:351: error: cannot find symbol
+            img.writeTo(out);
+               ^
+  symbol:   method writeTo(Path)
+  location: variable img of type NativeImage
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotEditorScreen.java:399: error: cannot find symbol
+                if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight()) img.setPixelRGBA(x, y, abgr);
+                                                                                      ^
+  symbol:   method setPixelRGBA(int,int,int)
+  location: variable img of type NativeImage
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotShareScreen.java:128: error: cannot find symbol
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) { close(); return true; }
+                                               ^
+  symbol:   method close()
+  location: class ScreenshotShareScreen
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\style\IconTextures.java:144: error: cannot find symbol
+                    img.setPixelRGBA(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
+                       ^
+  symbol:   method setPixelRGBA(int,int,int)
+  location: variable img of type NativeImage
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\style\IconTextures.java:147: error: cannot find symbol
+            DynamicTexture tex = new DynamicTexture(() -> "reborn-tex", img);
+            ^
+  symbol:   class DynamicTexture
+  location: class IconTextures
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\style\IconTextures.java:147: error: cannot find symbol
+            DynamicTexture tex = new DynamicTexture(() -> "reborn-tex", img);
+                                     ^
+  symbol:   class DynamicTexture
+  location: class IconTextures
+Note: Some messages have been simplified; recompile with -Xdiags:verbose to get full output
+160 errors
+
+> Task :compileJava FAILED
+
+[Incubating] Problems report is available at: file:///D:/T%C3%A9l%C3%A9chargement%20-%20ALL/RB%20-%20GESTION/reborn-roleplay/minecraft/mod-hud/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\RebornBranding.java:99: error: method connect in class ConnectScreen cannot be applied to given types;
+          ConnectScreen.connect(parent, client, address, info, false, null);
+                       ^
+    required: Minecraft,ServerAddress,ServerData,TransferState
+    found:    Screen,Minecraft,ServerAddress,ServerData,boolean,<null>
+    reason: actual and formal argument lists differ in length
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:34: error: constructor OptionsScreen in class OptionsScreen cannot be applied to given types;
+              () -> mc.setScreen(new OptionsScreen(parent, mc.options)));
+                                 ^
+    required: Screen,Options,boolean
+    found:    Screen,Options
+    reason: actual and formal argument lists differ in length
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\DisconnectConfirmScreen.java:57: error: method disconnect in class ClientLevel cannot be applied to given types;
+              client.level.disconnect();
+                          ^
+    required: Component
+    found:    no arguments
+    reason: actual and formal argument lists differ in length
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\InGameHudCinemaMixin.java:43: error: method addMessage in class ChatComponent cannot be applied to given types;
+                      text -> this.chatHud.addMessage(text));
+                                          ^
+    required: Component,MessageSignature,GuiMessageSource,GuiMessageTag
+    found:    Component
+    reason: actual and formal argument lists differ in length
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMode.java:250: error: no suitable method found for translate(double,double)
+              ctx.pose().translate(cursorX + 10, cursorY + 2);
+                        ^
+      method Matrix3x2f.translate(float,float) is not applicable
+        (argument mismatch; possible lossy conversion from double to float)
+      method Matrix3x2f.translate(Vector2fc,Matrix3x2f) is not applicable
+        (argument mismatch; double cannot be converted to Vector2fc)
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\DisconnectConfirmScreen.java:59: error: no suitable method found for disconnect(no arguments)
+          client.disconnect();
+                ^
+      method Minecraft.disconnect(Screen,boolean) is not applicable
+        (actual and formal argument lists differ in length)
+      method Minecraft.disconnect(Screen,boolean,boolean) is not applicable
+        (actual and formal argument lists differ in length)
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\GalleryScreen.java:203: error: no suitable method found for openUri(File)
+                      case 0 -> Util.getPlatform().openUri(ctxEntry.path().toFile());
+                                                  ^
+      method OS.openUri(URI) is not applicable
+        (argument mismatch; File cannot be converted to URI)
+      method OS.openUri(String) is not applicable
+        (argument mismatch; File cannot be converted to String)
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\GalleryScreen.java:206: error: no suitable method found for openUri(File)
+                      case 3 -> Util.getPlatform().openUri(ScreenshotLibrary.dir().toFile());
+                                                  ^
+      method OS.openUri(URI) is not applicable
+        (argument mismatch; File cannot be converted to URI)
+      method OS.openUri(String) is not applicable
+        (argument mismatch; File cannot be converted to String)
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotDetailScreen.java:90: error: no suitable method found for openUri(File)
+              () -> Util.getPlatform().openUri(e.path().toFile()),
+                                      ^
+      method OS.openUri(URI) is not applicable
+        (argument mismatch; File cannot be converted to URI)
+      method OS.openUri(String) is not applicable
+        (argument mismatch; File cannot be converted to String)
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:249: error: cannot find symbol
+              this.applyBlur(delta);
+                  ^
+    symbol: method applyBlur(float)
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:136: error: incompatible types: long cannot be converted to Window
+              return InputConstants.isKeyDown(win, key.getValue());
+                                              ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\IconButton.java:153: error: incompatible types: int cannot be converted to Matrix3x2f
+          context.pose().translate(0, 0, 200);
+                                         ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\screens\ConfigShellScreen.java:247: error: incompatible types: possible lossy conversion from float to int
+              0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+              ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\ReportScreen.java:195: error: incompatible types: possible lossy conversion from float to int
+              0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+              ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\ServerPickerWidget.java:74: error: incompatible types: int cannot be converted to Matrix3x2f
+          ctx.pose().translate(0, 0, 30); // au-dessus du décor/menu
+                                     ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\ShopScreen.java:53: error: incompatible types: possible lossy conversion from float to int
+              0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+              ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\SplashOverlay.java:57: error: incompatible types: possible lossy conversion from float to int
+              0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+              ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:64: error: incompatible types: double cannot be converted to Vec3
+              .add(backDir.multiply(cam.distance()))
+                                                ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:65: error: incompatible types: double cannot be converted to Vec3
+              .add(right.multiply(cam.rightOffset()))
+                                                 ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:66: error: incompatible types: double cannot be converted to Vec3
+              .add(up.multiply(cam.upOffset()));
+                                           ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\GameMenuScreenMixin.java:168: error: incompatible types: possible lossy conversion from float to int
+              0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+              ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:240: error: incompatible types: int cannot be converted to Matrix3x2f
+          context.pose().translate(0, 0, 400);
+                                         ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:4: error: cannot find symbol
+  import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+                                                  ^
+    symbol:   class ClientCommandManager
+    location: package net.fabricmc.fabric.api.client.command.v2
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:3: error: cannot find symbol
+  import net.minecraft.world.level.block.BlockState;
+                                        ^
+    symbol:   class BlockState
+    location: package net.minecraft.world.level.block
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\SakuraParticles.java:6: error: cannot find symbol
+  import net.minecraft.world.phys.RotationAxis;
+                                 ^
+    symbol:   class RotationAxis
+    location: package net.minecraft.world.phys
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:6: error: cannot find symbol
+  import net.minecraft.client.gui.screens.options.ControlsOptionsScreen;
+                                                 ^
+    symbol:   class ControlsOptionsScreen
+    location: package net.minecraft.client.gui.screens.options
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:7: error: cannot find symbol
+  import net.minecraft.client.gui.screens.options.LanguageOptionsScreen;
+                                                 ^
+    symbol:   class LanguageOptionsScreen
+    location: package net.minecraft.client.gui.screens.options
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:10: error: cannot find symbol
+  import net.minecraft.client.gui.screens.options.VideoOptionsScreen;
+                                                 ^
+    symbol:   class VideoOptionsScreen
+    location: package net.minecraft.client.gui.screens.options
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\BossBarHudMixin.java:6: error: cannot find symbol
+  import net.minecraft.client.gui.BossBarHud;
+                                 ^
+    symbol:   class BossBarHud
+    location: package net.minecraft.client.gui
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CrosshairHitMixin.java:4: error: cannot find symbol
+  import net.minecraft.client.multiplayer.ClientPlayerInteractionManager;
+                                         ^
+    symbol:   class ClientPlayerInteractionManager
+    location: package net.minecraft.client.multiplayer
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInteractionMixin.java:4: error: cannot find symbol
+  import net.minecraft.client.Keyboard;
+                             ^
+    symbol:   class Keyboard
+    location: package net.minecraft.client
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\ConnectScreenMixin.java:12: error: cannot find symbol
+  import net.minecraft.network.ClientConnection;
+                              ^
+    symbol:   class ClientConnection
+    location: package net.minecraft.network
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\ConnectScreenMixin.java:50: error: cannot find symbol
+      volatile ClientConnection connection;
+               ^
+    symbol:   class ClientConnection
+    location: class ConnectScreenMixin
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\GameMenuScreenMixin.java:19: error: cannot find symbol
+  import net.minecraft.client.gui.screens.GameMenuScreen;
+                                         ^
+    symbol:   class GameMenuScreen
+    location: package net.minecraft.client.gui.screens
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MouseInteractionMixin.java:4: error: cannot find symbol
+  import net.minecraft.client.Mouse;
+                             ^
+    symbol:   class Mouse
+    location: package net.minecraft.client
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MusicTrackerMixin.java:3: error: cannot find symbol
+  import net.minecraft.client.resources.sounds.MusicTracker;
+                                              ^
+    symbol:   class MusicTracker
+    location: package net.minecraft.client.resources.sounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\PlayerListHudMixin.java:6: error: cannot find symbol
+  import net.minecraft.client.gui.PlayerListHud;
+                                 ^
+    symbol:   class PlayerListHud
+    location: package net.minecraft.client.gui
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\CapturePreview.java:5: error: cannot find symbol
+  import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+                                                    ^
+    symbol:   class HudRenderCallback
+    location: package net.fabricmc.fabric.api.client.rendering.v1
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\ScreenshotTextures.java:5: error: cannot find symbol
+  import com.mojang.blaze3d.platform.DynamicTexture;
+                                    ^
+    symbol:   class DynamicTexture
+    location: package com.mojang.blaze3d.platform
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\style\IconTextures.java:7: error: cannot find symbol
+  import com.mojang.blaze3d.platform.DynamicTexture;
+                                    ^
+    symbol:   class DynamicTexture
+    location: package com.mojang.blaze3d.platform
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:20: error: cannot find symbol
+              dispatcher.register(ClientCommandManager.literal("rblock")
+                                  ^
+    symbol:   variable ClientCommandManager
+    location: class ChatBlockCommands
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:21: error: cannot find symbol
+                  .then(ClientCommandManager.argument("pseudo", StringArgumentType.word())
+                        ^
+    symbol:   variable ClientCommandManager
+    location: class ChatBlockCommands
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:31: error: cannot find symbol
+              dispatcher.register(ClientCommandManager.literal("runblock")
+                                  ^
+    symbol:   variable ClientCommandManager
+    location: class ChatBlockCommands
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:32: error: cannot find symbol
+                  .then(ClientCommandManager.argument("pseudo", StringArgumentType.word())
+                        ^
+    symbol:   variable ClientCommandManager
+    location: class ChatBlockCommands
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\ChatBlockCommands.java:42: error: cannot find symbol
+              dispatcher.register(ClientCommandManager.literal("rblocklist")
+                                  ^
+    symbol:   variable ClientCommandManager
+    location: class ChatBlockCommands
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:94: error: cannot find symbol
+                  BlockState bs = mc.level.getBlockState(pos);
+                  ^
+    symbol:   class BlockState
+    location: class InteractionMenus
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:36: error: cannot find symbol
+              () -> mc.setScreen(new VideoOptionsScreen(parent, mc, mc.options)));
+                                     ^
+    symbol:   class VideoOptionsScreen
+    location: class MinecraftTab
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:40: error: cannot find symbol
+              () -> mc.setScreen(new ControlsOptionsScreen(parent, mc.options)));
+                                     ^
+    symbol:   class ControlsOptionsScreen
+    location: class MinecraftTab
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\MinecraftTab.java:42: error: cannot find symbol
+              () -> mc.setScreen(new LanguageOptionsScreen(parent, mc.options, mc.getLanguageManager())));
+                                     ^
+    symbol:   class LanguageOptionsScreen
+    location: class MinecraftTab
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:86: error: cannot find symbol
+                              SoundEvents.BLOCK_NOTE_BLOCK_BELL.value(), 1.5f, 0.6f));
+                                         ^
+    symbol:   variable BLOCK_NOTE_BLOCK_BELL
+    location: class SoundEvents
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:63: error: cannot find symbol
+          float mf = in.movementForward;
+                       ^
+    symbol:   variable movementForward
+    location: variable in of type Input
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:64: error: cannot find symbol
+          float ms = in.movementSideways;
+                       ^
+    symbol:   variable movementSideways
+    location: variable in of type Input
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:83: error: cannot find symbol
+          in.movementForward = (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms));
+            ^
+    symbol:   variable movementForward
+    location: variable in of type Input
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:84: error: cannot find symbol
+          in.movementSideways = 0f;
+            ^
+    symbol:   variable movementSideways
+    location: variable in of type Input
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputPhotoMixin.java:24: error: cannot find symbol
+          self.movementForward = 0f;
+              ^
+    symbol:   variable movementForward
+    location: variable self of type Input
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputPhotoMixin.java:25: error: cannot find symbol
+          self.movementSideways = 0f;
+              ^
+    symbol:   variable movementSideways
+    location: variable self of type Input
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputPhotoMixin.java:26: error: cannot find symbol
+          self.jumping = false;
+              ^
+    symbol:   variable jumping
+    location: variable self of type Input
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputPhotoMixin.java:27: error: cannot find symbol
+          self.sneaking = false;
+              ^
+    symbol:   variable sneaking
+    location: variable self of type Input
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:133: error: cannot find symbol
+                  b -> client.setScreen(new SelectWorldScreen(this))
+                                            ^
+    symbol:   class SelectWorldScreen
+    location: class TitleScreenMixin
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\RebornHudClient.java:89: error: cannot find symbol
+              if (client.options.narrator().get() != net.minecraft.client.NarratorMode.OFF) {
+                                                                         ^
+    symbol:   class NarratorMode
+    location: package net.minecraft.client
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\RebornHudClient.java:90: error: cannot find symbol
+                  client.options.narrator().set(net.minecraft.client.NarratorMode.OFF);
+                                                                    ^
+    symbol:   class NarratorMode
+    location: package net.minecraft.client
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\ScreenshotTextures.java:44: error: cannot find symbol
+              DynamicTexture t = new DynamicTexture(() -> "reborn-tex", img);
+              ^
+    symbol:   class DynamicTexture
+    location: class ScreenshotTextures
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\ScreenshotTextures.java:44: error: cannot find symbol
+              DynamicTexture t = new DynamicTexture(() -> "reborn-tex", img);
+                                     ^
+    symbol:   class DynamicTexture
+    location: class ScreenshotTextures
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\style\IconTextures.java:147: error: cannot find symbol
+              DynamicTexture tex = new DynamicTexture(() -> "reborn-tex", img);
+              ^
+    symbol:   class DynamicTexture
+    location: class IconTextures
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\style\IconTextures.java:147: error: cannot find symbol
+              DynamicTexture tex = new DynamicTexture(() -> "reborn-tex", img);
+                                       ^
+    symbol:   class DynamicTexture
+    location: class IconTextures
+  Note: Some messages have been simplified; recompile with -Xdiags:verbose to get full output
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\BossBarHudMixin.java:17: error: cannot find symbol
+  @Mixin(BossBarHud.class)
+         ^
+    symbol: class BossBarHud
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CrosshairHitMixin.java:16: error: cannot find symbol
+  @Mixin(ClientPlayerInteractionManager.class)
+         ^
+    symbol: class ClientPlayerInteractionManager
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInteractionMixin.java:15: error: cannot find symbol
+  @Mixin(Keyboard.class)
+         ^
+    symbol: class Keyboard
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\GameMenuScreenMixin.java:48: error: cannot find symbol
+  @Mixin(GameMenuScreen.class)
+         ^
+    symbol: class GameMenuScreen
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MouseInteractionMixin.java:20: error: cannot find symbol
+  @Mixin(Mouse.class)
+         ^
+    symbol: class Mouse
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MusicTrackerMixin.java:20: error: cannot find symbol
+  @Mixin(MusicTracker.class)
+         ^
+    symbol: class MusicTracker
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\PlayerListHudMixin.java:20: error: cannot find symbol
+  @Mixin(PlayerListHud.class)
+         ^
+    symbol: class PlayerListHud
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\chat\RebornChatRenderer.java:206: error: cannot find symbol
+          int fieldW = b.getWidth() - (fieldX - b.x()) - 6;
+                        ^
+    symbol:   method getWidth()
+    location: variable b of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\crosshair\CrosshairManager.java:61: error: cannot find symbol
+              float cd = mc.player.getAttackCooldownProgress(0f);
+                                  ^
+    symbol:   method getAttackCooldownProgress(float)
+    location: variable player of type LocalPlayer
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\crosshair\CrosshairScreen.java:63: error: cannot find symbol
+      private int contentBottom() { return contentTopBase() + tab.getHeight() + BOTTOM_MARGIN; }
+                                                                 ^
+    symbol:   method getHeight()
+    location: variable tab of type CrosshairTab
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\element\HudElementBounds.java:61: error: cannot find symbol
+          int newW = Math.max(8, Math.round(v.getWidth()  * state.scale()));
+                                             ^
+    symbol:   method getWidth()
+    location: variable v of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\element\HudElementBounds.java:62: error: cannot find symbol
+          int newH = Math.max(8, Math.round(v.getHeight() * state.scale()));
+                                             ^
+    symbol:   method getHeight()
+    location: variable v of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\element\HudElementBounds.java:65: error: cannot find symbol
+          int anchorX = v.x() + Math.round(v.getWidth()  * anchor.fx);
+                                            ^
+    symbol:   method getWidth()
+    location: variable v of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\element\HudElementBounds.java:66: error: cannot find symbol
+          int anchorY = v.y() + Math.round(v.getHeight() * anchor.fy);
+                                            ^
+    symbol:   method getHeight()
+    location: variable v of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\CinemaBars.java:47: error: cannot find symbol
+          int w = ctx.getScaledWindowWidth();
+                     ^
+    symbol:   method getScaledWindowWidth()
+    location: variable ctx of type GuiGraphicsExtractor
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\CinemaBars.java:48: error: cannot find symbol
+          int h = ctx.getScaledWindowHeight();
+                     ^
+    symbol:   method getScaledWindowHeight()
+    location: variable ctx of type GuiGraphicsExtractor
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:52: error: cannot find symbol
+          long w = mc.getWindow().getHandle();
+                                 ^
+    symbol:   method getHandle()
+    location: class Window
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:97: error: cannot find symbol
+          long win = mc.getWindow().getHandle();
+                                   ^
+    symbol:   method getHandle()
+    location: class Window
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:128: error: cannot find symbol
+          net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.ofFloored(x, y, z);
+                                                                       ^
+    symbol:   method ofFloored(double,double,double)
+    location: class BlockPos
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\immersion\PhotoMode.java:135: error: cannot find symbol
+              InputConstants.Key key = InputConstants.fromTranslationKey(kb.getBoundKeyTranslationKey());
+                                                                           ^
+    symbol:   method getBoundKeyTranslationKey()
+    location: variable kb of type KeyMapping
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:36: error: cannot find symbol
+          float camYaw = camera.getYRot();
+                               ^
+    symbol:   method getYRot()
+    location: variable camera of type Camera
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:37: error: cannot find symbol
+          float camPitch = camera.getXRot();
+                                 ^
+    symbol:   method getXRot()
+    location: variable camera of type Camera
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:64: error: cannot find symbol
+          HitResult block = mc.level.raycast(new ClipContext(eye, end,
+                                    ^
+    symbol:   method raycast(ClipContext)
+    location: variable level of type ClientLevel
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:67: error: cannot find symbol
+              ? REACH * REACH : block.position().squaredDistanceTo(eye);
+                                     ^
+    symbol:   method position()
+    location: variable block of type HitResult
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:70: error: cannot find symbol
+          AABB box = new AABB(eye, end).expand(1.0);
+                                       ^
+    symbol:   method expand(double)
+    location: class AABB
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\CursorRaycast.java:71: error: cannot find symbol
+          EntityHitResult entity = ProjectileUtil.raycast(mc.player, eye, end, box,
+                                                 ^
+    symbol:   method raycast(LocalPlayer,Vec3,Vec3,AABB,(e)->e != [...]ive(),double)
+    location: class ProjectileUtil
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:30: error: cannot find symbol
+              mc.getConnection().sendChatCommand(command);
+                                ^
+    symbol:   method sendChatCommand(String)
+    location: class ClientPacketListener
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:38: error: cannot find symbol
+              mc.gui.getChatHud().addMessage(Component.literal("§6[Reborn] §f" + text));
+                    ^
+    symbol:   method getChatHud()
+    location: variable gui of type Gui
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMenus.java:82: error: cannot find symbol
+                  info("§e" + type + " §7| pos " + e.getBlockPos().toShortString() + hp);
+                                                    ^
+    symbol:   method getBlockPos()
+    location: variable e of type Entity
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\interaction\InteractionMode.java:130: error: cannot find symbol
+                  title = pe.getProfile().getName();
+                                         ^
+    symbol:   method getName()
+    location: class ResolvableProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\config\PlaceholderTab.java:52: error: cannot find symbol
+                  .dimensions(x, cursorY, 220, 22).build();
+                  ^
+    symbol:   method dimensions(int,int,int,int)
+    location: class Builder
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\connect\ConnectingRenderer.java:64: error: cannot find symbol
+          SakuraParticles.INSTANCE.render(ctx, screenW, screenH);
+                                  ^
+    symbol:   method render(GuiGraphicsExtractor,int,int)
+    location: variable INSTANCE of type SakuraParticles
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\OSTPlayer.java:113: error: cannot find symbol
+          currentInstance = SimpleSoundInstance.master(event, 1.0F, volume);
+                                               ^
+    symbol:   method master(SoundEvent,float,float)
+    location: class SimpleSoundInstance
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\OSTPlayerWidget.java:77: error: cannot find symbol
+          if (ost.isActive()) {
+                 ^
+    symbol:   method isActive()
+    location: variable ost of type OSTPlayer
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\OSTPlayerWidget.java:102: error: cannot find symbol
+          if (ost.isActive()) {
+                 ^
+    symbol:   method isActive()
+    location: variable ost of type OSTPlayer
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\screens\ConfigShellScreen.java:127: error: cannot find symbol
+      private int contentBottom() { return contentTopBase() + activeTab().getHeight() + BOTTOM_MARGIN; }
+                                                                         ^
+    symbol:   method getHeight()
+    location: interface SettingsTab
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\AudioTab.java:53: error: cannot find symbol
+          return (int) Math.round(o.getSoundSourceOptionInstance(cat).getValue() * 100);
+                                                                     ^
+    symbol:   method getValue()
+    location: class OptionInstance<Double>
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\AudioTab.java:59: error: cannot find symbol
+          mc.options.getSoundSourceOptionInstance(category).setValue(percent / 100.0);
+                                                           ^
+    symbol:   method setValue(double)
+    location: class OptionInstance<Double>
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\ControlsTab.java:39: error: cannot find symbol
+                  o.invertYMouse().get(),
+                   ^
+    symbol:   method invertYMouse()
+    location: variable o of type Options
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\ControlsTab.java:40: error: cannot find symbol
+                  v -> { o.invertYMouse().set(v); o.save(); }));
+                          ^
+    symbol:   method invertYMouse()
+    location: variable o of type Options
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:33: error: cannot find symbol
+          int guiScale = o.getGuiScale().getValue();
+                          ^
+    symbol:   method getGuiScale()
+    location: variable o of type Options
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:94: error: cannot find symbol
+          mc.options.getGuiScale().setValue(scale);
+                    ^
+    symbol:   method getGuiScale()
+    location: variable options of type Options
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:96: error: cannot find symbol
+          mc.onResolutionChanged();
+            ^
+    symbol:   method onResolutionChanged()
+    location: variable mc of type Minecraft
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:104: error: cannot find symbol
+              mc.getWindow().toggleFullscreen();
+                            ^
+    symbol:   method toggleFullscreen()
+    location: class Window
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\settings\VideoTab.java:106: error: cannot find symbol
+          mc.options.getFullscreen().setValue(fullscreen);
+                    ^
+    symbol:   method getFullscreen()
+    location: variable options of type Options
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\tablist\TablistScreen.java:83: error: cannot find symbol
+              ? this.minecraft.player.getProfile().getName() : "Vous";
+                                                  ^
+    symbol:   method getName()
+    location: class ResolvableProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\tablist\TablistScreen.java:361: error: cannot find symbol
+          List<TabEntry> all = TablistData.entries(mc.player.getProfile().getName());
+                                                                         ^
+    symbol:   method getName()
+    location: class ResolvableProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\tablist\TablistScreen.java:405: error: cannot find symbol
+              || (this.minecraft != null && this.minecraft.options.keyPlayerList.matchesKey(keyCode, scanCode)))) {
+                                                                                ^
+    symbol:   method matchesKey(int,int)
+    location: variable keyPlayerList of type KeyMapping
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\DynamicPlayerBackground.java:160: error: cannot find symbol
+                  browser.close();
+                         ^
+    symbol:   method close()
+    location: variable browser of type MCEFBrowser
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\OSTPlayerV2.java:108: error: cannot find symbol
+          if (ost.isActive()) {
+                 ^
+    symbol:   method isActive()
+    location: variable ost of type OSTPlayer
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\OSTPlayerV2.java:131: error: cannot find symbol
+                  if (OSTPlayer.INSTANCE.isActive()) {
+                                        ^
+    symbol:   method isActive()
+    location: variable INSTANCE of type OSTPlayer
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\OSTPlaylistOverlay.java:128: error: cannot find symbol
+          if (active && ost.isActive()) {
+                           ^
+    symbol:   method isActive()
+    location: variable ost of type OSTPlayer
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\QuitConfirmScreen.java:59: error: cannot find symbol
+              "Quitter", b -> Minecraft.getInstance().scheduleStop()
+                                                     ^
+    symbol:   method scheduleStop()
+    location: class Minecraft
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\widget\ToggleSwitch.java:69: error: cannot find symbol
+          if (button == 0 && this.active && this.visible && clicked(mouseX, mouseY)) {
+                                                            ^
+    symbol:   method clicked(double,double)
+    location: class ToggleSwitch
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:55: error: cannot find symbol
+          if (right.lengthSquared() < 1.0e-6) {
+                   ^
+    symbol:   method lengthSquared()
+    location: variable right of type Vec3
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\CameraThirdPersonMixin.java:75: error: cannot find symbol
+          HitResult hit = e.getWorld().raycast(new ClipContext(
+                           ^
+    symbol:   method getWorld()
+    location: variable e of type Entity
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:56: error: cannot find symbol
+              String name = e.getProfile() != null ? e.getProfile().getName() : null;
+                                                                   ^
+    symbol:   method getName()
+    location: class GameProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:71: error: cannot find symbol
+              int tick = Minecraft.getInstance().gui.getTicks();
+                                                    ^
+    symbol:   method getTicks()
+    location: variable gui of type Gui
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:80: error: cannot find symbol
+              String pseudo = player.getProfile().getName();
+                                                 ^
+    symbol:   method getName()
+    location: class ResolvableProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudMixin.java:69: error: cannot find symbol
+              if (mc.player != null) playerName = mc.player.getProfile().getName();
+                                                                        ^
+    symbol:   method getName()
+    location: class ResolvableProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatScreenMixin.java:44: error: cannot find symbol
+          EmojiPicker.close(); // picker fermé à chaque ouverture du chat
+                     ^
+    symbol:   method close()
+    location: class EmojiPicker
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatScreenMixin.java:83: error: cannot find symbol
+              s -> { if (chatField != null) chatField.write(s); });
+                                                     ^
+    symbol:   method write(String)
+    location: variable chatField of type EditBox
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\InGameHudCinemaMixin.java:58: error: cannot find symbol
+                  this.chatHud.render(ctx, this.ticks, mx, my, focused);
+                              ^
+    symbol:   method render(GuiGraphicsExtractor,int,int,int,boolean)
+    location: variable chatHud of type ChatComponent
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\InGameHudMixin.java:108: error: cannot find symbol
+          ctx.drawGuiTexture(id, x, y, width, height);
+             ^
+    symbol:   method drawGuiTexture(Identifier,int,int,int,int)
+    location: variable ctx of type GuiGraphicsExtractor
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\KeyboardInputMixin.java:76: error: cannot find symbol
+          float ny = Mth.lerpAngleDegrees((float) cam.turnSpeed(), player.getYRot(), target);
+                        ^
+    symbol:   method lerpAngleDegrees(float,float,float)
+    location: class Mth
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\GameMenuScreenMixin.java:266: error: cannot find symbol
+                  SimpleSoundInstance.master(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f));
+                                     ^
+    symbol:   method master(SoundEvent,float)
+    location: class SimpleSoundInstance
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:248: error: cannot find symbol
+              context.draw();
+                     ^
+    symbol:   method draw()
+    location: variable context of type GuiGraphicsExtractor
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\RebornHudClient.java:50: error: cannot find symbol
+              (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
+                                                                                      ^
+    symbol:   method render(GuiGraphicsExtractor)
+    location: variable INSTANCE of type InteractionMode
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:93: error: cannot find symbol
+              if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) {
+                                                                                        ^
+    symbol:   method getName()
+    location: class GameProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:115: error: cannot find symbol
+                  var team = sb != null ? sb.getPlayersTeam(sender.getProfile().getName()) : null;
+                                                                               ^
+    symbol:   method getName()
+    location: class GameProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:184: error: cannot find symbol
+              if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) continue;
+                                                                                        ^
+    symbol:   method getName()
+    location: class GameProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:192: error: cannot find symbol
+                  var team = sb != null ? sb.getPlayersTeam(sender.getProfile().getName()) : null;
+                                                                               ^
+    symbol:   method getName()
+    location: class GameProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\ChatMessageRenderer.java:215: error: cannot find symbol
+              String name = e.getProfile() != null ? e.getProfile().getName() : null;
+                                                                   ^
+    symbol:   method getName()
+    location: class GameProfile
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\HudTransform.java:59: error: cannot find symbol
+          int ax = vanilla.x() + Math.round(vanilla.getWidth()  * anchor.fx);
+                                                   ^
+    symbol:   method getWidth()
+    location: variable vanilla of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\runtime\HudTransform.java:60: error: cannot find symbol
+          int ay = vanilla.y() + Math.round(vanilla.getHeight() * anchor.fy);
+                                                   ^
+    symbol:   method getHeight()
+    location: variable vanilla of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\CapturePreview.java:70: error: cannot find symbol
+          int fullX = ctx.getScaledWindowWidth() - w - 8;
+                         ^
+    symbol:   method getScaledWindowWidth()
+    location: variable ctx of type GuiGraphicsExtractor
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\CapturePreview.java:72: error: cannot find symbol
+          int y = ctx.getScaledWindowHeight() - h - 8;
+                     ^
+    symbol:   method getScaledWindowHeight()
+    location: variable ctx of type GuiGraphicsExtractor
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\GalleryScreen.java:171: error: cannot find symbol
+          if (in(mxi, myi, px + pw - 22, py + 8, 16, 16)) { close(); return true; }
+                                                            ^
+    symbol:   method close()
+    location: class GalleryScreen
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:157: error: cannot find symbol
+              sidePanel.render(ctx, mouseX, mouseY);
+                       ^
+    symbol:   method render(GuiGraphicsExtractor,int,int)
+    location: variable sidePanel of type HudEditSidePanel
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:612: error: cannot find symbol
+      private static boolean rebornHasShiftDown() { return Screen.hasShiftDown(); }
+                                                                 ^
+    symbol:   method hasShiftDown()
+    location: class Screen
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:613: error: cannot find symbol
+      private static boolean rebornHasCtrlDown()  { return Screen.hasControlDown(); }
+                                                                 ^
+    symbol:   method hasControlDown()
+    location: class Screen
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:676: error: cannot find symbol
+              int origW = Math.max(8, resizeStartBounds.getWidth());
+                                                       ^
+    symbol:   method getWidth()
+    location: variable resizeStartBounds of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\HudEditScreen.java:677: error: cannot find symbol
+              int origH = Math.max(8, resizeStartBounds.getHeight());
+                                                       ^
+    symbol:   method getHeight()
+    location: variable resizeStartBounds of type HudElementBounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\PhotoModeScreen.java:115: error: cannot find symbol
+          if (HudKeybinds.PHOTO != null) return HudKeybinds.PHOTO.getBoundKeyLocalizedText().getString();
+                                                                 ^
+    symbol:   method getBoundKeyLocalizedText()
+    location: variable PHOTO of type KeyMapping
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\PhotoModeScreen.java:128: error: cannot find symbol
+              if (in(mx, my, btnX(), quitY(), btnW(), 16)) { close(); return true; }
+                                                             ^
+    symbol:   method close()
+    location: class PhotoModeScreen
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\PhotoModeScreen.java:154: error: cannot find symbol
+          if (HudKeybinds.PHOTO != null && HudKeybinds.PHOTO.matchesKey(keyCode, scanCode)) {
+                                                            ^
+    symbol:   method matchesKey(int,int)
+    location: variable PHOTO of type KeyMapping
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotDetailScreen.java:123: error: cannot find symbol
+          if (entries.isEmpty()) { close(); return; }
+                                   ^
+    symbol:   method close()
+    location: class ScreenshotDetailScreen
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotEditorScreen.java:276: error: cannot find symbol
+          if (in(mx, my, x + 12, ay + 60, 126, 16)) { close(); return true; }
+                                                      ^
+    symbol:   method close()
+    location: class ScreenshotEditorScreen
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotEditorScreen.java:351: error: cannot find symbol
+              img.writeTo(out);
+                 ^
+    symbol:   method writeTo(Path)
+    location: variable img of type NativeImage
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotEditorScreen.java:399: error: cannot find symbol
+                  if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight()) img.setPixelRGBA(x, y, abgr);
+                                                                                        ^
+    symbol:   method setPixelRGBA(int,int,int)
+    location: variable img of type NativeImage
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\ScreenshotShareScreen.java:128: error: cannot find symbol
+          if (keyCode == GLFW.GLFW_KEY_ESCAPE) { close(); return true; }
+                                                 ^
+    symbol:   method close()
+    location: class ScreenshotShareScreen
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\ui\style\IconTextures.java:144: error: cannot find symbol
+                      img.setPixelRGBA(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
+                         ^
+    symbol:   method setPixelRGBA(int,int,int)
+    location: variable img of type NativeImage
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\menu\TitleScreenMixin.java:26: error: package net.minecraft.client.gui.screens.level does not exist
+  import net.minecraft.client.gui.screens.level.SelectWorldScreen;
+                                               ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\menu\SakuraParticles.java:87: error: package RotationAxis does not exist
+              ctx.pose().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rot));
+                                              ^
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\screenshot\CapturePreview.java:39: error: package HudRenderCallback does not exist
+          HudRenderCallback.EVENT.register((ctx, tickDelta) -> render(ctx));
+                           ^
+  160 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 14s
+1 actionable task: 1 executed

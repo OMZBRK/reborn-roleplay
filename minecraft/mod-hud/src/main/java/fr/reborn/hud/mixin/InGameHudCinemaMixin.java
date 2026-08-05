@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Screenshot;
 import org.spongepowered.asm.mixin.Final;
@@ -29,10 +28,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Gui.class)
 public abstract class InGameHudCinemaMixin {
 
-    @Shadow @Final private ChatComponent chatHud;
-    @Shadow private int ticks;
+    // 26.1 : Gui#chatHud → chat.
+    @Shadow @Final private ChatComponent chat;
 
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    // 26.1 : Gui#render → extractRenderState(GuiGraphicsExtractor, DeltaTracker).
+    @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
     private void reborn$immersionHud(GuiGraphicsExtractor ctx, DeltaTracker counter, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
 
@@ -40,7 +40,7 @@ public abstract class InGameHudCinemaMixin {
             if (PhotoMode.INSTANCE.consumeCapture()) {
                 // Au HEAD, le framebuffer = scène 3D sans HUD → screenshot propre.
                 Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(),
-                    text -> this.chatHud.addMessage(text));
+                    text -> this.chat.addClientSystemMessage(text));
             }
             // Le panneau est dessiné par PhotoModeScreen. Ici on masque juste le HUD.
             ci.cancel();
@@ -49,14 +49,10 @@ public abstract class InGameHudCinemaMixin {
 
         if (CinemaBars.INSTANCE.isProgressActive()) {
             CinemaBars.INSTANCE.renderBars(ctx);
-            if (!mc.options.hideGui) {
-                int sw = mc.getWindow().getGuiScaledWidth();
-                int sh = mc.getWindow().getGuiScaledHeight();
-                int mx = (int) (mc.mouseHandler.xpos() * sw / mc.getWindow().getWidth());
-                int my = (int) (mc.mouseHandler.ypos() * sh / mc.getWindow().getHeight());
-                boolean focused = mc.screen instanceof ChatScreen;
-                this.chatHud.render(ctx, this.ticks, mx, my, focused);
-            }
+            // STUB 26.1 (phase 2) : ChatComponent#render est devenu
+            // extractRenderState(GuiGraphicsExtractor, Font, int, int, int, DisplayMode, boolean).
+            // Le dessin manuel du chat pendant les bandes cinéma doit être recâblé sur cette
+            // nouvelle API extraction ; en attendant, le chat est simplement masqué en mode cinéma.
             ci.cancel();
         }
     }

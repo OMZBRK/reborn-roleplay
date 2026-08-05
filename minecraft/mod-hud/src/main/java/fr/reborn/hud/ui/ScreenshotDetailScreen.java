@@ -58,7 +58,7 @@ public class ScreenshotDetailScreen extends Screen {
             int dw = Math.round(t.w() * scale), dh = Math.round(t.h() * scale);
             int ix = (this.width - dw) / 2, iy = top + (availH - dh) / 2;
             ctx.fill(ix - 1, iy - 1, ix + dw + 1, iy + dh + 1, Colors.BORDER_STRONG);
-            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), ix, iy, dw, dh, 0f, 0f, t.w(), t.h(), t.w(), t.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), ix, iy, 0f, 0f, dw, dh, t.w(), t.h());
         } else {
             ctx.text(tr, Component.literal("Image illisible"), this.width / 2 - 30, this.height / 2, Colors.FOREGROUND_MUTED, false);
         }
@@ -87,7 +87,7 @@ public class ScreenshotDetailScreen extends Screen {
             () -> { ScreenshotLibrary.toggleFavorite(e.name()); },
             () -> openEditor(),
             this::openShare,
-            () -> Util.getPlatform().openUri(e.path().toFile()),
+            () -> Util.getPlatform().openUri(e.path().toUri()),
             () -> deleteCurrent(),
             this::onClose,
             () -> nav(1),
@@ -120,7 +120,7 @@ public class ScreenshotDetailScreen extends Screen {
     private void deleteCurrent() {
         ScreenshotLibrary.delete(cur());
         entries.remove(index);
-        if (entries.isEmpty()) { close(); return; }
+        if (entries.isEmpty()) { onClose(); return; }
         if (index >= entries.size()) index = entries.size() - 1;
     }
 

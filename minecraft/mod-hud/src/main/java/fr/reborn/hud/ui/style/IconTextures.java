@@ -4,7 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.platform.DynamicTexture;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -141,12 +141,12 @@ public final class IconTextures {
                 String row = yy < pattern.length ? pattern[yy] : "";
                 for (int xx = 0; xx < LAZY_SIZE; xx++) {
                     char c = xx < row.length() ? row.charAt(xx) : '.';
-                    img.setPixelRGBA(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
+                    img.setPixelABGR(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
                 }
             }
-            DynamicTexture tex = new DynamicTexture(img);
+            DynamicTexture tex = new DynamicTexture(() -> "reborn-tex", img);
             Identifier id = Identifier.fromNamespaceAndPath("reborn-hud", "icons/lazy/" + name);
-            Minecraft.getInstance().getTextureManager().registerTexture(id, tex);
+            Minecraft.getInstance().getTextureManager().register(id, tex);
             lazyRegistered.put(name, id);
             return id;
         } catch (RuntimeException e) {

@@ -154,7 +154,7 @@ public class HudEditScreen extends Screen {
 
         // 3) Side panel uniquement si l'utilisateur a clique sur l'engrenage d'une box
         if (sidePanelOpen) {
-            sidePanel.render(ctx, mouseX, mouseY);
+            sidePanel.extractRenderState(ctx, mouseX, mouseY);
         }
 
         // 4) Chrome top bar
@@ -606,11 +606,21 @@ public class HudEditScreen extends Screen {
     }
 
     /**
-     * Wrappers vers les helpers static de {@link Screen} — plus fiables que
-     * GLFW direct (le state peut etre stale pendant un event Screen).
+     * Wrappers vers l'état clavier. En 26.1 les helpers static {@code Screen.hasShiftDown()}
+     * / {@code hasControlDown()} n'existent plus (déplacés sur l'interface d'input
+     * {@code InputWithModifiers}, disponible uniquement dans un event) → on lit
+     * directement l'état GLFW via {@code InputConstants.isKeyDown(Window, keyCode)}.
      */
-    private static boolean rebornHasShiftDown() { return Screen.hasShiftDown(); }
-    private static boolean rebornHasCtrlDown()  { return Screen.hasControlDown(); }
+    private static boolean rebornHasShiftDown() {
+        com.mojang.blaze3d.platform.Window w = Minecraft.getInstance().getWindow();
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_SHIFT)
+            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_RIGHT_SHIFT);
+    }
+    private static boolean rebornHasCtrlDown() {
+        com.mojang.blaze3d.platform.Window w = Minecraft.getInstance().getWindow();
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_CONTROL)
+            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_RIGHT_CONTROL);
+    }
 
     private boolean handleTopBarClick(double mouseX, double mouseY) {
         int btnY = (HudEditChrome.TOPBAR_HEIGHT - HudEditChrome.ICONBTN_SIZE) / 2;
@@ -673,8 +683,8 @@ public class HudEditScreen extends Screen {
             // Drag-resize : ratio drag / taille originale → nouveau scale
             int dxFromTL = (int) mouseX - resizeStartBounds.x();
             int dyFromTL = (int) mouseY - resizeStartBounds.y();
-            int origW = Math.max(8, resizeStartBounds.getWidth());
-            int origH = Math.max(8, resizeStartBounds.getHeight());
+            int origW = Math.max(8, resizeStartBounds.width());
+            int origH = Math.max(8, resizeStartBounds.height());
             float scaleW = dxFromTL / (float) origW;
             float scaleH = dyFromTL / (float) origH;
             // On prend la moyenne pour avoir un scale isotrope

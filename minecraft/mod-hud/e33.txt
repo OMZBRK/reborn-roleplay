@@ -1,0 +1,55 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.15.5
+
+> Task :compileJava
+
+> Task :compileJava FAILED
+
+[Incubating] Problems report is available at: file:///D:/T%C3%A9l%C3%A9chargement%20-%20ALL/RB%20-%20GESTION/reborn-roleplay/minecraft/mod-hud/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.6.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+1 actionable task: 1 executed
+rackerMixin.java:20: error: cannot find symbol
+@Mixin(MusicTracker.class)
+       ^
+  symbol: class MusicTracker
+D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:92: error: cannot find symbol
+                        net.minecraft.client.resources.sounds.SimpleSoundInstance.master(
+                                                                                 ^
+  symbol:   method master(SoundEvent,float,float)
+  location: class SimpleSoundInstance
+3 errors
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MusicTrackerMixin.java:3: error: cannot find symbol
+  import net.minecraft.client.resources.sounds.MusicTracker;
+                                              ^
+    symbol:   class MusicTracker
+    location: package net.minecraft.client.resources.sounds
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\MusicTrackerMixin.java:20: error: cannot find symbol
+  @Mixin(MusicTracker.class)
+         ^
+    symbol: class MusicTracker
+  D:\Téléchargement - ALL\RB - GESTION\reborn-roleplay\minecraft\mod-hud\src\main\java\fr\reborn\hud\mixin\ChatHudAddMessageMixin.java:92: error: cannot find symbol
+                          net.minecraft.client.resources.sounds.SimpleSoundInstance.master(
+                                                                                   ^
+    symbol:   method master(SoundEvent,float,float)
+    location: class SimpleSoundInstance
+  3 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 15s

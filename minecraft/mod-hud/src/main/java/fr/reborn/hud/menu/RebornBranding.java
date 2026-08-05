@@ -96,7 +96,7 @@ public final class RebornBranding {
         );
         ServerAddress address = new ServerAddress(host, port);
         LOGGER.info("connexion directe a {}:{} (cible={})", host, port, target);
-        ConnectScreen.connect(parent, client, address, info, false, null);
+        ConnectScreen.startConnecting(parent, client, address, info, false, null);
     }
 
     private static int parsePort(String s) {

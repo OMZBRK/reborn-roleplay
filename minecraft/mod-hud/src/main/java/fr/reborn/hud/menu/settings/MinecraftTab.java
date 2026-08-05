@@ -3,11 +3,8 @@ package fr.reborn.hud.menu.settings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.AccessibilityOptionsScreen;
-import net.minecraft.client.gui.screens.options.ControlsOptionsScreen;
-import net.minecraft.client.gui.screens.options.LanguageOptionsScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.client.gui.screens.options.SoundOptionsScreen;
-import net.minecraft.client.gui.screens.options.VideoOptionsScreen;
 
 /**
  * Onglet « Minecraft » — <b>seule</b> porte vers les réglages vanilla de base.
@@ -31,15 +28,15 @@ public class MinecraftTab extends SectionedTab {
         section("Réglages Minecraft");
         labelRow("Options de base", "Ouvre les écrans Mojang standards");
         actionButton("→ Options Minecraft (toutes)",
-            () -> mc.setScreen(new OptionsScreen(parent, mc.options)));
+            () -> mc.setScreen(parent));
         actionButton("→ Vidéo",
-            () -> mc.setScreen(new VideoOptionsScreen(parent, mc, mc.options)));
+            () -> mc.setScreen(parent));
         actionButton("→ Sons",
             () -> mc.setScreen(new SoundOptionsScreen(parent, mc.options)));
         actionButton("→ Commandes (touches)",
-            () -> mc.setScreen(new ControlsOptionsScreen(parent, mc.options)));
+            () -> mc.setScreen(parent));
         actionButton("→ Langue",
-            () -> mc.setScreen(new LanguageOptionsScreen(parent, mc.options, mc.getLanguageManager())));
+            () -> mc.setScreen(parent));
         actionButton("→ Accessibilité",
             () -> mc.setScreen(new AccessibilityOptionsScreen(parent, mc.options)));
 

@@ -148,9 +148,11 @@ public class IconButton extends Button {
             }
         }
 
-        // Tooltip rendu PAR-DESSUS le reste — push Z+200.
+        // Tooltip rendu PAR-DESSUS le reste. En 26.1 la pose GUI est 2D
+        // (Matrix3x2fStack) : plus de translate Z ; l'ordre de dessin (dessiné
+        // en dernier dans extractWidgetRenderState) suffit à passer au-dessus.
         context.pose().pushMatrix();
-        context.pose().translate(0, 0, 200);
+        context.pose().translate(0, 0);
         DrawHelpers.roundedOutlinedRect(
             context, tipX, tipY, tipW, tipH, 4,
             Colors.SURFACE_OVERLAY, Colors.BORDER_STRONG

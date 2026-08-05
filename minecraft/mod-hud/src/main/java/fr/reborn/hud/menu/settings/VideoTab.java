@@ -30,7 +30,7 @@ public class VideoTab extends SectionedTab {
         section("Affichage");
 
         // Échelle interface (GUI) — LE réglage anti-menus-géants.
-        int guiScale = o.getGuiScale().getValue();
+        int guiScale = o.guiScale().get();
         row("Échelle de l'interface", "Réduisez si les menus dépassent de l'écran",
             (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,
                 new SegmentedControl.Option[] {
@@ -91,9 +91,9 @@ public class VideoTab extends SectionedTab {
     private static void applyGuiScale(int scale) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
-        mc.options.getGuiScale().setValue(scale);
+        mc.options.guiScale().set(scale);
         mc.options.save();
-        mc.onResolutionChanged();
+        mc.resizeGui();
     }
 
     /** Bascule le plein écran réel de la fenêtre (idempotent via l'état courant). */
@@ -101,9 +101,9 @@ public class VideoTab extends SectionedTab {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
         if (mc.getWindow().isFullscreen() != fullscreen) {
-            mc.getWindow().toggleFullscreen();
+            mc.getWindow().toggleFullScreen();
         }
-        mc.options.getFullscreen().setValue(fullscreen);
+        mc.options.fullscreen().set(fullscreen);
         mc.options.save();
     }
 }

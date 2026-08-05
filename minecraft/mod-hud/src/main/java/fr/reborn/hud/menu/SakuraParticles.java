@@ -3,7 +3,6 @@ package fr.reborn.hud.menu;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.phys.RotationAxis;
 
 import java.util.Random;
 
@@ -84,7 +83,7 @@ public final class SakuraParticles {
             // puis on dessine la texture 32×32 centrée à l'origine.
             ctx.pose().pushMatrix();
             ctx.pose().translate(x, y);
-            ctx.pose().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rot));
+            ctx.pose().rotate((float) Math.toRadians(rot)); // Matrix3x2fStack 2D : rotation en radians
             float scale = size / 32f;
             ctx.pose().scale(scale, scale);
 

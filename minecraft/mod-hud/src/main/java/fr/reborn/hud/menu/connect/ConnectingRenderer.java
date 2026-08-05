@@ -61,7 +61,7 @@ public final class ConnectingRenderer {
 
         // 2. Sakura overlay — atténué (alpha de chaque pétale est déjà
         //    aléatoire entre 0.25 et 0.75 dans la classe).
-        SakuraParticles.INSTANCE.render(ctx, screenW, screenH);
+        SakuraParticles.INSTANCE.extractRenderState(ctx, screenW, screenH);
 
         // 3. Anneau spinner — centré ~42% de la hauteur. PAS de sigil
         //    dedans cette fois : le ring SEUL fait le focal point, plus

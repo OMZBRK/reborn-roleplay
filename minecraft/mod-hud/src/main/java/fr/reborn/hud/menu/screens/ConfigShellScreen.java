@@ -124,7 +124,7 @@ public class ConfigShellScreen extends Screen {
     }
     private int contentX() { return (this.width - contentW()) / 2; }
     private int contentTopBase() { return viewportTop() + CONTENT_TOP_PAD; }
-    private int contentBottom() { return contentTopBase() + activeTab().getHeight() + BOTTOM_MARGIN; }
+    private int contentBottom() { return contentTopBase() + activeTab().height() + BOTTOM_MARGIN; }
     private int maxScroll() { return Math.max(0, contentBottom() - viewportBottom()); }
     private boolean hasScroll() { return maxScroll() > 0; }
 
@@ -243,8 +243,7 @@ public class ConfigShellScreen extends Screen {
         // Logo top-centre (comme l'ÉCHAP).
         int logoW = Math.min(Math.round(this.width * 0.10f), 132);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, LOGO_Y, logoW, logoH,
-            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, LOGO_Y, 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H);
 
         // « ‹ RETOUR » haut-gauche (hit-test dans mouseClicked).
         boolean backHover = overBack(mouseX, mouseY);

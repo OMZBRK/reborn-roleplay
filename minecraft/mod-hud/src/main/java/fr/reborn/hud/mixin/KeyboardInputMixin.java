@@ -2,11 +2,12 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.camera.RebornCamera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.player.Input;
 import net.minecraft.client.player.KeyboardInput;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -22,19 +23,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * orbite la caméra, ZQSD déplace le perso dans le repère caméra, et le corps
  * pivote pour faire face au déplacement.
  *
- * <p>NB : {@code movementForward}/{@code movementSideways} vivent dans la
- * superclasse {@link Input} (pas dans {@link KeyboardInput}), donc on caste
- * {@code (Input)(Object)this} pour y accéder plutôt que {@code @Shadow}.
+ * <p>NB (26.1) : l'ancien {@code Input} mutable a disparu. Le mouvement calculé
+ * vit désormais dans {@code ClientInput#moveVector} (un {@link Vec2} :
+ * {@code x} = latéral, {@code y} = avant), superclasse de {@link KeyboardInput}
+ * — on y accède par {@code @Shadow}.
  */
 @Mixin(KeyboardInput.class)
 public abstract class KeyboardInputMixin {
+
+    /** Vecteur de déplacement (ClientInput) — {@code x}=latéral, {@code y}=avant. */
+    @Shadow
+    protected Vec2 moveVector;
 
     /** Ticks restants d'aim « collant » après un clic (PVP fluide). */
     @Unique
     private int reborn$aimHold = 0;
 
+    // 26.1 : KeyboardInput#tick() ne prend plus (boolean slowDown, float factor).
     @Inject(method = "tick", at = @At("TAIL"))
-    private void reborn$cameraRelativeMovement(boolean slowDown, float slowDownFactor, CallbackInfo ci) {
+    private void reborn$cameraRelativeMovement(CallbackInfo ci) {
         RebornCamera cam = RebornCamera.INSTANCE;
         if (!cam.isEnabled()) return;
         Minecraft mc = Minecraft.getInstance();
@@ -59,9 +66,9 @@ public abstract class KeyboardInputMixin {
             return; // déplacement reste relatif caméra (yaw = camYaw)
         }
 
-        Input in = (Input) (Object) this;
-        float mf = in.movementForward;
-        float ms = in.movementSideways;
+        Vec2 mv = this.moveVector;
+        float mf = mv.y; // avant
+        float ms = mv.x; // latéral
         if (mf == 0f && ms == 0f) return; // pas d'input → garde l'orientation
 
         double cy = Math.toRadians(cam.camYaw());
@@ -73,14 +80,13 @@ public abstract class KeyboardInputMixin {
         double dz = fz * mf - lz * ms;
 
         float target = (float) Math.toDegrees(Math.atan2(-dx, dz));
-        float ny = Mth.lerpAngleDegrees((float) cam.turnSpeed(), player.getYRot(), target);
+        float ny = Mth.rotLerp((float) cam.turnSpeed(), player.getYRot(), target);
         player.setYRot(ny);
         player.setYBodyRot(ny);
         player.setYHeadRot(ny);
 
         // Le perso court « tout droit » dans son orientation (magnitude conservée
         // pour garder le ralenti sneak/objet).
-        in.movementForward = (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms));
-        in.movementSideways = 0f;
+        this.moveVector = new Vec2(0f, (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms)));
     }
 }

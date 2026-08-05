@@ -49,7 +49,7 @@ public final class PhotoMode {
     /** true si une touche de déplacement est physiquement enfoncée. */
     public boolean anyMoveKeyDown(Minecraft mc) {
         if (mc.options == null) return false;
-        long w = mc.getWindow().getHandle();
+        com.mojang.blaze3d.platform.Window w = mc.getWindow();
         return down(mc, w, mc.options.keyUp) || down(mc, w, mc.options.keyDown)
             || down(mc, w, mc.options.keyLeft) || down(mc, w, mc.options.keyRight)
             || down(mc, w, mc.options.keyJump) || down(mc, w, mc.options.keyShift);
@@ -94,7 +94,7 @@ public final class PhotoMode {
         if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
         }
-        long win = mc.getWindow().getHandle();
+        com.mojang.blaze3d.platform.Window win = mc.getWindow();
         float f = 0, s = 0, up = 0;
         if (down(mc, win, mc.options.keyUp)) f += 1;
         if (down(mc, win, mc.options.keyDown)) f -= 1;
@@ -125,15 +125,17 @@ public final class PhotoMode {
 
     private static boolean solid(Minecraft mc, double x, double y, double z) {
         if (mc.level == null) return false;
-        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.ofFloored(x, y, z);
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(x, y, z);
         return !mc.level.getBlockState(pos).getCollisionShape(mc.level, pos).isEmpty();
     }
 
     /** État physique d'une touche (marche même avec un écran ouvert). */
-    private static boolean down(Minecraft mc, long win, KeyMapping kb) {
+    private static boolean down(Minecraft mc, com.mojang.blaze3d.platform.Window win, KeyMapping kb) {
         try {
-            InputConstants.Key key = InputConstants.fromTranslationKey(kb.getBoundKeyTranslationKey());
-            return InputConstants.isKeyPressed(win, key.getCode());
+            // 26.1 : plus de getBoundKeyTranslationKey()/fromTranslationKey() ; on
+            // récupère la touche actuellement liée via saveString() → getKey(String).
+            InputConstants.Key key = InputConstants.getKey(kb.saveString());
+            return InputConstants.isKeyDown(win, key.getValue());
         } catch (RuntimeException e) {
             return false;
         }

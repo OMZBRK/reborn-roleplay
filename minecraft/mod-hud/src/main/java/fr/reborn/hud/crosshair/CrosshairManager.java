@@ -58,7 +58,7 @@ public final class CrosshairManager {
         // Dynamique : module l'échelle avec le cooldown d'attaque — petit juste
         // après un coup, revient à 100% à mesure que l'arme se recharge.
         if (p.crosshairDynamic) {
-            float cd = mc.player.getAttackCooldownProgress(0f);
+            float cd = mc.player.getAttackStrengthScale(0f);
             scale *= 0.6f + 0.4f * cd;
         }
 

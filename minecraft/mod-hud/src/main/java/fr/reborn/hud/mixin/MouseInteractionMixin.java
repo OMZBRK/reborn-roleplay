@@ -1,8 +1,9 @@
 package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.interaction.InteractionMode;
-import net.minecraft.client.Mouse;
+import net.minecraft.client.MouseHandler;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.MouseButtonInfo;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -17,20 +18,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * (elle ne tourne plus). Le <b>clic gauche</b> valide l'item survolé. Le
  * déplacement (touches) reste libre. Fermeture via Échap ou la touche bind.
  */
-@Mixin(Mouse.class)
+@Mixin(MouseHandler.class)
 public abstract class MouseInteractionMixin {
 
-    // Position interne du curseur de Mouse — on la garde synchro même quand on
-    // annule onCursorPos, sinon la caméra "saute" à la fermeture du menu (gros
-    // delta accumulé).
-    @Shadow private double x;
-    @Shadow private double y;
+    // Position interne du curseur de MouseHandler — on la garde synchro même quand
+    // on annule onMove, sinon la caméra "saute" à la fermeture du menu (gros
+    // delta accumulé). 26.1 : les champs sont désormais xpos/ypos.
+    @Shadow private double xpos;
+    @Shadow private double ypos;
 
     @Unique private double reborn$lastX;
     @Unique private double reborn$lastY;
     @Unique private boolean reborn$has;
 
-    @Inject(method = "onCursorPos", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "onMove", at = @At("HEAD"), cancellable = true)
     private void reborn$onCursorPos(long window, double cx, double cy, CallbackInfo ci) {
         if (!InteractionMode.INSTANCE.isActive()) {
             reborn$has = false;
@@ -47,16 +48,18 @@ public abstract class MouseInteractionMixin {
         reborn$lastY = cy;
         double sf = Minecraft.getInstance().getWindow().getGuiScale();
         InteractionMode.INSTANCE.onMouseMove(dx, dy, sf);
-        // Garde la position interne de Mouse à jour → pas de saut caméra ensuite.
-        this.x = cx;
-        this.y = cy;
+        // Garde la position interne de MouseHandler à jour → pas de saut caméra ensuite.
+        this.xpos = cx;
+        this.ypos = cy;
         ci.cancel(); // caméra figée côté joueur
     }
 
-    @Inject(method = "onMouseButton", at = @At("HEAD"), cancellable = true)
-    private void reborn$onMouseButton(long window, int button, int action, int mods, CallbackInfo ci) {
+    // 26.1 : MouseHandler#onButton(long window, MouseButtonInfo button, int action) ;
+    // le n° de bouton et les mods sont portés par le record MouseButtonInfo.
+    @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
+    private void reborn$onMouseButton(long window, MouseButtonInfo button, int action, CallbackInfo ci) {
         if (!InteractionMode.INSTANCE.isActive()) return;
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW.GLFW_PRESS) {
                 InteractionMode.INSTANCE.onClick();
             }

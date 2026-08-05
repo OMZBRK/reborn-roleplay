@@ -74,7 +74,7 @@ public class OSTPlayerWidget extends AbstractWidget {
         // Ligne 2 : 3 boutons controles (formes geometriques).
         int cy = y0 + LINE2_Y;
         drawPrevIcon(context, x0 + CONTROL_PREV_X, cy);
-        if (ost.isPlaying()) {
+        if (ost.isActive()) {
             drawPauseIcon(context, x0 + CONTROL_PLAY_X, cy);
         } else {
             drawPlayIcon(context, x0 + CONTROL_PLAY_X, cy);
@@ -99,7 +99,7 @@ public class OSTPlayerWidget extends AbstractWidget {
         int progX1 = x1 - PADDING;
         int progW = progX1 - progX0;
         context.fill(progX0, progY, progX1, progY + 2, FG_DIM);
-        if (ost.isPlaying()) {
+        if (ost.isActive()) {
             // Estimation : la majorite des pistes font 2-4 min. On utilise
             // 180s comme baseline visuelle ; quand la piste finit reellement
             // (detection via SoundManager) on saute a la suivante et le

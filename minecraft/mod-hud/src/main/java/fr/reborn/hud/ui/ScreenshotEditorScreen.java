@@ -125,7 +125,7 @@ public class ScreenshotEditorScreen extends Screen {
 
         if (tex != null) {
             ctx.fill(imgX - 1, imgY - 1, imgX + drawW + 1, imgY + drawH + 1, Colors.BORDER_STRONG);
-            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), imgX, imgY, drawW, drawH, 0f, 0f, tex.w(), tex.h(), tex.w(), tex.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), imgX, imgY, 0f, 0f, drawW, drawH, tex.w(), tex.h());
             float sc = drawW / (float) tex.w();
             for (Stroke s : strokes) drawStrokeScreen(ctx, s, sc);
             if (current != null) drawStrokeScreen(ctx, current, sc);
@@ -273,7 +273,7 @@ public class ScreenshotEditorScreen extends Screen {
         if (in(mx, my, x + 78, ay, 60, 16)) { redo(); return true; }
         if (in(mx, my, x + 12, ay + 20, 126, 16)) { strokes = new ArrayList<>(); pushHistory(); return true; }
         if (in(mx, my, x + 12, ay + 40, 126, 16)) { save(); return true; }
-        if (in(mx, my, x + 12, ay + 60, 126, 16)) { close(); return true; }
+        if (in(mx, my, x + 12, ay + 60, 126, 16)) { onClose(); return true; }
 
         // Dessin.
         if (button == 0 && tex != null && inImage(mx, my)) {
@@ -348,7 +348,7 @@ public class ScreenshotEditorScreen extends Screen {
             NativeImage img = NativeImage.read(in);
             for (Stroke s : strokes) rasterize(img, s);
             Path out = uniquePath(entry.path());
-            img.writeTo(out);
+            img.writeToFile(out);
             img.close();
             status = "Enregistré : " + out.getFileName();
             LOGGER.info("screenshot édité → {}", out);
@@ -396,7 +396,7 @@ public class ScreenshotEditorScreen extends Screen {
             for (int dx = -r; dx <= r; dx++) {
                 if (dx * dx + dy * dy > r * r) continue;
                 int x = cx + dx, y = cy + dy;
-                if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight()) img.setPixelRGBA(x, y, abgr);
+                if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight()) img.setPixelABGR(x, y, abgr);
             }
         }
     }

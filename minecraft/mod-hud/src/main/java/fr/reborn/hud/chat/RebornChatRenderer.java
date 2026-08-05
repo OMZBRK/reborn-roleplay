@@ -203,7 +203,7 @@ public final class RebornChatRenderer {
         int pillW = tr.width("/me ▾") + 10;
         int fieldX = b.x() + 1 + 6 + pillW + 6;   // panel left + padding + pill + gap
         int fieldY = inputTop + (INPUT_HEIGHT - 8) / 2;  // centré dans input bar
-        int fieldW = b.getWidth() - (fieldX - b.x()) - 6;
+        int fieldW = b.width() - (fieldX - b.x()) - 6;
         int fieldH = 8;
         return new int[]{fieldX, fieldY, fieldW, fieldH};
     }

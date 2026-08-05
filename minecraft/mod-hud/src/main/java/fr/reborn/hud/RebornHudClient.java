@@ -47,7 +47,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // Overlay du menu d'interaction live (rendu HUD, pas un écran).
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "interaction"),
-            (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
+            (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.extractRenderState(ctx));
 
         // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
         // Rendu HUD fiable — même en solo où Minecraft ne rend PAS le
@@ -86,8 +86,8 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (narratorDone[0] || client.options == null) return;
             narratorDone[0] = true;
-            if (client.options.narrator().get() != net.minecraft.client.NarratorMode.OFF) {
-                client.options.narrator().set(net.minecraft.client.NarratorMode.OFF);
+            if (client.options.narrator().get() != net.minecraft.client.NarratorStatus.OFF) {
+                client.options.narrator().set(net.minecraft.client.NarratorStatus.OFF);
                 client.options.save();
                 LOGGER.info("narrateur Minecraft désactivé");
             }
