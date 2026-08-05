@@ -1,9 +1,9 @@
 package fr.reborn.integrity;
 
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 import java.nio.charset.StandardCharsets;
 
@@ -14,32 +14,36 @@ import java.nio.charset.StandardCharsets;
  * longueur — le packet custom payload de MC porte deja la taille totale,
  * donc on lit tout ce qui reste dans le buffer cote plugin.
  *
- * <p>On evite {@link net.minecraft.network.codec.PacketCodecs#STRING}
- * (qui prefixe une VarInt) pour faciliter la lecture cote Paper plugin
- * qui consomme {@code PluginMessageListener.onPluginMessageReceived(...)}
- * avec un {@code byte[]} brut (pas de PacketByteBuf).
+ * <p>On evite le codec String standard (qui prefixe une VarInt) pour
+ * faciliter la lecture cote Paper plugin qui consomme
+ * {@code PluginMessageListener.onPluginMessageReceived(...)} avec un
+ * {@code byte[]} brut (pas de FriendlyByteBuf).
+ *
+ * <p>Mappings Mojang (26.1+) : {@code FriendlyByteBuf}, {@code StreamCodec},
+ * {@code CustomPacketPayload}, {@code Identifier} (ex-Yarn
+ * PacketByteBuf / PacketCodec / CustomPayload / Identifier).
  */
-public record AuthPayload(String token) implements CustomPayload {
+public record AuthPayload(String token) implements CustomPacketPayload {
 
-    public static final Identifier IDENTIFIER = Identifier.of("reborn", "auth");
-    public static final CustomPayload.Id<AuthPayload> ID = new CustomPayload.Id<>(IDENTIFIER);
+    public static final Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "auth");
+    public static final CustomPacketPayload.Type<AuthPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);
 
-    public static final PacketCodec<PacketByteBuf, AuthPayload> CODEC = new PacketCodec<>() {
+    public static final StreamCodec<FriendlyByteBuf, AuthPayload> CODEC = new StreamCodec<>() {
         @Override
-        public AuthPayload decode(PacketByteBuf buf) {
+        public AuthPayload decode(FriendlyByteBuf buf) {
             byte[] bytes = new byte[buf.readableBytes()];
             buf.readBytes(bytes);
             return new AuthPayload(new String(bytes, StandardCharsets.UTF_8));
         }
 
         @Override
-        public void encode(PacketByteBuf buf, AuthPayload value) {
+        public void encode(FriendlyByteBuf buf, AuthPayload value) {
             buf.writeBytes(value.token.getBytes(StandardCharsets.UTF_8));
         }
     };
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

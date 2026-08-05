@@ -2,8 +2,8 @@
 // Reborn Roleplay (cf PLAN_CONCEPTION_LAUNCHER.md §9.5).
 //
 // Stack :
-//   Paper API 1.21.4
-//   Java 21 toolchain
+//   Paper API 26.1.2 (dev-bundle 26.1.2.build.74-stable)
+//   Java 25 toolchain
 //   run-paper (jpenilla) pour lancer un serveur de test local via Gradle.
 //
 // Build :
@@ -17,8 +17,8 @@
 
 plugins {
     java
-    id("io.papermc.paperweight.userdev") version "2.0.0-beta.14"
-    id("xyz.jpenilla.run-paper") version "2.3.1"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.21"
+    id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
 group = "fr.reborn"
@@ -27,7 +27,7 @@ description = "Plugin serveur Reborn Roleplay : valide les clients via la triple
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
@@ -39,9 +39,9 @@ repositories {
 }
 
 dependencies {
-    // Aligne avec le serveur dev Reborn (qui tourne 1.21.1). Quand on bumpera
-    // le serveur, on bumpera ces deux versions ensemble.
-    paperweight.paperDevBundle("1.21.1-R0.1-SNAPSHOT")
+    // Aligne avec le serveur dev Reborn (Purpur 26.1.2) et le build (Paper
+    // 26.1.2-74). Le dev-bundle Paper suit le nouveau schema 26.x.build.NN.
+    paperweight.paperDevBundle("26.1.2.build.74-stable")
 
     // Tests unitaires (PlayTokenVerifier surtout : code crypto critique).
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
@@ -50,7 +50,7 @@ dependencies {
 
 tasks {
     compileJava {
-        options.release.set(21)
+        options.release.set(25)
         options.encoding = "UTF-8"
     }
 
@@ -63,7 +63,7 @@ tasks {
     }
 
     runServer {
-        minecraftVersion("1.21.1")
+        minecraftVersion("26.1.2")
         // Accepte l'EULA Mojang automatiquement pour le serveur de test local.
         systemProperty("com.mojang.eula.agree", "true")
 

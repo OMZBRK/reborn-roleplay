@@ -1,8 +1,8 @@
 // Reborn OST Plugin — broadcast audio Paper.
 //
 // Stack :
-//   Paper API 1.21.1
-//   Java 21 toolchain
+//   Paper API 26.1.2 (dev-bundle 26.1.2.build.74-stable)
+//   Java 25 toolchain
 //   run-paper (jpenilla) pour lancer un serveur de test local.
 //
 // Build :
@@ -11,8 +11,8 @@
 
 plugins {
     java
-    id("io.papermc.paperweight.userdev") version "2.0.0-beta.14"
-    id("xyz.jpenilla.run-paper") version "2.3.1"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.21"
+    id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
 group = "fr.reborn"
@@ -21,7 +21,7 @@ description = "Plugin Reborn Roleplay : broadcast OST aux clients via canal rebo
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
@@ -33,7 +33,7 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("1.21.1-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle("26.1.2.build.74-stable")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -41,7 +41,7 @@ dependencies {
 
 tasks {
     compileJava {
-        options.release.set(21)
+        options.release.set(25)
         options.encoding = "UTF-8"
     }
 
@@ -52,7 +52,7 @@ tasks {
     }
 
     runServer {
-        minecraftVersion("1.21.1")
+        minecraftVersion("26.1.2")
         systemProperty("com.mojang.eula.agree", "true")
         // runDirectory hors OneDrive — meme rationale que plugin-guardian.
         runDirectory = file(System.getProperty("user.home") + "/.reborn-ost-run")

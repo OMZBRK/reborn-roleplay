@@ -1,0 +1,65 @@
+// Reborn Integrity — mod Fabric client-side (attestation play-token).
+//
+// Config Groovy alignee sur FabricMC/fabric-example-mod branche 26.1.2 :
+// depuis la 26.x le client Mojang est livre DEOBFUSQUE (noms officiels dans
+// le jar), Yarn est discontinue, et Loom 1.17+ n'exige AUCUNE ligne
+// `mappings(...)` (il detecte le jar deobfusque). Java 25, Gradle 9.6.
+//
+// Build : ./gradlew build  → build/libs/reborn-integrity-<ver>.jar
+
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'
+}
+
+version = project.mod_version
+group = project.maven_group
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    mods {
+        "reborn-integrity" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    // ⚠️ WIP 26.1 : le client Mojang est deobfusque (noms officiels), Loom deobf
+    // (net.fabricmc.fabric-loom snapshot) a supprime `modImplementation`. Le code
+    // MC compile (custom payload OK) mais fabric-api n'est pas remappe vers les
+    // noms officiels -> PayloadTypeRegistry.playC2S() introuvable. Incantation
+    // Loom exacte pour remapper fabric-api (mod reseau) restant a trouver.
+    implementation include(fabricApi.module("fabric-networking-api-v1", project.fabric_version))
+}
+
+processResources {
+    def props = [
+        version          : project.version,
+        minecraft_version: project.minecraft_version,
+        loader_version   : project.loader_version,
+    ]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}

@@ -96,7 +96,7 @@ mod tests {
     fn sample_manifest() -> SignedManifest {
         SignedManifest {
             version: "1.0.0".into(),
-            minecraft_version: "1.21.4".into(),
+            minecraft_version: "26.1.2".into(),
             issued_at: "2026-05-03T08:00:00Z".into(),
             expires_at: "2026-05-10T08:00:00Z".into(),
             min_launcher_version: "0.1.0".into(),

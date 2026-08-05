@@ -5,7 +5,7 @@
 name: RebornOst
 version: '${version}'
 main: fr.reborn.ost.plugin.RebornOstPlugin
-api-version: '1.21'
+api-version: '26.1'
 authors: ['Reborn Team']
 description: 'Broadcast OST aux clients Reborn via canal reborn:ost.'
 website: 'https://reborn-rp.fr'

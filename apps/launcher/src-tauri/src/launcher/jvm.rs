@@ -192,7 +192,7 @@ mod tests {
 
     fn sample_cfg() -> LaunchConfig {
         LaunchConfig {
-            minecraft_version: "1.21.4".into(),
+            minecraft_version: "26.1.2".into(),
             launcher_version: "0.1.0".into(),
             minecraft_username: "OMZ".into(),
             minecraft_uuid: "069a79f4-44e9-4726-a5be-fca90e38aaf5".into(),

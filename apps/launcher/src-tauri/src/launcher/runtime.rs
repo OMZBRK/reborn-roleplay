@@ -25,8 +25,11 @@ use tokio::sync::Semaphore;
 const ALL_JSON_URL: &str =
     "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
-/// Composant JRE recommande pour Minecraft 1.21+ (Java 21).
-pub const RUNTIME_COMPONENT: &str = "java-runtime-delta";
+/// Composant JRE requis par la version cible. MC 26.1.x exige **Java 25**
+/// (`java-runtime-epsilon`, cf `version.json` -> `javaVersion.component`).
+/// MC 1.21.x utilisait `java-runtime-delta` (Java 21). A resynchroniser si on
+/// rebumpe la version MC.
+pub const RUNTIME_COMPONENT: &str = "java-runtime-epsilon";
 
 const MAX_CONCURRENT_FILE_DOWNLOADS: usize = 6;
 

@@ -5,7 +5,7 @@
 name: RebornGuardian
 version: '${version}'
 main: fr.reborn.guardian.RebornGuardian
-api-version: '1.21'
+api-version: '26.1'
 authors: ['Reborn Team']
 description: 'Valide les clients Reborn Roleplay (triple validation cote serveur).'
 website: 'https://reborn-rp.fr'

@@ -7,6 +7,7 @@
 pluginManagement {
     repositories {
         maven("https://maven.fabricmc.net/") { name = "Fabric" }
+        mavenCentral()
         gradlePluginPortal()
     }
 }
@@ -16,7 +17,7 @@ pluginManagement {
 // "Minecraft 1.21.1 requires Java 21 but Gradle is using 17".
 // La JDK est cachee dans ~/.gradle/jdks/.
 plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.10.0"
 }
 
 rootProject.name = "reborn-integrity"
