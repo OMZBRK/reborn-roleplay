@@ -45,13 +45,16 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.chat.ChatBlockCommands.register();
 
         // Overlay du menu d'interaction live (rendu HUD, pas un écran).
-        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "interaction"),
             (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
 
         // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
         // Rendu HUD fiable — même en solo où Minecraft ne rend PAS le
         // PlayerListHud vanilla (1 seul joueur, pas d'objectif scoreboard).
-        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((ctx, tickCounter) -> {
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "tablist-hold"),
+            (ctx, tickCounter) -> {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
             if (mc == null || mc.player == null || mc.screen != null || mc.options == null) return;
             if (!fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold) return;
@@ -99,12 +102,12 @@ public final class RebornHudClient implements ClientModInitializer {
                 if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) return;
                 net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents
                     .afterKeyPress(screen)
-                    .register((scr, key, scancode, mods) ->
+                    .register((scr, keyEvent) ->
                         fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
                 net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents
                     .afterMouseClick(screen)
-                    .register((scr, mouseX, mouseY, button) ->
-                        fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
+                    .register((scr, mouseEvent, doubleClick) -> {
+                        fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash(); return false; });
             });
 
         // Extrait les assets dynamic-player + schedule la creation du
