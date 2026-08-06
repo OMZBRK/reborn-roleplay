@@ -53,7 +53,7 @@ public final class SplashOverlay {
         int destH = Math.round(destW * (float) LOGO_TEX_H / LOGO_TEX_W);
         int logoX = (screenW - destW) / 2;
         int logoY = Math.round(screenH * 0.36f) - destH / 2;
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, 0f, 0f, destW, destH, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, 0f, 0f, destW, destH, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // ── Prompt gras clignotant (~72% hauteur) ───────────────
         float t = (System.currentTimeMillis() % 1400L) / 1400f;

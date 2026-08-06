@@ -79,7 +79,7 @@ public final class CapturePreview {
         ScreenshotTextures.Tex tex = ScreenshotTextures.get(path);
         int ix = x + PAD, iy = y + PAD;
         if (tex != null) {
-            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), ix, iy, 0f, 0f, TW, TH, tex.w(), tex.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), ix, iy, 0f, 0f, TW, TH, tex.w(), tex.h(), tex.w(), tex.h());
         } else {
             ctx.fill(ix, iy, ix + TW, iy + TH, 0xFF1A0E12);
         }

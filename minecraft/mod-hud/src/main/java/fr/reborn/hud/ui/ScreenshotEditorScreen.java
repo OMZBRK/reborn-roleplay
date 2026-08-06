@@ -125,7 +125,7 @@ public class ScreenshotEditorScreen extends Screen {
 
         if (tex != null) {
             ctx.fill(imgX - 1, imgY - 1, imgX + drawW + 1, imgY + drawH + 1, Colors.BORDER_STRONG);
-            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), imgX, imgY, 0f, 0f, drawW, drawH, tex.w(), tex.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), imgX, imgY, 0f, 0f, drawW, drawH, tex.w(), tex.h(), tex.w(), tex.h());
             float sc = drawW / (float) tex.w();
             for (Stroke s : strokes) drawStrokeScreen(ctx, s, sc);
             if (current != null) drawStrokeScreen(ctx, current, sc);

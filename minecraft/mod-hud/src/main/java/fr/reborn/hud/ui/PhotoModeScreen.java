@@ -66,6 +66,12 @@ public class PhotoModeScreen extends Screen {
     }
 
     @Override
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        // Pas de flou : le mode photo doit montrer la scène 3D NETTE pour cadrer.
+        // (Screen applique par défaut un backdrop flou quand un monde est chargé.)
+    }
+
+    @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         Font tr = this.font;
 

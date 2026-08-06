@@ -164,7 +164,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         int logoW = reborn$logoW();
         int logoH = reborn$logoH();
         int logoX = (this.width - logoW) / 2;
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, reborn$logoY(), 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, reborn$logoY(), 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // Panneaux (dessinés avant les enfants : Boutique-content + tabs par-dessus).
         int boxY = reborn$boxY();

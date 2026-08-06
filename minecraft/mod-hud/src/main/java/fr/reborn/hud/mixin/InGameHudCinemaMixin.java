@@ -39,9 +39,12 @@ public abstract class InGameHudCinemaMixin {
         if (!PhotoMode.INSTANCE.isActive()) return;
         Minecraft mc = Minecraft.getInstance();
         if (PhotoMode.INSTANCE.consumeCapture()) {
-            // Au HEAD, le framebuffer = scène 3D sans HUD → screenshot propre.
-            Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(),
-                text -> this.chat.addClientSystemMessage(text));
+            // 26.1 : extractRenderState tourne HORS render thread → on défère la
+            // capture via mc.execute (render thread), sinon "RenderSystem called
+            // from wrong thread". Le HUD étant masqué en mode photo, le
+            // framebuffer reste une scène 3D propre à ce moment-là.
+            mc.execute(() -> Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(),
+                text -> this.chat.addClientSystemMessage(text)));
         }
         // Le panneau est dessiné par PhotoModeScreen ; ici on masque juste le HUD.
         ci.cancel();

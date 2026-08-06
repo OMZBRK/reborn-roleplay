@@ -119,7 +119,7 @@ public class GalleryScreen extends Screen {
         ScreenshotTextures.Tex t = ScreenshotTextures.get(e.path());
         if (t != null) {
             // Image entière mise à l'échelle dans la cellule (region = image complète).
-            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), x, y, 0f, 0f, cw, cih, t.w(), t.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), x, y, 0f, 0f, cw, cih, t.w(), t.h(), t.w(), t.h());
         } else {
             ctx.fill(x, y, x + cw, y + cih, 0xFF1A0E12);
             ctx.text(tr, Component.literal("…"), x + cw / 2 - 2, y + cih / 2 - 4, Colors.FOREGROUND_MUTED, false);

@@ -243,7 +243,7 @@ public class ConfigShellScreen extends Screen {
         // Logo top-centre (comme l'ÉCHAP).
         int logoW = Math.min(Math.round(this.width * 0.10f), 132);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, LOGO_Y, 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, LOGO_Y, 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // « ‹ RETOUR » haut-gauche (hit-test dans mouseClicked).
         boolean backHover = overBack(mouseX, mouseY);

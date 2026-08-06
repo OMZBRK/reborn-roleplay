@@ -70,7 +70,7 @@ public class ScreenshotShareScreen extends Screen {
             int dw = Math.round(t.w() * scale), dh = Math.round(t.h() * scale);
             int ix = cx - dw / 2, iy = py + (previewH - dh) / 2;
             ctx.fill(ix - 1, iy - 1, ix + dw + 1, iy + dh + 1, Colors.BORDER_STRONG);
-            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), ix, iy, 0f, 0f, dw, dh, t.w(), t.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), ix, iy, 0f, 0f, dw, dh, t.w(), t.h(), t.w(), t.h());
         }
 
         // Label + champ légende (rendu explicite, comme l'éditeur — pas de

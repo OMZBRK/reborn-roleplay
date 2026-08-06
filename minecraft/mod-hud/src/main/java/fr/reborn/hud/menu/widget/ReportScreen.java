@@ -191,7 +191,7 @@ public class ReportScreen extends Screen {
 
         int logoW = Math.min(Math.round(this.width * 0.11f), 150);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, 14, 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, 14, 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         int cardW = Math.min(CARD_W, this.width - 24);
         int cardH = Math.min(CARD_H, this.height - 24);
