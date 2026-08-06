@@ -299,29 +299,21 @@ fn is_retryable(err: &DownloadError) -> bool {
     }
 }
 
-/// Prefixes des jars geres par notre manifest. Tout .jar dans `mods/`
-/// dont le nom commence par un de ces prefixes ET qui n'est plus liste
-/// dans le manifest courant sera supprime par `purge_orphan_mods`.
+/// Supprime **tout** .jar de `mods/` qui n'appartient pas a l'ensemble actif
+/// du manifest courant. Le modpack Reborn est entierement pilote par le
+/// manifest (PLAN §9.1 : "Aucun mod ajoute manuellement n'est tolere") : on
+/// veut donc `mods/` == exactement l'ensemble actif du manifest, ni plus ni
+/// moins. C'est ce que l'utilisateur attend : "seule la version du manifest
+/// compte".
 ///
-/// On EVITE volontairement de purger les autres jars (sodium, lithium,
-/// iris, etc.) meme s'ils ne sont pas dans le manifest : ce sont des
-/// mods optionnels que l'utilisateur peut avoir installes a la main et
-/// les effacer sans warning = data loss + jeu casse. La PLAN §9.1 dit
-/// "Aucun mod ajoute manuellement n'est tolere" mais l'enforcement doit
-/// se faire cote serveur (manifest_hash check au JOIN, plus tard).
-const MANAGED_PREFIXES: &[&str] = &["reborn-", "mcef-", "mcef_", "fabric-api-"];
-
-/// Supprime les .jar **geres** dans `mods/` (cf [`MANAGED_PREFIXES`])
-/// qui ne sont PAS listes dans le manifest courant. Necessaire pour le
-/// passage d'une version de manifest a la suivante : sinon les anciennes
-/// versions cohabitent avec les nouvelles (typiquement
-/// reborn-integrity-0.1.0-dev.jar ET reborn-integrity-0.2.0-dev.jar
-/// chargees simultanement par Fabric -> mod ID collision).
+/// Couvre en un seul mecanisme : anciennes versions d'un mod (bump), mods
+/// retires du manifest entre deux versions (ex: passage 1.21.1 -> 26.1.2 ou
+/// des mods comme continuity/plasmovoice/zoomify 1.21.1 trainaient sans etre
+/// deloges par l'ancien garde `MANAGED_PREFIXES`), et optionnels toggle off
+/// (retires quand desactives).
 ///
-/// **Garde-fou anti data-loss** : on ne touche qu'aux jars dont le nom
-/// matche un prefix Reborn-managed. Les mods optionnels installes par
-/// l'utilisateur (sodium, lithium, iris, ...) sont preserves. Cf PR
-/// "v0.3.5 too aggressive purge".
+/// Ne touche QUE les `.jar` de `mods/` : configs, resourcepacks, shaderpacks
+/// et sous-dossiers sont preserves.
 pub async fn purge_orphan_mods(
     manifest: &SignedManifest,
     game_dir: &Path,
@@ -332,9 +324,8 @@ pub async fn purge_orphan_mods(
         return Ok(Vec::new());
     }
 
-    // Collecte les chemins manifest "actifs" dont le parent est `mods/`.
-    // Un optionnel non-enabled n'est PAS dans "expected" -> sera purge
-    // s'il est present (effet du toggle off : retire le jar de mods/).
+    // Ensemble des filenames "actifs" du manifest dont le parent est `mods/`.
+    // Un optionnel non-enabled n'est PAS dans "expected" -> purge si present.
     let expected: std::collections::HashSet<String> = manifest
         .files
         .iter()
@@ -344,21 +335,6 @@ pub async fn purge_orphan_mods(
             (p.parent().map(|x| x.to_string_lossy().replace('\\', "/")) == Some("mods".into()))
                 .then(|| p.file_name()?.to_str().map(|s| s.to_string()))
                 .flatten()
-        })
-        .collect();
-
-    // Set des filenames du manifest (toutes versions confondues, sans tenir
-    // compte du flag active) -> permet de detecter les jars "manages" qui
-    // ont change de version ou ont ete toggle off. Les jars hors-manifest
-    // qui ne matchent pas un MANAGED_PREFIXES static restent preserves.
-    let in_manifest_any: std::collections::HashSet<String> = manifest
-        .files
-        .iter()
-        .filter_map(|f| {
-            std::path::Path::new(&f.path)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .map(|s| s.to_string())
         })
         .collect();
 
@@ -372,23 +348,10 @@ pub async fn purge_orphan_mods(
         if !name.ends_with(".jar") {
             continue;
         }
-        // Garde-fou anti data-loss : un jar est candidat a la purge si
-        //   (a) il est dans le manifest courant (toutes versions, meme
-        //       les optionnels desactives -> purge sur toggle off), OU
-        //   (b) son nom commence par un MANAGED_PREFIXES static (catch
-        //       les anciennes versions retirees du manifest entre 2 bumps,
-        //       p.ex. reborn-integrity-0.1.0-dev.jar laisse apres bump
-        //       0.2.0).
-        // Tout autre jar (mods user manuels : sodium-extra, etc.) est
-        // preserve sans question.
-        let is_managed = in_manifest_any.contains(name)
-            || MANAGED_PREFIXES.iter().any(|p| name.starts_with(p));
-        if !is_managed {
-            continue;
-        }
         if expected.contains(name) {
             continue;
         }
+        // Strict : tout .jar hors de l'ensemble actif du manifest est retire.
         match fs::remove_file(&path).await {
             Ok(()) => removed.push(name.to_string()),
             Err(e) => {
