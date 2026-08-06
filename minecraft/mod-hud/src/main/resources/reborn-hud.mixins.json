@@ -17,6 +17,8 @@
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",
     "InGameHudCinemaMixin",
+    "CameraPhotoMixin",
+    "KeyboardInputPhotoMixin",
     "ScreenshotRecorderMixin",
     "PlayerListHudMixin",
     "menu.TitleScreenMixin",
