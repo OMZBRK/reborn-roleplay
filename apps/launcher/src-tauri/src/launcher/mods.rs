@@ -178,9 +178,14 @@ fn constraint_accepts(constraint: &str, target: &str) -> bool {
         return true;
     }
     // Contraintes composees (Fabric autorise ">=1.21- <1.22-" ou ">=1.21 <1.22").
-    // Si on detecte un espace, on n'essaye pas de parser : conservateur = accepter.
+    // Semantique AND : chaque sous-contrainte separee par un espace doit
+    // accepter la target. On evalue recursivement plutot que d'accepter
+    // aveuglement — sinon un mod verrouille a ">=1.21 <1.21.2" est considere
+    // compatible avec 26.1.2 et n'est jamais purge (bug migration 1.21->26.1).
     if constraint.contains(char::is_whitespace) {
-        return true;
+        return constraint
+            .split_whitespace()
+            .all(|part| constraint_accepts(part, target));
     }
     // Wildcard suffix : 1.21.x / 1.21.*
     if let Some(prefix) = constraint
@@ -205,14 +210,30 @@ fn constraint_accepts(constraint: &str, target: &str) -> bool {
         let cv = parse_version(rest.trim());
         return cv.0 == target_parts.0 && cv.1 == target_parts.1;
     }
-    // Range "[a,b)" ou "[a,b]" : on accepte si target == a (cas le plus simple).
+    // Range "[a,b)" / "[a,b]" / "(a,b)" : borne basse inclusive/exclusive
+    // selon le crochet, borne haute idem. On respecte la borne haute (sinon
+    // un range [1.21,1.22) est accepte a tort pour 26.1.2).
     if constraint.starts_with('[') || constraint.starts_with('(') {
-        // Parsing approche : on extrait juste le min et on l'accepte si
-        // target >= min. La borne haute est ignoree (rare en pratique).
-        let inner = &constraint[1..constraint.len() - 1];
-        if let Some((min_str, _)) = inner.split_once(',') {
-            let min = parse_version(min_str.trim());
-            return cmp_versions(&min, &target_parts).is_le();
+        let incl_min = constraint.starts_with('[');
+        let incl_max = constraint.ends_with(']');
+        let inner = &constraint[1..constraint.len().saturating_sub(1)];
+        if let Some((min_str, max_str)) = inner.split_once(',') {
+            let (min_str, max_str) = (min_str.trim(), max_str.trim());
+            let ok_min = if min_str.is_empty() {
+                true
+            } else {
+                let min = parse_version(min_str);
+                let ord = cmp_versions(&target_parts, &min);
+                if incl_min { ord.is_ge() } else { ord.is_gt() }
+            };
+            let ok_max = if max_str.is_empty() {
+                true
+            } else {
+                let max = parse_version(max_str);
+                let ord = cmp_versions(&target_parts, &max);
+                if incl_max { ord.is_le() } else { ord.is_lt() }
+            };
+            return ok_min && ok_max;
         }
     }
     // Exact match (sans operateur). Si la contrainte a moins de segments
@@ -282,6 +303,28 @@ mod tests {
     fn range_constraint() {
         assert!(constraint_accepts("[1.21,1.22)", "1.21.4"));
         assert!(constraint_accepts("[1.21,1.22)", "1.21.0"));
+    }
+
+    #[test]
+    fn composite_constraint_rejects_across_major_jump() {
+        // Bug migration 1.21 -> 26.1 : les mods 1.21.1 declarent des ranges
+        // composes avec espace. Avant le fix, l'espace => accepte aveuglement.
+        assert!(!constraint_accepts(">=1.21 <1.21.2", "26.1.2"));
+        assert!(!constraint_accepts(">=1.21 <=1.21.1", "26.1.2"));
+        assert!(!constraint_accepts(">=1.21.0- <1.21.2-", "26.1.2"));
+        // Un mod forward-compatible (>=1.21 sans borne haute) reste accepte.
+        assert!(constraint_accepts(">=1.21", "26.1.2"));
+        // Un vrai mod 26.1 reste accepte.
+        assert!(constraint_accepts(">=26.1 <26.2", "26.1.2"));
+        assert!(!constraint_accepts(">=26.1 <26.2", "1.21.1"));
+    }
+
+    #[test]
+    fn range_respects_upper_bound() {
+        assert!(!constraint_accepts("[1.21,1.22)", "26.1.2"));
+        assert!(constraint_accepts("[1.21,1.22)", "1.21.4"));
+        assert!(!constraint_accepts("[1.21,1.21.1]", "1.21.2"));
+        assert!(constraint_accepts("[26.1,26.2)", "26.1.2"));
     }
 
     #[test]
