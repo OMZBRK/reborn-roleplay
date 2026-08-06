@@ -10,6 +10,7 @@
     "InGameHudMixin",
     "MusicTrackerMixin",
     "CrosshairHitMixin",
+    "CameraThirdPersonMixin",
     "EntityChangeLookMixin",
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",

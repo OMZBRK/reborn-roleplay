@@ -3,10 +3,12 @@ package fr.reborn.hud.mixin;
 import fr.reborn.hud.camera.RebornCamera;
 import fr.reborn.hud.immersion.PhotoMode;
 import net.minecraft.client.Camera;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.ClipContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,27 +26,36 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * anti-mur (raycast). N'agit QUE si {@link RebornCamera#isEnabled()} et 3e
  * personne arrière. Le mode photo garde la priorité sur la caméra.
  *
+ * <p>26.1 : {@code Camera#update} a pour signature {@code update(DeltaTracker)}
+ * et ne passe plus (area, focusedEntity, thirdPerson, inverseView, tickDelta).
+ * On lit donc l'entité ciblée via le champ shadow {@code entity}, le tickDelta
+ * via le {@link DeltaTracker}, et la vue (3e pers arrière vs avant vs 1re pers)
+ * via {@code Options#getCameraType()}.
+ *
  * @see fr.reborn.hud.camera.RebornCamera
  */
 @Mixin(Camera.class)
 public abstract class CameraThirdPersonMixin {
 
-    // 26.1 : getPos→position, setPos→setPosition (setRotation inchangé).
+    /** Entité ciblée par la caméra (le joueur local en général). Champ vanilla. */
+    @Shadow private Entity entity;
+
     @Shadow public abstract Vec3 position();
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
-    // FIXME 26.1 (phase 2) : en 26.1 Camera#update a pour signature update(DeltaTracker) —
-    // il ne fournit plus (area, focusedEntity, thirdPerson, inverseView, tickDelta). Ce handler
-    // ne s'appliquera donc pas tel quel au runtime ; la caméra épaule devra être recâblée
-    // (lire l'entité/vue via Minecraft + options plutôt que par les params).
     @Inject(method = "update", at = @At("TAIL"))
-    private void reborn$shoulderCamera(BlockGetter area, Entity focusedEntity, boolean thirdPerson,
-                                       boolean inverseView, float tickDelta, CallbackInfo ci) {
-        if (!thirdPerson || inverseView) return;
+    private void reborn$shoulderCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
+        Minecraft mc = Minecraft.getInstance();
+        // 3e personne ARRIÈRE uniquement (équiv. ancien !thirdPerson || inverseView :
+        // THIRD_PERSON_FRONT et FIRST_PERSON sont exclus).
+        if (mc.options == null || mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) return;
         if (PhotoMode.INSTANCE.isActive()) return;
         RebornCamera cam = RebornCamera.INSTANCE;
+        Entity focusedEntity = this.entity;
         if (!cam.isEnabled() || focusedEntity == null) return;
+
+        float tickDelta = deltaTracker.getGameTimeDeltaPartialTick(true);
 
         // Orientation caméra = orbite Reborn (découplée du regard du joueur).
         float cy = (float) cam.camYaw();
