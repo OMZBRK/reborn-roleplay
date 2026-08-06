@@ -11,6 +11,8 @@
     "MusicTrackerMixin",
     "CrosshairHitMixin",
     "CameraThirdPersonMixin",
+    "ClientInputAccessor",
+    "KeyboardInputMixin",
     "EntityChangeLookMixin",
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",

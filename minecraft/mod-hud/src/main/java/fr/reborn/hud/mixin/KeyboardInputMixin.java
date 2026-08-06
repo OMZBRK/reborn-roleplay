@@ -2,12 +2,12 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.camera.RebornCamera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.ClientInput;
 import net.minecraft.client.player.KeyboardInput;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -30,10 +30,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(KeyboardInput.class)
 public abstract class KeyboardInputMixin {
-
-    /** Vecteur de déplacement (ClientInput) — {@code x}=latéral, {@code y}=avant. */
-    @Shadow
-    protected Vec2 moveVector;
 
     /** Ticks restants d'aim « collant » après un clic (PVP fluide). */
     @Unique
@@ -66,7 +62,7 @@ public abstract class KeyboardInputMixin {
             return; // déplacement reste relatif caméra (yaw = camYaw)
         }
 
-        Vec2 mv = this.moveVector;
+        Vec2 mv = ((ClientInput) (Object) this).getMoveVector();
         float mf = mv.y; // avant
         float ms = mv.x; // latéral
         if (mf == 0f && ms == 0f) return; // pas d'input → garde l'orientation
@@ -87,6 +83,7 @@ public abstract class KeyboardInputMixin {
 
         // Le perso court « tout droit » dans son orientation (magnitude conservée
         // pour garder le ralenti sneak/objet).
-        this.moveVector = new Vec2(0f, (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms)));
+        ((ClientInputAccessor) (Object) this)
+            .reborn$setMoveVector(new Vec2(0f, (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms))));
     }
 }
