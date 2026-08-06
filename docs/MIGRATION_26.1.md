@@ -4,34 +4,66 @@
 > mods client, plugins serveur, et le serveur dev (fork « Rasengan »/Purpur).
 > Le **serveur build est déjà migré** (Paper `26.1.2-74`) → il sert de référence.
 
-## ⚡ AVANCEMENT EXÉCUTION (2026-08-05)
+## ⚡ AVANCEMENT EXÉCUTION — ✅ MIGRATION COMPLÈTE + PUBLIÉE EN PROD (2026-08-06)
 
-**✅ FAIT & buildé (Java 25, Gradle 9.6.1, JDK 25 portable dans `D:\dev-cache\jdk25`) :**
-- **plugin-guardian** + **plugin-ost** → Paper dev-bundle `26.1.2.build.74-stable`,
-  paperweight `2.0.0-beta.21`, run-paper `3.0.2`, api-version `26.1`. Jars produits.
-- **Plugins Shinobi (repo séparé)** : ShinobiCore, ShinobiAbilities, ShinobiLearning,
-  ShinobiSense, ShinobiTail → **tous buildés** contre **purpur-api `26.1.2.build.2592-stable`**,
-  Java 25. Fixes API 26.1 appliqués : attributs `GENERIC_*`→sans préfixe (MAX_HEALTH,
-  MOVEMENT_SPEED, STEP_HEIGHT, JUMP_STRENGTH, GRAVITY, SCALE…), `Material.CHAIN`→`IRON_CHAIN`,
-  `Sound.ENTITY_LEASH_KNOT_PLACE`→`ITEM_LEAD_TIED`, shade-plugin `3.6.0`→`3.6.2` + ASM `9.9.1`
-  (bytecode Java 25 = class major 69), repo Purpur ajouté aux 4 poms dépendants.
-- **Launcher** : `runtime.rs` JRE `java-runtime-delta`→**`java-runtime-epsilon`** (Java 25,
-  bug critique sinon le jeu plante), `game.rs` défaut MC `1.21.1`→`26.1.2`, fixtures
-  verify.rs/jvm.rs. **`cargo check` OK**.
-- **Serveur DEV** : Purpur 26.1.2 (build 2592) + 5 jars Shinobi migrés **stagés** dans
-  `_26.1-migration/` (SFTP), configs backupées, `CUTOVER.md` écrit. **Non-destructif**
-  (serveur 1.21.1 en cours intact) → bascule = geste manuel admin (Java 25 panel + snapshot monde).
+> **La migration 1.21.1 → 26.1.2 est terminée et déployée.** Tout ci-dessous
+> est en prod (launcher + manifest auto-update les joueurs). Il ne reste que
+> des **features in-world mod-hud « phase-2 »** à peaufiner (voir plus bas).
+> Branche mod-hud : `feature/mc-26.1-modhud-wip` (le reste sur `main`).
 
-**✅ mod-integrity BUILDÉ (reborn-integrity 0.3.0)** — réseau uniquement, aucun UI. La
-recette de build 26.1 est **prouvée** (voir « RECETTE » ci-dessous).
+**✅ Serveurs / plugins (Java 25, Gradle 9.6.1, JDK 25 dans `D:\dev-cache\jdk25\jdk-25.0.4+7`)**
+- plugin-guardian + plugin-ost → Paper `26.1.2.build.74-stable`, paperweight `2.0.0-beta.21`,
+  run-paper `3.0.2`, api-version `26.1`.
+- Plugins Shinobi (repo séparé `ShinobiReborn`) : Core/Abilities/Learning/Sense/Tail →
+  purpur-api `26.1.2.build.2592-stable`, Java 25. Fixes : attributs `GENERIC_*`→sans préfixe,
+  `Material.CHAIN`→`IRON_CHAIN`, `Sound.ENTITY_LEASH_KNOT_PLACE`→`ITEM_LEAD_TIED`,
+  shade `3.6.2` + ASM `9.9.1` (bytecode Java 25 = class major 69).
+- Serveur DEV = `91.197.6.60:25606` (maj récente ; avant `.51:26547`). Purpur 26.1.2.
 
-**⛔ mod-ost + mod-hud = chantier de RÉÉCRITURE UI (pas un simple remap) :**
-- **26.x a refondu tout le système de rendu GUI** : `DrawContext`/`GuiGraphics` **n'existe plus**
-  (remplacé par un nouveau pipeline de rendu). Tout code UI (`OstScreen`/`OstHudOverlay` de mod-ost,
-  et **la totalité de mod-hud** : tablist, character screens, HUD panel, ~21 mixins) doit être
-  **réécrit** contre la nouvelle API 26.x, + **validé en jeu** (impossible en headless).
-- mod-hud en plus : swap **MCEF → `mcef-modern 0.3.3+mc26.1`** (API à adapter), addon PlasmoVoice `2.1.13`.
-- ⇒ **Modpack 26.1 + republication launcher/manifest = EN ATTENTE** des 3 mods (ne pas pousser en prod).
+**✅ Launcher (Tauri) — PUBLIÉ v0.3.24** (prod, isCurrent windows-x86_64/stable)
+- `runtime.rs` JRE `java-runtime-epsilon` (Java 25), `game.rs` MC défaut `26.1.2`.
+- **Purge STRICTE** (`manifest/download.rs::purge_orphan_mods`) : `mods/` == ensemble actif
+  du manifest, rien d'autre (retire les vieux mods 1.21.1). + `mods.rs::constraint_accepts`
+  gère le saut 1.21→26.1 (contraintes composées `>=1.21 <1.21.2` en AND).
+- **Retry updater** (`use-updater.ts`) débloqué après coupure réseau.
+- Env `_BUILD` bakées depuis `.env` (serveur prod `91.197.6.152:27106`, dev `91.197.6.60:25606`).
+- Publish = `scripts/publish-launcher.ps1` (build NSIS + sign `secrets/tauri-updater.key` +
+  release GitHub `v0.3.24` + POST `/v1/admin/releases`). Détails/pièges : voir mémoire
+  `modpack-26.1-publish-state`.
+
+**✅ Mods Reborn — PORTÉS + PUBLIÉS**
+- reborn-integrity `0.3.0`, reborn-ost `0.2.0`, **reborn-hud `0.4.0`** (compile 0 err, boote,
+  join monde OK). Recette build 26.1 = voir « RECETTE » ci-dessous.
+
+**✅ Modpack + manifest — PUBLIÉ en prod, manifest courant `v2.2.0`** (mc 26.1.2)
+- Release GitHub `mods-v2.0.0` (tous les jars ; ⚠️ upload >2min = release en DRAFT, faire
+  `gh release edit --draft=false` sinon URLs 404). 17→18 mods (dropped indium/modernfix/FFP/
+  modmenu/replaymod/mcef/continuity). Required : fabric-api 0.155.2+26.1.2, FLK 1.13.13,
+  sodium 0.9.1, lithium 0.24.7, sodium-extra 0.9.3, entityculling, yacl 3.9.6, ETF 7.1,
+  emotecraft 3.3.0, plasmovoice 2.1.13, **PlayerAnimationLib 1.2.5** (dép d'emotecraft),
+  reborn-hud/ost/integrity. Optionnels : iris, nochatreports, zoomify, emf.
+- POST manifest = `manifest-uploader manifest --file secrets/manifest-signed.json`
+  (⚠️ le classifier gate le POST prod → confirm user requise). Version `@unique` côté API :
+  re-POST même version = HTTP 500 (rollback transactionnel, pas cassant).
+
+**🔧 RESTE = features in-world mod-hud « phase-2 » (non bloquant, cosmétique/gameplay)**
+Fait & publié en 0.4.0 : caméra épaule (orbite souris via `turn` — l'ancien
+`changeLookDirection` renommé était no-op silencieux sous require=0), mouvement relatif-caméra,
+photo mode (free-cam + fix flou `extractBackground` vide + capture déférée `mc.execute`),
+cinématique (bandes au TAIL sans cancel), logos+previews (blit 12-args région=texture complète).
+**À FAIRE** :
+- **Démarches** : port du fork **`com.zigythebird.playeranim`** (remplace `dev.kosmx`) dans
+  `MovementAnimations.java` (stubbé) + bridge emotecraft. Libs 26.1 dispo (PAL 1.2.5, emotecraft 3.3.0).
+- **Éditeur HUD** (preview des éléments) : dépend du gros mixin `InGameHudMixin` (inert) →
+  rewrite mode-extraction (les cibles `renderCrosshair/renderHotbar/...` de Gui ont disparu).
+- **MCEF** (fond menu 3D + font) : port fork `net.dimaskama:mcef-modern` (jar `libs/mcef-modern-0.3.3.jar`),
+  ~11 fichiers `com.cinemamod.mcef.*`→`net.dimaskama.mcef.api.*`.
+- **Chat custom render** : `ChatHudMixin` (ChatComponent#render → extractRenderState nouvelle sig).
+- **Tablist** : client OK ; la data vient de **ShinobiCore** (`TabListManager#pushClientFeed`, serveur).
+
+⚠️ **Boucle test rapide** = `runClient` local (JDK25) + Monitor grep, PAS un republish à chaque fix.
+Publish mod-hud = bump `gradle.properties`, build, upload jar → release `mods-v2.0.0`, régénère
+manifest (`build-from-folder.ts` + `cli.ts sign`), POST. Recette complète : mémoire.
 
 ### 🍳 RECETTE build mod client 26.1 (PROUVÉE sur mod-integrity)
 1. **build.gradle Groovy** (pas .kts) : `id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'`,
