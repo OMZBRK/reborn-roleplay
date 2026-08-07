@@ -39,11 +39,18 @@ dependencies {
     compileOnly files('libs/mcef-modern-0.3.3.jar')
     runtimeOnly files('libs/mcef-modern-0.3.3.jar')
 
+    // --- Démarches animées (PlayerAnimationLib + Emotecraft, fork zigythebird) :
+    //   jars 26.1 déjà en noms officiels (client deobf) -> compileOnly (compile) +
+    //   runtimeOnly (chargés comme mods en dev pour tester). Présents dans le
+    //   modpack au runtime prod ; MovementAnimations fallback inerte si absents.
+    compileOnly  files('libs/PlayerAnimationLibMerged-1.2.5+mc.26.1.jar')
+    compileOnly  files('libs/emotecraft-for-MC26.1.2-3.3.0-b.build.160.jar')
+    runtimeOnly  files('libs/PlayerAnimationLibMerged-1.2.5+mc.26.1.jar')
+    runtimeOnly  files('libs/emotecraft-for-MC26.1.2-3.3.0-b.build.160.jar')
+
     // --- Intégrations phase 2 (neutralisées le temps du port coeur UI) ---
     // PlasmoVoice (micro) :
     // compileOnly 'su.plo.voice.api:client:2.1.13'
-    // Animations (PlayerAnimator/Emotecraft) :
-    // modCompileOnly files('libs/player-animation-lib-fabric-26.1.jar')
 }
 
 processResources {
