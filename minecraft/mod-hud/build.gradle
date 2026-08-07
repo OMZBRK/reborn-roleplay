@@ -30,10 +30,16 @@ dependencies {
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
+    // --- MCEF (fond menu Chromium) : porté sur le fork net.dimaskama (API
+    //   net.dimaskama.mcef.api.*). Le jar est déjà en noms officiels (client
+    //   deobf) -> pas de remap Loom, on l'ajoute en compileOnly (compile) +
+    //   runtimeOnly (chargé comme mod en dev via son fabric.mod.json). Reste
+    //   optionnel au runtime prod : DynamicPlayerBackground fallback solid color
+    //   si le mod est absent du modpack.
+    compileOnly files('libs/mcef-modern-0.3.3.jar')
+    runtimeOnly files('libs/mcef-modern-0.3.3.jar')
+
     // --- Intégrations phase 2 (neutralisées le temps du port coeur UI) ---
-    // MCEF (fond menu) : le fork mcef-modern a une API differente
-    //   (net.dimaskama.mcef.api.*) -> port dedie des 11 fichiers menu.
-    // modCompileOnly files('libs/mcef-modern-0.3.3.jar')
     // PlasmoVoice (micro) :
     // compileOnly 'su.plo.voice.api:client:2.1.13'
     // Animations (PlayerAnimator/Emotecraft) :

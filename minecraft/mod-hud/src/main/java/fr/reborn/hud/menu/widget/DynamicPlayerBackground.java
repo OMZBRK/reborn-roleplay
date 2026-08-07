@@ -1,12 +1,12 @@
 package fr.reborn.hud.menu.widget;
 
-import com.cinemamod.mcef.MCEF;
-import com.cinemamod.mcef.MCEFBrowser;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import net.dimaskama.mcef.api.MCEFApi;
+import net.dimaskama.mcef.api.MCEFBrowser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.GameRenderer;
-import org.joml.Matrix4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,21 +18,23 @@ import java.nio.file.Path;
  * {@code bbmodel_viewer.html} (asset Dynamic Animated Player). Affiche le
  * skin du joueur courant en 3D animé avec HDRI lighting.
  *
- * <p>Lifecycle :
+ * <p>Port 26.1 sur le fork <b>net.dimaskama:mcef-modern</b> (l'API cinemamod
+ * d'origine + le rendu GL immédiat sont morts en 26.x) :
  * <ul>
- *   <li>{@link #init()} appelé une fois depuis {@code RebornIntegrityClient}.
- *       Schedule la création du browser via {@link MCEF#scheduleForInit}.</li>
- *   <li>{@link #render} appelé chaque frame par {@code MainMenuRenderer}.
- *       Resize le browser quand la fenêtre change, le dessine plein écran
- *       en blittant la texture OpenGL offscreen du renderer CEF.</li>
+ *   <li>{@link #init()} — {@link MCEFApi#initialize()} démarre le download/extract
+ *       async des natives CEF (~150 Mo, une fois par machine), puis on crée le
+ *       browser quand {@link MCEFApi#getInstanceFuture()} complète.</li>
+ *   <li>{@link #render} — resize le browser à la taille réelle (pixels) puis
+ *       blit sa {@link GpuTextureView} plein écran via la pipeline
+ *       {@code GUI_TEXTURED} (helper natif {@code GuiGraphicsExtractor.blit}).</li>
  *   <li>Le browser singleton persiste entre les visites du TitleScreen :
  *       on évite ainsi un cold-start CEF (~500ms) à chaque retour menu.</li>
  * </ul>
  *
- * <p>Fallback : si l'extraction des assets a échoué ou si MCEF n'a pas
- * réussi à init (natives manquantes, plateforme non supportée), on
- * dessine un solid color sombre {@code 0xFF040611} pour conserver un
- * fond neutre et ne pas bloquer le menu.
+ * <p><b>Runtime</b> : mcef-modern doit être présent dans le modpack pour que le
+ * CEF natif se charge. S'il est absent (dev sans le mod, plateforme non
+ * supportée, natives KO), toutes les entrées MCEF lèvent (Throwable capturé) et
+ * on retombe sur le solid color {@code 0xFF040611} — le menu reste utilisable.
  */
 public final class DynamicPlayerBackground {
 
@@ -58,20 +60,30 @@ public final class DynamicPlayerBackground {
             return;
         }
         viewerUrl = buildViewerUrl(html);
-        LOG.info("scheduling MCEF browser init pour {}", viewerUrl);
-        MCEF.scheduleForInit(success -> {
-            if (!success) {
-                LOG.warn("MCEF init a echoue (success=false), fallback solid color.");
-                schedulingFailed = true;
-                return;
-            }
+        LOG.info("MCEF: init CEF (download/extract natives async) pour {}", viewerUrl);
+        try {
+            // Démarre le pipeline d'init CEF (download -> extract -> install -> init).
+            // Idempotent : un seul appel côté client-init. Retourne immédiatement.
+            MCEFApi.initialize();
+        } catch (Throwable t) {
+            // mcef-modern absent du modpack (NoClassDefFoundError) ou natives KO.
+            LOG.warn("MCEFApi.initialize() indisponible -> fallback solid color ({})",
+                    t.toString());
+            schedulingFailed = true;
+            return;
+        }
+        MCEFApi.getInstanceFuture().thenAccept(api -> {
             try {
-                browser = MCEF.createBrowser(viewerUrl, true);
+                browser = api.createBrowser(viewerUrl, /* transparent */ true);
                 LOG.info("MCEF browser cree (transparent=true).");
             } catch (Throwable t) {
                 LOG.error("creation du browser MCEF a echoue", t);
                 schedulingFailed = true;
             }
+        }).exceptionally(t -> {
+            LOG.warn("init CEF a echoue -> fallback solid color", t);
+            schedulingFailed = true;
+            return null;
         });
     }
 
@@ -93,7 +105,8 @@ public final class DynamicPlayerBackground {
      * solid color pour ne pas laisser un trou noir transparent.
      */
     public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH) {
-        if (schedulingFailed || browser == null) {
+        MCEFBrowser b = browser;
+        if (schedulingFailed || b == null) {
             ctx.fill(0, 0, screenW, screenH, FALLBACK_COLOR);
             return;
         }
@@ -105,7 +118,7 @@ public final class DynamicPlayerBackground {
         int realH = (int) Math.max(1, Math.round(screenH * scale));
         if (realW != lastResizeW || realH != lastResizeH) {
             try {
-                browser.resize(realW, realH);
+                b.resize(realW, realH);
                 lastResizeW = realW;
                 lastResizeH = realH;
             } catch (Throwable t) {
@@ -113,51 +126,40 @@ public final class DynamicPlayerBackground {
             }
         }
 
-        int textureId;
+        GpuTextureView view;
         try {
-            textureId = browser.getRenderer().getTextureID();
+            view = b.getTextureView();
         } catch (Throwable t) {
-            LOG.warn("getRenderer().getTextureID() a echoue", t);
+            LOG.warn("getTextureView() a echoue", t);
             ctx.fill(0, 0, screenW, screenH, FALLBACK_COLOR);
             return;
         }
-        if (textureId == 0) {
+        if (view == null) {
             // Texture pas encore allouee (premiere frame post-resize) -> fallback.
             ctx.fill(0, 0, screenW, screenH, FALLBACK_COLOR);
             return;
         }
 
         try {
-            renderTextureFullscreen(ctx, textureId, screenW, screenH);
+            var sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+            // blit(view, sampler, x0, x1, y0, y1, u0, u1, v0, v1) — ordre innerBlit
+            // (x-pair puis y-pair). CEF rend en origine haut-gauche comme le GUI MC
+            // -> pas de flip V (u0=0,u1=1 / v0=0,v1=1). Respecte la matrix du pose
+            // stack (le TitleScreenMixin pousse un translate Z pour passer au-dessus
+            // du panorama vanilla).
+            ctx.blit(view, sampler, 0, screenW, 0, screenH, 0f, 1f, 0f, 1f);
         } catch (Throwable t) {
-            LOG.warn("rendu plein ecran browser a echoue, fallback solid color", t);
+            LOG.warn("blit plein ecran du browser a echoue, fallback solid color", t);
             ctx.fill(0, 0, screenW, screenH, FALLBACK_COLOR);
         }
     }
 
-    /**
-     * Blit la texture OpenGL du browser CEF sur un quad plein écran. On
-     * passe par RenderSystem + Tessellator + BufferRenderer plutôt que
-     * par GuiGraphicsExtractor.drawTexture parce que la texture est un ID GL brut
-     * (pas un Identifier MC).
-     *
-     * <p>Pattern repris de {@code com.cinemamod.mcef.example.ExampleScreen}
-     * mais adapté en plein écran et en respectant la matrix transform du
-     * GuiGraphicsExtractor (le TitleScreenMixin pousse un translate Z=400 pour
-     * passer au-dessus du panorama vanilla).
-     */
-    private static void renderTextureFullscreen(GuiGraphicsExtractor ctx, int textureId, int w, int h) {
-        // ⚠️ STUB 26.1 (phase 2) — le rendu GL immédiat (Tessellator/BufferBuilder/
-        // RenderSystem.setShader) a été supprimé en 26.x, et MCEF est stubbé
-        // (browser jamais initialisé, textureId=0). À réimplémenter avec le fork
-        // mcef-modern + la nouvelle pipeline de rendu quand on ré-active le fond.
-    }
-
     /** À appeler si le mod se décharge (rare, mais propre). */
     public static void dispose() {
-        if (browser != null) {
+        MCEFBrowser b = browser;
+        if (b != null) {
             try {
-                browser.onClose();
+                b.close();
             } catch (Throwable ignored) {
                 // best-effort
             }
