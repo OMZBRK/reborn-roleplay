@@ -69,14 +69,27 @@
   (~2r fills au lieu de 4r²) → fix lag 117→7 fps sur viseur/ESC. **Menus carrés** (rayon plafonné 2px)
   sauf ESC (variantes `*Full`).
 
+**✅ FAIT en 0.4.4 (session 2026-08-08, `feature/mc-26.1-modhud-wip`, PUBLIÉ prod manifest v2.4.0) :**
+- **MCEF** (fond menu 3D Chromium) : `DynamicPlayerBackground` re-porté `com.cinemamod.mcef.*` →
+  `net.dimaskama.mcef.api.*`. Init async `MCEFApi.initialize()` (download/extract natives CEF ~150 Mo
+  1×/machine) → `createBrowser` sur `getInstanceFuture()`. Rendu = **blit natif de `MCEFBrowser
+  .getTextureView()` (GpuTextureView)** plein écran via `GuiGraphicsExtractor.blit(view, sampler,
+  x0,x1,y0,y1, u,v…)` pipeline `GUI_TEXTURED`, sampler clamp-LINEAR. Fallback solid color si mcef absent.
+  `mcef-modern-0.3.3` **ajouté au modpack** (required). Validé dev : `MCEF browser cree`. Stubs
+  `com.cinemamod.*` supprimés. ⚠️ reste à confirmer visuellement le flip V (1 ligne si à l'envers).
+- **Démarches** : `MovementAnimations` re-porté `dev.kosmx.playerAnim` → **`com.zigythebird.playeranim`** +
+  Emotecraft 3.3.0. `.emotecraft` chargées via `UniversalEmoteSerializer.readData` (→ `Animation`
+  zigythebird, même type que PAL) ; playback via `PlayerAnimationController` triggered dans un
+  `ModifierLayer`/avatar (crossfade). Piloté par vitesse+sprint+`NarutoRun.isActive()` (Naruto>course>
+  marche(style)>idle). Validé dev : `démarches : 5 styles marche, run=true, naruto=true`. Rendu **local**
+  (sync cross-joueurs = canal serveur `reborn:anim` via ShinobiCore, non re-câblé client).
+
 **⏳ À FAIRE (prochaines sessions) :**
-- **Démarches** : port du fork **`com.zigythebird.playeranim`** (remplace `dev.kosmx`) dans
-  `MovementAnimations.java` (stubbé) + bridge emotecraft. Libs 26.1 dispo (PAL 1.2.5, emotecraft 3.3.0).
-- **MCEF** (fond menu 3D + font) : port fork `net.dimaskama:mcef-modern` (jar `libs/mcef-modern-0.3.3.jar`),
-  ~11 fichiers `com.cinemamod.mcef.*`→`net.dimaskama.mcef.api.*`.
 - **Voix + émotes** : PlasmoVoice (bulle parole/mute) + Emotecraft. **Création perso** in-game (Zenkai).
   **Screenshot social** (gallery/éditeur/feed).
 - **Tablist** : client OK ; la data vient de **ShinobiCore** (`TabListManager#pushClientFeed`, serveur).
+- **Sync démarches cross-joueurs** : re-câbler le canal C2S/S2C `reborn:anim` + relais ShinobiCore
+  (voir vieux `AnimSyncPayload`, absent de l'arbre 26.1).
 
 ⚠️ **Boucle test rapide** = `runClient` local (JDK25) + Monitor grep, PAS un republish à chaque fix.
 Publish mod-hud = bump `gradle.properties`, build, upload jar → release `mods-v2.0.0`, régénère
