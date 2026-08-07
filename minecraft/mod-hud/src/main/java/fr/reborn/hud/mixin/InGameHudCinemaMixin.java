@@ -32,29 +32,39 @@ public abstract class InGameHudCinemaMixin {
     // 26.1 : Gui#chatHud → chat.
     @Shadow @Final private ChatComponent chat;
 
-    // Mode photo : au HEAD (avant le HUD), capture propre + masque le HUD.
-    // 26.1 : Gui#render → extractRenderState(GuiGraphicsExtractor, DeltaTracker).
+    // HEAD (avant le HUD) : masquage du HUD pour le mode photo ET le mode
+    // cinéma « sans HUD ». 26.1 : Gui#render → extractRenderState(GuiGraphicsExtractor, DeltaTracker).
     @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
-    private void reborn$photoHud(GuiGraphicsExtractor ctx, DeltaTracker counter, CallbackInfo ci) {
-        if (!PhotoMode.INSTANCE.isActive()) return;
+    private void reborn$hudHead(GuiGraphicsExtractor ctx, DeltaTracker counter, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
-        if (PhotoMode.INSTANCE.consumeCapture()) {
-            // 26.1 : extractRenderState tourne HORS render thread → on défère la
-            // capture via mc.execute (render thread), sinon "RenderSystem called
-            // from wrong thread". Le HUD étant masqué en mode photo, le
-            // framebuffer reste une scène 3D propre à ce moment-là.
-            mc.execute(() -> Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(),
-                text -> this.chat.addClientSystemMessage(text)));
+        // Mode photo : capture propre (scène 3D avant le HUD) puis masque le HUD.
+        if (PhotoMode.INSTANCE.isActive()) {
+            if (PhotoMode.INSTANCE.consumeCapture()) {
+                // 26.1 : extractRenderState tourne HORS render thread → on défère la
+                // capture via mc.execute (render thread), sinon "RenderSystem called
+                // from wrong thread". Le HUD étant masqué en mode photo, le
+                // framebuffer reste une scène 3D propre à ce moment-là.
+                mc.execute(() -> Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(),
+                    text -> this.chat.addClientSystemMessage(text)));
+            }
+            ci.cancel(); // panneau dessiné par PhotoModeScreen ; on masque le HUD.
+            return;
         }
-        // Le panneau est dessiné par PhotoModeScreen ; ici on masque juste le HUD.
-        ci.cancel();
+        // Cinéma « sans HUD » : on masque le HUD vanilla mais on dessine quand
+        // même les bandes par-dessus l'écran clean (le TAIL ne s'exécutera pas
+        // à cause du cancel, donc on les dessine ici).
+        if (CinemaBars.INSTANCE.hidesHud() && CinemaBars.INSTANCE.isProgressActive()) {
+            CinemaBars.INSTANCE.renderBars(ctx);
+            ci.cancel();
+        }
     }
 
-    // Bandes cinéma : au TAIL (par-dessus le HUD). Pas de cancel → jamais bloqué.
+    // Bandes cinéma « avec HUD » : au TAIL (par-dessus le HUD). Pas de cancel →
+    // jamais bloqué. Le mode « sans HUD » est géré au HEAD (avec cancel).
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void reborn$cinemaBars(GuiGraphicsExtractor ctx, DeltaTracker counter, CallbackInfo ci) {
         if (PhotoMode.INSTANCE.isActive()) return;
-        if (CinemaBars.INSTANCE.isProgressActive()) {
+        if (!CinemaBars.INSTANCE.hidesHud() && CinemaBars.INSTANCE.isProgressActive()) {
             CinemaBars.INSTANCE.renderBars(ctx);
         }
     }

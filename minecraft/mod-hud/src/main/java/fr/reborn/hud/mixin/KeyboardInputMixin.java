@@ -44,6 +44,8 @@ public abstract class KeyboardInputMixin {
         LocalPlayer player = mc.player;
         if (player == null || mc.options == null) return;
 
+        float cyaw = (float) cam.camYaw();
+
         // AIM-MODE : attaquer (clic gauche) / utiliser (clic droit) → le perso
         // s'aligne sur la caméra pour que minage / combat / placement visent le
         // viseur. « Collant » ~10 ticks après le dernier clic pour un PVP fluide
@@ -53,7 +55,6 @@ public abstract class KeyboardInputMixin {
         }
         if (reborn$aimHold > 0) {
             reborn$aimHold--;
-            float cyaw = (float) cam.camYaw();
             float cpitch = (float) cam.camPitch();
             player.setYRot(cyaw);
             player.setXRot(cpitch);
@@ -62,6 +63,19 @@ public abstract class KeyboardInputMixin {
             return; // déplacement reste relatif caméra (yaw = camYaw)
         }
 
+        // BASE (marche / course normale) : comportement 3e-personne « classique ».
+        // Le perso reste verrouillé sur la caméra ; ZQSD strafe relatif caméra
+        // (le jeu utilisera moveVector tel quel avec yaw = camYaw). C'est « le
+        // truc de base » : pas de pivot du corps vers la direction de déplacement.
+        if (!reborn$isChakraRun(player)) {
+            player.setYRot(cyaw);
+            player.setYBodyRot(cyaw);
+            player.setYHeadRot(cyaw);
+            return;
+        }
+
+        // COURSE CHAKRAÏQUE uniquement : le corps pivote vers la direction de
+        // déplacement (free-run façon Elden Ring / anime-RP).
         Vec2 mv = ((ClientInput) (Object) this).getMoveVector();
         float mf = mv.y; // avant
         float ms = mv.x; // latéral
@@ -85,5 +99,17 @@ public abstract class KeyboardInputMixin {
         // pour garder le ralenti sneak/objet).
         ((ClientInputAccessor) (Object) this)
             .reborn$setMoveVector(new Vec2(0f, (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms))));
+    }
+
+    /**
+     * « Course chakraïque » : condition d'activation du mouvement libre (corps
+     * qui pivote vers la direction de déplacement). MVP côté client = le sprint
+     * (ShinobiCore consomme le chakra pendant la course). <b>Point de swap
+     * unique</b> : si le serveur synchronise plus tard un vrai flag de course
+     * chakraïque, remplacer ce seul retour.
+     */
+    @Unique
+    private boolean reborn$isChakraRun(LocalPlayer player) {
+        return player.isSprinting();
     }
 }
