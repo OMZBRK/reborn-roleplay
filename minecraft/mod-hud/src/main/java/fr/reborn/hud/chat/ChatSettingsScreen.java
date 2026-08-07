@@ -83,8 +83,8 @@ public final class ChatSettingsScreen extends Screen {
         y = toggle(ctx, y, "Badges de rang", settings.chatBadges, mouseX, mouseY, b -> settings.chatBadges = b);
         y = toggle(ctx, y, "Animation d'arrivee", settings.chatAnimation, mouseX, mouseY, b -> settings.chatAnimation = b);
         y = toggle(ctx, y, "Machine a ecrire", settings.chatTyping, mouseX, mouseY, b -> settings.chatTyping = b);
-        y = toggle(ctx, y, "Curseur anime", settings.animatedTyping, mouseX, mouseY, b -> settings.animatedTyping = b);
-        y = cycle(ctx, y, "Style curseur", new String[]{"Barre", "Souligne", "Bloc"},
+        y = toggle(ctx, y, "Texte anime (saisie)", settings.animatedTyping, mouseX, mouseY, b -> settings.animatedTyping = b);
+        y = cycle(ctx, y, "Style anim", new String[]{"Grossir", "Fondu", "Glisser"},
             settings.typingCursorStyle, mouseX, mouseY, v -> settings.typingCursorStyle = v);
         y = toggle(ctx, y, "Highlight mentions", settings.highlightMentions, mouseX, mouseY, b -> settings.highlightMentions = b);
         y = toggle(ctx, y, "Son sur mention", settings.soundOnMention, mouseX, mouseY, b -> settings.soundOnMention = b);
