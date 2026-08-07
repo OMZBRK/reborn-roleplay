@@ -5,16 +5,16 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Bandes noires « cinéma » (letterbox) en haut et en bas, pour l'immersion / les
- * screenshots RP. La touche de bascule (K) <b>cycle sur trois états</b> :
+ * Modes de présentation « cinéma » pour l'immersion / les screenshots RP. La
+ * touche de bascule (K) <b>cycle sur trois états distincts</b> :
  * <ol>
- *   <li>{@code OFF} — rien ;</li>
- *   <li>{@code BARS_HUD} — bandes <b>par-dessus le HUD</b> (HUD visible) ;</li>
- *   <li>{@code BARS_NO_HUD} — bandes seules, <b>HUD masqué</b> (rendu clean).</li>
+ *   <li>{@code HUD} — jeu normal, HUD visible, pas de bandes (état de repos) ;</li>
+ *   <li>{@code CLEAN} — HUD masqué, <b>écran plein propre</b> (sans bandes) ;</li>
+ *   <li>{@code BARS} — HUD masqué + <b>bandes noires</b> (letterbox cinématique).</li>
  * </ol>
- * Le rendu des bandes (et le masquage du HUD) est piloté par
- * {@code InGameHudCinemaMixin} — pas par un HudRenderCallback, sinon il serait
- * annulé en même temps que le HUD. Animation de glissement dans {@link #tick()}.
+ * Le masquage du HUD et le rendu des bandes sont pilotés par
+ * {@code InGameHudCinemaMixin} — pas par un HudRenderCallback, sinon ils seraient
+ * annulés en même temps que le HUD. Animation de glissement dans {@link #tick()}.
  */
 public final class CinemaBars {
 
@@ -22,28 +22,31 @@ public final class CinemaBars {
 
     private static final float BAR_FRACTION = 0.12f;
 
-    /** Cycle : OFF → bandes+HUD → bandes sans HUD → OFF. */
-    public enum Mode { OFF, BARS_HUD, BARS_NO_HUD }
+    /** Cycle : HUD (repos) → CLEAN (sans HUD) → BARS (bandes) → HUD. */
+    public enum Mode { HUD, CLEAN, BARS }
 
-    private Mode mode = Mode.OFF;
-    /** Progression d'animation 0 (rétractées) → 1 (déployées). */
+    private Mode mode = Mode.HUD;
+    /** Progression d'animation des bandes 0 (rétractées) → 1 (déployées). */
     private float progress = 0f;
 
     private CinemaBars() {}
 
-    /** Cycle : OFF → avec HUD → sans HUD → OFF. */
+    /** Cycle : HUD → CLEAN (écran plein sans HUD) → BARS (bandes noires) → HUD. */
     public void toggle() {
         mode = switch (mode) {
-            case OFF -> Mode.BARS_HUD;
-            case BARS_HUD -> Mode.BARS_NO_HUD;
-            case BARS_NO_HUD -> Mode.OFF;
+            case HUD -> Mode.CLEAN;
+            case CLEAN -> Mode.BARS;
+            case BARS -> Mode.HUD;
         };
     }
 
     public Mode mode() { return mode; }
-    public boolean isEnabled() { return mode != Mode.OFF; }
-    /** Vrai si le mode courant masque le HUD (bandes seules, rendu clean). */
-    public boolean hidesHud() { return mode == Mode.BARS_NO_HUD; }
+    /** Vrai dès qu'un effet est actif (HUD masqué ou bandes). */
+    public boolean isEnabled() { return mode != Mode.HUD; }
+    /** Vrai si le mode courant masque le HUD (CLEAN ou BARS). */
+    public boolean hidesHud() { return mode != Mode.HUD; }
+    /** Vrai si les bandes doivent être dessinées (mode BARS uniquement). */
+    public boolean barsActive() { return mode == Mode.BARS; }
 
     /** true tant que les bandes sont (au moins partiellement) visibles. */
     public boolean isProgressActive() { return progress > 0.005f; }
@@ -53,7 +56,7 @@ public final class CinemaBars {
     }
 
     private void tick() {
-        float target = (mode != Mode.OFF) ? 1f : 0f;
+        float target = (mode == Mode.BARS) ? 1f : 0f;
         progress += (target - progress) * 0.25f; // easing
         if (Math.abs(target - progress) < 0.004f) progress = target;
     }

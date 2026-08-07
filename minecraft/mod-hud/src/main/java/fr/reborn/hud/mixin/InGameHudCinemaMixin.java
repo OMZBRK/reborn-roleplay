@@ -50,17 +50,21 @@ public abstract class InGameHudCinemaMixin {
             ci.cancel(); // panneau dessiné par PhotoModeScreen ; on masque le HUD.
             return;
         }
-        // Cinéma « sans HUD » : on masque le HUD vanilla mais on dessine quand
-        // même les bandes par-dessus l'écran clean (le TAIL ne s'exécutera pas
-        // à cause du cancel, donc on les dessine ici).
-        if (CinemaBars.INSTANCE.hidesHud() && CinemaBars.INSTANCE.isProgressActive()) {
-            CinemaBars.INSTANCE.renderBars(ctx);
+        // Cinéma CLEAN / BARS : on masque le HUD vanilla. En mode BARS on dessine
+        // en plus les bandes par-dessus l'écran clean (le TAIL ne s'exécutera pas
+        // à cause du cancel, donc on les dessine ici). En CLEAN : rien, juste le
+        // cancel → écran plein propre.
+        if (CinemaBars.INSTANCE.hidesHud()) {
+            if (CinemaBars.INSTANCE.barsActive() && CinemaBars.INSTANCE.isProgressActive()) {
+                CinemaBars.INSTANCE.renderBars(ctx);
+            }
             ci.cancel();
         }
     }
 
-    // Bandes cinéma « avec HUD » : au TAIL (par-dessus le HUD). Pas de cancel →
-    // jamais bloqué. Le mode « sans HUD » est géré au HEAD (avec cancel).
+    // Rétraction des bandes au retour BARS → HUD : le HUD est de nouveau visible
+    // (pas de cancel au HEAD), donc on dessine les bandes qui se rétractent
+    // par-dessus le HUD au TAIL. Hors de cette transition, progress ~0 → no-op.
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void reborn$cinemaBars(GuiGraphicsExtractor ctx, DeltaTracker counter, CallbackInfo ci) {
         if (PhotoMode.INSTANCE.isActive()) return;

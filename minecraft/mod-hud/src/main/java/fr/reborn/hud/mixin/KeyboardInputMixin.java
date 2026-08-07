@@ -103,13 +103,13 @@ public abstract class KeyboardInputMixin {
 
     /**
      * « Course chakraïque » : condition d'activation du mouvement libre (corps
-     * qui pivote vers la direction de déplacement). MVP côté client = le sprint
-     * (ShinobiCore consomme le chakra pendant la course). <b>Point de swap
-     * unique</b> : si le serveur synchronise plus tard un vrai flag de course
-     * chakraïque, remplacer ce seul retour.
+     * qui pivote vers la direction de déplacement). Déclenchée par la touche
+     * dédiée « Naruto run » ({@link fr.reborn.hud.animation.NarutoRun}), elle-même
+     * synchronisée avec le plugin serveur (canal {@code reborn:naruto}). Hors
+     * course chakraïque : marche/course = comportement 3e-personne de base.
      */
     @Unique
     private boolean reborn$isChakraRun(LocalPlayer player) {
-        return player.isSprinting();
+        return fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive();
     }
 }

@@ -74,6 +74,15 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.tablist.TablistData.clear());
 
+        // Course chakraïque (« Naruto run ») : canal C2S reborn:naruto — le client
+        // informe le plugin (ShinobiCore) quand le joueur (dés)active sa course
+        // pour l'activer IG. Le mouvement client, lui, marche sans le serveur.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.animation.NarutoRunPayload.ID,
+            fr.reborn.hud.animation.NarutoRunPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.animation.NarutoRun.INSTANCE.reset());
+
         // Bandes noires cinéma (immersion) — toggle touche K.
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
 

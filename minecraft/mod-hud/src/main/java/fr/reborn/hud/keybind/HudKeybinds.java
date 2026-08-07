@@ -96,7 +96,8 @@ public final class HudKeybinds {
             GLFW.GLFW_KEY_O,
             net.minecraft.client.KeyMapping.Category.MISC
         ));
-        // TEST : bascule le naruto-run (en attendant le trigger plugin).
+        // Course chakraïque (« Naruto run ») : touche dédiée, bascule le
+        // mouvement libre client + notifie le plugin serveur (canal reborn:naruto).
         KeyMapping narutoTest = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.naruto_test",
             InputConstants.Type.KEYSYM,
@@ -163,7 +164,12 @@ public final class HudKeybinds {
                 }
             }
             while (narutoTest.consumeClick()) {
-                fr.reborn.hud.animation.MovementAnimations.INSTANCE.toggleNarutoTest();
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null) {
+                    // Bascule la course chakraïque : active le mouvement libre
+                    // client + informe le plugin serveur (canal reborn:naruto).
+                    fr.reborn.hud.animation.NarutoRun.INSTANCE.toggle();
+                }
             }
             while (walkMenu.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
