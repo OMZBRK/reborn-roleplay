@@ -46,19 +46,36 @@
   (⚠️ le classifier gate le POST prod → confirm user requise). Version `@unique` côté API :
   re-POST même version = HTTP 500 (rollback transactionnel, pas cassant).
 
-**🔧 RESTE = features in-world mod-hud « phase-2 » (non bloquant, cosmétique/gameplay)**
-Fait & publié en 0.4.0 : caméra épaule (orbite souris via `turn` — l'ancien
-`changeLookDirection` renommé était no-op silencieux sous require=0), mouvement relatif-caméra,
-photo mode (free-cam + fix flou `extractBackground` vide + capture déférée `mc.execute`),
-cinématique (bandes au TAIL sans cancel), logos+previews (blit 12-args région=texture complète).
-**À FAIRE** :
+**🔧 RESTE = features in-world mod-hud « phase-2 »**
+
+**✅ FAIT en 0.4.1 (session 2026-08-07, branche `feature/mc-26.1-modhud-wip`, à publier) :**
+- **HUD qui bouge vraiment** : `InGameHudMixin` porté au mode extraction — inject HEAD/RETURN
+  (push/pop `HudTransform`) sur les vraies cibles 26.1 : `extractItemHotbar`, `extractPlayerHealth`,
+  `extractArmor` (static), `extractFood`, `extractAirBubbles`, `extractSelectedItemName` (action bar),
+  `extractScoreboardSidebar`, `extractCrosshair`, `extractBossOverlay` (boss bar), `extractChat` (via
+  `ChatHudMixin`). La pose se propage en retained. **Supprimés** : `InGameHudInvoker`, `BossBarHudMixin` (morts).
+- **Chat RP custom** : `ChatHudMixin` sur `ChatComponent.extractRenderState` (7-args, descripteur explicite) —
+  têtes joueurs, mentions, timestamps, panneau, blocage. Rendu sur la passe **FOREGROUND si chat ouvert,
+  BACKGROUND si fermé (HUD)** (sinon invisible hors chat). `currentTick` = param vanilla (pas `getGuiTicks`).
+  Scissor = clip largeur. **Animation d'arrivée** (slide+fade) + **Animated Typing** (curseur animé, 3 styles).
+  Barre de saisie rétrécie via `ChatScreenMixin` re-ciblé sur `extractRenderState` (`render` n'existe plus).
+- **Éditeur HUD refondu** : panneau latéral permanent sobre (carte insérée, coins carrés `FlatRect`,
+  police **ArcadePix** échelle 0.5 comme main-menu, thème crimson `menu/Colors`), liste éléments+œil,
+  presets nommables, scoreboard draggable (sous panneau), engrenage → réglages chat (restylés pareil).
+- **Mouvement** : free-look permanent (caméra orbite), **marche/course suit la souris** (fix =
+  `LocalPlayerBodyMixin` re-force yBodyRot en post-tick, sinon vanilla le tourne vers le déplacement),
+  **Naruto run** = touche dédiée `L` (`NarutoRun` + payload C2S `reborn:naruto`) = Elden Ring.
+- **Cinéma 3 modes** (K) : HUD → CLEAN → BARS. **Perf** : `DrawHelpers.roundedRect` réécrit en spans
+  (~2r fills au lieu de 4r²) → fix lag 117→7 fps sur viseur/ESC. **Menus carrés** (rayon plafonné 2px)
+  sauf ESC (variantes `*Full`).
+
+**⏳ À FAIRE (prochaines sessions) :**
 - **Démarches** : port du fork **`com.zigythebird.playeranim`** (remplace `dev.kosmx`) dans
   `MovementAnimations.java` (stubbé) + bridge emotecraft. Libs 26.1 dispo (PAL 1.2.5, emotecraft 3.3.0).
-- **Éditeur HUD** (preview des éléments) : dépend du gros mixin `InGameHudMixin` (inert) →
-  rewrite mode-extraction (les cibles `renderCrosshair/renderHotbar/...` de Gui ont disparu).
 - **MCEF** (fond menu 3D + font) : port fork `net.dimaskama:mcef-modern` (jar `libs/mcef-modern-0.3.3.jar`),
   ~11 fichiers `com.cinemamod.mcef.*`→`net.dimaskama.mcef.api.*`.
-- **Chat custom render** : `ChatHudMixin` (ChatComponent#render → extractRenderState nouvelle sig).
+- **Voix + émotes** : PlasmoVoice (bulle parole/mute) + Emotecraft. **Création perso** in-game (Zenkai).
+  **Screenshot social** (gallery/éditeur/feed).
 - **Tablist** : client OK ; la data vient de **ShinobiCore** (`TabListManager#pushClientFeed`, serveur).
 
 ⚠️ **Boucle test rapide** = `runClient` local (JDK25) + Monitor grep, PAS un republish à chaque fix.

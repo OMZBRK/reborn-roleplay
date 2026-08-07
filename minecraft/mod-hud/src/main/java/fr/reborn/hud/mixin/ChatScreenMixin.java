@@ -2,6 +2,7 @@ package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.RebornHudClient;
 import fr.reborn.hud.chat.ChatLayout;
+import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.chat.EmojiPicker;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementState;
@@ -48,7 +49,7 @@ public abstract class ChatScreenMixin {
      * La barre de saisie vanilla est un fill pleine largeur tout en bas. On le
      * remplace par une barre à la largeur du chat, stylée Reborn.
      */
-    @Redirect(method = "render",
+    @Redirect(method = "extractRenderState",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;fill(IIIII)V"))
     private void reborn$narrowInputBar(GuiGraphicsExtractor ctx, int x1, int y1, int x2, int y2, int color) {
         Minecraft mc = Minecraft.getInstance();
@@ -65,11 +66,42 @@ public abstract class ChatScreenMixin {
     }
 
     // Dessine le bouton emoji + le picker par-dessus l'écran de chat.
-    @Inject(method = "render", at = @At("TAIL"))
+    // 26.1 : ChatScreen#render → extractRenderState(GuiGraphicsExtractor, int, int, float).
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void reborn$renderEmoji(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
         EmojiPicker.render(ctx, mouseX, mouseY,
             mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+        reborn$animatedCaret(ctx, mc);
+    }
+
+    /**
+     * Curseur de saisie animé (façon Animated Typing) : un curseur accent avec
+     * un fondu doux (pulse), dessiné en fin de texte. Styles : barre / soulignement
+     * / bloc. Approx : curseur en fin de saisie (cas le plus courant).
+     */
+    private void reborn$animatedCaret(GuiGraphicsExtractor ctx, Minecraft mc) {
+        if (input == null || !input.isFocused() || mc.font == null) return;
+        ChatSettings s;
+        try {
+            s = RebornHudClient.config().getChatSettings();
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (!s.animatedTyping) return;
+
+        int caretX = input.getX() + 4 + mc.font.width(input.getValue());
+        int caretY = input.getY();
+        int h = 9;
+        float pulse = 0.35f + 0.5f * (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 260.0));
+        int a = Math.min(255, (int) (pulse * 255));
+        int col = (a << 24) | (Colors.ACCENT & 0x00FFFFFF);
+        switch (s.typingCursorStyle) {
+            case 1 -> ctx.fill(caretX, caretY + h - 1, caretX + 6, caretY + h + 1, col);   // soulignement
+            case 2 -> ctx.fill(caretX, caretY - 1, caretX + 5, caretY + h,
+                (Math.min(150, a) << 24) | (Colors.ACCENT & 0x00FFFFFF));                   // bloc
+            default -> ctx.fill(caretX, caretY - 1, caretX + 2, caretY + h, col);           // barre
+        }
     }
 
     // Intercepte les clics sur le bouton/picker avant le reste de l'écran.

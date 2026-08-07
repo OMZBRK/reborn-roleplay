@@ -63,23 +63,29 @@ public abstract class KeyboardInputMixin {
             return; // déplacement reste relatif caméra (yaw = camYaw)
         }
 
-        // BASE (marche / course normale) : comportement 3e-personne « classique ».
-        // Le perso reste verrouillé sur la caméra ; ZQSD strafe relatif caméra
-        // (le jeu utilisera moveVector tel quel avec yaw = camYaw). C'est « le
-        // truc de base » : pas de pivot du corps vers la direction de déplacement.
-        if (!reborn$isChakraRun(player)) {
+        // FREE-LOOK (sur les deux modes) : la caméra orbite librement
+        // (EntityChangeLookMixin route la souris vers l'orbite). À l'arrêt on
+        // tourne autour du perso sans le faire pivoter.
+        Vec2 mv = ((ClientInput) (Object) this).getMoveVector();
+        float mf = mv.y; // avant
+        float ms = mv.x; // latéral
+        if (mf == 0f && ms == 0f) return; // arrêt → free-look, garde l'orientation
+
+        // BASE (marche / course) — principe Minecraft : le perso suit la caméra
+        // (souris). On pose yaw = camYaw pour que le DÉPLACEMENT soit relatif
+        // caméra ce tick ; l'orientation VISIBLE du corps est re-forcée en
+        // post-tick (LocalPlayerBodyMixin) car vanilla tourne sinon le corps vers
+        // la direction de déplacement, écrasant notre valeur. À l'arrêt : rien →
+        // free-look. Le pivot vers la direction de déplacement = Naruto run.
+        if (!fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive()) {
             player.setYRot(cyaw);
             player.setYBodyRot(cyaw);
             player.setYHeadRot(cyaw);
             return;
         }
 
-        // COURSE CHAKRAÏQUE uniquement : le corps pivote vers la direction de
-        // déplacement (free-run façon Elden Ring / anime-RP).
-        Vec2 mv = ((ClientInput) (Object) this).getMoveVector();
-        float mf = mv.y; // avant
-        float ms = mv.x; // latéral
-        if (mf == 0f && ms == 0f) return; // pas d'input → garde l'orientation
+        // NARUTO RUN — principe Elden Ring : le corps pivote vers la direction de
+        // déplacement (free-run), caméra libre.
 
         double cy = Math.toRadians(cam.camYaw());
         // Repère caméra : avant = (-sin, cos) ; latéral = (-cos, -sin).
@@ -99,17 +105,5 @@ public abstract class KeyboardInputMixin {
         // pour garder le ralenti sneak/objet).
         ((ClientInputAccessor) (Object) this)
             .reborn$setMoveVector(new Vec2(0f, (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms))));
-    }
-
-    /**
-     * « Course chakraïque » : condition d'activation du mouvement libre (corps
-     * qui pivote vers la direction de déplacement). Déclenchée par la touche
-     * dédiée « Naruto run » ({@link fr.reborn.hud.animation.NarutoRun}), elle-même
-     * synchronisée avec le plugin serveur (canal {@code reborn:naruto}). Hors
-     * course chakraïque : marche/course = comportement 3e-personne de base.
-     */
-    @Unique
-    private boolean reborn$isChakraRun(LocalPlayer player) {
-        return fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive();
     }
 }

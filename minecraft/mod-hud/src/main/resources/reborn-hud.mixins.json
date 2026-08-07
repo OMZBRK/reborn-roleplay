@@ -13,6 +13,7 @@
     "CameraThirdPersonMixin",
     "ClientInputAccessor",
     "KeyboardInputMixin",
+    "LocalPlayerBodyMixin",
     "EntityChangeLookMixin",
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",

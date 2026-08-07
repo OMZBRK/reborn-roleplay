@@ -174,13 +174,15 @@ public class CrosshairScreen extends Screen {
     }
 
     private void drawCheckerboard(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        int cell = 10;
+        // Fond plein (1 fill) puis SEULEMENT les cellules alternées → ~2× moins
+        // de fills (le mode retained 26.1 pénalise chaque fill).
+        int cell = 12;
+        ctx.fill(x, y, x + w, y + h, Colors.SURFACE_ELEVATED);
         for (int yy = 0; yy < h; yy += cell) {
             for (int xx = 0; xx < w; xx += cell) {
-                boolean dark = ((xx / cell) + (yy / cell)) % 2 == 0;
-                int c = dark ? Colors.SURFACE : Colors.SURFACE_ELEVATED;
+                if (((xx / cell) + (yy / cell)) % 2 != 0) continue;
                 ctx.fill(x + xx, y + yy,
-                    x + Math.min(xx + cell, w), y + Math.min(yy + cell, h), c);
+                    x + Math.min(xx + cell, w), y + Math.min(yy + cell, h), Colors.SURFACE);
             }
         }
     }

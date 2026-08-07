@@ -1,38 +1,39 @@
 package fr.reborn.hud.chat;
 
 import fr.reborn.hud.RebornHudClient;
-import fr.reborn.hud.ui.style.RebornColors;
-import fr.reborn.hud.ui.style.RoundedRect;
+import fr.reborn.hud.menu.Colors;
+import fr.reborn.hud.ui.HudEditSidePanel;
+import fr.reborn.hud.ui.style.FlatRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.ChatFormatting;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Settings panel du chat (toggles + sliders). Accessible via l'icone
- * engrenage du chat header. Modal floating card centrée.
+ * Réglages du chat — même identité visuelle que l'éditeur HUD (thème Akatsuki
+ * crimson, police ArcadePix, formes carrées {@link FlatRect}). Carte modale
+ * centrée, ouverte depuis l'éditeur HUD (bouton dédié) ou {@code Ctrl+M}.
  *
- * <p>Toggles persistes immediatement dans {@link ChatSettings} via
- * {@code HudConfig.save()}. Pas de bouton "Apply" — UX "live preview".
+ * <p>Chaque toggle/slider/couleur est persisté immédiatement (pas de bouton
+ * Appliquer) — UX live.
  */
 public final class ChatSettingsScreen extends Screen {
 
-    private static final int CARD_WIDTH = 280;
+    private static final int CARD_W = 224;
+    private static final int PAD = 12;
+    private static final int ROW = 16;
 
     private final Screen parent;
     private final ChatSettings settings;
 
-    /** Rects des toggles cliquables collectes pendant render. */
     private final List<Toggle> toggles = new ArrayList<>();
-    /** Rects des sliders. */
     private final List<Slider> sliders = new ArrayList<>();
-    /** Rects des pastilles de couleur. */
     private final List<Swatch> swatches = new ArrayList<>();
+    private final List<Cycle> cycles = new ArrayList<>();
 
     private static final int[] HL_COLORS = {
         0xFFA0182B, 0xFFEF4444, 0xFFD9A95E, 0xFF4ADE80, 0xFF38BDF8, 0xFF8B5CF6
@@ -44,9 +45,14 @@ public final class ChatSettingsScreen extends Screen {
         this.settings = RebornHudClient.config().getChatSettings();
     }
 
+    private int cardW() { return Math.min(CARD_W, this.width - 24); }
+    private int cardH() { return Math.min(356, this.height - 24); }
+    private int cardX() { return (this.width - cardW()) / 2; }
+    private int cardY() { return (this.height - cardH()) / 2; }
+
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        ctx.fill(0, 0, this.width, this.height, 0x66000000);
+        ctx.fill(0, 0, this.width, this.height, Colors.BACKDROP_60);
     }
 
     @Override
@@ -55,174 +61,152 @@ public final class ChatSettingsScreen extends Screen {
         toggles.clear();
         sliders.clear();
         swatches.clear();
+        cycles.clear();
 
         Font tr = this.font;
-        int cardW = Math.min(CARD_WIDTH, this.width - 24);
-        int cardH = Math.min(318, this.height - 24);
-        int cardX = (this.width - cardW) / 2;
-        int cardY = (this.height - cardH) / 2;
+        int cx = cardX(), cy = cardY(), cw = cardW(), ch = cardH();
 
-        RoundedRect.fill(ctx, cardX, cardY, cardW, cardH, 10, RebornColors.BG_PANEL_ELEVATED);
-        RoundedRect.border(ctx, cardX, cardY, cardW, cardH, 10, RebornColors.BORDER_STRONG);
+        FlatRect.fill(ctx, cx, cy, cw, ch, 3, Colors.SURFACE_ELEVATED);
+        FlatRect.border(ctx, cx, cy, cw, ch, 3, Colors.BORDER_STRONG);
 
-        // Header
-        ctx.text(tr, Component.literal("PARAMÈTRES CHAT").withStyle(ChatFormatting.BOLD),
-            cardX + 14, cardY + 12, RebornColors.FOREGROUND, false);
-        ctx.fill(cardX + 14, cardY + 26, cardX + cardW - 14, cardY + 27, RebornColors.BORDER);
+        // Header : pastille + titre + séparateur.
+        FlatRect.fill(ctx, cx + PAD, cy + 11, 7, 7, 2, Colors.ACCENT);
+        HudEditSidePanel.arcText(ctx, tr, "Parametres chat", cx + PAD + 12, cy + 10, Colors.FOREGROUND);
+        ctx.fill(cx + PAD, cy + 24, cx + cw - PAD, cy + 25, Colors.BORDER);
 
-        // Section Affichage
-        int y = cardY + 36;
-        ctx.text(tr, Component.literal("AFFICHAGE").withStyle(ChatFormatting.BOLD),
-            cardX + 14, y, RebornColors.FOREGROUND_MUTED, false);
-        y += 14;
+        int y = cy + 32;
+        HudEditSidePanel.arcText(ctx, tr, "Affichage", cx + PAD, y, Colors.FOREGROUND_MUTED);
+        y += 13;
 
-        y = renderToggle(ctx, cardX, y, "Timestamps en permanence",
-            settings.showTimestamps, mouseX, mouseY, b -> settings.showTimestamps = b);
-        y = renderToggle(ctx, cardX, y, "Compactage messages",
-            settings.compactConsecutive, mouseX, mouseY, b -> settings.compactConsecutive = b);
-        y = renderToggle(ctx, cardX, y, "Auto-scroll",
-            settings.autoScroll, mouseX, mouseY, b -> settings.autoScroll = b);
-        y = renderToggle(ctx, cardX, y, "Highlight mentions",
-            settings.highlightMentions, mouseX, mouseY, b -> settings.highlightMentions = b);
-        y = renderToggle(ctx, cardX, y, "Son sur mention",
-            settings.soundOnMention, mouseX, mouseY, b -> settings.soundOnMention = b);
-        y = renderColorRow(ctx, cardX, y, "Couleur du highlight", settings.highlightColor);
+        y = toggle(ctx, y, "Timestamps", settings.showTimestamps, mouseX, mouseY, b -> settings.showTimestamps = b);
+        y = toggle(ctx, y, "Tetes de joueurs", settings.chatHeads, mouseX, mouseY, b -> settings.chatHeads = b);
+        y = toggle(ctx, y, "Badges de rang", settings.chatBadges, mouseX, mouseY, b -> settings.chatBadges = b);
+        y = toggle(ctx, y, "Animation d'arrivee", settings.chatAnimation, mouseX, mouseY, b -> settings.chatAnimation = b);
+        y = toggle(ctx, y, "Machine a ecrire", settings.chatTyping, mouseX, mouseY, b -> settings.chatTyping = b);
+        y = toggle(ctx, y, "Curseur anime", settings.animatedTyping, mouseX, mouseY, b -> settings.animatedTyping = b);
+        y = cycle(ctx, y, "Style curseur", new String[]{"Barre", "Souligne", "Bloc"},
+            settings.typingCursorStyle, mouseX, mouseY, v -> settings.typingCursorStyle = v);
+        y = toggle(ctx, y, "Highlight mentions", settings.highlightMentions, mouseX, mouseY, b -> settings.highlightMentions = b);
+        y = toggle(ctx, y, "Son sur mention", settings.soundOnMention, mouseX, mouseY, b -> settings.soundOnMention = b);
+        y = colorRow(ctx, y, "Couleur mention", settings.highlightColor, mouseX, mouseY);
 
-        // Separator
         y += 2;
-        ctx.fill(cardX + 14, y, cardX + cardW - 14, y + 1, RebornColors.BORDER);
-        y += 8;
+        ctx.fill(cx + PAD, y, cx + cw - PAD, y + 1, Colors.BORDER);
+        y += 7;
+        HudEditSidePanel.arcText(ctx, tr, "Dimensions", cx + PAD, y, Colors.FOREGROUND_MUTED);
+        y += 13;
 
-        // Section Dimensions
-        ctx.text(tr, Component.literal("DIMENSIONS").withStyle(ChatFormatting.BOLD),
-            cardX + 14, y, RebornColors.FOREGROUND_MUTED, false);
-        y += 14;
+        y = slider(ctx, y, "Opacite", settings.opacity, 30, 100, "%", mouseX, mouseY, v -> settings.opacity = v);
+        y = slider(ctx, y, "Taille texte", settings.textSize, 10, 16, "PX", mouseX, mouseY, v -> settings.textSize = v);
 
-        y = renderSlider(ctx, cardX, y, "Opacité du panel", settings.opacity, 30, 100,
-            "%", mouseX, mouseY, v -> settings.opacity = v);
-        y = renderSlider(ctx, cardX, y, "Taille du texte", settings.textSize, 10, 16,
-            "px", mouseX, mouseY, v -> settings.textSize = v);
-
-        // Close button bottom
-        int closeBtnY = cardY + cardH - 28;
-        int closeBtnW = cardW - 28;
-        int closeBtnH = 20;
-        boolean closeHover = inside(mouseX, mouseY, cardX + 14, closeBtnY, closeBtnW, closeBtnH);
-        RoundedRect.fill(ctx, cardX + 14, closeBtnY, closeBtnW, closeBtnH, 6,
-            closeHover ? RebornColors.ACCENT_SOFT : RebornColors.BG_INPUT);
-        RoundedRect.border(ctx, cardX + 14, closeBtnY, closeBtnW, closeBtnH, 6,
-            closeHover ? RebornColors.ACCENT : RebornColors.BORDER_STRONG);
-        int closeLabelW = tr.width("Fermer");
-        ctx.text(tr, Component.literal("Fermer").withStyle(ChatFormatting.BOLD),
-            cardX + 14 + (closeBtnW - closeLabelW) / 2, closeBtnY + (closeBtnH - tr.lineHeight) / 2,
-            closeHover ? RebornColors.ACCENT_HOVER : RebornColors.FOREGROUND, false);
+        // Bouton Fermer.
+        int bY = cy + ch - 26, bX = cx + PAD, bW = cw - PAD * 2, bH = 16;
+        boolean hov = inside(mouseX, mouseY, bX, bY, bW, bH);
+        FlatRect.fill(ctx, bX, bY, bW, bH, 2, hov ? Colors.ACCENT_HOVER : Colors.ACCENT);
+        HudEditSidePanel.arcText(ctx, tr, "Fermer",
+            bX + (bW - HudEditSidePanel.arcW(tr, "Fermer")) / 2, bY + (bH - tr.lineHeight) / 2 + 1, Colors.FOREGROUND);
     }
 
-    private int renderToggle(GuiGraphicsExtractor ctx, int cardX, int y, String label, boolean state,
-                             int mouseX, int mouseY, java.util.function.Consumer<Boolean> onSet) {
-        Font tr = this.font;
-        ctx.text(tr, Component.literal(label),
-            cardX + 14, y + 4, RebornColors.FOREGROUND, false);
-
-        int cardW = Math.min(CARD_WIDTH, this.width - 24);
-        int switchW = 32, switchH = 14;
-        int switchX = cardX + cardW - 14 - switchW;
-        int switchY = y;
-        int bg = state ? RebornColors.SUCCESS : 0x1FFFFFFF;
-        RoundedRect.fill(ctx, switchX, switchY, switchW, switchH, switchH / 2, bg);
-        int thumbS = switchH - 4;
-        int thumbX = state ? switchX + switchW - thumbS - 2 : switchX + 2;
-        RoundedRect.fill(ctx, thumbX, switchY + 2, thumbS, thumbS, thumbS / 2, 0xFFFFFFFF);
-
-        toggles.add(new Toggle(switchX, switchY, switchW, switchH, state, onSet));
-        return y + 18;
+    private int toggle(GuiGraphicsExtractor ctx, int y, String label, boolean state,
+                       int mouseX, int mouseY, java.util.function.Consumer<Boolean> onSet) {
+        int cx = cardX(), cw = cardW();
+        HudEditSidePanel.arcText(ctx, this.font, label, cx + PAD, y + 3, Colors.FOREGROUND);
+        int sw = 24, sh = 11;
+        int sx = cx + cw - PAD - sw, sy = y + 1;
+        FlatRect.fill(ctx, sx, sy, sw, sh, 2, state ? Colors.ACCENT : Colors.SURFACE);
+        FlatRect.border(ctx, sx, sy, sw, sh, 2, state ? Colors.ACCENT : Colors.BORDER_STRONG);
+        int th = sh - 4;
+        int tx = state ? sx + sw - th - 2 : sx + 2;
+        FlatRect.fill(ctx, tx, sy + 2, th, th, 1, Colors.FOREGROUND);
+        toggles.add(new Toggle(sx, sy, sw, sh, state, onSet));
+        return y + ROW;
     }
 
-    private int renderSlider(GuiGraphicsExtractor ctx, int cardX, int y, String label, int value,
-                             int min, int max, String unit, int mouseX, int mouseY,
-                             java.util.function.IntConsumer onSet) {
-        Font tr = this.font;
-        ctx.text(tr, Component.literal(label),
-            cardX + 14, y, RebornColors.FOREGROUND, false);
-        int cardW = Math.min(CARD_WIDTH, this.width - 24);
+    private int slider(GuiGraphicsExtractor ctx, int y, String label, int value, int min, int max,
+                       String unit, int mouseX, int mouseY, java.util.function.IntConsumer onSet) {
+        int cx = cardX(), cw = cardW();
+        HudEditSidePanel.arcText(ctx, this.font, label, cx + PAD, y, Colors.FOREGROUND);
         String vStr = value + unit;
-        int vW = tr.width(vStr);
-        ctx.text(tr, Component.literal(vStr),
-            cardX + cardW - 14 - vW, y, RebornColors.ACCENT_HOVER, false);
+        HudEditSidePanel.arcText(ctx, this.font, vStr,
+            cx + cw - PAD - HudEditSidePanel.arcW(this.font, vStr), y, Colors.ACCENT_HOVER);
 
-        int trackY = y + 12;
-        int trackX = cardX + 14;
-        int trackW = cardW - 28;
+        int trackY = y + 11, trackX = cx + PAD, trackW = cw - PAD * 2;
         int fillX = trackX + (value - min) * trackW / Math.max(1, max - min);
-        RoundedRect.fill(ctx, trackX, trackY, trackW, 3, 1, 0x1FFFFFFF);
-        RoundedRect.fill(ctx, trackX, trackY, fillX - trackX, 3, 1, RebornColors.ACCENT);
-
-        int thumbR = 5;
-        RoundedRect.fill(ctx, fillX - thumbR, trackY - thumbR + 1, thumbR * 2, thumbR * 2, thumbR, 0xFFFFFFFF);
-
-        sliders.add(new Slider(trackX, trackY - 4, trackW, 14, min, max, onSet));
-        return y + 22;
+        ctx.fill(trackX, trackY, trackX + trackW, trackY + 3, Colors.SURFACE);
+        ctx.fill(trackX, trackY, fillX, trackY + 3, Colors.ACCENT);
+        FlatRect.fill(ctx, fillX - 3, trackY - 2, 6, 7, 1, Colors.FOREGROUND);
+        sliders.add(new Slider(trackX, trackY - 4, trackW, 12, min, max, onSet));
+        return y + 21;
     }
 
-    private int renderColorRow(GuiGraphicsExtractor ctx, int cardX, int y, String label, int current) {
-        Font tr = this.font;
-        ctx.text(tr, Component.literal(label), cardX + 14, y + 3, RebornColors.FOREGROUND, false);
-        int cardW = Math.min(CARD_WIDTH, this.width - 24);
-        int size = 12, gap = 4;
+    private int colorRow(GuiGraphicsExtractor ctx, int y, String label, int current, int mouseX, int mouseY) {
+        int cx = cardX(), cw = cardW();
+        HudEditSidePanel.arcText(ctx, this.font, label, cx + PAD, y + 2, Colors.FOREGROUND);
+        int size = 11, gap = 4;
         int total = HL_COLORS.length * size + (HL_COLORS.length - 1) * gap;
-        int sx = cardX + cardW - 14 - total;
+        int sx = cx + cw - PAD - total;
         for (int color : HL_COLORS) {
-            boolean selected = (color & 0xFFFFFF) == (current & 0xFFFFFF);
-            if (selected) RoundedRect.fill(ctx, sx - 1, y - 1, size + 2, size + 2, 3, RebornColors.FOREGROUND);
-            RoundedRect.fill(ctx, sx, y, size, size, 2, color);
+            boolean sel = (color & 0xFFFFFF) == (current & 0xFFFFFF);
+            if (sel) FlatRect.fill(ctx, sx - 1, y - 1, size + 2, size + 2, 1, Colors.FOREGROUND);
+            FlatRect.fill(ctx, sx, y, size, size, 1, color);
             swatches.add(new Swatch(sx, y, size, color));
             sx += size + gap;
         }
-        return y + 20;
+        return y + ROW + 2;
+    }
+
+    private int cycle(GuiGraphicsExtractor ctx, int y, String label, String[] opts, int idx,
+                      int mouseX, int mouseY, java.util.function.IntConsumer onSet) {
+        int cx = cardX(), cw = cardW();
+        HudEditSidePanel.arcText(ctx, this.font, label, cx + PAD, y + 3, Colors.FOREGROUND);
+        String cur = opts[Math.max(0, Math.min(opts.length - 1, idx))];
+        int bw = 64, bh = 12, bx = cx + cw - PAD - bw, by = y + 1;
+        boolean hov = inside(mouseX, mouseY, bx, by, bw, bh);
+        FlatRect.fill(ctx, bx, by, bw, bh, 2, hov ? Colors.ACCENT_SOFT : Colors.SURFACE);
+        FlatRect.border(ctx, bx, by, bw, bh, 2, Colors.BORDER_STRONG);
+        HudEditSidePanel.arcText(ctx, this.font, cur,
+            bx + (bw - HudEditSidePanel.arcW(this.font, cur)) / 2, by + 2, Colors.FOREGROUND);
+        cycles.add(new Cycle(bx, by, bw, bh, idx, opts.length, onSet));
+        return y + ROW;
     }
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
-        if (button != 0) return super.mouseClicked(event, doubleClick);
+        double mx = event.x(), my = event.y();
+        if (event.button() != 0) return super.mouseClicked(event, doubleClick);
         for (Toggle t : toggles) {
-            if (inside((int) mouseX, (int) mouseY, t.x, t.y, t.w, t.h)) {
+            if (inside((int) mx, (int) my, t.x, t.y, t.w, t.h)) {
                 t.onSet.accept(!t.state);
                 RebornHudClient.config().save();
                 return true;
             }
         }
         for (Slider s : sliders) {
-            if (inside((int) mouseX, (int) mouseY, s.x, s.y, s.w, s.h)) {
-                int v = s.min + (int) Math.round((mouseX - s.x) / (double) s.w * (s.max - s.min));
-                v = Math.max(s.min, Math.min(s.max, v));
-                s.onSet.accept(v);
+            if (inside((int) mx, (int) my, s.x, s.y, s.w, s.h)) {
+                int v = s.min + (int) Math.round((mx - s.x) / (double) s.w * (s.max - s.min));
+                s.onSet.accept(Math.max(s.min, Math.min(s.max, v)));
                 RebornHudClient.config().save();
                 return true;
             }
         }
         for (Swatch sw : swatches) {
-            if (inside((int) mouseX, (int) mouseY, sw.x, sw.y, sw.size, sw.size)) {
+            if (inside((int) mx, (int) my, sw.x, sw.y, sw.size, sw.size)) {
                 settings.highlightColor = sw.color;
                 RebornHudClient.config().save();
                 return true;
             }
         }
-        // Close button hit-test
-        int cardW = Math.min(CARD_WIDTH, this.width - 24);
-        int cardH = Math.min(318, this.height - 24);
-        int cardX = (this.width - cardW) / 2;
-        int cardY = (this.height - cardH) / 2;
-        int closeBtnY = cardY + cardH - 28;
-        if (inside((int) mouseX, (int) mouseY, cardX + 14, closeBtnY, cardW - 28, 20)) {
-            onClose();
-            return true;
+        for (Cycle c : cycles) {
+            if (inside((int) mx, (int) my, c.x, c.y, c.w, c.h)) {
+                c.onSet.accept((c.idx + 1) % c.count);
+                RebornHudClient.config().save();
+                return true;
+            }
         }
-        // Click outside card → close
-        if (!inside((int) mouseX, (int) mouseY, cardX, cardY, cardW, cardH)) {
-            onClose();
-            return true;
-        }
+        int bY = cardY() + cardH() - 26;
+        if (inside((int) mx, (int) my, cardX() + PAD, bY, cardW() - PAD * 2, 16)) { onClose(); return true; }
+        // Clic hors carte → ferme.
+        if (!inside((int) mx, (int) my, cardX(), cardY(), cardW(), cardH())) { onClose(); return true; }
         return super.mouseClicked(event, doubleClick);
     }
 
@@ -244,4 +228,6 @@ public final class ChatSettingsScreen extends Screen {
     private record Slider(int x, int y, int w, int h, int min, int max,
                           java.util.function.IntConsumer onSet) {}
     private record Swatch(int x, int y, int size, int color) {}
+    private record Cycle(int x, int y, int w, int h, int idx, int count,
+                         java.util.function.IntConsumer onSet) {}
 }

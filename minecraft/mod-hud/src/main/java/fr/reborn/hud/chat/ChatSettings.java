@@ -35,6 +35,12 @@ public final class ChatSettings {
     public int highlightColor = 0xFFA0182B;
     /** Affiche le badge de rang (préfixe d'équipe scoreboard, ex. LuckPerms). */
     public boolean chatBadges = true;
+    /** Animation d'arrivée des messages (slide + fade, façon ChatAnimation). */
+    public boolean chatAnimation = true;
+    /** Curseur de saisie animé (façon Animated Typing). */
+    public boolean animatedTyping = true;
+    /** Style du curseur animé : 0 = barre, 1 = soulignement, 2 = bloc. */
+    public int typingCursorStyle = 0;
 
     public static ChatSettings defaults() {
         return new ChatSettings();
@@ -53,6 +59,9 @@ public final class ChatSettings {
         c.chatTyping         = this.chatTyping;
         c.highlightColor     = this.highlightColor;
         c.chatBadges         = this.chatBadges;
+        c.chatAnimation      = this.chatAnimation;
+        c.animatedTyping     = this.animatedTyping;
+        c.typingCursorStyle  = this.typingCursorStyle;
         return c;
     }
 }

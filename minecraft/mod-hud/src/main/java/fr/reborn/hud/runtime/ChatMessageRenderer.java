@@ -37,6 +37,11 @@ public final class ChatMessageRenderer {
     private static final int HEAD = 8;
     private static final int HEAD_GAP = 2;
 
+    // ─── Animation d'arrivée (slide + fade, façon ChatAnimation) ───
+    private static final int ANIM_MS = 220;
+    private static long animStartMs = 0L;
+    private static int lastTopAdded = Integer.MIN_VALUE;
+
     private ChatMessageRenderer() {}
 
     public static void renderMessages(GuiGraphicsExtractor ctx, Font tr,
@@ -56,6 +61,30 @@ public final class ChatMessageRenderer {
         int leftX = ChatLayout.TEXT_X;
         int areaW = ChatLayout.areaW(screenW);
         int boxW = ChatLayout.boxW(screenW);
+
+        // Animation d'arrivée : à chaque nouveau message (top line addedTime
+        // change), les lignes glissent vers le haut (slide) et le plus récent
+        // apparaît en fondu (fade). Basé sur l'horloge murale (rendu, pas tick).
+        float slide = 0f;
+        float newFade = 1f;
+        if (settings.chatAnimation) {
+            GuiMessage.Line top = visibleMessages.get(0);
+            int topAdded = top != null ? top.addedTime() : lastTopAdded;
+            if (topAdded != lastTopAdded) {
+                lastTopAdded = topAdded;
+                animStartMs = System.currentTimeMillis();
+            }
+            float t = Math.min(1f, Math.max(0f, (System.currentTimeMillis() - animStartMs) / (float) ANIM_MS));
+            float ease = 1f - (1f - t) * (1f - t);   // ease-out quad
+            slide = (1f - ease) * LINE_H;
+            newFade = ease;
+        }
+        int slideY = Math.round(slide);
+
+        // Clippe horizontalement à la largeur du panneau : vanilla wrappe les
+        // lignes à SA largeur (souvent plus large) → sans ça, un long mot déborde
+        // du cadre. (offset X du chat = 0 par défaut, donc le scissor est aligné.)
+        ctx.enableScissor(ChatLayout.LEFT, 0, ChatLayout.LEFT + boxW, screenH);
 
         // Panneau sombre carré (façon Paladium) derrière les messages quand le
         // chat est ouvert. MÊME largeur que la barre de saisie (boxW) → aligné,
@@ -83,7 +112,9 @@ public final class ChatMessageRenderer {
 
             double opacity = focused ? 1.0 : getMessageOpacity(age);
             int alpha = (int) (255.0 * opacity);
-            if (alpha < 8) continue;
+            boolean isNewest = messageIdx == 0;
+            if (isNewest) alpha = Math.max(1, (int) (alpha * newFade)); // fondu du plus récent
+            else if (alpha < 8) continue;
 
             FormattedCharSequence content = visible.content();
             String plain = orderedToPlainString(content);
@@ -94,7 +125,7 @@ public final class ChatMessageRenderer {
                 continue; // message masqué — ne consomme pas de ligne
             }
 
-            int lineY = bottomY - (rendered + 1) * LINE_H;
+            int lineY = bottomY - (rendered + 1) * LINE_H + slideY;
             if (lineY < 4) break;
 
             int textX = leftX;
@@ -156,6 +187,8 @@ public final class ChatMessageRenderer {
 
             rendered++;
         }
+
+        ctx.disableScissor();
     }
 
     /**

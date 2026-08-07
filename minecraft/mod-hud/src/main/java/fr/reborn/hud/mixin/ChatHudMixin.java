@@ -3,70 +3,72 @@ package fr.reborn.hud.mixin;
 import fr.reborn.hud.RebornHudClient;
 import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.element.HudElement;
-import fr.reborn.hud.element.HudElementBounds;
-import fr.reborn.hud.element.HudElementState;
 import fr.reborn.hud.runtime.ChatMessageRenderer;
+import fr.reborn.hud.runtime.HudTransform;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import net.minecraft.network.chat.Style;
 
 import java.util.List;
 
 /**
- * Mixin sur {@link ChatComponent#render}.
+ * Rendu <b>chat RP custom</b> (têtes de joueurs, mentions, timestamps, panneau
+ * sombre) + offset/scale/visibilité HUD, en enrobant
+ * {@link ChatComponent#extractRenderState} (26.1, mode retained).
  *
- * <p>On remplace le rendu vanilla des messages par {@link ChatMessageRenderer}
- * (features RP : têtes de joueurs, highlight de mention, timestamp) — mais à la
- * <b>géométrie vanilla</b> (messages ancrés en bas, juste au-dessus de la barre
- * de saisie). La barre de saisie elle-même reste à sa position vanilla normale
- * (cf {@code ChatScreenMixin} qui ne la déplace plus). Le scroll vanilla
- * ({@code scrolledLines}) est respecté.
+ * <p>On cible l'overload public à 7 paramètres via son descripteur. Le chat passe
+ * par cette méthode dans les deux contextes (HUD via {@code Gui#extractChat} ET
+ * {@code ChatScreen} quand il est ouvert) → la position modifiée + le rendu custom
+ * s'appliquent partout.
+ *
+ * <p>Le HUD vanilla dessine le chat en deux passes ({@code DisplayMode}) :
+ * {@code BACKGROUND} (fond) puis {@code FOREGROUND} (texte). On <b>supprime le
+ * fond vanilla</b> et on dessine NOTRE rendu ({@link ChatMessageRenderer}, qui a
+ * son propre fond) sur la passe FOREGROUND, à l'offset HUD.
  */
 @Mixin(ChatComponent.class)
 public abstract class ChatHudMixin {
 
-    // 26.1 : visibleMessages→trimmedMessages, scrolledLines→chatScrollbarPos.
+    private static final String EXTRACT =
+        "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V";
+
+    // 26.1 : liste des lignes affichables + position de scroll.
     @Shadow private List<GuiMessage.Line> trimmedMessages;
     @Shadow private int chatScrollbarPos;
 
-    // FIXME 26.1 (phase 2) : ChatComponent#render est devenu
-    // extractRenderState(GuiGraphicsExtractor, Font, int, int, int, DisplayMode, boolean)
-    // (mode extraction). Cette injection sur "render" ne s'appliquera plus telle quelle :
-    // le rendu chat custom doit être recâblé sur la nouvelle API extraction/ChatGraphicsAccess.
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void reborn$renderCustomChat(GuiGraphicsExtractor ctx, int currentTick, int mouseX, int mouseY,
-                                         boolean focused, CallbackInfo ci) {
-        HudElementState state = readStateSafely();
-        if (!state.visible()) {
-            ci.cancel();
-            return;
-        }
+    @Inject(method = EXTRACT, at = @At("HEAD"), cancellable = true)
+    private void reborn$customChat(GuiGraphicsExtractor ctx, Font font, int tickCount, int mouseX, int mouseY,
+                                   ChatComponent.DisplayMode mode, boolean flag, CallbackInfo ci) {
+        if (!HudTransform.isVisible(HudElement.CHAT)) { ci.cancel(); return; }
 
         Minecraft mc = Minecraft.getInstance();
+        boolean chatOpen = mc.screen instanceof ChatScreen;
+        // On dessine le chat RP custom sur LA passe correspondant au contexte :
+        // FOREGROUND quand le chat est ouvert, BACKGROUND (passe du HUD) quand il
+        // est fermé — sinon les messages n'apparaissaient qu'en ouvrant le chat.
+        // Les autres passes vanilla sont annulées (pas de rendu vanilla / doublon).
+        ChatComponent.DisplayMode wanted = chatOpen
+            ? ChatComponent.DisplayMode.FOREGROUND
+            : ChatComponent.DisplayMode.BACKGROUND;
+        if (mode != wanted) { ci.cancel(); return; }
+
+        // On dessine le chat RP custom à l'offset HUD.
+        HudTransform.apply(ctx, HudElement.CHAT);
         int screenW = mc.getWindow().getGuiScaledWidth();
         int screenH = mc.getWindow().getGuiScaledHeight();
-        HudElementBounds anchor = HudElementBounds.vanillaFor(HudElement.CHAT, screenW, screenH);
+        boolean focused = chatOpen;
+        // currentTick = le compteur passé par vanilla (matche GuiMessage.addedTime)
+        // → le fade unfocused est correct = messages visibles SANS ouvrir le chat.
+        int currentTick = tickCount;
 
-        // Offset/scale (déplacement via l'éditeur HUD). Par défaut (0,0,1) =
-        // position vanilla pure.
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(state.x(), state.y());
-        if (state.scale() != 1.0f) {
-            ctx.pose().translate(anchor.x(), anchor.y());
-            ctx.pose().scale(state.scale(), state.scale());
-            ctx.pose().translate(-anchor.x(), -anchor.y());
-        }
-
-        boolean chatOpen = mc.screen instanceof ChatScreen;
         ChatSettings settings = ChatSettings.defaults();
         String playerName = null;
         try {
@@ -74,42 +76,10 @@ public abstract class ChatHudMixin {
             if (mc.player != null) playerName = mc.player.getGameProfile().name();
         } catch (RuntimeException ignored) {}
 
-        ChatMessageRenderer.renderMessages(ctx, mc.font,
-            trimmedMessages, chatScrollbarPos, currentTick, chatOpen,
-            screenW, screenH, settings, playerName);
+        ChatMessageRenderer.renderMessages(ctx, font, this.trimmedMessages, this.chatScrollbarPos,
+            currentTick, focused, screenW, screenH, settings, playerName);
 
-        ctx.pose().popMatrix();
-        ci.cancel(); // on a tout rendu nous-mêmes
-    }
-
-    /**
-     * Le chat custom est dessiné décalé par l'offset HUD (ex. +23 en Y). La
-     * détection de clic sur un lien ({@code getTextStyleAt}) utilise la géométrie
-     * vanilla → on retranche l'offset pour que le clic suive le rendu réel.
-     */
-    // FIXME 26.1 (phase 2) : ChatComponent#getTextStyleAt n'existe plus ; la détection de
-    // clic sur texte passe désormais par captureClickableText(ActiveTextCollector, ...) en
-    // mode extraction. Cette injection ne s'appliquera pas ; à recâbler côté 26.1.
-    @Inject(method = "getTextStyleAt", at = @At("HEAD"), cancellable = true)
-    private void reborn$styleAt(double x, double y, CallbackInfoReturnable<Style> cir) {
-        try {
-            Minecraft mc = Minecraft.getInstance();
-            HudElementState st = readStateSafely();
-            ChatSettings settings = RebornHudClient.config().getChatSettings();
-            Style s = ChatMessageRenderer.styleAt(mc, mc.font, trimmedMessages, chatScrollbarPos,
-                mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), settings,
-                x, y, st.x(), st.y());
-            cir.setReturnValue(s);
-        } catch (RuntimeException ignored) {
-            // en cas d'erreur, laisse vanilla gérer
-        }
-    }
-
-    private static HudElementState readStateSafely() {
-        try {
-            return RebornHudClient.config().stateOf(HudElement.CHAT);
-        } catch (IllegalStateException e) {
-            return HudElementState.DEFAULT;
-        }
+        HudTransform.revert(ctx);
+        ci.cancel();
     }
 }

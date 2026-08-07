@@ -44,7 +44,7 @@ public class EscTabButton extends Button {
         // Hover background subtle.
         if (hovered) {
             int bgColor = isDanger ? Colors.DANGER_SOFT : Colors.SURFACE_ELEVATED;
-            DrawHelpers.roundedRect(ctx, getX(), getY(), getWidth(), getHeight(), 6, bgColor);
+            DrawHelpers.roundedRectFull(ctx, getX(), getY(), getWidth(), getHeight(), 6, bgColor);
         }
 
         int textW = tr.width(label);

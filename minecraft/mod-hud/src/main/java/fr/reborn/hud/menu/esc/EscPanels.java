@@ -37,7 +37,7 @@ public final class EscPanels {
         Font tr = mc.font;
 
         // Card BG.
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
+        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 10,
             Colors.SURFACE, Colors.BORDER_STRONG);
 
         // Header.
@@ -89,7 +89,7 @@ public final class EscPanels {
         Component roleText = RebornFont.bold("WHITELISTED");
         int roleTextW = tr.width(roleText);
         int badgeW = roleTextW + 22;
-        DrawHelpers.roundedOutlinedRect(ctx, metaX, metaY, badgeW, 16, 8,
+        DrawHelpers.roundedOutlinedRectFull(ctx, metaX, metaY, badgeW, 16, 8,
             Colors.ACCENT_SOFT, Colors.withAlpha(Colors.ACCENT, 0.4f));
         DrawHelpers.disc(ctx, metaX + 10, metaY + 8, 3, Colors.ACCENT);
         ctx.pose().pushMatrix();
@@ -121,7 +121,7 @@ public final class EscPanels {
         if (mc == null) return;
         Font tr = mc.font;
 
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
+        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 10,
             Colors.SURFACE, Colors.BORDER_STRONG);
 
         // Header avec icone Twitch.
@@ -132,7 +132,7 @@ public final class EscPanels {
         // Badge "LIVE 0" à droite.
         Component liveText = RebornFont.bold("LIVE 0");
         int liveW = tr.width(liveText) + 12;
-        DrawHelpers.roundedOutlinedRect(ctx, x + w - liveW - 14, y + 12, liveW, 14, 6,
+        DrawHelpers.roundedOutlinedRectFull(ctx, x + w - liveW - 14, y + 12, liveW, 14, 6,
             Colors.DANGER_SOFT, Colors.withAlpha(Colors.DANGER, 0.4f));
         ctx.pose().pushMatrix();
         ctx.pose().translate(x + w - liveW - 8, y + 16);
@@ -167,7 +167,7 @@ public final class EscPanels {
         if (mc == null) return;
         Font tr = mc.font;
 
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
+        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 10,
             Colors.SURFACE, Colors.BORDER_STRONG);
 
         ctx.text(tr, RebornFont.bold("DEV · BLOG"),
@@ -175,7 +175,7 @@ public final class EscPanels {
 
         // Thumb placeholder.
         int thumbH = 60;
-        DrawHelpers.roundedRect(ctx, x + 16, y + 36, w - 32, thumbH, 6,
+        DrawHelpers.roundedRectFull(ctx, x + 16, y + 36, w - 32, thumbH, 6,
             Colors.ACCENT_SOFT);
 
         // TODO: GET /v1/patchnotes/latest
@@ -205,7 +205,7 @@ public final class EscPanels {
         if (mc == null) return;
         Font tr = mc.font;
 
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
+        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 10,
             Colors.SURFACE, Colors.BORDER_STRONG);
 
         ctx.text(tr, RebornFont.arcade("RECOMPENSES"),
@@ -253,7 +253,7 @@ public final class EscPanels {
         if (mc == null) return;
         Font tr = mc.font;
 
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 10,
+        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 10,
             Colors.SURFACE_ELEVATED, Colors.BORDER_STRONG);
 
         // Handle + compteur Discord à gauche (ArcadePix). Données live via
