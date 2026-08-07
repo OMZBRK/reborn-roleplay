@@ -3,10 +3,7 @@ package fr.reborn.hud.animation;
 import com.zigythebird.playeranim.animation.PlayerAnimationController;
 import com.zigythebird.playeranim.api.PlayerAnimationAccess;
 import com.zigythebird.playeranimcore.animation.Animation;
-import com.zigythebird.playeranimcore.animation.layered.IAnimation;
-import com.zigythebird.playeranimcore.animation.layered.ModifierLayer;
-import com.zigythebird.playeranimcore.animation.layered.modifier.AbstractFadeModifier;
-import com.zigythebird.playeranimcore.easing.EasingType;
+import com.zigythebird.playeranimcore.animation.RawAnimation;
 import com.zigythebird.playeranimcore.enums.PlayState;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import io.github.kosmx.emotes.server.serializer.UniversalEmoteSerializer;
@@ -50,8 +47,8 @@ public final class MovementAnimations {
     /** Priorité du layer dans la pile PAL (au-dessus des anims de base). */
     private static final int PRIORITY = 1000;
     private static final double MOVE_THRESHOLD_SQ = 0.02 * 0.02;
-    /** Durée du crossfade entre deux démarches, en ticks. */
-    private static final int FADE_TICKS = 4;
+    /** Durée de transition (crossfade) entre deux démarches, en ticks. */
+    private static final float TRANSITION = 5.0f;
 
     /** Styles de marche : {label, fichier}. */
     private static final String[][] WALK_STYLES = {
@@ -69,8 +66,8 @@ public final class MovementAnimations {
     private int selectedWalk = 0;
     private boolean available = false;
 
-    /** Layer PAL par avatar (weak : suit le cycle de vie de l'entité). */
-    private final Map<Avatar, ModifierLayer<IAnimation>> layers = new WeakHashMap<>();
+    /** Controller PAL par avatar (weak : suit le cycle de vie de l'entité). */
+    private final Map<Avatar, PlayerAnimationController> controllers = new WeakHashMap<>();
 
     // État local courant (pour ne ré-appliquer qu'aux changements).
     private MoveState currentState = MoveState.NONE;
@@ -96,11 +93,14 @@ public final class MovementAnimations {
     /** Enregistre le layer PAL par avatar + charge les animations. */
     public void register() {
         try {
-            // Un ModifierLayer par avatar, ajouté à sa pile d'anims via l'event PAL.
+            // Un PlayerAnimationController par avatar, ajouté DIRECTEMENT à sa pile
+            // d'anims via l'event PAL (pattern EmotePlayer d'Emotecraft — pas de
+            // ModifierLayer intermédiaire, sinon l'anim déclenchée ne joue pas).
             PlayerAnimationAccess.REGISTER_ANIMATION_EVENT.register((avatar, animManager) -> {
-                ModifierLayer<IAnimation> layer = new ModifierLayer<>();
-                animManager.addAnimLayer(PRIORITY, layer);
-                layers.put(avatar, layer);
+                PlayerAnimationController controller =
+                    new PlayerAnimationController(avatar, (ctrl, data, setter) -> PlayState.STOP);
+                animManager.addAnimLayer(PRIORITY, controller);
+                controllers.put(avatar, controller);
             });
 
             for (String[] style : WALK_STYLES) walkAnims.add(load(style[1]));
@@ -146,32 +146,22 @@ public final class MovementAnimations {
         }
     }
 
-    /** Pose l'anim voulue dans le layer du joueur, en crossfade (null = fade out). */
+    /** Déclenche l'anim voulue sur le controller du joueur (crossfade), ou stop si idle. */
     private void applyState(AbstractClientPlayer player, MoveState desired, int walkStyle) {
-        ModifierLayer<IAnimation> layer = layers.get(player);
-        if (layer == null) return;
+        PlayerAnimationController controller = controllers.get(player);
+        if (controller == null) return;
         Animation anim = switch (desired) {
             case WALK   -> walkAnims.isEmpty() ? null : walkAnims.get(clamp(walkStyle));
             case RUN    -> run;
             case NARUTO -> narutoRun;
             case NONE   -> null;
         };
-        IAnimation playing = (anim == null) ? null : controllerFor(player, anim);
-        layer.replaceAnimationWithFade(
-            AbstractFadeModifier.standardFadeIn(FADE_TICKS, EasingType.EASE_IN_OUT_SINE),
-            playing);
-    }
-
-    /**
-     * Enveloppe une {@code Animation} dans un controller jouable (IAnimation).
-     * Le stateHandler renvoie {@code STOP} : on ne pilote pas d'anim « par défaut »,
-     * seule l'anim déclenchée ({@code triggerAnimation}) joue (loop selon le fichier).
-     */
-    private IAnimation controllerFor(Avatar avatar, Animation anim) {
-        PlayerAnimationController controller =
-            new PlayerAnimationController(avatar, (ctrl, data, setter) -> PlayState.STOP);
-        controller.triggerAnimation(anim);
-        return controller;
+        if (anim == null) {
+            controller.stop();
+        } else {
+            // RawAnimation en boucle (démarche continue) + transition douce.
+            controller.triggerAnimation(RawAnimation.begin().thenLoop(anim), TRANSITION);
+        }
     }
 
     private MoveState computeState(AbstractClientPlayer player) {

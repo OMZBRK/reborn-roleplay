@@ -62,9 +62,13 @@ public final class VitalsHud {
         int hx = 3, hy = 2;
         DrawHelpers.roundedRectFull(ctx, hx - 2, hy - 2, HEAD + 4, HEAD + 4, 6, GOLD);
         DrawHelpers.roundedRectFull(ctx, hx - 1, hy - 1, HEAD + 2, HEAD + 2, 5, 0xFF181008);
+        // Tête = région 8×8 du skin (face à (8,8), calque chapeau à (40,8)),
+        // agrandie à HEAD×HEAD. Blit 12-args (…, destW, destH, regionW, regionH,
+        // texW, texH) : sinon le blit 10-args prend (HEAD,HEAD) comme région source
+        // → échantillonne un bloc 38×38 du skin (corps/jambes) au lieu de la tête.
         Identifier skin = p.getSkin().body().texturePath();
-        ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 8f, 8f, HEAD, HEAD, 64, 64);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 40f, 8f, HEAD, HEAD, 64, 64);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 40f, 8f, HEAD, HEAD, 8, 8, 64, 64);
         // Badge « Nv X » chevauchant le bas de la tête.
         String nv = "Nv " + level;
         int nvw = tr.width(nv) + 8;
@@ -76,7 +80,9 @@ public final class VitalsHud {
         int cx = hx + HEAD + 6;
         int cw = WIDTH - cx - 3;
 
-        ctx.text(tr, Component.literal(p.getGameProfile().name()), cx, 0, WHITE, true);
+        // Pseudo MC (compte, via la session launcher) — jamais le nom/prénom RP
+        // que le serveur pourrait poser sur le GameProfile côté liste-joueurs.
+        ctx.text(tr, Component.literal(mc.getUser().getName()), cx, 0, WHITE, true);
 
         // Vie.
         int hpCur = (int) Math.ceil(p.getHealth());
