@@ -37,6 +37,8 @@ public record HudElementBounds(int x, int y, int width, int height) {
             case HUNGER -> new HudElementBounds(screenWidth / 2 + 9, screenHeight - 39, 82, 9);
             case ARMOR -> new HudElementBounds(screenWidth / 2 - 91, screenHeight - 49, 82, 9);
             case AIR -> new HudElementBounds(screenWidth / 2 + 9, screenHeight - 49, 82, 9);
+            // Panneau RP vitals (tête + vie + chakra + stamina) en haut-gauche.
+            case VITALS -> new HudElementBounds(4, 4, 204, 52);
         };
     }
 

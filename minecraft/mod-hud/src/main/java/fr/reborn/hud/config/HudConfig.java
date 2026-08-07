@@ -43,6 +43,14 @@ public final class HudConfig {
     private String activePreset = HudPresets.DEFAULT;
 
     /**
+     * Migration one-time : quand le panneau RP {@code VITALS} a été introduit, on
+     * masque la barre XP (détournée en chakra par ShinobiCore), les cœurs et la
+     * faim vanilla — repris par le panneau — et on active VITALS. Flag pour ne le
+     * faire qu'une fois (l'utilisateur peut ensuite réafficher chaque élément).
+     */
+    private boolean vitalsMigrated = false;
+
+    /**
      * Toggle du rendu chat Reborn. false (défaut) = chat VANILLA normal :
      * position en bas, saisie attachée, scroll natif — ce que veut le RP.
      * Les features RP (blocage) sont greffées de façon additive (mixins) sans
@@ -168,6 +176,16 @@ public final class HudConfig {
         if (parsed.states == null) parsed.states = new HashMap<>();
         parsed.states.putIfAbsent(HudElement.CHAT.id(),
             new HudElementState(0, 23, 1.0f, true, null));
+
+        // Migration VITALS : masque XP/vie/faim vanilla (repris par le panneau RP)
+        // et active VITALS. Une seule fois.
+        if (!parsed.vitalsMigrated) {
+            parsed.states.put(HudElement.EXPERIENCE_BAR.id(), HudElementState.DEFAULT.withVisible(false));
+            parsed.states.put(HudElement.HEALTH.id(), HudElementState.DEFAULT.withVisible(false));
+            parsed.states.put(HudElement.HUNGER.id(), HudElementState.DEFAULT.withVisible(false));
+            parsed.states.putIfAbsent(HudElement.VITALS.id(), HudElementState.DEFAULT);
+            parsed.vitalsMigrated = true;
+        }
 
         // Initialise les presets par défaut s'ils manquent (premier boot ou migration)
         if (parsed.presets == null || parsed.presets.isEmpty()) {

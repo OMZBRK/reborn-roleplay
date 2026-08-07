@@ -27,7 +27,8 @@ public enum HudElement {
     HEALTH        ("health",         "Health",       "Cœurs de vie du joueur",                  HudAnchor.BOTTOM_CENTER),
     HUNGER        ("hunger",         "Hunger",       "Cuisses de poulet de faim",               HudAnchor.BOTTOM_CENTER),
     ARMOR         ("armor",          "Armor",        "Indicateur d'armure",                     HudAnchor.BOTTOM_CENTER),
-    AIR           ("air",            "Air",          "Bulles d'air sous l'eau",                 HudAnchor.BOTTOM_CENTER);
+    AIR           ("air",            "Air",          "Bulles d'air sous l'eau",                 HudAnchor.BOTTOM_CENTER),
+    VITALS        ("vitals",         "Vitals RP",    "Tête + vie + chakra + stamina (panneau RP)", HudAnchor.TOP_LEFT);
 
     private final String id;
     private final String displayName;

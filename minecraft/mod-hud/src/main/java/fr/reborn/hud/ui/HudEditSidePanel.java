@@ -131,13 +131,9 @@ public final class HudEditSidePanel {
         hitTargets.clear();
         presetRects.clear();
 
-        // Ombre portée douce autour de la carte.
-        for (int i = 1; i <= 4; i++) {
-            int a = (5 - i) * 10;
-            FlatRect.border(ctx, x0 - i, y0 - i, WIDTH + i * 2, height + i * 2, CARD_R + i, (a << 24));
-        }
-        // Carte.
-        FlatRect.fill(ctx, x0, y0, WIDTH, height, CARD_R, Colors.SURFACE_ELEVATED);
+        // Carte — fond éclairci pour la lisibilité (pas d'ombre pixellisée : elle
+        // laissait des lignes/pixels parasites autour de la carte).
+        FlatRect.fill(ctx, x0, y0, WIDTH, height, CARD_R, 0xF0301C22);
         FlatRect.border(ctx, x0, y0, WIDTH, height, CARD_R, Colors.BORDER_STRONG);
 
         renderHeader(ctx, mouseX, mouseY);

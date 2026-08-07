@@ -49,6 +49,24 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "interaction"),
             (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.extractRenderState(ctx));
 
+        // Panneau RP vitals (tête + vie + chakra + faim) — repositionnable/scalable
+        // via l'élément HudElement.VITALS (comme les autres, dans l'éditeur).
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "vitals"),
+            (ctx, tickCounter) -> {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player == null || mc.options == null || mc.options.hideGui) return;
+                fr.reborn.hud.element.HudElementState st;
+                try { st = config().stateOf(fr.reborn.hud.element.HudElement.VITALS); }
+                catch (RuntimeException e) { return; }
+                if (!st.visible()) return;
+                int w = mc.getWindow().getGuiScaledWidth();
+                int h = mc.getWindow().getGuiScaledHeight();
+                fr.reborn.hud.element.HudElementBounds b = fr.reborn.hud.element.HudElementBounds.currentFor(
+                    fr.reborn.hud.element.HudElement.VITALS, st, w, h);
+                fr.reborn.hud.runtime.VitalsHud.render(ctx, mc, b.x(), b.y(), st.scale());
+            });
+
         // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
         // Rendu HUD fiable — même en solo où Minecraft ne rend PAS le
         // PlayerListHud vanilla (1 seul joueur, pas d'objectif scoreboard).
