@@ -81,6 +81,10 @@ model User {
   assignedWhitelists WhitelistApplication[] @relation("WhitelistAssignee")
   assignedTickets    Ticket[]               @relation("TicketAssignee")
 
+  // L5 — creneaux oraux de whitelist : ceux ouverts par ce staff / celui reserve.
+  oralSlotsOpened    WhitelistOralSlot[]     @relation("OralSlotOpener")
+  oralSlotsBooked    WhitelistOralSlot[]     @relation("OralSlotBooker")
+
   // Systeme social (v1.0.5)
   friendshipsInitiated Friendship[]    @relation("FriendshipFrom")
   friendshipsReceived  Friendship[]    @relation("FriendshipTo")
@@ -128,7 +132,14 @@ model WhitelistApplication {
   id           String    @id @default(uuid())
   userId       String    @unique
   user         User      @relation(fields: [userId], references: [id])
+  // Statut global historique. Reste la source d'affichage legacy ; avec L5 il
+  // devient derive : APPROVED seulement quand hrpStatus == rpStatus == APPROVED.
   status       AppStatus @default(PENDING)
+
+  // L5 — prevalidation HRP (via test oral) puis validation RP, independantes.
+  // HRP approuve = verrouille ; un RP rejete renvoie editer le RP seul.
+  hrpStatus    AppStatus @default(PENDING)
+  rpStatus     AppStatus @default(PENDING)
 
   // Etape 1 — HRP (hors roleplay)
   dob          DateTime
@@ -209,6 +220,38 @@ enum AppStatus {
   APPROVED
   REJECTED
   NEEDS_REVISION
+}
+
+// L5 — etat d'un creneau oral de whitelist (pool global : le staff ouvre, le
+// candidat reserve un creneau libre).
+enum OralSlotStatus {
+  OPEN       // ouvert, reservable
+  BOOKED     // reserve par un candidat
+  DONE       // oral passe (le staff a tranche l'HRP)
+  CANCELLED  // annule par le staff
+}
+
+// Creneau de test oral (branche horaire de 30 min par defaut). Pool global :
+// le staff ouvre des creneaux, tout candidat ayant soumis peut en reserver un
+// libre. Une seule reservation active par candidat (garde en service).
+model WhitelistOralSlot {
+  id             String         @id @default(uuid())
+  startAt        DateTime
+  durationMin    Int            @default(30)
+  status         OralSlotStatus @default(OPEN)
+
+  openedByUserId String
+  openedBy       User           @relation("OralSlotOpener", fields: [openedByUserId], references: [id])
+
+  bookedByUserId String?
+  bookedBy       User?          @relation("OralSlotBooker", fields: [bookedByUserId], references: [id])
+  bookedAt       DateTime?
+
+  notes          String?        // notes staff post-oral
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([status, startAt])
 }
 
 // ──────────────────────────────────────────────────────

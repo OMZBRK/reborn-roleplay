@@ -19,7 +19,13 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MinRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { LoginAnomalyService } from '../security/login-anomaly.service';
+import { OralSlotsService } from '../oral-slots/oral-slots.service';
+import {
+  MarkSlotDoneDto,
+  OpenSlotsDto,
+} from '../oral-slots/dto/oral-slots.dto';
 import { StaffService } from '../staff/staff.service';
+import { WhitelistPartDecisionDto } from '../staff/dto/staff.dto';
 import { TicketsService } from '../tickets/tickets.service';
 import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import { AdminService } from './admin.service';
@@ -59,6 +65,7 @@ export class AdminController {
     private readonly assignment: AssignmentService,
     private readonly anomalies: LoginAnomalyService,
     private readonly roles: RoleService,
+    private readonly oralSlots: OralSlotsService,
   ) {}
 
   @Get('dashboard')
@@ -143,6 +150,46 @@ export class AdminController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.staff.resetWhitelist(id, { userId: user.sub });
+  }
+
+  /** Décision HRP/RP séparée (L5) — chaque partie validée indépendamment. */
+  @Patch('whitelist/:id/decision')
+  @MinRole(Role.WHITELIST_REVIEWER)
+  decideWhitelistPart(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: WhitelistPartDecisionDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.staff.decideWhitelistPart(id, dto, { userId: user.sub });
+  }
+
+  // ── Créneaux de test oral (L5, pool global) ────────────────
+  @Get('oral-slots')
+  @MinRole(Role.WHITELIST_REVIEWER)
+  listOralSlots() {
+    return this.oralSlots.listForStaff();
+  }
+
+  @Post('oral-slots')
+  @MinRole(Role.WHITELIST_REVIEWER)
+  @HttpCode(HttpStatus.CREATED)
+  openOralSlots(@Body() dto: OpenSlotsDto, @CurrentUser() user: RequestUser) {
+    return this.oralSlots.openSlots(user.sub, dto.slots);
+  }
+
+  @Patch('oral-slots/:id/cancel')
+  @MinRole(Role.WHITELIST_REVIEWER)
+  cancelOralSlot(@Param('id', ParseUUIDPipe) id: string) {
+    return this.oralSlots.cancelSlot(id);
+  }
+
+  @Patch('oral-slots/:id/done')
+  @MinRole(Role.WHITELIST_REVIEWER)
+  markOralSlotDone(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: MarkSlotDoneDto,
+  ) {
+    return this.oralSlots.markDone(id, dto.notes);
   }
 
   // ── Tickets ────────────────────────────────────────────

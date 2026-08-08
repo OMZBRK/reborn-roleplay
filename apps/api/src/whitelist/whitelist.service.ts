@@ -16,6 +16,9 @@ import { SubmitWhitelistDto } from './dto/whitelist.dto';
 export interface WhitelistApplicationDto {
   id: string;
   status: AppStatus;
+  // L5 — statuts HRP/RP indépendants (le launcher affiche les deux étapes).
+  hrpStatus: AppStatus;
+  rpStatus: AppStatus;
   // Étape 1
   dob: string; // ISO YYYY-MM-DD
   motivation: string;
@@ -96,15 +99,38 @@ export class WhitelistService {
         `Statut ${existing.status} : modification non autorisee. Le staff doit demander une revision.`,
       );
     }
+    const norm = this.normalize(dto);
+    // L5 — HRP déjà validé = verrouillé : on ne réédite que la partie RP et on
+    // ne remet en revue (PENDING) que le rpStatus ; l'HRP reste APPROVED et
+    // l'oral n'est pas refait. Sinon, resubmit complet (HRP + RP → PENDING).
+    const hrpLocked = existing.hrpStatus === AppStatus.APPROVED;
+    const data = hrpLocked
+      ? {
+          firstName: norm.firstName,
+          lastName: norm.lastName,
+          village: norm.village,
+          support: norm.support,
+          history: norm.history,
+          appearance: norm.appearance,
+          objectives: norm.objectives,
+          rpStatus: AppStatus.PENDING,
+          status: AppStatus.PENDING,
+          submittedAt: new Date(),
+          reviewedAt: null,
+          reviewNotes: null,
+        }
+      : {
+          ...norm,
+          hrpStatus: AppStatus.PENDING,
+          rpStatus: AppStatus.PENDING,
+          status: AppStatus.PENDING,
+          submittedAt: new Date(),
+          reviewedAt: null,
+          reviewNotes: null,
+        };
     const updated = await this.prisma.whitelistApplication.update({
       where: { userId },
-      data: {
-        ...this.normalize(dto),
-        status: AppStatus.PENDING,
-        submittedAt: new Date(),
-        reviewedAt: null,
-        reviewNotes: null,
-      },
+      data,
     });
     await this.notifyStaff(userId, updated);
     return this.toDto(updated);
@@ -235,6 +261,8 @@ export class WhitelistService {
     return {
       id: app.id,
       status: app.status,
+      hrpStatus: app.hrpStatus,
+      rpStatus: app.rpStatus,
       dob: dobIso,
       motivation: app.motivation,
       experience: app.experience,

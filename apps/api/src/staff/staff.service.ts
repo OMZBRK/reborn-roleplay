@@ -8,7 +8,11 @@ import { AppStatus, TicketStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
-import { TicketStatusDto, WhitelistDecisionDto } from './dto/staff.dto';
+import {
+  TicketStatusDto,
+  WhitelistDecisionDto,
+  WhitelistPartDecisionDto,
+} from './dto/staff.dto';
 
 export interface DecisionActor {
   /** Si fourni, on resoud le nom via User.discordUsername / minecraftUsername. */
@@ -178,6 +182,110 @@ export class StaffService {
     }
 
     return { ok: true, userId: app.userId, roleDemoted: demote };
+  }
+
+  /**
+   * Décision sur UNE partie (HRP ou RP) de la candidature — L5. Met à jour le
+   * statut de la partie, recalcule le statut global (APPROVED seulement si les
+   * deux le sont), et n'accorde WHITELISTED que quand tout est validé — sans
+   * jamais rétrograder un staff (promotion seulement si le rôle est PLAYER).
+   */
+  async decideWhitelistPart(
+    applicationId: string,
+    dto: WhitelistPartDecisionDto,
+    actor: DecisionActor = {},
+  ) {
+    if (dto.status === AppStatus.PENDING) {
+      throw new BadRequestException('PENDING n\'est pas une décision staff.');
+    }
+    const app = await this.prisma.whitelistApplication.findUnique({
+      where: { id: applicationId },
+    });
+    if (!app) throw new NotFoundException('Candidature introuvable.');
+
+    const hrp = dto.part === 'HRP' ? dto.status : app.hrpStatus;
+    const rp = dto.part === 'RP' ? dto.status : app.rpStatus;
+    const bothApproved =
+      hrp === AppStatus.APPROVED && rp === AppStatus.APPROVED;
+    const anyRejected =
+      hrp === AppStatus.REJECTED || rp === AppStatus.REJECTED;
+    const anyRevision =
+      hrp === AppStatus.NEEDS_REVISION || rp === AppStatus.NEEDS_REVISION;
+    const globalStatus = bothApproved
+      ? AppStatus.APPROVED
+      : anyRejected
+        ? AppStatus.REJECTED
+        : anyRevision
+          ? AppStatus.NEEDS_REVISION
+          : AppStatus.PENDING;
+
+    const field = dto.part === 'HRP' ? 'hrpStatus' : 'rpStatus';
+    const updated = await this.prisma.whitelistApplication.update({
+      where: { id: applicationId },
+      data: {
+        [field]: dto.status,
+        status: globalStatus,
+        reviewedAt: new Date(),
+        reviewNotes: dto.reviewNotes ?? app.reviewNotes,
+      },
+    });
+
+    this.logger.log(
+      `staff decision ${applicationId} ${dto.part} → ${dto.status} (global ${globalStatus})`,
+    );
+
+    // Promotion whitelist uniquement quand tout est validé, jamais un staff.
+    if (bothApproved) {
+      await this.prisma.user.updateMany({
+        where: { id: app.userId, role: 'PLAYER' },
+        data: { role: 'WHITELISTED' },
+      });
+      this.logger.log(`user ${app.userId} whitelist complète → WHITELISTED (si PLAYER)`);
+    }
+
+    if (app.discordThreadId || app.discordMessageId) {
+      const actorName = await this.resolveActorName(actor);
+      void this.webhooks
+        .statusUpdate({
+          kind: 'whitelist',
+          threadId: app.discordThreadId,
+          messageId: app.discordMessageId,
+          status: globalStatus,
+          actorName,
+          reason: dto.reviewNotes ?? undefined,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `statusUpdate whitelist ${applicationId} échec : ${(err as Error).message}`,
+          ),
+        );
+    }
+
+    if (actor.userId) {
+      void this.audit.log({
+        actorId: actor.userId,
+        action: `whitelist.${dto.part.toLowerCase()}.${dto.status.toLowerCase()}`,
+        targetUserId: app.userId,
+        targetEntity: `whitelist:${applicationId}`,
+        metadata: {
+          part: dto.part,
+          partStatus: dto.status,
+          globalStatus,
+          reviewNotes: dto.reviewNotes ?? null,
+        },
+        source: 'panel',
+      });
+    }
+
+    return {
+      id: updated.id,
+      status: updated.status,
+      hrpStatus: updated.hrpStatus,
+      rpStatus: updated.rpStatus,
+      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+      reviewNotes: updated.reviewNotes,
+      userId: updated.userId,
+    };
   }
 
   async setTicketStatus(

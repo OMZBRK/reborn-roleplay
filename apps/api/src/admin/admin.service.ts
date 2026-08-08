@@ -50,6 +50,8 @@ export interface WhitelistListItem {
 export interface WhitelistDetail {
   id: string;
   status: AppStatus;
+  hrpStatus: AppStatus;
+  rpStatus: AppStatus;
   dob: string;
   motivation: string;
   experience: string;
@@ -400,6 +402,8 @@ export class AdminService {
     return {
       id: app.id,
       status: app.status,
+      hrpStatus: app.hrpStatus,
+      rpStatus: app.rpStatus,
       dob: app.dob.toISOString().slice(0, 10),
       motivation: app.motivation,
       experience: app.experience,
