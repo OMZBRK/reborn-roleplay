@@ -131,6 +131,20 @@ export class AdminController {
     return this.assignment.releaseWhitelist(id, { userId: user.sub });
   }
 
+  /**
+   * Reset propre d'une candidature (supprime + retrograde WHITELISTED→PLAYER,
+   * jamais le staff). Remplace le DELETE SQL brut pour re-tester le flow.
+   */
+  @Post('whitelist/:id/reset')
+  @MinRole(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  resetWhitelist(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.staff.resetWhitelist(id, { userId: user.sub });
+  }
+
   // ── Tickets ────────────────────────────────────────────
 
   @Get('tickets')
