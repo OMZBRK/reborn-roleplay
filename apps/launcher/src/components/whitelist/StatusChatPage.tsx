@@ -140,9 +140,11 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
   const mineSlot = oral?.mine ?? null;
   const openSlots = oral?.open ?? [];
   const hrpDone = hrpStatus === "APPROVED";
-  // Phase orale : le candidat a réservé, OU des créneaux sont ouverts et l'HRP
-  // n'est pas encore validé (le staff a ouvert des créneaux après pré-lecture).
-  const oralPhase = !!mineSlot || (openSlots.length > 0 && !hrpDone);
+  const rpDone = rpStatus === "APPROVED";
+  // Phase orale : l'HRP doit d'abord être VALIDÉ par le staff. L'entretien
+  // oral est l'étape qui valide le RP (règlement, micro, cohérence/connaissance
+  // de la candidature). Tant que le RP n'est pas accepté, la page reste ouverte.
+  const oralPhase = hrpDone && !rpDone;
 
   // Bascule automatiquement sur l'onglet Test oral quand la phase s'ouvre (1x).
   useEffect(() => {
@@ -401,7 +403,11 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
             )}
             <span>
               {tab === "chat"
-                ? "En attente de révision · prochaine étape : HRP"
+                ? oralPhase
+                  ? "HRP validé · prochaine étape : test oral (RP)"
+                  : rpDone
+                    ? "Candidature acceptée"
+                    : "En attente de révision · prochaine étape : HRP"
                 : "Chat"}
             </span>
           </button>
@@ -903,6 +909,12 @@ function ChooseView({
         </span>
       </div>
 
+      <p className="wl-oral-note">
+        Ton HRP est validé. L'entretien oral est la dernière étape : le staff
+        vérifie ta connaissance du règlement, ton micro et la cohérence de ta
+        candidature RP. À l'issue de l'entretien, ta partie RP est validée.
+      </p>
+
       {sorted.length === 0 ? (
         <div className="wl-oral-note">
           Aucun créneau ouvert pour l'instant. Le staff en ouvrira bientôt —
@@ -971,7 +983,7 @@ function BookedView({
       {done ? (
         <div className="wl-oral-note wl-oral-ok">
           <CheckCircle2 size={15} /> Entretien passé — en attente de la validation
-          HRP par le staff.
+          RP par le staff.
         </div>
       ) : (
         <div className="wl-oral-warn">
