@@ -15,7 +15,7 @@ type Props = {
    */
   onClose?: () => void;
   variant?: ModalVariant;
-  /** "sm" = 340px (UpdateModal style Zenkai), "md" = 420px (default). */
+  /** "sm" = 340px (UpdateModal style Reborn), "md" = 420px (default). */
   size?: ModalSize;
   children: ReactNode;
 };

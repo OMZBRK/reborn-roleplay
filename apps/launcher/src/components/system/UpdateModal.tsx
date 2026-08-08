@@ -12,7 +12,7 @@ type Props = {
   onIgnoreVersion: () => void;
 };
 
-// Modale auto-update style Zenkai : card compacte (340px), titre a gauche +
+// Modale auto-update style Reborn : card compacte (340px), titre a gauche +
 // X discret a droite, carte ACTUELLE -> NOUVELLE side-by-side, CTA
 // "Installer" full-width avec icone download. Comportement :
 //   - available  : dismissable (Plus tard) + Installer
@@ -103,7 +103,7 @@ export function UpdateModal({
       )}
 
       {/* Carte details (available) — ACTUELLE -> NOUVELLE side-by-side
-          facon Zenkai, ratio 1:auto:1. La fleche en colonne centrale
+          facon Reborn, ratio 1:auto:1. La fleche en colonne centrale
           appuie le sens de l'upgrade sans empieter sur les versions. */}
       {state.kind === "available" && (
         <div

@@ -14,12 +14,10 @@ import {
   LogOut,
   MemoryStick,
   Monitor,
-  Music,
   RefreshCw,
   ShieldCheck,
   User2,
   Unlink,
-  Volume2,
   Wand2,
   Zap,
 } from "lucide-react";
@@ -36,9 +34,7 @@ const TABS = [
   { id: "profile", label: "Profil", hint: "Identite & role", icon: User2 },
   { id: "account", label: "Compte", hint: "Identifiants & session", icon: ShieldCheck },
   { id: "connections", label: "Connexions", hint: "Discord, Steam, Twitch", icon: Link2 },
-  { id: "game", label: "Jeu", hint: "RAM & comportement", icon: Gamepad2 },
-  { id: "perf", label: "Performance", hint: "FPS, vsync, low-spec", icon: Zap },
-  { id: "audio", label: "Audio", hint: "Volumes & mute", icon: Volume2 },
+  { id: "game", label: "Jeu", hint: "Installation & fichiers", icon: Gamepad2 },
   { id: "notif", label: "Notifications", hint: "Push, email, alertes", icon: Bell },
   { id: "about", label: "À propos", hint: "Version & support", icon: Info },
 ] as const;
@@ -91,8 +87,6 @@ export function Settings() {
                   {tab === "account" && <AccountTab />}
                   {tab === "connections" && <ConnectionsTab />}
                   {tab === "game" && <GameTab />}
-                  {tab === "perf" && <PerformanceTab />}
-                  {tab === "audio" && <AudioTab />}
                   {tab === "notif" && <NotificationsTab />}
                   {tab === "about" && <AboutTab />}
                 </motion.div>
@@ -982,249 +976,6 @@ function Toggle({
 
 // Slider compact reutilise par Perf/Audio. Affiche un pourcent ou un
 // suffix custom (fps, %, etc.).
-function Slider({
-  value,
-  min,
-  max,
-  step = 1,
-  suffix = "",
-  onChange,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  suffix?: string;
-  onChange: (v: number) => void;
-}) {
-  const pct = ((value - min) / (max - min)) * 100;
-  return (
-    <div className="w-full">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="font-mono text-[11px] text-foreground-muted">
-          {min}
-          {suffix}
-        </span>
-        <span className="font-display text-base tabular-nums text-foreground">
-          {value}
-          {suffix}
-        </span>
-        <span className="font-mono text-[11px] text-foreground-muted">
-          {max}
-          {suffix}
-        </span>
-      </div>
-      <div className="relative">
-        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-border">
-          <div
-            className="h-full rounded-full transition-all duration-200"
-            style={{
-              width: `${pct}%`,
-              background:
-                "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
-              boxShadow: "0 0 10px var(--color-accent-glow)",
-            }}
-          />
-        </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="reborn-ram-slider relative z-10 w-full"
-        />
-      </div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────
-//  PERFORMANCE
-// ──────────────────────────────────────────────────────
-
-function PerformanceTab() {
-  const perf = useSettingsStore((s) => s.perf);
-  const setPerf = useSettingsStore((s) => s.setPerf);
-
-  return (
-    <Card
-      title="Performance"
-      description="Réglages avancés du moteur de rendu. Persistés localement — branchement sur le game launcher à venir."
-      icon={<Zap className="h-4 w-4" />}
-    >
-      <Row
-        label="Distance de rendu automatique"
-        hint="Adapte la distance selon ton GPU et ta RAM disponible."
-      >
-        <Toggle
-          checked={perf.autoRenderDistance}
-          onChange={(v) => setPerf("autoRenderDistance", v)}
-        />
-      </Row>
-      <div className="px-6 py-5">
-        <div className="mb-3 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[13px] font-medium text-foreground">FPS maximum</p>
-            <p className="mt-1 text-[11.5px] text-foreground-subtle">
-              {perf.fpsMax >= 240
-                ? "Illimité — utilise toute la puissance disponible."
-                : `Cap à ${perf.fpsMax} images par seconde.`}
-            </p>
-          </div>
-        </div>
-        <Slider
-          value={perf.fpsMax}
-          min={30}
-          max={240}
-          suffix=" fps"
-          onChange={(v) => setPerf("fpsMax", v)}
-        />
-      </div>
-      <Row
-        label="Synchronisation verticale (VSync)"
-        hint="Évite le tearing mais peut introduire de l'input lag."
-      >
-        <Toggle checked={perf.vsync} onChange={(v) => setPerf("vsync", v)} />
-      </Row>
-      <Row
-        label="Mode low-spec"
-        hint="Désactive les effets coûteux : ombres, particules, animations d'eau."
-      >
-        <Toggle
-          checked={perf.lowSpecMode}
-          onChange={(v) => setPerf("lowSpecMode", v)}
-        />
-      </Row>
-    </Card>
-  );
-}
-
-// ──────────────────────────────────────────────────────
-//  AUDIO
-// ──────────────────────────────────────────────────────
-
-function AudioTab() {
-  const audio = useSettingsStore((s) => s.audio);
-  const setAudio = useSettingsStore((s) => s.setAudio);
-
-  return (
-    <>
-      <Card
-        title="Audio"
-        description="Volumes du jeu. Persistés localement — appliqués à la JVM au prochain lancement quand le branchement sera fait."
-        icon={<Volume2 className="h-4 w-4" />}
-      >
-        <AudioRow
-          label="Volume principal"
-          value={audio.master}
-          onChange={(v) => setAudio("master", v)}
-        />
-        <AudioRow
-          label="Musique"
-          value={audio.music}
-          onChange={(v) => setAudio("music", v)}
-        />
-        <AudioRow
-          label="Effets sonores"
-          value={audio.sfx}
-          onChange={(v) => setAudio("sfx", v)}
-        />
-        <AudioRow
-          label="Voix RP"
-          hint="Volume du système de proximity chat."
-          value={audio.voice}
-          onChange={(v) => setAudio("voice", v)}
-        />
-        <Row
-          label="Couper le son en perdant le focus"
-          hint="Pratique quand tu joues avec Discord en parallèle."
-        >
-          <Toggle
-            checked={audio.muteOnBlur}
-            onChange={(v) => setAudio("muteOnBlur", v)}
-          />
-        </Row>
-      </Card>
-
-      <Card
-        title="OST Reborn"
-        description="Musique d'ambiance diffusée par les zones du serveur. Indépendant du volume musique de Minecraft."
-        icon={<Music className="h-4 w-4" />}
-      >
-        <Row
-          label="Activer l'OST"
-          hint="Si désactivé, le mod ignore tous les broadcasts de zone du serveur."
-        >
-          <Toggle
-            checked={audio.ostEnabled}
-            onChange={(v) => setAudio("ostEnabled", v)}
-          />
-        </Row>
-        <div
-          className={cn(
-            "transition-opacity",
-            audio.ostEnabled ? "opacity-100" : "pointer-events-none opacity-40",
-          )}
-        >
-          <AudioRow
-            label="Volume OST"
-            hint="Gain global appliqué avant l'atténuation par distance du mod."
-            value={audio.ostVolume}
-            onChange={(v) => setAudio("ostVolume", v)}
-          />
-        </div>
-        <div className="px-6 py-4 text-[11.5px] leading-relaxed text-foreground-subtle">
-          <p className="flex items-start gap-2">
-            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-accent" />
-            <span>
-              Le branchement vers le mod arrivera dans une prochaine version : pour
-              l'instant, ces réglages sont persistés localement et seront lus par
-              le mod-ost au démarrage du jeu une fois la passerelle Tauri → mod en
-              place.
-            </span>
-          </p>
-        </div>
-      </Card>
-    </>
-  );
-}
-
-function AudioRow({
-  label,
-  hint,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="px-6 py-4">
-      <div className="mb-2 flex items-baseline justify-between gap-4">
-        <div>
-          <p className="text-[13px] font-medium text-foreground">{label}</p>
-          {hint && (
-            <p className="mt-0.5 text-[11.5px] text-foreground-subtle">{hint}</p>
-          )}
-        </div>
-        <span className="font-display text-lg tabular-nums text-foreground">
-          {value}
-          <span className="ml-0.5 text-xs text-foreground-muted">%</span>
-        </span>
-      </div>
-      <Slider value={value} min={0} max={100} suffix="%" onChange={onChange} />
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────
-//  NOTIFICATIONS
-// ──────────────────────────────────────────────────────
-
 function NotificationsTab() {
   const notif = useSettingsStore((s) => s.notif);
   const setNotif = useSettingsStore((s) => s.setNotif);
