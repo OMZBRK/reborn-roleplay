@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
+  Clock,
   FileText,
   Loader2,
   MessageSquare,
@@ -63,7 +64,7 @@ function useAssignmentInfo(
   };
 }
 
-type Tab = "chat" | "application";
+type Tab = "chat" | "application" | "oral";
 
 type Props = {
   onWithdraw?: () => void;
@@ -112,6 +113,57 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
   const [reclaiming, setReclaiming] = useState(false);
   const [reclaimMsg, setReclaimMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // L5 — données du test oral (créneaux + statuts HRP/RP) pour l'onglet dédié.
+  const [oral, setOral] = useState<OralSlotsResponse | null>(null);
+  const [hrpStatus, setHrpStatus] = useState<WhitelistAppStatus | null>(null);
+  const [rpStatus, setRpStatus] = useState<WhitelistAppStatus | null>(null);
+  const [oralBusy, setOralBusy] = useState<string | null>(null);
+  const [oralErr, setOralErr] = useState<string | null>(null);
+  const autoTabDone = useRef(false);
+
+  const refreshOral = useCallback(async () => {
+    try {
+      const [slots, me] = await Promise.all([fetchOralSlots(), fetchWhitelistMe()]);
+      setOral(slots);
+      setHrpStatus(me.application?.hrpStatus ?? null);
+      setRpStatus(me.application?.rpStatus ?? null);
+    } catch {
+      // silencieux (dev sans API)
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshOral();
+  }, [refreshOral]);
+
+  const mineSlot = oral?.mine ?? null;
+  const openSlots = oral?.open ?? [];
+  const hrpDone = hrpStatus === "APPROVED";
+  // Phase orale : le candidat a réservé, OU des créneaux sont ouverts et l'HRP
+  // n'est pas encore validé (le staff a ouvert des créneaux après pré-lecture).
+  const oralPhase = !!mineSlot || (openSlots.length > 0 && !hrpDone);
+
+  // Bascule automatiquement sur l'onglet Test oral quand la phase s'ouvre (1x).
+  useEffect(() => {
+    if (oralPhase && !autoTabDone.current) {
+      autoTabDone.current = true;
+      setTab("oral");
+    }
+  }, [oralPhase]);
+
+  async function oralAct(id: string, fn: (id: string) => Promise<unknown>) {
+    setOralBusy(id);
+    setOralErr(null);
+    try {
+      await fn(id);
+      await refreshOral();
+    } catch (e) {
+      setOralErr(typeof e === "string" ? e : (e as { message?: string }).message ?? "Échec");
+    } finally {
+      setOralBusy(null);
+    }
+  }
 
   // Calcul du delai pour le bouton "Demander une reprise".
   const assignmentInfo = useAssignmentInfo(assigneeName, assignedAt);
@@ -274,12 +326,22 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="wl-status-title">
-                {tab === "chat" ? "Chat" : "Ma candidature"}
+                {tab === "chat"
+                  ? "Chat"
+                  : tab === "oral"
+                    ? mineSlot
+                      ? "Entretien programmé"
+                      : "Choisir un créneau"
+                    : "Ma candidature"}
               </h1>
               <p className="wl-status-sub">
                 {tab === "chat"
                   ? "Pour toute question, le chat ci-dessous vous met en relation avec le staff."
-                  : "Récapitulatif de la candidature soumise — visible par le staff côté Discord."}
+                  : tab === "oral"
+                    ? mineSlot
+                      ? "La date et l'heure de votre entretien oral sont indiquées ci-dessous."
+                      : "Sélectionnez un créneau pour votre entretien oral avec le staff."
+                    : "Récapitulatif de la candidature soumise — visible par le staff côté Discord."}
               </p>
             </div>
           </div>
@@ -343,6 +405,15 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
                 : "Chat"}
             </span>
           </button>
+          {oralPhase && (
+            <button
+              type="button"
+              className={`wl-tab${tab === "oral" ? " wl-tab-active wl-tab-oral" : ""}`}
+              onClick={() => setTab("oral")}
+            >
+              <Mic size={14} /> Test oral
+            </button>
+          )}
           <button
             type="button"
             className={`wl-tab${tab === "application" ? " wl-tab-active wl-tab-warning" : ""}`}
@@ -368,12 +439,27 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
             fileInputRef={fileInputRef}
             onFiles={handlePickFiles}
           />
+        ) : tab === "oral" ? (
+          <div className="wl-status-scroll">
+            <OralFullView
+              mine={mineSlot}
+              openSlots={openSlots}
+              hrp={hrpStatus}
+              rp={rpStatus}
+              busy={oralBusy}
+              err={oralErr}
+              onBook={(id) => oralAct(id, bookOralSlot)}
+              onCancel={(id) => oralAct(id, cancelOralSlot)}
+            />
+          </div>
         ) : (
-          <ApplicationPanel
-            draft={draft}
-            onWithdraw={onWithdraw}
-            withdrawing={withdrawing}
-          />
+          <div className="wl-status-scroll">
+            <ApplicationPanel
+              draft={draft}
+              onWithdraw={onWithdraw}
+              withdrawing={withdrawing}
+            />
+          </div>
         )}
       </div>
     </div>
@@ -646,8 +732,6 @@ function ApplicationPanel({
   const dobDisplay = formatDateFr(draft.dob) ?? draft.dob;
   return (
     <div className="wl-application-panel">
-      <OralSection />
-
       <motion.div
         className="wl-recap-card"
         initial={{ opacity: 0, y: 10 }}
@@ -752,126 +836,169 @@ function ApplicationPanel({
 }
 
 // ── L5 : réservation du test oral (côté candidat) ─────────────────
-function OralSection() {
-  const [data, setData] = useState<OralSlotsResponse | null>(null);
-  const [hrp, setHrp] = useState<WhitelistAppStatus | null>(null);
-  const [rp, setRp] = useState<WhitelistAppStatus | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  const refresh = useCallback(async () => {
-    try {
-      const [slots, me] = await Promise.all([fetchOralSlots(), fetchWhitelistMe()]);
-      setData(slots);
-      setHrp(me.application?.hrpStatus ?? null);
-      setRp(me.application?.rpStatus ?? null);
-    } catch {
-      // silencieux (dev sans API)
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  async function act(id: string, fn: (id: string) => Promise<unknown>) {
-    setBusy(id);
-    setErr(null);
-    try {
-      await fn(id);
-      await refresh();
-    } catch (e) {
-      setErr(typeof e === "string" ? e : (e as { message?: string }).message ?? "Échec");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  const hrpDone = hrp === "APPROVED";
-  const mine = data?.mine ?? null;
-  const open = data?.open ?? [];
-
+// Vue plein écran du test oral : soit la sélection d'un créneau (grille type
+// maquette « Choisir un Créneau »), soit l'entretien programmé (« Entretien
+// Programmé »). Les statuts HRP/RP sont rappelés en tête.
+function OralFullView({
+  mine,
+  openSlots,
+  hrp,
+  rp,
+  busy,
+  err,
+  onBook,
+  onCancel,
+}: {
+  mine: OralSlot | null;
+  openSlots: OralSlot[];
+  hrp: WhitelistAppStatus | null;
+  rp: WhitelistAppStatus | null;
+  busy: string | null;
+  err: string | null;
+  onBook: (id: string) => void;
+  onCancel: (id: string) => void;
+}) {
   return (
     <motion.div
-      className="wl-recap-card wl-oral-card"
-      initial={{ opacity: 0, y: 10 }}
+      className="wl-oral-page"
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.25 }}
     >
-      <div className="wl-recap-header">
-        <div className="wl-step-badge wl-oral-badge">
-          <Mic size={14} />
-        </div>
-        <h3 className="wl-recap-title">Test oral</h3>
-        <div className="wl-oral-pills">
-          <StatusPill label="HRP" status={hrp} />
-          <StatusPill label="RP" status={rp} />
-        </div>
+      <div className="wl-oral-statusbar">
+        <StatusPill label="HRP" status={hrp} />
+        <StatusPill label="RP" status={rp} />
       </div>
 
       {err && <div className="wl-oral-err">{err}</div>}
 
-      {hrpDone ? (
-        <div className="wl-oral-note wl-oral-ok">
-          <CheckCircle2 size={15} /> Ton test oral est validé. La partie RP est en
-          cours de validation par le staff.
-        </div>
-      ) : mine ? (
-        <div className="wl-oral-booked">
-          <div className="wl-oral-booked-info">
-            <CalendarClock size={17} />
-            <div>
-              <div className="wl-oral-booked-when">{formatSlotFull(mine.startAt)}</div>
-              <div className="wl-oral-booked-sub">
-                Créneau réservé · {mine.durationMin} min. Le staff te rejoindra à
-                l'heure dite.
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="wl-btn-mini-ghost"
-            disabled={busy === mine.id}
-            onClick={() => act(mine.id, cancelOralSlot)}
-          >
-            {busy === mine.id ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <X size={13} />
-            )}
-            Annuler
-          </button>
-        </div>
-      ) : open.length > 0 ? (
-        <div className="wl-oral-slots">
-          <p className="wl-oral-lead">Réserve ton test oral avec le staff :</p>
-          {groupSlotsByDay(open).map(({ day, slots }) => (
-            <div key={day} className="wl-oral-day">
-              <div className="wl-oral-day-label">{day}</div>
-              <div className="wl-oral-slot-row">
-                {slots.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className="wl-oral-slot-btn"
-                    disabled={busy === s.id}
-                    onClick={() => act(s.id, bookOralSlot)}
-                  >
-                    {busy === s.id && <Loader2 size={12} className="animate-spin" />}
-                    {formatSlotTime(s.startAt)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+      {mine ? (
+        <BookedView mine={mine} busy={busy} onCancel={onCancel} />
       ) : (
+        <ChooseView openSlots={openSlots} busy={busy} onBook={onBook} />
+      )}
+    </motion.div>
+  );
+}
+
+function ChooseView({
+  openSlots,
+  busy,
+  onBook,
+}: {
+  openSlots: OralSlot[];
+  busy: string | null;
+  onBook: (id: string) => void;
+}) {
+  const sorted = [...openSlots].sort(
+    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+  );
+  return (
+    <>
+      <div className="wl-oral-section-head">
+        <h3 className="wl-oral-section-title">Choisissez votre créneau d'entretien</h3>
+        <span className="wl-oral-count">
+          {sorted.length} créneau{sorted.length > 1 ? "x" : ""} disponible
+          {sorted.length > 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {sorted.length === 0 ? (
         <div className="wl-oral-note">
           Aucun créneau ouvert pour l'instant. Le staff en ouvrira bientôt —
           reviens vérifier ici.
         </div>
+      ) : (
+        <div className="wl-oral-grid">
+          {sorted.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className="wl-oral-cardslot"
+              disabled={busy === s.id}
+              onClick={() => onBook(s.id)}
+            >
+              <div className="wl-oral-cardslot-head">
+                <CalendarClock size={17} />
+                <div>
+                  <div className="wl-oral-cardslot-day">{formatSlotDay(s.startAt)}</div>
+                  <div className="wl-oral-cardslot-time">
+                    {formatSlotRange(s.startAt, s.durationMin)}
+                  </div>
+                </div>
+              </div>
+              <div className="wl-oral-cardslot-meta">
+                <Clock size={13} /> {s.durationMin} minutes
+              </div>
+              {busy === s.id && (
+                <div className="wl-oral-cardslot-meta">
+                  <Loader2 size={13} className="animate-spin" /> Réservation…
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
       )}
-    </motion.div>
+    </>
+  );
+}
+
+function BookedView({
+  mine,
+  busy,
+  onCancel,
+}: {
+  mine: OralSlot;
+  busy: string | null;
+  onCancel: (id: string) => void;
+}) {
+  const done = mine.status === "DONE";
+  return (
+    <>
+      <div className="wl-oral-booked-card">
+        <Mic className="wl-oral-booked-illu" size={96} strokeWidth={1} />
+        <div className="wl-oral-booked-body">
+          <div className="wl-oral-booked-day">{formatSlotDay(mine.startAt)}</div>
+          <div className="wl-oral-booked-times">
+            Début de l'entretien à <b>{formatSlotTime(mine.startAt)}</b>
+            <br />
+            Fin <b>{formatSlotEnd(mine.startAt, mine.durationMin)}</b>
+          </div>
+        </div>
+        <CalendarClock className="wl-oral-booked-cal" size={26} />
+      </div>
+
+      {done ? (
+        <div className="wl-oral-note wl-oral-ok">
+          <CheckCircle2 size={15} /> Entretien passé — en attente de la validation
+          HRP par le staff.
+        </div>
+      ) : (
+        <div className="wl-oral-warn">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span>
+            En cas d'empêchement, change ton créneau à l'avance. Toute absence non
+            signalée peut entraîner un passage en file d'attente.
+          </span>
+        </div>
+      )}
+
+      {!done && (
+        <div className="wl-oral-booked-actions">
+          <button
+            type="button"
+            className="wl-oral-btn-secondary"
+            disabled={busy === mine.id}
+            onClick={() => onCancel(mine.id)}
+          >
+            {busy === mine.id ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : null}
+            Changer de créneau
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -896,16 +1023,15 @@ function StatusPill({
   );
 }
 
-function formatSlotFull(iso: string): string {
+function formatSlotDay(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("fr-FR", {
+  const s = d.toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "2-digit",
     month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
   });
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function formatSlotTime(iso: string): string {
@@ -914,22 +1040,17 @@ function formatSlotTime(iso: string): string {
   return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function groupSlotsByDay(slots: OralSlot[]): { day: string; slots: OralSlot[] }[] {
-  const sorted = [...slots].sort(
-    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
-  );
-  const out: { day: string; slots: OralSlot[] }[] = [];
-  for (const s of sorted) {
-    const day = new Date(s.startAt).toLocaleDateString("fr-FR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-    });
-    const last = out[out.length - 1];
-    if (last && last.day === day) last.slots.push(s);
-    else out.push({ day, slots: [s] });
-  }
-  return out;
+function formatSlotEnd(iso: string, durationMin: number): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Date(d.getTime() + durationMin * 60_000).toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatSlotRange(iso: string, durationMin: number): string {
+  return `${formatSlotTime(iso)} – ${formatSlotEnd(iso, durationMin)}`;
 }
 
 function formatBytes(n: number): string {
