@@ -26,7 +26,8 @@
     "menu.TitleScreenMixin",
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",
-    "menu.ConnectScreenMixin"
+    "menu.ConnectScreenMixin",
+    "menu.LoadingOverlayMixin"
   ],
   "injectors": {
     "defaultRequire": 1
