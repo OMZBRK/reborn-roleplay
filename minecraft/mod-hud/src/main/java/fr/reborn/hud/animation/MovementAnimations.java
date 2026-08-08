@@ -1,51 +1,66 @@
 package fr.reborn.hud.animation;
 
-import dev.kosmx.playerAnim.api.layered.IAnimation;
-import dev.kosmx.playerAnim.api.layered.KeyframeAnimationPlayer;
-import dev.kosmx.playerAnim.api.layered.ModifierLayer;
-import dev.kosmx.playerAnim.api.layered.modifier.AbstractFadeModifier;
-import dev.kosmx.playerAnim.core.data.KeyframeAnimation;
-import dev.kosmx.playerAnim.core.util.Ease;
-import dev.kosmx.playerAnim.minecraftApi.PlayerAnimationAccess;
-import dev.kosmx.playerAnim.minecraftApi.PlayerAnimationFactory;
+import com.zigythebird.playeranim.animation.PlayerAnimationController;
+import com.zigythebird.playeranim.api.PlayerAnimationAccess;
+import com.zigythebird.playeranim.api.PlayerAnimationFactory;
+import com.zigythebird.playeranimcore.animation.Animation;
+import com.zigythebird.playeranimcore.animation.RawAnimation;
+import com.zigythebird.playeranimcore.animation.layered.IAnimation;
+import com.zigythebird.playeranimcore.animation.layered.modifier.AbstractFadeModifier;
+import com.zigythebird.playeranimcore.easing.EasingType;
+import com.zigythebird.playeranimcore.enums.PlayState;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import io.github.kosmx.emotes.server.serializer.UniversalEmoteSerializer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Animations de mouvement Reborn (styles de marche GTA-RP) via PlayerAnimator.
+ * Animations de mouvement Reborn (démarches GTA-RP) via PlayerAnimationLib.
  *
- * <p>Remplace l'anim vanilla de déplacement selon l'état : <b>marche</b> (avec
- * un STYLE sélectionnable par le joueur — défaut / tremblante / timide /
- * arrogante / désespérée), <b>course</b> (sprint) et <b>naruto-run</b>. Les
- * fichiers {@code .emotecraft} sont lus par {@link UniversalEmoteSerializer} →
- * {@link KeyframeAnimation}, joués via un {@link ModifierLayer} de
- * PlayerAnimator (persiste pendant le déplacement), avec fade entre états.
+ * <p>Remplace l'anim vanilla selon l'état du joueur : <b>marche</b> (STYLE
+ * sélectionnable), <b>course</b> (sprint) et <b>course chakraïque</b> (Naruto run,
+ * touche dédiée → {@link NarutoRun}). Fichiers {@code .emotecraft} lus par
+ * {@link UniversalEmoteSerializer} (→ {@code Animation} zigythebird) et joués via
+ * un {@link ModifierLayer} par avatar, en crossfade.
  *
- * <p>V1 : joueur local uniquement. « Voir les autres » (les autres joueurs
- * voient ton anim) = étape suivante, nécessite de synchroniser le style choisi
- * + l'état naruto (via plugin-message / réseau Emotecraft).
+ * <p><b>Port 26.1</b> : migré de l'API {@code dev.kosmx.playerAnim} (1.21.4) vers
+ * le fork mergé {@code com.zigythebird.playeranim} + Emotecraft 3.3.0. L'ancien
+ * {@code KeyframeAnimationPlayer(anim)} n'existe plus : une {@code Animation}
+ * (record) se joue via un {@link PlayerAnimationController} (l'{@code IAnimation}
+ * concret) qu'on {@code triggerAnimation(...)} puis qu'on pose dans le layer.
+ *
+ * <p>Le rendu est <b>local</b> (le joueur voit ses propres démarches). La synchro
+ * cross-joueurs (voir les démarches des autres) dépend d'un canal serveur
+ * {@code reborn:anim} relayé par ShinobiCore — non re-câblé côté client ici.
  */
 public final class MovementAnimations {
 
     public static final MovementAnimations INSTANCE = new MovementAnimations();
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/anim");
 
-    private static final Identifier LAYER = Identifier.of("reborn-hud", "movement");
+    /** Priorité du layer dans la pile PAL (au-dessus des anims de base). */
     private static final int PRIORITY = 1000;
-    private static final double MOVE_THRESHOLD_SQ = 0.02 * 0.02;
-    private static final int FADE_TICKS = 4;
+    /** ID du layer d'animation Reborn (registerFactory + getPlayerAnimationLayer). */
+    private static final Identifier LAYER = Identifier.fromNamespaceAndPath("reborn-hud", "movement");
+    private static final double MOVE_THRESHOLD_SQ = 0.015 * 0.015;
+    /** Durée du fondu (fade-in) à l'entrée d'une démarche, en ticks. Easing
+     *  EASE_IN_OUT_SINE (comme la version 1.21.4 qui rendait très bien). */
+    private static final int FADE_TICKS = 6;
+    /** Ticks immobiles requis avant de repasser NONE (anti flip-flop). */
+    private static final int IDLE_GRACE_TICKS = 4;
 
-    /** Styles de marche : {label, fichier}. Le joueur en choisit un. */
+    /** Styles de marche : {label, fichier}. Index 0 = démarche par défaut
+     *  (« Walking » — walk.emotecraft), puis les 5 styles sélectionnables. */
     private static final String[][] WALK_STYLES = {
+        {"Marche", "walk.emotecraft"},
         {"Défaut", "walk_default.emotecraft"},
         {"Tremblante", "walk_trembling.emotecraft"},
         {"Timide", "walk_timid.emotecraft"},
@@ -55,119 +70,149 @@ public final class MovementAnimations {
 
     private enum MoveState { NONE, WALK, RUN, NARUTO }
 
-    private final List<KeyframeAnimation> walkAnims = new ArrayList<>();
-    private KeyframeAnimation run, narutoRun;
+    private final List<Animation> walkAnims = new ArrayList<>();
+    private Animation run, narutoRun;
     private int selectedWalk = 0;
-    private boolean narutoTest = false;
-
-    /** false si PlayerAnimator/Emotecraft absent au runtime → feature inerte
-     *  (au lieu de faire crasher tout l'init du mod). */
     private boolean available = false;
 
+    // État local courant (pour ne ré-appliquer qu'aux changements).
     private MoveState currentState = MoveState.NONE;
-    private int currentWalkIndex = -1; // pour re-fade si on change de style en marchant
+    private int currentWalkIndex = -1;
+
+    // Détection de mouvement STABLE par delta de position : getDeltaMovement()
+    // du joueur local oscille (la vélocité horizontale est remise ~0 par la
+    // friction/collision certains ticks) → flip-flop WALK↔NONE chaque tick →
+    // l'anim était stoppée+re-déclenchée en boucle et ne jouait jamais.
+    private double lastX, lastZ;
+    private boolean hasLastPos = false;
+    private int idleGrace = 0;
 
     private MovementAnimations() {}
 
     public boolean isAvailable() { return available; }
 
-    // ── Sélection de style ──
     public int walkStyleCount() { return WALK_STYLES.length; }
     public String walkStyleName(int i) { return WALK_STYLES[i][0]; }
     public int selectedWalk() { return selectedWalk; }
 
     public void setWalkStyle(int i) {
-        selectedWalk = Math.max(0, Math.min(WALK_STYLES.length - 1, i));
+        selectedWalk = clamp(i);
         RebornPrefs.INSTANCE.walkStyle = selectedWalk;
         RebornPrefs.INSTANCE.save();
-        currentState = MoveState.NONE; // force le ré-application au prochain tick
+        currentState = MoveState.NONE; // force ré-application au prochain tick
     }
 
     public void cycleWalkStyle() { setWalkStyle((selectedWalk + 1) % WALK_STYLES.length); }
-    public void toggleNarutoTest() { narutoTest = !narutoTest; }
 
-    /**
-     * À appeler une fois au client init. Enregistre le layer + charge les anims.
-     *
-     * <p>PlayerAnimator/Emotecraft sont fournis par le modpack au runtime
-     * (compileOnly ici). S'ils sont absents, on capte le {@link Throwable}
-     * ({@code NoClassDefFoundError} est une {@link Error}, pas une exception)
-     * et on laisse la feature inerte plutôt que d'aborter tout l'init du mod
-     * (ce qui tuerait HUD + menu Reborn).
-     */
+    /** Enregistre le layer PAL par avatar + charge les animations. */
     public void register() {
         try {
+            // Pattern CANONIQUE PlayerAnimationLib (docs.zigythebird.com) : on
+            // enregistre une factory qui crée un PlayerAnimationController par
+            // avatar sous notre LAYER id. On récupère ensuite le controller par
+            // ID via getPlayerAnimationLayer (cf. applyState) — plus fiable que
+            // de mémoriser soi-même les controllers.
             PlayerAnimationFactory.ANIMATION_DATA_FACTORY.registerFactory(
-                LAYER, PRIORITY, player -> new ModifierLayer<>());
+                LAYER, PRIORITY,
+                avatar -> new PlayerAnimationController(avatar, (ctrl, data, setter) -> PlayState.STOP));
 
-            for (String[] style : WALK_STYLES) {
-                walkAnims.add(load(style[1]));
-            }
+            for (String[] style : WALK_STYLES) walkAnims.add(load(style[1]));
             run = load("run.emotecraft");
             narutoRun = load("naruto_run.emotecraft");
 
             RebornPrefs.INSTANCE.ensureLoaded();
-            selectedWalk = Math.max(0, Math.min(WALK_STYLES.length - 1, RebornPrefs.INSTANCE.walkStyle));
+            selectedWalk = clamp(RebornPrefs.INSTANCE.walkStyle);
             available = true;
-            LOG.info("anims : {} styles marche, run={}, naruto={}",
+            LOG.info("démarches : {} styles marche, run={}, naruto={}",
                 walkAnims.size(), run != null, narutoRun != null);
         } catch (Throwable t) {
             available = false;
-            LOG.warn("PlayerAnimator/Emotecraft absent — démarches animées désactivées ({})",
-                t.toString());
+            LOG.warn("PlayerAnimationLib/Emotecraft absent — démarches désactivées ({})", t.toString());
         }
     }
 
-    private KeyframeAnimation load(String file) {
+    /** Charge une {@code .emotecraft} (format binaire Emotecraft) → {@code Animation}. */
+    private Animation load(String file) {
         try (InputStream in = MovementAnimations.class
                 .getResourceAsStream("/assets/reborn-hud/animations/" + file)) {
             if (in == null) { LOG.warn("anim introuvable : {}", file); return null; }
-            List<KeyframeAnimation> list = UniversalEmoteSerializer.readData(in, file);
-            return list.isEmpty() ? null : list.get(0);
+            Map<String, Animation> data = UniversalEmoteSerializer.readData(in, file);
+            return data.isEmpty() ? null : data.values().iterator().next();
         } catch (Exception e) {
             LOG.error("échec lecture anim {} : {}", file, e.toString());
             return null;
         }
     }
 
-    /** À appeler chaque client tick. Pilote l'anim du joueur local. */
-    public void tick(MinecraftClient mc) {
-        if (!available) return; // PlayerAnimator absent → ne pas toucher ses classes.
-        AbstractClientPlayerEntity player = mc.player;
+    /** À appeler chaque client tick (piloté par {@code HudKeybinds}). */
+    public void tick(Minecraft mc) {
+        if (!available) return;
+        AbstractClientPlayer player = mc.player;
         if (player == null) return;
-        ModifierLayer<IAnimation> layer = layerOf(player);
-        if (layer == null) return;
 
         MoveState desired = computeState(player);
-        // Re-fade si l'état change OU si on change de style de marche en marchant.
         boolean walkStyleChanged = desired == MoveState.WALK && currentWalkIndex != selectedWalk;
-        if (desired == currentState && !walkStyleChanged) return;
-        currentState = desired;
-        currentWalkIndex = selectedWalk;
+        if (desired != currentState || walkStyleChanged) {
+            currentState = desired;
+            currentWalkIndex = selectedWalk;
+            applyState(player, desired, selectedWalk);
+        }
+    }
 
-        KeyframeAnimation anim = switch (desired) {
-            case WALK -> walkAnims.get(selectedWalk);
-            case RUN -> run;
+    /** Récupère le controller Reborn de ce joueur via l'API PAL (par LAYER id). */
+    private PlayerAnimationController controllerOf(AbstractClientPlayer player) {
+        IAnimation layer = PlayerAnimationAccess.getPlayerAnimationLayer(player, LAYER);
+        return layer instanceof PlayerAnimationController c ? c : null;
+    }
+
+    /** Déclenche l'anim voulue sur le controller du joueur (crossfade), ou stop si idle. */
+    private void applyState(AbstractClientPlayer player, MoveState desired, int walkStyle) {
+        PlayerAnimationController controller = controllerOf(player);
+        if (controller == null) return;
+        Animation anim = switch (desired) {
+            case WALK   -> walkAnims.isEmpty() ? null : walkAnims.get(clamp(walkStyle));
+            case RUN    -> run;
             case NARUTO -> narutoRun;
-            case NONE -> null;
+            case NONE   -> null;
         };
-        layer.replaceAnimationWithFade(
-            AbstractFadeModifier.standardFadeIn(FADE_TICKS, Ease.INOUTSINE),
-            anim == null ? null : new KeyframeAnimationPlayer(anim));
+        if (anim == null) {
+            controller.stopTriggeredAnimation();
+        } else {
+            // Fondu doux (EASE_IN_OUT_SINE) + loop INTRINSÈQUE de l'anim
+            // (then(anim, anim.loopType())) : on ne force PAS un LoopType.LOOP
+            // reset-à-0 comme thenLoop() — c'est ça qui provoquait le « relance
+            // dégueu » ; on respecte le point de bouclage authoré dans l'emote.
+            controller.replaceAnimationWithFade(
+                AbstractFadeModifier.standardFadeIn(FADE_TICKS, EasingType.EASE_IN_OUT_SINE),
+                RawAnimation.begin().then(anim, anim.loopType()));
+        }
     }
 
-    private MoveState computeState(AbstractClientPlayerEntity player) {
-        double vx = player.getVelocity().x, vz = player.getVelocity().z;
-        boolean moving = (vx * vx + vz * vz) > MOVE_THRESHOLD_SQ;
-        if (!moving) return MoveState.NONE;
-        if (narutoTest && narutoRun != null) return MoveState.NARUTO;
+    private MoveState computeState(AbstractClientPlayer player) {
+        // Vitesse horizontale réelle = distance parcourue depuis le tick précédent
+        // (monotone quand on marche, contrairement à getDeltaMovement).
+        double dx = player.getX() - lastX;
+        double dz = player.getZ() - lastZ;
+        double speedSq = hasLastPos ? (dx * dx + dz * dz) : 0.0;
+        lastX = player.getX();
+        lastZ = player.getZ();
+        hasLastPos = true;
+
+        boolean moving = speedSq > MOVE_THRESHOLD_SQ;
+        if (!moving) {
+            // Hystérésis : ne repasse NONE qu'après IDLE_GRACE_TICKS immobiles ;
+            // pendant la grâce on conserve l'état courant (pas de stop/retrigger).
+            if (++idleGrace >= IDLE_GRACE_TICKS) return MoveState.NONE;
+            return currentState;
+        }
+        idleGrace = 0;
+        if (NarutoRun.INSTANCE.isActive() && narutoRun != null) return MoveState.NARUTO;
         if (player.isSprinting() && run != null) return MoveState.RUN;
-        return walkAnims.get(selectedWalk) != null ? MoveState.WALK : MoveState.NONE;
+        return (!walkAnims.isEmpty() && walkAnims.get(selectedWalk) != null)
+            ? MoveState.WALK : MoveState.NONE;
     }
 
-    @SuppressWarnings("unchecked")
-    private ModifierLayer<IAnimation> layerOf(AbstractClientPlayerEntity player) {
-        IAnimation a = PlayerAnimationAccess.getPlayerAssociatedData(player).get(LAYER);
-        return a instanceof ModifierLayer ? (ModifierLayer<IAnimation>) a : null;
+    private static int clamp(int i) {
+        return Math.max(0, Math.min(WALK_STYLES.length - 1, i));
     }
 }

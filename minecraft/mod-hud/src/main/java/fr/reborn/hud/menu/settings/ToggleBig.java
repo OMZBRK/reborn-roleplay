@@ -2,10 +2,10 @@ package fr.reborn.hud.menu.settings;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.Consumer;
 
@@ -18,7 +18,7 @@ import java.util.function.Consumer;
  *        ───⬜  : ON
  * </pre>
  */
-public class ToggleBig extends ClickableWidget {
+public class ToggleBig extends AbstractWidget {
 
     private boolean checked;
     private final Consumer<Boolean> onChange;
@@ -27,7 +27,7 @@ public class ToggleBig extends ClickableWidget {
     public static final int DEFAULT_HEIGHT = 22;
 
     public ToggleBig(int x, int y, boolean initial, Consumer<Boolean> onChange) {
-        super(x, y, DEFAULT_WIDTH, DEFAULT_HEIGHT, Text.literal(""));
+        super(x, y, DEFAULT_WIDTH, DEFAULT_HEIGHT, Component.literal(""));
         this.checked = initial;
         this.onChange = onChange;
     }
@@ -37,7 +37,7 @@ public class ToggleBig extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         int x0 = getX();
         int y0 = getY();
         int w = getWidth();
@@ -59,14 +59,14 @@ public class ToggleBig extends ClickableWidget {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         checked = !checked;
         if (onChange != null) onChange.accept(checked);
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
-            checked ? "Activé" : "Désactivé");
+    public void updateWidgetNarration(NarrationElementOutput builder) {
+        
     }
 }

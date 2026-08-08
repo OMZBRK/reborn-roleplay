@@ -4,11 +4,11 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.OSTPlayer;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
 
 /**
  * Popup vertical pour ajuster le volume de l'OST player — apparaît
@@ -26,7 +26,7 @@ import net.minecraft.text.Text;
  *   └────┘
  * </pre>
  */
-public class OSTVolumePopup extends ClickableWidget {
+public class OSTVolumePopup extends AbstractWidget {
 
     public static final int WIDTH = 36;
     public static final int HEIGHT = 100;
@@ -36,7 +36,7 @@ public class OSTVolumePopup extends ClickableWidget {
     private boolean dragging = false;
 
     public OSTVolumePopup(int x, int y) {
-        super(x, y, WIDTH, HEIGHT, Text.literal("Volume"));
+        super(x, y, WIDTH, HEIGHT, Component.literal("Volume"));
     }
 
     public boolean isOpen() {
@@ -50,11 +50,11 @@ public class OSTVolumePopup extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         if (!isOpen()) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        var tr = mc.textRenderer;
+        var tr = mc.font;
 
         int x = getX();
         int y = getY();
@@ -68,9 +68,9 @@ public class OSTVolumePopup extends ClickableWidget {
         // Valeur en % en haut.
         OSTPlayer ost = OSTPlayer.INSTANCE;
         int volPct = Math.round(ost.getVolume() * 100);
-        Text valText = RebornFont.bold(volPct + "%");
-        int valW = tr.getWidth(valText);
-        ctx.drawText(tr, valText, x + (w - valW) / 2, y + 6, Colors.WHITE_PURE, false);
+        Component valText = RebornFont.bold(volPct + "%");
+        int valW = tr.width(valText);
+        ctx.text(tr, valText, x + (w - valW) / 2, y + 6, Colors.WHITE_PURE, false);
 
         // Séparateur.
         ctx.fill(x + 6, y + VALUE_AREA_H, x + w - 6, y + VALUE_AREA_H + 1,
@@ -96,20 +96,23 @@ public class OSTVolumePopup extends ClickableWidget {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         if (!isOpen()) return;
         dragging = true;
         applyMouseVolume(mouseY);
     }
 
     @Override
-    protected void onDrag(double mouseX, double mouseY, double deltaX, double deltaY) {
+    protected void onDrag(net.minecraft.client.input.MouseButtonEvent event, double deltaX, double deltaY) {
+        double mouseX = event.x(), mouseY = event.y();
         if (!isOpen() || !dragging) return;
         applyMouseVolume(mouseY);
     }
 
     @Override
-    public void onRelease(double mouseX, double mouseY) {
+    public void onRelease(net.minecraft.client.input.MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y();
         dragging = false;
     }
 
@@ -123,8 +126,7 @@ public class OSTVolumePopup extends ClickableWidget {
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
-            "Volume " + Math.round(OSTPlayer.INSTANCE.getVolume() * 100) + " pourcent");
+    public void updateWidgetNarration(NarrationElementOutput builder) {
+        
     }
 }

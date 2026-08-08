@@ -108,8 +108,31 @@ export function useUpdater(): UseUpdater {
   }, [setAvailable]);
 
   async function install(): Promise<void> {
-    if (state.kind !== "available") return;
-    const update = state.update;
+    // Recupere l'objet Update a installer :
+    //   - depuis "available"/"downloading" : on reutilise celui en main.
+    //   - depuis "error" (retry apres coupure reseau) : l'objet precedent
+    //     peut etre dans un etat invalide, on re-check() pour repartir propre.
+    //     C'est ce qui debloque le "Reessayer" quand la connexion est tombee
+    //     en plein telechargement (avant : le garde !== "available" faisait
+    //     que le bouton ne relancait jamais rien).
+    let update: Update | null = null;
+    if (state.kind === "available" || state.kind === "downloading") {
+      update = state.update;
+    } else if (state.kind === "error") {
+      try {
+        update = await check();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setState({ kind: "error", message: `Vérification impossible : ${message}` });
+        return;
+      }
+      if (!update) {
+        // Plus rien a installer (deja a jour, ou l'update a ete retiree).
+        setState({ kind: "idle" });
+        return;
+      }
+    }
+    if (!update) return;
     setState({ kind: "downloading", update, progress: 0, downloaded: 0, total: 0 });
     try {
       let downloaded = 0;

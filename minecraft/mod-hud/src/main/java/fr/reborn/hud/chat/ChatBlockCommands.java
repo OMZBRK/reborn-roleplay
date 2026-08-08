@@ -1,15 +1,17 @@
 package fr.reborn.hud.chat;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+
+import java.util.Set;
 
 /**
  * Commandes client de blocage chat : {@code /rblock <pseudo>},
  * {@code /runblock <pseudo>}, {@code /rblocklist}. Purement côté client —
  * les messages des joueurs bloqués sont masqués au rendu
- * ({@link fr.reborn.hud.runtime.ChatMessageRenderer}).
+ * ({@link fr.reborn.hud.runtime.ChatMessageRenderer}) via {@link ChatBlockList}.
  */
 public final class ChatBlockCommands {
 
@@ -17,35 +19,34 @@ public final class ChatBlockCommands {
 
     public static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> {
-            dispatcher.register(ClientCommandManager.literal("rblock")
-                .then(ClientCommandManager.argument("pseudo", StringArgumentType.word())
+            dispatcher.register(ClientCommands.literal("rblock")
+                .then(ClientCommands.argument("pseudo", StringArgumentType.word())
                     .executes(ctx -> {
-                        String name = StringArgumentType.getString(ctx, "pseudo");
-                        boolean ok = ChatBlockList.INSTANCE.block(name);
-                        ctx.getSource().sendFeedback(Text.literal(
-                            ok ? "§cJoueur bloqué : §f" + name
-                               : "§7Déjà bloqué : §f" + name));
+                        String p = StringArgumentType.getString(ctx, "pseudo");
+                        boolean added = ChatBlockList.INSTANCE.block(p);
+                        ctx.getSource().sendFeedback(Component.literal(added
+                            ? "§c✖ " + p + " bloqué — ses messages sont masqués."
+                            : "§7" + p + " est déjà bloqué."));
                         return 1;
                     })));
 
-            dispatcher.register(ClientCommandManager.literal("runblock")
-                .then(ClientCommandManager.argument("pseudo", StringArgumentType.word())
+            dispatcher.register(ClientCommands.literal("runblock")
+                .then(ClientCommands.argument("pseudo", StringArgumentType.word())
                     .executes(ctx -> {
-                        String name = StringArgumentType.getString(ctx, "pseudo");
-                        boolean ok = ChatBlockList.INSTANCE.unblock(name);
-                        ctx.getSource().sendFeedback(Text.literal(
-                            ok ? "§aJoueur débloqué : §f" + name
-                               : "§7Ce joueur n'était pas bloqué : §f" + name));
+                        String p = StringArgumentType.getString(ctx, "pseudo");
+                        boolean removed = ChatBlockList.INSTANCE.unblock(p);
+                        ctx.getSource().sendFeedback(Component.literal(removed
+                            ? "§a✔ " + p + " débloqué."
+                            : "§7" + p + " n'était pas bloqué."));
                         return 1;
                     })));
 
-            dispatcher.register(ClientCommandManager.literal("rblocklist")
+            dispatcher.register(ClientCommands.literal("rblocklist")
                 .executes(ctx -> {
-                    var names = ChatBlockList.INSTANCE.names();
-                    ctx.getSource().sendFeedback(Text.literal(
-                        names.isEmpty() ? "§7Aucun joueur bloqué."
-                                        : "§cBloqués (§f" + names.size() + "§c) : §f"
-                                          + String.join(", ", names)));
+                    Set<String> names = ChatBlockList.INSTANCE.names();
+                    ctx.getSource().sendFeedback(Component.literal(names.isEmpty()
+                        ? "§7Aucun joueur bloqué."
+                        : "§e● Bloqués (" + names.size() + ") : §f" + String.join(", ", names)));
                     return 1;
                 }));
         });

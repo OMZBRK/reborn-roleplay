@@ -15,13 +15,13 @@ import fr.reborn.hud.menu.settings.MinecraftTab;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import fr.reborn.hud.menu.settings.SettingsTab;
 import fr.reborn.hud.menu.settings.VideoTab;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +44,7 @@ public class ConfigShellScreen extends Screen {
     private final CategoryDef[] categories;
     private int activeIdx;
 
-    private static final Identifier LOGO = Identifier.of("reborn", "textures/gui/title/logo.png");
+    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reborn", "textures/gui/title/logo.png");
     private static final int LOGO_TEX_W = 2048;
     private static final int LOGO_TEX_H = 717;
 
@@ -66,13 +66,13 @@ public class ConfigShellScreen extends Screen {
 
     @FunctionalInterface
     private interface Icon {
-        void draw(DrawContext ctx, int x, int y, int size, int color);
+        void draw(GuiGraphicsExtractor ctx, int x, int y, int size, int color);
     }
 
     private record CategoryDef(String id, String label, Icon icon, SettingsTab tab) {}
 
     private int scrollY = 0;
-    private List<ClickableWidget> contentWidgets = List.of();
+    private List<AbstractWidget> contentWidgets = List.of();
     private int[] baseWidgetY = new int[0];
 
     private boolean draggingScrollbar = false;
@@ -91,7 +91,7 @@ public class ConfigShellScreen extends Screen {
     }
 
     public ConfigShellScreen(Screen parent, int initialIdx) {
-        super(Text.literal("Paramètres Reborn"));
+        super(Component.literal("Paramètres Reborn"));
         this.parent = parent;
         RebornPrefs.INSTANCE.ensureLoaded();
         this.categories = new CategoryDef[] {
@@ -130,8 +130,8 @@ public class ConfigShellScreen extends Screen {
 
     // ─── Onglets (barre responsive : repli multi-rangées centrées) ──
     /** Largeur d'un onglet = max(label ArcadePix, icône) + padding. */
-    private int tabWidth(TextRenderer tr, String label) {
-        int labelW = tr.getWidth(RebornFont.arcade(EscData.arcadeSafe(label, 20)));
+    private int tabWidth(Font tr, String label) {
+        int labelW = tr.width(RebornFont.arcade(EscData.arcadeSafe(label, 20)));
         return Math.max(labelW, TAB_ICON) + TAB_PAD * 2;
     }
 
@@ -140,7 +140,7 @@ public class ConfigShellScreen extends Screen {
      * (packing gauche→droite), chaque rangée étant recentrée indépendamment.
      * Remplit {@link #tabX}/{@link #tabY}/{@link #tabW} + {@link #tabRowCount}.
      */
-    private void computeTabLayout(TextRenderer tr) {
+    private void computeTabLayout(Font tr) {
         int n = categories.length;
         if (tabX.length != n) {
             tabX = new int[n];
@@ -188,21 +188,21 @@ public class ConfigShellScreen extends Screen {
     protected void init() {
         // La géométrie du contenu dépend de la hauteur de barre → calculer les
         // rangées d'onglets AVANT de layouter le contenu (et à chaque resize).
-        computeTabLayout(this.textRenderer);
+        computeTabLayout(this.font);
         rebuildContent();
     }
 
     private void rebuildContent() {
-        for (ClickableWidget w : contentWidgets) {
-            this.remove(w);
+        for (AbstractWidget w : contentWidgets) {
+            this.removeWidget(w);
         }
         activeTab().layout(contentX(), contentTopBase(), contentW());
         contentWidgets = activeTab().widgets();
         baseWidgetY = new int[contentWidgets.size()];
         for (int i = 0; i < contentWidgets.size(); i++) {
-            ClickableWidget w = contentWidgets.get(i);
+            AbstractWidget w = contentWidgets.get(i);
             baseWidgetY[i] = w.getY();
-            this.addSelectableChild(w);
+            this.addWidget(w);
         }
         clampScroll();
         applyScroll();
@@ -219,7 +219,7 @@ public class ConfigShellScreen extends Screen {
         int top = viewportTop();
         int bottom = viewportBottom();
         for (int i = 0; i < contentWidgets.size(); i++) {
-            ClickableWidget w = contentWidgets.get(i);
+            AbstractWidget w = contentWidgets.get(i);
             int y = baseWidgetY[i] - scrollY;
             w.setY(y);
             boolean outside = (y + w.getHeight() < top) || (y > bottom);
@@ -233,22 +233,21 @@ public class ConfigShellScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Même fond que le menu ÉCHAP : un seul dégradé vertical doux.
         int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
         DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
-        TextRenderer tr = this.textRenderer;
+        Font tr = this.font;
         computeTabLayout(tr);
 
         // Logo top-centre (comme l'ÉCHAP).
         int logoW = Math.min(Math.round(this.width * 0.10f), 132);
         int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.drawTexture(LOGO, (this.width - logoW) / 2, LOGO_Y, logoW, logoH,
-            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, LOGO_Y, 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // « ‹ RETOUR » haut-gauche (hit-test dans mouseClicked).
         boolean backHover = overBack(mouseX, mouseY);
-        ctx.drawText(tr, RebornFont.arcade("< RETOUR"), 16, RETURN_Y,
+        ctx.text(tr, RebornFont.arcade("< RETOUR"), 16, RETURN_Y,
             backHover ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
 
         // Barre d'onglets responsive : icône au-dessus du label ArcadePix.
@@ -265,9 +264,9 @@ public class ConfigShellScreen extends Screen {
             }
             int fg = active ? Colors.WHITE_PURE : (hover ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED);
             categories[i].icon.draw(ctx, x + (w - TAB_ICON) / 2, y + 4, TAB_ICON, fg);
-            Text label = RebornFont.arcade(EscData.arcadeSafe(categories[i].label, 20));
-            int lw = tr.getWidth(label);
-            ctx.drawText(tr, label, x + (w - lw) / 2, y + 4 + TAB_ICON + 3, fg, false);
+            Component label = RebornFont.arcade(EscData.arcadeSafe(categories[i].label, 20));
+            int lw = tr.width(label);
+            ctx.text(tr, label, x + (w - lw) / 2, y + 4 + TAB_ICON + 3, fg, false);
             if (active) {
                 DrawHelpers.roundedRect(ctx, x + TAB_PAD, y + TAB_H - 2,
                     w - 2 * TAB_PAD, 2, 1, Colors.ACCENT);
@@ -278,8 +277,8 @@ public class ConfigShellScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(ctx, mouseX, mouseY, delta);
 
         int contentX = contentX();
         int contentW = contentW();
@@ -287,9 +286,9 @@ public class ConfigShellScreen extends Screen {
 
         ctx.enableScissor(0, viewportTop(), this.width, viewportBottom());
         activeTab().renderPassive(ctx, contentX, contentYScrolled, contentW);
-        for (ClickableWidget w : contentWidgets) {
+        for (AbstractWidget w : contentWidgets) {
             if (w.visible) {
-                w.render(ctx, mouseX, mouseY, delta);
+                w.extractRenderState(ctx, mouseX, mouseY, delta);
             }
         }
         ctx.disableScissor();
@@ -297,7 +296,7 @@ public class ConfigShellScreen extends Screen {
         renderScrollbar(ctx);
     }
 
-    private void renderScrollbar(DrawContext ctx) {
+    private void renderScrollbar(GuiGraphicsExtractor ctx) {
         if (!hasScroll()) return;
         int top = viewportTop();
         int vh = viewportH();
@@ -333,7 +332,7 @@ public class ConfigShellScreen extends Screen {
     }
 
     private boolean overBack(double mouseX, double mouseY) {
-        int w = this.textRenderer.getWidth(RebornFont.arcade("< RETOUR"));
+        int w = this.font.width(RebornFont.arcade("< RETOUR"));
         return mouseX >= 12 && mouseX <= 16 + w + 6 && mouseY >= RETURN_Y - 4 && mouseY <= RETURN_Y + 14;
     }
 
@@ -348,11 +347,12 @@ public class ConfigShellScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0) {
             // « ← Retour ».
             if (overBack(mouseX, mouseY)) {
-                close();
+                onClose();
                 return true;
             }
             // Onglets (positions calculées par computeTabLayout, multi-rangées).
@@ -377,25 +377,27 @@ public class ConfigShellScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dX, double dY) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dX, double dY) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (draggingScrollbar) {
             dragScrollbarTo(mouseY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dX, dY);
+        return super.mouseDragged(event, dX, dY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0 && draggingScrollbar) {
             draggingScrollbar = false;
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     private boolean overScrollbar(double mouseX, double mouseY) {
@@ -416,13 +418,13 @@ public class ConfigShellScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         RebornPrefs.INSTANCE.save();
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 }

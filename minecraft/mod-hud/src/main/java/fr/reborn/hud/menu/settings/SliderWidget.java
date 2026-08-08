@@ -3,11 +3,11 @@ package fr.reborn.hud.menu.settings;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.IntConsumer;
 
@@ -23,7 +23,7 @@ import java.util.function.IntConsumer;
  *   └──────────────────────────────────┘
  * </pre>
  */
-public class SliderWidget extends ClickableWidget {
+public class SliderWidget extends AbstractWidget {
 
     private int value;
     private final int min;
@@ -35,7 +35,7 @@ public class SliderWidget extends ClickableWidget {
     public SliderWidget(int x, int y, int width, int height,
                         int initialValue, int min, int max, String suffix,
                         IntConsumer onChange) {
-        super(x, y, width, height, Text.literal(""));
+        super(x, y, width, height, Component.literal(""));
         this.value = initialValue;
         this.min = min;
         this.max = max;
@@ -56,8 +56,8 @@ public class SliderWidget extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
         // Layout : track à gauche prend ~70% de la largeur, valeur à droite.
@@ -87,28 +87,31 @@ public class SliderWidget extends ClickableWidget {
         DrawHelpers.disc(ctx, thumbX, thumbY, 4, Colors.ACCENT);
 
         // Valeur à droite (texte body).
-        var tr = client.textRenderer;
+        var tr = client.font;
         String valueStr = value + suffix;
-        Text valueText = RebornFont.bold(valueStr);
-        int valueW = tr.getWidth(valueText);
+        Component valueText = RebornFont.bold(valueStr);
+        int valueW = tr.width(valueText);
         int valueX = x0 + w - valueW - 4;
-        int valueY = y0 + (h - tr.fontHeight) / 2;
-        ctx.drawText(tr, valueText, valueX, valueY, Colors.FOREGROUND, false);
+        int valueY = y0 + (h - tr.lineHeight) / 2;
+        ctx.text(tr, valueText, valueX, valueY, Colors.FOREGROUND, false);
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         dragging = true;
         applyMouseValue(mouseX);
     }
 
     @Override
-    protected void onDrag(double mouseX, double mouseY, double deltaX, double deltaY) {
+    protected void onDrag(net.minecraft.client.input.MouseButtonEvent event, double deltaX, double deltaY) {
+        double mouseX = event.x(), mouseY = event.y();
         if (dragging) applyMouseValue(mouseX);
     }
 
     @Override
-    public void onRelease(double mouseX, double mouseY) {
+    public void onRelease(net.minecraft.client.input.MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y();
         dragging = false;
     }
 
@@ -121,8 +124,7 @@ public class SliderWidget extends ClickableWidget {
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
-            "Slider valeur " + value + suffix);
+    public void updateWidgetNarration(NarrationElementOutput builder) {
+        
     }
 }

@@ -4,10 +4,10 @@ import fr.reborn.hud.crosshair.CrosshairScreen;
 import fr.reborn.hud.interaction.InteractionMode;
 import fr.reborn.hud.ui.HudEditScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -18,7 +18,7 @@ import org.lwjgl.glfw.GLFW;
 public final class HudKeybinds {
 
     /** Exposée pour que l'écran Photo affiche/teste la touche de sortie. */
-    public static KeyBinding PHOTO;
+    public static KeyMapping PHOTO;
 
     private HudKeybinds() {}
 
@@ -26,148 +26,163 @@ public final class HudKeybinds {
         // S'assure que les prefs (dont tablistHold) sont chargées avant lecture.
         fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.ensureLoaded();
 
-        KeyBinding openEditScreen = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping openEditScreen = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.open_editor",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_H,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
-        KeyBinding openCrosshair = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping openCrosshair = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.open_crosshair",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_J,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
-        KeyBinding openInteraction = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping openInteraction = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.open_interaction",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_R,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
-        KeyBinding toggleCinema = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping toggleCinema = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.toggle_cinema",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_K,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
-        KeyBinding togglePhoto = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping togglePhoto = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.toggle_photo",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_P,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
         PHOTO = togglePhoto;
 
-        KeyBinding openGallery = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping openGallery = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.open_gallery",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_G,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
         // Caméra épaule Reborn. Défauts sur des touches LIBRES (V=ReplayMod,
         // X=lâcher, B=émote Emotecraft, N=menu OST, M=PlasmoVoice sont pris).
         // Y = toggle, U = swap épaule, I = cycle preset. Rebindables.
-        KeyBinding toggleShoulderCam = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping toggleShoulderCam = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.cam_toggle",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_Y,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
-        KeyBinding swapShoulder = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping swapShoulder = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.cam_swap",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_U,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
-        KeyBinding cyclePreset = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping cyclePreset = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.cam_preset",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_I,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
-        KeyBinding openCamMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping openCamMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.cam_menu",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_O,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
-        // TEST : bascule le naruto-run (en attendant le trigger plugin).
-        KeyBinding narutoTest = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        // Course chakraïque (« Naruto run ») : touche dédiée, bascule le
+        // mouvement libre client + notifie le plugin serveur (canal reborn:naruto).
+        KeyMapping narutoTest = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.naruto_test",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_L,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
         // Menu de sélection du style de marche (GTA-RP).
-        KeyBinding walkMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyMapping walkMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-hud.walk_menu",
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_PERIOD,
-            "key.categories.reborn-hud"
+            net.minecraft.client.KeyMapping.Category.MISC
+        ));
+        // Regard libre (free-look) : MAINTENIR ALT gauche → la caméra orbite
+        // autour du perso sans le réorienter. Relâcher = la caméra reste où elle
+        // est (pas de snap brutal). Touche de maintien : lue par isDown().
+        KeyMapping freeLook = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+            "key.reborn-hud.cam_freelook",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_LEFT_ALT,
+            net.minecraft.client.KeyMapping.Category.MISC
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
             // sans transition pressed.
-            while (openEditScreen.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.currentScreen == null) {
+            while (openEditScreen.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null) {
                     mc.setScreen(new HudEditScreen(null));
                 }
             }
-            while (openCrosshair.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.currentScreen == null) {
+            while (openCrosshair.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null) {
                     mc.setScreen(new CrosshairScreen(null));
                 }
             }
-            while (openInteraction.wasPressed()) {
+            while (openInteraction.consumeClick()) {
                 InteractionMode.INSTANCE.toggle();
             }
-            while (toggleCinema.wasPressed()) {
+            while (toggleCinema.consumeClick()) {
                 fr.reborn.hud.immersion.CinemaBars.INSTANCE.toggle();
             }
-            while (togglePhoto.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.currentScreen == null) {
+            while (togglePhoto.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null) {
                     mc.setScreen(new fr.reborn.hud.ui.PhotoModeScreen());
                 }
             }
-            while (openGallery.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.currentScreen == null) {
+            while (openGallery.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null) {
                     mc.setScreen(new fr.reborn.hud.ui.GalleryScreen(null));
                 }
             }
-            while (toggleShoulderCam.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.currentScreen == null && mc.player != null) {
+            while (toggleShoulderCam.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null && mc.player != null) {
                     fr.reborn.hud.camera.RebornCamera.INSTANCE.toggleFirstPerson(mc);
                 }
             }
-            while (swapShoulder.wasPressed()) {
+            while (swapShoulder.consumeClick()) {
                 fr.reborn.hud.camera.RebornCamera.INSTANCE.swapShoulder();
             }
-            while (cyclePreset.wasPressed()) {
+            while (cyclePreset.consumeClick()) {
                 fr.reborn.hud.camera.RebornCamera.INSTANCE.cyclePreset();
             }
-            while (openCamMenu.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.currentScreen == null && mc.player != null) {
+            while (openCamMenu.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null && mc.player != null) {
                     mc.setScreen(new fr.reborn.hud.camera.CameraScreen(null));
                 }
             }
-            while (narutoTest.wasPressed()) {
-                fr.reborn.hud.animation.MovementAnimations.INSTANCE.toggleNarutoTest();
+            while (narutoTest.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null) {
+                    // Bascule la course chakraïque : active le mouvement libre
+                    // client + informe le plugin serveur (canal reborn:naruto).
+                    fr.reborn.hud.animation.NarutoRun.INSTANCE.toggle();
+                }
             }
-            while (walkMenu.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.currentScreen == null && mc.player != null) {
+            while (walkMenu.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null && mc.player != null) {
                     mc.setScreen(new fr.reborn.hud.animation.AnimationMenuScreen(null));
                 }
             }
@@ -177,20 +192,28 @@ public final class HudKeybinds {
             // la touche est maintenue. On draine toujours la file d'events.
             if (client.options != null) {
                 boolean hold = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold;
-                while (client.options.playerListKey.wasPressed()) {
-                    MinecraftClient mc = MinecraftClient.getInstance();
-                    if (!hold && mc.currentScreen == null && mc.player != null) {
+                while (client.options.keyPlayerList.consumeClick()) {
+                    Minecraft mc = Minecraft.getInstance();
+                    if (!hold && mc.screen == null && mc.player != null) {
                         mc.setScreen(new fr.reborn.hud.menu.tablist.TablistScreen());
                     }
                 }
             }
+            // Regard libre : actif tant que ALT est maintenu (hors écran/ingame).
+            {
+                Minecraft mc = Minecraft.getInstance();
+                boolean fl = freeLook.isDown() && mc.screen == null && mc.player != null;
+                fr.reborn.hud.camera.RebornCamera.INSTANCE.setFreeLook(fl);
+                // Amortissement d'atterrissage (no-op si désactivé dans le menu caméra).
+                fr.reborn.hud.camera.RebornCamera.INSTANCE.tickImpact(mc.player);
+            }
             // Verrouille la vue selon le mode (épaule par défaut) + neutralise F5.
-            fr.reborn.hud.camera.RebornCamera.INSTANCE.tickView(MinecraftClient.getInstance());
+            fr.reborn.hud.camera.RebornCamera.INSTANCE.tickView(Minecraft.getInstance());
             // Anims de mouvement (marche/course/naruto-run) du joueur local.
-            fr.reborn.hud.animation.MovementAnimations.INSTANCE.tick(MinecraftClient.getInstance());
+            fr.reborn.hud.animation.MovementAnimations.INSTANCE.tick(Minecraft.getInstance());
 
             // Déplacement free-cam du mode photo (lecture clavier brute).
-            fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(MinecraftClient.getInstance());
+            fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(Minecraft.getInstance());
         });
     }
 }

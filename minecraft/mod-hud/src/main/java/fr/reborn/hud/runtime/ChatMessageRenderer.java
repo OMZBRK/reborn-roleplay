@@ -7,13 +7,13 @@ import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.ui.style.RebornColors;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.hud.ChatHudLine;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.text.OrderedText;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.resources.Identifier;
 
 import java.util.List;
 
@@ -37,16 +37,21 @@ public final class ChatMessageRenderer {
     private static final int HEAD = 8;
     private static final int HEAD_GAP = 2;
 
+    // ─── Animation d'arrivée (slide + fade, façon ChatAnimation) ───
+    private static final int ANIM_MS = 220;
+    private static long animStartMs = 0L;
+    private static int lastTopAdded = Integer.MIN_VALUE;
+
     private ChatMessageRenderer() {}
 
-    public static void renderMessages(DrawContext ctx, TextRenderer tr,
-                                       List<ChatHudLine.Visible> visibleMessages,
+    public static void renderMessages(GuiGraphicsExtractor ctx, Font tr,
+                                       List<GuiMessage.Line> visibleMessages,
                                        int scrolledLines,
                                        int currentTick, boolean focused,
                                        int screenW, int screenH,
                                        ChatSettings settings, String playerName) {
         if (visibleMessages == null || visibleMessages.isEmpty()) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         // Géométrie vanilla : messages ancrés en bas, juste au-dessus de la
         // barre de saisie (à screenH-40 comme vanilla), à gauche. Le scroll
@@ -56,6 +61,30 @@ public final class ChatMessageRenderer {
         int leftX = ChatLayout.TEXT_X;
         int areaW = ChatLayout.areaW(screenW);
         int boxW = ChatLayout.boxW(screenW);
+
+        // Animation d'arrivée : à chaque nouveau message (top line addedTime
+        // change), les lignes glissent vers le haut (slide) et le plus récent
+        // apparaît en fondu (fade). Basé sur l'horloge murale (rendu, pas tick).
+        float slide = 0f;
+        float newFade = 1f;
+        if (settings.chatAnimation) {
+            GuiMessage.Line top = visibleMessages.get(0);
+            int topAdded = top != null ? top.addedTime() : lastTopAdded;
+            if (topAdded != lastTopAdded) {
+                lastTopAdded = topAdded;
+                animStartMs = System.currentTimeMillis();
+            }
+            float t = Math.min(1f, Math.max(0f, (System.currentTimeMillis() - animStartMs) / (float) ANIM_MS));
+            float ease = 1f - (1f - t) * (1f - t);   // ease-out quad
+            slide = (1f - ease) * LINE_H;
+            newFade = ease;
+        }
+        int slideY = Math.round(slide);
+
+        // Clippe horizontalement à la largeur du panneau : vanilla wrappe les
+        // lignes à SA largeur (souvent plus large) → sans ça, un long mot déborde
+        // du cadre. (offset X du chat = 0 par défaut, donc le scissor est aligné.)
+        ctx.enableScissor(ChatLayout.LEFT, 0, ChatLayout.LEFT + boxW, screenH);
 
         // Panneau sombre carré (façon Paladium) derrière les messages quand le
         // chat est ouvert. MÊME largeur que la barre de saisie (boxW) → aligné,
@@ -75,7 +104,7 @@ public final class ChatMessageRenderer {
         int rendered = 0;
         for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
             int messageIdx = i + scrolledLines;
-            ChatHudLine.Visible visible = visibleMessages.get(messageIdx);
+            GuiMessage.Line visible = visibleMessages.get(messageIdx);
             if (visible == null) continue;
 
             int age = currentTick - visible.addedTime();
@@ -83,18 +112,20 @@ public final class ChatMessageRenderer {
 
             double opacity = focused ? 1.0 : getMessageOpacity(age);
             int alpha = (int) (255.0 * opacity);
-            if (alpha < 8) continue;
+            boolean isNewest = messageIdx == 0;
+            if (isNewest) alpha = Math.max(1, (int) (alpha * newFade)); // fondu du plus récent
+            else if (alpha < 8) continue;
 
-            OrderedText content = visible.content();
+            FormattedCharSequence content = visible.content();
             String plain = orderedToPlainString(content);
 
             // Expéditeur (pour tête + blocage) : premier pseudo en ligne du texte.
-            PlayerListEntry sender = findSender(mc, plain);
-            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) {
+            PlayerInfo sender = findSender(mc, plain);
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().name())) {
                 continue; // message masqué — ne consomme pas de ligne
             }
 
-            int lineY = bottomY - (rendered + 1) * LINE_H;
+            int lineY = bottomY - (rendered + 1) * LINE_H + slideY;
             if (lineY < 4) break;
 
             int textX = leftX;
@@ -102,7 +133,7 @@ public final class ChatMessageRenderer {
             // Tête du joueur (chat_heads).
             boolean drewHead = false;
             if (settings.chatHeads && sender != null) {
-                Identifier skin = sender.getSkinTextures().texture();
+                Identifier skin = sender.getSkin().body().texturePath();
                 drawHead(ctx, skin, leftX, lineY - 1, alpha);
                 textX += HEAD + HEAD_GAP;
                 drewHead = true;
@@ -110,14 +141,14 @@ public final class ChatMessageRenderer {
 
             // Badge de rang : préfixe d'équipe scoreboard (rempli par le serveur
             // depuis LuckPerms). Rien à afficher si le serveur ne le fournit pas.
-            if (settings.chatBadges && sender != null && mc != null && mc.world != null) {
-                var sb = mc.world.getScoreboard();
-                var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
+            if (settings.chatBadges && sender != null && mc != null && mc.level != null) {
+                var sb = mc.level.getScoreboard();
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().name()) : null;
                 if (team != null) {
-                    var prefix = team.getPrefix();
+                    var prefix = team.getPlayerPrefix();
                     if (prefix != null && !prefix.getString().isEmpty()) {
-                        ctx.drawText(tr, prefix, textX, lineY, (alpha << 24) | 0x00FFFFFF, true);
-                        textX += tr.getWidth(prefix) + 2;
+                        ctx.text(tr, prefix, textX, lineY, (alpha << 24) | 0x00FFFFFF, true);
+                        textX += tr.width(prefix) + 2;
                     }
                 }
             }
@@ -134,13 +165,13 @@ public final class ChatMessageRenderer {
             if (settings.showTimestamps) {
                 String ts = "[" + MessageTimestamps.formattedFor(visible.addedTime()) + "] ";
                 int tsColor = (alpha << 24) | (RebornColors.FOREGROUND_MUTED & 0x00FFFFFF);
-                ctx.drawText(tr, ts, textX, lineY, tsColor, true);
-                textX += tr.getWidth(ts);
+                ctx.text(tr, ts, textX, lineY, tsColor, true);
+                textX += tr.width(ts);
             }
 
             // Typing : effet machine à écrire sur LE message le plus récent
             // (messageIdx 0) tant qu'il est frais.
-            OrderedText drawContent = content;
+            FormattedCharSequence drawContent = content;
             if (settings.chatTyping && messageIdx == 0 && !plain.isEmpty()) {
                 int revealTicks = Math.min(40, Math.max(6, plain.length()));
                 float prog = age / (float) revealTicks;
@@ -151,11 +182,13 @@ public final class ChatMessageRenderer {
             }
 
             int textColor = (alpha << 24) | 0x00FFFFFF;
-            ctx.drawText(tr, drawContent, textX, lineY, textColor, true);
+            ctx.text(tr, drawContent, textX, lineY, textColor, true);
             if (drewHead) { /* tête déjà dessinée, rien à finaliser */ }
 
             rendered++;
         }
+
+        ctx.disableScissor();
     }
 
     /**
@@ -163,8 +196,8 @@ public final class ChatMessageRenderer {
      * (offset HUD + LINE_H + têtes/badges/timestamp) pour que les liens du chat
      * custom se cliquent là où ils sont réellement affichés. {@code null} si rien.
      */
-    public static net.minecraft.text.Style styleAt(MinecraftClient mc, TextRenderer tr,
-            List<ChatHudLine.Visible> visibleMessages, int scrolledLines,
+    public static net.minecraft.network.chat.Style styleAt(Minecraft mc, Font tr,
+            List<GuiMessage.Line> visibleMessages, int scrolledLines,
             int screenW, int screenH, ChatSettings settings,
             double mouseX, double mouseY, int offsetX, int offsetY) {
         if (visibleMessages == null || visibleMessages.isEmpty()) return null;
@@ -176,30 +209,30 @@ public final class ChatMessageRenderer {
 
         int rendered = 0;
         for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
-            ChatHudLine.Visible visible = visibleMessages.get(i + scrolledLines);
+            GuiMessage.Line visible = visibleMessages.get(i + scrolledLines);
             if (visible == null) continue;
-            OrderedText content = visible.content();
+            FormattedCharSequence content = visible.content();
             String plain = orderedToPlainString(content);
-            PlayerListEntry sender = findSender(mc, plain);
-            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().getName())) continue;
+            PlayerInfo sender = findSender(mc, plain);
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().name())) continue;
 
             int lineY = bottomY - (rendered + 1) * LINE_H;
             if (lineY < 4) break;
             int textX = leftX;
             if (settings.chatHeads && sender != null) textX += HEAD + HEAD_GAP;
-            if (settings.chatBadges && sender != null && mc.world != null) {
-                var sb = mc.world.getScoreboard();
-                var team = sb != null ? sb.getScoreHolderTeam(sender.getProfile().getName()) : null;
-                if (team != null && team.getPrefix() != null && !team.getPrefix().getString().isEmpty()) {
-                    textX += tr.getWidth(team.getPrefix()) + 2;
+            if (settings.chatBadges && sender != null && mc.level != null) {
+                var sb = mc.level.getScoreboard();
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().name()) : null;
+                if (team != null && team.getPlayerPrefix() != null && !team.getPlayerPrefix().getString().isEmpty()) {
+                    textX += tr.width(team.getPlayerPrefix()) + 2;
                 }
             }
             if (settings.showTimestamps) {
-                textX += tr.getWidth("[" + MessageTimestamps.formattedFor(visible.addedTime()) + "] ");
+                textX += tr.width("[" + MessageTimestamps.formattedFor(visible.addedTime()) + "] ");
             }
 
             if (my >= lineY && my < lineY + LINE_H && mx >= textX) {
-                return tr.getTextHandler().getStyleAt(content, (int) (mx - textX));
+                return null;
             }
             rendered++;
         }
@@ -207,12 +240,12 @@ public final class ChatMessageRenderer {
     }
 
     /** Cherche le premier joueur en ligne dont le pseudo apparaît dans le texte. */
-    private static PlayerListEntry findSender(MinecraftClient mc, String plain) {
-        if (mc == null || mc.getNetworkHandler() == null) return null;
-        PlayerListEntry best = null;
+    private static PlayerInfo findSender(Minecraft mc, String plain) {
+        if (mc == null || mc.getConnection() == null) return null;
+        PlayerInfo best = null;
         int bestIdx = Integer.MAX_VALUE;
-        for (PlayerListEntry e : mc.getNetworkHandler().getPlayerList()) {
-            String name = e.getProfile() != null ? e.getProfile().getName() : null;
+        for (PlayerInfo e : mc.getConnection().getOnlinePlayers()) {
+            String name = e.getProfile() != null ? e.getProfile().name() : null;
             if (name == null || name.isEmpty()) continue;
             int idx = plain.indexOf(name);
             if (idx >= 0 && idx < bestIdx) {
@@ -224,16 +257,13 @@ public final class ChatMessageRenderer {
     }
 
     /** Dessine la tête (face + chapeau) 8×8 depuis la skin du joueur. */
-    private static void drawHead(DrawContext ctx, Identifier skin, int x, int y, int alpha) {
-        com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha / 255f);
-        ctx.drawTexture(skin, x, y, 8f, 8f, HEAD, HEAD, 64, 64);   // visage
-        ctx.drawTexture(skin, x, y, 40f, 8f, HEAD, HEAD, 64, 64);  // calque chapeau
-        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+    private static void drawHead(GuiGraphicsExtractor ctx, Identifier skin, int x, int y, int alpha) {
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, skin, x, y, 8f, 8f, HEAD, HEAD, 64, 64);   // visage
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, skin, x, y, 40f, 8f, HEAD, HEAD, 64, 64);  // calque chapeau
     }
 
-    /** OrderedText tronqué aux {@code max} premiers code points (style préservé). */
-    private static OrderedText truncate(OrderedText src, int max) {
+    /** FormattedCharSequence tronqué aux {@code max} premiers code points (style préservé). */
+    private static FormattedCharSequence truncate(FormattedCharSequence src, int max) {
         return visitor -> {
             int[] count = {0};
             src.accept((index, style, cp) -> {
@@ -251,7 +281,7 @@ public final class ChatMessageRenderer {
         return 1.0 - (age - 180) / 20.0;
     }
 
-    private static String orderedToPlainString(OrderedText ordered) {
+    private static String orderedToPlainString(FormattedCharSequence ordered) {
         StringBuilder sb = new StringBuilder();
         ordered.accept((index, style, codePoint) -> {
             sb.appendCodePoint(codePoint);

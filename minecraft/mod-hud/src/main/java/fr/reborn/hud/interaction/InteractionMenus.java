@@ -1,12 +1,12 @@
 package fr.reborn.hud.interaction;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
 
 import java.util.List;
 
@@ -25,23 +25,23 @@ public final class InteractionMenus {
 
     /** Envoie une commande au serveur (sans le slash). */
     public static void sendCommand(String command) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getNetworkHandler() != null) {
-            mc.getNetworkHandler().sendChatCommand(command);
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() != null) {
+            mc.getConnection().sendCommand(command);
         }
     }
 
     /** Affiche un message d'info côté client (chat local, pas envoyé au serveur). */
     public static void info(String text) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.inGameHud != null) {
-            mc.inGameHud.getChatHud().addMessage(Text.literal("§6[Reborn] §f" + text));
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.gui != null) {
+            mc.gui.getChat().addClientSystemMessage(Component.literal("§6[Reborn] §f" + text));
         }
     }
 
     /** Copie du texte dans le presse-papiers. */
     public static void copy(String text) {
-        MinecraftClient.getInstance().keyboard.setClipboard(text);
+        Minecraft.getInstance().keyboardHandler.setClipboard(text);
         info("Copié : §e" + text);
     }
 
@@ -74,12 +74,12 @@ public final class InteractionMenus {
     }
 
     public static List<InteractionItem> forEntity(Entity e) {
-        String type = e.getType().getName().getString();
+        String type = e.getType().getDescription().getString();
         return List.of(
             InteractionItem.action("Inspecter (" + type + ")", () -> {
                 String hp = (e instanceof LivingEntity le)
                     ? " §7| PV " + (int) le.getHealth() + "/" + (int) le.getMaxHealth() : "";
-                info("§e" + type + " §7| pos " + e.getBlockPos().toShortString() + hp);
+                info("§e" + type + " §7| pos " + e.blockPosition().toShortString() + hp);
             }),
             InteractionItem.action("Copier la position",
                 () -> copy(e.getBlockX() + " " + e.getBlockY() + " " + e.getBlockZ()))
@@ -89,10 +89,10 @@ public final class InteractionMenus {
     public static List<InteractionItem> forBlock(BlockPos pos) {
         return List.of(
             InteractionItem.action("Inspecter le bloc", () -> {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.world == null) return;
-                BlockState bs = mc.world.getBlockState(pos);
-                info("§e" + Registries.BLOCK.getId(bs.getBlock())
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.level == null) return;
+                BlockState bs = mc.level.getBlockState(pos);
+                info("§e" + BuiltInRegistries.BLOCK.getKey(bs.getBlock())
                     + " §7@ " + pos.toShortString());
             }),
             InteractionItem.action("Verrouiller / Cadenas", () -> sendCommand("lock")),
@@ -101,8 +101,8 @@ public final class InteractionMenus {
                 () -> copy(pos.getX() + " " + pos.getY() + " " + pos.getZ())),
             InteractionItem.submenu("Outils de debug", List.of(
                 InteractionItem.action("Afficher l'état complet", () -> {
-                    MinecraftClient mc = MinecraftClient.getInstance();
-                    if (mc.world != null) info("§7" + mc.world.getBlockState(pos).toString());
+                    Minecraft mc = Minecraft.getInstance();
+                    if (mc.level != null) info("§7" + mc.level.getBlockState(pos).toString());
                 })
             ))
         );

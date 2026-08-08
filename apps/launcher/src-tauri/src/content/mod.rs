@@ -164,6 +164,9 @@ pub async fn lore_current(state: State<'_, AuthState>) -> Result<LoreDocument, C
 pub struct WhitelistApplicationDto {
     pub id: String,
     pub status: String, // PENDING / APPROVED / REJECTED / NEEDS_REVISION
+    // L5 — statuts HRP/RP indépendants (prévalidation orale + RP).
+    pub hrp_status: String,
+    pub rp_status: String,
     // Étape 1
     pub dob: String, // ISO YYYY-MM-DD
     pub motivation: String,
@@ -231,6 +234,77 @@ pub async fn whitelist_me(state: State<'_, AuthState>) -> Result<WhitelistStatus
     Ok(serde_json::from_value(resp).map_err(|e| ContentError::Api {
         message: format!("parse whitelist : {e}"),
     })?)
+}
+
+// ── L5 : créneaux de test oral (pool global) ─────────────────────────
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OralSlotDto {
+    pub id: String,
+    pub start_at: String,
+    pub duration_min: i64,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OralSlotsResponse {
+    pub open: Vec<OralSlotDto>,
+    pub mine: Option<OralSlotDto>,
+}
+
+/// Créneaux ouverts à venir + la réservation du candidat le cas échéant.
+#[tauri::command]
+pub async fn whitelist_oral_slots(
+    state: State<'_, AuthState>,
+) -> Result<OralSlotsResponse, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .get_json(&token, "/whitelist/me/oral-slots")
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+/// Réserve un créneau libre. Renvoie le créneau réservé (JSON brut).
+#[tauri::command]
+pub async fn whitelist_book_slot(
+    state: State<'_, AuthState>,
+    id: String,
+) -> Result<Json, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .post_json::<_, Json>(
+            &token,
+            &format!("/whitelist/oral-slots/{id}/book"),
+            &serde_json::json!({}),
+        )
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+/// Annule sa propre réservation → le créneau repasse libre.
+#[tauri::command]
+pub async fn whitelist_cancel_slot(
+    state: State<'_, AuthState>,
+    id: String,
+) -> Result<(), ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .delete_no_content(&token, &format!("/whitelist/oral-slots/{id}/book"))
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
 }
 
 #[tauri::command]
@@ -1138,6 +1212,44 @@ pub async fn shots_toggle_like(
     state
         .api
         .post_json(&token, &format!("/shots/{shot_id}/like"), &serde_json::json!({}))
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}
+
+// ──────────────────────────────────────────────────────
+// Profil — modification du nom d'affichage RP (displayName)
+// ──────────────────────────────────────────────────────
+
+#[derive(serde::Serialize)]
+struct UpdateProfileBody<'a> {
+    #[serde(rename = "displayName")]
+    display_name: &'a str,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileResult {
+    pub display_name: String,
+}
+
+/// PATCH /v1/me/profile — met à jour le nom d'affichage RP du joueur.
+#[tauri::command]
+pub async fn update_display_name(
+    state: State<'_, AuthState>,
+    display_name: String,
+) -> Result<ProfileResult, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .patch_json(
+            &token,
+            "/me/profile",
+            &UpdateProfileBody {
+                display_name: display_name.trim(),
+            },
+        )
         .await
         .map_err(|e| ContentError::Api {
             message: e.to_string(),

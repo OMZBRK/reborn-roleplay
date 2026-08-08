@@ -1,14 +1,14 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 /**
  * Bouton style Reborn — minimaliste, cohérent avec OSTPlayerWidget /
- * ServerInfoWidget. Remplace le ButtonWidget vanilla (gris pixelisé).
+ * ServerInfoWidget. Remplace le Button vanilla (gris pixelisé).
  *
  * <p>Specs visuelles :
  * <ul>
@@ -19,7 +19,7 @@ import net.minecraft.text.Text;
  *   <li>Désactivé : opacity 40%</li>
  * </ul>
  */
-public class RebornButton extends ButtonWidget {
+public class RebornButton extends Button {
 
     // Palette — alignée avec les autres widgets Reborn pour cohérence.
     private static final int BG_IDLE = 0xCC0A0A0A;
@@ -33,15 +33,15 @@ public class RebornButton extends ButtonWidget {
 
     private static final int ACCENT_WIDTH_IDLE = 3;
 
-    public RebornButton(int x, int y, int width, int height, Text message, PressAction onPress) {
-        super(x, y, width, height, message, onPress, ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
+    public RebornButton(int x, int y, int width, int height, Component message, Button.OnPress onPress) {
+        super(x, y, width, height, message, onPress, Button.DEFAULT_NARRATION);
     }
 
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         int x0 = getX();
         int y0 = getY();
@@ -70,10 +70,10 @@ public class RebornButton extends ButtonWidget {
         }
 
         // Texte centré.
-        Text msg = getMessage();
-        int textWidth = tr.getWidth(msg);
-        int textY = y0 + (getHeight() - tr.fontHeight) / 2 + 1;
+        Component msg = getMessage();
+        int textWidth = tr.width(msg);
+        int textY = y0 + (getHeight() - tr.lineHeight) / 2 + 1;
         int textX = x0 + (getWidth() - textWidth) / 2;
-        context.drawText(tr, msg, textX, textY, textColor, false);
+        context.text(tr, msg, textX, textY, textColor, false);
     }
 }

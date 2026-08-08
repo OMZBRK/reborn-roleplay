@@ -4,7 +4,7 @@ package fr.reborn.hud.menu;
  * Palette Reborn — design tokens v3 (Akatsuki direction).
  *
  * <p>Toutes les couleurs sont au format ARGB int (0xAARRGGBB) compatible
- * avec {@code DrawContext.fill}. Les variantes "soft" / "glow" intègrent
+ * avec {@code GuiGraphicsExtractor.fill}. Les variantes "soft" / "glow" intègrent
  * déjà leur alpha — pas besoin de manipuler la transparence dans le caller.
  *
  * <p>Synchronise avec {@code apps/launcher/src/styles/globals.css} et

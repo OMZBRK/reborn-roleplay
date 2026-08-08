@@ -4,12 +4,12 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.OSTPlayer;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
 
 /**
  * Overlay playlist OST — sidebar à gauche du screen avec la liste
@@ -30,7 +30,7 @@ import net.minecraft.text.Text;
  *   └──────────────────────┘
  * </pre>
  */
-public class OSTPlaylistOverlay extends ClickableWidget {
+public class OSTPlaylistOverlay extends AbstractWidget {
 
     public static final int WIDTH = 260;
     private static final int HEADER_H = 36;
@@ -40,7 +40,7 @@ public class OSTPlaylistOverlay extends ClickableWidget {
     private int scrollOffset = 0;
 
     public OSTPlaylistOverlay(int x, int y, int height) {
-        super(x, y, WIDTH, height, Text.literal("Playlist OST"));
+        super(x, y, WIDTH, height, Component.literal("Playlist OST"));
     }
 
     public boolean isOpen() {
@@ -54,11 +54,11 @@ public class OSTPlaylistOverlay extends ClickableWidget {
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         if (!isOpen()) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
-        TextRenderer tr = mc.textRenderer;
+        Font tr = mc.font;
 
         int x = getX();
         int y = getY();
@@ -71,14 +71,14 @@ public class OSTPlaylistOverlay extends ClickableWidget {
             Colors.SURFACE, Colors.BORDER_STRONG);
 
         // ─── Header ───
-        ctx.drawText(tr, RebornFont.bold("BANDE-SON · REBORN"),
+        ctx.text(tr, RebornFont.bold("BANDE-SON · REBORN"),
             x + 14, y + 14, Colors.WHITE_PURE, false);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + w - 30, y + 16, 0);
-        ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-        ctx.drawText(tr, RebornFont.body(OSTPlayer.TOTAL_TRACKS + ""),
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x + w - 30, y + 16);
+        ctx.pose().scale(0.85f, 0.85f);
+        ctx.text(tr, RebornFont.body(OSTPlayer.TOTAL_TRACKS + ""),
             0, 0, Colors.FOREGROUND_MUTED, false);
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
         ctx.fill(x + 8, y + HEADER_H - 1, x + w - 8, y + HEADER_H, Colors.BORDER);
 
         // ─── Body (rows scrollables) ───
@@ -100,15 +100,15 @@ public class OSTPlaylistOverlay extends ClickableWidget {
         // ─── Footer ───
         int footY = y + h - FOOTER_H;
         ctx.fill(x + 8, footY, x + w - 8, footY + 1, Colors.BORDER);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + 14, footY + 8, 0);
-        ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-        ctx.drawText(tr, RebornFont.body(OSTPlayer.TOTAL_TRACKS + " pistes embarquées"),
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x + 14, footY + 8);
+        ctx.pose().scale(0.85f, 0.85f);
+        ctx.text(tr, RebornFont.body(OSTPlayer.TOTAL_TRACKS + " pistes embarquées"),
             0, 0, Colors.FOREGROUND_MUTED, false);
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
     }
 
-    private void renderTrackRow(DrawContext ctx, TextRenderer tr, int parentX, int rowY,
+    private void renderTrackRow(GuiGraphicsExtractor ctx, Font tr, int parentX, int rowY,
                                 int parentW, int trackIdx, int mouseX, int mouseY) {
         OSTPlayer ost = OSTPlayer.INSTANCE;
         boolean active = ost.getCurrentTrack() == trackIdx;
@@ -125,7 +125,7 @@ public class OSTPlaylistOverlay extends ClickableWidget {
         }
 
         // Indicateur play à gauche.
-        if (active && ost.isPlaying()) {
+        if (active && ost.isActive()) {
             // Mini triangle play.
             int triX = parentX + 12;
             int triCy = rowY + ROW_H / 2;
@@ -139,17 +139,18 @@ public class OSTPlaylistOverlay extends ClickableWidget {
 
         // Nom de la piste.
         int textColor = active ? Colors.WHITE_PURE : (hovered ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE);
-        ctx.drawText(tr, RebornFont.bold(ost.getTrackNameAt(trackIdx)),
+        ctx.text(tr, RebornFont.bold(ost.getTrackNameAt(trackIdx)),
             parentX + 24, rowY + 6, textColor, false);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(parentX + 24, rowY + 18, 0);
-        ctx.getMatrices().scale(0.8f, 0.8f, 1f);
-        ctx.drawText(tr, RebornFont.body("Reborn OST"), 0, 0, Colors.FOREGROUND_MUTED, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(parentX + 24, rowY + 18);
+        ctx.pose().scale(0.8f, 0.8f);
+        ctx.text(tr, RebornFont.body("Reborn OST"), 0, 0, Colors.FOREGROUND_MUTED, false);
+        ctx.pose().popMatrix();
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         if (!isOpen()) return;
 
         int bodyTop = getY() + HEADER_H;
@@ -175,8 +176,7 @@ public class OSTPlaylistOverlay extends ClickableWidget {
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
-            "Playlist OST — " + OSTPlayer.TOTAL_TRACKS + " pistes");
+    public void updateWidgetNarration(NarrationElementOutput builder) {
+        
     }
 }

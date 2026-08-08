@@ -27,7 +27,8 @@ public enum HudElement {
     HEALTH        ("health",         "Health",       "Cœurs de vie du joueur",                  HudAnchor.BOTTOM_CENTER),
     HUNGER        ("hunger",         "Hunger",       "Cuisses de poulet de faim",               HudAnchor.BOTTOM_CENTER),
     ARMOR         ("armor",          "Armor",        "Indicateur d'armure",                     HudAnchor.BOTTOM_CENTER),
-    AIR           ("air",            "Air",          "Bulles d'air sous l'eau",                 HudAnchor.BOTTOM_CENTER);
+    AIR           ("air",            "Air",          "Bulles d'air sous l'eau",                 HudAnchor.BOTTOM_CENTER),
+    VITALS        ("vitals",         "Vitals RP",    "Tête + vie + chakra + stamina (panneau RP)", HudAnchor.TOP_LEFT);
 
     private final String id;
     private final String displayName;
@@ -52,4 +53,13 @@ public enum HudElement {
 
     /** Anchor par défaut quand l'élément n'a pas encore d'override utilisateur. */
     public HudAnchor defaultAnchor() { return defaultAnchor; }
+
+    /**
+     * Éléments proposés dans l'éditeur HUD (liste + drag + snap). Exclut
+     * {@link #HEALTH} et {@link #HUNGER} : masqués en permanence côté rendu
+     * (remplacés par le VitalsHUD RP), donc pas repositionnables.
+     */
+    public static final HudElement[] EDITABLE = java.util.Arrays.stream(values())
+        .filter(e -> e != HEALTH && e != HUNGER)
+        .toArray(HudElement[]::new);
 }

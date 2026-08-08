@@ -2,9 +2,9 @@ package fr.reborn.hud.menu;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.reborn.hud.menu.widget.IconButton;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,7 +65,7 @@ public final class IconTextures {
     private IconTextures() {}
 
     private static Identifier id(String name) {
-        return Identifier.of("reborn", BASE_PATH + name + ".png");
+        return Identifier.fromNamespaceAndPath("reborn", BASE_PATH + name + ".png");
     }
 
     /**
@@ -76,7 +76,7 @@ public final class IconTextures {
     public static boolean exists(Identifier texId) {
         Boolean cached = EXISTS_CACHE.get(texId);
         if (cached != null) return cached;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return false;
         boolean present = mc.getResourceManager().getResource(texId).isPresent();
         EXISTS_CACHE.put(texId, present);
@@ -116,15 +116,15 @@ public final class IconTextures {
      * Dessine une texture tintée par {@code color} (ARGB). Restaure
      * setShaderColor à blanc après pour ne pas polluer les rendus suivants.
      */
-    public static void drawTinted(DrawContext ctx, Identifier texId,
+    public static void drawTinted(GuiGraphicsExtractor ctx, Identifier texId,
                                   int x, int y, int size, int color) {
         float a = ((color >> 24) & 0xFF) / 255f;
         float r = ((color >> 16) & 0xFF) / 255f;
         float g = ((color >>  8) & 0xFF) / 255f;
         float b = ( color        & 0xFF) / 255f;
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(r, g, b, a);
-        ctx.drawTexture(texId, x, y, 0f, 0f, size, size, size, size);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ;
+        ;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, texId, x, y, 0f, 0f, size, size, size, size);
+        ;
     }
 }

@@ -1,14 +1,14 @@
 package fr.reborn.hud.interaction;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.projectile.ProjectileUtil;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.ClipContext;
 
 /**
  * Raycast depuis un point ÉCRAN (le curseur du menu d'interaction) vers le
@@ -29,21 +29,21 @@ public final class CursorRaycast {
     private CursorRaycast() {}
 
     /** @return un BlockHitResult / EntityHitResult, ou null si rien à portée. */
-    public static HitResult raycast(MinecraftClient mc, double cursorX, double cursorY) {
-        if (mc == null || mc.player == null || mc.world == null) return null;
+    public static HitResult raycast(Minecraft mc, double cursorX, double cursorY) {
+        if (mc == null || mc.player == null || mc.level == null) return null;
 
-        Camera camera = mc.gameRenderer.getCamera();
-        float camYaw = camera.getYaw();
-        float camPitch = camera.getPitch();
+        Camera camera = mc.gameRenderer.getMainCamera();
+        float camYaw = camera.yRot();
+        float camPitch = camera.xRot();
         // Origine = position de la CAMÉRA (pas l'œil joueur) → fonctionne aussi
         // en 3e personne (on vise depuis le point de vue réel).
-        Vec3d eye = camera.getPos();
+        Vec3 eye = camera.position();
 
-        double fovDeg = mc.options.getFov().getValue();
-        int w = mc.getWindow().getFramebufferWidth();
-        int h = mc.getWindow().getFramebufferHeight();
+        double fovDeg = mc.options.fov().get();
+        int w = mc.getWindow().getWidth();
+        int h = mc.getWindow().getHeight();
         if (w <= 0 || h <= 0) return null;
-        double sf = mc.getWindow().getScaleFactor();
+        double sf = mc.getWindow().getGuiScale();
         double px = cursorX * sf;
         double py = cursorY * sf;
 
@@ -57,18 +57,18 @@ public final class CursorRaycast {
         float rayYaw = camYaw + (float) Math.toDegrees(Math.atan(vx));
         float rayPitch = camPitch - (float) Math.toDegrees(Math.atan(vy));
 
-        Vec3d dir = Vec3d.fromPolar(rayPitch, rayYaw);
-        Vec3d end = eye.add(dir.multiply(REACH));
+        Vec3 dir = Vec3.directionFromRotation(rayPitch, rayYaw);
+        Vec3 end = eye.add(dir.scale(REACH));
 
         // Blocs.
-        HitResult block = mc.world.raycast(new RaycastContext(eye, end,
-            RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, mc.player));
+        HitResult block = mc.level.clip(new ClipContext(eye, end,
+            ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, mc.player));
         double blockDistSq = block.getType() == HitResult.Type.MISS
-            ? REACH * REACH : block.getPos().squaredDistanceTo(eye);
+            ? REACH * REACH : block.getLocation().distanceToSqr(eye);
 
         // Entités (plus proches que le bloc) — box couvrant tout le segment.
-        Box box = new Box(eye, end).expand(1.0);
-        EntityHitResult entity = ProjectileUtil.raycast(mc.player, eye, end, box,
+        AABB box = new AABB(eye, end).inflate(1.0);
+        EntityHitResult entity = ProjectileUtil.getEntityHitResult(mc.player, eye, end, box,
             e -> e != mc.player && !e.isSpectator() && e.isAlive(), blockDistSq);
         if (entity != null) return entity;
 

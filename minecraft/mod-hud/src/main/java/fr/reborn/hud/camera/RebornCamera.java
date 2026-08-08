@@ -1,8 +1,9 @@
 package fr.reborn.hud.camera;
 
 import fr.reborn.hud.menu.settings.RebornPrefs;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.Perspective;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.CameraType;
+import net.minecraft.world.entity.Entity;
 
 /**
  * État de la caméra épaule Reborn (style Zenkai / anime-RP).
@@ -44,6 +45,15 @@ public final class RebornCamera {
     private double camYaw = 0.0;
     private double camPitch = 0.0;
 
+    /** Free-look : maintien ALT → la caméra orbite sans réorienter le corps. */
+    private boolean freeLook = false;
+
+    /** Impact d'atterrissage : petit dip vertical de la caméra (optionnel). */
+    private boolean impactEnabled = false;
+    private double landImpact = 0.0;   // décalage vertical courant (≤ 0)
+    private boolean wasOnGround = true;
+    private double prevYSpeed = 0.0;
+
     private RebornCamera() {}
 
     /** Le découplage/OTS n'est actif qu'en vue ÉPAULE. */
@@ -59,6 +69,14 @@ public final class RebornCamera {
 
     public double camYaw() { return camYaw; }
     public double camPitch() { return camPitch; }
+
+    public boolean freeLook() { return freeLook; }
+    public void setFreeLook(boolean v) { this.freeLook = v; }
+
+    public boolean impactEnabled() { return impactEnabled; }
+    public void setImpactEnabled(boolean v) { this.impactEnabled = v; saveToPrefs(); }
+    /** Décalage vertical d'impact courant (0 si désactivé). */
+    public double landImpact() { return impactEnabled ? landImpact : 0.0; }
 
     /** Initialise l'orbite caméra depuis l'orientation actuelle du joueur. */
     public void initOrientation(float yaw, float pitch) {
@@ -108,6 +126,7 @@ public final class RebornCamera {
         up = clamp(p.camUp, UP_MIN, UP_MAX);
         side = p.camSide < 0 ? -1 : 1;
         turnSpeed = clamp(p.camTurnSpeed, 0.1, 1.0);
+        impactEnabled = p.camImpact;
         CameraPreset[] presets = CameraPreset.values();
         preset = presets[Math.max(0, Math.min(presets.length - 1, p.camPreset))];
     }
@@ -121,6 +140,7 @@ public final class RebornCamera {
         p.camSide = side;
         p.camTurnSpeed = turnSpeed;
         p.camPreset = preset.ordinal();
+        p.camImpact = impactEnabled;
         p.save();
     }
 
@@ -130,22 +150,43 @@ public final class RebornCamera {
      * (et ré-initialise l'orbite quand on (re)passe en 3e pers). En 1ère
      * personne : verrouille la 1ère personne.
      */
-    public void tickView(MinecraftClient mc) {
+    public void tickView(Minecraft mc) {
         if (mc.player == null || mc.options == null) return;
         if (mode == Mode.SHOULDER) {
-            if (mc.options.getPerspective() != Perspective.THIRD_PERSON_BACK) {
-                mc.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-                initOrientation(mc.player.getYaw(), mc.player.getPitch());
+            if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
+                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+                initOrientation(mc.player.getYRot(), mc.player.getXRot());
             }
         } else {
-            if (mc.options.getPerspective() != Perspective.FIRST_PERSON) {
-                mc.options.setPerspective(Perspective.FIRST_PERSON);
+            if (mc.options.getCameraType() != CameraType.FIRST_PERSON) {
+                mc.options.setCameraType(CameraType.FIRST_PERSON);
             }
         }
     }
 
+    /**
+     * Amortissement d'atterrissage : quand le joueur retouche le sol après une
+     * chute, la caméra plonge brièvement puis remonte (decay exponentiel). À
+     * appeler chaque client tick avec le joueur local. No-op si désactivé (on
+     * garde juste le suivi sol/vitesse pour ne pas déclencher un dip au ré-activé).
+     */
+    public void tickImpact(Entity e) {
+        if (e == null) { landImpact = 0.0; return; }
+        boolean onGround = e.onGround();
+        if (impactEnabled && onGround && !wasOnGround) {
+            double fall = -prevYSpeed;          // vitesse descendante à l'impact
+            if (fall > 0.25) {
+                landImpact = -Math.min(0.5, fall * 0.45);
+            }
+        }
+        landImpact *= 0.70;                      // remonte progressivement
+        if (Math.abs(landImpact) < 1.0e-3) landImpact = 0.0;
+        wasOnGround = onGround;
+        prevYSpeed = e.getDeltaMovement().y;
+    }
+
     /** Bascule vue ÉPAULE ↔ vraie 1ère personne (touche dédiée). */
-    public void toggleFirstPerson(MinecraftClient mc) {
+    public void toggleFirstPerson(Minecraft mc) {
         mode = (mode == Mode.SHOULDER) ? Mode.FIRST : Mode.SHOULDER;
         tickView(mc); // applique tout de suite la perspective + init orbite.
     }

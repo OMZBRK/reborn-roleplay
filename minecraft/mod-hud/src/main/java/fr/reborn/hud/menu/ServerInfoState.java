@@ -50,8 +50,10 @@ public final class ServerInfoState {
         return (t == RebornBranding.ServerTarget.DEV && DEV_INSTANCE != null) ? DEV_INSTANCE : INSTANCE;
     }
 
-    /** Protocol version MC 1.21.1 (utilise dans le handshake). */
-    private static final int PROTOCOL_VERSION = 767;
+    /** Protocol version du client courant (utilisé dans le handshake du ping).
+     *  Lu depuis {@link net.minecraft.SharedConstants} pour suivre la version MC
+     *  (767 = 1.21.1 était périmé après le port 26.1). */
+    private static final int PROTOCOL_VERSION = net.minecraft.SharedConstants.getProtocolVersion();
 
     /** Interval de refresh en millis. */
     private static final long REFRESH_INTERVAL_MS = 30_000;

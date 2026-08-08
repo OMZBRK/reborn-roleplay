@@ -3,12 +3,12 @@ package fr.reborn.hud.menu.widget;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 /**
  * Bouton Reborn modal — rectangle arrondi avec border 1px, label centré
@@ -28,7 +28,7 @@ import net.minecraft.text.Text;
  *       + halo rouge. Pour actions destructives (Quitter, Supprimer).</li>
  * </ul>
  */
-public class RebornButton extends ButtonWidget {
+public class RebornButton extends Button {
 
     public enum Style { GHOST, DANGER, ACCENT }
 
@@ -37,28 +37,28 @@ public class RebornButton extends ButtonWidget {
     private float hoverProgress = 0f;
     private long lastFrameMs = System.currentTimeMillis();
 
-    private RebornButton(int x, int y, int w, int h, Text label, Style style, PressAction onPress) {
-        super(x, y, w, h, label, onPress, ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
+    private RebornButton(int x, int y, int w, int h, Component label, Style style, Button.OnPress onPress) {
+        super(x, y, w, h, label, onPress, Button.DEFAULT_NARRATION);
         this.style = style;
     }
 
-    public static RebornButton ghost(int x, int y, int w, int h, String label, PressAction onPress) {
+    public static RebornButton ghost(int x, int y, int w, int h, String label, Button.OnPress onPress) {
         return new RebornButton(x, y, w, h, RebornFont.bold(label), Style.GHOST, onPress);
     }
 
-    public static RebornButton danger(int x, int y, int w, int h, String label, PressAction onPress) {
+    public static RebornButton danger(int x, int y, int w, int h, String label, Button.OnPress onPress) {
         return new RebornButton(x, y, w, h, RebornFont.bold(label), Style.DANGER, onPress);
     }
 
-    public static RebornButton accent(int x, int y, int w, int h, String label, PressAction onPress) {
+    public static RebornButton accent(int x, int y, int w, int h, String label, Button.OnPress onPress) {
         return new RebornButton(x, y, w, h, RebornFont.bold(label), Style.ACCENT, onPress);
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    protected void extractContents(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         // Smooth hover transition (~140ms).
         long now = System.currentTimeMillis();
@@ -125,15 +125,15 @@ public class RebornButton extends ButtonWidget {
         // Label centré avec léger scale-up au hover.
         float labelScale = 1f + 0.06f * hoverProgress;
         int textColor = lerp(idleText, hoverText, hoverProgress);
-        int textW = Math.round(tr.getWidth(getMessage()) * labelScale);
-        int textH = Math.round(tr.fontHeight * labelScale);
+        int textW = Math.round(tr.width(getMessage()) * labelScale);
+        int textH = Math.round(tr.lineHeight * labelScale);
         int textX = x0 + (w - textW) / 2;
         int textY = y0 + (h - textH) / 2;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(textX, textY, 0);
-        ctx.getMatrices().scale(labelScale, labelScale, 1f);
-        ctx.drawText(tr, getMessage(), 0, 0, textColor, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(textX, textY);
+        ctx.pose().scale(labelScale, labelScale);
+        ctx.text(tr, getMessage(), 0, 0, textColor, false);
+        ctx.pose().popMatrix();
     }
 
     private static int lerp(int a, int b, float t) {
@@ -147,8 +147,7 @@ public class RebornButton extends ButtonWidget {
     }
 
     @Override
-    public void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE,
-            getMessage().getString());
+    public void updateWidgetNarration(NarrationElementOutput builder) {
+        
     }
 }

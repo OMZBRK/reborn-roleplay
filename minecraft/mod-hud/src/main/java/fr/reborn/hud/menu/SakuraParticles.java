@@ -1,9 +1,8 @@
 package fr.reborn.hud.menu;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 
 import java.util.Random;
 
@@ -16,7 +15,7 @@ import java.util.Random;
  * dérivé d'un seed déterministe pour cohérence visuelle entre frames.
  *
  * <p>Texture {@code petal.png} (32×32 transparente) dessinée via
- * {@code DrawContext.drawTexture} avec push matrix rotate + scale.
+ * {@code GuiGraphicsExtractor.drawTexture} avec push matrix rotate + scale.
  * L'opacity est appliquée via {@code RenderSystem.setShaderColor}.
  */
 public final class SakuraParticles {
@@ -24,7 +23,7 @@ public final class SakuraParticles {
     public static final SakuraParticles INSTANCE = new SakuraParticles(8);
 
     private static final Identifier PETAL_TEXTURE =
-        Identifier.of("reborn", "textures/gui/petal.png");
+        Identifier.fromNamespaceAndPath("reborn", "textures/gui/petal.png");
 
     private final Petal[] petals;
     private final long bornAtMs;
@@ -38,7 +37,7 @@ public final class SakuraParticles {
         this.bornAtMs = System.currentTimeMillis();
     }
 
-    public void render(DrawContext ctx, int screenWidth, int screenHeight) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int screenWidth, int screenHeight) {
         long now = System.currentTimeMillis();
         float globalTime = (now - bornAtMs) / 1000f;
         for (Petal p : petals) {
@@ -46,7 +45,7 @@ public final class SakuraParticles {
         }
         // Reset shader color au cas où — sinon les frames suivantes ont
         // une teinte parasite.
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ;
     }
 
     private static final class Petal {
@@ -70,7 +69,7 @@ public final class SakuraParticles {
             this.spinRatePerSec = 18f + rng.nextFloat() * 27f;
         }
 
-        void render(DrawContext ctx, int screenW, int screenH, float globalTime) {
+        void render(GuiGraphicsExtractor ctx, int screenW, int screenH, float globalTime) {
             float t = globalTime + delay;
             float cycle = ((t % duration) + duration) % duration / duration;
 
@@ -82,20 +81,20 @@ public final class SakuraParticles {
 
             // Push matrix : translate au centre de la pétale, rotate, scale,
             // puis on dessine la texture 32×32 centrée à l'origine.
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(x, y, 0);
-            ctx.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rot));
+            ctx.pose().pushMatrix();
+            ctx.pose().translate(x, y);
+            ctx.pose().rotate((float) Math.toRadians(rot)); // Matrix3x2fStack 2D : rotation en radians
             float scale = size / 32f;
-            ctx.getMatrices().scale(scale, scale, 1f);
+            ctx.pose().scale(scale, scale);
 
             // Color shader pour appliquer l'opacity (le PNG est blanc-rose,
             // multiplied par la couleur shader).
-            RenderSystem.enableBlend();
-            RenderSystem.setShaderColor(1f, 1f, 1f, opacity);
-            ctx.drawTexture(PETAL_TEXTURE, -16, -16, 0f, 0f, 32, 32, 32, 32);
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            ;
+            ;
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, PETAL_TEXTURE, -16, -16, 0f, 0f, 32, 32, 32, 32);
+            ;
 
-            ctx.getMatrices().pop();
+            ctx.pose().popMatrix();
         }
     }
 }

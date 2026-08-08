@@ -18,14 +18,14 @@ import fr.reborn.hud.menu.widget.ServerPickerWidget;
 import fr.reborn.hud.menu.widget.SplashOverlay;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.screen.world.SelectWorldScreen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -70,32 +70,32 @@ public abstract class TitleScreenMixin extends Screen {
 
     /** Contrôles OST (play / volume / playlist) — visibles au hover. */
     @Unique
-    private final List<ClickableWidget> reborn$ostControls = new ArrayList<>();
+    private final List<AbstractWidget> reborn$ostControls = new ArrayList<>();
 
     /** Widgets divers dont la visibilité suit l'étage MENU (dev solo). */
     @Unique
-    private final List<ClickableWidget> reborn$menuOnly = new ArrayList<>();
+    private final List<AbstractWidget> reborn$menuOnly = new ArrayList<>();
 
-    protected TitleScreenMixin(Text title) {
+    protected TitleScreenMixin(Component title) {
         super(title);
     }
 
     @Inject(method = "init", at = @At("RETURN"))
     private void reborn$rebuildMenu(CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
         MainMenuFlow.onTitleInit();
 
         // 1. Drop TOUS les widgets vanilla — on reconstruit from scratch.
-        List<Element> toRemove = new ArrayList<>();
-        for (Element child : this.children()) {
-            if (child instanceof ClickableWidget) {
+        List<GuiEventListener> toRemove = new ArrayList<>();
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof AbstractWidget) {
                 toRemove.add(child);
             }
         }
-        for (Element e : toRemove) {
-            this.remove(e);
+        for (GuiEventListener e : toRemove) {
+            this.removeWidget(e);
         }
         reborn$menuEntries.clear();
         reborn$ostControls.clear();
@@ -108,19 +108,19 @@ public abstract class TitleScreenMixin extends Screen {
         int ostX = MainMenuRenderer.ostPanelX();
         int ostY = MainMenuRenderer.ostPanelY();
         for (IconButton ctrl : OSTPlayerV2.buildControls(ostX, ostY)) {
-            this.addDrawableChild(ctrl);
+            this.addRenderableWidget(ctrl);
             reborn$ostControls.add(ctrl);
         }
         int panelBottom = ostY + OSTPlayerV2.CARD_H;
         int[] volAnchor = OSTPlayerV2.volumeButtonAnchor(ostX, ostY);
         OSTVolumePopup volPopup = new OSTVolumePopup(
             volAnchor[0] - OSTVolumePopup.WIDTH / 2, panelBottom + 6);
-        this.addDrawableChild(volPopup);
+        this.addRenderableWidget(volPopup);
         reborn$ostControls.add(volPopup);
 
         int playlistH = Math.min(360, this.height - panelBottom - 16);
         OSTPlaylistOverlay playlist = new OSTPlaylistOverlay(ostX, panelBottom + 6, playlistH);
-        this.addDrawableChild(playlist);
+        this.addRenderableWidget(playlist);
         reborn$ostControls.add(playlist);
 
         // 4. DEV ONLY — bouton "Solo (Dev)" top-right pour tester en solo.
@@ -136,7 +136,7 @@ public abstract class TitleScreenMixin extends Screen {
                 .withIdleColor(Colors.WARNING)
                 .withHoverColor(Colors.WHITE_PURE)
                 .withTooltipPlacement(IconButton.TooltipPlacement.LEFT);
-            this.addDrawableChild(soloDev);
+            this.addRenderableWidget(soloDev);
             reborn$menuOnly.add(soloDev);
         }
 
@@ -149,7 +149,7 @@ public abstract class TitleScreenMixin extends Screen {
     private int reborn$nextEntryY = 0;
 
     @Unique
-    private void buildMenuEntries(MinecraftClient client) {
+    private void buildMenuEntries(Minecraft client) {
         // 5 entrées empilées (ordre Paladium). Pas de record/inner-class ici
         // volontairement : Mixin gère mal les classes locales dans un mixin.
         reborn$nextEntryY = MainMenuRenderer.menuStartY(this.height, 5);
@@ -183,21 +183,21 @@ public abstract class TitleScreenMixin extends Screen {
         // Le menu garde sa disposition d'origine (aucune ligne fixe insérée).
         if (staffPicker) {
             ServerPickerWidget picker = new ServerPickerWidget(jouer);
-            this.addDrawableChild(picker);
+            this.addRenderableWidget(picker);
             reborn$menuOnly.add(picker);
         }
     }
 
     @Unique
-    private MenuEntryButton reborn$addEntry(MinecraftClient client, String label,
+    private MenuEntryButton reborn$addEntry(Minecraft client, String label,
                                             boolean placeholder, float scale, int height,
-                                            net.minecraft.client.gui.widget.ButtonWidget.PressAction action) {
+                                            net.minecraft.client.gui.components.Button.OnPress action) {
         int w = Math.max(140,
-            MenuEntryButton.labelWidth(client.textRenderer, label, scale) + 24);
+            MenuEntryButton.labelWidth(client.font, label, scale) + 24);
         MenuEntryButton entry = new MenuEntryButton(
             MainMenuRenderer.MENU_X, reborn$nextEntryY, w, height, label, scale, action);
         if (placeholder) entry.placeholder();
-        this.addDrawableChild(entry);
+        this.addRenderableWidget(entry);
         reborn$menuEntries.add(entry);
         reborn$nextEntryY += height + MainMenuRenderer.MENU_ENTRY_GAP;
         return entry;
@@ -208,8 +208,8 @@ public abstract class TitleScreenMixin extends Screen {
      * au-dessus de tout ce que vanilla a buffered (logo MC, splash text,
      * version Fabric, copyright).
      */
-    @Inject(method = "render", at = @At("TAIL"))
-    private void reborn$renderOverlay(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void reborn$renderOverlay(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         boolean menu = !MainMenuFlow.isSplash();
         boolean ostRevealed = menu && (
             MainMenuRenderer.isOverOstReveal(mouseX, mouseY)
@@ -227,17 +227,19 @@ public abstract class TitleScreenMixin extends Screen {
             e.visible = menu;
             e.active = menu;
         }
-        for (ClickableWidget c : reborn$ostControls) {
+        for (AbstractWidget c : reborn$ostControls) {
             c.visible = ostRevealed;
             c.active = ostRevealed;
         }
-        for (ClickableWidget c : reborn$menuOnly) {
+        for (AbstractWidget c : reborn$menuOnly) {
             c.visible = menu;
             c.active = menu;
         }
 
-        context.getMatrices().push();
-        context.getMatrices().translate(0, 0, 400);
+        // 26.1 : la pose GUI est une Matrix3x2fStack (2D) — plus d'axe Z. Le
+        // @Inject à TAIL de extractRenderState nous place déjà par-dessus tout ce
+        // que vanilla a dessiné, donc l'ancien push Z+=400 n'a plus lieu d'être.
+        context.pose().pushMatrix();
 
         if (MainMenuFlow.isSplash()) {
             // SPLASH : fond MCEF → flou gaussien du framebuffer → contenu net.
@@ -245,19 +247,22 @@ public abstract class TitleScreenMixin extends Screen {
             // menu (réglage « Menu background blurriness ») sur tout ce qui est
             // déjà dans le framebuffer — d'où le flou du décor derrière le logo.
             DynamicPlayerBackground.render(context, this.width, this.height);
-            context.draw();
-            this.applyBlur(delta);
+            // STUB 26.1 (phase 2) : plus de flush manuel (context.draw()) dans le
+            // modèle « extraction » — le rendu est différé par le moteur.
+            // applyBlur(float) → extractBlurredBackground(GuiGraphicsExtractor) :
+            // applique le flou du menu sur le framebuffer déjà dessiné.
+            this.extractBlurredBackground(context);
             SplashOverlay.render(context, this.width, this.height);
         } else {
             // Chrome menu (BG MCEF + chrome + widgets par-dessus).
             MainMenuRenderer.render(context, this.width, this.height, mouseX, mouseY, ostRevealed);
-            for (Element e : this.children()) {
-                if (e instanceof ClickableWidget cw && cw.visible) {
-                    cw.render(context, mouseX, mouseY, delta);
+            for (GuiEventListener e : this.children()) {
+                if (e instanceof AbstractWidget cw && cw.visible) {
+                    cw.extractRenderState(context, mouseX, mouseY, delta);
                 }
             }
         }
 
-        context.getMatrices().pop();
+        context.pose().popMatrix();
     }
 }

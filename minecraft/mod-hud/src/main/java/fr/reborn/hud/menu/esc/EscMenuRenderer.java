@@ -1,7 +1,7 @@
 package fr.reborn.hud.menu.esc;
 
 import fr.reborn.hud.menu.Colors;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Orchestrateur du rendu du menu pause Reborn (ESC menu).
@@ -21,7 +21,7 @@ public final class EscMenuRenderer {
 
     private EscMenuRenderer() {}
 
-    public static void renderBackground(DrawContext ctx, int screenW, int screenH) {
+    public static void extractBackground(GuiGraphicsExtractor ctx, int screenW, int screenH) {
         // Backdrop sombre qui masque le jeu derrière.
         ctx.fill(0, 0, screenW, screenH, Colors.BACKDROP_85);
 

@@ -2,18 +2,20 @@
   "required": true,
   "minVersion": "0.8",
   "package": "fr.reborn.hud.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_25",
   "client": [
     "ChatHudMixin",
     "ChatHudAddMessageMixin",
     "ChatScreenMixin",
     "InGameHudMixin",
-    "InGameHudInvoker",
+    "ExperienceBarRendererMixin",
     "MusicTrackerMixin",
     "CrosshairHitMixin",
     "CameraThirdPersonMixin",
-    "EntityChangeLookMixin",
+    "ClientInputAccessor",
     "KeyboardInputMixin",
+    "LocalPlayerBodyMixin",
+    "EntityChangeLookMixin",
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",
     "InGameHudCinemaMixin",
@@ -24,7 +26,8 @@
     "menu.TitleScreenMixin",
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",
-    "menu.ConnectScreenMixin"
+    "menu.ConnectScreenMixin",
+    "menu.LoadingOverlayMixin"
   ],
   "injectors": {
     "defaultRequire": 1

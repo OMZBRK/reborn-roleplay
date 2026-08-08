@@ -12,17 +12,17 @@ import fr.reborn.hud.menu.widget.DisconnectConfirmScreen;
 import fr.reborn.hud.menu.widget.RebornButton;
 import fr.reborn.hud.menu.widget.ReportScreen;
 import fr.reborn.hud.menu.widget.ShopScreen;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,12 +45,12 @@ import java.util.List;
  * (après leur ajout) puis on rebuild. Le render vanilla est annulé pour tout
  * dessiner nous-mêmes (fond opaque + dégradés + halo).
  */
-@Mixin(GameMenuScreen.class)
+@Mixin(PauseScreen.class) // 26.1 : GameMenuScreen → PauseScreen
 public abstract class GameMenuScreenMixin extends Screen {
 
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/esc-mixin");
 
-    private static final Identifier LOGO = Identifier.of("reborn", "textures/gui/title/logo.png");
+    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reborn", "textures/gui/title/logo.png");
     private static final int LOGO_TEX_W = 2048;
     private static final int LOGO_TEX_H = 717;
 
@@ -71,7 +71,7 @@ public abstract class GameMenuScreenMixin extends Screen {
     private long reborn$lastStreamRotate = 0L;
     private long reborn$lastBlogRotate = 0L;
 
-    protected GameMenuScreenMixin(Text title) {
+    protected GameMenuScreenMixin(Component title) {
         super(title);
     }
 
@@ -97,11 +97,11 @@ public abstract class GameMenuScreenMixin extends Screen {
     private int reborn$squareW() { return (reborn$rightW() - GAP) / 2; }
     private int reborn$squareH() { return Math.min(reborn$squareW(), Math.round(reborn$contentH() * 0.42f)); }
 
-    private int reborn$tabW(TextRenderer tr, String label) {
-        return tr.getWidth(RebornFont.arcade(label)) + 2 * TAB_PAD;
+    private int reborn$tabW(Font tr, String label) {
+        return tr.width(RebornFont.arcade(label)) + 2 * TAB_PAD;
     }
 
-    private int reborn$tabsTotalW(TextRenderer tr) {
+    private int reborn$tabsTotalW(Font tr) {
         int total = 0;
         for (int i = 0; i < TAB_LABELS.length; i++) {
             total += reborn$tabW(tr, TAB_LABELS[i]);
@@ -113,36 +113,36 @@ public abstract class GameMenuScreenMixin extends Screen {
     // Le titre « Game Menu » est ajouté dans init() ; on retire au RETURN de init.
     @Inject(method = "init", at = @At("RETURN"))
     private void reborn$rebuildEscMenu(CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         // Rafraîchit la data live (Discord / patch notes / streams) en fond.
         EscData.refreshIfStale();
 
-        List<Element> toRemove = new ArrayList<>(this.children());
-        for (Element e : toRemove) this.remove(e);
+        List<GuiEventListener> toRemove = new ArrayList<>(this.children());
+        for (GuiEventListener e : toRemove) this.removeWidget(e);
 
         int x = (this.width - reborn$tabsTotalW(tr)) / 2;
         int tabsY = reborn$tabsY();
         for (int i = 0; i < TAB_LABELS.length; i++) {
             final int idx = i;
             int w = reborn$tabW(tr, TAB_LABELS[i]);
-            this.addDrawableChild(new EscTabButton(
+            this.addRenderableWidget(new EscTabButton(
                 x, tabsY, w, TAB_H, RebornFont.arcade(TAB_LABELS[i]),
                 i == 3, b -> handleTab(client, idx)));
             x += w + TAB_GAP;
         }
 
         // Boutique — carte cliquable à GAUCHE (contenu dessiné par-dessus).
-        this.addDrawableChild(RebornButton.ghost(
+        this.addRenderableWidget(RebornButton.ghost(
             reborn$boxX(), reborn$boxY(), reborn$leftW(), reborn$contentH(),
             " ", b -> client.setScreen(new ShopScreen(this))));
 
         LOG.info("esc menu Zenkai : {} widgets vanilla retirés", toRemove.size());
     }
 
-    private void handleTab(MinecraftClient client, int idx) {
+    private void handleTab(Minecraft client, int idx) {
         switch (idx) {
             case 0 -> client.setScreen(null);
             case 1 -> client.setScreen(new ConfigShellScreen(this));
@@ -151,9 +151,9 @@ public abstract class GameMenuScreenMixin extends Screen {
         }
     }
 
-    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void reborn$renderOverlay(DrawContext ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        TextRenderer tr = this.textRenderer;
+    @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
+    private void reborn$renderOverlay(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        Font tr = this.font;
 
         // Fond : UN seul dégradé vertical doux intégré (sombre en haut → légère
         // teinte accent en bas). Pas de rectangles/halos = pas d'effet couches.
@@ -164,8 +164,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         int logoW = reborn$logoW();
         int logoH = reborn$logoH();
         int logoX = (this.width - logoW) / 2;
-        ctx.drawTexture(LOGO, logoX, reborn$logoY(), logoW, logoH,
-            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, reborn$logoY(), 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // Panneaux (dessinés avant les enfants : Boutique-content + tabs par-dessus).
         int boxY = reborn$boxY();
@@ -184,9 +183,9 @@ public abstract class GameMenuScreenMixin extends Screen {
             boxY + reborn$contentH() + GAP, reborn$boxW(), BOTTOM_H);
 
         // Enfants (bouton Boutique = fond+clic, onglets) par-dessus.
-        for (Element e : this.children()) {
-            if (e instanceof ClickableWidget cw && cw.visible) {
-                cw.render(ctx, mouseX, mouseY, delta);
+        for (GuiEventListener e : this.children()) {
+            if (e instanceof AbstractWidget cw && cw.visible) {
+                cw.extractRenderState(ctx, mouseX, mouseY, delta);
             }
         }
         // Contenu de la carte Boutique par-dessus son fond.
@@ -200,7 +199,8 @@ public abstract class GameMenuScreenMixin extends Screen {
     // Screen — un @Inject ne trouverait pas la cible) : si le clic tombe dans un
     // carré carrousel on le consomme, sinon super() gère onglets + Boutique.
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y(); int button = event.button();
         if (button == 0) {
             EscData.Snapshot snap = EscData.get();
             if (snap != null) {
@@ -213,7 +213,7 @@ public abstract class GameMenuScreenMixin extends Screen {
                 if (reborn$handleCarousel(mx, my, blogX, boxY, sqW, sqH, snap, false)) return true;
             }
         }
-        return super.mouseClicked(mx, my, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     private boolean reborn$handleCarousel(double mx, double my, int x, int y, int w, int h,
@@ -252,32 +252,32 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     private void reborn$openUrl(String url) {
         try {
-            Util.getOperatingSystem().open(URI.create(url));
+            Util.getPlatform().openUri(URI.create(url));
         } catch (Exception e) {
             LOG.warn("ouverture URL échouée ({}) : {}", url, e.toString());
         }
     }
 
     private void reborn$click() {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc != null) {
             mc.getSoundManager().play(
-                PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0f));
+                SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f));
         }
     }
 
     /** Carré « Stream » — carrousel des streamers (flèches ‹ ›, auto-rotation,
      *  badge LIVE/OFFLINE par chaîne, clic → ouvre la chaîne Twitch). */
-    private void reborn$streamSquare(DrawContext ctx, TextRenderer tr, int x, int y, int w, int h) {
+    private void reborn$streamSquare(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h) {
         EscData.Snapshot snap = EscData.get();
         List<EscData.Stream> streams = snap != null ? snap.streams() : List.of();
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, RADIUS, Colors.SURFACE, Colors.BORDER_STRONG);
         IconPack.twitch(ctx, x + 14, y + 11, 14, Colors.FOREGROUND_SUBTLE);
-        ctx.drawText(tr, RebornFont.arcade("STREAM"), x + 34, y + 13, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, RebornFont.arcade("STREAM"), x + 34, y + 13, Colors.FOREGROUND_SUBTLE, false);
 
         if (streams.isEmpty()) {
-            Text none = RebornFont.arcade("AUCUN STREAM");
-            ctx.drawText(tr, none, x + (w - tr.getWidth(none)) / 2, y + h / 2, Colors.FOREGROUND_MUTED, false);
+            Component none = RebornFont.arcade("AUCUN STREAM");
+            ctx.text(tr, none, x + (w - tr.width(none)) / 2, y + h / 2, Colors.FOREGROUND_MUTED, false);
             return;
         }
 
@@ -290,23 +290,23 @@ public abstract class GameMenuScreenMixin extends Screen {
         EscData.Stream s = streams.get(idx);
 
         // Badge LIVE / OFFLINE de la chaîne courante.
-        Text badge = RebornFont.arcade(s.live() ? "LIVE" : "OFFLINE");
-        int bw = tr.getWidth(badge) + 10;
+        Component badge = RebornFont.arcade(s.live() ? "LIVE" : "OFFLINE");
+        int bw = tr.width(badge) + 10;
         int badgeBg = s.live() ? Colors.withAlpha(Colors.SUCCESS, 0.18f) : Colors.DANGER_SOFT;
         int badgeFg = s.live() ? Colors.SUCCESS : Colors.DANGER;
         DrawHelpers.roundedRect(ctx, x + w - bw - 12, y + 11, bw, 14, 6, badgeBg);
-        ctx.drawText(tr, badge, x + w - bw - 7, y + 14, badgeFg, false);
+        ctx.text(tr, badge, x + w - bw - 7, y + 14, badgeFg, false);
 
         // Nom de la chaîne (cliquable) + titre si en live.
         String name = reborn$fit(tr, s.name() != null ? s.name() : "STREAM", w - 2 * (ARROW_W + 6));
-        Text nameT = RebornFont.arcade(name);
+        Component nameT = RebornFont.arcade(name);
         int nameY = s.live() && s.title() != null ? y + h / 2 - 7 : y + h / 2 - 2;
-        ctx.drawText(tr, nameT, x + (w - tr.getWidth(nameT)) / 2, nameY,
+        ctx.text(tr, nameT, x + (w - tr.width(nameT)) / 2, nameY,
             s.live() ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
         if (s.live() && s.title() != null && !s.title().isEmpty()) {
             String title = reborn$fit(tr, s.title(), w - 2 * (ARROW_W + 6));
-            Text tt = RebornFont.arcade(title);
-            ctx.drawText(tr, tt, x + (w - tr.getWidth(tt)) / 2, nameY + 12, Colors.FOREGROUND_MUTED, false);
+            Component tt = RebornFont.arcade(title);
+            ctx.text(tr, tt, x + (w - tr.width(tt)) / 2, nameY + 12, Colors.FOREGROUND_MUTED, false);
         }
 
         reborn$carouselChrome(ctx, tr, x, y, w, h, streams.size(), idx);
@@ -314,19 +314,19 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     /** Carré « Dev Blog » — carrousel des patch notes (flèches ‹ ›, auto-rotation,
      *  clic → ouvre la patch note sur le web). */
-    private void reborn$blogSquare(DrawContext ctx, TextRenderer tr, int x, int y, int w, int h) {
+    private void reborn$blogSquare(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h) {
         EscData.Snapshot snap = EscData.get();
         List<EscData.PatchNote> notes = snap != null ? snap.patchNotes() : List.of();
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, RADIUS, Colors.SURFACE, Colors.BORDER_STRONG);
-        ctx.drawText(tr, RebornFont.arcade("DEV BLOG"), x + 14, y + 13, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, RebornFont.arcade("DEV BLOG"), x + 14, y + 13, Colors.FOREGROUND_SUBTLE, false);
 
         int thumbY = y + 30;
         int thumbH = h - 30 - 30;
         DrawHelpers.roundedRect(ctx, x + 12, thumbY, w - 24, thumbH, 6, Colors.ACCENT_SOFT);
 
         if (notes.isEmpty()) {
-            Text ph = RebornFont.arcade("12 MAI - PATCH 1.0.5");
-            ctx.drawText(tr, reborn$fit(tr, "12 MAI - PATCH 1.0.5", w - 24),
+            Component ph = RebornFont.arcade("12 MAI - PATCH 1.0.5");
+            ctx.text(tr, reborn$fit(tr, "12 MAI - PATCH 1.0.5", w - 24),
                 x + 12, y + h - 14, Colors.FOREGROUND_MUTED, false);
             return;
         }
@@ -341,8 +341,8 @@ public abstract class GameMenuScreenMixin extends Screen {
 
         // Date en haut à droite.
         if (n.date() != null) {
-            Text dt = RebornFont.arcade(n.date());
-            ctx.drawText(tr, dt, x + w - 12 - tr.getWidth(dt), y + 13, Colors.FOREGROUND_MUTED, false);
+            Component dt = RebornFont.arcade(n.date());
+            ctx.text(tr, dt, x + w - 12 - tr.width(dt), y + 13, Colors.FOREGROUND_MUTED, false);
         }
 
         // Version - titre (cliquable) au-dessus du bas.
@@ -351,47 +351,47 @@ public abstract class GameMenuScreenMixin extends Screen {
             line = line.isEmpty() ? n.title() : line + " - " + n.title();
         }
         line = reborn$fit(tr, line, w - 2 * (ARROW_W + 6));
-        Text lt = RebornFont.arcade(line);
-        ctx.drawText(tr, lt, x + (w - tr.getWidth(lt)) / 2, y + h - 26, Colors.WHITE_PURE, false);
+        Component lt = RebornFont.arcade(line);
+        ctx.text(tr, lt, x + (w - tr.width(lt)) / 2, y + h - 26, Colors.WHITE_PURE, false);
 
         reborn$carouselChrome(ctx, tr, x, y, w, h, notes.size(), idx);
     }
 
     /** Flèches ‹ › + indicateur i/N, communs aux deux carrousels. */
-    private void reborn$carouselChrome(DrawContext ctx, TextRenderer tr, int x, int y, int w, int h,
+    private void reborn$carouselChrome(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h,
                                        int size, int idx) {
         if (size > 1) {
-            Text l = RebornFont.arcade("<");
-            Text r = RebornFont.arcade(">");
+            Component l = RebornFont.arcade("<");
+            Component r = RebornFont.arcade(">");
             int midY = y + h / 2 - 4;
-            ctx.drawText(tr, l, x + 5, midY, Colors.FOREGROUND_SUBTLE, false);
-            ctx.drawText(tr, r, x + w - 5 - tr.getWidth(r), midY, Colors.FOREGROUND_SUBTLE, false);
-            Text ind = RebornFont.arcade((idx + 1) + "/" + size);
-            ctx.drawText(tr, ind, x + (w - tr.getWidth(ind)) / 2, y + h - 12, Colors.FOREGROUND_MUTED, false);
+            ctx.text(tr, l, x + 5, midY, Colors.FOREGROUND_SUBTLE, false);
+            ctx.text(tr, r, x + w - 5 - tr.width(r), midY, Colors.FOREGROUND_SUBTLE, false);
+            Component ind = RebornFont.arcade((idx + 1) + "/" + size);
+            ctx.text(tr, ind, x + (w - tr.width(ind)) / 2, y + h - 12, Colors.FOREGROUND_MUTED, false);
         }
     }
 
     /** Tronque une chaîne ArcadePix pour qu'elle tienne dans {@code maxW} px. */
-    private String reborn$fit(TextRenderer tr, String s, int maxW) {
-        if (tr.getWidth(RebornFont.arcade(s)) <= maxW) return s;
-        while (s.length() > 1 && tr.getWidth(RebornFont.arcade(s + "..")) > maxW) {
+    private String reborn$fit(Font tr, String s, int maxW) {
+        if (tr.width(RebornFont.arcade(s)) <= maxW) return s;
+        while (s.length() > 1 && tr.width(RebornFont.arcade(s + "..")) > maxW) {
             s = s.substring(0, s.length() - 1);
         }
         return s.trim() + "..";
     }
 
     /** Contenu de la carte Boutique (header + gros libellé centré). ArcadePix. */
-    private void reborn$boutiqueContent(DrawContext ctx, TextRenderer tr, int x, int y, int w, int h) {
-        ctx.drawText(tr, RebornFont.arcade("BOUTIQUE"), x + 14, y + 13, Colors.FOREGROUND_SUBTLE, false);
-        Text big = RebornFont.arcade("BOUTIQUE");
+    private void reborn$boutiqueContent(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h) {
+        ctx.text(tr, RebornFont.arcade("BOUTIQUE"), x + 14, y + 13, Colors.FOREGROUND_SUBTLE, false);
+        Component big = RebornFont.arcade("BOUTIQUE");
         float sc = 2.0f;
-        int bw = Math.round(tr.getWidth(big) * sc);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + (w - bw) / 2f, y + h / 2f - 12, 0);
-        ctx.getMatrices().scale(sc, sc, 1f);
-        ctx.drawText(tr, big, 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
-        Text hint = RebornFont.arcade("BIENTOT DISPONIBLE");
-        ctx.drawText(tr, hint, x + (w - tr.getWidth(hint)) / 2, y + h / 2 + 14, Colors.FOREGROUND_MUTED, false);
+        int bw = Math.round(tr.width(big) * sc);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x + (w - bw) / 2f, y + h / 2f - 12);
+        ctx.pose().scale(sc, sc);
+        ctx.text(tr, big, 0, 0, Colors.WHITE_PURE, false);
+        ctx.pose().popMatrix();
+        Component hint = RebornFont.arcade("BIENTOT DISPONIBLE");
+        ctx.text(tr, hint, x + (w - tr.width(hint)) / 2, y + h / 2 + 14, Colors.FOREGROUND_MUTED, false);
     }
 }

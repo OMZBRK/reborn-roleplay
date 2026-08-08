@@ -30,7 +30,7 @@ public final class DynamicPlayerAssets {
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/dyn-assets");
 
     /** Bump quand on modifie un des fichiers bundlés -> force l'extraction. */
-    private static final String ASSETS_VERSION = "2";
+    private static final String ASSETS_VERSION = "3";
 
     /** Liste explicite des assets à extraire. Pas de scan recursif du jar
      *  (lent + casse en runClient ou les resources viennent du dossier dev). */

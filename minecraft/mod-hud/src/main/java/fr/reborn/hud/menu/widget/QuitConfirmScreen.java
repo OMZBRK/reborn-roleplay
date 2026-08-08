@@ -3,18 +3,18 @@ package fr.reborn.hud.menu.widget;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * Modal de confirmation "Quitter Reborn ?" — overlay au-dessus du
  * main menu. Click en dehors / Annuler ramène au main menu. Quitter
- * appelle {@code MinecraftClient#scheduleStop}.
+ * appelle {@code Minecraft#stop}.
  *
  * <p>Layout : backdrop noir + card centrée (320×170) avec :
  * <ol>
@@ -34,7 +34,7 @@ public class QuitConfirmScreen extends Screen {
     private static final int CARD_H = 170;
 
     public QuitConfirmScreen(Screen parent) {
-        super(Text.literal("Quitter Reborn"));
+        super(Component.literal("Quitter Reborn"));
         this.parent = parent;
     }
 
@@ -50,44 +50,44 @@ public class QuitConfirmScreen extends Screen {
         int gap = 12;
         int btnY = cardY + cardH - 22 - btnH;
 
-        this.addDrawableChild(RebornButton.ghost(
+        this.addRenderableWidget(RebornButton.ghost(
             cardX + cardW / 2 - btnW - gap / 2, btnY, btnW, btnH,
-            "Annuler", b -> close()
+            "Annuler", b -> onClose()
         ));
-        this.addDrawableChild(RebornButton.danger(
+        this.addRenderableWidget(RebornButton.danger(
             cardX + cardW / 2 + gap / 2, btnY, btnW, btnH,
-            "Quitter", b -> MinecraftClient.getInstance().scheduleStop()
+            "Quitter", b -> Minecraft.getInstance().stop()
         ));
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         // Fond noir total. Pas de blur natif sans shader custom, donc
         // overlay opaque qui focus l'attention sur la modal.
         context.fill(0, 0, this.width, this.height, Colors.BACKGROUND);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         // Ordre critique : background → card+contenu → enfants (boutons).
-        // Sinon super.render() dessine les boutons EN PREMIER, puis on
+        // Sinon super.extractRenderState() dessine les boutons EN PREMIER, puis on
         // dessine la card par-dessus et les boutons sont masqués.
-        this.renderBackground(context, mouseX, mouseY, delta);
+        this.extractBackground(context, mouseX, mouseY, delta);
 
         drawCard(context);
 
         // Enfants (RebornButton ghost + danger) au-dessus de la card.
-        for (Element e : this.children()) {
-            if (e instanceof Drawable d) {
-                d.render(context, mouseX, mouseY, delta);
+        for (GuiEventListener e : this.children()) {
+            if (e instanceof Renderable d) {
+                d.extractRenderState(context, mouseX, mouseY, delta);
             }
         }
     }
 
-    private void drawCard(DrawContext context) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    private void drawCard(GuiGraphicsExtractor context) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         int cardW = Math.min(CARD_W, this.width - 24);
         int cardH = Math.min(CARD_H, this.height - 24);
@@ -102,36 +102,36 @@ public class QuitConfirmScreen extends Screen {
         context.fill(cardX + 12, cardY, cardX + cardW - 12, cardY + 2, Colors.ACCENT);
 
         // Titre — Bebas Neue display équilibré (1.4x).
-        Text title = RebornFont.bold("Quitter Reborn ?");
+        Component title = RebornFont.bold("Quitter Reborn ?");
         float titleScale = 1.4f;
-        int titleW = Math.round(tr.getWidth(title) * titleScale);
+        int titleW = Math.round(tr.width(title) * titleScale);
         int titleX = cardX + (cardW - titleW) / 2;
         int titleY = cardY + 22;
-        context.getMatrices().push();
-        context.getMatrices().translate(titleX, titleY, 0);
-        context.getMatrices().scale(titleScale, titleScale, 1f);
-        context.drawText(tr, title, 0, 0, Colors.WHITE_PURE, false);
-        context.getMatrices().pop();
+        context.pose().pushMatrix();
+        context.pose().translate(titleX, titleY);
+        context.pose().scale(titleScale, titleScale);
+        context.text(tr, title, 0, 0, Colors.WHITE_PURE, false);
+        context.pose().popMatrix();
 
         // Description — taille normale, lisible, ligne sous le titre.
-        Text desc = RebornFont.body("Tu vas être déconnecté du serveur");
-        Text desc2 = RebornFont.body("et fermer Minecraft.");
-        int descW = tr.getWidth(desc);
-        int desc2W = tr.getWidth(desc2);
+        Component desc = RebornFont.body("Tu vas être déconnecté du serveur");
+        Component desc2 = RebornFont.body("et fermer Minecraft.");
+        int descW = tr.width(desc);
+        int desc2W = tr.width(desc2);
         int descY = cardY + 60;
-        context.drawText(tr, desc, cardX + (cardW - descW) / 2, descY,
+        context.text(tr, desc, cardX + (cardW - descW) / 2, descY,
             Colors.FOREGROUND_SUBTLE, false);
-        context.drawText(tr, desc2, cardX + (cardW - desc2W) / 2, descY + 12,
+        context.text(tr, desc2, cardX + (cardW - desc2W) / 2, descY + 12,
             Colors.FOREGROUND_SUBTLE, false);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+    public void onClose() {
+        Minecraft.getInstance().setScreen(parent);
     }
 }

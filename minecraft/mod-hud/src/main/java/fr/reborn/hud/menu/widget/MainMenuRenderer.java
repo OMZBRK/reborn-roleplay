@@ -5,17 +5,17 @@ import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.MainMenuFlow;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornVersion;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 /**
  * Orchestrateur du rendu passif du main menu Reborn — layout v5 façon
  * Paladium Reforged, en deux étages ({@link MainMenuFlow}).
  *
  * <p>Composants passifs (les éléments cliquables — entrées de menu,
- * contrôles OST — restent des ClickableWidget gérés par le screen) :
+ * contrôles OST — restent des AbstractWidget gérés par le screen) :
  * <ul>
  *   <li>BG plein écran : Dynamic Animated Player 3D via MCEF browser.</li>
  *   <li>Voile de lisibilité sobre (dégradés haut/bas, aucun accent).</li>
@@ -97,7 +97,7 @@ public final class MainMenuRenderer {
 
     private MainMenuRenderer() {}
 
-    public static void render(DrawContext ctx, int screenW, int screenH,
+    public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH,
                               int mouseX, int mouseY, boolean ostRevealed) {
         // 1. Dynamic Animated Player en BG (MCEF browser plein écran).
         DynamicPlayerBackground.render(ctx, screenW, screenH);
@@ -118,7 +118,7 @@ public final class MainMenuRenderer {
         // Fond du panneau OST (les contrôles sont des widgets rendus
         // par-dessus par le screen).
         if (ostRevealed) {
-            OSTPlayerV2.renderBackground(ctx, ostPanelX(), ostPanelY());
+            OSTPlayerV2.extractBackground(ctx, ostPanelX(), ostPanelY());
         }
     }
 
@@ -126,7 +126,7 @@ public final class MainMenuRenderer {
      * Voile de lisibilité minimal : deux dégradés doux (haut + bas) pour
      * garantir le contraste du texte sur un BG MCEF potentiellement clair.
      */
-    private static void renderLegibilityScrim(DrawContext ctx, int screenW, int screenH) {
+    private static void renderLegibilityScrim(GuiGraphicsExtractor ctx, int screenW, int screenH) {
         int band = Math.max(64, screenH / 5);
         verticalFade(ctx, 0, 0, screenW, band, 0x66000000, 0x00000000);
         verticalFade(ctx, 0, screenH - band, screenW, band, 0x00000000, 0x88000000);
@@ -136,15 +136,15 @@ public final class MainMenuRenderer {
      * Petite marque Reborn top-left — PLACEHOLDER. À remplacer par la
      * texture nuage Akatsuki dessinée sous Aseprite (déposer un PNG dans
      * {@code assets/reborn/textures/gui/title/cloud.png} et swapper ce
-     * bloc par un {@code ctx.drawTexture(...)}).
+     * bloc par un {@code ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, ...)}).
      *
      * <p>Pour l'instant : blob crimson arrondi + « R » display. Bordure qui
      * s'éclaire au survol pour indiquer que c'est interactif (révèle l'OST).
      */
-    private static void renderTopLeftMark(DrawContext ctx, boolean hovered) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    private static void renderTopLeftMark(GuiGraphicsExtractor ctx, boolean hovered) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         int x = LOGO_X;
         int y = LOGO_Y;
@@ -155,26 +155,26 @@ public final class MainMenuRenderer {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, s, s, 8, bg, border);
 
         // « R » ArcadePix centré (placeholder du futur nuage Akatsuki).
-        Text r = RebornFont.arcade("R");
+        Component r = RebornFont.arcade("R");
         float scale = 2.0f;
-        int rw = Math.round(tr.getWidth(r) * scale);
-        int rh = Math.round(tr.fontHeight * scale);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x + (s - rw) / 2f, y + (s - rh) / 2f, 0);
-        ctx.getMatrices().scale(scale, scale, 1f);
-        ctx.drawText(tr, r, 0, 0, hovered ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
-        ctx.getMatrices().pop();
+        int rw = Math.round(tr.width(r) * scale);
+        int rh = Math.round(tr.lineHeight * scale);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x + (s - rw) / 2f, y + (s - rh) / 2f);
+        ctx.pose().scale(scale, scale);
+        ctx.text(tr, r, 0, 0, hovered ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
+        ctx.pose().popMatrix();
     }
 
     /** Version en haut-droite : « REBORN <ver> » + tag « ROLEPLAY ». */
-    private static void renderVersionTopRight(DrawContext ctx, int screenW) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    private static void renderVersionTopRight(GuiGraphicsExtractor ctx, int screenW) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         // ArcadePix, majuscules, plus petit, même couleur pour les 2 lignes.
-        Text line1 = RebornFont.arcade("REBORN " + RebornVersion.MOD_VERSION.toUpperCase());
-        Text line2 = RebornFont.arcade("ROLEPLAY");
+        Component line1 = RebornFont.arcade("REBORN " + RebornVersion.MOD_VERSION.toUpperCase());
+        Component line2 = RebornFont.arcade("ROLEPLAY");
         float scale = 0.8f;
         int color = 0xFFD1D5DB;
         drawRightAligned(ctx, tr, line1, scale, screenW - 14, 12, color);
@@ -185,30 +185,30 @@ public final class MainMenuRenderer {
      * Crédits en bas-droite du menu — mêmes lignes que le splash (ArcadePix),
      * en plus petit, alignées à droite.
      */
-    private static void renderCreditsBottomRight(DrawContext ctx, int screenW, int screenH) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    private static void renderCreditsBottomRight(GuiGraphicsExtractor ctx, int screenW, int screenH) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         float scale = 0.6f;
-        Text l1 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_1);
-        Text l2 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_2);
+        Component l1 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_1);
+        Component l2 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_2);
         drawRightAligned(ctx, tr, l2, scale, screenW - 12, screenH - 10, 0xFFB6BAC2);
         drawRightAligned(ctx, tr, l1, scale, screenW - 12, screenH - 17, 0xFFD1D5DB);
     }
 
     /** Dessine {@code text} (scaled) aligné à droite sur {@code rightX}, baseline {@code y}. */
-    private static void drawRightAligned(DrawContext ctx, TextRenderer tr, Text text,
+    private static void drawRightAligned(GuiGraphicsExtractor ctx, Font tr, Component text,
                                          float scale, int rightX, int y, int color) {
-        int w = Math.round(tr.getWidth(text) * scale);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(rightX - w, y, 0);
-        ctx.getMatrices().scale(scale, scale, 1f);
-        ctx.drawText(tr, text, 0, 0, color, true);
-        ctx.getMatrices().pop();
+        int w = Math.round(tr.width(text) * scale);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(rightX - w, y);
+        ctx.pose().scale(scale, scale);
+        ctx.text(tr, text, 0, 0, color, true);
+        ctx.pose().popMatrix();
     }
 
-    private static void verticalFade(DrawContext ctx, int x, int y, int w, int h, int colorTop, int colorBot) {
+    private static void verticalFade(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int colorTop, int colorBot) {
         if (h <= 0 || w <= 0) return;
         for (int i = 0; i < h; i++) {
             float t = (float) i / h;

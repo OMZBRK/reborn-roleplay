@@ -2,8 +2,8 @@ package fr.reborn.hud.menu.settings;
 
 import fr.reborn.hud.animation.AnimationMenuScreen;
 import fr.reborn.hud.camera.RebornCamera;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 
 /**
  * Onglet Caméra — expose la vue épaule 3e personne Reborn (feature phare
@@ -57,7 +57,7 @@ public class CameraTab extends SectionedTab {
 
         labelRow("Style de marche", "Animation utilisée quand vous marchez");
         actionButton("→ Choisir ma démarche", () -> {
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
             if (mc != null) mc.setScreen(new AnimationMenuScreen(parent));
         });
 

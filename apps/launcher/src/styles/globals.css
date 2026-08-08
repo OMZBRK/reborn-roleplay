@@ -125,7 +125,7 @@ body,
   color: #fff;
 }
 
-/* Scrollbar entierement masquee globalement (style Zenkai) : le scroll
+/* Scrollbar entierement masquee globalement (style Reborn) : le scroll
    reste pleinement fonctionnel (molette, touch, drag), c'est juste le
    visuel de la barre qui disparait. Sans ca, la track Windows par
    defaut ressort agressivement sur les ecrans avec contenu long
@@ -2035,6 +2035,9 @@ body,
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 22px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 .wl-recap-header {
   display: flex;
@@ -2051,15 +2054,28 @@ body,
   line-height: 1;
 }
 .wl-recap-fields {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .wl-recap-fields {
+    grid-template-columns: 1fr;
+  }
 }
 .wl-recap-field {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 14px 16px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+/* Champs narratifs longs : pleine largeur de la grille. */
+.wl-recap-field.is-wide {
+  grid-column: 1 / -1;
 }
 .wl-recap-label {
   font-family: var(--font-mono);
@@ -2075,6 +2091,12 @@ body,
   color: var(--color-foreground);
   font-weight: 500;
   white-space: pre-wrap;
+  /* Casse aussi les chaînes continues sans espace (ex. "AZEEE…E") pour
+     qu'elles ne débordent plus de la carte. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
 }
 .wl-recap-empty {
   color: var(--color-foreground-muted);
@@ -2455,6 +2477,325 @@ body,
   padding: 18px 0 24px;
 }
 
+/* ---------- L5 : section test oral (candidat) ---------- */
+.wl-oral-card {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+.wl-oral-badge {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+  display: grid;
+  place-items: center;
+}
+.wl-oral-pills {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.wl-oral-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wl-oral-pill-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+.wl-oral-pill.is-pending {
+  color: var(--color-foreground-muted);
+}
+.wl-oral-pill.is-ok {
+  color: var(--color-success);
+}
+.wl-oral-pill.is-bad {
+  color: var(--color-danger);
+}
+.wl-oral-pill.is-warn {
+  color: var(--color-warning);
+}
+.wl-oral-err {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+  font-size: 12px;
+}
+.wl-oral-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+}
+.wl-oral-note.wl-oral-ok {
+  color: var(--color-success);
+}
+.wl-oral-lead {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-foreground);
+}
+.wl-oral-day {
+  margin-bottom: 12px;
+}
+.wl-oral-day-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+  margin-bottom: 6px;
+}
+.wl-oral-slot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wl-oral-slot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.wl-oral-slot-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+}
+.wl-oral-slot-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.wl-oral-booked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.wl-oral-booked-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-accent-hover);
+}
+.wl-oral-booked-when {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  text-transform: capitalize;
+}
+.wl-oral-booked-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+}
+
+/* ---------- Scroll container des onglets (candidature + oral) ---------- */
+/* Fait défiler proprement tout le contenu (comme lore/règlement) au lieu de
+   clipper : l'onglet remplit la hauteur restante et scrolle en interne. */
+.wl-status-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 28px;
+  scroll-behavior: smooth;
+}
+
+/* ---------- L5 : test oral en page dédiée (Choisir / Programmé) ---------- */
+.wl-oral-page {
+  padding-top: 4px;
+}
+.wl-oral-statusbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.wl-oral-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.wl-oral-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin: 0;
+}
+.wl-oral-count {
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+  white-space: nowrap;
+}
+.wl-oral-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.wl-oral-cardslot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  text-align: left;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast),
+    background var(--duration-fast),
+    transform var(--duration-fast);
+}
+.wl-oral-cardslot:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--color-accent);
+  background: var(--color-surface-elevated);
+  box-shadow: 0 0 0 1px var(--color-accent-glow);
+}
+.wl-oral-cardslot:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.wl-oral-cardslot-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-accent-hover);
+}
+.wl-oral-cardslot-day {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.wl-oral-cardslot-time {
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--color-foreground-subtle);
+}
+.wl-oral-cardslot-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+
+/* Entretien programmé (créneau réservé) */
+.wl-oral-booked-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 28px 32px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  margin-bottom: 18px;
+}
+.wl-oral-booked-illu {
+  flex-shrink: 0;
+  color: var(--color-foreground-muted);
+  opacity: 0.18;
+}
+.wl-oral-booked-body {
+  flex: 1;
+  min-width: 0;
+}
+.wl-oral-booked-day {
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: 0.01em;
+  color: var(--color-foreground);
+  line-height: 1.1;
+}
+.wl-oral-booked-times {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-foreground-subtle);
+}
+.wl-oral-booked-times b {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+.wl-oral-booked-cal {
+  flex-shrink: 0;
+  align-self: flex-start;
+  color: var(--color-accent-hover);
+}
+.wl-oral-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+.wl-oral-booked-actions {
+  display: flex;
+  gap: 12px;
+}
+.wl-oral-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+.wl-oral-btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-foreground-muted);
+  background: var(--color-surface);
+}
+.wl-oral-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Onglet Test oral actif (teinte accent, distinct du warning) */
+.wl-tab-active.wl-tab-oral {
+  background: var(--color-accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  color: var(--color-accent-hover);
+  font-weight: 600;
+}
+
 /* ============================================================
    Tickets — layout 2 panes (sidebar liste + chat pane)
    Reutilise les classes wl-msg-* / wl-chat-* pour le chat lui-meme.
@@ -2721,7 +3062,8 @@ body,
   border-radius: var(--radius-lg);
   padding: 22px;
 }
-.tk-create-card select.wl-input {
+.tk-create-card select.wl-input,
+select.tk-create-select {
   appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
   background-repeat: no-repeat;
@@ -2729,6 +3071,336 @@ body,
   background-size: 14px;
   padding-right: 36px;
   height: 42px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Tickets — hub d'accueil 2 cartes (maquette ticketref)
+   ───────────────────────────────────────────────────────── */
+.tk-hub {
+  min-height: 100%;
+  padding: 44px 56px 40px;
+  width: 100%;
+}
+.tk-hub-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 34px;
+}
+.tk-hub-icon {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  display: grid;
+  place-items: center;
+  color: var(--color-accent-hover);
+  background: var(--color-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: 0 0 20px var(--color-accent-glow);
+}
+.tk-hub-icon.sm {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.tk-hub-title {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--color-foreground);
+}
+.tk-hub-sub {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+.tk-hub-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  max-width: 980px;
+}
+.tk-hub-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 210px;
+  padding: 26px 28px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition:
+    border-color var(--duration-base),
+    background var(--duration-base),
+    transform var(--duration-fast),
+    box-shadow var(--duration-base);
+}
+/* Texture grille discrète en fond (comme la maquette). */
+.tk-hub-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+  background-size: 38px 38px;
+  opacity: 0.22;
+  pointer-events: none;
+  mask-image: radial-gradient(120% 120% at 70% 80%, #000 0%, transparent 75%);
+}
+.tk-hub-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-accent);
+  background: var(--color-surface-elevated);
+  box-shadow: 0 0 0 1px var(--color-accent-glow), 0 12px 30px -14px var(--color-accent-glow-strong);
+}
+.tk-hub-card-body {
+  position: relative;
+  z-index: 1;
+}
+.tk-hub-card-title {
+  font-family: var(--font-display);
+  font-size: 25px;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--color-foreground);
+}
+.tk-hub-card-count {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--color-foreground-muted);
+}
+.tk-hub-card-art {
+  position: absolute;
+  right: 14px;
+  bottom: -14px;
+  color: var(--color-foreground-muted);
+  opacity: 0.16;
+  pointer-events: none;
+}
+.tk-hub-card:hover .tk-hub-card-art {
+  color: var(--color-accent-hover);
+  opacity: 0.24;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Tickets — formulaire de création plein écran (newticketref)
+   ───────────────────────────────────────────────────────── */
+.tk-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  margin: 0 0 12px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+  transition: color var(--duration-fast);
+}
+.tk-back:hover {
+  color: var(--color-accent-hover);
+}
+
+.tk-create-view {
+  min-height: 100%;
+  padding: 34px 56px 40px;
+  width: 100%;
+}
+.tk-create-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 34px;
+}
+.tk-back-round {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  transition: background var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
+}
+.tk-back-round:hover:not(:disabled) {
+  color: var(--color-foreground);
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+}
+.tk-back-round:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.tk-create-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--color-foreground);
+}
+.tk-create-title .accent {
+  color: var(--color-accent-hover);
+}
+.tk-create-form {
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.tk-create-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 22px;
+}
+@media (max-width: 760px) {
+  .tk-create-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dropzone fichier */
+.tk-drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.tk-drop:hover {
+  border-color: var(--color-foreground-muted);
+  background: var(--color-surface-elevated);
+}
+.tk-drop.is-drag {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.tk-drop-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.tk-drop-sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--color-foreground-muted);
+}
+.tk-drop-icon {
+  flex-shrink: 0;
+  color: var(--color-foreground-muted);
+}
+.tk-drop-files {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: calc(100% + 8px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tk-drop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+}
+.tk-drop-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tk-drop-chip button {
+  display: grid;
+  place-items: center;
+  color: var(--color-foreground-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.tk-drop-chip button:hover {
+  color: var(--color-danger);
+}
+
+/* Actions Annuler / Envoyer */
+.tk-create-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+.tk-btn-cancel {
+  flex: 0 0 auto;
+  min-width: 150px;
+  padding: 13px 20px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-foreground);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+.tk-btn-cancel:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: var(--color-foreground-muted);
+}
+.tk-btn-submit {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 13px 20px;
+  border-radius: var(--radius-md);
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  box-shadow: 0 0 0 1px var(--color-accent-soft), 0 6px 18px -6px var(--color-accent-glow-strong);
+  transition: filter var(--duration-fast), box-shadow var(--duration-base), opacity var(--duration-fast);
+}
+.tk-btn-submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 1px var(--color-accent-soft), 0 8px 26px -6px var(--color-accent-glow-strong);
+}
+.tk-btn-cancel:disabled,
+.tk-btn-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* ---------- Result pages (rejected / accepted) ---------- */
@@ -4081,9 +4753,10 @@ body,
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 36px 56px 28px;
+  gap: 32px;
+  padding: 44px 64px 40px;
   overflow-y: auto;
+  scroll-behavior: smooth;
   background-image:
     radial-gradient(ellipse 80% 50% at 50% 0%, rgba(160, 24, 43, 0.08) 0%, transparent 60%);
   background-color: var(--color-background);
@@ -4253,7 +4926,7 @@ body,
 .reborn-home-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 .reborn-home-section-head {
   display: flex;
@@ -4272,8 +4945,8 @@ body,
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 12px;
-  height: 280px;
+  gap: 16px;
+  height: 300px;
 }
 .reborn-news-card {
   position: relative;

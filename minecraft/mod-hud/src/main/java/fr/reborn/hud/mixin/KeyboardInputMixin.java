@@ -1,11 +1,12 @@
 package fr.reborn.hud.mixin;
 
 import fr.reborn.hud.camera.RebornCamera;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.Input;
-import net.minecraft.client.input.KeyboardInput;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.client.player.KeyboardInput;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,9 +23,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * orbite la caméra, ZQSD déplace le perso dans le repère caméra, et le corps
  * pivote pour faire face au déplacement.
  *
- * <p>NB : {@code movementForward}/{@code movementSideways} vivent dans la
- * superclasse {@link Input} (pas dans {@link KeyboardInput}), donc on caste
- * {@code (Input)(Object)this} pour y accéder plutôt que {@code @Shadow}.
+ * <p>NB (26.1) : l'ancien {@code Input} mutable a disparu. Le mouvement calculé
+ * vit désormais dans {@code ClientInput#moveVector} (un {@link Vec2} :
+ * {@code x} = latéral, {@code y} = avant), superclasse de {@link KeyboardInput}
+ * — on y accède par {@code @Shadow}.
  */
 @Mixin(KeyboardInput.class)
 public abstract class KeyboardInputMixin {
@@ -33,36 +35,60 @@ public abstract class KeyboardInputMixin {
     @Unique
     private int reborn$aimHold = 0;
 
+    // 26.1 : KeyboardInput#tick() ne prend plus (boolean slowDown, float factor).
     @Inject(method = "tick", at = @At("TAIL"))
-    private void reborn$cameraRelativeMovement(boolean slowDown, float slowDownFactor, CallbackInfo ci) {
+    private void reborn$cameraRelativeMovement(CallbackInfo ci) {
         RebornCamera cam = RebornCamera.INSTANCE;
         if (!cam.isEnabled()) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
         if (player == null || mc.options == null) return;
+
+        float cyaw = (float) cam.camYaw();
 
         // AIM-MODE : attaquer (clic gauche) / utiliser (clic droit) → le perso
         // s'aligne sur la caméra pour que minage / combat / placement visent le
         // viseur. « Collant » ~10 ticks après le dernier clic pour un PVP fluide
         // (on peut strafe autour de la cible en gardant l'aim).
-        if (mc.options.attackKey.isPressed() || mc.options.useKey.isPressed()) {
+        if (mc.options.keyAttack.isDown() || mc.options.keyUse.isDown()) {
             reborn$aimHold = 10;
         }
         if (reborn$aimHold > 0) {
             reborn$aimHold--;
-            float cyaw = (float) cam.camYaw();
             float cpitch = (float) cam.camPitch();
-            player.setYaw(cyaw);
-            player.setPitch(cpitch);
-            player.setBodyYaw(cyaw);
-            player.setHeadYaw(cyaw);
+            player.setYRot(cyaw);
+            player.setXRot(cpitch);
+            player.setYBodyRot(cyaw);
+            player.setYHeadRot(cyaw);
             return; // déplacement reste relatif caméra (yaw = camYaw)
         }
 
-        Input in = (Input) (Object) this;
-        float mf = in.movementForward;
-        float ms = in.movementSideways;
-        if (mf == 0f && ms == 0f) return; // pas d'input → garde l'orientation
+        // FREE-LOOK (sur les deux modes) : la caméra orbite librement
+        // (EntityChangeLookMixin route la souris vers l'orbite). À l'arrêt on
+        // tourne autour du perso sans le faire pivoter.
+        Vec2 mv = ((ClientInput) (Object) this).getMoveVector();
+        float mf = mv.y; // avant
+        float ms = mv.x; // latéral
+        if (mf == 0f && ms == 0f) return; // arrêt → free-look, garde l'orientation
+        // FREE-LOOK (maintien ALT) : on regarde autour sans réorienter le corps.
+        // Le déplacement reste relatif au perso (input vanilla), la caméra orbite.
+        if (cam.freeLook()) return;
+
+        // BASE (marche / course) — principe Minecraft : le perso suit la caméra
+        // (souris). On pose yaw = camYaw pour que le DÉPLACEMENT soit relatif
+        // caméra ce tick ; l'orientation VISIBLE du corps est re-forcée en
+        // post-tick (LocalPlayerBodyMixin) car vanilla tourne sinon le corps vers
+        // la direction de déplacement, écrasant notre valeur. À l'arrêt : rien →
+        // free-look. Le pivot vers la direction de déplacement = Naruto run.
+        if (!fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive()) {
+            player.setYRot(cyaw);
+            player.setYBodyRot(cyaw);
+            player.setYHeadRot(cyaw);
+            return;
+        }
+
+        // NARUTO RUN — principe Elden Ring : le corps pivote vers la direction de
+        // déplacement (free-run), caméra libre.
 
         double cy = Math.toRadians(cam.camYaw());
         // Repère caméra : avant = (-sin, cos) ; latéral = (-cos, -sin).
@@ -73,14 +99,14 @@ public abstract class KeyboardInputMixin {
         double dz = fz * mf - lz * ms;
 
         float target = (float) Math.toDegrees(Math.atan2(-dx, dz));
-        float ny = MathHelper.lerpAngleDegrees((float) cam.turnSpeed(), player.getYaw(), target);
-        player.setYaw(ny);
-        player.setBodyYaw(ny);
-        player.setHeadYaw(ny);
+        float ny = Mth.rotLerp((float) cam.turnSpeed(), player.getYRot(), target);
+        player.setYRot(ny);
+        player.setYBodyRot(ny);
+        player.setYHeadRot(ny);
 
         // Le perso court « tout droit » dans son orientation (magnitude conservée
         // pour garder le ralenti sneak/objet).
-        in.movementForward = (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms));
-        in.movementSideways = 0f;
+        ((ClientInputAccessor) (Object) this)
+            .reborn$setMoveVector(new Vec2(0f, (float) Math.min(1.0, Math.sqrt(mf * mf + ms * ms))));
     }
 }

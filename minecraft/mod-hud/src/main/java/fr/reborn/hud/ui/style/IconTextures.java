@@ -1,11 +1,11 @@
 package fr.reborn.hud.ui.style;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,12 +38,12 @@ public final class IconTextures {
     private static final Map<String, Identifier> lazyRegistered = new HashMap<>();
 
     static {
-        bundled.put("close",   Identifier.of("reborn-hud", "textures/icons/close.png"));
-        bundled.put("undo",    Identifier.of("reborn-hud", "textures/icons/undo.png"));
-        bundled.put("redo",    Identifier.of("reborn-hud", "textures/icons/redo.png"));
-        bundled.put("gear",    Identifier.of("reborn-hud", "textures/icons/gear.png"));
-        bundled.put("menu",    Identifier.of("reborn-hud", "textures/icons/menu.png"));
-        bundled.put("discord", Identifier.of("reborn-hud", "textures/icons/discord.png"));
+        bundled.put("close",   Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/close.png"));
+        bundled.put("undo",    Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/undo.png"));
+        bundled.put("redo",    Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/redo.png"));
+        bundled.put("gear",    Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/gear.png"));
+        bundled.put("menu",    Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/menu.png"));
+        bundled.put("discord", Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/discord.png"));
 
         // Patterns 16×16 pour les icônes qu'on n'a pas en PNG
         lazyPatterns.put("eye_open", new String[]{
@@ -112,7 +112,7 @@ public final class IconTextures {
     /**
      * Render une icône à (x, y) avec une taille donnée et tint color ARGB.
      */
-    public static void draw(DrawContext ctx, String name, int x, int y, int size, int colorArgb) {
+    public static void draw(GuiGraphicsExtractor ctx, String name, int x, int y, int size, int colorArgb) {
         Identifier id = bundled.get(name);
         if (id == null) {
             id = lazyRegistered.get(name);
@@ -126,9 +126,9 @@ public final class IconTextures {
         float r = ((colorArgb >>> 16) & 0xFF) / 255f;
         float g = ((colorArgb >>>  8) & 0xFF) / 255f;
         float b = ( colorArgb         & 0xFF) / 255f;
-        RenderSystem.setShaderColor(r, g, b, a);
-        ctx.drawTexture(id, x, y, 0, 0, size, size, size, size);
-        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        ;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, size, size, size, size);
+        ;
     }
 
     /** Crée la texture lazy depuis le pattern, ou null si pas trouvé. */
@@ -141,12 +141,12 @@ public final class IconTextures {
                 String row = yy < pattern.length ? pattern[yy] : "";
                 for (int xx = 0; xx < LAZY_SIZE; xx++) {
                     char c = xx < row.length() ? row.charAt(xx) : '.';
-                    img.setColor(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
+                    img.setPixelABGR(xx, yy, (c == '#') ? 0xFFFFFFFF : 0x00000000);
                 }
             }
-            NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
-            Identifier id = Identifier.of("reborn-hud", "icons/lazy/" + name);
-            MinecraftClient.getInstance().getTextureManager().registerTexture(id, tex);
+            DynamicTexture tex = new DynamicTexture(() -> "reborn-tex", img);
+            Identifier id = Identifier.fromNamespaceAndPath("reborn-hud", "icons/lazy/" + name);
+            Minecraft.getInstance().getTextureManager().register(id, tex);
             lazyRegistered.put(name, id);
             return id;
         } catch (RuntimeException e) {

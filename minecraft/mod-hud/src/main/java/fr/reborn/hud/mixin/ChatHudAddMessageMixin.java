@@ -5,19 +5,22 @@ import fr.reborn.hud.chat.ChatBlockList;
 import fr.reborn.hud.chat.ChatSettings;
 import fr.reborn.hud.chat.MentionDetector;
 import fr.reborn.hud.chat.MessageTimestamps;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.multiplayer.chat.GuiMessageSource;
+import net.minecraft.client.multiplayer.chat.GuiMessageTag;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MessageSignature;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Mixin sur {@code ChatHud.addMessage(Text)} pour détecter les mentions
+ * Mixin sur {@code ChatComponent.addMessage(Component)} pour détecter les mentions
  * du joueur local et déclencher :
  * <ul>
  *   <li>Un son de notification discret (cloche).</li>
@@ -30,7 +33,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * tout. Le toggle {@code chatSettings.soundOnMention} contrôle séparément
  * le son (parfois on veut le flash sans bip).
  */
-@Mixin(ChatHud.class)
+@Mixin(ChatComponent.class)
 public abstract class ChatHudAddMessageMixin {
 
     /**
@@ -38,8 +41,10 @@ public abstract class ChatHudAddMessageMixin {
      * (premier pseudo en ligne trouvé dans le texte), on annule l'ajout — le
      * message n'apparaît jamais. Additif : n'affecte pas le layout vanilla.
      */
-    @Inject(method = "addMessage(Lnet/minecraft/text/Text;)V", at = @At("HEAD"), cancellable = true)
-    private void reborn$blockFilter(Text message, CallbackInfo ci) {
+    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+            at = @At("HEAD"), cancellable = true)
+    private void reborn$blockFilter(Component message, MessageSignature signature,
+                                    GuiMessageSource source, GuiMessageTag tag, CallbackInfo ci) {
         try {
             if (reborn$isFromBlocked(message.getString())) {
                 ci.cancel();
@@ -48,12 +53,12 @@ public abstract class ChatHudAddMessageMixin {
     }
 
     private static boolean reborn$isFromBlocked(String plain) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.getNetworkHandler() == null) return false;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() == null) return false;
         String earliest = null;
         int bestIdx = Integer.MAX_VALUE;
-        for (PlayerListEntry e : mc.getNetworkHandler().getPlayerList()) {
-            String name = e.getProfile() != null ? e.getProfile().getName() : null;
+        for (PlayerInfo e : mc.getConnection().getOnlinePlayers()) {
+            String name = e.getProfile() != null ? e.getProfile().name() : null;
             if (name == null || name.isEmpty()) continue;
             int idx = plain.indexOf(name);
             if (idx >= 0 && idx < bestIdx) {
@@ -64,26 +69,28 @@ public abstract class ChatHudAddMessageMixin {
         return earliest != null && ChatBlockList.INSTANCE.isBlocked(earliest);
     }
 
-    @Inject(method = "addMessage(Lnet/minecraft/text/Text;)V", at = @At("TAIL"))
-    private void reborn$detectMention(Text message, CallbackInfo ci) {
+    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+            at = @At("TAIL"))
+    private void reborn$detectMention(Component message, MessageSignature signature,
+                                      GuiMessageSource source, GuiMessageTag tag, CallbackInfo ci) {
         try {
             // Record real-time timestamp pour le custom render
-            int tick = MinecraftClient.getInstance().inGameHud.getTicks();
+            int tick = Minecraft.getInstance().gui.getGuiTicks();
             MessageTimestamps.record(tick);
 
             ChatSettings settings = RebornHudClient.config().getChatSettings();
             if (!settings.highlightMentions) return;
 
-            MinecraftClient mc = MinecraftClient.getInstance();
-            ClientPlayerEntity player = mc.player;
+            Minecraft mc = Minecraft.getInstance();
+            LocalPlayer player = mc.player;
             if (player == null) return;
-            String pseudo = player.getGameProfile().getName();
+            String pseudo = player.getGameProfile().name();
 
             if (MentionDetector.isMentioned(message.getString(), pseudo)) {
                 if (settings.soundOnMention && mc.getSoundManager() != null) {
                     mc.getSoundManager().play(
-                        net.minecraft.client.sound.PositionedSoundInstance.master(
-                            SoundEvents.BLOCK_NOTE_BLOCK_BELL.value(), 1.5f, 0.6f));
+                        net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
+                            SoundEvents.NOTE_BLOCK_BELL.value(), 1.5f, 0.6f));
                 }
             }
         } catch (RuntimeException ignored) {

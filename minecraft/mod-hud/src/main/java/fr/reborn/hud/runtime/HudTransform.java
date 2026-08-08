@@ -5,11 +5,11 @@ import fr.reborn.hud.element.HudAnchor;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.element.HudElementState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Helper utilise par les mixins HUD (BossBarHud, InGameHud, ChatHud) pour
+ * Helper utilise par les mixins HUD (BossBarHud, Gui, ChatComponent) pour
  * appliquer offset + scale + visibilité d'un élément.
  *
  * <p>Doit etre HORS du package {@code fr.reborn.hud.mixin.*} parce que
@@ -49,26 +49,26 @@ public final class HudTransform {
     }
 
     /** Push + translate + scale autour de l'anchor de l'élément. */
-    public static void apply(DrawContext ctx, HudElement element) {
+    public static void apply(GuiGraphicsExtractor ctx, HudElement element) {
         HudElementState state = readStateSafely(element);
-        MinecraftClient mc = MinecraftClient.getInstance();
-        int screenW = mc.getWindow().getScaledWidth();
-        int screenH = mc.getWindow().getScaledHeight();
+        Minecraft mc = Minecraft.getInstance();
+        int screenW = mc.getWindow().getGuiScaledWidth();
+        int screenH = mc.getWindow().getGuiScaledHeight();
         HudAnchor anchor = state.effectiveAnchor(element);
         HudElementBounds vanilla = HudElementBounds.vanillaFor(element, screenW, screenH);
         int ax = vanilla.x() + Math.round(vanilla.width()  * anchor.fx);
         int ay = vanilla.y() + Math.round(vanilla.height() * anchor.fy);
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(state.x(), state.y(), 0);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(state.x(), state.y());
         if (state.scale() != 1.0f) {
-            ctx.getMatrices().translate(ax, ay, 0);
-            ctx.getMatrices().scale(state.scale(), state.scale(), 1.0f);
-            ctx.getMatrices().translate(-ax, -ay, 0);
+            ctx.pose().translate(ax, ay);
+            ctx.pose().scale(state.scale(), state.scale());
+            ctx.pose().translate(-ax, -ay);
         }
     }
 
-    public static void revert(DrawContext ctx) {
-        ctx.getMatrices().pop();
+    public static void revert(GuiGraphicsExtractor ctx) {
+        ctx.pose().popMatrix();
     }
 }

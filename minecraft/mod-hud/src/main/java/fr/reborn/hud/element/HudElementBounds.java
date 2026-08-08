@@ -25,9 +25,9 @@ public record HudElementBounds(int x, int y, int width, int height) {
      */
     public static HudElementBounds vanillaFor(HudElement element, int screenWidth, int screenHeight) {
         return switch (element) {
-            // Chat élargi pour accueillir le panel custom (header 18 + msgs ~70 + input 18 + padding ≈ 110)
-            // au-dessus de la zone hotbar/status (qui termine ~à screenHeight - 22).
-            case CHAT -> new HudElementBounds(4, screenHeight - 124, 320, 90);
+            // Chat vanilla : largeur ~320, ~7 lignes visibles, ancré en bas-gauche
+            // au-dessus de la hotbar (le bas reste ~à screenHeight - 34).
+            case CHAT -> new HudElementBounds(4, screenHeight - 100, 320, 66);
             case SCOREBOARD -> new HudElementBounds(screenWidth - 100, screenHeight / 2 - 60, 90, 120);
             case BOSS_BAR -> new HudElementBounds(screenWidth / 2 - 90, 12, 182, 19);
             case ACTION_BAR -> new HudElementBounds(screenWidth / 2 - 90, screenHeight - 70, 180, 10);
@@ -37,6 +37,8 @@ public record HudElementBounds(int x, int y, int width, int height) {
             case HUNGER -> new HudElementBounds(screenWidth / 2 + 9, screenHeight - 39, 82, 9);
             case ARMOR -> new HudElementBounds(screenWidth / 2 - 91, screenHeight - 49, 82, 9);
             case AIR -> new HudElementBounds(screenWidth / 2 + 9, screenHeight - 49, 82, 9);
+            // Panneau RP vitals (tête + vie + chakra + stamina) en haut-gauche.
+            case VITALS -> new HudElementBounds(4, 4, 204, 52);
         };
     }
 

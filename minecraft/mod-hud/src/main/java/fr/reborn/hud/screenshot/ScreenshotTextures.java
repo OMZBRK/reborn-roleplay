@@ -1,9 +1,9 @@
 package fr.reborn.hud.screenshot;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,9 +41,9 @@ public final class ScreenshotTextures {
     private static Tex load(Path path, String name) {
         try (InputStream in = Files.newInputStream(path)) {
             NativeImage img = NativeImage.read(in);
-            NativeImageBackedTexture t = new NativeImageBackedTexture(img);
-            Identifier id = Identifier.of("reborn-shots", "g/" + sanitize(name));
-            MinecraftClient.getInstance().getTextureManager().registerTexture(id, t);
+            DynamicTexture t = new DynamicTexture(() -> "reborn-tex", img);
+            Identifier id = Identifier.fromNamespaceAndPath("reborn-shots", "g/" + sanitize(name));
+            Minecraft.getInstance().getTextureManager().register(id, t);
             return new Tex(id, img.getWidth(), img.getHeight());
         } catch (Exception e) {
             LOGGER.warn("load {} échec : {}", name, e.getMessage());
@@ -52,9 +52,9 @@ public final class ScreenshotTextures {
     }
 
     public static void clear() {
-        var tm = MinecraftClient.getInstance().getTextureManager();
+        var tm = Minecraft.getInstance().getTextureManager();
         for (Tex t : CACHE.values()) {
-            if (t != null) tm.destroyTexture(t.id());
+            if (t != null) tm.release(t.id());
         }
         CACHE.clear();
     }

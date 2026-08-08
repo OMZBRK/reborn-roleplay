@@ -32,7 +32,7 @@ public class DiscordTab extends SectionedTab {
 
         actionButton("→ Rejoindre le Discord", () -> {
             try {
-                Util.getOperatingSystem().open(URI.create(RebornBranding.DISCORD_URL));
+                Util.getPlatform().openUri(URI.create(RebornBranding.DISCORD_URL));
             } catch (Exception ignored) {
                 // Ouverture navigateur best-effort ; on n'échoue pas l'UI.
             }

@@ -3,10 +3,10 @@ package fr.reborn.hud.menu.settings;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.widget.RebornButton;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,15 +35,15 @@ public abstract class SectionedTab implements SettingsTab {
     protected static final int BUTTON_GAP = 12;
     protected static final int CONTROL_W = 240;
 
-    private final List<ClickableWidget> widgets = new ArrayList<>();
+    private final List<AbstractWidget> widgets = new ArrayList<>();
     private int contentHeight = 0;
 
     private enum Pass { LAYOUT, RENDER }
 
     // État de passe (réinitialisé à chaque layout/renderPassive).
     private Pass pass;
-    private DrawContext ctx;
-    private TextRenderer tr;
+    private GuiGraphicsExtractor ctx;
+    private Font tr;
     private int originX;
     private int width;
     private int cursorY;
@@ -68,12 +68,12 @@ public abstract class SectionedTab implements SettingsTab {
     }
 
     @Override
-    public void renderPassive(DrawContext ctx, int x, int y, int width) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    public void renderPassive(GuiGraphicsExtractor ctx, int x, int y, int width) {
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return;
         this.pass = Pass.RENDER;
         this.ctx = ctx;
-        this.tr = mc.textRenderer;
+        this.tr = mc.font;
         this.originX = x;
         this.width = width;
         this.controlW = Math.max(150, Math.min(CONTROL_W, width - 130));
@@ -85,7 +85,7 @@ public abstract class SectionedTab implements SettingsTab {
     }
 
     @Override
-    public List<ClickableWidget> widgets() {
+    public List<AbstractWidget> widgets() {
         return widgets;
     }
 
@@ -107,12 +107,12 @@ public abstract class SectionedTab implements SettingsTab {
     /** En-tête de section (majuscule discret). */
     protected void section(String title) {
         if (pass == Pass.RENDER) {
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(originX, cursorY + 8, 0);
-            ctx.getMatrices().scale(1.1f, 1.1f, 1f);
-            ctx.drawText(tr, RebornFont.bold(title.toUpperCase(Locale.ROOT)),
+            ctx.pose().pushMatrix();
+            ctx.pose().translate(originX, cursorY + 8);
+            ctx.pose().scale(1.1f, 1.1f);
+            ctx.text(tr, RebornFont.bold(title.toUpperCase(Locale.ROOT)),
                 0, 0, Colors.FOREGROUND_SUBTLE, false);
-            ctx.getMatrices().pop();
+            ctx.pose().popMatrix();
         }
         cursorY += SECTION_GAP;
     }
@@ -124,13 +124,13 @@ public abstract class SectionedTab implements SettingsTab {
      */
     protected void row(String label, String hint, WidgetFactory factory) {
         if (pass == Pass.RENDER) {
-            ctx.drawText(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
+            ctx.text(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
             if (hint != null) {
-                ctx.getMatrices().push();
-                ctx.getMatrices().translate(originX, cursorY + 23, 0);
-                ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-                ctx.drawText(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.getMatrices().pop();
+                ctx.pose().pushMatrix();
+                ctx.pose().translate(originX, cursorY + 23);
+                ctx.pose().scale(0.85f, 0.85f);
+                ctx.text(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
+                ctx.pose().popMatrix();
             }
         } else {
             widgets.add(factory.create(controlX, cursorY + 6, controlW));
@@ -141,13 +141,13 @@ public abstract class SectionedTab implements SettingsTab {
     /** Ligne label (+ hint) seule, sans contrôle (le contrôle suit, ex. bouton). */
     protected void labelRow(String label, String hint) {
         if (pass == Pass.RENDER) {
-            ctx.drawText(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
+            ctx.text(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
             if (hint != null) {
-                ctx.getMatrices().push();
-                ctx.getMatrices().translate(originX, cursorY + 23, 0);
-                ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-                ctx.drawText(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.getMatrices().pop();
+                ctx.pose().pushMatrix();
+                ctx.pose().translate(originX, cursorY + 23);
+                ctx.pose().scale(0.85f, 0.85f);
+                ctx.text(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
+                ctx.pose().popMatrix();
             }
         }
         cursorY += ROW_H;
@@ -156,17 +156,17 @@ public abstract class SectionedTab implements SettingsTab {
     /** Ligne lecture seule : label (+ hint) à gauche, valeur à droite. */
     protected void valueRow(String label, String hint, String value, int valueColor) {
         if (pass == Pass.RENDER) {
-            ctx.drawText(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
+            ctx.text(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
             if (hint != null) {
-                ctx.getMatrices().push();
-                ctx.getMatrices().translate(originX, cursorY + 23, 0);
-                ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-                ctx.drawText(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.getMatrices().pop();
+                ctx.pose().pushMatrix();
+                ctx.pose().translate(originX, cursorY + 23);
+                ctx.pose().scale(0.85f, 0.85f);
+                ctx.text(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
+                ctx.pose().popMatrix();
             }
             if (value != null) {
-                int vw = tr.getWidth(RebornFont.bold(value));
-                ctx.drawText(tr, RebornFont.bold(value),
+                int vw = tr.width(RebornFont.bold(value));
+                ctx.text(tr, RebornFont.bold(value),
                     originX + width - vw, cursorY + 10, valueColor, false);
             }
         }
@@ -189,6 +189,6 @@ public abstract class SectionedTab implements SettingsTab {
 
     @FunctionalInterface
     protected interface WidgetFactory {
-        ClickableWidget create(int controlX, int controlY, int controlW);
+        AbstractWidget create(int controlX, int controlY, int controlW);
     }
 }

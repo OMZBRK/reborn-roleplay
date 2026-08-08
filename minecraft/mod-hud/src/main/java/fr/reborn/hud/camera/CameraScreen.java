@@ -5,11 +5,11 @@ import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.settings.SliderWidget;
 import fr.reborn.hud.menu.widget.RebornButton;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 /**
  * Menu de repositionnement de la caméra épaule — panneau latéral <b>live</b>
@@ -29,10 +29,10 @@ public class CameraScreen extends Screen {
     private static final int GAP = 8;
 
     private SliderWidget distSlider, sideSlider, upSlider, turnSlider;
-    private ButtonWidget presetBtn, swapBtn;
+    private Button presetBtn, swapBtn, impactBtn;
 
     public CameraScreen(Screen parent) {
-        super(Text.literal("Caméra"));
+        super(Component.literal("Caméra"));
         this.parent = parent;
     }
 
@@ -75,7 +75,7 @@ public class CameraScreen extends Screen {
                 cam.cyclePreset();
                 syncSlidersToCam();
             });
-        this.addDrawableChild(presetBtn);
+        this.addRenderableWidget(presetBtn);
         y += 20 + 6;
 
         swapBtn = RebornButton.ghost(x, y, w, 20,
@@ -83,24 +83,33 @@ public class CameraScreen extends Screen {
                 cam.swapShoulder();
                 syncSlidersToCam();
             });
-        this.addDrawableChild(swapBtn);
+        this.addRenderableWidget(swapBtn);
+        y += 20 + 6;
+
+        // Impact d'atterrissage (dip caméra) : ON/OFF.
+        impactBtn = RebornButton.ghost(x, y, w, 20,
+            impactLabelText(cam), b -> {
+                cam.setImpactEnabled(!cam.impactEnabled());
+                impactBtn.setMessage(impactLabel());
+            });
+        this.addRenderableWidget(impactBtn);
         y += 20 + 6;
 
         // Réinitialiser + Fermer.
         int half = (w - 6) / 2;
-        this.addDrawableChild(RebornButton.ghost(x, y, half, 20, "Réinitialiser", b -> {
+        this.addRenderableWidget(RebornButton.ghost(x, y, half, 20, "Réinitialiser", b -> {
             cam.setPreset(CameraPreset.DEFAUT);
             cam.setSide(1);
             cam.setTurnSpeed(0.5);
             syncSlidersToCam();
         }));
-        this.addDrawableChild(RebornButton.accent(x + half + 6, y, w - half - 6, 20, "Fermer",
-            b -> close()));
+        this.addRenderableWidget(RebornButton.accent(x + half + 6, y, w - half - 6, 20, "Fermer",
+            b -> onClose()));
 
-        this.addDrawableChild(distSlider);
-        this.addDrawableChild(sideSlider);
-        this.addDrawableChild(upSlider);
-        this.addDrawableChild(turnSlider);
+        this.addRenderableWidget(distSlider);
+        this.addRenderableWidget(sideSlider);
+        this.addRenderableWidget(upSlider);
+        this.addRenderableWidget(turnSlider);
     }
 
     private void syncSlidersToCam() {
@@ -113,16 +122,24 @@ public class CameraScreen extends Screen {
         swapBtn.setMessage(swapLabel());
     }
 
-    private Text presetLabel() {
+    private Component presetLabel() {
         return RebornFont.bold("Preset : " + RebornCamera.INSTANCE.preset().label);
     }
 
-    private Text swapLabel() {
+    private Component swapLabel() {
         return RebornFont.bold("Épaule : " + (RebornCamera.INSTANCE.side() > 0 ? "Droite" : "Gauche"));
     }
 
+    private String impactLabelText(RebornCamera cam) {
+        return "Impact atterrissage : " + (cam.impactEnabled() ? "ON" : "OFF");
+    }
+
+    private Component impactLabel() {
+        return RebornFont.bold(impactLabelText(RebornCamera.INSTANCE));
+    }
+
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Pas de fond plein écran : on laisse le jeu visible pour le live.
         // Juste le panneau latéral semi-opaque.
         int px = panelX();
@@ -131,17 +148,17 @@ public class CameraScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(ctx, mouseX, mouseY, delta);
 
         int x = panelX() + PAD;
 
         // Titre.
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, 24, 0);
-        ctx.getMatrices().scale(1.3f, 1.3f, 1f);
-        ctx.drawText(this.textRenderer, RebornFont.bold("CAMÉRA"), 0, 0, Colors.WHITE_PURE, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, 24);
+        ctx.pose().scale(1.3f, 1.3f);
+        ctx.text(this.font, RebornFont.bold("CAMÉRA"), 0, 0, Colors.WHITE_PURE, false);
+        ctx.pose().popMatrix();
 
         // Labels au-dessus des sliders.
         label(ctx, "Distance", distSlider);
@@ -150,19 +167,19 @@ public class CameraScreen extends Screen {
         label(ctx, "Vitesse de rotation", turnSlider);
     }
 
-    private void label(DrawContext ctx, String text, SliderWidget s) {
-        ctx.drawText(this.textRenderer, RebornFont.body(text),
+    private void label(GuiGraphicsExtractor ctx, String text, SliderWidget s) {
+        ctx.text(this.font, RebornFont.body(text),
             s.getX(), s.getY() - LABEL_H, Colors.FOREGROUND_SUBTLE, false);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false; // live : la caméra bouge en temps réel derrière le menu.
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         RebornCamera.INSTANCE.saveToPrefs();
-        MinecraftClient.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent);
     }
 }

@@ -1,0 +1,77 @@
+// Reborn HUD — mod Fabric client-side (toute la couche UI Reborn).
+//
+// Port 26.1.2 / Java 25 (client Mojang deobfusque, Yarn discontinue) : Loom
+// deobf, aucune ligne mappings(), fabric-api complet remappe via implementation.
+// Voir docs/MIGRATION_26.1.md pour la recette de port UI (extractRenderState /
+// GuiGraphicsExtractor / blit GUI_TEXTURED / MouseButtonEvent / HudElementRegistry).
+//
+// ⚠️ Intégrations lourdes à re-porter (phase 2) : MCEF (fond menu Chromium ->
+// fork net.dimaskama:mcef-modern, API differente), PlasmoVoice (micro),
+// PlayerAnimator (anims). Neutralisees le temps de faire compiler le coeur UI.
+
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'
+}
+
+version = project.mod_version
+group = project.maven_group
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://repo.plasmoverse.com/releases' }   // PlasmoVoice
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    // Module explicite : le bundle fabric-api embarque command-api-v2 en JiJ
+    // (runtime) mais ses classes ne sont pas au classpath de COMPILE → requis
+    // pour les commandes client /rblock (ChatBlockCommands).
+    implementation fabricApi.module("fabric-command-api-v2", project.fabric_version)
+
+    // --- MCEF : ABANDONNÉ en 26.1 (le binding jcef ne peint jamais la texture
+    //   sous JDK 25 — exception AWT-EventQueue-0). Le fond menu est désormais un
+    //   dégradé branded (DynamicPlayerBackground), plus aucune dépendance CEF.
+
+    // --- Démarches animées (PlayerAnimationLib + Emotecraft, fork zigythebird) :
+    //   jars 26.1 déjà en noms officiels (client deobf) -> compileOnly (compile) +
+    //   runtimeOnly (chargés comme mods en dev pour tester). Présents dans le
+    //   modpack au runtime prod ; MovementAnimations fallback inerte si absents.
+    compileOnly  files('libs/PlayerAnimationLibMerged-1.2.5+mc.26.1.jar')
+    compileOnly  files('libs/emotecraft-for-MC26.1.2-3.3.0-b.build.160.jar')
+    runtimeOnly  files('libs/PlayerAnimationLibMerged-1.2.5+mc.26.1.jar')
+    runtimeOnly  files('libs/emotecraft-for-MC26.1.2-3.3.0-b.build.160.jar')
+
+    // --- Intégrations phase 2 (neutralisées le temps du port coeur UI) ---
+    // PlasmoVoice (micro) :
+    // compileOnly 'su.plo.voice.api:client:2.1.13'
+}
+
+processResources {
+    def props = [
+        version          : project.version,
+        minecraft_version: project.minecraft_version,
+        loader_version   : project.loader_version,
+    ]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+    it.options.encoding = 'UTF-8'
+    it.options.compilerArgs.addAll(['-Xmaxerrs', '2000'])
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}

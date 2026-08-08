@@ -4,7 +4,7 @@ package fr.reborn.hud.ui.style;
  * Palette de couleurs Reborn, extraite des maquettes HTML
  * ({@code reborn-hud-editor.html}, {@code reborn-chat.html}).
  *
- * <p>Format : {@code 0xAARRGGBB} pour DrawContext.fill().
+ * <p>Format : {@code 0xAARRGGBB} pour GuiGraphicsExtractor.fill().
  * Les constantes "SOFT" / "GLOW" sont des versions à alpha réduit du
  * même teint.
  */

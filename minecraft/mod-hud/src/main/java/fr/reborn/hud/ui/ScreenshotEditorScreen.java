@@ -4,13 +4,13 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.screenshot.ScreenshotLibrary.Entry;
 import fr.reborn.hud.screenshot.ScreenshotTextures;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.EditBox;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +40,7 @@ public class ScreenshotEditorScreen extends Screen {
     private float hue = 0, sat = 1, val = 1;
     private int color = 0xFFEF4444;
     private int thickness = 4;
-    private TextFieldWidget hexField;
+    private EditBox hexField;
 
     private List<Stroke> strokes = new ArrayList<>();
     private Stroke current;
@@ -55,7 +55,7 @@ public class ScreenshotEditorScreen extends Screen {
     private record Stroke(int color, int thickness, int type, List<double[]> pts) {}
 
     public ScreenshotEditorScreen(Screen parent, Entry entry) {
-        super(Text.literal("Éditeur"));
+        super(Component.literal("Éditeur"));
         this.parent = parent;
         this.entry = entry;
     }
@@ -65,11 +65,11 @@ public class ScreenshotEditorScreen extends Screen {
         panelX = this.width - PANEL_W;
         float[] hsv = rgbToHsv(color);
         hue = hsv[0]; sat = hsv[1]; val = hsv[2];
-        hexField = new TextFieldWidget(this.textRenderer, panelX + 34, 32, 100, 14, Text.literal("hex"));
+        hexField = new EditBox(this.font, panelX + 34, 32, 100, 14, Component.literal("hex"));
         hexField.setMaxLength(7);
-        hexField.setText(hex(color));
-        hexField.setChangedListener(this::onHex);
-        this.addDrawableChild(hexField);
+        hexField.setValue(hex(color));
+        hexField.setResponder(this::onHex);
+        this.addRenderableWidget(hexField);
         if (history.isEmpty()) { history.add(new ArrayList<>()); histIdx = 0; }
     }
 
@@ -87,7 +87,7 @@ public class ScreenshotEditorScreen extends Screen {
 
     private void setColorFromHsv() {
         color = hsvToArgb(hue, sat, val);
-        if (hexField != null) hexField.setText(hex(color));
+        if (hexField != null) hexField.setValue(hex(color));
     }
 
     private void computeFit() {
@@ -115,27 +115,27 @@ public class ScreenshotEditorScreen extends Screen {
     // ─── Render ───
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0xE6000000);
-        TextRenderer tr = this.textRenderer;
+        Font tr = this.font;
         computeFit();
 
-        ctx.drawText(tr, RebornFont.bold("ÉDITEUR"), 12, 8, Colors.GOLD, false);
-        if (!status.isEmpty()) ctx.drawText(tr, Text.literal(status), 90, 9, Colors.SUCCESS, false);
+        ctx.text(tr, RebornFont.bold("ÉDITEUR"), 12, 8, Colors.GOLD, false);
+        if (!status.isEmpty()) ctx.text(tr, Component.literal(status), 90, 9, Colors.SUCCESS, false);
 
         if (tex != null) {
             ctx.fill(imgX - 1, imgY - 1, imgX + drawW + 1, imgY + drawH + 1, Colors.BORDER_STRONG);
-            ctx.drawTexture(tex.id(), imgX, imgY, drawW, drawH, 0f, 0f, tex.w(), tex.h(), tex.w(), tex.h());
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), imgX, imgY, 0f, 0f, drawW, drawH, tex.w(), tex.h(), tex.w(), tex.h());
             float sc = drawW / (float) tex.w();
             for (Stroke s : strokes) drawStrokeScreen(ctx, s, sc);
             if (current != null) drawStrokeScreen(ctx, current, sc);
         }
 
         renderPanel(ctx, tr, mouseX, mouseY);
-        if (hexField != null) hexField.render(ctx, mouseX, mouseY, delta);
+        if (hexField != null) hexField.extractRenderState(ctx, mouseX, mouseY, delta);
     }
 
-    private void renderPanel(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
+    private void renderPanel(GuiGraphicsExtractor ctx, Font tr, int mouseX, int mouseY) {
         int x = panelX;
         ctx.fill(x, 0, this.width, this.height, 0xF20C0709);
         ctx.fill(x, 0, x + 1, this.height, Colors.BORDER_STRONG);
@@ -144,7 +144,7 @@ public class ScreenshotEditorScreen extends Screen {
         ctx.fill(x + 12, 30, x + 30, 46, color);
         ctx.fill(x + 11, 29, x + 31, 47, Colors.BORDER);
         ctx.fill(x + 12, 30, x + 30, 46, color);
-        // (hexField rendu par super via addDrawableChild)
+        // (hexField rendu par super via addRenderableWidget)
 
         // Carré Saturation/Valeur.
         int svX = x + 12, svY = 54;
@@ -174,14 +174,14 @@ public class ScreenshotEditorScreen extends Screen {
             boolean sel = tool == i;
             boolean hov = in(mouseX, mouseY, bx, by, 62, 16);
             ctx.fill(bx, by, bx + 62, by + 16, sel ? Colors.ACCENT : (hov ? 0x33FFFFFF : Colors.BACKDROP_85));
-            ctx.drawText(tr, Text.literal(tools[i]), bx + 6, by + 4, sel ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
+            ctx.text(tr, Component.literal(tools[i]), bx + 6, by + 4, sel ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
         }
 
         // Épaisseur.
         int ey = ty + 40;
-        ctx.drawText(tr, Text.literal("Épaisseur"), x + 12, ey + 3, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, Component.literal("Épaisseur"), x + 12, ey + 3, Colors.FOREGROUND_MUTED, false);
         sbtn(ctx, tr, "-", x + PANEL_W - 52, ey);
-        ctx.drawText(tr, Text.literal(String.valueOf(thickness)), x + PANEL_W - 34, ey + 3, Colors.GOLD, false);
+        ctx.text(tr, Component.literal(String.valueOf(thickness)), x + PANEL_W - 34, ey + 3, Colors.GOLD, false);
         sbtn(ctx, tr, "+", x + PANEL_W - 20, ey);
 
         // Actions.
@@ -193,18 +193,18 @@ public class ScreenshotEditorScreen extends Screen {
         act(ctx, tr, "Retour", x + 12, ay + 60, 126, mouseX, mouseY, Colors.ACCENT);
     }
 
-    private void sbtn(DrawContext ctx, TextRenderer tr, String s, int x, int y) {
+    private void sbtn(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y) {
         ctx.fill(x, y, x + 14, y + 16, Colors.BACKDROP_85);
-        ctx.drawText(tr, Text.literal(s), x + 5, y + 4, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, Component.literal(s), x + 5, y + 4, Colors.FOREGROUND_SUBTLE, false);
     }
 
-    private void act(DrawContext ctx, TextRenderer tr, String s, int x, int y, int w, int mouseX, int mouseY, int bg) {
+    private void act(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y, int w, int mouseX, int mouseY, int bg) {
         boolean hov = in(mouseX, mouseY, x, y, w, 16);
         ctx.fill(x, y, x + w, y + 16, hov ? Colors.ACCENT_HOVER : bg);
-        ctx.drawText(tr, Text.literal(s), x + (w - tr.getWidth(s)) / 2, y + 4, Colors.WHITE_PURE, false);
+        ctx.text(tr, Component.literal(s), x + (w - tr.width(s)) / 2, y + 4, Colors.WHITE_PURE, false);
     }
 
-    private void drawStrokeScreen(DrawContext ctx, Stroke s, float sc) {
+    private void drawStrokeScreen(GuiGraphicsExtractor ctx, Stroke s, float sc) {
         int st = Math.max(1, Math.round(s.thickness * sc));
         List<double[]> p = s.pts;
         if (s.type == TOOL_RECT && p.size() >= 2) {
@@ -227,7 +227,7 @@ public class ScreenshotEditorScreen extends Screen {
     private int sx(double ix, float sc) { return imgX + (int) (ix * sc); }
     private int sy(double iy, float sc) { return imgY + (int) (iy * sc); }
 
-    private static void lineScreen(DrawContext ctx, int x0, int y0, int x1, int y1, int th, int color) {
+    private static void lineScreen(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1, int th, int color) {
         int steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) + 1;
         int r = Math.max(1, th) / 2;
         for (int i = 0; i <= steps; i++) {
@@ -239,8 +239,9 @@ public class ScreenshotEditorScreen extends Screen {
     // ─── Input ───
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        if (super.mouseClicked(mx, my, button)) return true;
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x(), my = event.y(); int button = event.button();
+        if (super.mouseClicked(event, doubleClick)) return true;
         int x = panelX;
 
         // SV.
@@ -272,7 +273,7 @@ public class ScreenshotEditorScreen extends Screen {
         if (in(mx, my, x + 78, ay, 60, 16)) { redo(); return true; }
         if (in(mx, my, x + 12, ay + 20, 126, 16)) { strokes = new ArrayList<>(); pushHistory(); return true; }
         if (in(mx, my, x + 12, ay + 40, 126, 16)) { save(); return true; }
-        if (in(mx, my, x + 12, ay + 60, 126, 16)) { close(); return true; }
+        if (in(mx, my, x + 12, ay + 60, 126, 16)) { onClose(); return true; }
 
         // Dessin.
         if (button == 0 && tex != null && inImage(mx, my)) {
@@ -288,7 +289,8 @@ public class ScreenshotEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
+        double mx = event.x(), my = event.y(); int button = event.button();
         if (tool == TOOL_ERASER && tex != null && inImage(mx, my)) { eraseAt(mx, my); return true; }
         if (current != null && tex != null) {
             double[] p = toImage(mx, my);
@@ -296,13 +298,14 @@ public class ScreenshotEditorScreen extends Screen {
             else current.pts().set(1, p); // ligne/rect : bouge le 2e point
             return true;
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return super.mouseDragged(event, dx, dy);
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        double mx = event.x(), my = event.y(); int button = event.button();
         if (current != null) { strokes.add(current); current = null; pushHistory(); return true; }
-        return super.mouseReleased(mx, my, button);
+        return super.mouseReleased(event);
     }
 
     private void eraseAt(double mx, double my) {
@@ -314,11 +317,12 @@ public class ScreenshotEditorScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
         boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
         if (ctrl && keyCode == GLFW.GLFW_KEY_Z) { undo(); return true; }
         if (ctrl && keyCode == GLFW.GLFW_KEY_Y) { redo(); return true; }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     // ─── Historique ───
@@ -344,7 +348,7 @@ public class ScreenshotEditorScreen extends Screen {
             NativeImage img = NativeImage.read(in);
             for (Stroke s : strokes) rasterize(img, s);
             Path out = uniquePath(entry.path());
-            img.writeTo(out);
+            img.writeToFile(out);
             img.close();
             status = "Enregistré : " + out.getFileName();
             LOGGER.info("screenshot édité → {}", out);
@@ -392,7 +396,7 @@ public class ScreenshotEditorScreen extends Screen {
             for (int dx = -r; dx <= r; dx++) {
                 if (dx * dx + dy * dy > r * r) continue;
                 int x = cx + dx, y = cy + dy;
-                if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight()) img.setColor(x, y, abgr);
+                if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight()) img.setPixelABGR(x, y, abgr);
             }
         }
     }
@@ -435,12 +439,12 @@ public class ScreenshotEditorScreen extends Screen {
     private static double clamp(double v, double lo, double hi) { return Math.max(lo, Math.min(hi, v)); }
 
     @Override
-    public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+    public void onClose() {
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     private static boolean in(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;

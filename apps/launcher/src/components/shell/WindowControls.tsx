@@ -2,7 +2,7 @@ import { Minus, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "../../lib/tauri";
 
-// Window controls compacts, rapproches, top-right (style Zenkai). Pas de
+// Window controls compacts, rapproches, top-right (style Reborn). Pas de
 // "maximize" : la fenetre est resizable:false (cf tauri.conf.json), une
 // bascule plein-ecran/restore n'a pas de sens.
 //

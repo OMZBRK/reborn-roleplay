@@ -1,9 +1,9 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Utilitaires de rendu 2D — primitives que DrawContext n'expose pas
+ * Utilitaires de rendu 2D — primitives que GuiGraphicsExtractor n'expose pas
  * nativement (rounded rects, gradients, glows, cercles).
  *
  * <p>Implémentations approximatives par pixel : suffisant pour des UI
@@ -22,8 +22,8 @@ public final class DrawHelpers {
     // Rectangles
     // ────────────────────────────────────────────────────────
 
-    /** Rectangle plein simple — wrapper de DrawContext.fill avec dimensions w/h. */
-    public static void rect(DrawContext ctx, int x, int y, int w, int h, int color) {
+    /** Rectangle plein simple — wrapper de GuiGraphicsExtractor.fill avec dimensions w/h. */
+    public static void rect(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int color) {
         ctx.fill(x, y, x + w, y + h, color);
     }
 
@@ -31,7 +31,7 @@ public final class DrawHelpers {
      * Rectangle avec bordure 1px. La bordure est INSIDE (le rect total
      * reste w×h). Si {@code fillColor == 0}, seule la bordure est dessinée.
      */
-    public static void outlinedRect(DrawContext ctx, int x, int y, int w, int h,
+    public static void outlinedRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                     int fillColor, int borderColor) {
         if (fillColor != 0) {
             ctx.fill(x + 1, y + 1, x + w - 1, y + h - 1, fillColor);
@@ -44,46 +44,77 @@ public final class DrawHelpers {
     }
 
     /**
-     * Rectangle aux coins arrondis. Approximation par escalier de pixels
-     * (test de distance² par rapport au centre du corner, math int 2x).
-     * Acceptable pour radius ≤ 12. Coût : ~4*r² fill calls.
+     * Arrondi max des menus « carrés » (façon éditeur HUD / PhotoMode). Le rayon
+     * demandé est plafonné à cette valeur par {@link #roundedRect} — sauf le menu
+     * ESC qui utilise les variantes {@code *Full} pour garder son arrondi complet.
      */
-    public static void roundedRect(DrawContext ctx, int x, int y, int w, int h,
+    private static final int MAX_CORNER = 2;
+
+    /**
+     * Rectangle aux coins <b>peu arrondis</b> (plafonné à {@link #MAX_CORNER}) —
+     * forme « carrée » commune à tous les menus. Le rendu est optimisé : une span
+     * horizontale par rangée de coin (≈ {@code 2*r+1} fills au lieu de {@code ~4*r²})
+     * — critique en mode retained 26.1.
+     */
+    public static void roundedRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                    int radius, int color) {
+        roundedRectImpl(ctx, x, y, w, h, Math.min(radius, MAX_CORNER), color);
+    }
+
+    /** Version <b>arrondi complet</b> (rayon respecté) — réservée au menu ESC. */
+    public static void roundedRectFull(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
+                                       int radius, int color) {
+        roundedRectImpl(ctx, x, y, w, h, radius, color);
+    }
+
+    private static void roundedRectImpl(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
+                                        int radius, int color) {
         if (radius <= 0) {
             rect(ctx, x, y, w, h, color);
             return;
         }
         int r = Math.min(radius, Math.min(w / 2, h / 2));
-        // Bande centrale verticale (occupe toute la hauteur).
-        ctx.fill(x + r, y, x + w - r, y + h, color);
-        // Bandes latérales (sans les coins).
-        ctx.fill(x, y + r, x + r, y + h - r, color);
-        ctx.fill(x + w - r, y + r, x + w, y + h - r, color);
-        // Coins arrondis : test |2 * (r - i - 0.5)|² + |2 * (r - j - 0.5)|²
-        // <= (2r)². Math int seulement — pas de Math.sqrt ni double.
+        if (r <= 0) {
+            rect(ctx, x, y, w, h, color);
+            return;
+        }
+        // Bloc central pleine largeur entre les rangées de coins.
+        if (h - 2 * r > 0) {
+            ctx.fill(x, y + r, x + w, y + h - r, color);
+        }
+        // Rangées de coins : une span horizontale par rangée (miroir haut/bas).
         int r2x4 = 4 * r * r;
-        for (int i = 0; i < r; i++) {
-            int dx = 2 * (r - i) - 1;
-            int dx2 = dx * dx;
-            for (int j = 0; j < r; j++) {
-                int dy = 2 * (r - j) - 1;
-                if (dx2 + dy * dy <= r2x4) {
-                    ctx.fill(x + i, y + j, x + i + 1, y + j + 1, color);
-                    ctx.fill(x + w - 1 - i, y + j, x + w - i, y + j + 1, color);
-                    ctx.fill(x + i, y + h - 1 - j, x + i + 1, y + h - j, color);
-                    ctx.fill(x + w - 1 - i, y + h - 1 - j, x + w - i, y + h - j, color);
-                }
+        for (int j = 0; j < r; j++) {
+            int dy = 2 * (r - j) - 1;
+            int rem = r2x4 - dy * dy;
+            int inset;
+            if (rem < 0) {
+                inset = r;
+            } else {
+                int dxMax = (int) Math.sqrt(rem);   // plus grand dx admissible
+                inset = r - (dxMax + 1) / 2;        // i tel que 2*(r-i)-1 <= dxMax
+                if (inset < 0) inset = 0;
             }
+            ctx.fill(x + inset, y + j, x + w - inset, y + j + 1, color);
+            ctx.fill(x + inset, y + h - 1 - j, x + w - inset, y + h - j, color);
         }
     }
 
-    /** Rectangle arrondi avec bordure 1px. */
-    public static void roundedOutlinedRect(DrawContext ctx, int x, int y, int w, int h,
+    /** Rectangle « carré » (arrondi plafonné) avec bordure 1px. */
+    public static void roundedOutlinedRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                            int radius, int fillColor, int borderColor) {
         roundedRect(ctx, x, y, w, h, radius, borderColor);
         if (fillColor != 0) {
             roundedRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, radius - 1), fillColor);
+        }
+    }
+
+    /** Version arrondi complet avec bordure 1px — réservée au menu ESC. */
+    public static void roundedOutlinedRectFull(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
+                                               int radius, int fillColor, int borderColor) {
+        roundedRectFull(ctx, x, y, w, h, radius, borderColor);
+        if (fillColor != 0) {
+            roundedRectFull(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(0, radius - 1), fillColor);
         }
     }
 
@@ -92,13 +123,13 @@ public final class DrawHelpers {
     // ────────────────────────────────────────────────────────
 
     /** Gradient vertical natif Minecraft (top → bottom). */
-    public static void verticalGradient(DrawContext ctx, int x, int y, int w, int h,
+    public static void verticalGradient(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                         int colorTop, int colorBottom) {
         ctx.fillGradient(x, y, x + w, y + h, colorTop, colorBottom);
     }
 
     /** Gradient horizontal — approximation par bandes verticales 1px. */
-    public static void horizontalGradient(DrawContext ctx, int x, int y, int w, int h,
+    public static void horizontalGradient(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                           int colorLeft, int colorRight) {
         for (int i = 0; i < w; i++) {
             float t = (float) i / Math.max(1, w - 1);
@@ -116,7 +147,7 @@ public final class DrawHelpers {
      * transparentes. Utilisé pour le hover des boutons primaires + le halo
      * du LogoSigil.
      */
-    public static void glowRect(DrawContext ctx, int x, int y, int w, int h,
+    public static void glowRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                 int glowColor, int radius) {
         for (int i = radius; i >= 1; i--) {
             float t = 1f - (float) i / radius;
@@ -129,7 +160,7 @@ public final class DrawHelpers {
      * Drop shadow simple sous un rectangle (3-4 px d'offset vers le bas/droite,
      * dégradé). Utilisé pour les cards / modals.
      */
-    public static void dropShadow(DrawContext ctx, int x, int y, int w, int h, int radius) {
+    public static void dropShadow(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius) {
         for (int i = radius; i >= 1; i--) {
             int alpha = Math.round(80f * (1f - (float) i / radius));
             int c = (alpha << 24);
@@ -143,7 +174,7 @@ public final class DrawHelpers {
     // ────────────────────────────────────────────────────────
 
     /** Disque plein centré sur (cx, cy). */
-    public static void disc(DrawContext ctx, int cx, int cy, int radius, int color) {
+    public static void disc(GuiGraphicsExtractor ctx, int cx, int cy, int radius, int color) {
         for (int dy = -radius; dy <= radius; dy++) {
             int dx = (int) Math.round(Math.sqrt(radius * radius - dy * dy));
             ctx.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
@@ -151,7 +182,7 @@ public final class DrawHelpers {
     }
 
     /** Anneau (cercle non-rempli) d'épaisseur {@code thickness}. */
-    public static void ring(DrawContext ctx, int cx, int cy, int radius, int thickness, int color) {
+    public static void ring(GuiGraphicsExtractor ctx, int cx, int cy, int radius, int thickness, int color) {
         int rOut = radius;
         int rIn = Math.max(0, radius - thickness);
         int rOutSq = rOut * rOut;
@@ -171,7 +202,7 @@ public final class DrawHelpers {
      * {@code dashLengthDeg} et {@code gapLengthDeg} en degrés.
      * {@code rotationDeg} décale la position de départ.
      */
-    public static void dashedRing(DrawContext ctx, int cx, int cy, int radius, int thickness,
+    public static void dashedRing(GuiGraphicsExtractor ctx, int cx, int cy, int radius, int thickness,
                                   int color, float dashLengthDeg, float gapLengthDeg,
                                   float rotationDeg) {
         int rOut = radius;
@@ -202,7 +233,7 @@ public final class DrawHelpers {
      * Ligne fine entre 2 points — algorithme de Bresenham. Épaisseur 1px.
      * Utilisé pour les traits du LogoSigil (kanji-like strokes).
      */
-    public static void line(DrawContext ctx, int x0, int y0, int x1, int y1, int color) {
+    public static void line(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1, int color) {
         int dx = Math.abs(x1 - x0);
         int dy = -Math.abs(y1 - y0);
         int sx = x0 < x1 ? 1 : -1;
@@ -218,7 +249,7 @@ public final class DrawHelpers {
     }
 
     /** Ligne épaisse — multipasse 1px. Pas anti-aliasée. */
-    public static void thickLine(DrawContext ctx, int x0, int y0, int x1, int y1,
+    public static void thickLine(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1,
                                  int thickness, int color) {
         int half = thickness / 2;
         for (int t = -half; t <= half; t++) {

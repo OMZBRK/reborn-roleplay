@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  ArrowLeft,
   Bug,
   CheckCircle2,
   Clock,
@@ -10,12 +11,15 @@ import {
   HelpCircle,
   Loader2,
   Lock,
+  MessagesSquare,
   MessageSquare,
   Paperclip,
   Plus,
   Send,
   ShieldAlert,
+  Ticket as TicketIcon,
   Trash2,
+  UploadCloud,
   X,
   XCircle,
 } from "lucide-react";
@@ -36,25 +40,22 @@ import {
 } from "../lib/content";
 import { useBadgesStore } from "../stores/badges-store";
 
-// Layout 2 panes : sidebar liste à gauche, chat embarqué à droite. Le user
-// reste toujours sur la même page — pas de view-switching brutal. Le pattern
-// suit StatusChatPage de la whitelist (bulles me/staff, polling 5s, badge
-// catégorie + status, file picker pour les attachments).
-//
-// Modes du pane droit :
-//  - "empty"  : aucun ticket sélectionné (vue par défaut quand la liste a des items)
-//  - "create" : formulaire de création (catégorie + sujet + premier message)
-//  - "chat"   : conversation sur le ticket sélectionné
+// Flow inspiré des maquettes Reborn (accent crimson, pas bleu) :
+//  - "hub"    : page d'accueil 2 cartes (Ouvrir un ticket / Mes tickets)
+//  - "create" : formulaire plein écran (catégorie + titre + message + fichier)
+//  - "list"   : master-detail (sidebar liste + chat), atteint via « Mes tickets »
+// Le hub et le form sont pleine page (sans sidebar) ; seul le mode list garde
+// le layout 2-panes historique.
 
 const POLL_INTERVAL_MS = 5000;
 
 type Mode =
-  | { kind: "empty" }
+  | { kind: "hub" }
   | { kind: "create" }
-  | { kind: "chat"; id: string };
+  | { kind: "list"; id: string | null };
 
 export function Tickets() {
-  const [mode, setMode] = useState<Mode>({ kind: "empty" });
+  const [mode, setMode] = useState<Mode>({ kind: "hub" });
   const [list, setList] = useState<TicketSummary[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
@@ -99,17 +100,20 @@ export function Tickets() {
     };
   }, []);
 
-  // Sélection d'un ticket par défaut quand on charge si rien n'est sélectionné
-  // ET qu'on a au moins un ticket : auto-sélectionne le plus récent.
+  // En mode list sans sélection mais avec des tickets : auto-sélectionne le
+  // plus récent pour ne pas rester sur un pane vide.
   useEffect(() => {
-    if (mode.kind === "empty" && list.length > 0) {
-      setMode({ kind: "chat", id: list[0].id });
+    if (mode.kind === "list" && mode.id === null && list.length > 0) {
+      setMode({ kind: "list", id: list[0].id });
     }
-  }, [list, mode.kind]);
+  }, [list, mode]);
+
+  // Nombre de tickets « en cours » (ouverts ou en traitement) pour la carte hub.
+  const openCount = list.filter(
+    (t) => t.status === "OPEN" || t.status === "IN_PROGRESS",
+  ).length;
 
   function handleCreated(t: TicketDetail) {
-    // Le nouveau ticket est ajouté en tête de liste ; on switch directement
-    // sur sa conversation.
     setList((prev) => [
       {
         id: t.id,
@@ -122,22 +126,47 @@ export function Tickets() {
       },
       ...prev,
     ]);
-    setMode({ kind: "chat", id: t.id });
+    setMode({ kind: "list", id: t.id });
   }
 
   function handleDeleted(id: string) {
     setList((prev) => prev.filter((t) => t.id !== id));
-    setMode({ kind: "empty" });
+    setMode({ kind: "list", id: null });
   }
 
+  if (mode.kind === "hub") {
+    return (
+      <TicketsHub
+        openCount={openCount}
+        onOpen={() => setMode({ kind: "create" })}
+        onList={() => setMode({ kind: "list", id: list[0]?.id ?? null })}
+      />
+    );
+  }
+
+  if (mode.kind === "create") {
+    return (
+      <CreateView
+        onCreated={handleCreated}
+        onCancel={() => setMode({ kind: "hub" })}
+      />
+    );
+  }
+
+  // mode.kind === "list" → master-detail
+  const selectedId = mode.id;
   return (
     <div className="tk-shell">
       <aside className="tk-sidebar">
         <div className="tk-sidebar-header">
-          <h1 className="tk-sidebar-title">Tickets</h1>
-          <p className="tk-sidebar-sub">
-            Pose une question au staff, signale un joueur, conteste une décision.
-          </p>
+          <button
+            type="button"
+            className="tk-back"
+            onClick={() => setMode({ kind: "hub" })}
+          >
+            <ArrowLeft size={15} />
+            Tickets
+          </button>
           <button
             type="button"
             className="tk-new-btn"
@@ -156,19 +185,13 @@ export function Tickets() {
           )}
           {listLoading && list.length === 0 && (
             <div className="tk-list-empty">
-              <Loader2
-                size={18}
-                className="mx-auto mb-2 animate-spin opacity-60"
-              />
+              <Loader2 size={18} className="mx-auto mb-2 animate-spin opacity-60" />
               Chargement…
             </div>
           )}
           {!listLoading && list.length === 0 && !listError && (
             <div className="tk-list-empty">
-              <MessageSquare
-                size={28}
-                className="mx-auto mb-3 opacity-40"
-              />
+              <MessageSquare size={28} className="mx-auto mb-3 opacity-40" />
               Aucun ticket pour le moment.
               <br />
               Le staff répond sous 48h.
@@ -178,30 +201,75 @@ export function Tickets() {
             <TicketListItem
               key={t.id}
               ticket={t}
-              active={mode.kind === "chat" && mode.id === t.id}
-              onClick={() => setMode({ kind: "chat", id: t.id })}
+              active={selectedId === t.id}
+              onClick={() => setMode({ kind: "list", id: t.id })}
             />
           ))}
         </div>
       </aside>
 
       <section className="tk-pane">
-        {mode.kind === "empty" && <EmptyPane onNew={() => setMode({ kind: "create" })} />}
-        {mode.kind === "create" && (
-          <CreatePane
-            onCreated={handleCreated}
-            onCancel={() =>
-              setMode(list.length > 0 ? { kind: "chat", id: list[0].id } : { kind: "empty" })
-            }
-          />
-        )}
-        {mode.kind === "chat" && (
+        {selectedId ? (
           <ChatPane
-            ticketId={mode.id}
-            onDeleted={() => handleDeleted(mode.id)}
+            ticketId={selectedId}
+            onDeleted={() => handleDeleted(selectedId)}
           />
+        ) : (
+          <EmptyPane onNew={() => setMode({ kind: "create" })} />
         )}
       </section>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// Hub — page d'accueil 2 cartes (cf. maquette ticketref)
+// ──────────────────────────────────────────────────────────
+
+function TicketsHub({
+  openCount,
+  onOpen,
+  onList,
+}: {
+  openCount: number;
+  onOpen: () => void;
+  onList: () => void;
+}) {
+  return (
+    <div className="tk-hub">
+      <header className="tk-hub-head">
+        <div className="tk-hub-icon">
+          <TicketIcon size={30} />
+        </div>
+        <div>
+          <h1 className="tk-hub-title">Ticket</h1>
+          <p className="tk-hub-sub">
+            Ouvre un ticket afin de contacter l'équipe.
+            <br />
+            Sélectionne la catégorie correspondant à ta demande pour un
+            traitement plus rapide.
+          </p>
+        </div>
+      </header>
+
+      <div className="tk-hub-cards">
+        <button type="button" className="tk-hub-card" onClick={onOpen}>
+          <div className="tk-hub-card-body">
+            <h2 className="tk-hub-card-title">Ouvrir un ticket</h2>
+          </div>
+          <MessagesSquare className="tk-hub-card-art" size={132} strokeWidth={1.1} />
+        </button>
+
+        <button type="button" className="tk-hub-card" onClick={onList}>
+          <div className="tk-hub-card-body">
+            <h2 className="tk-hub-card-title">Mes tickets</h2>
+            <span className="tk-hub-card-count">
+              {openCount} en cours
+            </span>
+          </div>
+          <TicketIcon className="tk-hub-card-art" size={132} strokeWidth={1.1} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -271,7 +339,7 @@ function EmptyPane({ onNew }: { onNew: () => void }) {
 // Create pane
 // ──────────────────────────────────────────────────────────
 
-function CreatePane({
+function CreateView({
   onCreated,
   onCancel,
 }: {
@@ -281,6 +349,7 @@ function CreatePane({
   const [category, setCategory] = useState<TicketCategory>("OTHER");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -295,6 +364,17 @@ function CreatePane({
     };
     try {
       const created = await createTicket(payload);
+      // Le create n'accepte pas d'attachments : on les uploade puis on les
+      // poste en message de suivi sur le ticket fraîchement créé.
+      if (files.length > 0) {
+        const urls: string[] = [];
+        for (const f of files) urls.push(await uploadAttachment(f));
+        await postTicketMessage(
+          created.id,
+          `${files.length} pièce${files.length > 1 ? "s" : ""} jointe${files.length > 1 ? "s" : ""}`,
+          urls,
+        );
+      }
       onCreated(created);
     } catch (err) {
       setError(
@@ -308,24 +388,33 @@ function CreatePane({
   }
 
   return (
-    <>
-      <div className="tk-pane-header">
-        <div className="tk-pane-header-left">
-          <h2 className="tk-pane-subject">Nouveau ticket</h2>
-          <p className="tk-pane-meta-row">
-            Le staff répond sous 48h en moyenne.
-          </p>
+    <div className="tk-create-view">
+      <header className="tk-create-head">
+        <button
+          type="button"
+          className="tk-back-round"
+          onClick={onCancel}
+          disabled={submitting}
+          aria-label="Retour"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div className="tk-hub-icon sm">
+          <TicketIcon size={22} />
         </div>
-      </div>
+        <h1 className="tk-create-title">
+          Nouveau <span className="accent">Ticket</span>
+        </h1>
+      </header>
 
-      <form onSubmit={handleSubmit} className="tk-pane-form">
-        <div className="tk-create-card">
+      <form onSubmit={handleSubmit} className="tk-create-form">
+        <div className="tk-create-grid">
           <div className="wl-field">
-            <label className="wl-field-label">Catégorie</label>
+            <label className="wl-field-label">Choisir votre catégorie</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as TicketCategory)}
-              className="wl-input"
+              className="wl-input tk-create-select"
             >
               <option value="BUG">Bug technique</option>
               <option value="REPORT_PLAYER">Signalement de joueur</option>
@@ -337,7 +426,7 @@ function CreatePane({
 
           <div className="wl-field">
             <label className="wl-field-label">
-              Sujet<span className="wl-required">*</span>
+              Titre du ticket<span className="wl-required">*</span>
             </label>
             <input
               required
@@ -346,66 +435,137 @@ function CreatePane({
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               className="wl-input"
-              placeholder="ex: Mes 500 ZK Coins n'ont pas été crédités"
+              placeholder="Ex : Crash du jeu, problème de connexion…"
             />
-            <div className="wl-field-helper">Résume en une ligne (4–120 caractères).</div>
-          </div>
-
-          <div className="wl-field">
-            <label className="wl-field-label">
-              Message<span className="wl-required">*</span>
-            </label>
-            <textarea
-              required
-              minLength={10}
-              maxLength={4000}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="wl-textarea"
-              rows={6}
-              placeholder="J'ai acheté le pack…"
-            />
-            <div className="wl-field-helper">
-              Min 10 caractères. Donne autant de détails que possible : pseudo,
-              heure, screenshots URL.
-            </div>
-          </div>
-
-          {error && (
-            <div className="flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              className="wl-btn-ghost"
-              onClick={onCancel}
-              disabled={submitting}
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              className="wl-btn-primary glow"
-              disabled={submitting || !subject.trim() || message.length < 10}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" /> Envoi…
-                </>
-              ) : (
-                <>
-                  Envoyer le ticket <Send size={14} />
-                </>
-              )}
-            </button>
           </div>
         </div>
+
+        <div className="wl-field">
+          <label className="wl-field-label">
+            Message<span className="wl-required">*</span>
+          </label>
+          <textarea
+            required
+            minLength={10}
+            maxLength={4000}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="wl-textarea"
+            rows={6}
+            placeholder="Décrivez en détail votre problème"
+          />
+        </div>
+
+        <FileDrop files={files} setFiles={setFiles} disabled={submitting} />
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="tk-create-actions">
+          <button
+            type="button"
+            className="tk-btn-cancel"
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            className="tk-btn-submit"
+            disabled={submitting || !subject.trim() || message.length < 10}
+          >
+            {submitting ? (
+              <>
+                <Loader2 size={15} className="animate-spin" /> Envoi…
+              </>
+            ) : (
+              <>
+                Envoyez le ticket <Send size={15} />
+              </>
+            )}
+          </button>
+        </div>
       </form>
-    </>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// Dropzone fichier (cf. maquette newticketref)
+// ──────────────────────────────────────────────────────────
+
+function FileDrop({
+  files,
+  setFiles,
+  disabled,
+}: {
+  files: File[];
+  setFiles: React.Dispatch<React.SetStateAction<File[]>>;
+  disabled?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [drag, setDrag] = useState(false);
+
+  function add(fl: FileList | null) {
+    if (!fl || fl.length === 0) return;
+    setFiles((prev) => [...prev, ...Array.from(fl)]);
+  }
+
+  return (
+    <div
+      className={`tk-drop${drag ? " is-drag" : ""}`}
+      onClick={() => !disabled && inputRef.current?.click()}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!disabled) setDrag(true);
+      }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDrag(false);
+        if (!disabled) add(e.dataTransfer.files);
+      }}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        hidden
+        disabled={disabled}
+        onChange={(e) => add(e.target.files)}
+      />
+      <div className="tk-drop-text">
+        <div className="tk-drop-title">Importer un fichier</div>
+        <div className="tk-drop-sub">Glisser déposer ou cliquer pour parcourir</div>
+      </div>
+      <UploadCloud className="tk-drop-icon" size={22} />
+
+      {files.length > 0 && (
+        <div
+          className="tk-drop-files"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {files.map((f, i) => (
+            <span key={`${f.name}-${i}`} className="tk-drop-chip">
+              <Paperclip size={11} />
+              <span className="tk-drop-chip-name">{f.name}</span>
+              <button
+                type="button"
+                aria-label="Retirer"
+                onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

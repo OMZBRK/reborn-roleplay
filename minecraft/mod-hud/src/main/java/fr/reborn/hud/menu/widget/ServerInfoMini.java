@@ -4,10 +4,10 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.ServerInfoState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 /**
  * Card serveur "Reborn · En ligne · X / Y joueurs" du footer central du
@@ -27,10 +27,10 @@ public final class ServerInfoMini {
     private static final int LINE_HEIGHT = 14;
     private static final int SEPARATOR_X_PADDING = 6;
 
-    /** Cache des Text constants — évite 3 allocs Text par frame. */
-    private static final Text STATUS_ONLINE_TEXT  = RebornFont.bold("Reborn · En ligne");
-    private static final Text STATUS_OFFLINE_TEXT = RebornFont.bold("Serveur hors ligne");
-    private static final Text SEPARATOR_TEXT      = RebornFont.body("·");
+    /** Cache des Component constants — évite 3 allocs Component par frame. */
+    private static final Component STATUS_ONLINE_TEXT  = RebornFont.bold("Reborn · En ligne");
+    private static final Component STATUS_OFFLINE_TEXT = RebornFont.bold("Serveur hors ligne");
+    private static final Component SEPARATOR_TEXT      = RebornFont.body("·");
 
     private ServerInfoMini() {}
 
@@ -38,10 +38,10 @@ public final class ServerInfoMini {
      * Dessine la card centrée horizontalement sur {@code centerX},
      * top-aligned sur {@code topY}.
      */
-    public static void render(DrawContext ctx, int centerX, int topY) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public static void render(GuiGraphicsExtractor ctx, int centerX, int topY) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         ServerInfoState state = ServerInfoState.INSTANCE;
         state.maybeRefresh();
@@ -49,12 +49,12 @@ public final class ServerInfoMini {
         boolean online = state.isOnline();
 
         // ─── Ligne 1 ───
-        Text line1Status_t = online ? STATUS_ONLINE_TEXT : STATUS_OFFLINE_TEXT;
-        int line1StatusW = tr.getWidth(line1Status_t);
+        Component line1Status_t = online ? STATUS_ONLINE_TEXT : STATUS_OFFLINE_TEXT;
+        int line1StatusW = tr.width(line1Status_t);
 
         String line1Players = online ? state.getPlayers() + " / " + state.getMaxPlayers() + " joueurs" : "";
-        Text line1Players_t = RebornFont.body(line1Players);
-        int line1PlayersW = online ? tr.getWidth(line1Players_t) : 0;
+        Component line1Players_t = RebornFont.body(line1Players);
+        int line1PlayersW = online ? tr.width(line1Players_t) : 0;
 
         // Largeur totale ligne 1 = dot + gap + statut + (sep + players) si online.
         int line1Width = DOT_SIZE + 6 + line1StatusW;
@@ -68,7 +68,7 @@ public final class ServerInfoMini {
         // Dot status — vivant : double halo pulsant + cœur stable.
         int dotColor = online ? Colors.SUCCESS : Colors.DANGER;
         int dotCx = line1X + DOT_SIZE / 2;
-        int dotCy = line1Y + tr.fontHeight / 2 + 1;
+        int dotCy = line1Y + tr.lineHeight / 2 + 1;
 
         if (online) {
             // Halo unique pulsant doux — un seul ring qui respire, plus
@@ -93,14 +93,14 @@ public final class ServerInfoMini {
         // les fonds clairs (sunset HDRI, ciel jour, etc.) generes par
         // le browser MCEF du DynamicPlayerBackground.
         int cursor = line1X + DOT_SIZE + 6;
-        ctx.drawText(tr, line1Status_t, cursor, line1Y, Colors.WHITE_PURE, true);
+        ctx.text(tr, line1Status_t, cursor, line1Y, Colors.WHITE_PURE, true);
         cursor += line1StatusW;
 
         if (online) {
-            ctx.drawText(tr, SEPARATOR_TEXT,
+            ctx.text(tr, SEPARATOR_TEXT,
                 cursor + SEPARATOR_X_PADDING, line1Y, 0xFFD1D5DB, true);
             cursor += SEPARATOR_X_PADDING * 2 + 4;
-            ctx.drawText(tr, line1Players_t, cursor, line1Y, 0xFFE5E7EB, true);
+            ctx.text(tr, line1Players_t, cursor, line1Y, 0xFFE5E7EB, true);
         }
 
         // Plus de ligne 2 ici — la version MC/Fabric est déjà affichée

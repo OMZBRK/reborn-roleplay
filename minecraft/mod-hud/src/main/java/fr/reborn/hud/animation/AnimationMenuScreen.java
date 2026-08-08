@@ -3,10 +3,10 @@ package fr.reborn.hud.animation;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +47,7 @@ public class AnimationMenuScreen extends Screen {
     private record Row(String label, String marker, boolean placeholder, Runnable action) {}
 
     public AnimationMenuScreen(Screen parent) {
-        super(Text.literal("Menu Reborn"));
+        super(Component.literal("Menu Reborn"));
         this.parent = parent;
     }
 
@@ -85,7 +85,7 @@ public class AnimationMenuScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, Colors.BACKDROP_60);
         int py = panelY();
         DrawHelpers.roundedOutlinedRect(ctx, PANEL_X, py, PANEL_W, panelH(), 10,
@@ -93,12 +93,12 @@ public class AnimationMenuScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(ctx, mouseX, mouseY, delta);
         int py = panelY();
 
         // Titre.
-        ctx.drawText(this.textRenderer, RebornFont.bold("REBORN"),
+        ctx.text(this.font, RebornFont.bold("REBORN"),
             PANEL_X + 14, py + 12, Colors.WHITE_PURE, false);
 
         // Onglets ANIMATIONS | OPTIONS.
@@ -117,20 +117,20 @@ public class AnimationMenuScreen extends Screen {
         }
     }
 
-    private void drawTab(DrawContext ctx, int x, int y, int w, String label, boolean active, int mx, int my) {
+    private void drawTab(GuiGraphicsExtractor ctx, int x, int y, int w, String label, boolean active, int mx, int my) {
         boolean hovered = mx >= x && mx < x + w && my >= y && my < y + TAB_H;
         int bg = active ? Colors.ACCENT_SOFT : (hovered ? Colors.SURFACE_ELEVATED : Colors.SURFACE);
         ctx.fill(x + 2, y + 2, x + w - 2, y + TAB_H - 2, bg);
         if (active) {
             ctx.fill(x + 2, y + TAB_H - 3, x + w - 2, y + TAB_H - 1, Colors.ACCENT);
         }
-        Text t = RebornFont.arcade(label);
-        int tw = this.textRenderer.getWidth(t);
-        ctx.drawText(this.textRenderer, t, x + (w - tw) / 2, y + (TAB_H - 8) / 2,
+        Component t = RebornFont.arcade(label);
+        int tw = this.font.width(t);
+        ctx.text(this.font, t, x + (w - tw) / 2, y + (TAB_H - 8) / 2,
             active ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
     }
 
-    private void renderRow(DrawContext ctx, Row row, int y, boolean hovered) {
+    private void renderRow(GuiGraphicsExtractor ctx, Row row, int y, boolean hovered) {
         if (hovered && !row.placeholder()) {
             ctx.fill(PANEL_X + 6, y + 2, PANEL_X + PANEL_W - 6, y + ROW_H - 2,
                 Colors.withAlpha(Colors.ACCENT, 0.18f));
@@ -139,18 +139,18 @@ public class AnimationMenuScreen extends Screen {
         }
         int color = row.placeholder() ? Colors.FOREGROUND_MUTED
             : (hovered ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE);
-        ctx.drawText(this.textRenderer, RebornFont.arcade(row.label()),
+        ctx.text(this.font, RebornFont.arcade(row.label()),
             PANEL_X + 26, y + (ROW_H - 8) / 2, color, false);
 
         if (row.marker() != null) {
-            Text m = RebornFont.arcade(row.marker());
-            int mw = this.textRenderer.getWidth(m);
-            ctx.drawText(this.textRenderer, m, PANEL_X + PANEL_W - 18 - mw, y + (ROW_H - 8) / 2,
+            Component m = RebornFont.arcade(row.marker());
+            int mw = this.font.width(m);
+            ctx.text(this.font, m, PANEL_X + PANEL_W - 18 - mw, y + (ROW_H - 8) / 2,
                 "●".equals(row.marker()) ? Colors.ACCENT_HOVER : Colors.FOREGROUND_MUTED, false);
         }
     }
 
-    private void drawArrow(DrawContext ctx, int x, int y, int color) {
+    private void drawArrow(GuiGraphicsExtractor ctx, int x, int y, int color) {
         for (int i = 0; i < 8; i++) {
             int half = Math.min(i, 7 - i);
             ctx.fill(x, y + i, x + half + 1, y + i + 1, color);
@@ -158,7 +158,8 @@ public class AnimationMenuScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0) {
             // Onglets.
             int tabW = PANEL_W / 2;
@@ -179,16 +180,16 @@ public class AnimationMenuScreen extends Screen {
                 y += ROW_H;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+    public void onClose() {
+        Minecraft.getInstance().setScreen(parent);
     }
 }

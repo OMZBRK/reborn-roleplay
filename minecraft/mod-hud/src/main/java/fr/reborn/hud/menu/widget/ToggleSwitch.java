@@ -2,12 +2,12 @@ package fr.reborn.hud.menu.widget;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.screen.narration.NarrationPart;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarratedElementType;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -20,7 +20,7 @@ import java.util.function.Consumer;
  * <p>Découplé de tout état : on lui passe un getter (état courant) et un
  * callback appelé au clic avec la nouvelle valeur — au caller de persister.
  */
-public class ToggleSwitch extends ClickableWidget {
+public class ToggleSwitch extends AbstractWidget {
 
     public static final int W = 30;
     public static final int H = 16;
@@ -31,14 +31,14 @@ public class ToggleSwitch extends ClickableWidget {
     private float anim;
 
     public ToggleSwitch(int x, int y, BooleanSupplier getter, Consumer<Boolean> onToggle) {
-        super(x, y, W, H, Text.literal("Interrupteur"));
+        super(x, y, W, H, Component.literal("Interrupteur"));
         this.getter = getter;
         this.onToggle = onToggle;
         this.anim = getter.getAsBoolean() ? 1f : 0f;
     }
 
     @Override
-    protected void renderWidget(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         boolean on = getter.getAsBoolean();
         float target = on ? 1f : 0f;
         anim += (target - anim) * 0.30f; // slide fps-léger (suffisant pour un toggle)
@@ -64,18 +64,16 @@ public class ToggleSwitch extends ClickableWidget {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && this.active && this.visible && clicked(mouseX, mouseY)) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
+        if (button == 0 && this.active && this.visible && isMouseOver(mouseX, mouseY)) {
             onToggle.accept(!getter.getAsBoolean());
-            playDownSound(MinecraftClient.getInstance().getSoundManager());
+            playDownSound(Minecraft.getInstance().getSoundManager());
             return true;
         }
         return false;
     }
 
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
-        builder.put(NarrationPart.TITLE,
-            Text.literal(getter.getAsBoolean() ? "Activé" : "Désactivé"));
-    }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase2 */ }
 }

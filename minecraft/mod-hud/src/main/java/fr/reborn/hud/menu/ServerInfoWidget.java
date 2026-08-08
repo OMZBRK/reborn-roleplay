@@ -1,10 +1,10 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.network.chat.Component;
 
 /**
  * Widget mini-card en coin haut-gauche affichant l'etat du serveur
@@ -20,7 +20,7 @@ import net.minecraft.text.Text;
  *
  * Le dot est vert si online, rouge si offline.
  */
-public class ServerInfoWidget extends ClickableWidget {
+public class ServerInfoWidget extends AbstractWidget {
 
     private static final int FG = 0xFFFFFAF0;
     private static final int FG_DIM = 0xAAFFFAF0;
@@ -32,15 +32,15 @@ public class ServerInfoWidget extends ClickableWidget {
     private static final int PADDING = 8;
     private static final int DOT_SIZE = 6;
 
-    private final TextRenderer textRenderer;
+    private final Font font;
 
-    public ServerInfoWidget(int x, int y, TextRenderer textRenderer) {
-        super(x, y, 200, 40, Text.literal("Reborn Server"));
-        this.textRenderer = textRenderer;
+    public ServerInfoWidget(int x, int y, Font font) {
+        super(x, y, 200, 40, Component.literal("Reborn Server"));
+        this.font = font;
     }
 
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ServerInfoState st = ServerInfoState.INSTANCE;
         st.maybeRefresh();
 
@@ -61,7 +61,7 @@ public class ServerInfoWidget extends ClickableWidget {
 
         // Ligne 1 : nom serveur.
         String title = st.isOnline() ? "Reborn Roleplay" : "Serveur hors ligne";
-        context.drawText(textRenderer, title, dotX + DOT_SIZE + 6, y0 + 9, FG, false);
+        context.text(font, title, dotX + DOT_SIZE + 6, y0 + 9, FG, false);
 
         // Ligne 2 : compteur joueurs ou message.
         String line2;
@@ -70,21 +70,16 @@ public class ServerInfoWidget extends ClickableWidget {
         } else {
             line2 = "Reconnexion...";
         }
-        context.drawText(textRenderer, line2, x0 + PADDING, y0 + 23, FG_DIM, false);
+        context.text(font, line2, x0 + PADDING, y0 + 23, FG_DIM, false);
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
         // No-op pour l'instant. PR ulterieure : ouvrir un mini-dashboard
         // serveur (latence, MOTD, version) au click.
     }
 
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
-        ServerInfoState st = ServerInfoState.INSTANCE;
-        String narration = st.isOnline()
-            ? "Serveur Reborn en ligne, " + st.getPlayers() + " joueurs"
-            : "Serveur Reborn hors ligne";
-        builder.put(net.minecraft.client.gui.screen.narration.NarrationPart.TITLE, narration);
-    }
+    protected void updateWidgetNarration(NarrationElementOutput builder) { /* narration phase2 */ }
 }

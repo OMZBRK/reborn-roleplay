@@ -71,6 +71,9 @@ export type WhitelistAppStatus = "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_RE
 export type WhitelistApplication = {
   id: string;
   status: WhitelistAppStatus;
+  // L5 — statuts HRP/RP indépendants (prévalidation orale + RP).
+  hrpStatus: WhitelistAppStatus;
+  rpStatus: WhitelistAppStatus;
   // Étape 1
   dob: string; // ISO YYYY-MM-DD
   motivation: string;
@@ -101,6 +104,32 @@ export type WhitelistMeResponse = {
 
 export async function fetchWhitelistMe(): Promise<WhitelistMeResponse> {
   return invoke<WhitelistMeResponse>("whitelist_me");
+}
+
+// ── L5 : créneaux de test oral ────────────────────────────────────
+export type OralSlot = {
+  id: string;
+  startAt: string;
+  durationMin: number;
+  status?: "OPEN" | "BOOKED" | "DONE" | "CANCELLED" | null;
+  notes?: string | null;
+};
+
+export type OralSlotsResponse = {
+  open: OralSlot[];
+  mine: OralSlot | null;
+};
+
+export async function fetchOralSlots(): Promise<OralSlotsResponse> {
+  return invoke<OralSlotsResponse>("whitelist_oral_slots");
+}
+
+export async function bookOralSlot(id: string): Promise<OralSlot> {
+  return invoke<OralSlot>("whitelist_book_slot", { id });
+}
+
+export async function cancelOralSlot(id: string): Promise<void> {
+  await invoke<void>("whitelist_cancel_slot", { id });
 }
 
 /**
@@ -326,4 +355,9 @@ export type ServerStatus = {
 
 export async function fetchServerStatus(): Promise<ServerStatus> {
   return invoke<ServerStatus>("server_status");
+}
+
+// ── Profil : modifier le nom d'affichage RP ────────────────────────
+export async function updateDisplayName(displayName: string): Promise<{ displayName: string }> {
+  return invoke<{ displayName: string }>("update_display_name", { displayName });
 }

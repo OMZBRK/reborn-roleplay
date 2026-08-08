@@ -1,10 +1,10 @@
 package fr.reborn.hud.menu;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.client.sound.SoundInstance;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.resources.Identifier;
 
 /**
  * Audio state machine du lecteur OST Reborn. Singleton process-wide pour
@@ -20,7 +20,7 @@ import net.minecraft.util.Identifier;
  *   <li>{@code SoundInstance.getVolume()} fige la valeur au moment du
  *       play. Changer le volume necessite stop + replay.</li>
  *   <li>Pas de callback "track ended" — on poll via
- *       {@code SoundManager.isPlaying(instance)} dans le widget.</li>
+ *       {@code SoundManager.isActive(instance)} dans le widget.</li>
  * </ul>
  */
 public final class OSTPlayer {
@@ -51,7 +51,7 @@ public final class OSTPlayer {
     private boolean playlistOpen = false;
 
     /** Durées effectives par piste — apprises au fil des lectures via
-     *  SoundManager.isPlaying() qui passe à false en fin de piste. Permet
+     *  SoundManager.isActive() qui passe à false en fin de piste. Permet
      *  d'avoir une progress bar exacte dès la 2e écoute d'une piste. */
     private final java.util.Map<Integer, Long> learnedDurationsMs =
         new java.util.HashMap<>();
@@ -94,6 +94,11 @@ public final class OSTPlayer {
         return playing;
     }
 
+    /** Alias historique utilisé par les widgets OST — équivalent à {@link #isPlaying()}. */
+    public boolean isActive() {
+        return playing;
+    }
+
     public float getVolume() {
         return volume;
     }
@@ -105,12 +110,12 @@ public final class OSTPlayer {
 
     /** Demarre la piste courante. Stop l'ancienne si presente. */
     public void play() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
         stop();
-        Identifier id = Identifier.of("reborn", String.format("ost.track%02d", currentTrack));
-        SoundEvent event = SoundEvent.of(id);
-        currentInstance = PositionedSoundInstance.master(event, 1.0F, volume);
+        Identifier id = Identifier.fromNamespaceAndPath("reborn", String.format("ost.track%02d", currentTrack));
+        SoundEvent event = SoundEvent.createVariableRangeEvent(id);
+        currentInstance = SimpleSoundInstance.forUI(event, 1.0F, volume);
         client.getSoundManager().play(currentInstance);
         playing = true;
         startTimeMs = System.currentTimeMillis();
@@ -119,7 +124,7 @@ public final class OSTPlayer {
     /** Stop la piste en cours sans memoire de position. */
     public void stop() {
         if (currentInstance != null) {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client != null) {
                 client.getSoundManager().stop(currentInstance);
             }
@@ -172,9 +177,9 @@ public final class OSTPlayer {
      */
     public boolean isStillSoundingInManager() {
         if (currentInstance == null) return false;
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return false;
-        return client.getSoundManager().isPlaying(currentInstance);
+        return client.getSoundManager().isActive(currentInstance);
     }
 
     /** Si la piste s'est terminee naturellement, passe a la suivante.

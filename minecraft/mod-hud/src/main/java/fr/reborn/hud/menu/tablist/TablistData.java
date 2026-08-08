@@ -4,7 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +19,7 @@ import java.util.UUID;
  * <p>Le serveur envoie les rangs/affinités en clé enum (ex. {@code GENIN}) ;
  * on les mappe en libellés FR côté client (seul endroit qui connaît la langue
  * du menu). Le ping n'est pas transmis — on le lit en direct depuis la latence
- * du {@code PlayerListEntry} vanilla par UUID.
+ * du {@code PlayerInfo} vanilla par UUID.
  */
 public final class TablistData {
 
@@ -87,9 +87,9 @@ public final class TablistData {
     private static int pingOf(String uuidStr) {
         if (uuidStr == null) return 0;
         try {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if (mc.getNetworkHandler() == null) return 0;
-            var entry = mc.getNetworkHandler().getPlayerListEntry(UUID.fromString(uuidStr));
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.getConnection() == null) return 0;
+            var entry = mc.getConnection().getPlayerInfo(UUID.fromString(uuidStr));
             return entry != null ? Math.max(0, entry.getLatency()) : 0;
         } catch (Exception e) {
             return 0;

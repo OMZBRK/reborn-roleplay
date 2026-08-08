@@ -5,21 +5,21 @@ import {
   AlertTriangle,
   Bell,
   Check,
-  Cpu,
+  Copy,
+  FolderOpen,
   Gamepad2,
   Globe,
+  HardDrive,
   Info,
   Link2,
   Loader2,
   LogOut,
   MemoryStick,
-  Monitor,
-  Music,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   User2,
   Unlink,
-  Volume2,
   Wand2,
   Zap,
 } from "lucide-react";
@@ -29,6 +29,15 @@ import { useSettingsStore } from "../stores/settings-store";
 import { getPrefs, setPrefs, type Preferences } from "../lib/prefs";
 import { logout, refreshMe, startDiscordLink, unlinkDiscord } from "../lib/auth";
 import { getSystemSpecs, type SystemSpecs } from "../lib/system";
+import {
+  getGameInfo,
+  openInstallDir,
+  reinstallAll,
+  checkUpdate,
+  cleanObsolete,
+  type GameInfo,
+} from "../lib/launcher";
+import { updateDisplayName } from "../lib/content";
 import { cn } from "../lib/cn";
 import { mapRole, ROLE_META } from "../components/sidebar/role";
 
@@ -36,9 +45,7 @@ const TABS = [
   { id: "profile", label: "Profil", hint: "Identite & role", icon: User2 },
   { id: "account", label: "Compte", hint: "Identifiants & session", icon: ShieldCheck },
   { id: "connections", label: "Connexions", hint: "Discord, Steam, Twitch", icon: Link2 },
-  { id: "game", label: "Jeu", hint: "RAM & comportement", icon: Gamepad2 },
-  { id: "perf", label: "Performance", hint: "FPS, vsync, low-spec", icon: Zap },
-  { id: "audio", label: "Audio", hint: "Volumes & mute", icon: Volume2 },
+  { id: "game", label: "Jeu", hint: "Installation & fichiers", icon: Gamepad2 },
   { id: "notif", label: "Notifications", hint: "Push, email, alertes", icon: Bell },
   { id: "about", label: "À propos", hint: "Version & support", icon: Info },
 ] as const;
@@ -91,8 +98,6 @@ export function Settings() {
                   {tab === "account" && <AccountTab />}
                   {tab === "connections" && <ConnectionsTab />}
                   {tab === "game" && <GameTab />}
-                  {tab === "perf" && <PerformanceTab />}
-                  {tab === "audio" && <AudioTab />}
                   {tab === "notif" && <NotificationsTab />}
                   {tab === "about" && <AboutTab />}
                 </motion.div>
@@ -221,10 +226,36 @@ function Row({
 
 function ProfileTab() {
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const pseudo = user?.displayName ?? user?.minecraftUsername ?? "Joueur";
   const initial = pseudo.charAt(0).toUpperCase();
   const roleType = mapRole(user?.role);
   const roleMeta = ROLE_META[roleType];
+
+  const [rpName, setRpName] = useState(user?.displayName ?? "");
+  const [rpSave, setRpSave] = useState<"idle" | "saving" | "saved">("idle");
+  const [rpError, setRpError] = useState<string | null>(null);
+
+  async function saveRpName() {
+    const trimmed = rpName.trim();
+    if (trimmed.length < 2 || trimmed.length > 24) {
+      setRpError("Entre 2 et 24 caractères.");
+      return;
+    }
+    setRpSave("saving");
+    setRpError(null);
+    try {
+      const res = await updateDisplayName(trimmed);
+      if (user) setUser({ ...user, displayName: res.displayName });
+      setRpSave("saved");
+      setTimeout(() => setRpSave("idle"), 1500);
+    } catch (err) {
+      setRpError(
+        typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur",
+      );
+      setRpSave("idle");
+    }
+  }
 
   return (
     <>
@@ -300,8 +331,37 @@ function ProfileTab() {
         <Row label="Pseudo Minecraft" hint="Recupere depuis ton compte Microsoft. Modifiable uniquement chez Mojang.">
           <span className="text-sm font-medium">{user?.minecraftUsername ?? "—"}</span>
         </Row>
-        <Row label="Nom d'affichage" hint="Visible dans les DM et l'historique RP.">
-          <span className="text-sm">{user?.displayName ?? user?.minecraftUsername ?? "—"}</span>
+        <Row
+          label="Nom d'affichage RP"
+          hint="Ton nom affiché en jeu, dans les DM et sur le panel (2-24 caractères)."
+        >
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={rpName}
+                maxLength={24}
+                placeholder={user?.minecraftUsername ?? "Nom RP"}
+                onChange={(e) => setRpName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveRpName()}
+                className="w-44 rounded-md border border-border bg-surface-elevated px-3 py-1.5 text-sm text-foreground outline-none transition focus:border-accent/50"
+              />
+              <button
+                type="button"
+                onClick={saveRpName}
+                disabled={rpSave === "saving" || rpName.trim() === (user?.displayName ?? "")}
+                className="inline-flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent/10 px-3 py-1.5 text-[12px] font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
+              >
+                {rpSave === "saving" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : rpSave === "saved" ? (
+                  <Check className="h-3.5 w-3.5 text-success" />
+                ) : null}
+                {rpSave === "saved" ? "Enregistré" : "Enregistrer"}
+              </button>
+            </div>
+            {rpError && <span className="text-[10.5px] text-danger">{rpError}</span>}
+          </div>
         </Row>
         <Row label="Role" hint="Definit tes permissions in-game et sur le panel.">
           <span
@@ -654,28 +714,43 @@ function ConnectionRow({
 // ──────────────────────────────────────────────────────
 
 function GameTab() {
+  const user = useAuthStore((s) => s.user);
   const [prefs, setPrefsState] = useState<Preferences | null>(null);
   const [specs, setSpecs] = useState<SystemSpecs | null>(null);
+  const [info, setInfo] = useState<GameInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingState, setSavingState] = useState<"idle" | "saving" | "saved">("idle");
+  const [copied, setCopied] = useState(false);
+  const [verify, setVerify] = useState<"idle" | "checking" | "ok" | { repair: number }>("idle");
+  const [confirmReinstall, setConfirmReinstall] = useState(false);
+  const [reinstalling, setReinstalling] = useState<"idle" | "working" | "done">("idle");
+  const [cleaning, setCleaning] = useState<
+    "idle" | "working" | { removed: string[]; freedMb: number }
+  >("idle");
+
+  async function runClean() {
+    setCleaning("working");
+    try {
+      setCleaning(await cleanObsolete());
+    } catch {
+      setCleaning("idle");
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
     getPrefs()
-      .then((p) => {
-        if (!cancelled) setPrefsState(p);
-      })
-      .catch((err) => {
-        if (!cancelled)
-          setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
-      });
+      .then((p) => !cancelled && setPrefsState(p))
+      .catch((err) =>
+        !cancelled &&
+        setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur"),
+      );
     getSystemSpecs()
-      .then((s) => {
-        if (!cancelled) setSpecs(s);
-      })
-      .catch(() => {
-        /* swallow */
-      });
+      .then((s) => !cancelled && setSpecs(s))
+      .catch(() => {});
+    getGameInfo()
+      .then((g) => !cancelled && setInfo(g))
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -696,6 +771,38 @@ function GameTab() {
     }
   }
 
+  const uuid = user?.minecraftUuid ?? "—";
+
+  function copyUuid() {
+    if (!user?.minecraftUuid) return;
+    navigator.clipboard.writeText(user.minecraftUuid).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  async function runVerify() {
+    setVerify("checking");
+    try {
+      const preview = await checkUpdate();
+      setVerify(preview.plan.length === 0 ? "ok" : { repair: preview.plan.length });
+    } catch {
+      setVerify("idle");
+    }
+  }
+
+  async function runReinstall() {
+    setReinstalling("working");
+    try {
+      await reinstallAll();
+      setReinstalling("done");
+      setConfirmReinstall(false);
+    } catch (err) {
+      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+      setReinstalling("idle");
+    }
+  }
+
   if (error)
     return (
       <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -712,21 +819,214 @@ function GameTab() {
 
   const recommended = specs?.recommendedRamMb ?? 4096;
   const ramPercent = ((prefs.ramMb - 2048) / (16384 - 2048)) * 100;
+  const diskPercent =
+    info && info.diskTotalGb > 0
+      ? Math.min(100, ((info.diskTotalGb - info.diskFreeGb) / info.diskTotalGb) * 100)
+      : 0;
 
   return (
     <>
-      {specs && (
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <SpecCard icon={MemoryStick} label="Mémoire" value={`${(specs.totalRamMb / 1024).toFixed(1)} Go`} sub={`${specs.freeRamMb.toLocaleString()} Mo libres`} />
-          <SpecCard icon={Cpu} label="Processeur" value={specs.cpuBrand} sub={`${specs.cpuCores} thread${specs.cpuCores > 1 ? "s" : ""}`} />
-          <SpecCard icon={Monitor} label="Système" value={specs.osName} sub="Détecté au démarrage" />
-        </div>
-      )}
-
+      {/* ── Installation ── */}
       <Card
-        title="Performance"
-        description="Réglages JVM et fenêtre. Pris en compte au prochain lancement du jeu."
-        icon={<Zap className="h-4 w-4" />}
+        title="Installation"
+        description="Emplacement des fichiers du jeu, version et identifiant du compte."
+        icon={<FolderOpen className="h-4 w-4" />}
+      >
+        <div className="px-6 py-5">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-foreground-muted">
+            Dossier d'installation
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2.5">
+              <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-foreground-muted" />
+              <span className="truncate font-mono text-[12px] text-foreground-subtle">
+                {info?.installDir ?? "…"}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => openInstallDir().catch(() => {})}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2.5 text-[12px] font-medium text-foreground transition hover:border-accent/50 hover:text-accent"
+            >
+              <FolderOpen className="h-3.5 w-3.5" />
+              Ouvrir
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 px-6 pb-5 sm:grid-cols-2">
+          <SpecCard
+            icon={Gamepad2}
+            label="Version du jeu"
+            value={info ? `Minecraft ${info.mcVersion}` : "…"}
+            sub="Modpack Reborn"
+          />
+          <div className="rounded-[12px] border border-border bg-surface-elevated/60 px-4 py-3.5">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-3.5 w-3.5 text-foreground-muted" />
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-foreground-muted">
+                Stockage disque
+              </p>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${diskPercent}%`,
+                  background:
+                    "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
+                }}
+              />
+            </div>
+            <p className="mt-1.5 text-[11.5px] text-foreground-subtle">
+              {info
+                ? `${info.diskFreeGb.toFixed(0)} Go libres sur ${info.diskTotalGb.toFixed(0)} Go`
+                : "…"}
+            </p>
+          </div>
+        </div>
+
+        <div className="px-6 pb-5">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-foreground-muted">
+            UUID du compte
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center rounded-md border border-border bg-surface-elevated px-3 py-2.5">
+              <span className="truncate font-mono text-[12px] text-success">{uuid}</span>
+            </div>
+            <button
+              type="button"
+              onClick={copyUuid}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2.5 text-[12px] font-medium text-foreground transition hover:border-accent/50 hover:text-accent"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copié" : "Copier"}
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Intégrité ── */}
+      <Card
+        title="Intégrité des fichiers"
+        description="Vérifie que tous les fichiers du modpack sont présents et intacts."
+        icon={<ShieldCheck className="h-4 w-4" />}
+      >
+        <div className="px-6 py-5">
+          <button
+            type="button"
+            onClick={runVerify}
+            disabled={verify === "checking"}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-4 py-3 text-[13px] font-medium text-foreground transition hover:border-accent/50 hover:text-accent disabled:opacity-60"
+          >
+            {verify === "checking" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
+            Vérifier les fichiers
+          </button>
+          {verify === "ok" && (
+            <p className="mt-3 flex items-center gap-1.5 text-[12px] text-success">
+              <Check className="h-3.5 w-3.5" /> Tous les fichiers sont à jour.
+            </p>
+          )}
+          {typeof verify === "object" && (
+            <p className="mt-3 flex items-center gap-1.5 text-[12px] text-warning">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {verify.repair} fichier{verify.repair > 1 ? "s" : ""} à réparer — relance le jeu pour
+              les re-télécharger.
+            </p>
+          )}
+        </div>
+      </Card>
+
+      {/* ── Nettoyage ── */}
+      <Card
+        title="Nettoyage"
+        description="Supprime les résidus obsolètes (caches MCEF, anciennes versions, crash dumps). Se fait aussi automatiquement à chaque mise à jour."
+        icon={<RefreshCw className="h-4 w-4" />}
+      >
+        <div className="px-6 py-5">
+          <button
+            type="button"
+            onClick={runClean}
+            disabled={cleaning === "working"}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-4 py-3 text-[13px] font-medium text-foreground transition hover:border-accent/50 hover:text-accent disabled:opacity-60"
+          >
+            {cleaning === "working" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Nettoyer les fichiers obsolètes
+          </button>
+          {typeof cleaning === "object" && (
+            <p className="mt-3 flex items-center gap-1.5 text-[12px] text-success">
+              <Check className="h-3.5 w-3.5" />
+              {cleaning.removed.length === 0
+                ? "Rien à nettoyer — déjà propre."
+                : `${cleaning.removed.length} élément${cleaning.removed.length > 1 ? "s" : ""} supprimé${cleaning.removed.length > 1 ? "s" : ""} · ${cleaning.freedMb.toFixed(0)} Mo libérés.`}
+            </p>
+          )}
+        </div>
+      </Card>
+
+      {/* ── Réinstallation ── */}
+      <Card
+        title="Réinstallation"
+        description="Supprime les fichiers du jeu et relance un téléchargement complet au prochain lancement."
+        icon={<Trash2 className="h-4 w-4" />}
+        accent="danger"
+      >
+        <div className="px-6 py-5">
+          {reinstalling === "done" ? (
+            <p className="flex items-center gap-1.5 text-[12px] text-success">
+              <Check className="h-3.5 w-3.5" /> Fichiers supprimés — tout sera re-téléchargé au
+              prochain lancement.
+            </p>
+          ) : confirmReinstall ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={runReinstall}
+                disabled={reinstalling === "working"}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-danger/50 bg-danger/10 px-4 py-3 text-[13px] font-semibold text-danger transition hover:bg-danger/20 disabled:opacity-60"
+              >
+                {reinstalling === "working" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Confirmer la réinstallation
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmReinstall(false)}
+                disabled={reinstalling === "working"}
+                className="rounded-md border border-border-strong bg-surface px-4 py-3 text-[13px] font-medium text-foreground-subtle transition hover:text-foreground"
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmReinstall(true)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-danger/40 bg-transparent px-4 py-3 text-[13px] font-medium text-danger transition hover:bg-danger/10"
+            >
+              <Trash2 className="h-4 w-4" />
+              Réinstaller tout
+            </button>
+          )}
+        </div>
+      </Card>
+
+      {/* ── Java & fenêtre ── */}
+      <Card
+        title="Java & fenêtre"
+        description="Mémoire allouée et résolution — pris en compte au prochain lancement."
+        icon={<MemoryStick className="h-4 w-4" />}
       >
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
@@ -740,25 +1040,29 @@ function GameTab() {
                 )}
               </div>
               <p className="mt-1 text-[11.5px] text-foreground-subtle">
-                Plus de RAM = chargement de chunks plus rapide, mais ne sert à rien au-delà de la
-                moitié de ta mémoire totale.
+                Plus de RAM = chargement de chunks plus rapide, mais inutile au-delà de la moitié de
+                ta mémoire totale.
               </p>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="font-display text-2xl tabular-nums text-foreground" style={{ letterSpacing: "0.02em" }}>
+              <span
+                className="font-display text-2xl tabular-nums text-foreground"
+                style={{ letterSpacing: "0.02em" }}
+              >
                 {(prefs.ramMb / 1024).toFixed(1)}
               </span>
               <span className="text-xs uppercase tracking-widest text-foreground-muted">Go</span>
             </div>
           </div>
 
-          <div className="mt-4 relative">
+          <div className="relative mt-4">
             <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-border">
               <div
                 className="h-full rounded-full transition-all duration-200"
                 style={{
                   width: `${ramPercent}%`,
-                  background: "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
+                  background:
+                    "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
                   boxShadow: "0 0 12px var(--color-accent-glow)",
                 }}
               />
@@ -782,7 +1086,7 @@ function GameTab() {
             <button
               type="button"
               onClick={() => update({ ramMb: recommended })}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent/8 px-3 py-1.5 text-[11px] font-medium text-accent transition hover:bg-accent/15 hover:shadow-[0_0_16px_-6px_var(--color-accent-glow-strong)]"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent/8 px-3 py-1.5 text-[11px] font-medium text-accent transition hover:bg-accent/15"
             >
               <Wand2 className="h-3 w-3" />
               Utiliser la valeur recommandée ({(recommended / 1024).toFixed(1)} Go)
@@ -807,12 +1111,13 @@ function GameTab() {
         </Row>
       </Card>
 
+      {/* ── Comportement ── */}
       <Card
         title="Comportement"
         description="Options activées par défaut au lancement du jeu."
         icon={<Gamepad2 className="h-4 w-4" />}
       >
-        <Row label="Auto-connect au serveur" hint="Saute le menu principal et tente la connexion direct.">
+        <Row label="Auto-connect au serveur" hint="Saute le menu principal et tente la connexion directe.">
           <Toggle checked={prefs.autoConnect} onChange={(v) => update({ autoConnect: v })} />
         </Row>
         <Row label="Discord Rich Presence" hint="Affiche ton statut RP dans Discord pendant que tu joues.">
@@ -859,7 +1164,6 @@ function GameTab() {
     </>
   );
 }
-
 function SpecCard({
   icon: Icon,
   label,
@@ -982,249 +1286,6 @@ function Toggle({
 
 // Slider compact reutilise par Perf/Audio. Affiche un pourcent ou un
 // suffix custom (fps, %, etc.).
-function Slider({
-  value,
-  min,
-  max,
-  step = 1,
-  suffix = "",
-  onChange,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  suffix?: string;
-  onChange: (v: number) => void;
-}) {
-  const pct = ((value - min) / (max - min)) * 100;
-  return (
-    <div className="w-full">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="font-mono text-[11px] text-foreground-muted">
-          {min}
-          {suffix}
-        </span>
-        <span className="font-display text-base tabular-nums text-foreground">
-          {value}
-          {suffix}
-        </span>
-        <span className="font-mono text-[11px] text-foreground-muted">
-          {max}
-          {suffix}
-        </span>
-      </div>
-      <div className="relative">
-        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-border">
-          <div
-            className="h-full rounded-full transition-all duration-200"
-            style={{
-              width: `${pct}%`,
-              background:
-                "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
-              boxShadow: "0 0 10px var(--color-accent-glow)",
-            }}
-          />
-        </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="reborn-ram-slider relative z-10 w-full"
-        />
-      </div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────
-//  PERFORMANCE
-// ──────────────────────────────────────────────────────
-
-function PerformanceTab() {
-  const perf = useSettingsStore((s) => s.perf);
-  const setPerf = useSettingsStore((s) => s.setPerf);
-
-  return (
-    <Card
-      title="Performance"
-      description="Réglages avancés du moteur de rendu. Persistés localement — branchement sur le game launcher à venir."
-      icon={<Zap className="h-4 w-4" />}
-    >
-      <Row
-        label="Distance de rendu automatique"
-        hint="Adapte la distance selon ton GPU et ta RAM disponible."
-      >
-        <Toggle
-          checked={perf.autoRenderDistance}
-          onChange={(v) => setPerf("autoRenderDistance", v)}
-        />
-      </Row>
-      <div className="px-6 py-5">
-        <div className="mb-3 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[13px] font-medium text-foreground">FPS maximum</p>
-            <p className="mt-1 text-[11.5px] text-foreground-subtle">
-              {perf.fpsMax >= 240
-                ? "Illimité — utilise toute la puissance disponible."
-                : `Cap à ${perf.fpsMax} images par seconde.`}
-            </p>
-          </div>
-        </div>
-        <Slider
-          value={perf.fpsMax}
-          min={30}
-          max={240}
-          suffix=" fps"
-          onChange={(v) => setPerf("fpsMax", v)}
-        />
-      </div>
-      <Row
-        label="Synchronisation verticale (VSync)"
-        hint="Évite le tearing mais peut introduire de l'input lag."
-      >
-        <Toggle checked={perf.vsync} onChange={(v) => setPerf("vsync", v)} />
-      </Row>
-      <Row
-        label="Mode low-spec"
-        hint="Désactive les effets coûteux : ombres, particules, animations d'eau."
-      >
-        <Toggle
-          checked={perf.lowSpecMode}
-          onChange={(v) => setPerf("lowSpecMode", v)}
-        />
-      </Row>
-    </Card>
-  );
-}
-
-// ──────────────────────────────────────────────────────
-//  AUDIO
-// ──────────────────────────────────────────────────────
-
-function AudioTab() {
-  const audio = useSettingsStore((s) => s.audio);
-  const setAudio = useSettingsStore((s) => s.setAudio);
-
-  return (
-    <>
-      <Card
-        title="Audio"
-        description="Volumes du jeu. Persistés localement — appliqués à la JVM au prochain lancement quand le branchement sera fait."
-        icon={<Volume2 className="h-4 w-4" />}
-      >
-        <AudioRow
-          label="Volume principal"
-          value={audio.master}
-          onChange={(v) => setAudio("master", v)}
-        />
-        <AudioRow
-          label="Musique"
-          value={audio.music}
-          onChange={(v) => setAudio("music", v)}
-        />
-        <AudioRow
-          label="Effets sonores"
-          value={audio.sfx}
-          onChange={(v) => setAudio("sfx", v)}
-        />
-        <AudioRow
-          label="Voix RP"
-          hint="Volume du système de proximity chat."
-          value={audio.voice}
-          onChange={(v) => setAudio("voice", v)}
-        />
-        <Row
-          label="Couper le son en perdant le focus"
-          hint="Pratique quand tu joues avec Discord en parallèle."
-        >
-          <Toggle
-            checked={audio.muteOnBlur}
-            onChange={(v) => setAudio("muteOnBlur", v)}
-          />
-        </Row>
-      </Card>
-
-      <Card
-        title="OST Reborn"
-        description="Musique d'ambiance diffusée par les zones du serveur. Indépendant du volume musique de Minecraft."
-        icon={<Music className="h-4 w-4" />}
-      >
-        <Row
-          label="Activer l'OST"
-          hint="Si désactivé, le mod ignore tous les broadcasts de zone du serveur."
-        >
-          <Toggle
-            checked={audio.ostEnabled}
-            onChange={(v) => setAudio("ostEnabled", v)}
-          />
-        </Row>
-        <div
-          className={cn(
-            "transition-opacity",
-            audio.ostEnabled ? "opacity-100" : "pointer-events-none opacity-40",
-          )}
-        >
-          <AudioRow
-            label="Volume OST"
-            hint="Gain global appliqué avant l'atténuation par distance du mod."
-            value={audio.ostVolume}
-            onChange={(v) => setAudio("ostVolume", v)}
-          />
-        </div>
-        <div className="px-6 py-4 text-[11.5px] leading-relaxed text-foreground-subtle">
-          <p className="flex items-start gap-2">
-            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-accent" />
-            <span>
-              Le branchement vers le mod arrivera dans une prochaine version : pour
-              l'instant, ces réglages sont persistés localement et seront lus par
-              le mod-ost au démarrage du jeu une fois la passerelle Tauri → mod en
-              place.
-            </span>
-          </p>
-        </div>
-      </Card>
-    </>
-  );
-}
-
-function AudioRow({
-  label,
-  hint,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="px-6 py-4">
-      <div className="mb-2 flex items-baseline justify-between gap-4">
-        <div>
-          <p className="text-[13px] font-medium text-foreground">{label}</p>
-          {hint && (
-            <p className="mt-0.5 text-[11.5px] text-foreground-subtle">{hint}</p>
-          )}
-        </div>
-        <span className="font-display text-lg tabular-nums text-foreground">
-          {value}
-          <span className="ml-0.5 text-xs text-foreground-muted">%</span>
-        </span>
-      </div>
-      <Slider value={value} min={0} max={100} suffix="%" onChange={onChange} />
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────
-//  NOTIFICATIONS
-// ──────────────────────────────────────────────────────
-
 function NotificationsTab() {
   const notif = useSettingsStore((s) => s.notif);
   const setNotif = useSettingsStore((s) => s.setNotif);

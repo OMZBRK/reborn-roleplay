@@ -3,13 +3,13 @@ package fr.reborn.hud.interaction;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 
 import java.util.List;
 
@@ -60,12 +60,12 @@ public final class InteractionMode {
             deactivate();
             return;
         }
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null || mc.player == null || mc.currentScreen != null) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || mc.screen != null) return;
         active = true;
         menuOpen = false;
-        cursorX = mc.getWindow().getScaledWidth() / 2.0;
-        cursorY = mc.getWindow().getScaledHeight() / 2.0;
+        cursorX = mc.getWindow().getGuiScaledWidth() / 2.0;
+        cursorY = mc.getWindow().getGuiScaledHeight() / 2.0;
     }
 
     public void deactivate() {
@@ -76,17 +76,17 @@ public final class InteractionMode {
     /** Déplace le curseur d'un delta souris brut (px fenêtre → coords GUI). */
     public void onMouseMove(double dxPx, double dyPx, double scaleFactor) {
         if (!active) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         double sf = scaleFactor <= 0 ? 1 : scaleFactor;
-        cursorX = clamp(cursorX + dxPx / sf, 0, mc.getWindow().getScaledWidth());
-        cursorY = clamp(cursorY + dyPx / sf, 0, mc.getWindow().getScaledHeight());
+        cursorX = clamp(cursorX + dxPx / sf, 0, mc.getWindow().getGuiScaledWidth());
+        cursorY = clamp(cursorY + dyPx / sf, 0, mc.getWindow().getGuiScaledHeight());
         if (menuOpen) updateHover();
     }
 
     /** Clic gauche : ouvre le menu sur la cible (mode curseur) ou choisit un item. */
     public void onClick() {
         if (!active) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         if (!menuOpen) {
             // Mode curseur → raycast la cible ; rien sous le curseur = menu « sur soi ».
@@ -114,7 +114,7 @@ public final class InteractionMode {
         menuOpen = false;
     }
 
-    private void openSelfMenu(MinecraftClient mc) {
+    private void openSelfMenu(Minecraft mc) {
         title = "Moi";
         items = InteractionMenus.forSelf();
         layoutAtCursor(mc);
@@ -123,14 +123,14 @@ public final class InteractionMode {
         updateHover();
     }
 
-    private void openMenuFor(MinecraftClient mc, HitResult hit) {
+    private void openMenuFor(Minecraft mc, HitResult hit) {
         if (hit instanceof EntityHitResult ehr) {
             Entity e = ehr.getEntity();
-            if (e instanceof PlayerEntity pe) {
-                title = pe.getGameProfile().getName();
+            if (e instanceof Player pe) {
+                title = pe.getGameProfile().name();
                 items = InteractionMenus.forPlayer(title);
             } else {
-                title = e.getType().getName().getString();
+                title = e.getType().getDescription().getString();
                 items = InteractionMenus.forEntity(e);
             }
         } else if (hit instanceof BlockHitResult bhr) {
@@ -145,22 +145,22 @@ public final class InteractionMode {
         updateHover();
     }
 
-    private void layoutAtCursor(MinecraftClient mc) {
-        var tr = mc.textRenderer;
-        int maxW = tr.getWidth(title);
-        for (InteractionItem it : items) maxW = Math.max(maxW, tr.getWidth(it.label()));
+    private void layoutAtCursor(Minecraft mc) {
+        var tr = mc.font;
+        int maxW = tr.width(title);
+        for (InteractionItem it : items) maxW = Math.max(maxW, tr.width(it.label()));
         panelW = Math.max(96, maxW + PAD_X * 2 + ARROW_W);
         panelH = HEADER_H + items.size() * ROW_H + 4;
         // Au point du clic (curseur), clampé à l'écran.
-        panelX = (int) Math.min(cursorX, mc.getWindow().getScaledWidth() - panelW - 4);
-        panelY = (int) Math.max(4, Math.min(cursorY - 6, mc.getWindow().getScaledHeight() - panelH - 4));
+        panelX = (int) Math.min(cursorX, mc.getWindow().getGuiScaledWidth() - panelW - 4);
+        panelY = (int) Math.max(4, Math.min(cursorY - 6, mc.getWindow().getGuiScaledHeight() - panelH - 4));
 
         subW = new int[items.size()];
         for (int i = 0; i < items.size(); i++) {
             InteractionItem it = items.get(i);
             if (!it.hasChildren()) continue;
             int w = 0;
-            for (InteractionItem c : it.children()) w = Math.max(w, tr.getWidth(c.label()));
+            for (InteractionItem c : it.children()) w = Math.max(w, tr.width(c.label()));
             subW[i] = Math.max(90, w + PAD_X * 2);
         }
     }
@@ -206,26 +206,26 @@ public final class InteractionMode {
         return -1;
     }
 
-    public void render(DrawContext ctx) {
+    public void extractRenderState(GuiGraphicsExtractor ctx) {
         if (!active) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.currentScreen != null) return;
-        var tr = mc.textRenderer;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.screen != null) return;
+        var tr = mc.font;
 
         if (menuOpen) {
             DrawHelpers.roundedOutlinedRect(ctx, panelX, panelY, panelW, panelH, 5,
                 Colors.BACKDROP_85, Colors.BORDER_STRONG);
-            ctx.drawText(tr, RebornFont.bold(title), panelX + PAD_X, panelY + 4, Colors.GOLD, false);
+            ctx.text(tr, RebornFont.bold(title), panelX + PAD_X, panelY + 4, Colors.GOLD, false);
 
             for (int i = 0; i < items.size(); i++) {
                 InteractionItem it = items.get(i);
                 int y = rowY(i);
                 boolean hot = (i == hovered) || (i == submenuOwner);
                 if (hot) DrawHelpers.roundedRect(ctx, panelX + 2, y, panelW - 4, ROW_H, 3, Colors.ACCENT_SOFT);
-                ctx.drawText(tr, RebornFont.body(it.label()), panelX + PAD_X, y + 2,
+                ctx.text(tr, RebornFont.body(it.label()), panelX + PAD_X, y + 2,
                     hot ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
                 if (it.hasChildren()) {
-                    ctx.drawText(tr, RebornFont.body("›"), panelX + panelW - ARROW_W, y + 2,
+                    ctx.text(tr, RebornFont.body("›"), panelX + panelW - ARROW_W, y + 2,
                         hot ? Colors.ACCENT_HOVER : Colors.FOREGROUND_MUTED, false);
                 }
             }
@@ -234,23 +234,23 @@ public final class InteractionMode {
                 var ch = items.get(submenuOwner).children();
                 int sx = panelX + panelW + 3, sw = subW[submenuOwner], sy = rowY(submenuOwner) - 4;
                 int sh = ch.size() * ROW_H + 6;
-                sy = Math.max(4, Math.min(sy, mc.getWindow().getScaledHeight() - sh - 4));
+                sy = Math.max(4, Math.min(sy, mc.getWindow().getGuiScaledHeight() - sh - 4));
                 DrawHelpers.roundedOutlinedRect(ctx, sx, sy, sw, sh, 5, Colors.BACKDROP_85, Colors.BORDER_STRONG);
                 for (int j = 0; j < ch.size(); j++) {
                     int y = sy + 3 + j * ROW_H;
                     boolean hot = j == subHovered;
                     if (hot) DrawHelpers.roundedRect(ctx, sx + 2, y, sw - 4, ROW_H, 3, Colors.ACCENT_SOFT);
-                    ctx.drawText(tr, RebornFont.body(ch.get(j).label()), sx + PAD_X, y + 2,
+                    ctx.text(tr, RebornFont.body(ch.get(j).label()), sx + PAD_X, y + 2,
                         hot ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
                 }
             }
         } else {
             // Mode curseur (pas encore de menu) : petit indice.
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(cursorX + 10, cursorY + 2, 0);
-            ctx.getMatrices().scale(0.85f, 0.85f, 1f);
-            ctx.drawText(tr, RebornFont.body("Clic : interagir"), 0, 0, Colors.FOREGROUND_MUTED, false);
-            ctx.getMatrices().pop();
+            ctx.pose().pushMatrix();
+            ctx.pose().translate((float) (cursorX + 10), (float) (cursorY + 2));
+            ctx.pose().scale(0.85f, 0.85f);
+            ctx.text(tr, RebornFont.body("Clic : interagir"), 0, 0, Colors.FOREGROUND_MUTED, false);
+            ctx.pose().popMatrix();
         }
 
         drawCursor(ctx, (int) cursorX, (int) cursorY);
@@ -261,16 +261,15 @@ public final class InteractionMode {
      *  0 ou texture absente = flèche procédurale. */
     private static final int CURSOR_SIZE = 16;
 
-    private void drawCursor(DrawContext ctx, int x, int y) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private void drawCursor(GuiGraphicsExtractor ctx, int x, int y) {
+        Minecraft mc = Minecraft.getInstance();
         int sel = 1;
         try { sel = fr.reborn.hud.RebornHudClient.config().getInteractionCursor(); }
         catch (RuntimeException ignored) {}
         if (sel >= 1) {
-            var id = net.minecraft.util.Identifier.of("reborn", "textures/gui/cursor" + sel + ".png");
+            var id = net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/cursor" + sel + ".png");
             if (mc.getResourceManager().getResource(id).isPresent()) {
-                com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-                ctx.drawTexture(id, x, y, 0f, 0f,
+                ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0f, 0f,
                     CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE);
                 return;
             }

@@ -2,11 +2,11 @@ package fr.reborn.hud.menu.widget;
 
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornVersion;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
  * Écran d'accroche (SPLASH) — façon Paladium Reforged.
@@ -20,7 +20,7 @@ import net.minecraft.util.Identifier;
 public final class SplashOverlay {
 
     /** Logo Reborn Roleplay (render 3D blocky) — 2048×717, fond transparent. */
-    private static final Identifier LOGO = Identifier.of("reborn", "textures/gui/title/logo.png");
+    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reborn", "textures/gui/title/logo.png");
     private static final int LOGO_TEX_W = 2048;
     private static final int LOGO_TEX_H = 717;
 
@@ -29,8 +29,8 @@ public final class SplashOverlay {
     private static final String PROMPT_STR = "APPUIE SUR UNE TOUCHE";
 
     /** Crédits bas — ArcadePix, textes partagés avec le menu. */
-    private static final Text CREDIT_1 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_1);
-    private static final Text CREDIT_2 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_2);
+    private static final Component CREDIT_1 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_1);
+    private static final Component CREDIT_2 = RebornFont.arcade(RebornVersion.SPLASH_CREDIT_2);
 
     private static final float PROMPT_SCALE = 1.8f;
     /** Tracking négatif (px non-scalés retirés entre chaque lettre du prompt). */
@@ -39,22 +39,23 @@ public final class SplashOverlay {
 
     private SplashOverlay() {}
 
-    public static void render(DrawContext ctx, int screenW, int screenH) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
-        // Léger voile sombre par-dessus le fond flouté — donne du contraste
-        // au logo/texte sans habiller l'écran (le flou fait le reste).
-        ctx.fill(0, 0, screenW, screenH, 0x40000000);
+        // Voile sombre marqué par-dessus le fond flouté : le fond menu est
+        // désormais crimson, or le logo REBORN est rouge → il se noyait
+        // (rouge sur rouge). Un voile quasi-noir fait ressortir le logo et le
+        // prompt (feeling « preload » proche de rendusplashreborn).
+        ctx.fill(0, 0, screenW, screenH, 0xB8000000);
 
         // ── Logo central (texture PNG, ratio conservé) ──────────
         int destW = Math.min(Math.round(screenW * 0.42f), 540);
         int destH = Math.round(destW * (float) LOGO_TEX_H / LOGO_TEX_W);
         int logoX = (screenW - destW) / 2;
         int logoY = Math.round(screenH * 0.36f) - destH / 2;
-        ctx.drawTexture(LOGO, logoX, logoY, destW, destH,
-            0f, 0f, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, 0f, 0f, destW, destH, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
 
         // ── Prompt gras clignotant (~72% hauteur) ───────────────
         float t = (System.currentTimeMillis() % 1400L) / 1400f;
@@ -76,37 +77,37 @@ public final class SplashOverlay {
      * chaque glyphe est posé un par un et on retire {@code tracking} px
      * (non-scalés) à l'avance de chaque lettre. Ombre incluse.
      */
-    private static void drawTrackedCentered(DrawContext ctx, TextRenderer tr, String text,
+    private static void drawTrackedCentered(GuiGraphicsExtractor ctx, Font tr, String text,
                                             float scale, float tracking,
                                             int screenW, int y, int color) {
         float total = 0f;
         for (int i = 0; i < text.length(); i++) {
-            total += tr.getWidth(RebornFont.arcade(String.valueOf(text.charAt(i))));
+            total += tr.width(RebornFont.arcade(String.valueOf(text.charAt(i))));
             if (i < text.length() - 1) total -= tracking;
         }
         float startX = (screenW - total * scale) / 2f;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(startX, y, 0);
-        ctx.getMatrices().scale(scale, scale, 1f);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(startX, y);
+        ctx.pose().scale(scale, scale);
         float cx = 0f;
         for (int i = 0; i < text.length(); i++) {
-            Text ch = RebornFont.arcade(String.valueOf(text.charAt(i)));
+            Component ch = RebornFont.arcade(String.valueOf(text.charAt(i)));
             int ix = Math.round(cx);
-            ctx.drawText(tr, ch, ix + 1, 1, 0x99000000, false);
-            ctx.drawText(tr, ch, ix, 0, color, false);
-            cx += tr.getWidth(ch) - tracking;
+            ctx.text(tr, ch, ix + 1, 1, 0x99000000, false);
+            ctx.text(tr, ch, ix, 0, color, false);
+            cx += tr.width(ch) - tracking;
         }
-        ctx.getMatrices().pop();
+        ctx.pose().popMatrix();
     }
 
-    private static void drawCentered(DrawContext ctx, TextRenderer tr, Text text,
+    private static void drawCentered(GuiGraphicsExtractor ctx, Font tr, Component text,
                                      int screenW, int y, int color) {
-        int w = Math.round(tr.getWidth(text) * CREDIT_SCALE);
+        int w = Math.round(tr.width(text) * CREDIT_SCALE);
         int x = (screenW - w) / 2;
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(x, y, 0);
-        ctx.getMatrices().scale(CREDIT_SCALE, CREDIT_SCALE, 1f);
-        ctx.drawText(tr, text, 0, 0, color, true);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y);
+        ctx.pose().scale(CREDIT_SCALE, CREDIT_SCALE);
+        ctx.text(tr, text, 0, 0, color, true);
+        ctx.pose().popMatrix();
     }
 }

@@ -45,23 +45,44 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.chat.ChatBlockCommands.register();
 
         // Overlay du menu d'interaction live (rendu HUD, pas un écran).
-        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
-            (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.render(ctx));
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "interaction"),
+            (ctx, tickCounter) -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.extractRenderState(ctx));
+
+        // Panneau RP vitals (tête + vie + chakra + faim) — repositionnable/scalable
+        // via l'élément HudElement.VITALS (comme les autres, dans l'éditeur).
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "vitals"),
+            (ctx, tickCounter) -> {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player == null || mc.options == null || mc.options.hideGui) return;
+                fr.reborn.hud.element.HudElementState st;
+                try { st = config().stateOf(fr.reborn.hud.element.HudElement.VITALS); }
+                catch (RuntimeException e) { return; }
+                if (!st.visible()) return;
+                int w = mc.getWindow().getGuiScaledWidth();
+                int h = mc.getWindow().getGuiScaledHeight();
+                fr.reborn.hud.element.HudElementBounds b = fr.reborn.hud.element.HudElementBounds.currentFor(
+                    fr.reborn.hud.element.HudElement.VITALS, st, w, h);
+                fr.reborn.hud.runtime.VitalsHud.render(ctx, mc, b.x(), b.y(), st.scale());
+            });
 
         // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
         // Rendu HUD fiable — même en solo où Minecraft ne rend PAS le
         // PlayerListHud vanilla (1 seul joueur, pas d'objectif scoreboard).
-        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((ctx, tickCounter) -> {
-            net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
-            if (mc == null || mc.player == null || mc.currentScreen != null || mc.options == null) return;
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "tablist-hold"),
+            (ctx, tickCounter) -> {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc == null || mc.player == null || mc.screen != null || mc.options == null) return;
             if (!fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold) return;
-            if (!mc.options.playerListKey.isPressed()) return;
+            if (!mc.options.keyPlayerList.isDown()) return;
             fr.reborn.hud.menu.tablist.TablistScreen.renderHoldOverlay(ctx);
         });
 
         // Réception du tablist serveur (canal reborn:tablist depuis ShinobiCore).
         // Le mod ne fait que rendre ; les données sont server-authoritative.
-        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
             fr.reborn.hud.menu.tablist.TablistPayload.ID,
             fr.reborn.hud.menu.tablist.TablistPayload.CODEC);
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
@@ -70,6 +91,15 @@ public final class RebornHudClient implements ClientModInitializer {
                 () -> fr.reborn.hud.menu.tablist.TablistData.update(payload.json())));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.tablist.TablistData.clear());
+
+        // Course chakraïque (« Naruto run ») : canal C2S reborn:naruto — le client
+        // informe le plugin (ShinobiCore) quand le joueur (dés)active sa course
+        // pour l'activer IG. Le mouvement client, lui, marche sans le serveur.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.animation.NarutoRunPayload.ID,
+            fr.reborn.hud.animation.NarutoRunPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.animation.NarutoRun.INSTANCE.reset());
 
         // Bandes noires cinéma (immersion) — toggle touche K.
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
@@ -83,27 +113,24 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (narratorDone[0] || client.options == null) return;
             narratorDone[0] = true;
-            if (client.options.getNarrator().getValue() != net.minecraft.client.option.NarratorMode.OFF) {
-                client.options.getNarrator().setValue(net.minecraft.client.option.NarratorMode.OFF);
-                client.options.write();
+            if (client.options.narrator().get() != net.minecraft.client.NarratorStatus.OFF) {
+                client.options.narrator().set(net.minecraft.client.NarratorStatus.OFF);
+                client.options.save();
                 LOGGER.info("narrateur Minecraft désactivé");
             }
         });
 
-        // SPLASH → MENU : n'importe quelle touche ou clic sur le TitleScreen
-        // fait passer l'ecran d'accroche au menu. On passe par le Screen API
-        // Fabric parce qu'un Mixin sur TitleScreen ne peut pas hooker
-        // keyPressed (herite de Screen, non redeclare par TitleScreen).
+        // SPLASH → MENU : SEULEMENT une touche clavier sur le TitleScreen fait
+        // passer l'ecran d'accroche au menu (pas la souris — demande user : le
+        // clic ne doit PAS fermer le splash). On passe par le Screen API Fabric
+        // parce qu'un Mixin sur TitleScreen ne peut pas hooker keyPressed (herite
+        // de Screen, non redeclare par TitleScreen).
         net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
             (client, screen, scaledW, scaledH) -> {
-                if (!(screen instanceof net.minecraft.client.gui.screen.TitleScreen)) return;
+                if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) return;
                 net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents
                     .afterKeyPress(screen)
-                    .register((scr, key, scancode, mods) ->
-                        fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
-                net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents
-                    .afterMouseClick(screen)
-                    .register((scr, mouseX, mouseY, button) ->
+                    .register((scr, keyEvent) ->
                         fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
             });
 

@@ -7,7 +7,7 @@ import java.util.Map;
 
 /**
  * Mémorise un horodatage réel (HH:MM) pour chaque message au moment où il
- * arrive — ChatHud lui-même ne tracke que le tick d'ajout, pas l'heure
+ * arrive — ChatComponent lui-même ne tracke que le tick d'ajout, pas l'heure
  * monde. On enregistre via {@link #record} depuis le mixin sur addMessage,
  * et on lit via {@link #formattedFor}.
  *

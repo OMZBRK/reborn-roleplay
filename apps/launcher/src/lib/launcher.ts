@@ -215,3 +215,29 @@ export async function listMods(): Promise<ModEntry[]> {
 export async function purgeIncompatibleMods(): Promise<string[]> {
   return invoke<string[]>("launcher_mods_purge");
 }
+
+// ── Onglet Paramètres › Jeu : infos install + actions ──────────────
+export type GameInfo = {
+  installDir: string;
+  mcVersion: string;
+  diskFreeGb: number;
+  diskTotalGb: number;
+};
+
+export async function getGameInfo(): Promise<GameInfo> {
+  return invoke<GameInfo>("launcher_game_info");
+}
+
+export async function openInstallDir(): Promise<void> {
+  await invoke<void>("launcher_open_install_dir");
+}
+
+export async function reinstallAll(): Promise<void> {
+  await invoke<void>("launcher_reinstall_all");
+}
+
+export type CleanResult = { removed: string[]; freedMb: number };
+
+export async function cleanObsolete(): Promise<CleanResult> {
+  return invoke<CleanResult>("launcher_clean_obsolete");
+}

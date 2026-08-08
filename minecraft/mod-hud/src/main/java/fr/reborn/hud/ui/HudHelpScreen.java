@@ -2,12 +2,12 @@ package fr.reborn.hud.ui;
 
 import fr.reborn.hud.ui.style.RebornColors;
 import fr.reborn.hud.ui.style.RoundedRect;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 
 /**
  * Modal d'aide affichant tous les raccourcis du HUD editor groupés par
@@ -19,19 +19,19 @@ public final class HudHelpScreen extends Screen {
     private final Screen parent;
 
     public HudHelpScreen(Screen parent) {
-        super(Text.literal("Reborn HUD — Aide"));
+        super(Component.literal("Reborn HUD — Aide"));
         this.parent = parent;
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0x80000000);
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        renderBackground(ctx, mouseX, mouseY, delta);
-        TextRenderer tr = this.textRenderer;
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        extractBackground(ctx, mouseX, mouseY, delta);
+        Font tr = this.font;
 
         // Sections (catégorie, [keys])
         String[][] sections = {
@@ -75,13 +75,13 @@ public final class HudHelpScreen extends Screen {
         RoundedRect.fill(ctx, cardX, cardY, cardW, cardH, 8, RebornColors.BG_PANEL_ELEVATED);
         RoundedRect.border(ctx, cardX, cardY, cardW, cardH, 8, RebornColors.BORDER_STRONG);
 
-        ctx.drawText(tr, Text.literal("RACCOURCIS · Reborn HUD").formatted(Formatting.BOLD),
+        ctx.text(tr, Component.literal("RACCOURCIS · Reborn HUD").withStyle(ChatFormatting.BOLD),
             cardX + 14, cardY + 12, RebornColors.FOREGROUND, false);
         ctx.fill(cardX + 14, cardY + 26, cardX + cardW - 14, cardY + 27, RebornColors.BORDER);
 
         int y = cardY + 36;
         for (String[] section : sections) {
-            ctx.drawText(tr, Text.literal(section[0]).formatted(Formatting.BOLD),
+            ctx.text(tr, Component.literal(section[0]).withStyle(ChatFormatting.BOLD),
                 cardX + 14, y, RebornColors.ACCENT_HOVER, false);
             y += 12;
             for (int i = 1; i < section.length; i++) {
@@ -91,13 +91,13 @@ public final class HudHelpScreen extends Screen {
                     String keys = line.substring(0, sepIdx);
                     String desc = line.substring(sepIdx + 3);
                     // Keys en accent + description en muted
-                    ctx.drawText(tr, Text.literal(keys),
+                    ctx.text(tr, Component.literal(keys),
                         cardX + 22, y, RebornColors.ACCENT_HOVER, false);
-                    int kW = tr.getWidth(keys);
-                    ctx.drawText(tr, Text.literal(" · " + desc),
+                    int kW = tr.width(keys);
+                    ctx.text(tr, Component.literal(" · " + desc),
                         cardX + 22 + kW, y, RebornColors.FOREGROUND_MUTED, false);
                 } else {
-                    ctx.drawText(tr, Text.literal(line),
+                    ctx.text(tr, Component.literal(line),
                         cardX + 22, y, RebornColors.FOREGROUND_MUTED, false);
                 }
                 y += 12;
@@ -106,8 +106,8 @@ public final class HudHelpScreen extends Screen {
         }
 
         // Close hint
-        ctx.drawText(tr, Text.literal("Clique n'importe où pour fermer").formatted(Formatting.ITALIC),
-            cardX + (cardW - tr.getWidth("Clique n'importe où pour fermer")) / 2,
+        ctx.text(tr, Component.literal("Clique n'importe où pour fermer").withStyle(ChatFormatting.ITALIC),
+            cardX + (cardW - tr.width("Clique n'importe où pour fermer")) / 2,
             cardY + cardH - 14, RebornColors.FOREGROUND_MUTED, false);
     }
 
@@ -119,22 +119,24 @@ public final class HudHelpScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        close();
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
+        onClose();
         return true;
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        close();
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+        onClose();
         return true;
     }
 
     @Override
-    public void close() {
-        MinecraftClient.getInstance().setScreen(parent);
+    public void onClose() {
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 }

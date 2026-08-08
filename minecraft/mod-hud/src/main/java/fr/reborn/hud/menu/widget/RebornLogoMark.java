@@ -2,10 +2,10 @@ package fr.reborn.hud.menu.widget;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.RebornFont;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 /**
  * Wordmark central du main menu — version epuree.
@@ -27,8 +27,8 @@ public final class RebornLogoMark {
 
     private static final String TITLE = "REBORN";
     private static final String SUB = "R O L E P L A Y";
-    private static final Text TITLE_TEXT = RebornFont.display(TITLE);
-    private static final Text SUB_TEXT = RebornFont.body(SUB);
+    private static final Component TITLE_TEXT = RebornFont.display(TITLE);
+    private static final Component SUB_TEXT = RebornFont.body(SUB);
 
     /** Echelle du titre — plus sobre que l'ancien 4.5f. */
     private static final float TITLE_SCALE = 3.4f;
@@ -46,38 +46,38 @@ public final class RebornLogoMark {
 
     private RebornLogoMark() {}
 
-    public static void render(DrawContext ctx, int screenW, int screenH) {
+    public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH) {
         int cx = screenW / 2;
         int cy = centerY(screenH);
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        TextRenderer tr = client.textRenderer;
+        Font tr = client.font;
 
         // ── "REBORN" — font display, ombre douce unique ──────────
-        int titleW = (int) (tr.getWidth(TITLE_TEXT) * TITLE_SCALE);
-        int titleH = (int) (tr.fontHeight * TITLE_SCALE);
+        int titleW = (int) (tr.width(TITLE_TEXT) * TITLE_SCALE);
+        int titleH = (int) (tr.lineHeight * TITLE_SCALE);
         int titleX = cx - titleW / 2;
         int titleY = cy - titleH / 2;
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(titleX, titleY, 0);
-        ctx.getMatrices().scale(TITLE_SCALE, TITLE_SCALE, 1f);
-        ctx.drawText(tr, TITLE_TEXT, 1, 1, 0x66000000, false);
-        ctx.drawText(tr, TITLE_TEXT, 0, 0, Colors.FOREGROUND, false);
-        ctx.getMatrices().pop();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(titleX, titleY);
+        ctx.pose().scale(TITLE_SCALE, TITLE_SCALE);
+        ctx.text(tr, TITLE_TEXT, 1, 1, 0x66000000, false);
+        ctx.text(tr, TITLE_TEXT, 0, 0, Colors.FOREGROUND, false);
+        ctx.pose().popMatrix();
 
         // ── "ROLEPLAY" — sub-line discrete, foreground attenue ──
-        int subW = tr.getWidth(SUB_TEXT);
+        int subW = tr.width(SUB_TEXT);
         int subX = cx - subW / 2;
         int subY = titleY + titleH + 10;
-        ctx.drawText(tr, SUB_TEXT, subX + 1, subY + 1, 0x66000000, false);
-        ctx.drawText(tr, SUB_TEXT, subX, subY, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, SUB_TEXT, subX + 1, subY + 1, 0x66000000, false);
+        ctx.text(tr, SUB_TEXT, subX, subY, Colors.FOREGROUND_SUBTLE, false);
 
         // ── Hairline statique fine sous le sub-line ─────────────
         int hairW = Math.min(subW, 160);
         int hairX = cx - hairW / 2;
-        int hairY = subY + tr.fontHeight + 5;
+        int hairY = subY + tr.lineHeight + 5;
         ctx.fill(hairX, hairY, hairX + hairW, hairY + 1,
             Colors.withAlpha(Colors.FOREGROUND_SUBTLE, 0.35f));
     }
