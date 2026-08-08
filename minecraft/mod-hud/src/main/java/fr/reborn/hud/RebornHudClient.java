@@ -120,10 +120,11 @@ public final class RebornHudClient implements ClientModInitializer {
             }
         });
 
-        // SPLASH → MENU : n'importe quelle touche ou clic sur le TitleScreen
-        // fait passer l'ecran d'accroche au menu. On passe par le Screen API
-        // Fabric parce qu'un Mixin sur TitleScreen ne peut pas hooker
-        // keyPressed (herite de Screen, non redeclare par TitleScreen).
+        // SPLASH → MENU : SEULEMENT une touche clavier sur le TitleScreen fait
+        // passer l'ecran d'accroche au menu (pas la souris — demande user : le
+        // clic ne doit PAS fermer le splash). On passe par le Screen API Fabric
+        // parce qu'un Mixin sur TitleScreen ne peut pas hooker keyPressed (herite
+        // de Screen, non redeclare par TitleScreen).
         net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
             (client, screen, scaledW, scaledH) -> {
                 if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) return;
@@ -131,10 +132,6 @@ public final class RebornHudClient implements ClientModInitializer {
                     .afterKeyPress(screen)
                     .register((scr, keyEvent) ->
                         fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
-                net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents
-                    .afterMouseClick(screen)
-                    .register((scr, mouseEvent, doubleClick) -> {
-                        fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash(); return false; });
             });
 
         // Extrait les assets dynamic-player + schedule la creation du

@@ -1,6 +1,8 @@
 package fr.reborn.hud.runtime;
 
 import fr.reborn.hud.menu.DrawHelpers;
+import fr.reborn.hud.menu.tablist.TabEntry;
+import fr.reborn.hud.menu.tablist.TablistData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -24,8 +26,8 @@ import net.minecraft.resources.Identifier;
  */
 public final class VitalsHud {
 
-    public static final int WIDTH = 204;
-    public static final int HEIGHT = 52;
+    public static final int WIDTH = 210;
+    public static final int HEIGHT = 56;
 
     // Hooks data (posés plus tard par ShinobiCore / PlasmoVoice).
     public static volatile int level = 1;
@@ -39,7 +41,7 @@ public final class VitalsHud {
     private static final int BAR_BG   = 0xE0140D0A;
     private static final int WHITE    = 0xFFF2F2F2;
 
-    private static final int HEAD = 38;
+    private static final int HEAD = 46;
 
     // Icônes voix (16×16) faites par l'équipe — mic/casque on/off.
     private static final Identifier MIC_ON     = Identifier.fromNamespaceAndPath("reborn", "textures/hud/mic_on.png");
@@ -58,48 +60,71 @@ public final class VitalsHud {
         ctx.pose().translate(x, y);
         if (scale != 1.0f) ctx.pose().scale(scale, scale);
 
+        // Nom RP + niveau : lus de l'entrée tablist « SOI » (posée par ShinobiCore
+        // via reborn:tablist). Fallback pseudo MC / niveau-hook hors serveur.
+        String rpName = mc.getUser().getName();
+        int rpLevel = level;
+        try {
+            for (TabEntry e : TablistData.entries(rpName)) {
+                if (e.relation() == TabEntry.Relation.SOI) {
+                    if (e.name() != null && !e.name().isBlank()) rpName = e.name();
+                    if (e.level() > 0) rpLevel = e.level();
+                    break;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // pas de data tablist (hors serveur) → fallback pseudo/level hook.
+        }
+
         // ─── Tête + bordure dorée + badge Nv ───
-        int hx = 3, hy = 2;
+        int hx = 3, hy = 3;
         DrawHelpers.roundedRectFull(ctx, hx - 2, hy - 2, HEAD + 4, HEAD + 4, 6, GOLD);
         DrawHelpers.roundedRectFull(ctx, hx - 1, hy - 1, HEAD + 2, HEAD + 2, 5, 0xFF181008);
         // Tête = région 8×8 du skin (face à (8,8), calque chapeau à (40,8)),
         // agrandie à HEAD×HEAD. Blit 12-args (…, destW, destH, regionW, regionH,
         // texW, texH) : sinon le blit 10-args prend (HEAD,HEAD) comme région source
-        // → échantillonne un bloc 38×38 du skin (corps/jambes) au lieu de la tête.
+        // → échantillonne un bloc HEAD×HEAD du skin (corps/jambes) au lieu de la tête.
         Identifier skin = p.getSkin().body().texturePath();
         ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64);
         ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 40f, 8f, HEAD, HEAD, 8, 8, 64, 64);
         // Badge « Nv X » chevauchant le bas de la tête.
-        String nv = "Nv " + level;
+        String nv = "Nv " + rpLevel;
         int nvw = tr.width(nv) + 8;
-        int nvx = hx + (HEAD - nvw) / 2, nvy = hy + HEAD - 5;
+        int nvx = hx + (HEAD - nvw) / 2, nvy = hy + HEAD - 4;
         DrawHelpers.roundedRectFull(ctx, nvx, nvy, nvw, 10, 3, GOLD);
         ctx.text(tr, Component.literal(nv), nvx + 4, nvy + 1, 0xFF241A06, false);
 
         // ─── Colonne de droite : nom + barres ───
-        int cx = hx + HEAD + 6;
+        int cx = hx + HEAD + 7;
         int cw = WIDTH - cx - 3;
 
-        // Pseudo MC (compte, via la session launcher) — jamais le nom/prénom RP
-        // que le serveur pourrait poser sur le GameProfile côté liste-joueurs.
-        ctx.text(tr, Component.literal(mc.getUser().getName()), cx, 0, WHITE, true);
+        // Nom RP — plus grand que les labels de barre (cf. hudvitalsrp.png).
+        float nameScale = 1.35f;
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(cx, 0f);
+        ctx.pose().scale(nameScale, nameScale);
+        ctx.text(tr, Component.literal(rpName), 0, 0, WHITE, true);
+        ctx.pose().popMatrix();
+
+        int barH = 11;
+        int y1 = 14, y2 = y1 + barH + 3, y3 = y2 + barH + 3;
 
         // Vie.
         int hpCur = (int) Math.ceil(p.getHealth());
         int hpMax = (int) Math.max(1, p.getMaxHealth());
-        bar(ctx, tr, cx, 11, cw, 10, HP_COLOR, hpCur / (float) hpMax, hpCur + "/" + hpMax);
+        bar(ctx, tr, cx, y1, cw, barH, HP_COLOR, hpCur / (float) hpMax, hpCur + "/" + hpMax);
 
-        // Chakra (barre plus courte : place aux icônes voix).
+        // Chakra (barre plus courte : place aux icônes voix à droite).
         int ckCur = p.experienceLevel;
         float ckRatio = Math.max(0f, Math.min(1f, p.experienceProgress));
         int ckMax = ckRatio > 0.001f ? Math.round(ckCur / ckRatio) : Math.max(ckCur, 1);
-        int voiceW = 28;
-        bar(ctx, tr, cx, 23, cw - voiceW, 10, CK_COLOR, ckRatio, ckCur + "/" + ckMax);
-        voiceIcons(ctx, cx + cw - voiceW + 3, 21);
+        int voiceW = 24;
+        bar(ctx, tr, cx, y2, cw - voiceW, barH, CK_COLOR, ckRatio, ckCur + "/" + ckMax);
+        voiceIcons(ctx, cx + cw - voiceW + 4, y2 + (barH - 10) / 2);
 
         // Stamina (faim).
         float st = p.getFoodData().getFoodLevel() / 20f;
-        bar(ctx, tr, cx, 35, cw, 10, ST_COLOR, st, Math.round(st * 100) + "%");
+        bar(ctx, tr, cx, y3, cw, barH, ST_COLOR, st, Math.round(st * 100) + "%");
 
         ctx.pose().popMatrix();
     }
@@ -119,12 +144,12 @@ public final class VitalsHud {
         }
     }
 
-    /** Micro + casque (textures 16×16 mises à l'échelle 13px) selon l'état voix. */
+    /** Micro + casque (textures 16×16 mises à l'échelle 10px) selon l'état voix. */
     private static void voiceIcons(GuiGraphicsExtractor ctx, int x, int y) {
-        int s = 13;
+        int s = 10;
         Identifier mic = voiceMuted ? MIC_OFF : MIC_ON;
         Identifier cas = voiceDeafened ? CASQUE_OFF : CASQUE_ON;
         ctx.blit(RenderPipelines.GUI_TEXTURED, mic, x, y, 0f, 0f, s, s, 16, 16, 16, 16);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, cas, x + s + 1, y, 0f, 0f, s, s, 16, 16, 16, 16);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, cas, x + s + 2, y, 0f, 0f, s, s, 16, 16, 16, 16);
     }
 }

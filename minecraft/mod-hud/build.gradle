@@ -30,14 +30,9 @@ dependencies {
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    // --- MCEF (fond menu Chromium) : porté sur le fork net.dimaskama (API
-    //   net.dimaskama.mcef.api.*). Le jar est déjà en noms officiels (client
-    //   deobf) -> pas de remap Loom, on l'ajoute en compileOnly (compile) +
-    //   runtimeOnly (chargé comme mod en dev via son fabric.mod.json). Reste
-    //   optionnel au runtime prod : DynamicPlayerBackground fallback solid color
-    //   si le mod est absent du modpack.
-    compileOnly files('libs/mcef-modern-0.3.3.jar')
-    runtimeOnly files('libs/mcef-modern-0.3.3.jar')
+    // --- MCEF : ABANDONNÉ en 26.1 (le binding jcef ne peint jamais la texture
+    //   sous JDK 25 — exception AWT-EventQueue-0). Le fond menu est désormais un
+    //   dégradé branded (DynamicPlayerBackground), plus aucune dépendance CEF.
 
     // --- Démarches animées (PlayerAnimationLib + Emotecraft, fork zigythebird) :
     //   jars 26.1 déjà en noms officiels (client deobf) -> compileOnly (compile) +

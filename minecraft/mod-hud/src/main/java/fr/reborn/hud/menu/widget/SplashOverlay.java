@@ -44,9 +44,11 @@ public final class SplashOverlay {
         if (client == null) return;
         Font tr = client.font;
 
-        // Léger voile sombre par-dessus le fond flouté — donne du contraste
-        // au logo/texte sans habiller l'écran (le flou fait le reste).
-        ctx.fill(0, 0, screenW, screenH, 0x40000000);
+        // Voile sombre marqué par-dessus le fond flouté : le fond menu est
+        // désormais crimson, or le logo REBORN est rouge → il se noyait
+        // (rouge sur rouge). Un voile quasi-noir fait ressortir le logo et le
+        // prompt (feeling « preload » proche de rendusplashreborn).
+        ctx.fill(0, 0, screenW, screenH, 0xB8000000);
 
         // ── Logo central (texture PNG, ratio conservé) ──────────
         int destW = Math.min(Math.round(screenW * 0.42f), 540);

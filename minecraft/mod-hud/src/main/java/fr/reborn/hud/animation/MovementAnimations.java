@@ -2,15 +2,18 @@ package fr.reborn.hud.animation;
 
 import com.zigythebird.playeranim.animation.PlayerAnimationController;
 import com.zigythebird.playeranim.api.PlayerAnimationAccess;
+import com.zigythebird.playeranim.api.PlayerAnimationFactory;
 import com.zigythebird.playeranimcore.animation.Animation;
 import com.zigythebird.playeranimcore.animation.RawAnimation;
+import com.zigythebird.playeranimcore.animation.layered.IAnimation;
+import com.zigythebird.playeranimcore.animation.layered.modifier.AbstractFadeModifier;
+import com.zigythebird.playeranimcore.easing.EasingType;
 import com.zigythebird.playeranimcore.enums.PlayState;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import io.github.kosmx.emotes.server.serializer.UniversalEmoteSerializer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.world.entity.Avatar;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +21,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 
 /**
  * Animations de mouvement Reborn (démarches GTA-RP) via PlayerAnimationLib.
@@ -46,12 +48,19 @@ public final class MovementAnimations {
 
     /** Priorité du layer dans la pile PAL (au-dessus des anims de base). */
     private static final int PRIORITY = 1000;
-    private static final double MOVE_THRESHOLD_SQ = 0.02 * 0.02;
-    /** Durée de transition (crossfade) entre deux démarches, en ticks. */
-    private static final float TRANSITION = 5.0f;
+    /** ID du layer d'animation Reborn (registerFactory + getPlayerAnimationLayer). */
+    private static final Identifier LAYER = Identifier.fromNamespaceAndPath("reborn-hud", "movement");
+    private static final double MOVE_THRESHOLD_SQ = 0.015 * 0.015;
+    /** Durée du fondu (fade-in) à l'entrée d'une démarche, en ticks. Easing
+     *  EASE_IN_OUT_SINE (comme la version 1.21.4 qui rendait très bien). */
+    private static final int FADE_TICKS = 6;
+    /** Ticks immobiles requis avant de repasser NONE (anti flip-flop). */
+    private static final int IDLE_GRACE_TICKS = 4;
 
-    /** Styles de marche : {label, fichier}. */
+    /** Styles de marche : {label, fichier}. Index 0 = démarche par défaut
+     *  (« Walking » — walk.emotecraft), puis les 5 styles sélectionnables. */
     private static final String[][] WALK_STYLES = {
+        {"Marche", "walk.emotecraft"},
         {"Défaut", "walk_default.emotecraft"},
         {"Tremblante", "walk_trembling.emotecraft"},
         {"Timide", "walk_timid.emotecraft"},
@@ -66,12 +75,17 @@ public final class MovementAnimations {
     private int selectedWalk = 0;
     private boolean available = false;
 
-    /** Controller PAL par avatar (weak : suit le cycle de vie de l'entité). */
-    private final Map<Avatar, PlayerAnimationController> controllers = new WeakHashMap<>();
-
     // État local courant (pour ne ré-appliquer qu'aux changements).
     private MoveState currentState = MoveState.NONE;
     private int currentWalkIndex = -1;
+
+    // Détection de mouvement STABLE par delta de position : getDeltaMovement()
+    // du joueur local oscille (la vélocité horizontale est remise ~0 par la
+    // friction/collision certains ticks) → flip-flop WALK↔NONE chaque tick →
+    // l'anim était stoppée+re-déclenchée en boucle et ne jouait jamais.
+    private double lastX, lastZ;
+    private boolean hasLastPos = false;
+    private int idleGrace = 0;
 
     private MovementAnimations() {}
 
@@ -93,15 +107,14 @@ public final class MovementAnimations {
     /** Enregistre le layer PAL par avatar + charge les animations. */
     public void register() {
         try {
-            // Un PlayerAnimationController par avatar, ajouté DIRECTEMENT à sa pile
-            // d'anims via l'event PAL (pattern EmotePlayer d'Emotecraft — pas de
-            // ModifierLayer intermédiaire, sinon l'anim déclenchée ne joue pas).
-            PlayerAnimationAccess.REGISTER_ANIMATION_EVENT.register((avatar, animManager) -> {
-                PlayerAnimationController controller =
-                    new PlayerAnimationController(avatar, (ctrl, data, setter) -> PlayState.STOP);
-                animManager.addAnimLayer(PRIORITY, controller);
-                controllers.put(avatar, controller);
-            });
+            // Pattern CANONIQUE PlayerAnimationLib (docs.zigythebird.com) : on
+            // enregistre une factory qui crée un PlayerAnimationController par
+            // avatar sous notre LAYER id. On récupère ensuite le controller par
+            // ID via getPlayerAnimationLayer (cf. applyState) — plus fiable que
+            // de mémoriser soi-même les controllers.
+            PlayerAnimationFactory.ANIMATION_DATA_FACTORY.registerFactory(
+                LAYER, PRIORITY,
+                avatar -> new PlayerAnimationController(avatar, (ctrl, data, setter) -> PlayState.STOP));
 
             for (String[] style : WALK_STYLES) walkAnims.add(load(style[1]));
             run = load("run.emotecraft");
@@ -146,9 +159,15 @@ public final class MovementAnimations {
         }
     }
 
+    /** Récupère le controller Reborn de ce joueur via l'API PAL (par LAYER id). */
+    private PlayerAnimationController controllerOf(AbstractClientPlayer player) {
+        IAnimation layer = PlayerAnimationAccess.getPlayerAnimationLayer(player, LAYER);
+        return layer instanceof PlayerAnimationController c ? c : null;
+    }
+
     /** Déclenche l'anim voulue sur le controller du joueur (crossfade), ou stop si idle. */
     private void applyState(AbstractClientPlayer player, MoveState desired, int walkStyle) {
-        PlayerAnimationController controller = controllers.get(player);
+        PlayerAnimationController controller = controllerOf(player);
         if (controller == null) return;
         Animation anim = switch (desired) {
             case WALK   -> walkAnims.isEmpty() ? null : walkAnims.get(clamp(walkStyle));
@@ -157,17 +176,36 @@ public final class MovementAnimations {
             case NONE   -> null;
         };
         if (anim == null) {
-            controller.stop();
+            controller.stopTriggeredAnimation();
         } else {
-            // RawAnimation en boucle (démarche continue) + transition douce.
-            controller.triggerAnimation(RawAnimation.begin().thenLoop(anim), TRANSITION);
+            // Fondu doux (EASE_IN_OUT_SINE) + loop INTRINSÈQUE de l'anim
+            // (then(anim, anim.loopType())) : on ne force PAS un LoopType.LOOP
+            // reset-à-0 comme thenLoop() — c'est ça qui provoquait le « relance
+            // dégueu » ; on respecte le point de bouclage authoré dans l'emote.
+            controller.replaceAnimationWithFade(
+                AbstractFadeModifier.standardFadeIn(FADE_TICKS, EasingType.EASE_IN_OUT_SINE),
+                RawAnimation.begin().then(anim, anim.loopType()));
         }
     }
 
     private MoveState computeState(AbstractClientPlayer player) {
-        Vec3 v = player.getDeltaMovement();
-        boolean moving = (v.x * v.x + v.z * v.z) > MOVE_THRESHOLD_SQ;
-        if (!moving) return MoveState.NONE;
+        // Vitesse horizontale réelle = distance parcourue depuis le tick précédent
+        // (monotone quand on marche, contrairement à getDeltaMovement).
+        double dx = player.getX() - lastX;
+        double dz = player.getZ() - lastZ;
+        double speedSq = hasLastPos ? (dx * dx + dz * dz) : 0.0;
+        lastX = player.getX();
+        lastZ = player.getZ();
+        hasLastPos = true;
+
+        boolean moving = speedSq > MOVE_THRESHOLD_SQ;
+        if (!moving) {
+            // Hystérésis : ne repasse NONE qu'après IDLE_GRACE_TICKS immobiles ;
+            // pendant la grâce on conserve l'état courant (pas de stop/retrigger).
+            if (++idleGrace >= IDLE_GRACE_TICKS) return MoveState.NONE;
+            return currentState;
+        }
+        idleGrace = 0;
         if (NarutoRun.INSTANCE.isActive() && narutoRun != null) return MoveState.NARUTO;
         if (player.isSprinting() && run != null) return MoveState.RUN;
         return (!walkAnims.isEmpty() && walkAnims.get(selectedWalk) != null)
