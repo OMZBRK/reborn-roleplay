@@ -319,3 +319,70 @@ mod tests {
         assert!(!launcher_is_outdated("2.0.0", "1.99.99"));
     }
 }
+
+// ─────────────────────────────────────────────────────────────
+//  Onglet Paramètres › Jeu — infos d'installation + actions.
+// ─────────────────────────────────────────────────────────────
+
+/// Infos affichées dans l'onglet « Jeu » des paramètres.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameInfo {
+    pub install_dir: String,
+    pub mc_version: String,
+    pub disk_free_gb: f64,
+    pub disk_total_gb: f64,
+}
+
+/// Chemin d'installation + version MC + espace disque du volume hôte.
+#[tauri::command]
+pub async fn launcher_game_info() -> Result<GameInfo, LauncherError> {
+    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let mc_version = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.1.2".into());
+
+    // Volume contenant le game dir : mount point le plus long qui préfixe le chemin.
+    let disks = sysinfo::Disks::new_with_refreshed_list();
+    let (mut free, mut total, mut best) = (0u64, 0u64, 0usize);
+    for d in disks.list() {
+        let mp = d.mount_point();
+        if dir.starts_with(mp) && mp.as_os_str().len() >= best {
+            best = mp.as_os_str().len();
+            free = d.available_space();
+            total = d.total_space();
+        }
+    }
+    Ok(GameInfo {
+        install_dir: dir.display().to_string(),
+        mc_version,
+        disk_free_gb: free as f64 / 1_000_000_000.0,
+        disk_total_gb: total as f64 / 1_000_000_000.0,
+    })
+}
+
+/// Ouvre le dossier d'installation dans l'explorateur du système.
+#[tauri::command]
+pub async fn launcher_open_install_dir<R: Runtime>(app: AppHandle<R>) -> Result<(), LauncherError> {
+    use tauri_plugin_opener::OpenerExt;
+    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let _ = std::fs::create_dir_all(&dir);
+    app.opener()
+        .open_path(dir.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    Ok(())
+}
+
+/// Réinstallation complète : supprime les dossiers téléchargeables (mods,
+/// libraries, versions, assets) — préserve saves/config/options/reborn. Le
+/// prochain check-update + lancement re-télécharge tout.
+#[tauri::command]
+pub async fn launcher_reinstall_all() -> Result<(), LauncherError> {
+    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    for sub in ["mods", "libraries", "versions", "assets"] {
+        let p = dir.join(sub);
+        if p.exists() {
+            std::fs::remove_dir_all(&p)
+                .map_err(|e| LauncherError::Io { message: format!("{sub}: {e}") })?;
+        }
+    }
+    Ok(())
+}

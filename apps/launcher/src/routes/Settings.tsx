@@ -5,17 +5,19 @@ import {
   AlertTriangle,
   Bell,
   Check,
-  Cpu,
+  Copy,
+  FolderOpen,
   Gamepad2,
   Globe,
+  HardDrive,
   Info,
   Link2,
   Loader2,
   LogOut,
   MemoryStick,
-  Monitor,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   User2,
   Unlink,
   Wand2,
@@ -27,6 +29,13 @@ import { useSettingsStore } from "../stores/settings-store";
 import { getPrefs, setPrefs, type Preferences } from "../lib/prefs";
 import { logout, refreshMe, startDiscordLink, unlinkDiscord } from "../lib/auth";
 import { getSystemSpecs, type SystemSpecs } from "../lib/system";
+import {
+  getGameInfo,
+  openInstallDir,
+  reinstallAll,
+  checkUpdate,
+  type GameInfo,
+} from "../lib/launcher";
 import { cn } from "../lib/cn";
 import { mapRole, ROLE_META } from "../components/sidebar/role";
 
@@ -648,28 +657,31 @@ function ConnectionRow({
 // ──────────────────────────────────────────────────────
 
 function GameTab() {
+  const user = useAuthStore((s) => s.user);
   const [prefs, setPrefsState] = useState<Preferences | null>(null);
   const [specs, setSpecs] = useState<SystemSpecs | null>(null);
+  const [info, setInfo] = useState<GameInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingState, setSavingState] = useState<"idle" | "saving" | "saved">("idle");
+  const [copied, setCopied] = useState(false);
+  const [verify, setVerify] = useState<"idle" | "checking" | "ok" | { repair: number }>("idle");
+  const [confirmReinstall, setConfirmReinstall] = useState(false);
+  const [reinstalling, setReinstalling] = useState<"idle" | "working" | "done">("idle");
 
   useEffect(() => {
     let cancelled = false;
     getPrefs()
-      .then((p) => {
-        if (!cancelled) setPrefsState(p);
-      })
-      .catch((err) => {
-        if (!cancelled)
-          setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
-      });
+      .then((p) => !cancelled && setPrefsState(p))
+      .catch((err) =>
+        !cancelled &&
+        setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur"),
+      );
     getSystemSpecs()
-      .then((s) => {
-        if (!cancelled) setSpecs(s);
-      })
-      .catch(() => {
-        /* swallow */
-      });
+      .then((s) => !cancelled && setSpecs(s))
+      .catch(() => {});
+    getGameInfo()
+      .then((g) => !cancelled && setInfo(g))
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -690,6 +702,38 @@ function GameTab() {
     }
   }
 
+  const uuid = user?.minecraftUuid ?? "—";
+
+  function copyUuid() {
+    if (!user?.minecraftUuid) return;
+    navigator.clipboard.writeText(user.minecraftUuid).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  async function runVerify() {
+    setVerify("checking");
+    try {
+      const preview = await checkUpdate();
+      setVerify(preview.plan.length === 0 ? "ok" : { repair: preview.plan.length });
+    } catch {
+      setVerify("idle");
+    }
+  }
+
+  async function runReinstall() {
+    setReinstalling("working");
+    try {
+      await reinstallAll();
+      setReinstalling("done");
+      setConfirmReinstall(false);
+    } catch (err) {
+      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+      setReinstalling("idle");
+    }
+  }
+
   if (error)
     return (
       <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -706,21 +750,183 @@ function GameTab() {
 
   const recommended = specs?.recommendedRamMb ?? 4096;
   const ramPercent = ((prefs.ramMb - 2048) / (16384 - 2048)) * 100;
+  const diskPercent =
+    info && info.diskTotalGb > 0
+      ? Math.min(100, ((info.diskTotalGb - info.diskFreeGb) / info.diskTotalGb) * 100)
+      : 0;
 
   return (
     <>
-      {specs && (
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <SpecCard icon={MemoryStick} label="Mémoire" value={`${(specs.totalRamMb / 1024).toFixed(1)} Go`} sub={`${specs.freeRamMb.toLocaleString()} Mo libres`} />
-          <SpecCard icon={Cpu} label="Processeur" value={specs.cpuBrand} sub={`${specs.cpuCores} thread${specs.cpuCores > 1 ? "s" : ""}`} />
-          <SpecCard icon={Monitor} label="Système" value={specs.osName} sub="Détecté au démarrage" />
-        </div>
-      )}
-
+      {/* ── Installation ── */}
       <Card
-        title="Performance"
-        description="Réglages JVM et fenêtre. Pris en compte au prochain lancement du jeu."
-        icon={<Zap className="h-4 w-4" />}
+        title="Installation"
+        description="Emplacement des fichiers du jeu, version et identifiant du compte."
+        icon={<FolderOpen className="h-4 w-4" />}
+      >
+        <div className="px-6 py-5">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-foreground-muted">
+            Dossier d'installation
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2.5">
+              <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-foreground-muted" />
+              <span className="truncate font-mono text-[12px] text-foreground-subtle">
+                {info?.installDir ?? "…"}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => openInstallDir().catch(() => {})}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2.5 text-[12px] font-medium text-foreground transition hover:border-accent/50 hover:text-accent"
+            >
+              <FolderOpen className="h-3.5 w-3.5" />
+              Ouvrir
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 px-6 pb-5 sm:grid-cols-2">
+          <SpecCard
+            icon={Gamepad2}
+            label="Version du jeu"
+            value={info ? `Minecraft ${info.mcVersion}` : "…"}
+            sub="Modpack Reborn"
+          />
+          <div className="rounded-[12px] border border-border bg-surface-elevated/60 px-4 py-3.5">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-3.5 w-3.5 text-foreground-muted" />
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-foreground-muted">
+                Stockage disque
+              </p>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${diskPercent}%`,
+                  background:
+                    "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
+                }}
+              />
+            </div>
+            <p className="mt-1.5 text-[11.5px] text-foreground-subtle">
+              {info
+                ? `${info.diskFreeGb.toFixed(0)} Go libres sur ${info.diskTotalGb.toFixed(0)} Go`
+                : "…"}
+            </p>
+          </div>
+        </div>
+
+        <div className="px-6 pb-5">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-foreground-muted">
+            UUID du compte
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center rounded-md border border-border bg-surface-elevated px-3 py-2.5">
+              <span className="truncate font-mono text-[12px] text-success">{uuid}</span>
+            </div>
+            <button
+              type="button"
+              onClick={copyUuid}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2.5 text-[12px] font-medium text-foreground transition hover:border-accent/50 hover:text-accent"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copié" : "Copier"}
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Intégrité ── */}
+      <Card
+        title="Intégrité des fichiers"
+        description="Vérifie que tous les fichiers du modpack sont présents et intacts."
+        icon={<ShieldCheck className="h-4 w-4" />}
+      >
+        <div className="px-6 py-5">
+          <button
+            type="button"
+            onClick={runVerify}
+            disabled={verify === "checking"}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-4 py-3 text-[13px] font-medium text-foreground transition hover:border-accent/50 hover:text-accent disabled:opacity-60"
+          >
+            {verify === "checking" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
+            Vérifier les fichiers
+          </button>
+          {verify === "ok" && (
+            <p className="mt-3 flex items-center gap-1.5 text-[12px] text-success">
+              <Check className="h-3.5 w-3.5" /> Tous les fichiers sont à jour.
+            </p>
+          )}
+          {typeof verify === "object" && (
+            <p className="mt-3 flex items-center gap-1.5 text-[12px] text-warning">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {verify.repair} fichier{verify.repair > 1 ? "s" : ""} à réparer — relance le jeu pour
+              les re-télécharger.
+            </p>
+          )}
+        </div>
+      </Card>
+
+      {/* ── Réinstallation ── */}
+      <Card
+        title="Réinstallation"
+        description="Supprime les fichiers du jeu et relance un téléchargement complet au prochain lancement."
+        icon={<Trash2 className="h-4 w-4" />}
+        accent="danger"
+      >
+        <div className="px-6 py-5">
+          {reinstalling === "done" ? (
+            <p className="flex items-center gap-1.5 text-[12px] text-success">
+              <Check className="h-3.5 w-3.5" /> Fichiers supprimés — tout sera re-téléchargé au
+              prochain lancement.
+            </p>
+          ) : confirmReinstall ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={runReinstall}
+                disabled={reinstalling === "working"}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-danger/50 bg-danger/10 px-4 py-3 text-[13px] font-semibold text-danger transition hover:bg-danger/20 disabled:opacity-60"
+              >
+                {reinstalling === "working" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Confirmer la réinstallation
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmReinstall(false)}
+                disabled={reinstalling === "working"}
+                className="rounded-md border border-border-strong bg-surface px-4 py-3 text-[13px] font-medium text-foreground-subtle transition hover:text-foreground"
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmReinstall(true)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-danger/40 bg-transparent px-4 py-3 text-[13px] font-medium text-danger transition hover:bg-danger/10"
+            >
+              <Trash2 className="h-4 w-4" />
+              Réinstaller tout
+            </button>
+          )}
+        </div>
+      </Card>
+
+      {/* ── Java & fenêtre ── */}
+      <Card
+        title="Java & fenêtre"
+        description="Mémoire allouée et résolution — pris en compte au prochain lancement."
+        icon={<MemoryStick className="h-4 w-4" />}
       >
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
@@ -734,25 +940,29 @@ function GameTab() {
                 )}
               </div>
               <p className="mt-1 text-[11.5px] text-foreground-subtle">
-                Plus de RAM = chargement de chunks plus rapide, mais ne sert à rien au-delà de la
-                moitié de ta mémoire totale.
+                Plus de RAM = chargement de chunks plus rapide, mais inutile au-delà de la moitié de
+                ta mémoire totale.
               </p>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="font-display text-2xl tabular-nums text-foreground" style={{ letterSpacing: "0.02em" }}>
+              <span
+                className="font-display text-2xl tabular-nums text-foreground"
+                style={{ letterSpacing: "0.02em" }}
+              >
                 {(prefs.ramMb / 1024).toFixed(1)}
               </span>
               <span className="text-xs uppercase tracking-widest text-foreground-muted">Go</span>
             </div>
           </div>
 
-          <div className="mt-4 relative">
+          <div className="relative mt-4">
             <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-border">
               <div
                 className="h-full rounded-full transition-all duration-200"
                 style={{
                   width: `${ramPercent}%`,
-                  background: "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
+                  background:
+                    "linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)",
                   boxShadow: "0 0 12px var(--color-accent-glow)",
                 }}
               />
@@ -776,7 +986,7 @@ function GameTab() {
             <button
               type="button"
               onClick={() => update({ ramMb: recommended })}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent/8 px-3 py-1.5 text-[11px] font-medium text-accent transition hover:bg-accent/15 hover:shadow-[0_0_16px_-6px_var(--color-accent-glow-strong)]"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent/8 px-3 py-1.5 text-[11px] font-medium text-accent transition hover:bg-accent/15"
             >
               <Wand2 className="h-3 w-3" />
               Utiliser la valeur recommandée ({(recommended / 1024).toFixed(1)} Go)
@@ -801,12 +1011,13 @@ function GameTab() {
         </Row>
       </Card>
 
+      {/* ── Comportement ── */}
       <Card
         title="Comportement"
         description="Options activées par défaut au lancement du jeu."
         icon={<Gamepad2 className="h-4 w-4" />}
       >
-        <Row label="Auto-connect au serveur" hint="Saute le menu principal et tente la connexion direct.">
+        <Row label="Auto-connect au serveur" hint="Saute le menu principal et tente la connexion directe.">
           <Toggle checked={prefs.autoConnect} onChange={(v) => update({ autoConnect: v })} />
         </Row>
         <Row label="Discord Rich Presence" hint="Affiche ton statut RP dans Discord pendant que tu joues.">
@@ -853,7 +1064,6 @@ function GameTab() {
     </>
   );
 }
-
 function SpecCard({
   icon: Icon,
   label,

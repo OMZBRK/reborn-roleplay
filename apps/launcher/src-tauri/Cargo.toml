@@ -80,4 +80,4 @@ discord-rich-presence = "0.2"
 # Detection des specs systeme (RAM/CPU/OS) pour la page Settings → Jeu.
 # Disable les features qui ne nous interessent pas (process listing, disks,
 # networks, components) pour reduire le binaire — on ne lit que RAM + CPU.
-sysinfo = { version = "0.32", default-features = false, features = ["system"] }
+sysinfo = { version = "0.32", default-features = false, features = ["system", "disk"] }
