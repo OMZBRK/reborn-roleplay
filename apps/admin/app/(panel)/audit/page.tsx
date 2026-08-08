@@ -15,22 +15,38 @@ import type { AuditLogItem, Paginated } from '@/lib/types';
  * Le filtre client-side reste minimal — pour scaler on poussera les
  * filtres serveur quand le log depassera ~10000 entrees.
  */
+const PAGE_SIZE = 50;
+
 export default function AuditPage() {
   const [actionFilter, setActionFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'panel' | 'discord' | 'launcher' | 'system'>('all');
+  const [page, setPage] = useState(0);
+
+  // Changer un filtre remet à la première page (sinon on peut se retrouver
+  // sur une page vide au-delà du nouveau total).
+  function setSource(s: typeof sourceFilter) {
+    setSourceFilter(s);
+    setPage(0);
+  }
+  function setAction(v: string) {
+    setActionFilter(v);
+    setPage(0);
+  }
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'audit', actionFilter, sourceFilter],
+    queryKey: ['admin', 'audit', actionFilter, sourceFilter, page],
     queryFn: () => {
       const qs = new URLSearchParams();
       if (actionFilter.trim()) qs.set('action', actionFilter.trim());
       if (sourceFilter !== 'all') qs.set('source', sourceFilter);
-      return api<Paginated<AuditLogItem>>(
-        `/admin/audit${qs.toString() ? `?${qs}` : ''}`,
-      );
+      qs.set('skip', String(page * PAGE_SIZE));
+      qs.set('take', String(PAGE_SIZE));
+      return api<Paginated<AuditLogItem>>(`/admin/audit?${qs}`);
     },
     refetchInterval: 30_000,
   });
+
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
   return (
     <div className="px-10 py-10 max-w-6xl mx-auto">
@@ -60,7 +76,7 @@ export default function AuditPage() {
               <button
                 key={s}
                 type="button"
-                onClick={() => setSourceFilter(s)}
+                onClick={() => setSource(s)}
                 className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
                   active
                     ? 'bg-[var(--color-accent)] text-white shadow-[var(--shadow-glow-accent)]'
@@ -79,7 +95,7 @@ export default function AuditPage() {
         <input
           type="text"
           value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value)}
+          onChange={(e) => setAction(e.target.value)}
           placeholder="Filtrer par action (ex: whitelist.approve, ticket.close, release)…"
           className="w-full rounded-[12px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-2.5 pl-11 pr-4 text-sm focus:border-[var(--color-accent)] focus:outline-none"
         />
@@ -150,11 +166,30 @@ export default function AuditPage() {
               ))}
             </tbody>
           </table>
-          {data.total > data.items.length && (
-            <div className="border-t border-[var(--color-border)] px-4 py-2.5 text-xs text-[var(--color-foreground-muted)]">
-              {data.items.length} / {data.total} entrees
+          <div className="flex items-center justify-between gap-4 border-t border-[var(--color-border)] px-4 py-2.5">
+            <div className="text-xs text-[var(--color-foreground-muted)]">
+              {data.total} entrée{data.total > 1 ? 's' : ''} · page {page + 1} /{' '}
+              {totalPages}
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                className="rounded-[8px] border border-[var(--color-border-strong)] px-3 py-1.5 text-xs text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← Précédent
+              </button>
+              <button
+                type="button"
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="rounded-[8px] border border-[var(--color-border-strong)] px-3 py-1.5 text-xs text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Suivant →
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -120,7 +120,7 @@ export default function WhitelistDetailPage({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-6 items-start">
         {/* Colonne gauche : contenu narratif + info froides */}
         <div className="space-y-6 min-w-0">
           <Card title="HRP — Hors roleplay">
@@ -413,7 +413,7 @@ function PartDecisionCard({
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="min-w-0 overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <div className="mb-4 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
         {title}
       </div>
@@ -432,16 +432,16 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className={block ? '' : 'flex items-baseline gap-3'}>
+    <div className={block ? 'min-w-0' : 'flex items-baseline gap-3 min-w-0'}>
       <div
         className={`text-xs text-[var(--color-foreground-muted)] ${
-          block ? 'mb-1' : 'min-w-[110px]'
+          block ? 'mb-1' : 'min-w-[110px] shrink-0'
         }`}
       >
         {label}
       </div>
       <div
-        className={`text-sm ${
+        className={`text-sm min-w-0 break-words [overflow-wrap:anywhere] ${
           block ? 'whitespace-pre-wrap text-[var(--color-foreground)]' : ''
         }`}
       >
