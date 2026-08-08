@@ -1,7 +1,7 @@
 {
   "name": "@reborn/launcher",
   "private": true,
-  "version": "0.3.24",
+  "version": "0.3.25",
   "type": "module",
   "description": "Launcher Tauri 2 + React du network Reborn Roleplay",
   "scripts": {

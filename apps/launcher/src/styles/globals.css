@@ -2075,6 +2075,12 @@ body,
   color: var(--color-foreground);
   font-weight: 500;
   white-space: pre-wrap;
+  /* Casse aussi les chaînes continues sans espace (ex. "AZEEE…E") pour
+     qu'elles ne débordent plus de la carte. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
 }
 .wl-recap-empty {
   color: var(--color-foreground-muted);
