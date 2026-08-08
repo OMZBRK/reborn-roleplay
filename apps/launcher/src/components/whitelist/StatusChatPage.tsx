@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
   FileText,
   Loader2,
   MessageSquare,
+  Mic,
   Paperclip,
   Send,
   Trash2,
@@ -13,11 +16,17 @@ import {
 import { useWhitelistStore } from "../../stores/whitelist-store";
 import { formatDateFr } from "../../lib/whitelist-validation";
 import {
+  bookOralSlot,
+  cancelOralSlot,
+  fetchOralSlots,
   fetchWhitelistMe,
   fetchWhitelistMessages,
   postWhitelistMessage,
   reclaimWhitelist,
   uploadAttachment,
+  type OralSlot,
+  type OralSlotsResponse,
+  type WhitelistAppStatus,
   type WhitelistMessage,
 } from "../../lib/content";
 import { RecapField } from "./RecapField";
@@ -637,6 +646,8 @@ function ApplicationPanel({
   const dobDisplay = formatDateFr(draft.dob) ?? draft.dob;
   return (
     <div className="wl-application-panel">
+      <OralSection />
+
       <motion.div
         className="wl-recap-card"
         initial={{ opacity: 0, y: 10 }}
@@ -649,12 +660,13 @@ function ApplicationPanel({
         </div>
         <div className="wl-recap-fields">
           <RecapField label="Date de naissance" value={dobDisplay} />
+          <RecapField label="Disponibilité" value={draft.availability} />
           <RecapField
             label="Pourquoi voulez-vous rejoindre le serveur ?"
             value={draft.motivation}
+            wide
           />
-          <RecapField label="Expérience Rôle-play" value={draft.experience} />
-          <RecapField label="Disponibilité" value={draft.availability} />
+          <RecapField label="Expérience Rôle-play" value={draft.experience} wide />
         </div>
       </motion.div>
 
@@ -673,12 +685,13 @@ function ApplicationPanel({
           <RecapField label="Nom du personnage" value={draft.lastName} />
           <RecapField label="Village" value={draft.village} />
           <RecapField label="Support visuel" value={draft.support} />
-          <RecapField label="Histoire du personnage" value={draft.history} />
+          <RecapField label="Histoire du personnage" value={draft.history} wide />
           <RecapField
             label="Apparence et personnalité"
             value={draft.appearance}
+            wide
           />
-          <RecapField label="Objectifs du personnage" value={draft.objectives} />
+          <RecapField label="Objectifs du personnage" value={draft.objectives} wide />
         </div>
 
       </motion.div>
@@ -736,6 +749,187 @@ function ApplicationPanel({
       )}
     </div>
   );
+}
+
+// ── L5 : réservation du test oral (côté candidat) ─────────────────
+function OralSection() {
+  const [data, setData] = useState<OralSlotsResponse | null>(null);
+  const [hrp, setHrp] = useState<WhitelistAppStatus | null>(null);
+  const [rp, setRp] = useState<WhitelistAppStatus | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [slots, me] = await Promise.all([fetchOralSlots(), fetchWhitelistMe()]);
+      setData(slots);
+      setHrp(me.application?.hrpStatus ?? null);
+      setRp(me.application?.rpStatus ?? null);
+    } catch {
+      // silencieux (dev sans API)
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  async function act(id: string, fn: (id: string) => Promise<unknown>) {
+    setBusy(id);
+    setErr(null);
+    try {
+      await fn(id);
+      await refresh();
+    } catch (e) {
+      setErr(typeof e === "string" ? e : (e as { message?: string }).message ?? "Échec");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const hrpDone = hrp === "APPROVED";
+  const mine = data?.mine ?? null;
+  const open = data?.open ?? [];
+
+  return (
+    <motion.div
+      className="wl-recap-card wl-oral-card"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="wl-recap-header">
+        <div className="wl-step-badge wl-oral-badge">
+          <Mic size={14} />
+        </div>
+        <h3 className="wl-recap-title">Test oral</h3>
+        <div className="wl-oral-pills">
+          <StatusPill label="HRP" status={hrp} />
+          <StatusPill label="RP" status={rp} />
+        </div>
+      </div>
+
+      {err && <div className="wl-oral-err">{err}</div>}
+
+      {hrpDone ? (
+        <div className="wl-oral-note wl-oral-ok">
+          <CheckCircle2 size={15} /> Ton test oral est validé. La partie RP est en
+          cours de validation par le staff.
+        </div>
+      ) : mine ? (
+        <div className="wl-oral-booked">
+          <div className="wl-oral-booked-info">
+            <CalendarClock size={17} />
+            <div>
+              <div className="wl-oral-booked-when">{formatSlotFull(mine.startAt)}</div>
+              <div className="wl-oral-booked-sub">
+                Créneau réservé · {mine.durationMin} min. Le staff te rejoindra à
+                l'heure dite.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="wl-btn-mini-ghost"
+            disabled={busy === mine.id}
+            onClick={() => act(mine.id, cancelOralSlot)}
+          >
+            {busy === mine.id ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <X size={13} />
+            )}
+            Annuler
+          </button>
+        </div>
+      ) : open.length > 0 ? (
+        <div className="wl-oral-slots">
+          <p className="wl-oral-lead">Réserve ton test oral avec le staff :</p>
+          {groupSlotsByDay(open).map(({ day, slots }) => (
+            <div key={day} className="wl-oral-day">
+              <div className="wl-oral-day-label">{day}</div>
+              <div className="wl-oral-slot-row">
+                {slots.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="wl-oral-slot-btn"
+                    disabled={busy === s.id}
+                    onClick={() => act(s.id, bookOralSlot)}
+                  >
+                    {busy === s.id && <Loader2 size={12} className="animate-spin" />}
+                    {formatSlotTime(s.startAt)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="wl-oral-note">
+          Aucun créneau ouvert pour l'instant. Le staff en ouvrira bientôt —
+          reviens vérifier ici.
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function StatusPill({
+  label,
+  status,
+}: {
+  label: string;
+  status: WhitelistAppStatus | null;
+}) {
+  const map: Record<string, { txt: string; cls: string }> = {
+    PENDING: { txt: "En attente", cls: "is-pending" },
+    APPROVED: { txt: "Validé", cls: "is-ok" },
+    REJECTED: { txt: "Refusé", cls: "is-bad" },
+    NEEDS_REVISION: { txt: "À revoir", cls: "is-warn" },
+  };
+  const s = status ? map[status] : { txt: "—", cls: "is-pending" };
+  return (
+    <span className={`wl-oral-pill ${s.cls}`}>
+      <span className="wl-oral-pill-label">{label}</span> {s.txt}
+    </span>
+  );
+}
+
+function formatSlotFull(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("fr-FR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatSlotTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function groupSlotsByDay(slots: OralSlot[]): { day: string; slots: OralSlot[] }[] {
+  const sorted = [...slots].sort(
+    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+  );
+  const out: { day: string; slots: OralSlot[] }[] = [];
+  for (const s of sorted) {
+    const day = new Date(s.startAt).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+    });
+    const last = out[out.length - 1];
+    if (last && last.day === day) last.slots.push(s);
+    else out.push({ day, slots: [s] });
+  }
+  return out;
 }
 
 function formatBytes(n: number): string {

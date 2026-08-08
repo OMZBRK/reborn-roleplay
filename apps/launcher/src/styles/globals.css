@@ -2054,10 +2054,15 @@ body,
   line-height: 1;
 }
 .wl-recap-fields {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   min-width: 0;
+}
+@media (max-width: 720px) {
+  .wl-recap-fields {
+    grid-template-columns: 1fr;
+  }
 }
 .wl-recap-field {
   background: var(--color-surface-elevated);
@@ -2067,6 +2072,10 @@ body,
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
+}
+/* Champs narratifs longs : pleine largeur de la grille. */
+.wl-recap-field.is-wide {
+  grid-column: 1 / -1;
 }
 .wl-recap-label {
   font-family: var(--font-mono);
@@ -2468,6 +2477,140 @@ body,
   padding: 18px 0 24px;
 }
 
+/* ---------- L5 : section test oral (candidat) ---------- */
+.wl-oral-card {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+.wl-oral-badge {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+  display: grid;
+  place-items: center;
+}
+.wl-oral-pills {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.wl-oral-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wl-oral-pill-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+.wl-oral-pill.is-pending {
+  color: var(--color-foreground-muted);
+}
+.wl-oral-pill.is-ok {
+  color: var(--color-success);
+}
+.wl-oral-pill.is-bad {
+  color: var(--color-danger);
+}
+.wl-oral-pill.is-warn {
+  color: var(--color-warning);
+}
+.wl-oral-err {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+  font-size: 12px;
+}
+.wl-oral-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+}
+.wl-oral-note.wl-oral-ok {
+  color: var(--color-success);
+}
+.wl-oral-lead {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-foreground);
+}
+.wl-oral-day {
+  margin-bottom: 12px;
+}
+.wl-oral-day-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+  margin-bottom: 6px;
+}
+.wl-oral-slot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wl-oral-slot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.wl-oral-slot-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+}
+.wl-oral-slot-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.wl-oral-booked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.wl-oral-booked-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-accent-hover);
+}
+.wl-oral-booked-when {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  text-transform: capitalize;
+}
+.wl-oral-booked-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+}
+
 /* ============================================================
    Tickets — layout 2 panes (sidebar liste + chat pane)
    Reutilise les classes wl-msg-* / wl-chat-* pour le chat lui-meme.
@@ -2803,6 +2946,9 @@ select.tk-create-select {
   min-height: 210px;
   padding: 26px 28px;
   text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   cursor: pointer;
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
