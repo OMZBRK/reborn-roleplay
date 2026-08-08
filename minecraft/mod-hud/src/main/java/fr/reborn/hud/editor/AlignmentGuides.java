@@ -74,7 +74,7 @@ public final class AlignmentGuides {
         yCandidates.add(new Candidate(0,           "BORD HAUT"));
         yCandidates.add(new Candidate(screenH,     "BORD BAS"));
 
-        for (HudElement other : HudElement.values()) {
+        for (HudElement other : HudElement.EDITABLE) {
             if (other == dragged) continue;
             HudElementBounds b = boundsFn.apply(other);
             String name = other.displayName().toUpperCase();

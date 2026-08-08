@@ -60,17 +60,12 @@ public abstract class InGameHudMixin {
         HudTransform.revert(ctx);
     }
 
-    // ─────────── HEALTH ───────────
+    // ─────────── HEALTH : masquée en permanence ───────────
+    // La vie vanilla est remplacée par le VitalsHUD RP (tête + barre de vie).
+    // On annule toujours son extraction — pas dans l'éditeur (cf HudElement.EDITABLE).
     @Inject(method = "extractPlayerHealth", at = @At("HEAD"), cancellable = true)
-    private void reborn$pushHealth(GuiGraphicsExtractor ctx, CallbackInfo ci) {
-        if (!HudTransform.isVisible(HudElement.HEALTH)) { ci.cancel(); return; }
-        HudTransform.apply(ctx, HudElement.HEALTH);
-    }
-
-    @Inject(method = "extractPlayerHealth", at = @At("RETURN"))
-    private void reborn$popHealth(GuiGraphicsExtractor ctx, CallbackInfo ci) {
-        if (!HudTransform.isVisible(HudElement.HEALTH)) return;
-        HudTransform.revert(ctx);
+    private void reborn$hideHealth(GuiGraphicsExtractor ctx, CallbackInfo ci) {
+        ci.cancel();
     }
 
     // ─────────── ARMOR (static) ───────────
@@ -86,17 +81,11 @@ public abstract class InGameHudMixin {
         HudTransform.revert(ctx);
     }
 
-    // ─────────── HUNGER (food) ───────────
+    // ─────────── HUNGER (food) : masquée en permanence ───────────
+    // La faim vanilla est remplacée par le VitalsHUD RP (barre stamina).
     @Inject(method = "extractFood", at = @At("HEAD"), cancellable = true)
-    private void reborn$pushFood(GuiGraphicsExtractor ctx, Player player, int a, int b, CallbackInfo ci) {
-        if (!HudTransform.isVisible(HudElement.HUNGER)) { ci.cancel(); return; }
-        HudTransform.apply(ctx, HudElement.HUNGER);
-    }
-
-    @Inject(method = "extractFood", at = @At("RETURN"))
-    private void reborn$popFood(GuiGraphicsExtractor ctx, Player player, int a, int b, CallbackInfo ci) {
-        if (!HudTransform.isVisible(HudElement.HUNGER)) return;
-        HudTransform.revert(ctx);
+    private void reborn$hideFood(GuiGraphicsExtractor ctx, Player player, int a, int b, CallbackInfo ci) {
+        ci.cancel();
     }
 
     // ─────────── AIR (bubbles) ───────────

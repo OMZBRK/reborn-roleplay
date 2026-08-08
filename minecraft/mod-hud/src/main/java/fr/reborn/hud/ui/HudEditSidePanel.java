@@ -86,7 +86,7 @@ public final class HudEditSidePanel {
 
         int y = y0 + HEADER_H + 7;               // sous le header
         y += LABEL_H + 3;                         // "ÉLÉMENTS"
-        y += HudElement.values().length * ROW_H;  // lignes éléments
+        y += HudElement.EDITABLE.length * ROW_H;  // lignes éléments
         y += 10 + LABEL_H + 3;                    // "PRESETS"
         this.presetInputY = y;
         this.presetInputX = x0 + PAD;
@@ -140,7 +140,7 @@ public final class HudEditSidePanel {
 
         int y = y0 + HEADER_H + 7;
         y = renderSectionLabel(ctx, "ÉLÉMENTS", y) + 3;
-        for (HudElement e : HudElement.values()) {
+        for (HudElement e : HudElement.EDITABLE) {
             renderElementRow(ctx, e, y, mouseX, mouseY);
             y += ROW_H;
         }

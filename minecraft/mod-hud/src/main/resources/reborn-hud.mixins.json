@@ -8,6 +8,7 @@
     "ChatHudAddMessageMixin",
     "ChatScreenMixin",
     "InGameHudMixin",
+    "ExperienceBarRendererMixin",
     "MusicTrackerMixin",
     "CrosshairHitMixin",
     "CameraThirdPersonMixin",

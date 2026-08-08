@@ -112,7 +112,7 @@ public class HudEditScreen extends Screen {
         // 2) Boîtes HUD (dessinées avant le panneau : le panneau opaque couvre
         //    tout débordement à droite).
         HudElement hovered = elementUnderMouse(mouseX, mouseY);
-        for (HudElement e : HudElement.values()) {
+        for (HudElement e : HudElement.EDITABLE) {
             if (e == draggedElement) continue;
             renderHudBox(ctx, e, hovered == e,
                 selectedElements.contains(e) || e == selectedElement, false, mouseX, mouseY);
@@ -219,7 +219,7 @@ public class HudEditScreen extends Screen {
     private HudElement elementUnderMouse(int mouseX, int mouseY) {
         if (mouseX >= sidePanel.leftEdge()) return null; // zone panneau
         if (draggedElement != null) return draggedElement;
-        HudElement[] values = HudElement.values();
+        HudElement[] values = HudElement.EDITABLE;
         for (int i = values.length - 1; i >= 0; i--) {
             HudElement e = values[i];
             HudElementBounds b = HudElementBounds.currentFor(e, config.stateOf(e), this.width, this.height);

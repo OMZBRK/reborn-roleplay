@@ -53,4 +53,13 @@ public enum HudElement {
 
     /** Anchor par défaut quand l'élément n'a pas encore d'override utilisateur. */
     public HudAnchor defaultAnchor() { return defaultAnchor; }
+
+    /**
+     * Éléments proposés dans l'éditeur HUD (liste + drag + snap). Exclut
+     * {@link #HEALTH} et {@link #HUNGER} : masqués en permanence côté rendu
+     * (remplacés par le VitalsHUD RP), donc pas repositionnables.
+     */
+    public static final HudElement[] EDITABLE = java.util.Arrays.stream(values())
+        .filter(e -> e != HEALTH && e != HUNGER)
+        .toArray(HudElement[]::new);
 }
