@@ -29,34 +29,6 @@ export default function WhitelistDetailPage({
     refetchInterval: 5_000,
   });
 
-  const [pendingDecision, setPendingDecision] = useState<Decision | null>(null);
-  const [notes, setNotes] = useState('');
-
-  const decideMut = useMutation({
-    mutationFn: (input: { status: Decision; reviewNotes?: string }) =>
-      api(`/admin/whitelist/${id}`, { method: 'PATCH', body: input }),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['admin', 'whitelist'] });
-      qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
-      setPendingDecision(null);
-      setNotes('');
-      const labels: Record<Decision, string> = {
-        APPROVED: 'Candidature acceptee',
-        REJECTED: 'Candidature refusee',
-        NEEDS_REVISION: 'Revision demandee au joueur',
-      };
-      toast.success(labels[vars.status], {
-        description: 'Notification envoyee dans Discord et dans le launcher.',
-      });
-      router.push('/whitelist');
-    },
-    onError: (err) => {
-      toast.error('Echec de la decision', {
-        description: (err as Error).message,
-      });
-    },
-  });
-
   const [confirmReset, setConfirmReset] = useState(false);
   const resetMut = useMutation({
     mutationFn: () =>
@@ -99,11 +71,6 @@ export default function WhitelistDetailPage({
   }
   if (!data) return null;
 
-  const needsReason: Decision[] = ['REJECTED', 'NEEDS_REVISION'];
-  const canDecide = (['PENDING', 'NEEDS_REVISION'] as AppStatus[]).includes(
-    data.status,
-  );
-
   return (
     <div className="px-10 py-10 max-w-5xl mx-auto">
       <Link
@@ -137,7 +104,20 @@ export default function WhitelistDetailPage({
             )}
           </div>
         </div>
-        <StatusBadge status={data.status} />
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
+              HRP
+            </span>
+            <StatusBadge status={data.hrpStatus} />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
+              RP
+            </span>
+            <StatusBadge status={data.rpStatus} />
+          </div>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6 items-start">
@@ -271,90 +251,20 @@ export default function WhitelistDetailPage({
             assignedAt={data.assignedAt}
           />
 
-          {canDecide && (
-            <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <div className="mb-3 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
-                Décision
-              </div>
-              {pendingDecision ? (
-                <div>
-                  <div className="mb-2 text-xs text-[var(--color-foreground-subtle)]">
-                    Action : <strong>{decisionLabel(pendingDecision)}</strong>
-                  </div>
-                  {needsReason.includes(pendingDecision) && (
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder={
-                        pendingDecision === 'REJECTED'
-                          ? 'Raison du refus (visible par le joueur)…'
-                          : 'Que doit preciser le joueur ?'
-                      }
-                      rows={3}
-                      className="w-full rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-background)] p-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
-                    />
-                  )}
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      disabled={
-                        decideMut.isPending ||
-                        (needsReason.includes(pendingDecision) && notes.trim().length === 0)
-                      }
-                      onClick={() =>
-                        decideMut.mutate({
-                          status: pendingDecision,
-                          reviewNotes: notes.trim() || undefined,
-                        })
-                      }
-                      className="flex-1 rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] py-2 text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {decideMut.isPending ? 'Envoi…' : 'Confirmer'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPendingDecision(null);
-                        setNotes('');
-                      }}
-                      className="rounded-[8px] border border-[var(--color-border-strong)] px-3 py-2 text-sm text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)]"
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                  {decideMut.error && (
-                    <div className="mt-2 text-xs text-[var(--color-danger)]">
-                      {(decideMut.error as Error).message}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  <DecisionButton
-                    onClick={() => setPendingDecision('APPROVED')}
-                    tone="success"
-                    compact
-                  >
-                    Accepter
-                  </DecisionButton>
-                  <DecisionButton
-                    onClick={() => setPendingDecision('NEEDS_REVISION')}
-                    tone="warning"
-                    compact
-                  >
-                    Réviser
-                  </DecisionButton>
-                  <DecisionButton
-                    onClick={() => setPendingDecision('REJECTED')}
-                    tone="danger"
-                    compact
-                  >
-                    Refuser
-                  </DecisionButton>
-                </div>
-              )}
-            </div>
-          )}
+          <PartDecisionCard
+            id={data.id}
+            part="HRP"
+            label="Prévalidation HRP"
+            hint="Après le test oral. HRP validé = verrouillé (non refait au resubmit)."
+            current={data.hrpStatus}
+          />
+          <PartDecisionCard
+            id={data.id}
+            part="RP"
+            label="Validation RP"
+            hint="Le personnage. Un RP révisé/refusé renvoie le joueur éditer le RP seul."
+            current={data.rpStatus}
+          />
 
           <div className="flex-1 min-h-0">
             <ChatPanel
@@ -379,7 +289,123 @@ export default function WhitelistDetailPage({
 }
 
 function decisionLabel(d: Decision): string {
-  return d === 'APPROVED' ? 'Accepter' : d === 'REJECTED' ? 'Refuser' : 'Demander une revision';
+  return d === 'APPROVED' ? 'Valider' : d === 'REJECTED' ? 'Refuser' : 'Demander une révision';
+}
+
+/**
+ * Carte de décision pour UNE partie (HRP ou RP) — L5. Autonome : gère son
+ * propre état pending/notes et poste sur PATCH /admin/whitelist/:id/decision.
+ * Toujours ré-actionnable (le staff peut re-trancher une partie).
+ */
+function PartDecisionCard({
+  id,
+  part,
+  label,
+  hint,
+  current,
+}: {
+  id: string;
+  part: 'HRP' | 'RP';
+  label: string;
+  hint: string;
+  current: AppStatus;
+}) {
+  const qc = useQueryClient();
+  const [pending, setPending] = useState<Decision | null>(null);
+  const [notes, setNotes] = useState('');
+  const needsReason = pending === 'REJECTED' || pending === 'NEEDS_REVISION';
+
+  const mut = useMutation({
+    mutationFn: (input: { status: Decision; reviewNotes?: string }) =>
+      api(`/admin/whitelist/${id}/decision`, {
+        method: 'PATCH',
+        body: { part, status: input.status, reviewNotes: input.reviewNotes },
+      }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'whitelist'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+      setPending(null);
+      setNotes('');
+      toast.success(`${label} — ${decisionLabel(vars.status)}`, {
+        description: 'Notification envoyée dans Discord et le launcher.',
+      });
+    },
+    onError: (err) =>
+      toast.error('Échec de la décision', {
+        description: (err as Error).message,
+      }),
+  });
+
+  return (
+    <div className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
+          {label}
+        </div>
+        <StatusBadge status={current} />
+      </div>
+      <p className="mb-3 text-[11px] leading-snug text-[var(--color-foreground-subtle)]">
+        {hint}
+      </p>
+      {pending ? (
+        <div>
+          <div className="mb-2 text-xs text-[var(--color-foreground-subtle)]">
+            Action : <strong>{decisionLabel(pending)}</strong>
+          </div>
+          {needsReason && (
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={
+                pending === 'REJECTED'
+                  ? 'Raison du refus (visible par le joueur)…'
+                  : 'Que doit préciser le joueur ?'
+              }
+              rows={3}
+              className="w-full rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-background)] p-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+            />
+          )}
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              disabled={mut.isPending || (needsReason && notes.trim().length === 0)}
+              onClick={() =>
+                mut.mutate({
+                  status: pending,
+                  reviewNotes: notes.trim() || undefined,
+                })
+              }
+              className="flex-1 rounded-[8px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] py-2 text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {mut.isPending ? 'Envoi…' : 'Confirmer'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPending(null);
+                setNotes('');
+              }}
+              className="rounded-[8px] border border-[var(--color-border-strong)] px-3 py-2 text-sm text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)]"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          <DecisionButton onClick={() => setPending('APPROVED')} tone="success" compact>
+            Valider
+          </DecisionButton>
+          <DecisionButton onClick={() => setPending('NEEDS_REVISION')} tone="warning" compact>
+            Réviser
+          </DecisionButton>
+          <DecisionButton onClick={() => setPending('REJECTED')} tone="danger" compact>
+            Refuser
+          </DecisionButton>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // WhitelistChat retire — remplace par <ChatPanel /> (components/ChatPanel.tsx),
