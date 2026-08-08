@@ -2035,6 +2035,9 @@ body,
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 22px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 .wl-recap-header {
   display: flex;
@@ -2054,12 +2057,16 @@ body,
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
 }
 .wl-recap-field {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 14px 16px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 .wl-recap-label {
   font-family: var(--font-mono);
