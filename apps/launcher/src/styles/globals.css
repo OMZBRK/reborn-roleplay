@@ -2734,7 +2734,8 @@ body,
   border-radius: var(--radius-lg);
   padding: 22px;
 }
-.tk-create-card select.wl-input {
+.tk-create-card select.wl-input,
+select.tk-create-select {
   appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
   background-repeat: no-repeat;
@@ -2742,6 +2743,333 @@ body,
   background-size: 14px;
   padding-right: 36px;
   height: 42px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Tickets — hub d'accueil 2 cartes (maquette ticketref)
+   ───────────────────────────────────────────────────────── */
+.tk-hub {
+  min-height: 100%;
+  padding: 44px 56px 40px;
+  width: 100%;
+}
+.tk-hub-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 34px;
+}
+.tk-hub-icon {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  display: grid;
+  place-items: center;
+  color: var(--color-accent-hover);
+  background: var(--color-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: 0 0 20px var(--color-accent-glow);
+}
+.tk-hub-icon.sm {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.tk-hub-title {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--color-foreground);
+}
+.tk-hub-sub {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+.tk-hub-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  max-width: 980px;
+}
+.tk-hub-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 210px;
+  padding: 26px 28px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition:
+    border-color var(--duration-base),
+    background var(--duration-base),
+    transform var(--duration-fast),
+    box-shadow var(--duration-base);
+}
+/* Texture grille discrète en fond (comme la maquette). */
+.tk-hub-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+  background-size: 38px 38px;
+  opacity: 0.22;
+  pointer-events: none;
+  mask-image: radial-gradient(120% 120% at 70% 80%, #000 0%, transparent 75%);
+}
+.tk-hub-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-accent);
+  background: var(--color-surface-elevated);
+  box-shadow: 0 0 0 1px var(--color-accent-glow), 0 12px 30px -14px var(--color-accent-glow-strong);
+}
+.tk-hub-card-body {
+  position: relative;
+  z-index: 1;
+}
+.tk-hub-card-title {
+  font-family: var(--font-display);
+  font-size: 25px;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--color-foreground);
+}
+.tk-hub-card-count {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--color-foreground-muted);
+}
+.tk-hub-card-art {
+  position: absolute;
+  right: 14px;
+  bottom: -14px;
+  color: var(--color-foreground-muted);
+  opacity: 0.16;
+  pointer-events: none;
+}
+.tk-hub-card:hover .tk-hub-card-art {
+  color: var(--color-accent-hover);
+  opacity: 0.24;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Tickets — formulaire de création plein écran (newticketref)
+   ───────────────────────────────────────────────────────── */
+.tk-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  margin: 0 0 12px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+  transition: color var(--duration-fast);
+}
+.tk-back:hover {
+  color: var(--color-accent-hover);
+}
+
+.tk-create-view {
+  min-height: 100%;
+  padding: 34px 56px 40px;
+  width: 100%;
+}
+.tk-create-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 34px;
+}
+.tk-back-round {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  transition: background var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
+}
+.tk-back-round:hover:not(:disabled) {
+  color: var(--color-foreground);
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+}
+.tk-back-round:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.tk-create-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--color-foreground);
+}
+.tk-create-title .accent {
+  color: var(--color-accent-hover);
+}
+.tk-create-form {
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.tk-create-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 22px;
+}
+@media (max-width: 760px) {
+  .tk-create-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dropzone fichier */
+.tk-drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.tk-drop:hover {
+  border-color: var(--color-foreground-muted);
+  background: var(--color-surface-elevated);
+}
+.tk-drop.is-drag {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.tk-drop-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.tk-drop-sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--color-foreground-muted);
+}
+.tk-drop-icon {
+  flex-shrink: 0;
+  color: var(--color-foreground-muted);
+}
+.tk-drop-files {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: calc(100% + 8px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tk-drop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  font-size: 11px;
+  color: var(--color-foreground-subtle);
+}
+.tk-drop-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tk-drop-chip button {
+  display: grid;
+  place-items: center;
+  color: var(--color-foreground-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.tk-drop-chip button:hover {
+  color: var(--color-danger);
+}
+
+/* Actions Annuler / Envoyer */
+.tk-create-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+.tk-btn-cancel {
+  flex: 0 0 auto;
+  min-width: 150px;
+  padding: 13px 20px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-foreground);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+.tk-btn-cancel:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: var(--color-foreground-muted);
+}
+.tk-btn-submit {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 13px 20px;
+  border-radius: var(--radius-md);
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  box-shadow: 0 0 0 1px var(--color-accent-soft), 0 6px 18px -6px var(--color-accent-glow-strong);
+  transition: filter var(--duration-fast), box-shadow var(--duration-base), opacity var(--duration-fast);
+}
+.tk-btn-submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 1px var(--color-accent-soft), 0 8px 26px -6px var(--color-accent-glow-strong);
+}
+.tk-btn-cancel:disabled,
+.tk-btn-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* ---------- Result pages (rejected / accepted) ---------- */
