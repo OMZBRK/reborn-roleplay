@@ -56,7 +56,7 @@ export default function PanelLayout({
 
   return (
     <div className="min-h-screen flex">
-      <aside className="w-60 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col">
+      <aside className="w-64 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col">
         <div className="px-5 py-6">
           <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
             Reborn
