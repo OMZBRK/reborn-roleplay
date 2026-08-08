@@ -111,6 +111,15 @@ public final class HudKeybinds {
             GLFW.GLFW_KEY_PERIOD,
             net.minecraft.client.KeyMapping.Category.MISC
         ));
+        // Regard libre (free-look) : MAINTENIR ALT gauche → la caméra orbite
+        // autour du perso sans le réorienter. Relâcher = la caméra reste où elle
+        // est (pas de snap brutal). Touche de maintien : lue par isDown().
+        KeyMapping freeLook = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+            "key.reborn-hud.cam_freelook",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_LEFT_ALT,
+            net.minecraft.client.KeyMapping.Category.MISC
+        ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
@@ -189,6 +198,14 @@ public final class HudKeybinds {
                         mc.setScreen(new fr.reborn.hud.menu.tablist.TablistScreen());
                     }
                 }
+            }
+            // Regard libre : actif tant que ALT est maintenu (hors écran/ingame).
+            {
+                Minecraft mc = Minecraft.getInstance();
+                boolean fl = freeLook.isDown() && mc.screen == null && mc.player != null;
+                fr.reborn.hud.camera.RebornCamera.INSTANCE.setFreeLook(fl);
+                // Amortissement d'atterrissage (no-op si désactivé dans le menu caméra).
+                fr.reborn.hud.camera.RebornCamera.INSTANCE.tickImpact(mc.player);
             }
             // Verrouille la vue selon le mode (épaule par défaut) + neutralise F5.
             fr.reborn.hud.camera.RebornCamera.INSTANCE.tickView(Minecraft.getInstance());

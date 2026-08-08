@@ -32,6 +32,7 @@ public abstract class LocalPlayerBodyMixin {
     private void reborn$bodyFollowsCamera(CallbackInfo ci) {
         RebornCamera cam = RebornCamera.INSTANCE;
         if (!cam.isEnabled()) return;                       // vue épaule uniquement
+        if (cam.freeLook()) return;                         // free-look = corps figé, caméra orbite
         if (NarutoRun.INSTANCE.isActive()) return;          // naruto = corps vers déplacement
 
         Minecraft mc = Minecraft.getInstance();

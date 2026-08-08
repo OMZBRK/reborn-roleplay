@@ -29,7 +29,7 @@ public class CameraScreen extends Screen {
     private static final int GAP = 8;
 
     private SliderWidget distSlider, sideSlider, upSlider, turnSlider;
-    private Button presetBtn, swapBtn;
+    private Button presetBtn, swapBtn, impactBtn;
 
     public CameraScreen(Screen parent) {
         super(Component.literal("Caméra"));
@@ -86,6 +86,15 @@ public class CameraScreen extends Screen {
         this.addRenderableWidget(swapBtn);
         y += 20 + 6;
 
+        // Impact d'atterrissage (dip caméra) : ON/OFF.
+        impactBtn = RebornButton.ghost(x, y, w, 20,
+            impactLabelText(cam), b -> {
+                cam.setImpactEnabled(!cam.impactEnabled());
+                impactBtn.setMessage(impactLabel());
+            });
+        this.addRenderableWidget(impactBtn);
+        y += 20 + 6;
+
         // Réinitialiser + Fermer.
         int half = (w - 6) / 2;
         this.addRenderableWidget(RebornButton.ghost(x, y, half, 20, "Réinitialiser", b -> {
@@ -119,6 +128,14 @@ public class CameraScreen extends Screen {
 
     private Component swapLabel() {
         return RebornFont.bold("Épaule : " + (RebornCamera.INSTANCE.side() > 0 ? "Droite" : "Gauche"));
+    }
+
+    private String impactLabelText(RebornCamera cam) {
+        return "Impact atterrissage : " + (cam.impactEnabled() ? "ON" : "OFF");
+    }
+
+    private Component impactLabel() {
+        return RebornFont.bold(impactLabelText(RebornCamera.INSTANCE));
     }
 
     @Override

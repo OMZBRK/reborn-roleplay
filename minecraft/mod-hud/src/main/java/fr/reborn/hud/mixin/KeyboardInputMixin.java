@@ -70,6 +70,9 @@ public abstract class KeyboardInputMixin {
         float mf = mv.y; // avant
         float ms = mv.x; // latéral
         if (mf == 0f && ms == 0f) return; // arrêt → free-look, garde l'orientation
+        // FREE-LOOK (maintien ALT) : on regarde autour sans réorienter le corps.
+        // Le déplacement reste relatif au perso (input vanilla), la caméra orbite.
+        if (cam.freeLook()) return;
 
         // BASE (marche / course) — principe Minecraft : le perso suit la caméra
         // (souris). On pose yaw = camYaw pour que le DÉPLACEMENT soit relatif

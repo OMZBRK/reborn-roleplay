@@ -73,6 +73,7 @@ public final class RebornPrefs {
     public int camSide = 1;             // +1 épaule droite, -1 gauche
     public double camTurnSpeed = 0.5;   // vitesse de rotation du corps (0.1..1.0)
     public int camPreset = 0;           // index CameraPreset
+    public boolean camImpact = false;   // dip caméra à l'atterrissage (off par défaut)
 
     // ────────────────── Animations de mouvement (GTA-RP) ──────
     public int walkStyle = 0;           // index du style de marche choisi
@@ -159,6 +160,7 @@ public final class RebornPrefs {
         this.camSide = other.camSide;
         this.camTurnSpeed = other.camTurnSpeed;
         this.camPreset = other.camPreset;
+        this.camImpact = other.camImpact;
         this.walkStyle = other.walkStyle;
         this.tablistHold = other.tablistHold;
     }

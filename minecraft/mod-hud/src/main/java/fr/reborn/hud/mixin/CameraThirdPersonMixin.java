@@ -79,7 +79,7 @@ public abstract class CameraThirdPersonMixin {
         Vec3 target = eye
             .add(backDir.scale(cam.distance()))
             .add(right.scale(cam.rightOffset()))
-            .add(up.scale(cam.upOffset()));
+            .add(up.scale(cam.upOffset() + cam.landImpact()));
 
         setRotation(cy, cp);
         setPosition(reborn$clip(focusedEntity, eye, target));
