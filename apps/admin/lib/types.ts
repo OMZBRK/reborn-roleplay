@@ -66,9 +66,27 @@ export interface WhitelistListItem {
   assignedAt: string | null;
 }
 
+export type OralSlotStatus = 'OPEN' | 'BOOKED' | 'DONE' | 'CANCELLED';
+
+export interface OralSlot {
+  id: string;
+  startAt: string;
+  durationMin: number;
+  status: OralSlotStatus;
+  bookedBy: {
+    id: string;
+    minecraftUsername: string;
+    displayName: string | null;
+  } | null;
+  bookedAt: string | null;
+  notes: string | null;
+}
+
 export interface WhitelistDetail {
   id: string;
   status: AppStatus;
+  hrpStatus: AppStatus;
+  rpStatus: AppStatus;
   dob: string;
   motivation: string;
   experience: string;
