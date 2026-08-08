@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { DiscordAuthModule } from './discord/discord.module';
+import { GameModule } from './game/game.module';
 import { LoreModule } from './lore/lore.module';
 import { ManifestModule } from './manifest/manifest.module';
 import { MeModule } from './me/me.module';
@@ -35,6 +36,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     AuditModule,
     AuthModule,
     DiscordAuthModule,
+    GameModule,
     LoreModule,
     ManifestModule,
     MeModule,
