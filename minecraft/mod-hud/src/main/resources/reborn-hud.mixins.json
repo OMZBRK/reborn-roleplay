@@ -28,6 +28,6 @@
     "menu.ConnectScreenMixin"
   ],
   "injectors": {
-    "defaultRequire": 0
+    "defaultRequire": 1
   }
 }

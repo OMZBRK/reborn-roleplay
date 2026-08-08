@@ -69,22 +69,32 @@
   (~2r fills au lieu de 4r²) → fix lag 117→7 fps sur viseur/ESC. **Menus carrés** (rayon plafonné 2px)
   sauf ESC (variantes `*Full`).
 
-**✅ FAIT en 0.4.4 (session 2026-08-08, `feature/mc-26.1-modhud-wip`, PUBLIÉ prod manifest v2.4.0) :**
-- **MCEF** (fond menu 3D Chromium) : `DynamicPlayerBackground` re-porté `com.cinemamod.mcef.*` →
-  `net.dimaskama.mcef.api.*`. Init async `MCEFApi.initialize()` (download/extract natives CEF ~150 Mo
-  1×/machine) → `createBrowser` sur `getInstanceFuture()`. Rendu = **blit natif de `MCEFBrowser
-  .getTextureView()` (GpuTextureView)** plein écran via `GuiGraphicsExtractor.blit(view, sampler,
-  x0,x1,y0,y1, u,v…)` pipeline `GUI_TEXTURED`, sampler clamp-LINEAR. Fallback solid color si mcef absent.
-  `mcef-modern-0.3.3` **ajouté au modpack** (required). Validé dev : `MCEF browser cree`. Stubs
-  `com.cinemamod.*` supprimés. ⚠️ reste à confirmer visuellement le flip V (1 ligne si à l'envers).
-- **Démarches** : `MovementAnimations` re-porté `dev.kosmx.playerAnim` → **`com.zigythebird.playeranim`** +
-  Emotecraft 3.3.0. `.emotecraft` chargées via `UniversalEmoteSerializer.readData` (→ `Animation`
-  zigythebird, même type que PAL) ; playback via `PlayerAnimationController` triggered dans un
-  `ModifierLayer`/avatar (crossfade). Piloté par vitesse+sprint+`NarutoRun.isActive()` (Naruto>course>
-  marche(style)>idle). Validé dev : `démarches : 5 styles marche, run=true, naruto=true`. Rendu **local**
-  (sync cross-joueurs = canal serveur `reborn:anim` via ShinobiCore, non re-câblé client).
+**✅ FAIT en 0.4.6 (session 2026-08-08 nuit, `feature/mc-26.1-modhud-wip`, PUBLIÉ prod manifest v2.6.0) :**
+- **MCEF → ABANDONNÉ.** Le fond menu 3D Chromium ne marche PAS en 26.1 : sous JDK 25 le binding
+  jcef lève une exception sur le thread `AWT-EventQueue-0` juste après `createBrowser`, si bien que
+  `onPaint` n'alimente jamais la texture GPU (browser transparent → panorama vanilla traversait).
+  Prouvé via un probe HTML minimal (fond rouge) invisible même depuis un chemin ASCII propre. →
+  Remplacé par un **fond dégradé sombre→crimson branded** (`DynamicPlayerBackground` réécrit).
+  `mcef-modern` **retiré du modpack** + des deps.
+- **Démarches — enfin RÉPARÉES + smooth.** Bug racine = registration via `REGISTER_ANIMATION_EVENT`
+  + WeakHashMap récupérait un controller PAS celui réellement rendu. Migré au **pattern canonique
+  doc PAL** : `PlayerAnimationFactory.ANIMATION_DATA_FACTORY.registerFactory(LAYER, PRIO, avatar →
+  new PlayerAnimationController(avatar, (c,d,s)→PlayState.STOP))` + récup `PlayerAnimationAccess
+  .getPlayerAnimationLayer(player, LAYER)`. Détection mouvement par **delta de position** + hystérésis
+  (getDeltaMovement oscillait). Loop **sans couture** : `then(anim, anim.loopType())` (respecte le
+  point de bouclage authoré) au lieu de `thenLoop()` (reset-à-0) ; fondu `EASE_IN_OUT_SINE`. Visible
+  en 3e personne uniquement. Rendu local (sync cross-joueurs `reborn:anim` toujours non câblé).
+- **Menu/UI** : splash Elden-Ring (reste jusqu'à touche CLAVIER, souris ignorée) ; connect serveur
+  minimaliste Zenkai (fond noir + logo + statut ArcadePix) ; VitalsHUD nom RP + niveau (tablist SOI).
+- **OST** : 313 pistes Zenkai catégorisées + release `ost-v1`, ajoutées au manifest `required:true`
+  (`reborn/ost/<cat>/<nom>.ogg`) → DL launcher au 1er lancement, scan reborn-ost, zéro code mod.
+- **Audit trous migration 1.21.4→26.1 (corrigés)** : (A1) commandes `/rblock /runblock /rblocklist`
+  réactivées — `ClientCommandManager`→**`ClientCommands`** en command-api-v2 3.0.5 + module explicite
+  au compile ; (A2) `ServerInfoState.PROTOCOL_VERSION` 767→`SharedConstants.getProtocolVersion()` ;
+  (A3) **tous les ~21 mixins vérifiés** appliqués (boot `defaultRequire:1` sans crash — durci) ;
+  (A4) `RebornVersion` MC 1.21.1→26.1.2 / loader 0.16.5→0.19.3.
 
-**⏳ À FAIRE (prochaines sessions) :**
+**⏳ À FAIRE (prochaines sessions) — features JAMAIS construites (pas des régressions) :**
 - **Voix + émotes** : PlasmoVoice (bulle parole/mute) + Emotecraft. **Création perso** in-game (Zenkai).
   **Screenshot social** (gallery/éditeur/feed).
 - **Tablist** : client OK ; la data vient de **ShinobiCore** (`TabListManager#pushClientFeed`, serveur).

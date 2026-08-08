@@ -29,6 +29,10 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    // Module explicite : le bundle fabric-api embarque command-api-v2 en JiJ
+    // (runtime) mais ses classes ne sont pas au classpath de COMPILE → requis
+    // pour les commandes client /rblock (ChatBlockCommands).
+    implementation fabricApi.module("fabric-command-api-v2", project.fabric_version)
 
     // --- MCEF : ABANDONNÉ en 26.1 (le binding jcef ne peint jamais la texture
     //   sous JDK 25 — exception AWT-EventQueue-0). Le fond menu est désormais un
