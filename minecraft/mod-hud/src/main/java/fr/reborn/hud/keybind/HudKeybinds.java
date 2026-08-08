@@ -120,6 +120,14 @@ public final class HudKeybinds {
             GLFW.GLFW_KEY_LEFT_ALT,
             net.minecraft.client.KeyMapping.Category.MISC
         ));
+        // Menu de sélection de personnage : sur serveur → demande au plugin de
+        // (r)ouvrir la sélection (C2S "open") ; en solo/dev → ouvre l'écran mock.
+        KeyMapping charMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+            "key.reborn-hud.char_menu",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_SEMICOLON,
+            net.minecraft.client.KeyMapping.Category.MISC
+        ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
@@ -184,6 +192,20 @@ public final class HudKeybinds {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.screen == null && mc.player != null) {
                     mc.setScreen(new fr.reborn.hud.animation.AnimationMenuScreen(null));
+                }
+            }
+            while (charMenu.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen == null && mc.player != null) {
+                    // Sur serveur : demande à ShinobiCore de (r)ouvrir la sélection.
+                    // Solo/dev : ouvre directement l'écran (données mock).
+                    if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
+                            fr.reborn.hud.menu.character.CharacterPayload.ID)) {
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                            new fr.reborn.hud.menu.character.CharacterPayload("open"));
+                    } else {
+                        mc.setScreen(new fr.reborn.hud.menu.character.CharacterSelectScreen());
+                    }
                 }
             }
             // Tablist Reborn (touche liste-joueurs = Tab). Mode Toggle (défaut) :

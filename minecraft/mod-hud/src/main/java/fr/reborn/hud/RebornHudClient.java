@@ -101,6 +101,29 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.animation.NarutoRun.INSTANCE.reset());
 
+        // Sélection / création de personnage (canal reborn:character, bidirectionnel
+        // avec ShinobiCore). S2C : roster du joueur ({slotLimit, characters[],
+        // candidature}) → ouvre l'écran de sélection Zenkai. C2S : select:<id> /
+        // create / create\n<...> / open (envoyés par les écrans). Le mod ne fait
+        // que l'UI ; ShinobiCore est autoritaire (setActive, création, limites).
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.menu.character.CharacterPayload.ID,
+            fr.reborn.hud.menu.character.CharacterPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.menu.character.CharacterPayload.ID,
+            fr.reborn.hud.menu.character.CharacterPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.menu.character.CharacterPayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                fr.reborn.hud.menu.character.CharacterData.update(payload.content());
+                net.minecraft.client.Minecraft mc = context.client();
+                if (mc.screen == null && mc.player != null) {
+                    mc.setScreen(new fr.reborn.hud.menu.character.CharacterSelectScreen());
+                }
+            }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.menu.character.CharacterData.clear());
+
         // Bandes noires cinéma (immersion) — toggle touche K.
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
 
