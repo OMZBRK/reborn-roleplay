@@ -160,6 +160,28 @@ export class WhitelistMessagesService {
   }
 
   /**
+   * Message SYSTÈME dans le fil (auto-généré aux transitions : soumission,
+   * décision HRP/RP…). Best-effort : ne jette pas — un échec de message ne
+   * doit pas casser la transition qui l'a déclenché.
+   */
+  async postSystemMessage(applicationId: string, content: string): Promise<void> {
+    try {
+      await this.prisma.whitelistMessage.create({
+        data: {
+          applicationId,
+          authorType: 'SYSTEM',
+          authorId: null,
+          authorName: 'Système',
+          content,
+          attachments: [],
+        },
+      });
+    } catch {
+      // silencieux
+    }
+  }
+
+  /**
    * Reception d'un message staff depuis le bot Discord (listener
    * messageCreate). Idempotent : si discordMessageId est deja stocke,
    * on retourne le message existant au lieu d'en creer un doublon.

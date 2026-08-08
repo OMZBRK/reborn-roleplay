@@ -9,6 +9,7 @@ import { AppStatus, WhitelistApplication } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { SubmitWhitelistDto } from './dto/whitelist.dto';
+import { WhitelistMessagesService } from './whitelist-messages.service';
 
 // Schéma riche v2 (cf launcher WhitelistDraft + Prisma model WhitelistApplication).
 // On expose tout au launcher pour qu'il puisse réafficher la candidature en
@@ -51,6 +52,7 @@ export class WhitelistService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly webhooks: WebhooksService,
+    private readonly messages: WhitelistMessagesService,
   ) {}
 
   async getMine(userId: string): Promise<{ application: WhitelistApplicationDto | null }> {
@@ -81,6 +83,10 @@ export class WhitelistService {
       },
     });
     await this.notifyStaff(userId, created);
+    void this.messages.postSystemMessage(
+      created.id,
+      "✅ Votre candidature a été soumise avec succès. Un membre du staff va l'examiner prochainement.",
+    );
     return this.toDto(created);
   }
 

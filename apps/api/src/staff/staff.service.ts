@@ -8,6 +8,7 @@ import { AppStatus, TicketStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { WhitelistMessagesService } from '../whitelist/whitelist-messages.service';
 import {
   TicketStatusDto,
   WhitelistDecisionDto,
@@ -21,6 +22,30 @@ export interface DecisionActor {
   name?: string;
 }
 
+/** Texte du message système posté dans le fil selon la décision de partie. */
+function systemMessageForPart(
+  part: 'HRP' | 'RP',
+  status: AppStatus,
+  bothApproved: boolean,
+): string {
+  const label = part === 'HRP' ? 'HRP' : 'RP';
+  if (status === AppStatus.APPROVED) {
+    if (part === 'HRP') {
+      return '✅ Section HRP approuvée ! La section RP va être examinée prochainement.';
+    }
+    return bothApproved
+      ? '🎉 Félicitations, ta candidature est acceptée ! Bienvenue sur Reborn.'
+      : '✅ Section RP approuvée.';
+  }
+  if (status === AppStatus.NEEDS_REVISION) {
+    return `✏️ Une révision de la partie ${label} est demandée — modifie ta candidature puis renvoie-la.`;
+  }
+  if (status === AppStatus.REJECTED) {
+    return `❌ Section ${label} refusée.`;
+  }
+  return `Section ${label} mise à jour.`;
+}
+
 @Injectable()
 export class StaffService {
   private readonly logger = new Logger(StaffService.name);
@@ -29,6 +54,7 @@ export class StaffService {
     private readonly prisma: PrismaService,
     private readonly webhooks: WebhooksService,
     private readonly audit: AuditService,
+    private readonly whitelistMessages: WhitelistMessagesService,
   ) {}
 
   /**
@@ -232,6 +258,13 @@ export class StaffService {
 
     this.logger.log(
       `staff decision ${applicationId} ${dto.part} → ${dto.status} (global ${globalStatus})`,
+    );
+
+    // Message système dans le fil du candidat (visible côté launcher) — MVP du
+    // fil d'événements type maquette « Section HRP approuvée ! ».
+    void this.whitelistMessages.postSystemMessage(
+      applicationId,
+      systemMessageForPart(dto.part, dto.status, bothApproved),
     );
 
     // Promotion whitelist uniquement quand tout est validé, jamais un staff.
