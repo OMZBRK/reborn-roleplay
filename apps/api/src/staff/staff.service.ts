@@ -129,6 +129,57 @@ export class StaffService {
     };
   }
 
+  /**
+   * Reset propre d'une candidature : supprime la candidature (les
+   * `WhitelistMessage` liés cascadent) pour que le joueur puisse en
+   * re-soumettre une fraiche, et remet son role a PLAYER — UNIQUEMENT s'il
+   * etait WHITELISTED. Un HELPER/REVIEWER/ADMIN/OWNER garde son role : jamais
+   * de retrogradation du staff (c'est ce qui reverrouillait la publication en
+   * re-testant le flow). Remplace le `DELETE FROM WhitelistApplication` brut.
+   */
+  async resetWhitelist(applicationId: string, actor: DecisionActor = {}) {
+    const app = await this.prisma.whitelistApplication.findUnique({
+      where: { id: applicationId },
+      select: { id: true, userId: true, status: true },
+    });
+    if (!app) throw new NotFoundException('Candidature introuvable.');
+
+    const target = await this.prisma.user.findUnique({
+      where: { id: app.userId },
+      select: { role: true },
+    });
+    // Retrograde WHITELISTED → PLAYER seulement. Jamais le staff.
+    const demote = target?.role === 'WHITELISTED';
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.whitelistApplication.delete({ where: { id: applicationId } });
+      if (demote) {
+        await tx.user.update({
+          where: { id: app.userId },
+          data: { role: 'PLAYER' },
+        });
+      }
+    });
+
+    this.logger.log(
+      `whitelist reset ${applicationId} (user ${app.userId})` +
+        (demote ? ' — role → PLAYER' : ' — role conserve'),
+    );
+
+    if (actor.userId) {
+      void this.audit.log({
+        actorId: actor.userId,
+        action: 'whitelist.reset',
+        targetUserId: app.userId,
+        targetEntity: `whitelist:${applicationId}`,
+        metadata: { previousStatus: app.status, roleDemoted: demote },
+        source: 'panel',
+      });
+    }
+
+    return { ok: true, userId: app.userId, roleDemoted: demote };
+  }
+
   async setTicketStatus(
     ticketId: string,
     dto: TicketStatusDto,

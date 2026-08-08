@@ -57,6 +57,28 @@ export default function WhitelistDetailPage({
     },
   });
 
+  const [confirmReset, setConfirmReset] = useState(false);
+  const resetMut = useMutation({
+    mutationFn: () =>
+      api<{ ok: boolean; roleDemoted: boolean }>(
+        `/admin/whitelist/${id}/reset`,
+        { method: 'POST' },
+      ),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'whitelist'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+      toast.success('Candidature réinitialisée', {
+        description: res.roleDemoted
+          ? 'Le joueur repasse PLAYER et peut re-soumettre une candidature.'
+          : 'Rôle staff conservé — le joueur peut re-soumettre une candidature.',
+      });
+      router.push('/whitelist');
+    },
+    onError: (err) => {
+      toast.error('Echec du reset', { description: (err as Error).message });
+    },
+  });
+
   if (isLoading) {
     return <div className="p-10 text-[var(--color-foreground-subtle)]">Chargement…</div>;
   }
@@ -197,6 +219,47 @@ export default function WhitelistDetailPage({
               </Field>
             )}
           </Card>
+
+          {/* Zone admin : reset propre (remplace le DELETE SQL brut). Rétrograde
+              WHITELISTED→PLAYER, jamais le staff. Dispo quel que soit le statut. */}
+          <div className="rounded-[14px] border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)]/30 p-5">
+            <div className="mb-2 text-xs uppercase tracking-wider text-[var(--color-danger)]">
+              Zone admin — réinitialiser
+            </div>
+            <p className="mb-4 text-sm text-[var(--color-foreground-subtle)]">
+              Supprime définitivement cette candidature (messages inclus). Le
+              joueur pourra en re-soumettre une nouvelle. S'il est{' '}
+              <strong>WHITELISTED</strong>, il repasse <strong>PLAYER</strong> —
+              un rôle staff (HELPER+) est conservé.
+            </p>
+            {confirmReset ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={resetMut.isPending}
+                  onClick={() => resetMut.mutate()}
+                  className="flex-1 rounded-[8px] bg-[var(--color-danger)] py-2 text-sm text-white hover:opacity-90 disabled:opacity-40"
+                >
+                  {resetMut.isPending ? 'Réinitialisation…' : 'Oui, réinitialiser'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmReset(false)}
+                  className="rounded-[8px] border border-[var(--color-border-strong)] px-3 py-2 text-sm text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)]"
+                >
+                  Annuler
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmReset(true)}
+                className="rounded-[8px] border border-[var(--color-danger)]/40 px-4 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]"
+              >
+                Réinitialiser la candidature
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Colonne droite : assignation + decision + chat sticky */}
