@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RequestUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { MarkReadDto } from './dto/me.dto';
+import { MarkReadDto, UpdateProfileDto } from './dto/me.dto';
 import { MeService } from './me.service';
 
 @Controller('me')
@@ -20,5 +20,11 @@ export class MeController {
   @Post('badges/read')
   markRead(@CurrentUser() user: RequestUser, @Body() dto: MarkReadDto) {
     return this.service.markRead(user.sub, dto.scope);
+  }
+
+  /** Met à jour le nom d'affichage RP (displayName) du joueur. */
+  @Patch('profile')
+  updateProfile(@CurrentUser() user: RequestUser, @Body() dto: UpdateProfileDto) {
+    return this.service.updateProfile(user.sub, dto.displayName);
   }
 }

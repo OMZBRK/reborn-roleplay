@@ -36,6 +36,7 @@ import {
   checkUpdate,
   type GameInfo,
 } from "../lib/launcher";
+import { updateDisplayName } from "../lib/content";
 import { cn } from "../lib/cn";
 import { mapRole, ROLE_META } from "../components/sidebar/role";
 
@@ -224,10 +225,36 @@ function Row({
 
 function ProfileTab() {
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const pseudo = user?.displayName ?? user?.minecraftUsername ?? "Joueur";
   const initial = pseudo.charAt(0).toUpperCase();
   const roleType = mapRole(user?.role);
   const roleMeta = ROLE_META[roleType];
+
+  const [rpName, setRpName] = useState(user?.displayName ?? "");
+  const [rpSave, setRpSave] = useState<"idle" | "saving" | "saved">("idle");
+  const [rpError, setRpError] = useState<string | null>(null);
+
+  async function saveRpName() {
+    const trimmed = rpName.trim();
+    if (trimmed.length < 2 || trimmed.length > 24) {
+      setRpError("Entre 2 et 24 caractères.");
+      return;
+    }
+    setRpSave("saving");
+    setRpError(null);
+    try {
+      const res = await updateDisplayName(trimmed);
+      if (user) setUser({ ...user, displayName: res.displayName });
+      setRpSave("saved");
+      setTimeout(() => setRpSave("idle"), 1500);
+    } catch (err) {
+      setRpError(
+        typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur",
+      );
+      setRpSave("idle");
+    }
+  }
 
   return (
     <>
@@ -303,8 +330,37 @@ function ProfileTab() {
         <Row label="Pseudo Minecraft" hint="Recupere depuis ton compte Microsoft. Modifiable uniquement chez Mojang.">
           <span className="text-sm font-medium">{user?.minecraftUsername ?? "—"}</span>
         </Row>
-        <Row label="Nom d'affichage" hint="Visible dans les DM et l'historique RP.">
-          <span className="text-sm">{user?.displayName ?? user?.minecraftUsername ?? "—"}</span>
+        <Row
+          label="Nom d'affichage RP"
+          hint="Ton nom affiché en jeu, dans les DM et sur le panel (2-24 caractères)."
+        >
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={rpName}
+                maxLength={24}
+                placeholder={user?.minecraftUsername ?? "Nom RP"}
+                onChange={(e) => setRpName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveRpName()}
+                className="w-44 rounded-md border border-border bg-surface-elevated px-3 py-1.5 text-sm text-foreground outline-none transition focus:border-accent/50"
+              />
+              <button
+                type="button"
+                onClick={saveRpName}
+                disabled={rpSave === "saving" || rpName.trim() === (user?.displayName ?? "")}
+                className="inline-flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent/10 px-3 py-1.5 text-[12px] font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
+              >
+                {rpSave === "saving" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : rpSave === "saved" ? (
+                  <Check className="h-3.5 w-3.5 text-success" />
+                ) : null}
+                {rpSave === "saved" ? "Enregistré" : "Enregistrer"}
+              </button>
+            </div>
+            {rpError && <span className="text-[10.5px] text-danger">{rpError}</span>}
+          </div>
         </Row>
         <Row label="Role" hint="Definit tes permissions in-game et sur le panel.">
           <span

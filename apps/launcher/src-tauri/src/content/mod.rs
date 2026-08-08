@@ -1143,3 +1143,41 @@ pub async fn shots_toggle_like(
             message: e.to_string(),
         })
 }
+
+// ──────────────────────────────────────────────────────
+// Profil — modification du nom d'affichage RP (displayName)
+// ──────────────────────────────────────────────────────
+
+#[derive(serde::Serialize)]
+struct UpdateProfileBody<'a> {
+    #[serde(rename = "displayName")]
+    display_name: &'a str,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileResult {
+    pub display_name: String,
+}
+
+/// PATCH /v1/me/profile — met à jour le nom d'affichage RP du joueur.
+#[tauri::command]
+pub async fn update_display_name(
+    state: State<'_, AuthState>,
+    display_name: String,
+) -> Result<ProfileResult, ContentError> {
+    let token = jwt(state.inner()).await?;
+    state
+        .api
+        .patch_json(
+            &token,
+            "/me/profile",
+            &UpdateProfileBody {
+                display_name: display_name.trim(),
+            },
+        )
+        .await
+        .map_err(|e| ContentError::Api {
+            message: e.to_string(),
+        })
+}

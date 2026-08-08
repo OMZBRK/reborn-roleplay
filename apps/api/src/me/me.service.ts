@@ -69,4 +69,17 @@ export class MeService {
     });
     return this.getBadges(userId);
   }
+
+  /** Met à jour le nom d'affichage RP. Retourne le displayName appliqué. */
+  async updateProfile(
+    userId: string,
+    displayName: string,
+  ): Promise<{ displayName: string }> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { displayName: displayName.trim() },
+      select: { displayName: true },
+    });
+    return { displayName: user.displayName ?? '' };
+  }
 }

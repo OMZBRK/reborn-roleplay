@@ -327,3 +327,8 @@ export type ServerStatus = {
 export async function fetchServerStatus(): Promise<ServerStatus> {
   return invoke<ServerStatus>("server_status");
 }
+
+// ── Profil : modifier le nom d'affichage RP ────────────────────────
+export async function updateDisplayName(displayName: string): Promise<{ displayName: string }> {
+  return invoke<{ displayName: string }>("update_display_name", { displayName });
+}
