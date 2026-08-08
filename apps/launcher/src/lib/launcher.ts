@@ -235,3 +235,9 @@ export async function openInstallDir(): Promise<void> {
 export async function reinstallAll(): Promise<void> {
   await invoke<void>("launcher_reinstall_all");
 }
+
+export type CleanResult = { removed: string[]; freedMb: number };
+
+export async function cleanObsolete(): Promise<CleanResult> {
+  return invoke<CleanResult>("launcher_clean_obsolete");
+}

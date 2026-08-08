@@ -34,6 +34,7 @@ import {
   openInstallDir,
   reinstallAll,
   checkUpdate,
+  cleanObsolete,
   type GameInfo,
 } from "../lib/launcher";
 import { updateDisplayName } from "../lib/content";
@@ -723,6 +724,18 @@ function GameTab() {
   const [verify, setVerify] = useState<"idle" | "checking" | "ok" | { repair: number }>("idle");
   const [confirmReinstall, setConfirmReinstall] = useState(false);
   const [reinstalling, setReinstalling] = useState<"idle" | "working" | "done">("idle");
+  const [cleaning, setCleaning] = useState<
+    "idle" | "working" | { removed: string[]; freedMb: number }
+  >("idle");
+
+  async function runClean() {
+    setCleaning("working");
+    try {
+      setCleaning(await cleanObsolete());
+    } catch {
+      setCleaning("idle");
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -923,6 +936,37 @@ function GameTab() {
               <AlertTriangle className="h-3.5 w-3.5" />
               {verify.repair} fichier{verify.repair > 1 ? "s" : ""} à réparer — relance le jeu pour
               les re-télécharger.
+            </p>
+          )}
+        </div>
+      </Card>
+
+      {/* ── Nettoyage ── */}
+      <Card
+        title="Nettoyage"
+        description="Supprime les résidus obsolètes (caches MCEF, anciennes versions, crash dumps). Se fait aussi automatiquement à chaque mise à jour."
+        icon={<RefreshCw className="h-4 w-4" />}
+      >
+        <div className="px-6 py-5">
+          <button
+            type="button"
+            onClick={runClean}
+            disabled={cleaning === "working"}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-4 py-3 text-[13px] font-medium text-foreground transition hover:border-accent/50 hover:text-accent disabled:opacity-60"
+          >
+            {cleaning === "working" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Nettoyer les fichiers obsolètes
+          </button>
+          {typeof cleaning === "object" && (
+            <p className="mt-3 flex items-center gap-1.5 text-[12px] text-success">
+              <Check className="h-3.5 w-3.5" />
+              {cleaning.removed.length === 0
+                ? "Rien à nettoyer — déjà propre."
+                : `${cleaning.removed.length} élément${cleaning.removed.length > 1 ? "s" : ""} supprimé${cleaning.removed.length > 1 ? "s" : ""} · ${cleaning.freedMb.toFixed(0)} Mo libérés.`}
             </p>
           )}
         </div>

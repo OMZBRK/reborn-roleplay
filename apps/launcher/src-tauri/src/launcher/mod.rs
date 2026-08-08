@@ -185,6 +185,17 @@ pub async fn launcher_apply_update<R: Runtime>(
         }
     }
 
+    // Nettoyage auto des résidus obsolètes (caches MCEF, vieilles versions MC,
+    // crash dumps) — cf clean_obsolete_files. Best-effort, ne bloque pas.
+    let clean = clean_obsolete_files();
+    if !clean.removed.is_empty() {
+        tracing::info!(
+            removed = ?clean.removed,
+            freed_mb = clean.freed_mb,
+            "cleanup: résidus obsolètes supprimés"
+        );
+    }
+
     if plan.is_empty() {
         return Ok(UpdateStatus::UpToDate {
             version: manifest.version,
@@ -385,4 +396,96 @@ pub async fn launcher_reinstall_all() -> Result<(), LauncherError> {
         }
     }
     Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Nettoyage des fichiers obsolètes (cruft migration 1.21 → 26.1,
+//  MCEF abandonné, crash dumps). Appelé auto au apply_update + bouton
+//  manuel dans Paramètres › Jeu.
+// ─────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanResult {
+    pub removed: Vec<String>,
+    pub freed_mb: f64,
+}
+
+fn dir_size(p: &std::path::Path) -> u64 {
+    if p.is_file() {
+        return std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
+    }
+    let mut total = 0u64;
+    if let Ok(entries) = std::fs::read_dir(p) {
+        for e in entries.flatten() {
+            total += dir_size(&e.path());
+        }
+    }
+    total
+}
+
+/// Supprime les résidus obsolètes du game dir : caches MCEF (abandonné),
+/// anciennes versions MC, crash dumps JVM. Préserve saves/config utiles/mods.
+pub fn clean_obsolete_files() -> CleanResult {
+    let mut removed = Vec::new();
+    let mut freed = 0u64;
+    let dir = match paths::game_dir() {
+        Ok(d) => d,
+        Err(_) => return CleanResult { removed, freed_mb: 0.0 },
+    };
+
+    // 1. Dossiers obsolètes fixes (MCEF + vieux caches Reborn).
+    for rel in [
+        "config/mcef",
+        "config/mcef-modern",
+        "mods/mcef-cache",
+        "mods/mcef-libraries",
+        "reborn-hud-cache",
+    ] {
+        let p = dir.join(rel);
+        if p.exists() {
+            freed += dir_size(&p);
+            if std::fs::remove_dir_all(&p).is_ok() {
+                removed.push(rel.to_string());
+            }
+        }
+    }
+
+    // 2. Anciennes versions MC (on garde seulement la courante).
+    let current = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.1.2".into());
+    if let Ok(entries) = std::fs::read_dir(dir.join("versions")) {
+        for e in entries.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            if name != current && e.path().is_dir() {
+                freed += dir_size(&e.path());
+                if std::fs::remove_dir_all(e.path()).is_ok() {
+                    removed.push(format!("versions/{name}"));
+                }
+            }
+        }
+    }
+
+    // 3. Crash dumps JVM (hs_err_pid*.log) à la racine.
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for e in entries.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.starts_with("hs_err_pid") && name.ends_with(".log") {
+                freed += std::fs::metadata(e.path()).map(|m| m.len()).unwrap_or(0);
+                if std::fs::remove_file(e.path()).is_ok() {
+                    removed.push(name);
+                }
+            }
+        }
+    }
+
+    CleanResult {
+        removed,
+        freed_mb: freed as f64 / 1_000_000.0,
+    }
+}
+
+/// Commande exposée : nettoyage manuel (bouton Paramètres › Jeu).
+#[tauri::command]
+pub async fn launcher_clean_obsolete() -> Result<CleanResult, LauncherError> {
+    Ok(clean_obsolete_files())
 }

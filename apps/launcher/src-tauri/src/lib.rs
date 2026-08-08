@@ -88,6 +88,7 @@ pub fn run() {
             launcher::launcher_game_info,
             launcher::launcher_open_install_dir,
             launcher::launcher_reinstall_all,
+            launcher::launcher_clean_obsolete,
             launcher::game::launcher_launch_game,
             launcher::game::launcher_launch_second_instance,
             launcher::game::launcher_stop_game,
