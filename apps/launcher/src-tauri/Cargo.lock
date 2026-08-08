@@ -2168,7 +2168,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "0.3.24"
+version = "0.3.25"
 dependencies = [
  "base64 0.22.1",
  "discord-rich-presence",
