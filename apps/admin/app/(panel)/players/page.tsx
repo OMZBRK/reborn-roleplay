@@ -3,11 +3,13 @@
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { IconBan, IconSearch } from '@/components/icons';
-import { MCAvatar } from '@/components/MCAvatar';
+import { IconBan, IconClock, IconSearch } from '@/components/icons';
 import { RoleBadge } from '@/components/RoleBadge';
 import { api } from '@/lib/api';
 import type { PlayerListItem } from '@/lib/types';
+
+/** Nombre de lignes renvoyees par l'endpoint /admin/players/search (take). */
+const PAGE_SIZE = 30;
 
 export default function PlayersPage() {
   const [draft, setDraft] = useState('');
@@ -19,7 +21,7 @@ export default function PlayersPage() {
     return () => window.clearTimeout(t);
   }, [draft]);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ['admin', 'players', 'search', q],
     queryFn: () =>
       api<PlayerListItem[]>(
@@ -27,6 +29,9 @@ export default function PlayersPage() {
       ),
     placeholderData: (prev) => prev,
   });
+
+  const players = data ?? [];
+  const capped = players.length >= PAGE_SIZE;
 
   return (
     <div className="px-10 py-10 max-w-6xl mx-auto">
@@ -40,130 +45,221 @@ export default function PlayersPage() {
         >
           Joueurs
         </h1>
-        <div className="mt-3 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
+        <p className="mt-3 max-w-xl text-sm text-[var(--color-foreground-muted)]">
+          Recherche et consulte les comptes de la communaute : role, derniere
+          connexion et acces a la fiche detaillee.
+        </p>
+        <div className="mt-4 h-[2px] w-24 bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
       </header>
 
-      <div className="mb-6 relative">
-        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-foreground-muted)]" />
+      <div className="mb-5 relative">
+        <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-foreground-muted)]" />
         <input
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Pseudo MC, Discord, UUID…"
-          className="w-full rounded-[12px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-3 pl-11 pr-4 text-sm focus:border-[var(--color-accent)] focus:outline-none transition-colors"
+          className="w-full rounded-[12px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] py-3 pl-11 pr-24 text-sm focus:border-[var(--color-accent)] focus:outline-none transition-colors"
         />
-        {draft.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setDraft('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--color-foreground-muted)] hover:text-[var(--color-foreground)]"
-          >
-            Effacer
-          </button>
-        )}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-3">
+          {isFetching && data ? (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-border-strong)] border-t-[var(--color-accent)]" />
+          ) : null}
+          {draft.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setDraft('')}
+              className="text-xs text-[var(--color-foreground-muted)] hover:text-[var(--color-foreground)]"
+            >
+              Effacer
+            </button>
+          )}
+        </div>
       </div>
 
       {isLoading && !data ? (
-        <SkeletonGrid />
+        <TableSkeleton />
       ) : error ? (
         <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
           {(error as Error).message}
         </div>
-      ) : !data || data.length === 0 ? (
-        <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] py-16 text-center text-[var(--color-foreground-muted)]">
+      ) : players.length === 0 ? (
+        <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] py-20 text-center text-[var(--color-foreground-muted)]">
           {q
             ? `Aucun joueur ne correspond a "${q}".`
-            : "Aucun joueur — soumets une candidature pour commencer."}
+            : 'Aucun joueur — soumets une candidature pour commencer.'}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {data.map((p) => (
-            <PlayerCard key={p.id} player={p} />
-          ))}
-        </div>
+        <>
+          <div className="mb-3 flex items-center justify-between text-xs text-[var(--color-foreground-muted)]">
+            <span>
+              {players.length} joueur{players.length > 1 ? 's' : ''}
+              {q ? ` pour « ${q} »` : ' — connexions recentes'}
+            </span>
+          </div>
+
+          <div className="overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] border-collapse text-sm">
+                <thead>
+                  <tr className="bg-[var(--color-surface-elevated)] text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">
+                    <th className="px-4 py-3 text-left font-medium">Joueur</th>
+                    <th className="px-4 py-3 text-left font-medium">Role</th>
+                    <th className="px-4 py-3 text-left font-medium">
+                      Derniere connexion
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium">
+                      Temps de jeu
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {players.map((p) => (
+                    <PlayerRow key={p.id} player={p} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {capped && (
+            <p className="mt-3 text-center text-xs text-[var(--color-foreground-muted)]">
+              Affichage limite aux {PAGE_SIZE} premiers resultats — affine ta
+              recherche pour cibler un joueur precis.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function PlayerCard({ player }: { player: PlayerListItem }) {
+function PlayerRow({ player }: { player: PlayerListItem }) {
   return (
-    <Link
-      href={`/players/${player.id}`}
-      className="group block rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:bg-[var(--color-surface-elevated)] hover:border-[var(--color-accent)]/40 hover:-translate-y-0.5 transition-all"
-    >
-      <div className="flex items-start gap-3">
-        <div className="relative shrink-0">
-          <MCAvatar
-            uuid={player.minecraftUuid}
-            username={player.minecraftUsername}
-            size={44}
-            rounded="lg"
-            className={`ring-2 ${
-              player.banned
-                ? 'ring-[var(--color-danger)]/40'
-                : 'ring-[var(--color-accent)]/30'
-            }`}
-          />
-          {player.banned && (
-            <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-danger)] text-white">
-              <IconBan className="h-3 w-3" />
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">
-            {player.minecraftUsername}
+    <tr className="border-t border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-elevated)]">
+      {/* Joueur */}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="relative shrink-0">
+            <InitialAvatar
+              name={player.minecraftUsername}
+              banned={player.banned}
+            />
+            {player.banned && (
+              <div className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-[var(--color-surface)] bg-[var(--color-danger)] text-white">
+                <IconBan className="h-2.5 w-2.5" />
+              </div>
+            )}
           </div>
-          {player.discordUsername && (
-            <div className="truncate text-xs text-[var(--color-foreground-muted)]">
-              @{player.discordUsername}
+          <div className="min-w-0">
+            <div className="truncate font-medium text-[var(--color-foreground)]">
+              {player.minecraftUsername}
             </div>
-          )}
-          <div className="mt-2 flex items-center gap-2">
-            <RoleBadge role={player.role} />
-            {player.lastLoginAt && (
-              <span className="text-[10px] text-[var(--color-foreground-muted)]">
-                {formatLastSeen(player.lastLoginAt)}
-              </span>
+            {player.discordUsername && (
+              <div className="truncate text-xs text-[var(--color-foreground-muted)]">
+                @{player.discordUsername}
+              </div>
             )}
           </div>
         </div>
-      </div>
-    </Link>
+      </td>
+
+      {/* Role */}
+      <td className="px-4 py-3">
+        <RoleBadge role={player.role} />
+      </td>
+
+      {/* Derniere connexion */}
+      <td className="px-4 py-3">
+        {player.lastLoginAt ? (
+          <span className="text-[var(--color-foreground-subtle)]">
+            {formatLastSeen(player.lastLoginAt)}
+          </span>
+        ) : (
+          <span className="text-[var(--color-foreground-muted)]">—</span>
+        )}
+      </td>
+
+      {/* Temps de jeu — pas de source de donnees encore */}
+      <td className="px-4 py-3">
+        <span
+          className="inline-flex items-center gap-1.5 text-[var(--color-foreground-muted)]"
+          title="Le suivi du temps de jeu n'est pas encore branche."
+        >
+          <IconClock className="h-3.5 w-3.5 opacity-60" />
+          <span>—</span>
+          <span className="text-[10px] uppercase tracking-wider opacity-60">
+            a brancher
+          </span>
+        </span>
+      </td>
+
+      {/* Actions */}
+      <td className="px-4 py-3 text-right">
+        <Link
+          href={`/players/${player.id}`}
+          className="inline-flex items-center rounded-[8px] border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--color-foreground)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+        >
+          Voir
+        </Link>
+      </td>
+    </tr>
   );
 }
 
-function SkeletonGrid() {
+/** Avatar circulaire a initiale — teinte accent, ou danger si banni. */
+function InitialAvatar({ name, banned }: { name: string; banned: boolean }) {
+  const letter = (name?.trim()?.[0] ?? '?').toUpperCase();
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {Array.from({ length: 6 }).map((_, i) => (
+    <div
+      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
+        banned
+          ? 'bg-[var(--color-danger-soft)] text-[var(--color-danger)] ring-1 ring-[var(--color-danger)]/40'
+          : 'bg-[var(--color-accent-soft)] text-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/30'
+      }`}
+    >
+      {letter}
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <div className="bg-[var(--color-surface-elevated)] px-4 py-3">
+        <div className="h-3 w-24 rounded bg-[var(--color-border)]" />
+      </div>
+      {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 animate-pulse"
+          className="flex items-center gap-3 border-t border-[var(--color-border)] px-4 py-3"
         >
-          <div className="flex items-start gap-3">
-            <div className="h-11 w-11 rounded-[14px] bg-[var(--color-surface-elevated)]" />
-            <div className="flex-1">
-              <div className="h-4 w-32 rounded bg-[var(--color-surface-elevated)]" />
-              <div className="mt-2 h-3 w-20 rounded bg-[var(--color-surface-elevated)]" />
-              <div className="mt-3 h-5 w-16 rounded-full bg-[var(--color-surface-elevated)]" />
-            </div>
+          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-[var(--color-surface-elevated)]" />
+          <div className="flex-1">
+            <div className="h-4 w-40 animate-pulse rounded bg-[var(--color-surface-elevated)]" />
+            <div className="mt-2 h-3 w-24 animate-pulse rounded bg-[var(--color-surface-elevated)]" />
           </div>
+          <div className="h-5 w-20 animate-pulse rounded-full bg-[var(--color-surface-elevated)]" />
+          <div className="h-4 w-24 animate-pulse rounded bg-[var(--color-surface-elevated)]" />
+          <div className="h-7 w-14 animate-pulse rounded-[8px] bg-[var(--color-surface-elevated)]" />
         </div>
       ))}
     </div>
   );
 }
 
+/** Temps relatif FR compact depuis un ISO. "il y a 5 min" / "il y a 3 j". */
 function formatLastSeen(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60_000);
   if (m < 1) return "a l'instant";
   if (m < 60) return `il y a ${m} min`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `il y a ${h}h`;
+  if (h < 24) return `il y a ${h} h`;
   const d = Math.floor(h / 24);
-  if (d < 30) return `il y a ${d}j`;
+  if (d < 30) return `il y a ${d} j`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `il y a ${mo} mois`;
   return new Date(iso).toLocaleDateString('fr-FR');
 }
