@@ -15,6 +15,7 @@ import { Feed } from "./routes/Feed";
 import { Tickets } from "./routes/Tickets";
 import { Whitelist } from "./routes/Whitelist";
 import { Character } from "./routes/Character";
+import { Rp } from "./routes/Rp";
 import { AuthenticatedLayout } from "./components/AuthenticatedLayout";
 import { ResumeSplash } from "./components/ResumeSplash";
 import { WindowControls } from "./components/shell/WindowControls";
@@ -78,6 +79,7 @@ export function App() {
               <Route path="/home" element={<Home />} />
               <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
               <Route path="/whitelist" element={<Whitelist />} />
+              <Route path="/rp" element={<Rp />} />
               <Route path="/character" element={<Character />} />
               <Route path="/mods" element={<Mods />} />
               <Route path="/map" element={<Map />} />

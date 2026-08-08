@@ -4,17 +4,14 @@ import { AnimatePresence } from "framer-motion";
 import {
   Book,
   BookOpen,
+  Drama,
   FileQuestion,
   FileText,
-  Image,
   LifeBuoy,
   Home,
-  Map,
   Package,
   ShoppingBag,
   Sparkles,
-  User,
-  Users,
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
 import { useWhitelistStore } from "../stores/whitelist-store";
@@ -64,25 +61,12 @@ export function Sidebar() {
       },
     ];
 
-    if (whitelistStatus === "accepted") {
-      base.push({
-        id: "character",
-        label: "Mon personnage",
-        route: "/character",
-        icon: User,
-      });
-    }
+    // Onglet RP : regroupe Mon personnage + Carte + Screenshots + Feed
+    // (screenshots/feed gated whitelist côté page /rp).
+    base.push({ id: "rp", label: "RP", route: "/rp", icon: Drama });
 
     base.push(
       { id: "mods", label: "Mods", route: "/mods", icon: Package },
-      { id: "map", label: "Carte", route: "/map", icon: Map },
-      {
-        id: "screenshots",
-        label: "Screenshots",
-        route: "/screenshots",
-        icon: Image,
-      },
-      { id: "feed", label: "Feed communautaire", route: "/feed", icon: Users },
       {
         id: "tickets",
         label: "Tickets",
