@@ -38,6 +38,26 @@ export class WhitelistDecisionDto {
   reviewNotes?: string;
 }
 
+/**
+ * Décision sur UNE partie de la candidature (L5) : HRP (prévalidation via
+ * oral) ou RP (le personnage), traitées indépendamment. La whitelist n'est
+ * accordée que quand les deux parties sont APPROVED.
+ */
+export class WhitelistPartDecisionDto {
+  /** 'HRP' | 'RP' — quelle partie on tranche. */
+  @IsEnum({ HRP: 'HRP', RP: 'RP' })
+  part!: 'HRP' | 'RP';
+
+  /** APPROVED, REJECTED ou NEEDS_REVISION (pas PENDING). */
+  @IsEnum(AppStatus)
+  status!: AppStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  reviewNotes?: string;
+}
+
 export class TicketStatusDto {
   /** IN_PROGRESS, RESOLVED ou CLOSED. */
   @IsEnum(TicketStatus)

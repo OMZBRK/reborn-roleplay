@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { OralSlotsModule } from '../oral-slots/oral-slots.module';
 import { StaffModule } from '../staff/staff.module';
 import { TicketsModule } from '../tickets/tickets.module';
 import { WhitelistModule } from '../whitelist/whitelist.module';
@@ -12,6 +13,7 @@ import { RoleModule } from './role.module';
   imports: [
     AuthModule,
     AssignmentModule,
+    OralSlotsModule,
     RoleModule,
     StaffModule,
     TicketsModule,
