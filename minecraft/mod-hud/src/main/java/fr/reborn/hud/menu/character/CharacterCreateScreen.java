@@ -96,7 +96,11 @@ public class CharacterCreateScreen extends Screen {
     private String sexe = "Homme";
     private int age = 12;
     private double size = 1.0;      // 0.85–1.15 (≈ 1.53–2.07 m)
-    private float skinTone = 0.5f;  // 0..1 (aperçu Phase 2)
+
+    /** Apparence (peau/coiffure/yeux/tenue) — pilote la composition + la synchro. */
+    private final fr.reborn.hud.skin.SkinSpec appearance = new fr.reborn.hud.skin.SkinSpec();
+    /** Vrai une fois le perso validé : on garde alors l'override (sinon on nettoie). */
+    private boolean submitted = false;
 
     private int step = 0;           // 0=village/clan, 1=identité, 2=apparence, 3=valider
     private EditBox nameField;
@@ -147,6 +151,15 @@ public class CharacterCreateScreen extends Screen {
         customClanField.setMaxLength(24);
         customClanField.setHint(Component.literal("Nom de ton clan / famille…"));
         addWidget(customClanField);
+
+        refreshPreview(); // avatar composé visible dès l'ouverture
+    }
+
+    /** Recompose et applique l'aperçu du skin sur le modèle du joueur local. */
+    private void refreshPreview() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        fr.reborn.hud.skin.RebornSkins.applySpec(mc.player.getUUID(), appearance);
     }
 
     private void preselectFromCandidature() {
@@ -169,6 +182,10 @@ public class CharacterCreateScreen extends Screen {
             captured = false;
         }
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
+        // Aperçu non validé : on retire l'override pour rendre son vrai skin au joueur.
+        if (!submitted && mc.player != null) {
+            fr.reborn.hud.skin.RebornSkins.clear(mc.player.getUUID());
+        }
         super.removed();
     }
 
@@ -234,7 +251,7 @@ public class CharacterCreateScreen extends Screen {
         switch (step) {
             case 0 -> renderVillageClan(ctx, tr, mouseX, mouseY);
             case 1 -> renderIdentity(ctx, tr, mouseX, mouseY);
-            case 2 -> renderApparence(ctx, tr);
+            case 2 -> renderApparence(ctx, tr, mouseX, mouseY);
             default -> renderValidate(ctx, tr);
         }
 
@@ -280,7 +297,7 @@ public class CharacterCreateScreen extends Screen {
         String s = switch (step) {
             case 0 -> "Choisis ton village et ton clan selon ta candidature.";
             case 1 -> "Renseigne l'identité de ton personnage.";
-            case 2 -> "Apparence — personnalisation avancée à venir.";
+            case 2 -> "Compose l'apparence de ton personnage (ou garde ton skin).";
             default -> "Vérifie tes choix puis valide.";
         };
         ctx.text(tr, Component.literal(s), panelX(), 80, Colors.FOREGROUND_SUBTLE, false);
@@ -367,9 +384,9 @@ public class CharacterCreateScreen extends Screen {
         skinTX = x; skinTY = sy + 14; skinTW = w - 2;
         DrawHelpers.horizontalGradient(ctx, skinTX, skinTY, skinTW, 8, SKIN_DARK, SKIN_LIGHT);
         DrawHelpers.outlinedRect(ctx, skinTX, skinTY, skinTW, 8, 0, Colors.withAlpha(Colors.FOREGROUND, 0.3f));
-        int skKnob = skinTX + Math.round(skinTone * (skinTW - 1));
+        int skKnob = skinTX + Math.round(appearance.skinTone * (skinTW - 1));
         DrawHelpers.roundedOutlinedRect(ctx, skKnob - 3, skinTY - 2, 6, 12, 2,
-            Colors.lerp(SKIN_DARK, SKIN_LIGHT, skinTone), Colors.WHITE_PURE);
+            Colors.lerp(SKIN_DARK, SKIN_LIGHT, appearance.skinTone), Colors.WHITE_PURE);
         if (hit(mx, my, skinTX, skinTY - 3, skinTW, 14)) { descTitle = "Couleur de peau"; descBody = "Teinte de base de la peau (aperçu — personnalisation complète en Phase 2)."; }
 
         // Taille.
@@ -399,23 +416,175 @@ public class CharacterCreateScreen extends Screen {
         if (descTitle == null) { descTitle = "Identité"; descBody = "Renseigne le sexe, le prénom, la couleur de peau, la taille et l'âge."; }
     }
 
-    private void renderApparence(GuiGraphicsExtractor ctx, Font tr) {
+    // ── Étape 2 : Apparence (éditeur cosmétique façon KORVEX) ─────────
+    private static final int ROW_H = 28, CTRL_W = 152, ARROW_W = 18, CTRL_H = 20;
+
+    private void renderApparence(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
         int x = panelX();
-        int y = contentTop() + 6;
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, panelW() - 8, 120, 8,
-            Colors.withAlpha(0xFF000000, 0.4f), Colors.BORDER);
-        ctx.text(tr, Component.literal("Apparence avancée — Phase 2"), x + 12, y + 14, Colors.GOLD, false);
-        String[] lines = {
-            "Visage, cheveux, yeux et tenues de clan arrivent",
-            "avec la composition de skin 64×64 (à venir).",
-            "",
-            "Pour l'instant ton skin Minecraft actuel est",
-            "conservé pour ce personnage."
+        int w = panelW() - 8;
+        int top = contentTop();
+
+        boolean own = appearance.useOwnSkin;
+        for (int i = 0; i < EDITOR_ROWS; i++) {
+            int y = top + i * ROW_H;
+            boolean enabled = rowEnabled(i);
+            boolean hover = enabled && hit(mx, my, x, y, w, CTRL_H + 4);
+
+            // Libellé.
+            int lblCol = !enabled ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.5f)
+                : Colors.FOREGROUND_MUTED;
+            ctx.text(tr, Component.literal(rowLabel(i)), x, y + 6, lblCol, false);
+
+            // Contrôle (cadre + flèches + valeur).
+            int cx = x + w - CTRL_W, cy = y + 2;
+            DrawHelpers.roundedOutlinedRect(ctx, cx, cy, CTRL_W, CTRL_H, 6,
+                Colors.withAlpha(0xFF000000, enabled ? 0.42f : 0.25f),
+                hover ? Colors.withAlpha(Colors.ACCENT, 0.7f) : Colors.BORDER);
+
+            // Flèches ‹ ›.
+            boolean lh = enabled && hit(mx, my, cx, cy, ARROW_W, CTRL_H);
+            boolean rh = enabled && hit(mx, my, cx + CTRL_W - ARROW_W, cy, ARROW_W, CTRL_H);
+            int arrCol = !enabled ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.4f) : Colors.ACCENT;
+            drawGlyph(ctx, tr, "‹", cx, cy, ARROW_W, lh ? Colors.WHITE_PURE : arrCol);
+            drawGlyph(ctx, tr, "›", cx + CTRL_W - ARROW_W, cy, ARROW_W,
+                rh ? Colors.WHITE_PURE : arrCol);
+
+            // Pastille de couleur (rows couleur) + valeur centrée.
+            int swatch = rowSwatch(i);
+            int textAreaX = cx + ARROW_W, textAreaW = CTRL_W - 2 * ARROW_W;
+            String val = rowValue(i);
+            int valW = tr.width(val);
+            int vx = textAreaX + (textAreaW - valW) / 2;
+            if (swatch != -1) {
+                int sw = 8;
+                int block = valW + sw + 4;
+                vx = textAreaX + (textAreaW - block) / 2 + sw + 4;
+                DrawHelpers.roundedOutlinedRect(ctx, vx - sw - 4, cy + (CTRL_H - sw) / 2, sw, sw, 2,
+                    enabled ? swatch : Colors.withAlpha(swatch, 0.4f),
+                    Colors.withAlpha(Colors.WHITE_PURE, 0.5f));
+            }
+            int valCol = !enabled ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.5f) : Colors.WHITE_PURE;
+            ctx.text(tr, Component.literal(val), vx, cy + 6, valCol, false);
+
+            if (hover) { descTitle = rowLabel(i); descBody = rowHint(i); }
+        }
+
+        // Note « mon skin ».
+        int noteY = top + EDITOR_ROWS * ROW_H + 6;
+        String note = own
+            ? "Ton skin Minecraft personnel est conservé pour ce personnage."
+            : "Aperçu procédural — les vrais visages / coiffures / tenues arrivent avec les assets.";
+        for (FormattedCharSequence l : tr.split(Component.literal(note), w)) {
+            ctx.text(tr, l, x, noteY, Colors.withAlpha(Colors.GOLD, 0.85f), false);
+            noteY += 11;
+        }
+
+        if (descTitle == null) {
+            descTitle = "Apparence";
+            descBody = own
+                ? "Tu as choisi de garder ton propre skin Minecraft."
+                : "Compose l'apparence de ton personnage. Tout le monde (avec le mod) verra le même skin.";
+        }
+    }
+
+    // Nombre de lignes de l'éditeur d'apparence.
+    private static final int EDITOR_ROWS = 6;
+
+    private String rowLabel(int i) {
+        return switch (i) {
+            case 0 -> "TYPE DE SKIN";
+            case 1 -> "TEINTE DE PEAU";
+            case 2 -> "COIFFURE";
+            case 3 -> "COULEUR CHEVEUX";
+            case 4 -> "YEUX";
+            default -> "TENUE";
         };
-        for (int i = 0; i < lines.length; i++)
-            ctx.text(tr, Component.literal(lines[i]), x + 12, y + 34 + i * 12, Colors.FOREGROUND_SUBTLE, false);
-        descTitle = "Apparence";
-        descBody = "La personnalisation détaillée (visage, style) fera partie de la mise à jour skin.";
+    }
+
+    private boolean rowEnabled(int i) {
+        return i == 0 || !appearance.useOwnSkin; // « mon skin » désactive le reste
+    }
+
+    private String rowValue(int i) {
+        return switch (i) {
+            case 0 -> fr.reborn.hud.skin.SkinSpec.SKIN_TYPES[appearance.useOwnSkin ? 1 : 0];
+            case 1 -> fr.reborn.hud.skin.SkinSpec.SKIN_STOP_NAMES[skinStopIndex()];
+            case 2 -> fr.reborn.hud.skin.SkinSpec.HAIR_STYLES[appearance.hairStyle];
+            case 3 -> fr.reborn.hud.skin.SkinSpec.HAIR_COLOR_NAMES[appearance.hairColor];
+            case 4 -> fr.reborn.hud.skin.SkinSpec.EYE_COLOR_NAMES[appearance.eyeColor];
+            default -> fr.reborn.hud.skin.SkinSpec.OUTFIT_NAMES[appearance.outfit];
+        };
+    }
+
+    /** Couleur de pastille (ARGB) pour les lignes couleur, ou -1 si aucune. */
+    private int rowSwatch(int i) {
+        return switch (i) {
+            case 3 -> fr.reborn.hud.skin.SkinSpec.HAIR_COLORS[appearance.hairColor];
+            case 4 -> fr.reborn.hud.skin.SkinSpec.EYE_COLORS[appearance.eyeColor];
+            case 5 -> fr.reborn.hud.skin.SkinSpec.OUTFIT_COLORS[appearance.outfit];
+            default -> -1;
+        };
+    }
+
+    private String rowHint(int i) {
+        return switch (i) {
+            case 0 -> "« RP composé » construit un skin depuis tes choix ; « Mon skin » garde ton skin Minecraft.";
+            case 1 -> "Teinte de base de la peau (identique au curseur de l'étape Identité).";
+            case 2 -> "Style de coiffure de ton personnage.";
+            case 3 -> "Couleur des cheveux.";
+            case 4 -> "Couleur des yeux.";
+            default -> "Tenue portée par ton personnage.";
+        };
+    }
+
+    /** Fait tourner l'option de la ligne i (dir = ±1) et rafraîchit l'aperçu. */
+    private void cycleRow(int i, int dir) {
+        switch (i) {
+            case 0 -> appearance.useOwnSkin = !appearance.useOwnSkin;
+            case 1 -> {
+                int idx = fr.reborn.hud.skin.SkinSpec.cycle(
+                    skinStopIndex(), fr.reborn.hud.skin.SkinSpec.SKIN_STOPS.length, dir);
+                appearance.skinTone = fr.reborn.hud.skin.SkinSpec.SKIN_STOPS[idx];
+            }
+            case 2 -> appearance.hairStyle = fr.reborn.hud.skin.SkinSpec.cycle(
+                appearance.hairStyle, fr.reborn.hud.skin.SkinSpec.HAIR_STYLES.length, dir);
+            case 3 -> appearance.hairColor = fr.reborn.hud.skin.SkinSpec.cycle(
+                appearance.hairColor, fr.reborn.hud.skin.SkinSpec.HAIR_COLORS.length, dir);
+            case 4 -> appearance.eyeColor = fr.reborn.hud.skin.SkinSpec.cycle(
+                appearance.eyeColor, fr.reborn.hud.skin.SkinSpec.EYE_COLORS.length, dir);
+            default -> appearance.outfit = fr.reborn.hud.skin.SkinSpec.cycle(
+                appearance.outfit, fr.reborn.hud.skin.SkinSpec.OUTFIT_COLORS.length, dir);
+        }
+        refreshPreview();
+    }
+
+    private int skinStopIndex() {
+        float[] stops = fr.reborn.hud.skin.SkinSpec.SKIN_STOPS;
+        int best = 0; float bd = Float.MAX_VALUE;
+        for (int i = 0; i < stops.length; i++) {
+            float d = Math.abs(stops[i] - appearance.skinTone);
+            if (d < bd) { bd = d; best = i; }
+        }
+        return best;
+    }
+
+    /** Clic dans l'éditeur d'apparence : renvoie true si une flèche a été activée. */
+    private boolean apparenceClick(int mx, int my) {
+        int x = panelX(), w = panelW() - 8, top = contentTop();
+        for (int i = 0; i < EDITOR_ROWS; i++) {
+            if (!rowEnabled(i)) continue;
+            int y = top + i * ROW_H;
+            int cx = x + w - CTRL_W, cy = y + 2;
+            if (hit(mx, my, cx, cy, ARROW_W, CTRL_H)) { cycleRow(i, -1); return true; }
+            if (hit(mx, my, cx + CTRL_W - ARROW_W, cy, ARROW_W, CTRL_H)) { cycleRow(i, +1); return true; }
+            // Clic au centre = avance aussi (pratique pour le toggle Type).
+            if (hit(mx, my, cx + ARROW_W, cy, CTRL_W - 2 * ARROW_W, CTRL_H)) { cycleRow(i, +1); return true; }
+        }
+        return false;
+    }
+
+    private void drawGlyph(GuiGraphicsExtractor ctx, Font tr, String g, int x, int y, int w, int col) {
+        ctx.text(tr, Component.literal(g), x + (w - tr.width(g)) / 2, y + 6, col, false);
     }
 
     private void renderValidate(GuiGraphicsExtractor ctx, Font tr) {
@@ -640,7 +809,10 @@ public class CharacterCreateScreen extends Screen {
                 }
                 // Sliders.
                 if (hit(mx, my, skinTX, skinTY - 4, skinTW, 16)) {
-                    draggingSkin = true; skinTone = valueFromTrack(mx, skinTX, skinTW, 0f, 1f); return true;
+                    draggingSkin = true;
+                    appearance.skinTone = valueFromTrack(mx, skinTX, skinTW, 0f, 1f);
+                    refreshPreview();
+                    return true;
                 }
                 if (hit(mx, my, sizeTX, sizeTY - 4, sizeTW, 16)) {
                     draggingSize = true; setSizeFromTrack(mx); return true;
@@ -655,6 +827,9 @@ public class CharacterCreateScreen extends Screen {
                     return true;
                 }
             }
+            case 2 -> {
+                if (apparenceClick(mx, my)) return true;
+            }
             default -> { }
         }
         return super.mouseClicked(event, doubleClick);
@@ -663,7 +838,11 @@ public class CharacterCreateScreen extends Screen {
     @Override
     public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dX, double dY) {
         int mx = (int) event.x();
-        if (draggingSkin) { skinTone = valueFromTrack(mx, skinTX, skinTW, 0f, 1f); return true; }
+        if (draggingSkin) {
+            appearance.skinTone = valueFromTrack(mx, skinTX, skinTW, 0f, 1f);
+            refreshPreview();
+            return true;
+        }
         if (draggingSize) { setSizeFromTrack(mx); return true; }
         return super.mouseDragged(event, dX, dY);
     }
@@ -767,11 +946,15 @@ public class CharacterCreateScreen extends Screen {
     }
 
     private void submit() {
+        // create\n<nom>\n<clan>\n<village>\n<sexe>\n<age>\n<size>\n<apparence…>
         String cmd = "create\n" + currentName().trim() + "\n" + effectiveClan() + "\n" + village
-            + "\n" + sexe + "\n" + age + "\n" + String.format(Locale.US, "%.2f", size);
+            + "\n" + sexe + "\n" + age + "\n" + String.format(Locale.US, "%.2f", size)
+            + "\n" + appearance.serialize();
         if (ClientPlayNetworking.canSend(CharacterPayload.ID)) {
             ClientPlayNetworking.send(new CharacterPayload(cmd));
-            this.onClose(); // le serveur crée + active le perso
+            submitted = true;      // on garde le skin composé appliqué
+            refreshPreview();      // s'assure que l'override final est en place
+            this.onClose();        // le serveur crée + active le perso
         } else {
             toast("Création (hors serveur) — impossible ici.");
         }
