@@ -43,6 +43,7 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.camera.RebornCamera.INSTANCE.loadFromPrefs();
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.register();
         fr.reborn.hud.chat.ChatBlockCommands.register();
+        fr.reborn.hud.skin.SkinCommands.register();
 
         // Overlay du menu d'interaction live (rendu HUD, pas un écran).
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(

@@ -9,6 +9,7 @@
     "ChatComponentAccessor",
     "ScreenInvoker",
     "ChatScreenMixin",
+    "AbstractClientPlayerSkinMixin",
     "InGameHudMixin",
     "ExperienceBarRendererMixin",
     "MusicTrackerMixin",
