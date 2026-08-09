@@ -6,17 +6,23 @@ import net.minecraft.network.chat.ClickEvent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
+import java.net.URI;
+
 /**
- * Expose la méthode protégée statique {@code Screen.defaultHandleGameClickEvent}
- * (gestion vanilla d'un {@link ClickEvent} : ouverture de lien, copie
- * presse-papier, run/suggest command) pour la réutiliser dans le hit-testing du
- * chat custom ({@code ChatScreenMixin}).
+ * Expose des méthodes protégées statiques de {@link Screen} pour l'interactivité
+ * du chat custom : gestion d'un {@link ClickEvent} (run/suggest/copy) et
+ * ouverture d'une URL (avec écran de confirmation vanilla).
  */
 @Mixin(Screen.class)
 public interface ScreenInvoker {
 
     @Invoker("defaultHandleGameClickEvent")
     static void reborn$defaultHandleGameClickEvent(ClickEvent event, Minecraft mc, Screen screen) {
+        throw new AssertionError("mixin @Invoker non appliqué");
+    }
+
+    @Invoker("clickUrlAction")
+    static boolean reborn$clickUrlAction(Minecraft mc, Screen screen, URI uri) {
         throw new AssertionError("mixin @Invoker non appliqué");
     }
 }

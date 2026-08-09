@@ -130,15 +130,40 @@ public final class RebornHudClient implements ClientModInitializer {
         try {
             su.plo.voice.api.client.PlasmoVoiceClient.getAddonsLoader()
                 .load(new fr.reborn.hud.voice.RebornVoiceAddon());
-            // Bulles de parole (2D, projection caméra) — enregistré SEULEMENT si
-            // PlasmoVoice est présent, pour ne jamais toucher ses classes sinon.
-            net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
-                net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "voice-bubbles"),
-                (ctx, tickCounter) -> fr.reborn.hud.voice.SpeechBubbles.render(ctx));
-            LOGGER.info("addon voix Reborn + bulles de parole enregistrés (PlasmoVoice)");
+            LOGGER.info("addon voix Reborn enregistré (PlasmoVoice)");
         } catch (Throwable t) {
-            LOGGER.warn("PlasmoVoice absent — bulle de parole désactivée ({})", t.toString());
+            LOGGER.warn("PlasmoVoice absent — indicateur voix désactivé ({})", t.toString());
         }
+
+        // Indicateur de frappe (canal reborn:typing, bidirectionnel avec ShinobiCore).
+        // C2S : "1"/"0" quand le joueur ouvre/ferme le chat. S2C : liste des joueurs
+        // proches en train d'écrire → 3 points au-dessus de leur tête.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.chat.TypingPayload.ID, fr.reborn.hud.chat.TypingPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.chat.TypingPayload.ID, fr.reborn.hud.chat.TypingPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.chat.TypingPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.chat.TypingState.update(payload.content())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.chat.TypingState.clear());
+
+        // Bulles au-dessus des têtes : voix (1 point, si PlasmoVoice présent) +
+        // frappe chat (3 points). Toujours enregistré ; la partie voix no-op sans PV.
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "head-bubbles"),
+            (ctx, tickCounter) -> fr.reborn.hud.voice.SpeechBubbles.render(ctx));
+
+        // Envoie l'état de frappe au serveur quand on ouvre/ferme le chat (C2S).
+        final boolean[] wasChatOpen = {false};
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            boolean open = client.screen instanceof net.minecraft.client.gui.screens.ChatScreen;
+            if (open != wasChatOpen[0]) {
+                wasChatOpen[0] = open;
+                fr.reborn.hud.chat.TypingState.sendTyping(open);
+            }
+        });
 
         // Bandes noires cinéma (immersion) — toggle touche K.
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();

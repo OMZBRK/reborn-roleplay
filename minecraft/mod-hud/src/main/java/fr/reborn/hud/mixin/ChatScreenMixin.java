@@ -82,6 +82,32 @@ public abstract class ChatScreenMixin {
         EmojiPicker.render(ctx, mouseX, mouseY,
             mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
         reborn$animatedText(ctx, mc);
+        reborn$hoverTooltip(ctx, mc, mouseX, mouseY);
+    }
+
+    /** Tooltip de survol : montre l'URL sous le curseur (affordance « cliquable »). */
+    private void reborn$hoverTooltip(GuiGraphicsExtractor ctx, Minecraft mc, int mouseX, int mouseY) {
+        try {
+            ChatSettings settings = RebornHudClient.config().getChatSettings();
+            HudElementState st = RebornHudClient.config().stateOf(HudElement.CHAT);
+            var acc = (ChatComponentAccessor) (Object) mc.gui.getChat();
+            int sw = mc.getWindow().getGuiScaledWidth();
+            int sh = mc.getWindow().getGuiScaledHeight();
+            String url = fr.reborn.hud.runtime.ChatMessageRenderer.urlAt(
+                mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
+                sw, sh, settings, mouseX, mouseY, (int) st.x(), (int) st.y());
+            if (url == null) return;
+            var font = mc.font;
+            String tip = "↳ " + url; // ↳ URL
+            int tw = font.width(tip);
+            int bx = Math.min(mouseX + 8, sw - tw - 8);
+            int by = Math.max(2, mouseY - 14);
+            ctx.fill(bx - 3, by - 2, bx + tw + 3, by + 10, 0xE00A0608);
+            ctx.fill(bx - 3, by - 2, bx + tw + 3, by - 1, Colors.withAlpha(Colors.ACCENT, 0.7f));
+            ctx.text(font, net.minecraft.network.chat.Component.literal(tip), bx, by, 0xFF7FB2FF, false);
+        } catch (Throwable ignored) {
+            // hit-testing indisponible → pas de tooltip.
+        }
     }
 
     /**
@@ -193,14 +219,27 @@ public abstract class ChatScreenMixin {
                     return;
                 }
             } else {
+                var screen = (net.minecraft.client.gui.screens.ChatScreen) (Object) this;
+                // 1) Composant cliquable envoyé par le serveur (ClickEvent).
                 net.minecraft.network.chat.Style style = fr.reborn.hud.runtime.ChatMessageRenderer.styleAt(
                     mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
                     sw, sh, settings, event.x(), event.y(), offX, offY);
                 if (style != null && style.getClickEvent() != null) {
-                    ScreenInvoker.reborn$defaultHandleGameClickEvent(
-                        style.getClickEvent(), mc,
-                        (net.minecraft.client.gui.screens.ChatScreen) (Object) this);
+                    ScreenInvoker.reborn$defaultHandleGameClickEvent(style.getClickEvent(), mc, screen);
                     cir.setReturnValue(true);
+                    return;
+                }
+                // 2) URL tapée en clair (pas de ClickEvent → auto-détection).
+                String url = fr.reborn.hud.runtime.ChatMessageRenderer.urlAt(
+                    mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
+                    sw, sh, settings, event.x(), event.y(), offX, offY);
+                if (url != null) {
+                    try {
+                        ScreenInvoker.reborn$clickUrlAction(mc, screen, new java.net.URI(url));
+                        cir.setReturnValue(true);
+                    } catch (java.net.URISyntaxException ignored) {
+                        // URL malformée → on ignore.
+                    }
                 }
             }
         } catch (Throwable ignored) {

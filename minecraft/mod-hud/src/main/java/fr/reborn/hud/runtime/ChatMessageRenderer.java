@@ -284,6 +284,84 @@ public final class ChatMessageRenderer {
         return null;
     }
 
+    /**
+     * URL (http/https) sous la souris — auto-détection des liens tapés en clair
+     * (un texte brut n'a pas de {@code ClickEvent} donc n'est pas cliquable comme
+     * en vanilla). Renvoie l'URL cliquée ou {@code null}. Même géométrie que
+     * {@link #styleAt}.
+     */
+    public static String urlAt(Minecraft mc, Font tr,
+            List<GuiMessage.Line> visibleMessages, int scrolledLines,
+            int screenW, int screenH, ChatSettings settings,
+            double mouseX, double mouseY, int offsetX, int offsetY) {
+        if (visibleMessages == null || visibleMessages.isEmpty()) return null;
+        int maxLines = 18;
+        int bottomY = screenH - 40;
+        int leftX = ChatLayout.TEXT_X;
+        double mx = mouseX - offsetX;
+        double my = mouseY - offsetY;
+
+        int rendered = 0;
+        for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
+            GuiMessage.Line visible = visibleMessages.get(i + scrolledLines);
+            if (visible == null) continue;
+            FormattedCharSequence content = visible.content();
+            String plain = orderedToPlainString(content);
+            PlayerInfo sender = findSender(mc, plain);
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().name())) continue;
+
+            int lineY = bottomY - (rendered + 1) * LINE_H;
+            if (lineY < 4) break;
+            int textX = leftX;
+            if (settings.chatHeads && sender != null) textX += HEAD + HEAD_GAP;
+            if (settings.chatBadges && sender != null && mc.level != null) {
+                var sb = mc.level.getScoreboard();
+                var team = sb != null ? sb.getPlayersTeam(sender.getProfile().name()) : null;
+                if (team != null && team.getPlayerPrefix() != null && !team.getPlayerPrefix().getString().isEmpty()) {
+                    textX += tr.width(team.getPlayerPrefix()) + 2;
+                }
+            }
+            if (settings.showTimestamps) {
+                textX += tr.width("[" + MessageTimestamps.formattedFor(visible.addedTime()) + "] ");
+            }
+
+            if (my >= lineY && my < lineY + LINE_H && mx >= textX) {
+                int idx = charIndexAtPixel(tr, content, (int) Math.floor(mx - textX));
+                return urlWordAt(plain, idx);
+            }
+            rendered++;
+        }
+        return null;
+    }
+
+    /** Index (char) du glyphe sous l'offset pixel {@code px}, -1 si au-delà. */
+    private static int charIndexAtPixel(Font tr, FormattedCharSequence seq, int px) {
+        int[] idx = { 0 };
+        float[] acc = { 0f };
+        int[] result = { -1 };
+        seq.accept((index, style, cp) -> {
+            acc[0] += tr.width(FormattedCharSequence.forward(new String(Character.toChars(cp)), style));
+            if (acc[0] > px) { result[0] = idx[0]; return false; }
+            idx[0] += Character.charCount(cp);
+            return true;
+        });
+        return result[0];
+    }
+
+    /** Mot (délimité par des espaces) autour de {@code idx} s'il ressemble à une URL. */
+    private static String urlWordAt(String plain, int idx) {
+        if (idx < 0 || idx >= plain.length()) return null;
+        int start = idx, end = idx;
+        while (start > 0 && !Character.isWhitespace(plain.charAt(start - 1))) start--;
+        while (end < plain.length() && !Character.isWhitespace(plain.charAt(end))) end++;
+        String word = plain.substring(start, end);
+        // Nettoie la ponctuation de fin fréquente.
+        while (!word.isEmpty() && ".,!?)]}\"'".indexOf(word.charAt(word.length() - 1)) >= 0) {
+            word = word.substring(0, word.length() - 1);
+        }
+        return (word.startsWith("http://") || word.startsWith("https://")) && word.length() > 10 ? word : null;
+    }
+
     /** Cherche le premier joueur en ligne dont le pseudo apparaît dans le texte. */
     private static PlayerInfo findSender(Minecraft mc, String plain) {
         if (mc == null || mc.getConnection() == null) return null;
