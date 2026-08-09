@@ -34,6 +34,13 @@ use crate::storage::{prefs, secrets::SecretKey};
 fn minecraft_version() -> String {
     std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.1.2".into())
 }
+
+/// Mode Builder (staff) : version MC + manifest statique séparés (26.2 + Axiom /
+/// opti / shaders, sans mods RP). Le manifest est signé avec la MÊME clé Ed25519
+/// que le manifest principal → vérifiable côté launcher sans changement API.
+const BUILDER_MC_VERSION: &str = "26.2";
+const BUILDER_MANIFEST_URL: &str =
+    "https://github.com/OMZBRK/reborn-roleplay/releases/download/builder-v1/builder-manifest-signed.json";
 /// Token MC factice utilise quand l'auth dev (sans Microsoft) est en cours.
 /// Le client Minecraft accepte n'importe quelle string non-vide ici, mais
 /// refusera de valider auprès des serveurs Mojang (mode online). Suffisant
@@ -419,6 +426,178 @@ pub async fn launcher_launch_game<R: Runtime>(
     if let Some(rpc) = app.try_state::<DiscordRpcState>() {
         rpc.start_in_game(&result.minecraft_version).await;
     }
+
+    let game_state_handle = app.clone();
+    let crash_stderr_path = debug_stderr_path.clone();
+    tokio::spawn(async move {
+        await_game_end(game_state_handle, crash_stderr_path).await;
+    });
+
+    Ok(result)
+}
+
+/// Lance le **mode Builder (staff-only)** : MC 26.2 + Axiom/opti/shaders (sans
+/// mods RP), dans un dossier de jeu SÉPARÉ (`builder/`) pour ne pas mélanger avec
+/// le modpack RP. Récupère le manifest builder STATIQUE (signé Ed25519, même
+/// clé), télécharge/synchronise ses mods, et se connecte au serveur build (dev).
+/// PAS de play-token/attestation (le serveur build n'a pas Guardian).
+#[tauri::command]
+pub async fn launcher_launch_builder<R: Runtime>(
+    app: AppHandle<R>,
+    auth: State<'_, AuthState>,
+    game: State<'_, GameState>,
+) -> Result<LaunchResult, GameError> {
+    {
+        let lock = game.running.lock().await;
+        if lock.is_some() {
+            return Err(GameError::AlreadyRunning);
+        }
+    }
+    game.stop_requested
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+
+    let user = auth
+        .current_user()
+        .await
+        .ok_or(GameError::NotAuthenticated)?;
+    // Gate staff : le mode builder est réservé au staff (HELPER+).
+    if !is_staff_role(&user.role) {
+        return Err(GameError::NotWhitelisted);
+    }
+
+    let mc_access_token = match auth.ensure_mc_token().await {
+        Ok(Some(token)) => token,
+        _ => DEV_PLACEHOLDER_TOKEN.to_string(),
+    };
+
+    // Dossier de jeu builder séparé (mods 26.2 isolés du modpack RP 26.1).
+    let dir = paths::game_dir()
+        .map_err(|e| GameError::Io { message: e.to_string() })?
+        .join("builder");
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .map_err(|e| GameError::Io { message: format!("create builder dir : {e}") })?;
+
+    let mc_version = BUILDER_MC_VERSION.to_string();
+
+    // Manifest builder statique (signé Ed25519, vérifié comme le principal).
+    emit_launch(&app, 1, "Manifest builder", None, None);
+    let manifest: crate::manifest::SignedManifest = auth
+        .download_http
+        .get(BUILDER_MANIFEST_URL)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| GameError::Mojang { message: format!("fetch builder manifest : {e}") })?
+        .json()
+        .await
+        .map_err(|e| GameError::Mojang { message: format!("parse builder manifest : {e}") })?;
+    crate::manifest::verify_signature(&manifest)
+        .map_err(|e| GameError::Mojang { message: format!("signature builder invalide : {e}") })?;
+
+    // Sync des mods builder (tous required) + purge des orphelins.
+    let prefs_empty = crate::storage::mod_prefs::ModPrefs::default();
+    let plan = crate::manifest::compute_plan_export(&manifest, &dir, &prefs_empty)
+        .await
+        .map_err(|e| GameError::Io { message: format!("plan builder : {e}") })?;
+    if !plan.is_empty() {
+        emit_launch(&app, 1, "Téléchargement des mods builder", Some(0), Some(plan.len()));
+        crate::manifest::download_plan(&app, &auth.download_http, plan, &dir)
+            .await
+            .map_err(|e| GameError::Io { message: format!("download builder : {e}") })?;
+    }
+    let _ = crate::manifest::purge_orphan_mods(&manifest, &dir, &prefs_empty).await;
+
+    // Étapes MC (mêmes helpers, version 26.2, dossier builder).
+    let user_prefs = prefs::load().await.unwrap_or_default();
+    emit_launch(&app, 2, "Runtime Java", None, None);
+    let java_path = runtime::ensure_runtime(&auth.download_http, &dir)
+        .await
+        .map_err(|e| GameError::Runtime { message: e.to_string() })?;
+    emit_launch(&app, 3, "Métadonnées Minecraft", None, None);
+    let version = mojang::fetch_version_json(&auth.download_http, &dir, &mc_version)
+        .await
+        .map_err(|e| GameError::Mojang { message: e.to_string() })?;
+    emit_launch(&app, 4, "Bibliothèques & natives", None, None);
+    let lib_setup = libraries::ensure_libraries(&auth.download_http, &dir, &version)
+        .await
+        .map_err(|e| GameError::Libraries { message: e.to_string() })?;
+    emit_launch(&app, 5, "Ressources", Some(0), None);
+    let asset_setup = assets::ensure_assets(&auth.download_http, &dir, &version.asset_index, |done, total| {
+        emit_launch(&app, 5, "Ressources", Some(done), Some(total));
+    })
+    .await
+    .map_err(|e| GameError::Assets { message: e.to_string() })?;
+    emit_launch(&app, 6, "Fabric Loader", None, None);
+    let fabric_setup = fabric::ensure_fabric(&auth.download_http, &dir, &mc_version)
+        .await
+        .map_err(|e| GameError::Fabric { message: e.to_string() })?;
+
+    emit_launch(&app, 7, "Démarrage (Builder)", None, None);
+    let mut vanilla_libs = lib_setup.library_jars.clone();
+    vanilla_libs.extend(fabric_setup.library_jars.clone());
+    let all_libs = dedupe_classpath(vanilla_libs);
+
+    let cfg = jvm::LaunchConfig {
+        minecraft_version: mc_version.clone(),
+        launcher_version: env!("CARGO_PKG_VERSION").to_string(),
+        minecraft_username: user.minecraft_username.clone(),
+        minecraft_uuid: user.minecraft_uuid.clone(),
+        mc_access_token,
+        natives_dir: lib_setup.natives_dir.display().to_string(),
+        library_jars: all_libs.iter().map(|p| p.display().to_string()).collect(),
+        client_jar: lib_setup.client_jar.display().to_string(),
+        game_dir: dir.display().to_string(),
+        assets_dir: asset_setup.assets_dir.display().to_string(),
+        asset_index: asset_setup.asset_index.clone(),
+        ram_mb: user_prefs.ram_mb,
+        width: user_prefs.width,
+        height: user_prefs.height,
+        auto_connect: resolve_dev_server(), // serveur build (dev, 26.2)
+        dev_server: resolve_dev_server(),
+        is_staff: true,
+        play_token_path: None, // pas d'attestation sur le serveur build
+        api_url: Some(auth.api.base_url.clone()),
+    };
+
+    let mut argv = jvm::build_command(&cfg);
+    if let Some(idx) = argv.iter().position(|a| a == "net.minecraft.client.main.Main") {
+        argv[idx] = fabric_setup.main_class.clone();
+    }
+
+    let debug_stderr_path = dir.join("logs").join("last-stderr.txt");
+    let _ = tokio::fs::create_dir_all(dir.join("logs")).await;
+
+    let mut command = Command::new(&java_path);
+    command
+        .args(&argv)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdin(Stdio::null())
+        .current_dir(&dir);
+    let mut child = command
+        .spawn()
+        .map_err(|e| GameError::Io { message: format!("spawn java builder : {e}") })?;
+    let pid = child.id().unwrap_or(0);
+    let java_display = java_path.display().to_string();
+
+    pump_stdio(&mut child, app.clone(), debug_stderr_path.clone());
+
+    let (tamper_tx, _tamper_rx) = mpsc::channel::<TamperingEvent>();
+    let watcher = spawn_watcher(app.clone(), vec![dir.join("mods")], tamper_tx)
+        .map_err(|e| GameError::Watcher { message: e.to_string() })?;
+    {
+        let mut lock = game.running.lock().await;
+        *lock = Some(RunningGame { child, _watcher: watcher });
+    }
+
+    let result = LaunchResult {
+        pid,
+        java_path: java_display,
+        minecraft_version: mc_version.clone(),
+        fabric_version: fabric_setup.loader_version.clone(),
+    };
+    let _ = app.emit("game:started", result.clone());
 
     let game_state_handle = app.clone();
     let crash_stderr_path = debug_stderr_path.clone();
