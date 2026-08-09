@@ -124,6 +124,22 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.character.CharacterData.clear());
 
+        // Voix Reborn (PlasmoVoice) : addon client qui capte l'instance PV pour
+        // savoir qui parle → bulle de parole au-dessus des têtes. Se désactive
+        // proprement si PlasmoVoice n'est pas dans le modpack.
+        try {
+            su.plo.voice.api.client.PlasmoVoiceClient.getAddonsLoader()
+                .load(new fr.reborn.hud.voice.RebornVoiceAddon());
+            // Bulles de parole (2D, projection caméra) — enregistré SEULEMENT si
+            // PlasmoVoice est présent, pour ne jamais toucher ses classes sinon.
+            net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+                net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "voice-bubbles"),
+                (ctx, tickCounter) -> fr.reborn.hud.voice.SpeechBubbles.render(ctx));
+            LOGGER.info("addon voix Reborn + bulles de parole enregistrés (PlasmoVoice)");
+        } catch (Throwable t) {
+            LOGGER.warn("PlasmoVoice absent — bulle de parole désactivée ({})", t.toString());
+        }
+
         // Bandes noires cinéma (immersion) — toggle touche K.
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
 

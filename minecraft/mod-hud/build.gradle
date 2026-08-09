@@ -47,9 +47,10 @@ dependencies {
     runtimeOnly  files('libs/PlayerAnimationLibMerged-1.2.5+mc.26.1.jar')
     runtimeOnly  files('libs/emotecraft-for-MC26.1.2-3.3.0-b.build.160.jar')
 
-    // --- Intégrations phase 2 (neutralisées le temps du port coeur UI) ---
-    // PlasmoVoice (micro) :
-    // compileOnly 'su.plo.voice.api:client:2.1.13'
+    // PlasmoVoice (API client, pour la bulle de parole + icônes voix). Jar deobf
+    // du modpack en compileOnly ; fourni au runtime par le mod plasmovoice du
+    // modpack. La feature voix se désactive proprement si la classe est absente.
+    compileOnly  files('libs/plasmovoice-fabric-26.1-2.1.13.jar')
 }
 
 processResources {
