@@ -232,8 +232,53 @@ public final class ChatMessageRenderer {
             }
 
             if (my >= lineY && my < lineY + LINE_H && mx >= textX) {
-                return null;
+                return styleAtPixel(tr, content, (int) Math.floor(mx - textX));
             }
+            rendered++;
+        }
+        return null;
+    }
+
+    /**
+     * Style sous un offset pixel {@code px} dans un {@link FormattedCharSequence},
+     * en marchant les glyphes et cumulant leur largeur (réimplémente l'ancien
+     * {@code StringSplitter.componentStyleAtWidth}, retiré en 26.1).
+     */
+    private static net.minecraft.network.chat.Style styleAtPixel(Font tr, FormattedCharSequence seq, int px) {
+        if (px < 0) return null;
+        net.minecraft.network.chat.Style[] found = { null };
+        float[] acc = { 0f };
+        seq.accept((index, style, cp) -> {
+            String s = new String(Character.toChars(cp));
+            acc[0] += tr.width(FormattedCharSequence.forward(s, style));
+            if (acc[0] > px) { found[0] = style; return false; }
+            return true;
+        });
+        return found[0];
+    }
+
+    /**
+     * Texte brut de la ligne de chat sous la souris (pour la copie presse-papier),
+     * ou {@code null}. Même géométrie que {@link #styleAt}.
+     */
+    public static String lineTextAt(Minecraft mc, Font tr,
+            List<GuiMessage.Line> visibleMessages, int scrolledLines,
+            int screenW, int screenH, ChatSettings settings,
+            double mouseX, double mouseY, int offsetX, int offsetY) {
+        if (visibleMessages == null || visibleMessages.isEmpty()) return null;
+        int maxLines = 18;
+        int bottomY = screenH - 40;
+        double my = mouseY - offsetY;
+        int rendered = 0;
+        for (int i = 0; rendered < maxLines && i + scrolledLines < visibleMessages.size(); i++) {
+            GuiMessage.Line visible = visibleMessages.get(i + scrolledLines);
+            if (visible == null) continue;
+            String plain = orderedToPlainString(visible.content());
+            PlayerInfo sender = findSender(mc, plain);
+            if (sender != null && ChatBlockList.INSTANCE.isBlocked(sender.getProfile().name())) continue;
+            int lineY = bottomY - (rendered + 1) * LINE_H;
+            if (lineY < 4) break;
+            if (my >= lineY && my < lineY + LINE_H) return plain;
             rendered++;
         }
         return null;

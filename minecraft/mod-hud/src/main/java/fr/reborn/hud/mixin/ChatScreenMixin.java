@@ -165,7 +165,47 @@ public abstract class ChatScreenMixin {
         boolean handled = EmojiPicker.handleClick(event.x(), event.y(),
             mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(),
             s -> { if (input != null) input.insertText(s); });
-        if (handled) cir.setReturnValue(true);
+        if (handled) { cir.setReturnValue(true); return; }
+
+        // Interactivité chat : clic sur un composant (lien / copie / commande), ou
+        // SHIFT-clic pour copier la ligne. Hit-testing sur NOTRE géométrie de rendu
+        // (le rendu vanilla est annulé → getClickedComponentStyleAt ne marche plus).
+        try {
+            ChatSettings settings = RebornHudClient.config().getChatSettings();
+            HudElementState st = RebornHudClient.config().stateOf(HudElement.CHAT);
+            var acc = (ChatComponentAccessor) (Object) mc.gui.getChat();
+            int sw = mc.getWindow().getGuiScaledWidth();
+            int sh = mc.getWindow().getGuiScaledHeight();
+            int offX = (int) st.x();
+            int offY = (int) st.y();
+            boolean shift = (event.modifiers() & org.lwjgl.glfw.GLFW.GLFW_MOD_SHIFT) != 0;
+            if (shift) {
+                String line = fr.reborn.hud.runtime.ChatMessageRenderer.lineTextAt(
+                    mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
+                    sw, sh, settings, event.x(), event.y(), offX, offY);
+                if (line != null && !line.isBlank()) {
+                    mc.keyboardHandler.setClipboard(line);
+                    if (mc.player != null) {
+                        mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                            "§7[Reborn] Message copié dans le presse-papier."));
+                    }
+                    cir.setReturnValue(true);
+                    return;
+                }
+            } else {
+                net.minecraft.network.chat.Style style = fr.reborn.hud.runtime.ChatMessageRenderer.styleAt(
+                    mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
+                    sw, sh, settings, event.x(), event.y(), offX, offY);
+                if (style != null && style.getClickEvent() != null) {
+                    ScreenInvoker.reborn$defaultHandleGameClickEvent(
+                        style.getClickEvent(), mc,
+                        (net.minecraft.client.gui.screens.ChatScreen) (Object) this);
+                    cir.setReturnValue(true);
+                }
+            }
+        } catch (Throwable ignored) {
+            // hit-testing indisponible → on laisse le clic suivre son cours normal.
+        }
     }
 
     private static HudElementState readStateSafely() {

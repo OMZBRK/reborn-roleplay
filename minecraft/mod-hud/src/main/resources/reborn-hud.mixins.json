@@ -6,6 +6,8 @@
   "client": [
     "ChatHudMixin",
     "ChatHudAddMessageMixin",
+    "ChatComponentAccessor",
+    "ScreenInvoker",
     "ChatScreenMixin",
     "InGameHudMixin",
     "ExperienceBarRendererMixin",
