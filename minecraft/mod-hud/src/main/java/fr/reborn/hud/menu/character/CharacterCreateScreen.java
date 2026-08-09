@@ -128,7 +128,7 @@ public class CharacterCreateScreen extends Screen {
             mc.options.hideGui = true;
             captured = true;
         }
-        fr.reborn.hud.animation.MovementAnimations.INSTANCE.startPose();
+        // Perso figé debout (aucune animation d'idle pendant la création).
 
         // Pré-remplissage depuis la candidature (verrou whitelist).
         preselectFromCandidature();
@@ -176,7 +176,6 @@ public class CharacterCreateScreen extends Screen {
             mc.options.hideGui = prevHudHidden;
             captured = false;
         }
-        fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
         // Aperçu non validé : on retire l'override pour rendre son vrai skin au joueur.
         if (!submitted && mc.player != null) {
             fr.reborn.hud.skin.RebornSkins.clear(mc.player.getUUID());
@@ -219,20 +218,16 @@ public class CharacterCreateScreen extends Screen {
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Étape Apparence = éditeur KORVEX plein écran sur fond « void » sombre.
-        if (step == 2) {
-            ctx.fillGradient(0, 0, this.width, this.height, 0xFF16201C, 0xFF090C0B);
-            ctx.fillGradient(0, 0, this.width, 80, Colors.withAlpha(0xFF000000, 0.55f), 0x00000000);
-            ctx.fillGradient(0, this.height - 90, this.width, this.height,
-                0x00000000, Colors.withAlpha(0xFF000000, 0.65f));
-            return;
+        // Fond « void » KORVEX pour TOUTES les étapes (perso centré rendu par-dessus).
+        ctx.fillGradient(0, 0, this.width, this.height, 0xFF16201C, 0xFF090C0B);
+        // Voile gauche léger pour asseoir le panneau de contenu (étapes 0/1/3).
+        if (step != 2) {
+            int panelRight = panelX() + panelW() + 24;
+            DrawHelpers.horizontalGradient(ctx, 0, 0, panelRight, this.height,
+                Colors.withAlpha(0xFF05080A, 0.72f), 0x00000000);
         }
-        // Voile gauche (panneau lisible) qui s'estompe vers la droite (monde visible).
-        int panelRight = panelX() + panelW() + 24;
-        DrawHelpers.horizontalGradient(ctx, 0, 0, panelRight, this.height,
-            Colors.withAlpha(0xFF080405, 0.86f), 0x00000000);
-        // Dégradés haut/bas pour asseoir le logo et les boutons.
-        ctx.fillGradient(0, 0, this.width, 70, Colors.withAlpha(0xFF000000, 0.55f), 0x00000000);
-        ctx.fillGradient(0, this.height - 70, this.width, this.height,
+        ctx.fillGradient(0, 0, this.width, 80, Colors.withAlpha(0xFF000000, 0.55f), 0x00000000);
+        ctx.fillGradient(0, this.height - 90, this.width, this.height,
             0x00000000, Colors.withAlpha(0xFF000000, 0.65f));
     }
 
@@ -250,6 +245,9 @@ public class CharacterCreateScreen extends Screen {
             renderApparence(ctx, tr, mouseX, mouseY);
             return;
         }
+
+        // Perso centré (rotatable/zoomable) commun à toutes les étapes.
+        drawAvatar(ctx, false);
 
         drawLogo(ctx, tr);
         drawTabs(ctx, tr, mouseX, mouseY);
@@ -421,6 +419,8 @@ public class CharacterCreateScreen extends Screen {
     private int cat = -1;            // -1 = grille principale ; 0..3 = catégorie
     private int subCat = 0;          // sous-catégorie (Visage : 0 Yeux / 1 Cheveux / 2 Pilosité)
     private boolean pickerOpen = false;
+    private float avatarSpin = 0f;   // rotation horizontale (maintien clic droit)
+    private float avatarZoom = 1f;   // facteur de zoom (molette)
     private int hsvDrag = -1;        // 0 teinte, 1 saturation, 2 valeur ; -1 = aucun
     private float pkH, pkS, pkV;     // HSV en cours d'édition
     private int pkX, pkY, pkW;       // rect du color-picker (mémorisé au render)
@@ -434,28 +434,37 @@ public class CharacterCreateScreen extends Screen {
         if (cat < 0) renderCatGrid(ctx, tr, mx, my);
         else renderCatEditor(ctx, tr, mx, my);
         // Logo REBORN en haut à droite.
-        String logo = "REBORN";
-        int lx = this.width - 24 - tr.width(logo);
-        ctx.text(tr, Component.literal(logo), lx, 22, Colors.GOLD, false);
+        Component logo = ax("REBORN");
+        ctx.text(tr, logo, this.width - 24 - tr.width(logo), 22, Colors.GOLD, false);
     }
 
-    /** Rend le joueur local (skin composé via l'override) centré, zoomé ou non. */
+    /** Rend le joueur local (skin composé via l'override) centré, zoomé ou non.
+     *  Rotation horizontale = {@link #avatarSpin} (clic droit maintenu) ; zoom =
+     *  {@link #avatarZoom} (molette). Perso figé debout (pas d'animation). */
     private void drawAvatar(GuiGraphicsExtractor ctx, boolean headZoom) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         int cx = this.width / 2;
+        float rotX = cx + avatarSpin; // rotation via le paramètre « souris » du render
         if (headZoom) {
-            int size = (int) (this.height * 0.70f);
+            int size = (int) (this.height * 0.70f * avatarZoom);
             int feetY = (int) (this.height * 1.62f);
             net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
-                ctx, cx - size, feetY - size * 2, cx + size, feetY, size, 0f, cx, feetY - size, mc.player);
+                ctx, cx - size, feetY - size * 2, cx + size, feetY, size, 0f, rotX, feetY - size, mc.player);
         } else {
-            int size = (int) (this.height * 0.30f);
+            int size = (int) (this.height * 0.30f * avatarZoom);
             int top = (int) (this.height * 0.15f);
             int bot = (int) (this.height * 0.93f);
             net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
-                ctx, cx - size, top, cx + size, bot, size, 0f, cx, (top + bot) / 2f, mc.player);
+                ctx, cx - size, top, cx + size, bot, size, 0f, rotX, (top + bot) / 2f, mc.player);
         }
+    }
+
+    /** Texte en police du main menu (ArcadePix), majuscules ASCII (accents retirés). */
+    private static Component ax(String s) {
+        return fr.reborn.hud.menu.RebornFont.arcade(
+            java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").toUpperCase(Locale.FRENCH));
     }
 
     // ── Grille principale (4 catégories autour du perso) ──────────────
@@ -480,7 +489,7 @@ public class CharacterCreateScreen extends Screen {
         DrawHelpers.roundedOutlinedRect(ctx, 24, 22, 150, 24, 6,
             Colors.withAlpha(0xFF000000, 0.45f), th ? Colors.ACCENT : Colors.BORDER);
         String ts = own ? "Skin : le mien" : "Skin : RP composé";
-        ctx.text(tr, Component.literal(ts), 34, 30, own ? Colors.GOLD : Colors.ACCENT, false);
+        ctx.text(tr, ax(ts), 34, 30, own ? Colors.GOLD : Colors.ACCENT, false);
 
         // CONFIRM (bas-centre) + RETOUR (bas-gauche).
         int by = this.height - 58, cx = this.width / 2;
@@ -504,7 +513,7 @@ public class CharacterCreateScreen extends Screen {
         ctx.text(tr, Component.literal(String.valueOf(idx + 1)), x + s - 6, y + s - 9,
             dimmed ? Colors.FOREGROUND_MUTED : Colors.WHITE_PURE, false);
         // Légende sous l'icône.
-        Component cap = Component.literal(CAT_NAMES[idx]);
+        Component cap = ax(CAT_NAMES[idx]);
         ctx.text(tr, cap, cx - tr.width(cap) / 2, y + s + 4,
             dimmed ? Colors.FOREGROUND_MUTED : Colors.FOREGROUND_SUBTLE, false);
     }
@@ -547,7 +556,7 @@ public class CharacterCreateScreen extends Screen {
                     Colors.withAlpha(0xFF0A1A16, 0.75f),
                     sel ? Colors.WHITE_PURE : hover ? Colors.ACCENT : Colors.BORDER);
                 drawSubGlyph(ctx, ix, topY, i, sel ? Colors.WHITE_PURE : Colors.ACCENT);
-                Component cp = Component.literal(VISAGE_SUBS[i]);
+                Component cp = ax(VISAGE_SUBS[i]);
                 ctx.text(tr, cp, ix - tr.width(cp) / 2, topY + 22,
                     sel ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
             }
@@ -556,10 +565,6 @@ public class CharacterCreateScreen extends Screen {
                 Colors.withAlpha(0xFF0A1A16, 0.75f), Colors.ACCENT);
             drawCatGlyph(ctx, cx, topY, cat, Colors.ACCENT);
         }
-        // Bouton ✕ (fermer la catégorie → grille).
-        boolean xh = hit(mx, my, cx - 8, topY - 44, 16, 16);
-        ctx.text(tr, Component.literal("✕"), cx - 4, topY - 42,
-            xh ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
 
         // Cycleur de style [A] ‹ n/m › [D] (si la facette a un style).
         int barY = this.height - 58;
@@ -570,8 +575,8 @@ public class CharacterCreateScreen extends Screen {
             boolean lh = hit(mx, my, sx, cyy, 22, 22), rh = hit(mx, my, sx + cw - 22, cyy, 22, 22);
             ctx.text(tr, Component.literal("A ‹"), sx + 6, cyy + 7, lh ? Colors.WHITE_PURE : Colors.ACCENT, false);
             ctx.text(tr, Component.literal("› D"), sx + cw - 22, cyy + 7, rh ? Colors.WHITE_PURE : Colors.ACCENT, false);
-            String frac = (facetStyleIdx() + 1) + " / " + facetStyleCount();
-            ctx.text(tr, Component.literal(frac), cx - tr.width(frac) / 2, cyy + 7, Colors.WHITE_PURE, false);
+            Component frac = ax((facetStyleIdx() + 1) + " / " + facetStyleCount());
+            ctx.text(tr, frac, cx - tr.width(frac) / 2, cyy + 7, Colors.WHITE_PURE, false);
         }
 
         // Barre du bas : RETURN | 🎨 | NOM DU STYLE | 🎨 | CONFIRM.
@@ -583,8 +588,8 @@ public class CharacterCreateScreen extends Screen {
         int nameW = 300, nameX = cx - nameW / 2;
         DrawHelpers.roundedOutlinedRect(ctx, nameX, barY, nameW, 30, 7,
             Colors.withAlpha(0xFF0A1A16, 0.8f), Colors.BORDER_STRONG);
-        String name = facetStyleName();
-        ctx.text(tr, Component.literal(name), cx - tr.width(name) / 2, barY + 11, Colors.WHITE_PURE, false);
+        Component name = ax(facetStyleName());
+        ctx.text(tr, name, cx - tr.width(name) / 2, barY + 11, Colors.WHITE_PURE, false);
 
         if (facetHasColor()) {
             int col = facetColorGet();
@@ -632,7 +637,7 @@ public class CharacterCreateScreen extends Screen {
         pkX = x + 14; pkY = y + 26; pkW = w - 28;
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 8,
             Colors.withAlpha(0xFF0A0F0E, 0.95f), Colors.BORDER_STRONG);
-        ctx.text(tr, Component.literal("COULEUR"), x + 14, y + 10, Colors.ACCENT, false);
+        ctx.text(tr, ax("COULEUR"), x + 14, y + 10, Colors.ACCENT, false);
         int cur = fr.reborn.hud.skin.SkinSpec.hsvToArgb(pkH, pkS, pkV);
         DrawHelpers.roundedOutlinedRect(ctx, x + w - 38, y + 8, 24, 14, 3, cur, Colors.WHITE_PURE);
 
@@ -807,7 +812,6 @@ public class CharacterCreateScreen extends Screen {
         // Dans une catégorie.
         if (pickerClick(mx, my)) return true;
         int topY = 60;
-        if (hit(mx, my, cx - 8, topY - 44, 16, 16)) { cat = -1; pickerOpen = false; return true; } // ✕
         if (cat == 1) { // sous-catégories Visage
             int n = VISAGE_SUBS.length, gap = 64, startX = cx - (n - 1) * gap / 2;
             for (int i = 0; i < n; i++) {
@@ -846,7 +850,7 @@ public class CharacterCreateScreen extends Screen {
         // Crochets latéraux.
         DrawHelpers.rect(ctx, x + 6, y + 6, 2, h - 12, border);
         DrawHelpers.rect(ctx, x + w - 8, y + 6, 2, h - 12, border);
-        Component t = Component.literal(label);
+        Component t = ax(label);
         ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2,
             primary ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
         if (key != null) ctx.text(tr, Component.literal(key), x + w - 14, y + h - 10,
@@ -1098,9 +1102,18 @@ public class CharacterCreateScreen extends Screen {
     @Override
     public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dX, double dY) {
         int mx = (int) event.x();
+        // Clic droit maintenu = rotation horizontale du perso.
+        if (event.button() == 1) { avatarSpin += (float) dX; return true; }
         if (hsvDrag >= 0) { updateHsv(mx); return true; }
         if (draggingSize) { setSizeFromTrack(mx); return true; }
         return super.mouseDragged(event, dX, dY);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        // Molette = zoom sur le perso.
+        avatarZoom = Math.max(0.5f, Math.min(2.5f, avatarZoom + (float) verticalAmount * 0.12f));
+        return true;
     }
 
     @Override
