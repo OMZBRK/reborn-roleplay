@@ -28,7 +28,15 @@ public final class TablistData {
     private static volatile List<TabEntry> entries = null;
     private static volatile String rpDate = null;
 
+    /** Vitals RP du viewer poussés par le serveur (bloc {@code "self"} du feed). */
+    public record SelfVitals(int hp, int maxHp, int chakra, int maxChakra) {}
+    private static volatile SelfVitals selfVitals = null;
+
     public static boolean hasData() { return entries != null; }
+
+    /** Vie/chakra RP du joueur local (serveur-authoritative), ou {@code null}
+     *  hors serveur / sans perso actif → l'appelant retombe sur les valeurs vanilla. */
+    public static SelfVitals selfVitals() { return selfVitals; }
 
     /** Entrées serveur si dispo, sinon mock (pour ne jamais afficher un tab vide). */
     public static List<TabEntry> entries(String selfName) {
@@ -41,7 +49,7 @@ public final class TablistData {
         return d != null ? d : MockTablist.rpDate();
     }
 
-    public static void clear() { entries = null; rpDate = null; }
+    public static void clear() { entries = null; rpDate = null; selfVitals = null; }
 
     /** Parse le JSON du canal et publie le nouveau snapshot (thread client). */
     public static void update(String json) {
@@ -77,6 +85,16 @@ public final class TablistData {
                         ping, level, age, affinity));
                 }
             }
+            // Vitals RP du viewer (présent seulement si perso actif côté serveur).
+            if (root.has("self") && root.get("self").isJsonObject()) {
+                JsonObject sv = root.getAsJsonObject("self");
+                selfVitals = new SelfVitals(
+                    optInt(sv, "hp", 0), Math.max(1, optInt(sv, "mhp", 1)),
+                    optInt(sv, "ck", 0), Math.max(1, optInt(sv, "mck", 1)));
+            } else {
+                selfVitals = null;
+            }
+
             entries = list;
             rpDate = date;
         } catch (Exception ignored) {

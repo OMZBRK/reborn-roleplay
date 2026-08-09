@@ -109,15 +109,33 @@ public final class VitalsHud {
         int barH = 11;
         int y1 = 14, y2 = y1 + barH + 3, y3 = y2 + barH + 3;
 
-        // Vie.
-        int hpCur = (int) Math.ceil(p.getHealth());
-        int hpMax = (int) Math.max(1, p.getMaxHealth());
+        // Vitals RP serveur-authoritative (bloc « self » du tablist, réémis à la
+        // reco → survit au déco/reco). Fallback vanilla hors serveur / sans perso.
+        TablistData.SelfVitals sv = TablistData.selfVitals();
+
+        // Vie : vraie vie RP (ShinobiCore), PAS les cœurs MC vanilla.
+        int hpCur, hpMax;
+        if (sv != null) {
+            hpCur = sv.hp();
+            hpMax = Math.max(1, sv.maxHp());
+        } else {
+            hpCur = (int) Math.ceil(p.getHealth());
+            hpMax = (int) Math.max(1, p.getMaxHealth());
+        }
         bar(ctx, tr, cx, y1, cw, barH, HP_COLOR, hpCur / (float) hpMax, hpCur + "/" + hpMax);
 
-        // Chakra (barre plus courte : place aux icônes voix à droite).
-        int ckCur = p.experienceLevel;
-        float ckRatio = Math.max(0f, Math.min(1f, p.experienceProgress));
-        int ckMax = ckRatio > 0.001f ? Math.round(ckCur / ckRatio) : Math.max(ckCur, 1);
+        // Chakra : valeur RP du serveur (plus les champs XP détournés qui se
+        // désynchronisaient à la reco).
+        int ckCur, ckMax;
+        if (sv != null) {
+            ckCur = sv.chakra();
+            ckMax = Math.max(1, sv.maxChakra());
+        } else {
+            ckCur = p.experienceLevel;
+            float pr = Math.max(0f, Math.min(1f, p.experienceProgress));
+            ckMax = pr > 0.001f ? Math.round(ckCur / pr) : Math.max(ckCur, 1);
+        }
+        float ckRatio = Math.max(0f, Math.min(1f, ckCur / (float) ckMax));
         int voiceW = 24;
         bar(ctx, tr, cx, y2, cw - voiceW, barH, CK_COLOR, ckRatio, ckCur + "/" + ckMax);
         voiceIcons(ctx, cx + cw - voiceW + 4, y2 + (barH - 10) / 2);
