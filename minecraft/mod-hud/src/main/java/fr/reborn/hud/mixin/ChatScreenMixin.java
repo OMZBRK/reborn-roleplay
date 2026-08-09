@@ -89,13 +89,13 @@ public abstract class ChatScreenMixin {
     private void reborn$hoverTooltip(GuiGraphicsExtractor ctx, Minecraft mc, int mouseX, int mouseY) {
         try {
             ChatSettings settings = RebornHudClient.config().getChatSettings();
-            HudElementState st = RebornHudClient.config().stateOf(HudElement.CHAT);
             var acc = (ChatComponentAccessor) (Object) mc.gui.getChat();
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
+            double[] loc = fr.reborn.hud.runtime.HudTransform.toLocal(HudElement.CHAT, mouseX, mouseY);
             String url = fr.reborn.hud.runtime.ChatMessageRenderer.urlAt(
                 mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
-                sw, sh, settings, mouseX, mouseY, (int) st.x(), (int) st.y());
+                sw, sh, settings, loc[0], loc[1], 0, 0);
             if (url == null) return;
             var font = mc.font;
             String tip = "↳ " + url; // ↳ URL
@@ -198,17 +198,18 @@ public abstract class ChatScreenMixin {
         // (le rendu vanilla est annulé → getClickedComponentStyleAt ne marche plus).
         try {
             ChatSettings settings = RebornHudClient.config().getChatSettings();
-            HudElementState st = RebornHudClient.config().stateOf(HudElement.CHAT);
             var acc = (ChatComponentAccessor) (Object) mc.gui.getChat();
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
-            int offX = (int) st.x();
-            int offY = (int) st.y();
+            // Coordonnées LOCALES du chat (inverse offset + scale) → hit-testing
+            // aligné même si le chat est déplacé/redimensionné dans l'éditeur.
+            double[] loc = fr.reborn.hud.runtime.HudTransform.toLocal(HudElement.CHAT, event.x(), event.y());
+            double lx = loc[0], ly = loc[1];
             boolean shift = (event.modifiers() & org.lwjgl.glfw.GLFW.GLFW_MOD_SHIFT) != 0;
             if (shift) {
                 String line = fr.reborn.hud.runtime.ChatMessageRenderer.lineTextAt(
                     mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
-                    sw, sh, settings, event.x(), event.y(), offX, offY);
+                    sw, sh, settings, lx, ly, 0, 0);
                 if (line != null && !line.isBlank()) {
                     mc.keyboardHandler.setClipboard(line);
                     if (mc.player != null) {
@@ -223,7 +224,7 @@ public abstract class ChatScreenMixin {
                 // 1) Composant cliquable envoyé par le serveur (ClickEvent).
                 net.minecraft.network.chat.Style style = fr.reborn.hud.runtime.ChatMessageRenderer.styleAt(
                     mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
-                    sw, sh, settings, event.x(), event.y(), offX, offY);
+                    sw, sh, settings, lx, ly, 0, 0);
                 if (style != null && style.getClickEvent() != null) {
                     ScreenInvoker.reborn$defaultHandleGameClickEvent(style.getClickEvent(), mc, screen);
                     cir.setReturnValue(true);
@@ -232,7 +233,7 @@ public abstract class ChatScreenMixin {
                 // 2) URL tapée en clair (pas de ClickEvent → auto-détection).
                 String url = fr.reborn.hud.runtime.ChatMessageRenderer.urlAt(
                     mc, mc.font, acc.reborn$trimmedMessages(), acc.reborn$chatScrollbarPos(),
-                    sw, sh, settings, event.x(), event.y(), offX, offY);
+                    sw, sh, settings, lx, ly, 0, 0);
                 if (url != null) {
                     try {
                         ScreenInvoker.reborn$clickUrlAction(mc, screen, new java.net.URI(url));

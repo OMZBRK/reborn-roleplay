@@ -50,10 +50,13 @@ public final class SpeechBubbles {
                 drawFor(ctx, mc.player, camPos, vp, gw, gh, now, 1);
             }
         }
-        // Frappe chat (3 points) — proximity, poussé par ShinobiCore.
+        // Frappe chat (3 points) — proximity, poussé par ShinobiCore. Affiché AUSSI
+        // au-dessus de soi (sauf en 1re personne où la tête est sur la caméra).
+        boolean firstPerson = mc.options.getCameraType().isFirstPerson();
         for (int id : fr.reborn.hud.chat.TypingState.typingEntityIds()) {
             Entity e = mc.level.getEntity(id);
-            if (e == null || e == mc.player) continue;
+            if (e == null) continue;
+            if (e == mc.player && firstPerson) continue;
             drawFor(ctx, e, camPos, vp, gw, gh, now, 3);
         }
     }

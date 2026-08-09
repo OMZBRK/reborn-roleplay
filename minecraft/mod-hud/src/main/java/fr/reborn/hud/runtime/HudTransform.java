@@ -71,4 +71,29 @@ public final class HudTransform {
     public static void revert(GuiGraphicsExtractor ctx) {
         ctx.pose().popMatrix();
     }
+
+    /**
+     * Convertit un point ÉCRAN (souris) vers l'espace LOCAL de l'élément (celui
+     * dans lequel il est dessiné après {@link #apply}), en inversant translate +
+     * scale-autour-de-l'anchor. Utilisé pour le hit-testing (clic chat) afin que
+     * les clics restent alignés même si l'élément est déplacé/redimensionné.
+     */
+    public static double[] toLocal(HudElement element, double screenX, double screenY) {
+        HudElementState state = readStateSafely(element);
+        Minecraft mc = Minecraft.getInstance();
+        int screenW = mc.getWindow().getGuiScaledWidth();
+        int screenH = mc.getWindow().getGuiScaledHeight();
+        HudAnchor anchor = state.effectiveAnchor(element);
+        HudElementBounds vanilla = HudElementBounds.vanillaFor(element, screenW, screenH);
+        double ax = vanilla.x() + vanilla.width() * anchor.fx;
+        double ay = vanilla.y() + vanilla.height() * anchor.fy;
+        double lx = screenX - state.x();
+        double ly = screenY - state.y();
+        float scale = state.scale();
+        if (scale != 1.0f) {
+            lx = ax + (lx - ax) / scale;
+            ly = ay + (ly - ay) / scale;
+        }
+        return new double[] { lx, ly };
+    }
 }
