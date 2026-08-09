@@ -17,22 +17,20 @@ import net.minecraft.resources.Identifier;
  * et 3 barres arrondies — <b>vie</b> (rouge, cur/max), <b>chakra</b> (bleu,
  * cur/max) + icônes voix, <b>stamina</b> (dorée, %).
  *
- * <p>Data lue côté client : vie = {@code getHealth()/getMaxHealth()} (max RP posé
- * par ShinobiLife via attribut) ; chakra = champs XP détournés par ShinobiCore
- * ({@code experienceLevel} = montant, {@code experienceProgress} = ratio → max
- * dérivé) ; stamina = faim. Le <b>niveau</b> RP et l'état <b>voix</b> arrivent
- * plus tard via ShinobiCore/PlasmoVoice → {@link #level}/{@link #voiceMuted}/
- * {@link #voiceDeafened} (hooks, défaut neutre).
+ * <p>Data lue côté client : vie/chakra = valeurs RP serveur-authoritative du
+ * bloc {@code self} du tablist ({@link fr.reborn.hud.menu.tablist.TablistData}),
+ * fallback vanilla hors serveur ; stamina = faim ; niveau RP via {@link #level}
+ * (hook ShinobiCore) ; état <b>voix</b> (mute/parle/assourdi) en direct de
+ * {@link fr.reborn.hud.voice.VoiceState} (PlasmoVoice).
  */
 public final class VitalsHud {
 
     public static final int WIDTH = 210;
     public static final int HEIGHT = 56;
 
-    // Hooks data (posés plus tard par ShinobiCore / PlasmoVoice).
+    // Hook niveau (posé plus tard par ShinobiCore ; l'état voix vient désormais
+    // en direct de VoiceState / PlasmoVoice).
     public static volatile int level = 1;
-    public static volatile boolean voiceMuted = false;
-    public static volatile boolean voiceDeafened = false;
 
     private static final int GOLD     = 0xFFE8C34A;
     private static final int HP_COLOR = 0xFFDC3B3B;
@@ -162,11 +160,21 @@ public final class VitalsHud {
         }
     }
 
-    /** Micro + casque (textures 16×16 mises à l'échelle 10px) selon l'état voix. */
+    /** Micro + casque (textures 16×16 mises à l'échelle 10px) selon l'état voix
+     *  PlasmoVoice : mic off si mute, casque off si assourdi, halo vert quand on
+     *  parle. États lus en direct via {@link fr.reborn.hud.voice.VoiceState}
+     *  (valeurs neutres si PlasmoVoice absent). */
     private static void voiceIcons(GuiGraphicsExtractor ctx, int x, int y) {
         int s = 10;
-        Identifier mic = voiceMuted ? MIC_OFF : MIC_ON;
-        Identifier cas = voiceDeafened ? CASQUE_OFF : CASQUE_ON;
+        boolean muted = fr.reborn.hud.voice.VoiceState.selfMuted();
+        boolean deaf = fr.reborn.hud.voice.VoiceState.selfDeafened();
+        boolean speaking = !muted && fr.reborn.hud.voice.VoiceState.selfSpeaking();
+        // Halo vert derrière le micro quand on parle.
+        if (speaking) {
+            DrawHelpers.roundedRectFull(ctx, x - 1, y - 1, s + 2, s + 2, 3, 0x9044DD55);
+        }
+        Identifier mic = muted ? MIC_OFF : MIC_ON;
+        Identifier cas = deaf ? CASQUE_OFF : CASQUE_ON;
         ctx.blit(RenderPipelines.GUI_TEXTURED, mic, x, y, 0f, 0f, s, s, 16, 16, 16, 16);
         ctx.blit(RenderPipelines.GUI_TEXTURED, cas, x + s + 2, y, 0f, 0f, s, s, 16, 16, 16, 16);
     }

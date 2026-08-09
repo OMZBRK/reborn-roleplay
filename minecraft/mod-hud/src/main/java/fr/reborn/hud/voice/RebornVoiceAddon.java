@@ -2,32 +2,24 @@ package fr.reborn.hud.voice;
 
 import su.plo.voice.api.addon.AddonInitializer;
 import su.plo.voice.api.addon.AddonLoaderScope;
-import su.plo.voice.api.addon.InjectPlasmoVoice;
 import su.plo.voice.api.addon.annotation.Addon;
-import su.plo.voice.api.client.PlasmoVoiceClient;
 
 /**
- * Addon client PlasmoVoice minimal : capte l'instance {@link PlasmoVoiceClient}
- * (injectée par {@link InjectPlasmoVoice}) pour que {@link VoiceState} puisse
- * interroger qui parle et alimenter la <b>bulle de parole</b> + les icônes voix.
+ * Addon client PlasmoVoice minimal : sa seule utilité est de déclarer Reborn
+ * comme addon PV (propreté) et de servir de <b>détection de présence</b> —
+ * charger cet addon échoue (NoClassDefFoundError, capturé) si PlasmoVoice n'est
+ * pas dans le modpack, ce qui gate l'enregistrement du renderer.
  *
- * <p>Enregistré via {@code PlasmoVoiceClient.getAddonsLoader().load(...)} au boot
- * du mod. Se désactive proprement si PlasmoVoice est absent (try/catch au load).
+ * <p>L'accès au client se fait dans {@link VoiceState} via l'instance statique
+ * {@code ModVoiceClient.INSTANCE} (l'injection {@code @InjectPlasmoVoice} sur un
+ * champ Java ne s'est pas révélée fiable).
  */
 @Addon(id = "reborn-voice", name = "Reborn Voice", version = "1.0.0",
        authors = {"Reborn"}, scope = AddonLoaderScope.CLIENT)
 public final class RebornVoiceAddon implements AddonInitializer {
 
-    @InjectPlasmoVoice
-    private PlasmoVoiceClient voiceClient;
-
     @Override
     public void onAddonInitialize() {
-        VoiceState.setClient(voiceClient);
-    }
-
-    @Override
-    public void onAddonShutdown() {
-        VoiceState.setClient(null);
+        // Rien : VoiceState lit ModVoiceClient.INSTANCE directement.
     }
 }
