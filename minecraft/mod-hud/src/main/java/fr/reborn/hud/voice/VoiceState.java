@@ -37,11 +37,16 @@ public final class VoiceState {
     public static boolean available() { return client() != null; }
 
     // ── État voix perso (testable en solo) ─────────────────────────
-    /** true = le joueur local parle / transmet en ce moment. */
+    /** true = le joueur local <b>transmet</b> en ce moment. On lit l'activation
+     *  ({@code ClientActivation.isActive()}), PAS {@code AudioCapture.isActive()}
+     *  qui signifie juste « micro ouvert » (toujours vrai → faux positif). */
     public static boolean selfSpeaking() {
         PlasmoVoiceClient c = client();
         try {
-            return c != null && c.getAudioCapture().isActive();
+            if (c == null) return false;
+            return c.getActivationManager().getParentActivation()
+                .map(a -> a.isActive() && !a.isDisabled())
+                .orElse(false);
         } catch (Throwable t) { return false; }
     }
 
