@@ -3,95 +3,116 @@ package fr.reborn.hud.skin;
 import java.util.Locale;
 
 /**
- * Spécification d'apparence d'un personnage Reborn (Phase 2 création de perso).
+ * Spécification d'apparence d'un personnage Reborn (Phase 2, éditeur KORVEX).
  *
- * <p>Décrit un skin composé par <b>identifiants cosmétiques</b> (teinte de peau,
- * coiffure, couleurs, tenue) plutôt que par une texture brute. {@link RebornSkins}
- * transforme cette spec en une texture 64×64 ; comme tous les clients ont le mod,
- * chacun compose la même image à partir des mêmes IDs → tout le monde voit le même
- * personnage. La spec voyage jusqu'au serveur (commande {@code create}) qui la
- * stocke et la rediffuse dans le roster {@code reborn:character}.
+ * <p>Modèle <b>style + couleur</b> : chaque facette (cheveux, yeux, pilosité,
+ * tenue) a un <b>style</b> (index de forme, cyclé par {@code ‹ N/M ›}) et une
+ * <b>couleur libre</b> (ARGB, réglée par un color-picker HSV). La peau n'a qu'une
+ * couleur. {@link RebornSkins} transforme la spec en texture 64×64 ; comme tous
+ * les clients ont le mod, chacun compose la même image → tout le monde voit le
+ * même perso. La spec voyage au serveur (commande {@code create}) qui la stocke
+ * et la rediffuse dans le roster {@code reborn:character}.
  *
- * <p><b>Phase actuelle (sans assets)</b> : la composition est <i>procédurale</i>
- * (aplats de couleur sur les zones du skin). Les vrais PNG (visages, coiffures,
- * tenues de clan) remplaceront le rendu dans {@link RebornSkins#compose} sans
- * changer ni cette spec ni la synchro.
- *
- * <p>{@link #useOwnSkin} laisse le joueur conserver son propre skin Minecraft :
- * dans ce cas aucune texture n'est composée et l'override est retiré.
+ * <p><b>Sans assets</b> : la composition est procédurale (aplats + variations de
+ * forme selon le style). Les vrais PNG remplaceront {@link RebornSkins#compose}
+ * sans toucher à cette spec ni à la synchro. {@link #useOwnSkin} conserve le skin
+ * Minecraft du joueur (aucune composition).
  */
 public final class SkinSpec {
 
-    // ── Options « Type de skin » ──────────────────────────────────────
-    public static final String[] SKIN_TYPES = { "RP composé", "Mon skin" };
-
-    // ── Palette teinte de peau (rampe sombre → clair, ARGB) ───────────
-    public static final int SKIN_DARK = 0xFF3B2A1E;
-    public static final int SKIN_LIGHT = 0xFFFFE0BD;
-    /** Arrêts discrets de teinte pour le cycleur (garde {@link #skinTone} continu). */
-    public static final float[] SKIN_STOPS = { 0.0f, 0.2f, 0.4f, 0.6f, 0.8f, 1.0f };
-    public static final String[] SKIN_STOP_NAMES = {
-        "Ébène", "Foncée", "Hâlée", "Mate", "Claire", "Pâle"
-    };
-
-    // ── Coiffures (procédural : hauteur de frange + couverture) ───────
-    public static final String[] HAIR_STYLES = { "Rasé", "Court", "Hérissé", "Mi-long", "Long" };
-    /** Nombre de rangées de frange sur le visage, par style. */
+    // ── Noms de styles (procédural = variation de forme) ──────────────
+    public static final String[] HAIR_STYLES = { "Chauve", "Court", "Hérissé", "Mi-long", "Long" };
+    /** Rangées de frange sur le front, par style de cheveux. */
     public static final int[] HAIR_FRINGE = { 0, 1, 2, 2, 3 };
 
-    public static final String[] HAIR_COLOR_NAMES = {
-        "Noir", "Brun", "Châtain", "Blond", "Roux", "Blanc", "Bleu", "Rose", "Vert", "Violet"
-    };
-    public static final int[] HAIR_COLORS = {
-        0xFF1A1A1E, 0xFF3A2416, 0xFF6B4A2B, 0xFFE8C878, 0xFFA83F1E,
-        0xFFEDEDED, 0xFF2F6DB5, 0xFFE87FB0, 0xFF3E8E4F, 0xFF7A4FB0
-    };
+    public static final String[] EYE_STYLES = { "Normaux", "Fendus", "Ronds", "Perçants" };
+    public static final String[] FACIAL_STYLES = { "Aucune", "Moustache", "Bouc", "Barbe" };
+    public static final String[] OUTFIT_STYLES = { "Torse nu", "Débardeur", "Veste", "Manteau", "Kimono" };
 
-    public static final String[] EYE_COLOR_NAMES = {
-        "Noir", "Brun", "Bleu", "Vert", "Rouge", "Ambre", "Violet", "Gris"
-    };
-    public static final int[] EYE_COLORS = {
-        0xFF141414, 0xFF5A3A1E, 0xFF3A78C8, 0xFF3E9E5A,
-        0xFFB52B2B, 0xFFD79A2B, 0xFF8A4FB0, 0xFF9AA0A6
-    };
-
-    public static final String[] OUTFIT_NAMES = {
-        "Civile", "Genin", "Jōnin", "ANBU", "Kiri", "Akatsuki", "Blanche"
-    };
-    public static final int[] OUTFIT_COLORS = {
-        0xFF6B6F76, 0xFFD9772E, 0xFF3E5E3A, 0xFF1E2024, 0xFF2F5E7A, 0xFF17161C, 0xFFDDDDDD
-    };
+    // ── Couleurs par défaut (ARGB) ────────────────────────────────────
+    public static final int DEFAULT_SKIN = 0xFFD9A57D;
+    public static final int DEFAULT_HAIR = 0xFF3A2416;
+    public static final int DEFAULT_EYE = 0xFF5A3A1E;
+    public static final int DEFAULT_FACIAL = 0xFF3A2416;
+    public static final int DEFAULT_OUTFIT = 0xFFD9772E;
 
     // ── État ──────────────────────────────────────────────────────────
     public boolean useOwnSkin = false;
-    public float skinTone = 0.6f;   // 0..1 (continu ; partagé avec le slider Identité)
-    public int hairStyle = 1;       // index HAIR_STYLES
-    public int hairColor = 0;       // index HAIR_COLORS
-    public int eyeColor = 1;        // index EYE_COLORS
-    public int outfit = 1;          // index OUTFIT_COLORS
+
+    public int skinColor = DEFAULT_SKIN;
+
+    public int hairStyle = 1;
+    public int hairColor = DEFAULT_HAIR;
+
+    public int eyeStyle = 0;
+    public int eyeColor = DEFAULT_EYE;
+
+    public int facialStyle = 0;
+    public int facialColor = DEFAULT_FACIAL;
+
+    public int outfitStyle = 2;
+    public int outfitColor = DEFAULT_OUTFIT;
 
     /** Fait tourner un index dans [0, len) avec bouclage (dir = +1 / -1). */
     public static int cycle(int idx, int len, int dir) {
         return ((idx + dir) % len + len) % len;
     }
 
-    /** Clé stable (change à chaque modif) — utile pour du cache éventuel. */
-    public String key() {
-        return String.format(Locale.US, "%b:%.2f:%d:%d:%d:%d",
-            useOwnSkin, skinTone, hairStyle, hairColor, eyeColor, outfit);
+    // ── Color picker HSV libre ────────────────────────────────────────
+    /** HSV (h∈[0,1), s,v∈[0,1]) → ARGB opaque. */
+    public static int hsvToArgb(float h, float s, float v) {
+        h = (h % 1f + 1f) % 1f;
+        s = clamp01(s); v = clamp01(v);
+        int i = (int) (h * 6f);
+        float f = h * 6f - i;
+        float p = v * (1f - s), q = v * (1f - f * s), t = v * (1f - (1f - f) * s);
+        float r, g, b;
+        switch (i % 6) {
+            case 0 -> { r = v; g = t; b = p; }
+            case 1 -> { r = q; g = v; b = p; }
+            case 2 -> { r = p; g = v; b = t; }
+            case 3 -> { r = p; g = q; b = v; }
+            case 4 -> { r = t; g = p; b = v; }
+            default -> { r = v; g = p; b = q; }
+        }
+        return 0xFF000000 | (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
     }
 
+    /** ARGB → HSV {h,s,v} ∈ [0,1]. */
+    public static float[] argbToHsv(int argb) {
+        float r = ((argb >> 16) & 0xFF) / 255f, g = ((argb >> 8) & 0xFF) / 255f, b = (argb & 0xFF) / 255f;
+        float max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
+        float d = max - min;
+        float h = 0f;
+        if (d > 0f) {
+            if (max == r) h = ((g - b) / d) % 6f;
+            else if (max == g) h = (b - r) / d + 2f;
+            else h = (r - g) / d + 4f;
+            h /= 6f;
+            if (h < 0f) h += 1f;
+        }
+        float s = max == 0f ? 0f : d / max;
+        return new float[] { h, s, max };
+    }
+
+    private static float clamp01(float x) { return x < 0f ? 0f : x > 1f ? 1f : x; }
+
     /**
-     * Queue sérialisée ajoutée à la commande {@code create} (une valeur par ligne),
-     * pour que ShinobiCore stocke + rediffuse l'apparence.
-     * Ordre : useOwnSkin, skinTone, hairStyle, hairColor, eyeColor, outfit.
+     * Queue sérialisée ajoutée à la commande {@code create} (une valeur par ligne)
+     * pour que ShinobiCore stocke + rediffuse l'apparence. Couleurs en hex RRGGBB.
+     * Ordre : useOwnSkin, skin, hairStyle, hair, eyeStyle, eye, facialStyle,
+     * facial, outfitStyle, outfit.
      */
     public String serialize() {
         return (useOwnSkin ? "1" : "0")
-            + "\n" + String.format(Locale.US, "%.2f", skinTone)
-            + "\n" + hairStyle
-            + "\n" + hairColor
-            + "\n" + eyeColor
-            + "\n" + outfit;
+            + "\n" + hex(skinColor)
+            + "\n" + hairStyle + "\n" + hex(hairColor)
+            + "\n" + eyeStyle + "\n" + hex(eyeColor)
+            + "\n" + facialStyle + "\n" + hex(facialColor)
+            + "\n" + outfitStyle + "\n" + hex(outfitColor);
+    }
+
+    private static String hex(int argb) {
+        return String.format(Locale.US, "%06X", argb & 0xFFFFFF);
     }
 }

@@ -73,45 +73,75 @@ public final class RebornSkins {
     public static NativeImage compose(SkinSpec spec) {
         NativeImage img = new NativeImage(64, 64, false);
 
-        int skin = argbToAbgr(lerp(SkinSpec.SKIN_DARK, SkinSpec.SKIN_LIGHT, spec.skinTone));
-        int outfit = argbToAbgr(SkinSpec.OUTFIT_COLORS[clampIdx(spec.outfit, SkinSpec.OUTFIT_COLORS.length)]);
-        int outfitDark = argbToAbgr(shade(SkinSpec.OUTFIT_COLORS[clampIdx(spec.outfit, SkinSpec.OUTFIT_COLORS.length)], 0.82f));
-        int hair = argbToAbgr(SkinSpec.HAIR_COLORS[clampIdx(spec.hairColor, SkinSpec.HAIR_COLORS.length)]);
-        int eye = argbToAbgr(SkinSpec.EYE_COLORS[clampIdx(spec.eyeColor, SkinSpec.EYE_COLORS.length)]);
+        int skin = argbToAbgr(spec.skinColor);
+        int outfit = argbToAbgr(spec.outfitColor);
+        int outfitDark = argbToAbgr(shade(spec.outfitColor, 0.82f));
+        int hair = argbToAbgr(spec.hairColor);
+        int eye = argbToAbgr(spec.eyeColor);
+        int facial = argbToAbgr(spec.facialColor);
         int white = abgr(238, 238, 238, 255);
         int transparent = abgr(0, 0, 0, 0);
 
         // 1) Peau sur tout le corps (couche de base).
         img.fillRect(0, 0, 64, 64, skin);
 
-        // 2) On efface les couches « overlay » indésirables pour éviter un modèle
-        //    gonflé : chapeau (32,0)-(64,16) + surcouches des bras.
+        // 2) Efface les couches « overlay » indésirables (évite un modèle gonflé) :
+        //    chapeau (32,0)-(64,16) + surcouches des bras.
         img.fillRect(32, 0, 32, 16, transparent); // hat
         img.fillRect(40, 32, 16, 16, transparent); // right-arm overlay
         img.fillRect(48, 48, 16, 16, transparent); // left-arm overlay
 
-        // 3) Tenue : torse + jambes (couche base ET surcouche → look habillé).
-        img.fillRect(16, 16, 24, 16, outfit); // torse base
-        img.fillRect(16, 32, 24, 16, outfit); // torse overlay (veste)
-        img.fillRect(0, 16, 16, 16, outfitDark); // jambe droite base
-        img.fillRect(0, 32, 16, 16, outfitDark); // jambe droite overlay
+        // 3) Tenue : couverture selon le style.
+        //    0=torse nu (juste short), 1=débardeur, 2=veste, 3=manteau, 4=kimono.
+        int oStyle = clampIdx(spec.outfitStyle, SkinSpec.OUTFIT_STYLES.length);
+        // Short/pantalon (toujours présent) sur les jambes.
+        img.fillRect(0, 16, 16, 16, outfitDark);  // jambe droite base
+        img.fillRect(0, 32, 16, 16, outfitDark);  // jambe droite overlay
         img.fillRect(16, 48, 16, 16, outfitDark); // jambe gauche base
-        img.fillRect(0, 48, 16, 16, outfitDark); // jambe gauche overlay
+        img.fillRect(0, 48, 16, 16, outfitDark);  // jambe gauche overlay
+        if (oStyle >= 1) {
+            // Torse habillé.
+            img.fillRect(16, 16, 24, 16, outfit);
+            img.fillRect(16, 32, 24, 16, outfit); // veste (overlay torse)
+            if (oStyle >= 2) {
+                // Manches (bras) pour veste/manteau/kimono.
+                img.fillRect(40, 16, 16, 16, outfit); // bras droit base
+                img.fillRect(32, 48, 16, 16, outfit); // bras gauche base
+            }
+        }
 
-        // 4) Coiffure : tout le bloc tête en cheveux, puis on restitue le visage.
-        img.fillRect(0, 0, 32, 16, hair);   // top + faces de la tête en cheveux
-        img.fillRect(16, 0, 8, 8, skin);    // dessous du menton (head-bottom) = peau
-        img.fillRect(8, 8, 8, 8, skin);     // visage (front) = peau
-        int fringe = SkinSpec.HAIR_FRINGE[clampIdx(spec.hairStyle, SkinSpec.HAIR_FRINGE.length)];
-        if (fringe > 0) img.fillRect(8, 8, 8, Math.min(fringe, 8), hair); // frange sur le front
+        // 4) Coiffure : bloc tête en cheveux, puis on restitue le visage.
+        int hStyle = clampIdx(spec.hairStyle, SkinSpec.HAIR_STYLES.length);
+        int fringe = SkinSpec.HAIR_FRINGE[hStyle];
+        if (hStyle > 0) { // "Chauve" = pas de cheveux
+            img.fillRect(0, 0, 32, 16, hair); // top + faces de la tête
+            img.fillRect(16, 0, 8, 8, skin);  // dessous menton = peau
+            img.fillRect(8, 8, 8, 8, skin);   // visage = peau
+            if (fringe > 0) img.fillRect(8, 8, 8, Math.min(fringe, 6), hair); // frange
+        }
 
-        // 5) Yeux sur le visage (blanc + iris).
-        int eyeRow = 8 + Math.max(fringe, 2) + 1; // sous la frange
-        if (eyeRow > 14) eyeRow = 14;
+        // 5) Pilosité faciale (moustache/bouc/barbe) sur le bas du visage.
+        int fStyle = clampIdx(spec.facialStyle, SkinSpec.FACIAL_STYLES.length);
+        switch (fStyle) {
+            case 1 -> img.fillRect(10, 13, 4, 1, facial);              // moustache
+            case 2 -> { img.fillRect(11, 13, 2, 3, facial); }          // bouc
+            case 3 -> { img.fillRect(9, 13, 6, 3, facial); img.fillRect(8, 12, 1, 3, facial); img.fillRect(15, 12, 1, 3, facial); } // barbe
+            default -> { }
+        }
+
+        // 6) Yeux (blanc + iris), forme selon le style.
+        int eStyle = clampIdx(spec.eyeStyle, SkinSpec.EYE_STYLES.length);
+        int eyeRow = 8 + Math.max(fringe, 2) + 1;
+        if (eyeRow > 12) eyeRow = 12;
+        int ew = eStyle == 2 ? 2 : 1; // "Ronds" = iris plus large
         img.fillRect(9, eyeRow, 2, 1, white);
         img.fillRect(13, eyeRow, 2, 1, white);
-        img.fillRect(10, eyeRow, 1, 1, eye);
-        img.fillRect(13, eyeRow, 1, 1, eye);
+        img.fillRect(10, eyeRow, ew, 1, eye);
+        img.fillRect(13, eyeRow, ew, 1, eye);
+        if (eStyle == 1) { // "Fendus" : trait plus fin/allongé
+            img.fillRect(9, eyeRow, 3, 1, eye);
+            img.fillRect(13, eyeRow, 3, 1, eye);
+        }
 
         return img;
     }

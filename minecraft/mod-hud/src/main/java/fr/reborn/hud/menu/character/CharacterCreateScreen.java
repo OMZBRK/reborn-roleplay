@@ -82,10 +82,6 @@ public class CharacterCreateScreen extends Screen {
 
     private static final String[] SEXES = { "Homme", "Femme" };
 
-    // Palette peau (aperçu — Phase 2, non envoyé au serveur pour l'instant).
-    private static final int SKIN_DARK = 0xFF3B2A1E;
-    private static final int SKIN_LIGHT = 0xFFFFE0BD;
-
     // ── Géométrie ─────────────────────────────────────────────────
     private static final int TILE = 42, CELL_W = 54, CELL_H = 60;
     private static final int NAV_W = 118, NAV_H = 26;
@@ -106,10 +102,9 @@ public class CharacterCreateScreen extends Screen {
     private EditBox nameField;
     private EditBox customClanField;
 
-    // Sliders (rects mémorisés au render, réutilisés au click/drag).
-    private int skinTX, skinTY, skinTW;
+    // Slider taille (rect mémorisé au render, réutilisé au click/drag).
     private int sizeTX, sizeTY, sizeTW;
-    private boolean draggingSkin = false, draggingSize = false;
+    private boolean draggingSize = false;
 
     // Encadré de description (rempli pendant le render de chaque étape).
     private String descTitle = null;
@@ -223,6 +218,14 @@ public class CharacterCreateScreen extends Screen {
     // ── Rendu ─────────────────────────────────────────────────────
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        // Étape Apparence = éditeur KORVEX plein écran sur fond « void » sombre.
+        if (step == 2) {
+            ctx.fillGradient(0, 0, this.width, this.height, 0xFF16201C, 0xFF090C0B);
+            ctx.fillGradient(0, 0, this.width, 80, Colors.withAlpha(0xFF000000, 0.55f), 0x00000000);
+            ctx.fillGradient(0, this.height - 90, this.width, this.height,
+                0x00000000, Colors.withAlpha(0xFF000000, 0.65f));
+            return;
+        }
         // Voile gauche (panneau lisible) qui s'estompe vers la droite (monde visible).
         int panelRight = panelX() + panelW() + 24;
         DrawHelpers.horizontalGradient(ctx, 0, 0, panelRight, this.height,
@@ -240,6 +243,14 @@ public class CharacterCreateScreen extends Screen {
         descTitle = null;
         descBody = null;
 
+        // Étape Apparence : éditeur KORVEX plein écran (pas de chrome wizard).
+        if (step == 2) {
+            nameField.setVisible(false);
+            customClanField.setVisible(false);
+            renderApparence(ctx, tr, mouseX, mouseY);
+            return;
+        }
+
         drawLogo(ctx, tr);
         drawTabs(ctx, tr, mouseX, mouseY);
         drawStepSubtitle(ctx, tr);
@@ -251,7 +262,6 @@ public class CharacterCreateScreen extends Screen {
         switch (step) {
             case 0 -> renderVillageClan(ctx, tr, mouseX, mouseY);
             case 1 -> renderIdentity(ctx, tr, mouseX, mouseY);
-            case 2 -> renderApparence(ctx, tr, mouseX, mouseY);
             default -> renderValidate(ctx, tr);
         }
 
@@ -378,19 +388,10 @@ public class CharacterCreateScreen extends Screen {
         nameField.extractRenderState(ctx, mx, my, 0f);
         if (hit(mx, my, x, ny + 12, w, 20)) { descTitle = "Prénom"; descBody = "Le nom RP de ton shinobi. Doit être unique sur le serveur."; }
 
-        // Couleur de peau (aperçu Phase 2).
-        int sy = y + 136;
-        label(ctx, tr, "COULEUR DE PEAU", x, sy);
-        skinTX = x; skinTY = sy + 14; skinTW = w - 2;
-        DrawHelpers.horizontalGradient(ctx, skinTX, skinTY, skinTW, 8, SKIN_DARK, SKIN_LIGHT);
-        DrawHelpers.outlinedRect(ctx, skinTX, skinTY, skinTW, 8, 0, Colors.withAlpha(Colors.FOREGROUND, 0.3f));
-        int skKnob = skinTX + Math.round(appearance.skinTone * (skinTW - 1));
-        DrawHelpers.roundedOutlinedRect(ctx, skKnob - 3, skinTY - 2, 6, 12, 2,
-            Colors.lerp(SKIN_DARK, SKIN_LIGHT, appearance.skinTone), Colors.WHITE_PURE);
-        if (hit(mx, my, skinTX, skinTY - 3, skinTW, 14)) { descTitle = "Couleur de peau"; descBody = "Teinte de base de la peau (aperçu — personnalisation complète en Phase 2)."; }
+        // (La couleur de peau se règle dans l'étape Apparence — éditeur KORVEX.)
 
         // Taille.
-        int ty = y + 178;
+        int ty = y + 136;
         int cm = (int) Math.round(1.8 * size * 100);
         label(ctx, tr, "TAILLE", x, ty);
         Component cmT = Component.literal(cm + " cm");
@@ -405,7 +406,7 @@ public class CharacterCreateScreen extends Screen {
         if (hit(mx, my, sizeTX, sizeTY - 3, sizeTW, 14)) { descTitle = "Taille"; descBody = "Ajuste la taille adulte de ton personnage. Ce sera sa taille maximale."; }
 
         // Âge (stepper compact).
-        int ay = y + 214;
+        int ay = y + 172;
         label(ctx, tr, "ÂGE", x, ay);
         square(ctx, tr, x, ay + 12, "-", hit(mx, my, x, ay + 12, 22, 22));
         Component av = Component.literal(String.valueOf(age));
@@ -416,175 +417,440 @@ public class CharacterCreateScreen extends Screen {
         if (descTitle == null) { descTitle = "Identité"; descBody = "Renseigne le sexe, le prénom, la couleur de peau, la taille et l'âge."; }
     }
 
-    // ── Étape 2 : Apparence (éditeur cosmétique façon KORVEX) ─────────
-    private static final int ROW_H = 28, CTRL_W = 152, ARROW_W = 18, CTRL_H = 20;
+    // ══ Étape 2 : Apparence — éditeur KORVEX (perso centré + catégories) ══
+    private int cat = -1;            // -1 = grille principale ; 0..3 = catégorie
+    private int subCat = 0;          // sous-catégorie (Visage : 0 Yeux / 1 Cheveux / 2 Pilosité)
+    private boolean pickerOpen = false;
+    private int hsvDrag = -1;        // 0 teinte, 1 saturation, 2 valeur ; -1 = aucun
+    private float pkH, pkS, pkV;     // HSV en cours d'édition
+    private int pkX, pkY, pkW;       // rect du color-picker (mémorisé au render)
+    private static final int PK_BAR_H = 9, PK_GAP = 14;
+
+    private static final String[] CAT_NAMES = { "Corps", "Visage", "Genre", "Tenue" };
+    private static final String[] VISAGE_SUBS = { "Yeux", "Cheveux", "Pilosité" };
 
     private void renderApparence(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
-        int x = panelX();
-        int w = panelW() - 8;
-        int top = contentTop();
+        drawAvatar(ctx, cat == 1);          // cat 1 = Visage → zoom sur la tête
+        if (cat < 0) renderCatGrid(ctx, tr, mx, my);
+        else renderCatEditor(ctx, tr, mx, my);
+        // Logo REBORN en haut à droite.
+        String logo = "REBORN";
+        int lx = this.width - 24 - tr.width(logo);
+        ctx.text(tr, Component.literal(logo), lx, 22, Colors.GOLD, false);
+    }
 
+    /** Rend le joueur local (skin composé via l'override) centré, zoomé ou non. */
+    private void drawAvatar(GuiGraphicsExtractor ctx, boolean headZoom) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        int cx = this.width / 2;
+        if (headZoom) {
+            int size = (int) (this.height * 0.70f);
+            int feetY = (int) (this.height * 1.62f);
+            net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
+                ctx, cx - size, feetY - size * 2, cx + size, feetY, size, 0f, cx, feetY - size, mc.player);
+        } else {
+            int size = (int) (this.height * 0.30f);
+            int top = (int) (this.height * 0.15f);
+            int bot = (int) (this.height * 0.93f);
+            net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
+                ctx, cx - size, top, cx + size, bot, size, 0f, cx, (top + bot) / 2f, mc.player);
+        }
+    }
+
+    // ── Grille principale (4 catégories autour du perso) ──────────────
+    private int[][] catPositions() {
+        int cx = this.width / 2, cy = this.height / 2;
+        int dx = (int) (this.width * 0.15f), dy = (int) (this.height * 0.20f);
+        return new int[][] {
+            { cx - dx, cy - dy }, { cx + dx, cy - dy },
+            { cx - dx, cy + dy }, { cx + dx, cy + dy }
+        };
+    }
+
+    private void renderCatGrid(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
         boolean own = appearance.useOwnSkin;
-        for (int i = 0; i < EDITOR_ROWS; i++) {
-            int y = top + i * ROW_H;
-            boolean enabled = rowEnabled(i);
-            boolean hover = enabled && hit(mx, my, x, y, w, CTRL_H + 4);
+        int[][] pos = catPositions();
+        for (int i = 0; i < 4; i++) {
+            boolean hover = hit(mx, my, pos[i][0] - 20, pos[i][1] - 20, 40, 40);
+            drawCatIcon(ctx, tr, pos[i][0], pos[i][1], i, hover, own);
+        }
+        // Toggle « Mon skin » (haut-gauche).
+        boolean th = hit(mx, my, 24, 22, 150, 24);
+        DrawHelpers.roundedOutlinedRect(ctx, 24, 22, 150, 24, 6,
+            Colors.withAlpha(0xFF000000, 0.45f), th ? Colors.ACCENT : Colors.BORDER);
+        String ts = own ? "Skin : le mien" : "Skin : RP composé";
+        ctx.text(tr, Component.literal(ts), 34, 30, own ? Colors.GOLD : Colors.ACCENT, false);
 
-            // Libellé.
-            int lblCol = !enabled ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.5f)
-                : Colors.FOREGROUND_MUTED;
-            ctx.text(tr, Component.literal(rowLabel(i)), x, y + 6, lblCol, false);
+        // CONFIRM (bas-centre) + RETOUR (bas-gauche).
+        int by = this.height - 58, cx = this.width / 2;
+        drawKorvexButton(ctx, tr, cx - 95, by, 190, 30, "CONFIRMER", "F",
+            hit(mx, my, cx - 95, by, 190, 30), true);
+        drawKorvexButton(ctx, tr, 24, by, 130, 30, "RETOUR", "↑",
+            hit(mx, my, 24, by, 130, 30), false);
+    }
 
-            // Contrôle (cadre + flèches + valeur).
-            int cx = x + w - CTRL_W, cy = y + 2;
-            DrawHelpers.roundedOutlinedRect(ctx, cx, cy, CTRL_W, CTRL_H, 6,
-                Colors.withAlpha(0xFF000000, enabled ? 0.42f : 0.25f),
-                hover ? Colors.withAlpha(Colors.ACCENT, 0.7f) : Colors.BORDER);
+    /** Icône de catégorie : carré teal + petit pictogramme + badge n° + légende. */
+    private void drawCatIcon(GuiGraphicsExtractor ctx, Font tr, int cx, int cy, int idx,
+                             boolean hover, boolean dimmed) {
+        int s = 40, x = cx - s / 2, y = cy - s / 2;
+        int border = dimmed ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.4f)
+            : hover ? Colors.WHITE_PURE : Colors.ACCENT;
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, s, s, 7,
+            Colors.withAlpha(0xFF0A1A16, hover ? 0.9f : 0.7f), border);
+        int gc = dimmed ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.5f) : Colors.ACCENT;
+        drawCatGlyph(ctx, cx, cy, idx, gc);
+        // Badge numéro (coin bas-droit).
+        ctx.text(tr, Component.literal(String.valueOf(idx + 1)), x + s - 6, y + s - 9,
+            dimmed ? Colors.FOREGROUND_MUTED : Colors.WHITE_PURE, false);
+        // Légende sous l'icône.
+        Component cap = Component.literal(CAT_NAMES[idx]);
+        ctx.text(tr, cap, cx - tr.width(cap) / 2, y + s + 4,
+            dimmed ? Colors.FOREGROUND_MUTED : Colors.FOREGROUND_SUBTLE, false);
+    }
 
-            // Flèches ‹ ›.
-            boolean lh = enabled && hit(mx, my, cx, cy, ARROW_W, CTRL_H);
-            boolean rh = enabled && hit(mx, my, cx + CTRL_W - ARROW_W, cy, ARROW_W, CTRL_H);
-            int arrCol = !enabled ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.4f) : Colors.ACCENT;
-            drawGlyph(ctx, tr, "‹", cx, cy, ARROW_W, lh ? Colors.WHITE_PURE : arrCol);
-            drawGlyph(ctx, tr, "›", cx + CTRL_W - ARROW_W, cy, ARROW_W,
-                rh ? Colors.WHITE_PURE : arrCol);
-
-            // Pastille de couleur (rows couleur) + valeur centrée.
-            int swatch = rowSwatch(i);
-            int textAreaX = cx + ARROW_W, textAreaW = CTRL_W - 2 * ARROW_W;
-            String val = rowValue(i);
-            int valW = tr.width(val);
-            int vx = textAreaX + (textAreaW - valW) / 2;
-            if (swatch != -1) {
-                int sw = 8;
-                int block = valW + sw + 4;
-                vx = textAreaX + (textAreaW - block) / 2 + sw + 4;
-                DrawHelpers.roundedOutlinedRect(ctx, vx - sw - 4, cy + (CTRL_H - sw) / 2, sw, sw, 2,
-                    enabled ? swatch : Colors.withAlpha(swatch, 0.4f),
-                    Colors.withAlpha(Colors.WHITE_PURE, 0.5f));
+    /** Pictogramme procédural par catégorie (sans asset). */
+    private void drawCatGlyph(GuiGraphicsExtractor ctx, int cx, int cy, int idx, int c) {
+        switch (idx) {
+            case 0 -> { // Corps
+                DrawHelpers.rect(ctx, cx - 2, cy - 9, 4, 4, c);
+                DrawHelpers.rect(ctx, cx - 5, cy - 3, 10, 8, c);
             }
-            int valCol = !enabled ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.5f) : Colors.WHITE_PURE;
-            ctx.text(tr, Component.literal(val), vx, cy + 6, valCol, false);
-
-            if (hover) { descTitle = rowLabel(i); descBody = rowHint(i); }
-        }
-
-        // Note « mon skin ».
-        int noteY = top + EDITOR_ROWS * ROW_H + 6;
-        String note = own
-            ? "Ton skin Minecraft personnel est conservé pour ce personnage."
-            : "Aperçu procédural — les vrais visages / coiffures / tenues arrivent avec les assets.";
-        for (FormattedCharSequence l : tr.split(Component.literal(note), w)) {
-            ctx.text(tr, l, x, noteY, Colors.withAlpha(Colors.GOLD, 0.85f), false);
-            noteY += 11;
-        }
-
-        if (descTitle == null) {
-            descTitle = "Apparence";
-            descBody = own
-                ? "Tu as choisi de garder ton propre skin Minecraft."
-                : "Compose l'apparence de ton personnage. Tout le monde (avec le mod) verra le même skin.";
-        }
-    }
-
-    // Nombre de lignes de l'éditeur d'apparence.
-    private static final int EDITOR_ROWS = 6;
-
-    private String rowLabel(int i) {
-        return switch (i) {
-            case 0 -> "TYPE DE SKIN";
-            case 1 -> "TEINTE DE PEAU";
-            case 2 -> "COIFFURE";
-            case 3 -> "COULEUR CHEVEUX";
-            case 4 -> "YEUX";
-            default -> "TENUE";
-        };
-    }
-
-    private boolean rowEnabled(int i) {
-        return i == 0 || !appearance.useOwnSkin; // « mon skin » désactive le reste
-    }
-
-    private String rowValue(int i) {
-        return switch (i) {
-            case 0 -> fr.reborn.hud.skin.SkinSpec.SKIN_TYPES[appearance.useOwnSkin ? 1 : 0];
-            case 1 -> fr.reborn.hud.skin.SkinSpec.SKIN_STOP_NAMES[skinStopIndex()];
-            case 2 -> fr.reborn.hud.skin.SkinSpec.HAIR_STYLES[appearance.hairStyle];
-            case 3 -> fr.reborn.hud.skin.SkinSpec.HAIR_COLOR_NAMES[appearance.hairColor];
-            case 4 -> fr.reborn.hud.skin.SkinSpec.EYE_COLOR_NAMES[appearance.eyeColor];
-            default -> fr.reborn.hud.skin.SkinSpec.OUTFIT_NAMES[appearance.outfit];
-        };
-    }
-
-    /** Couleur de pastille (ARGB) pour les lignes couleur, ou -1 si aucune. */
-    private int rowSwatch(int i) {
-        return switch (i) {
-            case 3 -> fr.reborn.hud.skin.SkinSpec.HAIR_COLORS[appearance.hairColor];
-            case 4 -> fr.reborn.hud.skin.SkinSpec.EYE_COLORS[appearance.eyeColor];
-            case 5 -> fr.reborn.hud.skin.SkinSpec.OUTFIT_COLORS[appearance.outfit];
-            default -> -1;
-        };
-    }
-
-    private String rowHint(int i) {
-        return switch (i) {
-            case 0 -> "« RP composé » construit un skin depuis tes choix ; « Mon skin » garde ton skin Minecraft.";
-            case 1 -> "Teinte de base de la peau (identique au curseur de l'étape Identité).";
-            case 2 -> "Style de coiffure de ton personnage.";
-            case 3 -> "Couleur des cheveux.";
-            case 4 -> "Couleur des yeux.";
-            default -> "Tenue portée par ton personnage.";
-        };
-    }
-
-    /** Fait tourner l'option de la ligne i (dir = ±1) et rafraîchit l'aperçu. */
-    private void cycleRow(int i, int dir) {
-        switch (i) {
-            case 0 -> appearance.useOwnSkin = !appearance.useOwnSkin;
-            case 1 -> {
-                int idx = fr.reborn.hud.skin.SkinSpec.cycle(
-                    skinStopIndex(), fr.reborn.hud.skin.SkinSpec.SKIN_STOPS.length, dir);
-                appearance.skinTone = fr.reborn.hud.skin.SkinSpec.SKIN_STOPS[idx];
+            case 1 -> { // Visage
+                DrawHelpers.outlinedRect(ctx, cx - 6, cy - 6, 12, 12, 0, c);
+                DrawHelpers.rect(ctx, cx - 3, cy - 1, 2, 2, c);
+                DrawHelpers.rect(ctx, cx + 2, cy - 1, 2, 2, c);
             }
-            case 2 -> appearance.hairStyle = fr.reborn.hud.skin.SkinSpec.cycle(
-                appearance.hairStyle, fr.reborn.hud.skin.SkinSpec.HAIR_STYLES.length, dir);
-            case 3 -> appearance.hairColor = fr.reborn.hud.skin.SkinSpec.cycle(
-                appearance.hairColor, fr.reborn.hud.skin.SkinSpec.HAIR_COLORS.length, dir);
-            case 4 -> appearance.eyeColor = fr.reborn.hud.skin.SkinSpec.cycle(
-                appearance.eyeColor, fr.reborn.hud.skin.SkinSpec.EYE_COLORS.length, dir);
-            default -> appearance.outfit = fr.reborn.hud.skin.SkinSpec.cycle(
-                appearance.outfit, fr.reborn.hud.skin.SkinSpec.OUTFIT_COLORS.length, dir);
+            case 2 -> { // Genre (cercle + flèche)
+                DrawHelpers.outlinedRect(ctx, cx - 5, cy - 2, 8, 8, 0, c);
+                DrawHelpers.thickLine(ctx, cx + 2, cy + 1, cx + 7, cy - 4, 2, c);
+                DrawHelpers.rect(ctx, cx + 3, cy - 5, 4, 2, c);
+                DrawHelpers.rect(ctx, cx + 5, cy - 5, 2, 4, c);
+            }
+            default -> { // Tenue (chemise)
+                DrawHelpers.rect(ctx, cx - 6, cy - 5, 12, 4, c); // épaules
+                DrawHelpers.rect(ctx, cx - 4, cy - 1, 8, 8, c);  // torse
+            }
         }
-        refreshPreview();
     }
 
-    private int skinStopIndex() {
-        float[] stops = fr.reborn.hud.skin.SkinSpec.SKIN_STOPS;
-        int best = 0; float bd = Float.MAX_VALUE;
-        for (int i = 0; i < stops.length; i++) {
-            float d = Math.abs(stops[i] - appearance.skinTone);
-            if (d < bd) { bd = d; best = i; }
+    // ── Éditeur d'une catégorie (screens 2/3/4) ───────────────────────
+    private void renderCatEditor(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
+        // Icônes du haut : sous-catégories (Visage) ou l'icône de la catégorie.
+        int topY = 60, cx = this.width / 2;
+        if (cat == 1) {
+            int n = VISAGE_SUBS.length, gap = 64, startX = cx - (n - 1) * gap / 2;
+            for (int i = 0; i < n; i++) {
+                int ix = startX + i * gap;
+                boolean sel = i == subCat, hover = hit(mx, my, ix - 18, topY - 18, 36, 36);
+                DrawHelpers.roundedOutlinedRect(ctx, ix - 18, topY - 18, 36, 36, 6,
+                    Colors.withAlpha(0xFF0A1A16, 0.75f),
+                    sel ? Colors.WHITE_PURE : hover ? Colors.ACCENT : Colors.BORDER);
+                drawSubGlyph(ctx, ix, topY, i, sel ? Colors.WHITE_PURE : Colors.ACCENT);
+                Component cp = Component.literal(VISAGE_SUBS[i]);
+                ctx.text(tr, cp, ix - tr.width(cp) / 2, topY + 22,
+                    sel ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
+            }
+        } else {
+            DrawHelpers.roundedOutlinedRect(ctx, cx - 18, topY - 18, 36, 36, 6,
+                Colors.withAlpha(0xFF0A1A16, 0.75f), Colors.ACCENT);
+            drawCatGlyph(ctx, cx, topY, cat, Colors.ACCENT);
         }
-        return best;
+        // Bouton ✕ (fermer la catégorie → grille).
+        boolean xh = hit(mx, my, cx - 8, topY - 44, 16, 16);
+        ctx.text(tr, Component.literal("✕"), cx - 4, topY - 42,
+            xh ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
+
+        // Cycleur de style [A] ‹ n/m › [D] (si la facette a un style).
+        int barY = this.height - 58;
+        if (facetHasStyle()) {
+            int cyy = barY - 34, cw = 150, sx = cx - cw / 2;
+            DrawHelpers.roundedOutlinedRect(ctx, sx, cyy, cw, 22, 6,
+                Colors.withAlpha(0xFF000000, 0.5f), Colors.BORDER);
+            boolean lh = hit(mx, my, sx, cyy, 22, 22), rh = hit(mx, my, sx + cw - 22, cyy, 22, 22);
+            ctx.text(tr, Component.literal("A ‹"), sx + 6, cyy + 7, lh ? Colors.WHITE_PURE : Colors.ACCENT, false);
+            ctx.text(tr, Component.literal("› D"), sx + cw - 22, cyy + 7, rh ? Colors.WHITE_PURE : Colors.ACCENT, false);
+            String frac = (facetStyleIdx() + 1) + " / " + facetStyleCount();
+            ctx.text(tr, Component.literal(frac), cx - tr.width(frac) / 2, cyy + 7, Colors.WHITE_PURE, false);
+        }
+
+        // Barre du bas : RETURN | 🎨 | NOM DU STYLE | 🎨 | CONFIRM.
+        drawKorvexButton(ctx, tr, 24, barY, 130, 30, "RETOUR", "↑",
+            hit(mx, my, 24, barY, 130, 30), false);
+        drawKorvexButton(ctx, tr, this.width - 154, barY, 130, 30, "CONFIRMER", "F",
+            hit(mx, my, this.width - 154, barY, 130, 30), true);
+
+        int nameW = 300, nameX = cx - nameW / 2;
+        DrawHelpers.roundedOutlinedRect(ctx, nameX, barY, nameW, 30, 7,
+            Colors.withAlpha(0xFF0A1A16, 0.8f), Colors.BORDER_STRONG);
+        String name = facetStyleName();
+        ctx.text(tr, Component.literal(name), cx - tr.width(name) / 2, barY + 11, Colors.WHITE_PURE, false);
+
+        if (facetHasColor()) {
+            int col = facetColorGet();
+            // 🎨 gauche + droite (ouvre/ferme le picker).
+            boolean cLh = hit(mx, my, nameX - 40, barY, 30, 30);
+            boolean cRh = hit(mx, my, nameX + nameW + 10, barY, 30, 30);
+            drawColorButton(ctx, nameX - 40, barY, col, cLh || pickerOpen);
+            drawColorButton(ctx, nameX + nameW + 10, barY, col, cRh || pickerOpen);
+            if (pickerOpen) drawPicker(ctx, tr, mx, my);
+        }
     }
 
-    /** Clic dans l'éditeur d'apparence : renvoie true si une flèche a été activée. */
-    private boolean apparenceClick(int mx, int my) {
-        int x = panelX(), w = panelW() - 8, top = contentTop();
-        for (int i = 0; i < EDITOR_ROWS; i++) {
-            if (!rowEnabled(i)) continue;
-            int y = top + i * ROW_H;
-            int cx = x + w - CTRL_W, cy = y + 2;
-            if (hit(mx, my, cx, cy, ARROW_W, CTRL_H)) { cycleRow(i, -1); return true; }
-            if (hit(mx, my, cx + CTRL_W - ARROW_W, cy, ARROW_W, CTRL_H)) { cycleRow(i, +1); return true; }
-            // Clic au centre = avance aussi (pratique pour le toggle Type).
-            if (hit(mx, my, cx + ARROW_W, cy, CTRL_W - 2 * ARROW_W, CTRL_H)) { cycleRow(i, +1); return true; }
+    private void drawSubGlyph(GuiGraphicsExtractor ctx, int cx, int cy, int sub, int c) {
+        switch (sub) {
+            case 0 -> { // Yeux
+                DrawHelpers.rect(ctx, cx - 7, cy - 1, 5, 3, c);
+                DrawHelpers.rect(ctx, cx + 2, cy - 1, 5, 3, c);
+            }
+            case 1 -> { // Cheveux
+                DrawHelpers.rect(ctx, cx - 7, cy - 7, 14, 4, c);
+                DrawHelpers.rect(ctx, cx - 7, cy - 7, 3, 8, c);
+                DrawHelpers.rect(ctx, cx + 4, cy - 7, 3, 8, c);
+            }
+            default -> // Pilosité (moustache)
+                DrawHelpers.rect(ctx, cx - 5, cy + 2, 10, 3, c);
+        }
+    }
+
+    private void drawColorButton(GuiGraphicsExtractor ctx, int x, int y, int color, boolean active) {
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, 30, 30, 6,
+            Colors.withAlpha(0xFF000000, 0.5f), active ? Colors.ACCENT : Colors.BORDER);
+        DrawHelpers.roundedRect(ctx, x + 8, y + 8, 14, 14, 3, color);
+    }
+
+    // ── Color picker HSV libre ────────────────────────────────────────
+    private void openPicker() {
+        float[] hsv = fr.reborn.hud.skin.SkinSpec.argbToHsv(facetColorGet());
+        pkH = hsv[0]; pkS = hsv[1]; pkV = hsv[2];
+        pickerOpen = true;
+    }
+
+    private void drawPicker(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
+        int w = 280, h = 3 * PK_BAR_H + 2 * PK_GAP + 40;
+        int x = this.width / 2 - w / 2, y = this.height - 58 - h - 10;
+        pkX = x + 14; pkY = y + 26; pkW = w - 28;
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 8,
+            Colors.withAlpha(0xFF0A0F0E, 0.95f), Colors.BORDER_STRONG);
+        ctx.text(tr, Component.literal("COULEUR"), x + 14, y + 10, Colors.ACCENT, false);
+        int cur = fr.reborn.hud.skin.SkinSpec.hsvToArgb(pkH, pkS, pkV);
+        DrawHelpers.roundedOutlinedRect(ctx, x + w - 38, y + 8, 24, 14, 3, cur, Colors.WHITE_PURE);
+
+        // Barre Teinte (spectre en 6 segments).
+        int hueY = pkY;
+        for (int i = 0; i < 6; i++) {
+            int segW = pkW / 6;
+            int cA = fr.reborn.hud.skin.SkinSpec.hsvToArgb(i / 6f, 1f, 1f);
+            int cB = fr.reborn.hud.skin.SkinSpec.hsvToArgb((i + 1) / 6f, 1f, 1f);
+            DrawHelpers.horizontalGradient(ctx, pkX + i * segW, hueY, segW, PK_BAR_H, cA, cB);
+        }
+        drawPkKnob(ctx, hueY, pkH);
+        // Barre Saturation.
+        int satY = pkY + PK_BAR_H + PK_GAP;
+        DrawHelpers.horizontalGradient(ctx, pkX, satY, pkW, PK_BAR_H,
+            fr.reborn.hud.skin.SkinSpec.hsvToArgb(pkH, 0f, pkV),
+            fr.reborn.hud.skin.SkinSpec.hsvToArgb(pkH, 1f, pkV));
+        drawPkKnob(ctx, satY, pkS);
+        // Barre Valeur.
+        int valY = pkY + 2 * (PK_BAR_H + PK_GAP);
+        DrawHelpers.horizontalGradient(ctx, pkX, valY, pkW, PK_BAR_H,
+            fr.reborn.hud.skin.SkinSpec.hsvToArgb(pkH, pkS, 0f),
+            fr.reborn.hud.skin.SkinSpec.hsvToArgb(pkH, pkS, 1f));
+        drawPkKnob(ctx, valY, pkV);
+    }
+
+    private void drawPkKnob(GuiGraphicsExtractor ctx, int barY, float t) {
+        int kx = pkX + Math.round(t * (pkW - 1));
+        DrawHelpers.roundedOutlinedRect(ctx, kx - 2, barY - 2, 4, PK_BAR_H + 4, 1,
+            Colors.WHITE_PURE, Colors.withAlpha(0xFF000000, 0.8f));
+    }
+
+    /** Clic dans le picker : renvoie true si consommé (démarre un drag). */
+    private boolean pickerClick(int mx, int my) {
+        if (!pickerOpen) return false;
+        int[] ys = { pkY, pkY + PK_BAR_H + PK_GAP, pkY + 2 * (PK_BAR_H + PK_GAP) };
+        for (int i = 0; i < 3; i++) {
+            if (hit(mx, my, pkX - 4, ys[i] - 4, pkW + 8, PK_BAR_H + 8)) {
+                hsvDrag = i; updateHsv(mx); return true;
+            }
         }
         return false;
     }
 
-    private void drawGlyph(GuiGraphicsExtractor ctx, Font tr, String g, int x, int y, int w, int col) {
-        ctx.text(tr, Component.literal(g), x + (w - tr.width(g)) / 2, y + 6, col, false);
+    private void updateHsv(int mx) {
+        float t = Math.max(0f, Math.min(1f, (mx - pkX) / (float) Math.max(1, pkW - 1)));
+        switch (hsvDrag) {
+            case 0 -> pkH = t;
+            case 1 -> pkS = t;
+            case 2 -> pkV = t;
+            default -> { return; }
+        }
+        facetColorSet(fr.reborn.hud.skin.SkinSpec.hsvToArgb(pkH, pkS, pkV));
+    }
+
+    // ── Accès générique à la facette courante (cat/subCat) ────────────
+    private boolean facetHasStyle() { return cat == 1 || cat == 2 || cat == 3; }
+    private boolean facetHasColor() { return cat == 0 || cat == 1 || cat == 3; }
+
+    private int facetColorGet() {
+        return switch (cat) {
+            case 0 -> appearance.skinColor;
+            case 1 -> switch (subCat) {
+                case 0 -> appearance.eyeColor;
+                case 1 -> appearance.hairColor;
+                default -> appearance.facialColor;
+            };
+            case 3 -> appearance.outfitColor;
+            default -> 0xFFFFFFFF;
+        };
+    }
+
+    private void facetColorSet(int argb) {
+        switch (cat) {
+            case 0 -> appearance.skinColor = argb;
+            case 1 -> {
+                switch (subCat) {
+                    case 0 -> appearance.eyeColor = argb;
+                    case 1 -> appearance.hairColor = argb;
+                    default -> appearance.facialColor = argb;
+                }
+            }
+            case 3 -> appearance.outfitColor = argb;
+            default -> { }
+        }
+        refreshPreview();
+    }
+
+    private int facetStyleCount() {
+        return switch (cat) {
+            case 1 -> switch (subCat) {
+                case 0 -> fr.reborn.hud.skin.SkinSpec.EYE_STYLES.length;
+                case 1 -> fr.reborn.hud.skin.SkinSpec.HAIR_STYLES.length;
+                default -> fr.reborn.hud.skin.SkinSpec.FACIAL_STYLES.length;
+            };
+            case 2 -> 2;
+            case 3 -> fr.reborn.hud.skin.SkinSpec.OUTFIT_STYLES.length;
+            default -> 1;
+        };
+    }
+
+    private int facetStyleIdx() {
+        return switch (cat) {
+            case 1 -> switch (subCat) {
+                case 0 -> appearance.eyeStyle;
+                case 1 -> appearance.hairStyle;
+                default -> appearance.facialStyle;
+            };
+            case 2 -> "Femme".equals(sexe) ? 1 : 0;
+            case 3 -> appearance.outfitStyle;
+            default -> 0;
+        };
+    }
+
+    private String facetStyleName() {
+        return switch (cat) {
+            case 0 -> "TEINTE DE PEAU";
+            case 1 -> switch (subCat) {
+                case 0 -> fr.reborn.hud.skin.SkinSpec.EYE_STYLES[appearance.eyeStyle];
+                case 1 -> fr.reborn.hud.skin.SkinSpec.HAIR_STYLES[appearance.hairStyle];
+                default -> fr.reborn.hud.skin.SkinSpec.FACIAL_STYLES[appearance.facialStyle];
+            };
+            case 2 -> sexe.toUpperCase(Locale.FRENCH);
+            default -> fr.reborn.hud.skin.SkinSpec.OUTFIT_STYLES[appearance.outfitStyle];
+        };
+    }
+
+    private void cycleFacet(int dir) {
+        switch (cat) {
+            case 1 -> {
+                switch (subCat) {
+                    case 0 -> appearance.eyeStyle = fr.reborn.hud.skin.SkinSpec.cycle(
+                        appearance.eyeStyle, fr.reborn.hud.skin.SkinSpec.EYE_STYLES.length, dir);
+                    case 1 -> appearance.hairStyle = fr.reborn.hud.skin.SkinSpec.cycle(
+                        appearance.hairStyle, fr.reborn.hud.skin.SkinSpec.HAIR_STYLES.length, dir);
+                    default -> appearance.facialStyle = fr.reborn.hud.skin.SkinSpec.cycle(
+                        appearance.facialStyle, fr.reborn.hud.skin.SkinSpec.FACIAL_STYLES.length, dir);
+                }
+            }
+            case 2 -> sexe = "Homme".equals(sexe) ? "Femme" : "Homme";
+            case 3 -> appearance.outfitStyle = fr.reborn.hud.skin.SkinSpec.cycle(
+                appearance.outfitStyle, fr.reborn.hud.skin.SkinSpec.OUTFIT_STYLES.length, dir);
+            default -> { }
+        }
+        refreshPreview();
+    }
+
+    /** Clic dans l'éditeur KORVEX (grille ou catégorie). true si consommé. */
+    private boolean apparenceClick(int mx, int my) {
+        int cx = this.width / 2;
+        if (cat < 0) {
+            // Toggle « Mon skin ».
+            if (hit(mx, my, 24, 22, 150, 24)) {
+                appearance.useOwnSkin = !appearance.useOwnSkin; refreshPreview(); return true;
+            }
+            // Icônes de catégorie.
+            int[][] pos = catPositions();
+            for (int i = 0; i < 4; i++) {
+                if (hit(mx, my, pos[i][0] - 20, pos[i][1] - 20, 40, 40)) {
+                    if (appearance.useOwnSkin && i != 2) { // « mon skin » : seul le genre reste
+                        toast("Désactive « Mon skin » pour composer l'apparence.");
+                    } else { cat = i; subCat = 0; pickerOpen = false; }
+                    return true;
+                }
+            }
+            // CONFIRMER → étape Valider ; RETOUR → Identité.
+            int by = this.height - 58;
+            if (hit(mx, my, cx - 95, by, 190, 30)) { goToStep(3); return true; }
+            if (hit(mx, my, 24, by, 130, 30)) { goToStep(1); return true; }
+            return false;
+        }
+        // Dans une catégorie.
+        if (pickerClick(mx, my)) return true;
+        int topY = 60;
+        if (hit(mx, my, cx - 8, topY - 44, 16, 16)) { cat = -1; pickerOpen = false; return true; } // ✕
+        if (cat == 1) { // sous-catégories Visage
+            int n = VISAGE_SUBS.length, gap = 64, startX = cx - (n - 1) * gap / 2;
+            for (int i = 0; i < n; i++) {
+                int ix = startX + i * gap;
+                if (hit(mx, my, ix - 18, topY - 18, 36, 36)) { subCat = i; pickerOpen = false; return true; }
+            }
+        }
+        int barY = this.height - 58;
+        if (facetHasStyle()) {
+            int cyy = barY - 34, cw = 150, sx = cx - cw / 2;
+            if (hit(mx, my, sx, cyy, 26, 22)) { cycleFacet(-1); return true; }
+            if (hit(mx, my, sx + cw - 26, cyy, 26, 22)) { cycleFacet(+1); return true; }
+        }
+        // RETOUR / CONFIRMER (les deux reviennent à la grille).
+        if (hit(mx, my, 24, barY, 130, 30)) { cat = -1; pickerOpen = false; return true; }
+        if (hit(mx, my, this.width - 154, barY, 130, 30)) { cat = -1; pickerOpen = false; return true; }
+        // 🎨 (ouvre/ferme le picker).
+        if (facetHasColor()) {
+            int nameW = 300, nameX = cx - nameW / 2;
+            if (hit(mx, my, nameX - 40, barY, 30, 30) || hit(mx, my, nameX + nameW + 10, barY, 30, 30)) {
+                if (pickerOpen) pickerOpen = false; else openPicker();
+                return true;
+            }
+        }
+        return true; // clic dans l'éditeur = consommé (évite de retomber sur le monde)
+    }
+
+    /** Bouton style KORVEX (crochets latéraux + libellé + hint touche). */
+    private void drawKorvexButton(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h,
+                                  String label, String key, boolean hover, boolean primary) {
+        int fill = primary
+            ? Colors.withAlpha(Colors.ACCENT, hover ? 0.35f : 0.2f)
+            : Colors.withAlpha(0xFF000000, hover ? 0.6f : 0.45f);
+        int border = hover ? Colors.WHITE_PURE : primary ? Colors.ACCENT : Colors.BORDER;
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 7, fill, border);
+        // Crochets latéraux.
+        DrawHelpers.rect(ctx, x + 6, y + 6, 2, h - 12, border);
+        DrawHelpers.rect(ctx, x + w - 8, y + 6, 2, h - 12, border);
+        Component t = Component.literal(label);
+        ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2,
+            primary ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
+        if (key != null) ctx.text(tr, Component.literal(key), x + w - 14, y + h - 10,
+            Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.8f), false);
     }
 
     private void renderValidate(GuiGraphicsExtractor ctx, Font tr) {
@@ -753,6 +1019,9 @@ public class CharacterCreateScreen extends Screen {
         if (button != 0) return super.mouseClicked(event, doubleClick);
         int mx = (int) mouseX, my = (int) mouseY;
 
+        // Étape Apparence : éditeur KORVEX plein écran (aucun chrome wizard actif).
+        if (step == 2) { apparenceClick(mx, my); return true; }
+
         // Onglets : navigation libre. En avant, on valide chaque étape traversée
         // (impossible de sauter un champ requis) ; en arrière, direct.
         int ti = tabHit(mx, my);
@@ -807,18 +1076,12 @@ public class CharacterCreateScreen extends Screen {
                     int bx = x + i * (pw + 8);
                     if (hit(mx, my, bx, yy + 12, pw, 26)) { sexe = SEXES[i]; return true; }
                 }
-                // Sliders.
-                if (hit(mx, my, skinTX, skinTY - 4, skinTW, 16)) {
-                    draggingSkin = true;
-                    appearance.skinTone = valueFromTrack(mx, skinTX, skinTW, 0f, 1f);
-                    refreshPreview();
-                    return true;
-                }
+                // Slider taille.
                 if (hit(mx, my, sizeTX, sizeTY - 4, sizeTW, 16)) {
                     draggingSize = true; setSizeFromTrack(mx); return true;
                 }
                 // Âge.
-                int ay = yy + 214;
+                int ay = yy + 172;
                 if (hit(mx, my, x, ay + 12, 22, 22)) { age = Math.max(0, age - 1); return true; }
                 if (hit(mx, my, x + 58, ay + 12, 22, 22)) { age = Math.min(200, age + 1); return true; }
                 // Champ prénom : focus + clic.
@@ -826,9 +1089,6 @@ public class CharacterCreateScreen extends Screen {
                     setFocused(nameField);
                     return true;
                 }
-            }
-            case 2 -> {
-                if (apparenceClick(mx, my)) return true;
             }
             default -> { }
         }
@@ -838,25 +1098,16 @@ public class CharacterCreateScreen extends Screen {
     @Override
     public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dX, double dY) {
         int mx = (int) event.x();
-        if (draggingSkin) {
-            appearance.skinTone = valueFromTrack(mx, skinTX, skinTW, 0f, 1f);
-            refreshPreview();
-            return true;
-        }
+        if (hsvDrag >= 0) { updateHsv(mx); return true; }
         if (draggingSize) { setSizeFromTrack(mx); return true; }
         return super.mouseDragged(event, dX, dY);
     }
 
     @Override
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
-        draggingSkin = false;
         draggingSize = false;
+        hsvDrag = -1;
         return super.mouseReleased(event);
-    }
-
-    private float valueFromTrack(int mx, int tx, int tw, float min, float max) {
-        float t = Math.max(0f, Math.min(1f, (mx - tx) / (float) Math.max(1, tw - 1)));
-        return min + t * (max - min);
     }
 
     private void setSizeFromTrack(int mx) {
@@ -889,6 +1140,29 @@ public class CharacterCreateScreen extends Screen {
         if (nameField != null && nameField.isFocused() && nameField.keyPressed(event)) return true;
         if (customClanField != null && customClanField.isFocused()
                 && customClanField.keyPressed(event)) return true;
+
+        // Étape Apparence — raccourcis clavier KORVEX.
+        if (step == 2) {
+            int k = event.key();
+            if (k == GLFW.GLFW_KEY_ESCAPE) {
+                if (cat >= 0) { cat = -1; pickerOpen = false; } else goToStep(1);
+                return true;
+            }
+            if (cat < 0) {
+                if (k >= GLFW.GLFW_KEY_1 && k <= GLFW.GLFW_KEY_4) {
+                    int i = k - GLFW.GLFW_KEY_1;
+                    if (!(appearance.useOwnSkin && i != 2)) { cat = i; subCat = 0; pickerOpen = false; }
+                    return true;
+                }
+                if (k == GLFW.GLFW_KEY_F) { goToStep(3); return true; }
+            } else {
+                if (k == GLFW.GLFW_KEY_A && facetHasStyle()) { cycleFacet(-1); return true; }
+                if (k == GLFW.GLFW_KEY_D && facetHasStyle()) { cycleFacet(+1); return true; }
+                if (k == GLFW.GLFW_KEY_F) { cat = -1; pickerOpen = false; return true; }
+            }
+            return true;
+        }
+
         if (event.key() == GLFW.GLFW_KEY_ESCAPE) { onBack(); return true; }
         return super.keyPressed(event);
     }
