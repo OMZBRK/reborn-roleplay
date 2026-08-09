@@ -623,7 +623,10 @@ public class CharacterCreateScreen extends Screen {
                 }
                 // Champ « Autre » : laisser l'EditBox gérer le clic (focus).
                 if ("Autre".equals(clan) && customClanField.isVisible()) {
-                    if (customClanField.mouseClicked(event, doubleClick)) return true;
+                    if (customClanField.mouseClicked(event, doubleClick)) {
+                        setFocused(customClanField);
+                        return true;
+                    }
                 }
             }
             case 1 -> {
@@ -644,8 +647,11 @@ public class CharacterCreateScreen extends Screen {
                 int ay = yy + 214;
                 if (hit(mx, my, x, ay + 12, 22, 22)) { age = Math.max(0, age - 1); return true; }
                 if (hit(mx, my, x + 58, ay + 12, 22, 22)) { age = Math.min(200, age + 1); return true; }
-                // Champ prénom : focus.
-                if (nameField.mouseClicked(event, doubleClick)) return true;
+                // Champ prénom : focus + clic.
+                if (nameField.mouseClicked(event, doubleClick)) {
+                    setFocused(nameField);
+                    return true;
+                }
             }
             default -> { }
         }
