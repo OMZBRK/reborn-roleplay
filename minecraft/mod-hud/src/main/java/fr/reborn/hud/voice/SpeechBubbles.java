@@ -81,27 +81,30 @@ public final class SpeechBubbles {
     }
 
     private static void drawBubble(GuiGraphicsExtractor ctx, int cx, int cy, long now, double dist, int dots) {
-        int w = dots >= 3 ? 20 : 11, h = 10;
+        int w = dots >= 3 ? 18 : 11, h = 10;
         int x = cx - w / 2, y = cy - h - 4;
         int bg = fade(BUBBLE_BG, dist);
         DrawHelpers.roundedRectFull(ctx, x, y, w, h, 4, bg);
-        ctx.fill(cx - 1, y + h, cx + 2, y + h + 2, bg); // pointe
-        int dotY = y + h / 2;
+        ctx.fill(cx - 1, y + h, cx + 2, y + h + 2, bg); // pointe centrée
+        int cy2 = y + h / 2;                            // centre vertical de la box
+        int base = DOT_ON & 0x00FFFFFF;
         if (dots >= 3) {
-            // 3 points animés en séquence (indicateur de frappe « … »).
+            // 3 points animés (indicateur de frappe « … »), centrés dans la box.
             int active = (int) ((now / 300L) % 3L);
+            int dotW = 2, gap = 3;
+            int totalW = 3 * dotW + 2 * gap;            // largeur du groupe de points
+            int startX = x + (w - totalW) / 2;          // centré horizontalement
             for (int i = 0; i < 3; i++) {
-                int dx = x + 5 + i * 5;
-                int base = DOT_ON & 0x00FFFFFF;
+                int dx = startX + i * (dotW + gap);
                 int col = fade(i == active ? (0xFF000000 | base) : (0x66000000 | base), dist);
-                ctx.fill(dx, dotY - 1, dx + 2, dotY + 1, col);
+                ctx.fill(dx, cy2 - 1, dx + dotW, cy2 + 1, col);
             }
         } else {
-            // 1 point pulsant (indicateur de parole).
+            // 1 point pulsant (indicateur de parole), centré.
             float pulse = 0.55f + 0.45f * (float) Math.sin(now / 260.0);
             int a = Math.round(0xEE * pulse);
-            int dot = fade((a << 24) | (DOT_ON & 0x00FFFFFF), dist);
-            ctx.fill(cx - 1, dotY - 1, cx + 1, dotY + 1, dot);
+            int dot = fade((a << 24) | base, dist);
+            ctx.fill(cx - 1, cy2 - 1, cx + 1, cy2 + 1, dot);
         }
     }
 
