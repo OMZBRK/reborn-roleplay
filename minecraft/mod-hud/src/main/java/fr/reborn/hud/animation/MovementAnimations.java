@@ -68,10 +68,12 @@ public final class MovementAnimations {
         {"Désespérée", "walk_hopeless.emotecraft"},
     };
 
-    private enum MoveState { NONE, WALK, RUN, NARUTO }
+    private enum MoveState { NONE, WALK, RUN, NARUTO, POSE }
 
     private final List<Animation> walkAnims = new ArrayList<>();
     private Animation run, narutoRun;
+    private Animation idlePose;              // pose idle des écrans perso (asset optionnel)
+    private boolean poseActive = false;      // override : joue la pose idle en boucle
     private int selectedWalk = 0;
     private boolean available = false;
 
@@ -104,6 +106,16 @@ public final class MovementAnimations {
 
     public void cycleWalkStyle() { setWalkStyle((selectedWalk + 1) % WALK_STYLES.length); }
 
+    /**
+     * Pose idle (émote « assis ») forcée en boucle — utilisée par les écrans de
+     * sélection/création de perso pour présenter le joueur dans une pose sympa au
+     * lieu de rester planté debout. No-op si l'asset {@code idle_sit.emotecraft}
+     * est absent (le controller reste stoppé). À arrêter dans {@code removed()}.
+     */
+    public void startPose() { poseActive = true; currentState = MoveState.NONE; }
+    public void stopPose() { poseActive = false; currentState = MoveState.NONE; }
+    public boolean hasIdlePose() { return idlePose != null; }
+
     /** Enregistre le layer PAL par avatar + charge les animations. */
     public void register() {
         try {
@@ -119,6 +131,7 @@ public final class MovementAnimations {
             for (String[] style : WALK_STYLES) walkAnims.add(load(style[1]));
             run = load("run.emotecraft");
             narutoRun = load("naruto_run.emotecraft");
+            idlePose = load("idle_sit.emotecraft");
 
             RebornPrefs.INSTANCE.ensureLoaded();
             selectedWalk = clamp(RebornPrefs.INSTANCE.walkStyle);
@@ -150,6 +163,17 @@ public final class MovementAnimations {
         AbstractClientPlayer player = mc.player;
         if (player == null) return;
 
+        // Override pose idle (écrans perso) : force l'émote assise en boucle,
+        // indépendamment du mouvement (le joueur est figé pendant la sélection).
+        if (poseActive) {
+            if (currentState != MoveState.POSE) {
+                currentState = MoveState.POSE;
+                currentWalkIndex = -1;
+                applyState(player, MoveState.POSE, 0);
+            }
+            return;
+        }
+
         MoveState desired = computeState(player);
         boolean walkStyleChanged = desired == MoveState.WALK && currentWalkIndex != selectedWalk;
         if (desired != currentState || walkStyleChanged) {
@@ -173,6 +197,7 @@ public final class MovementAnimations {
             case WALK   -> walkAnims.isEmpty() ? null : walkAnims.get(clamp(walkStyle));
             case RUN    -> run;
             case NARUTO -> narutoRun;
+            case POSE   -> idlePose;
             case NONE   -> null;
         };
         if (anim == null) {

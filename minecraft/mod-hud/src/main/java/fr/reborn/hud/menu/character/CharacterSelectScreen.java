@@ -52,6 +52,8 @@ public class CharacterSelectScreen extends Screen {
             mc.options.hideGui = true; // masque vie/faim/xp/armure/hotbar/crosshair
             perspectiveCaptured = true;
         }
+        // Pose idle (émote assise) le temps de l'écran — présentation « plan idle ».
+        fr.reborn.hud.animation.MovementAnimations.INSTANCE.startPose();
     }
 
     @Override
@@ -62,6 +64,7 @@ public class CharacterSelectScreen extends Screen {
             mc.options.hideGui = prevHudHidden;
             perspectiveCaptured = false;
         }
+        fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
         super.removed();
     }
 

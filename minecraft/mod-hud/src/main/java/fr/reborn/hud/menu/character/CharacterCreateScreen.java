@@ -129,6 +129,7 @@ public class CharacterCreateScreen extends Screen {
             mc.options.hideGui = true;
             captured = true;
         }
+        fr.reborn.hud.animation.MovementAnimations.INSTANCE.startPose();
 
         // Pré-remplissage depuis la candidature (verrou whitelist).
         preselectFromCandidature();
@@ -167,6 +168,7 @@ public class CharacterCreateScreen extends Screen {
             mc.options.hideGui = prevHudHidden;
             captured = false;
         }
+        fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
         super.removed();
     }
 
