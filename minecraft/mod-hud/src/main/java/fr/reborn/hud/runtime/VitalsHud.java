@@ -169,13 +169,11 @@ public final class VitalsHud {
         boolean muted = fr.reborn.hud.voice.VoiceState.selfMuted();
         boolean deaf = fr.reborn.hud.voice.VoiceState.selfDeafened();
         boolean speaking = !muted && fr.reborn.hud.voice.VoiceState.selfSpeaking();
-        // Halo vert derrière le micro quand on parle.
-        if (speaking) {
-            DrawHelpers.roundedRectFull(ctx, x - 1, y - 1, s + 2, s + 2, 3, 0x9044DD55);
-        }
+        // Le micro lui-même devient vert quand on parle (teinte via blit couleur).
+        int micTint = speaking ? 0xFF3FE05A : 0xFFFFFFFF;
         Identifier mic = muted ? MIC_OFF : MIC_ON;
         Identifier cas = deaf ? CASQUE_OFF : CASQUE_ON;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, mic, x, y, 0f, 0f, s, s, 16, 16, 16, 16);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, mic, x, y, 0f, 0f, s, s, 16, 16, 16, 16, micTint);
         ctx.blit(RenderPipelines.GUI_TEXTURED, cas, x + s + 2, y, 0f, 0f, s, s, 16, 16, 16, 16);
     }
 }
