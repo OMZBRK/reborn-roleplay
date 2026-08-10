@@ -144,7 +144,7 @@ public final class RebornSkins {
         //    Position FIXE (indépendante des cheveux → la frange ne « bouge » plus
         //    les yeux). Placés au milieu-bas du visage (la frange max s'arrête à y10).
         int eStyle = clampIdx(spec.eyeStyle, SkinSpec.EYE_STYLES.length);
-        int eyeRow = 11;                          // face = y8..15 ; yeux à mi-hauteur
+        int eyeRow = 13;                          // face = y8..15 ; yeux bas (retour user)
         int eh = eStyle == 1 ? 1 : 2;             // "Fendus" = fente 1px ; sinon 2px
         drawEye(img, 9, eyeRow, eh, white, eye);  // œil gauche
         drawEye(img, 13, eyeRow, eh, white, eye); // œil droit
