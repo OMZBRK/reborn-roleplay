@@ -130,7 +130,9 @@ public class CharacterCreateScreen extends Screen {
             mc.options.hideGui = true;
             captured = true;
         }
-        // Perso figé debout (aucune animation d'idle pendant la création).
+        // Perso figé debout : coupe toute pose idle (émote « assise ») héritée du
+        // menu de sélection — l'éditeur montre le perso debout, pas assis.
+        fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
 
         // Pré-remplissage depuis la candidature (verrou whitelist).
         preselectFromCandidature();
@@ -423,6 +425,7 @@ public class CharacterCreateScreen extends Screen {
     // ══ Étape 2 : Apparence — éditeur KORVEX (perso centré + catégories) ══
     private int cat = -1;            // -1 = grille principale ; 0..3 = catégorie
     private int subCat = 0;          // sous-catégorie (Visage : 0 Yeux / 1 Cheveux / 2 Pilosité)
+    private int eyeSel = 0;          // œil édité par le picker : 0=les deux, 1=gauche, 2=droite
     private boolean pickerOpen = false;
     private float avatarSpin = 0f;   // rotation horizontale (maintien clic droit)
     private float avatarZoom = 1f;   // facteur de zoom (molette)
@@ -586,6 +589,8 @@ public class CharacterCreateScreen extends Screen {
 
         // Corps : toggle Carrure (Classique / Alex) au-dessus du cycleur de teinte.
         if (cat == 0) drawBuildToggle(ctx, tr, mx, my);
+        // Yeux : sélecteur d'œil édité (les deux / gauche / droite) pour le picker.
+        if (cat == 1 && subCat == 0) drawEyeSelToggle(ctx, tr, mx, my);
 
         // Barre du bas : RETURN | 🎨 | NOM DU STYLE | 🎨 | CONFIRM.
         drawKorvexButton(ctx, tr, 24, barY, 130, 30, "RETOUR", "↑",
@@ -637,6 +642,24 @@ public class CharacterCreateScreen extends Screen {
             !appearance.slim, !female && hit(mx, my, tx, ty, hw, 22), female);
         segButton(ctx, tr, tx + hw, ty, hw, 22, "ALEX",
             appearance.slim, hit(mx, my, tx + hw, ty, hw, 22), false);
+    }
+
+    private static final String[] EYE_SEL_NAMES = { "LES DEUX", "OEIL GAUCHE", "OEIL DROIT" };
+
+    /** Sélecteur d'œil édité par le picker (cycle : les deux → gauche → droite). */
+    private void drawEyeSelToggle(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
+        int cx = this.width / 2, barY = this.height - 58;
+        int w = 190, x = cx - w / 2, y = barY - 66;
+        Component lab = ax("OEIL EDITE");
+        ctx.text(tr, lab, cx - tr.width(lab) / 2, y - 12, Colors.FOREGROUND_MUTED, false);
+        boolean hover = hit(mx, my, x, y, w, 22);
+        segButton(ctx, tr, x, y, w, 22, "< " + EYE_SEL_NAMES[eyeSel] + " >", true, hover, false);
+    }
+
+    /** Cycle l'œil édité + réaligne le picker sur la couleur de ce nouvel œil. */
+    private void cycleEyeSel() {
+        eyeSel = (eyeSel + 1) % 3;
+        if (pickerOpen) openPicker(); // resynchronise les curseurs HSV
     }
 
     private void segButton(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h,
@@ -736,7 +759,7 @@ public class CharacterCreateScreen extends Screen {
     private int facetColorGet() {
         return switch (cat) {
             case 1 -> switch (subCat) {
-                case 0 -> appearance.eyeColor;
+                case 0 -> eyeSel == 2 ? appearance.eyeColorRight : appearance.eyeColor;
                 case 1 -> appearance.hairColor;
                 default -> appearance.facialColor;
             };
@@ -749,7 +772,10 @@ public class CharacterCreateScreen extends Screen {
         switch (cat) {
             case 1 -> {
                 switch (subCat) {
-                    case 0 -> appearance.eyeColor = argb;
+                    case 0 -> { // yeux : applique selon l'œil sélectionné
+                        if (eyeSel != 2) appearance.eyeColor = argb;      // les deux / gauche
+                        if (eyeSel != 1) appearance.eyeColorRight = argb; // les deux / droite
+                    }
                     case 1 -> appearance.hairColor = argb;
                     default -> appearance.facialColor = argb;
                 }
@@ -872,7 +898,7 @@ public class CharacterCreateScreen extends Screen {
             int n = VISAGE_SUBS.length, gap = 64, startX = cx - (n - 1) * gap / 2;
             for (int i = 0; i < n; i++) {
                 int ix = startX + i * gap;
-                if (hit(mx, my, ix - 18, topY - 18, 36, 36)) { subCat = i; pickerOpen = false; return true; }
+                if (hit(mx, my, ix - 18, topY - 18, 36, 36)) { subCat = i; eyeSel = 0; pickerOpen = false; return true; }
             }
         }
         int barY = this.height - 58;
@@ -888,6 +914,11 @@ public class CharacterCreateScreen extends Screen {
                 if (!appearance.female) setBuild(true);
                 return true;
             }
+        }
+        // Yeux : toggle œil édité (les deux / gauche / droite).
+        if (cat == 1 && subCat == 0) {
+            int w = 190, x = cx - w / 2, y = barY - 66;
+            if (hit(mx, my, x, y, w, 22)) { cycleEyeSel(); return true; }
         }
         if (facetHasStyle()) {
             int cyy = barY - 34, cw = 150, sx = cx - cw / 2;
@@ -1245,6 +1276,7 @@ public class CharacterCreateScreen extends Screen {
                     else setBuild(!appearance.slim);
                     return true;
                 }
+                if (k == GLFW.GLFW_KEY_E && cat == 1 && subCat == 0) { cycleEyeSel(); return true; } // œil édité
                 if (k == GLFW.GLFW_KEY_F) { cat = -1; pickerOpen = false; return true; }
             }
             return true;

@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -112,9 +114,7 @@ public final class RebornSkins {
         // NativeImage.read (format natif) et n'est pas touchée par ces overlays.
         int outfit = spec.outfitColor;
         int hair = spec.hairColor;
-        int eye = spec.eyeColor;
         int facial = spec.facialColor;
-        int white = 0xFFEEEEEE;
 
         // 1) Tenue (placeholder procédural) — pour l'instant SEUL le torse peut être
         //    habillé (débardeur/veste…). **Jambes ET bras laissés en PEAU** pour
@@ -140,14 +140,12 @@ public final class RebornSkins {
             }
         }
 
-        // 3) Yeux — un œil = 2×2 : colonne gauche BLANCHE, colonne droite = IRIS.
-        //    Position FIXE (indépendante des cheveux → la frange ne « bouge » plus
-        //    les yeux). Placés au milieu-bas du visage (la frange max s'arrête à y10).
-        int eStyle = clampIdx(spec.eyeStyle, SkinSpec.EYE_STYLES.length);
-        int eyeRow = 13;                          // face = y8..15 ; yeux bas (retour user)
-        int eh = eStyle == 1 ? 1 : 2;             // "Fendus" = fente 1px ; sinon 2px
-        drawEye(img, 9, eyeRow, eh, white, eye);  // œil gauche
-        drawEye(img, 13, eyeRow, eh, white, eye); // œil droit
+        // 3) Yeux — texture PNG (eyes/<style>.png) overlayée telle quelle : la
+        //    sclérotique (pixels clairs) est conservée, l'IRIS (pixels rouges) est
+        //    teinté par la couleur de l'œil en préservant ses 2 teintes (rouge foncé
+        //    → couleur foncée, rouge clair → couleur claire). Œil gauche/droit =
+        //    couleurs séparées (hétérochromie) : split sur x (nez = x11/12).
+        overlayEyes(img, spec.eyeStyle, spec.eyeColor, spec.eyeColorRight);
 
         // 4) Pilosité faciale (moustache/bouc/barbe) sur le bas du visage.
         int fStyle = clampIdx(spec.facialStyle, SkinSpec.FACIAL_STYLES.length);
@@ -161,10 +159,97 @@ public final class RebornSkins {
         return img;
     }
 
-    /** Un œil : colonne gauche blanche + colonne droite iris, sur {@code h} pixels. */
-    private static void drawEye(NativeImage img, int x, int y, int h, int white, int iris) {
-        img.fillRect(x, y, 1, h, white);
-        img.fillRect(x + 1, y, 1, h, iris);
+    /**
+     * Overlay des yeux depuis la texture {@code eyes/<style>.png}. Les pixels
+     * <b>clairs</b> (sclérotique) sont recopiés tels quels ; les pixels <b>rouges</b>
+     * (iris) sont teintés par la couleur de l'œil (gauche si x≤11, droit sinon) en
+     * préservant leurs teintes (facteur = rouge_pixel / rouge_max). Repli procédural
+     * si la texture manque.
+     */
+    private static void overlayEyes(NativeImage img, int style, int eyeLeft, int eyeRight) {
+        EyeTex tex = loadEyeTex(style);
+        if (tex == null) {
+            drawEyeFallback(img, 9, 13, eyeLeft);
+            drawEyeFallback(img, 13, 13, eyeRight);
+            return;
+        }
+        for (int i = 0; i < tex.x.length; i++) {
+            int x = tex.x[i], y = tex.y[i];
+            int color;
+            if (tex.iris[i]) {
+                int base = x <= 11 ? eyeLeft : eyeRight;
+                color = tintIris(base, (tex.argb[i] >> 16) & 0xFF, tex.refRed);
+            } else {
+                color = tex.argb[i]; // sclérotique conservée
+            }
+            img.setPixel(x, y, color);
+        }
+    }
+
+    /** Teinte un iris : {@code couleur × (rouge_pixel / rouge_max)} (préserve les 2 teintes). */
+    private static int tintIris(int argb, int pixelRed, int refRed) {
+        float f = refRed <= 0 ? 1f : Math.min(1f, pixelRed / (float) refRed);
+        int r = Math.round(((argb >> 16) & 0xFF) * f);
+        int g = Math.round(((argb >> 8) & 0xFF) * f);
+        int b = Math.round((argb & 0xFF) * f);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    }
+
+    /** Repli procédural (2×2, blanc externe + iris interne) si pas de texture d'yeux. */
+    private static void drawEyeFallback(NativeImage img, int x, int y, int iris) {
+        img.fillRect(x, y, 1, 2, 0xFFEEEEEE);
+        img.fillRect(x + 1, y, 1, 2, iris);
+    }
+
+    /** Pixels d'une texture d'yeux décodée (parallèles) + rouge max de l'iris. */
+    private record EyeTex(int[] x, int[] y, int[] argb, boolean[] iris, int refRed) {}
+
+    private static final Map<Integer, EyeTex> eyeCache = new ConcurrentHashMap<>();
+
+    /** Charge (cache) la texture d'yeux du style, avec repli sur {@code eyes/0.png}. */
+    private static EyeTex loadEyeTex(int style) {
+        int s = clampIdx(style, SkinSpec.EYE_STYLES.length);
+        return eyeCache.computeIfAbsent(s, k -> {
+            EyeTex t = decodeEyeTex(k);
+            return t != null ? t : (k != 0 ? decodeEyeTex(0) : null);
+        });
+    }
+
+    /** Décode {@code eyes/<style>.png} : liste des pixels opaques + détection iris. */
+    private static EyeTex decodeEyeTex(int style) {
+        String path = "/assets/reborn/textures/character/eyes/" + style + ".png";
+        try (InputStream in = RebornSkins.class.getResourceAsStream(path)) {
+            if (in == null) {
+                LOGGER.warn("yeux introuvables (classpath) : {}", path);
+                return null;
+            }
+            NativeImage ni = NativeImage.read(in);
+            List<int[]> ps = new ArrayList<>();
+            int refRed = 1;
+            for (int y = 0; y < ni.getHeight(); y++) {
+                for (int x = 0; x < ni.getWidth(); x++) {
+                    int argb = ni.getPixel(x, y);
+                    if (((argb >>> 24) & 0xFF) == 0) continue;
+                    int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
+                    boolean iris = r > g * 1.5f && r > b * 1.5f && r > 50; // « rouge » = iris
+                    ps.add(new int[] { x, y, argb, iris ? 1 : 0 });
+                    if (iris && r > refRed) refRed = r;
+                }
+            }
+            ni.close();
+            int n = ps.size();
+            int[] xs = new int[n], ys = new int[n], argbs = new int[n];
+            boolean[] iris = new boolean[n];
+            for (int i = 0; i < n; i++) {
+                int[] p = ps.get(i);
+                xs[i] = p[0]; ys[i] = p[1]; argbs[i] = p[2]; iris[i] = p[3] == 1;
+            }
+            LOGGER.info("yeux chargés style {} ({} px, iris rouge max={})", style, n, refRed);
+            return new EyeTex(xs, ys, argbs, iris, refRed);
+        } catch (Exception e) {
+            LOGGER.warn("décodage yeux {} échec : {}", style, e.getMessage());
+            return null;
+        }
     }
 
     /**

@@ -113,7 +113,22 @@ public final class MovementAnimations {
      * est absent (le controller reste stoppé). À arrêter dans {@code removed()}.
      */
     public void startPose() { poseActive = true; currentState = MoveState.NONE; }
-    public void stopPose() { poseActive = false; currentState = MoveState.NONE; }
+
+    /**
+     * Arrête la pose idle et <b>coupe immédiatement</b> l'émote en cours. Sans cet
+     * arrêt direct, le prochain {@code tick()} verrait {@code desired==NONE} déjà
+     * égal à {@code currentState} et n'appellerait jamais {@code applyState(NONE)}
+     * → l'émote assise resterait figée (bug de la pose persistante dans l'éditeur).
+     */
+    public void stopPose() {
+        poseActive = false;
+        currentState = MoveState.NONE;
+        Minecraft mc = Minecraft.getInstance();
+        if (available && mc.player != null) {
+            PlayerAnimationController c = controllerOf(mc.player);
+            if (c != null) c.stopTriggeredAnimation();
+        }
+    }
     public boolean hasIdlePose() { return idlePose != null; }
 
     /** Enregistre le layer PAL par avatar + charge les animations. */

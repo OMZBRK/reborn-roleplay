@@ -58,7 +58,10 @@ public final class SkinSpec {
     public int hairColor = DEFAULT_HAIR;
 
     public int eyeStyle = 0;
+    /** Iris œil GAUCHE (ARGB). */
     public int eyeColor = DEFAULT_EYE;
+    /** Iris œil DROIT (ARGB) — permet l'hétérochromie (yeux de couleurs différentes). */
+    public int eyeColorRight = DEFAULT_EYE;
 
     public int facialStyle = 0;
     public int facialColor = DEFAULT_FACIAL;
@@ -114,7 +117,7 @@ public final class SkinSpec {
      * Queue sérialisée ajoutée à la commande {@code create} (une valeur par ligne)
      * pour que ShinobiCore stocke + rediffuse l'apparence. Couleurs en hex RRGGBB.
      * Ordre : useOwnSkin, female, slim, skinStyle, hairStyle, hair, eyeStyle, eye,
-     * facialStyle, facial, outfitStyle, outfit.
+     * eyeRight, facialStyle, facial, outfitStyle, outfit.
      *
      * <p>La peau n'a plus de couleur libre : elle est choisie par {@code skinStyle}
      * (index de teinte livrée) dans le jeu de PNG du genre {@code female}.
@@ -125,7 +128,7 @@ public final class SkinSpec {
             + "\n" + (slim ? "1" : "0")
             + "\n" + skinStyle
             + "\n" + hairStyle + "\n" + hex(hairColor)
-            + "\n" + eyeStyle + "\n" + hex(eyeColor)
+            + "\n" + eyeStyle + "\n" + hex(eyeColor) + "\n" + hex(eyeColorRight)
             + "\n" + facialStyle + "\n" + hex(facialColor)
             + "\n" + outfitStyle + "\n" + hex(outfitColor);
     }
