@@ -66,9 +66,9 @@ public final class RebornSkins {
      */
     public static void applyTest(UUID uuid) {
         NativeImage img = new NativeImage(64, 64, false);
-        img.fillRect(0, 0, 64, 64, abgr(216, 165, 125, 255));  // teinte peau partout
-        img.fillRect(20, 20, 8, 12, abgr(63, 224, 154, 255));  // marqueur torse (teal)
-        img.fillRect(8, 8, 8, 8, abgr(120, 78, 52, 255));      // "casquette" tête (test)
+        img.fillRect(0, 0, 64, 64, 0xFFD8A57D);  // teinte peau partout (ARGB)
+        img.fillRect(20, 20, 8, 12, 0xFF3FE09A); // marqueur torse (teal)
+        img.fillRect(8, 8, 8, 8, 0xFF784E34);    // "casquette" tête (test)
         register(uuid, img);
     }
 
@@ -103,23 +103,24 @@ public final class RebornSkins {
         if (img == null) {
             // Repli : aplat de peau si le PNG est illisible.
             img = new NativeImage(64, 64, false);
-            img.fillRect(0, 0, 64, 64, argbToAbgr(SkinSpec.DEFAULT_SKIN));
+            img.fillRect(0, 0, 64, 64, SkinSpec.DEFAULT_SKIN);
         }
 
-        int outfit = argbToAbgr(spec.outfitColor);
-        int outfitDark = argbToAbgr(shade(spec.outfitColor, 0.82f));
-        int hair = argbToAbgr(spec.hairColor);
-        int eye = argbToAbgr(spec.eyeColor);
-        int facial = argbToAbgr(spec.facialColor);
-        int white = abgr(238, 238, 238, 255);
+        // ⚠️ fillRect appelle setPixel = format ARGB (0xAARRGGBB). Les couleurs de la
+        // spec SONT déjà en ARGB → on les passe telles quelles (surtout PAS d'abgr,
+        // sinon R et B sont inversés : brun → bleu, etc.). La base peau vient de
+        // NativeImage.read (format natif) et n'est pas touchée par ces overlays.
+        int outfit = spec.outfitColor;
+        int hair = spec.hairColor;
+        int eye = spec.eyeColor;
+        int facial = spec.facialColor;
+        int white = 0xFFEEEEEE;
 
-        // 1) Tenue (placeholder procédural) — pantalon sur les jambes + haut sur le
-        //    torse. **Bras laissés en PEAU** pour que la teinte reste bien visible
-        //    (pas d'assets de manches pour l'instant).
-        //    0=torse nu (juste short), 1=débardeur, 2=veste, 3=manteau, 4=kimono.
+        // 1) Tenue (placeholder procédural) — pour l'instant SEUL le torse peut être
+        //    habillé (débardeur/veste…). **Jambes ET bras laissés en PEAU** pour
+        //    montrer le skin peint (pas encore d'assets de tenue/manches/pantalon).
+        //    0=torse nu, 1=débardeur, 2=veste, 3=manteau, 4=kimono.
         int oStyle = clampIdx(spec.outfitStyle, SkinSpec.OUTFIT_STYLES.length);
-        img.fillRect(0, 16, 16, 16, outfitDark);  // jambe droite (pantalon)
-        img.fillRect(16, 48, 16, 16, outfitDark); // jambe gauche (pantalon)
         if (oStyle >= 1) {
             img.fillRect(16, 16, 24, 16, outfit); // torse
         }
@@ -140,9 +141,10 @@ public final class RebornSkins {
         }
 
         // 3) Yeux — un œil = 2×2 : colonne gauche BLANCHE, colonne droite = IRIS.
-        //    (disposition demandée par le user ; teinte d'iris = eyeColor.)
+        //    Position FIXE (indépendante des cheveux → la frange ne « bouge » plus
+        //    les yeux). Placés au milieu-bas du visage (la frange max s'arrête à y10).
         int eStyle = clampIdx(spec.eyeStyle, SkinSpec.EYE_STYLES.length);
-        int eyeRow = clamp(8 + Math.max(fringe, 1), 9, 12); // sous la frange
+        int eyeRow = 11;                          // face = y8..15 ; yeux à mi-hauteur
         int eh = eStyle == 1 ? 1 : 2;             // "Fendus" = fente 1px ; sinon 2px
         drawEye(img, 9, eyeRow, eh, white, eye);  // œil gauche
         drawEye(img, 13, eyeRow, eh, white, eye); // œil droit
@@ -224,42 +226,7 @@ public final class RebornSkins {
         slimModel.clear();
     }
 
-    /** Couleur au format natif de NativeImage (RGBA → int ABGR). */
-    private static int abgr(int r, int g, int b, int a) {
-        return (a << 24) | (b << 16) | (g << 8) | r;
-    }
-
-    /** Convertit un ARGB (0xAARRGGBB) vers le format natif ABGR de NativeImage. */
-    private static int argbToAbgr(int argb) {
-        int a = (argb >>> 24) & 0xFF, r = (argb >>> 16) & 0xFF,
-            g = (argb >>> 8) & 0xFF, b = argb & 0xFF;
-        return abgr(r, g, b, a);
-    }
-
-    /** Interpolation linéaire entre deux ARGB. */
-    private static int lerp(int a, int b, float t) {
-        t = Math.max(0f, Math.min(1f, t));
-        int aa = (a >>> 24) & 0xFF, ar = (a >>> 16) & 0xFF, ag = (a >>> 8) & 0xFF, ab = a & 0xFF;
-        int ba = (b >>> 24) & 0xFF, br = (b >>> 16) & 0xFF, bg = (b >>> 8) & 0xFF, bb = b & 0xFF;
-        int ra = Math.round(aa + (ba - aa) * t), rr = Math.round(ar + (br - ar) * t);
-        int rg = Math.round(ag + (bg - ag) * t), rb = Math.round(ab + (bb - ab) * t);
-        return (ra << 24) | (rr << 16) | (rg << 8) | rb;
-    }
-
-    /** Assombrit un ARGB par un facteur (0..1). */
-    private static int shade(int argb, float f) {
-        int a = (argb >>> 24) & 0xFF;
-        int r = Math.round(((argb >>> 16) & 0xFF) * f);
-        int g = Math.round(((argb >>> 8) & 0xFF) * f);
-        int b = Math.round((argb & 0xFF) * f);
-        return (a << 24) | (r << 16) | (g << 8) | b;
-    }
-
     private static int clampIdx(int i, int len) {
         return i < 0 ? 0 : i >= len ? len - 1 : i;
-    }
-
-    private static int clamp(int v, int lo, int hi) {
-        return v < lo ? lo : v > hi ? hi : v;
     }
 }
