@@ -90,6 +90,8 @@ public class CharacterCreateScreen extends Screen {
     private String village = "";
     private String clan = "";
     private String sexe = "Homme";
+    /** Carrure mémorisée pour l'Homme (la Femme est toujours Alex/slim). */
+    private boolean maleSlim = false;
     private int age = 12;
     private double size = 1.0;      // 0.85–1.15 (≈ 1.53–2.07 m)
 
@@ -132,6 +134,9 @@ public class CharacterCreateScreen extends Screen {
 
         // Pré-remplissage depuis la candidature (verrou whitelist).
         preselectFromCandidature();
+        // Synchro genre → jeu de peau + carrure (Femme = Alex imposé).
+        appearance.female = "Femme".equals(sexe);
+        appearance.slim = appearance.female || maleSlim;
 
         nameField = new EditBox(this.font, panelX(), 0, panelW() - 8, 20,
             Component.literal("Prénom"));
@@ -579,6 +584,9 @@ public class CharacterCreateScreen extends Screen {
             ctx.text(tr, frac, cx - tr.width(frac) / 2, cyy + 7, Colors.WHITE_PURE, false);
         }
 
+        // Corps : toggle Carrure (Classique / Alex) au-dessus du cycleur de teinte.
+        if (cat == 0) drawBuildToggle(ctx, tr, mx, my);
+
         // Barre du bas : RETURN | 🎨 | NOM DU STYLE | 🎨 | CONFIRM.
         drawKorvexButton(ctx, tr, 24, barY, 130, 30, "RETOUR", "↑",
             hit(mx, my, 24, barY, 130, 30), false);
@@ -616,6 +624,33 @@ public class CharacterCreateScreen extends Screen {
             default -> // Pilosité (moustache)
                 DrawHelpers.rect(ctx, cx - 5, cy + 2, 10, 3, c);
         }
+    }
+
+    /** Toggle Carrure (cat Corps) : Classique | Alex. Femme = Alex imposé (gauche grisée). */
+    private void drawBuildToggle(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
+        int cx = this.width / 2, barY = this.height - 58;
+        int tw = 220, tx = cx - tw / 2, ty = barY - 66, hw = tw / 2;
+        Component lab = ax("CARRURE");
+        ctx.text(tr, lab, cx - tr.width(lab) / 2, ty - 12, Colors.FOREGROUND_MUTED, false);
+        boolean female = appearance.female;
+        segButton(ctx, tr, tx, ty, hw, 22, "CLASSIQUE",
+            !appearance.slim, !female && hit(mx, my, tx, ty, hw, 22), female);
+        segButton(ctx, tr, tx + hw, ty, hw, 22, "ALEX",
+            appearance.slim, hit(mx, my, tx + hw, ty, hw, 22), false);
+    }
+
+    private void segButton(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h,
+                           String label, boolean sel, boolean hover, boolean disabled) {
+        int fill = disabled ? Colors.withAlpha(0xFF000000, 0.5f)
+            : sel ? Colors.withAlpha(Colors.ACCENT, 0.4f)
+            : hover ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.4f);
+        int border = disabled ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.4f)
+            : sel ? Colors.GOLD : hover ? Colors.withAlpha(Colors.FOREGROUND, 0.5f) : Colors.BORDER;
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 6, fill, border);
+        Component t = ax(label);
+        int col = disabled ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.6f)
+            : sel ? Colors.WHITE_PURE : Colors.FOREGROUND;
+        ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2, col, false);
     }
 
     private void drawColorButton(GuiGraphicsExtractor ctx, int x, int y, int color, boolean active) {
@@ -694,12 +729,12 @@ public class CharacterCreateScreen extends Screen {
     }
 
     // ── Accès générique à la facette courante (cat/subCat) ────────────
-    private boolean facetHasStyle() { return cat == 1 || cat == 2 || cat == 3; }
-    private boolean facetHasColor() { return cat == 0 || cat == 1 || cat == 3; }
+    // Peau (cat 0) = cycleur de teinte (PNG livrés), sans color-picker.
+    private boolean facetHasStyle() { return cat == 0 || cat == 1 || cat == 2 || cat == 3; }
+    private boolean facetHasColor() { return cat == 1 || cat == 3; }
 
     private int facetColorGet() {
         return switch (cat) {
-            case 0 -> appearance.skinColor;
             case 1 -> switch (subCat) {
                 case 0 -> appearance.eyeColor;
                 case 1 -> appearance.hairColor;
@@ -712,7 +747,6 @@ public class CharacterCreateScreen extends Screen {
 
     private void facetColorSet(int argb) {
         switch (cat) {
-            case 0 -> appearance.skinColor = argb;
             case 1 -> {
                 switch (subCat) {
                     case 0 -> appearance.eyeColor = argb;
@@ -728,6 +762,7 @@ public class CharacterCreateScreen extends Screen {
 
     private int facetStyleCount() {
         return switch (cat) {
+            case 0 -> fr.reborn.hud.skin.SkinSpec.SKIN_TONES;
             case 1 -> switch (subCat) {
                 case 0 -> fr.reborn.hud.skin.SkinSpec.EYE_STYLES.length;
                 case 1 -> fr.reborn.hud.skin.SkinSpec.HAIR_STYLES.length;
@@ -741,6 +776,7 @@ public class CharacterCreateScreen extends Screen {
 
     private int facetStyleIdx() {
         return switch (cat) {
+            case 0 -> appearance.skinStyle;
             case 1 -> switch (subCat) {
                 case 0 -> appearance.eyeStyle;
                 case 1 -> appearance.hairStyle;
@@ -754,7 +790,7 @@ public class CharacterCreateScreen extends Screen {
 
     private String facetStyleName() {
         return switch (cat) {
-            case 0 -> "TEINTE DE PEAU";
+            case 0 -> "TEINTE " + (appearance.skinStyle + 1);
             case 1 -> switch (subCat) {
                 case 0 -> fr.reborn.hud.skin.SkinSpec.EYE_STYLES[appearance.eyeStyle];
                 case 1 -> fr.reborn.hud.skin.SkinSpec.HAIR_STYLES[appearance.hairStyle];
@@ -767,6 +803,8 @@ public class CharacterCreateScreen extends Screen {
 
     private void cycleFacet(int dir) {
         switch (cat) {
+            case 0 -> appearance.skinStyle = fr.reborn.hud.skin.SkinSpec.cycle(
+                appearance.skinStyle, fr.reborn.hud.skin.SkinSpec.SKIN_TONES, dir);
             case 1 -> {
                 switch (subCat) {
                     case 0 -> appearance.eyeStyle = fr.reborn.hud.skin.SkinSpec.cycle(
@@ -777,11 +815,29 @@ public class CharacterCreateScreen extends Screen {
                         appearance.facialStyle, fr.reborn.hud.skin.SkinSpec.FACIAL_STYLES.length, dir);
                 }
             }
-            case 2 -> sexe = "Homme".equals(sexe) ? "Femme" : "Homme";
+            case 2 -> setSexe("Homme".equals(sexe) ? "Femme" : "Homme");
             case 3 -> appearance.outfitStyle = fr.reborn.hud.skin.SkinSpec.cycle(
                 appearance.outfitStyle, fr.reborn.hud.skin.SkinSpec.OUTFIT_STYLES.length, dir);
             default -> { }
         }
+        refreshPreview();
+    }
+
+    /**
+     * Change le sexe et synchronise le jeu de PNG de peau (genre) + la carrure :
+     * Femme = Alex (slim) imposé ; Homme = carrure mémorisée ({@link #maleSlim}).
+     */
+    private void setSexe(String s) {
+        sexe = s;
+        appearance.female = "Femme".equals(s);
+        appearance.slim = appearance.female || maleSlim;
+        refreshPreview();
+    }
+
+    /** Change la carrure de l'Homme (Classique/Alex) et rafraîchit l'aperçu. */
+    private void setBuild(boolean slim) {
+        maleSlim = slim;
+        appearance.slim = slim;
         refreshPreview();
     }
 
@@ -820,6 +876,19 @@ public class CharacterCreateScreen extends Screen {
             }
         }
         int barY = this.height - 58;
+        // Corps : toggle Carrure (Classique | Alex).
+        if (cat == 0) {
+            int tw = 220, tx = cx - tw / 2, ty = barY - 66, hw = tw / 2;
+            if (hit(mx, my, tx, ty, hw, 22)) {
+                if (appearance.female) toast("La Femme est toujours en carrure Alex (slim).");
+                else setBuild(false);
+                return true;
+            }
+            if (hit(mx, my, tx + hw, ty, hw, 22)) {
+                if (!appearance.female) setBuild(true);
+                return true;
+            }
+        }
         if (facetHasStyle()) {
             int cyy = barY - 34, cw = 150, sx = cx - cw / 2;
             if (hit(mx, my, sx, cyy, 26, 22)) { cycleFacet(-1); return true; }
@@ -1078,7 +1147,7 @@ public class CharacterCreateScreen extends Screen {
                 int pw = (w - 8) / 2;
                 for (int i = 0; i < SEXES.length; i++) {
                     int bx = x + i * (pw + 8);
-                    if (hit(mx, my, bx, yy + 12, pw, 26)) { sexe = SEXES[i]; return true; }
+                    if (hit(mx, my, bx, yy + 12, pw, 26)) { setSexe(SEXES[i]); return true; }
                 }
                 // Slider taille.
                 if (hit(mx, my, sizeTX, sizeTY - 4, sizeTW, 16)) {
@@ -1171,6 +1240,11 @@ public class CharacterCreateScreen extends Screen {
             } else {
                 if (k == GLFW.GLFW_KEY_A && facetHasStyle()) { cycleFacet(-1); return true; }
                 if (k == GLFW.GLFW_KEY_D && facetHasStyle()) { cycleFacet(+1); return true; }
+                if (k == GLFW.GLFW_KEY_S && cat == 0) { // toggle Carrure (Corps)
+                    if (appearance.female) toast("La Femme est toujours en carrure Alex (slim).");
+                    else setBuild(!appearance.slim);
+                    return true;
+                }
                 if (k == GLFW.GLFW_KEY_F) { cat = -1; pickerOpen = false; return true; }
             }
             return true;

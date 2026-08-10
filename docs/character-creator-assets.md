@@ -1,9 +1,35 @@
 # Créateur de personnage — pipeline skin & assets (doc de reprise)
 
-> État au 2026-08-09. Éditeur KORVEX **publié et fonctionnel** (reborn-hud **0.4.25** /
-> manifest **2.6.19**), en **composition procédurale** (aplats). Cette étape = brancher
-> les **vrais assets PNG**. Réfs visuelles : `docs/refs/korvex/screen1-4.png` (maquettes
-> KORVEX) + `docs/refs/korvex/skin-template-guide.png` (zones à peindre).
+> État au 2026-08-10. Éditeur KORVEX publié en composition procédurale (0.4.25).
+> **PEAU désormais branchée sur les vrais PNG** (male + female, 10 teintes chacun)
+> + **carrure Classique/Alex** + **nouvelle disposition des yeux**. Cheveux / pilosité
+> / tenues restent procéduraux en attendant leurs assets. Réfs visuelles :
+> `docs/refs/korvex/screen1-4.png` + `docs/refs/korvex/skin-template-guide.png`.
+
+## ✅ Fait (2026-08-10) — peau + carrure + yeux
+
+- **Assets peau bundlés** : `assets/reborn/textures/character/skin/{male,female}/0..9.png`
+  (10 teintes/genre, triées **clair→foncé** ; l'index N = même teinte pour les 2 genres).
+  Source = `d:/REBORN - PJ/Modélisation/Skin/peau/{male,female}/peau*.png`.
+- **Base peau** dans `RebornSkins.compose()` : le PNG de la teinte est décodé à neuf
+  (octets cachés dans `skinBytes`, image mutable), puis les overlays procéduraux
+  (tenue/cheveux/yeux/pilosité) sont peints **par-dessus sans détruire le visage**.
+- **Peau = cycleur de style** (plus de color-picker) : `SkinSpec.skinStyle` (0..9),
+  `SKIN_TONES=10`. `facetHasColor(cat 0)=false`, `facetHasStyle(cat 0)=true`.
+- **Genre → dossier** : `SkinSpec.female` choisit `male/` ou `female/`.
+- **Carrure (Classique/Alex)** = `SkinSpec.slim`. **Indépendante du genre côté Homme**
+  (toggle « CARRURE » dans l'éditeur Corps, touche **S**) ; **Femme = Alex imposé**.
+  Les PNG slim (`speau*`) livrés par le user sont **byte-identiques** aux classiques →
+  **une seule texture/genre suffit** ; « slim » ne change **que le modèle** du
+  `PlayerSkin` : le mixin `AbstractClientPlayerSkinMixin` force
+  `PlayerModelType.SLIM/WIDE` via `RebornSkins.isSlim(uuid)`.
+- **Yeux** : un œil = **2×2** — colonne gauche **blanche** (2×1), colonne droite **iris**
+  (`eyeColor`, toujours color-picker). Cf `RebornSkins.drawEye()`.
+- Sérialisation `SkinSpec.serialize()` mise à jour → ordre : `useOwnSkin, female, slim,
+  skinStyle, hairStyle, hair, eyeStyle, eye, facialStyle, facial, outfitStyle, outfit`.
+
+**Reste (prochaines sessions)** : assets **yeux** (masque gris + teinte), **cheveux**,
+**pilosité**, **tenues** (voir plan couleur ci-dessous) ; puis synchro serveur ShinobiCore.
 
 ## Où ça vit dans le code
 - **`minecraft/mod-hud/.../skin/SkinSpec.java`** — spec d'apparence par facette :

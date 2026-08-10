@@ -4,7 +4,11 @@ import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,8 +28,22 @@ public final class RebornSkins {
 
     private RebornSkins() {}
 
+    private static final Logger LOGGER = LoggerFactory.getLogger("reborn-skins");
+
     /** UUID joueur → identifiant de la texture composée enregistrée. */
     private static final Map<UUID, Identifier> overrides = new ConcurrentHashMap<>();
+
+    /** UUID joueur → carrure du perso composé ({@code true} = Alex/slim). */
+    private static final Map<UUID, Boolean> slimModel = new ConcurrentHashMap<>();
+
+    /**
+     * Cache des <b>octets PNG</b> des peaux de base (clé = {@code male/3}, …). On
+     * garde les octets bruts (et non un {@link NativeImage}) pour redécoder une
+     * image <b>fraîche et mutable</b> à chaque {@link #compose} sans jamais muter
+     * une image partagée. Les PNG sont statiques (bundlés) → lecture disque une
+     * seule fois par teinte.
+     */
+    private static final Map<String, byte[]> skinBytes = new ConcurrentHashMap<>();
 
     /** Identifiant de la texture composée pour ce joueur, ou {@code null}. */
     public static Identifier overrideFor(UUID uuid) {
@@ -34,6 +52,11 @@ public final class RebornSkins {
 
     public static boolean hasOverride(UUID uuid) {
         return overrides.containsKey(uuid);
+    }
+
+    /** Carrure du skin composé pour ce joueur : {@code true} = Alex (bras 3px). */
+    public static boolean isSlim(UUID uuid) {
+        return slimModel.getOrDefault(uuid, false);
     }
 
     /**
@@ -61,89 +84,124 @@ public final class RebornSkins {
             return;
         }
         register(uuid, compose(spec));
+        slimModel.put(uuid, spec.slim);
     }
 
     /**
-     * Construit une texture de skin 64×64 <b>procédurale</b> à partir de la spec :
-     * aplat de peau sur tout le corps, tenue sur torse/jambes, coiffure sur la
-     * tête (frange selon le style), yeux sur le visage. Les vrais PNG (visages,
-     * coiffures, tenues de clan) remplaceront ces aplats sans toucher au reste du
-     * pipeline (override + synchro par IDs).
+     * Construit une texture de skin 64×64 à partir de la spec. La <b>peau de base</b>
+     * vient d'un vrai PNG livré ({@code character/skin/<genre>/<teinte>.png}, corps
+     * entier peint) ; par-dessus on ajoute encore <b>procéduralement</b> la tenue,
+     * la coiffure, la pilosité et les yeux (leurs vrais PNG viendront ensuite et
+     * remplaceront ces aplats sans toucher au reste du pipeline).
+     *
+     * <p>La base peau est redécodée à neuf à chaque appel (image mutable) ; les
+     * overlays sont peints dessus <b>sans détruire le visage</b> (les cheveux ne
+     * couvrent que crâne/tempes/nuque + frange).
      */
     public static NativeImage compose(SkinSpec spec) {
-        NativeImage img = new NativeImage(64, 64, false);
+        NativeImage img = loadSkinBase(spec.female, spec.skinStyle);
+        if (img == null) {
+            // Repli : aplat de peau si le PNG est illisible.
+            img = new NativeImage(64, 64, false);
+            img.fillRect(0, 0, 64, 64, argbToAbgr(SkinSpec.DEFAULT_SKIN));
+        }
 
-        int skin = argbToAbgr(spec.skinColor);
         int outfit = argbToAbgr(spec.outfitColor);
         int outfitDark = argbToAbgr(shade(spec.outfitColor, 0.82f));
         int hair = argbToAbgr(spec.hairColor);
         int eye = argbToAbgr(spec.eyeColor);
         int facial = argbToAbgr(spec.facialColor);
         int white = abgr(238, 238, 238, 255);
-        int transparent = abgr(0, 0, 0, 0);
 
-        // 1) Peau sur tout le corps (couche de base).
-        img.fillRect(0, 0, 64, 64, skin);
-
-        // 2) Efface les couches « overlay » indésirables (évite un modèle gonflé) :
-        //    chapeau (32,0)-(64,16) + surcouches des bras.
-        img.fillRect(32, 0, 32, 16, transparent); // hat
-        img.fillRect(40, 32, 16, 16, transparent); // right-arm overlay
-        img.fillRect(48, 48, 16, 16, transparent); // left-arm overlay
-
-        // 3) Tenue : couverture selon le style.
+        // 1) Tenue (placeholder procédural) — dessinée sur les faces « base » du corps.
         //    0=torse nu (juste short), 1=débardeur, 2=veste, 3=manteau, 4=kimono.
         int oStyle = clampIdx(spec.outfitStyle, SkinSpec.OUTFIT_STYLES.length);
-        // Short/pantalon (toujours présent) sur les jambes.
-        img.fillRect(0, 16, 16, 16, outfitDark);  // jambe droite base
-        img.fillRect(0, 32, 16, 16, outfitDark);  // jambe droite overlay
-        img.fillRect(16, 48, 16, 16, outfitDark); // jambe gauche base
-        img.fillRect(0, 48, 16, 16, outfitDark);  // jambe gauche overlay
+        img.fillRect(0, 16, 16, 16, outfitDark);  // jambe droite (pantalon)
+        img.fillRect(16, 48, 16, 16, outfitDark); // jambe gauche (pantalon)
         if (oStyle >= 1) {
-            // Torse habillé.
-            img.fillRect(16, 16, 24, 16, outfit);
-            img.fillRect(16, 32, 24, 16, outfit); // veste (overlay torse)
+            img.fillRect(16, 16, 24, 16, outfit);     // torse
             if (oStyle >= 2) {
-                // Manches (bras) pour veste/manteau/kimono.
-                img.fillRect(40, 16, 16, 16, outfit); // bras droit base
-                img.fillRect(32, 48, 16, 16, outfit); // bras gauche base
+                img.fillRect(40, 16, 16, 16, outfit); // bras droit (manche)
+                img.fillRect(32, 48, 16, 16, outfit); // bras gauche (manche)
             }
         }
 
-        // 4) Coiffure : bloc tête en cheveux, puis on restitue le visage.
+        // 2) Coiffure (placeholder) : crâne + nuque + tempes + frange, SANS toucher
+        //    au visage (les rangées du bas de la face restent en peau).
         int hStyle = clampIdx(spec.hairStyle, SkinSpec.HAIR_STYLES.length);
         int fringe = SkinSpec.HAIR_FRINGE[hStyle];
         if (hStyle > 0) { // "Chauve" = pas de cheveux
-            img.fillRect(0, 0, 32, 16, hair); // top + faces de la tête
-            img.fillRect(16, 0, 8, 8, skin);  // dessous menton = peau
-            img.fillRect(8, 8, 8, 8, skin);   // visage = peau
-            if (fringe > 0) img.fillRect(8, 8, 8, Math.min(fringe, 6), hair); // frange
+            int back = Math.min(fringe + 3, 8);       // hauteur de la nuque selon le style
+            img.fillRect(8, 0, 8, 8, hair);           // dessus du crâne (face top)
+            img.fillRect(24, 8, 8, back, hair);        // nuque (face arrière)
+            if (fringe > 0) {
+                img.fillRect(0, 8, 8, fringe, hair);   // tempe droite (face droite)
+                img.fillRect(16, 8, 8, fringe, hair);  // tempe gauche (face gauche)
+                img.fillRect(8, 8, 8, fringe, hair);   // frange (haut du visage)
+            }
         }
 
-        // 5) Pilosité faciale (moustache/bouc/barbe) sur le bas du visage.
+        // 3) Yeux — un œil = 2×2 : colonne gauche BLANCHE, colonne droite = IRIS.
+        //    (disposition demandée par le user ; teinte d'iris = eyeColor.)
+        int eStyle = clampIdx(spec.eyeStyle, SkinSpec.EYE_STYLES.length);
+        int eyeRow = clamp(8 + Math.max(fringe, 1), 9, 12); // sous la frange
+        int eh = eStyle == 1 ? 1 : 2;             // "Fendus" = fente 1px ; sinon 2px
+        drawEye(img, 9, eyeRow, eh, white, eye);  // œil gauche
+        drawEye(img, 13, eyeRow, eh, white, eye); // œil droit
+
+        // 4) Pilosité faciale (moustache/bouc/barbe) sur le bas du visage.
         int fStyle = clampIdx(spec.facialStyle, SkinSpec.FACIAL_STYLES.length);
         switch (fStyle) {
             case 1 -> img.fillRect(10, 13, 4, 1, facial);              // moustache
-            case 2 -> { img.fillRect(11, 13, 2, 3, facial); }          // bouc
+            case 2 -> img.fillRect(11, 13, 2, 3, facial);              // bouc
             case 3 -> { img.fillRect(9, 13, 6, 3, facial); img.fillRect(8, 12, 1, 3, facial); img.fillRect(15, 12, 1, 3, facial); } // barbe
             default -> { }
         }
 
-        // 6) Yeux (blanc + iris), forme selon le style.
-        int eStyle = clampIdx(spec.eyeStyle, SkinSpec.EYE_STYLES.length);
-        int eyeRow = 8 + Math.max(fringe, 2) + 1;
-        if (eyeRow > 12) eyeRow = 12;
-        int ew = eStyle == 2 ? 2 : 1; // "Ronds" = iris plus large
-        img.fillRect(9, eyeRow, 2, 1, white);
-        img.fillRect(13, eyeRow, 2, 1, white);
-        img.fillRect(10, eyeRow, ew, 1, eye);
-        img.fillRect(13, eyeRow, ew, 1, eye);
-        if (eStyle == 1) { // "Fendus" : trait plus fin/allongé
-            img.fillRect(9, eyeRow, 3, 1, eye);
-            img.fillRect(13, eyeRow, 3, 1, eye);
-        }
-
         return img;
+    }
+
+    /** Un œil : colonne gauche blanche + colonne droite iris, sur {@code h} pixels. */
+    private static void drawEye(NativeImage img, int x, int y, int h, int white, int iris) {
+        img.fillRect(x, y, 1, h, white);
+        img.fillRect(x + 1, y, 1, h, iris);
+    }
+
+    /**
+     * Décode une image de peau <b>fraîche</b> (64×64) pour {@code (genre, teinte)}
+     * depuis les resources bundlées, ou {@code null} si illisible. Les octets PNG
+     * sont mis en cache ; l'image est ré-décodée à chaque appel (mutable, propre).
+     */
+    private static NativeImage loadSkinBase(boolean female, int style) {
+        int s = clampIdx(style, SkinSpec.SKIN_TONES);
+        String key = (female ? "female/" : "male/") + s;
+        byte[] bytes = skinBytes.computeIfAbsent(key, RebornSkins::readSkinBytes);
+        if (bytes == null) return null;
+        try {
+            return NativeImage.read(new ByteArrayInputStream(bytes));
+        } catch (Exception e) {
+            LOGGER.warn("décodage peau {} échec : {}", key, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Lit les octets bruts du PNG de peau {@code key} (ex. {@code male/3}), ou null. */
+    private static byte[] readSkinBytes(String key) {
+        Identifier id = Identifier.fromNamespaceAndPath(
+            "reborn", "textures/character/skin/" + key + ".png");
+        try {
+            var res = Minecraft.getInstance().getResourceManager().getResource(id);
+            if (res.isEmpty()) {
+                LOGGER.warn("peau introuvable : {}", id);
+                return null;
+            }
+            try (InputStream in = res.get().open()) {
+                return in.readAllBytes();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("lecture peau {} échec : {}", key, e.getMessage());
+            return null;
+        }
     }
 
     /** Enregistre l'image composée comme texture dynamique et mémorise l'override. */
@@ -157,10 +215,12 @@ public final class RebornSkins {
 
     public static void clear(UUID uuid) {
         overrides.remove(uuid);
+        slimModel.remove(uuid);
     }
 
     public static void clearAll() {
         overrides.clear();
+        slimModel.clear();
     }
 
     /** Couleur au format natif de NativeImage (RGBA → int ABGR). */
@@ -196,5 +256,9 @@ public final class RebornSkins {
 
     private static int clampIdx(int i, int len) {
         return i < 0 ? 0 : i >= len ? len - 1 : i;
+    }
+
+    private static int clamp(int v, int lo, int hi) {
+        return v < lo ? lo : v > hi ? hi : v;
     }
 }

@@ -20,6 +20,9 @@ import java.util.Locale;
  */
 public final class SkinSpec {
 
+    /** Nombre de teintes de peau livrées (PNG {@code character/skin/<genre>/N.png}). */
+    public static final int SKIN_TONES = 10;
+
     // ── Noms de styles (procédural = variation de forme) ──────────────
     public static final String[] HAIR_STYLES = { "Chauve", "Court", "Hérissé", "Mi-long", "Long" };
     /** Rangées de frange sur le front, par style de cheveux. */
@@ -30,6 +33,7 @@ public final class SkinSpec {
     public static final String[] OUTFIT_STYLES = { "Torse nu", "Débardeur", "Veste", "Manteau", "Kimono" };
 
     // ── Couleurs par défaut (ARGB) ────────────────────────────────────
+    /** Teinte de repli si le PNG de peau est illisible (composition dégradée). */
     public static final int DEFAULT_SKIN = 0xFFD9A57D;
     public static final int DEFAULT_HAIR = 0xFF3A2416;
     public static final int DEFAULT_EYE = 0xFF5A3A1E;
@@ -39,7 +43,16 @@ public final class SkinSpec {
     // ── État ──────────────────────────────────────────────────────────
     public boolean useOwnSkin = false;
 
-    public int skinColor = DEFAULT_SKIN;
+    /** Genre → jeu de PNG de peau ({@code male/} ou {@code female/}). */
+    public boolean female = false;
+    /**
+     * Carrure : {@code true} = modèle Alex (bras 3px), {@code false} = classique
+     * (Steve, 4px). Indépendante du genre côté Homme ; imposée à {@code true} pour
+     * Femme. La texture est la même — seul le modèle du {@code PlayerSkin} change.
+     */
+    public boolean slim = false;
+    /** Index de teinte de peau (0 = clair … {@link #SKIN_TONES}-1 = foncé). */
+    public int skinStyle = 0;
 
     public int hairStyle = 1;
     public int hairColor = DEFAULT_HAIR;
@@ -100,12 +113,17 @@ public final class SkinSpec {
     /**
      * Queue sérialisée ajoutée à la commande {@code create} (une valeur par ligne)
      * pour que ShinobiCore stocke + rediffuse l'apparence. Couleurs en hex RRGGBB.
-     * Ordre : useOwnSkin, skin, hairStyle, hair, eyeStyle, eye, facialStyle,
-     * facial, outfitStyle, outfit.
+     * Ordre : useOwnSkin, female, slim, skinStyle, hairStyle, hair, eyeStyle, eye,
+     * facialStyle, facial, outfitStyle, outfit.
+     *
+     * <p>La peau n'a plus de couleur libre : elle est choisie par {@code skinStyle}
+     * (index de teinte livrée) dans le jeu de PNG du genre {@code female}.
      */
     public String serialize() {
         return (useOwnSkin ? "1" : "0")
-            + "\n" + hex(skinColor)
+            + "\n" + (female ? "1" : "0")
+            + "\n" + (slim ? "1" : "0")
+            + "\n" + skinStyle
             + "\n" + hairStyle + "\n" + hex(hairColor)
             + "\n" + eyeStyle + "\n" + hex(eyeColor)
             + "\n" + facialStyle + "\n" + hex(facialColor)
