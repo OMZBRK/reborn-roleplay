@@ -136,4 +136,44 @@ public final class SkinSpec {
     private static String hex(int argb) {
         return String.format(Locale.US, "%06X", argb & 0xFFFFFF);
     }
+
+    /**
+     * Reconstruit une spec depuis la queue {@link #serialize()} (rediffusée par
+     * ShinobiCore dans le roster). Robuste : un blob vide/partiel/ancien retombe sur
+     * les valeurs par défaut pour les champs manquants.
+     */
+    public static SkinSpec deserialize(String blob) {
+        SkinSpec s = new SkinSpec();
+        if (blob == null || blob.isBlank()) return s;
+        String[] p = blob.split("\n", -1);
+        try {
+            int i = 0;
+            s.useOwnSkin    = "1".equals(p[i++].trim());
+            s.female        = "1".equals(p[i++].trim());
+            s.slim          = "1".equals(p[i++].trim());
+            s.skinStyle     = pi(p[i++]);
+            s.hairStyle     = pi(p[i++]);
+            s.hairColor     = pc(p[i++]);
+            s.eyeStyle      = pi(p[i++]);
+            s.eyeColor      = pc(p[i++]);
+            s.eyeColorRight = pc(p[i++]);
+            s.facialStyle   = pi(p[i++]);
+            s.facialColor   = pc(p[i++]);
+            s.outfitStyle   = pi(p[i++]);
+            s.outfitColor   = pc(p[i++]);
+        } catch (RuntimeException ignored) {
+            // blob tronqué → on garde ce qui a pu être lu + défauts sur le reste.
+        }
+        return s;
+    }
+
+    private static int pi(String s) {
+        try { return Integer.parseInt(s.trim()); } catch (RuntimeException e) { return 0; }
+    }
+
+    /** Hex RRGGBB → ARGB opaque (repli gris si illisible). */
+    private static int pc(String hex) {
+        try { return 0xFF000000 | (Integer.parseInt(hex.trim(), 16) & 0xFFFFFF); }
+        catch (RuntimeException e) { return 0xFF888888; }
+    }
 }

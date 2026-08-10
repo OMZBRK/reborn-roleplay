@@ -13,6 +13,7 @@ package fr.reborn.hud.menu.character;
  * @param rank      rang ninja, label FR (ex "Genin")
  * @param level     niveau RP
  * @param dead      personnage mort (RPK) → carte verrouillée + badge
+ * @param appearance queue {@code SkinSpec.serialize()} du skin RP composé ("" = skin défaut)
  */
 public record CharacterCard(
     String id,
@@ -22,8 +23,10 @@ public record CharacterCard(
     String village,
     String rank,
     int level,
-    boolean dead
+    boolean dead,
+    String appearance
 ) {
     public boolean hasClan() { return clan != null && !clan.isBlank(); }
     public boolean hasVillage() { return village != null && !village.isBlank(); }
+    public boolean hasAppearance() { return appearance != null && !appearance.isBlank(); }
 }

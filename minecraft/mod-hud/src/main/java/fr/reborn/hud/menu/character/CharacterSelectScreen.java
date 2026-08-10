@@ -233,6 +233,18 @@ public class CharacterSelectScreen extends Screen {
     }
 
     private void onSelect(CharacterCard c) {
+        // Applique + persiste le skin RP composé du perso choisi sur le joueur local
+        // (l'override reste actif en jeu jusqu'à la déconnexion ; re-sélection au
+        // prochain login le ré-applique). Pas d'apparence → skin Minecraft normal.
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            if (c.hasAppearance()) {
+                fr.reborn.hud.skin.RebornSkins.applySpec(
+                    mc.player.getUUID(), fr.reborn.hud.skin.SkinSpec.deserialize(c.appearance()));
+            } else {
+                fr.reborn.hud.skin.RebornSkins.clear(mc.player.getUUID());
+            }
+        }
         sendAction("select:" + c.id());
         this.onClose(); // le serveur téléporte le joueur en jeu (setActive)
     }

@@ -73,7 +73,8 @@ public final class CharacterData {
                         str(o, "village", ""),
                         str(o, "rank", ""),
                         intv(o, "level", 0),
-                        o.has("dead") && !o.get("dead").isJsonNull() && o.get("dead").getAsBoolean()));
+                        o.has("dead") && !o.get("dead").isJsonNull() && o.get("dead").getAsBoolean(),
+                        str(o, "appearance", "")));
                 }
             }
             // Candidature (optionnelle) : { village, clan, name, staff }.

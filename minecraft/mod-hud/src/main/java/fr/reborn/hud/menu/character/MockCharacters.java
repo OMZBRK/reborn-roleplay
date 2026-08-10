@@ -17,9 +17,9 @@ public final class MockCharacters {
     public static List<CharacterCard> build() {
         return List.of(
             new CharacterCard("mock-1", "Hikami", "Uchiha", 0xFFC01E35,
-                "Konohagakure", "Genin", 7, false),
+                "Konohagakure", "Genin", 7, false, ""),
             new CharacterCard("mock-2", "Renji", "Nara", 0xFF7BA05B,
-                "Konohagakure", "Chunin", 14, true)
+                "Konohagakure", "Chunin", 14, true, "")
         );
     }
 }
