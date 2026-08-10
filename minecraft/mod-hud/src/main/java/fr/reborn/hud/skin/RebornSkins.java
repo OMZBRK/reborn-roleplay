@@ -62,6 +62,26 @@ public final class RebornSkins {
     }
 
     /**
+     * Applique un message de diffusion {@code reborn:skins} = {@code <uuid>\n<queue
+     * serialize()>}. Apparence vide → retrait de l'override (skin MC normal). Permet
+     * à chaque client d'afficher le skin RP composé des AUTRES joueurs. À appeler
+     * sur le thread client.
+     */
+    public static void applyBroadcast(String content) {
+        if (content == null) return;
+        int nl = content.indexOf('\n');
+        String uuidStr = (nl < 0 ? content : content.substring(0, nl)).trim();
+        String appearance = nl < 0 ? "" : content.substring(nl + 1);
+        UUID uuid;
+        try { uuid = UUID.fromString(uuidStr); } catch (IllegalArgumentException e) { return; }
+        if (appearance.isBlank()) {
+            clear(uuid);
+        } else {
+            applySpec(uuid, SkinSpec.deserialize(appearance));
+        }
+    }
+
+    /**
      * Applique une <b>composition de test</b> (base peau + marqueur torse) au
      * joueur — sert à valider le pipeline override en solo. À remplacer par
      * {@code compose(cosmeticIds)} une fois les assets/branchés.

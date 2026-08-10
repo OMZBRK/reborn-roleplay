@@ -125,6 +125,18 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.character.CharacterData.clear());
 
+        // Diffusion des apparences RP (canal reborn:skins, S2C) : ShinobiCore pousse
+        // <uuid>\n<serialize()> pour chaque joueur actif → chacun voit le skin composé
+        // des autres. Apparence vide = retrait de l'override.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.skin.SkinPayload.ID, fr.reborn.hud.skin.SkinPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.skin.SkinPayload.ID,
+            (payload, context) -> context.client().execute(() ->
+                fr.reborn.hud.skin.RebornSkins.applyBroadcast(payload.content())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.skin.RebornSkins.clearAll());
+
         // Voix Reborn (PlasmoVoice) : addon client qui capte l'instance PV pour
         // savoir qui parle → bulle de parole au-dessus des têtes. Se désactive
         // proprement si PlasmoVoice n'est pas dans le modpack.
