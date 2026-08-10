@@ -33,8 +33,12 @@ public abstract class AbstractClientPlayerSkinMixin {
         if (original == null) return;
         PlayerModelType model = RebornSkins.isSlim(self.getUUID())
             ? PlayerModelType.SLIM : PlayerModelType.WIDE;
+        // ⚠️ Constructeur 2-arg (id, texturePath) : le 1-arg dérive
+        // texturePath = "textures/<path>.png", or notre DynamicTexture est
+        // enregistrée sous l'id BRUT → mismatch = texture manquante (magenta).
+        // On force donc texturePath = id (l'identifiant exact de la texture).
         PlayerSkin patched = original.with(PlayerSkin.Patch.create(
-            Optional.of(new ClientAsset.ResourceTexture(id)),
+            Optional.of(new ClientAsset.ResourceTexture(id, id)),
             Optional.empty(),
             Optional.empty(),
             Optional.of(model)));
