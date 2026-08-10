@@ -136,44 +136,44 @@ public final class RebornSkins {
         int hair = spec.hairColor;
         int facial = spec.facialColor;
 
-        // 1) Tenue (placeholder procédural) — pour l'instant SEUL le torse peut être
-        //    habillé (débardeur/veste…). **Jambes ET bras laissés en PEAU** pour
-        //    montrer le skin peint (pas encore d'assets de tenue/manches/pantalon).
-        //    0=torse nu, 1=débardeur, 2=veste, 3=manteau, 4=kimono.
+        // Toutes les facettes (tenue/cheveux/pilosité/yeux) suivent le MÊME pipeline
+        // « rouge = teintable » que les yeux : si un PNG existe pour le style, il est
+        // overlayé (pixels rouges teintés par la couleur, le reste gardé). Sinon on
+        // retombe sur le placeholder procédural. => déposer un asset suffit.
+
+        // 1) Tenue (torse/bras/jambes selon ton asset) — placeholder = aplat torse.
         int oStyle = clampIdx(spec.outfitStyle, SkinSpec.OUTFIT_STYLES.length);
-        if (oStyle >= 1) {
-            img.fillRect(16, 16, 24, 16, outfit); // torse
+        if (oStyle >= 1 && !overlayTinted(img, "outfit", oStyle, outfit, outfit, 99)) {
+            img.fillRect(16, 16, 24, 16, outfit); // torse (placeholder)
         }
 
-        // 2) Coiffure (placeholder) : crâne + nuque + tempes + frange, SANS toucher
-        //    au visage (les rangées du bas de la face restent en peau).
+        // 2) Coiffure — placeholder procédural (crâne/nuque/tempes/frange) si pas d'asset.
         int hStyle = clampIdx(spec.hairStyle, SkinSpec.HAIR_STYLES.length);
         int fringe = SkinSpec.HAIR_FRINGE[hStyle];
-        if (hStyle > 0) { // "Chauve" = pas de cheveux
-            int back = Math.min(fringe + 3, 8);       // hauteur de la nuque selon le style
-            img.fillRect(8, 0, 8, 8, hair);           // dessus du crâne (face top)
-            img.fillRect(24, 8, 8, back, hair);        // nuque (face arrière)
+        if (hStyle > 0 && !overlayTinted(img, "hair", hStyle, hair, hair, 99)) {
+            int back = Math.min(fringe + 3, 8);
+            img.fillRect(8, 0, 8, 8, hair);           // dessus du crâne
+            img.fillRect(24, 8, 8, back, hair);        // nuque
             if (fringe > 0) {
-                img.fillRect(0, 8, 8, fringe, hair);   // tempe droite (face droite)
-                img.fillRect(16, 8, 8, fringe, hair);  // tempe gauche (face gauche)
-                img.fillRect(8, 8, 8, fringe, hair);   // frange (haut du visage)
+                img.fillRect(0, 8, 8, fringe, hair);   // tempe droite
+                img.fillRect(16, 8, 8, fringe, hair);  // tempe gauche
+                img.fillRect(8, 8, 8, fringe, hair);   // frange
             }
         }
 
-        // 3) Yeux — texture PNG (eyes/<style>.png) overlayée telle quelle : la
-        //    sclérotique (pixels clairs) est conservée, l'IRIS (pixels rouges) est
-        //    teinté par la couleur de l'œil en préservant ses 2 teintes (rouge foncé
-        //    → couleur foncée, rouge clair → couleur claire). Œil gauche/droit =
-        //    couleurs séparées (hétérochromie) : split sur x (nez = x11/12).
+        // 3) Yeux — texture eyes/<style>.png, iris (rouge) teinté (2 teintes), sclérotique
+        //    gardée, œil gauche/droit couleurs séparées (split x=11). Repli procédural.
         overlayEyes(img, spec.eyeStyle, spec.eyeColor, spec.eyeColorRight);
 
-        // 4) Pilosité faciale (moustache/bouc/barbe) sur le bas du visage.
+        // 4) Pilosité faciale — placeholder (moustache/bouc/barbe) si pas d'asset.
         int fStyle = clampIdx(spec.facialStyle, SkinSpec.FACIAL_STYLES.length);
-        switch (fStyle) {
-            case 1 -> img.fillRect(10, 13, 4, 1, facial);              // moustache
-            case 2 -> img.fillRect(11, 13, 2, 3, facial);              // bouc
-            case 3 -> { img.fillRect(9, 13, 6, 3, facial); img.fillRect(8, 12, 1, 3, facial); img.fillRect(15, 12, 1, 3, facial); } // barbe
-            default -> { }
+        if (fStyle > 0 && !overlayTinted(img, "facial", fStyle, facial, facial, 99)) {
+            switch (fStyle) {
+                case 1 -> img.fillRect(10, 13, 4, 1, facial);              // moustache
+                case 2 -> img.fillRect(11, 13, 2, 3, facial);              // bouc
+                case 3 -> { img.fillRect(9, 13, 6, 3, facial); img.fillRect(8, 12, 1, 3, facial); img.fillRect(15, 12, 1, 3, facial); } // barbe
+                default -> { }
+            }
         }
 
         return img;
@@ -187,27 +187,39 @@ public final class RebornSkins {
      * si la texture manque.
      */
     private static void overlayEyes(NativeImage img, int style, int eyeLeft, int eyeRight) {
-        EyeTex tex = loadEyeTex(style);
-        if (tex == null) {
+        // splitX=11 → œil gauche (x≤11) et droit (x≥12) prennent des couleurs distinctes.
+        if (!overlayTinted(img, "eyes", clampIdx(style, SkinSpec.EYE_STYLES.length),
+                eyeLeft, eyeRight, 11)) {
             drawEyeFallback(img, 9, 13, eyeLeft);
             drawEyeFallback(img, 13, 13, eyeRight);
-            return;
-        }
-        for (int i = 0; i < tex.x.length; i++) {
-            int x = tex.x[i], y = tex.y[i];
-            int color;
-            if (tex.iris[i]) {
-                int base = x <= 11 ? eyeLeft : eyeRight;
-                color = tintIris(base, (tex.argb[i] >> 16) & 0xFF, tex.refRed);
-            } else {
-                color = tex.argb[i]; // sclérotique conservée
-            }
-            img.setPixel(x, y, color);
         }
     }
 
-    /** Teinte un iris : {@code couleur × (rouge_pixel / rouge_max)} (préserve les 2 teintes). */
-    private static int tintIris(int argb, int pixelRed, int refRed) {
+    /**
+     * Overlay d'une texture teintable {@code <folder>/<style>.png} par-dessus le skin :
+     * pixels « rouges » teintés par la couleur (gauche si {@code x≤splitX}, droite
+     * sinon ; les nuances sont préservées via le canal rouge), le reste recopié tel
+     * quel (détails à couleur fixe). <b>Agnostique au layout</b> : chaque pixel opaque
+     * est overlayé à ses coordonnées, peu importe où tu peins dans le 64×64.
+     *
+     * @return false si aucune texture (l'appelant fait alors son placeholder procédural)
+     */
+    private static boolean overlayTinted(NativeImage img, String folder, int style,
+                                         int colorLeft, int colorRight, int splitX) {
+        TintTex tex = loadTintTex(folder, style);
+        if (tex == null) return false;
+        for (int i = 0; i < tex.x.length; i++) {
+            int x = tex.x[i], y = tex.y[i];
+            int color = tex.tint[i]
+                ? tintShade(x <= splitX ? colorLeft : colorRight, (tex.argb[i] >> 16) & 0xFF, tex.refRed)
+                : tex.argb[i];
+            img.setPixel(x, y, color);
+        }
+        return true;
+    }
+
+    /** Teinte : {@code couleur × (rouge_pixel / rouge_max)} → préserve les nuances (2+ teintes). */
+    private static int tintShade(int argb, int pixelRed, int refRed) {
         float f = refRed <= 0 ? 1f : Math.min(1f, pixelRed / (float) refRed);
         int r = Math.round(((argb >> 16) & 0xFF) * f);
         int g = Math.round(((argb >> 8) & 0xFF) * f);
@@ -221,28 +233,24 @@ public final class RebornSkins {
         img.fillRect(x + 1, y, 1, 2, iris);
     }
 
-    /** Pixels d'une texture d'yeux décodée (parallèles) + rouge max de l'iris. */
-    private record EyeTex(int[] x, int[] y, int[] argb, boolean[] iris, int refRed) {}
+    /** Pixels d'une texture teintable décodée (parallèles) + rouge max des zones teintables. */
+    private record TintTex(int[] x, int[] y, int[] argb, boolean[] tint, int refRed) {}
 
-    private static final Map<Integer, EyeTex> eyeCache = new ConcurrentHashMap<>();
+    private static final Map<String, TintTex> tintCache = new ConcurrentHashMap<>();
 
-    /** Charge (cache) la texture d'yeux du style, avec repli sur {@code eyes/0.png}. */
-    private static EyeTex loadEyeTex(int style) {
-        int s = clampIdx(style, SkinSpec.EYE_STYLES.length);
-        return eyeCache.computeIfAbsent(s, k -> {
-            EyeTex t = decodeEyeTex(k);
-            return t != null ? t : (k != 0 ? decodeEyeTex(0) : null);
+    /** Charge (cache) {@code <folder>/<style>.png}, avec repli sur {@code <folder>/0.png}. */
+    private static TintTex loadTintTex(String folder, int style) {
+        return tintCache.computeIfAbsent(folder + "/" + style, k -> {
+            TintTex t = decodeTintTex(folder, style);
+            return t != null ? t : (style != 0 ? decodeTintTex(folder, 0) : null);
         });
     }
 
-    /** Décode {@code eyes/<style>.png} : liste des pixels opaques + détection iris. */
-    private static EyeTex decodeEyeTex(int style) {
-        String path = "/assets/reborn/textures/character/eyes/" + style + ".png";
+    /** Décode {@code <folder>/<style>.png} : pixels opaques + détection « rouge » (teintable). */
+    private static TintTex decodeTintTex(String folder, int style) {
+        String path = "/assets/reborn/textures/character/" + folder + "/" + style + ".png";
         try (InputStream in = RebornSkins.class.getResourceAsStream(path)) {
-            if (in == null) {
-                LOGGER.warn("yeux introuvables (classpath) : {}", path);
-                return null;
-            }
+            if (in == null) return null; // pas d'asset → placeholder procédural
             NativeImage ni = NativeImage.read(in);
             List<int[]> ps = new ArrayList<>();
             int refRed = 1;
@@ -251,23 +259,23 @@ public final class RebornSkins {
                     int argb = ni.getPixel(x, y);
                     if (((argb >>> 24) & 0xFF) == 0) continue;
                     int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
-                    boolean iris = r > g * 1.5f && r > b * 1.5f && r > 50; // « rouge » = iris
-                    ps.add(new int[] { x, y, argb, iris ? 1 : 0 });
-                    if (iris && r > refRed) refRed = r;
+                    boolean tint = r > g * 1.5f && r > b * 1.5f && r > 50; // « rouge » = teintable
+                    ps.add(new int[] { x, y, argb, tint ? 1 : 0 });
+                    if (tint && r > refRed) refRed = r;
                 }
             }
             ni.close();
             int n = ps.size();
             int[] xs = new int[n], ys = new int[n], argbs = new int[n];
-            boolean[] iris = new boolean[n];
+            boolean[] tint = new boolean[n];
             for (int i = 0; i < n; i++) {
                 int[] p = ps.get(i);
-                xs[i] = p[0]; ys[i] = p[1]; argbs[i] = p[2]; iris[i] = p[3] == 1;
+                xs[i] = p[0]; ys[i] = p[1]; argbs[i] = p[2]; tint[i] = p[3] == 1;
             }
-            LOGGER.info("yeux chargés style {} ({} px, iris rouge max={})", style, n, refRed);
-            return new EyeTex(xs, ys, argbs, iris, refRed);
+            LOGGER.info("asset {}/{} chargé ({} px, rouge max={})", folder, style, n, refRed);
+            return new TintTex(xs, ys, argbs, tint, refRed);
         } catch (Exception e) {
-            LOGGER.warn("décodage yeux {} échec : {}", style, e.getMessage());
+            LOGGER.warn("décodage {}/{} échec : {}", folder, style, e.getMessage());
             return null;
         }
     }

@@ -28,8 +28,37 @@
 - Sérialisation `SkinSpec.serialize()` mise à jour → ordre : `useOwnSkin, female, slim,
   skinStyle, hairStyle, hair, eyeStyle, eye, facialStyle, facial, outfitStyle, outfit`.
 
-**Reste (prochaines sessions)** : assets **yeux** (masque gris + teinte), **cheveux**,
-**pilosité**, **tenues** (voir plan couleur ci-dessous) ; puis synchro serveur ShinobiCore.
+## Pipeline « rouge = teintable » — GÉNÉRALISÉ à toutes les facettes (2026-08-10)
+
+Les **yeux** ont validé le pipeline (texture PNG, rouge teinté par le picker, blanc gardé,
+hétérochromie). Il est désormais **le même pour cheveux / pilosité / tenues** :
+`RebornSkins.overlayTinted(folder, style, colorL, colorR, splitX)` overlaye n'importe quel
+PNG **de façon agnostique au layout** (chaque pixel opaque est peint à ses coordonnées).
+
+**Règle d'un asset** (cf `docs/refs/korvex/asset-template-guide.png`) :
+- **64×64**, layout skin Minecraft standard, **transparent** partout sauf la zone.
+- **ROUGE** (`r > g*1.5 && r > b*1.5 && r > 50`) = **zone teintable** : colorée par le
+  color-picker ; peins **2+ teintes de rouge** (foncé/clair) → 2 teintes de la couleur
+  choisie (facteur = `rouge_pixel / rouge_max`).
+- **Non-rouge** = **couleur fixe** gardée telle quelle (blanc des yeux, détail uniforme de
+  clan…).
+- **Yeux** : split gauche/droite à `x=11` → 2 couleurs possibles (hétérochromie).
+
+**Arborescence** (bundlée dans le jar du mod → publish requis à chaque ajout) :
+```
+minecraft/mod-hud/src/main/resources/assets/reborn/textures/character/
+  eyes/0.png      ✅ livré (yeuxstyle1)
+  hair/0.png 1.png …     (à livrer)
+  facial/0.png …          (à livrer)
+  outfit/0.png …          (à livrer)
+  skin/{male,female}/0..9.png  ✅ (base peau, pas de tint — PNG couleur pleine)
+```
+Le style cycler mappe `style N → <folder>/N.png` (repli sur `/0.png`, puis sur le placeholder
+procédural si aucun PNG). **Workflow** : user livre 1 PNG → je le bundle → rebuild+publish
+(zéro code). ⚠️ La **peau** reste hors tint (variantes couleur pleine, cf ci-dessus).
+
+**Reste** : assets **cheveux / pilosité / tenues** (le pipeline les attend) ; ajuster les
+`*_STYLES` (noms/nb) sur ce que tu livres.
 
 ## Où ça vit dans le code
 - **`minecraft/mod-hud/.../skin/SkinSpec.java`** — spec d'apparence par facette :
