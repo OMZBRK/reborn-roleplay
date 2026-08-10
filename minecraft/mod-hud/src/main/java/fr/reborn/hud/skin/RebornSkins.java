@@ -113,17 +113,15 @@ public final class RebornSkins {
         int facial = argbToAbgr(spec.facialColor);
         int white = abgr(238, 238, 238, 255);
 
-        // 1) Tenue (placeholder procédural) — dessinée sur les faces « base » du corps.
+        // 1) Tenue (placeholder procédural) — pantalon sur les jambes + haut sur le
+        //    torse. **Bras laissés en PEAU** pour que la teinte reste bien visible
+        //    (pas d'assets de manches pour l'instant).
         //    0=torse nu (juste short), 1=débardeur, 2=veste, 3=manteau, 4=kimono.
         int oStyle = clampIdx(spec.outfitStyle, SkinSpec.OUTFIT_STYLES.length);
         img.fillRect(0, 16, 16, 16, outfitDark);  // jambe droite (pantalon)
         img.fillRect(16, 48, 16, 16, outfitDark); // jambe gauche (pantalon)
         if (oStyle >= 1) {
-            img.fillRect(16, 16, 24, 16, outfit);     // torse
-            if (oStyle >= 2) {
-                img.fillRect(40, 16, 16, 16, outfit); // bras droit (manche)
-                img.fillRect(32, 48, 16, 16, outfit); // bras gauche (manche)
-            }
+            img.fillRect(16, 16, 24, 16, outfit); // torse
         }
 
         // 2) Coiffure (placeholder) : crâne + nuque + tempes + frange, SANS toucher
@@ -185,19 +183,22 @@ public final class RebornSkins {
         }
     }
 
-    /** Lit les octets bruts du PNG de peau {@code key} (ex. {@code male/3}), ou null. */
+    /**
+     * Lit les octets bruts du PNG de peau {@code key} (ex. {@code male/3}) depuis
+     * le <b>classpath</b> du mod (jar), ou {@code null} si absent. On lit direct
+     * dans le jar plutôt que via le {@code ResourceManager} MC : indépendant du
+     * cycle de reload des packs et des quirks de mapping.
+     */
     private static byte[] readSkinBytes(String key) {
-        Identifier id = Identifier.fromNamespaceAndPath(
-            "reborn", "textures/character/skin/" + key + ".png");
-        try {
-            var res = Minecraft.getInstance().getResourceManager().getResource(id);
-            if (res.isEmpty()) {
-                LOGGER.warn("peau introuvable : {}", id);
+        String path = "/assets/reborn/textures/character/skin/" + key + ".png";
+        try (InputStream in = RebornSkins.class.getResourceAsStream(path)) {
+            if (in == null) {
+                LOGGER.warn("peau introuvable (classpath) : {}", path);
                 return null;
             }
-            try (InputStream in = res.get().open()) {
-                return in.readAllBytes();
-            }
+            byte[] bytes = in.readAllBytes();
+            LOGGER.info("peau chargée {} ({} o)", key, bytes.length);
+            return bytes;
         } catch (Exception e) {
             LOGGER.warn("lecture peau {} échec : {}", key, e.getMessage());
             return null;
