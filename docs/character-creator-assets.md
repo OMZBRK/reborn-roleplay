@@ -146,6 +146,10 @@ User a choisi **hybride** (rendu GUI maintenant, lobby serveur plus tard). Fait 
   `Complet_Femme1`/`Complet_Karin` (femmes). Yeux `Yeux_Style1` rafraîchis.
 - **Halo** de l'écran de sélection (`glowRect`) **retiré** (jugé moche) → juste le fond
   dégradé crimson.
+- **⚠️ Logo serveur RETIRÉ (0.4.41)** : jugé moche par le user → asset `character/ui/logo.png`
+  supprimé. Le code `CreatorUi.blitLogo` + le repli texte « REBORN » restent en place
+  (dormants : `logoExists()` renvoie false sans l'asset) → réactivable en redéposant un
+  logo. Retour au texte « REBORN » partout (panneau, coins, loading).
 
 ### (archive) chantier écran de SÉLECTION — cadré 2026-08-11
 Réf `d:/REBORN - PJ/REF - ALL/renduselectioncaractere.png`. Problèmes actuels :
