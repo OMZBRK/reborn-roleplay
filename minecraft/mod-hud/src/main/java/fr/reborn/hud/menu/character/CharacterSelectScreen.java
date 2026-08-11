@@ -3,7 +3,6 @@ package fr.reborn.hud.menu.character;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -33,8 +32,7 @@ public class CharacterSelectScreen extends Screen {
 
     private int focused = 0;
 
-    // Sauvegarde/restaure la vue + masque le HUD vanilla pendant l'écran.
-    private CameraType prevPerspective;
+    // Masque le HUD vanilla pendant l'écran (rendu hybride GUI, monde masqué).
     private boolean prevHudHidden;
     private boolean perspectiveCaptured = false;
 
@@ -46,26 +44,45 @@ public class CharacterSelectScreen extends Screen {
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
         if (!perspectiveCaptured && mc.options != null) {
-            prevPerspective = mc.options.getCameraType();
-            mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
             prevHudHidden = mc.options.hideGui;
             mc.options.hideGui = true; // masque vie/faim/xp/armure/hotbar/crosshair
             perspectiveCaptured = true;
         }
         // Pose idle (émote assise) le temps de l'écran — présentation « plan idle ».
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.startPose();
+        applyFocusPreview(); // affiche le skin RP composé du perso focalisé
     }
 
     @Override
     public void removed() {
         Minecraft mc = Minecraft.getInstance();
         if (perspectiveCaptured && mc.options != null) {
-            mc.options.setCameraType(prevPerspective);
             mc.options.hideGui = prevHudHidden;
             perspectiveCaptured = false;
         }
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
         super.removed();
+    }
+
+    /**
+     * Applique le skin RP <b>composé du perso focalisé</b> sur le corps du joueur local
+     * (rendu via {@code drawEntity}) → on voit le skin de CHAQUE perso en parcourant.
+     * Le perso est gelé et les autres joueurs sont cachés pendant la sélection, donc ce
+     * preview local est sans effet visible pour autrui. Tuile « créer » / sans apparence
+     * → skin Minecraft normal.
+     */
+    private void applyFocusPreview() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        java.util.UUID uuid = mc.player.getUUID();
+        List<CharacterCard> list = cards();
+        if (!isCreateTile(focused) && focused >= 0 && focused < list.size()
+                && list.get(focused).hasAppearance()) {
+            fr.reborn.hud.skin.RebornSkins.applySpec(
+                uuid, fr.reborn.hud.skin.SkinSpec.deserialize(list.get(focused).appearance()));
+        } else {
+            fr.reborn.hud.skin.RebornSkins.clear(uuid);
+        }
     }
 
     // ── Données / indices ─────────────────────────────────────────
@@ -77,6 +94,7 @@ public class CharacterSelectScreen extends Screen {
     private void moveFocus(int delta) {
         int n = Math.max(1, tileCount());
         focused = ((focused + delta) % n + n) % n;
+        applyFocusPreview();
     }
 
     // ── Géométrie ─────────────────────────────────────────────────
@@ -94,10 +112,27 @@ public class CharacterSelectScreen extends Screen {
     // ── Rendu ─────────────────────────────────────────────────────
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        // PAS de voile plein écran : le décor du jeu reste visible (effet Zenkai).
+        // Fond stylisé PLEIN (opaque) — masque le monde IG (rendu hybride GUI).
+        ctx.fillGradient(0, 0, this.width, this.height, 0xFF0B0709, 0xFF140A0D);
+        // Halo central crimson discret derrière le perso.
+        int cx = this.width / 2, cy = modelCenterY();
+        DrawHelpers.glowRect(ctx, cx - 60, cy - 90, 120, 180,
+            Colors.withAlpha(Colors.ACCENT, 0.10f), 80);
         // Bande sombre en bas où vivent le nom / village / bouton.
         ctx.fillGradient(0, this.height - 170, this.width, this.height,
-            0x00000000, Colors.withAlpha(0xFF000000, 0.80f));
+            0x00000000, Colors.withAlpha(0xFF000000, 0.55f));
+    }
+
+    /** Rend le joueur local (skin composé du perso focalisé) centré, face caméra, statique. */
+    private void drawAvatar(GuiGraphicsExtractor ctx) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        int cx = this.width / 2;
+        int size = (int) (this.height * 0.34f);
+        int top = (int) (this.height * 0.12f);
+        int bot = (int) (this.height * 0.86f);
+        net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
+            ctx, cx - size, top, cx + size, bot, size, 0f, cx, (top + bot) / 2f, mc.player);
     }
 
     @Override
@@ -105,6 +140,12 @@ public class CharacterSelectScreen extends Screen {
         super.extractRenderState(ctx, mouseX, mouseY, delta);
         Font tr = this.font;
         List<CharacterCard> list = cards();
+
+        drawAvatar(ctx); // perso au centre (skin RP du perso focalisé)
+
+        // Logo REBORN (haut-droite).
+        Component logo = Component.literal("REBORN");
+        ctx.text(tr, logo, this.width - 24 - tr.width(logo), 22, Colors.GOLD, false);
 
         if (isCreateTile(focused)) {
             drawCreate(ctx, tr, mouseX, mouseY);
@@ -246,7 +287,9 @@ public class CharacterSelectScreen extends Screen {
             }
         }
         sendAction("select:" + c.id());
-        this.onClose(); // le serveur téléporte le joueur en jeu (setActive)
+        // Écran de chargement stylisé (~6 s) pendant que le serveur applique setActive
+        // (téléport IG). Il se ferme seul → retour en jeu.
+        Minecraft.getInstance().setScreen(new CharacterLoadingScreen(c.firstName(), c.clanColor()));
     }
 
     private void onCreate() {

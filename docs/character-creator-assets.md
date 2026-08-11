@@ -117,7 +117,25 @@ stockent désormais un **id d'asset** (string) au lieu d'un index numérique.
   une couleur, ombrage du tissu préservé). Couleur par défaut `UNDERWEAR_DEFAULT` (gris-beige
   proche du peint) ; le choix joueur viendra avec la boutique.
 
-### ⏭️ CHANTIER SUIVANT — refonte écran de SÉLECTION de perso (retour user 2026-08-11)
+### ✅ V3.5 — REFONTE ÉCRAN DE SÉLECTION (hybride GUI, 2026-08-11)
+User a choisi **hybride** (rendu GUI maintenant, lobby serveur plus tard). Fait dans
+`CharacterSelectScreen` :
+- **Skin RP par perso visible** : `applyFocusPreview()` = `applySpec(localUuid,
+  deserialize(card.appearance))` à l'init + à chaque changement de perso focalisé →
+  on voit le skin composé de CHAQUE perso en parcourant (perso gelé + autres cachés
+  → preview local sans effet pour autrui). Tuile créer / sans apparence → skin normal.
+- **Rendu GUI + caméra face/plus grande** : `drawAvatar` via
+  `InventoryScreen.extractEntityInInventoryFollowsMouse` (mouse param = centre → face
+  statique), size = `height*0.34`. Plus de `THIRD_PERSON_FRONT` monde.
+- **Fond stylisé opaque** (masque le monde IG) : `fillGradient` plein crimson-sombre
+  + halo central + bande basse. Logo REBORN.
+- **Loading 5-10 s** : `CharacterLoadingScreen` (~7 s, 140 ticks) ouvert à la sélection
+  pendant que ShinobiCore fait `setActive` (téléport IG) ; se ferme seul → retour en jeu.
+  Fond stylisé + « Chargement… » + barre de progression + nom du perso.
+- ⏭️ Option future : lobby serveur stylé (ShinobiCore) au lieu du rendu GUI, si le user
+  veut plus d'immersion (le choix hybride garde la porte ouverte).
+
+### (archive) chantier écran de SÉLECTION — cadré 2026-08-11
 Réf `d:/REBORN - PJ/REF - ALL/renduselectioncaractere.png`. Problèmes actuels :
 1. **On ne voit pas le skin RP du perso survolé/sélectionné** (l'écran montre le corps du
    joueur local, pas le skin composé de CHAQUE perso). Fix client = `RebornSkins.applySpec(
