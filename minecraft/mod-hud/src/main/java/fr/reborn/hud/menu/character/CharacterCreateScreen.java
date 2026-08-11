@@ -445,6 +445,30 @@ public class CharacterCreateScreen extends Screen {
 
     private static final String[] CAT_NAMES = { "Corps", "Visage", "Genre", "Tenue" };
     private static final String[] VISAGE_SUBS = { "Yeux", "Sourcils", "Cheveux", "Pilosité", "Accessoire" };
+    // Icônes 32×32 livrées (assets/reborn/textures/character/ui/<slug>.png).
+    private static final String[] CAT_SLUGS = { "corps", "visage", "genre", "tenue" };
+    private static final String[] SUB_SLUGS = { "yeux", "sourcils", "cheveux", "pilosite", "accessoire" };
+    private static final java.util.Map<String, Boolean> ICON_EXISTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static net.minecraft.resources.Identifier iconId(String slug) {
+        return net.minecraft.resources.Identifier.fromNamespaceAndPath(
+            "reborn", "textures/character/ui/" + slug + ".png");
+    }
+
+    private static boolean iconExists(String slug) {
+        return ICON_EXISTS.computeIfAbsent(slug, s -> {
+            Minecraft mc = Minecraft.getInstance();
+            return mc != null && mc.getResourceManager().getResource(iconId(s)).isPresent();
+        });
+    }
+
+    /** Blitte la tuile-icône 32×32 centrée en (cx,cy) ; false si l'icône n'est pas livrée. */
+    private boolean blitTile(GuiGraphicsExtractor ctx, String slug, int cx, int cy) {
+        if (!iconExists(slug)) return false;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, iconId(slug),
+            cx - 16, cy - 16, 0f, 0f, 32, 32, 32, 32);
+        return true;
+    }
 
     private void renderApparence(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
         drawAvatar(ctx, cat == 1);          // cat 1 = Visage → zoom sur la tête
@@ -520,12 +544,17 @@ public class CharacterCreateScreen extends Screen {
     private void drawCatIcon(GuiGraphicsExtractor ctx, Font tr, int cx, int cy, int idx,
                              boolean hover, boolean dimmed) {
         int s = 40, x = cx - s / 2, y = cy - s / 2;
-        int border = dimmed ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.4f)
-            : hover ? Colors.WHITE_PURE : Colors.ACCENT;
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, s, s, 7,
-            Colors.withAlpha(0xFF0A1A16, hover ? 0.9f : 0.7f), border);
-        int gc = dimmed ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.5f) : Colors.ACCENT;
-        drawCatGlyph(ctx, cx, cy, idx, gc);
+        if (blitTile(ctx, CAT_SLUGS[idx], cx, cy)) {
+            if (dimmed) DrawHelpers.rect(ctx, cx - 16, cy - 16, 32, 32, Colors.withAlpha(0xFF000000, 0.55f));
+            else if (hover) DrawHelpers.roundedOutlinedRect(ctx, cx - 18, cy - 18, 36, 36, 7, 0, Colors.WHITE_PURE);
+        } else {
+            int border = dimmed ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.4f)
+                : hover ? Colors.WHITE_PURE : Colors.ACCENT;
+            DrawHelpers.roundedOutlinedRect(ctx, x, y, s, s, 7,
+                Colors.withAlpha(0xFF0A1A16, hover ? 0.9f : 0.7f), border);
+            int gc = dimmed ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.5f) : Colors.ACCENT;
+            drawCatGlyph(ctx, cx, cy, idx, gc);
+        }
         // Badge numéro (coin bas-droit).
         ctx.text(tr, Component.literal(String.valueOf(idx + 1)), x + s - 6, y + s - 9,
             dimmed ? Colors.FOREGROUND_MUTED : Colors.WHITE_PURE, false);
@@ -569,18 +598,25 @@ public class CharacterCreateScreen extends Screen {
             for (int i = 0; i < n; i++) {
                 int ix = startX + i * gap;
                 boolean sel = i == subCat, hover = hit(mx, my, ix - 18, topY - 18, 36, 36);
-                DrawHelpers.roundedOutlinedRect(ctx, ix - 18, topY - 18, 36, 36, 6,
-                    Colors.withAlpha(0xFF0A1A16, 0.75f),
-                    sel ? Colors.WHITE_PURE : hover ? Colors.ACCENT : Colors.BORDER);
-                drawSubGlyph(ctx, ix, topY, i, sel ? Colors.WHITE_PURE : Colors.ACCENT);
+                if (blitTile(ctx, SUB_SLUGS[i], ix, topY)) {
+                    if (sel) DrawHelpers.roundedOutlinedRect(ctx, ix - 17, topY - 17, 34, 34, 6, 0, Colors.WHITE_PURE);
+                    else if (hover) DrawHelpers.roundedOutlinedRect(ctx, ix - 17, topY - 17, 34, 34, 6, 0, Colors.ACCENT);
+                } else {
+                    DrawHelpers.roundedOutlinedRect(ctx, ix - 18, topY - 18, 36, 36, 6,
+                        Colors.withAlpha(0xFF0A1A16, 0.75f),
+                        sel ? Colors.WHITE_PURE : hover ? Colors.ACCENT : Colors.BORDER);
+                    drawSubGlyph(ctx, ix, topY, i, sel ? Colors.WHITE_PURE : Colors.ACCENT);
+                }
                 Component cp = ax(VISAGE_SUBS[i]);
                 ctx.text(tr, cp, ix - tr.width(cp) / 2, topY + 22,
                     sel ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
             }
         } else {
-            DrawHelpers.roundedOutlinedRect(ctx, cx - 18, topY - 18, 36, 36, 6,
-                Colors.withAlpha(0xFF0A1A16, 0.75f), Colors.ACCENT);
-            drawCatGlyph(ctx, cx, topY, cat, Colors.ACCENT);
+            if (!blitTile(ctx, CAT_SLUGS[cat], cx, topY)) {
+                DrawHelpers.roundedOutlinedRect(ctx, cx - 18, topY - 18, 36, 36, 6,
+                    Colors.withAlpha(0xFF0A1A16, 0.75f), Colors.ACCENT);
+                drawCatGlyph(ctx, cx, topY, cat, Colors.ACCENT);
+            }
         }
 
         // Cycleur de style [A] ‹ n/m › [D] (si la facette a un style).
@@ -600,10 +636,10 @@ public class CharacterCreateScreen extends Screen {
         if (cat == 0) { drawBuildToggle(ctx, tr, mx, my); drawSkinBar(ctx, tr, mx, my); }
         // Yeux : sélecteur d'œil édité (les deux / gauche / droite) pour le picker.
         if (cat == 1 && subCat == 0) drawEyeSelToggle(ctx, tr, mx, my);
-        // Staff : indicateur d'aperçu gating (joueur/staff).
+        // Staff : indicateur d'aperçu gating (coin haut-gauche, discret).
         if (CharacterData.staffExempt()) {
-            Component g = ax(previewAsPlayer ? "APERCU : JOUEUR (G)" : "GATING : STAFF EXEMPT (G)");
-            ctx.text(tr, g, cx - tr.width(g) / 2, 40,
+            Component g = ax(previewAsPlayer ? "[G] APERCU JOUEUR" : "[G] STAFF : TOUT DEBLOQUE");
+            ctx.text(tr, g, 24, this.height - 92,
                 previewAsPlayer ? Colors.GOLD : Colors.FOREGROUND_MUTED, false);
         }
 

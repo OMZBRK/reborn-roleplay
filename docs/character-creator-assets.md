@@ -96,8 +96,14 @@ stockent désormais un **id d'asset** (string) au lieu d'un index numérique.
 - **Vignette par asset** (une par coupe/tenue/accessoire, optionnel) →
   `assets/reborn/textures/character/<folder>/icons/<id>.png`
   (ex. `hair/icons/Cheveux_Sasuke.png`). Remplacera le nom texte / le glyphe procédural.
-- Le **rendu** de ces icônes n'est pas encore câblé (glyphes procéduraux pour l'instant) :
-  je le branche dès que tu déposes un premier lot (je saurai lequel des deux tu veux).
+- **✅ Rendu des logos de catégorie CÂBLÉ (2026-08-11)** : les 9 icônes 32×32 livrées
+  (`character/ui/{corps,visage,genre,tenue,yeux,sourcils,cheveux,pilosite,accessoire}.png`)
+  sont blittées (`ctx.blit(GUI_TEXTURED, id, x,y, 0,0, 32,32, 32,32)`) à la place des glyphes
+  procéduraux, dans la grille + les sous-tabs Visage + la tuile de l'éditeur. Check d'existence
+  caché (`ICON_EXISTS`) → repli procédural si absente. Liseré blanc/accent au survol/sélection.
+  Les icônes ont leur **propre fond** (thème crimson Reborn). RETURN/CONFIRM/`A ‹ n/m › D` restent
+  des boutons texte à hint touche (conforme aux réfs SCREEN1-4). **Vignettes par asset** (hair/icons/…)
+  = pas encore câblées (à faire quand le user les livre).
 
 ### RESTE à faire (retours après test)
 - **Masques** : aucun `_Mask.png` livré encore → les tenues s'affichent telles que
