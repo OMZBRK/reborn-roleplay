@@ -73,6 +73,32 @@ stockent désormais un **id d'asset** (string) au lieu d'un index numérique.
   Toujours **opaque côté ShinobiCore** (aucun rebuild serveur). ⚠️ Les persos créés en v2
   (skinStyle int) réafficheront une peau bizarre → recréer.
 
+### V3.2 — sous-vêtements (couche par défaut) + format d'icônes (2026-08-11)
+- **Sous-vêtement = couche par défaut** au-dessus de la peau, SOUS les tenues. Assets
+  `underwear/Sous_Homme.png` / `Sous_Femme.png` (livrés), choisis auto selon le genre.
+  Ordre `RebornSkins.compose` : peau → **sous-vêtement** → tenue (couvre) → yeux →
+  pilosité → cheveux → accessoire. Sans tenue/haut/bas → le sous-vêtement reste visible
+  (= la base par défaut, cf vision boutique : Complet via caisses ; Haut/Bas/Complet via
+  boutique IG ; échangeables ; nu = sous-vêtement). **Corrige le bug « sous-vêtement pris
+  comme peau »** (il était peint dans le template et reteinté par skinColor ; la couche
+  overlay le recouvre désormais avec sa vraie couleur, indépendante de skinColor).
+- **RGBA sur sous-vêtement** : prêt. L'entrée catalogue n'a pas encore de `zones` ; dès
+  qu'un `Sous_Homme_Mask.png` + `zones` sont ajoutés, la recolo par canal s'active (le
+  compose passe `new int[0]` → les zones prennent leurs couleurs par défaut du catalogue).
+- **⚠️ Si le sous-vêtement du template dépasse** l'overlay (peek de peau teintée aux
+  bords), il faudra un template de peau NU (sans sous-vêtement peint) — à voir au test.
+
+### Format des ICÔNES / logos (pour l'UI de sélection) — demandé par le user
+- **Taille : 32×32 px**, PNG, **fond transparent**, pixel-art centré (rendu 1:1, pas de scale).
+- **Logo de catégorie / sous-catégorie** (Corps, Visage, Genre, Tenue, Yeux, Sourcils,
+  Cheveux, Pilosité, Accessoire) → `assets/reborn/textures/character/ui/<slug>.png`
+  (slug en minuscules sans accent : `corps`, `visage`, `cheveux`, `accessoire`…).
+- **Vignette par asset** (une par coupe/tenue/accessoire, optionnel) →
+  `assets/reborn/textures/character/<folder>/icons/<id>.png`
+  (ex. `hair/icons/Cheveux_Sasuke.png`). Remplacera le nom texte / le glyphe procédural.
+- Le **rendu** de ces icônes n'est pas encore câblé (glyphes procéduraux pour l'instant) :
+  je le branche dès que tu déposes un premier lot (je saurai lequel des deux tu veux).
+
 ### RESTE à faire (retours après test)
 - **Masques** : aucun `_Mask.png` livré encore → les tenues s'affichent telles que
   peintes. Peindre les masks + déclarer `zones` pour activer la recolo par zone.

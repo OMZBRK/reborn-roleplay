@@ -42,5 +42,10 @@
 
   "tattoo": [],
 
-  "accessory": []
+  "accessory": [],
+
+  "underwear": [
+    { "id": "Sous_Homme", "name": "Sous-vetement", "gender": "male" },
+    { "id": "Sous_Femme", "name": "Sous-vetement", "gender": "female" }
+  ]
 }
