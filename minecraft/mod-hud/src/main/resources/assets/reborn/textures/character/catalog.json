@@ -45,7 +45,7 @@
   "accessory": [],
 
   "underwear": [
-    { "id": "Sous_Homme", "name": "Sous-vetement", "gender": "male" },
-    { "id": "Sous_Femme", "name": "Sous-vetement", "gender": "female" }
+    { "id": "Sous_Homme", "name": "Sous-vetement", "gender": "male", "tint": "all" },
+    { "id": "Sous_Femme", "name": "Sous-vetement", "gender": "female", "tint": "all" }
   ]
 }

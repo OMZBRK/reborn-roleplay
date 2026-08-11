@@ -105,6 +105,31 @@ stockent désormais un **id d'asset** (string) au lieu d'un index numérique.
   des boutons texte à hint touche (conforme aux réfs SCREEN1-4). **Vignettes par asset** (hair/icons/…)
   = pas encore câblées (à faire quand le user les livre).
 
+### V3.4 — fixes visuels + sous-vêtement recolorable (2026-08-11)
+- **Bug liseré blanc corrigé** : `roundedOutlinedRect(...,fill=0,...)` remplit TOUT en
+  couleur de bordure (il dessine le rect plein en border puis n'overdraw pas l'intérieur
+  si fill=0). → remplacé par `outlinedRect(...,0,border)` (4 bords 1px seulement) pour les
+  liserés survol/sélection (grille + sous-tabs).
+- **Chevauchement des libellés sous-tabs** (5 tabs `PILOSITEACCESSOIRE`) : le libellé n'est
+  plus affiché que pour la tuile **sélectionnée/survolée**.
+- **Sous-vêtement recolorable** : le PNG n'est PAS codé en canaux R/G/B (23-32 couleurs de
+  tissu shadé) → « png comme masque » = **tint `all`** (recolore tout le sous-vêtement par
+  une couleur, ombrage du tissu préservé). Couleur par défaut `UNDERWEAR_DEFAULT` (gris-beige
+  proche du peint) ; le choix joueur viendra avec la boutique.
+
+### ⏭️ CHANTIER SUIVANT — refonte écran de SÉLECTION de perso (retour user 2026-08-11)
+Réf `d:/REBORN - PJ/REF - ALL/renduselectioncaractere.png`. Problèmes actuels :
+1. **On ne voit pas le skin RP du perso survolé/sélectionné** (l'écran montre le corps du
+   joueur local, pas le skin composé de CHAQUE perso). Fix client = `RebornSkins.applySpec(
+   localUuid, SkinSpec.deserialize(card.appearance))` au changement de perso focalisé
+   (le perso est gelé + les autres joueurs sont cachés pendant la sélection → preview local OK).
+2. **Perso de dos + trop petit** : la caméra (THIRD_PERSON_FRONT) ne cadre pas bien →
+   régler orientation face + zoom.
+3. **Fond = monde IG** : le user veut un **fond stylé** + joueur immobile. Options = (a) serveur
+   spawn dans un lobby/void stylé, ou (b) client `drawEntity` GUI sur un backdrop custom.
+4. **Loading 5-10 s** stylé à la sélection avant d'arriver IG. (voir [[session-roadmap-modhud]] « loading Zenkai ».)
+→ Multi-parties (client + ShinobiCore serveur). À cadrer avec le user (surtout fond : lobby serveur vs drawEntity).
+
 ### RESTE à faire (retours après test)
 - **Masques** : aucun `_Mask.png` livré encore → les tenues s'affichent telles que
   peintes. Peindre les masks + déclarer `zones` pour activer la recolo par zone.

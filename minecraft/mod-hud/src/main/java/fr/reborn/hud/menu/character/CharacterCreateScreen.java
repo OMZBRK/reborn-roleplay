@@ -546,7 +546,7 @@ public class CharacterCreateScreen extends Screen {
         int s = 40, x = cx - s / 2, y = cy - s / 2;
         if (blitTile(ctx, CAT_SLUGS[idx], cx, cy)) {
             if (dimmed) DrawHelpers.rect(ctx, cx - 16, cy - 16, 32, 32, Colors.withAlpha(0xFF000000, 0.55f));
-            else if (hover) DrawHelpers.roundedOutlinedRect(ctx, cx - 18, cy - 18, 36, 36, 7, 0, Colors.WHITE_PURE);
+            else if (hover) DrawHelpers.outlinedRect(ctx, cx - 18, cy - 18, 36, 36, 0, Colors.WHITE_PURE);
         } else {
             int border = dimmed ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.4f)
                 : hover ? Colors.WHITE_PURE : Colors.ACCENT;
@@ -599,17 +599,20 @@ public class CharacterCreateScreen extends Screen {
                 int ix = startX + i * gap;
                 boolean sel = i == subCat, hover = hit(mx, my, ix - 18, topY - 18, 36, 36);
                 if (blitTile(ctx, SUB_SLUGS[i], ix, topY)) {
-                    if (sel) DrawHelpers.roundedOutlinedRect(ctx, ix - 17, topY - 17, 34, 34, 6, 0, Colors.WHITE_PURE);
-                    else if (hover) DrawHelpers.roundedOutlinedRect(ctx, ix - 17, topY - 17, 34, 34, 6, 0, Colors.ACCENT);
+                    if (sel) DrawHelpers.outlinedRect(ctx, ix - 17, topY - 17, 34, 34, 0, Colors.WHITE_PURE);
+                    else if (hover) DrawHelpers.outlinedRect(ctx, ix - 17, topY - 17, 34, 34, 0, Colors.ACCENT);
                 } else {
                     DrawHelpers.roundedOutlinedRect(ctx, ix - 18, topY - 18, 36, 36, 6,
                         Colors.withAlpha(0xFF0A1A16, 0.75f),
                         sel ? Colors.WHITE_PURE : hover ? Colors.ACCENT : Colors.BORDER);
                     drawSubGlyph(ctx, ix, topY, i, sel ? Colors.WHITE_PURE : Colors.ACCENT);
                 }
-                Component cp = ax(VISAGE_SUBS[i]);
-                ctx.text(tr, cp, ix - tr.width(cp) / 2, topY + 22,
-                    sel ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
+                // Libellé seulement pour la tuile sélectionnée/survolée (évite le chevauchement à 5).
+                if (sel || hover) {
+                    Component cp = ax(VISAGE_SUBS[i]);
+                    ctx.text(tr, cp, ix - tr.width(cp) / 2, topY + 22,
+                        sel ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
+                }
             }
         } else {
             if (!blitTile(ctx, CAT_SLUGS[cat], cx, topY)) {

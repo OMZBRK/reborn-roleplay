@@ -47,6 +47,9 @@ public final class RebornSkins {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("reborn-skins");
 
+    /** Couleur par défaut du sous-vêtement (tint=all) — gris-beige neutre proche du peint. */
+    private static final int UNDERWEAR_DEFAULT = 0xFFB0A090;
+
     /** UUID joueur → identifiant de la texture composée enregistrée. */
     private static final Map<UUID, Identifier> overrides = new ConcurrentHashMap<>();
 
@@ -125,10 +128,11 @@ public final class RebornSkins {
 
         // 0) Sous-vêtement (selon le genre) = couche par défaut au-dessus de la peau.
         //    Couvert par une tenue/haut/bas quand le joueur en porte une ; sinon visible.
-        //    colors vide → si un masque + zones existent, recolore avec les couleurs par
-        //    défaut des zones ; sinon la texture est blittée telle que peinte.
+        //    tint=all → le PNG sert de masque : recolore tout le sous-vêtement par une
+        //    couleur (ombrage du tissu préservé). Couleur par défaut neutre (le choix
+        //    joueur viendra avec la boutique).
         overlayAsset(img, CharacterCatalog.byId("underwear", spec.female ? "Sous_Femme" : "Sous_Homme"),
-            new int[0]);
+            new int[] { UNDERWEAR_DEFAULT });
         // 1) Tenue (sous les cheveux). Complet couvre torse/bras/jambes ; Haut/Bas viendront.
         overlayAsset(img, CharacterCatalog.byId("outfit", spec.outfitId), spec.outfitZone);
         // 2) Yeux — iris (rouge) teinté 2 teintes, split gauche/droite (hétérochromie).
