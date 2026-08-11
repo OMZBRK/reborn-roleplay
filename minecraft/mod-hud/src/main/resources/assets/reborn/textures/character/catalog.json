@@ -1,0 +1,44 @@
+{
+  "_doc": [
+    "Catalogue des assets d'apparence (créateur de perso Reborn).",
+    "Ajouter un asset = déposer <folder>/<id>.png (+ optionnel <folder>/<id>_Mask.png) et une entrée ici. Zéro code.",
+    "Convention de nommage (prefixe = catégorie) : Peau_ Tatouage_ Yeux_ Cheveux_ Barbe_ Haut_ Bas_ Complet_ ; suffixe _Mask.",
+    "L'id EST le nom de fichier sans extension. 64x64, layout skin standard, transparent hors zone.",
+    "Champs : id (obligatoire), name (FR affiche), gender (male|female|null), clan (nom exact|null),",
+    "  tint (none|all|red), split (x de separation gauche/droite pour tint red), slot (outfit: complet|haut|bas),",
+    "  zones (recoloration par masque RGBA) : [{ch:R|G|B|A, name, default:'RRGGBB'}].",
+    "GATING : gender/clan filtrent le CHOIX a la creation (le staff est exempte). La composition, elle,",
+    "  resout n'importe quel id sans restriction (un perso garde son apparence meme si non-eligible).",
+    "MASQUE RGBA : si <id>_Mask.png existe ET que des zones sont declarees, chaque canal (R/G/B/A) devient",
+    "  une zone recoloree en HSL (teinte+saturation du picker, luminance de la texture preservee = ombrage garde).",
+    "  Sans masque/zones : la texture est affichee TELLE QUE PEINTE (couleurs fixes)."
+  ],
+
+  "hair": [
+    { "id": "Cheveux_Base",       "name": "Classique",      "tint": "all" },
+    { "id": "Cheveux_Sasuke",     "name": "Sasuke",         "tint": "all" },
+    { "id": "Cheveux_Sasuke2",    "name": "Sasuke (long)",  "tint": "all" },
+    { "id": "Cheveux_Itachi",     "name": "Itachi",         "tint": "all" },
+    { "id": "Cheveux_ObitoJeune", "name": "Obito (jeune)",  "tint": "all" },
+    { "id": "Cheveux_Tsunade",    "name": "Tsunade",        "tint": "all", "gender": "female" },
+    { "id": "Cheveux_SakuraAgee", "name": "Sakura",         "tint": "all", "gender": "female" }
+  ],
+
+  "outfit": [
+    { "id": "Complet_Uchiha",         "name": "Tenue Uchiha",         "slot": "complet", "clan": "Uchiha" },
+    { "id": "Complet_Sasuke",         "name": "Sasuke",               "slot": "complet", "clan": "Uchiha" },
+    { "id": "Complet_Sasuke2",        "name": "Sasuke (alt)",         "slot": "complet", "clan": "Uchiha" },
+    { "id": "Complet_Obito",          "name": "Obito",                "slot": "complet", "clan": "Uchiha" },
+    { "id": "Complet_UchihaTraining", "name": "Entrainement Uchiha",  "slot": "complet", "clan": "Uchiha" },
+    { "id": "Complet_Sakura",         "name": "Sakura",               "slot": "complet", "gender": "female" },
+    { "id": "Complet_Tsunade",        "name": "Tsunade",              "slot": "complet", "gender": "female" }
+  ],
+
+  "eyes": [
+    { "id": "Yeux_Style1", "name": "Style 1", "tint": "red", "split": 11 }
+  ],
+
+  "facial": [],
+
+  "tattoo": []
+}

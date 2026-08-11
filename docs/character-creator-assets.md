@@ -1,9 +1,68 @@
 # Créateur de personnage — pipeline skin & assets (doc de reprise)
 
-> État au 2026-08-10. Éditeur KORVEX publié en composition procédurale (0.4.25).
-> **PEAU désormais branchée sur les vrais PNG** (male + female, 10 teintes chacun)
-> + **carrure Classique/Alex** + **nouvelle disposition des yeux**. Cheveux / pilosité
-> / tenues restent procéduraux en attendant leurs assets. Réfs visuelles :
+> État au 2026-08-11. **Refonte « remise en règles » : pipeline data-driven (catalogue),
+> convention de nommage à préfixes, gating clan/genre, moteur de masque RGBA.**
+> Voir la section « ── PIPELINE V3 » ci-dessous (elle **remplace** les sections
+> historiques « rouge = teintable » pour cheveux/tenues ; les yeux gardent le mode red).
+
+## ── PIPELINE V3 — catalogue + convention + masque RGBA (2026-08-11)
+
+### Convention de nommage (préfixe = catégorie)
+`Peau_ Tatouage_ Yeux_ Cheveux_ Barbe_ Haut_ Bas_ Complet_` + suffixe `_Mask`.
+Ex. `Complet_KimonoChill01.png` (+ `Complet_KimonoChill01_Mask.png`). L'`id` d'un
+asset **est** son nom de fichier (sans extension). 64×64, layout skin standard,
+**transparent hors zone** (vérifié : les tenues n'ont pas de visage → la teinte de
+peau est préservée ; les cheveux couvrent crâne + frange).
+
+### Catalogue data-driven — `assets/reborn/textures/character/catalog.json`
+Source de vérité. **Ajouter un cosmétique = déposer le PNG + 1 ligne JSON, zéro code.**
+Chargé par `skin/CharacterCatalog.java`. Champs par entrée :
+- `id`, `name` (FR affiché), `tint` (`none|all|red`), `split` (mode red), `slot`
+  (tenue : `complet|haut|bas`), `gender` (`male|female|null`), `clan` (nom exact|null),
+  `zones` (masque RGBA : `[{ch:R|G|B|A, name, default:"RRGGBB"}]`).
+
+### Gating clan / genre
+`gender`/`clan` filtrent **le choix à la création** (`CharacterCatalog.available`).
+Le **staff est exempté** (`CharacterData.staffExempt()`). La **composition** ne filtre
+jamais : un perso garde son apparence même si redevenu non-éligible. Défauts actuels :
+tenues `Complet_*Uchiha*/Sasuke/Obito` → clan **Uchiha** ; `Complet_Sakura/Tsunade`
++ cheveux `Cheveux_Tsunade/SakuraAgee` → **femmes**. Modifiable en 1 ligne dans le JSON.
+
+### Ordre des calques (`RebornSkins.compose`)
+peau → tatouage → **tenue** → yeux → pilosité → **cheveux (dernier)**. Les cheveux
+passent **par-dessus la tenue** (col) et par-dessus les yeux (frange) — conforme à
+l'ordre demandé (Yeux avant Cheveux).
+
+### Moteur de teinte (`RebornSkins.overlayAsset`)
+Chaque asset est **blitté tel que peint**, puis recoloré selon son mode :
+- **`all`** — toute la zone reteintée par la couleur (picker), **luminance de la
+  texture préservée** (`tintLuma` : ombrage gardé). → cheveux, pilosité.
+- **`red`** — pixels « rouges » (iris) teintés, reste gardé, `split` gauche/droite
+  (hétérochromie). → yeux.
+- **masque RGBA** — si `<id>_Mask.png` existe **et** que l'asset déclare des `zones` :
+  chaque **canal R/G/B/A** est un masque de zone, recoloré en HSL par sa couleur
+  (`outfitZone[0..3]`, indexé par canal). Poids = valeur du canal /255 (blend).
+  **Sans masque/zones → tenue affichée telle que peinte** (couleurs fixes).
+
+### Sérialisation (`SkinSpec.serialize`, v2 — blob opaque côté ShinobiCore)
+Ordre : `useOwnSkin, female, slim, skinStyle, hairId, hairColor, eyeId, eyeColor,
+eyeColorRight, facialId, facialColor, outfitId, oz0, oz1, oz2, oz3`. Les facettes
+stockent désormais un **id d'asset** (string) au lieu d'un index numérique.
+
+### RESTE à faire (retours après test)
+- **Masques** : aucun `_Mask.png` livré encore → les tenues s'affichent telles que
+  peintes. Peindre les masks + déclarer `zones` pour activer la recolo par zone.
+- **UI multi-zone** : le picker tenue édite la **zone R (`outfitZone[0]`)** ; ajouter
+  un sélecteur de zone (façon « œil édité ») quand une tenue a >1 zone.
+- **Haut/Bas** : tout est `Complet_` pour l'instant ; le slot `haut`/`bas` est prévu
+  (catalogue) mais pas encore composé séparément.
+- Ajuster les **restrictions** (clan des coiffures Uchiha ? etc.) selon tes retours.
+
+---
+
+> Historique (2026-08-10). Éditeur KORVEX publié en composition procédurale (0.4.25).
+> **PEAU branchée sur les vrais PNG** (male + female, 10 teintes chacun) + **carrure
+> Classique/Alex** + yeux. Cheveux / pilosité / tenues étaient procéduraux. Réfs :
 > `docs/refs/korvex/screen1-4.png` + `docs/refs/korvex/skin-template-guide.png`.
 
 ## ✅ Fait (2026-08-10) — peau + carrure + yeux

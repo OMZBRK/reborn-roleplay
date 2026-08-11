@@ -1,6 +1,8 @@
 package fr.reborn.hud.skin;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import fr.reborn.hud.skin.CharacterCatalog.Asset;
+import fr.reborn.hud.skin.CharacterCatalog.Zone;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -16,15 +18,28 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Skins composés Reborn (Phase 2 création de perso). Compose une texture 64×64
- * à partir de couches (base peau + overlays cheveux/yeux/tenues), l'enregistre
- * comme {@link DynamicTexture} dans le TextureManager, et expose son identifiant
- * pour que {@code AbstractClientPlayerSkinMixin} remplace le {@code body()} du
- * {@code PlayerSkin} du joueur → tout le monde (avec le mod) voit le skin composé.
+ * Skins composés Reborn (Phase 2 création de perso). Compose une texture 64×64 à
+ * partir de couches (base peau + cosmétiques du {@link CharacterCatalog}),
+ * l'enregistre comme {@link DynamicTexture} et expose son identifiant pour que
+ * {@code AbstractClientPlayerSkinMixin} remplace le {@code body()} du joueur → tout
+ * le monde (avec le mod + le même catalogue bundlé) voit le skin composé.
  *
- * <p>Fondation : d'abord on valide l'<b>override du rendu</b> (une composition de
- * test appliquée au joueur local, testable solo). Les vrais assets + la synchro
- * par IDs cosmétiques (via {@code reborn:character}) viennent ensuite.
+ * <h3>Pipeline des cosmétiques</h3>
+ * Chaque asset est <b>peint en couleur pleine</b> (64×64, transparent hors zone) et
+ * <b>blitté tel quel</b> à ses coordonnées. La recoloration est optionnelle :
+ * <ul>
+ *   <li><b>tint {@code all}</b> — toute la zone est reteintée par la couleur choisie
+ *       (luminance de la texture préservée → l'ombrage reste). Utilisé pour cheveux/pilosité.</li>
+ *   <li><b>tint {@code red}</b> — les pixels « rouges » (iris) sont teintés, le reste gardé,
+ *       split gauche/droite pour l'hétérochromie. Utilisé pour les yeux.</li>
+ *   <li><b>masque RGBA</b> — si {@code <id>_Mask.png} existe et que l'asset déclare des
+ *       {@link Zone}s, chaque canal (R/G/B/A) devient une zone recolorée en HSL par sa
+ *       couleur. Sinon (défaut tenues) la texture s'affiche telle que peinte.</li>
+ * </ul>
+ *
+ * <h3>Ordre des calques</h3>
+ * peau → tatouage → tenue (Complet/Haut/Bas) → yeux → pilosité → <b>cheveux</b>.
+ * Les cheveux passent en dernier : ils recouvrent le col de la tenue (logique RP).
  */
 public final class RebornSkins {
 
@@ -39,11 +54,9 @@ public final class RebornSkins {
     private static final Map<UUID, Boolean> slimModel = new ConcurrentHashMap<>();
 
     /**
-     * Cache des <b>octets PNG</b> des peaux de base (clé = {@code male/3}, …). On
-     * garde les octets bruts (et non un {@link NativeImage}) pour redécoder une
-     * image <b>fraîche et mutable</b> à chaque {@link #compose} sans jamais muter
-     * une image partagée. Les PNG sont statiques (bundlés) → lecture disque une
-     * seule fois par teinte.
+     * Cache des <b>octets PNG</b> des peaux de base (clé = {@code male/3}, …). On garde
+     * les octets bruts pour redécoder une image <b>fraîche et mutable</b> à chaque
+     * {@link #compose} sans muter une image partagée.
      */
     private static final Map<String, byte[]> skinBytes = new ConcurrentHashMap<>();
 
@@ -63,9 +76,8 @@ public final class RebornSkins {
 
     /**
      * Applique un message de diffusion {@code reborn:skins} = {@code <uuid>\n<queue
-     * serialize()>}. Apparence vide → retrait de l'override (skin MC normal). Permet
-     * à chaque client d'afficher le skin RP composé des AUTRES joueurs. À appeler
-     * sur le thread client.
+     * serialize()>}. Apparence vide → retrait de l'override (skin MC normal). Permet à
+     * chaque client d'afficher le skin RP composé des AUTRES joueurs. Thread client.
      */
     public static void applyBroadcast(String content) {
         if (content == null) return;
@@ -81,24 +93,18 @@ public final class RebornSkins {
         }
     }
 
-    /**
-     * Applique une <b>composition de test</b> (base peau + marqueur torse) au
-     * joueur — sert à valider le pipeline override en solo. À remplacer par
-     * {@code compose(cosmeticIds)} une fois les assets/branchés.
-     */
+    /** Composition de test (base peau + marqueurs) — valide le pipeline override en solo. */
     public static void applyTest(UUID uuid) {
         NativeImage img = new NativeImage(64, 64, false);
-        img.fillRect(0, 0, 64, 64, 0xFFD8A57D);  // teinte peau partout (ARGB)
-        img.fillRect(20, 20, 8, 12, 0xFF3FE09A); // marqueur torse (teal)
-        img.fillRect(8, 8, 8, 8, 0xFF784E34);    // "casquette" tête (test)
+        img.fillRect(0, 0, 64, 64, 0xFFD8A57D);
+        img.fillRect(20, 20, 8, 12, 0xFF3FE09A);
+        img.fillRect(8, 8, 8, 8, 0xFF784E34);
         register(uuid, img);
     }
 
     /**
-     * Compose (ou retire) le skin du joueur à partir d'une {@link SkinSpec}.
-     * Si {@link SkinSpec#useOwnSkin} est vrai, on retire l'override → le joueur
-     * garde son skin Minecraft. Sinon on compose une texture 64×64 et on
-     * l'enregistre.
+     * Compose (ou retire) le skin du joueur à partir d'une {@link SkinSpec}. Si
+     * {@link SkinSpec#useOwnSkin}, on retire l'override → skin Minecraft du joueur.
      */
     public static void applySpec(UUID uuid, SkinSpec spec) {
         if (spec == null || spec.useOwnSkin) {
@@ -110,115 +116,99 @@ public final class RebornSkins {
     }
 
     /**
-     * Construit une texture de skin 64×64 à partir de la spec. La <b>peau de base</b>
-     * vient d'un vrai PNG livré ({@code character/skin/<genre>/<teinte>.png}, corps
-     * entier peint) ; par-dessus on ajoute encore <b>procéduralement</b> la tenue,
-     * la coiffure, la pilosité et les yeux (leurs vrais PNG viendront ensuite et
-     * remplaceront ces aplats sans toucher au reste du pipeline).
-     *
-     * <p>La base peau est redécodée à neuf à chaque appel (image mutable) ; les
-     * overlays sont peints dessus <b>sans détruire le visage</b> (les cheveux ne
-     * couvrent que crâne/tempes/nuque + frange).
+     * Construit la texture de skin 64×64 : base peau (PNG livré) puis les cosmétiques
+     * du catalogue, dans l'ordre des calques (cheveux en dernier). Chaque cosmétique
+     * est résolu par son {@code id} et blitté/teinté selon son mode.
      */
     public static NativeImage compose(SkinSpec spec) {
         NativeImage img = loadSkinBase(spec.female, spec.skinStyle);
         if (img == null) {
-            // Repli : aplat de peau si le PNG est illisible.
             img = new NativeImage(64, 64, false);
             img.fillRect(0, 0, 64, 64, SkinSpec.DEFAULT_SKIN);
         }
 
-        // ⚠️ fillRect appelle setPixel = format ARGB (0xAARRGGBB). Les couleurs de la
-        // spec SONT déjà en ARGB → on les passe telles quelles (surtout PAS d'abgr,
-        // sinon R et B sont inversés : brun → bleu, etc.). La base peau vient de
-        // NativeImage.read (format natif) et n'est pas touchée par ces overlays.
-        int outfit = spec.outfitColor;
-        int hair = spec.hairColor;
-        int facial = spec.facialColor;
-
-        // Toutes les facettes (tenue/cheveux/pilosité/yeux) suivent le MÊME pipeline
-        // « rouge = teintable » que les yeux : si un PNG existe pour le style, il est
-        // overlayé (pixels rouges teintés par la couleur, le reste gardé). Sinon on
-        // retombe sur le placeholder procédural. => déposer un asset suffit.
-
-        // 1) Tenue (torse/bras/jambes selon ton asset) — placeholder = aplat torse.
-        int oStyle = clampIdx(spec.outfitStyle, SkinSpec.OUTFIT_STYLES.length);
-        if (oStyle >= 1 && !overlayTinted(img, "outfit", oStyle, outfit, outfit, 99)) {
-            img.fillRect(16, 16, 24, 16, outfit); // torse (placeholder)
-        }
-
-        // 2) Coiffure — placeholder procédural (crâne/nuque/tempes/frange) si pas d'asset.
-        int hStyle = clampIdx(spec.hairStyle, SkinSpec.HAIR_STYLES.length);
-        int fringe = SkinSpec.HAIR_FRINGE[hStyle];
-        if (hStyle > 0 && !overlayTinted(img, "hair", hStyle, hair, hair, 99)) {
-            int back = Math.min(fringe + 3, 8);
-            img.fillRect(8, 0, 8, 8, hair);           // dessus du crâne
-            img.fillRect(24, 8, 8, back, hair);        // nuque
-            if (fringe > 0) {
-                img.fillRect(0, 8, 8, fringe, hair);   // tempe droite
-                img.fillRect(16, 8, 8, fringe, hair);  // tempe gauche
-                img.fillRect(8, 8, 8, fringe, hair);   // frange
-            }
-        }
-
-        // 3) Yeux — texture eyes/<style>.png, iris (rouge) teinté (2 teintes), sclérotique
-        //    gardée, œil gauche/droit couleurs séparées (split x=11). Repli procédural.
-        overlayEyes(img, spec.eyeStyle, spec.eyeColor, spec.eyeColorRight);
-
-        // 4) Pilosité faciale — placeholder (moustache/bouc/barbe) si pas d'asset.
-        int fStyle = clampIdx(spec.facialStyle, SkinSpec.FACIAL_STYLES.length);
-        if (fStyle > 0 && !overlayTinted(img, "facial", fStyle, facial, facial, 99)) {
-            switch (fStyle) {
-                case 1 -> img.fillRect(10, 13, 4, 1, facial);              // moustache
-                case 2 -> img.fillRect(11, 13, 2, 3, facial);              // bouc
-                case 3 -> { img.fillRect(9, 13, 6, 3, facial); img.fillRect(8, 12, 1, 3, facial); img.fillRect(15, 12, 1, 3, facial); } // barbe
-                default -> { }
-            }
-        }
+        // 1) Tenue (sous les cheveux). Complet couvre torse/bras/jambes ; Haut/Bas viendront.
+        overlayAsset(img, CharacterCatalog.byId("outfit", spec.outfitId), spec.outfitZone);
+        // 2) Yeux — iris (rouge) teinté 2 teintes, split gauche/droite (hétérochromie).
+        overlayAsset(img, CharacterCatalog.byId("eyes", spec.eyeId),
+            new int[] { spec.eyeColor, spec.eyeColorRight });
+        // 3) Pilosité faciale.
+        overlayAsset(img, CharacterCatalog.byId("facial", spec.facialId), new int[] { spec.facialColor });
+        // 4) Cheveux — EN DERNIER (par-dessus le col de la tenue + la frange sur le front).
+        overlayAsset(img, CharacterCatalog.byId("hair", spec.hairId), new int[] { spec.hairColor });
 
         return img;
     }
 
     /**
-     * Overlay des yeux depuis la texture {@code eyes/<style>.png}. Les pixels
-     * <b>clairs</b> (sclérotique) sont recopiés tels quels ; les pixels <b>rouges</b>
-     * (iris) sont teintés par la couleur de l'œil (gauche si x≤11, droit sinon) en
-     * préservant leurs teintes (facteur = rouge_pixel / rouge_max). Repli procédural
-     * si la texture manque.
+     * Overlaye un asset du catalogue sur le skin. {@code colors} porte les couleurs de
+     * recoloration : yeux = {@code {gauche, droite}} ; cheveux/pilosité = {@code {couleur}} ;
+     * tenue = {@code outfitZone[0..3]} indexé par canal (R,G,B,A). Sans asset → no-op.
      */
-    private static void overlayEyes(NativeImage img, int style, int eyeLeft, int eyeRight) {
-        // splitX=11 → œil gauche (x≤11) et droit (x≥12) prennent des couleurs distinctes.
-        if (!overlayTinted(img, "eyes", clampIdx(style, SkinSpec.EYE_STYLES.length),
-                eyeLeft, eyeRight, 11)) {
-            drawEyeFallback(img, 9, 13, eyeLeft);
-            drawEyeFallback(img, 13, 13, eyeRight);
+    private static void overlayAsset(NativeImage img, Asset asset, int[] colors) {
+        if (asset == null) return;
+        Tex tex = loadTex(asset);
+        if (tex == null) return;
+        Mask mask = asset.zones.isEmpty() ? null : loadMask(asset);
+
+        for (int i = 0; i < tex.xs.length; i++) {
+            int x = tex.xs[i], y = tex.ys[i], base = tex.argb[i];
+            int out;
+            if (mask != null) {
+                // Recoloration par zones de masque (chaque canal → une couleur).
+                out = base;
+                for (Zone z : asset.zones) {
+                    float w = mask.value(x, y, z.channel()) / 255f;
+                    if (w <= 0f) continue;
+                    int col = colorForChannel(colors, z.channel(), z.defaultColor());
+                    out = blend(out, tintLuma(base, col, tex.refLuma), w);
+                }
+            } else {
+                out = switch (asset.tint) {
+                    case ALL -> tintLuma(base, colors.length > 0 ? colors[0] : 0xFFFFFFFF, tex.refLuma);
+                    case RED -> isRed(base)
+                        ? tintShade(pickSplit(colors, x, asset.split), (base >> 16) & 0xFF, tex.refRed)
+                        : base;
+                    default -> base; // NONE : blit tel que peint
+                };
+            }
+            img.setPixel(x, y, out);
         }
+    }
+
+    /** Couleur d'une zone selon son canal : R→0, G→1, B→2, A→3 dans {@code colors}. */
+    private static int colorForChannel(int[] colors, char ch, int fallback) {
+        int idx = switch (ch) { case 'G' -> 1; case 'B' -> 2; case 'A' -> 3; default -> 0; };
+        return idx < colors.length ? colors[idx] : fallback;
+    }
+
+    private static int pickSplit(int[] colors, int x, int split) {
+        int left = colors.length > 0 ? colors[0] : 0xFFFFFFFF;
+        int right = colors.length > 1 ? colors[1] : left;
+        return x <= split ? left : right;
+    }
+
+    /** « Rouge » = zone teintable (mode RED). */
+    private static boolean isRed(int argb) {
+        int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
+        return r > g * 1.5f && r > b * 1.5f && r > 50;
     }
 
     /**
-     * Overlay d'une texture teintable {@code <folder>/<style>.png} par-dessus le skin :
-     * pixels « rouges » teintés par la couleur (gauche si {@code x≤splitX}, droite
-     * sinon ; les nuances sont préservées via le canal rouge), le reste recopié tel
-     * quel (détails à couleur fixe). <b>Agnostique au layout</b> : chaque pixel opaque
-     * est overlayé à ses coordonnées, peu importe où tu peins dans le 64×64.
-     *
-     * @return false si aucune texture (l'appelant fait alors son placeholder procédural)
+     * Reteinte préservant l'ombrage : couleur cible modulée par la luminance du pixel
+     * de base (facteur = luma / luma_max). Donne teinte+saturation de la couleur, avec
+     * la luminance (ombres/reflets) de la texture d'origine.
      */
-    private static boolean overlayTinted(NativeImage img, String folder, int style,
-                                         int colorLeft, int colorRight, int splitX) {
-        TintTex tex = loadTintTex(folder, style);
-        if (tex == null) return false;
-        for (int i = 0; i < tex.x.length; i++) {
-            int x = tex.x[i], y = tex.y[i];
-            int color = tex.tint[i]
-                ? tintShade(x <= splitX ? colorLeft : colorRight, (tex.argb[i] >> 16) & 0xFF, tex.refRed)
-                : tex.argb[i];
-            img.setPixel(x, y, color);
-        }
-        return true;
+    private static int tintLuma(int base, int target, float refLuma) {
+        float lum = 0.299f * ((base >> 16) & 0xFF) + 0.587f * ((base >> 8) & 0xFF) + 0.114f * (base & 0xFF);
+        float f = refLuma <= 0f ? 1f : Math.min(1f, lum / refLuma);
+        int r = Math.round(((target >> 16) & 0xFF) * f);
+        int g = Math.round(((target >> 8) & 0xFF) * f);
+        int b = Math.round((target & 0xFF) * f);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
-    /** Teinte : {@code couleur × (rouge_pixel / rouge_max)} → préserve les nuances (2+ teintes). */
+    /** Teinte mode RED : {@code couleur × (rouge_pixel / rouge_max)} → préserve les nuances. */
     private static int tintShade(int argb, int pixelRed, int refRed) {
         float f = refRed <= 0 ? 1f : Math.min(1f, pixelRed / (float) refRed);
         int r = Math.round(((argb >> 16) & 0xFF) * f);
@@ -227,64 +217,100 @@ public final class RebornSkins {
         return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
-    /** Repli procédural (2×2, blanc externe + iris interne) si pas de texture d'yeux. */
-    private static void drawEyeFallback(NativeImage img, int x, int y, int iris) {
-        img.fillRect(x, y, 1, 2, 0xFFEEEEEE);
-        img.fillRect(x + 1, y, 1, 2, iris);
+    /** Mélange {@code a} vers {@code b} par {@code w}∈[0,1] (canaux RGB, alpha opaque). */
+    private static int blend(int a, int b, float w) {
+        w = w < 0f ? 0f : w > 1f ? 1f : w;
+        int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        int r = Math.round(ar + (br - ar) * w);
+        int g = Math.round(ag + (bg - ag) * w);
+        int bl = Math.round(ab + (bb - ab) * w);
+        return 0xFF000000 | (r << 16) | (g << 8) | bl;
     }
 
-    /** Pixels d'une texture teintable décodée (parallèles) + rouge max des zones teintables. */
-    private record TintTex(int[] x, int[] y, int[] argb, boolean[] tint, int refRed) {}
+    // ── Décodage + cache des textures cosmétiques ─────────────────────
 
-    private static final Map<String, TintTex> tintCache = new ConcurrentHashMap<>();
+    /** Pixels opaques d'une texture cosmétique + repères de teinte (luma/rouge max). */
+    private record Tex(int[] xs, int[] ys, int[] argb, float refLuma, int refRed) {}
 
-    /** Charge (cache) {@code <folder>/<style>.png}, avec repli sur {@code <folder>/0.png}. */
-    private static TintTex loadTintTex(String folder, int style) {
-        return tintCache.computeIfAbsent(folder + "/" + style, k -> {
-            TintTex t = decodeTintTex(folder, style);
-            return t != null ? t : (style != 0 ? decodeTintTex(folder, 0) : null);
-        });
+    /** Masque RGBA (grille 64×64) : {@link #value} isole un canal en (x,y). */
+    private record Mask(int[] grid, int w, int h) {
+        int value(int x, int y, char ch) {
+            if (x < 0 || y < 0 || x >= w || y >= h) return 0;
+            int argb = grid[y * w + x];
+            return switch (ch) {
+                case 'G' -> (argb >> 8) & 0xFF;
+                case 'B' -> argb & 0xFF;
+                case 'A' -> (argb >>> 24) & 0xFF;
+                default -> (argb >> 16) & 0xFF; // R
+            };
+        }
     }
 
-    /** Décode {@code <folder>/<style>.png} : pixels opaques + détection « rouge » (teintable). */
-    private static TintTex decodeTintTex(String folder, int style) {
-        String path = "/assets/reborn/textures/character/" + folder + "/" + style + ".png";
-        try (InputStream in = RebornSkins.class.getResourceAsStream(path)) {
-            if (in == null) return null; // pas d'asset → placeholder procédural
+    private static final Map<String, Tex> texCache = new ConcurrentHashMap<>();
+    private static final Map<String, Mask> maskCache = new ConcurrentHashMap<>();
+    /** Sentinelle « pas de masque » pour éviter de relire un fichier absent. */
+    private static final Mask NO_MASK = new Mask(new int[0], 0, 0);
+
+    private static Tex loadTex(Asset asset) {
+        return texCache.computeIfAbsent(asset.folder + ":" + asset.id, k -> decodeTex(asset));
+    }
+
+    private static Tex decodeTex(Asset asset) {
+        try (InputStream in = RebornSkins.class.getResourceAsStream(asset.texturePath())) {
+            if (in == null) { LOGGER.warn("asset introuvable : {}", asset.texturePath()); return null; }
             NativeImage ni = NativeImage.read(in);
             List<int[]> ps = new ArrayList<>();
+            float refLuma = 1f;
             int refRed = 1;
             for (int y = 0; y < ni.getHeight(); y++) {
                 for (int x = 0; x < ni.getWidth(); x++) {
                     int argb = ni.getPixel(x, y);
                     if (((argb >>> 24) & 0xFF) == 0) continue;
                     int r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
-                    boolean tint = r > g * 1.5f && r > b * 1.5f && r > 50; // « rouge » = teintable
-                    ps.add(new int[] { x, y, argb, tint ? 1 : 0 });
-                    if (tint && r > refRed) refRed = r;
+                    float lum = 0.299f * r + 0.587f * g + 0.114f * b;
+                    if (lum > refLuma) refLuma = lum;
+                    if (r > g * 1.5f && r > b * 1.5f && r > 50 && r > refRed) refRed = r;
+                    ps.add(new int[] { x, y, argb });
                 }
             }
             ni.close();
             int n = ps.size();
-            int[] xs = new int[n], ys = new int[n], argbs = new int[n];
-            boolean[] tint = new boolean[n];
-            for (int i = 0; i < n; i++) {
-                int[] p = ps.get(i);
-                xs[i] = p[0]; ys[i] = p[1]; argbs[i] = p[2]; tint[i] = p[3] == 1;
-            }
-            LOGGER.info("asset {}/{} chargé ({} px, rouge max={})", folder, style, n, refRed);
-            return new TintTex(xs, ys, argbs, tint, refRed);
+            int[] xs = new int[n], ys = new int[n], argb = new int[n];
+            for (int i = 0; i < n; i++) { int[] p = ps.get(i); xs[i] = p[0]; ys[i] = p[1]; argb[i] = p[2]; }
+            LOGGER.info("asset {} chargé ({} px, luma max={}, rouge max={})",
+                asset.id, n, Math.round(refLuma), refRed);
+            return new Tex(xs, ys, argb, refLuma, refRed);
         } catch (Exception e) {
-            LOGGER.warn("décodage {}/{} échec : {}", folder, style, e.getMessage());
+            LOGGER.warn("décodage {} échec : {}", asset.id, e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Décode une image de peau <b>fraîche</b> (64×64) pour {@code (genre, teinte)}
-     * depuis les resources bundlées, ou {@code null} si illisible. Les octets PNG
-     * sont mis en cache ; l'image est ré-décodée à chaque appel (mutable, propre).
-     */
+    private static Mask loadMask(Asset asset) {
+        Mask m = maskCache.computeIfAbsent(asset.folder + ":" + asset.id, k -> decodeMask(asset));
+        return m == NO_MASK ? null : m;
+    }
+
+    private static Mask decodeMask(Asset asset) {
+        try (InputStream in = RebornSkins.class.getResourceAsStream(asset.maskPath())) {
+            if (in == null) return NO_MASK; // pas de masque → tenue affichée telle que peinte
+            NativeImage ni = NativeImage.read(in);
+            int w = ni.getWidth(), h = ni.getHeight();
+            int[] grid = new int[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++) grid[y * w + x] = ni.getPixel(x, y);
+            ni.close();
+            LOGGER.info("masque {} chargé ({}×{})", asset.id, w, h);
+            return new Mask(grid, w, h);
+        } catch (Exception e) {
+            LOGGER.warn("décodage masque {} échec : {}", asset.id, e.getMessage());
+            return NO_MASK;
+        }
+    }
+
+    // ── Peau de base (PNG couleur pleine) ─────────────────────────────
+
     private static NativeImage loadSkinBase(boolean female, int style) {
         int s = clampIdx(style, SkinSpec.SKIN_TONES);
         String key = (female ? "female/" : "male/") + s;
@@ -298,19 +324,10 @@ public final class RebornSkins {
         }
     }
 
-    /**
-     * Lit les octets bruts du PNG de peau {@code key} (ex. {@code male/3}) depuis
-     * le <b>classpath</b> du mod (jar), ou {@code null} si absent. On lit direct
-     * dans le jar plutôt que via le {@code ResourceManager} MC : indépendant du
-     * cycle de reload des packs et des quirks de mapping.
-     */
     private static byte[] readSkinBytes(String key) {
         String path = "/assets/reborn/textures/character/skin/" + key + ".png";
         try (InputStream in = RebornSkins.class.getResourceAsStream(path)) {
-            if (in == null) {
-                LOGGER.warn("peau introuvable (classpath) : {}", path);
-                return null;
-            }
+            if (in == null) { LOGGER.warn("peau introuvable (classpath) : {}", path); return null; }
             byte[] bytes = in.readAllBytes();
             LOGGER.info("peau chargée {} ({} o)", key, bytes.length);
             return bytes;

@@ -754,97 +754,127 @@ public class CharacterCreateScreen extends Screen {
     // ── Accès générique à la facette courante (cat/subCat) ────────────
     // Peau (cat 0) = cycleur de teinte (PNG livrés), sans color-picker.
     private boolean facetHasStyle() { return cat == 0 || cat == 1 || cat == 2 || cat == 3; }
-    private boolean facetHasColor() { return cat == 1 || cat == 3; }
+
+    // ── Facettes pilotées par le catalogue (cheveux/yeux/pilosité/tenue) ──
+    // La peau (cat 0) et le genre (cat 2) restent hors catalogue.
+
+    /** Catégorie catalogue de la facette courante, ou {@code null} (peau/genre). */
+    private String facetCategory() {
+        if (cat == 1) return switch (subCat) { case 0 -> "eyes"; case 1 -> "hair"; default -> "facial"; };
+        if (cat == 3) return "outfit";
+        return null;
+    }
+
+    /** La facette propose-t-elle une option « Aucun » (chauve/imberbe/torse nu) ? */
+    private boolean facetAllowsNone() {
+        String c = facetCategory();
+        return "hair".equals(c) || "facial".equals(c) || "outfit".equals(c);
+    }
+
+    /** Assets éligibles (genre/clan ; staff exempté) pour la facette catalogue courante. */
+    private java.util.List<fr.reborn.hud.skin.CharacterCatalog.Asset> facetList() {
+        String c = facetCategory();
+        if (c == null) return java.util.List.of();
+        return fr.reborn.hud.skin.CharacterCatalog.available(
+            c, appearance.female, effectiveClan(), CharacterData.staffExempt());
+    }
+
+    /** Id d'asset actuellement sélectionné pour la facette catalogue courante. */
+    private String facetId() {
+        return switch (facetCategory() == null ? "" : facetCategory()) {
+            case "eyes" -> appearance.eyeId;
+            case "hair" -> appearance.hairId;
+            case "facial" -> appearance.facialId;
+            case "outfit" -> appearance.outfitId;
+            default -> "";
+        };
+    }
+
+    private void facetSetId(String id) {
+        switch (facetCategory() == null ? "" : facetCategory()) {
+            case "eyes" -> appearance.eyeId = id;
+            case "hair" -> appearance.hairId = id;
+            case "facial" -> appearance.facialId = id;
+            case "outfit" -> appearance.outfitId = id;
+            default -> { }
+        }
+    }
+
+    private static int indexOfId(java.util.List<fr.reborn.hud.skin.CharacterCatalog.Asset> l, String id) {
+        for (int i = 0; i < l.size(); i++) if (l.get(i).id.equals(id)) return i;
+        return -1;
+    }
+
+    private boolean facetHasColor() {
+        String c = facetCategory();
+        if (c == null) return false;                       // peau/genre : pas de picker
+        if (facetAllowsNone() && facetId().isBlank()) return false; // « Aucun » sélectionné
+        var a = fr.reborn.hud.skin.CharacterCatalog.byId(c, facetId());
+        return a != null && a.tintable();
+    }
 
     private int facetColorGet() {
-        return switch (cat) {
-            case 1 -> switch (subCat) {
-                case 0 -> eyeSel == 2 ? appearance.eyeColorRight : appearance.eyeColor;
-                case 1 -> appearance.hairColor;
-                default -> appearance.facialColor;
-            };
-            case 3 -> appearance.outfitColor;
+        return switch (facetCategory() == null ? "" : facetCategory()) {
+            case "eyes" -> eyeSel == 2 ? appearance.eyeColorRight : appearance.eyeColor;
+            case "hair" -> appearance.hairColor;
+            case "facial" -> appearance.facialColor;
+            case "outfit" -> appearance.outfitZone[0]; // zone R (primaire) ; multi-zone à venir
             default -> 0xFFFFFFFF;
         };
     }
 
     private void facetColorSet(int argb) {
-        switch (cat) {
-            case 1 -> {
-                switch (subCat) {
-                    case 0 -> { // yeux : applique selon l'œil sélectionné
-                        if (eyeSel != 2) appearance.eyeColor = argb;      // les deux / gauche
-                        if (eyeSel != 1) appearance.eyeColorRight = argb; // les deux / droite
-                    }
-                    case 1 -> appearance.hairColor = argb;
-                    default -> appearance.facialColor = argb;
-                }
+        switch (facetCategory() == null ? "" : facetCategory()) {
+            case "eyes" -> { // yeux : applique selon l'œil sélectionné
+                if (eyeSel != 2) appearance.eyeColor = argb;      // les deux / gauche
+                if (eyeSel != 1) appearance.eyeColorRight = argb; // les deux / droite
             }
-            case 3 -> appearance.outfitColor = argb;
+            case "hair" -> appearance.hairColor = argb;
+            case "facial" -> appearance.facialColor = argb;
+            case "outfit" -> appearance.outfitZone[0] = argb;
             default -> { }
         }
         refreshPreview();
     }
 
     private int facetStyleCount() {
-        return switch (cat) {
-            case 0 -> fr.reborn.hud.skin.SkinSpec.SKIN_TONES;
-            case 1 -> switch (subCat) {
-                case 0 -> fr.reborn.hud.skin.SkinSpec.EYE_STYLES.length;
-                case 1 -> fr.reborn.hud.skin.SkinSpec.HAIR_STYLES.length;
-                default -> fr.reborn.hud.skin.SkinSpec.FACIAL_STYLES.length;
-            };
-            case 2 -> 2;
-            case 3 -> fr.reborn.hud.skin.SkinSpec.OUTFIT_STYLES.length;
-            default -> 1;
-        };
+        if (cat == 0) return fr.reborn.hud.skin.SkinSpec.SKIN_TONES;
+        if (cat == 2) return 2;
+        return facetList().size() + (facetAllowsNone() ? 1 : 0);
     }
 
     private int facetStyleIdx() {
-        return switch (cat) {
-            case 0 -> appearance.skinStyle;
-            case 1 -> switch (subCat) {
-                case 0 -> appearance.eyeStyle;
-                case 1 -> appearance.hairStyle;
-                default -> appearance.facialStyle;
-            };
-            case 2 -> "Femme".equals(sexe) ? 1 : 0;
-            case 3 -> appearance.outfitStyle;
-            default -> 0;
-        };
+        if (cat == 0) return appearance.skinStyle;
+        if (cat == 2) return "Femme".equals(sexe) ? 1 : 0;
+        boolean none = facetAllowsNone();
+        if (none && facetId().isBlank()) return 0;
+        int p = indexOfId(facetList(), facetId());
+        return p < 0 ? 0 : p + (none ? 1 : 0);
     }
 
     private String facetStyleName() {
-        return switch (cat) {
-            case 0 -> "TEINTE " + (appearance.skinStyle + 1);
-            case 1 -> switch (subCat) {
-                case 0 -> fr.reborn.hud.skin.SkinSpec.EYE_STYLES[appearance.eyeStyle];
-                case 1 -> fr.reborn.hud.skin.SkinSpec.HAIR_STYLES[appearance.hairStyle];
-                default -> fr.reborn.hud.skin.SkinSpec.FACIAL_STYLES[appearance.facialStyle];
-            };
-            case 2 -> sexe.toUpperCase(Locale.FRENCH);
-            default -> fr.reborn.hud.skin.SkinSpec.OUTFIT_STYLES[appearance.outfitStyle];
-        };
+        if (cat == 0) return "TEINTE " + (appearance.skinStyle + 1);
+        if (cat == 2) return sexe.toUpperCase(Locale.FRENCH);
+        String c = facetCategory();
+        if (facetAllowsNone() && facetId().isBlank()) return "AUCUN";
+        var a = fr.reborn.hud.skin.CharacterCatalog.byId(c, facetId());
+        if (a != null) return a.name;
+        return facetAllowsNone() ? "AUCUN" : "—";
     }
 
     private void cycleFacet(int dir) {
         switch (cat) {
             case 0 -> appearance.skinStyle = fr.reborn.hud.skin.SkinSpec.cycle(
                 appearance.skinStyle, fr.reborn.hud.skin.SkinSpec.SKIN_TONES, dir);
-            case 1 -> {
-                switch (subCat) {
-                    case 0 -> appearance.eyeStyle = fr.reborn.hud.skin.SkinSpec.cycle(
-                        appearance.eyeStyle, fr.reborn.hud.skin.SkinSpec.EYE_STYLES.length, dir);
-                    case 1 -> appearance.hairStyle = fr.reborn.hud.skin.SkinSpec.cycle(
-                        appearance.hairStyle, fr.reborn.hud.skin.SkinSpec.HAIR_STYLES.length, dir);
-                    default -> appearance.facialStyle = fr.reborn.hud.skin.SkinSpec.cycle(
-                        appearance.facialStyle, fr.reborn.hud.skin.SkinSpec.FACIAL_STYLES.length, dir);
-                }
-            }
             case 2 -> setSexe("Homme".equals(sexe) ? "Femme" : "Homme");
-            case 3 -> appearance.outfitStyle = fr.reborn.hud.skin.SkinSpec.cycle(
-                appearance.outfitStyle, fr.reborn.hud.skin.SkinSpec.OUTFIT_STYLES.length, dir);
-            default -> { }
+            default -> { // facettes catalogue (cheveux/yeux/pilosité/tenue)
+                var list = facetList();
+                boolean none = facetAllowsNone();
+                int count = list.size() + (none ? 1 : 0);
+                if (count == 0) break;                      // catalogue vide → rien à cycler
+                int nidx = fr.reborn.hud.skin.SkinSpec.cycle(facetStyleIdx(), count, dir);
+                facetSetId(none && nidx == 0 ? "" : list.get(nidx - (none ? 1 : 0)).id);
+            }
         }
         refreshPreview();
     }
