@@ -21,7 +21,12 @@
     { "id": "Cheveux_Itachi",     "name": "Itachi",         "tint": "all" },
     { "id": "Cheveux_ObitoJeune", "name": "Obito (jeune)",  "tint": "all" },
     { "id": "Cheveux_Tsunade",    "name": "Tsunade",        "tint": "all", "gender": "female" },
-    { "id": "Cheveux_SakuraAgee", "name": "Sakura",         "tint": "all", "gender": "female" }
+    { "id": "Cheveux_SakuraAgee", "name": "Sakura",         "tint": "all", "gender": "female" },
+    { "id": "Cheveux_2",          "name": "Coupe 2",        "tint": "all" },
+    { "id": "Cheveux_3",          "name": "Coupe 3",        "tint": "all" },
+    { "id": "Cheveux_4",          "name": "Coupe 4",        "tint": "all" },
+    { "id": "Cheveux_Femme",      "name": "Feminine",       "tint": "all", "gender": "female" },
+    { "id": "Cheveux_Karin",      "name": "Karin",          "tint": "all", "gender": "female" }
   ],
 
   "outfit": [
@@ -31,7 +36,12 @@
     { "id": "Complet_Obito",          "name": "Obito",                "slot": "complet", "clan": "Uchiha" },
     { "id": "Complet_UchihaTraining", "name": "Entrainement Uchiha",  "slot": "complet", "clan": "Uchiha" },
     { "id": "Complet_Sakura",         "name": "Sakura",               "slot": "complet", "gender": "female" },
-    { "id": "Complet_Tsunade",        "name": "Tsunade",              "slot": "complet", "gender": "female" }
+    { "id": "Complet_Tsunade",        "name": "Tsunade",              "slot": "complet", "gender": "female" },
+    { "id": "Complet_Ceremonie",      "name": "Ceremonie",            "slot": "complet" },
+    { "id": "Complet_Ceremonie2",     "name": "Ceremonie 2",          "slot": "complet" },
+    { "id": "Complet_Taijutsuka",     "name": "Taijutsuka",           "slot": "complet" },
+    { "id": "Complet_Femme1",         "name": "Tenue feminine",       "slot": "complet", "gender": "female" },
+    { "id": "Complet_Karin",          "name": "Karin",                "slot": "complet", "gender": "female" }
   ],
 
   "eyes": [

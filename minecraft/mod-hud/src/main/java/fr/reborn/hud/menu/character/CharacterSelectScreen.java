@@ -114,10 +114,6 @@ public class CharacterSelectScreen extends Screen {
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         // Fond stylisé PLEIN (opaque) — masque le monde IG (rendu hybride GUI).
         ctx.fillGradient(0, 0, this.width, this.height, 0xFF0B0709, 0xFF140A0D);
-        // Halo central crimson discret derrière le perso.
-        int cx = this.width / 2, cy = modelCenterY();
-        DrawHelpers.glowRect(ctx, cx - 60, cy - 90, 120, 180,
-            Colors.withAlpha(Colors.ACCENT, 0.10f), 80);
         // Bande sombre en bas où vivent le nom / village / bouton.
         ctx.fillGradient(0, this.height - 170, this.width, this.height,
             0x00000000, Colors.withAlpha(0xFF000000, 0.55f));
@@ -143,9 +139,13 @@ public class CharacterSelectScreen extends Screen {
 
         drawAvatar(ctx); // perso au centre (skin RP du perso focalisé)
 
-        // Logo REBORN (haut-droite).
-        Component logo = Component.literal("REBORN");
-        ctx.text(tr, logo, this.width - 24 - tr.width(logo), 22, Colors.GOLD, false);
+        // Logo serveur (haut-droite).
+        if (CreatorUi.logoExists()) {
+            CreatorUi.blitLogo(ctx, this.width - 24 - 45, 14, 45, 30);
+        } else {
+            Component logo = Component.literal("REBORN");
+            ctx.text(tr, logo, this.width - 24 - tr.width(logo), 22, Colors.GOLD, false);
+        }
 
         if (isCreateTile(focused)) {
             drawCreate(ctx, tr, mouseX, mouseY);

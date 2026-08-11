@@ -278,16 +278,19 @@ public class CharacterCreateScreen extends Screen {
 
     private void drawLogo(GuiGraphicsExtractor ctx, Font tr) {
         int x = panelX();
-        // Léger espacement en dessinant lettre par lettre.
-        int cx = x;
-        for (char c : "REBORN".toCharArray()) {
-            Component ch = Component.literal(String.valueOf(c));
-            ctx.text(tr, ch, cx, 26, Colors.ACCENT, false);
-            cx += tr.width(ch) + 3;
+        if (CreatorUi.logoExists()) {
+            CreatorUi.blitLogo(ctx, x, 12, 54, 36);
+        } else {
+            int cx = x;
+            for (char c : "REBORN".toCharArray()) {
+                Component ch = Component.literal(String.valueOf(c));
+                ctx.text(tr, ch, cx, 26, Colors.ACCENT, false);
+                cx += tr.width(ch) + 3;
+            }
+            DrawHelpers.rect(ctx, x, 38, cx - x - 3, 1, Colors.withAlpha(Colors.GOLD, 0.8f));
         }
-        DrawHelpers.rect(ctx, x, 38, cx - x - 3, 1, Colors.withAlpha(Colors.GOLD, 0.8f));
         Component sub = Component.literal("Création de personnage");
-        ctx.text(tr, sub, x, 44, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, sub, x, 52, Colors.FOREGROUND_MUTED, false);
     }
 
     private String[] tabLabels() {
@@ -474,9 +477,13 @@ public class CharacterCreateScreen extends Screen {
         drawAvatar(ctx, cat == 1);          // cat 1 = Visage → zoom sur la tête
         if (cat < 0) renderCatGrid(ctx, tr, mx, my);
         else renderCatEditor(ctx, tr, mx, my);
-        // Logo REBORN en haut à droite.
-        Component logo = ax("REBORN");
-        ctx.text(tr, logo, this.width - 24 - tr.width(logo), 22, Colors.GOLD, false);
+        // Logo serveur en haut à droite.
+        if (CreatorUi.logoExists()) {
+            CreatorUi.blitLogo(ctx, this.width - 24 - 45, 14, 45, 30);
+        } else {
+            Component logo = ax("REBORN");
+            ctx.text(tr, logo, this.width - 24 - tr.width(logo), 22, Colors.GOLD, false);
+        }
     }
 
     /** Rend le joueur local (skin composé via l'override) centré, zoomé ou non.

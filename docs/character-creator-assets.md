@@ -135,6 +135,18 @@ User a choisi **hybride** (rendu GUI maintenant, lobby serveur plus tard). Fait 
 - ⏭️ Option future : lobby serveur stylé (ShinobiCore) au lieu du rendu GUI, si le user
   veut plus d'immersion (le choix hybride garde la porte ouverte).
 
+### V3.6 — logo serveur + nouveaux assets + halo retiré (2026-08-11)
+- **Logo serveur** (`HUD - Texturing Pack/logo.png`, emblème 1536×1024 à FOND NOIR + halo)
+  → converti en **PNG transparent** (alpha = luminance, réduit 384×256) bundlé
+  `character/ui/logo.png`. Util `CreatorUi.blitLogo()` (repli texte « REBORN » si absent).
+  Remplace le texte « REBORN » : panneau gauche du créateur, coin haut-droite créateur +
+  sélection, centre de l'écran de loading.
+- **Nouveaux cheveux** (5) : `Cheveux_2/3/4` (libres), `Cheveux_Femme`/`Cheveux_Karin` (femmes).
+- **Nouvelles tenues** (5) : `Complet_Ceremonie`/`Ceremonie2`/`Taijutsuka` (libres),
+  `Complet_Femme1`/`Complet_Karin` (femmes). Yeux `Yeux_Style1` rafraîchis.
+- **Halo** de l'écran de sélection (`glowRect`) **retiré** (jugé moche) → juste le fond
+  dégradé crimson.
+
 ### (archive) chantier écran de SÉLECTION — cadré 2026-08-11
 Réf `d:/REBORN - PJ/REF - ALL/renduselectioncaractere.png`. Problèmes actuels :
 1. **On ne voit pas le skin RP du perso survolé/sélectionné** (l'écran montre le corps du

@@ -68,9 +68,13 @@ public class CharacterLoadingScreen extends Screen {
         Font tr = this.font;
         int cx = this.width / 2, cy = this.height / 2;
 
-        // Titre REBORN.
-        Component logo = Component.literal("REBORN");
-        ctx.text(tr, logo, cx - tr.width(logo) / 2, cy - 48, Colors.GOLD, false);
+        // Logo serveur centré (repli texte si absent).
+        if (CreatorUi.logoExists()) {
+            CreatorUi.blitLogo(ctx, cx - 66, cy - 150, 132, 88);
+        } else {
+            Component logo = Component.literal("REBORN");
+            ctx.text(tr, logo, cx - tr.width(logo) / 2, cy - 48, Colors.GOLD, false);
+        }
 
         // « Chargement » + points animés.
         int dots = (ticks / 8) % 4;
