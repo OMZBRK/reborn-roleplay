@@ -19,28 +19,60 @@ import java.util.Locale;
  */
 public final class SkinSpec {
 
-    /** Nombre de teintes de peau livrées (PNG {@code character/skin/<genre>/N.png}). */
+    /** Teintes de peau livrées (template de luminance = {@code <genre>/{@link #SKIN_TEMPLATE}.png}). */
     public static final int SKIN_TONES = 10;
+    /** Index du PNG servant de <b>template de luminance</b> pour la peau recolorée. */
+    public static final int SKIN_TEMPLATE = 4;
 
     /** Nombre de zones recolorables d'une tenue (canaux R/G/B/A du masque). */
     public static final int OUTFIT_ZONES = 4;
 
     // ── Couleurs par défaut (ARGB) ────────────────────────────────────
     /** Teinte de repli si le PNG de peau est illisible (composition dégradée). */
-    public static final int DEFAULT_SKIN = 0xFFD9A57D;
+    public static final int DEFAULT_SKIN = 0xFFE6B385;
+    public static final int DEFAULT_BROW = 0xFF241A10;
     public static final int DEFAULT_HAIR = 0xFF3A2416;
     public static final int DEFAULT_EYE = 0xFF5A3A1E;
     public static final int DEFAULT_FACIAL = 0xFF3A2416;
     public static final int DEFAULT_OUTFIT = 0xFFFFFFFF;
+    public static final int DEFAULT_ACCESSORY = 0xFFFFFFFF;
 
     // ── Id d'asset par défaut (voir catalog.json) ─────────────────────
     public static final String DEFAULT_HAIR_ID = "Cheveux_Base";
     public static final String DEFAULT_EYE_ID = "Yeux_Style1";
 
+    /**
+     * Rampe de tons chair (réf {@code REF - ALL/couleur de peau.png}), pâle → foncé.
+     * Le curseur « Couleur de peau » choisit une couleur le long de cette rampe ; la
+     * peau est ensuite recolorée par cette teinte en préservant l'ombrage du template.
+     */
+    private static final int[] SKIN_RAMP = {
+        0xFFFFDDC6, 0xFFFEDAB4, 0xFFFFD1A8, 0xFFF6C59E, 0xFFE6B385, 0xFFD7A575,
+        0xFFC19066, 0xFFAD7A61, 0xFF99664D, 0xFF87573B, 0xFF704228, 0xFF5B351B
+    };
+
+    /** Couleur de la rampe de peau à la position {@code t}∈[0,1] (interpolée). */
+    public static int skinRamp(float t) {
+        t = clamp01(t);
+        float f = t * (SKIN_RAMP.length - 1);
+        int i = (int) f;
+        if (i >= SKIN_RAMP.length - 1) return SKIN_RAMP[SKIN_RAMP.length - 1];
+        return lerpArgb(SKIN_RAMP[i], SKIN_RAMP[i + 1], f - i);
+    }
+
+    private static int lerpArgb(int a, int b, float t) {
+        int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        return 0xFF000000
+            | (Math.round(ar + (br - ar) * t) << 16)
+            | (Math.round(ag + (bg - ag) * t) << 8)
+            | Math.round(ab + (bb - ab) * t);
+    }
+
     // ── État ──────────────────────────────────────────────────────────
     public boolean useOwnSkin = false;
 
-    /** Genre → jeu de PNG de peau ({@code male/} ou {@code female/}). */
+    /** Genre → template de peau + jeux d'assets ({@code male/} ou {@code female/}). */
     public boolean female = false;
     /**
      * Carrure : {@code true} = modèle Alex (bras 3px), {@code false} = classique
@@ -48,8 +80,10 @@ public final class SkinSpec {
      * Femme. La texture est la même — seul le modèle du {@code PlayerSkin} change.
      */
     public boolean slim = false;
-    /** Index de teinte de peau (0 = clair … {@link #SKIN_TONES}-1 = foncé). */
-    public int skinStyle = 0;
+    /** Couleur de peau (ARGB) — choisie sur la rampe {@link #skinRamp}. */
+    public int skinColor = DEFAULT_SKIN;
+    /** Couleur des sourcils (ARGB) — recolore les sourcils cuits du template. */
+    public int browColor = DEFAULT_BROW;
 
     /** Id d'asset cheveux ({@code ""} = chauve). */
     public String hairId = DEFAULT_HAIR_ID;
@@ -74,6 +108,10 @@ public final class SkinSpec {
      * l'asset (la tenue s'affiche alors telle que peinte).
      */
     public final int[] outfitZone = { DEFAULT_OUTFIT, DEFAULT_OUTFIT, DEFAULT_OUTFIT, DEFAULT_OUTFIT };
+
+    /** Id d'asset accessoire — bandeau, etc. ({@code ""} = aucun), calque au-dessus des cheveux. */
+    public String accessoryId = "";
+    public int accessoryColor = DEFAULT_ACCESSORY;
 
     /** Fait tourner un index dans [0, len) avec bouclage (dir = +1 / -1). */
     public static int cycle(int idx, int len, int dir) {
@@ -130,13 +168,14 @@ public final class SkinSpec {
         return (useOwnSkin ? "1" : "0")
             + "\n" + (female ? "1" : "0")
             + "\n" + (slim ? "1" : "0")
-            + "\n" + skinStyle
+            + "\n" + hex(skinColor) + "\n" + hex(browColor)
             + "\n" + nz(hairId) + "\n" + hex(hairColor)
             + "\n" + nz(eyeId) + "\n" + hex(eyeColor) + "\n" + hex(eyeColorRight)
             + "\n" + nz(facialId) + "\n" + hex(facialColor)
             + "\n" + nz(outfitId)
             + "\n" + hex(outfitZone[0]) + "\n" + hex(outfitZone[1])
-            + "\n" + hex(outfitZone[2]) + "\n" + hex(outfitZone[3]);
+            + "\n" + hex(outfitZone[2]) + "\n" + hex(outfitZone[3])
+            + "\n" + nz(accessoryId) + "\n" + hex(accessoryColor);
     }
 
     private static String hex(int argb) {
@@ -159,7 +198,8 @@ public final class SkinSpec {
             s.useOwnSkin    = "1".equals(p[i++].trim());
             s.female        = "1".equals(p[i++].trim());
             s.slim          = "1".equals(p[i++].trim());
-            s.skinStyle     = pi(p[i++]);
+            s.skinColor     = pc(p[i++]);
+            s.browColor     = pc(p[i++]);
             s.hairId        = p[i++].trim();
             s.hairColor     = pc(p[i++]);
             s.eyeId         = p[i++].trim();
@@ -169,6 +209,8 @@ public final class SkinSpec {
             s.facialColor   = pc(p[i++]);
             s.outfitId      = p[i++].trim();
             for (int z = 0; z < OUTFIT_ZONES && i < p.length; z++) s.outfitZone[z] = pc(p[i++]);
+            if (i < p.length) s.accessoryId = p[i++].trim();
+            if (i < p.length) s.accessoryColor = pc(p[i++]);
         } catch (RuntimeException ignored) {
             // blob tronqué → on garde ce qui a pu être lu + défauts sur le reste.
         }

@@ -49,6 +49,30 @@ Ordre : `useOwnSkin, female, slim, skinStyle, hairId, hairColor, eyeId, eyeColor
 eyeColorRight, facialId, facialColor, outfitId, oz0, oz1, oz2, oz3`. Les facettes
 stockent désormais un **id d'asset** (string) au lieu d'un index numérique.
 
+### V3.1 — retours user (2026-08-11) : peau en rampe, sourcils, accessoires, aperçu gating
+- **Couleur de peau = curseur sur rampe** (réf `REF - ALL/couleur de peau.png`) au lieu des 10 PNG.
+  `SkinSpec.skinColor` + `SkinSpec.skinRamp(t)` (12 stops pâle→foncé). `RebornSkins.composeSkinBase`
+  recolore **un template de luminance** (`<genre>/{SKIN_TEMPLATE=4}.png`) par `skinColor` en
+  préservant l'ombrage (facteur = luma / **luma médiane** du template — la médiane évite que les
+  yeux blancs cuits n'assombrissent tout). Vérifié : au médian on obtient exactement la couleur
+  choisie. UI = barre draggable (cat Corps), remplace le cycleur de teinte.
+- **Sourcils recolorables** : `SkinSpec.browColor`. Les sourcils **cuits** du template (pixels
+  sombres du rectangle visage 8..15×8..15, luma < 0.55·médiane) sont recolorés par `browColor`.
+  UI = nouvelle sous-cat Visage **« Sourcils »** (couleur seule, pas de style).
+- **Accessoires** (bandeaux…) : catégorie catalogue **`accessory`** (vide pour l'instant), calque
+  **au-dessus des cheveux**, gating clan/genre comme les autres. UI = sous-cat Visage **« Accessoire »**.
+  → réponse au « des bandeaux sont mélangés aux coupes » : en faire des assets `Accessoire_*.png`
+  séparés. Sous-cats Visage désormais : Yeux · Sourcils · Cheveux · Pilosité · Accessoire.
+- **Aperçu gating (staff)** : le gating est **exempté pour le staff** — l'exemption vient du **rôle
+  API** (`staffExempt` via candidature, HELPER+), PAS de l'op Minecraft → se déop en jeu ne
+  change rien. Touche **G** dans l'éditeur = bascule « aperçu JOUEUR » (force `exempt=false`) pour
+  visualiser/tester les listes gatées. Indicateur affiché quand staff. (Le filtre clan/genre
+  lui-même est correct ; c'est l'exemption staff qui masquait le gating au test.)
+- **Sérialisation v3** : `useOwnSkin, female, slim, skinColor, browColor, hairId, hairColor, eyeId,
+  eyeColor, eyeColorRight, facialId, facialColor, outfitId, oz0..3, accessoryId, accessoryColor`.
+  Toujours **opaque côté ShinobiCore** (aucun rebuild serveur). ⚠️ Les persos créés en v2
+  (skinStyle int) réafficheront une peau bizarre → recréer.
+
 ### RESTE à faire (retours après test)
 - **Masques** : aucun `_Mask.png` livré encore → les tenues s'affichent telles que
   peintes. Peindre les masks + déclarer `zones` pour activer la recolo par zone.

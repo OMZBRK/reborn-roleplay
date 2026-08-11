@@ -105,7 +105,7 @@ public final class CharacterCatalog {
                 } else {
                     JsonObject root = JsonParser.parseReader(
                         new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
-                    for (String cat : new String[] { "hair", "outfit", "eyes", "facial", "tattoo" }) {
+                    for (String cat : new String[] { "hair", "outfit", "eyes", "facial", "tattoo", "accessory" }) {
                         List<Asset> list = new ArrayList<>();
                         if (root.has(cat) && root.get(cat).isJsonArray()) {
                             for (JsonElement el : root.getAsJsonArray(cat)) {

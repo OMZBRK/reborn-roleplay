@@ -121,11 +121,7 @@ public final class RebornSkins {
      * est résolu par son {@code id} et blitté/teinté selon son mode.
      */
     public static NativeImage compose(SkinSpec spec) {
-        NativeImage img = loadSkinBase(spec.female, spec.skinStyle);
-        if (img == null) {
-            img = new NativeImage(64, 64, false);
-            img.fillRect(0, 0, 64, 64, SkinSpec.DEFAULT_SKIN);
-        }
+        NativeImage img = composeSkinBase(spec);
 
         // 1) Tenue (sous les cheveux). Complet couvre torse/bras/jambes ; Haut/Bas viendront.
         overlayAsset(img, CharacterCatalog.byId("outfit", spec.outfitId), spec.outfitZone);
@@ -134,11 +130,64 @@ public final class RebornSkins {
             new int[] { spec.eyeColor, spec.eyeColorRight });
         // 3) Pilosité faciale.
         overlayAsset(img, CharacterCatalog.byId("facial", spec.facialId), new int[] { spec.facialColor });
-        // 4) Cheveux — EN DERNIER (par-dessus le col de la tenue + la frange sur le front).
+        // 4) Cheveux — par-dessus le col de la tenue + la frange sur le front.
         overlayAsset(img, CharacterCatalog.byId("hair", spec.hairId), new int[] { spec.hairColor });
+        // 5) Accessoire (bandeau…) — EN DERNIER, par-dessus les cheveux.
+        overlayAsset(img, CharacterCatalog.byId("accessory", spec.accessoryId),
+            new int[] { spec.accessoryColor });
 
         return img;
     }
+
+    /**
+     * Peau de base : recolore le <b>template de luminance</b> ({@code <genre>/N.png})
+     * par {@link SkinSpec#skinColor} en préservant l'ombrage (facteur = luma /
+     * luma_médiane), et recolore les <b>sourcils cuits</b> par {@link SkinSpec#browColor}.
+     * L'image est redécodée à neuf (mutable) puis mutée en place (alpha préservé).
+     */
+    private static NativeImage composeSkinBase(SkinSpec spec) {
+        SkinTemplate t = loadSkinTemplate(spec.female);
+        if (t == null) {
+            NativeImage fb = new NativeImage(64, 64, false);
+            fb.fillRect(0, 0, 64, 64, spec.skinColor);
+            return fb;
+        }
+        NativeImage img;
+        try {
+            img = NativeImage.read(new ByteArrayInputStream(t.bytes));
+        } catch (Exception e) {
+            NativeImage fb = new NativeImage(64, 64, false);
+            fb.fillRect(0, 0, 64, 64, spec.skinColor);
+            return fb;
+        }
+        int w = img.getWidth(), h = img.getHeight();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int argb = img.getPixel(x, y);
+                if (((argb >>> 24) & 0xFF) == 0) continue;
+                int idx = y * 64 + x;
+                if (idx < t.brow.length && t.brow[idx]) {
+                    img.setPixel(x, y, spec.browColor);
+                } else {
+                    float lum = 0.299f * ((argb >> 16) & 0xFF)
+                        + 0.587f * ((argb >> 8) & 0xFF) + 0.114f * (argb & 0xFF);
+                    img.setPixel(x, y, tintSkin(spec.skinColor, lum, t.refLuma));
+                }
+            }
+        }
+        return img;
+    }
+
+    /** Couleur de peau modulée par l'ombrage : {@code skinColor × (luma / luma_médiane)}. */
+    private static int tintSkin(int skinColor, float lum, float refLuma) {
+        float f = refLuma <= 0f ? 1f : lum / refLuma;
+        int r = clamp255(Math.round(((skinColor >> 16) & 0xFF) * f));
+        int g = clamp255(Math.round(((skinColor >> 8) & 0xFF) * f));
+        int b = clamp255(Math.round((skinColor & 0xFF) * f));
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    }
+
+    private static int clamp255(int v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
     /**
      * Overlaye un asset du catalogue sur le skin. {@code colors} porte les couleurs de
@@ -309,17 +358,58 @@ public final class RebornSkins {
         }
     }
 
-    // ── Peau de base (PNG couleur pleine) ─────────────────────────────
+    // ── Template de peau (luminance + sourcils) ───────────────────────
 
-    private static NativeImage loadSkinBase(boolean female, int style) {
-        int s = clampIdx(style, SkinSpec.SKIN_TONES);
-        String key = (female ? "female/" : "male/") + s;
+    /** Template de peau décodé : octets PNG (re-décodés à chaud), luma médiane, sourcils. */
+    private record SkinTemplate(byte[] bytes, float refLuma, boolean[] brow) {}
+
+    private static final Map<String, SkinTemplate> skinTemplates = new ConcurrentHashMap<>();
+
+    /** Charge (cache) le template de peau du genre : {@code <genre>/{SKIN_TEMPLATE}.png}. */
+    private static SkinTemplate loadSkinTemplate(boolean female) {
+        String key = (female ? "female/" : "male/") + SkinSpec.SKIN_TEMPLATE;
+        return skinTemplates.computeIfAbsent(key, RebornSkins::decodeSkinTemplate);
+    }
+
+    private static SkinTemplate decodeSkinTemplate(String key) {
         byte[] bytes = skinBytes.computeIfAbsent(key, RebornSkins::readSkinBytes);
         if (bytes == null) return null;
         try {
-            return NativeImage.read(new ByteArrayInputStream(bytes));
+            NativeImage ni = NativeImage.read(new ByteArrayInputStream(bytes));
+            int w = ni.getWidth(), h = ni.getHeight();
+            // Médiane de luminance des pixels opaques (robuste aux yeux blancs / sourcils sombres).
+            List<Float> lumas = new ArrayList<>();
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int argb = ni.getPixel(x, y);
+                    if (((argb >>> 24) & 0xFF) == 0) continue;
+                    lumas.add(0.299f * ((argb >> 16) & 0xFF)
+                        + 0.587f * ((argb >> 8) & 0xFF) + 0.114f * (argb & 0xFF));
+                }
+            }
+            float refLuma = 105f; // repli si template vide
+            if (!lumas.isEmpty()) {
+                lumas.sort(Float::compareTo);
+                refLuma = lumas.get(lumas.size() / 2);
+                if (refLuma <= 1f) refLuma = 105f;
+            }
+            // Sourcils = pixels sombres du rectangle visage (8..15, 8..15) du template.
+            boolean[] brow = new boolean[64 * 64];
+            float browThresh = 0.55f * refLuma;
+            for (int y = 8; y < 16 && y < h; y++) {
+                for (int x = 8; x < 16 && x < w; x++) {
+                    int argb = ni.getPixel(x, y);
+                    if (((argb >>> 24) & 0xFF) == 0) continue;
+                    float lum = 0.299f * ((argb >> 16) & 0xFF)
+                        + 0.587f * ((argb >> 8) & 0xFF) + 0.114f * (argb & 0xFF);
+                    if (lum < browThresh) brow[y * 64 + x] = true;
+                }
+            }
+            ni.close();
+            LOGGER.info("template peau {} (luma médiane={})", key, Math.round(refLuma));
+            return new SkinTemplate(bytes, refLuma, brow);
         } catch (Exception e) {
-            LOGGER.warn("décodage peau {} échec : {}", key, e.getMessage());
+            LOGGER.warn("décodage template peau {} échec : {}", key, e.getMessage());
             return null;
         }
     }

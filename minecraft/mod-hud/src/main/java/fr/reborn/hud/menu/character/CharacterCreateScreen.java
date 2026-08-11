@@ -139,6 +139,8 @@ public class CharacterCreateScreen extends Screen {
         // Synchro genre → jeu de peau + carrure (Femme = Alex imposé).
         appearance.female = "Femme".equals(sexe);
         appearance.slim = appearance.female || maleSlim;
+        // Couleur de peau initiale = position par défaut sur la rampe.
+        appearance.skinColor = fr.reborn.hud.skin.SkinSpec.skinRamp(skinT);
 
         nameField = new EditBox(this.font, panelX(), 0, panelW() - 8, 20,
             Component.literal("Prénom"));
@@ -434,8 +436,15 @@ public class CharacterCreateScreen extends Screen {
     private int pkX, pkY, pkW;       // rect du color-picker (mémorisé au render)
     private static final int PK_BAR_H = 9, PK_GAP = 14;
 
+    // Barre « couleur de peau » (cat Corps) : position sur la rampe + drag + rect mémorisé.
+    private float skinT = 0.35f;
+    private boolean skinDrag = false;
+    private int skX, skY, skW;
+    /** Staff : prévisualiser les listes comme un JOUEUR (gating actif) — touche G. */
+    private boolean previewAsPlayer = false;
+
     private static final String[] CAT_NAMES = { "Corps", "Visage", "Genre", "Tenue" };
-    private static final String[] VISAGE_SUBS = { "Yeux", "Cheveux", "Pilosité" };
+    private static final String[] VISAGE_SUBS = { "Yeux", "Sourcils", "Cheveux", "Pilosité", "Accessoire" };
 
     private void renderApparence(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
         drawAvatar(ctx, cat == 1);          // cat 1 = Visage → zoom sur la tête
@@ -587,10 +596,16 @@ public class CharacterCreateScreen extends Screen {
             ctx.text(tr, frac, cx - tr.width(frac) / 2, cyy + 7, Colors.WHITE_PURE, false);
         }
 
-        // Corps : toggle Carrure (Classique / Alex) au-dessus du cycleur de teinte.
-        if (cat == 0) drawBuildToggle(ctx, tr, mx, my);
+        // Corps : toggle Carrure (Classique / Alex) + barre « couleur de peau ».
+        if (cat == 0) { drawBuildToggle(ctx, tr, mx, my); drawSkinBar(ctx, tr, mx, my); }
         // Yeux : sélecteur d'œil édité (les deux / gauche / droite) pour le picker.
         if (cat == 1 && subCat == 0) drawEyeSelToggle(ctx, tr, mx, my);
+        // Staff : indicateur d'aperçu gating (joueur/staff).
+        if (CharacterData.staffExempt()) {
+            Component g = ax(previewAsPlayer ? "APERCU : JOUEUR (G)" : "GATING : STAFF EXEMPT (G)");
+            ctx.text(tr, g, cx - tr.width(g) / 2, 40,
+                previewAsPlayer ? Colors.GOLD : Colors.FOREGROUND_MUTED, false);
+        }
 
         // Barre du bas : RETURN | 🎨 | NOM DU STYLE | 🎨 | CONFIRM.
         drawKorvexButton(ctx, tr, 24, barY, 130, 30, "RETOUR", "↑",
@@ -621,13 +636,21 @@ public class CharacterCreateScreen extends Screen {
                 DrawHelpers.rect(ctx, cx - 7, cy - 1, 5, 3, c);
                 DrawHelpers.rect(ctx, cx + 2, cy - 1, 5, 3, c);
             }
-            case 1 -> { // Cheveux
+            case 1 -> { // Sourcils (deux traits inclinés)
+                DrawHelpers.rect(ctx, cx - 7, cy - 2, 5, 2, c);
+                DrawHelpers.rect(ctx, cx + 2, cy - 2, 5, 2, c);
+            }
+            case 2 -> { // Cheveux
                 DrawHelpers.rect(ctx, cx - 7, cy - 7, 14, 4, c);
                 DrawHelpers.rect(ctx, cx - 7, cy - 7, 3, 8, c);
                 DrawHelpers.rect(ctx, cx + 4, cy - 7, 3, 8, c);
             }
-            default -> // Pilosité (moustache)
+            case 3 -> // Pilosité (moustache)
                 DrawHelpers.rect(ctx, cx - 5, cy + 2, 10, 3, c);
+            default -> { // Accessoire (bandeau)
+                DrawHelpers.rect(ctx, cx - 7, cy - 2, 14, 3, c);
+                DrawHelpers.rect(ctx, cx + 3, cy - 1, 4, 5, c);
+            }
         }
     }
 
@@ -680,6 +703,33 @@ public class CharacterCreateScreen extends Screen {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, 30, 30, 6,
             Colors.withAlpha(0xFF000000, 0.5f), active ? Colors.ACCENT : Colors.BORDER);
         DrawHelpers.roundedRect(ctx, x + 8, y + 8, 14, 14, 3, color);
+    }
+
+    /** Barre « couleur de peau » (cat Corps) : rampe de tons chair + curseur draggable. */
+    private void drawSkinBar(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
+        int cx = this.width / 2, barY = this.height - 58;
+        int w = 200, x = cx - w / 2, y = barY - 28;
+        skX = x; skY = y; skW = w;
+        Component lab = ax("COULEUR DE PEAU");
+        ctx.text(tr, lab, cx - tr.width(lab) / 2, y - 12, Colors.FOREGROUND_MUTED, false);
+        int segs = 32;
+        for (int i = 0; i < segs; i++) {
+            float t0 = i / (float) segs, t1 = (i + 1) / (float) segs;
+            int x0 = x + Math.round(t0 * w), x1 = x + Math.round(t1 * w);
+            DrawHelpers.horizontalGradient(ctx, x0, y, Math.max(1, x1 - x0), 10,
+                fr.reborn.hud.skin.SkinSpec.skinRamp(t0), fr.reborn.hud.skin.SkinSpec.skinRamp(t1));
+        }
+        DrawHelpers.outlinedRect(ctx, x - 1, y - 1, w + 2, 12, 0, Colors.BORDER_STRONG);
+        int kx = x + Math.round(skinT * (w - 1));
+        DrawHelpers.roundedOutlinedRect(ctx, kx - 2, y - 2, 4, 14, 1,
+            Colors.WHITE_PURE, Colors.withAlpha(0xFF000000, 0.8f));
+    }
+
+    /** Positionne le curseur de peau depuis la souris → recolore la peau. */
+    private void setSkinFromTrack(int mx) {
+        skinT = Math.max(0f, Math.min(1f, (mx - skX) / (float) Math.max(1, skW - 1)));
+        appearance.skinColor = fr.reborn.hud.skin.SkinSpec.skinRamp(skinT);
+        refreshPreview();
     }
 
     // ── Color picker HSV libre ────────────────────────────────────────
@@ -752,31 +802,35 @@ public class CharacterCreateScreen extends Screen {
     }
 
     // ── Accès générique à la facette courante (cat/subCat) ────────────
-    // Peau (cat 0) = cycleur de teinte (PNG livrés), sans color-picker.
-    private boolean facetHasStyle() { return cat == 0 || cat == 1 || cat == 2 || cat == 3; }
+    // Peau (cat 0) = barre « couleur de peau » (rampe), sans cycleur.
+    // Visage (cat 1) sous-cats : 0 Yeux · 1 Sourcils · 2 Cheveux · 3 Pilosité · 4 Accessoire.
+    private boolean facetHasStyle() {
+        if (cat == 0) return false;             // peau : barre de couleur (pas de cycleur)
+        if (cat == 1) return subCat != 1;       // Visage : Sourcils = couleur seule
+        return cat == 2 || cat == 3;
+    }
 
-    // ── Facettes pilotées par le catalogue (cheveux/yeux/pilosité/tenue) ──
-    // La peau (cat 0) et le genre (cat 2) restent hors catalogue.
-
-    /** Catégorie catalogue de la facette courante, ou {@code null} (peau/genre). */
+    /** Catégorie catalogue de la facette courante ({@code null} = peau/genre, {@code "brows"} = sourcils). */
     private String facetCategory() {
-        if (cat == 1) return switch (subCat) { case 0 -> "eyes"; case 1 -> "hair"; default -> "facial"; };
+        if (cat == 1) return switch (subCat) {
+            case 0 -> "eyes"; case 1 -> "brows"; case 2 -> "hair"; case 3 -> "facial"; default -> "accessory";
+        };
         if (cat == 3) return "outfit";
         return null;
     }
 
-    /** La facette propose-t-elle une option « Aucun » (chauve/imberbe/torse nu) ? */
+    /** La facette propose-t-elle une option « Aucun » (chauve/imberbe/torse nu/sans accessoire) ? */
     private boolean facetAllowsNone() {
         String c = facetCategory();
-        return "hair".equals(c) || "facial".equals(c) || "outfit".equals(c);
+        return "hair".equals(c) || "facial".equals(c) || "outfit".equals(c) || "accessory".equals(c);
     }
 
-    /** Assets éligibles (genre/clan ; staff exempté) pour la facette catalogue courante. */
+    /** Assets éligibles (genre/clan ; staff exempté sauf aperçu joueur) pour la facette. */
     private java.util.List<fr.reborn.hud.skin.CharacterCatalog.Asset> facetList() {
         String c = facetCategory();
-        if (c == null) return java.util.List.of();
-        return fr.reborn.hud.skin.CharacterCatalog.available(
-            c, appearance.female, effectiveClan(), CharacterData.staffExempt());
+        if (c == null || "brows".equals(c)) return java.util.List.of();
+        boolean exempt = CharacterData.staffExempt() && !previewAsPlayer;
+        return fr.reborn.hud.skin.CharacterCatalog.available(c, appearance.female, effectiveClan(), exempt);
     }
 
     /** Id d'asset actuellement sélectionné pour la facette catalogue courante. */
@@ -786,6 +840,7 @@ public class CharacterCreateScreen extends Screen {
             case "hair" -> appearance.hairId;
             case "facial" -> appearance.facialId;
             case "outfit" -> appearance.outfitId;
+            case "accessory" -> appearance.accessoryId;
             default -> "";
         };
     }
@@ -796,6 +851,7 @@ public class CharacterCreateScreen extends Screen {
             case "hair" -> appearance.hairId = id;
             case "facial" -> appearance.facialId = id;
             case "outfit" -> appearance.outfitId = id;
+            case "accessory" -> appearance.accessoryId = id;
             default -> { }
         }
     }
@@ -807,7 +863,8 @@ public class CharacterCreateScreen extends Screen {
 
     private boolean facetHasColor() {
         String c = facetCategory();
-        if (c == null) return false;                       // peau/genre : pas de picker
+        if (c == null) return false;                       // peau/genre : pas de picker ici
+        if ("brows".equals(c)) return true;                // sourcils : couleur seule
         if (facetAllowsNone() && facetId().isBlank()) return false; // « Aucun » sélectionné
         var a = fr.reborn.hud.skin.CharacterCatalog.byId(c, facetId());
         return a != null && a.tintable();
@@ -816,9 +873,11 @@ public class CharacterCreateScreen extends Screen {
     private int facetColorGet() {
         return switch (facetCategory() == null ? "" : facetCategory()) {
             case "eyes" -> eyeSel == 2 ? appearance.eyeColorRight : appearance.eyeColor;
+            case "brows" -> appearance.browColor;
             case "hair" -> appearance.hairColor;
             case "facial" -> appearance.facialColor;
             case "outfit" -> appearance.outfitZone[0]; // zone R (primaire) ; multi-zone à venir
+            case "accessory" -> appearance.accessoryColor;
             default -> 0xFFFFFFFF;
         };
     }
@@ -829,22 +888,24 @@ public class CharacterCreateScreen extends Screen {
                 if (eyeSel != 2) appearance.eyeColor = argb;      // les deux / gauche
                 if (eyeSel != 1) appearance.eyeColorRight = argb; // les deux / droite
             }
+            case "brows" -> appearance.browColor = argb;
             case "hair" -> appearance.hairColor = argb;
             case "facial" -> appearance.facialColor = argb;
             case "outfit" -> appearance.outfitZone[0] = argb;
+            case "accessory" -> appearance.accessoryColor = argb;
             default -> { }
         }
         refreshPreview();
     }
 
     private int facetStyleCount() {
-        if (cat == 0) return fr.reborn.hud.skin.SkinSpec.SKIN_TONES;
+        if (cat == 0) return 1;
         if (cat == 2) return 2;
         return facetList().size() + (facetAllowsNone() ? 1 : 0);
     }
 
     private int facetStyleIdx() {
-        if (cat == 0) return appearance.skinStyle;
+        if (cat == 0) return 0;
         if (cat == 2) return "Femme".equals(sexe) ? 1 : 0;
         boolean none = facetAllowsNone();
         if (none && facetId().isBlank()) return 0;
@@ -853,9 +914,10 @@ public class CharacterCreateScreen extends Screen {
     }
 
     private String facetStyleName() {
-        if (cat == 0) return "TEINTE " + (appearance.skinStyle + 1);
+        if (cat == 0) return "PEAU";
         if (cat == 2) return sexe.toUpperCase(Locale.FRENCH);
         String c = facetCategory();
+        if ("brows".equals(c)) return "SOURCILS";
         if (facetAllowsNone() && facetId().isBlank()) return "AUCUN";
         var a = fr.reborn.hud.skin.CharacterCatalog.byId(c, facetId());
         if (a != null) return a.name;
@@ -864,10 +926,9 @@ public class CharacterCreateScreen extends Screen {
 
     private void cycleFacet(int dir) {
         switch (cat) {
-            case 0 -> appearance.skinStyle = fr.reborn.hud.skin.SkinSpec.cycle(
-                appearance.skinStyle, fr.reborn.hud.skin.SkinSpec.SKIN_TONES, dir);
+            case 0 -> { /* peau : barre de couleur, pas de cycle */ }
             case 2 -> setSexe("Homme".equals(sexe) ? "Femme" : "Homme");
-            default -> { // facettes catalogue (cheveux/yeux/pilosité/tenue)
+            default -> { // facettes catalogue (yeux/cheveux/pilosité/tenue/accessoire)
                 var list = facetList();
                 boolean none = facetAllowsNone();
                 int count = list.size() + (none ? 1 : 0);
@@ -932,7 +993,7 @@ public class CharacterCreateScreen extends Screen {
             }
         }
         int barY = this.height - 58;
-        // Corps : toggle Carrure (Classique | Alex).
+        // Corps : toggle Carrure (Classique | Alex) + barre couleur de peau.
         if (cat == 0) {
             int tw = 220, tx = cx - tw / 2, ty = barY - 66, hw = tw / 2;
             if (hit(mx, my, tx, ty, hw, 22)) {
@@ -944,6 +1005,7 @@ public class CharacterCreateScreen extends Screen {
                 if (!appearance.female) setBuild(true);
                 return true;
             }
+            if (hit(mx, my, skX - 3, skY - 3, skW + 6, 16)) { skinDrag = true; setSkinFromTrack(mx); return true; }
         }
         // Yeux : toggle œil édité (les deux / gauche / droite).
         if (cat == 1 && subCat == 0) {
@@ -1235,6 +1297,7 @@ public class CharacterCreateScreen extends Screen {
         // Clic droit maintenu = rotation horizontale du perso.
         if (event.button() == 1) { avatarSpin += (float) dX; return true; }
         if (hsvDrag >= 0) { updateHsv(mx); return true; }
+        if (skinDrag) { setSkinFromTrack(mx); return true; }
         if (draggingSize) { setSizeFromTrack(mx); return true; }
         return super.mouseDragged(event, dX, dY);
     }
@@ -1250,6 +1313,7 @@ public class CharacterCreateScreen extends Screen {
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
         draggingSize = false;
         hsvDrag = -1;
+        skinDrag = false;
         return super.mouseReleased(event);
     }
 
@@ -1307,6 +1371,9 @@ public class CharacterCreateScreen extends Screen {
                     return true;
                 }
                 if (k == GLFW.GLFW_KEY_E && cat == 1 && subCat == 0) { cycleEyeSel(); return true; } // œil édité
+                if (k == GLFW.GLFW_KEY_G && CharacterData.staffExempt()) { // staff : aperçu gating joueur
+                    previewAsPlayer = !previewAsPlayer; return true;
+                }
                 if (k == GLFW.GLFW_KEY_F) { cat = -1; pickerOpen = false; return true; }
             }
             return true;
