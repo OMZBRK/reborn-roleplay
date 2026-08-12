@@ -145,11 +145,24 @@ fn read_fabric_metadata(jar_path: &Path) -> Result<FabricModMetadata, ModsError>
     let mc_constraint = parsed.depends.and_then(|d| {
         d.get("minecraft").and_then(|v| match v {
             serde_json::Value::String(s) => Some(s.clone()),
-            serde_json::Value::Array(arr) => arr
-                .iter()
-                .filter_map(|x| x.as_str())
-                .next()
-                .map(|s| s.to_string()),
+            // Fabric autorise un tableau de contraintes (semantique OR).
+            // On encode toutes les branches en "a||b||c" ; constraint_accepts
+            // les evalue en OR. Prendre seulement la premiere (ancien code)
+            // purgeait a tort un mod dont la version active n'etait pas en
+            // tete du tableau (ex: DistantHorizons ["26.1.0","26.1.1","26.1.2"]
+            // avec la cible 26.1.2).
+            serde_json::Value::Array(arr) => {
+                let joined = arr
+                    .iter()
+                    .filter_map(|x| x.as_str())
+                    .collect::<Vec<_>>()
+                    .join("||");
+                if joined.is_empty() {
+                    None
+                } else {
+                    Some(joined)
+                }
+            }
             _ => None,
         })
     });
@@ -176,6 +189,15 @@ fn constraint_accepts(constraint: &str, target: &str) -> bool {
     let target_parts = parse_version(target);
     if constraint.is_empty() || constraint == "*" || constraint.eq_ignore_ascii_case("any") {
         return true;
+    }
+    // Tableau Fabric (OR) encode "a||b||c" : accepte si AU MOINS une branche
+    // accepte. A evaluer avant le split par espace (AND) car les deux syntaxes
+    // peuvent coexister ("26.1.0||26.1.1" n'a pas d'espace, mais on garde l'OR
+    // prioritaire par clarte).
+    if constraint.contains("||") {
+        return constraint
+            .split("||")
+            .any(|part| constraint_accepts(part.trim(), target));
     }
     // Contraintes composees (Fabric autorise ">=1.21- <1.22-" ou ">=1.21 <1.22").
     // Semantique AND : chaque sous-contrainte separee par un espace doit
@@ -331,5 +353,19 @@ mod tests {
     fn tilde_constraint() {
         assert!(constraint_accepts("~1.21.1", "1.21.4"));
         assert!(!constraint_accepts("~1.21.1", "1.22.0"));
+    }
+
+    #[test]
+    fn or_array_constraint() {
+        // depends.minecraft peut etre un tableau Fabric (OR), encode "a||b||c".
+        // Regression : DistantHorizons declare ["26.1.0","26.1.1","26.1.2"] et
+        // l'ancien parser ne lisait que "26.1.0" -> purge a tort sous 26.1.2.
+        assert!(constraint_accepts("26.1.0||26.1.1||26.1.2", "26.1.2"));
+        assert!(constraint_accepts("26.1.0||26.1.1||26.1.2", "26.1.0"));
+        assert!(!constraint_accepts("26.1.0||26.1.1||26.1.2", "26.1.3"));
+        assert!(!constraint_accepts("26.1.0||26.1.1", "26.2.0"));
+        // Branches avec operateurs.
+        assert!(constraint_accepts(">=26.1||1.21.1", "26.1.2"));
+        assert!(constraint_accepts(">=26.1||1.21.1", "1.21.1"));
     }
 }
