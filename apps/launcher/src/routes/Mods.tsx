@@ -7,6 +7,7 @@ import {
   Layers,
   Lock,
   Mic,
+  Mountain,
   Package,
   RefreshCw,
   Search,
@@ -29,11 +30,11 @@ import { ModCard } from "../components/mods/ModCard";
 import { ModsTabs, type ModsTab } from "../components/mods/ModsTabs";
 
 // Page Mods branchée sur la vraie data du launcher (listMods Rust qui scan
-// le dossier mods/ et parse fabric.mod.json). Pas de toggle activer/desactiver
-// pour cette PR — il n'y a pas encore de mecanisme cote serveur pour
-// distinguer "requis" vs "optionnel" (le manifest signe n'a pas ces flags),
-// donc afficher des toggles serait trompeur. Le user voit l'etat reel des
-// mods installes + peut purger les incompatibles.
+// le dossier mods/ et parse fabric.mod.json). Les mods optionnels du manifest
+// (required:false, ex. Distant Horizons) sont listes a part via
+// listOptionalMods() avec un toggle activer/desactiver par entree
+// (setModPref -> DL ou purge du .jar au prochain lancement). Le user voit
+// aussi l'etat reel des mods installes + peut purger les incompatibles.
 //
 // Lifecycle :
 //   - mount → listMods()
@@ -416,6 +417,12 @@ const MOD_META: Record<
     label: "Entity Model Features",
     tag: "Mobs",
   },
+  "DistantHorizons-": {
+    icon: Mountain,
+    gradient: "from-teal-500/40 to-emerald-700/40",
+    label: "Distant Horizons",
+    tag: "Vue",
+  },
 };
 
 function lookupModMeta(filename: string) {
@@ -469,13 +476,16 @@ function OptionalModCard({
       </div>
 
       {/* Contenu droit : nom + tag + metas + switch */}
-      <div className="flex flex-1 flex-col justify-between p-3">
-        <div>
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="truncate text-[13px] font-semibold tracking-tight text-[var(--color-foreground)]">
+      <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <h3
+              title={meta.label}
+              className="min-w-0 flex-1 truncate text-[13px] font-semibold tracking-tight text-[var(--color-foreground)]"
+            >
               {meta.label}
             </h3>
-            <span className="rounded-sm bg-[var(--color-surface-elevated)] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[var(--color-foreground-muted)]">
+            <span className="flex-shrink-0 rounded-sm bg-[var(--color-surface-elevated)] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[var(--color-foreground-muted)]">
               {meta.tag}
             </span>
           </div>
