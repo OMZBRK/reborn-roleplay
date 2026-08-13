@@ -46,7 +46,7 @@ le format déjà utilisé dans `D:\REBORN - PJ\Modélisation\Skin`.
 
 1. Blockbench → **Fichier → Plugins → l'onglet « Chargés »** → bouton **« Charger un plugin
    depuis un fichier »** (icône dossier).
-2. Sélectionne `reborn-compositor.js`.
+2. Sélectionne `reborn_compositor.js` (le nom du fichier **doit** rester `reborn_compositor.js` — Blockbench exige qu'il corresponde à l'ID du plugin).
 3. Le panneau **Reborn Compositor** apparaît dans la barre de droite (icône vêtement).
 
 > Bureau uniquement : le plugin lit tes PNG sur le disque, ce que la version web ne permet pas.
