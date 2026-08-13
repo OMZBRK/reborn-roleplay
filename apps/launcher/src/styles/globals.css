@@ -5689,6 +5689,10 @@ select.tk-create-select {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-foreground);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .reborn-mod-desc {
   margin-top: 2px;
