@@ -42,41 +42,46 @@
       left: [u + D + W, v + D, D, H], back: [u + 2 * D + W, v + D, W, H],
     };
   }
-  const IUV = {
-    head: boxUV(0, 0, 8, 8, 8), body: boxUV(16, 16, 8, 12, 4),
-    rArm: boxUV(40, 16, 4, 12, 4), lArm: boxUV(32, 48, 4, 12, 4),
-    rLeg: boxUV(0, 16, 4, 12, 4), lLeg: boxUV(16, 48, 4, 12, 4),
-  };
-  const OUV = {
-    head: boxUV(32, 0, 8, 8, 8), body: boxUV(16, 32, 8, 12, 4),
-    rArm: boxUV(40, 32, 4, 12, 4), lArm: boxUV(48, 48, 4, 12, 4),
-    rLeg: boxUV(0, 32, 4, 12, 4), lLeg: boxUV(0, 48, 4, 12, 4),
-  };
-  // Silhouette de face en texels (W=16, H=32)
-  const SIL = [
-    { k: "head", x: 4, y: 0, w: 8, h: 8 }, { k: "body", x: 4, y: 8, w: 8, h: 12 },
-    { k: "rArm", x: 0, y: 8, w: 4, h: 12 }, { k: "lArm", x: 12, y: 8, w: 4, h: 12 },
-    { k: "rLeg", x: 4, y: 20, w: 4, h: 12 }, { k: "lLeg", x: 8, y: 20, w: 4, h: 12 },
-  ];
-  function drawView(src, ctx, ox, oy, S, face) {
-    for (const r of SIL) {
-      const iu = IUV[r.k][face], ou = OUV[r.k][face];
-      // en vue de dos on miroite horizontalement pour rester lisible
-      const rx = face === "back" ? (16 - r.x - r.w) : r.x;
-      ctx.drawImage(src, iu[0], iu[1], iu[2], iu[3], ox + rx * S, oy + r.y * S, r.w * S, r.h * S);
-      ctx.drawImage(src, ou[0], ou[1], ou[2], ou[3], ox + rx * S, oy + r.y * S, r.w * S, r.h * S);
-    }
-  }
-
-  // ---- Mannequin gris (fond de vignette pour lire la forme d'une pièce) -------
-  const MANNEQUIN = (function () {
+  // Géométrie dépendante du modèle : slim = bras 3px (défaut Reborn), classic = 4px.
+  let ARM = (localStorage.getItem("reborn_model") === "classic") ? 4 : 3;
+  let IUV, OUV, SIL, SILW, MANNEQUIN;
+  function buildGeom() {
+    const a = ARM;
+    IUV = {
+      head: boxUV(0, 0, 8, 8, 8), body: boxUV(16, 16, 8, 12, 4),
+      rArm: boxUV(40, 16, a, 12, 4), lArm: boxUV(32, 48, a, 12, 4),
+      rLeg: boxUV(0, 16, 4, 12, 4), lLeg: boxUV(16, 48, 4, 12, 4),
+    };
+    OUV = {
+      head: boxUV(32, 0, 8, 8, 8), body: boxUV(16, 32, 8, 12, 4),
+      rArm: boxUV(40, 32, a, 12, 4), lArm: boxUV(48, 48, a, 12, 4),
+      rLeg: boxUV(0, 32, 4, 12, 4), lLeg: boxUV(0, 48, 4, 12, 4),
+    };
+    SILW = a + 8 + a; // largeur silhouette en texels (14 slim / 16 classic)
+    SIL = [
+      { k: "head", x: a, y: 0, w: 8, h: 8 }, { k: "body", x: a, y: 8, w: 8, h: 12 },
+      { k: "rArm", x: 0, y: 8, w: a, h: 12 }, { k: "lArm", x: a + 8, y: 8, w: a, h: 12 },
+      { k: "rLeg", x: a, y: 20, w: 4, h: 12 }, { k: "lLeg", x: a + 4, y: 20, w: 4, h: 12 },
+    ];
+    // mannequin gris (fond de vignette pour lire la forme d'une pièce)
     const c = document.createElement("canvas"); c.width = 64; c.height = 64;
     const x = c.getContext("2d");
     const fillPart = (p, col) => { x.fillStyle = col; for (const k in p) x.fillRect(p[k][0], p[k][1], p[k][2], p[k][3]); };
     fillPart(IUV.head, "#6b6f7a"); fillPart(IUV.rArm, "#6b6f7a"); fillPart(IUV.lArm, "#6b6f7a");
     fillPart(IUV.body, "#565a63"); fillPart(IUV.rLeg, "#4c4f57"); fillPart(IUV.lLeg, "#4c4f57");
-    return c;
-  })();
+    MANNEQUIN = c;
+  }
+  buildGeom();
+
+  function drawView(src, ctx, ox, oy, S, face) {
+    for (const r of SIL) {
+      const iu = IUV[r.k][face], ou = OUV[r.k][face];
+      // en vue de dos on miroite horizontalement pour rester lisible
+      const rx = face === "back" ? (SILW - r.x - r.w) : r.x;
+      ctx.drawImage(src, iu[0], iu[1], iu[2], iu[3], ox + rx * S, oy + r.y * S, r.w * S, r.h * S);
+      ctx.drawImage(src, ou[0], ou[1], ou[2], ou[3], ox + rx * S, oy + r.y * S, r.w * S, r.h * S);
+    }
+  }
 
   // ---- État -------------------------------------------------------------------
   const S = {
@@ -129,7 +134,7 @@
   function thumbFor(file) {
     if (thumbCache[file]) return thumbCache[file];
     const img = imgCache[file];
-    const t = document.createElement("canvas"); const sc = 3; t.width = 16 * sc; t.height = 32 * sc;
+    const t = document.createElement("canvas"); const sc = 3; t.width = SILW * sc; t.height = 32 * sc;
     const tc = t.getContext("2d"); tc.imageSmoothingEnabled = false;
     drawView(MANNEQUIN, tc, 0, 0, sc, "front");
     if (img && img.complete) drawView(img, tc, 0, 0, sc, "front");
@@ -349,8 +354,25 @@
       return;
     }
 
+    // Sélecteur de modèle (le variant de peau y est couplé : slim→speau_*, classic→peau_*)
+    const mseg = el("div", { class: "rc-seg" });
+    [["slim", "Slim 3px", 3], ["classic", "Classic 4px", 4]].forEach(([id, label, a]) => {
+      mseg.appendChild(el("button", {
+        class: ARM === a ? "on" : "",
+        onclick: () => { ARM = a; localStorage.setItem("reborn_model", id); for (const k in thumbCache) delete thumbCache[k]; buildGeom(); render(); },
+      }, [label]));
+    });
+    body.appendChild(el("div", { class: "rc-cat" }, [el("h4", {}, ["Modèle ", mseg])]));
+
     for (const c of CATS) {
       let files = S.cats[c.key] || [];
+      if (c.key === "peau") {
+        // ne garder que la variante de base qui correspond au modèle
+        files = files.filter(f => {
+          const isSlim = /^speau/i.test(pathmod.basename(f));
+          return ARM === 3 ? isSlim : !isSlim;
+        });
+      }
       if (c.key === "peau" && S.gender !== "all")
         files = files.filter(f => f.toLowerCase().includes(S.gender));
       if (!files.length) continue;
@@ -387,8 +409,8 @@
     }
 
     // preview
-    previewFront = el("canvas", { width: 96, height: 192 });
-    previewBack = el("canvas", { width: 96, height: 192 });
+    previewFront = el("canvas", { width: SILW * 6, height: 192 });
+    previewBack = el("canvas", { width: SILW * 6, height: 192 });
     body.appendChild(el("div", { class: "rc-preview" }, [
       el("figure", {}, [previewFront, el("figcaption", {}, ["Face"])]),
       el("figure", {}, [previewBack, el("figcaption", {}, ["Dos"])]),
@@ -412,7 +434,7 @@
     for (const [canvas, face] of [[previewFront, "front"], [previewBack, "back"]]) {
       const ctx = canvas.getContext("2d"); ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawView(cv, ctx, 0, 0, canvas.width / 16, face);
+      drawView(cv, ctx, 0, 0, canvas.height / 32, face);
     }
   }
 
