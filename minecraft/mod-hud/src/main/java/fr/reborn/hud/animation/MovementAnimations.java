@@ -3,6 +3,9 @@ package fr.reborn.hud.animation;
 import com.zigythebird.playeranim.animation.PlayerAnimationController;
 import com.zigythebird.playeranim.api.PlayerAnimationAccess;
 import com.zigythebird.playeranim.api.PlayerAnimationFactory;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.zigythebird.playeranimcore.PlayerAnimLib;
 import com.zigythebird.playeranimcore.animation.Animation;
 import com.zigythebird.playeranimcore.animation.RawAnimation;
 import com.zigythebird.playeranimcore.animation.layered.IAnimation;
@@ -18,6 +21,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +67,7 @@ public final class MovementAnimations {
      *  (« Walking » — walk.emotecraft), puis les 5 styles sélectionnables. */
     private static final String[][] WALK_STYLES = {
         {"Marche", "walk.emotecraft"},
+        {"Reborn", "basewalkreborn.json"},
         {"Défaut", "walk_default.emotecraft"},
         {"Tremblante", "walk_trembling.emotecraft"},
         {"Timide", "walk_timid.emotecraft"},
@@ -159,15 +166,47 @@ public final class MovementAnimations {
         }
     }
 
-    /** Charge une {@code .emotecraft} (format binaire Emotecraft) → {@code Animation}. */
+    /**
+     * Charge une animation → {@code Animation}. Deux formats supportés selon
+     * l'extension :
+     * <ul>
+     *   <li>{@code .json} : format <b>GeckoLib</b> (export Blender + plugin
+     *       « Player Animation Library »). Lu par {@link PlayerAnimLib#GSON} qui
+     *       a l'{@code AnimationLoader} geckolib enregistré. (NB : le
+     *       {@code UniversalAnimLoader} de PAL ne lit que le format « Player
+     *       Animator » à clé {@code emote} — pas le geckolib.) Les marqueurs
+     *       {@code pal.disabled} par-axe sont résolus à l'export (interpolation).
+     *       C'est la démarche « Reborn ».</li>
+     *   <li>sinon ({@code .emotecraft}) : binaire Emotecraft via
+     *       {@link UniversalEmoteSerializer}.</li>
+     * </ul>
+     */
     private Animation load(String file) {
         try (InputStream in = MovementAnimations.class
                 .getResourceAsStream("/assets/reborn-hud/animations/" + file)) {
             if (in == null) { LOG.warn("anim introuvable : {}", file); return null; }
+            if (file.endsWith(".json")) return loadGeckolib(in, file);
             Map<String, Animation> data = UniversalEmoteSerializer.readData(in, file);
             return data.isEmpty() ? null : data.values().iterator().next();
         } catch (Exception e) {
             LOG.error("échec lecture anim {} : {}", file, e.toString());
+            return null;
+        }
+    }
+
+    /** Parse un {@code .json} geckolib et retourne sa première animation. */
+    private Animation loadGeckolib(InputStream in, String file) {
+        try (Reader r = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+            JsonObject root = PlayerAnimLib.GSON.fromJson(r, JsonObject.class);
+            JsonObject anims = root == null ? null : root.getAsJsonObject("animations");
+            if (anims == null || anims.isEmpty()) {
+                LOG.warn("anim json sans bloc 'animations' : {}", file);
+                return null;
+            }
+            JsonElement first = anims.entrySet().iterator().next().getValue();
+            return PlayerAnimLib.GSON.fromJson(first, Animation.class);
+        } catch (Exception e) {
+            LOG.error("échec lecture geckolib {} : {}", file, e.toString());
             return null;
         }
     }

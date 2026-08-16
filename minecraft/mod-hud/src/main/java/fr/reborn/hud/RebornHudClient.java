@@ -41,6 +41,10 @@ public final class RebornHudClient implements ClientModInitializer {
         IconTextures.registerAll();
         HudKeybinds.registerClient();
         fr.reborn.hud.camera.RebornCamera.INSTANCE.loadFromPrefs();
+        // First-Person Model (tr7zw) piloté par la caméra Reborn : neutralise sa
+        // touche de bascule dédiée pour que seule la caméra Reborn (Y) contrôle
+        // la 1ère personne avec corps. No-op si le mod est absent.
+        fr.reborn.hud.camera.FirstPersonIntegration.registerClient();
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.register();
         fr.reborn.hud.chat.ChatBlockCommands.register();
         fr.reborn.hud.skin.SkinCommands.register();
