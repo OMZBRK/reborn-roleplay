@@ -29,8 +29,10 @@ public final class CombatHud {
 
     private CombatHud() {}
 
-    private static final int RING_RADIUS = 12;
-    private static final int RING_THICK = 3;
+    // Petit anneau discret AUTOUR du viseur Reborn (le vrai curseur reste géré par
+    // CrosshairManager / l'éditeur de viseur). Volontairement fin et compact.
+    private static final int RING_RADIUS = 7;
+    private static final int RING_THICK = 1;
 
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
@@ -91,22 +93,16 @@ public final class CombatHud {
         }
     }
 
-    /** Réticule = anneau (jauge stamina) + 4 ticks + point central. */
+    /**
+     * Petit anneau de stamina AUTOUR du viseur (pas un réticule complet) : on ne
+     * dessine QUE la fine jauge, sans ticks ni point central — le viseur Reborn
+     * ({@code CrosshairManager}, éditable) reste le curseur. Discret, en combat.
+     */
     private static void drawReticle(GuiGraphicsExtractor ctx, int cx, int cy, float frac, float alpha) {
-        int aFull = Math.round(alpha * 255f);
-        // Anneau de fond sombre.
-        ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f, (Math.round(alpha * 130f) << 24));
+        // Anneau de fond très discret.
+        ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f, (Math.round(alpha * 90f) << 24));
         // Jauge de stamina (arc horaire depuis le haut).
-        int col = applyAlpha(staminaColor(frac), alpha);
-        ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f * frac, col);
-        // 4 ticks cardinaux + point central (blanc).
-        int white = (aFull << 24) | 0x00FFFFFF;
-        int t = RING_RADIUS + 3, t2 = RING_RADIUS + 6;
-        ctx.fill(cx, cy - t2, cx + 1, cy - t, white);          // haut
-        ctx.fill(cx, cy + t, cx + 1, cy + t2, white);          // bas
-        ctx.fill(cx - t2, cy, cx - t, cy + 1, white);          // gauche
-        ctx.fill(cx + t, cy, cx + t2, cy + 1, white);          // droite
-        ctx.fill(cx, cy, cx + 1, cy + 1, white);               // centre
+        ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f * frac, applyAlpha(staminaColor(frac), alpha));
     }
 
     /** Nombre de dégâts centré, or, contour sombre, pop-scale. */
