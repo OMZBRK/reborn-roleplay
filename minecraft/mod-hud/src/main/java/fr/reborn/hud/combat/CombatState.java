@@ -6,34 +6,28 @@ import java.util.List;
 
 /**
  * État client du combat taïjutsu, alimenté par le canal {@code reborn:combat}.
- * Lu par {@link CombatHud} au rendu. Purement visuel : le serveur reste
- * autoritaire (dégâts, stamina, hits).
- *
- * <ul>
- *   <li><b>Stamina</b> : dernière valeur poussée (anneau curseur). Masquée quand
- *       pleine et inactive depuis {@link #STAMINA_HIDE_MS}.</li>
- *   <li><b>Damage indicators</b> : nombres flottants au-dessus des cibles, montent
- *       + s'effacent sur {@link #DMG_LIFE_MS}.</li>
- *   <li><b>Combo</b> : cumul des dégâts de la session ; tenu {@link #COMBO_HOLD_MS}
- *       après le dernier coup, puis s'efface (affiche le total de session).</li>
- * </ul>
+ * Lu par {@link CombatHud}. Purement visuel ; le serveur reste autoritaire.
  */
 public final class CombatState {
 
     public static final CombatState INSTANCE = new CombatState();
 
-    public static final long DMG_LIFE_MS = 1400L;
+    public static final long DMG_LIFE_MS = 1100L;
     public static final long COMBO_HOLD_MS = 2500L;
     public static final long COMBO_FADE_MS = 500L;
-    public static final long STAMINA_HIDE_MS = 1600L;
+    /** Le réticule de combat reste visible ce délai après la dernière activité. */
+    public static final long COMBAT_MODE_MS = 5000L;
 
-    /** Un nombre de dégâts flottant au-dessus d'une entité. */
+    /** Nombre de dégâts flottant au-dessus d'une entité (avec dispersion). */
     public static final class DamageIndicator {
         public final int entityId;
         public final float amount;
         public final long spawnMs;
-        DamageIndicator(int entityId, float amount, long spawnMs) {
+        public final float dx;   // dispersion horizontale (px écran)
+        public final float dy;   // dispersion verticale de départ (px écran)
+        DamageIndicator(int entityId, float amount, long spawnMs, float dx, float dy) {
             this.entityId = entityId; this.amount = amount; this.spawnMs = spawnMs;
+            this.dx = dx; this.dy = dy;
         }
     }
 
@@ -50,8 +44,9 @@ public final class CombatState {
 
     // ── mutations (thread client) ──
     public void onHit(int entityId, float amount, long now) {
-        indicators.add(new DamageIndicator(entityId, amount, now));
-        // Nouveau combo si le précédent a expiré.
+        float dx = (float) (Math.random() * 26.0 - 13.0);
+        float dy = (float) (Math.random() * 8.0 - 4.0);
+        indicators.add(new DamageIndicator(entityId, amount, now, dx, dy));
         if (now - lastHitMs > COMBO_HOLD_MS + COMBO_FADE_MS) comboTotal = 0.0;
         comboTotal += amount;
         lastHitMs = now;
@@ -76,11 +71,22 @@ public final class CombatState {
         return Math.max(0f, Math.min(1f, staminaCurrent / staminaMax));
     }
 
-    public boolean staminaVisible(long now) {
-        return staminaFraction() < 0.999f || (now - lastStaminaMs) < STAMINA_HIDE_MS;
+    /** Combat « actif » = activité récente (coup porté ou stamina non pleine). */
+    public boolean inCombat(long now) {
+        long last = Math.max(lastHitMs, lastStaminaMs);
+        return last != 0L && (now - last) < COMBAT_MODE_MS;
     }
 
-    /** Alpha du combo (1 pendant HOLD, fondu sur FADE, 0 ensuite). */
+    /** Alpha du réticule de combat (1 puis fondu sur les 800 dernières ms). */
+    public float combatModeAlpha(long now) {
+        long last = Math.max(lastHitMs, lastStaminaMs);
+        if (last == 0L) return 0f;
+        long age = now - last;
+        if (age >= COMBAT_MODE_MS) return 0f;
+        long fadeStart = COMBAT_MODE_MS - 800L;
+        return age <= fadeStart ? 1f : 1f - (age - fadeStart) / 800f;
+    }
+
     public float comboAlpha(long now) {
         if (comboTotal <= 0) return 0f;
         long age = now - lastHitMs;
@@ -93,7 +99,6 @@ public final class CombatState {
 
     public double comboTotal() { return comboTotal; }
 
-    /** Purge les indicateurs expirés et retourne la liste vivante. */
     public List<DamageIndicator> liveIndicators(long now) {
         for (Iterator<DamageIndicator> it = indicators.iterator(); it.hasNext(); ) {
             if (now - it.next().spawnMs > DMG_LIFE_MS) it.remove();

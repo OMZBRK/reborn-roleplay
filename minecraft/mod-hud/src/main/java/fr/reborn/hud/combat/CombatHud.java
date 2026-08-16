@@ -1,6 +1,5 @@
 package fr.reborn.hud.combat;
 
-import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -15,13 +14,14 @@ import org.joml.Vector4f;
 import java.util.List;
 
 /**
- * HUD combat taïjutsu (rendu 2D par-dessus le HUD) — alimenté par {@link CombatState} :
+ * HUD combat taïjutsu (rendu 2D par-dessus le HUD), alimenté par {@link CombatState} :
  * <ul>
- *   <li><b>Anneau de stamina</b> autour du curseur (centre écran), fondu vert→rouge,
- *       masqué quand plein et inactif.</li>
- *   <li><b>Damage indicators</b> : nombres flottants projetés au-dessus des cibles,
- *       qui montent et s'effacent.</li>
- *   <li><b>Total de combo</b> près du curseur (cumul de session), fondu après ~2,5 s.</li>
+ *   <li><b>Damage indicators</b> : nombres chunky projetés au-dessus des cibles,
+ *       pop-scale + montée + dispersion, contour sombre, or (style
+ *       <i>immersive-damage-indicators</i> / réf {@code stylevpvp.png}).</li>
+ *   <li><b>Réticule de combat</b> : n'apparaît qu'en combat — anneau + 4 ticks +
+ *       point central ; l'anneau EST la jauge de stamina (vert→rouge).</li>
+ *   <li><b>Total de combo</b> près du réticule.</li>
  * </ul>
  * Projection monde→écran reprise du pattern {@code SpeechBubbles} (aucun rendu 3D).
  */
@@ -29,10 +29,8 @@ public final class CombatHud {
 
     private CombatHud() {}
 
-    // Anneau stamina.
-    private static final int RING_RADIUS = 9;
-    private static final int RING_THICK = 2;
-    private static final int RING_BG = 0x66101010;
+    private static final int RING_RADIUS = 12;
+    private static final int RING_THICK = 3;
 
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
@@ -56,7 +54,7 @@ public final class CombatHud {
                 Entity e = mc.level.getEntity(ind.entityId);
                 if (e == null) continue;
                 float age = (now - ind.spawnMs) / (float) CombatState.DMG_LIFE_MS; // 0..1
-                Vec3 head = e.getEyePosition(1f).add(0.0, 0.75, 0.0);
+                Vec3 head = e.getEyePosition(1f).add(0.0, 0.7, 0.0);
                 Vector4f clip = vp.transform(new Vector4f(
                     (float) (head.x - camPos.x),
                     (float) (head.y - camPos.y),
@@ -64,69 +62,92 @@ public final class CombatHud {
                 if (clip.w() <= 0.05f) continue;
                 float ndcX = clip.x() / clip.w();
                 float ndcY = clip.y() / clip.w();
-                if (ndcX < -1.1f || ndcX > 1.1f || ndcY < -1.1f || ndcY > 1.1f) continue;
-                int sx = Math.round((ndcX * 0.5f + 0.5f) * gw);
-                int sy = Math.round((1f - (ndcY * 0.5f + 0.5f)) * gh) - Math.round(age * 16f);
-                float alpha = age < 0.6f ? 1f : Math.max(0f, 1f - (age - 0.6f) / 0.4f);
-                drawDamage(ctx, font, sx, sy, (int) Math.round(ind.amount), alpha);
+                if (ndcX < -1.15f || ndcX > 1.15f || ndcY < -1.15f || ndcY > 1.15f) continue;
+                int sx = Math.round((ndcX * 0.5f + 0.5f) * gw + ind.dx);
+                float rise = (1f - (1f - age) * (1f - age)) * 20f;           // ease-out
+                int sy = Math.round((1f - (ndcY * 0.5f + 0.5f)) * gh + ind.dy - rise);
+                float pop = age < 0.12f ? 1f + (1f - age / 0.12f) * (1f - age / 0.12f) * 0.55f : 1f;
+                float alpha = age < 0.7f ? 1f : Math.max(0f, 1f - (age - 0.7f) / 0.3f);
+                drawDamage(ctx, font, sx, sy, (int) Math.round(ind.amount), pop, alpha);
             }
         }
 
-        // ── Total de combo (près du curseur) ──
-        float comboA = st.comboAlpha(now);
-        if (comboA > 0.01f) {
-            Component c = RebornFont.bold(String.valueOf((int) Math.round(st.comboTotal())));
-            int a = Math.round(comboA * 255f) << 24;
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(cx + RING_RADIUS + 8, cy - 4);
-            ctx.pose().scale(1.3f, 1.3f);
-            ctx.text(font, c, 1, 1, 0x00000000 | (Math.round(comboA * 180f) << 24), false); // ombre
-            ctx.text(font, c, 0, 0, a | 0x00FFFFFF, false);
-            ctx.pose().popMatrix();
-        }
+        // ── Réticule de combat + stamina (seulement en combat) ──
+        float rA = st.combatModeAlpha(now);
+        if (rA > 0.01f) {
+            drawReticle(ctx, cx, cy, st.staminaFraction(), rA);
 
-        // ── Anneau de stamina autour du curseur ──
-        if (st.staminaVisible(now)) {
-            float frac = st.staminaFraction();
-            ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f, RING_BG);
-            int col = staminaColor(frac);
-            ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f * frac, col);
+            float comboA = st.comboAlpha(now) * rA;
+            if (comboA > 0.01f) {
+                Component c = RebornFont.bold(String.valueOf((int) Math.round(st.comboTotal())));
+                int a = Math.round(comboA * 255f);
+                ctx.pose().pushMatrix();
+                ctx.pose().translate(cx + RING_RADIUS + 10, cy - 5);
+                ctx.pose().scale(1.25f, 1.25f);
+                ctx.text(font, c, 1, 1, (Math.round(comboA * 190f) << 24), false);
+                ctx.text(font, c, 0, 0, (a << 24) | 0x00FFFFFF, false);
+                ctx.pose().popMatrix();
+            }
         }
     }
 
-    /** Nombre de dégâts centré, jaune, avec ombre (style fighting-game). */
-    private static void drawDamage(GuiGraphicsExtractor ctx, Font font, int cx, int cy, int amount, float alpha) {
+    /** Réticule = anneau (jauge stamina) + 4 ticks + point central. */
+    private static void drawReticle(GuiGraphicsExtractor ctx, int cx, int cy, float frac, float alpha) {
+        int aFull = Math.round(alpha * 255f);
+        // Anneau de fond sombre.
+        ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f, (Math.round(alpha * 130f) << 24));
+        // Jauge de stamina (arc horaire depuis le haut).
+        int col = applyAlpha(staminaColor(frac), alpha);
+        ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f * frac, col);
+        // 4 ticks cardinaux + point central (blanc).
+        int white = (aFull << 24) | 0x00FFFFFF;
+        int t = RING_RADIUS + 3, t2 = RING_RADIUS + 6;
+        ctx.fill(cx, cy - t2, cx + 1, cy - t, white);          // haut
+        ctx.fill(cx, cy + t, cx + 1, cy + t2, white);          // bas
+        ctx.fill(cx - t2, cy, cx - t, cy + 1, white);          // gauche
+        ctx.fill(cx + t, cy, cx + t2, cy + 1, white);          // droite
+        ctx.fill(cx, cy, cx + 1, cy + 1, white);               // centre
+    }
+
+    /** Nombre de dégâts centré, or, contour sombre, pop-scale. */
+    private static void drawDamage(GuiGraphicsExtractor ctx, Font font, int cx, int cy,
+                                   int amount, float scale, float alpha) {
         if (alpha <= 0f) return;
         Component t = RebornFont.bold(String.valueOf(amount));
         int a = Math.round(alpha * 255f);
-        int shadow = (Math.round(alpha * 200f) << 24);
-        int yellow = (a << 24) | 0x00FFD24A;
-        float scale = 1.6f;
+        int outline = (Math.round(alpha * 230f) << 24);        // presque noir
+        int gold = (a << 24) | 0x00FFD24A;
         int w = font.width(t);
         ctx.pose().pushMatrix();
         ctx.pose().translate(cx - (w * scale) / 2f, cy);
         ctx.pose().scale(scale, scale);
-        ctx.text(font, t, 1, 1, shadow, false);
-        ctx.text(font, t, 0, 0, yellow, false);
+        // Contour 4 directions puis remplissage.
+        ctx.text(font, t, -1, 0, outline, false);
+        ctx.text(font, t, 1, 0, outline, false);
+        ctx.text(font, t, 0, -1, outline, false);
+        ctx.text(font, t, 0, 1, outline, false);
+        ctx.text(font, t, 0, 0, gold, false);
         ctx.pose().popMatrix();
     }
 
-    /** Vert (plein) → orange → rouge (vide). */
     private static int staminaColor(float frac) {
-        int lowR = 0xE0, lowG = 0x3B, lowB = 0x30;   // rouge
-        int hiR = 0x4A, hiG = 0xD2, hiB = 0x6A;      // vert
+        int lowR = 0xE0, lowG = 0x3B, lowB = 0x30;   // rouge (vide)
+        int hiR = 0x4A, hiG = 0xD2, hiB = 0x6A;      // vert (plein)
         int r = Math.round(lowR + (hiR - lowR) * frac);
         int g = Math.round(lowG + (hiG - lowG) * frac);
         int b = Math.round(lowB + (hiB - lowB) * frac);
-        return 0xF0000000 | (r << 16) | (g << 8) | b;
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
-    /**
-     * Arc d'anneau [startDeg, startDeg+sweepDeg], sens horaire depuis le HAUT.
-     * (pixel-loop + atan2, comme {@code DrawHelpers.dashedRing}).
-     */
+    private static int applyAlpha(int argb, float alpha) {
+        int a = Math.round(((argb >>> 24) & 0xFF) * alpha);
+        return (a << 24) | (argb & 0x00FFFFFF);
+    }
+
+    /** Arc d'anneau [startDeg, startDeg+sweepDeg], horaire depuis le HAUT. */
     private static void ringBand(GuiGraphicsExtractor ctx, int cx, int cy, int radius,
                                  int thickness, float startDeg, float sweepDeg, int color) {
+        if (sweepDeg <= 0f) return;
         int rOut = radius, rIn = Math.max(0, radius - thickness);
         int rOutSq = rOut * rOut, rInSq = rIn * rIn;
         for (int dy = -rOut; dy <= rOut; dy++) {
