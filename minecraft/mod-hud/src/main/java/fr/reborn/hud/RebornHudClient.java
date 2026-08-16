@@ -215,6 +215,29 @@ public final class RebornHudClient implements ClientModInitializer {
                         fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
             });
 
+        // Combat taïjutsu (canal reborn:combat, S2C depuis ShinobiCombat).
+        // HIT → damage indicator + cumul combo ; STAMINA → anneau curseur.
+        // Purement visuel ; le serveur reste autoritaire.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.combat.CombatPayload.ID, fr.reborn.hud.combat.CombatPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.combat.CombatPayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                long now = System.currentTimeMillis();
+                if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_HIT) {
+                    fr.reborn.hud.combat.CombatState.INSTANCE.onHit(
+                        payload.victimEntityId(), payload.damage(), now);
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_STAMINA) {
+                    fr.reborn.hud.combat.CombatState.INSTANCE.onStamina(
+                        payload.staminaCurrent(), payload.staminaMax(), now);
+                }
+            }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.combat.CombatState.INSTANCE.clear());
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat"),
+            (ctx, tickCounter) -> fr.reborn.hud.combat.CombatHud.render(ctx));
+
         // Extrait les assets dynamic-player + schedule la creation du
         // browser MCEF pour le main menu background.
         DynamicPlayerBackground.init();
