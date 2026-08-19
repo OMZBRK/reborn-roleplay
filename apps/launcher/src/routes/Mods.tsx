@@ -4,11 +4,13 @@ import {
   AlertTriangle,
   Boxes,
   Film,
+  Eye,
   Layers,
   Lock,
   Mic,
   Mountain,
   Package,
+  Shirt,
   RefreshCw,
   Search,
   ShieldOff,
@@ -422,6 +424,18 @@ const MOD_META: Record<
     gradient: "from-teal-500/40 to-emerald-700/40",
     label: "Distant Horizons",
     tag: "Vue",
+  },
+  "firstperson-": {
+    icon: Eye,
+    gradient: "from-indigo-500/40 to-blue-700/40",
+    label: "First-person Model",
+    tag: "Caméra",
+  },
+  "skinlayers3d-": {
+    icon: Shirt,
+    gradient: "from-orange-400/40 to-amber-600/40",
+    label: "3D Skin Layers",
+    tag: "Skin",
   },
 };
 
