@@ -50,7 +50,7 @@ public abstract class ChatHudMixin {
         if (!HudTransform.isVisible(HudElement.CHAT)) { ci.cancel(); return; }
 
         Minecraft mc = Minecraft.getInstance();
-        boolean chatOpen = mc.screen instanceof ChatScreen;
+        boolean chatOpen = mc.gui.screen() instanceof ChatScreen;
         // On dessine le chat RP custom sur LA passe correspondant au contexte :
         // FOREGROUND quand le chat est ouvert, BACKGROUND (passe du HUD) quand il
         // est fermé — sinon les messages n'apparaissaient qu'en ouvrant le chat.

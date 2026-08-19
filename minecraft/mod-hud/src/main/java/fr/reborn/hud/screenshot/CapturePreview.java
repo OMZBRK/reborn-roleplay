@@ -57,7 +57,7 @@ public final class CapturePreview {
     private void render(GuiGraphicsExtractor ctx) {
         if (path == null) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hideGui) return;
+        if (mc.gui.hud.isHidden()) return;
         long age = System.currentTimeMillis() - shownAt;
         if (age > DISPLAY_MS) return;
 

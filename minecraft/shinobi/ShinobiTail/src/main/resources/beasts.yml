@@ -1,0 +1,160 @@
+# ------------------------------------------------------------
+# ShinobiTail — beast catalogue.  Live-reloadable: /tail reload
+#
+# Everything here is meant to be edited by staff. Add, remove or
+# rename beasts freely; the system derives stage count from `tails`.
+#
+# PERSONALITIES are archetypes shared between beasts:
+#   rage-multiplier — scales passive rage growth (1.0 = neutral)
+#   help-bias       — flat points added to the HELP transform chance
+#   takeover-bias   — flat points added to the TAKEOVER chance
+#   resist-bias     — flat points added to the host's RESIST chance
+#                     (negative = the beast fights back harder)
+#
+# BEASTS:
+#   name        — display name (used in messages / boss bar)
+#   tails       — number of tails = number of stages
+#   personality — one of the archetypes below
+#   color       — aura particle colour (hex)
+#   rage-multiplier (optional) — extra per-beast multiplier
+#   whispers    — lines the beast murmurs while rage grows
+#   confront-lines — lines shown when entering the Inner World
+#   stages (optional) — per-stage overrides. Any omitted value falls
+#     back to the power curve in config.yml. Keys per stage:
+#       power, name, damage-multiplier, bonus-speed (%), resistance (%),
+#       knockback-resistance, scale, health-regen (%/s), instant-heal (%),
+#       chakra-regen (%/s), instant-chakra (%), aura-range (blocks),
+#       effects ["EFFECT:amp", ...]
+# ------------------------------------------------------------
+
+personalities:
+  vengeful:
+    rage-multiplier: 1.4
+    help-bias: -10
+    takeover-bias: 15
+    resist-bias: -5
+  proud:
+    rage-multiplier: 1.1
+    help-bias: -5
+    takeover-bias: 5
+    resist-bias: 0
+  protective:
+    rage-multiplier: 0.9
+    help-bias: 15
+    takeover-bias: -10
+    resist-bias: 5
+  wild:
+    rage-multiplier: 1.6
+    help-bias: 0
+    takeover-bias: 10
+    resist-bias: -10
+  calm:
+    rage-multiplier: 0.7
+    help-bias: 5
+    takeover-bias: -5
+    resist-bias: 10
+
+beasts:
+  shukaku:
+    name: "Shukaku"
+    tails: 1
+    personality: wild
+    color: "#E8D27A"
+    whispers:
+      - "Dors… laisse-moi le sable…"
+      - "Tu m'entends, gamin ? LAISSE-MOI SORTIR !"
+      - "Le sang… le sable veut boire…"
+    confront-lines:
+      - "Enfin seuls, toi et moi. Cède-moi ta carcasse, j'en ferai bon usage !"
+    stages:
+      # Single stage — hard to reach, but worth a mid-stage of the Kyūbi.
+      1: { name: "Éveil du Sable", instant-heal: 15 }
+
+  matatabi:
+    name: "Matatabi"
+    tails: 2
+    personality: calm
+    color: "#4FC3F7"
+    whispers:
+      - "Tes flammes intérieures vacillent…"
+      - "Respire. Ou brûle. Choisis."
+    confront-lines:
+      - "Tu brûles déjà. La question est : qui tient la flamme ?"
+
+  isobu:
+    name: "Isobu"
+    tails: 3
+    personality: protective
+    color: "#3BA99C"
+    whispers:
+      - "…les profondeurs sont calmes… reste avec moi…"
+    confront-lines:
+      - "Les vagues montent. Veux-tu couler avec moi, ou nager seul ?"
+
+  songoku:
+    name: "Son Gokū"
+    tails: 4
+    personality: proud
+    color: "#D84315"
+    whispers:
+      - "Tu oses utiliser MA lave sans MA permission ?"
+      - "Prouve que tu vaux mieux que tes chaînes."
+    confront-lines:
+      - "Je suis Son Gokū, roi des singes sages ! Gagne mon respect ou rends-moi ma liberté !"
+
+  kokuo:
+    name: "Kokuō"
+    tails: 5
+    personality: calm
+    color: "#ECEFF1"
+    whispers:
+      - "…la vapeur siffle… ta colère chauffe la chaudière…"
+    confront-lines:
+      - "La pression monte. Canalise-la, ou elle te traversera."
+
+  saiken:
+    name: "Saiken"
+    tails: 6
+    personality: protective
+    color: "#B2DFDB"
+    whispers:
+      - "Glisse… laisse couler… tout fond, à la fin…"
+    confront-lines:
+      - "Tu fonds de rage. Veux-tu que je te dissolve, ou que je te porte ?"
+
+  chomei:
+    name: "Chōmei"
+    tails: 7
+    personality: calm
+    color: "#AEEA00"
+    whispers:
+      - "Chanceux numéro sept ! Voyons jusqu'où tu voles avant de tomber !"
+    confront-lines:
+      - "Lucky Seven ! Continue le vol… ou replie tes ailes ici."
+
+  gyuki:
+    name: "Gyūki"
+    tails: 8
+    personality: proud
+    color: "#6A1B9A"
+    whispers:
+      - "Tu rimes mal et tu te bats pire encore."
+      - "Huit queues, gamin. Compte-les pendant que tu peux."
+    confront-lines:
+      - "On fait équipe, ou je prends le relais ? Décide, et vite."
+
+  kurama:
+    name: "Kyūbi (Kurama)"
+    tails: 9
+    personality: vengeful
+    color: "#FF3B1F"
+    rage-multiplier: 1.1
+    whispers:
+      - "Ta haine a un goût délicieux…"
+      - "Tue-les. Tue-les tous. Tu en meurs d'envie."
+      - "Arrache le sceau. ARRACHE-LE."
+      - "Pathétique. Donne-moi ce corps, je leur montrerai la peur."
+    confront-lines:
+      - "Te voilà enfin devant la cage… Approche. Plus près. PLUS PRÈS !"
+    stages:
+      9: { name: "Libération", instant-heal: 25, aura-range: 2000 }

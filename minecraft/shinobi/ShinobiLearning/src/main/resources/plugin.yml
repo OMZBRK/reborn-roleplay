@@ -1,0 +1,25 @@
+name: ShinobiLearning
+version: ${project.version}
+main: com.reborn.shinobilearning.ShinobiLearning
+api-version: '1.21'
+authors: [Reborn]
+description: Académie, sensei et apprentissage (parchemins, codex, entraînement, examens) pour le serveur Reborn.
+softdepend: [ShinobiCore, ShinobiAbilities]
+commands:
+  academy:
+    description: Académie shinobi — statut du cursus + outils d'instructeur.
+    usage: /<command> help
+    aliases: [academie, ecole]
+    permission: shinobilearning.use
+  squad:
+    description: Équipe Genin + enseignement sensei (transmission de maîtrise).
+    usage: /<command> info|create|add|leave|disband
+    aliases: [equipe, team]
+    permission: shinobilearning.use
+permissions:
+  shinobilearning.use:
+    description: Base permission to use ShinobiLearning commands (own status).
+    default: true
+  shinobilearning.instructor:
+    description: Academy instructor — enrol students, validate lessons, graduate.
+    default: op

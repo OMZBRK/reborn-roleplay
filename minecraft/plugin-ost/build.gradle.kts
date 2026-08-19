@@ -1,7 +1,7 @@
 // Reborn OST Plugin — broadcast audio Paper.
 //
 // Stack :
-//   Paper API 26.1.2 (dev-bundle 26.1.2.build.74-stable)
+//   Paper API 26.1.2 (dev-bundle 26.2.build.112-stable)
 //   Java 25 toolchain
 //   run-paper (jpenilla) pour lancer un serveur de test local.
 //
@@ -33,7 +33,7 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("26.1.2.build.74-stable")
+    paperweight.paperDevBundle("26.2.build.112-stable")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -52,7 +52,7 @@ tasks {
     }
 
     runServer {
-        minecraftVersion("26.1.2")
+        minecraftVersion("26.2")
         systemProperty("com.mojang.eula.agree", "true")
         // runDirectory hors OneDrive — meme rationale que plugin-guardian.
         runDirectory = file(System.getProperty("user.home") + "/.reborn-ost-run")

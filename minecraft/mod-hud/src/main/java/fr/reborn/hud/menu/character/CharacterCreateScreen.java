@@ -126,8 +126,8 @@ public class CharacterCreateScreen extends Screen {
         if (!captured && mc.options != null) {
             prevPerspective = mc.options.getCameraType();
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
-            prevHudHidden = mc.options.hideGui;
-            mc.options.hideGui = true;
+            prevHudHidden = mc.gui.hud.isHidden();
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(true);
             captured = true;
         }
         // Perso figé debout : coupe toute pose idle (émote « assise ») héritée du
@@ -182,7 +182,7 @@ public class CharacterCreateScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (captured && mc.options != null) {
             mc.options.setCameraType(prevPerspective);
-            mc.options.hideGui = prevHudHidden;
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(prevHudHidden);
             captured = false;
         }
         // Aperçu non validé : on retire l'override pour rendre son vrai skin au joueur.
@@ -1439,7 +1439,7 @@ public class CharacterCreateScreen extends Screen {
 
     private void onBack() {
         if (step == 0) {
-            Minecraft.getInstance().setScreen(new CharacterSelectScreen());
+            Minecraft.getInstance().setScreenAndShow(new CharacterSelectScreen());
         } else {
             goToStep(step - 1);
         }

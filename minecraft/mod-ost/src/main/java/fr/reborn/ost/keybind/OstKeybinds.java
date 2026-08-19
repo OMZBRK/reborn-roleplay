@@ -50,11 +50,11 @@ public final class OstKeybinds {
 
     private static void openOstScreen(Minecraft client) {
         if (client == null) return;
-        if (client.screen != null) {
+        if (client.gui.screen() != null) {
             // Bloque l'ouverture si un autre screen est actif (chat, inv,
             // ESC menu) — évite des bugs d'input doublé.
             return;
         }
-        client.setScreen(new OstScreen(null));
+        client.setScreenAndShow(new OstScreen(null));
     }
 }

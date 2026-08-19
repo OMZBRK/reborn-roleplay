@@ -34,8 +34,8 @@ public class CharacterLoadingScreen extends Screen {
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
         if (!captured && mc.options != null) {
-            prevHudHidden = mc.options.hideGui;
-            mc.options.hideGui = true;
+            prevHudHidden = mc.gui.hud.isHidden();
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(true);
             captured = true;
         }
     }
@@ -44,7 +44,7 @@ public class CharacterLoadingScreen extends Screen {
     public void removed() {
         Minecraft mc = Minecraft.getInstance();
         if (captured && mc.options != null) {
-            mc.options.hideGui = prevHudHidden;
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(prevHudHidden);
             captured = false;
         }
         super.removed();
@@ -53,7 +53,7 @@ public class CharacterLoadingScreen extends Screen {
     @Override
     public void tick() {
         if (++ticks >= DURATION) {
-            Minecraft.getInstance().setScreen(null); // retour en jeu
+            Minecraft.getInstance().setScreenAndShow(null); // retour en jeu
         }
     }
 

@@ -213,7 +213,7 @@ public final class ChatSettingsScreen extends Screen {
     @Override
     public void onClose() {
         RebornHudClient.config().save();
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreenAndShow(parent);
     }
 
     @Override

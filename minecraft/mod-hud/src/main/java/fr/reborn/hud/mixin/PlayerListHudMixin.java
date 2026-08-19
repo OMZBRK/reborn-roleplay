@@ -32,7 +32,7 @@ public class PlayerListHudMixin {
         // le tab vanilla « flashe » une demi-seconde). Le panneau Reborn est
         // dessiné soit par l'écran, soit par le HudRenderCallback (mode hold).
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof TablistScreen
+        if (mc.gui.screen() instanceof TablistScreen
             || (mc.options != null && mc.options.keyPlayerList.isDown())) {
             ci.cancel();
         }

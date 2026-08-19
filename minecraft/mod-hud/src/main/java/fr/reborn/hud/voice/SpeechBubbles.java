@@ -29,9 +29,9 @@ public final class SpeechBubbles {
 
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.player == null || mc.options == null || mc.options.hideGui) return;
+        if (mc.level == null || mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
 
-        Camera cam = mc.gameRenderer.getMainCamera();
+        Camera cam = mc.gameRenderer.mainCamera();
         if (cam == null || !cam.isInitialized()) return;
         Vec3 camPos = cam.position();
         Matrix4f vp = cam.getViewRotationProjectionMatrix(new Matrix4f());

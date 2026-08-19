@@ -31,17 +31,17 @@ public class MinecraftTab extends SectionedTab {
         section("Réglages Minecraft");
         labelRow("Options de base", "Ouvre les écrans Mojang standards");
         actionButton("→ Options Minecraft (toutes)",
-            () -> mc.setScreen(new OptionsScreen(parent, mc.options, false)));
+            () -> mc.setScreenAndShow(new OptionsScreen(parent, mc.options, false)));
         actionButton("→ Vidéo",
-            () -> mc.setScreen(new VideoSettingsScreen(parent, mc, mc.options)));
+            () -> mc.setScreenAndShow(new VideoSettingsScreen(parent, mc, mc.options)));
         actionButton("→ Sons",
-            () -> mc.setScreen(new SoundOptionsScreen(parent, mc.options)));
+            () -> mc.setScreenAndShow(new SoundOptionsScreen(parent, mc.options)));
         actionButton("→ Commandes (touches)",
-            () -> mc.setScreen(new KeyBindsScreen(parent, mc.options)));
+            () -> mc.setScreenAndShow(new KeyBindsScreen(parent, mc.options)));
         actionButton("→ Langue",
-            () -> mc.setScreen(new LanguageSelectScreen(parent, mc.options, mc.getLanguageManager())));
+            () -> mc.setScreenAndShow(new LanguageSelectScreen(parent, mc.options, mc.getLanguageManager())));
         actionButton("→ Accessibilité",
-            () -> mc.setScreen(new AccessibilityOptionsScreen(parent, mc.options)));
+            () -> mc.setScreenAndShow(new AccessibilityOptionsScreen(parent, mc.options)));
 
         labelRow("Packs de ressources", "Gérés automatiquement par le launcher Reborn");
 

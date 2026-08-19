@@ -44,8 +44,8 @@ public class CharacterSelectScreen extends Screen {
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
         if (!perspectiveCaptured && mc.options != null) {
-            prevHudHidden = mc.options.hideGui;
-            mc.options.hideGui = true; // masque vie/faim/xp/armure/hotbar/crosshair
+            prevHudHidden = mc.gui.hud.isHidden();
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(true); // masque vie/faim/xp/armure/hotbar/crosshair
             perspectiveCaptured = true;
         }
         // Pose idle (émote assise) le temps de l'écran — présentation « plan idle ».
@@ -57,7 +57,7 @@ public class CharacterSelectScreen extends Screen {
     public void removed() {
         Minecraft mc = Minecraft.getInstance();
         if (perspectiveCaptured && mc.options != null) {
-            mc.options.hideGui = prevHudHidden;
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(prevHudHidden);
             perspectiveCaptured = false;
         }
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
@@ -289,11 +289,11 @@ public class CharacterSelectScreen extends Screen {
         sendAction("select:" + c.id());
         // Écran de chargement stylisé (~6 s) pendant que le serveur applique setActive
         // (téléport IG). Il se ferme seul → retour en jeu.
-        Minecraft.getInstance().setScreen(new CharacterLoadingScreen(c.firstName(), c.clanColor()));
+        Minecraft.getInstance().setScreenAndShow(new CharacterLoadingScreen(c.firstName(), c.clanColor()));
     }
 
     private void onCreate() {
-        Minecraft.getInstance().setScreen(new CharacterCreateScreen());
+        Minecraft.getInstance().setScreenAndShow(new CharacterCreateScreen());
     }
 
     /** Envoie une commande C2S sur reborn:character ; feedback local si hors serveur. */

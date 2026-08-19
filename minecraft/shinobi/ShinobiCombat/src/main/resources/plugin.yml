@@ -1,0 +1,11 @@
+name: ShinobiCombat
+version: ${project.version}
+main: com.reborn.shinobicombat.ShinobiCombat
+api-version: '1.21'
+authors: [Reborn]
+description: Taijutsu PvP combat (M1 combos, M2 block/parry, stamina) for the Reborn Naruto roleplay server.
+softdepend: [ShinobiCore]
+permissions:
+  shinobicombat.use:
+    description: Base permission — participate in taijutsu combat.
+    default: true

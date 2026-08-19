@@ -130,7 +130,7 @@ public abstract class TitleScreenMixin extends Screen {
             IconButton soloDev = new IconButton(
                 this.width - quitSize - 18, 44, quitSize,
                 IconPack::play, "Solo (Dev)", true,
-                b -> client.setScreen(new SelectWorldScreen(this))
+                b -> client.setScreenAndShow(new SelectWorldScreen(this))
             )
                 .ghost()
                 .withIdleColor(Colors.WARNING)
@@ -175,9 +175,9 @@ public abstract class TitleScreenMixin extends Screen {
         reborn$addEntry(client, "NEWS", true, sc, hh, b -> {});
         reborn$addEntry(client, "BOUTIQUE", true, sc, hh, b -> {});
         reborn$addEntry(client, "OPTIONS", false, sc, hh,
-            b -> client.setScreen(new ConfigShellScreen(this)));
+            b -> client.setScreenAndShow(new ConfigShellScreen(this)));
         reborn$addEntry(client, "QUITTER", false, sc, hh,
-            b -> client.setScreen(new QuitConfirmScreen(this)));
+            b -> client.setScreenAndShow(new QuitConfirmScreen(this)));
 
         // Popup sélecteur ancré sur JOUER — ajouté en dernier (rendu par-dessus).
         // Le menu garde sa disposition d'origine (aucune ligne fixe insérée).

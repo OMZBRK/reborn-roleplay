@@ -180,6 +180,6 @@ public class CameraScreen extends Screen {
     @Override
     public void onClose() {
         RebornCamera.INSTANCE.saveToPrefs();
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreenAndShow(parent);
     }
 }

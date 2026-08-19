@@ -81,14 +81,14 @@ public final class HudKeybinds {
             // sans transition pressed.
             while (openEditScreen.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen == null) {
-                    mc.setScreen(new HudEditScreen(null));
+                if (mc.gui.screen() == null) {
+                    mc.setScreenAndShow(new HudEditScreen(null));
                 }
             }
             while (openCrosshair.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen == null) {
-                    mc.setScreen(new CrosshairScreen(null));
+                if (mc.gui.screen() == null) {
+                    mc.setScreenAndShow(new CrosshairScreen(null));
                 }
             }
             while (openInteraction.consumeClick()) {
@@ -99,19 +99,19 @@ public final class HudKeybinds {
             }
             while (togglePhoto.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen == null) {
-                    mc.setScreen(new fr.reborn.hud.ui.PhotoModeScreen());
+                if (mc.gui.screen() == null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.ui.PhotoModeScreen());
                 }
             }
             while (openGallery.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen == null) {
-                    mc.setScreen(new fr.reborn.hud.ui.GalleryScreen(null));
+                if (mc.gui.screen() == null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.ui.GalleryScreen(null));
                 }
             }
             while (toggleShoulderCam.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen == null && mc.player != null) {
+                if (mc.gui.screen() == null && mc.player != null) {
                     fr.reborn.hud.camera.RebornCamera.INSTANCE.toggleFirstPerson(mc);
                 }
             }
@@ -123,8 +123,8 @@ public final class HudKeybinds {
             }
             while (openCamMenu.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen == null && mc.player != null) {
-                    mc.setScreen(new fr.reborn.hud.camera.CameraScreen(null));
+                if (mc.gui.screen() == null && mc.player != null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.camera.CameraScreen(null));
                 }
             }
             while (narutoTest.consumeClick()) {
@@ -137,13 +137,13 @@ public final class HudKeybinds {
             }
             while (walkMenu.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen == null && mc.player != null) {
-                    mc.setScreen(new fr.reborn.hud.animation.AnimationMenuScreen(null));
+                if (mc.gui.screen() == null && mc.player != null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.animation.AnimationMenuScreen(null));
                 }
             }
             while (charMenu.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen == null && mc.player != null) {
+                if (mc.gui.screen() == null && mc.player != null) {
                     // Sur serveur : demande à ShinobiCore de (r)ouvrir la sélection.
                     // Solo/dev : ouvre directement l'écran (données mock).
                     if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
@@ -151,7 +151,7 @@ public final class HudKeybinds {
                         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
                             new fr.reborn.hud.menu.character.CharacterPayload("open"));
                     } else {
-                        mc.setScreen(new fr.reborn.hud.menu.character.CharacterSelectScreen());
+                        mc.setScreenAndShow(new fr.reborn.hud.menu.character.CharacterSelectScreen());
                     }
                 }
             }
@@ -163,15 +163,15 @@ public final class HudKeybinds {
                 boolean hold = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold;
                 while (client.options.keyPlayerList.consumeClick()) {
                     Minecraft mc = Minecraft.getInstance();
-                    if (!hold && mc.screen == null && mc.player != null) {
-                        mc.setScreen(new fr.reborn.hud.menu.tablist.TablistScreen());
+                    if (!hold && mc.gui.screen() == null && mc.player != null) {
+                        mc.setScreenAndShow(new fr.reborn.hud.menu.tablist.TablistScreen());
                     }
                 }
             }
             // Regard libre : actif tant que ALT est maintenu (hors écran/ingame).
             {
                 Minecraft mc = Minecraft.getInstance();
-                boolean fl = freeLook.isDown() && mc.screen == null && mc.player != null;
+                boolean fl = freeLook.isDown() && mc.gui.screen() == null && mc.player != null;
                 fr.reborn.hud.camera.RebornCamera.INSTANCE.setFreeLook(fl);
                 // Amortissement d'atterrissage (no-op si désactivé dans le menu caméra).
                 fr.reborn.hud.camera.RebornCamera.INSTANCE.tickImpact(mc.player);

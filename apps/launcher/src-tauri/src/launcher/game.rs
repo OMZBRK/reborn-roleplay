@@ -32,7 +32,7 @@ use crate::storage::{prefs, secrets::SecretKey};
 /// En attendant, lisible via REBORN_MC_VERSION pour faciliter l'alignement
 /// avec le serveur de dev sans recompiler.
 fn minecraft_version() -> String {
-    std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.1.2".into())
+    std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.2".into())
 }
 
 /// Mode Builder (staff) : version MC + manifest statique séparés (26.2 + Axiom /

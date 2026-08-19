@@ -95,7 +95,7 @@ public abstract class ConnectScreenMixin extends Screen {
         if (this.connection != null) {
             this.connection.disconnect(Component.translatable("connect.aborted"));
         }
-        Minecraft.getInstance().setScreen(this.parent);
+        Minecraft.getInstance().setScreenAndShow(this.parent);
     }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)

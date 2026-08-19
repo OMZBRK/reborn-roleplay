@@ -60,7 +60,7 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "vitals"),
             (ctx, tickCounter) -> {
                 net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-                if (mc.player == null || mc.options == null || mc.options.hideGui) return;
+                if (mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
                 fr.reborn.hud.element.HudElementState st;
                 try { st = config().stateOf(fr.reborn.hud.element.HudElement.VITALS); }
                 catch (RuntimeException e) { return; }
@@ -79,7 +79,7 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "tablist-hold"),
             (ctx, tickCounter) -> {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc == null || mc.player == null || mc.screen != null || mc.options == null) return;
+            if (mc == null || mc.player == null || mc.gui.screen() != null || mc.options == null) return;
             if (!fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold) return;
             if (!mc.options.keyPlayerList.isDown()) return;
             fr.reborn.hud.menu.tablist.TablistScreen.renderHoldOverlay(ctx);
@@ -122,8 +122,8 @@ public final class RebornHudClient implements ClientModInitializer {
             (payload, context) -> context.client().execute(() -> {
                 fr.reborn.hud.menu.character.CharacterData.update(payload.content());
                 net.minecraft.client.Minecraft mc = context.client();
-                if (mc.screen == null && mc.player != null) {
-                    mc.setScreen(new fr.reborn.hud.menu.character.CharacterSelectScreen());
+                if (mc.gui.screen() == null && mc.player != null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.menu.character.CharacterSelectScreen());
                 }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
@@ -175,7 +175,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // Envoie l'état de frappe au serveur quand on ouvre/ferme le chat (C2S).
         final boolean[] wasChatOpen = {false};
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            boolean open = client.screen instanceof net.minecraft.client.gui.screens.ChatScreen;
+            boolean open = client.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen;
             if (open != wasChatOpen[0]) {
                 wasChatOpen[0] = open;
                 fr.reborn.hud.chat.TypingState.sendTyping(open);

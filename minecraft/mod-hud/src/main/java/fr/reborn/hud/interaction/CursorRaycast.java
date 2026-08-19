@@ -32,7 +32,7 @@ public final class CursorRaycast {
     public static HitResult raycast(Minecraft mc, double cursorX, double cursorY) {
         if (mc == null || mc.player == null || mc.level == null) return null;
 
-        Camera camera = mc.gameRenderer.getMainCamera();
+        Camera camera = mc.gameRenderer.mainCamera();
         float camYaw = camera.yRot();
         float camPitch = camera.xRot();
         // Origine = position de la CAMÉRA (pas l'œil joueur) → fonctionne aussi

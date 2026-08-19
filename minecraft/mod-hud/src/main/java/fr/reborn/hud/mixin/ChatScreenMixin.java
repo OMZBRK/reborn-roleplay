@@ -89,7 +89,7 @@ public abstract class ChatScreenMixin {
     private void reborn$hoverTooltip(GuiGraphicsExtractor ctx, Minecraft mc, int mouseX, int mouseY) {
         try {
             ChatSettings settings = RebornHudClient.config().getChatSettings();
-            var acc = (ChatComponentAccessor) (Object) mc.gui.getChat();
+            var acc = (ChatComponentAccessor) (Object) mc.gui.hud.getChat();
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
             double[] loc = fr.reborn.hud.runtime.HudTransform.toLocal(HudElement.CHAT, mouseX, mouseY);
@@ -198,7 +198,7 @@ public abstract class ChatScreenMixin {
         // (le rendu vanilla est annulé → getClickedComponentStyleAt ne marche plus).
         try {
             ChatSettings settings = RebornHudClient.config().getChatSettings();
-            var acc = (ChatComponentAccessor) (Object) mc.gui.getChat();
+            var acc = (ChatComponentAccessor) (Object) mc.gui.hud.getChat();
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
             // Coordonnées LOCALES du chat (inverse offset + scale) → hit-testing

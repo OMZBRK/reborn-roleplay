@@ -36,8 +36,8 @@ public final class CombatHud {
 
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.player == null || mc.options == null || mc.options.hideGui) return;
-        if (mc.screen != null) return;
+        if (mc.level == null || mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
+        if (mc.gui.screen() != null) return;
 
         Font font = mc.font;
         int gw = mc.getWindow().getGuiScaledWidth();
@@ -47,7 +47,7 @@ public final class CombatHud {
         CombatState st = CombatState.INSTANCE;
 
         // ── Damage indicators (projetés au-dessus des cibles) ──
-        Camera cam = mc.gameRenderer.getMainCamera();
+        Camera cam = mc.gameRenderer.mainCamera();
         if (cam != null && cam.isInitialized()) {
             Vec3 camPos = cam.position();
             Matrix4f vp = cam.getViewRotationProjectionMatrix(new Matrix4f());

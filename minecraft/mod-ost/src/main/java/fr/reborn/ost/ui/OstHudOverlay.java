@@ -59,7 +59,7 @@ public final class OstHudOverlay {
             lastSeenTrackId = current.trackId();
             lastChangeAtMs = now;
         }
-        if (client.screen != null) { lastChangeAtMs = now; return; }
+        if (client.gui.screen() != null) { lastChangeAtMs = now; return; }
         if (now - lastChangeAtMs > AUTO_HIDE_DELAY_MS) return;
 
         Font tr = client.font;

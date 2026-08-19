@@ -1,0 +1,237 @@
+# ------------------------------------------------------------
+# ShinobiTail configuration
+# All values below are live-reloadable with: /tail reload
+#
+# DESIGN NOTE — every "weight" is expressed as percentage points
+# contributed when the source value is at 100. Example:
+#   trust-weight: 0.35  →  trust 80 adds 80 * 0.35 = +28 points
+# to the final chance. Chances are clamped before rolling.
+# ------------------------------------------------------------
+
+storage:
+  # Periodic flush of dirty jinchūriki files (seconds).
+  autosave-seconds: 120
+
+display:
+  # Rage / stage boss bar while transformed.
+  bossbar: true
+  # Should /tail show the player their own relationship values
+  # (trust / anger / cooperation / influence)? When false, players only
+  # see beast, stage, rage and mastery — the relationship stays a
+  # GM-side secret they have to FEEL through roleplay.
+  show-relationship-to-player: false
+  # Show the estimated resist chance inside the Inner World GUI.
+  show-resist-chance: true
+
+# ----------------------------------------------------- automatic triggers
+triggers:
+  # Minimum delay between two automatic transformation rolls for the
+  # same player (seconds). Prevents roll spam while tanking hits.
+  check-cooldown-seconds: 20
+  # HP percentages at/below which a transformation roll happens
+  # when the player takes damage.
+  hp-thresholds: [50, 30, 15]
+  # EVERY hit taken (any HP level) carries this flat chance (percent)
+  # of waking the beast into stage 1. 0.01 = one hit in ten thousand.
+  any-damage-chance: 0.01
+  # Chakra exhaustion cracks the seal: when the host drops under this
+  # percent of max chakra, the usual help/takeover rolls fire (checked
+  # every 2 seconds, same cooldown as the HP rolls).
+  chakra-threshold:
+    enabled: true
+    percent: 1.0
+
+  # The beast SAVES its host when they would fall unconscious.
+  on-ko:
+    enabled: true
+    # Extra points added to the help chance for the KO roll.
+    save-chance-bonus: 15
+    # HP restored (percent of Max HP) when the beast takes over to save
+    # its host. The player wakes up already transformed (stage 1).
+    heal-percent: 35
+
+  # "HELP" roll — the beast lends power because it WANTS to.
+  # Fed by good relationship values.
+  help:
+    base-chance: 5
+    trust-weight: 0.35
+    cooperation-weight: 0.25
+    anger-penalty: 0.20
+    # The lower the HP, the more likely the beast steps in:
+    # +N points per percent of missing HP below the threshold.
+    low-hp-bonus-per-missing-percent: 0.4
+
+  # "TAKEOVER" roll — the beast forces the gate open.
+  # Fed by bad relationship values.
+  takeover:
+    base-chance: 2
+    anger-weight: 0.40
+    influence-weight: 0.30
+    trust-penalty: 0.25
+    # Mastery of stage 1 resists unwanted takeovers.
+    mastery-penalty: 0.15
+
+# ------------------------------------------------------------------ rage
+rage:
+  # Passive growth per second while transformed:
+  #   (base-per-second + per-power * stagePower)
+  #     * beast personality rage-multiplier
+  #     * time acceleration (see below)
+  base-per-second: 0.08
+  per-power: 0.04
+  # The longer the player stays in a stage, the faster rage grows.
+  # Growth ramps linearly after this many seconds in the CURRENT stage,
+  # up to the max multiplier.
+  time-acceleration-after-seconds: 60
+  time-acceleration-max-seconds: 300
+  time-acceleration-max-multiplier: 3.0
+  # Combat feeds the beast. Percent rage per heart (2 HP) dealt / taken.
+  damage-dealt-per-heart: 0.8
+  damage-taken-per-heart: 1.2
+  # Trust + cooperation TAME the engine: rage growth and combat rage are
+  # multiplied by (1 - harmony-reduction * (trust+coop)/200). At 100/100
+  # with 0.7, the beast's fire burns at 30% speed — familiarity, not rage.
+  harmony-reduction: 0.7
+  # Rage kept after a transformation ends (resist success / GM stop).
+  after-stop: 20.0
+  # Rage reset value after a stage escalation (so the climb restarts).
+  after-escalation: 25.0
+
+# ------------------------------------------- personality corruption tiers
+# As rage rises the host's feelings blur into the beast's. Tiers fire
+# once when crossed (upward) and their potion effects stay while above.
+# effects entries: "EFFECT_NAME:amplifier" (Bukkit PotionEffectType names).
+corruption:
+  whisper-interval-seconds: 45
+  tiers:
+    - at: 30
+      message: "&8Une voix gronde au fond de toi…"
+      sound: ENTITY_WARDEN_HEARTBEAT
+    - at: 55
+      message: "&cTa vision se teinte de rouge. Cette colère… est-elle vraiment la tienne ?"
+      sound: ENTITY_ENDER_DRAGON_GROWL
+    - at: 80
+      message: "&4&lLe contrôle t'échappe. Le monde n'est plus que proies et menaces."
+      sound: ENTITY_WITHER_AMBIENT
+      effects: ["DARKNESS:0"]
+
+# -------------------------------------------------- control windows
+# While transformed, a "window" opens periodically: the host is pulled
+# into the Inner World to face the beast (Continue / Resist). A window
+# also opens immediately when rage reaches 100%.
+control-window:
+  interval-seconds: 180
+  # Random ± jitter applied to each interval so it never feels scripted.
+  jitter-seconds: 60
+
+# ---------------------------------------------------------- inner world
+inner-world:
+  # Seconds of stun + aura before the teleport (the dramatic pause).
+  freeze-seconds: 3
+  # Seconds to choose in the confrontation GUI before the default applies.
+  decision-timeout-seconds: 45
+  # What happens on timeout: continue | resist
+  timeout-counts-as: continue
+  # Block commands (except /tail) while inside the Inner World.
+  block-commands: true
+
+  # RESIST roll — chance to shut the transformation down.
+  resist:
+    base-chance: 10
+    # Mastery of the CURRENT stage is the main lever.
+    mastery-weight: 0.50
+    trust-weight: 0.15
+    cooperation-weight: 0.15
+    influence-penalty: 0.20
+    rage-penalty: 0.25
+    min-chance: 5
+    max-chance: 95
+
+  # Automatic control growth. SEQUENTIAL: gains always feed the LOWEST
+  # stage under 100% that the host has already reached. Once a stage is
+  # mastered, the NEXT one only progresses after the host has yielded
+  # into it at least once — refusing the rage forever freezes growth.
+  # GMs can always /tail mastery on top.
+  mastery-gain:
+    # Granted at EVERY Inner World confrontation, whatever the outcome.
+    per-confrontation: 1.0
+    on-resist-success: 2.0
+    on-resist-fail: 0.5
+    per-minute-transformed: 0.2
+
+# ------------------------------------------------------------- fake body
+# While the host is in the Inner World, a body stays behind at their
+# position: an armor stand wearing their skin head + equipment.
+fake-body:
+  enabled: true
+  invulnerable: true
+  copy-equipment: true
+
+# ----------------------------------------------------------- final stage
+# The LAST stage (stage == tail count) is the point of no return: the
+# beast is fully released. No more confrontations, and when the
+# transformation ends — however it ends — the character is ruled DEAD
+# (ShinobiCore staff tools remain the only resurrection path).
+final-stage:
+  point-of-no-return: true
+  kill-character: true
+  broadcast: "&4&l{character} est englouti par {beast} — libération totale !"
+
+# ------------------------------------------------------------ aura range
+# How far (blocks) the bijū chakra can be FELT, per stage. Exposed to
+# sensory systems via TransformationManager#auraRange(playerUuid) — the
+# tracking arrow / direction HUD lives in the sensory plugin, not here.
+# Index 1 = stage 1. Values past the end of the list are extrapolated.
+aura-range:
+  by-stage: [100, 280, 460, 640, 820, 1000, 1333, 1666, 2000]
+
+# ------------------------------------------------------------------ aura
+# Visual cloak density multiplier (1.0 = default). The cloak scales hard
+# with stage power on its own: bigger radius, twin helixes, ground ring,
+# flame column, soul fire past power 6, pressure pulses near the top.
+aura:
+  intensity: 1.0
+
+# ------------------------------------------------------------------ union
+# MODE UNION — the seal breaks in harmony instead of fury. During any
+# Inner World confrontation, if trust AND cooperation meet the thresholds
+# below, a third golden choice appears: break the seal. The pair becomes
+# ONE: full final-stage power, golden aura (the strongest, and it belongs
+# to the HOST now), zero rage, no corruption, no control windows, no
+# point-of-no-return — and /tail union toggles it at will afterwards.
+# A united beast also ALWAYS catches its partner at KO (wake in Union),
+# and involuntary transformations stop entirely.
+union:
+  enabled: true
+  require-trust: 100
+  require-cooperation: 100
+  aura-color: "#FFD75A"
+  broadcast: "&6&l{character} et {beast} ne font plus qu'un !"
+
+# ------------------------------------------------------- stage power curve
+# Default power of a stage when beasts.yml does not override it:
+#   power(stage) = stage * (reference-tails / beastTails) ^ exponent
+# With exponent 0.732 the single stage of a 1-tail ≈ stage 5 of the
+# 9-tails, while the 9-tails' stage 9 stays the strongest overall.
+stage-power:
+  reference-tails: 9
+  exponent: 0.732
+  # Fewer tails are HARDER to unlock: stage-1 trigger chances are divided
+  # by (reference-tails / beastTails) ^ entry-difficulty-exponent.
+  entry-difficulty-exponent: 0.5
+  # How one point of power maps onto live stage effects. Every value
+  # can be overridden per beast/stage in beasts.yml.
+  effects-per-power:
+    damage-multiplier: 0.30        # +30% melee damage per power point (×3.7 at power 9)
+    bonus-speed-percent: 9.0       # % speed ON TOP of every other speed (+81% at power 9)
+    resistance-percent: 4.0        # % damage reduction (hard cap 80%)
+    knockback-resistance: 0.06
+    extra-scale: 0.02              # the host grows slightly per power point
+    health-regen-percent: 0.35     # % of MAX HP regenerated per second
+    instant-heal-percent: 3.0      # % of MAX HP granted on stage entry
+    chakra-regen-percent: 0.8      # % of MAX chakra regenerated per second
+    instant-chakra-percent: 4.0    # % of MAX chakra granted on stage entry
+
+messages:
+  # {beast} placeholder. Used for whispers, /tail speak and confrontation lines.
+  beast-prefix: "&8【&c{beast}&8】&7 "

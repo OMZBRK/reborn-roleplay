@@ -418,7 +418,7 @@ public class HudEditScreen extends Screen {
         }
 
         if (keyCode == GLFW.GLFW_KEY_F1) {
-            Minecraft.getInstance().setScreen(new HudHelpScreen(this));
+            Minecraft.getInstance().setScreenAndShow(new HudHelpScreen(this));
             return true;
         }
 
@@ -461,7 +461,7 @@ public class HudEditScreen extends Screen {
     // ─────────── Actions ───────────
 
     public void openChatSettings() {
-        Minecraft.getInstance().setScreen(new ChatSettingsScreen(this));
+        Minecraft.getInstance().setScreenAndShow(new ChatSettingsScreen(this));
     }
 
     private void selectElement(HudElement element) {
@@ -569,7 +569,7 @@ public class HudEditScreen extends Screen {
 
     @Override
     public void onClose() {
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreenAndShow(parent);
     }
 
     @Override
