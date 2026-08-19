@@ -4,7 +4,7 @@ import fr.reborn.hud.crosshair.CrosshairManager;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.runtime.HudTransform;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
@@ -38,7 +38,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * La barre d'XP est passée en {@code ContextualBarRenderer} (hors {@link Gui}) —
  * repositionnement traité séparément si besoin.
  */
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public abstract class InGameHudMixin {
 
     // ─────────── CROSSHAIR (viseur Reborn) ───────────

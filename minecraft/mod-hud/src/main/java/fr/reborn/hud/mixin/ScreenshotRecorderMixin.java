@@ -9,13 +9,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Déclenche la {@link CapturePreview} après chaque sauvegarde de screenshot
- * (F2 ou Mode Photo passent tous les deux par {@code saveScreenshot}).
+ * (F2 ou Mode Photo passent tous les deux par {@code Screenshot.grab}).
+ *
+ * <p><b>26.2</b> : {@code saveScreenshot(File, Framebuffer, Consumer)} a disparu
+ * ; le point d'entrée est désormais {@code grab(File, RenderTarget, Consumer)}
+ * (le Mode Photo Reborn l'appelle déjà, cf {@code InGameHudCinemaMixin}).
  */
 @Mixin(Screenshot.class)
 public class ScreenshotRecorderMixin {
 
     @Inject(
-        method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V",
+        method = "grab(Ljava/io/File;Lcom/mojang/blaze3d/pipeline/RenderTarget;Ljava/util/function/Consumer;)V",
         at = @At("TAIL"))
     private static void reborn$onScreenshot(CallbackInfo ci) {
         CapturePreview.INSTANCE.markPending();
