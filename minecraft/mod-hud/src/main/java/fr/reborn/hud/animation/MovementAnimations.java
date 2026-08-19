@@ -75,11 +75,13 @@ public final class MovementAnimations {
         {"Désespérée", "walk_hopeless.emotecraft"},
     };
 
-    private enum MoveState { NONE, WALK, RUN, NARUTO, POSE }
+    private enum MoveState { NONE, WALK, RUN, NARUTO, POSE, TEST }
 
     private final List<Animation> walkAnims = new ArrayList<>();
     private Animation run, narutoRun;
     private Animation idlePose;              // pose idle des écrans perso (asset optionnel)
+    private Animation testEmote;             // emote de test bend (touche dédiée, dev)
+    private boolean testActive = false;      // override : joue emote.json (test des bends)
     private boolean poseActive = false;      // override : joue la pose idle en boucle
     private int selectedWalk = 0;
     private boolean available = false;
@@ -138,6 +140,26 @@ public final class MovementAnimations {
     }
     public boolean hasIdlePose() { return idlePose != null; }
 
+    /**
+     * DEV — bascule l'emote de test {@code emote.json} pour vérifier le rendu des
+     * bends (bras/jambes) in-game via PAL. Priorité sur les démarches (override,
+     * comme {@link #startPose()}). Se coupe proprement au second appui.
+     */
+    public void toggleTestEmote() {
+        testActive = !testActive;
+        currentState = MoveState.NONE; // force ré-application au prochain tick
+        if (!testActive) {
+            Minecraft mc = Minecraft.getInstance();
+            if (available && mc.player != null) {
+                PlayerAnimationController c = controllerOf(mc.player);
+                if (c != null) c.stopTriggeredAnimation();
+            }
+        }
+        LOG.info("emote de test {} (bend) : {}",
+            testEmote != null ? "emote.json" : "ABSENTE", testActive ? "ON" : "OFF");
+    }
+    public boolean isTestEmoteActive() { return testActive; }
+
     /** Enregistre le layer PAL par avatar + charge les animations. */
     public void register() {
         try {
@@ -154,6 +176,7 @@ public final class MovementAnimations {
             run = load("run.emotecraft");
             narutoRun = load("naruto_run.emotecraft");
             idlePose = load("idle_sit.emotecraft");
+            testEmote = load("emote.json");
 
             RebornPrefs.INSTANCE.ensureLoaded();
             selectedWalk = clamp(RebornPrefs.INSTANCE.walkStyle);
@@ -217,6 +240,17 @@ public final class MovementAnimations {
         AbstractClientPlayer player = mc.player;
         if (player == null) return;
 
+        // Override DEV : emote de test bend (touche dédiée). Prioritaire sur tout
+        // le reste pour observer le rendu des bends bras/jambes, immobile.
+        if (testActive) {
+            if (currentState != MoveState.TEST) {
+                currentState = MoveState.TEST;
+                currentWalkIndex = -1;
+                applyState(player, MoveState.TEST, 0);
+            }
+            return;
+        }
+
         // Override pose idle (écrans perso) : force l'émote assise en boucle,
         // indépendamment du mouvement (le joueur est figé pendant la sélection).
         if (poseActive) {
@@ -252,6 +286,7 @@ public final class MovementAnimations {
             case RUN    -> run;
             case NARUTO -> narutoRun;
             case POSE   -> idlePose;
+            case TEST   -> testEmote;
             case NONE   -> null;
         };
         if (anim == null) {
@@ -261,9 +296,14 @@ public final class MovementAnimations {
             // (then(anim, anim.loopType())) : on ne force PAS un LoopType.LOOP
             // reset-à-0 comme thenLoop() — c'est ça qui provoquait le « relance
             // dégueu » ; on respecte le point de bouclage authoré dans l'emote.
+            // EXCEPTION : l'emote de test DEV est forcée en LOOP même si elle est
+            // authorée loop:false, sinon elle joue 1×~1,3s puis revient à la pose
+            // vanilla → le bend disparaît avant qu'on ait pu l'observer.
+            Animation.LoopType loop = desired == MoveState.TEST
+                ? Animation.LoopType.LOOP : anim.loopType();
             controller.replaceAnimationWithFade(
                 AbstractFadeModifier.standardFadeIn(FADE_TICKS, EasingType.EASE_IN_OUT_SINE),
-                RawAnimation.begin().then(anim, anim.loopType()));
+                RawAnimation.begin().then(anim, loop));
         }
     }
 
