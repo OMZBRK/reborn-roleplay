@@ -77,15 +77,6 @@ public class AnimationMenuScreen extends Screen {
                 r.add(new Row("Posture combat", null, true, () -> {}));
             }
         } else { // ANIMATIONS
-            // DEV — bascule l'emote de test bend (emote.json) et ferme le menu
-            // pour observer le perso. Marqueur ● quand active. À retirer une fois
-            // le pipeline anim validé.
-            MovementAnimations anim = MovementAnimations.INSTANCE;
-            boolean testOn = anim.isTestEmoteActive();
-            r.add(new Row("Emote test (bend)", testOn ? "●" : "○", false, () -> {
-                anim.toggleTestEmote();
-                onClose();
-            }));
             r.add(new Row("Favoris", null, true, () -> {}));
             r.add(new Row("Bind", null, true, () -> {}));
             r.add(new Row("Liste d'émotes (touche B)", null, true, () -> {}));

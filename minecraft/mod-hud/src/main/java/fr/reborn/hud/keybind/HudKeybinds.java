@@ -68,9 +68,6 @@ public final class HudKeybinds {
         KeyMapping narutoTest = bind("key.reborn-hud.naruto_test", GLFW.GLFW_KEY_L);
         // Menu de sélection du style de marche (GTA-RP).
         KeyMapping walkMenu = bind("key.reborn-hud.walk_menu", GLFW.GLFW_KEY_PERIOD);
-        // DEV — bascule l'emote de test bend (emote.json) sur « , » pour vérifier
-        // le rendu des bends bras/jambes in-game via PAL. Rebindable.
-        KeyMapping testEmote = bind("key.reborn-hud.test_emote", GLFW.GLFW_KEY_COMMA);
         // Regard libre (free-look) : MAINTENIR ALT gauche → la caméra orbite
         // autour du perso sans le réorienter. Relâcher = la caméra reste où elle
         // est (pas de snap brutal). Touche de maintien : lue par isDown().
@@ -142,12 +139,6 @@ public final class HudKeybinds {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.gui.screen() == null && mc.player != null) {
                     mc.setScreenAndShow(new fr.reborn.hud.animation.AnimationMenuScreen(null));
-                }
-            }
-            while (testEmote.consumeClick()) {
-                Minecraft mc = Minecraft.getInstance();
-                if (mc.player != null) {
-                    fr.reborn.hud.animation.MovementAnimations.INSTANCE.toggleTestEmote();
                 }
             }
             while (charMenu.consumeClick()) {

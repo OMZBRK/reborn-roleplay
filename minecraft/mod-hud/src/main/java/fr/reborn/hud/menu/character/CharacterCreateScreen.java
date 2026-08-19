@@ -1260,6 +1260,8 @@ public class CharacterCreateScreen extends Screen {
         double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button != 0) return super.mouseClicked(event, doubleClick);
         int mx = (int) mouseX, my = (int) mouseY;
+        // Feedback sonore de clic dans la création de perso.
+        fr.reborn.hud.menu.RebornSounds.uiClick();
 
         // Étape Apparence : éditeur KORVEX plein écran (aucun chrome wizard actif).
         if (step == 2) { apparenceClick(mx, my); return true; }

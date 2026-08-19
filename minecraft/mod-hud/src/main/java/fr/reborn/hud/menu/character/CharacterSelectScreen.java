@@ -95,6 +95,8 @@ public class CharacterSelectScreen extends Screen {
         int n = Math.max(1, tileCount());
         focused = ((focused + delta) % n + n) % n;
         applyFocusPreview();
+        // Son de changement de perso (passage d'un caractère à l'autre).
+        fr.reborn.hud.menu.RebornSounds.charNav();
     }
 
     // ── Géométrie ─────────────────────────────────────────────────

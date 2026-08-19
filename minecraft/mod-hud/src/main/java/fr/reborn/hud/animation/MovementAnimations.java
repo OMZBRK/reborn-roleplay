@@ -60,6 +60,8 @@ public final class MovementAnimations {
     /** Durée du fondu (fade-in) à l'entrée d'une démarche, en ticks. Easing
      *  EASE_IN_OUT_SINE (comme la version 1.21.4 qui rendait très bien). */
     private static final int FADE_TICKS = 6;
+    /** Fondu court pour le saut (anim one-shot ~0,667s → décollage net). */
+    private static final int JUMP_FADE_TICKS = 2;
     /** Ticks immobiles requis avant de repasser NONE (anti flip-flop). */
     private static final int IDLE_GRACE_TICKS = 4;
 
@@ -75,13 +77,12 @@ public final class MovementAnimations {
         {"Désespérée", "walk_hopeless.emotecraft"},
     };
 
-    private enum MoveState { NONE, WALK, RUN, NARUTO, POSE, TEST }
+    private enum MoveState { NONE, WALK, RUN, NARUTO, POSE, JUMP }
 
     private final List<Animation> walkAnims = new ArrayList<>();
     private Animation run, narutoRun;
     private Animation idlePose;              // pose idle des écrans perso (asset optionnel)
-    private Animation testEmote;             // emote de test bend (touche dédiée, dev)
-    private boolean testActive = false;      // override : joue emote.json (test des bends)
+    private Animation jump;                  // anim de saut (jouée en l'air, one-shot)
     private boolean poseActive = false;      // override : joue la pose idle en boucle
     private int selectedWalk = 0;
     private boolean available = false;
@@ -140,26 +141,6 @@ public final class MovementAnimations {
     }
     public boolean hasIdlePose() { return idlePose != null; }
 
-    /**
-     * DEV — bascule l'emote de test {@code emote.json} pour vérifier le rendu des
-     * bends (bras/jambes) in-game via PAL. Priorité sur les démarches (override,
-     * comme {@link #startPose()}). Se coupe proprement au second appui.
-     */
-    public void toggleTestEmote() {
-        testActive = !testActive;
-        currentState = MoveState.NONE; // force ré-application au prochain tick
-        if (!testActive) {
-            Minecraft mc = Minecraft.getInstance();
-            if (available && mc.player != null) {
-                PlayerAnimationController c = controllerOf(mc.player);
-                if (c != null) c.stopTriggeredAnimation();
-            }
-        }
-        LOG.info("emote de test {} (bend) : {}",
-            testEmote != null ? "emote.json" : "ABSENTE", testActive ? "ON" : "OFF");
-    }
-    public boolean isTestEmoteActive() { return testActive; }
-
     /** Enregistre le layer PAL par avatar + charge les animations. */
     public void register() {
         try {
@@ -176,13 +157,13 @@ public final class MovementAnimations {
             run = load("run.emotecraft");
             narutoRun = load("naruto_run.emotecraft");
             idlePose = load("idle_sit.emotecraft");
-            testEmote = load("emote.json");
+            jump = load("jumpanimation.json");
 
             RebornPrefs.INSTANCE.ensureLoaded();
             selectedWalk = clamp(RebornPrefs.INSTANCE.walkStyle);
             available = true;
-            LOG.info("démarches : {} styles marche, run={}, naruto={}",
-                walkAnims.size(), run != null, narutoRun != null);
+            LOG.info("démarches : {} styles marche, run={}, naruto={}, jump={}",
+                walkAnims.size(), run != null, narutoRun != null, jump != null);
         } catch (Throwable t) {
             available = false;
             LOG.warn("PlayerAnimationLib/Emotecraft absent — démarches désactivées ({})", t.toString());
@@ -240,17 +221,6 @@ public final class MovementAnimations {
         AbstractClientPlayer player = mc.player;
         if (player == null) return;
 
-        // Override DEV : emote de test bend (touche dédiée). Prioritaire sur tout
-        // le reste pour observer le rendu des bends bras/jambes, immobile.
-        if (testActive) {
-            if (currentState != MoveState.TEST) {
-                currentState = MoveState.TEST;
-                currentWalkIndex = -1;
-                applyState(player, MoveState.TEST, 0);
-            }
-            return;
-        }
-
         // Override pose idle (écrans perso) : force l'émote assise en boucle,
         // indépendamment du mouvement (le joueur est figé pendant la sélection).
         if (poseActive) {
@@ -286,7 +256,7 @@ public final class MovementAnimations {
             case RUN    -> run;
             case NARUTO -> narutoRun;
             case POSE   -> idlePose;
-            case TEST   -> testEmote;
+            case JUMP   -> jump;
             case NONE   -> null;
         };
         if (anim == null) {
@@ -295,15 +265,13 @@ public final class MovementAnimations {
             // Fondu doux (EASE_IN_OUT_SINE) + loop INTRINSÈQUE de l'anim
             // (then(anim, anim.loopType())) : on ne force PAS un LoopType.LOOP
             // reset-à-0 comme thenLoop() — c'est ça qui provoquait le « relance
-            // dégueu » ; on respecte le point de bouclage authoré dans l'emote.
-            // EXCEPTION : l'emote de test DEV est forcée en LOOP même si elle est
-            // authorée loop:false, sinon elle joue 1×~1,3s puis revient à la pose
-            // vanilla → le bend disparaît avant qu'on ait pu l'observer.
-            Animation.LoopType loop = desired == MoveState.TEST
-                ? Animation.LoopType.LOOP : anim.loopType();
+            // dégueu » ; on respecte le point de bouclage authoré dans l'anim
+            // (le saut est loop:false → one-shot, joué au décollage).
+            // Le saut utilise un fondu court (décollage net) vu sa courte durée.
+            int fade = desired == MoveState.JUMP ? JUMP_FADE_TICKS : FADE_TICKS;
             controller.replaceAnimationWithFade(
-                AbstractFadeModifier.standardFadeIn(FADE_TICKS, EasingType.EASE_IN_OUT_SINE),
-                RawAnimation.begin().then(anim, loop));
+                AbstractFadeModifier.standardFadeIn(fade, EasingType.EASE_IN_OUT_SINE),
+                RawAnimation.begin().then(anim, anim.loopType()));
         }
     }
 
@@ -316,6 +284,15 @@ public final class MovementAnimations {
         lastX = player.getX();
         lastZ = player.getZ();
         hasLastPos = true;
+
+        // Saut / en l'air : prioritaire, indépendant du mouvement horizontal
+        // (on saute aussi sur place). L'anim est one-shot, déclenchée à l'entrée
+        // dans l'état JUMP (décollage) ; on y reste tant que le joueur n'a pas
+        // touché le sol (elle finit d'elle-même si le vol dure plus que sa durée).
+        if (!player.onGround() && jump != null) {
+            idleGrace = 0;
+            return MoveState.JUMP;
+        }
 
         boolean moving = speedSq > MOVE_THRESHOLD_SQ;
         if (!moving) {
