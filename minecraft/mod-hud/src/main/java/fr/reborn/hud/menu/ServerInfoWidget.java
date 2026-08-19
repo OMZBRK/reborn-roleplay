@@ -61,7 +61,7 @@ public class ServerInfoWidget extends AbstractWidget {
 
         // Ligne 1 : nom serveur.
         String title = st.isOnline() ? "Reborn Roleplay" : "Serveur hors ligne";
-        context.text(font, title, dotX + DOT_SIZE + 6, y0 + 9, FG, false);
+        context.text(font, RebornFont.arcade(title), dotX + DOT_SIZE + 6, y0 + 9, FG, false);
 
         // Ligne 2 : compteur joueurs ou message.
         String line2;
@@ -70,7 +70,7 @@ public class ServerInfoWidget extends AbstractWidget {
         } else {
             line2 = "Reconnexion...";
         }
-        context.text(font, line2, x0 + PADDING, y0 + 23, FG_DIM, false);
+        context.text(font, RebornFont.arcade(line2), x0 + PADDING, y0 + 23, FG_DIM, false);
     }
 
     @Override

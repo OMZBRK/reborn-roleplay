@@ -2,6 +2,7 @@ package fr.reborn.hud.menu.character;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
+import fr.reborn.hud.menu.RebornFont;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -145,7 +146,7 @@ public class CharacterSelectScreen extends Screen {
         if (CreatorUi.logoExists()) {
             CreatorUi.blitLogo(ctx, this.width - 24 - 45, 14, 45, 30);
         } else {
-            Component logo = Component.literal("REBORN");
+            Component logo = RebornFont.arcade("REBORN");
             ctx.text(tr, logo, this.width - 24 - tr.width(logo), 22, Colors.GOLD, false);
         }
 
@@ -159,9 +160,9 @@ public class CharacterSelectScreen extends Screen {
         if (tileCount() > 1) {
             boolean lh = overArrow(mouseX, mouseY, leftArrowX());
             boolean rh = overArrow(mouseX, mouseY, rightArrowX());
-            ctx.text(tr, Component.literal("<"), leftArrowX(), arrowY(),
+            ctx.text(tr, RebornFont.arcade("<"), leftArrowX(), arrowY(),
                 lh ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
-            ctx.text(tr, Component.literal(">"), rightArrowX(), arrowY(),
+            ctx.text(tr, RebornFont.arcade(">"), rightArrowX(), arrowY(),
                 rh ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
         }
     }
@@ -171,8 +172,8 @@ public class CharacterSelectScreen extends Screen {
         int nameCol = c.dead() ? Colors.FOREGROUND_MUTED : Colors.WHITE_PURE;
 
         // Ligne 1 : nom + clan côte à côte, centrés en groupe.
-        Component name = Component.literal(c.firstName());
-        Component clan = c.hasClan() ? Component.literal(c.clan()) : null;
+        Component name = RebornFont.arcade(c.firstName());
+        Component clan = c.hasClan() ? RebornFont.arcade(c.clan()) : null;
         int gap = 12;
         int nameW = tr.width(name);
         int clanW = clan != null ? tr.width(clan) : 0;
@@ -186,7 +187,7 @@ public class CharacterSelectScreen extends Screen {
 
         // Ligne 2 : village.
         if (c.hasVillage()) {
-            Component vil = Component.literal(c.village());
+            Component vil = RebornFont.arcade(c.village());
             ctx.text(tr, vil, (this.width - tr.width(vil)) / 2, villageY(),
                 c.dead() ? Colors.FOREGROUND_MUTED : Colors.FOREGROUND_SUBTLE, false);
         }
@@ -195,7 +196,7 @@ public class CharacterSelectScreen extends Screen {
         if (c.dead()) {
             DrawHelpers.roundedOutlinedRect(ctx, btnX(), btnY(), BTN_W, BTN_H, 8,
                 Colors.withAlpha(Colors.DANGER, 0.35f), Colors.DANGER);
-            Component rpk = Component.literal("RPK");
+            Component rpk = RebornFont.arcade("RPK");
             ctx.text(tr, rpk, (this.width - tr.width(rpk)) / 2, btnY() + (BTN_H - 8) / 2,
                 Colors.WHITE_PURE, false);
         } else {
@@ -204,9 +205,9 @@ public class CharacterSelectScreen extends Screen {
     }
 
     private void drawCreate(GuiGraphicsExtractor ctx, Font tr, int mouseX, int mouseY) {
-        Component name = Component.literal("Nouveau personnage");
+        Component name = RebornFont.arcade("Nouveau personnage");
         ctx.text(tr, name, (this.width - tr.width(name)) / 2, nameY(), Colors.WHITE_PURE, false);
-        Component m = Component.literal("Crée ton shinobi");
+        Component m = RebornFont.arcade("Crée ton shinobi");
         ctx.text(tr, m, (this.width - tr.width(m)) / 2, villageY(), Colors.FOREGROUND_MUTED, false);
         drawButton(ctx, tr, "Créer", mouseX, mouseY, Colors.ACCENT);
     }
@@ -216,7 +217,7 @@ public class CharacterSelectScreen extends Screen {
         int fill = hover ? Colors.withAlpha(accent, 0.35f) : Colors.withAlpha(0xFF000000, 0.45f);
         int border = hover ? accent : Colors.withAlpha(Colors.FOREGROUND, 0.35f);
         DrawHelpers.roundedOutlinedRect(ctx, btnX(), btnY(), BTN_W, BTN_H, 8, fill, border);
-        Component t = Component.literal(label);
+        Component t = RebornFont.arcade(label);
         ctx.text(tr, t, (this.width - tr.width(t)) / 2, btnY() + (BTN_H - 8) / 2,
             Colors.WHITE_PURE, false);
     }

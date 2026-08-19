@@ -1,6 +1,7 @@
 package fr.reborn.hud.menu.screens;
 
 import fr.reborn.hud.menu.RebornButton;
+import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -50,7 +51,7 @@ public class RulesLoreScreen extends Screen {
             final int tab = i;
             this.addRenderableWidget(new RebornButton(
                 sidebarX, sidebarY + i * (btnH + spacing), btnW, btnH,
-                Component.literal(TAB_LABELS[i]),
+                RebornFont.arcade(TAB_LABELS[i]),
                 b -> { this.activeTab = tab; this.scrollY = 0; }
             ));
         }
@@ -58,7 +59,7 @@ public class RulesLoreScreen extends Screen {
         // Bouton retour en bas.
         this.addRenderableWidget(new RebornButton(
             sidebarX, this.height - 50, btnW, btnH,
-            Component.literal("RETOUR"),
+            RebornFont.arcade("RETOUR"),
             b -> onClose()
         ));
     }
@@ -78,7 +79,7 @@ public class RulesLoreScreen extends Screen {
         // Titre — pixel-perfect via centeredText (le scale 2x
         // floute la font MC).
         context.centeredText(font,
-            Component.literal("RÈGLEMENT & LORE"),
+            RebornFont.arcade("RÈGLEMENT & LORE"),
             this.width / 2, 28, FG);
 
         // Zone de contenu (cote droit). Largeurs dérivées de la sidebar
@@ -99,14 +100,14 @@ public class RulesLoreScreen extends Screen {
         for (String line : lines) {
             if (line.startsWith("# ")) {
                 // Titre h1 : plus gros + accent
-                context.text(font, line.substring(2), contentX + 16, textY, ACCENT, true);
+                context.text(font, RebornFont.arcade(line.substring(2)), contentX + 16, textY, ACCENT, true);
                 textY += 16;
             } else if (line.startsWith("## ")) {
                 // Titre h2
-                context.text(font, line.substring(3), contentX + 16, textY, FG, true);
+                context.text(font, RebornFont.arcade(line.substring(3)), contentX + 16, textY, FG, true);
                 textY += 14;
             } else {
-                context.text(font, line, contentX + 16, textY, FG_DIM, false);
+                context.text(font, RebornFont.body(line), contentX + 16, textY, FG_DIM, false);
                 textY += 12;
             }
         }

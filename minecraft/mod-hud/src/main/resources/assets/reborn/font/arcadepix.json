@@ -6,6 +6,10 @@
       "shift": [0, 0],
       "size": 10,
       "oversample": 1
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:include/default"
     }
   ]
 }

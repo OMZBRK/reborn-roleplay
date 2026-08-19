@@ -2,6 +2,7 @@ package fr.reborn.hud.menu.character;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
+import fr.reborn.hud.menu.RebornFont;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
@@ -145,7 +146,7 @@ public class CharacterCreateScreen extends Screen {
         nameField = new EditBox(this.font, panelX(), 0, panelW() - 8, 20,
             Component.literal("Prénom"));
         nameField.setMaxLength(24);
-        nameField.setHint(Component.literal("Prénom du personnage…"));
+        nameField.setHint(RebornFont.body("Prénom du personnage…"));
         String cn = CharacterData.candidatureName();
         if (cn != null && !cn.isBlank()) nameField.setValue(cn);
         addWidget(nameField);
@@ -153,7 +154,7 @@ public class CharacterCreateScreen extends Screen {
         customClanField = new EditBox(this.font, panelX(), 0, panelW() - 8, 20,
             Component.literal("Clan personnalisé"));
         customClanField.setMaxLength(24);
-        customClanField.setHint(Component.literal("Nom de ton clan / famille…"));
+        customClanField.setHint(RebornFont.body("Nom de ton clan / famille…"));
         addWidget(customClanField);
 
         refreshPreview(); // avatar composé visible dès l'ouverture
@@ -283,13 +284,13 @@ public class CharacterCreateScreen extends Screen {
         } else {
             int cx = x;
             for (char c : "REBORN".toCharArray()) {
-                Component ch = Component.literal(String.valueOf(c));
+                Component ch = RebornFont.arcade(String.valueOf(c));
                 ctx.text(tr, ch, cx, 26, Colors.ACCENT, false);
                 cx += tr.width(ch) + 3;
             }
             DrawHelpers.rect(ctx, x, 38, cx - x - 3, 1, Colors.withAlpha(Colors.GOLD, 0.8f));
         }
-        Component sub = Component.literal("Création de personnage");
+        Component sub = RebornFont.arcade("Création de personnage");
         ctx.text(tr, sub, x, 52, Colors.FOREGROUND_MUTED, false);
     }
 
@@ -302,7 +303,7 @@ public class CharacterCreateScreen extends Screen {
         int x = panelX();
         int y = 62;
         for (int i = 0; i < labels.length; i++) {
-            Component t = Component.literal(labels[i]);
+            Component t = RebornFont.arcade(labels[i]);
             int w = tr.width(t);
             boolean cur = i == step;
             boolean past = i < step;
@@ -320,7 +321,7 @@ public class CharacterCreateScreen extends Screen {
             case 2 -> "Compose l'apparence de ton personnage (ou garde ton skin).";
             default -> "Vérifie tes choix puis valide.";
         };
-        ctx.text(tr, Component.literal(s), panelX(), 80, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, RebornFont.body(s), panelX(), 80, Colors.FOREGROUND_SUBTLE, false);
     }
 
     // ── Étape 0 : village + clan ──────────────────────────────────
@@ -353,7 +354,7 @@ public class CharacterCreateScreen extends Screen {
         if ("Autre".equals(clan)) {
             int cRows = rows(CLANS.length);
             int fy = cBase + cRows * CELL_H + 4;
-            ctx.text(tr, Component.literal("NOM DE CLAN"), panelX(), fy, Colors.FOREGROUND_MUTED, false);
+            ctx.text(tr, RebornFont.arcade("NOM DE CLAN"), panelX(), fy, Colors.FOREGROUND_MUTED, false);
             customClanField.setX(panelX());
             customClanField.setY(fy + 12);
             customClanField.extractRenderState(ctx, mx, my, 0f);
@@ -404,7 +405,7 @@ public class CharacterCreateScreen extends Screen {
         int ty = y + 136;
         int cm = (int) Math.round(1.8 * size * 100);
         label(ctx, tr, "TAILLE", x, ty);
-        Component cmT = Component.literal(cm + " cm");
+        Component cmT = RebornFont.arcade(cm + " cm");
         ctx.text(tr, cmT, x + w - tr.width(cmT), ty, Colors.FOREGROUND, false);
         sizeTX = x; sizeTY = ty + 14; sizeTW = w - 2;
         DrawHelpers.roundedRect(ctx, sizeTX, sizeTY, sizeTW, 8, 3, Colors.withAlpha(0xFF000000, 0.55f));
@@ -419,7 +420,7 @@ public class CharacterCreateScreen extends Screen {
         int ay = y + 172;
         label(ctx, tr, "ÂGE", x, ay);
         square(ctx, tr, x, ay + 12, "-", hit(mx, my, x, ay + 12, 22, 22));
-        Component av = Component.literal(String.valueOf(age));
+        Component av = RebornFont.arcade(String.valueOf(age));
         ctx.text(tr, av, x + 40 - tr.width(av) / 2, ay + 12 + 7, Colors.WHITE_PURE, false);
         square(ctx, tr, x + 58, ay + 12, "+", hit(mx, my, x + 58, ay + 12, 22, 22));
         if (hit(mx, my, x, ay, w, 34)) { descTitle = "Âge"; descBody = "L'âge RP de départ de ton personnage."; }
@@ -563,7 +564,7 @@ public class CharacterCreateScreen extends Screen {
             drawCatGlyph(ctx, cx, cy, idx, gc);
         }
         // Badge numéro (coin bas-droit).
-        ctx.text(tr, Component.literal(String.valueOf(idx + 1)), x + s - 6, y + s - 9,
+        ctx.text(tr, RebornFont.arcade(String.valueOf(idx + 1)), x + s - 6, y + s - 9,
             dimmed ? Colors.FOREGROUND_MUTED : Colors.WHITE_PURE, false);
         // Légende sous l'icône.
         Component cap = ax(CAT_NAMES[idx]);
@@ -636,8 +637,8 @@ public class CharacterCreateScreen extends Screen {
             DrawHelpers.roundedOutlinedRect(ctx, sx, cyy, cw, 22, 6,
                 Colors.withAlpha(0xFF000000, 0.5f), Colors.BORDER);
             boolean lh = hit(mx, my, sx, cyy, 22, 22), rh = hit(mx, my, sx + cw - 22, cyy, 22, 22);
-            ctx.text(tr, Component.literal("A ‹"), sx + 6, cyy + 7, lh ? Colors.WHITE_PURE : Colors.ACCENT, false);
-            ctx.text(tr, Component.literal("› D"), sx + cw - 22, cyy + 7, rh ? Colors.WHITE_PURE : Colors.ACCENT, false);
+            ctx.text(tr, RebornFont.arcade("A ‹"), sx + 6, cyy + 7, lh ? Colors.WHITE_PURE : Colors.ACCENT, false);
+            ctx.text(tr, RebornFont.arcade("› D"), sx + cw - 22, cyy + 7, rh ? Colors.WHITE_PURE : Colors.ACCENT, false);
             Component frac = ax((facetStyleIdx() + 1) + " / " + facetStyleCount());
             ctx.text(tr, frac, cx - tr.width(frac) / 2, cyy + 7, Colors.WHITE_PURE, false);
         }
@@ -1091,7 +1092,7 @@ public class CharacterCreateScreen extends Screen {
         Component t = ax(label);
         ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2,
             primary ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
-        if (key != null) ctx.text(tr, Component.literal(key), x + w - 14, y + h - 10,
+        if (key != null) ctx.text(tr, RebornFont.arcade(key), x + w - 14, y + h - 10,
             Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.8f), false);
     }
 
@@ -1114,7 +1115,7 @@ public class CharacterCreateScreen extends Screen {
 
     // ── Widgets ───────────────────────────────────────────────────
     private void label(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y) {
-        ctx.text(tr, Component.literal(s), x, y, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, RebornFont.arcade(s), x, y, Colors.FOREGROUND_MUTED, false);
     }
 
     /** Tuile village/clan : monogramme + légende, avec états sélection/verrou/hover. */
@@ -1130,7 +1131,7 @@ public class CharacterCreateScreen extends Screen {
             : Colors.withAlpha(Colors.FOREGROUND, 0.22f);
         DrawHelpers.roundedOutlinedRect(ctx, x, y, TILE, TILE, 8, fill, border);
 
-        Component m = Component.literal(monogram);
+        Component m = RebornFont.arcade(monogram);
         int mCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.6f) : Colors.WHITE_PURE;
         ctx.text(tr, m, x + (TILE - tr.width(m)) / 2, y + (TILE - 8) / 2, mCol, false);
 
@@ -1141,7 +1142,7 @@ public class CharacterCreateScreen extends Screen {
                 Colors.withAlpha(Colors.DANGER, 0.9f));
         }
 
-        Component cap = Component.literal(caption);
+        Component cap = RebornFont.arcade(caption);
         int capCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.55f)
             : sel ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE;
         int cw = tr.width(cap);
@@ -1155,7 +1156,7 @@ public class CharacterCreateScreen extends Screen {
             : hover ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.4f);
         int border = sel ? Colors.GOLD : hover ? Colors.withAlpha(Colors.FOREGROUND, 0.4f) : Colors.BORDER;
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 6, fill, border);
-        Component t = Component.literal(s);
+        Component t = RebornFont.arcade(s);
         ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2,
             sel ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
     }
@@ -1163,20 +1164,20 @@ public class CharacterCreateScreen extends Screen {
     private void readonlyField(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String val) {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, 20, 5,
             Colors.withAlpha(0xFF000000, 0.35f), Colors.withAlpha(Colors.FOREGROUND, 0.15f));
-        ctx.text(tr, Component.literal(val), x + 6, y + 6, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, RebornFont.arcade(val), x + 6, y + 6, Colors.FOREGROUND_SUBTLE, false);
     }
 
     private void square(GuiGraphicsExtractor ctx, Font tr, int x, int y, String s, boolean hover) {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, 22, 22, 5,
             hover ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.4f),
             hover ? Colors.GOLD : Colors.BORDER);
-        Component t = Component.literal(s);
+        Component t = RebornFont.arcade(s);
         ctx.text(tr, t, x + (22 - tr.width(t)) / 2, y + 7, Colors.WHITE_PURE, false);
     }
 
     private void recap(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String key, String val) {
-        ctx.text(tr, Component.literal(key), x, y, Colors.FOREGROUND_MUTED, false);
-        Component v = Component.literal(val);
+        ctx.text(tr, RebornFont.arcade(key), x, y, Colors.FOREGROUND_MUTED, false);
+        Component v = RebornFont.arcade(val);
         ctx.text(tr, v, x + w - tr.width(v), y, Colors.WHITE_PURE, false);
     }
 
@@ -1185,13 +1186,13 @@ public class CharacterCreateScreen extends Screen {
         int boxW = 208;
         int boxX = this.width - boxW - 44;
         if (boxX < panelX() + panelW() + 16) return; // écran trop étroit : on masque
-        List<FormattedCharSequence> lines = tr.split(Component.literal(descBody), boxW - 20);
+        List<FormattedCharSequence> lines = tr.split(RebornFont.body(descBody), boxW - 20);
         int boxH = 26 + lines.size() * 11 + 8;
         int boxY = Math.max(contentTop(), (this.height - boxH) / 2);
         DrawHelpers.roundedOutlinedRect(ctx, boxX, boxY, boxW, boxH, 8,
             Colors.withAlpha(0xFF0A0608, 0.9f), Colors.BORDER_STRONG);
         DrawHelpers.rect(ctx, boxX, boxY, 3, boxH, Colors.GOLD);
-        ctx.text(tr, Component.literal(descTitle), boxX + 12, boxY + 10, Colors.GOLD, false);
+        ctx.text(tr, RebornFont.arcade(descTitle), boxX + 12, boxY + 10, Colors.GOLD, false);
         int ly = boxY + 26;
         for (FormattedCharSequence l : lines) {
             ctx.text(tr, l, boxX + 12, ly, Colors.FOREGROUND_SUBTLE, false);
@@ -1207,7 +1208,7 @@ public class CharacterCreateScreen extends Screen {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, NAV_W, NAV_H, 8,
             hb ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.5f),
             hb ? Colors.withAlpha(Colors.FOREGROUND, 0.5f) : Colors.BORDER);
-        Component back = Component.literal("Retour");
+        Component back = RebornFont.arcade("Retour");
         ctx.text(tr, back, x + (NAV_W - tr.width(back)) / 2, y + (NAV_H - 8) / 2,
             Colors.FOREGROUND, false);
 
@@ -1217,7 +1218,7 @@ public class CharacterCreateScreen extends Screen {
         boolean hn = hit(mx, my, nx, y, NAV_W, NAV_H);
         int fill = hn ? Colors.GOLD : Colors.withAlpha(Colors.GOLD, 0.82f);
         DrawHelpers.roundedRect(ctx, nx, y, NAV_W, NAV_H, 8, fill);
-        Component nt = Component.literal(last ? "Valider" : "Suivant");
+        Component nt = RebornFont.arcade(last ? "Valider" : "Suivant");
         ctx.text(tr, nt, nx + (NAV_W - tr.width(nt)) / 2, y + (NAV_H - 8) / 2, 0xFF1A1008, false);
     }
 

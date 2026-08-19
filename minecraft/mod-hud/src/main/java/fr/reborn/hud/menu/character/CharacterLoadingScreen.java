@@ -2,6 +2,7 @@ package fr.reborn.hud.menu.character;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
+import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -72,18 +73,18 @@ public class CharacterLoadingScreen extends Screen {
         if (CreatorUi.logoExists()) {
             CreatorUi.blitLogo(ctx, cx - 66, cy - 150, 132, 88);
         } else {
-            Component logo = Component.literal("REBORN");
+            Component logo = RebornFont.arcade("REBORN");
             ctx.text(tr, logo, cx - tr.width(logo) / 2, cy - 48, Colors.GOLD, false);
         }
 
         // « Chargement » + points animés.
         int dots = (ticks / 8) % 4;
-        Component load = Component.literal("Chargement" + ".".repeat(dots));
+        Component load = RebornFont.arcade("Chargement" + ".".repeat(dots));
         ctx.text(tr, load, cx - tr.width(load) / 2, cy - 24, Colors.WHITE_PURE, false);
 
         // Nom du perso qui rejoint le monde.
         if (!name.isBlank()) {
-            Component sub = Component.literal(name + " entre en scène");
+            Component sub = RebornFont.arcade(name + " entre en scène");
             ctx.text(tr, sub, cx - tr.width(sub) / 2, cy + 22, Colors.FOREGROUND_MUTED, false);
         }
 
