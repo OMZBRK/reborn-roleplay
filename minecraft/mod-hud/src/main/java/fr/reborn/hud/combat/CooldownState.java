@@ -20,14 +20,17 @@ public final class CooldownState {
     /** Capacités affichées dans le HUD de cooldowns. {@code glyph} = placeholder
      *  tant qu'aucune icône {@code textures/gui/ability/<name>.png} n'est livrée. */
     public enum Ability {
-        DASH("Dash", 0xFF7FB4FF, ">>");
+        // alwaysShow=false → l'icône n'apparaît QUE pendant le cooldown, puis disparaît.
+        DASH("Dash", 0xFF7FB4FF, ">>", false);
         // À VENIR : DOUBLE_JUMP, CHAKRA_JUMP… (se branchent ici + trigger au bon endroit)
 
         public final String label;
         public final int color;
         public final String glyph;
-        Ability(String label, int color, String glyph) {
-            this.label = label; this.color = color; this.glyph = glyph;
+        /** Si vrai, l'icône reste affichée même prête (sinon visible seulement en CD). */
+        public final boolean alwaysShow;
+        Ability(String label, int color, String glyph, boolean alwaysShow) {
+            this.label = label; this.color = color; this.glyph = glyph; this.alwaysShow = alwaysShow;
         }
     }
 

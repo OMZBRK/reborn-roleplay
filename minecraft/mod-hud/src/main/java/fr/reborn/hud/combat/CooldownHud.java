@@ -36,8 +36,12 @@ public final class CooldownHud {
         ctx.pose().pushMatrix();
         ctx.pose().translate(x, y);
         if (scale != 1f) ctx.pose().scale(scale, scale);
+        // On n'affiche que les capacités EN COOLDOWN (sauf celles marquées alwaysShow) ;
+        // elles se compactent depuis la gauche.
         int ix = 0;
         for (CooldownState.Ability a : SHOWN) {
+            boolean onCd = CooldownState.INSTANCE.fraction(a, now) > 0.001f;
+            if (!onCd && !a.alwaysShow) continue;
             drawIcon(ctx, font, ix, 0, a, now);
             ix += ICON + GAP;
         }
