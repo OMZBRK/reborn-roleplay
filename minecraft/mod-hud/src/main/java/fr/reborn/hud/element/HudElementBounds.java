@@ -41,6 +41,12 @@ public record HudElementBounds(int x, int y, int width, int height) {
             case VITALS -> new HudElementBounds(4, 4, 204, 52);
             // Barre d'endurance de combat : par défaut sous le viseur (déplaçable).
             case COMBAT_ENDURANCE -> new HudElementBounds(screenWidth / 2 - 45, screenHeight / 2 + 18, 90, 5);
+            // Rangée d'icônes de cooldown : par défaut au-dessus de la hotbar (déplaçable).
+            case COOLDOWNS -> {
+                int cw = fr.reborn.hud.combat.CooldownHud.width();
+                yield new HudElementBounds(screenWidth / 2 - cw / 2, screenHeight - 62, cw,
+                    fr.reborn.hud.combat.CooldownHud.height());
+            }
         };
     }
 

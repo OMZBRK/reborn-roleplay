@@ -76,8 +76,8 @@ public final class CombatInput {
         }
     }
 
-    /** Anti-spam client du dash (le serveur a son propre cooldown autoritaire). */
-    private static final long DASH_CD_MS = 500L;
+    /** Cooldown client du dash — aligné sur le serveur ({@code DASH_COOLDOWN_MS=1500}). */
+    private static final long DASH_CD_MS = CooldownState.DASH_CD_MS;
     private long lastDashMs = 0L;
 
     /**
@@ -105,6 +105,7 @@ public final class CombatInput {
         dx /= len; dz /= len;
 
         lastDashMs = now;
+        CooldownState.INSTANCE.trigger(CooldownState.Ability.DASH, CooldownState.DASH_CD_MS);
         if (ClientPlayNetworking.canSend(CombatInputPayload.ID)) {
             ClientPlayNetworking.send(new CombatInputPayload(
                 CombatInputPayload.KIND_DASH, (float) dx, (float) dz));
@@ -112,5 +113,8 @@ public final class CombatInput {
     }
 
     /** Reset à la déconnexion (pas d'envoi). */
-    public void reset() { blocking = false; wasSwinging = false; comboIndex = 0; lastSwingMs = 0L; lastDashMs = 0L; }
+    public void reset() {
+        blocking = false; wasSwinging = false; comboIndex = 0; lastSwingMs = 0L; lastDashMs = 0L;
+        CooldownState.INSTANCE.clear();
+    }
 }

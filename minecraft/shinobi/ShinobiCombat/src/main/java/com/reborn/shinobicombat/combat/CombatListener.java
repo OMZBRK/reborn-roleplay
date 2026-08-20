@@ -91,7 +91,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
     // --- dash (déplacement directionnel) -----------------------------------
     /** Cooldown entre deux dashs, par joueur (ms). */
-    private static final long DASH_COOLDOWN_MS = 600L;
+    private static final long DASH_COOLDOWN_MS = 1500L;
     /** Coût stamina d'un dash. */
     private static final double DASH_COST = 20.0;
     /** Vitesse horizontale du dash. */
@@ -284,6 +284,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         lastDashMs.put(id, now);
 
         player.setVelocity(new Vector(dx * DASH_SPEED, DASH_UP, dz * DASH_SPEED));
+        player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_ATTACK_SWEEP, org.bukkit.SoundCategory.PLAYERS, 0.7f, 1.5f);
         CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max());
     }
 

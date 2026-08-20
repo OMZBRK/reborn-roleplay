@@ -29,7 +29,8 @@ public enum HudElement {
     ARMOR         ("armor",          "Armor",        "Indicateur d'armure",                     HudAnchor.BOTTOM_CENTER),
     AIR           ("air",            "Air",          "Bulles d'air sous l'eau",                 HudAnchor.BOTTOM_CENTER),
     VITALS        ("vitals",         "Vitals RP",    "Tête + vie + chakra + stamina (panneau RP)", HudAnchor.TOP_LEFT),
-    COMBAT_ENDURANCE("combat_endurance", "Endurance", "Barre d'endurance de combat (garde M2)", HudAnchor.CENTER);
+    COMBAT_ENDURANCE("combat_endurance", "Endurance", "Barre d'endurance de combat (garde M2)", HudAnchor.CENTER),
+    COOLDOWNS     ("cooldowns",       "Cooldowns",    "Icônes de cooldown (dash, sauts…)",        HudAnchor.BOTTOM_CENTER);
 
     private final String id;
     private final String displayName;
