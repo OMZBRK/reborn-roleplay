@@ -75,6 +75,9 @@ public final class HudKeybinds {
         // Menu de sélection de personnage : sur serveur → demande au plugin de
         // (r)ouvrir la sélection (C2S "open") ; en solo/dev → ouvre l'écran mock.
         KeyMapping charMenu = bind("key.reborn-hud.char_menu", GLFW.GLFW_KEY_SEMICOLON);
+        // Dash de combat (8 directions selon l'input WASD). V = libre dans le
+        // modpack (pas de ReplayMod), rebindable.
+        KeyMapping dash = bind("key.reborn-hud.dash", GLFW.GLFW_KEY_V);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
@@ -133,6 +136,12 @@ public final class HudKeybinds {
                     // Bascule la course chakraïque : active le mouvement libre
                     // client + informe le plugin serveur (canal reborn:naruto).
                     fr.reborn.hud.animation.NarutoRun.INSTANCE.toggle();
+                }
+            }
+            while (dash.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null && mc.gui.screen() == null) {
+                    fr.reborn.hud.combat.CombatInput.INSTANCE.dash(mc);
                 }
             }
             while (walkMenu.consumeClick()) {

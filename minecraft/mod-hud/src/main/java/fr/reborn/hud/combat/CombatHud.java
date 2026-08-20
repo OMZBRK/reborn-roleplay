@@ -92,19 +92,32 @@ public final class CombatHud {
             }
         }
 
-        // ── Barre d'endurance (garde M2) : visible en combat OU pendant la garde.
-        // Se draine à chaque coup bloqué ; à 0 = guard-break (côté serveur).
-        boolean blocking = CombatInput.INSTANCE.isBlocking();
-        float barA = Math.max(rA, blocking ? 1f : 0f);
-        if (barA > 0.01f) drawEnduranceBar(ctx, cx, cy + 18, st.staminaFraction(), barA, blocking);
+        // La barre d'endurance est un ÉLÉMENT HUD DÉPLAÇABLE (cf. renderEnduranceBar
+        // + registre "combat-endurance" dans RebornHudClient) → plus rendue ici au centre.
     }
 
     private static final int BAR_W = 90, BAR_H = 5;
 
-    /** Barre d'endurance horizontale sous le viseur (bleutée quand la garde est active). */
-    private static void drawEnduranceBar(GuiGraphicsExtractor ctx, int cx, int y,
+    /**
+     * Barre d'endurance de combat rendue à une position HUD (élément déplaçable via
+     * l'éditeur). Visible seulement en combat ou pendant la garde. {@code (x,y)} =
+     * coin haut-gauche ; {@code scale} depuis l'état HUD.
+     */
+    public static void renderEnduranceBar(GuiGraphicsExtractor ctx, int x, int y, float scale) {
+        CombatState st = CombatState.INSTANCE;
+        boolean blocking = CombatInput.INSTANCE.isBlocking();
+        float barA = Math.max(st.combatModeAlpha(System.currentTimeMillis()), blocking ? 1f : 0f);
+        if (barA <= 0.01f) return;
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y);
+        if (scale != 1f) ctx.pose().scale(scale, scale);
+        drawEnduranceBar(ctx, 0, 0, st.staminaFraction(), barA, blocking);
+        ctx.pose().popMatrix();
+    }
+
+    /** Dessine la barre depuis le coin haut-gauche {@code (x,y)} (bleutée en garde). */
+    private static void drawEnduranceBar(GuiGraphicsExtractor ctx, int x, int y,
                                          float frac, float alpha, boolean blocking) {
-        int x = cx - BAR_W / 2;
         int bg = (Math.round(alpha * 150f) << 24);
         int border = blocking ? applyAlpha(0xFF7FB4FF, alpha)
                               : (Math.round(alpha * 90f) << 24) | 0x00FFFFFF;

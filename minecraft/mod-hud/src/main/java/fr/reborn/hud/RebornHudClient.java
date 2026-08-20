@@ -272,6 +272,22 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat"),
             (ctx, tickCounter) -> fr.reborn.hud.combat.CombatHud.render(ctx));
+        // Barre d'endurance de combat — élément HUD DÉPLAÇABLE (éditeur HUD, touche H).
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat-endurance"),
+            (ctx, tickCounter) -> {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player == null || mc.options == null || mc.gui.hud.isHidden() || mc.gui.screen() != null) return;
+                fr.reborn.hud.element.HudElementState st;
+                try { st = config().stateOf(fr.reborn.hud.element.HudElement.COMBAT_ENDURANCE); }
+                catch (RuntimeException e) { return; }
+                if (!st.visible()) return;
+                int w = mc.getWindow().getGuiScaledWidth();
+                int h = mc.getWindow().getGuiScaledHeight();
+                fr.reborn.hud.element.HudElementBounds b = fr.reborn.hud.element.HudElementBounds.currentFor(
+                    fr.reborn.hud.element.HudElement.COMBAT_ENDURANCE, st, w, h);
+                fr.reborn.hud.combat.CombatHud.renderEnduranceBar(ctx, b.x(), b.y(), st.scale());
+            });
 
         // Extrait les assets dynamic-player + schedule la creation du
         // browser MCEF pour le main menu background.

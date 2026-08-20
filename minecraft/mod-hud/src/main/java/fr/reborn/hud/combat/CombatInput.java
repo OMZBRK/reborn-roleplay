@@ -71,11 +71,46 @@ public final class CombatInput {
                 want ? CombatAnimations.ANIM_BLOCK_ON : CombatAnimations.ANIM_BLOCK_OFF);
         }
         if (ClientPlayNetworking.canSend(CombatInputPayload.ID)) {
-            ClientPlayNetworking.send(new CombatInputPayload(
+            ClientPlayNetworking.send(CombatInputPayload.of(
                 want ? CombatInputPayload.KIND_BLOCK_ON : CombatInputPayload.KIND_BLOCK_OFF));
         }
     }
 
+    /** Anti-spam client du dash (le serveur a son propre cooldown autoritaire). */
+    private static final long DASH_CD_MS = 500L;
+    private long lastDashMs = 0L;
+
+    /**
+     * Déclenche un dash directionnel (8 directions). La direction = input WASD
+     * relatif à la vue ; sans input → arrière (backstep). Envoie la direction MONDE
+     * normalisée au serveur, qui applique la vélocité (autoritaire). L'anim de slide
+     * (fournie plus tard) se branchera ici.
+     */
+    public void dash(Minecraft mc) {
+        LocalPlayer p = mc.player;
+        if (p == null || mc.level == null || mc.gui.screen() != null) return;
+        long now = System.currentTimeMillis();
+        if (now - lastDashMs < DASH_CD_MS) return;
+
+        double yr = Math.toRadians(p.getYRot());
+        double fx = -Math.sin(yr), fz = Math.cos(yr);   // avant
+        double lx = Math.cos(yr), lz = Math.sin(yr);    // gauche
+        int f = (mc.options.keyUp.isDown() ? 1 : 0) - (mc.options.keyDown.isDown() ? 1 : 0);
+        int l = (mc.options.keyLeft.isDown() ? 1 : 0) - (mc.options.keyRight.isDown() ? 1 : 0);
+        double dx, dz;
+        if (f == 0 && l == 0) { dx = -fx; dz = -fz; }   // aucune touche → recul
+        else { dx = f * fx + l * lx; dz = f * fz + l * lz; }
+        double len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 1.0e-6) return;
+        dx /= len; dz /= len;
+
+        lastDashMs = now;
+        if (ClientPlayNetworking.canSend(CombatInputPayload.ID)) {
+            ClientPlayNetworking.send(new CombatInputPayload(
+                CombatInputPayload.KIND_DASH, (float) dx, (float) dz));
+        }
+    }
+
     /** Reset à la déconnexion (pas d'envoi). */
-    public void reset() { blocking = false; wasSwinging = false; comboIndex = 0; lastSwingMs = 0L; }
+    public void reset() { blocking = false; wasSwinging = false; comboIndex = 0; lastSwingMs = 0L; lastDashMs = 0L; }
 }
