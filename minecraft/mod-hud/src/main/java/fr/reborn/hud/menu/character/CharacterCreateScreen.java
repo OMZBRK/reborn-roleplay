@@ -58,13 +58,33 @@ public class CharacterCreateScreen extends Screen {
         "Ninja renégat, sans allégeance. Traqué par tous les villages — libre, mais seul."
     };
 
+    // Répertoire MAÎTRE des clans (couleur + lore), indexé par nom. L'affichage
+    // est piloté par VILLAGE_CLANS (dissociation par village) ; ce tableau ne sert
+    // plus qu'à retrouver couleur/desc d'un clan par son nom. Les noms Konoha sont
+    // conservés À L'IDENTIQUE (gating ShinobiCore + tags clan de catalog.json).
     private static final String[] CLANS = {
+        // Konoha
         "Senju", "Uchiha", "Hyuga", "Nara", "Sarutobi", "Uzumaki",
-        "Aburame", "Akimichi", "Hatake", "Yamanaka", "Kurama", "Autre"
+        "Aburame", "Akimichi", "Hatake", "Yamanaka", "Kurama",
+        // Suna
+        "Sabaku", "Hoki",
+        // Kiri
+        "Hozuki", "Hoshigaki", "Kaguya", "Yuki", "Terumi",
+        // Kumo
+        "Yotsuki",
+        // Iwa
+        "Kamizuru", "Onoki",
+        // Clan custom (toujours en dernier)
+        "Autre"
     };
     private static final int[] C_COLOR = {
         0xFF2E8B57, 0xFFB1302B, 0xFFCFC6E0, 0xFF5B6B3A, 0xFFC8722E, 0xFFD9532E,
-        0xFF4A4F3A, 0xFFE0A33B, 0xFFAEB4BC, 0xFF8E5BB5, 0xFF8B1E2B, 0xFF6A6A6A
+        0xFF4A4F3A, 0xFFE0A33B, 0xFFAEB4BC, 0xFF8E5BB5, 0xFF8B1E2B,   // Konoha
+        0xFFC97B3C, 0xFFB8A05A,                                       // Suna
+        0xFF4FA3C7, 0xFF3E6E8C, 0xFFD8D2C4, 0xFFA9D5E8, 0xFFCF5A3A,   // Kiri
+        0xFFE0C24B,                                                   // Kumo
+        0xFFC89A3B, 0xFF8C8577,                                       // Iwa
+        0xFF6A6A6A                                                    // Autre
     };
     private static final String[] C_DESC = {
         "Le Clan de la Forêt, descendants du Sage. Vitalité hors norme et affinités multiples.",
@@ -78,8 +98,36 @@ public class CharacterCreateScreen extends Screen {
         "Lignée des Crocs Blancs, ninjas d'élite. Vitesse, ninken et talent rare.",
         "Le Clan de l'esprit, transfert mental. Renseignement et liens du cœur.",
         "Le Clan des illusions, genjutsu redoutable. Sensibilité et fardeau intérieur.",
+        // Suna
+        "Le Clan du Désert, lignée du Kazekage. Maîtrise du sable et fardeau du jinchūriki.",
+        "Vieille lignée de Suna, marionnettistes aguerris. Patience et fils invisibles.",
+        // Kiri
+        "Le Clan de l'hydrification, corps de liquide. Sabreurs et Mizukage d'exception.",
+        "Lignée aux traits de requin, chakra colossal. Force brute et lame Samehada.",
+        "Le Clan aux ossements, Shikotsumyaku. Lignée maudite, fierté et sacrifice.",
+        "Le Clan des neiges, Élément Glace. Doux de cœur, traqués pour leur sang.",
+        "Double kekkei genkai, Lave et Vapeur. Volonté de fer, sang de Mizukage.",
+        // Kumo
+        "Lignée du Raikage, foudre et vitesse. Puissance brute, fierté de Kumo.",
+        // Iwa
+        "Le Clan des abeilles, insectes de miel. Rivaux ancestraux des Aburame.",
+        "Lignée du Tsuchikage, Style Poussière. Fierté tenace, défense inébranlable.",
+        // Autre
         "Clan ou famille personnalisé. Saisis un nom qui ne correspond à aucun clan connu."
     };
+
+    /** Clans par village (parallèle à {@link #VILLAGES}). « Autre » (custom) partout. */
+    private static final String[][] VILLAGE_CLANS = {
+        {"Uchiha", "Senju", "Hyuga", "Nara", "Sarutobi", "Aburame",
+         "Akimichi", "Yamanaka", "Hatake", "Uzumaki", "Kurama", "Autre"},   // Konoha
+        {"Sabaku", "Hoki", "Autre"},                                        // Suna
+        {"Hozuki", "Hoshigaki", "Kaguya", "Yuki", "Terumi", "Autre"},       // Kiri
+        {"Yotsuki", "Autre"},                                               // Kumo
+        {"Kamizuru", "Onoki", "Autre"},                                     // Iwa
+        {"Autre"},                                                          // Ame
+        {"Autre"},                                                          // Déserteur
+    };
+    private static final String[] NO_CLANS = {};
 
     private static final String[] SEXES = { "Homme", "Femme" };
 
@@ -217,6 +265,26 @@ public class CharacterCreateScreen extends Screen {
         return "Autre".equals(clan) ? customClanField.getValue().trim() : clan;
     }
 
+    /** Clans du village sélectionné (vide tant qu'aucun village n'est choisi). */
+    private String[] villageClans() {
+        if (village.isBlank()) return NO_CLANS;
+        return VILLAGE_CLANS[indexOf(VILLAGES, village)];
+    }
+
+    /** Vrai si {@code c} appartient au village courant. */
+    private boolean containsClan(String c) {
+        if (c == null || c.isBlank()) return false;
+        for (String x : villageClans()) if (x.equals(c)) return true;
+        return false;
+    }
+
+    /** Slug ASCII pour un nom de clan/village (chemin de logo). Ex. « Hyūga » → « hyuga ». */
+    private static String slug(String s) {
+        String n = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+            .replaceAll("\\p{M}", "");
+        return n.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_");
+    }
+
     // ── Layout ────────────────────────────────────────────────────
     private int panelX() { return 34; }
     private int panelW() { return Math.min(372, (int) (this.width * 0.46f)); }
@@ -334,25 +402,35 @@ public class CharacterCreateScreen extends Screen {
             boolean sel = VILLAGES[i].equals(village);
             boolean locked = villageLocked(VILLAGES[i]);
             boolean hover = hit(mx, my, p[0], p[1], TILE, TILE);
-            tile(ctx, tr, p[0], p[1], mono(V_SHORT[i]), V_SHORT[i], V_COLOR[i], sel, locked, hover);
+            tile(ctx, tr, p[0], p[1], mono(V_SHORT[i]), V_SHORT[i],
+                "village/" + slug(V_SHORT[i]), V_COLOR[i], sel, locked, hover);
             if (hover && !locked) { descTitle = V_SHORT[i]; descBody = V_DESC[i]; }
         }
         int vRows = rows(VILLAGES.length);
         int cLabelY = vBase + vRows * CELL_H + 6;
         label(ctx, tr, "CLAN", panelX(), cLabelY);
         int cBase = cLabelY + 14;
-        for (int i = 0; i < CLANS.length; i++) {
-            int[] p = tileXY(cBase, i);
-            boolean sel = CLANS[i].equals(clan);
-            boolean locked = clanLocked(CLANS[i]);
-            boolean hover = hit(mx, my, p[0], p[1], TILE, TILE);
-            tile(ctx, tr, p[0], p[1], mono(CLANS[i]), CLANS[i], C_COLOR[i], sel, locked, hover);
-            if (hover && !locked) { descTitle = CLANS[i]; descBody = C_DESC[i]; }
+        // Clans DISSOCIÉS par village : seuls ceux du village choisi s'affichent.
+        String[] clans = villageClans();
+        if (village.isBlank()) {
+            ctx.text(tr, RebornFont.arcade("Choisis d'abord un village."),
+                panelX(), cBase, Colors.FOREGROUND_MUTED, false);
+        } else {
+            for (int i = 0; i < clans.length; i++) {
+                int ci = indexOf(CLANS, clans[i]);       // couleur/lore depuis le répertoire maître
+                int[] p = tileXY(cBase, i);
+                boolean sel = clans[i].equals(clan);
+                boolean locked = clanLocked(clans[i]);
+                boolean hover = hit(mx, my, p[0], p[1], TILE, TILE);
+                tile(ctx, tr, p[0], p[1], mono(clans[i]), clans[i],
+                    "clan/" + slug(clans[i]), C_COLOR[ci], sel, locked, hover);
+                if (hover && !locked) { descTitle = clans[i]; descBody = C_DESC[ci]; }
+            }
         }
 
         // Champ « Autre » (nom de clan libre).
         if ("Autre".equals(clan)) {
-            int cRows = rows(CLANS.length);
+            int cRows = rows(clans.length);
             int fy = cBase + cRows * CELL_H + 4;
             ctx.text(tr, RebornFont.arcade("NOM DE CLAN"), panelX(), fy, Colors.FOREGROUND_MUTED, false);
             customClanField.setX(panelX());
@@ -1120,7 +1198,7 @@ public class CharacterCreateScreen extends Screen {
 
     /** Tuile village/clan : monogramme + légende, avec états sélection/verrou/hover. */
     private void tile(GuiGraphicsExtractor ctx, Font tr, int x, int y, String monogram,
-                      String caption, int color, boolean sel, boolean locked, boolean hover) {
+                      String caption, String iconSlug, int color, boolean sel, boolean locked, boolean hover) {
         int fill = locked ? Colors.withAlpha(0xFF000000, 0.5f)
             : sel ? Colors.withAlpha(color, 0.55f)
             : hover ? Colors.withAlpha(color, 0.35f)
@@ -1131,9 +1209,15 @@ public class CharacterCreateScreen extends Screen {
             : Colors.withAlpha(Colors.FOREGROUND, 0.22f);
         DrawHelpers.roundedOutlinedRect(ctx, x, y, TILE, TILE, 8, fill, border);
 
-        Component m = RebornFont.arcade(monogram);
-        int mCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.6f) : Colors.WHITE_PURE;
-        ctx.text(tr, m, x + (TILE - tr.width(m)) / 2, y + (TILE - 8) / 2, mCol, false);
+        // Logo si livré (assets/reborn/textures/character/ui/<iconSlug>.png), sinon
+        // monogramme stylé. Tuile verrouillée = on garde le monogramme (croix rouge).
+        boolean hasLogo = !locked && iconSlug != null
+            && blitTile(ctx, iconSlug, x + TILE / 2, y + TILE / 2);
+        if (!hasLogo) {
+            Component m = RebornFont.arcade(monogram);
+            int mCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.6f) : Colors.WHITE_PURE;
+            ctx.text(tr, m, x + (TILE - tr.width(m)) / 2, y + (TILE - 8) / 2, mCol, false);
+        }
 
         if (locked) {
             DrawHelpers.thickLine(ctx, x + 9, y + 9, x + TILE - 9, y + TILE - 9, 2,
@@ -1293,16 +1377,20 @@ public class CharacterCreateScreen extends Screen {
                     int[] p = tileXY(vBase, i);
                     if (hit(mx, my, p[0], p[1], TILE, TILE)) {
                         if (villageLocked(VILLAGES[i])) { toast("Ce village ne correspond pas à ta candidature."); }
-                        else village = VILLAGES[i];
+                        else {
+                            village = VILLAGES[i];
+                            if (!containsClan(clan)) clan = "";   // le clan doit appartenir au village
+                        }
                         return true;
                     }
                 }
                 int cBase = vBase + rows(VILLAGES.length) * CELL_H + 6 + 14;
-                for (int i = 0; i < CLANS.length; i++) {
+                String[] clans = villageClans();
+                for (int i = 0; i < clans.length; i++) {
                     int[] p = tileXY(cBase, i);
                     if (hit(mx, my, p[0], p[1], TILE, TILE)) {
-                        if (clanLocked(CLANS[i])) { toast("Ce clan ne correspond pas à ta candidature."); }
-                        else clan = CLANS[i];
+                        if (clanLocked(clans[i])) { toast("Ce clan ne correspond pas à ta candidature."); }
+                        else clan = clans[i];
                         return true;
                     }
                 }
