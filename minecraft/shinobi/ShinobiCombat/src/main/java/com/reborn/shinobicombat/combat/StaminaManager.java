@@ -45,6 +45,19 @@ public final class StaminaManager {
         return true;
     }
 
+    /**
+     * Draine {@code amount} de stamina <b>sans échouer</b> : borne à 0 (contrairement
+     * à {@link #tryConsume}). Utilisé pour la garde (M2) où un coup bloqué peut vider
+     * la réserve et déclencher un guard break. Gèle la régén pendant
+     * {@link #REGEN_DELAY_MS}. Retourne la stamina restante.
+     */
+    public double drain(UUID id, double amount) {
+        double next = Math.max(0.0, get(id) - amount);
+        current.put(id, next);
+        lastConsume.put(id, System.currentTimeMillis());
+        return next;
+    }
+
     /** Régénère les joueurs suivis hors délai post-coup. */
     public void tickRegen(double dtSeconds) {
         long now = System.currentTimeMillis();

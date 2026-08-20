@@ -47,11 +47,14 @@ public final class ShinobiCombat extends JavaPlugin {
 
         this.stamina = new StaminaManager();
 
-        // Canal serveur→client pour le HUD combat (damage indicators + stamina).
+        // Canal serveur→client pour le HUD combat (damage indicators + stamina + anims).
         getServer().getMessenger().registerOutgoingPluginChannel(this, CombatChannel.CHANNEL);
 
-        getServer().getPluginManager().registerEvents(
-                new CombatListener(this, characters, ko, stamina), this);
+        CombatListener combat = new CombatListener(this, characters, ko, stamina);
+        getServer().getPluginManager().registerEvents(combat, this);
+
+        // Canal client→serveur pour les intentions combat (M2).
+        getServer().getMessenger().registerIncomingPluginChannel(this, CombatChannel.CHANNEL_IN, combat);
 
         // Régénération de stamina + sync client léger (uniquement ceux qui régénèrent).
         this.regenTask = getServer().getScheduler().runTaskTimer(this, () -> {
@@ -65,7 +68,7 @@ public final class ShinobiCombat extends JavaPlugin {
             }
         }, REGEN_PERIOD_TICKS, REGEN_PERIOD_TICKS);
 
-        getLogger().info("ShinobiCombat activé — taïjutsu incrément 1 (M1 + stamina).");
+        getLogger().info("ShinobiCombat activé — taïjutsu incrément 2 (combos M1 + M2 lourd).");
     }
 
     @Override
@@ -73,6 +76,9 @@ public final class ShinobiCombat extends JavaPlugin {
         if (regenTask != null) regenTask.cancel();
         if (getServer().getMessenger().isOutgoingChannelRegistered(this, CombatChannel.CHANNEL)) {
             getServer().getMessenger().unregisterOutgoingPluginChannel(this, CombatChannel.CHANNEL);
+        }
+        if (getServer().getMessenger().isIncomingChannelRegistered(this, CombatChannel.CHANNEL_IN)) {
+            getServer().getMessenger().unregisterIncomingPluginChannel(this, CombatChannel.CHANNEL_IN);
         }
     }
 }
