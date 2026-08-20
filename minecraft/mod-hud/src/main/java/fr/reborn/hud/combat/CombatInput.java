@@ -107,8 +107,7 @@ public final class CombatInput {
         lastDashMs = now;
         CooldownState.INSTANCE.trigger(CooldownState.Ability.DASH, CooldownState.DASH_CD_MS);
         if (ClientPlayNetworking.canSend(CombatInputPayload.ID)) {
-            ClientPlayNetworking.send(new CombatInputPayload(
-                CombatInputPayload.KIND_DASH, (float) dx, (float) dz));
+            ClientPlayNetworking.send(CombatInputPayload.dash((float) dx, (float) dz));
         }
     }
 

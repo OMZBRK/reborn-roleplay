@@ -191,6 +191,8 @@ public final class HudKeybinds {
             fr.reborn.hud.animation.MovementAnimations.INSTANCE.tick(Minecraft.getInstance());
             // Garde M2 (clic droit maintenu à mains nues) → anim + C2S.
             fr.reborn.hud.combat.CombatInput.INSTANCE.tick(Minecraft.getInstance());
+            // Saut de chakra (sneak + espace maintenus → charge + saut).
+            fr.reborn.hud.combat.ChakraJump.INSTANCE.tick(Minecraft.getInstance());
 
             // Déplacement free-cam du mode photo (lecture clavier brute).
             fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(Minecraft.getInstance());

@@ -20,6 +20,7 @@
     "KeyboardInputMixin",
     "LocalPlayerBodyMixin",
     "EntityChangeLookMixin",
+    "PlayerJumpMixin",
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",
     "InGameHudCinemaMixin",

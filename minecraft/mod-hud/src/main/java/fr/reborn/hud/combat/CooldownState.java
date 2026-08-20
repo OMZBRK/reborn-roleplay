@@ -16,6 +16,8 @@ public final class CooldownState {
 
     /** Durée du CD de dash (doit matcher {@code DASH_COOLDOWN_MS} serveur). */
     public static final long DASH_CD_MS = 1500L;
+    /** Durée du CD du saut de chakra (doit matcher le serveur). */
+    public static final long CHAKRA_JUMP_CD_MS = 4000L;
 
     /** Capacités affichées dans le HUD de cooldowns. {@code glyph} = placeholder
      *  tant qu'aucune icône {@code textures/gui/ability/<name>.png} n'est livrée. */
@@ -23,8 +25,9 @@ public final class CooldownState {
         // alwaysShow=false → l'icône n'apparaît QUE pendant le cooldown, puis disparaît.
         // frames/frameMs : anim de l'icône (bande verticale reborn:textures/gui/ability/<name>.png,
         // frames empilées de haut en bas, chaque frame = côté de l'icône interne).
-        DASH("Dash", 0xFF7FB4FF, ">>", false, 4, 100L);
-        // À VENIR : DOUBLE_JUMP, CHAKRA_JUMP… (se branchent ici + trigger au bon endroit)
+        DASH("Dash", 0xFF7FB4FF, ">>", false, 4, 100L),
+        CHAKRA_JUMP("Saut de chakra", 0xFF9B7FE0, "^", false, 1, 0L);
+        // À VENIR : DOUBLE_JUMP… (se branchent ici + trigger au bon endroit)
 
         public final String label;
         public final int color;

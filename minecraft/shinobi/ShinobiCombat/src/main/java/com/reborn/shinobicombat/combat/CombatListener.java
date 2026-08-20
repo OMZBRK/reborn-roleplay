@@ -99,6 +99,18 @@ public final class CombatListener implements Listener, PluginMessageListener {
     /** Composante verticale (petit décollage) du dash. */
     private static final double DASH_UP = 0.15;
 
+    // --- saut chakra (leap vertical/directionnel) --------------------------
+    /** Cooldown entre deux sauts chakra, par joueur (ms). */
+    private static final long CHAKRA_JUMP_COOLDOWN_MS = 4000L;
+    /** Coût stamina d'un saut chakra. */
+    private static final double CHAKRA_JUMP_COST = 25.0;
+    /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
+    private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 1.6;
+    /** Composante verticale min (anti-cheat). */
+    private static final double CHAKRA_JUMP_MIN_VY = -0.2;
+    /** Composante verticale max (anti-cheat). */
+    private static final double CHAKRA_JUMP_MAX_VY = 1.2;
+
     // --- commun -------------------------------------------------------------
     /** Amplificateur SLOWNESS commun aux hitstun / guard break. */
     private static final int SLOWNESS_AMP = 6;
@@ -117,6 +129,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private final Set<UUID> blocking = ConcurrentHashMap.newKeySet();
     // Dernier dash par joueur (cooldown).
     private final Map<UUID, Long> lastDashMs = new ConcurrentHashMap<>();
+    // Dernier saut chakra par joueur (cooldown).
+    private final Map<UUID, Long> lastChakraJumpMs = new ConcurrentHashMap<>();
 
     public CombatListener(Plugin plugin, CharacterService characters, KoService ko, StaminaManager stamina) {
         this.plugin = plugin;
@@ -242,12 +256,20 @@ public final class CombatListener implements Listener, PluginMessageListener {
         byte kind;
         float dx = 0f;
         float dz = 0f;
+        float vx = 0f;
+        float vy = 0f;
+        float vz = 0f;
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(message))) {
             kind = in.readByte();
             if (kind == CombatChannel.KIND_DASH) {
                 // Corps du dash : direction horizontale monde (déjà normalisée).
                 dx = in.readFloat();
                 dz = in.readFloat();
+            } else if (kind == CombatChannel.KIND_CHAKRA_JUMP) {
+                // Corps du saut chakra : vélocité monde (clampée serveur).
+                vx = in.readFloat();
+                vy = in.readFloat();
+                vz = in.readFloat();
             }
         } catch (IOException ignored) {
             return; // paquet malformé — on ignore
@@ -258,6 +280,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
             stopBlocking(player, false);
         } else if (kind == CombatChannel.KIND_DASH) {
             handleDash(player, dx, dz);
+        } else if (kind == CombatChannel.KIND_CHAKRA_JUMP) {
+            handleChakraJump(player, vx, vy, vz);
         }
     }
 
@@ -285,6 +309,48 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
         player.setVelocity(new Vector(dx * DASH_SPEED, DASH_UP, dz * DASH_SPEED));
         player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_ATTACK_SWEEP, org.bukkit.SoundCategory.PLAYERS, 0.7f, 1.5f);
+        CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max());
+    }
+
+    /**
+     * Saut chakra : bond puissant dont la vélocité est calculée côté client. Mêmes
+     * gardes que le dash (personnage actif, non KO, cooldown, stamina), plus un
+     * <b>clamp anti-cheat</b> : magnitude horizontale bornée à
+     * {@link #CHAKRA_JUMP_MAX_HORIZONTAL} (mise à l'échelle proportionnelle) et
+     * composante verticale bornée à {@code [CHAKRA_JUMP_MIN_VY, CHAKRA_JUMP_MAX_VY]}.
+     * Consomme {@link #CHAKRA_JUMP_COST}, arme le cooldown, envoie la stamina. Le
+     * mouvement est observable par les autres clients — aucune anim à diffuser.
+     */
+    private void handleChakraJump(Player player, float vx, float vy, float vz) {
+        UUID id = player.getUniqueId();
+        if (characters.getActive(id) == null) return;
+        if (ko != null && ko.isKo(id)) return;
+
+        long now = System.currentTimeMillis();
+        Long last = lastChakraJumpMs.get(id);
+        if (last != null && now - last < CHAKRA_JUMP_COOLDOWN_MS) return;
+
+        if (!stamina.tryConsume(id, CHAKRA_JUMP_COST)) {
+            player.sendActionBar(Component.text("Stamina épuisée", NamedTextColor.RED));
+            CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max());
+            return;
+        }
+        lastChakraJumpMs.put(id, now);
+
+        // Clamp anti-cheat : magnitude horizontale.
+        double cvx = vx;
+        double cvz = vz;
+        double horizontal = Math.sqrt(cvx * cvx + cvz * cvz);
+        if (horizontal > CHAKRA_JUMP_MAX_HORIZONTAL) {
+            double scale = CHAKRA_JUMP_MAX_HORIZONTAL / horizontal;
+            cvx *= scale;
+            cvz *= scale;
+        }
+        // Clamp anti-cheat : composante verticale.
+        double cvy = Math.max(CHAKRA_JUMP_MIN_VY, Math.min(CHAKRA_JUMP_MAX_VY, vy));
+
+        player.setVelocity(new Vector(cvx, cvy, cvz));
+        player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDER_DRAGON_FLAP, org.bukkit.SoundCategory.PLAYERS, 0.7f, 1.4f);
         CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max());
     }
 
@@ -375,5 +441,6 @@ public final class CombatListener implements Listener, PluginMessageListener {
         lastHitMs.remove(id);
         blocking.remove(id);
         lastDashMs.remove(id);
+        lastChakraJumpMs.remove(id);
     }
 }

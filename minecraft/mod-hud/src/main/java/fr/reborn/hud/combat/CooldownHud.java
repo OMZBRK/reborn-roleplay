@@ -24,11 +24,13 @@ public final class CooldownHud {
     private CooldownHud() {}
 
     public static final int ICON = 22, GAP = 4;
+    /** Côté d'une frame source des textures d'icône (native 32×32, dessinée réduite). */
+    private static final int FRAME = 32;
     private static final CooldownState.Ability[] SHOWN = CooldownState.Ability.values();
     private static final java.util.Map<String, Boolean> TEX_EXISTS = new ConcurrentHashMap<>();
 
     public static int width()  { return SHOWN.length * ICON + Math.max(0, SHOWN.length - 1) * GAP; }
-    public static int height() { return ICON; }
+    public static int height() { return ICON + 10; }   // icône + ligne de secondes en dessous
 
     public static void render(GuiGraphicsExtractor ctx, int x, int y, float scale) {
         long now = System.currentTimeMillis();
@@ -60,24 +62,27 @@ public final class CooldownHud {
         // Icône : texture si livrée, sinon glyphe placeholder.
         String slug = a.name().toLowerCase(Locale.ROOT);
         if (texExists(slug)) {
-            // Icône = bande verticale de frames (côté = inner). On anime par le temps.
-            int inner = ICON - 6;
+            // Icône 32×32 native (bande verticale de frames empilées), dessinée réduite
+            // via blit avec scaling (dest inner ← source FRAME). Animée par le temps.
+            int inner = ICON - 4;
             int frames = Math.max(1, a.frames);
             int fr = (frames <= 1 || a.frameMs <= 0) ? 0 : (int) ((now / a.frameMs) % frames);
             ctx.blit(RenderPipelines.GUI_TEXTURED, iconId(slug),
-                x + 3, y + 3, 0f, (float) (fr * inner), inner, inner, inner, inner * frames);
+                x + 2, y + 2, 0f, (float) (fr * FRAME), inner, inner, FRAME, FRAME, FRAME, FRAME * frames);
         } else {
             Component g = RebornFont.arcade(a.glyph);
             ctx.text(font, g, x + (ICON - font.width(g)) / 2, y + (ICON - 8) / 2,
                 ready ? 0xFFFFFFFF : 0x99FFFFFF, false);
         }
 
-        // Cooldown : cache radial (balayage horaire) + secondes restantes.
+        // Cooldown : voile radial LÉGER (l'icône reste bien visible) + secondes SOUS l'icône.
         if (!ready) {
-            radialCover(ctx, x, y, ICON, frac, 0x99000000);
+            radialCover(ctx, x, y, ICON, frac, 0x55000000);
             String s = String.format(Locale.US, "%.1f", CooldownState.INSTANCE.remainingMs(a, now) / 1000f);
             Component t = RebornFont.bold(s);
-            ctx.text(font, t, x + (ICON - font.width(t)) / 2, y + (ICON - 8) / 2, 0xFFFFFFFF, false);
+            int tx = x + (ICON - font.width(t)) / 2, ty = y + ICON + 1;
+            ctx.text(font, t, tx + 1, ty + 1, 0xC0000000, false);   // ombre lisibilité
+            ctx.text(font, t, tx, ty, 0xFFFFFFFF, false);
         }
     }
 

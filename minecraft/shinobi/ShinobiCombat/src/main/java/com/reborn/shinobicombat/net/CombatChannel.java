@@ -33,7 +33,9 @@ import java.util.Collection;
  * {@link #KIND_BLOCK_ON} = début de garde (M2 maintenu, aucun corps),
  * {@link #KIND_BLOCK_OFF} = fin de garde (aucun corps),
  * {@link #KIND_DASH} = dash directionnel (corps : {@code float dx}, {@code float dz}
- * — direction horizontale monde normalisée).
+ * — direction horizontale monde normalisée),
+ * {@link #KIND_CHAKRA_JUMP} = saut chakra (corps : {@code float vx}, {@code float vy},
+ * {@code float vz} — vélocité monde calculée côté client, clampée serveur).
  */
 public final class CombatChannel {
 
@@ -57,6 +59,8 @@ public final class CombatChannel {
     public static final byte KIND_BLOCK_OFF = 3;
     /** Dash directionnel — suivi de {@code float dx}, {@code float dz}. */
     public static final byte KIND_DASH = 4;
+    /** Saut chakra — suivi de {@code float vx}, {@code float vy}, {@code float vz}. */
+    public static final byte KIND_CHAKRA_JUMP = 5;
 
     private CombatChannel() {}
 
