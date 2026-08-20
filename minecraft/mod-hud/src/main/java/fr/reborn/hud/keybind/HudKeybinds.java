@@ -180,6 +180,8 @@ public final class HudKeybinds {
             fr.reborn.hud.camera.RebornCamera.INSTANCE.tickView(Minecraft.getInstance());
             // Anims de mouvement (marche/course/naruto-run) du joueur local.
             fr.reborn.hud.animation.MovementAnimations.INSTANCE.tick(Minecraft.getInstance());
+            // Garde M2 (clic droit maintenu à mains nues) → anim + C2S.
+            fr.reborn.hud.combat.CombatInput.INSTANCE.tick(Minecraft.getInstance());
 
             // Déplacement free-cam du mode photo (lecture clavier brute).
             fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(Minecraft.getInstance());

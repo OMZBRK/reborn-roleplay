@@ -91,6 +91,27 @@ public final class CombatHud {
                 ctx.pose().popMatrix();
             }
         }
+
+        // ── Barre d'endurance (garde M2) : visible en combat OU pendant la garde.
+        // Se draine à chaque coup bloqué ; à 0 = guard-break (côté serveur).
+        boolean blocking = CombatInput.INSTANCE.isBlocking();
+        float barA = Math.max(rA, blocking ? 1f : 0f);
+        if (barA > 0.01f) drawEnduranceBar(ctx, cx, cy + 18, st.staminaFraction(), barA, blocking);
+    }
+
+    private static final int BAR_W = 90, BAR_H = 5;
+
+    /** Barre d'endurance horizontale sous le viseur (bleutée quand la garde est active). */
+    private static void drawEnduranceBar(GuiGraphicsExtractor ctx, int cx, int y,
+                                         float frac, float alpha, boolean blocking) {
+        int x = cx - BAR_W / 2;
+        int bg = (Math.round(alpha * 150f) << 24);
+        int border = blocking ? applyAlpha(0xFF7FB4FF, alpha)
+                              : (Math.round(alpha * 90f) << 24) | 0x00FFFFFF;
+        ctx.fill(x - 1, y - 1, x + BAR_W + 1, y + BAR_H + 1, border);
+        ctx.fill(x, y, x + BAR_W, y + BAR_H, bg);
+        int fw = Math.round(BAR_W * Math.max(0f, Math.min(1f, frac)));
+        if (fw > 0) ctx.fill(x, y, x + fw, y + BAR_H, applyAlpha(staminaColor(frac), alpha));
     }
 
     /**

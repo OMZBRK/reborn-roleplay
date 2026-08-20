@@ -46,6 +46,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // la 1ère personne avec corps. No-op si le mod est absent.
         fr.reborn.hud.camera.FirstPersonIntegration.registerClient();
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.register();
+        fr.reborn.hud.combat.CombatAnimations.INSTANCE.register();
         fr.reborn.hud.chat.ChatBlockCommands.register();
         fr.reborn.hud.skin.SkinCommands.register();
 
@@ -246,10 +247,25 @@ public final class RebornHudClient implements ClientModInitializer {
                 } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_STAMINA) {
                     fr.reborn.hud.combat.CombatState.INSTANCE.onStamina(
                         payload.staminaCurrent(), payload.staminaMax(), now);
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_ANIM) {
+                    int eid = payload.victimEntityId();     // = attackerEntityId pour TYPE_ANIM
+                    int animId = payload.animId();
+                    // Garde (5/6) du joueur LOCAL : déjà jouée par CombatInput → on ignore
+                    // le broadcast pour soi (anti-double). Les coups (1-4) sur soi, eux, viennent
+                    // du serveur (pas de trigger local M1).
+                    net.minecraft.client.player.LocalPlayer lp = context.client().player;
+                    boolean selfBlock = lp != null && eid == lp.getId() && animId >= 5;
+                    if (!selfBlock) fr.reborn.hud.combat.CombatAnimations.INSTANCE.playByEntityId(eid, animId);
                 }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.combat.CombatState.INSTANCE.clear());
+        // Input de garde M2 (C2S reborn:combatin) — ShinobiCombat applique la réduction
+        // + rediffuse l'anim. Inerte via canSend si le plugin est absent.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.combat.CombatInputPayload.ID, fr.reborn.hud.combat.CombatInputPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.combat.CombatInput.INSTANCE.reset());
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat"),
             (ctx, tickCounter) -> fr.reborn.hud.combat.CombatHud.render(ctx));

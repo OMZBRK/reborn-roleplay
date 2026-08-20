@@ -12,15 +12,19 @@ import net.minecraft.resources.Identifier;
  *   <li>{@link #TYPE_HIT} : {@code int victimEntityId}, {@code float damage} →
  *       damage indicator flottant + cumul de combo.</li>
  *   <li>{@link #TYPE_STAMINA} : {@code float current}, {@code float max} →
- *       anneau de stamina autour du curseur.</li>
+ *       barre d'endurance + anneau de stamina.</li>
+ *   <li>{@link #TYPE_ANIM} : {@code int attackerEntityId}, {@code byte animId} →
+ *       joue l'anim de combat (coup/garde) sur l'avatar concerné (voir les autres).</li>
  * </ul>
  * Miroir du format écrit par {@code com.reborn.shinobicombat.net.CombatChannel}.
  */
 public record CombatPayload(byte msgType, int victimEntityId, float damage,
-                            float staminaCurrent, float staminaMax) implements CustomPacketPayload {
+                            float staminaCurrent, float staminaMax, int animId)
+        implements CustomPacketPayload {
 
     public static final byte TYPE_HIT = 1;
     public static final byte TYPE_STAMINA = 2;
+    public static final byte TYPE_ANIM = 3;
 
     public static final Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "combat");
     public static final CustomPacketPayload.Type<CombatPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);
@@ -32,13 +36,17 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
             if (type == TYPE_HIT) {
                 int vid = buf.readInt();
                 float dmg = buf.readFloat();
-                return new CombatPayload(type, vid, dmg, 0f, 0f);
+                return new CombatPayload(type, vid, dmg, 0f, 0f, 0);
             } else if (type == TYPE_STAMINA) {
                 float cur = buf.readFloat();
                 float max = buf.readFloat();
-                return new CombatPayload(type, 0, 0f, cur, max);
+                return new CombatPayload(type, 0, 0f, cur, max, 0);
+            } else if (type == TYPE_ANIM) {
+                int aid = buf.readInt();
+                int anim = buf.readByte();
+                return new CombatPayload(type, aid, 0f, 0f, 0f, anim);
             }
-            return new CombatPayload(type, 0, 0f, 0f, 0f);
+            return new CombatPayload(type, 0, 0f, 0f, 0f, 0);
         }
 
         @Override
@@ -50,6 +58,9 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
             } else if (v.msgType == TYPE_STAMINA) {
                 buf.writeFloat(v.staminaCurrent);
                 buf.writeFloat(v.staminaMax);
+            } else if (v.msgType == TYPE_ANIM) {
+                buf.writeInt(v.victimEntityId);
+                buf.writeByte(v.animId);
             }
         }
     };
