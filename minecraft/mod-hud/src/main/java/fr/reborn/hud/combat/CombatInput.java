@@ -17,7 +17,15 @@ public final class CombatInput {
 
     public static final CombatInput INSTANCE = new CombatInput();
 
+    /** Fenêtre d'enchaînement du combo M1 (aligné sur le serveur). */
+    private static final long COMBO_WINDOW_MS = 1200L;
+
     private boolean blocking = false;
+
+    // Combo M1 côté client : joue l'anim à CHAQUE swing (même à vide).
+    private boolean wasSwinging = false;
+    private int comboIndex = 0;
+    private long lastSwingMs = 0L;
 
     private CombatInput() {}
 
@@ -26,14 +34,30 @@ public final class CombatInput {
     /** À appeler chaque client tick (piloté par {@code HudKeybinds}). */
     public void tick(Minecraft mc) {
         LocalPlayer player = mc.player;
-        if (player == null || mc.level == null) { setBlocking(false); return; }
-        // Un écran ouvert coupe la garde (l'input va à l'UI).
-        if (mc.gui.screen() != null) { setBlocking(false); return; }
+        if (player == null || mc.level == null || mc.gui.screen() != null) {
+            setBlocking(false);
+            if (player != null) wasSwinging = player.swinging;
+            return;
+        }
 
-        // Mains nues uniquement : sinon le clic droit = utiliser l'objet.
-        boolean emptyHanded = player.getMainHandItem().isEmpty() && player.getOffhandItem().isEmpty();
-        boolean want = emptyHanded && mc.options.keyUse.isDown();
-        setBlocking(want);
+        boolean mainEmpty = player.getMainHandItem().isEmpty();
+
+        // GARDE M2 : clic droit maintenu à mains nues (les deux mains vides pour
+        // ne pas entrer en conflit avec l'usage d'un objet en main secondaire).
+        boolean emptyHanded = mainEmpty && player.getOffhandItem().isEmpty();
+        setBlocking(emptyHanded && mc.options.keyUse.isDown());
+
+        // COMBO M1 : détecté sur le SWING (front montant) → joue même sans toucher.
+        // Mains nues uniquement (taïjutsu). Le serveur gère les dégâts sur la mêlée
+        // vanilla ; ici on ne fait QUE l'anim locale (immédiate, tous les coups).
+        boolean sw = player.swinging;
+        if (sw && !wasSwinging && mainEmpty && !blocking && CombatAnimations.INSTANCE.isAvailable()) {
+            long now = System.currentTimeMillis();
+            comboIndex = (now - lastSwingMs > COMBO_WINDOW_MS) ? 0 : (comboIndex + 1) % 4;
+            lastSwingMs = now;
+            CombatAnimations.INSTANCE.play(player, comboIndex + 1);   // animId 1..4
+        }
+        wasSwinging = sw;
     }
 
     private void setBlocking(boolean want) {
@@ -53,5 +77,5 @@ public final class CombatInput {
     }
 
     /** Reset à la déconnexion (pas d'envoi). */
-    public void reset() { blocking = false; }
+    public void reset() { blocking = false; wasSwinging = false; comboIndex = 0; lastSwingMs = 0L; }
 }

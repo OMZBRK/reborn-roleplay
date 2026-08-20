@@ -254,8 +254,11 @@ public final class RebornHudClient implements ClientModInitializer {
                     // le broadcast pour soi (anti-double). Les coups (1-4) sur soi, eux, viennent
                     // du serveur (pas de trigger local M1).
                     net.minecraft.client.player.LocalPlayer lp = context.client().player;
-                    boolean selfBlock = lp != null && eid == lp.getId() && animId >= 5;
-                    if (!selfBlock) fr.reborn.hud.combat.CombatAnimations.INSTANCE.playByEntityId(eid, animId);
+                    // Sur SOI : garde (5/6) ET coups (1-4) à mains nues sont déjà joués
+                    // localement par CombatInput → on ignore le broadcast (anti-double).
+                    boolean self = lp != null && eid == lp.getId();
+                    boolean skipSelf = self && (animId >= 5 || lp.getMainHandItem().isEmpty());
+                    if (!skipSelf) fr.reborn.hud.combat.CombatAnimations.INSTANCE.playByEntityId(eid, animId);
                 }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
