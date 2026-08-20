@@ -275,10 +275,6 @@ public final class RebornHudClient implements ClientModInitializer {
             (handler, client) -> fr.reborn.hud.combat.CombatInput.INSTANCE.reset());
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.combat.ChakraJump.INSTANCE.reset());
-        // Courbe de visée du saut de chakra (rendue quand on charge).
-        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
-            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "chakra-aim"),
-            (ctx, tickCounter) -> fr.reborn.hud.combat.ChakraJump.INSTANCE.renderAimCurve(ctx));
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat"),
             (ctx, tickCounter) -> fr.reborn.hud.combat.CombatHud.render(ctx));

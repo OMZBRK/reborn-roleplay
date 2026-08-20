@@ -103,11 +103,11 @@ public final class CombatListener implements Listener, PluginMessageListener {
     /** Cooldown entre deux sauts chakra, par joueur (ms) — long, sans coût stamina. */
     private static final long CHAKRA_JUMP_COOLDOWN_MS = 35000L;
     /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
-    private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 1.6;
+    private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 2.7;
     /** Composante verticale min (anti-cheat). */
     private static final double CHAKRA_JUMP_MIN_VY = -0.2;
     /** Composante verticale max (anti-cheat). */
-    private static final double CHAKRA_JUMP_MAX_VY = 1.2;
+    private static final double CHAKRA_JUMP_MAX_VY = 1.6;
 
     // --- commun -------------------------------------------------------------
     /** Amplificateur SLOWNESS commun aux hitstun / guard break. */
