@@ -28,20 +28,36 @@ public enum HudElement {
     HUNGER        ("hunger",         "Hunger",       "Cuisses de poulet de faim",               HudAnchor.BOTTOM_CENTER),
     ARMOR         ("armor",          "Armor",        "Indicateur d'armure",                     HudAnchor.BOTTOM_CENTER),
     AIR           ("air",            "Air",          "Bulles d'air sous l'eau",                 HudAnchor.BOTTOM_CENTER),
-    VITALS        ("vitals",         "Vitals RP",    "Tête + vie + chakra + stamina (panneau RP)", HudAnchor.TOP_LEFT),
-    COMBAT_ENDURANCE("combat_endurance", "Endurance", "Barre d'endurance de combat (garde M2)", HudAnchor.CENTER),
-    COOLDOWNS     ("cooldowns",       "Cooldowns",    "Icônes de cooldown (dash, sauts…)",        HudAnchor.BOTTOM_CENTER);
+    VITALS        ("vitals",         "Vitals RP",    "Tête + vie + chakra + stamina (panneau RP)", HudAnchor.TOP_LEFT, 19, 17, 0.80f),
+    COMBAT_ENDURANCE("combat_endurance", "Endurance", "Barre d'endurance de combat (garde M2)", HudAnchor.CENTER, -435, -201, 0.45f),
+    COOLDOWNS     ("cooldowns",       "Cooldowns",    "Icônes de cooldown (dash, sauts…)",        HudAnchor.BOTTOM_CENTER, -404, -386, 0.60f);
 
     private final String id;
     private final String displayName;
     private final String description;
     private final HudAnchor defaultAnchor;
+    /** Placement/taille par défaut (offset depuis l'anchor + échelle). */
+    private final int defX, defY;
+    private final float defScale;
 
     HudElement(String id, String displayName, String description, HudAnchor defaultAnchor) {
+        this(id, displayName, description, defaultAnchor, 0, 0, 1.0f);
+    }
+
+    HudElement(String id, String displayName, String description, HudAnchor defaultAnchor,
+               int defX, int defY, float defScale) {
         this.id            = id;
         this.displayName   = displayName;
         this.description   = description;
         this.defaultAnchor = defaultAnchor;
+        this.defX          = defX;
+        this.defY          = defY;
+        this.defScale      = defScale;
+    }
+
+    /** État par défaut (placement + taille) proposé pour cet élément aux nouveaux joueurs. */
+    public HudElementState defaultState() {
+        return new HudElementState(defX, defY, defScale, true, null);
     }
 
     /** Identifiant stable utilisé dans le JSON de config — ne JAMAIS renommer. */
