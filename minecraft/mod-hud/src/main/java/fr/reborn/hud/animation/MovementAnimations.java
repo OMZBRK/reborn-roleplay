@@ -83,7 +83,7 @@ public final class MovementAnimations {
     private static final int FRESH_TICKS = 60;
 
     /** Codes {@code state} du canal reborn:anim (contrat client↔client). */
-    private static final byte C_NONE = 0, C_WALK = 1, C_RUN = 2, C_NARUTO = 3, C_JUMP = 4;
+    private static final byte C_NONE = 0, C_WALK = 1, C_RUN = 2, C_NARUTO = 3, C_JUMP = 4, C_CROUCH = 5;
 
     /** Styles de marche : {label, fichier}. Index 0 = démarche par défaut. */
     private static final String[][] WALK_STYLES = {
@@ -94,9 +94,14 @@ public final class MovementAnimations {
         {"Timide", "walk_timid.emotecraft"},
         {"Arrogante", "walk_arrogant.emotecraft"},
         {"Désespérée", "walk_hopeless.emotecraft"},
+        {"Business", "walk_business.emotecraft"},
+        {"Décontractée", "walk_chill.emotecraft"},
+        {"Large", "walk_broad.emotecraft"},
+        {"Ghostface", "walk_ghostface.emotecraft"},
+        {"Pyramide", "run_pyramid.emotecraft"},
     };
 
-    private enum MoveState { NONE, WALK, RUN, NARUTO, POSE, JUMP }
+    private enum MoveState { NONE, WALK, RUN, NARUTO, POSE, JUMP, CROUCH }
 
     /** État de détection par joueur (local comme distant). */
     private static final class Tracker {
@@ -118,6 +123,7 @@ public final class MovementAnimations {
     private Animation run, narutoRun;
     private Animation idlePose;              // pose idle des écrans perso (asset optionnel)
     private Animation jump;                  // anim de saut (jouée en l'air, one-shot)
+    private Animation crouch;                // démarche accroupie (sneak + déplacement)
     private boolean poseActive = false;      // override : joue la pose idle en boucle
     private int selectedWalk = 0;
     private boolean available = false;
@@ -184,12 +190,13 @@ public final class MovementAnimations {
             narutoRun = load("naruto_run.emotecraft");
             idlePose = load("idle_sit.emotecraft");
             jump = load("jumpanimation.json");
+            crouch = load("crouch_ghostface.emotecraft");
 
             RebornPrefs.INSTANCE.ensureLoaded();
             selectedWalk = clamp(RebornPrefs.INSTANCE.walkStyle);
             available = true;
-            LOG.info("démarches : {} styles marche, run={}, naruto={}, jump={} (multi-joueurs)",
-                walkAnims.size(), run != null, narutoRun != null, jump != null);
+            LOG.info("démarches : {} styles marche, run={}, naruto={}, jump={}, crouch={} (multi-joueurs)",
+                walkAnims.size(), run != null, narutoRun != null, jump != null, crouch != null);
         } catch (Throwable t) {
             available = false;
             LOG.warn("PlayerAnimationLib/Emotecraft absent — démarches désactivées ({})", t.toString());
@@ -321,6 +328,7 @@ public final class MovementAnimations {
             case NARUTO -> narutoRun;
             case POSE   -> idlePose;
             case JUMP   -> jump;
+            case CROUCH -> crouch;
             case NONE   -> null;
         };
         if (anim == null) {
@@ -362,6 +370,9 @@ public final class MovementAnimations {
         }
         t.idleGrace = 0;
 
+        // Accroupi en déplacement : démarche crouch (observable → visible chez les autres).
+        if (player.isCrouching() && crouch != null) return MoveState.CROUCH;
+
         boolean naruto = isLocal
             ? NarutoRun.INSTANCE.isActive()
             : remoteNaruto(player.getUUID());
@@ -402,6 +413,7 @@ public final class MovementAnimations {
             case RUN    -> C_RUN;
             case NARUTO -> C_NARUTO;
             case JUMP   -> C_JUMP;
+            case CROUCH -> C_CROUCH;
             default     -> C_NONE;   // NONE / POSE (POSE n'est jamais émis)
         };
     }
