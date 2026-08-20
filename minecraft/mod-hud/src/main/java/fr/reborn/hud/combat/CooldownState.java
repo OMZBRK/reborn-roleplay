@@ -21,7 +21,9 @@ public final class CooldownState {
      *  tant qu'aucune icône {@code textures/gui/ability/<name>.png} n'est livrée. */
     public enum Ability {
         // alwaysShow=false → l'icône n'apparaît QUE pendant le cooldown, puis disparaît.
-        DASH("Dash", 0xFF7FB4FF, ">>", false);
+        // frames/frameMs : anim de l'icône (bande verticale reborn:textures/gui/ability/<name>.png,
+        // frames empilées de haut en bas, chaque frame = côté de l'icône interne).
+        DASH("Dash", 0xFF7FB4FF, ">>", false, 4, 100L);
         // À VENIR : DOUBLE_JUMP, CHAKRA_JUMP… (se branchent ici + trigger au bon endroit)
 
         public final String label;
@@ -29,8 +31,12 @@ public final class CooldownState {
         public final String glyph;
         /** Si vrai, l'icône reste affichée même prête (sinon visible seulement en CD). */
         public final boolean alwaysShow;
-        Ability(String label, int color, String glyph, boolean alwaysShow) {
+        /** Nombre de frames de l'icône (1 = statique) et durée par frame (ms). */
+        public final int frames;
+        public final long frameMs;
+        Ability(String label, int color, String glyph, boolean alwaysShow, int frames, long frameMs) {
             this.label = label; this.color = color; this.glyph = glyph; this.alwaysShow = alwaysShow;
+            this.frames = frames; this.frameMs = frameMs;
         }
     }
 

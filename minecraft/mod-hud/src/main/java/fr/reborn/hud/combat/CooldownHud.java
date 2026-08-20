@@ -60,8 +60,12 @@ public final class CooldownHud {
         // Icône : texture si livrée, sinon glyphe placeholder.
         String slug = a.name().toLowerCase(Locale.ROOT);
         if (texExists(slug)) {
+            // Icône = bande verticale de frames (côté = inner). On anime par le temps.
+            int inner = ICON - 6;
+            int frames = Math.max(1, a.frames);
+            int fr = (frames <= 1 || a.frameMs <= 0) ? 0 : (int) ((now / a.frameMs) % frames);
             ctx.blit(RenderPipelines.GUI_TEXTURED, iconId(slug),
-                x + 3, y + 3, 0f, 0f, ICON - 6, ICON - 6, ICON - 6, ICON - 6);
+                x + 3, y + 3, 0f, (float) (fr * inner), inner, inner, inner, inner * frames);
         } else {
             Component g = RebornFont.arcade(a.glyph);
             ctx.text(font, g, x + (ICON - font.width(g)) / 2, y + (ICON - 8) / 2,
