@@ -4,7 +4,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
 
 /**
  * Sons d'interface Reborn (menus perso). Joués via {@code SoundManager} en
@@ -33,13 +32,18 @@ public final class RebornSounds {
             Identifier.fromNamespaceAndPath("reborn", key)), pitch, volume);
     }
 
-    /** Changement de perso dans la sélection (passage d'un caractère à l'autre). */
+    /** Changement de perso dans la sélection / de page (son « clickmenu » Pixabay). */
     public static void charNav() {
-        play(SoundEvents.UI_LOOM_SELECT_PATTERN, 1.15f, 0.7f);
+        playReborn("ui.menu_nav", 1.0f, 0.7f);
     }
 
-    /** Clic dans la création de perso (onglets, cycleurs, boutons). */
+    /** Clic dans la création de perso (onglets, cycleurs, boutons de nav). */
     public static void uiClick() {
-        play(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f, 0.5f);
+        playReborn("ui.menu_nav", 1.0f, 0.6f);
+    }
+
+    /** Confirmation / validation (entrer en jeu, valider le perso — « clickmenuconf »). */
+    public static void confirm() {
+        playReborn("ui.menu_confirm", 1.0f, 0.8f);
     }
 }

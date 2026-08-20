@@ -289,6 +289,7 @@ public class CharacterSelectScreen extends Screen {
                 fr.reborn.hud.skin.RebornSkins.clear(mc.player.getUUID());
             }
         }
+        fr.reborn.hud.menu.RebornSounds.confirm();   // confirmation : entrée en jeu
         sendAction("select:" + c.id());
         // Écran de chargement stylisé (~6 s) pendant que le serveur applique setActive
         // (téléport IG). Il se ferme seul → retour en jeu.

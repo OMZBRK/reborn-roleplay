@@ -106,6 +106,22 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.animation.NarutoRun.INSTANCE.reset());
 
+        // Synchro des démarches ENTRE JOUEURS (canal reborn:anim, bidirectionnel avec
+        // ShinobiAbilities). C2S : {uuid,state,walk} quand notre état change (+ heartbeat).
+        // S2C : le relais rediffuse l'état des joueurs proches → on anime leurs avatars.
+        // Les états observables (marche/course/saut) jouent même sans le plugin.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.animation.AnimSyncPayload.ID, fr.reborn.hud.animation.AnimSyncPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.animation.AnimSyncPayload.ID, fr.reborn.hud.animation.AnimSyncPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.animation.AnimSyncPayload.ID,
+            (payload, context) -> context.client().execute(() ->
+                fr.reborn.hud.animation.MovementAnimations.INSTANCE.onRemoteState(
+                    payload.uuid(), payload.state(), payload.walk())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.animation.MovementAnimations.INSTANCE.clearRemote());
+
         // Sélection / création de personnage (canal reborn:character, bidirectionnel
         // avec ShinobiCore). S2C : roster du joueur ({slotLimit, characters[],
         // candidature}) → ouvre l'écran de sélection Zenkai. C2S : select:<id> /

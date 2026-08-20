@@ -385,5 +385,19 @@
         "stream": true
       }
     ]
+  },
+  "ui.menu_nav": {
+    "sounds": [
+      {
+        "name": "reborn:ui/menu_nav"
+      }
+    ]
+  },
+  "ui.menu_confirm": {
+    "sounds": [
+      {
+        "name": "reborn:ui/menu_confirm"
+      }
+    ]
   }
 }
