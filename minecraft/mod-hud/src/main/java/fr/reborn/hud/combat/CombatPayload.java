@@ -25,6 +25,8 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
     public static final byte TYPE_HIT = 1;
     public static final byte TYPE_STAMINA = 2;
     public static final byte TYPE_ANIM = 3;
+    /** S2C : reset des cooldowns client (commande staff dev). Corps = juste le type. */
+    public static final byte TYPE_COOLDOWN_RESET = 4;
 
     public static final Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "combat");
     public static final CustomPacketPayload.Type<CombatPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);

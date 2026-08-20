@@ -100,10 +100,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private static final double DASH_UP = 0.15;
 
     // --- saut chakra (leap vertical/directionnel) --------------------------
-    /** Cooldown entre deux sauts chakra, par joueur (ms). */
-    private static final long CHAKRA_JUMP_COOLDOWN_MS = 4000L;
-    /** Coût stamina d'un saut chakra. */
-    private static final double CHAKRA_JUMP_COST = 25.0;
+    /** Cooldown entre deux sauts chakra, par joueur (ms) — long, sans coût stamina. */
+    private static final long CHAKRA_JUMP_COOLDOWN_MS = 35000L;
     /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
     private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 1.6;
     /** Composante verticale min (anti-cheat). */
@@ -313,13 +311,13 @@ public final class CombatListener implements Listener, PluginMessageListener {
     }
 
     /**
-     * Saut chakra : bond puissant dont la vélocité est calculée côté client. Mêmes
-     * gardes que le dash (personnage actif, non KO, cooldown, stamina), plus un
-     * <b>clamp anti-cheat</b> : magnitude horizontale bornée à
-     * {@link #CHAKRA_JUMP_MAX_HORIZONTAL} (mise à l'échelle proportionnelle) et
-     * composante verticale bornée à {@code [CHAKRA_JUMP_MIN_VY, CHAKRA_JUMP_MAX_VY]}.
-     * Consomme {@link #CHAKRA_JUMP_COST}, arme le cooldown, envoie la stamina. Le
-     * mouvement est observable par les autres clients — aucune anim à diffuser.
+     * Saut chakra : bond puissant dont la vélocité est calculée côté client. Gardes
+     * comme le dash (personnage actif, non KO, cooldown), mais <b>sans coût
+     * stamina</b> — la contrainte est le long cooldown ({@link #CHAKRA_JUMP_COOLDOWN_MS}).
+     * Un <b>clamp anti-cheat</b> borne la magnitude horizontale à
+     * {@link #CHAKRA_JUMP_MAX_HORIZONTAL} (mise à l'échelle proportionnelle) et la
+     * composante verticale à {@code [CHAKRA_JUMP_MIN_VY, CHAKRA_JUMP_MAX_VY]}. Arme le
+     * cooldown. Le mouvement est observable par les autres clients — aucune anim à diffuser.
      */
     private void handleChakraJump(Player player, float vx, float vy, float vz) {
         UUID id = player.getUniqueId();
@@ -330,11 +328,6 @@ public final class CombatListener implements Listener, PluginMessageListener {
         Long last = lastChakraJumpMs.get(id);
         if (last != null && now - last < CHAKRA_JUMP_COOLDOWN_MS) return;
 
-        if (!stamina.tryConsume(id, CHAKRA_JUMP_COST)) {
-            player.sendActionBar(Component.text("Stamina épuisée", NamedTextColor.RED));
-            CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max());
-            return;
-        }
         lastChakraJumpMs.put(id, now);
 
         // Clamp anti-cheat : magnitude horizontale.
@@ -351,7 +344,6 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
         player.setVelocity(new Vector(cvx, cvy, cvz));
         player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDER_DRAGON_FLAP, org.bukkit.SoundCategory.PLAYERS, 0.7f, 1.4f);
-        CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max());
     }
 
     /** Début de garde : personnage actif requis, non KO. Diffuse l'anim block-on. */
@@ -432,6 +424,17 @@ public final class CombatListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         forget(e.getPlayer().getUniqueId());
+    }
+
+    /**
+     * Réinitialise les cooldowns d'aptitudes ({@code dash}, saut chakra) d'un joueur
+     * côté serveur — outil de test dev exposé par la commande staff {@code /resetcd}.
+     * Ne touche ni la stamina ni l'état de combo/garde. Le client est notifié
+     * séparément (S2C {@link CombatChannel#TYPE_COOLDOWN_RESET}).
+     */
+    public void resetCooldowns(UUID id) {
+        lastDashMs.remove(id);
+        lastChakraJumpMs.remove(id);
     }
 
     /** Nettoie l'état combat d'un joueur (mort, déconnexion). */

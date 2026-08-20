@@ -259,6 +259,10 @@ public final class RebornHudClient implements ClientModInitializer {
                     boolean self = lp != null && eid == lp.getId();
                     boolean skipSelf = self && (animId >= 5 || lp.getMainHandItem().isEmpty());
                     if (!skipSelf) fr.reborn.hud.combat.CombatAnimations.INSTANCE.playByEntityId(eid, animId);
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_COOLDOWN_RESET) {
+                    // Commande staff /resetcd : le serveur nous dit de vider nos CD client.
+                    fr.reborn.hud.combat.CooldownState.INSTANCE.clear();
+                    fr.reborn.hud.combat.CombatInput.INSTANCE.clearDashCd();
                 }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(

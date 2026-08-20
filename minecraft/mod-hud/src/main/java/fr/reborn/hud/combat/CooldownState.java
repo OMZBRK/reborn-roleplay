@@ -16,8 +16,8 @@ public final class CooldownState {
 
     /** Durée du CD de dash (doit matcher {@code DASH_COOLDOWN_MS} serveur). */
     public static final long DASH_CD_MS = 1500L;
-    /** Durée du CD du saut de chakra (doit matcher le serveur). */
-    public static final long CHAKRA_JUMP_CD_MS = 4000L;
+    /** Durée du CD du saut de chakra (doit matcher le serveur) — long, pas de coût. */
+    public static final long CHAKRA_JUMP_CD_MS = 35000L;
 
     /** Capacités affichées dans le HUD de cooldowns. {@code glyph} = placeholder
      *  tant qu'aucune icône {@code textures/gui/ability/<name>.png} n'est livrée. */

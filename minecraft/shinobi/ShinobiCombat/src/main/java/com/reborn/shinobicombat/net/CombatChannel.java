@@ -25,6 +25,8 @@ import java.util.Collection;
  *   <li>{@link #TYPE_ANIM} : {@code int attackerEntityId}, {@code byte animId} —
  *       joue une anim sur l'acteur chez les clients proches (1=strike1, 2=strike2,
  *       3=strike3, 4=pyramid/finisher, 5=block-on, 6=block-off).</li>
+ *   <li>{@link #TYPE_COOLDOWN_RESET} : aucun corps — le client vide ses cooldowns
+ *       (dash, saut chakra) et leurs gates HUD. Émis par {@code /resetcd} (staff).</li>
  * </ul>
  *
  * <p><b>{@link #CHANNEL_IN} — {@code reborn:combatin} (client→serveur)</b> :
@@ -45,6 +47,8 @@ public final class CombatChannel {
     public static final byte TYPE_HIT = 1;
     public static final byte TYPE_STAMINA = 2;
     public static final byte TYPE_ANIM = 3;
+    /** Reset des cooldowns côté client (aucun corps) — dev/staff via {@code /resetcd}. */
+    public static final byte TYPE_COOLDOWN_RESET = 4;
 
     /** Anim ids portés par {@link #TYPE_ANIM}. */
     public static final byte ANIM_STRIKE_1 = 1;
@@ -88,6 +92,21 @@ public final class CombatChannel {
             return;
         }
         viewer.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
+    }
+
+    /**
+     * Ordonne à {@code target} de vider ses cooldowns d'aptitudes (dash, saut chakra)
+     * et les gates HUD associées. Corps vide — un seul octet {@link #TYPE_COOLDOWN_RESET}.
+     * Utilisé par la commande staff {@code /resetcd} (test dev).
+     */
+    public static void sendCooldownReset(Plugin plugin, Player target) {
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(b)) {
+            out.writeByte(TYPE_COOLDOWN_RESET);
+        } catch (IOException ignored) {
+            return;
+        }
+        target.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
     }
 
     /**

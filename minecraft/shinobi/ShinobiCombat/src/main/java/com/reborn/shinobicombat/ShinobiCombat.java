@@ -2,6 +2,7 @@ package com.reborn.shinobicombat;
 
 import com.reborn.shinobicombat.combat.CombatListener;
 import com.reborn.shinobicombat.combat.StaminaManager;
+import com.reborn.shinobicombat.command.ResetCooldownsCommand;
 import com.reborn.shinobicombat.net.CombatChannel;
 import com.reborn.shinobicore.api.CharacterService;
 import com.reborn.shinobicore.api.KoService;
@@ -55,6 +56,9 @@ public final class ShinobiCombat extends JavaPlugin {
 
         // Canal client→serveur pour les intentions combat (M2).
         getServer().getMessenger().registerIncomingPluginChannel(this, CombatChannel.CHANNEL_IN, combat);
+
+        // Commande staff : reset des cooldowns d'aptitudes (test dev).
+        getCommand("resetcd").setExecutor(new ResetCooldownsCommand(this, combat));
 
         // Régénération de stamina + sync client léger (uniquement ceux qui régénèrent).
         this.regenTask = getServer().getScheduler().runTaskTimer(this, () -> {

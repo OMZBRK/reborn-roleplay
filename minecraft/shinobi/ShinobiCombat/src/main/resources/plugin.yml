@@ -5,7 +5,15 @@ api-version: '1.21'
 authors: [Reborn]
 description: Taijutsu PvP combat (M1 combos, M2 block/parry, stamina) for the Reborn Naruto roleplay server.
 softdepend: [ShinobiCore]
+commands:
+  resetcd:
+    description: Reset a player's ability cooldowns (dash, chakra jump) for dev testing.
+    usage: /resetcd [player]
+    permission: shinobicombat.resetcd
 permissions:
   shinobicombat.use:
     description: Base permission — participate in taijutsu combat.
     default: true
+  shinobicombat.resetcd:
+    description: Staff — reset ability cooldowns for dev testing.
+    default: op
