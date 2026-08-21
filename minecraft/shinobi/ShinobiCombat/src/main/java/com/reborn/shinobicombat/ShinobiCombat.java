@@ -54,6 +54,18 @@ public final class ShinobiCombat extends JavaPlugin {
         CombatListener combat = new CombatListener(this, characters, ko, stamina);
         getServer().getPluginManager().registerEvents(combat, this);
 
+        // Le taïjutsu (M1) passe par l'event de dégât mêlée vanilla, qui ne NAÎT
+        // que si le monde autorise le PvP. Sur ce serveur le PvP est supprimé au
+        // niveau du monde malgré server.properties (diagnostic confirmé). On force
+        // donc le flag ON au runtime sur tous les mondes déjà chargés — aucun autre
+        // plugin ne touche ce flag, ça reste stable.
+        for (org.bukkit.World w : getServer().getWorlds()) {
+            if (!w.getPVP()) {
+                w.setPVP(true);
+                getLogger().info("PvP forcé ON sur le monde '" + w.getName() + "'.");
+            }
+        }
+
         // Canal client→serveur pour les intentions combat (M2).
         getServer().getMessenger().registerIncomingPluginChannel(this, CombatChannel.CHANNEL_IN, combat);
 
