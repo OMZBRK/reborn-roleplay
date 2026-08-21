@@ -183,9 +183,17 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
 
     private void endSelection(Player p) {
         SelectState st = selecting.remove(p.getUniqueId());
-        if (st != null) {
-            p.setInvulnerable(st.invulnerable);
+        if (st != null && st.invulnerable) {
+            // NE PAS restaurer un invulnérable=true : le flag Invulnerable est
+            // PERSISTÉ dans le NBT du joueur, donc une déco en plein select le
+            // rend invulnérable en permanence (capturé true → restauré true) →
+            // AUCUN EntityDamageEvent ne naît → PvP muet. Un joueur en jeu RP
+            // n'est jamais invulnérable : on force donc OFF à la sortie de select.
+            plugin.getLogger().warning("[character-select] " + p.getName()
+                    + " avait Invulnerable=true en entrant en sélection (état persistant"
+                    + " parasite) → forcé OFF pour ne pas bloquer les dégâts.");
         }
+        p.setInvulnerable(false);
         for (Player other : Bukkit.getOnlinePlayers()) {
             if (other.equals(p)) continue;
             p.showEntity(plugin, other);
