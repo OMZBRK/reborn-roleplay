@@ -79,10 +79,10 @@ public final class ChakraJump {
      * arc haut, portée projectile). Horizontal fixe, vertical = base + charge.
      */
     private static Vec3 leapVelocity(LocalPlayer p, float power) {
-        Vec3 look = p.getLookAngle();      // vecteur unitaire de visée (yaw + pitch)
-        double h = 2.8;                    // GRAND bond horizontal (façon Naruto/Zenkai)
-        double vy = 1.8 + power * 1.0;     // grande hauteur (1.8..2.8) + charge
-        return new Vec3(look.x * h, vy, look.z * h);
+        Vec3 aim = MobilityInput.aimDir(p);    // visée SOURIS/caméra (pas le corps)
+        double speed = 1.6 + power * 1.2;      // grand bond, croît avec la charge (1.6..2.8)
+        Vec3 v = aim.scale(speed);             // va OÙ c'est visé : bas → descend (pas de saut)
+        return new Vec3(v.x, v.y + 0.5, v.z);  // léger base up → arc à plat, GROS arc en visant haut
     }
 
     public void reset() { charging = false; }
@@ -90,15 +90,13 @@ public final class ChakraJump {
     /** Particules vanilla le long de la trajectoire prévue (aperçu de visée, local). */
     private static void spawnAimParticles(Minecraft mc, LocalPlayer p, float power) {
         List<Vec3> pts = trajectory(p, power);
-        for (int i = 0; i < pts.size(); i += 2) {   // 1 point sur 2 pour aérer
+        for (int i = 0; i < pts.size(); i += 3) {   // sparse + END_ROD = trajectoire bien lisible
             Vec3 w = pts.get(i);
-            mc.level.addParticle(ParticleTypes.WITCH, w.x, w.y, w.z, 0.0, 0.0, 0.0);
+            mc.level.addParticle(ParticleTypes.END_ROD, w.x, w.y, w.z, 0.0, 0.0, 0.0);
         }
-        // Point d'atterrissage plus marqué.
-        if (!pts.isEmpty()) {
+        if (!pts.isEmpty()) {   // marqueur d'atterrissage
             Vec3 last = pts.get(pts.size() - 1);
-            mc.level.addParticle(ParticleTypes.WITCH, last.x, last.y, last.z, 0.0, 0.0, 0.0);
-            mc.level.addParticle(ParticleTypes.WITCH, last.x, last.y + 0.2, last.z, 0.0, 0.0, 0.0);
+            mc.level.addParticle(ParticleTypes.HAPPY_VILLAGER, last.x, last.y + 0.1, last.z, 0.0, 0.0, 0.0);
         }
     }
 
