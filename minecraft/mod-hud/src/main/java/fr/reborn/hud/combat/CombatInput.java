@@ -109,6 +109,12 @@ public final class CombatInput {
         if (ClientPlayNetworking.canSend(CombatInputPayload.ID)) {
             ClientPlayNetworking.send(CombatInputPayload.dash((float) dx, (float) dz));
         }
+        // Traînée SUBTILE dans la direction du dash (quelques crits près du sol).
+        double px = p.getX(), py = p.getY() + 0.15, pz = p.getZ();
+        for (int i = 0; i < 4; i++) {
+            mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.CRIT,
+                px + dx * 0.45 * i, py, pz + dz * 0.45 * i, 0.0, 0.0, 0.0);
+        }
     }
 
     /** Reset du cooldown client de dash (commande staff /resetcd). */

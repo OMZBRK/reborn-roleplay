@@ -87,16 +87,29 @@ public final class ChakraJump {
 
     public void reset() { charging = false; }
 
-    /** Particules vanilla le long de la trajectoire prévue (aperçu de visée, local). */
+    /** Dust violet chakra pour la ligne de trajectoire (couleur, petite taille). */
+    private static final net.minecraft.core.particles.DustParticleOptions CHAKRA_DUST =
+        new net.minecraft.core.particles.DustParticleOptions(0x9B7FE0, 0.9f);
+
+    /** LIGNE continue de trajectoire (dust interpolé) + CERCLE au point d'atterrissage. */
     private static void spawnAimParticles(Minecraft mc, LocalPlayer p, float power) {
         List<Vec3> pts = trajectory(p, power);
-        for (int i = 0; i < pts.size(); i += 3) {   // sparse + END_ROD = trajectoire bien lisible
-            Vec3 w = pts.get(i);
-            mc.level.addParticle(ParticleTypes.END_ROD, w.x, w.y, w.z, 0.0, 0.0, 0.0);
+        for (int i = 0; i + 1 < pts.size(); i++) {   // interpole entre points → ligne pleine
+            Vec3 a = pts.get(i), b = pts.get(i + 1);
+            for (int s = 0; s < 2; s++) {
+                double t = s / 2.0;
+                mc.level.addParticle(CHAKRA_DUST,
+                    a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, 0.0, 0.0, 0.0);
+            }
         }
-        if (!pts.isEmpty()) {   // marqueur d'atterrissage
+        if (!pts.isEmpty()) {   // cercle d'atterrissage dense
             Vec3 last = pts.get(pts.size() - 1);
-            mc.level.addParticle(ParticleTypes.HAPPY_VILLAGER, last.x, last.y + 0.1, last.z, 0.0, 0.0, 0.0);
+            int n = 20; double r = 0.9;
+            for (int i = 0; i < n; i++) {
+                double ang = 2 * Math.PI * i / n;
+                mc.level.addParticle(CHAKRA_DUST,
+                    last.x + Math.cos(ang) * r, last.y + 0.05, last.z + Math.sin(ang) * r, 0.0, 0.0, 0.0);
+            }
         }
     }
 

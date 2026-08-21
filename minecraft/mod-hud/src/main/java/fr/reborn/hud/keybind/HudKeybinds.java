@@ -75,7 +75,8 @@ public final class HudKeybinds {
         // Menu de sélection de personnage : sur serveur → demande au plugin de
         // (r)ouvrir la sélection (C2S "open") ; en solo/dev → ouvre l'écran mock.
         KeyMapping charMenu = bind("key.reborn-hud.char_menu", GLFW.GLFW_KEY_SEMICOLON);
-        // (Le dash 8-dir est passé en DOUBLE-TAP WASD → cf. MobilityInput ; plus de touche V.)
+        // Dash de combat 8-dir (formules Keriox : rapide + lift). Touche V, rebindable.
+        KeyMapping dash = bind("key.reborn-hud.dash", GLFW.GLFW_KEY_V);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
@@ -136,6 +137,12 @@ public final class HudKeybinds {
                     fr.reborn.hud.animation.NarutoRun.INSTANCE.toggle();
                 }
             }
+            while (dash.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null && mc.gui.screen() == null) {
+                    fr.reborn.hud.combat.CombatInput.INSTANCE.dash(mc);
+                }
+            }
             while (walkMenu.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.gui.screen() == null && mc.player != null) {
@@ -185,7 +192,7 @@ public final class HudKeybinds {
             fr.reborn.hud.combat.CombatInput.INSTANCE.tick(Minecraft.getInstance());
             // Saut de chakra (sneak + espace maintenus → charge + saut).
             fr.reborn.hud.combat.ChakraJump.INSTANCE.tick(Minecraft.getInstance());
-            // Mobilité double-tap : espace = dash Keriox, A/D/S = esquive.
+            // Double saut : double-tap barre espace (le 2e appui en l'air).
             fr.reborn.hud.combat.MobilityInput.INSTANCE.tick(Minecraft.getInstance());
 
             // Déplacement free-cam du mode photo (lecture clavier brute).

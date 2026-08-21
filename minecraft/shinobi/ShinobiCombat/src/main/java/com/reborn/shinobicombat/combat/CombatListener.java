@@ -92,12 +92,12 @@ public final class CombatListener implements Listener, PluginMessageListener {
     // --- dash (déplacement directionnel) -----------------------------------
     /** Cooldown entre deux dashs, par joueur (ms). */
     private static final long DASH_COOLDOWN_MS = 1500L;
-    /** Coût stamina d'un dash. */
-    private static final double DASH_COST = 20.0;
-    /** Vitesse horizontale du dash. */
-    private static final double DASH_SPEED = 0.9;
-    /** Composante verticale (petit décollage) du dash. */
-    private static final double DASH_UP = 0.15;
+    /** Coût stamina d'un dash — nul (formules Keriox : contrainte = cooldown seul). */
+    private static final double DASH_COST = 0.0;
+    /** Vitesse horizontale du dash (formule Keriox : rapide). */
+    private static final double DASH_SPEED = 2.0;
+    /** Composante verticale (décollage franc) du dash (formule Keriox). */
+    private static final double DASH_UP = 1.0;
 
     // --- saut chakra (leap vertical/directionnel) --------------------------
     /** Cooldown entre deux sauts chakra, par joueur (ms) — long, sans coût stamina. */
