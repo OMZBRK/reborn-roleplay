@@ -80,7 +80,7 @@ public final class ChakraJump {
      */
     private static Vec3 leapVelocity(LocalPlayer p, float power) {
         Vec3 aim = MobilityInput.aimDir(p);    // visée SOURIS/caméra (pas le corps)
-        double speed = 1.6 + power * 1.2;      // grand bond, croît avec la charge (1.6..2.8)
+        double speed = 2.4 + power * 2.2;      // GRAND bond ninja, croît avec la charge (2.4..4.6)
         Vec3 v = aim.scale(speed);             // va OÙ c'est visé : bas → descend (pas de saut)
         return new Vec3(v.x, v.y + 0.5, v.z);  // léger base up → arc à plat, GROS arc en visant haut
     }

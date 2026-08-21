@@ -94,16 +94,16 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private static final long DASH_COOLDOWN_MS = 1500L;
     /** Coût stamina d'un dash — nul (formules Keriox : contrainte = cooldown seul). */
     private static final double DASH_COST = 0.0;
-    /** Vitesse horizontale du dash (formule Keriox : rapide). */
-    private static final double DASH_SPEED = 2.0;
-    /** Composante verticale (décollage franc) du dash (formule Keriox). */
-    private static final double DASH_UP = 1.0;
+    /** Vitesse horizontale du dash (burst court, pas un envol). */
+    private static final double DASH_SPEED = 1.3;
+    /** Composante verticale (petit hop) du dash. */
+    private static final double DASH_UP = 0.35;
 
     // --- saut chakra (leap vertical/directionnel) --------------------------
     /** Cooldown entre deux sauts chakra, par joueur (ms) — long, sans coût stamina. */
     private static final long CHAKRA_JUMP_COOLDOWN_MS = 35000L;
     /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
-    private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 3.0;
+    private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 5.0;
     /** Composante verticale min (anti-cheat). */
     private static final double CHAKRA_JUMP_MIN_VY = -0.2;
     /** Composante verticale max (anti-cheat). */
