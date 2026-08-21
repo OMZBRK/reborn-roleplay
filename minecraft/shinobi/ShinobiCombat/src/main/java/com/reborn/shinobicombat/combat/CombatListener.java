@@ -91,9 +91,9 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
     // --- dash (déplacement directionnel) -----------------------------------
     /** Cooldown entre deux dashs, par joueur (ms). */
-    private static final long DASH_COOLDOWN_MS = 1500L;
-    /** Coût stamina d'un dash — nul (formules Keriox : contrainte = cooldown seul). */
-    private static final double DASH_COST = 0.0;
+    private static final long DASH_COOLDOWN_MS = 7000L;
+    /** Coût stamina d'un dash — élevé (le PvP ne doit pas reposer que sur le dash). */
+    private static final double DASH_COST = 35.0;
     /** Vitesse horizontale du dash (burst court, pas un envol). */
     private static final double DASH_SPEED = 1.3;
     /** Composante verticale (petit hop) du dash. */
@@ -111,7 +111,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
     // --- keriox dash (avancée orientée pitch) ------------------------------
     /** Cooldown entre deux keriox dashs, par joueur (ms) — sans coût stamina. */
-    private static final long KERIOX_DASH_COOLDOWN_MS = 800L;
+    private static final long KERIOX_DASH_COOLDOWN_MS = 10000L;
     /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
     private static final double KERIOX_DASH_MAX_H = 3.0;
     /** Composante verticale min (anti-cheat). */
@@ -535,6 +535,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
     public void resetCooldowns(UUID id) {
         lastDashMs.remove(id);
         lastChakraJumpMs.remove(id);
+        lastKerioxDashMs.remove(id);   // double saut
+        lastDodgeMs.remove(id);
     }
 
     /** Nettoie l'état combat d'un joueur (mort, déconnexion). */

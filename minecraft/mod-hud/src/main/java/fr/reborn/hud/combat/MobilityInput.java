@@ -9,8 +9,9 @@ import net.minecraft.world.phys.Vec3;
 /**
  * <b>Double saut</b> : DOUBLE-TAP barre espace (le 1er saut décolle, le 2e en l'air
  * = double saut) — sans sneak (sneak+espace maintenus = saut de chakra). Visé à la
- * SOURIS/caméra. Une charge par phase aérienne (rechargée au contact du sol) ; en
- * combat, un cooldown de quelques secondes en plus. Pas de particules (retour user).
+ * SOURIS/caméra. Désormais gouverné par un <b>cooldown de 10 s</b>
+ * ({@link CooldownState.Ability#DOUBLE_JUMP}) au lieu d'une recharge au sol — pour
+ * que le PvP ne repose pas que sur la mobilité. Pas de particules (retour user).
  *
  * <p>Le dash 8-dir, lui, est sur la touche V ({@link CombatInput#dash}).
  */
@@ -19,12 +20,9 @@ public final class MobilityInput {
     public static final MobilityInput INSTANCE = new MobilityInput();
 
     private static final long DTAP_MS = 300L;
-    private static final long DJUMP_COMBAT_CD_MS = 3000L;
 
     private boolean wasSpace = false;
     private long lastSpaceTap = 0L;
-    private boolean hasDoubleJump = true;
-    private long lastDoubleJumpMs = 0L;
 
     private MobilityInput() {}
 
@@ -34,19 +32,15 @@ public final class MobilityInput {
         long now = System.currentTimeMillis();
         boolean sneaking = mc.options.keyShift.isDown();
 
-        if (p.onGround()) hasDoubleJump = true;   // recharge au sol
-
         boolean sp = mc.options.keyJump.isDown();
         if (sp && !wasSpace) {   // front montant d'un appui espace
             if (!sneaking && now - lastSpaceTap <= DTAP_MS) {
-                // 2e tap → double saut (si en l'air + dispo).
-                if (!p.onGround() && hasDoubleJump) {
-                    boolean inCombat = CombatState.INSTANCE.inCombat(now);
-                    if (!inCombat || now - lastDoubleJumpMs >= DJUMP_COMBAT_CD_MS) {
-                        doDoubleJump(p);
-                        hasDoubleJump = false;
-                        lastDoubleJumpMs = now;
-                    }
+                // 2e tap → double saut si en l'air ET cooldown prêt (10 s).
+                if (!p.onGround()
+                        && CooldownState.INSTANCE.fraction(CooldownState.Ability.DOUBLE_JUMP, now) <= 0f) {
+                    doDoubleJump(p);
+                    CooldownState.INSTANCE.trigger(
+                        CooldownState.Ability.DOUBLE_JUMP, CooldownState.DOUBLE_JUMP_CD_MS);
                 }
                 lastSpaceTap = 0;
             } else {

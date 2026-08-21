@@ -15,7 +15,9 @@ public final class CooldownState {
     public static final CooldownState INSTANCE = new CooldownState();
 
     /** Durée du CD de dash (doit matcher {@code DASH_COOLDOWN_MS} serveur). */
-    public static final long DASH_CD_MS = 1500L;
+    public static final long DASH_CD_MS = 7000L;
+    /** Durée du CD du double saut (doit matcher {@code KERIOX_DASH_COOLDOWN_MS} serveur). */
+    public static final long DOUBLE_JUMP_CD_MS = 10000L;
     /** Durée du CD du saut de chakra (doit matcher le serveur) — long, pas de coût. */
     public static final long CHAKRA_JUMP_CD_MS = 35000L;
 
@@ -26,8 +28,8 @@ public final class CooldownState {
         // frames/frameMs : anim de l'icône (bande verticale reborn:textures/gui/ability/<name>.png,
         // frames empilées de haut en bas, chaque frame = côté de l'icône interne).
         DASH("Dash", 0xFF7FB4FF, ">>", false, 4, 100L),
+        DOUBLE_JUMP("Double saut", 0xFF7FE0B4, "^^", false, 1, 0L),
         CHAKRA_JUMP("Saut de chakra", 0xFF9B7FE0, "^", false, 1, 0L);
-        // À VENIR : DOUBLE_JUMP… (se branchent ici + trigger au bon endroit)
 
         public final String label;
         public final int color;
