@@ -37,7 +37,11 @@ import java.util.Collection;
  * {@link #KIND_DASH} = dash directionnel (corps : {@code float dx}, {@code float dz}
  * — direction horizontale monde normalisée),
  * {@link #KIND_CHAKRA_JUMP} = saut chakra (corps : {@code float vx}, {@code float vy},
- * {@code float vz} — vélocité monde calculée côté client, clampée serveur).
+ * {@code float vz} — vélocité monde calculée côté client, clampée serveur),
+ * {@link #KIND_KERIOX_DASH} = keriox dash orienté pitch (corps : {@code float vx},
+ * {@code float vy}, {@code float vz} — vélocité monde, clampée serveur),
+ * {@link #KIND_DODGE} = esquive (corps : {@code float vx}, {@code float vy},
+ * {@code float vz} — vélocité monde, clampée serveur).
  */
 public final class CombatChannel {
 
@@ -65,6 +69,10 @@ public final class CombatChannel {
     public static final byte KIND_DASH = 4;
     /** Saut chakra — suivi de {@code float vx}, {@code float vy}, {@code float vz}. */
     public static final byte KIND_CHAKRA_JUMP = 5;
+    /** Keriox dash (avancée orientée pitch) — suivi de {@code float vx}, {@code float vy}, {@code float vz}. */
+    public static final byte KIND_KERIOX_DASH = 6;
+    /** Esquive latérale/arrière — suivi de {@code float vx}, {@code float vy}, {@code float vz}. */
+    public static final byte KIND_DODGE = 7;
 
     private CombatChannel() {}
 

@@ -80,8 +80,8 @@ public final class ChakraJump {
      */
     private static Vec3 leapVelocity(LocalPlayer p, float power) {
         Vec3 look = p.getLookAngle();      // vecteur unitaire de visée (yaw + pitch)
-        double h = 1.6;                    // composante horizontale (réf. 1.5)
-        double vy = 1.0 + power * 0.5;     // vertical de base + charge (1.0..1.5)
+        double h = 2.8;                    // GRAND bond horizontal (façon Naruto/Zenkai)
+        double vy = 1.8 + power * 1.0;     // grande hauteur (1.8..2.8) + charge
         return new Vec3(look.x * h, vy, look.z * h);
     }
 

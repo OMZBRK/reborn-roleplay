@@ -103,11 +103,31 @@ public final class CombatListener implements Listener, PluginMessageListener {
     /** Cooldown entre deux sauts chakra, par joueur (ms) — long, sans coût stamina. */
     private static final long CHAKRA_JUMP_COOLDOWN_MS = 35000L;
     /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
-    private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 2.7;
+    private static final double CHAKRA_JUMP_MAX_HORIZONTAL = 3.0;
     /** Composante verticale min (anti-cheat). */
     private static final double CHAKRA_JUMP_MIN_VY = -0.2;
     /** Composante verticale max (anti-cheat). */
-    private static final double CHAKRA_JUMP_MAX_VY = 1.6;
+    private static final double CHAKRA_JUMP_MAX_VY = 3.0;
+
+    // --- keriox dash (avancée orientée pitch) ------------------------------
+    /** Cooldown entre deux keriox dashs, par joueur (ms) — sans coût stamina. */
+    private static final long KERIOX_DASH_COOLDOWN_MS = 800L;
+    /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
+    private static final double KERIOX_DASH_MAX_H = 3.0;
+    /** Composante verticale min (anti-cheat). */
+    private static final double KERIOX_DASH_MIN_VY = -0.5;
+    /** Composante verticale max (anti-cheat). */
+    private static final double KERIOX_DASH_MAX_VY = 2.0;
+
+    // --- dodge (esquive latérale/arrière) ----------------------------------
+    /** Cooldown entre deux esquives, par joueur (ms) — sans coût stamina. */
+    private static final long DODGE_COOLDOWN_MS = 2500L;
+    /** Magnitude horizontale max (anti-cheat) — {@code sqrt(vx²+vz²)} clampé à ça. */
+    private static final double DODGE_MAX_H = 2.0;
+    /** Composante verticale min (anti-cheat). */
+    private static final double DODGE_MIN_VY = -0.3;
+    /** Composante verticale max (anti-cheat). */
+    private static final double DODGE_MAX_VY = 0.6;
 
     // --- commun -------------------------------------------------------------
     /** Amplificateur SLOWNESS commun aux hitstun / guard break. */
@@ -129,6 +149,10 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private final Map<UUID, Long> lastDashMs = new ConcurrentHashMap<>();
     // Dernier saut chakra par joueur (cooldown).
     private final Map<UUID, Long> lastChakraJumpMs = new ConcurrentHashMap<>();
+    // Dernier keriox dash par joueur (cooldown).
+    private final Map<UUID, Long> lastKerioxDashMs = new ConcurrentHashMap<>();
+    // Dernière esquive par joueur (cooldown).
+    private final Map<UUID, Long> lastDodgeMs = new ConcurrentHashMap<>();
 
     public CombatListener(Plugin plugin, CharacterService characters, KoService ko, StaminaManager stamina) {
         this.plugin = plugin;
@@ -263,8 +287,10 @@ public final class CombatListener implements Listener, PluginMessageListener {
                 // Corps du dash : direction horizontale monde (déjà normalisée).
                 dx = in.readFloat();
                 dz = in.readFloat();
-            } else if (kind == CombatChannel.KIND_CHAKRA_JUMP) {
-                // Corps du saut chakra : vélocité monde (clampée serveur).
+            } else if (kind == CombatChannel.KIND_CHAKRA_JUMP
+                    || kind == CombatChannel.KIND_KERIOX_DASH
+                    || kind == CombatChannel.KIND_DODGE) {
+                // Corps commun : vélocité monde calculée côté client (clampée serveur).
                 vx = in.readFloat();
                 vy = in.readFloat();
                 vz = in.readFloat();
@@ -280,6 +306,10 @@ public final class CombatListener implements Listener, PluginMessageListener {
             handleDash(player, dx, dz);
         } else if (kind == CombatChannel.KIND_CHAKRA_JUMP) {
             handleChakraJump(player, vx, vy, vz);
+        } else if (kind == CombatChannel.KIND_KERIOX_DASH) {
+            handleKerioxDash(player, vx, vy, vz);
+        } else if (kind == CombatChannel.KIND_DODGE) {
+            handleDodge(player, vx, vy, vz);
         }
     }
 
@@ -344,6 +374,76 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
         player.setVelocity(new Vector(cvx, cvy, cvz));
         player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDER_DRAGON_FLAP, org.bukkit.SoundCategory.PLAYERS, 0.7f, 1.4f);
+    }
+
+    /**
+     * Keriox dash : avancée orientée pitch dont la vélocité est calculée côté client.
+     * Gardes comme le saut chakra (personnage actif, non KO, cooldown court
+     * {@link #KERIOX_DASH_COOLDOWN_MS}), <b>sans coût stamina</b>. Un <b>clamp
+     * anti-cheat</b> borne la magnitude horizontale à {@link #KERIOX_DASH_MAX_H}
+     * (mise à l'échelle proportionnelle) et la composante verticale à
+     * {@code [KERIOX_DASH_MIN_VY, KERIOX_DASH_MAX_VY]}. Aucune anim à diffuser.
+     */
+    private void handleKerioxDash(Player player, float vx, float vy, float vz) {
+        UUID id = player.getUniqueId();
+        if (characters.getActive(id) == null) return;
+        if (ko != null && ko.isKo(id)) return;
+
+        long now = System.currentTimeMillis();
+        Long last = lastKerioxDashMs.get(id);
+        if (last != null && now - last < KERIOX_DASH_COOLDOWN_MS) return;
+
+        lastKerioxDashMs.put(id, now);
+
+        // Clamp anti-cheat : magnitude horizontale.
+        double cvx = vx;
+        double cvz = vz;
+        double horizontal = Math.sqrt(cvx * cvx + cvz * cvz);
+        if (horizontal > KERIOX_DASH_MAX_H) {
+            double scale = KERIOX_DASH_MAX_H / horizontal;
+            cvx *= scale;
+            cvz *= scale;
+        }
+        // Clamp anti-cheat : composante verticale.
+        double cvy = Math.max(KERIOX_DASH_MIN_VY, Math.min(KERIOX_DASH_MAX_VY, vy));
+
+        player.setVelocity(new Vector(cvx, cvy, cvz));
+        player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_ATTACK_SWEEP, org.bukkit.SoundCategory.PLAYERS, 0.7f, 1.5f);
+    }
+
+    /**
+     * Esquive : petit bond latéral/arrière dont la vélocité est calculée côté client.
+     * Gardes comme le keriox dash (personnage actif, non KO, cooldown
+     * {@link #DODGE_COOLDOWN_MS}), <b>sans coût stamina</b>. Un <b>clamp anti-cheat</b>
+     * borne la magnitude horizontale à {@link #DODGE_MAX_H} (mise à l'échelle
+     * proportionnelle) et la composante verticale à {@code [DODGE_MIN_VY, DODGE_MAX_VY]}.
+     * Aucune anim à diffuser.
+     */
+    private void handleDodge(Player player, float vx, float vy, float vz) {
+        UUID id = player.getUniqueId();
+        if (characters.getActive(id) == null) return;
+        if (ko != null && ko.isKo(id)) return;
+
+        long now = System.currentTimeMillis();
+        Long last = lastDodgeMs.get(id);
+        if (last != null && now - last < DODGE_COOLDOWN_MS) return;
+
+        lastDodgeMs.put(id, now);
+
+        // Clamp anti-cheat : magnitude horizontale.
+        double cvx = vx;
+        double cvz = vz;
+        double horizontal = Math.sqrt(cvx * cvx + cvz * cvz);
+        if (horizontal > DODGE_MAX_H) {
+            double scale = DODGE_MAX_H / horizontal;
+            cvx *= scale;
+            cvz *= scale;
+        }
+        // Clamp anti-cheat : composante verticale.
+        double cvy = Math.max(DODGE_MIN_VY, Math.min(DODGE_MAX_VY, vy));
+
+        player.setVelocity(new Vector(cvx, cvy, cvz));
+        player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDER_DRAGON_FLAP, org.bukkit.SoundCategory.PLAYERS, 0.5f, 1.8f);
     }
 
     /** Début de garde : personnage actif requis, non KO. Diffuse l'anim block-on. */
@@ -445,5 +545,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         blocking.remove(id);
         lastDashMs.remove(id);
         lastChakraJumpMs.remove(id);
+        lastKerioxDashMs.remove(id);
+        lastDodgeMs.remove(id);
     }
 }

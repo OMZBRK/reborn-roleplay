@@ -193,6 +193,8 @@ public final class HudKeybinds {
             fr.reborn.hud.combat.CombatInput.INSTANCE.tick(Minecraft.getInstance());
             // Saut de chakra (sneak + espace maintenus → charge + saut).
             fr.reborn.hud.combat.ChakraJump.INSTANCE.tick(Minecraft.getInstance());
+            // Mobilité double-tap : espace = dash Keriox, A/D/S = esquive.
+            fr.reborn.hud.combat.MobilityInput.INSTANCE.tick(Minecraft.getInstance());
 
             // Déplacement free-cam du mode photo (lecture clavier brute).
             fr.reborn.hud.immersion.PhotoMode.INSTANCE.tickMovement(Minecraft.getInstance());

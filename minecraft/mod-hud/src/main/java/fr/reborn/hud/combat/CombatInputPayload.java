@@ -20,6 +20,10 @@ public record CombatInputPayload(byte kind, float a, float b, float c) implement
     public static final byte KIND_BLOCK_OFF = 3;
     public static final byte KIND_DASH = 4;
     public static final byte KIND_CHAKRA_JUMP = 5;
+    /** Dash « Keriox » (pitch-aware) : {@code a,b,c} = vélocité MONDE. */
+    public static final byte KIND_KERIOX_DASH = 6;
+    /** Esquive latérale/arrière : {@code a,b,c} = vélocité MONDE. */
+    public static final byte KIND_DODGE = 7;
 
     public static final Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "combatin");
     public static final CustomPacketPayload.Type<CombatInputPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);
@@ -29,6 +33,16 @@ public record CombatInputPayload(byte kind, float a, float b, float c) implement
     public static CombatInputPayload chakraJump(float vx, float vy, float vz) {
         return new CombatInputPayload(KIND_CHAKRA_JUMP, vx, vy, vz);
     }
+    public static CombatInputPayload kerioxDash(float vx, float vy, float vz) {
+        return new CombatInputPayload(KIND_KERIOX_DASH, vx, vy, vz);
+    }
+    public static CombatInputPayload dodge(float vx, float vy, float vz) {
+        return new CombatInputPayload(KIND_DODGE, vx, vy, vz);
+    }
+
+    private static boolean isVec3Kind(byte k) {
+        return k == KIND_CHAKRA_JUMP || k == KIND_KERIOX_DASH || k == KIND_DODGE;
+    }
 
     public static final StreamCodec<FriendlyByteBuf, CombatInputPayload> CODEC = new StreamCodec<>() {
         @Override
@@ -36,7 +50,7 @@ public record CombatInputPayload(byte kind, float a, float b, float c) implement
             byte k = buf.readByte();
             if (k == KIND_DASH) {
                 return new CombatInputPayload(k, buf.readFloat(), buf.readFloat(), 0f);
-            } else if (k == KIND_CHAKRA_JUMP) {
+            } else if (isVec3Kind(k)) {
                 return new CombatInputPayload(k, buf.readFloat(), buf.readFloat(), buf.readFloat());
             }
             return new CombatInputPayload(k, 0f, 0f, 0f);
@@ -47,7 +61,7 @@ public record CombatInputPayload(byte kind, float a, float b, float c) implement
             buf.writeByte(v.kind);
             if (v.kind == KIND_DASH) {
                 buf.writeFloat(v.a); buf.writeFloat(v.b);
-            } else if (v.kind == KIND_CHAKRA_JUMP) {
+            } else if (isVec3Kind(v.kind)) {
                 buf.writeFloat(v.a); buf.writeFloat(v.b); buf.writeFloat(v.c);
             }
         }
