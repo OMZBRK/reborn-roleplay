@@ -163,7 +163,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
     // ------------------------------------------------------------------ M1 --
 
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOW)
     public void onMelee(EntityDamageByEntityEvent e) {
         // Uniquement les coups mêlée directs (pas projectiles/jutsu).
         DamageCause cause = e.getCause();
@@ -187,6 +187,13 @@ public final class CombatListener implements Listener, PluginMessageListener {
             CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max());
             return;
         }
+
+        // Combat RP validé (perso actif, non KO, stamina OK) → on force le coup à
+        // PASSER même si le PvP vanilla (server.properties/gamerule pvp=false) a
+        // pré-annulé l'event. Le gating du combat est assuré par le système RP
+        // (perso/KO/stamina), pas par le flag vanilla — sinon combat muet entre
+        // joueurs (dégâts ET anim sautés) alors qu'il marche sur les mobs.
+        if (e.isCancelled()) e.setCancelled(false);
 
         // Avance l'état de combo.
         int index = advanceCombo(attacker.getUniqueId());
