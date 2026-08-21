@@ -66,20 +66,23 @@ public final class ChakraJump {
         float pw = power();
         charging = false;
         if (pw < MIN_POWER) return;
-        Vec3 v = leapVelocity(p.getYRot(), pw);
+        Vec3 v = leapVelocity(p, pw);
         if (ClientPlayNetworking.canSend(CombatInputPayload.ID)) {
             ClientPlayNetworking.send(CombatInputPayload.chakraJump((float) v.x, (float) v.y, (float) v.z));
         }
         CooldownState.INSTANCE.trigger(CooldownState.Ability.CHAKRA_JUMP, CooldownState.CHAKRA_JUMP_CD_MS);
     }
 
-    /** Vélocité de saut selon le yaw + la charge — VRAI bond (grande distance). */
-    private static Vec3 leapVelocity(float yaw, float power) {
-        double yr = Math.toRadians(yaw);
-        double hx = -Math.sin(yr), hz = Math.cos(yr);
-        double h = 0.7 + power * 1.9;    // horizontal 0.7..2.6
-        double vy = 0.7 + power * 0.8;   // vertical  0.7..1.5
-        return new Vec3(hx * h, vy, hz * h);
+    /**
+     * Vélocité de saut façon ShinobiMobility (Keriox) : on utilise la direction de
+     * regard COMPLÈTE (yaw + PITCH) → visable en l'air (à plat = loin, vers le haut =
+     * arc haut, portée projectile). Horizontal fixe, vertical = base + charge.
+     */
+    private static Vec3 leapVelocity(LocalPlayer p, float power) {
+        Vec3 look = p.getLookAngle();      // vecteur unitaire de visée (yaw + pitch)
+        double h = 1.6;                    // composante horizontale (réf. 1.5)
+        double vy = 1.0 + power * 0.5;     // vertical de base + charge (1.0..1.5)
+        return new Vec3(look.x * h, vy, look.z * h);
     }
 
     public void reset() { charging = false; }
@@ -102,7 +105,7 @@ public final class ChakraJump {
     /** Simule la parabole (physique joueur approx.) pour l'aperçu de saut. */
     private static List<Vec3> trajectory(LocalPlayer p, float power) {
         Vec3 pos = p.position().add(0, 0.4, 0);
-        Vec3 v = leapVelocity(p.getYRot(), power);
+        Vec3 v = leapVelocity(p, power);
         List<Vec3> pts = new ArrayList<>();
         double startY = p.getY();
         for (int i = 0; i < 60; i++) {
