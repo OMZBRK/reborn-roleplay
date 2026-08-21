@@ -33,8 +33,14 @@ export function SecondInstanceButton() {
   const isStaff = !!user && STAFF_ROLES.includes(user.role);
   if (!isStaff) return null;
 
-  // Comptes alternatifs = enregistrés, hors compte courant.
-  const alts = savedAccounts.filter((a) => a.minecraftUuid !== user!.minecraftUuid);
+  // Comptes alternatifs = enregistrés, hors compte courant. Comparaison d'UUID
+  // normalisée (sans tirets, minuscules) : sinon un même compte stocké avec un
+  // format d'UUID différent passe pour un « alt » → lancer 2× le même compte →
+  // Mojang « Invalid session ». Le backend re-vérifie (garde-fou SameAccount).
+  const normUuid = (u: string) => u.replace(/-/g, "").toLowerCase();
+  const alts = savedAccounts.filter(
+    (a) => normUuid(a.minecraftUuid) !== normUuid(user!.minecraftUuid),
+  );
 
   async function launch(uuid: string, pseudo: string) {
     setBusy(uuid);
