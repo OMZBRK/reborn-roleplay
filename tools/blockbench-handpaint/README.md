@@ -28,7 +28,7 @@ Ordre de construction choisi : **fondations → AO → Shade → Lighting → Gr
 
 ```pwsh
 pnpm install
-pnpm build        # bundle → dist/reborn-handpainted.js
+pnpm build        # bundle → dist/reborn_handpainted.js
 pnpm watch        # rebuild à chaque save
 ```
 
@@ -36,7 +36,7 @@ pnpm watch        # rebuild à chaque save
 pnpm test         # tests du cœur math (rayon-triangle, AO, rasterisation) — sans Blockbench
 ```
 
-Charger dans Blockbench : **File → Plugins → Load Plugin from File** → `dist/reborn-handpainted.js`.
+Charger dans Blockbench : **File → Plugins → Load Plugin from File** → `dist/reborn_handpainted.js`.
 En dev, Blockbench recharge le fichier à chaque rebuild (garder le dialog ouvert ou re-loader).
 
 ## Tester l'AO dans Blockbench

@@ -7,7 +7,9 @@ import esbuild from 'esbuild';
  */
 const options = {
   entryPoints: ['src/index.ts'],
-  outfile: 'dist/reborn-handpainted.js',
+  // Le nom de fichier DOIT correspondre à l'ID du plugin (Plugin.register),
+  // sinon Blockbench refuse de le charger ("base file name must match plugin ID").
+  outfile: 'dist/reborn_handpainted.js',
   bundle: true,
   format: 'iife',
   platform: 'browser',
