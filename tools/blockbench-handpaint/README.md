@@ -9,7 +9,7 @@ Clone maison de la référence *RuneFist Handpainted Workflow*, taillé pour le 
 | # | Outil | Ce que ça évite de peindre à la main | Statut |
 |---|-------|--------------------------------------|--------|
 | 1 | **AO** | L'occlusion ambiante dans les recoins / chevauchements de géométrie (baking cube + mesh, tons Cool/Neutral/Warm, dithering pixel-art) | ✅ v1 |
-| 2 | **Shade** | La sélection de gamme d'ombres/lumières depuis la palette active | 🔜 |
+| 2 | **Shade** | Mélanger à la main ses tons d'ombre/lumière : génère une rampe hand-painted (ombres froides, lumières chaudes) → palette + ombrage texture | ✅ v1 |
 | 3 | **Lighting** | Highlights + ombres d'une couleur de base, dirigés par un « soleil » 3D placé dans le viewport | 🔜 |
 | 4 | **Gradient** | Les dégradés de forme (bandes de valeur guidées par 2 points dans la vue) | 🔜 |
 | 5 | **Edges** | Highlights / éclats / coutures sombres suivant les arêtes de la géométrie | 🔜 |
