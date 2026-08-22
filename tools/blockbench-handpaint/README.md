@@ -8,7 +8,7 @@ Clone maison de la référence *RuneFist Handpainted Workflow*, taillé pour le 
 
 | # | Outil | Ce que ça évite de peindre à la main | Statut |
 |---|-------|--------------------------------------|--------|
-| 1 | **AO** | L'occlusion ambiante dans les recoins / chevauchements de géométrie (baking cube + mesh, tons Cool/Neutral/Warm, dithering pixel-art) | 🔜 |
+| 1 | **AO** | L'occlusion ambiante dans les recoins / chevauchements de géométrie (baking cube + mesh, tons Cool/Neutral/Warm, dithering pixel-art) | ✅ v1 |
 | 2 | **Shade** | La sélection de gamme d'ombres/lumières depuis la palette active | 🔜 |
 | 3 | **Lighting** | Highlights + ombres d'une couleur de base, dirigés par un « soleil » 3D placé dans le viewport | 🔜 |
 | 4 | **Gradient** | Les dégradés de forme (bandes de valeur guidées par 2 points dans la vue) | 🔜 |
@@ -32,5 +32,26 @@ pnpm build        # bundle → dist/reborn-handpainted.js
 pnpm watch        # rebuild à chaque save
 ```
 
+```pwsh
+pnpm test         # tests du cœur math (rayon-triangle, AO, rasterisation) — sans Blockbench
+```
+
 Charger dans Blockbench : **File → Plugins → Load Plugin from File** → `dist/reborn-handpainted.js`.
 En dev, Blockbench recharge le fichier à chaque rebuild (garder le dialog ouvert ou re-loader).
+
+## Tester l'AO dans Blockbench
+
+1. Ouvrir un modèle avec une texture mappée (mode Paint), sélectionner la texture.
+2. **Tools → Bake AO (Handpainted)** → régler teinte / intensité / portée / rayons.
+3. Confirmer : un calque `AO` (multiply) apparaît, éditable/masquable. Undo dispo.
+
+**Points à vérifier visuellement (le baking ne peut pas être testé hors Blockbench) :**
+- **Orientation UV des cubes** : la correspondance coin↔UV + rotation est en
+  best-effort (`geometry.ts::cubeFaceUV` / `CUBE_FACE_KEYS`). Si l'ombre d'une
+  face de cube apparaît tournée/miroir, ajuster l'ordre de rotation là.
+- **Normales** : réorientées vers l'extérieur via le centre de l'élément
+  (robuste pour formes convexes). Si tout ressort tout noir → normales inversées.
+- **Hypothèse mono-texture** : on ombre toutes les faces sur la texture
+  sélectionnée. Modèles multi-textures = évolution.
+- **Perf** : `texels × rayons × triangles`. Sur 64² c'est instantané ; monter
+  les rayons (>64) ou la résolution (256²+) peut geler l'UI une seconde.
