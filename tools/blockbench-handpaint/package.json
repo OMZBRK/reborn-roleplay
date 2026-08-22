@@ -8,7 +8,7 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test": "node test/raymath.test.ts"
+    "test": "node test/raymath.test.ts && node test/color.test.ts"
   },
   "devDependencies": {
     "blockbench-types": "^4.10.0",

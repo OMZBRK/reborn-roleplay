@@ -6,6 +6,7 @@
  * src/core et src/tools.
  */
 import { openAODialog } from './tools/ao.ts';
+import { openShadeDialog } from './tools/shade.ts';
 
 const PLUGIN_ID = 'reborn_handpainted';
 
@@ -40,7 +41,22 @@ BBPlugin.register(PLUGIN_ID, {
     MenuBar.addAction(aoAction, 'tools');
     disposables.push(aoAction);
 
-    console.log('[reborn-handpainted] loaded (AO)');
+    const shadeAction = new Action(`${PLUGIN_ID}_shade`, {
+      name: 'Shade — rampe (Handpainted)',
+      description:
+        'Génère une rampe hand-painted depuis une couleur de base ' +
+        '(ombres froides, lumières chaudes) → palette + ombrage de la texture.',
+      icon: 'gradient',
+      category: 'textures',
+      condition: () => (typeof Texture !== 'undefined' && !!(Texture as any).all?.length),
+      click() {
+        openShadeDialog();
+      },
+    });
+    MenuBar.addAction(shadeAction, 'tools');
+    disposables.push(shadeAction);
+
+    console.log('[reborn-handpainted] loaded (AO + Shade)');
   },
 
   onunload() {
