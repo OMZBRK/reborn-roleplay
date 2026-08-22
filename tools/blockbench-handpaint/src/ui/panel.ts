@@ -10,6 +10,7 @@
  */
 import { bakeAO, AO_TONES, type AOOptions } from '../tools/ao.ts';
 import { applyShade, type ShadeOptions } from '../tools/shade.ts';
+import { bakeLighting, LIGHT_PRESETS, type LightingOptions } from '../tools/lighting.ts';
 import { generateRamp } from '../core/color.ts';
 
 const STYLE_ID = 'reborn-hp-styles';
@@ -21,6 +22,12 @@ const CSS = `
 .rhp-head .material-icons { font-size: 22px; color: var(--color-accent); }
 .rhp-head .t { font-size: 13px; font-weight: 700; letter-spacing: .3px; }
 .rhp-head .s { font-size: 10px; opacity: .55; margin-top: 1px; }
+.rhp-auto { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px; background: linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 60%, #b060ff)); color: #fff; border: none; border-radius: 9px; cursor: pointer; font-weight: 800; font-size: 13px; letter-spacing: .3px; box-shadow: 0 2px 8px rgba(0,0,0,.25); transition: filter .1s, transform .06s; }
+.rhp-auto:hover { filter: brightness(1.1); }
+.rhp-auto:active { transform: translateY(1px); }
+.rhp-auto:disabled { opacity: .5; cursor: default; }
+.rhp-auto .material-icons { font-size: 19px; }
+.rhp-auto-desc { font-size: 10.5px; line-height: 1.45; opacity: .6; margin: 6px 2px 14px; }
 .rhp-card { background: var(--color-ui); border: 1px solid var(--color-border); border-radius: 10px; padding: 11px 12px; margin-bottom: 12px; }
 .rhp-card-h { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
 .rhp-card-h .material-icons { font-size: 17px; color: var(--color-accent); }
@@ -114,6 +121,13 @@ export function createHandpaintedPanel(): { delete: () => void } {
           ao_target: 'layer',
           ao_dither: false,
           ao_levels: 4,
+          li_dir: 'top_front',
+          li_shadow: 0.55,
+          li_hl: 0.45,
+          li_shadow_color: '#1a2636',
+          li_hl_color: '#fff0cf',
+          li_shadow_on: true,
+          li_hl_on: true,
           sh_base: '#7a5a3c',
           sh_steps: 5,
           sh_range: 0.6,
@@ -180,6 +194,41 @@ export function createHandpaintedPanel(): { delete: () => void } {
           };
           this._run('Shade', () => applyShade(opts));
         },
+        runLighting(this: any) {
+          const opts: LightingOptions = {
+            dir: LIGHT_PRESETS[this.li_dir] ?? LIGHT_PRESETS.top_front,
+            shadowColor: this.li_shadow_color,
+            shadowStrength: Number(this.li_shadow),
+            highlightColor: this.li_hl_color,
+            highlightStrength: Number(this.li_hl),
+            shadowOn: !!this.li_shadow_on,
+            highlightOn: !!this.li_hl_on,
+          };
+          this._run('Lighting', () => bakeLighting(opts));
+        },
+        runAuto(this: any) {
+          // Un clic : volume (lumière) + profondeur (AO) avec de bons réglages
+          // par défaut, pour un résultat franc même sur une texture plate.
+          this._run('Auto hand-paint', () => {
+            const li = bakeLighting({
+              dir: LIGHT_PRESETS.top_front,
+              shadowColor: '#1a2636', shadowStrength: 0.55,
+              highlightColor: '#fff0cf', highlightStrength: 0.45,
+              shadowOn: true, highlightOn: true,
+            });
+            const ao = bakeAO({
+              color: AO_TONES.cool, intensity: 1, radius: 4, samples: 24,
+              target: 'layer', dither: false, levels: 4,
+            });
+            const ok = li.ok || ao.ok;
+            return {
+              ok,
+              message: ok
+                ? 'Auto hand-paint : lumière + AO appliqués — regarde les calques de la texture.'
+                : `${li.message} / ${ao.message}`,
+            };
+          });
+        },
         showDiagnostics(this: any) {
           const report = diagnosticsReport();
           this.status = 'Diagnostics affichés.';
@@ -194,6 +243,9 @@ export function createHandpaintedPanel(): { delete: () => void } {
             <i class="material-icons">brush</i>
             <div><div class="t">Reborn Handpainted</div><div class="s">Texturisation hand-painted assistée</div></div>
           </div>
+
+          <button class="rhp-auto" :disabled="busy" @click="runAuto"><i class="material-icons">auto_fix_high</i>Auto hand-paint (1 clic)</button>
+          <div class="rhp-auto-desc">Applique lumière + AO d'un coup avec de bons réglages. Idéal pour donner du relief à une texture plate. Ajuste ensuite avec les outils ci-dessous.</div>
 
           <div class="rhp-card">
             <div class="rhp-card-h"><i class="material-icons">blur_on</i><span class="n">AO</span></div>
@@ -210,8 +262,17 @@ export function createHandpaintedPanel(): { delete: () => void } {
           </div>
 
           <div class="rhp-card">
+            <div class="rhp-card-h"><i class="material-icons">wb_sunny</i><span class="n">Lighting</span></div>
+            <div class="rhp-desc">Crée le volume : éclaire les faces tournées vers la lumière (chaud) et ombre celles à l'opposé (froid). Donne du relief « peint » à une texture plate.</div>
+            <div class="rhp-row"><label>Direction</label><div class="grow"><select v-model="li_dir"><option value="top_front">Haut-avant</option><option value="top">Dessus</option><option value="top_left">Haut-gauche</option><option value="top_right">Haut-droite</option><option value="front">Avant</option></select></div></div>
+            <div class="rhp-row"><label>Ombres</label><div class="grow"><input type="checkbox" v-model="li_shadow_on"><input type="range" min="0" max="1" step="0.05" v-model.number="li_shadow" :disabled="!li_shadow_on"><span class="rhp-badge">{{ li_shadow.toFixed(2) }}</span></div></div>
+            <div class="rhp-row"><label>Lumières</label><div class="grow"><input type="checkbox" v-model="li_hl_on"><input type="range" min="0" max="1" step="0.05" v-model.number="li_hl" :disabled="!li_hl_on"><span class="rhp-badge">{{ li_hl.toFixed(2) }}</span></div></div>
+            <button class="rhp-apply" :disabled="busy" @click="runLighting"><i class="material-icons">wb_sunny</i>Appliquer Lighting</button>
+          </div>
+
+          <div class="rhp-card">
             <div class="rhp-card-h"><i class="material-icons">gradient</i><span class="n">Shade</span></div>
-            <div class="rhp-desc">À partir d'une couleur, génère une gamme d'ombres/lumières cohérente (ombres froides, lumières chaudes). Remplit la palette pour peindre + peut coloriser ta texture en bandes.</div>
+            <div class="rhp-desc">Génère une gamme d'ombres/lumières depuis une couleur (ombres froides, lumières chaudes) et remplit la palette pour peindre. « Ombrer la texture » ne fait effet que si la texture a déjà du relief (ex. après Lighting/AO) — sur une texture plate, utilise plutôt Auto/Lighting d'abord.</div>
             <div class="rhp-row"><label>Base</label><div class="grow"><input type="color" v-model="sh_base"><span style="opacity:.55;font-size:10.5px">aperçu ↓</span></div></div>
             <div class="rhp-ramp"><div v-for="(c,i) in ramp" :key="i" :style="{background:c}"></div></div>
             <div class="rhp-row"><label>Tons</label><div class="grow"><input type="range" min="2" max="10" step="1" v-model.number="sh_steps"><span class="rhp-badge">{{ sh_steps }}</span></div></div>
