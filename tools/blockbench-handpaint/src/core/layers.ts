@@ -14,11 +14,11 @@ export function emitLayer(
   undoName: string,
 ): void {
   const tex = texture as any;
-  Undo.initEdit({ textures: [texture] } as any);
+  Undo.initEdit({ textures: [texture], bitmap: true } as any);
   if (!tex.layers_enabled) tex.activateLayers?.(false);
 
   const layer = new TextureLayer(
-    { name, blend_mode: blendMode, opacity: 255 } as any,
+    { name, blend_mode: blendMode, opacity: 255, offset: [0, 0] } as any,
     texture,
   );
   const l = layer as any;
@@ -27,7 +27,7 @@ export function emitLayer(
   l.addForEditing();
 
   tex.updateChangesAfterEdit?.();
-  Undo.finishEdit(undoName);
+  Undo.finishEdit(undoName, { textures: [texture], bitmap: true } as any);
 }
 
 /** Composite un ImageData (multiply) directement dans la texture (pas un calque). */

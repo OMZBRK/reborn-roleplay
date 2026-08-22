@@ -10,7 +10,7 @@ import { collectOccluders, forEachTexel } from '../core/geometry.ts';
 import { computeAO, hammersleyPairs } from '../core/raymath.ts';
 import { emitLayer, paintMultiplyIntoTexture } from '../core/layers.ts';
 
-interface AOOptions {
+export interface AOOptions {
   color: string;      // couleur de l'ombre (#rrggbb)
   intensity: number;  // multiplicateur de la force (0..2)
   radius: number;     // portée des rayons en unités MC
@@ -21,7 +21,7 @@ interface AOOptions {
 }
 
 // Presets de teinte d'ombre (RuneFist-like) — utilisés si tone != custom.
-const TONES: Record<string, string> = {
+export const AO_TONES: Record<string, string> = {
   cool: '#16202e',
   neutral: '#1c1c1c',
   warm: '#2a1e14',
@@ -111,57 +111,4 @@ export function bakeAO(opts: AOOptions): { ok: boolean; message: string } {
     ok: true,
     message: `AO bakée : ${texels} texels, ${triCount} triangles, ${opts.samples} rayons.`,
   };
-}
-
-/** Ouvre le dialog de configuration puis lance le bake. */
-export function openAODialog(): void {
-  new Dialog('reborn_hp_ao', {
-    title: 'Reborn Handpainted — Bake AO',
-    form: {
-      tone: {
-        label: 'Teinte d\'ombre',
-        type: 'select',
-        default: 'cool',
-        options: { cool: 'Froide', neutral: 'Neutre', warm: 'Chaude', custom: 'Personnalisée' },
-      },
-      color: { label: 'Couleur (si personnalisée)', type: 'color', value: '#16202e' },
-      intensity: { label: 'Intensité', type: 'range', value: 1, min: 0, max: 2, step: 0.05 },
-      radius: { label: 'Portée (unités)', type: 'range', value: 4, min: 0.5, max: 16, step: 0.5 },
-      samples: { label: 'Rayons / texel', type: 'number', value: 24, min: 4, max: 256, step: 1 },
-      target: {
-        label: 'Cible',
-        type: 'select',
-        default: 'layer',
-        options: { layer: 'Nouveau calque (multiply)', texture: 'Peindre dans la texture' },
-      },
-      dither: { label: 'Dithering (pixel-art)', type: 'checkbox', value: false },
-      levels: { label: 'Niveaux (si dithering)', type: 'number', value: 4, min: 2, max: 16, step: 1 },
-    },
-    onConfirm(result: any) {
-      const tone = result.tone as string;
-      const color = tone === 'custom' ? result.color : (TONES[tone] ?? '#16202e');
-      const opts: AOOptions = {
-        color,
-        intensity: Number(result.intensity),
-        radius: Number(result.radius),
-        samples: Math.round(Number(result.samples)),
-        target: result.target,
-        dither: !!result.dither,
-        levels: Math.max(2, Math.round(Number(result.levels))),
-      };
-      (this as any).hide();
-      // Laisse le dialog se fermer avant le calcul (peut geler l'UI un instant).
-      Blockbench.showQuickMessage('Bake AO en cours…', 1000);
-      setTimeout(() => {
-        try {
-          const report = bakeAO(opts);
-          Blockbench.showQuickMessage(report.message, report.ok ? 2500 : 4000);
-          if (!report.ok) console.warn('[reborn-handpainted][AO]', report.message);
-        } catch (err) {
-          console.error('[reborn-handpainted][AO] crash', err);
-          Blockbench.showQuickMessage('Bake AO : erreur (voir console).', 4000);
-        }
-      }, 60);
-    },
-  }).show();
 }

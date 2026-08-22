@@ -39,11 +39,21 @@ pnpm test         # tests du cœur math (rayon-triangle, AO, rasterisation) — 
 Charger dans Blockbench : **File → Plugins → Load Plugin from File** → `dist/reborn_handpainted.js`.
 En dev, Blockbench recharge le fichier à chaque rebuild (garder le dialog ouvert ou re-loader).
 
-## Tester l'AO dans Blockbench
+## Utilisation (panneau)
 
-1. Ouvrir un modèle avec une texture mappée (mode Paint), sélectionner la texture.
-2. **Tools → Bake AO (Handpainted)** → régler teinte / intensité / portée / rayons.
-3. Confirmer : un calque `AO` (multiply) apparaît, éditable/masquable. Undo dispo.
+L'UI est un **panneau latéral** (barre de droite) façon RuneFist, avec contrôles
+live. S'il n'apparaît pas : **Tools → Reborn Handpainted (panneau)**.
+
+1. Ouvrir un modèle avec une texture mappée, sélectionner la texture.
+2. **AO** : régler teinte / intensité / portée / rayons → bouton **Bake AO** →
+   un calque `AO` (multiply) éditable apparaît.
+3. **Shade** : choisir une couleur de base → aperçu live de la rampe → bouton
+   **Appliquer Shade** (palette + ombrage de la texture).
+4. **Diagnostics** : montre ce que le plugin voit (cubes, meshes, texture
+   sélectionnée, palette) — utile si un outil « ne fait rien ».
+
+En cas d'erreur, le plugin l'affiche dans une boîte de message (pas besoin
+d'ouvrir la console). Détails complets : `Ctrl+Shift+I` → onglet Console.
 
 **Points à vérifier visuellement (le baking ne peut pas être testé hors Blockbench) :**
 - **Orientation UV des cubes** : la correspondance coin↔UV + rotation est en

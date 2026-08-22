@@ -10,7 +10,7 @@
 import { generateRamp, hexToRgb, luminance, rampIndexForLuminance, type RGB } from '../core/color.ts';
 import { emitLayer } from '../core/layers.ts';
 
-interface ShadeOptions {
+export interface ShadeOptions {
   base: string;
   steps: number;
   valueRange: number;
@@ -95,53 +95,4 @@ export function applyShade(opts: ShadeOptions): { ok: boolean; message: string }
   if (opts.action !== 'remap') parts.push(didPalette ? 'palette mise à jour' : 'palette indisponible');
   if (didRemap) parts.push('texture ombrée (calque)');
   return { ok: true, message: parts.join(' · ') };
-}
-
-/** Couleur de base par défaut : la couleur active de Blockbench si dispo. */
-function defaultBase(): string {
-  const CP = (globalThis as any).ColorPanel;
-  const c = CP?.get?.();
-  return typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c) ? c : '#7a5a3c';
-}
-
-export function openShadeDialog(): void {
-  new Dialog('reborn_hp_shade', {
-    title: 'Reborn Handpainted — Shade (rampe)',
-    form: {
-      base: { label: 'Couleur de base', type: 'color', value: defaultBase() },
-      steps: { label: 'Nombre de tons', type: 'number', value: 5, min: 2, max: 12, step: 1 },
-      valueRange: { label: 'Amplitude clair/sombre', type: 'range', value: 0.6, min: 0.1, max: 1, step: 0.05 },
-      hueShift: { label: 'Hue-shift (froid↔chaud)', type: 'range', value: 12, min: 0, max: 40, step: 1 },
-      satBoost: { label: 'Saturation des ombres', type: 'range', value: 0.12, min: 0, max: 0.5, step: 0.01 },
-      action: {
-        label: 'Action',
-        type: 'select',
-        default: 'both',
-        options: {
-          palette: 'Installer la rampe dans la palette',
-          remap: 'Ombrer la texture (calque)',
-          both: 'Les deux',
-        },
-      },
-    },
-    onConfirm(result: any) {
-      const opts: ShadeOptions = {
-        base: result.base,
-        steps: Math.round(Number(result.steps)),
-        valueRange: Number(result.valueRange),
-        hueShift: Number(result.hueShift),
-        satBoost: Number(result.satBoost),
-        action: result.action,
-      };
-      (this as any).hide();
-      try {
-        const report = applyShade(opts);
-        Blockbench.showQuickMessage(report.message, report.ok ? 2500 : 4000);
-        if (!report.ok) console.warn('[reborn-handpainted][Shade]', report.message);
-      } catch (err) {
-        console.error('[reborn-handpainted][Shade] crash', err);
-        Blockbench.showQuickMessage('Shade : erreur (voir console).', 4000);
-      }
-    },
-  }).show();
 }
