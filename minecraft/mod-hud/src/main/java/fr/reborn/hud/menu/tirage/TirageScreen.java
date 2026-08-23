@@ -4,6 +4,7 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
+import fr.reborn.hud.camera.RebornCamera;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -55,10 +56,16 @@ public class TirageScreen extends Screen {
 
     private final Random rng = new Random();
 
-    // Caméra / HUD restaurés à la fermeture.
+    // Caméra / HUD sauvegardés et restaurés à la fermeture.
     private CameraType prevCam;
+    private RebornCamera.Mode prevMode;
+    private double prevCamYaw, prevCamPitch, prevRight, prevDistance;
     private boolean prevHudHidden;
     private boolean captured = false;
+
+    /** Angle de la caméra autour du perso : ¾ profil (montre le côté + les
+     *  particules devant lui, contrairement à la vue de dos qui les cache). */
+    private static final float SIDE_YAW = 75f;
 
     /** Clan du perso (pilote la pondération). null = uniforme (démo client). */
     private final String clan;
@@ -77,13 +84,19 @@ public class TirageScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
-        if (!captured && mc.options != null) {
+        if (!captured && mc.options != null && mc.player != null) {
+            RebornCamera cam = RebornCamera.INSTANCE;
             prevCam = mc.options.getCameraType();
-            mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+            prevMode = cam.mode();
+            prevCamYaw = cam.camYaw();
+            prevCamPitch = cam.camPitch();
+            prevRight = cam.rightMagnitude();
+            prevDistance = cam.distance();
             prevHudHidden = mc.gui.hud.isHidden();
             ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(true);
             captured = true;
         }
+        applyProfileCamera(mc);
         startTest();
     }
 
@@ -91,11 +104,30 @@ public class TirageScreen extends Screen {
     public void removed() {
         Minecraft mc = Minecraft.getInstance();
         if (captured && mc.options != null) {
+            RebornCamera cam = RebornCamera.INSTANCE;
+            cam.setMode(prevMode);
+            cam.setRight(prevRight);
+            cam.setDistance(prevDistance);
+            // Réaligne la caméra derrière le joueur pour une sortie sans à-coup.
+            if (mc.player != null) cam.initOrientation(mc.player.getYRot(), mc.player.getXRot());
+            else cam.initOrientation((float) prevCamYaw, (float) prevCamPitch);
             mc.options.setCameraType(prevCam);
             ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(prevHudHidden);
             captured = false;
         }
         super.removed();
+    }
+
+    /** Place la caméra en vue de profil ¾ autour du perso (mode épaule + orbite
+     *  Reborn). Ré-appelée chaque tick pour tenir contre toute réinitialisation. */
+    private void applyProfileCamera(Minecraft mc) {
+        if (mc.player == null || mc.options == null) return;
+        RebornCamera cam = RebornCamera.INSTANCE;
+        cam.setMode(RebornCamera.Mode.SHOULDER);
+        mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+        cam.initOrientation(mc.player.getYRot() + SIDE_YAW, 6f);
+        cam.setRight(0);
+        cam.setDistance(3.4);
     }
 
     @Override
@@ -150,6 +182,7 @@ public class TirageScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer p = mc.player;
         if (p == null || mc.level == null) return;
+        applyProfileCamera(mc); // tient la vue de profil contre RebornCamera.tickView
         Vec3 focus = focusPoint(p);
 
         switch (phase) {
