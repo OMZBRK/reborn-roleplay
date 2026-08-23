@@ -74,6 +74,21 @@ public class TirageScreen extends Screen {
     private final String forcedNatureName;
     /** Ouvre d'abord le popup de confirmation (déclenché par l'item/commande). */
     private boolean confirmMode = false;
+    /** En attente du résultat serveur (après Confirmer) — le test tourne déjà,
+     *  la nature définitive est injectée à l'arrivée du message (sans rouvrir
+     *  d'écran → aucun aller-retour caméra). */
+    private boolean awaitingResult = false;
+    /** Test piloté par le serveur (résultat forcé ou confirmé) → pas de reroll F. */
+    private boolean serverDriven = false;
+
+    /** Le serveur a répondu : fixe la nature de l'écran en cours. */
+    public void applyServerResult(String natureName) {
+        nature = Nature.fromName(natureName);
+        awaitingResult = false;
+    }
+
+    /** L'écran attend-il un résultat serveur (transition depuis Confirmer) ? */
+    public boolean isAwaiting() { return awaitingResult; }
 
     /** Démo client (touche F) : roll local, va direct au test. */
     public TirageScreen() { this(null, null); }
@@ -83,6 +98,7 @@ public class TirageScreen extends Screen {
         super(Component.literal("Test de la feuille"));
         this.forcedNatureName = forcedNatureName;
         this.clan = clan;
+        this.serverDriven = forcedNatureName != null;
     }
 
     /** Popup « Faire le test ? » (Confirmer/Refuser) avant le test — item/commande. */
@@ -349,17 +365,17 @@ public class TirageScreen extends Screen {
     }
 
     private void confirmAccept() {
+        RebornSounds.confirm();
+        confirmMode = false;
         if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(TiragePayload.ID)) {
-            // Le serveur tire + attribue + renvoie le résultat (rouvre l'écran).
+            // On enchaîne SANS fermer l'écran (la caméra reste en profil) : le mudra
+            // + la concentration démarrent tout de suite, et la nature définitive du
+            // serveur est injectée via applyServerResult pendant l'animation.
             net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new TiragePayload("go"));
-            RebornSounds.confirm();
-            onClose();
-        } else {
-            // Hors serveur (démo) : lance le test localement.
-            RebornSounds.confirm();
-            confirmMode = false;
-            startTest();
+            awaitingResult = true;
+            serverDriven = true;
         }
+        startTest();  // hors serveur : roll local (démo)
     }
 
     private void confirmRefuse() {
@@ -412,7 +428,7 @@ public class TirageScreen extends Screen {
         ctx.text(f, v, cx - f.width(v) / 2, by + (bh - 8) / 2, Colors.WHITE_PURE, false);
 
         // Hint discret : fermer (serveur) ou refaire un test (démo F).
-        Component hint = RebornFont.arcade(forcedNatureName != null ? "Entree : valider" : "F : refaire un test");
+        Component hint = RebornFont.arcade(serverDriven ? "Entree : valider" : "F : refaire un test");
         ctx.text(f, hint, cx - f.width(hint) / 2, by + bh + 8, Colors.FOREGROUND_MUTED, false);
     }
 
@@ -450,7 +466,7 @@ public class TirageScreen extends Screen {
         }
         if (phase == Phase.RESULT) {
             if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) { onClose(); return true; }
-            if (k == GLFW.GLFW_KEY_F && forcedNatureName == null) { RebornSounds.uiClick(); startTest(); return true; }
+            if (k == GLFW.GLFW_KEY_F && !serverDriven) { RebornSounds.uiClick(); startTest(); return true; }
         }
         if (k == GLFW.GLFW_KEY_ESCAPE) {
             if (phase == Phase.RESULT) { onClose(); return true; }

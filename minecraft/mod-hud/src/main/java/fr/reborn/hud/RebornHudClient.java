@@ -165,10 +165,20 @@ public final class RebornHudClient implements ClientModInitializer {
                 if (head.equalsIgnoreCase("confirm")) {
                     // Item/commande : popup de confirmation avant le test.
                     mc.setScreenAndShow(fr.reborn.hud.menu.tirage.TirageScreen.confirm(clan));
+                } else if (head.equalsIgnoreCase("deny")) {
+                    // Refus serveur après confirmation (devenu inéligible) → ferme.
+                    if (mc.gui.screen() instanceof fr.reborn.hud.menu.tirage.TirageScreen ts && ts.isAwaiting()) {
+                        mc.setScreenAndShow(null);
+                    }
                 } else {
-                    // Résultat : ouvre le test avec la nature déjà tirée.
                     String nature = !head.isBlank() ? head : "KATON";
-                    mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen(nature, clan));
+                    if (mc.gui.screen() instanceof fr.reborn.hud.menu.tirage.TirageScreen ts && ts.isAwaiting()) {
+                        // Test déjà en cours (post-Confirmer) : on injecte la nature
+                        // dans l'écran existant → aucun aller-retour caméra.
+                        ts.applyServerResult(nature);
+                    } else {
+                        mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen(nature, clan));
+                    }
                 }
             }));
 
