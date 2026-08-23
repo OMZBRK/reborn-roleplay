@@ -62,7 +62,8 @@ public class TirageScreen extends Screen {
     private RebornCamera.Mode prevMode;
     private double prevCamYaw, prevCamPitch, prevRight, prevDistance;
     private boolean prevHudHidden;
-    private boolean captured = false;
+    private boolean hudCaptured = false;
+    private boolean camCaptured = false;
 
     /** Angle de la caméra autour du perso : ¾ profil (montre le côté + les
      *  particules devant lui, contrairement à la vue de dos qui les cache). */
@@ -115,19 +116,14 @@ public class TirageScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
-        if (!captured && mc.options != null && mc.player != null) {
-            RebornCamera cam = RebornCamera.INSTANCE;
-            prevCam = mc.options.getCameraType();
-            prevMode = cam.mode();
-            prevCamYaw = cam.camYaw();
-            prevCamPitch = cam.camPitch();
-            prevRight = cam.rightMagnitude();
-            prevDistance = cam.distance();
+        // Masque le HUD vanilla dès l'ouverture (confirm ou test).
+        if (!hudCaptured && mc.gui != null) {
             prevHudHidden = mc.gui.hud.isHidden();
             ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(true);
-            captured = true;
+            hudCaptured = true;
         }
-        applyProfileCamera(mc);
+        // La fenêtre de confirmation NE TOUCHE PAS la caméra (vue normale). Le
+        // passage en profil se fait seulement au démarrage du test (comme F).
         if (confirmMode) setPhase(Phase.CONFIRM);
         else startTest();
     }
@@ -136,7 +132,7 @@ public class TirageScreen extends Screen {
     public void removed() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) TirageAnimations.INSTANCE.stop(mc.player);
-        if (captured && mc.options != null) {
+        if (camCaptured && mc.options != null) {
             RebornCamera cam = RebornCamera.INSTANCE;
             cam.setMode(prevMode);
             cam.setRight(prevRight);
@@ -145,10 +141,29 @@ public class TirageScreen extends Screen {
             if (mc.player != null) cam.initOrientation(mc.player.getYRot(), mc.player.getXRot());
             else cam.initOrientation((float) prevCamYaw, (float) prevCamPitch);
             mc.options.setCameraType(prevCam);
+            camCaptured = false;
+        }
+        if (hudCaptured && mc.gui != null) {
             ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(prevHudHidden);
-            captured = false;
+            hudCaptured = false;
         }
         super.removed();
+    }
+
+    /** Bascule en caméra cinématique (profil ¾) — appelé au démarrage du test,
+     *  jamais pendant la confirmation. Sauvegarde l'état pour la restauration. */
+    private void enterCinematicCamera() {
+        Minecraft mc = Minecraft.getInstance();
+        if (camCaptured || mc.options == null || mc.player == null) return;
+        RebornCamera cam = RebornCamera.INSTANCE;
+        prevCam = mc.options.getCameraType();
+        prevMode = cam.mode();
+        prevCamYaw = cam.camYaw();
+        prevCamPitch = cam.camPitch();
+        prevRight = cam.rightMagnitude();
+        prevDistance = cam.distance();
+        camCaptured = true;
+        applyProfileCamera(mc);
     }
 
     /** Place la caméra en vue de profil ¾ autour du perso (mode épaule + orbite
@@ -167,6 +182,7 @@ public class TirageScreen extends Screen {
     public boolean isPauseScreen() { return false; }
 
     private void startTest() {
+        enterCinematicCamera();  // passage en profil ICI (comme F), pas à la confirmation
         nature = forcedNatureName != null ? Nature.fromName(forcedNatureName) : rollNature(clan);
         reactionSoundPlayed = false;
         Minecraft mc = Minecraft.getInstance();
@@ -217,7 +233,7 @@ public class TirageScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer p = mc.player;
         if (p == null || mc.level == null) return;
-        applyProfileCamera(mc); // tient la vue de profil contre RebornCamera.tickView
+        if (camCaptured) applyProfileCamera(mc); // tient le profil (pas pendant la confirmation)
         Vec3 focus = focusPoint(p);
 
         switch (phase) {
