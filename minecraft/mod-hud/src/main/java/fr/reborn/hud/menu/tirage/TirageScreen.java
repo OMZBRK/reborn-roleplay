@@ -427,8 +427,8 @@ public class TirageScreen extends Screen {
             drawBigGlyph(ctx, f, n.kanji, cx, kanjiY + kanjiBox / 2, 6.5f, col);
         }
 
-        // Nom + élément.
-        Component name = RebornFont.arcade(n.display + "  " + n.kanji);
+        // Nom (le gros kanji au-dessus suffit ; pas de kanji ici sinon tofu ArcadePix).
+        Component name = RebornFont.arcade(n.display);
         drawScaled(ctx, f, name, cx, py + 170, 1.7f, Colors.WHITE_PURE);
         Component elem = RebornFont.arcade(n.element);
         ctx.text(f, elem, cx - f.width(elem) / 2, py + 190, col, false);
