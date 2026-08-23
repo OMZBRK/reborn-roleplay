@@ -146,6 +146,22 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.character.CharacterData.clear());
 
+        // Test de la feuille (canal reborn:tirage, S2C) : ShinobiCore a tiré la
+        // nature (autoritaire, pondérée par le clan) et l'a attribuée → ouvre le
+        // popup client avec le VRAI résultat. Contenu = "<NATURE>|<clan>".
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.menu.tirage.TiragePayload.ID, fr.reborn.hud.menu.tirage.TiragePayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.menu.tirage.TiragePayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                net.minecraft.client.Minecraft mc = context.client();
+                if (mc.player == null) return;
+                String[] parts = payload.content().split("\\|", 2);
+                String nature = parts.length > 0 && !parts[0].isBlank() ? parts[0] : "KATON";
+                String clan = parts.length > 1 && !parts[1].isBlank() ? parts[1] : null;
+                mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen(nature, clan));
+            }));
+
         // Diffusion des apparences RP (canal reborn:skins, S2C) : ShinobiCore pousse
         // <uuid>\n<serialize()> pour chaque joueur actif → chacun voit le skin composé
         // des autres. Apparence vide = retrait de l'override.

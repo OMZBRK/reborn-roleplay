@@ -69,11 +69,16 @@ public class TirageScreen extends Screen {
 
     /** Clan du perso (pilote la pondération). null = uniforme (démo client). */
     private final String clan;
+    /** Nature imposée par le serveur (autoritaire). null = roll local (démo F). */
+    private final String forcedNatureName;
 
-    public TirageScreen() { this(null); }
+    /** Démo client (touche F) : roll local uniforme. */
+    public TirageScreen() { this(null, null); }
 
-    public TirageScreen(String clan) {
+    /** Déclenché par le serveur : nature déjà tirée + clan pour le contexte. */
+    public TirageScreen(String forcedNatureName, String clan) {
         super(Component.literal("Test de la feuille"));
+        this.forcedNatureName = forcedNatureName;
         this.clan = clan;
     }
 
@@ -134,7 +139,7 @@ public class TirageScreen extends Screen {
     public boolean isPauseScreen() { return false; }
 
     private void startTest() {
-        nature = rollNature(clan);
+        nature = forcedNatureName != null ? Nature.fromName(forcedNatureName) : rollNature(clan);
         reactionSoundPlayed = false;
         setPhase(Phase.CONCENTRATION);
         playSound(SoundEvents.BEACON_ACTIVATE, 0.7f, 0.6f);
@@ -329,8 +334,8 @@ public class TirageScreen extends Screen {
         Component v = RebornFont.arcade("VALIDER");
         ctx.text(f, v, cx - f.width(v) / 2, by + (bh - 8) / 2, Colors.WHITE_PURE, false);
 
-        // Hint discret : refaire un test (dev).
-        Component hint = RebornFont.arcade("F : refaire un test");
+        // Hint discret : fermer (serveur) ou refaire un test (démo F).
+        Component hint = RebornFont.arcade(forcedNatureName != null ? "Entree : valider" : "F : refaire un test");
         ctx.text(f, hint, cx - f.width(hint) / 2, by + bh + 8, Colors.FOREGROUND_MUTED, false);
     }
 
@@ -424,6 +429,13 @@ public class TirageScreen extends Screen {
             Minecraft mc = Minecraft.getInstance();
             texOk = mc != null && mc.getResourceManager().getResource(kanjiTex).isPresent();
             return texOk;
+        }
+
+        /** Mappe un nom (KATON/SUITON/RAITON/FUTON/DOTON, insensible à la casse). */
+        static Nature fromName(String s) {
+            if (s == null) return KATON;
+            try { return Nature.valueOf(s.trim().toUpperCase(java.util.Locale.ROOT)); }
+            catch (Exception e) { return KATON; }
         }
     }
 }
