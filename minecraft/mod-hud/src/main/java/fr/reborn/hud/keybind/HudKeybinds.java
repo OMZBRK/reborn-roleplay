@@ -77,6 +77,9 @@ public final class HudKeybinds {
         KeyMapping charMenu = bind("key.reborn-hud.char_menu", GLFW.GLFW_KEY_SEMICOLON);
         // Dash de combat 8-dir (formules Keriox : rapide + lift). Touche V, rebindable.
         KeyMapping dash = bind("key.reborn-hud.dash", GLFW.GLFW_KEY_V);
+        // Test de la feuille (tirage de nature de chakra, prototype de FEEL). Touche F
+        // (= Feuille), rebindable. Solo/dev : ouvre directement l'écran gacha.
+        KeyMapping tirageFeuille = bind("key.reborn-hud.tirage_feuille", GLFW.GLFW_KEY_F);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
@@ -141,6 +144,12 @@ public final class HudKeybinds {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null && mc.gui.screen() == null) {
                     fr.reborn.hud.combat.CombatInput.INSTANCE.dash(mc);
+                }
+            }
+            while (tirageFeuille.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.gui.screen() == null && mc.player != null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen());
                 }
             }
             while (walkMenu.consumeClick()) {
