@@ -47,6 +47,7 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.camera.FirstPersonIntegration.registerClient();
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.register();
         fr.reborn.hud.combat.CombatAnimations.INSTANCE.register();
+        fr.reborn.hud.menu.tirage.TirageAnimations.INSTANCE.register();
         fr.reborn.hud.chat.ChatBlockCommands.register();
         fr.reborn.hud.skin.SkinCommands.register();
 
@@ -151,15 +152,24 @@ public final class RebornHudClient implements ClientModInitializer {
         // popup client avec le VRAI résultat. Contenu = "<NATURE>|<clan>".
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
             fr.reborn.hud.menu.tirage.TiragePayload.ID, fr.reborn.hud.menu.tirage.TiragePayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.menu.tirage.TiragePayload.ID, fr.reborn.hud.menu.tirage.TiragePayload.CODEC);
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
             fr.reborn.hud.menu.tirage.TiragePayload.ID,
             (payload, context) -> context.client().execute(() -> {
                 net.minecraft.client.Minecraft mc = context.client();
                 if (mc.player == null) return;
                 String[] parts = payload.content().split("\\|", 2);
-                String nature = parts.length > 0 && !parts[0].isBlank() ? parts[0] : "KATON";
+                String head = parts.length > 0 ? parts[0] : "";
                 String clan = parts.length > 1 && !parts[1].isBlank() ? parts[1] : null;
-                mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen(nature, clan));
+                if (head.equalsIgnoreCase("confirm")) {
+                    // Item/commande : popup de confirmation avant le test.
+                    mc.setScreenAndShow(fr.reborn.hud.menu.tirage.TirageScreen.confirm(clan));
+                } else {
+                    // Résultat : ouvre le test avec la nature déjà tirée.
+                    String nature = !head.isBlank() ? head : "KATON";
+                    mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen(nature, clan));
+                }
             }));
 
         // Diffusion des apparences RP (canal reborn:skins, S2C) : ShinobiCore pousse

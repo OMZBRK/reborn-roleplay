@@ -44,12 +44,13 @@ import java.util.Random;
 public class TirageScreen extends Screen {
 
     // Durées (ms).
+    private static final long MUDRA_MS = 1500;        // signe de mains (anim 1.5 s)
     private static final long CONCENTRATION_MS = 1700;
     private static final long REACTION_MS = 1300;
 
-    private enum Phase { CONCENTRATION, REACTION, RESULT }
+    private enum Phase { CONFIRM, MUDRA, CONCENTRATION, REACTION, RESULT }
 
-    private Phase phase = Phase.CONCENTRATION;
+    private Phase phase = Phase.MUDRA;
     private long phaseStart = now();
     private Nature nature;
     private boolean reactionSoundPlayed;
@@ -71,8 +72,10 @@ public class TirageScreen extends Screen {
     private final String clan;
     /** Nature imposée par le serveur (autoritaire). null = roll local (démo F). */
     private final String forcedNatureName;
+    /** Ouvre d'abord le popup de confirmation (déclenché par l'item/commande). */
+    private boolean confirmMode = false;
 
-    /** Démo client (touche F) : roll local uniforme. */
+    /** Démo client (touche F) : roll local, va direct au test. */
     public TirageScreen() { this(null, null); }
 
     /** Déclenché par le serveur : nature déjà tirée + clan pour le contexte. */
@@ -80,6 +83,13 @@ public class TirageScreen extends Screen {
         super(Component.literal("Test de la feuille"));
         this.forcedNatureName = forcedNatureName;
         this.clan = clan;
+    }
+
+    /** Popup « Faire le test ? » (Confirmer/Refuser) avant le test — item/commande. */
+    public static TirageScreen confirm(String clan) {
+        TirageScreen s = new TirageScreen(null, clan);
+        s.confirmMode = true;
+        return s;
     }
 
     private static long now() { return System.currentTimeMillis(); }
@@ -102,12 +112,14 @@ public class TirageScreen extends Screen {
             captured = true;
         }
         applyProfileCamera(mc);
-        startTest();
+        if (confirmMode) setPhase(Phase.CONFIRM);
+        else startTest();
     }
 
     @Override
     public void removed() {
         Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) TirageAnimations.INSTANCE.stop(mc.player);
         if (captured && mc.options != null) {
             RebornCamera cam = RebornCamera.INSTANCE;
             cam.setMode(prevMode);
@@ -141,7 +153,9 @@ public class TirageScreen extends Screen {
     private void startTest() {
         nature = forcedNatureName != null ? Nature.fromName(forcedNatureName) : rollNature(clan);
         reactionSoundPlayed = false;
-        setPhase(Phase.CONCENTRATION);
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) TirageAnimations.INSTANCE.playMudra(mc.player); // signe de mains (hold)
+        setPhase(Phase.MUDRA);
         playSound(SoundEvents.BEACON_ACTIVATE, 0.7f, 0.6f);
     }
 
@@ -191,6 +205,7 @@ public class TirageScreen extends Screen {
         Vec3 focus = focusPoint(p);
 
         switch (phase) {
+            case MUDRA -> { if (pt(MUDRA_MS) >= 1f) setPhase(Phase.CONCENTRATION); }
             case CONCENTRATION -> {
                 spawnConcentration(mc, focus, pt(CONCENTRATION_MS));
                 if (pt(CONCENTRATION_MS) >= 1f) setPhase(Phase.REACTION);
@@ -203,10 +218,11 @@ public class TirageScreen extends Screen {
                 spawnReaction(mc, focus, pt(REACTION_MS));
                 if (pt(REACTION_MS) >= 1f) {
                     setPhase(Phase.RESULT);
+                    TirageAnimations.INSTANCE.stop(p);  // relâche le sceau à la révélation
                     playSound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 0.9f);
                 }
             }
-            default -> { }
+            default -> { }  // CONFIRM, RESULT : pas de logique temporelle
         }
     }
 
@@ -260,12 +276,16 @@ public class TirageScreen extends Screen {
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         if (phase == Phase.RESULT) {
-            // Fond assombri progressif SEULEMENT au résultat (monde flouté à l'œil).
+            // Fond assombri SEULEMENT au résultat (monde flouté à l'œil).
             float a = 0.62f;
             ctx.fillGradient(0, 0, this.width, this.height,
                 Colors.withAlpha(0xFF000000, a * 0.7f), Colors.withAlpha(0xFF000000, a));
+        } else if (phase == Phase.CONFIRM) {
+            // Modale de confirmation : assombrissement moyen (perso visible derrière).
+            ctx.fillGradient(0, 0, this.width, this.height,
+                Colors.withAlpha(0xFF000000, 0.32f), Colors.withAlpha(0xFF000000, 0.46f));
         } else {
-            // Concentration/réaction : monde visible, juste un léger vignettage bas.
+            // Signes / concentration / réaction : monde visible, léger vignettage bas.
             ctx.fillGradient(0, this.height - 90, this.width, this.height,
                 0x00000000, Colors.withAlpha(0xFF000000, 0.35f));
         }
@@ -277,17 +297,74 @@ public class TirageScreen extends Screen {
         Font f = this.font;
         int cx = this.width / 2;
 
-        if (phase == Phase.CONCENTRATION || phase == Phase.REACTION) {
-            // Texte discret, centré bas.
-            String s = phase == Phase.CONCENTRATION ? "Concentration du chakra" : "La feuille réagit…";
-            int dots = (int) ((now() / 350) % 4);
-            Component t = RebornFont.arcade(s + "...".substring(0, phase == Phase.CONCENTRATION ? dots : 3));
+        if (phase == Phase.CONFIRM) {
+            drawConfirm(ctx, f, cx, mouseX, mouseY);
+        } else if (phase == Phase.RESULT) {
+            drawResult(ctx, f, cx, mouseX, mouseY);
+        } else {
+            // MUDRA / CONCENTRATION / REACTION : texte discret, centré bas.
+            String s = switch (phase) {
+                case MUDRA -> "Signes de mains";
+                case CONCENTRATION -> "Concentration du chakra";
+                default -> "La feuille reagit";
+            };
+            int d = (int) ((now() / 350) % 4);
+            Component t = RebornFont.arcade(s + "...".substring(0, d));
             ctx.text(f, t, cx - f.width(t) / 2, this.height - 54, Colors.FOREGROUND, false);
             Component sub = RebornFont.arcade("Test de la feuille");
             ctx.text(f, sub, cx - f.width(sub) / 2, this.height - 40, Colors.withAlpha(Colors.GOLD, 0.7f), false);
-        } else {
-            drawResult(ctx, f, cx, mouseX, mouseY);
         }
+    }
+
+    // ─────────── Popup de confirmation ───────────
+    private static final int CB_W = 130, CB_H = 32;
+    private int confirmY() { return (int) (this.height * 0.46f) + 20; }
+    private int confirmerX() { return this.width / 2 - CB_W - 8; }
+    private int refuserX() { return this.width / 2 + 8; }
+
+    private void drawConfirm(GuiGraphicsExtractor ctx, Font f, int cx, int mouseX, int mouseY) {
+        int cy = (int) (this.height * 0.46f);
+        int pw = 340, ph = 150;
+        int px = cx - pw / 2, py = cy - ph / 2 - 6;
+        DrawHelpers.roundedOutlinedRect(ctx, px, py, pw, ph, 6,
+            Colors.withAlpha(0xFF0B0709, 0.96f), Colors.withAlpha(Colors.GOLD, 0.5f));
+        ctx.fill(px + 1, py + 1, px + pw - 1, py + 4, Colors.withAlpha(Colors.GOLD, 0.7f));
+
+        Component title = RebornFont.arcade("TEST DE LA FEUILLE");
+        drawScaled(ctx, f, title, cx, py + 20, 1.5f, Colors.GOLD);
+        Component q = RebornFont.arcade("Canalise ton chakra pour reveler ta nature ?");
+        ctx.text(f, q, cx - f.width(q) / 2, py + 48, Colors.FOREGROUND_SUBTLE, false);
+
+        drawBtn(ctx, f, confirmerX(), confirmY(), CB_W, "CONFIRMER", Colors.SUCCESS, mouseX, mouseY);
+        drawBtn(ctx, f, refuserX(), confirmY(), CB_W, "REFUSER", Colors.DANGER, mouseX, mouseY);
+    }
+
+    private void drawBtn(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, String label, int accent, int mx, int my) {
+        boolean hover = mx >= x && mx < x + w && my >= y && my < y + CB_H;
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, CB_H, 6,
+            hover ? Colors.withAlpha(accent, 0.28f) : Colors.withAlpha(0xFF000000, 0.5f),
+            hover ? accent : Colors.withAlpha(Colors.FOREGROUND, 0.4f));
+        Component t = RebornFont.arcade(label);
+        ctx.text(f, t, x + (w - f.width(t)) / 2, y + (CB_H - 8) / 2, Colors.WHITE_PURE, false);
+    }
+
+    private void confirmAccept() {
+        if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(TiragePayload.ID)) {
+            // Le serveur tire + attribue + renvoie le résultat (rouvre l'écran).
+            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new TiragePayload("go"));
+            RebornSounds.confirm();
+            onClose();
+        } else {
+            // Hors serveur (démo) : lance le test localement.
+            RebornSounds.confirm();
+            confirmMode = false;
+            startTest();
+        }
+    }
+
+    private void confirmRefuse() {
+        RebornSounds.uiClick();
+        onClose();
     }
 
     private void drawResult(GuiGraphicsExtractor ctx, Font f, int cx, int mouseX, int mouseY) {
@@ -366,9 +443,14 @@ public class TirageScreen extends Screen {
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent e) {
         int k = e.key();
+        if (phase == Phase.CONFIRM) {
+            if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) { confirmAccept(); return true; }
+            if (k == GLFW.GLFW_KEY_ESCAPE) { confirmRefuse(); return true; }
+            return true;
+        }
         if (phase == Phase.RESULT) {
             if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) { onClose(); return true; }
-            if (k == GLFW.GLFW_KEY_F) { RebornSounds.uiClick(); startTest(); return true; }
+            if (k == GLFW.GLFW_KEY_F && forcedNatureName == null) { RebornSounds.uiClick(); startTest(); return true; }
         }
         if (k == GLFW.GLFW_KEY_ESCAPE) {
             if (phase == Phase.RESULT) { onClose(); return true; }
@@ -379,13 +461,24 @@ public class TirageScreen extends Screen {
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
-        if (e.button() == 0 && phase == Phase.RESULT) {
+        if (e.button() == 0) {
             int mx = (int) e.x(), my = (int) e.y();
-            int bw = 150, bh = 30, bx = this.width / 2 - bw / 2, by = btnY();
-            if (mx >= bx && mx < bx + bw && my >= by && my < by + bh) {
-                RebornSounds.confirm();
-                onClose();
+            if (phase == Phase.CONFIRM) {
+                if (mx >= confirmerX() && mx < confirmerX() + CB_W && my >= confirmY() && my < confirmY() + CB_H) {
+                    confirmAccept(); return true;
+                }
+                if (mx >= refuserX() && mx < refuserX() + CB_W && my >= confirmY() && my < confirmY() + CB_H) {
+                    confirmRefuse(); return true;
+                }
                 return true;
+            }
+            if (phase == Phase.RESULT) {
+                int bw = 150, bx = this.width / 2 - bw / 2, by = btnY();
+                if (mx >= bx && mx < bx + bw && my >= by && my < by + 30) {
+                    RebornSounds.confirm();
+                    onClose();
+                    return true;
+                }
             }
         }
         return super.mouseClicked(e, dbl);
