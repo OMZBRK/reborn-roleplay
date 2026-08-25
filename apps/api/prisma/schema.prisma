@@ -585,3 +585,97 @@ model ShotLike {
 
   @@id([shotId, userId])
 }
+
+// ──────────────────────────────────────────────────────
+// WIKI STAFF (base de connaissances Naruto + banque d'idees)
+// ──────────────────────────────────────────────────────
+// Base de connaissances taggee, cherchable, reservee au staff (builders,
+// animateurs, MJ, modelisateurs) pour concevoir events/scenes/techniques et
+// preparer les examens joueurs (genin/chunin). Plus un tableau d'idees.
+//
+// Decision : createdById / editedById sont des champs plats (id User Reborn)
+// sans relation formelle vers User, pour eviter de toucher le modele User
+// (disruption minimale). La seule relation croisee est intra-wiki
+// (WikiIdea.linkedEntry -> WikiEntry).
+
+enum WikiEntryStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum WikiIdeaStatus {
+  PROPOSED
+  ACCEPTED
+  IN_PROGRESS
+  DONE
+  REJECTED
+}
+
+enum WikiTagKind {
+  SOURCE
+  CANON
+  TYPE
+  AUDIENCE
+}
+
+model WikiTag {
+  id        String      @id @default(uuid())
+  kind      WikiTagKind
+  label     String
+  slug      String      @unique
+  color     String?
+  createdAt DateTime    @default(now())
+
+  entries   WikiEntry[]
+
+  @@index([kind])
+}
+
+model WikiEntry {
+  id          String          @id @default(uuid())
+  title       String
+  slug        String          @unique
+  summary     String?
+  body        String          // markdown
+  status      WikiEntryStatus @default(DRAFT)
+  sources     String?         // references libres (URLs, tome/chapitre, databook...)
+  createdById String?         // id User Reborn (champ plat, pas de relation formelle)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tags        WikiTag[]
+  revisions   WikiRevision[]
+  linkedIdeas WikiIdea[]      @relation("IdeaLinkedEntry")
+
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model WikiRevision {
+  id         String    @id @default(uuid())
+  entryId    String
+  entry      WikiEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  title      String
+  summary    String?
+  body       String
+  editedById String?
+  createdAt  DateTime  @default(now())
+
+  @@index([entryId, createdAt])
+}
+
+model WikiIdea {
+  id            String         @id @default(uuid())
+  title         String
+  body          String
+  status        WikiIdeaStatus @default(PROPOSED)
+  category      String?        // event / technique / build / system...
+  linkedEntryId String?
+  linkedEntry   WikiEntry?     @relation("IdeaLinkedEntry", fields: [linkedEntryId], references: [id])
+  createdById   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status])
+}
