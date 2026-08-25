@@ -2,9 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { StaggerItem } from '@/components/anim';
-import { IconSearch, IconX } from '@/components/icons';
+import { FadeUp, StaggerItem } from '@/components/anim';
+import { IconArrowLeft, IconSearch, IconX } from '@/components/icons';
 import { SkeletonRows } from '@/components/Skeleton';
 import {
   createEntry,
@@ -51,6 +54,8 @@ export default function WikiPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   // null = drawer fermé, 'new' = création, sinon id de l'entrée éditée.
   const [drawer, setDrawer] = useState<string | 'new' | null>(null);
+  // null = liste, sinon id de l'entrée lue en mode article.
+  const [reading, setReading] = useState<string | null>(null);
 
   const tagsQuery = useQuery({
     queryKey: ['wiki', 'tags'],
@@ -86,6 +91,14 @@ export default function WikiPage() {
 
   return (
     <div className="px-10 py-10 max-w-6xl mx-auto">
+      {reading ? (
+        <ArticleView
+          id={reading}
+          onBack={() => setReading(null)}
+          onEdit={() => setDrawer(reading)}
+        />
+      ) : (
+        <>
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
@@ -190,7 +203,7 @@ export default function WikiPage() {
             <StaggerItem key={entry.id} index={i}>
               <button
                 type="button"
-                onClick={() => setDrawer(entry.id)}
+                onClick={() => setReading(entry.id)}
                 className="block w-full text-left rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:bg-[var(--color-surface-elevated)] hover:border-[var(--color-accent)]/40 transition-colors"
               >
                 <div className="flex items-start gap-4">
@@ -226,6 +239,8 @@ export default function WikiPage() {
           ))}
         </div>
       )}
+        </>
+      )}
 
       {drawer && (
         <EntryDrawer
@@ -236,10 +251,363 @@ export default function WikiPage() {
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ['wiki', 'entries'] });
             qc.invalidateQueries({ queryKey: ['wiki', 'tags'] });
+            qc.invalidateQueries({ queryKey: ['wiki', 'entry'] });
           }}
         />
       )}
     </div>
+  );
+}
+
+// ── Vue article (lecture) ─────────────────────────────────
+
+interface Heading {
+  /** Ligne 1-based dans le markdown source (pour matcher le node hast). */
+  line: number;
+  level: 2 | 3;
+  text: string;
+  slug: string;
+}
+
+/** Slug ASCII stable : minuscules, sans accents, séparateurs → tirets. */
+function slugify(input: string): string {
+  return (
+    input
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'section'
+  );
+}
+
+/** Fabrique un slugger dédupliquant (`foo`, `foo-1`, `foo-2`…). */
+function makeSlugger(): (text: string) => string {
+  const seen = new Map<string, number>();
+  return (text: string) => {
+    const base = slugify(text);
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    return n === 0 ? base : `${base}-${n}`;
+  };
+}
+
+/** Retire le markdown inline le plus courant pour un libellé de sommaire propre. */
+function stripInline(text: string): string {
+  return text
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .trim();
+}
+
+/**
+ * Extrait les titres `##` / `###` du markdown pour le sommaire. On ignore
+ * les blocs de code (```/~~~) et on numérote les lignes pour matcher la
+ * position des nodes hast rendus par react-markdown (même string source).
+ */
+function parseHeadings(body: string): Heading[] {
+  const lines = body.split('\n');
+  const slugger = makeSlugger();
+  const out: Heading[] = [];
+  let inFence = false;
+  lines.forEach((raw, i) => {
+    const line = raw.trim();
+    if (line.startsWith('```') || line.startsWith('~~~')) {
+      inFence = !inFence;
+      return;
+    }
+    if (inFence) return;
+    const m = /^(#{2,3})\s+(.+?)\s*#*$/.exec(line);
+    if (!m) return;
+    const level = m[1].length === 2 ? 2 : 3;
+    const text = stripInline(m[2]);
+    out.push({ line: i + 1, level, text, slug: slugger(text) });
+  });
+  return out;
+}
+
+/** Concatène le texte brut d'un arbre de children React (pour fallback slug). */
+function textContent(node: React.ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(textContent).join('');
+  if (
+    typeof node === 'object' &&
+    'props' in node &&
+    (node as { props?: { children?: React.ReactNode } }).props
+  ) {
+    return textContent(
+      (node as { props: { children?: React.ReactNode } }).props.children,
+    );
+  }
+  return '';
+}
+
+/** Rendu markdown riche et sûr (pas de HTML brut). */
+function WikiMarkdown({
+  body,
+  headings,
+}: {
+  body: string;
+  headings: Heading[];
+}) {
+  const lineToSlug = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const h of headings) map.set(h.line, h.slug);
+    return map;
+  }, [headings]);
+
+  const components = useMemo<Components>(() => {
+    const heading =
+      (Tag: 'h2' | 'h3') =>
+      ({
+        node,
+        children,
+        ...props
+      }: {
+        node?: { position?: { start?: { line?: number } } };
+        children?: React.ReactNode;
+      }) => {
+        const line = node?.position?.start?.line;
+        const id =
+          (line != null ? lineToSlug.get(line) : undefined) ??
+          slugify(textContent(children));
+        return (
+          <Tag id={id} {...props}>
+            {children}
+          </Tag>
+        );
+      };
+    return {
+      h2: heading('h2'),
+      h3: heading('h3'),
+      table: ({ node: _node, children, ...props }) => (
+        <div className="wiki-table-wrap">
+          <table {...props}>{children}</table>
+        </div>
+      ),
+    };
+  }, [lineToSlug]);
+
+  return (
+    <div className="wiki-prose">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {body}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function ArticleView({
+  id,
+  onBack,
+  onEdit,
+}: {
+  id: string;
+  onBack: () => void;
+  onEdit: () => void;
+}) {
+  const entryQuery = useQuery({
+    queryKey: ['wiki', 'entry', id],
+    queryFn: () => getEntry(id),
+  });
+
+  const entry = entryQuery.data;
+  const headings = useMemo(
+    () => (entry ? parseHeadings(entry.body) : []),
+    [entry],
+  );
+
+  function scrollTo(slug: string) {
+    const el = document.getElementById(slug);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  const tagsByKind = useMemo(() => {
+    const map: Record<WikiTagKind, WikiTag[]> = {
+      SOURCE: [],
+      CANON: [],
+      TYPE: [],
+      AUDIENCE: [],
+    };
+    for (const t of entry?.tags ?? []) map[t.kind].push(t);
+    return map;
+  }, [entry]);
+
+  return (
+    <FadeUp>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--color-foreground-subtle)] hover:text-[var(--color-foreground)] transition-colors"
+      >
+        <IconArrowLeft className="h-4 w-4" /> Retour
+      </button>
+
+      {entryQuery.isLoading ? (
+        <div className="text-sm text-[var(--color-foreground-subtle)]">
+          Chargement de l’article…
+        </div>
+      ) : entryQuery.error || !entry ? (
+        <div className="rounded-[10px] border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
+          {entryQuery.error
+            ? (entryQuery.error as Error).message
+            : 'Entrée introuvable.'}
+        </div>
+      ) : (
+        <>
+          {/* En-tête d'article : titre + ambiance accent */}
+          <header className="relative mb-8 overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] px-8 py-8">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-6 -top-10 select-none text-[10rem] leading-none text-[var(--color-accent)]/[0.06]"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              忍
+            </div>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(ellipse 70% 90% at 0% 0%, var(--color-accent-glow) 0%, transparent 55%)',
+                opacity: 0.5,
+              }}
+            />
+            <div className="relative">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
+                    Base de connaissances
+                  </div>
+                  <h1
+                    className="mt-2 text-4xl md:text-5xl leading-none text-[var(--color-foreground)]"
+                    style={{ fontFamily: 'var(--font-display)' }}
+                  >
+                    {entry.title}
+                  </h1>
+                  <div className="mt-4 h-[2px] w-40 max-w-full bg-gradient-to-r from-[var(--color-accent)] to-transparent shadow-[var(--shadow-glow-accent)]" />
+                </div>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="shrink-0 rounded-[10px] bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] px-5 py-2.5 text-sm font-medium text-white shadow-[var(--shadow-glow-accent)]"
+                >
+                  Éditer
+                </button>
+              </div>
+
+              {entry.summary && (
+                <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[var(--color-foreground-subtle)]">
+                  {entry.summary}
+                </p>
+              )}
+
+              {/* Métadonnées : badges tags + statut */}
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <EntryStatusBadge status={entry.status} />
+                {KIND_ORDER.flatMap((kind) =>
+                  tagsByKind[kind].map((t) => <TagPill key={t.id} tag={t} />),
+                )}
+              </div>
+
+              {/* Ligne d'infos */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[var(--color-foreground-muted)]">
+                <span>
+                  Modifié le{' '}
+                  {new Date(entry.updatedAt).toLocaleDateString('fr-FR', {
+                    dateStyle: 'long',
+                  })}
+                </span>
+                {entry._count && (
+                  <span>
+                    {entry._count.revisions} révision
+                    {entry._count.revisions > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+
+              {entry.sources && (
+                <div className="mt-4 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-background)]/60 px-4 py-2.5 text-xs text-[var(--color-foreground-subtle)]">
+                  <span className="mr-1.5 uppercase tracking-wider text-[var(--color-foreground-muted)]">
+                    Sources
+                  </span>
+                  {entry.sources}
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Corps + sommaire */}
+          <div className="flex gap-10">
+            <article className="min-w-0 flex-1 max-w-3xl">
+              {/* Sommaire replié sur petit écran */}
+              {headings.length > 0 && (
+                <nav className="mb-6 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 lg:hidden">
+                  <div className="mb-2 text-[11px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
+                    Sommaire
+                  </div>
+                  <ul className="space-y-1">
+                    {headings.map((h) => (
+                      <li
+                        key={h.slug}
+                        style={{ paddingLeft: h.level === 3 ? 12 : 0 }}
+                      >
+                        <a
+                          href={`#${h.slug}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            scrollTo(h.slug);
+                          }}
+                          className="text-sm text-[var(--color-foreground-subtle)] hover:text-[var(--color-accent)] transition-colors"
+                        >
+                          {h.text}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+
+              <WikiMarkdown body={entry.body} headings={headings} />
+            </article>
+
+            {/* Sommaire sticky (lg+) */}
+            {headings.length > 0 && (
+              <aside className="hidden w-56 shrink-0 lg:block">
+                <div className="sticky top-8">
+                  <div className="mb-3 text-[11px] uppercase tracking-wider text-[var(--color-foreground-muted)]">
+                    Sur cette page
+                  </div>
+                  <ul className="space-y-1 border-l border-[var(--color-border-strong)]">
+                    {headings.map((h) => (
+                      <li key={h.slug}>
+                        <a
+                          href={`#${h.slug}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            scrollTo(h.slug);
+                          }}
+                          className="block border-l-2 border-transparent py-0.5 text-sm text-[var(--color-foreground-subtle)] hover:border-[var(--color-accent)] hover:text-[var(--color-foreground)] transition-colors"
+                          style={{
+                            paddingLeft: h.level === 3 ? 24 : 12,
+                          }}
+                        >
+                          {h.text}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </aside>
+            )}
+          </div>
+        </>
+      )}
+    </FadeUp>
   );
 }
 
