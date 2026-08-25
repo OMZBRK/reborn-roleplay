@@ -96,3 +96,229 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-accent);
 }
+
+/* ============================================================
+   WIKI PROSE — typographie d'article "fandom" adaptée au thème
+   sombre Akatsuki. Portée : conteneur .wiki-prose (vue lecture).
+   ============================================================ */
+
+.wiki-prose {
+  color: var(--color-foreground);
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+
+.wiki-prose > *:first-child {
+  margin-top: 0;
+}
+
+/* Paragraphes */
+.wiki-prose p {
+  margin: 1em 0;
+}
+
+/* Titres */
+.wiki-prose h1,
+.wiki-prose h2,
+.wiki-prose h3,
+.wiki-prose h4 {
+  color: var(--color-foreground);
+  font-weight: 700;
+  line-height: 1.25;
+  scroll-margin-top: 2rem;
+}
+
+.wiki-prose h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 2rem;
+  letter-spacing: 0.01em;
+  margin: 1.6em 0 0.6em;
+}
+
+.wiki-prose h2 {
+  position: relative;
+  font-size: 1.5rem;
+  margin: 1.8em 0 0.7em;
+  padding: 0.15em 0 0.35em 0.75rem;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.wiki-prose h2::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  bottom: 0.45em;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  box-shadow: var(--shadow-glow-accent);
+}
+
+.wiki-prose h3 {
+  font-size: 1.2rem;
+  margin: 1.5em 0 0.5em;
+  color: var(--color-foreground);
+}
+
+.wiki-prose h4 {
+  font-size: 1.02rem;
+  margin: 1.3em 0 0.4em;
+  color: var(--color-foreground-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Liens */
+.wiki-prose a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.wiki-prose a:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+/* Emphase */
+.wiki-prose strong {
+  color: var(--color-foreground);
+  font-weight: 700;
+}
+.wiki-prose em {
+  font-style: italic;
+}
+
+/* Listes */
+.wiki-prose ul,
+.wiki-prose ol {
+  margin: 1em 0;
+  padding-left: 1.5rem;
+}
+.wiki-prose li {
+  margin: 0.35em 0;
+}
+.wiki-prose li::marker {
+  color: var(--color-accent);
+}
+.wiki-prose ul {
+  list-style: disc;
+}
+.wiki-prose ol {
+  list-style: decimal;
+}
+.wiki-prose li > ul,
+.wiki-prose li > ol {
+  margin: 0.35em 0;
+}
+.wiki-prose li > p {
+  margin: 0.25em 0;
+}
+
+/* Citation */
+.wiki-prose blockquote {
+  margin: 1.2em 0;
+  padding: 0.6em 1.1em;
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--color-surface);
+  color: var(--color-foreground-subtle);
+  font-style: italic;
+}
+.wiki-prose blockquote p {
+  margin: 0.3em 0;
+}
+
+/* Code inline + blocs */
+.wiki-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  padding: 0.12em 0.4em;
+}
+.wiki-prose pre {
+  margin: 1.2em 0;
+  padding: 1em 1.1em;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.wiki-prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+/* Séparateur */
+.wiki-prose hr {
+  margin: 2em 0;
+  border: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-accent),
+    transparent
+  );
+  opacity: 0.5;
+}
+
+/* Images */
+.wiki-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-strong);
+  margin: 1em 0;
+}
+
+/* Tables = style "infobox" */
+.wiki-table-wrap {
+  overflow-x: auto;
+  margin: 1.4em 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 12px;
+}
+.wiki-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.wiki-prose thead th {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.02em;
+}
+.wiki-prose th,
+.wiki-prose td {
+  padding: 0.6em 0.9em;
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.wiki-prose th:last-child,
+.wiki-prose td:last-child {
+  border-right: 0;
+}
+.wiki-prose tbody tr:last-child td {
+  border-bottom: 0;
+}
+/* Zebra */
+.wiki-prose tbody tr:nth-child(odd) td {
+  background: var(--color-surface);
+}
+.wiki-prose tbody tr:nth-child(even) td {
+  background: var(--color-surface-elevated);
+}
+.wiki-prose tbody tr:hover td {
+  background: var(--color-surface-overlay);
+}
