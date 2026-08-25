@@ -206,6 +206,66 @@ export interface PlayerListItem {
   lastLoginAt: string | null;
 }
 
+// ── Wiki staff (base de connaissances + banque d'idées) ──
+// Mirror des modèles Prisma WikiTag / WikiEntry / WikiRevision / WikiIdea.
+
+export type WikiEntryStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type WikiIdeaStatus =
+  | 'PROPOSED'
+  | 'ACCEPTED'
+  | 'IN_PROGRESS'
+  | 'DONE'
+  | 'REJECTED';
+export type WikiTagKind = 'SOURCE' | 'CANON' | 'TYPE' | 'AUDIENCE';
+
+export interface WikiTag {
+  id: string;
+  kind: WikiTagKind;
+  label: string;
+  slug: string;
+  color: string | null;
+  createdAt: string;
+}
+
+export interface WikiEntry {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string | null;
+  body: string;
+  status: WikiEntryStatus;
+  sources: string | null;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tags: WikiTag[];
+  /** Présent seulement sur GET /wiki/entries/:id. */
+  _count?: { revisions: number };
+}
+
+export interface WikiRevision {
+  id: string;
+  entryId: string;
+  title: string;
+  summary: string | null;
+  body: string;
+  editedById: string | null;
+  createdAt: string;
+}
+
+export interface WikiIdea {
+  id: string;
+  title: string;
+  body: string;
+  status: WikiIdeaStatus;
+  category: string | null;
+  linkedEntryId: string | null;
+  linkedEntry: { id: string; title: string; slug: string } | null;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PlayerDetail {
   id: string;
   minecraftUsername: string;

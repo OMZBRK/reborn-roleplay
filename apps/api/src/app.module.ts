@@ -24,6 +24,7 @@ import { TicketsModule } from './tickets/tickets.module';
 import { UploadModule } from './upload/upload.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { WhitelistModule } from './whitelist/whitelist.module';
+import { WikiModule } from './wiki/wiki.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { WhitelistModule } from './whitelist/whitelist.module';
     UploadModule,
     WebhooksModule,
     WhitelistModule,
+    WikiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

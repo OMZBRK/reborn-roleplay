@@ -189,6 +189,25 @@ export function IconSend(p: IconProps) {
   );
 }
 
+export function IconBook(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </Base>
+  );
+}
+
+export function IconBulb(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+      <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z" />
+    </Base>
+  );
+}
+
 export function IconClock(p: IconProps) {
   return (
     <Base {...p}>

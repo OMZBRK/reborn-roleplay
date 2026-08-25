@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   IconAudit,
+  IconBook,
+  IconBulb,
   IconDashboard,
   IconInbox,
   IconLogout,
@@ -29,6 +31,8 @@ const NAV: NavItem[] = [
   { href: '/oral-slots', label: 'Créneaux oraux', Icon: IconWhitelist },
   { href: '/tickets', label: 'Tickets', Icon: IconTickets },
   { href: '/players', label: 'Joueurs', Icon: IconPlayers },
+  { href: '/wiki', label: 'Wiki', Icon: IconBook },
+  { href: '/wiki/ideas', label: 'Idées', Icon: IconBulb },
   { href: '/audit', label: 'Audit', Icon: IconAudit },
   { href: '/anomalies', label: 'Anomalies', Icon: IconShield },
 ];
@@ -71,10 +75,20 @@ export default function PanelLayout({
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
-          {NAV.map(({ href, label, Icon }) => {
-            const active =
-              pathname === href || pathname?.startsWith(`${href}/`);
-            return (
+          {(() => {
+            // Route active = le lien dont le href est le PLUS SPÉCIFIQUE à matcher
+            // le chemin courant (sinon /wiki/ideas surlignerait aussi /wiki).
+            const activeHref = NAV.reduce<string | null>((best, item) => {
+              const matches =
+                pathname === item.href || pathname?.startsWith(`${item.href}/`);
+              if (matches && item.href.length > (best?.length ?? -1)) {
+                return item.href;
+              }
+              return best;
+            }, null);
+            return NAV.map(({ href, label, Icon }) => {
+              const active = href === activeHref;
+              return (
               <Link
                 key={href}
                 href={href}
@@ -93,8 +107,9 @@ export default function PanelLayout({
                 />
                 {label}
               </Link>
-            );
-          })}
+              );
+            });
+          })()}
         </nav>
 
         <StaffIdentity />

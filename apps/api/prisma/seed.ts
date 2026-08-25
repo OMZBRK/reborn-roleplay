@@ -233,11 +233,60 @@ Tu rejoins ce monde en tant que **shinobi de la nouvelle generation**, **civil a
   console.log('Seeded lore 1.0');
 }
 
+async function seedWikiTags() {
+  // Taxonomie par defaut de la base de connaissances staff (4 axes). Idempotent :
+  // upsert par slug, donc re-seed sans doublon. Additif — ne touche pas aux tags
+  // crees a la main via le panel.
+  const tags: Array<{
+    kind: 'SOURCE' | 'CANON' | 'TYPE' | 'AUDIENCE';
+    label: string;
+    slug: string;
+    color?: string;
+  }> = [
+    // Source
+    { kind: 'SOURCE', label: 'Animé', slug: 'source-anime', color: '#f59e0b' },
+    { kind: 'SOURCE', label: 'Manga', slug: 'source-manga', color: '#f59e0b' },
+    { kind: 'SOURCE', label: 'Databook', slug: 'source-databook', color: '#f59e0b' },
+    { kind: 'SOURCE', label: 'Film', slug: 'source-film', color: '#f59e0b' },
+    // Canonicité
+    { kind: 'CANON', label: 'Canon', slug: 'canon-canon', color: '#22c55e' },
+    { kind: 'CANON', label: 'Reborn', slug: 'canon-reborn', color: '#3b82f6' },
+    { kind: 'CANON', label: 'Headcanon', slug: 'canon-headcanon', color: '#a855f7' },
+    // Type
+    { kind: 'TYPE', label: 'Lore', slug: 'type-lore', color: '#38bdf8' },
+    { kind: 'TYPE', label: 'Technique', slug: 'type-technique', color: '#38bdf8' },
+    { kind: 'TYPE', label: 'Clan', slug: 'type-clan', color: '#38bdf8' },
+    { kind: 'TYPE', label: 'Village', slug: 'type-village', color: '#38bdf8' },
+    { kind: 'TYPE', label: 'Dôjutsu', slug: 'type-dojutsu', color: '#38bdf8' },
+    { kind: 'TYPE', label: 'Personnage', slug: 'type-personnage', color: '#38bdf8' },
+    { kind: 'TYPE', label: 'Historique', slug: 'type-historique', color: '#38bdf8' },
+    { kind: 'TYPE', label: 'Mécanique', slug: 'type-mecanique', color: '#38bdf8' },
+    // Audience
+    { kind: 'AUDIENCE', label: 'Public', slug: 'audience-public', color: '#94a3b8' },
+    { kind: 'AUDIENCE', label: 'Genin', slug: 'audience-genin', color: '#94a3b8' },
+    { kind: 'AUDIENCE', label: 'Genin confirmé', slug: 'audience-genin-confirme', color: '#94a3b8' },
+    { kind: 'AUDIENCE', label: 'Chûnin', slug: 'audience-chunin', color: '#94a3b8' },
+    { kind: 'AUDIENCE', label: 'Jônin', slug: 'audience-jonin', color: '#94a3b8' },
+    { kind: 'AUDIENCE', label: 'Staff only', slug: 'audience-staff-only', color: '#ef4444' },
+  ];
+  let added = 0;
+  for (const t of tags) {
+    const res = await prisma.wikiTag.upsert({
+      where: { slug: t.slug },
+      update: { kind: t.kind, label: t.label, color: t.color },
+      create: { kind: t.kind, label: t.label, slug: t.slug, color: t.color },
+    });
+    if (res) added += 1;
+  }
+  console.log(`Seeded/updated ${added} wiki tag(s).`);
+}
+
 async function main() {
   await seedPatchNotes();
   await seedRules();
   await seedLore();
   await seedDevManifest();
+  await seedWikiTags();
 }
 
 main()
