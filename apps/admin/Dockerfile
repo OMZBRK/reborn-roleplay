@@ -57,8 +57,11 @@ COPY --from=builder --chown=reborn:reborn /repo/apps/admin/.next/static ./apps/a
 USER reborn
 
 EXPOSE 3000
+# NB: 127.0.0.1 (pas localhost) — localhost resout vers ::1 (IPv6) dans le
+# conteneur alors que Next (standalone) ecoute en IPv4 0.0.0.0 -> "connection
+# refused" et conteneur marque unhealthy a tort.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget --quiet --spider http://localhost:3000/ || exit 1
+  CMD wget --quiet --spider http://127.0.0.1:3000/ || exit 1
 
 # Le standalone server vit dans apps/admin/server.js a partir du repo root.
 CMD ["node", "apps/admin/server.js"]
