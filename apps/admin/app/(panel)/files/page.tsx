@@ -293,6 +293,17 @@ function FileBrowser({
       toast.error('Création impossible', { description: errMessage(err) }),
   });
 
+  const newFileMut = useMutation({
+    mutationFn: (full: string) => writeFile(full, ''),
+    onSuccess: (res) => {
+      toast.success('Fichier créé');
+      onInvalidate();
+      onSelectFile(res.path); // ouvre direct l'éditeur
+    },
+    onError: (err) =>
+      toast.error('Création impossible', { description: errMessage(err) }),
+  });
+
   const moveMut = useMutation({
     mutationFn: ({ from, to }: { from: string; to: string }) => moveFile(from, to),
     onSuccess: (res) => {
@@ -352,7 +363,7 @@ function FileBrowser({
             <input
               ref={uploadRef}
               type="file"
-              accept="image/*,.json,.yml,.yaml"
+              accept="image/*,.json,.yml,.yaml,.mcmeta,.txt,.properties,.mcfunction,.mcmodel"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -371,6 +382,20 @@ function FileBrowser({
             >
               <IconFolder className="h-4 w-4" />
               Nouveau dossier
+            </button>
+            <button
+              type="button"
+              disabled={newFileMut.isPending}
+              onClick={() => {
+                const name = prompt(
+                  'Nom du nouveau fichier (ex: fight1.png.mcmeta) :',
+                )?.trim();
+                if (name) newFileMut.mutate(joinPath(path, name));
+              }}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--color-border-strong)] px-3 py-1.5 text-xs text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-40"
+            >
+              <IconFile className="h-4 w-4" />
+              Nouveau fichier
             </button>
             <button
               type="button"
