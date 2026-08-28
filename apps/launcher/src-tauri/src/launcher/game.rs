@@ -1085,7 +1085,13 @@ fn resolve_dev_server() -> Option<jvm::ServerAddress> {
 fn is_staff_role(role: &str) -> bool {
     matches!(
         role,
-        "HELPER" | "MODERATOR" | "WHITELIST_REVIEWER" | "ADMIN" | "OWNER"
+        "HELPER"
+            | "MODELISATEUR"
+            | "DEVELOPPEUR"
+            | "MODERATOR"
+            | "WHITELIST_REVIEWER"
+            | "ADMIN"
+            | "OWNER"
     )
 }
 

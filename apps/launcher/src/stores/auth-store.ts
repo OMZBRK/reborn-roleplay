@@ -14,7 +14,7 @@ export type LauncherUser = {
   minecraftUsername: string;
   displayName: string | null;
   avatarUrl: string | null;
-  role: "PLAYER" | "WHITELISTED" | "HELPER" | "MODERATOR" | "WHITELIST_REVIEWER" | "ADMIN" | "OWNER";
+  role: "PLAYER" | "WHITELISTED" | "HELPER" | "MODELISATEUR" | "DEVELOPPEUR" | "MODERATOR" | "WHITELIST_REVIEWER" | "ADMIN" | "OWNER";
   discord: DiscordLinkage | null;
 };
 

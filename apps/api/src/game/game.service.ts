@@ -28,6 +28,8 @@ export interface CandidatureView {
 
 const STAFF_ROLES = new Set<Role>([
   Role.HELPER,
+  Role.MODELISATEUR,
+  Role.DEVELOPPEUR,
   Role.MODERATOR,
   Role.WHITELIST_REVIEWER,
   Role.ADMIN,

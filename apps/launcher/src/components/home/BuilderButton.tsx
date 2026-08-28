@@ -4,7 +4,7 @@ import { useAuthStore } from "../../stores/auth-store";
 import { launchBuilder } from "../../lib/launcher";
 
 /** Grades « staff » — aligné avec is_staff_role() côté Rust (launcher/game.rs). */
-const STAFF_ROLES = ["HELPER", "MODERATOR", "WHITELIST_REVIEWER", "ADMIN", "OWNER"];
+const STAFF_ROLES = ["HELPER", "MODELISATEUR", "DEVELOPPEUR", "MODERATOR", "WHITELIST_REVIEWER", "ADMIN", "OWNER"];
 
 /**
  * Bouton « Builder » (staff-only) : lance MC 26.2 + Axiom / opti / shaders (sans
