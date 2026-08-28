@@ -47,6 +47,19 @@ export function deleteFile(
   return api(`/files?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
 }
 
+export function mkdir(
+  path: string,
+): Promise<{ created: boolean; path: string }> {
+  return api('/files/mkdir', { method: 'POST', body: { path } });
+}
+
+export function moveFile(
+  from: string,
+  to: string,
+): Promise<{ moved: boolean; from: string; to: string }> {
+  return api('/files/move', { method: 'POST', body: { from, to } });
+}
+
 export function getReloadTargets(): Promise<{ key: string; label: string }[]> {
   return api<{ key: string; label: string }[]>('/files/reload-targets');
 }

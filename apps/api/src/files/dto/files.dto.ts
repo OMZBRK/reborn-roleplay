@@ -60,6 +60,22 @@ export class ReloadDto {
   target!: string;
 }
 
+export class MkdirDto {
+  @IsString()
+  @MaxLength(PATH_MAX)
+  path!: string;
+}
+
+export class MoveDto {
+  @IsString()
+  @MaxLength(PATH_MAX)
+  from!: string;
+
+  @IsString()
+  @MaxLength(PATH_MAX)
+  to!: string;
+}
+
 /** Un résultat d'exécution renvoyé par le pont (une commande drainée). */
 export class AckItemDto {
   @IsString()

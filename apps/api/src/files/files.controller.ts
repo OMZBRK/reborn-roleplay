@@ -16,6 +16,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import {
   DeleteFileDto,
   ListDirDto,
+  MkdirDto,
+  MoveDto,
   ReadFileDto,
   ReloadDto,
   UploadFileDto,
@@ -73,6 +75,16 @@ export class FilesController {
   @Delete()
   remove(@Query() q: DeleteFileDto, @CurrentUser() user: RequestUser) {
     return this.files.remove(user.role, user.sub, q.path);
+  }
+
+  @Post('mkdir')
+  mkdir(@Body() dto: MkdirDto, @CurrentUser() user: RequestUser) {
+    return this.files.mkdir(user.role, user.sub, dto.path);
+  }
+
+  @Post('move')
+  move(@Body() dto: MoveDto, @CurrentUser() user: RequestUser) {
+    return this.files.move(user.role, user.sub, dto.from, dto.to);
   }
 
   @Post('reload')

@@ -16,6 +16,8 @@ import {
   getReloadTargets,
   getScopes,
   listDir,
+  mkdir,
+  moveFile,
   readFile,
   reload,
   uploadFile,
@@ -281,6 +283,39 @@ function FileBrowser({
       toast.error('Suppression impossible', { description: errMessage(err) }),
   });
 
+  const mkdirMut = useMutation({
+    mutationFn: (full: string) => mkdir(full),
+    onSuccess: () => {
+      toast.success('Dossier créé');
+      onInvalidate();
+    },
+    onError: (err) =>
+      toast.error('Création impossible', { description: errMessage(err) }),
+  });
+
+  const moveMut = useMutation({
+    mutationFn: ({ from, to }: { from: string; to: string }) => moveFile(from, to),
+    onSuccess: (res) => {
+      toast.success('Déplacé', { description: res.to });
+      onInvalidate();
+    },
+    onError: (err) =>
+      toast.error('Déplacement impossible', { description: errMessage(err) }),
+  });
+
+  // Chemin en cours de glisser (drag) et dossier survolé (drop).
+  const [dragPath, setDragPath] = useState<string | null>(null);
+  const [dropDir, setDropDir] = useState<string | null>(null);
+
+  // Déplace `from` dans le dossier `destDir` (destDir = '' pour la racine du périmètre).
+  function doMove(from: string, destDir: string) {
+    const name = from.slice(from.lastIndexOf('/') + 1);
+    const to = joinPath(destDir, name);
+    const parent = from.slice(0, from.lastIndexOf('/'));
+    if (to === from || parent === destDir) return; // même emplacement
+    moveMut.mutate({ from, to });
+  }
+
   const trail = crumbs(path);
   const entries = listing?.entries ?? [];
   const dirs = entries.filter((e) => e.type === 'dir');
@@ -313,7 +348,7 @@ function FileBrowser({
           ))}
         </div>
         {canWrite && (
-          <>
+          <div className="flex shrink-0 items-center gap-2">
             <input
               ref={uploadRef}
               type="file"
@@ -327,6 +362,18 @@ function FileBrowser({
             />
             <button
               type="button"
+              disabled={mkdirMut.isPending}
+              onClick={() => {
+                const name = prompt('Nom du nouveau dossier :')?.trim();
+                if (name) mkdirMut.mutate(joinPath(path, name));
+              }}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--color-border-strong)] px-3 py-1.5 text-xs text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-40"
+            >
+              <IconFolder className="h-4 w-4" />
+              Nouveau dossier
+            </button>
+            <button
+              type="button"
               disabled={uploadMut.isPending}
               onClick={() => uploadRef.current?.click()}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--color-border-strong)] px-3 py-1.5 text-xs text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-40"
@@ -334,7 +381,7 @@ function FileBrowser({
               <IconUpload className="h-4 w-4" />
               {uploadMut.isPending ? 'Import…' : 'Importer'}
             </button>
-          </>
+          </div>
         )}
       </div>
 
@@ -350,12 +397,35 @@ function FileBrowser({
           </div>
         ) : (
           <div className="space-y-1">
-            {/* Remonter d'un cran */}
+            {/* Remonter d'un cran — aussi cible de dépôt (déplace vers le parent) */}
             {listing?.parent != null && (
               <button
                 type="button"
                 onClick={() => onOpenDir(listing.parent as string)}
-                className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2 text-left text-sm text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)]"
+                onDragOver={
+                  canWrite && dragPath
+                    ? (e) => {
+                        e.preventDefault();
+                        setDropDir('..');
+                      }
+                    : undefined
+                }
+                onDragLeave={() => setDropDir((d) => (d === '..' ? null : d))}
+                onDrop={
+                  canWrite && dragPath
+                    ? (e) => {
+                        e.preventDefault();
+                        doMove(dragPath, listing.parent as string);
+                        setDragPath(null);
+                        setDropDir(null);
+                      }
+                    : undefined
+                }
+                className={`flex w-full items-center gap-3 rounded-[8px] px-3 py-2 text-left text-sm text-[var(--color-foreground-subtle)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] ${
+                  dropDir === '..'
+                    ? 'shadow-[inset_0_0_0_1px_var(--color-accent)] bg-[var(--color-accent-soft)]'
+                    : ''
+                }`}
               >
                 <IconFolder className="h-4 w-4 text-[var(--color-foreground-muted)]" />
                 ..
@@ -370,14 +440,53 @@ function FileBrowser({
               sorted.map((entry, i) => {
                 const isDir = entry.type === 'dir';
                 const isSelected = !isDir && selected === entry.path;
+                const isDropTarget = isDir && dropDir === entry.path;
                 return (
                   <StaggerItem key={entry.path} index={i}>
                     <div
+                      draggable={canWrite}
+                      onDragStart={
+                        canWrite
+                          ? (e) => {
+                              setDragPath(entry.path);
+                              e.dataTransfer.effectAllowed = 'move';
+                            }
+                          : undefined
+                      }
+                      onDragEnd={() => {
+                        setDragPath(null);
+                        setDropDir(null);
+                      }}
+                      onDragOver={
+                        canWrite && isDir && dragPath && dragPath !== entry.path
+                          ? (e) => {
+                              e.preventDefault();
+                              setDropDir(entry.path);
+                            }
+                          : undefined
+                      }
+                      onDragLeave={
+                        isDir
+                          ? () => setDropDir((d) => (d === entry.path ? null : d))
+                          : undefined
+                      }
+                      onDrop={
+                        canWrite && isDir && dragPath
+                          ? (e) => {
+                              e.preventDefault();
+                              doMove(dragPath, entry.path);
+                              setDragPath(null);
+                              setDropDir(null);
+                            }
+                          : undefined
+                      }
                       className={`group flex items-center gap-3 rounded-[8px] px-3 py-2 transition-colors ${
-                        isSelected
+                        isDropTarget
                           ? 'bg-[var(--color-accent-soft)] shadow-[inset_0_0_0_1px_var(--color-accent)]'
-                          : 'hover:bg-[var(--color-surface-elevated)]'
-                      }`}
+                          : isSelected
+                            ? 'bg-[var(--color-accent-soft)] shadow-[inset_0_0_0_1px_var(--color-accent)]'
+                            : 'hover:bg-[var(--color-surface-elevated)]'
+                      } ${canWrite ? 'cursor-grab active:cursor-grabbing' : ''}`}
                     >
                       <button
                         type="button"
