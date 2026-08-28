@@ -14,6 +14,11 @@ const ROLE_HIERARCHY: Role[] = [
   Role.PLAYER,
   Role.WHITELISTED,
   Role.HELPER,
+  // Grades techniques (contributeurs) — au-dessus de HELPER, sous la modération.
+  // Leur accès réel aux fichiers passe par la carte de scopes de FilesService,
+  // pas par ce rang linéaire.
+  Role.MODELISATEUR,
+  Role.DEVELOPPEUR,
   Role.WHITELIST_REVIEWER,
   Role.MODERATOR,
   Role.ADMIN,

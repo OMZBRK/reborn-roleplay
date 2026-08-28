@@ -13,6 +13,8 @@ const ROLE_RANKS: Role[] = [
   Role.PLAYER,
   Role.WHITELISTED,
   Role.HELPER,
+  Role.MODELISATEUR,
+  Role.DEVELOPPEUR,
   Role.WHITELIST_REVIEWER,
   Role.MODERATOR,
   Role.ADMIN,

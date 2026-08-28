@@ -18,6 +18,8 @@ export type Role =
   | 'PLAYER'
   | 'WHITELISTED'
   | 'HELPER'
+  | 'MODELISATEUR'
+  | 'DEVELOPPEUR'
   | 'WHITELIST_REVIEWER'
   | 'MODERATOR'
   | 'ADMIN'
@@ -264,6 +266,43 @@ export interface WikiIdea {
   createdById: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ── Gestionnaire de fichiers serveur ────────────────────
+// Mirror du contrat REST /v1/files/* (scopes par grade + éditeur texte/image).
+
+export interface FileScope {
+  path: string;
+  label: string;
+}
+
+export interface FileScopesResponse {
+  server: string;
+  canWrite: boolean;
+  roots: FileScope[];
+}
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  type: 'dir' | 'file';
+  size: number;
+  modified: string;
+}
+
+export interface DirListing {
+  path: string;
+  parent: string | null;
+  entries: FileEntry[];
+}
+
+export interface FileContent {
+  path: string;
+  size: number;
+  encoding: 'utf8' | 'base64';
+  content: string;
+  editable: boolean;
+  kind: 'text' | 'image' | 'binary';
 }
 
 export interface PlayerDetail {

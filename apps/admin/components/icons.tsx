@@ -208,6 +208,54 @@ export function IconBulb(p: IconProps) {
   );
 }
 
+export function IconServer(p: IconProps) {
+  return (
+    <Base {...p}>
+      <rect x="3" y="4" width="18" height="7" rx="2" />
+      <rect x="3" y="13" width="18" height="7" rx="2" />
+      <path d="M7 7.5h.01M7 16.5h.01" />
+    </Base>
+  );
+}
+
+export function IconFolder(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </Base>
+  );
+}
+
+export function IconFile(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+    </Base>
+  );
+}
+
+export function IconTrash(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 7h16" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M5 7l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13" />
+      <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+    </Base>
+  );
+}
+
+export function IconUpload(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      <path d="M12 15V3" />
+      <path d="m7 8 5-5 5 5" />
+    </Base>
+  );
+}
+
 export function IconClock(p: IconProps) {
   return (
     <Base {...p}>
