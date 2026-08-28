@@ -60,6 +60,7 @@ const SCOPES: Partial<Record<Role, Scope>> = {
   [Role.DEVELOPPEUR]: {
     write: true,
     roots: [
+      { path: 'plugins/Nexo', label: 'Nexo — modèles & items' },
       { path: 'plugins/MagicSpells', label: 'MagicSpells' },
       { path: 'plugins/MythicMobs', label: 'MythicMobs' },
       { path: 'plugins/ModelEngine', label: 'ModelEngine' },
@@ -438,6 +439,71 @@ export class FilesService {
       source: 'panel',
     });
     return { deleted: true, backedUp };
+  }
+
+  /** Crée un dossier (récursif) dans le périmètre du grade. */
+  async mkdir(
+    role: Role,
+    actorId: string,
+    rawPath: string,
+  ): Promise<{ created: boolean; path: string }> {
+    const rel = this.assertAllowed(role, rawPath, true);
+    if (!rel) throw new BadRequestException('Chemin de dossier vide.');
+    const remote = this.remote(rel);
+    await this.withSftp(async (sftp) => {
+      if ((await sftp.exists(remote)) !== false) {
+        throw new BadRequestException('Un fichier/dossier existe déjà à ce chemin.');
+      }
+      await sftp.mkdir(remote, true);
+    });
+    void this.audit.log({
+      actorId,
+      action: 'files.mkdir',
+      targetEntity: `dir:${rel}`,
+      metadata: { server: 'dev' },
+      source: 'panel',
+    });
+    return { created: true, path: rel };
+  }
+
+  /**
+   * Déplace / renomme un fichier ou dossier. Source ET destination doivent être
+   * dans le périmètre du grade (écriture requise des deux côtés). Refuse
+   * d'écraser une destination existante ou de déplacer un dossier dans lui-même.
+   */
+  async move(
+    role: Role,
+    actorId: string,
+    rawFrom: string,
+    rawTo: string,
+  ): Promise<{ moved: boolean; from: string; to: string }> {
+    const from = this.assertAllowed(role, rawFrom, true);
+    const to = this.assertAllowed(role, rawTo, true);
+    if (!from || !to) throw new BadRequestException('Chemin vide.');
+    if (from === to) throw new BadRequestException('Source et destination identiques.');
+    // Empêche de déplacer un dossier à l'intérieur de lui-même.
+    if (to === from || to.startsWith(from + '/')) {
+      throw new BadRequestException('Impossible de déplacer un dossier dans lui-même.');
+    }
+    const rFrom = this.remote(from);
+    const rTo = this.remote(to);
+    await this.withSftp(async (sftp) => {
+      if ((await sftp.exists(rFrom)) === false) {
+        throw new NotFoundException('Source introuvable.');
+      }
+      if ((await sftp.exists(rTo)) !== false) {
+        throw new BadRequestException('La destination existe déjà.');
+      }
+      await sftp.rename(rFrom, rTo);
+    });
+    void this.audit.log({
+      actorId,
+      action: 'files.move',
+      targetEntity: `file:${from}`,
+      metadata: { server: 'dev', to },
+      source: 'panel',
+    });
+    return { moved: true, from, to };
   }
 
   /** Cibles de reload accessibles au grade (pour l'UI). */
