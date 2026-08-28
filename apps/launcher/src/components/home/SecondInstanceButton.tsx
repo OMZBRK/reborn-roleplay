@@ -5,7 +5,7 @@ import { launchSecondInstance } from "../../lib/launcher";
 
 /** Grades considérés « staff » (au-dessus de WHITELISTED). Doit rester aligné
  *  avec is_staff_role() côté Rust (launcher/game.rs). */
-const STAFF_ROLES = ["HELPER", "MODERATOR", "WHITELIST_REVIEWER", "ADMIN", "OWNER"];
+const STAFF_ROLES = ["HELPER", "MODELISATEUR", "DEVELOPPEUR", "MODERATOR", "WHITELIST_REVIEWER", "ADMIN", "OWNER"];
 
 /**
  * Bouton dev « Lancer une 2e instance » — visible uniquement pour le staff.

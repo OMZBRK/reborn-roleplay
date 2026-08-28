@@ -1,6 +1,14 @@
 import type { LauncherUser } from "../../stores/auth-store";
 
-export type RoleType = "player" | "whitelisted" | "helper" | "moderator" | "admin" | "owner";
+export type RoleType =
+  | "player"
+  | "whitelisted"
+  | "helper"
+  | "modelisateur"
+  | "developpeur"
+  | "moderator"
+  | "admin"
+  | "owner";
 
 export type RoleMeta = {
   label: string;
@@ -11,6 +19,8 @@ export const ROLE_META: Record<RoleType, RoleMeta> = {
   player: { label: "Joueur", color: "var(--color-role-player)" },
   whitelisted: { label: "Whitelisted", color: "var(--color-role-whitelisted)" },
   helper: { label: "Helper", color: "var(--color-role-helper)" },
+  modelisateur: { label: "Modélisateur", color: "var(--color-role-helper)" },
+  developpeur: { label: "Développeur", color: "var(--color-role-helper)" },
   moderator: { label: "Modérateur", color: "var(--color-role-moderator)" },
   admin: { label: "Admin", color: "var(--color-role-admin)" },
   owner: { label: "Owner", color: "var(--color-role-owner)" },
@@ -22,6 +32,10 @@ export function mapRole(role: LauncherUser["role"] | undefined): RoleType {
       return "whitelisted";
     case "HELPER":
       return "helper";
+    case "MODELISATEUR":
+      return "modelisateur";
+    case "DEVELOPPEUR":
+      return "developpeur";
     case "MODERATOR":
     case "WHITELIST_REVIEWER":
       return "moderator";
