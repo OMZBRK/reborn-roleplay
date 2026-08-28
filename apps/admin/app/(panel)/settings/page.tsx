@@ -21,6 +21,8 @@ const ROLE_LABELS: Record<Role, string> = {
   PLAYER: 'Joueur',
   WHITELISTED: 'Whitelisté',
   HELPER: 'Helper',
+  MODELISATEUR: 'Modélisateur',
+  DEVELOPPEUR: 'Développeur',
   WHITELIST_REVIEWER: 'Reviewer WL',
   MODERATOR: 'Modérateur',
   ADMIN: 'Administrateur',

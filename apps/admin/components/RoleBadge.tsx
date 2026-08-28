@@ -13,6 +13,14 @@ const TONE: Record<Role, { label: string; cls: string }> = {
     label: 'Helper',
     cls: 'border-[var(--color-success)]/40 text-[var(--color-success)] bg-[var(--color-success-soft)]',
   },
+  MODELISATEUR: {
+    label: 'Modelisateur',
+    cls: 'border-[#14b8a6]/40 text-[#5eead4] bg-[#14b8a6]/10',
+  },
+  DEVELOPPEUR: {
+    label: 'Developpeur',
+    cls: 'border-[#8b5cf6]/40 text-[#c4b5fd] bg-[#8b5cf6]/10',
+  },
   WHITELIST_REVIEWER: {
     label: 'WL Reviewer',
     cls: 'border-[var(--color-accent)]/40 text-[var(--color-accent)] bg-[var(--color-accent-soft)]',
