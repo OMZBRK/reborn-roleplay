@@ -84,6 +84,8 @@ export type RebornRole =
   | "PLAYER"
   | "WHITELISTED"
   | "HELPER"
+  | "MODELISATEUR"
+  | "DEVELOPPEUR"
   | "WHITELIST_REVIEWER"
   | "MODERATOR"
   | "ADMIN"

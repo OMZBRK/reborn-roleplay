@@ -19,6 +19,8 @@ const ROLE_CHOICES: { name: string; value: RebornRole }[] = [
   { name: "Joueur (retire la whitelist)", value: "PLAYER" },
   { name: "Whitelisté", value: "WHITELISTED" },
   { name: "Helper", value: "HELPER" },
+  { name: "Modélisateur", value: "MODELISATEUR" },
+  { name: "Développeur", value: "DEVELOPPEUR" },
   { name: "Reviewer whitelist", value: "WHITELIST_REVIEWER" },
   { name: "Modérateur", value: "MODERATOR" },
   { name: "Admin", value: "ADMIN" },
