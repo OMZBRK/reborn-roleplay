@@ -90,6 +90,14 @@ services:
       REBORN_STREAMERS: ${REBORN_STREAMERS:-kameto,etostark,mehditdonc,omzbrk,jltomy}
       # Base web des liens patch notes ouverts au clic depuis le menu ESC.
       REBORN_WEB_URL: ${REBORN_WEB_URL:-https://reborn-rp.fr}
+      # Gestionnaire de fichiers panel (serveur DEV) — l'API se connecte en SFTP
+      # au serveur de jeu pour les grades Modélisateur/Développeur. Creds dans
+      # .env.prod (jamais commit). BASE_PATH = racine jail (racine SFTP = ".").
+      REBORN_SFTP_HOST: ${REBORN_SFTP_HOST:-}
+      REBORN_SFTP_PORT: ${REBORN_SFTP_PORT:-22}
+      REBORN_SFTP_USER: ${REBORN_SFTP_USER:-}
+      REBORN_SFTP_PASSWORD: ${REBORN_SFTP_PASSWORD:-}
+      REBORN_SFTP_BASE_PATH: ${REBORN_SFTP_BASE_PATH:-.}
     volumes:
       # Persiste les uploads (screenshots feed + pièces jointes) entre les
       # rebuilds du conteneur — sinon perdus à chaque `up --build`.
