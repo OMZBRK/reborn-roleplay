@@ -44,6 +44,12 @@ export class FilesController {
     return this.files.scopesFor(user.role);
   }
 
+  /** Cibles de rechargement (plugins) accessibles au grade appelant. */
+  @Get('reload-targets')
+  reloadTargets(@CurrentUser() user: RequestUser) {
+    return this.files.reloadTargetsFor(user.role);
+  }
+
   @Get('list')
   list(@Query() q: ListDirDto, @CurrentUser() user: RequestUser) {
     return this.files.list(user.role, q.path);

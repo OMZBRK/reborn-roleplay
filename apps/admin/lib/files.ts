@@ -47,8 +47,12 @@ export function deleteFile(
   return api(`/files?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
 }
 
+export function getReloadTargets(): Promise<{ key: string; label: string }[]> {
+  return api<{ key: string; label: string }[]>('/files/reload-targets');
+}
+
 export function reload(
   target: string,
-): Promise<{ queued: boolean; message: string }> {
+): Promise<{ queued: boolean; message: string; id?: string }> {
   return api('/files/reload', { method: 'POST', body: { target } });
 }

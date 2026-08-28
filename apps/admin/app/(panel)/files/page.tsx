@@ -13,9 +13,11 @@ import {
 import { SkeletonRows } from '@/components/Skeleton';
 import {
   deleteFile,
+  getReloadTargets,
   getScopes,
   listDir,
   readFile,
+  reload,
   uploadFile,
   writeFile,
 } from '@/lib/files';
@@ -83,6 +85,19 @@ export default function FilesPage() {
   const scopes = scopesQuery.data;
   const roots = scopes?.roots ?? [];
   const canWrite = scopes?.canWrite ?? false;
+
+  // Cibles de rechargement (plugins) accessibles au grade.
+  const reloadTargetsQuery = useQuery({
+    queryKey: ['files', 'reload-targets'],
+    queryFn: () => getReloadTargets(),
+  });
+  const reloadTargets = reloadTargetsQuery.data ?? [];
+
+  const reloadMutation = useMutation({
+    mutationFn: (target: string) => reload(target),
+    onSuccess: (res) => toast.success(res.message ?? 'Rechargement envoyé.'),
+    onError: (err) => toast.error(errMessage(err)),
+  });
 
   // Racine active = le root le plus spécifique qui préfixe le chemin courant.
   const activeRoot = useMemo(() => {
@@ -161,19 +176,22 @@ export default function FilesPage() {
                 );
               })}
             </div>
-            <div className="flex flex-col items-end">
-              <button
-                type="button"
-                disabled
-                title="Bientôt (pont plugin)"
-                className="cursor-not-allowed rounded-[10px] border border-[var(--color-border-strong)] px-4 py-2 text-sm text-[var(--color-foreground-muted)] opacity-60"
-              >
-                Recharger le plugin
-              </button>
-              <span className="mt-1 text-[11px] text-[var(--color-foreground-muted)]">
-                Bientôt (pont plugin)
-              </span>
-            </div>
+            {reloadTargets.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {reloadTargets.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    disabled={reloadMutation.isPending}
+                    onClick={() => reloadMutation.mutate(t.key)}
+                    title={`Recharge ${t.label} sur le serveur`}
+                    className="rounded-[10px] border border-[var(--color-border-strong)] px-4 py-2 text-sm text-[var(--color-foreground-subtle)] transition-colors hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-foreground)] disabled:opacity-50"
+                  >
+                    ↻ Recharger {t.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
