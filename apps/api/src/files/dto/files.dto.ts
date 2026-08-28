@@ -1,4 +1,12 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
 
 /** Longueur max d'un chemin relatif accepté (garde-fou anti-abus). */
 const PATH_MAX = 512;
@@ -50,4 +58,27 @@ export class ReloadDto {
   @IsString()
   @MaxLength(64)
   target!: string;
+}
+
+/** Un résultat d'exécution renvoyé par le pont (une commande drainée). */
+export class AckItemDto {
+  @IsString()
+  @MaxLength(64)
+  id!: string;
+
+  @IsBoolean()
+  ok!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  output?: string;
+}
+
+/** Corps de `POST /v1/files/commands/ack` (pont → API). */
+export class AckDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AckItemDto)
+  results!: AckItemDto[];
 }

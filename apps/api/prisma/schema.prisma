@@ -681,3 +681,30 @@ model WikiIdea {
 
   @@index([status])
 }
+
+enum ServerCommandStatus {
+  PENDING
+  DISPATCHED
+  DONE
+  FAILED
+}
+
+/// File d'attente de commandes console pour le serveur de jeu DEV. Le panel
+/// enfile une commande WHITELISTÉE (ex. `nexo reload`) via l'endpoint reload
+/// gaté JWT+role ; un pont côté ShinobiCore interroge l'API en sortant, exécute
+/// la commande sur le thread principal et renvoie le résultat. Aucun port
+/// entrant / RCON requis. Le `command` n'est jamais du texte libre : il est
+/// résolu depuis une liste blanche côté API à l'enfilage.
+model ServerCommand {
+  id            String              @id @default(uuid())
+  target        String // clé logique (nexo, magicspells, mythicmobs, modelengine)
+  command       String // commande console résolue (whitelist), ex. "nexo reload"
+  status        ServerCommandStatus @default(PENDING)
+  output        String? // résultat renvoyé par le pont
+  requestedById String // User Reborn qui a demandé le reload
+  createdAt     DateTime            @default(now())
+  dispatchedAt  DateTime?
+  completedAt   DateTime?
+
+  @@index([status, createdAt])
+}

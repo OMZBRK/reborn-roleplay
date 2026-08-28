@@ -11,6 +11,23 @@ import { Role } from '@prisma/client';
 import * as posix from 'node:path/posix';
 import SftpClient from 'ssh2-sftp-client';
 import { AuditService } from '../audit/audit.service';
+import { PrismaService } from '../prisma/prisma.service';
+
+/**
+ * Cibles de rechargement autorisées : clé logique → commande console résolue +
+ * racine de fichiers requise (le grade doit avoir accès à cette racine pour
+ * pouvoir recharger le plugin). Le pont côté jeu ne reçoit JAMAIS de texte
+ * libre — seulement une de ces commandes fixes.
+ */
+const RELOAD_TARGETS: Record<
+  string,
+  { command: string; root: string; label: string }
+> = {
+  nexo: { command: 'nexo reload', root: 'plugins/Nexo', label: 'Nexo' },
+  magicspells: { command: 'ms reload', root: 'plugins/MagicSpells', label: 'MagicSpells' },
+  mythicmobs: { command: 'mm reload', root: 'plugins/MythicMobs', label: 'MythicMobs' },
+  modelengine: { command: 'meg reload', root: 'plugins/ModelEngine', label: 'ModelEngine' },
+};
 
 /** Une racine autorisée pour un grade (chemin relatif à la base SFTP + libellé UI). */
 export interface ScopeRoot {
@@ -100,6 +117,7 @@ export class FilesService {
   constructor(
     private readonly config: ConfigService,
     private readonly audit: AuditService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ─────────────────────────── Scopes / jail ───────────────────────────
@@ -422,24 +440,102 @@ export class FilesService {
     return { deleted: true, backedUp };
   }
 
-  reload(
+  /** Cibles de reload accessibles au grade (pour l'UI). */
+  reloadTargetsFor(role: Role): { key: string; label: string }[] {
+    const scope = SCOPES[role];
+    if (!scope) return [];
+    return Object.entries(RELOAD_TARGETS)
+      .filter(([, t]) =>
+        scope.roots.some(
+          (r) => r.path === '' || t.root === r.path || t.root.startsWith(r.path + '/'),
+        ),
+      )
+      .map(([key, t]) => ({ key, label: t.label }));
+  }
+
+  /**
+   * Enfile une commande de rechargement WHITELISTÉE dans la file d'attente. Le
+   * pont côté jeu (ShinobiCore) la draine, l'exécute en console et renvoie le
+   * résultat. Le grade doit avoir accès à la racine du plugin ciblé.
+   */
+  async reload(
     role: Role,
     actorId: string,
     target: string,
-  ): { queued: boolean; message: string } {
-    // Phase 1b : le pont plugin (file d'attente de commandes console) n'est pas
-    // encore déployé → on journalise l'intention et on répond proprement.
+  ): Promise<{ queued: boolean; message: string; id?: string }> {
+    const t = RELOAD_TARGETS[target];
+    if (!t) {
+      throw new BadRequestException('Cible de rechargement inconnue.');
+    }
+    const scope = SCOPES[role];
+    const allowed =
+      scope?.roots.some(
+        (r) => r.path === '' || t.root === r.path || t.root.startsWith(r.path + '/'),
+      ) ?? false;
+    if (!allowed) {
+      throw new ForbiddenException('Rechargement hors périmètre autorisé.');
+    }
+    const cmd = await this.prisma.serverCommand.create({
+      data: {
+        target,
+        command: t.command,
+        requestedById: actorId,
+      },
+      select: { id: true },
+    });
     void this.audit.log({
       actorId,
       action: 'files.reload',
       targetEntity: `reload:${target}`,
-      metadata: { server: 'dev', role },
+      metadata: { server: 'dev', command: t.command, commandId: cmd.id },
       source: 'panel',
     });
     return {
-      queued: false,
-      message: 'Rechargement à venir (pont plugin — Phase 1b).',
+      queued: true,
+      message: `Rechargement de ${t.label} envoyé au serveur.`,
+      id: cmd.id,
     };
+  }
+
+  // ─────────────────── Pont file d'attente (côté jeu) ───────────────────
+
+  /**
+   * Draine les commandes en attente et les passe DISPATCHED (elles ne seront
+   * pas ré-envoyées). Appelé par le pont ShinobiCore (HMAC), pas par le panel.
+   */
+  async drainPending(): Promise<{ commands: { id: string; command: string }[] }> {
+    const pending = await this.prisma.serverCommand.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+      take: 20,
+      select: { id: true, command: true },
+    });
+    if (pending.length > 0) {
+      await this.prisma.serverCommand.updateMany({
+        where: { id: { in: pending.map((p) => p.id) } },
+        data: { status: 'DISPATCHED', dispatchedAt: new Date() },
+      });
+    }
+    return { commands: pending };
+  }
+
+  /** Enregistre le résultat d'exécution des commandes (renvoyé par le pont). */
+  async ack(results: { id: string; ok: boolean; output?: string }[]): Promise<{ ok: true }> {
+    for (const r of results) {
+      await this.prisma.serverCommand
+        .update({
+          where: { id: r.id },
+          data: {
+            status: r.ok ? 'DONE' : 'FAILED',
+            output: r.output ? r.output.slice(0, 2000) : null,
+            completedAt: new Date(),
+          },
+        })
+        .catch(() => {
+          /* commande inconnue / déjà nettoyée — on ignore */
+        });
+    }
+    return { ok: true };
   }
 
   // ─────────────────────────── helpers ───────────────────────────
