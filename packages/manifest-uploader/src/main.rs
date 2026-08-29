@@ -50,6 +50,8 @@ enum Command {
     Manifest(ManifestArgs),
     /// POST /v1/admin/releases avec les metadata d'une release launcher.
     Release(ReleaseArgs),
+    /// GET /v1/manifest/current — imprime le manifest signe courant (lecture seule).
+    GetManifest,
 }
 
 #[derive(Args)]
@@ -202,6 +204,29 @@ fn run_manifest(args: ManifestArgs, api: &str, client: &reqwest::blocking::Clien
     post_json(client, &url, token, &json)
 }
 
+/// GET le manifest signe courant et l'imprime tel quel (lecture seule).
+fn run_get_manifest(api: &str, client: &reqwest::blocking::Client, token: &str) -> ExitCode {
+    let url = format!("{}/manifest/current", api.trim_end_matches('/'));
+    eprintln!("GET {url}");
+    let resp = match client.get(&url).bearer_auth(token).send() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Requete echouee : {e}");
+            return ExitCode::from(3);
+        }
+    };
+    let status = resp.status();
+    let text = resp.text().unwrap_or_default();
+    if status.is_success() {
+        // stdout = corps JSON pur (pour redirection dans un fichier).
+        println!("{text}");
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("HTTP {status}\n{text}");
+        ExitCode::from(1)
+    }
+}
+
 fn run_release(args: ReleaseArgs, api: &str, client: &reqwest::blocking::Client, token: &str) -> ExitCode {
     let body = serde_json::json!({
         "version": args.version,
@@ -237,6 +262,7 @@ fn main() -> ExitCode {
     match cli.command {
         Some(Command::Manifest(args)) => run_manifest(args, &cli.api, &client, &token),
         Some(Command::Release(args)) => run_release(args, &cli.api, &client, &token),
+        Some(Command::GetManifest) => run_get_manifest(&cli.api, &client, &token),
         None => {
             eprintln!("Aucune action specifiee. Usage :");
             eprintln!("  manifest-uploader manifest --file manifest-signed.json");
