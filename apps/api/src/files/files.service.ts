@@ -365,23 +365,25 @@ export class FilesService {
     actorId: string,
     rawPath: string,
     content: string,
-  ): Promise<{ path: string; size: number; backedUp: boolean }> {
+  ): Promise<{ path: string; size: number }> {
     const rel = this.assertAllowed(role, rawPath, true);
     const remote = this.remote(rel);
     const buf = Buffer.from(content, 'utf8');
-    const backedUp = await this.withSftp(async (sftp) => {
-      const bk = await this.backup(sftp, remote);
+    await this.withSftp(async (sftp) => {
+      // Refuse d'écraser un dossier ; écriture directe (pas de `.bak`).
+      if ((await sftp.exists(remote)) === 'd') {
+        throw new BadRequestException('La cible est un dossier.');
+      }
       await sftp.put(buf, remote);
-      return bk;
     });
     void this.audit.log({
       actorId,
       action: 'files.write',
       targetEntity: `file:${rel}`,
-      metadata: { server: 'dev', size: buf.length, backedUp },
+      metadata: { server: 'dev', size: buf.length },
       source: 'panel',
     });
-    return { path: rel, size: buf.length, backedUp };
+    return { path: rel, size: buf.length };
   }
 
   async upload(
@@ -389,7 +391,7 @@ export class FilesService {
     actorId: string,
     rawPath: string,
     contentBase64: string,
-  ): Promise<{ path: string; size: number; backedUp: boolean }> {
+  ): Promise<{ path: string; size: number }> {
     const rel = this.assertAllowed(role, rawPath, true);
     const remote = this.remote(rel);
     let buf: Buffer;
@@ -398,47 +400,44 @@ export class FilesService {
     } catch {
       throw new BadRequestException('Contenu base64 invalide.');
     }
-    const backedUp = await this.withSftp(async (sftp) => {
-      const bk = await this.backup(sftp, remote);
+    await this.withSftp(async (sftp) => {
+      if ((await sftp.exists(remote)) === 'd') {
+        throw new BadRequestException('La cible est un dossier.');
+      }
       await sftp.put(buf, remote);
-      return bk;
     });
     void this.audit.log({
       actorId,
       action: 'files.upload',
       targetEntity: `file:${rel}`,
-      metadata: { server: 'dev', size: buf.length, backedUp },
+      metadata: { server: 'dev', size: buf.length },
       source: 'panel',
     });
-    return { path: rel, size: buf.length, backedUp };
+    return { path: rel, size: buf.length };
   }
 
   async remove(
     role: Role,
     actorId: string,
     rawPath: string,
-  ): Promise<{ deleted: boolean; backedUp: boolean }> {
+  ): Promise<{ deleted: boolean }> {
     const rel = this.assertAllowed(role, rawPath, true);
     const remote = this.remote(rel);
-    const backedUp = await this.withSftp(async (sftp) => {
+    await this.withSftp(async (sftp) => {
       const exists = await sftp.exists(remote);
       if (exists === false) throw new NotFoundException('Fichier introuvable.');
       if (exists === 'd') throw new BadRequestException('Suppression de dossier non autorisée.');
-      // Backup = on renomme en .bak (en écrasant un .bak préexistant) plutôt
-      // que de supprimer sèchement → récupérable.
-      const bak = remote + '.bak';
-      if ((await sftp.exists(bak)) !== false) await sftp.delete(bak);
-      await sftp.rename(remote, bak);
-      return true;
+      // Suppression sèche — plus de `.bak` (les staff le trouvaient parasite).
+      await sftp.delete(remote);
     });
     void this.audit.log({
       actorId,
       action: 'files.delete',
       targetEntity: `file:${rel}`,
-      metadata: { server: 'dev', backedUp },
+      metadata: { server: 'dev' },
       source: 'panel',
     });
-    return { deleted: true, backedUp };
+    return { deleted: true };
   }
 
   /** Crée un dossier (récursif) dans le périmètre du grade. */
@@ -464,6 +463,170 @@ export class FilesService {
       source: 'panel',
     });
     return { created: true, path: rel };
+  }
+
+  /**
+   * Générateur « item animé Nexo » — en un appel, à partir d'une spritesheet
+   * PNG, écrit dans le pack Nexo :
+   *  - `pack/assets/reborn/textures/item/<id>.png` (la sheet),
+   *  - `pack/assets/reborn/textures/item/<id>.png.mcmeta` (animation, si animé),
+   *  - `pack/assets/reborn/models/item/<id>.json` (modèle plat, réf CORRECTE),
+   *  - `items/<id>.yml` (entrée Nexo, `Pack.model: reborn:item/<id>`),
+   * puis file un `nexo reload`. Tout est sous `plugins/Nexo` → dans le périmètre
+   * Modélisateur/Développeur. But : « ça marche du premier coup », plus de réf
+   * Blockbench cassée ni de `.mcmeta` mal nommé.
+   */
+  async createAnimatedItem(
+    role: Role,
+    actorId: string,
+    dto: {
+      id: string;
+      spriteBase64: string;
+      name?: string;
+      frames?: number;
+      frametime?: number;
+      animated?: boolean;
+    },
+  ): Promise<{
+    itemId: string;
+    animated: boolean;
+    frames: number;
+    frametime: number;
+    files: string[];
+    reloadQueued: boolean;
+    snippet: string;
+  }> {
+    const id = dto.id;
+    if (!/^[a-z0-9_]+$/.test(id)) {
+      throw new BadRequestException('Identifiant invalide.');
+    }
+    let sprite: Buffer;
+    try {
+      sprite = Buffer.from(dto.spriteBase64, 'base64');
+    } catch {
+      throw new BadRequestException('Spritesheet base64 invalide.');
+    }
+    if (sprite.length === 0) throw new BadRequestException('Spritesheet vide.');
+
+    // Auto-détection frames/anim depuis les dimensions PNG (feuille verticale).
+    const dims = this.pngDimensions(sprite);
+    let frames = dto.frames;
+    let animated = dto.animated;
+    if (dims && dims.width > 0) {
+      const auto = dims.height % dims.width === 0 ? dims.height / dims.width : 1;
+      if (frames == null) frames = auto;
+      if (animated == null) animated = auto > 1;
+    }
+    if (frames == null) frames = 1;
+    if (animated == null) animated = frames > 1;
+    if (frames < 1) frames = 1;
+    const frametime = dto.frametime ?? 2;
+    const name = (dto.name ?? id).replace(/"/g, "'");
+
+    // Chemins (tous sous plugins/Nexo → périmètre Modélisateur/Dev).
+    const PACK = 'plugins/Nexo/pack/assets/reborn';
+    const texRel = `${PACK}/textures/item/${id}.png`;
+    const mcmetaRel = `${PACK}/textures/item/${id}.png.mcmeta`;
+    const modelRel = `${PACK}/models/item/${id}.json`;
+    const ymlRel = `plugins/Nexo/items/${id}.yml`;
+
+    // Valide chaque chemin (écriture requise) avant d'écrire quoi que ce soit.
+    for (const rel of [texRel, mcmetaRel, modelRel, ymlRel]) {
+      this.assertAllowed(role, rel, true);
+    }
+
+    const modelJson =
+      JSON.stringify(
+        {
+          parent: 'minecraft:item/generated',
+          textures: { layer0: `reborn:item/${id}` },
+        },
+        null,
+        2,
+      ) + '\n';
+    const mcmetaJson =
+      JSON.stringify(
+        {
+          animation: {
+            frametime,
+            frames: Array.from({ length: frames }, (_, i) => i),
+          },
+        },
+        null,
+        2,
+      ) + '\n';
+    const ymlText =
+      `# Généré par le panel (item animé). Édite librement.\n` +
+      `${id}:\n` +
+      `  itemname: "${name}"\n` +
+      `  material: PAPER\n` +
+      `  Pack:\n` +
+      `    model: reborn:item/${id}\n`;
+
+    const toWrite: { rel: string; buf: Buffer }[] = [
+      { rel: texRel, buf: sprite },
+      { rel: modelRel, buf: Buffer.from(modelJson, 'utf8') },
+      { rel: ymlRel, buf: Buffer.from(ymlText, 'utf8') },
+    ];
+    if (animated) {
+      toWrite.push({ rel: mcmetaRel, buf: Buffer.from(mcmetaJson, 'utf8') });
+    }
+
+    await this.withSftp(async (sftp) => {
+      // Nettoie un `.png.mcmeta` résiduel si l'item n'est plus animé.
+      if (!animated) {
+        const mc = this.remote(mcmetaRel);
+        if ((await sftp.exists(mc)) !== false) await sftp.delete(mc);
+      }
+      for (const f of toWrite) {
+        const abs = this.remote(f.rel);
+        const dir = posix.dirname(abs);
+        if ((await sftp.exists(dir)) !== 'd') await sftp.mkdir(dir, true);
+        await sftp.put(f.buf, abs);
+      }
+    });
+
+    void this.audit.log({
+      actorId,
+      action: 'files.nexo.animated-item',
+      targetEntity: `nexo:${id}`,
+      metadata: { server: 'dev', animated, frames, frametime },
+      source: 'panel',
+    });
+
+    // Recharge Nexo pour régénérer le pack (best-effort : ne casse pas la créa).
+    let reloadQueued = false;
+    try {
+      await this.reload(role, actorId, 'nexo');
+      reloadQueued = true;
+    } catch {
+      /* pas d'accès reload / bridge indispo → l'item est écrit quand même */
+    }
+
+    const snippet =
+      `effect: itemdisplay\n` +
+      `item: nexo:${id}\n` +
+      `duration: ${animated ? frames * frametime : 20}\n` +
+      `scale: 1.5`;
+
+    return {
+      itemId: `nexo:${id}`,
+      animated,
+      frames,
+      frametime,
+      files: toWrite.map((f) => f.rel),
+      reloadQueued,
+      snippet,
+    };
+  }
+
+  /** Lit largeur/hauteur d'un PNG depuis son chunk IHDR (0 si non-PNG). */
+  private pngDimensions(buf: Buffer): { width: number; height: number } | null {
+    // Signature PNG (8) + longueur(4) + "IHDR"(4) + width(4) + height(4).
+    const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    if (buf.length < 24) return null;
+    for (let i = 0; i < 8; i++) if (buf[i] !== sig[i]) return null;
+    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
   }
 
   /**
@@ -605,19 +768,6 @@ export class FilesService {
   }
 
   // ─────────────────────────── helpers ───────────────────────────
-
-  /** Sauvegarde `.bak` du fichier existant avant écrasement. Retourne true si backup fait. */
-  private async backup(sftp: SftpClient, remote: string): Promise<boolean> {
-    const exists = await sftp.exists(remote);
-    if (exists === 'd') {
-      throw new BadRequestException('La cible est un dossier.');
-    }
-    if (exists === false) return false; // création → rien à sauvegarder
-    const bak = remote + '.bak';
-    const old = (await sftp.get(remote)) as Buffer;
-    await sftp.put(old, bak);
-    return true;
-  }
 
   private ext(rel: string): string {
     const dot = rel.lastIndexOf('.');
