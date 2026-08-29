@@ -59,10 +59,12 @@ public final class InteractionMenus {
             InteractionItem.action("Fouiller", () -> sendCommand("fouiller " + name)),
             InteractionItem.action("Échanger", () -> sendCommand("trade " + name)),
             InteractionItem.submenu("Animations", List.of(
-                InteractionItem.action("Saluer (geste)", () -> sendCommand("emote wave")),
-                InteractionItem.action("S'incliner", () -> sendCommand("emote bow")),
-                InteractionItem.action("Applaudir", () -> sendCommand("emote clap")),
-                InteractionItem.action("S'asseoir", () -> sendCommand("emote sit"))
+                InteractionItem.action("Saluer (geste)", () -> sendCommand("playemote wave")),
+                InteractionItem.action("S'incliner", () -> sendCommand("playemote bow")),
+                InteractionItem.action("Applaudir", () -> sendCommand("playemote clap")),
+                InteractionItem.action("S'asseoir", () -> sendCommand("playemote sit")),
+                InteractionItem.action("Toutes les emotes…", InteractionMenus::openEmoteMenu),
+                InteractionItem.action("Arrêter", () -> sendCommand("stopemote"))
             )),
             InteractionItem.submenu("Staff", List.of(
                 InteractionItem.action("Informations", () -> sendCommand("staff lookup " + name)),
@@ -114,10 +116,22 @@ public final class InteractionMenus {
             InteractionItem.action("Ma fiche personnage", () -> sendCommand("character")),
             InteractionItem.action("Mon état", () -> sendCommand("etat")),
             InteractionItem.action("Méditer", () -> sendCommand("meditation")),
-            InteractionItem.action("Mes emotes", () -> info(
-                "§7Ouvre la roue d'emotes avec la touche EmoteCraft (Options → Contrôles).")),
+            InteractionItem.submenu("Mes emotes", List.of(
+                InteractionItem.action("Saluer (geste)", () -> sendCommand("playemote wave")),
+                InteractionItem.action("S'incliner", () -> sendCommand("playemote bow")),
+                InteractionItem.action("Applaudir", () -> sendCommand("playemote clap")),
+                InteractionItem.action("S'asseoir", () -> sendCommand("playemote sit")),
+                InteractionItem.action("Toutes les emotes…", InteractionMenus::openEmoteMenu),
+                InteractionItem.action("Arrêter", () -> sendCommand("stopemote"))
+            )),
             InteractionItem.action("Action RP (/me)", () -> sendCommand("me "))
         );
+    }
+
+    /** Ouvre le menu Reborn directement sur l'onglet ANIMATIONS (liste d'emotes). */
+    public static void openEmoteMenu() {
+        Minecraft.getInstance().setScreenAndShow(
+            fr.reborn.hud.animation.AnimationMenuScreen.emotesTab(null));
     }
 
     public static List<InteractionItem> generic() {

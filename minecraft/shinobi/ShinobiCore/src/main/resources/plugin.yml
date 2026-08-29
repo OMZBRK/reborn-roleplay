@@ -100,6 +100,16 @@ commands:
     usage: /<command> [build]
     aliases: [panel, staffpanel, adminpanel]
     permission: shinobicore.staff
+  playemote:
+    description: Joue une emote RP (EmoteCraft), visible par les joueurs proches.
+    usage: /<command> <nom> [joueur]
+    aliases: [emote, pe]
+    permission: shinobicore.emote
+  stopemote:
+    description: Arrête l'emote RP en cours.
+    usage: /<command> [joueur]
+    aliases: [stopemotes, se]
+    permission: shinobicore.emote
 permissions:
   shinobicore.use:
     description: Base permission to use ShinobiCore commands.
@@ -130,4 +140,13 @@ permissions:
     default: op
   shinobicore.vanish:
     description: Allows using /vanish (staff invisibility).
+    default: op
+  shinobicore.emote:
+    description: Allows /playemote and /stopemote (play RP emotes).
+    default: true
+  shinobicore.emote.others:
+    description: Allows playing/stopping emotes on OTHER players (staff / MagicSpells).
+    default: op
+  shinobicore.emote.admin:
+    description: Allows /playemote reload (reload emotes.yml).
     default: op

@@ -87,6 +87,7 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.medic.TreatmentApplier medicApplier;
     private com.reborn.shinobicore.cinematic.CinematicManager cinematicManager;
     private com.reborn.shinobicore.vanish.VanishManager vanishManager;
+    private com.reborn.shinobicore.emote.EmoteManager emoteManager;
     private ItemGiveRegistry itemGiveRegistry;
     private com.reborn.shinobicore.technique.AbilityRegistry techniqueRegistry;
     private com.reborn.shinobicore.gui.CoreGuiRouter coreGuiRouter;
@@ -388,6 +389,18 @@ public final class ShinobiCore extends JavaPlugin {
             staffCmd.setExecutor(sc);
             staffCmd.setTabCompleter(sc);
         } else getLogger().warning("Command 'staff' is not declared in plugin.yml.");
+
+        // Emotes RP : canal reborn:emote (S2C) + /playemote /stopemote. Le catalogue
+        // emotes.yml est éditable par les devs via le panel (« /playemote reload »).
+        this.emoteManager = new com.reborn.shinobicore.emote.EmoteManager(this);
+        this.emoteManager.start();
+        com.reborn.shinobicore.emote.PlayEmoteCommand emoteCmd =
+                new com.reborn.shinobicore.emote.PlayEmoteCommand(this);
+        for (String c : new String[]{"playemote", "stopemote"}) {
+            PluginCommand pc = getCommand(c);
+            if (pc != null) { pc.setExecutor(emoteCmd); pc.setTabCompleter(emoteCmd); }
+            else getLogger().warning("Command '" + c + "' is not declared in plugin.yml.");
+        }
 
         PluginCommand meCmd = getCommand("me");
         if (meCmd != null) meCmd.setExecutor(new MeCommand(this));
@@ -998,6 +1011,7 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.cinematic.CinematicManager cinematics() { return cinematicManager; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.vanish.VanishManager vanish() { return vanishManager; }
+    public com.reborn.shinobicore.emote.EmoteManager emotes() { return emoteManager; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.medic.MedicArmoirManager armoirs() { return medicArmoirManager; }
     @com.reborn.shinobicore.api.Internal

@@ -37,6 +37,10 @@ public class AnimationMenuScreen extends Screen {
     private Section section = Section.OPTIONS;
     private Sub sub = Sub.NONE;
 
+    /** Fenêtre de défilement de la liste d'emotes (onglet ANIMATIONS). */
+    private int emoteScroll = 0;
+    private static final int MAX_EMOTE_ROWS = 10;
+
     private static final int PANEL_X = 28;
     private static final int PANEL_W = 244;
     private static final int TAB_H = 26;
@@ -49,6 +53,20 @@ public class AnimationMenuScreen extends Screen {
     public AnimationMenuScreen(Screen parent) {
         super(Component.literal("Menu Reborn"));
         this.parent = parent;
+    }
+
+    /** Ouvre le menu directement sur l'onglet ANIMATIONS (liste d'emotes). */
+    public static AnimationMenuScreen emotesTab(Screen parent) {
+        AnimationMenuScreen s = new AnimationMenuScreen(parent);
+        s.section = Section.ANIMATIONS;
+        return s;
+    }
+
+    /** Envoie une commande serveur (sans slash) puis referme le menu. */
+    private void send(String command) {
+        var conn = Minecraft.getInstance().getConnection();
+        if (conn != null) conn.sendCommand(command);
+        onClose();
     }
 
     // ─── Géométrie ───
@@ -76,10 +94,29 @@ public class AnimationMenuScreen extends Screen {
                 r.add(new Row("Méditation", null, true, () -> {}));
                 r.add(new Row("Posture combat", null, true, () -> {}));
             }
-        } else { // ANIMATIONS
-            r.add(new Row("Favoris", null, true, () -> {}));
-            r.add(new Row("Bind", null, true, () -> {}));
-            r.add(new Row("Liste d'émotes (touche B)", null, true, () -> {}));
+        } else { // ANIMATIONS — liste d'emotes EmoteCraft, jouées via /playemote.
+            List<String> emotes = fr.reborn.hud.emote.EmoteAnimations.INSTANCE.names();
+            if (emotes.isEmpty()) {
+                r.add(new Row("Aucune emote chargée (EmoteCraft)", null, true, () -> {}));
+                return r;
+            }
+            r.add(new Row("Arrêter l'emote", "■", false, () -> send("stopemote")));
+            int total = emotes.size();
+            int max = Math.max(0, total - MAX_EMOTE_ROWS);
+            emoteScroll = Math.max(0, Math.min(emoteScroll, max));
+            if (emoteScroll > 0) {
+                r.add(new Row("▲ Précédentes", null, false,
+                    () -> emoteScroll = Math.max(0, emoteScroll - MAX_EMOTE_ROWS)));
+            }
+            int end = Math.min(total, emoteScroll + MAX_EMOTE_ROWS);
+            for (int i = emoteScroll; i < end; i++) {
+                final String name = emotes.get(i);
+                r.add(new Row(name, null, false, () -> send("playemote " + name)));
+            }
+            if (end < total) {
+                r.add(new Row("▼ Suivantes (" + (total - end) + ")", null, false,
+                    () -> emoteScroll = Math.min(max, emoteScroll + MAX_EMOTE_ROWS)));
+            }
         }
         return r;
     }
@@ -166,7 +203,7 @@ public class AnimationMenuScreen extends Screen {
             int ty = tabsY();
             if (mouseY >= ty && mouseY < ty + TAB_H && mouseX >= PANEL_X && mouseX < PANEL_X + PANEL_W) {
                 Section s = mouseX < PANEL_X + tabW ? Section.ANIMATIONS : Section.OPTIONS;
-                if (s != section) { section = s; sub = Sub.NONE; }
+                if (s != section) { section = s; sub = Sub.NONE; emoteScroll = 0; }
                 return true;
             }
             // Rangées.
@@ -181,6 +218,18 @@ public class AnimationMenuScreen extends Screen {
             }
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double hAmount, double vAmount) {
+        if (section == Section.ANIMATIONS) {
+            int total = fr.reborn.hud.emote.EmoteAnimations.INSTANCE.names().size();
+            int max = Math.max(0, total - MAX_EMOTE_ROWS);
+            if (vAmount < 0) emoteScroll = Math.min(max, emoteScroll + 1);
+            else if (vAmount > 0) emoteScroll = Math.max(0, emoteScroll - 1);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
     }
 
     @Override

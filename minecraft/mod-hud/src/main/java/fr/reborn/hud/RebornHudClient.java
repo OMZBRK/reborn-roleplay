@@ -348,6 +348,21 @@ public final class RebornHudClient implements ClientModInitializer {
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.combat.CombatState.INSTANCE.clear());
+
+        // Emotes Reborn (canal reborn:emote, S2C depuis ShinobiCore). Le serveur
+        // ordonne aux clients proches de jouer une emote EmoteCraft NOMMÉE sur
+        // l'avatar d'un joueur (nom vide = arrêt), comme reborn:combat/TYPE_ANIM pour
+        // les coups. Le rendu passe par l'API cliente EmoteCraft ({@link EmoteAnimations})
+        // en réutilisant les emotes déjà chargées — aucune animation n'est bundlée.
+        // No-op propre si EmoteCraft est absent du modpack.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.emote.EmotePayload.ID, fr.reborn.hud.emote.EmotePayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.emote.EmotePayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.emote.EmoteAnimations.INSTANCE.playByEntityId(
+                    payload.entityId(), payload.key())));
+
         // Input de garde M2 (C2S reborn:combatin) — ShinobiCombat applique la réduction
         // + rediffuse l'anim. Inerte via canSend si le plugin est absent.
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(

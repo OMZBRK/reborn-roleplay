@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Exemple : jouer une emote Reborn (/playemote) depuis un sort MagicSpells.
+#
+#  À copier/adapter dans plugins/MagicSpells/spells-*.yml sur le serveur (ce dossier
+#  du repo est une RÉFÉRENCE, il n'est pas déployé automatiquement). Le pont utilisé
+#  est le même Bukkit.dispatchCommand que ShinobiAbilities emploie déjà pour ses jutsu.
+#
+#  Placeholders MagicSpells : %a% = lanceur, %t% = cible.
+#  ShinobiCore : /playemote <nom> [joueur] — voir docs/EMOTES.md.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 1) Emote sur SOI (le lanceur). run par la console pour ne pas dépendre des perms
+#    du joueur sur la commande.
+Salut:
+  spell-class: ".command.CommandSpell"
+  name: "Salut"
+  description: "Salue de la main (emote RP)."
+  cast-item: ""
+  cooldown: 2
+  execute-commands: [doSalut]
+  doSalut:
+    command: "playemote %a% wave"   # %a% = lanceur ; joué sur lui via la console
+    as-console: true
+  # NB: /playemote <nom> <joueur> exige la permission shinobicore.emote.others —
+  # la console l'a toujours, d'où as-console: true.
+
+# 2) Emote sur une CIBLE visée (chaîne un TargetedSpell → commandspell).
+Provocation:
+  spell-class: ".command.CommandSpell"
+  name: "Provocation"
+  description: "Fait s'incliner la cible visée."
+  cast-item: ""
+  range: 20
+  execute-commands: [doBow]
+  doBow:
+    command: "playemote %t% bow"
+    as-console: true
+  # Pour que %t% soit renseigné, ce sort est généralement lancé via un sort ciblé
+  # (ex. cast-on-target) ou enchaîné derrière un TargetedSpell.
+
+# 3) Assis en boucle (emote qui tient) + arrêt ailleurs.
+Meditation:
+  spell-class: ".command.CommandSpell"
+  name: "MeditationEmote"
+  description: "S'asseoir (emote en boucle)."
+  cast-item: ""
+  execute-commands: [doSit]
+  doSit:
+    command: "playemote %a% sit"
+    as-console: true
+  # Arrêt : un autre sort avec `command: "stopemote %a%"`.
