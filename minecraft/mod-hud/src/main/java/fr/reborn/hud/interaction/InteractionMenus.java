@@ -59,10 +59,10 @@ public final class InteractionMenus {
             InteractionItem.action("Fouiller", () -> sendCommand("fouiller " + name)),
             InteractionItem.action("Échanger", () -> sendCommand("trade " + name)),
             InteractionItem.submenu("Animations", List.of(
-                InteractionItem.action("Saluer (geste)", () -> sendCommand("playemote wave")),
-                InteractionItem.action("S'incliner", () -> sendCommand("playemote bow")),
-                InteractionItem.action("Applaudir", () -> sendCommand("playemote clap")),
-                InteractionItem.action("S'asseoir", () -> sendCommand("playemote sit")),
+                InteractionItem.action("Saluer", () -> sendCommand("playemote salut")),
+                InteractionItem.action("Applaudir", () -> sendCommand("playemote applaudir")),
+                InteractionItem.action("Pointer", () -> sendCommand("playemote pointer")),
+                InteractionItem.action("Pleurer", () -> sendCommand("playemote pleurer")),
                 InteractionItem.action("Toutes les emotes…", InteractionMenus::openEmoteMenu),
                 InteractionItem.action("Arrêter", () -> sendCommand("stopemote"))
             )),
@@ -117,10 +117,10 @@ public final class InteractionMenus {
             InteractionItem.action("Mon état", () -> sendCommand("etat")),
             InteractionItem.action("Méditer", () -> sendCommand("meditation")),
             InteractionItem.submenu("Mes emotes", List.of(
-                InteractionItem.action("Saluer (geste)", () -> sendCommand("playemote wave")),
-                InteractionItem.action("S'incliner", () -> sendCommand("playemote bow")),
-                InteractionItem.action("Applaudir", () -> sendCommand("playemote clap")),
-                InteractionItem.action("S'asseoir", () -> sendCommand("playemote sit")),
+                InteractionItem.action("Saluer", () -> sendCommand("playemote salut")),
+                InteractionItem.action("Applaudir", () -> sendCommand("playemote applaudir")),
+                InteractionItem.action("Pointer", () -> sendCommand("playemote pointer")),
+                InteractionItem.action("Pleurer", () -> sendCommand("playemote pleurer")),
                 InteractionItem.action("Toutes les emotes…", InteractionMenus::openEmoteMenu),
                 InteractionItem.action("Arrêter", () -> sendCommand("stopemote"))
             )),

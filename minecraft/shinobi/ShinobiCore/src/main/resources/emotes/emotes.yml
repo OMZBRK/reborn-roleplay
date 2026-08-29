@@ -4,41 +4,77 @@
 #  /playemote <nom> [joueur]   joue une emote (visible par tous les joueurs proches)
 #  /stopemote                  arrête l'emote en cours
 #
-#  Les animations elles-mêmes viennent d'EmoteCraft côté client (built-in + dossier
-#  emotes/ du client + emotes distribuées par le serveur). Ce fichier ne fait que
-#  DÉCLARER des raccourcis (alias, nom affiché, permission). Le champ « emote » doit
-#  correspondre au NOM d'une emote chargée par EmoteCraft (visible dans le menu
-#  Reborn : touche « . » → onglet ANIMATIONS, ou la roue EmoteCraft).
+#  Les animations viennent d'EmoteCraft côté client. Les 11 emotes ci-dessous sont
+#  les emotes BUILT-IN d'EmoteCraft — présentes chez TOUS les joueurs d'office (via
+#  le modpack), donc jouables immédiatement. Le champ « emote » = le nom du fichier
+#  EmoteCraft (assets/emotecraft/emotes/<nom>.json).
 #
-#  Édite ce fichier depuis le panel staff, puis « /playemote reload ».
+#  Ajoute d'autres emotes en déposant un .json/.emotecraft dans le dossier emotes/
+#  du client (ou, à terme, via la distribution serveur EmoteCraft). Édite ce fichier
+#  depuis le panel staff, puis « /playemote reload ».
 # ─────────────────────────────────────────────────────────────────────────────
 
 # open-mode: true  → toute emote chargée côté client est jouable par son nom, même
-#                    si elle n'est pas déclarée ci-dessous (idéal pour tester).
-# open-mode: false → seules les emotes listées dans « emotes: » sont autorisées.
+#                    non déclarée ci-dessous (ex. emotes perso du joueur).
+# open-mode: false → seules les emotes listées sont autorisées.
 open-mode: true
 
-# Portée de diffusion en blocs : les joueurs plus loin ne voient pas l'emote.
+# Portée de diffusion en blocs : au-delà, les joueurs ne voient pas l'emote.
 range: 48.0
 
 emotes:
-  wave:
+  salut:
     display: "Saluer"
-    emote: "wave"
-    aliases: [saluer, salut, hello, hi]
+    emote: "waving"
+    aliases: [saluer, wave, waving, hello, hi, coucou]
     permission: ""
-  bow:
-    display: "S'incliner"
-    emote: "bow"
-    aliases: [incliner, salue, courbette]
-    permission: ""
-  clap:
+  applaudir:
     display: "Applaudir"
     emote: "clap"
-    aliases: [applaudir, bravo]
+    aliases: [applaudir, clap, bravo]
     permission: ""
-  sit:
-    display: "S'asseoir"
-    emote: "sit"
-    aliases: [asseoir, assis]
+  pointer:
+    display: "Pointer du doigt"
+    emote: "point"
+    aliases: [pointer, point, montrer]
+    permission: ""
+  paume:
+    display: "Tendre la paume"
+    emote: "palm"
+    aliases: [paume, palm]
+    permission: ""
+  ici:
+    display: "Viens ici"
+    emote: "here"
+    aliases: [ici, here, viens]
+    permission: ""
+  pleurer:
+    display: "Pleurer"
+    emote: "crying"
+    aliases: [pleurer, crying, triste]
+    permission: ""
+  backflip:
+    display: "Salto arrière"
+    emote: "backflip"
+    aliases: [backflip, salto, saltoarriere]
+    permission: ""
+  twerk:
+    display: "Twerk"
+    emote: "twerk"
+    aliases: [twerk]
+    permission: ""
+  kazotsky:
+    display: "Danse Kazotsky"
+    emote: "kazotsky_kick"
+    aliases: [kazotsky, kazotsky_kick, kick]
+    permission: ""
+  danse_penguin:
+    display: "Danse du pingouin"
+    emote: "club_penguin_dance"
+    aliases: [penguin, pingouin, club_penguin_dance, danse1]
+    permission: ""
+  danse_potion:
+    display: "Danse potion"
+    emote: "roblox_potion_dance"
+    aliases: [potion, roblox_potion_dance, danse2]
     permission: ""
