@@ -54,6 +54,7 @@ public final class ShinobiCore extends JavaPlugin {
 
     private CharacterRepository characterRepository;
     private CharacterManager characterManager;
+    private com.reborn.shinobicore.character.LeafTestManager leafTest;
     private CharacterAutoSave characterAutoSave;
     private ChakraManager chakraManager;
     private ChakraDisplay chakraDisplay;
@@ -69,13 +70,13 @@ public final class ShinobiCore extends JavaPlugin {
     private TabListManager tabList;
     private com.reborn.shinobicore.character.select.CharacterSelectManager characterSelect;
     private com.reborn.shinobicore.chat.TypingManager typing;
+    private com.reborn.shinobicore.inventory.InventoryManager rpInventory;
     private RencontrerManager rencontrer;
     private FriendshipManager friendships;
     private VisibilityManager visibility;
     // TechniquesService removed alongside the jutsu / techniques rebuild.
-    private com.reborn.shinobicore.backpack.BackpackManager backpackManager;
-    private com.reborn.shinobicore.backpack.BackpackEntityManager backpackEntityManager;
-    private com.reborn.shinobicore.backpack.BackpackListener backpackListener;
+    // Legacy chestplate-slot Backpack system removed — the RP bag lives
+    // in com.reborn.shinobicore.inventory (RpBag / InventoryManager).
     private com.reborn.shinobicore.ko.KoManager koManager;
     private com.reborn.shinobicore.chakra.ExhaustionManager exhaustionManager;
     private com.reborn.shinobicore.ko.action.PorterManager porterManager;
@@ -89,6 +90,8 @@ public final class ShinobiCore extends JavaPlugin {
     private ItemGiveRegistry itemGiveRegistry;
     private com.reborn.shinobicore.technique.AbilityRegistry techniqueRegistry;
     private com.reborn.shinobicore.gui.CoreGuiRouter coreGuiRouter;
+    private com.reborn.shinobicore.staff.StaffBuildManager staffBuild;
+    private com.reborn.shinobicore.panel.PanelBridge panelBridge;
     // Jutsu / techniques managers moved out to the standalone
     // ShinobiAbilities plugin. See ShinobiAbilities_RECREATION_PROMPT.md.
 
@@ -187,18 +190,8 @@ public final class ShinobiCore extends JavaPlugin {
         // 6c. (Techniques + jutsu init removed — now owned by
         //      the ShinobiAbilities plugin.)
 
-        // 6d. Backpack system — per-character inventory lockdown plus
-        //     equipable Sac / Sac Large items with their own GUI and
-        //     a place-on-floor flow via ItemDisplay + Interaction
-        //     entities. Owns backpacks.yml + placed-backpacks.yml.
-        this.backpackManager = new com.reborn.shinobicore.backpack.BackpackManager(this);
-        this.backpackManager.load();
-        this.backpackEntityManager =
-                new com.reborn.shinobicore.backpack.BackpackEntityManager(this);
-        this.backpackEntityManager.load();
-        this.backpackListener = new com.reborn.shinobicore.backpack.BackpackListener(this);
-        Bukkit.getPluginManager().registerEvents(backpackListener, this);
-        backpackListener.start();
+        // 6d. (Legacy chestplate-slot Backpack system removed — the RP
+        //      bag is now the tiered Sacoche in the inventory package.)
 
         // 6e. KO / Tuer / Fouiller / Porter system. Owns the unconscious
         //     state machine, the proximity staff approval flow for
@@ -285,7 +278,6 @@ public final class ShinobiCore extends JavaPlugin {
         coreGuiRouter.bindCharacter(
                 new com.reborn.shinobicore.character.gui.CharacterListScreen(coreGuiRouter),
                 new com.reborn.shinobicore.character.gui.CharacterEditScreen(coreGuiRouter),
-                new com.reborn.shinobicore.character.gui.LeafTestScreen(coreGuiRouter),
                 new com.reborn.shinobicore.character.gui.ClanPickerScreen(coreGuiRouter));
         coreGuiRouter.bindRencontrer(
                 new com.reborn.shinobicore.character.gui.RencontrerRootScreen(coreGuiRouter),
@@ -293,6 +285,16 @@ public final class ShinobiCore extends JavaPlugin {
                 new com.reborn.shinobicore.character.gui.GiveNickPickerScreen(coreGuiRouter),
                 new com.reborn.shinobicore.character.gui.GiveTargetScreen(coreGuiRouter),
                 new com.reborn.shinobicore.character.gui.NameRequestScreen(coreGuiRouter));
+        // 7a-bis. Staff panel cluster — in-game hub + GMod-style spawn menu
+        //     (blocks/items palette) + custom-item browser. The build-mode
+        //     manager guards the per-character inventory snapshot from
+        //     creative junk (see StaffBuildManager).
+        this.staffBuild = new com.reborn.shinobicore.staff.StaffBuildManager(this);
+        Bukkit.getPluginManager().registerEvents(staffBuild, this);
+        coreGuiRouter.bindStaff(
+                new com.reborn.shinobicore.gui.staff.StaffPanelScreen(coreGuiRouter),
+                new com.reborn.shinobicore.gui.staff.SpawnMenuScreen(coreGuiRouter),
+                new com.reborn.shinobicore.gui.staff.CustomItemScreen(coreGuiRouter));
         Bukkit.getPluginManager().registerEvents(coreGuiRouter.screens(), this);
         Bukkit.getPluginManager().registerEvents(new CharacterLifecycleListener(this), this);
         // Character nickname rendering: rewrites chat to show
@@ -318,6 +320,15 @@ public final class ShinobiCore extends JavaPlugin {
         this.typing = new com.reborn.shinobicore.chat.TypingManager(this);
         Bukkit.getPluginManager().registerEvents(typing, this);
         this.typing.start();
+
+        // 7f. Sacoche RP (reborn:inventory) — inventaire custom lié au perso actif
+        //     (capacité en cases + poids + cosmétiques), persisté à part.
+        this.rpInventory = new com.reborn.shinobicore.inventory.InventoryManager(this);
+        Bukkit.getPluginManager().registerEvents(rpInventory, this);
+        this.rpInventory.start();
+        PluginCommand sacocheCmd = getCommand("sacoche");
+        if (sacocheCmd != null) sacocheCmd.setExecutor(rpInventory);
+        else getLogger().warning("Command 'sacoche' is not declared in plugin.yml.");
 
         // 7c. Expansion PlaceholderAPI 'shinobi' (HUD in-game via BetterHUD) —
         //     enregistrée seulement si PlaceholderAPI est présent (soft dep).
@@ -358,6 +369,25 @@ public final class ShinobiCore extends JavaPlugin {
         PluginCommand med = getCommand("meditation");
         if (med != null) med.setExecutor(new MeditationCommand(this));
         else getLogger().warning("Command 'meditation' is not declared in plugin.yml.");
+
+        // Test de la feuille : manager (canal in/out reborn:tirage + clic droit
+        // sur l'item) + commande. Le serveur tire la nature (pondérée par le clan),
+        // l'attribue, et pousse le résultat au client (popup animé).
+        this.leafTest = new com.reborn.shinobicore.character.LeafTestManager(this);
+        Bukkit.getPluginManager().registerEvents(leafTest, this);
+        leafTest.start();
+        PluginCommand tfCmd = getCommand("testfeuille");
+        if (tfCmd != null) tfCmd.setExecutor(new com.reborn.shinobicore.character.command.TestFeuilleCommand(this));
+        else getLogger().warning("Command 'testfeuille' is not declared in plugin.yml.");
+
+
+        PluginCommand staffCmd = getCommand("staff");
+        if (staffCmd != null) {
+            com.reborn.shinobicore.staff.command.StaffCommand sc =
+                    new com.reborn.shinobicore.staff.command.StaffCommand(this);
+            staffCmd.setExecutor(sc);
+            staffCmd.setTabCompleter(sc);
+        } else getLogger().warning("Command 'staff' is not declared in plugin.yml.");
 
         PluginCommand meCmd = getCommand("me");
         if (meCmd != null) meCmd.setExecutor(new MeCommand(this));
@@ -510,11 +540,24 @@ public final class ShinobiCore extends JavaPlugin {
         services.register(com.reborn.shinobicore.technique.AbilityRegistry.class,
                 techniqueRegistry, this, org.bukkit.plugin.ServicePriority.Normal);
 
+        // 10. Panel command bridge \u2014 outbound poller that lets the web panel
+        //     trigger a short whitelist of console reloads (/nexo reload etc.)
+        //     WITHOUT RCON or any inbound port. Disabled unless panel-bridge.
+        //     enabled=true with a resolvable HMAC secret. All HTTP is async;
+        //     dispatched commands hop back to the main thread.
+        this.panelBridge = new com.reborn.shinobicore.panel.PanelBridge(this);
+        this.panelBridge.start();
+
         getLogger().info("ShinobiCore enabled \u2014 mobility + character + chakra systems online.");
     }
 
     @Override
     public void onDisable() {
+        // Restore any staff builder to survival + their real RP inventory
+        // BEFORE the flush below, so the capture records the survival
+        // inventory rather than creative build junk.
+        if (panelBridge != null) panelBridge.stop();
+        if (staffBuild != null) staffBuild.restoreAll();
         // Flush live player state (HP / chakra / position / inventory)
         // before the roster save so graceful shutdowns preserve the
         // moment-to-moment session rather than the last ticker tick.
@@ -536,9 +579,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (mobilityModule != null) mobilityModule.disable();
         if (chakraManager != null) chakraManager.stop();
         if (characterManager != null) characterManager.stopWelcomeTicker();
-        if (backpackListener != null) backpackListener.stop();
-        if (backpackManager != null) backpackManager.save();
-        if (backpackEntityManager != null) backpackEntityManager.save();
+        if (rpInventory != null) rpInventory.flush();
         if (porterManager != null) porterManager.stop();
         if (injuryHealer != null) injuryHealer.stop();
         if (koManager != null) koManager.stop();
@@ -888,6 +929,16 @@ public final class ShinobiCore extends JavaPlugin {
     /** Core's own screen router (character/KO/medic/rencontrer GUIs). */
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.gui.CoreGuiRouter coreGui() { return coreGuiRouter; }
+    /** Staff builder creative-mode manager (guards the inventory snapshot). */
+    @com.reborn.shinobicore.api.Internal
+    public com.reborn.shinobicore.staff.StaffBuildManager staffBuild() { return staffBuild; }
+    /** True while {@code player} is in staff build mode — capture sites
+     *  (auto-save) skip these players so creative junk never overwrites
+     *  the character's RP inventory. */
+    @com.reborn.shinobicore.api.Internal
+    public boolean isStaffBuilding(java.util.UUID playerId) {
+        return staffBuild != null && staffBuild.isBuilding(playerId);
+    }
     /** Givable-item registry — addon plugins register their own
      *  {@code /sc itemgive} tokens here at boot. */
     @com.reborn.shinobicore.api.Internal
@@ -896,6 +947,11 @@ public final class ShinobiCore extends JavaPlugin {
     public CharacterRepository characterRepository() { return characterRepository; }
     @com.reborn.shinobicore.api.Internal
     public CharacterManager characters() { return characterManager; }
+
+    public com.reborn.shinobicore.inventory.InventoryManager rpInventory() { return rpInventory; }
+
+    /** Manager du test de la feuille (tirage de nature pondéré par le clan). */
+    public com.reborn.shinobicore.character.LeafTestManager leafTest() { return leafTest; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.character.select.CharacterSelectManager characterSelect() { return characterSelect; }
     @com.reborn.shinobicore.api.Internal
@@ -928,12 +984,6 @@ public final class ShinobiCore extends JavaPlugin {
     public FriendshipManager friendships() { return friendships; }
     @com.reborn.shinobicore.api.Internal
     public VisibilityManager visibility() { return visibility; }
-    @com.reborn.shinobicore.api.Internal
-    public com.reborn.shinobicore.backpack.BackpackManager backpacks() { return backpackManager; }
-    @com.reborn.shinobicore.api.Internal
-    public com.reborn.shinobicore.backpack.BackpackEntityManager backpackEntities() { return backpackEntityManager; }
-    @com.reborn.shinobicore.api.Internal
-    public com.reborn.shinobicore.backpack.BackpackListener backpackListener() { return backpackListener; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.KoManager ko() { return koManager; }
     @com.reborn.shinobicore.api.Internal

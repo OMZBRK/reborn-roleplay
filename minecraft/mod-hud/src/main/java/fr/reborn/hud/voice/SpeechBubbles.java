@@ -27,6 +27,11 @@ public final class SpeechBubbles {
     private static final int DOT_ON    = 0xFFEDEDED;   // point (couleur de base)
     private static final double MAX_DIST = 48.0;
 
+    // Instances scratch réutilisées par frame (projection monde→écran) : évite une
+    // alloc Matrix4f + un Vector4f par joueur/frame. ThreadLocal par sûreté.
+    private static final ThreadLocal<Matrix4f> VP = ThreadLocal.withInitial(Matrix4f::new);
+    private static final ThreadLocal<Vector4f> CLIP = ThreadLocal.withInitial(Vector4f::new);
+
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
@@ -34,7 +39,7 @@ public final class SpeechBubbles {
         Camera cam = mc.gameRenderer.mainCamera();
         if (cam == null || !cam.isInitialized()) return;
         Vec3 camPos = cam.position();
-        Matrix4f vp = cam.getViewRotationProjectionMatrix(new Matrix4f());
+        Matrix4f vp = cam.getViewRotationProjectionMatrix(VP.get());
         int gw = mc.getWindow().getGuiScaledWidth();
         int gh = mc.getWindow().getGuiScaledHeight();
         long now = System.currentTimeMillis();
@@ -67,7 +72,7 @@ public final class SpeechBubbles {
         double dist = e.position().distanceTo(camPos);
         if (dist > MAX_DIST) return;
         Vec3 head = e.getEyePosition(1f).add(0.0, 0.55, 0.0);
-        Vector4f clip = vp.transform(new Vector4f(
+        Vector4f clip = vp.transform(CLIP.get().set(
             (float) (head.x - camPos.x),
             (float) (head.y - camPos.y),
             (float) (head.z - camPos.z), 1f));

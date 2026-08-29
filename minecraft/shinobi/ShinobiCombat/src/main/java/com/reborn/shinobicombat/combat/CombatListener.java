@@ -66,11 +66,11 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private static final int FINISHER_INDEX = COMBO_LENGTH - 1;
     /** Fenêtre max entre deux coups pour enchaîner le combo (ms). */
     private static final long COMBO_WINDOW_MS = 1200L;
-    /** Poussée horizontale de la finition M1. */
-    private static final double FINISHER_KB_H = 0.85;
+    /** Poussée horizontale de la finition M1 (gros recul). */
+    private static final double FINISHER_KB_H = 1.15;
     /** Composante verticale de la poussée de finition M1. */
-    private static final double FINISHER_KB_Y = 0.35;
-    /** Durée du hitstun (SLOWNESS) de la finition M1, en ticks. */
+    private static final double FINISHER_KB_Y = 0.42;
+    /** Durée du petit stun (SLOWNESS fort) de la finition M1, en ticks. */
     private static final int FINISHER_HITSTUN_TICKS = 8;
 
     // --- M2 (garde / blocage) ----------------------------------------------
@@ -80,6 +80,34 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private static final double GUARD_DRAIN = 25.0;
     /** Durée du stun de guard break, en ticks. */
     private static final int GUARD_BREAK_STUN_TICKS = 20;
+
+    // --- parade TIMÉE (façon Sekiro) ---------------------------------------
+    /** Fenêtre après le DÉBUT de garde pendant laquelle un coup encaissé est PARÉ
+     *  (deflect) au lieu d'être simplement bloqué. Presser clic droit pile à l'impact
+     *  = parade ; maintenir au-delà = garde normale (chip). */
+    private static final long PARRY_WINDOW_MS = 320L;
+    /** Stun infligé à l'ATTAQUANT paré (ticks) — son ouverture critique. */
+    private static final int PARRY_ATTACKER_STUN_TICKS = 16;
+    /** Recul infligé à l'attaquant paré (repoussé en arrière). */
+    private static final double PARRY_ATTACKER_KB = 0.55;
+    /** Stamina rendue à la victime qui pare proprement (récompense de skill). */
+    private static final double PARRY_STAMINA_REFUND = 15.0;
+
+    // --- recul + slow À CHAQUE coup encaissé (non bloqué / non paré) --------
+    /** Recul horizontal d'un coup normal (petit — feel « impact » sans envol). */
+    private static final double HIT_KB_H = 0.24;
+    /** Composante verticale d'un coup normal. */
+    private static final double HIT_KB_Y = 0.08;
+    /** Durée du slow léger d'un coup normal (ticks). */
+    private static final int HIT_SLOW_TICKS = 5;
+    /** Amplificateur du slow léger d'un coup normal. */
+    private static final int HIT_SLOW_AMP = 2;
+
+    // --- finition de combo (« pyramid ») : gros slow + petit stun + particules
+    /** Durée du GROS slow de finition (ticks) — la cible est visiblement ralentie. */
+    private static final int FINISHER_SLOW_TICKS = 18;
+    /** Amplificateur du gros slow de finition. */
+    private static final int FINISHER_SLOW_AMP = 3;
 
     // --- sons de combat (joués côté serveur à la position de la victime) ----
     /** Son d'impact normal (M1 non-finisher, non bloqué). */
@@ -145,6 +173,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private final Map<UUID, Long> lastHitMs = new ConcurrentHashMap<>();
     // Joueurs en garde (M2 maintenu).
     private final Set<UUID> blocking = ConcurrentHashMap.newKeySet();
+    // Instant (ms) du début de garde par joueur → fenêtre de parade timée.
+    private final Map<UUID, Long> blockStartMs = new ConcurrentHashMap<>();
     // Dernier dash par joueur (cooldown).
     private final Map<UUID, Long> lastDashMs = new ConcurrentHashMap<>();
     // Dernier saut chakra par joueur (cooldown).
@@ -195,23 +225,48 @@ public final class CombatListener implements Listener, PluginMessageListener {
         // Dégâts de base Reborn — le reste du pipeline ShinobiCore s'applique.
         e.setDamage(damage);
 
-        // Finition (« pyramid ») : projection + hitstun.
-        if (index == FINISHER_INDEX) {
-            applyKnockback(attacker, victim, FINISHER_KB_H, FINISHER_KB_Y);
-            applyHitstun(victim, FINISHER_HITSTUN_TICKS);
-        }
+        boolean finisher = index == FINISHER_INDEX;
 
-        // La victime bloque-t-elle ce coup ? (capturé avant maybeBlock, qui peut
+        // La victime garde-t-elle ce coup ? (capturé AVANT maybeBlock, qui peut
         // rompre la garde sur guard break).
         boolean guarded = victim instanceof Player pvGuard
                 && (ko == null || !ko.isKo(pvGuard.getUniqueId()))
                 && blocking.contains(pvGuard.getUniqueId());
 
-        // Garde de la victime : atténuation + drain, éventuel guard break.
+        // ---- PARADE TIMÉE (Sekiro) : garde démarrée dans la fenêtre → deflect ----
+        if (guarded) {
+            Long bs = blockStartMs.get(((Player) victim).getUniqueId());
+            if (bs != null && System.currentTimeMillis() - bs <= PARRY_WINDOW_MS) {
+                handleParry(attacker, (Player) victim, e);
+                CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max());
+                return;
+            }
+        }
+
+        // ---- Finition (« pyramid ») : gros recul + petit stun + gros slow + particules ----
+        if (finisher) {
+            applyKnockback(attacker, victim, FINISHER_KB_H, FINISHER_KB_Y);
+            applyHitstun(victim, FINISHER_HITSTUN_TICKS);        // petit stun (slow fort, court)
+            // Gros slow qui prend le relais APRÈS le stun (SLOWNESS ne s'empile pas :
+            // on programme le slow doux pour la fin du stun).
+            final LivingEntity fv = victim;
+            plugin.getServer().getScheduler().runTaskLater(plugin,
+                    () -> applyPotionSlow(fv, FINISHER_SLOW_TICKS, FINISHER_SLOW_AMP),
+                    FINISHER_HITSTUN_TICKS);
+            spawnImpactParticles(victim, true);
+        }
+
+        // ---- Garde (fenêtre de parade dépassée) : atténuation + drain, éventuel guard break ----
         double dealt = maybeBlock(victim, damage, e);
 
+        // ---- Coup NON gardé et non-finition : petit recul + slow léger à chaque coup ----
+        if (!guarded && !finisher) {
+            applyKnockback(attacker, victim, HIT_KB_H, HIT_KB_Y);
+            applyPotionSlow(victim, HIT_SLOW_TICKS, HIT_SLOW_AMP);
+        }
+
         // Son d'impact — joué à la position de la victime pour les joueurs proches.
-        playHitSound(victim, guarded, index == FINISHER_INDEX);
+        playHitSound(victim, guarded, finisher);
 
         // Anim de coup (1/2/3/4) aux clients proches, attaquant inclus.
         CombatChannel.sendAnim(plugin, nearbyPlayers(attacker),
@@ -224,6 +279,35 @@ public final class CombatListener implements Listener, PluginMessageListener {
         }
         // Stamina de l'attaquant.
         CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max());
+    }
+
+    /**
+     * Parade timée réussie : la victime a pressé la garde dans la fenêtre
+     * {@link #PARRY_WINDOW_MS}. Aucun dégât encaissé, l'attaquant est repoussé +
+     * stun (ouverture critique), son combo est brisé, et la victime récupère un peu
+     * de stamina. Flash + son côté clients.
+     */
+    private void handleParry(Player attacker, Player victim, EntityDamageByEntityEvent e) {
+        e.setDamage(0.0);
+
+        // Repousse l'attaquant (à l'opposé de la victime) + stun.
+        applyKnockback(victim, attacker, PARRY_ATTACKER_KB, 0.15);
+        applyHitstun(attacker, PARRY_ATTACKER_STUN_TICKS);
+
+        // Combo de l'attaquant brisé.
+        comboIndex.remove(attacker.getUniqueId());
+        lastHitMs.remove(attacker.getUniqueId());
+
+        // Récompense de skill : un peu de stamina rendue à la victime.
+        double refunded = stamina.refund(victim.getUniqueId(), PARRY_STAMINA_REFUND);
+        CombatChannel.sendStamina(plugin, victim, refunded, stamina.max());
+
+        // Feedback client + particules + son de deflect « métallique ».
+        CombatChannel.sendParry(plugin, victim, CombatChannel.PARRY_ROLE_SUCCESS);
+        CombatChannel.sendParry(plugin, attacker, CombatChannel.PARRY_ROLE_BROKEN);
+        spawnImpactParticles(victim, true);
+        victim.getWorld().playSound(victim.getLocation(), org.bukkit.Sound.BLOCK_ANVIL_LAND,
+                SoundCategory.PLAYERS, 0.5f, 1.9f);
     }
 
     /**
@@ -452,12 +536,15 @@ public final class CombatListener implements Listener, PluginMessageListener {
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
         if (!blocking.add(id)) return; // déjà en garde
+        // Horodate le début de garde → ouvre la fenêtre de parade timée.
+        blockStartMs.put(id, System.currentTimeMillis());
         CombatChannel.sendAnim(plugin, nearbyPlayers(player),
                 player.getEntityId(), CombatChannel.ANIM_BLOCK_ON);
     }
 
     /** Fin de garde. Diffuse l'anim block-off si le joueur bloquait effectivement. */
     private void stopBlocking(Player player, boolean guardBroken) {
+        blockStartMs.remove(player.getUniqueId());
         if (!blocking.remove(player.getUniqueId()) && !guardBroken) return;
         CombatChannel.sendAnim(plugin, nearbyPlayers(player),
                 player.getEntityId(), CombatChannel.ANIM_BLOCK_OFF);
@@ -500,10 +587,27 @@ public final class CombatListener implements Listener, PluginMessageListener {
         victim.getWorld().playSound(victim.getLocation(), key, SoundCategory.PLAYERS, 1.0f, pitch);
     }
 
-    /** Applique un ralentissement fort, sans particules/ambiance. */
+    /** Applique un ralentissement fort (stun), sans particules/ambiance. */
     private void applyHitstun(LivingEntity victim, int ticks) {
         victim.addPotionEffect(new PotionEffect(
                 PotionEffectType.SLOWNESS, ticks, SLOWNESS_AMP, false, false, false));
+    }
+
+    /** Applique un SLOWNESS d'amplificateur/durée arbitraires (slow léger d'un coup,
+     *  gros slow de finition). Discret : ni particules ni icône. */
+    private void applyPotionSlow(LivingEntity victim, int ticks, int amp) {
+        victim.addPotionEffect(new PotionEffect(
+                PotionEffectType.SLOWNESS, ticks, amp, false, false, false));
+    }
+
+    /** Éclat de particules d'impact à hauteur de torse (deflect / finition). */
+    private void spawnImpactParticles(LivingEntity victim, boolean big) {
+        org.bukkit.Location loc = victim.getLocation().add(0.0, 1.0, 0.0);
+        victim.getWorld().spawnParticle(org.bukkit.Particle.CRIT, loc,
+                big ? 16 : 6, 0.3, 0.4, 0.3, big ? 0.12 : 0.05);
+        if (big) {
+            victim.getWorld().spawnParticle(org.bukkit.Particle.SWEEP_ATTACK, loc, 1, 0.0, 0.0, 0.0, 0.0);
+        }
     }
 
     /** Joueurs du monde de {@code center} dans {@link #ANIM_BROADCAST_RANGE} (center inclus). */
@@ -557,6 +661,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         comboIndex.remove(id);
         lastHitMs.remove(id);
         blocking.remove(id);
+        blockStartMs.remove(id);
         lastDashMs.remove(id);
         lastChakraJumpMs.remove(id);
         lastKerioxDashMs.remove(id);

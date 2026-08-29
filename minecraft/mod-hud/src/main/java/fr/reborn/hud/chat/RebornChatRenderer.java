@@ -18,8 +18,6 @@ import net.minecraft.ChatFormatting;
  *
  * <p>Le panel est rendu UNIQUEMENT quand chat ouvert (T pressé). Quand
  * fermé, seuls les messages flottent (ChatMessageRenderer).
- *
- * <p>Tabs hit-test exposé via {@link #tabAtPos} pour le mixin ChatScreen.
  */
 public final class RebornChatRenderer {
 
@@ -47,8 +45,6 @@ public final class RebornChatRenderer {
     private static final int TAB_PAD_X = 8;
     private static final int TAB_GAP = 1; // separator vertical entre tabs
 
-    /** Cache du dernier rect des tabs render pour hit-test depuis ChatScreenMixin. */
-    private static int[][] lastTabRects = new int[ChatTab.values().length][];
     /** Cache du rect du pill /me pour click handling. */
     private static int[] lastCommandPillRect = null;
 
@@ -103,71 +99,6 @@ public final class RebornChatRenderer {
         int baseY = hy + (HEADER_HEIGHT - tr.lineHeight) / 2;
         ctx.text(tr, Component.literal("CHAT").withStyle(ChatFormatting.BOLD),
             hx + TAB_PAD_X, baseY, RebornColors.FOREGROUND, false);
-        // Vider les hit-test caches : pas de tab cliquable
-        lastTabRects = new int[ChatTab.values().length][];
-    }
-
-    private static void renderHeader(GuiGraphicsExtractor ctx, Font tr, int hx, int hy, int hw) {
-        int xCursor = hx + TAB_PAD_X;
-        int baseY = hy + (HEADER_HEIGHT - tr.lineHeight) / 2;
-
-        ChatTab[] tabs = ChatTab.values();
-        for (int i = 0; i < tabs.length; i++) {
-            ChatTab tab = tabs[i];
-            boolean active = TAB_STATE.activeTab() == tab;
-            int unread = TAB_STATE.unreadOf(tab);
-
-            int textColor = active ? RebornColors.FOREGROUND : RebornColors.FOREGROUND_MUTED;
-            int labelW = tr.width(tab.displayName());
-
-            // Petit dot rond accent à gauche (sauf GENERAL qui n'en a pas)
-            int dotX = xCursor;
-            int dotW = 0;
-            if (tab.accentColor() != 0) {
-                ctx.fill(dotX, baseY + 2, dotX + 4, baseY + 6, tab.accentColor());
-                dotW = 7;
-            }
-
-            int labelX = xCursor + dotW;
-            ctx.text(tr, Component.literal(tab.displayName()).withStyle(ChatFormatting.BOLD),
-                labelX, baseY, textColor, false);
-            int labelEnd = labelX + labelW;
-
-            // Badge unread (carré minimal)
-            int badgeEnd = labelEnd;
-            if (unread > 0) {
-                String s = unread > 99 ? "99+" : String.valueOf(unread);
-                int badgeW = tr.width(s) + 4;
-                int badgeH = 9;
-                int badgeX = labelEnd + 4;
-                int badgeY = baseY;
-                int badgeBg = tab.accentColor() != 0 ? tab.accentColor() : RebornColors.ACCENT;
-                ctx.fill(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH, badgeBg);
-                int sW = tr.width(s);
-                ctx.text(tr, Component.literal(s),
-                    badgeX + (badgeW - sW) / 2, badgeY + 1, 0xFF000000, false);
-                badgeEnd = badgeX + badgeW;
-            }
-
-            // Underline 1px accent si actif
-            if (active) {
-                int underlineY = hy + HEADER_HEIGHT - 2;
-                int accent = tab.accentColor() != 0 ? tab.accentColor() : RebornColors.ACCENT;
-                ctx.fill(xCursor - 2, underlineY, badgeEnd + 2, underlineY + 1, accent);
-            }
-
-            // Cache rect pour hit-test
-            int tabW = badgeEnd - xCursor + TAB_PAD_X;
-            lastTabRects[i] = new int[]{xCursor - 3, hy, tabW + 6, HEADER_HEIGHT};
-
-            xCursor = badgeEnd + TAB_PAD_X * 2;
-
-            // Divider vertical entre tabs (sauf après le dernier)
-            if (i < tabs.length - 1) {
-                ctx.fill(xCursor - TAB_PAD_X - 1, hy + 4, xCursor - TAB_PAD_X,
-                    hy + HEADER_HEIGHT - 4, RebornColors.BORDER);
-            }
-        }
     }
 
     private static void renderInputBar(GuiGraphicsExtractor ctx, Font tr, int ix, int iy, int iw) {
@@ -211,20 +142,6 @@ public final class RebornChatRenderer {
     public static void onMessageReceived(String rawText) {
         ChatTab tab = CLASSIFIER.classify(rawText);
         TAB_STATE.onMessageReceived(tab);
-    }
-
-    /** Hit-test : renvoie le tab contenant la souris, ou null. */
-    public static ChatTab tabAtPos(double mouseX, double mouseY) {
-        if (lastTabRects == null) return null;
-        ChatTab[] tabs = ChatTab.values();
-        for (int i = 0; i < tabs.length; i++) {
-            int[] r = lastTabRects[i];
-            if (r != null && mouseX >= r[0] && mouseX < r[0] + r[2]
-                          && mouseY >= r[1] && mouseY < r[1] + r[3]) {
-                return tabs[i];
-            }
-        }
-        return null;
     }
 
     /** Hit-test du pill /me. */

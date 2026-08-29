@@ -1,0 +1,47 @@
+# Reborn — Cosmétiques ninja (pack test, modèles maison). Catégorie: Cosmétiques.
+
+masque_hannya:
+  itemname: "<light_purple>Masque Hannya"
+  material: PAPER
+  lore:
+    - "<gray>Cosmétique ninja"
+    - "<light_purple>Épique"
+  Pack:
+    model: reborn:item/masque_hannya
+
+rouleau_jaune:
+  itemname: "<yellow>Rouleau Jaune"
+  material: PAPER
+  lore:
+    - "<gray>Cosmétique ninja"
+    - "<yellow>Peu commun"
+  Pack:
+    model: reborn:item/rouleau_jaune
+
+rouleau_vert:
+  itemname: "<green>Rouleau Vert"
+  material: PAPER
+  lore:
+    - "<gray>Cosmétique ninja"
+    - "<green>Peu commun"
+  Pack:
+    model: reborn:item/rouleau_vert
+
+rouleau_violet:
+  itemname: "<light_purple>Rouleau Violet"
+  material: PAPER
+  lore:
+    - "<gray>Cosmétique ninja"
+    - "<light_purple>Peu commun"
+  Pack:
+    model: reborn:item/rouleau_violet
+
+akatsuki_hat:
+  itemname: "<red>Chapeau d'Akatsuki"
+  material: PAPER
+  lore:
+    - "<gray>Cosmétique ninja"
+    - "<red>Légendaire"
+  Pack:
+    model: reborn:item/akatsuki_hat
+

@@ -1,7 +1,5 @@
 package com.reborn.shinobicore.ko.gui;
 
-import com.reborn.shinobicore.backpack.Backpack;
-import com.reborn.shinobicore.backpack.BackpackItem;
 import com.reborn.shinobicore.character.AutoMe;
 import com.reborn.shinobicore.character.ShinobiCharacter;
 import com.reborn.shinobicore.character.gui.GuiIcons;
@@ -13,7 +11,6 @@ import com.reborn.shinobicore.gui.framework.View;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -31,7 +28,7 @@ import java.util.UUID;
  * <pre>
  * row 0    |  hotbar 0..8
  * rows 1-3 |  main inventory 9..35
- * row 4    |  helm chest legs boots offhand  |  sac tile (41)
+ * row 4    |  helm chest legs boots offhand
  * row 5    |  close (53)
  * </pre>
  *
@@ -40,16 +37,13 @@ import java.util.UUID;
  * portion emits the auto-/me. The write-back to the target's live
  * inventory happens on {@link #onClose} — which the framework also
  * fires on the character-switch / KO force-closes, so no loot state
- * is ever stranded. The sac tile dives into the target's equipped
- * backpack via the existing {@code BackpackGui} (write-back runs
- * before the dive, exactly like before).
+ * is ever stranded.
  */
 public final class FouillerScreen extends CoreScreen {
 
     static final String S_TARGET_ID = "targetId";
     static final String S_NAME      = "name";
 
-    public static final int SLOT_SAC   = 41; // row 4, col 5
     public static final int SLOT_CLOSE = 53;
 
     public static final int SLOT_HELM  = 36;
@@ -57,9 +51,6 @@ public final class FouillerScreen extends CoreScreen {
     public static final int SLOT_LEGS  = 38;
     public static final int SLOT_BOOTS = 39;
     public static final int SLOT_OFFH  = 40;
-
-    private static final String ACT_SAC      = "fouiller:sac";
-    private static final String ACT_SAC_NONE = "fouiller:none";
 
     public FouillerScreen(CoreGuiRouter router) {
         super(router);
@@ -119,22 +110,6 @@ public final class FouillerScreen extends CoreScreen {
             inv.setItem(SLOT_OFFH, off.clone());
         }
 
-        // Sac tile — the chest piece IS the equipped backpack.
-        ItemStack chest = (armor.length > 2) ? armor[2] : null;
-        UUID equippedBp = chest != null ? BackpackItem.idOf(core(), chest) : null;
-        Backpack bp = equippedBp != null ? core().backpacks().get(equippedBp) : null;
-        if (bp != null) {
-            inv.setItem(SLOT_SAC, Ui.action(GuiIcons.secondary(Material.CHEST,
-                    "Ouvrir le sac",
-                    "&e" + bp.size().displayName() + " — " + equippedBp.toString().substring(0, 6),
-                    "&7Clique pour fouiller le contenu."), ACT_SAC));
-        } else {
-            // Tagged with a no-op action so the placeholder can't be
-            // picked up through the free-movement raw path.
-            inv.setItem(SLOT_SAC, Ui.action(GuiIcons.nav(Material.STRUCTURE_VOID,
-                    "Pas de sac",
-                    "&7La cible ne porte pas de sac."), ACT_SAC_NONE));
-        }
         inv.setItem(SLOT_CLOSE, Ui.action(GuiIcons.closeButton(), Ui.ACTION_CLOSE));
         // No fillEmpty — row 5 stays free, exactly like the legacy GUI.
     }
@@ -144,23 +119,9 @@ public final class FouillerScreen extends CoreScreen {
     @Override
     public void onAction(Player viewer, View view, String action,
                          String value, InventoryClickEvent event) {
-        if (!ACT_SAC.equals(action)) return; // fouiller:none = inert tile
-        UUID targetId = view.uuid(S_TARGET_ID);
-        Player target = core().getServer().getPlayer(targetId);
-        if (target == null) return;
-        ItemStack chest = target.getInventory().getChestplate();
-        if (chest == null) return;
-        UUID bpId = BackpackItem.idOf(core(), chest);
-        if (bpId == null) return;
-        Backpack bp = core().backpacks().get(bpId);
-        if (bp != null) {
-            // Sync the in-memory write-back BEFORE we leave this GUI,
-            // so the looter doesn't lose the items they already
-            // shuffled here. (onClose fires again when BackpackGui
-            // replaces this view — the second write-back is idempotent.)
-            writeBackTo(view, target);
-            com.reborn.shinobicore.backpack.BackpackGui.open(viewer, core(), bp);
-        }
+        // No tagged action tiles remain in this screen (the legacy "sac"
+        // dive was removed with the old Backpack system); the close button
+        // is handled by the framework via Ui.ACTION_CLOSE.
     }
 
     @Override

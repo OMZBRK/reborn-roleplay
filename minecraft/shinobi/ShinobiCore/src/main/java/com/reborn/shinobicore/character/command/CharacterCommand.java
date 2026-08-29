@@ -28,7 +28,6 @@ import java.util.List;
  *   /character edit   &lt;player&gt;   — open the character-picker for that owner
  *   /character select             — self only, opens the select GUI
  *   /character list   [player]
- *   /character leaftest           — self only
  * </pre>
  *
  * Deletes happen inside the editor GUI (shift-click the barrier). Value edits
@@ -58,7 +57,6 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
             case "edit"     -> handleEdit(sender, args);
             case "select"   -> handleSelect(sender);
             case "list"     -> handleList(sender, args);
-            case "leaftest" -> handleLeafTest(sender);
             case "cinematic" -> handleCinematic(sender, args);
             default -> help(sender);
         }
@@ -69,12 +67,11 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
 
     private void help(CommandSender s) {
         // Players see only the entries that operate on their own
-        // characters (select, list, leaftest). Staff additionally see
-        // the create/edit subcommands which require ADMIN_PERM.
+        // characters (select, list). Staff additionally see the
+        // create/edit subcommands which require ADMIN_PERM.
         s.sendMessage(Component.text("Commandes de personnage :", NamedTextColor.GOLD));
         s.sendMessage(Component.text("  /character select",   NamedTextColor.YELLOW));
         s.sendMessage(Component.text("  /character list",     NamedTextColor.YELLOW));
-        s.sendMessage(Component.text("  /character leaftest", NamedTextColor.YELLOW));
         if (s.hasPermission(ADMIN_PERM)) {
             s.sendMessage(Component.text("Admin :", NamedTextColor.LIGHT_PURPLE));
             s.sendMessage(Component.text("  /character create <joueur>", NamedTextColor.GRAY));
@@ -235,25 +232,6 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
         return sb.toString();
     }
 
-    /* --------------------------------------------------------- leaftest */
-
-    private void handleLeafTest(CommandSender s) {
-        if (!(s instanceof Player p)) {
-            s.sendMessage(Component.text("Réservé aux joueurs.", NamedTextColor.RED));
-            return;
-        }
-        ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
-        if (c == null) {
-            p.sendMessage(Component.text("Select a character first: /character select", NamedTextColor.RED));
-            return;
-        }
-        // The Leaf Test is now a gambling-machine GUI — open it directly.
-        // The legacy fixed-5-rolls `rollLeafTest()` on ShinobiCharacter is
-        // preserved for save-file compatibility but no longer drives the
-        // player-facing flow.
-        plugin.coreGui().openLeafTest(p, c);
-    }
-
     /* --------------------------------------------------------- cinematic */
 
     /** {@code /character cinematic [<nom>|none]} — designate (or show/clear)
@@ -292,7 +270,7 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(@NotNull CommandSender s, @NotNull Command cmd,
                                       @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
-            return filter(List.of("create", "edit", "select", "list", "leaftest", "cinematic"), args[0]);
+            return filter(List.of("create", "edit", "select", "list", "cinematic"), args[0]);
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("create")
                 || args[0].equalsIgnoreCase("edit")

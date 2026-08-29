@@ -29,7 +29,13 @@ public final class CooldownState {
         // frames empilées de haut en bas, chaque frame = côté de l'icône interne).
         DASH("Dash", 0xFF7FB4FF, ">>", false, 4, 100L),
         DOUBLE_JUMP("Double saut", 0xFF7FE0B4, "^^", false, 1, 0L),
-        CHAKRA_JUMP("Saut de chakra", 0xFF9B7FE0, "^", false, 1, 0L);
+        CHAKRA_JUMP("Saut de chakra", 0xFF9B7FE0, "^", false, 1, 0L),
+        // Indicateurs d'ÉTAT (pas de cooldown) : visibles tant qu'actifs via setActive(...).
+        // COMBAT = « en combat » (activité : coup porté/reçu récemment), COURSE_CHAKRA =
+        // Naruto Run active. Icône = reborn:textures/gui/ability/{combat,course_chakra}.png
+        // quand livrée (sinon glyphe placeholder). Textures à fournir par l'user.
+        COMBAT("En combat", 0xFFFF6B5C, "!!", false, 1, 0L),
+        COURSE_CHAKRA("Course de chakra", 0xFF62D0FF, "->", false, 1, 0L);
 
         public final String label;
         public final int color;
@@ -47,8 +53,18 @@ public final class CooldownState {
 
     private static final class CD { long start; long duration; }
     private final Map<Ability, CD> map = new EnumMap<>(Ability.class);
+    /** Modes actifs (combat, course de chakra) — affichés tant qu'actifs, sans cooldown. */
+    private final java.util.Set<Ability> active = java.util.EnumSet.noneOf(Ability.class);
 
     private CooldownState() {}
+
+    /** Active/désactive un indicateur de mode (icône visible tant qu'actif). */
+    public void setActive(Ability a, boolean on) {
+        if (on) active.add(a); else active.remove(a);
+    }
+
+    /** Un mode-indicateur est-il actif ? */
+    public boolean isActive(Ability a) { return active.contains(a); }
 
     /** Démarre (ou redémarre) le cooldown d'une capacité. */
     public void trigger(Ability a, long durationMs) {
@@ -73,5 +89,5 @@ public final class CooldownState {
         return Math.max(0L, c.duration - (now - c.start));
     }
 
-    public void clear() { map.clear(); }
+    public void clear() { map.clear(); active.clear(); }
 }

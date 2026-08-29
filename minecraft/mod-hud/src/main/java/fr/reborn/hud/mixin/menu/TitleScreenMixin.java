@@ -3,16 +3,12 @@ package fr.reborn.hud.mixin.menu;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.IconPack;
 import fr.reborn.hud.menu.MainMenuFlow;
-import fr.reborn.hud.menu.OSTPlayer;
 import fr.reborn.hud.menu.RebornBranding;
 import fr.reborn.hud.menu.ServerInfoState;
 import fr.reborn.hud.menu.widget.DynamicPlayerBackground;
 import fr.reborn.hud.menu.widget.IconButton;
 import fr.reborn.hud.menu.widget.MainMenuRenderer;
 import fr.reborn.hud.menu.widget.MenuEntryButton;
-import fr.reborn.hud.menu.widget.OSTPlaylistOverlay;
-import fr.reborn.hud.menu.widget.OSTPlayerV2;
-import fr.reborn.hud.menu.widget.OSTVolumePopup;
 import fr.reborn.hud.menu.widget.QuitConfirmScreen;
 import fr.reborn.hud.menu.widget.ServerPickerWidget;
 import fr.reborn.hud.menu.widget.SplashOverlay;
@@ -46,12 +42,11 @@ import java.util.List;
  *   <li>{@code init()} : on retire TOUS les widgets vanilla, on repose
  *       l'étage courant ({@link MainMenuFlow#onTitleInit()}), puis on
  *       ajoute nos widgets : les entrées du menu vertical gauche (JOUER /
- *       NEWS / BOUTIQUE / OPTIONS / QUITTER), les contrôles OST (révélés
- *       au hover de la marque top-left) et leurs overlays.</li>
+ *       NEWS / BOUTIQUE / OPTIONS / QUITTER).</li>
  *   <li>{@code render()} : le panorama vanilla est masqué par le BG MCEF
- *       de {@link MainMenuRenderer}. On calcule l'étage + la révélation
- *       OST, on ajuste la visibilité des widgets en conséquence, on dessine
- *       le chrome passif puis on re-render les widgets par-dessus.</li>
+ *       de {@link MainMenuRenderer}. On calcule l'étage, on ajuste la
+ *       visibilité des widgets en conséquence, on dessine le chrome passif
+ *       puis on re-render les widgets par-dessus.</li>
  * </ol>
  *
  * <p>Le passage SPLASH → MENU (« appuie sur une touche ») est câblé dans
@@ -67,10 +62,6 @@ public abstract class TitleScreenMixin extends Screen {
     /** Entrées du menu vertical gauche (visibles seulement en MENU). */
     @Unique
     private final List<MenuEntryButton> reborn$menuEntries = new ArrayList<>();
-
-    /** Contrôles OST (play / volume / playlist) — visibles au hover. */
-    @Unique
-    private final List<AbstractWidget> reborn$ostControls = new ArrayList<>();
 
     /** Widgets divers dont la visibilité suit l'étage MENU (dev solo). */
     @Unique
@@ -98,32 +89,12 @@ public abstract class TitleScreenMixin extends Screen {
             this.removeWidget(e);
         }
         reborn$menuEntries.clear();
-        reborn$ostControls.clear();
         reborn$menuOnly.clear();
 
         // 2. Menu vertical gauche (ordre Paladium).
         buildMenuEntries(client);
 
-        // 3. Contrôles OST + overlays (ancrés sous la marque top-left).
-        int ostX = MainMenuRenderer.ostPanelX();
-        int ostY = MainMenuRenderer.ostPanelY();
-        for (IconButton ctrl : OSTPlayerV2.buildControls(ostX, ostY)) {
-            this.addRenderableWidget(ctrl);
-            reborn$ostControls.add(ctrl);
-        }
-        int panelBottom = ostY + OSTPlayerV2.CARD_H;
-        int[] volAnchor = OSTPlayerV2.volumeButtonAnchor(ostX, ostY);
-        OSTVolumePopup volPopup = new OSTVolumePopup(
-            volAnchor[0] - OSTVolumePopup.WIDTH / 2, panelBottom + 6);
-        this.addRenderableWidget(volPopup);
-        reborn$ostControls.add(volPopup);
-
-        int playlistH = Math.min(360, this.height - panelBottom - 16);
-        OSTPlaylistOverlay playlist = new OSTPlaylistOverlay(ostX, panelBottom + 6, playlistH);
-        this.addRenderableWidget(playlist);
-        reborn$ostControls.add(playlist);
-
-        // 4. DEV ONLY — bouton "Solo (Dev)" top-right pour tester en solo.
+        // 3. DEV ONLY — bouton "Solo (Dev)" top-right pour tester en solo.
         if (FabricLoader.getInstance().isDevelopmentEnvironment()
                 || Boolean.getBoolean("reborn.devMenu")) {
             int quitSize = 16;
@@ -211,10 +182,6 @@ public abstract class TitleScreenMixin extends Screen {
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void reborn$renderOverlay(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         boolean menu = !MainMenuFlow.isSplash();
-        boolean ostRevealed = menu && (
-            MainMenuRenderer.isOverOstReveal(mouseX, mouseY)
-                || OSTPlayer.INSTANCE.isVolumePopupOpen()
-                || OSTPlayer.INSTANCE.isPlaylistOpen());
 
         // Ping serveur (pour le compteur joueurs sur JOUER) tant qu'on est
         // sur le menu — le refresh est throttlé à 30s en interne.
@@ -222,14 +189,10 @@ public abstract class TitleScreenMixin extends Screen {
             ServerInfoState.INSTANCE.maybeRefresh();
         }
 
-        // Visibilité des widgets selon l'étage / la révélation OST.
+        // Visibilité des widgets selon l'étage.
         for (MenuEntryButton e : reborn$menuEntries) {
             e.visible = menu;
             e.active = menu;
-        }
-        for (AbstractWidget c : reborn$ostControls) {
-            c.visible = ostRevealed;
-            c.active = ostRevealed;
         }
         for (AbstractWidget c : reborn$menuOnly) {
             c.visible = menu;
@@ -255,7 +218,7 @@ public abstract class TitleScreenMixin extends Screen {
             SplashOverlay.render(context, this.width, this.height);
         } else {
             // Chrome menu (BG MCEF + chrome + widgets par-dessus).
-            MainMenuRenderer.render(context, this.width, this.height, mouseX, mouseY, ostRevealed);
+            MainMenuRenderer.render(context, this.width, this.height, mouseX, mouseY);
             for (GuiEventListener e : this.children()) {
                 if (e instanceof AbstractWidget cw && cw.visible) {
                     cw.extractRenderState(context, mouseX, mouseY, delta);

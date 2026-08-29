@@ -49,7 +49,6 @@ public final class CharacterEditScreen extends CoreScreen {
     private static final int SLOT_LVL_DOWN = 19;
     private static final int SLOT_LVL      = 20;
     private static final int SLOT_LVL_UP   = 21;
-    private static final int SLOT_LEAFTEST = 22;
     private static final int SLOT_ABILITIES = 24;
     private static final int SLOT_DEATH    = 25;
     private static final int SLOT_DELETE   = 26;
@@ -108,10 +107,13 @@ public final class CharacterEditScreen extends CoreScreen {
                 "Multiplicateur : x" + String.format("%.3f",
                         AffinityMultipliers.multiplier(c.affinity(), c.level())),
                 "&dClique pour changer"), "affinity"));
-        inv.setItem(SLOT_ELEMENT, Ui.action(GuiIcons.info(Material.OAK_LEAVES,
+        // Informational only — the chakra affinities are rolled through
+        // the in-game « Test de la Feuille » item flow (/testfeuille),
+        // not from this editor.
+        inv.setItem(SLOT_ELEMENT, GuiIcons.info(Material.OAK_LEAVES,
                 "Éléments Chakra (" + c.chakraAffinities().size() + "/"
                         + ShinobiCharacter.MAX_CHAKRA_AFFINITIES + ")",
-                elementLines(c)), "element"));
+                elementLines(c)));
         inv.setItem(SLOT_RANK, Ui.action(GuiIcons.accent(rankIcon(c.rank()),
                 "Rang : " + c.rank().displayName(),
                 "&6Clique pour changer"), "rank"));
@@ -126,14 +128,6 @@ public final class CharacterEditScreen extends CoreScreen {
         inv.setItem(SLOT_LVL_UP, Ui.action(GuiIcons.primary(Material.EMERALD,
                 "Niveau +1",
                 "&aClique pour augmenter"), "lvlup"));
-
-        inv.setItem(SLOT_LEAFTEST, Ui.action(GuiIcons.primary(Material.OAK_LEAVES,
-                "Test de la Feuille (" + c.chakraAffinities().size() + "/"
-                        + ShinobiCharacter.MAX_CHAKRA_AFFINITIES + " affinités)",
-                "&aClique pour ouvrir le Test de la Feuille",
-                c.chakraAffinities().isEmpty()
-                        ? "&eAucune affinité pour l'instant."
-                        : "&eAffinités : " + affinitiesJoined(c)), "leaftest"));
 
         inv.setItem(SLOT_ABILITIES, Ui.action(GuiIcons.info(Material.KNOWLEDGE_BOOK,
                 "Techniques (" + c.knownAbilities().size() + " connue(s))",
@@ -214,7 +208,6 @@ public final class CharacterEditScreen extends CoreScreen {
                 mgr.reapplyStatsIfActive(c);
                 refresh(viewer, view);
             }
-            case "element", "leaftest" -> router.openLeafTest(viewer, c);
             case "rank" -> {
                 c.setRank(c.rank().cycle());
                 mgr.save(c);
@@ -341,17 +334,6 @@ public final class CharacterEditScreen extends CoreScreen {
             }
         }
         return out.toArray(new String[0]);
-    }
-
-    private static String affinitiesJoined(ShinobiCharacter c) {
-        StringBuilder sb = new StringBuilder();
-        boolean first = true;
-        for (ChakraAffinity a : c.chakraAffinities()) {
-            if (!first) sb.append(", ");
-            sb.append(a.displayName());
-            first = false;
-        }
-        return sb.toString();
     }
 
     private static Material artIcon(NinjaArt art) {

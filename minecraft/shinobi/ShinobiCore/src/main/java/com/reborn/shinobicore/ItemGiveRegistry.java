@@ -1,8 +1,5 @@
 package com.reborn.shinobicore;
 
-import com.reborn.shinobicore.backpack.Backpack;
-import com.reborn.shinobicore.backpack.BackpackItem;
-import com.reborn.shinobicore.backpack.BackpackSize;
 import com.reborn.shinobicore.medic.Encyclopedia;
 import com.reborn.shinobicore.medic.MedicArmoirManager;
 import com.reborn.shinobicore.medic.Medicine;
@@ -89,14 +86,12 @@ public final class ItemGiveRegistry implements com.reborn.shinobicore.api.ItemGi
      *  tab-completion list:
      *  <ul>
      *    <li>{@code Util_} — active mobility tools (grappin, zipline)</li>
-     *    <li>{@code Sac_}  — backpacks (simple, large)</li>
      *    <li>{@code Block_} — placeable blocks (armoir, learning shelf)</li>
      *    <li>{@code Book_} — any written-book item</li>
      *    <li>{@code Med_}  — medicines</li>
      *  </ul>
      */
     private static final String UTIL  = "Util_";
-    private static final String SAC   = "Sac_";
     private static final String BLOCK = "Block_";
     private static final String BOOK  = "Book_";
     private static final String MED   = "Med_";
@@ -113,19 +108,9 @@ public final class ItemGiveRegistry implements com.reborn.shinobicore.api.ItemGi
         // plugin registers its own /sc itemgive tokens (or its own
         // /jutsugive command) at boot.
 
-        // Backpacks — minted via BackpackManager so the inventory
-        // record is registered. Two sizes, two tokens, both under
-        // Sac_ for visual grouping.
-        register(SAC + "simple", "Sac",
-                (p, r) -> {
-                    Backpack pack = p.backpacks().create(BackpackSize.SMALL);
-                    return BackpackItem.create(p, pack.id(), pack.size());
-                });
-        register(SAC + "large",  "Sac Large",
-                (p, r) -> {
-                    Backpack pack = p.backpacks().create(BackpackSize.LARGE);
-                    return BackpackItem.create(p, pack.id(), pack.size());
-                });
+        // (Legacy Sac_ backpack tokens removed with the old chestplate-slot
+        // Backpack system. The RP bag is now the tiered Sacoche, granted via
+        // /sacoche give — see the inventory package.)
 
         // Placeable blocks — Block_ prefix groups the iron-door
         // medic armoir and the learning shelf together.

@@ -25,6 +25,7 @@
     "KeyboardInteractionMixin",
     "InGameHudCinemaMixin",
     "CameraPhotoMixin",
+    "CameraRepositionMixin",
     "KeyboardInputPhotoMixin",
     "ScreenshotRecorderMixin",
     "PlayerListHudMixin",

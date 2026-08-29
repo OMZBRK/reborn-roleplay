@@ -89,6 +89,11 @@ public class CharacterAutoSave {
 
     private void snapshot(Player p) {
         if (p == null || !p.isOnline()) return;
+        // Staff builders sit in creative with their RP inventory swapped
+        // out; capturing here would overwrite the real inventory with
+        // build junk. The snapshot is preserved in StaffBuildManager and
+        // captured on force-exit (quit / KO / switch / /staff build).
+        if (plugin.isStaffBuilding(p.getUniqueId())) return;
         ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
         if (c == null) return;
         // The captures are diff-gated inside the setters; if nothing

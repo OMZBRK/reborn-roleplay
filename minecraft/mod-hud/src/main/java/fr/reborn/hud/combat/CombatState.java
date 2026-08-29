@@ -40,6 +40,11 @@ public final class CombatState {
     private double comboTotal = 0.0;
     private long lastHitMs = 0L;
 
+    /** Durée du flash de parade à l'écran (ms). */
+    public static final long PARRY_FLASH_MS = 420L;
+    private long lastParryMs = 0L;
+    private int parryRole = 0;   // 0 = a paré / 1 = s'est fait parer
+
     private CombatState() {}
 
     // ── mutations (thread client) ──
@@ -58,12 +63,30 @@ public final class CombatState {
         this.lastStaminaMs = now;
     }
 
+    /** Parade timée reçue du serveur ({@code role} : 0 = a paré / 1 = s'est fait parer). */
+    public void onParry(int role, long now) {
+        this.lastParryMs = now;
+        this.parryRole = role;
+    }
+
+    /** Intensité du flash de parade [0..1] (0 = plus de flash). */
+    public float parryFlashAlpha(long now) {
+        if (lastParryMs == 0L) return 0f;
+        long age = now - lastParryMs;
+        if (age >= PARRY_FLASH_MS) return 0f;
+        return 1f - age / (float) PARRY_FLASH_MS;
+    }
+
+    /** Rôle du dernier flash de parade (0 = a paré / 1 = s'est fait parer). */
+    public int parryRole() { return parryRole; }
+
     public void clear() {
         indicators.clear();
         comboTotal = 0.0;
         lastHitMs = 0L;
         staminaCurrent = staminaMax;
         lastStaminaMs = 0L;
+        lastParryMs = 0L;
     }
 
     // ── lecture (rendu) ──

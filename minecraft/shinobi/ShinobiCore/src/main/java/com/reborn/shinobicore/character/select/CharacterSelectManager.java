@@ -352,7 +352,10 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
 
         // Diffuse le skin RP à tous + reçoit ceux des autres (différé : client en jeu).
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (p.isOnline()) broadcastActive(p);
+            if (p.isOnline()) {
+                broadcastActive(p);
+                plugin.rpInventory().broadcastCosmetics(p); // cosmétiques 3D visibles entre joueurs
+            }
         }, 10L);
     }
 
@@ -425,7 +428,10 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
 
         // Diffuse le nouveau skin RP à tous + reçoit ceux des autres.
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (p.isOnline()) broadcastActive(p);
+            if (p.isOnline()) {
+                broadcastActive(p);
+                plugin.rpInventory().broadcastCosmetics(p); // cosmétiques 3D visibles entre joueurs
+            }
         }, 10L);
     }
 
@@ -438,7 +444,8 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
     public void onQuit(PlayerQuitEvent e) {
         selecting.remove(e.getPlayer().getUniqueId());
         candidatures.remove(e.getPlayer().getUniqueId());
-        broadcastClear(e.getPlayer().getUniqueId()); // les autres retirent son override
+        broadcastClear(e.getPlayer().getUniqueId()); // les autres retirent son override skin
+        plugin.rpInventory().broadcastCosmeticsClear(e.getPlayer().getUniqueId()); // + ses cosmétiques
     }
 
     private static String esc(String s) {

@@ -14,19 +14,18 @@ import net.minecraft.network.chat.Component;
  * Orchestrateur du rendu passif du main menu Reborn — layout v5 façon
  * Paladium Reforged, en deux étages ({@link MainMenuFlow}).
  *
- * <p>Composants passifs (les éléments cliquables — entrées de menu,
- * contrôles OST — restent des AbstractWidget gérés par le screen) :
+ * <p>Composants passifs (les éléments cliquables — entrées de menu —
+ * restent des AbstractWidget gérés par le screen) :
  * <ul>
  *   <li>BG plein écran : Dynamic Animated Player 3D via MCEF browser.</li>
  *   <li>Voile de lisibilité sobre (dégradés haut/bas, aucun accent).</li>
  *   <li>SPLASH : {@link SplashOverlay} (logo centré + prompt clignotant).</li>
  *   <li>MENU :
  *     <ul>
- *       <li>Top-LEFT : petite marque Reborn (placeholder « nuage » ; hover
- *           → révèle le lecteur OST juste en dessous).</li>
+ *       <li>Top-LEFT : petite marque Reborn statique (placeholder « nuage »).</li>
  *       <li>Top-RIGHT : version (REBORN + tag ROLEPLAY).</li>
  *       <li>Bottom-RIGHT : crédits.</li>
- *       <li>Le menu vertical gauche + les contrôles OST sont des widgets.</li>
+ *       <li>Le menu vertical gauche est composé de widgets.</li>
  *     </ul>
  *   </li>
  * </ul>
@@ -39,27 +38,6 @@ public final class MainMenuRenderer {
     public static final int LOGO_X = 16;
     public static final int LOGO_Y = 12;
     public static final int LOGO_SIZE = 30;
-
-    // ─────────────── Panneau OST (révélé au hover, sous la marque) ──
-    public static int ostPanelX() {
-        return LOGO_X;
-    }
-    public static int ostPanelY() {
-        return LOGO_Y + LOGO_SIZE + 8;
-    }
-
-    /**
-     * Zone de hover qui révèle l'OST : la marque (étendue jusqu'au
-     * panneau pour éviter un dead-zone) OU le panneau OST lui-même.
-     */
-    public static boolean isOverOstReveal(int mouseX, int mouseY) {
-        int panelBottom = ostPanelY() + OSTPlayerV2.CARD_H;
-        boolean overMark = mouseX >= LOGO_X && mouseX < LOGO_X + LOGO_SIZE
-            && mouseY >= LOGO_Y && mouseY < ostPanelY();
-        boolean overPanel = mouseX >= ostPanelX() && mouseX < ostPanelX() + OSTPlayerV2.CARD_W
-            && mouseY >= ostPanelY() && mouseY < panelBottom;
-        return overMark || overPanel;
-    }
 
     // ─────────────── Menu vertical gauche ──────────────────────────
     /** X du bord gauche des entrées de menu. */
@@ -98,7 +76,7 @@ public final class MainMenuRenderer {
     private MainMenuRenderer() {}
 
     public static void render(GuiGraphicsExtractor ctx, int screenW, int screenH,
-                              int mouseX, int mouseY, boolean ostRevealed) {
+                              int mouseX, int mouseY) {
         // 1. Dynamic Animated Player en BG (MCEF browser plein écran).
         DynamicPlayerBackground.render(ctx, screenW, screenH);
 
@@ -111,15 +89,11 @@ public final class MainMenuRenderer {
         }
 
         // ── MENU ────────────────────────────────────────────────
-        renderTopLeftMark(ctx, ostRevealed);
+        // Marque top-left : logo Reborn statique (le lecteur OST du menu a été
+        // retiré — seul l'OST in-game de mod-ost est conservé).
+        renderTopLeftMark(ctx);
         renderVersionTopRight(ctx, screenW);
         renderCreditsBottomRight(ctx, screenW, screenH);
-
-        // Fond du panneau OST (les contrôles sont des widgets rendus
-        // par-dessus par le screen).
-        if (ostRevealed) {
-            OSTPlayerV2.extractBackground(ctx, ostPanelX(), ostPanelY());
-        }
     }
 
     /**
@@ -138,10 +112,9 @@ public final class MainMenuRenderer {
      * {@code assets/reborn/textures/gui/title/cloud.png} et swapper ce
      * bloc par un {@code ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, ...)}).
      *
-     * <p>Pour l'instant : blob crimson arrondi + « R » display. Bordure qui
-     * s'éclaire au survol pour indiquer que c'est interactif (révèle l'OST).
+     * <p>Pour l'instant : blob crimson arrondi + « R » display, statique.
      */
-    private static void renderTopLeftMark(GuiGraphicsExtractor ctx, boolean hovered) {
+    private static void renderTopLeftMark(GuiGraphicsExtractor ctx) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
         Font tr = client.font;
@@ -150,9 +123,7 @@ public final class MainMenuRenderer {
         int y = LOGO_Y;
         int s = LOGO_SIZE;
 
-        int bg = hovered ? Colors.ACCENT_SOFT : Colors.SURFACE;
-        int border = hovered ? Colors.ACCENT_HOVER : Colors.BORDER_STRONG;
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, s, s, 8, bg, border);
+        DrawHelpers.roundedOutlinedRect(ctx, x, y, s, s, 8, Colors.SURFACE, Colors.BORDER_STRONG);
 
         // « R » ArcadePix centré (placeholder du futur nuage Akatsuki).
         Component r = RebornFont.arcade("R");
@@ -162,7 +133,7 @@ public final class MainMenuRenderer {
         ctx.pose().pushMatrix();
         ctx.pose().translate(x + (s - rw) / 2f, y + (s - rh) / 2f);
         ctx.pose().scale(scale, scale);
-        ctx.text(tr, r, 0, 0, hovered ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
+        ctx.text(tr, r, 0, 0, Colors.FOREGROUND, false);
         ctx.pose().popMatrix();
     }
 

@@ -5,13 +5,14 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 /**
  * Dessin de rectangles à coins arrondis sans textures.
  *
- * <p>Algo : 3 fills rectangulaires pour le corps + un quart-de-disque
- * "pixel par pixel" pour chacun des 4 coins. Chaque pixel de coin est
- * inclus si {@code dx² + dy² <= r²}, exclu sinon. O(r²) par appel,
- * négligeable pour r ≤ 14 (typique : 6 à 10).
+ * <p>Algo : 3 fills rectangulaires pour le corps + un quart-de-disque pour
+ * chacun des 4 coins. Un pixel de coin est inclus si {@code dx² + dy² <= r²},
+ * exclu sinon. Le rendu est batché : une span horizontale par rangée de coin
+ * ({@code ~4} fills/rangée, soit {@code O(r)} au lieu de {@code O(r²)}) — le
+ * jeu de pixels reste identique au test pixel-par-pixel.
  *
  * <p>Pour un border 1px, on utilise un anneau : pixels inclus si
- * {@code (r-1)² < dx²+dy² <= r²}.
+ * {@code (r-1)² < dx²+dy² <= r²} (même batch par spans).
  *
  * <p>Pourquoi pas de texture : la consigne du brief exige zéro nouvelle
  * texture pour cette PR. Le rendu pixel-par-pixel n'est pas anti-aliased
@@ -36,18 +37,21 @@ public final class RoundedRect {
         ctx.fill(x + r, y,         x + w - r, y + r,     color);  // top
         ctx.fill(x + r, y + h - r, x + w - r, y + h,     color);  // bottom
 
-        // 4 coins : quart-de-disque par fills 1x1
+        // 4 coins : quart-de-disque (mêmes pixels que le test dx²+dy² <= r²) mais
+        // batché en spans horizontales — ~4 fills par rangée au lieu d'un fill 1×1/pixel.
         int rSq = r * r;
         for (int dy = 0; dy < r; dy++) {
-            for (int dx = 0; dx < r; dx++) {
-                int cx = r - dx, cy = r - dy;
-                if (cx * cx + cy * cy <= rSq) {
-                    ctx.fill(x + dx,         y + dy,         x + dx + 1,         y + dy + 1,         color); // TL
-                    ctx.fill(x + w - 1 - dx, y + dy,         x + w - dx,         y + dy + 1,         color); // TR
-                    ctx.fill(x + dx,         y + h - 1 - dy, x + dx + 1,         y + h - dy,         color); // BL
-                    ctx.fill(x + w - 1 - dx, y + h - 1 - dy, x + w - dx,         y + h - dy,         color); // BR
-                }
-            }
+            int cy = r - dy;
+            int rem = rSq - cy * cy;
+            if (rem < 0) continue;                     // aucun dx admissible sur cette rangée
+            int startDx = r - (int) Math.sqrt(rem);    // 1er dx où (r-dx)²+cy² <= r²
+            if (startDx >= r) continue;
+            int left = x + startDx, right = x + r;             // [startDx, r) — bord gauche
+            int mLeft = x + w - r, mRight = x + w - startDx;   // miroir droit
+            ctx.fill(left,  y + dy,         right,  y + dy + 1, color); // TL
+            ctx.fill(mLeft, y + dy,         mRight, y + dy + 1, color); // TR
+            ctx.fill(left,  y + h - 1 - dy, right,  y + h - dy, color); // BL
+            ctx.fill(mLeft, y + h - 1 - dy, mRight, y + h - dy, color); // BR
         }
     }
 
@@ -69,20 +73,24 @@ public final class RoundedRect {
         ctx.fill(x,         y + r,     x + 1,     y + h - r, color);  // left
         ctx.fill(x + w - 1, y + r,     x + w,     y + h - r, color);  // right
 
-        // Coins : pixels sur l'anneau (r-1)² < d² <= r²
+        // Coins : anneau (r-1)² < d² <= r² (mêmes pixels), batché en spans horizontales.
         int rSq = r * r;
         int inSq = (r - 1) * (r - 1);
         for (int dy = 0; dy < r; dy++) {
-            for (int dx = 0; dx < r; dx++) {
-                int cx = r - dx, cy = r - dy;
-                int distSq = cx * cx + cy * cy;
-                if (distSq <= rSq && distSq > inSq) {
-                    ctx.fill(x + dx,         y + dy,         x + dx + 1,         y + dy + 1,         color); // TL
-                    ctx.fill(x + w - 1 - dx, y + dy,         x + w - dx,         y + dy + 1,         color); // TR
-                    ctx.fill(x + dx,         y + h - 1 - dy, x + dx + 1,         y + h - dy,         color); // BL
-                    ctx.fill(x + w - 1 - dx, y + h - 1 - dy, x + w - dx,         y + h - dy,         color); // BR
-                }
-            }
+            int cy = r - dy;
+            int cy2 = cy * cy;
+            int remOut = rSq - cy2;
+            if (remOut < 0) continue;                  // rien sur l'anneau à cette rangée
+            int loDx = r - (int) Math.sqrt(remOut);    // d² <= r²        → dx >= loDx
+            int remIn = inSq - cy2;                    // d² > (r-1)²     → dx <  hiDx
+            int hiDx = (remIn < 0) ? r : r - (int) Math.sqrt(remIn);
+            if (loDx >= hiDx) continue;
+            int left = x + loDx, right = x + hiDx;               // [loDx, hiDx) — bord gauche
+            int mLeft = x + w - hiDx, mRight = x + w - loDx;     // miroir droit
+            ctx.fill(left,  y + dy,         right,  y + dy + 1, color); // TL
+            ctx.fill(mLeft, y + dy,         mRight, y + dy + 1, color); // TR
+            ctx.fill(left,  y + h - 1 - dy, right,  y + h - dy, color); // BL
+            ctx.fill(mLeft, y + h - 1 - dy, mRight, y + h - dy, color); // BR
         }
     }
 

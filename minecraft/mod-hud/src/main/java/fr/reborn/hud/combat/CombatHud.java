@@ -34,6 +34,15 @@ public final class CombatHud {
     private static final int RING_RADIUS = 7;
     private static final int RING_THICK = 1;
 
+    // Instances scratch réutilisées par frame pour la projection monde→écran :
+    // évite une alloc Matrix4f + un Vector4f par indicateur/frame. ThreadLocal par sûreté.
+    private static final ThreadLocal<Matrix4f> VP = ThreadLocal.withInitial(Matrix4f::new);
+    private static final ThreadLocal<Vector4f> CLIP = ThreadLocal.withInitial(Vector4f::new);
+
+    /** LUT d'angles par géométrie (rOut,rIn) pour l'anneau : atan2 + test de bande
+     *  constants à géométrie fixe (NaN = hors bande) → 1 calcul/géométrie, pas par frame. */
+    private static final java.util.Map<Long, float[]> RING_ANGLE = new java.util.concurrent.ConcurrentHashMap<>();
+
     public static void render(GuiGraphicsExtractor ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
@@ -50,14 +59,14 @@ public final class CombatHud {
         Camera cam = mc.gameRenderer.mainCamera();
         if (cam != null && cam.isInitialized()) {
             Vec3 camPos = cam.position();
-            Matrix4f vp = cam.getViewRotationProjectionMatrix(new Matrix4f());
+            Matrix4f vp = cam.getViewRotationProjectionMatrix(VP.get());
             List<CombatState.DamageIndicator> live = st.liveIndicators(now);
             for (CombatState.DamageIndicator ind : live) {
                 Entity e = mc.level.getEntity(ind.entityId);
                 if (e == null) continue;
                 float age = (now - ind.spawnMs) / (float) CombatState.DMG_LIFE_MS; // 0..1
                 Vec3 head = e.getEyePosition(1f).add(0.0, 0.7, 0.0);
-                Vector4f clip = vp.transform(new Vector4f(
+                Vector4f clip = vp.transform(CLIP.get().set(
                     (float) (head.x - camPos.x),
                     (float) (head.y - camPos.y),
                     (float) (head.z - camPos.z), 1f));
@@ -89,6 +98,19 @@ public final class CombatHud {
                 ctx.text(font, c, 1, 1, (Math.round(comboA * 190f) << 24), false);
                 ctx.text(font, c, 0, 0, (a << 24) | 0x00FFFFFF, false);
                 ctx.pose().popMatrix();
+            }
+        }
+
+        // ── Flash de parade timée (deflect) ──
+        float pf = st.parryFlashAlpha(now);
+        if (pf > 0.01f) {
+            if (st.parryRole() == 0) {
+                // Deflect réussi : anneau blanc-cyan qui s'étend en s'estompant.
+                int r = RING_RADIUS + 3 + Math.round((1f - pf) * 12f);
+                ringBand(ctx, cx, cy, r, 2, 0f, 360f, applyAlpha(0xFFCFEFFF, pf));
+            } else {
+                // Fait parer (ouverture subie) : voile rouge léger plein écran.
+                ctx.fill(0, 0, gw, gh, applyAlpha(0x40FF3020, pf * 0.8f));
             }
         }
 
@@ -179,19 +201,56 @@ public final class CombatHud {
                                  int thickness, float startDeg, float sweepDeg, int color) {
         if (sweepDeg <= 0f) return;
         int rOut = radius, rIn = Math.max(0, radius - thickness);
-        int rOutSq = rOut * rOut, rInSq = rIn * rIn;
+        float[] ang = ringAngleLut(rOut, rIn);   // angles précalculés (NaN hors bande)
+        int span = 2 * rOut + 1;
+        // Batch : une span horizontale par run contigu au lieu d'un fill 1×1/pixel.
         for (int dy = -rOut; dy <= rOut; dy++) {
+            int base = (dy + rOut) * span;
+            int runStart = Integer.MIN_VALUE;
             for (int dx = -rOut; dx <= rOut; dx++) {
-                int d2 = dx * dx + dy * dy;
-                if (d2 > rOutSq || d2 < rInSq) continue;
-                float ang = (float) Math.toDegrees(Math.atan2(dx, -dy)); // 0 en haut, horaire
-                if (ang < 0) ang += 360f;
-                float rel = ang - startDeg;
-                if (rel < 0) rel += 360f;
-                if (rel <= sweepDeg) {
-                    ctx.fill(cx + dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
+                float a = ang[base + dx + rOut];
+                boolean on;
+                if (Float.isNaN(a)) {
+                    on = false;
+                } else {
+                    float rel = a - startDeg;
+                    if (rel < 0) rel += 360f;
+                    on = rel <= sweepDeg;
+                }
+                if (on) {
+                    if (runStart == Integer.MIN_VALUE) runStart = dx;
+                } else if (runStart != Integer.MIN_VALUE) {
+                    ctx.fill(cx + runStart, cy + dy, cx + dx, cy + dy + 1, color);
+                    runStart = Integer.MIN_VALUE;
                 }
             }
+            if (runStart != Integer.MIN_VALUE) {
+                ctx.fill(cx + runStart, cy + dy, cx + rOut + 1, cy + dy + 1, color);
+            }
         }
+    }
+
+    /** Angles (deg, 0 en haut, horaire) de l'anneau [rIn,rOut] ; NaN hors bande. 1 calcul/géométrie. */
+    private static float[] ringAngleLut(int rOut, int rIn) {
+        long key = ((long) rOut << 32) | (rIn & 0xffffffffL);
+        return RING_ANGLE.computeIfAbsent(key, k -> {
+            int span = 2 * rOut + 1;
+            float[] a = new float[span * span];
+            int rOutSq = rOut * rOut, rInSq = rIn * rIn;
+            for (int dy = -rOut; dy <= rOut; dy++) {
+                for (int dx = -rOut; dx <= rOut; dx++) {
+                    int idx = (dy + rOut) * span + (dx + rOut);
+                    int d2 = dx * dx + dy * dy;
+                    if (d2 > rOutSq || d2 < rInSq) {
+                        a[idx] = Float.NaN;
+                    } else {
+                        float angle = (float) Math.toDegrees(Math.atan2(dx, -dy));
+                        if (angle < 0) angle += 360f;
+                        a[idx] = angle;
+                    }
+                }
+            }
+            return a;
+        });
     }
 }

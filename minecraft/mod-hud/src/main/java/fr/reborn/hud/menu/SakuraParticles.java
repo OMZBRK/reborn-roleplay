@@ -1,6 +1,5 @@
 package fr.reborn.hud.menu;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 
@@ -15,8 +14,8 @@ import java.util.Random;
  * dérivé d'un seed déterministe pour cohérence visuelle entre frames.
  *
  * <p>Texture {@code petal.png} (32×32 transparente) dessinée via
- * {@code GuiGraphicsExtractor.drawTexture} avec push matrix rotate + scale.
- * L'opacity est appliquée via {@code RenderSystem.setShaderColor}.
+ * {@code GuiGraphicsExtractor.blit} avec push matrix rotate + scale (aucune
+ * teinte : le PNG est rendu tel quel, pas d'atténuation d'opacité).
  */
 public final class SakuraParticles {
 
@@ -43,15 +42,11 @@ public final class SakuraParticles {
         for (Petal p : petals) {
             p.render(ctx, screenWidth, screenHeight, globalTime);
         }
-        // Reset shader color au cas où — sinon les frames suivantes ont
-        // une teinte parasite.
-        ;
     }
 
     private static final class Petal {
         final float startLeftPct;
         final float size;
-        final float opacity;
         final float duration;
         final float delay;
         final float drift;
@@ -61,7 +56,8 @@ public final class SakuraParticles {
         Petal(Random rng) {
             this.startLeftPct = rng.nextFloat();
             this.size = 12f + rng.nextFloat() * 12f;
-            this.opacity = 0.25f + rng.nextFloat() * 0.5f;
+            rng.nextFloat();   // ancien tirage d'opacity (non utilisé) : conservé pour ne pas
+                               // décaler la séquence RNG déterministe → layout des pétales inchangé.
             this.duration = 14f + rng.nextFloat() * 12f;
             this.delay = -rng.nextFloat() * 26f;
             this.drift = (rng.nextFloat() - 0.5f) * 220f;
@@ -87,12 +83,8 @@ public final class SakuraParticles {
             float scale = size / 32f;
             ctx.pose().scale(scale, scale);
 
-            // Color shader pour appliquer l'opacity (le PNG est blanc-rose,
-            // multiplied par la couleur shader).
-            ;
-            ;
+            // PNG blanc-rose dessiné tel quel (pas de teinte/opacité shader).
             ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, PETAL_TEXTURE, -16, -16, 0f, 0f, 32, 32, 32, 32);
-            ;
 
             ctx.pose().popMatrix();
         }

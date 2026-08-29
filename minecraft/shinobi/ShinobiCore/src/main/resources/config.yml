@@ -535,3 +535,25 @@ character-select:
 reborn:
   api-url: "http://localhost:3000/v1"
   webhook-secret: ""
+
+# ----------------------------------------------------------------------
+# PANEL COMMAND BRIDGE (déclenchement de reloads console depuis le panel)
+# ----------------------------------------------------------------------
+# Poller SORTANT : le serveur de jeu appelle l'API du panel (aucun port
+# entrant, pas de RCON). Toutes les `poll-seconds` :
+#   1. GET  <api-url>/files/commands/pending  (X-Reborn-Signature =
+#      hex(HMAC-SHA256(secret, "pending")))
+#   2. Pour chaque commande, re-vérifie le préfixe contre une whitelist
+#      côté plugin (nexo reload / ms reload / mm reload / meg reload) puis
+#      la dispatch sur le MAIN THREAD en tant que console.
+#   3. POST <api-url>/files/commands/ack  (signature HMAC sur les octets
+#      EXACTS du corps envoyé).
+# Dégradation propre : si enabled=false, ou aucun secret résolvable, ou API
+# injoignable → rien n'est dispatché (log discret, retry au tick suivant).
+#   - hmac-secret : MÊME valeur que REBORN_WEBHOOK_SECRET côté panel. Laisse
+#                   vide pour lire l'environnement REBORN_WEBHOOK_SECRET.
+panel-bridge:
+  enabled: false
+  api-url: "https://api.reborn-rp.com/v1"
+  hmac-secret: ""       # = REBORN_WEBHOOK_SECRET du panel ; vide => lit System.getenv("REBORN_WEBHOOK_SECRET")
+  poll-seconds: 5

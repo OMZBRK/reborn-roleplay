@@ -408,33 +408,10 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
         return chakraAffinities.contains(a);
     }
 
-    /**
-     * Result of a leaf-test roll.
-     *
-     * @param rolled      the element the leaf fell towards
-     * @param outcome     what happened (added / duplicate / no rolls / max reached)
-     */
-    public record LeafTestResult(ChakraAffinity rolled, Outcome outcome) {
-        public enum Outcome { ADDED, DUPLICATE, NO_ROLLS_LEFT, SLOTS_FULL }
-    }
-
-    /** Consume one roll and attempt to add a random element. */
-    public LeafTestResult rollLeafTest() {
-        if (leafTestRollsUsed >= MAX_LEAF_TEST_ROLLS) {
-            return new LeafTestResult(ChakraAffinity.NONE, LeafTestResult.Outcome.NO_ROLLS_LEFT);
-        }
-        if (chakraAffinities.size() >= MAX_CHAKRA_AFFINITIES) {
-            return new LeafTestResult(ChakraAffinity.NONE, LeafTestResult.Outcome.SLOTS_FULL);
-        }
-        leafTestRollsUsed++;
-        touch();
-        ChakraAffinity rolled = ChakraAffinity.roll();
-        if (chakraAffinities.contains(rolled)) {
-            return new LeafTestResult(rolled, LeafTestResult.Outcome.DUPLICATE);
-        }
-        chakraAffinities.add(rolled);
-        return new LeafTestResult(rolled, LeafTestResult.Outcome.ADDED);
-    }
+    // Legacy fixed-5-rolls leaf-test (rollLeafTest / LeafTestResult) removed.
+    // The live flow is the client cinematic « Test de la Feuille » item
+    // (LeafTestItem / LeafTestManager). The leafTestRollsUsed field is kept
+    // for save-file compatibility.
 
     /* -------------------------------------------------------------- derived */
 

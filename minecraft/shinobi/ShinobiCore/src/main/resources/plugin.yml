@@ -21,6 +21,11 @@ commands:
     usage: /<command>
     aliases: [meditate, med]
     permission: shinobicore.use
+  testfeuille:
+    description: Test de la feuille — révèle ta nature de chakra (pondérée par le clan).
+    usage: /<command>
+    aliases: [feuille, leaftest]
+    permission: shinobicore.use
   me:
     description: Narre une action RP avec le surnom de ton personnage.
     usage: /<command> <action>
@@ -85,6 +90,16 @@ commands:
     usage: /<command>
     aliases: [crawl]
     permission: shinobicore.use
+  sacoche:
+    description: Ouvre la sacoche RP (inventaire custom lié au personnage actif).
+    usage: /<command> [open|give <id> [n]|reset]
+    aliases: [sac, inventaire, inv]
+    permission: shinobicore.use
+  staff:
+    description: Ouvre le panneau staff in-game (spawn menu, items, outils).
+    usage: /<command> [build]
+    aliases: [panel, staffpanel, adminpanel]
+    permission: shinobicore.staff
 permissions:
   shinobicore.use:
     description: Base permission to use ShinobiCore commands.

@@ -8,7 +8,7 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Widget mini-card en coin haut-gauche affichant l'etat du serveur
- * Reborn — style coherent avec {@link OSTPlayerWidget}.
+ * Reborn.
  *
  * <p>Layout (200x40) :
  * <pre>

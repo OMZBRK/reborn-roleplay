@@ -7,7 +7,7 @@ import net.minecraft.sounds.SoundEvent;
 
 /**
  * Sons d'interface Reborn (menus perso). Joués via {@code SoundManager} en
- * {@code forUI} (2D, non spatialisés), comme {@code OSTPlayer}.
+ * {@code forUI} (2D, non spatialisés).
  *
  * <p>Par défaut on utilise des effets vanilla bien choisis (fiables, aucun
  * asset requis). Pour brancher des sons <b>custom</b> (ex. Pixabay) : déposer

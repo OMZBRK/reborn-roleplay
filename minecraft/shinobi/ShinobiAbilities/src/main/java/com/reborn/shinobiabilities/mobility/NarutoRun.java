@@ -2,6 +2,7 @@ package com.reborn.shinobiabilities.mobility;
 
 import com.reborn.shinobiabilities.util.Keys;
 import com.reborn.shinobiabilities.CoreServices;
+import com.reborn.shinobicore.character.LevelTable;
 import com.reborn.shinobicore.character.ShinobiCharacter;
 import com.reborn.shinobicore.util.Players;
 import com.reborn.shinobicore.util.Tps;
@@ -38,10 +39,16 @@ public final class NarutoRun {
 
     private static final String KEY_NAME = "naruto_run_speed";
 
+    /** Verrou de ré-activation après une interruption (dégâts) — empêche de
+     *  relancer la course instantanément. Tunable ici. */
+    private static final long INTERRUPT_LOCKOUT_MS = 1000L;
+
     private final JavaPlugin plugin;
     private final CoreServices core;
     private final ToggleStore toggles;
     private final Set<UUID> active = new HashSet<>();
+    /** Dernière interruption (dégâts) par joueur — base du verrou de relance. */
+    private final Map<UUID, Long> lastInterruptMs = new HashMap<>();
     /** Live speed multiplier per running player (base → max while moving). */
     private final Map<UUID, Double> currentMult = new HashMap<>();
     /** Accumulated MOVING time (ms) — the ramp only advances while moving. */
@@ -137,6 +144,16 @@ public final class NarutoRun {
         if (isActive(p)) { stop(p, true); return true; }
         if (!enabled()) return false;
 
+        // Verrou post-interruption : après un coup reçu, la course est bloquée
+        // pendant INTERRUPT_LOCKOUT_MS pour éviter une relance instantanée.
+        long sinceInterrupt = System.currentTimeMillis()
+                - lastInterruptMs.getOrDefault(p.getUniqueId(), 0L);
+        if (sinceInterrupt < INTERRUPT_LOCKOUT_MS) {
+            p.sendActionBar(Component.text("Trop tôt pour repartir — reprends ton souffle.",
+                    NamedTextColor.RED));
+            return false;
+        }
+
         ShinobiCharacter c = Players.active(core.characters(), p);
         if (c == null) return false;
         // Path Two: the run IS the path — no separate per-slot unlock needed.
@@ -180,6 +197,14 @@ public final class NarutoRun {
             p.sendActionBar(Component.text("Course Shinobi désactivée", NamedTextColor.GRAY));
             p.playSound(p.getLocation(), Sound.ENTITY_BREEZE_LAND, 0.5f, 1.0f);
         }
+    }
+
+    /** Interruption par un coup reçu : stoppe la course (avec feedback) et
+     *  arme le verrou de relance ({@link #INTERRUPT_LOCKOUT_MS}). */
+    public void interrupt(Player p) {
+        if (p == null) return;
+        lastInterruptMs.put(p.getUniqueId(), System.currentTimeMillis());
+        stop(p, true);
     }
 
     public void stopAll() {
@@ -268,7 +293,14 @@ public final class NarutoRun {
                 long grace = Math.max(0L, plugin.getConfig()
                         .getLong("mobility.naruto-run.stop-reset-ms", 5000L));
                 double base = speedMultiplier();
-                double target = maxSpeedMultiplier();
+                // Plafond de vitesse mis à l'échelle du niveau du personnage :
+                // un genin (niv. 1) dépasse à peine la base, un shinobi au niveau
+                // max approche le plafond config. levelFactor = min(1, lvl/MAX).
+                // base reste le plancher ; les clés config sont intactes.
+                double configMax = maxSpeedMultiplier();
+                double levelFactor = Math.min(1.0,
+                        c.level() / (double) LevelTable.MAX_LEVEL);
+                double target = base + (configMax - base) * levelFactor;
                 boolean moving = p.getVelocity().clone().setY(0).lengthSquared() > 0.0025;
                 if (moving) {
                     stoppedMs.put(id, 0L);

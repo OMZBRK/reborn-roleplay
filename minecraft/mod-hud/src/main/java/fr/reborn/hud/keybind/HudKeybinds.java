@@ -25,6 +25,11 @@ public final class HudKeybinds {
     /** Exposée pour que l'écran Photo affiche/teste la touche de sortie. */
     public static KeyMapping PHOTO;
 
+    /** Garde / parade timée (touche dédiée, MAINTENIR = garde, taper à l'impact =
+     *  parade). Lue par {@link fr.reborn.hud.combat.CombatInput#tick} via isDown() —
+     *  clic droit laissé libre pour les armes/kunai. Rebindable. */
+    public static KeyMapping PARRY;
+
     /**
      * Tous les binds Reborn de ce mod, dans l'ordre d'affichage — l'onglet
      * Contrôles ({@code ControlsTab}) les liste pour rebind inline. Rempli à
@@ -77,9 +82,35 @@ public final class HudKeybinds {
         KeyMapping charMenu = bind("key.reborn-hud.char_menu", GLFW.GLFW_KEY_SEMICOLON);
         // Dash de combat 8-dir (formules Keriox : rapide + lift). Touche V, rebindable.
         KeyMapping dash = bind("key.reborn-hud.dash", GLFW.GLFW_KEY_V);
+        // Garde / parade (touche dédiée MAINTENUE). Défaut C (ancien raccourci inventaire
+        // libéré ; ⚠️ Zoomify utilise parfois C → rebindable). Lue par CombatInput.tick.
+        PARRY = bind("key.reborn-hud.parry", GLFW.GLFW_KEY_C);
         // Test de la feuille (tirage de nature de chakra, prototype de FEEL). Touche F
         // (= Feuille), rebindable. Solo/dev : ouvre directement l'écran gacha.
         KeyMapping tirageFeuille = bind("key.reborn-hud.tirage_feuille", GLFW.GLFW_KEY_F);
+        // (Le repositionnement cosmétique n'a PLUS de raccourci : il s'ouvre depuis
+        // l'inventaire — clic droit sur un cosmétique équipé → « Repositionner ».)
+
+        // La touche INVENTAIRE vanilla (E par defaut) ouvre la SACOCHE au lieu de
+        // l'inventaire Minecraft. On draine les clics en START_CLIENT_TICK (AVANT
+        // handleKeybinds) pour que MC n'ouvre pas son inventaire ; la fermeture par
+        // la meme touche est geree dans InventoryScreen.keyPressed. (Ancien raccourci
+        // dedie C retire : l'inventaire est UNIQUEMENT sur la touche Inventaire.)
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            if (client.player == null || client.options == null) return;
+            while (client.options.keyInventory.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.gui.screen() == null && mc.player != null) {
+                    if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
+                            fr.reborn.hud.menu.inventory.InventoryPayload.ID)) {
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                            new fr.reborn.hud.menu.inventory.InventoryPayload("open"));
+                    } else {
+                        mc.setScreenAndShow(new fr.reborn.hud.menu.inventory.InventoryScreen());
+                    }
+                }
+            }
+        });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed() drain le queue d'events — false sur les frames
@@ -180,7 +211,10 @@ public final class HudKeybinds {
                 boolean hold = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold;
                 while (client.options.keyPlayerList.consumeClick()) {
                     Minecraft mc = Minecraft.getInstance();
-                    if (!hold && mc.gui.screen() == null && mc.player != null) {
+                    // N'ouvre l'écran Reborn QUE si le serveur pousse le feed
+                    // (plugin présent) ; sinon on laisse le tablist vanilla.
+                    if (!hold && fr.reborn.hud.menu.tablist.TablistData.hasData()
+                            && mc.gui.screen() == null && mc.player != null) {
                         mc.setScreenAndShow(new fr.reborn.hud.menu.tablist.TablistScreen());
                     }
                 }

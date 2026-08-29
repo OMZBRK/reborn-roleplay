@@ -41,6 +41,15 @@ public final class VitalsHud {
 
     private static final int HEAD = 46;
 
+    // Caches de libellés/Components : les vitals RP sont poussés par le réseau
+    // (pas modifiés par frame) → on ne reconstruit chaînes/Components que quand la
+    // valeur sous-jacente change, évitant concats + Component.literal à chaque frame.
+    private static String cNameStr; private static Component cNameComp;
+    private static int cNvLevel = Integer.MIN_VALUE; private static String cNvLabel;
+    private static int cHpCur = Integer.MIN_VALUE, cHpMax; private static String cHpLabel;
+    private static int cCkCur = Integer.MIN_VALUE, cCkMax; private static String cCkLabel;
+    private static int cStPct = Integer.MIN_VALUE; private static String cStLabel;
+
     // Icônes voix (16×16) faites par l'équipe — mic/casque on/off.
     private static final Identifier MIC_ON     = Identifier.fromNamespaceAndPath("reborn", "textures/hud/mic_on.png");
     private static final Identifier MIC_OFF    = Identifier.fromNamespaceAndPath("reborn", "textures/hud/mic_off.png");
@@ -85,8 +94,9 @@ public final class VitalsHud {
         Identifier skin = p.getSkin().body().texturePath();
         ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64);
         ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 40f, 8f, HEAD, HEAD, 8, 8, 64, 64);
-        // Badge « Nv X » chevauchant le bas de la tête.
-        String nv = "Nv " + rpLevel;
+        // Badge « Nv X » chevauchant le bas de la tête (libellé caché tant que le niveau ne change pas).
+        if (rpLevel != cNvLevel) { cNvLabel = "Nv " + rpLevel; cNvLevel = rpLevel; }
+        String nv = cNvLabel;
         int nvw = tr.width(nv) + 8;
         int nvx = hx + (HEAD - nvw) / 2, nvy = hy + HEAD - 4;
         DrawHelpers.roundedRectFull(ctx, nvx, nvy, nvw, 10, 3, GOLD);
@@ -98,10 +108,12 @@ public final class VitalsHud {
 
         // Nom RP — plus grand que les labels de barre (cf. hudvitalsrp.png).
         float nameScale = 1.35f;
+        // Component du nom caché : ne le reconstruit que si le nom RP change.
+        if (!rpName.equals(cNameStr)) { cNameStr = rpName; cNameComp = Component.literal(rpName); }
         ctx.pose().pushMatrix();
         ctx.pose().translate(cx, 0f);
         ctx.pose().scale(nameScale, nameScale);
-        ctx.text(tr, Component.literal(rpName), 0, 0, WHITE, true);
+        ctx.text(tr, cNameComp, 0, 0, WHITE, true);
         ctx.pose().popMatrix();
 
         int barH = 11;
@@ -120,7 +132,9 @@ public final class VitalsHud {
             hpCur = (int) Math.ceil(p.getHealth());
             hpMax = (int) Math.max(1, p.getMaxHealth());
         }
-        bar(ctx, tr, cx, y1, cw, barH, HP_COLOR, hpCur / (float) hpMax, hpCur + "/" + hpMax);
+        // Libellé « cur/max » caché : recomposé uniquement quand la vie RP change.
+        if (hpCur != cHpCur || hpMax != cHpMax) { cHpLabel = hpCur + "/" + hpMax; cHpCur = hpCur; cHpMax = hpMax; }
+        bar(ctx, tr, cx, y1, cw, barH, HP_COLOR, hpCur / (float) hpMax, cHpLabel);
 
         // Chakra : valeur RP du serveur (plus les champs XP détournés qui se
         // désynchronisaient à la reco).
@@ -135,12 +149,16 @@ public final class VitalsHud {
         }
         float ckRatio = Math.max(0f, Math.min(1f, ckCur / (float) ckMax));
         int voiceW = 24;
-        bar(ctx, tr, cx, y2, cw - voiceW, barH, CK_COLOR, ckRatio, ckCur + "/" + ckMax);
+        // Libellé chakra caché : recomposé uniquement quand la valeur RP change.
+        if (ckCur != cCkCur || ckMax != cCkMax) { cCkLabel = ckCur + "/" + ckMax; cCkCur = ckCur; cCkMax = ckMax; }
+        bar(ctx, tr, cx, y2, cw - voiceW, barH, CK_COLOR, ckRatio, cCkLabel);
         voiceIcons(ctx, cx + cw - voiceW + 4, y2 + (barH - 10) / 2);
 
-        // Stamina (faim).
+        // Stamina (faim). Libellé « % » caché : recomposé quand le pourcentage change.
         float st = p.getFoodData().getFoodLevel() / 20f;
-        bar(ctx, tr, cx, y3, cw, barH, ST_COLOR, st, Math.round(st * 100) + "%");
+        int stPct = Math.round(st * 100);
+        if (stPct != cStPct) { cStLabel = stPct + "%"; cStPct = stPct; }
+        bar(ctx, tr, cx, y3, cw, barH, ST_COLOR, st, cStLabel);
 
         ctx.pose().popMatrix();
     }

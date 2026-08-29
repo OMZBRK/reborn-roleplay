@@ -36,23 +36,36 @@ public final class CombatInput {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.gui.screen() != null) {
             setBlocking(false);
+            CooldownState.INSTANCE.setActive(CooldownState.Ability.COMBAT, false);
+            CooldownState.INSTANCE.setActive(CooldownState.Ability.COURSE_CHAKRA, false);
             if (player != null) wasSwinging = player.swinging;
             return;
         }
 
         boolean mainEmpty = player.getMainHandItem().isEmpty();
+        long now = System.currentTimeMillis();
 
-        // GARDE M2 : clic droit maintenu à mains nues (les deux mains vides pour
-        // ne pas entrer en conflit avec l'usage d'un objet en main secondaire).
-        boolean emptyHanded = mainEmpty && player.getOffhandItem().isEmpty();
-        setBlocking(emptyHanded && mc.options.keyUse.isDown());
+        // GARDE / PARADE TIMÉE = TOUCHE DÉDIÉE maintenue (indépendante du slot → on
+        // peut tenir armes/kunai). Presser pile à l'impact = parade (deflect),
+        // maintenir = garde (chip) — arbitré serveur. Le clic droit reste libre pour
+        // utiliser les objets.
+        boolean parryHeld = fr.reborn.hud.keybind.HudKeybinds.PARRY != null
+                && fr.reborn.hud.keybind.HudKeybinds.PARRY.isDown();
+        setBlocking(parryHeld);
+
+        // Onglets HUD (CD icons). « En combat » = ACTIVITÉ de combat (coup porté ou
+        // reçu récemment), PAS un toggle. Course de chakra tant que la Naruto Run tourne.
+        CooldownState.INSTANCE.setActive(CooldownState.Ability.COMBAT,
+            CombatState.INSTANCE.inCombat(now));
+        CooldownState.INSTANCE.setActive(CooldownState.Ability.COURSE_CHAKRA,
+            fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive());
 
         // COMBO M1 : détecté sur le SWING (front montant) → joue même sans toucher.
-        // Mains nues uniquement (taïjutsu). Le serveur gère les dégâts sur la mêlée
-        // vanilla ; ici on ne fait QUE l'anim locale (immédiate, tous les coups).
+        // Taïjutsu à mains nues (une arme en main aura ses propres anims plus tard).
+        // Le serveur gère les dégâts sur la mêlée vanilla ; ici on ne fait QUE l'anim.
         boolean sw = player.swinging;
-        if (sw && !wasSwinging && mainEmpty && !blocking && CombatAnimations.INSTANCE.isAvailable()) {
-            long now = System.currentTimeMillis();
+        if (sw && !wasSwinging && mainEmpty && !blocking
+                && CombatAnimations.INSTANCE.isAvailable()) {
             comboIndex = (now - lastSwingMs > COMBO_WINDOW_MS) ? 0 : (comboIndex + 1) % 4;
             lastSwingMs = now;
             CombatAnimations.INSTANCE.play(player, comboIndex + 1);   // animId 1..4

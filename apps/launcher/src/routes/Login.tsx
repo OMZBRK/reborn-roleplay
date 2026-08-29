@@ -122,15 +122,20 @@ export function Login() {
           className="flex flex-col items-center text-center"
         >
           <h1
-            className="font-display text-6xl font-semibold tracking-[0.08em] text-[var(--color-foreground)]"
+            className="font-display text-7xl font-semibold tracking-[0.09em]"
             style={{
+              background:
+                "linear-gradient(180deg, #fffaf0 0%, var(--color-foreground) 52%, rgba(224, 176, 106, 0.72) 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
               filter:
-                "drop-shadow(0 0 24px rgba(160, 24, 43, 0.4)) drop-shadow(0 0 6px rgba(255,255,255,0.12))",
+                "drop-shadow(0 0 28px rgba(176, 28, 50, 0.45)) drop-shadow(0 2px 3px rgba(0,0,0,0.5))",
             }}
           >
             REBORN
           </h1>
-          <p className="mt-2 text-xs uppercase tracking-[0.32em] text-[var(--color-foreground-muted)]">
+          <p className="mt-3 text-xs uppercase tracking-[0.32em] text-[var(--color-gold)]">
             Roleplay · Naruto Edition
           </p>
         </motion.div>

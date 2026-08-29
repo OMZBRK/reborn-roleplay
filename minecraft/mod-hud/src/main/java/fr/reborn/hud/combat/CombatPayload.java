@@ -27,6 +27,9 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
     public static final byte TYPE_ANIM = 3;
     /** S2C : reset des cooldowns client (commande staff dev). Corps = juste le type. */
     public static final byte TYPE_COOLDOWN_RESET = 4;
+    /** S2C : parade timée (Sekiro) — {@code byte role} porté dans {@link #animId}
+     *  (0 = a paré / 1 = s'est fait parer). Flash + son côté client. */
+    public static final byte TYPE_PARRY = 5;
 
     public static final Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "combat");
     public static final CustomPacketPayload.Type<CombatPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);
@@ -47,6 +50,9 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
                 int aid = buf.readInt();
                 int anim = buf.readByte();
                 return new CombatPayload(type, aid, 0f, 0f, 0f, anim);
+            } else if (type == TYPE_PARRY) {
+                int role = buf.readByte();   // 0 = paré / 1 = fait parer → dans animId
+                return new CombatPayload(type, 0, 0f, 0f, 0f, role);
             }
             return new CombatPayload(type, 0, 0f, 0f, 0f, 0);
         }
@@ -63,6 +69,8 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
             } else if (v.msgType == TYPE_ANIM) {
                 buf.writeInt(v.victimEntityId);
                 buf.writeByte(v.animId);
+            } else if (v.msgType == TYPE_PARRY) {
+                buf.writeByte(v.animId);   // rôle
             }
         }
     };

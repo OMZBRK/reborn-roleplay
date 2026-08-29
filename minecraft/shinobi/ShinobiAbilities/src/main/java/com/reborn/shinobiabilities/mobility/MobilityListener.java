@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -329,6 +330,17 @@ public final class MobilityListener implements Listener {
     }
 
     /* ------------------------------------------------------------ fall dmg */
+
+    /** Un coup reçu d'une entité / d'un joueur interrompt la Course de chakra
+     *  (et arme un court verrou de relance). MONITOR + ignoreCancelled : on
+     *  n'agit que sur un dégât réellement appliqué, sans le modifier. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDamageInterruptRun(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player p)) return;
+        if (mobility.narutoRun().isActive(p)) {
+            mobility.narutoRun().interrupt(p);
+        }
+    }
 
     /** Fix #6 — fall damage globally off for ground-game players. */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

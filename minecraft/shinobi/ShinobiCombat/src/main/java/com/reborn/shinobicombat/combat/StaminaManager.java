@@ -58,6 +58,16 @@ public final class StaminaManager {
         return next;
     }
 
+    /**
+     * Rend {@code amount} de stamina (borné à {@link #MAX}) — récompense d'une
+     * parade timée réussie. Ne gèle PAS la régén. Retourne la stamina restante.
+     */
+    public double refund(UUID id, double amount) {
+        double next = Math.min(MAX, get(id) + amount);
+        current.put(id, next);
+        return next;
+    }
+
     /** Régénère les joueurs suivis hors délai post-coup. */
     public void tickRegen(double dtSeconds) {
         long now = System.currentTimeMillis();

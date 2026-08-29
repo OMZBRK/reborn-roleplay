@@ -53,6 +53,13 @@ public final class CombatChannel {
     public static final byte TYPE_ANIM = 3;
     /** Reset des cooldowns côté client (aucun corps) — dev/staff via {@code /resetcd}. */
     public static final byte TYPE_COOLDOWN_RESET = 4;
+    /** Parade timée (Sekiro) : corps {@code byte role}. Flash + son côté client. */
+    public static final byte TYPE_PARRY = 5;
+
+    /** Rôle porté par {@link #TYPE_PARRY} : la victime a paré avec succès (deflect). */
+    public static final byte PARRY_ROLE_SUCCESS = 0;
+    /** Rôle porté par {@link #TYPE_PARRY} : l'attaquant s'est fait parer (stun/ouverture). */
+    public static final byte PARRY_ROLE_BROKEN = 1;
 
     /** Anim ids portés par {@link #TYPE_ANIM}. */
     public static final byte ANIM_STRIKE_1 = 1;
@@ -115,6 +122,22 @@ public final class CombatChannel {
             return;
         }
         target.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
+    }
+
+    /**
+     * Notifie {@code viewer} d'un évènement de parade timée ({@code role} :
+     * {@link #PARRY_ROLE_SUCCESS} = a paré / {@link #PARRY_ROLE_BROKEN} = s'est fait parer).
+     * Le client déclenche le flash + son de deflect.
+     */
+    public static void sendParry(Plugin plugin, Player viewer, byte role) {
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(b)) {
+            out.writeByte(TYPE_PARRY);
+            out.writeByte(role);
+        } catch (IOException ignored) {
+            return;
+        }
+        viewer.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
     }
 
     /**

@@ -28,6 +28,11 @@ public final class CooldownHud {
     private static final int FRAME = 32;
     private static final CooldownState.Ability[] SHOWN = CooldownState.Ability.values();
     private static final java.util.Map<String, Boolean> TEX_EXISTS = new ConcurrentHashMap<>();
+    /** LUT d'angles par rayon pour le voile radial : à rayon fixe l'angle de chaque
+     *  offset (dx,dy) est constant → un seul atan2 par pixel, calculé une fois. */
+    private static final java.util.Map<Integer, float[]> RADIAL_ANGLE = new ConcurrentHashMap<>();
+    /** Cache des libellés de secondes, clé = dixièmes affichés → évite String.format/frame. */
+    private static final java.util.Map<Integer, String> SEC_FMT = new ConcurrentHashMap<>();
 
     public static int width()  { return SHOWN.length * ICON + Math.max(0, SHOWN.length - 1) * GAP; }
     public static int height() { return ICON + 10; }   // icône + ligne de secondes en dessous
@@ -43,7 +48,7 @@ public final class CooldownHud {
         int ix = 0;
         for (CooldownState.Ability a : SHOWN) {
             boolean onCd = CooldownState.INSTANCE.fraction(a, now) > 0.001f;
-            if (!onCd && !a.alwaysShow) continue;
+            if (!onCd && !a.alwaysShow && !CooldownState.INSTANCE.isActive(a)) continue;
             drawIcon(ctx, font, ix, 0, a, now);
             ix += ICON + GAP;
         }
@@ -78,7 +83,10 @@ public final class CooldownHud {
         // Cooldown : voile radial LÉGER (l'icône reste bien visible) + secondes SOUS l'icône.
         if (!ready) {
             radialCover(ctx, x, y, ICON, frac, 0x55000000);
-            String s = String.format(Locale.US, "%.1f", CooldownState.INSTANCE.remainingMs(a, now) / 1000f);
+            // Cache par dixième de seconde affiché : ne reformate que quand la valeur change.
+            float secs = CooldownState.INSTANCE.remainingMs(a, now) / 1000f;
+            int tenths = Math.round(secs * 10f);
+            String s = SEC_FMT.computeIfAbsent(tenths, t -> String.format(Locale.US, "%.1f", t / 10f));
             Component t = RebornFont.bold(s);
             int tx = x + (ICON - font.width(t)) / 2, ty = y + ICON + 1;
             ctx.text(font, t, tx + 1, ty + 1, 0xC0000000, false);   // ombre lisibilité
@@ -91,13 +99,41 @@ public final class CooldownHud {
         int cx = x + size / 2, cy = y + size / 2;
         float startDeg = (1f - frac) * 360f;   // l'arc restant va de startDeg à 360
         int r = size / 2;
+        float[] lut = radialAngleLut(r);       // angles précalculés (constants à rayon fixe)
+        int span = 2 * r;
+        // Batch : une span horizontale par run contigu « allumé » au lieu d'un fill 1×1/pixel.
         for (int dy = -r; dy < r; dy++) {
+            int base = (dy + r) * span;
+            int runStart = Integer.MIN_VALUE;
             for (int dx = -r; dx < r; dx++) {
-                float ang = (float) Math.toDegrees(Math.atan2(dx, -dy));
-                if (ang < 0) ang += 360f;
-                if (ang >= startDeg) ctx.fill(cx + dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
+                boolean on = lut[base + dx + r] >= startDeg;
+                if (on) {
+                    if (runStart == Integer.MIN_VALUE) runStart = dx;
+                } else if (runStart != Integer.MIN_VALUE) {
+                    ctx.fill(cx + runStart, cy + dy, cx + dx, cy + dy + 1, color);
+                    runStart = Integer.MIN_VALUE;
+                }
+            }
+            if (runStart != Integer.MIN_VALUE) {
+                ctx.fill(cx + runStart, cy + dy, cx + r, cy + dy + 1, color);
             }
         }
+    }
+
+    /** Angles (deg, 0 en haut, horaire) par offset (dx,dy) pour un rayon donné — 1 calcul/rayon. */
+    private static float[] radialAngleLut(int r) {
+        return RADIAL_ANGLE.computeIfAbsent(r, rr -> {
+            int span = 2 * rr;
+            float[] a = new float[span * span];
+            for (int dy = -rr; dy < rr; dy++) {
+                for (int dx = -rr; dx < rr; dx++) {
+                    float ang = (float) Math.toDegrees(Math.atan2(dx, -dy));
+                    if (ang < 0) ang += 360f;
+                    a[(dy + rr) * span + (dx + rr)] = ang;
+                }
+            }
+            return a;
+        });
     }
 
     private static Identifier iconId(String slug) {

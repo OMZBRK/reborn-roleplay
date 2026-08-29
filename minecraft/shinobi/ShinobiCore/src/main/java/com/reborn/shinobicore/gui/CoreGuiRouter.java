@@ -33,18 +33,15 @@ public final class CoreGuiRouter implements ScreenRouter {
 
     private com.reborn.shinobicore.character.gui.CharacterListScreen characterList;
     private com.reborn.shinobicore.character.gui.CharacterEditScreen characterEdit;
-    private com.reborn.shinobicore.character.gui.LeafTestScreen leafTest;
     private com.reborn.shinobicore.character.gui.ClanPickerScreen clanPicker;
 
     /** One-time wiring from the main class (character cluster). */
     public void bindCharacter(
             com.reborn.shinobicore.character.gui.CharacterListScreen characterList,
             com.reborn.shinobicore.character.gui.CharacterEditScreen characterEdit,
-            com.reborn.shinobicore.character.gui.LeafTestScreen leafTest,
             com.reborn.shinobicore.character.gui.ClanPickerScreen clanPicker) {
         this.characterList = characterList;
         this.characterEdit = characterEdit;
-        this.leafTest = leafTest;
         this.clanPicker = clanPicker;
     }
 
@@ -62,10 +59,6 @@ public final class CoreGuiRouter implements ScreenRouter {
 
     public void openCharacterEdit(Player viewer, ShinobiCharacter c) {
         characterEdit.open(viewer, c);
-    }
-
-    public void openLeafTest(Player viewer, ShinobiCharacter c) {
-        leafTest.open(viewer, c);
     }
 
     public void openClanPicker(Player viewer, ShinobiCharacter c) {
@@ -213,6 +206,34 @@ public final class CoreGuiRouter implements ScreenRouter {
             return;
         }
         treatment.open(viewer, target, targetId, injury);
+    }
+
+    /* -------------------------------------------------------- staff panel */
+
+    private com.reborn.shinobicore.gui.staff.StaffPanelScreen staffPanel;
+    private com.reborn.shinobicore.gui.staff.SpawnMenuScreen spawnMenu;
+    private com.reborn.shinobicore.gui.staff.CustomItemScreen customItems;
+
+    /** One-time wiring from the main class (staff panel cluster). */
+    public void bindStaff(
+            com.reborn.shinobicore.gui.staff.StaffPanelScreen staffPanel,
+            com.reborn.shinobicore.gui.staff.SpawnMenuScreen spawnMenu,
+            com.reborn.shinobicore.gui.staff.CustomItemScreen customItems) {
+        this.staffPanel = staffPanel;
+        this.spawnMenu = spawnMenu;
+        this.customItems = customItems;
+    }
+
+    public void openStaffPanel(Player viewer) {
+        if (staffPanel != null) staffPanel.open(viewer);
+    }
+
+    public void openSpawnMenu(Player viewer) {
+        if (spawnMenu != null) spawnMenu.open(viewer);
+    }
+
+    public void openCustomItems(Player viewer) {
+        if (customItems != null) customItems.open(viewer);
     }
 
     /** The owning plugin, for screens' manager/config access. */
