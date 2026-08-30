@@ -44,6 +44,11 @@ public abstract class CameraThirdPersonMixin {
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
+    // Pour reconstruire le frustum de culling sur NOTRE caméra (cf. reborn$rebuildCullFrustum).
+    @Shadow public abstract org.joml.Matrix4f getViewRotationMatrix(org.joml.Matrix4f dest);
+    @Shadow private org.joml.Matrix4f createProjectionMatrixForCulling() { return null; }
+    @Shadow private void prepareCullFrustum(org.joml.Matrix4fc proj, org.joml.Matrix4f view, Vec3 pos) { }
+
     @Inject(method = "update", at = @At("TAIL"))
     private void reborn$shoulderCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
@@ -85,6 +90,25 @@ public abstract class CameraThirdPersonMixin {
 
         setRotation(cy, cp);
         setPosition(reborn$clip(focusedEntity, eye, target));
+        reborn$rebuildCullFrustum();
+    }
+
+    /**
+     * Reconstruit le frustum de culling de MC sur NOTRE caméra. En 26.x,
+     * {@code Camera#update} bâtit ce frustum (getViewRotationMatrix → createProjection →
+     * prepareCullFrustum) AU MILIEU de la méthode, sur la rotation/position VANILLA, avant
+     * notre repositionnement au TAIL → l'occlusion cull les sections hors du regard joueur
+     * (= chunks non rendus / trous en caméra épaule orbitée). On réémet les MÊMES appels que
+     * MC mais après notre setRotation/setPosition, donc sur notre vue → plus de trous.
+     */
+    @Unique
+    private void reborn$rebuildCullFrustum() {
+        try {
+            prepareCullFrustum(createProjectionMatrixForCulling(),
+                getViewRotationMatrix(new org.joml.Matrix4f()), position());
+        } catch (Throwable ignored) {
+            // API caméra différente : on n'aggrave pas (au pire, l'ancien comportement).
+        }
     }
 
     /** Réduit la distance si un mur est entre l'oeil et la caméra cible. */

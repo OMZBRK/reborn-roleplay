@@ -21,11 +21,20 @@ public abstract class CameraPhotoMixin {
 
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
+    @Shadow public abstract Vec3 position();
+    @Shadow public abstract org.joml.Matrix4f getViewRotationMatrix(org.joml.Matrix4f dest);
+    @Shadow private org.joml.Matrix4f createProjectionMatrixForCulling() { return null; }
+    @Shadow private void prepareCullFrustum(org.joml.Matrix4fc proj, org.joml.Matrix4f view, Vec3 pos) { }
 
     @Inject(method = "update", at = @At("TAIL"))
     private void reborn$photoCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
         if (!PhotoMode.INSTANCE.isActive()) return;
         this.setRotation(PhotoMode.INSTANCE.yaw(), PhotoMode.INSTANCE.pitch());
         this.setPosition(PhotoMode.INSTANCE.pos());
+        // Frustum de culling sur notre caméra (cf. CameraThirdPersonMixin) — sinon trous.
+        try {
+            prepareCullFrustum(createProjectionMatrixForCulling(),
+                getViewRotationMatrix(new org.joml.Matrix4f()), position());
+        } catch (Throwable ignored) { }
     }
 }
