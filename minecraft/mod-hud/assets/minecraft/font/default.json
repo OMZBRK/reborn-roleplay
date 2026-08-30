@@ -1,0 +1,28 @@
+{
+  "providers": [
+    { "type": "reference", "id": "minecraft:include/space" },
+    { "type": "reference", "id": "minecraft:include/default" },
+    { "type": "bitmap", "file": "minecraft:font/emoji/ayaa.png", "ascent": 8, "height": 9, "chars": ["\uE000"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/blazer.png", "ascent": 8, "height": 9, "chars": ["\uE001"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/caillouuu.png", "ascent": 8, "height": 9, "chars": ["\uE002"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/crazyslay.png", "ascent": 8, "height": 9, "chars": ["\uE003"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/crisepleure.png", "ascent": 8, "height": 9, "chars": ["\uE004"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/grandsourir.png", "ascent": 8, "height": 9, "chars": ["\uE005"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/hehe.png", "ascent": 8, "height": 9, "chars": ["\uE006"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/heheenbien.png", "ascent": 8, "height": 9, "chars": ["\uE007"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/lovee.png", "ascent": 8, "height": 9, "chars": ["\uE008"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/moman.png", "ascent": 8, "height": 9, "chars": ["\uE009"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/ouahhhhhhouhhh.png", "ascent": 8, "height": 9, "chars": ["\uE00A"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/pressf.png", "ascent": 8, "height": 9, "chars": ["\uE00B"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/shhhhhh.png", "ascent": 8, "height": 9, "chars": ["\uE00C"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/slay.png", "ascent": 8, "height": 9, "chars": ["\uE00D"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/sourir.png", "ascent": 8, "height": 9, "chars": ["\uE00E"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/souriralenver.png", "ascent": 8, "height": 9, "chars": ["\uE00F"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/sourirflirt.png", "ascent": 8, "height": 9, "chars": ["\uE010"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/sourirshy.png", "ascent": 8, "height": 9, "chars": ["\uE011"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/uwu.png", "ascent": 8, "height": 9, "chars": ["\uE012"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/vaipleurer.png", "ascent": 8, "height": 9, "chars": ["\uE013"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/zehefcalmetoi.png", "ascent": 8, "height": 9, "chars": ["\uE014"] },
+    { "type": "bitmap", "file": "minecraft:font/emoji/zehmaaaaaa.png", "ascent": 8, "height": 9, "chars": ["\uE015"] }
+  ]
+}

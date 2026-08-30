@@ -44,7 +44,15 @@ public abstract class CameraThirdPersonMixin {
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
-    @Inject(method = "update", at = @At("TAIL"))
+    // IMPORTANT (26.x) : injecter AVANT createProjectionMatrixForCulling/prepareCullFrustum,
+    // PAS au TAIL. En 26.x, Camera#update construit et CACHE son frustum de culling
+    // (getCullFrustum) au milieu de la méthode ; au TAIL on repositionne trop tard → le
+    // culling d'occlusion (Sodium/vanilla) travaille sur le frustum de la position vanilla
+    // → chunks non rendus derrière/autour du joueur. En injectant ici, notre position
+    // alimente le frustum de culling. (En 1.21.4 ce frustum caché n'existait pas → aucun bug.)
+    @Inject(method = "update", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/Camera;createProjectionMatrixForCulling()Lorg/joml/Matrix4f;",
+        shift = At.Shift.BEFORE))
     private void reborn$shoulderCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
         // 3e personne ARRIÈRE uniquement (équiv. ancien !thirdPerson || inverseView :

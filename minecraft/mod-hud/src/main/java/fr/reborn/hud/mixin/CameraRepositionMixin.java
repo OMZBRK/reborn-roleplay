@@ -28,7 +28,10 @@ public abstract class CameraRepositionMixin {
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
-    @Inject(method = "update", at = @At("TAIL"))
+    // Avant le frustum de culling (cf CameraThirdPersonMixin) — sinon chunks non rendus.
+    @Inject(method = "update", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/Camera;createProjectionMatrixForCulling()Lorg/joml/Matrix4f;",
+        shift = At.Shift.BEFORE))
     private void reborn$repositionCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
         RepositionMode mode = RepositionMode.INSTANCE;
         if (!mode.isActive()) return;
