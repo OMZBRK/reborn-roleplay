@@ -140,12 +140,15 @@ public abstract class ChatScreenMixin {
         int ty = input.getY() + (input.getHeight() - 8) / 2;
         // Clip + défilement horizontal : garde le texte DANS la barre et le curseur
         // visible quand la saisie dépasse la largeur (sinon le texte débordait).
+        int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
         int visLeft = input.getX() + 4;
-        int visRight = input.getX() + input.getWidth() - 2;
+        // Toute la largeur de la barre, avec une marge droite (le texte ne colle pas
+        // au bord et ne se fait plus couper en fin de mot).
+        int visRight = Math.max(visLeft + 20, ChatLayout.barRight(sw) - 6);
         int visW = Math.max(1, visRight - visLeft);
         int caret = Math.max(0, Math.min(input.getCursorPosition(), val.length()));
         int wToCaret = font.width(val.substring(0, caret));
-        int scroll = Math.max(0, wToCaret - visW + 6);
+        int scroll = Math.max(0, wToCaret - visW + 8);
         ctx.enableScissor(visLeft, ty - 2, visRight, ty + 10);
         int tx = visLeft - scroll;
 

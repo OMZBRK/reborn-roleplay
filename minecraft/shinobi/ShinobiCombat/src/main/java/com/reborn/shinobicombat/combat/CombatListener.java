@@ -204,6 +204,13 @@ public final class CombatListener implements Listener, PluginMessageListener {
         // Combat RP uniquement : l'attaquant doit avoir un personnage actif.
         if (characters.getActive(attacker.getUniqueId()) == null) return;
 
+        // Taïjutsu = MAINS NUES uniquement. Avec une arme en main (katana/arme ninja
+        // kenjutsu…), le M1 est géré par l'arme / MagicSpells → aucun combat ni anim
+        // taïjutsu (sinon le taïjutsu de base se joue par-dessus le spell kenjutsu quand
+        // on frappe quelqu'un). Cohérent avec le client qui ne joue le taïjutsu qu'à
+        // mains nues (getMainHandItem().isEmpty()).
+        if (!attacker.getInventory().getItemInMainHand().getType().isAir()) return;
+
         // Un joueur KO ne frappe pas.
         if (ko != null && ko.isKo(attacker.getUniqueId())) {
             e.setCancelled(true);
