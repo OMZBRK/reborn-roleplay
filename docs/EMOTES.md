@@ -90,6 +90,53 @@ Salut:
   # forcer sur une CIBLE : "playemote %t% wave" avec un TargetedSpell en amont.
 ```
 
+## Distribution serveur — « drop + link serveur, visible par tous »
+
+Les devs peuvent ajouter des emotes **sans mise à jour du mod ni serveur Fabric** : il
+suffit de déposer un fichier `.emotecraft` (ou `.json`) dans
+`plugins/ShinobiCore/emotes/` (accessible via le **panel dev**). ShinobiCore les pousse
+à **chaque client** à la connexion (canal `reborn:emotepack`) ; mod-hud les enregistre
+dans EmoteCraft → jouables par `/playemote <nom>` **pour tous**.
+
+- Le **nom** de l'emote = le nom du fichier sans extension (ex. `kenjutsu_slash1.emotecraft`
+  → `/playemote kenjutsu_slash1`).
+- Après avoir déposé/retiré des fichiers : **`/playemote reload`** (re-scanne le dossier
+  et re-pousse aux joueurs connectés).
+- Optionnel : déclarer un alias FR + permission dans `emotes.yml` (`emote:` = nom du fichier).
+- Garde-fou : un fichier > 512 Ko est ignoré (les emotes font quelques Ko).
+
+Pipeline de création : Blockbench / éditeur EmoteCraft → export `.emotecraft` → drop dans
+le dossier → `/playemote reload`. Voir aussi [`emote-geckolib-import`] (mémoire projet).
+
+## Modèle : animations M1 kenjutsu via emote
+
+Objectif : un coup M1 (clic gauche) avec une arme de kenjutsu joue une **animation de
+swing** visible par tous. Recette **sans nouveau code** (data-driven), une fois le swing
+créé comme emote et distribué (ci-dessus) :
+
+1. Le dev crée les swings (`kenjutsu_slash1.emotecraft`, `…2`, `…3` pour un combo) et les
+   dépose dans `plugins/ShinobiCore/emotes/` → distribués à tous.
+2. Sur l'arme (item Nexo katana), un sort MagicSpells `commandspell` déclenché au **clic
+   gauche** joue le swing :
+   ```yaml
+   KenjutsuSlash:
+     spell-class: ".command.CommandSpell"
+     cast-item: <id-nexo-katana>
+     cast-with-left-click: true
+     cooldown: 0.4
+     execute-commands: [slash]
+     slash:
+       command: "playemote %a% kenjutsu_slash1"
+       as-console: true
+   ```
+   Pour un combo, alterner via plusieurs sorts + un `cycle` MagicSpells, ou une variable.
+3. `/playemote` diffuse l'anim aux joueurs proches → **tout le monde voit le coup**.
+
+Alternative (si le M1 doit rester géré par ShinobiCombat) : brancher, dans le handler M1
+de `ShinobiCombat` pour une arme de kenjutsu, un appel `plugin.emotes()`-style qui diffuse
+`kenjutsu_slashN` au lieu (ou en plus) de l'anim taïjutsu — à faire quand les swings
+existent.
+
 ## Hot-add d'emotes sans mise à jour du mod (à investiguer côté serveur)
 
 EmoteCraft sait charger des emotes depuis un **dossier serveur** (`emotesDir` +

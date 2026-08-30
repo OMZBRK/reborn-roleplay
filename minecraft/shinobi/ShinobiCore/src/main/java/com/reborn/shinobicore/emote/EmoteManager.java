@@ -5,12 +5,18 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.plugin.messaging.PluginMessageListener;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -19,32 +25,40 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Emotes RP — pont serveur→client vers EmoteCraft.
+ * Emotes RP — pont serveur→client vers EmoteCraft, + DISTRIBUTION des emotes déposées
+ * par les devs.
  *
- * <p>Le mod-hud embarque la couche cliente : on ne transmet ici que le <b>nom
- * d'emote résolu</b> sur le canal {@link #CHANNEL} ({@code reborn:emote}) à chaque
- * joueur proche, exactement comme {@code reborn:combat}/{@code TYPE_ANIM} pour les
- * coups. Chaque client joue alors l'emote (celle qu'EmoteCraft a chargée) sur
- * l'avatar visé — donc <b>tout le monde la voit</b>.
+ * <p>Deux rôles :
+ * <ul>
+ *   <li><b>Lecture</b> ({@link #CHANNEL} {@code reborn:emote}) : diffuse le nom d'emote
+ *       résolu aux joueurs proches → chaque client la joue (visible par tous).</li>
+ *   <li><b>Distribution</b> ({@link #CHANNEL_PACK} {@code reborn:emotepack}) : les
+ *       fichiers {@code .emotecraft}/{@code .json} déposés dans
+ *       {@code plugins/ShinobiCore/emotes/} (via le panel dev) sont POUSSÉS à chaque
+ *       client à la connexion → jouables par {@code /playemote <nom>} pour TOUS, sans
+ *       mise à jour du mod ni serveur Fabric. C'est ce qui permet aux devs de « drop +
+ *       link serveur » (ex. animations de swing kenjutsu M1).</li>
+ * </ul>
  *
- * <p>Format S2C (miroir de {@code EmotePayload} côté mod) : {@code int entityId}
- * puis les octets UTF-8 du nom d'emote. Nom vide = arrêt de l'emote en cours.
- *
- * <p>Catalogue dans {@code plugins/ShinobiCore/emotes.yml} (éditable par les devs
- * via le panel) : alias, nom d'affichage, permission, et un {@code open-mode} qui
- * autorise par défaut toute emote chargée côté client.
+ * <p>Catalogue {@code emotes/emotes.yml} : alias/permission/open-mode (éditable panel).
  */
-public final class EmoteManager {
+public final class EmoteManager implements Listener, PluginMessageListener {
 
     public static final String CHANNEL = "reborn:emote";
+    public static final String CHANNEL_PACK = "reborn:emotepack";
 
-    /** Une emote déclarée : clé de commande, nom affiché, nom EmoteCraft, permission. */
+    /** Octets max d'un fichier emote poussé (garde-fou plugin-message). */
+    private static final int MAX_EMOTE_BYTES = 512 * 1024;
+    private static final long PUSH_DELAY_TICKS = 40L; // ~2s après le join
+
     public record Entry(String key, String display, String emote, String permission) {}
 
     private final ShinobiCore plugin;
 
-    private final Map<String, Entry> byKey = new LinkedHashMap<>();   // clé + alias → entrée
-    private final List<Entry> declared = new ArrayList<>();           // ordre du fichier (menu/tab)
+    private final Map<String, Entry> byKey = new LinkedHashMap<>();
+    private final List<Entry> declared = new ArrayList<>();
+    /** Emotes serveur déposées par les devs : nom → octets du fichier. */
+    private final Map<String, byte[]> customEmotes = new LinkedHashMap<>();
     private boolean openMode = true;
     private double range = 48.0;
 
@@ -52,34 +66,31 @@ public final class EmoteManager {
         this.plugin = plugin;
     }
 
-    /** Enregistre le canal sortant + charge le catalogue. */
+    /** Enregistre les canaux (in/out) + événements, puis charge catalogue + emotes serveur. */
     public void start() {
         var m = Bukkit.getMessenger();
-        if (!m.isOutgoingChannelRegistered(plugin, CHANNEL)) {
-            m.registerOutgoingPluginChannel(plugin, CHANNEL);
-        }
+        if (!m.isOutgoingChannelRegistered(plugin, CHANNEL)) m.registerOutgoingPluginChannel(plugin, CHANNEL);
+        if (!m.isOutgoingChannelRegistered(plugin, CHANNEL_PACK)) m.registerOutgoingPluginChannel(plugin, CHANNEL_PACK);
+        if (!m.isIncomingChannelRegistered(plugin, CHANNEL_PACK)) m.registerIncomingPluginChannel(plugin, CHANNEL_PACK, this);
+        Bukkit.getPluginManager().registerEvents(this, plugin);
         reload();
     }
 
-    /** (Re)charge {@code emotes.yml} (créé depuis les ressources au premier lancement). */
+    /** (Re)charge {@code emotes.yml} + scanne le dossier {@code emotes/} + re-pousse aux joueurs. */
     public void reload() {
         byKey.clear();
         declared.clear();
+        customEmotes.clear();
 
-        // Sous-dossier plugins/ShinobiCore/emotes/ — scope propre côté panel staff
-        // (et futur emplacement pour déposer des .emotecraft distribués par le serveur).
-        File file = new File(plugin.getDataFolder(), "emotes/emotes.yml");
+        File dir = new File(plugin.getDataFolder(), "emotes");
+        File file = new File(dir, "emotes.yml");
         if (!file.exists()) {
-            try {
-                plugin.saveResource("emotes/emotes.yml", false);
-            } catch (IllegalArgumentException ignored) {
-                // ressource absente du jar (build partiel) — on garde les défauts.
-            }
+            try { plugin.saveResource("emotes/emotes.yml", false); }
+            catch (IllegalArgumentException ignored) {}
         }
         YamlConfiguration cfg = file.exists()
                 ? YamlConfiguration.loadConfiguration(file)
                 : new YamlConfiguration();
-
         openMode = cfg.getBoolean("open-mode", true);
         range = cfg.getDouble("range", 48.0);
 
@@ -92,57 +103,105 @@ public final class EmoteManager {
                 String emote = e.getString("emote", key);
                 String perm = e.getString("permission", "");
                 Entry entry = new Entry(key.toLowerCase(Locale.ROOT), display,
-                        emote == null || emote.isBlank() ? key : emote,
-                        perm == null ? "" : perm);
+                        emote == null || emote.isBlank() ? key : emote, perm == null ? "" : perm);
                 declared.add(entry);
                 byKey.put(entry.key(), entry);
                 for (String alias : e.getStringList("aliases")) {
-                    if (alias != null && !alias.isBlank()) {
-                        byKey.put(alias.toLowerCase(Locale.ROOT), entry);
-                    }
+                    if (alias != null && !alias.isBlank()) byKey.put(alias.toLowerCase(Locale.ROOT), entry);
                 }
             }
         }
-        plugin.getLogger().info("Emotes : " + declared.size() + " déclarée(s), open-mode="
-                + openMode + ", portée=" + range + " blocs.");
+
+        // Emotes serveur déposées par les devs : tout .emotecraft / .json du dossier.
+        File[] files = dir.listFiles((d, n) -> {
+            String l = n.toLowerCase(Locale.ROOT);
+            return l.endsWith(".emotecraft") || l.endsWith(".json");
+        });
+        if (files != null) {
+            for (File f : files) {
+                try {
+                    if (f.length() > MAX_EMOTE_BYTES) {
+                        plugin.getLogger().warning("Emote " + f.getName() + " ignorée (> "
+                                + (MAX_EMOTE_BYTES / 1024) + " Ko).");
+                        continue;
+                    }
+                    String name = f.getName().replaceFirst("\\.(emotecraft|json)$", "");
+                    customEmotes.put(name, Files.readAllBytes(f.toPath()));
+                } catch (IOException ex) {
+                    plugin.getLogger().warning("Lecture emote " + f.getName() + " échouée : " + ex.getMessage());
+                }
+            }
+        }
+
+        plugin.getLogger().info("Emotes : " + declared.size() + " déclarée(s), "
+                + customEmotes.size() + " serveur, open-mode=" + openMode + ", portée=" + range);
+
+        // Re-pousse aux joueurs déjà connectés (utile après /playemote reload).
+        for (Player p : Bukkit.getOnlinePlayers()) sendPack(p);
     }
 
-    /**
-     * Résout un jeton (clé/alias) en entrée jouable. En {@code open-mode}, un jeton
-     * inconnu devient une entrée synthétique (le nom est passé tel quel au client).
-     * {@code null} si inconnu et open-mode désactivé.
-     */
     public Entry resolve(String token) {
         if (token == null || token.isBlank()) return null;
         Entry e = byKey.get(token.toLowerCase(Locale.ROOT));
         if (e != null) return e;
-        if (openMode) return new Entry(token.toLowerCase(Locale.ROOT), token, token, "");
+        // Une emote serveur non déclarée reste jouable par son nom de fichier.
+        if (customEmotes.containsKey(token) || openMode) {
+            return new Entry(token.toLowerCase(Locale.ROOT), token, token, "");
+        }
         return null;
     }
 
-    /** Noms de commande déclarés (pour la tab-complétion). */
     public List<String> declaredKeys() {
-        List<String> out = new ArrayList<>(declared.size());
+        List<String> out = new ArrayList<>();
         for (Entry e : declared) out.add(e.key());
+        out.addAll(customEmotes.keySet());
         return out;
     }
 
-    /**
-     * Joue l'emote {@code entry} sur {@code actor} : diffuse à tous les joueurs
-     * proches (≤ portée, même monde), acteur inclus, pour que chacun la voie.
-     */
     public void play(Player actor, Entry entry) {
         if (actor == null || entry == null) return;
         broadcast(actor, entry.emote());
     }
 
-    /** Arrête l'emote en cours de {@code actor} chez tous les observateurs proches. */
     public void stop(Player actor) {
-        if (actor == null) return;
-        broadcast(actor, "");
+        if (actor != null) broadcast(actor, "");
     }
 
-    /** Diffuse {@code {actorEntityId, emoteName}} aux joueurs proches (acteur inclus). */
+    // ─── Distribution (reborn:emotepack) ───
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent e) {
+        Player p = e.getPlayer();
+        Bukkit.getScheduler().runTaskLater(plugin, () -> { if (p.isOnline()) sendPack(p); }, PUSH_DELAY_TICKS);
+    }
+
+    /** Requête client (« pousse-moi le pack ») → renvoie toutes les emotes serveur. */
+    @Override
+    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte @NotNull [] message) {
+        if (CHANNEL_PACK.equals(channel)) sendPack(player);
+    }
+
+    /** Pousse chaque emote serveur au client : {@code int nameLen, name, octets}. */
+    public void sendPack(Player p) {
+        if (customEmotes.isEmpty()) return;
+        for (Map.Entry<String, byte[]> e : customEmotes.entrySet()) {
+            byte[] nameBytes = e.getKey().getBytes(StandardCharsets.UTF_8);
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            try (DataOutputStream out = new DataOutputStream(b)) {
+                out.writeInt(nameBytes.length);
+                out.write(nameBytes);
+                out.write(e.getValue());
+            } catch (IOException ignored) { continue; }
+            try {
+                p.sendPluginMessage(plugin, CHANNEL_PACK, b.toByteArray());
+            } catch (Exception ignore) {
+                // canal non enregistré côté client (pas de mod) → cosmétique.
+            }
+        }
+    }
+
+    // ─── Diffusion lecture (reborn:emote) ───
+
     private void broadcast(Player actor, String emoteName) {
         byte[] payload;
         try {
@@ -153,17 +212,15 @@ public final class EmoteManager {
             out.flush();
             payload = b.toByteArray();
         } catch (IOException ignored) {
-            return; // écriture mémoire — ne peut échouer en pratique
+            return;
         }
-
         double r2 = range * range;
-        Collection<? extends Player> world = actor.getWorld().getPlayers();
-        for (Player p : world) {
+        for (Player p : actor.getWorld().getPlayers()) {
             if (!p.equals(actor) && p.getLocation().distanceSquared(actor.getLocation()) > r2) continue;
             try {
                 p.sendPluginMessage(plugin, CHANNEL, payload);
             } catch (Exception ignore) {
-                // canal non enregistré côté récepteur (pas de mod) → cosmétique.
+                // canal non enregistré côté récepteur → cosmétique.
             }
         }
     }

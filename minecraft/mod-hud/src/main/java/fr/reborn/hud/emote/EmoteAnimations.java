@@ -3,38 +3,49 @@ package fr.reborn.hud.emote;
 import com.zigythebird.playeranimcore.animation.Animation;
 import io.github.kosmx.emotes.main.EmoteHolder;
 import io.github.kosmx.emotes.main.mixinFunctions.IPlayerEntity;
+import io.github.kosmx.emotes.server.serializer.UniversalEmoteSerializer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Pont client vers EmoteCraft : joue une emote <b>nommée</b> sur n'importe quel avatar,
- * en réutilisant les emotes qu'EmoteCraft a déjà chargées (built-in + dossier
- * {@code emotes/} du client + emotes distribuées par le serveur).
+ * Pont client vers EmoteCraft : joue une emote <b>nommée</b> sur n'importe quel avatar.
  *
- * <p>Contrairement à {@link fr.reborn.hud.combat.CombatAnimations} (assets embarqués +
- * layer PAL maison), on ne <b>bundle aucune animation</b> ni ne gère de layer : l'API
- * EmoteCraft ({@link EmoteHolder#playEmote}) fait le rendu. Le serveur (ShinobiCore) ne
- * transmet que le nom résolu via {@code reborn:emote} ; chaque client le résout ici.
+ * <p>Deux sources d'emotes, cumulées :
+ * <ul>
+ *   <li><b>EmoteCraft</b> : les emotes déjà chargées côté client (built-in + dossier
+ *       {@code emotes/} du client), via {@link EmoteHolder#list}.</li>
+ *   <li><b>Reborn (serveur)</b> : les emotes <b>déposées par les devs</b> dans le dossier
+ *       serveur {@code plugins/ShinobiCore/emotes/} et distribuées au client à la
+ *       connexion via le canal {@code reborn:emotepack} — voir {@link #registerCustom}.
+ *       C'est ce qui permet « drop + link serveur → visible par tous » (ex. swings de
+ *       kenjutsu) sans mise à jour du mod ni serveur Fabric.</li>
+ * </ul>
  *
- * <p>Tout est gardé par {@code try/catch(Throwable)} : si EmoteCraft est absent du
- * modpack, la couche se désactive proprement (aucune emote, mais le mod tourne).
+ * <p>Aucune animation n'est bundlée : l'API EmoteCraft fait le rendu. Tout est gardé
+ * par {@code try/catch(Throwable)} → no-op propre si EmoteCraft est absent.
  */
 public final class EmoteAnimations {
 
     public static final EmoteAnimations INSTANCE = new EmoteAnimations();
     private static final Logger LOG = LoggerFactory.getLogger("reborn-hud/emote");
 
+    /** Emotes serveur (déposées par les devs), reçues sur {@code reborn:emotepack}. */
+    private final Map<String, Animation> customEmotes = new ConcurrentHashMap<>();
+
     private EmoteAnimations() {}
 
-    /** Renvoie {@code true} si l'API EmoteCraft est chargée et le registre accessible. */
+    /** {@code true} si l'API EmoteCraft est chargée. */
     public boolean isAvailable() {
         try {
             return EmoteHolder.list != null;
@@ -43,34 +54,70 @@ public final class EmoteAnimations {
         }
     }
 
+    // ─── Emotes serveur (distribution Reborn) ───
+
     /**
-     * Noms d'affichage des emotes chargées (triés, dédupliqués) — alimente la liste
-     * d'émotes du menu Reborn (touche {@code .} → onglet ANIMATIONS).
+     * Enregistre une emote poussée par le serveur : décode les octets {@code .emotecraft}
+     * et l'indexe sous {@code name}. Rejouable ensuite par {@code /playemote <name>}.
+     */
+    public void registerCustom(String name, byte[] data) {
+        if (name == null || name.isBlank() || data == null || data.length == 0) return;
+        try {
+            Map<String, Animation> parsed = UniversalEmoteSerializer.readData(
+                    new ByteArrayInputStream(data), name + ".emotecraft");
+            if (parsed == null || parsed.isEmpty()) {
+                LOG.warn("emote serveur '{}' vide/illisible", name);
+                return;
+            }
+            Animation anim = parsed.values().iterator().next();
+            customEmotes.put(norm(name), anim);
+            LOG.info("emote serveur enregistrée : {}", name);
+        } catch (Throwable t) {
+            LOG.warn("échec décodage emote serveur '{}' ({})", name, t.toString());
+        }
+    }
+
+    /** Vide les emotes serveur (à la déconnexion). */
+    public void clearCustom() {
+        customEmotes.clear();
+    }
+
+    // ─── Lecture / résolution ───
+
+    /**
+     * Noms d'affichage des emotes disponibles (serveur + EmoteCraft), triés &amp;
+     * dédupliqués — alimente la liste du menu Reborn (touche {@code .} → ANIMATIONS).
      */
     public List<String> names() {
+        TreeSet<String> seen = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         List<String> out = new ArrayList<>();
+        // Emotes serveur d'abord (souvent les plus pertinentes : kenjutsu, RP…).
+        for (String k : customEmotes.keySet()) {
+            if (seen.add(k)) out.add(k);
+        }
         try {
-            if (EmoteHolder.list == null) return out;
-            TreeSet<String> seen = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-            for (EmoteHolder h : EmoteHolder.list) {
-                String name = displayName(h);
-                if (name != null && !name.isBlank() && seen.add(name)) {
-                    out.add(name);
+            if (EmoteHolder.list != null) {
+                for (EmoteHolder h : EmoteHolder.list) {
+                    String name = displayName(h);
+                    if (name != null && !name.isBlank() && seen.add(name)) out.add(name);
                 }
             }
         } catch (Throwable t) {
-            LOG.debug("liste emotes indisponible ({})", t.toString());
+            LOG.debug("liste emotes EmoteCraft indisponible ({})", t.toString());
         }
         return out;
     }
 
-    /** Résout une emote par nom d'affichage, id interne, ou UUID. {@code null} si absente. */
+    /** Résout une emote par nom : d'abord les emotes serveur, puis le registre EmoteCraft. */
     public Animation resolve(String key) {
         if (key == null || key.isBlank()) return null;
+        String want = norm(key);
+        // 1) emotes serveur (exact).
+        Animation custom = customEmotes.get(want);
+        if (custom != null) return custom;
         try {
             if (EmoteHolder.list == null) return null;
-            String want = norm(key);
-            // 1) correspondance exacte (nom d'affichage / getNameOrId / uuid).
+            // 2) EmoteCraft : exact (nom d'affichage / id / uuid).
             for (EmoteHolder h : EmoteHolder.list) {
                 Animation a = h.getEmote();
                 if (a == null) continue;
@@ -79,7 +126,10 @@ public final class EmoteAnimations {
                     return a;
                 }
             }
-            // 2) repli : préfixe (pratique pour la frappe rapide).
+            // 3) repli : préfixe (emotes serveur puis EmoteCraft).
+            for (Map.Entry<String, Animation> e : customEmotes.entrySet()) {
+                if (e.getKey().startsWith(want)) return e.getValue();
+            }
             for (EmoteHolder h : EmoteHolder.list) {
                 Animation a = h.getEmote();
                 if (a == null) continue;
@@ -94,8 +144,7 @@ public final class EmoteAnimations {
 
     /**
      * Joue (ou arrête) l'emote {@code key} sur l'avatar {@code entityId}. Nom vide =
-     * arrêt de l'emote en cours. Résout l'avatar dans le niveau client puis délègue à
-     * EmoteCraft. No-op silencieux si l'avatar/l'emote est introuvable.
+     * arrêt. No-op silencieux si l'avatar/l'emote est introuvable.
      */
     public void playByEntityId(int entityId, String key) {
         try {
@@ -113,13 +162,17 @@ public final class EmoteAnimations {
                 LOG.debug("emote introuvable côté client : {}", key);
                 return;
             }
-            EmoteHolder.playEmote(player, anim);
+            // EmoteHolder.playEmote joue n'importe quelle Animation (registre non requis) ;
+            // repli sur l'API bas niveau IPlayerEntity si elle refuse.
+            boolean ok = EmoteHolder.playEmote(player, anim);
+            if (!ok) ((IPlayerEntity) player).emotecraft$playEmote(anim, 3.0f, true);
         } catch (Throwable t) {
             LOG.debug("lecture emote '{}' sur #{} échouée ({})", key, entityId, t.toString());
         }
     }
 
-    /** Nom d'affichage lisible d'un holder (Component → String), ou son id interne. */
+    // ─── util ───
+
     private static String displayName(EmoteHolder h) {
         try {
             if (h.name != null) {
@@ -133,7 +186,6 @@ public final class EmoteAnimations {
         }
     }
 
-    /** Normalise pour comparaison lâche : minuscules, sans espaces/underscores/tirets. */
     private static String norm(String s) {
         if (s == null) return "";
         return s.toLowerCase(Locale.ROOT).replaceAll("[\\s_\\-]+", "").trim();
