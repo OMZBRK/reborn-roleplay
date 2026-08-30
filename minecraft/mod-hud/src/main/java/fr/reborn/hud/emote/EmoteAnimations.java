@@ -201,10 +201,17 @@ public final class EmoteAnimations {
                 LOG.debug("emote introuvable côté client : {}", key);
                 return;
             }
+            // EmoteCraft bascule la perspective (souvent 3e pers) à la lecture d'une emote,
+            // pour que le joueur se voie. On GARDE la perspective actuelle du joueur local
+            // (tu restes en 1ère perso si tu y es) en la restaurant juste après.
+            boolean self = player == mc.player;
+            net.minecraft.client.CameraType before =
+                (self && mc.options != null) ? mc.options.getCameraType() : null;
             // EmoteHolder.playEmote joue n'importe quelle Animation (registre non requis) ;
             // repli sur l'API bas niveau IPlayerEntity si elle refuse.
             boolean ok = EmoteHolder.playEmote(player, anim);
             if (!ok) ((IPlayerEntity) player).emotecraft$playEmote(anim, 3.0f, true);
+            if (before != null) mc.options.setCameraType(before);
         } catch (Throwable t) {
             LOG.debug("lecture emote '{}' sur #{} échouée ({})", key, entityId, t.toString());
         }
