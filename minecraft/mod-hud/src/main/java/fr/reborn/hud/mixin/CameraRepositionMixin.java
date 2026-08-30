@@ -27,12 +27,11 @@ public abstract class CameraRepositionMixin {
 
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
-    @Shadow public abstract Vec3 position();
-    @Shadow public abstract org.joml.Matrix4f getViewRotationMatrix(org.joml.Matrix4f dest);
-    @Shadow private org.joml.Matrix4f createProjectionMatrixForCulling() { return null; }
-    @Shadow private void prepareCullFrustum(org.joml.Matrix4fc proj, org.joml.Matrix4f view, Vec3 pos) { }
 
-    @Inject(method = "update", at = @At("TAIL"))
+    // Après alignWithEntity (cf. CameraThirdPersonMixin) : le culling se construit ensuite
+    // sur notre caméra → pas de trous de chunks.
+    @Inject(method = "update", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/Camera;alignWithEntity(F)V", shift = At.Shift.AFTER))
     private void reborn$repositionCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
         RepositionMode mode = RepositionMode.INSTANCE;
         if (!mode.isActive()) return;
@@ -43,11 +42,6 @@ public abstract class CameraRepositionMixin {
         Vec3 target = mode.cameraPosition(mc);
         setRotation(mode.camYaw(), mode.camPitch());
         setPosition(reborn$clip(mc.player, focus, target));
-        // Frustum de culling sur notre caméra (cf. CameraThirdPersonMixin) — sinon trous.
-        try {
-            prepareCullFrustum(createProjectionMatrixForCulling(),
-                getViewRotationMatrix(new org.joml.Matrix4f()), position());
-        } catch (Throwable ignored) { }
     }
 
     /** Réduit la distance si un mur est entre le focus et la caméra. */
