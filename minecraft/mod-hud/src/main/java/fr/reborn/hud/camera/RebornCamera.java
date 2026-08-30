@@ -32,6 +32,8 @@ public final class RebornCamera {
 
     /** ÉPAULE par défaut : c'est la vue permanente RP (F5 neutralisé). */
     private Mode mode = Mode.SHOULDER;
+    /** Dernier sous-mode Reborn (ÉPAULE/1ère perso), restauré en quittant le vanilla. */
+    private Mode rebornMode = Mode.SHOULDER;
     private CameraPreset preset = CameraPreset.DEFAUT;
     /** +1 = épaule droite, -1 = épaule gauche. */
     private int side = 1;
@@ -133,6 +135,9 @@ public final class RebornCamera {
         impactEnabled = p.camImpact;
         CameraPreset[] presets = CameraPreset.values();
         preset = presets[Math.max(0, Math.min(presets.length - 1, p.camPreset))];
+        // Style choisi (vanilla ou Reborn) — persisté.
+        rebornMode = Mode.SHOULDER;
+        mode = p.camVanilla ? Mode.VANILLA : Mode.SHOULDER;
     }
 
     /** Persiste la config caméra courante. */
@@ -145,6 +150,7 @@ public final class RebornCamera {
         p.camTurnSpeed = turnSpeed;
         p.camPreset = preset.ordinal();
         p.camImpact = impactEnabled;
+        p.camVanilla = (mode == Mode.VANILLA);
         p.save();
     }
 
@@ -177,22 +183,28 @@ public final class RebornCamera {
 
     public boolean isVanilla() { return mode == Mode.VANILLA; }
 
-    /**
-     * Bascule entre la caméra Reborn (épaule) et la caméra <b>vanilla Minecraft</b>
-     * (F5/double-F5 libre). En mode vanilla, le mod ne repositionne plus la caméra
-     * (isEnabled()==false) → le rendu des chunks redevient celui de Minecraft.
-     */
+    /** Bascule caméra Reborn ↔ caméra Minecraft vanilla (persisté). */
     public void toggleVanilla(Minecraft mc) {
-        if (mode == Mode.VANILLA) {
-            mode = Mode.SHOULDER;
-        } else {
+        setVanilla(mode != Mode.VANILLA, mc);
+    }
+
+    /**
+     * Choisit le style de caméra : <b>vanilla Minecraft</b> (F5/double-F5 libre — le mod
+     * ne touche plus à la caméra, chunks rendus par MC) ou <b>Reborn</b> (épaule/1ère perso).
+     * Le choix est persisté. Restaure le dernier sous-mode Reborn en revenant.
+     */
+    public void setVanilla(boolean vanilla, Minecraft mc) {
+        if (vanilla) {
+            if (mode != Mode.VANILLA) rebornMode = mode;   // mémorise épaule/1ère perso
             mode = Mode.VANILLA;
             if (mc != null && mc.options != null) {
-                // Démarre en 3e personne vanilla pour voir la différence tout de suite.
-                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK); // départ 3e pers vanilla
             }
+        } else {
+            mode = (rebornMode == Mode.FIRST) ? Mode.FIRST : Mode.SHOULDER;
         }
         tickView(mc);
+        saveToPrefs();
     }
 
     /**
@@ -216,9 +228,25 @@ public final class RebornCamera {
         prevYSpeed = e.getDeltaMovement().y;
     }
 
-    /** Bascule vue ÉPAULE ↔ vraie 1ère personne (touche dédiée). */
+    /**
+     * Touche « vue 1ère personne » — contextuelle selon le style :
+     * <ul>
+     *   <li><b>Reborn</b> : bascule ÉPAULE ↔ vraie 1ère personne.</li>
+     *   <li><b>Vanilla</b> : bascule 1ère ↔ 3e personne vanilla (comme F5), sans quitter
+     *       le style vanilla.</li>
+     * </ul>
+     */
     public void toggleFirstPerson(Minecraft mc) {
+        if (mode == Mode.VANILLA) {
+            if (mc != null && mc.options != null) {
+                CameraType t = mc.options.getCameraType();
+                mc.options.setCameraType(t == CameraType.FIRST_PERSON
+                    ? CameraType.THIRD_PERSON_BACK : CameraType.FIRST_PERSON);
+            }
+            return;
+        }
         mode = (mode == Mode.SHOULDER) ? Mode.FIRST : Mode.SHOULDER;
+        rebornMode = mode;
         tickView(mc); // applique tout de suite la perspective + init orbite.
     }
 

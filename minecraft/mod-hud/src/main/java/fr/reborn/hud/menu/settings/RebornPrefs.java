@@ -74,6 +74,7 @@ public final class RebornPrefs {
     public double camTurnSpeed = 0.5;   // vitesse de rotation du corps (0.1..1.0)
     public int camPreset = 0;           // index CameraPreset
     public boolean camImpact = false;   // dip caméra à l'atterrissage (off par défaut)
+    public boolean camVanilla = false;  // true = caméra Minecraft vanilla (F5), false = Reborn
 
     // ────────────────── Animations de mouvement (GTA-RP) ──────
     public int walkStyle = 0;           // index du style de marche choisi
@@ -161,6 +162,7 @@ public final class RebornPrefs {
         this.camTurnSpeed = other.camTurnSpeed;
         this.camPreset = other.camPreset;
         this.camImpact = other.camImpact;
+        this.camVanilla = other.camVanilla;
         this.walkStyle = other.walkStyle;
         this.tablistHold = other.tablistHold;
     }
