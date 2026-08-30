@@ -26,8 +26,9 @@ public final class RebornCamera {
     static final double RIGHT_MAX = 1.2;
     static final double UP_MIN = -0.6, UP_MAX = 1.2;
 
-    /** Vue épaule (3e pers. RP par défaut) ou vraie 1ère personne. */
-    public enum Mode { SHOULDER, FIRST }
+    /** Vue épaule (3e pers. RP par défaut), vraie 1ère personne, ou caméra
+     *  Minecraft vanilla (F5 libre — le mod ne touche plus à la caméra). */
+    public enum Mode { SHOULDER, FIRST, VANILLA }
 
     /** ÉPAULE par défaut : c'est la vue permanente RP (F5 neutralisé). */
     private Mode mode = Mode.SHOULDER;
@@ -155,16 +156,43 @@ public final class RebornCamera {
      */
     public void tickView(Minecraft mc) {
         if (mc.player == null || mc.options == null) return;
-        if (mode == Mode.SHOULDER) {
-            if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
-                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-                initOrientation(mc.player.getYRot(), mc.player.getXRot());
+        switch (mode) {
+            case SHOULDER -> {
+                if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
+                    mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+                    initOrientation(mc.player.getYRot(), mc.player.getXRot());
+                }
             }
+            case FIRST -> {
+                if (mc.options.getCameraType() != CameraType.FIRST_PERSON) {
+                    mc.options.setCameraType(CameraType.FIRST_PERSON);
+                }
+            }
+            // VANILLA : on ne force RIEN → F5/double-F5 vanilla libre, le mod ne
+            // touche plus à la caméra (mixin OTS off via isEnabled()==false) → chunks
+            // rendus normalement. Sert de repli + de test A/B contre la caméra Reborn.
+            case VANILLA -> { }
+        }
+    }
+
+    public boolean isVanilla() { return mode == Mode.VANILLA; }
+
+    /**
+     * Bascule entre la caméra Reborn (épaule) et la caméra <b>vanilla Minecraft</b>
+     * (F5/double-F5 libre). En mode vanilla, le mod ne repositionne plus la caméra
+     * (isEnabled()==false) → le rendu des chunks redevient celui de Minecraft.
+     */
+    public void toggleVanilla(Minecraft mc) {
+        if (mode == Mode.VANILLA) {
+            mode = Mode.SHOULDER;
         } else {
-            if (mc.options.getCameraType() != CameraType.FIRST_PERSON) {
-                mc.options.setCameraType(CameraType.FIRST_PERSON);
+            mode = Mode.VANILLA;
+            if (mc != null && mc.options != null) {
+                // Démarre en 3e personne vanilla pour voir la différence tout de suite.
+                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
             }
         }
+        tickView(mc);
     }
 
     /**

@@ -68,6 +68,10 @@ public final class HudKeybinds {
         KeyMapping swapShoulder = bind("key.reborn-hud.cam_swap", GLFW.GLFW_KEY_U);
         KeyMapping cyclePreset = bind("key.reborn-hud.cam_preset", GLFW.GLFW_KEY_I);
         KeyMapping openCamMenu = bind("key.reborn-hud.cam_menu", GLFW.GLFW_KEY_O);
+        // Bascule caméra Reborn (épaule) ↔ caméra Minecraft VANILLA (F5/double-F5 libre).
+        // Utile en cas de souci de rendu (chunks) avec la caméra Reborn, et pour un test
+        // A/B. Défaut touche « ' » (apostrophe), rebindable.
+        KeyMapping camVanilla = bind("key.reborn-hud.cam_vanilla", GLFW.GLFW_KEY_APOSTROPHE);
         // Course chakraïque (« Naruto run ») : touche dédiée, bascule le
         // mouvement libre client + notifie le plugin serveur (canal reborn:naruto).
         KeyMapping narutoTest = bind("key.reborn-hud.naruto_test", GLFW.GLFW_KEY_L);
@@ -161,6 +165,17 @@ public final class HudKeybinds {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.gui.screen() == null && mc.player != null) {
                     mc.setScreenAndShow(new fr.reborn.hud.camera.CameraScreen(null));
+                }
+            }
+            while (camVanilla.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.gui.screen() == null && mc.player != null) {
+                    fr.reborn.hud.camera.RebornCamera.INSTANCE.toggleVanilla(mc);
+                    String state = fr.reborn.hud.camera.RebornCamera.INSTANCE.isVanilla()
+                        ? "§eCaméra Minecraft vanilla (F5 libre)"
+                        : "§aCaméra Reborn (épaule)";
+                    mc.gui.hud.getChat().addClientSystemMessage(
+                        net.minecraft.network.chat.Component.literal("§6[Reborn] §f" + state));
                 }
             }
             while (narutoTest.consumeClick()) {
