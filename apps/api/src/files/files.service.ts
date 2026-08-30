@@ -27,6 +27,7 @@ const RELOAD_TARGETS: Record<
   magicspells: { command: 'ms reload', root: 'plugins/MagicSpells', label: 'MagicSpells' },
   mythicmobs: { command: 'mm reload', root: 'plugins/MythicMobs', label: 'MythicMobs' },
   modelengine: { command: 'meg reload', root: 'plugins/ModelEngine', label: 'ModelEngine' },
+  emotes: { command: 'playemote reload', root: 'plugins/ShinobiCore/emotes', label: 'Emotes' },
 };
 
 /** Une racine autorisée pour un grade (chemin relatif à la base SFTP + libellé UI). */
@@ -55,7 +56,10 @@ export interface FileScopes {
 const SCOPES: Partial<Record<Role, Scope>> = {
   [Role.MODELISATEUR]: {
     write: true,
-    roots: [{ path: 'plugins/Nexo', label: 'Nexo — modèles & items' }],
+    roots: [
+      { path: 'plugins/Nexo', label: 'Nexo — modèles & items' },
+      { path: 'plugins/ShinobiCore/emotes', label: 'Emotes RP' },
+    ],
   },
   [Role.DEVELOPPEUR]: {
     write: true,
@@ -64,6 +68,7 @@ const SCOPES: Partial<Record<Role, Scope>> = {
       { path: 'plugins/MagicSpells', label: 'MagicSpells' },
       { path: 'plugins/MythicMobs', label: 'MythicMobs' },
       { path: 'plugins/ModelEngine', label: 'ModelEngine' },
+      { path: 'plugins/ShinobiCore/emotes', label: 'Emotes RP' },
     ],
   },
   [Role.ADMIN]: {
