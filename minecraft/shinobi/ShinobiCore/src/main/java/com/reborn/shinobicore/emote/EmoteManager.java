@@ -49,6 +49,8 @@ public final class EmoteManager implements Listener, PluginMessageListener {
 
     /** Octets max d'un fichier emote poussé (garde-fou plugin-message). */
     private static final int MAX_EMOTE_BYTES = 512 * 1024;
+    /** Taille d'un chunk : bien sous la limite des plugin-messages Bukkit. */
+    private static final int CHUNK = 24000;
     private static final long PUSH_DELAY_TICKS = 40L; // ~2s après le join
 
     public record Entry(String key, String display, String emote, String permission) {}
@@ -181,23 +183,43 @@ public final class EmoteManager implements Listener, PluginMessageListener {
         if (CHANNEL_PACK.equals(channel)) sendPack(player);
     }
 
-    /** Pousse chaque emote serveur au client : {@code int nameLen, name, octets}. */
+    /**
+     * Pousse chaque emote serveur au client, EN CHUNKS (les gros {@code .emotecraft}
+     * dépassent la taille max d'un plugin-message → un seul gros message serait rejeté).
+     * Format par chunk : {@code int nameLen, name, int idx, int total, octets du morceau}.
+     */
     public void sendPack(Player p) {
         if (customEmotes.isEmpty()) return;
+        int sent = 0, chunks = 0;
         for (Map.Entry<String, byte[]> e : customEmotes.entrySet()) {
             byte[] nameBytes = e.getKey().getBytes(StandardCharsets.UTF_8);
-            ByteArrayOutputStream b = new ByteArrayOutputStream();
-            try (DataOutputStream out = new DataOutputStream(b)) {
-                out.writeInt(nameBytes.length);
-                out.write(nameBytes);
-                out.write(e.getValue());
-            } catch (IOException ignored) { continue; }
-            try {
-                p.sendPluginMessage(plugin, CHANNEL_PACK, b.toByteArray());
-            } catch (Exception ignore) {
-                // canal non enregistré côté client (pas de mod) → cosmétique.
+            byte[] data = e.getValue();
+            int total = Math.max(1, (data.length + CHUNK - 1) / CHUNK);
+            boolean ok = true;
+            for (int idx = 0; idx < total && ok; idx++) {
+                int start = idx * CHUNK;
+                int len = Math.min(CHUNK, data.length - start);
+                ByteArrayOutputStream b = new ByteArrayOutputStream();
+                try (DataOutputStream out = new DataOutputStream(b)) {
+                    out.writeInt(nameBytes.length);
+                    out.write(nameBytes);
+                    out.writeInt(idx);
+                    out.writeInt(total);
+                    out.write(data, start, len);
+                } catch (IOException ignored) { ok = false; break; }
+                try {
+                    p.sendPluginMessage(plugin, CHANNEL_PACK, b.toByteArray());
+                    chunks++;
+                } catch (Exception ex) {
+                    plugin.getLogger().warning("Emote pack: '" + e.getKey() + "' chunk " + idx
+                            + " → " + p.getName() + " échoué : " + ex.getMessage());
+                    ok = false;
+                }
             }
+            if (ok) sent++;
         }
+        plugin.getLogger().info("Emotes: pack envoyé à " + p.getName()
+                + " (" + sent + " emote(s), " + chunks + " chunk(s))");
     }
 
     // ─── Diffusion lecture (reborn:emote) ───

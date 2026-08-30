@@ -42,6 +42,8 @@ public final class EmoteAnimations {
 
     /** Emotes serveur (déposées par les devs), reçues sur {@code reborn:emotepack}. */
     private final Map<String, Animation> customEmotes = new ConcurrentHashMap<>();
+    /** Réassemblage des chunks en cours : nom → morceaux reçus. */
+    private final Map<String, byte[][]> pending = new ConcurrentHashMap<>();
 
     private EmoteAnimations() {}
 
@@ -57,8 +59,38 @@ public final class EmoteAnimations {
     // ─── Emotes serveur (distribution Reborn) ───
 
     /**
-     * Enregistre une emote poussée par le serveur : décode les octets {@code .emotecraft}
-     * et l'indexe sous {@code name}. Rejouable ensuite par {@code /playemote <name>}.
+     * Reçoit un chunk du canal {@code reborn:emotepack} et, une fois tous les morceaux
+     * reçus, réassemble puis enregistre l'emote. Les gros {@code .emotecraft} dépassent
+     * la taille max d'un plugin-message → ils arrivent en plusieurs chunks.
+     */
+    public void registerChunk(String name, int idx, int total, byte[] data) {
+        if (name == null || name.isBlank() || total <= 0 || idx < 0 || idx >= total) return;
+        try {
+            byte[][] parts = pending.computeIfAbsent(name, k -> new byte[total][]);
+            if (parts.length != total) { // changement de taille (reload) → repart à neuf
+                parts = new byte[total][];
+                pending.put(name, parts);
+            }
+            parts[idx] = data != null ? data : new byte[0];
+            for (byte[] p : parts) if (p == null) return; // pas encore complet
+
+            int len = 0;
+            for (byte[] p : parts) len += p.length;
+            byte[] full = new byte[len];
+            int off = 0;
+            for (byte[] p : parts) { System.arraycopy(p, 0, full, off, p.length); off += p.length; }
+            pending.remove(name);
+            registerCustom(name, full);
+        } catch (Throwable t) {
+            LOG.debug("réassemblage emote '{}' échoué ({})", name, t.toString());
+            pending.remove(name);
+        }
+    }
+
+    /**
+     * Décode les octets {@code .emotecraft} complets et enregistre l'emote sous {@code name}.
+     * L'anim est aussi ajoutée au registre EmoteCraft ({@link EmoteHolder#list}) pour être
+     * jouée exactement comme les emotes built-in (et visible dans la roue EmoteCraft).
      */
     public void registerCustom(String name, byte[] data) {
         if (name == null || name.isBlank() || data == null || data.length == 0) return;
@@ -71,7 +103,13 @@ public final class EmoteAnimations {
             }
             Animation anim = parsed.values().iterator().next();
             customEmotes.put(norm(name), anim);
-            LOG.info("emote serveur enregistrée : {}", name);
+            // Enregistre dans le registre EmoteCraft → rendu identique aux built-in.
+            try {
+                if (EmoteHolder.list != null) EmoteHolder.list.add(new EmoteHolder(anim));
+            } catch (Throwable ignore) {
+                // registre indisponible : on garde au moins customEmotes + IPlayerEntity.
+            }
+            LOG.info("emote serveur enregistrée : {} ({} o)", name, data.length);
         } catch (Throwable t) {
             LOG.warn("échec décodage emote serveur '{}' ({})", name, t.toString());
         }
@@ -80,6 +118,7 @@ public final class EmoteAnimations {
     /** Vide les emotes serveur (à la déconnexion). */
     public void clearCustom() {
         customEmotes.clear();
+        pending.clear();
     }
 
     // ─── Lecture / résolution ───

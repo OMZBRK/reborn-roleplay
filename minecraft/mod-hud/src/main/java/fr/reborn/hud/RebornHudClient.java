@@ -374,8 +374,8 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
             fr.reborn.hud.emote.EmotePackPayload.ID,
             (payload, context) -> context.client().execute(
-                () -> fr.reborn.hud.emote.EmoteAnimations.INSTANCE.registerCustom(
-                    payload.name(), payload.data())));
+                () -> fr.reborn.hud.emote.EmoteAnimations.INSTANCE.registerChunk(
+                    payload.name(), payload.idx(), payload.total(), payload.data())));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register(
             (handler, sender, client) -> {
                 if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
