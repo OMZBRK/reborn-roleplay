@@ -356,6 +356,18 @@ public final class MovementAnimations {
         t.lastZ = player.getZ();
         t.hasLastPos = true;
 
+        // Une emote EmoteCraft en cours (swing kenjutsu au M1, /playemote, roue
+        // d'emotes…) prend TOUT le corps. La démarche doit céder : sinon la marche
+        // (layer 1000) écrase l'emote (layer EmoteCraft, priorité inférieure) et
+        // l'anim disparaît dès qu'on bouge — c'est le bug « ça joue à l'arrêt mais
+        // pas en marchant ». On rend NONE pour laisser l'emote jouer en mouvement.
+        // Vaut pour le joueur local ET les distants (l'état d'emote est synchronisé
+        // par EmoteCraft), donc les autres voient aussi ton kenjutsu en marchant.
+        if (isEmotePlaying(player)) {
+            t.idleGrace = 0;
+            return MoveState.NONE;
+        }
+
         // Saut / en l'air : prioritaire, indépendant du mouvement horizontal.
         if (!player.onGround() && jump != null) {
             t.idleGrace = 0;
@@ -379,6 +391,19 @@ public final class MovementAnimations {
         if (naruto && narutoRun != null) return MoveState.NARUTO;
         if (player.isSprinting() && run != null) return MoveState.RUN;
         return (!walkAnims.isEmpty() && walkAnims.get(0) != null) ? MoveState.WALK : MoveState.NONE;
+    }
+
+    /**
+     * {@code true} si une emote EmoteCraft joue actuellement sur cet avatar. Sert à
+     * faire céder le layer démarches (cf. {@link #computeState}). Enveloppé en
+     * {@code try/catch} → {@code false} propre si EmoteCraft est absent.
+     */
+    private static boolean isEmotePlaying(AbstractClientPlayer player) {
+        try {
+            return ((io.github.kosmx.emotes.main.mixinFunctions.IPlayerEntity) player).isPlayingEmote();
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     private boolean remoteNaruto(UUID uuid) {
