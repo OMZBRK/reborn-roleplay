@@ -25,6 +25,9 @@ public final class PhotoMode {
     private static final double HALF = 50.0;
 
     private boolean active = false;
+    /** Le chat est ouvert par-dessus la freecam : le déplacement est figé et le
+     *  panneau photo est rouvert quand le chat se ferme. */
+    private boolean suspendedForChat = false;
     private double x, y, z;
     private double anchorX, anchorY, anchorZ;
     private float yaw, pitch;
@@ -58,6 +61,13 @@ public final class PhotoMode {
     private PhotoMode() {}
 
     public boolean isActive() { return active; }
+    public boolean isSuspendedForChat() { return suspendedForChat; }
+
+    /** Ouvre le chat par-dessus la freecam (la caméra reste active, on écrit). */
+    public void openChatOverlay(Minecraft mc, boolean command) {
+        suspendedForChat = true;
+        mc.setScreenAndShow(new net.minecraft.client.gui.screens.ChatScreen(command ? "/" : "", true));
+    }
 
     /** Démarre le mode depuis la caméra joueur actuelle. */
     public void begin(Minecraft mc) {
@@ -74,6 +84,7 @@ public final class PhotoMode {
 
     public void end(Minecraft mc) {
         active = false;
+        suspendedForChat = false;
         if (mc.options != null) mc.options.setCameraType(savedPerspective);
     }
 
@@ -90,6 +101,20 @@ public final class PhotoMode {
     /** Déplacement free-cam + maintien de la 3e personne. Appelé chaque tick. */
     public void tickMovement(Minecraft mc) {
         if (!active || mc.options == null) return;
+        // Chat ouvert par-dessus la freecam : on FIGE le déplacement (les touches
+        // servent à écrire, pas à voler) et on garde la caméra où elle est.
+        if (mc.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen) {
+            if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
+                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+            }
+            return;
+        }
+        // Le chat s'est fermé → on rouvre le panneau photo (on reste en freecam).
+        if (suspendedForChat) {
+            suspendedForChat = false;
+            mc.setScreenAndShow(new fr.reborn.hud.ui.PhotoModeScreen());
+            return;
+        }
         // Bloque le changement de vue (F5) pendant le mode.
         if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
