@@ -24,6 +24,11 @@ const RELOAD_TARGETS: Record<
   { command: string; root: string; label: string }
 > = {
   nexo: { command: 'nexo reload', root: 'plugins/Nexo', label: 'Nexo' },
+  creator: {
+    command: 'creator reload',
+    root: 'plugins/ShinobiCore/creator-assets',
+    label: 'Character creator (assets live)',
+  },
   magicspells: { command: 'ms reload', root: 'plugins/MagicSpells', label: 'MagicSpells' },
   mythicmobs: { command: 'mm reload', root: 'plugins/MythicMobs', label: 'MythicMobs' },
   modelengine: { command: 'meg reload', root: 'plugins/ModelEngine', label: 'ModelEngine' },
@@ -59,12 +64,20 @@ const SCOPES: Partial<Record<Role, Scope>> = {
     roots: [
       { path: 'plugins/Nexo', label: 'Nexo — modèles & items' },
       { path: 'plugins/ShinobiCore/emotes', label: 'Emotes RP' },
+      {
+        path: 'plugins/ShinobiCore/creator-assets',
+        label: 'Character creator — tenues/cheveux/yeux (diffusion live)',
+      },
     ],
   },
   [Role.DEVELOPPEUR]: {
     write: true,
     roots: [
       { path: 'plugins/Nexo', label: 'Nexo — modèles & items' },
+      {
+        path: 'plugins/ShinobiCore/creator-assets',
+        label: 'Character creator — tenues/cheveux/yeux (diffusion live)',
+      },
       { path: 'plugins/MagicSpells', label: 'MagicSpells' },
       { path: 'plugins/MythicMobs', label: 'MythicMobs' },
       { path: 'plugins/ModelEngine', label: 'ModelEngine' },
