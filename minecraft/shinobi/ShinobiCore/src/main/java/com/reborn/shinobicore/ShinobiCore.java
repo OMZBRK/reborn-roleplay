@@ -88,6 +88,7 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.cinematic.CinematicManager cinematicManager;
     private com.reborn.shinobicore.vanish.VanishManager vanishManager;
     private com.reborn.shinobicore.emote.EmoteManager emoteManager;
+    private com.reborn.shinobicore.creator.CreatorAssetManager creatorAssetManager;
     private ItemGiveRegistry itemGiveRegistry;
     private com.reborn.shinobicore.technique.AbilityRegistry techniqueRegistry;
     private com.reborn.shinobicore.gui.CoreGuiRouter coreGuiRouter;
@@ -401,6 +402,19 @@ public final class ShinobiCore extends JavaPlugin {
             if (pc != null) { pc.setExecutor(emoteCmd); pc.setTabCompleter(emoteCmd); }
             else getLogger().warning("Command '" + c + "' is not declared in plugin.yml.");
         }
+
+        // Assets du character creator : canal reborn:creatorpack (push serveur→client) +
+        // /creator reload. Les devs déposent PNG + catalog.json via le panel (dossier
+        // creator-assets/) → nouveaux cosmétiques dans le creator sans republier le mod.
+        this.creatorAssetManager = new com.reborn.shinobicore.creator.CreatorAssetManager(this);
+        this.creatorAssetManager.start();
+        PluginCommand creatorCmd = getCommand("creator");
+        if (creatorCmd != null) {
+            com.reborn.shinobicore.creator.CreatorCommand cc =
+                    new com.reborn.shinobicore.creator.CreatorCommand(this.creatorAssetManager);
+            creatorCmd.setExecutor(cc);
+            creatorCmd.setTabCompleter(cc);
+        } else getLogger().warning("Command 'creator' is not declared in plugin.yml.");
 
         PluginCommand meCmd = getCommand("me");
         if (meCmd != null) meCmd.setExecutor(new MeCommand(this));

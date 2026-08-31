@@ -387,6 +387,29 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.emote.EmoteAnimations.INSTANCE.clearCustom());
 
+        // Distribution des ASSETS DU CREATOR (canal reborn:creatorpack, bidirectionnel) :
+        // tenues/cheveux/yeux… déposés par les devs dans plugins/ShinobiCore/creator-assets/
+        // sont poussés à chaque client → visibles dans le character creator SANS MAJ du mod.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.skin.CreatorPackPayload.ID, fr.reborn.hud.skin.CreatorPackPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.skin.CreatorPackPayload.ID, fr.reborn.hud.skin.CreatorPackPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.skin.CreatorPackPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.skin.CreatorAssets.INSTANCE.registerChunk(
+                    payload.name(), payload.idx(), payload.total(), payload.data())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register(
+            (handler, sender, client) -> {
+                if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
+                        fr.reborn.hud.skin.CreatorPackPayload.ID)) {
+                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                        fr.reborn.hud.skin.CreatorPackPayload.request());
+                }
+            });
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.skin.CreatorAssets.INSTANCE.clear());
+
         // Input de garde M2 (C2S reborn:combatin) — ShinobiCombat applique la réduction
         // + rediffuse l'anim. Inerte via canSend si le plugin est absent.
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
