@@ -89,9 +89,8 @@ public final class HudKeybinds {
         // Garde / parade (touche dédiée MAINTENUE). Défaut C (ancien raccourci inventaire
         // libéré ; ⚠️ Zoomify utilise parfois C → rebindable). Lue par CombatInput.tick.
         PARRY = bind("key.reborn-hud.parry", GLFW.GLFW_KEY_C);
-        // Test de la feuille (tirage de nature de chakra, prototype de FEEL). Touche F
-        // (= Feuille), rebindable. Solo/dev : ouvre directement l'écran gacha.
-        KeyMapping tirageFeuille = bind("key.reborn-hud.tirage_feuille", GLFW.GLFW_KEY_F);
+        // (Le « test de la feuille » (gacha nature de chakra) n'est PLUS bindé sur F —
+        // retiré à la demande ; la touche F revient au comportement vanilla.)
         // (Le repositionnement cosmétique n'a PLUS de raccourci : il s'ouvre depuis
         // l'inventaire — clic droit sur un cosmétique équipé → « Repositionner ».)
 
@@ -190,12 +189,6 @@ public final class HudKeybinds {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null && mc.gui.screen() == null) {
                     fr.reborn.hud.combat.CombatInput.INSTANCE.dash(mc);
-                }
-            }
-            while (tirageFeuille.consumeClick()) {
-                Minecraft mc = Minecraft.getInstance();
-                if (mc.gui.screen() == null && mc.player != null) {
-                    mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen());
                 }
             }
             while (walkMenu.consumeClick()) {
