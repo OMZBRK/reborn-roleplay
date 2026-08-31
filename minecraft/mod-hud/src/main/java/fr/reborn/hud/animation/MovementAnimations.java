@@ -382,8 +382,11 @@ public final class MovementAnimations {
         }
         t.idleGrace = 0;
 
-        // Accroupi en déplacement : démarche crouch (observable → visible chez les autres).
-        if (player.isCrouching() && crouch != null) return MoveState.CROUCH;
+        // Accroupi en déplacement : on laisse la pose d'accroupissement VANILLA.
+        // L'ancienne démarche « crouch_ghostface » était une anim DEBOUT plaquée sur
+        // le squelette accroupi (bounding box abaissée) → modèle tordu. On ne l'écrase
+        // plus tant qu'une vraie anim accroupie n'est pas authoré pour ce squelette.
+        if (player.isCrouching()) return MoveState.NONE;
 
         boolean naruto = isLocal
             ? NarutoRun.INSTANCE.isActive()

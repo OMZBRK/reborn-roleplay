@@ -95,13 +95,25 @@ public final class EmoteAnimations {
     public void registerCustom(String name, byte[] data) {
         if (name == null || name.isBlank() || data == null || data.length == 0) return;
         try {
-            Map<String, Animation> parsed = UniversalEmoteSerializer.readData(
-                    new ByteArrayInputStream(data), name + ".emotecraft");
-            if (parsed == null || parsed.isEmpty()) {
-                LOG.warn("emote serveur '{}' vide/illisible", name);
+            // 1) Format Emotecraft natif (.emotecraft binaire ou JSON Emotecraft).
+            Map<String, Animation> parsed;
+            try {
+                parsed = UniversalEmoteSerializer.readData(
+                        new ByteArrayInputStream(data), name + ".emotecraft");
+            } catch (Throwable notEmotecraft) {
+                parsed = null; // pas du .emotecraft → on tentera le GeckoLib ci-dessous
+            }
+            // 2) Fallback : .json GeckoLib / Player-Animation-Library (export Blender). Le
+            //    dev peut ainsi déposer DIRECTEMENT le .json exporté de Blender dans
+            //    plugins/ShinobiCore/emotes/ — sans le convertir en .emotecraft — et le
+            //    jouer via /playemote. Mêmes octets que les démarches (cf MovementAnimations).
+            Animation anim = (parsed != null && !parsed.isEmpty())
+                    ? parsed.values().iterator().next()
+                    : parseGeckolib(data);
+            if (anim == null) {
+                LOG.warn("emote serveur '{}' vide/illisible (ni .emotecraft ni GeckoLib .json)", name);
                 return;
             }
-            Animation anim = parsed.values().iterator().next();
             customEmotes.put(norm(name), anim);
             // Enregistre dans le registre EmoteCraft → rendu identique aux built-in.
             try {
@@ -119,6 +131,32 @@ public final class EmoteAnimations {
     public void clearCustom() {
         customEmotes.clear();
         pending.clear();
+    }
+
+    /**
+     * Parse des octets {@code .json} GeckoLib / Player-Animation-Library (export Blender
+     * via l'addon Emotecraft/PAL, cf. {@code geckolib_format_version} + bloc
+     * {@code player_animation_library}). Renvoie {@code null} si ce ne sont pas des
+     * octets GeckoLib exploitables. Même pipeline que les démarches
+     * ({@code MovementAnimations.loadGeckolib}).
+     */
+    private static Animation parseGeckolib(byte[] data) {
+        // Détection légère : du JSON qui commence par « { ».
+        int i = 0;
+        while (i < data.length && Character.isWhitespace((char) data[i])) i++;
+        if (i >= data.length || data[i] != '{') return null;
+        try (java.io.Reader r = new java.io.InputStreamReader(
+                new ByteArrayInputStream(data), java.nio.charset.StandardCharsets.UTF_8)) {
+            com.google.gson.JsonObject root = com.zigythebird.playeranimcore.PlayerAnimLib.GSON
+                    .fromJson(r, com.google.gson.JsonObject.class);
+            com.google.gson.JsonObject anims = root == null ? null : root.getAsJsonObject("animations");
+            if (anims == null || anims.isEmpty()) return null;
+            com.google.gson.JsonElement first = anims.entrySet().iterator().next().getValue();
+            return com.zigythebird.playeranimcore.PlayerAnimLib.GSON.fromJson(first, Animation.class);
+        } catch (Throwable t) {
+            LOG.debug("parse GeckoLib échoué ({})", t.toString());
+            return null;
+        }
     }
 
     // ─── Lecture / résolution ───

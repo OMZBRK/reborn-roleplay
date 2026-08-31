@@ -5,6 +5,7 @@ import com.reborn.shinobicore.api.CharacterService;
 import com.reborn.shinobicore.api.KoService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Material;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -204,12 +205,14 @@ public final class CombatListener implements Listener, PluginMessageListener {
         // Combat RP uniquement : l'attaquant doit avoir un personnage actif.
         if (characters.getActive(attacker.getUniqueId()) == null) return;
 
-        // Taïjutsu = MAINS NUES uniquement. Avec une arme en main (katana/arme ninja
-        // kenjutsu…), le M1 est géré par l'arme / MagicSpells → aucun combat ni anim
-        // taïjutsu (sinon le taïjutsu de base se joue par-dessus le spell kenjutsu quand
-        // on frappe quelqu'un). Cohérent avec le client qui ne joue le taïjutsu qu'à
-        // mains nues (getMainHandItem().isEmpty()).
-        if (!attacker.getInventory().getItemInMainHand().getType().isAir()) return;
+        // Taïjutsu (MAINS NUES) et KENJUTSU (arme tranchante) partagent le même moteur
+        // de coups : combo M1 + coût d'endurance + dégâts (« mêmes coups que le taï »
+        // pour le kenjutsu, pour l'instant). L'anim reste distincte côté client (poing
+        // à mains nues, swing katana en EmoteCraft). Avec un AUTRE objet en main
+        // (parchemin, pilule, item Nexo…), le M1 n'entre pas en combat mêlée — le
+        // clic sert à cet objet.
+        Material held = attacker.getInventory().getItemInMainHand().getType();
+        if (!held.isAir() && !isKenjutsuWeapon(held)) return;
 
         // Un joueur KO ne frappe pas.
         if (ko != null && ko.isKo(attacker.getUniqueId())) {
@@ -558,6 +561,14 @@ public final class CombatListener implements Listener, PluginMessageListener {
     }
 
     // -------------------------------------------------------------- helpers --
+
+    /** Armes de kenjutsu : un M1 à l'arme tranchante (épée/hache) déclenche le même
+     *  combo + coût d'endurance que le taïjutsu à mains nues. Aligné sur la
+     *  classification {@code DamageOrigin.KENJUTSU} de ShinobiCore. */
+    private static boolean isKenjutsuWeapon(Material m) {
+        String n = m.name();
+        return n.endsWith("_SWORD") || n.endsWith("_AXE");
+    }
 
     /** Pousse {@code victim} horizontalement à l'opposé de {@code attacker}, plus une composante Y. */
     private void applyKnockback(Player attacker, LivingEntity victim, double horizontal, double vertical) {

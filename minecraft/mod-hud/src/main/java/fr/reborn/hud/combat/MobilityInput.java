@@ -29,6 +29,8 @@ public final class MobilityInput {
     public void tick(Minecraft mc) {
         LocalPlayer p = mc.player;
         if (p == null || mc.level == null || mc.gui.screen() != null) { wasSpace = false; return; }
+        // Pas de double saut sous garde/parade : le joueur est immobilisé.
+        if (CombatInput.INSTANCE.isBlocking()) { wasSpace = mc.options.keyJump.isDown(); return; }
         long now = System.currentTimeMillis();
         boolean sneaking = mc.options.keyShift.isDown();
 
