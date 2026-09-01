@@ -82,13 +82,6 @@ public final class CombatListener implements Listener, PluginMessageListener {
     /** Durée du stun de guard break, en ticks. */
     private static final int GUARD_BREAK_STUN_TICKS = 20;
 
-    // --- kenjutsu (arme tranchante) ----------------------------------------
-    /** Endurance drainée à la VICTIME par un M1 kenjutsu qui LANDE (coup tranchant
-     *  = pression d'endurance, en plus des PV). N'est PAS appliqué si le coup est
-     *  paré (deflect) ni s'il est gardé (la garde a déjà son propre {@link #GUARD_DRAIN}).
-     *  Le taïjutsu à mains nues ne draine PAS l'endurance de la victime. */
-    private static final double KENJUTSU_VICTIM_DRAIN = 15.0;
-
     // --- parade TIMÉE (façon Sekiro) ---------------------------------------
     /** Fenêtre après le DÉBUT de garde pendant laquelle un coup encaissé est PARÉ
      *  (deflect) au lieu d'être simplement bloqué. Presser clic droit pile à l'impact
@@ -275,15 +268,6 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
         // ---- Garde (fenêtre de parade dépassée) : atténuation + drain, éventuel guard break ----
         double dealt = maybeBlock(victim, damage, e);
-
-        // ---- Kenjutsu : le coup tranchant qui LANDE entame aussi l'ENDURANCE de la
-        //      victime (pression stamina en plus des PV) — seulement s'il n'est ni paré
-        //      (return anticipé plus haut) ni gardé (la garde a déjà GUARD_DRAIN). ----
-        if (isKenjutsuWeapon(held) && !guarded && victim instanceof Player kv
-                && (ko == null || !ko.isKo(kv.getUniqueId()))) {
-            double rem = stamina.drain(kv.getUniqueId(), KENJUTSU_VICTIM_DRAIN);
-            CombatChannel.sendStamina(plugin, kv, rem, stamina.max());
-        }
 
         // ---- Coup NON gardé et non-finition : petit recul + slow léger à chaque coup ----
         if (!guarded && !finisher) {

@@ -10,10 +10,17 @@ commands:
     description: Reset a player's ability cooldowns (dash, chakra jump) for dev testing.
     usage: /resetcd [player]
     permission: shinobicombat.resetcd
+  scendurance:
+    description: Debit a player's combat endurance (bridge for MagicSpells techniques, e.g. kenjutsu M1).
+    usage: /scendurance [player] <amount>
+    permission: shinobicombat.endurance
 permissions:
   shinobicombat.use:
     description: Base permission — participate in taijutsu combat.
     default: true
   shinobicombat.resetcd:
     description: Staff — reset ability cooldowns for dev testing.
+    default: op
+  shinobicombat.endurance:
+    description: Adjust a player's combat endurance (used by MagicSpells via temporary-op).
     default: op
