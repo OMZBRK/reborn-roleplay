@@ -29,7 +29,9 @@ public final class Nameplates {
     private Nameplates() {}
 
     /** Portée de visibilité de la plaque (blocs) — « quand on se rapproche ». */
-    private static final double MAX_DIST = 12.0;
+    private static final double MAX_DIST = 5.0;
+    /** Marge d'inflation du hitbox pour le test « je le regarde vraiment » (tolérance). */
+    private static final double LOOK_INFLATE = 0.30;
     private static final int BG        = 0xB0140D0A;   // fond sombre translucide
     private static final int NAME_COL  = 0xFFF2F2F2;   // nom connu (blanc)
     private static final int UNKNOWN_COL = 0xFFB4B4B4;  // « Inconnu » (gris)
@@ -52,19 +54,27 @@ public final class Nameplates {
         int gh = mc.getWindow().getGuiScaledHeight();
         Font font = mc.font;
 
+        // Rayon du VISEUR (œil du joueur local + direction de regard), borné à MAX_DIST :
+        // la plaque n'apparaît que si ce rayon touche le hitbox de la cible = « on le
+        // regarde vraiment » (indépendant de la perspective 1re/3e personne).
+        Vec3 eye = mc.player.getEyePosition(1f);
+        Vec3 look = mc.player.getViewVector(1f);
+        Vec3 rayEnd = eye.add(look.x * MAX_DIST, look.y * MAX_DIST, look.z * MAX_DIST);
+
         for (Player e : mc.level.players()) {
             if (e == mc.player) continue;                 // pas de plaque sur soi
             if (e.isCrouching()) continue;                // accroupi = discret (comme vanilla)
             if (e.isInvisible()) continue;
-            drawFor(ctx, font, e, camPos, vp, gw, gh);
+            double dist = mc.player.position().distanceTo(e.position());
+            if (dist > MAX_DIST) continue;                // seulement de près (~5 blocs)
+            // On ne l'affiche que si le viseur pointe réellement sur le joueur.
+            if (e.getBoundingBox().inflate(LOOK_INFLATE).clip(eye, rayEnd).isEmpty()) continue;
+            drawFor(ctx, font, e, camPos, vp, gw, gh, dist);
         }
     }
 
     private static void drawFor(GuiGraphicsExtractor ctx, Font font, Player e, Vec3 camPos,
-                                Matrix4f vp, int gw, int gh) {
-        double dist = e.position().distanceTo(camPos);
-        if (dist > MAX_DIST) return;
-
+                                Matrix4f vp, int gw, int gh, double dist) {
         // Nom résolu serveur : connu → « Prénom [Clan] », sinon « Inconnu ».
         TablistData.RpName rp = TablistData.rpNameFor(e.getUUID());
         String label;
