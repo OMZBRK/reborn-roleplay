@@ -101,16 +101,20 @@ public final class HudKeybinds {
         // dedie C retire : l'inventaire est UNIQUEMENT sur la touche Inventaire.)
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (client.player == null || client.options == null) return;
+            // On ne détourne la touche E vers la sacoche QUE si : (1) ShinobiCore est
+            // présent (canal reborn:inventory enregistré → canSend), et (2) la pref
+            // sacoche est active (basculable par /rpinv). Sinon on NE draine PAS le clic
+            // → Minecraft ouvre son inventaire VANILLA. C'est ce qui rend l'inventaire
+            // vanilla sur le build / les serveurs sans plugin, et permet le retour vanilla.
+            boolean sacoche = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.sacocheInventory
+                && net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
+                        fr.reborn.hud.menu.inventory.InventoryPayload.ID);
+            if (!sacoche) return;
             while (client.options.keyInventory.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.gui.screen() == null && mc.player != null) {
-                    if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
-                            fr.reborn.hud.menu.inventory.InventoryPayload.ID)) {
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-                            new fr.reborn.hud.menu.inventory.InventoryPayload("open"));
-                    } else {
-                        mc.setScreenAndShow(new fr.reborn.hud.menu.inventory.InventoryScreen());
-                    }
+                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                        new fr.reborn.hud.menu.inventory.InventoryPayload("open"));
                 }
             }
         });

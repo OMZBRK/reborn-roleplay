@@ -205,6 +205,13 @@ public final class CombatListener implements Listener, PluginMessageListener {
         // Combat RP uniquement : l'attaquant doit avoir un personnage actif.
         if (characters.getActive(attacker.getUniqueId()) == null) return;
 
+        // EN PARADE ON NE TAPE PAS : un joueur qui garde (touche C) ne porte aucun
+        // coup. On annule le coup mêlée tant qu'il est en garde.
+        if (blocking.contains(attacker.getUniqueId())) {
+            e.setCancelled(true);
+            return;
+        }
+
         // Taïjutsu (MAINS NUES) et KENJUTSU (arme tranchante) partagent le même moteur
         // de coups : combo M1 + coût d'endurance + dégâts (« mêmes coups que le taï »
         // pour le kenjutsu, pour l'instant). L'anim reste distincte côté client (poing
@@ -347,6 +354,38 @@ public final class CombatListener implements Listener, PluginMessageListener {
             applyHitstun(pv, GUARD_BREAK_STUN_TICKS);
         }
         return reduced;
+    }
+
+    /**
+     * Garde contre les coups que {@link #onMelee} ne traite PAS : kenjutsu MagicSpells,
+     * katon, ou toute mêlée avec un objet en main (onMelee « s'écarte » dans ces cas).
+     * Si la victime garde (touche C), la parade encaisse aussi ces coups : réduction +
+     * drain d'endurance — « la parade consomme de l'endurance qu'on soit frappé au taï
+     * OU au ken/jutsu ». On saute le cas déjà géré par onMelee (mêlée main-vide /
+     * épée-hache d'un joueur au perso actif) pour ne pas réduire/draîner deux fois.
+     */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onGuardedNonMelee(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Player victim)) return;
+        if (!blocking.contains(victim.getUniqueId())) return;
+
+        DamageCause c = e.getCause();
+        if ((c == DamageCause.ENTITY_ATTACK || c == DamageCause.ENTITY_SWEEP_ATTACK)
+                && e.getDamager() instanceof Player atk
+                && characters.getActive(atk.getUniqueId()) != null) {
+            Material held = atk.getInventory().getItemInMainHand().getType();
+            if (held.isAir() || isKenjutsuWeapon(held)) return; // déjà pris par onMelee → maybeBlock
+        }
+
+        // Tout autre coup subi en garde (kenjutsu MS, katon, objet en main…) : la
+        // parade encaisse → réduction + drain d'endurance (+ guard break si vidée).
+        maybeBlock(victim, e.getDamage(), e);
+    }
+
+    /** {@code true} si le joueur garde/pare actuellement (touche C maintenue). Lu par
+     *  {@link KenjutsuEnduranceGate} pour empêcher de lancer un jutsu en parade. */
+    public boolean isGuarding(java.util.UUID id) {
+        return blocking.contains(id);
     }
 
     /** Avance le compteur de combo (fenêtre {@link #COMBO_WINDOW_MS}) et renvoie l'index courant. */

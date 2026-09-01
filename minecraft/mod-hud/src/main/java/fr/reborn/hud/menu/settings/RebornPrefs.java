@@ -83,6 +83,12 @@ public final class RebornPrefs {
     /** true = maintenir Tab (overlay lecture seule) ; false = presser pour ouvrir l'écran interactif. */
     public boolean tablistHold = false;
 
+    // ────────────────── Inventaire ──────
+    /** true = la touche E ouvre la SACOCHE RP (si ShinobiCore présent) ; false = inventaire
+     *  vanilla. Basculable via {@code /rpinv}. (Sur un serveur sans le plugin, l'inventaire
+     *  reste vanilla quoi qu'il arrive — cf. HudKeybinds.) */
+    public boolean sacocheInventory = true;
+
     private boolean loaded = false;
 
     private RebornPrefs() {}
@@ -165,5 +171,6 @@ public final class RebornPrefs {
         this.camVanilla = other.camVanilla;
         this.walkStyle = other.walkStyle;
         this.tablistHold = other.tablistHold;
+        this.sacocheInventory = other.sacocheInventory;
     }
 }

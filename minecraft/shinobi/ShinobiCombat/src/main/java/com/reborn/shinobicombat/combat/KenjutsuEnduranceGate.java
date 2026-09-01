@@ -36,12 +36,14 @@ public final class KenjutsuEnduranceGate implements Listener {
 
     private final Plugin plugin;
     private final StaminaManager stamina;
+    private final CombatListener combat;
 
     private Method mGetSpell, mInternalName, mGetState, mGetCaster, mSetCancelled;
 
-    public KenjutsuEnduranceGate(Plugin plugin, StaminaManager stamina) {
+    public KenjutsuEnduranceGate(Plugin plugin, StaminaManager stamina, CombatListener combat) {
         this.plugin = plugin;
         this.stamina = stamina;
+        this.combat = combat;
     }
 
     /** Installe le listener réflectif si MagicSpells est présent. */
@@ -72,10 +74,19 @@ public final class KenjutsuEnduranceGate implements Listener {
         try {
             Object spell = mGetSpell.invoke(event);
             if (spell == null) return;
-            if (!SPELL.equals(mInternalName.invoke(spell))) return;
-            // Ne débite/gate qu'à l'état NORMAL (le cast va réellement partir).
+            // Ne gate/débite qu'à l'état NORMAL (le cast va réellement partir).
             if (!"NORMAL".equals(String.valueOf(mGetState.invoke(event)))) return;
             if (!(mGetCaster.invoke(event) instanceof Player p)) return;
+
+            // EN PARADE ON NE LANCE PAS DE JUTSU : tant que le lanceur garde (touche C),
+            // on annule TOUT sort. La parade = uniquement bloquer, pas attaquer.
+            if (combat.isGuarding(p.getUniqueId())) {
+                mSetCancelled.invoke(event, true);
+                return;
+            }
+
+            // Coût d'endurance spécifique au M1 kenjutsu.
+            if (!SPELL.equals(mInternalName.invoke(spell))) return;
 
             if (stamina.tryConsume(p.getUniqueId(), COST)) {
                 CombatChannel.sendStamina(plugin, p, stamina.get(p.getUniqueId()), stamina.max());

@@ -50,10 +50,19 @@ public final class VitalsPush {
         for (Player p : Bukkit.getOnlinePlayers()) {
             ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
             if (c == null || c.chakra() == null) continue;
+            // VIE : on pousse la vie VANILLA en direct — c.currentHp() n'est écrit qu'aux
+            // checkpoints (auto-save 60 s, switch, quit), donc il retarde ; p.getHealth()
+            // reflète chaque coup instantanément et vaut la vie RP (maxHp est mappé sur
+            // l'attribut MAX_HEALTH par CharacterManager.applyStats). Max = attribut live
+            // (suit les buffs éventuels), fallback c.maxHp().
+            double maxHp = c.maxHp();
+            org.bukkit.attribute.AttributeInstance attr =
+                    p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+            if (attr != null) maxHp = attr.getValue();
             byte[] body;
             try {
                 body = encode(
-                        (int) Math.round(c.currentHp()), (int) Math.round(c.maxHp()),
+                        (int) Math.round(p.getHealth()), (int) Math.round(Math.max(1.0, maxHp)),
                         (int) Math.round(c.chakra().current()), (int) Math.round(c.chakra().max()));
             } catch (IOException e) {
                 continue;
