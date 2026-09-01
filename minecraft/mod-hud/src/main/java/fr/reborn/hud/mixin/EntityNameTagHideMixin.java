@@ -21,14 +21,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * serveur Reborn (données RP présentes). Sur un autre serveur / en solo, les
  * pseudos vanilla restent normaux. N'affecte QUE les joueurs — les mobs/armor
  * stands à nom custom (dummy, cinématique…) gardent leur nametag.
+ *
+ * <p><b>On cible la surcharge à 5 args {@code final}</b>
+ * {@code extractNameTags(Entity, EntityRenderState, float, double, double)} — c'est
+ * le vrai point d'écriture de {@code state.nameTag} (elle appelle {@code shouldShowName}
+ * + {@code getNameTag} puis {@code putfield nameTag}). La surcharge à 3 args est
+ * <b>redéfinie par {@code LivingEntityRenderer}</b> (dont hérite {@code PlayerRenderer})
+ * → l'injecter ne s'appliquait PAS aux joueurs. La version 5 args est {@code final}
+ * (non redéfinissable) et atteinte pour les joueurs via l'appel {@code super} de
+ * LivingEntityRenderer → couvre tous les avatars, y compris les joueurs.
  */
 @Mixin(EntityRenderer.class)
 public abstract class EntityNameTagHideMixin {
 
     @Inject(
-        method = "extractNameTags(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
+        method = "extractNameTags(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;FDD)V",
         at = @At("HEAD"), cancellable = true)
-    private void reborn$hidePlayerNameTag(Entity entity, EntityRenderState state, float partialTick, CallbackInfo ci) {
+    private void reborn$hidePlayerNameTag(Entity entity, EntityRenderState state, float partialTick,
+                                          double x, double z, CallbackInfo ci) {
         if (entity instanceof Player && TablistData.hasData()) {
             ci.cancel();
         }
