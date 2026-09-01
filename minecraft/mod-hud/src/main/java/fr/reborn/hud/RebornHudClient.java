@@ -115,6 +115,20 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.runtime.VitalsFeed.clear());
 
+        // Boutique de tenues (canal reborn:shop, bidirectionnel avec ShinobiCore).
+        // S2C : état {ryo,price,owned,appearance,toast} → ShopData ; C2S : open/buy/equip
+        // envoyés par ShopScreen. Le mod ne fait qu'afficher ; ShinobiCore est autoritaire.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.menu.shop.ShopPayload.ID, fr.reborn.hud.menu.shop.ShopPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.menu.shop.ShopPayload.ID, fr.reborn.hud.menu.shop.ShopPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.menu.shop.ShopPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.menu.shop.ShopData.update(payload.content())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.menu.shop.ShopData.clear());
+
         // Course chakraïque (« Naruto run ») : canal C2S reborn:naruto — le client
         // informe le plugin (ShinobiCore) quand le joueur (dés)active sa course
         // pour l'activer IG. Le mouvement client, lui, marche sans le serveur.

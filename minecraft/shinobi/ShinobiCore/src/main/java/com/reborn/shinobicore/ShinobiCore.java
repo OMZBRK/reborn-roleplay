@@ -90,6 +90,7 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.emote.EmoteManager emoteManager;
     private com.reborn.shinobicore.creator.CreatorAssetManager creatorAssetManager;
     private com.reborn.shinobicore.character.VitalsPush vitalsPush;
+    private com.reborn.shinobicore.shop.ShopManager shopManager;
     private ItemGiveRegistry itemGiveRegistry;
     private com.reborn.shinobicore.technique.AbilityRegistry techniqueRegistry;
     private com.reborn.shinobicore.gui.CoreGuiRouter coreGuiRouter;
@@ -421,6 +422,14 @@ public final class ShinobiCore extends JavaPlugin {
         // de vitals réactif (indépendant du tablist à 2 s).
         this.vitalsPush = new com.reborn.shinobicore.character.VitalsPush(this);
         this.vitalsPush.start();
+
+        // Boutique de tenues (canal reborn:shop) : monnaie ryo + tenues possédées,
+        // écran client mod-hud. Commande staff /ryo.
+        this.shopManager = new com.reborn.shinobicore.shop.ShopManager(this);
+        this.shopManager.start();
+        PluginCommand ryoCmd = getCommand("ryo");
+        if (ryoCmd != null) ryoCmd.setExecutor(this.shopManager);
+        else getLogger().warning("Command 'ryo' is not declared in plugin.yml.");
 
         PluginCommand meCmd = getCommand("me");
         if (meCmd != null) meCmd.setExecutor(new MeCommand(this));

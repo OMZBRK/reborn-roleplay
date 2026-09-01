@@ -157,6 +157,8 @@ public class YamlCharacterRepository implements CharacterRepository {
         c.setVillage(s.getString("village", ""));
         c.setSexe(s.getString("sexe", "Homme"));
         c.setAppearance(s.getString("appearance", ""));
+        c.setRyo(s.getLong("ryo", 0L));
+        for (String oid : s.getStringList("owned-outfits")) c.addOwnedOutfit(oid);
 
         // disabled-mobility-slots block is no longer read — the mobility
         // toggle system was deleted. Legacy keys in saved YAML files are
@@ -303,6 +305,9 @@ public class YamlCharacterRepository implements CharacterRepository {
         cfg.set(key + ".village", c.village().isBlank() ? null : c.village());
         cfg.set(key + ".sexe", "Homme".equals(c.sexe()) ? null : c.sexe());
         cfg.set(key + ".appearance", c.appearance().isBlank() ? null : c.appearance());
+        cfg.set(key + ".ryo", c.ryo() == 0L ? null : c.ryo());
+        cfg.set(key + ".owned-outfits", c.ownedOutfits().isEmpty()
+                ? null : new ArrayList<>(c.ownedOutfits()));
         cfg.set(key + ".age", c.age());
         cfg.set(key + ".size", c.size());
         cfg.set(key + ".ninja-art", c.ninjaArt().name());

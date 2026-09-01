@@ -524,6 +524,11 @@ character-select:
   yaw: 0.0
   pitch: 0.0
 
+# Boutique de tenues (skins) — canal reborn:shop + écran client mod-hud.
+shop:
+  # Prix plat (en ryo) d'une tenue dans la boutique. La monnaie ryo se donne via /ryo.
+  tenue-price: 500
+
 # ----------------------------------------------------------------------
 # INTÉGRATION API REBORN (candidature whitelist → grisage du wizard)
 # ----------------------------------------------------------------------

@@ -114,6 +114,9 @@ commands:
     description: Recharge les assets du character creator (creator-assets/) et les repousse.
     usage: /<command> reload
     permission: shinobicore.creator.admin
+  ryo:
+    description: Boutique — affiche le solde ryo, ou (staff) give/take/set la monnaie d'un joueur.
+    usage: /ryo [give|take|set] <joueur> <montant>
 permissions:
   shinobicore.use:
     description: Base permission to use ShinobiCore commands.
@@ -156,4 +159,7 @@ permissions:
     default: op
   shinobicore.emote.admin:
     description: Allows /playemote reload (reload emotes.yml).
+    default: op
+  shinobicore.ryo.admin:
+    description: Allows /ryo give|take|set — grant/adjust the ryo shop currency. Staff.
     default: op
