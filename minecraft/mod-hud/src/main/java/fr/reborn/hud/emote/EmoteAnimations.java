@@ -245,10 +245,21 @@ public final class EmoteAnimations {
             boolean self = player == mc.player;
             net.minecraft.client.CameraType before =
                 (self && mc.options != null) ? mc.options.getCameraType() : null;
-            // EmoteHolder.playEmote joue n'importe quelle Animation (registre non requis) ;
-            // repli sur l'API bas niveau IPlayerEntity si elle refuse.
-            boolean ok = EmoteHolder.playEmote(player, anim);
-            if (!ok) ((IPlayerEntity) player).emotecraft$playEmote(anim, 3.0f, true);
+            // On joue l'emote en mode FORCÉ (isForced=true) : sinon EmoteCraft l'arrête
+            // dès que le joueur bouge (playerEntersInvalidPose → checkPose stoppe toute
+            // emote NON forcée sur le joueur local). Une emote de technique/attaque
+            // (mudra pendant un sort, swing kenjutsu…) doit RESTER visible en marchant,
+            // par-dessus la démarche. Le layer démarches cède déjà à l'emote
+            // (MovementAnimations.isEmotePlaying) ; il faut juste qu'EmoteCraft ne coupe
+            // pas l'emote au premier pas. Repli sur EmoteHolder si l'API forcée manque.
+            boolean ok;
+            try {
+                ((IPlayerEntity) player).emotecraft$playEmote(anim, 3.0f, true);
+                ok = true;
+            } catch (Throwable forcedUnavailable) {
+                ok = false;
+            }
+            if (!ok) EmoteHolder.playEmote(player, anim);
             if (before != null) mc.options.setCameraType(before);
         } catch (Throwable t) {
             LOG.debug("lecture emote '{}' sur #{} échouée ({})", key, entityId, t.toString());

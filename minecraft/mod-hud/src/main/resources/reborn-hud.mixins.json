@@ -29,6 +29,7 @@
     "KeyboardInputPhotoMixin",
     "ScreenshotRecorderMixin",
     "PlayerListHudMixin",
+    "EntityNameTagHideMixin",
     "menu.TitleScreenMixin",
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",

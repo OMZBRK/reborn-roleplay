@@ -101,6 +101,19 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.tablist.TablistData.clear());
 
+        // Vitals RP en DIRECT (canal reborn:vitals depuis ShinobiCore, ~5×/s) :
+        // vie/chakra du joueur local poussés indépendamment du tablist (2 s) pour un
+        // HUD réellement live. Alimente VitalsFeed, lu en priorité par VitalsHud.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.runtime.VitalsPayload.ID, fr.reborn.hud.runtime.VitalsPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.runtime.VitalsPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.runtime.VitalsFeed.update(
+                    payload.hp(), payload.maxHp(), payload.chakra(), payload.maxChakra())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.runtime.VitalsFeed.clear());
+
         // Course chakraïque (« Naruto run ») : canal C2S reborn:naruto — le client
         // informe le plugin (ShinobiCore) quand le joueur (dés)active sa course
         // pour l'activer IG. Le mouvement client, lui, marche sans le serveur.
@@ -140,9 +153,24 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
             fr.reborn.hud.menu.character.CharacterPayload.ID,
             (payload, context) -> context.client().execute(() -> {
-                fr.reborn.hud.menu.character.CharacterData.update(payload.content());
                 net.minecraft.client.Minecraft mc = context.client();
-                if (mc.gui.screen() == null && mc.player != null) {
+                String content = payload.content();
+                // Confirmation serveur « selected » : le perso a bien été appliqué
+                // (setActive OK). On ferme l'écran de sélection/chargement → le joueur
+                // entre en jeu. Pilote la fermeture par le SERVEUR (fin d'application)
+                // plutôt que par un simple minuteur, évitant de lâcher un joueur
+                // NON sélectionné dans le monde si l'application échoue.
+                if (content != null && content.strip().equals("selected")) {
+                    if (isCharacterScreen(mc.gui.screen())) mc.setScreenAndShow(null);
+                    return;
+                }
+                fr.reborn.hud.menu.character.CharacterData.update(content);
+                if (mc.player == null) return;
+                // Le serveur n'envoie ce roster QUE pendant la sélection → le joueur
+                // DOIT choisir avant de jouer. On (r)ouvre l'écran s'il n'y est pas
+                // déjà (bat la course « un autre écran était ouvert quand le roster
+                // est arrivé » qui laissait le joueur bloqué sans menu).
+                if (!isCharacterScreen(mc.gui.screen())) {
                     mc.setScreenAndShow(new fr.reborn.hud.menu.character.CharacterSelectScreen());
                 }
             }));
@@ -265,6 +293,13 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "head-bubbles"),
             (ctx, tickCounter) -> fr.reborn.hud.voice.SpeechBubbles.render(ctx));
+
+        // Plaques de nom RP au-dessus des têtes (remplace le pseudo MC, masqué serveur) :
+        // « Prénom [Clan] » si le joueur est connu / « Inconnu » sinon, visible seulement
+        // de PRÈS. Rendu 2D projeté (pattern SpeechBubbles), data = roster reborn:tablist.
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "nameplates"),
+            (ctx, tickCounter) -> fr.reborn.hud.nameplate.Nameplates.render(ctx));
 
         // Envoie l'état de frappe au serveur quand on ouvre/ferme le chat (C2S).
         final boolean[] wasChatOpen = {false};
@@ -489,5 +524,13 @@ public final class RebornHudClient implements ClientModInitializer {
             throw new IllegalStateException("HudConfig not initialized yet");
         }
         return CONFIG;
+    }
+
+    /** {@code true} si l'écran courant est un écran du flux perso (sélection /
+     *  création / chargement) — sert à ne pas rouvrir/fermer par-dessus lui. */
+    private static boolean isCharacterScreen(net.minecraft.client.gui.screens.Screen s) {
+        return s instanceof fr.reborn.hud.menu.character.CharacterSelectScreen
+            || s instanceof fr.reborn.hud.menu.character.CharacterCreateScreen
+            || s instanceof fr.reborn.hud.menu.character.CharacterLoadingScreen;
     }
 }

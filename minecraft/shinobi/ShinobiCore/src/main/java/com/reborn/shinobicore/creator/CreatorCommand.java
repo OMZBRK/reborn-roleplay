@@ -32,9 +32,21 @@ public final class CreatorCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (args.length >= 1 && args[0].equalsIgnoreCase("reload")) {
-            manager.reload();
-            sender.sendMessage(Component.text("Assets du creator rechargés + repoussés aux joueurs.",
-                    NamedTextColor.GREEN));
+            CreatorAssetManager.ReloadResult res = manager.reload();
+            sender.sendMessage(Component.text(
+                    res.loaded() + " asset(s) chargé(s), " + res.skipped() + " ignoré(s) — repoussés aux joueurs.",
+                    res.loaded() > 0 || res.skipped() == 0 ? NamedTextColor.GREEN : NamedTextColor.YELLOW));
+            // Remonte les premières erreurs (id/PNG manquant…) → plus de « 0 chargé »
+            // silencieux qui fait croire à un besoin de redémarrage.
+            int shown = 0;
+            for (String err : res.errors()) {
+                if (shown++ >= 5) {
+                    sender.sendMessage(Component.text("  … (+" + (res.errors().size() - 5) + " autre(s))",
+                            NamedTextColor.GRAY));
+                    break;
+                }
+                sender.sendMessage(Component.text("  ⚠ " + err, NamedTextColor.RED));
+            }
             return true;
         }
         sender.sendMessage(Component.text("Usage : /creator reload", NamedTextColor.YELLOW));

@@ -64,35 +64,140 @@ public final class CreatorAssetManager implements Listener, PluginMessageListene
     private final ShinobiCore plugin;
     private final List<Packed> assets = new ArrayList<>();
 
+    /** Catalog d'exemple semé au premier démarrage : {@code _doc}/{@code _exemple}
+     *  sont ignorés par le parseur (pas des catégories) ; les vraies catégories
+     *  commencent vides → aucun « PNG manquant » parasite. */
+    private static final String TEMPLATE_CATALOG = """
+            {
+              "_doc": [
+                "Assets du Character Creator diffuses en LIVE aux joueurs.",
+                "Ajouter un asset = 1) deposer le PNG dans <categorie>/<id>.png",
+                "                    2) ajouter une entree {id,...} dans la categorie ci-dessous",
+                "                    3) recharger (bouton panel 'Character creator' ou /creator reload).",
+                "L'id EST le nom du fichier PNG sans .png. Texture 64x64 (layout skin standard),",
+                "transparent hors de la zone, <= 512 Ko. Masque RGBA optionnel : <id>_Mask.png.",
+                "Categories : hair, outfit, eyes, facial, tattoo, accessory, underwear.",
+                "Champs : id (obligatoire), name (libelle FR), gender (male|female|null),",
+                "  clan (nom exact|null), tint (none|all|red), split (x separation pour tint red),",
+                "  slot (outfit: complet|haut|bas), zones [{ch:R|G|B|A, name, default:'RRGGBB'}].",
+                "Voir README.txt pour le detail. Aucun restart requis : le reload suffit."
+              ],
+              "_exemple": {
+                "hair":   [ { "id": "Cheveux_Exemple", "name": "Cheveux exemple", "tint": "all" } ],
+                "outfit": [ { "id": "Complet_Exemple", "name": "Tenue exemple", "slot": "complet",
+                              "zones": [ { "ch": "R", "name": "Principale", "default": "3A5FCD" } ] } ],
+                "eyes":   [ { "id": "Yeux_Exemple", "name": "Yeux exemple", "tint": "red", "split": 11 } ]
+              },
+              "hair": [],
+              "outfit": [],
+              "eyes": [],
+              "facial": [],
+              "tattoo": [],
+              "accessory": [],
+              "underwear": []
+            }
+            """;
+
+    private static final String TEMPLATE_README = """
+            CHARACTER CREATOR — ASSETS EN DIFFUSION LIVE
+            ============================================
+
+            Ce dossier (plugins/ShinobiCore/creator-assets/) contient les cosmetiques du
+            createur de personnage. Ils sont pousses aux clients EN DIRECT : aucun
+            redemarrage du serveur n'est necessaire, un simple RELOAD suffit.
+
+            AJOUTER UN ASSET (3 etapes)
+            ---------------------------
+            1) Depose le PNG dans le dossier de sa categorie, nomme <id>.png
+               (ex. outfit/Complet_Akatsuki.png). L'id = le nom du fichier SANS .png.
+               - Texture 64x64, layout skin Minecraft standard, transparent hors zone.
+               - Taille <= 512 Ko.
+               - Masque de teinte optionnel : <id>_Mask.png (RGBA, meme dossier).
+            2) Ajoute une entree dans catalog.json, dans le tableau de la bonne categorie :
+                 "outfit": [
+                   { "id": "Complet_Akatsuki", "name": "Manteau Akatsuki", "slot": "complet" }
+                 ]
+            3) Recharge : bouton "Character creator (assets live)" dans le panel Fichiers,
+               ou commande /creator reload en jeu. Les assets apparaissent aussitot dans
+               le createur pour TOUS les joueurs connectes.
+
+            CATEGORIES : hair, outfit, eyes, facial, tattoo, accessory, underwear.
+
+            CHAMPS DU CATALOG
+            -----------------
+              id        (obligatoire) nom du fichier PNG sans extension.
+              name      libelle FR affiche dans le createur.
+              gender    "male" | "female" | absent (= tous).
+              clan      nom exact du clan pour reserver l'asset, ou absent (= tous).
+              tint      "none" (aucune teinte) | "all" (teinte globale) | "red" (zones).
+              split     (tint red) colonne x de separation gauche/droite.
+              slot      (outfit) "complet" | "haut" | "bas".
+              zones     liste de zones teintables : [{ "ch":"R|G|B|A", "name":"...",
+                        "default":"RRGGBB" }].
+
+            NOTE : les blocs "_doc" et "_exemple" de catalog.json sont ignores par le
+            serveur (ce ne sont pas des categories) — ils servent d'aide-memoire. Copie
+            une entree de "_exemple" vers la vraie categorie pour demarrer.
+            """;
+
     public CreatorAssetManager(ShinobiCore plugin) {
         this.plugin = plugin;
     }
 
-    /** Enregistre le canal (in/out) + events, puis charge les assets. */
+    /** Bilan d'un {@link #reload()} — remonté au staff (commande + panel) pour lever
+     *  l'ambiguïté « 0 chargé = ça marche pas → je restart ». */
+    public record ReloadResult(int loaded, int skipped, List<String> errors) {}
+
+    /** Enregistre le canal (in/out) + events, sème le template si absent, puis charge. */
     public void start() {
         var m = Bukkit.getMessenger();
         if (!m.isOutgoingChannelRegistered(plugin, CHANNEL_PACK)) m.registerOutgoingPluginChannel(plugin, CHANNEL_PACK);
         if (!m.isIncomingChannelRegistered(plugin, CHANNEL_PACK)) m.registerIncomingPluginChannel(plugin, CHANNEL_PACK, this);
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        seedTemplateIfAbsent();
         reload();
     }
 
-    /** (Re)charge {@code creator-assets/catalog.json} + PNG puis re-pousse aux joueurs. */
-    public void reload() {
+    /**
+     * Écrit un {@code catalog.json} d'exemple + un {@code README.txt} dans
+     * {@code creator-assets/} si aucun catalog n'existe encore — pour que le format
+     * soit ÉVIDENT côté staff (le dossier était créé vide = source de confusion).
+     * N'écrase jamais un catalog existant.
+     */
+    private void seedTemplateIfAbsent() {
+        File dir = new File(plugin.getDataFolder(), "creator-assets");
+        if (!dir.exists()) dir.mkdirs();
+        File catalog = new File(dir, "catalog.json");
+        if (catalog.exists()) return;
+        try {
+            Files.writeString(catalog.toPath(), TEMPLATE_CATALOG, StandardCharsets.UTF_8);
+            Files.writeString(new File(dir, "README.txt").toPath(), TEMPLATE_README, StandardCharsets.UTF_8);
+            for (String cat : CATEGORIES) new File(dir, cat).mkdirs(); // dossiers par catégorie
+            plugin.getLogger().info("Creator assets : template catalog.json + README.txt semés dans "
+                    + dir.getPath() + ".");
+        } catch (IOException e) {
+            plugin.getLogger().warning("Creator assets : échec écriture du template (" + e.getMessage() + ").");
+        }
+    }
+
+    /** (Re)charge {@code creator-assets/catalog.json} + PNG puis re-pousse aux joueurs.
+     *  Retourne le bilan (chargés / ignorés / erreurs) pour retour staff. */
+    public ReloadResult reload() {
         assets.clear();
+        List<String> errors = new ArrayList<>();
         File dir = new File(plugin.getDataFolder(), "creator-assets");
         if (!dir.exists()) dir.mkdirs();
         File catalog = new File(dir, "catalog.json");
         if (!catalog.exists()) {
             plugin.getLogger().info("Creator assets : aucun catalog.json (dossier " + dir.getPath() + ").");
-            return;
+            return new ReloadResult(0, 0, List.of("Aucun catalog.json dans " + dir.getPath()));
         }
         JsonObject root;
         try (InputStreamReader r = new InputStreamReader(Files.newInputStream(catalog.toPath()), StandardCharsets.UTF_8)) {
             root = JsonParser.parseReader(r).getAsJsonObject();
         } catch (Exception e) {
             plugin.getLogger().warning("Creator assets : catalog.json illisible (" + e.getMessage() + ").");
-            return;
+            return new ReloadResult(0, 0, List.of("catalog.json illisible : " + e.getMessage()));
         }
 
         int loaded = 0, skipped = 0;
@@ -103,17 +208,23 @@ public final class CreatorAssetManager implements Listener, PluginMessageListene
                 if (!el.isJsonObject()) continue;
                 JsonObject o = el.getAsJsonObject();
                 String id = o.has("id") && !o.get("id").isJsonNull() ? o.get("id").getAsString() : null;
-                if (id == null || id.isBlank()) { skipped++; continue; }
+                if (id == null || id.isBlank()) {
+                    errors.add(cat + " : entrée sans « id »");
+                    skipped++;
+                    continue;
+                }
                 File png = new File(dir, cat + "/" + id + ".png");
                 if (!png.isFile()) {
-                    plugin.getLogger().warning("Creator assets : PNG manquant pour " + cat + "/" + id
-                            + " (attendu " + png.getPath() + ").");
+                    String msg = cat + "/" + id + " : PNG manquant (attendu " + cat + "/" + id + ".png)";
+                    plugin.getLogger().warning("Creator assets : " + msg);
+                    errors.add(msg);
                     skipped++;
                     continue;
                 }
                 if (png.length() > MAX_PNG_BYTES) {
-                    plugin.getLogger().warning("Creator assets : " + cat + "/" + id + " ignoré (> "
-                            + (MAX_PNG_BYTES / 1024) + " Ko).");
+                    String msg = cat + "/" + id + " : PNG > " + (MAX_PNG_BYTES / 1024) + " Ko (ignoré)";
+                    plugin.getLogger().warning("Creator assets : " + msg);
+                    errors.add(msg);
                     skipped++;
                     continue;
                 }
@@ -125,14 +236,18 @@ public final class CreatorAssetManager implements Listener, PluginMessageListene
                     assets.add(new Packed(cat + "/" + id, body));
                     loaded++;
                 } catch (IOException ex) {
-                    plugin.getLogger().warning("Creator assets : lecture " + cat + "/" + id
-                            + " échouée (" + ex.getMessage() + ").");
+                    String msg = cat + "/" + id + " : lecture échouée (" + ex.getMessage() + ")";
+                    plugin.getLogger().warning("Creator assets : " + msg);
+                    errors.add(msg);
                     skipped++;
                 }
             }
         }
         plugin.getLogger().info("Creator assets : " + loaded + " chargé(s), " + skipped + " ignoré(s).");
-        for (Player p : Bukkit.getOnlinePlayers()) sendPack(p);
+        int pushed = 0;
+        for (Player p : Bukkit.getOnlinePlayers()) { sendPack(p); pushed++; }
+        plugin.getLogger().info("Creator assets : re-poussé à " + pushed + " joueur(s) connecté(s).");
+        return new ReloadResult(loaded, skipped, errors);
     }
 
     /** Corps binaire d'un asset : {@code UTF folder, UTF id, UTF metaJson, int pngLen, png, int maskLen, mask}. */

@@ -89,6 +89,7 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.vanish.VanishManager vanishManager;
     private com.reborn.shinobicore.emote.EmoteManager emoteManager;
     private com.reborn.shinobicore.creator.CreatorAssetManager creatorAssetManager;
+    private com.reborn.shinobicore.character.VitalsPush vitalsPush;
     private ItemGiveRegistry itemGiveRegistry;
     private com.reborn.shinobicore.technique.AbilityRegistry techniqueRegistry;
     private com.reborn.shinobicore.gui.CoreGuiRouter coreGuiRouter;
@@ -416,6 +417,11 @@ public final class ShinobiCore extends JavaPlugin {
             creatorCmd.setTabCompleter(cc);
         } else getLogger().warning("Command 'creator' is not declared in plugin.yml.");
 
+        // Flux vitals LIVE (reborn:vitals) : vie/chakra RP poussés ~5×/s pour un HUD
+        // de vitals réactif (indépendant du tablist à 2 s).
+        this.vitalsPush = new com.reborn.shinobicore.character.VitalsPush(this);
+        this.vitalsPush.start();
+
         PluginCommand meCmd = getCommand("me");
         if (meCmd != null) meCmd.setExecutor(new MeCommand(this));
         else getLogger().warning("Command 'me' is not declared in plugin.yml.");
@@ -584,6 +590,7 @@ public final class ShinobiCore extends JavaPlugin {
         // BEFORE the flush below, so the capture records the survival
         // inventory rather than creative build junk.
         if (panelBridge != null) panelBridge.stop();
+        if (vitalsPush != null) vitalsPush.stop();
         if (staffBuild != null) staffBuild.restoreAll();
         // Flush live player state (HP / chakra / position / inventory)
         // before the roster save so graceful shutdowns preserve the

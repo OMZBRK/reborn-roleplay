@@ -513,7 +513,10 @@ optimization:
 # GUI coffre. Renseigne les coordonnées de ton build de sélection puis passe
 # enabled à true.
 character-select:
-  enabled: false
+  # Sélection de personnage forcée à la connexion (aucun perso actif = écran de
+  # sélection, seul « prendre un perso » débloque le jeu). Activé par défaut : la
+  # jouabilité est strictement conditionnée à un personnage actif.
+  enabled: true
   world: world
   x: 0.5
   y: 100.0
