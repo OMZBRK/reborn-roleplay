@@ -9,7 +9,6 @@ import fr.reborn.hud.skin.CharacterCatalog;
 import fr.reborn.hud.skin.RebornSkins;
 import fr.reborn.hud.skin.SkinSpec;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -37,10 +36,10 @@ public class ShopScreen extends Screen {
     private int selected = 0;
     private int scroll = 0;
 
-    private CameraType prevCamera;
     private boolean prevHudHidden;
     private boolean captured = false;
     private boolean syncedFromState = false; // aligne sélection/aperçu quand l'état serveur arrive
+    private float avatarSpin = 180f;          // rotation horizontale du modèle (clic droit maintenu) — dos par défaut de face
 
     // Géométrie du panneau liste (calculée dans render).
     private int listX, listY, listW, listH, rowH = 18;
@@ -55,14 +54,11 @@ public class ShopScreen extends Screen {
     @Override
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
-        if (!captured && mc.options != null) {
+        if (!captured && mc.gui != null) {
             prevHudHidden = mc.gui.hud.isHidden();
             ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(true);
-            prevCamera = mc.options.getCameraType();
-            mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT); // on se voit de face
             captured = true;
         }
-        fr.reborn.hud.animation.MovementAnimations.INSTANCE.startPose(); // pose idle « présentation »
 
         // Construit la liste : « Aucune » + toutes les tenues du catalogue.
         entries.clear();
@@ -83,12 +79,10 @@ public class ShopScreen extends Screen {
     @Override
     public void removed() {
         Minecraft mc = Minecraft.getInstance();
-        if (captured && mc.options != null) {
+        if (captured && mc.gui != null) {
             ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(prevHudHidden);
-            if (prevCamera != null) mc.options.setCameraType(prevCamera);
             captured = false;
         }
-        fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
         // Restaure l'apparence réelle (au cas où on avait un aperçu non équipé).
         applyAppearance(ShopData.appearance());
         super.removed();
@@ -97,12 +91,11 @@ public class ShopScreen extends Screen {
     @Override
     public boolean isPauseScreen() { return false; }
 
-    /** Pas de voile plein écran : on garde le monde/le corps visibles derrière. */
+    /** Fond assombri : le modèle est rendu dans la GUI (comme le créateur), donc on
+     *  masque le monde derrière pour qu'il ressorte. */
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        // dégradés discrets haut/bas seulement (comme l'écran de sélection)
-        ctx.fillGradient(0, 0, this.width, 60, 0xA0000000, 0x00000000);
-        ctx.fillGradient(0, this.height - 70, this.width, this.height, 0x00000000, 0xB0000000);
+        ctx.fillGradient(0, 0, this.width, this.height, 0xF00B0709, 0xF0140A0D);
     }
 
     @Override
@@ -116,6 +109,20 @@ public class ShopScreen extends Screen {
             preview();
         }
         Font f = this.font;
+
+        // ── Modèle du perso, rotatable 360° (clic droit maintenu) — même rendu que le
+        //    créateur (reconstruction de l'EntityRenderState, dos visible). Aperçu de la
+        //    tenue sélectionnée (RebornSkins.applySpec l'a déjà appliquée). ──
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            int cx = (this.width - 240) / 2;              // centre de la zone gauche (liste = 240 à droite)
+            int size = (int) (this.height * 0.30f);
+            int y0 = (int) (this.height * 0.14f);
+            int y1 = (int) (this.height * 0.92f);
+            renderAvatar360(ctx, cx - size, y0, cx + size, y1, size, avatarSpin, mc.player);
+            ctx.text(f, Component.literal("Clic droit : tourner"), cx - f.width("Clic droit : tourner") / 2,
+                    y1 + 2, 0x80FFFFFF, false);
+        }
 
         // ── Titre + solde ryo ──
         ctx.text(f, RebornFont.bold("BOUTIQUE — TENUES"), 16, 14, 0xFFF2E9C0, true);
@@ -204,6 +211,42 @@ public class ShopScreen extends Screen {
         scroll -= (int) Math.signum(dy);
         scroll = Math.max(0, Math.min(scroll, Math.max(0, entries.size() - Math.max(1, listH / rowH))));
         return true;
+    }
+
+    @Override
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dX, double dY) {
+        // Clic droit maintenu = rotation horizontale libre du modèle (comme le créateur).
+        if (event.button() == 1) { avatarSpin += (float) dX; return true; }
+        return super.mouseDragged(event, dX, dY);
+    }
+
+    /**
+     * Rend le perso avec rotation horizontale LIBRE (360°, dos visible) — copie du
+     * créateur : on reconstruit l'{@link net.minecraft.client.renderer.entity.state.EntityRenderState}
+     * et on impose {@code bodyRot = 180 − spin} (la méthode vanilla borne à ±31°).
+     */
+    private static void renderAvatar360(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1,
+                                        int scale, float spinDeg, net.minecraft.client.player.LocalPlayer player) {
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        net.minecraft.client.renderer.entity.EntityRenderer renderer =
+            Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(player);
+        net.minecraft.client.renderer.entity.state.EntityRenderState state =
+            renderer.createRenderState(player, 1.0f);
+        state.shadowPieces.clear();
+        state.outlineColor = 0;
+        if (state instanceof net.minecraft.client.renderer.entity.state.LivingEntityRenderState ls) {
+            ls.bodyRot = 180.0f - spinDeg;
+            ls.yRot = 0.0f;
+            ls.xRot = 0.0f;
+            ls.boundingBoxWidth = ls.boundingBoxWidth / ls.scale;
+            ls.boundingBoxHeight = ls.boundingBoxHeight / ls.scale;
+            ls.scale = 1.0f;
+        }
+        org.joml.Quaternionf pose = new org.joml.Quaternionf().rotateZ((float) Math.PI);
+        org.joml.Quaternionf camOrient = new org.joml.Quaternionf();
+        pose.mul(camOrient);
+        org.joml.Vector3f translate = new org.joml.Vector3f(0.0f, state.boundingBoxHeight / 2.0f, 0.0f);
+        ctx.entity(state, (float) scale, translate, pose, camOrient, x0, y0, x1, y1);
     }
 
     @Override
