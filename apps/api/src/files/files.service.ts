@@ -401,6 +401,7 @@ export class FilesService {
       metadata: { server: 'dev', size: buf.length },
       source: 'panel',
     });
+    await this.autoReloadCreator(actorId, rel);
     return { path: rel, size: buf.length };
   }
 
@@ -431,6 +432,7 @@ export class FilesService {
       metadata: { server: 'dev', size: buf.length },
       source: 'panel',
     });
+    await this.autoReloadCreator(actorId, rel);
     return { path: rel, size: buf.length };
   }
 
@@ -455,6 +457,7 @@ export class FilesService {
       metadata: { server: 'dev' },
       source: 'panel',
     });
+    await this.autoReloadCreator(actorId, rel);
     return { deleted: true };
   }
 
@@ -742,6 +745,37 @@ export class FilesService {
       message: `Rechargement de ${t.label} envoyé au serveur.`,
       id: cmd.id,
     };
+  }
+
+  /**
+   * Auto-recharge le character creator dès qu'un fichier sous
+   * `plugins/ShinobiCore/creator-assets` est écrit / uploadé / supprimé : le
+   * staff n'a plus à cliquer « recharger » après un dépôt — SAUVER = LIVE (le
+   * pont ShinobiCore exécute `creator reload`, qui re-pousse aux joueurs, sans
+   * redémarrage). Best-effort : ne fait jamais échouer l'écriture. Le droit
+   * d'écrire sous cette racine a déjà été validé par {@link assertAllowed}.
+   */
+  private async autoReloadCreator(actorId: string, rel: string): Promise<void> {
+    const root = RELOAD_TARGETS.creator.root; // plugins/ShinobiCore/creator-assets
+    if (rel !== root && !rel.startsWith(root + '/')) return;
+    try {
+      await this.prisma.serverCommand.create({
+        data: {
+          target: 'creator',
+          command: RELOAD_TARGETS.creator.command,
+          requestedById: actorId,
+        },
+      });
+      void this.audit.log({
+        actorId,
+        action: 'files.reload',
+        targetEntity: 'reload:creator',
+        metadata: { server: 'dev', command: RELOAD_TARGETS.creator.command, auto: true },
+        source: 'panel',
+      });
+    } catch (e) {
+      this.logger.warn(`auto-reload creator échoué : ${String(e)}`);
+    }
   }
 
   // ─────────────────── Pont file d'attente (côté jeu) ───────────────────
