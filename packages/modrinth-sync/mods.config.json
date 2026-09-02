@@ -1,0 +1,28 @@
+{
+  "$comment": "Mapping mods tiers du modpack Reborn → projet Modrinth + politique d'auto-update. policy=auto : le détecteur/prépare prend la dernière version compatible MC+loader. policy=pinned : jamais auto (mods fragiles ou couplés à une version exacte) — bump manuel seulement. Les mods reborn-* (self-build) ne sont PAS ici.",
+  "gameVersion": "26.2",
+  "loader": "fabric",
+  "mods": [
+    { "prefix": "sodium-fabric-",            "slug": "sodium",                 "policy": "auto" },
+    { "prefix": "sodium-extra-fabric-",      "slug": "sodium-extra",           "policy": "auto" },
+    { "prefix": "lithium-fabric-",           "slug": "lithium",                "policy": "auto" },
+    { "prefix": "fabric-api-",               "slug": "fabric-api",             "policy": "auto" },
+    { "prefix": "fabric-language-kotlin-",   "slug": "fabric-language-kotlin", "policy": "auto" },
+    { "prefix": "iris-fabric-",              "slug": "iris",                   "policy": "auto" },
+    { "prefix": "DistantHorizons-",          "slug": "distanthorizons",        "policy": "auto" },
+    { "prefix": "NoChatReports-",            "slug": "no-chat-reports",        "policy": "auto" },
+    { "prefix": "entityculling-fabric-",     "slug": "entityculling",          "policy": "auto" },
+    { "prefix": "entity_texture_features-",  "slug": "entitytexturefeatures",  "policy": "auto" },
+    { "prefix": "entity_model_features-",    "slug": "entity-model-features",  "policy": "auto" },
+    { "prefix": "plasmovoice-fabric-",       "slug": "plasmo-voice",           "policy": "auto" },
+    { "prefix": "firstperson-fabric-",       "slug": "first-person-model",     "policy": "auto" },
+    { "prefix": "yet_another_config_lib_v3-","slug": "yacl",                   "policy": "auto" },
+    { "prefix": "zoomify-",                  "slug": "zoomify",                "policy": "auto" },
+    { "prefix": "skinlayers3d-fabric-",      "slug": "3dskinlayers",           "policy": "auto" },
+
+    { "prefix": "Axiom",                     "slug": "axiom",                  "policy": "pinned", "note": "outil de build ancien, casse facilement entre versions MC — bump manuel validé en jeu" },
+    { "prefix": "emotecraft-",               "slug": "emotecraft",             "policy": "pinned", "note": "couplé à PlayerAnimationLib + intégration emotes Reborn — bump manuel" },
+    { "prefix": "PlayerAnimationLibMerged-", "slug": "playeranimator",         "policy": "pinned", "note": "build merged, dépendance exacte d'emotecraft/anims — bump manuel" },
+    { "prefix": "BendableCuboidsMerged-",    "slug": "bendable-cuboids",       "policy": "pinned", "note": "build merged du rig bend des emotes — bump manuel" }
+  ]
+}
