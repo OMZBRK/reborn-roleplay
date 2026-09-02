@@ -14,9 +14,6 @@
   "entrypoints": {
     "client": ["fr.reborn.integrity.RebornIntegrityClient"]
   },
-  "mixins": [
-    "reborn-integrity.mixins.json"
-  ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "minecraft": ">=26.2 <26.3",

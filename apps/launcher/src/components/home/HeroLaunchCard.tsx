@@ -24,7 +24,7 @@ export function HeroLaunchCard() {
           </div>
           <h1 className="reborn-home-hero-title">REBORN</h1>
           <p className="reborn-home-hero-sub">
-            Dans l'ombre ou la lumière, chaque ninja écrit sa propre destinée.
+            Entre le silence et le fracas, chaque shinobi trace sa propre voie.
           </p>
           <div className="reborn-home-hero-meta">
             <span className="reborn-home-hero-chip">
@@ -33,7 +33,7 @@ export function HeroLaunchCard() {
             </span>
             <span className="reborn-home-hero-chip">
               <Layers className="h-2.5 w-2.5" />
-              Minecraft 1.21.1
+              Minecraft 26.2
             </span>
             <ServerStatusChip />
           </div>

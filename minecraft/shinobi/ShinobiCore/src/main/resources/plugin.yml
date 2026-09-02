@@ -21,6 +21,11 @@ commands:
     usage: /<command>
     aliases: [meditate, med]
     permission: shinobicore.use
+  testfeuille:
+    description: Test de la feuille — révèle ta nature de chakra (pondérée par le clan).
+    usage: /<command>
+    aliases: [feuille, leaftest]
+    permission: shinobicore.use
   me:
     description: Narre une action RP avec le surnom de ton personnage.
     usage: /<command> <action>

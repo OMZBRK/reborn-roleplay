@@ -54,6 +54,7 @@ public final class ShinobiCore extends JavaPlugin {
 
     private CharacterRepository characterRepository;
     private CharacterManager characterManager;
+    private com.reborn.shinobicore.character.LeafTestManager leafTest;
     private CharacterAutoSave characterAutoSave;
     private ChakraManager chakraManager;
     private ChakraDisplay chakraDisplay;
@@ -358,6 +359,16 @@ public final class ShinobiCore extends JavaPlugin {
         PluginCommand med = getCommand("meditation");
         if (med != null) med.setExecutor(new MeditationCommand(this));
         else getLogger().warning("Command 'meditation' is not declared in plugin.yml.");
+
+        // Test de la feuille : manager (canal in/out reborn:tirage + clic droit
+        // sur l'item) + commande. Le serveur tire la nature (pondérée par le clan),
+        // l'attribue, et pousse le résultat au client (popup animé).
+        this.leafTest = new com.reborn.shinobicore.character.LeafTestManager(this);
+        Bukkit.getPluginManager().registerEvents(leafTest, this);
+        leafTest.start();
+        PluginCommand tfCmd = getCommand("testfeuille");
+        if (tfCmd != null) tfCmd.setExecutor(new com.reborn.shinobicore.character.command.TestFeuilleCommand(this));
+        else getLogger().warning("Command 'testfeuille' is not declared in plugin.yml.");
 
         PluginCommand meCmd = getCommand("me");
         if (meCmd != null) meCmd.setExecutor(new MeCommand(this));
@@ -896,6 +907,9 @@ public final class ShinobiCore extends JavaPlugin {
     public CharacterRepository characterRepository() { return characterRepository; }
     @com.reborn.shinobicore.api.Internal
     public CharacterManager characters() { return characterManager; }
+
+    /** Manager du test de la feuille (tirage de nature pondéré par le clan). */
+    public com.reborn.shinobicore.character.LeafTestManager leafTest() { return leafTest; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.character.select.CharacterSelectManager characterSelect() { return characterSelect; }
     @com.reborn.shinobicore.api.Internal
