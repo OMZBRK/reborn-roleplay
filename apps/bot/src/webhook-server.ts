@@ -96,6 +96,24 @@ interface AssignmentChangedPayload {
   actorName: string;
 }
 
+// Notif "Claude a fini de bosser" postee par un hook Claude Code (script
+// tools/claude-hooks/notify-discord.mjs) quand une session Claude termine
+// ou attend une reponse. Envoyee en DM au dev (config.claudeNotifyUserId)
+// ou dans un salon dedie. Signee HMAC comme le reste.
+interface ClaudeNotifyPayload {
+  // "Stop" = Claude a fini son tour ; "Notification" = attend une action
+  // (permission / input). Sert a choisir le libelle + la couleur.
+  event?: string;
+  // Titre libre (ex: nom de la tache). Fallback sur le nom du projet.
+  title?: string;
+  // Recap court de ce qui vient d'etre fait / du message d'attente.
+  summary?: string;
+  // Dossier de travail de la session (on en derive le nom du projet).
+  cwd?: string;
+  // Id de session Claude Code, purement informatif.
+  sessionId?: string;
+}
+
 interface StatusUpdatePayload {
   kind: "whitelist" | "ticket";
   // Legacy flow : id du thread Discord cree a la soumission.
@@ -237,6 +255,19 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
       return reply(res, 200, { ok: true });
     } catch (err) {
       console.error(`[webhook] status-update crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
+  }
+  if (url === "/webhooks/claude-notify") {
+    const data = payload as ClaudeNotifyPayload;
+    console.log(
+      `[webhook] claude-notify event=${data.event ?? "?"} project=${projectName(data.cwd)}`,
+    );
+    try {
+      await postClaudeNotification(client, data);
+      return reply(res, 200, { ok: true });
+    } catch (err) {
+      console.error(`[webhook] claude-notify crash :`, err);
       return reply(res, 500, { error: (err as Error).message });
     }
   }
@@ -535,6 +566,77 @@ async function postSecurityAlert(
     embed.addFields({ name: 'User-Agent', value: p.userAgent.slice(0, 1024) });
   embed.setFooter({ text: `user ${p.userId}` });
   await channel.send({ embeds: [embed] });
+}
+
+/** Derive un nom de projet lisible depuis le cwd de la session Claude. */
+function projectName(cwd?: string): string {
+  if (!cwd) return "Reborn";
+  // Prend le dernier segment non-vide du chemin (Windows ou POSIX).
+  const parts = cwd.replace(/[\\/]+$/, "").split(/[\\/]/);
+  return parts[parts.length - 1] || "Reborn";
+}
+
+/**
+ * Poste la notif "Claude a fini / attend une action".
+ * Priorite : DM au dev (claudeNotifyUserId) → salon dedie
+ * (claudeNotifyChannelId) → salon tickets par defaut.
+ */
+async function postClaudeNotification(
+  client: Client,
+  p: ClaudeNotifyPayload,
+): Promise<void> {
+  const waiting = p.event === "Notification";
+  const embed = new EmbedBuilder()
+    .setColor(waiting ? 0xf59e0b : 0x16a34a)
+    .setAuthor({ name: `Claude Code · ${projectName(p.cwd)}` })
+    .setTitle(
+      waiting
+        ? "⏳ Claude attend ton action"
+        : "✅ Claude a fini de travailler",
+    )
+    .setTimestamp(new Date());
+  if (p.title) embed.addFields({ name: "Sujet", value: p.title.slice(0, 256) });
+  if (p.summary)
+    embed.setDescription(
+      p.summary.length > 4000 ? p.summary.slice(0, 4000) + "…" : p.summary,
+    );
+  if (p.cwd) embed.addFields({ name: "Dossier", value: `\`${p.cwd}\``.slice(0, 1024) });
+  embed.setFooter({
+    text: p.sessionId ? `session ${p.sessionId.slice(0, 12)}` : "reborn-bot",
+  });
+
+  // DM prioritaire si un user est configure.
+  if (config.claudeNotifyUserId) {
+    try {
+      const user = await client.users.fetch(config.claudeNotifyUserId);
+      const dm = await user.createDM();
+      await dm.send({ embeds: [embed] });
+      return;
+    } catch (err) {
+      console.warn(
+        `[claude-notify] DM a ${config.claudeNotifyUserId} echoue, fallback salon :`,
+        err,
+      );
+    }
+  }
+
+  // Sinon salon dedie. Pas de fallback sur le salon tickets : on ne veut
+  // pas spammer le staff a chaque fin de tache. Sans cible configuree, on
+  // no-op (le hook cote Claude est branche mais rien n'est envoye).
+  if (!config.claudeNotifyChannelId) {
+    console.warn(
+      "[claude-notify] ni DISCORD_CLAUDE_NOTIFY_USER_ID ni " +
+        "DISCORD_CLAUDE_NOTIFY_CHANNEL_ID configure — notif ignoree.",
+    );
+    return;
+  }
+  const channel = await client.channels.fetch(config.claudeNotifyChannelId);
+  if (!channel || channel.type !== ChannelType.GuildText) {
+    throw new Error(
+      `claude-notify : salon ${config.claudeNotifyChannelId} introuvable / pas texte`,
+    );
+  }
+  await (channel as TextChannel).send({ embeds: [embed] });
 }
 
 async function postDirectMessage(

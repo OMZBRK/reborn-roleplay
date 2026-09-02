@@ -47,4 +47,10 @@ export const config = {
   /** URL du panel staff Next.js — sert dans les DM bot pour pointer
    *  vers la candidature/le ticket dans le panel ("Voir dans le panel"). */
   adminBaseUrl: process.env.ADMIN_BASE_URL ?? "http://localhost:3002",
+  /** Optionnel : notifs "Claude a fini de bosser" envoyees en DM a cet
+   *  utilisateur Discord (son user ID). Prioritaire sur le salon. Vide = off. */
+  claudeNotifyUserId: process.env.DISCORD_CLAUDE_NOTIFY_USER_ID ?? "",
+  /** Optionnel : notifs "Claude a fini" postees dans ce salon. Utilise si
+   *  aucun user DM n'est configure. Vide → fallback sur le salon tickets. */
+  claudeNotifyChannelId: process.env.DISCORD_CLAUDE_NOTIFY_CHANNEL_ID ?? "",
 };
