@@ -23,9 +23,14 @@ export interface Report {
   slug: string;
   policy: string;
   current?: string;
+  currentPath?: string; // chemin manifeste actuel (mods/<file>)
+  currentRequired?: boolean;
   latest?: string;
   latestVersion?: string;
   latestType?: string;
+  latestUrl?: string; // URL CDN Modrinth du fichier à jour
+  latestSize?: number;
+  latestSha512?: string;
   status: Status;
   detail?: string;
   suggestions?: string[];
@@ -43,6 +48,8 @@ export async function checkOne(
     slug: mod.slug,
     policy: mod.policy,
     current: current?.filename,
+    currentPath: current?.path,
+    currentRequired: current?.required,
     status: "up-to-date",
   };
   if (!current) return { ...base, status: "not-in-manifest" };
@@ -59,6 +66,9 @@ export async function checkOne(
     base.latest = pf.filename;
     base.latestVersion = latest.version_number;
     base.latestType = latest.version_type;
+    base.latestUrl = pf.url;
+    base.latestSize = pf.size;
+    base.latestSha512 = pf.hashes.sha512;
     base.status = pf.filename === current.filename ? "up-to-date" : "update";
     return base;
   } catch (e) {
