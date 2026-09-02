@@ -108,6 +108,12 @@ export interface StatusUpdatePayload {
   reason?: string;
 }
 
+export interface ModsUpdatePayload {
+  count: number;
+  version?: string;
+  mods: string[];
+}
+
 @Injectable()
 export class WebhooksService implements OnModuleInit {
   private readonly logger = new Logger(WebhooksService.name);
@@ -195,6 +201,11 @@ export class WebhooksService implements OnModuleInit {
 
   async securityAlert(payload: SecurityAlertPayload): Promise<void> {
     await this.dispatch('/webhooks/security-alert', payload);
+  }
+
+  /** Annonce « N mises a jour de mods disponibles » (cron Modrinth → bot Discord). */
+  async modsUpdate(payload: ModsUpdatePayload): Promise<void> {
+    await this.dispatch('/webhooks/mods-update', payload);
   }
 
   private async dispatch<T = unknown>(

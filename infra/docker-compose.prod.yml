@@ -67,6 +67,10 @@ services:
       ADMIN_AUTH_CALLBACK_PATH: ${ADMIN_AUTH_CALLBACK_PATH:-/auth/callback}
       REBORN_WEBHOOK_SECRET: ${REBORN_WEBHOOK_SECRET}
       REBORN_BOT_WEBHOOK_URL: http://bot:3001
+      # Auto-update Modrinth : cron quotidien qui détecte les mods à jour et
+      # notifie le bot Discord. Opt-in (=true) ; vide/absent = désactivé.
+      MODRINTH_SYNC_ENABLED: ${MODRINTH_SYNC_ENABLED:-}
+      REBORN_MC_VERSION: ${REBORN_MC_VERSION:-26.2}
       REBORN_PLAY_TOKEN_SECRET: ${REBORN_PLAY_TOKEN_SECRET}
       MANIFEST_PUBLIC_KEY_HEX: ${MANIFEST_PUBLIC_KEY_HEX}
       LAUNCHER_BETA_GATE: ${LAUNCHER_BETA_GATE:-}
@@ -127,6 +131,9 @@ services:
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
       DISCORD_TICKETS_CHANNEL_ID: ${DISCORD_TICKETS_CHANNEL_ID}
+      # Salon dédié aux annonces de mises à jour de mods (optionnel ; fallback
+      # sur le salon tickets si absent).
+      DISCORD_MODS_CHANNEL_ID: ${DISCORD_MODS_CHANNEL_ID:-}
       REBORN_WEBHOOK_SECRET: ${REBORN_WEBHOOK_SECRET}
       REBORN_API_URL: http://api:3000/v1
       ADMIN_BASE_URL: ${ADMIN_BASE_URL}

@@ -254,6 +254,17 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
       return reply(res, 500, { error: (err as Error).message });
     }
   }
+  if (url === "/webhooks/mods-update") {
+    const data = payload as ModsUpdatePayload;
+    console.log(`[webhook] mods-update count=${data.count} version=${data.version ?? "?"}`);
+    try {
+      await postModsUpdate(client, data);
+      return reply(res, 200, { ok: true });
+    } catch (err) {
+      console.error(`[webhook] mods-update crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
+  }
   console.warn(`[webhook] 404 route inconnue : ${url}`);
   reply(res, 404, { error: "route inconnue" });
 }
@@ -310,12 +321,13 @@ async function postTicketAnnouncement(
   return sent.id;
 }
 
-async function fetchTextChannel(client: Client): Promise<TextChannel> {
-  const channel = await client.channels.fetch(config.ticketsChannelId);
+async function fetchTextChannel(
+  client: Client,
+  channelId: string = config.ticketsChannelId,
+): Promise<TextChannel> {
+  const channel = await client.channels.fetch(channelId);
   if (!channel || channel.type !== ChannelType.GuildText) {
-    throw new Error(
-      `DISCORD_TICKETS_CHANNEL_ID ${config.ticketsChannelId} : pas un salon texte standard`,
-    );
+    throw new Error(`salon ${channelId} : pas un salon texte standard`);
   }
   return channel;
 }
@@ -534,6 +546,33 @@ async function postSecurityAlert(
   if (p.userAgent)
     embed.addFields({ name: 'User-Agent', value: p.userAgent.slice(0, 1024) });
   embed.setFooter({ text: `user ${p.userId}` });
+  await channel.send({ embeds: [embed] });
+}
+
+/** Payload de l'annonce « mises a jour de mods disponibles » (API → bot). */
+interface ModsUpdatePayload {
+  /** Nombre de mods avec une version plus recente compatible. */
+  count: number;
+  /** Version de manifeste candidate suggeree (optionnel, info). */
+  version?: string;
+  /** Lignes lisibles « slug : ancienne → nouvelle (type) ». */
+  mods: string[];
+}
+
+/**
+ * Poste dans le salon mods (fallback tickets) une annonce des updates de mods
+ * detectees par le cron API. Pilote humain : le staff lance ensuite `prepare` +
+ * `publish` en local (cle de signature hors-ligne).
+ */
+async function postModsUpdate(client: Client, p: ModsUpdatePayload): Promise<void> {
+  const channel = await fetchTextChannel(client, config.modsChannelId);
+  const embed = new EmbedBuilder()
+    .setColor(0x22c55e)
+    .setTitle(`🔄 ${p.count} mise${p.count > 1 ? "s" : ""} à jour de mods disponible${p.count > 1 ? "s" : ""}`)
+    .setDescription(p.mods.slice(0, 25).join("\n").slice(0, 4096) || "—")
+    .setFooter({ text: "Lance `prepare` + `publish` en local pour valider (clé hors-ligne)." })
+    .setTimestamp(new Date());
+  if (p.version) embed.addFields({ name: "Manifeste candidat", value: `v${p.version}`, inline: true });
   await channel.send({ embeds: [embed] });
 }
 
