@@ -91,6 +91,16 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
     args.push("-XX:+PerfDisableSharedMem".into());
     args.push("-XX:MaxTenuringThreshold=1".into());
 
+    // macOS : GLFW ne peut tourner que sur le thread principal du process.
+    // Sans ce flag, glfwInit() leve "GLFW may only be used on the main thread
+    // and that thread must be the first thread in the process" et le client
+    // crash a l'init du rendu (RenderSystem::initBackendSystem), apres avoir
+    // pourtant charge auth, manifest et mods. Aucun effet sur Windows/Linux,
+    // ou le flag n'existe pas et ferait echouer le demarrage de la JVM.
+    if cfg!(target_os = "macos") {
+        args.push("-XstartOnFirstThread".into());
+    }
+
     args.push(format!("-Djava.library.path={}", cfg.natives_dir));
     args.push("-Dminecraft.launcher.brand=reborn-launcher".into());
     args.push(format!("-Dminecraft.launcher.version={}", cfg.launcher_version));
