@@ -23,13 +23,13 @@ const GAME_VERSION = process.env.REBORN_MC_VERSION ?? '26.2';
 const LOADER = 'fabric';
 
 // Uniquement les mods `auto` (les `pinned` sont volontairement absents).
+// NB: sodium + iris sont PINNED (couplés en version — un bump séparé casse le
+// couple, cf incident 2026-09-02 sodium 0.9.2-beta ✗ iris 1.11.2). Bump manuel.
 const AUTO_MODS: ModMap[] = [
-  { prefix: 'sodium-fabric-', slug: 'sodium' },
   { prefix: 'sodium-extra-fabric-', slug: 'sodium-extra' },
   { prefix: 'lithium-fabric-', slug: 'lithium' },
   { prefix: 'fabric-api-', slug: 'fabric-api' },
   { prefix: 'fabric-language-kotlin-', slug: 'fabric-language-kotlin' },
-  { prefix: 'iris-fabric-', slug: 'iris' },
   { prefix: 'DistantHorizons-', slug: 'distanthorizons' },
   { prefix: 'NoChatReports-', slug: 'no-chat-reports' },
   { prefix: 'entityculling-fabric-', slug: 'entityculling' },
