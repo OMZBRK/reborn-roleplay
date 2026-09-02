@@ -45,7 +45,7 @@ public final class HudPresets {
     private static Map<String, HudElementState> buildDefault() {
         Map<String, HudElementState> m = new LinkedHashMap<>();
         for (HudElement e : HudElement.values()) {
-            m.put(e.id(), HudElementState.DEFAULT);
+            m.put(e.id(), e.defaultState());
         }
         // Chat pile au-dessus de la barre de saisie (offset +23 en Y).
         m.put(HudElement.CHAT.id(), new HudElementState(0, 23, 1.0f, true, null));

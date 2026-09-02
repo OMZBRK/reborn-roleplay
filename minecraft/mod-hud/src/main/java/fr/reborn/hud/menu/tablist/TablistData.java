@@ -7,7 +7,9 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -32,6 +34,16 @@ public final class TablistData {
     public record SelfVitals(int hp, int maxHp, int chakra, int maxChakra) {}
     private static volatile SelfVitals selfVitals = null;
 
+    /** Identité RP d'un joueur du roster, adressable par UUID (pour les plaques de
+     *  nom au-dessus des têtes). {@code name} est déjà résolu serveur selon la
+     *  relation ({@code relation} sert à afficher « Inconnu » côté client). */
+    public record RpName(String name, TabEntry.Relation relation, int clanColor) {}
+    /** UUID → identité RP, reconstruit à chaque feed. Vide tant que rien reçu. */
+    private static volatile Map<UUID, RpName> byUuid = Map.of();
+
+    /** Identité RP d'un joueur par UUID (ou {@code null} si absent du dernier roster). */
+    public static RpName rpNameFor(UUID id) { return byUuid.get(id); }
+
     public static boolean hasData() { return entries != null; }
 
     /** Vie/chakra RP du joueur local (serveur-authoritative), ou {@code null}
@@ -49,7 +61,7 @@ public final class TablistData {
         return d != null ? d : MockTablist.rpDate();
     }
 
-    public static void clear() { entries = null; rpDate = null; selfVitals = null; }
+    public static void clear() { entries = null; rpDate = null; selfVitals = null; byUuid = Map.of(); }
 
     /** Parse le JSON du canal et publie le nouveau snapshot (thread client). */
     public static void update(String json) {
@@ -59,6 +71,7 @@ public final class TablistData {
                 ? root.get("date").getAsString() : null;
 
             List<TabEntry> list = new ArrayList<>();
+            Map<UUID, RpName> ids = new HashMap<>();
             JsonArray players = root.getAsJsonArray("players");
             if (players != null) {
                 for (JsonElement el : players) {
@@ -79,12 +92,19 @@ public final class TablistData {
                     int level = optInt(o, "lv", 0);
                     int age = optInt(o, "a", 0);
                     String affinity = frAffinity(opt(o, "af", ""));
-                    int ping = pingOf(opt(o, "u", null));
+                    String uuid = opt(o, "u", null);
+                    int ping = pingOf(uuid);
 
                     list.add(new TabEntry(name, relation, staff, grade, clan, clanColor,
                         ping, level, age, affinity));
+                    // Index par UUID pour les plaques de nom (relation → « Inconnu »).
+                    if (uuid != null) {
+                        try { ids.put(UUID.fromString(uuid), new RpName(name, relation, clanColor)); }
+                        catch (IllegalArgumentException ignoredId) { /* uuid invalide */ }
+                    }
                 }
             }
+            byUuid = ids;
             // Vitals RP du viewer (présent seulement si perso actif côté serveur).
             if (root.has("self") && root.get("self").isJsonObject()) {
                 JsonObject sv = root.getAsJsonObject("self");

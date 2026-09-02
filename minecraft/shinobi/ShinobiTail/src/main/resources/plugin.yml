@@ -1,0 +1,24 @@
+name: ShinobiTail
+version: ${project.version}
+main: com.reborn.shinobitail.ShinobiTail
+api-version: '1.21'
+authors: [Reborn]
+description: Système des Démons à Queues (Bijū / Jinchūriki) pour le serveur Reborn.
+softdepend: [ShinobiCore]
+commands:
+  tail:
+    description: Système des Démons à Queues — statut joueur + outils Maître du Jeu.
+    usage: /<command> help
+    aliases: [biju, bijuu, tailedbeast]
+    permission: shinobitail.use
+permissions:
+  shinobitail.use:
+    description: Base permission to use /tail (own status).
+    default: true
+  shinobitail.gm:
+    description: Game Master — bind beasts, edit relationship values, force
+      transformations, speak as the beast, set inner-world locations.
+    default: op
+  shinobitail.admin:
+    description: Admin — /tail reload.
+    default: op

@@ -185,7 +185,7 @@ public class GalleryScreen extends Screen {
                 ScreenshotLibrary.toggleFavorite(hit.name());
                 if (onlyFav) refresh();
             } else {
-                Minecraft.getInstance().setScreen(new ScreenshotDetailScreen(this, entries, entries.indexOf(hit)));
+                Minecraft.getInstance().setScreenAndShow(new ScreenshotDetailScreen(this, entries, entries.indexOf(hit)));
             }
             return true;
         }
@@ -237,7 +237,7 @@ public class GalleryScreen extends Screen {
 
     @Override
     public void onClose() {
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreenAndShow(parent);
     }
 
     @Override

@@ -89,7 +89,7 @@ public abstract class ChatScreenMixin {
     private void reborn$hoverTooltip(GuiGraphicsExtractor ctx, Minecraft mc, int mouseX, int mouseY) {
         try {
             ChatSettings settings = RebornHudClient.config().getChatSettings();
-            var acc = (ChatComponentAccessor) (Object) mc.gui.getChat();
+            var acc = (ChatComponentAccessor) (Object) mc.gui.hud.getChat();
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
             double[] loc = fr.reborn.hud.runtime.HudTransform.toLocal(HudElement.CHAT, mouseX, mouseY);
@@ -137,8 +137,20 @@ public abstract class ChatScreenMixin {
 
         final int ANIM = 150;
         final int white = 0xFFE6E6E6;
-        int tx = input.getX() + 4;
         int ty = input.getY() + (input.getHeight() - 8) / 2;
+        // Clip + défilement horizontal : garde le texte DANS la barre et le curseur
+        // visible quand la saisie dépasse la largeur (sinon le texte débordait).
+        int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+        int visLeft = input.getX() + 4;
+        // Toute la largeur de la barre, avec une marge droite (le texte ne colle pas
+        // au bord et ne se fait plus couper en fin de mot).
+        int visRight = Math.max(visLeft + 20, ChatLayout.barRight(sw) - 6);
+        int visW = Math.max(1, visRight - visLeft);
+        int caret = Math.max(0, Math.min(input.getCursorPosition(), val.length()));
+        int wToCaret = font.width(val.substring(0, caret));
+        int scroll = Math.max(0, wToCaret - visW + 8);
+        ctx.enableScissor(visLeft, ty - 2, visRight, ty + 10);
+        int tx = visLeft - scroll;
 
         for (int i = 0; i < val.length(); i++) {
             var ch = net.minecraft.network.chat.Component.literal(String.valueOf(val.charAt(i)));
@@ -171,14 +183,14 @@ public abstract class ChatScreenMixin {
         // « _ » en fin de saisie, « | » au milieu — comme le chat normal.
         boolean blink = (now / 500) % 2 == 0;
         if (blink) {
-            int cursor = Math.max(0, Math.min(input.getCursorPosition(), val.length()));
-            int cxCaret = input.getX() + 4 + font.width(val.substring(0, cursor));
-            if (cursor >= val.length()) {
+            int cxCaret = visLeft - scroll + wToCaret;
+            if (caret >= val.length()) {
                 ctx.text(font, net.minecraft.network.chat.Component.literal("_"), cxCaret, ty, white, false);
             } else {
                 ctx.fill(cxCaret, ty - 1, cxCaret + 1, ty + 9, 0xFFD0D0D0);
             }
         }
+        ctx.disableScissor();
     }
 
     // Intercepte les clics sur le bouton/picker avant le reste de l'écran.
@@ -198,7 +210,7 @@ public abstract class ChatScreenMixin {
         // (le rendu vanilla est annulé → getClickedComponentStyleAt ne marche plus).
         try {
             ChatSettings settings = RebornHudClient.config().getChatSettings();
-            var acc = (ChatComponentAccessor) (Object) mc.gui.getChat();
+            var acc = (ChatComponentAccessor) (Object) mc.gui.hud.getChat();
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
             // Coordonnées LOCALES du chat (inverse offset + scale) → hit-testing

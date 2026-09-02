@@ -105,11 +105,11 @@ public class ScreenshotDetailScreen extends Screen {
     }
 
     private void openEditor() {
-        Minecraft.getInstance().setScreen(new ScreenshotEditorScreen(this, cur()));
+        Minecraft.getInstance().setScreenAndShow(new ScreenshotEditorScreen(this, cur()));
     }
 
     private void openShare() {
-        Minecraft.getInstance().setScreen(new ScreenshotShareScreen(this, cur()));
+        Minecraft.getInstance().setScreenAndShow(new ScreenshotShareScreen(this, cur()));
     }
 
     private void nav(int d) {
@@ -143,7 +143,7 @@ public class ScreenshotDetailScreen extends Screen {
 
     @Override
     public void onClose() {
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreenAndShow(parent);
     }
 
     @Override

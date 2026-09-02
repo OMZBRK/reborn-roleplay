@@ -37,6 +37,10 @@ public final class OstHudOverlay {
     private final OstAudioEngine engine;
     private String lastSeenTrackId = null;
     private long lastChangeAtMs = 0L;
+    // Cache du libellé « m:ss / m:ss » : ne change qu'à la seconde près → on ne
+    // reformate (String.format) que lorsque les secondes affichées changent.
+    private long cachedElSec = -1L, cachedDuSec = -1L;
+    private String cachedTime = null;
 
     public OstHudOverlay(OstAudioEngine engine) {
         this.engine = engine;
@@ -59,13 +63,19 @@ public final class OstHudOverlay {
             lastSeenTrackId = current.trackId();
             lastChangeAtMs = now;
         }
-        if (client.screen != null) { lastChangeAtMs = now; return; }
+        if (client.gui.screen() != null) { lastChangeAtMs = now; return; }
         if (now - lastChangeAtMs > AUTO_HIDE_DELAY_MS) return;
 
         Font tr = client.font;
         String title = OstTrackMeta.title(current.trackId(), current.displayName());
         long el = engine.elapsedMs(), du = engine.durationMs();
-        String time = mmss(el / 1000) + " / " + mmss(du / 1000);
+        long elSec = el / 1000, duSec = du / 1000;
+        if (elSec != cachedElSec || duSec != cachedDuSec || cachedTime == null) {
+            cachedTime = mmss(elSec) + " / " + mmss(duSec);
+            cachedElSec = elSec;
+            cachedDuSec = duSec;
+        }
+        String time = cachedTime;
 
         int textW = Math.max(tr.width("♪ " + title), tr.width(time));
         int w = PAD + VINYL_SZ + 8 + textW + PAD;

@@ -7,8 +7,8 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
 /**
- * Bouton style Reborn — minimaliste, cohérent avec OSTPlayerWidget /
- * ServerInfoWidget. Remplace le Button vanilla (gris pixelisé).
+ * Bouton style Reborn — minimaliste, cohérent avec ServerInfoWidget.
+ * Remplace le Button vanilla (gris pixelisé).
  *
  * <p>Specs visuelles :
  * <ul>

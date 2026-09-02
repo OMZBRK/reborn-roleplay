@@ -41,9 +41,9 @@ export function AuthenticatedLayout() {
   }, []);
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div className="reborn-app-shell flex h-full w-full overflow-hidden">
       <Sidebar />
-      <main className="relative flex flex-1 flex-col overflow-hidden bg-background">
+      <main className="relative flex flex-1 flex-col overflow-hidden bg-transparent">
         <OfflineBanner />
         <div className="flex-1 overflow-y-auto">
           <Outlet />

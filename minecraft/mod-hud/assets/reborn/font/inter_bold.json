@@ -1,0 +1,12 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "reborn:inter-bold.ttf",
+      "shift": [0, 0],
+      "size": 9,
+      "oversample": 4,
+      "skip": []
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+# ------------------------------------------------------------
+# ShinobiSense configuration
+# ------------------------------------------------------------
+sense:
+  # Pulse range = base-range + (Perception effective skill * range-per-skill),
+  # capped at max-range.
+  base-range: 20.0
+  range-per-skill: 2.0
+  max-range: 120.0
+  # Chakra spent per pulse (a soft anti-spam cost; ties into the economy).
+  chakra-cost: 5.0
+  # A sensor whose effective Perception >= this probes WITHOUT the target
+  # feeling a gaze (skill buys stealth).
+  quiet-probe-skill: 20
+
+genjutsu:
+  # Chakra spent to cast an illusion (overdraw-able — overreaching costs you).
+  chakra-cost: 25.0
+  # Chakra spent to break free with /sense kai.
+  kai-chakra-cost: 15.0
+  # Max distance to a target when casting.
+  cast-range: 15.0
+  # Default illusion duration (seconds); /sense genjutsu <perso> <s> overrides.
+  duration-seconds: 12
+
+dojutsu:
+  # Sensing range multiplier while a dōjutsu is active.
+  range-multiplier: 2.0
+  # Chakra drained per second while active.
+  chakra-per-second: 8.0
+  # How far the "the eyes light up" activation message carries (blocks).
+  visible-radius: 12.0
+  # Clans that possess a dōjutsu (case-insensitive). Empty = allow any clan.
+  clans: [Hyuga, Hyūga, Uchiha, Otsutsuki, Ōtsutsuki]
+

@@ -38,10 +38,18 @@ public abstract class KeyboardInputMixin {
     // 26.1 : KeyboardInput#tick() ne prend plus (boolean slowDown, float factor).
     @Inject(method = "tick", at = @At("TAIL"))
     private void reborn$cameraRelativeMovement(CallbackInfo ci) {
-        RebornCamera cam = RebornCamera.INSTANCE;
-        if (!cam.isEnabled()) return;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
+        // GARDE / PARADE (touche C maintenue) : le joueur est cloué au sol — aucun
+        // déplacement horizontal possible. On zéro le moveVector calculé par le tick
+        // vanilla (le saut est neutralisé par PlayerJumpMixin, le dash/double-saut/
+        // saut-chakra par leurs gardes côté CombatInput/MobilityInput/ChakraJump).
+        if (player != null && fr.reborn.hud.combat.CombatInput.INSTANCE.isBlocking()) {
+            ((ClientInputAccessor) (Object) this).reborn$setMoveVector(Vec2.ZERO);
+            return;
+        }
+        RebornCamera cam = RebornCamera.INSTANCE;
+        if (!cam.isEnabled()) return;
         if (player == null || mc.options == null) return;
 
         float cyaw = (float) cam.camYaw();

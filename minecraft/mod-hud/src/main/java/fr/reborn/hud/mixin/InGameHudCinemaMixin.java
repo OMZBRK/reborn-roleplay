@@ -5,7 +5,7 @@ import fr.reborn.hud.immersion.PhotoMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Screenshot;
 import org.spongepowered.asm.mixin.Final;
@@ -26,7 +26,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *       extraction 26.1 : ça pouvait laisser l'écran bloqué au toggle off).</li>
  * </ul>
  */
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public abstract class InGameHudCinemaMixin {
 
     // 26.1 : Gui#chatHud → chat.
@@ -44,7 +44,7 @@ public abstract class InGameHudCinemaMixin {
                 // capture via mc.execute (render thread), sinon "RenderSystem called
                 // from wrong thread". Le HUD étant masqué en mode photo, le
                 // framebuffer reste une scène 3D propre à ce moment-là.
-                mc.execute(() -> Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(),
+                mc.execute(() -> Screenshot.grab(mc.gameDirectory, mc.gameRenderer.mainRenderTarget(),
                     text -> this.chat.addClientSystemMessage(text)));
             }
             ci.cancel(); // panneau dessiné par PhotoModeScreen ; on masque le HUD.

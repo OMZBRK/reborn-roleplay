@@ -309,9 +309,16 @@ public class HudEditScreen extends Screen {
             return true;
         }
 
-        // Clic simple = sélection unique + start drag-move.
+        // Clic simple : si l'élément saisi fait DÉJÀ partie d'une multi-sélection, on
+        // GARDE le groupe (drag groupé) ; sinon sélection unique. Sans ça, le clic de
+        // saisie vidait la sélection (selectElement) → groupe impossible à déplacer.
         snapshotBeforeAction = HudConfigSnapshot.capture(config);
-        selectElement(element);
+        if (selectedElements.size() > 1 && selectedElements.contains(element)) {
+            selectedElement = element;                 // ancre du drag, sans vider le groupe
+            sidePanel.setSelectedElement(element);
+        } else {
+            selectElement(element);                    // sélection unique
+        }
         draggedElement = element;
         draggingResize = false;
         dragOffsetX = (int) (mouseX - bounds.x());
@@ -418,7 +425,7 @@ public class HudEditScreen extends Screen {
         }
 
         if (keyCode == GLFW.GLFW_KEY_F1) {
-            Minecraft.getInstance().setScreen(new HudHelpScreen(this));
+            Minecraft.getInstance().setScreenAndShow(new HudHelpScreen(this));
             return true;
         }
 
@@ -461,7 +468,7 @@ public class HudEditScreen extends Screen {
     // ─────────── Actions ───────────
 
     public void openChatSettings() {
-        Minecraft.getInstance().setScreen(new ChatSettingsScreen(this));
+        Minecraft.getInstance().setScreenAndShow(new ChatSettingsScreen(this));
     }
 
     private void selectElement(HudElement element) {
@@ -569,7 +576,7 @@ public class HudEditScreen extends Screen {
 
     @Override
     public void onClose() {
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreenAndShow(parent);
     }
 
     @Override

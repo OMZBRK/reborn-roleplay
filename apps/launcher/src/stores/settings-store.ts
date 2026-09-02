@@ -47,16 +47,29 @@ export type NotifPrefs = {
   eventsEnabled: boolean;
 };
 
+// Choix de la police d'affichage du launcher — purement preferentiel.
+//   - "default" : police actuelle (Inter), inchangee.
+//   - "arcade"  : ArcadePix (police du menu principal in-game). ASCII-only,
+//     donc appliquee via une STACK CSS (ArcadePix -> Inter) pour que les
+//     accents FR retombent proprement sur Inter (cf globals.css).
+export type FontChoice = "default" | "arcade";
+
+export type UiPrefs = {
+  font: FontChoice;
+};
+
 type SettingsState = {
   perf: PerfPrefs;
   audio: AudioPrefs;
   notif: NotifPrefs;
+  ui: UiPrefs;
   setPerf: <K extends keyof PerfPrefs>(key: K, value: PerfPrefs[K]) => void;
   setAudio: <K extends keyof AudioPrefs>(key: K, value: AudioPrefs[K]) => void;
   setNotif: <K extends keyof NotifPrefs>(key: K, value: NotifPrefs[K]) => void;
+  setUi: <K extends keyof UiPrefs>(key: K, value: UiPrefs[K]) => void;
 };
 
-const DEFAULTS: Pick<SettingsState, "perf" | "audio" | "notif"> = {
+const DEFAULTS: Pick<SettingsState, "perf" | "audio" | "notif" | "ui"> = {
   perf: {
     autoRenderDistance: true,
     fpsMax: 144,
@@ -79,6 +92,9 @@ const DEFAULTS: Pick<SettingsState, "perf" | "audio" | "notif"> = {
     patchEnabled: true,
     eventsEnabled: false,
   },
+  ui: {
+    font: "default",
+  },
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -91,11 +107,13 @@ export const useSettingsStore = create<SettingsState>()(
         set((s) => ({ audio: { ...s.audio, [key]: value } })),
       setNotif: (key, value) =>
         set((s) => ({ notif: { ...s.notif, [key]: value } })),
+      setUi: (key, value) =>
+        set((s) => ({ ui: { ...s.ui, [key]: value } })),
     }),
     {
       name: "reborn:settings",
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       // Quand un user vient d'une version pre-OST, ostVolume/ostEnabled
       // n'existent pas dans le state persiste -> on les remplit depuis
       // DEFAULTS pour eviter un NaN dans le slider.
@@ -107,6 +125,7 @@ export const useSettingsStore = create<SettingsState>()(
           audio: { ...DEFAULTS.audio, ...(p?.audio ?? {}) },
           perf: { ...DEFAULTS.perf, ...(p?.perf ?? {}) },
           notif: { ...DEFAULTS.notif, ...(p?.notif ?? {}) },
+          ui: { ...DEFAULTS.ui, ...(p?.ui ?? {}) },
         } as SettingsState;
       },
     },

@@ -46,6 +46,6 @@ public class InterfaceTab extends SectionedTab {
 
     private static void open(Screen screen) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc != null) mc.setScreen(screen);
+        if (mc != null) mc.setScreenAndShow(screen);
     }
 }

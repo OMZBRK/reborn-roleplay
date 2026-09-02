@@ -1,0 +1,18 @@
+# Reborn — Modèles d'effets/spells (affichés par MagicSpells via ItemDisplay).
+# Textures animées via <texture>.png.mcmeta dans le pack.
+
+impact_kenjtusu:
+  itemname: "<red>Impact Kenjutsu"
+  material: PAPER
+  lore:
+    - "<gray>Effet de spell (texture animée)"
+  Pack:
+    model: reborn:item/impact_kenjtusu
+
+slashkenjutsu1:
+  itemname: "<red>Slash Kenjutsu"
+  material: PAPER
+  lore:
+    - "<gray>Effet de spell (texture animée)"
+  Pack:
+    model: reborn:item/slashkenjutsu1

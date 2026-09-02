@@ -161,12 +161,27 @@ public class PhotoModeScreen extends Screen {
             onClose();
             return true;
         }
+        // Ouvre le chat par-dessus la freecam (touche chat = T, ou commande = /).
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options != null) {
+            if (mc.options.keyChat.matches(event)) {
+                PhotoMode.INSTANCE.openChatOverlay(mc, false);
+                return true;
+            }
+            if (mc.options.keyCommand.matches(event)) {
+                PhotoMode.INSTANCE.openChatOverlay(mc, true);
+                return true;
+            }
+        }
         return super.keyPressed(event);
     }
 
     @Override
     public void removed() {
-        PhotoMode.INSTANCE.end(Minecraft.getInstance());
+        // On ne quitte PAS la freecam si on ouvre juste le chat par-dessus.
+        if (!PhotoMode.INSTANCE.isSuspendedForChat()) {
+            PhotoMode.INSTANCE.end(Minecraft.getInstance());
+        }
     }
 
     @Override

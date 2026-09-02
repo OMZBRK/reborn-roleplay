@@ -1,0 +1,3183 @@
+# ------------------------------------------------------------
+# ShinobiAbilities — abilities.yml
+# 11 techniques façonnées à la main + 204 entrées d'essai
+# (34 catégories feuilles × 6 rangs E/D/C/B/A/HIDEN), toutes à
+# 50 chakra / 5 s de recharge / LEFT_CLICK / minigame NONE — de
+# quoi lier et tester chaque JutsuItem immédiatement.
+# Rechargeable à chaud : /sa reload
+#
+# ════════════════ CRÉER UN NOUVEAU JUTSU ════════════════
+# - id: mon_jutsu                  # unique, minuscules
+#   name: "Mon Jutsu"
+#   category: "ninjutsu/katon"     # route le canal (Rouleau, Katana…)
+#   rank: C                        # E, D, C, B, A, HIDEN
+#   execution: JUTSU               # JUTSU, PHYSICAL, PASSIVE, TOOL
+#   minigame: MUDRA                # MUDRA, PUSHUP, SUIVI, NONE
+#   difficulty: MEDIUM             # EASY, MEDIUM, HARD
+#   mudras: [tigre, serpent]       # incantation ninjutsu (signes)
+#   # OU, pour les arts sans signes (taijutsu, kenjutsu…) :
+#   # steps: ["Appui", "Pivot", "Frappe"]   # alias: mouvements/gestures
+#   description: "…"
+#   jutsu:
+#     item-type: ROULEAU           # optionnel — déduit de la catégorie
+#     icon: FIRE_CHARGE
+#     method: LEFT_CLICK           # RIGHT_CLICK, HOLD_SNEAK, CLICK_SEQUENCE
+#     chakra-cost: 25
+#     cooldown-millis: 6000
+#     # ── L'EFFET : UNE des trois formes (cumulables) ──
+#     effect: katon_gokakyu        # 1) effet interne (registre Java)
+#     # type: MAGICSPELL           # (lisibilité, optionnel)
+#     # magicspell: gokakyu        # 2) sort MagicSpells — exécute
+#     #                            #    "cast forcecast %player% gokakyu"
+#     #                            #    (modèle: config jutsu.magicspells)
+#     # commands:                  # 3) commandes brutes, contrôle total
+#     #   - "cast forcecast %player% gokakyu"
+#     # run-as: CONSOLE            # ou PLAYER
+#     # Placeholders : %player% %uuid% %character% %world% %x% %y% %z%
+#
+# Exemple MagicSpells complet (décommente + adapte le nom du sort) :
+#  - id: ms_katon_demo
+#    name: "Katon — Démo MagicSpells"
+#    category: "ninjutsu/katon"
+#    rank: C
+#    execution: JUTSU
+#    minigame: MUDRA
+#    difficulty: MEDIUM
+#    mudras: [serpent, belier, tigre]
+#    description: "Le sort 'fireball' de MagicSpells, lancé par le personnage."
+#    jutsu:
+#      icon: FIRE_CHARGE
+#      method: LEFT_CLICK
+#      chakra-cost: 20
+#      cooldown-millis: 5000
+#      type: MAGICSPELL
+#      magicspell: fireball
+#
+# Exemple taijutsu avec mouvements (pas de mudras) :
+#  - id: ms_taijutsu_demo
+#    name: "Goken — Enchaînement Démo"
+#    category: "taijutsu/goken"
+#    rank: D
+#    execution: JUTSU
+#    minigame: PUSHUP
+#    difficulty: MEDIUM
+#    steps: ["Garde", "Appui", "Pivot", "Frappe"]
+#    description: "Un enchaînement au corps-à-corps via MagicSpells."
+#    jutsu:
+#      icon: IRON_INGOT
+#      method: CLICK_SEQUENCE
+#      chakra-cost: 12
+#      cooldown-millis: 4000
+#      magicspell: punch_combo
+# ═════════════════════════════════════════════════════════
+abilities:
+  # ───────────────────────────── techniques façonnées (effets dédiés)
+  - id: katon_gokakyu
+    name: "Katon — Boule de Feu Suprême"
+    category: "ninjutsu/katon"
+    rank: C
+    execution: JUTSU
+    minigame: MUDRA
+    difficulty: MEDIUM
+    mudras: [serpent, belier, singe, sanglier, cheval, tigre]
+    description: "Souffle une immense boule de feu de la bouche."
+    jutsu:
+      item-type: ROULEAU
+      icon: FIRE_CHARGE
+      method: LEFT_CLICK
+      chakra-cost: 25
+      cooldown-millis: 6000
+      effect: katon_gokakyu
+
+  - id: suiton_teppodama
+    name: "Suiton — Balle d'Eau"
+    category: "ninjutsu/suiton"
+    rank: C
+    execution: JUTSU
+    minigame: MUDRA
+    difficulty: MEDIUM
+    mudras: [tigre, buffle, singe, lievre]
+    description: "Crache une balle d'eau comprimée à haute pression."
+    jutsu:
+      item-type: ROULEAU
+      icon: PRISMARINE_CRYSTALS
+      method: LEFT_CLICK
+      chakra-cost: 20
+      cooldown-millis: 5000
+      effect: suiton_teppodama
+
+  - id: futon_kamaitachi
+    name: "Futon — Kamaitachi"
+    category: "ninjutsu/futon"
+    rank: C
+    execution: JUTSU
+    minigame: MUDRA
+    difficulty: MEDIUM
+    mudras: [chien, lievre, singe]
+    description: "Des faux de vent lacèrent tout sur leur passage."
+    jutsu:
+      item-type: ROULEAU
+      icon: FEATHER
+      method: LEFT_CLICK
+      chakra-cost: 22
+      cooldown-millis: 6000
+      effect: futon_kamaitachi
+
+  - id: doton_doryuheki
+    name: "Doton — Mur de Terre"
+    category: "ninjutsu/doton"
+    rank: B
+    execution: JUTSU
+    minigame: MUDRA
+    difficulty: MEDIUM
+    mudras: [tigre, lievre, sanglier, chien]
+    description: "Fait surgir un rempart de terre devant le lanceur."
+    jutsu:
+      item-type: ROULEAU
+      icon: COARSE_DIRT
+      method: LEFT_CLICK
+      chakra-cost: 30
+      cooldown-millis: 12000
+      effect: doton_doryuheki
+
+  - id: raiton_shiden
+    name: "Raiton — Éclair Pourpre"
+    category: "ninjutsu/raiton"
+    rank: B
+    execution: JUTSU
+    minigame: MUDRA
+    difficulty: HARD
+    mudras: [buffle, lievre, singe, dragon]
+    description: "Un fouet d'éclairs jaillit de la paume tendue."
+    jutsu:
+      item-type: ROULEAU
+      icon: LIGHTNING_ROD
+      method: LEFT_CLICK
+      chakra-cost: 28
+      cooldown-millis: 8000
+      effect: raiton_shiden
+
+  - id: iryo_shosen
+    name: "Shōsen — Paume Mystique"
+    category: "ninjutsu/iryo"
+    rank: C
+    execution: JUTSU
+    minigame: SUIVI
+    difficulty: MEDIUM
+    description: "Concentre un chakra apaisant pour refermer les plaies."
+    jutsu:
+      item-type: ROULEAU
+      icon: GLISTERING_MELON_SLICE
+      method: HOLD_SNEAK
+      chakra-cost: 18
+      cooldown-millis: 4000
+      effect: iryo_shosen
+
+  - id: genjutsu_kasumi
+    name: "Genjutsu — Brume Démoniaque"
+    category: "autres/genjutsu"
+    rank: D
+    execution: JUTSU
+    minigame: MUDRA
+    difficulty: MEDIUM
+    mudras: [serpent, rat]
+    description: "Noie la cible dans une brume d'illusions."
+    jutsu:
+      item-type: ROULEAU
+      icon: SPIDER_EYE
+      method: RIGHT_CLICK
+      chakra-cost: 15
+      cooldown-millis: 8000
+      effect: genjutsu_kasumi
+
+  - id: taijutsu_konoha_senpu
+    name: "Konoha Senpū"
+    category: "taijutsu/goken"
+    rank: D
+    execution: JUTSU
+    minigame: PUSHUP
+    difficulty: MEDIUM
+    description: "Le tourbillon de la Feuille — coup de pied circulaire."
+    jutsu:
+      item-type: POING
+      icon: IRON_INGOT
+      method: LEFT_CLICK
+      chakra-cost: 10
+      cooldown-millis: 4000
+      effect: taijutsu_konoha_senpu
+
+  - id: kenjutsu_iai
+    name: "Iai — Dégainage Éclair"
+    category: "bukijutsu/kenjutsu"
+    rank: C
+    execution: JUTSU
+    minigame: PUSHUP
+    difficulty: HARD
+    description: "Un pas glissé, une coupe — la lame retrouve son fourreau."
+    jutsu:
+      item-type: KATANA
+      icon: DIAMOND_SWORD
+      method: CLICK_SEQUENCE
+      chakra-cost: 15
+      cooldown-millis: 7000
+      effect: kenjutsu_iai
+
+  - id: shunshin
+    name: "Shunshin no Jutsu"
+    category: "autres/divers"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: EASY
+    mudras: [belier]
+    description: "Déplacement éclair dans un voile de feuilles."
+    jutsu:
+      item-type: ROULEAU
+      icon: SUGAR
+      method: LEFT_CLICK
+      chakra-cost: 8
+      cooldown-millis: 3000
+      effect: shunshin
+
+  - id: kawarimi
+    name: "Kawarimi no Jutsu"
+    category: "autres/divers"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: EASY
+    mudras: [tigre, sanglier, buffle, chien, serpent]
+    description: "Substitution — une bûche encaisse le coup à ta place."
+    jutsu:
+      item-type: ROULEAU
+      icon: OAK_LOG
+      method: RIGHT_CLICK
+      chakra-cost: 6
+      cooldown-millis: 5000
+      effect: kawarimi
+
+  # ───────────────────────────── entrées d'essai (34 feuilles × 6 rangs)
+  # — ninjutsu/katon —
+  - id: katon_dummy_e
+    name: "Katon — Petite Flamme (E)"
+    category: "ninjutsu/katon"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Katon de rang E."
+    jutsu:
+      icon: FIRE_CHARGE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_katon
+  - id: katon_dummy_d
+    name: "Katon — Souffle Ardent (D)"
+    category: "ninjutsu/katon"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Katon de rang D."
+    jutsu:
+      icon: FIRE_CHARGE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_katon
+  - id: katon_dummy_c
+    name: "Katon — Boule de Feu Mineure (C)"
+    category: "ninjutsu/katon"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Katon de rang C."
+    jutsu:
+      icon: FIRE_CHARGE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_katon
+  - id: katon_dummy_b
+    name: "Katon — Vague Incandescente (B)"
+    category: "ninjutsu/katon"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Katon de rang B."
+    jutsu:
+      icon: FIRE_CHARGE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_katon
+  - id: katon_dummy_a
+    name: "Katon — Brasier Dévorant (A)"
+    category: "ninjutsu/katon"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Katon de rang A."
+    jutsu:
+      icon: FIRE_CHARGE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_katon
+  - id: katon_dummy_hiden
+    name: "Katon — Phénix Suprême (Hiden)"
+    category: "ninjutsu/katon"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Katon de rang Hiden."
+    jutsu:
+      icon: FIRE_CHARGE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_katon
+
+  # — ninjutsu/suiton —
+  - id: suiton_dummy_e
+    name: "Suiton — Goutte Perçante (E)"
+    category: "ninjutsu/suiton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Suiton de rang E."
+    jutsu:
+      icon: PRISMARINE_CRYSTALS
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_suiton
+  - id: suiton_dummy_d
+    name: "Suiton — Jet Tranchant (D)"
+    category: "ninjutsu/suiton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Suiton de rang D."
+    jutsu:
+      icon: PRISMARINE_CRYSTALS
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_suiton
+  - id: suiton_dummy_c
+    name: "Suiton — Balle Aqueuse (C)"
+    category: "ninjutsu/suiton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Suiton de rang C."
+    jutsu:
+      icon: PRISMARINE_CRYSTALS
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_suiton
+  - id: suiton_dummy_b
+    name: "Suiton — Vague Déferlante (B)"
+    category: "ninjutsu/suiton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Suiton de rang B."
+    jutsu:
+      icon: PRISMARINE_CRYSTALS
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_suiton
+  - id: suiton_dummy_a
+    name: "Suiton — Dragon Aqueux (A)"
+    category: "ninjutsu/suiton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Suiton de rang A."
+    jutsu:
+      icon: PRISMARINE_CRYSTALS
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_suiton
+  - id: suiton_dummy_hiden
+    name: "Suiton — Abysse Souverain (Hiden)"
+    category: "ninjutsu/suiton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Suiton de rang Hiden."
+    jutsu:
+      icon: PRISMARINE_CRYSTALS
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_suiton
+
+  # — ninjutsu/futon —
+  - id: futon_dummy_e
+    name: "Futon — Brise Coupante (E)"
+    category: "ninjutsu/futon"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futon de rang E."
+    jutsu:
+      icon: FEATHER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futon
+  - id: futon_dummy_d
+    name: "Futon — Rafale Vive (D)"
+    category: "ninjutsu/futon"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futon de rang D."
+    jutsu:
+      icon: FEATHER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futon
+  - id: futon_dummy_c
+    name: "Futon — Lame de Vent (C)"
+    category: "ninjutsu/futon"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futon de rang C."
+    jutsu:
+      icon: FEATHER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futon
+  - id: futon_dummy_b
+    name: "Futon — Bourrasque Hurlante (B)"
+    category: "ninjutsu/futon"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futon de rang B."
+    jutsu:
+      icon: FEATHER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futon
+  - id: futon_dummy_a
+    name: "Futon — Tempête Lacérante (A)"
+    category: "ninjutsu/futon"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futon de rang A."
+    jutsu:
+      icon: FEATHER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futon
+  - id: futon_dummy_hiden
+    name: "Futon — Ouragan Céleste (Hiden)"
+    category: "ninjutsu/futon"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futon de rang Hiden."
+    jutsu:
+      icon: FEATHER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futon
+
+  # — ninjutsu/doton —
+  - id: doton_dummy_e
+    name: "Doton — Caillou Durci (E)"
+    category: "ninjutsu/doton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Doton de rang E."
+    jutsu:
+      icon: COARSE_DIRT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_doton
+  - id: doton_dummy_d
+    name: "Doton — Poigne de Terre (D)"
+    category: "ninjutsu/doton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Doton de rang D."
+    jutsu:
+      icon: COARSE_DIRT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_doton
+  - id: doton_dummy_c
+    name: "Doton — Mur de Glaise (C)"
+    category: "ninjutsu/doton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Doton de rang C."
+    jutsu:
+      icon: COARSE_DIRT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_doton
+  - id: doton_dummy_b
+    name: "Doton — Rempart Tellurique (B)"
+    category: "ninjutsu/doton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Doton de rang B."
+    jutsu:
+      icon: COARSE_DIRT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_doton
+  - id: doton_dummy_a
+    name: "Doton — Mâchoire Rocheuse (A)"
+    category: "ninjutsu/doton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Doton de rang A."
+    jutsu:
+      icon: COARSE_DIRT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_doton
+  - id: doton_dummy_hiden
+    name: "Doton — Golem Ancestral (Hiden)"
+    category: "ninjutsu/doton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Doton de rang Hiden."
+    jutsu:
+      icon: COARSE_DIRT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_doton
+
+  # — ninjutsu/raiton —
+  - id: raiton_dummy_e
+    name: "Raiton — Étincelle (E)"
+    category: "ninjutsu/raiton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Raiton de rang E."
+    jutsu:
+      icon: LIGHTNING_ROD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_raiton
+  - id: raiton_dummy_d
+    name: "Raiton — Arc Crépitant (D)"
+    category: "ninjutsu/raiton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Raiton de rang D."
+    jutsu:
+      icon: LIGHTNING_ROD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_raiton
+  - id: raiton_dummy_c
+    name: "Raiton — Morsure Voltaïque (C)"
+    category: "ninjutsu/raiton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Raiton de rang C."
+    jutsu:
+      icon: LIGHTNING_ROD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_raiton
+  - id: raiton_dummy_b
+    name: "Raiton — Lance Fulgurante (B)"
+    category: "ninjutsu/raiton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Raiton de rang B."
+    jutsu:
+      icon: LIGHTNING_ROD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_raiton
+  - id: raiton_dummy_a
+    name: "Raiton — Orage Déchaîné (A)"
+    category: "ninjutsu/raiton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Raiton de rang A."
+    jutsu:
+      icon: LIGHTNING_ROD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_raiton
+  - id: raiton_dummy_hiden
+    name: "Raiton — Jugement Foudroyant (Hiden)"
+    category: "ninjutsu/raiton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Raiton de rang Hiden."
+    jutsu:
+      icon: LIGHTNING_ROD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_raiton
+
+  # — ninjutsu/iryo —
+  - id: iryo_dummy_e
+    name: "Iryo — Paume Apaisante (E)"
+    category: "ninjutsu/iryo"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Iryo de rang E."
+    jutsu:
+      icon: GLISTERING_MELON_SLICE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_iryo
+  - id: iryo_dummy_d
+    name: "Iryo — Souffle Vital (D)"
+    category: "ninjutsu/iryo"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Iryo de rang D."
+    jutsu:
+      icon: GLISTERING_MELON_SLICE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_iryo
+  - id: iryo_dummy_c
+    name: "Iryo — Suture de Chakra (C)"
+    category: "ninjutsu/iryo"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Iryo de rang C."
+    jutsu:
+      icon: GLISTERING_MELON_SLICE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_iryo
+  - id: iryo_dummy_b
+    name: "Iryo — Onde Régénérante (B)"
+    category: "ninjutsu/iryo"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Iryo de rang B."
+    jutsu:
+      icon: GLISTERING_MELON_SLICE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_iryo
+  - id: iryo_dummy_a
+    name: "Iryo — Mains Miraculeuses (A)"
+    category: "ninjutsu/iryo"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Iryo de rang A."
+    jutsu:
+      icon: GLISTERING_MELON_SLICE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_iryo
+  - id: iryo_dummy_hiden
+    name: "Iryo — Renaissance Interdite (Hiden)"
+    category: "ninjutsu/iryo"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Iryo de rang Hiden."
+    jutsu:
+      icon: GLISTERING_MELON_SLICE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_iryo
+
+  # — ninjutsu/fuinjutsu —
+  - id: fuinjutsu_dummy_e
+    name: "Fuinjutsu — Marque Simple (E)"
+    category: "ninjutsu/fuinjutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuinjutsu de rang E."
+    jutsu:
+      icon: CHAIN
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuinjutsu
+  - id: fuinjutsu_dummy_d
+    name: "Fuinjutsu — Lien Entravant (D)"
+    category: "ninjutsu/fuinjutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuinjutsu de rang D."
+    jutsu:
+      icon: CHAIN
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuinjutsu
+  - id: fuinjutsu_dummy_c
+    name: "Fuinjutsu — Sceau Pesant (C)"
+    category: "ninjutsu/fuinjutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuinjutsu de rang C."
+    jutsu:
+      icon: CHAIN
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuinjutsu
+  - id: fuinjutsu_dummy_b
+    name: "Fuinjutsu — Chaînes Scellantes (B)"
+    category: "ninjutsu/fuinjutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuinjutsu de rang B."
+    jutsu:
+      icon: CHAIN
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuinjutsu
+  - id: fuinjutsu_dummy_a
+    name: "Fuinjutsu — Prison de Sceaux (A)"
+    category: "ninjutsu/fuinjutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuinjutsu de rang A."
+    jutsu:
+      icon: CHAIN
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuinjutsu
+  - id: fuinjutsu_dummy_hiden
+    name: "Fuinjutsu — Verrou des Quatre Symboles (Hiden)"
+    category: "ninjutsu/fuinjutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuinjutsu de rang Hiden."
+    jutsu:
+      icon: CHAIN
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuinjutsu
+
+  # — ninjutsu/kuchiyose —
+  - id: kuchiyose_dummy_e
+    name: "Kuchiyose — Appel Mineur (E)"
+    category: "ninjutsu/kuchiyose"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kuchiyose de rang E."
+    jutsu:
+      icon: TOTEM_OF_UNDYING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kuchiyose
+  - id: kuchiyose_dummy_d
+    name: "Kuchiyose — Pacte Junior (D)"
+    category: "ninjutsu/kuchiyose"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kuchiyose de rang D."
+    jutsu:
+      icon: TOTEM_OF_UNDYING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kuchiyose
+  - id: kuchiyose_dummy_c
+    name: "Kuchiyose — Invocation Fidèle (C)"
+    category: "ninjutsu/kuchiyose"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kuchiyose de rang C."
+    jutsu:
+      icon: TOTEM_OF_UNDYING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kuchiyose
+  - id: kuchiyose_dummy_b
+    name: "Kuchiyose — Allié de Guerre (B)"
+    category: "ninjutsu/kuchiyose"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kuchiyose de rang B."
+    jutsu:
+      icon: TOTEM_OF_UNDYING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kuchiyose
+  - id: kuchiyose_dummy_a
+    name: "Kuchiyose — Gardien Légendaire (A)"
+    category: "ninjutsu/kuchiyose"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kuchiyose de rang A."
+    jutsu:
+      icon: TOTEM_OF_UNDYING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kuchiyose
+  - id: kuchiyose_dummy_hiden
+    name: "Kuchiyose — Seigneur des Pactes (Hiden)"
+    category: "ninjutsu/kuchiyose"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kuchiyose de rang Hiden."
+    jutsu:
+      icon: TOTEM_OF_UNDYING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kuchiyose
+
+  # — autres/genjutsu —
+  - id: genjutsu_dummy_e
+    name: "Genjutsu — Voile Trouble (E)"
+    category: "autres/genjutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Genjutsu de rang E."
+    jutsu:
+      icon: SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_genjutsu
+  - id: genjutsu_dummy_d
+    name: "Genjutsu — Brume Mentale (D)"
+    category: "autres/genjutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Genjutsu de rang D."
+    jutsu:
+      icon: SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_genjutsu
+  - id: genjutsu_dummy_c
+    name: "Genjutsu — Écho Trompeur (C)"
+    category: "autres/genjutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Genjutsu de rang C."
+    jutsu:
+      icon: SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_genjutsu
+  - id: genjutsu_dummy_b
+    name: "Genjutsu — Cauchemar Tissé (B)"
+    category: "autres/genjutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Genjutsu de rang B."
+    jutsu:
+      icon: SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_genjutsu
+  - id: genjutsu_dummy_a
+    name: "Genjutsu — Spirale Hypnotique (A)"
+    category: "autres/genjutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Genjutsu de rang A."
+    jutsu:
+      icon: SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_genjutsu
+  - id: genjutsu_dummy_hiden
+    name: "Genjutsu — Monde Renversé (Hiden)"
+    category: "autres/genjutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Genjutsu de rang Hiden."
+    jutsu:
+      icon: SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_genjutsu
+
+  # — autres/kinjutsu —
+  - id: kinjutsu_dummy_e
+    name: "Kinjutsu — Pulsion Sombre (E)"
+    category: "autres/kinjutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kinjutsu de rang E."
+    jutsu:
+      icon: WITHER_ROSE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kinjutsu
+  - id: kinjutsu_dummy_d
+    name: "Kinjutsu — Sacrifice Mineur (D)"
+    category: "autres/kinjutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kinjutsu de rang D."
+    jutsu:
+      icon: WITHER_ROSE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kinjutsu
+  - id: kinjutsu_dummy_c
+    name: "Kinjutsu — Art Proscrit (C)"
+    category: "autres/kinjutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kinjutsu de rang C."
+    jutsu:
+      icon: WITHER_ROSE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kinjutsu
+  - id: kinjutsu_dummy_b
+    name: "Kinjutsu — Étreinte Maudite (B)"
+    category: "autres/kinjutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kinjutsu de rang B."
+    jutsu:
+      icon: WITHER_ROSE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kinjutsu
+  - id: kinjutsu_dummy_a
+    name: "Kinjutsu — Pacte du Sang (A)"
+    category: "autres/kinjutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kinjutsu de rang A."
+    jutsu:
+      icon: WITHER_ROSE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kinjutsu
+  - id: kinjutsu_dummy_hiden
+    name: "Kinjutsu — Porte de l'Interdit (Hiden)"
+    category: "autres/kinjutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kinjutsu de rang Hiden."
+    jutsu:
+      icon: WITHER_ROSE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kinjutsu
+
+  # — autres/juinjutsu —
+  - id: juinjutsu_dummy_e
+    name: "Juinjutsu — Marque Irritante (E)"
+    category: "autres/juinjutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juinjutsu de rang E."
+    jutsu:
+      icon: FERMENTED_SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juinjutsu
+  - id: juinjutsu_dummy_d
+    name: "Juinjutsu — Sceau Mordant (D)"
+    category: "autres/juinjutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juinjutsu de rang D."
+    jutsu:
+      icon: FERMENTED_SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juinjutsu
+  - id: juinjutsu_dummy_c
+    name: "Juinjutsu — Malédiction Rampante (C)"
+    category: "autres/juinjutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juinjutsu de rang C."
+    jutsu:
+      icon: FERMENTED_SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juinjutsu
+  - id: juinjutsu_dummy_b
+    name: "Juinjutsu — Stigmate Vorace (B)"
+    category: "autres/juinjutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juinjutsu de rang B."
+    jutsu:
+      icon: FERMENTED_SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juinjutsu
+  - id: juinjutsu_dummy_a
+    name: "Juinjutsu — Emprise Maudite (A)"
+    category: "autres/juinjutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juinjutsu de rang A."
+    jutsu:
+      icon: FERMENTED_SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juinjutsu
+  - id: juinjutsu_dummy_hiden
+    name: "Juinjutsu — Sceau Céleste (Hiden)"
+    category: "autres/juinjutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juinjutsu de rang Hiden."
+    jutsu:
+      icon: FERMENTED_SPIDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juinjutsu
+
+  # — autres/kugutsu —
+  - id: kugutsu_dummy_e
+    name: "Kugutsu — Fil Unique (E)"
+    category: "autres/kugutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kugutsu de rang E."
+    jutsu:
+      icon: ARMOR_STAND
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kugutsu
+  - id: kugutsu_dummy_d
+    name: "Kugutsu — Pantin d'Exercice (D)"
+    category: "autres/kugutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kugutsu de rang D."
+    jutsu:
+      icon: ARMOR_STAND
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kugutsu
+  - id: kugutsu_dummy_c
+    name: "Kugutsu — Marionnette Armée (C)"
+    category: "autres/kugutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kugutsu de rang C."
+    jutsu:
+      icon: ARMOR_STAND
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kugutsu
+  - id: kugutsu_dummy_b
+    name: "Kugutsu — Théâtre Mortel (B)"
+    category: "autres/kugutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kugutsu de rang B."
+    jutsu:
+      icon: ARMOR_STAND
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kugutsu
+  - id: kugutsu_dummy_a
+    name: "Kugutsu — Cent Pantins (A)"
+    category: "autres/kugutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kugutsu de rang A."
+    jutsu:
+      icon: ARMOR_STAND
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kugutsu
+  - id: kugutsu_dummy_hiden
+    name: "Kugutsu — Maître des Fils Rouges (Hiden)"
+    category: "autres/kugutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kugutsu de rang Hiden."
+    jutsu:
+      icon: ARMOR_STAND
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kugutsu
+
+  # — senjutsu/crapaud —
+  - id: crapaud_dummy_e
+    name: "Crapaud — Posture du Têtard (E)"
+    category: "senjutsu/crapaud"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Crapaud de rang E."
+    jutsu:
+      icon: LILY_PAD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_crapaud
+  - id: crapaud_dummy_d
+    name: "Crapaud — Souffle de l'Étang (D)"
+    category: "senjutsu/crapaud"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Crapaud de rang D."
+    jutsu:
+      icon: LILY_PAD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_crapaud
+  - id: crapaud_dummy_c
+    name: "Crapaud — Frappe du Crapaud (C)"
+    category: "senjutsu/crapaud"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Crapaud de rang C."
+    jutsu:
+      icon: LILY_PAD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_crapaud
+  - id: crapaud_dummy_b
+    name: "Crapaud — Chant des Sages (B)"
+    category: "senjutsu/crapaud"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Crapaud de rang B."
+    jutsu:
+      icon: LILY_PAD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_crapaud
+  - id: crapaud_dummy_a
+    name: "Crapaud — Onde Naturelle (A)"
+    category: "senjutsu/crapaud"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Crapaud de rang A."
+    jutsu:
+      icon: LILY_PAD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_crapaud
+  - id: crapaud_dummy_hiden
+    name: "Crapaud — Mode Ermite Parfait (Hiden)"
+    category: "senjutsu/crapaud"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Crapaud de rang Hiden."
+    jutsu:
+      icon: LILY_PAD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_crapaud
+
+  # — senjutsu/serpent —
+  - id: serpent_dummy_e
+    name: "Serpent — Écaille Souple (E)"
+    category: "senjutsu/serpent"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Serpent de rang E."
+    jutsu:
+      icon: SLIME_BALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_serpent
+  - id: serpent_dummy_d
+    name: "Serpent — Crochet Furtif (D)"
+    category: "senjutsu/serpent"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Serpent de rang D."
+    jutsu:
+      icon: SLIME_BALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_serpent
+  - id: serpent_dummy_c
+    name: "Serpent — Morsure Sage (C)"
+    category: "senjutsu/serpent"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Serpent de rang C."
+    jutsu:
+      icon: SLIME_BALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_serpent
+  - id: serpent_dummy_b
+    name: "Serpent — Étreinte du Naja (B)"
+    category: "senjutsu/serpent"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Serpent de rang B."
+    jutsu:
+      icon: SLIME_BALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_serpent
+  - id: serpent_dummy_a
+    name: "Serpent — Danse du Grand Serpent (A)"
+    category: "senjutsu/serpent"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Serpent de rang A."
+    jutsu:
+      icon: SLIME_BALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_serpent
+  - id: serpent_dummy_hiden
+    name: "Serpent — Sennin du Reptile Blanc (Hiden)"
+    category: "senjutsu/serpent"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Serpent de rang Hiden."
+    jutsu:
+      icon: SLIME_BALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_serpent
+
+  # — kekkei/mokuton —
+  - id: mokuton_dummy_e
+    name: "Mokuton — Pousse Agile (E)"
+    category: "kekkei/mokuton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Mokuton de rang E."
+    jutsu:
+      icon: OAK_SAPLING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_mokuton
+  - id: mokuton_dummy_d
+    name: "Mokuton — Racine Saisissante (D)"
+    category: "kekkei/mokuton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Mokuton de rang D."
+    jutsu:
+      icon: OAK_SAPLING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_mokuton
+  - id: mokuton_dummy_c
+    name: "Mokuton — Branches Liantes (C)"
+    category: "kekkei/mokuton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Mokuton de rang C."
+    jutsu:
+      icon: OAK_SAPLING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_mokuton
+  - id: mokuton_dummy_b
+    name: "Mokuton — Forêt Naissante (B)"
+    category: "kekkei/mokuton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Mokuton de rang B."
+    jutsu:
+      icon: OAK_SAPLING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_mokuton
+  - id: mokuton_dummy_a
+    name: "Mokuton — Sylve Carcérale (A)"
+    category: "kekkei/mokuton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Mokuton de rang A."
+    jutsu:
+      icon: OAK_SAPLING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_mokuton
+  - id: mokuton_dummy_hiden
+    name: "Mokuton — Avènement Sylvestre (Hiden)"
+    category: "kekkei/mokuton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Mokuton de rang Hiden."
+    jutsu:
+      icon: OAK_SAPLING
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_mokuton
+
+  # — kekkei/hyoton —
+  - id: hyoton_dummy_e
+    name: "Hyoton — Flocon Mordant (E)"
+    category: "kekkei/hyoton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Hyoton de rang E."
+    jutsu:
+      icon: SNOWBALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_hyoton
+  - id: hyoton_dummy_d
+    name: "Hyoton — Aiguilles de Givre (D)"
+    category: "kekkei/hyoton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Hyoton de rang D."
+    jutsu:
+      icon: SNOWBALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_hyoton
+  - id: hyoton_dummy_c
+    name: "Hyoton — Lance de Glace (C)"
+    category: "kekkei/hyoton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Hyoton de rang C."
+    jutsu:
+      icon: SNOWBALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_hyoton
+  - id: hyoton_dummy_b
+    name: "Hyoton — Miroirs Gelés (B)"
+    category: "kekkei/hyoton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Hyoton de rang B."
+    jutsu:
+      icon: SNOWBALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_hyoton
+  - id: hyoton_dummy_a
+    name: "Hyoton — Blizzard Polaire (A)"
+    category: "kekkei/hyoton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Hyoton de rang A."
+    jutsu:
+      icon: SNOWBALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_hyoton
+  - id: hyoton_dummy_hiden
+    name: "Hyoton — Mausolée de Glace Éternelle (Hiden)"
+    category: "kekkei/hyoton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Hyoton de rang Hiden."
+    jutsu:
+      icon: SNOWBALL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_hyoton
+
+  # — kekkei/yoton —
+  - id: yoton_dummy_e
+    name: "Yoton — Goutte Brûlante (E)"
+    category: "kekkei/yoton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Yoton de rang E."
+    jutsu:
+      icon: MAGMA_CREAM
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_yoton
+  - id: yoton_dummy_d
+    name: "Yoton — Crachat de Lave (D)"
+    category: "kekkei/yoton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Yoton de rang D."
+    jutsu:
+      icon: MAGMA_CREAM
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_yoton
+  - id: yoton_dummy_c
+    name: "Yoton — Coulée Dévorante (C)"
+    category: "kekkei/yoton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Yoton de rang C."
+    jutsu:
+      icon: MAGMA_CREAM
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_yoton
+  - id: yoton_dummy_b
+    name: "Yoton — Geyser Magmatique (B)"
+    category: "kekkei/yoton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Yoton de rang B."
+    jutsu:
+      icon: MAGMA_CREAM
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_yoton
+  - id: yoton_dummy_a
+    name: "Yoton — Fleuve Incandescent (A)"
+    category: "kekkei/yoton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Yoton de rang A."
+    jutsu:
+      icon: MAGMA_CREAM
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_yoton
+  - id: yoton_dummy_hiden
+    name: "Yoton — Caldeira Souveraine (Hiden)"
+    category: "kekkei/yoton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Yoton de rang Hiden."
+    jutsu:
+      icon: MAGMA_CREAM
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_yoton
+
+  # — kekkei/futton —
+  - id: futton_dummy_e
+    name: "Futton — Buée Âcre (E)"
+    category: "kekkei/futton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futton de rang E."
+    jutsu:
+      icon: GHAST_TEAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futton
+  - id: futton_dummy_d
+    name: "Futton — Vapeur Mordante (D)"
+    category: "kekkei/futton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futton de rang D."
+    jutsu:
+      icon: GHAST_TEAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futton
+  - id: futton_dummy_c
+    name: "Futton — Nuée Corrosive (C)"
+    category: "kekkei/futton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futton de rang C."
+    jutsu:
+      icon: GHAST_TEAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futton
+  - id: futton_dummy_b
+    name: "Futton — Brouillard Rongeur (B)"
+    category: "kekkei/futton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futton de rang B."
+    jutsu:
+      icon: GHAST_TEAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futton
+  - id: futton_dummy_a
+    name: "Futton — Étuve Dissolvante (A)"
+    category: "kekkei/futton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futton de rang A."
+    jutsu:
+      icon: GHAST_TEAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futton
+  - id: futton_dummy_hiden
+    name: "Futton — Brume du Néant (Hiden)"
+    category: "kekkei/futton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Futton de rang Hiden."
+    jutsu:
+      icon: GHAST_TEAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_futton
+
+  # — kekkei/shakuton —
+  - id: shakuton_dummy_e
+    name: "Shakuton — Chaleur Sèche (E)"
+    category: "kekkei/shakuton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shakuton de rang E."
+    jutsu:
+      icon: BLAZE_POWDER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shakuton
+  - id: shakuton_dummy_d
+    name: "Shakuton — Rayon Calcinant (D)"
+    category: "kekkei/shakuton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shakuton de rang D."
+    jutsu:
+      icon: BLAZE_POWDER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shakuton
+  - id: shakuton_dummy_c
+    name: "Shakuton — Orbe Torride (C)"
+    category: "kekkei/shakuton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shakuton de rang C."
+    jutsu:
+      icon: BLAZE_POWDER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shakuton
+  - id: shakuton_dummy_b
+    name: "Shakuton — Soleil Miniature (B)"
+    category: "kekkei/shakuton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shakuton de rang B."
+    jutsu:
+      icon: BLAZE_POWDER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shakuton
+  - id: shakuton_dummy_a
+    name: "Shakuton — Fournaise Spiralée (A)"
+    category: "kekkei/shakuton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shakuton de rang A."
+    jutsu:
+      icon: BLAZE_POWDER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shakuton
+  - id: shakuton_dummy_hiden
+    name: "Shakuton — Zénith Calcinant (Hiden)"
+    category: "kekkei/shakuton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shakuton de rang Hiden."
+    jutsu:
+      icon: BLAZE_POWDER
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shakuton
+
+  # — kekkei/bakuton —
+  - id: bakuton_dummy_e
+    name: "Bakuton — Pichenette Explosive (E)"
+    category: "kekkei/bakuton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bakuton de rang E."
+    jutsu:
+      icon: TNT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bakuton
+  - id: bakuton_dummy_d
+    name: "Bakuton — Charge Creuse (D)"
+    category: "kekkei/bakuton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bakuton de rang D."
+    jutsu:
+      icon: TNT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bakuton
+  - id: bakuton_dummy_c
+    name: "Bakuton — Poing Détonant (C)"
+    category: "kekkei/bakuton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bakuton de rang C."
+    jutsu:
+      icon: TNT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bakuton
+  - id: bakuton_dummy_b
+    name: "Bakuton — Salve Fracassante (B)"
+    category: "kekkei/bakuton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bakuton de rang B."
+    jutsu:
+      icon: TNT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bakuton
+  - id: bakuton_dummy_a
+    name: "Bakuton — Champ de Mines (A)"
+    category: "kekkei/bakuton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bakuton de rang A."
+    jutsu:
+      icon: TNT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bakuton
+  - id: bakuton_dummy_hiden
+    name: "Bakuton — Apocalypse Sphérique (Hiden)"
+    category: "kekkei/bakuton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bakuton de rang Hiden."
+    jutsu:
+      icon: TNT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bakuton
+
+  # — kekkei/jiton —
+  - id: jiton_dummy_e
+    name: "Jiton — Limaille Dansante (E)"
+    category: "kekkei/jiton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Jiton de rang E."
+    jutsu:
+      icon: IRON_NUGGET
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_jiton
+  - id: jiton_dummy_d
+    name: "Jiton — Attraction Brève (D)"
+    category: "kekkei/jiton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Jiton de rang D."
+    jutsu:
+      icon: IRON_NUGGET
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_jiton
+  - id: jiton_dummy_c
+    name: "Jiton — Sable Ferreux (C)"
+    category: "kekkei/jiton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Jiton de rang C."
+    jutsu:
+      icon: IRON_NUGGET
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_jiton
+  - id: jiton_dummy_b
+    name: "Jiton — Étau Magnétique (B)"
+    category: "kekkei/jiton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Jiton de rang B."
+    jutsu:
+      icon: IRON_NUGGET
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_jiton
+  - id: jiton_dummy_a
+    name: "Jiton — Tempête de Limaille (A)"
+    category: "kekkei/jiton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Jiton de rang A."
+    jutsu:
+      icon: IRON_NUGGET
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_jiton
+  - id: jiton_dummy_hiden
+    name: "Jiton — Astre d'Acier (Hiden)"
+    category: "kekkei/jiton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Jiton de rang Hiden."
+    jutsu:
+      icon: IRON_NUGGET
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_jiton
+
+  # — kekkei/shoton —
+  - id: shoton_dummy_e
+    name: "Shoton — Éclat Naissant (E)"
+    category: "kekkei/shoton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shoton de rang E."
+    jutsu:
+      icon: AMETHYST_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shoton
+  - id: shoton_dummy_d
+    name: "Shoton — Dague Cristalline (D)"
+    category: "kekkei/shoton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shoton de rang D."
+    jutsu:
+      icon: AMETHYST_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shoton
+  - id: shoton_dummy_c
+    name: "Shoton — Floraison de Quartz (C)"
+    category: "kekkei/shoton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shoton de rang C."
+    jutsu:
+      icon: AMETHYST_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shoton
+  - id: shoton_dummy_b
+    name: "Shoton — Lame Prismatique (B)"
+    category: "kekkei/shoton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shoton de rang B."
+    jutsu:
+      icon: AMETHYST_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shoton
+  - id: shoton_dummy_a
+    name: "Shoton — Jardin de Cristal (A)"
+    category: "kekkei/shoton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shoton de rang A."
+    jutsu:
+      icon: AMETHYST_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shoton
+  - id: shoton_dummy_hiden
+    name: "Shoton — Pavane des Mille Éclats (Hiden)"
+    category: "kekkei/shoton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shoton de rang Hiden."
+    jutsu:
+      icon: AMETHYST_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shoton
+
+  # — kekkei/ranton —
+  - id: ranton_dummy_e
+    name: "Ranton — Lueur d'Orage (E)"
+    category: "kekkei/ranton"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Ranton de rang E."
+    jutsu:
+      icon: GLOW_INK_SAC
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_ranton
+  - id: ranton_dummy_d
+    name: "Ranton — Arc Tourmenté (D)"
+    category: "kekkei/ranton"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Ranton de rang D."
+    jutsu:
+      icon: GLOW_INK_SAC
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_ranton
+  - id: ranton_dummy_c
+    name: "Ranton — Rayon Tempête (C)"
+    category: "kekkei/ranton"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Ranton de rang C."
+    jutsu:
+      icon: GLOW_INK_SAC
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_ranton
+  - id: ranton_dummy_b
+    name: "Ranton — Spirale Foudre-Nuée (B)"
+    category: "kekkei/ranton"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Ranton de rang B."
+    jutsu:
+      icon: GLOW_INK_SAC
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_ranton
+  - id: ranton_dummy_a
+    name: "Ranton — Typhon Lumineux (A)"
+    category: "kekkei/ranton"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Ranton de rang A."
+    jutsu:
+      icon: GLOW_INK_SAC
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_ranton
+  - id: ranton_dummy_hiden
+    name: "Ranton — Souffle du Léviathan (Hiden)"
+    category: "kekkei/ranton"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Ranton de rang Hiden."
+    jutsu:
+      icon: GLOW_INK_SAC
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_ranton
+
+  # — kekkei/dojutsu/sharingan —
+  - id: sharingan_dummy_e
+    name: "Sharingan — Tomoe Naissant (E)"
+    category: "kekkei/dojutsu/sharingan"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Sharingan de rang E."
+    jutsu:
+      icon: ENDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_sharingan
+  - id: sharingan_dummy_d
+    name: "Sharingan — Œil Copieur (D)"
+    category: "kekkei/dojutsu/sharingan"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Sharingan de rang D."
+    jutsu:
+      icon: ENDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_sharingan
+  - id: sharingan_dummy_c
+    name: "Sharingan — Lecture du Geste (C)"
+    category: "kekkei/dojutsu/sharingan"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Sharingan de rang C."
+    jutsu:
+      icon: ENDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_sharingan
+  - id: sharingan_dummy_b
+    name: "Sharingan — Hypnose Pupillaire (B)"
+    category: "kekkei/dojutsu/sharingan"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Sharingan de rang B."
+    jutsu:
+      icon: ENDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_sharingan
+  - id: sharingan_dummy_a
+    name: "Sharingan — Kaléidoscope Voilé (A)"
+    category: "kekkei/dojutsu/sharingan"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Sharingan de rang A."
+    jutsu:
+      icon: ENDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_sharingan
+  - id: sharingan_dummy_hiden
+    name: "Sharingan — Mangekyō Éternel (Hiden)"
+    category: "kekkei/dojutsu/sharingan"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Sharingan de rang Hiden."
+    jutsu:
+      icon: ENDER_EYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_sharingan
+
+  # — kekkei/dojutsu/byakugan —
+  - id: byakugan_dummy_e
+    name: "Byakugan — Vision Blanche (E)"
+    category: "kekkei/dojutsu/byakugan"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Byakugan de rang E."
+    jutsu:
+      icon: ENDER_PEARL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_byakugan
+  - id: byakugan_dummy_d
+    name: "Byakugan — Regard Perçant (D)"
+    category: "kekkei/dojutsu/byakugan"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Byakugan de rang D."
+    jutsu:
+      icon: ENDER_PEARL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_byakugan
+  - id: byakugan_dummy_c
+    name: "Byakugan — Champ de 360° (C)"
+    category: "kekkei/dojutsu/byakugan"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Byakugan de rang C."
+    jutsu:
+      icon: ENDER_PEARL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_byakugan
+  - id: byakugan_dummy_b
+    name: "Byakugan — Lecture des Tenketsu (B)"
+    category: "kekkei/dojutsu/byakugan"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Byakugan de rang B."
+    jutsu:
+      icon: ENDER_PEARL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_byakugan
+  - id: byakugan_dummy_a
+    name: "Byakugan — Œil du Devin (A)"
+    category: "kekkei/dojutsu/byakugan"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Byakugan de rang A."
+    jutsu:
+      icon: ENDER_PEARL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_byakugan
+  - id: byakugan_dummy_hiden
+    name: "Byakugan — Byakugan Céleste (Hiden)"
+    category: "kekkei/dojutsu/byakugan"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Byakugan de rang Hiden."
+    jutsu:
+      icon: ENDER_PEARL
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_byakugan
+
+  # — kekkei/dojutsu/rinnegan —
+  - id: rinnegan_dummy_e
+    name: "Rinnegan — Onde Naissante (E)"
+    category: "kekkei/dojutsu/rinnegan"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Rinnegan de rang E."
+    jutsu:
+      icon: HEART_OF_THE_SEA
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_rinnegan
+  - id: rinnegan_dummy_d
+    name: "Rinnegan — Regard du Samsara (D)"
+    category: "kekkei/dojutsu/rinnegan"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Rinnegan de rang D."
+    jutsu:
+      icon: HEART_OF_THE_SEA
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_rinnegan
+  - id: rinnegan_dummy_c
+    name: "Rinnegan — Attraction Divine (C)"
+    category: "kekkei/dojutsu/rinnegan"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Rinnegan de rang C."
+    jutsu:
+      icon: HEART_OF_THE_SEA
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_rinnegan
+  - id: rinnegan_dummy_b
+    name: "Rinnegan — Répulsion Céleste (B)"
+    category: "kekkei/dojutsu/rinnegan"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Rinnegan de rang B."
+    jutsu:
+      icon: HEART_OF_THE_SEA
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_rinnegan
+  - id: rinnegan_dummy_a
+    name: "Rinnegan — Six Voies Éveillées (A)"
+    category: "kekkei/dojutsu/rinnegan"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Rinnegan de rang A."
+    jutsu:
+      icon: HEART_OF_THE_SEA
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_rinnegan
+  - id: rinnegan_dummy_hiden
+    name: "Rinnegan — Cycle de la Renaissance (Hiden)"
+    category: "kekkei/dojutsu/rinnegan"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Rinnegan de rang Hiden."
+    jutsu:
+      icon: HEART_OF_THE_SEA
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_rinnegan
+
+  # — bukijutsu/kenjutsu —
+  - id: kenjutsu_dummy_e
+    name: "Kenjutsu — Garde Basique (E)"
+    category: "bukijutsu/kenjutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kenjutsu de rang E."
+    jutsu:
+      icon: DIAMOND_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kenjutsu
+  - id: kenjutsu_dummy_d
+    name: "Kenjutsu — Taille Croisée (D)"
+    category: "bukijutsu/kenjutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kenjutsu de rang D."
+    jutsu:
+      icon: DIAMOND_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kenjutsu
+  - id: kenjutsu_dummy_c
+    name: "Kenjutsu — Lame Dansante (C)"
+    category: "bukijutsu/kenjutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kenjutsu de rang C."
+    jutsu:
+      icon: DIAMOND_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kenjutsu
+  - id: kenjutsu_dummy_b
+    name: "Kenjutsu — Iaijutsu Éclair (B)"
+    category: "bukijutsu/kenjutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kenjutsu de rang B."
+    jutsu:
+      icon: DIAMOND_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kenjutsu
+  - id: kenjutsu_dummy_a
+    name: "Kenjutsu — Style des Mille Reflets (A)"
+    category: "bukijutsu/kenjutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kenjutsu de rang A."
+    jutsu:
+      icon: DIAMOND_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kenjutsu
+  - id: kenjutsu_dummy_hiden
+    name: "Kenjutsu — Tranche-Lune (Hiden)"
+    category: "bukijutsu/kenjutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kenjutsu de rang Hiden."
+    jutsu:
+      icon: DIAMOND_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kenjutsu
+
+  # — bukijutsu/kunaijutsu —
+  - id: kunaijutsu_dummy_e
+    name: "Kunaijutsu — Lancer Précis (E)"
+    category: "bukijutsu/kunaijutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kunaijutsu de rang E."
+    jutsu:
+      icon: IRON_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kunaijutsu
+  - id: kunaijutsu_dummy_d
+    name: "Kunaijutsu — Double Pointe (D)"
+    category: "bukijutsu/kunaijutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kunaijutsu de rang D."
+    jutsu:
+      icon: IRON_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kunaijutsu
+  - id: kunaijutsu_dummy_c
+    name: "Kunaijutsu — Pluie de Kunai (C)"
+    category: "bukijutsu/kunaijutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kunaijutsu de rang C."
+    jutsu:
+      icon: IRON_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kunaijutsu
+  - id: kunaijutsu_dummy_b
+    name: "Kunaijutsu — Kunai Fantôme (B)"
+    category: "bukijutsu/kunaijutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kunaijutsu de rang B."
+    jutsu:
+      icon: IRON_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kunaijutsu
+  - id: kunaijutsu_dummy_a
+    name: "Kunaijutsu — Danse des Lames Courtes (A)"
+    category: "bukijutsu/kunaijutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kunaijutsu de rang A."
+    jutsu:
+      icon: IRON_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kunaijutsu
+  - id: kunaijutsu_dummy_hiden
+    name: "Kunaijutsu — Orage d'Acier (Hiden)"
+    category: "bukijutsu/kunaijutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Kunaijutsu de rang Hiden."
+    jutsu:
+      icon: IRON_SWORD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_kunaijutsu
+
+  # — bukijutsu/shurikenjutsu —
+  - id: shurikenjutsu_dummy_e
+    name: "Shurikenjutsu — Étoile Simple (E)"
+    category: "bukijutsu/shurikenjutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shurikenjutsu de rang E."
+    jutsu:
+      icon: PRISMARINE_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shurikenjutsu
+  - id: shurikenjutsu_dummy_d
+    name: "Shurikenjutsu — Tir Courbé (D)"
+    category: "bukijutsu/shurikenjutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shurikenjutsu de rang D."
+    jutsu:
+      icon: PRISMARINE_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shurikenjutsu
+  - id: shurikenjutsu_dummy_c
+    name: "Shurikenjutsu — Volée Sifflante (C)"
+    category: "bukijutsu/shurikenjutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shurikenjutsu de rang C."
+    jutsu:
+      icon: PRISMARINE_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shurikenjutsu
+  - id: shurikenjutsu_dummy_b
+    name: "Shurikenjutsu — Shuriken Ombré (B)"
+    category: "bukijutsu/shurikenjutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shurikenjutsu de rang B."
+    jutsu:
+      icon: PRISMARINE_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shurikenjutsu
+  - id: shurikenjutsu_dummy_a
+    name: "Shurikenjutsu — Constellation Mortelle (A)"
+    category: "bukijutsu/shurikenjutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shurikenjutsu de rang A."
+    jutsu:
+      icon: PRISMARINE_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shurikenjutsu
+  - id: shurikenjutsu_dummy_hiden
+    name: "Shurikenjutsu — Pluie d'Étoiles Filantes (Hiden)"
+    category: "bukijutsu/shurikenjutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Shurikenjutsu de rang Hiden."
+    jutsu:
+      icon: PRISMARINE_SHARD
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_shurikenjutsu
+
+  # — bukijutsu/bojutsu —
+  - id: bojutsu_dummy_e
+    name: "Bojutsu — Moulinet d'Appui (E)"
+    category: "bukijutsu/bojutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bojutsu de rang E."
+    jutsu:
+      icon: STICK
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bojutsu
+  - id: bojutsu_dummy_d
+    name: "Bojutsu — Frappe du Roseau (D)"
+    category: "bukijutsu/bojutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bojutsu de rang D."
+    jutsu:
+      icon: STICK
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bojutsu
+  - id: bojutsu_dummy_c
+    name: "Bojutsu — Balayage Tournant (C)"
+    category: "bukijutsu/bojutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bojutsu de rang C."
+    jutsu:
+      icon: STICK
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bojutsu
+  - id: bojutsu_dummy_b
+    name: "Bojutsu — Pilier Tombant (B)"
+    category: "bukijutsu/bojutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bojutsu de rang B."
+    jutsu:
+      icon: STICK
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bojutsu
+  - id: bojutsu_dummy_a
+    name: "Bojutsu — Danse du Bâton Céleste (A)"
+    category: "bukijutsu/bojutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bojutsu de rang A."
+    jutsu:
+      icon: STICK
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bojutsu
+  - id: bojutsu_dummy_hiden
+    name: "Bojutsu — Colonne du Mont Myōboku (Hiden)"
+    category: "bukijutsu/bojutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Bojutsu de rang Hiden."
+    jutsu:
+      icon: STICK
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_bojutsu
+
+  # — bukijutsu/tessenjutsu —
+  - id: tessenjutsu_dummy_e
+    name: "Tessenjutsu — Éventail Plié (E)"
+    category: "bukijutsu/tessenjutsu"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Tessenjutsu de rang E."
+    jutsu:
+      icon: MAP
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_tessenjutsu
+  - id: tessenjutsu_dummy_d
+    name: "Tessenjutsu — Claque de Papier (D)"
+    category: "bukijutsu/tessenjutsu"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Tessenjutsu de rang D."
+    jutsu:
+      icon: MAP
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_tessenjutsu
+  - id: tessenjutsu_dummy_c
+    name: "Tessenjutsu — Tranchant Déployé (C)"
+    category: "bukijutsu/tessenjutsu"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Tessenjutsu de rang C."
+    jutsu:
+      icon: MAP
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_tessenjutsu
+  - id: tessenjutsu_dummy_b
+    name: "Tessenjutsu — Bourrasque d'Éventail (B)"
+    category: "bukijutsu/tessenjutsu"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Tessenjutsu de rang B."
+    jutsu:
+      icon: MAP
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_tessenjutsu
+  - id: tessenjutsu_dummy_a
+    name: "Tessenjutsu — Danse des Trois Lunes (A)"
+    category: "bukijutsu/tessenjutsu"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Tessenjutsu de rang A."
+    jutsu:
+      icon: MAP
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_tessenjutsu
+  - id: tessenjutsu_dummy_hiden
+    name: "Tessenjutsu — Kamaitachi de l'Éventail (Hiden)"
+    category: "bukijutsu/tessenjutsu"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Tessenjutsu de rang Hiden."
+    jutsu:
+      icon: MAP
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_tessenjutsu
+
+  # — bukijutsu/fuma —
+  - id: fuma_dummy_e
+    name: "Fuma — Grande Étoile (E)"
+    category: "bukijutsu/fuma"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuma de rang E."
+    jutsu:
+      icon: NETHER_STAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuma
+  - id: fuma_dummy_d
+    name: "Fuma — Lancer Lourd (D)"
+    category: "bukijutsu/fuma"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuma de rang D."
+    jutsu:
+      icon: NETHER_STAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuma
+  - id: fuma_dummy_c
+    name: "Fuma — Disque Hurlant (C)"
+    category: "bukijutsu/fuma"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuma de rang C."
+    jutsu:
+      icon: NETHER_STAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuma
+  - id: fuma_dummy_b
+    name: "Fuma — Croix Tournoyante (B)"
+    category: "bukijutsu/fuma"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuma de rang B."
+    jutsu:
+      icon: NETHER_STAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuma
+  - id: fuma_dummy_a
+    name: "Fuma — Guillotine Volante (A)"
+    category: "bukijutsu/fuma"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuma de rang A."
+    jutsu:
+      icon: NETHER_STAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuma
+  - id: fuma_dummy_hiden
+    name: "Fuma — Roue du Démon Fūma (Hiden)"
+    category: "bukijutsu/fuma"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Fuma de rang Hiden."
+    jutsu:
+      icon: NETHER_STAR
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_fuma
+
+  # — taijutsu/goken —
+  - id: goken_dummy_e
+    name: "Goken — Poing Appliqué (E)"
+    category: "taijutsu/goken"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Goken de rang E."
+    jutsu:
+      icon: IRON_INGOT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_goken
+  - id: goken_dummy_d
+    name: "Goken — Enchaînement Sec (D)"
+    category: "taijutsu/goken"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Goken de rang D."
+    jutsu:
+      icon: IRON_INGOT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_goken
+  - id: goken_dummy_c
+    name: "Goken — Tourbillon de Konoha (C)"
+    category: "taijutsu/goken"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Goken de rang C."
+    jutsu:
+      icon: IRON_INGOT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_goken
+  - id: goken_dummy_b
+    name: "Goken — Ouverture des Portes (B)"
+    category: "taijutsu/goken"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Goken de rang B."
+    jutsu:
+      icon: IRON_INGOT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_goken
+  - id: goken_dummy_a
+    name: "Goken — Paon Matinal (A)"
+    category: "taijutsu/goken"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Goken de rang A."
+    jutsu:
+      icon: IRON_INGOT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_goken
+  - id: goken_dummy_hiden
+    name: "Goken — Huitième Porte Entrebâillée (Hiden)"
+    category: "taijutsu/goken"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Goken de rang Hiden."
+    jutsu:
+      icon: IRON_INGOT
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_goken
+
+  # — taijutsu/juken —
+  - id: juken_dummy_e
+    name: "Juken — Paume Souple (E)"
+    category: "taijutsu/juken"
+    rank: E
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juken de rang E."
+    jutsu:
+      icon: WHITE_DYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juken
+  - id: juken_dummy_d
+    name: "Juken — Frappe des Méridiens (D)"
+    category: "taijutsu/juken"
+    rank: D
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juken de rang D."
+    jutsu:
+      icon: WHITE_DYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juken
+  - id: juken_dummy_c
+    name: "Juken — Rotation Céleste (C)"
+    category: "taijutsu/juken"
+    rank: C
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juken de rang C."
+    jutsu:
+      icon: WHITE_DYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juken
+  - id: juken_dummy_b
+    name: "Juken — Soixante-Quatre Poings (B)"
+    category: "taijutsu/juken"
+    rank: B
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juken de rang B."
+    jutsu:
+      icon: WHITE_DYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juken
+  - id: juken_dummy_a
+    name: "Juken — Paume du Lion (A)"
+    category: "taijutsu/juken"
+    rank: A
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juken de rang A."
+    jutsu:
+      icon: WHITE_DYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juken
+  - id: juken_dummy_hiden
+    name: "Juken — Trigramme Absolu (Hiden)"
+    category: "taijutsu/juken"
+    rank: HIDEN
+    execution: JUTSU
+    minigame: NONE
+    difficulty: MEDIUM
+    description: "Technique d'essai Juken de rang Hiden."
+    jutsu:
+      icon: WHITE_DYE
+      method: LEFT_CLICK
+      chakra-cost: 50
+      cooldown-millis: 5000
+      effect: generic_juken
+

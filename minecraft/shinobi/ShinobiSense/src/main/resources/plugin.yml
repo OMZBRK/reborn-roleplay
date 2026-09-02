@@ -1,0 +1,17 @@
+name: ShinobiSense
+version: ${project.version}
+main: com.reborn.shinobisense.ShinobiSense
+api-version: '1.21'
+authors: [Reborn]
+description: Perception et guerre de l'information (détection, signatures de chakra, suppression, henge, genjutsu, dōjutsu) pour le serveur Reborn.
+softdepend: [ShinobiCore, ShinobiAbilities, ShinobiTail]
+commands:
+  sense:
+    description: Concentre tes sens pour percevoir le chakra alentour.
+    usage: /<command> [suppress]
+    aliases: [sentir, perception]
+    permission: shinobisense.use
+permissions:
+  shinobisense.use:
+    description: Base permission to use ShinobiSense (sensing + masking).
+    default: true

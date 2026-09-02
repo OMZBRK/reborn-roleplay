@@ -349,7 +349,7 @@ pub struct GameInfo {
 #[tauri::command]
 pub async fn launcher_game_info() -> Result<GameInfo, LauncherError> {
     let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let mc_version = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.1.2".into());
+    let mc_version = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.2".into());
 
     // Volume contenant le game dir : mount point le plus long qui préfixe le chemin.
     let disks = sysinfo::Disks::new_with_refreshed_list();
@@ -452,7 +452,7 @@ pub fn clean_obsolete_files() -> CleanResult {
     }
 
     // 2. Anciennes versions MC (on garde seulement la courante).
-    let current = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.1.2".into());
+    let current = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.2".into());
     if let Ok(entries) = std::fs::read_dir(dir.join("versions")) {
         for e in entries.flatten() {
             let name = e.file_name().to_string_lossy().to_string();

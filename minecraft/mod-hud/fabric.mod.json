@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "reborn-hud",
+  "version": "0.4.115",
+  "name": "Reborn HUD",
+  "description": "Toute la couche UI Reborn cote client : menu principal, ESC, ConnectScreen, sub-screens (Options / Lore / Regles), HUD in-game (chat, scoreboard, bossbar, etc.) avec editeur drag/resize/hide, et chat custom Reborn.",
+  "authors": ["Reborn Team"],
+  "contact": {
+    "homepage": "https://reborn-rp.fr",
+    "sources": "https://github.com/OMZBRK/reborn-roleplay"
+  },
+  "license": "All-Rights-Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["fr.reborn.hud.RebornHudClient"]
+  },
+  "mixins": [
+    "reborn-hud.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": ">=26.2 <26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

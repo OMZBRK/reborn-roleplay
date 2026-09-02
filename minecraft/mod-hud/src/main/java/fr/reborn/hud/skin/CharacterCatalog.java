@@ -176,6 +176,71 @@ public final class CharacterCatalog {
         return index.get(category + ":" + id);
     }
 
+    // ── Assets RUNTIME (diffusés par le serveur, canal reborn:creatorpack) ──
+    // Permet d'ajouter tenues/cheveux/yeux… SANS republier le mod : le serveur
+    // pousse le PNG + la métadonnée, on l'injecte dans le catalogue au runtime.
+
+    /** Fichiers PNG/masque reçus du serveur : chemin classpath → octets. */
+    private static final Map<String, byte[]> runtimeFiles = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Ouvre un asset par son chemin classpath : d'abord les octets RUNTIME (poussés par
+     * le serveur), sinon la ressource bundlée du jar. Utilisé par {@link RebornSkins}.
+     */
+    public static InputStream openAsset(String path) {
+        byte[] rt = runtimeFiles.get(path);
+        if (rt != null) return new java.io.ByteArrayInputStream(rt);
+        return CharacterCatalog.class.getResourceAsStream(path);
+    }
+
+    /**
+     * Enregistre (ou remplace) un asset reçu du serveur : parse la métadonnée JSON,
+     * l'ajoute au catalogue de sa catégorie (copie-sur-écriture → thread-safe avec le
+     * thread de rendu), et mémorise les octets PNG (+ masque optionnel). Renvoie
+     * {@code true} si l'asset a bien été injecté.
+     */
+    public static synchronized boolean registerRuntimeAsset(String category, String metaJson,
+                                                            byte[] png, byte[] mask) {
+        ensureLoaded();
+        if (category == null || png == null || png.length == 0) return false;
+        Asset a;
+        try {
+            JsonObject o = JsonParser.parseString(metaJson).getAsJsonObject();
+            a = parse(category, o);
+        } catch (Exception e) {
+            LOGGER.warn("asset runtime {} : métadonnée illisible ({})", category, e.getMessage());
+            return false;
+        }
+        if (a == null) return false;
+
+        // Octets PNG (+ masque) indexés par chemin classpath → openAsset les retrouvera.
+        runtimeFiles.put(a.texturePath(), png);
+        if (mask != null && mask.length > 0) runtimeFiles.put(a.maskPath(), mask);
+
+        // Copie-sur-écriture de la liste de catégorie + de l'index (remplace un id existant).
+        Map<String, List<Asset>> cats = new LinkedHashMap<>(byCategory);
+        List<Asset> list = new ArrayList<>(cats.getOrDefault(category, Collections.emptyList()));
+        list.removeIf(x -> x.id.equals(a.id));
+        list.add(a);
+        cats.put(category, list);
+        Map<String, Asset> idx = new LinkedHashMap<>(index);
+        idx.put(category + ":" + a.id, a);
+        byCategory = cats;
+        index = idx;
+        RebornSkins.invalidate(category, a.id); // au cas où un id bundlé serait remplacé
+        LOGGER.info("asset runtime injecté : {}:{} ({})", category, a.id, a.name);
+        return true;
+    }
+
+    /** Purge les assets runtime (déconnexion) — le catalogue bundlé reste. */
+    public static synchronized void clearRuntime() {
+        if (runtimeFiles.isEmpty()) return;
+        runtimeFiles.clear();
+        byCategory = null; // force un rechargement propre depuis le jar au prochain accès
+        index = null;
+        RebornSkins.clearAssetCache();
+    }
+
     // ── Helpers JSON ────────────────────────────────────────────────────
     private static String str(JsonObject o, String k, String def) {
         return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : def;
