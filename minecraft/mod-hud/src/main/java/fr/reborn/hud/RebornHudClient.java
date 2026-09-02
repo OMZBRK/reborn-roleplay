@@ -64,6 +64,8 @@ public final class RebornHudClient implements ClientModInitializer {
             (ctx, tickCounter) -> {
                 net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
                 if (mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
+                // Serveur build / non-Reborn : pas de panneau vitals RP.
+                if (!fr.reborn.hud.runtime.RebornSession.rpFeaturesEnabled()) return;
                 fr.reborn.hud.element.HudElementState st;
                 try { st = config().stateOf(fr.reborn.hud.element.HudElement.VITALS); }
                 catch (RuntimeException e) { return; }

@@ -47,6 +47,8 @@ public final class CrosshairManager {
     public static boolean tryRender(GuiGraphicsExtractor ctx) {
         RebornPrefs p = RebornPrefs.INSTANCE;
         if (!p.crosshairEnabled) return false;
+        // Serveur build / non-Reborn : viseur vanilla (on ne prend pas la main).
+        if (!fr.reborn.hud.runtime.RebornSession.rpFeaturesEnabled()) return false;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null || mc.player == null) return false;
         // Viseur affiché en 1re personne ET en vue ÉPAULE Reborn (3e pers. arrière) —
