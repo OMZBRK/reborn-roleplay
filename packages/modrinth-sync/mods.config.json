@@ -1,7 +1,9 @@
 {
   "$comment": "Mapping mods tiers du modpack Reborn → projet Modrinth + politique d'auto-update. policy=auto : le détecteur/prépare prend la dernière version compatible MC+loader. policy=pinned : jamais auto (mods fragiles ou couplés à une version exacte) — bump manuel seulement. Les mods reborn-* (self-build) ne sont PAS ici.",
+  "$decisions": "Slice 2 (user 2026-09-02) : channel=any (prend la dernière compatible même beta, ex. sodium 0.9.2-beta ; le type reste affiché pour la validation 1-clic). Notif Discord = via le bot Reborn (webhook HMAC interne).",
   "gameVersion": "26.2",
   "loader": "fabric",
+  "channel": "any",
   "mods": [
     { "prefix": "sodium-fabric-",            "slug": "sodium",                 "policy": "auto" },
     { "prefix": "sodium-extra-fabric-",      "slug": "sodium-extra",           "policy": "auto" },
