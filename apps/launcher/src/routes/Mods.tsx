@@ -3,7 +3,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Boxes,
+  Cpu,
   Film,
+  Hammer,
   Layers,
   Lock,
   Mic,
@@ -27,6 +29,29 @@ import {
 } from "../lib/launcher";
 import { ModCard } from "../components/mods/ModCard";
 import { ModsTabs, type ModsTab } from "../components/mods/ModsTabs";
+import { useAuthStore } from "../stores/auth-store";
+
+// Grades « staff » — aligné avec is_staff_role() côté Rust (launcher/game.rs)
+// et STAFF_ROLES de BuilderButton. Sert à masquer les mods optionnels
+// réservés au staff (ex. Axiom, outil de build) aux joueurs normaux.
+const STAFF_ROLES = [
+  "HELPER",
+  "MODELISATEUR",
+  "DEVELOPPEUR",
+  "MODERATOR",
+  "WHITELIST_REVIEWER",
+  "ADMIN",
+  "OWNER",
+];
+
+// Préfixes de fichiers de mods optionnels réservés au staff. Purement un
+// filtre d'AFFICHAGE : Axiom sans permissions serveur ne peut rien casser,
+// mais on évite de le proposer aux joueurs normaux.
+const STAFF_ONLY_OPTIONAL_PREFIXES = ["Axiom"];
+
+function isStaffOnlyOptional(filename: string): boolean {
+  return STAFF_ONLY_OPTIONAL_PREFIXES.some((p) => filename.startsWith(p));
+}
 
 // Page Mods branchée sur la vraie data du launcher (listMods Rust qui scan
 // le dossier mods/ et parse fabric.mod.json). Pas de toggle activer/desactiver
@@ -50,6 +75,8 @@ export function Mods() {
   const [error, setError] = useState<string | null>(null);
   const [purging, setPurging] = useState(false);
   const [togglingFile, setTogglingFile] = useState<string | null>(null);
+  const user = useAuthStore((s) => s.user);
+  const isStaff = !!user && STAFF_ROLES.includes(user.role);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -142,6 +169,12 @@ export function Mods() {
     });
   }, [mods, query]);
 
+  // Les mods optionnels staff-only (Axiom) ne sont proposés qu'au staff.
+  const visibleOptionals = useMemo(
+    () => (isStaff ? optionals : optionals.filter((m) => !isStaffOnlyOptional(m.filename))),
+    [optionals, isStaff],
+  );
+
   const incompatibleCount = mods.filter((m) => m.incompatibleWithTarget).length;
   const totalSizeBytes = mods.reduce((acc, m) => acc + m.sizeBytes, 0);
   const totalSizeMb = (totalSizeBytes / (1024 * 1024)).toFixed(1);
@@ -227,15 +260,16 @@ export function Mods() {
                     </div>
                   )}
 
-                  {optionals.length > 0 && (
+                  {visibleOptionals.length > 0 && (
                     <section className="mt-6">
                       <div className="mb-3 flex items-baseline justify-between">
                         <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-foreground-muted)]">
                           Mods optionnels disponibles
                         </h2>
                         <span className="text-[10.5px] text-[var(--color-foreground-muted)]">
-                          {optionals.filter((m) => m.enabled).length} / {optionals.length}{" "}
-                          activé{optionals.filter((m) => m.enabled).length > 1 ? "s" : ""}
+                          {visibleOptionals.filter((m) => m.enabled).length} /{" "}
+                          {visibleOptionals.length} activé
+                          {visibleOptionals.filter((m) => m.enabled).length > 1 ? "s" : ""}
                         </span>
                       </div>
                       <p className="mb-3 text-[11.5px] leading-relaxed text-[var(--color-foreground-subtle)]">
@@ -244,7 +278,7 @@ export function Mods() {
                         proprement (le launcher purgera le .jar du dossier mods/).
                       </p>
                       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-                        {optionals.map((m) => (
+                        {visibleOptionals.map((m) => (
                           <OptionalModCard
                             key={m.filename}
                             mod={m}
@@ -415,6 +449,18 @@ const MOD_META: Record<
     gradient: "from-fuchsia-500/40 to-pink-700/40",
     label: "Entity Model Features",
     tag: "Mobs",
+  },
+  Axiom: {
+    icon: Hammer,
+    gradient: "from-orange-500/40 to-amber-700/40",
+    label: "Axiom",
+    tag: "Staff · Build",
+  },
+  "ferritecore-": {
+    icon: Cpu,
+    gradient: "from-slate-400/40 to-slate-600/40",
+    label: "FerriteCore",
+    tag: "Perf",
   },
 };
 
