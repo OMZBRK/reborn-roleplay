@@ -42,10 +42,14 @@ public final class RebornFont {
     /** ArcadePix (Reekee) — police pixel arcade pour le title screen. */
     public static final Identifier ARCADE   = Identifier.fromNamespaceAndPath("reborn", "arcadepix");
 
-    public static final Style DISPLAY_STYLE  = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(DISPLAY));
+    // Police unifiée du main-menu : ArcadePix pour TOUS les titres, labels,
+    // boutons, onglets et valeurs courtes (display/bold/black → arcade). Seul
+    // BODY reste Inter, pour garder le texte long lisible (descriptions, règles,
+    // lore, chat). Choix design 2026-08-20 (« mêmes polices que le main-menu »).
+    public static final Style DISPLAY_STYLE  = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(ARCADE));
     public static final Style BODY_STYLE     = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(BODY));
-    public static final Style BOLD_STYLE     = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(BOLD));
-    public static final Style BLACK_STYLE    = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(BLACK));
+    public static final Style BOLD_STYLE     = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(ARCADE));
+    public static final Style BLACK_STYLE    = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(ARCADE));
     public static final Style FALLBACK_STYLE = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(FALLBACK));
     public static final Style ARCADE_STYLE   = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(ARCADE));
 

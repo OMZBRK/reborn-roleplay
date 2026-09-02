@@ -61,7 +61,7 @@ public final class InteractionMode {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.player == null || mc.screen != null) return;
+        if (mc == null || mc.player == null || mc.gui.screen() != null) return;
         active = true;
         menuOpen = false;
         cursorX = mc.getWindow().getGuiScaledWidth() / 2.0;
@@ -209,7 +209,7 @@ public final class InteractionMode {
     public void extractRenderState(GuiGraphicsExtractor ctx) {
         if (!active) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.screen != null) return;
+        if (mc.player == null || mc.gui.screen() != null) return;
         var tr = mc.font;
 
         if (menuOpen) {

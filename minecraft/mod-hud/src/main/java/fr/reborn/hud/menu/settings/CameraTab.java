@@ -58,7 +58,7 @@ public class CameraTab extends SectionedTab {
         labelRow("Style de marche", "Animation utilisée quand vous marchez");
         actionButton("→ Choisir ma démarche", () -> {
             Minecraft mc = Minecraft.getInstance();
-            if (mc != null) mc.setScreen(new AnimationMenuScreen(parent));
+            if (mc != null) mc.setScreenAndShow(new AnimationMenuScreen(parent));
         });
 
         spacer(4);

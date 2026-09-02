@@ -32,7 +32,7 @@ use crate::storage::{prefs, secrets::SecretKey};
 /// En attendant, lisible via REBORN_MC_VERSION pour faciliter l'alignement
 /// avec le serveur de dev sans recompiler.
 fn minecraft_version() -> String {
-    std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.1.2".into())
+    std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.2".into())
 }
 
 /// Mode Builder (staff) : version MC + manifest statique séparés (26.2 + Axiom /
@@ -96,6 +96,8 @@ pub enum GameError {
     Watcher { message: String },
     #[error("play-token : {message}")]
     PlayToken { message: String },
+    #[error("{message}")]
+    SameAccount { message: String },
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -642,6 +644,21 @@ pub async fn launcher_launch_second_instance<R: Runtime>(
     if alt.user.role == "PLAYER" {
         return Err(GameError::NotWhitelisted);
     }
+    // Garde-fou anti-collision de session : si le compte « alt » se résout au
+    // MÊME compte Minecraft que la session principale (souvent une entrée
+    // dupliquée du carousel, ou un UUID avec/sans tirets qui trompe le filtre),
+    // lancer deux fois le même compte fait invalider la session par Mojang →
+    // « Invalid session » en jeu. On refuse tôt avec un message clair.
+    if uuid_eq(&alt.user.minecraft_uuid, &current.minecraft_uuid) {
+        return Err(GameError::SameAccount {
+            message: format!(
+                "« {} » est le MÊME compte Minecraft que ta session principale — \
+                 Minecraft renverrait « Invalid session ». Choisis un AUTRE compte \
+                 dans le carousel de connexion.",
+                alt.user.minecraft_username
+            ),
+        });
+    }
     tracing::info!(
         "2e instance : compte alt {} (role {})",
         alt.user.minecraft_username,
@@ -1093,6 +1110,14 @@ fn is_staff_role(role: &str) -> bool {
             | "ADMIN"
             | "OWNER"
     )
+}
+
+/// Compare deux UUID Minecraft en ignorant les tirets et la casse (les entrées
+/// du carousel peuvent stocker l'un avec tirets, l'autre sans → sinon un même
+/// compte passe pour un compte « alt » distinct).
+fn uuid_eq(a: &str, b: &str) -> bool {
+    let norm = |s: &str| s.chars().filter(|c| *c != '-').flat_map(|c| c.to_lowercase()).collect::<String>();
+    norm(a) == norm(b)
 }
 
 async fn await_game_end<R: Runtime>(app: AppHandle<R>, stderr_path: PathBuf) {

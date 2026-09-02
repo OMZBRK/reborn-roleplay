@@ -1,0 +1,22 @@
+# ------------------------------------------------------------
+# ShinobiLearning configuration
+# ------------------------------------------------------------
+academy:
+  # Skill points granted on graduation to Genin (feeds the /sc competences
+  # system in ShinobiCore).
+  graduation-skill-points: 5
+  # Broadcast when a student graduates. {character} is replaced with the name.
+  graduation-broadcast: "{character} est diplômé de l'Académie — Genin !"
+
+squad:
+  # Max members in a squad (sensei + students).
+  max-members: 4
+  # Teaching raises a student's mastery up to (teacher's mastery − gap); they
+  # must self-train (cast) to close the gap and surpass the master.
+  teach-gap: 10
+  # Mastery granted per /squad teach session.
+  teach-per-session: 5
+
+storage:
+  # How often (seconds) Academy progress is flushed to disk.
+  autosave-seconds: 120

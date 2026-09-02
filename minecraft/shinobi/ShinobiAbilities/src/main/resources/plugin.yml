@@ -1,0 +1,51 @@
+name: ShinobiAbilities
+version: ${project.version}
+main: com.reborn.shinobiabilities.ShinobiAbilities
+api-version: '1.21'
+authors: [Reborn]
+description: Jutsu, mobility and techniques systems for the Reborn Naruto roleplay server.
+softdepend: [ShinobiCore, MagicSpells, ShinobiTail]
+commands:
+  menu:
+    description: Ouvre le Menu Shinobi (techniques, liaisons, mobilité…).
+    usage: /<command>
+    aliases: [hub, shinobimenu]
+    permission: shinobiabilities.use
+  shinobiabilities:
+    description: Commande racine de ShinobiAbilities (admin + staff).
+    usage: /<command> help
+    aliases: [sa, sja]
+    permission: shinobiabilities.use
+  techniques:
+    description: Affiche les techniques connues de ton personnage.
+    usage: /<command>
+    aliases: [technique, jutsus]
+    permission: shinobiabilities.use
+  trail:
+    description: Édite les pistes de déplacement (staff).
+    usage: /<command> create|add|finish|cancel|delete|list|tp <nom>
+    aliases: [piste]
+    permission: shinobiabilities.staff
+  trainingground:
+    description: Parcours d'entraînement — débloque les capacités de mobilité.
+    usage: /<command> run|list|create|edit|delete|tp <nom>
+    aliases: [parkour, entrainement]
+    permission: shinobiabilities.use
+  mobility:
+    description: Définir la voie de mobilité d'un personnage (staff).
+    usage: /<command> path <personnage> <none|one|two>
+    aliases: [mob, voie]
+    permission: shinobiabilities.staff
+permissions:
+  shinobiabilities.use:
+    description: Base permission to use ShinobiAbilities commands.
+    default: true
+  shinobiabilities.admin:
+    description: Admin access — /sa reload, learn/forget, bind, cooldowns, gating bypass.
+    default: op
+  shinobiabilities.staff:
+    description: Staff — SUIVI learning validation + trail editing.
+    default: op
+  shinobiabilities.fuinjutsu:
+    description: Allows channeling the Sceau de Contention on a transformed jinchūriki.
+    default: true

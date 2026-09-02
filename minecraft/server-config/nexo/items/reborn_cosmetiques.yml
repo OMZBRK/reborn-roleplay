@@ -1,0 +1,28 @@
+# Reborn — Cosmétiques RP (items Nexo)
+#
+# Exemples de cosmétiques portables. Même schéma que reborn_sacs.yml.
+# Chaque item a son propre modèle 3D (item_model dédié généré par Nexo),
+# donc masque_anbu et bandeau_konoha coexistent sans conflit — comme
+# n'importe quel nombre d'autres cosmétiques ajoutés plus tard.
+#
+# Chemins de modèles :
+#   reborn:item/masque_anbu     -> plugins/Nexo/pack/assets/reborn/models/item/masque_anbu.json
+#   reborn:item/bandeau_konoha  -> plugins/Nexo/pack/assets/reborn/models/item/bandeau_konoha.json
+
+masque_anbu:
+  itemname: "<aqua>Masque ANBU"
+  material: PAPER
+  lore:
+    - "<gray>Masque de porcelaine des forces spéciales."
+    - "<dark_gray>Cosmétique"
+  Pack:
+    model: reborn:item/masque_anbu
+
+bandeau_konoha:
+  itemname: "<green>Bandeau de Konoha"
+  material: PAPER
+  lore:
+    - "<gray>Bandeau frontal gravé du symbole du village."
+    - "<dark_gray>Cosmétique"
+  Pack:
+    model: reborn:item/bandeau_konoha

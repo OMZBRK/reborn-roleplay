@@ -35,7 +35,7 @@ public final class InteractionMenus {
     public static void info(String text) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.gui != null) {
-            mc.gui.getChat().addClientSystemMessage(Component.literal("§6[Reborn] §f" + text));
+            mc.gui.hud.getChat().addClientSystemMessage(Component.literal("§6[Reborn] §f" + text));
         }
     }
 

@@ -295,6 +295,6 @@ public class CrosshairScreen extends Screen {
     @Override
     public void onClose() {
         RebornPrefs.INSTANCE.save();
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreenAndShow(parent);
     }
 }

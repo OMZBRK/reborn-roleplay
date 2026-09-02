@@ -1,0 +1,54 @@
+# Reborn — Sacs / Sacoches RP (items Nexo)
+#
+# Chaque entrée = 1 item custom Nexo avec son PROPRE modèle 3D.
+# Les ids (sac_sacoche, sac_bandouliere, sac_dos, sac_lourd) sont ceux
+# référencés par le système d'inventaire RP de ShinobiCore : équiper une
+# sacoche côté serveur pourra donner au joueur l'item Nexo correspondant
+# pour l'affichage 3D en main / la fouille INRP.
+#
+# Schéma Nexo (MC 1.21.4+ / 26.x — voir README.md) :
+#   material  : type d'item vanilla servant de base (PAPER = base neutre inutilisée)
+#   itemname  : nom affiché (supporte MiniMessage, ex. <gold>...)
+#   lore      : lignes de description
+#   Pack.model: chemin du modèle .json dans le resource pack
+#               reborn:item/sac_sacoche -> plugins/Nexo/pack/assets/reborn/models/item/sac_sacoche.json
+#
+# Sur un serveur 26.x, Nexo génère par défaut un minecraft:item_model dédié
+# (nexo:sac_sacoche) — pas de CustomModelData partagé, donc aucun conflit et
+# un nombre illimité de modèles distincts. Voir README.md § item_model.
+
+sac_sacoche:
+  itemname: "<gold>Sacoche"
+  material: PAPER
+  lore:
+    - "<gray>Petit sac de ceinture."
+    - "<dark_gray>Capacité : faible"
+  Pack:
+    model: reborn:item/sac_sacoche
+
+sac_bandouliere:
+  itemname: "<gold>Bandoulière"
+  material: PAPER
+  lore:
+    - "<gray>Sac porté en travers de l'épaule."
+    - "<dark_gray>Capacité : moyenne"
+  Pack:
+    model: reborn:item/sac_bandouliere
+
+sac_dos:
+  itemname: "<gold>Sac"
+  material: PAPER
+  lore:
+    - "<gray>Sac à dos de shinobi."
+    - "<dark_gray>Capacité : grande"
+  Pack:
+    model: reborn:item/sac_dos
+
+sac_lourd:
+  itemname: "<gold>Sac lourd"
+  material: PAPER
+  lore:
+    - "<gray>Barda de mission longue durée."
+    - "<dark_gray>Capacité : très grande (ralentit le porteur)"
+  Pack:
+    model: reborn:item/sac_lourd

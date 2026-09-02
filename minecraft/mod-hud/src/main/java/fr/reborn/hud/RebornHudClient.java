@@ -41,7 +41,13 @@ public final class RebornHudClient implements ClientModInitializer {
         IconTextures.registerAll();
         HudKeybinds.registerClient();
         fr.reborn.hud.camera.RebornCamera.INSTANCE.loadFromPrefs();
+        // First-Person Model (tr7zw) piloté par la caméra Reborn : neutralise sa
+        // touche de bascule dédiée pour que seule la caméra Reborn (Y) contrôle
+        // la 1ère personne avec corps. No-op si le mod est absent.
+        fr.reborn.hud.camera.FirstPersonIntegration.registerClient();
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.register();
+        fr.reborn.hud.combat.CombatAnimations.INSTANCE.register();
+        fr.reborn.hud.menu.tirage.TirageAnimations.INSTANCE.register();
         fr.reborn.hud.chat.ChatBlockCommands.register();
         fr.reborn.hud.skin.SkinCommands.register();
 
@@ -56,7 +62,7 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "vitals"),
             (ctx, tickCounter) -> {
                 net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-                if (mc.player == null || mc.options == null || mc.options.hideGui) return;
+                if (mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
                 fr.reborn.hud.element.HudElementState st;
                 try { st = config().stateOf(fr.reborn.hud.element.HudElement.VITALS); }
                 catch (RuntimeException e) { return; }
@@ -75,9 +81,11 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "tablist-hold"),
             (ctx, tickCounter) -> {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc == null || mc.player == null || mc.screen != null || mc.options == null) return;
+            if (mc == null || mc.player == null || mc.gui.screen() != null || mc.options == null) return;
             if (!fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.tablistHold) return;
             if (!mc.options.keyPlayerList.isDown()) return;
+            // Sans feed serveur (plugin absent) : on laisse l'overlay vanilla.
+            if (!fr.reborn.hud.menu.tablist.TablistData.hasData()) return;
             fr.reborn.hud.menu.tablist.TablistScreen.renderHoldOverlay(ctx);
         });
 
@@ -102,6 +110,22 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.animation.NarutoRun.INSTANCE.reset());
 
+        // Synchro des démarches ENTRE JOUEURS (canal reborn:anim, bidirectionnel avec
+        // ShinobiAbilities). C2S : {uuid,state,walk} quand notre état change (+ heartbeat).
+        // S2C : le relais rediffuse l'état des joueurs proches → on anime leurs avatars.
+        // Les états observables (marche/course/saut) jouent même sans le plugin.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.animation.AnimSyncPayload.ID, fr.reborn.hud.animation.AnimSyncPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.animation.AnimSyncPayload.ID, fr.reborn.hud.animation.AnimSyncPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.animation.AnimSyncPayload.ID,
+            (payload, context) -> context.client().execute(() ->
+                fr.reborn.hud.animation.MovementAnimations.INSTANCE.onRemoteState(
+                    payload.uuid(), payload.state(), payload.walk())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.animation.MovementAnimations.INSTANCE.clearRemote());
+
         // Sélection / création de personnage (canal reborn:character, bidirectionnel
         // avec ShinobiCore). S2C : roster du joueur ({slotLimit, characters[],
         // candidature}) → ouvre l'écran de sélection Zenkai. C2S : select:<id> /
@@ -118,12 +142,72 @@ public final class RebornHudClient implements ClientModInitializer {
             (payload, context) -> context.client().execute(() -> {
                 fr.reborn.hud.menu.character.CharacterData.update(payload.content());
                 net.minecraft.client.Minecraft mc = context.client();
-                if (mc.screen == null && mc.player != null) {
-                    mc.setScreen(new fr.reborn.hud.menu.character.CharacterSelectScreen());
+                if (mc.gui.screen() == null && mc.player != null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.menu.character.CharacterSelectScreen());
                 }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.character.CharacterData.clear());
+
+        // Test de la feuille (canal reborn:tirage, S2C) : ShinobiCore a tiré la
+        // nature (autoritaire, pondérée par le clan) et l'a attribuée → ouvre le
+        // popup client avec le VRAI résultat. Contenu = "<NATURE>|<clan>".
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.menu.tirage.TiragePayload.ID, fr.reborn.hud.menu.tirage.TiragePayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.menu.tirage.TiragePayload.ID, fr.reborn.hud.menu.tirage.TiragePayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.menu.tirage.TiragePayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                net.minecraft.client.Minecraft mc = context.client();
+                if (mc.player == null) return;
+                String[] parts = payload.content().split("\\|", 2);
+                String head = parts.length > 0 ? parts[0] : "";
+                String clan = parts.length > 1 && !parts[1].isBlank() ? parts[1] : null;
+                if (head.equalsIgnoreCase("confirm")) {
+                    // Item/commande : popup de confirmation avant le test.
+                    mc.setScreenAndShow(fr.reborn.hud.menu.tirage.TirageScreen.confirm(clan));
+                } else if (head.equalsIgnoreCase("deny")) {
+                    // Refus serveur après confirmation (devenu inéligible) → ferme.
+                    if (mc.gui.screen() instanceof fr.reborn.hud.menu.tirage.TirageScreen ts && ts.isAwaiting()) {
+                        mc.setScreenAndShow(null);
+                    }
+                } else {
+                    String nature = !head.isBlank() ? head : "KATON";
+                    if (mc.gui.screen() instanceof fr.reborn.hud.menu.tirage.TirageScreen ts && ts.isAwaiting()) {
+                        // Test déjà en cours (post-Confirmer) : on injecte la nature
+                        // dans l'écran existant → aucun aller-retour caméra.
+                        ts.applyServerResult(nature);
+                    } else {
+                        mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen(nature, clan));
+                    }
+                }
+            }));
+
+        // Sacoche RP (canal reborn:inventory, bidirectionnel) : ShinobiCore pousse
+        // le sac du perso ACTIF (S2C JSON = bag + cases + cosmétiques équipés) ;
+        // le client renvoie les actions (equip/use/drop) en C2S. Data-driven, lié
+        // au personnage → changer de perso repousse un sac différent.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.menu.inventory.InventoryPayload.ID, fr.reborn.hud.menu.inventory.InventoryPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.menu.inventory.InventoryPayload.ID, fr.reborn.hud.menu.inventory.InventoryPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.menu.inventory.InventoryPayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                net.minecraft.client.Minecraft mc = context.client();
+                if (mc.player == null) return;
+                fr.reborn.hud.menu.inventory.InventoryData.update(payload.content());
+                // Rafraîchit l'écran ouvert EN PLACE (préserve filtre/onglet/recherche,
+                // évite le flash de catégorie) ; sinon ouvre le sac.
+                if (mc.gui.screen() instanceof fr.reborn.hud.menu.inventory.InventoryScreen inv) {
+                    inv.refresh();
+                } else if (mc.gui.screen() == null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.menu.inventory.InventoryScreen());
+                }
+            }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.menu.inventory.InventoryData.clear());
 
         // Diffusion des apparences RP (canal reborn:skins, S2C) : ShinobiCore pousse
         // <uuid>\n<serialize()> pour chaque joueur actif → chacun voit le skin composé
@@ -136,6 +220,20 @@ public final class RebornHudClient implements ClientModInitializer {
                 fr.reborn.hud.skin.RebornSkins.applyBroadcast(payload.content())));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.skin.RebornSkins.clearAll());
+
+        // Diffusion des cosmétiques équipés (canal reborn:cosmetics, S2C) : ShinobiCore
+        // pousse <uuid>\n<json slot->{mat,model}> pour chaque joueur → chacun voit les
+        // modèles 3D portés par les autres (reborn:inventory ne porte que le sac local).
+        // Corps vide = retrait. Le CosmeticFeatureRenderer lit ce store pour les avatars
+        // distants, et InventoryData (autoritaire local) pour le joueur local.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.cosmetic.CosmeticsPayload.ID, fr.reborn.hud.cosmetic.CosmeticsPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.cosmetic.CosmeticsPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.cosmetic.RemoteCosmetics.apply(payload.content())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.cosmetic.RemoteCosmetics.clearAll());
 
         // Voix Reborn (PlasmoVoice) : addon client qui capte l'instance PV pour
         // savoir qui parle → bulle de parole au-dessus des têtes. Se désactive
@@ -171,7 +269,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // Envoie l'état de frappe au serveur quand on ouvre/ferme le chat (C2S).
         final boolean[] wasChatOpen = {false};
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            boolean open = client.screen instanceof net.minecraft.client.gui.screens.ChatScreen;
+            boolean open = client.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen;
             if (open != wasChatOpen[0]) {
                 wasChatOpen[0] = open;
                 fr.reborn.hud.chat.TypingState.sendTyping(open);
@@ -209,6 +307,112 @@ public final class RebornHudClient implements ClientModInitializer {
                     .afterKeyPress(screen)
                     .register((scr, keyEvent) ->
                         fr.reborn.hud.menu.MainMenuFlow.advanceFromSplash());
+            });
+
+        // Combat taïjutsu (canal reborn:combat, S2C depuis ShinobiCombat).
+        // HIT → damage indicator + cumul combo ; STAMINA → anneau curseur.
+        // Purement visuel ; le serveur reste autoritaire.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.combat.CombatPayload.ID, fr.reborn.hud.combat.CombatPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.combat.CombatPayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                long now = System.currentTimeMillis();
+                if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_HIT) {
+                    fr.reborn.hud.combat.CombatState.INSTANCE.onHit(
+                        payload.victimEntityId(), payload.damage(), now);
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_STAMINA) {
+                    fr.reborn.hud.combat.CombatState.INSTANCE.onStamina(
+                        payload.staminaCurrent(), payload.staminaMax(), now);
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_ANIM) {
+                    int eid = payload.victimEntityId();     // = attackerEntityId pour TYPE_ANIM
+                    int animId = payload.animId();
+                    // Garde (5/6) du joueur LOCAL : déjà jouée par CombatInput → on ignore
+                    // le broadcast pour soi (anti-double). Les coups (1-4) sur soi, eux, viennent
+                    // du serveur (pas de trigger local M1).
+                    net.minecraft.client.player.LocalPlayer lp = context.client().player;
+                    // Sur SOI : garde (5/6) ET coups (1-4) à mains nues sont déjà joués
+                    // localement par CombatInput → on ignore le broadcast (anti-double).
+                    boolean self = lp != null && eid == lp.getId();
+                    boolean skipSelf = self && (animId >= 5 || lp.getMainHandItem().isEmpty());
+                    if (!skipSelf) fr.reborn.hud.combat.CombatAnimations.INSTANCE.playByEntityId(eid, animId);
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_COOLDOWN_RESET) {
+                    // Commande staff /resetcd : le serveur nous dit de vider nos CD client.
+                    fr.reborn.hud.combat.CooldownState.INSTANCE.clear();
+                    fr.reborn.hud.combat.CombatInput.INSTANCE.clearDashCd();
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_PARRY) {
+                    // Parade timée : flash HUD (rôle dans animId : 0=paré / 1=fait parer).
+                    // Le son de deflect est joué serveur-side à la position (audible à portée mêlée).
+                    fr.reborn.hud.combat.CombatState.INSTANCE.onParry(payload.animId(), now);
+                }
+            }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.combat.CombatState.INSTANCE.clear());
+        // Input de garde M2 (C2S reborn:combatin) — ShinobiCombat applique la réduction
+        // + rediffuse l'anim. Inerte via canSend si le plugin est absent.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.combat.CombatInputPayload.ID, fr.reborn.hud.combat.CombatInputPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.combat.CombatInput.INSTANCE.reset());
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.combat.ChakraJump.INSTANCE.reset());
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat"),
+            (ctx, tickCounter) -> fr.reborn.hud.combat.CombatHud.render(ctx));
+        // Barre d'endurance de combat — élément HUD DÉPLAÇABLE (éditeur HUD, touche H).
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "combat-endurance"),
+            (ctx, tickCounter) -> {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player == null || mc.options == null || mc.gui.hud.isHidden() || mc.gui.screen() != null) return;
+                fr.reborn.hud.element.HudElementState st;
+                try { st = config().stateOf(fr.reborn.hud.element.HudElement.COMBAT_ENDURANCE); }
+                catch (RuntimeException e) { return; }
+                if (!st.visible()) return;
+                int w = mc.getWindow().getGuiScaledWidth();
+                int h = mc.getWindow().getGuiScaledHeight();
+                fr.reborn.hud.element.HudElementBounds b = fr.reborn.hud.element.HudElementBounds.currentFor(
+                    fr.reborn.hud.element.HudElement.COMBAT_ENDURANCE, st, w, h);
+                fr.reborn.hud.combat.CombatHud.renderEnduranceBar(ctx, b.x(), b.y(), st.scale());
+            });
+        // HUD de cooldowns (dash, sauts…) — élément déplaçable (éditeur HUD, touche H).
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "cooldowns"),
+            (ctx, tickCounter) -> {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player == null || mc.options == null || mc.gui.hud.isHidden() || mc.gui.screen() != null) return;
+                fr.reborn.hud.element.HudElementState st;
+                try { st = config().stateOf(fr.reborn.hud.element.HudElement.COOLDOWNS); }
+                catch (RuntimeException e) { return; }
+                if (!st.visible()) return;
+                int w = mc.getWindow().getGuiScaledWidth();
+                int h = mc.getWindow().getGuiScaledHeight();
+                fr.reborn.hud.element.HudElementBounds b = fr.reborn.hud.element.HudElementBounds.currentFor(
+                    fr.reborn.hud.element.HudElement.COOLDOWNS, st, w, h);
+                fr.reborn.hud.combat.CooldownHud.render(ctx, b.x(), b.y(), st.scale());
+            });
+
+        // Cosmétiques 3D sur le joueur : rend chaque cosmétique ÉQUIPÉ avec son
+        // modèle d'item Nexo réel, ancré sur le corps + transform par-cosmétique.
+        // Ajoute le FeatureRenderer au renderer du joueur (default ET slim — le
+        // callback est appelé une fois par renderer, donc AvatarRenderer couvre les
+        // deux modèles). Les placements persistés sont rechargés paresseusement au
+        // premier rendu (CosmeticFeatureRenderer.live → CosmeticPresets.loadApplied).
+        fr.reborn.hud.cosmetic.CosmeticModelLayers.register();
+        fr.reborn.hud.cosmetic.CosmeticPresets.ensureLoaded();
+        net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback.EVENT.register(
+            (entityType, entityRenderer, registrationHelper, context) -> {
+                if (entityRenderer instanceof net.minecraft.client.renderer.entity.player.AvatarRenderer) {
+                    @SuppressWarnings("unchecked")
+                    net.minecraft.client.renderer.entity.RenderLayerParent<
+                        net.minecraft.client.renderer.entity.state.AvatarRenderState,
+                        net.minecraft.client.model.player.PlayerModel> parent =
+                        (net.minecraft.client.renderer.entity.RenderLayerParent<
+                            net.minecraft.client.renderer.entity.state.AvatarRenderState,
+                            net.minecraft.client.model.player.PlayerModel>) entityRenderer;
+                    registrationHelper.register(
+                        new fr.reborn.hud.cosmetic.CosmeticFeatureRenderer(parent, context.getModelSet()));
+                }
             });
 
         // Extrait les assets dynamic-player + schedule la creation du

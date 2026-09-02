@@ -49,7 +49,13 @@ public final class CrosshairManager {
         if (!p.crosshairEnabled) return false;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null || mc.player == null) return false;
-        if (!mc.options.getCameraType().isFirstPerson()) return false;
+        // Viseur affiché en 1re personne ET en vue ÉPAULE Reborn (3e pers. arrière) —
+        // pas en 3e pers. AVANT (vue miroir → réticule trompeur).
+        net.minecraft.client.CameraType camType = mc.options.getCameraType();
+        boolean shoulder = fr.reborn.hud.camera.RebornCamera.INSTANCE.mode()
+                == fr.reborn.hud.camera.RebornCamera.Mode.SHOULDER
+            && camType == net.minecraft.client.CameraType.THIRD_PERSON_BACK;
+        if (!camType.isFirstPerson() && !shoulder) return false;
 
         int cx = mc.getWindow().getGuiScaledWidth() / 2;
         int cy = mc.getWindow().getGuiScaledHeight() / 2;

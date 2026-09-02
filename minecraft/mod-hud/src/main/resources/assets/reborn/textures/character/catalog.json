@@ -13,49 +13,401 @@
     "  une zone recoloree en HSL (teinte+saturation du picker, luminance de la texture preservee = ombrage garde).",
     "  Sans masque/zones : la texture est affichee TELLE QUE PEINTE (couleurs fixes)."
   ],
-
   "hair": [
-    { "id": "Cheveux_Base",       "name": "Classique",      "tint": "all" },
-    { "id": "Cheveux_Sasuke",     "name": "Sasuke",         "tint": "all" },
-    { "id": "Cheveux_Sasuke2",    "name": "Sasuke (long)",  "tint": "all" },
-    { "id": "Cheveux_Itachi",     "name": "Itachi",         "tint": "all" },
-    { "id": "Cheveux_ObitoJeune", "name": "Obito (jeune)",  "tint": "all" },
-    { "id": "Cheveux_Tsunade",    "name": "Tsunade",        "tint": "all", "gender": "female" },
-    { "id": "Cheveux_SakuraAgee", "name": "Sakura",         "tint": "all", "gender": "female" },
-    { "id": "Cheveux_2",          "name": "Coupe 2",        "tint": "all" },
-    { "id": "Cheveux_3",          "name": "Coupe 3",        "tint": "all" },
-    { "id": "Cheveux_4",          "name": "Coupe 4",        "tint": "all" },
-    { "id": "Cheveux_Femme",      "name": "Feminine",       "tint": "all", "gender": "female" },
-    { "id": "Cheveux_Karin",      "name": "Karin",          "tint": "all", "gender": "female" }
+    {
+      "id": "Cheveux_Base",
+      "name": "Classique",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Sasuke",
+      "name": "Sasuke",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Sasuke2",
+      "name": "Sasuke (long)",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Itachi",
+      "name": "Itachi",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_ObitoJeune",
+      "name": "Obito (jeune)",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Tsunade",
+      "name": "Tsunade",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_SakuraAgee",
+      "name": "Sakura",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_2",
+      "name": "Coupe 2",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_3",
+      "name": "Coupe 3",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_4",
+      "name": "Coupe 4",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Femme",
+      "name": "Feminine",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_Karin",
+      "name": "Karin",
+      "tint": "all",
+      "gender": "female"
+    }
   ],
-
   "outfit": [
-    { "id": "Complet_Uchiha",         "name": "Tenue Uchiha",         "slot": "complet", "clan": "Uchiha" },
-    { "id": "Complet_Sasuke",         "name": "Sasuke",               "slot": "complet", "clan": "Uchiha" },
-    { "id": "Complet_Sasuke2",        "name": "Sasuke (alt)",         "slot": "complet", "clan": "Uchiha" },
-    { "id": "Complet_Obito",          "name": "Obito",                "slot": "complet", "clan": "Uchiha" },
-    { "id": "Complet_UchihaTraining", "name": "Entrainement Uchiha",  "slot": "complet", "clan": "Uchiha" },
-    { "id": "Complet_Sakura",         "name": "Sakura",               "slot": "complet", "gender": "female" },
-    { "id": "Complet_Tsunade",        "name": "Tsunade",              "slot": "complet", "gender": "female" },
-    { "id": "Complet_Ceremonie",      "name": "Ceremonie",            "slot": "complet" },
-    { "id": "Complet_Ceremonie2",     "name": "Ceremonie 2",          "slot": "complet" },
-    { "id": "Complet_Taijutsuka",     "name": "Taijutsuka",           "slot": "complet" },
-    { "id": "Complet_Femme1",         "name": "Tenue feminine",       "slot": "complet", "gender": "female" },
-    { "id": "Complet_Karin",          "name": "Karin",                "slot": "complet", "gender": "female" }
+    {
+      "id": "Complet_Uchiha",
+      "name": "Tenue Uchiha",
+      "slot": "complet",
+      "clan": "Uchiha"
+    },
+    {
+      "id": "Complet_Sasuke",
+      "name": "Sasuke",
+      "slot": "complet",
+      "clan": "Uchiha"
+    },
+    {
+      "id": "Complet_Sasuke2",
+      "name": "Sasuke (alt)",
+      "slot": "complet",
+      "clan": "Uchiha"
+    },
+    {
+      "id": "Complet_Obito",
+      "name": "Obito",
+      "slot": "complet",
+      "clan": "Uchiha"
+    },
+    {
+      "id": "Complet_UchihaTraining",
+      "name": "Entrainement Uchiha",
+      "slot": "complet",
+      "clan": "Uchiha"
+    },
+    {
+      "id": "Complet_Sakura",
+      "name": "Sakura",
+      "slot": "complet",
+      "gender": "female"
+    },
+    {
+      "id": "Complet_Tsunade",
+      "name": "Tsunade",
+      "slot": "complet",
+      "gender": "female"
+    },
+    {
+      "id": "Complet_Ceremonie",
+      "name": "Ceremonie",
+      "slot": "complet"
+    },
+    {
+      "id": "Complet_Ceremonie2",
+      "name": "Ceremonie 2",
+      "slot": "complet"
+    },
+    {
+      "id": "Complet_Taijutsuka",
+      "name": "Taijutsuka",
+      "slot": "complet"
+    },
+    {
+      "id": "Complet_Femme1",
+      "name": "Tenue feminine",
+      "slot": "complet",
+      "gender": "female"
+    },
+    {
+      "id": "Complet_Karin",
+      "name": "Karin",
+      "slot": "complet",
+      "gender": "female"
+    },
+    {
+      "id": "tenueh1",
+      "name": "Tenue 1",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh2",
+      "name": "Tenue 2",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh3",
+      "name": "Tenue 3",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh4",
+      "name": "Tenue 4",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh5",
+      "name": "Tenue 5",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh6",
+      "name": "Tenue 6",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh7",
+      "name": "Tenue 7",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh8",
+      "name": "Tenue 8",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh9",
+      "name": "Tenue 9",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh10",
+      "name": "Tenue 10",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh11",
+      "name": "Tenue 11",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh12",
+      "name": "Tenue 12",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh13",
+      "name": "Tenue 13",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh14",
+      "name": "Tenue 14",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh15",
+      "name": "Tenue 15",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh16",
+      "name": "Tenue 16",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh17",
+      "name": "Tenue 17",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh18",
+      "name": "Tenue 18",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh19",
+      "name": "Tenue 19",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh20",
+      "name": "Tenue 20",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh21",
+      "name": "Tenue 21",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh22",
+      "name": "Tenue 22",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh23",
+      "name": "Tenue 23",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh24",
+      "name": "Tenue 24",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh25",
+      "name": "Tenue 25",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh26",
+      "name": "Tenue 26",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh27",
+      "name": "Tenue 27",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh28",
+      "name": "Tenue 28",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh29",
+      "name": "Tenue 29",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh30",
+      "name": "Tenue 30",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh31",
+      "name": "Tenue 31",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh32",
+      "name": "Tenue 32",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh33",
+      "name": "Tenue 33",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh34",
+      "name": "Tenue 34",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh35",
+      "name": "Tenue 35",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh36",
+      "name": "Tenue 36",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh37",
+      "name": "Tenue 37",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh38",
+      "name": "Tenue 38",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh39",
+      "name": "Tenue 39",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh40",
+      "name": "Tenue 40",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh41",
+      "name": "Tenue 41",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh42",
+      "name": "Tenue 42",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh43",
+      "name": "Tenue 43",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh44",
+      "name": "Tenue 44",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh45",
+      "name": "Tenue 45",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh46",
+      "name": "Tenue 46",
+      "slot": "complet"
+    },
+    {
+      "id": "tenueh47",
+      "name": "Tenue 47",
+      "slot": "complet"
+    }
   ],
-
   "eyes": [
-    { "id": "Yeux_Style1", "name": "Style 1", "tint": "red", "split": 11 }
+    {
+      "id": "Yeux_Style1",
+      "name": "Style 1",
+      "tint": "red",
+      "split": 11
+    }
   ],
-
   "facial": [],
-
   "tattoo": [],
-
   "accessory": [],
-
   "underwear": [
-    { "id": "Sous_Homme", "name": "Sous-vetement", "gender": "male", "tint": "all" },
-    { "id": "Sous_Femme", "name": "Sous-vetement", "gender": "female", "tint": "all" }
+    {
+      "id": "Sous_Homme",
+      "name": "Sous-vetement",
+      "gender": "male",
+      "tint": "all"
+    },
+    {
+      "id": "Sous_Femme",
+      "name": "Sous-vetement",
+      "gender": "female",
+      "tint": "all"
+    }
   ]
 }

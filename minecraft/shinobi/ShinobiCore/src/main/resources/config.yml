@@ -1,0 +1,559 @@
+# ------------------------------------------------------------
+# ShinobiCore configuration
+# All values below are live-reloadable with: /sc reload
+# ------------------------------------------------------------
+
+chakra:
+  # Chakra does NOT regenerate passively. Use /meditation to regenerate.
+  auto-regen: false
+  # Live chakra value shown in the vanilla XP bar as a percentage of max.
+  display-as-xp: true
+  # Overdraw / exhaustion economy — the balancer for "no hard rank gates".
+  # Casting beyond your pool pushes it into DEBT; while in debt a debuff
+  # ladder stacks and the character collapses (KO) after a deficit-scaled
+  # fuse. Regen / meditation / a medic pays the debt down and clears it.
+  overdraw:
+    enabled: true
+    # Seconds in deficit before KO at a shallow debt.
+    ko-seconds: 15
+    # Floor on that fuse for the deepest overdraws (debt ~= a full pool).
+    min-ko-seconds: 6
+
+meditation:
+  enabled: true
+  chakra-per-tick: 100.0   # added every tick-interval
+  tick-interval-seconds: 5
+  # If the player moves more than this many blocks (HORIZONTAL only) from the
+  # sit point, meditation is cancelled.
+  cancel-move-radius: 0.4
+  # Spawns an invisible marker armor stand so the player visually "sits"
+  # on top of the block (not inside it).
+  use-armor-stand-seat: true
+
+display:
+  # Compact visual health bar. 20.0 scale = always exactly 10 hearts rendered,
+  # no matter the character's real Max HP. Set to 0 to disable (use real hearts).
+  health-scale: 20.0
+  # Ambient saturation effect so the hunger bar never drains. Hidden icon /
+  # particles. Re-applied every saturation-refresh-seconds seconds.
+  auto-saturation: true
+  saturation-refresh-seconds: 30
+  # Show the right-side scoreboard with live cooldowns for mobility abilities.
+  cooldown-hud:
+    enabled: true
+    title: "&6Tableau Chakraique"
+    # Refresh rate in ticks. 5 = 4 times per second; snappy without being costly.
+    refresh-ticks: 5
+
+# When a connecting player has no characters at all, they are locked down
+# (blindness + paralysis) with a middle-of-screen title in French asking them
+# to contact a staff member.
+no-character-lockdown:
+  enabled: true
+  title: "Vous devez contacter un Staff pour creer votre personnage!"
+  # How often to re-apply the effects and the title (in ticks). Keep this low
+  # so brief potion-effect gaps / title fades never let the player move.
+  refresh-ticks: 40
+
+# Cinematic camera tours (/cinematic) + the first-play "bienvenue" intro.
+cinematic:
+  # Hard view-lock (true): re-teleports the player to the exact viewpoint
+  # every tick, pinning position AND camera rotation — a true locked shot.
+  # Set false for free-look (body frozen, camera free).
+  lock-view: true
+  # Ticks to hold the shot BEFORE the title appears (20 ticks = 1 s).
+  # Default 80 = a 4 s establishing beat before the place name shows.
+  title-delay-ticks: 80
+  # Ticks between each chat line appearing (default 40 = 2 s). The first
+  # line appears with the title; each subsequent line rolls in this much
+  # later. Make sure an anchor's duration fits them all (title delay +
+  # 2 × this interval for three lines).
+  text-interval-ticks: 40
+
+mobility:
+  # Air-tokens gate airborne mobility abilities (primarily Double Jump).
+  # With max=1 a player gets at most ONE airborne manoeuvre per ground
+  # touch. Tokens refill ONLY after the player has been continuously
+  # grounded for `refill-grounded-ms` milliseconds — grazing the floor
+  # for a single tick and bouncing back up does NOT refill. This is what
+  # prevents double-jump spam flight.
+  air-tokens:
+    max: 1
+    # 100 ms = 0.1 s of continuous ground dwell refills the token. Short
+    # enough that landing + immediately jumping again feels responsive,
+    # long enough that a single-tick ground-flicker mid-air can't refill.
+    refill-grounded-ms: 100
+
+  naruto-run:
+    enabled: true
+    # Bukkit potion amplifier (0 = Speed I, 1 = Speed II, 2 = Speed III, ...)
+    speed-amplifier: 2
+    chakra-cost-per-second: 3.0
+    min-chakra-to-start: 5.0
+    # Thin, subtle trail instead of a cloud burst.
+    particles: true
+    # Sound played in a loop under the player while naruto-running.
+    wind-sound: "ITEM_ELYTRA_FLYING"
+    wind-volume: 0.35
+    wind-pitch: 1.2
+    wind-loop-ticks: 20
+    # ------------------------------------------------------------------
+    # Boosts that apply ONLY while Naruto-Run is active. DJ/WJ velocity
+    # is multiplied by the h-/v-multiplier — kept just slightly above
+    # 1.0 so shinobi-mode leaps feel a bit stronger than a plain DJ
+    # without becoming a dash (a big multiplier here made DJ-during-
+    # naruto-run feel way too powerful, essentially a free mini-rocket).
+    # Mid-air steering during the leap itself is configured separately
+    # under `mobility.air-control` below — that block's `naruto-run-*`
+    # values kick in automatically while shinobi-mode is on, no extra
+    # wiring required here.
+    # ------------------------------------------------------------------
+    boost:
+      horizontal-multiplier: 1.2
+      vertical-multiplier: 1.2
+
+  # Post-leap / post-dash air-control. Whenever Double-Jump, Wall-Jump, or
+  # ShinobiDash fires, the player enters a "leap window" where pointing the
+  # camera applies a small per-tick impulse toward their look direction so
+  # they can steer the leap mid-air. The window ends when the player lands
+  # or after `leap-window-ms` ms — whichever comes first. While Naruto-Run
+  # is ON the impulse and horizontal-speed cap scale up so shinobi-mode
+  # leaps feel markedly more manoeuvrable than a plain leap.
+  air-control:
+    leap-window-ms: 2000
+    # Baseline (naruto-run OFF): gentle nudging, can't fight momentum.
+    base-impulse: 0.03
+    base-max-hspeed: 1.2
+    # Naruto-Run ON: a bit more steering authority than baseline, but
+    # deliberately modest — the leap should still feel like a leap, not
+    # free flight. Small bumps over the base values.
+    naruto-run-impulse: 0.05
+    naruto-run-max-hspeed: 1.4
+
+  double-jump:
+    enabled: true
+    chakra-cost: 10.0
+    air-token-cost: 1
+    # ------------------------------------------------------------------
+    # Pitch-blended leap. The DJ magnitude curves between three anchors
+    # based on where the player is looking:
+    #   - Looking *forward* (horizontal): long horizontal dash
+    #     (~10-12 blocks forward + ~3 up).
+    #   - Looking *up*: tall vertical launch for cliff scaling
+    #     (~3 blocks forward + ~12 up).
+    #   - Looking *down*: forward dive, minimal lift
+    #     (~10 blocks forward + ~1.5 up).
+    # Values are raw velocities; in-game arc distance is roughly h*6
+    # blocks horizontal and v*6 blocks vertical at these magnitudes.
+    # ------------------------------------------------------------------
+    horizontal-forward: 1.8
+    vertical-forward: 0.75
+    horizontal-up: 0.55
+    vertical-up: 2.0
+    horizontal-down: 1.8
+    vertical-down: 0.45
+    # If true, the player must re-touch the ground before another double jump
+    # is allowed (even if they still have air-tokens). Prevents spam-flying.
+    require-ground-touch-between: true
+    # Minimum milliseconds since the LAST double jump before lockout can be
+    # cleared on ground-touch. Prevents ground-glitch exploits that refill
+    # lockout on the same tick the DJ fires.
+    lockout-min-air-ms: 400
+    # OPT-IN defense-in-depth. If > 0, requires this many milliseconds of
+    # CONTINUOUS ground dwell before the DJ lockout can clear. Normally
+    # DISABLED (0) because the token-refill dwell (mobility.air-tokens.
+    # refill-grounded-ms) already serves as the primary bounce-house gate:
+    # a single-tick ground flicker can't refill tokens, so the next DJ
+    # fails at the token check regardless of lockout state. Enable this
+    # (e.g. 100–200ms) only if you've customised air-token behaviour in a
+    # way that would otherwise let bounce-house spam through. Leaving it
+    # at 500 makes legitimate "land, jump, DJ at apex" sequences feel
+    # unresponsive because the lockout can't clear during short ground
+    # touches between jumps.
+    lockout-min-ground-dwell-ms: 0
+    cooldown-ms: 500
+  wall-jump:
+    enabled: true
+    chakra-cost: 8.0
+    # ------------------------------------------------------------------
+    # Same pitch-blended curve as double-jump, but horizontal travel is
+    # INVERTED relative to the camera — the player is always pushed AWAY
+    # from the wall's face, regardless of which way they're looking.
+    # So "horizontal-forward" here means "push away from wall when the
+    # player is looking horizontally at it". Look up for a mostly-vertical
+    # kick off the wall (great for scaling), look down for a low backward
+    # hop.
+    # ------------------------------------------------------------------
+    horizontal-forward: 1.8
+    vertical-forward: 0.75
+    horizontal-up: 0.55
+    vertical-up: 2.0
+    horizontal-down: 1.8
+    vertical-down: 0.45
+    # Wall-jump is intentionally DECOUPLED from the DJ air-token budget.
+    # Letting it refill tokens / clear the DJ lockout (below) was found to
+    # enable infinite flight: alternating wall-jump ↔ double-jump beside any
+    # solid block (tree, pillar, fence) never required actually landing.
+    # Leave both of these false unless you genuinely want that combo back.
+    refill-tokens-on-use: false
+    clears-double-jump-lockout: false
+    cooldown-ms: 350
+
+  # FloorShockwave — sneak in the air for 3s to get slammed into the floor in
+  # the direction you're looking. On impact: AoE stun + knockback + damage.
+  floor-shockwave:
+    enabled: true
+    chakra-cost: 25.0
+    # Seconds of continuous airborne-sneak required before slam triggers.
+    charge-seconds: 3.0
+    # ------------------------------------------------------------------
+    # Pitch-blended slam. "horizontal-*" is forward reach along the look
+    # XZ; "down-*" is the downward magnitude applied to Y (always forced
+    # negative regardless of pitch — this is a FLOOR attack, so the
+    # player is always pulled toward the ground). The watcher task
+    # re-applies this velocity every tick so drag can't slow the descent.
+    #   - Looking forward: long diagonal slam (10+ blocks horizontal, strong down).
+    #   - Looking up:      short horizontal, MAX down pull — still hits floor fast.
+    #   - Looking down:    minimal horizontal, MAX down pull — pure drop.
+    # ------------------------------------------------------------------
+    horizontal-forward: 3.0
+    down-forward: 3.5
+    horizontal-up: 0.8
+    down-up: 4.2
+    horizontal-down: 0.4
+    down-down: 4.5
+    # AoE radius (blocks) on impact.
+    radius-blocks: 6.0
+    # Damage applied to victims in the AoE (Minecraft HP; 1 heart = 2).
+    damage-hp: 5.0
+    # Horizontal knockback distance (blocks) applied to victims.
+    knockback-blocks: 3.0
+    # Stun duration for victims (seconds). Victims are seated + blinded for this long.
+    victim-stun-seconds: 0.5
+    # Stun duration for the user (seconds). User is slowed/blinded but NOT seated.
+    user-stun-seconds: 0.5
+    cooldown-ms: 10000
+
+  # ShinobiDash — hold SNEAK while on the ground for 3s+ then release to be
+  # propelled along a pitch-blended dash. Primarily a verticality tool for
+  # taking high ground; also eats huge horizontal distance when aimed low.
+  shinobi-dash:
+    enabled: true
+    chakra-cost: 20.0
+    # Minimum hold time (seconds) before a release will dash.
+    min-hold-seconds: 3.0
+    # ------------------------------------------------------------------
+    # Pitch-blended dash anchors at exactly min-hold-seconds. Holding
+    # longer scales ALL magnitudes by (1 + (heldSec - minHold) * bonus),
+    # capped at max-multiplier.
+    #   - Looking forward: long fast horizontal streak, low lift.
+    #   - Looking up:      big vertical kick — the signature verticality
+    #                      tool for taking high ground.
+    #   - Looking down:    horizontal forward-dive, minimal lift.
+    # ------------------------------------------------------------------
+    horizontal-forward: 3.0
+    vertical-forward: 0.4
+    horizontal-up: 0.8
+    vertical-up: 3.0
+    horizontal-down: 3.0
+    vertical-down: 0.2
+    # Hold above the minimum multiplies the anchor values.
+    bonus-per-extra-second: 0.15
+    # Cap on the hold-time multiplier (1.0 = no bonus, 1.5 = +50% at full charge).
+    max-multiplier: 1.5
+    cooldown-ms: 30000
+
+  # ------------------------------------------------------------------
+  # Grappin de Ninja — Pathfinder-style grappling hook fired by LEFT-
+  # clicking the item given out via /grappin. Ray-traces a solid block
+  # within max-range; on hit, the player is pinned to a fixed-length
+  # invisible rope and swings under gravity like a vine. F cancels the
+  # grapple mid-swing. The cooldown starts when the grapple ENDS, not
+  # when it fires.
+  # ------------------------------------------------------------------
+  grapple:
+    enabled: true
+    chakra-cost: 15.0
+    # Maximum ray-trace distance in blocks.
+    max-range: 60.0
+    # Delay in ticks between the hook landing on its target and the pull
+    # starting. The rope visually sticks to the anchor during this
+    # window, but no forces are applied — a deliberate "latched, about
+    # to yank" beat. 0 disables (instant pull); 4 ticks = 200ms is a
+    # solid Pathfinder-y pause.
+    latch-delay-ticks: 4
+    # One-time velocity kick (blocks/tick) ADDED to the player's current
+    # velocity when the pull starts (i.e. AFTER the latch delay). Your
+    # run speed carries into the swing rather than being replaced — a
+    # moving grapple feels like a real leap, not a dead stop + kick.
+    initial-boost: 2.0
+    # Reel-in force applied per tick toward the anchor. This is what
+    # makes the grapple actually DELIVER you to the point — at 0 the
+    # rope is a pure vine pendulum and you'll swing under the anchor
+    # forever. Raise for faster arrivals, lower for more swing-feel.
+    pull-strength: 0.20
+    # How much the pull magnitude depends on AIMING at the anchor.
+    # 0.0 = pull is constant regardless of look direction (zip-line).
+    # 1.0 = pull scales linearly with look·anchor alignment — full when
+    #       looking at the anchor, zero when looking 90°+ away.
+    # 0.7 = strong "engage the target to be pulled, look away to break
+    #       free" feel. This is what lets you grapple the floor, get
+    #       yanked down briefly, then look up to coast away with
+    #       momentum instead of being stuck at the anchor.
+    pull-alignment: 0.7
+    # Per-tick velocity drag. 0.99 = 1% loss per tick (~20%/s) — keeps
+    # momentum for 360 loops; lower values make the swing feel slushy.
+    drag: 0.99
+    # When the rope goes taut and the player has drifted past the fixed
+    # rope length, pull them back proportionally to the overshoot. Kept
+    # gentle so the rope snap doesn't feel like a brick wall — it's the
+    # combination of pull-strength pulling you IN and correction
+    # nudging you BACK that creates the sense of a physical rope.
+    correction-strength: 0.12
+    # Safety ceiling on individual velocity magnitude (blocks/tick).
+    # Pathfinder-style speed — the player reaches terminal in ~1s of
+    # continuous pull.
+    max-speed: 3.0
+    # Distance (blocks) to the anchor at which the session auto-ends.
+    # Pure pendulum has no natural arrival; this gives "you reached it"
+    # a definition so the cooldown can arm cleanly.
+    reach-distance: 2.0
+    # How much the pull vector is biased toward where the camera is
+    # aiming, vs. straight at the anchor. This is the "Pathfinder
+    # signature" knob — it's what lets you carve around obstacles by
+    # looking in the direction you want to curve.
+    #   0.0 = pull strictly player→anchor (rigid zip-line).
+    #   0.5 = Apex-style half-and-half, the default sweet spot.
+    #   1.0 = pull purely in the camera direction (very steerable, loose
+    #         — you can fight the anchor's pull by looking away).
+    camera-bias: 0.5
+    # Auto-detach when the player has swung PAST the anchor plane
+    # (anchor-player projected onto the fire direction flips negative).
+    # Matches the Apex detach condition from the grapple dissection
+    # video; set false if you want the rope to persist through loops.
+    detach-on-overshoot: true
+    # Tangential air-control — a per-tick nudge along the SPHERE
+    # SURFACE (perpendicular to the rope) toward where the player is
+    # looking. Because it projects onto the tangent plane it can't
+    # fight the pull; it only adds sideways motion, so the player
+    # feels like they're sliding around the rope-radius sphere while
+    # still being pulled toward the anchor. 0 = off.
+    air-control: 0.06
+    # Safety ceiling on session length (ticks). 100 ticks = 5 seconds.
+    max-ticks: 100
+    # Cooldown in milliseconds, armed when the session ends.
+    cooldown-ms: 10000
+
+  # ------------------------------------------------------------------
+  # Zipline de Ninja — Pathfinder-ultimate-style deployable zipline.
+  # Left-click the End Rod item to stretch a zipline from the player's
+  # current feet position to the aimed-at block (up to max-range).
+  # Two End Rod blocks are placed in the world; a particle line renders
+  # between them. Approach either endpoint and press F to ride it. The
+  # zipline auto-despawns after lifetime-ticks; the cooldown arms on
+  # PLACEMENT (not on ride) — one deploy per cooldown period.
+  # ------------------------------------------------------------------
+  zipline:
+    enabled: true
+    chakra-cost: 30.0
+    # Maximum deployment distance (blocks). 90 matches the Pathfinder
+    # ultimate's reach in Apex.
+    max-range: 90.0
+    # How close (blocks) the player needs to stand to an endpoint to
+    # trigger ride activation on F.
+    activation-radius: 3.0
+    # Fixed travel speed while riding (blocks/tick). 1.5 bpt = 30 bps —
+    # a 90-block zipline rides in about 3 seconds.
+    travel-speed: 1.5
+    # Safety ceiling on an individual ride's length (ticks). 200 ticks =
+    # 10 seconds — should never be hit for a well-formed zipline.
+    max-travel-ticks: 200
+    # How long (ticks) a placed zipline stays in the world before
+    # auto-despawning. 1200 ticks = 60 seconds.
+    lifetime-ticks: 1200
+    # Cooldown in milliseconds, armed when the zipline is PLACED.
+    cooldown-ms: 30000
+
+  # ------------------------------------------------------------------
+  # Climb — airborne wall-cling. Sneak-in-air next to a wall to freeze
+  # in place (overrides Floor Shockwave's sneak-in-air trigger when a
+  # wall is adjacent); release sneak for an upward leap. No cooldown;
+  # paced by a two-charge economy that refills after sustained ground
+  # contact.
+  # ------------------------------------------------------------------
+  climb:
+    enabled: true
+    # Max cling-and-leap charges the player can store.
+    max-charges: 2
+    # CUMULATIVE seconds of ground contact required to refill ALL
+    # charges back to max. Airborne ticks pause the accumulator;
+    # landing again continues from where it left off — 3 s grounded +
+    # 1 s airborne + 2 s grounded = 5 s total, refill triggers.
+    recovery-seconds: 5.0
+    # Y-velocity applied on sneak-release. 0.75 gives roughly 3 blocks
+    # of rise; vanilla jump-velocity is 0.42 (1.25 blocks).
+    leap-velocity: 0.75
+
+  # NOTE: trail system settings live in a separate file —
+  # plugins/ShinobiCore/trail-config.yml. Trail data (anchors,
+  # names, owners) lives in plugins/ShinobiCore/trails.yml.
+
+# ------------------------------------------------------------
+# Lore calendar — in-universe date. Independent of real-world time.
+# Months are 1-indexed (1..months-per-year). Days are 1-indexed
+# (1..days-per-month). If `auto-advance` is true, the calendar ticks
+# one lore-day every `real-minutes-per-day` real minutes and persists
+# the new date back into this file.
+# ------------------------------------------------------------
+lore:
+  calendar:
+    year: 495
+    month: 6
+    day: 25
+    months-per-year: 12
+    days-per-month: 30
+    auto-advance: false
+    real-minutes-per-day: 120
+
+# ------------------------------------------------------------
+# Custom tab list.
+# ------------------------------------------------------------
+# Character persistence
+# ------------------------------------------------------------
+# Periodic snapshot of every online player's active character (HP,
+# chakra, position, inventory) so a server crash doesn't roll sessions
+# back to the last voluntary disconnect. Set to 0 to disable.
+character:
+  auto-save-seconds: 60
+
+# ------------------------------------------------------------
+# Tab list
+# ------------------------------------------------------------
+# Replaces the vanilla "players online" roster with a lore-flavoured
+# header (lore date + country + city) and footer (friend list + active
+# character summary + connected-player count).
+#
+# Each world can set its own country/city; unmapped worlds fall back
+# to the `default:` block. Keys under `worlds:` are world names as
+# reported by the server (case-insensitive).
+# ------------------------------------------------------------
+tablist:
+  enabled: true
+  # Header/footer refresh interval in ticks. 40 = twice a second.
+  refresh-ticks: 40
+  default:
+    country: "Pays du Feu"
+    city:    "Konoha"
+  worlds:
+    world:
+      country: "Pays du Feu"
+      city:    "Konoha"
+    world_nether:
+      country: "Pays du Feu"
+      city:    "Konoha"
+    world_the_end:
+      country: "Pays du Feu"
+      city:    "Konoha"
+
+# ============================================================
+#  Optimization — disable vanilla features the RP server doesn't
+#  use, free the tick budget for jutsu / mobility / KO systems.
+#
+#  Applied on startup and re-applied on /sc reload. Settings
+#  marked GAMERULE are written to every loaded world's gamerules;
+#  EVENT settings install Bukkit listeners that cancel the
+#  unwanted vanilla event.
+# ============================================================
+optimization:
+  enabled: true
+
+  # GAMERULES — written to every world on startup + reload.
+  # Set a value to ~ (null) to leave the gamerule untouched.
+  gamerules:
+    do-daylight-cycle:    false   # fixed time of day (see fixed-time)
+    do-weather-cycle:     false   # no random rain / thunder
+    do-fire-tick:         false   # fire never spreads
+    do-insomnia:          false   # no phantoms
+    do-patrol-spawning:   false   # no illager raid patrols
+    do-trader-spawning:   false   # no wandering traders
+    do-mob-spawning:      false   # disables ALL natural mob spawns
+    random-tick-speed:    1       # default 3 — slower crop / leaf / ice ticks
+    do-mob-griefing:      true    # leave true unless you want to block creeper holes
+    keep-inventory:       true    # required by the KO / Fouiller pipeline
+
+  # World-of-day to pin every world to when do-daylight-cycle is false.
+  # Ticks: 0 = dawn, 6000 = noon, 12000 = dusk, 18000 = midnight.
+  fixed-time: 6000
+
+  # EVENTS — listener-level kill switches.
+  events:
+    # Cancel every CreatureSpawnEvent of natural origin (NATURAL,
+    # JOCKEY, CHUNK_GEN, REINFORCEMENTS, RAID, PATROL, VILLAGE_INVASION,
+    # LIGHTNING). Player-driven spawns (SPAWNER_EGG, BREEDING, CUSTOM,
+    # COMMAND, DISPENSE_EGG) and the dummy NPC system stay through.
+    block-natural-mob-spawns: true
+    # Cancel WeatherChangeEvent that turns rain ON. Rain that's already
+    # falling when this loads is cleared on the next world tick.
+    block-weather-changes: true
+
+  # PER-WORLD overrides for view + simulation distance. View cuts the
+  # number of chunks the client renders; simulation cuts the number of
+  # chunks the server ticks (entities / redstone / random-tick). Set
+  # either to ~ to leave server.properties value alone.
+  view-distance:        8     # default 10
+  simulation-distance:  6     # default 10
+
+# ----------------------------------------------------------------------
+# SÉLECTION DE PERSONNAGE (pilotée par le mod client mod-hud)
+# ----------------------------------------------------------------------
+# À la connexion, si le joueur a des personnages mais aucun actif, on le
+# téléporte ici, on le fige (visible = son corps sert de perso vu en 3e
+# personne côté client) et le mod affiche l'overlay Zenkai. Désactivé par
+# défaut : tant que enabled=false ou monde absent, on retombe sur l'ancienne
+# GUI coffre. Renseigne les coordonnées de ton build de sélection puis passe
+# enabled à true.
+character-select:
+  enabled: false
+  world: world
+  x: 0.5
+  y: 100.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0
+
+# ----------------------------------------------------------------------
+# INTÉGRATION API REBORN (candidature whitelist → grisage du wizard)
+# ----------------------------------------------------------------------
+# ShinobiCore interroge l'API Reborn (GET /game/candidature/<mcUuid>, signé
+# HMAC-SHA256 sur le mcUuid) pour récupérer le village + le clan VALIDÉS de la
+# candidature whitelist, et les verrouiller dans le wizard de création (le staff
+# reste libre). Dégradation propre : si l'API est injoignable ou le secret
+# absent, rien n'est verrouillé.
+#   - api-url        : base de l'API (préfixe /v1 inclus).
+#   - webhook-secret : MÊME valeur que REBORN_WEBHOOK_SECRET côté API. Laisse
+#                      vide pour lire la variable d'environnement REBORN_WEBHOOK_SECRET.
+reborn:
+  api-url: "http://localhost:3000/v1"
+  webhook-secret: ""
+
+# ----------------------------------------------------------------------
+# PANEL COMMAND BRIDGE (déclenchement de reloads console depuis le panel)
+# ----------------------------------------------------------------------
+# Poller SORTANT : le serveur de jeu appelle l'API du panel (aucun port
+# entrant, pas de RCON). Toutes les `poll-seconds` :
+#   1. GET  <api-url>/files/commands/pending  (X-Reborn-Signature =
+#      hex(HMAC-SHA256(secret, "pending")))
+#   2. Pour chaque commande, re-vérifie le préfixe contre une whitelist
+#      côté plugin (nexo reload / ms reload / mm reload / meg reload) puis
+#      la dispatch sur le MAIN THREAD en tant que console.
+#   3. POST <api-url>/files/commands/ack  (signature HMAC sur les octets
+#      EXACTS du corps envoyé).
+# Dégradation propre : si enabled=false, ou aucun secret résolvable, ou API
+# injoignable → rien n'est dispatché (log discret, retry au tick suivant).
+#   - hmac-secret : MÊME valeur que REBORN_WEBHOOK_SECRET côté panel. Laisse
+#                   vide pour lire l'environnement REBORN_WEBHOOK_SECRET.
+panel-bridge:
+  enabled: false
+  api-url: "https://api.reborn-rp.com/v1"
+  hmac-secret: ""       # = REBORN_WEBHOOK_SECRET du panel ; vide => lit System.getenv("REBORN_WEBHOOK_SECRET")
+  poll-seconds: 5

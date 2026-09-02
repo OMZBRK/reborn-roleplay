@@ -1,0 +1,141 @@
+package fr.reborn.hud.combat;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+
+/**
+ * Capture de l'input de GARDE (M2) côté client. La garde = <b>clic droit maintenu
+ * à mains nues</b> (sinon le clic droit sert à utiliser l'objet — pas de conflit).
+ *
+ * <p>À l'entrée/sortie de garde : joue l'anim localement (retour immédiat sur son
+ * propre avatar) ET envoie l'état au serveur ({@code reborn:combatin}) qui applique
+ * la réduction de dégâts + rediffuse l'anim aux autres. Le M1 (combo) ne passe pas
+ * par ici (mêlée vanilla → serveur).
+ */
+public final class CombatInput {
+
+    public static final CombatInput INSTANCE = new CombatInput();
+
+    /** Fenêtre d'enchaînement du combo M1 (aligné sur le serveur). */
+    private static final long COMBO_WINDOW_MS = 1200L;
+
+    private boolean blocking = false;
+
+    // Combo M1 côté client : joue l'anim à CHAQUE swing (même à vide).
+    private boolean wasSwinging = false;
+    private int comboIndex = 0;
+    private long lastSwingMs = 0L;
+
+    private CombatInput() {}
+
+    public boolean isBlocking() { return blocking; }
+
+    /** À appeler chaque client tick (piloté par {@code HudKeybinds}). */
+    public void tick(Minecraft mc) {
+        LocalPlayer player = mc.player;
+        if (player == null || mc.level == null || mc.gui.screen() != null) {
+            setBlocking(false);
+            CooldownState.INSTANCE.setActive(CooldownState.Ability.COMBAT, false);
+            CooldownState.INSTANCE.setActive(CooldownState.Ability.COURSE_CHAKRA, false);
+            if (player != null) wasSwinging = player.swinging;
+            return;
+        }
+
+        boolean mainEmpty = player.getMainHandItem().isEmpty();
+        long now = System.currentTimeMillis();
+
+        // GARDE / PARADE TIMÉE = TOUCHE DÉDIÉE maintenue (indépendante du slot → on
+        // peut tenir armes/kunai). Presser pile à l'impact = parade (deflect),
+        // maintenir = garde (chip) — arbitré serveur. Le clic droit reste libre pour
+        // utiliser les objets.
+        boolean parryHeld = fr.reborn.hud.keybind.HudKeybinds.PARRY != null
+                && fr.reborn.hud.keybind.HudKeybinds.PARRY.isDown();
+        setBlocking(parryHeld);
+
+        // Onglets HUD (CD icons). « En combat » = ACTIVITÉ de combat (coup porté ou
+        // reçu récemment), PAS un toggle. Course de chakra tant que la Naruto Run tourne.
+        CooldownState.INSTANCE.setActive(CooldownState.Ability.COMBAT,
+            CombatState.INSTANCE.inCombat(now));
+        CooldownState.INSTANCE.setActive(CooldownState.Ability.COURSE_CHAKRA,
+            fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive());
+
+        // COMBO M1 : détecté sur le SWING (front montant) → joue même sans toucher.
+        // Taïjutsu à mains nues (une arme en main aura ses propres anims plus tard).
+        // Le serveur gère les dégâts sur la mêlée vanilla ; ici on ne fait QUE l'anim.
+        boolean sw = player.swinging;
+        if (sw && !wasSwinging && mainEmpty && !blocking
+                && CombatAnimations.INSTANCE.isAvailable()) {
+            comboIndex = (now - lastSwingMs > COMBO_WINDOW_MS) ? 0 : (comboIndex + 1) % 4;
+            lastSwingMs = now;
+            CombatAnimations.INSTANCE.play(player, comboIndex + 1);   // animId 1..4
+        }
+        wasSwinging = sw;
+    }
+
+    private void setBlocking(boolean want) {
+        if (want == blocking) return;
+        blocking = want;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            // Retour immédiat sur son propre avatar (le broadcast serveur pour soi
+            // est ignoré côté réception pour éviter le double).
+            CombatAnimations.INSTANCE.play(mc.player,
+                want ? CombatAnimations.ANIM_BLOCK_ON : CombatAnimations.ANIM_BLOCK_OFF);
+        }
+        if (ClientPlayNetworking.canSend(CombatInputPayload.ID)) {
+            ClientPlayNetworking.send(CombatInputPayload.of(
+                want ? CombatInputPayload.KIND_BLOCK_ON : CombatInputPayload.KIND_BLOCK_OFF));
+        }
+    }
+
+    /** Cooldown client du dash — aligné sur le serveur ({@code DASH_COOLDOWN_MS=1500}). */
+    private static final long DASH_CD_MS = CooldownState.DASH_CD_MS;
+    private long lastDashMs = 0L;
+
+    /**
+     * Déclenche un dash directionnel (8 directions). La direction = input WASD
+     * relatif à la vue ; sans input → arrière (backstep). Envoie la direction MONDE
+     * normalisée au serveur, qui applique la vélocité (autoritaire). L'anim de slide
+     * (fournie plus tard) se branchera ici.
+     */
+    public void dash(Minecraft mc) {
+        LocalPlayer p = mc.player;
+        if (p == null || mc.level == null || mc.gui.screen() != null) return;
+        long now = System.currentTimeMillis();
+        if (now - lastDashMs < DASH_CD_MS) return;
+
+        double yr = Math.toRadians(p.getYRot());
+        double fx = -Math.sin(yr), fz = Math.cos(yr);   // avant
+        double lx = Math.cos(yr), lz = Math.sin(yr);    // gauche
+        int f = (mc.options.keyUp.isDown() ? 1 : 0) - (mc.options.keyDown.isDown() ? 1 : 0);
+        int l = (mc.options.keyLeft.isDown() ? 1 : 0) - (mc.options.keyRight.isDown() ? 1 : 0);
+        double dx, dz;
+        if (f == 0 && l == 0) { dx = -fx; dz = -fz; }   // aucune touche → recul
+        else { dx = f * fx + l * lx; dz = f * fz + l * lz; }
+        double len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 1.0e-6) return;
+        dx /= len; dz /= len;
+
+        lastDashMs = now;
+        CooldownState.INSTANCE.trigger(CooldownState.Ability.DASH, CooldownState.DASH_CD_MS);
+        if (ClientPlayNetworking.canSend(CombatInputPayload.ID)) {
+            ClientPlayNetworking.send(CombatInputPayload.dash((float) dx, (float) dz));
+        }
+        // Traînée SUBTILE dans la direction du dash (quelques crits près du sol).
+        double px = p.getX(), py = p.getY() + 0.15, pz = p.getZ();
+        for (int i = 0; i < 4; i++) {
+            mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.CRIT,
+                px + dx * 0.45 * i, py, pz + dz * 0.45 * i, 0.0, 0.0, 0.0);
+        }
+    }
+
+    /** Reset du cooldown client de dash (commande staff /resetcd). */
+    public void clearDashCd() { lastDashMs = 0L; }
+
+    /** Reset à la déconnexion (pas d'envoi). */
+    public void reset() {
+        blocking = false; wasSwinging = false; comboIndex = 0; lastSwingMs = 0L; lastDashMs = 0L;
+        CooldownState.INSTANCE.clear();
+    }
+}

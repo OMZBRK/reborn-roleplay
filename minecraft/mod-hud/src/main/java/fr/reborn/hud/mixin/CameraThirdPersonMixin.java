@@ -51,6 +51,8 @@ public abstract class CameraThirdPersonMixin {
         // THIRD_PERSON_FRONT et FIRST_PERSON sont exclus).
         if (mc.options == null || mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) return;
         if (PhotoMode.INSTANCE.isActive()) return;
+        // Le mode repositionnement prend le contrôle de la caméra (orbite dédiée).
+        if (fr.reborn.hud.cosmetic.RepositionMode.INSTANCE.isActive()) return;
         RebornCamera cam = RebornCamera.INSTANCE;
         Entity focusedEntity = this.entity;
         if (!cam.isEnabled() || focusedEntity == null) return;

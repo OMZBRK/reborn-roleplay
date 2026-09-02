@@ -1,0 +1,88 @@
+{
+  "credit": "Made with Blockbench",
+  "textures": {
+    "0": "reborn:item/slash1_gris",
+    "particle": "reborn:item/slash1_gris"
+  },
+  "elements": [
+    {
+      "from": [
+        -15,
+        8,
+        -16
+      ],
+      "to": [
+        32,
+        8,
+        32
+      ],
+      "rotation": {
+        "x": -87.5,
+        "y": 0,
+        "z": 0,
+        "origin": [
+          0,
+          8,
+          0
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            2,
+            16,
+            2
+          ],
+          "texture": "#missing"
+        },
+        "east": {
+          "uv": [
+            0,
+            2,
+            16,
+            2
+          ],
+          "texture": "#missing"
+        },
+        "south": {
+          "uv": [
+            0,
+            2,
+            16,
+            2
+          ],
+          "texture": "#missing"
+        },
+        "west": {
+          "uv": [
+            0,
+            2,
+            16,
+            2
+          ],
+          "texture": "#missing"
+        },
+        "up": {
+          "uv": [
+            0.75,
+            1,
+            16,
+            15.25
+          ],
+          "texture": "#0"
+        },
+        "down": {
+          "uv": [
+            15.75,
+            1,
+            1,
+            15.25
+          ],
+          "rotation": 180,
+          "texture": "#0"
+        }
+      }
+    }
+  ]
+}

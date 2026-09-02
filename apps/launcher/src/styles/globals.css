@@ -7,30 +7,37 @@
    ============================================================ */
 
 @theme {
-  /* ---------- Surfaces (teintees bordeaux profond, plus chaudes que les neutres bleutes v2) ---------- */
+  /* ---------- Surfaces (teintees bordeaux profond, elevation layers plus
+     franches qu'en v3 : chaque palier se detache nettement du precedent
+     pour donner de la profondeur au lieu d'un aplat sombre uniforme) ---------- */
   --color-background: #0a0608;        /* bg-deep — main background */
-  --color-surface: #15090b;           /* bg-surface — cards / sidebars */
-  --color-surface-elevated: #1f0e11;  /* bg-elevated — modals / popovers */
-  --color-surface-overlay: #2a1418;   /* hover state au-dessus de elevated */
-  --color-border: #2d181c;            /* borderlines discretes warm */
-  --color-border-strong: #4a2127;     /* borderlines marquees / focus */
+  --color-surface: #17090c;           /* bg-surface — cards / sidebars */
+  --color-surface-elevated: #231115;  /* bg-elevated — modals / popovers */
+  --color-surface-overlay: #30181d;   /* hover state au-dessus de elevated */
+  --color-surface-glass: rgba(30, 15, 19, 0.72); /* panneaux translucides (rail, topbar) */
+  --color-border: #3a2127;            /* borderlines warm, plus lisibles qu'en v3 */
+  --color-border-strong: #5a2c34;     /* borderlines marquees / focus */
+  --color-hairline: rgba(245, 233, 208, 0.06); /* filet clair (top highlight) */
   --color-muted: #7a6e5c;             /* greys-warm */
 
   /* ---------- Foreground (ivoire chaud, pas blanc froid) ---------- */
-  --color-foreground: #f5e9d0;        /* text-primary — texte sur fond sombre */
-  --color-foreground-subtle: #c2b59a; /* text intermediaire (cards, descriptions) */
-  --color-foreground-muted: #7a6e5c;  /* text-muted — metadata, captions */
+  --color-foreground: #f7ecd6;        /* text-primary — texte sur fond sombre */
+  --color-foreground-subtle: #c9bda2; /* text intermediaire (cards, descriptions) */
+  --color-foreground-muted: #877a66;  /* text-muted — metadata, captions */
 
   /* ---------- Accent (Akatsuki crimson) ---------- */
-  --color-accent: #a0182b;            /* crimson-core — CTA primaire */
-  --color-accent-hover: #c01e35;      /* hover, +20% lightness */
-  --color-accent-pressed: #7a1322;    /* pressed, -15% lightness */
-  --color-accent-soft: #3a0a12;       /* bg pour les chips / banners accent */
-  --color-accent-glow: rgba(160, 24, 43, 0.35);
-  --color-accent-glow-strong: rgba(192, 30, 53, 0.55);
+  --color-accent: #b01c32;            /* crimson-core — CTA primaire (legerement remonte) */
+  --color-accent-hover: #cf2740;      /* hover, +lightness */
+  --color-accent-pressed: #841425;    /* pressed, -lightness */
+  --color-accent-bright: #e63950;     /* glints / hairlines / hover glow */
+  --color-accent-soft: #3d0c14;       /* bg pour les chips / banners accent */
+  --color-accent-glow: rgba(176, 28, 50, 0.42);
+  --color-accent-glow-strong: rgba(230, 57, 80, 0.6);
 
   /* ---------- Accent secondaire (gold) ---------- */
-  --color-gold: #d9a95e;
+  --color-gold: #e0b06a;
+  --color-gold-bright: #f4cd86;
+  --color-gold-glow: rgba(224, 176, 106, 0.35);
   --color-gold-soft: #3a2c14;
 
   /* ---------- Semantic states ---------- */
@@ -78,12 +85,14 @@
   --radius-full: 9999px;
   --radius-card: 12px; /* legacy alias kept for compat */
 
-  /* ---------- Shadows ---------- */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.6), 0 4px 8px -2px rgba(0, 0, 0, 0.4);
-  --shadow-glow-accent: 0 0 24px 0 rgba(160, 24, 43, 0.35), 0 0 4px 0 rgba(160, 24, 43, 0.55);
-  --shadow-glow-accent-strong: 0 0 40px 0 rgba(192, 30, 53, 0.55), 0 0 8px 0 rgba(192, 30, 53, 0.7);
+  /* ---------- Shadows (ambient + contact + hairline highlight interne) ---------- */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 var(--color-hairline);
+  --shadow-md: 0 6px 16px -4px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 var(--color-hairline);
+  --shadow-lg: 0 20px 48px -10px rgba(0, 0, 0, 0.7), 0 6px 16px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 var(--color-hairline);
+  --shadow-xl: 0 32px 70px -16px rgba(0, 0, 0, 0.78), 0 10px 24px -8px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 var(--color-hairline);
+  --shadow-glow-accent: 0 0 28px 0 rgba(176, 28, 50, 0.4), 0 0 6px 0 rgba(230, 57, 80, 0.4);
+  --shadow-glow-accent-strong: 0 0 52px 2px rgba(230, 57, 80, 0.5), 0 0 12px 0 rgba(230, 57, 80, 0.65);
+  --shadow-glow-gold: 0 0 24px 0 var(--color-gold-glow), 0 0 4px 0 rgba(224, 176, 106, 0.5);
 
   /* ---------- Motion ---------- */
   --duration-fast: 150ms;
@@ -98,6 +107,35 @@
 /* ============================================================
    Base
    ============================================================ */
+
+/* ArcadePix — police pixel/arcade du menu principal in-game. Proposee en
+   OPTION dans les Parametres (Police d'affichage → "Retro"). ATTENTION :
+   ArcadePix est ASCII-only (aucun glyphe accentue FR : e/e/a/c...). On ne
+   l'utilise donc JAMAIS seule : la stack --font-sans-arcade la liste en
+   premier puis retombe sur Inter pour les accents, evitant les tofu/carres.
+   Font importee via le bundler (url relative resolue par Vite au build). */
+@font-face {
+  font-family: "ArcadePix";
+  src: url("../assets/fonts/arcadepix.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Stack retro : ArcadePix en tete, puis la stack sans par defaut en fallback
+   (les caracteres absents d'ArcadePix — accents FR — tombent sur Inter). */
+:root {
+  --font-sans-arcade:
+    "ArcadePix", "Inter", "Segoe UI", system-ui, -apple-system,
+    BlinkMacSystemFont, sans-serif;
+}
+
+/* Toggle de la police d'affichage : quand data-font="arcade" est pose sur
+   <html> (cf settings-store::ui.font), on bascule --font-sans sur la stack
+   retro. data-font absent / "default" = police actuelle inchangee. */
+:root[data-font="arcade"] {
+  --font-sans: var(--font-sans-arcade);
+}
 
 html,
 body,
@@ -226,7 +264,7 @@ body,
     90deg,
     transparent,
     var(--color-accent) 30%,
-    #6b8cff 50%,
+    var(--color-gold-bright) 50%,
     var(--color-accent) 70%,
     transparent
   );
@@ -264,8 +302,8 @@ body,
   background-image:
     radial-gradient(
       ellipse 80% 60% at 50% 35%,
-      rgba(160, 24, 43, 0.08) 0%,
-      rgba(160, 24, 43, 0.03) 35%,
+      rgba(176, 28, 50, 0.12) 0%,
+      rgba(176, 28, 50, 0.04) 35%,
       transparent 70%
     ),
     radial-gradient(
@@ -279,10 +317,15 @@ body,
 .reborn-radial-bg-strong {
   background-image:
     radial-gradient(
-      ellipse 70% 50% at 50% 30%,
-      rgba(160, 24, 43, 0.18) 0%,
-      rgba(160, 24, 43, 0.06) 40%,
+      ellipse 70% 50% at 50% 28%,
+      rgba(176, 28, 50, 0.24) 0%,
+      rgba(176, 28, 50, 0.08) 40%,
       transparent 75%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 82% 100%,
+      rgba(224, 176, 106, 0.08) 0%,
+      transparent 60%
     ),
     radial-gradient(
       ellipse 100% 100% at 50% 50%,
@@ -363,6 +406,49 @@ body,
 }
 
 /* ============================================================
+   Atmosphere — couche d'ambiance globale de la coquille auth.
+   Superpose : (1) un foyer crimson en haut, (2) une nappe gold
+   discrete en bas-droite, (3) une vignette qui assombrit les bords,
+   (4) un grain fin en overlay pour casser l'aplat plat. Le tout en
+   pseudo-elements pointer-events:none pour ne jamais gener le contenu.
+   ============================================================ */
+.reborn-app-shell {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(ellipse 90% 60% at 12% -8%, rgba(176, 28, 50, 0.16) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 100% 108%, rgba(224, 176, 106, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+/* Grain fin — SVG feTurbulence en data-uri, opacite tres basse, mix pour
+   qu'il ne blanchisse pas les zones sombres. z-index:-1 => la couche grain
+   se peint AU-DESSUS du background-image du shell mais SOUS tout le contenu
+   (rail, main, modals), sans avoir a forcer un position/z-index sur les
+   enfants (ce qui aurait casse les overlays fixed des modals systeme). */
+.reborn-app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='0.35'/></svg>");
+  background-size: 140px 140px;
+}
+
+/* Vignette autonome (pour ecrans hors coquille : login, resume). */
+.reborn-vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.6) 100%);
+}
+
+/* ============================================================
    Home page — utilities specific to the hero section
    ============================================================ */
 
@@ -372,9 +458,9 @@ body,
 .reborn-hero-bg {
   background-image:
     radial-gradient(
-      ellipse 70% 55% at 50% 18%,
-      rgba(160, 24, 43, 0.22) 0%,
-      rgba(160, 24, 43, 0.08) 40%,
+      ellipse 70% 55% at 50% 16%,
+      rgba(176, 28, 50, 0.28) 0%,
+      rgba(176, 28, 50, 0.1) 40%,
       transparent 75%
     ),
     radial-gradient(
@@ -393,8 +479,8 @@ body,
   }
   50% {
     box-shadow:
-      0 0 40px 0 rgba(160, 24, 43, 0.6),
-      0 0 8px 0 rgba(160, 24, 43, 0.85);
+      0 0 44px 2px rgba(230, 57, 80, 0.6),
+      0 0 10px 0 rgba(230, 57, 80, 0.85);
   }
 }
 .reborn-pulse-glow {
@@ -603,21 +689,311 @@ body,
   animation: reborn-online-ring-pulse 2.2s ease-out infinite;
 }
 
+/* ============================================================
+   Rail v4 — navigation labellisee 232px (mark + wordmark, groupes,
+   carte utilisateur). Remplace le rail icone-only 72px de la v3.
+   ============================================================ */
+.reborn-rail {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: 232px;
+  height: 100%;
+  flex-shrink: 0;
+  padding: 14px 14px 14px 16px;
+  background:
+    linear-gradient(180deg, rgba(48, 24, 29, 0.5) 0%, transparent 22%),
+    var(--color-surface-glass);
+  backdrop-filter: blur(18px) saturate(1.1);
+  border-right: 1px solid var(--color-border);
+  box-shadow: 1px 0 0 0 var(--color-hairline), 24px 0 48px -32px rgba(0, 0, 0, 0.8);
+}
+
+/* --- Lockup de marque --- */
+.reborn-rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 6px;
+  margin-bottom: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.reborn-rail-brand:hover {
+  background: var(--color-surface-overlay);
+}
+.reborn-rail-brand:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.reborn-rail-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(ellipse 120% 120% at 30% 20%, var(--color-accent-bright) 0%, transparent 60%),
+    linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    0 0 0 1px var(--color-accent-soft),
+    0 8px 18px -6px rgba(176, 28, 50, 0.6);
+}
+@keyframes reborn-rail-mark-pulse {
+  0%, 100% { box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.22), 0 0 0 0 var(--color-accent-glow), 0 8px 18px -6px rgba(176, 28, 50, 0.6); }
+  50%      { box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.22), 0 0 0 7px rgba(176, 28, 50, 0), 0 8px 20px -6px rgba(176, 28, 50, 0.75); }
+}
+.reborn-rail-mark--pulse {
+  animation: reborn-rail-mark-pulse 1.8s ease-in-out infinite;
+}
+.reborn-rail-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.reborn-rail-wordmark {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  color: var(--color-foreground);
+  filter: drop-shadow(0 0 10px rgba(176, 28, 50, 0.25));
+}
+.reborn-rail-tagline {
+  margin-top: 3px;
+  font-size: 9px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+/* --- Nav / groupes --- */
+.reborn-rail-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 6px;
+  scrollbar-width: none;
+}
+.reborn-rail-nav::-webkit-scrollbar { display: none; }
+.reborn-rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reborn-rail-group-label {
+  padding: 0 10px 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+
+/* --- Item --- */
+.reborn-rail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-foreground-subtle);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+.reborn-rail-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  flex-shrink: 0;
+  color: currentColor;
+  transition: transform var(--duration-fast) var(--ease-spring);
+}
+.reborn-rail-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reborn-rail-item:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-foreground);
+}
+.reborn-rail-item:hover .reborn-rail-item-icon {
+  transform: translateX(1px) scale(1.06);
+}
+.reborn-rail-item:active {
+  transform: translateY(1px);
+}
+.reborn-rail-item[data-active="true"] {
+  color: var(--color-foreground);
+  background:
+    linear-gradient(90deg, rgba(176, 28, 50, 0.24) 0%, rgba(176, 28, 50, 0.08) 100%);
+  box-shadow: inset 0 0 0 1px rgba(176, 28, 50, 0.35);
+}
+.reborn-rail-item[data-active="true"] .reborn-rail-item-icon {
+  color: var(--color-accent-bright);
+  filter: drop-shadow(0 0 6px var(--color-accent-glow));
+}
+/* Liseré vertical crimson→gold sur l'item actif */
+.reborn-rail-item[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--color-accent-bright), var(--color-gold));
+  box-shadow: 0 0 8px var(--color-accent-glow-strong);
+}
+.reborn-rail-item-chev {
+  color: var(--color-accent-bright);
+  flex-shrink: 0;
+}
+/* Badge compteur (tickets) */
+.reborn-rail-item-badge {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 10px var(--color-accent-glow), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+/* Pastille (whitelist pending, patch notes) */
+.reborn-rail-item-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-gold);
+  box-shadow: 0 0 8px var(--color-gold-glow);
+}
+
+/* --- Carte utilisateur --- */
+.reborn-rail-foot {
+  position: relative;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.reborn-rail-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-rail-user:hover,
+.reborn-rail-user[data-open="true"] {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border-strong);
+}
+.reborn-rail-user-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 0 0 1.5px var(--color-accent), 0 4px 10px -3px rgba(176, 28, 50, 0.5);
+}
+.reborn-rail-user-status {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+  border: 2px solid var(--color-surface);
+  animation: reborn-online-ring-pulse 2.2s ease-out infinite;
+}
+.reborn-rail-user-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.reborn-rail-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reborn-rail-user-role {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* Popover du menu utilisateur — position: fixed pour echapper aux
    stacking contexts du flex layout AuthenticatedLayout (sinon le main
    column rendu apres la sidebar dans le DOM passe au-dessus du popover
    meme avec z-index eleve, parce que la stacking est resolue au niveau
-   des freres flex). Ancrage : 80px = 72 (sidebar) + 8 (gap), 12px depuis
-   le bas = matche le padding-y de la sidebar. */
+   des freres flex). Ancrage : 244px = 232 (rail) + 12 (gap), 14px depuis
+   le bas = matche le padding de la carte utilisateur. */
 .reborn-user-popover {
   position: fixed;
-  left: 80px;
-  bottom: 12px;
-  width: 220px;
+  left: 244px;
+  bottom: 14px;
+  width: 224px;
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
   padding: 6px;
   z-index: 100;
 }
@@ -4753,13 +5129,11 @@ select.tk-create-select {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 44px 64px 40px;
+  gap: 34px;
+  padding: 48px 64px 44px;
   overflow-y: auto;
   scroll-behavior: smooth;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(160, 24, 43, 0.08) 0%, transparent 60%);
-  background-color: var(--color-background);
+  background-color: transparent;
 }
 
 /* --- Header (greeting + actions) --- */
@@ -4771,13 +5145,16 @@ select.tk-create-select {
 }
 .reborn-home-greeting-line {
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 32px;
   letter-spacing: 0.02em;
   color: var(--color-foreground);
-  line-height: 1.1;
+  line-height: 1.05;
 }
 .reborn-home-greeting-name {
-  color: var(--color-accent);
+  background: linear-gradient(120deg, var(--color-accent-bright) 0%, var(--color-gold) 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .reborn-home-greeting-meta {
   margin-top: 4px;
@@ -4842,15 +5219,27 @@ select.tk-create-select {
 /* --- Hero launch card --- */
 .reborn-home-hero {
   position: relative;
-  min-height: 220px;
-  border-radius: var(--radius-lg);
+  min-height: 236px;
+  border-radius: var(--radius-xl);
   background:
-    radial-gradient(ellipse 60% 80% at 0% 50%, rgba(160, 24, 43, 0.18) 0%, transparent 60%),
-    linear-gradient(135deg, var(--color-surface-elevated) 0%, var(--color-surface) 100%);
-  border: 1px solid var(--color-border);
+    radial-gradient(ellipse 70% 100% at 2% 40%, rgba(176, 28, 50, 0.30) 0%, transparent 58%),
+    radial-gradient(ellipse 50% 80% at 100% 120%, rgba(224, 176, 106, 0.10) 0%, transparent 60%),
+    linear-gradient(135deg, var(--color-surface-elevated) 0%, var(--color-surface) 60%, #120709 100%);
+  border: 1px solid var(--color-border-strong);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg), 0 0 60px -24px var(--color-accent-glow-strong);
   animation: reborn-home-fadein 0.5s var(--ease-out) both;
+}
+/* Filet clair en haut du hero (lumiere rasante) + liseré gold à gauche */
+.reborn-home-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  background: linear-gradient(90deg, rgba(224, 176, 106, 0.5) 0%, transparent 2px);
+  z-index: 2;
 }
 @keyframes reborn-home-fadein {
   from { opacity: 0; transform: translateY(12px); }
@@ -4885,13 +5274,16 @@ select.tk-create-select {
 .reborn-home-hero-title {
   margin-top: 8px;
   font-family: var(--font-display);
-  font-size: 56px;
-  line-height: 0.95;
-  letter-spacing: 0.08em;
-  color: var(--color-foreground);
+  font-size: 64px;
+  line-height: 0.92;
+  letter-spacing: 0.09em;
+  background: linear-gradient(180deg, #fffaf0 0%, var(--color-foreground) 52%, rgba(224, 176, 106, 0.72) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   filter:
-    drop-shadow(0 0 24px rgba(160, 24, 43, 0.32))
-    drop-shadow(0 0 4px rgba(255, 255, 255, 0.06));
+    drop-shadow(0 0 28px rgba(176, 28, 50, 0.4))
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
 }
 .reborn-home-hero-sub {
   margin-top: 8px;
@@ -4908,13 +5300,15 @@ select.tk-create-select {
 .reborn-home-hero-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 5px;
+  padding: 4px 9px;
   font-size: 10px;
   font-family: var(--font-mono);
   color: var(--color-foreground-subtle);
-  background: var(--color-surface-overlay);
-  border-radius: var(--radius-sm);
+  background: rgba(48, 24, 29, 0.6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 1px 0 0 var(--color-hairline);
 }
 .reborn-home-hero-right {
   display: flex;
@@ -4934,10 +5328,23 @@ select.tk-create-select {
   justify-content: space-between;
 }
 .reborn-home-section-title {
+  position: relative;
+  padding-left: 14px;
   font-family: var(--font-display);
-  font-size: 22px;
-  letter-spacing: 0.04em;
+  font-size: 24px;
+  letter-spacing: 0.05em;
   color: var(--color-foreground);
+}
+.reborn-home-section-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 4px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--color-accent-bright), var(--color-gold));
+  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
 /* --- News grid : 1 large gauche (full height) + 2 small empilees droite --- */
@@ -4952,20 +5359,25 @@ select.tk-create-select {
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
+  background:
+    linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
   text-align: left;
+  box-shadow: var(--shadow-sm);
   transition: border-color var(--duration-fast) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out);
+              box-shadow var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-spring);
   min-height: 0;
 }
 .reborn-news-card:hover {
   border-color: var(--color-accent);
-  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6),
-              0 0 0 1px var(--color-accent-soft);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg),
+              0 0 0 1px var(--color-accent-soft),
+              0 18px 40px -18px var(--color-accent-glow-strong);
 }
 .reborn-news-card--large {
   grid-row: span 2;
@@ -5689,6 +6101,10 @@ select.tk-create-select {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-foreground);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .reborn-mod-desc {
   margin-top: 2px;
@@ -5812,9 +6228,7 @@ select.tk-create-select {
   height: 100%;
   overflow-y: auto;
   padding: 32px 40px 40px;
-  background-image:
-    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(160, 24, 43, 0.06) 0%, transparent 70%);
-  background-color: var(--color-background);
+  background-color: transparent;
 }
 .reborn-settings-container {
   max-width: 1080px;

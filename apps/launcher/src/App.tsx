@@ -21,12 +21,14 @@ import { ResumeSplash } from "./components/ResumeSplash";
 import { WindowControls } from "./components/shell/WindowControls";
 import { UpdateController } from "./components/system/UpdateController";
 import { useAuthStore } from "./stores/auth-store";
+import { useSettingsStore } from "./stores/settings-store";
 import { resumeSession } from "./lib/auth";
 
 // Largeur du rail sidebar pour positionner le spacer non-draggable au-dessus
 // de la sidebar quand un user est authentifie (ses 32px du haut contiennent
-// le logo R cliquable, on ne veut pas que la zone drag avale ce click).
-const SIDEBAR_WIDTH = 72;
+// le lockup de marque cliquable, on ne veut pas que la zone drag avale ce
+// click). Doit matcher la largeur .reborn-rail dans globals.css (232px).
+const SIDEBAR_WIDTH = 232;
 const DRAG_HEIGHT = 32;
 
 export function App() {
@@ -35,6 +37,17 @@ export function App() {
   const setSession = useAuthStore((s) => s.setSession);
   const setResuming = useAuthStore((s) => s.setResuming);
   const loadSavedAccounts = useAuthStore((s) => s.loadSavedAccounts);
+  const font = useSettingsStore((s) => s.ui.font);
+
+  // Applique la police d'affichage choisie (pref UI localStorage) sur <html>.
+  // Un seul attribut data-font pilote le swap CSS de --font-sans (cf
+  // globals.css :root[data-font="arcade"]). S'execute au boot (restauration)
+  // et a chaque changement du toggle (application live).
+  useEffect(() => {
+    const root = document.documentElement;
+    if (font === "arcade") root.dataset.font = "arcade";
+    else delete root.dataset.font;
+  }, [font]);
 
   useEffect(() => {
     let cancelled = false;

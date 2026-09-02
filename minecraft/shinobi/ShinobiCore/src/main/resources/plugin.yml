@@ -1,0 +1,133 @@
+name: ShinobiCore
+version: ${project.version}
+main: com.reborn.shinobicore.ShinobiCore
+api-version: '1.21'
+authors: [Reborn]
+description: Core plugin for a Naruto Roleplay server. Includes ShinobiMobility and ShinobiCharacter modules.
+softdepend: [PlaceholderAPI]
+commands:
+  shinobi:
+    description: Commande racine de ShinobiCore.
+    usage: /<command> help
+    aliases: [sc, shinobicore]
+    permission: shinobicore.use
+  character:
+    description: Gère les personnages shinobi.
+    usage: /<command> help
+    aliases: [char, characters]
+    permission: shinobicore.use
+  meditation:
+    description: S'asseoir et régénérer du chakra.
+    usage: /<command>
+    aliases: [meditate, med]
+    permission: shinobicore.use
+  testfeuille:
+    description: Test de la feuille — révèle ta nature de chakra (pondérée par le clan).
+    usage: /<command>
+    aliases: [feuille, leaftest]
+    permission: shinobicore.use
+  me:
+    description: Narre une action RP avec le surnom de ton personnage.
+    usage: /<command> <action>
+    aliases: [action, act]
+    permission: shinobicore.use
+  rencontrer:
+    description: Rencontre un autre personnage — donne ton nom ou demande le sien.
+    usage: /<command>
+    aliases: [meet, introduce]
+    permission: shinobicore.use
+  amitier:
+    description: Envoie une demande d'amitié à la personne que tu regardes.
+    usage: /<command>
+    aliases: [friend, amis]
+    permission: shinobicore.use
+  etat:
+    description: Affiche l'état ressenti de ton propre personnage.
+    usage: /<command>
+    aliases: ["état", "état_perso"]
+    permission: shinobicore.use
+  osculter:
+    description: Ausculte la personne en face de toi pour voir son état.
+    usage: /<command>
+    aliases: [auscult, ausculter, examine]
+    permission: shinobicore.osculter
+  sckillvote:
+    description: Vote interne pour valider/refuser une demande Tuer.
+    usage: /<command> approve|refuse <id>
+    permission: shinobicore.staff
+  dummy:
+    description: Gère les NPC d'entraînement (cibles paramétrables).
+    usage: /<command> create|edit|heal|delete|list|tp <nom>
+    aliases: [trainingdummy, sandbag]
+    permission: shinobicore.dummy
+  soigner:
+    description: Soigne la personne en face de toi (silhouette + recette).
+    usage: /<command>
+    aliases: [heal, treat]
+    permission: shinobicore.use
+  cinematic:
+    description: Crée et gère les cinématiques (outil GM).
+    usage: /<command> create|edit|list|delete|play|stop <nom>
+    aliases: [cine, cinematique]
+    permission: shinobicore.cinematic
+  vanish:
+    description: Devenir invisible (outil staff) — ouvre un menu de configuration.
+    usage: /<command> [personnage]
+    aliases: [v, invisible]
+    permission: shinobicore.vanish
+  assoir:
+    description: S'asseoir sur place (relancer pour se relever).
+    usage: /<command>
+    aliases: [asseoir, sit]
+    permission: shinobicore.use
+  allonger:
+    description: S'allonger / se coucher (relancer pour se relever).
+    usage: /<command>
+    aliases: [coucher, lay]
+    permission: shinobicore.use
+  ramper:
+    description: Ramper à plat ventre (relancer pour se relever).
+    usage: /<command>
+    aliases: [crawl]
+    permission: shinobicore.use
+  sacoche:
+    description: Ouvre la sacoche RP (inventaire custom lié au personnage actif).
+    usage: /<command> [open|give <id> [n]|reset]
+    aliases: [sac, inventaire, inv]
+    permission: shinobicore.use
+  staff:
+    description: Ouvre le panneau staff in-game (spawn menu, items, outils).
+    usage: /<command> [build]
+    aliases: [panel, staffpanel, adminpanel]
+    permission: shinobicore.staff
+permissions:
+  shinobicore.use:
+    description: Base permission to use ShinobiCore commands.
+    default: true
+  shinobicore.mobility.grapple:
+    description: Allows using the Grappin de Ninja (grappling hook).
+    default: true
+  shinobicore.mobility.zipline:
+    description: Allows using the Zipline de Ninja (deployable zipline).
+    default: true
+  shinobicore.character.admin:
+    description: Admin access to create/edit/delete any character.
+    default: op
+  shinobicore.admin:
+    description: Admin access for debug commands.
+    default: op
+  shinobicore.staff:
+    description: Marks the holder as staff — appears in the "Staff connectés" tab block.
+    default: op
+  shinobicore.osculter:
+    description: Allows /osculter (medical examination of a target's État).
+    default: op
+  shinobicore.dummy:
+    description: Allows /dummy (create / edit / heal / delete training NPCs).
+    default: op
+  shinobicore.cinematic:
+    description: Allows creating / editing / playing cinematics.
+    default: op
+  shinobicore.vanish:
+    description: Allows using /vanish (staff invisibility).
+    default: op

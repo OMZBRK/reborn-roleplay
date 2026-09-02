@@ -2,6 +2,7 @@ package fr.reborn.hud.menu.character;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
+import fr.reborn.hud.menu.RebornFont;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
@@ -57,13 +58,33 @@ public class CharacterCreateScreen extends Screen {
         "Ninja renégat, sans allégeance. Traqué par tous les villages — libre, mais seul."
     };
 
+    // Répertoire MAÎTRE des clans (couleur + lore), indexé par nom. L'affichage
+    // est piloté par VILLAGE_CLANS (dissociation par village) ; ce tableau ne sert
+    // plus qu'à retrouver couleur/desc d'un clan par son nom. Les noms Konoha sont
+    // conservés À L'IDENTIQUE (gating ShinobiCore + tags clan de catalog.json).
     private static final String[] CLANS = {
+        // Konoha
         "Senju", "Uchiha", "Hyuga", "Nara", "Sarutobi", "Uzumaki",
-        "Aburame", "Akimichi", "Hatake", "Yamanaka", "Kurama", "Autre"
+        "Aburame", "Akimichi", "Hatake", "Yamanaka", "Kurama",
+        // Suna
+        "Sabaku", "Hoki",
+        // Kiri
+        "Hozuki", "Hoshigaki", "Kaguya", "Yuki", "Terumi",
+        // Kumo
+        "Yotsuki",
+        // Iwa
+        "Kamizuru", "Onoki",
+        // Clan custom (toujours en dernier)
+        "Autre"
     };
     private static final int[] C_COLOR = {
         0xFF2E8B57, 0xFFB1302B, 0xFFCFC6E0, 0xFF5B6B3A, 0xFFC8722E, 0xFFD9532E,
-        0xFF4A4F3A, 0xFFE0A33B, 0xFFAEB4BC, 0xFF8E5BB5, 0xFF8B1E2B, 0xFF6A6A6A
+        0xFF4A4F3A, 0xFFE0A33B, 0xFFAEB4BC, 0xFF8E5BB5, 0xFF8B1E2B,   // Konoha
+        0xFFC97B3C, 0xFFB8A05A,                                       // Suna
+        0xFF4FA3C7, 0xFF3E6E8C, 0xFFD8D2C4, 0xFFA9D5E8, 0xFFCF5A3A,   // Kiri
+        0xFFE0C24B,                                                   // Kumo
+        0xFFC89A3B, 0xFF8C8577,                                       // Iwa
+        0xFF6A6A6A                                                    // Autre
     };
     private static final String[] C_DESC = {
         "Le Clan de la Forêt, descendants du Sage. Vitalité hors norme et affinités multiples.",
@@ -77,8 +98,36 @@ public class CharacterCreateScreen extends Screen {
         "Lignée des Crocs Blancs, ninjas d'élite. Vitesse, ninken et talent rare.",
         "Le Clan de l'esprit, transfert mental. Renseignement et liens du cœur.",
         "Le Clan des illusions, genjutsu redoutable. Sensibilité et fardeau intérieur.",
+        // Suna
+        "Le Clan du Désert, lignée du Kazekage. Maîtrise du sable et fardeau du jinchūriki.",
+        "Vieille lignée de Suna, marionnettistes aguerris. Patience et fils invisibles.",
+        // Kiri
+        "Le Clan de l'hydrification, corps de liquide. Sabreurs et Mizukage d'exception.",
+        "Lignée aux traits de requin, chakra colossal. Force brute et lame Samehada.",
+        "Le Clan aux ossements, Shikotsumyaku. Lignée maudite, fierté et sacrifice.",
+        "Le Clan des neiges, Élément Glace. Doux de cœur, traqués pour leur sang.",
+        "Double kekkei genkai, Lave et Vapeur. Volonté de fer, sang de Mizukage.",
+        // Kumo
+        "Lignée du Raikage, foudre et vitesse. Puissance brute, fierté de Kumo.",
+        // Iwa
+        "Le Clan des abeilles, insectes de miel. Rivaux ancestraux des Aburame.",
+        "Lignée du Tsuchikage, Style Poussière. Fierté tenace, défense inébranlable.",
+        // Autre
         "Clan ou famille personnalisé. Saisis un nom qui ne correspond à aucun clan connu."
     };
+
+    /** Clans par village (parallèle à {@link #VILLAGES}). « Autre » (custom) partout. */
+    private static final String[][] VILLAGE_CLANS = {
+        {"Uchiha", "Senju", "Hyuga", "Nara", "Sarutobi", "Aburame",
+         "Akimichi", "Yamanaka", "Hatake", "Uzumaki", "Kurama", "Autre"},   // Konoha
+        {"Sabaku", "Hoki", "Autre"},                                        // Suna
+        {"Hozuki", "Hoshigaki", "Kaguya", "Yuki", "Terumi", "Autre"},       // Kiri
+        {"Yotsuki", "Autre"},                                               // Kumo
+        {"Kamizuru", "Onoki", "Autre"},                                     // Iwa
+        {"Autre"},                                                          // Ame
+        {"Autre"},                                                          // Déserteur
+    };
+    private static final String[] NO_CLANS = {};
 
     private static final String[] SEXES = { "Homme", "Femme" };
 
@@ -126,8 +175,8 @@ public class CharacterCreateScreen extends Screen {
         if (!captured && mc.options != null) {
             prevPerspective = mc.options.getCameraType();
             mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
-            prevHudHidden = mc.options.hideGui;
-            mc.options.hideGui = true;
+            prevHudHidden = mc.gui.hud.isHidden();
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(true);
             captured = true;
         }
         // Perso figé debout : coupe toute pose idle (émote « assise ») héritée du
@@ -145,7 +194,7 @@ public class CharacterCreateScreen extends Screen {
         nameField = new EditBox(this.font, panelX(), 0, panelW() - 8, 20,
             Component.literal("Prénom"));
         nameField.setMaxLength(24);
-        nameField.setHint(Component.literal("Prénom du personnage…"));
+        nameField.setHint(RebornFont.body("Prénom du personnage…"));
         String cn = CharacterData.candidatureName();
         if (cn != null && !cn.isBlank()) nameField.setValue(cn);
         addWidget(nameField);
@@ -153,7 +202,7 @@ public class CharacterCreateScreen extends Screen {
         customClanField = new EditBox(this.font, panelX(), 0, panelW() - 8, 20,
             Component.literal("Clan personnalisé"));
         customClanField.setMaxLength(24);
-        customClanField.setHint(Component.literal("Nom de ton clan / famille…"));
+        customClanField.setHint(RebornFont.body("Nom de ton clan / famille…"));
         addWidget(customClanField);
 
         refreshPreview(); // avatar composé visible dès l'ouverture
@@ -182,7 +231,7 @@ public class CharacterCreateScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (captured && mc.options != null) {
             mc.options.setCameraType(prevPerspective);
-            mc.options.hideGui = prevHudHidden;
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(prevHudHidden);
             captured = false;
         }
         // Aperçu non validé : on retire l'override pour rendre son vrai skin au joueur.
@@ -214,6 +263,26 @@ public class CharacterCreateScreen extends Screen {
 
     private String effectiveClan() {
         return "Autre".equals(clan) ? customClanField.getValue().trim() : clan;
+    }
+
+    /** Clans du village sélectionné (vide tant qu'aucun village n'est choisi). */
+    private String[] villageClans() {
+        if (village.isBlank()) return NO_CLANS;
+        return VILLAGE_CLANS[indexOf(VILLAGES, village)];
+    }
+
+    /** Vrai si {@code c} appartient au village courant. */
+    private boolean containsClan(String c) {
+        if (c == null || c.isBlank()) return false;
+        for (String x : villageClans()) if (x.equals(c)) return true;
+        return false;
+    }
+
+    /** Slug ASCII pour un nom de clan/village (chemin de logo). Ex. « Hyūga » → « hyuga ». */
+    private static String slug(String s) {
+        String n = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+            .replaceAll("\\p{M}", "");
+        return n.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_");
     }
 
     // ── Layout ────────────────────────────────────────────────────
@@ -283,13 +352,13 @@ public class CharacterCreateScreen extends Screen {
         } else {
             int cx = x;
             for (char c : "REBORN".toCharArray()) {
-                Component ch = Component.literal(String.valueOf(c));
+                Component ch = RebornFont.arcade(String.valueOf(c));
                 ctx.text(tr, ch, cx, 26, Colors.ACCENT, false);
                 cx += tr.width(ch) + 3;
             }
             DrawHelpers.rect(ctx, x, 38, cx - x - 3, 1, Colors.withAlpha(Colors.GOLD, 0.8f));
         }
-        Component sub = Component.literal("Création de personnage");
+        Component sub = RebornFont.arcade("Création de personnage");
         ctx.text(tr, sub, x, 52, Colors.FOREGROUND_MUTED, false);
     }
 
@@ -302,7 +371,7 @@ public class CharacterCreateScreen extends Screen {
         int x = panelX();
         int y = 62;
         for (int i = 0; i < labels.length; i++) {
-            Component t = Component.literal(labels[i]);
+            Component t = RebornFont.arcade(labels[i]);
             int w = tr.width(t);
             boolean cur = i == step;
             boolean past = i < step;
@@ -320,7 +389,7 @@ public class CharacterCreateScreen extends Screen {
             case 2 -> "Compose l'apparence de ton personnage (ou garde ton skin).";
             default -> "Vérifie tes choix puis valide.";
         };
-        ctx.text(tr, Component.literal(s), panelX(), 80, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, RebornFont.body(s), panelX(), 80, Colors.FOREGROUND_SUBTLE, false);
     }
 
     // ── Étape 0 : village + clan ──────────────────────────────────
@@ -333,27 +402,37 @@ public class CharacterCreateScreen extends Screen {
             boolean sel = VILLAGES[i].equals(village);
             boolean locked = villageLocked(VILLAGES[i]);
             boolean hover = hit(mx, my, p[0], p[1], TILE, TILE);
-            tile(ctx, tr, p[0], p[1], mono(V_SHORT[i]), V_SHORT[i], V_COLOR[i], sel, locked, hover);
+            tile(ctx, tr, p[0], p[1], mono(V_SHORT[i]), V_SHORT[i],
+                "village/" + slug(V_SHORT[i]), V_COLOR[i], sel, locked, hover);
             if (hover && !locked) { descTitle = V_SHORT[i]; descBody = V_DESC[i]; }
         }
         int vRows = rows(VILLAGES.length);
         int cLabelY = vBase + vRows * CELL_H + 6;
         label(ctx, tr, "CLAN", panelX(), cLabelY);
         int cBase = cLabelY + 14;
-        for (int i = 0; i < CLANS.length; i++) {
-            int[] p = tileXY(cBase, i);
-            boolean sel = CLANS[i].equals(clan);
-            boolean locked = clanLocked(CLANS[i]);
-            boolean hover = hit(mx, my, p[0], p[1], TILE, TILE);
-            tile(ctx, tr, p[0], p[1], mono(CLANS[i]), CLANS[i], C_COLOR[i], sel, locked, hover);
-            if (hover && !locked) { descTitle = CLANS[i]; descBody = C_DESC[i]; }
+        // Clans DISSOCIÉS par village : seuls ceux du village choisi s'affichent.
+        String[] clans = villageClans();
+        if (village.isBlank()) {
+            ctx.text(tr, RebornFont.arcade("Choisis d'abord un village."),
+                panelX(), cBase, Colors.FOREGROUND_MUTED, false);
+        } else {
+            for (int i = 0; i < clans.length; i++) {
+                int ci = indexOf(CLANS, clans[i]);       // couleur/lore depuis le répertoire maître
+                int[] p = tileXY(cBase, i);
+                boolean sel = clans[i].equals(clan);
+                boolean locked = clanLocked(clans[i]);
+                boolean hover = hit(mx, my, p[0], p[1], TILE, TILE);
+                tile(ctx, tr, p[0], p[1], mono(clans[i]), clans[i],
+                    "clan/" + slug(clans[i]), C_COLOR[ci], sel, locked, hover);
+                if (hover && !locked) { descTitle = clans[i]; descBody = C_DESC[ci]; }
+            }
         }
 
         // Champ « Autre » (nom de clan libre).
         if ("Autre".equals(clan)) {
-            int cRows = rows(CLANS.length);
+            int cRows = rows(clans.length);
             int fy = cBase + cRows * CELL_H + 4;
-            ctx.text(tr, Component.literal("NOM DE CLAN"), panelX(), fy, Colors.FOREGROUND_MUTED, false);
+            ctx.text(tr, RebornFont.arcade("NOM DE CLAN"), panelX(), fy, Colors.FOREGROUND_MUTED, false);
             customClanField.setX(panelX());
             customClanField.setY(fy + 12);
             customClanField.extractRenderState(ctx, mx, my, 0f);
@@ -404,7 +483,7 @@ public class CharacterCreateScreen extends Screen {
         int ty = y + 136;
         int cm = (int) Math.round(1.8 * size * 100);
         label(ctx, tr, "TAILLE", x, ty);
-        Component cmT = Component.literal(cm + " cm");
+        Component cmT = RebornFont.arcade(cm + " cm");
         ctx.text(tr, cmT, x + w - tr.width(cmT), ty, Colors.FOREGROUND, false);
         sizeTX = x; sizeTY = ty + 14; sizeTW = w - 2;
         DrawHelpers.roundedRect(ctx, sizeTX, sizeTY, sizeTW, 8, 3, Colors.withAlpha(0xFF000000, 0.55f));
@@ -419,7 +498,7 @@ public class CharacterCreateScreen extends Screen {
         int ay = y + 172;
         label(ctx, tr, "ÂGE", x, ay);
         square(ctx, tr, x, ay + 12, "-", hit(mx, my, x, ay + 12, 22, 22));
-        Component av = Component.literal(String.valueOf(age));
+        Component av = RebornFont.arcade(String.valueOf(age));
         ctx.text(tr, av, x + 40 - tr.width(av) / 2, ay + 12 + 7, Colors.WHITE_PURE, false);
         square(ctx, tr, x + 58, ay + 12, "+", hit(mx, my, x + 58, ay + 12, 22, 22));
         if (hit(mx, my, x, ay, w, 34)) { descTitle = "Âge"; descBody = "L'âge RP de départ de ton personnage."; }
@@ -563,7 +642,7 @@ public class CharacterCreateScreen extends Screen {
             drawCatGlyph(ctx, cx, cy, idx, gc);
         }
         // Badge numéro (coin bas-droit).
-        ctx.text(tr, Component.literal(String.valueOf(idx + 1)), x + s - 6, y + s - 9,
+        ctx.text(tr, RebornFont.arcade(String.valueOf(idx + 1)), x + s - 6, y + s - 9,
             dimmed ? Colors.FOREGROUND_MUTED : Colors.WHITE_PURE, false);
         // Légende sous l'icône.
         Component cap = ax(CAT_NAMES[idx]);
@@ -636,8 +715,8 @@ public class CharacterCreateScreen extends Screen {
             DrawHelpers.roundedOutlinedRect(ctx, sx, cyy, cw, 22, 6,
                 Colors.withAlpha(0xFF000000, 0.5f), Colors.BORDER);
             boolean lh = hit(mx, my, sx, cyy, 22, 22), rh = hit(mx, my, sx + cw - 22, cyy, 22, 22);
-            ctx.text(tr, Component.literal("A ‹"), sx + 6, cyy + 7, lh ? Colors.WHITE_PURE : Colors.ACCENT, false);
-            ctx.text(tr, Component.literal("› D"), sx + cw - 22, cyy + 7, rh ? Colors.WHITE_PURE : Colors.ACCENT, false);
+            ctx.text(tr, RebornFont.arcade("A ‹"), sx + 6, cyy + 7, lh ? Colors.WHITE_PURE : Colors.ACCENT, false);
+            ctx.text(tr, RebornFont.arcade("› D"), sx + cw - 22, cyy + 7, rh ? Colors.WHITE_PURE : Colors.ACCENT, false);
             Component frac = ax((facetStyleIdx() + 1) + " / " + facetStyleCount());
             ctx.text(tr, frac, cx - tr.width(frac) / 2, cyy + 7, Colors.WHITE_PURE, false);
         }
@@ -1091,7 +1170,7 @@ public class CharacterCreateScreen extends Screen {
         Component t = ax(label);
         ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2,
             primary ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
-        if (key != null) ctx.text(tr, Component.literal(key), x + w - 14, y + h - 10,
+        if (key != null) ctx.text(tr, RebornFont.arcade(key), x + w - 14, y + h - 10,
             Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.8f), false);
     }
 
@@ -1114,12 +1193,12 @@ public class CharacterCreateScreen extends Screen {
 
     // ── Widgets ───────────────────────────────────────────────────
     private void label(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y) {
-        ctx.text(tr, Component.literal(s), x, y, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, RebornFont.arcade(s), x, y, Colors.FOREGROUND_MUTED, false);
     }
 
     /** Tuile village/clan : monogramme + légende, avec états sélection/verrou/hover. */
     private void tile(GuiGraphicsExtractor ctx, Font tr, int x, int y, String monogram,
-                      String caption, int color, boolean sel, boolean locked, boolean hover) {
+                      String caption, String iconSlug, int color, boolean sel, boolean locked, boolean hover) {
         int fill = locked ? Colors.withAlpha(0xFF000000, 0.5f)
             : sel ? Colors.withAlpha(color, 0.55f)
             : hover ? Colors.withAlpha(color, 0.35f)
@@ -1130,9 +1209,15 @@ public class CharacterCreateScreen extends Screen {
             : Colors.withAlpha(Colors.FOREGROUND, 0.22f);
         DrawHelpers.roundedOutlinedRect(ctx, x, y, TILE, TILE, 8, fill, border);
 
-        Component m = Component.literal(monogram);
-        int mCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.6f) : Colors.WHITE_PURE;
-        ctx.text(tr, m, x + (TILE - tr.width(m)) / 2, y + (TILE - 8) / 2, mCol, false);
+        // Logo si livré (assets/reborn/textures/character/ui/<iconSlug>.png), sinon
+        // monogramme stylé. Tuile verrouillée = on garde le monogramme (croix rouge).
+        boolean hasLogo = !locked && iconSlug != null
+            && blitTile(ctx, iconSlug, x + TILE / 2, y + TILE / 2);
+        if (!hasLogo) {
+            Component m = RebornFont.arcade(monogram);
+            int mCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.6f) : Colors.WHITE_PURE;
+            ctx.text(tr, m, x + (TILE - tr.width(m)) / 2, y + (TILE - 8) / 2, mCol, false);
+        }
 
         if (locked) {
             DrawHelpers.thickLine(ctx, x + 9, y + 9, x + TILE - 9, y + TILE - 9, 2,
@@ -1141,7 +1226,7 @@ public class CharacterCreateScreen extends Screen {
                 Colors.withAlpha(Colors.DANGER, 0.9f));
         }
 
-        Component cap = Component.literal(caption);
+        Component cap = RebornFont.arcade(caption);
         int capCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.55f)
             : sel ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE;
         int cw = tr.width(cap);
@@ -1155,7 +1240,7 @@ public class CharacterCreateScreen extends Screen {
             : hover ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.4f);
         int border = sel ? Colors.GOLD : hover ? Colors.withAlpha(Colors.FOREGROUND, 0.4f) : Colors.BORDER;
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 6, fill, border);
-        Component t = Component.literal(s);
+        Component t = RebornFont.arcade(s);
         ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2,
             sel ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
     }
@@ -1163,20 +1248,20 @@ public class CharacterCreateScreen extends Screen {
     private void readonlyField(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String val) {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, w, 20, 5,
             Colors.withAlpha(0xFF000000, 0.35f), Colors.withAlpha(Colors.FOREGROUND, 0.15f));
-        ctx.text(tr, Component.literal(val), x + 6, y + 6, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, RebornFont.arcade(val), x + 6, y + 6, Colors.FOREGROUND_SUBTLE, false);
     }
 
     private void square(GuiGraphicsExtractor ctx, Font tr, int x, int y, String s, boolean hover) {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, 22, 22, 5,
             hover ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.4f),
             hover ? Colors.GOLD : Colors.BORDER);
-        Component t = Component.literal(s);
+        Component t = RebornFont.arcade(s);
         ctx.text(tr, t, x + (22 - tr.width(t)) / 2, y + 7, Colors.WHITE_PURE, false);
     }
 
     private void recap(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String key, String val) {
-        ctx.text(tr, Component.literal(key), x, y, Colors.FOREGROUND_MUTED, false);
-        Component v = Component.literal(val);
+        ctx.text(tr, RebornFont.arcade(key), x, y, Colors.FOREGROUND_MUTED, false);
+        Component v = RebornFont.arcade(val);
         ctx.text(tr, v, x + w - tr.width(v), y, Colors.WHITE_PURE, false);
     }
 
@@ -1185,13 +1270,13 @@ public class CharacterCreateScreen extends Screen {
         int boxW = 208;
         int boxX = this.width - boxW - 44;
         if (boxX < panelX() + panelW() + 16) return; // écran trop étroit : on masque
-        List<FormattedCharSequence> lines = tr.split(Component.literal(descBody), boxW - 20);
+        List<FormattedCharSequence> lines = tr.split(RebornFont.body(descBody), boxW - 20);
         int boxH = 26 + lines.size() * 11 + 8;
         int boxY = Math.max(contentTop(), (this.height - boxH) / 2);
         DrawHelpers.roundedOutlinedRect(ctx, boxX, boxY, boxW, boxH, 8,
             Colors.withAlpha(0xFF0A0608, 0.9f), Colors.BORDER_STRONG);
         DrawHelpers.rect(ctx, boxX, boxY, 3, boxH, Colors.GOLD);
-        ctx.text(tr, Component.literal(descTitle), boxX + 12, boxY + 10, Colors.GOLD, false);
+        ctx.text(tr, RebornFont.arcade(descTitle), boxX + 12, boxY + 10, Colors.GOLD, false);
         int ly = boxY + 26;
         for (FormattedCharSequence l : lines) {
             ctx.text(tr, l, boxX + 12, ly, Colors.FOREGROUND_SUBTLE, false);
@@ -1207,7 +1292,7 @@ public class CharacterCreateScreen extends Screen {
         DrawHelpers.roundedOutlinedRect(ctx, x, y, NAV_W, NAV_H, 8,
             hb ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.5f),
             hb ? Colors.withAlpha(Colors.FOREGROUND, 0.5f) : Colors.BORDER);
-        Component back = Component.literal("Retour");
+        Component back = RebornFont.arcade("Retour");
         ctx.text(tr, back, x + (NAV_W - tr.width(back)) / 2, y + (NAV_H - 8) / 2,
             Colors.FOREGROUND, false);
 
@@ -1217,7 +1302,7 @@ public class CharacterCreateScreen extends Screen {
         boolean hn = hit(mx, my, nx, y, NAV_W, NAV_H);
         int fill = hn ? Colors.GOLD : Colors.withAlpha(Colors.GOLD, 0.82f);
         DrawHelpers.roundedRect(ctx, nx, y, NAV_W, NAV_H, 8, fill);
-        Component nt = Component.literal(last ? "Valider" : "Suivant");
+        Component nt = RebornFont.arcade(last ? "Valider" : "Suivant");
         ctx.text(tr, nt, nx + (NAV_W - tr.width(nt)) / 2, y + (NAV_H - 8) / 2, 0xFF1A1008, false);
     }
 
@@ -1260,6 +1345,8 @@ public class CharacterCreateScreen extends Screen {
         double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button != 0) return super.mouseClicked(event, doubleClick);
         int mx = (int) mouseX, my = (int) mouseY;
+        // Feedback sonore de clic dans la création de perso.
+        fr.reborn.hud.menu.RebornSounds.uiClick();
 
         // Étape Apparence : éditeur KORVEX plein écran (aucun chrome wizard actif).
         if (step == 2) { apparenceClick(mx, my); return true; }
@@ -1290,16 +1377,20 @@ public class CharacterCreateScreen extends Screen {
                     int[] p = tileXY(vBase, i);
                     if (hit(mx, my, p[0], p[1], TILE, TILE)) {
                         if (villageLocked(VILLAGES[i])) { toast("Ce village ne correspond pas à ta candidature."); }
-                        else village = VILLAGES[i];
+                        else {
+                            village = VILLAGES[i];
+                            if (!containsClan(clan)) clan = "";   // le clan doit appartenir au village
+                        }
                         return true;
                     }
                 }
                 int cBase = vBase + rows(VILLAGES.length) * CELL_H + 6 + 14;
-                for (int i = 0; i < CLANS.length; i++) {
+                String[] clans = villageClans();
+                for (int i = 0; i < clans.length; i++) {
                     int[] p = tileXY(cBase, i);
                     if (hit(mx, my, p[0], p[1], TILE, TILE)) {
-                        if (clanLocked(CLANS[i])) { toast("Ce clan ne correspond pas à ta candidature."); }
-                        else clan = CLANS[i];
+                        if (clanLocked(clans[i])) { toast("Ce clan ne correspond pas à ta candidature."); }
+                        else clan = clans[i];
                         return true;
                     }
                 }
@@ -1439,7 +1530,7 @@ public class CharacterCreateScreen extends Screen {
 
     private void onBack() {
         if (step == 0) {
-            Minecraft.getInstance().setScreen(new CharacterSelectScreen());
+            Minecraft.getInstance().setScreenAndShow(new CharacterSelectScreen());
         } else {
             goToStep(step - 1);
         }

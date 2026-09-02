@@ -65,7 +65,7 @@ public final class CinemaBars {
     public void renderBars(GuiGraphicsExtractor ctx) {
         if (progress <= 0.001f) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hideGui) return;
+        if (mc.gui.hud.isHidden()) return;
         int w = ctx.guiWidth();
         int h = ctx.guiHeight();
         int barH = Math.round(h * BAR_FRACTION * progress);

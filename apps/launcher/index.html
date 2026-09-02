@@ -13,7 +13,7 @@
       html, body {
         margin: 0;
         height: 100%;
-        background: #07080b;
+        background: #0a0608;
         color: #e5e7eb;
         font-family: "Inter", "Segoe UI", system-ui, sans-serif;
         overflow: hidden;
@@ -28,11 +28,14 @@
         justify-content: center;
         gap: 28px;
         background:
-          radial-gradient(ellipse 60% 50% at 50% 30%,
-            rgba(59, 91, 219, 0.18) 0%,
-            rgba(59, 91, 219, 0.05) 40%,
+          radial-gradient(ellipse 80% 55% at 20% 10%,
+            rgba(176, 28, 50, 0.20) 0%,
+            rgba(176, 28, 50, 0.06) 42%,
             transparent 75%),
-          #07080b;
+          radial-gradient(ellipse 60% 50% at 100% 100%,
+            rgba(224, 176, 106, 0.08) 0%,
+            transparent 60%),
+          #0a0608;
         transition: opacity 280ms ease-out, visibility 280ms;
       }
       #reborn-preload.is-hidden {
@@ -46,12 +49,12 @@
         letter-spacing: 0.08em;
         line-height: 0.9;
         margin: 0;
-        background: linear-gradient(180deg, #ffffff 0%, #ffffff 55%, rgba(255, 255, 255, 0.55) 100%);
+        background: linear-gradient(180deg, #ffffff 0%, #f7ecd6 55%, rgba(224, 176, 106, 0.7) 100%);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
         filter:
-          drop-shadow(0 0 24px rgba(59, 91, 219, 0.4))
+          drop-shadow(0 0 24px rgba(176, 28, 50, 0.45))
           drop-shadow(0 0 6px rgba(255, 255, 255, 0.12));
         animation: reborn-preload-fade-in 600ms ease-out;
       }
@@ -67,7 +70,7 @@
       .reborn-preload-bar {
         width: 220px;
         height: 2px;
-        background: rgba(59, 91, 219, 0.15);
+        background: rgba(176, 28, 50, 0.15);
         border-radius: 999px;
         overflow: hidden;
         position: relative;
@@ -80,12 +83,12 @@
         width: 40%;
         background: linear-gradient(90deg,
           transparent,
-          #3b5bdb 30%,
-          #6b8cff 50%,
-          #3b5bdb 70%,
+          #b01c32 30%,
+          #f4cd86 50%,
+          #b01c32 70%,
           transparent);
         animation: reborn-preload-bar-slide 1.4s ease-in-out infinite;
-        box-shadow: 0 0 12px rgba(59, 91, 219, 0.6);
+        box-shadow: 0 0 12px rgba(176, 28, 50, 0.6);
       }
       @keyframes reborn-preload-bar-slide {
         0% { transform: translateX(-100%); }

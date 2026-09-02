@@ -59,6 +59,9 @@ public final class RebornCamera {
     /** Le découplage/OTS n'est actif qu'en vue ÉPAULE. */
     public boolean isEnabled() { return mode == Mode.SHOULDER; }
     public Mode mode() { return mode; }
+    /** Force le mode (sans effet de bord ; utilisé par les écrans cinématiques
+     *  qui prennent temporairement le contrôle de la caméra, ex. test de la feuille). */
+    public void setMode(Mode m) { this.mode = m; }
     public CameraPreset preset() { return preset; }
     public int side() { return side; }
 

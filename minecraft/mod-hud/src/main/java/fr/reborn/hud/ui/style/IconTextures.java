@@ -45,6 +45,16 @@ public final class IconTextures {
         bundled.put("menu",    Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/menu.png"));
         bundled.put("discord", Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/discord.png"));
 
+        // Icônes pixel-art de la Sacoche (32×32, style MC/pixel raccord police).
+        for (String n : new String[]{
+                "f_all", "f_weapons", "f_blocks", "f_misc",
+                "slot_bandeau", "slot_masque", "slot_manteau", "slot_dos", "slot_bag",
+                "act_leaf", "act_equip", "act_drop", "act_trash", "ic_weight",
+                // Cadres 32×32 dessinés main (bordure + fond parchemin baked-in).
+                "cadre", "cadre_reborn_none", "cadre_all", "cadre_bag", "cadre_others"}) {
+            bundled.put(n, Identifier.fromNamespaceAndPath("reborn-hud", "textures/icons/" + n + ".png"));
+        }
+
         // Patterns 16×16 pour les icônes qu'on n'a pas en PNG
         lazyPatterns.put("eye_open", new String[]{
             "................",
@@ -129,6 +139,18 @@ public final class IconTextures {
         ;
         ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, size, size, size, size);
         ;
+    }
+
+    /**
+     * Dessine une icône 16×16 (texture native 16) à la taille voulue, sans teinte
+     * — pour les icônes pixel-art colorées de la Sacoche. Retourne false si absente.
+     */
+    public static boolean drawIcon(GuiGraphicsExtractor ctx, String name, int x, int y, int drawSize) {
+        Identifier id = bundled.get(name);
+        if (id == null) return false;
+        // Icônes Sacoche = textures natives 32×32 (voir README_ICONES.md).
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, drawSize, drawSize, 32, 32);
+        return true;
     }
 
     /** Crée la texture lazy depuis le pattern, ou null si pas trouvé. */

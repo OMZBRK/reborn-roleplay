@@ -1,16 +1,24 @@
 package fr.reborn.hud.menu.settings;
 
+import fr.reborn.hud.keybind.HudKeybinds;
+import fr.reborn.hud.menu.widget.KeybindButton;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Options;
+import net.minecraft.network.chat.Component;
 
 /**
- * Onglet Contrôles — réglages souris/déplacement câblés sur {@code mc.options}.
- * L'ancienne table de touches (affichage figé, aucun rebind) a été retirée ;
- * le rebind complet des commandes vit dans l'onglet Minecraft (redirection
- * vanilla unique).
+ * Onglet Contrôles — réglages souris/déplacement câblés sur {@code mc.options}
+ * <b>et</b> les commandes Reborn (re-bindables inline via {@link KeybindButton}).
+ * Les binds Reborn vivent aussi dans l'écran vanilla « Commandes » sous la
+ * catégorie « Reborn » (cf. {@code RebornKeyCategory}) ; on les remonte ici pour
+ * qu'ils soient accessibles sans quitter les paramètres Reborn.
  */
 public class ControlsTab extends SectionedTab {
+
+    /** Largeur du bouton de touche, borné pour rester lisible sur colonne étroite. */
+    private static final int KEY_BTN_W = 150;
 
     @SuppressWarnings("unused")
     private final Screen parent;
@@ -55,6 +63,17 @@ public class ControlsTab extends SectionedTab {
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
                 o.toggleCrouch().get(),
                 v -> { o.toggleCrouch().set(v); o.save(); }));
+
+        section("Commandes Reborn");
+
+        // Chaque bind Reborn : label à gauche, bouton de re-bind à droite.
+        // Clic sur le bouton → écoute la prochaine touche (Échap = dé-bind).
+        for (KeyMapping km : HudKeybinds.REBORN_KEYS) {
+            String label = Component.translatable(km.getName()).getString();
+            int btnW = Math.min(KEY_BTN_W, controlW());
+            row(label, null, (cx, cy, cw) ->
+                new KeybindButton(cx + cw - btnW, cy, btnW, 24, km));
+        }
 
         spacer(4);
     }

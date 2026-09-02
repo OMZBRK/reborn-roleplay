@@ -75,7 +75,7 @@ public abstract class ChatHudAddMessageMixin {
                                       GuiMessageSource source, GuiMessageTag tag, CallbackInfo ci) {
         try {
             // Record real-time timestamp pour le custom render
-            int tick = Minecraft.getInstance().gui.getGuiTicks();
+            int tick = Minecraft.getInstance().gui.hud.getGuiTicks();
             MessageTimestamps.record(tick);
 
             ChatSettings settings = RebornHudClient.config().getChatSettings();

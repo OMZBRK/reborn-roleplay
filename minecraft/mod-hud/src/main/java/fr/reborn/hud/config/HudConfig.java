@@ -136,8 +136,8 @@ public final class HudConfig {
     }
 
     public HudElementState stateOf(HudElement element) {
-        if (states == null) return HudElementState.DEFAULT;
-        return states.getOrDefault(element.id(), HudElementState.DEFAULT);
+        if (states == null) return element.defaultState();
+        return states.getOrDefault(element.id(), element.defaultState());
     }
 
     public void setState(HudElement element, HudElementState state) {

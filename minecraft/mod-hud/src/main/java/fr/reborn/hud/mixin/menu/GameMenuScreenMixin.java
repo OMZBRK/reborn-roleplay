@@ -137,17 +137,17 @@ public abstract class GameMenuScreenMixin extends Screen {
         // Boutique — carte cliquable à GAUCHE (contenu dessiné par-dessus).
         this.addRenderableWidget(RebornButton.ghost(
             reborn$boxX(), reborn$boxY(), reborn$leftW(), reborn$contentH(),
-            " ", b -> client.setScreen(new ShopScreen(this))));
+            " ", b -> client.setScreenAndShow(new ShopScreen(this))));
 
         LOG.info("esc menu Zenkai : {} widgets vanilla retirés", toRemove.size());
     }
 
     private void handleTab(Minecraft client, int idx) {
         switch (idx) {
-            case 0 -> client.setScreen(null);
-            case 1 -> client.setScreen(new ConfigShellScreen(this));
-            case 2 -> client.setScreen(new ReportScreen(this));
-            case 3 -> client.setScreen(new DisconnectConfirmScreen(this));
+            case 0 -> client.setScreenAndShow(null);
+            case 1 -> client.setScreenAndShow(new ConfigShellScreen(this));
+            case 2 -> client.setScreenAndShow(new ReportScreen(this));
+            case 3 -> client.setScreenAndShow(new DisconnectConfirmScreen(this));
         }
     }
 

@@ -64,3 +64,6 @@ coverage/
 # Misc
 .cache/
 .tmp/
+
+# Shinobi (Maven) build artifacts
+minecraft/shinobi/**/target/

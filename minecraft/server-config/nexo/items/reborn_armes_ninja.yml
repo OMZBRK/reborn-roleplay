@@ -1,0 +1,47 @@
+# Reborn — Armes ninja (pack test, modèles maison). Catégorie: Armes.
+
+kunai:
+  itemname: "<white>Kunai"
+  material: PAPER
+  lore:
+    - "<gray>Arme ninja"
+    - "<white>Commun"
+  Pack:
+    model: reborn:item/kunai
+
+gunbai:
+  itemname: "<gold>Gunbai"
+  material: PAPER
+  lore:
+    - "<gray>Arme ninja"
+    - "<gold>Légendaire"
+  Pack:
+    model: reborn:item/gunbai
+
+baton_enma:
+  itemname: "<light_purple>Bâton d'Enma"
+  material: PAPER
+  lore:
+    - "<gray>Arme ninja"
+    - "<light_purple>Épique"
+  Pack:
+    model: reborn:item/baton_enma
+
+kendo:
+  itemname: "<white>Sabre de Kendo"
+  material: PAPER
+  lore:
+    - "<gray>Arme ninja"
+    - "<white>Commun"
+  Pack:
+    model: reborn:item/kendo
+
+madara_scythe:
+  itemname: "<dark_red>Faux de Madara"
+  material: PAPER
+  lore:
+    - "<gray>Arme ninja"
+    - "<dark_red>Légendaire"
+  Pack:
+    model: reborn:item/madarascythe
+
