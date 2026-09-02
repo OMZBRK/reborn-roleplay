@@ -335,9 +335,11 @@ public final class MobilityListener implements Listener {
      *  (et arme un court verrou de relance). MONITOR + ignoreCancelled : on
      *  n'agit que sur un dégât réellement appliqué, sans le modifier. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDamageInterruptRun(EntityDamageByEntityEvent event) {
+    public void onDamageInterruptRun(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player p)) return;
         if (mobility.narutoRun().isActive(p)) {
+            // Tout dégât réellement appliqué coupe la course + arme le verrou 30 s
+            // (la chute annulée pour les joueurs sol n'arrive pas ici : ignoreCancelled).
             mobility.narutoRun().interrupt(p);
         }
     }

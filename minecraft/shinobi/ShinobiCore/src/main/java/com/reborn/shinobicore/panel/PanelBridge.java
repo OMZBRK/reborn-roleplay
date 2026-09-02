@@ -66,6 +66,8 @@ public final class PanelBridge {
             "ms reload",
             "mm reload",
             "meg reload",
+            "creator reload",   // assets du character creator (diffusion live)
+            "playemote reload", // emotes RP déposées via le panel
     };
 
     private final ShinobiCore plugin;

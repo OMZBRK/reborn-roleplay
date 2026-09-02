@@ -1,0 +1,37 @@
+{
+  "ui.menu_nav": {
+    "sounds": [
+      {
+        "name": "reborn:ui/menu_nav"
+      }
+    ]
+  },
+  "ui.menu_confirm": {
+    "sounds": [
+      {
+        "name": "reborn:ui/menu_confirm"
+      }
+    ]
+  },
+  "combat.hit": {
+    "sounds": [
+      {
+        "name": "reborn:combat/hit"
+      }
+    ]
+  },
+  "combat.hit_strong": {
+    "sounds": [
+      {
+        "name": "reborn:combat/hit_strong"
+      }
+    ]
+  },
+  "combat.hit_block": {
+    "sounds": [
+      {
+        "name": "reborn:combat/hit_block"
+      }
+    ]
+  }
+}

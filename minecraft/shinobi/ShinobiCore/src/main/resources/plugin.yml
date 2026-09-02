@@ -100,6 +100,23 @@ commands:
     usage: /<command> [build]
     aliases: [panel, staffpanel, adminpanel]
     permission: shinobicore.staff
+  playemote:
+    description: Joue une emote RP (EmoteCraft), visible par les joueurs proches.
+    usage: /<command> <nom> [joueur]
+    aliases: [emote, pe]
+    permission: shinobicore.emote
+  stopemote:
+    description: Arrête l'emote RP en cours.
+    usage: /<command> [joueur]
+    aliases: [stopemotes, se]
+    permission: shinobicore.emote
+  creator:
+    description: Recharge les assets du character creator (creator-assets/) et les repousse.
+    usage: /<command> reload
+    permission: shinobicore.creator.admin
+  ryo:
+    description: Boutique — affiche le solde ryo, ou (staff) give/take/set la monnaie d'un joueur.
+    usage: /ryo [give|take|set] <joueur> <montant>
 permissions:
   shinobicore.use:
     description: Base permission to use ShinobiCore commands.
@@ -130,4 +147,19 @@ permissions:
     default: op
   shinobicore.vanish:
     description: Allows using /vanish (staff invisibility).
+    default: op
+  shinobicore.emote:
+    description: Allows /playemote and /stopemote (play RP emotes).
+    default: true
+  shinobicore.emote.others:
+    description: Allows playing/stopping emotes on OTHER players (staff / MagicSpells).
+    default: op
+  shinobicore.creator.admin:
+    description: Allows /creator reload (reload + push character-creator assets). Staff (Modelisateur/Developpeur).
+    default: op
+  shinobicore.emote.admin:
+    description: Allows /playemote reload (reload emotes.yml).
+    default: op
+  shinobicore.ryo.admin:
+    description: Allows /ryo give|take|set — grant/adjust the ryo shop currency. Staff.
     default: op

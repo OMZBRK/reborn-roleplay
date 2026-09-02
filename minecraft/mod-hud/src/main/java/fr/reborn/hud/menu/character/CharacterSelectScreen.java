@@ -244,9 +244,17 @@ public class CharacterSelectScreen extends Screen {
             case GLFW.GLFW_KEY_LEFT -> { moveFocus(-1); return true; }
             case GLFW.GLFW_KEY_RIGHT -> { moveFocus(1); return true; }
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> { confirmFocused(); return true; }
+            // ÉCHAP est neutralisé : jouer exige d'avoir choisi un personnage. Sans
+            // ça, ÉCHAP fermait l'écran et lâchait un joueur NON sélectionné dans le
+            // monde (aucune interaction possible). Le seul moyen d'en sortir = choisir.
+            case GLFW.GLFW_KEY_ESCAPE -> { return true; }
             default -> { return super.keyPressed(event); }
         }
     }
+
+    // Renforce le blocage d'ÉCHAP (certains chemins ferment via shouldCloseOnEsc()).
+    @Override
+    public boolean shouldCloseOnEsc() { return false; }
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
@@ -290,23 +298,30 @@ public class CharacterSelectScreen extends Screen {
             }
         }
         fr.reborn.hud.menu.RebornSounds.confirm();   // confirmation : entrée en jeu
-        sendAction("select:" + c.id());
-        // Écran de chargement stylisé (~6 s) pendant que le serveur applique setActive
-        // (téléport IG). Il se ferme seul → retour en jeu.
-        Minecraft.getInstance().setScreenAndShow(new CharacterLoadingScreen(c.firstName(), c.clanColor()));
+        boolean sent = sendAction("select:" + c.id());
+        // Écran de chargement UNIQUEMENT si la sélection est réellement partie au
+        // serveur. Sinon (canSend=false), on RESTE sur l'écran de sélection au lieu
+        // de lâcher un joueur non sélectionné en jeu. L'écran de chargement se ferme
+        // à la confirmation serveur « selected » (RebornHudClient) ; son minuteur
+        // n'est qu'un repli si la confirmation se perd.
+        if (sent) {
+            Minecraft.getInstance().setScreenAndShow(new CharacterLoadingScreen(c.firstName(), c.clanColor()));
+        }
     }
 
     private void onCreate() {
         Minecraft.getInstance().setScreenAndShow(new CharacterCreateScreen());
     }
 
-    /** Envoie une commande C2S sur reborn:character ; feedback local si hors serveur. */
-    private void sendAction(String cmd) {
+    /** Envoie une commande C2S sur reborn:character. Retourne {@code true} si envoyée
+     *  (serveur présent), {@code false} sinon (feedback local, pas d'avancée d'écran). */
+    private boolean sendAction(String cmd) {
         if (ClientPlayNetworking.canSend(CharacterPayload.ID)) {
             ClientPlayNetworking.send(new CharacterPayload(cmd));
-        } else {
-            note(cmd.startsWith("select:") ? "Sélection (hors serveur)" : "Création (hors serveur)");
+            return true;
         }
+        note(cmd.startsWith("select:") ? "Sélection (hors serveur)" : "Création (hors serveur)");
+        return false;
     }
 
     private void note(String msg) {

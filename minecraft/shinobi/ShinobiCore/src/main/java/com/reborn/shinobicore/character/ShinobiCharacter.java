@@ -61,6 +61,9 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     private String village = "";     // Village RP (Konoha, Suna, ...) — "" si aucun
     private String sexe = "Homme";   // "Homme" / "Femme" — cosmétique (modèle Steve/Alex)
     private String appearance = "";  // apparence RP composée (queue SkinSpec.serialize()) — "" = skin par défaut
+    private long ryo = 0L;           // monnaie boutique (ryo) — dépensée pour acheter des tenues
+    /** Tenues achetées (ids du catalogue creator) — débloquées dans la boutique. */
+    private final Set<String> ownedOutfits = new LinkedHashSet<>();
     private int age;
     private double size;            // Attribute.SCALE multiplier (e.g. 0.8 – 1.4)
     private NinjaArt ninjaArt;
@@ -353,6 +356,20 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     public void setVillage(String v)   { this.village = v == null ? "" : v; touch(); }
     public void setSexe(String s)      { this.sexe = (s == null || s.isBlank()) ? "Homme" : s; touch(); }
     public void setAppearance(String a){ this.appearance = a == null ? "" : a; touch(); }
+
+    // ── Boutique : monnaie ryo + tenues possédées ──
+    public long ryo()                    { return ryo; }
+    public void setRyo(long v)           { this.ryo = Math.max(0L, v); touch(); }
+    public void addRyo(long v)           { setRyo(this.ryo + v); }
+    /** Dépense {@code v} ryo si le solde suffit. {@code true} = débité. */
+    public boolean trySpendRyo(long v)   {
+        if (v <= 0) return true;
+        if (ryo < v) return false;
+        ryo -= v; touch(); return true;
+    }
+    public java.util.Set<String> ownedOutfits() { return ownedOutfits; }
+    public boolean ownsOutfit(String id) { return id != null && ownedOutfits.contains(id); }
+    public void addOwnedOutfit(String id){ if (id != null && !id.isBlank() && ownedOutfits.add(id)) touch(); }
     public void setAge(int age)        { this.age = Math.max(0, age); touch(); }
     public void setSize(double size)   { this.size = Math.max(0.25, Math.min(4.0, size)); touch(); }
     public void setNinjaArt(NinjaArt a){ this.ninjaArt = a; touch(); }

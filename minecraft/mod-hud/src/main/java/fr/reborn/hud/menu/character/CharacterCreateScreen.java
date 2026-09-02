@@ -572,19 +572,50 @@ public class CharacterCreateScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         int cx = this.width / 2;
-        float rotX = cx + avatarSpin; // rotation via le paramètre « souris » du render
+        int size, x0, y0, x1, y1;
         if (headZoom) {
-            int size = (int) (this.height * 0.70f * avatarZoom);
+            size = (int) (this.height * 0.70f * avatarZoom);
             int feetY = (int) (this.height * 1.62f);
-            net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
-                ctx, cx - size, feetY - size * 2, cx + size, feetY, size, 0f, rotX, feetY - size, mc.player);
+            x0 = cx - size; y0 = feetY - size * 2; x1 = cx + size; y1 = feetY;
         } else {
-            int size = (int) (this.height * 0.30f * avatarZoom);
+            size = (int) (this.height * 0.30f * avatarZoom);
             int top = (int) (this.height * 0.15f);
             int bot = (int) (this.height * 0.93f);
-            net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
-                ctx, cx - size, top, cx + size, bot, size, 0f, rotX, (top + bot) / 2f, mc.player);
+            x0 = cx - size; y0 = top; x1 = cx + size; y1 = bot;
         }
+        renderAvatar360(ctx, x0, y0, x1, y1, size, avatarSpin, mc.player);
+    }
+
+    /**
+     * Rend le perso avec une rotation horizontale <b>LIBRE (360°)</b> — on peut voir
+     * l'arrière. La méthode vanilla {@code extractEntityInInventoryFollowsMouse} borne
+     * l'angle à ±~31° ({@code bodyRot = 180 + atan(mouseX/40)·20}) : impossible de voir
+     * le dos. On reconstruit donc l'{@link EntityRenderState} nous-mêmes (même pipeline
+     * que vanilla) mais on impose {@code bodyRot = 180 − spin} avec {@code spin} en
+     * degrés, non borné. {@code spin} vient de {@link #avatarSpin} (clic droit maintenu).
+     */
+    private static void renderAvatar360(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1,
+                                        int scale, float spinDeg, net.minecraft.client.player.LocalPlayer player) {
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        net.minecraft.client.renderer.entity.EntityRenderer renderer =
+            Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(player);
+        net.minecraft.client.renderer.entity.state.EntityRenderState state =
+            renderer.createRenderState(player, 1.0f);
+        state.shadowPieces.clear();
+        state.outlineColor = 0;
+        if (state instanceof net.minecraft.client.renderer.entity.state.LivingEntityRenderState ls) {
+            ls.bodyRot = 180.0f - spinDeg;   // rotation horizontale libre (dos visible)
+            ls.yRot = 0.0f;                  // tête alignée sur le corps
+            ls.xRot = 0.0f;                  // aucune inclinaison verticale
+            ls.boundingBoxWidth = ls.boundingBoxWidth / ls.scale;
+            ls.boundingBoxHeight = ls.boundingBoxHeight / ls.scale;
+            ls.scale = 1.0f;
+        }
+        org.joml.Quaternionf pose = new org.joml.Quaternionf().rotateZ((float) Math.PI);
+        org.joml.Quaternionf camOrient = new org.joml.Quaternionf();
+        pose.mul(camOrient);
+        org.joml.Vector3f translate = new org.joml.Vector3f(0.0f, state.boundingBoxHeight / 2.0f, 0.0f);
+        ctx.entity(state, (float) scale, translate, pose, camOrient, x0, y0, x1, y1);
     }
 
     /** Texte en police du main menu (ArcadePix), majuscules ASCII (accents retirés). */

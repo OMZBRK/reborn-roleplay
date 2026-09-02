@@ -513,13 +513,21 @@ optimization:
 # GUI coffre. Renseigne les coordonnées de ton build de sélection puis passe
 # enabled à true.
 character-select:
-  enabled: false
+  # Sélection de personnage forcée à la connexion (aucun perso actif = écran de
+  # sélection, seul « prendre un perso » débloque le jeu). Activé par défaut : la
+  # jouabilité est strictement conditionnée à un personnage actif.
+  enabled: true
   world: world
   x: 0.5
   y: 100.0
   z: 0.5
   yaw: 0.0
   pitch: 0.0
+
+# Boutique de tenues (skins) — canal reborn:shop + écran client mod-hud.
+shop:
+  # Prix plat (en ryo) d'une tenue dans la boutique. La monnaie ryo se donne via /ryo.
+  tenue-price: 500
 
 # ----------------------------------------------------------------------
 # INTÉGRATION API REBORN (candidature whitelist → grisage du wizard)

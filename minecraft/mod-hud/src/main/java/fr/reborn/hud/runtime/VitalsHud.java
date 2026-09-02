@@ -17,20 +17,17 @@ import net.minecraft.resources.Identifier;
  * et 3 barres arrondies — <b>vie</b> (rouge, cur/max), <b>chakra</b> (bleu,
  * cur/max) + icônes voix, <b>stamina</b> (dorée, %).
  *
- * <p>Data lue côté client : vie/chakra = valeurs RP serveur-authoritative du
- * bloc {@code self} du tablist ({@link fr.reborn.hud.menu.tablist.TablistData}),
- * fallback vanilla hors serveur ; stamina = faim ; niveau RP via {@link #level}
- * (hook ShinobiCore) ; état <b>voix</b> (mute/parle/assourdi) en direct de
- * {@link fr.reborn.hud.voice.VoiceState} (PlasmoVoice).
+ * <p>Data lue côté client : vie/chakra = valeurs RP serveur-authoritative en
+ * DIRECT via {@link fr.reborn.hud.runtime.VitalsFeed} (canal {@code reborn:vitals},
+ * poussé ~5×/s par ShinobiCore), fallback sur le bloc {@code self} du tablist
+ * ({@link fr.reborn.hud.menu.tablist.TablistData}) puis vanilla hors serveur ;
+ * stamina = faim (déjà en direct) ; état <b>voix</b> (mute/parle/assourdi) en
+ * direct de {@link fr.reborn.hud.voice.VoiceState} (PlasmoVoice).
  */
 public final class VitalsHud {
 
     public static final int WIDTH = 210;
     public static final int HEIGHT = 56;
-
-    // Hook niveau (posé plus tard par ShinobiCore ; l'état voix vient désormais
-    // en direct de VoiceState / PlasmoVoice).
-    public static volatile int level = 1;
 
     private static final int GOLD     = 0xFFE8C34A;
     private static final int HP_COLOR = 0xFFDC3B3B;
@@ -45,7 +42,6 @@ public final class VitalsHud {
     // (pas modifiés par frame) → on ne reconstruit chaînes/Components que quand la
     // valeur sous-jacente change, évitant concats + Component.literal à chaque frame.
     private static String cNameStr; private static Component cNameComp;
-    private static int cNvLevel = Integer.MIN_VALUE; private static String cNvLabel;
     private static int cHpCur = Integer.MIN_VALUE, cHpMax; private static String cHpLabel;
     private static int cCkCur = Integer.MIN_VALUE, cCkMax; private static String cCkLabel;
     private static int cStPct = Integer.MIN_VALUE; private static String cStLabel;
@@ -67,23 +63,21 @@ public final class VitalsHud {
         ctx.pose().translate(x, y);
         if (scale != 1.0f) ctx.pose().scale(scale, scale);
 
-        // Nom RP + niveau : lus de l'entrée tablist « SOI » (posée par ShinobiCore
-        // via reborn:tablist). Fallback pseudo MC / niveau-hook hors serveur.
+        // Nom RP : lu de l'entrée tablist « SOI » (posée par ShinobiCore via
+        // reborn:tablist). Fallback pseudo MC hors serveur.
         String rpName = mc.getUser().getName();
-        int rpLevel = level;
         try {
             for (TabEntry e : TablistData.entries(rpName)) {
                 if (e.relation() == TabEntry.Relation.SOI) {
                     if (e.name() != null && !e.name().isBlank()) rpName = e.name();
-                    if (e.level() > 0) rpLevel = e.level();
                     break;
                 }
             }
         } catch (RuntimeException ignored) {
-            // pas de data tablist (hors serveur) → fallback pseudo/level hook.
+            // pas de data tablist (hors serveur) → fallback pseudo.
         }
 
-        // ─── Tête + bordure dorée + badge Nv ───
+        // ─── Tête + bordure dorée ───
         int hx = 3, hy = 3;
         DrawHelpers.roundedRectFull(ctx, hx - 2, hy - 2, HEAD + 4, HEAD + 4, 6, GOLD);
         DrawHelpers.roundedRectFull(ctx, hx - 1, hy - 1, HEAD + 2, HEAD + 2, 5, 0xFF181008);
@@ -94,13 +88,6 @@ public final class VitalsHud {
         Identifier skin = p.getSkin().body().texturePath();
         ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64);
         ctx.blit(RenderPipelines.GUI_TEXTURED, skin, hx, hy, 40f, 8f, HEAD, HEAD, 8, 8, 64, 64);
-        // Badge « Nv X » chevauchant le bas de la tête (libellé caché tant que le niveau ne change pas).
-        if (rpLevel != cNvLevel) { cNvLabel = "Nv " + rpLevel; cNvLevel = rpLevel; }
-        String nv = cNvLabel;
-        int nvw = tr.width(nv) + 8;
-        int nvx = hx + (HEAD - nvw) / 2, nvy = hy + HEAD - 4;
-        DrawHelpers.roundedRectFull(ctx, nvx, nvy, nvw, 10, 3, GOLD);
-        ctx.text(tr, Component.literal(nv), nvx + 4, nvy + 1, 0xFF241A06, false);
 
         // ─── Colonne de droite : nom + barres ───
         int cx = hx + HEAD + 7;
@@ -119,13 +106,18 @@ public final class VitalsHud {
         int barH = 11;
         int y1 = 14, y2 = y1 + barH + 3, y3 = y2 + barH + 3;
 
-        // Vitals RP serveur-authoritative (bloc « self » du tablist, réémis à la
-        // reco → survit au déco/reco). Fallback vanilla hors serveur / sans perso.
+        // Vitals RP serveur-authoritative. Priorité : flux LIVE reborn:vitals
+        // (VitalsFeed, ~5×/s) → bloc « self » du tablist (2 s, fallback) → vanilla
+        // (hors serveur / sans perso). Le flux live évite la latence de 2 s du tablist.
+        VitalsFeed.Vitals vf = VitalsFeed.get();
         TablistData.SelfVitals sv = TablistData.selfVitals();
 
         // Vie : vraie vie RP (ShinobiCore), PAS les cœurs MC vanilla.
         int hpCur, hpMax;
-        if (sv != null) {
+        if (vf != null) {
+            hpCur = vf.hp();
+            hpMax = Math.max(1, vf.maxHp());
+        } else if (sv != null) {
             hpCur = sv.hp();
             hpMax = Math.max(1, sv.maxHp());
         } else {
@@ -139,7 +131,10 @@ public final class VitalsHud {
         // Chakra : valeur RP du serveur (plus les champs XP détournés qui se
         // désynchronisaient à la reco).
         int ckCur, ckMax;
-        if (sv != null) {
+        if (vf != null) {
+            ckCur = vf.chakra();
+            ckMax = Math.max(1, vf.maxChakra());
+        } else if (sv != null) {
             ckCur = sv.chakra();
             ckMax = Math.max(1, sv.maxChakra());
         } else {

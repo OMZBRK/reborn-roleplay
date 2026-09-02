@@ -50,6 +50,8 @@ public final class ChakraJump {
     public void tick(Minecraft mc) {
         LocalPlayer p = mc.player;
         if (p == null || mc.level == null || mc.gui.screen() != null) { charging = false; return; }
+        // Pas de saut de chakra sous garde/parade : le joueur est immobilisé.
+        if (CombatInput.INSTANCE.isBlocking()) { charging = false; return; }
         boolean keys = mc.options.keyShift.isDown() && mc.options.keyJump.isDown();
         long now = System.currentTimeMillis();
         if (charging) {

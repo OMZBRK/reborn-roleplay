@@ -18,7 +18,11 @@ public abstract class PlayerJumpMixin {
 
     @Inject(method = "jumpFromGround", at = @At("HEAD"), cancellable = true)
     private void reborn$suppressJumpWhileCharging(CallbackInfo ci) {
-        if ((Object) this == Minecraft.getInstance().player && ChakraJump.INSTANCE.suppressesJump()) {
+        if ((Object) this != Minecraft.getInstance().player) return;
+        // Saut neutralisé pendant la CHARGE d'un saut chakra (sneak+espace) OU
+        // pendant la GARDE/PARADE (touche C) — sous parade on ne bouge ni ne saute.
+        if (ChakraJump.INSTANCE.suppressesJump()
+                || fr.reborn.hud.combat.CombatInput.INSTANCE.isBlocking()) {
             ci.cancel();
         }
     }

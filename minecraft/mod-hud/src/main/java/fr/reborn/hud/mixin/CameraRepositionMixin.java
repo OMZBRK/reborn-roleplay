@@ -28,7 +28,10 @@ public abstract class CameraRepositionMixin {
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
-    @Inject(method = "update", at = @At("TAIL"))
+    // Après alignWithEntity (cf. CameraThirdPersonMixin) : le culling se construit ensuite
+    // sur notre caméra → pas de trous de chunks.
+    @Inject(method = "update", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/Camera;alignWithEntity(F)V", shift = At.Shift.AFTER))
     private void reborn$repositionCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
         RepositionMode mode = RepositionMode.INSTANCE;
         if (!mode.isActive()) return;

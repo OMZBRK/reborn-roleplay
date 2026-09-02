@@ -72,6 +72,16 @@ public final class ShinobiCombat extends JavaPlugin {
         // Commande staff : reset des cooldowns d'aptitudes (test dev).
         getCommand("resetcd").setExecutor(new ResetCooldownsCommand(this, combat));
 
+        // Pont endurance pour les techniques MagicSpells (ex. M1 kenjutsu = item paper,
+        // hors moteur mêlée vanilla) : /scendurance débite l'endurance d'un joueur
+        // (commande générique, réutilisable par d'autres techniques MS).
+        getCommand("scendurance").setExecutor(
+                new com.reborn.shinobicombat.command.EnduranceCommand(this, stamina));
+
+        // Gate SpellCastEvent (réflexion) : (1) débite + bloque le M1 kenjutsu si
+        // l'endurance est vide ; (2) annule TOUT jutsu tant que le lanceur est en parade.
+        new com.reborn.shinobicombat.combat.KenjutsuEnduranceGate(this, stamina, combat).register();
+
         // Régénération de stamina + sync client léger (uniquement ceux qui régénèrent).
         this.regenTask = getServer().getScheduler().runTaskTimer(this, () -> {
             stamina.tickRegen(REGEN_DT_SECONDS);

@@ -87,6 +87,10 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.medic.TreatmentApplier medicApplier;
     private com.reborn.shinobicore.cinematic.CinematicManager cinematicManager;
     private com.reborn.shinobicore.vanish.VanishManager vanishManager;
+    private com.reborn.shinobicore.emote.EmoteManager emoteManager;
+    private com.reborn.shinobicore.creator.CreatorAssetManager creatorAssetManager;
+    private com.reborn.shinobicore.character.VitalsPush vitalsPush;
+    private com.reborn.shinobicore.shop.ShopManager shopManager;
     private ItemGiveRegistry itemGiveRegistry;
     private com.reborn.shinobicore.technique.AbilityRegistry techniqueRegistry;
     private com.reborn.shinobicore.gui.CoreGuiRouter coreGuiRouter;
@@ -389,6 +393,44 @@ public final class ShinobiCore extends JavaPlugin {
             staffCmd.setTabCompleter(sc);
         } else getLogger().warning("Command 'staff' is not declared in plugin.yml.");
 
+        // Emotes RP : canal reborn:emote (S2C) + /playemote /stopemote. Le catalogue
+        // emotes.yml est éditable par les devs via le panel (« /playemote reload »).
+        this.emoteManager = new com.reborn.shinobicore.emote.EmoteManager(this);
+        this.emoteManager.start();
+        com.reborn.shinobicore.emote.PlayEmoteCommand emoteCmd =
+                new com.reborn.shinobicore.emote.PlayEmoteCommand(this);
+        for (String c : new String[]{"playemote", "stopemote"}) {
+            PluginCommand pc = getCommand(c);
+            if (pc != null) { pc.setExecutor(emoteCmd); pc.setTabCompleter(emoteCmd); }
+            else getLogger().warning("Command '" + c + "' is not declared in plugin.yml.");
+        }
+
+        // Assets du character creator : canal reborn:creatorpack (push serveur→client) +
+        // /creator reload. Les devs déposent PNG + catalog.json via le panel (dossier
+        // creator-assets/) → nouveaux cosmétiques dans le creator sans republier le mod.
+        this.creatorAssetManager = new com.reborn.shinobicore.creator.CreatorAssetManager(this);
+        this.creatorAssetManager.start();
+        PluginCommand creatorCmd = getCommand("creator");
+        if (creatorCmd != null) {
+            com.reborn.shinobicore.creator.CreatorCommand cc =
+                    new com.reborn.shinobicore.creator.CreatorCommand(this.creatorAssetManager);
+            creatorCmd.setExecutor(cc);
+            creatorCmd.setTabCompleter(cc);
+        } else getLogger().warning("Command 'creator' is not declared in plugin.yml.");
+
+        // Flux vitals LIVE (reborn:vitals) : vie/chakra RP poussés ~5×/s pour un HUD
+        // de vitals réactif (indépendant du tablist à 2 s).
+        this.vitalsPush = new com.reborn.shinobicore.character.VitalsPush(this);
+        this.vitalsPush.start();
+
+        // Boutique de tenues (canal reborn:shop) : monnaie ryo + tenues possédées,
+        // écran client mod-hud. Commande staff /ryo.
+        this.shopManager = new com.reborn.shinobicore.shop.ShopManager(this);
+        this.shopManager.start();
+        PluginCommand ryoCmd = getCommand("ryo");
+        if (ryoCmd != null) ryoCmd.setExecutor(this.shopManager);
+        else getLogger().warning("Command 'ryo' is not declared in plugin.yml.");
+
         PluginCommand meCmd = getCommand("me");
         if (meCmd != null) meCmd.setExecutor(new MeCommand(this));
         else getLogger().warning("Command 'me' is not declared in plugin.yml.");
@@ -557,6 +599,7 @@ public final class ShinobiCore extends JavaPlugin {
         // BEFORE the flush below, so the capture records the survival
         // inventory rather than creative build junk.
         if (panelBridge != null) panelBridge.stop();
+        if (vitalsPush != null) vitalsPush.stop();
         if (staffBuild != null) staffBuild.restoreAll();
         // Flush live player state (HP / chakra / position / inventory)
         // before the roster save so graceful shutdowns preserve the
@@ -998,6 +1041,7 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.cinematic.CinematicManager cinematics() { return cinematicManager; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.vanish.VanishManager vanish() { return vanishManager; }
+    public com.reborn.shinobicore.emote.EmoteManager emotes() { return emoteManager; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.medic.MedicArmoirManager armoirs() { return medicArmoirManager; }
     @com.reborn.shinobicore.api.Internal

@@ -44,7 +44,13 @@ public abstract class CameraThirdPersonMixin {
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
-    @Inject(method = "update", at = @At("TAIL"))
+    // Injecter JUSTE APRÈS alignWithEntity (26.x) : vanilla vient de positionner la caméra
+    // 3e-pers ; on la repositionne AVANT que update ne calcule la matrice de vue, le frustum
+    // de culling ET le CameraRenderState (occlusion). Ainsi TOUT le pipeline de culling de MC
+    // se construit sur NOTRE caméra → chunks rendus normalement (au TAIL c'était trop tard :
+    // culling sur la caméra vanilla → trous en vue épaule orbitée).
+    @Inject(method = "update", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/Camera;alignWithEntity(F)V", shift = At.Shift.AFTER))
     private void reborn$shoulderCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
         // 3e personne ARRIÈRE uniquement (équiv. ancien !thirdPerson || inverseView :

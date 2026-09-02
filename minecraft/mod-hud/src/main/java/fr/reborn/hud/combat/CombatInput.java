@@ -102,6 +102,8 @@ public final class CombatInput {
     public void dash(Minecraft mc) {
         LocalPlayer p = mc.player;
         if (p == null || mc.level == null || mc.gui.screen() != null) return;
+        // Pas de dash sous garde/parade : le joueur est immobilisé.
+        if (blocking) return;
         long now = System.currentTimeMillis();
         if (now - lastDashMs < DASH_CD_MS) return;
 

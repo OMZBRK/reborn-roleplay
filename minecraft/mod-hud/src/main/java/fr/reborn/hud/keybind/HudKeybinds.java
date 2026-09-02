@@ -68,6 +68,10 @@ public final class HudKeybinds {
         KeyMapping swapShoulder = bind("key.reborn-hud.cam_swap", GLFW.GLFW_KEY_U);
         KeyMapping cyclePreset = bind("key.reborn-hud.cam_preset", GLFW.GLFW_KEY_I);
         KeyMapping openCamMenu = bind("key.reborn-hud.cam_menu", GLFW.GLFW_KEY_O);
+        // Bascule caméra Reborn (épaule) ↔ caméra Minecraft VANILLA (F5/double-F5 libre).
+        // Utile en cas de souci de rendu (chunks) avec la caméra Reborn, et pour un test
+        // A/B. Défaut touche « ' » (apostrophe), rebindable.
+        KeyMapping camVanilla = bind("key.reborn-hud.cam_vanilla", GLFW.GLFW_KEY_APOSTROPHE);
         // Course chakraïque (« Naruto run ») : touche dédiée, bascule le
         // mouvement libre client + notifie le plugin serveur (canal reborn:naruto).
         KeyMapping narutoTest = bind("key.reborn-hud.naruto_test", GLFW.GLFW_KEY_L);
@@ -85,9 +89,8 @@ public final class HudKeybinds {
         // Garde / parade (touche dédiée MAINTENUE). Défaut C (ancien raccourci inventaire
         // libéré ; ⚠️ Zoomify utilise parfois C → rebindable). Lue par CombatInput.tick.
         PARRY = bind("key.reborn-hud.parry", GLFW.GLFW_KEY_C);
-        // Test de la feuille (tirage de nature de chakra, prototype de FEEL). Touche F
-        // (= Feuille), rebindable. Solo/dev : ouvre directement l'écran gacha.
-        KeyMapping tirageFeuille = bind("key.reborn-hud.tirage_feuille", GLFW.GLFW_KEY_F);
+        // (Le « test de la feuille » (gacha nature de chakra) n'est PLUS bindé sur F —
+        // retiré à la demande ; la touche F revient au comportement vanilla.)
         // (Le repositionnement cosmétique n'a PLUS de raccourci : il s'ouvre depuis
         // l'inventaire — clic droit sur un cosmétique équipé → « Repositionner ».)
 
@@ -98,16 +101,20 @@ public final class HudKeybinds {
         // dedie C retire : l'inventaire est UNIQUEMENT sur la touche Inventaire.)
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             if (client.player == null || client.options == null) return;
+            // On ne détourne la touche E vers la sacoche QUE si : (1) ShinobiCore est
+            // présent (canal reborn:inventory enregistré → canSend), et (2) la pref
+            // sacoche est active (basculable par /rpinv). Sinon on NE draine PAS le clic
+            // → Minecraft ouvre son inventaire VANILLA. C'est ce qui rend l'inventaire
+            // vanilla sur le build / les serveurs sans plugin, et permet le retour vanilla.
+            boolean sacoche = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.sacocheInventory
+                && net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
+                        fr.reborn.hud.menu.inventory.InventoryPayload.ID);
+            if (!sacoche) return;
             while (client.options.keyInventory.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.gui.screen() == null && mc.player != null) {
-                    if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
-                            fr.reborn.hud.menu.inventory.InventoryPayload.ID)) {
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-                            new fr.reborn.hud.menu.inventory.InventoryPayload("open"));
-                    } else {
-                        mc.setScreenAndShow(new fr.reborn.hud.menu.inventory.InventoryScreen());
-                    }
+                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                        new fr.reborn.hud.menu.inventory.InventoryPayload("open"));
                 }
             }
         });
@@ -163,6 +170,17 @@ public final class HudKeybinds {
                     mc.setScreenAndShow(new fr.reborn.hud.camera.CameraScreen(null));
                 }
             }
+            while (camVanilla.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.gui.screen() == null && mc.player != null) {
+                    fr.reborn.hud.camera.RebornCamera.INSTANCE.toggleVanilla(mc);
+                    String state = fr.reborn.hud.camera.RebornCamera.INSTANCE.isVanilla()
+                        ? "§eCaméra Minecraft vanilla (F5 libre)"
+                        : "§aCaméra Reborn (épaule)";
+                    mc.gui.hud.getChat().addClientSystemMessage(
+                        net.minecraft.network.chat.Component.literal("§6[Reborn] §f" + state));
+                }
+            }
             while (narutoTest.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null) {
@@ -175,12 +193,6 @@ public final class HudKeybinds {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null && mc.gui.screen() == null) {
                     fr.reborn.hud.combat.CombatInput.INSTANCE.dash(mc);
-                }
-            }
-            while (tirageFeuille.consumeClick()) {
-                Minecraft mc = Minecraft.getInstance();
-                if (mc.gui.screen() == null && mc.player != null) {
-                    mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen());
                 }
             }
             while (walkMenu.consumeClick()) {

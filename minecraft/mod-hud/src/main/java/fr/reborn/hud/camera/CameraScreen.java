@@ -29,7 +29,7 @@ public class CameraScreen extends Screen {
     private static final int GAP = 8;
 
     private SliderWidget distSlider, sideSlider, upSlider, turnSlider;
-    private Button presetBtn, swapBtn, impactBtn;
+    private Button presetBtn, swapBtn, impactBtn, styleBtn;
 
     public CameraScreen(Screen parent) {
         super(Component.literal("Caméra"));
@@ -44,6 +44,16 @@ public class CameraScreen extends Screen {
         int x = panelX() + PAD;
         int w = PANEL_W - 2 * PAD;
         int y = 54;
+
+        // Style de caméra : Reborn (épaule/1ère perso) ⇄ Vanilla Minecraft (F5/double-F5).
+        // Choix persisté ; les joueurs préférant le vanilla restent sur le vanilla.
+        styleBtn = RebornButton.ghost(x, y, w, 20, styleLabel(cam), b -> {
+            cam.setVanilla(!cam.isVanilla(), net.minecraft.client.Minecraft.getInstance());
+            styleBtn.setMessage(Component.literal(styleLabel(RebornCamera.INSTANCE)));
+            refreshRebornControls();
+        });
+        this.addRenderableWidget(styleBtn);
+        y += 20 + 10;
 
         // Distance (2.0..6.5 → 20..65).
         distSlider = new SliderWidget(x, y, w, ROW_H,
@@ -110,6 +120,25 @@ public class CameraScreen extends Screen {
         this.addRenderableWidget(sideSlider);
         this.addRenderableWidget(upSlider);
         this.addRenderableWidget(turnSlider);
+
+        refreshRebornControls();
+    }
+
+    /** Libellé du bouton de style. */
+    private String styleLabel(RebornCamera cam) {
+        return "Caméra : " + (cam.isVanilla() ? "Vanilla (F5)" : "Reborn (épaule)");
+    }
+
+    /** Grise les réglages spécifiques à la caméra Reborn quand on est en vanilla. */
+    private void refreshRebornControls() {
+        boolean reborn = !RebornCamera.INSTANCE.isVanilla();
+        distSlider.active = reborn;
+        sideSlider.active = reborn;
+        upSlider.active = reborn;
+        turnSlider.active = reborn;
+        presetBtn.active = reborn;
+        swapBtn.active = reborn;
+        impactBtn.active = reborn;
     }
 
     private void syncSlidersToCam() {

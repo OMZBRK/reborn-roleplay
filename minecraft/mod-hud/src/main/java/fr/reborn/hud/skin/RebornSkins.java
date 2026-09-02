@@ -315,8 +315,17 @@ public final class RebornSkins {
         return texCache.computeIfAbsent(asset.folder + ":" + asset.id, k -> decodeTex(asset));
     }
 
+    /** Vide les caches d'assets (après purge/réinjection runtime). */
+    static void clearAssetCache() { texCache.clear(); maskCache.clear(); }
+
+    /** Invalide le cache d'un asset précis (réinjection runtime du même id). */
+    static void invalidate(String folder, String id) {
+        texCache.remove(folder + ":" + id);
+        maskCache.remove(folder + ":" + id);
+    }
+
     private static Tex decodeTex(Asset asset) {
-        try (InputStream in = RebornSkins.class.getResourceAsStream(asset.texturePath())) {
+        try (InputStream in = CharacterCatalog.openAsset(asset.texturePath())) {
             if (in == null) { LOGGER.warn("asset introuvable : {}", asset.texturePath()); return null; }
             NativeImage ni = NativeImage.read(in);
             List<int[]> ps = new ArrayList<>();
@@ -352,7 +361,7 @@ public final class RebornSkins {
     }
 
     private static Mask decodeMask(Asset asset) {
-        try (InputStream in = RebornSkins.class.getResourceAsStream(asset.maskPath())) {
+        try (InputStream in = CharacterCatalog.openAsset(asset.maskPath())) {
             if (in == null) return NO_MASK; // pas de masque → tenue affichée telle que peinte
             NativeImage ni = NativeImage.read(in);
             int w = ni.getWidth(), h = ni.getHeight();

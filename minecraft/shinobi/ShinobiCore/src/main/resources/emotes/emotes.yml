@@ -1,0 +1,80 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Emotes RP — catalogue serveur (ShinobiCore)
+#
+#  /playemote <nom> [joueur]   joue une emote (visible par tous les joueurs proches)
+#  /stopemote                  arrête l'emote en cours
+#
+#  Les animations viennent d'EmoteCraft côté client. Les 11 emotes ci-dessous sont
+#  les emotes BUILT-IN d'EmoteCraft — présentes chez TOUS les joueurs d'office (via
+#  le modpack), donc jouables immédiatement. Le champ « emote » = le nom du fichier
+#  EmoteCraft (assets/emotecraft/emotes/<nom>.json).
+#
+#  Ajoute d'autres emotes en déposant un .json/.emotecraft dans le dossier emotes/
+#  du client (ou, à terme, via la distribution serveur EmoteCraft). Édite ce fichier
+#  depuis le panel staff, puis « /playemote reload ».
+# ─────────────────────────────────────────────────────────────────────────────
+
+# open-mode: true  → toute emote chargée côté client est jouable par son nom, même
+#                    non déclarée ci-dessous (ex. emotes perso du joueur).
+# open-mode: false → seules les emotes listées sont autorisées.
+open-mode: true
+
+# Portée de diffusion en blocs : au-delà, les joueurs ne voient pas l'emote.
+range: 48.0
+
+emotes:
+  salut:
+    display: "Saluer"
+    emote: "waving"
+    aliases: [saluer, wave, waving, hello, hi, coucou]
+    permission: ""
+  applaudir:
+    display: "Applaudir"
+    emote: "clap"
+    aliases: [applaudir, clap, bravo]
+    permission: ""
+  pointer:
+    display: "Pointer du doigt"
+    emote: "point"
+    aliases: [pointer, point, montrer]
+    permission: ""
+  paume:
+    display: "Tendre la paume"
+    emote: "palm"
+    aliases: [paume, palm]
+    permission: ""
+  ici:
+    display: "Viens ici"
+    emote: "here"
+    aliases: [ici, here, viens]
+    permission: ""
+  pleurer:
+    display: "Pleurer"
+    emote: "crying"
+    aliases: [pleurer, crying, triste]
+    permission: ""
+  backflip:
+    display: "Salto arrière"
+    emote: "backflip"
+    aliases: [backflip, salto, saltoarriere]
+    permission: ""
+  twerk:
+    display: "Twerk"
+    emote: "twerk"
+    aliases: [twerk]
+    permission: ""
+  kazotsky:
+    display: "Danse Kazotsky"
+    emote: "kazotsky_kick"
+    aliases: [kazotsky, kazotsky_kick, kick]
+    permission: ""
+  danse_penguin:
+    display: "Danse du pingouin"
+    emote: "club_penguin_dance"
+    aliases: [penguin, pingouin, club_penguin_dance, danse1]
+    permission: ""
+  danse_potion:
+    display: "Danse potion"
+    emote: "roblox_potion_dance"
+    aliases: [potion, roblox_potion_dance, danse2]
+    permission: ""

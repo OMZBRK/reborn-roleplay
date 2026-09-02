@@ -25,7 +25,7 @@ public final class SpeechBubbles {
 
     private static final int BUBBLE_BG = 0xB0140D0A;   // fond sombre translucide
     private static final int DOT_ON    = 0xFFEDEDED;   // point (couleur de base)
-    private static final double MAX_DIST = 48.0;
+    private static final double MAX_DIST = 5.0;   // portée de visibilité de la bulle (blocs)
 
     // Instances scratch réutilisées par frame (projection monde→écran) : évite une
     // alloc Matrix4f + un Vector4f par joueur/frame. ThreadLocal par sûreté.
@@ -115,7 +115,7 @@ public final class SpeechBubbles {
 
     /** Atténue l'alpha avec la distance (bulle plus discrète de loin). */
     private static int fade(int argb, double dist) {
-        double f = Math.max(0.35, 1.0 - dist / 60.0);
+        double f = Math.max(0.35, 1.0 - dist / (MAX_DIST + 1.0));
         int a = (int) (((argb >>> 24) & 0xFF) * f);
         return (a << 24) | (argb & 0xFFFFFF);
     }

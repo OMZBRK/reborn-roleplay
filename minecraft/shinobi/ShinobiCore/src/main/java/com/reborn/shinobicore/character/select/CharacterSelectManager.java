@@ -301,6 +301,14 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         try { to.sendPluginMessage(plugin, SKINS_CHANNEL, bytes); } catch (Exception ignored) { }
     }
 
+    /** Confirme au client (canal {@code reborn:character}) que le perso est appliqué :
+     *  le mod ferme alors l'écran de sélection/chargement (message « selected »). */
+    private void sendSelected(Player p) {
+        try {
+            p.sendPluginMessage(plugin, CHANNEL, "selected".getBytes(StandardCharsets.UTF_8));
+        } catch (Exception ignored) { }
+    }
+
     /** Nombre de personnages autorisés selon le grade : lambda 2, premium 4, staff 7. */
     private int slotLimit(Player p) {
         if (p.hasPermission("shinobicore.staff")) return 7;
@@ -349,6 +357,11 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         p.setWalkSpeed(0.2f);
         p.setFlySpeed(0.1f);
         p.setFreezeTicks(0);
+
+        // Confirme au client que le perso est appliqué → il ferme l'écran de
+        // chargement/sélection (fermeture pilotée serveur, pas par un simple
+        // minuteur, pour ne jamais lâcher un joueur non sélectionné en jeu).
+        sendSelected(p);
 
         // Diffuse le skin RP à tous + reçoit ceux des autres (différé : client en jeu).
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -423,6 +436,7 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
 
         endSelection(p);
         plugin.characters().setActive(p, c);
+        sendSelected(p); // ferme l'écran client (perso appliqué)
         p.sendMessage(Component.text("Personnage « " + name + " » créé et activé !",
                 NamedTextColor.GREEN));
 

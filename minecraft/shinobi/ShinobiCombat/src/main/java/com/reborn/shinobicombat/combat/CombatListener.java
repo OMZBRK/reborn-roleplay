@@ -5,6 +5,7 @@ import com.reborn.shinobicore.api.CharacterService;
 import com.reborn.shinobicore.api.KoService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Material;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -204,6 +205,22 @@ public final class CombatListener implements Listener, PluginMessageListener {
         // Combat RP uniquement : l'attaquant doit avoir un personnage actif.
         if (characters.getActive(attacker.getUniqueId()) == null) return;
 
+        // EN PARADE ON NE TAPE PAS : un joueur qui garde (touche C) ne porte aucun
+        // coup. On annule le coup mêlée tant qu'il est en garde.
+        if (blocking.contains(attacker.getUniqueId())) {
+            e.setCancelled(true);
+            return;
+        }
+
+        // Taïjutsu (MAINS NUES) et KENJUTSU (arme tranchante) partagent le même moteur
+        // de coups : combo M1 + coût d'endurance + dégâts (« mêmes coups que le taï »
+        // pour le kenjutsu, pour l'instant). L'anim reste distincte côté client (poing
+        // à mains nues, swing katana en EmoteCraft). Avec un AUTRE objet en main
+        // (parchemin, pilule, item Nexo…), le M1 n'entre pas en combat mêlée — le
+        // clic sert à cet objet.
+        Material held = attacker.getInventory().getItemInMainHand().getType();
+        if (!held.isAir() && !isKenjutsuWeapon(held)) return;
+
         // Un joueur KO ne frappe pas.
         if (ko != null && ko.isKo(attacker.getUniqueId())) {
             e.setCancelled(true);
@@ -337,6 +354,38 @@ public final class CombatListener implements Listener, PluginMessageListener {
             applyHitstun(pv, GUARD_BREAK_STUN_TICKS);
         }
         return reduced;
+    }
+
+    /**
+     * Garde contre les coups que {@link #onMelee} ne traite PAS : kenjutsu MagicSpells,
+     * katon, ou toute mêlée avec un objet en main (onMelee « s'écarte » dans ces cas).
+     * Si la victime garde (touche C), la parade encaisse aussi ces coups : réduction +
+     * drain d'endurance — « la parade consomme de l'endurance qu'on soit frappé au taï
+     * OU au ken/jutsu ». On saute le cas déjà géré par onMelee (mêlée main-vide /
+     * épée-hache d'un joueur au perso actif) pour ne pas réduire/draîner deux fois.
+     */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onGuardedNonMelee(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Player victim)) return;
+        if (!blocking.contains(victim.getUniqueId())) return;
+
+        DamageCause c = e.getCause();
+        if ((c == DamageCause.ENTITY_ATTACK || c == DamageCause.ENTITY_SWEEP_ATTACK)
+                && e.getDamager() instanceof Player atk
+                && characters.getActive(atk.getUniqueId()) != null) {
+            Material held = atk.getInventory().getItemInMainHand().getType();
+            if (held.isAir() || isKenjutsuWeapon(held)) return; // déjà pris par onMelee → maybeBlock
+        }
+
+        // Tout autre coup subi en garde (kenjutsu MS, katon, objet en main…) : la
+        // parade encaisse → réduction + drain d'endurance (+ guard break si vidée).
+        maybeBlock(victim, e.getDamage(), e);
+    }
+
+    /** {@code true} si le joueur garde/pare actuellement (touche C maintenue). Lu par
+     *  {@link KenjutsuEnduranceGate} pour empêcher de lancer un jutsu en parade. */
+    public boolean isGuarding(java.util.UUID id) {
+        return blocking.contains(id);
     }
 
     /** Avance le compteur de combo (fenêtre {@link #COMBO_WINDOW_MS}) et renvoie l'index courant. */
@@ -551,6 +600,14 @@ public final class CombatListener implements Listener, PluginMessageListener {
     }
 
     // -------------------------------------------------------------- helpers --
+
+    /** Armes de kenjutsu : un M1 à l'arme tranchante (épée/hache) déclenche le même
+     *  combo + coût d'endurance que le taïjutsu à mains nues. Aligné sur la
+     *  classification {@code DamageOrigin.KENJUTSU} de ShinobiCore. */
+    private static boolean isKenjutsuWeapon(Material m) {
+        String n = m.name();
+        return n.endsWith("_SWORD") || n.endsWith("_AXE");
+    }
 
     /** Pousse {@code victim} horizontalement à l'opposé de {@code attacker}, plus une composante Y. */
     private void applyKnockback(Player attacker, LivingEntity victim, double horizontal, double vertical) {

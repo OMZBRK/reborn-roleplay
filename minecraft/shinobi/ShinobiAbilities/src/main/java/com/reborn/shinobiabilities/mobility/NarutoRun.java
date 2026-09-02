@@ -41,7 +41,7 @@ public final class NarutoRun {
 
     /** Verrou de ré-activation après une interruption (dégâts) — empêche de
      *  relancer la course instantanément. Tunable ici. */
-    private static final long INTERRUPT_LOCKOUT_MS = 1000L;
+    private static final long INTERRUPT_LOCKOUT_MS = 30_000L;
 
     private final JavaPlugin plugin;
     private final CoreServices core;
@@ -293,14 +293,11 @@ public final class NarutoRun {
                 long grace = Math.max(0L, plugin.getConfig()
                         .getLong("mobility.naruto-run.stop-reset-ms", 5000L));
                 double base = speedMultiplier();
-                // Plafond de vitesse mis à l'échelle du niveau du personnage :
-                // un genin (niv. 1) dépasse à peine la base, un shinobi au niveau
-                // max approche le plafond config. levelFactor = min(1, lvl/MAX).
-                // base reste le plancher ; les clés config sont intactes.
-                double configMax = maxSpeedMultiplier();
-                double levelFactor = Math.min(1.0,
-                        c.level() / (double) LevelTable.MAX_LEVEL);
-                double target = base + (configMax - base) * levelFactor;
+                // Vitesse FIXE dès l'activation (« speed 3 » = base 1.6 = +60 %, cf.
+                // config speed-multiplier) — plus de montée en régime lente ni de
+                // plafond scalé au niveau : la course donne la même vitesse forte
+                // pour tous, tout de suite. (Ajuster via mobility.naruto-run.speed-multiplier.)
+                double target = base;
                 boolean moving = p.getVelocity().clone().setY(0).lengthSquared() > 0.0025;
                 if (moving) {
                     stoppedMs.put(id, 0L);

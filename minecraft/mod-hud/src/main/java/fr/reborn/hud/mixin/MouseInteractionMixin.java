@@ -58,6 +58,16 @@ public abstract class MouseInteractionMixin {
     // le n° de bouton et les mods sont portés par le record MouseButtonInfo.
     @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
     private void reborn$onMouseButton(long window, MouseButtonInfo button, int action, CallbackInfo ci) {
+        // EN PARADE ON NE TAPE PAS : tant que la garde (touche C) est maintenue en jeu,
+        // on annule le clic gauche (attaque). Le serveur refuse aussi le coup, mais on
+        // coupe ici le swing/anim pour un feel propre. Uniquement hors écran (sinon on
+        // casserait les clics de menu).
+        if (button.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && Minecraft.getInstance().gui.screen() == null
+                && fr.reborn.hud.combat.CombatInput.INSTANCE.isBlocking()) {
+            ci.cancel();
+            return;
+        }
         if (!InteractionMode.INSTANCE.isActive()) return;
         if (button.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW.GLFW_PRESS) {
