@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loadConfig, findLatestManifest, extractMods } from "./inputs";
 import { checkAll, type Report } from "./check";
+import { prepare } from "./prepare";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = join(HERE, "..");
@@ -63,12 +64,42 @@ async function cmdCheck(argv: string[]) {
   }
 }
 
+async function cmdPrepare(argv: string[]) {
+  const config = loadConfig(join(PKG, "mods.config.json"));
+  const mIdx = argv.indexOf("--manifest");
+  const manifestPath =
+    mIdx >= 0 ? argv[mIdx + 1] : findLatestManifest(join(REPO, "secrets"));
+  const mods = extractMods(manifestPath);
+
+  console.log(`Base           : ${manifestPath}`);
+  console.log(`Cible          : MC ${config.gameVersion} / ${config.loader}\n`);
+  console.log("Téléchargement + vérif des mods à jour…");
+
+  const res = await prepare(config, mods, manifestPath, join(REPO, "secrets"));
+  if (res.changes.length === 0) {
+    console.log("\nAucune update `auto` — rien à préparer.");
+    return;
+  }
+  console.log(`\nManifeste candidat : ${res.candidatePath}  (v${res.version})`);
+  console.log("Changements :");
+  for (const c of res.changes) {
+    console.log(`  🟢 ${c.slug}`);
+    console.log(`     ${c.from}`);
+    console.log(`     →  ${c.to}  (${c.type}, ${c.sizeMb.toFixed(1)} Mo)`);
+  }
+  console.log(
+    "\nURLs = CDN Modrinth (vérifié sha256 côté launcher). Prochaine étape : `publish` (Slice 3) signera hors-ligne + POST /v1/admin/manifest, avec notif bot Discord.",
+  );
+}
+
 async function main() {
   const cmd = process.argv[2] ?? "check";
   if (cmd === "check") {
     await cmdCheck(process.argv.slice(3));
+  } else if (cmd === "prepare") {
+    await cmdPrepare(process.argv.slice(3));
   } else {
-    console.error(`Commande inconnue : ${cmd}. Disponible : check`);
+    console.error(`Commande inconnue : ${cmd}. Disponibles : check, prepare`);
     process.exit(1);
   }
 }
