@@ -7,9 +7,11 @@ import { launchBuilder } from "../../lib/launcher";
 const STAFF_ROLES = ["HELPER", "MODELISATEUR", "DEVELOPPEUR", "MODERATOR", "WHITELIST_REVIEWER", "ADMIN", "OWNER"];
 
 /**
- * Bouton « Builder » (staff-only) : lance MC 26.2 + Axiom / opti / shaders (sans
- * mods RP) dans un dossier de jeu séparé, connecté au serveur build. Le backend
- * gate déjà sur le rôle ; ici on masque juste le bouton aux joueurs normaux.
+ * Bouton « Serveur Build » (staff-only) : lance le MÊME modpack unifié que le
+ * bouton JOUER (mods RP + optionnels activés type Axiom), mais connecté au
+ * serveur de build au lieu du serveur RP, sans play-token. Les features RP sont
+ * coupées côté serveur pour bâtir tranquillement. Le backend gate déjà sur le
+ * rôle ; ici on masque juste le bouton aux joueurs normaux.
  */
 export function BuilderButton() {
   const user = useAuthStore((s) => s.user);
@@ -46,7 +48,7 @@ export function BuilderButton() {
         ) : (
           <Hammer className="h-3.5 w-3.5" />
         )}
-        Builder (26.2)
+        Serveur Build
       </button>
       {error && (
         <div className="max-w-xs truncate text-[11px] text-danger" title={error}>
