@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import { loadConfig, findLatestManifest, extractMods } from "./inputs";
 import { checkAll, type Report } from "./check";
 import { prepare } from "./prepare";
+import { publish } from "./publish";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = join(HERE, "..");
@@ -92,14 +93,23 @@ async function cmdPrepare(argv: string[]) {
   );
 }
 
+async function cmdPublish(argv: string[]) {
+  const cIdx = argv.indexOf("--candidate");
+  const candidate = cIdx >= 0 ? argv[cIdx + 1] : undefined;
+  const confirm = argv.includes("--confirm");
+  await publish(join(REPO, "secrets"), REPO, candidate, confirm);
+}
+
 async function main() {
   const cmd = process.argv[2] ?? "check";
   if (cmd === "check") {
     await cmdCheck(process.argv.slice(3));
   } else if (cmd === "prepare") {
     await cmdPrepare(process.argv.slice(3));
+  } else if (cmd === "publish") {
+    await cmdPublish(process.argv.slice(3));
   } else {
-    console.error(`Commande inconnue : ${cmd}. Disponibles : check, prepare`);
+    console.error(`Commande inconnue : ${cmd}. Disponibles : check, prepare, publish`);
     process.exit(1);
   }
 }
