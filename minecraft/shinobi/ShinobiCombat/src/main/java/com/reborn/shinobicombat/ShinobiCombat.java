@@ -72,6 +72,10 @@ public final class ShinobiCombat extends JavaPlugin {
         // Commande staff : reset des cooldowns d'aptitudes (test dev).
         getCommand("resetcd").setExecutor(new ResetCooldownsCommand(this, combat));
 
+        // Commande RP : baisser la tête vers le sol (snap ponctuel).
+        getCommand("lookdown").setExecutor(
+                new com.reborn.shinobicombat.command.LookDownCommand());
+
         // Pont endurance pour les techniques MagicSpells (ex. M1 kenjutsu = item paper,
         // hors moteur mêlée vanilla) : /scendurance débite l'endurance d'un joueur
         // (commande générique, réutilisable par d'autres techniques MS).
