@@ -99,6 +99,18 @@ public final class RebornCamera {
         this.camPitch = clamp(this.camPitch + dy * 0.15, -89.0, 89.0);
     }
 
+    /**
+     * Incline l'orbite caméra plein bas (regard sol). En vue épaule, la caméra
+     * plonge ET la tête suit (le pitch de tête est asservi à {@link #camPitch}
+     * par {@code LocalPlayerBodyMixin}). Snap unique : le joueur relève en bougeant
+     * la souris ({@link #rotateCamera}). Le cap horizontal ({@link #camYaw}) est
+     * conservé. Déclenché par la commande serveur {@code /lookdown}
+     * (canal {@code reborn:combat}, {@code TYPE_LOOK_DOWN}).
+     */
+    public void lookDown() {
+        this.camPitch = 89.0; // borne max de l'orbite = le plus bas possible
+    }
+
     public void applyPreset(CameraPreset p) {
         this.preset = p;
         this.distance = clamp(p.distance, DIST_MIN, DIST_MAX);

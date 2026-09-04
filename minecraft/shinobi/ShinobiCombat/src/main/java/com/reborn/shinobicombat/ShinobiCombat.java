@@ -74,7 +74,7 @@ public final class ShinobiCombat extends JavaPlugin {
 
         // Commande RP : baisser la tête vers le sol (snap ponctuel).
         getCommand("lookdown").setExecutor(
-                new com.reborn.shinobicombat.command.LookDownCommand());
+                new com.reborn.shinobicombat.command.LookDownCommand(this));
 
         // Pont endurance pour les techniques MagicSpells (ex. M1 kenjutsu = item paper,
         // hors moteur mêlée vanilla) : /scendurance débite l'endurance d'un joueur

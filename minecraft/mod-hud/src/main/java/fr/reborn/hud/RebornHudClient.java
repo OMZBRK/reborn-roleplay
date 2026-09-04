@@ -396,6 +396,11 @@ public final class RebornHudClient implements ClientModInitializer {
                     // Parade timée : flash HUD (rôle dans animId : 0=paré / 1=fait parer).
                     // Le son de deflect est joué serveur-side à la position (audible à portée mêlée).
                     fr.reborn.hud.combat.CombatState.INSTANCE.onParry(payload.animId(), now);
+                } else if (payload.msgType() == fr.reborn.hud.combat.CombatPayload.TYPE_LOOK_DOWN) {
+                    // Commande /lookdown : en vue épaule le regard est asservi à l'orbite
+                    // caméra (le pitch de l'entité posé par le téléport est ignoré) → on
+                    // incline la caméra plein bas ici. Sans effet en 1ère perso / vanilla.
+                    fr.reborn.hud.camera.RebornCamera.INSTANCE.lookDown();
                 }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(

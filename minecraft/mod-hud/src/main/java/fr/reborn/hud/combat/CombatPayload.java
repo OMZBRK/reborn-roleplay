@@ -30,6 +30,9 @@ public record CombatPayload(byte msgType, int victimEntityId, float damage,
     /** S2C : parade timée (Sekiro) — {@code byte role} porté dans {@link #animId}
      *  (0 = a paré / 1 = s'est fait parer). Flash + son côté client. */
     public static final byte TYPE_PARRY = 5;
+    /** S2C : regard vers le sol ({@code /lookdown}). Corps = juste le type. En vue
+     *  épaule le client incline sa caméra orbite plein bas. */
+    public static final byte TYPE_LOOK_DOWN = 6;
 
     public static final Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "combat");
     public static final CustomPacketPayload.Type<CombatPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);

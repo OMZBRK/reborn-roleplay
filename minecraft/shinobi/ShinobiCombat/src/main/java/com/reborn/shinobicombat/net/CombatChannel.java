@@ -55,6 +55,10 @@ public final class CombatChannel {
     public static final byte TYPE_COOLDOWN_RESET = 4;
     /** Parade timée (Sekiro) : corps {@code byte role}. Flash + son côté client. */
     public static final byte TYPE_PARRY = 5;
+    /** Regard vers le sol (aucun corps) — en vue épaule le client incline sa caméra
+     *  orbite plein bas (la 1ère personne/vanilla suit déjà le pitch de l'entité).
+     *  Émis par la commande {@code /lookdown}. */
+    public static final byte TYPE_LOOK_DOWN = 6;
 
     /** Rôle porté par {@link #TYPE_PARRY} : la victime a paré avec succès (deflect). */
     public static final byte PARRY_ROLE_SUCCESS = 0;
@@ -138,6 +142,22 @@ public final class CombatChannel {
             return;
         }
         viewer.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
+    }
+
+    /**
+     * Ordonne à {@code target} d'incliner sa caméra épaule plein bas (regard sol).
+     * Corps vide — un seul octet {@link #TYPE_LOOK_DOWN}. Sans effet en 1ère personne
+     * / vue vanilla (elles suivent déjà le pitch de l'entité posé par le téléport).
+     * Utilisé par la commande {@code /lookdown}.
+     */
+    public static void sendLookDown(Plugin plugin, Player target) {
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(b)) {
+            out.writeByte(TYPE_LOOK_DOWN);
+        } catch (IOException ignored) {
+            return;
+        }
+        target.sendPluginMessage(plugin, CHANNEL, b.toByteArray());
     }
 
     /**
