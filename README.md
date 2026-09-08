@@ -116,6 +116,7 @@ cd minecraft\shinobi       ; mvn clean package    # les 6 plugins Shinobi
 | [`docs/PUBLISH_PREFLIGHT.md`](./docs/PUBLISH_PREFLIGHT.md) | Checklist anti-régression avant tout build/publish game-side |
 | [`docs/RELEASING.md`](./docs/RELEASING.md) | Workflow auto-update du launcher (Ed25519) |
 | [`docs/AUTO_UPDATE_TEST_PROTOCOL.md`](./docs/AUTO_UPDATE_TEST_PROTOCOL.md) | Protocole de test reproductible de l'auto-update |
+| [`docs/MULTI_POSTES.md`](./docs/MULTI_POSTES.md) | **Travailler depuis plusieurs machines** (2 PC Windows + Mac) : secrets à transférer, spécificités macOS, hygiène des branches |
 | [`docs/DEPLOY.md`](./docs/DEPLOY.md) | Détails infra VPS (Docker + Caddy) — *setup from scratch* |
 | [`docs/STAFF_BETA.md`](./docs/STAFF_BETA.md) | Checklist de déploiement complète — *setup from scratch* |
 

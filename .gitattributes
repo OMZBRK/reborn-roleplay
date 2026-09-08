@@ -1,0 +1,54 @@
+# Normalisation des fins de ligne — le dépôt est travaillé depuis plusieurs postes
+# (deux PC Windows + un Mac). Sans ce fichier, chaque poste applique son propre
+# core.autocrlf et on finit avec des diffs fantômes où le fichier entier apparaît
+# modifié alors que seul le CRLF a changé.
+#
+# Règle : LF dans le dépôt ET dans les copies de travail, partout, sauf pour les
+# formats qui exigent CRLF sous Windows.
+
+* text=auto eol=lf
+
+# --- Exceptions : ces formats cassent en LF sous Windows -----------------------
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# --- Scripts qui doivent rester en LF (exécutés par sh / la JVM) ---------------
+*.sh        text eol=lf
+gradlew     text eol=lf
+*/gradlew   text eol=lf
+
+# --- Binaires : jamais de conversion, jamais de diff textuel ------------------
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.webp      binary
+*.ico       binary
+*.icns      binary
+*.hdr       binary
+*.ogg       binary
+*.wav       binary
+*.mp3       binary
+*.ttf       binary
+*.otf       binary
+*.woff      binary
+*.woff2     binary
+*.jar       binary
+*.class     binary
+*.zip       binary
+*.exe       binary
+*.dll       binary
+*.pdf       binary
+*.emotecraft binary
+*.aseprite  binary
+*.ase       binary
+
+# --- Lockfiles : générés, on ne les relit pas en revue ------------------------
+pnpm-lock.yaml   -diff linguist-generated
+Cargo.lock       -diff linguist-generated
+
+# --- Statistiques GitHub : ne pas compter les assets comme du code ------------
+docs/refs/**            linguist-documentation
+reborn-design-prep/**   linguist-vendored
+minecraft/*/libs/**     linguist-vendored
