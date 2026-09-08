@@ -65,7 +65,8 @@ public abstract class InGameHudMixin {
     // On annule toujours son extraction — pas dans l'éditeur (cf HudElement.EDITABLE).
     @Inject(method = "extractPlayerHealth", at = @At("HEAD"), cancellable = true)
     private void reborn$hideHealth(GuiGraphicsExtractor ctx, CallbackInfo ci) {
-        ci.cancel();
+        // Sur un serveur build / non-Reborn, on laisse la vie vanilla (pas de HUD RP).
+        if (fr.reborn.hud.runtime.RebornSession.rpFeaturesEnabled()) ci.cancel();
     }
 
     // ─────────── ARMOR (static) ───────────
@@ -85,7 +86,8 @@ public abstract class InGameHudMixin {
     // La faim vanilla est remplacée par le VitalsHUD RP (barre stamina).
     @Inject(method = "extractFood", at = @At("HEAD"), cancellable = true)
     private void reborn$hideFood(GuiGraphicsExtractor ctx, Player player, int a, int b, CallbackInfo ci) {
-        ci.cancel();
+        // Sur un serveur build / non-Reborn, on laisse la faim vanilla.
+        if (fr.reborn.hud.runtime.RebornSession.rpFeaturesEnabled()) ci.cancel();
     }
 
     // ─────────── AIR (bubbles) ───────────

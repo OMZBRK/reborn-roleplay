@@ -103,6 +103,19 @@ public final class ShinobiCore extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+
+        // Mode serveur. « build » = serveur créatif staff : on saute toutes les
+        // features RP (character selector, lockdown, HUD vitals/chakra, tablist,
+        // sacoche, typing…) pour que le builder bâtisse tranquille — seul le canal
+        // reborn:tablist manquant suffit à éteindre toute l'UI RP côté mod client.
+        // « dev » (ou absent) = serveur RP complet. Chaque serveur porte son propre
+        // config.yml → le flag est naturellement par-serveur. Prend effet à l'enable
+        // (restart / reload), pas à chaud via /sc reload.
+        final boolean buildMode = getConfig().getString("mode", "dev").equalsIgnoreCase("build");
+        if (buildMode) {
+            getLogger().warning("mode=build : features RP desactivees (serveur de build creatif staff).");
+        }
+
         this.itemGiveRegistry = new ItemGiveRegistry(this);
 
         // 0b. Technique registry — engine-owned catalog shell. Registered
@@ -131,7 +144,7 @@ public final class ShinobiCore extends JavaPlugin {
         this.chakraManager = new ChakraManager(this);
         this.chakraManager.start();
         this.chakraDisplay = new ChakraDisplay(this);
-        this.chakraDisplay.start();
+        if (!buildMode) this.chakraDisplay.start();
 
         // 4. Mobility utilities (Grappin / Zipline only) + cooldown HUD.
         this.mobilityModule = new ShinobiMobilityModule(this);
@@ -143,7 +156,7 @@ public final class ShinobiCore extends JavaPlugin {
                 new com.reborn.shinobicore.mobility.listener.ZiplineListener(
                         this, mobilityModule.zipline()), this);
         this.cooldownHud = new CooldownHud(this);
-        this.cooldownHud.start();
+        if (!buildMode) this.cooldownHud.start();
 
         // 4b. Sit on slabs & stairs + RP postures (sit-in-place / lay / crawl).
         //     SitListener: right-click a slab/stair to sit (seat armour stand).
@@ -167,7 +180,7 @@ public final class ShinobiCore extends JavaPlugin {
 
         // 5b. No-character lockdown (infinite blindness + French title).
         this.noCharacterLockdown = new NoCharacterLockdown(this);
-        this.noCharacterLockdown.start();
+        if (!buildMode) this.noCharacterLockdown.start();
 
         // 6. Chat-input flow.
         this.chatInputs = new ChatInputManager(this);
@@ -189,7 +202,7 @@ public final class ShinobiCore extends JavaPlugin {
         //       listener to catch join events; the CharacterManager
         //       + FriendshipManager call into it on switch / edge flip.
         this.visibility = new VisibilityManager(this);
-        Bukkit.getPluginManager().registerEvents(visibility, this);
+        if (!buildMode) Bukkit.getPluginManager().registerEvents(visibility, this);
 
         // 6c. (Techniques + jutsu init removed — now owned by
         //      the ShinobiAbilities plugin.)
@@ -300,7 +313,7 @@ public final class ShinobiCore extends JavaPlugin {
                 new com.reborn.shinobicore.gui.staff.SpawnMenuScreen(coreGuiRouter),
                 new com.reborn.shinobicore.gui.staff.CustomItemScreen(coreGuiRouter));
         Bukkit.getPluginManager().registerEvents(coreGuiRouter.screens(), this);
-        Bukkit.getPluginManager().registerEvents(new CharacterLifecycleListener(this), this);
+        if (!buildMode) Bukkit.getPluginManager().registerEvents(new CharacterLifecycleListener(this), this);
         // Character nickname rendering: rewrites chat to show
         // "Name Clan »" instead of the Minecraft username, and re-applies
         // display-name on join / world change so tab + nameplate stay in sync.
@@ -312,24 +325,32 @@ public final class ShinobiCore extends JavaPlugin {
         this.loreCalendar = new LoreCalendar(this);
         this.loreCalendar.start();
         this.tabList = new TabListManager(this, loreCalendar);
-        Bukkit.getPluginManager().registerEvents(tabList, this);
-        this.tabList.start();
+        if (!buildMode) {
+            Bukkit.getPluginManager().registerEvents(tabList, this);
+            this.tabList.start();
+        }
 
         // 7d. Sélection de personnage pilotée par le mod client (reborn:character).
         this.characterSelect = new com.reborn.shinobicore.character.select.CharacterSelectManager(this);
-        Bukkit.getPluginManager().registerEvents(characterSelect, this);
-        this.characterSelect.start();
+        if (!buildMode) {
+            Bukkit.getPluginManager().registerEvents(characterSelect, this);
+            this.characterSelect.start();
+        }
 
         // 7e. Indicateur de frappe chat (reborn:typing) → 3 points au-dessus des têtes.
         this.typing = new com.reborn.shinobicore.chat.TypingManager(this);
-        Bukkit.getPluginManager().registerEvents(typing, this);
-        this.typing.start();
+        if (!buildMode) {
+            Bukkit.getPluginManager().registerEvents(typing, this);
+            this.typing.start();
+        }
 
         // 7f. Sacoche RP (reborn:inventory) — inventaire custom lié au perso actif
         //     (capacité en cases + poids + cosmétiques), persisté à part.
         this.rpInventory = new com.reborn.shinobicore.inventory.InventoryManager(this);
-        Bukkit.getPluginManager().registerEvents(rpInventory, this);
-        this.rpInventory.start();
+        if (!buildMode) {
+            Bukkit.getPluginManager().registerEvents(rpInventory, this);
+            this.rpInventory.start();
+        }
         PluginCommand sacocheCmd = getCommand("sacoche");
         if (sacocheCmd != null) sacocheCmd.setExecutor(rpInventory);
         else getLogger().warning("Command 'sacoche' is not declared in plugin.yml.");
@@ -421,7 +442,7 @@ public final class ShinobiCore extends JavaPlugin {
         // Flux vitals LIVE (reborn:vitals) : vie/chakra RP poussés ~5×/s pour un HUD
         // de vitals réactif (indépendant du tablist à 2 s).
         this.vitalsPush = new com.reborn.shinobicore.character.VitalsPush(this);
-        this.vitalsPush.start();
+        if (!buildMode) this.vitalsPush.start();
 
         // Boutique de tenues (canal reborn:shop) : monnaie ryo + tenues possédées,
         // écran client mod-hud. Commande staff /ryo.

@@ -59,8 +59,11 @@ public final class RebornCamera {
 
     private RebornCamera() {}
 
-    /** Le découplage/OTS n'est actif qu'en vue ÉPAULE. */
-    public boolean isEnabled() { return mode == Mode.SHOULDER; }
+    /** Le découplage/OTS n'est actif qu'en vue ÉPAULE ET sur un serveur RP complet
+     *  (désactivé sur un serveur build / non-Reborn → caméra vanilla). */
+    public boolean isEnabled() {
+        return mode == Mode.SHOULDER && fr.reborn.hud.runtime.RebornSession.rpFeaturesEnabled();
+    }
     public Mode mode() { return mode; }
     /** Force le mode (sans effet de bord ; utilisé par les écrans cinématiques
      *  qui prennent temporairement le contrôle de la caméra, ex. test de la feuille). */
@@ -162,6 +165,9 @@ public final class RebornCamera {
      */
     public void tickView(Minecraft mc) {
         if (mc.player == null || mc.options == null) return;
+        // Serveur build / non-Reborn : le mod ne force PAS la caméra (vue vanilla
+        // pour que le builder bâtisse sans caméra épaule imposée).
+        if (!fr.reborn.hud.runtime.RebornSession.rpFeaturesEnabled()) return;
         switch (mode) {
             case SHOULDER -> {
                 if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {

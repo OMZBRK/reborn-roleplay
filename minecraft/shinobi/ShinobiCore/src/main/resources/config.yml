@@ -3,6 +3,17 @@
 # All values below are live-reloadable with: /sc reload
 # ------------------------------------------------------------
 
+# Mode du serveur.
+#   dev   (defaut) = serveur RP complet : toutes les features RP actives.
+#   build          = serveur creatif staff : coupe les features RP (character
+#                    selector, lockdown sans perso, HUD vitals/chakra, tablist
+#                    custom, sacoche, typing...) pour que le builder batisse
+#                    tranquille. Le canal reborn:tablist n'etant plus declare,
+#                    le mod client eteint aussi toute son UI RP tout seul.
+# NB: prend effet a l'activation du plugin (restart / reload complet), PAS a
+#     chaud via /sc reload (qui ne re-enregistre pas les listeners).
+mode: dev
+
 chakra:
   # Chakra does NOT regenerate passively. Use /meditation to regenerate.
   auto-regen: false
