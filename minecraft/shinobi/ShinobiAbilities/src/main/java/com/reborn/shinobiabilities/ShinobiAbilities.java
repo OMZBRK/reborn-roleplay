@@ -146,11 +146,19 @@ public final class ShinobiAbilities extends JavaPlugin {
         this.pathTwo = new com.reborn.shinobiabilities.mobility.MobilityPathTwoModule(
                 this, core, mobilityPaths, mobility.narutoRun());
 
-        // Canal C2S reborn:run : la touche naruto-run du mod client bascule la
-        // course chakraïque (garde-fous dans NarutoRun.toggle). Cf RunChannelListener.
-        getServer().getMessenger().registerIncomingPluginChannel(this,
-                com.reborn.shinobiabilities.mobility.RunChannelListener.CHANNEL,
-                new com.reborn.shinobiabilities.mobility.RunChannelListener(mobility.narutoRun()));
+        // Canal reborn:run, BIDIRECTIONNEL : la touche naruto-run du mod client
+        // demande l'état de la course (garde-fous dans NarutoRun.toggle), et le
+        // plugin renvoie l'état autoritaire pour que le mod sorte du mode quand la
+        // course est coupée (coup reçu + cooldown, chakra épuisé, KO) ou refusée.
+        // reborn:naruto est écouté en alias : c'est le nom qu'émettaient les mods
+        // publiés avant le correctif, et il n'était branché nulle part. Cf
+        // RunChannelListener.
+        var runChannel = new com.reborn.shinobiabilities.mobility.RunChannelListener(mobility.narutoRun());
+        for (String ch : com.reborn.shinobiabilities.mobility.RunChannelListener.CHANNELS) {
+            getServer().getMessenger().registerIncomingPluginChannel(this, ch, runChannel);
+        }
+        getServer().getMessenger().registerOutgoingPluginChannel(this,
+                com.reborn.shinobiabilities.mobility.RunChannelListener.CHANNEL);
 
         // Canal reborn:anim : relais de synchro des démarches/course/naruto vers
         // les joueurs proches (tout le monde voit les anims des autres).
