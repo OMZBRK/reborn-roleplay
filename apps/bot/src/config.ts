@@ -38,6 +38,9 @@ export const config = {
   guildId: require_("DISCORD_GUILD_ID"),
   /** Salon ou le bot poste les threads tickets / whitelist. */
   ticketsChannelId: require_("DISCORD_TICKETS_CHANNEL_ID"),
+  /** Salon ou le bot annonce les mises a jour de mods dispo (Modrinth).
+   *  Fallback sur le salon tickets si non defini. */
+  modsChannelId: process.env.DISCORD_MODS_CHANNEL_ID ?? require_("DISCORD_TICKETS_CHANNEL_ID"),
   /** Port HTTP sur lequel le bot ecoute les webhooks signes de l'API. */
   webhookPort: Number(process.env.BOT_HTTP_PORT ?? 3001),
   /** Secret partage avec l'API pour signer les webhooks (HMAC-SHA256). */
