@@ -16,3 +16,12 @@ out/
 # fabric-loom runs
 run/
 e*.txt
+
+# Jar decompresse par erreur a la racine du projet (deja arrive une fois :
+# reborn-hud-0.4.115.jar unzippe ici, 289 .class + 253 assets dupliques commites).
+# Les sources vivent dans src/main/{java,resources}/ — rien d'autre a la racine.
+/fr/
+/META-INF/
+/assets/
+/fabric.mod.json
+/reborn-hud.mixins.json
