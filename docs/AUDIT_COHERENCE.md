@@ -80,15 +80,18 @@ Le dépôt en contient bien plus.
 « Panel staff Next.js 15 » pendant que `CLAUDE.md` le décrivait comme un
 « placeholder ». Les deux fichiers du même repo se contredisaient. ✅ corrigé.
 
-### Dossiers morts à supprimer
+### Dossiers morts — ✅ supprimés le 2026-09-08
 
 | Chemin | Contenu | Verdict |
 |---|---|---|
-| `minecraft/mod-inventory/` | vide (créé le 21/05, 0 fichier, non suivi par git) | à supprimer — l'inventaire vit dans `mod-hud` + `ShinobiCore` (cf `docs/INVENTAIRE_ET_COSMETIQUES.md`) |
-| `minecraft/plugin-hud/` | vide, non suivi | à supprimer |
-| `minecraft/plugin-inventory/` | vide, non suivi | à supprimer |
-| `src/main/resources/assets/reborn-hud/textures/icons/` **à la racine du repo** | vide | à supprimer — chemin d'assets de mod égaré à la racine |
-| `docs/security/` | vide | à supprimer ou peupler (le README y renvoyait) |
+| `minecraft/mod-inventory/` | vide (créé le 21/05, 0 fichier, non suivi par git) | ✅ supprimé — l'inventaire vit dans `mod-hud` + `ShinobiCore` (cf `docs/INVENTAIRE_ET_COSMETIQUES.md`) |
+| `minecraft/plugin-hud/` | vide, non suivi | ✅ supprimé |
+| `minecraft/plugin-inventory/` | vide, non suivi | ✅ supprimé |
+| `src/main/resources/assets/reborn-hud/textures/icons/` **à la racine du repo** | vide | ✅ supprimé — chemin d'assets de mod égaré à la racine |
+| `docs/security/` | vide | ✅ supprimé — le README n'y renvoie plus |
+
+> Aucun n'était suivi par git (dossiers vides) : la suppression ne laisse aucune trace
+> dans l'historique et n'a rien pu casser.
 
 ---
 
@@ -295,7 +298,7 @@ Ces points demandent une décision ou une action humaine :
 2. **Renommer `feature/migrate-26.2` → `feature/modrinth-sync`** puis la rebaser sur
    `main` (103 commits de retard) et la merger ou la fermer. — 🟠 P1
 3. **Valider la décision monnaies** (§4) : Ryo + RBCoins, retrait de « ZK Coin ». — 🟠 P1
-4. **Supprimer les 4 dossiers morts** de §2 et `docs/security/`. — 🟡 P2
+4. ~~**Supprimer les dossiers morts** de §2.~~ ✅ fait le 2026-09-08.
 5. **Statuer sur le skill `reborn-ops`** (§9.5) : le committer ou retirer la référence. — 🟡 P2
 6. **Retirer la date d'échéance du board Trello** (2026-09-04, dépassée) depuis l'UI. — 🟡 P2
 
