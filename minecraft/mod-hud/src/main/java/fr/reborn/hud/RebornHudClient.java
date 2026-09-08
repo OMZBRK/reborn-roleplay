@@ -131,12 +131,21 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.shop.ShopData.clear());
 
-        // Course chakraïque (« Naruto run ») : canal C2S reborn:naruto — le client
-        // informe le plugin (ShinobiCore) quand le joueur (dés)active sa course
-        // pour l'activer IG. Le mouvement client, lui, marche sans le serveur.
+        // Course chakraïque (« Naruto run ») : canal reborn:run, BIDIRECTIONNEL avec
+        // ShinobiAbilities. C2S = l'état demandé par la touche ; S2C = l'état
+        // autoritaire du plugin, qui coupe le mode client quand la course est
+        // interrompue serveur (coup reçu + cooldown, chakra épuisé, KO) ou refusée.
+        // Le mouvement client, lui, marche sans le serveur (solo / build).
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
             fr.reborn.hud.animation.NarutoRunPayload.ID,
             fr.reborn.hud.animation.NarutoRunPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.animation.NarutoRunPayload.ID,
+            fr.reborn.hud.animation.NarutoRunPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.animation.NarutoRunPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.animation.NarutoRun.INSTANCE.setActive(payload.active())));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.animation.NarutoRun.INSTANCE.reset());
 
@@ -328,7 +337,8 @@ public final class RebornHudClient implements ClientModInitializer {
             }
         });
 
-        // Bandes noires cinéma (immersion) — toggle touche K.
+        // Bandes noires cinéma (immersion) — toggle touche F1 (remplace le
+        // « masquer l'ATH » vanilla, cf KeyboardCinemaMixin).
         fr.reborn.hud.immersion.CinemaBars.INSTANCE.registerClient();
 
         // Preview auto après capture d'écran.

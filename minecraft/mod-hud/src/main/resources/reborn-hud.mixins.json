@@ -23,6 +23,7 @@
     "PlayerJumpMixin",
     "MouseInteractionMixin",
     "KeyboardInteractionMixin",
+    "KeyboardCinemaMixin",
     "InGameHudCinemaMixin",
     "CameraPhotoMixin",
     "CameraRepositionMixin",

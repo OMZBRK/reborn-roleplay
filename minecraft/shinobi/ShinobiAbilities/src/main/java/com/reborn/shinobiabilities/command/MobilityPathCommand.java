@@ -74,7 +74,11 @@ public final class MobilityPathCommand implements CommandExecutor, TabCompleter 
     private void resetMobility(Player p) {
         MobilityModule m = plugin.mobility();
         if (m == null) return;
-        if (m.narutoRun() != null) { m.narutoRun().stop(p, false); m.narutoRun().removeModifier(p); }
+        if (m.narutoRun() != null) {
+            m.narutoRun().stop(p, false);
+            m.narutoRun().removeModifier(p);
+            m.narutoRun().removeStepHeight(p);
+        }
         if (m.dash() != null) m.dash().clear(p);
         if (m.climb() != null) m.climb().clear(p);
         if (m.shockwave() != null) m.shockwave().clear(p);

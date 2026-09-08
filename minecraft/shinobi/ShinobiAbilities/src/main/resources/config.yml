@@ -70,6 +70,12 @@ mobility:
     stop-reset-ms: 5000
     # Small forward kick when toggled on from a standstill (0 = off).
     launch-impulse: 0.25
+    # AUTO-STEP: extra STEP_HEIGHT while running (vanilla base is 0.6, so 1.0 here
+    # = 1.6 → the runner climbs a full block without jumping). 0 disables it.
+    step-height-bonus: 1.0
+    # Taking a hit ALWAYS cancels the run; this is how long before it can be
+    # re-armed (the action bar shows the remaining seconds). 0 = no lockout.
+    interrupt-lockout-ms: 30000
     chakra-cost-per-second: 3.0
     min-chakra-to-start: 5.0
     # Sneak-TAP toggles the run: press+release faster than this.
