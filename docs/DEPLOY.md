@@ -1,3 +1,11 @@
+> # ℹ️ Guide « from scratch »
+> Décrit un premier déploiement. Les domaines cités (`*.reborn-rp.fr`) sont des exemples :
+> la prod tourne sur **`api.reborn-rp.com`** et **`panel.reborn-rp.com`**, VPS OVH
+> `ubuntu@91.134.136.120`. Pour redéployer l'existant, aller directement à
+> [`MAINTENANCE.md`](./MAINTENANCE.md) §11.
+
+---
+
 # Déploiement production Reborn
 
 Stack : Docker Compose sur VPS Linux (Debian/Ubuntu recommandé). Caddy

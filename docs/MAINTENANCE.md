@@ -1,10 +1,14 @@
 # Maintenance & mises à jour — Reborn Roleplay
 
 Doc opérationnel pour les opérations courantes du déploiement actuel.
-Tous les `.md` parlent de **setup from scratch** ; ce fichier-ci parle
-de **mise à jour d'un setup qui tourne déjà**.
+`STAFF_BETA.md` et `DEPLOY.md` parlent de **setup from scratch** ; ce
+fichier-ci parle de **mise à jour d'un setup qui tourne déjà**.
 
 Lis-le en premier quand tu veux changer quelque chose en prod.
+
+> À lire avec : [`ETAT_DES_LIEUX.md`](./ETAT_DES_LIEUX.md) — les versions et adresses
+> qui font foi — et, **avant tout build ou publish game-side**,
+> [`PUBLISH_PREFLIGHT.md`](./PUBLISH_PREFLIGHT.md), la checklist anti-régression.
 
 ---
 
@@ -17,9 +21,12 @@ Lis-le en premier quand tu veux changer quelque chose en prod.
 | Domaine | `reborn-rp.com` |
 | API publique | `https://api.reborn-rp.com/v1` |
 | Panel | `https://panel.reborn-rp.com` |
-| Serveur MC | `play.reborn-rp.com:27106` (Minestrator) |
+| Serveur MC **prod** | `play.reborn-rp.com:27106` (`91.197.6.152:27106`, Minestrator) |
+| Serveur MC **dev** | `91.197.6.60:25606` (Purpur 26.2) |
 | Repo GitHub | `OMZBRK/reborn-roleplay` |
-| Mods release tag | `mods-v1` |
+| Mods release tag | `mods-v3.1.x` (dernier : `mods-v3.1.90`) |
+| Launcher release tag | `v0.3.x` (dernier : `v0.3.42`) |
+| Minecraft / Java | **26.2 / Java 25** |
 
 Tous les secrets vivent dans `/opt/reborn/.env.prod` (VPS) + `secrets/`
 (machine locale, **jamais commit**).
@@ -44,7 +51,7 @@ scp .\fichier.txt ubuntu@91.134.136.120:/opt/reborn/
 ## 2. Ajouter, changer ou mettre à jour un mod du manifest
 
 **Cas concrets** :
-- Tu bumpes Sodium 0.6.13 → 0.7.0 (changement de version d'un mod existant)
+- Tu bumpes Sodium 0.9.1 → 0.9.2 (changement de version d'un mod existant)
 - Tu ajoutes un nouveau mod tiers (ex: Bobby pour les chunks pre-load)
 - Tu rebuilt `reborn-integrity` après modif du code
 
@@ -67,8 +74,8 @@ Exemple : ajouter Bobby (chunk loader) en optionnel :
 
 ```powershell
 @{
-    Name = "bobby-5.0.0+1.21.1.jar"
-    Url  = "https://cdn.modrinth.com/data/3qsfQtE9/versions/.../bobby-5.0.0+1.21.1.jar"
+    Name = "bobby-5.0.0+26.2.jar"
+    Url  = "https://cdn.modrinth.com/data/3qsfQtE9/versions/.../bobby-5.0.0+26.2.jar"
 }
 ```
 
@@ -86,10 +93,13 @@ pour tout le monde).
 Édite le code, bumpe `mod_version` dans `gradle.properties`, puis rebuild :
 
 ```pwsh
-$env:JAVA_HOME = "C:\Program Files\Amazon Corretto\jdk21.0.9_10"
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
 cd minecraft\mod-<nom>
-./gradlew build
+./gradlew build -x test --no-daemon
 ```
+
+> **Java 25**, pas 21. Le jar produit doit cibler **26.2**. Les tests plantent sur un
+> chemin accentué (connu, sans impact) d'où le `-x test`.
 
 Le jar sort dans `build/libs/`. Le script `publish-mod-manifest.ps1` le
 prendra automatiquement quand tu lanceras la publication.
@@ -220,7 +230,8 @@ Le plugin `reborn-guardian.jar` valide les play-tokens HMAC.
 ### Si tu modifies le code
 
 ```pwsh
-# Sur ta machine locale (depuis Windows ou WSL, JDK 21 requis)
+# Sur ta machine locale (JDK 25 requis)
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
 cd "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\minecraft\plugin-guardian"
 .\gradlew build
 # → build\libs\reborn-guardian-0.1.0-dev.jar
@@ -288,6 +299,42 @@ Au boot :
 `combat/track-12`. Le client résout vers
 `~/.minecraft/reborn/ost/<categorie>/<nom>.ogg`. Fichier absent
 côté client → warning log uniquement, pas de crash.
+
+---
+
+## 6ter. Update les plugins Shinobi (le gameplay)
+
+Les 6 plugins `minecraft/shinobi/` (Core, Abilities, Combat, Learning, Sense, Tail)
+portent le gameplay : personnages, chakra, techniques, KO, progression, mobilite,
+inventaire RP, emotes. Ils se compilent **ensemble**, en un seul passage Maven.
+
+```pwsh
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+cd "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\minecraft\shinobi"
+mvn clean package
+# -> ShinobiCore/target/ShinobiCore-*.jar, ShinobiAbilities/target/..., etc.
+```
+
+L'agregateur compile `ShinobiCore` en premier puis les autres contre lui : ne pas
+builder un module isolement sans avoir installe Core au prealable.
+
+### Upload + restart
+
+Comme Guardian et OST : panel **Minestrator** -> Fichiers -> `plugins/` -> supprimer
+l'ancien jar -> upload le nouveau -> **redemarrer le serveur**. Pas de hot-reload pour
+un plugin Paper.
+
+> Ne deployer que les modules reellement modifies. Si `ShinobiCore` change et qu'un
+> autre module depend d'une signature modifiee, redeployer les deux ensemble.
+
+### Contenu sans redeploiement
+
+Beaucoup de choses n'exigent **pas** de rebuild : les items/modeles Nexo, les textures
+animees, les emotes `.emotecraft`, les assets du createur de perso et les sorts
+MagicSpells se deposent depuis le **panel staff** (onglet Fichiers, perimetre selon le
+grade) puis s'activent par `/nexo reload` ou `/playemote reload`. Cf.
+[`NEXO_STAFF_GUIDE.md`](./NEXO_STAFF_GUIDE.md), [`EMOTES.md`](./EMOTES.md) et
+[ADR 0005](./adr/0005-pipeline-assets-3d-nexo-panel.md).
 
 ---
 
@@ -435,7 +482,18 @@ password manager (1Password, Bitwarden, KeePass).
 
 ---
 
-## 13. Pièges fréquents
+## 12bis. Regle non negociable : publier == commiter
+
+Un artefact publie (launcher signe, jar de mod dans un manifest, plugin uploade) doit
+**revenir sur une branche distante dans la foulee**. Sinon `main` ne reproduit plus la
+production, et un incident devient indebogable.
+
+C'est arrive : au 2026-09-08, le launcher **0.3.42** et **`reborn-hud` 0.4.134** etaient
+en prod sans etre sur `main`. Cf. [`AUDIT_COHERENCE.md` section 3](./AUDIT_COHERENCE.md).
+
+---
+
+## 13. Pieges frequents
 
 ### Docker compose ne lit pas `.env.prod`
 

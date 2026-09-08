@@ -1,10 +1,28 @@
 # Plan de conception — Launcher Reborn Roleplay
 
-> **Document de référence v1.4**  
-> À utiliser comme contexte permanent dans Claude Code pendant le développement.  
-> Ce document est la source de vérité du projet : toute décision technique non documentée ici doit être ajoutée avant implémentation.
+> **Document de référence v1.5**
 >
-> **Changelog**  
+> ⚠️ **Ce document décrit la CONCEPTION D'ORIGINE.** Il reste la référence pour le
+> *pourquoi* d'un choix — vision, architecture, sécurité, écrans, modèle de données.
+> Il n'est **plus** la référence pour l'état courant ni pour le planning :
+>
+> | Question | Document |
+> |---|---|
+> | Qu'est-ce qui tourne, en quelle version ? | [`docs/ETAT_DES_LIEUX.md`](./docs/ETAT_DES_LIEUX.md) |
+> | Qu'est-ce qu'on livre d'ici décembre ? | [`docs/ROADMAP_BETA_2026.md`](./docs/ROADMAP_BETA_2026.md) |
+> | Comment on opère au quotidien ? | [`docs/MAINTENANCE.md`](./docs/MAINTENANCE.md) |
+> | Quelles décisions ont changé depuis ? | [`docs/adr/`](./docs/adr/) |
+>
+> Les sections marquées 🕰️ sont **historiques** : elles racontent l'intention, pas l'état.
+>
+> Toute décision technique structurante non documentée ici doit faire l'objet d'un **ADR**
+> dans [`docs/adr/`](./docs/adr/) avant implémentation.
+>
+> **Changelog**
+> v1.5 — Passe de cohérence du 2026-09-08 : bandeaux d'historicité (§1 identité visuelle,
+> §11 roadmap, §18), plateforme corrigée (MC 26.2 / Java 25), domaine `.com`, §18 remplacé
+> par un état d'avancement daté, « ZK Coin » → « RBCoins » (ADR 0006). Écarts relevés :
+> [`docs/AUDIT_COHERENCE.md`](./docs/AUDIT_COHERENCE.md).
 > v1.4 — Réécriture §9.4/§9.5 pour refléter le pivot vers play-token signé API (au lieu du challenge nonce + modlist_hash initial). Ajout §9.6 décrivant l'écosystème mods Reborn complet (HUD + OST). Mise à jour roadmap §11 MVP.  
 > v1.3 — Restructuration des paramètres en onglets, ajout de Steam OAuth, nouvelle release v1.0.5 dédiée au social (amis + DM + mini-fenêtre)  
 > v1.2 — Ajout des sections 14 (sécurité avancée), 15 (staff tooling Discord+panel), 16 (features inspirées d'autres launchers)  
@@ -32,17 +50,25 @@
 15. [Staff tooling : Panel web + Bot Discord](#15-staff-tooling--panel-web--bot-discord)
 16. [Features inspirées des autres launchers](#16-features-inspirées-des-autres-launchers)
 17. [Système social — amis, DM, mini-fenêtre (v1.0.5)](#17-système-social--amis-dm-mini-fenêtre-v105)
-18. [Prochaines étapes immédiates](#18-prochaines-étapes-immédiates)
+18. [État d'avancement](#18-état-davancement-au-2026-09-08)
 
 ---
 
 ## 1. Vision & objectifs
 
 ### Vision produit
-Un launcher desktop autonome pour le network **Reborn Roleplay**, dans la lignée visuelle de **Zenkai Launcher** (split design login + dashboard sidebar), qui remplace le client Minecraft officiel pour offrir :
+Un launcher desktop autonome pour le network **Reborn Roleplay**, qui remplace le client Minecraft officiel pour offrir :
 - Une expérience visuelle premium qui renforce l'identité de la communauté
 - Un environnement de jeu strictement contrôlé (mods, ressources, configs)
 - Un point d'entrée unique pour toutes les interactions joueur (boutique, whitelist, lore, tickets…)
+
+> 🕰️ **Note d'historicité — identité visuelle.** La conception d'origine se référait au
+> **Zenkai Launcher** (split design login + dashboard sidebar) comme modèle. La structure
+> a été conservée, mais **l'identité visuelle a basculé sur « Akatsuki » le 2026-06-21** :
+> crimson `#A0182B` + or `#D9A95E` + ivoire chaud `#F5E9D0` sur fond bordeaux profond,
+> typo Bebas Neue + Inter. Référence en vigueur :
+> [`docs/REBORN_ASEPRITE_PALETTE.md`](./docs/REBORN_ASEPRITE_PALETTE.md) et le frame Miro
+> *HUD Combat v2*. Toute mention de « Zenkai » dans ce document est un vestige.
 
 ### Objectifs techniques non négociables
 | Critère | Exigence |
@@ -352,7 +378,7 @@ model User {
   language          String   @default("fr")
   
   // Monnaie virtuelle (boutique deux-temps)
-  zkCoinBalance     Int      @default(0)       // ZK Coin solde
+  zkCoinBalance     Int      @default(0)       // solde RBCoins (champ Prisma à renommer, cf. ADR 0006)
   
   role              Role     @default(PLAYER)
   banned            Boolean  @default(false)
@@ -1047,7 +1073,7 @@ Le hash du jar est dans le manifest signé Reborn, téléchargé par le launcher
 
 ### 9.5 Plugin serveur "Reborn Guardian"
 
-Plugin Paper Java 21 qui vérifie le play-token côté serveur :
+Plugin Paper **Java 25** qui vérifie le play-token côté serveur :
 
 1. Sur `PlayerJoinEvent`, schedule un kick à T+8s (`PendingAuthListener`). 8s = marge empirique pour absorber le RTT du custom payload sur connexions résidentielles lentes.
 2. Sur réception du payload sur le canal `reborn:auth` (`AuthChannelListener`) :
@@ -1110,7 +1136,12 @@ Système de BGM contextuelle pilotable par le serveur. 100% optionnel côté ser
 
 ## 10. API Backend — endpoints
 
-Toutes les routes sous `https://api.reborn-rp.fr/v1/`. Auth par JWT Bearer sauf indication.
+Toutes les routes sous `https://api.reborn-rp.com/v1/`. Auth par JWT Bearer sauf indication.
+
+> 🕰️ Cette liste date de la conception. L'API expose depuis des modules supplémentaires
+> (`wiki`, `files`, `game`, `events`, `incidents`, `menu`, `oral-slots`, `security`,
+> `shots`, `social`, `steam`, `upload`, `audit`) — cf.
+> [`docs/ETAT_DES_LIEUX.md`](./docs/ETAT_DES_LIEUX.md) §5.
 
 ### 10.1 Auth
 
@@ -1255,8 +1286,17 @@ L'API envoie des webhooks signés HMAC vers le bot pour notifier d'événements.
 
 ## 11. Roadmap par phases
 
-### MVP (v1.0) — objectif : "ça marche, c'est sécurisé, c'est joli"
-**Durée estimée** : 8-12 semaines à temps plein selon expérience.
+> 🕰️ **Section historique.** Le **MVP v1.0 ci-dessous est livré** (auth, auto-update,
+> manifest signé, lancement, mods Reborn, panel staff, bot, Rich Presence, sécurité,
+> Docker). La roadmap **active** est celle du jeu :
+> [**`docs/ROADMAP_BETA_2026.md`**](./docs/ROADMAP_BETA_2026.md) — 4 sprints mensuels,
+> ship le 31 décembre 2026.
+>
+> Les jalons **v1.0.5 → v1.3** ci-dessous restent valides mais sont **post-beta** : ils
+> vivent dans la liste Trello `👑 Post-beta (v1.0.5 → v1.3)`.
+
+### MVP (v1.0) — ✅ livré
+**Durée estimée à l'époque** : 8-12 semaines à temps plein selon expérience.
 
 | Module | Statut |
 |---|---|
@@ -1285,7 +1325,7 @@ L'API envoie des webhooks signés HMAC vers le bot pour notifier d'événements.
 | Discord Rich Presence | ✅ requis |
 | Sécurité avancée (HMAC, 2FA staff, audit log, anomalies) | ✅ requis |
 | Déploiement Docker | ✅ requis |
-| Boutique (avec ZK Coin et Stripe) | ❌ v1.1 |
+| Boutique (RBCoins + Stripe) | ❌ v1.1 |
 | Documentation (lecture) | ❌ v1.1 |
 | Calendrier d'événements RP | ❌ v1.1 |
 | Système d'amis + DM + mini-fenêtre | ❌ v1.0.5 |
@@ -1306,7 +1346,7 @@ L'API envoie des webhooks signés HMAC vers le bot pour notifier d'événements.
 - Modération des DM (filtre + signalement)
 
 ### v1.1 — Communauté & monétisation
-- Boutique avec Stripe (achat ZK Coin → dépense en items)
+- Boutique avec Stripe (achat **RBCoins** → dépense en cosmétiques — cf. [ADR 0006](./docs/adr/0006-monnaies-ryo-et-rbcoins.md))
 - Documentation full
 - Notifications in-launcher (cloche)
 - Calendrier d'événements RP avec notifications
@@ -1824,7 +1864,7 @@ Le mod check empêche l'ajout de mods, mais ne couvre PAS :
 ### 14.10 Bug bounty program (optionnel mais classe)
 Quand le projet est mature, lancer un programme :
 - Page `/security` avec PGP key pour rapports chiffrés
-- Récompenses ZK Coin + crédit dans le launcher pour vulns trouvées
+- Récompenses **RBCoins** + crédit dans le launcher pour vulns trouvées
 - Severity tiers : Low (50 ZC) / Medium (500 ZC) / High (5000 ZC) / Critical (rôle in-game custom)
 
 Cela transforme les hackers en alliés. Beaucoup de serveurs RP ne le font pas et c'est dommage.
@@ -2221,7 +2261,7 @@ Page profil avec :
 - Scènes RP participées (compteur incrémenté par le plugin serveur)
 - Faction actuelle + historique
 - Combats RP (victoires/défaites)
-- ZK Coin gagnés/dépensés
+- Ryo et RBCoins gagnés/dépensés
 - Achievements débloqués
 
 Engagement par gamification douce.
@@ -2245,7 +2285,7 @@ Engagement par gamification douce.
 - "Atteindre le grade Jōnin"
 - "Participer à 10 events"
 
-Récompenses : ZK Coin, badges visibles dans le profil, cosmétiques exclusifs.
+Récompenses : **RBCoins**, badges visibles dans le profil, cosmétiques exclusifs.
 
 #### 16.2.5 News carousel riche
 **Source d'inspiration** : Lunar Client home page.
@@ -2262,7 +2302,7 @@ Contenu géré par le staff via le panel web. Maintien l'accueil "vivant".
 - **Mode mini-fenêtre** quand MC tourne (Lunar) : petite fenêtre flottante avec stats serveur, liste amis, chat
 - **Boutique de cosmétiques avec 3D** (Feather) : preview en rotation des items
 - **Mod settings unifié** : configurer Sodium/Iris depuis le launcher, plus depuis Mod Menu
-- **Système de parrainage** : code parrain → bonus ZK Coin pour les deux
+- **Système de parrainage** : code parrain → bonus **RBCoins** pour les deux
 - **Wiki collaboratif RP** : fiches personnages, factions, lore community-driven
 - **Streaming integration** : un bouton "Live sur Twitch" qui cherche les streamers du serveur
 
@@ -2480,53 +2520,61 @@ La mini-fenêtre amis suit la **même charte** que la main window (sombre, blue 
 
 ---
 
-## 18. Prochaines étapes immédiates
+## 18. État d'avancement (au 2026-09-08)
 
-Ce document posé, voici l'ordre concret pour démarrer le code :
+> Cette section remplaçait un plan « Semaine 1 → Semaine 6 » rédigé en avril 2026 et
+> **intégralement réalisé depuis**. Le laisser en l'état laissait croire que la prochaine
+> étape était « créer le repo monorepo ». L'historique reste dans l'historique Git.
 
-### Semaine 1 — Fondations
-1. **Créer le repo monorepo** avec l'arborescence ci-dessus (vide, juste les dossiers)
-2. **Initialiser le projet Tauri** : `pnpm create tauri-app` dans `apps/launcher/`
-3. **Initialiser le projet NestJS** : `nest new api` dans `apps/`
-4. **Mettre en place Docker compose** avec Postgres + Redis pour le dev local
-5. **Créer le schéma Prisma** et lancer la première migration
-6. **Brancher le frontend Tailwind + Framer Motion + React Router**
-7. **Créer la maquette statique** des écrans login + home (sans logique, juste le visuel pour valider le look Zenkai-like)
+### Livré
 
-### Semaine 2 — Auth Microsoft
-1. **Enregistrer une app Azure AD** (compte Microsoft Entra) pour récupérer le `CLIENT_ID`
-2. **Implémenter le flow OAuth complet en Rust** (`src-tauri/src/auth/`)
-3. **Implémenter `/auth/login` côté API** qui valide le `mc_access_token` et émet un JWT
-4. **Brancher le bouton "Se connecter avec Microsoft"** sur le flow réel
-5. **Stocker le refresh token** via Stronghold
+**Socle** — monorepo pnpm, Tauri 2 + React 19, NestJS 11 + Prisma + Postgres + Redis,
+Docker Compose dev et prod derrière Caddy sur VPS OVH.
 
-### Semaine 3 — Manifest & téléchargement
-1. **Outil CLI `manifest-signer`** : générer Ed25519 keypair, signer un manifest JSON
-2. **Endpoint `/manifest/current`** côté API
-3. **Vérification de signature en Rust** (clé publique embarquée)
-4. **Logique de diff + téléchargement parallèle** avec progress
-5. **UI de téléchargement** (modal Zenkai-like)
+**Auth** — chaîne Microsoft OAuth → XBL → XSTS → Minecraft complète, Client ID approuvé
+par Mojang (ADR 0001), tokens en keyring OS, liaison Discord OAuth, dev-login gaté debug.
 
-### Semaine 4 — Lancement & sécurité
-1. **Téléchargement du JRE** (piston-meta)
-2. **Construction de la commande JVM** + spawn
-3. **Auto-connect au serveur**
-4. **FS watcher anti-tampering**
-5. **Plugin Paper Reborn Guardian** : prototype qui kick si modlist absent
+**Distribution** — manifest signé Ed25519 + vérification côté launcher, auto-update Tauri
+signé, purge stricte des mods hors-manifest, mods optionnels toggle-ables, second manifest
+dédié aux builders (« Serveur Build »).
 
-### Semaines 5-6 — Le reste du MVP
-- Whitelist
-- Patch notes
-- Règlement
-- Settings
-- Auto-update Tauri
-- Polish UI
+**Lancement** — JRE 25 via piston-meta, libs + natives, assets, Fabric, argv JVM,
+auto-connect `--quickPlayMultiplayer`, diagnostics temps réel sur stdout/stderr.
 
-### Avant la mise en prod
-- **Audit de sécurité manuel** : passer en revue chaque endpoint, chaque storage de secret, chaque entrée utilisateur
-- **Tests de charge** sur l'API (k6 ou Artillery)
-- **Tests de pénétration** sur le launcher : tenter de bypass le mod check, le FS watcher, l'auth
-- **Plan de réponse aux incidents** : que faire si la clé Ed25519 fuite ? (rotation : nouveau release launcher avec nouvelle clé pub)
+**Intégrité** — play-token HMAC émis par l'API, posé par le launcher, attesté par
+`mod-integrity`, vérifié par `plugin-guardian` (avec contrôle d'appartenance de l'UUID).
+
+**Staff** — panel Next.js (dashboard, whitelist, tickets, joueurs, audit, anomalies,
+inbox, oral-slots, wiki + banque d'idées, gestionnaire de fichiers scopé par grade, 2FA)
+et bot Discord avec pont bidirectionnel HMAC.
+
+**En jeu** — `mod-hud` porte toute l'UI : menu, ESC, ConnectScreen, HUD éditable, chat RP,
+plaques de proximité, créateur de personnage (11 clans), boutique de tenues, sacoche RP,
+caméra 3ᵉ personne, mobilité shinobi, combat kenjutsu/taïjutsu M1 + parade, cooldowns,
+emotes EmoteCraft distribuées par le serveur. `mod-ost` + `plugin-ost` pour la BGM
+contextuelle. Six plugins Shinobi côté serveur.
+
+**Plateforme** — deux migrations : 1.21.1 → 26.1.2 (Java 25, fin de Yarn, refonte du
+rendu GUI) puis 26.1.2 → 26.2.
+
+### En cours
+
+Refonte HUD (hub de config, crosshair), consolidation du combat, `modrinth-sync`
+(détection automatique des mises à jour de mods, branche non mergée).
+
+### Ce qui vient
+
+Le plan de vol de la beta : [**`docs/ROADMAP_BETA_2026.md`**](./docs/ROADMAP_BETA_2026.md).
+
+### Dette à solder en priorité
+
+1. 🔴 **La production n'est pas sur `main`** — launcher 0.3.42 et `reborn-hud` 0.4.134 sont
+   live mais absents de la branche principale. Merger et commiter.
+2. 🟠 Brancher le kill-on-tamper du FS watcher (§4.4 — câblé mais volontairement non
+   connecté, faux positifs sur `config/`).
+3. 🟠 Renommer `feature/migrate-26.2` en `feature/modrinth-sync` puis la merger ou la fermer.
+4. 🟡 Backups off-site automatisés (pg_dump → stockage distant) et monitoring.
+5. 🟡 UI de publication du manifest dans le panel (aujourd'hui : CLI).
 
 ---
 

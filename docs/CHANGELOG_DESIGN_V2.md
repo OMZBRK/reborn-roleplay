@@ -1,3 +1,13 @@
+> # 📜 JOURNAL HISTORIQUE — ne décrit plus le design courant
+> Ce document raconte la refonte v2 du launcher (accent **« Zenkai blue »**). L'identité
+> visuelle a basculé sur **Akatsuki** (crimson `#A0182B` + or `#D9A95E`) le 2026-06-21.
+>
+> Palette et conventions en vigueur : [`REBORN_ASEPRITE_PALETTE.md`](./REBORN_ASEPRITE_PALETTE.md)
+> et le frame Miro *HUD Combat v2*. Conservé pour retrouver le raisonnement derrière la
+> structure des composants, pas les couleurs.
+
+---
+
 # Changelog — Design v2 (refonte launcher)
 
 Refonte visuelle complète du launcher Reborn vers un style "anime ninja gaming"
