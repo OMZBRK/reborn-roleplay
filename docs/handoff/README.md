@@ -9,6 +9,39 @@
 
 ---
 
+## 📋 Le prompt à coller sur l'autre machine
+
+Ouvrir Claude Code dans le dépôt et coller ceci tel quel :
+
+```text
+Reprends le travail des autres machines. Fais dans cet ordre :
+
+1. git fetch --prune, puis passe sur main et mets-le à jour.
+2. Lis docs/handoff/README.md, puis le dossier daté le plus récent de
+   docs/handoff/ : d'abord SYNTHESE.md, ensuite les fiches session-*.md.
+3. Fais l'état des lieux réel : gh pr list --state open,
+   git ls-remote --heads origin, git log --oneline -20, git status --short.
+4. Compare les fiches avec le dépôt et donne-moi un tri, un item par ligne :
+   intégré / en attente de merge / WIP poussé / bloqué sur une autre machine /
+   décision qui m'attend. Si une fiche annonce du travail que git ne montre
+   pas, dis-le tout de suite : c'est resté sur l'autre poste, ne le refais pas.
+5. Termine par ce que TU peux faire ici et que l'autre machine ne pouvait pas
+   (typiquement : compiler et tester ce qui est parti non validé).
+
+Ne merge rien et ne tranche aucune décision sans me demander.
+```
+
+Et avant de repartir sur la machine d'origine :
+
+```text
+On s'arrête. Pousse tout ce qui est commitable, puis écris un nouveau dossier
+docs/handoff/<date du jour>/ avec une fiche par chantier traité aujourd'hui et
+une SYNTHESE.md, en suivant la convention de docs/handoff/README.md. Commite et
+pousse.
+```
+
+---
+
 ## À quoi ça sert
 
 Git dit *ce qui* a changé. Il ne dit pas **pourquoi**, ni **ce qui est fini**,
