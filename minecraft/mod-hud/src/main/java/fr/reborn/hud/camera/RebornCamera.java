@@ -79,8 +79,32 @@ public final class RebornCamera {
     public double camYaw() { return camYaw; }
     public double camPitch() { return camPitch; }
 
+    /** Durée du réalignement doux après un relâchement de free-look. */
+    private static final long FREE_LOOK_ALIGN_MS = 250L;
+    private long freeLookReleasedAtMs = 0L;
+
     public boolean freeLook() { return freeLook; }
-    public void setFreeLook(boolean v) { this.freeLook = v; }
+
+    public void setFreeLook(boolean v) {
+        if (this.freeLook && !v) this.freeLookReleasedAtMs = System.currentTimeMillis();
+        this.freeLook = v;
+    }
+
+    /**
+     * Facteur d'alignement du perso sur la caméra, à passer à
+     * {@code Mth.rotLerp}. Vaut 1 (instantané) en temps normal, et
+     * {@code 0.35} pendant {@value #FREE_LOOK_ALIGN_MS} ms après un
+     * relâchement de free-look.
+     *
+     * <p>Le free-look fige complètement le perso ; sans ce rattrapage, le
+     * relâchement le faisait claquer d'un coup sur la caméra (jusqu'à 180° en
+     * une frame), ce que les autres joueurs voyaient aussi. Un lerp de 0,35 par
+     * tick converge en ~5 ticks : assez court pour rester réactif, assez doux
+     * pour ne pas être un à-coup.
+     */
+    public float alignFactor() {
+        return (System.currentTimeMillis() - freeLookReleasedAtMs) >= FREE_LOOK_ALIGN_MS ? 1.0f : 0.35f;
+    }
 
     public boolean impactEnabled() { return impactEnabled; }
     public void setImpactEnabled(boolean v) { this.impactEnabled = v; saveToPrefs(); }
@@ -89,13 +113,22 @@ public final class RebornCamera {
 
     /** Initialise l'orbite caméra depuis l'orientation actuelle du joueur. */
     public void initOrientation(float yaw, float pitch) {
-        this.camYaw = yaw;
-        this.camPitch = pitch;
+        this.camYaw = net.minecraft.util.Mth.wrapDegrees((double) yaw);
+        this.camPitch = clamp(pitch, -89.0, 89.0);
     }
 
-    /** Applique un delta souris (déjà à l'échelle vanilla) à l'orbite caméra. */
+    /**
+     * Applique un delta souris (déjà à l'échelle vanilla) à l'orbite caméra.
+     *
+     * <p>Le yaw est <b>ramené dans [-180, 180[</b> à chaque pas. Sans ça il
+     * s'accumulait sans borne (chaque tour complet = +360) : au bout d'une
+     * session un peu longue, la valeur devenait assez grande pour que la
+     * conversion en {@code float} (caméra, {@code setYRot}) quantifie la
+     * rotation — la vue et la tête avançaient par petits crans au lieu de
+     * glisser. C'est exactement ce que fait {@code Entity#turn} en vanilla.
+     */
     public void rotateCamera(double dx, double dy) {
-        this.camYaw += dx * 0.15;
+        this.camYaw = net.minecraft.util.Mth.wrapDegrees(this.camYaw + dx * 0.15);
         this.camPitch = clamp(this.camPitch + dy * 0.15, -89.0, 89.0);
     }
 

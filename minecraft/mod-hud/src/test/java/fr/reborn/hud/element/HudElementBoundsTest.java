@@ -81,4 +81,43 @@ class HudElementBoundsTest {
         assertTrue(Math.abs(v.centerX() - c.centerX()) <= 1);
         assertEquals(v.bottom(),  c.bottom());
     }
+
+    /**
+     * Round-trip drag : poser la box à une position visée doit la ramener
+     * EXACTEMENT là, quel que soit l'anchor et l'échelle. C'est la garantie que
+     * l'élément suit le curseur dans l'éditeur (la soustraction naïve de
+     * vanilla.x() dérivait dès que scale != 1).
+     */
+    @Test
+    void offsetForTopLeftRoundTripsAtAnyScale() {
+        for (HudElement e : HudElement.EDITABLE) {
+            for (float scale : new float[]{0.45f, 0.6f, 1.0f, 1.75f, 3.0f}) {
+                HudElementState st = new HudElementState(0, 0, scale, true, null);
+                int targetX = 640, targetY = 360;
+                int[] off = HudElementBounds.offsetForTopLeft(e, st, SCREEN_W, SCREEN_H, targetX, targetY);
+                HudElementBounds b = HudElementBounds.currentFor(
+                    e, st.withPos(off[0], off[1]), SCREEN_W, SCREEN_H);
+                assertEquals(targetX, b.x(), e + " @x" + scale + " : dérive horizontale");
+                assertEquals(targetY, b.y(), e + " @x" + scale + " : dérive verticale");
+            }
+        }
+    }
+
+    /** Changer d'échelle en gardant le coin haut-gauche : la box grandit sans bouger. */
+    @Test
+    void offsetForTopLeftPinsCornerAcrossScaleChange() {
+        HudElementState small = new HudElementState(12, -7, 0.5f, true, null);
+        HudElementBounds before = HudElementBounds.currentFor(
+            HudElement.VITALS, small, SCREEN_W, SCREEN_H);
+
+        HudElementState big = small.withScale(2.0f);
+        int[] off = HudElementBounds.offsetForTopLeft(
+            HudElement.VITALS, big, SCREEN_W, SCREEN_H, before.x(), before.y());
+        HudElementBounds after = HudElementBounds.currentFor(
+            HudElement.VITALS, big.withPos(off[0], off[1]), SCREEN_W, SCREEN_H);
+
+        assertEquals(before.x(), after.x());
+        assertEquals(before.y(), after.y());
+        assertTrue(after.width() > before.width());
+    }
 }

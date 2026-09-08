@@ -34,8 +34,11 @@ import java.util.Set;
  *
  * <p>Deux zones :
  * <ul>
- *   <li><b>Panneau droit permanent</b> ({@link HudEditSidePanel}) : liste des
- *       éléments (œil + nom), presets nommables, Tout réinitialiser / Appliquer.</li>
+ *   <li><b>Panneau droit</b> ({@link HudEditSidePanel}), <b>repliable</b> : liste
+ *       scrollable des éléments (œil + nom), inspecteur de l'élément sélectionné
+ *       (X / Y / taille au clavier), presets nommables, Tout réinitialiser /
+ *       Appliquer. Replié, il ne laisse qu'une languette et le canvas récupère
+ *       toute la largeur.</li>
  *   <li><b>Canvas</b> (à gauche du panneau) : boîtes fines draggables (déplacer),
  *       molette = échelle, poignée BR = resize. Plus de grille de points ni de
  *       chrome — juste un voile sombre subtil.</li>
@@ -63,12 +66,26 @@ public class HudEditScreen extends Screen {
     private boolean draggingResize = false;
     private HudElementBounds resizeStartBounds = null;
     private float resizeStartScale = 1.0f;
+    /** Écart curseur ↔ coin bas-droit au moment de la saisie de la poignée : sans
+     *  lui, le premier pixel de drag faisait sauter l'échelle (la poignée est
+     *  centrée SUR le coin, donc dx < largeur au moment du clic). */
+    private int resizeGrabDX = 0, resizeGrabDY = 0;
 
     private final HudHistory history = new HudHistory();
     private HudConfigSnapshot snapshotBeforeAction = null;
     private List<AlignmentGuides.Guide> activeGuides = List.of();
 
     private EditBox presetNameField;
+
+    // Inspecteur : saisie chiffrée de la position et de la taille de l'élément
+    // sélectionné (demande staff : « pouvoir mettre la taille que je veux en
+    // écrivant la taille »). La taille est en POURCENT, plus lisible que x0,85.
+    private EditBox fieldX, fieldY, fieldScale;
+    /** Vrai pendant qu'on recopie la config dans les champs → le responder
+     *  ne doit pas ré-appliquer ce qu'il vient de lire (boucle). */
+    private boolean syncingFields = false;
+    /** Debounce de l'historique : une frappe continue = une seule entrée d'undo. */
+    private long lastFieldEditMs = 0L;
 
     public HudEditScreen(Screen parent) {
         super(Component.translatable("reborn-hud.screen.title"));
@@ -84,6 +101,11 @@ public class HudEditScreen extends Screen {
         this.sidePanel.onSelect = this::selectElement;
         this.sidePanel.onSavePreset = this::savePresetFromField;
         this.sidePanel.onOpenChatSettings = this::openChatSettings;
+        this.sidePanel.onResetSelected = this::resetSelectedElement;
+        this.sidePanel.onToggleCollapse = () -> {
+            sidePanel.layout(this.width, this.height);
+            updateWidgetVisibility();
+        };
     }
 
     @Override
@@ -95,6 +117,121 @@ public class HudEditScreen extends Screen {
         presetNameField.setMaxLength(24);
         presetNameField.setTextColor(Colors.FOREGROUND);
         this.addRenderableWidget(presetNameField);
+
+        int[][] fr = sidePanel.inspectorFieldRects();
+        fieldX = numericField(fr[0], 5, v -> applyPositionField(v, true));
+        fieldY = numericField(fr[1], 5, v -> applyPositionField(v, false));
+        fieldScale = numericField(fr[2], 3, this::applyScaleField);
+        this.addRenderableWidget(fieldX);
+        this.addRenderableWidget(fieldY);
+        this.addRenderableWidget(fieldScale);
+
+        syncInspectorFields();
+        updateWidgetVisibility();
+    }
+
+    /** Champ de saisie entier (signe autorisé), appliqué à chaque frappe valide. */
+    private EditBox numericField(int[] r, int maxDigits, java.util.function.Consumer<String> onChange) {
+        EditBox box = new EditBox(this.font, r[0], r[1], r[2], r[3], Component.empty());
+        box.setBordered(false);
+        box.setMaxLength(maxDigits + 1);
+        box.setTextColor(Colors.FOREGROUND);
+        // On accepte l'état intermédiaire "" et "-" pour ne pas bloquer la frappe ;
+        // applyXxx ignore simplement ce qui ne parse pas.
+        box.setFilter(v -> isNumericDraft(v, maxDigits));
+        box.setResponder(v -> { if (!syncingFields) onChange.accept(v); });
+        return box;
+    }
+
+    /** Saisie en cours acceptable : "", "-", ou jusqu'à {@code maxDigits} chiffres. */
+    private static boolean isNumericDraft(String v, int maxDigits) {
+        int digits = 0;
+        for (int i = 0; i < v.length(); i++) {
+            char c = v.charAt(i);
+            if (c == '-') {
+                if (i != 0) return false;
+                continue;
+            }
+            if (c < '0' || c > '9') return false;
+            if (++digits > maxDigits) return false;
+        }
+        return true;
+    }
+
+    /** Recopie l'état de l'élément sélectionné dans les champs NON focus. */
+    private void syncInspectorFields() {
+        if (fieldX == null || selectedElement == null) return;
+        HudElementState st = config.stateOf(selectedElement);
+        syncingFields = true;
+        if (!fieldX.isFocused()) fieldX.setValue(String.valueOf(st.x()));
+        if (!fieldY.isFocused()) fieldY.setValue(String.valueOf(st.y()));
+        if (!fieldScale.isFocused()) fieldScale.setValue(String.valueOf(Math.round(st.scale() * 100f)));
+        syncingFields = false;
+    }
+
+    /** Panneau replié → aucun champ de saisie visible ni cliquable. */
+    private void updateWidgetVisibility() {
+        boolean visible = !sidePanel.isCollapsed();
+        for (EditBox box : new EditBox[]{presetNameField, fieldX, fieldY, fieldScale}) {
+            if (box == null) continue;
+            box.setVisible(visible);
+            if (!visible) box.setFocused(false);
+        }
+    }
+
+    /** Historique debouncé : une rafale de frappes ne crée qu'une entrée d'undo. */
+    private void pushFieldHistory() {
+        long now = System.currentTimeMillis();
+        if (now - lastFieldEditMs > 800L) history.push(HudConfigSnapshot.capture(config));
+        lastFieldEditMs = now;
+    }
+
+    private void applyPositionField(String raw, boolean isX) {
+        if (selectedElement == null) return;
+        Integer v = parseIntOrNull(raw);
+        if (v == null) return;
+        pushFieldHistory();
+        HudElementState st = config.stateOf(selectedElement);
+        config.setState(selectedElement, isX ? st.withPos(v, st.y()) : st.withPos(st.x(), v));
+        config.save();
+    }
+
+    /**
+     * Taille saisie en pourcent. On <b>épingle le coin haut-gauche</b> : sans ça,
+     * l'élément se téléporte en grandissant (l'offset est mesuré depuis l'ancre,
+     * qui n'est le coin haut-gauche que pour TOP_LEFT).
+     */
+    private void applyScaleField(String raw) {
+        if (selectedElement == null) return;
+        Integer pct = parseIntOrNull(raw);
+        // 25 % = plancher de HudElementState ; en dessous c'est une frappe en cours
+        // ("1" de "150"), qu'on ignore plutôt que d'écraser la valeur.
+        if (pct == null || pct < 25) return;
+        pushFieldHistory();
+        HudElementState st = config.stateOf(selectedElement);
+        HudElementBounds before = HudElementBounds.currentFor(selectedElement, st, this.width, this.height);
+        HudElementState scaled = st.withScale(pct / 100f);
+        int[] off = HudElementBounds.offsetForTopLeft(
+            selectedElement, scaled, this.width, this.height, before.x(), before.y());
+        config.setState(selectedElement, scaled.withPos(off[0], off[1]));
+        config.save();
+    }
+
+    private static Integer parseIntOrNull(String raw) {
+        try {
+            return Integer.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;   // "" ou "-" pendant la frappe
+        }
+    }
+
+    /** Remet l'élément sélectionné à son placement d'origine (bouton « Réinit. »). */
+    private void resetSelectedElement() {
+        if (selectedElement == null) return;
+        history.push(HudConfigSnapshot.capture(config));
+        config.setState(selectedElement, selectedElement.defaultState());
+        config.save();
+        showToast(selectedElement.displayName() + " réinitialisé");
     }
 
     @Override
@@ -140,11 +277,16 @@ public class HudEditScreen extends Screen {
             }
         }
 
-        // 5) Widgets vanilla (texte de l'EditBox nom de preset).
+        // 5) Champs de l'inspecteur : ils suivent l'élément sélectionné et le drag
+        //    en cours (sauf celui qu'on est en train d'éditer au clavier).
+        syncInspectorFields();
+
+        // 6) Widgets vanilla (texte des EditBox).
         super.extractRenderState(ctx, mouseX, mouseY, delta);
 
-        // 6) Placeholder du champ preset si vide et non focus.
-        if (presetNameField != null && presetNameField.getValue().isBlank() && !presetNameField.isFocused()) {
+        // 7) Placeholder du champ preset si vide et non focus.
+        if (!sidePanel.isCollapsed() && presetNameField != null
+                && presetNameField.getValue().isBlank() && !presetNameField.isFocused()) {
             int[] r = sidePanel.presetInputRect();
             HudEditSidePanel.arcText(ctx, this.font, "Nom du preset", r[0], r[1], Colors.FOREGROUND_MUTED);
         }
@@ -187,11 +329,60 @@ public class HudEditScreen extends Screen {
         renderBoxLabel(ctx, element, state, bx, by, bw, bh);
 
         // Poignée resize BR uniquement sur l'élément sélectionné/dragué.
-        if ((selected || dragging) && bw >= RESIZE_HANDLE_SIZE * 2 && bh >= RESIZE_HANDLE_SIZE * 2) {
-            int rhX = bx + bw - RESIZE_HANDLE_SIZE / 2 - 1;
-            int rhY = by + bh - RESIZE_HANDLE_SIZE / 2 - 1;
-            FlatRect.fill(ctx, rhX, rhY, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE, 2, Colors.ACCENT);
+        if (selected || dragging) {
+            int[] h = resizeHandleRect(b);
+            if (h != null) FlatRect.fill(ctx, h[0], h[1], h[2], h[3], 2, Colors.ACCENT);
         }
+    }
+
+    /**
+     * Rect {x,y,w,h} de la poignée de redimensionnement (coin bas-droit), ou
+     * {@code null} si la box est trop petite pour en porter une.
+     *
+     * <p>Une seule définition partagée par le rendu ET le hit-test : elles
+     * divergeaient, d'où une poignée visible mais pas saisissable.
+     */
+    private static int[] resizeHandleRect(HudElementBounds b) {
+        if (b.width() < RESIZE_HANDLE_SIZE * 2 || b.height() < RESIZE_HANDLE_SIZE * 2) return null;
+        return new int[]{
+            b.x() + b.width() - RESIZE_HANDLE_SIZE / 2 - 1,
+            b.y() + b.height() - RESIZE_HANDLE_SIZE / 2 - 1,
+            RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE
+        };
+    }
+
+    /**
+     * Élément dont la poignée de resize est sous le curseur. On ne teste QUE la
+     * sélection : ce sont les seules poignées dessinées. Avant, le hit-test
+     * portait sur l'élément survolé — dès qu'une autre box recouvrait le coin
+     * (chat / hotbar / cooldowns se chevauchent en bas d'écran), le clic partait
+     * en déplacement au lieu du redimensionnement.
+     */
+    private HudElement resizeHandleUnderMouse(int mx, int my) {
+        for (HudElement e : selectedElements) {
+            if (onResizeHandle(e, mx, my)) return e;
+        }
+        return selectedElement != null && onResizeHandle(selectedElement, mx, my) ? selectedElement : null;
+    }
+
+    private boolean onResizeHandle(HudElement e, int mx, int my) {
+        int[] h = resizeHandleRect(
+            HudElementBounds.currentFor(e, config.stateOf(e), this.width, this.height));
+        return h != null && inside(mx, my, h[0], h[1], h[2], h[3]);
+    }
+
+    /** Démarre un redimensionnement sur {@code element} (poignée déjà validée). */
+    private void beginResize(HudElement element, int mouseX, int mouseY) {
+        HudElementState state = config.stateOf(element);
+        HudElementBounds bounds = HudElementBounds.currentFor(element, state, this.width, this.height);
+        snapshotBeforeAction = HudConfigSnapshot.capture(config);
+        selectElement(element);
+        draggedElement = element;
+        draggingResize = true;
+        resizeStartBounds = bounds;
+        resizeStartScale = state.scale();
+        resizeGrabDX = mouseX - bounds.right();
+        resizeGrabDY = mouseY - bounds.bottom();
     }
 
     private void renderBoxLabel(GuiGraphicsExtractor ctx, HudElement element, HudElementState state,
@@ -238,6 +429,12 @@ public class HudEditScreen extends Screen {
         HudElementBounds b = HudElementBounds.currentFor(
             selectedElement, config.stateOf(selectedElement), this.width, this.height);
         if (b.right() <= sidePanel.leftEdge()) return false; // pas sous le panneau
+        // Poignée d'abord : elle est dessinée sur le coin, donc souvent pile sous
+        // le panneau pour un élément ancré à droite.
+        if (onResizeHandle(selectedElement, mouseX, mouseY)) {
+            beginResize(selectedElement, mouseX, mouseY);
+            return true;
+        }
         if (!b.contains(mouseX, mouseY)) return false;
         snapshotBeforeAction = HudConfigSnapshot.capture(config);
         draggedElement = selectedElement;
@@ -272,29 +469,22 @@ public class HudEditScreen extends Screen {
         if (button != 0) return super.mouseClicked(event, doubleClick);
         if (super.mouseClicked(event, doubleClick)) return true;
 
-        // Canvas : défocus le champ preset au clic hors panneau.
-        if (presetNameField != null) presetNameField.setFocused(false);
+        // Canvas : défocus les champs de saisie au clic hors panneau.
+        clearFieldFocus();
+
+        // Poignée resize BR : prioritaire sur tout le reste, et testée sur la
+        // SÉLECTION (seules poignées dessinées) plutôt que sur la box survolée.
+        HudElement handleTarget = resizeHandleUnderMouse((int) mouseX, (int) mouseY);
+        if (handleTarget != null) {
+            beginResize(handleTarget, (int) mouseX, (int) mouseY);
+            return true;
+        }
 
         HudElement element = elementUnderMouse((int) mouseX, (int) mouseY);
         if (element == null) return false;
 
-        HudElementState state = config.stateOf(element);
-        HudElementBounds bounds = HudElementBounds.currentFor(element, state, this.width, this.height);
-
-        // Poignée resize BR.
-        if (bounds.width() >= RESIZE_HANDLE_SIZE * 2 && bounds.height() >= RESIZE_HANDLE_SIZE * 2) {
-            int rhX = bounds.x() + bounds.width() - RESIZE_HANDLE_SIZE / 2 - 1;
-            int rhY = bounds.y() + bounds.height() - RESIZE_HANDLE_SIZE / 2 - 1;
-            if (inside((int) mouseX, (int) mouseY, rhX, rhY, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE)) {
-                snapshotBeforeAction = HudConfigSnapshot.capture(config);
-                selectElement(element);
-                draggedElement = element;
-                draggingResize = true;
-                resizeStartBounds = bounds;
-                resizeStartScale = state.scale();
-                return true;
-            }
-        }
+        HudElementBounds bounds = HudElementBounds.currentFor(
+            element, config.stateOf(element), this.width, this.height);
 
         // Shift+clic = multi-sélection.
         if (rebornHasShiftDown()) {
@@ -333,18 +523,24 @@ public class HudEditScreen extends Screen {
         HudElementState state = config.stateOf(draggedElement);
 
         if (draggingResize) {
-            int dxFromTL = (int) mouseX - resizeStartBounds.x();
-            int dyFromTL = (int) mouseY - resizeStartBounds.y();
+            // On raisonne sur le point saisi (curseur - écart au coin), pas sur le
+            // curseur brut : sinon l'échelle sautait dès le 1er pixel de drag.
+            int dxFromTL = (int) mouseX - resizeGrabDX - resizeStartBounds.x();
+            int dyFromTL = (int) mouseY - resizeGrabDY - resizeStartBounds.y();
             int origW = Math.max(8, resizeStartBounds.width());
             int origH = Math.max(8, resizeStartBounds.height());
-            float newScale = Math.max(dxFromTL / (float) origW, dyFromTL / (float) origH) * resizeStartScale;
-            config.setState(draggedElement, state.withScale(newScale));
+            float ratio = Math.max(dxFromTL / (float) origW, dyFromTL / (float) origH);
+            HudElementState scaled = state.withScale(Math.max(0.05f, ratio) * resizeStartScale);
+            // Le coin haut-gauche reste où il est : un resize ne doit jamais
+            // déplacer l'élément, quel que soit son anchor.
+            int[] off = HudElementBounds.offsetForTopLeft(draggedElement, scaled,
+                this.width, this.height, resizeStartBounds.x(), resizeStartBounds.y());
+            config.setState(draggedElement, scaled.withPos(off[0], off[1]));
             return true;
         }
 
         int targetX = (int) (mouseX - dragOffsetX);
         int targetY = (int) (mouseY - dragOffsetY);
-        HudElementBounds vanilla = HudElementBounds.vanillaFor(draggedElement, this.width, this.height);
         HudElementBounds curBounds = HudElementBounds.currentFor(draggedElement, state, this.width, this.height);
         AlignmentGuides.SnapResult snap = AlignmentGuides.compute(
             targetX, targetY, curBounds.width(), curBounds.height(), draggedElement,
@@ -352,8 +548,14 @@ public class HudEditScreen extends Screen {
             this.width, this.height, rebornHasShiftDown());
         this.activeGuides = snap.guides();
 
-        int newOffsetX = snap.newX() - vanilla.x();
-        int newOffsetY = snap.newY() - vanilla.y();
+        // Offset mesuré depuis l'ANCRE et à l'échelle courante : soustraire
+        // vanilla.x() marchait par hasard à l'échelle 1 et faisait glisser la box
+        // sous le curseur dès qu'elle était scalée (Vitals, Cooldowns, Endurance
+        // le sont par défaut).
+        int[] newOffset = HudElementBounds.offsetForTopLeft(
+            draggedElement, state, this.width, this.height, snap.newX(), snap.newY());
+        int newOffsetX = newOffset[0];
+        int newOffsetY = newOffset[1];
         int deltaX = newOffsetX - state.x();
         int deltaY = newOffsetY - state.y();
         if (selectedElements.size() > 1 && selectedElements.contains(draggedElement)) {
@@ -381,6 +583,8 @@ public class HudEditScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double hAmount, double vAmount) {
+        // Molette au-dessus de la liste d'éléments = défilement de la liste.
+        if (sidePanel.handleScroll(mouseX, mouseY, vAmount)) return true;
         HudElement element = elementUnderMouse((int) mouseX, (int) mouseY);
         if (element == null) return super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
         history.push(HudConfigSnapshot.capture(config));
@@ -403,6 +607,19 @@ public class HudEditScreen extends Screen {
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) { presetNameField.setFocused(false); return true; }
+            return super.keyPressed(event);
+        }
+
+        // Champ numérique de l'inspecteur focus : la saisie prime (sinon les
+        // flèches nudgeraient l'élément au lieu de déplacer le curseur de texte).
+        EditBox numeric = focusedNumericField();
+        if (numeric != null) {
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER
+                    || keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                numeric.setFocused(false);
+                syncInspectorFields();
+                return true;
+            }
             return super.keyPressed(event);
         }
 
@@ -453,6 +670,20 @@ public class HudEditScreen extends Screen {
         return super.keyPressed(event);
     }
 
+    /** Champ numérique de l'inspecteur actuellement focus, ou {@code null}. */
+    private EditBox focusedNumericField() {
+        for (EditBox box : new EditBox[]{fieldX, fieldY, fieldScale}) {
+            if (box != null && box.isFocused()) return box;
+        }
+        return null;
+    }
+
+    private void clearFieldFocus() {
+        for (EditBox box : new EditBox[]{presetNameField, fieldX, fieldY, fieldScale}) {
+            if (box != null) box.setFocused(false);
+        }
+    }
+
     private static boolean rebornHasShiftDown() {
         com.mojang.blaze3d.platform.Window w = Minecraft.getInstance().getWindow();
         return com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_SHIFT)
@@ -476,6 +707,9 @@ public class HudEditScreen extends Screen {
         this.selectedElements.clear();
         this.selectedElements.add(element);
         this.sidePanel.setSelectedElement(element);
+        // Sinon la frappe en cours s'appliquerait au NOUVEL élément sélectionné.
+        clearFieldFocus();
+        syncInspectorFields();
     }
 
     private void savePresetFromField() {
