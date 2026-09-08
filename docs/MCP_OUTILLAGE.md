@@ -20,7 +20,7 @@ chantiers beaucoup moins chers que prévu :
 
 | Brique | Où | Ce que ça donne |
 |---|---|---|
-| **2 plugins Blockbench maison** | `tools/blockbench-reborn-compositor`, `tools/blockbench-handpaint` | l'API JS de Blockbench est déjà maîtrisée, avec un build TS + esbuild + tests |
+| **2 plugins Blockbench maison** | `tools/blockbench-reborn-compositor`, `tools/blockbench-creator-tools` | l'API JS de Blockbench est déjà maîtrisée, avec un build TS + esbuild + tests |
 | **API Fichiers scopée par grade** | `apps/api/src/files/` | `GET /v1/files/{scopes,reload-targets,list,read}`, `POST /v1/files/{write,upload,mkdir,move,reload}`, `DELETE /v1/files` — gate `@MinRole(MODELISATEUR)`, garde anti-`..`, `.bak` et audit automatiques |
 | **Pont de commandes serveur** | `apps/api/src/files/commands.controller.ts` | file d'attente HMAC : `POST /v1/files/reload` → le serveur MC dépile et acquitte. C'est déjà un `/nexo reload` télécommandé |
 | **Bot Discord + webhooks HMAC** | `apps/bot/src/webhook-server.ts` | `/webhooks/{whitelist,tickets,security-alert,dm,assignment-update,status-update,claude-notify,*-message}`, tous signés avec `REBORN_WEBHOOK_SECRET` |
@@ -270,7 +270,7 @@ Choix structurants :
 - **Écrire les outils comme des fonctions pures + une couche IO.** Le cœur (parser un
   `.bbmodel`, assembler un spritesheet, retimer un JSON PAL) se teste sans Blockbench,
   sans Blender et sans serveur — exactement le découpage déjà retenu dans
-  `tools/blockbench-handpaint` (`pnpm test` sur le cœur math).
+  `tools/blockbench-creator-tools` (`pnpm test` sur le cœur math).
 - **Toute action sortante demande confirmation** : publier un asset, poster sur Discord,
   déclencher un reload serveur.
 

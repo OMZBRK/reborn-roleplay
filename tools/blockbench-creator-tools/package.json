@@ -1,0 +1,18 @@
+{
+  "name": "reborn-creator-tools",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Blockbench plugin — Reborn Creator Tools : Blockout Canvas, Handpainted Workflow, Motion Lab",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node test/raymath.test.ts && node test/color.test.ts && node test/noise.test.ts && node test/field.test.ts && node test/chain.test.ts && node test/easing.test.ts"
+  },
+  "devDependencies": {
+    "blockbench-types": "^4.10.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}

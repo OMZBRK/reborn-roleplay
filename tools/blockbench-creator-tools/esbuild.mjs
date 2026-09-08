@@ -9,7 +9,7 @@ const options = {
   entryPoints: ['src/index.ts'],
   // Le nom de fichier DOIT correspondre à l'ID du plugin (Plugin.register),
   // sinon Blockbench refuse de le charger ("base file name must match plugin ID").
-  outfile: 'dist/reborn_handpainted.js',
+  outfile: 'dist/reborn_creator_tools.js',
   bundle: true,
   format: 'iife',
   platform: 'browser',
@@ -23,7 +23,7 @@ const watch = process.argv.includes('--watch');
 if (watch) {
   const ctx = await esbuild.context(options);
   await ctx.watch();
-  console.log('[reborn-handpainted] watching…');
+  console.log('[reborn-creator-tools] watching...');
 } else {
   await esbuild.build(options);
 }

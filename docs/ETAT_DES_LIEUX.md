@@ -131,7 +131,8 @@ reborn-roleplay/
 │   └── server-config/      templates server.properties, MagicSpells, Nexo
 ├── tools/
 │   ├── blockbench-reborn-compositor/  plugin Blockbench — compositeur de skins RP
-│   ├── blockbench-handpaint/          plugin Blockbench — AO / Shade hand-paint
+│   ├── blockbench-creator-tools/      plugin Blockbench — suite Creator Tools
+│   │                                 (Blockout, Handpaint, Motion Lab)
 │   └── claude-hooks/                  hook Claude Code → notif Discord via le bot
 ├── scripts/     publish-launcher.ps1, publish-mod-manifest.ps1
 ├── infra/       docker-compose (dev + prod), Caddy

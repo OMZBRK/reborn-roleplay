@@ -37,7 +37,8 @@ Since 26.x the Mojang client ships **deobfuscated** — Yarn is gone, there is n
 - `minecraft/plugin-ost` — Paper plugin (Java 25). OST broadcast + zone registry + late-join sync (`/ost play|playat|playglobal|stop`)
 - `minecraft/shinobi/` — **six Maven Paper/Purpur plugins**, aggregator POM at the root: `ShinobiCore` (characters, chakra, techniques, KO, progression, mobility, RP inventory, emotes), `ShinobiAbilities`, `ShinobiCombat`, `ShinobiLearning`, `ShinobiSense`, `ShinobiTail`. This copy is authoritative — the old separate `ShinobiReborn` repo is history (ADR 0003)
 - `minecraft/server-config` — server.properties / MagicSpells / Nexo templates
-- `tools/blockbench-reborn-compositor`, `tools/blockbench-handpaint` — Blockbench plugins (skin compositor, hand-paint AO/Shade)
+- `tools/blockbench-reborn-compositor` — Blockbench plugin: RP skin compositor
+- `tools/blockbench-creator-tools` — Blockbench plugin: the Creator Tools suite — Blockout Canvas (modeling), Handpainted Workflow (AO/lighting/edges/gradient/surfaces/shade), Motion Lab (animation). Pure logic lives in `src/core/` and is tested in node without Blockbench (`pnpm --filter reborn-creator-tools test`)
 - `tools/claude-hooks` — Claude Code hook that pings Discord through the Reborn bot
 - `scripts/` — `publish-launcher.ps1`, `publish-mod-manifest.ps1`
 - `infra/docker-compose.yml` — Postgres 16 + Redis 7 for local dev; `docker-compose.prod.yml` + Caddy for prod
