@@ -50,5 +50,5 @@ Deux **pièges** documentés une fois pour toutes (ils ont coûté du temps deux
   les emotes doivent être sauvegardés à part** (le panel garde des `.bak`, ce n'est pas
   une stratégie de backup).
 - ➡️ Les outils Blockbench maison (`tools/blockbench-reborn-compositor`,
-  `tools/blockbench-handpaint`) s'inscrivent en amont de ce pipeline : ils réduisent le
+  `tools/blockbench-creator-tools`) s'inscrivent en amont de ce pipeline : ils réduisent le
   temps de fabrication, pas le temps de mise en jeu.

@@ -69,7 +69,7 @@ Le dépôt en contient bien plus.
 | `minecraft/shinobi/` — **6 plugins Maven** (`ShinobiCore`, `Abilities`, `Combat`, `Learning`, `Sense`, `Tail`) | ❌ (et `MIGRATION_26.1.md` affirmait encore « repo séparé `ShinobiReborn`, non dans ce repo ») |
 | `packages/manifest-uploader` (Rust) | ❌ dans le README (mentionné seulement dans MAINTENANCE §14) |
 | `tools/blockbench-reborn-compositor` — plugin Blockbench, compositeur de skins | ❌ |
-| `tools/blockbench-handpaint` — plugin Blockbench, AO/Shade hand-paint | ❌ |
+| `tools/blockbench-creator-tools` — plugin Blockbench, AO/Shade hand-paint | ❌ |
 | `tools/claude-hooks` — hook Claude Code → notif Discord via le bot Reborn | ❌ |
 | `scripts/publish-launcher.ps1`, `scripts/publish-mod-manifest.ps1` | partiellement (MAINTENANCE) |
 | `apps/api/src/` : `wiki`, `files`, `game`, `events`, `incidents`, `menu`, `oral-slots`, `security`, `shots`, `social`, `steam`, `upload`, `audit` | ❌ (`PLAN` §10 ne liste que 13 groupes d'endpoints) |

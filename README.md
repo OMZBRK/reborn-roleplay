@@ -36,7 +36,8 @@ reborn-roleplay/
 │   └── server-config/      templates server.properties / MagicSpells / Nexo
 ├── tools/
 │   ├── blockbench-reborn-compositor/  plugin Blockbench — compositeur de skins
-│   ├── blockbench-handpaint/          plugin Blockbench — AO / Shade hand-paint
+│   ├── blockbench-creator-tools/      plugin Blockbench — suite Creator Tools
+│   │                                 (Blockout, Handpaint, Motion Lab)
 │   └── claude-hooks/                  hook Claude Code → notif Discord
 ├── scripts/          publish-launcher.ps1 · publish-mod-manifest.ps1
 ├── infra/            docker-compose dev + prod, Caddy (nginx/ = legacy)
@@ -149,7 +150,7 @@ cd minecraft\shinobi       ; mvn clean package    # les 6 plugins Shinobi
 |---|---|
 | [`docs/MCP_OUTILLAGE.md`](./docs/MCP_OUTILLAGE.md) | Faisabilité MCP : Blockbench, Discord, Blender (pipeline emotes) |
 | [`tools/blockbench-reborn-compositor/README.md`](./tools/blockbench-reborn-compositor/README.md) | Compositeur de skins RP |
-| [`tools/blockbench-handpaint/README.md`](./tools/blockbench-handpaint/README.md) | Outils hand-paint (AO, Shade) |
+| [`tools/blockbench-creator-tools/README.md`](./tools/blockbench-creator-tools/README.md) | Suite Creator Tools : Blockout Canvas, Handpainted Workflow, Motion Lab |
 | [`tools/claude-hooks/README.md`](./tools/claude-hooks/README.md) | Notification Discord de fin de session Claude Code |
 
 ### Boards

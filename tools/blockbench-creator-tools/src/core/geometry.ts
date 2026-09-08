@@ -20,11 +20,19 @@ import { packTri, type TriSoup } from './raymath.ts';
 
 type V3 = [number, number, number];
 
-/** Callback par texel : coord pixel + position monde + normale sortante unitaire. */
+/**
+ * Callback par texel : coord pixel + position monde + normale sortante unitaire
+ * + identifiant de la face couvrante.
+ *
+ * `faceId` est stable pour la durée d'un appel a forEachTexel et permet de
+ * savoir, entre deux texels voisins, s'ils appartiennent a la meme face — ce
+ * dont l'outil Edges a besoin pour reperer les aretes en espace UV.
+ */
 export type TexelCb = (
   px: number, py: number,
   wx: number, wy: number, wz: number,
   nx: number, ny: number, nz: number,
+  faceId: number,
 ) => void;
 
 function toV3(p: unknown): V3 {
@@ -197,6 +205,7 @@ export function forEachTexel(texture: Texture, cb: TexelCb): number {
     p0: V3, p1: V3, p2: V3, // uv (unités UV)
     w0: V3, w1: V3, w2: V3, // monde
     n: V3,
+    faceId: number,
   ): void => {
     const x0 = p0[0] * dx, y0 = p0[1] * dy;
     const x1 = p1[0] * dx, y1 = p1[1] * dy;
@@ -223,16 +232,21 @@ export function forEachTexel(texture: Texture, cb: TexelCb): number {
           l0 * w0[1] + l1 * w1[1] + l2 * w2[1],
           l0 * w0[2] + l1 * w1[2] + l2 * w2[2],
           n[0], n[1], n[2],
+          faceId,
         );
         count++;
       }
     }
   };
 
+  let faceId = 0;
   for (const el of allElements()) {
     forEachElementFace(el, texture, ({ world, uv, normal }) => {
+      // Un id par FACE, pas par triangle : les deux triangles d'un quad
+      // appartiennent a la meme face et ne doivent pas produire d'arete.
+      const id = faceId++;
       for (let i = 1; i + 1 < world.length; i++) {
-        rasterize(uv[0], uv[i], uv[i + 1], world[0], world[i], world[i + 1], normal);
+        rasterize(uv[0], uv[i], uv[i + 1], world[0], world[i], world[i + 1], normal, id);
       }
     });
   }
