@@ -4,32 +4,58 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-`reborn-roleplay` is a pnpm monorepo that hosts the entire ecosystem of a Minecraft RP server — desktop launcher, web API, Discord bot, future staff panel, plus a Paper plugin and Fabric mod for the game side. The single source of truth for product + technical decisions is **`PLAN_CONCEPTION_LAUNCHER.md`** at the repo root (~2500 lines, French). When in doubt about a feature's intent, scope, or sequencing, read the relevant section of the plan before guessing.
+`reborn-roleplay` is a pnpm monorepo that hosts the entire ecosystem of a Minecraft RP server — desktop launcher, web API, Discord bot, staff panel, the Fabric client mods, the Paper server plugins (including the six Shinobi gameplay plugins), and the Blockbench/publishing tooling.
 
-ADRs live in `docs/adr/` and capture the hard, non-obvious calls — start with `0001-microsoft-app-approval-required.md` because the Microsoft auth path is gated on it.
+**Read these first, in this order:**
+
+1. **`docs/ETAT_DES_LIEUX.md`** — what actually runs right now: versions, URLs, published artifacts, real scope. Authoritative when anything else disagrees with reality.
+2. **`docs/ROADMAP_BETA_2026.md`** — what ships by December 2026. Mirrors the Trello `📅 Plan de vol` and the Miro sprint frames.
+3. **`PLAN_CONCEPTION_LAUNCHER.md`** — the original product + technical design (~2500 lines, French). Still the reference for *why*, but §11 and §18 are historical.
+4. **`docs/adr/`** — the hard, non-obvious calls, one per file. `0002` (MC 26.x / Java 25) explains why any pre-August-2026 snippet is dead.
+
+A coherence audit of docs ⇄ Trello ⇄ Miro ⇄ code was run on 2026-09-08: `docs/AUDIT_COHERENCE.md`.
+
+## Platform (do not assume otherwise)
+
+**Minecraft 26.2 · Java 25 · Fabric Loader 0.19.3 · Fabric API 0.156.0+26.2 · no mappings.**
+
+Since 26.x the Mojang client ships **deobfuscated** — Yarn is gone, there is no `mappings(...)` line, and `modImplementation` no longer exists (use `implementation`). `DrawContext`/`GuiGraphics` was removed in favour of the extraction/retained model (`GuiGraphicsExtractor`). In 26.2 specifically, `Gui` was split into `Gui` + `Hud` — mixins targeting the old class fail at launch, not at build. See `docs/MIGRATION_26.2.md`.
 
 ## Workspace layout
 
 - `apps/launcher` — Tauri 2 + React 19 + TS desktop client
-- `apps/api` — NestJS 11 + Prisma + Postgres
-- `apps/admin` — Next.js panel (placeholder)
-- `apps/bot` — discord.js v14 bot (ESM strict). Serves slash commands AND an HTTP server on `:3001` for inbound webhooks from the API
+- `apps/api` — NestJS 11 + Prisma + Postgres + Redis. Modules well beyond the original plan: `wiki`, `files`, `game`, `events`, `incidents`, `menu`, `oral-slots`, `security`, `shots`, `social`, `steam`, `upload`, `audit`, `play`, `shop`
+- `apps/admin` — Next.js staff panel, **live**: dashboard, whitelist, tickets, players, audit, anomalies, inbox, oral-slots, wiki + wiki/ideas, grade-scoped file manager, 2FA
+- `apps/bot` — discord.js v14 bot (ESM strict). Slash commands AND an HTTP server on `:3001` for inbound webhooks from the API
 - `packages/manifest-signer` — TypeScript CLI that signs the launch manifest with Ed25519
-- `packages/shared-types` — placeholder for shared DTOs
-- `minecraft/plugin-guardian` — Paper plugin (Java 21 + Gradle Kotlin DSL). Vérifie le play-token au JOIN. Isolated from the pnpm monorepo (open it standalone in IntelliJ).
-- `minecraft/plugin-ost` — Paper plugin (Java 21). Broadcast OST + zone registry + late-join sync (commandes `/ost play|playat|playglobal|stop`).
-- `minecraft/mod-integrity` — Fabric client mod, **attestation only** (envoie le play-token sur `reborn:auth` au JOIN). UI legacy (menu vanilla custom) en cours de migration vers `mod-hud/`.
-- `minecraft/mod-ost` — Fabric client mod. Décodage Ogg Vorbis (STBVorbis) + lecture OpenAL. Phase 1 atténuation stéréo, Phase 2 late-join via `AL_SEC_OFFSET`.
-- `minecraft/mod-hud` — Fabric client mod. **Toute la couche UI Reborn** : éditeur HUD drag/resize/hide, chat custom, et (post-migration) menu principal + ESC + ConnectScreen + sub-screens.
-- `minecraft/server-config` — placeholder
-- `infra/docker-compose.yml` — Postgres 16 + Redis 7 for local dev
+- `packages/manifest-uploader` — Rust CLI: reads the JWT from Windows Credential Manager, auto-refreshes, POSTs the signed manifest
+- `packages/shared-types` — shared DTOs
+- `minecraft/mod-hud` — Fabric client mod. **The entire Reborn UI layer**: main menu, ESC, ConnectScreen, sub-screens, in-game HUD + editor, custom RP chat, character creator, outfit shop, RP bag, client-side combat, camera, emotes
+- `minecraft/mod-integrity` — Fabric client mod, **attestation only** (sends the play-token on `reborn:auth` at JOIN)
+- `minecraft/mod-ost` — Fabric client mod. Ogg Vorbis decoding (STBVorbis) + OpenAL playback
+- `minecraft/plugin-guardian` — Paper plugin (Java 25 + Gradle Kotlin DSL). Verifies the play-token at JOIN. Isolated from the pnpm monorepo (open standalone in IntelliJ)
+- `minecraft/plugin-ost` — Paper plugin (Java 25). OST broadcast + zone registry + late-join sync (`/ost play|playat|playglobal|stop`)
+- `minecraft/shinobi/` — **six Maven Paper/Purpur plugins**, aggregator POM at the root: `ShinobiCore` (characters, chakra, techniques, KO, progression, mobility, RP inventory, emotes), `ShinobiAbilities`, `ShinobiCombat`, `ShinobiLearning`, `ShinobiSense`, `ShinobiTail`. This copy is authoritative — the old separate `ShinobiReborn` repo is history (ADR 0003)
+- `minecraft/server-config` — server.properties / MagicSpells / Nexo templates
+- `tools/blockbench-reborn-compositor`, `tools/blockbench-handpaint` — Blockbench plugins (skin compositor, hand-paint AO/Shade)
+- `tools/claude-hooks` — Claude Code hook that pings Discord through the Reborn bot
+- `scripts/` — `publish-launcher.ps1`, `publish-mod-manifest.ps1`
+- `infra/docker-compose.yml` — Postgres 16 + Redis 7 for local dev; `docker-compose.prod.yml` + Caddy for prod
 
 ## Prerequisites
 
 - Node.js 20+, pnpm 10+ (the root `package.json` pins `pnpm@10.33.2` via `packageManager`)
 - Rust stable + **Visual Studio 2022 Build Tools (C++)** on Windows for the Tauri backend
 - Docker for Postgres/Redis
-- Java 21 for the Paper plugin (the launcher downloads the JRE itself for Minecraft via piston-meta)
+- **Java 25** for both the Fabric mods and the Paper plugins (portable JDK at `D:\dev-cache\jdk25\jdk-25.0.4+7`). The launcher downloads the JRE Minecraft itself runs on, via piston-meta
+- Maven 3.9+ for `minecraft/shinobi/`
+
+## Two release trains — never mix them in one commit
+
+- **Game** (client mods + Paper plugins) → signed manifest (launcher auto-update) + manual upload on the Minestrator panel, server restart required. Read `docs/PUBLISH_PREFLIGHT.md` before any build/publish.
+- **Web** (`apps/api`, `apps/admin`, `apps/bot`) → Docker on the VPS, from `origin/main`.
+
+Corollary that has been violated and must not be: **whatever is published must come back onto a shared branch.** At the time of the audit, launcher 0.3.42 and `reborn-hud` 0.4.134 were live but absent from `main`.
 
 ## Common commands
 
@@ -73,11 +99,34 @@ cargo check --message-format=short      # fast type-check
 cargo test --lib                         # unit tests in jvm.rs, manifest/verify.rs, mods.rs, diagnostics.rs, etc.
 ```
 
-Paper plugin (open `minecraft/plugin-guardian/` standalone in IntelliJ — **not** the monorepo root):
+Paper plugins (open `minecraft/plugin-guardian/` standalone in IntelliJ — **not** the monorepo root):
 
 ```pwsh
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
 ./gradlew build       # → build/libs/reborn-guardian-<ver>.jar
-./gradlew runServer   # spins up Paper 1.21.1 with the plugin loaded
+./gradlew runServer   # spins up Paper 26.x with the plugin loaded
+```
+
+Shinobi plugins (Maven, from `minecraft/shinobi/` — the aggregator builds `ShinobiCore` first, then the rest, in one reactor pass):
+
+```pwsh
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+mvn clean package     # → */target/Shinobi*.jar
+```
+
+Fabric client mods (from `minecraft/mod-hud/`, `mod-integrity/`, `mod-ost/`):
+
+```pwsh
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+./gradlew build -x test --no-daemon   # tests fail on accented paths — known, harmless
+./gradlew runClient                    # the fast feedback loop — do NOT republish per fix
+```
+
+Publishing (from the repo root — read `docs/PUBLISH_PREFLIGHT.md` first):
+
+```pwsh
+.\scripts\publish-mod-manifest.ps1 -Version X.Y.Z [-SkipBuild]
+.\scripts\publish-launcher.ps1
 ```
 
 ## Architecture — the parts that need cross-file context
@@ -114,13 +163,13 @@ The API verifies inbound HMAC signatures via `apps/api/src/staff/hmac-signature.
 
 `apps/launcher/src-tauri/src/launcher/game.rs` orchestrates:
 
-0. **Mods cleanup** (`launcher/mods.rs::purge_incompatible_mods`) — reads `fabric.mod.json` from each jar in `mods/`, parses `depends.minecraft`, deletes any whose constraint doesn't accept the active MC version. Constraint parser handles exact, wildcard (`1.21.x`), `>=`/`<=`, `~`, `^`, `[a,b)` ranges; conservative on unknowns (= keep). Emits `mods:purged` event.
-1. `runtime::ensure_runtime` — JRE 21 from `piston-meta.mojang.com` (Mojang rotates the JRE manifest URL hash; refresh from skyrising's gist linked in `runtime.rs` when it 404s).
-2. `mojang::fetch_version_json` — Minecraft metadata for the version returned by `minecraft_version()` (env `REBORN_MC_VERSION`, default `1.21.1`).
+0. **Mods cleanup** (`launcher/mods.rs::purge_incompatible_mods`) — reads `fabric.mod.json` from each jar in `mods/`, parses `depends.minecraft`, deletes any whose constraint doesn't accept the active MC version. Constraint parser handles exact, wildcard (`26.2.x`), `>=`/`<=`, `~`, `^`, `[a,b)` ranges, and composed AND constraints (needed for the 1.21 → 26.x jump); conservative on unknowns (= keep). Emits `mods:purged` event.
+1. `runtime::ensure_runtime` — **JRE 25** (`java-runtime-epsilon`) from `piston-meta.mojang.com` (Mojang rotates the JRE manifest URL hash; refresh from skyrising's gist linked in `runtime.rs` when it 404s).
+2. `mojang::fetch_version_json` — Minecraft metadata for the version returned by `minecraft_version()` (env `REBORN_MC_VERSION`, default `26.2`).
 3. `libraries::ensure_libraries` — client jar + libs filtered by OS rules + native extraction. Modern Mojang JSONs (1.19+) put each native variant as a **separate library entry** with the classifier in the `name` (4 colon-separated parts). `libraries.rs` routes those to `natives_jars` for unzip; only the main artifact lands on the classpath.
 4. `assets::ensure_assets` — downloads the asset index + each hash-addressed object (~5000 files, **semaphore=8**, kept low to avoid Windows TLS saturation + AV scanning timeouts).
 5. `fabric::ensure_fabric` — picks the latest stable Fabric Loader from `meta.fabricmc.net` and downloads its libs.
-6. `jvm::build_command` builds the argv, then we override the vanilla main class with Fabric's. The classpath is **deduplicated by `group:artifact:classifier`** (see `dedupe_classpath`); without this, Fabric refuses to start with "duplicate ASM classes". Auto-connect is passed via `--quickPlayMultiplayer host:port` (the canonical MC 1.20+ form; legacy `--server`/`--port` are deprecated and silently ignored on 1.21+).
+6. `jvm::build_command` builds the argv, then we override the vanilla main class with Fabric's. The classpath is **deduplicated by `group:artifact:classifier`** (see `dedupe_classpath`); without this, Fabric refuses to start with "duplicate ASM classes". Auto-connect is passed via `--quickPlayMultiplayer host:port` (the canonical MC 1.20+ form; legacy `--server`/`--port` are deprecated and silently ignored on 1.21+). Purge is **strict** on 26.x (`manifest/download.rs::purge_orphan_mods`): `mods/` must equal the manifest's active set.
 
 `mojang::download_with_sha1` retries transient failures (timeouts, connect errors, body interrupts, 5xx) up to 4 times with exponential backoff (0.5s/1s/2s/4s). Hash mismatches are **not** retried (they signal real corruption). The `auth::AuthState::http` reqwest client uses a 60s timeout to absorb slow batches on residential networks.
 
@@ -184,7 +233,7 @@ Pièges spécifiques :
 
 Beyond Postgres/Redis/JWT/MS OAuth (already documented in `.env.example` patterns), several pieces of the system depend on these:
 
-- `REBORN_MC_VERSION` — Minecraft version the launcher targets (default `1.21.1`). Bump in lockstep with the dev server.
+- `REBORN_MC_VERSION` — Minecraft version the launcher targets (default `26.2`). Bump in lockstep with the dev server, the mods' `gradle.properties`, and the signed manifest's `minecraftVersion`.
 - `REBORN_SERVER_HOST` / `REBORN_SERVER_PORT` — auto-connect target. Empty → game launches to the main menu.
 - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `DISCORD_BOT_TOKEN` / `DISCORD_GUILD_ID` / `DISCORD_TICKETS_CHANNEL_ID` / `DISCORD_REDIRECT_URI` — all required for OAuth + bot to function.
 - `REBORN_WEBHOOK_SECRET` — shared HMAC secret. Same value must be present in the API and bot processes; both read the root `.env`.

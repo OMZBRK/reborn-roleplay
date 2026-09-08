@@ -1,3 +1,17 @@
+> # ⚠️ DOCUMENT D'ARCHIVE
+> Cette migration (1.21.1 → 26.1.2) est **terminée et dépassée**. La plateforme est
+> aujourd'hui en **26.2** — voir [`MIGRATION_26.2.md`](./MIGRATION_26.2.md), qui est la
+> version courante.
+>
+> Ce fichier reste pour le **pourquoi** (fin de Yarn, Java 25, refonte du rendu GUI en
+> mode extraction, abandon de MCEF, audit du faux fork « Rasengan »). **Ne pas appliquer
+> ses commandes ni ses numéros de version** : ils ciblent 26.1.
+>
+> Correctif notable depuis : les plugins Shinobi ne sont plus dans un dépôt séparé, ils
+> vivent dans `minecraft/shinobi/` (cf. [ADR 0003](./adr/0003-shinobi-dans-le-monorepo-deux-trains-de-release.md)).
+
+---
+
 # Plan de migration Reborn Roleplay → Minecraft 26.1
 
 > Rédigé le 2026-08-05. Objectif : transition **totale** vers **26.1** — launcher,

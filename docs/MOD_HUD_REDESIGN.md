@@ -85,7 +85,7 @@ Sur la base `chat/` actuelle :
   **draw-your-own** (éditeur pixel).
 - **Esthétique (Crosshair)** : set de **presets** prêts à choisir avec preview,
   recolorables.
-- Implémentation : mixin sur le rendu du crosshair vanilla (`InGameHud`), module
+- Implémentation : mixin sur le rendu du crosshair vanilla (**`Hud`** depuis 26.2 — `Gui` a été scindé, cf. `MIGRATION_26.2.md`), module
   de config dans le hub + preview live.
 
 ## 7. Approche assets — hybride
@@ -107,7 +107,7 @@ polish qu'on câble quand ils arrivent.
 - Icônes & crosshairs en **blanc pur `#FFFFFF`** sur transparent → teintés en
   code (hover, thème, rainbow, adaptive). Presets multicolores figés = en
   couleur directement.
-- Power-of-two non requis (MC 1.21) **sauf** gros logo (256×256).
+- Power-of-two non requis (MC 26.x) **sauf** gros logo (256×256).
 - Pas de détail 1px fragile (disparaît à GUI Scale bas). Au doute : dessine en
   **2×**, on réduit.
 

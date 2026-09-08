@@ -1,3 +1,19 @@
+> # ⚠️ GUIDE « FROM SCRATCH » — ne décrit PAS l'installation en cours
+> Ce document sert à monter une instance **neuve** (fork, migration, nouvel
+> environnement). Ses valeurs sont des **exemples génériques**, pas la réalité de Reborn :
+>
+> | Dans ce doc | En vrai |
+> |---|---|
+> | `api.reborn-rp.fr` / `panel.reborn-rp.fr` | `api.reborn-rp.com` / `panel.reborn-rp.com` |
+> | VPS Hetzner CX22 | OVH VPS-1 Gravelines, `ubuntu@91.134.136.120` |
+> | Minecraft 1.21.1, mods `+1.21.1`, manifest `1.0.0` | **Minecraft 26.2**, Java 25, manifest `v3.x` |
+> | Liste de 5 mods | ~19 mods + les pistes OST (cf. `ETAT_DES_LIEUX.md` §4) |
+>
+> **Pour opérer l'existant : [`MAINTENANCE.md`](./MAINTENANCE.md).**
+> **Pour l'état réel : [`ETAT_DES_LIEUX.md`](./ETAT_DES_LIEUX.md).**
+
+---
+
 # Première release staff-only — checklist complète
 
 > **Si l'infra tourne déjà** (cas actuel — VPS OVH up, manifest publié,

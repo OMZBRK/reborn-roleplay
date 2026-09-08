@@ -1,3 +1,13 @@
+> **Pipeline en vigueur (2026-09)** : les animations du **corps du joueur** passent par
+> **PlayerAnimationLibrary** (`PlayerAnimationLibMerged 1.2.6+mc.26.2`) et sont distribuées
+> comme **emotes EmoteCraft** (`.emotecraft` déposé côté serveur, poussé aux clients au
+> JOIN — cf. [`EMOTES.md`](./EMOTES.md)). GeckoLib reste le format d'**auteur** (plugin
+> Blockbench) et le format JSON d'échange ; ce n'est pas un runtime concurrent.
+>
+> Chaîne complète et outillage envisagé : [`MCP_OUTILLAGE.md`](./MCP_OUTILLAGE.md).
+
+---
+
 # Animations de base du personnage — catalogue de référence
 
 > Référence design pour l'animation du joueur Reborn (mod-hud + PlayerAnimationLibrary).
@@ -132,7 +142,8 @@ Sans réactions, les coups « traversent » et le combat est mou. Priorité haut
 
 ## Keyframes : ce que je peux te livrer, honnêtement
 
-- ✅ **Je peux hand-author** les `.json` GeckoLib (même format que `jumpanimation.json`)
+- ✅ **Hand-authoring** possible en **JSON PlayerAnimationLibrary** (format GeckoLib v2 ;
+  métadonnées sous la clé `player_animation_library` — même forme que `jumpanimation.json`)
   pour les anims **simples et lisibles** : idle respiration, idle combat, garde, focus
   chakra, hitstun léger, croiser les bras, pointer, bow. Ce sont des poses + interpolation
   douce sur 2–6 keyframes → propre à la main.
