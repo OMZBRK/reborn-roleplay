@@ -137,9 +137,12 @@ public class HudEditScreen extends Screen {
         box.setMaxLength(maxDigits + 1);
         box.setTextColor(Colors.FOREGROUND);
         // On accepte l'état intermédiaire "" et "-" pour ne pas bloquer la frappe ;
-        // applyXxx ignore simplement ce qui ne parse pas.
-        box.setFilter(v -> isNumericDraft(v, maxDigits));
-        box.setResponder(v -> { if (!syncingFields) onChange.accept(v); });
+        // applyXxx ignore simplement ce qui ne parse pas. (EditBox#setFilter n'existe
+        // plus en 26.2 — le responder filtre lui-même via isNumericDraft.)
+        box.setResponder(v -> {
+            if (syncingFields) return;
+            if (isNumericDraft(v, maxDigits)) onChange.accept(v);
+        });
         return box;
     }
 
