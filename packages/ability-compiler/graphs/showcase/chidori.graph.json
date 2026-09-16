@@ -1,0 +1,29 @@
+{
+  "id": "chidori",
+  "name": "Chidori",
+  "category": "ninjutsu/raiton",
+  "rank": "A",
+  "execution": "JUTSU",
+  "description": "Concentration de foudre lancée en pointe — projectile perçant.",
+  "nodes": [
+    { "id": "frame", "type": "technique", "method": "LEFT_CLICK", "itemType": "ROULEAU", "chakra": 65, "cooldownMs": 8000, "requires": [{ "type": "nature", "id": "raiton" }], "position": { "x": 40, "y": 200 } },
+    { "id": "ms_chidori", "type": "spell", "spellClass": ".MultiSpell", "displayName": "&eChidori", "helperSpell": false, "options": { "cooldown": 8 }, "modifiers": [], "effects": [], "position": { "x": 320, "y": 200 } },
+    { "id": "charge_chidori", "type": "spell", "spellClass": ".instant.DummySpell", "helperSpell": true, "options": {}, "modifiers": [], "effects": [ { "position": "caster", "effect": "sound", "sound": "entity.creeper.primed", "volume": 1.0, "pitch": 1.6, "params": {} } ], "position": { "x": 620, "y": 110 } },
+    {
+      "id": "proj_chidori", "type": "spell", "spellClass": ".instant.ParticleProjectileSpell", "helperSpell": true,
+      "options": { "projectile-velocity": 22, "max-distance": 30, "hit-radius": 1.5, "tick-interval": 1, "stop-on-hit-entity": true },
+      "modifiers": [],
+      "effects": [
+        { "position": "special", "effect": "particles", "particle": "electric_spark", "count": 6, "params": { "special-effect-interval": 1 } }
+      ],
+      "position": { "x": 620, "y": 260 }
+    },
+    { "id": "pain_chidori", "type": "spell", "spellClass": ".targeted.PainSpell", "helperSpell": true, "options": { "damage": 10, "ignore-armor": true }, "modifiers": [], "effects": [ { "position": "target", "effect": "sound", "sound": "entity.lightning_bolt.impact", "volume": 1.2, "pitch": 1.4, "params": {} } ], "position": { "x": 900, "y": 260 } }
+  ],
+  "edges": [
+    { "from": "frame", "to": "ms_chidori", "role": "root" },
+    { "from": "ms_chidori", "to": "charge_chidori", "role": "chain", "order": 0 },
+    { "from": "ms_chidori", "to": "proj_chidori", "role": "chain", "order": 1, "delay": 6 },
+    { "from": "proj_chidori", "to": "pain_chidori", "role": "chain", "order": 0 }
+  ]
+}

@@ -1,3 +1,5 @@
 dist/
 out/
 node_modules/
+out-showcase/
+gallery.html

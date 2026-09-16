@@ -1,0 +1,20 @@
+{
+  "id": "shunshin",
+  "name": "Shunshin no Jutsu",
+  "category": "ninjutsu/pur",
+  "rank": "D",
+  "execution": "JUTSU",
+  "description": "Technique de déplacement instantané — bond avec nuage de fumée.",
+  "nodes": [
+    { "id": "frame", "type": "technique", "method": "HOLD_SNEAK", "itemType": "ROULEAU", "chakra": 20, "cooldownMs": 4000, "requires": [], "position": { "x": 40, "y": 180 } },
+    { "id": "ms_shunshin", "type": "spell", "spellClass": ".MultiSpell", "displayName": "&7Shunshin", "helperSpell": false, "options": { "cooldown": 4 }, "modifiers": [], "effects": [], "position": { "x": 320, "y": 180 } },
+    { "id": "leap_shunshin", "type": "spell", "spellClass": ".instant.LeapSpell", "helperSpell": true, "options": { "forward-velocity": 55, "upward-velocity": 12, "cancel-damage": true }, "modifiers": [], "effects": [
+      { "position": "caster", "effect": "sound", "sound": "entity.enderman.teleport", "volume": 1.0, "pitch": 1.2, "params": {} },
+      { "position": "caster", "effect": "particles", "particle": "campfire_cosy_smoke", "count": 30, "params": { "horiz-spread": 0.6, "vert-spread": 0.4, "speed": 0.02 } }
+    ], "position": { "x": 620, "y": 180 } }
+  ],
+  "edges": [
+    { "from": "frame", "to": "ms_shunshin", "role": "root" },
+    { "from": "ms_shunshin", "to": "leap_shunshin", "role": "chain", "order": 0 }
+  ]
+}
