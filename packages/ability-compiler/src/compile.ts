@@ -178,6 +178,20 @@ function materialiseMythicSkill(
       );
     } else if (r.type === "sound") {
       skills.push(`sound{s=${r.sound};v=${r.volume};p=${r.pitch}} @Self`);
+    } else if (r.type === "damage") {
+      const targeter =
+        r.shape === "ring"
+          ? `@EntitiesInRadius{r=${r.radius ?? 4}}`
+          : r.shape === "cone"
+            ? `@ConeTargets{r=${r.length ?? 6};angle=45}`
+            : "@Target";
+      skills.push(`damage{amount=${r.amount}} ${targeter}`);
+    } else if (r.type === "status") {
+      skills.push(
+        `potion{type=${r.effect};duration=${r.durationTicks};lvl=${r.amplifier}} @Self`,
+      );
+    } else if (r.type === "delay") {
+      skills.push(`delay ${Math.max(1, Math.round(r.ms / 50))}`);
     } else {
       warnings.push(
         `${g.id}: nœud '${r.type}' pas encore matérialisé côté MythicMobs (scaffold) — à câbler.`,
