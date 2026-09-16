@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc",
     "ability": "tsx src/cli.ts",
+    "test": "tsx src/selftest.ts",
     "start": "node dist/cli.js"
   },
   "engines": {
