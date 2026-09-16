@@ -71,6 +71,16 @@ export class AbilitiesController {
     return this.service.validateOne(id);
   }
 
+  /** « Tester sur moi » — enfile un aperçu de la technique sur le staff en jeu. */
+  @Post(':id/preview')
+  @HttpCode(HttpStatus.OK)
+  preview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.preview(user.sub, id);
+  }
+
   /** Compile toutes les techniques PUBLISHED + pousse par SFTP + reload. */
   @Post('deploy')
   @HttpCode(HttpStatus.OK)

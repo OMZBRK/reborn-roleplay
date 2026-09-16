@@ -134,3 +134,11 @@ export function validateTechnique(
 export function deployTechniques(): Promise<DeployResult> {
   return api<DeployResult>("/abilities/deploy", { method: "POST" });
 }
+
+export function previewTechnique(
+  id: string,
+): Promise<{ ok: boolean; queued: string }> {
+  return api<{ ok: boolean; queued: string }>(`/abilities/${id}/preview`, {
+    method: "POST",
+  });
+}

@@ -168,6 +168,29 @@ export class AbilitiesService {
   }
 
   /**
+   * « Tester sur moi » — enfile `sa preview <slug> <pseudo>` pour le staff
+   * authentifié. La commande est construite côté serveur (slug validé + pseudo
+   * du compte lié), jamais du texte libre ; le pont plugin la re-valide via le
+   * préfixe whitelisté `sa preview `.
+   */
+  async preview(userId: string, id: string) {
+    const tech = await this.get(id);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { minecraftUsername: true },
+    });
+    if (!user?.minecraftUsername)
+      throw new BadRequestException(
+        'Aucun compte Minecraft lié — impossible de cibler ton personnage.',
+      );
+    const command = `sa preview ${tech.slug} ${user.minecraftUsername}`;
+    await this.prisma.serverCommand.create({
+      data: { target: 'abilities-preview', command, requestedById: userId },
+    });
+    return { ok: true, queued: command };
+  }
+
+  /**
    * Compile toutes les techniques PUBLISHED, écrit les 3 artefacts par SFTP,
    * puis enfile les reloads. Fail-fast : une seule technique invalide annule
    * tout le déploiement (aucune écriture partielle).

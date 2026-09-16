@@ -24,6 +24,7 @@ import {
   deployTechniques,
   getTechnique,
   listTechniques,
+  previewTechnique,
   updateTechnique,
   validateTechnique,
   type GraphNode,
@@ -355,6 +356,20 @@ function EditorInner() {
     }
   }, [current, save]);
 
+  const preview = useCallback(async () => {
+    if (!current) return;
+    await save();
+    setBusy(true);
+    try {
+      const r = await previewTechnique(current.dbId);
+      toast.success("Aperçu envoyé en jeu", { description: r.queued });
+    } catch (e) {
+      toast.error(`Aperçu impossible : ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [current, save]);
+
   const deploy = useCallback(async () => {
     setBusy(true);
     try {
@@ -453,6 +468,7 @@ function EditorInner() {
               <div className="ml-auto flex gap-2">
                 <button disabled={busy} onClick={save} className="rounded border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-surface-elevated)] disabled:opacity-50">Enregistrer</button>
                 <button disabled={busy} onClick={validate} className="rounded border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-surface-elevated)] disabled:opacity-50">Valider</button>
+                <button disabled={busy} onClick={preview} className="rounded border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-surface-elevated)] disabled:opacity-50" title="Joue l'effet sur ton personnage en jeu, sans coût ni recharge">Tester sur moi</button>
                 <button disabled={busy} onClick={deploy} className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-50">Déployer</button>
               </div>
             </div>
