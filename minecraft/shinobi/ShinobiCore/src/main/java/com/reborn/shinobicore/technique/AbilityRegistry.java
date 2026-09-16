@@ -57,26 +57,52 @@ public final class AbilityRegistry implements com.reborn.shinobicore.api.Techniq
             log.warning("abilities.yml introuvable — aucun jutsu chargé.");
             return 0;
         }
+        int n = mergeFrom(file);
+        log.info(n + " techniques chargées depuis " + file.getName() + ".");
+        return n;
+    }
+
+    /**
+     * Load entries from an overlay file <b>without clearing</b> the registry —
+     * for the Technique Creator's {@code abilities.generated.yml} and the dev-only
+     * {@code abilities-debug.yml}. Later entries override earlier ids by key.
+     * Returns the number of entries added/overridden.
+     */
+    public int merge(File file) {
+        if (file == null || !file.exists()) return 0;
+        int before = byId.size();
+        int seen = mergeFromCount(file);
+        log.info(seen + " techniques fusionnées depuis " + file.getName()
+                + " (registre : " + byId.size() + ", +" + (byId.size() - before) + " nouvelles).");
+        return seen;
+    }
+
+    /** Parse every entry of {@code file} into the registry. Returns entries seen. */
+    private int mergeFrom(File file) {
+        return mergeFromCount(file);
+    }
+
+    private int mergeFromCount(File file) {
         YamlConfiguration yml = YamlConfiguration.loadConfiguration(file);
         List<Map<?, ?>> raw = yml.getMapList("abilities");
+        int seen = 0;
         if (raw.isEmpty()) {
             // Also accept the section-form (abilities: { id: {...} }).
             ConfigurationSection sec = yml.getConfigurationSection("abilities");
             if (sec != null) {
                 for (String key : sec.getKeys(false)) {
                     ConfigurationSection a = sec.getConfigurationSection(key);
-                    if (a != null) parseOne(key, sectionToMap(a));
+                    if (a != null) { parseOne(key, sectionToMap(a)); seen++; }
                 }
-                log.info(byId.size() + " techniques chargées depuis abilities.yml (forme section).");
-                return byId.size();
             }
+            return seen;
         }
         for (Map<?, ?> m : raw) {
             Object id = m.get("id");
             parseOne(id == null ? null : id.toString(), m);
+            seen++;
         }
-        log.info(byId.size() + " techniques chargées depuis abilities.yml.");
-        return byId.size();
+        return seen;
     }
 
     private static Map<?, ?> sectionToMap(ConfigurationSection s) {

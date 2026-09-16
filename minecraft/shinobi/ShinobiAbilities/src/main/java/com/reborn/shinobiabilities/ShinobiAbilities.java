@@ -123,7 +123,7 @@ public final class ShinobiAbilities extends JavaPlugin {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
-        this.abilities.load(abilitiesFile);
+        loadAllAbilities();
 
         // 2. Jutsu pipeline.
         this.effects = new JutsuEffectRegistry();
@@ -334,11 +334,25 @@ public final class ShinobiAbilities extends JavaPlugin {
         getLogger().info("ShinobiAbilities désactivé.");
     }
 
-    /** {@code /sa reload} — config + abilities.yml. */
+    /** {@code /sa reload} — config + abilities.yml (+ overlays). */
     public void reloadAll() {
         reloadConfig();
-        if (abilities != null) {
-            abilities.load(new File(getDataFolder(), "abilities.yml"));
+        if (abilities != null) loadAllAbilities();
+    }
+
+    /**
+     * Charge le registre depuis abilities.yml, puis fusionne les overlays :
+     *  - {@code abilities.generated.yml} : sortie du Technique Creator (déployée
+     *    par le panel via SFTP), toujours chargée si présente ;
+     *  - {@code abilities-debug.yml} : les 204 stubs d'essai, chargés seulement
+     *    si {@code abilities.load-debug: true} dans la config (hors prod).
+     */
+    private void loadAllAbilities() {
+        File dir = getDataFolder();
+        abilities.load(new File(dir, "abilities.yml"));
+        abilities.merge(new File(dir, "abilities.generated.yml"));
+        if (getConfig().getBoolean("abilities.load-debug", false)) {
+            abilities.merge(new File(dir, "abilities-debug.yml"));
         }
     }
 
