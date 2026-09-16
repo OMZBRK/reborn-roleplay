@@ -23,6 +23,8 @@ import {
   createTechnique,
   deployTechniques,
   getTechnique,
+  importGraph,
+  importParse,
   listTechniques,
   previewTechnique,
   updateTechnique,
@@ -192,6 +194,7 @@ function EditorInner() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const docRef = useRef<TechniqueGraphDoc | null>(null);
 
   const refreshList = useCallback(async () => {
@@ -336,10 +339,11 @@ function EditorInner() {
     <div className="flex h-[calc(100vh-0px)] w-full">
       {/* liste */}
       <aside className="w-56 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3 overflow-y-auto">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-semibold">Techniques</h2>
           <button onClick={newTechnique} className="rounded bg-[var(--color-accent)] px-2 py-1 text-xs text-white hover:opacity-90">+ Nouvelle</button>
         </div>
+        <button onClick={() => setImportOpen(true)} className="mb-3 w-full rounded border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-surface-elevated)]">⬇ Importer un sort MagicSpells</button>
         <ul className="space-y-1">
           {list.map((t) => (
             <li key={t.id}>
@@ -410,6 +414,95 @@ function EditorInner() {
           {selectedEdge && !selectedNode && <EdgeInspector edge={selectedEdge} onPatch={patchEdge} />}
         </aside>
       )}
+
+      {importOpen && (
+        <ImportModal
+          onClose={() => setImportOpen(false)}
+          onImported={(dbId, status, doc) => { setImportOpen(false); loadDoc(dbId, status, doc); void refreshList(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────── import modal ───────── */
+
+function ImportModal({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: (dbId: string, status: GraphStatus, doc: TechniqueGraphDoc) => void;
+}) {
+  const [yaml, setYaml] = useState("");
+  const [serverPath, setServerPath] = useState("");
+  const [spellNames, setSpellNames] = useState<string[] | null>(null);
+  const [resolvedYaml, setResolvedYaml] = useState("");
+  const [root, setRoot] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const analyse = async () => {
+    setBusy(true);
+    try {
+      const r = await importParse({ yaml: yaml || undefined, serverPath: serverPath || undefined });
+      setSpellNames(r.spellNames);
+      setResolvedYaml(r.yaml);
+      setRoot(r.guessedRoot);
+      toast.success(`${r.spellNames.length} sort(s) trouvé(s).`);
+    } catch (e) { toast.error(`Analyse impossible : ${(e as Error).message}`); }
+    finally { setBusy(false); }
+  };
+
+  const doImport = async () => {
+    if (!root) return;
+    setBusy(true);
+    try {
+      const { graph } = await importGraph({ yaml: resolvedYaml, rootSpell: root });
+      const suggested = graph.id;
+      const slug = window.prompt("Identifiant de la nouvelle technique (lower_snake_case) :", suggested)?.trim();
+      if (!slug) { setBusy(false); return; }
+      if (!/^[a-z0-9_]+$/.test(slug)) { toast.error("Identifiant invalide."); setBusy(false); return; }
+      graph.id = slug;
+      const created = await createTechnique({ slug, name: graph.name, category: graph.category, graph });
+      toast.success(`Technique « ${root} » importée.`);
+      onImported(created.id, created.status, graph);
+    } catch (e) { toast.error(`Import impossible : ${(e as Error).message}`); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Importer un sort MagicSpells existant</h3>
+          <button onClick={onClose} className="rounded px-2 py-1 text-xs hover:bg-[var(--color-surface-elevated)]">✕</button>
+        </div>
+        <p className="mb-2 text-[11px] text-[var(--color-foreground-muted)]">
+          Colle un fichier de sorts, OU indique un chemin serveur (ex. <code>plugins/MagicSpells/spells-taijutsu.yml</code>).
+          On liste les sorts, tu choisis la racine, et le graphe s'affiche dans l'éditeur.
+        </p>
+        <input
+          className="mb-2 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-2 py-1 text-xs"
+          placeholder="Chemin serveur (optionnel) — ex. plugins/MagicSpells/spells-taijutsu.yml"
+          value={serverPath} onChange={(e) => setServerPath(e.target.value)}
+        />
+        <textarea
+          className="mb-2 h-40 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-2 py-1 font-mono text-[11px]"
+          placeholder="… ou colle ici le YAML MagicSpells"
+          value={yaml} onChange={(e) => setYaml(e.target.value)}
+        />
+        <div className="flex items-center gap-2">
+          <button disabled={busy} onClick={analyse} className="rounded border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-surface-elevated)] disabled:opacity-50">Analyser</button>
+          {spellNames && (
+            <>
+              <select value={root} onChange={(e) => setRoot(e.target.value)} className="flex-1 rounded border border-[var(--color-border)] bg-[var(--color-surface-elevated)] px-2 py-1 text-xs">
+                {spellNames.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button disabled={busy} onClick={doImport} className="rounded bg-[var(--color-accent)] px-3 py-1 text-xs text-white hover:opacity-90 disabled:opacity-50">Importer</button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

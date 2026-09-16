@@ -166,3 +166,15 @@ export function previewTechnique(id: string): Promise<{ ok: boolean; queued: str
 export function deployTechniques(): Promise<DeployResult> {
   return api<DeployResult>("/abilities/deploy", { method: "POST" });
 }
+
+export function importParse(input: { yaml?: string; serverPath?: string }): Promise<{
+  spellNames: string[];
+  guessedRoot: string;
+  yaml: string;
+}> {
+  return api("/abilities/import/parse", { method: "POST", body: input });
+}
+
+export function importGraph(input: { yaml: string; rootSpell: string }): Promise<{ graph: TechniqueGraphDoc }> {
+  return api("/abilities/import", { method: "POST", body: input });
+}

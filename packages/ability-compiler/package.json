@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
+    "yaml": "^2.5.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

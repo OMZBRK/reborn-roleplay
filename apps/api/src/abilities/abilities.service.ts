@@ -9,10 +9,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FilesService } from '../files/files.service';
 import { compile } from './compiler/compile';
 import { CompileError, validateGraph, validateReferences } from './compiler/dag';
+import {
+  guessRoot,
+  importTechnique,
+  listSpellNames,
+  parseSpellFile,
+} from './compiler/import';
 import { TechniqueGraph } from './compiler/schema';
 import {
   CreateGraphDto,
   GraphStatus,
+  ImportGraphDto,
+  ImportParseDto,
   UpdateGraphDto,
 } from './dto/abilities.dto';
 
@@ -124,6 +132,58 @@ export class AbilitiesService {
     await this.get(id);
     await this.prisma.techniqueGraph.delete({ where: { id } });
     return { ok: true };
+  }
+
+  // ── Import (MagicSpells YAML → graphe éditable) ────────
+
+  /** Résout le YAML depuis un chemin serveur (SFTP) ou le corps brut. */
+  private async resolveYaml(
+    role: Role,
+    actorId: string,
+    yaml?: string,
+    serverPath?: string,
+  ): Promise<string> {
+    if (serverPath) {
+      const f = await this.files.read(role, actorId, serverPath);
+      if (f.encoding !== 'utf8')
+        throw new BadRequestException('Le fichier serveur n’est pas du texte.');
+      return f.content;
+    }
+    if (yaml && yaml.trim()) return yaml;
+    throw new BadRequestException('Fournis un YAML ou un chemin serveur.');
+  }
+
+  /** Analyse : liste les sorts + devine une racine, pour que l'UI propose un choix. */
+  async importParse(role: Role, actorId: string, dto: ImportParseDto) {
+    const text = await this.resolveYaml(role, actorId, dto.yaml, dto.serverPath);
+    let parsed;
+    try {
+      parsed = parseSpellFile(text);
+    } catch (e) {
+      throw new BadRequestException(`YAML illisible : ${(e as Error).message}`);
+    }
+    const spellNames = listSpellNames(parsed);
+    if (spellNames.length === 0)
+      throw new BadRequestException('Aucun sort MagicSpells trouvé dans ce fichier.');
+    return { spellNames, guessedRoot: guessRoot(parsed) ?? spellNames[0], yaml: text };
+  }
+
+  /** Construit le graphe éditable depuis le sort racine choisi. */
+  async importGraph(role: Role, actorId: string, dto: ImportGraphDto) {
+    const text = await this.resolveYaml(role, actorId, dto.yaml, dto.serverPath);
+    let parsed;
+    try {
+      parsed = parseSpellFile(text);
+    } catch (e) {
+      throw new BadRequestException(`YAML illisible : ${(e as Error).message}`);
+    }
+    let graph;
+    try {
+      graph = importTechnique(parsed, dto.rootSpell);
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+    return { graph };
   }
 
   // ── Compile (dry-run), Preview & Deploy ────────────────

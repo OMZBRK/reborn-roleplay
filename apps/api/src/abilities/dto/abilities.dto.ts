@@ -42,6 +42,32 @@ export class CreateGraphDto {
   status?: GraphStatus;
 }
 
+/** Analyse d'un fichier MagicSpells à importer (coller YAML OU chemin serveur). */
+export class ImportParseDto {
+  @IsOptional()
+  @IsString()
+  yaml?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  serverPath?: string;
+}
+
+/** Construction du graphe depuis un YAML + un sort racine choisi. */
+export class ImportGraphDto {
+  @IsString()
+  yaml!: string;
+
+  @IsString()
+  rootSpell!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  serverPath?: string;
+}
+
 export class UpdateGraphDto {
   @IsOptional()
   @IsString()

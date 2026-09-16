@@ -19,7 +19,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MinRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AbilitiesService } from './abilities.service';
-import { CreateGraphDto, UpdateGraphDto } from './dto/abilities.dto';
+import {
+  CreateGraphDto,
+  ImportGraphDto,
+  ImportParseDto,
+  UpdateGraphDto,
+} from './dto/abilities.dto';
 import type { GraphStatus } from './dto/abilities.dto';
 
 /**
@@ -69,6 +74,20 @@ export class AbilitiesController {
   @HttpCode(HttpStatus.OK)
   validate(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.validateOne(id);
+  }
+
+  /** Analyse un fichier MagicSpells (collé ou chemin serveur) → liste des sorts. */
+  @Post('import/parse')
+  @HttpCode(HttpStatus.OK)
+  importParse(@Body() dto: ImportParseDto, @CurrentUser() user: RequestUser) {
+    return this.service.importParse(user.role, user.sub, dto);
+  }
+
+  /** Construit le graphe éditable depuis un sort racine choisi. */
+  @Post('import')
+  @HttpCode(HttpStatus.OK)
+  import(@Body() dto: ImportGraphDto, @CurrentUser() user: RequestUser) {
+    return this.service.importGraph(user.role, user.sub, dto);
   }
 
   /** « Tester sur moi » — enfile un aperçu de la technique sur le staff en jeu. */
