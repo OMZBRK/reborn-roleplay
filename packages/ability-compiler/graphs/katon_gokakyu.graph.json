@@ -1,0 +1,35 @@
+{
+  "id": "katon_gokakyu",
+  "name": "Katon : Boule de Feu Suprême",
+  "category": "ninjutsu/katon",
+  "rank": "B",
+  "execution": "JUTSU",
+  "description": "Une gerbe de flammes projetée droit devant. Signe du Tigre.",
+  "nodes": [
+    { "id": "trigger", "type": "trigger", "method": "LEFT_CLICK", "itemType": "ROULEAU" },
+    {
+      "id": "gate",
+      "type": "gate",
+      "requires": [
+        { "type": "nature", "id": "katon" },
+        { "type": "mastery", "id": "controle_chakra", "min": 40 },
+        { "type": "rank", "id": "chunin" }
+      ]
+    },
+    { "id": "cost", "type": "cost", "chakra": 60 },
+    { "id": "cooldown", "type": "cooldown", "ms": 8000 },
+    { "id": "fx", "type": "effectExternal", "provider": "magicspells", "ref": "reborn_gokakyu", "runAsPlayer": true },
+    { "id": "flames", "type": "particles", "particle": "FLAME", "shape": "cone", "count": 140, "length": 8 },
+    { "id": "embers", "type": "particles", "particle": "LAVA", "shape": "cone", "count": 16, "length": 6 },
+    { "id": "roar", "type": "sound", "sound": "ENTITY_BLAZE_SHOOT", "volume": 1.4, "pitch": 0.7 }
+  ],
+  "edges": [
+    { "from": "trigger", "to": "gate" },
+    { "from": "gate", "to": "cost" },
+    { "from": "cost", "to": "cooldown" },
+    { "from": "cooldown", "to": "fx" },
+    { "from": "fx", "to": "flames" },
+    { "from": "fx", "to": "embers" },
+    { "from": "fx", "to": "roar" }
+  ]
+}

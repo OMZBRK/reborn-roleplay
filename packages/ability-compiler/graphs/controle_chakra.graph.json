@@ -1,0 +1,23 @@
+{
+  "id": "controle_chakra",
+  "name": "Contrôle du Chakra",
+  "category": "ninjutsu/pur",
+  "rank": "E",
+  "execution": "JUTSU",
+  "description": "La base : concentrer et modeler son chakra. Prérequis de la plupart des ninjutsu.",
+  "nodes": [
+    { "id": "trigger", "type": "trigger", "method": "HOLD_SNEAK", "itemType": "ROULEAU" },
+    { "id": "cost", "type": "cost", "chakra": 10 },
+    { "id": "cooldown", "type": "cooldown", "ms": 2000 },
+    { "id": "mastery", "type": "mastery", "perCast": 2 },
+    { "id": "fx", "type": "effectExternal", "provider": "magicspells", "ref": "reborn_controle_chakra", "runAsPlayer": true },
+    { "id": "aura", "type": "particles", "particle": "ENCHANT", "shape": "sphere", "count": 30, "radius": 1.2 }
+  ],
+  "edges": [
+    { "from": "trigger", "to": "cost" },
+    { "from": "cost", "to": "cooldown" },
+    { "from": "cooldown", "to": "mastery" },
+    { "from": "mastery", "to": "fx" },
+    { "from": "fx", "to": "aura" }
+  ]
+}
