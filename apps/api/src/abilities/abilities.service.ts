@@ -28,7 +28,6 @@ import {
 
 const OUT_ABILITIES = 'plugins/ShinobiAbilities/abilities.generated.yml';
 const OUT_MS = 'plugins/MagicSpells/spells-reborn-generated.yml';
-const OUT_MYTHIC = 'plugins/MythicMobs/Skills/Reborn_generated.yml';
 
 const YAML_HEADER =
   '# ⚠️ GÉNÉRÉ par le Technique Creator — NE PAS ÉDITER À LA MAIN.\n' +
@@ -192,14 +191,14 @@ export class AbilitiesService {
     }
 
     const abilities: unknown[] = [];
-    const msSpells: Record<string, unknown> = {};
-    const mythicSkills: Record<string, unknown> = {};
+    const spells: Record<string, unknown> = {};
+    const magicItems: Record<string, unknown> = {};
     const warnings: string[] = [];
     for (const g of graphs) {
       const r = compile(g);
       abilities.push({ id: g.id, ...r.ability });
-      Object.assign(msSpells, r.msSpells);
-      Object.assign(mythicSkills, r.mythicSkills);
+      Object.assign(spells, r.spells);
+      Object.assign(magicItems, r.magicItems);
       warnings.push(...r.warnings);
     }
 
@@ -209,17 +208,17 @@ export class AbilitiesService {
     const written: string[] = [];
     await this.files.write(role, actorId, OUT_ABILITIES, dump({ abilities }));
     written.push(OUT_ABILITIES);
-    if (Object.keys(msSpells).length) {
-      await this.files.write(role, actorId, OUT_MS, dump({ spells: msSpells }));
+    // MagicSpells file : magic-items + sorts en clés top-level (style serveur).
+    if (Object.keys(spells).length || Object.keys(magicItems).length) {
+      const msFile: Record<string, unknown> = {};
+      if (Object.keys(magicItems).length) msFile['magic-items'] = magicItems;
+      Object.assign(msFile, spells);
+      await this.files.write(role, actorId, OUT_MS, dump(msFile));
       written.push(OUT_MS);
-    }
-    if (Object.keys(mythicSkills).length) {
-      await this.files.write(role, actorId, OUT_MYTHIC, dump(mythicSkills));
-      written.push(OUT_MYTHIC);
     }
 
     const reloaded: string[] = [];
-    for (const target of ['abilities', 'magicspells', 'mythicmobs']) {
+    for (const target of ['abilities', 'magicspells']) {
       try {
         await this.files.reload(role, actorId, target);
         reloaded.push(target);
@@ -232,8 +231,8 @@ export class AbilitiesService {
       deployed: graphs.length,
       written,
       reloaded,
-      msSpells: Object.keys(msSpells).length,
-      mythicSkills: Object.keys(mythicSkills).length,
+      spells: Object.keys(spells).length,
+      magicItems: Object.keys(magicItems).length,
       warnings,
     };
   }

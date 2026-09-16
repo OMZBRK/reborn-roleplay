@@ -82,7 +82,7 @@ function main(): void {
   const res = emit(compiled, resolve(out));
 
   console.log(
-    `✓ compilé → ${res.abilities} technique(s), ${res.msSpells} sort(s) MagicSpells, ${res.mythicSkills} skill(s) MythicMobs`,
+    `✓ compilé → ${res.abilities} technique(s), ${res.spells} sort(s) MagicSpells, ${res.magicItems} magic-item(s)`,
   );
   for (const f of res.files) console.log(`  → ${basename(f)}`);
   if (res.warnings.length) {

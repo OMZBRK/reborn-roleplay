@@ -1,27 +1,26 @@
 /**
- * Zod schema for a Technique graph (`graph.json`) — the single source of truth
- * the editor produces and the compiler consumes. The graph never runs on the
- * server: it compiles to artifacts the plugins already read (see compile.ts).
+ * Zod schema for a Technique graph (`graph.json`) — MagicSpells-native.
  *
- * "ShinobiCore decides, the engine draws": Gate/Cost/Cooldown/Mastery are
- * authority nodes (→ abilities.yml v2), Effect·* are render leaves (→ MagicSpells
- * or MythicMobs YAML via a provider template).
+ * A technique = a ShinobiCore FRAME (trigger/gate/cost/cooldown, node `technique`)
+ * that points at a graph of MagicSpells SPELLS (node `spell`). Spells reference
+ * each other through edges (MultiSpell/Area/Nova/Projectile chaining, with an
+ * optional DELAY). `magicItem` nodes define Nexo/vanilla items.
+ *
+ * "ShinobiCore decides, MagicSpells draws" : the frame owns chakra/gating/cooldown
+ * (→ abilities.yml), the spell graph owns VFX/hitbox (→ spells-reborn-generated.yml).
+ *
+ * The model is deliberately FLEXIBLE: each spell carries `spellClass` + a generic
+ * `options` record, so ANY MagicSpells key works even if the editor has no
+ * dedicated field for it. Effects are structured (esp. `entity` item_display) with
+ * a `params` catch-all. This exposes MagicSpells' full power, not a fixed subset.
  */
 import { z } from "zod";
 
-/** Mirrors com.reborn.shinobicore.technique.Requirement.Type (Java). */
+/* ── Requirements (ShinobiCore gate) — mirrors Requirement.Type (Java) ── */
+
 export const RequirementType = z.enum([
-  "ability",
-  "mastery",
-  "rank",
-  "skill",
-  "level",
-  "clan",
-  "village",
-  "affinity",
-  "nature",
-  "exam",
-  "mentor",
+  "ability", "mastery", "rank", "skill", "level",
+  "clan", "village", "affinity", "nature", "exam", "mentor",
 ]);
 export type RequirementType = z.infer<typeof RequirementType>;
 
@@ -32,145 +31,150 @@ export const Requirement = z.object({
 });
 export type Requirement = z.infer<typeof Requirement>;
 
-/** Both effect engines are equal citizens — chosen per node (user decision). */
-export const Provider = z.enum(["magicspells", "mythicmobs", "raw"]);
-export type Provider = z.infer<typeof Provider>;
+/* ── Generic option bag (any MagicSpells key → scalar / list / nested) ── */
 
-export const ParticleShape = z.enum([
-  "cone",
-  "ring",
-  "line",
-  "sphere",
-  "point",
+export const OptionValue: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.array(OptionValue),
+    z.record(z.string(), OptionValue),
+  ]),
+);
+export const Options = z.record(z.string(), OptionValue).default({});
+
+/* ── Effects (the MagicSpells `effects:` list) ── */
+
+export const EffectPosition = z.enum([
+  "caster", "target", "line", "trail", "delayed", "buff",
+  "orbit", "special", "projectile", "start", "disabled",
 ]);
 
-const NodeBase = { id: z.string().min(1) };
+/** A keyframe of an entity display animation (delayed-entity-data). */
+export const EntityKeyframe = z.object({
+  delay: z.number().int().nonnegative().default(1),
+  interval: z.number().int().nonnegative().optional(),
+  iterations: z.number().int().positive().optional(),
+  /** Partial entity-data applied at this keyframe (transformation, item, …). */
+  data: Options,
+});
 
-/** How the technique is triggered + which JutsuItem carries it. */
-const TriggerNode = z.object({
+/** Structured display-entity effect (item_display / block_display / text_display). */
+export const EntitySpec = z.object({
+  entity: z.string().default("item_display"),
+  item: z.string().optional(),
+  block: z.string().optional(),
+  text: z.string().optional(),
+  duration: z.number().int().positive().default(20),
+  billboard: z.enum(["none", "fixed", "vertical", "horizontal", "center"]).optional(),
+  glowing: z.boolean().optional(),
+  glowColorOverride: z.string().optional(),
+  viewRange: z.number().positive().optional(),
+  interpolationDuration: z.number().int().nonnegative().optional(),
+  interpolationDelay: z.number().int().nonnegative().optional(),
+  teleportDuration: z.number().int().nonnegative().optional(),
+  brightnessBlock: z.number().int().min(0).max(15).optional(),
+  brightnessSky: z.number().int().min(0).max(15).optional(),
+  transformation: z
+    .object({
+      scale: z.string().optional(),
+      translation: z.string().optional(),
+      leftRotation: z.string().optional(),
+      rightRotation: z.string().optional(),
+    })
+    .optional(),
+  keyframes: z.array(EntityKeyframe).default([]),
+  /** Escape hatch for any other entity-data key. */
+  extra: Options,
+});
+
+export const EffectSpec = z.object({
+  position: EffectPosition.default("caster"),
+  effect: z.string().min(1), // particles | sound | entity | effectlib | …
+  delay: z.number().int().nonnegative().optional(),
+  chance: z.number().min(0).max(1).optional(),
+  /** particles */
+  particle: z.string().optional(),
+  count: z.number().int().positive().optional(),
+  material: z.string().optional(), // required for block/item/falling_dust particles
+  color: z.string().optional(),
+  toColor: z.string().optional(),
+  /** sound */
+  sound: z.string().optional(),
+  volume: z.number().positive().optional(),
+  pitch: z.number().positive().optional(),
+  /** entity (structured) */
+  entitySpec: EntitySpec.optional(),
+  /** effectlib */
+  effectlibClass: z.string().optional(),
+  /** any other effect key (particle-name spreads, effectlib params, …). */
+  params: Options,
+});
+export type EffectSpec = z.infer<typeof EffectSpec>;
+
+/* ── Nodes ── */
+
+const NodeBase = {
+  id: z.string().min(1),
+  position: z.object({ x: z.number(), y: z.number() }).optional(),
+};
+
+/** ShinobiCore frame — the "technique" wrapper. Exactly one per graph. */
+const TechniqueNode = z.object({
   ...NodeBase,
-  type: z.literal("trigger"),
+  type: z.literal("technique"),
   method: z
     .enum(["LEFT_CLICK", "RIGHT_CLICK", "HOLD_SNEAK", "CLICK_SEQUENCE"])
     .default("LEFT_CLICK"),
   itemType: z.string().optional(),
-});
-
-/** Access prerequisites — compiles verbatim into abilities.yml `requires:`. */
-const GateNode = z.object({
-  ...NodeBase,
-  type: z.literal("gate"),
   requires: z.array(Requirement).default([]),
-});
-
-const CostNode = z.object({
-  ...NodeBase,
-  type: z.literal("cost"),
   chakra: z.number().nonnegative().default(50),
   stamina: z.number().nonnegative().optional(),
+  cooldownMs: z.number().int().nonnegative().default(5000),
+  masteryPerCast: z.number().nonnegative().optional(),
 });
 
-const CooldownNode = z.object({
+/** A MagicSpells spell. The node id is the emitted spell name. */
+const SpellNode = z.object({
   ...NodeBase,
-  type: z.literal("cooldown"),
-  ms: z.number().int().nonnegative().default(5000),
+  type: z.literal("spell"),
+  /** e.g. ".MultiSpell", ".instant.ParticleProjectileSpell", ".targeted.PainSpell". */
+  spellClass: z.string().min(1).default(".instant.DummySpell"),
+  displayName: z.string().optional(),
+  helperSpell: z.boolean().default(true),
+  options: Options,
+  effects: z.array(EffectSpec).default([]),
+  modifiers: z.array(z.string()).default([]),
 });
 
-const MasteryNode = z.object({
+/** A magic-items entry (Nexo / vanilla item). */
+const MagicItemNode = z.object({
   ...NodeBase,
-  type: z.literal("mastery"),
-  perCast: z.number().nonnegative().default(1),
-  variantThreshold: z.number().int().min(0).max(100).optional(),
-  variantId: z.string().optional(),
-});
-
-/** A render leaf pointing at an existing MS spell / MythicMob skill, OR carrying
- *  an inline VFX built from connected particle/sound/damage nodes (materialised). */
-const EffectExternalNode = z.object({
-  ...NodeBase,
-  type: z.literal("effectExternal"),
-  provider: Provider,
-  /** Name of the target spell/skill. Also the generated key when materialised. */
-  ref: z.string().min(1),
-  runAsPlayer: z.boolean().default(true),
-});
-
-const ParticlesNode = z.object({
-  ...NodeBase,
-  type: z.literal("particles"),
-  /** Any Bukkit/26.2 particle name — MagicSpells resolves it via the registry. */
-  particle: z.string().min(1),
-  shape: ParticleShape.default("point"),
-  count: z.number().int().positive().default(20),
-  length: z.number().positive().optional(),
-  radius: z.number().positive().optional(),
-  /** For dust_color_transition / dust. */
-  color: z.string().optional(),
-  toColor: z.string().optional(),
-  /** For block / falling_dust / item particles. */
-  material: z.string().optional(),
-});
-
-const SoundNode = z.object({
-  ...NodeBase,
-  type: z.literal("sound"),
-  sound: z.string().min(1),
-  volume: z.number().positive().default(1),
-  pitch: z.number().positive().default(1),
-});
-
-const DamageNode = z.object({
-  ...NodeBase,
-  type: z.literal("damage"),
-  shape: z.enum(["cone", "ring", "target"]).default("cone"),
-  amount: z.number().nonnegative().default(4),
-  length: z.number().positive().optional(),
-  radius: z.number().positive().optional(),
-});
-
-const StatusNode = z.object({
-  ...NodeBase,
-  type: z.literal("status"),
-  effect: z.string().min(1),
-  durationTicks: z.number().int().positive().default(60),
-  amplifier: z.number().int().min(0).default(0),
-});
-
-const BlockNode = z.object({
-  ...NodeBase,
-  type: z.literal("block"),
-  width: z.number().int().positive().default(3),
-  lifetimeSeconds: z.number().int().positive().default(6),
-});
-
-/** Timing — the 80% of a technique's feel the old model couldn't express. */
-const SequenceNode = z.object({ ...NodeBase, type: z.literal("sequence") });
-const DelayNode = z.object({
-  ...NodeBase,
-  type: z.literal("delay"),
-  ms: z.number().int().nonnegative().default(200),
+  type: z.literal("magicItem"),
+  /** internal name referenced by cast-item / item / items. */
+  itemId: z.string().min(1),
+  options: Options, // type, item-model, custom-model-data, name, lore, …
 });
 
 export const Node = z.discriminatedUnion("type", [
-  TriggerNode,
-  GateNode,
-  CostNode,
-  CooldownNode,
-  MasteryNode,
-  EffectExternalNode,
-  ParticlesNode,
-  SoundNode,
-  DamageNode,
-  StatusNode,
-  BlockNode,
-  SequenceNode,
-  DelayNode,
+  TechniqueNode,
+  SpellNode,
+  MagicItemNode,
 ]);
 export type Node = z.infer<typeof Node>;
 
+/** An edge. role=root: technique→root spell. role=chain: spell→sub-spell. */
 export const Edge = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
+  role: z.enum(["root", "chain"]).default("chain"),
+  /** DELAY in ticks before the child fires (MultiSpell chains). */
+  delay: z.number().int().nonnegative().optional(),
+  /** MagicSpells cast mode of the sub-spell (full/partial/hard/direct/none). */
+  mode: z.enum(["full", "partial", "hard", "direct", "none"]).optional(),
+  /** Ordering within the parent's children (lower = earlier). */
+  order: z.number().optional(),
 });
 export type Edge = z.infer<typeof Edge>;
 

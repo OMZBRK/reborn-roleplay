@@ -1,103 +1,72 @@
 /**
- * Graph → artifacts. The compiler emits only things the running plugins already
- * read, so no graph interpreter ships to Paper:
- *   - an abilities.yml v2 entry (ShinobiCore authority: requires/cost/cooldown)
- *   - MagicSpells spell definitions (spells-reborn-generated.yml)
- *   - MythicMobs skill definitions (Reborn_generated.yml)
+ * Graph → artifacts. Emits only what the running plugins already read:
+ *   - one abilities.yml v2 entry (ShinobiCore frame → cast forcecast root spell)
+ *   - real MagicSpells definitions (spells-reborn-generated.yml): top-level named
+ *     spells + a magic-items block, matching the server's hand-written style.
  *
- * Both engines are equal citizens, chosen per Effect·External node and wired
- * through the same console-command pipe (JutsuExecutionManager.dispatchCommands).
+ * No graph interpreter ships to Paper. "ShinobiCore decides, MagicSpells draws."
  */
 import { CompileError } from "./dag.js";
-import type { Node, Provider, TechniqueGraph } from "./schema.js";
-
-/** Provider → console-command template. The one place the engine choice lives;
- *  swapping a technique's engine never touches the graph, only the node's provider. */
-export const PROVIDER_TEMPLATES: Record<Provider, string> = {
-  magicspells: "cast forcecast %player% {ref}",
-  mythicmobs: "mm skills cast {ref} %player%",
-  raw: "{ref}",
-};
+import type { EffectSpec, Node, TechniqueGraph } from "./schema.js";
 
 export interface CompiledTechnique {
-  /** One entry for abilities.yml, keyed by id at emit time. */
+  /** abilities.yml entry (keyed by technique id at emit time). */
   ability: Record<string, unknown>;
-  /** MagicSpells spell definitions this graph materialised (keyed by ref). */
-  msSpells: Record<string, unknown>;
-  /** MythicMobs skill definitions this graph materialised (keyed by ref). */
-  mythicSkills: Record<string, unknown>;
-  /** Non-fatal notes (unsupported nodes, etc.) — surfaced, never silently dropped. */
+  /** MagicSpells spell definitions, keyed by spell name (top-level in the file). */
+  spells: Record<string, unknown>;
+  /** magic-items definitions, keyed by item id. */
+  magicItems: Record<string, unknown>;
   warnings: string[];
 }
 
-function single<K extends Node["type"]>(
-  g: TechniqueGraph,
-  type: K,
-): Extract<Node, { type: K }> | undefined {
-  const found = g.nodes.filter((n) => n.type === type) as Extract<
-    Node,
-    { type: K }
-  >[];
-  if (found.length > 1)
-    throw new CompileError(`plusieurs nœuds '${type}' (un seul attendu)`, g.id);
-  return found[0];
-}
+type SpellNode = Extract<Node, { type: "spell" }>;
+type TechniqueNode = Extract<Node, { type: "technique" }>;
+type MagicItemNode = Extract<Node, { type: "magicItem" }>;
 
-/** Nodes reachable by one edge from `nodeId` (its downstream render leaves). */
-function childrenOf(g: TechniqueGraph, nodeId: string): Node[] {
-  const childIds = new Set(
-    g.edges.filter((e) => e.from === nodeId).map((e) => e.to),
-  );
-  return g.nodes.filter((n) => childIds.has(n.id));
+/** MultiSpell-family classes chain via a `spells:` list with DELAY entries. */
+function isMulti(cls: string): boolean {
+  return /\.(Targeted)?MultiSpell$/i.test(cls);
+}
+/** Classes that take a single sub-spell via `spell:` (fallback for chaining). */
+function usesSingleSpell(cls: string): boolean {
+  return /(Nova|Pulser|Orbit|Projectile)Spell$/i.test(cls);
 }
 
 export function compile(g: TechniqueGraph): CompiledTechnique {
   const warnings: string[] = [];
-  const msSpells: Record<string, unknown> = {};
-  const mythicSkills: Record<string, unknown> = {};
+  const frame = g.nodes.find((n) => n.type === "technique") as TechniqueNode;
+  const rootEdge = g.edges.find((e) => e.role === "root")!;
+  const rootSpellId = rootEdge.to;
 
-  const trigger = single(g, "trigger");
-  const cost = single(g, "cost");
-  const cooldown = single(g, "cooldown");
-  const mastery = single(g, "mastery");
-
-  // Gate(s) → merged requires:, emitted verbatim for the Java Requirement parser.
-  const requires = g.nodes
-    .filter((n) => n.type === "gate")
-    .flatMap((n) => n.requires)
-    .map((r) => ({ type: r.type, ...(r.id ? { id: r.id } : {}), ...(r.min ? { min: r.min } : {}) }));
-
-  // Effect·External leaves → console commands + (when they own render nodes)
-  // materialised spell/skill definitions.
-  const commands: string[] = [];
-  let runAsPlayer = true;
+  // ── MagicSpells spells ──
+  const spells: Record<string, unknown> = {};
   for (const n of g.nodes) {
-    if (n.type !== "effectExternal") continue;
-    runAsPlayer = n.runAsPlayer;
-    commands.push(PROVIDER_TEMPLATES[n.provider].replace("{ref}", n.ref));
-
-    const render = childrenOf(g, n.id);
-    if (render.length === 0) continue; // references a spell authored elsewhere
-    if (n.provider === "magicspells") {
-      msSpells[n.ref] = materialiseMagicSpell(g, n.ref, render, warnings);
-    } else if (n.provider === "mythicmobs") {
-      mythicSkills[n.ref] = materialiseMythicSkill(g, render, warnings);
-    } else {
-      warnings.push(
-        `${g.id}: nœuds de rendu attachés à un Effect·External 'raw' — ignorés (pas de cible à générer).`,
-      );
-    }
+    if (n.type !== "spell") continue;
+    spells[n.id] = buildSpell(g, n, warnings);
   }
 
+  // ── magic-items ──
+  const magicItems: Record<string, unknown> = {};
+  for (const n of g.nodes) {
+    if (n.type !== "magicItem") continue;
+    magicItems[(n as MagicItemNode).itemId] = { ...(n as MagicItemNode).options };
+  }
+
+  // ── abilities.yml frame ──
+  const requires = frame.requires.map((r) => ({
+    type: r.type,
+    ...(r.id ? { id: r.id } : {}),
+    ...(r.min ? { min: r.min } : {}),
+  }));
   const jutsu: Record<string, unknown> = {
-    method: trigger?.method ?? "LEFT_CLICK",
-    "chakra-cost": cost?.chakra ?? 50,
-    "cooldown-millis": cooldown?.ms ?? 5000,
-    "run-as-player": runAsPlayer,
+    method: frame.method,
+    "chakra-cost": frame.chakra,
+    "cooldown-millis": frame.cooldownMs,
+    "run-as-player": true,
+    commands: [`cast forcecast %player% ${rootSpellId}`],
   };
-  if (trigger?.itemType) jutsu["item-type"] = trigger.itemType;
-  if (commands.length) jutsu["commands"] = commands;
-  if (mastery) jutsu["mastery-per-cast"] = mastery.perCast;
+  if (frame.itemType) jutsu["item-type"] = frame.itemType;
+  if (frame.masteryPerCast) jutsu["mastery-per-cast"] = frame.masteryPerCast;
 
   const ability: Record<string, unknown> = {
     name: g.name,
@@ -109,94 +78,137 @@ export function compile(g: TechniqueGraph): CompiledTechnique {
   if (requires.length) ability["requires"] = requires;
   ability["jutsu"] = jutsu;
 
-  return { ability, msSpells, mythicSkills, warnings };
+  return { ability, spells, magicItems, warnings };
 }
 
-/** Build a MagicSpells spell that just plays the attached VFX/SFX. The heavy
- *  lifting (particle types, shapes, parametrised data) is all native MS config —
- *  MS resolves any 26.2 particle via the Bukkit registry, no plugin patch. */
-function materialiseMagicSpell(
+/** Ordered chain children of a spell (role=chain), sorted by edge.order. */
+function chainChildren(
   g: TechniqueGraph,
-  ref: string,
-  render: Node[],
+  nodeId: string,
+): { id: string; delay?: number; mode?: string }[] {
+  return g.edges
+    .filter((e) => e.role === "chain" && e.from === nodeId)
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => (a.e.order ?? a.i) - (b.e.order ?? b.i))
+    .map(({ e }) => ({ id: e.to, delay: e.delay, mode: e.mode }));
+}
+
+function buildSpell(
+  g: TechniqueGraph,
+  n: SpellNode,
   warnings: string[],
 ): Record<string, unknown> {
-  const effects: Record<string, unknown> = {};
-  for (const r of render) {
-    if (r.type === "particles") {
-      const e: Record<string, unknown> = {
-        position: "caster",
-        effect: "particles",
-        "particle-name": r.particle,
-        count: r.count,
-      };
-      if (r.color) e["color"] = r.color;
-      if (r.toColor) e["to-color"] = r.toColor;
-      if (r.material) e["material"] = r.material;
-      if (r.shape === "cone" || r.shape === "line") {
-        e["position"] = "line";
-        if (r.length) e["distance"] = r.length;
-      } else if (r.shape === "ring" || r.shape === "sphere") {
-        if (r.radius) e["radius"] = r.radius;
+  const def: Record<string, unknown> = { "spell-class": n.spellClass };
+  if (n.displayName) def["name"] = n.displayName;
+  if (n.helperSpell) def["helper-spell"] = true;
+
+  // user options first (so explicit keys win nothing structural below)
+  Object.assign(def, n.options);
+
+  if (n.modifiers.length) def["modifiers"] = [...n.modifiers];
+
+  // chaining
+  const children = chainChildren(g, n.id);
+  if (children.length) {
+    if (isMulti(n.spellClass)) {
+      const list: string[] = [];
+      for (const c of children) {
+        if (c.delay && c.delay > 0) list.push(`DELAY ${c.delay}`);
+        list.push(c.mode ? `${c.id}(mode=${c.mode})` : c.id);
       }
-      effects[r.id] = e;
-    } else if (r.type === "sound") {
-      effects[r.id] = {
-        position: "caster",
-        effect: "sound",
-        sound: r.sound,
-        volume: r.volume,
-        pitch: r.pitch,
-      };
+      def["spells"] = list;
+    } else if (usesSingleSpell(n.spellClass)) {
+      def["spell"] = children[0].id;
+      if (children.length > 1)
+        warnings.push(
+          `${g.id}: le sort '${n.id}' (${n.spellClass}) ne prend qu'un sous-sort — ${children.length - 1} ignoré(s).`,
+        );
     } else {
-      warnings.push(
-        `${g.id}: nœud '${r.type}' pas encore matérialisé côté MagicSpells (scaffold) — à câbler.`,
-      );
+      def["spells"] = children.map((c) => c.id);
     }
   }
-  // DummySpell simply fires its effects when force-cast; no mana/cooldown here —
-  // ShinobiCore owns those (the §7.3 discipline).
-  return { "spell-class": ".instant.DummySpell", effects };
+
+  // effects
+  if (n.effects.length) {
+    def["effects"] = n.effects.map((fx) => buildEffect(fx));
+  }
+  return def;
 }
 
-function materialiseMythicSkill(
-  g: TechniqueGraph,
-  render: Node[],
-  warnings: string[],
-): Record<string, unknown> {
-  const skills: string[] = [];
-  for (const r of render) {
-    if (r.type === "particles") {
-      const shape =
-        r.shape === "ring" || r.shape === "sphere"
-          ? "particlesphere"
-          : r.shape === "line" || r.shape === "cone"
-            ? "particleline"
-            : "particles";
-      skills.push(
-        `effect:${shape}{particle=${r.particle};amount=${r.count}} @Origin`,
-      );
-    } else if (r.type === "sound") {
-      skills.push(`sound{s=${r.sound};v=${r.volume};p=${r.pitch}} @Self`);
-    } else if (r.type === "damage") {
-      const targeter =
-        r.shape === "ring"
-          ? `@EntitiesInRadius{r=${r.radius ?? 4}}`
-          : r.shape === "cone"
-            ? `@ConeTargets{r=${r.length ?? 6};angle=45}`
-            : "@Target";
-      skills.push(`damage{amount=${r.amount}} ${targeter}`);
-    } else if (r.type === "status") {
-      skills.push(
-        `potion{type=${r.effect};duration=${r.durationTicks};lvl=${r.amplifier}} @Self`,
-      );
-    } else if (r.type === "delay") {
-      skills.push(`delay ${Math.max(1, Math.round(r.ms / 50))}`);
-    } else {
-      warnings.push(
-        `${g.id}: nœud '${r.type}' pas encore matérialisé côté MythicMobs (scaffold) — à câbler.`,
-      );
+function buildEffect(fx: EffectSpec): Record<string, unknown> {
+  const e: Record<string, unknown> = { position: fx.position, effect: fx.effect };
+  if (fx.delay !== undefined) e["delay"] = fx.delay;
+  if (fx.chance !== undefined) e["chance"] = fx.chance;
+
+  switch (fx.effect) {
+    case "particles": {
+      if (fx.particle) e["particle-name"] = fx.particle;
+      if (fx.count !== undefined) e["count"] = fx.count;
+      if (fx.material) e["material"] = fx.material;
+      if (fx.color) e["color"] = fx.color;
+      if (fx.toColor) e["to-color"] = fx.toColor;
+      break;
+    }
+    case "sound": {
+      if (fx.sound) e["sound"] = fx.sound;
+      if (fx.volume !== undefined) e["volume"] = fx.volume;
+      if (fx.pitch !== undefined) e["pitch"] = fx.pitch;
+      break;
+    }
+    case "entity": {
+      if (fx.entitySpec) e["entity"] = buildEntity(fx.entitySpec);
+      break;
+    }
+    case "effectlib": {
+      const el: Record<string, unknown> = { ...(fx.params as object) };
+      if (fx.effectlibClass) el["class"] = fx.effectlibClass;
+      e["effectlib"] = el;
+      Object.assign(e, {}); // effectlib params live under `effectlib:`
+      return e;
     }
   }
-  return { Skills: skills };
+  // passthrough for any extra keys (spreads, effect-interval, offsets, …)
+  Object.assign(e, fx.params as object);
+  return e;
+}
+
+function buildEntity(s: NonNullable<EffectSpec["entitySpec"]>): Record<string, unknown> {
+  const ent: Record<string, unknown> = { entity: s.entity, duration: s.duration };
+  if (s.item) ent["item"] = s.item;
+  if (s.block) ent["block"] = s.block;
+  if (s.text) ent["text"] = s.text;
+  if (s.billboard) ent["billboard"] = s.billboard;
+  if (s.glowing !== undefined) ent["glowing"] = s.glowing;
+  if (s.glowColorOverride) ent["glow-color-override"] = s.glowColorOverride;
+  if (s.viewRange !== undefined) ent["view-range"] = s.viewRange;
+  if (s.interpolationDuration !== undefined)
+    ent["interpolation-duration"] = s.interpolationDuration;
+  if (s.interpolationDelay !== undefined)
+    ent["interpolation-delay"] = s.interpolationDelay;
+  if (s.teleportDuration !== undefined) ent["teleport-duration"] = s.teleportDuration;
+  if (s.brightnessBlock !== undefined || s.brightnessSky !== undefined) {
+    ent["brightness"] = {
+      ...(s.brightnessBlock !== undefined ? { block: s.brightnessBlock } : {}),
+      ...(s.brightnessSky !== undefined ? { sky: s.brightnessSky } : {}),
+    };
+  }
+  if (s.transformation) {
+    const t = s.transformation;
+    const tr: Record<string, unknown> = {};
+    if (t.leftRotation) tr["left-rotation"] = t.leftRotation;
+    if (t.rightRotation) tr["right-rotation"] = t.rightRotation;
+    if (t.scale) tr["scale"] = t.scale;
+    if (t.translation) tr["translation"] = t.translation;
+    if (Object.keys(tr).length) ent["transformation"] = tr;
+  }
+  if (s.keyframes.length) {
+    ent["delayed-entity-data"] = s.keyframes.map((k) => ({
+      delay: k.delay,
+      ...(k.interval !== undefined ? { interval: k.interval } : {}),
+      ...(k.iterations !== undefined ? { iterations: k.iterations } : {}),
+      "entity-data": { ...(k.data as object) },
+    }));
+  }
+  Object.assign(ent, s.extra as object);
+  return ent;
 }
