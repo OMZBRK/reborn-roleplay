@@ -13,6 +13,7 @@ import {
   IconPlayers,
   IconServer,
   IconShield,
+  IconTechnique,
   IconTickets,
   IconWhitelist,
 } from '@/components/icons';
@@ -33,6 +34,7 @@ const NAV: NavItem[] = [
   { href: '/tickets', label: 'Tickets', Icon: IconTickets },
   { href: '/players', label: 'Joueurs', Icon: IconPlayers },
   { href: '/files', label: 'Fichiers', Icon: IconServer },
+  { href: '/abilities', label: 'Techniques', Icon: IconTechnique },
   { href: '/wiki', label: 'Wiki', Icon: IconBook },
   { href: '/wiki/ideas', label: 'Idées', Icon: IconBulb },
   { href: '/audit', label: 'Audit', Icon: IconAudit },

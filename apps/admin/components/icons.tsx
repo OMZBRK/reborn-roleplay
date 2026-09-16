@@ -108,6 +108,15 @@ export function IconShield(p: IconProps) {
   );
 }
 
+export function IconTechnique(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
+      <path d="M12 8l1.5 2.5L16 12l-2.5 1.5L12 16l-1.5-2.5L8 12l2.5-1.5z" />
+    </Base>
+  );
+}
+
 export function IconBan(p: IconProps) {
   return (
     <Base {...p}>
