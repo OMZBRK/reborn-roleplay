@@ -7,6 +7,9 @@ import { Role } from '@prisma/client';
 import yaml from 'js-yaml';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilesService } from '../files/files.service';
+import { compile } from './compiler/compile';
+import { CompileError, validateGraph, validateReferences } from './compiler/dag';
+import { TechniqueGraph } from './compiler/schema';
 import {
   CreateGraphDto,
   GraphStatus,
@@ -16,13 +19,13 @@ import {
 /**
  * Technique Creator — CRUD des graphes + compilation/déploiement.
  *
- * Le graphe (JSON) est la source de vérité. À la publication, on compile via
- * `@reborn/ability-compiler` (import dynamique : le package est ESM, l'API CJS),
- * on sérialise les 3 artefacts YAML, on les pousse par SFTP (FilesService) puis
- * on enfile les reloads (sa/ms/mm). ShinobiCore décide, le moteur dessine.
+ * Le graphe (JSON) est la source de vérité. À la publication, on compile via le
+ * compilateur vendorisé (apps/api/src/abilities/compiler, miroir du package
+ * @reborn/ability-compiler — compilé directement par nest build, pas d'import
+ * ESM cross-package en conteneur), on sérialise les 3 artefacts YAML, on les
+ * pousse par SFTP (FilesService) puis on enfile les reloads (sa/ms/mm).
  */
 
-// Cibles SFTP des artefacts générés.
 const OUT_ABILITIES = 'plugins/ShinobiAbilities/abilities.generated.yml';
 const OUT_MS = 'plugins/MagicSpells/spells-reborn-generated.yml';
 const OUT_MYTHIC = 'plugins/MythicMobs/Skills/Reborn_generated.yml';
@@ -31,48 +34,16 @@ const YAML_HEADER =
   '# ⚠️ GÉNÉRÉ par le Technique Creator — NE PAS ÉDITER À LA MAIN.\n' +
   '# Source de vérité : les graphes du panel. Régénéré à chaque déploiement.\n';
 
-type Compiler = {
-  compile: typeof import('@reborn/ability-compiler/compile').compile;
-  validateGraph: typeof import('@reborn/ability-compiler/dag').validateGraph;
-  validateReferences: typeof import('@reborn/ability-compiler/dag').validateReferences;
-  CompileError: typeof import('@reborn/ability-compiler/dag').CompileError;
-  TechniqueGraph: typeof import('@reborn/ability-compiler/schema').TechniqueGraph;
-};
-
 @Injectable()
 export class AbilitiesService {
-  private compilerPromise?: Promise<Compiler>;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly files: FilesService,
   ) {}
 
-  /** Charge le compilateur ESM une seule fois (import dynamique depuis CJS). */
-  private compiler(): Promise<Compiler> {
-    if (!this.compilerPromise) {
-      this.compilerPromise = (async () => {
-        const [compileMod, dagMod, schemaMod] = await Promise.all([
-          import('@reborn/ability-compiler/compile'),
-          import('@reborn/ability-compiler/dag'),
-          import('@reborn/ability-compiler/schema'),
-        ]);
-        return {
-          compile: compileMod.compile,
-          validateGraph: dagMod.validateGraph,
-          validateReferences: dagMod.validateReferences,
-          CompileError: dagMod.CompileError,
-          TechniqueGraph: schemaMod.TechniqueGraph,
-        };
-      })();
-    }
-    return this.compilerPromise;
-  }
-
   /** Parse + valide un graphe brut ; renvoie le graphe normalisé ou lève 400. */
-  private async parseGraph(raw: unknown, slug: string) {
-    const c = await this.compiler();
-    const parsed = c.TechniqueGraph.safeParse(raw);
+  private parseGraph(raw: unknown, slug: string) {
+    const parsed = TechniqueGraph.safeParse(raw);
     if (!parsed.success) {
       const msg = parsed.error.issues
         .map((i) => `${i.path.join('.') || '(racine)'}: ${i.message}`)
@@ -85,7 +56,7 @@ export class AbilitiesService {
       );
     }
     try {
-      c.validateGraph(parsed.data);
+      validateGraph(parsed.data);
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
@@ -116,7 +87,7 @@ export class AbilitiesService {
   }
 
   async create(dto: CreateGraphDto, actorId: string) {
-    await this.parseGraph(dto.graph, dto.slug);
+    this.parseGraph(dto.graph, dto.slug);
     const exists = await this.prisma.techniqueGraph.findUnique({
       where: { slug: dto.slug },
     });
@@ -137,7 +108,7 @@ export class AbilitiesService {
 
   async update(id: string, dto: UpdateGraphDto, actorId: string) {
     const current = await this.get(id);
-    if (dto.graph !== undefined) await this.parseGraph(dto.graph, current.slug);
+    if (dto.graph !== undefined) this.parseGraph(dto.graph, current.slug);
     return this.prisma.techniqueGraph.update({
       where: { id },
       data: {
@@ -156,21 +127,20 @@ export class AbilitiesService {
     return { ok: true };
   }
 
-  // ── Compile (dry-run) & Deploy ─────────────────────────
+  // ── Compile (dry-run), Preview & Deploy ────────────────
 
   /** Valide un graphe sans rien écrire — renvoie les avertissements de compil. */
   async validateOne(id: string) {
     const g = await this.get(id);
-    const c = await this.compiler();
-    const graph = await this.parseGraph(g.graph, g.slug);
-    const { warnings } = c.compile(graph);
+    const graph = this.parseGraph(g.graph, g.slug);
+    const { warnings } = compile(graph);
     return { ok: true, warnings };
   }
 
   /**
    * « Tester sur moi » — enfile `sa preview <slug> <pseudo>` pour le staff
-   * authentifié. La commande est construite côté serveur (slug validé + pseudo
-   * du compte lié), jamais du texte libre ; le pont plugin la re-valide via le
+   * authentifié. Commande construite côté serveur (slug validé + pseudo du
+   * compte lié), jamais du texte libre ; le pont plugin re-valide via le
    * préfixe whitelisté `sa preview `.
    */
   async preview(userId: string, id: string) {
@@ -196,7 +166,6 @@ export class AbilitiesService {
    * tout le déploiement (aucune écriture partielle).
    */
   async deploy(role: Role, actorId: string) {
-    const c = await this.compiler();
     const rows = await this.prisma.techniqueGraph.findMany({
       where: { status: 'PUBLISHED' },
     });
@@ -205,7 +174,7 @@ export class AbilitiesService {
 
     const graphs = [];
     for (const row of rows) {
-      const parsed = c.TechniqueGraph.safeParse(row.graph);
+      const parsed = TechniqueGraph.safeParse(row.graph);
       if (!parsed.success)
         throw new BadRequestException(
           `Technique '${row.slug}' : graphe corrompu en base.`,
@@ -214,10 +183,12 @@ export class AbilitiesService {
     }
 
     try {
-      for (const g of graphs) c.validateGraph(g);
-      c.validateReferences(graphs);
+      for (const g of graphs) validateGraph(g);
+      validateReferences(graphs);
     } catch (e) {
-      throw new BadRequestException((e as Error).message);
+      if (e instanceof CompileError)
+        throw new BadRequestException(e.message);
+      throw e;
     }
 
     const abilities: unknown[] = [];
@@ -225,7 +196,7 @@ export class AbilitiesService {
     const mythicSkills: Record<string, unknown> = {};
     const warnings: string[] = [];
     for (const g of graphs) {
-      const r = c.compile(g);
+      const r = compile(g);
       abilities.push({ id: g.id, ...r.ability });
       Object.assign(msSpells, r.msSpells);
       Object.assign(mythicSkills, r.mythicSkills);
@@ -235,7 +206,6 @@ export class AbilitiesService {
     const dump = (data: unknown) =>
       YAML_HEADER + yaml.dump(data, { lineWidth: 100, noRefs: true });
 
-    // Écritures SFTP (le scope DEVELOPPEUR couvre les 3 racines).
     const written: string[] = [];
     await this.files.write(role, actorId, OUT_ABILITIES, dump({ abilities }));
     written.push(OUT_ABILITIES);
@@ -248,7 +218,6 @@ export class AbilitiesService {
       written.push(OUT_MYTHIC);
     }
 
-    // Reloads (enfilés dans ServerCommand, drainés par le pont plugin).
     const reloaded: string[] = [];
     for (const target of ['abilities', 'magicspells', 'mythicmobs']) {
       try {

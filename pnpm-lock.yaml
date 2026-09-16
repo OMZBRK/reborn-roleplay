@@ -86,9 +86,6 @@ importers:
       '@prisma/client':
         specifier: ^6.0.0
         version: 6.19.3(prisma@6.19.3(typescript@5.8.3))(typescript@5.8.3)
-      '@reborn/ability-compiler':
-        specifier: workspace:*
-        version: link:../../packages/ability-compiler
       axios:
         specifier: ^1.7.9
         version: 1.16.0
@@ -131,6 +128,9 @@ importers:
       ssh2-sftp-client:
         specifier: ^11.0.0
         version: 11.0.0
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0
