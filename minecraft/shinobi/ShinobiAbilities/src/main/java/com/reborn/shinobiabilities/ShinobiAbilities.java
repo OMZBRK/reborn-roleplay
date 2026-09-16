@@ -236,7 +236,7 @@ public final class ShinobiAbilities extends JavaPlugin {
         PluginCommand sa = getCommand("shinobiabilities");
         if (sa != null) {
             SaCommand exec = new SaCommand(this, core, abilities, bindings,
-                    cooldowns, mobility, minigame, this::reloadAll);
+                    cooldowns, mobility, minigame, this::reloadAll, execution);
             sa.setExecutor(exec);
             sa.setTabCompleter(exec);
         } else getLogger().warning("Commande 'shinobiabilities' absente du plugin.yml.");

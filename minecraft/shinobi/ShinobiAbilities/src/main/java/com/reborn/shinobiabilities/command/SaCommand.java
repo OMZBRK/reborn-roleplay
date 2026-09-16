@@ -56,12 +56,14 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
     private final MobilityModule mobility;
     private final LearningMinigame minigame;
     private final Runnable reloadHook;
+    private final com.reborn.shinobiabilities.jutsu.JutsuExecutionManager execution;
 
     public SaCommand(org.bukkit.plugin.java.JavaPlugin plugin,
                      CoreServices core, AbilityRegistry registry,
                      JutsuBindingStore bindings, CooldownTracker cooldowns,
                      MobilityModule mobility, LearningMinigame minigame,
-                     Runnable reloadHook) {
+                     Runnable reloadHook,
+                     com.reborn.shinobiabilities.jutsu.JutsuExecutionManager execution) {
         this.plugin = plugin;
         this.core = core;
         this.registry = registry;
@@ -70,6 +72,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
         this.mobility = mobility;
         this.minigame = minigame;
         this.reloadHook = reloadHook;
+        this.execution = execution;
     }
 
     /* ------------------------------------------------------------ helpers */
@@ -113,6 +116,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
                 msg(sender, "Configuration ShinobiAbilities rechargée ("
                         + registry.all().size() + " techniques).", NamedTextColor.GREEN);
             }
+            case "preview" -> handlePreview(sender, args);
             case "learn", "forget" -> handleLearnForget(sender, args);
             case "learnall" -> handleLearnAll(sender, args);
             case "importspells" -> handleImportSpells(sender, args);
@@ -207,6 +211,36 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
     }
 
     /* ---------------------------------------------------------------- bind */
+
+    /** {@code /sa preview <technique> [joueur]} — joue l'effet sans coût, recharge,
+     *  gain de maîtrise ni gate. La boucle d'essai du Technique Creator. */
+    private void handlePreview(CommandSender sender, String[] args) {
+        if (!requirePerm(sender, "shinobiabilities.admin")) return;
+        if (args.length < 2) {
+            msg(sender, "Usage : /sa preview <technique> [joueur]", NamedTextColor.RED);
+            return;
+        }
+        Ability a = registry.byId(args[1]);
+        if (a == null) {
+            msg(sender, "Technique inconnue : " + args[1], NamedTextColor.RED);
+            return;
+        }
+        if (!a.isCastable()) {
+            msg(sender, "Cette technique n'a pas d'effet jouable (bloc jutsu absent).",
+                    NamedTextColor.RED);
+            return;
+        }
+        Player target = args.length >= 3 ? Bukkit.getPlayerExact(args[2])
+                : (sender instanceof Player p ? p : null);
+        if (target == null) {
+            msg(sender, "Joueur cible introuvable (précise un joueur en console).",
+                    NamedTextColor.RED);
+            return;
+        }
+        execution.preview(target, a);
+        msg(sender, "Aperçu de « " + a.name() + " » sur " + target.getName()
+                + " (sans coût ni recharge).", NamedTextColor.LIGHT_PURPLE);
+    }
 
     private void handleBind(CommandSender sender, String[] args) {
         if (!requirePerm(sender, "shinobiabilities.admin")) return;
@@ -599,7 +633,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
                 subs.addAll(List.of("valider", "refuser"));
             }
             if (sender.hasPermission("shinobiabilities.admin")) {
-                subs.addAll(List.of("reload", "abilities", "learn", "forget",
+                subs.addAll(List.of("reload", "preview", "abilities", "learn", "forget",
                         "learnall", "bind", "cooldowns", "parchemin",
                         "importspells", "toggles", "tokens", "unlock", "lock"));
             }

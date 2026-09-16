@@ -70,6 +70,7 @@ public final class PanelBridge {
             "playemote reload", // emotes RP déposées via le panel
             "sa reload",        // registre des techniques (ShinobiAbilities) — Technique Creator
             "sc reload",        // registre ShinobiCore — Technique Creator
+            "sa preview ",      // « Tester sur moi » — aperçu d'une technique (slug + pseudo validés côté API)
     };
 
     private final ShinobiCore plugin;
