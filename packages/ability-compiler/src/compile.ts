@@ -174,10 +174,10 @@ function materialiseMythicSkill(
             ? "particleline"
             : "particles";
       skills.push(
-        `- effect:${shape}{particle=${r.particle};amount=${r.count}} @Origin`,
+        `effect:${shape}{particle=${r.particle};amount=${r.count}} @Origin`,
       );
     } else if (r.type === "sound") {
-      skills.push(`- sound{s=${r.sound};v=${r.volume};p=${r.pitch}} @Self`);
+      skills.push(`sound{s=${r.sound};v=${r.volume};p=${r.pitch}} @Self`);
     } else {
       warnings.push(
         `${g.id}: nœud '${r.type}' pas encore matérialisé côté MythicMobs (scaffold) — à câbler.`,
