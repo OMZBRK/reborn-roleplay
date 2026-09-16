@@ -7,6 +7,12 @@
   "bin": {
     "reborn-ability": "./dist/cli.js"
   },
+  "exports": {
+    "./compile": { "types": "./dist/compile.d.ts", "default": "./dist/compile.js" },
+    "./dag": { "types": "./dist/dag.d.ts", "default": "./dist/dag.js" },
+    "./schema": { "types": "./dist/schema.d.ts", "default": "./dist/schema.js" },
+    "./emit": { "types": "./dist/emit.d.ts", "default": "./dist/emit.js" }
+  },
   "scripts": {
     "build": "tsc",
     "ability": "tsx src/cli.ts",

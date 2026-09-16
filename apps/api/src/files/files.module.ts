@@ -10,5 +10,6 @@ import { FilesService } from './files.service';
   imports: [AuthModule, AuditModule],
   controllers: [FilesController, CommandsController],
   providers: [FilesService, CommandBridgeGuard],
+  exports: [FilesService],
 })
 export class FilesModule {}

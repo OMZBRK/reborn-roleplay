@@ -708,3 +708,28 @@ model ServerCommand {
 
   @@index([status, createdAt])
 }
+
+/// Un graphe de technique édité dans le panel (Technique Creator). Le `graph`
+/// (JSON) est la SOURCE DE VÉRITÉ ; il compile (packages/ability-compiler) vers
+/// abilities.yml + sorts MagicSpells / skills MythicMobs, poussés au serveur par
+/// SFTP au déploiement. Le YAML n'est jamais édité à la main.
+model TechniqueGraph {
+  id          String              @id @default(uuid())
+  slug        String              @unique // = id de la technique (lower_snake_case)
+  name        String
+  category    String              @default("")
+  status      TechniqueGraphStatus @default(DRAFT)
+  graph       Json // le graph.json (nodes + edges) validé par le schéma Zod
+  createdById String?
+  updatedById String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([status, updatedAt])
+}
+
+enum TechniqueGraphStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}

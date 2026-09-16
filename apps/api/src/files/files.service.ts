@@ -33,6 +33,11 @@ const RELOAD_TARGETS: Record<
   mythicmobs: { command: 'mm reload', root: 'plugins/MythicMobs', label: 'MythicMobs' },
   modelengine: { command: 'meg reload', root: 'plugins/ModelEngine', label: 'ModelEngine' },
   emotes: { command: 'playemote reload', root: 'plugins/ShinobiCore/emotes', label: 'Emotes' },
+  abilities: {
+    command: 'sa reload',
+    root: 'plugins/ShinobiAbilities',
+    label: 'Techniques (ShinobiAbilities)',
+  },
 };
 
 /** Une racine autorisée pour un grade (chemin relatif à la base SFTP + libellé UI). */
@@ -81,6 +86,7 @@ const SCOPES: Partial<Record<Role, Scope>> = {
       { path: 'plugins/MagicSpells', label: 'MagicSpells' },
       { path: 'plugins/MythicMobs', label: 'MythicMobs' },
       { path: 'plugins/ModelEngine', label: 'ModelEngine' },
+      { path: 'plugins/ShinobiAbilities', label: 'Techniques — abilities.yml généré' },
       { path: 'plugins/ShinobiCore/emotes', label: 'Emotes RP' },
     ],
   },

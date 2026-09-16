@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AbilitiesModule } from './abilities/abilities.module';
 import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -37,6 +38,7 @@ import { WikiModule } from './wiki/wiki.module';
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    AbilitiesModule,
     AdminModule,
     AuditModule,
     AuthModule,
