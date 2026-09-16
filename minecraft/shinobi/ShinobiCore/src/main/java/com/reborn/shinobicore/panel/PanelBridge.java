@@ -68,6 +68,8 @@ public final class PanelBridge {
             "meg reload",
             "creator reload",   // assets du character creator (diffusion live)
             "playemote reload", // emotes RP déposées via le panel
+            "sa reload",        // registre des techniques (ShinobiAbilities) — Technique Creator
+            "sc reload",        // registre ShinobiCore — Technique Creator
     };
 
     private final ShinobiCore plugin;

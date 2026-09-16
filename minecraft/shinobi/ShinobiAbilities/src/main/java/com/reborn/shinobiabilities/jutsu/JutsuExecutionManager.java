@@ -222,6 +222,16 @@ public final class JutsuExecutionManager {
             actionBar(p, "Technique non apprise : " + a.name(), NamedTextColor.RED);
             return null;
         }
+        // Access prerequisites (requires:). Admins bypass, like the learned gate.
+        if (!p.hasPermission("shinobiabilities.admin")) {
+            for (com.reborn.shinobicore.technique.Requirement req : a.requires()) {
+                var fail = req.check(c);
+                if (fail.isPresent()) {
+                    actionBar(p, fail.get(), NamedTextColor.RED);
+                    return null;
+                }
+            }
+        }
         long remaining = cooldowns.remainingMillis(p.getUniqueId(), a.id());
         if (remaining > 0) {
             actionBar(p, "⏳ " + a.name() + " — encore "

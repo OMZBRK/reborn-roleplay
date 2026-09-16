@@ -25,12 +25,15 @@ public final class Ability implements com.reborn.shinobicore.api.TechniqueRegist
     private final List<String> steps;
     private final String description;
     private final JutsuMeta jutsu;       // nullable
+    /** Access prerequisites; empty when the technique is freely learnable. */
+    private final List<Requirement> requires;
 
     public Ability(String id, String name, String category, JutsuRank rank,
                    ExecutionType execution, MinigameType minigame,
                    Difficulty difficulty, List<Mudra> mudras,
                    List<String> steps,
-                   String description, JutsuMeta jutsu) {
+                   String description, JutsuMeta jutsu,
+                   List<Requirement> requires) {
         this.id = id;
         this.name = name;
         this.category = category == null ? "" : category.trim().toLowerCase(Locale.ROOT);
@@ -42,6 +45,7 @@ public final class Ability implements com.reborn.shinobicore.api.TechniqueRegist
         this.steps = steps == null ? List.of() : List.copyOf(steps);
         this.description = description == null ? "" : description;
         this.jutsu = jutsu;
+        this.requires = requires == null ? List.of() : List.copyOf(requires);
     }
 
     public String id()               { return id; }
@@ -61,6 +65,9 @@ public final class Ability implements com.reborn.shinobicore.api.TechniqueRegist
 
     /** Nullable — present only for castable jutsu. */
     public JutsuMeta jutsu() { return jutsu; }
+
+    /** Unmodifiable access prerequisites; empty when freely learnable. */
+    public List<Requirement> requires() { return Collections.unmodifiableList(requires); }
 
     public boolean isCastable() { return jutsu != null; }
 
