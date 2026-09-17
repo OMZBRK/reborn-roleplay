@@ -649,6 +649,8 @@ async function postClaudeNotification(
     );
   }
   await (channel as TextChannel).send({ embeds: [embed] });
+}
+
 /** Payload de l'annonce « mises a jour de mods disponibles » (API → bot). */
 interface ModsUpdatePayload {
   /** Nombre de mods avec une version plus recente compatible. */
