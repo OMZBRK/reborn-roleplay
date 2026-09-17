@@ -6,7 +6,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Modes de présentation « cinéma » pour l'immersion / les screenshots RP. La
- * touche de bascule (K) <b>cycle sur trois états distincts</b> :
+ * touche de bascule (F1 par défaut — elle remplace le « masquer l'ATH »
+ * vanilla) <b>cycle sur trois états distincts</b> :
  * <ol>
  *   <li>{@code HUD} — jeu normal, HUD visible, pas de bandes (état de repos) ;</li>
  *   <li>{@code CLEAN} — HUD masqué, <b>écran plein propre</b> (sans bandes) ;</li>

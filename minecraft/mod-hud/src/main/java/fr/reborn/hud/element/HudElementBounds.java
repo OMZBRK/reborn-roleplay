@@ -80,4 +80,35 @@ public record HudElementBounds(int x, int y, int width, int height) {
         int newY = targetY - Math.round(newH * anchor.fy);
         return new HudElementBounds(newX, newY, newW, newH);
     }
+
+    /**
+     * Inverse de {@link #currentFor} : offset {@code (x, y)} à stocker dans
+     * l'état pour que le coin haut-gauche de la box tombe exactement sur
+     * {@code (targetX, targetY)}, à l'échelle actuelle de {@code state}.
+     *
+     * <p>Indispensable dès que {@code scale != 1} : l'offset est mesuré depuis
+     * l'ANCRE, pas depuis le coin haut-gauche. Soustraire bêtement
+     * {@code vanilla.x()} de la position visée (ce que faisait le drag de
+     * l'éditeur) laisse un résidu de {@code (vanillaW - scaledW) * anchor.fx} —
+     * l'élément glissait sous le curseur, et d'autant plus qu'il était petit.
+     * Vitals (×0.80), Cooldowns (×0.60) et Endurance (×0.45) sont scalés par
+     * défaut, donc le décalage était visible dès le premier drag.
+     *
+     * @return {@code {x, y}} à passer à {@link HudElementState#withPos}.
+     */
+    public static int[] offsetForTopLeft(HudElement element, HudElementState state,
+                                         int screenWidth, int screenHeight,
+                                         int targetX, int targetY) {
+        HudElementBounds v = vanillaFor(element, screenWidth, screenHeight);
+        int newW = Math.max(8, Math.round(v.width()  * state.scale()));
+        int newH = Math.max(8, Math.round(v.height() * state.scale()));
+
+        HudAnchor anchor = state.effectiveAnchor(element);
+        int anchorX = v.x() + Math.round(v.width()  * anchor.fx);
+        int anchorY = v.y() + Math.round(v.height() * anchor.fy);
+        return new int[]{
+            targetX + Math.round(newW * anchor.fx) - anchorX,
+            targetY + Math.round(newH * anchor.fy) - anchorY
+        };
+    }
 }

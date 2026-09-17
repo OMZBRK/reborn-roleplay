@@ -14,6 +14,10 @@ commands:
     description: Debit a player's combat endurance (bridge for MagicSpells techniques, e.g. kenjutsu M1).
     usage: /scendurance [player] <amount>
     permission: shinobicombat.endurance
+  lookdown:
+    description: Force the player's camera to look straight down at the ground.
+    usage: /lookdown
+    permission: shinobicombat.lookdown
 permissions:
   shinobicombat.use:
     description: Base permission — participate in taijutsu combat.
@@ -24,3 +28,6 @@ permissions:
   shinobicombat.endurance:
     description: Adjust a player's combat endurance (used by MagicSpells via temporary-op).
     default: op
+  shinobicombat.lookdown:
+    description: Use /lookdown to snap the camera toward the ground.
+    default: true

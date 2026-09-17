@@ -409,9 +409,10 @@ public final class MobilityListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
-        // Stale-state sweep: a crash may have left the speed modifier or
-        // allowFlight behind. Remove by key; arm logic will re-set later.
+        // Stale-state sweep: a crash may have left the speed / auto-step modifier
+        // or allowFlight behind. Remove by key; arm logic will re-set later.
         mobility.narutoRun().removeModifier(p);
+        mobility.narutoRun().removeStepHeight(p);
         if (p.getGameMode() == GameMode.SURVIVAL
                 || p.getGameMode() == GameMode.ADVENTURE) {
             p.setAllowFlight(false);

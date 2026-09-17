@@ -38,10 +38,8 @@ import java.util.UUID;
 public final class NarutoRun {
 
     private static final String KEY_NAME = "naruto_run_speed";
-
-    /** Verrou de ré-activation après une interruption (dégâts) — empêche de
-     *  relancer la course instantanément. Tunable ici. */
-    private static final long INTERRUPT_LOCKOUT_MS = 30_000L;
+    /** Modificateur d'auto-step (monter une marche sans sauter) pendant la course. */
+    private static final String KEY_STEP = "naruto_run_step";
 
     private final JavaPlugin plugin;
     private final CoreServices core;
@@ -98,6 +96,19 @@ public final class NarutoRun {
         return p == null ? 1.0 : currentMult.getOrDefault(p.getUniqueId(), 1.0);
     }
 
+    /** Verrou de ré-activation après une interruption (coup reçu) — empêche de
+     *  relancer la course instantanément. Config : {@code interrupt-lockout-ms}. */
+    private long interruptLockoutMs() {
+        return plugin.getConfig().getLong("mobility.naruto-run.interrupt-lockout-ms", 30_000L);
+    }
+
+    /** Bonus d'auto-step appliqué pendant la course : le shinobi gravit marches,
+     *  slabs et blocs isolés sans sauter (STEP_HEIGHT vanilla = 0.6 → 0.6 + bonus).
+     *  1.0 franchit un bloc plein. 0 = désactivé. */
+    private double stepHeightBonus() {
+        return plugin.getConfig().getDouble("mobility.naruto-run.step-height-bonus", 1.0);
+    }
+
     private double costPerSecond() {
         return plugin.getConfig().getDouble("mobility.naruto-run.chakra-cost-per-second", 3.0);
     }
@@ -139,28 +150,50 @@ public final class NarutoRun {
         return p != null && active.contains(p.getUniqueId());
     }
 
+    /** Demande explicite du client : « démarre la course ». No-op si déjà active. */
+    public boolean requestStart(Player p) {
+        if (isActive(p)) { syncToClient(p, true); return false; }
+        return toggle(p);
+    }
+
+    /** Demande explicite du client : « arrête la course ». No-op si déjà à l'arrêt. */
+    public boolean requestStop(Player p) {
+        if (!isActive(p)) { syncToClient(p, false); return false; }
+        stop(p, true);
+        return true;
+    }
+
     /** Sneak-tap entry point. Returns true when the toggle flipped. */
     public boolean toggle(Player p) {
         if (isActive(p)) { stop(p, true); return true; }
-        if (!enabled()) return false;
+        if (!enabled()) { syncToClient(p, false); return false; }
 
         // Verrou post-interruption : après un coup reçu, la course est bloquée
-        // pendant INTERRUPT_LOCKOUT_MS pour éviter une relance instantanée.
+        // pendant interrupt-lockout-ms pour éviter une relance instantanée.
+        long lockout = interruptLockoutMs();
         long sinceInterrupt = System.currentTimeMillis()
                 - lastInterruptMs.getOrDefault(p.getUniqueId(), 0L);
-        if (sinceInterrupt < INTERRUPT_LOCKOUT_MS) {
-            p.sendActionBar(Component.text("Trop tôt pour repartir — reprends ton souffle.",
+        if (sinceInterrupt < lockout) {
+            long left = (lockout - sinceInterrupt + 999L) / 1000L;
+            p.sendActionBar(Component.text(
+                    "Trop tôt pour repartir — reprends ton souffle (" + left + " s).",
                     NamedTextColor.RED));
+            syncToClient(p, false);
             return false;
         }
 
         ShinobiCharacter c = Players.active(core.characters(), p);
-        if (c == null) return false;
+        if (c == null) { syncToClient(p, false); return false; }
         // Path Two: the run IS the path — no separate per-slot unlock needed.
-        if (!isFlux(p) && !toggles.isEnabled(c.id(), MobilityActionSlot.NARUTO_RUN)) return false;
+        if (!isFlux(p) && !toggles.isEnabled(c.id(), MobilityActionSlot.NARUTO_RUN)) {
+            p.sendActionBar(Component.text("Course Shinobi non débloquée.", NamedTextColor.GRAY));
+            syncToClient(p, false);
+            return false;
+        }
         if (c.chakra().current() < minChakraToStart()) {
             p.sendActionBar(Component.text("Chakra insuffisant pour courir.",
                     NamedTextColor.AQUA));
+            syncToClient(p, false);
             return false;
         }
 
@@ -179,8 +212,10 @@ public final class NarutoRun {
             MobilityMath.applyImpulse(p, MobilityMath.intentDir(p, 0.85), launch, 0.0,
                     0.6, 1.0, MobilityMath.VMode.ADD);
         }
+        applyStepHeight(p);                   // auto-step : plus besoin de sauter les marches
         p.playSound(p.getLocation(), Sound.ENTITY_BREEZE_IDLE_AIR, 0.6f, 1.4f);
         p.sendActionBar(Component.text("Course Shinobi activée", NamedTextColor.GREEN));
+        syncToClient(p, true);
         return true;
     }
 
@@ -193,14 +228,21 @@ public final class NarutoRun {
         rampAccumMs.remove(id);
         stoppedMs.remove(id);
         removeModifier(p);
+        removeStepHeight(p);
+        if (was) syncToClient(p, false);      // le client sort du mode (anims + mouvement)
         if (was && feedback && p.isOnline()) {
             p.sendActionBar(Component.text("Course Shinobi désactivée", NamedTextColor.GRAY));
             p.playSound(p.getLocation(), Sound.ENTITY_BREEZE_LAND, 0.5f, 1.0f);
         }
     }
 
-    /** Interruption par un coup reçu : stoppe la course (avec feedback) et
-     *  arme le verrou de relance ({@link #INTERRUPT_LOCKOUT_MS}). */
+    /**
+     * Interruption par un coup reçu : stoppe la course (avec feedback) et arme le
+     * verrou de relance ({@code mobility.naruto-run.interrupt-lockout-ms}). Le
+     * {@link #stop} qui suit pousse l'état au client, donc le mod sort du mode
+     * course tout seul — c'est ce qui rend « le retrait du mode à chaque coup »
+     * visible côté joueur et pas seulement côté serveur.
+     */
     public void interrupt(Player p) {
         if (p == null) return;
         lastInterruptMs.put(p.getUniqueId(), System.currentTimeMillis());
@@ -258,6 +300,57 @@ public final class NarutoRun {
         var key = Keys.key(KEY_NAME);
         for (AttributeModifier m : inst.getModifiers().toArray(new AttributeModifier[0])) {
             if (key.equals(m.getKey())) inst.removeModifier(m);
+        }
+    }
+
+    /* ------------------------------------------------------------ auto-step */
+
+    /** Auto-step : le coureur gravit marches / slabs / blocs isolés sans sauter.
+     *  ADD_NUMBER sur STEP_HEIGHT (0.6 vanilla + bonus). Même hygiène que la
+     *  vitesse : on retire d'abord par clé pour ne jamais empiler. */
+    private void applyStepHeight(Player p) {
+        AttributeInstance inst = p.getAttribute(Attribute.STEP_HEIGHT);
+        if (inst == null) return;
+        removeStepHeight(p);
+        // Voie du Flux pose déjà son propre step-height (step-height-bonus du
+        // module Path Two) — empiler les deux doublerait la marche franchissable.
+        if (isFlux(p)) return;
+        double bonus = stepHeightBonus();
+        if (bonus <= 0.0) return;
+        inst.addTransientModifier(new AttributeModifier(
+                Keys.key(KEY_STEP), bonus,
+                AttributeModifier.Operation.ADD_NUMBER,
+                EquipmentSlotGroup.ANY));
+    }
+
+    /** Retire l'auto-step par clé. Toujours sûr à appeler (stop / quit / KO / join). */
+    public void removeStepHeight(Player p) {
+        AttributeInstance inst = p.getAttribute(Attribute.STEP_HEIGHT);
+        if (inst == null) return;
+        var key = Keys.key(KEY_STEP);
+        for (AttributeModifier m : inst.getModifiers().toArray(new AttributeModifier[0])) {
+            if (key.equals(m.getKey())) inst.removeModifier(m);
+        }
+    }
+
+    /* ---------------------------------------------------------- sync client */
+
+    /**
+     * Pousse l'état <b>autoritaire</b> au mod client (canal {@code reborn:run},
+     * 1 octet). Sans ça le mod restait bloqué en mode course quand le serveur la
+     * coupait (coup reçu, chakra épuisé, KO) ou la refusait : le joueur gardait
+     * l'animation et le mouvement libre sans le moindre bonus.
+     *
+     * <p>Silencieux si le joueur n'écoute pas le canal (client vanilla / mod
+     * absent) — {@code sendPluginMessage} lèverait sinon sur un canal non
+     * enregistré côté plugin, d'où le garde + le catch.
+     */
+    private void syncToClient(Player p, boolean state) {
+        if (p == null || !p.isOnline()) return;
+        try {
+            p.sendPluginMessage(plugin, RunChannelListener.CHANNEL, new byte[]{ (byte) (state ? 1 : 0) });
+        } catch (RuntimeException ignored) {
+            // canal non enregistré (plugin en cours de désactivation) → rien à faire.
         }
     }
 

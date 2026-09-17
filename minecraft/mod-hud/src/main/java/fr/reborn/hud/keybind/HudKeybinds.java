@@ -31,6 +31,14 @@ public final class HudKeybinds {
     public static KeyMapping PARRY;
 
     /**
+     * Bascule des bandes cinéma / mode sans HUD. Défaut <b>F1</b> : ça remplace
+     * le « masquer l'ATH » vanilla (redondant avec le mode CLEAN de Reborn) et
+     * ça libère la touche K. Exposée pour {@code KeyboardCinemaMixin}, qui
+     * neutralise le F1 vanilla UNIQUEMENT tant que ce bind est resté sur F1.
+     */
+    public static KeyMapping CINEMA;
+
+    /**
      * Tous les binds Reborn de ce mod, dans l'ordre d'affichage — l'onglet
      * Contrôles ({@code ControlsTab}) les liste pour rebind inline. Rempli à
      * {@link #registerClient()}.
@@ -55,7 +63,10 @@ public final class HudKeybinds {
         KeyMapping openEditScreen = bind("key.reborn-hud.open_editor", GLFW.GLFW_KEY_H);
         KeyMapping openCrosshair = bind("key.reborn-hud.open_crosshair", GLFW.GLFW_KEY_J);
         KeyMapping openInteraction = bind("key.reborn-hud.open_interaction", GLFW.GLFW_KEY_R);
-        KeyMapping toggleCinema = bind("key.reborn-hud.toggle_cinema", GLFW.GLFW_KEY_K);
+        // F1 : remplace le « masquer l'ATH » vanilla (cf KeyboardCinemaMixin qui
+        // annule le F1 de Minecraft tant que ce bind vaut F1). Libère la touche K.
+        KeyMapping toggleCinema = bind("key.reborn-hud.toggle_cinema", GLFW.GLFW_KEY_F1);
+        CINEMA = toggleCinema;
         KeyMapping togglePhoto = bind("key.reborn-hud.toggle_photo", GLFW.GLFW_KEY_P);
         PHOTO = togglePhoto;
 

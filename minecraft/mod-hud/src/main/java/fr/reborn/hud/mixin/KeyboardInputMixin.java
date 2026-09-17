@@ -71,27 +71,43 @@ public abstract class KeyboardInputMixin {
             return; // déplacement reste relatif caméra (yaw = camYaw)
         }
 
-        // FREE-LOOK (sur les deux modes) : la caméra orbite librement
-        // (EntityChangeLookMixin route la souris vers l'orbite). À l'arrêt on
-        // tourne autour du perso sans le faire pivoter.
+        // FREE-LOOK (maintien ALT) : le perso est gelé — aucune orientation posée
+        // ici, et LocalPlayerBodyMixin ré-applique la pose capturée au TAIL du
+        // tick (sinon vanilla la rétablirait vers la direction de déplacement).
+        // Le déplacement reste relatif au perso (input vanilla), la caméra orbite.
+        if (cam.freeLook()) return;
+
         Vec2 mv = ((ClientInput) (Object) this).getMoveVector();
         float mf = mv.y; // avant
         float ms = mv.x; // latéral
-        if (mf == 0f && ms == 0f) return; // arrêt → free-look, garde l'orientation
-        // FREE-LOOK (maintien ALT) : on regarde autour sans réorienter le corps.
-        // Le déplacement reste relatif au perso (input vanilla), la caméra orbite.
-        if (cam.freeLook()) return;
+
+        // ARRÊT : la tête suit la caméra. On pose yRot/xRot ICI et pas au TAIL du
+        // tick joueur, parce que LocalPlayer#sendPosition part APRÈS aiStep : posé
+        // au TAIL, le mouvement de tête arrivait un tick en retard côté serveur (et
+        // le yaw n'était même pas envoyé du tout — les autres ne voyaient que le
+        // haut/bas). Le VISUEL corps/tête reste géré par LocalPlayerBodyMixin.
+        if (mf == 0f && ms == 0f) {
+            float align = cam.alignFactor();
+            float yaw = Mth.rotLerp(align, player.getYRot(), cyaw);
+            player.setYRot(yaw);
+            player.setXRot(Mth.lerp(align, player.getXRot(), (float) cam.camPitch()));
+            player.setYHeadRot(yaw);
+            return;
+        }
 
         // BASE (marche / course) — principe Minecraft : le perso suit la caméra
         // (souris). On pose yaw = camYaw pour que le DÉPLACEMENT soit relatif
         // caméra ce tick ; l'orientation VISIBLE du corps est re-forcée en
         // post-tick (LocalPlayerBodyMixin) car vanilla tourne sinon le corps vers
-        // la direction de déplacement, écrasant notre valeur. À l'arrêt : rien →
-        // free-look. Le pivot vers la direction de déplacement = Naruto run.
+        // la direction de déplacement, écrasant notre valeur. Le pivot vers la
+        // direction de déplacement = Naruto run.
         if (!fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive()) {
-            player.setYRot(cyaw);
-            player.setYBodyRot(cyaw);
-            player.setYHeadRot(cyaw);
+            // alignFactor() == 1 hors rattrapage post-free-look → collage instantané
+            // (comportement d'origine) ; < 1 pendant ~5 ticks après un relâchement.
+            float yaw = Mth.rotLerp(cam.alignFactor(), player.getYRot(), cyaw);
+            player.setYRot(yaw);
+            player.setYBodyRot(yaw);
+            player.setYHeadRot(yaw);
             return;
         }
 

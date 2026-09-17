@@ -222,6 +222,16 @@ public final class JutsuExecutionManager {
             actionBar(p, "Technique non apprise : " + a.name(), NamedTextColor.RED);
             return null;
         }
+        // Access prerequisites (requires:). Admins bypass, like the learned gate.
+        if (!p.hasPermission("shinobiabilities.admin")) {
+            for (com.reborn.shinobicore.technique.Requirement req : a.requires()) {
+                var fail = req.check(c);
+                if (fail.isPresent()) {
+                    actionBar(p, fail.get(), NamedTextColor.RED);
+                    return null;
+                }
+            }
+        }
         long remaining = cooldowns.remainingMillis(p.getUniqueId(), a.id());
         if (remaining > 0) {
             actionBar(p, "⏳ " + a.name() + " — encore "
@@ -277,6 +287,24 @@ public final class JutsuExecutionManager {
             c.addAbilityMastery(a.id(), masteryGain);
         }
         actionBar(p, "✦ " + a.name(), NamedTextColor.AQUA);
+    }
+
+    /**
+     * Play a technique's effect (internal VFX + external MagicSpells/MythicMobs
+     * commands) with <b>no cost, cooldown, mastery gain or learn/gate check</b>.
+     * The staff test loop: {@code /sa preview <id>} and the editor's
+     * « Tester sur moi ». Nothing is spent, nothing is persisted.
+     */
+    public void preview(Player p, Ability a) {
+        if (!p.isOnline() || a.jutsu() == null) return;
+        if (a.jutsu().effectKey() != null) {
+            effects.dispatch(plugin, p, a);
+        }
+        ShinobiCharacter c = com.reborn.shinobicore.util.Players.active(core.characters(), p);
+        if (c != null) {
+            dispatchCommands(p, c, a);
+        }
+        actionBar(p, "👁 Aperçu : " + a.name(), NamedTextColor.LIGHT_PURPLE);
     }
 
     /** Run the jutsu's external commands (MagicSpells & co). */
