@@ -44,32 +44,47 @@ public final class Effects {
 
     /* ----------------------------------------------------- particles */
 
+    /** Number of network points a batched cone is split into. Each carries
+     *  several particles spread client-side, so a 140-particle Gōkakyū costs
+     *  ~12 packets instead of 140. */
+    private static final int CONE_SEGMENTS = 12;
+    /** Half-width of the client-side spread box; matches the old ±0.3 jitter. */
+    private static final double CONE_SPREAD = 0.3;
+
     /** Spawn {@code count} particles inside a forward cone of
-     *  {@code length} blocks ahead of {@code caster}'s eye. */
+     *  {@code length} blocks ahead of {@code caster}'s eye.
+     *
+     *  <p>Batched: rather than one packet per particle (up to 156 for a
+     *  Katon Gōkakyū, broadcast to every spectator in view distance), the cone
+     *  is emitted at {@link #CONE_SEGMENTS} points along its axis, each carrying
+     *  several particles that the client scatters within the offset box — an
+     *  identical look for ~12 packets. {@code force=false} lets distant clients
+     *  cull the effect (the LOD the per-particle loop never had). */
     public static void forwardCone(Player caster, double length,
                                    Particle particle, int count) {
+        if (count <= 0) return;
         Vector dir = caster.getEyeLocation().getDirection();
         Location origin = caster.getEyeLocation();
-        for (int i = 0; i < count; i++) {
-            double t = (i / (double) count) * length;
+        int segments = Math.min(count, CONE_SEGMENTS);
+        int perPoint = Math.max(1, count / segments);
+        for (int i = 0; i < segments; i++) {
+            double t = (i / (double) segments) * length;
             Location l = origin.clone().add(dir.clone().multiply(t));
-            // Small jitter sideways for the cone shape.
-            double jx = (Math.random() - 0.5) * 0.6;
-            double jy = (Math.random() - 0.5) * 0.6;
-            double jz = (Math.random() - 0.5) * 0.6;
-            l.add(jx, jy, jz);
-            l.getWorld().spawnParticle(particle, l, 1, 0, 0, 0, 0);
+            l.getWorld().spawnParticle(particle, l, perPoint,
+                    CONE_SPREAD, CONE_SPREAD, CONE_SPREAD, 0.0, null, false);
         }
     }
 
-    /** Spawn a ring of particles at {@code center} with {@code radius}. */
+    /** Spawn a ring of particles at {@code center} with {@code radius}.
+     *  Each anchor point is a distinct position (a ring can't be collapsed
+     *  into one offset box), but {@code force=false} still gives distance LOD. */
     public static void spawnRing(Location center, Particle particle,
                                  double radius, int count) {
         for (int i = 0; i < count; i++) {
             double a = (Math.PI * 2 * i) / count;
             Location l = center.clone().add(
                     Math.cos(a) * radius, 0, Math.sin(a) * radius);
-            l.getWorld().spawnParticle(particle, l, 1, 0, 0, 0, 0);
+            l.getWorld().spawnParticle(particle, l, 1, 0, 0, 0, 0.0, null, false);
         }
     }
 
@@ -90,6 +105,7 @@ public final class Effects {
                     .subtract(origin.toVector());
             double dist = toEntity.length();
             if (dist > length) continue;
+            if (dist < 1e-4) continue;   // entity on the eye → normalize() would NaN
             double dot = toEntity.normalize().dot(dir);
             if (dot < 0.6) continue;     // outside forward cone
             le.damage(damage, caster);
