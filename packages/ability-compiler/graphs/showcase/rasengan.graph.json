@@ -1,0 +1,41 @@
+{
+  "id": "rasengan",
+  "name": "Rasengan",
+  "category": "ninjutsu/pur",
+  "rank": "A",
+  "execution": "JUTSU",
+  "description": "Orbe de chakra tournoyant concentré dans la paume, projeté au contact.",
+  "nodes": [
+    { "id": "frame", "type": "technique", "method": "LEFT_CLICK", "itemType": "ROULEAU", "chakra": 70, "cooldownMs": 9000, "requires": [{ "type": "nature", "id": "" }], "position": { "x": 40, "y": 220 } },
+    { "id": "ms_rasengan", "type": "spell", "spellClass": ".MultiSpell", "displayName": "&bRasengan", "helperSpell": false, "options": { "cooldown": 9 }, "modifiers": [], "effects": [], "position": { "x": 320, "y": 220 } },
+    {
+      "id": "orb_rasengan", "type": "spell", "spellClass": ".instant.DummySpell", "helperSpell": true, "options": {}, "modifiers": [],
+      "effects": [
+        { "position": "caster", "effect": "sound", "sound": "block.beacon.power_select", "volume": 1.0, "pitch": 1.8, "params": {} },
+        {
+          "position": "caster", "effect": "entity", "params": {},
+          "entitySpec": {
+            "entity": "item_display", "item": "rasengan_orb", "duration": 30, "billboard": "center",
+            "glowing": true, "glowColorOverride": "255,120,200,255", "brightnessBlock": 15, "brightnessSky": 15,
+            "interpolationDuration": 4,
+            "transformation": { "scale": "0.6,0.6,0.6", "translation": "0,1.4,1.2", "leftRotation": "0,0,0,1" },
+            "keyframes": [
+              { "delay": 1, "interval": 1, "iterations": 6, "data": { "transformation": { "leftRotation": "0,1,0,0", "scale": "1.2,1.2,1.2", "translation": "0,1.4,1.2" } } }
+            ],
+            "extra": {}
+          }
+        }
+      ],
+      "position": { "x": 620, "y": 130 }
+    },
+    { "id": "area_rasengan", "type": "spell", "spellClass": ".targeted.AreaEffectSpell", "helperSpell": true, "options": { "horizontal-radius": 2.5, "vertical-radius": 2.5, "point-blank": true, "cone": 40 }, "modifiers": [], "effects": [], "position": { "x": 620, "y": 320 } },
+    { "id": "pain_rasengan", "type": "spell", "spellClass": ".targeted.PainSpell", "helperSpell": true, "options": { "damage": 9 }, "modifiers": [], "effects": [ { "position": "target", "effect": "particles", "particle": "crit", "count": 25, "params": { "horiz-spread": 0.5, "vert-spread": 0.5 } } ], "position": { "x": 900, "y": 320 } },
+    { "id": "rasengan_orb", "type": "magicItem", "itemId": "rasengan_orb", "options": { "type": "heart_of_the_sea", "name": "&bRasengan" }, "position": { "x": 620, "y": 460 } }
+  ],
+  "edges": [
+    { "from": "frame", "to": "ms_rasengan", "role": "root" },
+    { "from": "ms_rasengan", "to": "orb_rasengan", "role": "chain", "order": 0 },
+    { "from": "ms_rasengan", "to": "area_rasengan", "role": "chain", "order": 1, "delay": 6 },
+    { "from": "area_rasengan", "to": "pain_rasengan", "role": "chain", "order": 0 }
+  ]
+}

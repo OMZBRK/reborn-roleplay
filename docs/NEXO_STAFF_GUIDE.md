@@ -12,9 +12,36 @@ depuis **panel.reborn-rp.com → onglet Fichiers**, sans rebuild ni accès SFTP.
 - Panel → **Fichiers** → tu vois ta racine `Nexo — modèles & items`.
 - Ton modèle exporté depuis **Blockbench** en *Java Item* (`.json`) + sa/ses texture(s) `.png`.
 
-> Toute action (édition, upload, déplacement, suppression) est **sauvegardée
-> automatiquement** (`.bak`) et **tracée** (qui a fait quoi). Tu ne peux sortir
-> que de ton périmètre `Nexo`.
+> Toute action (édition, upload, déplacement, suppression) est **tracée** (qui a
+> fait quoi). Attention : la suppression est **définitive** (plus de `.bak`). Tu
+> ne peux sortir que de ton périmètre `Nexo`.
+
+---
+
+## ⚡ Voie rapide — bouton « Item animé » (recommandé)
+
+Pour un **effet de spell animé** (slash, impact, éclat de chakra…), pas besoin
+de tout faire à la main. Dans **Fichiers**, clique **« Item animé »** dans la
+barre d'outils :
+
+1. Choisis ta **spritesheet PNG** (frames carrées empilées à la verticale).
+2. Le panel **détecte le nombre de frames** tout seul (hauteur ÷ largeur) et
+   pré-remplit l'identifiant depuis le nom du fichier.
+3. (Option) ajuste id / nom / frametime, puis **Créer l'item**.
+
+Le panel écrit d'un coup, avec les **bonnes références** (fini les 2 pièges
+ci-dessous) :
+
+- `pack/assets/reborn/models/item/<id>.json` (modèle plat, ref `reborn:item/<id>`),
+- `pack/assets/reborn/textures/item/<id>.png` + `<id>.png.mcmeta` (animation),
+- `items/<id>.yml` (`Pack.model: reborn:item/<id>`),
+
+puis **recharge Nexo automatiquement**. Il te rend `nexo:<id>` + un **snippet
+MagicSpells `itemdisplay`** prêt à coller. Reconnecte-toi en jeu pour récupérer
+le pack. Rien d'autre à toucher.
+
+> Le reste de ce guide décrit la voie **manuelle** (modèles 3D Blockbench,
+> câblage fin) — utile quand tu dépasses le simple effet animé.
 
 ---
 

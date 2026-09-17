@@ -27,23 +27,21 @@ export function readFile(path: string): Promise<FileContent> {
 export function writeFile(
   path: string,
   content: string,
-): Promise<{ path: string; size: number; backedUp: boolean }> {
+): Promise<{ path: string; size: number }> {
   return api('/files/write', { method: 'POST', body: { path, content } });
 }
 
 export function uploadFile(
   path: string,
   contentBase64: string,
-): Promise<{ path: string; size: number; backedUp: boolean }> {
+): Promise<{ path: string; size: number }> {
   return api('/files/upload', {
     method: 'POST',
     body: { path, contentBase64 },
   });
 }
 
-export function deleteFile(
-  path: string,
-): Promise<{ deleted: true; backedUp: boolean }> {
+export function deleteFile(path: string): Promise<{ deleted: true }> {
   return api(`/files?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
 }
 
@@ -68,4 +66,30 @@ export function reload(
   target: string,
 ): Promise<{ queued: boolean; message: string; id?: string }> {
   return api('/files/reload', { method: 'POST', body: { target } });
+}
+
+export interface AnimatedItemResult {
+  itemId: string;
+  animated: boolean;
+  frames: number;
+  frametime: number;
+  files: string[];
+  reloadQueued: boolean;
+  snippet: string;
+}
+
+/**
+ * Générateur « item animé Nexo » : une spritesheet PNG → modèle + animation +
+ * entrée Nexo écrits d'un coup côté serveur, puis `nexo reload`. Renvoie
+ * `nexo:<id>` prêt pour un effet MagicSpells `itemdisplay`.
+ */
+export function createAnimatedItem(body: {
+  id: string;
+  spriteBase64: string;
+  name?: string;
+  frames?: number;
+  frametime?: number;
+  animated?: boolean;
+}): Promise<AnimatedItemResult> {
+  return api('/files/nexo/animated-item', { method: 'POST', body });
 }

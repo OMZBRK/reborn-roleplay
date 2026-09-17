@@ -1,0 +1,35 @@
+{
+  "id": "kawarimi",
+  "name": "Kawarimi no Jutsu (Substitution)",
+  "category": "ninjutsu/pur",
+  "rank": "D",
+  "execution": "JUTSU",
+  "description": "Substitution corporelle : on esquive en laissant une bûche derrière soi dans un nuage de fumée.",
+  "nodes": [
+    { "id": "frame", "type": "technique", "method": "HOLD_SNEAK", "itemType": "ROULEAU", "chakra": 15, "cooldownMs": 6000, "requires": [], "position": { "x": 40, "y": 200 } },
+    { "id": "ms_kawarimi", "type": "spell", "spellClass": ".MultiSpell", "displayName": "&fKawarimi", "helperSpell": false, "options": { "cooldown": 6 }, "modifiers": [], "effects": [], "position": { "x": 320, "y": 200 } },
+    { "id": "dodge_kawarimi", "type": "spell", "spellClass": ".instant.LeapSpell", "helperSpell": true, "options": { "forward-velocity": -34, "upward-velocity": 9, "cancel-damage": true }, "modifiers": [], "effects": [ { "position": "caster", "effect": "sound", "sound": "entity.enderman.teleport", "volume": 1.0, "pitch": 0.9, "params": {} } ], "position": { "x": 620, "y": 120 } },
+    {
+      "id": "log_kawarimi", "type": "spell", "spellClass": ".instant.DummySpell", "helperSpell": true, "options": {}, "modifiers": [],
+      "effects": [
+        { "position": "caster", "effect": "particles", "particle": "cloud", "count": 40, "params": { "horiz-spread": 0.7, "vert-spread": 0.9, "speed": 0.02 } },
+        {
+          "position": "caster", "effect": "entity", "params": {},
+          "entitySpec": {
+            "entity": "block_display", "block": "minecraft:oak_log", "duration": 40, "billboard": "none",
+            "interpolationDuration": 3,
+            "transformation": { "scale": "0.9,1.4,0.9", "translation": "-0.45,0,-0.45", "leftRotation": "0.1,0,0,0.99" },
+            "keyframes": [ { "delay": 30, "iterations": 1, "data": { "transformation": { "scale": "0,0,0", "translation": "-0.45,0,-0.45" } } } ],
+            "extra": {}
+          }
+        }
+      ],
+      "position": { "x": 620, "y": 300 }
+    }
+  ],
+  "edges": [
+    { "from": "frame", "to": "ms_kawarimi", "role": "root" },
+    { "from": "ms_kawarimi", "to": "log_kawarimi", "role": "chain", "order": 0 },
+    { "from": "ms_kawarimi", "to": "dodge_kawarimi", "role": "chain", "order": 1 }
+  ]
+}

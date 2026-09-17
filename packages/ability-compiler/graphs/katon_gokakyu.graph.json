@@ -1,0 +1,95 @@
+{
+  "id": "katon_gokakyu",
+  "name": "Katon : Boule de Feu Suprême",
+  "category": "ninjutsu/katon",
+  "rank": "B",
+  "execution": "JUTSU",
+  "description": "Une gerbe de flammes projetée droit devant. Signe du Tigre.",
+  "nodes": [
+    {
+      "id": "frame",
+      "type": "technique",
+      "method": "LEFT_CLICK",
+      "itemType": "ROULEAU",
+      "chakra": 60,
+      "cooldownMs": 8000,
+      "masteryPerCast": 1,
+      "requires": [
+        { "type": "nature", "id": "katon" },
+        { "type": "mastery", "id": "controle_chakra", "min": 40 }
+      ],
+      "position": { "x": 40, "y": 200 }
+    },
+    {
+      "id": "ms_gokakyu",
+      "type": "spell",
+      "spellClass": ".MultiSpell",
+      "displayName": "&cKaton &r&f- Boule de Feu Suprême",
+      "helperSpell": false,
+      "options": {},
+      "modifiers": [],
+      "effects": [],
+      "position": { "x": 320, "y": 200 }
+    },
+    {
+      "id": "vfx_gokakyu",
+      "type": "spell",
+      "spellClass": ".instant.DummySpell",
+      "helperSpell": true,
+      "options": {},
+      "modifiers": [],
+      "effects": [
+        { "position": "caster", "effect": "sound", "sound": "entity.blaze.shoot", "volume": 1.4, "pitch": 0.7, "params": {} },
+        {
+          "position": "caster", "effect": "particles", "particle": "flame",
+          "count": 40, "params": { "horiz-spread": 0.6, "vert-spread": 0.6 }
+        },
+        {
+          "position": "caster", "effect": "entity", "params": {},
+          "entitySpec": {
+            "entity": "item_display", "item": "gokakyu_orb", "duration": 20,
+            "billboard": "center", "glowing": true, "glowColorOverride": "255,255,120,0",
+            "brightnessBlock": 15, "brightnessSky": 15, "keyframes": [
+              { "delay": 1, "iterations": 1, "data": { "transformation": { "scale": "4,4,4" } } }
+            ],
+            "transformation": { "scale": "1,1,1", "translation": "0,1.5,2" },
+            "extra": {}
+          }
+        }
+      ]
+    },
+    {
+      "id": "area_gokakyu",
+      "type": "spell",
+      "spellClass": ".targeted.AreaEffectSpell",
+      "helperSpell": true,
+      "options": { "horizontal-radius": 4, "vertical-radius": 3, "cone": 45, "point-blank": true },
+      "modifiers": [],
+      "effects": [],
+      "position": { "x": 600, "y": 300 }
+    },
+    {
+      "id": "pain_gokakyu",
+      "type": "spell",
+      "spellClass": ".targeted.PainSpell",
+      "helperSpell": true,
+      "options": { "damage": 6, "ignore-armor": false },
+      "modifiers": [],
+      "effects": [
+        { "position": "target", "effect": "particles", "particle": "block", "material": "fire", "count": 20, "params": {} }
+      ]
+    },
+    {
+      "id": "gokakyu_orb",
+      "type": "magicItem",
+      "itemId": "gokakyu_orb",
+      "options": { "type": "fire_charge", "name": "&cGōkakyū" }
+    }
+  ],
+  "edges": [
+    { "from": "frame", "to": "ms_gokakyu", "role": "root" },
+    { "from": "ms_gokakyu", "to": "vfx_gokakyu", "role": "chain", "order": 0 },
+    { "from": "ms_gokakyu", "to": "area_gokakyu", "role": "chain", "order": 1, "delay": 4 },
+    { "from": "area_gokakyu", "to": "pain_gokakyu", "role": "chain", "order": 0 }
+  ]
+}

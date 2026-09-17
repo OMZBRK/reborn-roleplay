@@ -1,0 +1,36 @@
+{
+  "name": "@reborn/ability-compiler",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Compile les graphes de techniques Reborn (graph.json) vers abilities.yml v2 + sorts MagicSpells / MythicMobs",
+  "type": "module",
+  "bin": {
+    "reborn-ability": "./dist/cli.js"
+  },
+  "exports": {
+    "./compile": { "types": "./dist/compile.d.ts", "default": "./dist/compile.js" },
+    "./dag": { "types": "./dist/dag.d.ts", "default": "./dist/dag.js" },
+    "./schema": { "types": "./dist/schema.d.ts", "default": "./dist/schema.js" },
+    "./emit": { "types": "./dist/emit.d.ts", "default": "./dist/emit.js" }
+  },
+  "scripts": {
+    "build": "tsc",
+    "ability": "tsx src/cli.ts",
+    "test": "tsx src/selftest.ts",
+    "start": "node dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "yaml": "^2.5.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

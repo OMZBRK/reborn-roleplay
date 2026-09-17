@@ -1,0 +1,15 @@
+{
+  "name": "@reborn/modrinth-sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Détection + (à venir) préparation d'updates de mods tiers depuis Modrinth pour le manifeste Reborn (semi-auto, validation 1-clic, clé de signature hors-ligne).",
+  "scripts": {
+    "check": "tsx src/cli.ts check"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^20.0.0"
+  }
+}

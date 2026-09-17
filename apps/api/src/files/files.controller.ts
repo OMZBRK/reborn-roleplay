@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MinRole } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import {
+  CreateAnimatedItemDto,
   DeleteFileDto,
   ListDirDto,
   MkdirDto,
@@ -90,5 +91,18 @@ export class FilesController {
   @Post('reload')
   reload(@Body() dto: ReloadDto, @CurrentUser() user: RequestUser) {
     return this.files.reload(user.role, user.sub, dto.target);
+  }
+
+  /**
+   * Générateur « item animé Nexo » — une spritesheet PNG → modèle + animation +
+   * entrée Nexo écrits d'un coup, puis `nexo reload`. Renvoie `nexo:<id>` prêt à
+   * coller dans un effet MagicSpells `itemdisplay`.
+   */
+  @Post('nexo/animated-item')
+  createAnimatedItem(
+    @Body() dto: CreateAnimatedItemDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.files.createAnimatedItem(user.role, user.sub, dto);
   }
 }

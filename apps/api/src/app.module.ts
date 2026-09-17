@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AbilitiesModule } from './abilities/abilities.module';
 import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -12,6 +14,7 @@ import { LoreModule } from './lore/lore.module';
 import { ManifestModule } from './manifest/manifest.module';
 import { MeModule } from './me/me.module';
 import { MenuModule } from './menu/menu.module';
+import { ModrinthModule } from './modrinth/modrinth.module';
 import { PatchnotesModule } from './patchnotes/patchnotes.module';
 import { PlayModule } from './play/play.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -33,7 +36,9 @@ import { WikiModule } from './wiki/wiki.module';
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
+    AbilitiesModule,
     AdminModule,
     AuditModule,
     AuthModule,
@@ -44,6 +49,7 @@ import { WikiModule } from './wiki/wiki.module';
     ManifestModule,
     MeModule,
     MenuModule,
+    ModrinthModule,
     PatchnotesModule,
     PlayModule,
     ReleasesModule,

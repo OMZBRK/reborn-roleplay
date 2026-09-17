@@ -2,9 +2,13 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsInt,
   IsOptional,
   IsString,
+  Matches,
+  Max,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -74,6 +78,53 @@ export class MoveDto {
   @IsString()
   @MaxLength(PATH_MAX)
   to!: string;
+}
+
+/**
+ * Corps de `POST /v1/files/nexo/animated-item` — générateur « item animé » en
+ * un coup : à partir d'une spritesheet PNG, l'API écrit dans le pack Nexo le
+ * modèle plat (réfs texture correctes), le `.png.mcmeta` d'animation et l'entrée
+ * `items/<id>.yml`, puis file un `nexo reload`. Élimine les 2 pièges silencieux
+ * (réf Blockbench + `.mcmeta` mal nommé/orienté).
+ */
+export class CreateAnimatedItemDto {
+  /** Identifiant Nexo (minuscules/chiffres/underscore) → `nexo:<id>`. */
+  @IsString()
+  @Matches(/^[a-z0-9_]+$/, {
+    message: 'id : minuscules, chiffres et underscore uniquement.',
+  })
+  @MaxLength(48)
+  id!: string;
+
+  /** Spritesheet PNG (verticale : frames carrées empilées) en base64. */
+  @IsString()
+  @MaxLength(B64_MAX)
+  spriteBase64!: string;
+
+  /** Nom affiché de l'item (défaut = id). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  name?: string;
+
+  /** Nombre de frames. Auto-détecté depuis la PNG (hauteur/largeur) si absent. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(256)
+  frames?: number;
+
+  /** Ticks par frame (défaut 2). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  frametime?: number;
+
+  /** Force l'animation on/off ; sinon déduit des dimensions (H > L → animé). */
+  @IsOptional()
+  @IsBoolean()
+  animated?: boolean;
 }
 
 /** Un résultat d'exécution renvoyé par le pont (une commande drainée). */
