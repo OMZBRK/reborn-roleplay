@@ -114,6 +114,12 @@ Conséquences concrètes :
 - **Action requise (humaine, pas dans cet audit)** : merger `feature/launcher` dans
   `main`, et commiter/pusher l'état `reborn-hud 0.4.134`.
 
+> ✅ **Résolu le 2026-09-17.** Le launcher 0.3.42 était déjà revenu sur `main` ;
+> `reborn-hud` l'a rejoint en 0.4.135 via la fusion de `feature/emote-system`. Les
+> branches `feature/migrate-26.2`, `feature/emote-system` et
+> `explore/overnight-2026-09-17` ont été fusionnées puis supprimées du remote.
+> Ce qui suit reste le constat daté du 2026-09-08 — on ne le réécrit pas.
+
 ### État des branches distantes au 2026-09-08
 
 | Branche | En avance sur `main` | En retard | Contenu |

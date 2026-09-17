@@ -6,8 +6,8 @@
 > Le futur est dans [`ROADMAP_BETA_2026.md`](./ROADMAP_BETA_2026.md).
 > L'intention d'origine est dans [`../PLAN_CONCEPTION_LAUNCHER.md`](../PLAN_CONCEPTION_LAUNCHER.md).
 >
-> **Dernière vérification : 2026-09-08** (API interrogée en direct, dépôt et boards relus).
-> À remettre à jour à chaque fin de sprint.
+> **Dernière vérification : 2026-09-17** (API interrogée en direct, dépôt relu après
+> la réunification des branches). À remettre à jour à chaque fin de sprint.
 
 ---
 
@@ -32,16 +32,23 @@
 
 | Artefact | **Publié / live** | Sur `origin/main` | Écart |
 |---|---|---|---|
-| Launcher | **0.3.42** (`/v1/launcher/update` le confirme, release `v0.3.42` du 02/09) | 0.3.40 | ⚠️ 2 commits sur `feature/launcher` seulement |
-| `reborn-hud` | **0.4.134** (release `mods-v3.1.90`, 04/09) | 0.4.132 | ⚠️ sur aucune branche distante |
+| Launcher | **0.3.42** (`/v1/launcher/update` le confirme, release `v0.3.42` du 02/09) | 0.3.42 | ✅ |
+| `reborn-hud` | **0.4.135** (bump de publication du 09/09, « correctifs test staff ») | 0.4.135 | ✅ |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | 0.2.2 | 0.2.2 | ✅ |
 | Plugins Shinobi | build manuel Maven | `minecraft/shinobi/` | déploiement SFTP manuel |
 | `reborn-guardian`, `reborn-ost-plugin` | build Gradle | `minecraft/plugin-*` | déploiement SFTP manuel |
 
-> 🔴 **Dette à résorber en priorité** : `main` ne reproduit pas la production.
-> Merger `feature/launcher` et commiter `reborn-hud 0.4.134`. Cf.
-> [`AUDIT_COHERENCE.md` §3](./AUDIT_COHERENCE.md).
+> ✅ **Dette résorbée le 2026-09-17.** `main` reproduit de nouveau la production :
+> les trois branches qui portaient du code publié (`feature/migrate-26.2`,
+> `feature/emote-system`, `explore/overnight-2026-09-17`) ont été fusionnées puis
+> supprimées. Historique : [`AUDIT_COHERENCE.md` §3](./AUDIT_COHERENCE.md).
+
+> ⚠️ **Les tags `mods-v*` ne sont pas des marqueurs de version fiables.** Ils ont été
+> posés sur `main` pendant que les jars étaient buildés depuis un worktree en avance :
+> `mods-v3.1.90` pointe sur 0.4.132 et `mods-v3.1.91` sur 0.4.133, alors que 0.4.134
+> puis 0.4.135 étaient déjà publiées. Pour connaître la version réellement livrée,
+> lire le manifest live (`/v1/manifest/current`, authentifié), pas le tag.
 
 ---
 
@@ -174,7 +181,12 @@ cooldowns, emotes RP (EmoteCraft) avec distribution serveur, OST contextuelle,
 attestation play-token.
 
 **Chantiers en cours** — refonte HUD (hub de config type OneConfig, crosshair),
-consolidation combat, `modrinth-sync` (détection auto des mises à jour de mods).
+consolidation combat, **Technique Creator** (éditeur de techniques par graphe :
+compilateur `packages/ability-compiler`, module API `abilities`, page panel
+`/abilities`, gate `requires:` et `/sa preview` côté serveur).
+
+**Atterri le 2026-09-17** — `modrinth-sync` (détection auto des mises à jour de mods,
+4 tranches + cron API + notif Discord) est mergé sur `main`.
 
 ---
 

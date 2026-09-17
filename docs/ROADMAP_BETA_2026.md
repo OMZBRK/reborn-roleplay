@@ -199,7 +199,7 @@ Ces items vivent dans la liste Trello `👑 Post-beta (v1.0.5 → v1.3)`.
 | 2 | **39 techniques reste ambitieux** | Ordre de cut défini d'avance : Nin B → Nin C → sorts claniques des clans les moins joués |
 | 3 | **Konoha trop grande pour être finie** | Ouverture RP progressive par bundles ; un quartier non fini reste fermé, il ne bloque pas le ship |
 | 4 | **Le playtest révèle des bugs bloquants** | 2 semaines dédiées (S3 + marge S4). En dernier recours : couper Nin C/B ou reporter les alentours |
-| 5 | 🔴 **Dette Git** — la prod n'est pas sur `main` | À résorber **avant le Sprint 1 S1** (cf `AUDIT_COHERENCE.md` §3 et §11) |
+| 5 | ~~**Dette Git** — la prod n'est pas sur `main`~~ | ✅ **Levé le 2026-09-17** : les branches portant du code publié ont été fusionnées puis supprimées. `main` est le tronc unique (cf `ETAT_DES_LIEUX.md` §2) |
 
 ---
 
