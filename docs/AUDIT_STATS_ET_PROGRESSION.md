@@ -131,7 +131,7 @@ sont retirés au profit des 5 stats.
 - ⚠️ Laisse l'incohérence du §4 intacte, ou repousse sa correction.
 - ⚠️ Les formules du plan sont à réécrire ; Trello, roadmap et Miro doivent suivre.
 
-### Recommandation : **voie A**
+### ✅ Décision du 2026-09-17 : **voie A**, échéance du 1er oct tenue
 
 L'argument décisif n'est pas l'élégance, c'est le calendrier. La reprise d'échelle
 devra avoir lieu de toute façon — le §4 n'est pas tenable pour une beta publique.
@@ -141,6 +141,16 @@ le 31 décembre coûte la confiance des joueurs.
 Si le 1er oct paraît trop serré pour la voie A, la position de repli n'est pas la
 voie B : c'est de décaler `StatsService` d'une semaine en prenant sur S4 (assets),
 qui n'est sur le chemin critique de personne.
+
+> **Ce qui découle de la décision.** `LevelTable` et `AffinityMultipliers` sont
+> retirés, `StatsService` devient la source de vérité des pools. Un script de
+> conversion des personnages staff est nécessaire avant le déploiement. Les
+> `chakra-cost` des 218 abilities sont à repasser sur la nouvelle échelle — ils
+> tiennent déjà dans 6-50, donc l'essentiel du travail est une vérification, pas
+> une réécriture.
+>
+> L'`Affinity` à trois axes disparaît en tant que multiplicateur ; reste à décider
+> si l'enum survit comme étiquette RP de build (voir la spec).
 
 ---
 

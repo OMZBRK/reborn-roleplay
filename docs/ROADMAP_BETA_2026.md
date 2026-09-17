@@ -120,7 +120,7 @@ Ces chiffres remplacent tous ceux qui traînaient sur le Trello et le Miro.
 > A et S sont explicitement dans la *cut list*. L'ancienne mention « cap à ~35 » du
 > Master Plan est remplacée par ce chiffre exact.
 
-### 3.2 Sorts claniques — ⚠️ décision à valider
+### 3.2 Sorts claniques — ✅ tranché le 2026-09-17 : **18**
 
 11 entrées de clan existent au wizard, mais toutes n'ont pas de sorts signature :
 
@@ -136,8 +136,10 @@ Ces chiffres remplacent tous ceux qui traînaient sur le Trello et le Miro.
 
 *Chiffres antérieurs, désormais caducs* : « 2 × 11 = 22 » (Miro) et
 « 20 restants, 10 clans × 2 » (Trello). Les deux comptaient Neutre et/ou Autre.
-**À confirmer** : si tu veux donner 2 sorts à « Autre » (kit générique staff), on
-repasse à 20 — dis-le et les boards sont réalignés.
+**Décision du 2026-09-17** : on reste à **18**. « Neutre » est polyvalent sans bonus
+par définition, « Autre » reste du sur-mesure staff au cas par cas — ni l'un ni
+l'autre ne reçoit de kit signature. La question est close, ne pas la rouvrir sans
+raison neuve.
 
 ### 3.3 Rangs de progression
 
