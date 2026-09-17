@@ -40,13 +40,21 @@ démarrer la production d'assets et le macro-terraforming.
 | Semaine | Livrable |
 |---|---|
 | **S0 · 4-10 sept** | Consolidation : merge des branches en retard, remise à plat docs/Trello/Miro, décisions ouvertes tranchées (monnaies, comptage des techniques) |
-| **S1 · 11-17 sept** | **Design Stats** : 5 stats (Force, Endurance, Chakra, Contrôle, Précision) + formules dérivées (HP, chakra, crit) + résistances par nature. **Design Progression** : table XP par rang + XP par activité + arbre 4 branches. **Design Parchemins** : item Nexo, jet caché %, loot tables, UI bibliothèque |
-| **S2 · 18-24 sept** | **Design Faction Konoha** : permissions Kage/sections, trésor commun, whitelist géo, examens Chunin. **Design KO / mort RP** : flow ATA, règles de mort définitive validée staff, écran KO |
+| **S1 · 11-17 sept** | ⚠️ **Écart au plan.** Les 3 designs prévus n'ont pas été faits ; la semaine est partie sur le **Technique Creator** (compilateur de graphes, éditeur panel, gate `requires:`, preview en jeu) et la réunification du tronc Git. Ce n'est pas du temps perdu — c'est l'outil qui rend tenable la cadence des 57 techniques — mais les designs glissent en S2 |
+| **S2 · 18-24 sept** | **Rattrapage + finalisation — semaine chargée (5 designs).** Reportés de S1 : **Stats** (5 stats + formules dérivées + résistances par nature), **Progression** (table XP par rang + par activité + arbre 4 branches), **Parchemins** (item Nexo, jet caché %, loot tables, UI). Prévus : **Faction Konoha** (permissions Kage/sections, trésor commun, whitelist géo, examens Chunin) et **KO / mort RP** (flow ATA, règles de mort définitive, écran KO) |
 | **S3 · 25 sept - 1 oct** | **Code** : `StatsService` dans ShinobiCore (persistance + hooks event) ; peupler `ProgressionLadder` (6 rangs + seuils XP + events) ; 8 icônes de cooldown (dash, dodge, jump, block, katon-D, suiton-D, doton-D, fûton-D) |
 | **S4 · 2-8 oct** | **Assets wave 1** : 3 clans starter complets (Uchiha, Hyuga, Neutre — tenue + cheveux + iris). **Build** : macro-terraforming du Pays du Feu (WorldMachine → WorldPainter) |
 
 **DoD** — tous les designs verrouillés, foundation code prête, macro-terrain généré,
 3 clans starter jouables au wizard.
+
+> **Re-séquencement acté le 2026-09-17.** La semaine S1 a dérivé ; le choix est
+> d'**absorber** plutôt que de décaler le ship. La date du 31 décembre est tenue,
+> S3 et S4 du Sprint 1 sont inchangés. Le pari : les 3 designs reportés sont déjà
+> écrits à ~80 % sur leurs cartes Trello, leur coût réel est ~2 j de mise au propre
+> plus 3-4 j de code — absorbables dans S2 et S3.
+>
+> Si S2 déborde, l'ordre de coupe reste celui du §6 : Nin rang B d'abord.
 **Dépendances** — aucune. **Débloque** — Sprint 2.
 
 ---
