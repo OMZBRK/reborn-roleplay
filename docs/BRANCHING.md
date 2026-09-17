@@ -50,6 +50,35 @@ Prérequis outillage (voir `CLAUDE.md`) : Node 20+/pnpm 10+, JDK 25 pour les
 mods/plugins, Maven pour les plugins Shinobi, Docker pour Postgres/Redis.
 Sur Mac : les `gradlew` sont exécutables (`.gitattributes` gère le bit +x).
 
+## Reprise rapide (changer de poste au quotidien)
+
+Sur une machine **déjà configurée** (elle a déjà `.env` + l'outillage d'une
+session précédente), reprendre le travail se résume à :
+
+```bash
+git fetch --all --prune
+git switch feature/emote-system     # JEU (mods/plugins)   — OU
+git switch feature/migrate-26.2     # API / PANEL / éditeur
+git pull
+pnpm install                        # nouvelles deps éventuelles
+```
+
+⚠️ **`git pull` ne met à jour que la branche courante.** Si tu changes de sujet
+(jeu ↔ api/panel), fais `git fetch` puis `git switch` sur la bonne branche avant
+le `pull`.
+
+### Ce que `git pull` ne rapporte PAS (jamais dans git — à avoir une fois par machine)
+
+| Élément | Pourquoi absent | Quoi faire |
+|---|---|---|
+| `.env`, `.env.prod`, `secrets/*.pem` | gitignorés (secrets) — seul `.env.example` est versionné | les copier une fois par un canal sûr (gestionnaire de mots de passe / clé USB), **pas** git |
+| `node_modules/` | jamais versionné | `pnpm install` à chaque machine (et après ajout de deps) |
+| JDK 25 / Maven / Docker | outillage local | installer une fois (cf. `CLAUDE.md`) |
+| Données Postgres locales (techniques créées en test) | contenu runtime, pas du code | non synchronisé ; les **migrations** Prisma s'appliquent seules |
+
+Les **worktrees** locaux (`.claude/worktrees/`) sont propres à un poste : sur une
+autre machine, pas besoin — on `git switch` directement la branche d'intégration.
+
 ## Cycle de travail
 
 ```bash
