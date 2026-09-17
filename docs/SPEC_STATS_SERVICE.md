@@ -11,6 +11,17 @@
 
 ## 1. Le modèle
 
+> ⚠️ **Les cinq catégories ci-dessous sont provisoires.** Elles reprennent le plan
+> d'origine ; l'étude comparative [`ETUDE_STATS_COMPARATIF.md`](./ETUDE_STATS_COMPARATIF.md)
+> (2026-09-17) montre qu'elles ne parlent pas le langage du jeu — pas de stat pour
+> le kenjutsu, deux stats redondantes sur l'axe ninjutsu, et Précision/Force en
+> position de *dump stats*. Trois options y sont chiffrées, décision en attente.
+>
+> **Ce qui ne dépend pas de ce choix et reste valable tel quel** : l'API (§3), la
+> persistance et la migration (§4), l'alignement des rangs (§5), la séparation
+> leviers / structurel (§6) et le découpage d'implémentation (§7). Seuls les noms
+> des stats et les formules dérivées (§1.2) bougeront.
+
 Cinq stats, **entières**, allouées par le joueur. Pas de table de niveaux.
 
 | Stat | Ce qu'elle gouverne |
