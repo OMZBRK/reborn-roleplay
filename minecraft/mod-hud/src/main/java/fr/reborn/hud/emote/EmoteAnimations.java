@@ -95,13 +95,21 @@ public final class EmoteAnimations {
     public void registerCustom(String name, byte[] data) {
         if (name == null || name.isBlank() || data == null || data.length == 0) return;
         try {
-            // 1) Format Emotecraft natif (.emotecraft binaire ou JSON Emotecraft).
+            // 1) Format Emotecraft : soit le binaire .emotecraft, soit un JSON EmoteCraft
+            //    (export de l'éditeur web / Blockbench : name/author/description au niveau
+            //    racine + emote{ moves:[{tick,easing,turn,torso,head,rightArm,…}] }).
+            //    UniversalEmoteSerializer choisit le lecteur d'après l'EXTENSION du nom
+            //    passé : ".json" → JsonEmoteWrapper (gson), ".emotecraft" → lecteur binaire.
+            //    Il FAUT donc passer ".json" pour une charge JSON — sinon le lecteur binaire
+            //    est sélectionné, échoue, et le .json retombait sur le fallback GeckoLib qui
+            //    ne connaît pas ce schéma → emote "illisible", introuvable par /playemote.
+            boolean json = looksLikeJson(data);
             Map<String, Animation> parsed;
             try {
                 parsed = UniversalEmoteSerializer.readData(
-                        new ByteArrayInputStream(data), name + ".emotecraft");
+                        new ByteArrayInputStream(data), name + (json ? ".json" : ".emotecraft"));
             } catch (Throwable notEmotecraft) {
-                parsed = null; // pas du .emotecraft → on tentera le GeckoLib ci-dessous
+                parsed = null; // ni .emotecraft ni JSON EmoteCraft → on tentera le GeckoLib ci-dessous
             }
             // 2) Fallback : .json GeckoLib / Player-Animation-Library (export Blender). Le
             //    dev peut ainsi déposer DIRECTEMENT le .json exporté de Blender dans
@@ -131,6 +139,15 @@ public final class EmoteAnimations {
     public void clearCustom() {
         customEmotes.clear();
         pending.clear();
+    }
+
+    /** {@code true} si les octets ressemblent à du JSON (« { » en tête, BOM/espaces sautés). */
+    private static boolean looksLikeJson(byte[] data) {
+        int i = 0;
+        // Saute un éventuel BOM UTF-8 (certains éditeurs l'ajoutent).
+        if (data.length >= 3 && (data[0] & 0xFF) == 0xEF && (data[1] & 0xFF) == 0xBB && (data[2] & 0xFF) == 0xBF) i = 3;
+        while (i < data.length && Character.isWhitespace((char) data[i])) i++;
+        return i < data.length && data[i] == '{';
     }
 
     /**

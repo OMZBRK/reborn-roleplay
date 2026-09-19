@@ -78,3 +78,9 @@ emotes:
     emote: "roblox_potion_dance"
     aliases: [potion, roblox_potion_dance, danse2]
     permission: ""
+  # Emote serveur (JSON EmoteCraft déposé dans emotes/) — nom = nom de fichier sans extension.
+  tanjiro_salto_katana:
+    display: "Salto katana (Tanjiro)"
+    emote: "tanjiro_salto_katana"
+    aliases: [salto_katana, saltokatana, tanjiro, salto_tanjiro]
+    permission: ""
