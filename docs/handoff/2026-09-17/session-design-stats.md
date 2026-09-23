@@ -119,9 +119,12 @@ Les chiffres cités dans l'audit sont **mesurés sur le code**, pas estimés :
 
 ## 4. Ce qui n'est PAS fini
 
-- 🔴 **Le §1 de `SPEC_STATS_SERVICE.md` est marqué provisoire.** Il reprend les
-  cinq catégories du plan, que l'étude remet en cause. Les noms des stats et les
-  formules dérivées (§1.2) bougeront selon l'option retenue.
+- ~~🔴 **Le §1 de `SPEC_STATS_SERVICE.md` est marqué provisoire.**~~ ✅ **Tranché le
+  2026-09-23 : option B**, six stats. Le §1 est réécrit, avec trois principes en plus :
+  aucun seuil de stat sur le RP, apprentissage libre des techniques (les stats agissent
+  indirectement via coût, dégâts et maîtrise), grande échelle de chakra (~100 000 au cap,
+  équilibrage par les coûts). Points par rang et plafond restent à discuter avec le
+  staff (§1.5).
 - ✅ **Le reste de la spec ne dépend pas du choix** et reste valable tel quel :
   API (§3), persistance et migration (§4), alignement des rangs (§5), séparation
   leviers / structurel (§6), découpage d'implémentation (§7).

@@ -98,6 +98,9 @@ résolution en union sur `webhook-server.ts`, attrapée par `tsc` et corrigée e
 
 ## 4. ⏸️ La décision qui t'attend
 
+> ✅ **Levée le 2026-09-23 : option B.** Voir `SPEC_STATS_SERVICE.md` §1. Le
+> paragraphe ci-dessous est conservé tel qu'écrit le 17.
+
 **Quelles catégories de stats ?** C'est le seul blocage réel.
 
 L'audit a montré que le modèle du plan (5 stats allouables) et celui du code

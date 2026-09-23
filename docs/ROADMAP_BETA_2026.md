@@ -41,7 +41,7 @@ démarrer la production d'assets et le macro-terraforming.
 |---|---|
 | **S0 · 4-10 sept** | Consolidation : merge des branches en retard, remise à plat docs/Trello/Miro, décisions ouvertes tranchées (monnaies, comptage des techniques) |
 | **S1 · 11-17 sept** | ⚠️ **Écart au plan.** Les 3 designs prévus n'ont pas été faits ; la semaine est partie sur le **Technique Creator** (compilateur de graphes, éditeur panel, gate `requires:`, preview en jeu) et la réunification du tronc Git. Ce n'est pas du temps perdu — c'est l'outil qui rend tenable la cadence des 57 techniques — mais les designs glissent en S2 |
-| **S2 · 18-24 sept** | **Rattrapage + finalisation — semaine chargée (5 designs).** Reportés de S1 : **Stats** (5 stats + formules dérivées + résistances par nature), **Progression** (table XP par rang + par activité + arbre 4 branches), **Parchemins** (item Nexo, jet caché %, loot tables, UI). Prévus : **Faction Konoha** (permissions Kage/sections, trésor commun, whitelist géo, examens Chunin) et **KO / mort RP** (flow ATA, règles de mort définitive, écran KO) |
+| **S2 · 18-24 sept** | **Rattrapage + finalisation — semaine chargée (5 designs).** Reportés de S1 : **Stats** (✅ tranché le 23 sept : 6 stats, option B — cf. `SPEC_STATS_SERVICE.md` §1), **Progression** (table XP par rang + par activité + arbre 4 branches), **Parchemins** (item Nexo, jet caché %, loot tables, UI). Prévus : **Faction Konoha** (permissions Kage/sections, trésor commun, whitelist géo, examens Chunin) et **KO / mort RP** (flow ATA, règles de mort définitive, écran KO) |
 | **S3 · 25 sept - 1 oct** | **Code** : `StatsService` dans ShinobiCore (persistance + hooks event) ; peupler `ProgressionLadder` (6 rangs + seuils XP + events) ; 8 icônes de cooldown (dash, dodge, jump, block, katon-D, suiton-D, doton-D, fûton-D) |
 | **S4 · 2-8 oct** | **Assets wave 1** : 3 clans starter complets (Uchiha, Hyuga, Neutre — tenue + cheveux + iris). **Build** : macro-terraforming du Pays du Feu (WorldMachine → WorldPainter) |
 
@@ -65,7 +65,7 @@ démarrer la production d'assets et le macro-terraforming.
 |---|---|
 | **S1 · 9-15 oct** | **12 sorts Taïjutsu** (Basique ×3, Inter ×3, Expert ×3, Maître ×3) via `TechniqueRegistry` + anim + VFX + coût d'endurance. **Parade raffinée** : fenêtre 200 ms, counter stagger 1 s, coût 30 % endurance, 500 ms de vulnérabilité si raté |
 | **S2 · 16-22 oct** | **12 sorts Kenjutsu** (même structure, arme katana). **Combo** : M1 → sort dans une fenêtre de 500 ms → +20 % dégâts + effet spécial (guard-break Ken / chakra-drain Nin / stun Tai). **Lock-on** façon Elden Ring : 20 blocs, strafe latéral, switch à la molette |
-| **S3 · 23-29 oct** | **5 sorts Ninjutsu rang D** (1 par nature). **Résistances** via `Affinity` (triangle actif : +30 % / -30 %). **Déplacement** : 3 styles de Naruto run (Vif / Shadowstep / Suzaku) via `MobilityService` |
+| **S3 · 23-29 oct** | **5 sorts Ninjutsu rang D** (1 par nature). **Roue des natures** via `ChakraAffinity` (multiplicateur de dégâts dans le sens du cycle / contre, valeurs de départ ×1,25 / ×0,8 — `SPEC_STATS_SERVICE.md` §1.3). **Déplacement** : 3 styles de Naruto run (Vif / Shadowstep / Suzaku) via `MobilityService` |
 | **S4 · 30 oct - 5 nov** | **Konoha centre** : tour de l'Hokage, académie, marché central, auberges, portes ANBU. **Quartier Uchiha** (bundle : dojo, temple, éventail rouge) + ses 2 sorts claniques |
 
 **DoD** — combat complet jouable, **29 techniques** disponibles (12 Tai + 12 Ken +
