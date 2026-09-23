@@ -12,6 +12,12 @@
 > Suite du dossier : [`AUDIT_STATS_ET_PROGRESSION.md`](./AUDIT_STATS_ET_PROGRESSION.md)
 > (l'existant en code) et [`SPEC_STATS_SERVICE.md`](./SPEC_STATS_SERVICE.md)
 > (la mécanique, dont le §1 dépend de cette étude).
+>
+> **Version illustrée** — [Atlas des systèmes de stats](https://claude.ai/code/artifact/8a8d92af-8699-47d3-a694-6d4db7e336b2)
+> (privé, augmenté le 2026-09-21) : 26 familles de systèmes au lieu des 8 citées ici,
+> les captures d'écran d'origine, le canon des databooks, la contrainte Paper et
+> 16 propositions. Le §7 ci-dessous reprend les seuls constats qui changent une
+> décision — le reste vit dans l'atlas.
 
 ---
 
@@ -227,6 +233,84 @@ Volontairement laissé ouvert, parce que ça dépend de ton retour :
 
 ---
 
+## 7. Ce que le canon tranche (ajout du 2026-09-21)
+
+Relu depuis les databooks plutôt que depuis les autres jeux, le dossier bouge sur
+quatre points. Détail et figures dans l'atlas ; voici ce qui change une décision.
+
+### 7.1 La fiche officielle existe déjà — 8 axes, sur 40
+
+Les databooks notent chaque personnage sur **Ninjutsu, Taïjutsu, Genjutsu,
+Intelligence, Force, Vitesse, Endurance, Sceaux**, de 0,5 à 5 par pas de 0,5
+(total sur 40, plus haut relevé : 35,5). Deux absences notables : **pas d'axe
+Kenjutsu** (il est compté dans le taïjutsu) et **pas d'axe « réserve de chakra »**.
+
+Conséquence pratique : une vue « fiche databook » dérivée de nos stats est un
+livrable d'affichage quasi gratuit, et elle donne un objet de prestige RP
+(l'équivalent du *total level* de RuneScape).
+
+### 7.2 Correction du §3 : Chakra et Contrôle ne sont pas redondants
+
+Le §3 range `Contrôle` et `Chakra` parmi les doublons. Le canon dit l'inverse et en
+fait la moitié de ses combats : réserve démesurée et contrôle médiocre (Naruto),
+l'inverse strict (Sakura), contrôle d'orfèvre sur réserve moyenne (Kakashi). Les
+deux axes sont indépendants.
+
+**Le vrai doublon du plan, c'est `Contrôle` et `Précision`** — deux façons d'écrire
+« mes techniques font mieux leur travail ». La conclusion de l'option C (fusionner
+Précision dans Contrôle) reste donc bonne ; sa justification change.
+
+### 7.3 Le genjutsu est le seul vrai écart de fidélité
+
+Notre trinité (Taï / Ken / Nin) et celle du canon (Nin / Taï / Gen) ne se recouvrent
+qu'aux deux tiers. Séparer Ken de Taï est *plus fin* que le canon et se défend. En
+revanche le genjutsu n'existe nulle part chez nous : ni technique, ni branche, ni
+stat. À trancher explicitement — absent et assumé pour la beta, ou fondu dans un
+axe mental commun avec l'Intelligence du databook (et avec l'axe social).
+
+### 7.4 Les natures : hors stats, et déjà en code
+
+Le cycle canon est fermé : le feu bat le vent, le vent bat la foudre, la foudre bat
+la terre, la terre bat l'eau, l'eau bat le feu — un rang nettement supérieur
+renverse la relation, nature et rang égaux s'annulent.
+
+Ça répond à la question ouverte « résistances par nature : stat ou hors stats ? » →
+**hors stats**, c'est un triangle de contre. `ChakraAffinity.java` porte déjà les
+cinq valeurs (`NONE` par défaut, tirée au Test de la Feuille) ; il manque un
+multiplicateur au calcul de dégâts, pas une stat.
+
+### 7.5 Les multiplicateurs temporaires sont canon — et à moitié construits
+
+Huit Portes, marque maudite niveau 2, manteau de Kyubi par queues, pilules
+Akimichi, Byakugō : cinq multiplicateurs temporaires **payés en autre chose**, et
+aucune stat allouée. Le `TransformationManager` de ShinobiTail applique déjà
+`ATTACK_DAMAGE`, `MOVEMENT_SPEED`, `KNOCKBACK_RESISTANCE` et `SCALE` par palier, en
+modificateurs transitoires multiplicatifs : généraliser cette plomberie coûte
+moins que d'ajouter une stat.
+
+### 7.6 Deux mécaniques inédites que personne d'autre n'a
+
+- **Clones de l'ombre** — l'XP des clones remonte à l'original. Dépenser du chakra
+  pour multiplier l'XP de pratique est auto-limité (la réserve est le plafond) et
+  donne à un taïjutsuka une raison de monter Chakra. Aucun des 26 systèmes étudiés
+  ne fait ça.
+- **Byakugō** — mettre de côté une fraction du chakra non dépensé, plafonnée, à
+  libérer d'un coup. Le seul mécanisme du lot qui récompense la retenue.
+
+### 7.7 Rappel de la contrainte plateforme
+
+Aucun des systèmes comparés ne tourne sur Minecraft. Points d'atterrissage réels :
+`MAX_HEALTH` (déjà poussé par `CharacterManager.applyStats`), `MOVEMENT_SPEED`
+(déjà modifié par `NarutoRun` et ShinobiTail), `ATTACK_DAMAGE` — le reste est du
+calcul maison (ResourceService, ShinobiAbilities, ShinobiCombat). Deux points de
+vigilance : la barre de vie est déjà découplée de la valeur
+(`setHealthScale(20)` → dix cœurs quelle que soit l'échelle), mais `MAX_HEALTH` est
+un attribut **borné** côté vanilla — les 2 000 PV du niveau 17 frôlaient la limite,
+les 200 PV du plan n'ont aucun souci ; et tout modificateur doit être transitoire et
+nommé (la leçon d'hygiène d'attribut commentée dans `NarutoRun.java`).
+
+---
+
 ## Sources
 
 - [Elden Ring Wiki — Stats (Fextralife)](https://eldenring.wiki.fextralife.com/Stats)
@@ -240,3 +324,17 @@ Volontairement laissé ouvert, parce que ça dépend de ton retour :
 - [RPG Stat Systems Explained (StraySpark)](https://www.strayspark.studio/blog/rpg-stat-systems-character-progression-design)
 - [Dump Stat (All The Tropes)](https://allthetropes.org/wiki/Dump_Stat)
 - [Naruto Precursors — Minecraft Server](https://www.planetminecraft.com/server/naruto-precursors/)
+
+Ajouts du 2026-09-21 :
+
+- [Narutopedia — Nature Transformation](https://naruto.fandom.com/wiki/Nature_Transformation)
+- [Narutopedia — Rock Lee](https://naruto.fandom.com/wiki/Rock_Lee)
+- [Databook skill parameters (relevés communautaires)](https://vsbattles.com/threads/naruto-databook-skill-parameters.116957/)
+- [Shinobi Striker — Attack Class](https://shinobi-striker.fandom.com/wiki/Attack_Class) · [Heal Class](https://shinobi-striker.fandom.com/wiki/Heal_Class)
+- [Guild Wars — Attribute point](https://wiki.guildwars.com/wiki/Attribute_point)
+- [D&D 5e — Ability Scores (SRD)](https://5thsrd.org/rules/abilities/ability_scores/)
+- [Blades in the Dark — les bases](https://bladesinthedark.com/basics)
+- [Morrowind — Skills (UESP)](https://en.uesp.net/wiki/Morrowind:Skills) · [Oblivion — Leveling](https://en.uesp.net/wiki/Oblivion:Leveling)
+- [Albion Online — Destiny Board](https://wiki.albiononline.com/wiki/Destiny_Board)
+- [Old School RuneScape — Combat level](https://oldschool.runescape.wiki/w/Combat_level)
+- [Paper — `org.bukkit.attribute.Attribute`](https://jd.papermc.io/paper/1.21/org/bukkit/attribute/Attribute.html)
