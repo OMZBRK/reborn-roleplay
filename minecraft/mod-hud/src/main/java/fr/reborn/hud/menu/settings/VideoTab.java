@@ -72,7 +72,7 @@ public class VideoTab extends SectionedTab {
         // Plein écran — bascule la vraie fenêtre.
         row("Plein écran", null,
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
-                mc.getWindow().isFullscreen(),
+                mc.options.fullscreen().get(),
                 v -> applyFullscreen(v)));
 
         spacer(4);
@@ -100,10 +100,10 @@ public class VideoTab extends SectionedTab {
     private static void applyFullscreen(boolean fullscreen) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
-        if (mc.getWindow().isFullscreen() != fullscreen) {
-            mc.getWindow().toggleFullScreen();
-        }
+        // 26.3 : Window.isFullscreen()/toggleFullScreen() retirés. L'état vit dans
+        // l'OptionInstance ; setFullscreen(bool) applique le vrai basculement fenêtre.
         mc.options.fullscreen().set(fullscreen);
+        mc.getWindow().setFullscreen(fullscreen);
         mc.options.save();
     }
 }

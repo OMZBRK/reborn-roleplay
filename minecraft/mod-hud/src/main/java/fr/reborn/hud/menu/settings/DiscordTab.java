@@ -3,7 +3,7 @@ package fr.reborn.hud.menu.settings;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.RebornBranding;
 import fr.reborn.hud.menu.esc.EscData;
-import net.minecraft.util.Util;
+import com.mojang.blaze3d.Blaze3D;
 
 import java.net.URI;
 
@@ -32,7 +32,7 @@ public class DiscordTab extends SectionedTab {
 
         actionButton("→ Rejoindre le Discord", () -> {
             try {
-                Util.getPlatform().openUri(URI.create(RebornBranding.DISCORD_URL));
+                Blaze3D.openUri(URI.create(RebornBranding.DISCORD_URL));
             } catch (Exception ignored) {
                 // Ouverture navigateur best-effort ; on n'échoue pas l'UI.
             }

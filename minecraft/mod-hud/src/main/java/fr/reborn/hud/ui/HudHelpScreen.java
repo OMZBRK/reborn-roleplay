@@ -127,7 +127,7 @@ public final class HudHelpScreen extends Screen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+        int keyCode = event.key(), scanCode = event.keycode(), modifiers = event.modifiers();
         onClose();
         return true;
     }

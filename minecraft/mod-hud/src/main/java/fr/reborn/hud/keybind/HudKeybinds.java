@@ -50,7 +50,7 @@ public final class HudKeybinds {
     /** Crée + enregistre un bind Reborn (catégorie « Reborn ») et le référence. */
     private static KeyMapping bind(String translationKey, int glfwKey) {
         KeyMapping km = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-            translationKey, InputConstants.Type.KEYSYM, glfwKey, RebornKeyCategory.REBORN));
+            translationKey, InputConstants.Type.KEYBOARD, glfwKey, RebornKeyCategory.REBORN));
         REBORN_KEYS.add(km);
         return km;
     }

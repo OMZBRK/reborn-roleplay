@@ -160,7 +160,7 @@ public final class PhotoMode {
             // 26.1 : plus de getBoundKeyTranslationKey()/fromTranslationKey() ; on
             // récupère la touche actuellement liée via saveString() → getKey(String).
             InputConstants.Key key = InputConstants.getKey(kb.saveString());
-            return InputConstants.isKeyDown(win, key.getValue());
+            return InputConstants.isKeyDown(key.getValue());
         } catch (RuntimeException e) {
             return false;
         }

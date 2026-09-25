@@ -23,7 +23,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.Util;
+import com.mojang.blaze3d.Blaze3D;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -252,7 +252,7 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     private void reborn$openUrl(String url) {
         try {
-            Util.getPlatform().openUri(URI.create(url));
+            Blaze3D.openUri(URI.create(url));
         } catch (Exception e) {
             LOG.warn("ouverture URL échouée ({}) : {}", url, e.toString());
         }

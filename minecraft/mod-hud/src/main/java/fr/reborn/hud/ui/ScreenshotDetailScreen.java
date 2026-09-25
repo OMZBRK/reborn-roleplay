@@ -10,7 +10,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
+import com.mojang.blaze3d.Blaze3D;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
@@ -87,7 +87,7 @@ public class ScreenshotDetailScreen extends Screen {
             () -> { ScreenshotLibrary.toggleFavorite(e.name()); },
             () -> openEditor(),
             this::openShare,
-            () -> Util.getPlatform().openUri(e.path().toUri()),
+            () -> Blaze3D.openUri(e.path().toUri()),
             () -> deleteCurrent(),
             this::onClose,
             () -> nav(1),
@@ -135,7 +135,7 @@ public class ScreenshotDetailScreen extends Screen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+        int keyCode = event.key(), scanCode = event.keycode(), modifiers = event.modifiers();
         if (keyCode == GLFW.GLFW_KEY_LEFT) { nav(-1); return true; }
         if (keyCode == GLFW.GLFW_KEY_RIGHT) { nav(1); return true; }
         return super.keyPressed(event);

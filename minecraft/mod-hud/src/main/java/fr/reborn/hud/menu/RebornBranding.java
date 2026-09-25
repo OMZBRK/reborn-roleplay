@@ -5,7 +5,7 @@ import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.util.Util;
+import com.mojang.blaze3d.Blaze3D;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,7 +121,7 @@ public final class RebornBranding {
 
     private static void openUri(String url) {
         try {
-            Util.getPlatform().openUri(URI.create(url));
+            Blaze3D.openUri(URI.create(url));
         } catch (Exception e) {
             LOGGER.warn("openUri {} echec", url, e);
         }

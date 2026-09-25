@@ -399,7 +399,7 @@ public class TablistScreen extends Screen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+        int keyCode = event.key(), scanCode = event.keycode(), modifiers = event.modifiers();
         boolean typing = search != null && search.isFocused();
         if (!typing && (keyCode == 258 /* TAB */
             || (this.minecraft != null && this.minecraft.options.keyPlayerList.matches(event)))) {

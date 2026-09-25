@@ -38,7 +38,7 @@ public final class CombatInput {
             setBlocking(false);
             CooldownState.INSTANCE.setActive(CooldownState.Ability.COMBAT, false);
             CooldownState.INSTANCE.setActive(CooldownState.Ability.COURSE_CHAKRA, false);
-            if (player != null) wasSwinging = player.swinging;
+            if (player != null) wasSwinging = player.isSwinging();
             return;
         }
 
@@ -63,7 +63,7 @@ public final class CombatInput {
         // COMBO M1 : détecté sur le SWING (front montant) → joue même sans toucher.
         // Taïjutsu à mains nues (une arme en main aura ses propres anims plus tard).
         // Le serveur gère les dégâts sur la mêlée vanilla ; ici on ne fait QUE l'anim.
-        boolean sw = player.swinging;
+        boolean sw = player.isSwinging();
         if (sw && !wasSwinging && mainEmpty && !blocking
                 && CombatAnimations.INSTANCE.isAvailable()) {
             comboIndex = (now - lastSwingMs > COMBO_WINDOW_MS) ? 0 : (comboIndex + 1) % 4;

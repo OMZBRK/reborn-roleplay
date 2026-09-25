@@ -847,16 +847,16 @@ public class RepositionScreen extends Screen {
     // ─────────────────── Utils ───────────────────
     private static boolean shiftDown() {
         com.mojang.blaze3d.platform.Window w = Minecraft.getInstance().getWindow();
-        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_SHIFT)
-            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_RIGHT_SHIFT);
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_LEFT_SHIFT)
+            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_RIGHT_SHIFT);
     }
 
     private static boolean ctrlOrAltDown() {
         com.mojang.blaze3d.platform.Window w = Minecraft.getInstance().getWindow();
-        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_CONTROL)
-            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_RIGHT_CONTROL)
-            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_ALT)
-            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_RIGHT_ALT);
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_LEFT_CONTROL)
+            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL)
+            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_LEFT_ALT)
+            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_RIGHT_ALT);
     }
 
     private static String trim(Font f, String s, int maxW) {

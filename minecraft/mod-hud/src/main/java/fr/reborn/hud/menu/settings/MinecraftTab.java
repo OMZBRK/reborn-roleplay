@@ -31,7 +31,7 @@ public class MinecraftTab extends SectionedTab {
         section("Réglages Minecraft");
         labelRow("Options de base", "Ouvre les écrans Mojang standards");
         actionButton("→ Options Minecraft (toutes)",
-            () -> mc.setScreenAndShow(new OptionsScreen(parent, mc.options, false)));
+            () -> mc.setScreenAndShow(new OptionsScreen(parent, mc.options)));
         actionButton("→ Vidéo",
             () -> mc.setScreenAndShow(new VideoSettingsScreen(parent, mc, mc.options)));
         actionButton("→ Sons",

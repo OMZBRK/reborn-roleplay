@@ -318,7 +318,7 @@ public class ScreenshotEditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+        int keyCode = event.key(), scanCode = event.keycode(), modifiers = event.modifiers();
         boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
         if (ctrl && keyCode == GLFW.GLFW_KEY_Z) { undo(); return true; }
         if (ctrl && keyCode == GLFW.GLFW_KEY_Y) { redo(); return true; }

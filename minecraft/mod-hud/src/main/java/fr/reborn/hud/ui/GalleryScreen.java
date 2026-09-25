@@ -10,7 +10,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
+import com.mojang.blaze3d.Blaze3D;
 
 import java.util.List;
 
@@ -200,10 +200,10 @@ public class GalleryScreen extends Screen {
             int iy = y + 2 + i * CTX_ROW;
             if (in(mxi, myi, x, iy, CTX_W, CTX_ROW)) {
                 switch (i) {
-                    case 0 -> Util.getPlatform().openUri(ctxEntry.path().toUri());
+                    case 0 -> Blaze3D.openUri(ctxEntry.path().toUri());
                     case 1 -> { ScreenshotLibrary.toggleFavorite(ctxEntry.name()); if (onlyFav) refresh(); }
                     case 2 -> { ScreenshotLibrary.delete(ctxEntry); refresh(); }
-                    case 3 -> Util.getPlatform().openUri(ScreenshotLibrary.dir().toUri());
+                    case 3 -> Blaze3D.openUri(ScreenshotLibrary.dir().toUri());
                 }
                 return;
             }

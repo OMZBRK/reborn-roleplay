@@ -689,14 +689,14 @@ public class HudEditScreen extends Screen {
 
     private static boolean rebornHasShiftDown() {
         com.mojang.blaze3d.platform.Window w = Minecraft.getInstance().getWindow();
-        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_SHIFT)
-            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_RIGHT_SHIFT);
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_LEFT_SHIFT)
+            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_RIGHT_SHIFT);
     }
 
     private static boolean rebornHasCtrlDown() {
         com.mojang.blaze3d.platform.Window w = Minecraft.getInstance().getWindow();
-        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_CONTROL)
-            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(w, GLFW.GLFW_KEY_RIGHT_CONTROL);
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_LEFT_CONTROL)
+            || com.mojang.blaze3d.platform.InputConstants.isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL);
     }
 
     // ─────────── Actions ───────────

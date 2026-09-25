@@ -35,6 +35,10 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // GLFW : en 26.3 LWJGL n'est plus exposé au classpath de COMPILE par le dep
+    // minecraft (fourni au runtime par le jeu). Requis pour GLFW_KEY_M (keybind M).
+    compileOnly  "org.lwjgl:lwjgl-glfw:3.4.1"
 }
 
 processResources {

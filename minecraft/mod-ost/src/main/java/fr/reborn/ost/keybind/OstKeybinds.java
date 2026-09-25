@@ -36,7 +36,7 @@ public final class OstKeybinds {
     public static void registerClient() {
         openMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-ost.open_menu",
-            InputConstants.Type.KEYSYM,
+            InputConstants.Type.KEYBOARD,
             GLFW.GLFW_KEY_M,
             rebornCategory()
         ));

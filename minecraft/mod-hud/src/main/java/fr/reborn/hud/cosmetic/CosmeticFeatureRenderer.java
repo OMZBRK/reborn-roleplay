@@ -165,9 +165,9 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
         poseStack.pushPose();
         anchorPose(model, state, t.anchor, poseStack);
         poseStack.translate(t.posX, t.posY, t.posZ);
-        if (t.rotX != 0f) poseStack.mulPose(Axis.XP.rotationDegrees(t.rotX));
-        if (t.rotY != 0f) poseStack.mulPose(Axis.YP.rotationDegrees(t.rotY));
-        if (t.rotZ != 0f) poseStack.mulPose(Axis.ZP.rotationDegrees(t.rotZ));
+        if (t.rotX != 0f) poseStack.rotate(Axis.XP.rotationDegrees(t.rotX));
+        if (t.rotY != 0f) poseStack.rotate(Axis.YP.rotationDegrees(t.rotY));
+        if (t.rotZ != 0f) poseStack.rotate(Axis.ZP.rotationDegrees(t.rotZ));
         poseStack.scale(t.scale, t.scale, t.scale);
 
         rs.submit(poseStack, collector, light, OverlayTexture.NO_OVERLAY, state.outlineColor);
