@@ -32,7 +32,7 @@ use crate::storage::{prefs, secrets::SecretKey};
 /// En attendant, lisible via REBORN_MC_VERSION pour faciliter l'alignement
 /// avec le serveur de dev sans recompiler.
 fn minecraft_version() -> String {
-    std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.2".into())
+    std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.3".into())
 }
 
 /// Token MC factice utilise quand l'auth dev (sans Microsoft) est en cours.

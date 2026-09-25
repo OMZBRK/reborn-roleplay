@@ -41,7 +41,7 @@ repositories {
 dependencies {
     // Aligne avec le serveur dev Reborn (Purpur 26.1.2) et le build (Paper
     // 26.1.2-74). Le dev-bundle Paper suit le nouveau schema 26.x.build.NN.
-    paperweight.paperDevBundle("26.2.build.112-stable")
+    paperweight.paperDevBundle("26.3.build.41-alpha")
 
     // Tests unitaires (PlayTokenVerifier surtout : code crypto critique).
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
@@ -63,7 +63,7 @@ tasks {
     }
 
     runServer {
-        minecraftVersion("26.2")
+        minecraftVersion("26.3")
         // Accepte l'EULA Mojang automatiquement pour le serveur de test local.
         systemProperty("com.mojang.eula.agree", "true")
 

@@ -42,15 +42,20 @@ dependencies {
     //   jars 26.1 déjà en noms officiels (client deobf) -> compileOnly (compile) +
     //   runtimeOnly (chargés comme mods en dev pour tester). Présents dans le
     //   modpack au runtime prod ; MovementAnimations fallback inerte si absents.
-    compileOnly  files('libs/PlayerAnimationLibMerged-1.2.6+mc.26.2.jar')
-    compileOnly  files('libs/emotecraft-for-MC26.2-3.4.0-b.build.165.jar')
-    runtimeOnly  files('libs/PlayerAnimationLibMerged-1.2.6+mc.26.2.jar')
-    runtimeOnly  files('libs/emotecraft-for-MC26.2-3.4.0-b.build.165.jar')
+    compileOnly  files('libs/PlayerAnimationLibMerged-1.2.7+mc.26.3.jar')
+    compileOnly  files('libs/emotecraft-for-MC26.3-3.5.0-a.build.169.jar')
+    runtimeOnly  files('libs/PlayerAnimationLibMerged-1.2.7+mc.26.3.jar')
+    runtimeOnly  files('libs/emotecraft-for-MC26.3-3.5.0-a.build.169.jar')
 
     // PlasmoVoice (API client, pour la bulle de parole + icônes voix). Jar deobf
     // du modpack en compileOnly ; fourni au runtime par le mod plasmovoice du
     // modpack. La feature voix se désactive proprement si la classe est absente.
-    compileOnly  files('libs/plasmovoice-fabric-26.2-2.1.14.jar')
+    compileOnly  files('libs/plasmovoice-fabric-26.3-2.1.17.jar')
+
+    // GLFW : en 26.3, LWJGL n'est plus exposé au classpath de COMPILE par le
+    // dependency minecraft (fourni au runtime par le jeu). Déclaré explicitement
+    // en compileOnly pour les constantes GLFW_KEY_* (keybinds, input mixins).
+    compileOnly  "org.lwjgl:lwjgl-glfw:3.4.1"
 }
 
 processResources {

@@ -33,7 +33,7 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("26.2.build.112-stable")
+    paperweight.paperDevBundle("26.3.build.41-alpha")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -52,7 +52,7 @@ tasks {
     }
 
     runServer {
-        minecraftVersion("26.2")
+        minecraftVersion("26.3")
         systemProperty("com.mojang.eula.agree", "true")
         // runDirectory hors OneDrive — meme rationale que plugin-guardian.
         runDirectory = file(System.getProperty("user.home") + "/.reborn-ost-run")

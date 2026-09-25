@@ -37,7 +37,7 @@
         <dependency>
             <groupId>org.purpurmc.purpur</groupId>
             <artifactId>purpur-api</artifactId>
-            <version>26.2.build.2620-stable</version>
+            <version>26.3.build.2641-experimental</version>
             <scope>provided</scope>
         </dependency>
         <!-- Character data, the learned-state, the shared catalog. The running
