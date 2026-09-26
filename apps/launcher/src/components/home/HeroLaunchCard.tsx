@@ -3,6 +3,7 @@ import { PlayButton } from "./PlayButton";
 import { SecondInstanceButton } from "./SecondInstanceButton";
 import { ServerSelector } from "./ServerSelector";
 import { ServerStatusChip } from "./ServerStatusChip";
+import { useServerStore } from "../../stores/server-store";
 
 // Bloc hero principal : texte branding a gauche + PlayButton existant a
 // droite. Reutilise integralement le PlayButton v2 qui porte deja toute
@@ -13,6 +14,12 @@ import { ServerStatusChip } from "./ServerStatusChip";
 // (la section restait invisible). Animation d'entree desormais via CSS
 // keyframes (cf .reborn-home-hero).
 export function HeroLaunchCard() {
+  // Version MC affichée = celle du serveur sélectionné (multi-version). Fallback
+  // 26.2 (RP) tant que la liste des serveurs n'est pas chargée.
+  const servers = useServerStore((s) => s.servers);
+  const selectedId = useServerStore((s) => s.selectedId);
+  const mcVersion =
+    servers.find((s) => s.id === selectedId)?.mcVersion ?? "26.2";
   return (
     <section className="reborn-home-hero reborn-pattern-overlay">
       <div className="reborn-home-hero-inner">
@@ -33,7 +40,7 @@ export function HeroLaunchCard() {
             </span>
             <span className="reborn-home-hero-chip">
               <Layers className="h-2.5 w-2.5" />
-              Minecraft 26.2
+              Minecraft {mcVersion}
             </span>
             <ServerStatusChip />
           </div>
