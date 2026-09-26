@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Lock, Play, RefreshCw } from "lucide-react";
 import { useLaunchStore } from "../../stores/launch-store";
 import { useAuthStore } from "../../stores/auth-store";
+import { useServerStore } from "../../stores/server-store";
 import { useDiagnosticsStore } from "../../stores/diagnostics-store";
 import {
   applyUpdate,
@@ -28,6 +29,9 @@ export function PlayButton() {
   const setPhase = useLaunchStore((s) => s.setPhase);
   const relaunchNonce = useLaunchStore((s) => s.relaunchNonce);
   const user = useAuthStore((s) => s.user);
+  // Serveur sélectionné (multi-version) : détermine version MC + modpack +
+  // dossier d'instance. Passé à check/apply/launch. Défaut "rp" (MC 26.2).
+  const selectedServer = useServerStore((s) => s.selectedId);
   // role === PLAYER = compte cree mais whitelist non acceptee. Le backend
   // refusera launch_game (GameError::NotWhitelisted), on bloque ici aussi
   // pour eviter un clic perdu et afficher le bon tooltip.
@@ -50,7 +54,7 @@ export function PlayButton() {
     setPhase("checking");
     (async () => {
       try {
-        const p = await checkUpdate();
+        const p = await checkUpdate(selectedServer);
         if (cancelled) return;
         setPreview(p);
         if (p.launcherOutdated) {
@@ -67,7 +71,7 @@ export function PlayButton() {
     return () => {
       cancelled = true;
     };
-  }, [setPhase]);
+  }, [setPhase, selectedServer]);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -137,7 +141,7 @@ export function PlayButton() {
       setLaunch(null);
       setPhase("launching");
       try {
-        await launchGame();
+        await launchGame(selectedServer);
       } catch (err) {
         setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
         setLaunch(null);
@@ -149,13 +153,13 @@ export function PlayButton() {
     setPhase("downloading");
     setProgress(null);
     try {
-      const result = await applyUpdate();
+      const result = await applyUpdate(selectedServer);
       if (result.kind === "launcher_outdated") {
         setError(`Launcher trop vieux : ${result.current} < ${result.required}.`);
         setPhase("blocked");
         return;
       }
-      const fresh = await checkUpdate();
+      const fresh = await checkUpdate(selectedServer);
       setPreview(fresh);
       setPhase(fresh.plan.length === 0 ? "ready" : "idle");
     } catch (err) {

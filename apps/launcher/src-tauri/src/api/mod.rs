@@ -247,6 +247,23 @@ impl ApiClient {
         Ok(resp.json::<crate::manifest::SignedManifest>().await?)
     }
 
+    /// Recupere un manifest signe depuis une URL statique (ex: asset d'une
+    /// GitHub release pour le pack "build"). Pas d'auth : la ressource est
+    /// publique ; la confiance vient de la signature Ed25519 verifiee ensuite
+    /// par `manifest::verify_signature`, pas du transport.
+    pub async fn fetch_manifest_from_url(
+        &self,
+        url: &str,
+    ) -> Result<crate::manifest::SignedManifest, ApiError> {
+        let resp = self.http.get(url).send().await?;
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ApiError::Status { status, body });
+        }
+        Ok(resp.json::<crate::manifest::SignedManifest>().await?)
+    }
+
     /// GET generique authentifie. Le caller deserialize. Centralise la
     /// gestion du JWT pour ne pas avoir a la dupliquer par endpoint.
     pub async fn get_json<T: for<'de> Deserialize<'de>>(

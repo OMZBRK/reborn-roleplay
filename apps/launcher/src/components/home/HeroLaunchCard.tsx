@@ -1,6 +1,7 @@
 import { Cpu, Layers } from "lucide-react";
 import { PlayButton } from "./PlayButton";
 import { SecondInstanceButton } from "./SecondInstanceButton";
+import { ServerSelector } from "./ServerSelector";
 import { ServerStatusChip } from "./ServerStatusChip";
 
 // Bloc hero principal : texte branding a gauche + PlayButton existant a
@@ -39,6 +40,7 @@ export function HeroLaunchCard() {
         </div>
         <div className="reborn-home-hero-right">
           <div className="flex flex-col items-center gap-4">
+            <ServerSelector />
             <PlayButton />
             <div className="flex items-center gap-3">
               <SecondInstanceButton />

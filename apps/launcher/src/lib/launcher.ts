@@ -37,12 +37,27 @@ export type DownloadProgress = {
   currentFile: string | null;
 };
 
-export async function checkUpdate(): Promise<UpdatePreview> {
-  return invoke<UpdatePreview>("launcher_check_update");
+export async function checkUpdate(server?: string): Promise<UpdatePreview> {
+  return invoke<UpdatePreview>("launcher_check_update", { server: server ?? null });
 }
 
-export async function applyUpdate(): Promise<UpdateStatus> {
-  return invoke<UpdateStatus>("launcher_apply_update");
+export async function applyUpdate(server?: string): Promise<UpdateStatus> {
+  return invoke<UpdateStatus>("launcher_apply_update", { server: server ?? null });
+}
+
+// ───────────── Serveurs (multi-version) ─────────────
+
+export type ServerInfo = {
+  id: string;
+  name: string;
+  mcVersion: string;
+  staffOnly: boolean;
+  hasAddress: boolean;
+};
+
+/** Liste les serveurs disponibles (RP toujours ; Build si configuré). */
+export async function listServers(): Promise<ServerInfo[]> {
+  return invoke<ServerInfo[]>("launcher_list_servers");
 }
 
 // ───────────── Mods optionnels (toggle UI dans Mods.tsx) ─────────────
@@ -93,8 +108,8 @@ export type LaunchProgress = {
   total: number | null;
 };
 
-export async function launchGame(): Promise<LaunchedGame> {
-  return invoke<LaunchedGame>("launcher_launch_game");
+export async function launchGame(server?: string): Promise<LaunchedGame> {
+  return invoke<LaunchedGame>("launcher_launch_game", { server: server ?? null });
 }
 
 /** Lance une 2e instance de jeu (dev, staff-only) avec un autre compte

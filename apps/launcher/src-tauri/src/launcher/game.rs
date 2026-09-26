@@ -25,6 +25,7 @@ use crate::discord_rpc::DiscordRpcState;
 use crate::integrity::{spawn_watcher, TamperingEvent, WatcherHandle};
 use crate::launcher::{
     assets, diagnostics, fabric, jvm, libraries, mods as mods_inspect, mojang, paths, runtime,
+    servers,
 };
 use crate::storage::{prefs, secrets::SecretKey};
 
@@ -157,6 +158,7 @@ pub async fn launcher_launch_game<R: Runtime>(
     app: AppHandle<R>,
     auth: State<'_, AuthState>,
     game: State<'_, GameState>,
+    server: Option<String>,
 ) -> Result<LaunchResult, GameError> {
     {
         let lock = game.running.lock().await;
@@ -164,6 +166,11 @@ pub async fn launcher_launch_game<R: Runtime>(
             return Err(GameError::AlreadyRunning);
         }
     }
+
+    // Serveur sélectionné (multi-version). `None`/"rp" = serveur RP historique
+    // (MC 26.2, dossier = racine game_dir → byte-identique à l'ancien flux).
+    // "build" = serveur de build staff (MC 26.3, dossier instances/build/).
+    let profile = servers::resolve(server.as_deref());
 
     // Reset du flag d'arret volontaire : un lancement frais ne doit pas
     // heriter d'un `stop_requested` laisse par une session precedente.
@@ -202,9 +209,20 @@ pub async fn launcher_launch_game<R: Runtime>(
         }
     };
 
+    // `dir` = racine game_dir : caches lourds partagés entre versions (runtime
+    // JRE, versions/, assets/, libraries/). `instance` = dossier d'instance du
+    // serveur : porte mods/, config/, logs/, saves/, le play-token, et sert de
+    // `--gameDir` à la JVM. Pour le serveur RP, instance == game_dir
+    // (rétro-compatibilité totale : ne casse pas les installs existantes).
     let dir = paths::game_dir().map_err(|e| GameError::Io {
         message: e.to_string(),
     })?;
+    let instance = paths::instance_dir(profile.instance_id()).map_err(|e| GameError::Io {
+        message: e.to_string(),
+    })?;
+    tokio::fs::create_dir_all(&instance)
+        .await
+        .map_err(|e| GameError::Io { message: format!("create instance dir : {e}") })?;
 
     // Play-token : signe HMAC par l'API, lu par le mod Reborn Integrity au
     // boot et pousse au serveur via custom payload `reborn:auth`. Sans ca,
@@ -220,7 +238,7 @@ pub async fn launcher_launch_game<R: Runtime>(
         .fetch_play_token(&reborn_token)
         .await
         .map_err(|e| GameError::PlayToken { message: e.to_string() })?;
-    let play_token_path = dir.join(".reborn-play-token");
+    let play_token_path = instance.join(".reborn-play-token");
     tokio::fs::write(&play_token_path, play_session.play_token.as_bytes())
         .await
         .map_err(|e| GameError::Io { message: format!("write play-token : {e}") })?;
@@ -231,13 +249,13 @@ pub async fn launcher_launch_game<R: Runtime>(
     );
 
     let user_prefs = prefs::load().await.unwrap_or_default();
-    let mc_version = minecraft_version();
+    let mc_version = profile.mc_version.clone();
 
     // Etape 0 : nettoie les mods qui ne ciblent pas la version MC active.
     // Quand on bouge entre versions (ex: 1.21.4 -> 1.21.1), des jars Sodium
     // / Iris / etc. d'une autre version restent et plantent Fabric Loader
     // au boot. Cf launcher/diagnostics.rs::parse_mod_version_mismatch.
-    let mods_dir_pre = dir.join("mods");
+    let mods_dir_pre = instance.join("mods");
     match mods_inspect::purge_incompatible_mods(&mods_dir_pre, &mc_version) {
         Ok(removed) if !removed.is_empty() => {
             tracing::info!("nettoyage mods : {} jar(s) incompatibles supprime(s)", removed.len());
@@ -323,6 +341,16 @@ pub async fn launcher_launch_game<R: Runtime>(
     vanilla_libs.extend(fabric_setup.library_jars.clone());
     let all_libs = dedupe_classpath(vanilla_libs);
 
+    // Adresse serveur transmise au mod. Pour RP on conserve le comportement
+    // historique (serveur principal + toggle dev in-game réservé au staff).
+    // Pour un autre serveur (build), le launcher a DÉJÀ choisi la cible : on ne
+    // passe que celle-ci (pas de toggle in-game).
+    let (auto_connect, dev_server) = if profile.id == "rp" {
+        (resolve_auto_connect(), resolve_dev_server())
+    } else {
+        (profile.address.clone(), None)
+    };
+
     let cfg = jvm::LaunchConfig {
         minecraft_version: mc_version.clone(),
         launcher_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -332,14 +360,14 @@ pub async fn launcher_launch_game<R: Runtime>(
         natives_dir: lib_setup.natives_dir.display().to_string(),
         library_jars: all_libs.iter().map(|p| p.display().to_string()).collect(),
         client_jar: lib_setup.client_jar.display().to_string(),
-        game_dir: dir.display().to_string(),
+        game_dir: instance.display().to_string(),
         assets_dir: asset_setup.assets_dir.display().to_string(),
         asset_index: asset_setup.asset_index.clone(),
         ram_mb: user_prefs.ram_mb,
         width: user_prefs.width,
         height: user_prefs.height,
-        auto_connect: resolve_auto_connect(),
-        dev_server: resolve_dev_server(),
+        auto_connect,
+        dev_server,
         is_staff: is_staff_role(&user.role),
         play_token_path: Some(play_token_path.display().to_string()),
         api_url: Some(auth.api.base_url.clone()),
@@ -358,9 +386,9 @@ pub async fn launcher_launch_game<R: Runtime>(
     // DEBUG : dump l'argv complet dans un fichier pour pouvoir reproduire
     // la commande a la main, et redirige stderr aussi vers un fichier (les
     // logs tracing semblent rater quand le process meurt en <1s).
-    let debug_argv_path = dir.join("logs").join("last-argv.txt");
-    let debug_stderr_path = dir.join("logs").join("last-stderr.txt");
-    let _ = tokio::fs::create_dir_all(dir.join("logs")).await;
+    let debug_argv_path = instance.join("logs").join("last-argv.txt");
+    let debug_stderr_path = instance.join("logs").join("last-stderr.txt");
+    let _ = tokio::fs::create_dir_all(instance.join("logs")).await;
     let _ = tokio::fs::write(
         &debug_argv_path,
         argv.iter()
@@ -381,7 +409,7 @@ pub async fn launcher_launch_game<R: Runtime>(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::null())
-        .current_dir(&dir);
+        .current_dir(&instance);
 
     let mut child = command.spawn().map_err(|e| GameError::Io {
         message: format!("spawn java : {e}"),
@@ -394,7 +422,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 
     // FS watcher
     let (tamper_tx, _tamper_rx) = mpsc::channel::<TamperingEvent>();
-    let watch_dirs: Vec<PathBuf> = vec![dir.join("mods"), dir.join("config")];
+    let watch_dirs: Vec<PathBuf> = vec![instance.join("mods"), instance.join("config")];
     let watcher = spawn_watcher(app.clone(), watch_dirs, tamper_tx).map_err(|e| {
         GameError::Watcher {
             message: e.to_string(),
@@ -430,6 +458,34 @@ pub async fn launcher_launch_game<R: Runtime>(
     });
 
     Ok(result)
+}
+
+/// Un serveur sélectionnable, exposé au frontend pour le sélecteur.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerInfo {
+    pub id: String,
+    pub name: String,
+    pub mc_version: String,
+    pub staff_only: bool,
+    /// Vrai si une adresse serveur est configurée (sinon menu sans cible).
+    pub has_address: bool,
+}
+
+/// Liste les serveurs disponibles (RP toujours ; Build si configuré). Le
+/// frontend filtre les `staff_only` selon le rôle du compte connecté.
+#[tauri::command]
+pub async fn launcher_list_servers() -> Result<Vec<ServerInfo>, GameError> {
+    Ok(servers::all_profiles()
+        .into_iter()
+        .map(|p| ServerInfo {
+            id: p.id,
+            name: p.name,
+            mc_version: p.mc_version,
+            staff_only: p.staff_only,
+            has_address: p.address.is_some(),
+        })
+        .collect())
 }
 
 /// Lance une **2e instance de jeu (dev, staff-only)** avec un autre compte

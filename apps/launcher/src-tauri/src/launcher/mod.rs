@@ -16,6 +16,7 @@ pub mod mods;
 pub mod mojang;
 pub mod paths;
 pub mod runtime;
+pub mod servers;
 
 pub use game::{launcher_launch_game, launcher_stop_game, GameState};
 pub use paths::game_dir;
@@ -73,31 +74,54 @@ pub enum LauncherError {
 
 const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Récupère le manifest signé du serveur donné selon sa source :
+/// - `ApiCurrent` : `GET /manifest/current` (auth JWT) — serveur RP.
+/// - `StaticUrl`  : URL publique (GitHub release) — serveur build. La confiance
+///   vient de la signature Ed25519, pas du transport → pas d'auth requise.
+async fn fetch_manifest_for(
+    state: &AuthState,
+    profile: &servers::ServerProfile,
+) -> Result<crate::manifest::SignedManifest, LauncherError> {
+    match &profile.manifest {
+        servers::ManifestSource::ApiCurrent => {
+            let token = state
+                .store
+                .get(SecretKey::RebornAccessToken)
+                .map_err(|e| LauncherError::Io { message: e.to_string() })?
+                .ok_or(LauncherError::NotAuthenticated)?;
+            state
+                .api
+                .fetch_manifest(&token)
+                .await
+                .map_err(|e| LauncherError::Manifest { message: e.to_string() })
+        }
+        servers::ManifestSource::StaticUrl(url) => state
+            .api
+            .fetch_manifest_from_url(url)
+            .await
+            .map_err(|e| LauncherError::Manifest { message: e.to_string() }),
+    }
+}
+
 /// Etapes [1]..[3] : recupere le manifest, verifie la signature, calcule
 /// le diff, retourne un preview que l'UI peut afficher avant de declencher
-/// le download.
+/// le download. `server` = serveur sélectionné (None/"rp" = RP historique).
 #[tauri::command]
 pub async fn launcher_check_update<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AuthState>,
+    server: Option<String>,
 ) -> Result<UpdatePreview, LauncherError> {
-    let token = state
-        .store
-        .get(SecretKey::RebornAccessToken)
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?
-        .ok_or(LauncherError::NotAuthenticated)?;
-
-    let manifest = state
-        .api
-        .fetch_manifest(&token)
-        .await
-        .map_err(|e| LauncherError::Manifest { message: e.to_string() })?;
+    let profile = servers::resolve(server.as_deref());
+    let manifest = fetch_manifest_for(&state, &profile).await?;
 
     verify_signature(&manifest).map_err(|e| LauncherError::Signature { message: e.to_string() })?;
 
     let outdated = launcher_is_outdated(LAUNCHER_VERSION, &manifest.min_launcher_version);
 
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let dir = paths::instance_dir(profile.instance_id())
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let _ = tokio::fs::create_dir_all(&dir).await;
     let mod_prefs = crate::storage::mod_prefs::load()
         .await
         .map_err(|e| LauncherError::Io { message: e.to_string() })?;
@@ -139,18 +163,10 @@ pub async fn launcher_check_update<R: Runtime>(
 pub async fn launcher_apply_update<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AuthState>,
+    server: Option<String>,
 ) -> Result<UpdateStatus, LauncherError> {
-    let token = state
-        .store
-        .get(SecretKey::RebornAccessToken)
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?
-        .ok_or(LauncherError::NotAuthenticated)?;
-
-    let manifest = state
-        .api
-        .fetch_manifest(&token)
-        .await
-        .map_err(|e| LauncherError::Manifest { message: e.to_string() })?;
+    let profile = servers::resolve(server.as_deref());
+    let manifest = fetch_manifest_for(&state, &profile).await?;
 
     verify_signature(&manifest).map_err(|e| LauncherError::Signature { message: e.to_string() })?;
 
@@ -161,7 +177,9 @@ pub async fn launcher_apply_update<R: Runtime>(
         });
     }
 
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let dir = paths::instance_dir(profile.instance_id())
+        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let _ = tokio::fs::create_dir_all(&dir).await;
     let mod_prefs = crate::storage::mod_prefs::load()
         .await
         .map_err(|e| LauncherError::Io { message: e.to_string() })?;
@@ -451,12 +469,17 @@ pub fn clean_obsolete_files() -> CleanResult {
         }
     }
 
-    // 2. Anciennes versions MC (on garde seulement la courante).
-    let current = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.2".into());
+    // 2. Anciennes versions MC — on garde TOUTES les versions des serveurs
+    // configurés (multi-version : RP 26.2 + build 26.3 coexistent). Ne purge
+    // que les versions d'aucun serveur (résidus d'une migration précédente).
+    let keep: std::collections::HashSet<String> = servers::all_profiles()
+        .into_iter()
+        .map(|p| p.mc_version)
+        .collect();
     if let Ok(entries) = std::fs::read_dir(dir.join("versions")) {
         for e in entries.flatten() {
             let name = e.file_name().to_string_lossy().to_string();
-            if name != current && e.path().is_dir() {
+            if !keep.contains(&name) && e.path().is_dir() {
                 freed += dir_size(&e.path());
                 if std::fs::remove_dir_all(e.path()).is_ok() {
                     removed.push(format!("versions/{name}"));
