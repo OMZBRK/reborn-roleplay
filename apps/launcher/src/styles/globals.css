@@ -5032,18 +5032,36 @@ select.tk-create-select {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 60px;
+  padding: 0 64px;
   min-height: 0;
 }
+/* <img> contain : la capture entiere, jamais rognee, quelle que soit la
+   taille de fenetre ou le ratio de la capture. */
 .reborn-shots-lightbox-img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  user-select: none;
+  box-shadow: 0 20px 60px -8px rgba(0, 0, 0, 0.75),
+              0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.reborn-shots-lightbox-img--art {
   width: 100%;
   max-width: 1080px;
   aspect-ratio: 16 / 9;
-  border-radius: var(--radius-lg);
   background-size: cover;
   background-position: center;
-  box-shadow: 0 20px 60px -8px rgba(0, 0, 0, 0.75),
-              0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.reborn-shots-lightbox-counter {
+  margin-right: auto;
+  align-self: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground-subtle);
 }
 .reborn-shots-lightbox-nav {
   position: absolute;
@@ -5105,12 +5123,17 @@ select.tk-create-select {
 .reborn-shots-lightbox-strip-item {
   width: 48px;
   height: 30px;
+  padding: 0;
+  cursor: pointer;
   border-radius: var(--radius-sm);
   background-size: cover;
   background-position: center;
   opacity: 0.55;
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition: opacity var(--duration-fast) var(--ease-out);
+}
+.reborn-shots-lightbox-strip-item:hover {
+  opacity: 0.85;
 }
 .reborn-shots-lightbox-strip-item[data-active="true"] {
   opacity: 1;
@@ -6055,7 +6078,15 @@ select.tk-create-select {
 }
 .reborn-mods-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: 10px;
+}
+/* Mods optionnels : colonnes pilotees par la largeur REELLE de la zone (le
+   sm:/xl: Tailwind se basait sur la fenetre, sans compter le rail + les
+   onglets → cartes ecrasees et noms tronques entre 1280 et 1500px). */
+.reborn-mods-optional-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 10px;
 }
 
@@ -6420,4 +6451,56 @@ select.tk-create-select {
 .reborn-mods-reset-btn:hover {
   background: var(--color-surface-elevated);
   color: var(--color-foreground);
+}
+
+/* Fondu d'entree des pages (AuthenticatedLayout). Opacite uniquement. */
+.reborn-route-view {
+  animation: reborn-route-in 160ms var(--ease-out) both;
+}
+@keyframes reborn-route-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reborn-route-view { animation: none; }
+}
+
+/* Barre de progression liquide (PlayButton : telechargement + preparation). */
+.reborn-liquid {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #0d0709;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 28px rgba(176, 28, 50, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.reborn-liquid-canvas {
+  display: block;
+}
+.reborn-liquid-fallback {
+  height: 100%;
+  background: linear-gradient(90deg, #3d0c14 0%, #841425 60%, #e63950 100%);
+  transition: width 220ms linear;
+}
+.reborn-liquid-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  pointer-events: none;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 12px rgba(0, 0, 0, 0.5);
+}
+.reborn-liquid-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+.reborn-liquid-pct {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }

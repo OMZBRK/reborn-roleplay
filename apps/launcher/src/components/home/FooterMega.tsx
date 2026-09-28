@@ -1,5 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import pkg from "../../../package.json";
+import { useMcVersion } from "../../hooks/use-mc-version";
 
 // Mega-footer de la Home : brand + tech stack + social + links.
 //
@@ -11,6 +12,7 @@ import pkg from "../../../package.json";
 // TODO(links): brancher les ancres sur les vrais URLs quand le site
 // public + status page seront en ligne.
 export function FooterMega() {
+  const mcVersion = useMcVersion();
   return (
     <footer className="reborn-home-footer">
       <div className="reborn-home-footer-col">
@@ -37,7 +39,7 @@ export function FooterMega() {
             </div>
             <div>
               <div className="reborn-home-footer-tech-name">Minecraft Java</div>
-              <div className="reborn-home-footer-tech-ver">1.21.1</div>
+              <div className="reborn-home-footer-tech-ver">{mcVersion}</div>
             </div>
           </div>
           <div className="reborn-home-footer-tech-row">
@@ -78,12 +80,12 @@ export function FooterMega() {
         <div className="reborn-home-footer-col-title">Liens</div>
         <ul className="reborn-home-footer-links">
           <li>
-            <a href="#" aria-disabled>
+            <a href="#" aria-disabled onClick={(e) => e.preventDefault()}>
               Site web <ExternalLink className="h-2.5 w-2.5" />
             </a>
           </li>
           <li>
-            <a href="#" aria-disabled>
+            <a href="#" aria-disabled onClick={(e) => e.preventDefault()}>
               Statut serveur <ExternalLink className="h-2.5 w-2.5" />
             </a>
           </li>
@@ -103,6 +105,7 @@ function SocialLink({
   return (
     <a
       href="#"
+      onClick={(e) => e.preventDefault()}
       aria-label={label}
       className="reborn-home-footer-social"
       aria-disabled

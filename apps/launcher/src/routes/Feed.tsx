@@ -7,6 +7,7 @@ import {
   toggleShotLike,
   type ShotView,
 } from "../lib/screenshots";
+import { Portal } from "../components/system/Portal";
 
 // Feed communautaire : les screenshots partagés par les joueurs (POST /v1/shots
 // depuis la galerie). Data via les commandes Tauri shots_feed / shots_toggle_like
@@ -229,74 +230,76 @@ export function Feed() {
         )}
       </div>
 
-      <AnimatePresence>
-        {openShot && (
-          <motion.div
-            className="reborn-feed-lightbox"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.16 }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setOpenShot(null);
-            }}
-          >
-            <button
-              type="button"
-              className="reborn-feed-lightbox-close"
-              onClick={() => setOpenShot(null)}
-              aria-label="Fermer"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      <Portal>
+        <AnimatePresence>
+          {openShot && (
             <motion.div
-              className="reborn-feed-lightbox-inner"
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 400, damping: 32 }}
+              className="reborn-feed-lightbox"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setOpenShot(null);
+              }}
             >
-              <img
-                className="reborn-feed-lightbox-img"
-                src={openShot.url}
-                alt={openShot.caption ?? "Capture"}
-              />
-              <div className="reborn-feed-lightbox-bar">
-                <span className="reborn-feed-avatar">
-                  {openShot.author.avatarUrl ? (
-                    <img src={openShot.author.avatarUrl} alt="" />
-                  ) : (
-                    openShot.author.name.charAt(0).toUpperCase()
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="reborn-feed-author-name">
-                    {openShot.author.name}
-                  </div>
-                  {openShot.caption && (
-                    <div className="reborn-feed-lightbox-caption">
-                      {openShot.caption}
+              <button
+                type="button"
+                className="reborn-feed-lightbox-close"
+                onClick={() => setOpenShot(null)}
+                aria-label="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <motion.div
+                className="reborn-feed-lightbox-inner"
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+              >
+                <img
+                  className="reborn-feed-lightbox-img"
+                  src={openShot.url}
+                  alt={openShot.caption ?? "Capture"}
+                />
+                <div className="reborn-feed-lightbox-bar">
+                  <span className="reborn-feed-avatar">
+                    {openShot.author.avatarUrl ? (
+                      <img src={openShot.author.avatarUrl} alt="" />
+                    ) : (
+                      openShot.author.name.charAt(0).toUpperCase()
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="reborn-feed-author-name">
+                      {openShot.author.name}
                     </div>
-                  )}
+                    {openShot.caption && (
+                      <div className="reborn-feed-lightbox-caption">
+                        {openShot.caption}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="reborn-feed-like"
+                    data-liked={openShot.likedByMe}
+                    onClick={() => onLike(openShot)}
+                    aria-label={openShot.likedByMe ? "Ne plus aimer" : "Aimer"}
+                  >
+                    <Heart
+                      className="h-3.5 w-3.5"
+                      fill={openShot.likedByMe ? "currentColor" : "none"}
+                    />
+                    <span>{openShot.likeCount}</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="reborn-feed-like"
-                  data-liked={openShot.likedByMe}
-                  onClick={() => onLike(openShot)}
-                  aria-label={openShot.likedByMe ? "Ne plus aimer" : "Aimer"}
-                >
-                  <Heart
-                    className="h-3.5 w-3.5"
-                    fill={openShot.likedByMe ? "currentColor" : "none"}
-                  />
-                  <span>{openShot.likeCount}</span>
-                </button>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </Portal>
     </div>
   );
 }

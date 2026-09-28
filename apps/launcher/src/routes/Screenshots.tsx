@@ -331,6 +331,7 @@ export function Screenshots() {
         onClose={() => setOpenShot(null)}
         onPrev={() => navOffset(-1)}
         onNext={() => navOffset(1)}
+        onSelect={setOpenShot}
         onShare={handleShare}
         onDelete={handleDelete}
         onToggleFavorite={handleToggleFavorite}

@@ -38,9 +38,11 @@ export function ServerStatusChip() {
   }, []);
 
   const online = !!status?.online && !failed;
+  const pending = !status && !failed;
   const label = (() => {
-    if (failed || !status) return online ? "VPS connecté" : "Serveur hors-ligne";
-    if (!status.online) return "Serveur hors-ligne";
+    // Premier poll en cours : ne pas afficher « hors-ligne » a tort.
+    if (pending) return "Connexion…";
+    if (failed || !status || !status.online) return "Serveur hors-ligne";
     const { online: on, max } = status.players;
     const who = on <= 1 ? "joueur" : "joueurs";
     return max > 0 ? `${on}/${max} en ligne` : `${on} ${who} en ligne`;
@@ -50,9 +52,14 @@ export function ServerStatusChip() {
     <span
       className="reborn-home-hero-chip"
       title={
-        status?.latencyMs != null ? `Latence ${status.latencyMs} ms` : undefined
+        [
+          status?.version && `Serveur ${status.version}`,
+          status?.latencyMs != null && `Latence ${status.latencyMs} ms`,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined
       }
-      style={online ? undefined : { opacity: 0.7 }}
+      style={online || pending ? undefined : { opacity: 0.7 }}
     >
       {online ? (
         <Wifi className="h-2.5 w-2.5" style={{ color: "var(--color-success)" }} />

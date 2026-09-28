@@ -2,6 +2,7 @@ import { Cpu, Layers } from "lucide-react";
 import { PlayButton } from "./PlayButton";
 import { SecondInstanceButton } from "./SecondInstanceButton";
 import { ServerStatusChip } from "./ServerStatusChip";
+import { useMcVersion } from "../../hooks/use-mc-version";
 
 // Bloc hero principal : texte branding a gauche + PlayButton existant a
 // droite. Reutilise integralement le PlayButton v2 qui porte deja toute
@@ -12,6 +13,7 @@ import { ServerStatusChip } from "./ServerStatusChip";
 // (la section restait invisible). Animation d'entree desormais via CSS
 // keyframes (cf .reborn-home-hero).
 export function HeroLaunchCard() {
+  const mcVersion = useMcVersion();
   return (
     <section className="reborn-home-hero reborn-pattern-overlay">
       <div className="reborn-home-hero-inner">
@@ -32,7 +34,7 @@ export function HeroLaunchCard() {
             </span>
             <span className="reborn-home-hero-chip">
               <Layers className="h-2.5 w-2.5" />
-              Minecraft 26.2
+              Minecraft {mcVersion}
             </span>
             <ServerStatusChip />
           </div>

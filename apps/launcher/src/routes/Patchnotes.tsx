@@ -9,6 +9,7 @@ import {
 } from "../lib/content";
 import { Markdown } from "../components/Markdown";
 import { useBadgesStore } from "../stores/badges-store";
+import { Portal } from "../components/system/Portal";
 
 export function Patchnotes() {
   const [items, setItems] = useState<PatchNoteSummary[] | null>(null);
@@ -111,48 +112,50 @@ export function Patchnotes() {
         </div>
       )}
 
-      <AnimatePresence>
-        {selected && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSelected(null)}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-8"
-          >
-            <motion.article
-              initial={{ scale: 0.96, y: 12 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.96, y: 12 }}
-              transition={{ duration: 0.18 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-[--radius-card] border border-border bg-surface-elevated p-8"
+      <Portal>
+        <AnimatePresence>
+          {selected && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelected(null)}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-8"
             >
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-md text-foreground-subtle hover:bg-surface hover:text-foreground"
-                aria-label="Fermer"
+              <motion.article
+                initial={{ scale: 0.96, y: 12 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.96, y: 12 }}
+                transition={{ duration: 0.18 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-[--radius-card] border border-border bg-surface-elevated p-8"
               >
-                <X className="h-4 w-4" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-md text-foreground-subtle hover:bg-surface hover:text-foreground"
+                  aria-label="Fermer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
 
-              <p className="text-xs uppercase tracking-widest text-foreground-subtle">
-                v{selected.version} ·{" "}
-                {new Date(selected.publishedAt).toLocaleDateString("fr-FR", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </p>
-              <h2 className="mt-2 font-display text-2xl font-semibold">{selected.title}</h2>
-              <div className="mt-6">
-                <Markdown content={selected.content} />
-              </div>
-            </motion.article>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                <p className="text-xs uppercase tracking-widest text-foreground-subtle">
+                  v{selected.version} ·{" "}
+                  {new Date(selected.publishedAt).toLocaleDateString("fr-FR", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+                <h2 className="mt-2 font-display text-2xl font-semibold">{selected.title}</h2>
+                <div className="mt-6">
+                  <Markdown content={selected.content} />
+                </div>
+              </motion.article>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Portal>
 
       {detailLoading && !selected && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">

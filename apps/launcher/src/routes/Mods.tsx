@@ -78,6 +78,7 @@ export function Mods() {
   const [error, setError] = useState<string | null>(null);
   const [purging, setPurging] = useState(false);
   const [togglingFile, setTogglingFile] = useState<string | null>(null);
+  const [optionalsError, setOptionalsError] = useState(false);
   const user = useAuthStore((s) => s.user);
   const isStaff = !!user && STAFF_ROLES.includes(user.role);
 
@@ -92,11 +93,18 @@ export function Mods() {
         listMods(),
         listOptionalMods().catch((e) => {
           console.warn("[mods] listOptionalMods failed:", e);
-          return [] as OptionalMod[];
+          return null;
         }),
       ]);
       setMods(list);
-      setOptionals(opt);
+      // Echec transitoire (API lente, token en cours de refresh) : on garde
+      // la derniere liste connue au lieu de faire disparaitre la section.
+      if (opt) {
+        setOptionals(opt);
+        setOptionalsError(false);
+      } else {
+        setOptionalsError(true);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Impossible de lire le dossier des mods.",
@@ -263,6 +271,23 @@ export function Mods() {
                     </div>
                   )}
 
+                  {optionalsError && visibleOptionals.length === 0 && (
+                    <div className="reborn-mods-error mt-6">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                      <span>
+                        Impossible de récupérer les mods optionnels depuis le serveur.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void refresh()}
+                        className="reborn-mods-reset-btn"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Réessayer
+                      </button>
+                    </div>
+                  )}
+
                   {visibleOptionals.length > 0 && (
                     <section className="mt-6">
                       <div className="mb-3 flex items-baseline justify-between">
@@ -280,7 +305,7 @@ export function Mods() {
                         installer au prochain lancement, décoche pour les retirer
                         proprement (le launcher purgera le .jar du dossier mods/).
                       </p>
-                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                      <div className="reborn-mods-optional-grid">
                         {visibleOptionals.map((m) => (
                           <OptionalModCard
                             key={m.filename}

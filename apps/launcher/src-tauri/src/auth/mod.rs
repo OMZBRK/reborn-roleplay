@@ -401,6 +401,54 @@ pub async fn auth_resume_session(
     try_resume(state.inner()).await
 }
 
+/// Serialise les refresh silencieux : le refresh token API tourne a chaque
+/// appel, deux refresh concurrents avec le meme token feraient echouer le
+/// second (token deja consomme).
+static REFRESH_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Keepalive de session : l'access token API vit 15 min (`JWT_ACCESS_TTL`)
+/// et les commandes content/launcher le lisent tel quel dans le keyring.
+/// Sans ce refresh periodique, tout appel API echoue en 401 apres 15 min
+/// d'ouverture (mods optionnels qui disparaissent, patch notes vides...).
+/// Le frontend l'appelle toutes les 10 min et au retour de focus.
+///
+/// Pas de fallback MS ici : si le refresh API est rejete, on remonte
+/// l'erreur et le frontend laisse l'utilisateur en place (le prochain
+/// boot repassera par `try_resume`).
+#[tauri::command]
+pub async fn auth_refresh_access(state: State<'_, AuthState>) -> AuthResult<()> {
+    let _guard = REFRESH_LOCK.lock().await;
+    let inner = state.inner();
+    let Some(token) = inner
+        .store
+        .get(SecretKey::RebornRefreshToken)
+        .map_err(|e| AuthError::Storage(e.to_string()))?
+    else {
+        return Err(AuthError::NoStoredCredentials);
+    };
+
+    let resp = inner.api.refresh(&token).await.map_err(|e| match e {
+        crate::api::ApiError::Http(e) => AuthError::Http(e),
+        other => AuthError::Internal(format!("refresh API : {other}")),
+    })?;
+
+    inner
+        .store
+        .set(SecretKey::RebornAccessToken, &resp.access_token)
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+    inner
+        .store
+        .set(SecretKey::RebornRefreshToken, &resp.refresh_token)
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+    // Garde le slot du carousel aligne : l'ancien refresh vient d'etre
+    // consomme, le laisser en place casserait le switch de compte.
+    let _ = inner
+        .store
+        .set_reborn_refresh_token_for(&resp.user.minecraft_uuid, &resp.refresh_token);
+    inner.set_user(Some(resp.user)).await;
+    Ok(())
+}
+
 /// Dev-only : login factice tant que MS_CLIENT_ID n'est pas approuve.
 /// En release build, retourne `Err(Config)` immediatement (le binaire de
 /// distribution n'expose donc pas ce chemin meme s'il est cable cote IPC).

@@ -59,6 +59,12 @@ export async function resumeSession(): Promise<AuthSession | null> {
   return invoke<AuthSession | null>("auth_resume_session");
 }
 
+/** Keepalive : fait tourner l'access token API (TTL 15 min) cote Rust.
+ *  Appele periodiquement par AuthenticatedLayout. */
+export async function refreshAccess(): Promise<void> {
+  await invoke<void>("auth_refresh_access");
+}
+
 export async function logout(): Promise<void> {
   await invoke<void>("auth_logout");
 }

@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Image, Lock, Map as MapIcon, User, Users } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useAuthStore } from "../stores/auth-store";
 import { cn } from "../lib/cn";
 import { Character } from "./Character";
@@ -17,6 +16,17 @@ const TABS = [
 
 type RpTab = (typeof TABS)[number]["id"];
 
+// Le lien du rail pointe sur /rp sans parametre : on retombe sur le dernier
+// sous-onglet ouvert pendant la session.
+const LAST_TAB_KEY = "reborn.rp.tab";
+function readLastTab(): string | null {
+  try {
+    return sessionStorage.getItem(LAST_TAB_KEY);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Onglet « RP » — regroupe le personnage, la carte, les screenshots et le feed
  * communautaire. Screenshots + feed sont réservés aux joueurs ayant le statut
@@ -25,7 +35,19 @@ type RpTab = (typeof TABS)[number]["id"];
 export function Rp() {
   const user = useAuthStore((s) => s.user);
   const whitelisted = user ? user.role !== "PLAYER" : false;
-  const [tab, setTab] = useState<RpTab>("character");
+  // Sous-onglet porte par l'URL (?tab=feed) : revenir sur « RP » ou faire
+  // precedent retombe sur le meme onglet au lieu de repartir du personnage.
+  const [params, setParams] = useSearchParams();
+  const raw = params.get("tab") ?? readLastTab();
+  const tab: RpTab = TABS.some((t) => t.id === raw) ? (raw as RpTab) : "character";
+  const setTab = (id: RpTab) => {
+    try {
+      sessionStorage.setItem(LAST_TAB_KEY, id);
+    } catch {
+      // stockage indisponible : l'URL suffit
+    }
+    setParams({ tab: id }, { replace: true });
+  };
 
   return (
     <div className="flex h-full flex-col">

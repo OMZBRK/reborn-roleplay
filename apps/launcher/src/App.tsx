@@ -144,10 +144,15 @@ export function App() {
 // Screenshots (CHANTIER C).
 function PlaceholderPage({ title }: { title: string }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-3xl font-semibold">{title}</h1>
-        <p className="mt-2 text-foreground-subtle">Cette page sera implémentée prochainement.</p>
+    <div className="reborn-radial-bg-strong reborn-pattern-overlay flex h-full items-center justify-center px-8">
+      <div className="max-w-md text-center">
+        <span className="inline-block rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
+          Bientôt
+        </span>
+        <h1 className="mt-4 font-display text-4xl tracking-wide text-foreground">{title}</h1>
+        <p className="mt-3 text-[13px] leading-relaxed text-foreground-subtle">
+          Cette section arrive dans une prochaine mise à jour du launcher.
+        </p>
       </div>
     </div>
   );

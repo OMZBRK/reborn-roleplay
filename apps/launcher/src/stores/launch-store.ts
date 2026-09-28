@@ -19,6 +19,10 @@ type LaunchState = {
    *  reste l'unique détenteur du flow (update-check + phases), pas de
    *  duplication. */
   relaunchNonce: number;
+  /** Dev uniquement (window.__reborn.download.demo) : force l'affichage de
+   *  la barre de telechargement avec cette valeur 0..1. null = normal. */
+  demoProgress: number | null;
+  setDemoProgress: (p: number | null) => void;
   setPhase: (p: LaunchPhase) => void;
   setProgress: (p: number) => void;
   requestRelaunch: () => void;
@@ -29,6 +33,8 @@ export const useLaunchStore = create<LaunchState>((set) => ({
   progress: 0,
   serverOnline: 0,
   relaunchNonce: 0,
+  demoProgress: null,
+  setDemoProgress: (demoProgress) => set({ demoProgress }),
   setPhase: (phase) => set({ phase }),
   setProgress: (progress) => set({ progress }),
   requestRelaunch: () => set((s) => ({ relaunchNonce: s.relaunchNonce + 1 })),

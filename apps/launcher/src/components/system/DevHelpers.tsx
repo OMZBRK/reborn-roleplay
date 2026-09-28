@@ -3,6 +3,7 @@ import { invoke } from "../../lib/tauri";
 import { useNetworkStore } from "../../stores/network-store";
 import { useUpdateStore } from "../../stores/update-store";
 import { useCrashStore, type GameCrashReport } from "../../stores/crash-store";
+import { useLaunchStore } from "../../stores/launch-store";
 
 // Helpers DevTools exposes sous window.__reborn en dev uniquement.
 // Permet d'inspecter / forcer les states systeme depuis la console sans
@@ -15,6 +16,8 @@ import { useCrashStore, type GameCrashReport } from "../../stores/crash-store";
 //   window.__reborn.update.set(true)               // simule update dispo (pulse logo)
 //   window.__reborn.crash.trigger({ exitCode: 134 })
 //   window.__reborn.crash.close()
+//   window.__reborn.download.demo(10)              // faux telechargement (barre liquide)
+//   window.__reborn.download.set(0.6)              // fige la barre a 60% (null = off)
 //
 // Tout est gated par import.meta.env.DEV → totalement removed en release.
 
@@ -33,6 +36,11 @@ type RebornDevApi = {
   crash: {
     trigger: (override?: CrashTriggerInput) => void;
     close: () => void;
+  };
+  download: {
+    /** Rejoue un faux telechargement (paquets irreguliers) sur la barre liquide. */
+    demo: (seconds?: number) => void;
+    set: (progress: number | null) => void;
   };
 };
 
@@ -90,6 +98,26 @@ export function DevHelpers() {
         },
         close() {
           useCrashStore.getState().close();
+        },
+      },
+      download: {
+        demo(seconds = 10) {
+          const set = useLaunchStore.getState().setDemoProgress;
+          let p = 0;
+          set(0);
+          const id = window.setInterval(() => {
+            // Paquets irreguliers, comme manifest:progress : parfois un gros
+            // saut (ballottement), parfois rien.
+            p = Math.min(1, p + (Math.random() < 0.15 ? 0.12 : Math.random() * 0.03));
+            set(p);
+            if (p >= 1) {
+              window.clearInterval(id);
+              window.setTimeout(() => set(null), 1500);
+            }
+          }, (seconds * 1000) / 60);
+        },
+        set(progress) {
+          useLaunchStore.getState().setDemoProgress(progress);
         },
       },
     };

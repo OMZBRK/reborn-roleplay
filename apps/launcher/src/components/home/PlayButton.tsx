@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Lock, Play, RefreshCw } from "lucide-react";
+import { LiquidProgress } from "./LiquidProgress";
 import { useLaunchStore } from "../../stores/launch-store";
 import { useAuthStore } from "../../stores/auth-store";
 import { useDiagnosticsStore } from "../../stores/diagnostics-store";
@@ -27,6 +28,7 @@ export function PlayButton() {
   const phase = useLaunchStore((s) => s.phase);
   const setPhase = useLaunchStore((s) => s.setPhase);
   const relaunchNonce = useLaunchStore((s) => s.relaunchNonce);
+  const demoProgress = useLaunchStore((s) => s.demoProgress);
   const user = useAuthStore((s) => s.user);
   // role === PLAYER = compte cree mais whitelist non acceptee. Le backend
   // refusera launch_game (GameError::NotWhitelisted), on bloque ici aussi
@@ -188,6 +190,17 @@ export function PlayButton() {
       ? Math.min(100, Math.round((launch.current ?? 0) / Math.max(launch.total, 1) * 100))
       : null;
 
+  // Progression globale du lancement pour la barre liquide : chaque etape
+  // pese 1/totalSteps ; seule l'etape assets a une sous-progression, les
+  // autres comptent a mi-parcours tant qu'elles tournent.
+  const launchOverall = launch
+    ? Math.min(
+        1,
+        (launch.step - 1 + (launchPercent != null ? launchPercent / 100 : 0.5)) /
+          Math.max(launch.totalSteps, 1),
+      )
+    : 0;
+
   const caption = (() => {
     if (isWhitelistGated) return "Demande de whitelist requise";
     if (isBlocked) return "Launcher trop ancien, mise à jour requise";
@@ -214,12 +227,14 @@ export function PlayButton() {
 
   return (
     <div className="flex flex-col items-center gap-3">
-      {isBlocked ? (
+      {demoProgress != null ? (
+        <LiquidProgress progress={demoProgress} title="Téléchargement" />
+      ) : isBlocked ? (
         <LockedButton label={isWhitelistGated ? "Whitelist requise" : "Inaccessible"} />
       ) : isDownloading ? (
-        <DownloadingButton percent={percent} />
+        <LiquidProgress progress={percent / 100} title="Téléchargement" />
       ) : isLaunching ? (
-        <LaunchingButton percent={launchPercent} />
+        <LiquidProgress progress={launchOverall} title="Préparation" />
       ) : (
         <PrimaryButton
           label={isChecking ? "Vérification" : isRunning ? "En jeu" : hasUpdate ? "METTRE À JOUR" : "JOUER"}
@@ -296,143 +311,5 @@ function PrimaryButton({
       </span>
       <span className="text-center">{label}</span>
     </button>
-  );
-}
-
-function LaunchingButton({ percent }: { percent: number | null }) {
-  // Meme anneau que DownloadingButton. percent=null (etapes hors assets :
-  // runtime, libs, fabric, spawn) => anneau vide + icone qui tourne pour
-  // signaler l'activite indeterminee. percent!=null (assets) => anneau qui
-  // se remplit.
-  const SIZE = 240;
-  const HEIGHT = 60;
-  const R = 14;
-  const indeterminate = percent == null;
-  const offset = indeterminate ? 100 : 100 - percent;
-
-  return (
-    <div className="relative inline-block" style={{ padding: 4 }}>
-      <svg
-        className="pointer-events-none absolute inset-0"
-        width="100%"
-        height="100%"
-        viewBox={`0 0 ${SIZE + 8} ${HEIGHT + 8}`}
-        preserveAspectRatio="none"
-      >
-        <rect
-          x="2"
-          y="2"
-          width={SIZE + 4}
-          height={HEIGHT + 4}
-          rx={R + 2}
-          ry={R + 2}
-          fill="none"
-          stroke="rgba(160, 24, 43, 0.18)"
-          strokeWidth="2"
-        />
-        {!indeterminate && (
-          <rect
-            x="2"
-            y="2"
-            width={SIZE + 4}
-            height={HEIGHT + 4}
-            rx={R + 2}
-            ry={R + 2}
-            fill="none"
-            stroke="var(--color-accent)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            pathLength="100"
-            strokeDasharray="100"
-            strokeDashoffset={offset}
-            style={{
-              transition: "stroke-dashoffset 220ms linear",
-              filter: "drop-shadow(0 0 6px rgba(160, 24, 43, 0.6))",
-            }}
-          />
-        )}
-      </svg>
-      <div
-        className="inline-flex items-center justify-center gap-3 rounded-[14px] px-8 font-display tracking-[0.06em] text-white"
-        style={{
-          width: SIZE,
-          height: HEIGHT,
-          background:
-            "linear-gradient(180deg, rgba(160, 24, 43, 0.95) 0%, var(--color-accent-pressed) 100%)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 0 24px rgba(160, 24, 43, 0.4)",
-        }}
-      >
-        <RefreshCw className="h-[22px] w-[22px] animate-spin" strokeWidth={2} />
-        <span className="text-[22px] leading-none">Préparation</span>
-        {!indeterminate && (
-          <span className="font-mono text-[16px] tabular-nums">{percent}%</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DownloadingButton({ percent }: { percent: number }) {
-  // Anneau de progression rectangulaire autour du bouton — perimeter normalisé via pathLength="100"
-  const SIZE = 240;
-  const HEIGHT = 60;
-  const R = 14;
-
-  return (
-    <div className="relative inline-block" style={{ padding: 4 }}>
-      <svg
-        className="pointer-events-none absolute inset-0"
-        width="100%"
-        height="100%"
-        viewBox={`0 0 ${SIZE + 8} ${HEIGHT + 8}`}
-        preserveAspectRatio="none"
-      >
-        <rect
-          x="2"
-          y="2"
-          width={SIZE + 4}
-          height={HEIGHT + 4}
-          rx={R + 2}
-          ry={R + 2}
-          fill="none"
-          stroke="rgba(160, 24, 43, 0.18)"
-          strokeWidth="2"
-        />
-        <rect
-          x="2"
-          y="2"
-          width={SIZE + 4}
-          height={HEIGHT + 4}
-          rx={R + 2}
-          ry={R + 2}
-          fill="none"
-          stroke="var(--color-accent)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          pathLength="100"
-          strokeDasharray="100"
-          strokeDashoffset={100 - percent}
-          style={{
-            transition: "stroke-dashoffset 220ms linear",
-            filter: "drop-shadow(0 0 6px rgba(160, 24, 43, 0.6))",
-          }}
-        />
-      </svg>
-      <div
-        className="inline-flex items-center justify-center gap-3 rounded-[14px] px-8 font-display tracking-[0.06em] text-white"
-        style={{
-          width: SIZE,
-          height: HEIGHT,
-          background:
-            "linear-gradient(180deg, rgba(160, 24, 43, 0.95) 0%, var(--color-accent-pressed) 100%)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 0 24px rgba(160, 24, 43, 0.4)",
-        }}
-      >
-        <span className="text-[22px] leading-none">Téléchargement</span>
-        <span className="font-mono text-[16px] tabular-nums">{percent}%</span>
-      </div>
-    </div>
   );
 }

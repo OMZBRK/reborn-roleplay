@@ -76,6 +76,7 @@ pub fn run() {
             ping,
             auth::auth_login_microsoft,
             auth::auth_resume_session,
+            auth::auth_refresh_access,
             auth::auth_logout,
             auth::auth_dev_login,
             auth::auth_login_with_saved_account,
