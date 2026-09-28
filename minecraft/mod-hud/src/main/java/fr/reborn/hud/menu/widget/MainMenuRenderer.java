@@ -1,7 +1,6 @@
 package fr.reborn.hud.menu.widget;
 
 import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.MainMenuFlow;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornVersion;
@@ -33,11 +32,6 @@ import net.minecraft.network.chat.Component;
  * @see fr.reborn.hud.mixin.menu.TitleScreenMixin
  */
 public final class MainMenuRenderer {
-
-    // ─────────────── Marque top-left (placeholder nuage Akatsuki) ──
-    public static final int LOGO_X = 16;
-    public static final int LOGO_Y = 12;
-    public static final int LOGO_SIZE = 30;
 
     // ─────────────── Menu vertical gauche ──────────────────────────
     /** X du bord gauche des entrées de menu. */
@@ -89,9 +83,7 @@ public final class MainMenuRenderer {
         }
 
         // ── MENU ────────────────────────────────────────────────
-        // Marque top-left : logo Reborn statique (le lecteur OST du menu a été
-        // retiré — seul l'OST in-game de mod-ost est conservé).
-        renderTopLeftMark(ctx);
+        // (Plus de marque « R » top-left : retirée le 2026-09-28, sans usage.)
         renderVersionTopRight(ctx, screenW);
         renderCreditsBottomRight(ctx, screenW, screenH);
     }
@@ -104,37 +96,6 @@ public final class MainMenuRenderer {
         int band = Math.max(64, screenH / 5);
         verticalFade(ctx, 0, 0, screenW, band, 0x66000000, 0x00000000);
         verticalFade(ctx, 0, screenH - band, screenW, band, 0x00000000, 0x88000000);
-    }
-
-    /**
-     * Petite marque Reborn top-left — PLACEHOLDER. À remplacer par la
-     * texture nuage Akatsuki dessinée sous Aseprite (déposer un PNG dans
-     * {@code assets/reborn/textures/gui/title/cloud.png} et swapper ce
-     * bloc par un {@code ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, ...)}).
-     *
-     * <p>Pour l'instant : blob crimson arrondi + « R » display, statique.
-     */
-    private static void renderTopLeftMark(GuiGraphicsExtractor ctx) {
-        Minecraft client = Minecraft.getInstance();
-        if (client == null) return;
-        Font tr = client.font;
-
-        int x = LOGO_X;
-        int y = LOGO_Y;
-        int s = LOGO_SIZE;
-
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, s, s, 8, Colors.SURFACE, Colors.BORDER_STRONG);
-
-        // « R » ArcadePix centré (placeholder du futur nuage Akatsuki).
-        Component r = RebornFont.arcade("R");
-        float scale = 2.0f;
-        int rw = Math.round(tr.width(r) * scale);
-        int rh = Math.round(tr.lineHeight * scale);
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x + (s - rw) / 2f, y + (s - rh) / 2f);
-        ctx.pose().scale(scale, scale);
-        ctx.text(tr, r, 0, 0, Colors.FOREGROUND, false);
-        ctx.pose().popMatrix();
     }
 
     /** Version en haut-droite : « REBORN <ver> » + tag « ROLEPLAY ». */
