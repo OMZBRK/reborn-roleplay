@@ -32,8 +32,8 @@
 
 | Artefact | **Publié / live** | Sur `origin/main` | Écart |
 |---|---|---|---|
-| Launcher | **0.3.43** (`/v1/launcher/update` le confirme, release `v0.3.43` du 28/09) | 0.3.43 | ✅ |
-| `reborn-hud` | **0.4.136** (manifest 3.1.92 du 28/09, fiche shinobi / stats, release `mods-v3.1.92`) | 0.4.136 | ✅ |
+| Launcher | **0.3.44** (`/v1/launcher/update` le confirme, release `v0.3.44` du 28/09) | 0.3.44 | ✅ |
+| `reborn-hud` | **0.4.137** (manifest 3.1.93 du 28/09, retrait du « R » du menu ; 0.4.136 = fiche stats) | 0.4.137 | ✅ |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | 0.2.2 | 0.2.2 | ✅ |
 | Plugins Shinobi | build manuel Maven | `minecraft/shinobi/` | déploiement SFTP manuel |
