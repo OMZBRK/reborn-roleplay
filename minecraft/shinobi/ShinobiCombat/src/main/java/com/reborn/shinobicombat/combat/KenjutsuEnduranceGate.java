@@ -37,13 +37,23 @@ public final class KenjutsuEnduranceGate implements Listener {
     private final Plugin plugin;
     private final StaminaManager stamina;
     private final CombatListener combat;
+    private final com.reborn.shinobicore.api.CharacterService characters;
+    /** Optionnels : scaling du M1 kenjutsu par la stat Kenjutsu. */
+    private final com.reborn.shinobicore.api.StatsService stats;
+    private final com.reborn.shinobicore.api.CastAttribution attribution;
 
     private Method mGetSpell, mInternalName, mGetState, mGetCaster, mSetCancelled;
 
-    public KenjutsuEnduranceGate(Plugin plugin, StaminaManager stamina, CombatListener combat) {
+    public KenjutsuEnduranceGate(Plugin plugin, StaminaManager stamina, CombatListener combat,
+                                 com.reborn.shinobicore.api.CharacterService characters,
+                                 com.reborn.shinobicore.api.StatsService stats,
+                                 com.reborn.shinobicore.api.CastAttribution attribution) {
         this.plugin = plugin;
         this.stamina = stamina;
         this.combat = combat;
+        this.characters = characters;
+        this.stats = stats;
+        this.attribution = attribution;
     }
 
     /** Installe le listener réflectif si MagicSpells est présent. */
@@ -89,11 +99,18 @@ public final class KenjutsuEnduranceGate implements Listener {
             if (!SPELL.equals(mInternalName.invoke(spell))) return;
 
             if (stamina.tryConsume(p.getUniqueId(), COST)) {
-                CombatChannel.sendStamina(plugin, p, stamina.get(p.getUniqueId()), stamina.max());
+                CombatChannel.sendStamina(plugin, p, stamina.get(p.getUniqueId()), stamina.max(p.getUniqueId()));
+                // Le coup est rendu par MagicSpells (hors moteur mêlée) : on ouvre une
+                // courte fenêtre « M1 armé » pour que ShinobiCore scale ses dégâts par
+                // la stat Kenjutsu, exactement comme le M1 taïjutsu l'est par Taïjutsu.
+                var c = characters.getActive(p.getUniqueId());
+                if (stats != null && attribution != null && c != null) {
+                    attribution.beginMelee(p, stats.meleeDamage(c.id(), 1.0, true), 0L);
+                }
             } else {
                 mSetCancelled.invoke(event, true);
                 p.sendActionBar(Component.text("Endurance épuisée", NamedTextColor.RED));
-                CombatChannel.sendStamina(plugin, p, stamina.get(p.getUniqueId()), stamina.max());
+                CombatChannel.sendStamina(plugin, p, stamina.get(p.getUniqueId()), stamina.max(p.getUniqueId()));
             }
         } catch (Throwable ignored) {
             // API MagicSpells différente / erreur réflexion → ne bloque jamais le jeu.

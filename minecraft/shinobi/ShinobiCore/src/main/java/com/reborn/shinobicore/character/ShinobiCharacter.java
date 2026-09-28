@@ -27,7 +27,7 @@ import java.util.UUID;
  * multiple of these; exactly one can be <em>active</em> at any time.
  *
  * <p>All persisted fields are mutable through setters so the admin edit GUI
- * can rewrite them. Whenever {@code level} or {@code affinity} changes,
+ * can rewrite them. Whenever the {@link #stats()} change,
  * {@link #recomputeStats()} is called to update the chakra pool's max.
  *
  * <p>Current HP / current chakra / last position are persisted so that a
@@ -47,6 +47,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
      *  {@link #markClean()} — the sub-objects track their own writes. */
     private transient long cleanLearnedMutations;
     private transient long cleanChakraMutations;
+    private transient long cleanStatsMutations;
 
     /** Base per-skill cap; the effective cap is this + level (see {@link #skillCap()}). */
     public static final int SKILL_CAP_BASE = 10;
@@ -77,7 +78,13 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     private int leafTestRollsUsed;
 
     /* ----------------------------------------------- progression & runtime */
+    /** Legacy 1-17 level. No longer drives HP / chakra (the six stats do —
+     *  SPEC_STATS_SERVICE §2); still read by the leaf-test gates, the
+     *  {@code LEVEL} requirement and the skill cap until Progression lands. */
     private int level;
+    /** The six allocated stats — source of the HP / chakra / endurance pools. */
+    private final com.reborn.shinobicore.stats.CharacterStats stats =
+            new com.reborn.shinobicore.stats.CharacterStats();
     private double experience;
 
     /* ------------------------------------------- learned state (unified) */
@@ -248,7 +255,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
             }
         }
         this.leafTestRollsUsed = leafTestRollsUsed;
-        this.level = LevelTable.clampLevel(level);
+        this.level = clampLevel(level);
         this.experience = experience;
         this.chakra = new ChakraPool(maxChakra());
         this.currentHp = currentHp < 0 ? maxHp() : Math.min(currentHp, maxHp());
@@ -383,9 +390,15 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     public void setRank(Rank r) { this.rank = r == null ? Rank.GENIN : r; touch(); }
 
     public void setLevel(int level) {
-        this.level = LevelTable.clampLevel(level);
-        recomputeStats();
+        this.level = clampLevel(level);
         touch();
+    }
+
+    public static final int MIN_LEVEL = 1;
+    public static final int MAX_LEVEL = 17;
+
+    private static int clampLevel(int level) {
+        return Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, level));
     }
 
     public void setExperience(double xp) { this.experience = Math.max(0.0, xp); touch(); }
@@ -432,32 +445,39 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
 
     /* -------------------------------------------------------------- derived */
 
-    /** Base * (Strength multiplier if STRENGTH-affinity, else 1.0). */
+    /** The six allocated stats. Mutate through {@code StatsService} so the
+     *  pools are recomputed and {@code CharacterStatsChangedEvent} fires. */
+    public com.reborn.shinobicore.stats.CharacterStats stats() { return stats; }
+
+    /** PV max, from Vigueur (StatFormulas — SPEC_STATS_SERVICE §1.3). */
     public double maxHp() {
-        double base = LevelTable.baseHp(level);
-        double mult = affinity == Affinity.STRENGTH
-                ? AffinityMultipliers.strengthMultiplier(level) : 1.0;
-        return base * mult;
+        return com.reborn.shinobicore.stats.StatFormulas.maxHp(stats);
     }
 
-    /** Base * (Intelligence multiplier if INTELLIGENCE-affinity, else 1.0). */
+    /** Chakra max, from the Chakra stat. */
     public double maxChakra() {
-        double base = LevelTable.baseChakra(level);
-        double mult = affinity == Affinity.INTELLIGENCE
-                ? AffinityMultipliers.intelligenceMultiplier(level) : 1.0;
-        return base * mult;
+        return com.reborn.shinobicore.stats.StatFormulas.maxChakra(stats);
     }
 
-    /** Multiplier applied to the player's base movement speed. */
+    /** Movement speed multiplier. The body {@link Affinity} is an RP label
+     *  since the stats landed (§2) — no speed bonus any more. */
     public double speedMultiplier() {
-        return affinity == Affinity.AGILITY
-                ? AffinityMultipliers.agilityMultiplier(level) : 1.0;
+        return 1.0;
     }
 
-    /** Re-sync derived values (chakra max, HP cap) after editing level/affinity. */
+    /** Re-sync derived maxima after a stat edit. Current values are kept in
+     *  absolute terms (no free heal), only clamped to the new max. */
     public void recomputeStats() {
         chakra.setMax(maxChakra());
         if (currentHp > maxHp()) currentHp = maxHp();
+    }
+
+    /** Loader hook: stats are read after construction, so the saved current
+     *  HP / chakra are re-applied once the real maxima are known. */
+    public void restoreVitals(double savedHp, double savedChakra) {
+        recomputeStats();
+        this.currentHp = savedHp < 0 ? maxHp() : Math.min(savedHp, maxHp());
+        this.chakra.setCurrent(savedChakra < 0 ? chakra.max() : Math.min(savedChakra, chakra.max()));
     }
 
     /* mobility-slot toggle API removed alongside the mobility system. */
@@ -699,7 +719,8 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     public boolean dirty() {
         return dirty
                 || learned.mutationCount() != cleanLearnedMutations
-                || chakra.mutationCount() != cleanChakraMutations;
+                || chakra.mutationCount() != cleanChakraMutations
+                || stats.mutationCount() != cleanStatsMutations;
     }
 
     /** Clear the dirty state; called after a successful save (and after
@@ -709,6 +730,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
         dirty = false;
         cleanLearnedMutations = learned.mutationCount();
         cleanChakraMutations = chakra.mutationCount();
+        cleanStatsMutations = stats.mutationCount();
     }
 
     /* --------------------------------------- learned state (delegates) */

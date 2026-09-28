@@ -29,6 +29,8 @@ public final class HudKeybinds {
      *  parade). Lue par {@link fr.reborn.hud.combat.CombatInput#tick} via isDown() —
      *  clic droit laissé libre pour les armes/kunai. Rebindable. */
     public static KeyMapping PARRY;
+    /** Fiche shinobi (stats) — lue aussi par StatsScreen pour se refermer. */
+    public static KeyMapping STATS;
 
     /**
      * Bascule des bandes cinéma / mode sans HUD. Défaut <b>F1</b> : ça remplace
@@ -100,6 +102,8 @@ public final class HudKeybinds {
         // Garde / parade (touche dédiée MAINTENUE). Défaut C (ancien raccourci inventaire
         // libéré ; ⚠️ Zoomify utilise parfois C → rebindable). Lue par CombatInput.tick.
         PARRY = bind("key.reborn-hud.parry", GLFW.GLFW_KEY_C);
+        // Fiche shinobi (six stats + techniques) — K, rebindable.
+        STATS = bind("key.reborn-hud.stats", GLFW.GLFW_KEY_K);
         // (Le « test de la feuille » (gacha nature de chakra) n'est PLUS bindé sur F —
         // retiré à la demande ; la touche F revient au comportement vanilla.)
         // (Le repositionnement cosmétique n'a PLUS de raccourci : il s'ouvre depuis
@@ -210,6 +214,20 @@ public final class HudKeybinds {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.gui.screen() == null && mc.player != null) {
                     mc.setScreenAndShow(new fr.reborn.hud.animation.AnimationMenuScreen(null));
+                }
+            }
+            while (STATS.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.gui.screen() == null && mc.player != null) {
+                    // Sur serveur : ShinobiCore pousse la fiche (open=true) → l'écran s'ouvre
+                    // à réception. Solo/dev : écran direct sur la fiche de démonstration.
+                    if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
+                            fr.reborn.hud.menu.stats.StatsPayload.ID)) {
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                            new fr.reborn.hud.menu.stats.StatsPayload("open"));
+                    } else {
+                        mc.setScreenAndShow(new fr.reborn.hud.menu.stats.StatsScreen());
+                    }
                 }
             }
             while (charMenu.consumeClick()) {

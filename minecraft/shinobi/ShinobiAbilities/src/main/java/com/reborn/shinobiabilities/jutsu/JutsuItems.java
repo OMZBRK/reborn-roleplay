@@ -75,8 +75,9 @@ public final class JutsuItems {
         List<Component> lore = new ArrayList<>();
         lore.add(Texts.lore("Rang " + ability.rank().displayName(), ability.rank().color()));
         lore.add(Texts.lore(ability.category()));
-        lore.add(Texts.lore((int) ability.jutsu().chakraCost() + " chakra · "
+        lore.add(Texts.lore(TechniqueCosts.label(ability) + " · "
                 + (ability.jutsu().cooldownMillis() / 1000.0) + "s", NamedTextColor.DARK_AQUA));
+        lore.add(Texts.lore("Scaling : " + ability.profile().scalingLabel(), NamedTextColor.LIGHT_PURPLE));
         lore.add(Texts.spacer());
         lore.add(Texts.lore(methodHint(ability), NamedTextColor.YELLOW));
         meta.lore(lore);

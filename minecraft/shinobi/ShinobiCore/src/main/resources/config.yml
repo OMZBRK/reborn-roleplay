@@ -30,9 +30,63 @@ chakra:
     # Floor on that fuse for the deepest overdraws (debt ~= a full pool).
     min-ko-seconds: 6
 
+# ------------------------------------------------------------
+# Stats — six stats allouées (docs/SPEC_STATS_SERVICE.md, option B).
+# Tout ce bloc = des LEVIERS : rechargeables à chaud (/sc reload), aucune
+# migration. Valeurs = valeurs de départ du prototype, à régler au playtest.
+# Structurel (pas ici) : les six stats, MIN = 1, MAX = 10 (ne jamais baisser).
+# ------------------------------------------------------------
+stats:
+  points-per-rank: 3          # points gagnés à chaque passage de rang (5 passages)
+  player-respec: true         # le joueur peut tout réallouer seul (phase de test)
+  soft-cap:
+    threshold: 6              # plein rendement jusque-là…
+    over-factor: 0.5          # …moitié au-delà (eff(10) = 8)
+  hp:                         # PV max = base + eff(Vigueur) × per-vigueur
+    base: 200
+    per-vigueur: 100
+  chakra:                     # Chakra max = base + eff(Chakra) × per-point
+    base: 4000
+    per-point: 12000
+  stamina:                    # Endurance max = base + eff(Vig) × a + eff(Taï) × b
+    base: 100
+    per-vigueur: 8
+    per-taijutsu: 4
+  regen:                      # régén /10 s = chakra max × (base + per-controle × eff(Ctr))
+    base-fraction: 0.01
+    per-controle: 0.0015
+  cost:
+    reduction-per-controle: 0.03   # −3 % de coût par point effectif de Contrôle
+    chakra:   { E: 400, D: 800, C: 2000, B: 5000, A: 12000, S: 35000 }  # S = HIDEN
+    stamina:  { E: 12,  D: 18,  C: 30,   B: 45,   A: 60,    S: 75 }
+  grade-weights:              # dégâts = base × (1 + Σ poids(lettre) × eff(stat))
+    S: 0.12
+    A: 0.10
+    B: 0.07
+    C: 0.04
+    D: 0.02
+  melee:
+    per-point: 0.08           # M1 × (1 + 0.08 × eff(Taï ou Ken))
+  crit:                       # techniques seulement — à confirmer ou retirer au playtest
+    enabled: true
+    base: 0.05
+    per-controle: 0.005
+    multiplier: 1.5
+  nature-wheel:               # Katon › Fūton › Raiton › Doton › Suiton › Katon
+    enabled: true
+    advantage: 1.25
+    disadvantage: 0.8
+  attribution:                # fenêtre où les coups d'un lanceur sont rattachés
+    technique-window-millis: 4000   # à sa technique (MS / MM / ME) — surchargeable
+    melee-window-millis: 700        # par technique : attribution-millis dans abilities.yml
+
 meditation:
   enabled: true
-  chakra-per-tick: 100.0   # added every tick-interval
+  # Régén pilotée par les stats : chaque intervalle rend
+  # régén/10 s (stat Contrôle + réserve) × intervalle/10 × stats-multiplier.
+  use-stats-regen: true
+  stats-multiplier: 3.0
+  chakra-per-tick: 100.0   # added every tick-interval (si use-stats-regen: false)
   tick-interval-seconds: 5
   # If the player moves more than this many blocks (HORIZONTAL only) from the
   # sit point, meditation is cancelled.

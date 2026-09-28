@@ -434,8 +434,9 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
             if (a.isCastable()) {
                 msg(sender, "Canal " + a.jutsu().itemType().displayName()
                         + " · " + a.jutsu().method()
-                        + " · " + (int) a.jutsu().chakraCost() + " chakra · "
+                        + " · " + com.reborn.shinobiabilities.jutsu.TechniqueCosts.label(a) + " · "
                         + (a.jutsu().cooldownMillis() / 1000.0) + "s"
+                        + " · scaling " + a.profile().scalingLabel()
                         + (a.jutsu().effectKey() != null
                                 ? " · effet " + a.jutsu().effectKey() : ""),
                         NamedTextColor.DARK_AQUA);

@@ -90,6 +90,11 @@ commands:
     usage: /<command>
     aliases: [crawl]
     permission: shinobicore.use
+  stats:
+    description: Fiche shinobi — six stats, points à répartir, techniques (SPEC_STATS_SERVICE).
+    usage: /<command> [alloc nin=2,ctr=1|respec|voir|give|set|reset]
+    aliases: [fiche, statistiques]
+    permission: shinobicore.use
   sacoche:
     description: Ouvre la sacoche RP (inventaire custom lié au personnage actif).
     usage: /<command> [open|give <id> [n]|reset]
@@ -118,6 +123,9 @@ commands:
     description: Boutique — affiche le solde ryo, ou (staff) give/take/set la monnaie d'un joueur.
     usage: /ryo [give|take|set] <joueur> <montant>
 permissions:
+  shinobicore.stats.admin:
+    description: Staff — voir / modifier les stats d'un personnage, points bonus, respec forcé.
+    default: op
   shinobicore.use:
     description: Base permission to use ShinobiCore commands.
     default: true

@@ -127,7 +127,15 @@ public class MeditationManager implements Listener {
                 ShinobiCharacter ch = plugin.characters().getActive(id);
                 if (ch != null) {
                     ChakraPool pool = ch.chakra();
-                    double added = Math.min(perTick, pool.max() - pool.current());
+                    double amount = perTick;
+                    if (plugin.getConfig().getBoolean("meditation.use-stats-regen", true)) {
+                        // Stats-driven (SPEC_STATS_SERVICE §1.3): bigger reserve and
+                        // better Contrôle meditate faster.
+                        amount = com.reborn.shinobicore.stats.StatFormulas.chakraRegenPer10s(ch.stats())
+                                * (intervalSec / 10.0)
+                                * plugin.getConfig().getDouble("meditation.stats-multiplier", 3.0);
+                    }
+                    double added = Math.min(amount, pool.max() - pool.current());
                     if (added > 0) {
                         pool.regen(added);
                         pl.sendActionBar(Component.text(
@@ -139,8 +147,8 @@ public class MeditationManager implements Listener {
         }, 5L, 5L);
 
         p.sendMessage(Component.text(
-                "You sit down and begin meditating. (+" + (int) perTick
-                        + " chakra per " + intervalSec + "s; move to stand up)",
+                "Tu t'assois et commences à méditer (chakra toutes les " + intervalSec
+                        + " s ; bouge pour te relever).",
                 NamedTextColor.GOLD));
         return true;
     }

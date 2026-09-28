@@ -43,8 +43,9 @@ public final class AbilityText {
         out.add(rankCode(a.rank()) + "Rang " + a.rank().displayName());
         out.add("&7" + a.category());
         if (a.isCastable()) {
-            out.add("&b" + (int) a.jutsu().chakraCost() + " chakra · "
+            out.add("&b" + com.reborn.shinobiabilities.jutsu.TechniqueCosts.label(a) + " · "
                     + (a.jutsu().cooldownMillis() / 1000.0) + "s");
+            out.add("&dScaling : " + a.profile().scalingLabel());
         }
         if (!a.description().isBlank()) {
             out.add("&8" + a.description());
@@ -64,8 +65,9 @@ public final class AbilityText {
         if (a.isCastable()) {
             p.sendMessage(Component.text(
                     "Canal : " + a.jutsu().itemType().displayName()
-                            + " · " + (int) a.jutsu().chakraCost() + " chakra · "
-                            + (a.jutsu().cooldownMillis() / 1000.0) + "s de recharge",
+                            + " · " + com.reborn.shinobiabilities.jutsu.TechniqueCosts.label(a) + " · "
+                            + (a.jutsu().cooldownMillis() / 1000.0) + "s de recharge"
+                            + " · scaling " + a.profile().scalingLabel(),
                     NamedTextColor.DARK_AQUA));
         }
     }

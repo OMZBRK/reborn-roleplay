@@ -86,8 +86,23 @@ public class ShinobiPlaceholders extends PlaceholderExpansion {
             case "chakra" -> String.valueOf(Math.round(c.chakra().current()));
             case "maxchakra" -> String.valueOf(Math.round(c.chakra().max()));
             case "chakra_percent" -> pct(c.chakra().current(), c.chakra().max());
-            default -> null; // placeholder inconnu → PAPI laisse tel quel
+            case "maxstamina" -> String.valueOf(Math.round(
+                    com.reborn.shinobicore.stats.StatFormulas.maxStamina(c.stats())));
+            case "stat_points" -> String.valueOf(Math.max(0,
+                    com.reborn.shinobicore.stats.StatFormulas.unspent(c.rank(), c.stats())));
+            default -> statPlaceholder(c, key); // %shinobi_stat_ninjutsu%, %shinobi_eff_ninjutsu%
         };
+    }
+
+    /** {@code stat_<stat>} = valeur allouée, {@code eff_<stat>} = après soft cap —
+     *  pour les sorts MagicSpells / MythicMobs en {@code scaling-mode: MANUAL}. */
+    private static String statPlaceholder(com.reborn.shinobicore.character.ShinobiCharacter c, String key) {
+        boolean eff = key.startsWith("eff_");
+        if (!eff && !key.startsWith("stat_")) return null;
+        var stat = com.reborn.shinobicore.api.StatsService.Stat.from(key.substring(key.indexOf('_') + 1));
+        if (stat == null) return null;
+        int raw = c.stats().get(stat);
+        return eff ? String.valueOf(com.reborn.shinobicore.stats.StatFormulas.eff(raw)) : String.valueOf(raw);
     }
 
     private static String pct(double cur, double max) {

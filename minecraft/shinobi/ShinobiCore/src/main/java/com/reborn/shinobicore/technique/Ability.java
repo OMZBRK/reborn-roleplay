@@ -27,13 +27,16 @@ public final class Ability implements com.reborn.shinobicore.api.TechniqueRegist
     private final JutsuMeta jutsu;       // nullable
     /** Access prerequisites; empty when the technique is freely learnable. */
     private final List<Requirement> requires;
+    /** Stat scaling, nature, cost kind — see {@link TechniqueProfile}. */
+    private final TechniqueProfile profile;
 
     public Ability(String id, String name, String category, JutsuRank rank,
                    ExecutionType execution, MinigameType minigame,
                    Difficulty difficulty, List<Mudra> mudras,
                    List<String> steps,
                    String description, JutsuMeta jutsu,
-                   List<Requirement> requires) {
+                   List<Requirement> requires,
+                   TechniqueProfile profile) {
         this.id = id;
         this.name = name;
         this.category = category == null ? "" : category.trim().toLowerCase(Locale.ROOT);
@@ -46,6 +49,8 @@ public final class Ability implements com.reborn.shinobicore.api.TechniqueRegist
         this.description = description == null ? "" : description;
         this.jutsu = jutsu;
         this.requires = requires == null ? List.of() : List.copyOf(requires);
+        this.profile = profile != null ? profile
+                : TechniqueProfile.parse(id, this.category, rank, java.util.Map.of(), w -> { });
     }
 
     public String id()               { return id; }
@@ -70,6 +75,9 @@ public final class Ability implements com.reborn.shinobicore.api.TechniqueRegist
     public List<Requirement> requires() { return Collections.unmodifiableList(requires); }
 
     public boolean isCastable() { return jutsu != null; }
+
+    /** How this technique scales with the character's stats. Never null. */
+    public TechniqueProfile profile() { return profile; }
 
     /**
      * Display labels driving the incantation (and the MUDRA minigame

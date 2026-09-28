@@ -168,6 +168,10 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private final CharacterService characters;
     private final KoService ko; // peut être null si le service n'est pas exposé
     private final StaminaManager stamina;
+    /** Stats (optionnelles) : scaling du M1 par Taïjutsu / Kenjutsu. */
+    private final com.reborn.shinobicore.api.StatsService stats;
+    /** Attribution (optionnelle) : distingue un vrai coup d'un dégât de sort. */
+    private final com.reborn.shinobicore.api.CastAttribution attribution;
 
     // État de combo par attaquant.
     private final Map<UUID, Integer> comboIndex = new ConcurrentHashMap<>();
@@ -185,11 +189,15 @@ public final class CombatListener implements Listener, PluginMessageListener {
     // Dernière esquive par joueur (cooldown).
     private final Map<UUID, Long> lastDodgeMs = new ConcurrentHashMap<>();
 
-    public CombatListener(Plugin plugin, CharacterService characters, KoService ko, StaminaManager stamina) {
+    public CombatListener(Plugin plugin, CharacterService characters, KoService ko, StaminaManager stamina,
+                          com.reborn.shinobicore.api.StatsService stats,
+                          com.reborn.shinobicore.api.CastAttribution attribution) {
         this.plugin = plugin;
         this.characters = characters;
         this.ko = ko;
         this.stamina = stamina;
+        this.stats = stats;
+        this.attribution = attribution;
     }
 
     // ------------------------------------------------------------------ M1 --
@@ -202,8 +210,16 @@ public final class CombatListener implements Listener, PluginMessageListener {
         if (!(e.getDamager() instanceof Player attacker)) return;
         if (!(e.getEntity() instanceof LivingEntity victim)) return;
 
+        // Un dégât de TECHNIQUE (mechanic MythicMobs / sort MagicSpells lancé par le
+        // joueur) ressemble à un coup de poing (ENTITY_ATTACK, damager = joueur). Seul
+        // un vrai swing est un M1 : le reste appartient à la technique, que
+        // ShinobiCore scale par les stats — sinon un katon lancé katana en main
+        // devenait un « M1 » à 3 dégâts qui mangeait l'endurance.
+        if (attribution != null && !attribution.isGenuineMelee(e)) return;
+
         // Combat RP uniquement : l'attaquant doit avoir un personnage actif.
-        if (characters.getActive(attacker.getUniqueId()) == null) return;
+        var attackerChar = characters.getActive(attacker.getUniqueId());
+        if (attackerChar == null) return;
 
         // EN PARADE ON NE TAPE PAS : un joueur qui garde (touche C) ne porte aucun
         // coup. On annule le coup mêlée tant qu'il est en garde.
@@ -231,16 +247,21 @@ public final class CombatListener implements Listener, PluginMessageListener {
         if (!stamina.tryConsume(attacker.getUniqueId(), M1_STAMINA_COST)) {
             e.setCancelled(true);
             attacker.sendActionBar(Component.text("Stamina épuisée", NamedTextColor.RED));
-            CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max());
+            CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max(attacker.getUniqueId()));
             return;
         }
 
         // Avance l'état de combo.
         int index = advanceCombo(attacker.getUniqueId());
-        double damage = M1_COMBO_DAMAGE[index];
+        // Dégâts M1 = base du palier × (1 + 0,08 × eff(Taïjutsu)) à mains nues,
+        // × eff(Kenjutsu) armé (SPEC_STATS_SERVICE §1.3) — levier melee.per-point.
+        boolean armed = !held.isAir();
+        double damage = stats == null ? M1_COMBO_DAMAGE[index]
+                : stats.meleeDamage(attackerChar.id(), M1_COMBO_DAMAGE[index], armed);
 
         // Dégâts de base Reborn — le reste du pipeline ShinobiCore s'applique.
         e.setDamage(damage);
+        if (attribution != null) attribution.markScaled(e); // déjà scalé ici
 
         boolean finisher = index == FINISHER_INDEX;
 
@@ -255,7 +276,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
             Long bs = blockStartMs.get(((Player) victim).getUniqueId());
             if (bs != null && System.currentTimeMillis() - bs <= PARRY_WINDOW_MS) {
                 handleParry(attacker, (Player) victim, e);
-                CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max());
+                CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max(attacker.getUniqueId()));
                 return;
             }
         }
@@ -295,7 +316,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
             CombatChannel.sendHit(plugin, pv, victim.getEntityId(), dealt);
         }
         // Stamina de l'attaquant.
-        CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max());
+        CombatChannel.sendStamina(plugin, attacker, stamina.get(attacker.getUniqueId()), stamina.max(attacker.getUniqueId()));
     }
 
     /**
@@ -317,7 +338,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
         // Récompense de skill : un peu de stamina rendue à la victime.
         double refunded = stamina.refund(victim.getUniqueId(), PARRY_STAMINA_REFUND);
-        CombatChannel.sendStamina(plugin, victim, refunded, stamina.max());
+        CombatChannel.sendStamina(plugin, victim, refunded, stamina.max(victim.getUniqueId()));
 
         // Feedback client + particules + son de deflect « métallique ».
         CombatChannel.sendParry(plugin, victim, CombatChannel.PARRY_ROLE_SUCCESS);
@@ -346,7 +367,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         e.setDamage(reduced);
 
         double remaining = stamina.drain(vid, GUARD_DRAIN);
-        CombatChannel.sendStamina(plugin, pv, remaining, stamina.max());
+        CombatChannel.sendStamina(plugin, pv, remaining, stamina.max(pv.getUniqueId()));
 
         if (remaining <= 0.0) {
             // Guard break : fin de garde forcée + stun.
@@ -372,7 +393,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
         DamageCause c = e.getCause();
         if ((c == DamageCause.ENTITY_ATTACK || c == DamageCause.ENTITY_SWEEP_ATTACK)
                 && e.getDamager() instanceof Player atk
-                && characters.getActive(atk.getUniqueId()) != null) {
+                && characters.getActive(atk.getUniqueId()) != null
+                && (attribution == null || attribution.isGenuineMelee(e))) {
             Material held = atk.getInventory().getItemInMainHand().getType();
             if (held.isAir() || isKenjutsuWeapon(held)) return; // déjà pris par onMelee → maybeBlock
         }
@@ -463,14 +485,14 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
         if (!stamina.tryConsume(id, DASH_COST)) {
             player.sendActionBar(Component.text("Stamina épuisée", NamedTextColor.RED));
-            CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max());
+            CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max(id));
             return;
         }
         lastDashMs.put(id, now);
 
         player.setVelocity(new Vector(dx * DASH_SPEED, DASH_UP, dz * DASH_SPEED));
         player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_ATTACK_SWEEP, org.bukkit.SoundCategory.PLAYERS, 0.7f, 1.5f);
-        CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max());
+        CombatChannel.sendStamina(plugin, player, stamina.get(id), stamina.max(id));
     }
 
     /**

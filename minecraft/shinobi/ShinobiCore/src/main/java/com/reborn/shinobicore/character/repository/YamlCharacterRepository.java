@@ -71,6 +71,7 @@ public class YamlCharacterRepository implements CharacterRepository {
 
         YamlConfiguration cfg = YamlConfiguration.loadConfiguration(f);
         backupIfLegacyLearnedShape(f, cfg);
+        backupIfLegacyStats(f, cfg);
         List<ShinobiCharacter> out = new ArrayList<>();
         for (String key : cfg.getKeys(false)) {
             ConfigurationSection s = cfg.getConfigurationSection(key);
@@ -113,6 +114,78 @@ public class YamlCharacterRepository implements CharacterRepository {
         }
     }
 
+    /**
+     * Same safety net for the stats migration (SPEC_STATS_SERVICE §4.2): a
+     * character without a {@code stats:} block is converted from its legacy
+     * {@code level} / {@code affinity} on load, and the next save rewrites the
+     * file — so copy it to {@code <name>.stats.bak} first. Idempotent.
+     */
+    private void backupIfLegacyStats(File f, YamlConfiguration cfg) {
+        File bak = new File(f.getParentFile(), f.getName() + ".stats.bak");
+        if (bak.exists()) return;
+        boolean legacy = false;
+        for (String key : cfg.getKeys(false)) {
+            if (cfg.isConfigurationSection(key) && !cfg.isConfigurationSection(key + ".stats")) {
+                legacy = true;
+                break;
+            }
+        }
+        if (!legacy) return;
+        try {
+            java.nio.file.Files.copy(f.toPath(), bak.toPath());
+            plugin.getLogger().info("Stats migration: backed up " + f.getName()
+                    + " to " + bak.getName() + ".");
+        } catch (java.io.IOException ex) {
+            plugin.getLogger().warning("Could not back up " + f.getName()
+                    + " before stats migration: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Read the {@code stats:} block, or convert a legacy character (§4.2):
+     * {@code points = round(min(15, (level − 1) × 15 / 16))}, split 60/40
+     * following the old body affinity, capped at MAX, the rest left unspent.
+     * Returns true when a conversion happened (the character must be saved).
+     */
+    private boolean loadStats(ShinobiCharacter c, ConfigurationSection s) {
+        com.reborn.shinobicore.stats.CharacterStats st = c.stats();
+        ConfigurationSection sec = s.getConfigurationSection("stats");
+        if (sec != null) {
+            for (com.reborn.shinobicore.api.StatsService.Stat stat
+                    : com.reborn.shinobicore.api.StatsService.Stat.values()) {
+                st.set(stat, sec.getInt(stat.key(), com.reborn.shinobicore.api.StatsService.MIN));
+            }
+            st.setBonusPoints(sec.getInt("bonus", 0));
+            return false;
+        }
+        int level = Math.max(1, Math.min(17, s.getInt("level", 1)));
+        int points = (int) Math.round(Math.min(15.0, (level - 1) * 15.0 / 16.0));
+        if (points > 0) {
+            int major = (int) Math.round(points * 0.6);
+            int minor = points - major;
+            com.reborn.shinobicore.api.StatsService.Stat a, b;
+            switch (c.affinity()) {
+                case INTELLIGENCE -> { a = com.reborn.shinobicore.api.StatsService.Stat.NINJUTSU;
+                                       b = com.reborn.shinobicore.api.StatsService.Stat.CONTROLE; }
+                case AGILITY -> { a = com.reborn.shinobicore.api.StatsService.Stat.KENJUTSU;
+                                  b = com.reborn.shinobicore.api.StatsService.Stat.VIGUEUR; }
+                default -> { a = com.reborn.shinobicore.api.StatsService.Stat.TAIJUTSU;
+                             b = com.reborn.shinobicore.api.StatsService.Stat.VIGUEUR; }
+            }
+            // set() clamps at MAX: the overflow simply stays unspent.
+            st.set(a, com.reborn.shinobicore.api.StatsService.MIN + major);
+            st.set(b, com.reborn.shinobicore.api.StatsService.MIN + minor);
+            // Bonus so the converted build is affordable at the current rank.
+            int fromRank = com.reborn.shinobicore.stats.StatFormulas.levers().pointsPerRank()
+                    * c.rank().statTier();
+            st.setBonusPoints(Math.max(0, points - fromRank));
+        }
+        st.touch();
+        plugin.getLogger().info("Stats migration: " + c.name() + " (niveau " + level + ", "
+                + c.affinity() + ") → " + points + " point(s) " + st.snapshot() + ".");
+        return true;
+    }
+
     private ShinobiCharacter fromSection(UUID owner, UUID id, ConfigurationSection s) {
         // Multi-affinity — read the new list; fall back to the legacy single key.
         Set<ChakraAffinity> affinities = new LinkedHashSet<>();
@@ -152,6 +225,10 @@ public class YamlCharacterRepository implements CharacterRepository {
                 s.getDouble("current-chakra", -1.0),
                 lastWorld, lx, ly, lz, lyaw, lpitch
         );
+
+        // Stats (or legacy conversion), then the saved vitals against the real maxima.
+        boolean statsMigrated = loadStats(c, s);
+        c.restoreVitals(s.getDouble("current-hp", -1.0), s.getDouble("current-chakra", -1.0));
 
         // Champs ajoutés après coup (hors constructeur pour ne pas casser sa signature).
         c.setVillage(s.getString("village", ""));
@@ -289,6 +366,8 @@ public class YamlCharacterRepository implements CharacterRepository {
         // Loading is not a mutation — start clean so the autosave only
         // writes this character once something actually changes.
         c.markClean();
+        // A converted character must reach disk even if nothing else changes.
+        if (statsMigrated) c.stats().touch();
         return c;
     }
 
@@ -326,6 +405,13 @@ public class YamlCharacterRepository implements CharacterRepository {
         cfg.set(key + ".experience", c.experience());
         cfg.set(key + ".current-hp", c.currentHp());
         cfg.set(key + ".current-chakra", c.chakra().current());
+
+        // The six stats + bonus points (unspent is derived from rank, never stored).
+        for (com.reborn.shinobicore.api.StatsService.Stat stat
+                : com.reborn.shinobicore.api.StatsService.Stat.values()) {
+            cfg.set(key + ".stats." + stat.key(), c.stats().get(stat));
+        }
+        cfg.set(key + ".stats.bonus", c.stats().bonusPoints() > 0 ? c.stats().bonusPoints() : null);
 
         if (c.hasLastPosition()) {
             cfg.set(key + ".last-position.world", c.lastWorldName());

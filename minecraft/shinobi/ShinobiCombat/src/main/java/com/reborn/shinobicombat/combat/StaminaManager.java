@@ -3,6 +3,7 @@ package com.reborn.shinobicombat.combat;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.ToDoubleFunction;
 
 /**
  * Réserve de <b>stamina</b> taïjutsu par joueur — autoritaire côté serveur,
@@ -11,11 +12,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p><b>Feel</b> (corrigé) : la régén ne reprend qu'après un <b>délai</b>
  * ({@link #REGEN_DELAY_MS}) sans coup — sinon, en frappant, la réserve <b>descend
  * vraiment</b> (avant, régén ≈ cadence de clic → jamais vide). Vidée = coup refusé.
+ *
+ * <p><b>Maximum</b> : propriété des stats (SPEC_STATS_SERVICE §3.2) —
+ * {@code StatsService.maxStamina} (Vigueur + Taïjutsu), lu par joueur via
+ * {@code maxOf}. Ce gestionnaire garde la consommation et le tick, plus son
+ * propre plafond. Sans ShinobiCore/stats : {@link #DEFAULT_MAX}.
  */
 public final class StaminaManager {
 
-    /** Réserve maximale. */
-    public static final double MAX = 100.0;
+    /** Réserve maximale quand les stats ne sont pas disponibles. */
+    public static final double DEFAULT_MAX = 100.0;
     /** Régénération par seconde (hors délai post-coup). */
     public static final double REGEN_PER_SECOND = 16.0;
     /** Pas de régén pendant ce délai après le dernier coup (ms). */
@@ -23,14 +29,28 @@ public final class StaminaManager {
 
     private final Map<UUID, Double> current = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastConsume = new ConcurrentHashMap<>();
+    private final ToDoubleFunction<UUID> maxOf;
 
-    /** Stamina courante ({@link #MAX} si rien consommé). */
-    public double get(UUID id) {
-        return current.getOrDefault(id, MAX);
+    /** @param maxOf compte joueur → maximum d'endurance (stats du personnage actif) */
+    public StaminaManager(ToDoubleFunction<UUID> maxOf) {
+        this.maxOf = maxOf;
     }
 
-    public double max() {
-        return MAX;
+    public StaminaManager() {
+        this(id -> DEFAULT_MAX);
+    }
+
+    /** Maximum d'endurance du joueur (stats du personnage actif). */
+    public double max(UUID id) {
+        double m = maxOf.applyAsDouble(id);
+        return m > 0 ? m : DEFAULT_MAX;
+    }
+
+    /** Stamina courante (le max si rien consommé), bornée au max courant. */
+    public double get(UUID id) {
+        double m = max(id);
+        Double cur = current.get(id);
+        return cur == null ? m : Math.min(cur, m);
     }
 
     /**
@@ -59,11 +79,11 @@ public final class StaminaManager {
     }
 
     /**
-     * Rend {@code amount} de stamina (borné à {@link #MAX}) — récompense d'une
-     * parade timée réussie. Ne gèle PAS la régén. Retourne la stamina restante.
+     * Rend {@code amount} de stamina (borné au max) — récompense d'une parade
+     * timée réussie. Ne gèle PAS la régén. Retourne la stamina restante.
      */
     public double refund(UUID id, double amount) {
-        double next = Math.min(MAX, get(id) + amount);
+        double next = Math.min(max(id), get(id) + amount);
         current.put(id, next);
         return next;
     }
@@ -75,14 +95,15 @@ public final class StaminaManager {
         for (Map.Entry<UUID, Double> e : current.entrySet()) {
             Long last = lastConsume.get(e.getKey());
             if (last != null && now - last < REGEN_DELAY_MS) continue; // délai actif
-            if (e.getValue() >= MAX) continue;
-            e.setValue(Math.min(MAX, e.getValue() + add));
+            double m = max(e.getKey());
+            if (e.getValue() >= m) continue;
+            e.setValue(Math.min(m, e.getValue() + add));
         }
     }
 
     /** Remet à plein (respawn, switch de perso, sortie de KO). */
     public void reset(UUID id) {
-        current.put(id, MAX);
+        current.remove(id); // absent = plein, au max courant
         lastConsume.remove(id);
     }
 

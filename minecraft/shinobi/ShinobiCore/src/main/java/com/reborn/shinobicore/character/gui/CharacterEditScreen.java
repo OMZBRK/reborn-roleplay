@@ -1,10 +1,8 @@
 package com.reborn.shinobicore.character.gui;
 
 import com.reborn.shinobicore.character.Affinity;
-import com.reborn.shinobicore.character.AffinityMultipliers;
 import com.reborn.shinobicore.character.ChakraAffinity;
 import com.reborn.shinobicore.character.CharacterDisplay;
-import com.reborn.shinobicore.character.LevelTable;
 import com.reborn.shinobicore.character.NinjaArt;
 import com.reborn.shinobicore.character.Rank;
 import com.reborn.shinobicore.character.ShinobiCharacter;
@@ -104,8 +102,7 @@ public final class CharacterEditScreen extends CoreScreen {
                 "&bClique pour changer"), "art"));
         inv.setItem(SLOT_AFFINITY, Ui.action(GuiIcons.coloured(affinityIcon(c.affinity()),
                 "Affinité : " + c.affinity().displayName(), NamedTextColor.LIGHT_PURPLE,
-                "Multiplicateur : x" + String.format("%.3f",
-                        AffinityMultipliers.multiplier(c.affinity(), c.level())),
+                "Étiquette RP (archétype) — sans effet de jeu",
                 "&dClique pour changer"), "affinity"));
         // Informational only — the chakra affinities are rolled through
         // the in-game « Test de la Feuille » item flow (/testfeuille),
@@ -118,16 +115,19 @@ public final class CharacterEditScreen extends CoreScreen {
                 "Rang : " + c.rank().displayName(),
                 "&6Clique pour changer"), "rank"));
 
+        int unspent = com.reborn.shinobicore.stats.StatFormulas.unspent(c.rank(), c.stats());
         inv.setItem(SLOT_LVL_DOWN, Ui.action(GuiIcons.destructive(Material.REDSTONE,
-                "Niveau −1",
-                "&cClique pour diminuer"), "lvldown"));
+                "Points bonus −1",
+                "&cRetire un point de stat bonus"), "lvldown"));
         inv.setItem(SLOT_LVL, GuiIcons.primary(Material.EXPERIENCE_BOTTLE,
-                "Niveau : " + c.level(),
+                "Stats : " + unspent + " point(s) à répartir",
+                "Bonus staff : " + c.stats().bonusPoints(),
                 "PV :     " + format(c.maxHp()),
-                "Chakra : " + format(c.chakra().max())));
+                "Chakra : " + format(c.chakra().max()),
+                "&7Fiche complète : /stats " + c.name()));
         inv.setItem(SLOT_LVL_UP, Ui.action(GuiIcons.primary(Material.EMERALD,
-                "Niveau +1",
-                "&aClique pour augmenter"), "lvlup"));
+                "Points bonus +1",
+                "&aAccorde un point de stat bonus"), "lvlup"));
 
         inv.setItem(SLOT_ABILITIES, Ui.action(GuiIcons.info(Material.KNOWLEDGE_BOOK,
                 "Techniques (" + c.knownAbilities().size() + " connue(s))",
@@ -211,21 +211,16 @@ public final class CharacterEditScreen extends CoreScreen {
             case "rank" -> {
                 c.setRank(c.rank().cycle());
                 mgr.save(c);
+                // A rank passage grants stat points — refresh an open sheet.
+                com.reborn.shinobicore.stats.StatsServiceImpl.pushIfOnline(c);
                 refresh(viewer, view);
             }
-            case "lvlup" -> {
-                if (c.level() < LevelTable.MAX_LEVEL) {
-                    c.setLevel(c.level() + 1);
+            case "lvlup", "lvldown" -> {
+                int delta = "lvlup".equals(action) ? 1 : -1;
+                if (c.stats().bonusPoints() + delta >= 0) {
+                    c.stats().setBonusPoints(c.stats().bonusPoints() + delta);
                     mgr.save(c);
-                    mgr.reapplyStatsIfActive(c);
-                    refresh(viewer, view);
-                }
-            }
-            case "lvldown" -> {
-                if (c.level() > LevelTable.MIN_LEVEL) {
-                    c.setLevel(c.level() - 1);
-                    mgr.save(c);
-                    mgr.reapplyStatsIfActive(c);
+                    com.reborn.shinobicore.stats.StatsServiceImpl.pushIfOnline(c);
                     refresh(viewer, view);
                 }
             }

@@ -3,14 +3,9 @@ package com.reborn.shinobicore.character;
 import java.util.Locale;
 
 /**
- * Character body affinity. Each affinity buffs exactly one stat, with the
- * multiplier scaling up every few levels (see {@link AffinityMultipliers}).
- *
- * <ul>
- *   <li>{@link #STRENGTH} → HP / max health</li>
- *   <li>{@link #INTELLIGENCE} → Chakra pool</li>
- *   <li>{@link #AGILITY} → Movement speed (applied <em>after</em> potion effects)</li>
- * </ul>
+ * Character body archetype — an <b>RP label</b> since the six stats landed
+ * (SPEC_STATS_SERVICE §2): shown on the wizard and the sheet, no mechanical
+ * effect. Still read once, to split a legacy character's converted points.
  */
 public enum Affinity {
     STRENGTH,

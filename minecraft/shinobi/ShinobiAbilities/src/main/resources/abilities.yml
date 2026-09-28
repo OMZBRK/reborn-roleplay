@@ -34,6 +34,27 @@
 #     #   - "cast forcecast %player% gokakyu"
 #     # run-as: CONSOLE            # ou PLAYER
 #     # Placeholders : %player% %uuid% %character% %world% %x% %y% %z%
+#     #                %power% (multiplicateur de stats) %tier% (E0 … S5)
+#
+# ════════════════ STATS (docs/SPEC_STATS_SERVICE.md) ════════════════
+# Clés optionnelles au niveau de l'entrée (pas dans jutsu:) — chacune a un
+# défaut par catégorie, rien n'est obligatoire :
+#   scaling: { ninjutsu: S, controle: C }  # lettres S/A/B/C/D par stat :
+#                                          # taijutsu kenjutsu ninjutsu
+#                                          # controle vigueur chakra
+#   nature: KATON              # roue des natures (défaut : feuille ninjutsu/*)
+#   cost-kind: STAMINA         # CHAKRA / STAMINA (défaut : taijutsu & bukijutsu
+#                              # = endurance, le reste = chakra)
+#   cost-factor: 1.5           # × coût de base du RANG (chakra-cost est ignoré
+#                              # tant que jutsu.stats-costs est à true)
+#   scaling-mode: AUTO         # AUTO : ShinobiCore multiplie les dégâts que le
+#                              # sort inflige (MagicSpells / MythicMobs / ModelEngine
+#                              # / effet interne) pendant la fenêtre d'attribution.
+#                              # MANUAL : le sort se scale lui-même avec %power%
+#                              # (jamais les deux : double scaling).
+#   attribution-millis: 30000  # fenêtre d'attribution (défaut 4 s) — à monter pour
+#                              # une invocation / une zone qui frappe longtemps
+# Aucune stat ne verrouille l'apprentissage ni le lancer (§1.0).
 #
 # Exemple MagicSpells complet (décommente + adapte le nom du sort) :
 #  - id: ms_katon_demo
@@ -81,6 +102,7 @@ abilities:
     difficulty: MEDIUM
     mudras: [serpent, belier, singe, sanglier, cheval, tigre]
     description: "Souffle une immense boule de feu de la bouche."
+    scaling: { ninjutsu: S, controle: C }     # SPEC_STATS_SERVICE §1.3
     jutsu:
       item-type: ROULEAU
       icon: FIRE_CHARGE
@@ -165,6 +187,7 @@ abilities:
     minigame: SUIVI
     difficulty: MEDIUM
     description: "Concentre un chakra apaisant pour refermer les plaies."
+    scaling: { controle: S, ninjutsu: C }
     jutsu:
       item-type: ROULEAU
       icon: GLISTERING_MELON_SLICE
@@ -198,6 +221,7 @@ abilities:
     minigame: PUSHUP
     difficulty: MEDIUM
     description: "Le tourbillon de la Feuille — coup de pied circulaire."
+    scaling: { taijutsu: S, vigueur: B }
     jutsu:
       item-type: POING
       icon: IRON_INGOT
@@ -214,6 +238,7 @@ abilities:
     minigame: PUSHUP
     difficulty: HARD
     description: "Un pas glissé, une coupe — la lame retrouve son fourreau."
+    scaling: { kenjutsu: S, taijutsu: C }
     jutsu:
       item-type: KATANA
       icon: DIAMOND_SWORD

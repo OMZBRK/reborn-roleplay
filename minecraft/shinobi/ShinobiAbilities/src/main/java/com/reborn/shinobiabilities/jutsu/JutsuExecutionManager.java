@@ -239,6 +239,18 @@ public final class JutsuExecutionManager {
             return null;
         }
         double cost = effectiveCost(c, a);
+        // Endurance (Taijutsu / Bukijutsu): no debt mechanic - a body out of
+        // breath simply cannot perform the technique.
+        if (TechniqueCosts.kind(plugin, a) == com.reborn.shinobicore.api.StatsService.CostKind.STAMINA) {
+            var end = TechniqueCosts.endurance();
+            if (end != null && end.current(p) < cost) {
+                actionBar(p, "Endurance insuffisante (" + (int) Math.ceil(cost) + " requis)",
+                        NamedTextColor.GOLD);
+                p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BREATH, 0.6f, 1.2f);
+                return null;
+            }
+            return c;
+        }
         // No hard chakra gate when overdraw is on: a character may always
         // attempt a technique — overreaching pushes them into chakra debt and
         // ShinobiCore's ExhaustionManager makes them pay (debuffs → KO). Set
@@ -267,7 +279,14 @@ public final class JutsuExecutionManager {
         ShinobiCharacter c = com.reborn.shinobicore.util.Players.active(core.characters(), p);
         if (c == null) return;
         double cost = effectiveCost(c, a);
-        if (plugin.getConfig().getBoolean("jutsu.overdraw", true)) {
+        if (TechniqueCosts.kind(plugin, a) == com.reborn.shinobicore.api.StatsService.CostKind.STAMINA) {
+            var end = TechniqueCosts.endurance();
+            if (end == null || !end.tryConsume(p, cost)) {
+                actionBar(p, "Endurance insuffisante (" + (int) Math.ceil(cost) + " requis)",
+                        NamedTextColor.GOLD);
+                return;
+            }
+        } else if (plugin.getConfig().getBoolean("jutsu.overdraw", true)) {
             // Always spends; any shortfall becomes chakra debt → exhaustion.
             c.chakra().overdraw(cost);
         } else if (!c.chakra().consume(cost)) {
@@ -276,6 +295,10 @@ public final class JutsuExecutionManager {
             return;
         }
         cooldowns.set(p.getUniqueId(), a.id(), effectiveCooldown(c, a));
+        // Open the attribution window BEFORE the effect runs: MagicSpells,
+        // MythicMobs (and ModelEngine through it) and internal effects all
+        // deal their damage afterwards, and ShinobiCore scales it by stats.
+        beginAttribution(p, c, a);
         if (a.jutsu().effectKey() != null) {
             effects.dispatch(plugin, p, a);
         }
@@ -297,6 +320,8 @@ public final class JutsuExecutionManager {
      */
     public void preview(Player p, Ability a) {
         if (!p.isOnline() || a.jutsu() == null) return;
+        ShinobiCharacter pc = com.reborn.shinobicore.util.Players.active(core.characters(), p);
+        if (pc != null) beginAttribution(p, pc, a); // the preview shows the scaled damage too
         if (a.jutsu().effectKey() != null) {
             effects.dispatch(plugin, p, a);
         }
@@ -307,10 +332,26 @@ public final class JutsuExecutionManager {
         actionBar(p, "👁 Aperçu : " + a.name(), NamedTextColor.LIGHT_PURPLE);
     }
 
+    /** Stat multiplier of this technique for this character (1 without StatsService). */
+    private double power(ShinobiCharacter c, Ability a) {
+        var stats = TechniqueCosts.stats();
+        return stats == null ? 1.0 : stats.techniquePower(c.id(), 1.0, a.profile().scaling());
+    }
+
+    private void beginAttribution(Player p, ShinobiCharacter c, Ability a) {
+        if (!a.profile().autoScale()) return; // MANUAL: the spell scales itself via %power%
+        var attribution = org.bukkit.Bukkit.getServicesManager()
+                .load(com.reborn.shinobicore.api.CastAttribution.class);
+        if (attribution == null) return;
+        attribution.beginTechnique(p, a.id(), power(c, a), a.profile().nature(),
+                a.profile().tier(), a.profile().windowMillis());
+    }
+
     /** Run the jutsu's external commands (MagicSpells & co). */
     private void dispatchCommands(Player p, ShinobiCharacter c, Ability a) {
         if (!a.jutsu().hasCommands()) return;
         var loc = p.getLocation();
+        String power = String.format(java.util.Locale.ROOT, "%.3f", power(c, a));
         for (String raw : a.jutsu().commands()) {
             String cmd = raw.startsWith("/") ? raw.substring(1) : raw;
             cmd = cmd.replace("%player%", p.getName())
@@ -319,7 +360,11 @@ public final class JutsuExecutionManager {
                     .replace("%world%", loc.getWorld().getName())
                     .replace("%x%", String.valueOf(loc.getBlockX()))
                     .replace("%y%", String.valueOf(loc.getBlockY()))
-                    .replace("%z%", String.valueOf(loc.getBlockZ()));
+                    .replace("%z%", String.valueOf(loc.getBlockZ()))
+                    // Stats: %power% = the technique's stat multiplier (for
+                    // scaling-mode: MANUAL spells), %tier% = E0 ... S5.
+                    .replace("%power%", power)
+                    .replace("%tier%", String.valueOf(a.profile().tier()));
             try {
                 if (a.jutsu().runAsPlayer()) {
                     org.bukkit.Bukkit.dispatchCommand(p, cmd);
@@ -353,10 +398,11 @@ public final class JutsuExecutionManager {
         return Math.max(0, Math.min(100, c.abilityMastery(a.id()))) / 100.0;
     }
 
-    /** Chakra cost after the mastery discount. */
+    /** Cost (chakra or endurance, see {@link TechniqueCosts#kind}) after the
+     *  Contrôle reduction and the mastery discount. */
     public double effectiveCost(ShinobiCharacter c, Ability a) {
         double max = plugin.getConfig().getDouble("jutsu.mastery-max-cost-reduction", 0.5);
-        return a.jutsu().chakraCost() * (1.0 - max * masteryFraction(c, a));
+        return TechniqueCosts.characterCost(plugin, c, a) * (1.0 - max * masteryFraction(c, a));
     }
 
     /** Cooldown after the mastery discount. */

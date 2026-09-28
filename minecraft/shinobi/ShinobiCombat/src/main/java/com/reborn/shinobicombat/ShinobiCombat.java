@@ -45,13 +45,27 @@ public final class ShinobiCombat extends JavaPlugin {
             return;
         }
         KoService ko = services.load(KoService.class); // optionnel
+        // Stats (SPEC_STATS_SERVICE) — optionnelles : sans elles, endurance 100 et M1 non scalé.
+        com.reborn.shinobicore.api.StatsService stats =
+                services.load(com.reborn.shinobicore.api.StatsService.class);
+        com.reborn.shinobicore.api.CastAttribution attribution =
+                services.load(com.reborn.shinobicore.api.CastAttribution.class);
 
-        this.stamina = new StaminaManager();
+        // Endurance max = StatsService.maxStamina (Vigueur + Taïjutsu) du perso actif.
+        this.stamina = new StaminaManager(owner -> {
+            if (stats == null) return StaminaManager.DEFAULT_MAX;
+            var c = characters.getActive(owner);
+            return c == null ? StaminaManager.DEFAULT_MAX : stats.maxStamina(c.id());
+        });
+        // Techniques de taïjutsu / bukijutsu payées en endurance (ShinobiAbilities).
+        services.register(com.reborn.shinobicore.api.EnduranceService.class,
+                new com.reborn.shinobicombat.combat.EnduranceBridge(this, stamina),
+                this, org.bukkit.plugin.ServicePriority.Normal);
 
         // Canal serveur→client pour le HUD combat (damage indicators + stamina + anims).
         getServer().getMessenger().registerOutgoingPluginChannel(this, CombatChannel.CHANNEL);
 
-        CombatListener combat = new CombatListener(this, characters, ko, stamina);
+        CombatListener combat = new CombatListener(this, characters, ko, stamina, stats, attribution);
         getServer().getPluginManager().registerEvents(combat, this);
 
         // Le taïjutsu (M1) passe par l'event de dégât mêlée vanilla, qui ne NAÎT
@@ -84,7 +98,8 @@ public final class ShinobiCombat extends JavaPlugin {
 
         // Gate SpellCastEvent (réflexion) : (1) débite + bloque le M1 kenjutsu si
         // l'endurance est vide ; (2) annule TOUT jutsu tant que le lanceur est en parade.
-        new com.reborn.shinobicombat.combat.KenjutsuEnduranceGate(this, stamina, combat).register();
+        new com.reborn.shinobicombat.combat.KenjutsuEnduranceGate(this, stamina, combat,
+                characters, stats, attribution).register();
 
         // Régénération de stamina + sync client léger (uniquement ceux qui régénèrent).
         this.regenTask = getServer().getScheduler().runTaskTimer(this, () -> {
@@ -92,8 +107,9 @@ public final class ShinobiCombat extends JavaPlugin {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (characters.getActive(p.getUniqueId()) == null) continue;
                 double cur = stamina.get(p.getUniqueId());
-                if (cur < stamina.max()) {
-                    CombatChannel.sendStamina(this, p, cur, stamina.max());
+                double max = stamina.max(p.getUniqueId());
+                if (cur < max) {
+                    CombatChannel.sendStamina(this, p, cur, max);
                 }
             }
         }, REGEN_PERIOD_TICKS, REGEN_PERIOD_TICKS);

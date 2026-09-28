@@ -2,7 +2,6 @@ package com.reborn.shinobiabilities.mobility;
 
 import com.reborn.shinobiabilities.util.Keys;
 import com.reborn.shinobiabilities.CoreServices;
-import com.reborn.shinobicore.character.LevelTable;
 import com.reborn.shinobicore.character.ShinobiCharacter;
 import com.reborn.shinobicore.util.Players;
 import com.reborn.shinobicore.util.Tps;

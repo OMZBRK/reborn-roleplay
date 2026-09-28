@@ -7,15 +7,18 @@ import java.util.Locale;
  * {@link #cycle()} walks the progression naturally when cycled via the
  * admin GUI.
  *
- * <p>Pure display metadata; has no mechanical effect. Used by the
- * custom tab-list to tag each character.
+ * <p>Order follows the plan (SPEC_STATS_SERVICE §5): Special Jonin sits
+ * <em>after</em> Jonin. Persisted by name, so reordering never breaks a save.
+ *
+ * <p>Mechanical effect: each rank passage grants stat points
+ * ({@link #statTier()}); used by the custom tab-list to tag each character.
  */
 public enum Rank {
     ACADEMY       ("Academy Student"),
     GENIN         ("Genin"),
     CHUNIN        ("Chunin"),
-    SPECIAL_JONIN ("Special Jonin"),
     JONIN         ("Jonin"),
+    SPECIAL_JONIN ("Special Jonin"),
     ANBU          ("ANBU"),
     SANNIN        ("Sannin"),
     KAGE          ("Kage");
@@ -27,6 +30,13 @@ public enum Rank {
     }
 
     public String displayName() { return displayName; }
+
+    /**
+     * Rank passages completed, for stat points: Académie 0 → Genin 1 → Chunin 2
+     * → Jonin 3 → Special Jonin 4 → ANBU / Sannin / Kage 5 (the ladder's top
+     * shares the last passage).
+     */
+    public int statTier() { return Math.min(5, ordinal()); }
 
     /** Advance to the next rank, wrapping back to the start after the highest. */
     public Rank cycle() {

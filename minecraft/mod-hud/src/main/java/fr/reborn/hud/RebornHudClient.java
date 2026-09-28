@@ -263,6 +263,28 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.inventory.InventoryData.clear());
 
+        // Fiche shinobi (canal reborn:stats, bidirectionnel) : ShinobiCore pousse les
+        // six stats + leviers + techniques du perso ACTIF ; le client renvoie
+        // open / alloc:… / respec. open=true → ouvre l'écran ; sinon rafraîchit en place.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.menu.stats.StatsPayload.ID, fr.reborn.hud.menu.stats.StatsPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.menu.stats.StatsPayload.ID, fr.reborn.hud.menu.stats.StatsPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.menu.stats.StatsPayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                net.minecraft.client.Minecraft mc = context.client();
+                if (mc.player == null) return;
+                boolean open = fr.reborn.hud.menu.stats.StatsData.update(payload.content());
+                if (mc.gui.screen() instanceof fr.reborn.hud.menu.stats.StatsScreen st) {
+                    st.refresh();
+                } else if (open && mc.gui.screen() == null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.menu.stats.StatsScreen());
+                }
+            }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.menu.stats.StatsData.clear());
+
         // Diffusion des apparences RP (canal reborn:skins, S2C) : ShinobiCore pousse
         // <uuid>\n<serialize()> pour chaque joueur actif → chacun voit le skin composé
         // des autres. Apparence vide = retrait de l'override.

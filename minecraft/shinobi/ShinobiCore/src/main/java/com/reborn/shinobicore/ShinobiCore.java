@@ -96,6 +96,9 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.gui.CoreGuiRouter coreGuiRouter;
     private com.reborn.shinobicore.staff.StaffBuildManager staffBuild;
     private com.reborn.shinobicore.panel.PanelBridge panelBridge;
+    private com.reborn.shinobicore.stats.StatsServiceImpl statsService;
+    private com.reborn.shinobicore.stats.CastAttributionImpl castAttribution;
+    private com.reborn.shinobicore.stats.StatsChannel statsChannel;
     // Jutsu / techniques managers moved out to the standalone
     // ShinobiAbilities plugin. See ShinobiAbilities_RECREATION_PROMPT.md.
 
@@ -117,6 +120,10 @@ public final class ShinobiCore extends JavaPlugin {
         }
 
         this.itemGiveRegistry = new ItemGiveRegistry(this);
+
+        // 0a. Stat levers (SPEC_STATS_SERVICE §6) — BEFORE the roster loads:
+        //     the legacy-character conversion reads points-per-rank.
+        com.reborn.shinobicore.stats.StatFormulas.load(getConfig().getConfigurationSection("stats"));
 
         // 0b. Technique registry — engine-owned catalog shell. Registered
         //     empty here (before ANY reader can boot); the active world's
@@ -364,6 +371,20 @@ public final class ShinobiCore extends JavaPlugin {
             getLogger().info("PlaceholderAPI absent — HUD in-game (placeholders shinobi) desactive.");
         }
 
+        // 7g. Stats (SPEC_STATS_SERVICE) — service, fiche client (reborn:stats),
+        //     attribution des dégâts MS / MM / ME aux techniques, /stats.
+        this.statsService = new com.reborn.shinobicore.stats.StatsServiceImpl(this);
+        this.castAttribution = new com.reborn.shinobicore.stats.CastAttributionImpl(this);
+        this.castAttribution.register();
+        this.statsChannel = new com.reborn.shinobicore.stats.StatsChannel(this, statsService);
+        if (!buildMode) this.statsChannel.start();
+        PluginCommand statsCmd = getCommand("stats");
+        if (statsCmd != null) {
+            var exec = new com.reborn.shinobicore.stats.StatsCommand(this, statsService, statsChannel);
+            statsCmd.setExecutor(exec);
+            statsCmd.setTabCompleter(exec);
+        } else getLogger().warning("Command 'stats' is not declared in plugin.yml.");
+
         // 8. Commands.
         PluginCommand characterCmd = getCommand("character");
         if (characterCmd != null) {
@@ -596,6 +617,10 @@ public final class ShinobiCore extends JavaPlugin {
         services.register(com.reborn.shinobicore.api.ProgressionLadder.class,
                 new com.reborn.shinobicore.character.RankLadder(),
                 this, org.bukkit.plugin.ServicePriority.Normal);
+        services.register(com.reborn.shinobicore.api.StatsService.class,
+                statsService, this, org.bukkit.plugin.ServicePriority.Normal);
+        services.register(com.reborn.shinobicore.api.CastAttribution.class,
+                castAttribution, this, org.bukkit.plugin.ServicePriority.Normal);
         services.register(com.reborn.shinobicore.api.TechniqueRegistry.class,
                 techniqueRegistry, this, org.bukkit.plugin.ServicePriority.Normal);
         // Concrete type too: the world pack needs load()/reload access,
@@ -661,6 +686,13 @@ public final class ShinobiCore extends JavaPlugin {
      */
     public void reloadAll(CommandSender to) {
         reloadConfig();
+        // Stat levers are hot-reloadable: re-read, then re-derive every loaded pool.
+        com.reborn.shinobicore.stats.StatFormulas.load(getConfig().getConfigurationSection("stats"));
+        if (characterManager != null) {
+            for (var roster : characterManager.rosterView().values()) {
+                for (var c : roster) com.reborn.shinobicore.stats.StatsServiceImpl.pushIfOnline(c);
+            }
+        }
         if (chakraManager       != null) chakraManager.reloadConfig();
         if (chakraDisplay       != null) chakraDisplay.reloadConfig();
         if (cooldownHud         != null) cooldownHud.reloadConfig();
@@ -1011,6 +1043,13 @@ public final class ShinobiCore extends JavaPlugin {
     public CharacterRepository characterRepository() { return characterRepository; }
     @com.reborn.shinobicore.api.Internal
     public CharacterManager characters() { return characterManager; }
+
+    /** Technique catalog (engine-owned, filled by the world pack). */
+    @com.reborn.shinobicore.api.Internal
+    public com.reborn.shinobicore.technique.AbilityRegistry techniques() { return techniqueRegistry; }
+
+    @com.reborn.shinobicore.api.Internal
+    public com.reborn.shinobicore.stats.StatsServiceImpl stats() { return statsService; }
 
     public com.reborn.shinobicore.inventory.InventoryManager rpInventory() { return rpInventory; }
 

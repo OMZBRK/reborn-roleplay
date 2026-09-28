@@ -71,7 +71,7 @@ public final class EnduranceCommand implements CommandExecutor {
         if (amount <= 0) return true; // rien à débiter
 
         double remaining = stamina.drain(target.getUniqueId(), amount);
-        CombatChannel.sendStamina(plugin, target, remaining, stamina.max());
+        CombatChannel.sendStamina(plugin, target, remaining, stamina.max(target.getUniqueId()));
         return true;
     }
 }

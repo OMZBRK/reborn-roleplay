@@ -427,3 +427,77 @@ se branche au Sprint 2 S3, semaine où la roadmap la prévoit déjà.
    playtest, pas avant.
 5. **Points par rang et plafond** : voir §1.5, à discuter avec le staff. Le code
    part sur 3 / 10 et n'a rien à changer si la réponse est 5 / 15.
+
+---
+
+## 9. Prototype jouable — ce qui est codé (2026-09-28)
+
+Première version de test, **non compilée sur le poste** (pas de JDK 25 ni de Maven —
+passe `javac` 21 de syntaxe et de typage interne uniquement). Tout chiffre est un
+levier du bloc `stats:` de `ShinobiCore/config.yml`, rechargeable par `/sc reload`.
+
+### 9.1 Où vit quoi
+
+| Pièce | Fichier |
+|---|---|
+| API (`@Stable`) | `api/StatsService`, `api/CastAttribution`, `api/EnduranceService`, `api/event/CharacterStatsChangedEvent` |
+| Formules + leviers | `stats/StatFormulas` (seule implémentation des formules §1.3) |
+| Données perso | `stats/CharacterStats`, bloc `stats:` du YAML personnage |
+| Service | `stats/StatsServiceImpl` (allocate / respec / pools / event / save / push) |
+| Attribution des dégâts | `stats/CastAttributionImpl` |
+| Fiche client | `stats/StatsChannel` (`reborn:stats`) ↔ mod-hud `menu/stats/*` (touche **K**) |
+| Commande | `/stats` (alias `/fiche`) — `alloc`, `respec`, staff : `voir`, `give`, `set`, `reset` |
+| Profil technique | `technique/TechniqueProfile` — clés `scaling`, `nature`, `cost-kind`, `cost-factor`, `scaling-mode`, `attribution-millis` |
+| Coûts | ShinobiAbilities `jutsu/TechniqueCosts` (rang → coût, chakra **ou endurance**) |
+| M1 | ShinobiCombat `CombatListener` (taï) et `KenjutsuEnduranceGate` (ken, sort MS) |
+
+### 9.2 Les trois moteurs d'effets et les M1
+
+Les techniques infligent leurs dégâts **hors de ShinobiCore** : MagicSpells
+(`cast forcecast`), MythicMobs (et ModelEngine, piloté par MythicMobs), ou un effet
+Java interne. Aucun fichier de sort n'a besoin de connaître les stats :
+
+1. Au lancer, `JutsuExecutionManager` ouvre une **fenêtre d'attribution** (4 s par
+   défaut, `attribution-millis` par technique pour une invocation qui dure).
+2. Pendant la fenêtre, `CastAttributionImpl` multiplie chaque
+   `EntityDamageByEntityEvent` dont l'auteur est le lanceur, un de ses projectiles,
+   ou une invocation MythicMobs dont il est l'`owner` (API MM par réflexion), par
+   `1 + Σ poids × eff(stat)` — puis roue des natures (si la cible est elle-même en
+   pleine technique) et critique.
+3. `scaling-mode: MANUAL` coupe l'automatisme pour une technique : le sort se scale
+   lui-même via `%power%` (commande) ou `%shinobi_eff_ninjutsu%` (PlaceholderAPI).
+
+**M1 vs sort.** Un `damage` MythicMobs ou un `pain` MagicSpells lancé par un joueur
+est indiscernable d'un coup de poing (`ENTITY_ATTACK`, auteur = joueur). Le seul
+signal fiable est `PrePlayerAttackEntityEvent` (Paper), émis au début d'un **vrai**
+swing : il laisse un jeton (attaquant, cible, tick) consommé par le premier coup
+correspondant. `CombatListener` ne traite plus que ces coups-là — un katon lancé
+katana en main ne devient plus un « M1 » à 3 dégâts qui mange l'endurance. Le M1
+taï est scalé à la source par Taïjutsu ; le M1 ken (sort MS `MS_KENJTSU_M1`) ouvre
+une fenêtre « mêlée armée » de 700 ms scalée par Kenjutsu.
+
+### 9.3 Écarts assumés par rapport au texte de la spec
+
+| Spec | Prototype | Pourquoi |
+|---|---|---|
+| `unspent` stocké (§4.1) | **dérivé** : `3 × rank.statTier() + bonus − dépensé` ; seul `bonus` est stocké | un changement de rang staff ou un respec ne peut pas désynchroniser le compteur |
+| Rangs D → S | la technique garde **E → HIDEN** ; tiers E0, D1 … HIDEN = S5, coût E = 400 | 36 entrées de rang E existent |
+| Retirer `level` (§4.2 étape 5) | `level` reste, sans effet sur PV / chakra | encore lu par les gates du test de la feuille, `requires: level` et le cap de compétences |
+| Coûts par rang (§7 étape 7) | faits au runtime (`jutsu.stats-costs: true`), `chakra-cost` ignoré | aucune réécriture des 218 entrées ; `false` rend l'ancien coût plat |
+| Scaling par technique | lettres **déduites de la catégorie** quand `scaling:` est absent | les 218 entrées ont un profil cohérent sans édition ; la fiche marque « déduit » |
+| Régén passive | inchangée (méditation seule) ; la méditation suit la formule × `stats-multiplier` | la décision « pas de régén passive » n'est pas celle de cette spec |
+| Bonus clanique | non codé | §1.5, à discuter |
+
+Techniques Taïjutsu / Bukijutsu payées en **endurance** (même barre que le M1) quand
+ShinobiCombat est présent ; sinon repli chakra.
+
+### 9.4 Points d'attention pour le playtest
+
+- **Échelle des dégâts vs PV.** Les PV passent à 300 → 1 000 ; les M1 font 3-8 et les
+  sorts MS / MM ce que leur YAML dit. Les dégâts ne sont pas encore sur l'échelle des
+  PV — c'est un réglage de contenu, pas de formule.
+- **Une fenêtre par lanceur** : un M1 kenjutsu lancé juste après une technique remplace
+  sa fenêtre.
+- `PrePlayerAttackEntityEvent` est résolu par réflexion ; s'il manquait sur Purpur 26.2,
+  le log le dit au boot et le comportement redevient celui d'avant (tout coup direct =
+  mêlée).

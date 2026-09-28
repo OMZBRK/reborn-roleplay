@@ -15,6 +15,11 @@ jutsu:
   # "no rank gates — the economy balances" rule from the design bible. Set
   # false to refuse casts the character can't afford (the old hard gate).
   overdraw: true
+  # Coûts pilotés par les stats (docs/SPEC_STATS_SERVICE.md §1.3) : le RANG fixe
+  # le coût de base (stats.cost dans la config de ShinobiCore — chakra pour les
+  # arts de chakra, ENDURANCE pour taijutsu/bukijutsu), cost-factor l'ajuste par
+  # technique, Contrôle et maîtrise le réduisent. false = ancien chakra-cost plat.
+  stats-costs: true
   # Per-jutsu mastery gained per successful cast (0..100 scale). Consumed later
   # by efficiency (cost/cooldown) + enhanced-version unlocks. 0 disables it.
   mastery-per-cast: 1
