@@ -92,7 +92,7 @@ commands:
     permission: shinobicore.use
   stats:
     description: Fiche shinobi — six stats, points à répartir, techniques (SPEC_STATS_SERVICE).
-    usage: /<command> [alloc nin=2,ctr=1|respec|voir|give|set|reset]
+    usage: /<command> [alloc nin=2,ctr=1|respec|jeton|voir|give|set|reset]
     aliases: [fiche, statistiques]
     permission: shinobicore.use
   sacoche:

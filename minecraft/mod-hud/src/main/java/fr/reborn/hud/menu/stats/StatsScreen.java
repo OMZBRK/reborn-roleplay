@@ -37,6 +37,9 @@ import java.util.Map;
  * sont recalculées par {@link StatsMath} avec les leviers du serveur, qui reste
  * seul juge ({@code alloc:} refusé → la fiche se resynchronise).
  *
+ * <p>Les infobulles disent <b>ce que change</b> une stat, une technique ou un bouton,
+ * en phrases : aucun coefficient ni formule (les leviers restent côté serveur).
+ *
  * <p>Clavier : 1-6 = +1 sur la stat (Maj = −1), Entrée = valider, Tab = onglet.
  */
 public class StatsScreen extends Screen {
@@ -215,7 +218,7 @@ public class StatsScreen extends Screen {
 
         drawProfile(ctx, f, prev, mouseX, mouseY);
         drawTabs(ctx, f, mouseX, mouseY);
-        drawPointsBadge(ctx, f);
+        drawPointsBadge(ctx, f, mouseX, mouseY);
         if (tab == TAB_ATTR) {
             drawRows(ctx, f, prev, mouseX, mouseY);
             drawTiles(ctx, f, prev, mouseX, mouseY);
@@ -458,7 +461,7 @@ public class StatsScreen extends Screen {
         if (tab != t) { tab = t; RebornSounds.charNav(); }
     }
 
-    private void drawPointsBadge(GuiGraphicsExtractor ctx, Font f) {
+    private void drawPointsBadge(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
         int rem = remaining();
         int unspent = snap.unspent();
         Component label = RebornFont.arcade(unspent < 0 ? "SUR-ALLOUE" : "POINTS");
@@ -474,6 +477,22 @@ public class StatsScreen extends Screen {
         Component n = Component.literal(num);
         ctx.text(f, n, cx - f.width(n) / 2 + 1, cy - 3, glow ? 0xFF1A1208 : INK, false);
         ctx.text(f, label, cx - r - 6 - f.width(label), cy - 3, glow ? GOLD : INK_DIM, false);
+        int x0 = cx - r - 6 - f.width(label);
+        if (mx >= x0 - 2 && mx < cx + r + 2 && my >= cy - r - 2 && my < cy + r + 2) {
+            List<Component> lines = new ArrayList<>();
+            lines.add(RebornFont.arcade(unspent < 0 ? "SUR-ALLOUE" : "POINTS A REPARTIR"));
+            if (unspent < 0) {
+                addWrapped(lines, f, "Plus de points posés que ton rang n'en accorde. Un membre du staff doit corriger ta fiche.", 0);
+            } else {
+                addWrapped(lines, f, "Chaque passage de rang t'en accorde de nouveaux ; le staff peut aussi en offrir.", 0);
+                addWrapped(lines, f, rem > 0
+                    ? "Pose-les avec + puis valide : un point validé reste acquis jusqu'à une réinitialisation."
+                    : pendingTotal() > 0 ? "Tout est placé — il ne reste qu'à valider."
+                    : "Tout est réparti. Le prochain rang t'en apportera d'autres.", 0);
+            }
+            tooltip = lines;
+            tooltipColor = unspent < 0 ? Colors.DANGER : GOLD;
+        }
     }
 
     /* ---- attributs ---- */
@@ -532,6 +551,16 @@ public class StatsScreen extends Screen {
             boolean canPlus = remaining() > 0 && prev[i] < max;
             stepButton(ctx, f, bx, by, btn, "−", canMinus, mx, my, false);
             stepButton(ctx, f, bx + btn + 3, by, btn, "+", canPlus, mx, my, true);
+            if (my >= by && my < by + btn) {
+                if (mx >= bx && mx < bx + btn) {
+                    stepTooltip(f, d, canMinus ? "Retirer un point en attente (Maj : tous)."
+                        : "Rien en attente ici. Un point déjà validé ne se reprend qu'en réinitialisant.", canMinus);
+                } else if (mx >= bx + btn + 3 && mx < bx + btn * 2 + 3) {
+                    stepTooltip(f, d, canPlus ? "Ajouter un point (Maj : autant que possible)."
+                        : prev[i] >= max ? "Sommet atteint : cette stat ne peut plus monter."
+                        : "Plus de points à répartir.", canPlus);
+                }
+            }
             final int idx = i;
             buttons.add(new Btn(bx, by, btn, btn, () -> step(idx, -1, false)));
             buttons.add(new Btn(bx + btn + 3, by, btn, btn, () -> step(idx, +1, false)));
@@ -550,7 +579,15 @@ public class StatsScreen extends Screen {
         ctx.text(f, c, x + (s - f.width(c)) / 2 + 1, y + (s - 8) / 2, enabled ? INK : INK_DIM, false);
     }
 
-    /** +1 / −1 (Maj : tout ce qui est possible). */
+    private void stepTooltip(Font f, StatDef d, String text, boolean enabled) {
+        List<Component> lines = new ArrayList<>();
+        lines.add(RebornFont.arcade(d.arcadeLabel));
+        addWrapped(lines, f, text, enabled ? 0 : INK_DIM);
+        tooltip = lines;
+        tooltipColor = enabled ? d.color : INK_DIM;
+    }
+
+    /** +1 / −1 (Maj : tout ce qui est possible). Rien ne bouge → son de refus. */
     private void step(int i, int dir, boolean all) {
         int before = pending[i];
         if (dir > 0) {
@@ -560,22 +597,42 @@ public class StatsScreen extends Screen {
             pending[i] = all ? 0 : Math.max(0, pending[i] - 1);
         }
         if (pending[i] != before) RebornSounds.uiClick();
+        else RebornSounds.deny();
     }
 
     private void statTooltip(StatDef d, int[] prev) {
         StatsData.Levers lv = snap.levers();
+        Font f = this.font;
         List<Component> lines = new ArrayList<>();
         lines.add(RebornFont.arcade(d.arcadeLabel));
-        for (String h : d.help) lines.add(Component.literal(h));
-        int raw = prev[d.ordinal()];
-        double eff = StatsMath.eff(lv, raw);
+        addWrapped(lines, f, d.motto, INK_DIM);
         lines.add(Component.literal(" "));
-        lines.add(Component.literal("Valeur " + raw + " / " + snap.max()
-            + (raw > lv.softCap() ? "  →  effective " + fmt1(eff) : "")));
-        lines.add(Component.literal("Plein rendement jusqu'à " + fmt1(lv.softCap())
-            + ", puis ×" + fmt1(lv.overFactor()) + " par point."));
+        for (String e : d.effects) addWrapped(lines, f, "• " + e, 0);
+        lines.add(Component.literal(" "));
+        int cur = snap.get(d);
+        int raw = prev[d.ordinal()];
+        String level = "Niveau : " + levelName(cur, snap.max());
+        if (raw != cur) level += "  →  " + levelName(raw, snap.max()) + " une fois validé";
+        addWrapped(lines, f, level, GOLD);
+        if (raw >= snap.max()) {
+            addWrapped(lines, f, "Tu as atteint le sommet de cette voie.", INK_DIM);
+        } else if (raw >= lv.softCap()) {
+            addWrapped(lines, f, "Passé le cran doré, l'entraînement paie moins : chaque point rapporte moins que les précédents.", INK_DIM);
+        } else {
+            addWrapped(lines, f, "Jusqu'au cran doré, chaque point porte pleinement ses fruits.", INK_DIM);
+        }
         tooltip = lines;
         tooltipColor = d.color;
+    }
+
+    /** Palier qualitatif d'une valeur de stat — jamais le chiffre dans l'infobulle. */
+    private static String levelName(int v, int max) {
+        if (v >= max) return "Légendaire";
+        if (v >= 8) return "Maître";
+        if (v >= 6) return "Expert";
+        if (v >= 4) return "Aguerri";
+        if (v >= 2) return "Initié";
+        return "Novice";
     }
 
     /* ---- tuiles dérivées ---- */
@@ -586,17 +643,19 @@ public class StatsScreen extends Screen {
         record Tile(String label, double now, double next, String unit, boolean pct, int color, String help) {}
         List<Tile> tiles = List.of(
             new Tile("PV MAX", StatsMath.maxHp(lv, cur), StatsMath.maxHp(lv, prev), "", false,
-                StatDef.VIGUEUR.color, "Vigueur"),
+                StatDef.VIGUEUR.color, "Ce que ton corps encaisse avant de tomber. Grandit avec la Vigueur."),
             new Tile("CHAKRA", StatsMath.maxChakra(lv, cur), StatsMath.maxChakra(lv, prev), "", false,
-                StatDef.CHAKRA.color, "Chakra — réserve des techniques"),
+                StatDef.CHAKRA.color, "Ta réserve pour lancer des techniques. Grandit avec la stat Chakra."),
             new Tile("ENDURANCE", StatsMath.maxStamina(lv, cur), StatsMath.maxStamina(lv, prev), "", false,
-                StatDef.TAIJUTSU.color, "Vigueur + Taïjutsu — M1, dash, techniques du corps"),
+                StatDef.TAIJUTSU.color, "Le souffle des coups, des esquives et des techniques physiques. Porté surtout par la Vigueur, un peu par le Taïjutsu."),
             new Tile("REGEN / 10S", StatsMath.regenPer10s(lv, cur), StatsMath.regenPer10s(lv, prev), "", false,
-                StatDef.CHAKRA.color, "Chakra + Contrôle — méditation"),
+                StatDef.CHAKRA.color, "Ce que la méditation te rend. Une grande réserve et un bon Contrôle l'accélèrent."),
             new Tile("COUTS", -StatsMath.costReduction(lv, cur) * 100, -StatsMath.costReduction(lv, prev) * 100,
-                "%", true, StatDef.CONTROLE.color, "Contrôle — réduit toutes les techniques"),
+                "%", true, StatDef.CONTROLE.color, "L'allègement du prix de toutes tes techniques, porté par le Contrôle."),
             new Tile("CRITIQUE", StatsMath.crit(lv, cur) * 100, StatsMath.crit(lv, prev) * 100, "%", true,
-                StatDef.CONTROLE.color, lv.critEnabled() ? "Contrôle — techniques seulement" : "Désactivé"));
+                StatDef.CONTROLE.color, lv.critEnabled()
+                    ? "La chance qu'une technique frappe plus fort qu'attendu. Portée par le Contrôle ; les coups simples n'en profitent pas."
+                    : "Les coups critiques sont désactivés pour l'instant."));
         int cols = 3;
         int gap = 4;
         int tw = (rowX1 - rowX0 - gap * (cols - 1)) / cols;
@@ -619,7 +678,15 @@ public class StatsScreen extends Screen {
                 ctx.text(f, dc, x + tw - 5 - f.width(dc), y + 13, good ? Colors.SUCCESS : Colors.DANGER, false);
             }
             if (mx >= x && mx < x + tw && my >= y && my < y + tileH) {
-                tooltip = List.of(RebornFont.arcade(t.label()), Component.literal(t.help()));
+                List<Component> lines = new ArrayList<>();
+                lines.add(RebornFont.arcade(t.label()));
+                addWrapped(lines, f, t.help(), 0);
+                if (Math.abs(diff) > 0.05) {
+                    boolean good = !t.label().equals("COUTS") ? diff > 0 : diff < 0;
+                    addWrapped(lines, f, good ? "Ta répartition en attente l'améliore."
+                        : "Ta répartition en attente la dégrade.", good ? Colors.SUCCESS : Colors.DANGER);
+                }
+                tooltip = lines;
                 tooltipColor = t.color();
             }
         }
@@ -725,21 +792,57 @@ public class StatsScreen extends Screen {
         if (hov) {
             List<Component> lines = new ArrayList<>();
             lines.add(Component.literal(t.name()));
-            lines.add(Component.literal("Rang " + t.rank() + " · " + t.category()
-                + ("NONE".equals(t.nature()) ? "" : " · " + t.nature())));
-            lines.add(Component.literal("Puissance ×" + String.format(Locale.ROOT, "%.2f", pNow)
-                + (pNext > pNow + 1e-6 ? " → ×" + String.format(Locale.ROOT, "%.2f", pNext) : "")
-                + "  (1 + Σ poids × stat)"));
-            if (t.castable()) {
-                lines.add(Component.literal("Coût " + fmtInt(StatsMath.cost(lv, cur, t))
-                    + (t.stamina() ? " endurance" : " chakra") + " (hors maîtrise) · "
-                    + StatsMath.casts(lv, cur, t) + " lancers à réserve pleine"));
+            addWrapped(lines, f, "Rang " + t.rank() + " · " + t.category()
+                + ("NONE".equals(t.nature()) ? "" : " · " + t.nature()), INK_DIM);
+            lines.add(Component.literal(" "));
+            if (!t.scaling().isEmpty()) {
+                addWrapped(lines, f, "Sa puissance dépend de :", 0);
+                for (Map.Entry<StatDef, String> e : t.scaling().entrySet()) {
+                    lines.add(Component.literal("  " + e.getKey().displayName + " — " + gradeWords(e.getValue()))
+                        .withColor(e.getKey().color & 0xFFFFFF));
+                }
+                if (!t.explicit()) addWrapped(lines, f, "(profil déduit de sa famille de techniques)", INK_DIM);
             }
-            lines.add(Component.literal("Maîtrise " + t.mastery() + " %"
-                + (t.explicit() ? "" : " · lettres déduites de la catégorie")));
+            if (pNext > pNow + 1e-6) addWrapped(lines, f, "Ta répartition en attente la renforce.", Colors.SUCCESS);
+            if (t.castable()) {
+                lines.add(Component.literal(" "));
+                addWrapped(lines, f, (t.stamina() ? "Se paie en endurance" : "Se paie en chakra")
+                    + " ; le Contrôle et la maîtrise l'allègent.", 0);
+                addWrapped(lines, f, "À réserve pleine : " + castWords(StatsMath.casts(lv, prev, t)) + ".", 0);
+            }
+            addWrapped(lines, f, "Maîtrise : " + masteryWords(t.mastery()) + ".", GOLD);
             tooltip = lines;
             tooltipColor = tc;
         }
+    }
+
+    /** Lettre de scaling → intensité, en mots. */
+    private static String gradeWords(String g) {
+        return switch (g == null ? "" : g.trim().toUpperCase(Locale.ROOT)) {
+            case "S" -> "énormément";
+            case "A" -> "fortement";
+            case "B" -> "nettement";
+            case "C" -> "un peu";
+            case "D" -> "à peine";
+            default -> "légèrement";
+        };
+    }
+
+    private static String castWords(int casts) {
+        if (casts <= 0) return "ta réserve ne suffit pas encore";
+        if (casts == 1) return "un seul lancer";
+        if (casts <= 4) return "quelques lancers";
+        if (casts <= 9) return "de nombreux lancers";
+        return "presque à volonté";
+    }
+
+    private static String masteryWords(int m) {
+        if (m <= 0) return "jamais pratiquée";
+        if (m < 25) return "balbutiante";
+        if (m < 50) return "en progrès";
+        if (m < 75) return "solide";
+        if (m < 100) return "presque parfaite";
+        return "parfaite";
     }
 
     /* ---- pied de page ---- */
@@ -754,30 +857,68 @@ public class StatsScreen extends Screen {
         int vx = rowX1 - vw;
         actionButton(ctx, f, vx, y, vw, h, vl, pend > 0, true, mx, my);
         buttons.add(new Btn(vx, y, vw, h, this::validate));
+        if (mx >= vx && mx < vx + vw && my >= y && my < y + h) {
+            List<Component> lines = new ArrayList<>();
+            lines.add(RebornFont.arcade("VALIDER"));
+            addWrapped(lines, f, pend > 0
+                ? "Grave ta répartition. Les points validés restent acquis jusqu'à une réinitialisation."
+                : "Pose d'abord des points avec +.", pend > 0 ? 0 : INK_DIM);
+            tooltip = lines;
+            tooltipColor = pend > 0 ? GOLD : INK_DIM;
+        }
         // ANNULER
         int cw = f.width(RebornFont.arcade("ANNULER")) + 14;
         int cx = vx - 6 - cw;
         actionButton(ctx, f, cx, y, cw, h, "ANNULER", pend > 0, false, mx, my);
         buttons.add(new Btn(cx, y, cw, h, () -> {
             if (pendingTotal() > 0) { java.util.Arrays.fill(pending, 0); RebornSounds.uiClick(); }
+            else RebornSounds.deny();
         }));
-        // RÉINITIALISER (gauche) — double clic de confirmation.
+        if (pend > 0 && mx >= cx && mx < cx + cw && my >= y && my < y + h) {
+            List<Component> lines = new ArrayList<>();
+            lines.add(RebornFont.arcade("ANNULER"));
+            addWrapped(lines, f, "Retire tous les points en attente. Rien de ce qui est déjà validé ne bouge.", 0);
+            tooltip = lines;
+            tooltipColor = INK_SOFT;
+        }
+        // RÉINITIALISER (gauche) — double clic de confirmation ; un jeton hors staff.
         if (snap.canRespec()) {
-            boolean armed = System.currentTimeMillis() - respecArmedAt < 3000L;
+            boolean usable = respecUsable();
+            boolean armed = usable && System.currentTimeMillis() - respecArmedAt < 3000L;
             String rl = armed ? "CONFIRMER ?" : "REINITIALISER";
             int rw = f.width(RebornFont.arcade(rl)) + 14;
             int rx = rowX0;
             boolean hov = mx >= rx && mx < rx + rw && my >= y && my < y + h;
             DrawHelpers.roundedOutlinedRectFull(ctx, rx, y, rw, h, 3,
-                armed ? Colors.withAlpha(Colors.DANGER, 0.35f) : Colors.withAlpha(0xFF000000, hov ? 0.4f : 0.25f),
-                Colors.withAlpha(armed ? Colors.DANGER : 0xFFFFFFFF, armed ? 0.9f : 0.18f));
-            ctx.text(f, RebornFont.arcade(rl), rx + 7, y + 4, armed ? INK : INK_SOFT, false);
+                armed ? Colors.withAlpha(Colors.DANGER, 0.35f)
+                    : Colors.withAlpha(0xFF000000, usable && hov ? 0.4f : 0.25f),
+                Colors.withAlpha(armed ? Colors.DANGER : 0xFFFFFFFF, armed ? 0.9f : usable ? 0.18f : 0.08f));
+            ctx.text(f, RebornFont.arcade(rl), rx + 7, y + 4, armed ? INK : usable ? INK_SOFT : INK_DIM, false);
             buttons.add(new Btn(rx, y, rw, h, this::respec));
+            // Solde de jetons à côté du bouton (hors staff / mode gratuit).
+            if (!snap.respecFree()) {
+                int n = snap.respecTokens();
+                Component tk = Component.literal(n + " jeton" + (n > 1 ? "s" : ""));
+                drawScaled(ctx, f, tk, rx + rw + 5, y + 5, n > 0 ? GOLD : INK_DIM, 0.8f);
+            }
             if (hov) {
-                tooltip = List.of(RebornFont.arcade("REINITIALISER"),
-                    Component.literal("Toutes les stats reviennent à " + snap.min() + ","),
-                    Component.literal("tous les points sont rendus."));
-                tooltipColor = Colors.DANGER;
+                List<Component> lines = new ArrayList<>();
+                lines.add(RebornFont.arcade("REINITIALISER"));
+                addWrapped(lines, f, "Rend tous les points posés : tes stats reviennent à la base et tu répartis à nouveau.", 0);
+                if (snap.spent() <= 0) {
+                    addWrapped(lines, f, "Rien à reprendre pour l'instant.", INK_DIM);
+                } else if (snap.respecFree()) {
+                    addWrapped(lines, f, "Gratuit pour toi.", Colors.SUCCESS);
+                } else {
+                    int n = snap.respecTokens();
+                    addWrapped(lines, f, "Consomme un jeton de réinitialisation.", GOLD);
+                    addWrapped(lines, f, n > 0
+                        ? "Tu en possèdes " + n + "."
+                        : "Tu n'en as aucun : les jetons s'obtiennent en boutique.", n > 0 ? 0 : Colors.DANGER);
+                }
+                if (armed) addWrapped(lines, f, "Clique encore pour confirmer.", Colors.DANGER);
+                tooltip = lines;
+                tooltipColor = usable ? Colors.DANGER : INK_DIM;
             }
         }
     }
@@ -799,7 +940,7 @@ public class StatsScreen extends Screen {
     /* ----------------------------------------------------------- actions */
 
     private void validate() {
-        if (pendingTotal() <= 0) return;
+        if (pendingTotal() <= 0) { RebornSounds.deny(); return; }
         StringBuilder sb = new StringBuilder("alloc:");
         boolean first = true;
         for (StatDef d : StatDef.values()) {
@@ -816,7 +957,13 @@ public class StatsScreen extends Screen {
         RebornSounds.confirm();
     }
 
+    /** Réinitialisation possible maintenant : quelque chose à reprendre, et gratuit ou un jeton en poche. */
+    private boolean respecUsable() {
+        return snap.spent() > 0 && (snap.respecFree() || snap.respecTokens() > 0);
+    }
+
     private void respec() {
+        if (!respecUsable()) { RebornSounds.deny(); return; }
         long now = System.currentTimeMillis();
         if (now - respecArmedAt > 3000L) {
             respecArmedAt = now;
@@ -896,9 +1043,37 @@ public class StatsScreen extends Screen {
         ctx.fill(x + 1, y + 3, x + 3, y + h - 3, accent);
         int ly = y + 5;
         for (int i = 0; i < lines.size(); i++) {
+            // La couleur de style d'une ligne (addWrapped) prime sur INK_SOFT.
             ctx.text(f, lines.get(i), x + 8, ly, i == 0 ? accent : INK_SOFT, false);
             ly += 10;
         }
+    }
+
+    /** Largeur max du texte d'une infobulle, en pixels GUI. */
+    private static final int TOOLTIP_TEXT_W = 190;
+
+    /**
+     * Ajoute {@code text} découpé au mot pour tenir dans {@link #TOOLTIP_TEXT_W}.
+     * {@code color} = 0 : couleur par défaut de l'infobulle.
+     */
+    private static void addWrapped(List<Component> out, Font f, String text, int color) {
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" ")) {
+            String candidate = line.isEmpty() ? word : line + " " + word;
+            if (!line.isEmpty() && f.width(Component.literal(candidate)) > TOOLTIP_TEXT_W) {
+                out.add(styled(line.toString(), color));
+                line.setLength(0);
+                line.append(word);
+            } else {
+                line.setLength(0);
+                line.append(candidate);
+            }
+        }
+        if (!line.isEmpty()) out.add(styled(line.toString(), color));
+    }
+
+    private static Component styled(String s, int color) {
+        return color == 0 ? Component.literal(s) : Component.literal(s).withColor(color & 0xFFFFFF);
     }
 
     private static void drawScaled(GuiGraphicsExtractor ctx, Font f, Component c, float x, float y, int color, float scale) {

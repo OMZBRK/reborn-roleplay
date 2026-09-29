@@ -7,6 +7,8 @@ import com.reborn.shinobicore.api.StatsService.Stat;
 import com.reborn.shinobicore.character.ShinobiCharacter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -17,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * {@code /stats} — ouvre la fiche shinobi (mod client) ou l'affiche en chat.
@@ -24,12 +27,17 @@ import java.util.Map;
  * <pre>
  *   /stats                              ta fiche
  *   /stats alloc nin=2,ctr=1            dépenser des points (sans le mod)
- *   /stats respec                       tout rendre (si stats.player-respec)
+ *   /stats respec                       tout rendre (un jeton, ou gratuit staff / FREE)
+ *   /stats jeton                        ton solde de jetons de réinitialisation
  *   /stats voir &lt;perso&gt;                 fiche d'un autre           (staff)
  *   /stats give &lt;perso&gt; &lt;n&gt;             points bonus (n &lt; 0 retire) (staff)
  *   /stats set &lt;perso&gt; &lt;stat&gt; &lt;valeur&gt;  écrit une stat              (staff)
  *   /stats reset &lt;perso&gt;                respec forcé                (staff)
+ *   /stats jeton give|take|set &lt;joueur&gt; &lt;n&gt;  jetons d'un compte   (staff / console)
  * </pre>
+ *
+ * <p>{@code jeton give} marche aussi joueur hors ligne (compte connu du serveur) :
+ * c'est la commande que la boutique exécutera à la livraison.
  */
 public final class StatsCommand implements TabExecutor {
 
@@ -70,15 +78,13 @@ public final class StatsCommand implements TabExecutor {
             }
             case "respec" -> {
                 if (!(s instanceof Player p)) { usage(s); return true; }
-                if (!channel.playerRespecAllowed() && !s.hasPermission(ADMIN)) {
-                    err(s, "La réinitialisation passe par le staff.");
-                    return true;
-                }
                 ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
                 if (c == null) { err(s, "Aucun personnage actif."); return true; }
-                stats.respec(c.id());
-                ok(s, "Stats réinitialisées — tous les points sont rendus.");
+                StatsChannel.RespecOutcome r = channel.requestRespec(p, c);
+                if (r.ok()) ok(s, r.message());
+                else err(s, r.message());
             }
+            case "jeton", "jetons", "token" -> jeton(s, args);
             case "voir", "view" -> {
                 if (!staff(s) || args.length < 2) return true;
                 ShinobiCharacter c = resolve(s, args[1]);
@@ -157,6 +163,54 @@ public final class StatsCommand implements TabExecutor {
         return false;
     }
 
+    /** {@code /stats jeton} (solde) · {@code /stats jeton give|take|set <joueur> <n>} (staff / console). */
+    private void jeton(CommandSender s, String[] args) {
+        RespecTokens tokens = channel.tokens();
+        if (args.length == 1) {
+            if (!(s instanceof Player p)) { usage(s); return; }
+            int n = tokens.get(p.getUniqueId());
+            s.sendMessage(Component.text("Jetons de réinitialisation : " + n
+                    + (n == 0 ? " — disponibles en boutique." : ""), NamedTextColor.GOLD));
+            return;
+        }
+        if (!s.hasPermission(ADMIN) || args.length < 4) { usage(s); return; }
+        String op = args[1].toLowerCase(Locale.ROOT);
+        OfflinePlayer target = resolvePlayer(args[2]);
+        if (target == null) { err(s, "Joueur inconnu du serveur : " + args[2]); return; }
+        int n;
+        try { n = Integer.parseInt(args[3]); } catch (NumberFormatException e) { err(s, "Nombre invalide."); return; }
+        int now;
+        switch (op) {
+            case "give" -> now = tokens.add(target.getUniqueId(), n);
+            case "take" -> now = tokens.add(target.getUniqueId(), -n);
+            case "set" -> now = tokens.set(target.getUniqueId(), n);
+            default -> { usage(s); return; }
+        }
+        String who = target.getName() != null ? target.getName() : target.getUniqueId().toString();
+        ok(s, who + " : " + now + " jeton(s) de réinitialisation.");
+        Player online = target.getPlayer();
+        if (online != null) {
+            if (op.equals("give") && n > 0) {
+                online.sendMessage(Component.text("Tu as reçu " + n + " jeton" + (n > 1 ? "s" : "")
+                        + " de réinitialisation des stats (" + now + " au total).", NamedTextColor.GOLD));
+            }
+            channel.push(online, false);
+        }
+    }
+
+    /** Joueur en ligne, sinon compte déjà vu par le serveur, sinon UUID brut. */
+    private static OfflinePlayer resolvePlayer(String arg) {
+        Player p = Bukkit.getPlayerExact(arg);
+        if (p != null) return p;
+        OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(arg);
+        if (cached != null) return cached;
+        try {
+            return Bukkit.getOfflinePlayer(UUID.fromString(arg));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     private ShinobiCharacter resolve(CommandSender s, String name) {
         CharacterService.ResolvedCharacter r = plugin.characters().resolveOwned(name);
         if (r == null) { err(s, "Personnage introuvable : " + name); return null; }
@@ -170,10 +224,11 @@ public final class StatsCommand implements TabExecutor {
     }
 
     private void usage(CommandSender s) {
-        s.sendMessage(Component.text("/stats · /stats alloc nin=2,ctr=1 · /stats respec", NamedTextColor.GRAY));
+        s.sendMessage(Component.text("/stats · /stats alloc nin=2,ctr=1 · /stats respec · /stats jeton", NamedTextColor.GRAY));
         if (s.hasPermission(ADMIN)) {
             s.sendMessage(Component.text("/stats voir|reset <perso> · /stats give <perso> <n> · "
-                    + "/stats set <perso> <stat> <valeur>", NamedTextColor.GRAY));
+                    + "/stats set <perso> <stat> <valeur> · /stats jeton give|take|set <joueur> <n>",
+                    NamedTextColor.GRAY));
         }
     }
 
@@ -187,11 +242,15 @@ public final class StatsCommand implements TabExecutor {
         List<String> out = new ArrayList<>();
         boolean admin = s.hasPermission(ADMIN);
         if (args.length == 1) {
-            out.addAll(List.of("alloc", "respec"));
+            out.addAll(List.of("alloc", "respec", "jeton"));
             if (admin) out.addAll(List.of("voir", "give", "set", "reset"));
         } else if (args.length == 2 && admin && List.of("voir", "view", "give", "set", "reset")
                 .contains(args[0].toLowerCase(Locale.ROOT))) {
             out.addAll(plugin.characters().allCharacterNames());
+        } else if (args.length == 2 && admin && args[0].equalsIgnoreCase("jeton")) {
+            out.addAll(List.of("give", "take", "set"));
+        } else if (args.length == 3 && admin && args[0].equalsIgnoreCase("jeton")) {
+            for (Player p : Bukkit.getOnlinePlayers()) out.add(p.getName());
         } else if (args.length == 2 && args[0].equalsIgnoreCase("alloc")) {
             for (Stat st : Stat.values()) out.add(st.key() + "=1");
         } else if (args.length == 3 && admin && args[0].equalsIgnoreCase("set")) {

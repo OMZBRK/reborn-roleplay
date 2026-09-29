@@ -32,20 +32,27 @@ import java.util.Map;
  * valeurs dérivées avec les mêmes leviers pour prévisualiser une allocation
  * avant de la valider — le serveur reste seul juge ({@link StatsService#allocate}).
  *
- * <p>C2S : {@code open} · {@code alloc:taijutsu=1,ninjutsu=2} · {@code respec}.
+ * <p>C2S : {@code open} · {@code alloc:taijutsu=1,ninjutsu=2} · {@code respec}
+ * (gratuit pour le staff, sinon un jeton — {@link RespecTokens}).
  */
 public final class StatsChannel implements PluginMessageListener {
 
     public static final String CHANNEL = "reborn:stats";
 
+    private static final String ADMIN = "shinobicore.stats.admin";
+
     private final ShinobiCore plugin;
     private final StatsServiceImpl stats;
+    private final RespecTokens tokens;
 
-    public StatsChannel(ShinobiCore plugin, StatsServiceImpl stats) {
+    public StatsChannel(ShinobiCore plugin, StatsServiceImpl stats, RespecTokens tokens) {
         this.plugin = plugin;
         this.stats = stats;
+        this.tokens = tokens;
         stats.bindChannel(this);
     }
+
+    public RespecTokens tokens() { return tokens; }
 
     public void start() {
         var m = Bukkit.getMessenger();
@@ -53,8 +60,37 @@ public final class StatsChannel implements PluginMessageListener {
         if (!m.isIncomingChannelRegistered(plugin, CHANNEL)) m.registerIncomingPluginChannel(plugin, CHANNEL, this);
     }
 
-    public boolean playerRespecAllowed() {
-        return plugin.getConfig().getBoolean("stats.player-respec", true);
+    /** Respec gratuit : staff, ou mode FREE (phase de test). */
+    private boolean respecFree(Player p) {
+        return p.hasPermission(ADMIN) || tokens.mode() == RespecTokens.Mode.FREE;
+    }
+
+    /** Résultat d'une demande de respec par le joueur lui-même. */
+    public record RespecOutcome(boolean ok, String message) {}
+
+    /**
+     * Respec demandé par le joueur (fiche ou {@code /stats respec}). Gratuit pour le
+     * staff et en mode FREE ; en mode TOKEN, consomme un jeton du compte ; en mode
+     * STAFF, refusé. Rien de dépensé → refusé sans consommer de jeton.
+     */
+    public RespecOutcome requestRespec(Player p, ShinobiCharacter c) {
+        if (c.stats().spent() <= 0) {
+            return new RespecOutcome(false, "Aucun point à reprendre : tes stats sont déjà à la base.");
+        }
+        if (!respecFree(p)) {
+            if (tokens.mode() == RespecTokens.Mode.STAFF) {
+                return new RespecOutcome(false, "La réinitialisation passe par le staff.");
+            }
+            if (!tokens.tryConsume(p.getUniqueId())) {
+                return new RespecOutcome(false, "Il te faut un jeton de réinitialisation (boutique).");
+            }
+            stats.respec(c.id());
+            int left = tokens.get(p.getUniqueId());
+            return new RespecOutcome(true, "Stats réinitialisées — 1 jeton utilisé, "
+                    + left + " restant" + (left > 1 ? "s" : "") + ".");
+        }
+        stats.respec(c.id());
+        return new RespecOutcome(true, "Stats réinitialisées — tous les points sont rendus.");
     }
 
     /* ------------------------------------------------------------ inbound */
@@ -86,12 +122,9 @@ public final class StatsChannel implements PluginMessageListener {
                         + " point(s) restant(s).", NamedTextColor.GOLD));
             }
         } else if (msg.equals("respec")) {
-            if (!playerRespecAllowed() && !p.hasPermission("shinobicore.stats.admin")) {
-                p.sendActionBar(Component.text("La réinitialisation passe par le staff.", NamedTextColor.RED));
-                return;
-            }
-            stats.respec(c.id());
-            p.sendActionBar(Component.text("Stats réinitialisées — points rendus.", NamedTextColor.GOLD));
+            RespecOutcome r = requestRespec(p, c);
+            p.sendActionBar(Component.text(r.message(), r.ok() ? NamedTextColor.GOLD : NamedTextColor.RED));
+            if (!r.ok()) push(p, false);
         }
     }
 
@@ -101,8 +134,10 @@ public final class StatsChannel implements PluginMessageListener {
     public void push(Player p, boolean open) {
         ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
         if (c == null) return;
-        byte[] bytes = buildJson(c, open, playerRespecAllowed()
-                || p.hasPermission("shinobicore.stats.admin")).getBytes(StandardCharsets.UTF_8);
+        boolean free = respecFree(p);
+        boolean canRespec = free || tokens.mode() == RespecTokens.Mode.TOKEN;
+        byte[] bytes = buildJson(c, open, canRespec, free, tokens.get(p.getUniqueId()))
+                .getBytes(StandardCharsets.UTF_8);
         try {
             p.sendPluginMessage(plugin, CHANNEL, bytes);
         } catch (Exception ignored) {
@@ -110,7 +145,7 @@ public final class StatsChannel implements PluginMessageListener {
         }
     }
 
-    String buildJson(ShinobiCharacter c, boolean open, boolean canRespec) {
+    String buildJson(ShinobiCharacter c, boolean open, boolean canRespec, boolean respecFree, int respecTokens) {
         StatFormulas.Levers l = StatFormulas.levers();
         StringBuilder sb = new StringBuilder(2048);
         sb.append('{');
@@ -135,6 +170,8 @@ public final class StatsChannel implements PluginMessageListener {
         sb.append(",\"earned\":").append(StatFormulas.earnedPoints(c.rank(), c.stats()));
         sb.append(",\"bonus\":").append(c.stats().bonusPoints());
         sb.append(",\"canRespec\":").append(canRespec);
+        sb.append(",\"respecFree\":").append(respecFree);
+        sb.append(",\"respecTokens\":").append(respecTokens);
 
         sb.append(",\"stats\":{");
         first = true;

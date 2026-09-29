@@ -46,4 +46,9 @@ public final class RebornSounds {
     public static void confirm() {
         playReborn("ui.menu_confirm", 1.0f, 0.8f);
     }
+
+    /** Action refusée (bouton inactif, rien à faire) — le clic de menu, plus grave. */
+    public static void deny() {
+        playReborn("ui.menu_nav", 0.55f, 0.6f);
+    }
 }

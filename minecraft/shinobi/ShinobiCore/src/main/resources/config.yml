@@ -38,7 +38,10 @@ chakra:
 # ------------------------------------------------------------
 stats:
   points-per-rank: 3          # points gagnés à chaque passage de rang (5 passages)
-  player-respec: true         # le joueur peut tout réallouer seul (phase de test)
+  # Réinitialisation par le joueur : TOKEN = consomme un jeton de réinitialisation
+  # (acheté en boutique, crédité par « /stats jeton give <joueur> <n> »), FREE =
+  # gratuit (phase de test), STAFF = réservé au staff. Le staff est toujours gratuit.
+  respec: TOKEN
   soft-cap:
     threshold: 6              # plein rendement jusque-là…
     over-factor: 0.5          # …moitié au-delà (eff(10) = 8)

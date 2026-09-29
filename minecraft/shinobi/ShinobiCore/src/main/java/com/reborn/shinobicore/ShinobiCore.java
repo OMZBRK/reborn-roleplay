@@ -376,7 +376,8 @@ public final class ShinobiCore extends JavaPlugin {
         this.statsService = new com.reborn.shinobicore.stats.StatsServiceImpl(this);
         this.castAttribution = new com.reborn.shinobicore.stats.CastAttributionImpl(this);
         this.castAttribution.register();
-        this.statsChannel = new com.reborn.shinobicore.stats.StatsChannel(this, statsService);
+        this.statsChannel = new com.reborn.shinobicore.stats.StatsChannel(this, statsService,
+                new com.reborn.shinobicore.stats.RespecTokens(this));
         if (!buildMode) this.statsChannel.start();
         PluginCommand statsCmd = getCommand("stats");
         if (statsCmd != null) {

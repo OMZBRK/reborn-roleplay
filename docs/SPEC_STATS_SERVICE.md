@@ -501,3 +501,21 @@ ShinobiCombat est présent ; sinon repli chakra.
 - `PrePlayerAttackEntityEvent` est résolu par réflexion ; s'il manquait sur Purpur 26.2,
   le log le dit au boot et le comportement redevient celui d'avant (tout coup direct =
   mêlée).
+
+### 9.5 Réinitialisation par jeton et infobulles (2026-09-29)
+
+- **Respec joueur = un jeton.** `stats.respec` : `TOKEN` (défaut), `FREE` (phase de test),
+  `STAFF`. Le staff (`shinobicore.stats.admin`) réinitialise toujours gratuitement. Un respec
+  sans aucun point dépensé est refusé **sans** consommer de jeton.
+- **Jetons par compte** (UUID Minecraft), pas par personnage : `plugins/ShinobiCore/respec-tokens.yml`
+  (`stats/RespecTokens`). Crédit : `/stats jeton give|take|set <joueur> <n>` (staff / console,
+  joueur hors ligne accepté s'il est connu du serveur). La boutique web n'a pas encore de
+  paiement (`apps/api/src/shop` vide) : à la livraison, elle mettra cette commande en file
+  via le pont panel (`/v1/files/commands/pending`), déjà sondé par ShinobiCore.
+- La fiche reçoit `respecFree` / `respecTokens` ; le bouton RÉINITIALISER affiche le solde et
+  reste inerte (son de refus) sans jeton.
+- **Infobulles sans chiffres** : stats (devise, effets, palier Novice → Légendaire, rendement
+  décroissant en mots), tuiles, techniques (intensité du scaling en mots, lancers et maîtrise
+  qualitatifs), boutons −/+ avec la raison quand ils sont inactifs, badge de points, valider /
+  annuler. Les valeurs des tuiles et des cartes restent affichées ; seules les infobulles
+  cachent la mécanique.

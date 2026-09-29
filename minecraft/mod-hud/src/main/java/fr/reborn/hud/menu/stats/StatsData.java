@@ -42,6 +42,7 @@ public final class StatsData {
     public record Snapshot(String name, String clan, String village, String rank, int rankTier,
                            String nextRank, List<String> natures, int min, int max,
                            int earned, int bonus, boolean canRespec,
+                           boolean respecFree, int respecTokens,
                            int[] stats, Levers levers, List<Tech> techniques) {
 
         public int get(StatDef d) { return stats[d.ordinal()]; }
@@ -111,6 +112,7 @@ public final class StatsData {
                 str(r, "rank", "?"), intv(r, "rankTier", 0), str(r, "nextRank", ""),
                 Collections.unmodifiableList(natures), intv(r, "min", 1), intv(r, "max", 10),
                 intv(r, "earned", 0), intv(r, "bonus", 0), bool(r, "canRespec", false),
+                bool(r, "respecFree", false), intv(r, "respecTokens", 0),
                 stats, lv, Collections.unmodifiableList(techs));
             version++;
             return bool(r, "open", false);
@@ -163,7 +165,7 @@ public final class StatsData {
         t.add(tech("kinjutsu_dummy_hiden", "Kinjutsu — Essai Hiden", "Hiden", 5, "autres/kinjutsu", "NONE", false,
             false, 0, Map.of(StatDef.NINJUTSU, "A", StatDef.CHAKRA, "B", StatDef.VIGUEUR, "D")));
         return new Snapshot("Itachi", "Uchiha", "Konoha", "Chunin", 2, "Jonin",
-            List.of("KATON", "RAITON"), 1, 10, 9, 0, true, st, defaultLevers(), t);
+            List.of("KATON", "RAITON"), 1, 10, 9, 0, true, false, 1, st, defaultLevers(), t);
     }
 
     private static Tech tech(String id, String name, String rank, int tier, String cat, String nature,
