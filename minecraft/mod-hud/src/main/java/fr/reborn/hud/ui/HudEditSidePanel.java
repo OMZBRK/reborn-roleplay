@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Panneau latéral droit de l'éditeur HUD, sobre façon Zenkai — carte flottante
+ * Panneau latéral droit de l'éditeur HUD, sobre façon Reborn — carte flottante
  * insérée (marges autour), coins carrés, compact.
  *
  * <p>De haut en bas : header (titre + engrenage + repli + ✕), section ÉLÉMENTS

@@ -1,7 +1,7 @@
 package fr.reborn.hud.menu.inventory;
 
 /**
- * Rareté d'un objet — palette « puissance » façon Zenkai / MMO
+ * Rareté d'un objet — palette « puissance » façon MMO
  * (gris / bleu / violet / or). Colore le liseré de la case et le nom.
  */
 public enum Rarity {

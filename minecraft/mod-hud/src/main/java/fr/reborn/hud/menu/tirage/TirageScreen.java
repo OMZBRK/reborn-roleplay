@@ -30,7 +30,7 @@ import java.util.Random;
  * <b>Katon</b> l'enflamme, <b>Suiton</b> la mouille, <b>Raiton</b> la froisse,
  * <b>Fûton</b> la fend, <b>Doton</b> l'effrite. La réaction révèle la nature.
  *
- * <p>Rendu <b>subtil + in-world</b> (fidèle à Zenkai / à l'animé), pas de gros
+ * <p>Rendu <b>subtil + in-world</b> (fidèle à à l'animé), pas de gros
  * GUI plein écran : le décor reste visible, le perso passe en 3ᵉ personne de
  * face, la réaction se joue en <b>particules vanilla</b> (GPU-batchées, donc
  * fluides), puis un <b>petit popup propre</b> annonce le résultat (kanji +

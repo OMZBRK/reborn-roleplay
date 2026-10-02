@@ -45,7 +45,7 @@ public class PressSpacePrompt extends Button {
     // ─── Palette dédiée prompt ──────────────────────────────────
     // Fond pill : noir bleuté très opaque pour bien ressortir sur les
     // backgrounds MCEF clairs (sunset, jour, plages). On garde un soupçon
-    // de bleu pour rester dans la palette Zenkai sans tirer vers le froid.
+    // de bleu pour rester dans la palette Reborn sans tirer vers le froid.
     private static final int PILL_BG_TOP      = 0xF0151823;
     private static final int PILL_BG_BOTTOM   = 0xF00A0C12;
     private static final int PILL_BG_HOVER_TOP    = 0xF61F2330;

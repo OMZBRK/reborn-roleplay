@@ -21,7 +21,7 @@ import net.minecraft.resources.Identifier;
 import java.util.List;
 
 /**
- * Menu OST — layout « Zenkai » : barre du haut (logo + onglets catégories +
+ * Menu OST — layout « Reborn » : barre du haut (logo + onglets catégories +
  * fermer), carte now-playing proéminente (pochette vinyl tournante + titre +
  * barre de progression + contrôles), recherche, liste des pistes, et pied de
  * page avec sliders Volume / Distance + Solo.

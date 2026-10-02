@@ -2,7 +2,7 @@ package fr.reborn.hud.menu.inventory;
 
 /**
  * Objet RP (données pures, PAS un {@code ItemStack} vanilla) : le sac est
- * data-driven façon Zenkai, donc entièrement custom visuellement. Un objet
+ * data-driven façon Reborn, donc entièrement custom visuellement. Un objet
  * porte son poids unitaire (système de poids), sa catégorie/rareté, un kanji-
  * repère et, s'il est cosmétique, l'emplacement 3D qu'il occupe.
  *

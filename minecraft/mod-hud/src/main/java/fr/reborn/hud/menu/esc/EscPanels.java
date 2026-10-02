@@ -63,7 +63,10 @@ public final class EscPanels {
         int metaY = y + 36;
 
         // Currency.
-        ctx.text(tr, RebornFont.bold("0 ZK"), metaX, metaY, Colors.WARNING, false);
+        // Solde en ryo (monnaie en jeu, ADR 0006) — connu dès que la boutique a répondu.
+        String ryo = fr.reborn.hud.menu.shop.ShopData.received()
+            ? fr.reborn.hud.menu.shop.ShopData.ryo() + " RYO" : "— RYO";
+        ctx.text(tr, RebornFont.bold(ryo), metaX, metaY, Colors.WARNING, false);
         metaY += 16;
 
         // Nom RP (placeholder).
@@ -221,11 +224,11 @@ public final class EscPanels {
 
         // TODO: GET /v1/me/rewards
         String[][] rewards = {
-            {"PREMIUM", "+5 ZK/H", "on"},
-            {"BOOSTER", "+5 ZK/H", "on"},
-            {"TAG", "+5 ZK/H", "off"},
-            {"BIO", "+5 ZK/H", "on"},
-            {"STREAM", "+5 ZK/H", "off"},
+            {"PREMIUM", "+5 RYO/H", "on"},
+            {"BOOSTER", "+5 RYO/H", "on"},
+            {"TAG", "+5 RYO/H", "off"},
+            {"BIO", "+5 RYO/H", "on"},
+            {"STREAM", "+5 RYO/H", "off"},
         };
 
         int rowY = y + 36;

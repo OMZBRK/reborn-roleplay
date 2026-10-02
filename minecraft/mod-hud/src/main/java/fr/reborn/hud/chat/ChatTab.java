@@ -3,7 +3,7 @@ package fr.reborn.hud.chat;
 import fr.reborn.hud.ui.style.RebornColors;
 
 /**
- * Onglets du chat custom Zenkai-like.
+ * Onglets du chat custom Reborn.
  *
  * <p>L'enum définit l'ordre d'affichage des tabs dans la header de chat
  * et leur couleur d'accent (dot / unread badge / border-bottom actif).

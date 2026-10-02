@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * État client des cooldowns de capacités (affiché par {@link CooldownHud}, façon
- * Zenkai). Purement visuel : le client déclenche le CD au moment où il envoie
+ * Reborn). Purement visuel : le client déclenche le CD au moment où il envoie
  * l'action (dash…), la durée doit matcher le cooldown serveur. Extensible — il
  * suffit d'ajouter une entrée à {@link Ability} et de {@code trigger(...)} au bon
  * endroit (ex. double saut, saut de chakra à venir).

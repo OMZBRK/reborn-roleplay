@@ -43,7 +43,7 @@ public class CharacterLifecycleListener implements Listener {
         CharacterManager mgr = plugin.characters();
         List<ShinobiCharacter> roster = mgr.getAll(p.getUniqueId());
 
-        // Sélection pilotée par le mod client (build + overlay Zenkai). Ouverte
+        // Sélection pilotée par le mod client (build + overlay Reborn). Ouverte
         // MÊME à 0 perso (l'écran présente la tuile « Créer ») → un nouveau joueur
         // peut créer son 1er perso sans staff. Différé d'un tick pour laisser le
         // client prêt. Si la feature est désactivée, on retombe sur l'ancien

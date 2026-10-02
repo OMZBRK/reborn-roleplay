@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Éditeur HUD — version <b>sobre</b> façon Zenkai (cf {@code screenmodifhudzenkai.png}).
+ * Éditeur HUD — version <b>sobre</b> façon Reborn.
  *
  * <p>Deux zones :
  * <ul>

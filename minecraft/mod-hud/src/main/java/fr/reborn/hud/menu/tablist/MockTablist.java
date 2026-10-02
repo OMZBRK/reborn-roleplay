@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * Données de démonstration pour le tablist v1 (le temps de valider le visuel
- * façon Zenkai). Remplacé par le flux serveur {@code reborn:tablist} en v2.
+ * façon Reborn). Remplacé par le flux serveur {@code reborn:tablist} en v2.
  */
 public final class MockTablist {
 

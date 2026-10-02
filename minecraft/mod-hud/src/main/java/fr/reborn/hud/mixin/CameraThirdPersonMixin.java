@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Caméra épaule Reborn (over-the-shoulder, style Zenkai / anime-RP).
+ * Caméra épaule Reborn (over-the-shoulder, style anime-RP).
  *
  * <p>Après l'{@code update} vanilla (qui a placé la caméra derrière le joueur
  * en 3e personne arrière), on repositionne la caméra à la distance voulue puis

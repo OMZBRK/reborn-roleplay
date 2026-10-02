@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Sélection de personnage « façon Zenkai » pilotée par le mod client (mod-hud).
+ * Sélection de personnage « façon Reborn » pilotée par le mod client (mod-hud).
  *
  * <p>À la connexion (roster non vide, aucun perso actif) : téléporte au build de
  * sélection, fige le joueur (VISIBLE — son corps sert de perso en 3e personne

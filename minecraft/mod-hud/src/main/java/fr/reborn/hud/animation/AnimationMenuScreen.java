@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Menu d'actions Reborn façon GTA-RP / Zenkai — panneau-liste à gauche avec
+ * Menu d'actions Reborn façon GTA-RP — panneau-liste à gauche avec
  * onglets ({@code ANIMATIONS} / {@code OPTIONS}) et des rangées sélectionnables
  * (curseur ► + surlignage crimson au survol). Remplace l'ancien
  * {@code WalkStyleScreen}.
@@ -23,7 +23,7 @@ import java.util.List;
  *       Charge chakra / Méditation / Posture combat (placeholders — mécaniques
  *       plugin à venir).</li>
  *   <li><b>ANIMATIONS</b> → Favoris / Bind / Liste d'émotes (placeholders — la
- *       liste d'émotes façon Zenkai viendra ; émotes via Emotecraft touche B en
+ *       liste d'émotes façon Reborn viendra ; émotes via Emotecraft touche B en
  *       attendant).</li>
  * </ul>
  */

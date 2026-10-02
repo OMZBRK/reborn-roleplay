@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 
 /**
- * Chat custom Zenkai-like — version épurée carrée.
+ * Chat custom Reborn — version épurée carrée.
  *
  * <p>Formes 100% rectangulaires (zéro coin arrondi), bordures fines 1px,
  * fond solide légèrement transparent. Header avec onglets séparés par

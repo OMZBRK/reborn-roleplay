@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Menu pause (ESC) Reborn — layout façon <b>Zenkai</b>, cluster COMPACT centré.
+ * Menu pause (ESC) Reborn — cluster COMPACT centré.
  * GAUCHE : Boutique. DROITE : Stream + Dev Blog côte à côte (carrés) puis
  * Récompenses. BAS : barre communauté (Discord).
  *
@@ -119,6 +119,10 @@ public abstract class GameMenuScreenMixin extends Screen {
 
         // Rafraîchit la data live (Discord / patch notes / streams) en fond.
         EscData.refreshIfStale();
+        // Solde de ryo du profil : l'état boutique suffit (ShinobiCore répond sans ouvrir d'écran).
+        if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(fr.reborn.hud.menu.shop.ShopPayload.ID)) {
+            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new fr.reborn.hud.menu.shop.ShopPayload("open"));
+        }
 
         List<GuiEventListener> toRemove = new ArrayList<>(this.children());
         for (GuiEventListener e : toRemove) this.removeWidget(e);
@@ -139,7 +143,7 @@ public abstract class GameMenuScreenMixin extends Screen {
             reborn$boxX(), reborn$boxY(), reborn$leftW(), reborn$contentH(),
             " ", b -> client.setScreenAndShow(new ShopScreen(this))));
 
-        LOG.info("esc menu Zenkai : {} widgets vanilla retirés", toRemove.size());
+        LOG.info("esc menu Reborn : {} widgets vanilla retirés", toRemove.size());
     }
 
     private void handleTab(Minecraft client, int idx) {

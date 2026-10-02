@@ -25,7 +25,7 @@ import java.util.Locale;
  *
  * <p>DA : titre de section en {@link RebornFont#bold} majuscule discret, label
  * à gauche / contrôle à droite, hint gris sous le label. Aligné sur le menu
- * ÉCHAP et la maquette Zenkai.
+ * ÉCHAP et la maquette de référence.
  */
 public abstract class SectionedTab implements SettingsTab {
 

@@ -576,7 +576,7 @@ optimization:
 # ----------------------------------------------------------------------
 # À la connexion, si le joueur a des personnages mais aucun actif, on le
 # téléporte ici, on le fige (visible = son corps sert de perso vu en 3e
-# personne côté client) et le mod affiche l'overlay Zenkai. Désactivé par
+# personne côté client) et le mod affiche l'overlay Reborn. Désactivé par
 # défaut : tant que enabled=false ou monde absent, on retombe sur l'ancienne
 # GUI coffre. Renseigne les coordonnées de ton build de sélection puis passe
 # enabled à true.

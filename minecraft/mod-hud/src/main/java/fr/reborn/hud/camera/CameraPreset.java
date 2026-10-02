@@ -1,7 +1,7 @@
 package fr.reborn.hud.camera;
 
 /**
- * Presets de cadrage de la caméra épaule Reborn (style Zenkai / anime-RP).
+ * Presets de cadrage de la caméra épaule Reborn (style anime-RP).
  *
  * <p>Chaque preset définit un triplet (distance, décalage latéral, décalage
  * vertical) en blocs. Le <b>côté</b> de l'épaule (gauche/droite) est géré

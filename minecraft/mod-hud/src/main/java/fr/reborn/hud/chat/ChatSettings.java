@@ -1,7 +1,7 @@
 package fr.reborn.hud.chat;
 
 /**
- * Settings du chat custom Zenkai. Persistés dans
+ * Settings du chat custom Reborn. Persistés dans
  * {@link fr.reborn.hud.config.HudConfig}.
  *
  * <p>Tous les champs sont des defaults — initialisés à des valeurs sensées

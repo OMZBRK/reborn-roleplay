@@ -10,11 +10,11 @@ import net.minecraft.resources.Identifier;
 
 /**
  * Écran de connexion Reborn — appelé par {@code ConnectScreenMixin} (qui annule
- * le rendu vanilla). Style <b>Zenkai</b> minimaliste (cf. {@code chargementigzenkai.png}) :
+ * le rendu vanilla). Style <b>Reborn</b> minimaliste :
  * fond noir, logo Reborn centré, une ligne de statut sobre en dessous.
  *
  * <p>Volontairement épuré (plus de spinner / sakura / halo / barre / étapes) :
- * le focal point est le logo + le texte de phase, comme le loading Zenkai.
+ * le focal point est le logo + le texte de phase, comme le loading Reborn.
  */
 public final class ConnectingRenderer {
 
@@ -25,7 +25,7 @@ public final class ConnectingRenderer {
     private static final int LOGO_TEX_W = 2048;
     private static final int LOGO_TEX_H = 717;
 
-    /** Gris doux du texte de statut (façon Zenkai). */
+    /** Gris doux du texte de statut (façon Reborn). */
     private static final int STATUS_COLOR = 0xFFB9BDC6;
 
     private ConnectingRenderer() {}

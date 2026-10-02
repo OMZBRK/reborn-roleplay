@@ -14,7 +14,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 /**
- * Écran de sélection de personnage <b>épuré façon Zenkai</b> (affiché au join).
+ * Écran de sélection de personnage <b>épuré façon Reborn</b> (affiché au join).
  *
  * <p>Le décor du jeu reste visible derrière (le serveur téléporte le joueur au
  * build de spawn et fige la caméra). Un seul personnage à la fois, <b>centré,

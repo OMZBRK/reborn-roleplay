@@ -19,7 +19,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 /**
- * <b>Menu de repositionnement cosmétique in-world</b> (façon Zenkai / nanos-world).
+ * <b>Menu de repositionnement cosmétique in-world</b> (façon nanos-world).
  * Le joueur reste debout dans le VRAI monde, rendu en 3e personne
  * ({@link RepositionMode} + {@code CameraRepositionMixin}) : on orbite autour de
  * lui (glisser sur le monde), on zoome (molette), et on manipule le cosmétique

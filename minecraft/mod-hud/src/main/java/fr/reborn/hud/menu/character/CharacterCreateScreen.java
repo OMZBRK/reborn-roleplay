@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Wizard de création de personnage <b>façon Zenkai</b>, ouvert depuis
+ * Wizard de création de personnage <b>façon Reborn</b>, ouvert depuis
  * {@link CharacterSelectScreen} sur « Créer ».
  *
  * <p>Layout : panneau opaque <b>à gauche</b> (logo Reborn + onglets d'étape +
@@ -1327,7 +1327,7 @@ public class CharacterCreateScreen extends Screen {
         ctx.text(tr, back, x + (NAV_W - tr.width(back)) / 2, y + (NAV_H - 8) / 2,
             Colors.FOREGROUND, false);
 
-        // Suivant / Valider (clair, façon tan Zenkai).
+        // Suivant / Valider (clair, ton sable).
         int nx = x + NAV_W + 12;
         boolean last = step == 3;
         boolean hn = hit(mx, my, nx, y, NAV_W, NAV_H);

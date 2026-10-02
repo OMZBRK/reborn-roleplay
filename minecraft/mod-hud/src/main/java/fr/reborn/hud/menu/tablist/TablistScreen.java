@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Tablist Reborn façon <b>Zenkai</b> — <b>panneau centré</b> (pas plein écran)
+ * Tablist Reborn — <b>panneau centré</b> (pas plein écran)
  * flottant au-dessus du jeu assombri. Deux modes (pref {@code tablistHold}) :
  * <ul>
  *   <li><b>Toggle</b> (défaut) : presser Tab ouvre cet écran interactif

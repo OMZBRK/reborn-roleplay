@@ -6,7 +6,7 @@ import net.minecraft.client.CameraType;
 import net.minecraft.world.entity.Entity;
 
 /**
- * État de la caméra épaule Reborn (style Zenkai / anime-RP).
+ * État de la caméra épaule Reborn (style anime-RP).
  *
  * <p>Singleton process-wide. Quand {@link #isEnabled()} est vrai et que le
  * joueur est en 3e personne arrière, {@code CameraThirdPersonMixin} décale la

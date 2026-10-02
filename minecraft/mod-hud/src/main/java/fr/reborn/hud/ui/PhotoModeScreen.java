@@ -9,7 +9,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Écran du Mode Photo (façon Zenkai) avec animation de slide à l'ouverture :
+ * Écran du Mode Photo (façon Reborn) avec animation de slide à l'ouverture :
  * <ul>
  *   <li><b>Idle</b> : panneau d'options à droite — vitesse caméra, réinitialiser
  *       position, Capturer, Quitter.</li>

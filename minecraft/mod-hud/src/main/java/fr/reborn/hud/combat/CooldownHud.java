@@ -13,7 +13,7 @@ import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * HUD de cooldowns façon Zenkai : une rangée d'icônes de capacités
+ * HUD de cooldowns façon Reborn : une rangée d'icônes de capacités
  * ({@link CooldownState.Ability}) avec balayage radial + secondes restantes quand
  * en cooldown. Élément HUD déplaçable (registre {@code cooldowns} dans
  * {@code RebornHudClient}). Icône = texture {@code reborn:textures/gui/ability/<name>.png}

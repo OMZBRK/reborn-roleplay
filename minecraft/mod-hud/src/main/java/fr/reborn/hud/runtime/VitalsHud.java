@@ -12,7 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 /**
- * Panneau RP « vitals » (façon Orizon/Zenkai, cf {@code hudvitalsrp.png}) en
+ * Panneau RP « vitals » (façon Orizon, cf {@code hudvitalsrp.png}) en
  * haut-gauche : <b>tête</b> du joueur (bordure dorée + badge « Nv X »), <b>nom</b>,
  * et 3 barres arrondies — <b>vie</b> (rouge, cur/max), <b>chakra</b> (bleu,
  * cur/max) + icônes voix, <b>stamina</b> (dorée, %).

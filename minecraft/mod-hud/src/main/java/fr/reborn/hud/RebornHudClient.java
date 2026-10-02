@@ -167,7 +167,7 @@ public final class RebornHudClient implements ClientModInitializer {
 
         // Sélection / création de personnage (canal reborn:character, bidirectionnel
         // avec ShinobiCore). S2C : roster du joueur ({slotLimit, characters[],
-        // candidature}) → ouvre l'écran de sélection Zenkai. C2S : select:<id> /
+        // candidature}) → ouvre l'écran de sélection Reborn. C2S : select:<id> /
         // create / create\n<...> / open (envoyés par les écrans). Le mod ne fait
         // que l'UI ; ShinobiCore est autoritaire (setActive, création, limites).
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(

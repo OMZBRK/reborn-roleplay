@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Écran Paramètres Reborn — refonte façon <b>Zenkai</b> : « ← Retour » en
+ * Écran Paramètres Reborn — refonte : « ← Retour » en
  * haut-gauche, barre d'onglets <b>responsive</b> (Vidéo / Audio / Contrôles /
  * Caméra / Interface / Discord / Compte / Minecraft) qui se replie sur
  * plusieurs rangées centrées en petite fenêtre, puis le contenu de la catégorie
