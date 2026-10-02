@@ -2,7 +2,7 @@
 
 /* ============================================================
    REBORN ADMIN — Design tokens v2
-   Aligne sur apps/launcher/src/styles/globals.css (Zenkai-inspired
+   Aligne sur apps/launcher/src/styles/globals.css (identité Reborn
    anime ninja gaming). Les valeurs sont identiques pour conserver
    une coherence visuelle launcher ↔ panel staff.
    ============================================================ */
@@ -21,7 +21,7 @@
   --color-foreground-subtle: #9ca3af;
   --color-foreground-muted: #6b7280;
 
-  /* Accent (Zenkai blue) */
+  /* Accent (bleu v2) */
   --color-accent: #3b5bdb;
   --color-accent-hover: #4c6ce6;
   --color-accent-pressed: #2f4cc4;

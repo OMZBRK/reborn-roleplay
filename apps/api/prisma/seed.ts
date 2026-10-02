@@ -23,7 +23,7 @@ Le launcher Reborn est officiellement en ligne. Bon RP a tous !
 - Auto-connect au serveur depuis le bouton Jouer
 
 ## A venir
-- Boutique et ZK Coin (v1.1)
+- Boutique et RBCoins (v1.1)
 - Liste d'amis + DM (v1.0.5)
 - Lore interactif (v1.2)`,
     },

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { fetchBadges, markRead as apiMarkRead, type Badges } from "../lib/content";
 
 // Compteurs non-lus (tickets / patchnotes) + solde de monnaie, partagés
-// entre la sidebar (badges numériques), le header (cloche + ZK) et les pages
+// entre la sidebar (badges numériques), le header (cloche + RBCoins) et les pages
 // qui marquent une section comme lue à l'ouverture. Alimenté par
 // /v1/me/badges (poll depuis AuthenticatedLayout). Toute erreur réseau est
 // silencieuse — on garde la dernière valeur connue.

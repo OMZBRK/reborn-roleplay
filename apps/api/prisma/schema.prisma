@@ -55,8 +55,8 @@ model User {
   ticketsReadAt     DateTime?
   patchnotesReadAt  DateTime?
 
-  // Monnaie virtuelle
-  zkCoinBalance     Int      @default(0)
+  // Monnaie premium (RBCoins, ADR 0006)
+  rbCoinBalance     Int      @default(0)
 
   role              Role     @default(PLAYER)
   banned            Boolean  @default(false)

@@ -29,7 +29,7 @@ export class MeService {
       select: {
         ticketsReadAt: true,
         patchnotesReadAt: true,
-        zkCoinBalance: true,
+        rbCoinBalance: true,
       },
     });
     if (!user) {
@@ -56,7 +56,7 @@ export class MeService {
     return {
       unreadTickets,
       unreadPatchnotes,
-      coins: user.zkCoinBalance,
+      coins: user.rbCoinBalance,
     };
   }
 
