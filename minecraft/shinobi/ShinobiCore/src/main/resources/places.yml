@@ -1,0 +1,61 @@
+# Carte du monde (touche M côté client, canal reborn:map).
+#
+# maps.<id>   : une carte = une texture du mod (assets/reborn/textures/gui/map/<id>.png)
+#               liée à un monde Bukkit.
+# places.<id> : type zone (grand libellé) | lieu | pnj | porte (marqueurs losange).
+#               y absent = surface au moment de la téléportation.
+#
+# Les positions ci-dessous sont ESTIMÉES depuis le rendu du build (PaysDuFeu06,
+# 2026-10-02). Corrige-les en jeu : place-toi au bon endroit puis
+#   /carte set <id> <type> <nom…>      (remplace le lieu existant)
+#   /carte del <id>
+# La téléportation (« Y aller ») est réservée au staff : shinobicore.map.tp.
+
+maps:
+  konoha:
+    title: "Konoha"
+    world: PaysDuFeu06
+
+places:
+  zone_mont_hokage:
+    map: konoha
+    name: "Mont des Hokage"
+    type: zone
+    x: 15880
+    z: 9020
+  zone_uchiha:
+    map: konoha
+    name: "Quartier Uchiha"
+    type: zone
+    x: 15220
+    z: 10140
+  zone_centre:
+    map: konoha
+    name: "Centre du village"
+    type: zone
+    x: 15930
+    z: 9880
+  tour_hokage:
+    map: konoha
+    name: "Tour de l'Hokage"
+    type: lieu
+    x: 15872
+    z: 9600
+  porte_sud:
+    map: konoha
+    name: "Grande Porte"
+    type: porte
+    x: 15900
+    z: 11450
+  porte_est:
+    map: konoha
+    name: "Porte Est"
+    type: porte
+    x: 17500
+    z: 10400
+  porte_nord:
+    map: konoha
+    name: "Porte Nord"
+    type: porte
+    x: 16420
+    z: 8020

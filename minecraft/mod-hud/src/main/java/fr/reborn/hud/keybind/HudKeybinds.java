@@ -40,6 +40,9 @@ public final class HudKeybinds {
      */
     public static KeyMapping CINEMA;
 
+    /** Carte du monde (lieux, et « Y aller » pour le staff). M, rebindable. */
+    public static KeyMapping MAP;
+
     /**
      * Tous les binds Reborn de ce mod, dans l'ordre d'affichage — l'onglet
      * Contrôles ({@code ControlsTab}) les liste pour rebind inline. Rempli à
@@ -104,6 +107,8 @@ public final class HudKeybinds {
         PARRY = bind("key.reborn-hud.parry", GLFW.GLFW_KEY_C);
         // Fiche shinobi (six stats + techniques) — K, rebindable.
         STATS = bind("key.reborn-hud.stats", GLFW.GLFW_KEY_K);
+        // Carte du monde — M, rebindable.
+        MAP = bind("key.reborn-hud.map", GLFW.GLFW_KEY_M);
         // (Le « test de la feuille » (gacha nature de chakra) n'est PLUS bindé sur F —
         // retiré à la demande ; la touche F revient au comportement vanilla.)
         // (Le repositionnement cosmétique n'a PLUS de raccourci : il s'ouvre depuis
@@ -227,6 +232,20 @@ public final class HudKeybinds {
                             new fr.reborn.hud.menu.stats.StatsPayload("open"));
                     } else {
                         mc.setScreenAndShow(new fr.reborn.hud.menu.stats.StatsScreen());
+                    }
+                }
+            }
+            while (MAP.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.gui.screen() == null && mc.player != null) {
+                    // Sur serveur : ShinobiCore pousse la carte (open=true) → l'écran s'ouvre
+                    // à réception. Solo/dev : écran direct sur l'aperçu hors ligne.
+                    if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
+                            fr.reborn.hud.map.MapPayload.ID)) {
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                            new fr.reborn.hud.map.MapPayload("open"));
+                    } else {
+                        mc.setScreenAndShow(new fr.reborn.hud.map.WorldMapScreen());
                     }
                 }
             }

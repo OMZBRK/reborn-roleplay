@@ -386,6 +386,19 @@ public final class ShinobiCore extends JavaPlugin {
             statsCmd.setTabCompleter(exec);
         } else getLogger().warning("Command 'stats' is not declared in plugin.yml.");
 
+        // 7h. Carte du monde (touche M du mod, canal reborn:map) + /carte. Démarrée
+        //     aussi en mode build : c'est là que le staff place et vérifie les lieux.
+        var placeRegistry = new com.reborn.shinobicore.map.PlaceRegistry(this);
+        placeRegistry.load();
+        var mapChannel = new com.reborn.shinobicore.map.MapChannel(this, placeRegistry);
+        mapChannel.start();
+        PluginCommand carteCmd = getCommand("carte");
+        if (carteCmd != null) {
+            var exec = new com.reborn.shinobicore.map.MapCommand(placeRegistry, mapChannel);
+            carteCmd.setExecutor(exec);
+            carteCmd.setTabCompleter(exec);
+        } else getLogger().warning("Command 'carte' is not declared in plugin.yml.");
+
         // 8. Commands.
         PluginCommand characterCmd = getCommand("character");
         if (characterCmd != null) {

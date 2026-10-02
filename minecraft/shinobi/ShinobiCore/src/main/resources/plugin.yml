@@ -122,7 +122,18 @@ commands:
   ryo:
     description: Boutique — affiche le solde ryo, ou (staff) give/take/set la monnaie d'un joueur.
     usage: /ryo [give|take|set] <joueur> <montant>
+  carte:
+    description: Carte du monde (touche M) — lieux, et pour le staff téléportation + édition.
+    usage: /<command> [liste|tp <id>|set <id> <type> <nom>|del <id>|reload]
+    aliases: [map, worldmap]
+    permission: shinobicore.use
 permissions:
+  shinobicore.map.tp:
+    description: Staff — téléportation vers un lieu depuis la carte (« Y aller ») ou /carte tp.
+    default: op
+  shinobicore.map.admin:
+    description: Staff — placer / supprimer les lieux de la carte (/carte set|del|reload).
+    default: op
   shinobicore.stats.admin:
     description: Staff — voir / modifier les stats d'un personnage, points bonus, respec forcé.
     default: op

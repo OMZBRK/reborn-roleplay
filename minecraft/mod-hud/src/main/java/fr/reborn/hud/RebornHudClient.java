@@ -285,6 +285,27 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.menu.stats.StatsData.clear());
 
+        // Carte du monde (canal reborn:map, bidirectionnel) : ShinobiCore pousse la carte
+        // du monde courant + ses lieux ; le client renvoie open / tp:<id> (staff).
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.map.MapPayload.ID, fr.reborn.hud.map.MapPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
+            fr.reborn.hud.map.MapPayload.ID, fr.reborn.hud.map.MapPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.map.MapPayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                net.minecraft.client.Minecraft mc = context.client();
+                if (mc.player == null) return;
+                boolean open = fr.reborn.hud.map.MapData.update(payload.content());
+                if (mc.gui.screen() instanceof fr.reborn.hud.map.WorldMapScreen m) {
+                    m.refresh();
+                } else if (open && mc.gui.screen() == null) {
+                    mc.setScreenAndShow(new fr.reborn.hud.map.WorldMapScreen());
+                }
+            }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.map.MapData.clear());
+
         // Diffusion des apparences RP (canal reborn:skins, S2C) : ShinobiCore pousse
         // <uuid>\n<serialize()> pour chaque joueur actif → chacun voit le skin composé
         // des autres. Apparence vide = retrait de l'override.
