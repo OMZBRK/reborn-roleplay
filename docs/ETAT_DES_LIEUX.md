@@ -33,7 +33,7 @@
 | Artefact | **Publié / live** | Sur `origin/main` | Écart |
 |---|---|---|---|
 | Launcher | **0.3.44** (`/v1/launcher/update` le confirme, release `v0.3.44` du 28/09) | 0.3.44 | ✅ |
-| `reborn-hud` | **0.4.141** (manifest 3.1.97 du 03/10, fiche shinobi « lanternes célestes » : animations + sons dédiés ; carte du monde achetable) | 0.4.141 | ✅ |
+| `reborn-hud` | **0.4.142** (manifest 3.1.98 du 03/10, fiche lanternes v2 : tombée de la nuit, véranda laquée, flammes-esprits ; carte du monde achetable) | 0.4.142 | ✅ |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | 0.2.2 | 0.2.2 | ✅ |
 | Plugins Shinobi | build manuel Maven | `minecraft/shinobi/` | déploiement SFTP manuel |
