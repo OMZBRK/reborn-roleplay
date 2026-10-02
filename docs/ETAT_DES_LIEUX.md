@@ -33,7 +33,7 @@
 | Artefact | **Publié / live** | Sur `origin/main` | Écart |
 |---|---|---|---|
 | Launcher | **0.3.44** (`/v1/launcher/update` le confirme, release `v0.3.44` du 28/09) | 0.3.44 | ✅ |
-| `reborn-hud` | **0.4.139** (manifest 3.1.95 du 02/10, carte du monde touche M — Konoha ; ShinobiCore avec /carte à déployer) | 0.4.139 | ✅ |
+| `reborn-hud` | **0.4.140** (manifest 3.1.96 du 02/10, carte du monde : objet carte à tenir en main, vendu à la Boutique, nuages d'apparition ; ShinobiCore correspondant à déployer) | 0.4.140 | ✅ |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | 0.2.2 | 0.2.2 | ✅ |
 | Plugins Shinobi | build manuel Maven | `minecraft/shinobi/` | déploiement SFTP manuel |
