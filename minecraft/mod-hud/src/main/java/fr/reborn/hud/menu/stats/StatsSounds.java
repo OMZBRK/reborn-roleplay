@@ -1,13 +1,6 @@
 package fr.reborn.hud.menu.stats;
 
 import fr.reborn.hud.menu.RebornSounds;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
-import net.minecraft.client.resources.sounds.SoundInstance;
-import net.minecraft.resources.Identifier;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.RandomSource;
 
 /**
  * Sons de la fiche « lanternes célestes » ({@code assets/reborn/sounds/stats/*.ogg},
@@ -61,45 +54,9 @@ public final class StatsSounds {
 
     /* ------------------------------------------------------------ ambiance */
 
-    private static Ambience ambience;
-
     /** Grillons + vent en boucle tant que la fiche est ouverte (fondu d'entrée). */
-    public static void startAmbience() {
-        stopAmbience();
-        ambience = new Ambience();
-        Minecraft.getInstance().getSoundManager().play(ambience);
-    }
+    public static void startAmbience() { fr.reborn.hud.ui.UiAmbience.start("stats.ambience", 0.35f); }
 
     /** Fondu de sortie puis arrêt (non bloquant). */
-    public static void stopAmbience() {
-        if (ambience != null) ambience.fadeOut();
-        ambience = null;
-    }
-
-    private static final class Ambience extends AbstractTickableSoundInstance {
-        private static final float TARGET = 0.35f;
-        private boolean fading;
-
-        Ambience() {
-            super(SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath("reborn", "stats.ambience")),
-                SoundSource.AMBIENT, RandomSource.create());
-            this.looping = true;
-            this.delay = 0;
-            this.volume = 0.01f;
-            this.relative = true;
-            this.attenuation = SoundInstance.Attenuation.NONE;
-        }
-
-        void fadeOut() { fading = true; }
-
-        @Override
-        public void tick() {
-            if (fading) {
-                volume -= 0.04f;
-                if (volume <= 0.01f) stop();
-            } else if (volume < TARGET) {
-                volume = Math.min(TARGET, volume + 0.02f);
-            }
-        }
-    }
+    public static void stopAmbience() { fr.reborn.hud.ui.UiAmbience.stop(); }
 }

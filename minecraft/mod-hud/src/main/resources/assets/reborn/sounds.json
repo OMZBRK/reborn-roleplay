@@ -110,5 +110,89 @@
         "name": "reborn:stats/spirit"
       }
     ]
+  },
+  "map.open": {
+    "sounds": [
+      {
+        "name": "reborn:map/open"
+      }
+    ]
+  },
+  "map.close": {
+    "sounds": [
+      {
+        "name": "reborn:map/close"
+      }
+    ]
+  },
+  "map.zoom": {
+    "sounds": [
+      {
+        "name": "reborn:map/zoom"
+      }
+    ]
+  },
+  "map.drag": {
+    "sounds": [
+      {
+        "name": "reborn:map/drag"
+      }
+    ]
+  },
+  "map.select": {
+    "sounds": [
+      {
+        "name": "reborn:map/select"
+      }
+    ]
+  },
+  "map.travel": {
+    "sounds": [
+      {
+        "name": "reborn:map/travel"
+      }
+    ]
+  },
+  "map.ambience": {
+    "sounds": [
+      {
+        "name": "reborn:map/ambience"
+      }
+    ]
+  },
+  "shop.open": {
+    "sounds": [
+      {
+        "name": "reborn:shop/open"
+      }
+    ]
+  },
+  "shop.buy": {
+    "sounds": [
+      {
+        "name": "reborn:shop/buy"
+      }
+    ]
+  },
+  "shop.equip": {
+    "sounds": [
+      {
+        "name": "reborn:shop/equip"
+      }
+    ]
+  },
+  "shop.select": {
+    "sounds": [
+      {
+        "name": "reborn:shop/select"
+      }
+    ]
+  },
+  "shop.ambience": {
+    "sounds": [
+      {
+        "name": "reborn:shop/ambience"
+      }
+    ]
   }
 }
