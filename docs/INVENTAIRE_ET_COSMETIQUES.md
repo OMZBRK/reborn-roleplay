@@ -4,7 +4,7 @@ Prototype construit le 2026-08-24. Répond à la demande : **inventaire lié au
 personnage**, **limité par le sac** (non-vanilla visuellement), **système de
 poids**, et faisabilité de **plusieurs cosmétiques 3D**.
 
-Le design suit la ligne Zenkai/Naruto tout en restant dans la DA Minecraft
+Le design suit la ligne Reborn/Naruto tout en restant dans la DA Minecraft
 (cases custom, kanji, palette Akatsuki rouge/or) — cf. [[tirage-feuille]] et
 [[character-creation-design]] pour le pattern client↔serveur réutilisé.
 
@@ -22,7 +22,7 @@ Le design suit la ligne Zenkai/Naruto tout en restant dans la DA Minecraft
 
 ---
 
-## 1. Architecture (data-driven, façon Zenkai)
+## 1. Architecture (data-driven, façon Reborn)
 
 Choix clé : le sac RP est **data-driven** (des objets = **données**, pas des
 `ItemStack` vanilla) et **indépendant** de l'inventaire vanilla du personnage.

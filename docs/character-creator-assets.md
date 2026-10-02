@@ -161,7 +161,7 @@ Réf `d:/REBORN - PJ/REF - ALL/renduselectioncaractere.png`. Problèmes actuels 
    régler orientation face + zoom.
 3. **Fond = monde IG** : le user veut un **fond stylé** + joueur immobile. Options = (a) serveur
    spawn dans un lobby/void stylé, ou (b) client `drawEntity` GUI sur un backdrop custom.
-4. **Loading 5-10 s** stylé à la sélection avant d'arriver IG. (voir [[session-roadmap-modhud]] « loading Zenkai ».)
+4. **Loading 5-10 s** stylé à la sélection avant d'arriver IG. (voir [[session-roadmap-modhud]] « loading Reborn ».)
 → Multi-parties (client + ShinobiCore serveur). À cadrer avec le user (surtout fond : lobby serveur vs drawEntity).
 
 ### RESTE à faire (retours après test)

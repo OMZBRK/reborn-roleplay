@@ -78,7 +78,7 @@ function PanelProfile() {
       <div className="profile-body">
         <div className="profile-currency">
           <IconCoin size={16}/>
-          <span>0 ZK</span>
+          <span>0 RYO</span>
         </div>
         <div className="profile-name">Hikami Yorishiro</div>
         <div className="profile-handle">@hikami · Identifiant #RBN-04217</div>
@@ -149,11 +149,11 @@ function PanelBlog() {
 
 function PanelRewards() {
   const [rewards, setRewards] = React.useState([
-    { id: "premium", name: "Premium", perk: "+5 ZK / h", on: true  },
-    { id: "booster", name: "Booster", perk: "+5 ZK / h", on: true  },
-    { id: "tag",     name: "Tag",     perk: "+5 ZK / h", on: false },
-    { id: "bio",     name: "Bio",     perk: "+5 ZK / h", on: true  },
-    { id: "steam",   name: "Steam",   perk: "+5 ZK / h", on: false },
+    { id: "premium", name: "Premium", perk: "+5 RYO / h", on: true  },
+    { id: "booster", name: "Booster", perk: "+5 RYO / h", on: true  },
+    { id: "tag",     name: "Tag",     perk: "+5 RYO / h", on: false },
+    { id: "bio",     name: "Bio",     perk: "+5 RYO / h", on: true  },
+    { id: "steam",   name: "Steam",   perk: "+5 RYO / h", on: false },
   ]);
   const toggle = (id) => setRewards(rs => rs.map(r => r.id === id ? {...r, on: !r.on} : r));
   return (

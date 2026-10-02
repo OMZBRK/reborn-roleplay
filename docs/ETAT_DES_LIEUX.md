@@ -209,7 +209,7 @@ de fichiers du panel (Nexo, MagicSpells, Emotes RP, Character creator) — cf.
 | **Ryo** | gagnée en jeu (RP, combat, quêtes) | boutique de tenues, consommables |
 | **RBCoins 💎** | achetée (Stripe, v1.1) ou gagnée via Bug Bounty | cosmétiques premium |
 
-« ZK Coin » (résidu de l'identité *Zenkai*, abandonnée en juin 2026 au profit
+l'ancien nom de la monnaie premium (résidu de l'ancienne identité visuelle, abandonnée en juin 2026 au profit
 d'**Akatsuki**) est **retiré** — voir [`AUDIT_COHERENCE.md` §4](./AUDIT_COHERENCE.md).
 
 ---

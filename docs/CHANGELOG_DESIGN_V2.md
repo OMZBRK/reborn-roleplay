@@ -1,5 +1,5 @@
 > # 📜 JOURNAL HISTORIQUE — ne décrit plus le design courant
-> Ce document raconte la refonte v2 du launcher (accent **« Zenkai blue »**). L'identité
+> Ce document raconte la refonte v2 du launcher (accent **« bleu v2 »**). L'identité
 > visuelle a basculé sur **Akatsuki** (crimson `#A0182B` + or `#D9A95E`) le 2026-06-21.
 >
 > Palette et conventions en vigueur : [`REBORN_ASEPRITE_PALETTE.md`](./REBORN_ASEPRITE_PALETTE.md)
@@ -11,7 +11,7 @@
 # Changelog — Design v2 (refonte launcher)
 
 Refonte visuelle complète du launcher Reborn vers un style "anime ninja gaming"
-inspiré de Zenkai. Travail réalisé en 5 étapes d'intégration (5.1 → 5.5) après
+inspiré d'une maquette tierce. Travail réalisé en 5 étapes d'intégration (5.1 → 5.5) après
 4 sessions Claude Design qui ont produit les artefacts dans
 `reborn-design-prep/reference-screen/`.
 
@@ -21,7 +21,7 @@ inspiré de Zenkai. Travail réalisé en 5 étapes d'intégration (5.1 → 5.5) 
   - **Surfaces** : background / surface / surface-elevated / surface-overlay /
     border / border-strong / muted
   - **Foreground** : foreground / foreground-subtle / foreground-muted
-  - **Accent (Zenkai blue)** : accent / accent-hover / accent-pressed /
+  - **Accent (bleu v2)** : accent / accent-hover / accent-pressed /
     accent-soft / accent-glow / accent-glow-strong
   - **Sémantique** : success / warning / danger + variantes `*-soft`
   - **RP roles** : aligné sur l'enum backend `LauncherUser.role`

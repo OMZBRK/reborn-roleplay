@@ -99,8 +99,8 @@
   point de bouclage authoré) au lieu de `thenLoop()` (reset-à-0) ; fondu `EASE_IN_OUT_SINE`. Visible
   en 3e personne uniquement. Rendu local (sync cross-joueurs `reborn:anim` toujours non câblé).
 - **Menu/UI** : splash Elden-Ring (reste jusqu'à touche CLAVIER, souris ignorée) ; connect serveur
-  minimaliste Zenkai (fond noir + logo + statut ArcadePix) ; VitalsHUD nom RP + niveau (tablist SOI).
-- **OST** : 313 pistes Zenkai catégorisées + release `ost-v1`, ajoutées au manifest `required:true`
+  minimaliste (fond noir + logo + statut ArcadePix) ; VitalsHUD nom RP + niveau (tablist SOI).
+- **OST** : 313 pistes catégorisées + release `ost-v1`, ajoutées au manifest `required:true`
   (`reborn/ost/<cat>/<nom>.ogg`) → DL launcher au 1er lancement, scan reborn-ost, zéro code mod.
 - **Audit trous migration 1.21.4→26.1 (corrigés)** : (A1) commandes `/rblock /runblock /rblocklist`
   réactivées — `ClientCommandManager`→**`ClientCommands`** en command-api-v2 3.0.5 + module explicite
@@ -109,7 +109,7 @@
   (A4) `RebornVersion` MC 1.21.1→26.1.2 / loader 0.16.5→0.19.3.
 
 **⏳ À FAIRE (prochaines sessions) — features JAMAIS construites (pas des régressions) :**
-- **Voix + émotes** : PlasmoVoice (bulle parole/mute) + Emotecraft. **Création perso** in-game (Zenkai).
+- **Voix + émotes** : PlasmoVoice (bulle parole/mute) + Emotecraft. **Création perso** in-game.
   **Screenshot social** (gallery/éditeur/feed).
 - **Tablist** : client OK ; la data vient de **ShinobiCore** (`TabListManager#pushClientFeed`, serveur).
 - **Sync démarches cross-joueurs** : re-câbler le canal C2S/S2C `reborn:anim` + relais ShinobiCore

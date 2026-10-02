@@ -107,7 +107,7 @@ Sans réactions, les coups « traversent » et le combat est mou. Priorité haut
 
 | Animation | Prio | Trigger | Réseau | Loop | Notes |
 |---|---|---|---|---|---|
-| **Signes de mains** (hand-seals) | P0 | cast jutsu | sync | one-shot | séquence, cf. `zenkai-mechanics-roadmap` |
+| **Signes de mains** (hand-seals) | P0 | cast jutsu | sync | one-shot | séquence, cf. la roadmap des mécaniques |
 | **Focus chakra** (aura, posture concentrée) | P1 | maintien touche chakra | sync | loop | + particules |
 | **Substitution (Kawarimi)** | P1 | esquive parfaite | sync | one-shot | téléport + bûche |
 | **Mode éveil** (transformation) | P2 | mode spécial | sync | one-shot→loop | buff visuel |

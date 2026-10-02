@@ -21,7 +21,7 @@
 > **Changelog**
 > v1.5 — Passe de cohérence du 2026-09-08 : bandeaux d'historicité (§1 identité visuelle,
 > §11 roadmap, §18), plateforme corrigée (MC 26.2 / Java 25), domaine `.com`, §18 remplacé
-> par un état d'avancement daté, « ZK Coin » → « RBCoins » (ADR 0006). Écarts relevés :
+> par un état d'avancement daté, la monnaie premium s'appelle « RBCoins » (ADR 0006). Écarts relevés :
 > [`docs/AUDIT_COHERENCE.md`](./docs/AUDIT_COHERENCE.md).
 > v1.4 — Réécriture §9.4/§9.5 pour refléter le pivot vers play-token signé API (au lieu du challenge nonce + modlist_hash initial). Ajout §9.6 décrivant l'écosystème mods Reborn complet (HUD + OST). Mise à jour roadmap §11 MVP.  
 > v1.3 — Restructuration des paramètres en onglets, ajout de Steam OAuth, nouvelle release v1.0.5 dédiée au social (amis + DM + mini-fenêtre)  
@@ -63,12 +63,12 @@ Un launcher desktop autonome pour le network **Reborn Roleplay**, qui remplace l
 - Un point d'entrée unique pour toutes les interactions joueur (boutique, whitelist, lore, tickets…)
 
 > 🕰️ **Note d'historicité — identité visuelle.** La conception d'origine se référait au
-> **Zenkai Launcher** (split design login + dashboard sidebar) comme modèle. La structure
+> **une maquette de launcher tierce** (split design login + dashboard sidebar) comme modèle. La structure
 > a été conservée, mais **l'identité visuelle a basculé sur « Akatsuki » le 2026-06-21** :
 > crimson `#A0182B` + or `#D9A95E` + ivoire chaud `#F5E9D0` sur fond bordeaux profond,
 > typo Bebas Neue + Inter. Référence en vigueur :
 > [`docs/REBORN_ASEPRITE_PALETTE.md`](./docs/REBORN_ASEPRITE_PALETTE.md) et le frame Miro
-> *HUD Combat v2*. Toute mention de « Zenkai » dans ce document est un vestige.
+> *HUD Combat v2*. Les mentions de « maquette de référence » renvoient à cette première inspiration.
 
 ### Objectifs techniques non négociables
 | Critère | Exigence |
@@ -155,12 +155,12 @@ Cette triple validation rend l'injection d'un mod non autorisé pratiquement imp
 |---|---|---|
 | **Framework** | Tauri 2.x | Binaire ~10 Mo, backend Rust sécurisé, WebView natif système |
 | **Frontend** | React 18 + TypeScript 5 + Vite | Standard moderne, excellent DX, type safety |
-| **Styling** | TailwindCSS 4 + tailwind-merge | Reproduit le style Zenkai rapidement, classes utilitaires |
-| **Animations** | Framer Motion 11 | Transitions fluides entre écrans (style Zenkai) |
+| **Styling** | TailwindCSS 4 + tailwind-merge | Reproduit le style Reborn rapidement, classes utilitaires |
+| **Animations** | Framer Motion 11 | Transitions fluides entre écrans (style Reborn) |
 | **State** | Zustand 5 | Léger, simple, pas de boilerplate Redux |
 | **Routing** | React Router 7 | Navigation entre les vues du dashboard |
 | **Forms** | React Hook Form + Zod | Validation type-safe des formulaires (login, register, whitelist) |
-| **Icons** | Lucide React | Cohérent avec le look Zenkai (icônes ligne fines) |
+| **Icons** | Lucide React | Cohérent avec le look Reborn (icônes ligne fines) |
 | **HTTP client (front)** | Tauri HTTP API (via Rust) | Pas d'appels HTTP directs depuis le webview = plus sécurisé |
 
 ### 3.2 Backend Rust (intégré au launcher)
@@ -329,7 +329,7 @@ Cette étape rend la triche par mod non autorisé techniquement très coûteuse 
 ### 4.7 Auto-update du launcher
 Tauri Updater + signature Ed25519 :
 - Mise à jour vérifiée cryptographiquement avant application
-- Possibilité de forcer une version min côté API (l'écran "Mise à jour obligatoire" du Zenkai)
+- Possibilité de forcer une version min côté API (l'écran "Mise à jour obligatoire" de la maquette de référence)
 - Le launcher refuse de lancer Minecraft s'il est en dessous de la version min
 
 ---
@@ -652,7 +652,7 @@ model DirectMessage {
 
 ## 6. Spécification des écrans
 
-L'arborescence des écrans suit le modèle Zenkai. Les noms entre crochets sont les routes React Router.
+L'arborescence des écrans suit la maquette de référence. Les noms entre crochets sont les routes React Router.
 
 ### 6.1 Écrans non authentifiés
 
@@ -673,7 +673,7 @@ L'arborescence des écrans suit le modèle Zenkai. Les noms entre crochets sont 
 - `error` (toast d'erreur, conserve le bouton actif)
 
 #### `/update-required` — Mise à jour obligatoire
-Modal bloquante au-dessus du `/login`, identique au screenshot Zenkai.
+Modal bloquante au-dessus du `/login`, identique à la maquette de référence.
 - Affiche version actuelle / nouvelle version
 - Bouton "Installer" lance l'updater Tauri
 - Pas de "Plus tard" si la version min est dépassée
@@ -746,7 +746,7 @@ Layout commun : sidebar gauche fixe (260 px) + zone principale.
 - Recherche full-text côté client (Fuse.js)
 
 #### `/settings` — Paramètres (page complète, pas modal)
-La page Paramètres adopte une **structure à onglets** inspirée de Zenkai (4 onglets horizontaux avec underline animé). Chaque onglet a son propre contenu, scrollable indépendamment.
+La page Paramètres adopte une **structure à onglets** inspirée de la maquette de référence (4 onglets horizontaux avec underline animé). Chaque onglet a son propre contenu, scrollable indépendamment.
 
 **Onglet 1 — `Profil`** (par défaut)
 - **Photo de profil** : bouton `Changer` (upload JPG/PNG max 2 Mo) / `Supprimer`. Par défaut = head MC du joueur. Si custom, prévalue dans toute l'UI.
@@ -765,7 +765,7 @@ La page Paramètres adopte une **structure à onglets** inspirée de Zenkai (4 o
   - `Supprimer mon compte` → flow de confirmation à plusieurs étapes
 
 **Onglet 3 — `Connexions`**
-Cartes de comptes liés, comme dans Zenkai (screen 2). Chaque carte : icône du service + username + ID + badge `Lié` (vert) ou bouton `Lier` (bleu).
+Cartes de comptes liés, comme dans la maquette de référence (screen 2). Chaque carte : icône du service + username + ID + badge `Lié` (vert) ou bouton `Lier` (bleu).
 
 | Service | Statut MVP | Pourquoi |
 |---|---|---|
@@ -1302,7 +1302,7 @@ L'API envoie des webhooks signés HMAC vers le bot pour notifier d'événements.
 |---|---|
 | Auth Microsoft OAuth complet | ✅ requis |
 | Liaison Discord OAuth | ✅ requis |
-| Écran login Zenkai-style | ✅ requis |
+| Écran login style Reborn | ✅ requis |
 | Auto-update du launcher | ✅ requis |
 | Téléchargement + vérif manifest signé | ✅ requis |
 | Lancement Minecraft + auto-connect serveur | ✅ requis |
@@ -1613,7 +1613,7 @@ reborn-roleplay/
 ## 13. Packaging & expérience d'installation
 
 ### 13.1 Objectif visuel
-On reproduit le pattern **Zenkai-like** : après installation, le dossier d'application contient **uniquement le launcher et son désinstalleur**. Aucun fichier technique visible (DLL, configs, mods, JRE, jar Minecraft) n'apparaît à cet endroit. Le joueur a l'impression d'une application desktop premium, pas d'un dossier de développement.
+On reproduit le pattern **launcher premium** : après installation, le dossier d'application contient **uniquement le launcher et son désinstalleur**. Aucun fichier technique visible (DLL, configs, mods, JRE, jar Minecraft) n'apparaît à cet endroit. Le joueur a l'impression d'une application desktop premium, pas d'un dossier de développement.
 
 **Résultat attendu après installation** :
 
@@ -1670,7 +1670,7 @@ Tauri 2 utilise **NSIS** comme bundler Windows par défaut, ce qui produit nativ
 ```
 
 **Points importants** :
-- `installMode: "perMachine"` : installation pour tous les utilisateurs (Program Files). Alternative : `"currentUser"` (AppData/Local/Programs) si tu veux éviter UAC à l'install — c'est ce que fait Zenkai et c'est plus convivial
+- `installMode: "perMachine"` : installation pour tous les utilisateurs (Program Files). Alternative : `"currentUser"` (AppData/Local/Programs) si tu veux éviter UAC à l'install — c'est plus convivial
 - `compression: "lzma"` : compression maximale de l'installeur (plus petit à télécharger, légèrement plus lent à installer)
 - `webviewInstallMode: "embedBootstrapper"` : si Edge WebView2 manque sur la machine du joueur (Windows 10 ancien), l'installeur le télécharge automatiquement
 
@@ -1759,7 +1759,7 @@ Le site web pointe vers `latest/` pour le download, et `/launcher/latest/release
 | 5. Premier lancement | Login Microsoft → téléchargement des fichiers de jeu |
 | 6. En jeu | Tout fonctionne, le joueur n'a jamais vu le moindre fichier technique |
 
-C'est exactement l'expérience Zenkai.
+C'est exactement l'expérience visée.
 
 ---
 
@@ -2177,7 +2177,7 @@ Implémentation : crate Rust `discord-rich-presence`, mise à jour toutes les 30
 **Effort** : 1 jour. **Impact** : énorme.
 
 #### 16.1.2 Auto-détection hardware (page Configurations système)
-**Source d'inspiration** : page Zenkai (screen 2) + GDLauncher.
+**Source d'inspiration** : maquette de référence (screen 2) + GDLauncher.
 
 Au premier lancement, le launcher lit (via crates Rust `sysinfo`, `wgpu`) :
 - CPU model + cores
@@ -2318,13 +2318,13 @@ Contenu géré par le staff via le panel web. Maintien l'accueil "vivant".
 
 ## 17. Système social — amis, DM, mini-fenêtre (v1.0.5)
 
-Cette section décrit le module social, qui constitue la **release v1.0.5** dédiée juste après le MVP. Inspiré directement du panneau d'amis Zenkai (screens 5 et 6) et adapté au contexte RP.
+Cette section décrit le module social, qui constitue la **release v1.0.5** dédiée juste après le MVP. Inspiré directement du panneau d'amis de la maquette de référence (screens 5 et 6) et adapté au contexte RP.
 
 ### 17.1 Vision
 Permettre aux joueurs de **rester connectés socialement** au sein de l'écosystème Reborn, sans dépendre uniquement de Discord. Trois piliers :
 1. **Liste d'amis** avec présence en temps réel
 2. **Messages directs (DM)** pour échanger HRP rapidement
-3. **Mini-fenêtre flottante** détachable (style Zenkai) qui peut rester visible pendant le jeu sur un second écran
+3. **Mini-fenêtre flottante** détachable (style Reborn) qui peut rester visible pendant le jeu sur un second écran
 
 ### 17.2 Architecture
 
@@ -2394,7 +2394,7 @@ pub fn open_friends_window(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 ### 17.4 Onglets de la mini-fenêtre amis
 
-Comme dans Zenkai (screens 5 et 6), 3 onglets :
+Comme dans la maquette de référence (screens 5 et 6), 3 onglets :
 
 **Onglet 1 — Liste d'amis** (icône groupe)
 - En-tête : avatar + pseudo + statut (En ligne / En jeu / Absent / Hors-ligne)
