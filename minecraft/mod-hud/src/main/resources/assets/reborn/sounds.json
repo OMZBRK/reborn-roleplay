@@ -33,5 +33,75 @@
         "name": "reborn:combat/hit_block"
       }
     ]
+  },
+  "stats.open": {
+    "sounds": [
+      {
+        "name": "reborn:stats/open"
+      }
+    ]
+  },
+  "stats.light": {
+    "sounds": [
+      {
+        "name": "reborn:stats/light"
+      }
+    ]
+  },
+  "stats.rise": {
+    "sounds": [
+      {
+        "name": "reborn:stats/rise"
+      }
+    ]
+  },
+  "stats.lower": {
+    "sounds": [
+      {
+        "name": "reborn:stats/lower"
+      }
+    ]
+  },
+  "stats.validate": {
+    "sounds": [
+      {
+        "name": "reborn:stats/validate"
+      }
+    ]
+  },
+  "stats.deny": {
+    "sounds": [
+      {
+        "name": "reborn:stats/deny"
+      }
+    ]
+  },
+  "stats.respec": {
+    "sounds": [
+      {
+        "name": "reborn:stats/respec"
+      }
+    ]
+  },
+  "stats.hover": {
+    "sounds": [
+      {
+        "name": "reborn:stats/hover"
+      }
+    ]
+  },
+  "stats.tab": {
+    "sounds": [
+      {
+        "name": "reborn:stats/tab"
+      }
+    ]
+  },
+  "stats.ambience": {
+    "sounds": [
+      {
+        "name": "reborn:stats/ambience"
+      }
+    ]
   }
 }
