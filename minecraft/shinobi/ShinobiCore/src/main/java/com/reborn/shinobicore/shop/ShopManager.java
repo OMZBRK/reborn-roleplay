@@ -15,7 +15,8 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Boutique de TENUES (skins). Autoritaire côté serveur : monnaie <b>ryo</b> +
+ * Boutique de TENUES (skins) et de CARTES (objets « Carte — région », prix par carte
+ * dans {@code places.yml}). Autoritaire côté serveur : monnaie <b>ryo</b> +
  * possession de tenues stockées sur {@link ShinobiCharacter} (persistées YAML).
  * L'écran client (mod-hud {@code ShopScreen}) parle sur le canal {@code reborn:shop} :
  * <ul>
@@ -62,6 +63,9 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         if (c == null) return; // pas de perso actif → pas de boutique
         if (msg.equals("open")) {
             sendState(p, c, null);
+        } else if (msg.startsWith("buymap:")) {
+            String id = msg.substring("buymap:".length()).trim();
+            Bukkit.getScheduler().runTask(plugin, () -> handleBuyMap(p, c, id));
         } else if (msg.startsWith("buy:")) {
             handleBuy(p, c, msg.substring("buy:".length()).trim());
         } else if (msg.startsWith("equip:")) {
@@ -82,6 +86,16 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         sendState(p, c, "§aTenue achetée ! §7(-" + tenuePrice + " ryo)");
     }
 
+    private void handleBuyMap(Player p, ShinobiCharacter c, String id) {
+        var places = plugin.places();
+        var def = places == null ? null : places.map(id);
+        if (def == null || def.price() <= 0) { sendState(p, c, "§cCette carte n'est pas en vente."); return; }
+        if (!c.trySpendRyo(def.price())) { sendState(p, c, "§cPas assez de ryo (" + def.price() + ")."); return; }
+        plugin.characters().save(c);
+        com.reborn.shinobicore.map.MapItem.give(plugin, p, def);
+        sendState(p, c, "§aCarte de " + def.title() + " achetée ! §7(-" + def.price() + " ryo)");
+    }
+
     private void handleEquip(Player p, ShinobiCharacter c, String id, String blob) {
         // id vide = « aucune tenue » (torse nu) toujours autorisé ; sinon il faut la posséder.
         if (!id.isEmpty() && !c.ownsOutfit(id)) { sendState(p, c, "§cTu ne possèdes pas cette tenue."); return; }
@@ -100,6 +114,19 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         boolean first = true;
         for (String o : c.ownedOutfits()) { if (!first) sb.append(','); sb.append('"').append(esc(o)).append('"'); first = false; }
         sb.append("],\"appearance\":\"").append(esc(c.appearance())).append('"');
+        sb.append(",\"maps\":[");
+        first = true;
+        var places = plugin.places();
+        if (places != null) {
+            for (var m : places.maps()) {
+                if (m.price() <= 0) continue;
+                if (!first) sb.append(',');
+                first = false;
+                sb.append("{\"id\":\"").append(esc(m.id())).append("\",\"name\":\"Carte — ")
+                  .append(esc(m.title())).append("\",\"price\":").append(m.price()).append('}');
+            }
+        }
+        sb.append(']');
         if (toast != null) sb.append(",\"toast\":\"").append(esc(toast)).append('"');
         sb.append('}');
         try {

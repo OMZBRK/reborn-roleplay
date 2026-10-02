@@ -21,7 +21,8 @@ import java.util.Map;
  * <p>Deux sections :
  * <ul>
  *   <li>{@code maps.<id>} — une carte = une texture côté client
- *       ({@code assets/reborn/textures/gui/map/<id>.png}) liée à un monde Bukkit ;</li>
+ *       ({@code assets/reborn/textures/gui/map/<id>.png}) liée à un monde Bukkit,
+ *       vendue comme objet ({@link MapItem}) à la Boutique ({@code price} ryo) ;</li>
  *   <li>{@code places.<id>} — un lieu : carte, nom, type ({@link Type}), position.
  *       {@code y} absent = surface (bloc le plus haut) au moment de la téléportation.</li>
  * </ul>
@@ -45,7 +46,8 @@ public final class PlaceRegistry {
         public String key() { return name().toLowerCase(Locale.ROOT); }
     }
 
-    public record MapDef(String id, String title, String world) {}
+    /** {@code price} = prix en ryo de la carte (objet) à la Boutique ; 0 = pas en vente. */
+    public record MapDef(String id, String title, String world, long price) {}
 
     public record Place(String id, String map, String name, Type type, String world,
                         double x, Double y, double z, float yaw, float pitch) {
@@ -79,7 +81,8 @@ public final class PlaceRegistry {
             for (String id : ms.getKeys(false)) {
                 ConfigurationSection s = ms.getConfigurationSection(id);
                 if (s == null) continue;
-                maps.put(id, new MapDef(id, s.getString("title", id), s.getString("world", "world")));
+                maps.put(id, new MapDef(id, s.getString("title", id), s.getString("world", "world"),
+                        Math.max(0L, s.getLong("price", 150L))));
             }
         }
         ConfigurationSection ps = y.getConfigurationSection("places");
@@ -108,6 +111,7 @@ public final class PlaceRegistry {
         for (MapDef m : maps.values()) {
             y.set("maps." + m.id() + ".title", m.title());
             y.set("maps." + m.id() + ".world", m.world());
+            y.set("maps." + m.id() + ".price", m.price());
         }
         for (Place p : places.values()) {
             String k = "places." + p.id() + ".";

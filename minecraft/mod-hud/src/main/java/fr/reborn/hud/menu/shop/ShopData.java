@@ -4,12 +4,15 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
  * Dernier état boutique reçu du serveur (canal {@code reborn:shop}) : solde
- * <b>ryo</b>, prix d'une tenue, ensemble des tenues <b>possédées</b> (ids catalog)
+ * <b>ryo</b>, prix d'une tenue, ensemble des tenues <b>possédées</b> (ids catalog),
+ * <b>cartes</b> en vente
  * et le blob d'<b>apparence</b> RP courant (pour composer l'aperçu / renvoyer à
  * l'équipement). Alimenté par {@link ShopPayload}, lu par {@link ShopScreen}.
  */
@@ -17,10 +20,14 @@ public final class ShopData {
 
     private ShopData() {}
 
+    /** Une carte en vente (objet « Carte — région »), achetable plusieurs fois. */
+    public record MapOffer(String id, String name, long price) {}
+
     private static volatile long ryo = 0L;
     private static volatile long price = 500L;
     private static volatile Set<String> owned = Set.of();
     private static volatile String appearance = "";
+    private static volatile List<MapOffer> maps = List.of();
     private static volatile boolean received = false;
     private static volatile String toast = null;
     private static volatile long toastAt = 0L;
@@ -29,12 +36,13 @@ public final class ShopData {
     public static long price()           { return price; }
     public static boolean owns(String id){ return id != null && owned.contains(id); }
     public static String appearance()    { return appearance == null ? "" : appearance; }
+    public static List<MapOffer> maps()  { return maps; }
     public static boolean received()     { return received; }
     public static String toast()         { return toast; }
     public static long toastAt()         { return toastAt; }
 
     public static void clear() {
-        ryo = 0L; owned = Set.of(); appearance = ""; received = false; toast = null;
+        ryo = 0L; owned = Set.of(); appearance = ""; maps = List.of(); received = false; toast = null;
     }
 
     /** Parse le JSON serveur {@code {ryo,price,owned[],appearance,toast?}} (thread client). */
@@ -48,6 +56,15 @@ public final class ShopData {
                 for (JsonElement e : o.getAsJsonArray("owned")) set.add(e.getAsString());
             }
             owned = set;
+            List<MapOffer> offers = new ArrayList<>();
+            if (o.has("maps") && o.get("maps").isJsonArray()) {
+                for (JsonElement e : o.getAsJsonArray("maps")) {
+                    JsonObject m = e.getAsJsonObject();
+                    offers.add(new MapOffer(m.get("id").getAsString(), m.get("name").getAsString(),
+                            m.get("price").getAsLong()));
+                }
+            }
+            maps = List.copyOf(offers);
             appearance = (o.has("appearance") && !o.get("appearance").isJsonNull())
                     ? o.get("appearance").getAsString() : "";
             if (o.has("toast") && !o.get("toast").isJsonNull()) {

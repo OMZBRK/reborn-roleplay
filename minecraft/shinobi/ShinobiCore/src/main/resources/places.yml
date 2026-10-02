@@ -1,7 +1,9 @@
 # Carte du monde (touche M côté client, canal reborn:map).
 #
 # maps.<id>   : une carte = une texture du mod (assets/reborn/textures/gui/map/<id>.png)
-#               liée à un monde Bukkit.
+#               liée à un monde Bukkit. C'est aussi un OBJET (« Carte — <title> ») vendu
+#               à la Boutique pour <price> ryo (0 = pas en vente) : il faut le tenir
+#               en main pour ouvrir la carte (clic droit ou touche M). Staff exempté.
 # places.<id> : type zone (grand libellé) | lieu | pnj | porte (marqueurs losange).
 #               y absent = surface au moment de la téléportation.
 #
@@ -10,11 +12,13 @@
 #   /carte set <id> <type> <nom…>      (remplace le lieu existant)
 #   /carte del <id>
 # La téléportation (« Y aller ») est réservée au staff : shinobicore.map.tp.
+# Donner une carte : /carte donner <joueur> <carte>.
 
 maps:
   konoha:
     title: "Konoha"
     world: PaysDuFeu06
+    price: 150
 
 places:
   zone_mont_hokage:

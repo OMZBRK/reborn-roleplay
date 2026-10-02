@@ -19,7 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Boutique de TENUES (skins) — ouverte depuis la carte « Boutique » du menu ÉCHAP.
+ * Boutique de TENUES (skins) et de CARTES — ouverte depuis la carte « Boutique » du menu ÉCHAP.
+ * Les cartes (objets « Carte — région », {@link ShopData#maps()}) suivent les tenues dans
+ * la liste : « Acheter » donne l'objet (C2S {@code buymap:<id>}), pas d'aperçu ni d'équipement.
  * Liste les tenues du catalogue creator ; chaque tenue coûte des <b>ryo</b>
  * ({@link ShopData}). On sélectionne une tenue → aperçu live sur son propre corps
  * (caméra 3e pers. de face), on l'<b>achète</b> (si assez de ryo) puis on
@@ -30,8 +32,11 @@ public class ShopScreen extends Screen {
 
     private final Screen parent;
 
-    // Entrée de liste : une tenue du catalogue (ou l'entrée « Aucune » = torse nu, id "").
-    private record Entry(String id, String name) {}
+    // Entrée de liste : une tenue du catalogue (ou l'entrée « Aucune » = torse nu, id ""),
+    // ou une carte en vente (map = true, prix propre).
+    private record Entry(String id, String name, boolean map, long price) {
+        Entry(String id, String name) { this(id, name, false, 0L); }
+    }
     private final List<Entry> entries = new ArrayList<>();
     private int selected = 0;
     private int scroll = 0;
@@ -125,7 +130,7 @@ public class ShopScreen extends Screen {
         }
 
         // ── Titre + solde ryo ──
-        ctx.text(f, RebornFont.bold("BOUTIQUE — TENUES"), 16, 14, 0xFFF2E9C0, true);
+        ctx.text(f, RebornFont.bold("BOUTIQUE — TENUES & CARTES"), 16, 14, 0xFFF2E9C0, true);
         String bal = ShopData.received() ? (ShopData.ryo() + " ryo") : "…";
         int balW = f.width(bal);
         ctx.text(f, RebornFont.bold(bal), this.width - 16 - balW, 14, 0xFFE8C34A, true);
@@ -137,20 +142,23 @@ public class ShopScreen extends Screen {
         listH = this.height - listY - 56;
         DrawHelpers.roundedRectFull(ctx, listX - 6, listY - 6, listW + 12, listH + 12, 6, 0xC0140D0A);
 
+        List<Entry> all = list();
         int visible = Math.max(1, listH / rowH);
-        scroll = Math.max(0, Math.min(scroll, Math.max(0, entries.size() - visible)));
-        for (int row = 0; row < visible && (row + scroll) < entries.size(); row++) {
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, all.size() - visible)));
+        for (int row = 0; row < visible && (row + scroll) < all.size(); row++) {
             int idx = row + scroll;
-            Entry e = entries.get(idx);
+            Entry e = all.get(idx);
             int ry = listY + row * rowH;
             boolean sel = idx == selected;
-            boolean owned = e.id.isEmpty() || ShopData.owns(e.id);
+            boolean owned = !e.map && (e.id.isEmpty() || ShopData.owns(e.id));
             if (sel) DrawHelpers.roundedRectFull(ctx, listX, ry, listW, rowH - 2, 3, 0x804A6FE0);
-            int nameCol = sel ? 0xFFFFFFFF : (owned ? 0xFFCFE8CF : 0xFFCFCFCF);
+            int nameCol = sel ? 0xFFFFFFFF : (e.map ? 0xFFF2DFA8 : owned ? 0xFFCFE8CF : 0xFFCFCFCF);
             ctx.text(f, Component.literal(trim(e.name, 22)), listX + 6, ry + 5, nameCol, false);
             // statut / prix à droite de la ligne
-            String tag = e.id.isEmpty() ? "" : (ShopData.owns(e.id) ? "Possédée" : (ShopData.price() + "r"));
-            int tagCol = e.id.isEmpty() ? 0 : (ShopData.owns(e.id) ? 0xFF7FD37F : 0xFFE8C34A);
+            String tag = e.map ? e.price + "r"
+                    : e.id.isEmpty() ? "" : (ShopData.owns(e.id) ? "Possédée" : (ShopData.price() + "r"));
+            int tagCol = e.map ? 0xFFE8C34A
+                    : e.id.isEmpty() ? 0 : (ShopData.owns(e.id) ? 0xFF7FD37F : 0xFFE8C34A);
             if (!tag.isEmpty()) {
                 int tw = f.width(tag);
                 ctx.text(f, Component.literal(tag), listX + listW - 6 - tw, ry + 5, tagCol, false);
@@ -165,6 +173,12 @@ public class ShopScreen extends Screen {
                 && ShopData.received() && ShopData.ryo() >= ShopData.price();
 
         backBtn = drawButton(ctx, f, 16, by, 110, bh, "< Retour", 0xFF3A3A3A, 0xFFE0E0E0);
+        if (cur != null && cur.map) {
+            boolean can = ShopData.received() && ShopData.ryo() >= cur.price;
+            buyBtn = drawButton(ctx, f, listX, by, listW, bh, "Acheter la carte (" + cur.price + "r)",
+                    can ? 0xFF2E7D32 : 0xFF5A3A3A, can ? 0xFFFFFFFF : 0xFF999999);
+            equipBtn = null;
+        } else {
         if (cur != null && !cur.id.isEmpty() && !ShopData.owns(cur.id)) {
             int col = canBuy ? 0xFF2E7D32 : 0xFF5A3A3A;
             buyBtn = drawButton(ctx, f, listX, by, 116, bh, "Acheter (" + ShopData.price() + "r)", col, canBuy ? 0xFFFFFFFF : 0xFF999999);
@@ -172,6 +186,7 @@ public class ShopScreen extends Screen {
         equipBtn = drawButton(ctx, f, listX + 124, by, 116, bh,
                 curOwned ? "Équiper" : "Non possédée", curOwned ? 0xFF2B5FA8 : 0xFF3A3A3A,
                 curOwned ? 0xFFFFFFFF : 0xFF999999);
+        }
 
         // ── Toast serveur (achat/équipement) ~3 s ──
         String toast = ShopData.toast();
@@ -200,7 +215,7 @@ public class ShopScreen extends Screen {
             if (mx >= listX && mx <= listX + listW && my >= listY && my <= listY + listH) {
                 int row = (my - listY) / rowH;
                 int idx = row + scroll;
-                if (idx >= 0 && idx < entries.size()) { selected = idx; preview(); return true; }
+                if (idx >= 0 && idx < list().size()) { selected = idx; preview(); return true; }
             }
         }
         return super.mouseClicked(event, dbl);
@@ -209,7 +224,7 @@ public class ShopScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mx, double my, double dx, double dy) {
         scroll -= (int) Math.signum(dy);
-        scroll = Math.max(0, Math.min(scroll, Math.max(0, entries.size() - Math.max(1, listH / rowH))));
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, list().size() - Math.max(1, listH / rowH))));
         return true;
     }
 
@@ -253,7 +268,7 @@ public class ShopScreen extends Screen {
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         int k = event.key();
         if (k == org.lwjgl.glfw.GLFW.GLFW_KEY_UP)   { selected = Math.max(0, selected - 1); ensureVisible(); preview(); return true; }
-        if (k == org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN) { selected = Math.min(entries.size() - 1, selected + 1); ensureVisible(); preview(); return true; }
+        if (k == org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN) { selected = Math.min(list().size() - 1, selected + 1); ensureVisible(); preview(); return true; }
         return super.keyPressed(event);
     }
 
@@ -263,20 +278,29 @@ public class ShopScreen extends Screen {
         else if (selected >= scroll + visible) scroll = selected - visible + 1;
     }
 
+    /** Tenues (fixées à l'ouverture) puis cartes en vente (arrivent avec l'état serveur). */
+    private List<Entry> list() {
+        List<Entry> all = new ArrayList<>(entries);
+        for (ShopData.MapOffer m : ShopData.maps()) all.add(new Entry(m.id(), m.name(), true, m.price()));
+        return all;
+    }
+
     private Entry current() {
-        return (selected >= 0 && selected < entries.size()) ? entries.get(selected) : null;
+        List<Entry> all = list();
+        return (selected >= 0 && selected < all.size()) ? all.get(selected) : null;
     }
 
     private void buy() {
         Entry e = current();
-        if (e == null || e.id.isEmpty() || ShopData.owns(e.id)) return;
-        if (!ClientPlayNetworking.canSend(ShopPayload.ID)) return;
+        if (e == null || !ClientPlayNetworking.canSend(ShopPayload.ID)) return;
+        if (e.map) { ClientPlayNetworking.send(new ShopPayload("buymap:" + e.id)); return; }
+        if (e.id.isEmpty() || ShopData.owns(e.id)) return;
         ClientPlayNetworking.send(new ShopPayload("buy:" + e.id));
     }
 
     private void equip() {
         Entry e = current();
-        if (e == null) return;
+        if (e == null || e.map) return;
         if (!e.id.isEmpty() && !ShopData.owns(e.id)) return; // pas possédée
         if (!ClientPlayNetworking.canSend(ShopPayload.ID)) return;
         SkinSpec spec = SkinSpec.deserialize(ShopData.appearance());
@@ -287,7 +311,7 @@ public class ShopScreen extends Screen {
     /** Applique l'aperçu de la tenue sélectionnée sur le corps du joueur (local). */
     private void preview() {
         Entry e = current();
-        if (e == null) return;
+        if (e == null || e.map) return; // une carte n'a pas d'aperçu sur le corps
         SkinSpec spec = SkinSpec.deserialize(ShopData.appearance());
         spec.outfitId = e.id;
         Minecraft mc = Minecraft.getInstance();

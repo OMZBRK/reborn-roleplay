@@ -162,7 +162,17 @@ public class WorldMapScreen extends Screen {
                 + "\" ABSENTE DU MOD - METS A JOUR LE LAUNCHER");
             ctx.text(f, msg, (this.width - f.width(msg)) / 2, this.height / 2, OUTLINE, false);
         } else {
+            float intro = intro();
             ctx.enableScissor(vx0, vy0, vx1, vy1);
+            ctx.pose().pushMatrix();
+            if (intro < 1f) {
+                // La carte « se pose » sous les nuages : léger zoom avant depuis le centre.
+                float s = 0.88f + 0.12f * easeOut(intro);
+                float cx = (vx0 + vx1) / 2f, cy = (vy0 + vy1) / 2f;
+                ctx.pose().translate(cx, cy);
+                ctx.pose().scale(s, s);
+                ctx.pose().translate(-cx, -cy);
+            }
             ctx.pose().pushMatrix();
             ctx.pose().translate(offX, offY);
             ctx.pose().scale(zoom, zoom);
@@ -174,6 +184,7 @@ public class WorldMapScreen extends Screen {
             drawMarkers(ctx, f, mouseX, mouseY);
             drawPlayer(ctx);
             drawReticle(ctx);
+            ctx.pose().popMatrix();
             ctx.disableScissor();
         }
 
@@ -182,6 +193,76 @@ public class WorldMapScreen extends Screen {
         if (hovered != null && !dragging) {
             MapData.Place p = find(hovered);
             if (p != null && !p.id().equals(selected)) drawTip(ctx, f, p.name(), mouseX, mouseY);
+        }
+        drawClouds(ctx);
+    }
+
+    /* ------------------------------------------------- apparition (nuages) */
+
+    private static final int INTRO_MS = 1000;
+    private static final int[][] CLOUD_SIZES = {{68, 34}, {52, 30}, {84, 38}};
+    private static final net.minecraft.resources.Identifier[] CLOUD_TEX = {
+        net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/map/cloud_0.png"),
+        net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/map/cloud_1.png"),
+        net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/map/cloud_2.png"),
+    };
+
+    /** Un nuage : position de départ (centre), direction de fuite, échelle, variante. */
+    private record Cloud(float x, float y, float dx, float dy, float scale, int variant, float delay) {}
+
+    private java.util.List<Cloud> clouds;
+    private int cloudsW = -1, cloudsH = -1;
+
+    private float intro() {
+        return Math.min(1f, (System.currentTimeMillis() - openedAt) / (float) INTRO_MS);
+    }
+
+    private static float easeOut(float t) { return 1f - (1f - t) * (1f - t) * (1f - t); }
+
+    private static float easeIn(float t) { return t * t; }
+
+    /** Couvre l'écran d'une grille de nuages (tirage fixe) qui s'écartent du centre. */
+    private void buildClouds() {
+        cloudsW = this.width;
+        cloudsH = this.height;
+        java.util.Random r = new java.util.Random(0x4E55L);
+        java.util.List<Cloud> out = new java.util.ArrayList<>();
+        int cols = 5, rows = 5;
+        float cx = this.width / 2f, cy = this.height / 2f;
+        for (int j = 0; j < rows; j++) {
+            for (int i = 0; i < cols; i++) {
+                float x = (i + 0.5f + (r.nextFloat() - 0.5f) * 0.6f) * this.width / cols;
+                float y = (j + 0.5f + (r.nextFloat() - 0.5f) * 0.6f) * this.height / rows;
+                float vx = x - cx, vy = y - cy;
+                float len = (float) Math.max(1, Math.hypot(vx, vy));
+                // Les nuages du centre partent un peu en retard, ceux du bord d'abord.
+                float delay = 0.18f * (1f - len / (float) Math.hypot(cx, cy));
+                float scale = Math.max(2.2f, this.height / 80f) * (0.85f + r.nextFloat() * 0.5f);
+                out.add(new Cloud(x, y, vx / len, vy / len, scale, r.nextInt(3), Math.max(0f, delay)));
+            }
+        }
+        clouds = out;
+    }
+
+    private void drawClouds(GuiGraphicsExtractor ctx) {
+        float t = intro();
+        if (t >= 1f) return;
+        if (clouds == null || cloudsW != this.width || cloudsH != this.height) buildClouds();
+        // Voile de brume qui se dissipe vite, puis les nuages s'envolent vers les bords.
+        int veil = (int) (Math.max(0f, 1f - t * 2.2f) * 235);
+        if (veil > 0) ctx.fill(0, 0, this.width, this.height, (veil << 24) | 0xF4F6FA);
+        float reach = (float) Math.hypot(this.width, this.height) * 0.75f;
+        for (Cloud c : clouds) {
+            float k = Math.max(0f, Math.min(1f, (t - c.delay()) / (1f - c.delay())));
+            float d = easeIn(k) * reach;
+            int w = CLOUD_SIZES[c.variant()][0], h = CLOUD_SIZES[c.variant()][1];
+            float x = c.x() + c.dx() * d - w * c.scale() / 2f;
+            float y = c.y() + c.dy() * d - h * c.scale() / 2f;
+            ctx.pose().pushMatrix();
+            ctx.pose().translate(x, y);
+            ctx.pose().scale(c.scale(), c.scale());
+            ctx.blit(RenderPipelines.GUI_TEXTURED, CLOUD_TEX[c.variant()], 0, 0, 0f, 0f, w, h, w, h);
+            ctx.pose().popMatrix();
         }
     }
 

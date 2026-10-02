@@ -99,6 +99,7 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.stats.StatsServiceImpl statsService;
     private com.reborn.shinobicore.stats.CastAttributionImpl castAttribution;
     private com.reborn.shinobicore.stats.StatsChannel statsChannel;
+    private com.reborn.shinobicore.map.PlaceRegistry placeRegistry;
     // Jutsu / techniques managers moved out to the standalone
     // ShinobiAbilities plugin. See ShinobiAbilities_RECREATION_PROMPT.md.
 
@@ -388,13 +389,14 @@ public final class ShinobiCore extends JavaPlugin {
 
         // 7h. Carte du monde (touche M du mod, canal reborn:map) + /carte. Démarrée
         //     aussi en mode build : c'est là que le staff place et vérifie les lieux.
-        var placeRegistry = new com.reborn.shinobicore.map.PlaceRegistry(this);
+        this.placeRegistry = new com.reborn.shinobicore.map.PlaceRegistry(this);
         placeRegistry.load();
         var mapChannel = new com.reborn.shinobicore.map.MapChannel(this, placeRegistry);
         mapChannel.start();
+        getServer().getPluginManager().registerEvents(mapChannel, this); // clic droit avec la carte
         PluginCommand carteCmd = getCommand("carte");
         if (carteCmd != null) {
-            var exec = new com.reborn.shinobicore.map.MapCommand(placeRegistry, mapChannel);
+            var exec = new com.reborn.shinobicore.map.MapCommand(this, placeRegistry, mapChannel);
             carteCmd.setExecutor(exec);
             carteCmd.setTabCompleter(exec);
         } else getLogger().warning("Command 'carte' is not declared in plugin.yml.");
@@ -1053,6 +1055,9 @@ public final class ShinobiCore extends JavaPlugin {
      *  {@code /sc itemgive} tokens here at boot. */
     @com.reborn.shinobicore.api.Internal
     public ItemGiveRegistry itemGive() { return itemGiveRegistry; }
+
+    /** Cartes de la carte du monde (places.yml) — null avant l'init. Lu par la Boutique. */
+    public com.reborn.shinobicore.map.PlaceRegistry places() { return placeRegistry; }
     @com.reborn.shinobicore.api.Internal
     public CharacterRepository characterRepository() { return characterRepository; }
     @com.reborn.shinobicore.api.Internal

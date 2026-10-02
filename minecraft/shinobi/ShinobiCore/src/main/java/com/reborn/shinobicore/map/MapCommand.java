@@ -7,7 +7,9 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,7 +20,8 @@ import java.util.Locale;
  * {@code /carte} — ouvre la carte du monde (mod client), ou liste les lieux en chat.
  *
  * <pre>
- * /carte                          ouvre la carte
+ * /carte                          ouvre la carte tenue en main
+ * /carte donner &lt;joueur&gt; &lt;carte&gt;  (shinobicore.map.admin) donne l'objet carte
  * /carte liste                    lieux de la carte courante
  * /carte tp &lt;id&gt;                  (shinobicore.map.tp)
  * /carte set &lt;id&gt; &lt;type&gt; &lt;nom…&gt;  (shinobicore.map.admin) à ta position
@@ -30,10 +33,12 @@ public final class MapCommand implements TabExecutor {
 
     private static final String ADMIN = "shinobicore.map.admin";
 
+    private final JavaPlugin plugin;
     private final PlaceRegistry places;
     private final MapChannel channel;
 
-    public MapCommand(PlaceRegistry places, MapChannel channel) {
+    public MapCommand(JavaPlugin plugin, PlaceRegistry places, MapChannel channel) {
+        this.plugin = plugin;
         this.places = places;
         this.channel = channel;
     }
@@ -44,7 +49,19 @@ public final class MapCommand implements TabExecutor {
         switch (sub) {
             case "" -> {
                 if (!(s instanceof Player p)) return list(s);
-                channel.push(p, true);
+                channel.open(p);
+                return true;
+            }
+            case "donner", "give" -> {
+                if (!s.hasPermission(ADMIN)) return deny(s);
+                if (a.length < 3) return usage(s, "/carte donner <joueur> <carte>");
+                Player target = Bukkit.getPlayerExact(a[1]);
+                if (target == null) return usage(s, "Joueur introuvable : " + a[1]);
+                var def = places.map(a[2].toLowerCase(Locale.ROOT));
+                if (def == null) return usage(s, "Carte inconnue : " + a[2]);
+                MapItem.give(plugin, target, def);
+                s.sendMessage(Component.text("Carte « " + def.title() + " » donnée à " + target.getName() + ".",
+                        NamedTextColor.GOLD));
                 return true;
             }
             case "liste", "list" -> { return list(s); }
@@ -79,7 +96,7 @@ public final class MapCommand implements TabExecutor {
                 s.sendMessage(Component.text("places.yml rechargé.", NamedTextColor.GOLD));
                 return true;
             }
-            default -> { return usage(s, "/carte [liste|tp|set|del|reload]"); }
+            default -> { return usage(s, "/carte [liste|tp|donner|set|del|reload]"); }
         }
     }
 
@@ -108,9 +125,13 @@ public final class MapCommand implements TabExecutor {
         List<String> out = new ArrayList<>();
         if (a.length == 1) {
             out.addAll(List.of("liste", "tp"));
-            if (s.hasPermission(ADMIN)) out.addAll(List.of("set", "del", "reload"));
+            if (s.hasPermission(ADMIN)) out.addAll(List.of("donner", "set", "del", "reload"));
         } else if (a.length == 2 && List.of("tp", "set", "del", "suppr").contains(a[0].toLowerCase(Locale.ROOT))) {
             for (Place pl : places.places()) out.add(pl.id());
+        } else if (a.length == 2 && List.of("donner", "give").contains(a[0].toLowerCase(Locale.ROOT))) {
+            for (Player pl : Bukkit.getOnlinePlayers()) out.add(pl.getName());
+        } else if (a.length == 3 && List.of("donner", "give").contains(a[0].toLowerCase(Locale.ROOT))) {
+            for (var m : places.maps()) out.add(m.id());
         } else if (a.length == 3 && a[0].equalsIgnoreCase("set")) {
             for (Type t : Type.values()) out.add(t.key());
         }
