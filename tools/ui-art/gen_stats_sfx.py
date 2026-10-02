@@ -177,6 +177,14 @@ def s_tab():
     return paper * e
 
 
+def s_spirit():
+    """Flamme-esprit qui file vers une lanterne : souffle aérien + scintillement aigu."""
+    air = whoosh(0.5, 1200, 5000, 0.5)
+    x = t(0.5)
+    shimmer = np.sin(2 * np.pi * (1800 + 900 * x / 0.5) * x) * env(len(x), 0.05, decay=0.15) * 0.25
+    return air * 0.6 + shimmer
+
+
 def s_ambience():
     """Boucle de 12 s : grillons épars + vent très doux. Bords en fondu pour boucler sans clic."""
     dur = 12.0
@@ -209,7 +217,7 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for name, fn, peak in [("open", s_open, 0.8), ("light", s_light, 0.7), ("rise", s_rise, 0.8),
                            ("lower", s_lower, 0.7), ("validate", s_validate, 0.85), ("deny", s_deny, 0.7),
-                           ("respec", s_respec, 0.8), ("hover", s_hover, 0.4), ("tab", s_tab, 0.6),
+                           ("respec", s_respec, 0.8), ("hover", s_hover, 0.4), ("tab", s_tab, 0.6), ("spirit", s_spirit, 0.5),
                            ("ambience", s_ambience, 0.5)]:
         write(name, fn(), peak)
     print("->", OUT)

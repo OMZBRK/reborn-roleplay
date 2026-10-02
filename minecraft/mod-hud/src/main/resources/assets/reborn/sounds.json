@@ -103,5 +103,12 @@
         "name": "reborn:stats/ambience"
       }
     ]
+  },
+  "stats.spirit": {
+    "sounds": [
+      {
+        "name": "reborn:stats/spirit"
+      }
+    ]
   }
 }

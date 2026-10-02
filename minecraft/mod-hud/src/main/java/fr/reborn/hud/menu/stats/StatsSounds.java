@@ -46,6 +46,9 @@ public final class StatsSounds {
 
     public static void respec() { RebornSounds.playReborn("stats.respec", 1.0f, 0.7f); }
 
+    /** Flamme-esprit qui part vers une lanterne (ou en revient). */
+    public static void spirit(float pitch) { RebornSounds.playReborn("stats.spirit", pitch, 0.4f); }
+
     public static void tab() { RebornSounds.playReborn("stats.tab", 1.0f, 0.5f); }
 
     /** Survol : un tic très léger, limité pour ne pas crépiter en balayant la souris. */

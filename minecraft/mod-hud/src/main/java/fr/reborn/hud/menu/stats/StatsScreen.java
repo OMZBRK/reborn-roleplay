@@ -3,7 +3,6 @@ package fr.reborn.hud.menu.stats;
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
-import fr.reborn.hud.ui.CloudIntro;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -27,12 +26,15 @@ import java.util.Random;
  * <p>Un ciel de nuit au-dessus du village : chaque stat est une lanterne céleste dont la
  * <b>hauteur est la valeur</b> (échelle 0 → max, ligne du seuil = soft cap). Les points en
  * attente dessinent la silhouette dorée de la hauteur visée ; VALIDER fait s'envoler les
- * lanternes jusque-là. Sous l'horizon : nom, valeur et boutons −/+ de chaque stat, puis les
- * valeurs dérivées.
+ * lanternes jusque-là. Au premier plan, une véranda laquée : une plaque votive (ema) par
+ * stat accrochée à la rambarde (sceau, valeur, −/+), les valeurs dérivées gravées sur la
+ * poutre, et les points restants en <b>flammes-esprits</b> qui filent vers la lanterne
+ * quand on pose un point.
  *
- * <p>Animations : nuages qui s'écartent ({@link CloudIntro}), lanternes qui s'allument une
- * à une puis montent depuis le village, balancement, flamme qui vacille, étoiles qui
- * scintillent, braises, étincelles à chaque point posé. Sons : {@link StatsSounds}.
+ * <p>Ouverture « tombée de la nuit » : panoramique du village vers le ciel (parallaxe
+ * montagnes / village / lune), crépuscule → nuit, lanternes qui s'allument en vague puis
+ * montent, puis l'interface glisse en place. Un clic pendant l'ouverture la termine.
+ * Sons : {@link StatsSounds}. Textures : {@code tools/ui-art/gen_stats_lanterns.py}.
  *
  * <p>L'allocation reste <b>locale</b> jusqu'à VALIDER ; les valeurs dérivées sont
  * recalculées par {@link StatsMath} avec les leviers du serveur, qui reste seul juge
@@ -52,22 +54,38 @@ public class StatsScreen extends Screen {
     private static final int INK = Colors.withAlpha(Colors.FOREGROUND, 0.92f);
     private static final int INK_SOFT = 0xFFC8B8D2;
     private static final int INK_DIM = 0xFF8A7C9A;
-    private static final int GROUND = 0xFF120C16;
-    private static final int TRAIL = 0xFF786050;
+    private static final int TRAIL = 0xFF8C6450;
+    private static final int LACQ = 0xFF5C1418;
+    private static final int LACQ_D = 0xFF360C10;
+    private static final int LACQ_LINE = 0xFF421014;
+    private static final int WOOD = 0xFF623C24;
+    private static final int WOOD_D = 0xFF3C2416;
+    private static final int WOOD_L = 0xFF8C5C38;
+    private static final int ROPE = 0xFFC8A05A;
+    private static final int PLAQUE_INK = 0xFF3C2414;
+    private static final int SPIRIT = 0xFF8CC8FF;
 
     private static final int[] TIER_COLOR = {0xFF9CA3AF, 0xFFE5E7EB, 0xFF4ADE80, 0xFF38BDF8, 0xFFD9A95E, 0xFFC084FC};
     private static final String[] TIER_LETTER = {"E", "D", "C", "B", "A", "S"};
 
-    private static final Identifier SKY = tex("sky");
-    private static final Identifier VILLAGE = tex("village");
-    private static final Identifier GLOW = tex("glow");
-    private static final Identifier[] LANTERN = {tex("lantern_0"), tex("lantern_1"), tex("lantern_2"),
-        tex("lantern_3"), tex("lantern_4"), tex("lantern_5")};
-    private static final int LW = 30, LH = 36;
+    private static final Identifier SKY_DUSK = tex("sky_dusk"), SKY_NIGHT = tex("sky_night");
+    private static final Identifier MOUNTAINS = tex("mountains"), VILLAGE = tex("village"), WINDOWS = tex("windows");
+    private static final Identifier MOON = tex("moon"), GLOW = tex("glow"), HITODAMA = tex("hitodama"), EMA = tex("ema");
+    private static final Identifier[] LANTERN = new Identifier[6], SEAL = new Identifier[6], DK = new Identifier[6];
+    static {
+        for (int i = 0; i < 6; i++) {
+            LANTERN[i] = tex("lantern_" + i);
+            SEAL[i] = tex("seal_" + i);
+            DK[i] = tex("dk_" + i);
+        }
+    }
+    private static final int LW = 40, LH = 50;
 
     private static Identifier tex(String n) {
         return Identifier.fromNamespaceAndPath("reborn", "textures/gui/stats/" + n + ".png");
     }
+
+    private static final int INTRO_MS = 2300;
 
     private StatsData.Snapshot snap;
     private int seenVersion = -1;
@@ -76,6 +94,7 @@ public class StatsScreen extends Screen {
     private final int[] optimistic = new int[StatDef.values().length];
     private int tab = lastTab;
     private final long openedAt = System.currentTimeMillis();
+    private long introStart = openedAt;
     private long respecArmedAt = 0L;
     private float techScroll = 0f;
     private int techContentH = 0;
@@ -90,20 +109,27 @@ public class StatsScreen extends Screen {
     private long lastFrame = System.nanoTime();
     private int hoveredLantern = -1;
     private Object lastHoverKey = null;
+    private boolean clickShift;
+    private long shootAt = System.currentTimeMillis() + 3500;
+    private float shootX, shootY;
 
-    private final CloudIntro intro = new CloudIntro(1100, 0x0E0A1C, 0xFF8C80BE);
     private final List<Particle> particles = new ArrayList<>();
+    private final List<Flyer> flyers = new ArrayList<>();
     private final Random rng = new Random();
-    private final float[][] stars = new float[48][4]; // x, y (0..1), vitesse, phase
+    private final float[][] stars = new float[60][4]; // x, y (0..1), vitesse, phase
+
+    // Intro (recalculés à chaque frame)
+    private float pan = 1f, night = 1f, ui = 1f, off = 0f;
 
     // Layout
     private boolean compact;
-    private int top, subY, tabsY, headerBottom, hintY, footY, derivedY, ground, skyTop, skyBase;
+    private float ls = 1f;
+    private int top, plaqueTop, plaqueH, plaqueW, tabsY, headerBottom, hintY, btnY, btnH, beamY, beamH;
+    private int railY, hillY, villageTop, villageH, skyTop, skyBase, emaW, emaH;
     private int laneX0, laneX1;
     private final int[] laneX = new int[6];
     private int closeX, closeY;
     private final int closeS = 12;
-    private int tabAttrX0, tabAttrX1, tabTechX0, tabTechX1;
     private int rowsY, rowX0, rowX1, techBottom;
     private final List<Btn> buttons = new ArrayList<>();
 
@@ -118,6 +144,14 @@ public class StatsScreen extends Screen {
         boolean ember;
     }
 
+    /** Flamme-esprit en vol : réserve → lanterne (point posé) ou retour (point retiré). */
+    private static final class Flyer {
+        float x0, y0, x1, y1;
+        long start;
+        int stat;
+        boolean toLantern;
+    }
+
     /** Infobulle à dessiner en dernier (au-dessus de tout). */
     private List<Component> tooltip = null;
     private int tooltipColor = GOLD;
@@ -128,7 +162,7 @@ public class StatsScreen extends Screen {
         Random r = new Random(0x57A2L);
         for (float[] s : stars) {
             s[0] = r.nextFloat();
-            s[1] = r.nextFloat() * 0.6f;
+            s[1] = r.nextFloat() * 0.62f;
             s[2] = 0.6f + r.nextFloat() * 1.6f;
             s[3] = r.nextFloat() * 6.28f;
         }
@@ -201,25 +235,63 @@ public class StatsScreen extends Screen {
         return false;
     }
 
+    /* ---------------------------------------------------------------- intro */
+
+    private float introT() {
+        return Math.min(1f, (System.currentTimeMillis() - introStart) / (float) INTRO_MS);
+    }
+
+    private boolean interactive() { return introT() >= 0.82f; }
+
+    private static float clamp01(float v) { return Math.max(0f, Math.min(1f, v)); }
+
+    private static float easeInOut(float t) { return t < 0.5f ? 2 * t * t : 1 - (float) Math.pow(-2 * t + 2, 2) / 2; }
+
+    private static float easeOut(float t) { return 1f - (1f - t) * (1f - t) * (1f - t); }
+
+    private void updateIntro() {
+        float t = introT();
+        pan = easeInOut(clamp01(t / 0.6f));
+        night = easeInOut(clamp01((t - 0.04f) / 0.6f));
+        ui = easeOut(clamp01((t - 0.62f) / 0.3f));
+        off = (1f - pan) * this.height * 0.31f;
+    }
+
+    /** Termine l'ouverture tout de suite (clic pendant l'animation). */
+    private void skipIntro() {
+        introStart = System.currentTimeMillis() - INTRO_MS;
+        for (int i = 0; i < 6; i++) lit[i] = true;
+    }
+
     /* --------------------------------------------------------------- layout */
 
     private void layout() {
         compact = this.height < 400;
-        top = compact ? 5 : 10;
-        subY = top + (compact ? 12 : 16);
-        tabsY = subY + (compact ? 11 : 13);
+        ls = compact ? (this.height < 300 ? 0.6f : 0.75f) : 1f;
+        top = compact ? 3 : 6;
+        plaqueTop = top;
+        plaqueH = compact ? 28 : 40;
+        tabsY = plaqueTop + plaqueH + 4;
         headerBottom = tabsY + 12;
-        hintY = compact ? -1 : this.height - 12;
-        footY = compact ? this.height - 20 : hintY - 22;
-        derivedY = footY - (compact ? 24 : 34);
-        ground = derivedY - (compact ? 44 : 54);
-        skyTop = headerBottom + (compact ? 22 : 34);
-        skyBase = ground - (compact ? 34 : 44);
 
-        int span = Math.min(this.width - 100, 720);
+        int span = Math.min(this.width - 140, 760);
         laneX0 = this.width / 2 - span / 2;
         laneX1 = this.width / 2 + span / 2;
         for (int i = 0; i < 6; i++) laneX[i] = laneX0 + span * (2 * i + 1) / 12;
+        emaW = Math.min(92, span / 6 - 6);
+        emaH = Math.round(56f * emaW / 92f);
+
+        hintY = compact ? -1 : this.height - 10;
+        btnH = compact ? 13 : 15;
+        btnY = compact ? this.height - 17 : hintY - 21;
+        beamH = compact ? 16 : 26;
+        beamY = btnY - (compact ? 5 : 8) - beamH;
+        railY = beamY - 8 - emaH - 6;
+        villageH = compact ? 60 : 80;
+        hillY = railY - (compact ? 16 : 24);
+        villageTop = hillY - Math.round(villageH * 0.45f);
+        skyBase = hillY - Math.round(30 * ls);
+        skyTop = headerBottom + Math.round(36 * ls);
 
         closeX = this.width - closeS - 10;
         closeY = top;
@@ -227,11 +299,19 @@ public class StatsScreen extends Screen {
         rowX0 = laneX0;
         rowX1 = laneX1;
         rowsY = headerBottom + 12;
-        techBottom = ground - 26;
+        techBottom = railY - 16;
     }
 
     private float yOf(float v) {
         return skyBase - (skyBase - skyTop) * v / Math.max(1, snap.max());
+    }
+
+    /** Couleur RGB interpolée (alpha opaque). */
+    private static int mix(int a, int b, float t) {
+        int r = (int) (((a >> 16) & 0xFF) + (((b >> 16) & 0xFF) - ((a >> 16) & 0xFF)) * t);
+        int g = (int) (((a >> 8) & 0xFF) + (((b >> 8) & 0xFF) - ((a >> 8) & 0xFF)) * t);
+        int bl = (int) ((a & 0xFF) + ((b & 0xFF) - (a & 0xFF)) * t);
+        return 0xFF000000 | (r << 16) | (g << 8) | bl;
     }
 
     /* ---------------------------------------------------------------- rendu */
@@ -239,26 +319,55 @@ public class StatsScreen extends Screen {
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         layout();
-        float time = (System.currentTimeMillis() - openedAt) / 1000f;
-        // Ciel tramé (pixel-art), étiré sur l'écran.
-        ctx.blit(RenderPipelines.GUI_TEXTURED, SKY, 0, 0, 0f, 0f, this.width, this.height, 480, 270, 480, 270);
-        // Étoiles qui scintillent.
+        updateIntro();
+        long now = System.currentTimeMillis();
+        float time = (now - openedAt) / 1000f;
+        // Ciel : crépuscule recouvert progressivement par la nuit.
+        ctx.blit(RenderPipelines.GUI_TEXTURED, SKY_DUSK, 0, 0, 0f, 0f, this.width, this.height, 480, 270, 480, 270);
+        int na = Math.round(255 * night);
+        if (na > 0) ctx.blit(RenderPipelines.GUI_TEXTURED, SKY_NIGHT, 0, 0, 0f, 0f, this.width, this.height, 480, 270, 480, 270,
+            (na << 24) | 0xFFFFFF);
+        // Étoiles qui apparaissent avec la nuit et scintillent.
         for (float[] s : stars) {
-            float a = 0.25f + 0.75f * Math.max(0f, (float) Math.sin(time * s[2] + s[3]));
-            int x = (int) (s[0] * this.width), y = (int) (s[1] * this.height);
+            float a = night * (0.25f + 0.75f * Math.max(0f, (float) Math.sin(time * s[2] + s[3])));
+            if (a < 0.03f) continue;
+            int x = (int) (s[0] * this.width), y = (int) (s[1] * this.height + off * 0.2f);
             ctx.fill(x, y, x + 1, y + 1, Colors.withAlpha(0xFFF4F0FF, a));
         }
-        // Nuages de nuit qui dérivent lentement.
-        float w = this.width + 260;
-        CloudIntro.drawCloud(ctx, 2, (time * 3f + 40) % w - 180, skyTop - 10, 2f, 0x668C80BE);
-        CloudIntro.drawCloud(ctx, 0, (time * 2f + w * 0.55f) % w - 180, skyTop + 50, 2f, 0x558C80BE);
-        CloudIntro.drawCloud(ctx, 1, (time * 4.5f + w * 0.3f) % w - 180, headerBottom - 6, 1.5f, 0x448C80BE);
+        // Étoile filante de temps en temps.
+        if (now > shootAt) {
+            float k = (now - shootAt) / 650f;
+            if (k > 1f) {
+                shootAt = now + 6000 + rng.nextInt(7000);
+                shootX = this.width * (0.1f + rng.nextFloat() * 0.5f);
+                shootY = skyTop * 0.6f + rng.nextFloat() * 50;
+            } else if (night > 0.9f && shootX > 0) {
+                float hx = shootX + k * 90, hy = shootY + k * 34;
+                for (int n = 0; n < 14; n++) {
+                    float a = (1f - n / 14f) * (1f - k);
+                    ctx.fill(Math.round(hx - n * 2.6f), Math.round(hy - n * 1f), Math.round(hx - n * 2.6f) + 1,
+                        Math.round(hy - n * 1f) + 1, Colors.withAlpha(0xFFFFFFFF, a));
+                }
+            }
+        }
+        // Lune (monte avec la caméra).
+        int ms = Math.round(40 * ls);
+        float mx = this.width * 0.82f, my = skyTop + 6 + off * 0.35f;
+        blitGlow(ctx, mx, my, ms * 2.6f, Colors.withAlpha(0xFFFFECC8, 0.18f + 0.12f * night));
+        ctx.blit(RenderPipelines.GUI_TEXTURED, MOON, Math.round(mx - ms / 2f), Math.round(my - ms / 2f), 0f, 0f,
+            ms, ms, 40, 40, 40, 40, mix(0xFFFFC88C, 0xFFF8EED2, night));
+        // Montagnes lointaines.
+        int mh = Math.round(this.height * 0.22f);
+        int mtop = Math.round(hillY - mh * 0.62f + off * 0.45f);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, MOUNTAINS, 0, mtop, 0f, 0f, this.width, mh, 480, 120, 480, 120,
+            mix(0xFF6E466E, 0xFF1E162E, night));
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         if (StatsData.version() != seenVersion) resync();
         layout();
+        updateIntro();
         buttons.clear();
         tooltip = null;
         Font f = this.font;
@@ -267,64 +376,73 @@ public class StatsScreen extends Screen {
         lastFrame = nowNs;
         int[] prev = previewStats();
 
-        drawHeader(ctx, f, mouseX, mouseY);
-
         if (tab == TAB_ATTR) {
-            drawScale(ctx, f);
+            if (ui > 0.01f) drawScale(ctx, f);
             drawLanterns(ctx, f, prev, mouseX, mouseY, dt);
         } else {
-            drawTechniques(ctx, f, prev, mouseX, mouseY);
+            hoveredLantern = -1;
         }
         drawVillage(ctx);
         updateParticles(ctx, dt);
-        if (tab == TAB_ATTR) drawLanes(ctx, f, prev, mouseX, mouseY);
-        drawDerived(ctx, f, prev, mouseX, mouseY);
-        drawFooter(ctx, f, mouseX, mouseY);
+        if (tab == TAB_TECH) drawTechniques(ctx, f, prev, mouseX, mouseY);
 
-        if (!compact) {
-            Component hint = RebornFont.arcade(tab == TAB_ATTR
-                ? "CLIC LANTERNE : +1   CLIC DROIT : -1   MAJ : TOUT   1-6 : RACCOURCIS   ENTREE : VALIDER   ECHAP : FERMER"
-                : "MOLETTE : DEFILER   TAB : ONGLET   ECHAP : FERMER");
-            drawScaledCentered(ctx, f, hint, this.width / 2f, hintY, Colors.withAlpha(INK_DIM, 0.85f), 0.7f);
-        }
+        // Interface : la véranda monte, la plaque descend.
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(0, (1f - ui) * this.height * 0.32f);
+        drawDeck(ctx, f, prev, mouseX, mouseY);
+        ctx.pose().popMatrix();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(0, -(1f - ui) * (headerBottom + 20));
+        drawHeader(ctx, f, mouseX, mouseY);
+        ctx.pose().popMatrix();
+        updateFlyers(ctx, dt);
+
+        if (tab == TAB_ATTR && hoveredLantern >= 0) drawHoverLabel(ctx, f, hoveredLantern, prev);
 
         // Survol : un tic discret quand on change de cible.
         Object hoverKey = hoveredLantern >= 0 ? (Object) ("L" + hoveredLantern) : (tooltip != null ? tooltip.get(0).getString() : null);
-        if (hoverKey != null && !hoverKey.equals(lastHoverKey) && intro.done()) StatsSounds.hover();
+        if (hoverKey != null && !hoverKey.equals(lastHoverKey) && interactive()) StatsSounds.hover();
         lastHoverKey = hoverKey;
 
-        if (tooltip != null) drawTooltip(ctx, f, tooltip, mouseX, mouseY, tooltipColor);
-        intro.draw(ctx, this.width, this.height);
+        if (tooltip != null && interactive()) drawTooltip(ctx, f, tooltip, mouseX, mouseY, tooltipColor);
     }
 
-    /* ---- en-tête ---- */
+    /* ---- en-tête : plaque laquée suspendue + onglets ---- */
 
     private void drawHeader(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
         float cx = this.width / 2f;
-        drawScaledCentered(ctx, f, RebornFont.arcade("FICHE SHINOBI"), cx, top, CREAM, compact ? 1.1f : 1.35f);
+        Component title = RebornFont.arcade("FICHE SHINOBI");
+        float ts = compact ? 1.0f : 1.3f;
         StringBuilder sub = new StringBuilder(snap.name());
         if (!snap.clan().isBlank() && !snap.clan().equalsIgnoreCase("None")) sub.append(' ').append(snap.clan());
-        sub.append("  -  ").append(snap.rank());
-        if (!snap.village().isBlank()) sub.append("  -  ").append(snap.village());
-        if (!snap.natures().isEmpty()) sub.append("  -  ").append(String.join(" / ", snap.natures()));
+        sub.append(" - ").append(snap.rank());
+        if (!snap.village().isBlank()) sub.append(" - ").append(snap.village());
+        if (!snap.natures().isEmpty()) sub.append(" - ").append(String.join(" / ", snap.natures()));
         if (!snap.nextRank().isBlank()) {
-            sub.append("  -  vers ").append(snap.nextRank()).append(" (+").append(snap.levers().pointsPerRank()).append(')');
+            sub.append(" - vers ").append(snap.nextRank()).append(" (+").append(snap.levers().pointsPerRank()).append(')');
         }
         Component subC = Component.literal(sub.toString());
-        ctx.text(f, subC, (int) (cx - f.width(subC) / 2f), subY, INK_SOFT, false);
+        float subS = compact ? 0.75f : 0.85f;
+        int pw = (int) Math.max(f.width(title) * ts, f.width(subC) * subS) + 30;
+        int px = Math.round(cx - pw / 2f);
+        // cordelettes
+        DrawHelpers.line(ctx, px + 30, 0, px + 40, plaqueTop + 2, ROPE);
+        DrawHelpers.line(ctx, px + pw - 30, 0, px + pw - 40, plaqueTop + 2, ROPE);
+        ctx.fill(px, plaqueTop, px + pw, plaqueTop + plaqueH, LACQ);
+        frame(ctx, px, plaqueTop, pw, plaqueH, GOLD);
+        frame(ctx, px + 3, plaqueTop + 3, pw - 6, plaqueH - 6, 0xFF963C32);
+        drawScaledCentered(ctx, f, title, cx, plaqueTop + (compact ? 5 : 8), CREAM, ts);
+        drawScaledCentered(ctx, f, subC, cx, plaqueTop + (compact ? 17 : 26), 0xFFE6B4A0, subS);
 
-        // Onglets : deux petites plaques, l'active éclairée.
+        // Onglets suspendus sous la plaque.
         Component a = RebornFont.arcade("ATTRIBUTS");
         Component t = RebornFont.arcade("TECHNIQUES (" + snap.techniques().size() + ")");
         int aw = f.width(a) + 14, tw = f.width(t) + 14;
-        tabAttrX0 = (int) cx - aw - 3;
-        tabAttrX1 = tabAttrX0 + aw;
-        tabTechX0 = (int) cx + 3;
-        tabTechX1 = tabTechX0 + tw;
-        tabPlate(ctx, f, a, tabAttrX0, aw, tab == TAB_ATTR, mx, my);
-        tabPlate(ctx, f, t, tabTechX0, tw, tab == TAB_TECH, mx, my);
-        buttons.add(new Btn(tabAttrX0, tabsY, aw, 12, () -> switchTab(TAB_ATTR)));
-        buttons.add(new Btn(tabTechX0, tabsY, tw, 12, () -> switchTab(TAB_TECH)));
+        int ax = (int) cx - aw - 3, tx = (int) cx + 3;
+        tabTag(ctx, f, a, ax, aw, tab == TAB_ATTR, mx, my);
+        tabTag(ctx, f, t, tx, tw, tab == TAB_TECH, mx, my);
+        buttons.add(new Btn(ax, tabsY, aw, 12, () -> switchTab(TAB_ATTR)));
+        buttons.add(new Btn(tx, tabsY, tw, 12, () -> switchTab(TAB_TECH)));
 
         if (!StatsData.fromServer()) {
             Component demo = RebornFont.arcade("APERCU HORS LIGNE");
@@ -332,19 +450,18 @@ public class StatsScreen extends Screen {
         }
         boolean hov = mx >= closeX && mx < closeX + closeS && my >= closeY && my < closeY + closeS;
         DrawHelpers.roundedOutlinedRectFull(ctx, closeX, closeY, closeS, closeS, 2,
-            hov ? Colors.withAlpha(ACC, 0.6f) : Colors.withAlpha(0xFF000000, 0.35f),
-            Colors.withAlpha(hov ? GOLD : 0xFF6A5A80, 0.8f));
+            hov ? Colors.withAlpha(ACC, 0.7f) : LACQ, hov ? GOLD : 0xFF963C32);
         Component x = Component.literal("✕");
         ctx.text(f, x, closeX + (closeS - f.width(x)) / 2 + 1, closeY + 2, CREAM, false);
         buttons.add(new Btn(closeX, closeY, closeS, closeS, this::onClose));
     }
 
-    private void tabPlate(GuiGraphicsExtractor ctx, Font f, Component c, int x, int w, boolean active, int mx, int my) {
+    private void tabTag(GuiGraphicsExtractor ctx, Font f, Component c, int x, int w, boolean active, int mx, int my) {
         boolean hov = mx >= x && mx < x + w && my >= tabsY && my < tabsY + 12;
-        DrawHelpers.roundedOutlinedRectFull(ctx, x, tabsY, w, 12, 2,
-            active ? 0xFF962222 : (hov ? 0xFF2E2440 : 0xFF221C2C),
-            active ? GOLD : 0xFF463C54);
-        ctx.text(f, c, x + (w - f.width(c)) / 2, tabsY + 3, active ? CREAM : (hov ? INK_SOFT : INK_DIM), false);
+        ctx.fill(x + w / 2, plaqueTop + plaqueH, x + w / 2 + 1, tabsY, ROPE);
+        ctx.fill(x, tabsY, x + w, tabsY + 12, active ? 0xFFAA1E22 : (hov ? 0xFF4A242A : 0xFF3C1E24));
+        frame(ctx, x, tabsY, w, 12, active ? GOLD : 0xFF6E4646);
+        ctx.text(f, c, x + (w - f.width(c)) / 2, tabsY + 3, active ? CREAM : (hov ? 0xFFD2B4B4 : 0xFFAA8C8C), false);
     }
 
     private void switchTab(int t) {
@@ -355,16 +472,17 @@ public class StatsScreen extends Screen {
 
     private void drawScale(GuiGraphicsExtractor ctx, Font f) {
         int max = snap.max();
-        int x = laneX0 - 14;
+        int x = laneX0 - 22;
+        int col = Colors.withAlpha(0xFF6E5A84, ui);
         for (int v = 0; v <= max; v += 2) {
-            int y = Math.round(yOf(v));
-            ctx.fill(x, y, x + 6, y + 1, 0xFF6E5A84);
+            int y = Math.round(yOf(v) + off);
+            ctx.fill(x, y, x + 6, y + 1, col);
             Component c = Component.literal(String.valueOf(v));
-            drawScaled(ctx, f, c, x - 3 - f.width(c) * 0.75f, y - 3, 0xFF6E5A84, 0.75f);
+            drawScaled(ctx, f, c, x - 3 - f.width(c) * 0.75f, y - 3, col, 0.75f);
         }
-        int sy = Math.round(yOf((float) snap.levers().softCap()));
-        for (int xx = laneX0 - 4; xx < laneX1 + 4; xx += 5) ctx.fill(xx, sy, xx + 2, sy + 1, 0x99B48290);
-        drawScaled(ctx, f, RebornFont.arcade("SEUIL"), laneX1 + 8, sy - 3, 0xFFB48290, 0.75f);
+        int sy = Math.round(yOf((float) snap.levers().softCap()) + off);
+        for (int xx = laneX0 - 10; xx < laneX1 + 10; xx += 5) ctx.fill(xx, sy, xx + 2, sy + 1, Colors.withAlpha(0xFFB48290, 0.6f * ui));
+        drawScaled(ctx, f, RebornFont.arcade("SEUIL"), laneX1 + 12, sy - 3, Colors.withAlpha(0xFFB48290, ui), 0.75f);
     }
 
     private void drawLanterns(GuiGraphicsExtractor ctx, Font f, int[] prev, int mx, int my, float dt) {
@@ -372,12 +490,14 @@ public class StatsScreen extends Screen {
         float time = (now - openedAt) / 1000f;
         float k = 1f - (float) Math.exp(-dt * 5f);
         hoveredLantern = -1;
+        int lw = Math.round(LW * ls), lh = Math.round(LH * ls);
         for (StatDef d : StatDef.values()) {
             int i = d.ordinal();
-            // Allumage échelonné, puis montée depuis le village.
-            long lightAt = openedAt + 650 + i * 140L;
-            float ignite = Math.max(0f, Math.min(1f, (now - lightAt) / 260f));
+            // Allumage en vague pendant le panoramique, puis montée depuis le village.
+            long lightAt = introStart + 950 + i * 130L;
+            float ignite = clamp01((now - lightAt) / 280f);
             if (ignite > 0f && !lit[i]) { lit[i] = true; StatsSounds.light(i); }
+            if (lit[i] && ignite <= 0f) ignite = 1f;   // ouverture passée d'un clic
             float target = lit[i] ? snap.stats()[i] + optimistic[i] : 0f;
             shownVal[i] += (target - shownVal[i]) * k;
             boolean hasGhost = pending[i] > 0;
@@ -387,81 +507,104 @@ public class StatsScreen extends Screen {
             float bob = (float) Math.sin(time * 1.3f + i * 1.1f) * 1.5f;
             float sway = (float) Math.sin(time * 0.9f + i) * 1f;
             float cx = laneX[i] + sway;
-            float cy = yOf(shownVal[i]) + bob;
-            float base = yOf(0) + 6;
-            if (!lit[i]) cy = Math.max(cy, base - 4);
+            float cy = yOf(shownVal[i]) + bob + off;
 
-            boolean hot = intro.done() && Math.abs(mx - cx) <= 18 && my >= cy - 22 && my <= cy + 22;
+            boolean hot = interactive() && Math.abs(mx - cx) <= lw / 2f + 4 && my >= cy - lh / 2f - 4 && my <= cy + lh / 2f + 6;
             if (hot) hoveredLantern = i;
             hoverGlow[i] += ((hot ? 1f : 0f) - hoverGlow[i]) * Math.min(1f, k * 2f);
 
             // Fil de lumière jusqu'au village.
-            for (int yy = (int) (cy + LH / 2f + 3); yy < ground - 18; yy += 3) {
+            for (int yy = (int) (cy + lh / 2f + 4); yy < hillY + off * 0.75f; yy += 3) {
                 float wx = cx + (float) Math.sin(yy / 14f + i + time * 0.6f) * 2f;
-                ctx.fill(Math.round(wx), yy, Math.round(wx) + 1, yy + 1, Colors.withAlpha(TRAIL, 0.55f * ignite));
+                ctx.fill(Math.round(wx), yy, Math.round(wx) + 1, yy + 1, Colors.withAlpha(TRAIL, 0.6f * ignite));
             }
             // Silhouette dorée de la hauteur visée (points en attente).
             if (ghostAlpha[i] > 0.02f) {
-                float gy = yOf(ghostVal[i]) + bob;
+                float gy = yOf(ghostVal[i]) + bob + off;
                 float pulse = 0.65f + 0.35f * (float) Math.sin(time * 4f + i);
-                ghostOutline(ctx, cx, gy, Colors.withAlpha(GOLD, ghostAlpha[i] * pulse));
-                drawScaledCentered(ctx, f, Component.literal("+" + pending[i]), cx + 22, gy - 4,
-                    Colors.withAlpha(GOLD, ghostAlpha[i]), 0.75f);
+                ghostOutline(ctx, cx, gy, lw, lh, Colors.withAlpha(GOLD, ghostAlpha[i] * pulse));
             }
             // Halo : couleur de la stat, grandit avec la valeur ; flamme qui vacille.
             float frac = shownVal[i] / Math.max(1, snap.max());
             float flicker = 0.85f + 0.15f * (float) Math.sin(time * 9f + i * 2.3f) * (float) Math.sin(time * 5.3f + i);
-            float gs = 44 + 40 * frac + 10 * hoverGlow[i];
-            int glowC = Colors.withAlpha(d.color, (0.22f + 0.38f * frac + 0.2f * hoverGlow[i]) * flicker * ignite);
-            blitGlow(ctx, cx, cy + 4, gs, glowC);
-            blitGlow(ctx, cx, cy + 10, 26, Colors.withAlpha(0xFFFFBE6E, 0.45f * flicker * ignite));
+            float gs = (56 + 46 * frac + 14 * hoverGlow[i]) * ls;
+            blitGlow(ctx, cx, cy + 6 * ls, gs, Colors.withAlpha(d.color, (0.24f + 0.36f * frac + 0.2f * hoverGlow[i]) * flicker * ignite));
+            blitGlow(ctx, cx, cy + 16 * ls, 26 * ls, Colors.withAlpha(0xFFFFBE6E, 0.5f * flicker * ignite));
             // Lanterne (éteinte = sombre, s'allume en fondu).
-            int shade = (int) (90 + 165 * ignite);
-            int tint = 0xFF000000 | (shade << 16) | (shade << 8) | shade;
-            ctx.blit(RenderPipelines.GUI_TEXTURED, LANTERN[i], Math.round(cx - LW / 2f), Math.round(cy - LH / 2f),
-                0f, 0f, LW, LH, LW, LH, tint);
+            int shade = (int) (70 + 185 * ignite);
+            int tint = 0xFF000000 | (shade << 16) | (shade << 8) | Math.min(255, shade + 10);
+            ctx.blit(RenderPipelines.GUI_TEXTURED, LANTERN[i], Math.round(cx - lw / 2f), Math.round(cy - lh / 2f),
+                0f, 0f, lw, lh, LW, LH, LW, LH, tint);
+            if (hot) ctx.fill(Math.round(cx - lw / 2f) - 1, Math.round(cy - lh / 2f) - 2,
+                Math.round(cx + lw / 2f) + 1, Math.round(cy - lh / 2f) - 1, GOLD);
 
             // Envol après validation : traînée d'étincelles dorées.
             if (now - launchAt[i] < 900 && rng.nextFloat() < 0.6f) {
-                spawnSpark(cx + (rng.nextFloat() - 0.5f) * 10, cy + LH / 2f, 0, 12 + rng.nextFloat() * 10, GOLD, 0.7f);
+                spawnSpark(cx + (rng.nextFloat() - 0.5f) * 12 * ls, cy + lh / 2f, 0, 12 + rng.nextFloat() * 10, GOLD, 0.7f);
             }
-            if (hot) statTooltip(d, prev);
         }
+    }
+
+    /** Étiquette flottante au-dessus de la lanterne survolée. */
+    private void drawHoverLabel(GuiGraphicsExtractor ctx, Font f, int i, int[] prev) {
+        StatDef d = StatDef.values()[i];
+        String txt = d.arcadeLabel + "  " + snap.get(d) + (pending[i] > 0 ? " +" + pending[i] : "")
+            + "  -  " + levelName(prev[i], snap.max()).toUpperCase(Locale.ROOT);
+        Component c = RebornFont.arcade(txt);
+        float s = 0.8f;
+        int w = Math.round(f.width(c) * s) + 12, h = 12;
+        float time = (System.currentTimeMillis() - openedAt) / 1000f;
+        float cy = yOf(shownVal[i]) + (float) Math.sin(time * 1.3f + i * 1.1f) * 1.5f + off;
+        int x = Math.round(laneX[i] - w / 2f), y = Math.round(cy - LH * ls / 2f - 18);
+        x = Math.max(4, Math.min(this.width - w - 4, x));
+        ctx.fill(x, y, x + w, y + h, 0xF0100C1A);
+        frame(ctx, x, y, w, h, d.color);
+        drawScaled(ctx, f, c, x + 6, y + 3, CREAM, s);
+    }
+
+    /** Contour 1 px (sans remplissage). */
+    private static void frame(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int color) {
+        DrawHelpers.outlinedRect(ctx, x, y, w, h, 0, color);
     }
 
     private void blitGlow(GuiGraphicsExtractor ctx, float cx, float cy, float size, int argb) {
         int s = Math.round(size);
+        if (s < 2 || (argb >>> 24) == 0) return;
         ctx.blit(RenderPipelines.GUI_TEXTURED, GLOW, Math.round(cx - s / 2f), Math.round(cy - s / 2f),
             0f, 0f, s, s, 64, 64, 64, 64, argb);
     }
 
-    /** Contour d'une lanterne (trapèze) — la place qu'elle prendra une fois validée. */
-    private static void ghostOutline(GuiGraphicsExtractor ctx, float cx, float cy, int color) {
-        int top = Math.round(cy - LH / 2f), bot = top + 30;
-        int x0 = Math.round(cx - 14), x1 = Math.round(cx + 14);
-        int b0 = Math.round(cx - 10), b1 = Math.round(cx + 10);
-        ctx.fill(x0, top, x1, top + 1, color);
-        ctx.fill(b0, bot, b1, bot + 1, color);
-        for (int y = top; y <= bot; y++) {
-            float t = (y - top) / 30f;
+    /** Contour pointillé d'une lanterne (trapèze) — la place qu'elle prendra une fois validée. */
+    private static void ghostOutline(GuiGraphicsExtractor ctx, float cx, float cy, int lw, int lh, int color) {
+        int top = Math.round(cy - lh / 2f), bot = top + Math.round(lh * 0.84f);
+        int x0 = Math.round(cx - lw * 0.48f), x1 = Math.round(cx + lw * 0.48f);
+        int b0 = Math.round(cx - lw * 0.33f), b1 = Math.round(cx + lw * 0.33f);
+        for (int x = x0; x < x1; x += 3) ctx.fill(x, top, x + 2, top + 1, color);
+        for (int x = b0; x < b1; x += 3) ctx.fill(x, bot, x + 2, bot + 1, color);
+        for (int y = top; y <= bot; y += 3) {
+            float t = (y - top) / (float) Math.max(1, bot - top);
             int l = Math.round(x0 + (b0 - x0) * t), r = Math.round(x1 + (b1 - x1) * t);
-            ctx.fill(l, y, l + 1, y + 1, color);
-            ctx.fill(r - 1, y, r, y + 1, color);
+            ctx.fill(l, y, l + 1, y + 2, color);
+            ctx.fill(r - 1, y, r, y + 2, color);
         }
     }
 
     /* ---- village, particules ---- */
 
     private void drawVillage(GuiGraphicsExtractor ctx) {
-        int vh = 56;
-        int vy = ground - 26;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE, 0, vy, 0f, 0f, this.width, vh, 480, 56, 480, 56);
-        ctx.fill(0, vy + vh, this.width, this.height, GROUND);
+        int vy = Math.round(villageTop + off * 0.75f);
+        int tint = mix(0xFF462846, 0xFF120C18, night);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE, 0, vy, 0f, 0f, this.width, villageH, 480, 80, 480, 80, tint);
+        float flick = 0.85f + 0.15f * (float) Math.sin((System.currentTimeMillis() - openedAt) / 230.0);
+        int win = mix(0xFFFFC878, 0xFFBE6E38, night);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOWS, 0, vy, 0f, 0f, this.width, villageH, 480, 80, 480, 80,
+            Colors.withAlpha(win, flick));
+        ctx.fill(0, vy + villageH, this.width, this.height, tint);
         // Braises qui montent des fenêtres.
-        if (rng.nextFloat() < 0.08f) {
+        if (night > 0.6f && rng.nextFloat() < 0.08f) {
             Particle p = new Particle();
             p.x = rng.nextFloat() * this.width;
-            p.y = ground - 8 - rng.nextFloat() * 10;
+            p.y = hillY - 4 - rng.nextFloat() * 8 + off * 0.75f;
             p.vx = (rng.nextFloat() - 0.5f) * 4;
             p.vy = -(6 + rng.nextFloat() * 8);
             p.max = p.life = 2.5f + rng.nextFloat() * 2f;
@@ -480,7 +623,7 @@ public class StatsScreen extends Screen {
     }
 
     private void burst(float x, float y, int color) {
-        for (int n = 0; n < 12; n++) {
+        for (int n = 0; n < 14; n++) {
             double a = rng.nextDouble() * Math.PI * 2;
             float sp = 15 + rng.nextFloat() * 25;
             spawnSpark(x, y, (float) Math.cos(a) * sp, (float) Math.sin(a) * sp - 10, n % 3 == 0 ? CREAM : color, 0.5f + rng.nextFloat() * 0.3f);
@@ -501,61 +644,148 @@ public class StatsScreen extends Screen {
         }
     }
 
-    /* ---- sous l'horizon : nom, valeur, −/+ ---- */
+    /* ---- flammes-esprits (points à répartir) ---- */
 
-    private void drawLanes(GuiGraphicsExtractor ctx, Font f, int[] prev, int mx, int my) {
-        int btn = compact ? 9 : 11;
-        for (StatDef d : StatDef.values()) {
-            int i = d.ordinal();
-            int cx = laneX[i];
-            int y0 = ground + (compact ? 2 : 4);
-            Component name = RebornFont.arcade(d.arcadeLabel);
-            drawScaledCentered(ctx, f, name, cx, y0, d.color, compact ? 0.75f : 0.85f);
-            String v = String.valueOf(snap.get(d));
-            Component vc = Component.literal(v);
-            int vy = y0 + (compact ? 9 : 11);
-            if (pending[i] > 0) {
-                Component pc = Component.literal("+" + pending[i]);
-                int total = f.width(vc) + 3 + f.width(pc);
-                ctx.text(f, vc, cx - total / 2, vy, CREAM, false);
-                ctx.text(f, pc, cx - total / 2 + f.width(vc) + 3, vy, GOLD, false);
-            } else {
-                ctx.text(f, vc, cx - f.width(vc) / 2, vy, CREAM, false);
-            }
-            if (mx >= cx - 30 && mx < cx + 30 && my >= y0 - 2 && my < vy + 9) statTooltip(d, prev);
+    /** Position de la j-ième flamme de réserve (à droite du pied de page). */
+    private float[] spiritSlot(int j) {
+        float time = (System.currentTimeMillis() - openedAt) / 1000f;
+        float x = laneX1 - 64 - j * 12;
+        float y = btnY + btnH / 2f + (float) Math.sin(time * 2.2f + j) * 2f + (1f - ui) * this.height * 0.32f;
+        return new float[]{x, y};
+    }
 
-            int by = vy + (compact ? 11 : 13);
-            int bx = cx - btn - 2;
-            boolean canMinus = pending[i] > 0;
-            boolean canPlus = remaining() > 0 && prev[i] < snap.max();
-            stepButton(ctx, f, bx, by, btn, "−", canMinus, mx, my, false);
-            stepButton(ctx, f, bx + btn + 4, by, btn, "+", canPlus, mx, my, true);
-            if (my >= by && my < by + btn) {
-                if (mx >= bx && mx < bx + btn) {
-                    stepTooltip(f, d, canMinus ? "Retirer un point en attente (Maj : tous)."
-                        : "Rien en attente ici. Un point déjà validé ne se reprend qu'en réinitialisant.", canMinus);
-                } else if (mx >= bx + btn + 4 && mx < bx + btn * 2 + 4) {
-                    stepTooltip(f, d, canPlus ? "Ajouter un point (Maj : autant que possible)."
-                        : prev[i] >= snap.max() ? "Sommet atteint : cette stat ne peut plus monter."
-                        : "Plus de points à répartir.", canPlus);
+    private void drawSpirit(GuiGraphicsExtractor ctx, float x, float y, float alpha) {
+        blitGlow(ctx, x, y + 2, 18, Colors.withAlpha(SPIRIT, 0.55f * alpha));
+        ctx.blit(RenderPipelines.GUI_TEXTURED, HITODAMA, Math.round(x - 5), Math.round(y - 8), 0f, 0f, 10, 16, 10, 16,
+            Colors.withAlpha(0xFFFFFFFF, alpha));
+    }
+
+    private void launchSpirit(int stat, boolean toLantern, int targetValue) {
+        if (!layoutReady()) return;
+        Flyer fl = new Flyer();
+        float[] slot = spiritSlot(Math.max(0, remaining() - (toLantern ? 0 : 1)));
+        float lx = laneX[stat], ly = yOf(targetValue) + off;
+        fl.x0 = toLantern ? slot[0] : lx;
+        fl.y0 = toLantern ? slot[1] : ly;
+        fl.x1 = toLantern ? lx : slot[0];
+        fl.y1 = toLantern ? ly : slot[1];
+        fl.start = System.currentTimeMillis();
+        fl.stat = stat;
+        fl.toLantern = toLantern;
+        flyers.add(fl);
+        StatsSounds.spirit(toLantern ? 1.1f : 0.85f);
+    }
+
+    private void updateFlyers(GuiGraphicsExtractor ctx, float dt) {
+        long now = System.currentTimeMillis();
+        for (Iterator<Flyer> it = flyers.iterator(); it.hasNext(); ) {
+            Flyer fl = it.next();
+            float t = clamp01((now - fl.start) / 560f);
+            float e = easeInOut(t);
+            // courbe : arc qui monte entre départ et arrivée
+            float mxp = (fl.x0 + fl.x1) / 2f, myp = Math.min(fl.y0, fl.y1) - 50;
+            float x = (1 - e) * (1 - e) * fl.x0 + 2 * (1 - e) * e * mxp + e * e * fl.x1;
+            float y = (1 - e) * (1 - e) * fl.y0 + 2 * (1 - e) * e * myp + e * e * fl.y1;
+            drawSpirit(ctx, x, y, 1f);
+            if (rng.nextFloat() < 0.7f) spawnSpark(x, y + 4, 0, 4, SPIRIT, 0.35f);
+            if (t >= 1f) {
+                if (fl.toLantern) {
+                    burst(fl.x1, fl.y1, StatDef.values()[fl.stat].color);
+                    StatsSounds.rise(snap.stats()[fl.stat] + pending[fl.stat]);
                 }
+                it.remove();
             }
-            final int idx = i;
-            buttons.add(new Btn(bx, by, btn, btn, () -> step(idx, -1, false)));
-            buttons.add(new Btn(bx + btn + 4, by, btn, btn, () -> step(idx, +1, false)));
         }
+    }
+
+    /* ---- véranda : rambarde, plaques ema, poutre, boutons ---- */
+
+    private void drawDeck(GuiGraphicsExtractor ctx, Font f, int[] prev, int mx, int my) {
+        int yOff = Math.round((1f - ui) * this.height * 0.32f);
+        int mxl = mx, myl = my - yOff;   // souris dans le repère local de la véranda
+        // Plancher laqué.
+        int floorY = railY + 16;
+        ctx.fill(0, floorY, this.width, this.height + 40, LACQ_D);
+        for (int y = floorY + 2; y < this.height + 40; y += 7) ctx.fill(0, y, this.width, y + 1, LACQ_LINE);
+        ctx.fill(0, floorY, this.width, floorY + 1, 0xFF8C282C);
+        // Rambarde + poteaux.
+        ctx.fill(0, railY, this.width, railY + 6, WOOD);
+        ctx.fill(0, railY, this.width, railY + 1, WOOD_L);
+        for (int x = 20; x < this.width; x += 80) ctx.fill(x, railY, x + 5, floorY, WOOD_D);
+
+        if (tab == TAB_ATTR) {
+            for (StatDef d : StatDef.values()) drawPlaque(ctx, f, d, prev, mxl, myl, yOff);
+        }
+        drawBeam(ctx, f, prev, mxl, myl);
+        drawFooter(ctx, f, mxl, myl, yOff);
+        if (!compact) {
+            Component hint = RebornFont.arcade(tab == TAB_ATTR
+                ? "CLIC LANTERNE : +1   CLIC DROIT : -1   MAJ : TOUT   1-6 : RACCOURCIS   ENTREE : VALIDER   ECHAP : FERMER"
+                : "MOLETTE : DEFILER   TAB : ONGLET   ECHAP : FERMER");
+            drawScaledCentered(ctx, f, hint, this.width / 2f, hintY, 0xFF9C6E6E, 0.7f);
+        }
+    }
+
+    private void drawPlaque(GuiGraphicsExtractor ctx, Font f, StatDef d, int[] prev, int mx, int my, int yOff) {
+        int i = d.ordinal();
+        int cx = laneX[i];
+        int px = cx - emaW / 2, py = railY + 6;
+        float s = emaW / 92f;
+        // cordelette jusqu'à la rambarde
+        DrawHelpers.line(ctx, cx - 10, railY + 3, cx, py + 2, ROPE);
+        DrawHelpers.line(ctx, cx + 10, railY + 3, cx, py + 2, ROPE);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, EMA, px, py, 0f, 0f, emaW, emaH, 92, 56, 92, 56);
+        int pad = Math.round(6 * s);
+        int sealS = Math.round(18 * s);
+        int sy = py + Math.round(13 * s);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, SEAL[i], px + pad, sy, 0f, 0f, sealS, sealS, 18, 18, 18, 18);
+        int tx = px + pad + sealS + 4;
+        drawScaled(ctx, f, RebornFont.arcade(d.arcadeLabel), tx, sy + 1, PLAQUE_INK, compact ? 0.65f : 0.75f);
+        Component vc = Component.literal(String.valueOf(snap.get(d)));
+        int vy = sy + (compact ? 8 : 10);
+        ctx.text(f, vc, tx, vy, 0xFF28160C, false);
+        if (pending[i] > 0) drawScaled(ctx, f, Component.literal("+" + pending[i]), tx + f.width(vc) + 3, vy + 1, 0xFFAA6E14, 0.8f);
+        // mini-jauge
+        int gy = py + emaH - Math.round(10 * s);
+        int segW = Math.max(2, Math.round(4 * s)), gap = Math.max(1, Math.round(1 * s));
+        for (int k2 = 0; k2 < snap.max(); k2++) {
+            int c = k2 < snap.get(d) ? d.color : (k2 < prev[i] ? GOLD : 0xFFBA9C70);
+            int gx = px + pad + k2 * (segW + gap);
+            ctx.fill(gx, gy, gx + segW, gy + Math.max(2, Math.round(3 * s)), c);
+        }
+        if (mx >= px && mx < px + emaW && my >= py && my < py + emaH - 14 * s) statTooltip(d, prev);
+
+        // − / + laqués
+        int btn = Math.max(8, Math.round(10 * s));
+        int bx = px + emaW - pad - btn * 2 - 3, by = py + emaH - pad - btn;
+        boolean canMinus = pending[i] > 0;
+        boolean canPlus = remaining() > 0 && prev[i] < snap.max();
+        stepButton(ctx, f, bx, by, btn, "−", canMinus, mx, my, false);
+        stepButton(ctx, f, bx + btn + 3, by, btn, "+", canPlus, mx, my, true);
+        if (my >= by && my < by + btn) {
+            if (mx >= bx && mx < bx + btn) {
+                stepTooltip(f, d, canMinus ? "Retirer un point en attente (Maj : tous)."
+                    : "Rien en attente ici. Un point déjà validé ne se reprend qu'en réinitialisant.", canMinus);
+            } else if (mx >= bx + btn + 3 && mx < bx + btn * 2 + 3) {
+                stepTooltip(f, d, canPlus ? "Ajouter un point (Maj : autant que possible)."
+                    : prev[i] >= snap.max() ? "Sommet atteint : cette stat ne peut plus monter."
+                    : "Plus de points à répartir.", canPlus);
+            }
+        }
+        final int idx = i;
+        buttons.add(new Btn(bx, by + yOff, btn, btn, () -> step(idx, -1, clickShift)));
+        buttons.add(new Btn(bx + btn + 3, by + yOff, btn, btn, () -> step(idx, +1, clickShift)));
     }
 
     private void stepButton(GuiGraphicsExtractor ctx, Font f, int x, int y, int s, String label,
                             boolean enabled, int mx, int my, boolean primary) {
         boolean hov = enabled && mx >= x && mx < x + s && my >= y && my < y + s;
-        int fill = !enabled ? 0x40000000
-            : primary ? (hov ? 0xFFC02A30 : 0xFF962222)
-            : (hov ? 0xFF3A2E4C : 0xFF261E32);
-        int border = enabled ? (primary ? GOLD : 0xFF8A7C9A) : 0x30FFFFFF;
-        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, s, s, 2, fill, border);
+        int fill = !enabled ? 0xFFB4966E : primary ? (hov ? 0xFFC02A30 : 0xFF961E22) : (hov ? 0xFF7A2A30 : LACQ);
+        int border = enabled ? GOLD : 0xFF96784E;
+        ctx.fill(x, y, x + s, y + s, fill);
+        frame(ctx, x, y, s, s, border);
         Component c = Component.literal(label);
-        ctx.text(f, c, x + (s - f.width(c)) / 2 + 1, y + (s - 8) / 2 + 1, enabled ? CREAM : INK_DIM, false);
+        ctx.text(f, c, x + (s - f.width(c)) / 2 + 1, y + (s - 8) / 2 + 1, enabled ? CREAM : 0xFF785E44, false);
     }
 
     private void stepTooltip(Font f, StatDef d, String text, boolean enabled) {
@@ -577,10 +807,11 @@ public class StatsScreen extends Screen {
         }
         if (pending[i] > before) {
             int target = snap.stats()[i] + pending[i];
-            StatsSounds.rise(target);
-            if (layoutReady()) burst(laneX[i], yOf(target), StatDef.values()[i].color);
+            if (layoutReady()) launchSpirit(i, true, target);   // le carillon sonne à l'arrivée
+            else StatsSounds.rise(target);
         } else if (pending[i] < before) {
             StatsSounds.lower();
+            if (layoutReady()) launchSpirit(i, false, snap.stats()[i] + before);
         } else {
             StatsSounds.deny();
         }
@@ -624,9 +855,9 @@ public class StatsScreen extends Screen {
         return "Novice";
     }
 
-    /* ---- valeurs dérivées ---- */
+    /* ---- valeurs dérivées : gravées sur la poutre ---- */
 
-    private void drawDerived(GuiGraphicsExtractor ctx, Font f, int[] prev, int mx, int my) {
+    private void drawBeam(GuiGraphicsExtractor ctx, Font f, int[] prev, int mx, int my) {
         StatsData.Levers lv = snap.levers();
         int[] cur = snap.stats();
         record Tile(String label, double now, double next, String unit, boolean pct, int color, String help) {}
@@ -645,29 +876,34 @@ public class StatsScreen extends Screen {
                 StatDef.CONTROLE.color, lv.critEnabled()
                     ? "La chance qu'une technique frappe plus fort qu'attendu. Portée par le Contrôle ; les coups simples n'en profitent pas."
                     : "Les coups critiques sont désactivés pour l'instant."));
-        int span = laneX1 - laneX0;
-        float colw = span / 6f;
+        int bx0 = laneX0 - 20, bx1 = laneX1 + 20;
+        ctx.fill(bx0, beamY, bx1, beamY + beamH, 0xFF240A0E);
+        frame(ctx, bx0, beamY, bx1 - bx0, beamH, 0xFF782828);
+        float colw = (bx1 - bx0) / 6f;
         for (int i = 0; i < tiles.size(); i++) {
             Tile t = tiles.get(i);
-            float cx = laneX0 + colw * (i + 0.5f);
-            drawScaledCentered(ctx, f, RebornFont.arcade(t.label()), cx, derivedY, INK_DIM, 0.72f);
+            int x = Math.round(bx0 + colw * i + 8);
+            int ky = beamY + (beamH - 12) / 2;
+            ctx.blit(RenderPipelines.GUI_TEXTURED, DK[i], x, ky, 0f, 0f, 12, 12, 12, 12, 12, 12);
             String now = t.pct() ? fmtSigned(t.now()) + t.unit() : fmtInt(t.now());
             Component nc = Component.literal(now);
             double diff = t.next() - t.now();
             boolean changed = Math.abs(diff) > 0.05;
             boolean good = !t.label().equals("COUTS") ? diff > 0 : diff < 0;
-            int vy = derivedY + (compact ? 8 : 10);
+            int tx = x + 16;
+            int vy;
+            if (compact) {
+                vy = beamY + 4;
+            } else {
+                drawScaled(ctx, f, RebornFont.arcade(t.label()), tx, beamY + 4, 0xFFAA8278, 0.7f);
+                vy = beamY + 14;
+            }
+            ctx.text(f, nc, tx, vy, CREAM, false);
             if (changed) {
                 String ds = (diff > 0 ? "+" : "") + (t.pct() ? fmt1(diff) + t.unit() : fmtInt(diff));
-                Component dc = Component.literal(ds);
-                int total = f.width(nc) + 3 + Math.round(f.width(dc) * 0.8f);
-                int x = Math.round(cx - total / 2f);
-                ctx.text(f, nc, x, vy, CREAM, false);
-                drawScaled(ctx, f, dc, x + f.width(nc) + 3, vy + 1, good ? Colors.SUCCESS : Colors.DANGER, 0.8f);
-            } else {
-                ctx.text(f, nc, Math.round(cx - f.width(nc) / 2f), vy, CREAM, false);
+                drawScaled(ctx, f, Component.literal(ds), tx + f.width(nc) + 3, vy + 1, good ? Colors.SUCCESS : Colors.DANGER, 0.8f);
             }
-            if (mx >= cx - colw / 2 && mx < cx + colw / 2 && my >= derivedY - 2 && my < vy + 10) {
+            if (mx >= bx0 + colw * i && mx < bx0 + colw * (i + 1) && my >= beamY && my < beamY + beamH) {
                 List<Component> lines = new ArrayList<>();
                 lines.add(RebornFont.arcade(t.label()));
                 addWrapped(lines, f, t.help(), 0);
@@ -684,13 +920,12 @@ public class StatsScreen extends Screen {
     /* ---- techniques ---- */
 
     private void drawTechniques(GuiGraphicsExtractor ctx, Font f, int[] prev, int mx, int my) {
-        hoveredLantern = -1;
         StatsData.Levers lv = snap.levers();
         int[] cur = snap.stats();
         int y0 = rowsY;
         int y1 = techBottom;
         DrawHelpers.roundedOutlinedRectFull(ctx, rowX0 - 8, y0 - 6, rowX1 - rowX0 + 16, y1 - y0 + 12, 5,
-            0xB80E0A18, 0x60463C54);
+            0xC00E0A18, 0x80963C32);
         List<StatsData.Tech> list = snap.techniques();
         if (list.isEmpty()) {
             Component e1 = Component.literal("Aucune technique apprise.");
@@ -839,17 +1074,17 @@ public class StatsScreen extends Screen {
 
     /* ---- pied de page ---- */
 
-    private void drawFooter(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
-        int h = compact ? 13 : 15;
-        int y = footY;
+    private void drawFooter(GuiGraphicsExtractor ctx, Font f, int mx, int my, int yOff) {
+        int h = btnH;
+        int y = btnY;
         int cx = this.width / 2;
         int pend = pendingTotal();
         // VALIDER (à droite du centre)
         String vl = pend > 0 ? "VALIDER (" + pend + ")" : "VALIDER";
-        int vw = f.width(RebornFont.arcade(vl)) + 18;
+        int vw = f.width(RebornFont.arcade(vl)) + 20;
         int vx = cx + 4;
         actionButton(ctx, f, vx, y, vw, h, vl, pend > 0, true, mx, my);
-        buttons.add(new Btn(vx, y, vw, h, this::validate));
+        buttons.add(new Btn(vx, y + yOff, vw, h, this::validate));
         if (mx >= vx && mx < vx + vw && my >= y && my < y + h) {
             List<Component> lines = new ArrayList<>();
             lines.add(RebornFont.arcade("VALIDER"));
@@ -860,10 +1095,10 @@ public class StatsScreen extends Screen {
             tooltipColor = pend > 0 ? GOLD : INK_DIM;
         }
         // ANNULER (à gauche du centre)
-        int aw = f.width(RebornFont.arcade("ANNULER")) + 14;
+        int aw = f.width(RebornFont.arcade("ANNULER")) + 16;
         int ax = cx - 4 - aw;
         actionButton(ctx, f, ax, y, aw, h, "ANNULER", pend > 0, false, mx, my);
-        buttons.add(new Btn(ax, y, aw, h, () -> {
+        buttons.add(new Btn(ax, y + yOff, aw, h, () -> {
             if (pendingTotal() > 0) { java.util.Arrays.fill(pending, 0); StatsSounds.lower(); }
             else StatsSounds.deny();
         }));
@@ -874,29 +1109,30 @@ public class StatsScreen extends Screen {
             tooltip = lines;
             tooltipColor = INK_SOFT;
         }
-        // Points à répartir (droite)
+        // Points à répartir : flammes-esprits en réserve + compteur.
         int rem = remaining();
         int unspent = snap.unspent();
-        String pts = unspent < 0 ? "SUR-ALLOUE (" + unspent + ")" : rem + (rem > 1 ? " POINTS A REPARTIR" : " POINT A REPARTIR");
+        String pts = unspent < 0 ? "SUR-ALLOUE (" + unspent + ")" : rem + (rem > 1 ? " POINTS" : " POINT");
         Component pc = RebornFont.arcade(pts);
-        float pulse = rem > 0 ? 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 300.0) : 1f;
-        int pcol = unspent < 0 ? Colors.DANGER : rem > 0 ? Colors.withAlpha(GOLD, pulse) : INK_DIM;
-        int px = laneX1 - f.width(pc);
-        ctx.text(f, pc, px, y + (h - 7) / 2, pcol, false);
-        if (mx >= px && mx < laneX1 && my >= y && my < y + h) {
+        int px = laneX1 - f.width(pc) + 10;
+        ctx.text(f, pc, px, y + (h - 7) / 2, unspent < 0 ? Colors.DANGER : rem > 0 ? SPIRIT : INK_DIM, false);
+        int shown = Math.min(rem, 8);
+        for (int j = 0; j < shown; j++) {
+            float[] s = spiritSlot(j);
+            drawSpirit(ctx, s[0], s[1] - yOff, 1f);
+        }
+        int zoneX0 = Math.round(spiritSlot(Math.max(0, shown - 1))[0]) - 8;
+        if (mx >= zoneX0 && mx < laneX1 + 10 && my >= y - 6 && my < y + h + 4) {
             List<Component> lines = new ArrayList<>();
             lines.add(RebornFont.arcade(unspent < 0 ? "SUR-ALLOUE" : "POINTS A REPARTIR"));
             if (unspent < 0) {
                 addWrapped(lines, f, "Plus de points posés que ton rang n'en accorde. Un membre du staff doit corriger ta fiche.", 0);
             } else {
-                addWrapped(lines, f, "Chaque passage de rang t'en accorde de nouveaux ; le staff peut aussi en offrir.", 0);
-                addWrapped(lines, f, rem > 0
-                    ? "Pose-les avec + (ou un clic sur une lanterne) puis valide."
-                    : pendingTotal() > 0 ? "Tout est placé — il ne reste qu'à valider."
-                    : "Tout est réparti. Le prochain rang t'en apportera d'autres.", 0);
+                addWrapped(lines, f, "Chaque flamme-esprit est un point à poser : elle file vers la lanterne choisie.", 0);
+                addWrapped(lines, f, "Chaque passage de rang t'en accorde de nouvelles ; le staff peut aussi en offrir.", INK_DIM);
             }
             tooltip = lines;
-            tooltipColor = unspent < 0 ? Colors.DANGER : GOLD;
+            tooltipColor = unspent < 0 ? Colors.DANGER : SPIRIT;
         }
         // RÉINITIALISER (gauche) — double clic de confirmation ; un jeton hors staff.
         if (snap.canRespec()) {
@@ -904,18 +1140,16 @@ public class StatsScreen extends Screen {
             boolean armed = usable && System.currentTimeMillis() - respecArmedAt < 3000L;
             String rl = armed ? "CONFIRMER ?" : "REINITIALISER";
             int rw = f.width(RebornFont.arcade(rl)) + 14;
-            int rx = laneX0;
+            int rx = laneX0 - 20;
             boolean hov = mx >= rx && mx < rx + rw && my >= y && my < y + h;
-            DrawHelpers.roundedOutlinedRectFull(ctx, rx, y, rw, h, 2,
-                armed ? Colors.withAlpha(Colors.DANGER, 0.35f)
-                    : Colors.withAlpha(0xFF000000, usable && hov ? 0.4f : 0.25f),
-                Colors.withAlpha(armed ? Colors.DANGER : 0xFFFFFFFF, armed ? 0.9f : usable ? 0.18f : 0.08f));
-            ctx.text(f, RebornFont.arcade(rl), rx + 7, y + (h - 7) / 2, armed ? CREAM : usable ? INK_SOFT : INK_DIM, false);
-            buttons.add(new Btn(rx, y, rw, h, this::respec));
+            ctx.fill(rx, y, rx + rw, y + h, armed ? 0xFF7A1A1E : (usable && hov ? 0xFF4A1A20 : 0xFF2C0C10));
+            frame(ctx, rx, y, rw, h, armed ? Colors.DANGER : usable ? 0xFF8C5050 : 0xFF4A2A2A);
+            ctx.text(f, RebornFont.arcade(rl), rx + 7, y + (h - 7) / 2, armed ? CREAM : usable ? 0xFFD2AAAA : 0xFF7A5A5A, false);
+            buttons.add(new Btn(rx, y + yOff, rw, h, this::respec));
             if (!snap.respecFree()) {
                 int n = snap.respecTokens();
                 Component tk = Component.literal(n + " jeton" + (n > 1 ? "s" : ""));
-                drawScaled(ctx, f, tk, rx + rw + 5, y + (h - 6) / 2f, n > 0 ? GOLD : INK_DIM, 0.8f);
+                drawScaled(ctx, f, tk, rx + rw + 5, y + (h - 6) / 2f, n > 0 ? GOLD : 0xFF7A5A5A, 0.8f);
             }
             if (hov) {
                 List<Component> lines = new ArrayList<>();
@@ -942,14 +1176,13 @@ public class StatsScreen extends Screen {
     private void actionButton(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, int h, String label,
                               boolean enabled, boolean primary, int mx, int my) {
         boolean hov = enabled && mx >= x && mx < x + w && my >= y && my < y + h;
-        int fill = !enabled ? 0x40000000
-            : primary ? (hov ? 0xFFC02A30 : 0xFFA02228)
-            : (hov ? 0xFF2E2440 : 0xC0221C2C);
-        int border = !enabled ? 0x20FFFFFF : primary ? GOLD : 0xFF8A7C9A;
-        if (enabled && primary && hov) blitGlow(ctx, x + w / 2f, y + h / 2f, w + 20, 0x66FFBE6E);
-        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 2, fill, border);
+        int fill = !enabled ? 0xFF2C0C10 : primary ? (hov ? 0xFFC02A30 : 0xFFAA1E22) : (hov ? 0xFF7A2A30 : LACQ);
+        int border = !enabled ? 0xFF4A2A2A : primary ? GOLD : 0xFFA06E50;
+        if (enabled && primary && hov) blitGlow(ctx, x + w / 2f, y + h / 2f, w + 24, 0x66FFBE6E);
+        ctx.fill(x, y, x + w, y + h, fill);
+        frame(ctx, x, y, w, h, border);
         Component c = RebornFont.arcade(label);
-        ctx.text(f, c, x + (w - f.width(c)) / 2, y + (h - 7) / 2, enabled ? CREAM : INK_DIM, false);
+        ctx.text(f, c, x + (w - f.width(c)) / 2, y + (h - 7) / 2, enabled ? CREAM : 0xFF7A5A5A, false);
     }
 
     /* ----------------------------------------------------------- actions */
@@ -1001,28 +1234,14 @@ public class StatsScreen extends Screen {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
         int mx = (int) e.x(), my = (int) e.y();
-        boolean shift = (e.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0;
-        if (!intro.done()) return true;
+        clickShift = (e.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0;
+        if (!interactive()) { skipIntro(); return true; }
         // Lanternes : clic = +1, clic droit = −1.
         if (tab == TAB_ATTR && hoveredLantern >= 0 && (e.button() == 0 || e.button() == 1)) {
-            step(hoveredLantern, e.button() == 0 ? +1 : -1, shift);
+            step(hoveredLantern, e.button() == 0 ? +1 : -1, clickShift);
             return true;
         }
         if (e.button() != 0) return super.mouseClicked(e, dbl);
-        // Maj-clic sur −/+ = tout / rien : on refait le hit-test des boutons de voie.
-        if (shift && tab == TAB_ATTR) {
-            int btn = compact ? 9 : 11;
-            for (StatDef d : StatDef.values()) {
-                int i = d.ordinal();
-                int y0 = ground + (compact ? 2 : 4);
-                int by = y0 + (compact ? 9 : 11) + (compact ? 11 : 13);
-                int bx = laneX[i] - btn - 2;
-                if (my >= by && my < by + btn) {
-                    if (mx >= bx && mx < bx + btn) { step(i, -1, true); return true; }
-                    if (mx >= bx + btn + 4 && mx < bx + btn * 2 + 4) { step(i, +1, true); return true; }
-                }
-            }
-        }
         for (Btn b : new ArrayList<>(buttons)) {
             if (b.hit(mx, my)) { b.act().run(); return true; }
         }
@@ -1043,6 +1262,7 @@ public class StatsScreen extends Screen {
         int k = e.key();
         boolean shift = (e.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0;
         if (k == GLFW.GLFW_KEY_ESCAPE) { onClose(); return true; }
+        if (!interactive()) { skipIntro(); return true; }
         if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) { validate(); return true; }
         if (k == GLFW.GLFW_KEY_TAB) { switchTab(tab == TAB_ATTR ? TAB_TECH : TAB_ATTR); return true; }
         if (k >= GLFW.GLFW_KEY_1 && k <= GLFW.GLFW_KEY_6) {
