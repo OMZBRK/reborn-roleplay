@@ -32,4 +32,12 @@ dojutsu:
   visible-radius: 12.0
   # Clans that possess a dōjutsu (case-insensitive). Empty = allow any clan.
   clans: [Hyuga, Hyūga, Uchiha, Otsutsuki, Ōtsutsuki]
+  byakugan:
+    # Clans whose dōjutsu is the Byakugan: activation = sound only, then the holder sees the
+    # chakra network / tenketsu of players and entities in range, through walls (only them).
+    clans: [Hyuga, Hyūga, Otsutsuki, Ōtsutsuki]
+    # Vision range in blocks (balancing).
+    range: 50.0
+    # Outline colour of the chakra doubles (hex).
+    glow-color: "6EC8FF"
 

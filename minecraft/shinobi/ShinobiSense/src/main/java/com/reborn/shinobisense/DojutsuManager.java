@@ -47,6 +47,7 @@ public final class DojutsuManager {
     public boolean toggle(Player p) {
         UUID id = p.getUniqueId();
         if (active.remove(id)) {
+            if (plugin.byakugan() != null && plugin.byakugan().isActive(p)) plugin.byakugan().disable(p);
             p.sendActionBar(Component.text("Tu désactives ton dōjutsu.", NamedTextColor.GRAY));
             return false;
         }
@@ -61,9 +62,24 @@ public final class DojutsuManager {
             return false;
         }
         active.add(id);
-        p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_AMBIENT, 0.8f, 1.6f);
+        if (isByakugan(c) && plugin.byakugan() != null) {
+            // Byakugan : son d'activation seul (pas d'yeux à l'écran) + vision du réseau de chakra à travers les murs
+            plugin.byakugan().enable(p, plugin.getConfig().getDouble("dojutsu.byakugan.range", 50.0));
+        } else {
+            p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_AMBIENT, 0.8f, 1.6f);
+        }
         announce(p, c);
         return true;
+    }
+
+    /** Clans dont le dōjutsu est le Byakugan (config dojutsu.byakugan.clans). */
+    private boolean isByakugan(ShinobiCharacter c) {
+        String clan = c.clan();
+        if (clan == null) return false;
+        for (String cl : plugin.getConfig().getStringList("dojutsu.byakugan.clans")) {
+            if (cl.equalsIgnoreCase(clan)) return true;
+        }
+        return false;
     }
 
     private boolean clanAllowed(ShinobiCharacter c) {
@@ -96,9 +112,14 @@ public final class DojutsuManager {
             if (p == null || !p.isOnline()) { active.remove(id); continue; }
             ShinobiCharacter c = plugin.characters() != null
                     ? plugin.characters().getActive(id) : null;
-            if (c == null) { active.remove(id); continue; }
+            if (c == null) {
+                active.remove(id);
+                if (plugin.byakugan() != null && plugin.byakugan().isActive(p)) plugin.byakugan().disable(p);
+                continue;
+            }
             if (drain > 0 && !c.chakra().consume(drain)) {
                 active.remove(id);
+                if (plugin.byakugan() != null && plugin.byakugan().isActive(p)) plugin.byakugan().disable(p);
                 p.sendActionBar(Component.text("Ton chakra faiblit — le dōjutsu s'éteint.",
                         NamedTextColor.AQUA));
             }

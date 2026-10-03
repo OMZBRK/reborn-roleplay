@@ -21,6 +21,7 @@ import java.util.Locale;
  *   <li>{@code /sense dojutsu}  — toggle your dōjutsu (sharper, but visible)</li>
  *   <li>{@code /sense genjutsu <perso> [s]} — trap a target in an illusion</li>
  *   <li>{@code /sense kai} — break a genjutsu you're under</li>
+ *   <li>{@code /sense byakugan} — staff test: toggle the Byakugan vision directly</li>
  * </ul>
  */
 public final class SenseCommand implements CommandExecutor, TabCompleter {
@@ -45,6 +46,21 @@ public final class SenseCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 case "dojutsu", "doujutsu", "yeux" -> { plugin.dojutsu().toggle(p); return true; }
+                case "byakugan" -> {
+                    // test / staff : vision du Byakugan sans passer par le clan ni le coût en chakra
+                    if (!p.hasPermission("shinobisense.dojutsu.any")) {
+                        p.sendMessage(err("Réservé au staff (shinobisense.dojutsu.any)."));
+                        return true;
+                    }
+                    if (plugin.byakugan().isActive(p)) {
+                        plugin.byakugan().disable(p);
+                        p.sendActionBar(Component.text("Byakugan désactivé.", NamedTextColor.GRAY));
+                    } else {
+                        plugin.byakugan().enable(p, plugin.getConfig().getDouble("dojutsu.byakugan.range", 50.0));
+                        p.sendActionBar(Component.text("Byakugan activé (test).", NamedTextColor.AQUA));
+                    }
+                    return true;
+                }
                 case "kai", "libere", "liberer" -> { plugin.genjutsu().kai(p); return true; }
                 case "genjutsu", "illusion" -> { return castGenjutsu(p, args); }
                 default -> { /* fall through to a pulse */ }
@@ -95,7 +111,9 @@ public final class SenseCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             String low = args[0].toLowerCase(Locale.ROOT);
             List<String> out = new ArrayList<>();
-            for (String o : List.of("suppress", "dojutsu", "genjutsu", "kai")) {
+            List<String> opts = new ArrayList<>(List.of("suppress", "dojutsu", "genjutsu", "kai"));
+            if (sender.hasPermission("shinobisense.dojutsu.any")) opts.add("byakugan");
+            for (String o : opts) {
                 if (o.startsWith(low)) out.add(o);
             }
             return out;

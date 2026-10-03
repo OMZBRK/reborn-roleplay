@@ -25,6 +25,7 @@ public final class ShinobiSense extends JavaPlugin {
     private SenseService sense;
     private GenjutsuManager genjutsu;
     private DojutsuManager dojutsu;
+    private ByakuganVision byakugan;
 
     public static ShinobiSense get() { return instance; }
     /** Engine character service, resolved from the ShinobiCore api seam. */
@@ -34,6 +35,8 @@ public final class ShinobiSense extends JavaPlugin {
     public SenseService sense() { return sense; }
     public GenjutsuManager genjutsu() { return genjutsu; }
     public DojutsuManager dojutsu() { return dojutsu; }
+    /** Byakugan vision: the holder sees chakra networks / tenketsu through walls. */
+    public ByakuganVision byakugan() { return byakugan; }
 
     @Override
     public void onEnable() {
@@ -58,6 +61,10 @@ public final class ShinobiSense extends JavaPlugin {
         this.sense = new SenseService(this);
         this.genjutsu = new GenjutsuManager(this);
         this.genjutsu.start();
+        this.byakugan = new ByakuganVision(this)
+                .glowColor(org.bukkit.Color.fromRGB(Integer.parseInt(
+                        getConfig().getString("dojutsu.byakugan.glow-color", "6EC8FF").replace("#", ""), 16)));
+        this.byakugan.start();
         this.dojutsu = new DojutsuManager(this);
         this.dojutsu.start();
 
@@ -77,6 +84,7 @@ public final class ShinobiSense extends JavaPlugin {
     public void onDisable() {
         if (genjutsu != null) genjutsu.stop();
         if (dojutsu != null) dojutsu.stop();
+        if (byakugan != null) byakugan.stop();
         getLogger().info("ShinobiSense désactivé.");
         instance = null;
     }
