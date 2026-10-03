@@ -33,9 +33,9 @@
 | Artefact | **Publié / live** | Sur `origin/main` | Écart |
 |---|---|---|---|
 | Launcher | **0.3.44** (`/v1/launcher/update` le confirme, release `v0.3.44` du 28/09) | 0.3.44 | ✅ |
-| `reborn-hud` | **0.4.146** (manifest 3.1.102 du 03/10, sacoche « inrō » et menu Échap « tokonoma » aéré — sons, animations ; carte, échoppe, fiche lanternes v2) | 0.4.146 | ✅ |
+| `reborn-hud` | **0.4.147** (manifest 3.1.103 du 03/10, DA Reborn sur tous les menus : Échap tokonoma, sacoche inrō (monde visible), création avec décor par village, éditeur HUD, viseur, animations ; carte, échoppe, fiche) | 0.4.147 | ✅ |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
-| `reborn-ost` | 0.2.2 | 0.2.2 | ✅ |
+| `reborn-ost` | **0.2.3** (manifest 3.1.103, menu OST en DA Reborn : disque laqué, cordes de shamisen, rouleau) | 0.2.3 | ✅ |
 | Plugins Shinobi | build manuel Maven | `minecraft/shinobi/` | déploiement SFTP manuel |
 | `reborn-guardian`, `reborn-ost-plugin` | build Gradle | `minecraft/plugin-*` | déploiement SFTP manuel |
 
