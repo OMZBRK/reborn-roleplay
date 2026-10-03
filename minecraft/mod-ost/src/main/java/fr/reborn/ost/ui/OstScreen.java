@@ -21,32 +21,43 @@ import net.minecraft.resources.Identifier;
 import java.util.List;
 
 /**
- * Menu OST — layout « Reborn » : barre du haut (logo + onglets catégories +
- * fermer), carte now-playing proéminente (pochette vinyl tournante + titre +
- * barre de progression + contrôles), recherche, liste des pistes, et pied de
- * page avec sliders Volume / Distance + Solo.
+ * Menu OST — DA Reborn (laque noire, or, papier). Le monde reste visible derrière.
+ * Bandeau vertical « 音 » à gauche ; onglets catégories en plaques laquées ; carte now-playing
+ * avec un <b>disque de laque à maki-e</b> qui tourne pendant la lecture ; barres de lecture,
+ * volume et distance en <b>cordes de shamisen</b> (chevalets + plectre) ; liste des pistes sur
+ * un <b>rouleau de papier</b> ; Solo en plaque.
  *
- * <p>Prototype dessiné en code (palette Akatsuki). Le cadre image
- * {@code reborn-ost:textures/gui/ost_menu.png} (design 620x360), s'il est
- * présent, est affiché en fond ; sinon panneaux dessinés.
+ * <p>Optimisé : l'existence des textures (pochettes, disque) est mise en cache au lieu d'être
+ * redemandée au gestionnaire de ressources à chaque image et pour chaque ligne.
  */
 public class OstScreen extends Screen {
 
     // Design de référence (donne les dimensions de la maquette).
     private static final int DW = 620, DH = 360;
 
-    private static final int DIM        = 0xC8000000;
-    private static final int BG         = 0xF2120A0E;
-    private static final int CARD       = 0xFF1E1014;
-    private static final int SECTION    = 0xFF170C10;
-    private static final int BORDER     = 0xFF3A2A2E;
-    private static final int ACCENT     = 0xFFA0182B;
-    private static final int ACCENT_HOV = 0xFFC2364A;
-    private static final int GOLD       = 0xFFD9A95E;
-    private static final int TEXT       = 0xFFE8DCC8;
-    private static final int TEXT_MUTED = 0xFF9A8B78;
+    // Palette DA Reborn.
+    private static final int DIM        = 0x50080408;   // voile léger : le monde reste visible
+    private static final int BG         = 0xE60E0A0C;   // laque noire translucide
+    private static final int CARD       = 0xF0140E10;
+    private static final int SECTION    = 0xF0181012;
+    private static final int BORDER     = 0xFFAA8034;
+    private static final int ACCENT     = 0xFFAA1E22;   // laque vermillon
+    private static final int ACCENT_HOV = 0xFFC82A2E;
+    private static final int GOLD       = 0xFFF6CC78;
+    private static final int TEXT       = 0xFFFAEED6;
+    private static final int TEXT_MUTED = 0xFFC8B4A0;
     private static final int ROW_HOVER  = 0x22FFFFFF;
-    private static final int ROW_PLAY   = 0x66A0182B;
+    private static final int ROW_PLAY   = 0xFFAA1E22;
+    private static final int PAPER = 0xF2EADCB4, PAPER_HOV = 0xF2F4EAD0, PAPER_EDGE = 0xFF8C6E48, INK = 0xFF3C2814, INK_MUTED = 0xFF8C6E50;
+    private static final int STRING = 0xFFE6DCC8, BRIDGE = 0xFF6E4628;
+    private static final Identifier DISC = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/disc.png");
+    /** Cache d'existence des textures (évite un getResource par image et par ligne). */
+    private static final java.util.Map<Identifier, Boolean> EXISTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static boolean exists(Identifier id) {
+        if (id == null) return false;
+        return EXISTS.computeIfAbsent(id, k -> Minecraft.getInstance().getResourceManager().getResource(k).isPresent());
+    }
 
     private static final Identifier FRAME = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/ost_menu.png");
     private static final Identifier VINYL = Identifier.fromNamespaceAndPath("reborn-ost", "textures/gui/vinyl.png");
@@ -147,17 +158,18 @@ public class OstScreen extends Screen {
         g.pose().pushMatrix();
         g.pose().translate(0, (1f - animEase()) * 22f);
 
-        Minecraft mc = Minecraft.getInstance();
-        boolean hasFrame = mc.getResourceManager().getResource(FRAME).isPresent();
-        if (hasFrame) {
-            g.blit(RenderPipelines.GUI_TEXTURED, FRAME, px, py, 0f, 0f, pw, ph, DW, DH);
-        } else {
-            panel(g, px, py, pw, ph, BG);
-        }
-        // Panneaux de sections (bordures) — toujours dessinés, par-dessus le cadre.
+        boolean hasFrame = false;   // DA Reborn : panneaux dessinés (l'ancien cadre Akatsuki n'est plus utilisé)
+        g.fill(px + 2, py + 3, px + pw + 2, py + ph + 3, 0x70000000);
+        panel(g, px, py, pw, ph, BG);
+        kanagu(g, px, py, pw, ph);
+        renderBanner(g, tr);
         panel(g, cx0(), npY(), cw(), npH(), CARD);
         panel(g, cx0(), searchY(), cw(), fy(20), SECTION);
-        panel(g, cx0(), listTop() - 4, cw(), listBottom() - listTop() + 8, SECTION);
+        // Liste : rouleau de papier (baguettes de bois en haut et en bas).
+        int lt = listTop() - 4, lb = listBottom() + 4;
+        g.fill(cx0(), lt, cx0() + cw(), lb, PAPER);
+        g.fill(cx0() - 3, lt - 3, cx0() + cw() + 3, lt, BRIDGE);
+        g.fill(cx0() - 3, lb, cx0() + cw() + 3, lb + 3, BRIDGE);
         panel(g, cx0(), footerY(), cw(), fy(30), SECTION);
 
         renderHeader(g, tr, mouseX, mouseY, hasFrame);
@@ -169,6 +181,32 @@ public class OstScreen extends Screen {
 
         if (searchField != null) searchField.extractRenderState(g, mouseX, mouseY, delta);
         g.pose().popMatrix();
+    }
+
+    /** Bandeau vertical à gauche (zone libre de la maquette) : kakemono laqué marqué « 音 ». */
+    private void renderBanner(GuiGraphicsExtractor g, Font tr) {
+        int bw = Math.min(fx(150), 120), bx = px + (fx(190) - bw) / 2, by = py + fy(28), bh = ph - fy(56);
+        g.fill(bx - 4, by - 4, bx + bw + 4, by, BRIDGE);
+        g.fill(bx - 4, by + bh, bx + bw + 4, by + bh + 4, BRIDGE);
+        g.fill(bx, by, bx + bw, by + bh, 0xF05C1418);
+        g.fill(bx + 6, by + 6, bx + bw - 6, by + bh - 6, PAPER);
+        Component k = Component.literal("音");
+        g.pose().pushMatrix();
+        g.pose().translate(bx + bw / 2f - tr.width(k) * 3f / 2f, by + bh * 0.28f);
+        g.pose().scale(3f, 3f);
+        g.text(tr, k, 0, 0, 0xFF8C1C20, false);
+        g.pose().popMatrix();
+        Component t1 = Component.literal("MUSIQUES"), t2 = Component.literal("REBORN");
+        g.text(tr, t1, bx + (bw - tr.width(t1)) / 2, by + (int) (bh * 0.62f), INK, false);
+        g.text(tr, t2, bx + (bw - tr.width(t2)) / 2, by + (int) (bh * 0.62f) + 12, INK_MUTED, false);
+    }
+
+    private static void kanagu(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+        int c = GOLD, s = 6;
+        g.fill(x, y, x + s, y + 2, c); g.fill(x, y, x + 2, y + s, c);
+        g.fill(x + w - s, y, x + w, y + 2, c); g.fill(x + w - 2, y, x + w, y + s, c);
+        g.fill(x, y + h - 2, x + s, y + h, c); g.fill(x, y + h - s, x + 2, y + h, c);
+        g.fill(x + w - s, y + h - 2, x + w, y + h, c); g.fill(x + w - 2, y + h - s, x + w, y + h, c);
     }
 
     private void renderHeader(GuiGraphicsExtractor g, Font tr, int mouseX, int mouseY, boolean hasFrame) {
@@ -185,9 +223,10 @@ public class OstScreen extends Screen {
             int w = tr.width(cat.displayName()) + 10;
             boolean sel = cat == selectedCategory && searchBlank();
             boolean hov = in(mouseX, mouseY, tabX, hy - 2, w, 18);
-            roundRect(g, tabX, hy - 2, w, 18, sel ? ACCENT : (hov ? ROW_HOVER : SECTION));
+            g.fill(tabX, hy - 2, tabX + w, hy + 16, sel ? ACCENT : (hov ? 0xFF4A2830 : 0xFF3C1E24));
+            outline(g, tabX, hy - 2, w, 18, sel ? GOLD : 0xFF6E4646);
             g.text(tr, Component.literal(cat.displayName()), tabX + 5, hy + 3,
-                sel ? 0xFFFFFFFF : TEXT_MUTED, false);
+                sel ? TEXT : TEXT_MUTED, false);
             tabX += w + 8;
         }
 
@@ -210,12 +249,7 @@ public class OstScreen extends Screen {
             g.text(tr, Component.literal(mmss(el)), bx, byp - 9, TEXT_MUTED, false);
             String tot = mmss(du);
             g.text(tr, Component.literal(tot), bx + bw - tr.width(tot), byp - 9, TEXT_MUTED, false);
-            g.fill(bx, byp, bx + bw, byp + 3, 0x40FFFFFF);
-            if (du > 0) {
-                int fw = (int) (bw * Math.min(1.0, el / (double) du));
-                g.fill(bx, byp, bx + fw, byp + 3, GOLD);
-                g.fill(bx + fw - 1, byp - 2, bx + fw + 1, byp + 5, ACCENT_HOV);
-            }
+            shamisen(g, bx, byp + 1, bw, du > 0 ? (float) Math.min(1.0, el / (double) du) : 0f);
         } else {
             drawVinylPlaceholder(g, ax, ay, as);
             g.text(tr, Component.literal("Aucune piste en lecture").withStyle(s -> s.withBold(true)),
@@ -237,11 +271,11 @@ public class OstScreen extends Screen {
         // Shuffle (aléatoire) + Repeat (off / une / liste) — toggles.
         boolean sh = config.isShuffle();
         boolean shHov = in(mouseX, mouseY, cx + 90, cy, 16, 16);
-        roundRect(g, cx + 90, cy, 16, 16, sh ? ACCENT : (shHov ? ROW_HOVER : SECTION));
+        g.fill(cx + 90, cy, cx + 106, cy + 16, sh ? ACCENT : (shHov ? 0xFF4A2830 : 0xFF3C1E24)); outline(g, cx + 90, cy, 16, 16, sh ? GOLD : 0xFF6E4646);
         g.text(tr, Component.literal("S"), cx + 96, cy + 4, sh ? 0xFFFFFFFF : TEXT_MUTED, false);
         int rm = config.getRepeatMode();
         boolean rpHov = in(mouseX, mouseY, cx + 112, cy, 16, 16);
-        roundRect(g, cx + 112, cy, 16, 16, rm != 0 ? ACCENT : (rpHov ? ROW_HOVER : SECTION));
+        g.fill(cx + 112, cy, cx + 128, cy + 16, rm != 0 ? ACCENT : (rpHov ? 0xFF4A2830 : 0xFF3C1E24)); outline(g, cx + 112, cy, 16, 16, rm != 0 ? GOLD : 0xFF6E4646);
         g.text(tr, Component.literal("R"), cx + 118, cy + 4, rm != 0 ? 0xFFFFFFFF : TEXT_MUTED, false);
         if (rm == 1) g.text(tr, Component.literal("1"), cx + 123, cy - 2, GOLD, false);
     }
@@ -262,17 +296,17 @@ public class OstScreen extends Screen {
             boolean hovered = in(mouseX, mouseY, left, rowY, right - left, ROW_H) && mouseY < bottom;
             boolean playing = engine.currentTrack().map(t -> t.trackId().equals(track.trackId())).orElse(false);
             if (playing) g.fill(left, rowY, right, rowY + ROW_H, ROW_PLAY);
-            else if (hovered) g.fill(left, rowY, right, rowY + ROW_H, ROW_HOVER);
+            else if (hovered) g.fill(left, rowY, right, rowY + ROW_H, PAPER_HOV);
 
             int thumbY = rowY + (ROW_H - THUMB) / 2;
             drawCover(g, track, left + 4, thumbY, THUMB);
             g.text(tr, Component.literal((playing ? "▶ " : "") + OstTrackMeta.title(track.trackId(), track.displayName())),
-                left + 4 + THUMB + 8, rowY + 6, playing ? 0xFFFFFFFF : TEXT, false);
+                left + 4 + THUMB + 8, rowY + 6, playing ? TEXT : INK, false);
 
             boolean fav = config.isFavorite(track.trackId());
-            g.text(tr, Component.literal(fav ? "★" : "☆"), right - 14, rowY + 6, fav ? GOLD : TEXT_MUTED, false);
+            g.text(tr, Component.literal(fav ? "★" : "☆"), right - 14, rowY + 6, fav ? (playing ? GOLD : 0xFFB4781E) : (playing ? TEXT_MUTED : INK_MUTED), false);
             String dur = OstTrackMeta.formatDuration(OstTrackMeta.duration(track.trackId()));
-            if (!dur.isEmpty()) g.text(tr, Component.literal(dur), right - 28 - tr.width(dur), rowY + 6, TEXT_MUTED, false);
+            if (!dur.isEmpty()) g.text(tr, Component.literal(dur), right - 28 - tr.width(dur), rowY + 6, playing ? TEXT_MUTED : INK_MUTED, false);
         }
         g.disableScissor();
     }
@@ -290,27 +324,37 @@ public class OstScreen extends Screen {
         String volVal = Math.round(config.getVolume() * 100f) + " %";
         g.text(tr, Component.literal(volVal),
             volBarX() + volBarW() - tr.width(volVal), sy - 8, GOLD, false);
-        slider(g, volBarX(), sy, volBarW(), config.getVolume(), ACCENT);
+        shamisen(g, volBarX(), sy + 1, volBarW(), config.getVolume());
         // Distance : label + valeur en blocs alignée à droite du slider.
         g.text(tr, Component.literal("DISTANCE").withStyle(s -> s.withBold(true)), distBarX() - 60, sy - 8, TEXT_MUTED, false);
         String distVal = Math.round(config.getBroadcastDistance()) + " blocs";
         g.text(tr, Component.literal(distVal),
-            distBarX() + distBarW() - tr.width(distVal), sy - 8, 0xFF6FA8DA, false);
-        slider(g, distBarX(), sy, distBarW(), Math.min(1f, config.getBroadcastDistance() / 128f), 0xFF3A6BB2);
+            distBarX() + distBarW() - tr.width(distVal), sy - 8, GOLD, false);
+        shamisen(g, distBarX(), sy + 1, distBarW(), Math.min(1f, config.getBroadcastDistance() / 128f));
 
         boolean solo = config.isSoloMode();
         int soloX = cx0() + cw() - 84;
         boolean soloHov = in(mouseX, mouseY, soloX, sy - 6, 78, 16);
-        roundRect(g, soloX, sy - 6, 78, 16, solo ? ACCENT : (soloHov ? ROW_HOVER : SECTION));
+        g.fill(soloX, sy - 6, soloX + 78, sy + 10, solo ? ACCENT : (soloHov ? 0xFF4A2830 : 0xFF3C1E24));
+        outline(g, soloX, sy - 6, 78, 16, solo ? GOLD : 0xFF6E4646);
         g.text(tr, Component.literal(solo ? "Mode Solo ON" : "Mode Solo OFF"), soloX + 6, sy - 2,
-            solo ? 0xFFFFFFFF : TEXT_MUTED, false);
+            solo ? TEXT : TEXT_MUTED, false);
     }
 
-    private void slider(GuiGraphicsExtractor g, int x, int y, int w, float frac, int color) {
-        g.fill(x, y, x + w, y + 3, 0x40FFFFFF);
+    /** Corde de shamisen : corde fine, partie jouée en or, chevalets aux extrémités, plectre au curseur. */
+    private void shamisen(GuiGraphicsExtractor g, int x, int y, int w, float frac) {
+        g.fill(x, y, x + w, y + 1, STRING);
         int fw = (int) (w * Math.max(0f, Math.min(1f, frac)));
-        g.fill(x, y, x + fw, y + 3, color);
-        g.fill(x + fw - 1, y - 3, x + fw + 1, y + 6, GOLD);
+        g.fill(x, y - 1, x + fw, y + 1, GOLD);
+        g.fill(x - 3, y - 2, x, y + 3, BRIDGE);
+        g.fill(x + w, y - 2, x + w + 3, y + 3, BRIDGE);
+        int k = x + fw;
+        for (int i = 0; i < 4; i++) g.fill(k - i, y - 4 + i, k + i + 1, y - 3 + i, TEXT);
+    }
+
+    private static void outline(GuiGraphicsExtractor g, int x, int y, int w, int h, int c) {
+        g.fill(x, y, x + w, y + 1, c); g.fill(x, y + h - 1, x + w, y + h, c);
+        g.fill(x, y, x + 1, y + h, c); g.fill(x + w - 1, y, x + w, y + h, c);
     }
 
     private void drawCover(GuiGraphicsExtractor g, OstTrack track, int x, int y, int size) {
@@ -318,7 +362,6 @@ public class OstScreen extends Screen {
     }
 
     private void drawCover(GuiGraphicsExtractor g, OstTrack track, int x, int y, int size, float angle) {
-        Minecraft mc = Minecraft.getInstance();
         Identifier cover = OstTrackMeta.coverTexture(track);
         boolean rot = angle != 0f;
         if (rot) {
@@ -327,15 +370,13 @@ public class OstScreen extends Screen {
             g.pose().rotate((float) Math.toRadians(angle));
             g.pose().translate(-(x + size / 2f), -(y + size / 2f));
         }
-        if (cover != null && mc.getResourceManager().getResource(cover).isPresent()) {
+        if (exists(cover)) {
             g.blit(RenderPipelines.GUI_TEXTURED, cover, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
-        } else if (mc.getResourceManager().getResource(VINYL).isPresent()) {
-            g.blit(RenderPipelines.GUI_TEXTURED, VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
-            int cx = x + size / 2, cy = y + size / 2;
-            // Tint SUBTIL du centre selon le thème (semi-transparent → garde le
-            // détail/relief du vinyl d'origine au lieu d'un disque plein).
-            int tint = (categoryColor(track.category()) & 0x00FFFFFF) | 0x88000000;
-            fillDisc(g, cx, cy, Math.max(2, Math.round(size * 0.20f)), tint);
+        } else if (exists(DISC)) {
+            g.blit(RenderPipelines.GUI_TEXTURED, DISC, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
+            if (size >= 24) {   // pastille de catégorie sur le bord du disque
+                g.fill(x + size - 7, y + size - 7, x + size - 2, y + size - 2, categoryColor(track.category()));
+            }
         } else {
             g.fill(x, y, x + size, y + size, categoryColor(track.category()));
         }
@@ -343,9 +384,8 @@ public class OstScreen extends Screen {
     }
 
     private void drawVinylPlaceholder(GuiGraphicsExtractor g, int x, int y, int size) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.getResourceManager().getResource(VINYL).isPresent()) {
-            g.blit(RenderPipelines.GUI_TEXTURED, VINYL, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
+        if (exists(DISC)) {
+            g.blit(RenderPipelines.GUI_TEXTURED, DISC, x, y, 0f, 0f, size, size, COVER_PX, COVER_PX);
         } else {
             g.fill(x, y, x + size, y + size, 0xFF2A1A1E);
         }

@@ -30,7 +30,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Éditeur HUD — version <b>sobre</b> façon Reborn.
+ * Éditeur HUD — DA Reborn : grille shōji très légère sur le jeu, éléments marqués de coins
+ * dorés (kanagu), étiquettes en plaques laquées, panneau en paravent byōbu à feuille d'or.
  *
  * <p>Deux zones :
  * <ul>
@@ -246,8 +247,10 @@ public class HudEditScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         int editRight = sidePanel.leftEdge();
 
-        // 1) Voile sombre subtil sur le canvas (pas de grille de points).
+        // 1) Voile sombre subtil + grille shōji très légère (repère d'alignement, ~60 fills).
         ctx.fill(0, 0, editRight, this.height, 0x40000000);
+        for (int gx = 24; gx < editRight; gx += 24) ctx.fill(gx, 0, gx + 1, this.height, 0x14FFF0D2);
+        for (int gy = 24; gy < this.height; gy += 24) ctx.fill(0, gy, editRight, gy + 1, 0x14FFF0D2);
 
         // 2) Boîtes HUD (dessinées avant le panneau : le panneau opaque couvre
         //    tout débordement à droite).
@@ -309,32 +312,30 @@ public class HudEditScreen extends Screen {
         boolean hidden = !state.visible();
         boolean active = hovered || selected || dragging;
 
-        // Idle : simple outline fin.
+        // Idle : seulement des coins dorés (kanagu) — le HUD reste lisible derrière.
         if (!active) {
-            int col = hidden
-                ? RebornColors.withAlpha(Colors.DANGER, 0x66)
-                : RebornColors.withAlpha(Colors.FOREGROUND_MUTED, 0x40);
-            FlatRect.border(ctx, bx, by, bw, bh, 3, col);
+            kanagu(ctx, bx, by, bw, bh, hidden ? RebornColors.withAlpha(Colors.DANGER, 0x99) : 0x99E6D2AA);
             return;
         }
 
-        // Actif : outline accent (ou danger si masqué) + léger fill + label.
-        int border = hidden ? Colors.DANGER
-                   : dragging || selected ? Colors.ACCENT
-                   : Colors.ACCENT_HOVER;
-        FlatRect.fill(ctx, bx, by, bw, bh, 3, RebornColors.withAlpha(border, 0x14));
+        // Actif : voile doré + coins pleins ; sélection / drag = liseré d'or complet.
+        int border = hidden ? Colors.DANGER : 0xFFF6CC78;
+        ctx.fill(bx, by, bx + bw, by + bh, hidden ? 0x18FF4040 : 0x16F6CC78);
         if (dragging || selected) {
-            FlatRect.borderThick(ctx, bx, by, bw, bh, 3, border);
-        } else {
-            FlatRect.border(ctx, bx, by, bw, bh, 3, border);
+            ctx.fill(bx, by, bx + bw, by + 1, border); ctx.fill(bx, by + bh - 1, bx + bw, by + bh, border);
+            ctx.fill(bx, by, bx + 1, by + bh, border); ctx.fill(bx + bw - 1, by, bx + bw, by + bh, border);
         }
+        kanagu(ctx, bx, by, bw, bh, border);
 
         renderBoxLabel(ctx, element, state, bx, by, bw, bh);
 
         // Poignée resize BR uniquement sur l'élément sélectionné/dragué.
         if (selected || dragging) {
             int[] h = resizeHandleRect(b);
-            if (h != null) FlatRect.fill(ctx, h[0], h[1], h[2], h[3], 2, Colors.ACCENT);
+            if (h != null) {
+                ctx.fill(h[0], h[1], h[0] + h[2], h[1] + h[3], 0xFFF6CC78);
+                ctx.fill(h[0] + 1, h[1] + 1, h[0] + h[2] - 1, h[1] + h[3] - 1, 0xFF8C1C20);
+            }
         }
     }
 
@@ -402,12 +403,23 @@ public class HudEditScreen extends Screen {
         int py = by - pillH - 3;
         if (py < 2) py = Math.min(by + bh + 3, this.height - pillH - 2);
 
-        FlatRect.fill(ctx, px, py, pillW, pillH, 3, Colors.SURFACE_ELEVATED);
-        FlatRect.border(ctx, px, py, pillW, pillH, 3, Colors.BORDER);
+        // Étiquette = petite plaque laquée bordée d'or.
+        ctx.fill(px, py, px + pillW, py + pillH, 0xF00E0A0C);
+        ctx.fill(px, py, px + pillW, py + 1, 0xFFF6CC78); ctx.fill(px, py + pillH - 1, px + pillW, py + pillH, 0xFFF6CC78);
+        ctx.fill(px, py, px + 1, py + pillH, 0xFFF6CC78); ctx.fill(px + pillW - 1, py, px + pillW, py + pillH, 0xFFF6CC78);
         HudEditSidePanel.arcText(ctx, this.font, nameS,
-            px + 6, py + 3, state.visible() ? Colors.FOREGROUND : Colors.DANGER);
+            px + 6, py + 3, state.visible() ? 0xFFF6CC78 : Colors.DANGER);
         HudEditSidePanel.arcText(ctx, this.font, coordS,
-            px + 6 + nameW + 6, py + 3, Colors.FOREGROUND_SUBTLE);
+            px + 6 + nameW + 6, py + 3, 0xFFE6D2BE);
+    }
+
+    /** Coins dorés (kanagu) d'une boîte : 8 fills, longueur adaptée à la taille. */
+    private static void kanagu(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
+        int s = Math.max(3, Math.min(8, Math.min(w, h) / 4));
+        ctx.fill(x, y, x + s, y + 1, c); ctx.fill(x, y, x + 1, y + s, c);
+        ctx.fill(x + w - s, y, x + w, y + 1, c); ctx.fill(x + w - 1, y, x + w, y + s, c);
+        ctx.fill(x, y + h - 1, x + s, y + h, c); ctx.fill(x, y + h - s, x + 1, y + h, c);
+        ctx.fill(x + w - s, y + h - 1, x + w, y + h, c); ctx.fill(x + w - 1, y + h - s, x + w, y + h, c);
     }
 
     private HudElement elementUnderMouse(int mouseX, int mouseY) {

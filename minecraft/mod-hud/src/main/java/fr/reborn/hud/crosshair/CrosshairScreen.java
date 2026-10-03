@@ -17,8 +17,10 @@ import net.minecraft.network.chat.Component;
 import java.util.List;
 
 /**
- * Éditeur de viseur dédié (pilier 2 — façon Custom Crosshair Mod) : aperçu
- * live à gauche, réglages scrollables à droite, bouton Réinitialiser.
+ * Éditeur de viseur dédié (pilier 2 — façon Custom Crosshair Mod), DA Reborn :
+ * le monde reste visible ; aperçu live au centre d'une <b>cible de kyūdō</b> (mato)
+ * sur pied laqué à gauche, réglages scrollables dans un panneau de laque noire
+ * à liseré d'or à droite, plaque suspendue en en-tête, bouton Réinitialiser.
  * Ouvrable par keybind ({@code HudKeybinds}) et depuis le hub (catégorie
  * Viseur). Les réglages réutilisent {@link CrosshairTab}.
  */
@@ -35,6 +37,12 @@ public class CrosshairScreen extends Screen {
     private static final int BOTTOM_MARGIN = 24;
     private static final int SCROLLBAR_W = 4;
     private static final int SCROLLBAR_MIN_THUMB = 28;
+
+    private static final net.minecraft.resources.Identifier MATO =
+        net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/crosshair_editor/mato.png");
+    private static final net.minecraft.resources.Identifier STAND =
+        net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/crosshair_editor/stand.png");
+    private static final int GOLD = 0xFFF6CC78, GOLD_D = 0xFFAA8034, LACQ = 0xFF5C1418, CREAM = 0xFFFAEED6;
 
     private int scrollY = 0;
     private List<AbstractWidget> contentWidgets = List.of();
@@ -132,36 +140,58 @@ public class CrosshairScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        ctx.fill(0, 0, this.width, this.height, Colors.BACKGROUND);
-        ctx.fill(0, 0, this.width, HEADER_H, Colors.SURFACE);
-        ctx.fill(0, HEADER_H, this.width, HEADER_H + 1, Colors.BORDER);
-
-        Component title = RebornFont.bold("ÉDITEUR DE VISEUR");
+        // Le monde reste visible : voile léger, un peu plus dense derrière le panneau de réglages.
+        ctx.fill(0, 0, this.width, this.height, 0x38080408);
+        DrawHelpers.horizontalGradient(ctx, contentX() - 40, 0, this.width - contentX() + 40, this.height, 0x00000000, 0x70080408);
+        // Plaque laquée suspendue (titre).
+        int cx = this.width / 2, pw = 160, ph = 28, py = 8;
+        for (int k = 0; k <= 8; k++) {
+            ctx.fill(cx - 60 + k, k, cx - 59 + k, k + 1, 0xFFC8A05A);
+            ctx.fill(cx + 59 - k, k, cx + 60 - k, k + 1, 0xFFC8A05A);
+        }
+        ctx.fill(cx - pw / 2 + 2, py + 3, cx + pw / 2 + 2, py + ph + 3, 0x80000000);
+        ctx.fill(cx - pw / 2, py, cx + pw / 2, py + ph, LACQ);
+        outline(ctx, cx - pw / 2, py, pw, ph, GOLD);
+        outline(ctx, cx - pw / 2 + 2, py + 2, pw - 4, ph - 4, 0xFF963C32);
+        Component t = RebornFont.arcade("VISEUR");
+        ctx.text(this.font, t, cx - this.font.width(t) / 2, py + 5, CREAM, false);
+        Component sub = RebornFont.arcade("APERCU EN DIRECT");
         ctx.pose().pushMatrix();
-        ctx.pose().translate(20, (HEADER_H - 14) / 2f);
-        ctx.pose().scale(1.2f, 1.2f);
-        ctx.text(this.font, title, 0, 0, Colors.WHITE_PURE, false);
+        ctx.pose().translate(cx - this.font.width(sub) * 0.75f / 2f, py + 17);
+        ctx.pose().scale(0.75f, 0.75f);
+        ctx.text(this.font, sub, 0, 0, 0xFFE6B4A0, false);
         ctx.pose().popMatrix();
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        // ─── Cible de kyūdō (gauche) : le viseur s'affiche en son centre ───
+        int px = previewX(), py = previewY(), pw = previewW(), ph = previewH();
+        int size = Math.min(pw - 20, ph - 70);
+        size = Math.max(64, size - size % 32);                 // multiple de 32 : anneaux nets
+        int tcx = px + pw / 2, tcy = py + 10 + size / 2;
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, STAND, tcx - 32, tcy + size / 2 - 6, 0f, 0f, 64, 40, 64, 40);
+        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, MATO, tcx - size / 2, tcy - size / 2, 0f, 0f,
+            size, size, 128, 128, 128, 128);
+        CrosshairManager.drawPreview(ctx, tcx, tcy, 2.0f);
+        Component hint = RebornFont.arcade("APERCU DU VISEUR");
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(tcx - this.font.width(hint) * 0.7f / 2f, tcy + size / 2 + 40);
+        ctx.pose().scale(0.7f, 0.7f);
+        ctx.text(this.font, hint, 0, 0, 0xFFE6D2BE, false);
+        ctx.pose().popMatrix();
+
+        // ─── Panneau de réglages : laque noire, liseré d'or, coins dorés ───
+        int cx0 = contentX() - 14, cy0 = viewportTop() + 14, cx1 = Math.min(this.width - 10, contentX() + contentW() + 18), cy1 = viewportBottom() - 4;
+        ctx.fill(cx0 + 2, cy0 + 3, cx1 + 2, cy1 + 3, 0x70000000);
+        ctx.fill(cx0, cy0, cx1, cy1, 0xE00E0A0C);
+        outline(ctx, cx0, cy0, cx1 - cx0, cy1 - cy0, GOLD);
+        kanagu(ctx, cx0, cy0, cx1 - cx0, cy1 - cy0);
+
         super.extractRenderState(ctx, mouseX, mouseY, delta);
 
-        // ─── Panneau d'aperçu (gauche) ───
-        int px = previewX(), py = previewY(), pw = previewW(), ph = previewH();
-        DrawHelpers.roundedOutlinedRect(ctx, px, py, pw, ph, 10,
-            Colors.BACKGROUND, Colors.BORDER_STRONG);
-        // Damier subtil pour juger la lisibilité sur fond clair/sombre.
-        drawCheckerboard(ctx, px + 1, py + 1, pw - 2, ph - 2);
-        ctx.text(this.font, RebornFont.bold("APERÇU"),
-            px + 12, py + 10, Colors.FOREGROUND_SUBTLE, false);
-        // Viseur centré (×2 pour bien le voir).
-        CrosshairManager.drawPreview(ctx, px + pw / 2, py + ph / 2, 2.0f);
-
-        // ─── Réglages (droite, scrollable) ───
         int contentYScrolled = contentTopBase() - scrollY;
-        ctx.enableScissor(contentX() - 4, viewportTop(), this.width, viewportBottom());
+        ctx.enableScissor(contentX() - 4, viewportTop() + 16, this.width, viewportBottom() - 6);
         tab.renderPassive(ctx, contentX(), contentYScrolled, contentW());
         for (AbstractWidget w : contentWidgets) {
             if (w.visible) {
@@ -173,18 +203,17 @@ public class CrosshairScreen extends Screen {
         renderScrollbar(ctx);
     }
 
-    private void drawCheckerboard(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        // Fond plein (1 fill) puis SEULEMENT les cellules alternées → ~2× moins
-        // de fills (le mode retained 26.1 pénalise chaque fill).
-        int cell = 12;
-        ctx.fill(x, y, x + w, y + h, Colors.SURFACE_ELEVATED);
-        for (int yy = 0; yy < h; yy += cell) {
-            for (int xx = 0; xx < w; xx += cell) {
-                if (((xx / cell) + (yy / cell)) % 2 != 0) continue;
-                ctx.fill(x + xx, y + yy,
-                    x + Math.min(xx + cell, w), y + Math.min(yy + cell, h), Colors.SURFACE);
-            }
-        }
+    private static void outline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
+        ctx.fill(x, y, x + w, y + 1, c); ctx.fill(x, y + h - 1, x + w, y + h, c);
+        ctx.fill(x, y, x + 1, y + h, c); ctx.fill(x + w - 1, y, x + w, y + h, c);
+    }
+
+    private static void kanagu(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+        int c = GOLD, s = 6;
+        ctx.fill(x, y, x + s, y + 2, c); ctx.fill(x, y, x + 2, y + s, c);
+        ctx.fill(x + w - s, y, x + w, y + 2, c); ctx.fill(x + w - 2, y, x + w, y + s, c);
+        ctx.fill(x, y + h - 2, x + s, y + h, c); ctx.fill(x, y + h - s, x + 2, y + h, c);
+        ctx.fill(x + w - s, y + h - 2, x + w, y + h, c); ctx.fill(x + w - 2, y + h - s, x + w, y + h, c);
     }
 
     private void renderScrollbar(GuiGraphicsExtractor ctx) {
@@ -195,7 +224,7 @@ public class CrosshairScreen extends Screen {
         DrawHelpers.roundedRect(ctx, x, top, SCROLLBAR_W, vh, SCROLLBAR_W / 2, Colors.SURFACE);
         int thumbH = thumbHeight();
         int thumbY = thumbY();
-        int color = draggingScrollbar ? Colors.ACCENT : Colors.BORDER_STRONG;
+        int color = draggingScrollbar ? GOLD : GOLD_D;
         DrawHelpers.roundedRect(ctx, x, thumbY, SCROLLBAR_W, thumbH, SCROLLBAR_W / 2, color);
     }
 

@@ -261,8 +261,7 @@ public final class HudEditSidePanel {
 
         // Carte — fond éclairci pour la lisibilité (pas d'ombre pixellisée : elle
         // laissait des lignes/pixels parasites autour de la carte).
-        FlatRect.fill(ctx, x0, y0, WIDTH, height, CARD_R, 0xF0301C22);
-        FlatRect.border(ctx, x0, y0, WIDTH, height, CARD_R, Colors.BORDER_STRONG);
+        drawByobu(ctx, x0, y0, WIDTH, height);
 
         renderHeader(ctx, mouseX, mouseY);
 
@@ -278,11 +277,36 @@ public final class HudEditSidePanel {
         renderFooter(ctx, mouseX, mouseY);
     }
 
+    /**
+     * Paravent <b>byōbu</b> (DA Reborn) : cadre de bois laqué, trois feuilles d'or séparées par
+     * des charnières, panneau de laque noire posé dessus pour le contenu (lisibilité inchangée).
+     */
+    private static void drawByobu(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+        int frame = 0xFF1A100C, gold = 0xFFC4A050, leaf = 0xFFDCBC6C, gm = 5;
+        ctx.fill(x + 2, y + 3, x + w + 2, y + h + 3, 0x70000000);
+        ctx.fill(x, y, x + w, y + h, gold);
+        for (int yy = y + 8; yy < y + h; yy += 16) ctx.fill(x + 1, yy, x + w - 1, yy + 1, leaf);   // jointures des feuilles d'or
+        for (int k = 1; k < 3; k++) {                                                            // charnières
+            int hx = x + w * k / 3;
+            ctx.fill(hx - 1, y, hx + 1, y + h, frame);
+        }
+        ctx.fill(x, y, x + w, y + 2, frame); ctx.fill(x, y + h - 2, x + w, y + h, frame);
+        ctx.fill(x, y, x + 2, y + h, frame); ctx.fill(x + w - 2, y, x + w, y + h, frame);
+        // panneau de laque intérieur
+        ctx.fill(x + gm, y + gm, x + w - gm, y + h - gm, 0xF20E0A0C);
+        int b = 0xFFF6CC78;
+        ctx.fill(x + gm, y + gm, x + w - gm, y + gm + 1, b); ctx.fill(x + gm, y + h - gm - 1, x + w - gm, y + h - gm, b);
+        ctx.fill(x + gm, y + gm, x + gm + 1, y + h - gm, b); ctx.fill(x + w - gm - 1, y + gm, x + w - gm, y + h - gm, b);
+    }
+
     /** Languette repliée : une bande cliquable avec un chevron « ‹ » vers le canvas. */
     private void renderCollapsedTab(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         boolean hov = inside(mouseX, mouseY, tabX, y0, TAB_W, height);
-        FlatRect.fill(ctx, tabX, y0, TAB_W, height, CARD_R, hov ? 0xF03D2229 : 0xF0301C22);
-        FlatRect.border(ctx, tabX, y0, TAB_W, height, CARD_R, Colors.BORDER_STRONG);
+        // Paravent replié : une seule feuille d'or.
+        ctx.fill(tabX, y0, tabX + TAB_W, y0 + height, hov ? 0xFFD8B464 : 0xFFC4A050);
+        for (int yy = y0 + 10; yy < y0 + height; yy += 14) ctx.fill(tabX + 1, yy, tabX + TAB_W - 1, yy + 1, 0xFFDCBC6C);
+        ctx.fill(tabX, y0, tabX + TAB_W, y0 + 1, 0xFF1A100C); ctx.fill(tabX, y0 + height - 1, tabX + TAB_W, y0 + height, 0xFF1A100C);
+        ctx.fill(tabX, y0, tabX + 1, y0 + height, 0xFF1A100C); ctx.fill(tabX + TAB_W - 1, y0, tabX + TAB_W, y0 + height, 0xFF1A100C);
         // Pastille accent + chevron d'ouverture, centrés verticalement.
         FlatRect.fill(ctx, tabX + (TAB_W - 5) / 2, y0 + 8, 5, 5, BTN_R, Colors.ACCENT);
         drawChevron(ctx, tabX + TAB_W / 2, y0 + height / 2, false,

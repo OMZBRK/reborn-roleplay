@@ -71,6 +71,8 @@ public final class EscTokonoma {
     };
 
     private record Social(String id, String label, String url) {}
+    private static final Identifier[] SOCIAL_TEX = {
+        tex("esc/social_discord"), tex("esc/social_x"), tex("esc/social_youtube"), tex("esc/social_site") };
     private static final Social[] SOCIALS = {
         new Social("discord", "DISCORD", RebornBranding.DISCORD_URL),
         new Social("x", "X", RebornBranding.X_URL),
@@ -449,8 +451,7 @@ public final class EscTokonoma {
             float hv = hov[id];
             int x = 532 + i * 26, y = 337 - Math.round(hv * 2);
             hits.add(new Hit(id, x - 3, 334, 20, 20));
-            Identifier t = tex("esc/social_" + SOCIALS[i].id());
-            ctx.blit(RenderPipelines.GUI_TEXTURED, t, x, y, 0f, 0f, 14, 14, 32, 32, 32, 32, lerp(0xFFC8C8C8, 0xFFFFFFFF, hv));
+            ctx.blit(RenderPipelines.GUI_TEXTURED, SOCIAL_TEX[i], x, y, 0f, 0f, 14, 14, 32, 32, 32, 32, lerp(0xFFC8C8C8, 0xFFFFFFFF, hv));
         }
     }
 

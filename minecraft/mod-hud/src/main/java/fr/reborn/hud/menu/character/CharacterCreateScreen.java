@@ -21,10 +21,11 @@ import java.util.Locale;
  * Wizard de création de personnage <b>façon Reborn</b>, ouvert depuis
  * {@link CharacterSelectScreen} sur « Créer ».
  *
- * <p>Layout : panneau opaque <b>à gauche</b> (logo Reborn + onglets d'étape +
- * contenu + boutons Retour/Suivant), <b>décor du jeu + vrai joueur visible</b>
- * (3e personne de face) à droite, et un <b>encadré de description</b> flottant
- * qui explique l'option survolée/sélectionnée.
+ * <p>Layout (DA Reborn) : <b>registre de papier</b> à gauche (reliure laquée, onglets
+ * d'étape en intercalaires, contenu, plaques Retour/Suivant), plaque laquée suspendue
+ * en en-tête, <b>décor pixel art du village choisi</b> en fond (fondu au changement ;
+ * nuit sur le village par défaut), perso au centre et <b>encadré de description</b>
+ * en laque noire qui explique l'option survolée/sélectionnée.
  *
  * <p>Étapes : Village &amp; Clan (options hors candidature grisées + ✕),
  * Identité (sexe, clan pré-rempli, prénom, peau, taille, âge), Apparence
@@ -130,6 +131,26 @@ public class CharacterCreateScreen extends Screen {
     private static final String[] NO_CLANS = {};
 
     private static final String[] SEXES = { "Homme", "Femme" };
+
+    // ── DA Reborn : registre de papier, laque, or ─────────────────
+    private static final int INK = 0xFF3C2814, INK_SUB = 0xFF5A4028, INK_MUTED = 0xFF8C6E50, INK_RED = 0xFF8C1C20,
+        PAPER = 0xFFEADCB4, PAPER_D = 0xFFE0CFA4, PAPER_EDGE = 0xFF8C6E48, LACQ = 0xFF5C1418, LACQ_RED = 0xFFAA1E22,
+        GOLD = 0xFFF6CC78, GOLD_D = 0xFFAA8034, CREAM = 0xFFFAEED6;
+
+    /** Décor pixel art par village (Konoha…Iwa) ; Ame / Déserteur / aucun = nuit sur le village. */
+    private static final net.minecraft.resources.Identifier[] VILLAGE_BG = {
+        bgTex("konoha"), bgTex("suna"), bgTex("kiri"), bgTex("kumo"), bgTex("iwa") };
+    private static final net.minecraft.resources.Identifier NIGHT_SKY = statsTex("sky_night"), NIGHT_MOON = statsTex("moon"),
+        NIGHT_MTN = statsTex("mountains"), NIGHT_VIL = statsTex("village"), NIGHT_WIN = statsTex("windows");
+    private static net.minecraft.resources.Identifier bgTex(String v) {
+        return net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/creation/bg_" + v + ".png");
+    }
+    private static net.minecraft.resources.Identifier statsTex(String n) {
+        return net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/stats/" + n + ".png");
+    }
+    private int bgShown = -2, bgPrev = -2;
+    private long bgChangedAt = 0L;
+    private final long openedAt = System.currentTimeMillis();
 
     // ── Géométrie ─────────────────────────────────────────────────
     private static final int TILE = 42, CELL_W = 54, CELL_H = 60;
@@ -295,18 +316,48 @@ public class CharacterCreateScreen extends Screen {
     // ── Rendu ─────────────────────────────────────────────────────
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        // Étape Apparence = éditeur KORVEX plein écran sur fond « void » sombre.
-        // Fond « void » KORVEX pour TOUTES les étapes (perso centré rendu par-dessus).
-        ctx.fillGradient(0, 0, this.width, this.height, 0xFF16201C, 0xFF090C0B);
-        // Voile gauche léger pour asseoir le panneau de contenu (étapes 0/1/3).
-        if (step != 2) {
-            int panelRight = panelX() + panelW() + 24;
-            DrawHelpers.horizontalGradient(ctx, 0, 0, panelRight, this.height,
-                Colors.withAlpha(0xFF05080A, 0.72f), 0x00000000);
+        int vi = village.isBlank() ? -1 : indexOf(VILLAGES, village);
+        int bg = (vi >= 0 && vi < VILLAGE_BG.length) ? vi : -1;
+        if (bg != bgShown) {
+            bgPrev = bgShown == -2 ? bg : bgShown;
+            bgShown = bg;
+            bgChangedAt = System.currentTimeMillis();
         }
-        ctx.fillGradient(0, 0, this.width, 80, Colors.withAlpha(0xFF000000, 0.55f), 0x00000000);
-        ctx.fillGradient(0, this.height - 90, this.width, this.height,
-            0x00000000, Colors.withAlpha(0xFF000000, 0.65f));
+        float fade = Math.min(1f, (System.currentTimeMillis() - bgChangedAt) / 450f);
+        drawDecor(ctx, bgPrev, 1f);
+        if (fade < 1f || bgPrev != bgShown) drawDecor(ctx, bgShown, fade);
+        // Kumo : un éclair blanchit le ciel de temps en temps (simple voile, quasi gratuit).
+        if (bgShown == 3) {
+            long t = (System.currentTimeMillis() - openedAt) % 7000L;
+            if (t < 90 || (t > 160 && t < 220)) ctx.fill(0, 0, this.width, this.height, 0x38E6EBFF);
+        }
+        // Voiles légers pour asseoir le registre et l'éditeur d'apparence.
+        if (step == 2) ctx.fill(0, 0, this.width, this.height, 0x8C06080A);
+        else DrawHelpers.horizontalGradient(ctx, 0, 0, panelX() + panelW() + 40, this.height, 0x59050308, 0x00000000);
+        ctx.fillGradient(0, this.height - 70, this.width, this.height, 0x00000000, 0x80000000);
+    }
+
+    /** Un décor plein écran (alpha 0..1). -1 = nuit sur le village (calques de la fiche). */
+    private void drawDecor(GuiGraphicsExtractor ctx, int idx, float alpha) {
+        int w = this.width, h = this.height;
+        int tint = Colors.withAlpha(0xFFFFFFFF, alpha);
+        if (idx >= 0) {
+            // « cover » : on remplit l'écran en gardant le ratio 16:9 du décor.
+            float sc = Math.max(w / 480f, h / 270f);
+            int dw = Math.round(480 * sc), dh = Math.round(270 * sc);
+            ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, VILLAGE_BG[idx], (w - dw) / 2, (h - dh) / 2,
+                0f, 0f, dw, dh, 480, 270, 480, 270, tint);
+            return;
+        }
+        var P = net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
+        ctx.blit(P, NIGHT_SKY, 0, 0, 0f, 0f, w, h, 480, 270, 480, 270, tint);
+        int ms = 34;
+        ctx.blit(P, NIGHT_MOON, (int) (w * 0.86f), (int) (h * 0.07f), 0f, 0f, ms, ms, 40, 40, 40, 40,
+            Colors.withAlpha(0xFFF8EED2, alpha));
+        ctx.blit(P, NIGHT_MTN, 0, h - (int) (h * 0.48f), 0f, 0f, w, (int) (h * 0.30f), 480, 120, 480, 120, Colors.withAlpha(0xFF1E162E, alpha));
+        int vh = (int) (h * 0.20f);
+        ctx.blit(P, NIGHT_VIL, 0, h - vh, 0f, 0f, w, vh, 480, 80, 480, 80, Colors.withAlpha(0xFF120C18, alpha));
+        ctx.blit(P, NIGHT_WIN, 0, h - vh, 0f, 0f, w, vh, 480, 80, 480, 80, Colors.withAlpha(0xFFBE6E38, alpha));
     }
 
     @Override
@@ -327,6 +378,7 @@ public class CharacterCreateScreen extends Screen {
         // Perso centré (rotatable/zoomable) commun à toutes les étapes.
         drawAvatar(ctx, false);
 
+        drawRegister(ctx);
         drawLogo(ctx, tr);
         drawTabs(ctx, tr, mouseX, mouseY);
         drawStepSubtitle(ctx, tr);
@@ -345,27 +397,43 @@ public class CharacterCreateScreen extends Screen {
         drawNav(ctx, tr, mouseX, mouseY);
     }
 
+    /** Le registre shinobi : papier, reliure laquée rivetée d'or, ombre portée. */
+    private void drawRegister(GuiGraphicsExtractor ctx) {
+        int x0 = panelX() - 16, x1 = panelX() + panelW() + 4, y0 = 72, y1 = navY() - 10;
+        ctx.fill(x0 + 3, y0 + 4, x1 + 3, y1 + 4, 0x80000000);
+        ctx.fillGradient(x0, y0, x1, y1, PAPER, PAPER_D);
+        outlineRect(ctx, x0, y0, x1 - x0, y1 - y0, PAPER_EDGE);
+        ctx.fill(x0, y0, x0 + 9, y1, LACQ);
+        for (int y = y0 + 12; y < y1 - 6; y += 26) ctx.fill(x0 + 3, y, x0 + 6, y + 3, GOLD);
+    }
+
+    /** En-tête : plaque laquée suspendue (titre + étape), comme la fiche et l'Échap. */
     private void drawLogo(GuiGraphicsExtractor ctx, Font tr) {
-        int x = panelX();
-        if (CreatorUi.logoExists()) {
-            CreatorUi.blitLogo(ctx, x, 12, 54, 36);
-        } else {
-            int cx = x;
-            for (char c : "REBORN".toCharArray()) {
-                Component ch = RebornFont.arcade(String.valueOf(c));
-                ctx.text(tr, ch, cx, 26, Colors.ACCENT, false);
-                cx += tr.width(ch) + 3;
-            }
-            DrawHelpers.rect(ctx, x, 38, cx - x - 3, 1, Colors.withAlpha(Colors.GOLD, 0.8f));
+        int cx = this.width / 2, pw = 170, ph = 28, py = 8;
+        for (int k = 0; k <= 8; k++) {
+            ctx.fill(cx - 64 + k, k, cx - 63 + k, k + 1, 0xFFC8A05A);
+            ctx.fill(cx + 63 - k, k, cx + 64 - k, k + 1, 0xFFC8A05A);
         }
-        Component sub = RebornFont.arcade("Création de personnage");
-        ctx.text(tr, sub, x, 52, Colors.FOREGROUND_MUTED, false);
+        ctx.fill(cx - pw / 2 + 2, py + 3, cx + pw / 2 + 2, py + ph + 3, 0x80000000);
+        ctx.fill(cx - pw / 2, py, cx + pw / 2, py + ph, LACQ);
+        outlineRect(ctx, cx - pw / 2, py, pw, ph, GOLD);
+        outlineRect(ctx, cx - pw / 2 + 2, py + 2, pw - 4, ph - 4, 0xFF963C32);
+        Component t = ax("Nouveau shinobi");
+        ctx.text(tr, t, cx - tr.width(t) / 2, py + 5, CREAM, false);
+        String[] steps = { "Village et clan", "Identite", "Apparence", "Validation" };
+        Component sub = ax("Etape " + (step + 1) + " / 4  -  " + steps[step]);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(cx - tr.width(sub) * 0.75f / 2f, py + 17);
+        ctx.pose().scale(0.75f, 0.75f);
+        ctx.text(tr, sub, 0, 0, 0xFFE6B4A0, false);
+        ctx.pose().popMatrix();
     }
 
     private String[] tabLabels() {
         return new String[] { "Village & Clan", "Identité", "Apparence", "Valider" };
     }
 
+    /** Onglets d'étape = intercalaires de papier en haut du registre (même géométrie qu'avant). */
     private void drawTabs(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
         String[] labels = tabLabels();
         int x = panelX();
@@ -375,9 +443,10 @@ public class CharacterCreateScreen extends Screen {
             int w = tr.width(t);
             boolean cur = i == step;
             boolean past = i < step;
-            int col = cur ? Colors.WHITE_PURE : past ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED;
-            ctx.text(tr, t, x, y, col, false);
-            if (cur) DrawHelpers.rect(ctx, x, y + 10, w, 1, Colors.GOLD);
+            ctx.fill(x - 5, y - 4, x + w + 5, y + 11, cur ? PAPER : 0xFFC8B48C);
+            outlineRect(ctx, x - 5, y - 4, w + 10, 15, PAPER_EDGE);
+            if (cur) ctx.fill(x - 4, y + 10, x + w + 4, y + 12, PAPER);
+            ctx.text(tr, t, x, y, cur ? INK_RED : past ? INK_SUB : INK_MUTED, false);
             x += w + 14;
         }
     }
@@ -389,7 +458,7 @@ public class CharacterCreateScreen extends Screen {
             case 2 -> "Compose l'apparence de ton personnage (ou garde ton skin).";
             default -> "Vérifie tes choix puis valide.";
         };
-        ctx.text(tr, RebornFont.body(s), panelX(), 80, Colors.FOREGROUND_SUBTLE, false);
+        ctx.text(tr, RebornFont.body(s), panelX(), 80, INK_SUB, false);
     }
 
     // ── Étape 0 : village + clan ──────────────────────────────────
@@ -414,7 +483,7 @@ public class CharacterCreateScreen extends Screen {
         String[] clans = villageClans();
         if (village.isBlank()) {
             ctx.text(tr, RebornFont.arcade("Choisis d'abord un village."),
-                panelX(), cBase, Colors.FOREGROUND_MUTED, false);
+                panelX(), cBase, INK_MUTED, false);
         } else {
             for (int i = 0; i < clans.length; i++) {
                 int ci = indexOf(CLANS, clans[i]);       // couleur/lore depuis le répertoire maître
@@ -432,7 +501,7 @@ public class CharacterCreateScreen extends Screen {
         if ("Autre".equals(clan)) {
             int cRows = rows(clans.length);
             int fy = cBase + cRows * CELL_H + 4;
-            ctx.text(tr, RebornFont.arcade("NOM DE CLAN"), panelX(), fy, Colors.FOREGROUND_MUTED, false);
+            ctx.text(tr, RebornFont.arcade("NOM DE CLAN"), panelX(), fy, INK_RED, false);
             customClanField.setX(panelX());
             customClanField.setY(fy + 12);
             customClanField.extractRenderState(ctx, mx, my, 0f);
@@ -484,14 +553,15 @@ public class CharacterCreateScreen extends Screen {
         int cm = (int) Math.round(1.8 * size * 100);
         label(ctx, tr, "TAILLE", x, ty);
         Component cmT = RebornFont.arcade(cm + " cm");
-        ctx.text(tr, cmT, x + w - tr.width(cmT), ty, Colors.FOREGROUND, false);
+        ctx.text(tr, cmT, x + w - tr.width(cmT), ty, INK, false);
         sizeTX = x; sizeTY = ty + 14; sizeTW = w - 2;
-        DrawHelpers.roundedRect(ctx, sizeTX, sizeTY, sizeTW, 8, 3, Colors.withAlpha(0xFF000000, 0.55f));
+        DrawHelpers.roundedRect(ctx, sizeTX, sizeTY + 3, sizeTW, 2, 1, PAPER_EDGE);
         float st = (float) ((size - 0.85) / (1.15 - 0.85));
         int fillW = Math.round(st * sizeTW);
-        if (fillW > 0) DrawHelpers.roundedRect(ctx, sizeTX, sizeTY, Math.max(4, fillW), 8, 3, Colors.ACCENT);
+        if (fillW > 0) ctx.fill(sizeTX, sizeTY + 2, sizeTX + Math.max(2, fillW), sizeTY + 6, LACQ_RED);
         int szKnob = sizeTX + Math.round(st * (sizeTW - 1));
-        DrawHelpers.roundedOutlinedRect(ctx, szKnob - 3, sizeTY - 2, 6, 12, 2, Colors.GOLD, Colors.WHITE_PURE);
+        ctx.fill(szKnob - 3, sizeTY - 2, szKnob + 3, sizeTY + 10, LACQ);
+        outlineRect(ctx, szKnob - 3, sizeTY - 2, 6, 12, GOLD);
         if (hit(mx, my, sizeTX, sizeTY - 3, sizeTW, 14)) { descTitle = "Taille"; descBody = "Ajuste la taille adulte de ton personnage. Ce sera sa taille maximale."; }
 
         // Âge (stepper compact).
@@ -499,7 +569,7 @@ public class CharacterCreateScreen extends Screen {
         label(ctx, tr, "ÂGE", x, ay);
         square(ctx, tr, x, ay + 12, "-", hit(mx, my, x, ay + 12, 22, 22));
         Component av = RebornFont.arcade(String.valueOf(age));
-        ctx.text(tr, av, x + 40 - tr.width(av) / 2, ay + 12 + 7, Colors.WHITE_PURE, false);
+        ctx.text(tr, av, x + 40 - tr.width(av) / 2, ay + 12 + 7, INK, false);
         square(ctx, tr, x + 58, ay + 12, "+", hit(mx, my, x + 58, ay + 12, 22, 22));
         if (hit(mx, my, x, ay, w, 34)) { descTitle = "Âge"; descBody = "L'âge RP de départ de ton personnage."; }
 
@@ -1209,8 +1279,8 @@ public class CharacterCreateScreen extends Screen {
         int x = panelX();
         int w = panelW() - 8;
         int y = contentTop() + 4;
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, 132, 8,
-            Colors.withAlpha(0xFF000000, 0.4f), Colors.BORDER);
+        ctx.fill(x, y, x + w, y + 132, 0xFFF2E6C4);
+        outlineRect(ctx, x, y, w, 132, PAPER_EDGE);
         int ry = y + 12;
         recap(ctx, tr, x + 12, ry,       w - 24, "Prénom", blankDash(currentName().trim()));
         recap(ctx, tr, x + 12, ry + 18,  w - 24, "Clan", blankDash(effectiveClan()));
@@ -1218,84 +1288,75 @@ public class CharacterCreateScreen extends Screen {
         recap(ctx, tr, x + 12, ry + 54,  w - 24, "Sexe", sexe);
         recap(ctx, tr, x + 12, ry + 72,  w - 24, "Âge", String.valueOf(age));
         recap(ctx, tr, x + 12, ry + 90,  w - 24, "Taille", (int) Math.round(1.8 * size * 100) + " cm");
+        // Tampon hanko « 忍 » : le registre est prêt à être scellé.
+        int hx = x + w - 34, hy = y + 132 + 8;
+        outlineRect(ctx, hx, hy, 26, 26, INK_RED);
+        outlineRect(ctx, hx + 1, hy + 1, 24, 24, INK_RED);
+        Component k = Component.literal("忍");
+        ctx.text(tr, k, hx + 13 - tr.width(k) / 2, hy + 9, INK_RED, false);
         descTitle = "Validation";
         descBody = "Clique sur « Valider » pour créer ton personnage et entrer en jeu.";
     }
 
     // ── Widgets ───────────────────────────────────────────────────
     private void label(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y) {
-        ctx.text(tr, RebornFont.arcade(s), x, y, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, RebornFont.arcade(s), x, y, INK_RED, false);
     }
 
     /** Tuile village/clan : monogramme + légende, avec états sélection/verrou/hover. */
+    /** Tuile village/clan sur le registre : case de papier, sélection = cadre rouge vermillon. */
     private void tile(GuiGraphicsExtractor ctx, Font tr, int x, int y, String monogram,
                       String caption, String iconSlug, int color, boolean sel, boolean locked, boolean hover) {
-        int fill = locked ? Colors.withAlpha(0xFF000000, 0.5f)
-            : sel ? Colors.withAlpha(color, 0.55f)
-            : hover ? Colors.withAlpha(color, 0.35f)
-            : Colors.withAlpha(color, 0.18f);
-        int border = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.4f)
-            : sel ? Colors.GOLD
-            : hover ? Colors.withAlpha(color, 0.95f)
-            : Colors.withAlpha(Colors.FOREGROUND, 0.22f);
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, TILE, TILE, 8, fill, border);
+        int fill = locked ? 0xFFCDBF9C : sel ? 0xFFF4EAD0 : hover ? 0xFFF0E2C0 : 0xFFE4D4AE;
+        ctx.fill(x, y, x + TILE, y + TILE, fill);
+        outlineRect(ctx, x, y, TILE, TILE, sel ? INK_RED : hover ? INK_SUB : PAPER_EDGE);
+        if (sel) outlineRect(ctx, x + 1, y + 1, TILE - 2, TILE - 2, INK_RED);
+        // Pastille de couleur du village / clan.
+        ctx.fill(x + 3, y + TILE - 5, x + TILE - 3, y + TILE - 3, Colors.withAlpha(color, locked ? 0.3f : 0.9f));
 
-        // Logo si livré (assets/reborn/textures/character/ui/<iconSlug>.png), sinon
-        // monogramme stylé. Tuile verrouillée = on garde le monogramme (croix rouge).
         boolean hasLogo = !locked && iconSlug != null
             && blitTile(ctx, iconSlug, x + TILE / 2, y + TILE / 2);
         if (!hasLogo) {
             Component m = RebornFont.arcade(monogram);
-            int mCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.6f) : Colors.WHITE_PURE;
-            ctx.text(tr, m, x + (TILE - tr.width(m)) / 2, y + (TILE - 8) / 2, mCol, false);
+            ctx.text(tr, m, x + (TILE - tr.width(m)) / 2, y + (TILE - 8) / 2, locked ? INK_MUTED : INK, false);
         }
-
         if (locked) {
-            DrawHelpers.thickLine(ctx, x + 9, y + 9, x + TILE - 9, y + TILE - 9, 2,
-                Colors.withAlpha(Colors.DANGER, 0.9f));
-            DrawHelpers.thickLine(ctx, x + TILE - 9, y + 9, x + 9, y + TILE - 9, 2,
-                Colors.withAlpha(Colors.DANGER, 0.9f));
+            DrawHelpers.thickLine(ctx, x + 9, y + 9, x + TILE - 9, y + TILE - 9, 2, 0xD08C1C20);
+            DrawHelpers.thickLine(ctx, x + TILE - 9, y + 9, x + 9, y + TILE - 9, 2, 0xD08C1C20);
         }
-
         Component cap = RebornFont.arcade(caption);
-        int capCol = locked ? Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.55f)
-            : sel ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE;
         int cw = tr.width(cap);
-        int cellCx = x + TILE / 2;
-        ctx.text(tr, cap, cellCx - cw / 2, y + TILE + 3, capCol, false);
+        ctx.text(tr, cap, x + TILE / 2 - cw / 2, y + TILE + 3, locked ? INK_MUTED : sel ? INK_RED : INK_SUB, false);
     }
 
     private void pill(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h, String s,
                       boolean sel, boolean hover) {
-        int fill = sel ? Colors.withAlpha(Colors.ACCENT, 0.45f)
-            : hover ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.4f);
-        int border = sel ? Colors.GOLD : hover ? Colors.withAlpha(Colors.FOREGROUND, 0.4f) : Colors.BORDER;
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, h, 6, fill, border);
+        ctx.fill(x, y, x + w, y + h, sel ? LACQ_RED : hover ? 0xFFF0E2C0 : 0xFFE4D4AE);
+        outlineRect(ctx, x, y, w, h, sel ? GOLD : PAPER_EDGE);
         Component t = RebornFont.arcade(s);
-        ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2,
-            sel ? Colors.WHITE_PURE : Colors.FOREGROUND, false);
+        ctx.text(tr, t, x + (w - tr.width(t)) / 2, y + (h - 8) / 2, sel ? CREAM : INK, false);
     }
 
     private void readonlyField(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String val) {
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, 20, 5,
-            Colors.withAlpha(0xFF000000, 0.35f), Colors.withAlpha(Colors.FOREGROUND, 0.15f));
-        ctx.text(tr, RebornFont.arcade(val), x + 6, y + 6, Colors.FOREGROUND_SUBTLE, false);
+        ctx.fill(x, y, x + w, y + 20, 0xFFE4D4AE);
+        outlineRect(ctx, x, y, w, 20, PAPER_EDGE);
+        ctx.text(tr, RebornFont.arcade(val), x + 6, y + 6, INK_SUB, false);
     }
 
     private void square(GuiGraphicsExtractor ctx, Font tr, int x, int y, String s, boolean hover) {
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, 22, 22, 5,
-            hover ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.4f),
-            hover ? Colors.GOLD : Colors.BORDER);
+        ctx.fill(x, y, x + 22, y + 22, hover ? LACQ_RED : LACQ);
+        outlineRect(ctx, x, y, 22, 22, hover ? GOLD : GOLD_D);
         Component t = RebornFont.arcade(s);
-        ctx.text(tr, t, x + (22 - tr.width(t)) / 2, y + 7, Colors.WHITE_PURE, false);
+        ctx.text(tr, t, x + (22 - tr.width(t)) / 2, y + 7, CREAM, false);
     }
 
     private void recap(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, String key, String val) {
-        ctx.text(tr, RebornFont.arcade(key), x, y, Colors.FOREGROUND_MUTED, false);
+        ctx.text(tr, RebornFont.arcade(key), x, y, INK_MUTED, false);
         Component v = RebornFont.arcade(val);
-        ctx.text(tr, v, x + w - tr.width(v), y, Colors.WHITE_PURE, false);
+        ctx.text(tr, v, x + w - tr.width(v), y, INK, false);
     }
 
+    /** Description : plaque de laque noire à liseré d'or, posée sur le décor. */
     private void drawDescBox(GuiGraphicsExtractor ctx, Font tr) {
         if (descTitle == null || descBody == null) return;
         int boxW = 208;
@@ -1304,37 +1365,50 @@ public class CharacterCreateScreen extends Screen {
         List<FormattedCharSequence> lines = tr.split(RebornFont.body(descBody), boxW - 20);
         int boxH = 26 + lines.size() * 11 + 8;
         int boxY = Math.max(contentTop(), (this.height - boxH) / 2);
-        DrawHelpers.roundedOutlinedRect(ctx, boxX, boxY, boxW, boxH, 8,
-            Colors.withAlpha(0xFF0A0608, 0.9f), Colors.BORDER_STRONG);
-        DrawHelpers.rect(ctx, boxX, boxY, 3, boxH, Colors.GOLD);
-        ctx.text(tr, RebornFont.arcade(descTitle), boxX + 12, boxY + 10, Colors.GOLD, false);
+        ctx.fill(boxX + 2, boxY + 3, boxX + boxW + 2, boxY + boxH + 3, 0x80000000);
+        ctx.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xF00E0A0C);
+        outlineRect(ctx, boxX, boxY, boxW, boxH, GOLD);
+        kanagu(ctx, boxX, boxY, boxW, boxH);
+        ctx.text(tr, RebornFont.arcade(descTitle), boxX + 12, boxY + 10, GOLD, false);
         int ly = boxY + 26;
         for (FormattedCharSequence l : lines) {
-            ctx.text(tr, l, boxX + 12, ly, Colors.FOREGROUND_SUBTLE, false);
+            ctx.text(tr, l, boxX + 12, ly, 0xFFE6D2BE, false);
             ly += 11;
         }
     }
 
+    private static void outlineRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
+        ctx.fill(x, y, x + w, y + 1, c); ctx.fill(x, y + h - 1, x + w, y + h, c);
+        ctx.fill(x, y, x + 1, y + h, c); ctx.fill(x + w - 1, y, x + w, y + h, c);
+    }
+
+    private static void kanagu(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+        int c = GOLD, s = 5;
+        ctx.fill(x, y, x + s, y + 2, c); ctx.fill(x, y, x + 2, y + s, c);
+        ctx.fill(x + w - s, y, x + w, y + 2, c); ctx.fill(x + w - 2, y, x + w, y + s, c);
+        ctx.fill(x, y + h - 2, x + s, y + h, c); ctx.fill(x, y + h - s, x + 2, y + h, c);
+        ctx.fill(x + w - s, y + h - 2, x + w, y + h, c); ctx.fill(x + w - 2, y + h - s, x + w, y + h, c);
+    }
+
+    /** Retour / Suivant : plaques laquées (sombre / vermillon bordé d'or). */
     private void drawNav(GuiGraphicsExtractor ctx, Font tr, int mx, int my) {
         int y = navY();
         int x = panelX();
-        // Retour (sombre).
         boolean hb = hit(mx, my, x, y, NAV_W, NAV_H);
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, NAV_W, NAV_H, 8,
-            hb ? Colors.SURFACE_OVERLAY : Colors.withAlpha(0xFF000000, 0.5f),
-            hb ? Colors.withAlpha(Colors.FOREGROUND, 0.5f) : Colors.BORDER);
+        ctx.fill(x + 1, y + 2, x + NAV_W + 1, y + NAV_H + 2, 0x80000000);
+        ctx.fill(x, y, x + NAV_W, y + NAV_H, hb ? 0xFF4A2830 : 0xFF3C1E24);
+        outlineRect(ctx, x, y, NAV_W, NAV_H, hb ? GOLD : 0xFF6E4646);
         Component back = RebornFont.arcade("Retour");
-        ctx.text(tr, back, x + (NAV_W - tr.width(back)) / 2, y + (NAV_H - 8) / 2,
-            Colors.FOREGROUND, false);
+        ctx.text(tr, back, x + (NAV_W - tr.width(back)) / 2, y + (NAV_H - 8) / 2, hb ? CREAM : 0xFFC8B4A0, false);
 
-        // Suivant / Valider (clair, ton sable).
         int nx = x + NAV_W + 12;
         boolean last = step == 3;
         boolean hn = hit(mx, my, nx, y, NAV_W, NAV_H);
-        int fill = hn ? Colors.GOLD : Colors.withAlpha(Colors.GOLD, 0.82f);
-        DrawHelpers.roundedRect(ctx, nx, y, NAV_W, NAV_H, 8, fill);
-        Component nt = RebornFont.arcade(last ? "Valider" : "Suivant");
-        ctx.text(tr, nt, nx + (NAV_W - tr.width(nt)) / 2, y + (NAV_H - 8) / 2, 0xFF1A1008, false);
+        ctx.fill(nx + 1, y + 2, nx + NAV_W + 1, y + NAV_H + 2, 0x80000000);
+        ctx.fill(nx, y, nx + NAV_W, y + NAV_H, hn ? 0xFFC82A2E : LACQ_RED);
+        outlineRect(ctx, nx, y, NAV_W, NAV_H, GOLD);
+        Component nt = RebornFont.arcade(last ? "Valider" : "Suivant  >");
+        ctx.text(tr, nt, nx + (NAV_W - tr.width(nt)) / 2, y + (NAV_H - 8) / 2, CREAM, false);
     }
 
     // ── Helpers géométrie / texte ─────────────────────────────────

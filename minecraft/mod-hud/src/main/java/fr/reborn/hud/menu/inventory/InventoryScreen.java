@@ -24,8 +24,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * <b>Sacoche « inrō »</b> — l'inventaire RP dans la DA Reborn (carte, fiche, Échap) : nuit sur le
- * village, plaque laquée suspendue + onglets pendus, cadres laque/or, bande de parchemin.
+ * <b>Sacoche « inrō »</b> — l'inventaire RP dans la DA Reborn (carte, fiche, Échap) : plaque laquée suspendue + onglets pendus, cadres laque/or, bande de parchemin.
+ *
+ * <p>Le monde reste visible derrière (voile plus sombre sur les bords).
  *
  * <p>Signature : un <b>inrō</b> (boîte laquée à étages portée à la ceinture). Chaque étage est un
  * filtre (Tout / Sac / Divers) ; l'étage actif glisse vers le <b>plateau</b> laqué rouge qui contient
@@ -47,8 +48,7 @@ public class InventoryScreen extends Screen {
         BLACK_L = 0xFF0E0A0C, SHINE = 0xFF46383C, MUTED = 0xFFC8B4A0;
 
     private static Identifier tex(String p) { return Identifier.fromNamespaceAndPath("reborn", "textures/gui/" + p + ".png"); }
-    private static final Identifier SKY = tex("stats/sky_night"), MOON = tex("stats/moon"), MOUNTAINS = tex("stats/mountains"),
-        VILLAGE = tex("stats/village"), WINDOWS = tex("stats/windows"), GLOW = tex("stats/glow"),
+    private static final Identifier GLOW = tex("stats/glow"),
         TIER_ON = tex("sacoche/tier_on"), TIER_OFF = tex("sacoche/tier_off"), NETSUKE = tex("sacoche/netsuke"),
         OJIME = tex("sacoche/ojime"), OBI = tex("sacoche/obi"), PEDESTAL = tex("sacoche/pedestal");
 
@@ -292,22 +292,17 @@ public class InventoryScreen extends Screen {
     }
 
     // ─────────── Rendu ───────────
-    /** Fond : la nuit sur le village (mêmes calques que la fiche shinobi), voilée pour la lisibilité. */
+    /** Fond : le monde reste visible, sous un voile plus marqué sur les bords (lisibilité). */
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 180f);
         int w = this.width, h = this.height;
-        float t = (System.currentTimeMillis() - openedAt) / 1000f;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, SKY, 0, 0, 0f, 0f, w, h, 480, 270, 480, 270);
-        int ms = 34, mx = (int) (w * 0.88f), my = (int) (h * 0.06f);
-        glow(ctx, mx + ms / 2f, my + ms / 2f, ms * 3, Colors.withAlpha(0xFFFFECC8, 0.10f + 0.04f * (float) Math.sin(t * 0.8f)));
-        ctx.blit(RenderPipelines.GUI_TEXTURED, MOON, mx, my, 0f, 0f, ms, ms, 40, 40, 40, 40, 0xFFF8EED2);
-        int mh = (int) (h * 0.30f), mtop = h - (int) (h * 0.48f);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, MOUNTAINS, 0, mtop, 0f, 0f, w, mh, 480, 120, 480, 120, 0xFF1E162E);
-        int vh = (int) (h * 0.20f), vy = h - vh;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE, 0, vy, 0f, 0f, w, vh, 480, 80, 480, 80, 0xFF120C18);
-        float flick = 0.85f + 0.15f * (float) Math.sin(t * 4.3f);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOWS, 0, vy, 0f, 0f, w, vh, 480, 80, 480, 80, Colors.withAlpha(0xFFBE6E38, flick));
-        ctx.fill(0, 0, w, h, 0x5A08040E);
+        int center = Colors.withAlpha(0xFF08040C, 0.30f * appear), edge = Colors.withAlpha(0xFF08040C, 0.62f * appear);
+        ctx.fill(0, 0, w, h, center);
+        ctx.fillGradient(0, 0, w, h / 4, edge, 0x00000000);
+        ctx.fillGradient(0, h - h / 4, w, h, 0x00000000, edge);
+        fr.reborn.hud.menu.DrawHelpers.horizontalGradient(ctx, 0, 0, w / 5, h, edge, 0x00000000);
+        fr.reborn.hud.menu.DrawHelpers.horizontalGradient(ctx, w - w / 5, 0, w / 5, h, 0x00000000, edge);
     }
 
     @Override
@@ -497,10 +492,11 @@ public class InventoryScreen extends Screen {
     // ── plateau laqué : recherche, compteur, grille du sac, poids ──
     private void drawTray(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
         ctx.fill(trayX + 2, trayY + 3, trayX + trayW + 2, trayY + trayH + 3, 0x90000000);
-        frame(ctx, trayX, trayY, trayW, trayH, BLACK_L, GOLD);
+        frame(ctx, trayX, trayY, trayW, trayH, 0xD80E0A0C, GOLD);
         kanagu(ctx, trayX, trayY, trayW, trayH, 6, GOLD);
         int ix = trayX + 5, iy = trayY + 5, iw = trayW - 10, ih = trayH - 10;
-        ctx.fillGradient(ix, iy, ix + iw, iy + ih, 0xFF961A1C, 0xFF600E12);
+        // Laque rouge légèrement transparente : le monde transparaît derrière le plateau.
+        ctx.fillGradient(ix, iy, ix + iw, iy + ih, 0xD2961A1C, 0xD2600E12);
         ctx.fill(ix, iy, ix + iw, iy + 1, 0xFFBE3C38);
         // recherche : simple filet sous le champ
         ctx.fill(search.getX() - 2, trayY + 21, search.getX() + search.getWidth(), trayY + 22, 0xFFC86E5A);
