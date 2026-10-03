@@ -174,6 +174,29 @@ public final class MovementAnimations {
     }
     public boolean hasIdlePose() { return idlePose != null; }
 
+    /**
+     * Applique la pose idle à un avatar d'aperçu (joueur factice hors monde, ex. la
+     * rangée de persos de l'écran de sélection). Sans effet si PAL ou l'asset manque.
+     */
+    public void posePreview(AbstractClientPlayer avatar) {
+        if (!available || idlePose == null || avatar == null) return;
+        applyState(avatar, MoveState.POSE, 0);
+    }
+
+    /**
+     * Fait avancer l'animation d'un avatar d'aperçu : un joueur factice n'est pas tické
+     * par le monde, donc PAL n'avance jamais son anim. Même appel que le hook tick de PAL.
+     */
+    public void tickPreview(AbstractClientPlayer avatar) {
+        if (!available || avatar == null) return;
+        try {
+            ((com.zigythebird.playeranim.accessors.IAnimatedAvatar) avatar)
+                .playerAnimLib$getAnimManager().handleAnimations(0f, true, false);
+        } catch (Throwable ignored) {
+            // PAL absent / API changée : l'avatar reste en pose par défaut.
+        }
+    }
+
     /** Enregistre le layer PAL par avatar + charge les animations. */
     public void register() {
         try {

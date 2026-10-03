@@ -1,41 +1,65 @@
 package fr.reborn.hud.menu.character;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
+import com.mojang.authlib.GameProfile;
 import fr.reborn.hud.menu.RebornFont;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.RemotePlayer;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 /**
- * Écran de sélection de personnage <b>épuré façon Reborn</b> (affiché au join).
+ * Écran de sélection de personnage (affiché au join) — DA Reborn, planche « Horizon ».
  *
- * <p>Le décor du jeu reste visible derrière (le serveur téléporte le joueur au
- * build de spawn et fige la caméra). Un seul personnage à la fois, <b>centré,
- * face caméra, statique</b>. Dessous : nom, ligne « clan · village », et un
- * bouton <b>Sélectionner</b>. On change de personnage avec les flèches ‹ › aux
- * bords. Si le personnage est mort (RPK), le bouton devient « RPK » non cliquable.
+ * <p>Sobre : dégradé bleu nuit → noir, une ligne d'horizon, et un <b>disque vermillon</b>
+ * derrière le perso focalisé. <b>Tous les persos sont visibles en pied</b>, en pose idle,
+ * chacun avec son skin RP : le focalisé est au centre, grand et en couleur ; les autres
+ * glissent de part et d'autre (carrousel), plus petits et éteints. Un perso mort (RPK) est
+ * encore plus effacé. Dessous : nom, ligne « clan / village / rang / niveau », ENTRER.
  *
- * <p>Le « perso dans le monde » = le vrai joueur local en 3e personne de face
- * pendant que l'écran est ouvert (skins par perso = Phase 2). Branché serveur via
- * le canal {@code reborn:character}.
+ * <p>Chaque perso est un <b>joueur factice</b> côté client ({@link RemotePlayer} hors monde,
+ * UUID dérivé de l'id du perso) sur lequel on applique le skin composé via {@link
+ * fr.reborn.hud.skin.RebornSkins} (override par UUID) et la pose idle via PAL. Un perso
+ * sans apparence est rendu avec le joueur local (skin Minecraft normal).
+ *
+ * <p>Tout est disposé dans un espace virtuel 640×360 mis à l'échelle et centré.
  */
 public class CharacterSelectScreen extends Screen {
 
-    private static final int BTN_W = 190;
-    private static final int BTN_H = 36;
+    // Palette.
+    private static final int SKY_TOP = 0xFF161A30, SKY_BOT = 0xFF06060A, GROUND = 0xFF08080C,
+        HORIZON = 0xFF786E82, DISC = 0xC8961E22, DISC_REFL = 0xFF46141A, GOLD = 0xFFF6CC78,
+        GOLD_D = 0xFFAA8034, CREAM = 0xFFFAEED6, SUB = 0xFFAAAABE, MUTED = 0xFF8282A0,
+        RED = 0xFFAA1E22, RED_HOV = 0xFFC82A2E, DEAD = 0xFFA05048, KEYS = 0xFF6E6E82;
+
+    // Géométrie virtuelle (640×360).
+    private static final float VW = 640, VH = 360, HZ = 250, CX = 320;
+    private static final float SPACING = 112, SIZE_ON = 92, SIZE_OFF = 68, DISC_R = 70;
 
     private int focused = 0;
+    private float slide = 0;            // position animée du carrousel (→ focused)
+    private long lastFrame = 0;
 
-    // Masque le HUD vanilla pendant l'écran (rendu hybride GUI, monde masqué).
     private boolean prevHudHidden;
     private boolean perspectiveCaptured = false;
+
+    /** Joueurs factices par id de perso (skin RP + pose). */
+    private final Map<String, RemotePlayer> dummies = new HashMap<>();
+
+    // Échelle / origine (recalculées à chaque image).
+    private float s = 1, ox = 0, oy = 0;
 
     public CharacterSelectScreen() {
         super(Component.literal("Sélection du personnage"));
@@ -46,12 +70,11 @@ public class CharacterSelectScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (!perspectiveCaptured && mc.options != null) {
             prevHudHidden = mc.gui.hud.isHidden();
-            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(true); // masque vie/faim/xp/armure/hotbar/crosshair
+            ((fr.reborn.hud.mixin.HudAccessor)(Object) mc.gui.hud).reborn$setHidden(true);
             perspectiveCaptured = true;
         }
-        // Pose idle (émote assise) le temps de l'écran — présentation « plan idle ».
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.startPose();
-        applyFocusPreview(); // affiche le skin RP composé du perso focalisé
+        slide = focused;
     }
 
     @Override
@@ -62,27 +85,17 @@ public class CharacterSelectScreen extends Screen {
             perspectiveCaptured = false;
         }
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
+        for (RemotePlayer d : dummies.values()) fr.reborn.hud.skin.RebornSkins.clear(d.getUUID());
+        dummies.clear();
         super.removed();
     }
 
-    /**
-     * Applique le skin RP <b>composé du perso focalisé</b> sur le corps du joueur local
-     * (rendu via {@code drawEntity}) → on voit le skin de CHAQUE perso en parcourant.
-     * Le perso est gelé et les autres joueurs sont cachés pendant la sélection, donc ce
-     * preview local est sans effet visible pour autrui. Tuile « créer » / sans apparence
-     * → skin Minecraft normal.
-     */
-    private void applyFocusPreview() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-        java.util.UUID uuid = mc.player.getUUID();
-        List<CharacterCard> list = cards();
-        if (!isCreateTile(focused) && focused >= 0 && focused < list.size()
-                && list.get(focused).hasAppearance()) {
-            fr.reborn.hud.skin.RebornSkins.applySpec(
-                uuid, fr.reborn.hud.skin.SkinSpec.deserialize(list.get(focused).appearance()));
-        } else {
-            fr.reborn.hud.skin.RebornSkins.clear(uuid);
+    @Override
+    public void tick() {
+        super.tick();
+        for (RemotePlayer d : dummies.values()) {
+            d.tickCount++;
+            fr.reborn.hud.animation.MovementAnimations.INSTANCE.tickPreview(d);
         }
     }
 
@@ -94,141 +107,233 @@ public class CharacterSelectScreen extends Screen {
 
     private void moveFocus(int delta) {
         int n = Math.max(1, tileCount());
-        focused = ((focused + delta) % n + n) % n;
-        applyFocusPreview();
-        // Son de changement de perso (passage d'un caractère à l'autre).
+        int next = Math.max(0, Math.min(n - 1, focused + delta));   // carrousel borné : pas de saut de bout en bout
+        if (next == focused) return;
+        focused = next;
         fr.reborn.hud.menu.RebornSounds.charNav();
     }
 
+    private void focusTo(int i) {
+        if (i == focused || i < 0 || i >= tileCount()) return;
+        focused = i;
+        fr.reborn.hud.menu.RebornSounds.charNav();
+    }
+
+    /** Avatar à rendre pour ce perso : joueur factice skinné, ou le joueur local sans apparence. */
+    private AbstractClientPlayer avatarFor(CharacterCard c) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || !c.hasAppearance()) return mc.player;
+        RemotePlayer d = dummies.get(c.id());
+        if (d == null) {
+            UUID uuid = UUID.nameUUIDFromBytes(("reborn-select:" + c.id()).getBytes(StandardCharsets.UTF_8));
+            String name = c.firstName() == null || c.firstName().isBlank() ? "Shinobi" : c.firstName();
+            if (name.length() > 16) name = name.substring(0, 16);
+            d = new RemotePlayer(mc.level, new GameProfile(uuid, name));
+            fr.reborn.hud.skin.RebornSkins.applySpec(uuid, fr.reborn.hud.skin.SkinSpec.deserialize(c.appearance()));
+            fr.reborn.hud.animation.MovementAnimations.INSTANCE.posePreview(d);
+            dummies.put(c.id(), d);
+        }
+        return d;
+    }
+
     // ── Géométrie ─────────────────────────────────────────────────
-    private int modelCenterY() { return (int) (this.height * 0.44f); }
+    private void layout() {
+        s = Math.min(this.width / VW, this.height / VH);
+        ox = (this.width - VW * s) / 2f;
+        oy = (this.height - VH * s) / 2f;
+    }
 
-    private int nameY() { return (int) (this.height * 0.76f); }
-    private int villageY() { return nameY() + 14; }
-    private int btnX() { return (this.width - BTN_W) / 2; }
-    private int btnY() { return villageY() + 16; }
+    private int px(float vx) { return Math.round(ox + vx * s); }
+    private int py(float vy) { return Math.round(oy + vy * s); }
 
-    private int arrowY() { return modelCenterY() - 6; }
-    private int leftArrowX() { return 44; }
-    private int rightArrowX() { return this.width - 64; }
+    /** Proximité au focus (1 = focalisé, 0 = voisin ou plus loin) selon la position animée. */
+    private float nearness(int i) { return Math.max(0f, 1f - Math.abs(i - slide)); }
+    private float tileX(int i) { return CX + (i - slide) * SPACING; }
+    private float tileSize(int i) { return SIZE_OFF + (SIZE_ON - SIZE_OFF) * nearness(i); }
+
+    // Bouton ENTRER (virtuel).
+    private static final float BTN_W = 80, BTN_H = 14, BTN_Y = 316;
 
     // ── Rendu ─────────────────────────────────────────────────────
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        // Fond stylisé PLEIN (opaque) — masque le monde IG (rendu hybride GUI).
-        ctx.fillGradient(0, 0, this.width, this.height, 0xFF0B0709, 0xFF140A0D);
-        // Bande sombre en bas où vivent le nom / village / bouton.
-        ctx.fillGradient(0, this.height - 170, this.width, this.height,
-            0x00000000, Colors.withAlpha(0xFF000000, 0.55f));
-    }
-
-    /** Rend le joueur local (skin composé du perso focalisé) centré, face caméra, statique. */
-    private void drawAvatar(GuiGraphicsExtractor ctx) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-        int cx = this.width / 2;
-        int size = (int) (this.height * 0.34f);
-        int top = (int) (this.height * 0.12f);
-        int bot = (int) (this.height * 0.86f);
-        net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
-            ctx, cx - size, top, cx + size, bot, size, 0f, cx, (top + bot) / 2f, mc.player);
+        layout();
+        // Ciel plein écran (opaque : le monde n'est jamais visible ici), sol sous l'horizon.
+        ctx.fillGradient(0, 0, this.width, this.height, SKY_TOP, SKY_BOT);
+        int hz = py(HZ);
+        // Disque vermillon derrière le perso focalisé (fixe au centre : c'est le carrousel qui glisse).
+        fillDisc(ctx, px(CX), py(HZ - 120), Math.round(DISC_R * s), DISC);
+        ctx.fill(0, hz, this.width, this.height, GROUND);
+        ctx.fill(0, hz, this.width, hz + Math.max(1, Math.round(s * 0.6f)), HORIZON);
+        // reflet du disque sur le sol
+        int rw = Math.round(50 * s), rh = Math.max(2, Math.round(3 * s));
+        ctx.fill(px(CX) - rw, hz + Math.round(5 * s), px(CX) + rw, hz + Math.round(5 * s) + rh, DISC_REFL);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        layout();
+        long now = System.currentTimeMillis();
+        float dt = lastFrame == 0 ? 0.016f : Math.min(0.1f, (now - lastFrame) / 1000f);
+        lastFrame = now;
+        slide += (focused - slide) * Math.min(1f, dt * 12f);
+        if (Math.abs(focused - slide) < 0.002f) slide = focused;
+
         super.extractRenderState(ctx, mouseX, mouseY, delta);
-        Font tr = this.font;
+        Font f = this.font;
         List<CharacterCard> list = cards();
+        int n = tileCount();
+        int hz = py(HZ);
 
-        drawAvatar(ctx); // perso au centre (skin RP du perso focalisé)
-
-        // Logo serveur (haut-droite).
-        if (CreatorUi.logoExists()) {
-            CreatorUi.blitLogo(ctx, this.width - 24 - 45, 14, 45, 30);
-        } else {
-            Component logo = RebornFont.arcade("REBORN");
-            ctx.text(tr, logo, this.width - 24 - tr.width(logo), 22, Colors.GOLD, false);
+        // 1) Avatars (du plus loin au plus proche du focus, pour que le focalisé passe devant).
+        Integer[] order = new Integer[n];
+        for (int i = 0; i < n; i++) order[i] = i;
+        java.util.Arrays.sort(order, (a, b) -> Float.compare(nearness(a), nearness(b)));
+        for (int i : order) {
+            float x = tileX(i);
+            if (x < -40 || x > VW + 40 || isCreateTile(i)) continue;
+            CharacterCard c = list.get(i);
+            AbstractClientPlayer av = avatarFor(c);
+            if (av == null) continue;
+            int size = Math.round(tileSize(i) * s);
+            int cx = px(x);
+            int bottom = hz + Math.round(6 * s);
+            int top = bottom - Math.round(size * 1.8f) - Math.round(12 * s);
+            int cy = (top + bottom) / 2;
+            int half = Math.round(size * 0.5f);
+            net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
+                ctx, cx - half, top, cx + half, bottom, size, 0f, cx, cy, av);
         }
 
-        if (isCreateTile(focused)) {
-            drawCreate(ctx, tr, mouseX, mouseY);
-        } else if (!list.isEmpty()) {
-            drawCharacter(ctx, tr, list.get(Math.min(focused, list.size() - 1)), mouseX, mouseY);
+        // 2) Voile qui éteint les persos non focalisés (même dégradé que le ciel → « fondu » dans le fond).
+        ctx.nextStratum();
+        for (int i = 0; i < n; i++) {
+            float x = tileX(i);
+            if (x < -40 || x > VW + 40 || isCreateTile(i)) continue;
+            CharacterCard c = list.get(i);
+            float dim = (1f - nearness(i)) * 0.62f;
+            if (c.dead()) dim = Math.max(dim, 0.72f);
+            if (dim <= 0.01f) continue;
+            int size = Math.round(tileSize(i) * s);
+            int cx = px(x), half = Math.round(size * 0.5f) + 2;
+            int bottom = hz, top = bottom - Math.round(size * 1.8f) - Math.round(12 * s);
+            int a = Math.round(dim * 255) << 24;
+            ctx.fillGradient(cx - half, top, cx + half, bottom,
+                a | (skyAt(top) & 0xFFFFFF), a | (skyAt(bottom) & 0xFFFFFF));
+        }
+        ctx.fill(0, hz, this.width, hz + Math.max(1, Math.round(s * 0.6f)), HORIZON);
+
+        // 3) Titre.
+        text(ctx, f, "PERSONNAGES", CX, 16, 1.5f, CREAM, true);
+        int ty = py(28);
+        ctx.fill(px(CX - 60), ty, px(CX - 10), ty + 1, GOLD_D);
+        ctx.fill(px(CX + 10), ty, px(CX + 60), ty + 1, GOLD_D);
+        ctx.fill(px(CX) - 2, ty - 2, px(CX) + 2, ty + 2, GOLD);
+
+        // 4) Étiquettes sous les persos non focalisés + tuile « nouveau ».
+        for (int i = 0; i < n; i++) {
+            float x = tileX(i);
+            if (x < -40 || x > VW + 40) continue;
+            float near = nearness(i);
+            if (isCreateTile(i)) {
+                int col = blend(MUTED, CREAM, near);
+                text(ctx, f, "+", x, HZ - 56, 2f, col, true);
+                if (near < 0.5f) text(ctx, f, "NOUVEAU", x, HZ + 9, 1f, col, true);
+                continue;
+            }
+            if (near >= 0.5f) continue;
+            CharacterCard c = list.get(i);
+            text(ctx, f, c.firstName(), x, HZ + 9, 1f, c.dead() ? DEAD : blend(MUTED, CREAM, near * 2), true);
+            if (c.dead()) text(ctx, f, "RPK", x, HZ + 18, 1f, DEAD, true);
         }
 
-        // Flèches ‹ › (si plus d'une tuile).
-        if (tileCount() > 1) {
-            boolean lh = overArrow(mouseX, mouseY, leftArrowX());
-            boolean rh = overArrow(mouseX, mouseY, rightArrowX());
-            ctx.text(tr, RebornFont.arcade("<"), leftArrowX(), arrowY(),
-                lh ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
-            ctx.text(tr, RebornFont.arcade(">"), rightArrowX(), arrowY(),
-                rh ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
+        // 5) Bloc d'info du focalisé.
+        if (n > 0) {
+            if (isCreateTile(focused)) {
+                text(ctx, f, "NOUVEAU PERSONNAGE", CX, 280, 1.5f, CREAM, true);
+                text(ctx, f, "CREE TON SHINOBI", CX, 296, 1f, SUB, true);
+                drawButton(ctx, f, "CREER", true, mouseX, mouseY);
+            } else {
+                CharacterCard c = list.get(Math.min(focused, list.size() - 1));
+                text(ctx, f, c.firstName(), CX, 280, 1.5f, c.dead() ? DEAD : CREAM, true);
+                StringBuilder sb = new StringBuilder();
+                if (c.hasClan()) sb.append(c.clan());
+                if (c.hasVillage()) sb.append(sb.length() > 0 ? "  /  " : "").append(c.village());
+                if (c.rank() != null && !c.rank().isBlank()) sb.append(sb.length() > 0 ? "  /  " : "").append(c.rank());
+                sb.append(sb.length() > 0 ? "  /  " : "").append("NIV ").append(c.level());
+                text(ctx, f, sb.toString(), CX, 296, 1f, SUB, true);
+                if (c.dead()) drawButton(ctx, f, "RPK", false, mouseX, mouseY);
+                else drawButton(ctx, f, "ENTRER", true, mouseX, mouseY);
+            }
         }
+
+        text(ctx, f, (n > 1 ? "<  >  CHANGER        " : "") + "ENTREE  JOUER", CX, 348, 1f, KEYS, true);
     }
 
-    private void drawCharacter(GuiGraphicsExtractor ctx, Font tr, CharacterCard c, int mouseX, int mouseY) {
-        int clanCol = c.clanColor() != 0 ? c.clanColor() : Colors.ACCENT;
-        int nameCol = c.dead() ? Colors.FOREGROUND_MUTED : Colors.WHITE_PURE;
-
-        // Ligne 1 : nom + clan côte à côte, centrés en groupe.
-        Component name = RebornFont.arcade(c.firstName());
-        Component clan = c.hasClan() ? RebornFont.arcade(c.clan()) : null;
-        int gap = 12;
-        int nameW = tr.width(name);
-        int clanW = clan != null ? tr.width(clan) : 0;
-        int totalW = nameW + (clan != null ? gap + clanW : 0);
-        int lx = (this.width - totalW) / 2;
-        ctx.text(tr, name, lx, nameY(), nameCol, false);
-        if (clan != null) {
-            ctx.text(tr, clan, lx + nameW + gap, nameY(),
-                c.dead() ? Colors.FOREGROUND_MUTED : clanCol, false);
-        }
-
-        // Ligne 2 : village.
-        if (c.hasVillage()) {
-            Component vil = RebornFont.arcade(c.village());
-            ctx.text(tr, vil, (this.width - tr.width(vil)) / 2, villageY(),
-                c.dead() ? Colors.FOREGROUND_MUTED : Colors.FOREGROUND_SUBTLE, false);
-        }
-
-        // Bouton « Sélectionner » OU pastille « RPK » (non cliquable).
-        if (c.dead()) {
-            DrawHelpers.roundedOutlinedRect(ctx, btnX(), btnY(), BTN_W, BTN_H, 8,
-                Colors.withAlpha(Colors.DANGER, 0.35f), Colors.DANGER);
-            Component rpk = RebornFont.arcade("RPK");
-            ctx.text(tr, rpk, (this.width - tr.width(rpk)) / 2, btnY() + (BTN_H - 8) / 2,
-                Colors.WHITE_PURE, false);
-        } else {
-            drawButton(ctx, tr, "Sélectionner", mouseX, mouseY, clanCol);
-        }
+    private void drawButton(GuiGraphicsExtractor ctx, Font f, String label, boolean enabled, int mx, int my) {
+        int x0 = px(CX - BTN_W / 2), y0 = py(BTN_Y), x1 = px(CX + BTN_W / 2), y1 = py(BTN_Y + BTN_H);
+        boolean hov = enabled && mx >= x0 && mx < x1 && my >= y0 && my < y1;
+        ctx.fill(x0, y0, x1, y1, enabled ? (hov ? RED_HOV : RED) : 0xFF3C1416);
+        int b = enabled ? GOLD : 0xFF8C3C36;
+        ctx.fill(x0, y0, x1, y0 + 1, b); ctx.fill(x0, y1 - 1, x1, y1, b);
+        ctx.fill(x0, y0, x0 + 1, y1, b); ctx.fill(x1 - 1, y0, x1, y1, b);
+        text(ctx, f, label, CX, BTN_Y + 4, 1f, enabled ? CREAM : DEAD, true);
     }
 
-    private void drawCreate(GuiGraphicsExtractor ctx, Font tr, int mouseX, int mouseY) {
-        Component name = RebornFont.arcade("Nouveau personnage");
-        ctx.text(tr, name, (this.width - tr.width(name)) / 2, nameY(), Colors.WHITE_PURE, false);
-        Component m = RebornFont.arcade("Crée ton shinobi");
-        ctx.text(tr, m, (this.width - tr.width(m)) / 2, villageY(), Colors.FOREGROUND_MUTED, false);
-        drawButton(ctx, tr, "Créer", mouseX, mouseY, Colors.ACCENT);
+    /** Texte ArcadePix (majuscules sans accents) à une position virtuelle, mis à l'échelle. */
+    private void text(GuiGraphicsExtractor ctx, Font f, String str, float vx, float vy, float mul, int col, boolean centered) {
+        Component c = RebornFont.arcade(ax(str));
+        float sc = s * mul;
+        float x = ox + vx * s - (centered ? f.width(c) * sc / 2f : 0);
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(Math.round(x), Math.round(oy + vy * s));
+        ctx.pose().scale(sc, sc);
+        ctx.text(f, c, 0, 0, col, false);
+        ctx.pose().popMatrix();
     }
 
-    private void drawButton(GuiGraphicsExtractor ctx, Font tr, String label, int mouseX, int mouseY, int accent) {
-        boolean hover = overButton(mouseX, mouseY);
-        int fill = hover ? Colors.withAlpha(accent, 0.35f) : Colors.withAlpha(0xFF000000, 0.45f);
-        int border = hover ? accent : Colors.withAlpha(Colors.FOREGROUND, 0.35f);
-        DrawHelpers.roundedOutlinedRect(ctx, btnX(), btnY(), BTN_W, BTN_H, 8, fill, border);
-        Component t = RebornFont.arcade(label);
-        ctx.text(tr, t, (this.width - tr.width(t)) / 2, btnY() + (BTN_H - 8) / 2,
-            Colors.WHITE_PURE, false);
+    private static String ax(String s) {
+        if (s == null) return "";
+        return Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}+", "").toUpperCase(Locale.ROOT);
+    }
+
+    /** Couleur du ciel à l'ordonnée écran y (pour un voile qui se fond dans le fond). */
+    private int skyAt(int y) {
+        float t = this.height <= 0 ? 0 : Math.max(0, Math.min(1, y / (float) this.height));
+        return blend(SKY_TOP, SKY_BOT, t);
+    }
+
+    private static int blend(int a, int b, float t) {
+        t = Math.max(0, Math.min(1, t));
+        int r = Math.round(((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t);
+        int g = Math.round(((a >> 8) & 255) * (1 - t) + ((b >> 8) & 255) * t);
+        int bl = Math.round((a & 255) * (1 - t) + (b & 255) * t);
+        return 0xFF000000 | (r << 16) | (g << 8) | bl;
+    }
+
+    private static void fillDisc(GuiGraphicsExtractor ctx, int cx, int cy, int r, int color) {
+        for (int dy = -r; dy <= r; dy++) {
+            int dx = (int) Math.round(Math.sqrt((double) r * r - dy * dy));
+            ctx.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
+        }
     }
 
     // ── Hit-tests ─────────────────────────────────────────────────
     private boolean overButton(int mx, int my) {
-        return mx >= btnX() && mx < btnX() + BTN_W && my >= btnY() && my < btnY() + BTN_H;
+        return mx >= px(CX - BTN_W / 2) && mx < px(CX + BTN_W / 2) && my >= py(BTN_Y) && my < py(BTN_Y + BTN_H);
     }
 
-    private boolean overArrow(int mx, int my, int ax) {
-        return mx >= ax - 6 && mx <= ax + 18 && Math.abs(my - arrowY()) < 18;
+    /** Tuile sous la souris (zone du perso + son étiquette), ou -1. */
+    private int tileAt(int mx, int my) {
+        int hz = py(HZ);
+        for (int i = 0; i < tileCount(); i++) {
+            float x = tileX(i);
+            int size = Math.round(tileSize(i) * s);
+            int half = Math.max(Math.round(size * 0.5f), Math.round(30 * s));
+            int top = hz - Math.round(size * 1.8f) - Math.round(12 * s);
+            if (mx >= px(x) - half && mx < px(x) + half && my >= top && my < hz + Math.round(24 * s)) return i;
+        }
+        return -1;
     }
 
     // ── Interactions ──────────────────────────────────────────────
@@ -241,8 +346,8 @@ public class CharacterSelectScreen extends Screen {
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         switch (event.key()) {
-            case GLFW.GLFW_KEY_LEFT -> { moveFocus(-1); return true; }
-            case GLFW.GLFW_KEY_RIGHT -> { moveFocus(1); return true; }
+            case GLFW.GLFW_KEY_LEFT, GLFW.GLFW_KEY_A, GLFW.GLFW_KEY_Q -> { moveFocus(-1); return true; }
+            case GLFW.GLFW_KEY_RIGHT, GLFW.GLFW_KEY_D -> { moveFocus(1); return true; }
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> { confirmFocused(); return true; }
             // ÉCHAP est neutralisé : jouer exige d'avoir choisi un personnage. Sans
             // ça, ÉCHAP fermait l'écran et lâchait un joueur NON sélectionné dans le
@@ -259,17 +364,13 @@ public class CharacterSelectScreen extends Screen {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         if (event.button() == 0) {
+            layout();
             int mx = (int) event.x(), my = (int) event.y();
-            if (tileCount() > 1) {
-                if (overArrow(mx, my, leftArrowX())) { moveFocus(-1); return true; }
-                if (overArrow(mx, my, rightArrowX())) { moveFocus(1); return true; }
-            }
-            if (overButton(mx, my)) {
-                if (isCreateTile(focused)) { onCreate(); return true; }
-                List<CharacterCard> list = cards();
-                if (focused >= 0 && focused < list.size() && !list.get(focused).dead()) {
-                    onSelect(list.get(focused));
-                }
+            if (overButton(mx, my)) { confirmFocused(); return true; }
+            int t = tileAt(mx, my);
+            if (t >= 0) {
+                if (t == focused) { if (doubleClick) confirmFocused(); }
+                else focusTo(t);
                 return true;
             }
         }
@@ -282,6 +383,7 @@ public class CharacterSelectScreen extends Screen {
         if (focused < 0 || focused >= list.size()) return;
         CharacterCard c = list.get(focused);
         if (!c.dead()) onSelect(c);
+        else fr.reborn.hud.menu.RebornSounds.deny();
     }
 
     private void onSelect(CharacterCard c) {
