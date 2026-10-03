@@ -1,23 +1,21 @@
 package fr.reborn.hud.menu.character;
 
-import com.mojang.authlib.GameProfile;
 import fr.reborn.hud.menu.RebornFont;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.resources.Identifier;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -29,10 +27,12 @@ import java.util.UUID;
  * glissent de part et d'autre (carrousel), plus petits et éteints. Un perso mort (RPK) est
  * encore plus effacé. Dessous : nom, ligne « clan / village / rang / niveau », ENTRER.
  *
- * <p>Chaque perso est un <b>joueur factice</b> côté client ({@link RemotePlayer} hors monde,
- * UUID dérivé de l'id du perso) sur lequel on applique le skin composé via {@link
- * fr.reborn.hud.skin.RebornSkins} (override par UUID) et la pose idle via PAL. Un perso
- * sans apparence est rendu avec le joueur local (skin Minecraft normal).
+ * <p>Chaque perso est dessiné avec le <b>joueur local</b> (pose idle de l'écran) en lui
+ * <b>prêtant</b> le skin composé du perso juste le temps de son extraction : le skin de
+ * chaque perso est composé une fois sous un UUID dérivé de son id, puis l'override du
+ * joueur local pointe dessus pendant l'appel de rendu et est restauré ensuite. Aucune
+ * entité factice (une entité hors monde figeait le chargement au join). Un perso sans
+ * apparence est rendu avec le skin Minecraft normal.
  *
  * <p>Tout est disposé dans un espace virtuel 640×360 mis à l'échelle et centré.
  */
@@ -55,8 +55,8 @@ public class CharacterSelectScreen extends Screen {
     private boolean prevHudHidden;
     private boolean perspectiveCaptured = false;
 
-    /** Joueurs factices par id de perso (skin RP + pose). */
-    private final Map<String, RemotePlayer> dummies = new HashMap<>();
+    /** UUID « porte-skin » par perso dont la texture composée est déjà prête. */
+    private final Set<UUID> composed = new HashSet<>();
 
     // Échelle / origine (recalculées à chaque image).
     private float s = 1, ox = 0, oy = 0;
@@ -85,18 +85,9 @@ public class CharacterSelectScreen extends Screen {
             perspectiveCaptured = false;
         }
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.stopPose();
-        for (RemotePlayer d : dummies.values()) fr.reborn.hud.skin.RebornSkins.clear(d.getUUID());
-        dummies.clear();
+        for (UUID u : composed) fr.reborn.hud.skin.RebornSkins.clear(u);
+        composed.clear();
         super.removed();
-    }
-
-    @Override
-    public void tick() {
-        super.tick();
-        for (RemotePlayer d : dummies.values()) {
-            d.tickCount++;
-            fr.reborn.hud.animation.MovementAnimations.INSTANCE.tickPreview(d);
-        }
     }
 
     // ── Données / indices ─────────────────────────────────────────
@@ -119,21 +110,14 @@ public class CharacterSelectScreen extends Screen {
         fr.reborn.hud.menu.RebornSounds.charNav();
     }
 
-    /** Avatar à rendre pour ce perso : joueur factice skinné, ou le joueur local sans apparence. */
-    private AbstractClientPlayer avatarFor(CharacterCard c) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || !c.hasAppearance()) return mc.player;
-        RemotePlayer d = dummies.get(c.id());
-        if (d == null) {
-            UUID uuid = UUID.nameUUIDFromBytes(("reborn-select:" + c.id()).getBytes(StandardCharsets.UTF_8));
-            String name = c.firstName() == null || c.firstName().isBlank() ? "Shinobi" : c.firstName();
-            if (name.length() > 16) name = name.substring(0, 16);
-            d = new RemotePlayer(mc.level, new GameProfile(uuid, name));
+    /** UUID porteur de la texture composée de ce perso (composée une seule fois), ou null. */
+    private UUID skinHolder(CharacterCard c) {
+        if (!c.hasAppearance()) return null;
+        UUID uuid = UUID.nameUUIDFromBytes(("reborn-select:" + c.id()).getBytes(StandardCharsets.UTF_8));
+        if (composed.add(uuid)) {
             fr.reborn.hud.skin.RebornSkins.applySpec(uuid, fr.reborn.hud.skin.SkinSpec.deserialize(c.appearance()));
-            fr.reborn.hud.animation.MovementAnimations.INSTANCE.posePreview(d);
-            dummies.put(c.id(), d);
         }
-        return d;
+        return uuid;
     }
 
     // ── Géométrie ─────────────────────────────────────────────────
@@ -189,12 +173,20 @@ public class CharacterSelectScreen extends Screen {
         Integer[] order = new Integer[n];
         for (int i = 0; i < n; i++) order[i] = i;
         java.util.Arrays.sort(order, (a, b) -> Float.compare(nearness(a), nearness(b)));
+        Minecraft mc = Minecraft.getInstance();
+        UUID self = mc.player != null ? mc.player.getUUID() : null;
+        Identifier ownSkin = self != null ? fr.reborn.hud.skin.RebornSkins.overrideFor(self) : null;
+        boolean ownSlim = self != null && fr.reborn.hud.skin.RebornSkins.isSlim(self);
+        try {
         for (int i : order) {
             float x = tileX(i);
             if (x < -40 || x > VW + 40 || isCreateTile(i)) continue;
             CharacterCard c = list.get(i);
-            AbstractClientPlayer av = avatarFor(c);
-            if (av == null) continue;
+            if (self == null) break;
+            UUID holder = skinHolder(c);
+            fr.reborn.hud.skin.RebornSkins.setOverride(self,
+                holder != null ? fr.reborn.hud.skin.RebornSkins.overrideFor(holder) : null,
+                holder != null && fr.reborn.hud.skin.RebornSkins.isSlim(holder));
             int size = Math.round(tileSize(i) * s);
             int cx = px(x);
             int bottom = hz + Math.round(6 * s);
@@ -202,7 +194,11 @@ public class CharacterSelectScreen extends Screen {
             int cy = (top + bottom) / 2;
             int half = Math.round(size * 0.5f);
             net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(
-                ctx, cx - half, top, cx + half, bottom, size, 0f, cx, cy, av);
+                ctx, cx - half, top, cx + half, bottom, size, 0f, cx, cy, mc.player);
+        }
+        } finally {
+            // Rend au joueur local son vrai skin (le skin est capturé à l'extraction).
+            if (self != null) fr.reborn.hud.skin.RebornSkins.setOverride(self, ownSkin, ownSlim);
         }
 
         // 2) Voile qui éteint les persos non focalisés (même dégradé que le ciel → « fondu » dans le fond).

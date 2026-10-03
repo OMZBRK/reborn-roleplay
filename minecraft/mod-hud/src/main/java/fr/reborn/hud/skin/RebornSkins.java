@@ -455,6 +455,20 @@ public final class RebornSkins {
         overrides.put(uuid, id);
     }
 
+    /**
+     * Pose directement l'override d'un joueur ({@code id == null} → retrait). Sert à
+     * <b>prêter</b> temporairement une texture déjà composée à un autre UUID (écran de
+     * sélection : le joueur local est dessiné successivement avec le skin de chaque perso).
+     */
+    public static void setOverride(UUID uuid, Identifier id, boolean slim) {
+        if (id == null) {
+            clear(uuid);
+            return;
+        }
+        overrides.put(uuid, id);
+        slimModel.put(uuid, slim);
+    }
+
     public static void clear(UUID uuid) {
         overrides.remove(uuid);
         slimModel.remove(uuid);
