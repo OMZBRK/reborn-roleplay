@@ -103,6 +103,8 @@ public final class EscTokonoma {
     private long lastStreamRotate = System.currentTimeMillis(), lastBlogRotate = System.currentTimeMillis();
     private final float[][] stars;
     private float scale = 1f, ox, oy;
+    /** Échelle des textes : police ~2/3 de la taille de base, arrondie à un nombre entier de pixels écran. */
+    private static float ts = 0.66f;
 
     public EscTokonoma(Screen screen) {
         this.screen = screen;
@@ -158,6 +160,7 @@ public final class EscTokonoma {
         if (closingAt > 0 && now - closingAt >= CLOSE_MS) { Minecraft.getInstance().setScreenAndShow(null); return; }
 
         scale = Math.min(width / (float) VW, height / (float) VH);
+        ts = Math.max(1, Math.round(scale * 0.62f)) / scale;
         ox = (width - VW * scale) / 2f;
         oy = (height - VH * scale) / 2f;
         double mx = (mouseX - ox) / scale, my = (mouseY - oy) / scale;
@@ -235,7 +238,7 @@ public final class EscTokonoma {
         ctx.blit(RenderPipelines.GUI_TEXTURED, LOGO, 19, 166, 0f, 0f, lw, lh, 2048, 717, 2048, 717);
         int vi = playerVillage();
         String who = playerName();
-        int tw = f.width(RebornFont.arcade(who)) + (vi >= 0 ? 14 : 0);
+        int tw = tw(f, who) + (vi >= 0 ? 14 : 0);
         int x = 107 - tw / 2;
         if (vi >= 0) {
             ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE_TEX[vi], x, 229, 0f, 0f, 10, 10, 48, 48, 48, 48, 0xFF8C1C20);
@@ -325,7 +328,7 @@ public final class EscTokonoma {
             ctx.blit(RenderPipelines.GUI_TEXTURED, CHOCHIN, -11, 0, 0f, 0f, 22, 32, 22, 32);
             ctx.pose().popMatrix();
         }
-        bigCentered(ctx, f, "ECHOPPE", x + w / 2, y + 52, 1.6f, 0xFFFAEED6);
+        bigCentered(ctx, f, "ECHOPPE", x + w / 2, y + 50, 2f, 0xFFFAEED6);
         centered(ctx, f, "TENUES - CARTES DE REGION", x + w / 2, y + 72, 0xFFE6C8A0);
         int bw = 112, bx = x + w / 2 - bw / 2, by = y + 86;
         frame(ctx, bx, by, bw, 14, 0xFF1E120C, 0xFFF6CC78);
@@ -361,7 +364,7 @@ public final class EscTokonoma {
         // badge
         int bc = s.live() ? 0xFFC82828 : 0xFF5A5664;
         String badge = s.live() ? "LIVE" : "OFFLINE";
-        int bw = f.width(RebornFont.arcade(badge)) + 10;
+        int bw = tw(f, badge) + 10;
         ctx.fill(sx + 4, sy + 4, sx + 4 + bw, sy + 15, bc);
         if (s.live()) {
             float p = 0.5f + 0.5f * (float) Math.sin(time * 5f);
@@ -399,13 +402,13 @@ public final class EscTokonoma {
         if (n.date() != null) {
             String[] parts = n.date().split(" ");              // « 12 MAI 2026 » → « 12 MAI »
             String d = parts.length >= 2 ? parts[0] + " " + parts[1] : n.date();
-            text(ctx, f, d, px + pw - 4 - f.width(RebornFont.arcade(d)), py + 2, 0xFFC8BEAA);
+            text(ctx, f, d, px + pw - 4 - tw(f, d), py + 2, 0xFFC8BEAA);
         }
         bigCentered(ctx, f, fit(f, n.version() != null ? n.version() : "PATCH", 80), px + pw / 2, py + 17, 1.3f, 0xFFB42420);
         ctx.fill(px + 8, py + 31, px + pw - 8, py + 32, 0xFF96785A);
         List<String> lines = wrap(f, n.title() != null ? n.title() : "", pw - 10, 3);
         for (int i = 0; i < lines.size(); i++) centered(ctx, f, lines.get(i), px + pw / 2, py + 37 + i * 10, 0xFF46321E);
-        text(ctx, f, "LIRE >", px + pw - 4 - f.width(RebornFont.arcade("LIRE >")), py + 86, lerp(0xFF8C2A20, 0xFFC82A2E, hv));
+        text(ctx, f, "LIRE >", px + pw - 4 - tw(f, "LIRE >"), py + 86, lerp(0xFF8C2A20, 0xFFC82A2E, hv));
         if (notes.size() > 1) arrows(ctx, f, px, py + 86, 60, idx, notes.size(), H_BLOG_PREV, H_BLOG_NEXT, 0xFF46321E);
     }
 
@@ -414,7 +417,7 @@ public final class EscTokonoma {
         ctx.blit(RenderPipelines.GUI_TEXTURED, RACK, x, y, 0f, 0f, 226, 122, 226, 122);
         text(ctx, f, "RECOMPENSES", x + 8, y + 8, 0xFFFAEED6);
         String sub = "+5 / H CHACUNE";
-        text(ctx, f, sub, x + 218 - f.width(RebornFont.arcade(sub)), y + 8, 0xFFF6CC78);
+        text(ctx, f, sub, x + 218 - tw(f, sub), y + 8, 0xFFF6CC78);
         for (int i = 0; i < CHARMS.length; i++) {
             Charm c = CHARMS[i];
             int cx = x + 27 + i * 43, top = y + 26;
@@ -430,7 +433,7 @@ public final class EscTokonoma {
             ctx.blit(RenderPipelines.GUI_TEXTURED, OMAMORI, -11, 0, 0f, 0f, 22, 36, 22, 36, c.color());
             ctx.blit(RenderPipelines.GUI_TEXTURED, OMAMORI_LABEL, -6, 12, 0f, 0f, 12, 18, 12, 18);
             ctx.pose().popMatrix();
-            smallCentered(ctx, f, c.label(), cx, top + 45, 0.8f, lerp(0xFFD2BEAA, 0xFFFAEED6, hv));
+            smallCentered(ctx, f, c.label(), cx, top + 45, 1f, lerp(0xFFD2BEAA, 0xFFFAEED6, hv));
         }
         ctx.blit(RenderPipelines.GUI_TEXTURED, RBCOIN, x + 8, y + 105, 0f, 0f, 12, 12, 12, 12);
         text(ctx, f, "RBCOINS PAR HEURE DE JEU", x + 24, y + 107, 0xFFF6CC78);
@@ -464,7 +467,7 @@ public final class EscTokonoma {
         }
         if (lines == null) return;
         int w = 0;
-        for (String l : lines) w = Math.max(w, f.width(RebornFont.arcade(l)));
+        for (String l : lines) w = Math.max(w, tw(f, l));
         w += 10;
         int h = lines.size() * 10 + 6;
         int x = (int) Math.min(VW - w - 4, mx + 8), y = (int) Math.max(4, my - h - 4);
@@ -552,7 +555,7 @@ public final class EscTokonoma {
     }
 
     private static void plate(GuiGraphicsExtractor ctx, Font f, String s, int cx, int y, int fill) {
-        int w = f.width(RebornFont.arcade(s)) + 14;
+        int w = tw(f, s) + 14;
         frame(ctx, cx - w / 2, y, w, 13, fill, 0xFFF6CC78);
         centered(ctx, f, s, cx, y + 3, 0xFFFAEED6);
     }
@@ -581,21 +584,28 @@ public final class EscTokonoma {
             size, size, 64, 64, 64, 64, argb);
     }
 
-    private static void text(GuiGraphicsExtractor ctx, Font f, String s, int x, int y, int c) {
-        ctx.text(f, RebornFont.arcade(s), x, y, c, false);
+    /** Largeur affichée (police réduite) d'un texte ArcadePix. */
+    private static int tw(Font f, String s) { return Math.round(f.width(RebornFont.arcade(s)) * ts); }
+
+    /** Texte à la taille réduite {@link #ts}, recentré verticalement dans l'ancienne boîte de 8 px. */
+    private static void text(GuiGraphicsExtractor ctx, Font f, String s, float x, float y, int c) {
+        drawScaled(ctx, f, s, x, y, 1f, c);
     }
 
     private static void centered(GuiGraphicsExtractor ctx, Font f, String s, int cx, int y, int c) {
-        Component t = RebornFont.arcade(s);
-        ctx.text(f, t, cx - f.width(t) / 2, y, c, false);
+        drawScaled(ctx, f, s, cx - tw(f, s) / 2f, y, 1f, c);
     }
 
     private static void bigCentered(GuiGraphicsExtractor ctx, Font f, String s, int cx, int y, float sc, int c) {
-        Component t = RebornFont.arcade(s);
+        drawScaled(ctx, f, s, cx - f.width(RebornFont.arcade(s)) * ts * sc / 2f, y, sc, c);
+    }
+
+    private static void drawScaled(GuiGraphicsExtractor ctx, Font f, String s, float x, float y, float sc, int c) {
+        float k = ts * sc;
         ctx.pose().pushMatrix();
-        ctx.pose().translate(cx - f.width(t) * sc / 2f, y);
-        ctx.pose().scale(sc, sc);
-        ctx.text(f, t, 0, 0, c, false);
+        ctx.pose().translate(x, y + 8 * sc * (1 - ts) / 2f);
+        ctx.pose().scale(k, k);
+        ctx.text(f, RebornFont.arcade(s), 0, 0, c, false);
         ctx.pose().popMatrix();
     }
 
@@ -604,8 +614,8 @@ public final class EscTokonoma {
     }
 
     private static String fit(Font f, String s, int maxW) {
-        if (f.width(RebornFont.arcade(s)) <= maxW) return s;
-        while (s.length() > 1 && f.width(RebornFont.arcade(s + "..")) > maxW) s = s.substring(0, s.length() - 1);
+        if (tw(f, s) <= maxW) return s;
+        while (s.length() > 1 && tw(f, s + "..") > maxW) s = s.substring(0, s.length() - 1);
         return s.trim() + "..";
     }
 
@@ -614,7 +624,7 @@ public final class EscTokonoma {
         StringBuilder cur = new StringBuilder();
         for (String word : s.split(" ")) {
             String cand = cur.length() == 0 ? word : cur + " " + word;
-            if (f.width(RebornFont.arcade(cand)) <= maxW) { cur = new StringBuilder(cand); continue; }
+            if (tw(f, cand) <= maxW) { cur = new StringBuilder(cand); continue; }
             if (cur.length() > 0) out.add(cur.toString());
             cur = new StringBuilder(word);
             if (out.size() == maxLines) break;
