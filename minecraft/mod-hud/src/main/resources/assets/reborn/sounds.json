@@ -243,5 +243,61 @@
         "name": "reborn:esc/ambience"
       }
     ]
+  },
+  "sacoche.open": {
+    "sounds": [
+      {
+        "name": "reborn:sacoche/open"
+      }
+    ]
+  },
+  "sacoche.close": {
+    "sounds": [
+      {
+        "name": "reborn:sacoche/close"
+      }
+    ]
+  },
+  "sacoche.tier": {
+    "sounds": [
+      {
+        "name": "reborn:sacoche/tier"
+      }
+    ]
+  },
+  "sacoche.pick": {
+    "sounds": [
+      {
+        "name": "reborn:sacoche/pick"
+      }
+    ]
+  },
+  "sacoche.place": {
+    "sounds": [
+      {
+        "name": "reborn:sacoche/place"
+      }
+    ]
+  },
+  "sacoche.hover": {
+    "sounds": [
+      {
+        "name": "reborn:sacoche/hover"
+      }
+    ]
+  },
+  "sacoche.belt": {
+    "sounds": [
+      {
+        "name": "reborn:sacoche/belt"
+      }
+    ]
+  },
+  "sacoche.deny": {
+    "sounds": [
+      {
+        "name": "reborn:sacoche/deny"
+      }
+    ]
   }
 }

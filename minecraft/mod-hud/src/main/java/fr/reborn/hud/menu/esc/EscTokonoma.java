@@ -80,7 +80,7 @@ public final class EscTokonoma {
 
     // Zones cliquables (ids) recalculées à chaque frame.
     private static final int H_SHOP = 10, H_STREAM = 11, H_STREAM_PREV = 12, H_STREAM_NEXT = 13,
-        H_BLOG = 14, H_BLOG_PREV = 15, H_BLOG_NEXT = 16, H_CHARM = 20, H_SOCIAL = 30;
+        H_BLOG = 14, H_BLOG_PREV = 15, H_BLOG_NEXT = 16, H_CHARM = 20, H_SOCIAL = 30, H_KAMON = 40;
     private record Hit(int id, int x, int y, int w, int h) {
         boolean in(double mx, double my) { return mx >= x && mx < x + w && my >= y && my < y + h; }
     }
@@ -178,10 +178,10 @@ public final class EscTokonoma {
         drawIdentity(ctx, f);
         drawMenu(ctx, f, mx, my);
         drawKamon(ctx, f, time);
-        drawShop(ctx, f, 232, 56, 184, 134, time);
-        drawStream(ctx, f, 424, 54, now, time);
-        drawBlog(ctx, f, 236, 198, now);
-        drawRack(ctx, f, 384, 198, time, dt);
+        drawShop(ctx, f, 236, 60, 177, 121, time);
+        drawStream(ctx, f, 429, 60, now, time);
+        drawBlog(ctx, f, 236, 197, now);
+        drawRack(ctx, f, 429, 197, time, dt);
         drawFloor(ctx, f);
 
         // survol (après avoir enregistré toutes les zones)
@@ -206,15 +206,15 @@ public final class EscTokonoma {
 
     // ── fenêtre ronde : étoiles qui scintillent, lumières du village, étoile filante ──
     private void drawWindow(GuiGraphicsExtractor ctx, float time) {
-        int x = 37, y = 22, cx = 107, cy = 92;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW, x, y, 0f, 0f, 140, 140, 140, 140);
+        int x = 51, y = 28, ws = 112, cx = 107, cy = 84;
+        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW, x, y, 0f, 0f, ws, ws, 140, 140, 140, 140);
         for (float[] s : stars) {
             float a = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(time * 1.7f + s[2]));
-            int sx = Math.round(cx + s[0]), sy = Math.round(cy + s[1]);
+            int sx = Math.round(cx + s[0] * 0.8f), sy = Math.round(cy + s[1] * 0.8f);
             ctx.fill(sx, sy, sx + 1, sy + 1, argb(a, 0xF0F0FF));
         }
         float flick = 0.75f + 0.25f * (float) Math.sin(time * 4.3f) * (float) Math.sin(time * 1.9f + 1);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW_LIGHTS, x, y, 0f, 0f, 140, 140, 140, 140, argb(flick, 0xFFFFFF));
+        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW_LIGHTS, x, y, 0f, 0f, ws, ws, 140, 140, 140, 140, argb(flick, 0xFFFFFF));
         // étoile filante toutes les ~9 s, gardée dans le disque
         float cyc = time % 9f;
         if (cyc > 6.5f && cyc < 7.3f) {
@@ -222,29 +222,29 @@ public final class EscTokonoma {
             for (int k = 0; k < 7; k++) {
                 float q = p - k * 0.03f;
                 if (q < 0) continue;
-                int px = Math.round(cx - 46 + q * 70), py = Math.round(cy - 50 + q * 26);
-                if (Math.hypot(px - cx, py - cy) < 62) ctx.fill(px, py, px + 1, py + 1, argb(1f - k / 7f, 0xFFFFFF));
+                int px = Math.round(cx - 37 + q * 56), py = Math.round(cy - 40 + q * 21);
+                if (Math.hypot(px - cx, py - cy) < 49) ctx.fill(px, py, px + 1, py + 1, argb(1f - k / 7f, 0xFFFFFF));
             }
         }
         // halo de lune qui respire
         float g = 0.10f + 0.05f * (float) Math.sin(time * 0.9f);
-        glow(ctx, x + 104, y + 36, 44, argb(g, 0xFFECC8));
-        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW_FRAME, x, y, 0f, 0f, 140, 140, 140, 140);
+        glow(ctx, x + 83, y + 29, 36, argb(g, 0xFFECC8));
+        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW_FRAME, x, y, 0f, 0f, ws, ws, 140, 140, 140, 140);
     }
 
     // ── logo + identité du personnage ──
     private void drawIdentity(GuiGraphicsExtractor ctx, Font f) {
-        int lw = 176, lh = Math.round(176 * 717f / 2048f);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, LOGO, 19, 166, 0f, 0f, lw, lh, 2048, 717, 2048, 717);
+        int lw = 150, lh = Math.round(150 * 717f / 2048f);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, LOGO, 32, 150, 0f, 0f, lw, lh, 2048, 717, 2048, 717);
         int vi = playerVillage();
         String who = playerName();
         int tw = tw(f, who) + (vi >= 0 ? 14 : 0);
         int x = 107 - tw / 2;
         if (vi >= 0) {
-            ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE_TEX[vi], x, 229, 0f, 0f, 10, 10, 48, 48, 48, 48, 0xFF8C1C20);
-            x += 14;
+            ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE_TEX[vi], x, 209, 0f, 0f, 9, 9, 48, 48, 48, 48, 0xFF8C1C20);
+            x += 13;
         }
-        text(ctx, f, who, x, 231, 0xFF5A3420);
+        text(ctx, f, who, x, 210, 0xFF5A3420);
     }
 
     private static String playerName() {
@@ -270,19 +270,19 @@ public final class EscTokonoma {
     // ── menu : plaques laquées ──
     private void drawMenu(GuiGraphicsExtractor ctx, Font f, double mx, double my) {
         for (int i = 0; i < MENU.length; i++) {
-            int y = 246 + i * 20;
+            int y = 230 + i * 22;
             float hv = hov[i];
-            int x = 34 + Math.round(hv * 4);
-            hits.add(new Hit(i, 34, y, 146, 17));
+            int x = 41 + Math.round(hv * 3);
+            hits.add(new Hit(i, 41, y, 132, 15));
             boolean danger = i == 3;
             int fill = danger ? lerp(0xFF3C1E24, 0xFF6E1E22, hv) : lerp(0xFF3C1E24, 0xFFAA1E22, hv);
             int border = lerp(0xFF6E4646, 0xFFF6CC78, hv);
-            ctx.fill(107, y - 4, 108, y, 0xFFC8A05A);               // cordelette
-            frame(ctx, x, y, 146, 17, fill, border);
-            ctx.fill(x + 2, y + 2, x + 144, y + 3, argb(0.18f + 0.2f * hv, 0xFFFFFF));
-            centered(ctx, f, MENU[i], x + 73, y + 5, lerp(0xFFBEA0A0, 0xFFFAEED6, hv));
+            ctx.fill(107, y - 5, 108, y, 0xFFC8A05A);               // cordelette
+            frame(ctx, x, y, 132, 15, fill, border);
+            ctx.fill(x + 2, y + 2, x + 130, y + 3, argb(0.18f + 0.2f * hv, 0xFFFFFF));
+            centered(ctx, f, MENU[i], x + 66, y + 4, lerp(0xFFBEA0A0, 0xFFFAEED6, hv));
             if (hv > 0.05f) {                                          // pointe dorée
-                int ax = x - 7, ay = y + 5;
+                int ax = x - 7, ay = y + 4;
                 for (int k = 0; k < 4; k++) ctx.fill(ax + k, ay + k, ax + k + 1, ay + 7 - k, argb(hv, 0xF6CC78));
             }
         }
@@ -292,18 +292,19 @@ public final class EscTokonoma {
     private void drawKamon(GuiGraphicsExtractor ctx, Font f, float time) {
         int mine = playerVillage();
         for (int i = 0; i < 5; i++) {
-            int x = 236 + i * 76, y = 23;
+            int x = 262 + i * 70, y = 25;
             boolean m = i == mine;
-            int plate = m ? 0xFFFFFFFF : 0xFF9C9488;
-            ctx.blit(RenderPipelines.GUI_TEXTURED, KAMON_PLATE, x, y, 0f, 0f, 22, 22, 48, 48, 48, 48, plate);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE_TEX[i], x + 3, y + 3, 0f, 0f, 16, 16, 48, 48, 48, 48,
-                m ? 0xFF2A1A12 : 0xFF3C3430);
+            float hv = hov[H_KAMON + i];
+            hits.add(new Hit(H_KAMON + i, x - 2, y - 2, 22, 22));
+            int plate = m ? 0xFFFFFFFF : lerp(0xFF8C8478, 0xFFD2CABC, hv);
+            ctx.blit(RenderPipelines.GUI_TEXTURED, KAMON_PLATE, x, y, 0f, 0f, 18, 18, 48, 48, 48, 48, plate);
+            ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE_TEX[i], x + 3, y + 3, 0f, 0f, 12, 12, 48, 48, 48, 48,
+                m ? 0xFF2A1A12 : 0xFF46403A);
             if (m) {
                 float pulse = 0.5f + 0.5f * (float) Math.sin(time * 2.2f);
-                ring(ctx, x - 1, y - 1, 24, argb(0.5f + 0.5f * pulse, 0xF6CC78));
+                ring(ctx, x - 1, y - 1, 20, argb(0.5f + 0.5f * pulse, 0xF6CC78));
+                text(ctx, f, VILLAGE_NAMES[i], x + 22, y + 6, 0xFFF6CC78);
             }
-            text(ctx, f, VILLAGE_NAMES[i], x + 26, y + 3, m ? 0xFFF6CC78 : 0xFFD2BE9A);
-            text(ctx, f, VILLAGE_LANDS[i], x + 26, y + 13, m ? 0xFFE6B48C : 0xFF9C8466);
         }
     }
 
@@ -319,25 +320,22 @@ public final class EscTokonoma {
         ctx.blit(RenderPipelines.GUI_TEXTURED, CREST, x + w / 2 - 14, y + 4, 0f, 0f, 28, 28, 28, 28);
         float flick = 0.8f + 0.2f * (float) Math.sin(time * 6.1f) * (float) Math.sin(time * 2.3f);
         for (int side = 0; side < 2; side++) {
-            int lx = side == 0 ? x + 8 : x + w - 30, ly = y + 86;
-            glow(ctx, lx + 11, ly + 16, 40, argb((0.35f + 0.25f * hv) * flick, 0xFFAA5A));
+            int lx = side == 0 ? x + 8 : x + w - 26, ly = y + 46;
+            glow(ctx, lx + 9, ly + 13, 32, argb((0.35f + 0.25f * hv) * flick, 0xFFAA5A));
             float sway = (float) Math.sin(time * 1.4f + side) * 0.05f;
             ctx.pose().pushMatrix();
-            ctx.pose().translate(lx + 11, ly);
+            ctx.pose().translate(lx + 9, ly);
             ctx.pose().rotate(sway);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, CHOCHIN, -11, 0, 0f, 0f, 22, 32, 22, 32);
+            ctx.blit(RenderPipelines.GUI_TEXTURED, CHOCHIN, -9, 0, 0f, 0f, 18, 26, 22, 32, 22, 32);
             ctx.pose().popMatrix();
         }
         bigCentered(ctx, f, "ECHOPPE", x + w / 2, y + 50, 2f, 0xFFFAEED6);
-        centered(ctx, f, "TENUES - CARTES DE REGION", x + w / 2, y + 72, 0xFFE6C8A0);
-        int bw = 112, bx = x + w / 2 - bw / 2, by = y + 86;
-        frame(ctx, bx, by, bw, 14, 0xFF1E120C, 0xFFF6CC78);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, RBCOIN, bx + 4, by + 1, 0f, 0f, 12, 12, 12, 12);
         String bal = ShopData.received() ? ShopData.ryo() + " RBCOINS" : "- RBCOINS";
-        text(ctx, f, bal, bx + 20, by + 3, 0xFFF6CC78);
-        int btw = 76, btx = x + w / 2 - btw / 2, bty = y + 108 - Math.round(hv);
-        frame(ctx, btx, bty, btw, 16, lerp(0xFF8C1C20, 0xFFC82A2E, hv), 0xFFF6CC78);
-        centered(ctx, f, "ENTRER", x + w / 2, bty + 4, 0xFFFAEED6);
+        int bx = x + w / 2 - (tw(f, bal) + 14) / 2;
+        ctx.blit(RenderPipelines.GUI_TEXTURED, RBCOIN, bx, y + 74, 0f, 0f, 10, 10, 12, 12, 12, 12);
+        text(ctx, f, bal, bx + 14, y + 75, 0xFFF6CC78);
+        String go = "ENTRER  >";
+        text(ctx, f, go, x + w - 10 - tw(f, go) + Math.round(hv * 2), y + h - 14, lerp(0xFFE6C8A0, 0xFFFAEED6, hv));
         outline(ctx, x, y, w, h, lerp(0xFFB48C50, 0xFFF6CC78, hv));
         if (hv > 0.02f) outline(ctx, x - 1, y - 1, w + 2, h + 2, argb(hv * 0.6f, 0xF6CC78));
     }
@@ -345,17 +343,17 @@ public final class EscTokonoma {
     // ── Stream : kamishibai ──
     private void drawStream(GuiGraphicsExtractor ctx, Font f, int x, int y, long now, float time) {
         float hv = hov[H_STREAM];
-        ctx.blit(RenderPipelines.GUI_TEXTURED, KAMISHIBAI, x + 6, y + 4, 0f, 0f, 178, 132, 178, 132);
-        int sx = x + 36, sy = y + 26, sw = 118, sh = 100;
-        ctx.fill(sx, sy, sx + sw, sy + sh, 0xFF1A1624);
-        plate(ctx, f, "STREAM", x + 95, y, 0xFF28345E);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, KAMISHIBAI, x, y + 4, 0f, 0f, 177, 117, 178, 132, 178, 132);
+        int sx = x + 30, sy = y + 24, sw = 117, sh = 88;
+        ctx.fill(sx - 1, sy - 1, sx + sw + 1, sy + sh, 0xFF1A1624);
+        plate(ctx, f, "STREAM", x + 88, y - 6, 0xFF28345E);
         hits.add(new Hit(H_STREAM, sx, sy, sw, sh));
 
         EscData.Snapshot snap = EscData.get();
         List<EscData.Stream> streams = snap != null ? snap.streams() : List.of();
         if (streams.isEmpty()) {
-            IconPack.twitch(ctx, sx + sw / 2 - 8, sy + 30, 16, 0xFF6E6488);
-            centered(ctx, f, "AUCUN STREAM", sx + sw / 2, sy + 54, 0xFF8C84A0);
+            IconPack.twitch(ctx, sx + sw / 2 - 8, sy + 24, 16, 0xFF6E6488);
+            centered(ctx, f, "AUCUN STREAM", sx + sw / 2, sy + 48, 0xFF8C84A0);
             return;
         }
         if (streams.size() > 1 && now - lastStreamRotate > 7000) { streamIdx++; lastStreamRotate = now; }
@@ -371,11 +369,10 @@ public final class EscTokonoma {
             ctx.fill(sx + bw + 7, sy + 8, sx + bw + 11, sy + 12, argb(0.4f + 0.6f * p, 0xFF4040));
         }
         text(ctx, f, badge, sx + 9, sy + 6, 0xFFFAEED6);
-        IconPack.twitch(ctx, sx + sw / 2 - 8, sy + 22, 16, s.live() ? 0xFFA078FF : 0xFF6E6488);
-        bigCentered(ctx, f, fit(f, s.name() != null ? s.name() : "STREAM", 88), sx + sw / 2, sy + 44, 1.25f,
+        bigCentered(ctx, f, fit(f, s.name() != null ? s.name() : "STREAM", 88), sx + sw / 2, sy + 30, 1.25f,
             lerp(0xFFE6DCF0, 0xFFFFFFFF, hv));
-        if (s.live() && s.title() != null && !s.title().isBlank()) centered(ctx, f, fit(f, s.title(), sw - 8), sx + sw / 2, sy + 60, 0xFFA096B4);
-        else centered(ctx, f, "HORS LIGNE", sx + sw / 2, sy + 60, 0xFF7C7490);
+        if (s.live() && s.title() != null && !s.title().isBlank()) centered(ctx, f, fit(f, s.title(), sw - 8), sx + sw / 2, sy + 46, 0xFFA096B4);
+        else centered(ctx, f, "HORS LIGNE", sx + sw / 2, sy + 46, 0xFF7C7490);
         if (streams.size() > 1) {
             arrows(ctx, f, sx, sy + sh - 14, sw, idx, streams.size(), H_STREAM_PREV, H_STREAM_NEXT, 0xFFC8BEDC);
         }
@@ -386,6 +383,7 @@ public final class EscTokonoma {
     private void drawBlog(GuiGraphicsExtractor ctx, Font f, int x, int y, long now) {
         float hv = hov[H_BLOG];
         int lift = Math.round(hv);
+        x += 21;                                                    // taille native, centré dans le bloc de 177
         ctx.blit(RenderPipelines.GUI_TEXTURED, KAWARABAN, x, y - lift, 0f, 0f, 134, 122, 134, 122);
         int px = x + 13, py = y + 20 - lift, pw = 108;
         hits.add(new Hit(H_BLOG, px, py + 12, pw, 86));
@@ -404,28 +402,28 @@ public final class EscTokonoma {
             String d = parts.length >= 2 ? parts[0] + " " + parts[1] : n.date();
             text(ctx, f, d, px + pw - 4 - tw(f, d), py + 2, 0xFFC8BEAA);
         }
-        bigCentered(ctx, f, fit(f, n.version() != null ? n.version() : "PATCH", 80), px + pw / 2, py + 17, 1.3f, 0xFFB42420);
-        ctx.fill(px + 8, py + 31, px + pw - 8, py + 32, 0xFF96785A);
-        List<String> lines = wrap(f, n.title() != null ? n.title() : "", pw - 10, 3);
-        for (int i = 0; i < lines.size(); i++) centered(ctx, f, lines.get(i), px + pw / 2, py + 37 + i * 10, 0xFF46321E);
+        bigCentered(ctx, f, fit(f, n.version() != null ? n.version() : "PATCH", 80), px + pw / 2, py + 18, 1.25f, 0xFFB42420);
+        ctx.fill(px + 10, py + 33, px + pw - 10, py + 34, 0xFF96785A);
+        List<String> lines = wrap(f, n.title() != null ? n.title() : "", pw - 16, 3);
+        for (int i = 0; i < lines.size(); i++) centered(ctx, f, lines.get(i), px + pw / 2, py + 40 + i * 10, 0xFF46321E);
         text(ctx, f, "LIRE >", px + pw - 4 - tw(f, "LIRE >"), py + 86, lerp(0xFF8C2A20, 0xFFC82A2E, hv));
         if (notes.size() > 1) arrows(ctx, f, px, py + 86, 60, idx, notes.size(), H_BLOG_PREV, H_BLOG_NEXT, 0xFF46321E);
     }
 
     // ── Récompenses : omamori ──
     private void drawRack(GuiGraphicsExtractor ctx, Font f, int x, int y, float time, float dt) {
-        ctx.blit(RenderPipelines.GUI_TEXTURED, RACK, x, y, 0f, 0f, 226, 122, 226, 122);
-        text(ctx, f, "RECOMPENSES", x + 8, y + 8, 0xFFFAEED6);
-        String sub = "+5 / H CHACUNE";
-        text(ctx, f, sub, x + 218 - tw(f, sub), y + 8, 0xFFF6CC78);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, RACK, x, y, 0f, 0f, 177, 121, 226, 122, 226, 122);
+        text(ctx, f, "RECOMPENSES", x + 8, y + 7, 0xFFFAEED6);
+        String sub = "+5 / H";
+        text(ctx, f, sub, x + 169 - tw(f, sub), y + 7, 0xFFF6CC78);
         for (int i = 0; i < CHARMS.length; i++) {
             Charm c = CHARMS[i];
-            int cx = x + 27 + i * 43, top = y + 26;
+            int cx = x + 24 + i * 32, top = y + 26;
             float hv = hov[H_CHARM + i];
             charmKick[i] = Math.max(0f, charmKick[i] - dt * 0.9f);
             float ang = (float) Math.sin(time * 1.6f + i * 1.3f) * 0.05f
                 + (float) Math.sin(time * 9f) * 0.22f * charmKick[i];
-            hits.add(new Hit(H_CHARM + i, cx - 13, top, 26, 60));
+            hits.add(new Hit(H_CHARM + i, cx - 13, top, 26, 40));
             glow(ctx, cx, top + 22, 34, argb(0.12f + 0.25f * hv, c.color() & 0xFFFFFF));
             ctx.pose().pushMatrix();
             ctx.pose().translate(cx, top);
@@ -433,10 +431,9 @@ public final class EscTokonoma {
             ctx.blit(RenderPipelines.GUI_TEXTURED, OMAMORI, -11, 0, 0f, 0f, 22, 36, 22, 36, c.color());
             ctx.blit(RenderPipelines.GUI_TEXTURED, OMAMORI_LABEL, -6, 12, 0f, 0f, 12, 18, 12, 18);
             ctx.pose().popMatrix();
-            smallCentered(ctx, f, c.label(), cx, top + 45, 1f, lerp(0xFFD2BEAA, 0xFFFAEED6, hv));
         }
-        ctx.blit(RenderPipelines.GUI_TEXTURED, RBCOIN, x + 8, y + 105, 0f, 0f, 12, 12, 12, 12);
-        text(ctx, f, "RBCOINS PAR HEURE DE JEU", x + 24, y + 107, 0xFFF6CC78);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, RBCOIN, x + 8, y + 101, 0f, 0f, 10, 10, 12, 12, 12, 12);
+        text(ctx, f, "RBCOINS PAR HEURE DE JEU", x + 22, y + 102, 0xFFF6CC78);
     }
 
     // ── plancher : communauté + réseaux ──
@@ -445,15 +442,15 @@ public final class EscTokonoma {
         String line = (snap != null && snap.discordMembers() >= 0)
             ? "DISCORD  " + snap.discordMembers() + " MEMBRES" + (snap.discordOnline() >= 0 ? "  -  " + snap.discordOnline() + " EN LIGNE" : "")
             : "REJOINS LA COMMUNAUTE REBORN";
-        text(ctx, f, "REBORN ROLEPLAY", 20, 335, 0xFFFAEED6);
-        text(ctx, f, line, 20, 346, 0xFFC8A096);
+        text(ctx, f, "REBORN ROLEPLAY", 20, 337, 0xFFFAEED6);
+        text(ctx, f, line, 20, 347, 0xFFC8A096);
         for (int i = 0; i < SOCIALS.length; i++) {
             int id = H_SOCIAL + i;
             float hv = hov[id];
-            int x = 520 + i * 28, y = 336 - Math.round(hv * 2);
-            hits.add(new Hit(id, x - 2, 334, 20, 20));
+            int x = 532 + i * 26, y = 337 - Math.round(hv * 2);
+            hits.add(new Hit(id, x - 3, 334, 20, 20));
             Identifier t = tex("esc/social_" + SOCIALS[i].id());
-            ctx.blit(RenderPipelines.GUI_TEXTURED, t, x, y, 0f, 0f, 16, 16, 32, 32, 32, 32, lerp(0xFFC8C8C8, 0xFFFFFFFF, hv));
+            ctx.blit(RenderPipelines.GUI_TEXTURED, t, x, y, 0f, 0f, 14, 14, 32, 32, 32, 32, lerp(0xFFC8C8C8, 0xFFFFFFFF, hv));
         }
     }
 
@@ -464,6 +461,9 @@ public final class EscTokonoma {
             lines = List.of(c.title(), c.how(), "+5 RBCOINS / HEURE DE JEU");
         } else if (hovered >= H_SOCIAL && hovered < H_SOCIAL + SOCIALS.length) {
             lines = List.of(SOCIALS[hovered - H_SOCIAL].label());
+        } else if (hovered >= H_KAMON && hovered < H_KAMON + 5) {
+            int i = hovered - H_KAMON;
+            lines = List.of(VILLAGE_NAMES[i], "PAYS : " + VILLAGE_LANDS[i]);
         }
         if (lines == null) return;
         int w = 0;
