@@ -278,6 +278,8 @@ public final class RebornHudClient implements ClientModInitializer {
                 boolean open = fr.reborn.hud.menu.stats.StatsData.update(payload.content());
                 if (mc.gui.screen() instanceof fr.reborn.hud.menu.stats.StatsScreen st) {
                     st.refresh();
+                } else if (fr.reborn.hud.menu.esc.EscTokonoma.consumeSilentStatsRequest()) {
+                    // réponse à la demande d'identité du menu Échap : ne pas ouvrir la fiche
                 } else if (open && mc.gui.screen() == null) {
                     mc.setScreenAndShow(new fr.reborn.hud.menu.stats.StatsScreen());
                 }
@@ -369,6 +371,10 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "nameplates"),
             (ctx, tickCounter) -> fr.reborn.hud.nameplate.Nameplates.render(ctx));
+
+        // Menu Échap : coupe l'ambiance et joue la fermeture quand on le quitte.
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
+            fr.reborn.hud.menu.esc.EscTokonoma::tick);
 
         // Envoie l'état de frappe au serveur quand on ouvre/ferme le chat (C2S).
         final boolean[] wasChatOpen = {false};

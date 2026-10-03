@@ -194,5 +194,54 @@
         "name": "reborn:shop/ambience"
       }
     ]
+  },
+  "esc.open": {
+    "sounds": [
+      {
+        "name": "reborn:esc/open"
+      }
+    ]
+  },
+  "esc.close": {
+    "sounds": [
+      {
+        "name": "reborn:esc/close"
+      }
+    ]
+  },
+  "esc.hover": {
+    "sounds": [
+      {
+        "name": "reborn:esc/hover"
+      }
+    ]
+  },
+  "esc.select": {
+    "sounds": [
+      {
+        "name": "reborn:esc/select"
+      }
+    ]
+  },
+  "esc.charm": {
+    "sounds": [
+      {
+        "name": "reborn:esc/charm"
+      }
+    ]
+  },
+  "esc.page": {
+    "sounds": [
+      {
+        "name": "reborn:esc/page"
+      }
+    ]
+  },
+  "esc.ambience": {
+    "sounds": [
+      {
+        "name": "reborn:esc/ambience"
+      }
+    ]
   }
 }

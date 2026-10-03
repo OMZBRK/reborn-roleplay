@@ -81,6 +81,10 @@ public final class RebornBranding {
      * Invite Discord publique.
      */
     public static final String DISCORD_URL = "https://discord.gg/reborn";
+    /** Compte X (@REBORNOFF). */
+    public static final String X_URL = "https://x.com/REBORNOFF";
+    /** Chaîne YouTube. */
+    public static final String YOUTUBE_URL = "https://www.youtube.com/@REBORNOFF";
 
     /** Bouton "JOUER" → ConnectScreen direct vers la cible sélectionnée
      *  (BUILD par défaut ; DEV seulement si staff + serveur dev configuré). */
