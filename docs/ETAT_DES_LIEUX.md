@@ -33,7 +33,7 @@
 | Artefact | **Publié / live** | Sur `origin/main` | Écart |
 |---|---|---|---|
 | Launcher | **0.3.44** (`/v1/launcher/update` le confirme, release `v0.3.44` du 28/09) | 0.3.44 | ✅ |
-| `reborn-hud` | **0.4.143** (manifest 3.1.99 du 03/10, carte du monde + échoppe refondues avec sons ; fiche lanternes v2) | 0.4.143 | ✅ |
+| `reborn-hud` | **0.4.144** (manifest 3.1.100 du 03/10, menu Échap « tokonoma » avec logos villages/réseaux, sons et animations ; carte, échoppe, fiche lanternes v2) | 0.4.144 | ✅ |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | 0.2.2 | 0.2.2 | ✅ |
 | Plugins Shinobi | build manuel Maven | `minecraft/shinobi/` | déploiement SFTP manuel |
