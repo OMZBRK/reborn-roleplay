@@ -29,10 +29,10 @@ public final class InteractionMode {
 
     public static final InteractionMode INSTANCE = new InteractionMode();
 
-    private static final int ROW_H = 12;
-    private static final int HEADER_H = 14;
-    private static final int PAD_X = 7;
-    private static final int ARROW_W = 9;
+    private static final int ROW_H = 14;
+    private static final int HEADER_H = 20;
+    private static final int PAD_X = 9;
+    private static final int ARROW_W = 10;
 
     private boolean active = false;
     private boolean menuOpen = false;
@@ -47,11 +47,24 @@ public final class InteractionMode {
 
     private int panelX, panelY, panelW, panelH;
     private int[] subW = new int[0];
+    /** Position calculée de chaque sous-menu (même valeur au rendu et au clic). */
+    private int[] subX = new int[0], subY = new int[0];
+    private int lastHot = -2;
 
     private InteractionMode() {}
 
     public boolean isActive() {
         return active;
+    }
+
+    /**
+     * Le mode capte la souris uniquement en jeu : si un écran s'ouvre (inventaire, chat…) on sort
+     * du mode, sinon la souris restait bloquée dans cet écran.
+     */
+    public boolean isCapturing() {
+        if (!active) return false;
+        if (Minecraft.getInstance().gui.screen() != null) { deactivate(); return false; }
+        return true;
     }
 
     /** Toggle : entre/sort du mode curseur. */
@@ -147,21 +160,27 @@ public final class InteractionMode {
 
     private void layoutAtCursor(Minecraft mc) {
         var tr = mc.font;
-        int maxW = tr.width(title);
-        for (InteractionItem it : items) maxW = Math.max(maxW, tr.width(it.label()));
-        panelW = Math.max(96, maxW + PAD_X * 2 + ARROW_W);
-        panelH = HEADER_H + items.size() * ROW_H + 4;
+        float sc = fr.reborn.hud.ui.Da.small();
+        int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
+        int maxW = fr.reborn.hud.ui.Da.width(tr, title, fr.reborn.hud.ui.Da.title()) + 16;
+        for (InteractionItem it : items) maxW = Math.max(maxW, fr.reborn.hud.ui.Da.width(tr, it.label(), sc) + PAD_X * 2 + ARROW_W);
+        panelW = Math.max(110, maxW);
+        panelH = HEADER_H + items.size() * ROW_H + 6;
         // Au point du clic (curseur), clampé à l'écran.
-        panelX = (int) Math.min(cursorX, mc.getWindow().getGuiScaledWidth() - panelW - 4);
-        panelY = (int) Math.max(4, Math.min(cursorY - 6, mc.getWindow().getGuiScaledHeight() - panelH - 4));
+        panelX = (int) Math.max(4, Math.min(cursorX, sw - panelW - 4));
+        panelY = (int) Math.max(4, Math.min(cursorY - 6, sh - panelH - 4));
 
-        subW = new int[items.size()];
+        subW = new int[items.size()]; subX = new int[items.size()]; subY = new int[items.size()];
         for (int i = 0; i < items.size(); i++) {
             InteractionItem it = items.get(i);
             if (!it.hasChildren()) continue;
             int w = 0;
-            for (InteractionItem c : it.children()) w = Math.max(w, tr.width(c.label()));
-            subW[i] = Math.max(90, w + PAD_X * 2);
+            for (InteractionItem c : it.children()) w = Math.max(w, fr.reborn.hud.ui.Da.width(tr, c.label(), sc));
+            subW[i] = Math.max(100, w + PAD_X * 2);
+            int h = it.children().size() * ROW_H + 8;
+            // à droite du menu, ou à gauche s'il n'y a pas la place
+            subX[i] = panelX + panelW + subW[i] + 3 <= sw - 4 ? panelX + panelW + 3 : panelX - subW[i] - 3;
+            subY[i] = Math.max(4, Math.min(rowY(i) - 4, sh - h - 4));
         }
     }
 
@@ -196,11 +215,11 @@ public final class InteractionMode {
 
     private int subRowAt(int owner, double mx, double my) {
         if (owner < 0 || !items.get(owner).hasChildren()) return -1;
-        int sx = panelX + panelW + 3, sw = subW[owner], sy = rowY(owner) - 4;
+        int sx = subX[owner], sw = subW[owner], sy = subY[owner];
         if (mx < sx || mx > sx + sw) return -1;
         var ch = items.get(owner).children();
         for (int j = 0; j < ch.size(); j++) {
-            int y = sy + 3 + j * ROW_H;
+            int y = sy + 4 + j * ROW_H;
             if (my >= y && my < y + ROW_H) return j;
         }
         return -1;
@@ -211,46 +230,59 @@ public final class InteractionMode {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.gui.screen() != null) return;
         var tr = mc.font;
+        float sc = fr.reborn.hud.ui.Da.small();
 
         if (menuOpen) {
-            DrawHelpers.roundedOutlinedRect(ctx, panelX, panelY, panelW, panelH, 5,
-                Colors.BACKDROP_85, Colors.BORDER_STRONG);
-            ctx.text(tr, RebornFont.bold(title), panelX + PAD_X, panelY + 4, Colors.GOLD, false);
+            // Carte laquée : titre sur bandeau vermillon, lignes crème, survol vermillon + liseré or.
+            fr.reborn.hud.ui.Da.panel(ctx, panelX, panelY, panelW, panelH);
+            ctx.fill(panelX + 3, panelY + 3, panelX + panelW - 3, panelY + HEADER_H - 2, fr.reborn.hud.ui.Da.LACQ);
+            ctx.fill(panelX + 3, panelY + HEADER_H - 2, panelX + panelW - 3, panelY + HEADER_H - 1, fr.reborn.hud.ui.Da.GOLD_D);
+            fr.reborn.hud.ui.Da.text(ctx, tr, title, panelX + panelW / 2f, panelY + 6, fr.reborn.hud.ui.Da.title(), fr.reborn.hud.ui.Da.CREAM, 1);
 
             for (int i = 0; i < items.size(); i++) {
                 InteractionItem it = items.get(i);
                 int y = rowY(i);
                 boolean hot = (i == hovered) || (i == submenuOwner);
-                if (hot) DrawHelpers.roundedRect(ctx, panelX + 2, y, panelW - 4, ROW_H, 3, Colors.ACCENT_SOFT);
-                ctx.text(tr, RebornFont.body(it.label()), panelX + PAD_X, y + 2,
-                    hot ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
+                if (hot) {
+                    ctx.fill(panelX + 4, y + 1, panelX + panelW - 4, y + ROW_H - 1, fr.reborn.hud.ui.Da.RED);
+                    ctx.fill(panelX + 4, y + 1, panelX + 6, y + ROW_H - 1, fr.reborn.hud.ui.Da.GOLD);
+                }
+                fr.reborn.hud.ui.Da.text(ctx, tr, it.label(), panelX + PAD_X + 2, y + (ROW_H - 8 * sc) / 2f + .5f, sc,
+                    hot ? fr.reborn.hud.ui.Da.CREAM : fr.reborn.hud.ui.Da.MUTED, 0);
                 if (it.hasChildren()) {
-                    ctx.text(tr, RebornFont.body("›"), panelX + panelW - ARROW_W, y + 2,
-                        hot ? Colors.ACCENT_HOVER : Colors.FOREGROUND_MUTED, false);
+                    fr.reborn.hud.ui.Da.text(ctx, tr, ">", panelX + panelW - PAD_X, y + (ROW_H - 8 * sc) / 2f + .5f, sc,
+                        hot ? fr.reborn.hud.ui.Da.GOLD : fr.reborn.hud.ui.Da.GOLD_D, 2);
                 }
             }
 
             if (submenuOwner >= 0 && items.get(submenuOwner).hasChildren()) {
                 var ch = items.get(submenuOwner).children();
-                int sx = panelX + panelW + 3, sw = subW[submenuOwner], sy = rowY(submenuOwner) - 4;
-                int sh = ch.size() * ROW_H + 6;
-                sy = Math.max(4, Math.min(sy, mc.getWindow().getGuiScaledHeight() - sh - 4));
-                DrawHelpers.roundedOutlinedRect(ctx, sx, sy, sw, sh, 5, Colors.BACKDROP_85, Colors.BORDER_STRONG);
+                int sx = subX[submenuOwner], sw = subW[submenuOwner], sy = subY[submenuOwner];
+                int sh = ch.size() * ROW_H + 8;
+                fr.reborn.hud.ui.Da.panel(ctx, sx, sy, sw, sh);
                 for (int j = 0; j < ch.size(); j++) {
-                    int y = sy + 3 + j * ROW_H;
+                    int y = sy + 4 + j * ROW_H;
                     boolean hot = j == subHovered;
-                    if (hot) DrawHelpers.roundedRect(ctx, sx + 2, y, sw - 4, ROW_H, 3, Colors.ACCENT_SOFT);
-                    ctx.text(tr, RebornFont.body(ch.get(j).label()), sx + PAD_X, y + 2,
-                        hot ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
+                    if (hot) {
+                        ctx.fill(sx + 4, y + 1, sx + sw - 4, y + ROW_H - 1, fr.reborn.hud.ui.Da.RED);
+                        ctx.fill(sx + 4, y + 1, sx + 6, y + ROW_H - 1, fr.reborn.hud.ui.Da.GOLD);
+                    }
+                    fr.reborn.hud.ui.Da.text(ctx, tr, ch.get(j).label(), sx + PAD_X + 2, y + (ROW_H - 8 * sc) / 2f + .5f, sc,
+                        hot ? fr.reborn.hud.ui.Da.CREAM : fr.reborn.hud.ui.Da.MUTED, 0);
                 }
             }
+            int hot = hovered * 100 + subHovered;
+            if (hot != lastHot) {
+                if (hovered >= 0) fr.reborn.hud.menu.RebornSounds.playReborn("esc.hover", 1.25f, 0.12f);
+                lastHot = hot;
+            }
         } else {
-            // Mode curseur (pas encore de menu) : petit indice.
-            ctx.pose().pushMatrix();
-            ctx.pose().translate((float) (cursorX + 10), (float) (cursorY + 2));
-            ctx.pose().scale(0.85f, 0.85f);
-            ctx.text(tr, RebornFont.body("Clic : interagir"), 0, 0, Colors.FOREGROUND_MUTED, false);
-            ctx.pose().popMatrix();
+            // Mode curseur (pas encore de menu) : petite étiquette laquée près du curseur.
+            String hint = "Clic : interagir";
+            int w = fr.reborn.hud.ui.Da.width(tr, hint, sc) + 10, x = (int) cursorX + 12, y = (int) cursorY + 2;
+            ctx.fill(x, y, x + w, y + 11, 0xC80E0A0C);
+            fr.reborn.hud.ui.Da.outline(ctx, x, y, w, 11, fr.reborn.hud.ui.Da.GOLD_D);
+            fr.reborn.hud.ui.Da.text(ctx, tr, hint, x + 5, y + 2.5f, sc, fr.reborn.hud.ui.Da.CREAM, 0);
         }
 
         drawCursor(ctx, (int) cursorX, (int) cursorY);
@@ -260,6 +292,7 @@ public final class InteractionMode {
      *  le réglage {@code interactionCursor} → reborn:textures/gui/cursorN.png.
      *  0 ou texture absente = flèche procédurale. */
     private static final int CURSOR_SIZE = 16;
+    private static final java.util.Map<net.minecraft.resources.Identifier, Boolean> CURSOR_EXISTS = new java.util.HashMap<>();
 
     private void drawCursor(GuiGraphicsExtractor ctx, int x, int y) {
         Minecraft mc = Minecraft.getInstance();
@@ -268,7 +301,7 @@ public final class InteractionMode {
         catch (RuntimeException ignored) {}
         if (sel >= 1) {
             var id = net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn", "textures/gui/cursor" + sel + ".png");
-            if (mc.getResourceManager().getResource(id).isPresent()) {
+            if (CURSOR_EXISTS.computeIfAbsent(id, k -> mc.getResourceManager().getResource(k).isPresent())) {
                 ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0f, 0f,
                     CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE, CURSOR_SIZE);
                 return;

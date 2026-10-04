@@ -2,37 +2,31 @@ package fr.reborn.hud.ui;
 
 import fr.reborn.hud.immersion.PhotoMode;
 import fr.reborn.hud.keybind.HudKeybinds;
+import fr.reborn.hud.menu.RebornSounds;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import java.util.Locale;
+
 /**
- * Écran du Mode Photo (façon Reborn) avec animation de slide à l'ouverture :
+ * Écran du Mode Photo — DA Reborn, même fonctionnement qu'avant :
  * <ul>
- *   <li><b>Idle</b> : panneau d'options à droite — vitesse caméra, réinitialiser
- *       position, Capturer, Quitter.</li>
- *   <li><b>En mouvement</b> (ZQSD/glisser) : mini-indicateur « ● Photo Mode ».</li>
+ *   <li><b>Idle</b> : panneau laqué à droite (sceau 撮) — vitesse caméra −/+, Capturer,
+ *       Réinitialiser la position, Quitter.</li>
+ *   <li><b>En mouvement</b> (ZQSD / glisser) : panneau masqué, petite étiquette « Mode photo ».</li>
  * </ul>
+ * Glisser hors du panneau = regarder ; T ou / = chat par-dessus la freecam.
  */
 public class PhotoModeScreen extends Screen {
 
-    private static final int BG = 0xE60C0709;
-    private static final int BORDER = 0xFF6E1B27;
-    private static final int ACCENT = 0xFFA0182B;
-    private static final int ACCENT_HOV = 0xFFC2364A;
-    private static final int GREEN = 0xFF3FA85B;
-    private static final int GREEN_HOV = 0xFF4ECE6F;
-    private static final int GOLD = 0xFFD9A95E;
-    private static final int TEXT = 0xFFE8DCC8;
-    private static final int MUTED = 0xFF9A8B78;
-    private static final int SUB = 0xFF170C10;
-
-    private static final int PW = 180, PH = 150, ANIM_MS = 200;
+    private static final int PW = 150, PH = 148, ANIM_MS = 220;
     private int pX, pY;
     private boolean dragging = false;
     private long openedAt;
+    private int lastHover = -1;
 
     public PhotoModeScreen() {
         super(Component.literal("Photo Mode"));
@@ -40,26 +34,28 @@ public class PhotoModeScreen extends Screen {
 
     @Override
     protected void init() {
-        PhotoMode.INSTANCE.begin(Minecraft.getInstance());
+        boolean fresh = !PhotoMode.INSTANCE.isActive();
+        PhotoMode.INSTANCE.begin(Minecraft.getInstance());   // sans effet si déjà actif (retour du chat)
         pX = this.width - PW - 12;
         pY = (this.height - PH) / 2;
         openedAt = System.currentTimeMillis();
+        if (fresh) RebornSounds.playReborn("esc.open", 1.2f, 0.35f);
     }
 
     private float ease() {
         float t = Math.min(1f, (System.currentTimeMillis() - openedAt) / (float) ANIM_MS);
-        return 1f - (1f - t) * (1f - t) * (1f - t); // ease-out cubic
+        return 1f - (1f - t) * (1f - t) * (1f - t);
     }
 
-    // Rects (coords finales — les clics utilisent la position finale).
-    private int spdMinusX() { return pX + PW - 60; }
-    private int spdPlusX()  { return pX + PW - 18; }
-    private int spdY()      { return pY + 28; }
-    private int capY()      { return pY + 50; }
-    private int resetY()    { return pY + 78; }
-    private int quitY()     { return pY + 100; }
-    private int btnX()      { return pX + 12; }
-    private int btnW()      { return PW - 24; }
+    // Rects (position finale ; le survol tient compte du glissé d'entrée).
+    private int spdY()   { return pY + 34; }
+    private int minusX() { return pX + PW - 62; }
+    private int plusX()  { return pX + PW - 24; }
+    private int capY()   { return pY + 58; }
+    private int resetY() { return pY + 84; }
+    private int quitY()  { return pY + 104; }
+    private int btnX()   { return pX + 10; }
+    private int btnW()   { return PW - 20; }
 
     private boolean moving() {
         return dragging || PhotoMode.INSTANCE.anyMoveKeyDown(Minecraft.getInstance());
@@ -67,54 +63,60 @@ public class PhotoModeScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        // Pas de flou : le mode photo doit montrer la scène 3D NETTE pour cadrer.
-        // (Screen applique par défaut un backdrop flou quand un monde est chargé.)
+        // Pas de flou : la scène doit rester nette pour cadrer.
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        Font tr = this.font;
+        Font f = this.font;
+        float s = Da.small();
 
         if (moving()) {
-            String s = "● Photo Mode";
-            int w = tr.width(s) + 16;
-            int x = (this.width - w) / 2, y = this.height - 26;
-            ctx.fill(x, y, x + w, y + 16, BG);
-            ctx.fill(x, y, x + w, y + 1, ACCENT);
-            ctx.text(tr, Component.literal(s), x + 8, y + 4, GOLD, false);
+            String label = "Mode photo";
+            int w = Da.width(f, label, s) + 26, x = (this.width - w) / 2, y = this.height - 24;
+            ctx.fill(x, y, x + w, y + 13, 0xD00E0A0C);
+            Da.outline(ctx, x, y, w, 13, Da.GOLD_D);
+            ctx.fill(x + 5, y + 4, x + 10, y + 9, Da.RED);
+            Da.text(ctx, f, label, x + 15, y + 3.5f, s, Da.CREAM, 0);
             return;
         }
 
-        // Slide depuis la droite.
-        float slide = (1f - ease()) * 44f;
+        int slide = Math.round((1f - ease()) * 40f);
+        double mx = mouseX - slide;
         ctx.pose().pushMatrix();
         ctx.pose().translate(slide, 0);
 
-        ctx.fill(pX, pY, pX + PW, pY + PH, BG);
-        border(ctx, pX, pY, PW, PH);
-        ctx.text(tr, Component.literal("● PHOTO MODE").withStyle(s -> s.withBold(true)), pX + 12, pY + 10, GOLD, false);
+        Da.panel(ctx, pX, pY, PW, PH);
+        // en-tête : sceau 撮 + titre
+        ctx.fill(pX + 8, pY + 8, pX + 24, pY + 24, Da.RED);
+        Da.outline(ctx, pX + 8, pY + 8, 16, 16, Da.GOLD);
+        ctx.text(f, Component.literal("撮"), pX + 12, pY + 12, Da.CREAM, false);
+        Da.text(ctx, f, "Mode photo", pX + 30, pY + 12, Da.title(), Da.CREAM, 0);
+        ctx.fill(pX + 8, pY + 28, pX + PW - 8, pY + 29, Da.GOLD_D);
 
-        // Vitesse : label  [-]  valeur  [+]
-        ctx.text(tr, Component.literal("Vitesse"), pX + 12, spdY() + 3, TEXT, false);
-        button(ctx, tr, "-", spdMinusX(), spdY(), 14, 14, in(mouseX - slide, mouseY, spdMinusX(), spdY(), 14, 14), SUB);
-        center(ctx, tr, String.format("%.2f", PhotoMode.INSTANCE.getCameraSpeed()), spdMinusX() + 16, spdY() + 3, 24, GOLD);
-        button(ctx, tr, "+", spdPlusX(), spdY(), 14, 14, in(mouseX - slide, mouseY, spdPlusX(), spdY(), 14, 14), SUB);
+        // Vitesse : libellé, −, valeur, +
+        Da.text(ctx, f, "Vitesse", pX + 10, spdY() + 4, s, Da.MUTED, 0);
+        int hover = -1;
+        boolean mh = Da.in(mx, mouseY, minusX(), spdY(), 14, 13), ph = Da.in(mx, mouseY, plusX(), spdY(), 14, 13);
+        Da.plate(ctx, f, minusX(), spdY(), 14, 13, "-", false, mh, true);
+        Da.plate(ctx, f, plusX(), spdY(), 14, 13, "+", false, ph, true);
+        Da.text(ctx, f, String.format(Locale.ROOT, "%.2f", PhotoMode.INSTANCE.getCameraSpeed()),
+            (minusX() + 14 + plusX()) / 2f, spdY() + 4, s, Da.GOLD, 1);
+        if (mh) hover = 0; if (ph) hover = 1;
 
-        boolean capHov = in(mouseX - slide, mouseY, btnX(), capY(), btnW(), 22);
-        ctx.fill(btnX(), capY(), btnX() + btnW(), capY() + 22, capHov ? GREEN_HOV : GREEN);
-        center(ctx, tr, "Capturer", btnX(), capY() + 7, btnW(), 0xFF0A1A0E);
+        boolean ch = Da.in(mx, mouseY, btnX(), capY(), btnW(), 20);
+        Da.plate(ctx, f, btnX(), capY(), btnW(), 20, "Capturer", true, ch, true);
+        boolean rh = Da.in(mx, mouseY, btnX(), resetY(), btnW(), 14);
+        Da.plate(ctx, f, btnX(), resetY(), btnW(), 14, "Reinitialiser position", false, rh, true);
+        boolean qh = Da.in(mx, mouseY, btnX(), quitY(), btnW(), 14);
+        Da.plate(ctx, f, btnX(), quitY(), btnW(), 14, "Quitter [" + quitKey() + "]", false, qh, true);
+        if (ch) hover = 2; if (rh) hover = 3; if (qh) hover = 4;
 
-        button(ctx, tr, "Réinitialiser position", btnX(), resetY(), btnW(), 16,
-            in(mouseX - slide, mouseY, btnX(), resetY(), btnW(), 16), SUB);
-
-        boolean qHov = in(mouseX - slide, mouseY, btnX(), quitY(), btnW(), 16);
-        ctx.fill(btnX(), quitY(), btnX() + btnW(), quitY() + 16, qHov ? ACCENT_HOV : ACCENT);
-        center(ctx, tr, "Quitter [" + quitKey() + "]", btnX(), quitY() + 4, btnW(), 0xFFFFFFFF);
-
-        ctx.text(tr, Component.literal("Glisser : regarder"), pX + 12, quitY() + 22, MUTED, false);
-        ctx.text(tr, Component.literal("ZQSD/Espace : bouger"), pX + 12, quitY() + 32, MUTED, false);
-
+        Da.text(ctx, f, "Glisser : regarder", pX + 10, quitY() + 21, s, Da.MUTED, 0);
+        Da.text(ctx, f, "ZQSD / Espace : bouger", pX + 10, quitY() + 30, s, Da.MUTED, 0);
         ctx.pose().popMatrix();
+
+        if (hover != lastHover) { if (hover >= 0) RebornSounds.playReborn("esc.hover", 1.2f, 0.12f); lastHover = hover; }
     }
 
     private String quitKey() {
@@ -124,22 +126,21 @@ public class PhotoModeScreen extends Screen {
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-        double mx = event.x(), my = event.y(); int button = event.button();
-        if (button == 0 && !moving()) {
+        double mx = event.x(), my = event.y();
+        if (event.button() == 0 && !moving()) {
             Minecraft mc = Minecraft.getInstance();
-            if (in(mx, my, spdMinusX(), spdY(), 14, 14)) { PhotoMode.INSTANCE.addCameraSpeed(-0.05f); return true; }
-            if (in(mx, my, spdPlusX(), spdY(), 14, 14)) { PhotoMode.INSTANCE.addCameraSpeed(0.05f); return true; }
-            if (in(mx, my, btnX(), capY(), btnW(), 22)) { PhotoMode.INSTANCE.requestCapture(); return true; }
-            if (in(mx, my, btnX(), resetY(), btnW(), 16)) { PhotoMode.INSTANCE.resetPosition(mc); return true; }
-            if (in(mx, my, btnX(), quitY(), btnW(), 16)) { onClose(); return true; }
+            if (Da.in(mx, my, minusX(), spdY(), 14, 13)) { PhotoMode.INSTANCE.addCameraSpeed(-0.05f); click(); return true; }
+            if (Da.in(mx, my, plusX(), spdY(), 14, 13)) { PhotoMode.INSTANCE.addCameraSpeed(0.05f); click(); return true; }
+            if (Da.in(mx, my, btnX(), capY(), btnW(), 20)) { PhotoMode.INSTANCE.requestCapture(); return true; }
+            if (Da.in(mx, my, btnX(), resetY(), btnW(), 14)) { PhotoMode.INSTANCE.resetPosition(mc); click(); return true; }
+            if (Da.in(mx, my, btnX(), quitY(), btnW(), 14)) { onClose(); return true; }
         }
         return super.mouseClicked(event, doubleClick);
     }
 
     @Override
     public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
-        double mx = event.x(), my = event.y(); int button = event.button();
-        if (button == 0 && !in(mx, my, pX, pY, PW, PH)) {
+        if (event.button() == 0 && !Da.in(event.x(), event.y(), pX, pY, PW, PH)) {
             dragging = true;
             PhotoMode.INSTANCE.rotate(dx, dy);
             return true;
@@ -149,14 +150,12 @@ public class PhotoModeScreen extends Screen {
 
     @Override
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
-        double mx = event.x(), my = event.y(); int button = event.button();
         dragging = false;
         return super.mouseReleased(event);
     }
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
         if (HudKeybinds.PHOTO != null && HudKeybinds.PHOTO.matches(event)) {
             onClose();
             return true;
@@ -176,6 +175,8 @@ public class PhotoModeScreen extends Screen {
         return super.keyPressed(event);
     }
 
+    private static void click() { RebornSounds.playReborn("esc.select", 1.1f, 0.35f); }
+
     @Override
     public void removed() {
         // On ne quitte PAS la freecam si on ouvre juste le chat par-dessus.
@@ -187,26 +188,5 @@ public class PhotoModeScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
-    }
-
-    private static void border(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        ctx.fill(x, y, x + w, y + 1, BORDER);
-        ctx.fill(x, y + h - 1, x + w, y + h, BORDER);
-        ctx.fill(x, y, x + 1, y + h, BORDER);
-        ctx.fill(x + w - 1, y, x + w, y + h, BORDER);
-    }
-
-    private static void button(GuiGraphicsExtractor ctx, Font tr, String label, int x, int y, int w, int h,
-                               boolean hover, int bg) {
-        ctx.fill(x, y, x + w, y + h, hover ? 0x40FFFFFF : bg);
-        center(ctx, tr, label, x, y + (h - 8) / 2, w, hover ? 0xFFFFFFFF : TEXT);
-    }
-
-    private static void center(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y, int w, int color) {
-        ctx.text(tr, Component.literal(s), x + (w - tr.width(s)) / 2, y, color, false);
-    }
-
-    private static boolean in(double mx, double my, int x, int y, int w, int h) {
-        return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 }

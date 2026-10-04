@@ -33,7 +33,7 @@ public abstract class MouseInteractionMixin {
 
     @Inject(method = "onMove", at = @At("HEAD"), cancellable = true)
     private void reborn$onCursorPos(long window, double cx, double cy, CallbackInfo ci) {
-        if (!InteractionMode.INSTANCE.isActive()) {
+        if (!InteractionMode.INSTANCE.isCapturing()) {
             reborn$has = false;
             return;
         }
@@ -68,7 +68,7 @@ public abstract class MouseInteractionMixin {
             ci.cancel();
             return;
         }
-        if (!InteractionMode.INSTANCE.isActive()) return;
+        if (!InteractionMode.INSTANCE.isCapturing()) return;
         if (button.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW.GLFW_PRESS) {
                 InteractionMode.INSTANCE.onClick();

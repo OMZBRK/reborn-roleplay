@@ -52,7 +52,7 @@ public final class InteractionMenus {
         return List.of(
             InteractionItem.action("Saluer", () -> sendCommand("me salue " + name)),
             InteractionItem.action("Se présenter", () -> sendCommand("rencontrer")),
-            InteractionItem.action("Message privé", () -> sendCommand("msg " + name + " ")),
+            InteractionItem.action("Message privé…", () -> openChat("/msg " + name + " ")),
             InteractionItem.action("Demander en ami", () -> sendCommand("amitier")),
             InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")),
             InteractionItem.action("Porter", () -> sendCommand("porter " + name)),
@@ -124,8 +124,17 @@ public final class InteractionMenus {
                 InteractionItem.action("Toutes les emotes…", InteractionMenus::openEmoteMenu),
                 InteractionItem.action("Arrêter", () -> sendCommand("stopemote"))
             )),
-            InteractionItem.action("Action RP (/me)", () -> sendCommand("me "))
+            InteractionItem.action("Action RP (/me)…", () -> openChat("/me "))
         );
+    }
+
+    /**
+     * Ouvre le chat pré-rempli (le joueur tape la suite) — pour les commandes qui attendent un
+     * texte (message privé, action RP) au lieu de les envoyer vides.
+     */
+    public static void openChat(String prefill) {
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> mc.setScreenAndShow(new net.minecraft.client.gui.screens.ChatScreen(prefill, false)));
     }
 
     /** Ouvre le menu Reborn directement sur l'onglet ANIMATIONS (liste d'emotes). */

@@ -21,7 +21,7 @@ public abstract class KeyboardInteractionMixin {
     @Inject(method = "keyPress", at = @At("HEAD"), cancellable = true)
     private void reborn$escCloseInteraction(long window, int action, KeyEvent event,
                                             CallbackInfo ci) {
-        if (InteractionMode.INSTANCE.isActive()
+        if (InteractionMode.INSTANCE.isCapturing()
                 && event.key() == GLFW.GLFW_KEY_ESCAPE
                 && action == GLFW.GLFW_PRESS) {
             InteractionMode.INSTANCE.deactivate();

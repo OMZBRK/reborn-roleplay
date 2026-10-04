@@ -1,11 +1,9 @@
 package fr.reborn.hud.screenshot;
 
-import fr.reborn.hud.menu.Colors;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -20,7 +18,7 @@ public final class CapturePreview {
     public static final CapturePreview INSTANCE = new CapturePreview();
 
     private static final long DISPLAY_MS = 6000, SLIDE_MS = 250;
-    private static final int TW = 128, TH = 72, PAD = 6;
+    private static final int TW = 112, TH = 63, PAD = 7;
 
     private Path path;
     private long shownAt = 0;
@@ -57,7 +55,7 @@ public final class CapturePreview {
     private void render(GuiGraphicsExtractor ctx) {
         if (path == null) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.gui.hud.isHidden()) return;
+        if (mc.gui.hud.isHidden() || mc.gui.screen() != null) return;
         long age = System.currentTimeMillis() - shownAt;
         if (age > DISPLAY_MS) return;
 
@@ -73,20 +71,18 @@ public final class CapturePreview {
         int x = fullX + (int) ((1f - ease) * (w + 12));
         int y = ctx.guiHeight() - h - 8;
 
-        ctx.fill(x, y, x + w, y + h, 0xE60C0709);
-        ctx.fill(x, y, x + w, y + 1, Colors.ACCENT);
-
-        ScreenshotTextures.Tex tex = ScreenshotTextures.get(path);
+        // Carte laquée DA : tirage dans un passe-partout crème + légende.
+        fr.reborn.hud.ui.Da.panel(ctx, x, y, w, h);
         int ix = x + PAD, iy = y + PAD;
+        ctx.fill(ix - 2, iy - 2, ix + TW + 2, iy + TH + 2, 0xFFF0E8D6);
+        ScreenshotTextures.Tex tex = ScreenshotTextures.thumb(path);
         if (tex != null) {
             ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), ix, iy, 0f, 0f, TW, TH, tex.w(), tex.h(), tex.w(), tex.h());
         } else {
-            ctx.fill(ix, iy, ix + TW, iy + TH, 0xFF1A0E12);
+            ctx.fill(ix, iy, ix + TW, iy + TH, 0xFF2A2022);
         }
-        ctx.fill(ix - 1, iy - 1, ix + TW + 1, iy, Colors.BORDER);
-
-        ctx.text(tr, Component.literal("Capture enregistrée").withStyle(s -> s.withBold(true)),
-            x + PAD, y + TH + PAD + 2, Colors.GOLD, false);
-        ctx.text(tr, Component.literal("[G] Galerie"), x + PAD, y + TH + PAD + 12, Colors.FOREGROUND_MUTED, false);
+        float sc = fr.reborn.hud.ui.Da.small();
+        fr.reborn.hud.ui.Da.text(ctx, tr, "Capture enregistree", x + PAD, y + TH + PAD + 5, sc, fr.reborn.hud.ui.Da.GOLD, 0);
+        fr.reborn.hud.ui.Da.text(ctx, tr, "[G] Galerie", x + PAD, y + TH + PAD + 14, sc, fr.reborn.hud.ui.Da.MUTED, 0);
     }
 }

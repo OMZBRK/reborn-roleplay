@@ -44,9 +44,11 @@ public final class PhotoMode {
     public void resetPosition(Minecraft mc) {
         if (mc.player == null) return;
         Vec3 eye = mc.player.getEyePosition();
-        x = eye.x; y = eye.y; z = eye.z;
         yaw = mc.player.getYRot();
-        pitch = mc.player.getXRot();
+        pitch = Math.max(-30f, Math.min(45f, mc.player.getXRot()));
+        double yr = Math.toRadians(yaw);
+        double bx = Math.sin(yr), bz = -Math.cos(yr);
+        placeBehind(mc, eye, bx, bz);
     }
 
     /** true si une touche de déplacement est physiquement enfoncée. */
@@ -69,14 +71,20 @@ public final class PhotoMode {
         mc.setScreenAndShow(new net.minecraft.client.gui.screens.ChatScreen(command ? "/" : "", true));
     }
 
-    /** Démarre le mode depuis la caméra joueur actuelle. */
+    /**
+     * Démarre le mode : caméra placée <b>derrière</b> le perso (≈ 3 blocs, un peu au-dessus), en
+     * reculant moins si un bloc gêne — avant, elle partait des yeux et l'on voyait l'intérieur de
+     * la tête. Sans effet si le mode est déjà actif (retour du chat, redimensionnement).
+     */
     public void begin(Minecraft mc) {
-        if (mc.player == null) return;
+        if (mc.player == null || active) return;
         Vec3 eye = mc.player.getEyePosition();
-        x = eye.x; y = eye.y; z = eye.z;
-        anchorX = x; anchorY = y; anchorZ = z;
         yaw = mc.player.getYRot();
-        pitch = mc.player.getXRot();
+        pitch = Math.max(-30f, Math.min(45f, mc.player.getXRot()));
+        double yr = Math.toRadians(yaw);
+        double bx = Math.sin(yr), bz = -Math.cos(yr);          // vers l'arrière du regard
+        placeBehind(mc, eye, bx, bz);
+        anchorX = x; anchorY = y; anchorZ = z;
         savedPerspective = mc.options.getCameraType();
         mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
         active = true;
@@ -142,6 +150,30 @@ public final class PhotoMode {
         if (!solid(mc, x, y, nz)) z = nz;
         double ny = clamp(y + dy, anchorY - HALF, anchorY + HALF);
         if (!solid(mc, x, ny, z)) y = ny;
+    }
+
+    /**
+     * Place la caméra derrière la tête : on avance pas à pas depuis les yeux jusqu'au premier
+     * obstacle (max 3 blocs). S'il y a moins de 1,5 bloc de libre (feuillage, mur…), on monte
+     * plutôt au-dessus du perso en regardant vers le bas.
+     */
+    private void placeBehind(Minecraft mc, Vec3 eye, double bx, double bz) {
+        double d = 0;
+        for (double t = 0.4; t <= 3.0; t += 0.2) {
+            if (solid(mc, eye.x + bx * t, eye.y + 0.3, eye.z + bz * t)) break;
+            d = t;
+        }
+        if (d >= 1.5) {
+            x = eye.x + bx * (d - 0.2); y = eye.y + 0.3; z = eye.z + bz * (d - 0.2);
+            return;
+        }
+        double up = 0;
+        for (double t = 0.4; t <= 3.0; t += 0.2) {
+            if (solid(mc, eye.x + bx * 0.8, eye.y + t, eye.z + bz * 0.8)) break;
+            up = t;
+        }
+        x = eye.x + bx * 0.8; y = eye.y + Math.max(0.5, up - 0.2); z = eye.z + bz * 0.8;
+        pitch = Math.max(pitch, 35f);
     }
 
     private static double clamp(double v, double lo, double hi) {
