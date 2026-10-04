@@ -570,6 +570,21 @@ public final class RebornHudClient implements ClientModInitializer {
                 fr.reborn.hud.combat.CooldownHud.render(ctx, b.x(), b.y(), st.scale());
             });
 
+        // Byakugan (canal reborn:byakugan depuis ShinobiSense) : S2C {active, range}.
+        // Vue locale uniquement — corps fantôme + réseau de chakra (ChakraNetworkLayer),
+        // aura à travers les murs (mixins LivingEntityRenderer*Byakugan) et voile à l'écran.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.byakugan.ByakuganPayload.ID, fr.reborn.hud.byakugan.ByakuganPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.byakugan.ByakuganPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.byakugan.ByakuganClient.update(payload.active(), payload.range())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.byakugan.ByakuganClient.clear());
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "byakugan_voile"),
+            (ctx, tickCounter) -> fr.reborn.hud.byakugan.ByakuganVeil.render(ctx));
+
         // Cosmétiques 3D sur le joueur : rend chaque cosmétique ÉQUIPÉ avec son
         // modèle d'item Nexo réel, ancré sur le corps + transform par-cosmétique.
         // Ajoute le FeatureRenderer au renderer du joueur (default ET slim — le
@@ -590,6 +605,7 @@ public final class RebornHudClient implements ClientModInitializer {
                             net.minecraft.client.model.player.PlayerModel>) entityRenderer;
                     registrationHelper.register(
                         new fr.reborn.hud.cosmetic.CosmeticFeatureRenderer(parent, context.getModelSet()));
+                    registrationHelper.register(new fr.reborn.hud.byakugan.ChakraNetworkLayer(parent));
                 }
             });
 
