@@ -571,8 +571,9 @@ public final class RebornHudClient implements ClientModInitializer {
             });
 
         // Byakugan (canal reborn:byakugan depuis ShinobiSense) : S2C {active, range}.
-        // Vue locale uniquement — corps fantôme + réseau de chakra (ChakraNetworkLayer),
-        // aura à travers les murs (mixins LivingEntityRenderer*Byakugan) et voile à l'écran.
+        // Vue locale uniquement, « comme dans l'anime » — monde en négatif (filtre reborn-hud:byakugan),
+        // silhouettes + réseau de chakra (ChakraNetworkLayer), aura à travers les murs
+        // (mixins LivingEntityRenderer*Byakugan) et effet d'activation (flash + lignes radiales).
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
             fr.reborn.hud.byakugan.ByakuganPayload.ID, fr.reborn.hud.byakugan.ByakuganPayload.CODEC);
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
@@ -582,8 +583,13 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.byakugan.ByakuganClient.clear());
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
-            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "byakugan_voile"),
-            (ctx, tickCounter) -> fr.reborn.hud.byakugan.ByakuganVeil.render(ctx));
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "byakugan_activation"),
+            (ctx, tickCounter) -> fr.reborn.hud.byakugan.ByakuganActivation.render(ctx));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
+            client -> fr.reborn.hud.byakugan.ByakuganClient.tick());
+        // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
+        // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
+        fr.reborn.hud.byakugan.ByakuganDebug.init();
 
         // Cosmétiques 3D sur le joueur : rend chaque cosmétique ÉQUIPÉ avec son
         // modèle d'item Nexo réel, ancré sur le corps + transform par-cosmétique.
@@ -605,7 +611,14 @@ public final class RebornHudClient implements ClientModInitializer {
                             net.minecraft.client.model.player.PlayerModel>) entityRenderer;
                     registrationHelper.register(
                         new fr.reborn.hud.cosmetic.CosmeticFeatureRenderer(parent, context.getModelSet()));
-                    registrationHelper.register(new fr.reborn.hud.byakugan.ChakraNetworkLayer(parent));
+                }
+                // Byakugan : réseau de chakra sur la silhouette des joueurs et des mobs humanoïdes
+                // (même disposition de texture que le skin joueur).
+                if (entityRenderer.getModel() instanceof net.minecraft.client.model.HumanoidModel<?>) {
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    net.minecraft.client.renderer.entity.layers.RenderLayer layer =
+                        new fr.reborn.hud.byakugan.ChakraNetworkLayer(entityRenderer);
+                    registrationHelper.register(layer);
                 }
             });
 

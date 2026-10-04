@@ -1,30 +1,24 @@
 package fr.reborn.hud.mixin;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import fr.reborn.hud.byakugan.ByakuganClient;
 import fr.reborn.hud.byakugan.ByakuganRenderState;
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Byakugan, vue « aux rayons X » des entités à portée (uniquement chez le porteur) :
- * <ul>
- *   <li>le corps est rendu par le chemin vanilla « corps non visible mais pas invisible pour moi » (celui des
- *       coéquipiers invisibles) : translucide ; l'opacité/teinte vanilla (0x26FFFFFF, 15 %) est remplacée par
- *       {@link ByakuganClient#CORPS_FANTOME} (bleuté, ~35 %) ;</li>
- *   <li>les entités réellement invisibles redeviennent visibles (le Byakugan les perce) ;</li>
- *   <li>contour lumineux bleu (aura, visible à travers les murs) via {@code outlineColor}.</li>
- * </ul>
+ * Byakugan, entités à portée (uniquement chez le porteur) : corps rendu en silhouette unie (texture blanche, pleine
+ * lumière — le filtre négatif en fait une silhouette sombre), invisibles percés, aura (contour) visible à travers les
+ * murs dans la couleur « inverse » du chakra.
  */
 @Mixin(LivingEntityRenderer.class)
 public abstract class LivingEntityRendererByakuganMixin {
@@ -36,20 +30,25 @@ public abstract class LivingEntityRendererByakuganMixin {
         ((ByakuganRenderState) state).reborn$setByakugan(cible);
         if (cible) {
             state.isInvisibleToPlayer = false;
-            state.outlineColor = ByakuganClient.AURA;
+            state.outlineColor = ByakuganClient.CHAKRA_INVERSE;
+            state.lightCoords = LightCoordsUtil.FULL_BRIGHT;
         }
     }
 
     @Inject(method = "isBodyVisible(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;)Z",
             at = @At("HEAD"), cancellable = true)
     private void reborn$byakuganBody(LivingEntityRenderState state, CallbackInfoReturnable<Boolean> cir) {
-        if (((ByakuganRenderState) state).reborn$byakugan()) cir.setReturnValue(false);
+        if (((ByakuganRenderState) state).reborn$byakugan()) cir.setReturnValue(true);
     }
 
-    @ModifyConstant(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
-            constant = @Constant(intValue = 0x26FFFFFF))
-    private int reborn$byakuganGhost(int original, LivingEntityRenderState state, PoseStack poseStack,
-                                     SubmitNodeCollector collector, CameraRenderState camera) {
-        return ((ByakuganRenderState) state).reborn$byakugan() ? ByakuganClient.CORPS_FANTOME : original;
+    @Inject(method = "getRenderType(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;ZZZ)Lnet/minecraft/client/renderer/rendertype/RenderType;",
+            at = @At("HEAD"), cancellable = true)
+    private void reborn$byakuganSilhouette(LivingEntityRenderState state, boolean bodyVisible, boolean translucent, boolean glowing,
+                                           CallbackInfoReturnable<RenderType> cir) {
+        if (((ByakuganRenderState) state).reborn$byakugan()) {
+            Object self = this;
+            boolean humanoide = ((LivingEntityRenderer<?, ?, ?>) self).getModel() instanceof HumanoidModel<?>;
+            cir.setReturnValue(RenderTypes.entityCutout(humanoide ? ByakuganClient.SILHOUETTE_JOUEUR : ByakuganClient.SILHOUETTE));
+        }
     }
 }

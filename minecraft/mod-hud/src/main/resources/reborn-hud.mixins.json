@@ -33,6 +33,7 @@
     "EntityNameTagHideMixin",
     "LivingEntityRenderStateByakuganMixin",
     "LivingEntityRendererByakuganMixin",
+    "GameRendererByakuganAccessor",
     "menu.TitleScreenMixin",
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",

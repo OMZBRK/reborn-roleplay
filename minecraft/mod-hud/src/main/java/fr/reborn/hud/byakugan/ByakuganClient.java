@@ -1,22 +1,32 @@
 package fr.reborn.hud.byakugan;
 
+import fr.reborn.hud.mixin.GameRendererByakuganAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 
 /**
- * État client du Byakugan (alimenté par {@link ByakuganPayload}). Quand il est actif, les entités vivantes à portée
- * sont vues « aux rayons X » : corps fantôme bleuté (rendu translucide vanilla), réseau de chakra lumineux à
- * l'intérieur ({@link ChakraNetworkLayer}), contour bleu visible à travers les murs (aura), voile discret à l'écran
- * ({@link ByakuganVeil}). Tout est local : personne d'autre ne voit rien.
+ * État client du Byakugan (alimenté par {@link ByakuganPayload}) — vue subjective « comme dans l'anime » :
+ * <ul>
+ *   <li>le monde passe en <b>négatif</b> noir et blanc bleuté (filtre plein écran {@code reborn-hud:byakugan}) ;</li>
+ *   <li>les entités vivantes à portée deviennent des <b>silhouettes</b> (corps uni, pleine lumière) où brille leur
+ *       <b>réseau de chakra</b> ({@link ChakraNetworkLayer}) ; leur <b>aura</b> (contour) reste visible à travers les
+ *       murs ;</li>
+ *   <li>à l'activation : flash + lignes radiales vers le centre ({@link ByakuganActivation}).</li>
+ * </ul>
+ * Astuce de couleur : silhouettes, réseau et aura sont dessinés dans des couleurs « inverses » (blanc / orange pur) ;
+ * le filtre négatif les transforme en silhouettes sombres et en chakra cyan lumineux. Tout est local au porteur.
  */
 public final class ByakuganClient {
 
-    /** Couleur du contour (aura) des cibles. */
-    public static final int AURA = 0x6EC8FF;
-    /** Teinte et opacité du corps fantôme (ARGB) : ~35 %, bleuté. */
-    public static final int CORPS_FANTOME = 0x5AA8D8FF;
+    /** Couleur « inverse » du chakra (orange pur) : le filtre la rend cyan lumineux. Sert aussi de couleur d'aura. */
+    public static final int CHAKRA_INVERSE = 0xFF7300;
+    public static final Identifier SILHOUETTE = Identifier.fromNamespaceAndPath("reborn-hud", "textures/entity/byakugan/silhouette.png");
+    /** Silhouette des joueurs / mannequins : seule la couche de base du skin est remplie ; la couche extérieure
+     *  (chapeau, veste, manches, pantalon) reste transparente pour ne pas recouvrir le réseau de chakra. */
+    public static final Identifier SILHOUETTE_JOUEUR = Identifier.fromNamespaceAndPath("reborn-hud", "textures/entity/byakugan/silhouette_joueur.png");
+    public static final Identifier FILTRE = Identifier.fromNamespaceAndPath("reborn-hud", "byakugan");
     private static final int IMAGES = 4;
     private static final Identifier[] RESEAU = new Identifier[IMAGES];
 
@@ -34,22 +44,46 @@ public final class ByakuganClient {
 
     public static void update(boolean on, float r) {
         if (on && !active) depuis = System.currentTimeMillis();
+        boolean etait = active;
         active = on;
         range = Math.max(0f, r);
+        if (on) appliquerFiltre();
+        else if (etait) retirerFiltre();
     }
 
-    public static void clear() { active = false; }
+    public static void clear() {
+        if (active) retirerFiltre();
+        active = false;
+    }
 
     public static boolean active() { return active; }
 
-    /** Fondu d'ouverture (0 → 1 en 0,8 s) pour le voile. */
-    public static float ouverture() {
-        return active ? Math.min(1f, (System.currentTimeMillis() - depuis) / 800f) : 0f;
+    /** Secondes écoulées depuis l'activation (pour l'effet d'activation). */
+    public static float depuisActivation() {
+        return active ? (System.currentTimeMillis() - depuis) / 1000f : 99f;
     }
 
     /** Image d'animation du flux de chakra (impulsions qui partent du cœur), 5 images / s. */
     public static Identifier reseau() {
         return RESEAU[(int) ((System.currentTimeMillis() / 200L) % IMAGES)];
+    }
+
+    /** Appelé à chaque tick client : le jeu peut retirer le filtre (changement de caméra, F4…), on le remet. */
+    public static void tick() {
+        if (!active) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        if (!FILTRE.equals(mc.gameRenderer.currentPostEffect())) appliquerFiltre();
+    }
+
+    private static void appliquerFiltre() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.gameRenderer != null) ((GameRendererByakuganAccessor) mc.gameRenderer).reborn$setPostEffect(FILTRE);
+    }
+
+    private static void retirerFiltre() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.gameRenderer != null && FILTRE.equals(mc.gameRenderer.currentPostEffect())) mc.gameRenderer.clearPostEffect();
     }
 
     /** L'entité est-elle vue au Byakugan ? (vivante, pas le joueur local, à portée, pas un porte-armure) */
