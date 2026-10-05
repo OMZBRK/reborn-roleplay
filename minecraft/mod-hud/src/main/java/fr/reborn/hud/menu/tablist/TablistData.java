@@ -37,7 +37,11 @@ public final class TablistData {
     /** Identité RP d'un joueur du roster, adressable par UUID (pour les plaques de
      *  nom au-dessus des têtes). {@code name} est déjà résolu serveur selon la
      *  relation ({@code relation} sert à afficher « Inconnu » côté client). */
-    public record RpName(String name, TabEntry.Relation relation, int clanColor) {}
+    /**
+     * Identité RP affichée sur la plaque de nom. {@code clan} et {@code village} peuvent être null
+     * ({@code village} = clé « v » du roster, optionnelle : konoha, suna, kiri, kumo, iwa).
+     */
+    public record RpName(String name, TabEntry.Relation relation, int clanColor, String clan, String village) {}
     /** UUID → identité RP, reconstruit à chaque feed. Vide tant que rien reçu. */
     private static volatile Map<UUID, RpName> byUuid = Map.of();
 
@@ -99,7 +103,7 @@ public final class TablistData {
                         ping, level, age, affinity));
                     // Index par UUID pour les plaques de nom (relation → « Inconnu »).
                     if (uuid != null) {
-                        try { ids.put(UUID.fromString(uuid), new RpName(name, relation, clanColor)); }
+                        try { ids.put(UUID.fromString(uuid), new RpName(name, relation, clanColor, clan, opt(o, "v", null))); }
                         catch (IllegalArgumentException ignoredId) { /* uuid invalide */ }
                     }
                 }
