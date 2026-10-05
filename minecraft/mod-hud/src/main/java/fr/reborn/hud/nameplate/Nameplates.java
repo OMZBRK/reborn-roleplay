@@ -27,10 +27,11 @@ import java.util.Set;
  * {@link RebornPrefs#nameplateStyle}) :
  * <ol start="0">
  *   <li><b>Détouré</b> : le nom seul, contour sombre, petit carré à la couleur du clan.</li>
- *   <li><b>Filet doré</b> : nom, filet d'or à losange, clan dessous.</li>
+ *   <li><b>Filet doré</b> : nom, filet d'or à losange à la couleur du clan.</li>
  *   <li><b>Village</b> : emblème du village + nom sur une bande sombre estompée, filet du clan.</li>
- *   <li><b>Ruban</b> : nom sur un ruban vermillon à pointes, clan dessous.</li>
+ *   <li><b>Ruban</b> : nom sur un ruban vermillon à pointes.</li>
  * </ol>
+ * Tout tient sur <b>une ligne</b> : le nom RP envoyé par le serveur est déjà « Prénom Clan ».
  * Joueur non présenté = « ??? » (« Inconnu » pour le style Village), en gris.
  *
  * <p>La position de la tête est <b>interpolée</b> sur l'image affichée (partial tick) :
@@ -91,7 +92,6 @@ public final class Nameplates {
         boolean known = rp != null && rp.relation() != TabEntry.Relation.INCONNU
             && rp.name() != null && !rp.name().isBlank();
         String name = known ? rp.name() : null;
-        String clan = known && rp.clan() != null && !rp.clan().isBlank() ? rp.clan() : null;
         int clanCol = known && rp.clanColor() != 0 ? (0xFF000000 | rp.clanColor()) : NEUTRAL_CLAN;
         String village = known ? villageKey(rp.village()) : null;
 
@@ -109,9 +109,9 @@ public final class Nameplates {
         float alpha = (float) Math.max(0.45, 1.0 - dist / (MAX_DIST + 2.0));
 
         switch (Math.floorMod(RebornPrefs.INSTANCE.nameplateStyle, 4)) {
-            case 1 -> drawFilet(ctx, font, sx, sy, name, clan, clanCol, alpha);
+            case 1 -> drawFilet(ctx, font, sx, sy, name, clanCol, alpha);
             case 2 -> drawVillage(ctx, font, sx, sy, name, clanCol, village, alpha);
-            case 3 -> drawRuban(ctx, font, sx, sy, name, clan, clanCol, alpha);
+            case 3 -> drawRuban(ctx, font, sx, sy, name, alpha);
             default -> drawDetoure(ctx, font, sx, sy, name, clanCol, alpha);
         }
     }
@@ -132,12 +132,11 @@ public final class Nameplates {
         }
     }
 
-    /** Filet doré : nom, filet d'or à losange (couleur du clan), clan dessous. */
-    private static void drawFilet(GuiGraphicsExtractor g, Font f, float x, float y, String name, String clan, int clanCol, float a) {
-        float sc = Da.title(), ss = Da.title();
+    /** Filet doré : nom, filet d'or à losange à la couleur du clan. */
+    private static void drawFilet(GuiGraphicsExtractor g, Font f, float x, float y, String name, int clanCol, float a) {
+        float sc = Da.title();
         String s = name != null ? name : "???";
-        boolean two = name != null && clan != null;
-        float top = y - (two ? 26 : 14);
+        float top = y - 14;
         outlined(g, f, s, x, top, sc, name != null ? Da.CREAM : UNKNOWN, 0xFF000000, a);
         int ly = Math.round(top + 8 * sc + 2);
         int half = Math.max(16, Math.round(Da.width(f, s, sc) / 2f) + 6);
@@ -147,7 +146,6 @@ public final class Nameplates {
         int dc = fade(name != null ? clanCol : UNKNOWN, a);
         g.fill(cx, ly - 2, cx + 1, ly + 3, dc);
         g.fill(cx - 1, ly - 1, cx + 2, ly + 2, dc);
-        if (two) outlined(g, f, clan, x, ly + 3, ss, clanCol, 0xFF000000, a);
     }
 
     /** Village : emblème du village + nom sur une bande estompée, filet de la couleur du clan. */
@@ -184,14 +182,13 @@ public final class Nameplates {
         g.fill(x0 + 2, y0 + h, x0 + w - 2, y0 + h + 1, fade(name != null ? clanCol : 0xFF786E6E, a));
     }
 
-    /** Ruban : nom sur un ruban vermillon à pointes, clan dessous. */
-    private static void drawRuban(GuiGraphicsExtractor g, Font f, float x, float y, String name, String clan, int clanCol, float a) {
-        float sc = Da.title(), ss = Da.title();
+    /** Ruban : nom sur un ruban vermillon à pointes. */
+    private static void drawRuban(GuiGraphicsExtractor g, Font f, float x, float y, String name, float a) {
+        float sc = Da.title();
         String s = name != null ? name : "???";
-        boolean two = name != null && clan != null;
         int tw = Da.width(f, s, sc);
         int w = tw + 14, h = 11;
-        int x0 = Math.round(x - w / 2f), y0 = Math.round(y - (two ? 26 : 15));
+        int x0 = Math.round(x - w / 2f), y0 = Math.round(y - 15);
         int body = fade(name != null ? 0xFF96202A : 0xFF463C3E, a);
         int light = fade(name != null ? 0xFFD65A4A : 0xFF645A5C, a);
         g.fill(x0, y0, x0 + w, y0 + h, body);
@@ -203,7 +200,6 @@ public final class Nameplates {
             g.fill(x0 + w, y0 + i, x0 + w + 5 - notch, y0 + i + 1, body);
         }
         Da.text(g, f, s, x, y0 + (h - 8 * sc) / 2f + .5f, sc, fade(name != null ? Da.CREAM : UNKNOWN, a), 1);
-        if (two) outlined(g, f, clan, x, y0 + h + 2, ss, clanCol, 0xFF000000, a);
     }
 
     // ── outils ───────────────────────────────────────────────────
