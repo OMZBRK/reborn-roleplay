@@ -33,7 +33,7 @@
 | Artefact | **Publié / live** | Sur `origin/main` | Écart |
 |---|---|---|---|
 | Launcher | **0.3.44** (`/v1/launcher/update` le confirme, release `v0.3.44` du 28/09) | 0.3.44 | ✅ |
-| `reborn-hud` | **0.4.152** (manifest 3.1.109 du 04/10, Byakugan façon anime — vision négatif, silhouettes + réseau de chakra, activation ; caméra / interaction / galerie / mode photo dans la DA Reborn + correctifs ; correctif gel au join ; sélection des persos « Horizon » : tous les persos en pied avec skin RP + pose, carrousel centré ; DA Reborn sur tous les menus : Échap tokonoma, sacoche inrō, création avec décor par village, éditeur HUD, viseur, animations ; carte, échoppe, fiche) | 0.4.152 | ✅ |
+| `reborn-hud` | **0.4.153** (manifest 3.1.110 du 05/10, mode photo façon viseur — FOV, inclinaison, flou, filtres, cadres ; Byakugan façon anime — vision négatif, silhouettes + réseau de chakra, activation ; caméra / interaction / galerie / mode photo dans la DA Reborn + correctifs ; correctif gel au join ; sélection des persos « Horizon » : tous les persos en pied avec skin RP + pose, carrousel centré ; DA Reborn sur tous les menus : Échap tokonoma, sacoche inrō, création avec décor par village, éditeur HUD, viseur, animations ; carte, échoppe, fiche) | 0.4.153 | ✅ |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | **0.2.4** (manifest 3.1.104 du 03/10, menu OST refait sur la planche DA : plaque suspendue + onglets pendus, carte en lecture avec grand disque laqué et cordes de shamisen, rouleau de papier) | 0.2.4 | ✅ |
 | Plugins Shinobi | build manuel Maven | `minecraft/shinobi/` | déploiement SFTP manuel |
