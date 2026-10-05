@@ -45,7 +45,8 @@ public abstract class InGameHudCinemaMixin {
                 // from wrong thread". Le HUD étant masqué en mode photo, le
                 // framebuffer reste une scène 3D propre à ce moment-là.
                 mc.execute(() -> Screenshot.grab(mc.gameDirectory, mc.gameRenderer.mainRenderTarget(),
-                    text -> this.chat.addClientSystemMessage(text)));
+                    // le rappel arrive sur le fil d'écriture du fichier : on revient sur le fil principal
+                    text -> mc.execute(() -> this.chat.addClientSystemMessage(text))));
             }
             ci.cancel(); // panneau dessiné par PhotoModeScreen ; on masque le HUD.
             return;

@@ -1,0 +1,139 @@
+{
+  "targets": {
+    "swap": {}
+  },
+  "passes": [
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "reborn-hud:post/photo",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "minecraft:main",
+          "bilinear": true
+        }
+      ],
+      "output": "swap",
+      "uniforms": {
+        "PhotoConfig": [
+          {
+            "name": "RedRow",
+            "type": "vec4",
+            "value": [
+              1,
+              0,
+              0,
+              0.0
+            ]
+          },
+          {
+            "name": "GreenRow",
+            "type": "vec4",
+            "value": [
+              0,
+              1,
+              0,
+              0.0
+            ]
+          },
+          {
+            "name": "BlueRow",
+            "type": "vec4",
+            "value": [
+              0,
+              0,
+              1,
+              0.0
+            ]
+          },
+          {
+            "name": "Params",
+            "type": "vec4",
+            "value": [
+              1.0,
+              1.0,
+              0.0,
+              5.0
+            ]
+          },
+          {
+            "name": "Tint",
+            "type": "vec4",
+            "value": [
+              1.0,
+              1.0,
+              1.0,
+              0.0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "reborn-hud:post/photo",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "swap",
+          "bilinear": true
+        }
+      ],
+      "output": "minecraft:main",
+      "uniforms": {
+        "PhotoConfig": [
+          {
+            "name": "RedRow",
+            "type": "vec4",
+            "value": [
+              1,
+              0,
+              0,
+              0.0
+            ]
+          },
+          {
+            "name": "GreenRow",
+            "type": "vec4",
+            "value": [
+              0,
+              1,
+              0,
+              0.0
+            ]
+          },
+          {
+            "name": "BlueRow",
+            "type": "vec4",
+            "value": [
+              0,
+              0,
+              1,
+              0.0
+            ]
+          },
+          {
+            "name": "Params",
+            "type": "vec4",
+            "value": [
+              1.0,
+              0.0,
+              1.0,
+              5.0
+            ]
+          },
+          {
+            "name": "Tint",
+            "type": "vec4",
+            "value": [
+              1.0,
+              1.0,
+              1.0,
+              0.0
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
