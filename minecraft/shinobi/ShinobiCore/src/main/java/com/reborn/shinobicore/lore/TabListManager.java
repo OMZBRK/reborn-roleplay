@@ -254,6 +254,8 @@ public class TabListManager implements Listener {
                     NamedTextColor col = Clan.colourFor(clan);
                     if (col != null) sb.append(",\"cc\":").append(0xFF000000 | col.value());
                 }
+                String village = oc.village();
+                if (!village.isBlank()) sb.append(",\"v\":\"").append(esc(village)).append('"');
                 sb.append(",\"lv\":").append(oc.level());
                 sb.append(",\"a\":").append(oc.age());
                 sb.append(",\"af\":\"").append(oc.affinity() != null ? oc.affinity().name() : "").append('"');

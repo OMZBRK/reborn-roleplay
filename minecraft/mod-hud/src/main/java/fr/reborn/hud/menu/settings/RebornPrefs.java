@@ -82,6 +82,8 @@ public final class RebornPrefs {
     // ────────────────── Tablist ──────
     /** true = maintenir Tab (overlay lecture seule) ; false = presser pour ouvrir l'écran interactif. */
     public boolean tablistHold = false;
+    /** Style de la plaque de nom au-dessus des têtes : 0 détouré, 1 filet doré, 2 emblème du village, 3 ruban laqué. */
+    public int nameplateStyle = 0;
 
     // ────────────────── Inventaire ──────
     /** true = la touche E ouvre la SACOCHE RP (si ShinobiCore présent) ; false = inventaire
@@ -171,6 +173,7 @@ public final class RebornPrefs {
         this.camVanilla = other.camVanilla;
         this.walkStyle = other.walkStyle;
         this.tablistHold = other.tablistHold;
+        this.nameplateStyle = other.nameplateStyle;
         this.sacocheInventory = other.sacocheInventory;
     }
 }

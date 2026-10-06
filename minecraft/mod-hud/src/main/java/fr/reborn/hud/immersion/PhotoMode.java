@@ -36,6 +36,53 @@ public final class PhotoMode {
     /** Vitesse de déplacement de la caméra (réglable dans le panneau). */
     private float cameraSpeed = 0.35f;
 
+    // ── Réglages de prise de vue (panneau) ──────────────────────────────
+    /** Filtres (post effect reborn-hud:photo_&lt;id&gt;_&lt;flou&gt;). */
+    public static final String[] FILTERS = { "naturel", "encre", "sepia", "nuit" };
+    public static final String[] FILTER_LABELS = { "Naturel", "Encre", "Sepia", "Nuit" };
+    /** Cadres appliqués au fichier après la capture. */
+    public static final String[] FRAMES = { "Aucun", "Makimono", "Polaroid" };
+    public static final float FOV_MIN = 30f, FOV_MAX = 110f, ROLL_MAX = 30f;
+    public static final int BLUR_LEVELS = 4;
+
+    private float fov = 70f;
+    private float roll = 0f;
+    private int blur = 0;
+    private int filter = 0;
+    private int frame = 0;
+    private net.minecraft.resources.Identifier appliedFilter = null;
+
+    public float fov() { return fov; }
+    public void setFov(float v) { fov = Math.max(FOV_MIN, Math.min(FOV_MAX, v)); }
+    public float roll() { return roll; }
+    public void setRoll(float v) { roll = Math.max(-ROLL_MAX, Math.min(ROLL_MAX, v)); }
+    public int blur() { return blur; }
+    public void setBlur(int v) { blur = Math.max(0, Math.min(BLUR_LEVELS - 1, v)); syncFilter(Minecraft.getInstance()); }
+    public int filter() { return filter; }
+    public void setFilter(int v) { filter = Math.floorMod(v, FILTERS.length); syncFilter(Minecraft.getInstance()); }
+    public int frame() { return frame; }
+    public void cycleFrame() { frame = (frame + 1) % FRAMES.length; }
+
+    /** Filtre voulu (null = aucun : naturel et net). */
+    private net.minecraft.resources.Identifier wantedFilter() {
+        if (filter == 0 && blur == 0) return null;
+        return net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "photo_" + FILTERS[filter] + "_" + blur);
+    }
+
+    /** Pose / retire le filtre plein écran du mode photo (n'écrase pas le Byakugan). */
+    private void syncFilter(Minecraft mc) {
+        if (mc.gameRenderer == null) return;
+        var cur = mc.gameRenderer.currentPostEffect();
+        var want = active ? wantedFilter() : null;
+        if (want != null && !fr.reborn.hud.byakugan.ByakuganClient.active()) {
+            if (!want.equals(cur)) ((fr.reborn.hud.mixin.GameRendererByakuganAccessor) mc.gameRenderer).reborn$setPostEffect(want);
+            appliedFilter = want;
+        } else if (appliedFilter != null) {
+            if (appliedFilter.equals(cur)) mc.gameRenderer.clearPostEffect();
+            appliedFilter = null;
+        }
+    }
+
     public float getCameraSpeed() { return cameraSpeed; }
     public void setCameraSpeed(float s) { this.cameraSpeed = Math.max(0.05f, Math.min(2.0f, s)); }
     public void addCameraSpeed(float d) { setCameraSpeed(cameraSpeed + d); }
@@ -87,12 +134,15 @@ public final class PhotoMode {
         anchorX = x; anchorY = y; anchorZ = z;
         savedPerspective = mc.options.getCameraType();
         mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+        fov = mc.options.fov().get();
+        roll = 0f;
         active = true;
     }
 
     public void end(Minecraft mc) {
         active = false;
         suspendedForChat = false;
+        syncFilter(mc);
         if (mc.options != null) mc.options.setCameraType(savedPerspective);
     }
 
@@ -123,6 +173,7 @@ public final class PhotoMode {
             mc.setScreenAndShow(new fr.reborn.hud.ui.PhotoModeScreen());
             return;
         }
+        syncFilter(mc);
         // Bloque le changement de vue (F5) pendant le mode.
         if (mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);

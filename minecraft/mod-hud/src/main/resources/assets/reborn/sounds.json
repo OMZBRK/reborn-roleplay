@@ -299,5 +299,33 @@
         "name": "reborn:sacoche/deny"
       }
     ]
+  },
+  "photo.shutter": {
+    "sounds": [
+      {
+        "name": "reborn:photo/shutter"
+      }
+    ]
+  },
+  "photo.tick": {
+    "sounds": [
+      {
+        "name": "reborn:photo/tick"
+      }
+    ]
+  },
+  "photo.filter": {
+    "sounds": [
+      {
+        "name": "reborn:photo/filter"
+      }
+    ]
+  },
+  "photo.open": {
+    "sounds": [
+      {
+        "name": "reborn:photo/open"
+      }
+    ]
   }
 }

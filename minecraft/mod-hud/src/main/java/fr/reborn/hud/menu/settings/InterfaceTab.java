@@ -41,6 +41,18 @@ public class InterfaceTab extends SectionedTab {
                 RebornPrefs.INSTANCE.tablistHold,
                 v -> { RebornPrefs.INSTANCE.tablistHold = v; RebornPrefs.INSTANCE.save(); }));
 
+        section("Noms au-dessus des têtes");
+        row("Style", "Apparence du nom RP des autres joueurs",
+            (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,
+                new SegmentedControl.Option[] {
+                    new SegmentedControl.Option("0", "Détouré"),
+                    new SegmentedControl.Option("1", "Filet doré"),
+                    new SegmentedControl.Option("2", "Village"),
+                    new SegmentedControl.Option("3", "Ruban"),
+                },
+                String.valueOf(RebornPrefs.INSTANCE.nameplateStyle),
+                v -> { RebornPrefs.INSTANCE.nameplateStyle = Integer.parseInt(v); RebornPrefs.INSTANCE.save(); }));
+
         spacer(4);
     }
 
