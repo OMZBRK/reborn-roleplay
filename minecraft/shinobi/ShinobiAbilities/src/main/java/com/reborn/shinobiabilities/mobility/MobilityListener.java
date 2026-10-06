@@ -89,6 +89,8 @@ public final class MobilityListener implements Listener {
         ShinobiCharacter c = Players.active(core.characters(), p);
         if (c == null) return null;
         if (core.ko() != null && core.ko().isKo(p.getUniqueId())) return null;
+        // ATA (PainRP) : trop blessé pour le kit de mobilité.
+        if (core.ko() != null && core.ko().isImpaired(p.getUniqueId())) return null;
         // Path gate — the Voie du Chakra kit only works once Path One is learned
         // (a fresh character knows no mobility at all).
         if (paths.get(c.id()) != MobilityPaths.Path.ONE) return null;
@@ -107,6 +109,7 @@ public final class MobilityListener implements Listener {
         ShinobiCharacter c = Players.active(core.characters(), p);
         if (c == null) return false;
         if (core.ko() != null && core.ko().isKo(p.getUniqueId())) return false;
+        if (core.ko() != null && core.ko().isImpaired(p.getUniqueId())) return false;
         return paths.get(c.id()) != MobilityPaths.Path.NONE;
     }
 

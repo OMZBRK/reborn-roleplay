@@ -4,6 +4,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -42,6 +44,11 @@ public final class KoState {
      *  exhausting your chakra doesn't injure you. */
     public enum Cause { HP, CHAKRA }
 
+    /** Lot KO-2 : on tombe d'abord « à terre » (on rampe, on appelle à l'aide),
+     *  puis on perd connaissance. Une KO par épuisement de chakra passe
+     *  directement à {@link #UNCONSCIOUS}. */
+    public enum Phase { DOWNED, UNCONSCIOUS }
+
     private final UUID    playerId;
     private final UUID    characterId;
     private final Cause   cause;
@@ -49,6 +56,11 @@ public final class KoState {
     private       long    blindUntil;
     private       Location lockLocation;
     private       UUID    carrierPlayerId;
+    private       Phase   phase = Phase.UNCONSCIOUS;
+    private       long    phaseStartMillis;
+    private       boolean hospitalOffered;
+    /** Joueurs qui ont frappé la victime juste avant la chute (FearRP). */
+    private final Set<UUID> attackers = new LinkedHashSet<>();
 
     public KoState(UUID playerId, UUID characterId, Cause cause,
                    long startMillis, long blindUntil, Location lockLocation) {
@@ -59,6 +71,7 @@ public final class KoState {
         this.blindUntil      = blindUntil;
         this.lockLocation    = lockLocation;
         this.carrierPlayerId = null;
+        this.phaseStartMillis = startMillis;
     }
 
     public UUID    playerId()        { return playerId; }
@@ -68,10 +81,20 @@ public final class KoState {
     public long    blindUntil()      { return blindUntil; }
     public Location lockLocation()   { return lockLocation; }
     public UUID    carrierPlayerId() { return carrierPlayerId; }
+    public Phase   phase()           { return phase; }
+    public long    phaseStartMillis(){ return phaseStartMillis; }
+    public boolean hospitalOffered() { return hospitalOffered; }
+    public Set<UUID> attackers()     { return attackers; }
+    public boolean isDowned()        { return phase == Phase.DOWNED; }
 
     public void setBlindUntil(long t)              { this.blindUntil = t; }
     public void setLockLocation(Location loc)      { this.lockLocation = loc; }
     public void setCarrierPlayerId(UUID carrier)   { this.carrierPlayerId = carrier; }
+    public void setHospitalOffered(boolean b)      { this.hospitalOffered = b; }
+    public void setPhase(Phase phase, long since) {
+        this.phase = phase;
+        this.phaseStartMillis = since;
+    }
 
     /* ---------------------------------------------------------- helpers */
 

@@ -78,6 +78,10 @@ public final class ShinobiCore extends JavaPlugin {
     // Legacy chestplate-slot Backpack system removed — the RP bag lives
     // in com.reborn.shinobicore.inventory (RpBag / InventoryManager).
     private com.reborn.shinobicore.ko.KoManager koManager;
+    private com.reborn.shinobicore.ko.zone.TrainingZones trainingZones;
+    private com.reborn.shinobicore.ko.HospitalRegistry hospitals;
+    private com.reborn.shinobicore.ko.ata.AtaManager ataManager;
+    private com.reborn.shinobicore.medic.PalmHealing palmHealing;
     private com.reborn.shinobicore.chakra.ExhaustionManager exhaustionManager;
     private com.reborn.shinobicore.ko.action.PorterManager porterManager;
     private com.reborn.shinobicore.ko.action.KillRequestManager killRequestManager;
@@ -232,6 +236,23 @@ public final class ShinobiCore extends JavaPlugin {
         this.injuryHealer.start();
         Bukkit.getPluginManager().registerEvents(
                 new com.reborn.shinobicore.ko.KoListener(this), this);
+        // Terrains d'entraînement + PV persistants hors zone + journal des
+        // agressions (lot KO-1, docs/PROPOSITION_KO_PAINRP.md).
+        this.trainingZones = new com.reborn.shinobicore.ko.zone.TrainingZones(this);
+        this.trainingZones.start();
+        Bukkit.getPluginManager().registerEvents(trainingZones, this);
+        Bukkit.getPluginManager().registerEvents(
+                new com.reborn.shinobicore.ko.AggressionLog(this), this);
+        // Lits d'hôpital (rapatriement, KO-2) + ATA PainRP / FearRP (KO-3).
+        this.hospitals = new com.reborn.shinobicore.ko.HospitalRegistry(this);
+        this.ataManager = new com.reborn.shinobicore.ko.ata.AtaManager(this);
+        this.ataManager.start();
+        Bukkit.getPluginManager().registerEvents(ataManager, this);
+        // Soins (KO-4) : paume de soin maintenue + bandages.
+        this.palmHealing = new com.reborn.shinobicore.medic.PalmHealing(this);
+        Bukkit.getPluginManager().registerEvents(palmHealing, this);
+        Bukkit.getPluginManager().registerEvents(
+                new com.reborn.shinobicore.medic.BandageListener(this), this);
 
         // 6e-bis. Chakra exhaustion — the overdraw economy. Casting beyond
         //         your pool pushes it into debt; this ticks the debuff ladder
@@ -533,6 +554,49 @@ public final class ShinobiCore extends JavaPlugin {
             dummyCmd.setTabCompleter(exec);
         } else getLogger().warning("Command 'dummy' is not declared in plugin.yml.");
 
+        // KO / PainRP (docs/PROPOSITION_KO_PAINRP.md) : zones RP, hôpital, appel à l'aide, ATA.
+        PluginCommand zoneRpCmd = getCommand("zonerp");
+        if (zoneRpCmd != null) {
+            com.reborn.shinobicore.ko.zone.ZoneRpCommand exec =
+                    new com.reborn.shinobicore.ko.zone.ZoneRpCommand(trainingZones);
+            zoneRpCmd.setExecutor(exec);
+            zoneRpCmd.setTabCompleter(exec);
+        } else getLogger().warning("Command 'zonerp' is not declared in plugin.yml.");
+        PluginCommand hopitalCmd = getCommand("hopital");
+        if (hopitalCmd != null) {
+            com.reborn.shinobicore.ko.command.HopitalCommand exec =
+                    new com.reborn.shinobicore.ko.command.HopitalCommand(this);
+            hopitalCmd.setExecutor(exec);
+            hopitalCmd.setTabCompleter(exec);
+        } else getLogger().warning("Command 'hopital' is not declared in plugin.yml.");
+        PluginCommand aideCmd = getCommand("aide");
+        if (aideCmd != null) {
+            aideCmd.setExecutor(new com.reborn.shinobicore.ko.command.AideCommand(this));
+        } else getLogger().warning("Command 'aide' is not declared in plugin.yml.");
+        PluginCommand paumeCmd = getCommand("paume");
+        if (paumeCmd != null) {
+            com.reborn.shinobicore.medic.command.PaumeCommand exec =
+                    new com.reborn.shinobicore.medic.command.PaumeCommand(this);
+            paumeCmd.setExecutor(exec);
+            paumeCmd.setTabCompleter(exec);
+        } else getLogger().warning("Command 'paume' is not declared in plugin.yml.");
+        PluginCommand ataCmd = getCommand("ata");
+        if (ataCmd != null) {
+            com.reborn.shinobicore.ko.ata.AtaCommand exec =
+                    new com.reborn.shinobicore.ko.ata.AtaCommand(this);
+            ataCmd.setExecutor(exec);
+            ataCmd.setTabCompleter(exec);
+        } else getLogger().warning("Command 'ata' is not declared in plugin.yml.");
+
+        // Météo visuelle (mod client) — actif aussi en mode build.
+        PluginCommand meteoCmd = getCommand("meteo");
+        if (meteoCmd != null) {
+            com.reborn.shinobicore.meteo.MeteoCommand meteo = new com.reborn.shinobicore.meteo.MeteoCommand(this);
+            meteoCmd.setExecutor(meteo);
+            meteoCmd.setTabCompleter(meteo);
+            Bukkit.getPluginManager().registerEvents(meteo, this);
+        } else getLogger().warning("Command 'meteo' is not declared in plugin.yml.");
+
         // Tab-completion for /shinobi (a.k.a. /sc) \u2014 top-level subcommands,
         // itemgive registry tokens, CHARACTER names for heal/chakra (these
         // take a character name, not a player name!), percentage presets,
@@ -663,6 +727,8 @@ public final class ShinobiCore extends JavaPlugin {
         if (panelBridge != null) panelBridge.stop();
         if (vitalsPush != null) vitalsPush.stop();
         if (staffBuild != null) staffBuild.restoreAll();
+        // Entraînements en cours : remettre PV / chakra d'entrée avant le flush.
+        if (trainingZones != null) trainingZones.stop();
         // Flush live player state (HP / chakra / position / inventory)
         // before the roster save so graceful shutdowns preserve the
         // moment-to-moment session rather than the last ticker tick.
@@ -688,6 +754,8 @@ public final class ShinobiCore extends JavaPlugin {
         if (porterManager != null) porterManager.stop();
         if (injuryHealer != null) injuryHealer.stop();
         if (koManager != null) koManager.stop();
+        if (ataManager != null) ataManager.stop();
+        if (palmHealing != null) palmHealing.stopAll();
         if (exhaustionManager != null) exhaustionManager.stop();
         if (dummyManager != null) dummyManager.save();
         if (cinematicManager != null) cinematicManager.shutdown();
@@ -1108,6 +1176,10 @@ public final class ShinobiCore extends JavaPlugin {
     public VisibilityManager visibility() { return visibility; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.KoManager ko() { return koManager; }
+    public com.reborn.shinobicore.ko.zone.TrainingZones trainingZones() { return trainingZones; }
+    public com.reborn.shinobicore.ko.HospitalRegistry hospitals() { return hospitals; }
+    public com.reborn.shinobicore.ko.ata.AtaManager ata() { return ataManager; }
+    public com.reborn.shinobicore.medic.PalmHealing palm() { return palmHealing; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.action.PorterManager porter() { return porterManager; }
     @com.reborn.shinobicore.api.Internal

@@ -18,4 +18,11 @@ public interface KoService {
      * amounts (absolute values, not percentages).
      */
     void revive(UUID playerId, double hp, double resource);
+
+    /**
+     * True while the player's active character is under ATA (wounded,
+     * awaiting care): PainRP restrictions apply — no sprint, no mobility
+     * kit, techniques capped at rank D. Default false for older cores.
+     */
+    default boolean isImpaired(UUID playerId) { return false; }
 }

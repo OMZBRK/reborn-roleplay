@@ -2,17 +2,26 @@ package com.reborn.shinobicore.ko;
 
 import com.reborn.shinobicore.ShinobiCore;
 import com.reborn.shinobicore.character.ShinobiCharacter;
+import com.reborn.shinobicore.ko.ata.AtaManager;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Pose;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
@@ -20,8 +29,10 @@ import org.bukkit.scheduler.BukkitTask;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,26 +42,33 @@ import java.util.logging.Level;
  * The central KO registry.
  *
  * <p>Owns the {@link KoState} table, the persistence file
- * ({@code ko-state.yml}), and the ticker that:
- * <ul>
- *   <li>Pins KO players to their lock location (so they can't crawl).</li>
- *   <li>Refreshes blindness + slowness so it never visibly blinks.</li>
- *   <li>Auto-wakes a player after the 5-minute floor with HP=20 and
- *       chakra=50, but ONLY if they haven't already been heal-revived
- *       by another path (a healer pushing their HP above the heal
- *       threshold, see {@link #checkHealRevive}).</li>
- *   <li>Emits a periodic French actionbar showing time-remaining.</li>
- * </ul>
+ * ({@code ko-state.yml}), and the ticker. Since lot KO-2
+ * (docs/PROPOSITION_KO_PAINRP.md) a KO has two phases:
+ * <ol>
+ *   <li><b>À terre</b> ({@link KoState.Phase#DOWNED}, HP cause only) — the
+ *       body crawls (forced swimming pose, no jump), whispers, can call for
+ *       help ({@code /aide}). Any new hit, or the timer
+ *       ({@code ko.a-terre-secondes}), knocks the player out.</li>
+ *   <li><b>Inconscient</b> ({@link KoState.Phase#UNCONSCIOUS}) — the body
+ *       lies pinned, still sees (darkness, not blindness), whispers and uses
+ *       {@code /me}. After {@code ko.hopital-propose-apres} seconds the player
+ *       may choose {@code /hopital}; at the end of the timer an HP-cause KO is
+ *       repatriated to the village hospital at the HP floor. A chakra-cause KO
+ *       still wakes on the spot.</li>
+ * </ol>
  *
- * <p>Entry into KO is initiated externally — by {@code KoListener} when
- * an HP cap fires, or by the chakra-zero check in {@link #tick}. Exit
- * goes through {@link #revive} (any path) which is responsible for
- * restoring HP/chakra and clearing the row.
+ * <p>Every HP-cause wake hands the character to the {@link AtaManager}
+ * (PainRP / FearRP state, lot KO-3): {@code PLEINE} after the hospital,
+ * {@code ALLEGEE} when someone healed the body on site.
+ *
+ * <p>Note: {@link #isKo} stays true in both phases, so every existing gate
+ * (jutsu, mobility, combat, inventory) keeps blocking a downed player.
  */
 public final class KoManager implements com.reborn.shinobicore.api.KoService {
 
     /** Minimum 5-minute KO floor before auto-wake can fire when the
-     *  KO was triggered by HP loss (took a killing blow). */
+     *  KO was triggered by HP loss (took a killing blow). Overridden by
+     *  {@code ko.inconscient-secondes}. */
     public static final long MIN_KO_MILLIS_HP     = 5L * 60L * 1000L;
     /** Shorter 3-minute floor (2 minutes + 60 seconds) when the KO
      *  was triggered by chakra exhaustion. Fainting from chakra fatigue
@@ -67,13 +85,21 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
     public static final double HEAL_REVIVE_PCT     = 0.01;
     public static final double HEAL_REVIVE_FLOOR   = 100.0;
 
+    /** Window during which a hit counts as "part of the fight" that
+     *  dropped the victim (FearRP protagonists). */
+    private static final long ATTACKER_WINDOW_MILLIS = 60_000L;
+
     private final ShinobiCore plugin;
     private final File         file;
+    private final NamespacedKey noJumpKey;
 
     /** playerId → KoState. Concurrent because the auto-save ticker
      *  runs on async + main; reads can happen from chat / GUI clicks
      *  on either side. */
     private final Map<UUID, KoState> active = new ConcurrentHashMap<>();
+
+    /** victim → (attacker → last hit millis). Feeds {@link KoState#attackers()}. */
+    private final Map<UUID, Map<UUID, Long>> recentHits = new ConcurrentHashMap<>();
 
     /** playerId → wall-clock millis at which a freshly-revived player
      *  becomes eligible for the chakra-zero KO scan again. Without
@@ -87,17 +113,26 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
 
     private BukkitTask ticker;
 
+    /* Tunables (ko.* in config.yml). */
+    private boolean downedEnabled = true;
+    private long    downedMillis = 45_000L;
+    private long    unconsciousHpMillis = MIN_KO_MILLIS_HP;
+    private long    hospitalOfferMillis = 120_000L;
+    private double  floorPct = 0.30;
+
     public KoManager(ShinobiCore plugin) {
         this.plugin = plugin;
         this.file   = new File(plugin.getDataFolder(), "ko-state.yml");
+        this.noJumpKey = new NamespacedKey(plugin, "ko_no_jump");
     }
 
     /* ============================================================ lifecycle */
 
     public void start() {
+        reloadConfig();
         load();
         if (ticker != null) ticker.cancel();
-        // 1-second resolution is plenty for blindness refresh, action
+        // 1-second resolution is plenty for effects refresh, action
         // bar text, and pin-to-lock-location enforcement.
         ticker = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
     }
@@ -106,6 +141,18 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         if (ticker != null) { ticker.cancel(); ticker = null; }
         save();
     }
+
+    public void reloadConfig() {
+        var cfg = plugin.getConfig();
+        downedEnabled       = cfg.getBoolean("ko.a-terre", true);
+        downedMillis        = Math.max(5, cfg.getLong("ko.a-terre-secondes", 45)) * 1000L;
+        unconsciousHpMillis = Math.max(10, cfg.getLong("ko.inconscient-secondes", 300)) * 1000L;
+        hospitalOfferMillis = Math.max(0, cfg.getLong("ko.hopital-propose-apres", 120)) * 1000L;
+        floorPct            = Math.max(0.01, Math.min(1.0, cfg.getDouble("ko.plancher-pct", 0.30)));
+    }
+
+    /** Fraction of max HP that rest can restore and the hospital wakes you at. */
+    public double floorPct() { return floorPct; }
 
     /* ----------------------------------------------------------- persistence */
 
@@ -131,7 +178,16 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                         s.getDouble("loc.x"), s.getDouble("loc.y"), s.getDouble("loc.z"),
                         (float) s.getDouble("loc.yaw"), (float) s.getDouble("loc.pitch"));
                 if (loc == null) continue;
-                active.put(pid, new KoState(pid, cid, cause, start, blind, loc));
+                KoState st = new KoState(pid, cid, cause, start, blind, loc);
+                KoState.Phase phase;
+                try { phase = KoState.Phase.valueOf(s.getString("phase", "UNCONSCIOUS")); }
+                catch (IllegalArgumentException ex) { phase = KoState.Phase.UNCONSCIOUS; }
+                st.setPhase(phase, s.getLong("phase-start", start));
+                st.setHospitalOffered(s.getBoolean("hospital-offered", false));
+                for (String a : s.getStringList("attackers")) {
+                    try { st.attackers().add(UUID.fromString(a)); } catch (IllegalArgumentException ignored) { }
+                }
+                active.put(pid, st);
             } catch (IllegalArgumentException ex) {
                 plugin.getLogger().warning("Skipping malformed KO row '" + key + "'.");
             }
@@ -146,6 +202,12 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             cfg.set(key + ".cause",       st.cause().name());
             cfg.set(key + ".start",       st.startMillis());
             cfg.set(key + ".blind-until", st.blindUntil());
+            cfg.set(key + ".phase",       st.phase().name());
+            cfg.set(key + ".phase-start", st.phaseStartMillis());
+            cfg.set(key + ".hospital-offered", st.hospitalOffered());
+            List<String> atk = new ArrayList<>();
+            for (UUID a : st.attackers()) atk.add(a.toString());
+            cfg.set(key + ".attackers", atk);
             Location l = st.lockLocation();
             cfg.set(key + ".loc.world", l.getWorld().getName());
             cfg.set(key + ".loc.x",     l.getX());
@@ -168,11 +230,34 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                 ? MIN_KO_MILLIS_CHAKRA : MIN_KO_MILLIS_HP;
     }
 
+    /** Duration of the unconscious phase for this KO. */
+    private long unconsciousMillisFor(KoState.Cause cause) {
+        return cause == KoState.Cause.CHAKRA ? MIN_KO_MILLIS_CHAKRA : unconsciousHpMillis;
+    }
+
     /* --------------------------------------------------------------- queries */
 
     public boolean isKo(UUID playerId)         { return active.containsKey(playerId); }
     public KoState getKo(UUID playerId)        { return active.get(playerId); }
     public Collection<KoState> all()           { return active.values(); }
+
+    public boolean isDowned(UUID playerId) {
+        KoState st = active.get(playerId);
+        return st != null && st.isDowned();
+    }
+
+    /** ATA (PainRP / FearRP) — see {@link AtaManager}. */
+    @Override
+    public boolean isImpaired(UUID playerId) {
+        return plugin.ata() != null && plugin.ata().isImpaired(playerId);
+    }
+
+    /** Remember who hit whom, so a KO knows its protagonists. */
+    public void recordHit(UUID victim, UUID attacker) {
+        if (victim == null || attacker == null || victim.equals(attacker)) return;
+        recentHits.computeIfAbsent(victim, k -> new ConcurrentHashMap<>())
+                .put(attacker, System.currentTimeMillis());
+    }
 
     /* --------------------------------------------------------------- enter */
 
@@ -182,8 +267,8 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
      *  @param charId  the character they were incarnating at the moment
      *                 of the KO; used so injuries land on the right
      *                 character even if the player swaps later
-     *  @param cause   what dropped them — drives the cooldown floor
-     *                 and which stat is restored on wake
+     *  @param cause   what dropped them — HP starts "à terre", chakra
+     *                 faints straight away
      *  @return the freshly-created state, or the existing one if the
      *          player was already KO (no double-entry).
      */
@@ -232,39 +317,64 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         Location lock = player.getLocation().clone();
         KoState st = new KoState(player.getUniqueId(), charId, cause, now,
                 now + minKoMillisFor(cause), lock);
+        Map<UUID, Long> hits = recentHits.remove(player.getUniqueId());
+        if (hits != null) {
+            hits.forEach((attacker, t) -> {
+                if (now - t <= ATTACKER_WINDOW_MILLIS) st.attackers().add(attacker);
+            });
+        }
+        boolean downed = cause == KoState.Cause.HP && downedEnabled;
+        st.setPhase(downed ? KoState.Phase.DOWNED : KoState.Phase.UNCONSCIOUS, now);
         active.put(player.getUniqueId(), st);
 
-        // Visual + status cues. Blindness covers the 5-min floor; the
-        // ticker refreshes it before it runs out. Slowness 6 paralyses
-        // input; gravity stays so the body falls if pushed mid-air.
+        // A KO during an ATA aggravates it (KO-3).
+        if (plugin.ata() != null && charId != null) plugin.ata().onKnockedDown(charId);
+
         applyKoEffects(player);
 
-        // Title card so the moment lands.
-        player.showTitle(Title.title(
-                Component.text("KO", NamedTextColor.DARK_RED, TextDecoration.BOLD),
-                Component.text("Vous êtes inconscient.", NamedTextColor.GRAY),
-                Title.Times.times(Duration.ofMillis(300),
-                        Duration.ofSeconds(2),
-                        Duration.ofMillis(800))));
-        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.6f, 0.5f);
+        if (downed) {
+            player.showTitle(Title.title(
+                    Component.text("À terre", NamedTextColor.DARK_RED, TextDecoration.BOLD),
+                    Component.text("Tu peux encore ramper… /aide pour appeler", NamedTextColor.GRAY),
+                    Title.Times.times(Duration.ofMillis(200),
+                            Duration.ofSeconds(2),
+                            Duration.ofMillis(800))));
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.8f, 0.6f);
+        } else {
+            showUnconsciousTitle(player);
+        }
 
         save();
         return st;
     }
 
+    /** À terre → inconscient (timer écoulé, ou nouveau coup reçu). */
+    public void knockOut(UUID playerId) {
+        KoState st = active.get(playerId);
+        if (st == null || !st.isDowned()) return;
+        st.setPhase(KoState.Phase.UNCONSCIOUS, System.currentTimeMillis());
+        // The body stops where it lost consciousness.
+        Player p = Bukkit.getPlayer(playerId);
+        if (p != null) {
+            st.setLockLocation(p.getLocation().clone());
+            applyKoEffects(p);
+            showUnconsciousTitle(p);
+        }
+        save();
+    }
+
+    private void showUnconsciousTitle(Player player) {
+        player.showTitle(Title.title(
+                Component.text("KO", NamedTextColor.DARK_RED, TextDecoration.BOLD),
+                Component.text("Vous perdez connaissance.", NamedTextColor.GRAY),
+                Title.Times.times(Duration.ofMillis(300),
+                        Duration.ofSeconds(2),
+                        Duration.ofMillis(800))));
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.6f, 0.5f);
+    }
+
     /* --------------------------------------------------------------- exit */
 
-    /** Wake a KO player. Routed by:
-     *  <ul>
-     *    <li>{@link #checkHealRevive} when HP crosses the heal floor;</li>
-     *    <li>the 5-minute auto-wake branch in {@link #tick};</li>
-     *    <li>the Iryō Réveil technique (future);</li>
-     *    <li>the staff /character edit revive command.</li>
-     *  </ul>
-     *
-     *  @param hp     HP to set on wake, clamped to character's max
-     *  @param chakra chakra to set on wake, clamped to pool's max
-     */
     /** Wake a KO player. Asymmetric by cause:
      *  <ul>
      *    <li>{@code HP}     — sets HP to {@code hp}, leaves chakra
@@ -277,23 +387,39 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
      *  Either way, the chakra-zero scan is silenced for
      *  {@link #REVIVE_GRACE_MILLIS} so the wake doesn't immediately
      *  re-KO the player on the next tick.
+     *
+     *  <p>Called by heal-revive, techniques (bijuu cloak…) and staff:
+     *  an HP-cause wake here means someone treated the body on site, so
+     *  the character leaves with a light ATA.
      */
     public void revive(UUID playerId, KoState.Cause cause,
                        double hp, double chakra) {
+        wake(playerId, cause, hp, chakra, AtaManager.Level.ALLEGEE,
+                "Réveil", "Vous reprenez conscience.");
+    }
+
+    /** Backwards-compat shim — picks the cause from the live KO row
+     *  if any, otherwise defaults to HP. */
+    public void revive(UUID playerId, double hp, double chakra) {
+        KoState st = active.get(playerId);
+        KoState.Cause c = st != null ? st.cause() : KoState.Cause.HP;
+        revive(playerId, c, hp, chakra);
+    }
+
+    private void wake(UUID playerId, KoState.Cause cause, double hp, double chakra,
+                      AtaManager.Level ataLevel, String title, String subtitle) {
         KoState st = active.remove(playerId);
         if (st == null) return;
         Player p = Bukkit.getPlayer(playerId);
         if (p != null) {
-            // Clear effects.
-            p.removePotionEffect(PotionEffectType.BLINDNESS);
-            p.removePotionEffect(PotionEffectType.SLOWNESS);
+            clearKoEffects(p);
             ShinobiCharacter c = plugin.characters().getActive(playerId);
             switch (cause) {
                 case HP -> {
                     if (c != null) {
                         c.setCurrentHp(Math.min(hp, c.maxHp()));
                     }
-                    p.setHealth(Math.min(hp, p.getMaxHealth()));
+                    p.setHealth(Math.max(0.5, Math.min(hp, p.getMaxHealth())));
                     // Chakra: deliberately untouched.
                 }
                 case CHAKRA -> {
@@ -314,22 +440,37 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             reviveGraceUntil.put(playerId,
                     System.currentTimeMillis() + REVIVE_GRACE_MILLIS);
             p.showTitle(Title.title(
-                    Component.text("Réveil", NamedTextColor.GREEN, TextDecoration.BOLD),
-                    Component.text("Vous reprenez conscience.", NamedTextColor.GRAY),
+                    Component.text(title, NamedTextColor.GREEN, TextDecoration.BOLD),
+                    Component.text(subtitle, NamedTextColor.GRAY),
                     Title.Times.times(Duration.ofMillis(300),
-                            Duration.ofSeconds(2),
+                            Duration.ofSeconds(3),
                             Duration.ofMillis(800))));
-            p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.4f, 1.4f);
+            p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BREATH, 0.8f, 0.8f);
+        }
+        // PainRP / FearRP after a blow — not after chakra fatigue.
+        if (cause == KoState.Cause.HP && ataLevel != null && plugin.ata() != null
+                && st.characterId() != null) {
+            plugin.ata().apply(st.characterId(), playerId, st.attackers(), ataLevel);
         }
         save();
     }
 
-    /** Backwards-compat shim — picks the cause from the live KO row
-     *  if any, otherwise defaults to HP. */
-    public void revive(UUID playerId, double hp, double chakra) {
+    /** Fin du KO sans soin (ou {@code /hopital}) : réveil à l'hôpital du
+     *  village, PV au plancher, ATA pleine. */
+    public boolean hospitalize(UUID playerId) {
         KoState st = active.get(playerId);
-        KoState.Cause c = st != null ? st.cause() : KoState.Cause.HP;
-        revive(playerId, c, hp, chakra);
+        Player p = Bukkit.getPlayer(playerId);
+        if (st == null || p == null) return false;
+        ShinobiCharacter c = plugin.characters().getActive(playerId);
+        String village = c != null ? c.village() : "";
+        Location dest = plugin.hospitals() != null ? plugin.hospitals().locationFor(village) : null;
+        if (dest == null) dest = p.getWorld().getSpawnLocation();
+        plugin.porter().releaseAllInvolving(playerId);
+        double hp = Math.max(1.0, p.getMaxHealth() * floorPct);
+        wake(playerId, KoState.Cause.HP, hp, 0, AtaManager.Level.PLEINE,
+                "Hôpital", "On t'a ramené à l'hôpital. Tu es encore très faible.");
+        p.teleport(dest);
+        return true;
     }
 
     /** Check whether a heal pushed this player past the wake threshold.
@@ -372,6 +513,10 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
             if (c == null) continue;
             if (c.chakra().current() <= 0.0001 && c.chakra().max() > 0.0) {
+                if (plugin.trainingZones().isTraining(p)) {
+                    plugin.trainingZones().defeat(p, true);
+                    continue;
+                }
                 enterKo(p, c.id(), KoState.Cause.CHAKRA);
             }
         }
@@ -379,6 +524,19 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         for (KoState st : active.values()) {
             Player p = Bukkit.getPlayer(st.playerId());
             if (p == null) continue;
+
+            if (st.isDowned()) {
+                long left = st.phaseStartMillis() + downedMillis - now;
+                if (left <= 0) {
+                    knockOut(st.playerId());
+                    continue;
+                }
+                applyKoEffects(p);
+                p.sendActionBar(Component.text(
+                        String.format("À terre — %d s · tu peux ramper · /aide pour appeler",
+                                left / 1000L + 1), NamedTextColor.RED));
+                continue;
+            }
 
             // Pin to lock location unless being carried (in which case
             // PorterManager keeps the body riding the carrier).
@@ -394,24 +552,41 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             // Refresh effects so they never blink between ticks.
             applyKoEffects(p);
 
-            // Auto-wake — duration depends on the cause of the KO.
-            // HP-cause: 5 min, restore HP=20. Chakra-cause: 3 min,
-            // restore chakra=50. The OTHER stat is left untouched.
-            long floorMillis = minKoMillisFor(st.cause());
-            if (now >= st.startMillis() + floorMillis) {
-                revive(st.playerId(), st.cause(),
-                        AUTO_WAKE_HP, AUTO_WAKE_CHAKRA);
-                continue; // Don't paint the actionbar after a revive.
+            long elapsed = now - st.phaseStartMillis();
+            long total = unconsciousMillisFor(st.cause());
+
+            // Offer the way out once (HP cause only).
+            if (st.cause() == KoState.Cause.HP && !st.hospitalOffered()
+                    && elapsed >= hospitalOfferMillis) {
+                st.setHospitalOffered(true);
+                p.sendMessage(Component.text("Personne ne vient ? ", NamedTextColor.GRAY)
+                        .append(Component.text("[Se laisser emmener à l'hôpital]",
+                                        NamedTextColor.GOLD, TextDecoration.BOLD)
+                                .clickEvent(ClickEvent.runCommand("/hopital"))
+                                .hoverEvent(HoverEvent.showText(Component.text(
+                                        "Tu te réveilleras à l'hôpital, très affaibli (ATA).",
+                                        NamedTextColor.GRAY)))));
+            }
+
+            if (elapsed >= total) {
+                if (st.cause() == KoState.Cause.HP) {
+                    hospitalize(st.playerId());
+                } else {
+                    wake(st.playerId(), st.cause(), AUTO_WAKE_HP, AUTO_WAKE_CHAKRA, null,
+                            "Réveil", "Vous reprenez conscience.");
+                }
+                continue; // Don't paint the actionbar after a wake.
             }
 
             // Actionbar countdown.
-            long remaining = (st.startMillis() + floorMillis - now) / 1000L;
-            long mins = remaining / 60;
-            long secs = remaining % 60;
+            long remaining = (total - elapsed) / 1000L;
             String label = st.cause() == KoState.Cause.CHAKRA
                     ? "Épuisement chakra" : "Inconscient";
+            String hint = st.cause() == KoState.Cause.HP && st.hospitalOffered()
+                    ? " · /hopital pour être emmené" : "";
             p.sendActionBar(Component.text(
-                    String.format("%s — %d:%02d restantes", label, mins, secs),
+                    String.format("%s — %d:%02d · tu peux chuchoter et /me%s",
+                            label, remaining / 60, remaining % 60, hint),
                     NamedTextColor.DARK_GRAY));
         }
     }
@@ -421,12 +596,24 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
      *  potion effects). */
     public void applyKoEffects(Player p) {
         if (p == null || !p.isOnline()) return;
-        // 5-minute blindness, refreshed each second.
-        p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS,
-                40, 0, true, false, false));
-        // Slowness VII — paralyses input.
+        KoState st = active.get(p.getUniqueId());
+        boolean downed = st != null && st.isDowned();
+        // Darkness instead of blindness: the body still sees, the vision pulses.
+        p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS,
+                60, 0, true, false, false));
+        // À terre : lent mais mobile. Inconscient : paralysé.
         p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
-                40, 6, true, false, false));
+                40, downed ? 1 : 6, true, false, false));
+        // Crawl on the ground / lie unconscious.
+        if (!p.isInsideVehicle()) {
+            Pose want = downed ? Pose.SWIMMING : Pose.SLEEPING;
+            if (p.getPose() != want) p.setPose(want, true);
+        }
+        AttributeInstance jump = p.getAttribute(Attribute.JUMP_STRENGTH);
+        if (jump != null && jump.getModifier(noJumpKey) == null) {
+            jump.addTransientModifier(new AttributeModifier(noJumpKey, -1.0,
+                    AttributeModifier.Operation.MULTIPLY_SCALAR_1, EquipmentSlotGroup.ANY));
+        }
         // Survival mode so they can't fly out of the hold.
         if (p.getGameMode() == GameMode.CREATIVE
                 || p.getGameMode() == GameMode.SPECTATOR) {
@@ -434,10 +621,21 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         }
     }
 
+    private void clearKoEffects(Player p) {
+        p.removePotionEffect(PotionEffectType.DARKNESS);
+        p.removePotionEffect(PotionEffectType.BLINDNESS);
+        p.removePotionEffect(PotionEffectType.SLOWNESS);
+        p.setPose(Pose.STANDING, false);
+        AttributeInstance jump = p.getAttribute(Attribute.JUMP_STRENGTH);
+        if (jump != null) jump.removeModifier(noJumpKey);
+    }
+
     /** Force-clear KO state (used by /character edit and on shutdown if
      *  a staff member chooses to wipe a stale row). */
     public void forceClear(UUID playerId) {
         active.remove(playerId);
+        Player p = Bukkit.getPlayer(playerId);
+        if (p != null) clearKoEffects(p);
         save();
     }
 

@@ -125,6 +125,7 @@ public final class MobilityPathTwoModule implements Listener {
         GameMode gm = p.getGameMode();
         if (gm != GameMode.SURVIVAL && gm != GameMode.ADVENTURE) return false;
         if (core.ko() != null && core.ko().isKo(p.getUniqueId())) return false;
+        if (core.ko() != null && core.ko().isImpaired(p.getUniqueId())) return false;   // ATA
         if (p.isInWater()) return false;   // Voie du Flux & Naruto Run stand down in water
         return paths.pathOf(p) == MobilityPaths.Path.TWO;
     }

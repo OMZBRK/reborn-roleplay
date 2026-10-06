@@ -127,7 +127,56 @@ commands:
     usage: /<command> [liste|tp <id>|set <id> <type> <nom>|del <id>|reload]
     aliases: [map, worldmap]
     permission: shinobicore.use
+  meteo:
+    description: Météo visuelle (mod client) — pluie, tempête de sable, brume.
+    usage: /<command> <pluie|sable|brume|clair> [intensité 0-100] [joueur|tous]
+    aliases: [weatherfx]
+    permission: shinobicore.meteo
+  zonerp:
+    description: Zones RP — terrains d'entraînement (sans séquelles) et zones de repos (outil staff).
+    usage: /<command> <pos1|pos2|creer <entrainement|repos> <id>|suppr <id>|liste|ici>
+    aliases: [entrainement, zonesrp]
+    permission: shinobicore.zonerp
+  hopital:
+    description: Inconscient — se laisser emmener à l'hôpital. Staff — placer les lits (set/suppr/liste).
+    usage: /<command> [set <village|defaut>|suppr <village>|liste]
+    aliases: [hospital]
+    permission: shinobicore.use
+  aide:
+    description: À terre ou inconscient — appeler à l'aide.
+    usage: /<command>
+    aliases: [help-rp]
+    permission: shinobicore.use
+  paume:
+    description: Médic — paume de soin maintenue sur le joueur visé. Patient — accepter les soins.
+    usage: /<command> [joueur|stop|accepter]
+    aliases: [shosen, soin]
+    permission: shinobicore.use
+  ata:
+    description: État ATA (blessé, en attente de soin). Staff — voir / lever / appliquer.
+    usage: /<command> [voir|lever|appliquer <joueur> [pleine|allegee]]
+    permission: shinobicore.use
 permissions:
+  shinobicore.zonerp:
+    description: Allows /zonerp (délimiter terrains d'entraînement et zones de repos).
+    default: op
+  shinobicore.hopital:
+    description: Allows /hopital set|suppr|liste (lits de réveil par village).
+    default: op
+  shinobicore.ata:
+    description: Allows /ata voir|lever|appliquer sur un autre joueur.
+    default: op
+  shinobicore.medic:
+    description: Médic rang 1 — paume de soin jusqu'à 60 % des PV ; reçoit les appels à l'aide (/aide).
+    default: false
+  shinobicore.medic.expert:
+    description: Médic rang 2 — paume de soin jusqu'à 100 %, plus rapide, lève toute ATA.
+    default: op
+    children:
+      shinobicore.medic: true
+  shinobicore.meteo:
+    description: Allows /meteo (visual weather sent to the client mod).
+    default: op
   shinobicore.map.tp:
     description: Staff — téléportation vers un lieu depuis la carte (« Y aller ») ou /carte tp.
     default: op

@@ -83,6 +83,58 @@ stats:
     technique-window-millis: 4000   # à sa technique (MS / MM / ME) — surchargeable
     melee-window-millis: 700        # par technique : attribution-millis dans abilities.yml
 
+# KO / PainRP — lots KO-1 à KO-3 (docs/PROPOSITION_KO_PAINRP.md).
+# Hors des terrains d'entraînement (/zonerp), les PV perdus restent perdus :
+# la régénération naturelle est coupée pour les personnages actifs.
+ko:
+  pv-persistants: true
+  # Défaite sur un terrain d'entraînement : on repart à cette fraction des PV
+  # (ou du chakra si c'est le chakra qui a lâché). Aucun KO, aucune blessure.
+  defaite-pct: 0.30
+  # aggression-log.txt : qui a ouvert chaque échange de coups hors terrain.
+  journal-agressions:
+    enabled: true
+    fenetre-minutes: 5
+  # À terre (0 PV) : on rampe, on chuchote, /aide. Un coup de plus ou le
+  # timer → inconscient. false = KO direct comme avant.
+  a-terre: true
+  a-terre-secondes: 45
+  # Inconscient (cause PV) : durée avant le rapatriement à l'hôpital, et
+  # délai après lequel /hopital est proposé.
+  inconscient-secondes: 300
+  hopital-propose-apres: 120
+  # Plancher : le repos rend des PV jusqu'à cette fraction ; l'hôpital
+  # réveille à cette fraction. Au-delà, il faut un médic.
+  plancher-pct: 0.30
+  chuchotement-blocs: 4
+  aide-portee: 48
+  ata:
+    repos-minutes-pleine: 20
+    repos-minutes-allegee: 10
+    # La peur (FearRP) dure au moins ce temps après le KO, même si l'ATA
+    # est levée plus tôt.
+    peur-minutes: 20
+    # Le repos n'avance que si le joueur a bougé la caméra / parlé récemment.
+    anti-afk-secondes: 120
+    # PV rendus par le repos, en fraction des PV max, toutes les 10 s.
+    repos-pv-pct-par-10s: 0.01
+
+# Soins (lot KO-4). Rangs par permission : shinobicore.medic (rang 1),
+# shinobicore.medic.expert (rang 2).
+medic:
+  paume:
+    pct-par-seconde: 0.015        # des PV max du patient, avant bonus
+    bonus-controle: 0.10          # × eff(Contrôle) du médic
+    bonus-rang2: 1.5
+    cout-chakra-pct: 0.01         # du chakra max du médic, par seconde
+    plafond-rang1: 0.60
+    plafond-rang2: 1.0
+    ata-secondes: 30              # soin tenu minimum pour lever l'ATA
+    portee: 4.0
+    tolerance-mouvement: 1.5
+  bandage:
+    pv-pct: 0.05                  # plafonné au plancher ko.plancher-pct
+
 meditation:
   enabled: true
   # Régén pilotée par les stats : chaque intervalle rend

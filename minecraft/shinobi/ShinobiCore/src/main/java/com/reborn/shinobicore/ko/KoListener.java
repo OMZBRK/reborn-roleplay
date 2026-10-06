@@ -72,10 +72,17 @@ public final class KoListener implements Listener {
         // Already KO? Cancel further damage entirely. The body should
         // be treated as a prop until revived; chip damage from
         // surroundings (lava, suffocation) is also blocked.
+        Player attacker = attackerOf(ev);
         if (plugin.ko().isKo(p.getUniqueId())) {
             ev.setCancelled(true);
+            // À terre : un nouveau coup fait perdre connaissance (KO-2).
+            if (attacker != null && plugin.ko().isDowned(p.getUniqueId())) {
+                plugin.ko().getKo(p.getUniqueId()).attackers().add(attacker.getUniqueId());
+                plugin.ko().knockOut(p.getUniqueId());
+            }
             return;
         }
+        if (attacker != null) plugin.ko().recordHit(p.getUniqueId(), attacker.getUniqueId());
 
         // Would this blow drop them to 0 or below? Cap and KO.
         double after = p.getHealth() - ev.getFinalDamage();
@@ -93,11 +100,26 @@ public final class KoListener implements Listener {
 
         if (lethal) {
             ev.setCancelled(true);
+            // Terrain d'entraînement : défaite sans KO ni blessure.
+            if (plugin.trainingZones().isTraining(p)) {
+                plugin.trainingZones().defeat(p, false);
+                return;
+            }
             // Pin HP at a sliver so the visual "almost dead" state
             // reads correctly until the title card hits.
             p.setHealth(Math.max(0.5, Math.min(1.0, p.getHealth())));
             triggerKo(p, ev);
         }
+    }
+
+    /** Player behind a hit (melee or projectile), or null. */
+    private static Player attackerOf(EntityDamageEvent ev) {
+        if (!(ev instanceof EntityDamageByEntityEvent edbe)) return null;
+        Entity d = edbe.getDamager();
+        if (d instanceof Player pl) return pl;
+        if (d instanceof org.bukkit.entity.Projectile proj
+                && proj.getShooter() instanceof Player pl) return pl;
+        return null;
     }
 
     /** Build a KO state + record the injury that pushed them over. */
@@ -282,6 +304,8 @@ public final class KoListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onMove(PlayerMoveEvent ev) {
         if (!plugin.ko().isKo(ev.getPlayer().getUniqueId())) return;
+        // À terre : on rampe librement (pose forcée + lenteur, pas de saut).
+        if (plugin.ko().isDowned(ev.getPlayer().getUniqueId())) return;
         // Allow look-only changes; cancel any positional movement.
         if (ev.getFrom().getX() != ev.getTo().getX()
                 || ev.getFrom().getY() != ev.getTo().getY()
@@ -341,12 +365,35 @@ public final class KoListener implements Listener {
     public void onCommand(PlayerCommandPreprocessEvent ev) {
         if (!plugin.ko().isKo(ev.getPlayer().getUniqueId())) return;
         // Soft allowlist: a KO player can still call /sc help to read
-        // the welcome reminder, but no gameplay commands.
+        // the welcome reminder, play the scene (/me), call for help and
+        // choose the hospital — but no gameplay commands.
         String cmd = ev.getMessage().toLowerCase();
         if (cmd.startsWith("/sc help") || cmd.startsWith("/shinobi help")
-                || cmd.startsWith("/sc welcome") || cmd.startsWith("/shinobi welcome")) {
+                || cmd.startsWith("/sc welcome") || cmd.startsWith("/shinobi welcome")
+                || isCommand(cmd, "me") || isCommand(cmd, "aide") || isCommand(cmd, "help-rp")
+                || isCommand(cmd, "hopital") || isCommand(cmd, "hospital")) {
             return;
         }
         ev.setCancelled(true);
+    }
+
+    private static boolean isCommand(String msg, String name) {
+        return msg.equals("/" + name) || msg.startsWith("/" + name + " ");
+    }
+
+    /* ============================================================ whisper */
+
+    /** À terre ou inconscient, on ne parle plus qu'en chuchotant
+     *  ({@code ko.chuchotement-blocs}, 4 blocs par défaut). */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onChat(io.papermc.paper.event.player.AsyncChatEvent ev) {
+        Player sender = ev.getPlayer();
+        if (!plugin.ko().isKo(sender.getUniqueId())) return;
+        double r = plugin.getConfig().getDouble("ko.chuchotement-blocs", 4.0);
+        double r2 = r * r;
+        org.bukkit.Location from = sender.getLocation();
+        ev.viewers().removeIf(a -> a instanceof Player v && !v.equals(sender)
+                && (!v.getWorld().equals(from.getWorld())
+                    || v.getLocation().distanceSquared(from) > r2));
     }
 }

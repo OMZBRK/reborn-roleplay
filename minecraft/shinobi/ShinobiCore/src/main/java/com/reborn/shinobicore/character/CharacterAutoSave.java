@@ -100,7 +100,8 @@ public class CharacterAutoSave {
         // actually changed since the last save (player parked, no combat,
         // no chakra movement), the record stays clean and we skip the
         // whole roster-file re-serialize for this player.
-        c.setCurrentHp(p.getHealth());
+        c.setCurrentHp(plugin.trainingZones() != null
+                ? plugin.trainingZones().hpToPersist(p, c) : p.getHealth());
         c.setLastLocation(p.getLocation());
         c.captureInventoryFrom(p);
         if (c.dirty()) plugin.characters().save(c);

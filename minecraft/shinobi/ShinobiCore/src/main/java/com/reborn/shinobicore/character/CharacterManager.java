@@ -211,6 +211,8 @@ public class CharacterManager implements CharacterService {
      *  state (HP, position, inventory) and strip its attribute modifiers
      *  so nothing leaks into the next apply. */
     private void teardownPrevious(Player player, ShinobiCharacter previous) {
+        // Entraînement en cours : on remet les PV / le chakra d'entrée avant de sauver.
+        if (plugin.trainingZones() != null) plugin.trainingZones().release(player, previous);
         previous.setCurrentHp(player.getHealth());
         previous.setLastLocation(player.getLocation());
         previous.captureInventoryFrom(player);
