@@ -257,7 +257,9 @@ public final class TrainingZones implements Listener {
         }
         p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 3, false, false, false));
         p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 30, 0, false, false, false));
-        p.showTitle(Title.title(
+        boolean modded = plugin.koHud() != null
+                && plugin.koHud().event(p, com.reborn.shinobicore.ko.KoHudSync.EV_DEFAITE);
+        if (!modded) p.showTitle(Title.title(
                 Component.text("Défaite", NamedTextColor.GOLD, TextDecoration.BOLD),
                 Component.text(chakraCause ? "Chakra épuisé — reprends ton souffle."
                         : "Relève-toi, l'entraînement continue.", NamedTextColor.GRAY),

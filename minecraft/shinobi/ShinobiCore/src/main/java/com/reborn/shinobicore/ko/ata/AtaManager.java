@@ -72,6 +72,9 @@ public final class AtaManager implements Listener {
 
     public enum Level { ALLEGEE, PLEINE }
 
+    /** Ce que le mod client affiche de l'ATA (voir {@code KoHudSync}). */
+    public record View(Level level, float progress, int restMinutes, int requiredMinutes, boolean resting) { }
+
     /** ATA d'un personnage. */
     private static final class State {
         final UUID characterId;
@@ -104,6 +107,8 @@ public final class AtaManager implements Listener {
     private final Map<UUID, BossBar> bars = new ConcurrentHashMap<>();      // playerId →
     /** Joueurs dont on a coupé la faim : à rendre quand l'ATA disparaît. */
     private final Set<UUID> restricted = ConcurrentHashMap.newKeySet();
+    /** Personnages au repos à la dernière seconde (affichage « en cours »). */
+    private final Set<UUID> restingNow = ConcurrentHashMap.newKeySet();
     private BukkitTask ticker;
     private int ticks;
 
@@ -279,7 +284,9 @@ public final class AtaManager implements Listener {
             releaseRestriction(p);
             BossBar bar = bars.remove(p.getUniqueId());
             if (bar != null) p.hideBossBar(bar);
-            p.showTitle(Title.title(
+            boolean modded = plugin.koHud() != null
+                    && plugin.koHud().event(p, com.reborn.shinobicore.ko.KoHudSync.EV_RETABLI);
+            if (!modded) p.showTitle(Title.title(
                     Component.text("Rétabli", NamedTextColor.GREEN, TextDecoration.BOLD),
                     Component.text(why, NamedTextColor.GRAY),
                     Title.Times.times(Duration.ofMillis(300), Duration.ofSeconds(3), Duration.ofMillis(800))));
@@ -289,6 +296,20 @@ public final class AtaManager implements Listener {
     }
 
     public boolean hasAta(UUID characterId) { return states.containsKey(characterId); }
+
+    /** État affichable de l'ATA, ou null s'il n'y en a pas. */
+    public View view(UUID characterId) {
+        State st = states.get(characterId);
+        if (st == null) return null;
+        long req = required(st);
+        return new View(st.level, (float) Math.min(1.0, st.restMillis / (double) req),
+                (int) (st.restMillis / 60_000L), (int) (req / 60_000L), restingNow.contains(characterId));
+    }
+
+    /** Peur active (ATA en cours ou peur résiduelle) ? */
+    public boolean isAfraid(UUID characterId) {
+        return fearOf(characterId) != null;
+    }
 
     /** ATA du personnage actif du joueur ? */
     public boolean isImpaired(UUID playerId) {
@@ -378,6 +399,7 @@ public final class AtaManager implements Listener {
             if (p.isSprinting()) p.setSprinting(false);
             p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, true, false, false));
 
+            if (resting) restingNow.add(c.id()); else restingNow.remove(c.id());
             if (resting) {
                 st.restMillis += 1000L;
                 dirty = true;
@@ -386,7 +408,8 @@ public final class AtaManager implements Listener {
                     continue;
                 }
             }
-            showBar(p, st, resting);
+            if (plugin.koHud() != null && plugin.koHud().modded(p)) hideBar(p);   // le mod l'affiche
+            else showBar(p, st, resting);
         }
         if (dirty && ticks % 15 == 0) save();
     }

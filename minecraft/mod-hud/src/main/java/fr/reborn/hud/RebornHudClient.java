@@ -586,7 +586,41 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "byakugan_activation"),
             (ctx, tickCounter) -> fr.reborn.hud.byakugan.ByakuganActivation.render(ctx));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
-            client -> fr.reborn.hud.byakugan.ByakuganClient.tick());
+            client -> { fr.reborn.hud.effets.FiltresEcran.tick(); fr.reborn.hud.meteo.MeteoClient.tick(); });
+
+        // Météo (canal reborn:meteo depuis ShinobiCore, commande /meteo) : S2C {type, intensité}.
+        // Pluie, tempête de sable, brume : brouillard en distance (FogRendererMeteoMixin) + filtre plein écran
+        // reborn-hud:meteo animé par une texture de paramètres (MeteoClient) + ambiance sonore.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.meteo.MeteoPayload.ID, fr.reborn.hud.meteo.MeteoPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.meteo.MeteoPayload.ID,
+            (payload, context) -> context.client().execute(
+                () -> fr.reborn.hud.meteo.MeteoClient.update(payload.meteo(), payload.intensity())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.meteo.MeteoClient.clear());
+        fr.reborn.hud.meteo.MeteoDebug.init();
+
+        // KO / ATA (canaux reborn:ko + reborn:ko_event depuis ShinobiCore KoHudSync, lot KO-6) : filtre de douleur
+        // reborn-hud:ko (prioritaire), affichage dans la DA Reborn à la place des titres / barres vanilla, sons.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.ko.KoPayload.ID, fr.reborn.hud.ko.KoPayload.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+            fr.reborn.hud.ko.KoEventPayload.ID, fr.reborn.hud.ko.KoEventPayload.CODEC);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.ko.KoPayload.ID,
+            (payload, context) -> context.client().execute(() -> fr.reborn.hud.ko.KoClient.update(payload)));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            fr.reborn.hud.ko.KoEventPayload.ID,
+            (payload, context) -> context.client().execute(() -> fr.reborn.hud.ko.KoClient.event(payload.kind())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.ko.KoClient.clear());
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "ko"),
+            (ctx, tickCounter) -> fr.reborn.hud.ko.KoHud.render(ctx));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
+            client -> fr.reborn.hud.ko.KoClient.tick());
+        fr.reborn.hud.ko.KoDebug.init();
         // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
         // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
         fr.reborn.hud.byakugan.ByakuganDebug.init();

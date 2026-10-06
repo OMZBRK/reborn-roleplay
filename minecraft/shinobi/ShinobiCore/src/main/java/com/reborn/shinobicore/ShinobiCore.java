@@ -82,6 +82,7 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.ko.HospitalRegistry hospitals;
     private com.reborn.shinobicore.ko.ata.AtaManager ataManager;
     private com.reborn.shinobicore.medic.PalmHealing palmHealing;
+    private com.reborn.shinobicore.ko.KoHudSync koHudSync;
     private com.reborn.shinobicore.chakra.ExhaustionManager exhaustionManager;
     private com.reborn.shinobicore.ko.action.PorterManager porterManager;
     private com.reborn.shinobicore.ko.action.KillRequestManager killRequestManager;
@@ -248,6 +249,9 @@ public final class ShinobiCore extends JavaPlugin {
         this.ataManager = new com.reborn.shinobicore.ko.ata.AtaManager(this);
         this.ataManager.start();
         Bukkit.getPluginManager().registerEvents(ataManager, this);
+        // Habillage KO / ATA par le mod client (KO-6) : canaux reborn:ko + reborn:ko_event.
+        this.koHudSync = new com.reborn.shinobicore.ko.KoHudSync(this);
+        this.koHudSync.start();
         // Soins (KO-4) : paume de soin maintenue + bandages.
         this.palmHealing = new com.reborn.shinobicore.medic.PalmHealing(this);
         Bukkit.getPluginManager().registerEvents(palmHealing, this);
@@ -756,6 +760,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (koManager != null) koManager.stop();
         if (ataManager != null) ataManager.stop();
         if (palmHealing != null) palmHealing.stopAll();
+        if (koHudSync != null) koHudSync.stop();
         if (exhaustionManager != null) exhaustionManager.stop();
         if (dummyManager != null) dummyManager.save();
         if (cinematicManager != null) cinematicManager.shutdown();
@@ -1180,6 +1185,7 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.ko.HospitalRegistry hospitals() { return hospitals; }
     public com.reborn.shinobicore.ko.ata.AtaManager ata() { return ataManager; }
     public com.reborn.shinobicore.medic.PalmHealing palm() { return palmHealing; }
+    public com.reborn.shinobicore.ko.KoHudSync koHud() { return koHudSync; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.action.PorterManager porter() { return porterManager; }
     @com.reborn.shinobicore.api.Internal

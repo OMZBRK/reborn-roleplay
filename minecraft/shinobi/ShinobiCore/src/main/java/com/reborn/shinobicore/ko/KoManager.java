@@ -332,7 +332,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
 
         applyKoEffects(player);
 
-        if (downed) {
+        if (downed && !modEvent(player, KoHudSync.EV_A_TERRE)) {
             player.showTitle(Title.title(
                     Component.text("À terre", NamedTextColor.DARK_RED, TextDecoration.BOLD),
                     Component.text("Tu peux encore ramper… /aide pour appeler", NamedTextColor.GRAY),
@@ -340,7 +340,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                             Duration.ofSeconds(2),
                             Duration.ofMillis(800))));
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.8f, 0.6f);
-        } else {
+        } else if (!downed) {
             showUnconsciousTitle(player);
         }
 
@@ -364,6 +364,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
     }
 
     private void showUnconsciousTitle(Player player) {
+        if (modEvent(player, KoHudSync.EV_KO)) return;
         player.showTitle(Title.title(
                 Component.text("KO", NamedTextColor.DARK_RED, TextDecoration.BOLD),
                 Component.text("Vous perdez connaissance.", NamedTextColor.GRAY),
@@ -395,7 +396,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
     public void revive(UUID playerId, KoState.Cause cause,
                        double hp, double chakra) {
         wake(playerId, cause, hp, chakra, AtaManager.Level.ALLEGEE,
-                "Réveil", "Vous reprenez conscience.");
+                KoHudSync.EV_REVEIL, "Réveil", "Vous reprenez conscience.");
     }
 
     /** Backwards-compat shim — picks the cause from the live KO row
@@ -407,7 +408,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
     }
 
     private void wake(UUID playerId, KoState.Cause cause, double hp, double chakra,
-                      AtaManager.Level ataLevel, String title, String subtitle) {
+                      AtaManager.Level ataLevel, byte event, String title, String subtitle) {
         KoState st = active.remove(playerId);
         if (st == null) return;
         Player p = Bukkit.getPlayer(playerId);
@@ -439,7 +440,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             // even sees the wake-up title card.
             reviveGraceUntil.put(playerId,
                     System.currentTimeMillis() + REVIVE_GRACE_MILLIS);
-            p.showTitle(Title.title(
+            if (!modEvent(p, event)) p.showTitle(Title.title(
                     Component.text(title, NamedTextColor.GREEN, TextDecoration.BOLD),
                     Component.text(subtitle, NamedTextColor.GRAY),
                     Title.Times.times(Duration.ofMillis(300),
@@ -468,7 +469,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         plugin.porter().releaseAllInvolving(playerId);
         double hp = Math.max(1.0, p.getMaxHealth() * floorPct);
         wake(playerId, KoState.Cause.HP, hp, 0, AtaManager.Level.PLEINE,
-                "Hôpital", "On t'a ramené à l'hôpital. Tu es encore très faible.");
+                KoHudSync.EV_HOPITAL, "Hôpital", "On t'a ramené à l'hôpital. Tu es encore très faible.");
         p.teleport(dest);
         return true;
     }
@@ -532,7 +533,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                     continue;
                 }
                 applyKoEffects(p);
-                p.sendActionBar(Component.text(
+                if (!modded(p)) p.sendActionBar(Component.text(
                         String.format("À terre — %d s · tu peux ramper · /aide pour appeler",
                                 left / 1000L + 1), NamedTextColor.RED));
                 continue;
@@ -573,7 +574,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                     hospitalize(st.playerId());
                 } else {
                     wake(st.playerId(), st.cause(), AUTO_WAKE_HP, AUTO_WAKE_CHAKRA, null,
-                            "Réveil", "Vous reprenez conscience.");
+                            KoHudSync.EV_REVEIL, "Réveil", "Vous reprenez conscience.");
                 }
                 continue; // Don't paint the actionbar after a wake.
             }
@@ -584,11 +585,25 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                     ? "Épuisement chakra" : "Inconscient";
             String hint = st.cause() == KoState.Cause.HP && st.hospitalOffered()
                     ? " · /hopital pour être emmené" : "";
-            p.sendActionBar(Component.text(
+            if (!modded(p)) p.sendActionBar(Component.text(
                     String.format("%s — %d:%02d · tu peux chuchoter et /me%s",
                             label, remaining / 60, remaining % 60, hint),
                     NamedTextColor.DARK_GRAY));
         }
+    }
+
+    /** Durée de la phase en cours (à terre ou inconscient), pour l'affichage. */
+    public long phaseMillis(KoState st) {
+        return st.isDowned() ? downedMillis : unconsciousMillisFor(st.cause());
+    }
+
+    private boolean modded(Player p) {
+        return plugin.koHud() != null && plugin.koHud().modded(p);
+    }
+
+    /** Titre stylisé côté mod ; false = client sans mod, garder le titre vanilla. */
+    private boolean modEvent(Player p, byte kind) {
+        return plugin.koHud() != null && plugin.koHud().event(p, kind);
     }
 
     /** Re-apply KO effects on the player. Runs on every tick + on

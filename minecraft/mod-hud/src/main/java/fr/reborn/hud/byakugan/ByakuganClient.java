@@ -1,6 +1,5 @@
 package fr.reborn.hud.byakugan;
 
-import fr.reborn.hud.mixin.GameRendererByakuganAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
@@ -9,7 +8,8 @@ import net.minecraft.world.entity.decoration.ArmorStand;
 /**
  * État client du Byakugan (alimenté par {@link ByakuganPayload}) — vue subjective « comme dans l'anime » :
  * <ul>
- *   <li>le monde passe en <b>négatif</b> noir et blanc bleuté (filtre plein écran {@code reborn-hud:byakugan}) ;</li>
+ *   <li>le monde passe en <b>négatif</b> noir et blanc bleuté (filtre plein écran {@code reborn-hud:byakugan},
+ *       posé par {@link fr.reborn.hud.effets.FiltresEcran}, prioritaire sur la météo) ;</li>
  *   <li>les entités vivantes à portée deviennent des <b>silhouettes</b> (corps uni, pleine lumière) où brille leur
  *       <b>réseau de chakra</b> ({@link ChakraNetworkLayer}) ; leur <b>aura</b> (contour) reste visible à travers les
  *       murs ;</li>
@@ -44,15 +44,12 @@ public final class ByakuganClient {
 
     public static void update(boolean on, float r) {
         if (on && !active) depuis = System.currentTimeMillis();
-        boolean etait = active;
         active = on;
         range = Math.max(0f, r);
-        if (on) appliquerFiltre();
-        else if (etait) retirerFiltre();
+        fr.reborn.hud.effets.FiltresEcran.tick();          // le filtre négatif s'applique tout de suite
     }
 
     public static void clear() {
-        if (active) retirerFiltre();
         active = false;
     }
 
@@ -66,24 +63,6 @@ public final class ByakuganClient {
     /** Image d'animation du flux de chakra (impulsions qui partent du cœur), 5 images / s. */
     public static Identifier reseau() {
         return RESEAU[(int) ((System.currentTimeMillis() / 200L) % IMAGES)];
-    }
-
-    /** Appelé à chaque tick client : le jeu peut retirer le filtre (changement de caméra, F4…), on le remet. */
-    public static void tick() {
-        if (!active) return;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-        if (!FILTRE.equals(mc.gameRenderer.currentPostEffect())) appliquerFiltre();
-    }
-
-    private static void appliquerFiltre() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.gameRenderer != null) ((GameRendererByakuganAccessor) mc.gameRenderer).reborn$setPostEffect(FILTRE);
-    }
-
-    private static void retirerFiltre() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.gameRenderer != null && FILTRE.equals(mc.gameRenderer.currentPostEffect())) mc.gameRenderer.clearPostEffect();
     }
 
     /** L'entité est-elle vue au Byakugan ? (vivante, pas le joueur local, à portée, pas un porte-armure) */
