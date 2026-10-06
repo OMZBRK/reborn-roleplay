@@ -14,6 +14,10 @@ type UpdateState = {
   ignored: boolean;
   setAvailable: (v: boolean) => void;
   setIgnored: (v: boolean) => void;
+  /** Incremente pour demander a useUpdater de rouvrir la modale malgre un
+   *  "Plus tard"/"Ignorer" (clic sur le logo qui pulse). */
+  openNonce: number;
+  requestOpen: () => void;
 };
 
 export const useUpdateStore = create<UpdateState>((set) => ({
@@ -21,4 +25,6 @@ export const useUpdateStore = create<UpdateState>((set) => ({
   ignored: false,
   setAvailable: (available) => set({ available }),
   setIgnored: (ignored) => set({ ignored }),
+  openNonce: 0,
+  requestOpen: () => set((s) => ({ openNonce: s.openNonce + 1 })),
 }));

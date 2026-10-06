@@ -49,6 +49,7 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const whitelistStatus = useWhitelistStore((s) => s.status);
   const updateAvailable = useUpdateStore((s) => s.available);
+  const requestUpdateOpen = useUpdateStore((s) => s.requestOpen);
   const unreadTickets = useBadgesStore((s) => s.badges.unreadTickets);
   const unreadPatchnotes = useBadgesStore((s) => s.badges.unreadPatchnotes);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -123,10 +124,13 @@ export function Sidebar() {
     <aside className="reborn-rail">
       <button
         type="button"
-        onClick={() => navigate("/home")}
+        onClick={() => {
+          navigate("/home");
+          if (updateAvailable) requestUpdateOpen();
+        }}
         title={
           updateAvailable
-            ? "Mise à jour disponible — clic pour ouvrir l'accueil"
+            ? "Mise à jour disponible — clic pour l'installer"
             : "Accueil"
         }
         aria-label="Accueil"

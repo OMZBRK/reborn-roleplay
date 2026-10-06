@@ -45,12 +45,21 @@ export function PlayButton() {
   const handleClickRef = useRef<() => void>(() => {});
   const relaunchSeen = useRef(false);
 
-  // Pre-check au montage — manifest, signature, diff. C'est ce qui distingue
-  // "Jouer" de "Mettre a jour" / "Telechargement X%".
+  // Distingue "le manifest exige un launcher plus recent" (vrai blocage) de
+  // "la verification a echoue" (reseau, session, API) : ce second cas est
+  // transitoire et ne doit pas afficher "Launcher trop ancien" en boucle.
+  const [checkFailed, setCheckFailed] = useState(false);
+
+  // Pre-check — manifest, signature, diff. C'est ce qui distingue
+  // "Jouer" de "Mettre a jour" / "Telechargement X%". Rejoue au clic sur
+  // "Reessayer" quand la verification a echoue.
+  const runCheckRef = useRef<() => void>(() => {});
   useEffect(() => {
     let cancelled = false;
-    setPhase("checking");
-    (async () => {
+    async function runCheck() {
+      setPhase("checking");
+      setError(null);
+      setCheckFailed(false);
       try {
         const p = await checkUpdate();
         if (cancelled) return;
@@ -63,9 +72,12 @@ export function PlayButton() {
       } catch (err) {
         if (cancelled) return;
         setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
-        setPhase("blocked");
+        setCheckFailed(true);
+        setPhase("idle");
       }
-    })();
+    }
+    runCheckRef.current = () => void runCheck();
+    void runCheck();
     return () => {
       cancelled = true;
     };
@@ -125,6 +137,10 @@ export function PlayButton() {
       phase === "downloading" ||
       phase === "checking"
     ) {
+      return;
+    }
+    if (checkFailed) {
+      runCheckRef.current();
       return;
     }
     setError(null);
@@ -205,6 +221,7 @@ export function PlayButton() {
     if (isWhitelistGated) return "Demande de whitelist requise";
     if (isBlocked) return "Launcher trop ancien, mise à jour requise";
     if (isChecking) return "Vérification en cours...";
+    if (checkFailed) return "Vérification impossible";
     if (isDownloading) {
       const dl = progress ? formatBytes(progress.bytesDownloaded) : "0 Mo";
       const tot = progress
@@ -237,7 +254,7 @@ export function PlayButton() {
         <LiquidProgress progress={launchOverall} title="Préparation" />
       ) : (
         <PrimaryButton
-          label={isChecking ? "Vérification" : isRunning ? "En jeu" : hasUpdate ? "METTRE À JOUR" : "JOUER"}
+          label={isChecking ? "Vérification" : checkFailed ? "RÉESSAYER" : isRunning ? "En jeu" : hasUpdate ? "METTRE À JOUR" : "JOUER"}
           disabled={isChecking || isRunning}
           checking={isChecking}
           onClick={handleClick}
