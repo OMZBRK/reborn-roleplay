@@ -147,6 +147,21 @@ commands:
     usage: /<command>
     aliases: [help-rp]
     permission: shinobicore.use
+  garde:
+    description: Staff — ouvrir le Poste de garde (panel staff en jeu, mod Reborn requis).
+    usage: /<command>
+    aliases: [postedegarde, panelstaff]
+    permission: shinobicore.use
+  staffchat:
+    description: Staff — écrire dans le canal staff (aussi #message dans le chat).
+    usage: /<command> <message>
+    aliases: [schat]
+    permission: shinobicore.use
+  signaler:
+    description: Signaler un joueur au staff.
+    usage: /<command> <joueur> <motif>
+    aliases: [report]
+    permission: shinobicore.use
   paume:
     description: Médic — paume de soin maintenue sur le joueur visé. Patient — accepter les soins.
     usage: /<command> [joueur|stop|accepter]
@@ -157,6 +172,24 @@ commands:
     usage: /<command> [voir|lever|appliquer <joueur> [pleine|allegee]]
     permission: shinobicore.use
 permissions:
+  reborn.staff.helper:
+    description: Poste de garde — Helper (alertes, TP, avertissements, chat staff).
+    default: false
+  reborn.staff.modo:
+    description: Poste de garde — Modérateur (geler, observer, mute, ban jusqu'à 1 jour, KO / ATA).
+    default: false
+    children:
+      reborn.staff.helper: true
+  reborn.staff.admin:
+    description: Poste de garde — Admin (bans longs et définitifs).
+    default: false
+    children:
+      reborn.staff.modo: true
+  reborn.staff.owner:
+    description: Poste de garde — Owner (tout).
+    default: op
+    children:
+      reborn.staff.admin: true
   shinobicore.zonerp:
     description: Allows /zonerp (délimiter terrains d'entraînement et zones de repos).
     default: op

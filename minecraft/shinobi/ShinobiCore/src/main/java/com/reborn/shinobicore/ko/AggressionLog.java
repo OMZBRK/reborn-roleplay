@@ -67,6 +67,7 @@ public final class AggressionLog implements Listener {
                 + " -> " + victim.getName() + " (" + vc.name() + ")"
                 + " | " + l.getWorld().getName() + " " + l.getBlockX() + " " + l.getBlockY() + " " + l.getBlockZ();
         append(line);
+        if (plugin.staffPanel() != null) plugin.staffPanel().onAggression(attacker, victim, l);
     }
 
     private static Player resolveAttacker(Entity damager) {

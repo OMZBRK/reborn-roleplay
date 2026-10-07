@@ -43,6 +43,7 @@ public final class HopitalCommand implements TabExecutor {
                     String village = args.length > 1 ? args[1] : HospitalRegistry.DEFAULT;
                     reg.set(village, p.getLocation());
                     p.sendMessage("§aLit d'hôpital « " + HospitalRegistry.key(village) + " » placé ici.");
+                    if (plugin.staffPanel() != null) plugin.staffPanel().log(p, "monde", "Lit d'hôpital", HospitalRegistry.key(village));
                 }
                 case "suppr" -> {
                     if (args.length < 2) { sender.sendMessage("§cUsage : /" + label + " suppr <village>"); return true; }

@@ -58,6 +58,8 @@ public final class ZoneRpCommand implements TabExecutor {
                 zones.put(z);
                 selections.remove(p.getUniqueId());
                 p.sendMessage("§aZone enregistrée : §f" + z.describe());
+                var core = org.bukkit.plugin.java.JavaPlugin.getPlugin(com.reborn.shinobicore.ShinobiCore.class);
+                if (core.staffPanel() != null) core.staffPanel().log(p, "monde", "Zone créée", kind.label() + " « " + id + " »");
             }
             case "suppr" -> {
                 if (args.length < 2) { sender.sendMessage("§cUsage : /" + label + " suppr <id>"); return true; }

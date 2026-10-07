@@ -42,13 +42,19 @@ public final class AtaCommand implements TabExecutor {
         if (c == null) { sender.sendMessage("§cJoueur introuvable ou sans personnage actif."); return true; }
         switch (sub) {
             case "voir" -> sender.sendMessage("§f" + c.name() + " : " + plugin.ata().describe(c.id()));
-            case "lever" -> sender.sendMessage(plugin.ata().lift(c.id(), "Un médic s'est occupé de toi.")
-                    ? "§aATA levée pour " + c.name() + "." : "§7" + c.name() + " n'a pas d'ATA.");
+            case "lever" -> {
+                boolean ok = plugin.ata().lift(c.id(), "Un médic s'est occupé de toi.");
+                sender.sendMessage(ok ? "§aATA levée pour " + c.name() + "." : "§7" + c.name() + " n'a pas d'ATA.");
+                if (ok && sender instanceof Player sp && plugin.staffPanel() != null)
+                    plugin.staffPanel().log(sp, "ko", "ATA levée", c.name());
+            }
             case "appliquer" -> {
                 AtaManager.Level lvl = args.length > 2 && args[2].equalsIgnoreCase("allegee")
                         ? AtaManager.Level.ALLEGEE : AtaManager.Level.PLEINE;
                 plugin.ata().apply(c.id(), target.getUniqueId(), Set.of(), lvl);
                 sender.sendMessage("§aATA " + lvl.name().toLowerCase(Locale.ROOT) + " appliquée à " + c.name() + ".");
+                if (sender instanceof Player sp && plugin.staffPanel() != null)
+                    plugin.staffPanel().log(sp, "ko", "ATA appliquée", c.name() + " · " + lvl.name().toLowerCase(Locale.ROOT));
             }
             default -> sender.sendMessage("§cUsage : /" + label + " <voir|lever|appliquer> <joueur> [pleine|allegee]");
         }

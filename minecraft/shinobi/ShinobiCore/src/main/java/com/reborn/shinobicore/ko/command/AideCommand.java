@@ -80,6 +80,7 @@ public final class AideCommand implements CommandExecutor {
                     0.15, 0.1, 0.15, 0, red);
         }
         p.sendActionBar(Component.text("Tu appelles à l'aide de toutes tes forces…", NamedTextColor.RED));
+        if (plugin.staffPanel() != null) plugin.staffPanel().onAide(p);
         return true;
     }
 }

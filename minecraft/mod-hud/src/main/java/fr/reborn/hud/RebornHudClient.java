@@ -621,6 +621,11 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
             client -> fr.reborn.hud.ko.KoClient.tick());
         fr.reborn.hud.ko.KoDebug.init();
+
+        // Poste de garde (panel staff, canal reborn:staff, touche F7 ou /garde) : alertes, fiche joueur, casier,
+        // sanctions au sceau, chat staff, journal, commandes. Le serveur (ShinobiCore StaffPanel) décide de tout.
+        fr.reborn.hud.staff.StaffClient.init();
+        fr.reborn.hud.staff.StaffDebug.init();
         // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
         // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
         fr.reborn.hud.byakugan.ByakuganDebug.init();

@@ -83,6 +83,7 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.ko.ata.AtaManager ataManager;
     private com.reborn.shinobicore.medic.PalmHealing palmHealing;
     private com.reborn.shinobicore.ko.KoHudSync koHudSync;
+    private com.reborn.shinobicore.staff.panel.StaffPanel staffPanel;
     private com.reborn.shinobicore.chakra.ExhaustionManager exhaustionManager;
     private com.reborn.shinobicore.ko.action.PorterManager porterManager;
     private com.reborn.shinobicore.ko.action.KillRequestManager killRequestManager;
@@ -252,6 +253,9 @@ public final class ShinobiCore extends JavaPlugin {
         // Habillage KO / ATA par le mod client (KO-6) : canaux reborn:ko + reborn:ko_event.
         this.koHudSync = new com.reborn.shinobicore.ko.KoHudSync(this);
         this.koHudSync.start();
+        // Poste de garde : panel staff en jeu (alertes, fiche, casier, chat staff, journal).
+        this.staffPanel = new com.reborn.shinobicore.staff.panel.StaffPanel(this);
+        Bukkit.getPluginManager().registerEvents(staffPanel, this);
         // Soins (KO-4) : paume de soin maintenue + bandages.
         this.palmHealing = new com.reborn.shinobicore.medic.PalmHealing(this);
         Bukkit.getPluginManager().registerEvents(palmHealing, this);
@@ -577,6 +581,11 @@ public final class ShinobiCore extends JavaPlugin {
         if (aideCmd != null) {
             aideCmd.setExecutor(new com.reborn.shinobicore.ko.command.AideCommand(this));
         } else getLogger().warning("Command 'aide' is not declared in plugin.yml.");
+        for (String c : new String[]{"garde", "staffchat", "signaler"}) {
+            PluginCommand pc = getCommand(c);
+            if (pc != null) pc.setExecutor(new com.reborn.shinobicore.staff.panel.StaffPanelCommands(staffPanel));
+            else getLogger().warning("Command '" + c + "' is not declared in plugin.yml.");
+        }
         PluginCommand paumeCmd = getCommand("paume");
         if (paumeCmd != null) {
             com.reborn.shinobicore.medic.command.PaumeCommand exec =
@@ -1186,6 +1195,7 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.ko.ata.AtaManager ata() { return ataManager; }
     public com.reborn.shinobicore.medic.PalmHealing palm() { return palmHealing; }
     public com.reborn.shinobicore.ko.KoHudSync koHud() { return koHudSync; }
+    public com.reborn.shinobicore.staff.panel.StaffPanel staffPanel() { return staffPanel; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.action.PorterManager porter() { return porterManager; }
     @com.reborn.shinobicore.api.Internal

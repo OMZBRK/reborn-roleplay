@@ -148,6 +148,10 @@ public final class PalmHealing implements Listener {
         byPatient.put(s.patient, s.medic);
         s.task = Bukkit.getScheduler().runTaskTimer(plugin, () -> tick(s), 20L, 20L);
         medic.playSound(medic.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.6f, 1.6f);
+        if (plugin.staffPanel() != null) {
+            ShinobiCharacter pc = plugin.characters().getActive(patient.getUniqueId());
+            plugin.staffPanel().log(medic, "soin", "Paume de soin", pc != null ? pc.name() : patient.getName());
+        }
         medic.sendActionBar(Component.text("Paume de soin — ne bouge pas, garde la concentration.", NamedTextColor.GREEN));
         patient.sendMessage(Component.text(FEELINGS[0], NamedTextColor.GRAY, TextDecoration.ITALIC));
     }
