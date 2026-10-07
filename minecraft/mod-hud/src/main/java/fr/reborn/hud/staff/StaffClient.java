@@ -26,6 +26,7 @@ public final class StaffClient {
 
     private static volatile JsonObject snapshot;
     private static volatile JsonObject profile;
+    private static volatile JsonObject koSnapshot;
     private static final Deque<Toast> TOASTS = new ArrayDeque<>();
     private static KeyMapping key;
 
@@ -54,14 +55,24 @@ public final class StaffClient {
         Minecraft mc = Minecraft.getInstance();
         switch (t) {
             case "open" -> {
-                if (!(mc.gui.screen() instanceof StaffScreen)) mc.setScreenAndShow(new StaffScreen());
+                if (mc.gui.screen() == null || mc.gui.screen().getClass() != StaffScreen.class) mc.setScreenAndShow(new StaffScreen());
             }
             case "snap" -> snapshot = o;
+            case "open_ko" -> {
+                if (!(mc.gui.screen() instanceof InfirmerieScreen)) mc.setScreenAndShow(new InfirmerieScreen());
+            }
+            case "ko_snap" -> koSnapshot = o;
+            case "close" -> {
+                if (mc.gui.screen() instanceof StaffScreen) mc.setScreenAndShow(null);
+            }
             case "profile" -> profile = o;
             case "toast" -> toast(o.get("m").getAsString());
             default -> { }
         }
     }
+
+    /** Banc d'essai : injecte un message comme s'il venait du serveur. */
+    static void debugReceive(String raw) { receive(raw); }
 
     public static void toast(String text) {
         synchronized (TOASTS) {
@@ -81,6 +92,8 @@ public final class StaffClient {
     public static JsonObject snapshot() { return snapshot; }
 
     public static JsonObject profile() { return profile; }
+
+    public static JsonObject koSnapshot() { return koSnapshot; }
 
     public static void clearProfile() { profile = null; }
 

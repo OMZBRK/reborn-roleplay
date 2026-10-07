@@ -464,14 +464,41 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         if (st == null || p == null) return false;
         ShinobiCharacter c = plugin.characters().getActive(playerId);
         String village = c != null ? c.village() : "";
-        Location dest = plugin.hospitals() != null ? plugin.hospitals().locationFor(village) : null;
+        // 1. premier lit libre de l'hôpital du village ; 2. entrée de la zone hôpital ;
+        // 3. ancien point /hopital set ; 4. spawn du monde.
+        HospitalBeds.Bed bed = plugin.beds() != null ? plugin.beds().claim(village, playerId) : null;
+        Location dest = bed != null ? bed.location() : null;
+        boolean onBed = dest != null;
+        if (dest == null && plugin.beds() != null) {
+            var hz = plugin.beds().hospitalFor(village);
+            if (hz != null) dest = entrance(hz);
+        }
+        if (dest == null && plugin.hospitals() != null) dest = plugin.hospitals().locationFor(village);
         if (dest == null) dest = p.getWorld().getSpawnLocation();
         plugin.porter().releaseAllInvolving(playerId);
         double hp = Math.max(1.0, p.getMaxHealth() * floorPct);
         wake(playerId, KoState.Cause.HP, hp, 0, AtaManager.Level.PLEINE,
                 KoHudSync.EV_HOPITAL, "Hôpital", "On t'a ramené à l'hôpital. Tu es encore très faible.");
-        p.teleport(dest);
+        dest.setYaw(p.getLocation().getYaw());
+        p.teleport(onBed ? dest.clone().add(0, 0.15, 0) : dest);
+        // Allongé dans le lit (posture RP, se relève en s'accroupissant).
+        if (onBed && plugin.posture() != null && !plugin.posture().isPosed(p)) plugin.posture().toggleLay(p);
         return true;
+    }
+
+    /** Point d'arrivée dans une zone hôpital sans lit libre : centre de la zone, premier sol libre. */
+    private static Location entrance(com.reborn.shinobicore.ko.zone.TrainingZone z) {
+        org.bukkit.World w = Bukkit.getWorld(z.world());
+        if (w == null) return null;
+        int cx = (z.minX() + z.maxX()) / 2, cz = (z.minZ() + z.maxZ()) / 2;
+        for (int y = z.minY(); y < z.maxY(); y++) {
+            if (w.getBlockAt(cx, y, cz).getType().isSolid()
+                    && !w.getBlockAt(cx, y + 1, cz).getType().isSolid()
+                    && !w.getBlockAt(cx, y + 2, cz).getType().isSolid()) {
+                return new Location(w, cx + 0.5, y + 1, cz + 0.5);
+            }
+        }
+        return new Location(w, cx + 0.5, z.minY() + 1, cz + 0.5);
     }
 
     /** Check whether a heal pushed this player past the wake threshold.

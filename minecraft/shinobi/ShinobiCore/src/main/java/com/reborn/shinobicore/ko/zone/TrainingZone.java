@@ -8,16 +8,18 @@ import java.util.Locale;
  * Zone RP : un pavé de blocs (bornes incluses) dans un monde.
  * <ul>
  *   <li>{@link Kind#ENTRAINEMENT} — combat sans séquelles, voir {@link TrainingZones} ;</li>
- *   <li>{@link Kind#REPOS} — restaurant, onsen, auberge, hôpital : s'y asseoir ou s'y
- *       allonger fait progresser le repos qui lève l'ATA (voir {@code AtaManager}).</li>
+ *   <li>{@link Kind#REPOS} — restaurant, onsen, auberge : s'y asseoir ou s'y
+ *       allonger fait progresser le repos qui lève l'ATA (voir {@code AtaManager}) ;</li>
+ *   <li>{@link Kind#HOPITAL} — zone de repos où se réveillent les blessés rapatriés de son
+ *       {@code village}, sur l'un de ses lits ({@code HospitalBeds}).</li>
  * </ul>
  */
 public record TrainingZone(String id, Kind kind, String world,
                            int minX, int minY, int minZ,
-                           int maxX, int maxY, int maxZ) {
+                           int maxX, int maxY, int maxZ, String village) {
 
     public enum Kind {
-        ENTRAINEMENT, REPOS;
+        ENTRAINEMENT, REPOS, HOPITAL;
 
         public String label() { return name().toLowerCase(Locale.ROOT); }
 
@@ -30,14 +32,20 @@ public record TrainingZone(String id, Kind kind, String world,
 
     /** Construit la zone à partir de deux coins dans n'importe quel ordre. */
     public static TrainingZone of(String id, Kind kind, Location a, Location b) {
-        return new TrainingZone(id, kind, a.getWorld().getName(),
-                Math.min(a.getBlockX(), b.getBlockX()),
-                Math.min(a.getBlockY(), b.getBlockY()),
-                Math.min(a.getBlockZ(), b.getBlockZ()),
-                Math.max(a.getBlockX(), b.getBlockX()),
-                Math.max(a.getBlockY(), b.getBlockY()),
-                Math.max(a.getBlockZ(), b.getBlockZ()));
+        return of(id, kind, a.getWorld().getName(), a.getBlockX(), a.getBlockY(), a.getBlockZ(),
+                b.getBlockX(), b.getBlockY(), b.getBlockZ(), "");
     }
+
+    /** Zone à partir de deux coins quelconques (bornes remises dans l'ordre). */
+    public static TrainingZone of(String id, Kind kind, String world, int x1, int y1, int z1,
+                                  int x2, int y2, int z2, String village) {
+        return new TrainingZone(id, kind, world,
+                Math.min(x1, x2), Math.min(y1, y2), Math.min(z1, z2),
+                Math.max(x1, x2), Math.max(y1, y2), Math.max(z1, z2), village == null ? "" : village);
+    }
+
+    /** Une zone de repos au sens de l'ATA (repos ou hôpital). */
+    public boolean restful() { return kind == Kind.REPOS || kind == Kind.HOPITAL; }
 
     public boolean contains(Location loc) {
         if (loc == null || loc.getWorld() == null) return false;

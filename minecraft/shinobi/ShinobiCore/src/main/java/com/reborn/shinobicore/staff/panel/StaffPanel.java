@@ -84,17 +84,25 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     public StaffStore store() { return store; }
 
+    private InfirmeriePanel infirmerie;
+
+    /** L'Infirmerie (gestion visuelle du KO) partage ce canal. */
+    public InfirmeriePanel infirmerie() {
+        if (infirmerie == null) infirmerie = new InfirmeriePanel(plugin, this);
+        return infirmerie;
+    }
+
     /* ================================================================ réseau */
 
     public boolean modded(Player p) {
         return p.getListeningPluginChannels().contains(CHANNEL);
     }
 
-    private void send(Player p, JsonObject o) {
+    void send(Player p, JsonObject o) {
         p.sendPluginMessage(plugin, CHANNEL, gson.toJson(o).getBytes(StandardCharsets.UTF_8));
     }
 
-    private void toast(Player p, String msg) {
+    void toast(Player p, String msg) {
         JsonObject o = new JsonObject();
         o.addProperty("t", "toast");
         o.addProperty("m", msg);
@@ -152,16 +160,16 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 if (!m.isEmpty()) staffChat(p, m);
                 sendSnapshot(p);
             }
-            default -> { }
+            default -> infirmerie().handle(p, grade, a, in);
         }
     }
 
-    private static String str(JsonObject o, String k) {
+    static String str(JsonObject o, String k) {
         JsonElement e = o.get(k);
         return e == null || e.isJsonNull() ? "" : e.getAsString();
     }
 
-    private static UUID uuid(JsonObject o, String k) {
+    static UUID uuid(JsonObject o, String k) {
         try { return UUID.fromString(str(o, k)); } catch (IllegalArgumentException e) { return null; }
     }
 

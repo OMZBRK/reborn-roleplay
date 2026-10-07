@@ -84,6 +84,7 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.medic.PalmHealing palmHealing;
     private com.reborn.shinobicore.ko.KoHudSync koHudSync;
     private com.reborn.shinobicore.staff.panel.StaffPanel staffPanel;
+    private com.reborn.shinobicore.ko.HospitalBeds hospitalBeds;
     private com.reborn.shinobicore.chakra.ExhaustionManager exhaustionManager;
     private com.reborn.shinobicore.ko.action.PorterManager porterManager;
     private com.reborn.shinobicore.ko.action.KillRequestManager killRequestManager;
@@ -256,6 +257,9 @@ public final class ShinobiCore extends JavaPlugin {
         // Poste de garde : panel staff en jeu (alertes, fiche, casier, chat staff, journal).
         this.staffPanel = new com.reborn.shinobicore.staff.panel.StaffPanel(this);
         Bukkit.getPluginManager().registerEvents(staffPanel, this);
+        // Infirmerie : gestion visuelle du KO (blessés, zones sur la carte, lits Nexo, réglages).
+        this.hospitalBeds = new com.reborn.shinobicore.ko.HospitalBeds(this);
+        Bukkit.getPluginManager().registerEvents(staffPanel.infirmerie(), this);
         // Soins (KO-4) : paume de soin maintenue + bandages.
         this.palmHealing = new com.reborn.shinobicore.medic.PalmHealing(this);
         Bukkit.getPluginManager().registerEvents(palmHealing, this);
@@ -581,6 +585,12 @@ public final class ShinobiCore extends JavaPlugin {
         if (aideCmd != null) {
             aideCmd.setExecutor(new com.reborn.shinobicore.ko.command.AideCommand(this));
         } else getLogger().warning("Command 'aide' is not declared in plugin.yml.");
+        PluginCommand infCmd = getCommand("infirmerie");
+        if (infCmd != null) infCmd.setExecutor((s, cmd, l, args) -> {
+            if (s instanceof org.bukkit.entity.Player pl) staffPanel.infirmerie().open(pl);
+            return true;
+        });
+        else getLogger().warning("Command 'infirmerie' is not declared in plugin.yml.");
         for (String c : new String[]{"garde", "staffchat", "signaler"}) {
             PluginCommand pc = getCommand(c);
             if (pc != null) pc.setExecutor(new com.reborn.shinobicore.staff.panel.StaffPanelCommands(staffPanel));
@@ -770,6 +780,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (ataManager != null) ataManager.stop();
         if (palmHealing != null) palmHealing.stopAll();
         if (koHudSync != null) koHudSync.stop();
+        if (staffPanel != null) staffPanel.infirmerie().stop();
         if (exhaustionManager != null) exhaustionManager.stop();
         if (dummyManager != null) dummyManager.save();
         if (cinematicManager != null) cinematicManager.shutdown();
@@ -1196,6 +1207,7 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.medic.PalmHealing palm() { return palmHealing; }
     public com.reborn.shinobicore.ko.KoHudSync koHud() { return koHudSync; }
     public com.reborn.shinobicore.staff.panel.StaffPanel staffPanel() { return staffPanel; }
+    public com.reborn.shinobicore.ko.HospitalBeds beds() { return hospitalBeds; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.action.PorterManager porter() { return porterManager; }
     @com.reborn.shinobicore.api.Internal

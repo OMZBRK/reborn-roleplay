@@ -107,6 +107,10 @@ ko:
   # réveille à cette fraction. Au-delà, il faut un médic.
   plancher-pct: 0.30
   chuchotement-blocs: 4
+  # Lits d'hôpital (Infirmerie) : meubles Nexo dont l'id contient l'un de ces mots.
+  lits-nexo: [lit, bed, futon]
+  # Un lit attribué reste occupé tant que son occupant est à côté, au plus ce temps.
+  lit-occupe-minutes: 15
   aide-portee: 48
   ata:
     repos-minutes-pleine: 20

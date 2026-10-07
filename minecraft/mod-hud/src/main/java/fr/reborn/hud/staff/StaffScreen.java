@@ -34,34 +34,34 @@ import java.util.UUID;
 public class StaffScreen extends Screen {
 
     /* --------------------------------------------------------------- palette (kit DA Reborn) */
-    private static final int LACQUER = 0xFFA0182B, LACQUER_HI = 0xFFC01E35, LACQUER_LO = 0xFF7A1322;
-    private static final int GOLD = 0xFFD9A95E, GOLD_SOFT = 0xFF3A2C14, IVORY = 0xFFF5E9D0, IVORY_2 = 0xFFC2B59A;
-    private static final int WASHI = 0xFFE3D1A8, WASHI_2 = 0xFFD4BF91, WOOD = 0xFF5A3A22, WOOD_DARK = 0xFF2E1C11;
-    private static final int INK = 0xFF2A1A10, INK_SOFT = 0xFF6B5434, FUDA = 0xFFF0E2C2, FUDA_2 = 0xFFE2CFA4;
-    private static final int OK = 0xFF2F7A3A;
+    protected static final int LACQUER = 0xFFA0182B, LACQUER_HI = 0xFFC01E35, LACQUER_LO = 0xFF7A1322;
+    protected static final int GOLD = 0xFFD9A95E, GOLD_SOFT = 0xFF3A2C14, IVORY = 0xFFF5E9D0, IVORY_2 = 0xFFC2B59A;
+    protected static final int WASHI = 0xFFE3D1A8, WASHI_2 = 0xFFD4BF91, WOOD = 0xFF5A3A22, WOOD_DARK = 0xFF2E1C11;
+    protected static final int INK = 0xFF2A1A10, INK_SOFT = 0xFF6B5434, FUDA = 0xFFF0E2C2, FUDA_2 = 0xFFE2CFA4;
+    protected static final int OK = 0xFF2F7A3A;
 
-    private static final String[][] TABS = {
+    protected static final String[][] TABS = {
             {"alerts", "Alertes"}, {"players", "Joueurs"}, {"chat", "Chat staff"}, {"journal", "Journal"}, {"cmds", "Commandes"}};
-    private static final String[][] LOG_FILTERS = {
+    protected static final String[][] LOG_FILTERS = {
             {"all", "Tout"}, {"soin", "Soins"}, {"ko", "KO / ATA"}, {"sanction", "Sanctions"}, {"tp", "Téléportations"}, {"monde", "Monde"}};
 
-    private record Hit(int x, int y, int w, int h, Runnable action) {
+    protected record Hit(int x, int y, int w, int h, Runnable action) {
         boolean in(double mx, double my) { return mx >= x && mx < x + w && my >= y && my < y + h; }
     }
 
-    private final List<Hit> hits = new ArrayList<>();
-    private String tab = "alerts";
-    private String profileUuid;
-    private JsonObject confirm;
-    private final Set<Integer> flags = new HashSet<>();
-    private long sealAt;
-    private String logFilter = "all";
-    private int scroll, contentH;
-    private long openedAt, viewAt;
-    private int cardIndex;
-    private int ticks;
-    private int mouseX, mouseY;
-    private EditBox chatBox, noteBox, searchBox;
+    protected final List<Hit> hits = new ArrayList<>();
+    protected String tab = "alerts";
+    protected String profileUuid;
+    protected JsonObject confirm;
+    protected final Set<Integer> flags = new HashSet<>();
+    protected long sealAt;
+    protected String logFilter = "all";
+    protected int scroll, contentH;
+    protected long openedAt, viewAt;
+    protected int cardIndex;
+    protected int ticks;
+    protected int mouseX, mouseY;
+    protected EditBox chatBox, noteBox, searchBox;
 
     public StaffScreen() {
         super(Component.literal("Poste de garde"));
@@ -83,7 +83,7 @@ public class StaffScreen extends Screen {
         RebornSounds.playReborn("sacoche.open", 1.0f, 0.5f);
     }
 
-    private EditBox box(String hint, int max) {
+    protected EditBox box(String hint, int max) {
         EditBox b = new EditBox(this.font, 0, 0, 100, 12, Component.literal(hint));
         b.setMaxLength(max);
         b.setHint(Component.literal(hint));
@@ -122,16 +122,16 @@ public class StaffScreen extends Screen {
 
     /* =================================================================== géométrie */
 
-    private int sx0() { return Math.max(Math.round(width * 0.07f) + 6, width / 2 - 320); }
-    private int sx1() { return width - sx0(); }
-    private int sy0() { return 58; }
-    private int sy1() { return height - 34; }
+    protected int sx0() { return Math.max(Math.round(width * 0.07f) + 6, width / 2 - 320); }
+    protected int sx1() { return width - sx0(); }
+    protected int sy0() { return 58; }
+    protected int sy1() { return height - 34; }
 
     /** Zone qui défile (dans le papier), selon l'onglet : la barre de chat en bas, la recherche en haut. */
-    private int vy0() { return sy0() + 10 + ("cmds".equals(tab) ? 18 : 0); }
-    private int vy1() { return sy1() - 6 - ("chat".equals(tab) ? 18 : 0); }
-    private int vx0() { return sx0() + 8; }
-    private int vx1() { return sx1() - 8; }
+    protected int vy0() { return sy0() + 10 + ("cmds".equals(tab) ? 18 : 0); }
+    protected int vy1() { return sy1() - 6 - ("chat".equals(tab) ? 18 : 0); }
+    protected int vx0() { return sx0() + 8; }
+    protected int vx1() { return sx1() - 8; }
 
     /* =================================================================== rendu */
 
@@ -152,6 +152,13 @@ public class StaffScreen extends Screen {
         mouseY = my;
         hits.clear();
         cardIndex = 0;
+        drawScreen(ctx, mx, my, delta);
+        super.extractRenderState(ctx, mx, my, delta);   // champs de saisie
+        toasts(ctx);
+    }
+
+    /** Tout le dessin propre à l'écran (surchargé par l'Infirmerie). */
+    protected void drawScreen(GuiGraphicsExtractor ctx, int mx, int my, float delta) {
         JsonObject snap = StaffClient.snapshot();
 
         frame(ctx);
@@ -176,12 +183,17 @@ public class StaffScreen extends Screen {
 
         layoutBoxes(ctx);
         closeButton(ctx);
+        infirmerieButton(ctx);
         if (confirm != null) confirmModal(ctx, snap);
-        super.extractRenderState(ctx, mx, my, delta);   // champs de saisie
-        toasts(ctx);
     }
 
-    private String plaqueTitle(JsonObject snap) {
+    /** Pied droit : rejoindre l'Infirmerie (gestion du KO). */
+    protected void infirmerieButton(GuiGraphicsExtractor ctx) {
+        int w = font.width(RebornFont.body("Infirmerie")) + 14;
+        button(ctx, sx1() - w + 8, height - 18, "Infirmerie", "punish", () -> StaffClient.send("ko_open"), false);
+    }
+
+    protected String plaqueTitle(JsonObject snap) {
         if (snap == null) return "Poste de garde";
         return switch (tab) {
             case "players" -> profileUuid != null && StaffClient.profile() != null
@@ -195,13 +207,13 @@ public class StaffScreen extends Screen {
 
     /* ------------------------------------------------------------------- décor commun */
 
-    private static float ease(float t) {
+    protected static float ease(float t) {
         t = Math.max(0f, Math.min(1f, t));
         return 1f - (1f - t) * (1f - t) * (1f - t);
     }
 
     /** Planche de bois veiné, ferrures d'or aux coins, papier washi qui se déroule (makimono), rouleau en bas. */
-    private void frame(GuiGraphicsExtractor ctx) {
+    protected void frame(GuiGraphicsExtractor ctx) {
         int x0 = sx0(), x1 = sx1(), y0 = sy0(), y1 = sy1();
         int m = 11;
         ctx.fill(x0 - m - 2, y0 - m + 2, x1 + m + 4, y1 + m + 6, 0x70000000);              // ombre portée
@@ -254,13 +266,13 @@ public class StaffScreen extends Screen {
     }
 
     /** Bas du papier pendant le déroulé d'ouverture. */
-    private int paperBottom() {
+    protected int paperBottom() {
         float u = ease((System.currentTimeMillis() - openedAt) / 340f);
         return Math.round(sy0() + 5 + (sy1() - sy0() - 5) * u);
     }
 
     /** Ferrure d'angle (kanagu) dorée : L de 11 px avec un rivet. */
-    private void kanagu(GuiGraphicsExtractor ctx, int cx, int cy, int dx, int dy) {
+    protected void kanagu(GuiGraphicsExtractor ctx, int cx, int cy, int dx, int dy) {
         int L = 20, T = 5;
         int x0 = Math.min(cx, cx + dx * L), x1 = Math.max(cx, cx + dx * L);
         int y0 = Math.min(cy, cy + dy * L), y1 = Math.max(cy, cy + dy * L);
@@ -279,7 +291,7 @@ public class StaffScreen extends Screen {
     }
 
     /** Plaque laquée suspendue, double filet d'or, sceau 番 (poste de garde), reflet qui passe. */
-    private void plaque(GuiGraphicsExtractor ctx, String title) {
+    protected void plaque(GuiGraphicsExtractor ctx, String title) {
         Component t = RebornFont.display(title);
         int tw = font.width(t);
         int pw = tw + 46, ph = 22, x = width / 2 - pw / 2, y = 6;
@@ -308,9 +320,9 @@ public class StaffScreen extends Screen {
     }
 
     /** Onglets en plaquettes suspendues (coins coupés), compteur d'alertes en sceau rouge. */
-    private void tabs(GuiGraphicsExtractor ctx, JsonObject snap) {
+    protected void tabs(GuiGraphicsExtractor ctx, JsonObject snap) {
         int x = sx0() + 4, base = 32;
-        for (String[] t : TABS) {
+        for (String[] t : tabList()) {
             boolean sel = t[0].equals(tab);
             Component c = RebornFont.body(t[1]);
             int w = font.width(c) + 16, h = 14;
@@ -326,8 +338,9 @@ public class StaffScreen extends Screen {
                 chamferGradient(ctx, x, top, w, h, hov ? 0xFF7E5636 : 0xFF6A4528, WOOD);
             }
             ctx.text(font, c, x + 8, top + 3, sel ? IVORY : IVORY_2, false);
-            if ("alerts".equals(t[0]) && snap != null && !arr(snap, "alerts").isEmpty()) {
-                String n = String.valueOf(arr(snap, "alerts").size());
+            int count = tabCount(t[0], snap);
+            if (count > 0) {
+                String n = String.valueOf(count);
                 int bw = Math.max(9, font.width(n) + 4), bx = x + w - 5, by = top - 5;
                 chamfer(ctx, bx - 1, by - 1, bw + 2, 11, WOOD_DARK);
                 chamfer(ctx, bx, by, bw, 9, LACQUER_HI);
@@ -340,7 +353,15 @@ public class StaffScreen extends Screen {
         if (snap != null) gradeBadge(ctx, num(snap, "grade"), str(snap, "gradeName"));
     }
 
-    private void gradeBadge(GuiGraphicsExtractor ctx, int grade, String name) {
+    /** Onglets de l'écran (surchargé par l'Infirmerie). */
+    protected String[][] tabList() { return TABS; }
+
+    /** Compteur affiché en sceau rouge sur un onglet (0 = aucun). */
+    protected int tabCount(String id, JsonObject snap) {
+        return "alerts".equals(id) && snap != null ? arr(snap, "alerts").size() : 0;
+    }
+
+    protected void gradeBadge(GuiGraphicsExtractor ctx, int grade, String name) {
         Component g = RebornFont.bold(name);
         int gw = font.width(g) + 18, gx = sx0() - 10, gy = height - 18;
         chamfer(ctx, gx - 1, gy - 1, gw + 2, 15, WOOD_DARK);
@@ -350,19 +371,19 @@ public class StaffScreen extends Screen {
     }
 
     /** Rectangle aux coins coupés (1 px). */
-    private static void chamfer(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int color) {
+    protected static void chamfer(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int color) {
         ctx.fill(x + 1, y, x + w - 1, y + h, color);
         ctx.fill(x, y + 1, x + 1, y + h - 1, color);
         ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 
-    private static void chamferGradient(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int top, int bottom) {
+    protected static void chamferGradient(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int top, int bottom) {
         ctx.fillGradient(x + 1, y, x + w - 1, y + h, top, bottom);
         ctx.fillGradient(x, y + 1, x + 1, y + h - 1, top, bottom);
         ctx.fillGradient(x + w - 1, y + 1, x + w, y + h - 1, top, bottom);
     }
 
-    private void switchTab(String id) {
+    protected void switchTab(String id) {
         if (!id.equals(tab)) { RebornSounds.uiClick(); viewAt = System.currentTimeMillis(); }
         tab = id;
         scroll = 0;
@@ -371,7 +392,7 @@ public class StaffScreen extends Screen {
     }
 
     /** Planche « Fermer » aux embouts dorés. */
-    private void closeButton(GuiGraphicsExtractor ctx) {
+    protected void closeButton(GuiGraphicsExtractor ctx) {
         int w = 116, x = width / 2 - w / 2, y = height - 19;
         boolean hov = hover(x, y, w, 15);
         chamfer(ctx, x - 1, y - 1, w + 2, 17, WOOD_DARK);
@@ -385,7 +406,7 @@ public class StaffScreen extends Screen {
     }
 
     /** Bandes de washi scellées, au-dessus du pied. */
-    private void toasts(GuiGraphicsExtractor ctx) {
+    protected void toasts(GuiGraphicsExtractor ctx) {
         int y = height - 44;
         long now = System.currentTimeMillis();
         for (StaffClient.Toast t : StaffClient.toasts()) {
@@ -402,7 +423,7 @@ public class StaffScreen extends Screen {
         }
     }
 
-    private void layoutBoxes(GuiGraphicsExtractor ctx) {
+    protected void layoutBoxes(GuiGraphicsExtractor ctx) {
         boolean chat = "chat".equals(tab) && confirm == null;
         boolean cmds = "cmds".equals(tab) && confirm == null;
         chatBox.setVisible(chat);
@@ -426,7 +447,7 @@ public class StaffScreen extends Screen {
 
     /* =================================================================== onglets */
 
-    private int alerts(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
+    protected int alerts(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
         y = section(ctx, "Alertes récentes", y);
         JsonArray al = arr(snap, "alerts");
         if (al.isEmpty()) return calm(ctx, y);
@@ -462,7 +483,7 @@ public class StaffScreen extends Screen {
         return y;
     }
 
-    private int players(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
+    protected int players(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
         y = section(ctx, "Joueurs en ligne", y);
         for (JsonElement e : arr(snap, "players")) {
             JsonObject p = e.getAsJsonObject();
@@ -490,7 +511,7 @@ public class StaffScreen extends Screen {
         return y;
     }
 
-    private int profile(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
+    protected int profile(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
         int g = grade(snap);
         button(ctx, vx0(), y, "← Joueurs", "plain", () -> { profileUuid = null; scroll = 0; StaffClient.clearProfile(); }, false);
         y += 18;
@@ -601,7 +622,7 @@ public class StaffScreen extends Screen {
         return y + ((offs.size() + cols - 1) / cols) * (ch + gap) + 4;
     }
 
-    private int chat(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
+    protected int chat(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
         y = section(ctx, "Canal staff", y);
         JsonArray lines = arr(snap, "chat");
         int start = Math.max(0, lines.size() - 60);
@@ -628,7 +649,7 @@ public class StaffScreen extends Screen {
         return y + 14;
     }
 
-    private int journal(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
+    protected int journal(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
         int x = vx0();
         for (String[] f : LOG_FILTERS) {
             boolean sel = f[0].equals(logFilter);
@@ -665,7 +686,7 @@ public class StaffScreen extends Screen {
         return y + 16;
     }
 
-    private int commands(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
+    protected int commands(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
         int g = grade(snap);
         String q = searchBox.getValue().trim().toLowerCase();
         String cat = null;
@@ -702,7 +723,7 @@ public class StaffScreen extends Screen {
 
     /* =================================================================== confirmation de sanction */
 
-    private void confirmModal(GuiGraphicsExtractor ctx, JsonObject snap) {
+    protected void confirmModal(GuiGraphicsExtractor ctx, JsonObject snap) {
         JsonObject p = StaffClient.profile();
         if (p == null) { confirm = null; return; }
         hits.clear();   // la fenêtre capte tous les clics
@@ -773,7 +794,7 @@ public class StaffScreen extends Screen {
         }
     }
 
-    private void seal(GuiGraphicsExtractor ctx, int x, int y) {
+    protected void seal(GuiGraphicsExtractor ctx, int x, int y) {
         float t = Math.min(1f, (System.currentTimeMillis() - sealAt) / 220f);
         float scale = 1.6f - 0.6f * t;
         ctx.pose().pushMatrix();
@@ -803,7 +824,7 @@ public class StaffScreen extends Screen {
     }
 
     /** État vide des alertes : grand 静 (le calme) estompé. */
-    private int calm(GuiGraphicsExtractor ctx, int y) {
+    protected int calm(GuiGraphicsExtractor ctx, int y) {
         int cx = (vx0() + vx1()) / 2;
         ctx.pose().pushMatrix();
         ctx.pose().translate(cx - 24, y + 8);
@@ -815,7 +836,7 @@ public class StaffScreen extends Screen {
         return y + 84;
     }
 
-    private void sendSanction(boolean warnOnly) {
+    protected void sendSanction(boolean warnOnly) {
         JsonObject p = StaffClient.profile();
         if (p == null || confirm == null) return;
         JsonObject o = new JsonObject();
@@ -838,7 +859,7 @@ public class StaffScreen extends Screen {
 
     /* =================================================================== actions */
 
-    private void act(String op, String uuid) {
+    protected void act(String op, String uuid) {
         JsonObject o = new JsonObject();
         o.addProperty("a", "act");
         o.addProperty("op", op);
@@ -847,7 +868,7 @@ public class StaffScreen extends Screen {
         RebornSounds.uiClick();
     }
 
-    private void dismiss(String id) {
+    protected void dismiss(String id) {
         JsonObject o = new JsonObject();
         o.addProperty("a", "dismiss");
         o.addProperty("id", id);
@@ -855,7 +876,7 @@ public class StaffScreen extends Screen {
         RebornSounds.uiClick();
     }
 
-    private void openProfile(String uuid) {
+    protected void openProfile(String uuid) {
         tab = "players";
         profileUuid = uuid;
         scroll = 0;
@@ -863,14 +884,14 @@ public class StaffScreen extends Screen {
         RebornSounds.uiClick();
     }
 
-    private void requestProfile(String uuid) {
+    protected void requestProfile(String uuid) {
         JsonObject o = new JsonObject();
         o.addProperty("a", "profile");
         o.addProperty("t", uuid);
         StaffClient.send(o);
     }
 
-    private void sendChat() {
+    protected void sendChat() {
         String m = chatBox.getValue().trim();
         if (m.isEmpty()) return;
         JsonObject o = new JsonObject();
@@ -881,7 +902,7 @@ public class StaffScreen extends Screen {
         scroll = Integer.MAX_VALUE / 2;   // descend au dernier message
     }
 
-    private void prepare(String cmd) {
+    protected void prepare(String cmd) {
         Minecraft.getInstance().keyboardHandler.setClipboard(cmd.startsWith("#") ? "#" : cmd);
         StaffClient.toast(cmd + " · copiée, colle-la dans le chat (Ctrl+V)");
         RebornSounds.uiClick();
@@ -943,7 +964,7 @@ public class StaffScreen extends Screen {
     /* =================================================================== petits dessins */
 
     /** Titre de section : losange d'or, titre laqué, coup de pinceau qui s'efface. */
-    private int section(GuiGraphicsExtractor ctx, String title, int y) {
+    protected int section(GuiGraphicsExtractor ctx, String title, int y) {
         Component c = RebornFont.display(title);
         int x = vx0();
         ctx.fill(x + 1, y + 5, x + 4, y + 8, GOLD);
@@ -957,7 +978,7 @@ public class StaffScreen extends Screen {
     }
 
     /** Glissement d'entrée d'une plaquette (décalé par carte), en px. */
-    private int slide() {
+    protected int slide() {
         float t = (System.currentTimeMillis() - viewAt - cardIndex++ * 45L) / 260f;
         return Math.round((1f - ease(t)) * 26f);
     }
@@ -966,7 +987,7 @@ public class StaffScreen extends Screen {
      * Plaquette de bois (fuda) : coins gauches coupés, veinage, ficelle rouge passée dans le trou, liseré de couleur
      * selon le type. Légèrement soulevée au survol.
      */
-    private void fuda(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int accent) {
+    protected void fuda(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int accent) {
         boolean hov = confirm == null && hover(x, y, w, h);
         int lift = hov ? 1 : 0;
         y -= lift;
@@ -995,7 +1016,7 @@ public class StaffScreen extends Screen {
     }
 
     /** Score en sceau laqué (couleur selon la gravité). */
-    private void badge(GuiGraphicsExtractor ctx, int right, int y, String label, boolean strong) {
+    protected void badge(GuiGraphicsExtractor ctx, int right, int y, String label, boolean strong) {
         Component c = RebornFont.bold(label);
         int w = font.width(c) + 10;
         int fill = strong ? LACQUER : 0xFF8A5A0C;
@@ -1006,7 +1027,7 @@ public class StaffScreen extends Screen {
     }
 
     /** Bouton laqué / papier, coins coupés, filet d'or au survol ; renvoie sa largeur. */
-    private int button(GuiGraphicsExtractor ctx, int x, int y, String label, String style, Runnable action, boolean locked) {
+    protected int button(GuiGraphicsExtractor ctx, int x, int y, String label, String style, Runnable action, boolean locked) {
         Component c = RebornFont.body(label);
         int w = font.width(c) + 14, h = 12;
         boolean hov = !locked && hover(x, y, w, h);
@@ -1031,7 +1052,7 @@ public class StaffScreen extends Screen {
         return w;
     }
 
-    private void head(GuiGraphicsExtractor ctx, String uuid, int x, int y, int size) {
+    protected void head(GuiGraphicsExtractor ctx, String uuid, int x, int y, int size) {
         ctx.fill(x - 2, y - 2, x + size + 2, y + size + 2, WOOD_DARK);
         ctx.fill(x - 1, y - 1, x + size + 1, y + size + 1, GOLD);
         Identifier skin = null;
@@ -1045,12 +1066,12 @@ public class StaffScreen extends Screen {
         ctx.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 40f, 8f, size, size, 8, 8, 64, 64);
     }
 
-    private int text(GuiGraphicsExtractor ctx, String s, int x, int y, int color) {
+    protected int text(GuiGraphicsExtractor ctx, String s, int x, int y, int color) {
         ctx.text(font, RebornFont.body(s), x, y, color, false);
         return y + 11;
     }
 
-    private void small(GuiGraphicsExtractor ctx, String s, int x, int y, int color) {
+    protected void small(GuiGraphicsExtractor ctx, String s, int x, int y, int color) {
         ctx.pose().pushMatrix();
         ctx.pose().translate(x, y);
         ctx.pose().scale(0.75f, 0.75f);
@@ -1058,16 +1079,16 @@ public class StaffScreen extends Screen {
         ctx.pose().popMatrix();
     }
 
-    private boolean hover(int x, int y, int w, int h) {
+    protected boolean hover(int x, int y, int w, int h) {
         return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 
     /** Le bouton est-il dans la zone visible du papier (pas masqué par le défilement) ? */
-    private boolean visible(int y, int h) {
+    protected boolean visible(int y, int h) {
         return y >= vy0() - 1 && y + h <= vy1() + 1;
     }
 
-    private String fit(String s, int maxW) {
+    protected String fit(String s, int maxW) {
         if (s == null) return "";
         if (font.width(RebornFont.body(s)) <= maxW) return s;
         String t = s;
@@ -1075,7 +1096,7 @@ public class StaffScreen extends Screen {
         return t + "…";
     }
 
-    private List<String> wrap(String s, int maxW) {
+    protected List<String> wrap(String s, int maxW) {
         List<String> out = new ArrayList<>();
         StringBuilder line = new StringBuilder();
         for (String word : s.split(" ")) {
@@ -1094,45 +1115,45 @@ public class StaffScreen extends Screen {
 
     /* =================================================================== JSON + grades */
 
-    private static String str(JsonObject o, String k) {
+    protected static String str(JsonObject o, String k) {
         return o != null && o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : "";
     }
 
-    private static int num(JsonObject o, String k) {
+    protected static int num(JsonObject o, String k) {
         try { return o != null && o.has(k) ? o.get(k).getAsInt() : 0; } catch (RuntimeException e) { return 0; }
     }
 
-    private static boolean bool(JsonObject o, String k) {
+    protected static boolean bool(JsonObject o, String k) {
         try { return o != null && o.has(k) && o.get(k).getAsBoolean(); } catch (RuntimeException e) { return false; }
     }
 
-    private static JsonArray arr(JsonObject o, String k) {
+    protected static JsonArray arr(JsonObject o, String k) {
         return o != null && o.has(k) && o.get(k).isJsonArray() ? o.getAsJsonArray(k) : new JsonArray();
     }
 
-    private static String join(JsonArray a) {
+    protected static String join(JsonArray a) {
         List<String> parts = new ArrayList<>();
         for (JsonElement e : a) parts.add(e.getAsString());
         return String.join(" · ", parts);
     }
 
-    private static String name(JsonObject p) {
+    protected static String name(JsonObject p) {
         return str(p, "perso").isEmpty() ? str(p, "name") : str(p, "perso");
     }
 
-    private static int grade(JsonObject snap) { return num(snap, "grade"); }
+    protected static int grade(JsonObject snap) { return num(snap, "grade"); }
 
-    private static String gradeName(int g) {
+    protected static String gradeName(int g) {
         return switch (g) { case 1 -> "Helper"; case 2 -> "Modo"; case 3 -> "Admin"; case 4 -> "Owner"; default -> "Joueur"; };
     }
 
-    private static String gradeShort(int g) { return "[" + gradeName(g) + "]"; }
+    protected static String gradeShort(int g) { return "[" + gradeName(g) + "]"; }
 
-    private static int gradeColor(int g) {
+    protected static int gradeColor(int g) {
         return switch (g) { case 1 -> 0xFF2F6A7A; case 2 -> 0xFF8A5A0C; case 3 -> LACQUER; case 4 -> 0xFF3B2A12; default -> INK_SOFT; };
     }
 
-    private static int kindColor(String kind) {
+    protected static int kindColor(String kind) {
         return switch (kind) {
             case "agression" -> LACQUER;
             case "aide" -> 0xFFD97706;

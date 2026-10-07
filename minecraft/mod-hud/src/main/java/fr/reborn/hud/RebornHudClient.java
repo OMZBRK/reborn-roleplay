@@ -626,6 +626,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // sanctions au sceau, chat staff, journal, commandes. Le serveur (ShinobiCore StaffPanel) décide de tout.
         fr.reborn.hud.staff.StaffClient.init();
         fr.reborn.hud.staff.StaffDebug.init();
+        fr.reborn.hud.staff.InfirmerieDebug.init();
         // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
         // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
         fr.reborn.hud.byakugan.ByakuganDebug.init();

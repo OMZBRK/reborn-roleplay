@@ -306,6 +306,13 @@ public final class AtaManager implements Listener {
                 (int) (st.restMillis / 60_000L), (int) (req / 60_000L), restingNow.contains(characterId));
     }
 
+    /** Minutes de peur résiduelle restantes (0 si aucune ou si l'ATA est encore en cours). */
+    public int fearMinutes(UUID characterId) {
+        Fear f = fears.get(characterId);
+        long left = f == null ? 0 : f.until() - System.currentTimeMillis();
+        return left <= 0 ? 0 : (int) (left / 60_000L) + 1;
+    }
+
     /** Peur active (ATA en cours ou peur résiduelle) ? */
     public boolean isAfraid(UUID characterId) {
         return fearOf(characterId) != null;

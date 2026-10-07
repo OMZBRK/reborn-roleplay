@@ -152,6 +152,11 @@ commands:
     usage: /<command>
     aliases: [postedegarde, panelstaff]
     permission: shinobicore.use
+  infirmerie:
+    description: Staff — Infirmerie, gestion visuelle du KO (blessés, zones, hôpitaux et lits, réglages).
+    usage: /<command>
+    aliases: [ko, kogestion]
+    permission: shinobicore.use
   staffchat:
     description: Staff — écrire dans le canal staff (aussi #message dans le chat).
     usage: /<command> <message>

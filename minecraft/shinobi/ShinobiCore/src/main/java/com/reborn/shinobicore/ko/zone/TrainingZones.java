@@ -105,7 +105,7 @@ public final class TrainingZones implements Listener {
             if (kind == null) kind = TrainingZone.Kind.ENTRAINEMENT;
             zones.put(id, new TrainingZone(id, kind, s.getString("world", "world"),
                     s.getInt("min.x"), s.getInt("min.y"), s.getInt("min.z"),
-                    s.getInt("max.x"), s.getInt("max.y"), s.getInt("max.z")));
+                    s.getInt("max.x"), s.getInt("max.y"), s.getInt("max.z"), s.getString("village", "")));
         }
         plugin.getLogger().info("[Zones RP] " + zones.size() + " zone(s) chargée(s).");
     }
@@ -118,6 +118,7 @@ public final class TrainingZones implements Listener {
             cfg.set(k + ".world", z.world());
             cfg.set(k + ".min.x", z.minX()); cfg.set(k + ".min.y", z.minY()); cfg.set(k + ".min.z", z.minZ());
             cfg.set(k + ".max.x", z.maxX()); cfg.set(k + ".max.y", z.maxY()); cfg.set(k + ".max.z", z.maxZ());
+            if (!z.village().isEmpty()) cfg.set(k + ".village", z.village());
         }
         try {
             if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
@@ -152,9 +153,10 @@ public final class TrainingZones implements Listener {
         return zoneAt(loc, TrainingZone.Kind.ENTRAINEMENT);
     }
 
-    /** Zone de repos qui contient {@code loc}, ou null. */
+    /** Zone de repos (repos ou hôpital) qui contient {@code loc}, ou null. */
     public TrainingZone restZoneAt(Location loc) {
-        return zoneAt(loc, TrainingZone.Kind.REPOS);
+        for (TrainingZone z : zones.values()) if (z.restful() && z.contains(loc)) return z;
+        return null;
     }
 
     private TrainingZone zoneAt(Location loc, TrainingZone.Kind kind) {
