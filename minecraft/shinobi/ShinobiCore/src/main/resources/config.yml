@@ -36,8 +36,38 @@ chakra:
 # migration. Valeurs = valeurs de départ du prototype, à régler au playtest.
 # Structurel (pas ici) : les six stats, MIN = 1, MAX = 10 (ne jamais baisser).
 # ------------------------------------------------------------
+# ------------------------------------------------------------
+# Grades shinobi (docs/GRADES.md). Le passage de grade est RP (décision ou
+# examen) ; /grade l'exécute. Chaque grade donne des bonus passifs ; un joueur
+# gradé ne donne que les grades permis ci-dessous, dans son village. « staff »
+# (ou absent) = réservé au staff (permission shinobicore.grade.staff).
+# Grades : ACADEMICIEN, GENIN, GENIN_CONFIRME, CHUNIN, KONIN, TOKUBETSU_JONIN,
+#          JONIN, COMMANDANT_JONIN, KAGE
+# ------------------------------------------------------------
+grades:
+  bonus:                      # pv / chakra / endurance en plus, stats = + à chacune des 6 stats
+    ACADEMICIEN:      { pv: 0,   chakra: 0,     endurance: 0,  stats: 0 }
+    GENIN:            { pv: 40,  chakra: 2000,  endurance: 5,  stats: 0 }
+    GENIN_CONFIRME:   { pv: 80,  chakra: 4000,  endurance: 10, stats: 0 }
+    CHUNIN:           { pv: 130, chakra: 7000,  endurance: 15, stats: 1 }
+    KONIN:            { pv: 180, chakra: 10000, endurance: 20, stats: 1 }
+    TOKUBETSU_JONIN:  { pv: 240, chakra: 13000, endurance: 25, stats: 1 }
+    JONIN:            { pv: 300, chakra: 17000, endurance: 30, stats: 2 }
+    COMMANDANT_JONIN: { pv: 350, chakra: 20000, endurance: 35, stats: 2 }
+    KAGE:             { pv: 400, chakra: 25000, endurance: 45, stats: 3 }
+  promotion:                  # grade minimum de celui qui donne le grade
+    GENIN:            { merite: TOKUBETSU_JONIN }
+    GENIN_CONFIRME:   { merite: TOKUBETSU_JONIN }
+    CHUNIN:           { examen: TOKUBETSU_JONIN, merite: JONIN }
+    KONIN:            { merite: JONIN }
+    TOKUBETSU_JONIN:  { merite: COMMANDANT_JONIN }
+    JONIN:            { merite: COMMANDANT_JONIN }
+    COMMANDANT_JONIN: { merite: KAGE }
+    KAGE:             { merite: staff }
+  retrogradation: KAGE        # grade minimum pour rétrograder (toujours un grade sous le sien)
+
 stats:
-  points-per-rank: 3          # points gagnés à chaque passage de rang (5 passages)
+  points-per-rank: 3          # points gagnés à chaque passage de grade (8 passages, Académicien → Kage)
   # Réinitialisation par le joueur : TOKEN = consomme un jeton de réinitialisation
   # (acheté en boutique, crédité par « /stats jeton give <joueur> <n> »), FREE =
   # gratuit (phase de test), STAFF = réservé au staff. Le staff est toujours gratuit.

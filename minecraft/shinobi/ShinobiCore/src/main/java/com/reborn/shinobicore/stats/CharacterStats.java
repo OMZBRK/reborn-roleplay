@@ -23,6 +23,8 @@ public final class CharacterStats {
     private final EnumMap<Stat, Integer> values = new EnumMap<>(Stat.class);
     private int bonusPoints;
     private long mutations;
+    /** Grade du personnage (bonus passifs) — tenu à jour par {@code ShinobiCharacter}, jamais persisté ici. */
+    private com.reborn.shinobicore.character.Rank grade;
 
     public CharacterStats() {
         for (Stat s : Stat.values()) values.put(s, StatsService.MIN);
@@ -48,6 +50,10 @@ public final class CharacterStats {
     }
 
     public int bonusPoints() { return bonusPoints; }
+
+    public com.reborn.shinobicore.character.Rank grade() { return grade; }
+
+    public void setGrade(com.reborn.shinobicore.character.Rank grade) { this.grade = grade; }
 
     public void setBonusPoints(int points) {
         int v = Math.max(0, points);

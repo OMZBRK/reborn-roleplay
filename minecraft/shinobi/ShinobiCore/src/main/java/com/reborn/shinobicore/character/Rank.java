@@ -3,25 +3,26 @@ package com.reborn.shinobicore.character;
 import java.util.Locale;
 
 /**
- * Shinobi village rank (grade). Ordered from lowest to highest so that
- * {@link #cycle()} walks the progression naturally when cycled via the
- * admin GUI.
+ * Grade shinobi du village, du plus bas au plus haut. Le passage de grade est <b>RP</b> (décision ou examen) ;
+ * un joueur gradé ou le staff l'exécute avec {@code /grade}, dans les limites de
+ * {@link com.reborn.shinobicore.stats.GradeRules} (docs/GRADES.md).
  *
- * <p>Order follows the plan (SPEC_STATS_SERVICE §5): Special Jonin sits
- * <em>after</em> Jonin. Persisted by name, so reordering never breaks a save.
+ * <p>Persisté par nom : {@link #from} relit aussi les anciens noms (ACADEMY, SPECIAL_JONIN, ANBU, SANNIN).
+ * Les fonctions RP (ANBU, bras droit du Kage, conseil…) ne sont <b>pas</b> des grades.
  *
- * <p>Mechanical effect: each rank passage grants stat points
- * ({@link #statTier()}); used by the custom tab-list to tag each character.
+ * <p>Effet mécanique : chaque passage donne des points de stats ({@link #statTier()}) et des bonus passifs
+ * (PV, chakra, endurance, stats — {@link com.reborn.shinobicore.stats.GradeRules}).
  */
 public enum Rank {
-    ACADEMY       ("Academy Student"),
-    GENIN         ("Genin"),
-    CHUNIN        ("Chunin"),
-    JONIN         ("Jonin"),
-    SPECIAL_JONIN ("Special Jonin"),
-    ANBU          ("ANBU"),
-    SANNIN        ("Sannin"),
-    KAGE          ("Kage");
+    ACADEMICIEN      ("Académicien"),
+    GENIN            ("Genin"),
+    GENIN_CONFIRME   ("Genin confirmé"),
+    CHUNIN           ("Chūnin"),
+    KONIN            ("Konin"),
+    TOKUBETSU_JONIN  ("Tokubetsu Jōnin"),
+    JONIN            ("Jōnin"),
+    COMMANDANT_JONIN ("Commandant Jōnin"),
+    KAGE             ("Kage");
 
     private final String displayName;
 
@@ -31,24 +32,29 @@ public enum Rank {
 
     public String displayName() { return displayName; }
 
-    /**
-     * Rank passages completed, for stat points: Académie 0 → Genin 1 → Chunin 2
-     * → Jonin 3 → Special Jonin 4 → ANBU / Sannin / Kage 5 (the ladder's top
-     * shares the last passage).
-     */
-    public int statTier() { return Math.min(5, ordinal()); }
+    /** Passages de grade accomplis, pour les points de stats : Académicien 0 → Kage 8. */
+    public int statTier() { return ordinal(); }
 
-    /** Advance to the next rank, wrapping back to the start after the highest. */
+    /** Grade suivant, en revenant au début après le plus haut (outil admin). */
     public Rank cycle() {
         Rank[] values = values();
         return values[(ordinal() + 1) % values.length];
     }
 
-    /** Tolerant parse; falls back to {@link #GENIN} on unknown input. */
+    /** Lecture tolérante ; anciens noms convertis, repli sur {@link #GENIN} si inconnu. */
     public static Rank from(String s) {
         if (s == null) return GENIN;
+        String n = s.trim().toUpperCase(Locale.ROOT).replace(' ', '_')
+                .replace('É', 'E').replace('Ō', 'O').replace('Ū', 'U');
+        switch (n) {
+            case "ACADEMY", "ACADEMIE", "ACADEMICIEN" -> { return ACADEMICIEN; }
+            case "SPECIAL_JONIN", "JONIN_SPECIAL" -> { return TOKUBETSU_JONIN; }
+            // ANBU et Sannin ne sont plus des grades : la fonction se rattache au design Faction.
+            case "ANBU", "SANNIN" -> { return JONIN; }
+            default -> { }
+        }
         try {
-            return Rank.valueOf(s.trim().toUpperCase(Locale.ROOT).replace(' ', '_'));
+            return Rank.valueOf(n);
         } catch (IllegalArgumentException ignore) {
             return GENIN;
         }

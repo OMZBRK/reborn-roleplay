@@ -126,6 +126,11 @@ public final class StatsServiceImpl implements StatsService {
         afterChange(c, before);
     }
 
+    /** Après un changement de grade : bonus passifs et points recalculés, poussés au joueur. */
+    public void onRankChanged(ShinobiCharacter c) {
+        afterChange(c, c.stats().snapshot());
+    }
+
     private void afterChange(ShinobiCharacter c, Map<Stat, Integer> before) {
         refreshPools(c);
         Bukkit.getPluginManager().callEvent(new CharacterStatsChangedEvent(

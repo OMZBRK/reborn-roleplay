@@ -151,14 +151,18 @@ public final class TablistData {
     /** Rang ShinobiCore (enum) → libellé FR. */
     private static String frRank(String key) {
         return switch (key) {
-            case "ACADEMY" -> "Étudiant Académie";
+            case "ACADEMICIEN", "ACADEMY" -> "Académicien";
             case "GENIN" -> "Genin";
-            case "CHUNIN" -> "Chunin";
-            case "SPECIAL_JONIN" -> "Jonin Spécial";
-            case "JONIN" -> "Jonin";
+            case "GENIN_CONFIRME" -> "Genin confirmé";
+            case "CHUNIN" -> "Chūnin";
+            case "KONIN" -> "Konin";
+            case "TOKUBETSU_JONIN", "SPECIAL_JONIN" -> "Tokubetsu Jōnin";
+            case "JONIN" -> "Jōnin";
+            case "COMMANDANT_JONIN" -> "Commandant Jōnin";
+            case "KAGE" -> "Kage";
+            // anciens rangs, avant l'échelle des 9 grades
             case "ANBU" -> "ANBU";
             case "SANNIN" -> "Sannin";
-            case "KAGE" -> "Kage";
             default -> "???";
         };
     }

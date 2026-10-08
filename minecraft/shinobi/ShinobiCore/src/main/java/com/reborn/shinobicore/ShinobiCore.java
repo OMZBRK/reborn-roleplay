@@ -132,6 +132,7 @@ public final class ShinobiCore extends JavaPlugin {
         // 0a. Stat levers (SPEC_STATS_SERVICE §6) — BEFORE the roster loads:
         //     the legacy-character conversion reads points-per-rank.
         com.reborn.shinobicore.stats.StatFormulas.load(getConfig().getConfigurationSection("stats"));
+        com.reborn.shinobicore.stats.GradeRules.load(getConfig().getConfigurationSection("grades"));
 
         // 0b. Technique registry — engine-owned catalog shell. Registered
         //     empty here (before ANY reader can boot); the active world's
@@ -574,6 +575,13 @@ public final class ShinobiCore extends JavaPlugin {
             zoneRpCmd.setExecutor(exec);
             zoneRpCmd.setTabCompleter(exec);
         } else getLogger().warning("Command 'zonerp' is not declared in plugin.yml.");
+        PluginCommand gradeCmd = getCommand("grade");
+        if (gradeCmd != null) {
+            com.reborn.shinobicore.character.command.GradeCommand exec =
+                    new com.reborn.shinobicore.character.command.GradeCommand(this);
+            gradeCmd.setExecutor(exec);
+            gradeCmd.setTabCompleter(exec);
+        }
         PluginCommand hopitalCmd = getCommand("hopital");
         if (hopitalCmd != null) {
             com.reborn.shinobicore.ko.command.HopitalCommand exec =
@@ -797,6 +805,7 @@ public final class ShinobiCore extends JavaPlugin {
         reloadConfig();
         // Stat levers are hot-reloadable: re-read, then re-derive every loaded pool.
         com.reborn.shinobicore.stats.StatFormulas.load(getConfig().getConfigurationSection("stats"));
+        com.reborn.shinobicore.stats.GradeRules.load(getConfig().getConfigurationSection("grades"));
         if (characterManager != null) {
             for (var roster : characterManager.rosterView().values()) {
                 for (var c : roster) com.reborn.shinobicore.stats.StatsServiceImpl.pushIfOnline(c);

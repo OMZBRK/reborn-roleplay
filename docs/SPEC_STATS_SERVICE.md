@@ -351,6 +351,9 @@ rendrait coûteuse après l'ouverture de décembre.
 
 ## 5. Alignement des rangs — à traiter dans la foulée
 
+> **Remplacé le 2026-10-08** par l'échelle des 9 grades et le passage de grade RP : voir `GRADES.md`.
+> Le texte ci-dessous est conservé pour l'historique.
+
 `character/Rank.java` diverge du plan sur deux points :
 
 | | Code actuel | Plan |

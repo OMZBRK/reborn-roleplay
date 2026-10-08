@@ -122,7 +122,10 @@ public final class StatFormulas {
         return raw <= l.softCap() ? raw : l.softCap() + (raw - l.softCap()) * l.overCapFactor();
     }
 
-    public static double eff(CharacterStats s, Stat stat) { return eff(s.get(stat)); }
+    /** Valeur efficace : stat allouée + bonus passif du grade, passée par la courbe. */
+    public static double eff(CharacterStats s, Stat stat) {
+        return eff(s.get(stat) + GradeRules.bonus(s.grade()).stats());
+    }
 
     /* ------------------------------------------------------------ points */
 
@@ -139,18 +142,18 @@ public final class StatFormulas {
 
     public static double maxHp(CharacterStats s) {
         Levers l = levers;
-        return l.hpBase() + eff(s, Stat.VIGUEUR) * l.hpPerVigueur();
+        return l.hpBase() + eff(s, Stat.VIGUEUR) * l.hpPerVigueur() + GradeRules.bonus(s.grade()).hp();
     }
 
     public static double maxChakra(CharacterStats s) {
         Levers l = levers;
-        return l.chakraBase() + eff(s, Stat.CHAKRA) * l.chakraPerPoint();
+        return l.chakraBase() + eff(s, Stat.CHAKRA) * l.chakraPerPoint() + GradeRules.bonus(s.grade()).chakra();
     }
 
     public static double maxStamina(CharacterStats s) {
         Levers l = levers;
         return l.staminaBase() + eff(s, Stat.VIGUEUR) * l.staminaPerVigueur()
-                + eff(s, Stat.TAIJUTSU) * l.staminaPerTaijutsu();
+                + eff(s, Stat.TAIJUTSU) * l.staminaPerTaijutsu() + GradeRules.bonus(s.grade()).stamina();
     }
 
     public static double chakraRegenPer10s(CharacterStats s) {

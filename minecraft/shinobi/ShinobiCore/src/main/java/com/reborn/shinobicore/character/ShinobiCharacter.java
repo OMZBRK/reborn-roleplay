@@ -246,6 +246,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
         this.ninjaArt = ninjaArt;
         this.affinity = affinity;
         this.rank = rank == null ? Rank.GENIN : rank;
+        this.stats.setGrade(this.rank);
         if (chakraAffinities != null) {
             for (ChakraAffinity a : chakraAffinities) {
                 if (a != null && a != ChakraAffinity.NONE
@@ -387,7 +388,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
         touch();
     }
 
-    public void setRank(Rank r) { this.rank = r == null ? Rank.GENIN : r; touch(); }
+    public void setRank(Rank r) { this.rank = r == null ? Rank.GENIN : r; stats.setGrade(this.rank); touch(); }
 
     public void setLevel(int level) {
         this.level = clampLevel(level);

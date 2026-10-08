@@ -23,7 +23,7 @@ public final class AcademyManager {
     public void enroll(ShinobiCharacter c) {
         AcademyData d = plugin.academy().of(c.id());
         d.setEnrolled(true);
-        c.setRank(Rank.ACADEMY);
+        c.setRank(Rank.ACADEMICIEN);
         plugin.characters().save(c);
         plugin.academy().save(d);
     }

@@ -172,6 +172,10 @@ commands:
     usage: /<command> [joueur|stop|accepter]
     aliases: [shosen, soin]
     permission: shinobicore.use
+  grade:
+    description: Grade shinobi — voir son grade, ou promouvoir / rétrograder selon son propre grade (staff sans limite).
+    usage: /<command> [voir <joueur>|<joueur> <grade> [merite|examen]]
+    permission: shinobicore.use
   ata:
     description: État ATA (blessé, en attente de soin). Staff — voir / lever / appliquer.
     usage: /<command> [voir|lever|appliquer <joueur> [pleine|allegee]]
@@ -195,6 +199,9 @@ permissions:
     default: op
     children:
       reborn.staff.admin: true
+  shinobicore.grade.staff:
+    description: Staff — donner ou retirer n'importe quel grade, sans les limites RP.
+    default: op
   shinobicore.zonerp:
     description: Allows /zonerp (délimiter terrains d'entraînement et zones de repos).
     default: op

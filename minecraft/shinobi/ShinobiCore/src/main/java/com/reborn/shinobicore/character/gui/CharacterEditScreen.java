@@ -348,14 +348,15 @@ public final class CharacterEditScreen extends CoreScreen {
 
     private static Material rankIcon(Rank r) {
         return switch (r) {
-            case ACADEMY       -> Material.WRITABLE_BOOK;
-            case GENIN         -> Material.LEATHER_CHESTPLATE;
-            case CHUNIN        -> Material.CHAINMAIL_CHESTPLATE;
-            case SPECIAL_JONIN -> Material.GOLDEN_CHESTPLATE;
-            case JONIN         -> Material.IRON_CHESTPLATE;
-            case ANBU          -> Material.WOLF_ARMOR;
-            case SANNIN        -> Material.DIAMOND_CHESTPLATE;
-            case KAGE          -> Material.NETHERITE_CHESTPLATE;
+            case ACADEMICIEN      -> Material.WRITABLE_BOOK;
+            case GENIN            -> Material.LEATHER_CHESTPLATE;
+            case GENIN_CONFIRME   -> Material.LEATHER_HELMET;
+            case CHUNIN           -> Material.CHAINMAIL_CHESTPLATE;
+            case KONIN            -> Material.COPPER_CHESTPLATE;
+            case TOKUBETSU_JONIN  -> Material.GOLDEN_CHESTPLATE;
+            case JONIN            -> Material.IRON_CHESTPLATE;
+            case COMMANDANT_JONIN -> Material.DIAMOND_CHESTPLATE;
+            case KAGE             -> Material.NETHERITE_CHESTPLATE;
         };
     }
 
