@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Météo : brouillard en distance (le seul endroit où le jeu connaît la vraie distance de chaque pixel).
- * Sable : mur de sable chaud (~14 blocs à 100 %), fondu avec l'intensité. Brume : la visibilité suit l'intensité sur une
+ * Sable : de presque rien (petit vent) jusqu'au mur de sable chaud (~12 blocs à 100 %). Brume : la visibilité suit l'intensité sur une
  * courbe exponentielle, d'un voile léger (~70 blocs) jusqu'à un mur blanc (~5 blocs) à 100 %.
  * Pluie : rideau bleu nuit (~40 blocs à 100 %), fondu avec l'intensité, par-dessus le brouillard de pluie du jeu.
  */
@@ -31,8 +31,9 @@ public abstract class FogRendererMeteoMixin {
         if (fog == null) return;
         float fin, r, g, b, k;
         if (type == MeteoClient.SABLE) {
-            k = i * i * (3f - 2f * i);                        // fondu adouci
-            fin = lerpDistance(fog.environmentalEnd, 14f, k);
+            // petit vent (~25 %) : ~100 blocs, vent moyen (~55 %) : ~48, grosse tempête (~90 %) : ~17, 100 % : 12
+            k = Math.min(1f, i * 4f);
+            fin = lerpDistance(fog.environmentalEnd, (float) (140f * Math.pow(12f / 140f, Math.pow(i, 1.4))), k);
             r = 0.74f; g = 0.58f; b = 0.38f;
         } else if (type == MeteoClient.PLUIE) {
             k = i * i * (3f - 2f * i);

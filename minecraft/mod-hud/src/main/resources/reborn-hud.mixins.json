@@ -41,6 +41,7 @@
     "ClientLevelMeteoMixin",
     "SkyRendererMeteoMixin",
     "ParticleMeteoAccessor",
+    "WeatherEffectRendererMeteoMixin",
     "menu.TitleScreenMixin",
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",

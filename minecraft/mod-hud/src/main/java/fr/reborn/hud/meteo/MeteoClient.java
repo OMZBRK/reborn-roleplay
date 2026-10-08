@@ -95,18 +95,19 @@ public final class MeteoClient {
         double t = System.currentTimeMillis() / 1000.0;
         double ang = 0.6 + 0.35 * Math.sin(t * 0.05) + 0.12 * Math.sin(t * 0.31);
         double vx = Math.cos(ang), vz = Math.sin(ang);
-        int n = Math.round(4 + 22 * i);
+        int n = Math.round(3 + 30 * (float) Math.pow(i, 1.5));
+        double hauteur = 1.2 + 8.0 * i * i;                 // petit vent : au ras du sol ; tempête : partout
         for (int k = 0; k < n; k++) {
             double ox = (rnd.nextDouble() - 0.5) * 36, oz = (rnd.nextDouble() - 0.5) * 36;
             double px = mc.player.getX() + ox - vx * 10, pz = mc.player.getZ() + oz - vz * 10;
-            double py = mc.player.getY() - 1.5 + rnd.nextDouble() * rnd.nextDouble() * 9;    // plus dense près du sol
+            double py = mc.player.getY() - 1.5 + rnd.nextDouble() * rnd.nextDouble() * hauteur;  // plus dense près du sol
             var p = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.WHITE_ASH, px, py, pz, 0, 0, 0);
             if (p == null) continue;
             var acc = (fr.reborn.hud.mixin.ParticleMeteoAccessor) p;
             acc.reborn$setGravity(0f);
             acc.reborn$setFriction(1f);
             acc.reborn$setHasPhysics(false);
-            double v = 0.35 + 0.35 * i + rnd.nextDouble() * 0.25;
+            double v = 0.15 + 0.6 * i + rnd.nextDouble() * 0.2;
             p.setParticleSpeed(vx * v, (rnd.nextDouble() - 0.45) * 0.04, vz * v);
             p.setLifetime(50 + rnd.nextInt(40));
             p.scale(1.2f + rnd.nextFloat() * 1.6f);
@@ -183,6 +184,12 @@ public final class MeteoClient {
     /** 1 = le joueur est sous le ciel, 0 = à l'abri (lissé) : les gouttelettes sur l'objectif n'apparaissent que dehors. */
     private static float exposition = 1f;
 
+    /**
+     * Orientation de la caméra pour le filtre (nappes, voiles et volutes accrochés au monde) : lacet « déroulé »
+     * (cumul des rotations, ramené sur 0..3600° pour ne sauter que tous les 10 tours) et tangage.
+     */
+    private static float lacet = 0f, dernierLacet = Float.NaN, tangage = 0f;
+
     /** Le filtre météo doit-il être affiché ? */
     public static boolean actif() { return type != CLAIR && intensite > 0.002f; }
 
@@ -205,6 +212,14 @@ public final class MeteoClient {
             float cible = mc.level.canSeeSky(net.minecraft.core.BlockPos.containing(mc.player.getEyePosition())) ? 1f : 0f;
             exposition += (cible - exposition) * Math.min(1f, dt * 1.5f);
             soleil(mc);
+            var cam = mc.gameRenderer.mainCamera();
+            float y = cam.yRot();
+            if (!Float.isNaN(dernierLacet)) {
+                lacet += net.minecraft.util.Mth.wrapDegrees(y - dernierLacet);
+                lacet = ((lacet % 3600f) + 3600f) % 3600f;
+            }
+            dernierLacet = y;
+            tangage = Math.max(-90f, Math.min(90f, cam.xRot()));
         }
         ecrireParams(now);
     }
@@ -219,11 +234,15 @@ public final class MeteoClient {
         long t60 = (now / 1000L * 60L + (now % 1000L) * 60L / 1000L) & 0xFFFFFFL;   // temps en 1/60 s, 24 bits
         int i255 = Math.round(intensite() * 255f);
         NativeImage px = params.getPixels();
-        // pixel 0 : R = type, G = intensité, B/A = temps (bits 0-15) ; pixel 1 : R = temps (bits 16-23)
+        // pixel 0 : R = type, G = intensité, B/A = temps (bits 0-15) ; pixel 1 : R = temps (bits 16-23), G = champ de vision
         px.setPixel(0, 0, argb((int) ((t60 >> 8) & 0xFF), type, i255, (int) (t60 & 0xFF)));
-        px.setPixel(1, 0, argb(255, (int) ((t60 >> 16) & 0xFF), 0, 0));
+        int fov = mc.options == null ? 70 : mc.options.fov().get();
+        px.setPixel(1, 0, argb(255, (int) ((t60 >> 16) & 0xFF), octet(fov / 180f), 0));
         // pixel 2 : R = exposition au ciel, G/B = soleil à l'écran (uv, codé sur [-0,5 ; 1,5]), A = visibilité du soleil
         px.setPixel(2, 0, argb(octet(soleilVis), octet(exposition), octet((soleilX + 0.5f) / 2f), octet((soleilY + 0.5f) / 2f)));
+        // pixel 3 : R/G = lacet déroulé (0..3600° sur 16 bits), B/A = tangage (-90..90° sur 16 bits)
+        int l16 = Math.round(lacet / 3600f * 65535f), t16 = Math.round((tangage + 90f) / 180f * 65535f);
+        px.setPixel(3, 0, argb(t16 & 0xFF, (l16 >> 8) & 0xFF, l16 & 0xFF, (t16 >> 8) & 0xFF));
         params.upload();
     }
 
