@@ -153,6 +153,7 @@ public final class StatsServiceImpl implements StatsService {
         if (hp == null) return;
         double keep = p.getHealth();
         hp.setBaseValue(Math.max(1.0, c.maxHp()));
+        com.reborn.shinobicore.character.CharacterManager.warnIfHealthCapped(hp.getValue(), c.maxHp());
         p.setHealth(Math.max(0.0, Math.min(keep, hp.getValue())));
     }
 

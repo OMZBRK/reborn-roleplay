@@ -474,11 +474,26 @@ public class CharacterManager implements CharacterService {
      * any no-character-lockdown effects. Private: a sub-step of the switch
      * pipeline; out-of-switch callers go through {@link #reapplyStatsIfActive}.
      */
+    private static boolean healthCapWarned = false;
+
+    /**
+     * Le serveur plafonne l'attribut MAX_HEALTH (1024 en vanilla) : au-delà, la vie RP est tronquée sans bruit.
+     * Une seule alerte par démarrage, avec le réglage à monter.
+     */
+    public static void warnIfHealthCapped(double live, double wanted) {
+        if (healthCapWarned || live >= wanted - 0.5) return;
+        healthCapWarned = true;
+        org.bukkit.Bukkit.getLogger().warning("[ShinobiCore] Vie RP " + Math.round(wanted)
+                + " plafonnée à " + Math.round(live) + " par le serveur : monter settings.attribute.maxHealth.max"
+                + " dans spigot.yml (ex. 100000) puis redémarrer.");
+    }
+
     private void applyStats(Player p, ShinobiCharacter c) {
         // Max HP
         AttributeInstance hp = p.getAttribute(Attribute.MAX_HEALTH);
         if (hp != null) {
             hp.setBaseValue(Math.max(1.0, c.maxHp()));
+            warnIfHealthCapped(hp.getValue(), c.maxHp());
             p.setHealth(Math.min(p.getHealth(), hp.getBaseValue()));
             if (c.currentHp() > 0) {
                 p.setHealth(Math.min(c.currentHp(), hp.getBaseValue()));

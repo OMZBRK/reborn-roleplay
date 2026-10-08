@@ -65,3 +65,9 @@ Rétrograder : un Kage, sur un grade inférieur au sien (`grades.retrogradation`
 
 - Les personnages existants gagnent des points : le nombre de passages d'un Jōnin passe de 3 à 6.
 - Les personnages ANBU ou Sannin deviennent Jōnin ; leur fonction sera rendue avec le design Faction.
+
+## 5. Plafond de vie du serveur
+
+La vie RP est portée par l'attribut `MAX_HEALTH` de Minecraft, que le serveur plafonne (1 024 par défaut). Un Kage
+aux stats maximales a environ 1 550 PV : il faut monter `settings.attribute.maxHealth.max` dans `spigot.yml`
+(100 000 conseillé) puis redémarrer. Si le plafond coupe une vie RP, ShinobiCore l'écrit une fois dans la console.
