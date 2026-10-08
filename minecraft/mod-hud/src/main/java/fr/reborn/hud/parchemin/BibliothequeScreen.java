@@ -21,12 +21,15 @@ public final class BibliothequeScreen extends Screen {
 
     private static final int COLS = 3, ROWS = 3, CW = 74, CH = 36, GAP = 6, FRAME = 9;
 
-    private final String name;
+    /** Identifiant serveur ({@code null} = démo du banc d'essai, sans réseau). */
+    private String libId;
+    private String name;
     private final Technique[] cells = new Technique[COLS * ROWS];
-    private final int count;
-    private final String refresh;
+    private int count;
+    private String refresh;
     private double weight = 6.4;
-    private final double maxWeight = 12.0;
+    private double maxWeight = 12.0;
+    private boolean staff;
     private String toast;
     private long toastAt;
     /** Banc d'essai : case survolée imposée (-1 = souris). */
@@ -42,6 +45,35 @@ public final class BibliothequeScreen extends Screen {
         for (int i = 0; i < count; i++) slots.add(i);
         java.util.Collections.shuffle(slots, new java.util.Random(drawn.size() * 31L + count));
         for (int i = 0; i < drawn.size() && i < slots.size(); i++) cells[slots.get(i)] = drawn.get(i);
+    }
+
+    /** Bibliothèque reçue du serveur ({@code {"t":"lib"}}). */
+    public static BibliothequeScreen fromJson(com.google.gson.JsonObject o) {
+        BibliothequeScreen s = new BibliothequeScreen(o.get("name").getAsString(), List.of(), 0, "");
+        s.update(o);
+        return s;
+    }
+
+    public String libId() { return libId; }
+
+    /** Nouvel état envoyé par le serveur (après une prise, un tirage…). */
+    public void update(com.google.gson.JsonObject o) {
+        libId = o.get("id").getAsString();
+        name = o.get("name").getAsString();
+        count = o.get("count").getAsInt();
+        refresh = o.get("refreshIn").getAsString();
+        weight = o.get("weight").getAsDouble();
+        maxWeight = o.get("maxWeight").getAsDouble();
+        staff = o.has("staff") && o.get("staff").getAsBoolean();
+        var arr = o.getAsJsonArray("cells");
+        for (int i = 0; i < cells.length; i++) {
+            cells[i] = i < arr.size() && arr.get(i).isJsonObject() ? Technique.fromJson(arr.get(i).getAsJsonObject()) : null;
+        }
+    }
+
+    public void toast(String msg) {
+        toast = msg;
+        toastAt = System.currentTimeMillis();
     }
 
     @Override
@@ -128,6 +160,10 @@ public final class BibliothequeScreen extends Screen {
         Da.ruler(g, font, rx, ry, rw, (float) (weight / maxWeight), "Sacoche", wt, false, true);
         Da.hint(g, font, width, height, "Clic : prendre le rouleau  -  Echap : fermer");
 
+        if (staff) {
+            int bx = x + w - 66, by = y - 18;
+            Da.plate(g, font, bx, by, 66, 13, "Reglages", false, Da.in(mx, my, bx, by, 66, 13), true);
+        }
         if (toast != null && now - toastAt < 2200) {
             float a = Math.min(1f, (2200 - (now - toastAt)) / 400f);
             int tw = font.width(toast) + 20, tx = width / 2 - tw / 2, ty = cabY() - 18;
@@ -166,6 +202,10 @@ public final class BibliothequeScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent e, boolean dbl) {
         if (e.button() != 0) return super.mouseClicked(e, dbl);
+        if (staff && Da.in(e.x(), e.y(), cabX() + cabW() - 66, cabY() - 18, 66, 13)) {
+            ParcheminClient.send("cfg_open", libId, null);
+            return true;
+        }
         int i = hovered((int) e.x(), (int) e.y());
         if (i >= 0 && cells[i] != null) take(i);
         return true;
@@ -185,6 +225,13 @@ public final class BibliothequeScreen extends Screen {
     void take(int i) {
         Technique t = cells[i];
         if (t == null) return;
+        if (libId != null) {                                   // le serveur décide et renvoie l'état
+            com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+            o.addProperty("slot", i);
+            ParcheminClient.send("take", libId, o);
+            RebornSounds.uiClick();
+            return;
+        }
         if (weight + t.weight() > maxWeight) {
             toast = "Ta sacoche est trop lourde.";
         } else {

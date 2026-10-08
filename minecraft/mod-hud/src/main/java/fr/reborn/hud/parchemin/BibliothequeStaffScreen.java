@@ -26,7 +26,10 @@ public final class BibliothequeStaffScreen extends Screen {
     private static final String[] FILTERS = {"Tous", "Taïjutsu", "Kenjutsu", "Ninjutsu", "Katon", "Suiton", "Doton", "Fūton", "Raiton"};
     private static final String[] MODELS = {"Publique", "Réservée", "Privée"};
 
-    private final String name;
+    private String libId;
+    private String name;
+    private List<Technique> techs = Technique.DEMO;
+    private final Map<String, String> slotInfo = new HashMap<>();
     private double[] byRank = Tirage.PUBLIQUE.clone();
     private final Map<String, Double> overrides = new HashMap<>();
     private int count = 6, delayH = 3, model = 0, filter = 0, scroll = 0;
@@ -51,9 +54,57 @@ public final class BibliothequeStaffScreen extends Screen {
         g.fillGradient(0, 0, width, height, 0xB0080406, 0xD8080406);
     }
 
+    /** Réglages reçus du serveur ({@code {"t":"lib_cfg"}}). */
+    public static BibliothequeStaffScreen fromJson(com.google.gson.JsonObject o) {
+        BibliothequeStaffScreen s = new BibliothequeStaffScreen(o.get("name").getAsString());
+        s.update(o);
+        return s;
+    }
+
+    public String libId() { return libId; }
+
+    public void update(com.google.gson.JsonObject o) {
+        libId = o.get("id").getAsString();
+        name = o.get("name").getAsString();
+        count = o.get("count").getAsInt();
+        delayH = o.get("delayH").getAsInt();
+        model = o.get("model").getAsInt();
+        var r = o.getAsJsonArray("byRank");
+        for (int i = 0; i < 5 && i < r.size(); i++) byRank[i] = r.get(i).getAsDouble();
+        overrides.clear();
+        for (var e : o.getAsJsonObject("overrides").entrySet()) overrides.put(e.getKey(), e.getValue().getAsDouble());
+        List<Technique> list = new ArrayList<>();
+        slotInfo.clear();
+        for (var e : o.getAsJsonArray("techs")) {
+            var t = e.getAsJsonObject();
+            Technique tech = Technique.fromJson(t);
+            list.add(tech);
+            if (t.has("slots")) slotInfo.put(tech.id(), t.get("slots").getAsString());
+        }
+        techs = list;
+        recompute();
+    }
+
+    /** Envoie les réglages au serveur. */
+    void saveToServer() {
+        if (libId == null) return;
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        o.addProperty("name", name);
+        o.addProperty("count", count);
+        o.addProperty("delayH", delayH);
+        o.addProperty("model", model);
+        com.google.gson.JsonArray r = new com.google.gson.JsonArray();
+        for (double d : byRank) r.add(d);
+        o.add("byRank", r);
+        com.google.gson.JsonObject ov = new com.google.gson.JsonObject();
+        overrides.forEach(ov::addProperty);
+        o.add("overrides", ov);
+        ParcheminClient.send("cfg_save", libId, o);
+    }
+
     void recompute() {
-        stats = Tirage.simulate(Technique.DEMO, byRank, overrides, count, 10_000, 42);
-        preview = Tirage.draw(Technique.DEMO, byRank, overrides, count, t -> true, new Random(seed));
+        stats = Tirage.simulate(techs, byRank, overrides, count, 10_000, 42);
+        preview = Tirage.draw(techs, byRank, overrides, count, t -> true, new Random(seed));
     }
 
     void setModel(int m) {
@@ -81,7 +132,7 @@ public final class BibliothequeStaffScreen extends Screen {
     private List<Technique> filtered() {
         List<Technique> out = new ArrayList<>();
         String f = FILTERS[filter];
-        for (Technique t : Technique.DEMO) {
+        for (Technique t : techs) {
             if (filter == 0 || t.branch().equals(f) || t.nature().equals(f)) out.add(t);
         }
         out.sort((a, b) -> a.rankIndex() != b.rankIndex() ? a.rankIndex() - b.rankIndex() : a.name().compareTo(b.name()));
@@ -111,6 +162,9 @@ public final class BibliothequeStaffScreen extends Screen {
             tx += tw + 4;
         }
         Da.plate(g, font, x + w - 92, ty, 80, 14, "Enregistrer", true, Da.in(mx, my, x + w - 92, ty, 80, 14), true);
+        hits.add(new Hit(x + w - 92, ty, 80, 14, this::saveToServer));
+        Da.plate(g, font, x + w - 196, ty, 100, 14, "Tirer maintenant", false, Da.in(mx, my, x + w - 196, ty, 100, 14), libId != null);
+        if (libId != null) hits.add(new Hit(x + w - 196, ty, 100, 14, () -> ParcheminClient.send("reroll", libId, null)));
         g.fill(x + 10, ty + 20, x + w - 10, ty + 21, 0x40F6CC78);
         int cx = x + 14, cy = ty + 30, cw = w - 28, ch = y + h - 12 - cy;
         switch (page) {
@@ -179,7 +233,8 @@ public final class BibliothequeStaffScreen extends Screen {
             if (i % 2 == 0) g.fill(x, yy - 2, x + w, yy + rowH - 2, 0x10FFFFFF);
             g.fill(x + 2, yy, x + 6, yy + 8, ScrollArt.rankColor(t.rank()));
             g.text(font, Component.literal(t.name()), x + 10, yy, 0xFFF5E9D0, false);
-            g.text(font, Component.literal(t.typeLine()), x + w / 2 - 20, yy, 0xFF9A8C78, false);
+            String type = t.typeLine() + (slotInfo.containsKey(t.id()) ? " · slots " + slotInfo.get(t.id()) : "");
+            g.text(font, Component.literal(type), x + w / 2 - 20, yy, 0xFF9A8C78, false);
             double p = Tirage.chance(t, byRank, overrides);
             boolean custom = overrides.containsKey(t.id());
             String ps = pct(p);

@@ -36,6 +36,16 @@ commands:
     usage: /<command> path <personnage> <none|one|two>
     aliases: [mob, voie]
     permission: shinobiabilities.staff
+  bibliotheque:
+    description: Staff — bibliothèques de parchemins (créer, régler, nouveau tirage, supprimer, liste).
+    usage: /<command> <creer <nom>|regler|tirage|suppr|liste>
+    aliases: [biblio]
+    permission: shinobiabilities.staff
+  parchemin:
+    description: Staff — donner un parchemin, voir les slots d'une technique de rang S.
+    usage: /<command> <donner <joueur> <technique>|slots <technique>>
+    aliases: [parchemins]
+    permission: shinobiabilities.staff
 permissions:
   shinobiabilities.use:
     description: Base permission to use ShinobiAbilities commands.

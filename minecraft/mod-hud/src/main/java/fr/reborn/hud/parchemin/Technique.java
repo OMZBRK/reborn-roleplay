@@ -12,10 +12,23 @@ import java.util.List;
 public record Technique(String id, String name, String branch, String nature, char rank, String desc,
                         List<String> signs) {
 
+    /** Technique envoyée par le serveur (ShinobiAbilities {@code ScrollCatalog.json}). */
+    public static Technique fromJson(com.google.gson.JsonObject o) {
+        List<String> signs = new java.util.ArrayList<>();
+        if (o.has("signs")) for (var e : o.getAsJsonArray("signs")) signs.add(e.getAsString());
+        String r = o.has("rank") ? o.get("rank").getAsString() : "D";
+        return new Technique(str(o, "id"), str(o, "name"), str(o, "branch"), str(o, "nature"),
+                r.isEmpty() ? 'D' : r.charAt(0), str(o, "desc"), signs);
+    }
+
+    private static String str(com.google.gson.JsonObject o, String k) {
+        return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : "";
+    }
+
     /** Séances à réussir pour apprendre (docs/PROPOSITION_PARCHEMINS.md §3.3). */
     public int seances() {
         return switch (rank) {
-            case 'D' -> 1;
+            case 'E', 'D' -> 1;
             case 'C' -> 3;
             case 'B' -> 6;
             case 'A' -> 12;
@@ -42,7 +55,7 @@ public record Technique(String id, String name, String branch, String nature, ch
         };
     }
 
-    public int rankIndex() { return "DCBAS".indexOf(rank); }
+    public int rankIndex() { return rank == 'E' ? 0 : Math.max(0, "DCBAS".indexOf(rank)); }
 
     public String typeLine() {
         return nature.isEmpty() ? branch : branch + " · " + nature;

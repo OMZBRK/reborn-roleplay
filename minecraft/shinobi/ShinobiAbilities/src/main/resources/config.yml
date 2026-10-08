@@ -290,3 +290,18 @@ fuinjutsu:
     max-distance: 10.0
     # …and when the sealer takes any damage.
     interrupt-on-damage: true
+
+# ------------------------------------------------------------
+# Parchemins (docs/PROPOSITION_PARCHEMINS.md). Les bibliothèques se posent et se
+# règlent en jeu (/bibliotheque) ; leurs réglages vivent dans bibliotheques.yml.
+# ------------------------------------------------------------
+parchemins:
+  # Catégories de techniques qui peuvent sortir des bibliothèques (début du chemin).
+  # Les techniques de clan (kekkei/*, taijutsu/juken), ANBU, senjutsu et « autres »
+  # restent hors des bibliothèques.
+  categories: ["taijutsu/goken", "bukijutsu/kenjutsu", "ninjutsu/"]
+  exclues: []
+  # Rang S : nombre maximum de détenteurs par technique (rouleaux en jeu + personnages
+  # qui la connaissent). Exceptions par technique : slots-par-technique: { rasengan: 1 }
+  slots-s: 2
+  slots-par-technique: {}

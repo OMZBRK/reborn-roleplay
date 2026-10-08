@@ -4,8 +4,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 
-import java.util.List;
-import java.util.Random;
 
 /**
  * Banc d'essai des parchemins, <b>inactif en production</b> : ne fait rien sauf si {@code REBORN_PARCHEMIN_DEBUG=1}
@@ -34,46 +32,82 @@ public final class ParcheminDebug {
         switch (ticks) {
             case 30 -> {
                 mc.player.connection.sendCommand("time set 6000");
-                for (int i = 0; i < 3; i++) {
-                    double[] r = i == 0 ? Tirage.PUBLIQUE : i == 1 ? Tirage.RESERVEE : Tirage.PRIVEE;
-                    Tirage.Stats s = Tirage.simulate(Technique.DEMO, r, null, 6, 10_000, 42);
-                    System.out.printf("[parchemins] modèle %d : D %.2f C %.2f B %.3f A %.4f S %.5f par tirage, A>=1 %.2f%%, S>=1 %.3f%%%n",
-                            i, s.perDraw()[0], s.perDraw()[1], s.perDraw()[2], s.perDraw()[3], s.perDraw()[4], s.atLeastA(), s.atLeastS());
+                String[] r = {"d", "c", "b", "a", "s"};
+                for (int i = 0; i < 5; i++) {
+                    mc.player.connection.sendCommand("item replace entity @s hotbar." + i
+                            + " with paper[item_model=\"reborn:parchemin_" + r[i] + "\"]");
                 }
             }
-            case 40 -> {
-                List<Technique> drawn = List.of(find("kawarimi"), find("konoha_senpu"), find("katon_hosenka"),
-                        find("tsubame_gaeshi"), find("katon_gokakyu"), find("raiton_chidori"));
-                BibliothequeScreen s = new BibliothequeScreen("Bibliothèque de l'Académie", drawn, 6, "2 h 41");
-                mc.setScreenAndShow(s);
-            }
-            case 50 -> with(mc, BibliothequeScreen.class, s -> s.debugHover = firstFilled(s));
-            case 70 -> shot(mc);                                                          // bibliothèque + fiche
-            case 75 -> with(mc, BibliothequeScreen.class, s -> { s.take(firstFilled(s)); s.debugHover = -1; });
-            case 85 -> shot(mc);                                                          // un rouleau pris
-            case 90 -> mc.setScreenAndShow(new LectureScreen(find("katon_gokakyu"), 1, "dans 14 h", false));
-            case 115 -> shot(mc);                                                         // lecture rang C
-            case 120 -> mc.setScreenAndShow(new LectureScreen(find("rasengan"), 20, "maintenant", true));
-            case 145 -> shot(mc);                                                         // lecture rang S terminée
-            case 150 -> mc.setScreenAndShow(new LectureScreen(find("raiton_chidori"), 5, "maintenant", true));
-            case 175 -> shot(mc);                                                         // lecture rang A, prête
-            case 180 -> {
-                BibliothequeStaffScreen s = new BibliothequeStaffScreen("Bibliothèque de l'Académie");
-                mc.setScreenAndShow(s);
-                s.debugCustom("raiton_chidori", 1.0);
-            }
-            case 195 -> shot(mc);                                                         // réglages staff
-            case 200 -> with(mc, BibliothequeStaffScreen.class, s -> { s.setPage(1); s.setFilter(3); });
-            case 215 -> shot(mc);                                                         // techniques, filtre Ninjutsu
-            case 220 -> with(mc, BibliothequeStaffScreen.class, s -> s.setPage(2));
-            case 235 -> shot(mc);                                                         // simulation
-            case 245 -> mc.stop();
+            case 48 -> mc.gui.hud.getChat().clearMessages(false);
+            case 70 -> shot(mc);                                                          // modèles : barre d'action et main
+            case 75 -> ParcheminClient.debugReceive(libJson().toString());
+            case 80 -> with(mc, BibliothequeScreen.class, s -> s.debugHover = s.firstFilled());
+            case 90 -> shot(mc);                                                          // bibliothèque reçue du serveur
+            case 95 -> ParcheminClient.debugReceive("{\"t\":\"toast\",\"msg\":\"Ta sacoche est trop lourde.\"}");
+            case 100 -> shot(mc);                                                         // message du serveur
+            case 110 -> ParcheminClient.debugReceive(cfgJson().toString());
+            case 125 -> with(mc, BibliothequeStaffScreen.class, s -> { s.setPage(1); s.setFilter(3); });
+            case 140 -> shot(mc);                                                         // réglages reçus, slots S
+            case 150 -> mc.stop();
             default -> { }
         }
     }
 
-    private static int firstFilled(BibliothequeScreen s) {
-        return s.firstFilled();
+    private static com.google.gson.JsonObject tech(Technique t) {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        o.addProperty("id", t.id());
+        o.addProperty("name", t.name());
+        o.addProperty("branch", t.branch());
+        o.addProperty("nature", t.nature());
+        o.addProperty("rank", String.valueOf(t.rank()));
+        o.addProperty("desc", t.desc());
+        com.google.gson.JsonArray sg = new com.google.gson.JsonArray();
+        t.signs().forEach(sg::add);
+        o.add("signs", sg);
+        return o;
+    }
+
+    /** Ce qu'envoie ShinobiAbilities à l'ouverture d'une bibliothèque. */
+    private static com.google.gson.JsonObject libJson() {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        o.addProperty("t", "lib");
+        o.addProperty("id", "academie");
+        o.addProperty("name", "Bibliothèque de l'Académie");
+        o.addProperty("count", 6);
+        o.addProperty("refreshIn", "2 h 41");
+        com.google.gson.JsonArray cells = new com.google.gson.JsonArray();
+        String[] ids = {"kawarimi", null, "katon_gokakyu", "konoha_senpu", null, "tsubame_gaeshi", null, null, null};
+        for (String id : ids) cells.add(id == null ? com.google.gson.JsonNull.INSTANCE : tech(find(id)));
+        o.add("cells", cells);
+        o.addProperty("weight", 7.2);
+        o.addProperty("maxWeight", 12);
+        o.addProperty("staff", true);
+        return o;
+    }
+
+    /** Ce qu'envoie ShinobiAbilities pour /bibliotheque regler. */
+    private static com.google.gson.JsonObject cfgJson() {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        o.addProperty("t", "lib_cfg");
+        o.addProperty("id", "academie");
+        o.addProperty("name", "Bibliothèque de l'Académie");
+        o.addProperty("count", 6);
+        o.addProperty("delayH", 3);
+        o.addProperty("model", 0);
+        com.google.gson.JsonArray r = new com.google.gson.JsonArray();
+        for (double d : Tirage.PUBLIQUE) r.add(d);
+        o.add("byRank", r);
+        com.google.gson.JsonObject ov = new com.google.gson.JsonObject();
+        ov.addProperty("raiton_chidori", 1.0);
+        o.add("overrides", ov);
+        com.google.gson.JsonArray techs = new com.google.gson.JsonArray();
+        for (Technique t : Technique.DEMO) {
+            com.google.gson.JsonObject j = tech(t);
+            if (t.rank() == 'S') j.addProperty("slots", "1/2");
+            techs.add(j);
+        }
+        o.add("techs", techs);
+        return o;
     }
 
     private interface Act<T> { void run(T s); }

@@ -77,6 +77,9 @@ public final class ShinobiAbilities extends JavaPlugin {
     private LearningShelfManager shelves;
     private LearningMinigame minigame;
     private TechniquesService techniques;
+    private com.reborn.shinobiabilities.parchemin.ScrollCatalog scrollCatalog;
+    private com.reborn.shinobiabilities.parchemin.SlotRegistry scrollSlots;
+    private com.reborn.shinobiabilities.parchemin.LibraryService libraries;
     private KnownAbilitiesGui knownGui;
     private GuiRouter guiRouter;
 
@@ -173,6 +176,21 @@ public final class ShinobiAbilities extends JavaPlugin {
         this.shelves.load();
         this.minigame = new LearningMinigame(this);
         this.techniques = new TechniquesService(this, core, abilities, shelves, minigame);
+
+        // Parchemins : catalogue des techniques éligibles, slots du rang S, bibliothèques à tirage.
+        this.scrollCatalog = new com.reborn.shinobiabilities.parchemin.ScrollCatalog(abilities);
+        this.scrollCatalog.load(getConfig().getConfigurationSection("parchemins"));
+        this.scrollSlots = new com.reborn.shinobiabilities.parchemin.SlotRegistry(this);
+        this.scrollSlots.loadConfig(getConfig().getConfigurationSection("parchemins"));
+        this.scrollSlots.load();
+        this.libraries = new com.reborn.shinobiabilities.parchemin.LibraryService(this, scrollCatalog, scrollSlots);
+        this.libraries.load();
+        this.libraries.register();
+        var parchCmd = new com.reborn.shinobiabilities.parchemin.ParcheminCommand(libraries, scrollCatalog, scrollSlots);
+        for (String name : new String[]{"bibliotheque", "parchemin"}) {
+            PluginCommand pc = getCommand(name);
+            if (pc != null) { pc.setExecutor(parchCmd); pc.setTabCompleter(parchCmd); }
+        }
         this.knownGui = new KnownAbilitiesGui(abilities, guiRouter);
 
         // 4b. GUI layer — every screen styled with ShinobiCore's
@@ -338,6 +356,8 @@ public final class ShinobiAbilities extends JavaPlugin {
     public void reloadAll() {
         reloadConfig();
         if (abilities != null) loadAllAbilities();
+        if (scrollCatalog != null) scrollCatalog.load(getConfig().getConfigurationSection("parchemins"));
+        if (scrollSlots != null) scrollSlots.loadConfig(getConfig().getConfigurationSection("parchemins"));
     }
 
     /**

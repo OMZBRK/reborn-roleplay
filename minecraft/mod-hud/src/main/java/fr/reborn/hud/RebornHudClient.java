@@ -625,6 +625,7 @@ public final class RebornHudClient implements ClientModInitializer {
         // Poste de garde (panel staff, canal reborn:staff, touche F7 ou /garde) : alertes, fiche joueur, casier,
         // sanctions au sceau, chat staff, journal, commandes. Le serveur (ShinobiCore StaffPanel) décide de tout.
         fr.reborn.hud.staff.StaffClient.init();
+        fr.reborn.hud.parchemin.ParcheminClient.init();
         fr.reborn.hud.staff.StaffDebug.init();
         fr.reborn.hud.staff.InfirmerieDebug.init();
         fr.reborn.hud.chat.ChatDebug.init();
