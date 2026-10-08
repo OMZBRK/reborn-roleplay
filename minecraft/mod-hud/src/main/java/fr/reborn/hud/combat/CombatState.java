@@ -36,6 +36,10 @@ public final class CombatState {
     private float staminaCurrent = 100f;
     private float staminaMax = 100f;
     private long lastStaminaMs = 0L;
+    /** Endurance juste dépensée : reste affichée en laque puis rejoint la jauge. */
+    private float trail = 1f;
+    private long trailHoldUntil = 0L;
+    private long trailUpdatedMs = 0L;
 
     private double comboTotal = 0.0;
     private long lastHitMs = 0L;
@@ -49,8 +53,12 @@ public final class CombatState {
 
     // ── mutations (thread client) ──
     public void onHit(int entityId, float amount, long now) {
-        float dx = (float) (Math.random() * 26.0 - 13.0);
-        float dy = (float) (Math.random() * 8.0 - 4.0);
+        // coups rapprochés sur la même cible : les chiffres s'empilent en quinconce au lieu de se chevaucher
+        int stacked = 0;
+        for (DamageIndicator d : indicators) if (d.entityId == entityId && now - d.spawnMs < 700L) stacked++;
+        float side = stacked % 2 == 0 ? -1f : 1f;
+        float dx = stacked == 0 ? (float) (Math.random() * 12.0 - 6.0) : side * (float) (8.0 + Math.random() * 6.0);
+        float dy = (float) (Math.random() * 4.0 - 2.0) - stacked * 10f;
         indicators.add(new DamageIndicator(entityId, amount, now, dx, dy));
         if (now - lastHitMs > COMBO_HOLD_MS + COMBO_FADE_MS) comboTotal = 0.0;
         comboTotal += amount;
@@ -58,6 +66,13 @@ public final class CombatState {
     }
 
     public void onStamina(float current, float max, long now) {
+        float before = staminaFraction();
+        float after = Math.max(0f, Math.min(1f, current / (max <= 0 ? 100f : max)));
+        if (after < before) {
+            trail = Math.max(trailFraction(now), before);
+            trailHoldUntil = now + 380L;
+            trailUpdatedMs = now;
+        }
         this.staminaCurrent = current;
         this.staminaMax = max <= 0 ? 100f : max;
         this.lastStaminaMs = now;
@@ -90,6 +105,15 @@ public final class CombatState {
     }
 
     // ── lecture (rendu) ──
+    /** Haut de la part dépensée (laque) : figée un instant puis redescend vers l'endurance courante. */
+    public float trailFraction(long now) {
+        float cur = staminaFraction();
+        if (trail <= cur) return cur;
+        if (now <= trailHoldUntil) return trail;
+        float t = trail - (now - Math.max(trailHoldUntil, trailUpdatedMs)) / 1000f * 0.9f;
+        return Math.max(cur, t);
+    }
+
     public float staminaFraction() {
         return Math.max(0f, Math.min(1f, staminaCurrent / staminaMax));
     }

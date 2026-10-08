@@ -14,14 +14,14 @@ import org.joml.Vector4f;
 import java.util.List;
 
 /**
- * HUD combat taïjutsu (rendu 2D par-dessus le HUD), alimenté par {@link CombatState} :
+ * HUD combat taïjutsu (rendu 2D par-dessus le HUD), dans la DA Reborn (encre, laque, or), alimenté par
+ * {@link CombatState} :
  * <ul>
- *   <li><b>Damage indicators</b> : nombres chunky projetés au-dessus des cibles,
- *       pop-scale + montée + dispersion, contour sombre, or (style
- *       <i>immersive-damage-indicators</i> / réf {@code stylevpvp.png}).</li>
- *   <li><b>Réticule de combat</b> : n'apparaît qu'en combat — anneau + 4 ticks +
- *       point central ; l'anneau EST la jauge de stamina (vert→rouge).</li>
- *   <li><b>Total de combo</b> près du réticule.</li>
+ *   <li><b>Dégâts infligés</b> : petits chiffres projetés au-dessus des cibles, trois paliers discrets (ivoire,
+ *       or, laque), empilés en quinconce, avec léger pop et montée.</li>
+ *   <li><b>Endurance</b> : un ensō (cercle zen au pinceau) autour du viseur en combat ; or = restant, laque =
+ *       juste dépensé, bleu acier en garde, pulsation rouge à vide.</li>
+ *   <li><b>Combo</b> : petit total cumulé à droite du viseur.</li>
  * </ul>
  * Projection monde→écran reprise du pattern {@code SpeechBubbles} (aucun rendu 3D).
  */
@@ -32,7 +32,15 @@ public final class CombatHud {
     // Petit anneau discret AUTOUR du viseur Reborn (le vrai curseur reste géré par
     // CrosshairManager / l'éditeur de viseur). Volontairement fin et compact.
     private static final int RING_RADIUS = 7;
-    private static final int RING_THICK = 1;
+    private static final int ENSO_RADIUS = 9;
+
+    private static final int INK = 0xFF140A06, IVORY = 0xFFF5E9D0, GOLD = 0xFFD9A95E, GOLD_HI = 0xFFF2D49A;
+    private static final int LACQUER = 0xFFA0182B, LACQUER_HI = 0xFFC01E35, LACQUER_LO = 0xFF7A1322;
+    private static final int STEEL = 0xFF9FC3E6;
+
+
+    /** Banc d'essai : force la garde (pas d'entrée serveur en solo). */
+    static boolean debugGuard = false;
 
     // Instances scratch réutilisées par frame pour la projection monde→écran :
     // évite une alloc Matrix4f + un Vector4f par indicateur/frame. ThreadLocal par sûreté.
@@ -75,42 +83,43 @@ public final class CombatHud {
                 float ndcY = clip.y() / clip.w();
                 if (ndcX < -1.15f || ndcX > 1.15f || ndcY < -1.15f || ndcY > 1.15f) continue;
                 int sx = Math.round((ndcX * 0.5f + 0.5f) * gw + ind.dx);
-                float rise = (1f - (1f - age) * (1f - age)) * 20f;           // ease-out
+                float rise = (1f - (1f - age) * (1f - age)) * 12f;           // ease-out
                 int sy = Math.round((1f - (ndcY * 0.5f + 0.5f)) * gh + ind.dy - rise);
                 float pop = age < 0.12f ? 1f + (1f - age / 0.12f) * (1f - age / 0.12f) * 0.55f : 1f;
                 float alpha = age < 0.7f ? 1f : Math.max(0f, 1f - (age - 0.7f) / 0.3f);
-                drawDamage(ctx, font, sx, sy, (int) Math.round(ind.amount), pop, alpha);
+                drawDamage(ctx, font, sx, sy, (int) Math.round(ind.amount), pop, alpha, age);
             }
         }
 
-        // ── Réticule de combat + stamina (seulement en combat) ──
-        float rA = st.combatModeAlpha(now);
+        // ── Endurance (ensō) + combo, seulement en combat ou en garde ──
+        boolean guard = debugGuard || CombatInput.INSTANCE.isBlocking();
+        float rA = Math.max(st.combatModeAlpha(now), guard ? 1f : 0f);
         if (rA > 0.01f) {
-            drawReticle(ctx, cx, cy, st.staminaFraction(), rA);
+            float frac = st.staminaFraction();
+            float trail = st.trailFraction(now);
+            int fill = guard ? STEEL : GOLD;
+            if (frac < 0.2f) {
+                float pulse = 0.5f + 0.5f * (float) Math.sin(now / 90.0);
+                fill = lerp(GOLD, 0xFFFF5A48, pulse);
+            }
+            float ea = rA * 0.8f;
+            BrushRing.enso(ctx, cx, cy, ENSO_RADIUS, frac, trail,
+                applyAlpha(fill, ea), applyAlpha(LACQUER, ea * 0.85f), applyAlpha(IVORY, ea * 0.14f));
 
             float comboA = st.comboAlpha(now) * rA;
-            if (comboA > 0.01f) {
-                Component c = RebornFont.bold(String.valueOf((int) Math.round(st.comboTotal())));
-                int a = Math.round(comboA * 255f);
-                ctx.pose().pushMatrix();
-                ctx.pose().translate(cx + RING_RADIUS + 10, cy - 5);
-                ctx.pose().scale(1.25f, 1.25f);
-                ctx.text(font, c, 1, 1, (Math.round(comboA * 190f) << 24), false);
-                ctx.text(font, c, 0, 0, (a << 24) | 0x00FFFFFF, false);
-                ctx.pose().popMatrix();
-            }
+            if (comboA > 0.01f) drawCombo(ctx, font, cx + ENSO_RADIUS + 6, cy - 5, (int) Math.round(st.comboTotal()), comboA * 0.85f);
         }
 
         // ── Flash de parade timée (deflect) ──
         float pf = st.parryFlashAlpha(now);
         if (pf > 0.01f) {
             if (st.parryRole() == 0) {
-                // Deflect réussi : anneau blanc-cyan qui s'étend en s'estompant.
-                int r = RING_RADIUS + 3 + Math.round((1f - pf) * 12f);
-                ringBand(ctx, cx, cy, r, 2, 0f, 360f, applyAlpha(0xFFCFEFFF, pf));
+                // Deflect réussi : anneau ivoire qui s'étend en s'estompant.
+                int r = ENSO_RADIUS + 3 + Math.round((1f - pf) * 12f);
+                ringBand(ctx, cx, cy, r, 2, 0f, 360f, applyAlpha(0xFFF5E9D0, pf));
             } else {
-                // Fait parer (ouverture subie) : voile rouge léger plein écran.
-                ctx.fill(0, 0, gw, gh, applyAlpha(0x40FF3020, pf * 0.8f));
+                // Fait parer (ouverture subie) : voile laque léger plein écran.
+                ctx.fill(0, 0, gw, gh, applyAlpha(0x407A1322, pf * 0.8f));
             }
         }
 
@@ -137,58 +146,71 @@ public final class CombatHud {
         ctx.pose().popMatrix();
     }
 
-    /** Dessine la barre depuis le coin haut-gauche {@code (x,y)} (bleutée en garde). */
+    /** Barre d'endurance DA : réglette laquée cerclée de bois, remplissage or (acier en garde), dépense en laque. */
     private static void drawEnduranceBar(GuiGraphicsExtractor ctx, int x, int y,
                                          float frac, float alpha, boolean blocking) {
-        int bg = (Math.round(alpha * 150f) << 24);
-        int border = blocking ? applyAlpha(0xFF7FB4FF, alpha)
-                              : (Math.round(alpha * 90f) << 24) | 0x00FFFFFF;
-        ctx.fill(x - 1, y - 1, x + BAR_W + 1, y + BAR_H + 1, border);
-        ctx.fill(x, y, x + BAR_W, y + BAR_H, bg);
+        long now = System.currentTimeMillis();
+        float trail = CombatState.INSTANCE.trailFraction(now);
+        ctx.fill(x - 2, y - 2, x + BAR_W + 2, y + BAR_H + 2, applyAlpha(0xFF2E1C11, alpha));
+        ctx.fill(x - 1, y - 1, x + BAR_W + 1, y + BAR_H + 1, applyAlpha(0xFF5A3A22, alpha));
+        ctx.fill(x, y, x + BAR_W, y + BAR_H, applyAlpha(0xFF120A08, alpha));
+        int tw = Math.round(BAR_W * Math.max(0f, Math.min(1f, trail)));
+        if (tw > 0) ctx.fill(x, y, x + tw, y + BAR_H, applyAlpha(LACQUER_HI, alpha));
         int fw = Math.round(BAR_W * Math.max(0f, Math.min(1f, frac)));
-        if (fw > 0) ctx.fill(x, y, x + fw, y + BAR_H, applyAlpha(staminaColor(frac), alpha));
+        int c = blocking ? STEEL : frac < 0.2f ? LACQUER_HI : GOLD;
+        if (fw > 0) {
+            ctx.fill(x, y, x + fw, y + BAR_H, applyAlpha(c, alpha));
+            ctx.fill(x, y, x + fw, y + 1, applyAlpha(0x60FFFFFF, alpha));
+        }
+        for (int k = 1; k < 4; k++) ctx.fill(x + BAR_W * k / 4, y, x + BAR_W * k / 4 + 1, y + BAR_H, applyAlpha(0x802E1C11, alpha));
     }
 
-    /**
-     * Petit anneau de stamina AUTOUR du viseur (pas un réticule complet) : on ne
-     * dessine QUE la fine jauge, sans ticks ni point central — le viseur Reborn
-     * ({@code CrosshairManager}, éditable) reste le curseur. Discret, en combat.
-     */
-    private static void drawReticle(GuiGraphicsExtractor ctx, int cx, int cy, float frac, float alpha) {
-        // Anneau de fond très discret.
-        ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f, (Math.round(alpha * 90f) << 24));
-        // Jauge de stamina (arc horaire depuis le haut).
-        ringBand(ctx, cx, cy, RING_RADIUS, RING_THICK, 0f, 360f * frac, applyAlpha(staminaColor(frac), alpha));
-    }
-
-    /** Nombre de dégâts centré, or, contour sombre, pop-scale. */
-    private static void drawDamage(GuiGraphicsExtractor ctx, Font font, int cx, int cy,
-                                   int amount, float scale, float alpha) {
-        if (alpha <= 0f) return;
-        Component t = RebornFont.bold(String.valueOf(amount));
-        int a = Math.round(alpha * 255f);
-        int outline = (Math.round(alpha * 230f) << 24);        // presque noir
-        int gold = (a << 24) | 0x00FFD24A;
-        int w = font.width(t);
+    /** Total du combo : petit chiffre or, « combo » en ivoire dessous, simple ombre d'encre. */
+    private static void drawCombo(GuiGraphicsExtractor ctx, Font font, int x, int y, int total, float a) {
+        Component c = RebornFont.bold(String.valueOf(total));
         ctx.pose().pushMatrix();
-        ctx.pose().translate(cx - (w * scale) / 2f, cy);
-        ctx.pose().scale(scale, scale);
-        // Contour 4 directions puis remplissage.
-        ctx.text(font, t, -1, 0, outline, false);
-        ctx.text(font, t, 1, 0, outline, false);
-        ctx.text(font, t, 0, -1, outline, false);
-        ctx.text(font, t, 0, 1, outline, false);
-        ctx.text(font, t, 0, 0, gold, false);
+        ctx.pose().translate(x, y);
+        ctx.pose().scale(0.85f, 0.85f);
+        shadowed(ctx, font, c, 0, 0, applyAlpha(GOLD_HI, a), applyAlpha(INK, a * 0.7f));
+        ctx.pose().popMatrix();
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(x, y + 8);
+        ctx.pose().scale(0.5f, 0.5f);
+        shadowed(ctx, font, RebornFont.body("COMBO"), 0, 0, applyAlpha(IVORY, a * 0.8f), applyAlpha(INK, a * 0.6f));
         ctx.pose().popMatrix();
     }
 
-    private static int staminaColor(float frac) {
-        int lowR = 0xE0, lowG = 0x3B, lowB = 0x30;   // rouge (vide)
-        int hiR = 0x4A, hiG = 0xD2, hiB = 0x6A;      // vert (plein)
-        int r = Math.round(lowR + (hiR - lowR) * frac);
-        int g = Math.round(lowG + (hiG - lowG) * frac);
-        int b = Math.round(lowB + (hiB - lowB) * frac);
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    /** Texte avec une ombre d'encre décalée d'un pixel (discret, sans contour). */
+    private static void shadowed(GuiGraphicsExtractor ctx, Font font, Component t, int x, int y, int fill, int shadow) {
+        ctx.text(font, t, x + 1, y + 1, shadow, false);
+        ctx.text(font, t, x, y, fill, false);
+    }
+
+    /**
+     * Chiffre de dégâts, discret : ivoire (coup léger), or (moyen), laque (lourd), à peine plus grand d'un palier à
+     * l'autre. Ombre d'encre, léger pop à l'impact.
+     */
+    private static void drawDamage(GuiGraphicsExtractor ctx, Font font, int cx, int cy,
+                                   int amount, float scale, float alpha, float age) {
+        if (alpha <= 0f) return;
+        int tier = amount >= 15 ? 2 : amount >= 8 ? 1 : 0;
+        float s = (1f + (scale - 1f) * 0.5f) * (tier == 2 ? 1.05f : tier == 1 ? 0.9f : 0.75f);
+        float a = alpha * 0.9f;
+        Component t = RebornFont.bold(String.valueOf(amount));
+        int w = font.width(t);
+        int fill = tier == 2 ? 0xFFE0414F : tier == 1 ? GOLD_HI : IVORY;
+        ctx.pose().pushMatrix();
+        ctx.pose().translate(cx - (w * s) / 2f, cy);
+        ctx.pose().scale(s, s);
+        shadowed(ctx, font, t, 0, 0, applyAlpha(fill, a), applyAlpha(INK, a * 0.75f));
+        ctx.pose().popMatrix();
+    }
+
+    private static int lerp(int a, int b, float t) {
+        int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        return 0xFF000000 | (Math.round(ar + (br - ar) * t) << 16) | (Math.round(ag + (bg - ag) * t) << 8)
+            | Math.round(ab + (bb - ab) * t);
     }
 
     private static int applyAlpha(int argb, float alpha) {

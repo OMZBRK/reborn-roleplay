@@ -23,6 +23,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
  */
 public final class RebornSession {
 
+    /** Bancs d'essai (client de dev, solo) : force l'UI RP. Jamais activé en production. */
+    public static boolean debugForceRp = false;
+
     private RebornSession() {}
 
     /**
@@ -31,6 +34,7 @@ public final class RebornSession {
      * sélection Build/Dev pré-connexion (qui n'existe que pour le staff).
      */
     public static boolean rpFeaturesEnabled() {
+        if (debugForceRp) return true;
         try {
             if (ClientPlayNetworking.canSend(CharacterPayload.ID)) return true;
             if (ClientPlayNetworking.canSend(InventoryPayload.ID)) return true;
