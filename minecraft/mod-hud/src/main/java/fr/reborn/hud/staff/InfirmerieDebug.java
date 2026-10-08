@@ -29,29 +29,31 @@ public final class InfirmerieDebug {
             case 40 -> mc.player.connection.sendCommand("time set 13000");
             case 60 -> {
                 StaffClient.debugReceive(snapshot(mc.player.getUUID().toString()));
-                mc.setScreenAndShow(new InfirmerieScreen());
+                mc.setScreenAndShow(new GardeScreen("ko"));
             }
             case 95 -> shot(mc);                                                     // Blessés, page 1
             case 100 -> with(mc, s -> s.debugPage(1));
             case 125 -> shot(mc);                                                    // Blessés, page 2
-            case 130 -> with(mc, s -> { s.debugTab("zones"); });
+            case 130 -> with(mc, s -> { s.debugKoTab("zones"); });
             case 132 -> with(mc, s -> s.debugSelect("dojo"));
             case 150 -> shot(mc);                                                    // Zones, dojo sélectionné
             case 155 -> with(mc, s -> s.debugDraft(15905, 9690, 15930, 9705));
             case 170 -> shot(mc);                                                    // Nouvelle zone
-            case 175 -> with(mc, s -> s.debugTab("hopitaux"));
+            case 175 -> with(mc, s -> s.debugKoTab("hopitaux"));
             case 195 -> shot(mc);                                                    // Hôpitaux
-            case 200 -> with(mc, s -> s.debugTab("reglages"));
+            case 200 -> with(mc, s -> s.debugKoTab("reglages"));
             case 220 -> shot(mc);                                                    // Réglages
-            case 240 -> mc.stop();
+            case 225 -> with(mc, s -> s.debugTab("journal"));
+            case 240 -> shot(mc);                                                    // Poste de garde : onglet Infirmerie visible
+            case 255 -> mc.stop();
             default -> { }
         }
     }
 
-    private interface Act { void run(InfirmerieScreen s); }
+    private interface Act { void run(GardeScreen s); }
 
     private static void with(Minecraft mc, Act a) {
-        if (mc.gui.screen() instanceof InfirmerieScreen s) a.run(s);
+        if (mc.gui.screen() instanceof GardeScreen s) a.run(s);
     }
 
     private static void shot(Minecraft mc) {

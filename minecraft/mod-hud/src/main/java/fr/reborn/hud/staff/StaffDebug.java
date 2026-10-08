@@ -31,7 +31,7 @@ public final class StaffDebug {
             case 60 -> {
                 inject(SNAP.replace("$ME", me));
                 inject(PROFILE.replace("$ME", me));
-                mc.setScreenAndShow(new StaffScreen());
+                mc.setScreenAndShow(new GardeScreen("alerts"));
             }
             case 90 -> shot(mc);                                                   // Alertes
             case 95 -> click(mc, "players");

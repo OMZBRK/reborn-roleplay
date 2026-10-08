@@ -124,13 +124,13 @@ public class StaffScreen extends Screen {
 
     protected int sx0() { return Math.max(Math.round(width * 0.07f) + 6, width / 2 - 320); }
     protected int sx1() { return width - sx0(); }
-    protected int sy0() { return 58; }
+    protected int sy0() { return 42; }
     protected int sy1() { return height - 34; }
 
     /** Zone qui défile (dans le papier), selon l'onglet : la barre de chat en bas, la recherche en haut. */
     protected int vy0() { return sy0() + 10 + ("cmds".equals(tab) ? 18 : 0); }
     protected int vy1() { return sy1() - 6 - ("chat".equals(tab) ? 18 : 0); }
-    protected int vx0() { return sx0() + 8; }
+    protected int vx0() { return sx0() + navW() + 12; }
     protected int vx1() { return sx1() - 8; }
 
     /* =================================================================== rendu */
@@ -183,15 +183,9 @@ public class StaffScreen extends Screen {
 
         layoutBoxes(ctx);
         closeButton(ctx);
-        infirmerieButton(ctx);
         if (confirm != null) confirmModal(ctx, snap);
     }
 
-    /** Pied droit : rejoindre l'Infirmerie (gestion du KO). */
-    protected void infirmerieButton(GuiGraphicsExtractor ctx) {
-        int w = font.width(RebornFont.body("Infirmerie")) + 14;
-        button(ctx, sx1() - w + 8, height - 18, "Infirmerie", "punish", () -> StaffClient.send("ko_open"), false);
-    }
 
     protected String plaqueTitle(JsonObject snap) {
         if (snap == null) return "Poste de garde";
@@ -320,43 +314,74 @@ public class StaffScreen extends Screen {
     }
 
     /** Onglets en plaquettes suspendues (coins coupés), compteur d'alertes en sceau rouge. */
+    /** Largeur de la colonne de navigation (dans le papier, à gauche). */
+    protected int navW() { return 70; }
+
+    /**
+     * Groupes de la navigation : la première ligne de chaque groupe est {sceau, titre}, les suivantes
+     * {id, libellé}. Le Poste de garde seul n'a qu'un groupe ; l'écran unifié ajoute l'Infirmerie.
+     */
+    protected String[][][] navGroups() {
+        String[][] g = new String[TABS.length + 1][];
+        g[0] = new String[]{"番", "Poste de garde"};
+        System.arraycopy(TABS, 0, g, 1, TABS.length);
+        return new String[][][]{g};
+    }
+
+    /** Colonne de navigation compacte : groupes à sceau, entrées laquées quand elles sont actives, compteurs. */
     protected void tabs(GuiGraphicsExtractor ctx, JsonObject snap) {
-        int x = sx0() + 4, base = 32;
-        for (String[] t : tabList()) {
-            boolean sel = t[0].equals(tab);
-            Component c = RebornFont.body(t[1]);
-            int w = font.width(c) + 16, h = 14;
-            boolean hov = !sel && hover(x, base, w, h);
-            int top = base + (sel ? 3 : hov ? -1 : 0);
-            ctx.fill(x + w / 2, 28, x + w / 2 + 1, top, GOLD);                          // cordon
-            ctx.fill(x + w / 2 - 1, 27, x + w / 2 + 2, 29, GOLD);
-            chamfer(ctx, x - 1, top - 1, w + 2, h + 2, WOOD_DARK);
-            if (sel) {
-                chamfer(ctx, x, top, w, h, GOLD);
-                chamferGradient(ctx, x + 1, top + 1, w - 2, h - 2, LACQUER_HI, LACQUER_LO);
-            } else {
-                chamferGradient(ctx, x, top, w, h, hov ? 0xFF7E5636 : 0xFF6A4528, WOOD);
+        int x0 = sx0() + 3, w = navW(), y = sy0() + 10;
+        int yb = paperBottom();
+        if (yb > sy0() + 12) {
+            ctx.enableScissor(x0 - 3, sy0() + 5, x0 + w + 4, yb);
+            ctx.fill(x0 - 3, sy0() + 5, x0 + w + 2, sy1(), 0x16462810);
+            ctx.fill(x0 + w + 2, sy0() + 8, x0 + w + 3, sy1() - 4, 0x50462810);
+            long now = System.currentTimeMillis();
+            for (String[][] group : navGroups()) {
+                ctx.fill(x0 + 1, y, x0 + 11, y + 10, 0xFF5A0E18);
+                DrawHelpers.outlinedRect(ctx, x0 + 1, y, 10, 10, 0, GOLD);
+                ctx.text(font, Component.literal(group[0][0]), x0 + 2, y + 1, IVORY, false);
+                ctx.pose().pushMatrix();
+                ctx.pose().translate(x0 + 14, y + 2);
+                ctx.pose().scale(0.75f, 0.75f);
+                ctx.text(font, RebornFont.bold(group[0][1].toUpperCase()), 0, 0, LACQUER_LO, false);
+                ctx.pose().popMatrix();
+                y += 13;
+                for (int i = 1; i < group.length; i++) {
+                    String id = group[i][0], label = group[i][1];
+                    boolean sel = id.equals(tab), hov = !sel && hover(x0, y, w, 12);
+                    if (sel) {
+                        chamferGradient(ctx, x0, y, w, 12, LACQUER_HI, LACQUER_LO);
+                        ctx.fill(x0, y + 2, x0 + 2, y + 10, GOLD);
+                    } else if (hov) {
+                        chamfer(ctx, x0, y, w, 12, 0x30FFFFFF);
+                    }
+                    int count = tabCount(id, snap);
+                    int room = w - 10 - (count > 0 ? 12 : 0);
+                    ctx.text(font, RebornFont.body(fit(label, room)), x0 + 6, y + 2, sel ? IVORY : INK, false);
+                    if (count > 0) {
+                        String n = String.valueOf(count);
+                        int bw = Math.max(9, font.width(n) + 4), bx = x0 + w - bw - 2;
+                        boolean urgent = "blesses".equals(id) || "alerts".equals(id);
+                        int fill = urgent && (now / 400) % 2 == 0 ? 0xFFFF4040 : LACQUER_HI;
+                        chamfer(ctx, bx - 1, y + 1, bw + 2, 10, WOOD_DARK);
+                        chamfer(ctx, bx, y + 2, bw, 8, fill);
+                        ctx.text(font, Component.literal(n), bx + bw / 2 - font.width(n) / 2, y + 2, IVORY, false);
+                    }
+                    hits.add(new Hit(x0, y, w, 12, () -> switchTab(id)));
+                    y += 13;
+                }
+                y += 7;
             }
-            ctx.text(font, c, x + 8, top + 3, sel ? IVORY : IVORY_2, false);
-            int count = tabCount(t[0], snap);
-            if (count > 0) {
-                String n = String.valueOf(count);
-                int bw = Math.max(9, font.width(n) + 4), bx = x + w - 5, by = top - 5;
-                chamfer(ctx, bx - 1, by - 1, bw + 2, 11, WOOD_DARK);
-                chamfer(ctx, bx, by, bw, 9, LACQUER_HI);
-                ctx.text(font, Component.literal(n), bx + bw / 2 - font.width(n) / 2, by + 1, IVORY, false);
-            }
-            final String id = t[0];
-            hits.add(new Hit(x, base - 1, w, h + 4, () -> switchTab(id)));
-            x += w + 5;
+            ctx.disableScissor();
         }
         if (snap != null) gradeBadge(ctx, num(snap, "grade"), str(snap, "gradeName"));
     }
 
-    /** Onglets de l'écran (surchargé par l'Infirmerie). */
+    /** Onglets de l'écran (utilisés par la navigation par défaut). */
     protected String[][] tabList() { return TABS; }
 
-    /** Compteur affiché en sceau rouge sur un onglet (0 = aucun). */
+    /** Compteur affiché en rouge sur une entrée de navigation (0 = aucun). */
     protected int tabCount(String id, JsonObject snap) {
         return "alerts".equals(id) && snap != null ? arr(snap, "alerts").size() : 0;
     }

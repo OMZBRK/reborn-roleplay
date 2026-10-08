@@ -18,9 +18,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Infirmerie — gestion visuelle du KO pour le staff ({@code /infirmerie}, bouton « 医 Infirmerie » du Poste de
- * garde). Même décor que le Poste de garde ; motif propre : chaque blessé est une bande de papier (tanzaku)
- * suspendue à une corde, et son temps restant est un bâton d'encens qui se consume.
+ * Poste de garde unifié : les onglets staff ({@link StaffScreen} — alertes, joueurs, chat, journal, commandes) et
+ * l'onglet vedette <b>Infirmerie</b> (gestion visuelle du KO), calé à droite, toujours laqué, avec un compteur des
+ * blessés KO qui pulse. Ouvert par F7, {@code /garde} (onglet Alertes) ou {@code /infirmerie} (onglet Infirmerie).
+ * Motif de l'Infirmerie : chaque blessé est une bande de papier (tanzaku) suspendue à une corde, et son temps
+ * restant est un bâton d'encens qui se consume. Sous-onglets :
  *
  * <ul>
  *   <li><b>Blessés</b> : cinq bandes à la fois, flèches / perles / molette pour les suivantes, filtres par état ;</li>
@@ -31,11 +33,15 @@ import java.util.Map;
  * </ul>
  * Toutes les actions passent par le serveur ({@code InfirmeriePanel}), qui revérifie le grade.
  */
-public class InfirmerieScreen extends StaffScreen {
+public class GardeScreen extends StaffScreen {
 
-    private static final String[][] KO_TABS = {{"blesses", "Blessés"}, {"zones", "Zones"}, {"hopitaux", "Hôpitaux"}, {"reglages", "Réglages"}};
+    private static final String[][] GARDE_GROUP = {{"番", "Garde"},
+            {"alerts", "Alertes"}, {"players", "Joueurs"}, {"chat", "Chat staff"}, {"journal", "Journal"}, {"cmds", "Commandes"}};
+    private static final String[][] KO_GROUP = {{"医", "Infirmerie"},
+            {"blesses", "Blessés"}, {"zones", "Zones"}, {"hopitaux", "Hôpitaux"}, {"reglages", "Réglages"}};
     private static final String[][] FILTERS = {{"all", "Tous"}, {"down", "À terre"}, {"ko", "Inconscients"}, {"ata", "En ATA"}};
-    private static final int PER_PAGE = 5;
+    /** Bandes par page selon la largeur disponible (2 à 5). */
+    private int perPage() { return Math.max(2, Math.min(5, (vx1() - vx0() - 32) / 64)); }
     private static final int C_TRAIN = 0xFFA0182B, C_REST = 0xFF2F7A3A, C_HOSP = 0xFF3F78C8;
 
     private String filter = "all";
@@ -62,9 +68,19 @@ public class InfirmerieScreen extends StaffScreen {
     private Slider dragSlider;
     private int dragSliderStart;
 
-    public InfirmerieScreen() {
+    public GardeScreen(String initialTab) {
         super();
-        tab = "blesses";
+        tab = "ko".equals(initialTab) ? "blesses" : "alerts";
+    }
+
+    public boolean onKo() {
+        return "blesses".equals(tab) || "zones".equals(tab) || "hopitaux".equals(tab) || "reglages".equals(tab);
+    }
+
+    /** Ouvre l'Infirmerie ({@code ko}) ou un onglet staff sans recréer l'écran. */
+    public void show(String id) {
+        String target = "ko".equals(id) ? "blesses" : id;
+        if (!target.equals(tab) && !("blesses".equals(target) && onKo())) switchTab(target);
     }
 
     @Override
@@ -75,6 +91,7 @@ public class InfirmerieScreen extends StaffScreen {
         nameBox.setResponder(v -> { if (edit != null && !v.equals(str(edit, "id"))) { edit.addProperty("id", v); dirty = true; } });
         villageBox.setResponder(v -> { if (edit != null && !v.equals(str(edit, "village"))) { edit.addProperty("village", v); dirty = true; } });
         StaffClient.send("ko_refresh");
+        StaffClient.send("refresh");
     }
 
     private EditBox koBox(String hint, int max) {
@@ -90,32 +107,42 @@ public class InfirmerieScreen extends StaffScreen {
 
     @Override
     public void tick() {
-        if (++ticks % 20 == 0) StaffClient.send("ko_refresh");
+        ticks++;
+        if (ticks % 40 == 0) {
+            StaffClient.send("refresh");
+            if (profileUuid != null && !onKo()) requestProfile(profileUuid);
+        }
+        if (ticks % (onKo() ? 20 : 60) == 0) StaffClient.send("ko_refresh");   // le compteur de l'onglet reste à jour
     }
 
     @Override
-    protected String[][] tabList() { return KO_TABS; }
+    protected String[][][] navGroups() { return new String[][][]{GARDE_GROUP, KO_GROUP}; }
+
+    @Override
+    protected int navW() { return 74; }
 
     @Override
     protected int tabCount(String id, JsonObject snap) {
-        return "blesses".equals(id) && snap != null ? arr(snap, "injured").size() : 0;
+        if ("blesses".equals(id)) {
+            JsonObject ko = StaffClient.koSnapshot();
+            int n = 0;
+            if (ko != null) for (JsonElement e : arr(ko, "injured")) {
+                String s = str(e.getAsJsonObject(), "state");
+                if ("down".equals(s) || "ko".equals(s) || "chakra".equals(s)) n++;   // urgents : KO en cours
+            }
+            return n;
+        }
+        return super.tabCount(id, StaffClient.snapshot());
     }
 
     @Override
     protected void switchTab(String id) {
-        if (!id.equals(tab)) { RebornSounds.uiClick(); viewAt = System.currentTimeMillis(); }
-        tab = id;
-        scroll = 0;
+        boolean changed = !id.equals(tab);
+        super.switchTab(id);
         page = 0;
         edit = null;
         dirty = false;
-        if ("hopitaux".equals(id)) { selId = null; camReady = false; }
-    }
-
-    @Override
-    protected void infirmerieButton(GuiGraphicsExtractor ctx) {
-        int w = font.width(RebornFont.body("Poste de garde")) + 14;
-        button(ctx, sx1() - w + 8, height - 18, "Poste de garde", "plain", () -> StaffClient.send("open"), false);
+        if (changed && ("hopitaux".equals(id) || "zones".equals(id))) { selId = null; camReady = false; }
     }
 
     /* =================================================================== rendu */
@@ -123,9 +150,19 @@ public class InfirmerieScreen extends StaffScreen {
     @Override
     protected void drawScreen(GuiGraphicsExtractor ctx, int mx, int my, float delta) {
         sliders.clear();
+        nameBox.setVisible(false);
+        villageBox.setVisible(false);
+        if (!onKo()) {                                  // onglets staff : rendu du Poste de garde
+            super.drawScreen(ctx, mx, my, delta);
+            return;
+        }
+        chatBox.setVisible(false);
+        searchBox.setVisible(false);
+        noteBox.setVisible(false);
         JsonObject snap = StaffClient.koSnapshot();
         frame(ctx);
-        tabs(ctx, snap);
+        JsonObject staff = StaffClient.snapshot();
+        tabs(ctx, staff != null ? staff : snap);
         String title = switch (tab) {
             case "zones" -> "Infirmerie · zones";
             case "hopitaux" -> "Infirmerie · hôpitaux";
@@ -133,8 +170,6 @@ public class InfirmerieScreen extends StaffScreen {
             default -> "Infirmerie · " + (snap == null ? 0 : arr(snap, "injured").size()) + " blessé(s)";
         };
         plaque(ctx, title);
-        nameBox.setVisible(false);
-        villageBox.setVisible(false);
         if (snap == null) {
             text(ctx, "Connexion à l'infirmerie…", vx0(), vy0() + 4, INK_SOFT);
         } else if (paperBottom() >= sy1() - 2) {
@@ -147,7 +182,6 @@ public class InfirmerieScreen extends StaffScreen {
             }
         }
         closeButton(ctx);
-        infirmerieButton(ctx);
     }
 
     /* =================================================================== blessés */
@@ -197,7 +231,7 @@ public class InfirmerieScreen extends StaffScreen {
         }
 
         List<JsonObject> list = injured(snap);
-        int pages = Math.max(1, (list.size() + PER_PAGE - 1) / PER_PAGE);
+        int pages = Math.max(1, (list.size() + perPage() - 1) / perPage());
         page = Math.min(page, pages - 1);
         int top = y + 20, x0 = vx0() + 16, x1 = vx1() - 16;
         // corde + flèches laquées
@@ -211,9 +245,9 @@ public class InfirmerieScreen extends StaffScreen {
             Component c = RebornFont.body("Aucun blessé pour l'instant.");
             ctx.text(font, c, (vx0() + vx1()) / 2 - font.width(c) / 2, top + 30, INK_SOFT, false);
         }
-        int gap = 6, sw = (x1 - x0 - gap * (PER_PAGE - 1)) / PER_PAGE, sh = bottom - top - 8;
-        for (int i = 0; i < PER_PAGE; i++) {
-            int idx = page * PER_PAGE + i;
+        int gap = 6, sw = (x1 - x0 - gap * (perPage() - 1)) / perPage(), sh = bottom - top - 8;
+        for (int i = 0; i < perPage(); i++) {
+            int idx = page * perPage() + i;
             if (idx >= list.size()) break;
             int dx = slide();
             strip(ctx, list.get(idx), x0 + i * (sw + gap) + dx, top + 6, sw, sh, i);
@@ -229,7 +263,7 @@ public class InfirmerieScreen extends StaffScreen {
             hits.add(new Hit(cx - 2, bottom, 10, 10, () -> { page = target; viewAt = System.currentTimeMillis(); }));
         }
         if (!list.isEmpty()) {
-            String info = (page * PER_PAGE + 1) + "–" + Math.min(list.size(), (page + 1) * PER_PAGE) + " sur " + list.size();
+            String info = (page * perPage() + 1) + "–" + Math.min(list.size(), (page + 1) * perPage()) + " sur " + list.size();
             small(ctx, info, vx1() - Math.round(font.width(RebornFont.body(info)) * 0.75f) - 2, bottom + 3, INK_SOFT);
         }
     }
@@ -246,6 +280,7 @@ public class InfirmerieScreen extends StaffScreen {
     private void strip(GuiGraphicsExtractor ctx, JsonObject j, int x, int y, int w, int h, int i) {
         String state = str(j, "state");
         int col = stateColor(state);
+        if (h < 110) { stripTight(ctx, j, state, col, x, y, w, h); return; }
         float sway = (float) Math.sin(System.currentTimeMillis() / 700.0 + i * 1.3) * 0.6f;
         ctx.pose().pushMatrix();
         ctx.pose().translate(x + w / 2f, y);
@@ -314,6 +349,49 @@ public class InfirmerieScreen extends StaffScreen {
         stripButtons(ctx, j, state, x, y, w, h);
     }
 
+    /** Bande en place réduite : petit visage, nom, état et temps sur une ligne, encens couché, actions. */
+    private void stripTight(GuiGraphicsExtractor ctx, JsonObject j, String state, int col, int x, int y, int w, int h) {
+        ctx.fill(x + w / 2, y - 6, x + w / 2 + 1, y, LACQUER);
+        ctx.fill(x + 3, y + 3, x + w + 3, y + h + 3, 0x4D2E1C11);
+        ctx.fill(x - 1, y - 1, x + w + 1, y + h + 1, WOOD_DARK);
+        ctx.fillGradient(x, y, x + w, y + h, FUDA, FUDA_2);
+        ctx.fill(x, y, x + w, y + 3, col);
+        head(ctx, str(j, "uuid"), x + 4, y + 6, 12);
+        ctx.text(font, RebornFont.bold(fitBold(str(j, "perso"), w - 22)), x + 19, y + 6, INK, false);
+        int left = num(j, "left"), total = Math.max(1, num(j, "total"));
+        boolean repos = "repos".equals(str(j, "unit"));
+        String tt = repos ? left + "/" + total + " min" : "s".equals(str(j, "unit")) && total <= 120 ? left + " s" : (left / 60) + ":" + String.format("%02d", left % 60);
+        small(ctx, fit(str(j, "label") + " · " + tt, Math.round((w - 22) / 0.75f)), x + 19, y + 15, col);
+        int by = y + h - 28;
+        int room = by - 4 - (y + 26);
+        if (room >= 30) {
+            // place libre : encens debout au centre, détails dessous
+            float frac = repos ? 1f - left / (float) total : left / (float) total;
+            int maxH = Math.min(26, room - 14), stickH = Math.max(1, Math.round(maxH * Math.max(0f, Math.min(1f, frac))));
+            int sx = x + w / 2, base = y + 28 + maxH + 2;
+            ctx.fill(sx - 5, base, sx + 6, base + 3, 0xFF3A2C14);
+            ctx.fill(sx - 1, base - stickH, sx + 1, base, 0xFF6A3A1A);
+            int ember = (System.currentTimeMillis() / 300) % 2 == 0 ? 0xFFFFB050 : 0xFFE0602A;
+            ctx.fill(sx - 2, base - stickH - 2, sx + 2, base - stickH, ember);
+            int smokeA = 0x40 + (int) (Math.abs(Math.sin(System.currentTimeMillis() / 500.0)) * 0x30);
+            ctx.fill(sx - 1, base - stickH - 7, sx + 1, base - stickH - 3, (smokeA << 24) | 0x786E64);
+            int my = base + 6;
+            for (JsonElement m : arr(j, "meta")) {
+                if (my > by - 8) break;
+                smallCentered(ctx, fit(m.getAsString(), Math.round((w - 6) / 0.75f)), x + w / 2, my, INK_SOFT);
+                my += 7;
+            }
+        } else if (by - (y + 24) >= 4) {
+            float frac = repos ? 1f - left / (float) total : left / (float) total;
+            int bw2 = w - 10, fill = Math.max(1, Math.round(bw2 * Math.max(0f, Math.min(1f, frac))));
+            ctx.fill(x + 5, y + 23, x + 5 + bw2, y + 25, 0x40462810);
+            ctx.fill(x + 5, y + 23, x + 5 + fill, y + 25, 0xFF6A3A1A);
+            int ember = (System.currentTimeMillis() / 300) % 2 == 0 ? 0xFFFFB050 : 0xFFE0602A;
+            ctx.fill(x + 4 + fill, y + 22, x + 7 + fill, y + 26, ember);
+        }
+        stripButtons(ctx, j, state, x, y, w, h);
+    }
+
     /** Actions d'une bande (hors rotation pour des clics exacts). */
     private void stripButtons(GuiGraphicsExtractor ctx, JsonObject j, String state, int x, int y, int w, int h) {
         String uuid = str(j, "uuid");
@@ -325,11 +403,7 @@ public class InfirmerieScreen extends StaffScreen {
             else half(ctx, x + 3, by + 14, bw, "Hôpital", () -> koAct("hospital", uuid), "TP", () -> koAct("tp", uuid));
         } else {
             wide(ctx, x + 3, by, bw, "Lever l'ATA", "watch", () -> koAct("lift_ata", uuid));
-            half(ctx, x + 3, by + 14, bw, "Fiche", () -> {
-                JsonObject o = new JsonObject();
-                o.addProperty("a", "open");
-                StaffClient.send(o);
-            }, "TP", () -> koAct("tp", uuid));
+            half(ctx, x + 3, by + 14, bw, "Fiche", () -> openProfile(uuid), "TP", () -> koAct("tp", uuid));
         }
     }
 
@@ -843,6 +917,8 @@ public class InfirmerieScreen extends StaffScreen {
 
     void debugPage(int p) { page = p; }
 
+    void debugKoTab(String id) { switchTab(id); }
+
     void debugSelect(String id) {
         JsonObject snap = StaffClient.koSnapshot();
         JsonObject z = snap == null ? null : zoneById(snap, id);
@@ -864,14 +940,14 @@ public class InfirmerieScreen extends StaffScreen {
     /* =================================================================== entrées */
 
     private boolean inMap(double x, double y) {
-        return ("zones".equals(tab) || "hopitaux".equals(tab)) && x >= mx0 && x < mx1 && y >= my0 && y < my1 - 9;
+        return onKo() && ("zones".equals(tab) || "hopitaux".equals(tab)) && x >= mx0 && x < mx1 && y >= my0 && y < my1 - 9;
     }
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
         double x = e.x(), y = e.y();
         // réglettes
-        if (e.button() == 0) for (Slider s : sliders) {
+        if (onKo() && e.button() == 0) for (Slider s : sliders) {
             if (x >= s.x() && x < s.x() + Math.max(8, s.w()) && y >= s.y() && y < s.y() + (s.delta() ? 30 : 9)) {
                 dragSlider = s;
                 dragSliderStart = v(s.key());
@@ -1001,9 +1077,10 @@ public class InfirmerieScreen extends StaffScreen {
             camZ = wzv - (y - (my0 + my1) / 2.0) * bpp;
             return true;
         }
+        if (!onKo()) return super.mouseScrolled(x, y, h, v);
         if ("blesses".equals(tab)) {
             JsonObject snap = StaffClient.koSnapshot();
-            int pages = snap == null ? 1 : Math.max(1, (injured(snap).size() + PER_PAGE - 1) / PER_PAGE);
+            int pages = snap == null ? 1 : Math.max(1, (injured(snap).size() + perPage() - 1) / perPage());
             int np = Math.max(0, Math.min(pages - 1, page + (v < 0 ? 1 : -1)));
             if (np != page) { page = np; viewAt = System.currentTimeMillis(); RebornSounds.uiClick(); }
             return true;

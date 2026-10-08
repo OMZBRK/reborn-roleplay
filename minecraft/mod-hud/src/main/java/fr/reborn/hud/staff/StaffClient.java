@@ -55,11 +55,13 @@ public final class StaffClient {
         Minecraft mc = Minecraft.getInstance();
         switch (t) {
             case "open" -> {
-                if (mc.gui.screen() == null || mc.gui.screen().getClass() != StaffScreen.class) mc.setScreenAndShow(new StaffScreen());
+                if (mc.gui.screen() instanceof GardeScreen g) { if (g.onKo()) g.show("alerts"); }
+                else mc.setScreenAndShow(new GardeScreen("alerts"));
             }
             case "snap" -> snapshot = o;
             case "open_ko" -> {
-                if (!(mc.gui.screen() instanceof InfirmerieScreen)) mc.setScreenAndShow(new InfirmerieScreen());
+                if (mc.gui.screen() instanceof GardeScreen g) g.show("ko");
+                else mc.setScreenAndShow(new GardeScreen("ko"));
             }
             case "ko_snap" -> koSnapshot = o;
             case "close" -> {
