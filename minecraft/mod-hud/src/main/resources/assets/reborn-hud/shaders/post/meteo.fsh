@@ -8,8 +8,8 @@
 //   pixel 1 = (R temps bits 16-23, G champ de vision / 180°)
 //   pixel 2 = (R exposition au ciel, G/B soleil à l'écran codé sur [-0,5 ; 1,5], A visibilité du soleil)
 //   pixel 3 = (R/G lacet de la caméra déroulé, 0..3600° sur 16 bits ; B/A tangage -90..90° sur 16 bits)
-// Types : 1 pluie (bords mouillés, gouttes qui coulent sur l'objectif, voiles, nuit bleue, halo, grain),
-//         2 sable (trois degrés : petit vent, vent moyen, grosse tempête) (nappes de poussière qui s'écoulent, grains), 3 brume (bords enveloppés, volutes, nappes au sol, faisceaux).
+// Types : 1 pluie (bords mouillés, voiles, nuit bleue, halo, grain), 2 sable (lumière chaude ; le volume est en 3D
+//         dans le monde), 3 brume (bords enveloppés, volutes, nappes au sol, faisceaux ; nappes 3D en plus).
 
 uniform sampler2D InSampler;
 uniform sampler2D ParamsSampler;
@@ -88,41 +88,6 @@ vec3 halo(vec2 uv, vec2 px) {
     return acc / 10.0;
 }
 
-// Gouttes de pluie sur l'objectif : elles frappent l'objectif puis coulent vers le bas en accélérant, en laissant une
-// trace mouillée, comme sous une vraie pluie. Hors mise au point : bord doux, la scène derrière déformée et floutée,
-// petit éclat en haut, liseré clair en bas. Cellules trois fois plus hautes que larges, pour que chaque goutte ait de
-// la place pour couler. Renvoie (décalage de lecture xy en uv, masque, lumière).
-vec4 goutte(vec2 q, float t, float echelle, float densite, float aspect, float seed) {
-    vec2 g = vec2(q.x * echelle, q.y * echelle / 3.0);
-    g.x += hash(vec2(floor(g.y), seed)) * 0.5;                  // rangées décalées : pas de grille visible
-    vec2 id = floor(g);
-    vec2 st = fract(g) - 0.5;
-    float h = hash(id + seed);
-    if (h > densite) return vec4(0.0);
-    float vie = fract(t * (0.05 + 0.07 * hash(id + seed + 9.1)) + hash(id + seed + 5.1));
-    float impact = smoothstep(0.0, 0.02, vie);
-    float fin = smoothstep(1.0, 0.92, vie);
-    float descente = smoothstep(0.12, 1.0, vie);
-    descente *= descente;                                        // accroche un instant, puis accélère
-    float taille = 0.1 + 0.16 * hash(id + seed + 3.3);          // en largeurs de cellule
-    float x = (hash(id + seed + 1.3) - 0.5) * 0.5 + sin(vie * 17.0 + h * 9.0) * 0.015 * descente;
-    float y = 0.42 - descente * 0.9;                             // en hauteurs de cellule (uv : y = 0 en bas)
-    vec2 p = vec2(st.x - x, (st.y - y) * 3.0);
-    p.y /= 1.0 + descente * 0.45;                                // s'étire en coulant
-    float d = length(p) / taille;
-    float m = smoothstep(1.0, 0.35, d) * impact * fin;
-    float trace = 0.0;
-    if (st.y > y) {
-        float k = (st.y - y) * 3.0;
-        trace = smoothstep(taille * 0.4, 0.0, abs(st.x - x)) * smoothstep(1.4, 0.0, k) * 0.4 * descente * fin;
-    }
-    vec2 dec = -p * max(0.0, 1.0 - d) * 1.8 / echelle * m;
-    dec.x /= aspect;
-    float eclat = smoothstep(0.45, 0.0, length(p / taille - vec2(-0.28, 0.32))) * m;
-    float lisere = smoothstep(0.4, 0.85, d) * smoothstep(0.1, -0.6, p.y / taille) * m;
-    return vec4(dec, max(m, trace), eclat * 0.8 + lisere * 0.35);
-}
-
 // Flou doux (5 lectures) autour d'un point ; rayon en pixels.
 vec3 flou5(vec2 u, vec2 px, float r) {
     return texture(InSampler, u).rgb * 0.36
@@ -158,22 +123,16 @@ void main() {
 
     if (type == 1) {
         // ---------------- pluie (pays de la Pluie) : la pluie elle-même est celle de Minecraft (texture plus pâle) ;
-        // ici le rendu « caméra sous la pluie » : bords mouillés, gouttes qui coulent, voiles, nuit bleue, halo, grain
+        // ici le rendu « caméra sous la pluie » : bords mouillés, voiles, nuit bleue, halo, grain
         float dehors = p2.r;
         // eau qui ruisselle sur les bords de l'objectif : la scène y est floue et ondule
         float ruisselle = fbm3(vec2(q.x * 16.0, q.y * 1.2 + t * 0.9));
         float mouille = bordure * I * (0.35 + 0.65 * dehors);
         vec2 u = uv + vec2((ruisselle - 0.5) * 0.01, 0.0) * mouille;
-        vec4 g = goutte(q, t, 9.0, 0.14 * I * dehors, aspect, 0.0);
-        vec4 g2 = goutte(q + 0.37, t * 1.15, 16.0, 0.16 * I * dehors, aspect, 19.0);
-        vec4 g3 = goutte(q + 0.71, t * 0.9, 28.0, 0.14 * I * dehors, aspect, 41.0);
-        if (g2.z > g.z) g = g2;
-        if (g3.z > g.z) g = g3;
         vec2 cd = uv - 0.5;
         vec2 ab = cd * 0.005 * I * dot(cd, cd) * 4.0;                                   // aberration vers les bords
         col = vec3(texture(InSampler, u + ab).r, texture(InSampler, u).g, texture(InSampler, u - ab).b);
         col = mix(col, flou5(u, px, 3.0), mouille * 0.85);                              // bords flous, mouillés
-        if (g.z > 0.0) col = mix(col, flou5(uv + g.xy, px, 2.5) * 1.06, g.z * 0.9);    // la scène dans la goutte
 
         // voiles de pluie qui descendent et dérivent avec le vent, bruine au ras du sol
         vec2 w = vec2(fbm(qm * 0.9 + vec2(-t * 0.2, t * 0.3)), fbm(qm * 0.9 + vec2(3.7, t * 0.25)));
@@ -192,41 +151,18 @@ void main() {
         col *= mix(1.0, 0.82, I);
         col = mix(col, col * vec3(0.78, 0.9, 1.18) + vec3(0.01, 0.02, 0.05), mouille * 0.6);   // bords plus bleus
         col += halo(uv, px) * vec3(1.0, 0.85, 0.6) * 0.6 * I;                          // halo des lumières
-        col += vec3(0.85, 0.9, 1.0) * g.w * 0.3 * I;                                   // éclat / liseré des gouttes
         col += (hash(uv * InSize + fract(t * 13.0) * 100.0) - 0.5) * 0.035 * I;        // grain de film
         vec2 d = uv - 0.5;
         col *= 1.0 - 0.45 * I * dot(d, d);
     } else if (type == 2) {
-        // ---------------- sable (pays du Vent), trois degrés selon l'intensité :
-        //   petit vent (~25 %) : du sable qui court au ras du sol, lumière chaude, l'horizon reste visible
-        //   vent moyen (~55 %) : voile de poussière, nappes qui s'écoulent
-        //   grosse tempête (~90 %) : mur de sable, nappes épaisses, rafales, grains, bords de l'écran envahis
-        float moyen = smoothstep(0.25, 0.55, I);
-        float tempete = smoothstep(0.6, 0.9, I);
-        float vit = 0.5 + I;
-        vec2 w = vec2(fbm(qm * 1.1 + vec2(-t * 0.3 * vit, 0.0)), fbm(qm * 1.1 + vec2(5.2, -t * 0.17)));
-        float nappe = fbm(qm * vec2(1.3, 2.8) + w * 1.8 + vec2(-t * 0.8 * vit, 0.0));
-        float rafale = fbm(qm * vec2(3.0, 9.0) + w * 1.0 + vec2(-t * 2.1 * vit, 0.0));
-        float rase = fbm3(vec2(qm.x * 2.0 - t * (0.6 + 1.6 * I), qm.y * 18.0 + w.y * 3.0));
-        float sol = smoothstep(1.1, 0.05, yv);
-        float bas = smoothstep(0.42, 0.0, yv);
-        float dens = I * 0.55 * bas * smoothstep(0.5, 0.8, rase)
-                   + moyen * (0.08 + 0.3 * sol) * smoothstep(0.32, 0.68, nappe)
-                   + tempete * (0.12 + 0.2 * sol) * smoothstep(0.3, 0.65, nappe)
-                   + tempete * 0.25 * smoothstep(0.45, 0.75, rafale) * (0.4 + 0.6 * sol);
-        vec3 sable = mix(vec3(0.62, 0.47, 0.3), vec3(0.93, 0.8, 0.6), clamp(nappe * 1.3 - 0.2, 0.0, 1.0));
-        col *= mix(vec3(1.0), vec3(1.05, 0.95, 0.8), I * 0.6);                     // lumière chaude
-        col = mix(col, sable, clamp(dens, 0.0, 0.92));
-        // grains qui filent (courts traits flous, poussés par le vent)
-        vec2 gg = vec2(qm.x * 26.0 - t * 48.0 * vit, qm.y * 220.0 + sin(qm.x * 4.0 + t) * 2.0);
-        vec2 gid = floor(gg);
-        float gx = fract(gg.x), gy = fract(gg.y) - 0.5;
-        float grain = step(0.97, hash(gid)) * smoothstep(0.0, 0.7, gx) * smoothstep(1.0, 0.75, gx) * smoothstep(0.5, 0.1, abs(gy));
-        col = mix(col, vec3(1.0, 0.9, 0.72), grain * 0.3 * (0.4 * moyen + 0.6 * tempete) * (0.5 + 0.5 * sol));
-        // grosse tempête : le sable fouette la caméra, les bords de l'écran en sont envahis
-        col = mix(col, sable * 0.92, bordure * tempete * 0.55 * (0.7 + 0.3 * rafale));
+        // ---------------- sable (pays du Vent) : le volume (nuages de poussière, grains) est en 3D dans le monde
+        // (MeteoClient) et le mur de sable dans le brouillard du jeu ; ici seulement la lumière chaude et terne et un
+        // léger voile uniforme, plus marqués avec l'intensité (petit vent, vent moyen, grosse tempête)
+        col *= mix(vec3(1.0), vec3(1.05, 0.95, 0.8), I * 0.6);
+        col = mix(col, vec3(lum(col)) * vec3(1.1, 0.96, 0.78), 0.25 * I);
+        col = mix(col, vec3(0.86, 0.72, 0.52), 0.12 * I * I);
         vec2 d = uv - 0.5;
-        col *= 1.0 - 0.35 * I * dot(d, d);
+        col *= 1.0 - 0.3 * I * dot(d, d);
     } else if (type == 3) {
         // ---------------- brume (légère → dense de fou) : bords enveloppés, volutes, nappes au sol, faisceaux
         // bords de l'écran : la brume s'y épaissit et y adoucit tout, avec des volutes qui dérivent lentement

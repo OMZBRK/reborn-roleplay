@@ -44,12 +44,22 @@ public final class MeteoClient {
 
     public static byte type() { return type; }
 
-    /** Intensité effective (après fondus et variations), 0..1. */
+    /** Brume : 1 au ras du sol, diminue quand le joueur s'élève au-dessus du sol (lissé). */
+    private static float facteurHauteur = 1f;
+
+    /** Intensité effective (après fondus et variations ; la brume se dissipe en altitude), 0..1. */
     public static float intensite() {
         if (intensite <= 0f) return 0f;
         double t = System.currentTimeMillis() / 1000.0;
         float vie = (float) (0.88 + 0.08 * Math.sin(t * 0.37) + 0.05 * Math.sin(t * 1.13 + 1.7));
-        return Math.min(1f, intensite * vie);
+        float h = type == BRUME ? facteurHauteur : 1f;
+        return Math.min(1f, intensite * vie * h);
+    }
+
+    /** Direction du vent (radians, plan horizontal) : tourne lentement autour d'une direction moyenne. */
+    private static double angleVent() {
+        double t = System.currentTimeMillis() / 1000.0;
+        return 0.6 + 0.35 * Math.sin(t * 0.05) + 0.12 * Math.sin(t * 0.31);
     }
 
     private static int sonTicks;
@@ -78,11 +88,52 @@ public final class MeteoClient {
                     net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER, net.minecraft.sounds.SoundSource.WEATHER,
                     1.2f + 0.8f * i, 0.8f + rnd.nextFloat() * 0.2f, false);
         }
-        if (type == SABLE) poussiere(mc, i, rnd);
+        if (type == SABLE) { poussiere(mc, i, rnd); volutes(mc, i, rnd, true); }
+        if (type == BRUME) volutes(mc, i, rnd, false);
         if (type == PLUIE) embruns(mc, i, rnd);
         if (type == SABLE && sonTicks % 50 == 0) {
             mc.level.playLocalSound(x, y + 1, z, net.minecraft.sounds.SoundEvents.ELYTRA_FLYING,
                     net.minecraft.sounds.SoundSource.WEATHER, 0.08f + 0.22f * i, 0.55f + rnd.nextFloat() * 0.15f, false);
+        }
+    }
+
+    /**
+     * Volume du sable et de la brume, dans le monde et non sur l'écran : grosses volutes de fumée du jeu, très
+     * transparentes et teintées, portées par le vent (vite pour le sable, à peine pour la brume). Elles naissent à
+     * distance, dans le brouillard, pour ne pas apparaître sous les yeux ; la brume reste collée au sol.
+     */
+    private static void volutes(Minecraft mc, float i, net.minecraft.util.RandomSource rnd, boolean sable) {
+        if (mc.particleEngine == null) return;
+        float moyenne = sable ? 0.4f + 2.6f * i * i : 0.3f + 1.2f * i;          // volutes par tick, en moyenne
+        int n = (int) moyenne + (rnd.nextFloat() < moyenne - (int) moyenne ? 1 : 0);
+        double ang = angleVent();
+        double vx = Math.cos(ang), vz = Math.sin(ang);
+        for (int k = 0; k < n; k++) {
+            double a = rnd.nextDouble() * Math.PI * 2, r = 8 + rnd.nextDouble() * 32;
+            double px = mc.player.getX() + Math.cos(a) * r, pz = mc.player.getZ() + Math.sin(a) * r;
+            if (sable) { px -= vx * 14; pz -= vz * 14; }                          // plutôt en amont du vent
+            int sol = mc.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+                    net.minecraft.util.Mth.floor(px), net.minecraft.util.Mth.floor(pz));
+            if (Math.abs(sol - mc.player.getY()) > 16) continue;
+            double haut = sable ? 0.3 + rnd.nextDouble() * rnd.nextDouble() * (1.5 + 10 * i * i)
+                                : rnd.nextDouble() * rnd.nextDouble() * (1.5 + 2.5 * i);
+            var p = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                    px, sol + haut, pz, 0, 0, 0);
+            if (p == null) continue;
+            var acc = (fr.reborn.hud.mixin.ParticleMeteoAccessor) p;
+            acc.reborn$setGravity(0f);
+            acc.reborn$setHasPhysics(false);
+            double v = sable ? 0.08 + 0.35 * i + rnd.nextDouble() * 0.08 : 0.01 + 0.02 * rnd.nextDouble();
+            p.setParticleSpeed(vx * v, (rnd.nextDouble() - 0.5) * 0.004, vz * v);
+            p.setLifetime(sable ? 90 + rnd.nextInt(60) : 200 + rnd.nextInt(120));
+            p.scale(sable ? 3f + rnd.nextFloat() * 4f : 4f + rnd.nextFloat() * 5f);
+            if (p instanceof net.minecraft.client.particle.SingleQuadParticle q) {
+                float c = 0.92f + rnd.nextFloat() * 0.12f;
+                if (sable) q.setColor(0.86f * c, 0.70f * c, 0.50f * c);
+                else q.setColor(0.88f * c, 0.90f * c, 0.92f * c);
+                ((fr.reborn.hud.mixin.SingleQuadParticleMeteoAccessor) q)
+                        .reborn$setAlpha(sable ? 0.05f + 0.14f * i : 0.05f + 0.12f * i);
+            }
         }
     }
 
@@ -92,8 +143,7 @@ public final class MeteoClient {
      */
     private static void poussiere(Minecraft mc, float i, net.minecraft.util.RandomSource rnd) {
         if (mc.particleEngine == null) return;
-        double t = System.currentTimeMillis() / 1000.0;
-        double ang = 0.6 + 0.35 * Math.sin(t * 0.05) + 0.12 * Math.sin(t * 0.31);
+        double ang = angleVent();
         double vx = Math.cos(ang), vz = Math.sin(ang);
         int n = Math.round(3 + 30 * (float) Math.pow(i, 1.5));
         double hauteur = 1.2 + 8.0 * i * i;                 // petit vent : au ras du sol ; tempête : partout
@@ -211,6 +261,13 @@ public final class MeteoClient {
         if (mc.player != null && mc.level != null) {
             float cible = mc.level.canSeeSky(net.minecraft.core.BlockPos.containing(mc.player.getEyePosition())) ? 1f : 0f;
             exposition += (cible - exposition) * Math.min(1f, dt * 1.5f);
+            // brume : se dissipe quand on s'élève au-dessus du sol (rien au saut, presque plus à ~20 blocs)
+            int sol = mc.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+                    mc.player.getBlockX(), mc.player.getBlockZ());
+            float h = (float) (mc.player.getEyeY() - sol);
+            float u = Math.max(0f, Math.min(1f, (h - 2.5f) / 18f));
+            float fh = 1f - 0.85f * u * u * (3f - 2f * u);
+            facteurHauteur += (fh - facteurHauteur) * Math.min(1f, dt * 2f);
             soleil(mc);
             var cam = mc.gameRenderer.mainCamera();
             float y = cam.yRot();
