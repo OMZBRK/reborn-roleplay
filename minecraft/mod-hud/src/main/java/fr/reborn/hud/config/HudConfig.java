@@ -49,6 +49,7 @@ public final class HudConfig {
      * faire qu'une fois (l'utilisateur peut ensuite réafficher chaque élément).
      */
     private boolean vitalsMigrated = false;
+    private boolean chatPanelMigrated = false;
 
     /**
      * Toggle du rendu chat Reborn. false (défaut) = chat VANILLA normal :
@@ -170,12 +171,22 @@ public final class HudConfig {
                 parsed = new HudConfig();
             }
         }
-        // Placement par défaut du chat : offset (0, +23) à l'échelle 1.0 → les
-        // messages se posent pile au-dessus de la barre de saisie. Modifiable
-        // dans l'éditeur HUD (putIfAbsent → ne touche pas un placement existant).
         if (parsed.states == null) parsed.states = new HashMap<>();
-        parsed.states.putIfAbsent(HudElement.CHAT.id(),
-            new HudElementState(0, 23, 1.0f, true, null));
+        // Migration chat en panneau (onglets + saisie intégrée) : les anciens décalages
+        // visaient l'ancien rendu ; on repart de la place par défaut, en bas-gauche.
+        if (!parsed.chatPanelMigrated) {
+            HudElementState old = parsed.states.get(HudElement.CHAT.id());
+            boolean visible = old == null || old.visible();
+            parsed.states.put(HudElement.CHAT.id(), HudElementState.DEFAULT.withVisible(visible));
+            if (parsed.presets != null) {
+                for (Map<String, HudElementState> preset : parsed.presets.values()) {
+                    if (preset != null && preset.containsKey(HudElement.CHAT.id())) {
+                        preset.put(HudElement.CHAT.id(), HudElementState.DEFAULT);
+                    }
+                }
+            }
+            parsed.chatPanelMigrated = true;
+        }
 
         // Migration VITALS : masque XP/vie/faim vanilla (repris par le panneau RP)
         // et active VITALS. Une seule fois.

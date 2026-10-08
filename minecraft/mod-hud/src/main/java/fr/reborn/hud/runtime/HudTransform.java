@@ -72,6 +72,19 @@ public final class HudTransform {
         ctx.pose().popMatrix();
     }
 
+    /** Inverse de {@link #toLocal} : point LOCAL de l'élément vers l'écran. */
+    public static double[] toScreen(HudElement element, double localX, double localY) {
+        HudElementState state = readStateSafely(element);
+        Minecraft mc = Minecraft.getInstance();
+        HudAnchor anchor = state.effectiveAnchor(element);
+        HudElementBounds vanilla = HudElementBounds.vanillaFor(element,
+            mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+        double ax = vanilla.x() + vanilla.width() * anchor.fx;
+        double ay = vanilla.y() + vanilla.height() * anchor.fy;
+        float scale = state.scale();
+        return new double[] { ax + (localX - ax) * scale + state.x(), ay + (localY - ay) * scale + state.y() };
+    }
+
     /**
      * Convertit un point ÉCRAN (souris) vers l'espace LOCAL de l'élément (celui
      * dans lequel il est dessiné après {@link #apply}), en inversant translate +

@@ -10,8 +10,8 @@ import java.util.Set;
 /**
  * Commandes client de blocage chat : {@code /rblock <pseudo>},
  * {@code /runblock <pseudo>}, {@code /rblocklist}. Purement côté client —
- * les messages des joueurs bloqués sont masqués au rendu
- * ({@link fr.reborn.hud.runtime.ChatMessageRenderer}) via {@link ChatBlockList}.
+ * les messages des joueurs bloqués ne sont jamais ajoutés au chat
+ * ({@code ChatHudAddMessageMixin}) via {@link ChatBlockList}.
  */
 public final class ChatBlockCommands {
 

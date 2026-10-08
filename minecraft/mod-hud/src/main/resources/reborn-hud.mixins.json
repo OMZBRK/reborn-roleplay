@@ -10,6 +10,7 @@
     "HudAccessor",
     "ScreenInvoker",
     "ChatScreenMixin",
+    "EditBoxChatSearchMixin",
     "AbstractClientPlayerSkinMixin",
     "InGameHudMixin",
     "ExperienceBarRendererMixin",

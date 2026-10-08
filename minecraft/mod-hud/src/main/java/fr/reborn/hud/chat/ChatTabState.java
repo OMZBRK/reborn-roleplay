@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * État runtime des onglets de chat : onglet actif + compteurs unread.
  *
- * <p>Non persisté (vit dans {@code RebornChatRenderer} pour la session).
+ * <p>Non persisté (état de session, comme dans {@code ChatPanel}).
  * À la première arrivée de message non-vu sur un tab non-actif, le
  * compteur unread s'incrémente. Click sur le tab → activé + reset.
  *

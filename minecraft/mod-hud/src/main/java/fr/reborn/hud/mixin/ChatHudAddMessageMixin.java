@@ -20,14 +20,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Mixin sur {@code ChatComponent.addMessage(Component)} pour détecter les mentions
- * du joueur local et déclencher :
- * <ul>
- *   <li>Un son de notification discret (cloche).</li>
- *   <li>Un flash visuel du panel chat (pulse 1.5s) — géré dans
- *       {@link RebornChatRenderer#triggerMentionFlash}.</li>
- *   <li>L'incrément du compteur unread du tab approprié via le classifier.</li>
- * </ul>
+ * Mixin sur {@code ChatComponent.addMessage(Component)} : filtre les joueurs
+ * bloqués, horodate chaque message et joue un son discret (cloche) quand le
+ * joueur local est mentionné (le surlignage est fait par {@code ChatPanel}).
  *
  * <p>Le toggle {@code chatSettings.highlightMentions} active/désactive
  * tout. Le toggle {@code chatSettings.soundOnMention} contrôle séparément

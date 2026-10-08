@@ -25,9 +25,8 @@ public record HudElementBounds(int x, int y, int width, int height) {
      */
     public static HudElementBounds vanillaFor(HudElement element, int screenWidth, int screenHeight) {
         return switch (element) {
-            // Chat vanilla : largeur ~320, ~7 lignes visibles, ancré en bas-gauche
-            // au-dessus de la hotbar (le bas reste ~à screenHeight - 34).
-            case CHAT -> new HudElementBounds(4, screenHeight - 100, 320, 66);
+            // Panneau du chat Reborn (onglets + messages + saisie), ancré en bas-gauche.
+            case CHAT -> fr.reborn.hud.chat.ChatPanel.bounds(screenWidth, screenHeight);
             case SCOREBOARD -> new HudElementBounds(screenWidth - 100, screenHeight / 2 - 60, 90, 120);
             case BOSS_BAR -> new HudElementBounds(screenWidth / 2 - 90, 12, 182, 19);
             case ACTION_BAR -> new HudElementBounds(screenWidth / 2 - 90, screenHeight - 70, 180, 10);

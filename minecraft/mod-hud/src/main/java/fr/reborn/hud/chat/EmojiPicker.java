@@ -1,6 +1,5 @@
 package fr.reborn.hud.chat;
 
-import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -8,8 +7,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import java.util.function.Consumer;
 
 /**
- * Bouton emoji (au bout de la barre de saisie, façon Paladium) + sélecteur qui
- * s'ouvre à droite du chat. Cliquer un emoji insère son glyphe dans la saisie.
+ * Sélecteur d'emojis ouvert par le bouton smiley de la barre de saisie du
+ * {@link ChatPanel}. Cliquer un emoji insère son glyphe dans la saisie.
  * Les glyphes sont les caractères privés U+E000.. déclarés dans la font
  * {@code minecraft:default} du mod (chacun = un PNG 16×16). Comme tous les
  * joueurs ont le mod, tout le monde voit les emojis.
@@ -34,7 +33,6 @@ public final class EmojiPicker {
         return e;
     }
 
-    private static final int BTN = 13;
     private static final int COLS = 6;
     private static final int CELL_W = 22;
     private static final int CELL_H = 20;
@@ -45,54 +43,38 @@ public final class EmojiPicker {
 
     public static void onClose() { open = false; }
 
-    // ─── Géométrie ─── bouton au bout de la barre de saisie (largeur du chat).
-    private static int buttonX(int screenW) { return ChatLayout.emojiBtnX(screenW); }
-    private static int buttonY(int screenH) { return screenH - BTN - 2; }
+    public static void toggle() { open = !open; }
 
+    public static boolean isOpen() { return open; }
+
+    // ─── Géométrie (coordonnées locales du chat) : au-dessus du bouton emoji du panneau, aligné à sa droite.
     private static int rows() { return (EMOTES.length + COLS - 1) / COLS; }
     private static int pickerW() { return COLS * CELL_W + 8; }
     private static int pickerH() { return rows() * CELL_H + 8 + HDR; }
-    // S'ouvre à DROITE du chat (aligné au bouton), pas par-dessus les messages.
-    private static int pickerX(int screenW) {
-        return Math.min(buttonX(screenW), screenW - pickerW() - 2);
-    }
-    // Bas aligné avec le bouton, grandit vers le haut.
-    private static int pickerY(int screenH) {
-        return (buttonY(screenH) + BTN) - pickerH();
-    }
+    private static int pickerX() { int[] b = ChatPanel.emojiRect(); return b[0] + b[2] - pickerW(); }
+    private static int pickerY() { return ChatPanel.emojiRect()[1] - pickerH() - 4; }
 
-    public static void render(GuiGraphicsExtractor ctx, int mouseX, int mouseY, int screenW, int screenH) {
-        Minecraft mc = Minecraft.getInstance();
-        var tr = mc.font;
-
-        int bx = buttonX(screenW), by = buttonY(screenH);
-        // Bouton rouge (façon Paladium), smiley blanc.
-        boolean btnHover = inside(mouseX, mouseY, bx, by, BTN, BTN);
-        DrawHelpers.roundedOutlinedRect(ctx, bx, by, BTN, BTN, 3,
-            (btnHover || open) ? Colors.ACCENT_HOVER : Colors.ACCENT, Colors.ACCENT_PRESSED);
-        int eye = 0xFFFFFFFF;
-        ctx.fill(bx + 4, by + 4, bx + 5, by + 5, eye);
-        ctx.fill(bx + 8, by + 4, bx + 9, by + 5, eye);
-        ctx.fill(bx + 4, by + 8, bx + 5, by + 9, eye);
-        ctx.fill(bx + 8, by + 8, bx + 9, by + 9, eye);
-        ctx.fill(bx + 5, by + 9, bx + 8, by + 10, eye);
-
+    /** Dessine le sélecteur (le bouton fait partie du panneau). Coordonnées locales du chat. */
+    public static void render(GuiGraphicsExtractor ctx, double mouseX, double mouseY) {
         if (!open) return;
-
-        int px = pickerX(screenW), py = pickerY(screenH);
-        DrawHelpers.roundedOutlinedRect(ctx, px, py, pickerW(), pickerH(), 5,
-            Colors.BACKDROP_85, Colors.BORDER_STRONG);
-        ctx.text(tr, fr.reborn.hud.menu.RebornFont.bold("EMOJI"),
-            px + 6, py + 3, Colors.FOREGROUND_SUBTLE, false);
-        ctx.fill(px + 4, py + HDR - 1, px + pickerW() - 4, py + HDR, Colors.BORDER);
-
+        var tr = Minecraft.getInstance().font;
+        int px = pickerX(), py = pickerY();
+        int pw = pickerW(), ph = pickerH();
+        ctx.fill(px + 2, py + 3, px + pw + 2, py + ph + 3, 0x55000000);
+        ctx.fill(px - 1, py, px + pw + 1, py + ph, 0xFF2E1C11);
+        ctx.fill(px, py - 1, px + pw, py + ph + 1, 0xFF2E1C11);
+        ctx.fillGradient(px, py, px + pw, py + ph, 0xF51C0E12, 0xF50A0608);
+        DrawHelpers.outlinedRect(ctx, px + 2, py + 2, pw - 4, ph - 4, 0, 0x50D9A95E);
+        ctx.text(tr, fr.reborn.hud.menu.RebornFont.body("Emojis"), px + 7, py + 3, 0xFFD9A95E, false);
+        ctx.fill(px + 5, py + HDR, px + pw - 5, py + HDR + 1, 0x403A2C14);
         for (int i = 0; i < EMOTES.length; i++) {
             int col = i % COLS, row = i / COLS;
             int cx = px + 4 + col * CELL_W;
             int cy = py + 4 + HDR + row * CELL_H;
-            boolean hot = inside(mouseX, mouseY, cx, cy, CELL_W, CELL_H);
-            if (hot) DrawHelpers.roundedRect(ctx, cx, cy, CELL_W, CELL_H, 3, Colors.ACCENT_SOFT);
-            // Emoji agrandi, centré, tint blanc (= vraies couleurs du glyphe).
+            if (inside(mouseX, mouseY, cx, cy, CELL_W, CELL_H)) {
+                ctx.fill(cx, cy, cx + CELL_W, cy + CELL_H, 0x30D9A95E);
+                DrawHelpers.outlinedRect(ctx, cx, cy, CELL_W, CELL_H, 0, 0x90D9A95E);
+            }
             ctx.pose().pushMatrix();
             ctx.pose().translate(cx + CELL_W / 2f, cy + CELL_H / 2f);
             ctx.pose().scale(EMOJI_SCALE, EMOJI_SCALE);
@@ -102,32 +84,26 @@ public final class EmojiPicker {
         }
     }
 
-    /** @return true si le clic a été géré (consommé). */
-    public static boolean handleClick(double mx, double my, int screenW, int screenH,
-                                      Consumer<String> insert) {
-        int bx = buttonX(screenW), by = buttonY(screenH);
-        if (inside((int) mx, (int) my, bx, by, BTN, BTN)) {
-            open = !open;
-            return true;
-        }
+    /** @return true si le clic (coordonnées locales) a été consommé par le sélecteur. */
+    public static boolean handleClick(double mx, double my, Consumer<String> insert) {
         if (!open) return false;
-        int px = pickerX(screenW), py = pickerY(screenH);
+        int px = pickerX(), py = pickerY();
         for (int i = 0; i < EMOTES.length; i++) {
             int col = i % COLS, row = i / COLS;
             int cx = px + 4 + col * CELL_W;
             int cy = py + 4 + HDR + row * CELL_H;
-            if (inside((int) mx, (int) my, cx, cy, CELL_W, CELL_H)) {
+            if (inside(mx, my, cx, cy, CELL_W, CELL_H)) {
                 insert.accept(EMOTES[i]);
                 return true; // reste ouvert pour en ajouter plusieurs
             }
         }
-        if (!inside((int) mx, (int) my, px, py, pickerW(), pickerH())) {
-            open = false;
-        }
+        if (inside(mx, my, px, py, pickerW(), pickerH())) return true;
+        int[] b = ChatPanel.emojiRect();
+        if (!inside(mx, my, b[0], b[1], b[2], b[3])) open = false;
         return false;
     }
 
-    private static boolean inside(int mx, int my, int x, int y, int w, int h) {
+    private static boolean inside(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 }
