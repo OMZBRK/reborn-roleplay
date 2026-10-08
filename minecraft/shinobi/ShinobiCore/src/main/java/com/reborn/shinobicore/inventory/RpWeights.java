@@ -11,12 +11,17 @@ import org.bukkit.inventory.ItemStack;
  */
 public final class RpWeights {
 
+    /** Poids propre d'un objet (kg), posé par le plugin qui le crée (parchemins…) ; prime sur le barème. */
+    public static final org.bukkit.NamespacedKey WEIGHT_KEY = new org.bukkit.NamespacedKey("reborn", "rp_weight");
+
     private RpWeights() {}
 
     /** Poids total d'une pile (unitaire × quantité), 0 si vide. */
     public static double of(ItemStack s) {
         if (s == null || s.getType() == Material.AIR) return 0.0;
-        return unit(s.getType()) * Math.max(1, s.getAmount());
+        Double own = s.hasItemMeta() ? s.getItemMeta().getPersistentDataContainer()
+                .get(WEIGHT_KEY, org.bukkit.persistence.PersistentDataType.DOUBLE) : null;
+        return (own != null ? own : unit(s.getType())) * Math.max(1, s.getAmount());
     }
 
     /** Poids unitaire estimé par famille de matériau (kg). */

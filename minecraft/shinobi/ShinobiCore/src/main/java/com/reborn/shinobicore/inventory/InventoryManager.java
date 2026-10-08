@@ -660,6 +660,32 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         return true;
     }
 
+    // ─────────── API pour les autres plugins ───────────
+
+    /** Poids porté par le personnage actif (barre d'action + sac + cosmétiques), en kg. */
+    public double weight(Player p) {
+        RpBag b = bagFor(p);
+        return b == null ? hotbarWeight(p) : hotbarWeight(p) + b.storageWeight();
+    }
+
+    /** Poids maximum du personnage actif (base + sac porté), en kg. */
+    public double maxWeight(Player p) {
+        RpBag b = bagFor(p);
+        return b == null ? 12.0 : b.maxWeight();
+    }
+
+    /** Donne un objet : barre d'action, puis sac, puis au sol ; la sacoche ouverte est rafraîchie. */
+    public void give(Player p, ItemStack s) {
+        RpBag b = bagFor(p);
+        if (b == null) {
+            p.getInventory().addItem(s).values().forEach(r -> p.getWorld().dropItemNaturally(p.getLocation(), r));
+            return;
+        }
+        giveOrDrop(p, b, s);
+        persist(p, b);
+        push(p);
+    }
+
     /** Rend un item : 1re case libre du hotbar, sinon du stockage, sinon au sol. */
     private void giveOrDrop(Player p, RpBag b, ItemStack s) {
         if (isEmpty(s)) return;
