@@ -129,7 +129,7 @@ commands:
     permission: shinobicore.use
   meteo:
     description: Météo visuelle (mod client) — pluie, tempête de sable, brume.
-    usage: /<command> <pluie|sable|brume|clair> [intensité 0-100] [joueur|tous]
+    usage: /<command> <pluie|sable|brume|clair> [intensité 0-100 | leger | moyen | fort | tempete] [joueur|tous]
     aliases: [weatherfx]
     permission: shinobicore.meteo
   zonerp:

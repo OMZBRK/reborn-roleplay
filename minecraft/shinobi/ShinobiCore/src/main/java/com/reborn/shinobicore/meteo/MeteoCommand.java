@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * {@code /meteo <pluie|sable|brume|clair> [intensité 0-100] [joueur|tous]} — météo visuelle du mod client
+ * {@code /meteo <pluie|sable|brume|clair> [intensité 0-100 | leger | moyen | fort | tempete] [joueur|tous]} — météo visuelle du mod client
  * (mod-hud {@code MeteoClient} : filtre plein écran + brouillard), envoyée sur le canal {@code reborn:meteo}.
  *
  * <p>Corps du paquet = {@code byte type} (0 clair, 1 pluie, 2 sable, 3 brume) + {@code float intensité} 0..1
@@ -50,17 +50,15 @@ public final class MeteoCommand implements TabExecutor, Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length < 1 || !TYPES.contains(args[0].toLowerCase(Locale.ROOT))) {
-            sender.sendMessage("§cUsage : /" + label + " <pluie|sable|brume|clair> [intensité 0-100] [joueur|tous]");
+            sender.sendMessage("§cUsage : /" + label + " <pluie|sable|brume|clair> [intensité 0-100 | leger | moyen | fort | tempete] [joueur|tous]");
             return true;
         }
         byte type = (byte) TYPES.indexOf(args[0].toLowerCase(Locale.ROOT));
         float intensite = type == 0 ? 0f : 0.8f;
         int suivant = 1;
         if (args.length > 1 && type != 0) {
-            try {
-                intensite = Math.max(0, Math.min(100, Integer.parseInt(args[1]))) / 100f;
-                suivant = 2;
-            } catch (NumberFormatException ignored) { }
+            Float niveau = niveau(args[1]);
+            if (niveau != null) { intensite = niveau; suivant = 2; }
         } else if (args.length > 1) {
             try { Integer.parseInt(args[1]); suivant = 2; } catch (NumberFormatException ignored) { }
         }
@@ -87,6 +85,21 @@ public final class MeteoCommand implements TabExecutor, Listener {
         return true;
     }
 
+    /** Intensité : un pourcentage 0-100, ou un niveau nommé (leger 25, moyen 55, fort / tempete 90). */
+    private static Float niveau(String s) {
+        switch (s.toLowerCase(Locale.ROOT)) {
+            case "leger", "léger", "faible" -> { return 0.25f; }
+            case "moyen" -> { return 0.55f; }
+            case "fort", "tempete", "tempête" -> { return 0.9f; }
+            default -> { }
+        }
+        try {
+            return Math.max(0, Math.min(100, Integer.parseInt(s))) / 100f;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> out = new ArrayList<>();
@@ -94,7 +107,7 @@ public final class MeteoCommand implements TabExecutor, Listener {
         if (args.length == 1) {
             out.addAll(TYPES);
         } else if (args.length == 2) {
-            out.addAll(List.of("30", "60", "80", "100", "tous"));
+            out.addAll(List.of("leger", "moyen", "fort", "tempete", "30", "60", "80", "100", "tous"));
             for (Player p : Bukkit.getOnlinePlayers()) out.add(p.getName());
         } else if (args.length == 3) {
             out.add("tous");
