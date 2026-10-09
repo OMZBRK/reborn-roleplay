@@ -60,6 +60,21 @@ public final class ChatDebug {
         }
     }
 
+    /** Audit responsive : remplit le chat avec les messages de démo. */
+    public static void fillDemo(Minecraft mc) {
+        var chat = mc.gui.hud.getChat();
+        String me = mc.player.getGameProfile().name();
+        chat.clearMessages(false);
+        chat.addClientSystemMessage(Component.literal("Le vent se lève sur les toits de Konoha.").withStyle(ChatFormatting.GRAY));
+        chat.addClientSystemMessage(me("Kazuki Uchiha", ChatFormatting.RED, "serre le poing et fixe l'horizon, la mâchoire crispée."));
+        chat.addClientSystemMessage(say("Ren Hyūga", ChatFormatting.AQUA, "Tu comptes rester planté là toute la nuit ?"));
+        chat.addClientSystemMessage(say("Kazuki Uchiha", ChatFormatting.RED, "Je l'attends. Il a promis de venir, " + me + "."));
+        chat.addClientSystemMessage(Component.literal("[Staff] ").withStyle(ChatFormatting.GOLD)
+                .append(Component.literal("Modo Raiden_FR : ").withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal("Petit rappel : les actions se font en /me.").withStyle(ChatFormatting.WHITE)));
+        chat.addClientSystemMessage(me("Ren Hyūga", ChatFormatting.AQUA, "active son Byakugan, les veines autour de ses yeux se gonflent."));
+    }
+
     private static MutableComponent me(String name, ChatFormatting tone, String action) {
         return Component.empty()
                 .append(Component.literal("* ").withStyle(tone, ChatFormatting.BOLD))

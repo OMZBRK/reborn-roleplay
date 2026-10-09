@@ -21,12 +21,12 @@ public final class KoDebug {
         ClientTickEvents.END_CLIENT_TICK.register(KoDebug::tick);
     }
 
-    private static KoPayload ko(int phase, int cause, int left, int total, boolean hosp) {
+    public static KoPayload ko(int phase, int cause, int left, int total, boolean hosp) {
         return new KoPayload((byte) phase, (byte) cause, (short) left, (short) total, hosp,
                 (byte) 0, 0f, (short) 0, (short) 0, false, false);
     }
 
-    private static KoPayload ata(int level, float rest, int min, int req, boolean resting, boolean fear) {
+    public static KoPayload ata(int level, float rest, int min, int req, boolean resting, boolean fear) {
         return new KoPayload((byte) 0, (byte) 0, (short) 0, (short) 0, false,
                 (byte) level, rest, (short) min, (short) req, resting, fear);
     }

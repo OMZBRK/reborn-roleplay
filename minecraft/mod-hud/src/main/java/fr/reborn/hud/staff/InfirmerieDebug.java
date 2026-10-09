@@ -50,6 +50,15 @@ public final class InfirmerieDebug {
         }
     }
 
+    /** Audit responsive : Infirmerie ouverte sur l'onglet {@code tab} (blesses, zones, hopitaux, reglages). */
+    public static void openDemo(Minecraft mc, String tab) {
+        StaffClient.debugReceive(snapshot(mc.player.getUUID().toString()));
+        GardeScreen s = new GardeScreen("ko");
+        mc.setScreenAndShow(s);
+        s.debugKoTab(tab);
+        if (tab.equals("zones")) s.debugSelect("dojo");
+    }
+
     private interface Act { void run(GardeScreen s); }
 
     private static void with(Minecraft mc, Act a) {

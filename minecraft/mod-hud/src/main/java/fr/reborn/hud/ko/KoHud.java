@@ -36,7 +36,7 @@ public final class KoHud {
         if (s != null) {
             if (s.phase() == 1) downed(ctx, font, s, w, h);
             else if (s.phase() == 2) unconscious(ctx, font, s, w, h);
-            else if (s.ata() > 0) ata(ctx, font, s, w);
+            else if (s.ata() > 0) ata(ctx, font, s, w, h);
             else if (s.fear()) fearOnly(ctx, font, w);
         }
         card(ctx, font, w, h);
@@ -117,6 +117,14 @@ public final class KoHud {
         float pulse = KoClient.pulse();
         int pw = 210, ph = 40;
         int x = w / 2 - pw / 2, y = Math.round(h * 0.60f);   // sous le viseur, au-dessus du chat
+        // le chat (déplaçable, plus large aux grandes échelles) ne doit pas passer sous la plaque
+        int[] chat = box(fr.reborn.hud.element.HudElement.CHAT, w, h);
+        if (chat != null && hits(x, y, pw, ph + 15, chat)) {
+            int above = chat[1] - ph - 18;
+            if (above >= h / 2 + 14) y = above;
+            else if (chat[0] + chat[2] + 6 + pw <= w - 4) x = Math.max(x, chat[0] + chat[2] + 6);
+            else y = Math.max(h / 2 + 14, above);
+        }
         // plaque laquée, bord d'or, lueur rouge qui bat
         int glow = Math.round(40 + 90 * pulse);
         DrawHelpers.rect(ctx, x - 2, y - 2, pw + 4, ph + 4, glow << 24 | (Colors.ACCENT & 0xFFFFFF));
@@ -135,7 +143,8 @@ public final class KoHud {
         for (int i = 1; i < 6; i++) ctx.fill(bx + bw * i / 6, by, bx + bw * i / 6 + 1, by + bh, 0x60000000);
         // conseil
         Component hint = RebornFont.body("Tu peux ramper · /aide pour appeler à l'aide");
-        ctx.text(font, hint, w / 2 - font.width(hint) / 2, y + ph + 5, Colors.FOREGROUND_SUBTLE, true);
+        int hx = Math.max(4, Math.min(w - 4 - font.width(hint), x + pw / 2 - font.width(hint) / 2));
+        ctx.text(font, hint, hx, y + ph + 5, Colors.FOREGROUND_SUBTLE, true);
     }
 
     /* ================================================================ inconscient */
@@ -146,6 +155,9 @@ public final class KoHud {
         boolean chakra = s.cause() == 1;
         int accent = chakra ? 0xFF6FA8E8 : Colors.ACCENT_HOVER;
         int cy = Math.round(h * 0.50f);
+        // le bloc (mot, fil, temps, invitation) remonte s'il tombe sur le chat
+        int[] chat = box(fr.reborn.hud.element.HudElement.CHAT, w, h);
+        if (chat != null && hits(w / 2 - 110, cy, 220, 66, chat)) cy = Math.max(Math.round(h * 0.28f), chat[1] - 70);
         Component label = RebornFont.display(chakra ? "ÉPUISEMENT" : "INCONSCIENT");
         int lw = Math.round(font.width(label) * 2f);
         ctx.pose().pushMatrix();
@@ -174,14 +186,22 @@ public final class KoHud {
 
     /* ================================================================ ATA */
 
-    private static void ata(GuiGraphicsExtractor ctx, Font font, KoPayload s, int w) {
+    private static void ata(GuiGraphicsExtractor ctx, Font font, KoPayload s, int w, int h) {
         boolean full = s.ata() == 2;
         int pw = 236, ph = 32;
         int x = w / 2 - pw / 2, y = 5;
+        // le panneau vitals (haut-gauche par défaut) garde sa place : on se pousse à droite, sinon dessous
+        int[] vit = box(fr.reborn.hud.element.HudElement.VITALS, w, h);
+        if (vit != null && hits(x, y, pw, ph, vit)) {
+            if (vit[0] + vit[2] + 6 + pw <= w - 4) x = vit[0] + vit[2] + 6;
+            else y = vit[1] + vit[3] + 6;
+        }
         DrawHelpers.outlinedRect(ctx, x, y, pw, ph, 0xD9150A0D, full ? Colors.ACCENT : Colors.GOLD);
         // cordons de suspension (kit : plaque suspendue)
-        ctx.fill(x + 24, 0, x + 25, y, Colors.GOLD);
-        ctx.fill(x + pw - 25, 0, x + pw - 24, y, Colors.GOLD);
+        if (y <= 5) {
+            ctx.fill(x + 24, 0, x + 25, y, Colors.GOLD);
+            ctx.fill(x + pw - 25, 0, x + pw - 24, y, Colors.GOLD);
+        }
         seal(ctx, font, x + 5, y + 5, 22, "痛", full ? Colors.ACCENT : 0xFF8A6A2A, Colors.FOREGROUND);
         Component title = RebornFont.body(full ? "ATA · Grièvement blessé" : "ATA · Blessé");
         ctx.text(font, title, x + 33, y + 5, Colors.FOREGROUND, true);
@@ -221,6 +241,22 @@ public final class KoHud {
     }
 
     /* ================================================================ commun */
+
+    /** Rectangle {x, y, w, h} d'un élément HUD tel que le joueur l'a placé, ou null s'il est masqué. */
+    private static int[] box(fr.reborn.hud.element.HudElement e, int w, int h) {
+        try {
+            var st = fr.reborn.hud.RebornHudClient.config().stateOf(e);
+            if (!st.visible()) return null;
+            var b = fr.reborn.hud.element.HudElementBounds.currentFor(e, st, w, h);
+            return new int[]{b.x(), b.y(), b.width(), b.height()};
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private static boolean hits(int x, int y, int w, int h, int[] r) {
+        return x < r[0] + r[2] && r[0] < x + w && y < r[1] + r[3] && r[1] < y + h;
+    }
 
     /** Sceau carré laqué avec un idéogramme centré (police du jeu). */
     private static void seal(GuiGraphicsExtractor ctx, Font font, int x, int y, int size, String glyph, int fill, int ink) {

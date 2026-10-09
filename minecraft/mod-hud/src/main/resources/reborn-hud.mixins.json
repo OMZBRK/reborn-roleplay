@@ -48,7 +48,9 @@
     "menu.OptionsScreenMixin",
     "menu.GameMenuScreenMixin",
     "menu.ConnectScreenMixin",
-    "menu.LoadingOverlayMixin"
+    "menu.LoadingOverlayMixin",
+    "menu.MenuScaleMixin",
+    "menu.MenuScaleResizeMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -29,15 +29,17 @@ public class VideoTab extends SectionedTab {
 
         section("Affichage");
 
-        // Échelle interface (GUI) — LE réglage anti-menus-géants.
+        // Échelle interface (GUI) : HUD en jeu et écrans vanilla. Les menus Reborn ont leur propre
+        // échelle, fixée par la taille de la fenêtre (voir ui.MenuScale).
         int guiScale = o.guiScale().get();
-        row("Échelle de l'interface", "Réduisez si les menus dépassent de l'écran",
+        row("Échelle de l'interface", "Taille du HUD en jeu (les menus Reborn s'adaptent seuls)",
             (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,
                 new SegmentedControl.Option[] {
                     new SegmentedControl.Option("0", "Auto"),
                     new SegmentedControl.Option("1", "1"),
                     new SegmentedControl.Option("2", "2"),
                     new SegmentedControl.Option("3", "3"),
+                    new SegmentedControl.Option("4", "4"),
                 },
                 String.valueOf(guiScale),
                 v -> applyGuiScale(parseInt(v, 0))));

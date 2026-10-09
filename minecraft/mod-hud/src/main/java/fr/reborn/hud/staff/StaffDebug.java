@@ -53,6 +53,17 @@ public final class StaffDebug {
         }
     }
 
+    /** Audit responsive : Poste de garde ouvert sur {@code tab} (fiche du joueur si {@code profile}). */
+    public static void openDemo(Minecraft mc, String tab, boolean profile) {
+        String me = mc.player.getUUID().toString();
+        inject(SNAP.replace("$ME", me));
+        inject(PROFILE.replace("$ME", me));
+        GardeScreen s = new GardeScreen("alerts");
+        mc.setScreenAndShow(s);
+        s.debugTab(tab);
+        if (profile) s.debugProfile(me);
+    }
+
     private static void inject(String json) {
         JsonObject o = JsonParser.parseString(json).getAsJsonObject();
         try {
