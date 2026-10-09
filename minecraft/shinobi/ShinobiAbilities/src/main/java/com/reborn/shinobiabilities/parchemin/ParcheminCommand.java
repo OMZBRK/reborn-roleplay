@@ -24,6 +24,8 @@ import java.util.Locale;
  *   <li>{@code /bibliotheque regler} — ouvre les réglages de la bibliothèque visée ou la plus proche.</li>
  *   <li>{@code /bibliotheque tirage} — force un nouveau tirage · {@code suppr} · {@code liste}.</li>
  *   <li>{@code /parchemin donner <joueur> <technique>} — donne un rouleau · {@code slots <technique>}.</li>
+ *   <li>{@code /parchemin seance <joueur> <technique> [n]} — accorde (ou retire, n négatif) des séances.</li>
+ *   <li>{@code /parchemin attente} · {@code valider|refuser <joueur> <technique>} — demandes du rang S.</li>
  * </ul>
  */
 public final class ParcheminCommand implements TabExecutor {
@@ -31,12 +33,15 @@ public final class ParcheminCommand implements TabExecutor {
     private final LibraryService libs;
     private final ScrollCatalog catalog;
     private final SlotRegistry slots;
+    private SeanceService seances;
 
     public ParcheminCommand(LibraryService libs, ScrollCatalog catalog, SlotRegistry slots) {
         this.libs = libs;
         this.catalog = catalog;
         this.slots = slots;
     }
+
+    public void wire(SeanceService seances) { this.seances = seances; }
 
     @Override
     public boolean onCommand(CommandSender s, Command cmd, String label, String[] args) {
@@ -105,7 +110,36 @@ public final class ParcheminCommand implements TabExecutor {
                 s.sendMessage("§6" + a.name() + " §7: " + slots.used(a.id()) + "/" + slots.max(a.id()) + " slots");
                 slots.holders(a.id()).forEach(h -> s.sendMessage("§7 - " + h));
             }
-            default -> s.sendMessage("§cUsage : /parchemin <donner <joueur> <technique>|slots <technique>>");
+            case "seance" -> {
+                if (args.length < 3) { s.sendMessage("§cUsage : /parchemin seance <joueur> <technique> [n]"); return true; }
+                Player t = Bukkit.getPlayerExact(args[1]);
+                Ability a = catalog.byId(args[2]);
+                if (t == null || a == null) { s.sendMessage("§cJoueur hors ligne ou technique inconnue."); return true; }
+                int n = 1;
+                try { if (args.length >= 4) n = Integer.parseInt(args[3].replace("+", "")); }
+                catch (NumberFormatException ex) { s.sendMessage("§cNombre invalide."); return true; }
+                int done = seances.grant(t, a, n);
+                if (done < 0) { s.sendMessage("§cAucun personnage actif."); return true; }
+                s.sendMessage("§a" + t.getName() + " · " + a.name() + " : " + done + " / "
+                        + ScrollCatalog.seances(ScrollCatalog.rank(a)) + " séances (délai remis à zéro).");
+            }
+            case "attente" -> {
+                if (seances.pending().isEmpty()) { s.sendMessage("§7Aucune demande de validation."); return true; }
+                for (SeanceService.Pending p : seances.pending()) {
+                    Ability a = catalog.byId(p.techId());
+                    s.sendMessage("§6" + p.playerName() + " §7· " + (a == null ? p.techId() : a.name())
+                            + " §7→ /parchemin valider|refuser " + p.playerName() + " " + p.techId());
+                }
+            }
+            case "valider", "refuser" -> {
+                if (!(s instanceof Player staff)) { s.sendMessage("§cEn jeu uniquement."); return true; }
+                if (args.length < 3) { s.sendMessage("§cUsage : /parchemin " + sub + " <joueur> <technique>"); return true; }
+                SeanceService.Pending p = seances.findPending(args[1], args[2]);
+                if (p == null) { s.sendMessage("§cAucune demande pour ce joueur et cette technique."); return true; }
+                String err = sub.equals("valider") ? seances.validate(staff, p) : seances.refuse(staff, p);
+                s.sendMessage(err == null ? "§aFait." : "§c" + err);
+            }
+            default -> s.sendMessage("§cUsage : /parchemin <donner|slots|seance|attente|valider|refuser>");
         }
         return true;
     }
@@ -126,10 +160,11 @@ public final class ParcheminCommand implements TabExecutor {
         List<String> out = new ArrayList<>();
         boolean biblio = cmd.getName().equalsIgnoreCase("bibliotheque");
         if (args.length == 1) {
-            out.addAll(biblio ? List.of("creer", "regler", "tirage", "suppr", "liste") : List.of("donner", "slots"));
-        } else if (!biblio && args.length == 2 && args[0].equalsIgnoreCase("donner")) {
+            out.addAll(biblio ? List.of("creer", "regler", "tirage", "suppr", "liste")
+                    : List.of("donner", "slots", "seance", "attente", "valider", "refuser"));
+        } else if (!biblio && args.length == 2 && List.of("donner", "seance", "valider", "refuser").contains(args[0].toLowerCase(Locale.ROOT))) {
             Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
-        } else if (!biblio && ((args.length == 3 && args[0].equalsIgnoreCase("donner"))
+        } else if (!biblio && ((args.length == 3 && List.of("donner", "seance", "valider", "refuser").contains(args[0].toLowerCase(Locale.ROOT)))
                 || (args.length == 2 && args[0].equalsIgnoreCase("slots")))) {
             for (Ability a : catalog.pool()) out.add(a.id());
         }

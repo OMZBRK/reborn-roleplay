@@ -80,6 +80,7 @@ public final class ShinobiAbilities extends JavaPlugin {
     private com.reborn.shinobiabilities.parchemin.ScrollCatalog scrollCatalog;
     private com.reborn.shinobiabilities.parchemin.SlotRegistry scrollSlots;
     private com.reborn.shinobiabilities.parchemin.LibraryService libraries;
+    private com.reborn.shinobiabilities.parchemin.SeanceService seances;
     private KnownAbilitiesGui knownGui;
     private GuiRouter guiRouter;
 
@@ -186,7 +187,15 @@ public final class ShinobiAbilities extends JavaPlugin {
         this.libraries = new com.reborn.shinobiabilities.parchemin.LibraryService(this, scrollCatalog, scrollSlots);
         this.libraries.load();
         this.libraries.register();
+        this.seances = new com.reborn.shinobiabilities.parchemin.SeanceService(this, core, scrollCatalog, scrollSlots,
+                minigame, libraries);
+        this.seances.loadConfig(getConfig().getConfigurationSection("parchemins"));
+        this.seances.load();
+        this.libraries.wire(seances);
+        this.techniques.wireSeances(seances::onSeanceEnd);
+        getServer().getPluginManager().registerEvents(seances, this);
         var parchCmd = new com.reborn.shinobiabilities.parchemin.ParcheminCommand(libraries, scrollCatalog, scrollSlots);
+        parchCmd.wire(seances);
         for (String name : new String[]{"bibliotheque", "parchemin"}) {
             PluginCommand pc = getCommand(name);
             if (pc != null) { pc.setExecutor(parchCmd); pc.setTabCompleter(parchCmd); }
@@ -358,6 +367,7 @@ public final class ShinobiAbilities extends JavaPlugin {
         if (abilities != null) loadAllAbilities();
         if (scrollCatalog != null) scrollCatalog.load(getConfig().getConfigurationSection("parchemins"));
         if (scrollSlots != null) scrollSlots.loadConfig(getConfig().getConfigurationSection("parchemins"));
+        if (seances != null) seances.loadConfig(getConfig().getConfigurationSection("parchemins"));
     }
 
     /**

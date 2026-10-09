@@ -63,6 +63,7 @@ public final class LibraryService implements Listener, PluginMessageListener {
     private final File file;
     private final Map<String, Library> libs = new LinkedHashMap<>();
     private final Random rnd = new Random();
+    private SeanceService seances;
 
     public LibraryService(JavaPlugin plugin, ScrollCatalog catalog, SlotRegistry slots) {
         this.plugin = plugin;
@@ -78,6 +79,8 @@ public final class LibraryService implements Listener, PluginMessageListener {
     }
 
     public Map<String, Library> all() { return libs; }
+
+    public void wire(SeanceService seances) { this.seances = seances; }
 
     // ─────────────────────────────────────────────────────────────── persistance
 
@@ -356,6 +359,11 @@ public final class LibraryService implements Listener, PluginMessageListener {
             return;
         }
         String a = in.has("a") ? in.get("a").getAsString() : "";
+        if (a.equals("train")) {                                       // séance d'apprentissage (rouleau en main)
+            String tech = in.has("tech") ? in.get("tech").getAsString() : "";
+            if (seances != null) Bukkit.getScheduler().runTask(plugin, () -> seances.train(p, tech));
+            return;
+        }
         Library l = in.has("id") ? libs.get(in.get("id").getAsString()) : null;
         if (l == null) return;
         Bukkit.getScheduler().runTask(plugin, () -> {

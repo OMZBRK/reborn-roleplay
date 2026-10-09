@@ -69,7 +69,18 @@ public final class TechniquesService {
         minigame.start(p, a, shelfLoc, slot);
     }
 
+    /** Fin d'une séance de parchemin (branché par ShinobiAbilities). */
+    private java.util.function.BiConsumer<Player, LearningMinigame.Result> seanceSink;
+
+    public void wireSeances(java.util.function.BiConsumer<Player, LearningMinigame.Result> sink) {
+        this.seanceSink = sink;
+    }
+
     private void onMinigameEnd(Player p, LearningMinigame.Result result) {
+        if (result.slot() == LearningMinigame.SEANCE) {
+            if (seanceSink != null) seanceSink.accept(p, result);
+            return;
+        }
         if (!result.success()) return; // failure feedback already sent
 
         ShinobiCharacter c = Players.active(core.characters(), p);

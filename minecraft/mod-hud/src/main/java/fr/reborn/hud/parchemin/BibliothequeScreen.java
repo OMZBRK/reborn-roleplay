@@ -19,7 +19,8 @@ import java.util.List;
  */
 public final class BibliothequeScreen extends Screen {
 
-    private static final int COLS = 3, ROWS = 3, CW = 74, CH = 36, GAP = 6, FRAME = 9;
+    private static final int COLS = 3, ROWS = 3, GAP = 5, FRAME = 8, ROOF = 18, LEGS = 6;
+    private static final int TOP = 40, FOOT = 50;
 
     /** Identifiant serveur ({@code null} = démo du banc d'essai, sans réseau). */
     private String libId;
@@ -33,7 +34,7 @@ public final class BibliothequeScreen extends Screen {
     private String toast;
     private long toastAt;
     /** Banc d'essai : case survolée imposée (-1 = souris). */
-    int debugHover = -1;
+    public int debugHover = -1;
 
     public BibliothequeScreen(String name, List<Technique> drawn, int count, String refresh) {
         super(Component.literal(name));
@@ -84,21 +85,40 @@ public final class BibliothequeScreen extends Screen {
         g.fillGradient(0, 0, width, height, 0xA0080406, 0xD0080406);
     }
 
-    private int cabW() { return COLS * CW + (COLS + 1) * GAP + FRAME * 2; }
+    /** Hauteur d'un casier : s'adapte à la place entre l'en-tête et la jauge de la sacoche. */
+    private int ch() {
+        int avail = height - TOP - FOOT - ROOF - LEGS - 2 * FRAME - (ROWS + 1) * GAP;
+        return Math.max(24, Math.min(40, avail / ROWS));
+    }
 
-    private int cabH() { return ROWS * CH + (ROWS + 1) * GAP + FRAME * 2 + 16; }
+    private int cw() { return Math.max(56, Math.min(80, Math.round(ch() * 2.0f))); }
 
-    private int cabX() { return width / 2 - cabW() / 2 - 70; }
+    private int cabW() { return COLS * cw() + (COLS + 1) * GAP + FRAME * 2; }
 
-    private int cabY() { return Math.max(44, height / 2 - cabH() / 2); }
+    private int cabH() { return ROWS * ch() + (ROWS + 1) * GAP + FRAME * 2 + ROOF; }
 
-    private int cellX(int i) { return cabX() + FRAME + GAP + (i % COLS) * (CW + GAP); }
+    /**
+     * Meuble centré ; si la fiche n'a pas la place à sa droite, c'est l'ensemble meuble + fiche qui est centré
+     * (mise en page stable : elle ne bouge pas au survol).
+     */
+    private int cabX() {
+        int centered = (width - cabW()) / 2, card = 150 + 12;
+        if (centered + cabW() + card <= width - 6) return centered;
+        int group = cabW() + card;
+        return group <= width - 12 ? (width - group) / 2 : centered;
+    }
 
-    private int cellY(int i) { return cabY() + FRAME + 16 + GAP + (i / COLS) * (CH + GAP); }
+    private int cabY() { return TOP + Math.max(0, (height - TOP - FOOT - LEGS - cabH()) / 2); }
+
+    private int cellX(int i) { return cabX() + FRAME + GAP + (i % COLS) * (cw() + GAP); }
+
+    private int cellY(int i) { return cabY() + ROOF + FRAME + GAP + (i / COLS) * (ch() + GAP); }
+
+    private int[] staffButton() { return new int[]{width - 78, 8, 70, 14}; }
 
     private int hovered(int mx, int my) {
         if (debugHover >= 0) return debugHover;
-        for (int i = 0; i < cells.length; i++) if (Da.in(mx, my, cellX(i), cellY(i), CW, CH)) return i;
+        for (int i = 0; i < cells.length; i++) if (Da.in(mx, my, cellX(i), cellY(i), cw(), ch())) return i;
         return -1;
     }
 
@@ -108,65 +128,85 @@ public final class BibliothequeScreen extends Screen {
         Da.header(g, font, width / 2, 6, name, "Nouveau tirage dans " + refresh);
 
         int x = cabX(), y = cabY(), w = cabW(), h = cabH();
-        // meuble : ombre, bois veiné, corniche, pieds
-        g.fill(x + 4, y + 6, x + w + 4, y + h + 6, 0x70000000);
-        ScrollArt.wood(g, x, y, x + w, y + h, 0x2545F4914F6CDD1DL);
-        Da.outline(g, x, y, w, h, ScrollArt.WOOD_D);
-        g.fill(x - 4, y - 3, x + w + 4, y + 4, ScrollArt.WOOD_D);
-        g.fill(x - 3, y - 2, x + w + 3, y + 3, 0xFF5A3A22);
-        g.fill(x - 3, y - 2, x + w + 3, y - 1, 0x40FFE0B0);
-        g.fill(x + 4, y + h, x + 14, y + h + 6, ScrollArt.WOOD_D);
-        g.fill(x + w - 14, y + h, x + w - 4, y + h + 6, ScrollArt.WOOD_D);
-        // plaque laquée au fronton, kanji « livre »
-        int px = x + w / 2 - 16, py = y + 4;
-        g.fill(px, py, px + 32, py + 14, ScrollArt.LACQUER_LO);
-        Da.outline(g, px, py, 32, 14, ScrollArt.GOLD);
-        g.text(font, Component.literal("書庫"), px + 16 - font.width("書庫") / 2, py + 3, 0xFFF6EBCF, false);
-        Da.kanagu(g, x, y, w, h);
+        int CW = cw(), CH = ch();
+        // meuble (tansu) : ombre, corps en bois veiné, piliers, pieds cerclés de métal
+        g.fill(x + 5, y + 8, x + w + 5, y + h + LEGS + 4, 0x70000000);
+        ScrollArt.wood(g, x, y + ROOF - 2, x + w, y + h, 0x2545F4914F6CDD1DL);
+        Da.outline(g, x, y + ROOF - 2, w, h - ROOF + 2, ScrollArt.WOOD_D);
+        g.fill(x + 1, y + ROOF, x + 4, y + h - 1, 0x22FFE0B0);                                  // pilier gauche
+        g.fill(x + w - 4, y + ROOF, x + w - 1, y + h - 1, 0x30000000);                          // pilier droit
+        for (int side = 0; side < 2; side++) {
+            int lx = side == 0 ? x + 6 : x + w - 18;
+            g.fill(lx, y + h, lx + 12, y + h + LEGS, ScrollArt.WOOD_D);
+            g.fill(lx, y + h + LEGS - 2, lx + 12, y + h + LEGS, ScrollArt.GOLD);
+        }
+        // linteau laqué, filet d'or, plaque « 書庫 »
+        g.fill(x - 6, y, x + w + 6, y + ROOF, ScrollArt.WOOD_D);
+        g.fillGradient(x - 5, y + 1, x + w + 5, y + ROOF - 1, 0xFF3A1016, 0xFF1C080C);
+        g.fill(x - 5, y + 1, x + w + 5, y + 2, 0x40FFE0B0);
+        g.fill(x - 5, y + ROOF - 3, x + w + 5, y + ROOF - 2, ScrollArt.GOLD);
+        int pw = 40, px = x + w / 2 - pw / 2, py = y + 2;
+        g.fill(px, py, px + pw, py + ROOF - 6, ScrollArt.LACQUER);
+        Da.outline(g, px, py, pw, ROOF - 6, ScrollArt.GOLD);
+        g.text(font, Component.literal("書庫"), px + pw / 2 - font.width("書庫") / 2, py + (ROOF - 6 - 8) / 2 + 1, 0xFFF6EBCF, false);
+        // filet d'or autour des casiers
+        Da.outline(g, x + FRAME - 2, y + ROOF + FRAME - 2, w - 2 * FRAME + 4, h - ROOF - 2 * FRAME + 4, 0x50D9A95E);
+        Da.kanagu(g, x, y + ROOF - 2, w, h - ROOF + 2);
 
         int hov = hovered(mx, my);
         for (int i = 0; i < cells.length; i++) {
             int cx = cellX(i), cy = cellY(i);
             boolean open = i < count;
-            // casier : fond sombre, lambris, ombre portée par le plateau du dessus
-            g.fill(cx, cy, cx + CW, cy + CH, open ? 0xFF1C110B : 0xFF3A2414);
-            if (open) {
-                for (int k = 6; k < CW; k += 9) g.fill(cx + k, cy + 2, cx + k + 1, cy + CH - 4, 0x18FFFFFF);
-                g.fillGradient(cx, cy, cx + CW, cy + 8, 0x70000000, 0x00000000);
-                g.fill(cx, cy + CH - 3, cx + CW, cy + CH, 0xFF4A301B);                            // plateau
-                g.fill(cx, cy + CH - 3, cx + CW, cy + CH - 2, 0x30FFE0B0);
-            } else {
-                Da.outline(g, cx + 3, cy + 3, CW - 6, CH - 6, 0x40000000);                        // case fermée
-            }
-            Da.outline(g, cx - 1, cy - 1, CW + 2, CH + 2, ScrollArt.WOOD_D);
             Technique t = cells[i];
-            if (open && t == null) {                                                               // poussière
-                for (int k = 0; k < 5; k++) g.fill(cx + 10 + k * 12, cy + CH - 5 - (k % 2), cx + 12 + k * 12, cy + CH - 4 - (k % 2), 0x30C8B4A0);
+            if (open) {
+                // fond laqué sombre, lumière chaude venue du haut, plateau de bois
+                g.fill(cx, cy, cx + CW, cy + CH, 0xFF160D09);
+                g.fillGradient(cx, cy, cx + CW, cy + CH - 3, 0x26F2C890, 0x00F2C890);
+                for (int k = 8; k < CW - 4; k += 10) g.fill(cx + k, cy + 3, cx + k + 1, cy + CH - 5, 0x0EFFFFFF);
+                g.fillGradient(cx, cy, cx + CW, cy + 6, 0x80000000, 0x00000000);
+                g.fill(cx, cy + CH - 3, cx + CW, cy + CH, 0xFF5A3A22);
+                g.fill(cx, cy + CH - 3, cx + CW, cy + CH - 2, 0x40FFE0B0);
+                if (t == null) {                                                                   // poussière
+                    for (int k = 0; k < 5; k++) {
+                        int dx = cx + 8 + k * (CW - 16) / 5;
+                        g.fill(dx, cy + CH - 5 - (k % 2), dx + 2, cy + CH - 4 - (k % 2), 0x30C8B4A0);
+                    }
+                }
+            } else {
+                // porte de bois coulissante, anneau doré
+                g.fillGradient(cx, cy, cx + CW, cy + CH, 0xFF6A4628, 0xFF4E321D);
+                g.fill(cx + CW / 2, cy + 2, cx + CW / 2 + 1, cy + CH - 2, 0x60000000);
+                Da.outline(g, cx + 2, cy + 2, CW - 4, CH - 4, 0x40000000);
+                int rx = cx + CW / 2 - 6, ry = cy + CH / 2 - 2;
+                Da.outline(g, rx, ry, 4, 4, ScrollArt.GOLD);
+                Da.outline(g, rx + 8, ry, 4, 4, ScrollArt.GOLD);
             }
+            boolean hot = i == hov && t != null;
+            Da.outline(g, cx - 1, cy - 1, CW + 2, CH + 2, hot ? ScrollArt.GOLD : ScrollArt.WOOD_D);
             if (t != null) {
-                boolean hot = i == hov;
+                int sh = Math.max(8, Math.min(11, CH / 3));
                 int lift = hot ? 2 : 0;
-                if (hot) g.fillGradient(cx, cy + CH - 18, cx + CW, cy + CH - 3, 0x00F2D49A, 0x30F2D49A);
-                ScrollArt.rolled(g, cx + 7, cy + CH - 16 - lift, CW - 14, 10, t.rank(), now);
+                if (hot) g.fillGradient(cx, cy + CH - sh - 8, cx + CW, cy + CH - 3, 0x00F2D49A, 0x38F2D49A);
+                ScrollArt.rolled(g, cx + 6, cy + CH - sh - 6 - lift, CW - 12, sh, t.rank(), now);
                 ScrollArt.fuda(g, font, cx + CW - 15, cy + CH + 1, t.rank());
             }
         }
 
-        if (hov >= 0 && cells[hov] != null) card(g, cells[hov], x + w + 14, Math.max(y, cellY(hov) - 20));
+        if (hov >= 0 && cells[hov] != null) card(g, cells[hov], hov);
 
         // sacoche et aide
-        int rw = 180, rx = width / 2 - rw / 2, ry = height - 44;
+        int rw = Math.min(220, cabW()), rx = (width - rw) / 2, ry = height - FOOT + 12;
         String wt = String.format(java.util.Locale.FRANCE, "%.1f / %.0f kg", weight, maxWeight);
         Da.ruler(g, font, rx, ry, rw, (float) (weight / maxWeight), "Sacoche", wt, false, true);
         Da.hint(g, font, width, height, "Clic : prendre le rouleau  -  Echap : fermer");
 
         if (staff) {
-            int bx = x + w - 66, by = y - 18;
-            Da.plate(g, font, bx, by, 66, 13, "Reglages", false, Da.in(mx, my, bx, by, 66, 13), true);
+            int[] b = staffButton();
+            Da.plate(g, font, b[0], b[1], b[2], b[3], "Reglages", false, Da.in(mx, my, b[0], b[1], b[2], b[3]), true);
         }
         if (toast != null && now - toastAt < 2200) {
             float a = Math.min(1f, (2200 - (now - toastAt)) / 400f);
-            int tw = font.width(toast) + 20, tx = width / 2 - tw / 2, ty = cabY() - 18;
+            int tw = font.width(toast) + 20, tx = width / 2 - tw / 2, ty = cabY() + ROOF + 4;
             g.fill(tx, ty, tx + tw, ty + 14, ((int) (a * 0xE0) << 24) | 0x1C0E12);
             Da.outline(g, tx, ty, tw, 14, ((int) (a * 255) << 24) | (ScrollArt.GOLD & 0xFFFFFF));
             g.text(font, Component.literal(toast), tx + 10, ty + 3, ((int) (a * 255) << 24) | 0xF5E9D0, false);
@@ -174,14 +214,16 @@ public final class BibliothequeScreen extends Screen {
         super.extractRenderState(g, mx, my, delta);
     }
 
-    /** Fiche du rouleau survolé, sur papier washi. */
-    private void card(GuiGraphicsExtractor g, Technique t, int x, int y) {
+    /** Fiche du rouleau survolé, sur papier washi : à droite du meuble, sinon à gauche, sinon sur la case. */
+    private void card(GuiGraphicsExtractor g, Technique t, int cell) {
         int w = 150;
         List<FormattedCharSequence> desc = font.split(Component.literal(t.desc()), w - 16);
         int h = 74 + desc.size() * 9;
-        if (x + w > width - 6) x = cabX() - w - 14;
-        if (x < 6) x = Math.max(6, width - w - 6);
-        y = Math.max(4, Math.min(y, height - h - 24));
+        int x;
+        if (cabX() + cabW() + 12 + w <= width - 6) x = cabX() + cabW() + 12;
+        else if (cabX() - 12 - w >= 6) x = cabX() - 12 - w;
+        else x = Math.max(6, Math.min(width - w - 6, cellX(cell) + cw() + 4));
+        int y = Math.max(TOP, Math.min(cellY(cell) - 6, height - FOOT - h));
         g.fill(x + 3, y + 4, x + w + 3, y + h + 4, 0x60000000);
         g.fillGradient(x, y, x + w, y + h, ScrollArt.WASHI_HI, ScrollArt.WASHI);
         Da.outline(g, x, y, w, h, 0xFF8C6E48);
@@ -202,7 +244,8 @@ public final class BibliothequeScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent e, boolean dbl) {
         if (e.button() != 0) return super.mouseClicked(e, dbl);
-        if (staff && Da.in(e.x(), e.y(), cabX() + cabW() - 66, cabY() - 18, 66, 13)) {
+        int[] sb = staffButton();
+        if (staff && Da.in(e.x(), e.y(), sb[0], sb[1], sb[2], sb[3])) {
             ParcheminClient.send("cfg_open", libId, null);
             return true;
         }
@@ -212,7 +255,7 @@ public final class BibliothequeScreen extends Screen {
     }
 
     /** Banc d'essai : première case garnie, de préférence un rang C ou plus. */
-    int firstFilled() {
+    public int firstFilled() {
         int any = -1;
         for (int i = 0; i < cells.length; i++) {
             if (cells[i] == null) continue;

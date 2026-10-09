@@ -12,17 +12,20 @@ import net.minecraft.util.FormattedCharSequence;
 import java.util.List;
 
 /**
- * Lecture d'un parchemin (preview). Motif de l'écran : le rouleau se déroule horizontalement entre ses deux
+ * Lecture d'un parchemin (clic droit, rouleau en main). Motif de l'écran : le rouleau se déroule horizontalement entre ses deux
  * baguettes de bois ; la lecture part de la droite, comme un makimono. On y lit la technique, ses signes, et la
  * progression de l'apprentissage en séances (perles laquées), avec le délai avant la prochaine séance.
  */
 public final class LectureScreen extends Screen {
 
-    private final Technique t;
-    private final int done;
-    private final String nextIn;
-    private final boolean withMaster;
+    private Technique t;
+    private int done;
+    private String nextIn;
+    private boolean withMaster;
+    /** Données du serveur : sinon démo du banc d'essai. */
+    private boolean live, known, pending;
     private final long openedAt = System.currentTimeMillis();
+    private int[] button;
 
     public LectureScreen(Technique t, int done, String nextIn, boolean withMaster) {
         super(Component.literal(t.name()));
@@ -30,6 +33,25 @@ public final class LectureScreen extends Screen {
         this.done = done;
         this.nextIn = nextIn;
         this.withMaster = withMaster;
+    }
+
+    /** Lecture envoyée par le serveur ({@code {"t":"read"}}). */
+    public static LectureScreen fromJson(com.google.gson.JsonObject o) {
+        LectureScreen s = new LectureScreen(Technique.fromJson(o.getAsJsonObject("tech")), 0, "", false);
+        s.update(o);
+        return s;
+    }
+
+    public String techId() { return t.id(); }
+
+    public void update(com.google.gson.JsonObject o) {
+        t = Technique.fromJson(o.getAsJsonObject("tech"));
+        done = o.get("done").getAsInt();
+        nextIn = o.get("nextIn").getAsString();
+        withMaster = o.has("master") && o.get("master").getAsBoolean();
+        known = o.has("known") && o.get("known").getAsBoolean();
+        pending = o.has("pending") && o.get("pending").getAsBoolean();
+        live = true;
     }
 
     @Override
@@ -163,12 +185,17 @@ public final class LectureScreen extends Screen {
             bx += bead + gap;
         }
         boolean finished = done >= total;
-        boolean ready = !finished && nextIn.equals("maintenant");
+        boolean ready = nextIn.equals("maintenant") && !known && !pending;
         int bw = 80, bh = 15, bxx = rx - 18 - bw, byy = by - 3;
         boolean hv = Da.in(mx, my, bxx, byy, bw, bh);
-        if (!finished) Da.plate(g, font, bxx, byy, bw, bh, "S'entrainer", ready, hv && ready, ready);
-        String state = finished ? (t.rank() == 'S' ? "Toutes les séances sont faites : en attente de la validation du staff."
-                : "Technique apprise.")
+        button = null;
+        if (!known && !pending && !(finished && !live)) {
+            Da.plate(g, font, bxx, byy, bw, bh, finished ? "Terminer" : "S'entrainer", ready, hv && ready, ready);
+            if (ready && live) button = new int[]{bxx, byy, bw, bh};
+        }
+        String state = known ? "Tu connais déjà cette technique."
+                : pending || (finished && !live && t.rank() == 'S') ? "Toutes les séances sont faites : en attente de la validation du staff."
+                : finished ? (live ? "Toutes les séances sont faites : termine l'apprentissage." : "Technique apprise.")
                 : "Séance " + (done + 1) + " / " + total + (ready ? " · prête" : " · prochaine séance " + nextIn);
         g.text(font, Component.literal(state), lx, by + bead + 5, ScrollArt.INK, false);
         String note = withMaster ? "Un maître t'accompagne : chaque séance réussie compte double."
@@ -183,6 +210,13 @@ public final class LectureScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent e, boolean dbl) {
+        if (e.button() == 0 && button != null && Da.in(e.x(), e.y(), button[0], button[1], button[2], button[3])) {
+            fr.reborn.hud.menu.RebornSounds.uiClick();
+            com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+            o.addProperty("tech", t.id());
+            ParcheminClient.sendAction("train", o);
+            onClose();                                     // l'épreuve se joue dans le monde
+        }
         return true;
     }
 }

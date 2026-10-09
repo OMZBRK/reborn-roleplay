@@ -113,7 +113,7 @@ public final class BibliothequeStaffScreen extends Screen {
         recompute();
     }
 
-    void setFilter(int f) { filter = f; scroll = 0; }
+    public void setFilter(int f) { filter = f; scroll = 0; }
 
     private static String pct(double p) {
         if (p >= 1 || p == 0) return String.format(Locale.FRANCE, "%.0f %%", p);
@@ -142,31 +142,36 @@ public final class BibliothequeStaffScreen extends Screen {
     private static final String[] PAGES = {"Reglages", "Techniques", "Simulation"};
     private int page = 0;
 
-    void setPage(int p) { page = p; }
+    public void setPage(int p) { page = p; }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         hits.clear();
         float sc = Da.small();
         Da.header(g, font, width / 2, 6, "Réglages de la bibliothèque", name);
-        int x = 12, y = 40, w = width - 24, h = height - 60;
+        int w = Math.min(width - 24, 560), h = Math.min(height - 60, 330);
+        int x = (width - w) / 2, y = 40 + Math.max(0, (height - 60 - h) / 2);
         Da.panel(g, x, y, w, h);
 
         // onglets
+        int saveW = w < 480 ? 66 : 80, rollW = w < 480 ? 82 : 100;
+        int tw = Math.max(54, Math.min(72, (w - 24 - saveW - rollW - 16) / 3 - 4));
         int tx = x + 12, ty = y + 10;
         for (int i = 0; i < PAGES.length; i++) {
-            int tw = 72;
             final int p = i;
             Da.plate(g, font, tx, ty, tw, 14, PAGES[i], page == i, Da.in(mx, my, tx, ty, tw, 14), true);
             hits.add(new Hit(tx, ty, tw, 14, () -> setPage(p)));
             tx += tw + 4;
         }
-        Da.plate(g, font, x + w - 92, ty, 80, 14, "Enregistrer", true, Da.in(mx, my, x + w - 92, ty, 80, 14), true);
-        hits.add(new Hit(x + w - 92, ty, 80, 14, this::saveToServer));
-        Da.plate(g, font, x + w - 196, ty, 100, 14, "Tirer maintenant", false, Da.in(mx, my, x + w - 196, ty, 100, 14), libId != null);
-        if (libId != null) hits.add(new Hit(x + w - 196, ty, 100, 14, () -> ParcheminClient.send("reroll", libId, null)));
+        int sx = x + w - 12 - saveW, rx = sx - 4 - rollW;
+        Da.plate(g, font, sx, ty, saveW, 14, "Enregistrer", true, Da.in(mx, my, sx, ty, saveW, 14), true);
+        hits.add(new Hit(sx, ty, saveW, 14, this::saveToServer));
+        Da.plate(g, font, rx, ty, rollW, 14, w < 480 ? "Tirer" : "Tirer maintenant", false, Da.in(mx, my, rx, ty, rollW, 14), libId != null);
+        if (libId != null) hits.add(new Hit(rx, ty, rollW, 14, () -> ParcheminClient.send("reroll", libId, null)));
         g.fill(x + 10, ty + 20, x + w - 10, ty + 21, 0x40F6CC78);
         int cx = x + 14, cy = ty + 30, cw = w - 28, ch = y + h - 12 - cy;
+        g.fill(cx - 6, cy - 6, cx + cw + 6, y + h - 8, 0x0CF6CC78);                         // fond de la page
+        Da.outline(g, cx - 6, cy - 6, cw + 12, y + h - 2 - cy, 0x24F6CC78);
         switch (page) {
             case 0 -> settings(g, cx, cy, cw, ch, sc, mx, my);
             case 1 -> techniques(g, cx, cy, cw, ch, sc, mx, my);
@@ -279,11 +284,12 @@ public final class BibliothequeStaffScreen extends Screen {
             int len = (int) Math.max(1, Math.round(barW * (pr[r] / max)));
             g.fill(x + 16, by + 3, x + 16 + barW, by + 10, 0x30000000);
             g.fill(x + 16, by + 3, x + 16 + len, by + 10, ScrollArt.rankColor(rank));
-            String v = pr[r] >= 0.1 ? String.format(Locale.FRANCE, "%.1f", pr[r]) : String.format(Locale.FRANCE, "%.3f", pr[r]);
+            String v = pr[r] >= 0.1 ? String.format(Locale.FRANCE, "%.1f", pr[r])
+                    : pr[r] >= 0.001 ? String.format(Locale.FRANCE, "%.3f", pr[r]) : String.format(Locale.FRANCE, "%.4f", pr[r]);
             g.text(font, Component.literal(v), x + 22 + barW, by + 2, 0xFFE6D7BC, false);
-            by += 15;
+            by += h < 230 ? 12 : 15;
         }
-        by += 4;
+        by += h < 230 ? 2 : 4;
         g.text(font, Component.literal(String.format(Locale.FRANCE, "Au moins un rang A : %.1f %% des tirages", stats.atLeastA())), x, by, 0xFFE6D7BC, false);
         g.text(font, Component.literal(String.format(Locale.FRANCE, "Au moins un rang S : %.2f %% des tirages", stats.atLeastS())), x, by + 10, 0xFFE6D7BC, false);
         g.text(font, Component.literal(String.format(Locale.FRANCE, "Cases vides en moyenne : %.1f sur %d", stats.emptySlots(), count)), x, by + 20, 0xFFC8B4A0, false);

@@ -21,39 +21,47 @@ public final class ParcheminDebug {
         ClientTickEvents.END_CLIENT_TICK.register(ParcheminDebug::tick);
     }
 
-    private static Technique find(String id) {
+    public static Technique find(String id) {
         for (Technique t : Technique.DEMO) if (t.id().equals(id)) return t;
         return Technique.DEMO.get(0);
     }
 
+    private static final int[] SCALES = {2, 3, 4};
+    private static final int STEP = 95;
+
     private static void tick(Minecraft mc) {
         if (mc.player == null || mc.level == null) { ticks = -1; return; }
         ticks++;
-        switch (ticks) {
-            case 30 -> {
-                mc.player.connection.sendCommand("time set 6000");
-                String[] r = {"d", "c", "b", "a", "s"};
-                for (int i = 0; i < 5; i++) {
-                    mc.player.connection.sendCommand("item replace entity @s hotbar." + i
-                            + " with paper[item_model=\"reborn:parchemin_" + r[i] + "\"]");
-                }
+        if (ticks == 30) { mc.player.connection.sendCommand("time set 6000"); mc.gui.hud.getChat().clearMessages(false); }
+        if (ticks < 40) return;
+        int phase = (ticks - 40) / STEP, t = (ticks - 40) % STEP;
+        if (phase >= SCALES.length) { if (t == 5) mc.stop(); return; }
+        switch (t) {
+            case 0 -> { mc.options.guiScale().set(SCALES[phase]); mc.resizeGui(); }
+            case 5 -> ParcheminClient.debugReceive(libJson().toString());
+            case 8 -> with(mc, BibliothequeScreen.class, s -> s.debugHover = s.firstFilled());
+            case 20 -> shot(mc);                                                          // bibliothèque + fiche
+            case 25 -> {
+                com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+                o.addProperty("t", "read");
+                o.add("tech", tech(find("katon_gokakyu")));
+                o.addProperty("done", 1);
+                o.addProperty("nextIn", "maintenant");
+                o.addProperty("master", true);
+                ParcheminClient.debugReceive(o.toString());
             }
-            case 48 -> mc.gui.hud.getChat().clearMessages(false);
-            case 70 -> shot(mc);                                                          // modèles : barre d'action et main
-            case 75 -> ParcheminClient.debugReceive(libJson().toString());
-            case 80 -> with(mc, BibliothequeScreen.class, s -> s.debugHover = s.firstFilled());
-            case 90 -> shot(mc);                                                          // bibliothèque reçue du serveur
-            case 95 -> ParcheminClient.debugReceive("{\"t\":\"toast\",\"msg\":\"Ta sacoche est trop lourde.\"}");
-            case 100 -> shot(mc);                                                         // message du serveur
-            case 110 -> ParcheminClient.debugReceive(cfgJson().toString());
-            case 125 -> with(mc, BibliothequeStaffScreen.class, s -> { s.setPage(1); s.setFilter(3); });
-            case 140 -> shot(mc);                                                         // réglages reçus, slots S
-            case 150 -> mc.stop();
+            case 45 -> shot(mc);                                                          // lecture
+            case 50 -> ParcheminClient.debugReceive(cfgJson().toString());
+            case 60 -> shot(mc);                                                          // réglages
+            case 65 -> with(mc, BibliothequeStaffScreen.class, s -> { s.setPage(1); s.setFilter(3); });
+            case 75 -> shot(mc);                                                          // techniques
+            case 80 -> with(mc, BibliothequeStaffScreen.class, s -> s.setPage(2));
+            case 90 -> shot(mc);                                                          // simulation
             default -> { }
         }
     }
 
-    private static com.google.gson.JsonObject tech(Technique t) {
+    public static com.google.gson.JsonObject tech(Technique t) {
         com.google.gson.JsonObject o = new com.google.gson.JsonObject();
         o.addProperty("id", t.id());
         o.addProperty("name", t.name());
@@ -68,7 +76,7 @@ public final class ParcheminDebug {
     }
 
     /** Ce qu'envoie ShinobiAbilities à l'ouverture d'une bibliothèque. */
-    private static com.google.gson.JsonObject libJson() {
+    public static com.google.gson.JsonObject libJson() {
         com.google.gson.JsonObject o = new com.google.gson.JsonObject();
         o.addProperty("t", "lib");
         o.addProperty("id", "academie");
@@ -76,7 +84,7 @@ public final class ParcheminDebug {
         o.addProperty("count", 6);
         o.addProperty("refreshIn", "2 h 41");
         com.google.gson.JsonArray cells = new com.google.gson.JsonArray();
-        String[] ids = {"kawarimi", null, "katon_gokakyu", "konoha_senpu", null, "tsubame_gaeshi", null, null, null};
+        String[] ids = {"kawarimi", null, "katon_gokakyu", "konoha_senpu", "raiton_chidori", "tsubame_gaeshi", null, null, null};
         for (String id : ids) cells.add(id == null ? com.google.gson.JsonNull.INSTANCE : tech(find(id)));
         o.add("cells", cells);
         o.addProperty("weight", 7.2);
@@ -86,7 +94,7 @@ public final class ParcheminDebug {
     }
 
     /** Ce qu'envoie ShinobiAbilities pour /bibliotheque regler. */
-    private static com.google.gson.JsonObject cfgJson() {
+    public static com.google.gson.JsonObject cfgJson() {
         com.google.gson.JsonObject o = new com.google.gson.JsonObject();
         o.addProperty("t", "lib_cfg");
         o.addProperty("id", "academie");

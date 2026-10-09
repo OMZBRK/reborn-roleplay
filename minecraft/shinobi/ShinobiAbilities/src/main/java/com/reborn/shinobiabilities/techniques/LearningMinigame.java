@@ -114,6 +114,19 @@ public final class LearningMinigame implements Listener {
         }
     }
 
+    /** Marqueur de {@link Result#slot()} : une séance de parchemin, pas une étagère. */
+    public static final int SEANCE = -2;
+
+    /**
+     * Séance d'apprentissage d'un parchemin : mudras pour le Ninjutsu, pompes pour le Taïjutsu et le Kenjutsu,
+     * quelle que soit l'épreuve réglée sur la technique (une séance est toujours une épreuve).
+     */
+    public void startSeance(Player p, Ability ability, boolean physical) {
+        if (isActive(p)) return;
+        if (physical) startPushup(p, ability, null, SEANCE);
+        else startMudra(p, ability, null, SEANCE);
+    }
+
     /* ---------------------------------------------------------------- mudra */
 
     private void startMudra(Player p, Ability ability, Location shelfLoc, int slot) {

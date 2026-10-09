@@ -42,8 +42,8 @@ commands:
     aliases: [biblio]
     permission: shinobiabilities.staff
   parchemin:
-    description: Staff — donner un parchemin, voir les slots d'une technique de rang S.
-    usage: /<command> <donner <joueur> <technique>|slots <technique>>
+    description: Staff — parchemins (donner, slots du rang S, séances, validations du rang S).
+    usage: /<command> <donner|slots|seance|attente|valider|refuser>
     aliases: [parchemins]
     permission: shinobiabilities.staff
 permissions:

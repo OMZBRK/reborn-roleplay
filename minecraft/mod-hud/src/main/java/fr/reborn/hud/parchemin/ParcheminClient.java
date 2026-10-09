@@ -23,7 +23,7 @@ public final class ParcheminClient {
     }
 
     /** Banc d'essai : message serveur simulé. */
-    static void debugReceive(String raw) { receive(raw); }
+    public static void debugReceive(String raw) { receive(raw); }
 
     private static void receive(String raw) {
         JsonObject o;
@@ -40,6 +40,11 @@ public final class ParcheminClient {
                 if (mc.gui.screen() instanceof BibliothequeStaffScreen s && o.get("id").getAsString().equals(s.libId())) s.update(o);
                 else mc.setScreenAndShow(BibliothequeStaffScreen.fromJson(o));
             }
+            case "read" -> {
+                String id = o.getAsJsonObject("tech").get("id").getAsString();
+                if (mc.gui.screen() instanceof LectureScreen l && id.equals(l.techId())) l.update(o);
+                else mc.setScreenAndShow(LectureScreen.fromJson(o));
+            }
             case "toast" -> {
                 String msg = o.get("msg").getAsString();
                 if (mc.gui.screen() instanceof BibliothequeScreen b) b.toast(msg);
@@ -47,6 +52,14 @@ public final class ParcheminClient {
             }
             default -> { }
         }
+    }
+
+    /** Demande au serveur sans bibliothèque : {@code {"a": action, …extra}}. */
+    public static void sendAction(String action, JsonObject extra) {
+        if (!ClientPlayNetworking.canSend(ParcheminPayload.ID)) return;
+        JsonObject o = extra == null ? new JsonObject() : extra.deepCopy();
+        o.addProperty("a", action);
+        ClientPlayNetworking.send(new ParcheminPayload(o.toString()));
     }
 
     /** Demande au serveur : {@code {"a": action, "id": bibliothèque, …extra}}. */

@@ -118,3 +118,14 @@ Simulation sur l'échantillon de démo (25 techniques), 6 rouleaux par tirage :
 | Privée | 1,7 | 1,3 | 0,48 | 0,12 | 0,0066 | 11,5 % | 0,66 % |
 
 Reste à préparer : le modèle 3D du rouleau posable (meuble Nexo, une variante par rang).
+
+## 6. Implémentation
+
+- **Lots 1-2 (2026-10-09, en production)** — objet parchemin par rang (`ParcheminItems`, modèles `reborn:parchemin_<rang>`
+  livrés par le mod), bibliothèques à tirage partagé (`LibraryService`, `bibliotheques.yml`), slots du rang S
+  (`SlotRegistry`, `parchemins-s.yml`), commandes `/bibliotheque` et `/parchemin donner|slots`.
+- **Lot 3 (2026-10-09)** — séances (`SeanceService`, `parchemins-progression.yml`) : clic droit rouleau en main ouvre
+  la lecture ; « S'entraîner » lance les mudras (Ninjutsu) ou les pompes (Taïjutsu, Kenjutsu) ; une séance toutes les
+  `parchemins.seance-heures` (20 h), réussie ou ratée ; maître à portée (maîtrise 80+, connue depuis 14 jours) : la
+  séance compte double ; perte rare du rouleau (0,2 %) ; rang S : le rouleau est remis au staff à la dernière séance,
+  `/parchemin attente|valider|refuser`. Staff : `/parchemin seance <joueur> <technique> [n]`.

@@ -305,3 +305,12 @@ parchemins:
   # qui la connaissent). Exceptions par technique : slots-par-technique: { rasengan: 1 }
   slots-s: 2
   slots-par-technique: {}
+  # Apprentissage : une séance par technique toutes les N heures (réussie ou ratée).
+  seance-heures: 20
+  # Chance qu'une séance fasse perdre le rouleau (déchiré, emporté…) — easter egg.
+  perte-rare: 0.002
+  # Professeur : avec un maître à portée, une séance réussie compte double.
+  maitre:
+    maitrise: 80        # maîtrise minimum de la technique (0-100 ; Maître = 80+)
+    jours: 14           # depuis combien de jours il la connaît
+    distance: 6         # en blocs
