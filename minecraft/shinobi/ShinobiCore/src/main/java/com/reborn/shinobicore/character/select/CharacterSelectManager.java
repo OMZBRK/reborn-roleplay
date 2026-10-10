@@ -222,6 +222,9 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
             sb.append(",\"rank\":\"").append(esc(c.rank().displayName())).append('"');
             sb.append(",\"level\":").append(c.level());
             sb.append(",\"dead\":").append(c.dead());
+            sb.append(",\"age\":").append(c.age());
+            sb.append(",\"size\":").append(String.format(java.util.Locale.ROOT, "%.2f", c.size()));
+            if (c.sexe() != null && !c.sexe().isBlank()) sb.append(",\"sexe\":\"").append(esc(c.sexe())).append('"');
             if (!c.appearance().isBlank()) {
                 sb.append(",\"appearance\":\"").append(esc(c.appearance())).append('"');
             }
