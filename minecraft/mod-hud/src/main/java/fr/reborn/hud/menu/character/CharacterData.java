@@ -74,7 +74,10 @@ public final class CharacterData {
                         str(o, "rank", ""),
                         intv(o, "level", 0),
                         o.has("dead") && !o.get("dead").isJsonNull() && o.get("dead").getAsBoolean(),
-                        str(o, "appearance", "")));
+                        str(o, "appearance", ""),
+                        intv(o, "age", 18),
+                        dbl(o, "size", 1.0),
+                        str(o, "sexe", "Homme")));
                 }
             }
             // Candidature (optionnelle) : { village, clan, name, staff }.
@@ -99,6 +102,12 @@ public final class CharacterData {
 
     private static String blankToNull(String s) {
         return (s == null || s.isBlank()) ? null : s;
+    }
+
+    private static double dbl(JsonObject o, String k, double def) {
+        try {
+            return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsDouble() : def;
+        } catch (Exception e) { return def; }
     }
 
     private static int intv(JsonObject o, String k, int def) {

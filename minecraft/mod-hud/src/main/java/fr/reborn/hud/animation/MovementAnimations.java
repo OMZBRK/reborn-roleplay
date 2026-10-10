@@ -207,6 +207,9 @@ public final class MovementAnimations {
      * Charge une animation → {@code Animation}. {@code .json} = format GeckoLib (export
      * Blender), sinon {@code .emotecraft} (binaire Emotecraft).
      */
+    /** Anim du dossier {@code assets/reborn-hud/animations} (mise en scène, sélection du perso…). */
+    public Animation asset(String file) { return load(file); }
+
     private Animation load(String file) {
         try (InputStream in = MovementAnimations.class
                 .getResourceAsStream("/assets/reborn-hud/animations/" + file)) {

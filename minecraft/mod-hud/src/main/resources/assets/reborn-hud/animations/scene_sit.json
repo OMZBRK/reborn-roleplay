@@ -1,0 +1,249 @@
+{
+ "format_version": "1.8.0",
+ "animations": {
+  "scene_sit": {
+   "model": {
+    "body_control": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    },
+    "waist": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    }
+   },
+   "parents": {
+    "waist": "body_control",
+    "left_leg": "body_control",
+    "right_leg": "body_control",
+    "torso": "waist",
+    "head": "waist",
+    "right_arm": "waist",
+    "left_arm": "waist"
+   },
+   "animation_length": 4.0,
+   "loop": true,
+   "player_animation_library": {
+    "name": "Sc\u00e8ne \u2014 assis sur le bureau",
+    "author": "Reborn",
+    "description": "Sc\u00e8ne \u2014 assis sur le bureau"
+   },
+   "bones": {
+    "right_leg": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        -80.0,
+        6.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        -72.0,
+        6.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        -80.0,
+        6.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": 70.0,
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "value": 60.0,
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "value": 70.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "left_leg": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        -74.0,
+        -8.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        -82.0,
+        -8.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        -74.0,
+        -8.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": 62.0,
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "value": 72.0,
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "value": 62.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "right_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        18.0,
+        0.0,
+        18.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        18.0,
+        0.0,
+        18.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": -6.0,
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "value": -6.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "left_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        18.0,
+        0.0,
+        -18.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        18.0,
+        0.0,
+        -18.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": -6.0,
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "value": -6.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "torso": {
+     "bend": {
+      "0.000": {
+       "value": 4.0,
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "value": 6.0,
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "value": 4.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "head": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        6.0,
+        0.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        3.0,
+        6.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        6.0,
+        0.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "body_control": {
+     "position": {
+      "0.000": {
+       "vector": [
+        0.0,
+        -12.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        0.0,
+        -12.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    }
+   }
+  }
+ }
+}

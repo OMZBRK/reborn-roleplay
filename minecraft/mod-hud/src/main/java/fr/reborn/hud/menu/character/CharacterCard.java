@@ -24,8 +24,17 @@ public record CharacterCard(
     String rank,
     int level,
     boolean dead,
-    String appearance
+    String appearance,
+    int age,
+    double size,
+    String sexe
 ) {
+    /** Fiche sans âge / taille / sexe (serveur antérieur) : 18 ans, taille 1.0, homme. */
+    public CharacterCard(String id, String firstName, String clan, int clanColor, String village, String rank,
+                         int level, boolean dead, String appearance) {
+        this(id, firstName, clan, clanColor, village, rank, level, dead, appearance, 18, 1.0, "Homme");
+    }
+
     public boolean hasClan() { return clan != null && !clan.isBlank(); }
     public boolean hasVillage() { return village != null && !village.isBlank(); }
     public boolean hasAppearance() { return appearance != null && !appearance.isBlank(); }

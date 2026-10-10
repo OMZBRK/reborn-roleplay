@@ -38,18 +38,18 @@ import java.util.Locale;
 public class CharacterCreateScreen extends Screen {
 
     // ── Données de référence (valeurs envoyées au serveur) ────────
-    private static final String[] VILLAGES = {
+    static final String[] VILLAGES = {
         "Konohagakure", "Sunagakure", "Kirigakure", "Kumogakure",
         "Iwagakure", "Amegakure", "Déserteur"
     };
-    private static final String[] V_SHORT = {
+    static final String[] V_SHORT = {
         "Konoha", "Suna", "Kiri", "Kumo", "Iwa", "Ame", "Déserteur"
     };
     private static final int[] V_COLOR = {
         0xFF3FA34D, 0xFFCB9A5A, 0xFF4F8C8C, 0xFF7FA8C9,
         0xFF9A7B54, 0xFF5C6B78, 0xFF7A2B2B
     };
-    private static final String[] V_DESC = {
+    static final String[] V_DESC = {
         "Le Village Caché de la Feuille, au cœur du Pays du Feu. Berceau des grands clans et de la Volonté du Feu.",
         "Le Village Caché du Sable, dans le désert du Pays du Vent. Rude, endurant, maître des marionnettes.",
         "Le Village Caché de la Brume, îles du Pays de l'Eau. Réputé pour ses bretteurs et son passé sanglant.",
@@ -63,7 +63,7 @@ public class CharacterCreateScreen extends Screen {
     // est piloté par VILLAGE_CLANS (dissociation par village) ; ce tableau ne sert
     // plus qu'à retrouver couleur/desc d'un clan par son nom. Les noms Konoha sont
     // conservés À L'IDENTIQUE (gating ShinobiCore + tags clan de catalog.json).
-    private static final String[] CLANS = {
+    static final String[] CLANS = {
         // Konoha
         "Senju", "Uchiha", "Hyuga", "Nara", "Sarutobi", "Uzumaki",
         "Aburame", "Akimichi", "Hatake", "Yamanaka", "Kurama",
@@ -78,7 +78,7 @@ public class CharacterCreateScreen extends Screen {
         // Clan custom (toujours en dernier)
         "Autre"
     };
-    private static final int[] C_COLOR = {
+    static final int[] C_COLOR = {
         0xFF2E8B57, 0xFFB1302B, 0xFFCFC6E0, 0xFF5B6B3A, 0xFFC8722E, 0xFFD9532E,
         0xFF4A4F3A, 0xFFE0A33B, 0xFFAEB4BC, 0xFF8E5BB5, 0xFF8B1E2B,   // Konoha
         0xFFC97B3C, 0xFFB8A05A,                                       // Suna
@@ -87,7 +87,7 @@ public class CharacterCreateScreen extends Screen {
         0xFFC89A3B, 0xFF8C8577,                                       // Iwa
         0xFF6A6A6A                                                    // Autre
     };
-    private static final String[] C_DESC = {
+    static final String[] C_DESC = {
         "Le Clan de la Forêt, descendants du Sage. Vitalité hors norme et affinités multiples.",
         "Le Clan à l'éventail, porteurs du Sharingan. Feu, fierté et amour dévastateur.",
         "Le Clan au Byakugan, vision à 360°. Doux-Poing et tradition rigide.",
@@ -118,7 +118,7 @@ public class CharacterCreateScreen extends Screen {
     };
 
     /** Clans par village (parallèle à {@link #VILLAGES}). « Autre » (custom) partout. */
-    private static final String[][] VILLAGE_CLANS = {
+    static final String[][] VILLAGE_CLANS = {
         {"Uchiha", "Senju", "Hyuga", "Nara", "Sarutobi", "Aburame",
          "Akimichi", "Yamanaka", "Hatake", "Uzumaki", "Kurama", "Autre"},   // Konoha
         {"Sabaku", "Hoki", "Autre"},                                        // Suna
@@ -300,7 +300,7 @@ public class CharacterCreateScreen extends Screen {
     }
 
     /** Slug ASCII pour un nom de clan/village (chemin de logo). Ex. « Hyūga » → « hyuga ». */
-    private static String slug(String s) {
+    static String slug(String s) {
         String n = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
             .replaceAll("\\p{M}", "");
         return n.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_");

@@ -50,7 +50,12 @@
     "menu.ConnectScreenMixin",
     "menu.LoadingOverlayMixin",
     "menu.MenuScaleMixin",
-    "menu.MenuScaleResizeMixin"
+    "menu.MenuScaleResizeMixin",
+    "ClientMannequinSkinMixin",
+    "MannequinAccessor",
+    "SceneVoidFogMixin",
+    "SceneVoidSkyMixin",
+    "SceneLightMixin"
   ],
   "injectors": {
     "defaultRequire": 1

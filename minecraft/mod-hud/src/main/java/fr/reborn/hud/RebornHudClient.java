@@ -197,7 +197,7 @@ public final class RebornHudClient implements ClientModInitializer {
                 // déjà (bat la course « un autre écran était ouvert quand le roster
                 // est arrivé » qui laissait le joueur bloqué sans menu).
                 if (!isCharacterScreen(mc.gui.screen())) {
-                    mc.setScreenAndShow(new fr.reborn.hud.menu.character.CharacterSelectScreen());
+                    mc.setScreenAndShow(fr.reborn.hud.menu.character.CharacterScreens.select(mc));
                 }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
@@ -621,6 +621,12 @@ public final class RebornHudClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(
             client -> fr.reborn.hud.ko.KoClient.tick());
         fr.reborn.hud.ko.KoDebug.init();
+        // Concentration du chakra (ShinobiAbilities, canal reborn:parchemin {"t":"conc"}) : plaque au-dessus de la barre d'action.
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "concentration"),
+            (ctx, tickCounter) -> fr.reborn.hud.parchemin.ConcentrationHud.render(ctx));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler, client) -> fr.reborn.hud.parchemin.ConcentrationHud.clear());
 
         // Poste de garde (panel staff, canal reborn:staff, touche F7 ou /garde) : alertes, fiche joueur, casier,
         // sanctions au sceau, chat staff, journal, commandes. Le serveur (ShinobiCore StaffPanel) décide de tout.
@@ -632,6 +638,9 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.combat.CombatDebug.init();
         fr.reborn.hud.parchemin.ParcheminDebug.init();
         fr.reborn.hud.audit.ResponsiveAudit.init();
+        fr.reborn.hud.audit.ConcentrationPreview.init();
+        fr.reborn.hud.menu.character.SceneMockups.init();
+        fr.reborn.hud.menu.character.scene.ScenePreview.init();
         // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
         // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
         fr.reborn.hud.byakugan.ByakuganDebug.init();
@@ -684,8 +693,6 @@ public final class RebornHudClient implements ClientModInitializer {
     /** {@code true} si l'écran courant est un écran du flux perso (sélection /
      *  création / chargement) — sert à ne pas rouvrir/fermer par-dessus lui. */
     private static boolean isCharacterScreen(net.minecraft.client.gui.screens.Screen s) {
-        return s instanceof fr.reborn.hud.menu.character.CharacterSelectScreen
-            || s instanceof fr.reborn.hud.menu.character.CharacterCreateScreen
-            || s instanceof fr.reborn.hud.menu.character.CharacterLoadingScreen;
+        return fr.reborn.hud.menu.character.CharacterScreens.isCharacterScreen(s);
     }
 }

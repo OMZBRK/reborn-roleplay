@@ -1,0 +1,181 @@
+{
+ "format_version": "1.8.0",
+ "animations": {
+  "scene_crossed": {
+   "model": {
+    "body_control": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    },
+    "waist": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    }
+   },
+   "parents": {
+    "waist": "body_control",
+    "left_leg": "body_control",
+    "right_leg": "body_control",
+    "torso": "waist",
+    "head": "waist",
+    "right_arm": "waist",
+    "left_arm": "waist"
+   },
+   "animation_length": 4.0,
+   "loop": true,
+   "player_animation_library": {
+    "name": "Sc\u00e8ne \u2014 mains dans le dos",
+    "author": "Reborn",
+    "description": "Sc\u00e8ne \u2014 mains dans le dos"
+   },
+   "bones": {
+    "right_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        22.0,
+        0.0,
+        8.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        23.5,
+        0.0,
+        8.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        22.0,
+        0.0,
+        8.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "left_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        22.0,
+        0.0,
+        -8.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        23.5,
+        0.0,
+        -8.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        22.0,
+        0.0,
+        -8.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "torso": {
+     "bend": {
+      "0.000": {
+       "value": -2.0,
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "value": -0.5,
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "value": -2.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "head": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        -4.0,
+        6.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        -6.0,
+        9.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        -4.0,
+        6.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "right_leg": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        0.0,
+        6.0,
+        4.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        0.0,
+        6.0,
+        4.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "left_leg": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        0.0,
+        -6.0,
+        -4.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        0.0,
+        -6.0,
+        -4.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    }
+   }
+  }
+ }
+}

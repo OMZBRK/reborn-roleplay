@@ -32,6 +32,12 @@ public abstract class CameraPhotoMixin {
     @Inject(method = "update", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/Camera;alignWithEntity(F)V", shift = At.Shift.AFTER))
     private void reborn$photoCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
+        if (fr.reborn.hud.menu.character.scene.SceneCamera.active()) {
+            var shot = fr.reborn.hud.menu.character.scene.SceneCamera.current();
+            this.setRotation(shot.yaw(), shot.pitch());
+            this.setPosition(shot.pos());
+            return;
+        }
         if (!PhotoMode.INSTANCE.isActive()) return;
         this.setRotation(PhotoMode.INSTANCE.yaw(), PhotoMode.INSTANCE.pitch());
         float roll = PhotoMode.INSTANCE.roll();
@@ -42,6 +48,10 @@ public abstract class CameraPhotoMixin {
     /** Champ de vision du mode photo (remplace celui des options pendant le mode). */
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
     private void reborn$photoFov(CallbackInfoReturnable<Float> cir) {
+        if (fr.reborn.hud.menu.character.scene.SceneCamera.active()) {
+            cir.setReturnValue(fr.reborn.hud.menu.character.scene.SceneCamera.current().fov());
+            return;
+        }
         if (PhotoMode.INSTANCE.isActive()) cir.setReturnValue(PhotoMode.INSTANCE.fov());
     }
 }

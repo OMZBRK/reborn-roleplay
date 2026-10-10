@@ -1,0 +1,211 @@
+{
+ "format_version": "1.8.0",
+ "animations": {
+  "scene_idle": {
+   "model": {
+    "body_control": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    },
+    "waist": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    }
+   },
+   "parents": {
+    "waist": "body_control",
+    "left_leg": "body_control",
+    "right_leg": "body_control",
+    "torso": "waist",
+    "head": "waist",
+    "right_arm": "waist",
+    "left_arm": "waist"
+   },
+   "animation_length": 4.0,
+   "loop": true,
+   "player_animation_library": {
+    "name": "Sc\u00e8ne \u2014 repos",
+    "author": "Reborn",
+    "description": "Sc\u00e8ne \u2014 repos"
+   },
+   "bones": {
+    "right_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        4.0,
+        0.0,
+        7.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        2.0,
+        0.0,
+        8.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        4.0,
+        0.0,
+        7.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "left_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        -3.0,
+        0.0,
+        -5.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        -5.0,
+        0.0,
+        -6.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        -3.0,
+        0.0,
+        -5.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "torso": {
+     "bend": {
+      "0.000": {
+       "value": 0.0,
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "value": 2.0,
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "value": 0.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "head": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        2.0,
+        -8.0,
+        -6.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.000": {
+       "vector": [
+        0.0,
+        -12.0,
+        -8.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        2.0,
+        -8.0,
+        -6.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "body_control": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        0.0,
+        0.0,
+        -3.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        0.0,
+        0.0,
+        -3.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "left_leg": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        0.0,
+        -4.0,
+        -4.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        0.0,
+        -4.0,
+        -4.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "right_leg": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        -10.0,
+        10.0,
+        3.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "vector": [
+        -10.0,
+        10.0,
+        3.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": 14.0,
+       "easing": "easeInOutSine"
+      },
+      "4.000": {
+       "value": 14.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    }
+   }
+  }
+ }
+}

@@ -116,6 +116,27 @@ public final class Nameplates {
         }
     }
 
+    /**
+     * Plaque au style choisi par le joueur, centrée en {@code (x, y)} (bas de la plaque) — pour les écrans qui
+     * montrent un perso hors du monde (sélection du personnage).
+     */
+    public static void drawPlate(GuiGraphicsExtractor g, Font f, float x, float y, String name, int clanCol,
+                                 String village, float alpha) {
+        int col = 0xFF000000 | clanCol;
+        switch (Math.floorMod(RebornPrefs.INSTANCE.nameplateStyle, 4)) {
+            case 1 -> drawFilet(g, f, x, y, name, col, alpha);
+            case 2 -> drawVillage(g, f, x, y, name, col, villageKey(village), alpha);
+            case 3 -> drawRuban(g, f, x, y, name, alpha);
+            default -> drawDetoure(g, f, x, y, name, col, alpha);
+        }
+    }
+
+    /** Style « Village » quel que soit le réglage (emblème + nom). */
+    public static void drawVillagePlate(GuiGraphicsExtractor g, Font f, float x, float y, String name, int clanCol,
+                                        String village, float alpha) {
+        drawVillage(g, f, x, y, name, 0xFF000000 | clanCol, villageKey(village), alpha);
+    }
+
     // ── styles ───────────────────────────────────────────────────
 
     /** Détouré : nom seul avec contour, carré du clan à droite. */
