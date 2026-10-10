@@ -32,7 +32,7 @@ public class VideoTab extends SectionedTab {
         // Échelle interface (GUI) : HUD en jeu et écrans vanilla. Les menus Reborn ont leur propre
         // échelle, fixée par la taille de la fenêtre (voir ui.MenuScale).
         int guiScale = o.guiScale().get();
-        row("Échelle de l'interface", "Taille du HUD en jeu (les menus Reborn s'adaptent seuls)",
+        row("Échelle de l'interface", "Taille du HUD en jeu (les menus Reborn gardent leur taille)",
             (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,
                 new SegmentedControl.Option[] {
                     new SegmentedControl.Option("0", "Auto"),
