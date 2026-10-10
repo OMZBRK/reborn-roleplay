@@ -112,6 +112,7 @@ public final class SceneSelectScreen extends Screen {
             actors.add(m);
         }
         openedAt = System.currentTimeMillis();
+        SceneSounds.startHum();
         SceneCamera.Shot start = new SceneCamera.Shot(wide.pos().add(0, 0.6, 1.6), wide.yaw(), wide.pitch() + 6, wide.fov() + 6);
         SceneCamera.start(start);
         SceneCamera.moveTo(shotFor(focus), 2600);
@@ -124,6 +125,7 @@ public final class SceneSelectScreen extends Screen {
         for (ClientMannequin m : actors) if (m != null) SceneActors.remove(mc, m);
         actors.clear();
         SceneCamera.stop();
+        if (!(Minecraft.getInstance().gui.screen() instanceof SceneJourneyScreen)) SceneSounds.stopHum();
         ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(prevHideGui);
         super.removed();
     }
@@ -161,7 +163,7 @@ public final class SceneSelectScreen extends Screen {
         prevFocus = focus;
         focus = i;
         focusAt = System.currentTimeMillis();
-        RebornSounds.charNav();
+        SceneSounds.focus();
         SceneCamera.moveTo(shotFor(i), 1300);
     }
 
@@ -170,7 +172,7 @@ public final class SceneSelectScreen extends Screen {
         Role r = roles.get(focus);
         if (r.dead()) { RebornSounds.deny(); note("Ce personnage est mort (RPK). Demande à un staff de le ressusciter."); return; }
         leaveAt = System.currentTimeMillis();
-        RebornSounds.confirm();
+        SceneSounds.resonate();
         SceneCamera.moveTo(closeFor(focus), 1600);
     }
 
@@ -283,7 +285,9 @@ public final class SceneSelectScreen extends Screen {
             if (i == focus) { str = 0.3f + 0.7f * igE + 0.5f * (float) Math.sin(Math.PI * ig); rad *= 0.55 + 0.45 * igE; }
             else if (i == prevFocus) str = 0.3f + 0.7f * (1f - igE);
             if (roles.get(i).dead()) str *= 0.35f;
-            SceneFx.ring(g, roles.get(i).feet(), rad, scene * Math.min(1.4f, str), w, h);
+            Role ri = roles.get(i);
+            int col = ri.create() ? 0xD9A95E : ri.dead() ? 0x8A8A8A : CharacterRules.villageColor(CharacterRules.villageIndex(ri.village()));
+            SceneFx.aura(g, ri.feet(), rad, scene * Math.min(1.4f, str), col, i + 1, w, h);
         }
         SceneFx.fireflies(g, w, h, scene, 26);
         int bar = Math.round(16 * Math.min(1f, (now - openedAt) / 900f));

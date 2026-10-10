@@ -16,9 +16,29 @@ public final class CharacterRules {
 
     public static String villageDesc(int i) { return CharacterCreateScreen.V_DESC[i]; }
 
-    /** Clé d'emblème (konoha, suna, kiri, kumo, iwa) ou {@code null} (Ame, Déserteur : pas d'emblème). */
+    /** Clé d'emblème (konoha, suna, kiri, kumo, iwa, ame) ou {@code null} (Déserteur : pas d'emblème). */
     public static String villageKey(int i) {
-        return i >= 0 && i < 5 ? new String[]{"konoha", "suna", "kiri", "kumo", "iwa"}[i] : null;
+        return i >= 0 && i < 6 ? new String[]{"konoha", "suna", "kiri", "kumo", "iwa", "ame"}[i] : null;
+    }
+
+    public static int villageIndex(String village) {
+        String[] vs = villages();
+        for (int i = 0; i < vs.length; i++) if (vs[i].equalsIgnoreCase(village)) return i;
+        return -1;
+    }
+
+    /** Couleur du chakra d'un village (braises sous le perso dans les scènes). */
+    public static int villageColor(int i) {
+        return switch (i) {
+            case 0 -> 0xF2A548;   // Konoha : feu
+            case 1 -> 0xE8C88A;   // Suna : sable
+            case 2 -> 0x9ED8EA;   // Kiri : brume
+            case 3 -> 0xF4EC8C;   // Kumo : foudre
+            case 4 -> 0xD39B6A;   // Iwa : terre
+            case 5 -> 0xA9B8DA;   // Ame : pluie
+            case 6 -> 0xC85A5A;   // Déserteur
+            default -> 0xD9A95E;
+        };
     }
 
     public static String[] clansOf(int village) {

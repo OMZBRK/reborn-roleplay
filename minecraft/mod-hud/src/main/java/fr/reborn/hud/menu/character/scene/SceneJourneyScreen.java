@@ -120,6 +120,7 @@ public final class SceneJourneyScreen extends Screen {
         ((HudAccessor) (Object) mc.gui.hud).reborn$setHidden(true);
         actor = SceneActors.spawn(mc, -424300, feet, 0, look, "scene_idle.json", 0);
         SceneActors.setBody(actor, age, size);
+        SceneSounds.startHum();
         introAt = openedAt = System.currentTimeMillis();
         stepAt = questionsAt = Long.MAX_VALUE / 4;
         // plan d'ouverture : face au perso, centré, qui s'approche très lentement
@@ -132,7 +133,9 @@ public final class SceneJourneyScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         if (actor != null) SceneActors.remove(mc, actor);
         actor = null;
+        thumbs.releaseAll();
         SceneCamera.stop();
+        if (!(Minecraft.getInstance().gui.screen() instanceof SceneSelectScreen)) SceneSounds.stopHum();
         ((HudAccessor) (Object) mc.gui.hud).reborn$setHidden(prevHidden);
         super.removed();
     }
@@ -174,7 +177,7 @@ public final class SceneJourneyScreen extends Screen {
         step = Math.max(0, Math.min(STEPS - 1, s));
         stepAt = System.currentTimeMillis();
         cursor = 0;
-        RebornSounds.charNav();
+        SceneSounds.whoosh();
         if (step == S_RECAP) {
             SceneActors.play(actor, "scene_crossed.json", 0);
             SceneCamera.moveTo(orbit(0), 1500);
@@ -224,19 +227,21 @@ public final class SceneJourneyScreen extends Screen {
         String[] vs = CharacterRules.villages();
         if (v < 0 || v >= vs.length) return;
         if (CharacterRules.villageLocked(vs[v])) { fail("Ta candidature t'attache à un autre village."); return; }
-        if (v != village) { village = v; presetClan(); customClan = ""; }
+        if (v != village) { village = v; presetClan(); customClan = ""; SceneSounds.tick(); }
     }
 
     public void setClan(int c) {
         String[] cs = CharacterRules.clansOf(village);
         if (c < 0 || c >= cs.length) return;
         if (CharacterRules.clanLocked(cs[c])) { fail("Ta candidature t'attache à un autre clan."); return; }
+        if (c != clanIdx) SceneSounds.tick();
         clanIdx = c;
         applyLists();
         if (actor != null) SceneActors.reskin(actor, look);
     }
 
     public void setSexe(int s) {
+        if (s != sexeIdx) SceneSounds.tick();
         sexeIdx = s;
         look.female = s == 1;
         look.slim = look.female || maleSlim;
@@ -264,8 +269,16 @@ public final class SceneJourneyScreen extends Screen {
         SceneCamera.moveTo(framing(S_LOOK), 900);
     }
 
+    private void reskin() {
+        if (actor != null) SceneActors.reskin(actor, look);
+        SceneSounds.tick();
+    }
+
     public void selectLookRow(int row) {
-        lookRow = Math.max(0, Math.min(LOOK_ROWS.length - 1, row));
+        int nr = Math.max(0, Math.min(LOOK_ROWS.length - 1, row));
+        if (nr != lookRow) { SceneSounds.tick(); lookScroll = 0; }
+        lookRow = nr;
+        if (lookRow == 3 || lookRow == 4) syncHsv();
         SceneCamera.moveTo(framing(S_LOOK), 900);
     }
 
@@ -332,7 +345,7 @@ public final class SceneJourneyScreen extends Screen {
             return true;
         }
         if (k == GLFW.GLFW_KEY_BACKSPACE) {
-            if (step == S_NOM && !name.isEmpty()) { name = name.substring(0, name.length() - 1); return true; }
+            if (step == S_NOM && !name.isEmpty()) { name = name.substring(0, name.length() - 1); SceneSounds.key(); return true; }
             if (step == S_CLAN && isCustomClan() && !customClan.isEmpty()) {
                 customClan = customClan.substring(0, customClan.length() - 1);
                 return true;
@@ -363,11 +376,20 @@ public final class SceneJourneyScreen extends Screen {
     /** Prochaine entrée non verrouillée dans le sens {@code dir}. */
     private int stepFree(int from, int dir, boolean villages) {
         String[] arr = villages ? CharacterRules.villages() : CharacterRules.clansOf(village);
-        for (int i = from + dir; i >= 0 && i < arr.length; i += dir) {
+        int n = villages ? villageCount() : arr.length;
+        for (int i = from + dir; i >= 0 && i < n; i += dir) {
             boolean locked = villages ? CharacterRules.villageLocked(arr[i]) : CharacterRules.clanLocked(arr[i]);
             if (!locked) return i;
         }
         return from;
+    }
+
+    /** Villages proposés à la création (sans « Déserteur »). */
+    private static int villageCount() {
+        String[] vs = CharacterRules.villages();
+        int n = vs.length;
+        while (n > 0 && vs[n - 1].toLowerCase(Locale.ROOT).startsWith("d")) n--;
+        return n;
     }
 
     private boolean isCustomClan() {
@@ -379,8 +401,8 @@ public final class SceneJourneyScreen extends Screen {
     public boolean charTyped(CharacterEvent e) {
         if (intro < 2 || leaveAt >= 0 || !e.isAllowedChatCharacter()) return false;
         String c = e.codepointAsString();
-        if (step == S_NOM && name.length() < 24 && (!c.isBlank() || !name.isEmpty())) { name += c; return true; }
-        if (step == S_CLAN && isCustomClan() && customClan.length() < 24) { customClan += c; return true; }
+        if (step == S_NOM && name.length() < 24 && (!c.isBlank() || !name.isEmpty())) { name += c; SceneSounds.key(); return true; }
+        if (step == S_CLAN && isCustomClan() && customClan.length() < 24) { customClan += c; SceneSounds.key(); return true; }
         return false;
     }
 
@@ -390,12 +412,31 @@ public final class SceneJourneyScreen extends Screen {
         if (intro < 2) { if (System.currentTimeMillis() - introAt > 700) beginScene(); return true; }
         if (leaveAt >= 0) return true;
         int mx = (int) e.x(), my = (int) e.y();
+        if (step == S_LOOK) {
+            for (int[] b : bars) {
+                if (mx >= b[0] && my >= b[1] && mx < b[0] + b[2] && my < b[1] + b[3]) {
+                    dragBar = b[4];
+                    dragTo(dragBar, e.x());
+                    return true;
+                }
+            }
+        }
         for (int[] r : hits) {
             if (mx < r[0] || my < r[1] || mx >= r[0] + r[2] || my >= r[1] + r[3]) continue;
             int act = r[4];
             if (act == -1) { if (step == S_RECAP) submit(); else next(); }
             else if (act == -3) setStep(0);
-            else if (act >= 1000) tweak((act - 1000) / 10, (act % 10) == 1 ? 1 : -1);
+            else if (act >= 5000) { if (!look.female) { maleSlim = act == 5001; look.slim = maleSlim; reskin(); } }
+            else if (act >= 4000) {
+                int[] pr = lookRow == 3 ? HAIR_COLORS : EYE_COLORS;
+                int ci = act - 4000;
+                if (lookRow == 3) hairColorIdx = ci; else eyeIdx = ci;
+                setLookColor(pr[ci]);
+                syncHsv();
+                SceneSounds.tick();
+            }
+            else if (act >= 3000) { outfitIdx = act - 3000; applyLists(); reskin(); }
+            else if (act >= 2000) { hairIdx = act - 2000; applyLists(); reskin(); }
             else switch (step) {
                 case S_VILLAGE -> setVillage(act);
                 case S_CLAN -> setClan(act);
@@ -425,7 +466,7 @@ public final class SceneJourneyScreen extends Screen {
             g.fill(w - 1 - i, 0, w - i, h, al << 24);
         }
         float scene = Math.min(1f, Math.max(0f, (now - openedAt) / 1500f));
-        SceneFx.ring(g, feet, 0.6 * stature(), scene, w, h);
+        SceneFx.aura(g, feet, 0.55 * stature(), scene, CharacterRules.villageColor(village), 1, w, h);
         SceneFx.fireflies(g, w, h, scene, 22);
         g.fill(0, 0, w, bar, 0xFF000000);
         g.fill(0, h - bar, w, h, 0xFF000000);
@@ -498,10 +539,8 @@ public final class SceneJourneyScreen extends Screen {
         switch (s) {
             case S_VILLAGE -> {
                 String[] vs = CharacterRules.villages();
-                String key = CharacterRules.villageKey(village);
-                if (key != null) logo(g, key, w - 110, h / 2 + 40, 150, a(0x22F5E9D0, a));
                 selected(g, qx, Math.round(y0 + selY * 24), 250, a);
-                for (int i = 0; i < vs.length; i++) {
+                for (int i = 0; i < villageCount(); i++) {
                     int y = y0 + i * 24;
                     boolean on = i == village, locked = CharacterRules.villageLocked(vs[i]);
                     String k = CharacterRules.villageKey(i);
@@ -511,7 +550,6 @@ public final class SceneJourneyScreen extends Screen {
                     if (locked) g.fill(qx + 22, y + 4, qx + 26 + Math.round(font.width(lbl) * 1.1f), y + 5, a(LOCKED, a));
                     if (live) hits.add(new int[]{qx - 8, y - 6, 258, 22, i});
                 }
-                if (village >= 0) para(g, CharacterRules.villageDesc(village), qx, y0 + vs.length * 24 + 12, a);
             }
             case S_CLAN -> {
                 String[] cs = CharacterRules.clansOf(village);
@@ -531,8 +569,6 @@ public final class SceneJourneyScreen extends Screen {
                     text(g, RebornFont.display(v.isEmpty() ? "_" : v.toUpperCase(Locale.ROOT)), qx, y, a(CREAM, a), 1.3f);
                     g.fill(qx, y + 16, qx + 240, y + 17, a(GOLD, a));
                     para(g, "Écris le nom de ton clan ou de ta famille.", qx, y + 24, a);
-                } else if (clanIdx >= 0 && clanIdx < cs.length) {
-                    para(g, CharacterRules.clanDesc(cs[clanIdx]), qx, y, a);
                 }
             }
             case S_SEXE -> {
@@ -543,13 +579,11 @@ public final class SceneJourneyScreen extends Screen {
                     text(g, RebornFont.display(opts[i]), qx + 8, y, a(i == sexeIdx ? CREAM : MUTED, a), 1.3f);
                     if (live) hits.add(new int[]{qx - 8, y - 6, 208, 24, i});
                 }
-                para(g, "Choisit le corps de base, les coiffures et les tenues proposées.", qx, y0 + 70, a);
             }
             case S_NOM -> {
                 String n = name + (((now / 500) % 2 == 0) ? "_" : "");
                 text(g, RebornFont.display(n.isEmpty() ? "_" : n.toUpperCase(Locale.ROOT)), qx, y0 - 2, a(CREAM, a), 1.8f);
                 g.fill(qx, y0 + 24, qx + Math.min(300, w - qx - 30), y0 + 25, a(GOLD, a));
-                text(g, RebornFont.body("Ton prénom. Le nom de clan viendra avec ton sang."), qx, y0 + 34, a(SUB, a), 1f);
             }
             case S_AGE -> {
                 text(g, RebornFont.display(age + " ANS"), qx, y0 - 2, a(CREAM, a), 2.2f);
@@ -566,30 +600,15 @@ public final class SceneJourneyScreen extends Screen {
                         + (age < 17 ? " — pour l'instant, tu fais " + cm + " cm." : ".")), qx, y0 + 50, a(SUB, a), 1f);
             }
             case S_LOOK -> {
-                String[] values = {look.slim ? "Fine" : "Large", Math.round(skinT * 100) + " %",
-                        assetName(hairs(), look.hairId), "", "", assetName(outfits(), look.outfitId)};
-                selected(g, qx, Math.round(y0 + selY * 26), 290, a);
+                selected(g, qx, Math.round(y0 + selY * 24), 92, a);
                 for (int i = 0; i < LOOK_ROWS.length; i++) {
-                    boolean on = i == lookRow;
-                    int y = y0 + i * 26;
-                    text(g, RebornFont.display(LOOK_ROWS[i]), qx + 8, y, a(on ? GOLD : MUTED, a), 1f);
-                    int vx = qx + 112;
-                    text(g, RebornFont.display("<"), vx - 14, y, a(on ? CREAM : 0x50F5E9D0, a), 1f);
-                    if (i == 3 || i == 4) {
-                        int c = i == 3 ? look.hairColor : look.eyeColor;
-                        g.fill(vx, y - 1, vx + 26, y + 9, a(0xFF000000 | c, a));
-                        g.fill(vx, y - 1, vx + 26, y, a(0x60FFFFFF, a));
-                    } else {
-                        text(g, RebornFont.display(values[i].toUpperCase(Locale.ROOT)), vx, y, a(on ? CREAM : SUB, a), 1f);
-                    }
-                    text(g, RebornFont.display(">"), qx + 270, y, a(on ? CREAM : 0x50F5E9D0, a), 1f);
-                    if (live) {
-                        hits.add(new int[]{vx - 18, y - 6, 16, 22, 1000 + i * 10});
-                        hits.add(new int[]{qx + 264, y - 6, 18, 22, 1000 + i * 10 + 1});
-                        hits.add(new int[]{qx - 8, y - 6, 110, 22, i});
-                    }
+                    int y = y0 + i * 24;
+                    text(g, RebornFont.display(LOOK_ROWS[i]), qx + 4, y, a(i == lookRow ? CREAM : MUTED, a), 1f);
+                    if (live) hits.add(new int[]{qx - 8, y - 6, 100, 22, i});
                 }
-                text(g, RebornFont.body("Le skin se compose en direct, comme en jeu."), qx, y0 + 6 * 26 + 6, a(SUB, a), 1f);
+                int cx2 = qx + 112, pw = Math.min(290, w - cx2 - 24);
+                g.fill(cx2 - 12, y0 - 6, cx2 - 11, y0 + 6 * 24 + 30, a(0x40D9A95E, a));
+                drawLookPanel(g, lookRow, cx2, y0, pw, a, live);
             }
             default -> {
                 String clan = clanName();
@@ -656,6 +675,177 @@ public final class SceneJourneyScreen extends Screen {
             Component k = RebornFont.display("APPUIE SUR UNE TOUCHE");
             text(g, k, cx - font.width(k) / 2f, h - 46, a(CREAM, in * blink * leave), 1f);
         }
+    }
+
+    /* ----------------------------------------------- apparence : panneau de droite */
+
+    private final SkinThumbs thumbs = new SkinThumbs();
+    /** Barres glissables : {x, y, w, h, id} — 0 peau, 1 teinte, 2 saturation, 3 luminosité. */
+    private final List<int[]> bars = new ArrayList<>();
+    private int dragBar = -1, lookScroll;
+    private float pkH, pkS, pkV;
+
+    private void drawLookPanel(GuiGraphicsExtractor g, int cat, int x, int y, int pw, float a, boolean live) {
+        if (live) bars.clear();
+        switch (cat) {
+            case 0 -> {
+                String[] o = {"LARGE", "FINE"};
+                int cur = look.slim ? 1 : 0;
+                for (int i = 0; i < 2; i++) {
+                    int yy = y + i * 26;
+                    boolean dis = look.female && i == 0;
+                    if (i == cur) selected(g, x, yy, 150, a);
+                    text(g, RebornFont.display(o[i]), x + 6, yy, a(dis ? LOCKED : i == cur ? CREAM : MUTED, a), 1.1f);
+                    if (live && !dis) hits.add(new int[]{x - 8, yy - 6, 158, 22, 5000 + i});
+                }
+            }
+            case 1 -> {
+                int by = y + 4;
+                for (int i = 0; i < pw; i++) {
+                    g.fill(x + i, by, x + i + 1, by + 12, a(SkinSpec.skinRamp(i / (float) (pw - 1)), a));
+                }
+                outline(g, x - 1, by - 1, pw + 2, 14, a(0x80D9A95E, a));
+                knob(g, x + Math.round(skinT * (pw - 1)), by - 3, 18, a);
+                if (live) bars.add(new int[]{x, by - 4, pw, 20, 0});
+                g.fill(x, by + 26, x + 34, by + 44, a(look.skinColor, a));
+                outline(g, x - 1, by + 25, 36, 20, a(0x80D9A95E, a));
+            }
+            case 2 -> grid(g, hairs(), true, x, y, pw, a, live);
+            case 3, 4 -> {
+                int[] presets = cat == 3 ? HAIR_COLORS : EYE_COLORS;
+                int cur = cat == 3 ? look.hairColor : look.eyeColor;
+                int sw = 22, gap = 5, cols = Math.max(1, (pw + gap) / (sw + gap));
+                for (int i = 0; i < presets.length; i++) {
+                    int sx = x + (i % cols) * (sw + gap), sy = y + (i / cols) * (sw + gap);
+                    g.fill(sx, sy, sx + sw, sy + sw, a(presets[i], a));
+                    if ((presets[i] & 0xFFFFFF) == (cur & 0xFFFFFF)) outline(g, sx - 2, sy - 2, sw + 4, sw + 4, a(GOLD, a));
+                    if (live) hits.add(new int[]{sx, sy, sw, sw, 4000 + i});
+                }
+                int hy = y + ((presets.length + cols - 1) / cols) * (sw + gap) + 12;
+                hsvBars(g, x, hy, pw, a, live);
+            }
+            default -> grid(g, outfits(), false, x, y, pw, a, live);
+        }
+    }
+
+    /** Grille de vignettes : têtes (coiffures) ou corps entiers (tenues), composées sur le perso en cours. */
+    private void grid(GuiGraphicsExtractor g, List<CharacterCatalog.Asset> list, boolean hair, int x, int y, int pw,
+                      float a, boolean live) {
+        int tw = hair ? 38 : 30, th = hair ? 38 : 54, gap = 6;
+        int cols = Math.max(1, (pw + gap) / (tw + gap)), rows = hair ? 4 : 3;
+        int maxScroll = Math.max(0, (list.size() + cols - 1) / cols - rows);
+        lookScroll = Math.max(0, Math.min(maxScroll, lookScroll));
+        String curId = hair ? look.hairId : look.outfitId;
+        String curName = "";
+        for (int k = 0; k < rows * cols; k++) {
+            int i = lookScroll * cols + k;
+            if (i >= list.size()) break;
+            CharacterCatalog.Asset as = list.get(i);
+            int tx = x + (k % cols) * (tw + gap), ty = y + (k / cols) * (th + gap);
+            boolean on = as.id.equals(curId);
+            if (on) curName = as.name;
+            g.fill(tx, ty, tx + tw, ty + th, a(on ? 0x60D9A95E : 0x50000000, a));
+            outline(g, tx, ty, tw, th, a(on ? GOLD : 0x40D9A95E, a));
+            SkinSpec sp = SkinSpec.deserialize(look.serialize());
+            if (hair) sp.hairId = as.id; else sp.outfitId = as.id;
+            String key = (hair ? "h|" : "o|") + sp.serialize().hashCode();
+            Identifier id = thumbs.get(key, sp);
+            if (id != null && a > 0.05f) {
+                if (hair) SkinThumbs.head(g, id, tx + 3, ty + 3, 4);
+                else {
+                    g.pose().pushMatrix();
+                    g.pose().translate(tx + 3, ty + 3);
+                    g.pose().scale(1.5f, 1.5f);
+                    SkinThumbs.body(g, id, 0, 0, 1, sp.slim);
+                    g.pose().popMatrix();
+                }
+            }
+            if (live) hits.add(new int[]{tx, ty, tw, th, (hair ? 2000 : 3000) + i});
+        }
+        int gy = y + rows * (th + gap) + 2;
+        text(g, RebornFont.display(curName.isEmpty() ? "—" : curName.toUpperCase(Locale.ROOT)), x, gy, a(CREAM, a), 1f);
+        if (maxScroll > 0) {
+            Component sc = RebornFont.body((lookScroll + 1) + " / " + (maxScroll + 1) + "  ·  molette");
+            text(g, sc, x + pw - font.width(sc), gy, a(MUTED, a), 1f);
+        }
+    }
+
+    private void hsvBars(GuiGraphicsExtractor g, int x, int y, int pw, float a, boolean live) {
+        String[] lbl = {"TEINTE", "SATURATION", "LUMIÈRE"};
+        for (int b = 0; b < 3; b++) {
+            int by = y + b * 24;
+            text(g, RebornFont.body(lbl[b]), x, by - 1, a(MUTED, a), 1f);
+            int bx = x + 64, bw = pw - 64;
+            for (int i = 0; i < bw; i++) {
+                float t = i / (float) (bw - 1);
+                int c = b == 0 ? SkinSpec.hsvToArgb(t, 1f, 1f) : b == 1 ? SkinSpec.hsvToArgb(pkH, t, pkV)
+                        : SkinSpec.hsvToArgb(pkH, pkS, t);
+                g.fill(bx + i, by, bx + i + 1, by + 8, a(c, a));
+            }
+            outline(g, bx - 1, by - 1, bw + 2, 10, a(0x80D9A95E, a));
+            float v = b == 0 ? pkH : b == 1 ? pkS : pkV;
+            knob(g, bx + Math.round(v * (bw - 1)), by - 3, 14, a);
+            if (live) bars.add(new int[]{bx, by - 4, bw, 16, b + 1});
+        }
+    }
+
+    private void knob(GuiGraphicsExtractor g, int x, int y, int h, float a) {
+        g.fill(x - 2, y, x + 3, y + h, a(0xE0000000, a));
+        g.fill(x - 1, y + 1, x + 2, y + h - 1, a(CREAM, a));
+    }
+
+    private void outline(GuiGraphicsExtractor g, int x, int y, int w, int h, int c) {
+        g.fill(x, y, x + w, y + 1, c);
+        g.fill(x, y + h - 1, x + w, y + h, c);
+        g.fill(x, y, x + 1, y + h, c);
+        g.fill(x + w - 1, y, x + w, y + h, c);
+    }
+
+    private void syncHsv() {
+        int c = lookRow == 3 ? look.hairColor : look.eyeColor;
+        float[] hsv = SkinSpec.argbToHsv(c);
+        pkH = hsv[0]; pkS = hsv[1]; pkV = hsv[2];
+    }
+
+    private void setLookColor(int argb) {
+        if (lookRow == 3) look.hairColor = argb;
+        else look.eyeColor = look.eyeColorRight = argb;
+        if (actor != null) SceneActors.reskin(actor, look);
+    }
+
+    /** Barre glissée : peau ou HSV. */
+    private void dragTo(int id, double mx) {
+        for (int[] b : bars) {
+            if (b[4] != id) continue;
+            float t = (float) Math.max(0, Math.min(1, (mx - b[0]) / Math.max(1.0, b[2] - 1)));
+            switch (id) {
+                case 0 -> { skinT = t; look.skinColor = SkinSpec.skinRamp(t); if (actor != null) SceneActors.reskin(actor, look); }
+                case 1 -> { pkH = t; setLookColor(SkinSpec.hsvToArgb(pkH, pkS, pkV)); }
+                case 2 -> { pkS = t; setLookColor(SkinSpec.hsvToArgb(pkH, pkS, pkV)); }
+                default -> { pkV = t; setLookColor(SkinSpec.hsvToArgb(pkH, pkS, pkV)); }
+            }
+        }
+    }
+
+    @Override
+    public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
+        if (dragBar >= 0) { dragTo(dragBar, e.x()); return true; }
+        return super.mouseDragged(e, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(MouseButtonEvent e) {
+        if (dragBar >= 0) { dragBar = -1; SceneSounds.tick(); return true; }
+        return super.mouseReleased(e);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double h, double v) {
+        if (step == S_LOOK && (lookRow == 2 || lookRow == 5) && v != 0) {
+            lookScroll += v > 0 ? -1 : 1;
+            return true;
+        }
+        return super.mouseScrolled(mx, my, h, v);
     }
 
     private static String assetName(List<CharacterCatalog.Asset> list, String id) {

@@ -47,7 +47,7 @@ public final class Nameplates {
     /** Marge d'inflation du hitbox pour le test « je le regarde vraiment » (tolérance). */
     private static final double LOOK_INFLATE = 0.30;
     private static final int OUTLINE = 0xFF0E080A, UNKNOWN = 0xFFA8A0A0, NEUTRAL_CLAN = 0xFFC8B4A0;
-    private static final Set<String> VILLAGES = Set.of("konoha", "suna", "kiri", "kumo", "iwa");
+    private static final Set<String> VILLAGES = Set.of("konoha", "suna", "kiri", "kumo", "iwa", "ame");
 
     private static final ThreadLocal<Matrix4f> VP = ThreadLocal.withInitial(Matrix4f::new);
     private static final ThreadLocal<Vector4f> CLIP = ThreadLocal.withInitial(Vector4f::new);

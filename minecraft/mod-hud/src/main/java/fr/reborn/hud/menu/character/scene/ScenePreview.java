@@ -94,11 +94,17 @@ public final class ScenePreview {
         if (s == o + 200) shot(mc, "parcours_08_nom");
         if (s == o + 204) { trip.setStep(4); trip.setAge(12); }
         if (s == o + 236) shot(mc, "parcours_09_age");
-        if (s == o + 240) { trip.setStep(6); trip.tweak(2, 1); trip.tweak(3, 1); trip.selectLookRow(2); }
-        if (s == o + 276) shot(mc, "parcours_10_apparence");
-        if (s == o + 280) trip.setStep(7);
-        if (s == o + 336) shot(mc, "parcours_11_recap");
-        if (s == o + 350) mc.stop();
+        if (s == o + 240) { trip.setStep(6); trip.selectLookRow(1); }
+        if (s == o + 272) shot(mc, "parcours_10a_peau");
+        if (s == o + 276) trip.selectLookRow(2);
+        if (s == o + 300) shot(mc, "parcours_10b_cheveux");
+        if (s == o + 304) trip.selectLookRow(3);
+        if (s == o + 324) shot(mc, "parcours_10c_couleur");
+        if (s == o + 328) trip.selectLookRow(5);
+        if (s == o + 352) shot(mc, "parcours_10d_tenue");
+        if (s == o + 356) trip.setStep(7);
+        if (s == o + 410) shot(mc, "parcours_11_recap");
+        if (s == o + 420) mc.stop();
     }
 
     /** Toit de Konoha la nuit : tuiles, cerisier, lanternes, bâtiments éclairés au loin. */
