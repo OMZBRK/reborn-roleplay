@@ -267,6 +267,16 @@ techniques:
     B: 16
     A: 20
     HIDEN: 25
+  # Concentration du chakra : avant toute épreuve qui demande du chakra (pas le Taïjutsu).
+  # zone = demi-largeur de la zone d'or (jauge de -1 à 1), secondes = temps à tenir dans la zone,
+  # derive = force des fluctuations, tolerance = secondes hors zone avant que la stabilité tombe à zéro.
+  concentration:
+    bonus-maitre: 1.25   # zone élargie quand un maître est là
+    D: {zone: 0.40, secondes: 8, derive: 0.95, tolerance: 3.0, rafales: false, zone-mobile: false}
+    C: {zone: 0.30, secondes: 12, derive: 1.10, tolerance: 2.5, rafales: false, zone-mobile: false}
+    B: {zone: 0.22, secondes: 14, derive: 1.20, tolerance: 2.2, rafales: true, zone-mobile: false}
+    A: {zone: 0.16, secondes: 16, derive: 1.25, tolerance: 2.0, rafales: true, zone-mobile: true}
+    S: {zone: 0.12, secondes: 18, derive: 1.35, tolerance: 2.0, rafales: true, zone-mobile: true}
 
 # ------------------------------------------------------------ fuinjutsu
 # Sceau de Contention — sealing channel against transformed jinchūriki

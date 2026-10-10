@@ -176,6 +176,7 @@ public final class ShinobiAbilities extends JavaPlugin {
         this.shelves = new LearningShelfManager(this, abilities, guiRouter);
         this.shelves.load();
         this.minigame = new LearningMinigame(this);
+        this.minigame.concentration().loadConfig(getConfig().getConfigurationSection("techniques.concentration"));
         this.techniques = new TechniquesService(this, core, abilities, shelves, minigame);
 
         // Parchemins : catalogue des techniques éligibles, slots du rang S, bibliothèques à tirage.
@@ -196,6 +197,7 @@ public final class ShinobiAbilities extends JavaPlugin {
         getServer().getPluginManager().registerEvents(seances, this);
         var parchCmd = new com.reborn.shinobiabilities.parchemin.ParcheminCommand(libraries, scrollCatalog, scrollSlots);
         parchCmd.wire(seances);
+        parchCmd.wire(minigame.concentration());
         for (String name : new String[]{"bibliotheque", "parchemin"}) {
             PluginCommand pc = getCommand(name);
             if (pc != null) { pc.setExecutor(parchCmd); pc.setTabCompleter(parchCmd); }
@@ -368,6 +370,7 @@ public final class ShinobiAbilities extends JavaPlugin {
         if (scrollCatalog != null) scrollCatalog.load(getConfig().getConfigurationSection("parchemins"));
         if (scrollSlots != null) scrollSlots.loadConfig(getConfig().getConfigurationSection("parchemins"));
         if (seances != null) seances.loadConfig(getConfig().getConfigurationSection("parchemins"));
+        if (minigame != null) minigame.concentration().loadConfig(getConfig().getConfigurationSection("techniques.concentration"));
     }
 
     /**

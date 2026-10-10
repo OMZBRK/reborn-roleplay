@@ -26,6 +26,7 @@ import java.util.Locale;
  *   <li>{@code /parchemin donner <joueur> <technique>} — donne un rouleau · {@code slots <technique>}.</li>
  *   <li>{@code /parchemin seance <joueur> <technique> [n]} — accorde (ou retire, n négatif) des séances.</li>
  *   <li>{@code /parchemin attente} · {@code valider|refuser <joueur> <technique>} — demandes du rang S.</li>
+ *   <li>{@code /parchemin concentration [D|C|B|A|S] [maitre]} — essayer la concentration du chakra, sans enjeu.</li>
  * </ul>
  */
 public final class ParcheminCommand implements TabExecutor {
@@ -42,6 +43,10 @@ public final class ParcheminCommand implements TabExecutor {
     }
 
     public void wire(SeanceService seances) { this.seances = seances; }
+
+    private com.reborn.shinobiabilities.techniques.ConcentrationGame concentration;
+
+    public void wire(com.reborn.shinobiabilities.techniques.ConcentrationGame c) { this.concentration = c; }
 
     @Override
     public boolean onCommand(CommandSender s, Command cmd, String label, String[] args) {
@@ -139,7 +144,14 @@ public final class ParcheminCommand implements TabExecutor {
                 String err = sub.equals("valider") ? seances.validate(staff, p) : seances.refuse(staff, p);
                 s.sendMessage(err == null ? "§aFait." : "§c" + err);
             }
-            default -> s.sendMessage("§cUsage : /parchemin <donner|slots|seance|attente|valider|refuser>");
+            case "concentration" -> {
+                if (!(s instanceof Player p)) { s.sendMessage("§cEn jeu uniquement."); return true; }
+                char r = args.length >= 2 ? Character.toUpperCase(args[1].charAt(0)) : 'D';
+                boolean helped = args.length >= 3 && args[2].toLowerCase(Locale.ROOT).startsWith("ma");
+                if (concentration.isActive(p)) { concentration.abort(p); p.sendMessage("§7Concentration interrompue."); return true; }
+                concentration.start(p, r, helped, ok -> p.sendMessage(ok ? "§aRéussi (essai sans enjeu)." : "§7Raté (essai sans enjeu)."));
+            }
+            default -> s.sendMessage("§cUsage : /parchemin <donner|slots|seance|attente|valider|refuser|concentration>");
         }
         return true;
     }
@@ -161,7 +173,11 @@ public final class ParcheminCommand implements TabExecutor {
         boolean biblio = cmd.getName().equalsIgnoreCase("bibliotheque");
         if (args.length == 1) {
             out.addAll(biblio ? List.of("creer", "regler", "tirage", "suppr", "liste")
-                    : List.of("donner", "slots", "seance", "attente", "valider", "refuser"));
+                    : List.of("donner", "slots", "seance", "attente", "valider", "refuser", "concentration"));
+        } else if (!biblio && args.length == 2 && args[0].equalsIgnoreCase("concentration")) {
+            out.addAll(List.of("D", "C", "B", "A", "S"));
+        } else if (!biblio && args.length == 3 && args[0].equalsIgnoreCase("concentration")) {
+            out.add("maitre");
         } else if (!biblio && args.length == 2 && List.of("donner", "seance", "valider", "refuser").contains(args[0].toLowerCase(Locale.ROOT))) {
             Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
         } else if (!biblio && ((args.length == 3 && List.of("donner", "seance", "valider", "refuser").contains(args[0].toLowerCase(Locale.ROOT)))

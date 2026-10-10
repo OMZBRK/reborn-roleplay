@@ -43,7 +43,7 @@ commands:
     permission: shinobiabilities.staff
   parchemin:
     description: Staff — parchemins (donner, slots du rang S, séances, validations du rang S).
-    usage: /<command> <donner|slots|seance|attente|valider|refuser>
+    usage: /<command> <donner|slots|seance|attente|valider|refuser|concentration>
     aliases: [parchemins]
     permission: shinobiabilities.staff
 permissions:

@@ -252,7 +252,7 @@ public final class SeanceService implements Listener {
         if (master != null) {
             master.sendMessage(Component.text(c.name() + " s'entraîne à « " + a.name() + " » sous ton regard.", NamedTextColor.GOLD));
         }
-        minigame.startSeance(p, a, !ScrollCatalog.branch(a).equals("Ninjutsu"));
+        minigame.startSeance(p, a, !ScrollCatalog.branch(a).equals("Ninjutsu"), master != null);
     }
 
     private static String scrollIdOrNew(ItemStack it) {

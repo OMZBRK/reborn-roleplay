@@ -85,16 +85,22 @@ public final class LearningMinigame implements Listener {
     /** What the service needs to finalise a run. */
     public record Result(Ability ability, Location shelfLoc, int slot, boolean success) {}
 
+    private final ConcentrationGame concentration;
+
     public LearningMinigame(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.concentration = new ConcentrationGame(plugin);
+        plugin.getServer().getPluginManager().registerEvents(concentration, plugin);
     }
+
+    public ConcentrationGame concentration() { return concentration; }
 
     public void wire(BiConsumer<Player, Result> sink) {
         this.sink = sink;
     }
 
     public boolean isActive(Player p) {
-        return p != null && sessions.containsKey(p.getUniqueId());
+        return p != null && (sessions.containsKey(p.getUniqueId()) || concentration.isActive(p));
     }
 
     /** True when the player has a pending SUIVI validation. */
@@ -108,8 +114,8 @@ public final class LearningMinigame implements Listener {
         if (isActive(p)) return;
         switch (ability.minigame()) {
             case NONE -> finish(p, new Result(ability, shelfLoc, slot, true));
-            case MUDRA -> startMudra(p, ability, shelfLoc, slot);
-            case PUSHUP -> startPushup(p, ability, shelfLoc, slot);
+            case MUDRA -> concentrate(p, ability, shelfLoc, slot, false, () -> startMudra(p, ability, shelfLoc, slot));
+            case PUSHUP -> concentrate(p, ability, shelfLoc, slot, false, () -> startPushup(p, ability, shelfLoc, slot));
             case SUIVI -> startSuivi(p, ability, shelfLoc, slot);
         }
     }
@@ -121,10 +127,25 @@ public final class LearningMinigame implements Listener {
      * Séance d'apprentissage d'un parchemin : mudras pour le Ninjutsu, pompes pour le Taïjutsu et le Kenjutsu,
      * quelle que soit l'épreuve réglée sur la technique (une séance est toujours une épreuve).
      */
-    public void startSeance(Player p, Ability ability, boolean physical) {
+    public void startSeance(Player p, Ability ability, boolean physical, boolean helped) {
         if (isActive(p)) return;
-        if (physical) startPushup(p, ability, null, SEANCE);
-        else startMudra(p, ability, null, SEANCE);
+        concentrate(p, ability, null, SEANCE, helped, () -> {
+            if (physical) startPushup(p, ability, null, SEANCE);
+            else startMudra(p, ability, null, SEANCE);
+        });
+    }
+
+    /**
+     * Concentration du chakra avant l'épreuve, pour tout ce qui demande du chakra : le Taïjutsu (corps seul) passe
+     * directement. Échec de la concentration = épreuve ratée.
+     */
+    private void concentrate(Player p, Ability a, Location shelfLoc, int slot, boolean helped, Runnable next) {
+        if (com.reborn.shinobiabilities.parchemin.ScrollCatalog.branch(a).equals("Taïjutsu")) { next.run(); return; }
+        concentration.start(p, com.reborn.shinobiabilities.parchemin.ScrollCatalog.rank(a), helped, ok -> {
+            if (!p.isOnline()) return;
+            if (ok) plugin.getServer().getScheduler().runTaskLater(plugin, next, 25L);
+            else if (sink != null) sink.accept(p, new Result(a, shelfLoc, slot, false));
+        });
     }
 
     /* ---------------------------------------------------------------- mudra */
@@ -360,6 +381,7 @@ public final class LearningMinigame implements Listener {
 
     /** Abort silently (quit / KO / switch) — the parchemin stays. */
     public void abort(Player p) {
+        concentration.abort(p);
         cleanup(p);
     }
 
@@ -373,6 +395,7 @@ public final class LearningMinigame implements Listener {
     }
 
     public void abortAll() {
+        concentration.abortAll();
         for (UUID id : sessions.keySet().toArray(new UUID[0])) {
             Player p = plugin.getServer().getPlayer(id);
             if (p != null) cleanup(p);

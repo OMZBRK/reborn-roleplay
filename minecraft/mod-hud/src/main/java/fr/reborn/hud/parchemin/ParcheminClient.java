@@ -45,6 +45,7 @@ public final class ParcheminClient {
                 if (mc.gui.screen() instanceof LectureScreen l && id.equals(l.techId())) l.update(o);
                 else mc.setScreenAndShow(LectureScreen.fromJson(o));
             }
+            case "conc" -> ConcentrationHud.update(o);
             case "toast" -> {
                 String msg = o.get("msg").getAsString();
                 if (mc.gui.screen() instanceof BibliothequeScreen b) b.toast(msg);
