@@ -45,6 +45,48 @@ public final class InteractionMenus {
         info("Copié : §e" + text);
     }
 
+    /** Menu d'un joueur ; sur un corps à terre / KO / mort, celui du corps (KO-7). */
+    public static List<InteractionItem> forPlayer(String name, java.util.UUID id) {
+        fr.reborn.hud.ko.CorpsClient.Body b = fr.reborn.hud.ko.CorpsClient.body(id);
+        return b != null ? forBody(name, b) : forPlayer(name);
+    }
+
+    /**
+     * Corps à terre ou KO : ausculter, fouiller, porter, attraper à la gorge, et la mise à mort RP. Avant la
+     * validation du staff : « Demander une RPK ». Après : « Achever » et les exécutions possédées — c'est cette
+     * dernière action qui tue.
+     */
+    public static List<InteractionItem> forBody(String name, fr.reborn.hud.ko.CorpsClient.Body b) {
+        if (b.phase() == 3) {
+            return List.of(InteractionItem.action("Constater la mort", () -> info("Ce corps ne respire plus.")));
+        }
+        java.util.List<InteractionItem> l = new java.util.ArrayList<>();
+        l.add(InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")));
+        l.add(InteractionItem.action("Attraper à la gorge", () -> sendCommand("corps gorge " + name)));
+        l.add(InteractionItem.action("Porter", () -> sendCommand("corps porter " + name)));
+        l.add(InteractionItem.action("Fouiller", () -> sendCommand("corps fouiller " + name)));
+        java.util.List<InteractionItem> ex = new java.util.ArrayList<>();
+        switch (b.rpk()) {
+            case 2 -> {
+                l.add(InteractionItem.action("Achever", () -> sendCommand("corps achever " + name)));
+                for (fr.reborn.hud.ko.CorpsClient.Exec e : fr.reborn.hud.ko.CorpsClient.executions()) {
+                    ex.add(InteractionItem.action(e.name(), () -> sendCommand("corps executer " + name + " " + e.id())));
+                }
+                if (ex.isEmpty()) ex.add(InteractionItem.action("Aucune exécution possédée", () -> info("Les exécutions s'obtiennent à la boutique.")));
+            }
+            case 1 -> {
+                l.add(InteractionItem.action("RPK en attente du staff…", () -> info("Le staff n'a pas encore tranché.")));
+                ex.add(InteractionItem.action("RPK pas encore validée", () -> {}));
+            }
+            default -> {
+                l.add(InteractionItem.action("Demander une RPK", () -> sendCommand("corps rpk " + name)));
+                ex.add(InteractionItem.action("Il faut une RPK validée", () -> info("Demande d'abord une RPK au staff.")));
+            }
+        }
+        l.add(InteractionItem.submenu("Exécution", ex));
+        return l;
+    }
+
     public static List<InteractionItem> forPlayer(String name) {
         // NB : les commandes ShinobiCore /rencontrer /amitier /osculter ciblent
         // « la personne regardée » (pas d'argument) → fonctionnent si la cible est

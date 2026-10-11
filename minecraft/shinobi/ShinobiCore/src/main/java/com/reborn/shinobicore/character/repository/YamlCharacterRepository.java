@@ -156,6 +156,16 @@ public class YamlCharacterRepository implements CharacterRepository {
                 st.set(stat, sec.getInt(stat.key(), com.reborn.shinobicore.api.StatsService.MIN));
             }
             st.setBonusPoints(sec.getInt("bonus", 0));
+            // Points de grade séparés des stats (2026-10) : un build qui dépasse les points d'XP est remboursé.
+            if (!sec.getBoolean("split", false)) {
+                if (com.reborn.shinobicore.stats.StatFormulas.unspent(c.rank(), st) < 0) {
+                    plugin.getLogger().info("Stats : " + c.name() + " remboursé (points de grade devenus Mérite) "
+                            + st.snapshot() + ".");
+                    st.reset();
+                }
+                st.touch();
+                return true;
+            }
             return false;
         }
         int level = Math.max(1, Math.min(17, s.getInt("level", 1)));
@@ -176,9 +186,8 @@ public class YamlCharacterRepository implements CharacterRepository {
             st.set(a, com.reborn.shinobicore.api.StatsService.MIN + major);
             st.set(b, com.reborn.shinobicore.api.StatsService.MIN + minor);
             // Bonus so the converted build is affordable at the current rank.
-            int fromRank = com.reborn.shinobicore.stats.StatFormulas.levers().pointsPerRank()
-                    * c.rank().statTier();
-            st.setBonusPoints(Math.max(0, points - fromRank));
+            int fromLevel = com.reborn.shinobicore.stats.Progression.pointsFor(c.level());
+            st.setBonusPoints(Math.max(0, points - fromLevel));
         }
         st.touch();
         plugin.getLogger().info("Stats migration: " + c.name() + " (niveau " + level + ", "
@@ -412,6 +421,7 @@ public class YamlCharacterRepository implements CharacterRepository {
             cfg.set(key + ".stats." + stat.key(), c.stats().get(stat));
         }
         cfg.set(key + ".stats.bonus", c.stats().bonusPoints() > 0 ? c.stats().bonusPoints() : null);
+        cfg.set(key + ".stats.split", true);
 
         if (c.hasLastPosition()) {
             cfg.set(key + ".last-position.world", c.lastWorldName());

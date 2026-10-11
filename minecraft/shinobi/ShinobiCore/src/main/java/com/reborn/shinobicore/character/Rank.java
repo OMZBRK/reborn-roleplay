@@ -10,7 +10,7 @@ import java.util.Locale;
  * <p>Persisté par nom : {@link #from} relit aussi les anciens noms (ACADEMY, SPECIAL_JONIN, ANBU, SANNIN).
  * Les fonctions RP (ANBU, bras droit du Kage, conseil…) ne sont <b>pas</b> des grades.
  *
- * <p>Effet mécanique : chaque passage donne des points de stats ({@link #statTier()}) et des bonus passifs
+ * <p>Effet mécanique : chaque passage donne des points de Mérite ({@link #statTier()}) et des bonus passifs
  * (PV, chakra, endurance, stats — {@link com.reborn.shinobicore.stats.GradeRules}).
  */
 public enum Rank {

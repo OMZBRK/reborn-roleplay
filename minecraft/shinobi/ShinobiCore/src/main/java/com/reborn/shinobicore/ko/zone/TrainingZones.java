@@ -89,7 +89,7 @@ public final class TrainingZones implements Listener {
     public void reloadConfig() {
         persistentHp = plugin.getConfig().getBoolean("ko.pv-persistants", true);
         defeatPct = Math.max(0.05, Math.min(1.0,
-                plugin.getConfig().getDouble("ko.defaite-pct", 0.30)));
+                plugin.getConfig().getDouble("ko.defaite-pct", 1.0)));
     }
 
     private void load() {

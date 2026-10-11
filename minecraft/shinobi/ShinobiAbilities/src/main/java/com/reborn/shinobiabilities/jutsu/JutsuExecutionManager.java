@@ -217,10 +217,9 @@ public final class JutsuExecutionManager {
             actionBar(p, "Tu es inconscient…", NamedTextColor.DARK_RED);
             return null;
         }
-        // ATA (PainRP) : trop blessé pour forcer au-delà du rang D.
-        if (core.ko() != null && core.ko().isImpaired(p.getUniqueId())
-                && a.rank().ordinal() > com.reborn.shinobicore.technique.JutsuRank.D.ordinal()) {
-            actionBar(p, "Trop blessé pour cette technique (rang D maximum).", NamedTextColor.RED);
+        // ATA (PainRP) : aucune technique, seulement le M1 à mains nues.
+        if (core.ko() != null && core.ko().isImpaired(p.getUniqueId())) {
+            actionBar(p, "Trop blessé pour une technique.", NamedTextColor.RED);
             return null;
         }
         if (requireLearned() && !p.hasPermission("shinobiabilities.admin")

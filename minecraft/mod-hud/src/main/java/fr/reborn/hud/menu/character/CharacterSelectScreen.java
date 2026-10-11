@@ -256,7 +256,6 @@ public class CharacterSelectScreen extends Screen {
                 if (c.hasClan()) sb.append(c.clan());
                 if (c.hasVillage()) sb.append(sb.length() > 0 ? "  /  " : "").append(c.village());
                 if (c.rank() != null && !c.rank().isBlank()) sb.append(sb.length() > 0 ? "  /  " : "").append(c.rank());
-                sb.append(sb.length() > 0 ? "  /  " : "").append("NIV ").append(c.level());
                 text(ctx, f, sb.toString(), CX, 296, 1f, SUB, true);
                 if (c.dead()) drawButton(ctx, f, "RPK", false, mouseX, mouseY);
                 else drawButton(ctx, f, "ENTRER", true, mouseX, mouseY);

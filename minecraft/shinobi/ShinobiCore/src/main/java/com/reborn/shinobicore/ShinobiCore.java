@@ -236,6 +236,19 @@ public final class ShinobiCore extends JavaPlugin {
         this.porterManager.start();
         Bukkit.getPluginManager().registerEvents(porterManager, this);
         this.killRequestManager = new com.reborn.shinobicore.ko.action.KillRequestManager(this);
+        // KO-7 : actions sur le corps (menu d'interaction du mod) + scène de mort.
+        this.corps = new com.reborn.shinobicore.ko.action.CorpsService(this);
+        this.corps.start();
+        Bukkit.getPluginManager().registerEvents(this.corps, this);
+        if (getCommand("corps") != null) getCommand("corps").setExecutor(this.corps);
+        this.deathScene = new com.reborn.shinobicore.ko.action.DeathScene(this);
+        this.deathScene.start();
+        Bukkit.getPluginManager().registerEvents(this.deathScene, this);
+        if (getCommand("execution") != null) {
+            var exCmd = new com.reborn.shinobicore.ko.command.ExecutionCommand(this);
+            getCommand("execution").setExecutor(exCmd);
+            getCommand("execution").setTabCompleter(exCmd);
+        }
         this.injuryHealer = new com.reborn.shinobicore.ko.injury.InjuryHealer(this);
         this.injuryHealer.start();
         Bukkit.getPluginManager().registerEvents(
@@ -251,6 +264,16 @@ public final class ShinobiCore extends JavaPlugin {
         this.hospitals = new com.reborn.shinobicore.ko.HospitalRegistry(this);
         this.ataManager = new com.reborn.shinobicore.ko.ata.AtaManager(this);
         this.ataManager.start();
+        this.volonte = new com.reborn.shinobicore.ko.VolonteQte(this);
+        com.reborn.shinobicore.stats.Progression.load(getConfig().getConfigurationSection("progression"));
+        this.progression = new com.reborn.shinobicore.stats.Progression(this);
+        this.progression.start();
+        getServer().getPluginManager().registerEvents(this.progression, this);
+        if (getCommand("xp") != null) {
+            var xpCmd = new com.reborn.shinobicore.stats.XpCommand(this);
+            getCommand("xp").setExecutor(xpCmd);
+            getCommand("xp").setTabCompleter(xpCmd);
+        }
         Bukkit.getPluginManager().registerEvents(ataManager, this);
         // Habillage KO / ATA par le mod client (KO-6) : canaux reborn:ko + reborn:ko_event.
         this.koHudSync = new com.reborn.shinobicore.ko.KoHudSync(this);
@@ -548,6 +571,7 @@ public final class ShinobiCore extends JavaPlugin {
         } else getLogger().warning("Command 'osculter' is not declared in plugin.yml.");
 
         PluginCommand killVoteCmd = getCommand("sckillvote");
+
         if (killVoteCmd != null) {
             killVoteCmd.setExecutor(
                     new com.reborn.shinobicore.ko.command.SckillVoteCommand(this));
@@ -728,6 +752,13 @@ public final class ShinobiCore extends JavaPlugin {
         services.register(com.reborn.shinobicore.api.ProgressionLadder.class,
                 new com.reborn.shinobicore.character.RankLadder(),
                 this, org.bukkit.plugin.ServicePriority.Normal);
+        services.register(com.reborn.shinobicore.api.XpService.class,
+                (com.reborn.shinobicore.api.XpService) (id, source, fallback, mult) -> {
+                    var pl = getServer().getPlayer(id);
+                    if (pl == null || progression == null) return -1;
+                    double base = getConfig().getDouble("progression.gains." + source, fallback);
+                    return progression.grant(pl, base * mult, source);
+                }, this, org.bukkit.plugin.ServicePriority.Normal);
         services.register(com.reborn.shinobicore.api.StatsService.class,
                 statsService, this, org.bukkit.plugin.ServicePriority.Normal);
         services.register(com.reborn.shinobicore.api.CastAttribution.class,
@@ -757,6 +788,9 @@ public final class ShinobiCore extends JavaPlugin {
         // inventory rather than creative build junk.
         if (panelBridge != null) panelBridge.stop();
         if (vitalsPush != null) vitalsPush.stop();
+        if (progression != null) progression.stop();
+        if (deathScene != null) deathScene.stop();
+        if (corps != null) corps.stop();
         if (staffBuild != null) staffBuild.restoreAll();
         // Entraînements en cours : remettre PV / chakra d'entrée avant le flush.
         if (trainingZones != null) trainingZones.stop();
@@ -1213,6 +1247,24 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.ko.zone.TrainingZones trainingZones() { return trainingZones; }
     public com.reborn.shinobicore.ko.HospitalRegistry hospitals() { return hospitals; }
     public com.reborn.shinobicore.ko.ata.AtaManager ata() { return ataManager; }
+
+    private com.reborn.shinobicore.ko.VolonteQte volonte;
+
+    private com.reborn.shinobicore.stats.Progression progression;
+    private com.reborn.shinobicore.ko.action.CorpsService corps;
+    private com.reborn.shinobicore.ko.action.DeathScene deathScene;
+
+    /** KO-7 : actions sur un corps (gorge, porter, RPK, achever, exécutions). */
+    public com.reborn.shinobicore.ko.action.CorpsService corps() { return corps; }
+
+    /** KO-7 : scène de mort (le joueur reste spectateur de son corps). */
+    public com.reborn.shinobicore.ko.action.DeathScene deathScene() { return deathScene; }
+
+    /** XP, niveaux et points de stats par niveau. */
+    public com.reborn.shinobicore.stats.Progression progression() { return progression; }
+
+    /** KO-5 : QTE « Volonté » (relèves, second souffle). */
+    public com.reborn.shinobicore.ko.VolonteQte volonte() { return volonte; }
     public com.reborn.shinobicore.medic.PalmHealing palm() { return palmHealing; }
     public com.reborn.shinobicore.ko.KoHudSync koHud() { return koHudSync; }
     public com.reborn.shinobicore.staff.panel.StaffPanel staffPanel() { return staffPanel; }

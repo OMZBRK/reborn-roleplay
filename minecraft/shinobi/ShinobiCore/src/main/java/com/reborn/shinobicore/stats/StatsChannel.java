@@ -155,6 +155,7 @@ public final class StatsChannel implements PluginMessageListener {
         str(sb, "village", c.village());
         str(sb, "rank", c.rank().displayName());
         sb.append(",\"rankTier\":").append(c.rank().statTier());
+        sb.append(",\"merit\":").append(StatFormulas.meritPoints(c.rank()));
         Rank next = nextStatRank(c.rank());
         str(sb, "nextRank", next == null ? "" : next.displayName());
         sb.append(",\"natures\":[");

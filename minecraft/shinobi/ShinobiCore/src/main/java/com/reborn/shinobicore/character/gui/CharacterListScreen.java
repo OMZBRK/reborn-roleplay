@@ -91,7 +91,7 @@ public final class CharacterListScreen extends CoreScreen {
                     Bukkit.getOfflinePlayer(c.ownerId()),
                     (c.dead() ? "✖ " : "") + c.name(),
                     "&eClan : " + c.clan(),
-                    "Niv " + c.level() + "  " + c.ninjaArt().displayName(),
+                    c.ninjaArt().displayName(),
                     "Affinité : " + c.affinity().displayName(),
                     "Éléments Chakra : " + joinAffinities(c),
                     "&aPV : " + format(c.currentHp()) + " / " + format(c.maxHp()),

@@ -27,7 +27,7 @@ public final class KoClient {
     public static final Identifier FILTRE = Identifier.fromNamespaceAndPath("reborn-hud", "ko");
     public static final Identifier PARAMS = Identifier.fromNamespaceAndPath("reborn-hud", "textures/effect/ko_params.png");
 
-    public static final byte EV_A_TERRE = 1, EV_KO = 2, EV_REVEIL = 3, EV_HOPITAL = 4, EV_RETABLI = 5, EV_DEFAITE = 6;
+    public static final byte EV_A_TERRE = 1, EV_KO = 2, EV_REVEIL = 3, EV_HOPITAL = 4, EV_RETABLI = 5, EV_DEFAITE = 6, EV_RELEVE = 7;
 
     /* ------------------------------------------------------------ état reçu */
     private static volatile KoPayload state;
@@ -59,7 +59,7 @@ public final class KoClient {
             case EV_A_TERRE -> play(mc, SoundEvents.PLAYER_HURT, 0.9f, 0.55f);
             case EV_KO -> play(mc, SoundEvents.WARDEN_HEARTBEAT, 1.0f, 0.6f);
             case EV_REVEIL, EV_HOPITAL -> play(mc, SoundEvents.AMETHYST_BLOCK_CHIME, 0.9f, 0.8f);
-            case EV_RETABLI -> play(mc, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.2f);
+            case EV_RETABLI, EV_RELEVE -> play(mc, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.2f);
             case EV_DEFAITE -> play(mc, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.9f, 0.7f);
             default -> { }
         }

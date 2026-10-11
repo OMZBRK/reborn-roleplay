@@ -496,10 +496,18 @@ public class StaffScreen extends Screen {
             if (score > 0) badge(ctx, x + w - 8, y + 4, "SCORE " + score, score >= 100);
             String uuid = str(a, "uuid");
             int bx = tx, by = y + h - 13;
+            String id = str(a, "id");
+            if ("mort".equals(str(a, "kind"))) {
+                bx += button(ctx, bx, by, "Valider la RPK", "punish", () -> killVerdict(id, true), grade(snap) < 2) + 4;
+                bx += button(ctx, bx, by, "Refuser", "plain", () -> killVerdict(id, false), grade(snap) < 2) + 4;
+                bx += button(ctx, bx, by, "Y aller", "plain", () -> act("tp", uuid), false) + 4;
+                ctx.pose().popMatrix();
+                y += h + 7;
+                continue;
+            }
             bx += button(ctx, bx, by, "Observer", "watch", () -> act("watch", uuid), grade(snap) < 2) + 4;
             if ("aide".equals(str(a, "kind"))) bx += button(ctx, bx, by, "Y aller", "plain", () -> act("tp", uuid), false) + 4;
             else bx += button(ctx, bx, by, "Sanctionner", "punish", () -> openProfile(uuid), false) + 4;
-            String id = str(a, "id");
             int dw = font.width(RebornFont.body("Ignorer")) + 12;
             button(ctx, x + w - dw - 6, by, "Ignorer", "plain", () -> dismiss(id), false);
             ctx.pose().popMatrix();
@@ -893,6 +901,16 @@ public class StaffScreen extends Screen {
         RebornSounds.uiClick();
     }
 
+    /** Verdict sur une demande de mort RP (alerte « mort »). */
+    protected void killVerdict(String id, boolean ok) {
+        JsonObject o = new JsonObject();
+        o.addProperty("a", "kill");
+        o.addProperty("id", id);
+        o.addProperty("v", ok ? "ok" : "no");
+        StaffClient.send(o);
+        if (ok) RebornSounds.confirm(); else RebornSounds.uiClick();
+    }
+
     protected void dismiss(String id) {
         JsonObject o = new JsonObject();
         o.addProperty("a", "dismiss");
@@ -1182,6 +1200,7 @@ public class StaffScreen extends Screen {
         return switch (kind) {
             case "agression" -> LACQUER;
             case "aide" -> 0xFFD97706;
+            case "mort" -> 0xFF5A0A12;
             case "signalement" -> 0xFF6B4FA0;
             case "soin" -> OK;
             case "ko" -> 0xFF6B4FA0;

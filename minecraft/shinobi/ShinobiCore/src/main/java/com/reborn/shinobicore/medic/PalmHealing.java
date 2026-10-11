@@ -234,6 +234,7 @@ public final class PalmHealing implements Listener {
             s.ataDone = true;
             if (s.rank >= 2 || !hasSevereInjury(pc)) {
                 plugin.ata().lift(pc.id(), "Les soins de " + mc.name() + " t'ont remis sur pied.");
+                if (plugin.volonte() != null) plugin.volonte().reset(pc.id());
             } else {
                 medic.sendMessage("§6Ses blessures graves doivent d'abord être traitées (/soigner) avant de lever l'ATA.");
             }

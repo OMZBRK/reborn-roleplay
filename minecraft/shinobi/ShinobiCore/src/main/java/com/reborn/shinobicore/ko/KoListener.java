@@ -356,9 +356,9 @@ public final class KoListener implements Listener {
         // The viewer themselves can't be KO (they wouldn't be able to
         // click anyway, but defensively).
         if (plugin.ko().isKo(viewer.getUniqueId())) return;
-        com.reborn.shinobicore.character.ShinobiCharacter targetChar =
-                plugin.characters().getActive(target.getUniqueId());
-        plugin.coreGui().openKoAction(viewer, target.getUniqueId(), targetChar);
+        // L'ancien menu (coffre) est retiré : les actions passent par le menu d'interaction du mod.
+        viewer.sendActionBar(net.kyori.adventure.text.Component.text(
+                "Menu d'interaction (R) pour agir sur ce corps.", net.kyori.adventure.text.format.NamedTextColor.GRAY));
     }
 
     @EventHandler(ignoreCancelled = true)

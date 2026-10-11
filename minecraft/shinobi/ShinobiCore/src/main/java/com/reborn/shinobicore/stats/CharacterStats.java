@@ -11,7 +11,7 @@ import java.util.Map;
  * The six allocated stats of one character, plus the staff / migration bonus
  * points. Values are always in [{@link StatsService#MIN}, {@link StatsService#MAX}].
  *
- * <p>Points available = {@code POINTS_PER_RANK × rank.statTier() + bonus}; the
+ * <p>Points available = {@code 1 per XP level + bonus} (grade points are Mérite, see StatFormulas); the
  * unspent count is <em>derived</em> ({@code available − spent}), never stored,
  * so a staff rank change or a respec can't desync it.
  *
@@ -22,6 +22,8 @@ public final class CharacterStats {
 
     private final EnumMap<Stat, Integer> values = new EnumMap<>(Stat.class);
     private int bonusPoints;
+    /** Niveau du personnage (miroir, posé par ShinobiCharacter) : apporte des points de stats. */
+    private int level = 1;
     private long mutations;
     /** Grade du personnage (bonus passifs) — tenu à jour par {@code ShinobiCharacter}, jamais persisté ici. */
     private com.reborn.shinobicore.character.Rank grade;
@@ -50,6 +52,10 @@ public final class CharacterStats {
     }
 
     public int bonusPoints() { return bonusPoints; }
+
+    public int level() { return level; }
+
+    public void setLevel(int level) { this.level = Math.max(1, level); }
 
     public com.reborn.shinobicore.character.Rank grade() { return grade; }
 

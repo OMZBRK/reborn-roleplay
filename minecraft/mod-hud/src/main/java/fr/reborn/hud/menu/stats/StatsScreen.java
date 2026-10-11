@@ -418,9 +418,6 @@ public class StatsScreen extends Screen {
         sub.append(" - ").append(snap.rank());
         if (!snap.village().isBlank()) sub.append(" - ").append(snap.village());
         if (!snap.natures().isEmpty()) sub.append(" - ").append(String.join(" / ", snap.natures()));
-        if (!snap.nextRank().isBlank()) {
-            sub.append(" - vers ").append(snap.nextRank()).append(" (+").append(snap.levers().pointsPerRank()).append(')');
-        }
         Component subC = Component.literal(sub.toString());
         float subS = compact ? 0.75f : 0.85f;
         int pw = (int) Math.max(f.width(title) * ts, f.width(subC) * subS) + 30;

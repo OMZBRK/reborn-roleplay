@@ -57,6 +57,7 @@ public final class KoHud {
             case KoClient.EV_REVEIL -> { title = "RÉVEIL"; sub = "Tu reprends conscience."; kanji = "目覚"; color = Colors.GOLD; }
             case KoClient.EV_HOPITAL -> { title = "HÔPITAL"; sub = "On t'a ramené. Tu es encore très faible."; kanji = "病院"; color = Colors.FOREGROUND; }
             case KoClient.EV_RETABLI -> { title = "RÉTABLI"; sub = "Tes forces sont revenues."; kanji = "回復"; color = Colors.GOLD; }
+            case KoClient.EV_RELEVE -> { title = "SECOND SOUFFLE"; sub = "Debout… mais ton corps est à bout."; kanji = "志"; color = Colors.GOLD; }
             case KoClient.EV_DEFAITE -> { title = "DÉFAITE"; sub = "Relève-toi, l'entraînement continue."; kanji = "敗"; color = Colors.GOLD; }
             default -> { return; }
         }
@@ -142,7 +143,8 @@ public final class KoHud {
         DrawHelpers.horizontalGradient(ctx, bx, by, Math.max(1, Math.round(bw * frac)), bh, Colors.ACCENT_PRESSED, Colors.ACCENT_HOVER);
         for (int i = 1; i < 6; i++) ctx.fill(bx + bw * i / 6, by, bx + bw * i / 6 + 1, by + bh, 0x60000000);
         // conseil
-        Component hint = RebornFont.body("Tu peux ramper · /aide pour appeler à l'aide");
+        Component hint = RebornFont.body("Tu peux ramper · /aide pour appeler à l'aide"
+                + (VolonteHud.available() ? " · Espace pour te relever" : ""));
         int hx = Math.max(4, Math.min(w - 4 - font.width(hint), x + pw / 2 - font.width(hint) / 2));
         ctx.text(font, hint, hx, y + ph + 5, Colors.FOREGROUND_SUBTLE, true);
     }
@@ -172,8 +174,10 @@ public final class KoHud {
         ctx.fill(w / 2 - fill / 2, by, w / 2 + fill / 2, by + 1, Colors.GOLD);
         diamond(ctx, w / 2, by, accent);
         int m = (int) Math.ceil(left) / 60, sec = (int) Math.ceil(left) % 60;
-        Component time = RebornFont.display(String.format("%d:%02d", m, sec));
-        ctx.text(font, time, w / 2 - font.width(time) / 2, by + 6, Colors.GOLD, true);
+        if (left > 0 || !s.hospital()) {
+            Component time = RebornFont.display(String.format("%d:%02d", m, sec));
+            ctx.text(font, time, w / 2 - font.width(time) / 2, by + 6, Colors.GOLD, true);
+        }
         Component hint = RebornFont.body("Tu peux chuchoter et faire des /me");
         ctx.text(font, hint, w / 2 - font.width(hint) / 2, by + 19, 0xA0C2B59A, true);
         if (s.hospital()) {

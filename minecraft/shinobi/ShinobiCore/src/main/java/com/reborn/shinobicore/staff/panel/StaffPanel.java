@@ -149,6 +149,14 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 if (t != null) sanction(p, grade, t, str(in, "o"), in.has("warnOnly") && in.get("warnOnly").getAsBoolean(),
                         str(in, "note"), in.has("ev") ? in.getAsJsonArray("ev") : new JsonArray());
             }
+            case "kill" -> {
+                long kid;
+                try { kid = Long.parseLong(str(in, "id").replace("kill-", "")); } catch (NumberFormatException e) { return; }
+                if (grade < StaffGrades.MODO) { toast(p, "Réservé aux modérateurs et plus."); return; }
+                if ("ok".equals(str(in, "v"))) plugin.killRequests().approveWithReason(p, kid, str(in, "note"));
+                else plugin.killRequests().refuse(p, kid);
+                sendSnapshot(p);
+            }
             case "dismiss" -> {
                 dismissed.add(str(in, "id"));
                 alerts.remove(str(in, "id"));
@@ -501,6 +509,18 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         alerts.put(key, new Alert(key, "aide", p.getUniqueId(), "Appel à l'aide · à terre",
                 List.of(place(p.getLocation())), 0, System.currentTimeMillis()));
     }
+
+    /** Demande de mise à mort RP : attend la décision du staff. */
+    public void onKillRequest(com.reborn.shinobicore.ko.action.KillRequest req) {
+        String key = "kill-" + req.id();
+        alerts.put(key, new Alert(key, "mort", req.targetPlayerId(),
+                "Mise à mort RP demandée par " + req.requesterName(),
+                List.of(place(req.scene()), "valider ou refuser"), 0, System.currentTimeMillis()));
+        system("Mort RP à trancher : " + req.targetName() + " (demandée par " + req.requesterName() + ").");
+    }
+
+    /** La demande de mort RP est tranchée ou tombée. */
+    public void onKillClosed(long requestId) { alerts.remove("kill-" + requestId); }
 
     /** Signalement d'un joueur par un autre ({@code /signaler}). */
     public void onReport(Player reporter, Player target, String motif) {

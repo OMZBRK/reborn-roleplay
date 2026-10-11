@@ -58,6 +58,7 @@ public final class SckillVoteCommand implements CommandExecutor {
         switch (args[0].toLowerCase()) {
             case "approve" -> plugin.killRequests().approve(staff, id);
             case "refuse"  -> plugin.killRequests().refuse(staff, id);
+            case "goto"    -> plugin.killRequests().goTo(staff, id);
             default -> staff.sendMessage(Component.text(
                     "Action inconnue. approve|refuse.", NamedTextColor.RED));
         }

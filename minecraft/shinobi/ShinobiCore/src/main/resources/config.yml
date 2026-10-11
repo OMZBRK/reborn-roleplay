@@ -66,8 +66,23 @@ grades:
     KAGE:             { merite: staff }
   retrogradation: KAGE        # grade minimum pour rétrograder (toujours un grade sous le sien)
 
+# Progression par l'expérience (invisible pour le joueur) : chaque niveau donne 1 point de stats (menu /stats).
+progression:
+  niveau-max: 40
+  xp-base: 400              # XP pour passer du niveau 1 au 2
+  xp-par-niveau: 120        # + par niveau (niveau 10 → 11 : 400 + 9 × 120 = 1 480 XP)
+  points-par-niveau: 1
+  gains:
+    presence-rp: 3          # par minute active avec un autre joueur à proximité
+    seul: 1                 # par minute active, seul
+    rayon-presence: 20
+    entrainement: 4         # + par minute où l'on frappe dans un terrain d'entraînement
+    entrainement-max-jour: 120
+    seance-parchemin: 40    # séance d'apprentissage réussie (× rang : D 1, C 1,5, B 2, A 3, S 5)
+    technique-apprise: 100  # technique apprise par parchemin (× rang)
+
 stats:
-  points-per-rank: 3          # points gagnés à chaque passage de grade (8 passages, Académicien → Kage)
+  points-per-rank: 3          # points de MÉRITE par passage de grade (8 passages) — séparés des points de stats
   # Réinitialisation par le joueur : TOKEN = consomme un jeton de réinitialisation
   # (acheté en boutique, crédité par « /stats jeton give <joueur> <n> »), FREE =
   # gratuit (phase de test), STAFF = réservé au staff. Le staff est toujours gratuit.
@@ -120,7 +135,7 @@ ko:
   pv-persistants: true
   # Défaite sur un terrain d'entraînement : on repart à cette fraction des PV
   # (ou du chakra si c'est le chakra qui a lâché). Aucun KO, aucune blessure.
-  defaite-pct: 0.30
+  defaite-pct: 1.0
   # aggression-log.txt : qui a ouvert chaque échange de coups hors terrain.
   journal-agressions:
     enabled: true
@@ -129,10 +144,14 @@ ko:
   # timer → inconscient. false = KO direct comme avant.
   a-terre: true
   a-terre-secondes: 45
-  # Inconscient (cause PV) : durée avant le rapatriement à l'hôpital, et
-  # délai après lequel /hopital est proposé.
+  # Inconscient (cause PV) : durée d'inconscience. À la fin, on RESTE inconscient
+  # et /hopital est proposé (pas de rapatriement automatique).
   inconscient-secondes: 300
-  hopital-propose-apres: 120
+  # Volonté (relève au QTE) : facultative, réservée aux personnages qui connaissent
+  # cette technique (ou à tous si pour-tous: true).
+  volonte:
+    technique: volonte
+    pour-tous: false
   # Plancher : le repos rend des PV jusqu'à cette fraction ; l'hôpital
   # réveille à cette fraction. Au-delà, il faut un médic.
   plancher-pct: 0.30
@@ -145,13 +164,15 @@ ko:
   ata:
     repos-minutes-pleine: 20
     repos-minutes-allegee: 10
-    # La peur (FearRP) dure au moins ce temps après le KO, même si l'ATA
-    # est levée plus tôt.
-    peur-minutes: 20
     # Le repos n'avance que si le joueur a bougé la caméra / parlé récemment.
     anti-afk-secondes: 120
     # PV rendus par le repos, en fraction des PV max, toutes les 10 s.
     repos-pv-pct-par-10s: 0.01
+
+# Mort RP (KO-7) : la scène qui suit la mort.
+mort-rp:
+  scene-min-secondes: 60   # le mort regarde la suite au moins ce temps avant de pouvoir partir
+  corps-minutes: 15        # le corps (mannequin) reste au sol ce temps après son départ (0 = aucun)
 
 # Soins (lot KO-4). Rangs par permission : shinobicore.medic (rang 1),
 # shinobicore.medic.expert (rang 2).

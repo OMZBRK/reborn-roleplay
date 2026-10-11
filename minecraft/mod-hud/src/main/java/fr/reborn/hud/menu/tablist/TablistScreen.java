@@ -338,7 +338,6 @@ public class TablistScreen extends Screen {
             int ly = cy + 44;
             kv(ctx, tr, "Grade", e.grade(), cx + 16, ly); ly += 18;
             kv(ctx, tr, "Clan", e.clan() == null ? "—" : e.clan(), cx + 16, ly); ly += 18;
-            kv(ctx, tr, "Niveau", String.valueOf(e.level()), cx + 16, ly); ly += 18;
             kv(ctx, tr, "Âge", e.age() + " ans", cx + 16, ly); ly += 18;
             kv(ctx, tr, "Affinité", e.affinity(), cx + 16, ly);
         }

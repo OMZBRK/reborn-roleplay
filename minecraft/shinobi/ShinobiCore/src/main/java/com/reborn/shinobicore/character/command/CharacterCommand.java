@@ -213,7 +213,7 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
         List<ShinobiCharacter> chars = plugin.characters().getAll(ownerId);
         s.sendMessage(Component.text("Personnages de " + ownerName + " (" + chars.size() + ") :", NamedTextColor.GOLD));
         for (ShinobiCharacter c : chars) {
-            s.sendMessage(Component.text("  - " + c.name() + "  [Niv " + c.level() + ", "
+            s.sendMessage(Component.text("  - " + c.name() + "  ["
                     + c.clan() + ", " + c.affinity().displayName() + "/"
                     + joinAffinities(c) + "]", NamedTextColor.YELLOW));
         }

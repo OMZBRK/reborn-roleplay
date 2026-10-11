@@ -56,4 +56,21 @@ public final class KillRequest {
     public BukkitTask timeoutTask()       { return timeoutTask; }
 
     public void setTimeoutTask(BukkitTask t) { this.timeoutTask = t; }
+
+    /* ---- validation staff (RPK accordée au demandeur, la mort vient à sa dernière action) */
+    private String validatedBy;
+    private String reason;
+
+    public boolean validated()   { return validatedBy != null; }
+    public String  validatedBy() { return validatedBy; }
+    public String  reason()      { return reason; }
+
+    public void validate(String staffName, String reason) {
+        this.validatedBy = staffName;
+        this.reason = reason;
+    }
+
+
+
+
 }

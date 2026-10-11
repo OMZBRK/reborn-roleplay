@@ -73,6 +73,14 @@ public final class SlotRegistry {
         if (s != null && s.remove(token)) save();
     }
 
+    /** Retire {@code token} de toutes les techniques ; renvoie les ids de technique concernés. */
+    public java.util.List<String> releaseEverywhere(String token) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        holders.forEach((id, set) -> { if (set.remove(token)) out.add(id); });
+        if (!out.isEmpty()) save();
+        return out;
+    }
+
     /** Le parchemin {@code scrollId} est appris par {@code charId} : son slot passe du rouleau au personnage. */
     public void transfer(String id, String scrollId, String charId) {
         Set<String> s = holders.computeIfAbsent(id, k -> new LinkedHashSet<>());

@@ -257,6 +257,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
         }
         this.leafTestRollsUsed = leafTestRollsUsed;
         this.level = clampLevel(level);
+        this.stats.setLevel(this.level);
         this.experience = experience;
         this.chakra = new ChakraPool(maxChakra());
         this.currentHp = currentHp < 0 ? maxHp() : Math.min(currentHp, maxHp());
@@ -392,6 +393,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
 
     public void setLevel(int level) {
         this.level = clampLevel(level);
+        stats.setLevel(this.level);
         touch();
     }
 
@@ -399,7 +401,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     public static final int MAX_LEVEL = 17;
 
     private static int clampLevel(int level) {
-        return Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, level));
+        return Math.max(MIN_LEVEL, Math.min(com.reborn.shinobicore.stats.Progression.config().maxLevel(), level));
     }
 
     public void setExperience(double xp) { this.experience = Math.max(0.0, xp); touch(); }

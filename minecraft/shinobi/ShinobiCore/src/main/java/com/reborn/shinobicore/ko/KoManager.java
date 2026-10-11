@@ -51,9 +51,8 @@ import java.util.logging.Level;
  *       ({@code ko.a-terre-secondes}), knocks the player out.</li>
  *   <li><b>Inconscient</b> ({@link KoState.Phase#UNCONSCIOUS}) — the body
  *       lies pinned, still sees (darkness, not blindness), whispers and uses
- *       {@code /me}. After {@code ko.hopital-propose-apres} seconds the player
- *       may choose {@code /hopital}; at the end of the timer an HP-cause KO is
- *       repatriated to the village hospital at the HP floor. A chakra-cause KO
+ *       {@code /me}. At the end of the timer ({@code ko.inconscient-secondes}) an HP-cause KO stays
+ *       unconscious and {@code /hopital} is offered (repatriation to the village hospital at the HP floor). A chakra-cause KO
  *       still wakes on the spot.</li>
  * </ol>
  *
@@ -323,7 +322,8 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                 if (now - t <= ATTACKER_WINDOW_MILLIS) st.attackers().add(attacker);
             });
         }
-        boolean downed = cause == KoState.Cause.HP && downedEnabled;
+        boolean downed = cause == KoState.Cause.HP && downedEnabled
+                && (plugin.volonte() == null || !plugin.volonte().skipDowned(charId));
         st.setPhase(downed ? KoState.Phase.DOWNED : KoState.Phase.UNCONSCIOUS, now);
         active.put(player.getUniqueId(), st);
 
@@ -332,6 +332,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
 
         applyKoEffects(player);
 
+        if (downed && plugin.volonte() != null) plugin.volonte().offer(player, charId);
         if (downed && !modEvent(player, KoHudSync.EV_A_TERRE)) {
             player.showTitle(Title.title(
                     Component.text("À terre", NamedTextColor.DARK_RED, TextDecoration.BOLD),
@@ -393,6 +394,12 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
      *  an HP-cause wake here means someone treated the body on site, so
      *  the character leaves with a light ATA.
      */
+    /** KO-5 : QTE « Volonté » réussi — debout en second souffle, PV au minimum, ATA allégée. */
+    public void rise(UUID playerId, double hp) {
+        wake(playerId, KoState.Cause.HP, hp, 0, AtaManager.Level.ALLEGEE,
+                KoHudSync.EV_RELEVE, "Second souffle", "Tu te relèves… mais ton corps est à bout.");
+    }
+
     public void revive(UUID playerId, KoState.Cause cause,
                        double hp, double chakra) {
         wake(playerId, cause, hp, chakra, AtaManager.Level.ALLEGEE,
@@ -583,9 +590,8 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             long elapsed = now - st.phaseStartMillis();
             long total = unconsciousMillisFor(st.cause());
 
-            // Offer the way out once (HP cause only).
-            if (st.cause() == KoState.Cause.HP && !st.hospitalOffered()
-                    && elapsed >= hospitalOfferMillis) {
+            // HP : 5 min d'inconscience, puis on RESTE inconscient et /hopital est proposé (pas de rapatriement auto).
+            if (st.cause() == KoState.Cause.HP && !st.hospitalOffered() && elapsed >= total) {
                 st.setHospitalOffered(true);
                 p.sendMessage(Component.text("Personne ne vient ? ", NamedTextColor.GRAY)
                         .append(Component.text("[Se laisser emmener à l'hôpital]",
@@ -596,18 +602,14 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                                         NamedTextColor.GRAY)))));
             }
 
-            if (elapsed >= total) {
-                if (st.cause() == KoState.Cause.HP) {
-                    hospitalize(st.playerId());
-                } else {
-                    wake(st.playerId(), st.cause(), AUTO_WAKE_HP, AUTO_WAKE_CHAKRA, null,
-                            KoHudSync.EV_REVEIL, "Réveil", "Vous reprenez conscience.");
-                }
+            if (elapsed >= total && st.cause() == KoState.Cause.CHAKRA) {
+                wake(st.playerId(), st.cause(), AUTO_WAKE_HP, AUTO_WAKE_CHAKRA, null,
+                        KoHudSync.EV_REVEIL, "Réveil", "Vous reprenez conscience.");
                 continue; // Don't paint the actionbar after a wake.
             }
 
             // Actionbar countdown.
-            long remaining = (total - elapsed) / 1000L;
+            long remaining = Math.max(0, (total - elapsed) / 1000L);
             String label = st.cause() == KoState.Cause.CHAKRA
                     ? "Épuisement chakra" : "Inconscient";
             String hint = st.cause() == KoState.Cause.HP && st.hospitalOffered()
@@ -647,7 +649,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
                 40, downed ? 1 : 6, true, false, false));
         // Crawl on the ground / lie unconscious.
-        if (!p.isInsideVehicle()) {
+        if (!p.isInsideVehicle() && (plugin.corps() == null || !plugin.corps().isHeld(p.getUniqueId()))) {
             Pose want = downed ? Pose.SWIMMING : Pose.SLEEPING;
             if (p.getPose() != want) p.setPose(want, true);
         }

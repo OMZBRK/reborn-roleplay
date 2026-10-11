@@ -129,8 +129,17 @@ public final class StatFormulas {
 
     /* ------------------------------------------------------------ points */
 
+    /** Points de stats à répartir : 1 par niveau gagné à l'XP (+ bonus staff). Le grade n'en donne plus. */
     public static int earnedPoints(Rank rank, CharacterStats s) {
-        return levers.pointsPerRank() * rank.statTier() + s.bonusPoints();
+        return Progression.pointsFor(s.level()) + s.bonusPoints();
+    }
+
+    /**
+     * Points de <b>Mérite</b> : donnés par le grade ({@code stats.points-per-rank} par passage), séparés des stats de
+     * base. Réservés à d'autres usages de gameplay (à brancher).
+     */
+    public static int meritPoints(Rank rank) {
+        return levers.pointsPerRank() * rank.statTier();
     }
 
     /** May be negative after a staff rank downgrade — allocation is then refused. */

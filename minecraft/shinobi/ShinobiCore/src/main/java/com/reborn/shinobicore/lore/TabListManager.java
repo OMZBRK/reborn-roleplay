@@ -256,7 +256,6 @@ public class TabListManager implements Listener {
                 }
                 String village = oc.village();
                 if (!village.isBlank()) sb.append(",\"v\":\"").append(esc(village)).append('"');
-                sb.append(",\"lv\":").append(oc.level());
                 sb.append(",\"a\":").append(oc.age());
                 sb.append(",\"af\":\"").append(oc.affinity() != null ? oc.affinity().name() : "").append('"');
             } else {

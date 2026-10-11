@@ -141,7 +141,7 @@ public final class InteractionMode {
             Entity e = ehr.getEntity();
             if (e instanceof Player pe) {
                 title = pe.getGameProfile().name();
-                items = InteractionMenus.forPlayer(title);
+                items = InteractionMenus.forPlayer(title, pe.getUUID());
             } else {
                 title = e.getType().getDescription().getString();
                 items = InteractionMenus.forEntity(e);
@@ -157,6 +157,23 @@ public final class InteractionMode {
         menuOpen = true;
         updateHover();
     }
+
+    /** Banc d'essai (FeaturePreview) : ouvre un menu donné au centre, survol sur la ligne {@code hover}. */
+    public void debugOpen(String t, List<InteractionItem> it, int hover) {
+        Minecraft mc = Minecraft.getInstance();
+        active = true;
+        title = t;
+        items = it;
+        cursorX = mc.getWindow().getGuiScaledWidth() * 0.42;
+        cursorY = mc.getWindow().getGuiScaledHeight() * 0.30;
+        layoutAtCursor(mc);
+        menuOpen = true;
+        if (hover >= 0) { cursorX = panelX + panelW / 2.0; cursorY = rowY(hover) + ROW_H / 2.0; }
+        updateHover();
+    }
+
+    /** Banc d'essai : referme tout. */
+    public void debugClose() { if (active) deactivate(); }
 
     private void layoutAtCursor(Minecraft mc) {
         var tr = mc.font;

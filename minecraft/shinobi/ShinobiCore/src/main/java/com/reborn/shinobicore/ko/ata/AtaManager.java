@@ -49,13 +49,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * quand quelqu'un a soigné le corps sur place. Tant qu'elle dure, le jeu porte
  * lui-même le PainRP et le FearRP :
  * <ul>
- *   <li><b>Pain</b> — pas de sprint (faim maintenue à 6), pas de kit de mobilité,
- *       techniques rang D maximum ({@code KoService#isImpaired}), coups au corps à
- *       corps divisés par deux, démarche ralentie ;</li>
- *   <li><b>Fear</b> — impossible de frapper les protagonistes du KO, et hors
- *       terrain d'entraînement impossible d'ouvrir un combat (on peut seulement se
- *       défendre). La peur dure au moins {@code ko.ata.peur-minutes} après le KO,
- *       même si l'ATA est levée avant ;</li>
+ *   <li><b>Pain</b> — pas de sprint (faim maintenue à 6), ni course de chakra, dash, double saut ou saut de
+ *       chakra ({@code KoService#isImpaired}), <b>aucune technique</b> : seul le M1 à mains nues passe, divisé
+ *       par deux ; démarche ralentie ;</li>
+ *   <li><b>Fear</b> — retiré (2026-10).</li>
  *   <li><b>NLR</b> — laissé au joueur : simple rappel.</li>
  * </ul>
  *
@@ -240,10 +237,6 @@ public final class AtaManager implements Listener {
             st.level = Level.PLEINE;
         }
         st.attackers.addAll(attackers);
-        Fear old = fears.get(characterId);
-        Set<UUID> fearSet = new LinkedHashSet<>(st.attackers);
-        if (old != null) fearSet.addAll(old.attackers());
-        fears.put(characterId, new Fear(now + fearMillis, fearSet));
         save();
 
         Player p = Bukkit.getPlayer(playerId);
@@ -251,10 +244,10 @@ public final class AtaManager implements Listener {
             lastActive.put(playerId, now);
             p.sendMessage(Component.text("— ATA : tu es gravement blessé —", NamedTextColor.RED, TextDecoration.BOLD));
             p.sendMessage(Component.text(
-                    "• Pas de sprint ni de mobilité, techniques de rang D seulement, coups affaiblis.",
+                    "• Ni course, ni course de chakra, ni dash, double saut ou saut de chakra.",
                     NamedTextColor.GRAY));
             p.sendMessage(Component.text(
-                    "• La peur t'empêche d'attaquer ceux qui t'ont mis à terre, et d'ouvrir un combat.",
+                    "• Aucune technique : seulement les coups à mains nues (M1), affaiblis.",
                     NamedTextColor.GRAY));
             p.sendMessage(Component.text(
                     "• Pour te rétablir : un médic, ou du repos (méditer, t'asseoir au restaurant, à l'onsen, "
@@ -354,6 +347,7 @@ public final class AtaManager implements Listener {
 
     /** Le personnage est-il sous l'effet de la peur ? */
     private Fear fearOf(UUID characterId) {
+        if (true) return null; // FearRP retiré (2026-10) : l'ATA seule suffit
         State st = states.get(characterId);
         Fear f = fears.get(characterId);
         long now = System.currentTimeMillis();
@@ -535,6 +529,17 @@ public final class AtaManager implements Listener {
                 ev.setCancelled(true);
                 attacker.sendActionBar(Component.text("Trop blessé pour provoquer un combat — tu ne peux que te défendre.",
                         NamedTextColor.GRAY));
+                return;
+            }
+        }
+        // ATA : seul le M1 à mains nues passe (ni arme, ni projectile, ni technique).
+        if (states.containsKey(ac.id())) {
+            boolean bareHand = ev.getDamager() == attacker
+                    && attacker.getInventory().getItemInMainHand().getType().isAir();
+            if (!bareHand) {
+                ev.setCancelled(true);
+                attacker.sendActionBar(Component.text("Trop blessé : seulement des coups à mains nues.",
+                        NamedTextColor.RED));
                 return;
             }
         }

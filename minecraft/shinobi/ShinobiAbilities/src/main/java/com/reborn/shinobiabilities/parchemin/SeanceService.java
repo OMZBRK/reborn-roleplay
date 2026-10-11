@@ -281,6 +281,7 @@ public final class SeanceService implements Listener {
         m.put(a.id(), new Progress(done, now));
         save();
         if (r.success()) {
+            xp(p, a, "seance-parchemin", 40);
             p.sendMessage(Component.text("Séance réussie" + (gain > 1 ? " (double, grâce à ton maître)" : "")
                     + " : " + done + " / " + total + ".", NamedTextColor.GREEN));
             p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.8f, 1.2f);
@@ -334,7 +335,52 @@ public final class SeanceService implements Listener {
                 Component.text(a.name(), NamedTextColor.AQUA),
                 Title.Times.times(Duration.ofMillis(200), Duration.ofSeconds(2), Duration.ofMillis(600))));
         p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+        xp(p, a, "technique-apprise", 100);
         log(p, "Technique apprise (parchemin)", a.name() + " · rang " + ScrollCatalog.rank(a));
+    }
+
+    /** XP de progression (ShinobiCore), pondérée par le rang de la technique. */
+    private void xp(Player p, Ability a, String key, double def) {
+        var xp = org.bukkit.Bukkit.getServicesManager().load(com.reborn.shinobicore.api.XpService.class);
+        if (xp == null) return;
+        double mult = switch (ScrollCatalog.rank(a)) { case 'C' -> 1.5; case 'B' -> 2; case 'A' -> 3; case 'S' -> 5; default -> 1; };
+        xp.reward(p.getUniqueId(), key, def, mult);
+    }
+
+    // ─────────────────────────────────────────────────────────────── mort RP
+
+    /**
+     * Mort RP validée : le personnage emporte ce qu'il savait. Ses slots de rang S sont libérés, sauf si le rouleau
+     * correspondant est sur lui — le slot retourne alors au rouleau (héritage : celui qui le récupère pourra
+     * l'apprendre). Ses séances en cours et ses demandes de validation disparaissent.
+     */
+    @org.bukkit.event.EventHandler
+    public void onCharacterDeath(com.reborn.shinobicore.event.CharacterDeathEvent e) {
+        UUID charId = e.characterId();
+        java.util.List<String> freed = slots.releaseEverywhere("perso:" + charId);
+        Player p = org.bukkit.Bukkit.getPlayer(e.playerId());
+        int inherited = 0;
+        for (String techId : freed) {
+            String carried = p == null ? null : carriedScroll(p, techId);
+            if (carried != null) { slots.reserve(techId, "rouleau:" + carried); inherited++; }
+        }
+        progress.remove(charId);
+        learnedAt.remove(charId);
+        pending.removeIf(pd -> pd.charId().equals(charId));
+        save();
+        if (!freed.isEmpty()) {
+            plugin.getLogger().info("[parchemins] mort RP de " + e.characterName() + " : " + freed.size()
+                    + " slot(s) de rang S libéré(s), " + inherited + " repassé(s) au rouleau porté.");
+        }
+    }
+
+    /** Identifiant du rouleau de {@code techId} porté par le joueur (inventaire principal), ou null. */
+    private static String carriedScroll(Player p, String techId) {
+        for (ItemStack it : p.getInventory().getContents()) {
+            if (it == null) continue;
+            if (techId.equals(ParcheminItems.abilityIdOf(it))) return ParcheminItems.scrollIdOf(it);
+        }
+        return null;
     }
 
     // ─────────────────────────────────────────────────────────────── staff

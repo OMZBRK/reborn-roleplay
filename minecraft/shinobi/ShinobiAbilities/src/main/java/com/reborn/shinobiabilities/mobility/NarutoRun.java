@@ -183,6 +183,11 @@ public final class NarutoRun {
 
         ShinobiCharacter c = Players.active(core.characters(), p);
         if (c == null) { syncToClient(p, false); return false; }
+        if (core.ko() != null && (core.ko().isKo(p.getUniqueId()) || core.ko().isImpaired(p.getUniqueId()))) {
+            p.sendActionBar(Component.text("Trop blessé pour courir.", NamedTextColor.RED));
+            syncToClient(p, false);
+            return false;
+        }
         // Path Two: the run IS the path — no separate per-slot unlock needed.
         if (!isFlux(p) && !toggles.isEnabled(c.id(), MobilityActionSlot.NARUTO_RUN)) {
             p.sendActionBar(Component.text("Course Shinobi non débloquée.", NamedTextColor.GRAY));
@@ -370,6 +375,7 @@ public final class NarutoRun {
                 if (p == null || !p.isOnline()) { active.remove(id); continue; }
                 ShinobiCharacter c = Players.active(core.characters(), p);
                 if (c == null) { stop(p, false); continue; }
+                if (core.ko() != null && core.ko().isImpaired(p.getUniqueId())) { stop(p, true); continue; }
 
                 // Drain — task runs every 10 ticks = half the per-second cost.
                 double drain = costPerSecond() / 2.0;
