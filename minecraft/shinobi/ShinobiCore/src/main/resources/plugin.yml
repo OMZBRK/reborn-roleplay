@@ -54,13 +54,13 @@ commands:
   xp:
     description: Niveau et expérience d'un personnage (staff uniquement).
     permission: shinobicore.staff
-    usage: /<command> [voir|donner|retirer|niveau] …
+    usage: "/<command> [voir|donner|retirer|niveau] …"
   corps:
     description: Actions sur un corps à terre (menu d'interaction du mod).
-    usage: /<command> porter|gorge|fouiller|rpk|achever|executer <joueur> [exécution] · quitter
+    usage: "/<command> porter|gorge|fouiller|rpk|achever|executer <joueur> [exécution] · quitter"
   execution:
-    description: Exécutions possédées (staff : donner, retirer, liste, recharger).
-    usage: /<command> [donner|retirer <joueur> <id>|liste [joueur]|recharger]
+    description: "Exécutions possédées (staff : donner, retirer, liste, recharger)."
+    usage: "/<command> [donner|retirer <joueur> <id>|liste [joueur]|recharger]"
   sckillvote:
     description: Vote interne pour valider/refuser une demande Tuer.
     usage: /<command> approve|refuse|goto <id>
