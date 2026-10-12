@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Tirage d'une bibliothèque (docs/PROPOSITION_PARCHEMINS.md §3.1) : chaque technique sort indépendamment avec son
+ * Tirage d'une bibliothèque (docs/gameplay/APPRENTISSAGE.md §3) : chaque technique sort indépendamment avec son
  * pourcentage (celui de son rang, ou la valeur réglée pour elle) ; au-delà du nombre de rouleaux de la
  * bibliothèque, on garde les plus rares — un rouleau rare tiré n'est jamais coupé. Le rang S ne sort que s'il reste
  * un slot. Code pur : il passera tel quel côté serveur.

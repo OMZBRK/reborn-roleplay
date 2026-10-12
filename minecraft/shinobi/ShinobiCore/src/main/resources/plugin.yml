@@ -168,7 +168,7 @@ commands:
     aliases: [ko, kogestion]
     permission: shinobicore.use
   staffchat:
-    description: Staff — écrire dans le canal staff (aussi #message dans le chat).
+    description: "Staff — écrire dans le canal staff (aussi #message dans le chat)."
     usage: /<command> <message>
     aliases: [schat]
     permission: shinobicore.use

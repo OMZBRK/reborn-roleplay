@@ -28,7 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Paume de soin maintenue (lot KO-4, docs/PROPOSITION_KO_PAINRP.md §5).
+ * Paume de soin maintenue (lot KO-4, docs/gameplay/KO_ET_MORT_RP.md §5.2).
  *
  * <p>Le médic cible un patient ({@code /paume [joueur]}) ; le patient accepte
  * (un corps à terre ou inconscient est soigné sans demande). Le soin est

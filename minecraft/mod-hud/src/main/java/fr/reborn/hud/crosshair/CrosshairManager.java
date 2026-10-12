@@ -8,7 +8,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 
 /**
- * Rendu du viseur Reborn (pilier 2 — cf {@code docs/MOD_HUD_REDESIGN.md}).
+ * Rendu du viseur Reborn (pilier 2 — cf {@code docs/archives/conception/MOD_HUD_REDESIGN_2026-08.md}).
  *
  * <p>Les presets sont des PNG 33×33 blancs sur transparent
  * ({@code assets/reborn/textures/gui/crosshairs/<n>.png}) → teintés en code

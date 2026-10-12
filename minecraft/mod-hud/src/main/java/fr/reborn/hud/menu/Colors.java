@@ -8,7 +8,7 @@ package fr.reborn.hud.menu;
  * déjà leur alpha — pas besoin de manipuler la transparence dans le caller.
  *
  * <p>Synchronise avec {@code apps/launcher/src/styles/globals.css} et
- * {@code docs/REBORN_ASEPRITE_PALETTE.md}.
+ * {@code docs/design/REBORN_ASEPRITE_PALETTE.md}.
  *
  * <p>Référence visuelle :
  * <ul>

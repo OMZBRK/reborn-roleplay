@@ -42,7 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ATA — « blessé, en attente de soin » (lot KO-3, docs/PROPOSITION_KO_PAINRP.md).
+ * ATA — « blessé, en attente de soin » (lot KO-3, docs/gameplay/KO_ET_MORT_RP.md).
  *
  * <p>Posée sur le <b>personnage</b> à chaque réveil d'un KO par les PV :
  * {@link Level#PLEINE} après un rapatriement à l'hôpital, {@link Level#ALLEGEE}

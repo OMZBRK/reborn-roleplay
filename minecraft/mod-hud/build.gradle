@@ -2,7 +2,7 @@
 //
 // Port 26.1.2 / Java 25 (client Mojang deobfusque, Yarn discontinue) : Loom
 // deobf, aucune ligne mappings(), fabric-api complet remappe via implementation.
-// Voir docs/MIGRATION_26.1.md pour la recette de port UI (extractRenderState /
+// Voir docs/archives/MIGRATION_26.1.md pour la recette de port UI (extractRenderState /
 // GuiGraphicsExtractor / blit GUI_TEXTURED / MouseButtonEvent / HudElementRegistry).
 //
 // ⚠️ Intégrations lourdes à re-porter (phase 2) : MCEF (fond menu Chromium ->

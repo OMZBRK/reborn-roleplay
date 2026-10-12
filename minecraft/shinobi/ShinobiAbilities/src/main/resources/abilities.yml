@@ -36,7 +36,7 @@
 #     # Placeholders : %player% %uuid% %character% %world% %x% %y% %z%
 #     #                %power% (multiplicateur de stats) %tier% (E0 … S5)
 #
-# ════════════════ STATS (docs/SPEC_STATS_SERVICE.md) ════════════════
+# ════════════════ STATS (docs/technique/SPEC_STATS_SERVICE.md) ════════════════
 # Clés optionnelles au niveau de l'entrée (pas dans jutsu:) — chacune a un
 # défaut par catégorie, rien n'est obligatoire :
 #   scaling: { ninjutsu: S, controle: C }  # lettres S/A/B/C/D par stat :

@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * {@code /grade} — passage de grade RP (docs/GRADES.md).
+ * {@code /grade} — passage de grade RP (docs/gameplay/STATS_ET_PROGRESSION.md).
  * <ul>
  *   <li>{@code /grade} : son grade, ses bonus, ce qu'on peut donner.</li>
  *   <li>{@code /grade voir <joueur>} : le grade d'un autre personnage.</li>

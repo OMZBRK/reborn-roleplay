@@ -35,7 +35,7 @@ import java.util.Random;
 import java.util.UUID;
 
 /**
- * Apprentissage d'un parchemin en séances (docs/PROPOSITION_PARCHEMINS.md §3.3).
+ * Apprentissage d'un parchemin en séances (docs/gameplay/APPRENTISSAGE.md §4).
  *
  * <ul>
  *   <li>Clic droit rouleau en main : l'écran de lecture (technique, séances faites, délai).</li>

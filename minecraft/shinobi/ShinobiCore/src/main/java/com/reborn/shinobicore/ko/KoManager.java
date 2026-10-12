@@ -43,7 +43,7 @@ import java.util.logging.Level;
  *
  * <p>Owns the {@link KoState} table, the persistence file
  * ({@code ko-state.yml}), and the ticker. Since lot KO-2
- * (docs/PROPOSITION_KO_PAINRP.md) a KO has two phases:
+ * (docs/gameplay/KO_ET_MORT_RP.md) a KO has two phases:
  * <ol>
  *   <li><b>À terre</b> ({@link KoState.Phase#DOWNED}, HP cause only) — the
  *       body crawls (forced swimming pose, no jump), whispers, can call for

@@ -5,7 +5,7 @@ import java.util.Locale;
 /**
  * Grade shinobi du village, du plus bas au plus haut. Le passage de grade est <b>RP</b> (décision ou examen) ;
  * un joueur gradé ou le staff l'exécute avec {@code /grade}, dans les limites de
- * {@link com.reborn.shinobicore.stats.GradeRules} (docs/GRADES.md).
+ * {@link com.reborn.shinobicore.stats.GradeRules} (docs/gameplay/STATS_ET_PROGRESSION.md).
  *
  * <p>Persisté par nom : {@link #from} relit aussi les anciens noms (ACADEMY, SPECIAL_JONIN, ANBU, SANNIN).
  * Les fonctions RP (ANBU, bras droit du Kage, conseil…) ne sont <b>pas</b> des grades.

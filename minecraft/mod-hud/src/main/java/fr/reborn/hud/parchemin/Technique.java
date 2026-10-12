@@ -25,7 +25,7 @@ public record Technique(String id, String name, String branch, String nature, ch
         return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : "";
     }
 
-    /** Séances à réussir pour apprendre (docs/PROPOSITION_PARCHEMINS.md §3.3). */
+    /** Séances à réussir pour apprendre (docs/gameplay/APPRENTISSAGE.md §4). */
     public int seances() {
         return switch (rank) {
             case 'E', 'D' -> 1;

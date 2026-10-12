@@ -254,7 +254,7 @@ public final class ShinobiCore extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(
                 new com.reborn.shinobicore.ko.KoListener(this), this);
         // Terrains d'entraînement + PV persistants hors zone + journal des
-        // agressions (lot KO-1, docs/PROPOSITION_KO_PAINRP.md).
+        // agressions (lot KO-1, docs/gameplay/KO_ET_MORT_RP.md).
         this.trainingZones = new com.reborn.shinobicore.ko.zone.TrainingZones(this);
         this.trainingZones.start();
         Bukkit.getPluginManager().registerEvents(trainingZones, this);
@@ -591,7 +591,7 @@ public final class ShinobiCore extends JavaPlugin {
             dummyCmd.setTabCompleter(exec);
         } else getLogger().warning("Command 'dummy' is not declared in plugin.yml.");
 
-        // KO / PainRP (docs/PROPOSITION_KO_PAINRP.md) : zones RP, hôpital, appel à l'aide, ATA.
+        // KO / PainRP (docs/gameplay/KO_ET_MORT_RP.md) : zones RP, hôpital, appel à l'aide, ATA.
         PluginCommand zoneRpCmd = getCommand("zonerp");
         if (zoneRpCmd != null) {
             com.reborn.shinobicore.ko.zone.ZoneRpCommand exec =

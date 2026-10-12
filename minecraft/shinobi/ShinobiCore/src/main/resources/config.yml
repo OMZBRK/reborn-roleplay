@@ -31,13 +31,13 @@ chakra:
     min-ko-seconds: 6
 
 # ------------------------------------------------------------
-# Stats — six stats allouées (docs/SPEC_STATS_SERVICE.md, option B).
+# Stats — six stats allouées (docs/technique/SPEC_STATS_SERVICE.md, option B).
 # Tout ce bloc = des LEVIERS : rechargeables à chaud (/sc reload), aucune
 # migration. Valeurs = valeurs de départ du prototype, à régler au playtest.
 # Structurel (pas ici) : les six stats, MIN = 1, MAX = 10 (ne jamais baisser).
 # ------------------------------------------------------------
 # ------------------------------------------------------------
-# Grades shinobi (docs/GRADES.md). Le passage de grade est RP (décision ou
+# Grades shinobi (docs/gameplay/STATS_ET_PROGRESSION.md). Le passage de grade est RP (décision ou
 # examen) ; /grade l'exécute. Chaque grade donne des bonus passifs ; un joueur
 # gradé ne donne que les grades permis ci-dessous, dans son village. « staff »
 # (ou absent) = réservé au staff (permission shinobicore.grade.staff).
@@ -128,7 +128,7 @@ stats:
     technique-window-millis: 4000   # à sa technique (MS / MM / ME) — surchargeable
     melee-window-millis: 700        # par technique : attribution-millis dans abilities.yml
 
-# KO / PainRP — lots KO-1 à KO-3 (docs/PROPOSITION_KO_PAINRP.md).
+# KO / PainRP — lots KO-1 à KO-3 (docs/gameplay/KO_ET_MORT_RP.md).
 # Hors des terrains d'entraînement (/zonerp), les PV perdus restent perdus :
 # la régénération naturelle est coupée pour les personnages actifs.
 ko:

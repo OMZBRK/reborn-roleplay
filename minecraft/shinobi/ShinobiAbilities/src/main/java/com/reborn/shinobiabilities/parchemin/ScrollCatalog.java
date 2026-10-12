@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Les techniques qu'un parchemin peut porter (docs/PROPOSITION_PARCHEMINS.md) : Taïjutsu, Kenjutsu et Ninjutsu,
+ * Les techniques qu'un parchemin peut porter (docs/gameplay/APPRENTISSAGE.md) : Taïjutsu, Kenjutsu et Ninjutsu,
  * d'après la catégorie de chaque technique. Les techniques de clan (kekkei, jūken…), ANBU, senjutsu et « autres »
  * restent hors des bibliothèques. Réglable dans {@code parchemins.categories} / {@code parchemins.exclues}.
  */

@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 /**
- * Terrains d'entraînement et PV persistants (lot KO-1, docs/PROPOSITION_KO_PAINRP.md).
+ * Terrains d'entraînement et PV persistants (lot KO-1, docs/gameplay/KO_ET_MORT_RP.md).
  *
  * <p>Hors d'un terrain, les PV perdus restent perdus : la régénération naturelle
  * (saturation permanente, cf. {@code display.auto-saturation}) est annulée pour les

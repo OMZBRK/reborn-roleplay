@@ -11,7 +11,7 @@ import java.util.Map;
  */
 public final class Library {
 
-    /** Modèles de départ, indices D C B A S (docs/PROPOSITION_PARCHEMINS.md §3.1). */
+    /** Modèles de départ, indices D C B A S (docs/gameplay/APPRENTISSAGE.md §3). */
     public static final double[] PUBLIQUE = {35, 12, 3, 0.3, 0.02};
     public static final double[] RESERVEE = {30, 18, 7, 1.0, 0.08};
     public static final double[] PRIVEE = {20, 22, 12, 3.0, 0.3};

@@ -37,7 +37,7 @@ import java.util.Random;
 import java.util.UUID;
 
 /**
- * Bibliothèques à tirage (docs/PROPOSITION_PARCHEMINS.md §3.1).
+ * Bibliothèques à tirage (docs/gameplay/APPRENTISSAGE.md §3).
  *
  * <ul>
  *   <li>Le staff pose une bibliothèque sur un bloc ou un meuble ({@code /bibliotheque creer}) et la règle depuis

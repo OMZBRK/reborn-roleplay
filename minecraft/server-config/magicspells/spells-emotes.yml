@@ -6,7 +6,7 @@
 #  est le même Bukkit.dispatchCommand que ShinobiAbilities emploie déjà pour ses jutsu.
 #
 #  Placeholders MagicSpells : %a% = lanceur, %t% = cible.
-#  ShinobiCore : /playemote <nom> [joueur] — voir docs/EMOTES.md.
+#  ShinobiCore : /playemote <nom> [joueur] — voir docs/gameplay/EMOTES.md.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # 1) Emote sur SOI (le lanceur). run par la console pour ne pas dépendre des perms
