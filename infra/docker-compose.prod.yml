@@ -7,7 +7,7 @@ name: reborn-prod
 # A lancer depuis la racine du repo :
 #   docker compose -f infra/docker-compose.prod.yml --env-file .env.prod up -d
 #
-# Cf docs/DEPLOY.md pour le setup VPS complet (DNS, premier deploy,
+# Cf docs/operations/DEPLOY.md pour le setup VPS complet (DNS, premier deploy,
 # backup).
 
 services:

@@ -267,7 +267,7 @@ model WhitelistOralSlot {
 //
 // La signature Ed25519 base64 est generee localement par le maintainer via
 // `pnpm tauri signer sign` apres le build NSIS, puis POSTee a /admin/releases
-// par le panel staff (workflow doc dans docs/RELEASING.md).
+// par le panel staff (workflow doc dans docs/operations/RELEASING.md).
 model LauncherRelease {
   id          String   @id @default(uuid())
   version     String   // ex: "0.2.0"
