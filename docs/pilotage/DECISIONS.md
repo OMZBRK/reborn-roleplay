@@ -1,0 +1,118 @@
+# Journal des décisions
+
+> **Toutes les décisions de design et d'organisation prises par l'utilisateur**, datées, une ligne chacune, avec
+> le lien vers la fiche qui l'applique. Sert à ne pas rouvrir une question tranchée et à savoir **quelle règle a
+> remplacé laquelle**. Les décisions techniques structurantes ont en plus un ADR dans [`../adr/`](../adr/).
+>
+> Une décision remplacée est barrée et renvoie à celle qui la remplace. Consolidé le 2026-10-12 à partir de
+> toutes les sessions de travail.
+
+---
+
+## Organisation et méthode de travail
+
+| Date | Décision |
+|---|---|
+| 2026-09-08 | Hiérarchie des sources de vérité : le **code** fait foi, puis `ETAT_DES_LIEUX.md` (présent), `ROADMAP_BETA_2026.md` (futur) ; les boards suivent la roadmap |
+| 2026-09-08 | **Publier implique commiter** : ce qui tourne en prod ou sur le dev revient sur `origin/main` dans la foulée |
+| 2026-09-08 | **Deux trains de release jamais mélangés** dans un commit : jeu (mods + plugins) / web (API, panel, bot) — [ADR 0003](../adr/0003-shinobi-dans-le-monorepo-deux-trains-de-release.md) |
+| 2026-09-17 | Dépôt « le plus clear et clean possible », transmissible entre PC : `main` = tronc unique, branches courtes, **pas de backups** dans le gestionnaire de fichiers staff |
+| 2026-09-17 | Le Trello est **public** : jamais d'IP, de secret ni de chemin du VPS dessus |
+| 2026-10-03 | Des **maquettes avant le code**, plusieurs séries si besoin |
+| 2026-10-06 | **Claude ne pousse jamais** sur GitHub : le push part de la session terminal de l'utilisateur, avec son token, sur son instruction |
+| 2026-10-06 | Accès SFTP : jamais écrits en clair ; mot de passe du dev rangé dans le gestionnaire d'identification Windows (`reborn-sftp-dev`) ; **le redémarrage du serveur est toujours fait par l'utilisateur** |
+| 2026-10-06 | Un commit `feat` + un commit `docs(etat)` séparé pour l'état des lieux ; ne jamais toucher aux `config.yml` du serveur sans demande |
+| 2026-10-10 | **Montrer les visuels avant chaque prompt de publication** (captures du client de dev) |
+| 2026-10-10 | **Finir le Sprint 1 avant d'ouvrir le Sprint 2** |
+| 2026-10-11 | Valider `plugin.yml` / `config.yml` avec un vrai parseur YAML avant toute publication de plugin (incident ShinobiCore) |
+| 2026-10-12 | Documentation restructurée pour qu'une session reprenne seule : [`../REPRISE_DE_SESSION.md`](../REPRISE_DE_SESSION.md) |
+
+## Planning
+
+| Date | Décision |
+|---|---|
+| 2026-09-08 | Beta jouable le **31 décembre 2026**, 4 sprints mensuels, 16 chantiers — [`../ROADMAP_BETA_2026.md`](../ROADMAP_BETA_2026.md) |
+| 2026-09-08 | Périmètre combat beta : **39 techniques** (12 Tai, 12 Ken, 15 Nin rangs D-C-B) ; rangs A et S en cut list |
+| 2026-09-17 | **18 sorts claniques** (9 clans × 2 ; ni Neutre ni Autre) — question close |
+| 2026-09-17 | Semaine S1 dérivée (Technique Creator) : on **absorbe**, le ship reste au 31/12 ; ordre de coupe Nin B → Nin C → sorts claniques |
+
+## Identité visuelle
+
+| Date | Décision |
+|---|---|
+| 2026-06-21 | Identité **Akatsuki** (crimson `#A0182B` + or `#D9A95E`) — remplace le « bleu v2 » |
+| 2026-10-01 | Retirer toute référence à **Zenkai** ; colonne `zkCoinBalance` → `rbCoinBalance` |
+| 2026-10-03 | Kit commun nuit / laque / or, **une signature (objet) par écran**, jamais celle d'un autre ; sons dédiés — [`../design/DIRECTION_ARTISTIQUE.md`](../design/DIRECTION_ARTISTIQUE.md) |
+| 2026-10-03 | Écrans en jeu : le jeu visible derrière un voile ; création de perso : jamais le monde du jeu ; pixel art détaillé, pas de fonds animés lourds |
+| 2026-10-08 | HUD vitals de base **inchangé** ; HUD combat en version discrète ; pas d'effets « RPG » |
+| 2026-10-10 | Menus Reborn à la **taille de l'échelle 2 en 1080p** quelle que soit l'échelle du joueur — [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §3 |
+
+## Monnaies
+
+| Date | Décision |
+|---|---|
+| 2026-09-08 | **Ryo** (gagné en jeu) + **RBCoins** (acheté ou Bug Bounty), sans conversion — [ADR 0006](../adr/0006-monnaies-ryo-et-rbcoins.md) |
+| 2026-10-03 | Les récompenses d'activation (boost Discord, pseudo, bio, stream…) rapportent des **RBCoins**, pas des ryo |
+
+## Stats et progression — [`../gameplay/STATS_ET_PROGRESSION.md`](../gameplay/STATS_ET_PROGRESSION.md)
+
+| Date | Décision |
+|---|---|
+| ~~2026-09-17~~ | ~~Voie A : 5 stats du plan, chakra plafonné à 200~~ → remplacée le 23/09 |
+| 2026-09-23 | **Option B : 6 stats** (Taïjutsu, Kenjutsu, Ninjutsu, Contrôle, Vigueur, Chakra) ; genjutsu hors beta |
+| 2026-09-23 | **Aucune stat ne ferme une porte RP** ; **apprentissage des techniques libre** (pas de `requires:` sur une stat) |
+| 2026-09-23 | **Grande échelle de chakra** : ~100 000 au maximum, un rang S se lance 2 à 3 fois |
+| 2026-09-29 | Infobulles **sans chiffres exacts** ; réinitialisation par **jetons liés au compte** |
+| ~~2026-09-23~~ | ~~3 points de stats par passage de grade~~ → remplacée le 10/10 |
+| 2026-10-08 | **9 grades** : Académicien, Genin, Genin confirmé, Chūnin, **Konin**, Tokubetsu Jōnin, Jōnin, Commandant Jōnin, Kage ; **on ne monte pas de grade à l'XP** ; passage **RP** (`/grade`, droits selon son grade) |
+| 2026-10-08 | ANBU, bras droit, conseil… sont des **fonctions RP**, pas des grades (avantages, pas de stats) |
+| 2026-10-10 | Progression à l'**XP** en dehors des grades : **1 niveau = 1 point de stats** |
+| 2026-10-10 | Points de grade **séparés** des stats et renommés **Mérite** (usage gameplay à venir) |
+| 2026-10-10 | **Niveau et XP invisibles** pour le joueur (ni affichage, ni annonce) ; `/xp` réservé au staff |
+
+## KO, médical et mort RP — [`../gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md)
+
+| Date | Décision |
+|---|---|
+| 2026-10-06 | But : **tuer le combat d'arène** ; combat libre seulement sur les terrains d'entraînement ; ailleurs, PV perdus persistants, sortie par médic ou repos RP |
+| 2026-10-06 | Plancher sans médic **30 %** ; frais d'hôpital **en RP** ; mobs = MythicMobs uniquement ; **NLR laissé au joueur** |
+| 2026-10-06 | Soin médical **tenu dans le temps**, plus rapide selon le Contrôle et le rang |
+| 2026-10-07 | Hôpitaux = zones, lits = **meubles Nexo**, nombre illimité ; pas d'onglet Historique (le journal suffit) |
+| ~~2026-10-06~~ | ~~Défaite à l'entraînement = relève à 30 %~~ → **PV pleins** (10/10) |
+| ~~2026-10-06~~ | ~~`/hopital` proposé après 2 min, rapatriement automatique à 5 min~~ → **5 min d'inconscience, puis il reste au sol et `/hopital` est proposé** (10/10) |
+| ~~2026-10-06~~ | ~~ATA : techniques rang D maximum ; FearRP 20 min~~ → **aucune technique, seulement le M1 à mains nues ; FearRP retirée** (10/10) |
+| 2026-10-10 | La **Volonté** (QTE de relève) devient **facultative** : une compétence / technique, pas un droit |
+| ~~2026-10-10 (14 h)~~ | ~~Mort RP avec consentement de la victime~~ → **pas de validation joueur** (10/10, 15 h) |
+| 2026-10-10 | La RPK part au **tchat du staff** et au Poste de garde |
+| 2026-10-10 | Menu d'interaction sur un corps : **exécution** (animations stylées, **vendables**), attraper à la gorge, porter, RPK |
+| 2026-10-10 | **Valider une RPK ne tue pas** : la mort tombe à la dernière action du demandeur (achever / exécuter) |
+| 2026-10-10 | Le mort reste sur place, écran noir, ne peut plus rien faire |
+| 2026-10-11 | Ancien menu (coffre) sur un corps **retiré** ; prise à la gorge **sans limite de durée** ; corps à l'**apparence Reborn** |
+| 2026-10-11 | Au bout de 60 s : « **Assister à votre réelle fin ?** » — Non → sélection ; Oui → vue grisée, sans HUD, bandes de cinéma |
+
+## Apprentissage — [`../gameplay/APPRENTISSAGE.md`](../gameplay/APPRENTISSAGE.md)
+
+| Date | Décision |
+|---|---|
+| 2026-10-08 | Parchemins pour Taï / Ken / Nin ; techniques de clan apprises **dans le clan** ; ANBU via la fonction ANBU |
+| 2026-10-08 | Le parchemin est un **vrai objet** (volable, échangeable, brûlable), **unique** (pas de recopie) |
+| 2026-10-08 | Bibliothèques : tirage **partagé** toutes les **3 h**, 1 à 9 rouleaux, tout emportable (limite = poids), **accès libre** (restrictions RP) |
+| 2026-10-08 | Rang S à **slots limités** par technique ; mort du détenteur = slot libéré, héritage seulement si le rouleau est porté |
+| 2026-10-08 | Séances (D 1 … S 20), une par jour ; échec = séance perdue ; easter egg de perte du rouleau ; **maître = maîtrise ≥ 80 et connue depuis 14 jours** ; progression liée au personnage, rouleau en main requis ; fin d'un S validée par le staff |
+| 2026-10-09 | Concentration du chakra : en jeu, avant tout ce qui demande du chakra **sauf le Taïjutsu** ; **un mouvement ou un saut doit fausser le test** |
+
+## Personnages — [`../gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md)
+
+| Date | Décision |
+|---|---|
+| 2026-10-10 | Sélection et création **en scène**, façon Ketto RP, dans un **vide sombre** ; âge et taille changent la stature |
+| 2026-10-10 | **Déserteur retiré** des villages ; emblème d'Ame ajouté ; braises de chakra à la couleur du village ; sons immersifs |
+| 2026-10-10 | Garder la **police des menus de base** |
+| 2026-10-10 | Apparence façon Ketto dans la DA Reborn ; **palettes par clan** à prévoir |
+
+## Launcher
+
+| Date | Décision |
+|---|---|
+| 2026-09-28 | Pas de refonte de l'accueil en tableau de bord |
+| 2026-10-07 | « Plus tard » mémorisé 24 h, « Ignorer cette version » (0.3.45) |

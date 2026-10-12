@@ -2,8 +2,8 @@
 
 **Statut** : Accepté — 2026-08-05, exécuté 2026-08-06 (26.1.2) puis 2026-08-19 (26.2)
 **Remplace** : la cible 1.21.1 / Java 21 / Yarn de la conception d'origine
-**Documents liés** : [`MIGRATION_26.1.md`](../MIGRATION_26.1.md) (archive),
-[`MIGRATION_26.2.md`](../MIGRATION_26.2.md) (courant)
+**Documents liés** : [`MIGRATION_26.1.md`](../archives/MIGRATION_26.1.md) (archive),
+[`MIGRATION_26.2.md`](../technique/MIGRATION_26.2.md) (courant)
 
 ## Contexte
 

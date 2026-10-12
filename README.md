@@ -4,11 +4,12 @@ Monorepo de l'écosystème **Reborn Roleplay** : launcher desktop, API backend, 
 staff, bot Discord, les mods clients Fabric, les plugins serveur Paper, et l'outillage
 de production (Blockbench, publication, hooks).
 
-> **Par où commencer :**
+> **Par où commencer :** toute la documentation part de [`docs/README.md`](./docs/README.md).
+> - Reprendre le projet (humain ou Claude) → [`docs/REPRISE_DE_SESSION.md`](./docs/REPRISE_DE_SESSION.md)
+> - Où en est chaque chantier → [`docs/CHANTIERS.md`](./docs/CHANTIERS.md)
 > - Ce qui tourne aujourd'hui → [`docs/ETAT_DES_LIEUX.md`](./docs/ETAT_DES_LIEUX.md)
 > - Ce qu'on livre d'ici décembre → [`docs/ROADMAP_BETA_2026.md`](./docs/ROADMAP_BETA_2026.md)
-> - Pourquoi les choses sont comme ça → [`PLAN_CONCEPTION_LAUNCHER.md`](./PLAN_CONCEPTION_LAUNCHER.md) + [`docs/adr/`](./docs/adr/)
-> - Faire une mise à jour en prod → [`docs/MAINTENANCE.md`](./docs/MAINTENANCE.md)
+> - Publier le mod / un plugin → [`docs/operations/PUBLICATION.md`](./docs/operations/PUBLICATION.md)
 
 ## Arborescence
 
@@ -59,7 +60,7 @@ reborn-roleplay/
 
 > Sur Windows : Rust via [`rustup`](https://rustup.rs/) (toolchain
 > `stable-x86_64-pc-windows-msvc`) + **Build Tools Visual Studio 2022** (C++).
-> Le JDK 25 est installé en portable dans `D:\dev-cache\jdk25\jdk-25.0.4+7`.
+> Le JDK 25 est installé en portable dans `C:\Users\omarb\dev-cache\jdk-25.0.4.1+1` (poste principal).
 > Le launcher télécharge lui-même la JRE que Minecraft utilise (piston-meta).
 
 ## Démarrage rapide
@@ -76,7 +77,7 @@ Côté Minecraft (projets isolés du workspace pnpm — ouvrir chaque sous-dossi
 standalone dans l'IDE) :
 
 ```pwsh
-$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+$env:JAVA_HOME = "C:\Users\omarb\dev-cache\jdk-25.0.4.1+1"
 cd minecraft\mod-hud       ; ./gradlew build      # mods Fabric
 cd minecraft\plugin-guardian ; ./gradlew build    # plugins Paper
 cd minecraft\shinobi       ; mvn clean package    # les 6 plugins Shinobi
@@ -89,72 +90,24 @@ cd minecraft\shinobi       ; mvn clean package    # les 6 plugins Shinobi
   `ost`, `guardian`, `shinobi-core`, `shinobi-combat`, `manifest`, `tools`, `docs`.
 - **Branches** — `main` (trunk et prod web), `feature/*`, `fix/*`.
   ⚠️ **Tout ce qui est publié doit revenir sur `main`** — cf.
-  [`docs/AUDIT_COHERENCE.md §3`](./docs/AUDIT_COHERENCE.md).
+  [`docs/operations/PUBLICATION.md`](./docs/operations/PUBLICATION.md) §0.
 - **Deux trains de release** : le *jeu* (mods + plugins, via le manifest signé et
   l'upload Minestrator) et le *web* (`api`/`admin`/`bot`, via Docker depuis `main`).
   Ne jamais les mélanger dans un même commit — cf.
-  [`docs/PUBLISH_PREFLIGHT.md §2`](./docs/PUBLISH_PREFLIGHT.md).
+  [`docs/operations/PUBLICATION.md`](./docs/operations/PUBLICATION.md) §0.
 - **TypeScript** — `strict: true`, ESLint + Prettier là où c'est configuré.
 - **Rust** — `cargo fmt` + `cargo clippy -- -D warnings`.
 - **Java** — toolchain 25.
 
-## Index de la documentation
+## Documentation
 
-### État & pilotage
-| Document | Contenu |
-|---|---|
-| [`docs/ETAT_DES_LIEUX.md`](./docs/ETAT_DES_LIEUX.md) | **Le présent** : versions, URLs, artefacts publiés, périmètre réel |
-| [`docs/ROADMAP_BETA_2026.md`](./docs/ROADMAP_BETA_2026.md) | **Le futur** : 4 sprints, 16 chantiers, chiffres consolidés, cut list |
-| [`docs/AUDIT_COHERENCE.md`](./docs/AUDIT_COHERENCE.md) | Passe de cohérence docs ⇄ Trello ⇄ Miro ⇄ code (2026-09-08) |
-| [`PLAN_CONCEPTION_LAUNCHER.md`](./PLAN_CONCEPTION_LAUNCHER.md) | Conception d'origine : vision, architecture, sécurité, écrans |
-| [`docs/adr/`](./docs/adr/) | Décisions structurantes, une par fichier |
+Tout est indexé dans [`docs/README.md`](./docs/README.md) : pilotage (chantiers, état, roadmap, décisions,
+livraisons, boards), fiches de gameplay (KO et mort RP, apprentissage, stats et progression, personnages…),
+guide staff, références techniques (commandes, canaux, config, mod client), opérations (publication, VPS,
+launcher), direction artistique et modèles 3D, archives.
 
-### Opérations
-| Document | Contenu |
-|---|---|
-| [`docs/MAINTENANCE.md`](./docs/MAINTENANCE.md) | **Premier réflexe** : mettre à jour un mod, un plugin, un user, une env var |
-| [`docs/PUBLISH_PREFLIGHT.md`](./docs/PUBLISH_PREFLIGHT.md) | Checklist anti-régression avant tout build/publish game-side |
-| [`docs/RELEASING.md`](./docs/RELEASING.md) | Workflow auto-update du launcher (Ed25519) |
-| [`docs/AUTO_UPDATE_TEST_PROTOCOL.md`](./docs/AUTO_UPDATE_TEST_PROTOCOL.md) | Protocole de test reproductible de l'auto-update |
-| [`docs/MULTI_POSTES.md`](./docs/MULTI_POSTES.md) | **Travailler depuis plusieurs machines** (2 PC Windows + Mac) : secrets à transférer, spécificités macOS, hygiène des branches |
-| [`docs/DEPLOY.md`](./docs/DEPLOY.md) | Détails infra VPS (Docker + Caddy) — *setup from scratch* |
-| [`docs/STAFF_BETA.md`](./docs/STAFF_BETA.md) | Checklist de déploiement complète — *setup from scratch* |
-
-### Migrations
-| Document | Contenu |
-|---|---|
-| [`docs/MIGRATION_26.2.md`](./docs/MIGRATION_26.2.md) | **Version courante** : 26.1 → 26.2, recette de build, pièges |
-| [`docs/MIGRATION_26.1.md`](./docs/MIGRATION_26.1.md) | Archive : 1.21.1 → 26.1.2 (Java 25, fin de Yarn, rendu extraction) |
-
-### Jeu & contenu
-| Document | Contenu |
-|---|---|
-| [`docs/MOD_HUD_REDESIGN.md`](./docs/MOD_HUD_REDESIGN.md) | Refonte UI mod-hud : hub de config, éditeur HUD, chat, crosshair |
-| [`docs/INVENTAIRE_ET_COSMETIQUES.md`](./docs/INVENTAIRE_ET_COSMETIQUES.md) | Sacoche RP : inventaire lié au perso, poids, cosmétiques 3D |
-| [`docs/character-creator-assets.md`](./docs/character-creator-assets.md) | Pipeline skin data-driven (catalogue, masques RGBA, gating clan/genre) |
-| [`docs/ANIMATIONS_BASE.md`](./docs/ANIMATIONS_BASE.md) | Catalogue d'animations P0/P1/P2 + stratégie réseau |
-| [`docs/EMOTES.md`](./docs/EMOTES.md) | Emotes RP serveur-autoritaires (EmoteCraft) + distribution |
-| [`docs/NEXO_STAFF_GUIDE.md`](./docs/NEXO_STAFF_GUIDE.md) | Guide staff : ajouter un modèle 3D / une texture animée depuis le panel |
-| [`docs/ETUDE_NINSHU_ORIGINS.md`](./docs/ETUDE_NINSHU_ORIGINS.md) | Étude technique d'un mod tiers (référence mécaniques — usage privé) |
-
-### Design
-| Document | Contenu |
-|---|---|
-| [`docs/REBORN_ASEPRITE_PALETTE.md`](./docs/REBORN_ASEPRITE_PALETTE.md) | Palette Akatsuki, grilles, workflow d'intégration d'assets |
-| [`docs/reborn-akatsuki.gpl`](./docs/reborn-akatsuki.gpl) | Palette importable Aseprite / GIMP |
-| [`docs/CHANGELOG_DESIGN_V2.md`](./docs/CHANGELOG_DESIGN_V2.md) | Journal de la refonte v2 du launcher — *historique* |
-
-### Outillage
-| Document | Contenu |
-|---|---|
-| [`docs/MCP_OUTILLAGE.md`](./docs/MCP_OUTILLAGE.md) | Faisabilité MCP : Blockbench, Discord, Blender (pipeline emotes) |
-| [`tools/blockbench-reborn-compositor/README.md`](./tools/blockbench-reborn-compositor/README.md) | Compositeur de skins RP |
-| [`tools/blockbench-handpaint/README.md`](./tools/blockbench-handpaint/README.md) | Outils hand-paint (AO, Shade) |
-| [`tools/claude-hooks/README.md`](./tools/claude-hooks/README.md) | Notification Discord de fin de session Claude Code |
-
-### Boards
-- Trello (**public**, transparence communauté) : <https://trello.com/b/OqmICLMD/wip-fr-naruto>
-- Miro (interne, roadmap visuelle) : <https://miro.com/app/board/uXjVGubPsdk=/>
+Boards : Trello (**public**) <https://trello.com/b/OqmICLMD/wip-fr-naruto> · Miro (staff)
+<https://miro.com/app/board/uXjVGubPsdk=/> — organisation dans [`docs/pilotage/BOARDS.md`](./docs/pilotage/BOARDS.md).
 
 ---
 

@@ -6,20 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `reborn-roleplay` is a pnpm monorepo that hosts the entire ecosystem of a Minecraft RP server — desktop launcher, web API, Discord bot, staff panel, the Fabric client mods, the Paper server plugins (including the six Shinobi gameplay plugins), and the Blockbench/publishing tooling.
 
-**Read these first, in this order:**
+**Start every session with `docs/REPRISE_DE_SESSION.md`** (French). It tells you what to read, how the user
+works, the non-negotiable rules and the local toolchain, so the user never has to repeat the context. In short:
 
-1. **`docs/ETAT_DES_LIEUX.md`** — what actually runs right now: versions, URLs, published artifacts, real scope. Authoritative when anything else disagrees with reality.
-2. **`docs/ROADMAP_BETA_2026.md`** — what ships by December 2026. Mirrors the Trello `📅 Plan de vol` and the Miro sprint frames.
-3. **`PLAN_CONCEPTION_LAUNCHER.md`** — the original product + technical design (~2500 lines, French). Still the reference for *why*, but §11 and §18 are historical.
-4. **`docs/adr/`** — the hard, non-obvious calls, one per file. `0002` (MC 26.x / Java 25) explains why any pre-August-2026 snippet is dead.
+1. **`docs/CHANTIERS.md`** — where every workstream stands, what awaits a decision, what to test next.
+2. **`docs/ETAT_DES_LIEUX.md`** — what actually runs right now: versions, servers, published artifacts. Authoritative when anything else disagrees with reality.
+3. **The system sheet** you are about to touch: `docs/gameplay/*.md` (KO & RP death, learning, stats & progression, characters…) or `docs/technique/*.md` (plugin reference: commands, channels, config; the `reborn-hud` mod).
+4. **`docs/pilotage/DECISIONS.md`** — every user decision, dated, with what it superseded.
+5. **`docs/README.md`** — map of all documentation. `docs/ROADMAP_BETA_2026.md` (beta plan), `docs/adr/` (structural calls; `0002` explains why any pre-August-2026 snippet is dead), `PLAN_CONCEPTION_LAUNCHER.md` (original design, the *why*; §11 and §18 historical).
 
-A coherence audit of docs ⇄ Trello ⇄ Miro ⇄ code was run on 2026-09-08: `docs/AUDIT_COHERENCE.md`.
+**Non-negotiable working rules** (details in `docs/REPRISE_DE_SESSION.md` §5): never `git push` (publishing and pushing go through a prompt the user pastes in his own terminal session, with his token); show real screenshots of new visuals before any publish prompt; validate `plugin.yml`/`config.yml` with a real YAML parser before publishing a plugin; stage file by file (several sessions share this working tree); never put secrets or server IPs in files, docs, memory or the public Trello; the user restarts the server himself. Answer in short French, no clarifying questions unless truly ambiguous, end each workstream with a concrete in-game test checklist.
 
 ## Platform (do not assume otherwise)
 
 **Minecraft 26.2 · Java 25 · Fabric Loader 0.19.3 · Fabric API 0.156.0+26.2 · no mappings.**
 
-Since 26.x the Mojang client ships **deobfuscated** — Yarn is gone, there is no `mappings(...)` line, and `modImplementation` no longer exists (use `implementation`). `DrawContext`/`GuiGraphics` was removed in favour of the extraction/retained model (`GuiGraphicsExtractor`). In 26.2 specifically, `Gui` was split into `Gui` + `Hud` — mixins targeting the old class fail at launch, not at build. See `docs/MIGRATION_26.2.md`.
+Since 26.x the Mojang client ships **deobfuscated** — Yarn is gone, there is no `mappings(...)` line, and `modImplementation` no longer exists (use `implementation`). `DrawContext`/`GuiGraphics` was removed in favour of the extraction/retained model (`GuiGraphicsExtractor`). In 26.2 specifically, `Gui` was split into `Gui` + `Hud` — mixins targeting the old class fail at launch, not at build. See `docs/technique/MIGRATION_26.2.md`.
 
 ## Workspace layout
 
@@ -47,12 +49,12 @@ Since 26.x the Mojang client ships **deobfuscated** — Yarn is gone, there is n
 - Node.js 20+, pnpm 10+ (the root `package.json` pins `pnpm@10.33.2` via `packageManager`)
 - Rust stable + **Visual Studio 2022 Build Tools (C++)** on Windows for the Tauri backend
 - Docker for Postgres/Redis
-- **Java 25** for both the Fabric mods and the Paper plugins (portable JDK at `D:\dev-cache\jdk25\jdk-25.0.4+7`). The launcher downloads the JRE Minecraft itself runs on, via piston-meta
-- Maven 3.9+ for `minecraft/shinobi/`
+- **Java 25** for both the Fabric mods and the Paper plugins. On the main Windows workstation: portable JDK at `C:\Users\omarb\dev-cache\jdk-25.0.4.1+1` (the old `D:\dev-cache\…` path does not exist there). The launcher downloads the JRE Minecraft itself runs on, via piston-meta
+- Maven 3.9+ for `minecraft/shinobi/` (portable: `C:\Users\omarb\dev-cache\apache-maven-3.9.11`)
 
 ## Two release trains — never mix them in one commit
 
-- **Game** (client mods + Paper plugins) → signed manifest (launcher auto-update) + manual upload on the Minestrator panel, server restart required. Read `docs/PUBLISH_PREFLIGHT.md` before any build/publish.
+- **Game** (client mods + Paper plugins) → signed manifest (launcher auto-update) + plugin upload by SFTP or the Minestrator panel, server restart (always by the user) required. Read `docs/operations/PUBLICATION.md` before any build/publish.
 - **Web** (`apps/api`, `apps/admin`, `apps/bot`) → Docker on the VPS, from `origin/main`.
 
 Corollary that has been violated and must not be: **whatever is published must come back onto a shared branch.** At the time of the audit, launcher 0.3.42 and `reborn-hud` 0.4.134 were live but absent from `main`.
@@ -102,7 +104,7 @@ cargo test --lib                         # unit tests in jvm.rs, manifest/verify
 Paper plugins (open `minecraft/plugin-guardian/` standalone in IntelliJ — **not** the monorepo root):
 
 ```pwsh
-$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+$env:JAVA_HOME = "C:\Users\omarb\dev-cache\jdk-25.0.4.1+1"
 ./gradlew build       # → build/libs/reborn-guardian-<ver>.jar
 ./gradlew runServer   # spins up Paper 26.x with the plugin loaded
 ```
@@ -110,19 +112,23 @@ $env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
 Shinobi plugins (Maven, from `minecraft/shinobi/` — the aggregator builds `ShinobiCore` first, then the rest, in one reactor pass):
 
 ```pwsh
-$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
-mvn clean package     # → */target/Shinobi*.jar
+$env:JAVA_HOME = "C:\Users\omarb\dev-cache\jdk-25.0.4.1+1"
+mvn clean package                                   # → */target/Shinobi*-1.0.0-SNAPSHOT.jar (deploy that, not original-*)
+mvn -o -q clean package -pl ShinobiAbilities -am    # one addon + ShinobiCore; -am is mandatory
 ```
 
 Fabric client mods (from `minecraft/mod-hud/`, `mod-integrity/`, `mod-ost/`):
 
 ```pwsh
-$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+$env:JAVA_HOME = "C:\Users\omarb\dev-cache\jdk-25.0.4.1+1"
 ./gradlew build -x test --no-daemon   # tests fail on accented paths — known, harmless
 ./gradlew runClient                    # the fast feedback loop — do NOT republish per fix
+./gradlew compileJava --offline -q     # quick compile check (mixins still only fail at launch)
 ```
 
-Publishing (from the repo root — read `docs/PUBLISH_PREFLIGHT.md` first):
+Screenshot harnesses for the mod (`REBORN_FEATURE_PREVIEW=1`, `REBORN_SCENE`, `REBORN_KO_DEBUG`…, output in `run/screenshots/`) are documented in `docs/technique/MOD_HUD.md` §5.
+
+Publishing (from the repo root — read `docs/operations/PUBLICATION.md` first):
 
 ```pwsh
 .\scripts\publish-mod-manifest.ps1 -Version X.Y.Z [-SkipBuild]

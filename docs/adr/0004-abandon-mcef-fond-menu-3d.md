@@ -1,7 +1,7 @@
 # ADR 0004 — Abandon de MCEF pour le fond du menu principal
 
 **Statut** : Accepté — 2026-08-08
-**Documents liés** : [`MIGRATION_26.1.md`](../MIGRATION_26.1.md)
+**Documents liés** : [`MIGRATION_26.1.md`](../archives/MIGRATION_26.1.md)
 
 ## Contexte
 
@@ -29,7 +29,7 @@ rendu procéduralement (`DynamicPlayerBackground` réécrit).
 - ✅ Plus de dépendance à un binding natif Chromium fragile, ni des ~250 Ko de jar +
   runtime associé.
 - ✅ Le fond procédural est cohérent avec la règle « chrome procédural, PNG seulement
-  pour l'art » de [`MOD_HUD_REDESIGN.md`](../MOD_HUD_REDESIGN.md) — net à tous les GUI
+  pour l'art » de [`MOD_HUD_REDESIGN.md`](../archives/conception/MOD_HUD_REDESIGN_2026-08.md) — net à tous les GUI
   Scale, recolorable au thème.
 - ❌ On perd la possibilité d'afficher du contenu web (patch notes riches, vidéo,
   carousel) directement dans le menu in-game.

@@ -1,7 +1,7 @@
 # ADR 0003 — Shinobi dans le monorepo, et deux trains de release distincts
 
 **Statut** : Accepté — 2026-08-19 (import Shinobi), formalisé 2026-09-08
-**Documents liés** : [`PUBLISH_PREFLIGHT.md`](../PUBLISH_PREFLIGHT.md),
+**Documents liés** : [`PUBLICATION.md`](../operations/PUBLICATION.md),
 [`ETAT_DES_LIEUX.md §6`](../ETAT_DES_LIEUX.md)
 
 ## Contexte

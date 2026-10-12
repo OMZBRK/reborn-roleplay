@@ -7,8 +7,25 @@
 > Les trois supports doivent dire **la même chose**. En cas de divergence, ce
 > fichier fait foi et les boards sont corrigés — pas l'inverse.
 >
-> Le présent est dans [`ETAT_DES_LIEUX.md`](./ETAT_DES_LIEUX.md).
-> Établi le **2026-09-08**.
+> Le présent est dans [`ETAT_DES_LIEUX.md`](./ETAT_DES_LIEUX.md), l'avancement chantier par chantier dans
+> [`CHANTIERS.md`](./CHANTIERS.md).
+> Établi le **2026-09-08**, avancement réel ajouté le **2026-10-12** (§0).
+
+---
+
+## 0. Avancement réel au 2026-10-12
+
+- **Sprint 1 prolongé.** Fin prévue le 8 octobre ; l'utilisateur a décidé de le **terminer avant d'ouvrir le
+  Sprint 2** (« sinon on le finira jamais »). Le Sprint 2 n'est pas commencé.
+- Fait : designs **Stats** (6 stats), **Progression** (grades RP + XP invisible), **Parchemins** (lots 1-4 codés),
+  **KO / mort RP** (KO-1 à KO-7 codés, en avance sur le Sprint 3) ; `StatsService` en service.
+- Reste pour clore le Sprint 1 : **design Faction** (pas commencé), icônes de recharge (3/8), assets wave 1 (tenues
+  Uchiha seulement), terraforming (quasi fini, Konoha commencée).
+- En plus du plan : Poste de garde + Infirmerie, refonte DA de toutes les interfaces, carte du monde, météo,
+  sélection / création de personnage en scène, chat, HUD combat, Byakugan.
+- ⚠️ Le §3.3 ci-dessous (rangs à l'XP) est **remplacé** : les grades se donnent en RP et l'XP donne des points de
+  stats — [`gameplay/STATS_ET_PROGRESSION.md`](./gameplay/STATS_ET_PROGRESSION.md).
+- ⚠️ Les dates des Sprints 2 à 4 n'ont pas été recalées ; le ship reste visé au 31 décembre.
 
 ---
 
@@ -141,7 +158,11 @@ par définition, « Autre » reste du sur-mesure staff au cas par cas — ni l'u
 l'autre ne reçoit de kit signature. La question est close, ne pas la rouvrir sans
 raison neuve.
 
-### 3.3 Rangs de progression
+### 3.3 Rangs de progression — ⚠️ REMPLACÉ le 2026-10-08 / 10
+
+> Ce paragraphe décrit le plan de septembre. **Aujourd'hui** : 9 grades (Académicien → Kage) donnés **en RP**,
+> l'XP fait monter un niveau invisible qui donne des points de stats, chaque grade donne des points de Mérite.
+> Voir [`gameplay/STATS_ET_PROGRESSION.md`](./gameplay/STATS_ET_PROGRESSION.md). Plan d'origine, pour mémoire :
 
 Académie → Genin (5 000 XP) → Chunin (20 000) → Jonin (60 000) → Special Jonin
 (150 000) → **ANBU** (recruté par le Kage) **ou Kage** (staff-managed).
@@ -220,15 +241,15 @@ Chaque chantier se branche sur une API existante de **ShinobiCore**
 
 | Chantier | Ancrage |
 |---|---|
-| Progression | `ProgressionLadder` — peupler rangs, seuils XP, events |
+| Progression | ✅ grades (`Rank`, `GradeRules`, `/grade`) + XP (`Progression`, `XpService`) |
 | Combat | `TechniqueRegistry` + `SkillService` + `Affinity` |
-| Parchemins | **nouveau service** au-dessus de `SkillService` + `ItemGiveService` |
-| KO / mort RP | étendre `KoService` (ATA + validation staff) |
+| Parchemins | ✅ `LibraryService`, `SeanceService`, `SlotRegistry` (ShinobiAbilities) |
+| KO / mort RP | ✅ `KoManager`, `AtaManager`, `VolonteQte`, `CorpsService`, `KillRequestManager`, `DeathScene` |
 | Déplacement | étendre `MobilityService` (3 presets de Naruto run) |
 | HUD | `HudService` pousse au client ; le rendu est dans `mod-hud` |
 | Médical | **nouveau `MedicalService`** (`CharacterDamageEvent` + `ResourceDepletedEvent`) |
 | Faction | **nouveau `FactionService`** (permissions, trésor, whitelist géo) |
-| Stats | **nouveau `StatsService`** (persistance + hooks event) |
+| Stats | ✅ `StatsService` (en service depuis le 28/09) |
 
 Annotations : `@Stable` = point d'extension sûr, `@Internal` = ne pas utiliser hors
 de ShinobiCore.

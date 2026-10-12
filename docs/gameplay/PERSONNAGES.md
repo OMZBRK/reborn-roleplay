@@ -1,0 +1,89 @@
+# Personnages — sélection, création, apparence
+
+> **Fiche système, à jour au 2026-10-12** (`reborn-hud` 0.4.168 et plus en production). Le pipeline des skins
+> (catalogue d'assets, masques de couleur) est détaillé dans
+> [`../technique/CREATEUR_PERSONNAGE_ASSETS.md`](../technique/CREATEUR_PERSONNAGE_ASSETS.md).
+>
+> Code : serveur `ShinobiCore/…/character/` (dont `select/CharacterSelectManager.java`) ; mod
+> `menu/character/` (règles, données) et `menu/character/scene/` (écrans en scène), `skin/` (compositeur).
+
+---
+
+## 1. Ce qu'est un personnage
+
+- Un joueur (compte Minecraft) peut avoir **plusieurs personnages** (`character-select`, limite de slots envoyée
+  par le serveur). Chaque personnage a : nom, clan, village, sexe, âge, taille, apparence, grade, stats, niveau
+  et XP (invisibles), techniques, blessures, sacoche.
+- Stockage : un YAML par joueur dans `plugins/ShinobiCore/characters/`.
+- Un personnage **mort** (mort RP validée et exécutée) reste dans la liste, marqué « MORT », et n'est plus
+  jouable. Voir [`KO_ET_MORT_RP.md`](./KO_ET_MORT_RP.md).
+
+---
+
+## 2. La sélection « en scène »
+
+Inspirée de Ketto RP (« comme sur ketto c'est stylé de fou ») et de Soulbound.
+
+- Pas de menu plat : une **scène 3D dans un vide sombre**, les personnages en pied (mannequins côté client)
+  habillés de leur **vraie apparence** (skins composés), avec leur **stature** : l'âge et la taille changent la
+  taille du modèle (11 ans ≈ 80 % d'un adulte, croissance finie à 17 ans ; taille 153 à 207 cm).
+- **Caméra cinématique** qui glisse d'un personnage à l'autre ; animations d'attente.
+- Sous chaque personnage, des **braises de chakra à la couleur de son village** (Konoha orangé, Suna sable, Kiri
+  bleu brume, Kumo jaune, Iwa terre, Ame gris-bleu ; personnage mort = gris).
+- **Sons** : souffle du vide en boucle, souffle et tintement au changement de personnage.
+- Personnage mort : « MORT » / « Indisponible ». Dernière case : « + Nouveau shinobi ». Échap est bloqué (il faut
+  choisir).
+- Choisir envoie `select:<id>` puis affiche l'écran de chargement du personnage.
+- Le serveur envoie, pour chaque personnage : nom, clan, couleur du clan, village, grade, âge, taille, sexe,
+  apparence, mort ou non (canal `reborn:character`). Le mod tolère un serveur plus ancien (défauts : 18 ans,
+  taille 1,0, Homme).
+
+## 3. La création en 8 étapes
+
+1. **Village** (6 : Konoha, Suna, Kiri, Kumo, Iwa, Ame — **Déserteur retiré**). Emblèmes officiels ; Ame a un
+   emblème dessiné pour l'occasion (4 traits de pluie).
+2. **Clan** (11 entrées au total, dont Neutre et Autre ; verrouillages par village et par sexe, candidature
+   requise pour certains clans sauf staff).
+3. **Sexe**.
+4. **Nom** (déclic sonore à chaque lettre).
+5. **Âge**.
+6. **Taille**.
+7. **Apparence** — « À quoi ressembles-tu », façon Ketto mais dans la DA Reborn : catégories à gauche, **rampe
+   de couleur de peau**, **vignettes** de coiffures et de tenues composées sur le personnage, **pastilles +
+   barres teinte / saturation / lumière** pour les cheveux et les yeux.
+8. **Récapitulatif** → « Oui, c'est moi ».
+
+- **Ouverture** : directement sur la scène, avec les phrases « Avant le nom… / avant le sang… / il n'y avait que le
+  chakra. » et « APPUIE SUR UNE TOUCHE » qui clignote en bas. (L'écran titre « REBORN » intermédiaire a été retiré.)
+- Même message serveur et mêmes règles que l'ancien créateur.
+- **Police** : celle des menus de base (celle des noms de village et des questions), à garder.
+- Repli sur les anciens écrans : `-Dreborn.classicCharacterScreens=true` (non testé).
+
+## 4. L'apparence et les skins
+
+- L'apparence est une chaîne `SkinSpec.serialize()` stockée sur le personnage. Le serveur la diffuse à tous
+  (`reborn:skins`) ; chaque client **compose** la texture 64×64 (peau → sous-vêtement → tenue → yeux → pilosité →
+  cheveux) et l'applique au joueur.
+- Les **corps laissés au sol** après une mort RP portent aussi l'apparence Reborn (mannequin habillé par le mod).
+- Catalogue d'assets data-driven (`creator-assets/`, rechargé par `/creator reload`) — voir
+  [`../technique/CREATEUR_PERSONNAGE_ASSETS.md`](../technique/CREATEUR_PERSONNAGE_ASSETS.md).
+- Assets disponibles : peau (rampe), sous-vêtements, ~5 tenues (Uchiha), coiffures, yeux. Assets wave 1 du Sprint 1
+  (3 clans complets) **pas terminée** : seulement les tenues Uchiha.
+
+## 5. Pièges connus
+
+- **Pas d'entités factices hors monde dans un écran** : un `RemotePlayer` jamais ajouté au monde fait planter le
+  rendu (« Tried to access entity ID before ID assignment »), avalé par Minecraft → **gel au join**. Les scènes
+  utilisent des mannequins ajoutés au monde client ; les anciens écrans prêtaient le skin au joueur local.
+- Les mannequins ne plient pas le coude : impossible de croiser les bras pour l'instant.
+- Écrans du mod en 26.2 : voir [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md).
+
+## 6. Reste à faire
+
+| Sujet | État |
+|---|---|
+| **Palettes par clan** (couleurs de cheveux / peau / yeux définies par clan, « sinon trop de fantaisiste ») | demandé, à faire |
+| Vignettes de coiffures trop petites | à agrandir |
+| Hétérochromie, sourcils, pilosité, accessoires, zones de couleur des tenues | absents de l'étape Apparence |
+| Assets wave 1 : 3 clans starter complets (Uchiha, Hyuga, Neutre) | 5 tenues Uchiha seulement |
+| Décors 3D éventuels (au lieu du vide sombre) | idée, non tranchée |

@@ -1,7 +1,7 @@
 # ADR 0006 — Deux monnaies : Ryo et RBCoins (retrait de « ZK Coin »)
 
 **Statut** : **Proposé** — 2026-09-08, en attente de validation par la direction
-**Documents liés** : [`AUDIT_COHERENCE.md §4`](../AUDIT_COHERENCE.md),
+**Documents liés** : [`AUDIT_COHERENCE.md §4`](../archives/audits/AUDIT_COHERENCE.md),
 [`PLAN_CONCEPTION_LAUNCHER.md §11`](../../PLAN_CONCEPTION_LAUNCHER.md)
 
 ## Contexte

@@ -1,0 +1,560 @@
+# Maintenance & mises à jour — Reborn Roleplay
+
+Doc opérationnel pour les opérations courantes du déploiement actuel.
+`STAFF_BETA.md` et `DEPLOY.md` parlent de **setup from scratch** ; ce
+fichier-ci parle de **mise à jour d'un setup qui tourne déjà**.
+
+Lis-le en premier quand tu veux changer quelque chose en prod.
+
+> À lire avec : [`ETAT_DES_LIEUX.md`](../ETAT_DES_LIEUX.md) — les versions et adresses
+> qui font foi — et, **avant tout build ou publish game-side**,
+> [`PUBLICATION.md`](./PUBLICATION.md), la checklist anti-régression.
+
+---
+
+## 0. Variables d'environnement de référence
+
+| Domaine | Valeur |
+|---|---|
+| VPS | `ubuntu@91.134.136.120` (OVH VPS-1 Gravelines) |
+| Repo SSH path | `/opt/reborn` |
+| Domaine | `reborn-rp.com` |
+| API publique | `https://api.reborn-rp.com/v1` |
+| Panel | `https://panel.reborn-rp.com` |
+| Serveur MC **prod** | `play.reborn-rp.com:27106` (`91.197.6.152:27106`, Minestrator) |
+| Serveur MC **dev** | `91.197.6.60:25606` (Purpur 26.2) |
+| Repo GitHub | `OMZBRK/reborn-roleplay` |
+| Mods release tag | `mods-v3.1.x` (dernier : `mods-v3.1.90`) |
+| Launcher release tag | `v0.3.x` (dernier : `v0.3.42`) |
+| Minecraft / Java | **26.2 / Java 25** |
+
+Tous les secrets vivent dans `/opt/reborn/.env.prod` (VPS) + `secrets/`
+(machine locale, **jamais commit**).
+
+---
+
+## 1. Connexion SSH au VPS
+
+```pwsh
+ssh ubuntu@91.134.136.120
+# password : généré par OVH, dans tes mails
+```
+
+Pour copier un fichier local vers le VPS :
+
+```pwsh
+scp .\fichier.txt ubuntu@91.134.136.120:/opt/reborn/
+```
+
+---
+
+## 2. Ajouter, changer ou mettre à jour un mod du manifest
+
+**Cas concrets** :
+- Tu bumpes Sodium 0.9.1 → 0.9.2 (changement de version d'un mod existant)
+- Tu ajoutes un nouveau mod tiers (ex: Bobby pour les chunks pre-load)
+- Tu rebuilt `reborn-integrity` après modif du code
+
+### Workflow tout-en-un via le script
+
+Depuis 2026-06-20, le pipeline est entièrement automatisé par
+`scripts/publish-mod-manifest.ps1`. Tu n'as plus à toucher manuellement à
+build-from-folder.ts, à curl pour DL un mod tiers, ou à éditer un dossier
+mods-release séparé.
+
+#### a) Modifier le script `publish-mod-manifest.ps1`
+
+Édite `$ExternalDeps` (vers le haut du fichier). Chaque entrée :
+- `Name` : nom du jar tel qu'il apparaîtra dans le manifest (et la
+  release GitHub). Important : le **prefix** sert au flag optional + à
+  la garde-fou de purge.
+- `Url` : URL absolue du jar (Modrinth CDN, Maven Fabric, etc.).
+
+Exemple : ajouter Bobby (chunk loader) en optionnel :
+
+```powershell
+@{
+    Name = "bobby-5.0.0+26.2.jar"
+    Url  = "https://cdn.modrinth.com/data/3qsfQtE9/versions/.../bobby-5.0.0+26.2.jar"
+}
+```
+
+Et étendre `$OptionalPrefixes` pour le marquer optionnel :
+
+```powershell
+$OptionalPrefixes = "iris-,modmenu-,plasmovoice-,emotecraft-,continuity-,NoChatReports-,zoomify-,replaymod-,entity_model_features-,bobby-"
+```
+
+Sans ajout dans `$OptionalPrefixes`, le mod est **required** (DL automatique
+pour tout le monde).
+
+#### b) Pour modifier un mod **Reborn** (mod-hud, mod-integrity, mod-ost)
+
+Édite le code, bumpe `mod_version` dans `gradle.properties`, puis rebuild :
+
+```pwsh
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+cd minecraft\mod-<nom>
+./gradlew build -x test --no-daemon
+```
+
+> **Java 25**, pas 21. Le jar produit doit cibler **26.2**. Les tests plantent sur un
+> chemin accentué (connu, sans impact) d'où le `-x test`.
+
+Le jar sort dans `build/libs/`. Le script `publish-mod-manifest.ps1` le
+prendra automatiquement quand tu lanceras la publication.
+
+> ⚠️ **Si tu bumpes la version d'un mod Reborn**, supprime l'ancien jar de
+> `build/libs/` (ou les anciens vont coexister et le script peut prendre
+> le mauvais via `Select-Object -First 1` alphabétique).
+
+#### c) Bumper et publier le manifest
+
+```pwsh
+# -SkipBuild si tu n'as pas modifié les mods Reborn (juste ajouté/changé
+# des deps externes). Sinon retire le flag pour rebuild auto les 3 mods.
+.\scripts\publish-mod-manifest.ps1 -Version 1.5.0 -SkipBuild
+```
+
+Le script enchaîne :
+1. Build des mods Reborn (sauf si `-SkipBuild`).
+2. Stage les jars Reborn dans `secrets/manifest-staging/`.
+3. Télécharge tous les `$ExternalDeps` depuis leur URL Maven/CDN.
+4. Génère le manifest unsigned avec flags REQ/OPT par prefix.
+5. Signe avec `secrets/manifest_ed25519_private.pem`.
+6. Affiche les commandes pour les 2 étapes manuelles restantes
+   (gh release create + manifest-uploader release).
+
+#### d) Upload sur GitHub Release + API
+
+Le script imprime exactement la commande `gh release create mods-vX.Y.Z`
+à exécuter (avec la liste des jars). Copie-colle, exécute. Puis :
+
+```pwsh
+.\packages\manifest-uploader\target\release\manifest-uploader.exe `
+  manifest --file .\secrets\manifest-signed.json
+```
+
+HTTP 201 + `isCurrent=true` → manifest actif sur l'API.
+
+#### e) Côté staffs
+
+Au prochain `launcher_check_update` (boot du launcher), le diff est
+calculé contre le nouveau manifest :
+- Nouveaux REQUIRED → DL auto.
+- Optionnels nouveaux → apparaissent décochés dans la page **Mods**
+  → onglet "Mods optionnels disponibles".
+- Anciens REQUIRED retirés du manifest → purgés du dossier `mods/`.
+- Mods optionnels que l'utilisateur a coché et qui sont toujours dans
+  le manifest → préservés.
+
+> ℹ️ La purge est **prefix-restreinte** (`reborn-`, `mcef-`, `fabric-api-`
+> + tout ce qui est dans le manifest). Les mods que l'utilisateur a
+> installé manuellement dans `mods/` hors-manifest sont préservés (cf
+> `purge_orphan_mods` dans `launcher/src-tauri/src/manifest/download.rs`).
+
+---
+
+## 3. Promote / Demote un utilisateur (rôle staff)
+
+Rôles disponibles : `PLAYER` < `HELPER` < `MODERATOR` < `ADMIN` < `OWNER`.
+
+```bash
+ssh ubuntu@91.134.136.120
+cd /opt/reborn
+
+# Voir les users
+sudo docker compose -f infra/docker-compose.prod.yml exec postgres \
+  psql -U reborn -d reborn -c "SELECT \"minecraftUsername\", role FROM \"User\";"
+
+# Promote (remplace pseudo + role)
+sudo docker compose -f infra/docker-compose.prod.yml exec postgres \
+  psql -U reborn -d reborn \
+  -c "UPDATE \"User\" SET role='ADMIN' WHERE \"minecraftUsername\"='PseudoMC';"
+```
+
+**Attention** : l'utilisateur doit s'être déjà connecté une fois pour
+exister en DB.
+
+---
+
+## 4. Ouvrir / fermer la beta staff
+
+Le gate `LAUNCHER_BETA_GATE=HELPER` empêche les non-staffs de login.
+
+### Ouvrir temporairement (pour qu'un nouveau staff puisse créer son compte)
+
+```bash
+ssh ubuntu@91.134.136.120
+cd /opt/reborn
+
+# Désactive le gate
+sudo sed -i 's/^LAUNCHER_BETA_GATE=.*/LAUNCHER_BETA_GATE=/' .env.prod
+sudo docker compose -f infra/docker-compose.prod.yml up -d --force-recreate api
+
+# → le staff se connecte une fois pour créer son user en DB
+# → tu le promote (cf §3)
+# → tu réactives le gate :
+
+sudo sed -i 's/^LAUNCHER_BETA_GATE=$/LAUNCHER_BETA_GATE=HELPER/' .env.prod
+sudo docker compose -f infra/docker-compose.prod.yml up -d --force-recreate api
+```
+
+---
+
+## 5. Changer une variable d'environnement de l'API
+
+Exemple : changer le serveur MC pointé par la sidebar du launcher.
+
+```bash
+ssh ubuntu@91.134.136.120
+cd /opt/reborn
+sudo nano .env.prod
+# Edite la valeur (ex: REBORN_SERVER_PORT=27106 → 27999)
+# Ctrl+O, Entrée, Ctrl+X
+
+sudo docker compose -f infra/docker-compose.prod.yml up -d --force-recreate api
+```
+
+**Si tu ajoutes une NOUVELLE variable** qui n'est pas encore dans
+`infra/docker-compose.prod.yml` → ajoute-la d'abord dans la section
+`environment:` du service `api`, puis fais `force-recreate`. Sinon
+docker-compose ne la propage pas au container.
+
+---
+
+## 6. Update le plugin Guardian (côté serveur Minecraft)
+
+Le plugin `reborn-guardian.jar` valide les play-tokens HMAC.
+
+### Si tu modifies le code
+
+```pwsh
+# Sur ta machine locale (JDK 25 requis)
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+cd "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\minecraft\plugin-guardian"
+.\gradlew build
+# → build\libs\reborn-guardian-0.1.0-dev.jar
+```
+
+### Upload + restart
+
+1. Sur Minestrator → **Fichiers** → `plugins/`
+2. Supprime l'ancien `reborn-guardian-*.jar`
+3. Upload le nouveau (drag-drop)
+4. **Redémarre le serveur** (Stop puis Start)
+
+### Vérifier dans la console serveur
+
+Au boot, tu dois voir :
+```
+[RebornGuardian] Enabling RebornGuardian v0.1.0-dev
+[RebornGuardian] Secret play-token charge (source : config.yml#play-token-secret).
+[RebornGuardian] [guardian] canal reborn:auth enregistre, attestation active.
+```
+
+---
+
+## 6bis. Update le plugin OST (côté serveur Minecraft)
+
+Le plugin `reborn-ost-plugin.jar` broadcast les pistes OST aux clients
+équipés du mod `reborn-ost` via le canal custom `reborn:ost`.
+
+Compatible serveur Paper vanilla, aucune dépendance à d'autres plugins.
+Les clients sans le mod ignorent silencieusement les broadcasts.
+
+### Si tu modifies le code
+
+```pwsh
+cd "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\minecraft\plugin-ost"
+.\gradlew build
+# → build\libs\reborn-ost-plugin-0.1.0-dev.jar (~12 KB)
+```
+
+### Upload + restart
+
+1. Sur Minestrator → **Fichiers** → `plugins/`
+2. Supprime l'ancien `reborn-ost-plugin-*.jar` (si présent)
+3. Upload le nouveau (drag-drop)
+4. **Redémarre le serveur** (Stop puis Start)
+
+### Vérifier dans la console serveur
+
+Au boot :
+```
+[RebornOst] Enabling RebornOst v0.1.0-dev
+[RebornOst] Canal reborn:ost enregistre (outgoing).
+```
+
+### Commandes (perm `reborn.ost.broadcast`, op par défaut)
+
+| Commande | Effet |
+|---|---|
+| `/ost play <trackId> <radius> [volume]` | Broadcast positionnel depuis sender |
+| `/ost playat <world> <x> <y> <z> <trackId> <radius> [volume]` | Coords explicites |
+| `/ost playglobal <trackId> [volume]` | Tous joueurs en ligne |
+| `/ost stop [radius]` | Stop (radius ou tous) |
+
+`trackId` format `categorie/nom` (sans extension `.ogg`), ex.
+`combat/track-12`. Le client résout vers
+`~/.minecraft/reborn/ost/<categorie>/<nom>.ogg`. Fichier absent
+côté client → warning log uniquement, pas de crash.
+
+---
+
+## 6ter. Update les plugins Shinobi (le gameplay)
+
+Les 6 plugins `minecraft/shinobi/` (Core, Abilities, Combat, Learning, Sense, Tail)
+portent le gameplay : personnages, chakra, techniques, KO, progression, mobilite,
+inventaire RP, emotes. Ils se compilent **ensemble**, en un seul passage Maven.
+
+```pwsh
+$env:JAVA_HOME = "D:\dev-cache\jdk25\jdk-25.0.4+7"
+cd "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER\minecraft\shinobi"
+mvn clean package
+# -> ShinobiCore/target/ShinobiCore-*.jar, ShinobiAbilities/target/..., etc.
+```
+
+L'agregateur compile `ShinobiCore` en premier puis les autres contre lui : ne pas
+builder un module isolement sans avoir installe Core au prealable.
+
+### Upload + restart
+
+Comme Guardian et OST : panel **Minestrator** -> Fichiers -> `plugins/` -> supprimer
+l'ancien jar -> upload le nouveau -> **redemarrer le serveur**. Pas de hot-reload pour
+un plugin Paper.
+
+> Ne deployer que les modules reellement modifies. Si `ShinobiCore` change et qu'un
+> autre module depend d'une signature modifiee, redeployer les deux ensemble.
+
+### Contenu sans redeploiement
+
+Beaucoup de choses n'exigent **pas** de rebuild : les items/modeles Nexo, les textures
+animees, les emotes `.emotecraft`, les assets du createur de perso et les sorts
+MagicSpells se deposent depuis le **panel staff** (onglet Fichiers, perimetre selon le
+grade) puis s'activent par `/nexo reload` ou `/playemote reload`. Cf.
+[`NEXO_STAFF_GUIDE.md`](../staff/NEXO_STAFF_GUIDE.md), [`EMOTES.md`](../gameplay/EMOTES.md) et
+[ADR 0005](../adr/0005-pipeline-assets-3d-nexo-panel.md).
+
+---
+
+## 7. Update le launcher (code Rust ou React)
+
+Après modif dans `apps/launcher/`, il faut rebuild et redistribuer.
+
+### Build
+
+```pwsh
+cd "C:\Users\omarb\Desktop\Reborn - Gestion\RBLAUNCHER"
+git pull  # si tu bossais sur une autre machine
+
+# Set TOUTES les vars compile-time (sinon valeurs incorrectes bakées dans le .exe)
+$env:REBORN_API_URL_BUILD = "https://api.reborn-rp.com/v1"
+$env:MANIFEST_PUBLIC_KEY_HEX_BUILD = (Get-Content .\secrets\manifest_ed25519_public.hex -Raw).Trim()
+$env:MS_CLIENT_ID_BUILD = "affd0327-8cb3-479c-80aa-a8be73b8ba4d"
+$env:REBORN_SERVER_HOST_BUILD = "play.reborn-rp.com"
+$env:REBORN_SERVER_PORT_BUILD = "27106"
+$env:DISCORD_CLIENT_ID_BUILD = "1500528272939684001"
+$env:TAURI_SIGNING_PRIVATE_KEY = ".\secrets\tauri-updater.key"
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "rebornlauncher"
+
+pnpm launcher:build
+```
+
+Le `.exe` final se trouve dans :
+```
+apps\launcher\src-tauri\target\release\bundle\nsis\RebornLauncher_<version>_x64-setup.exe
+```
+
+### Distribuer
+
+#### Cas A — auto-update (préféré quand le launcher tourne déjà chez les staffs)
+
+Cf `docs/operations/RELEASING.md` pour le workflow complet : bump version,
+sign, upload, POST `/v1/admin/releases`. Les staffs récupèrent
+auto au prochain démarrage.
+
+#### Cas B — distribution manuelle (premier install, ou auto-update cassé)
+
+1. Upload le `.exe` sur Discord (MP staff, ou canal staff privé)
+2. Le staff désinstalle l'ancien (Panneau de config Windows → Apps)
+3. Installe le nouveau setup
+4. Login Microsoft
+
+---
+
+## 8. Voir les logs
+
+### API NestJS (le plus utile)
+
+```bash
+ssh ubuntu@91.134.136.120
+sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml logs -f --tail=50 api
+```
+
+### Tout d'un coup (api + bot + caddy)
+
+```bash
+sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml logs -f --tail=30
+```
+
+### Caddy (TLS / reverse proxy)
+
+```bash
+sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml logs --tail=30 caddy
+```
+
+### Postgres
+
+```bash
+sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml logs --tail=30 postgres
+```
+
+### Serveur Minecraft
+
+Sur le panel Minestrator, dans la console (écran principal).
+
+### Launcher (côté staff)
+
+`%APPDATA%\RebornRoleplay\logs\last-stderr.txt` (forensic post-crash).
+
+---
+
+## 9. Restart un service
+
+```bash
+# API seule
+sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml restart api
+
+# Force recreate (rebuild env vars depuis .env.prod, indispensable après modif)
+sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml up -d --force-recreate api
+
+# Tout
+sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml restart
+```
+
+---
+
+## 10. Backup de la base de données
+
+```bash
+ssh ubuntu@91.134.136.120
+sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml exec postgres \
+  pg_dump -U reborn -d reborn > /tmp/reborn-backup-$(date +%F).sql
+
+# Récupère sur ta machine locale :
+exit  # quitte SSH
+scp ubuntu@91.134.136.120:/tmp/reborn-backup-*.sql .
+```
+
+À automatiser plus tard via cron (cf `docs/operations/DEPLOY.md`).
+
+---
+
+## 11. Pull le code mis à jour côté VPS
+
+Quand tu push une modif côté API/bot/admin :
+
+```bash
+ssh ubuntu@91.134.136.120
+cd /opt/reborn
+sudo git pull
+sudo docker compose -f infra/docker-compose.prod.yml up -d --build api
+# ou --build bot / --build admin selon ce qui a changé
+```
+
+Le `--build` force la reconstruction de l'image Docker. Sans ça,
+docker réutilise l'image cachée et ton code ne sera pas pris en compte.
+
+---
+
+## 12. Secrets à backup ailleurs (pertes = catastrophe)
+
+| Fichier | Localisation | Si perdu = |
+|---|---|---|
+| `secrets/manifest_ed25519_private.pem` | Machine locale | Impossible de re-signer les manifests → tous les launchers staff cassés tant qu'on n'a pas re-build et redistribué une nouvelle version avec une nouvelle pubkey |
+| `secrets/tauri-updater.key` | Machine locale | Impossible de signer les nouveaux releases auto-update → les staffs ne peuvent plus update sans réinstall manuel |
+| `/opt/reborn/.env.prod` | VPS | Tous les secrets HMAC + DB password perdus, faut tout régénérer + restart tous les services |
+| Postgres data volume | VPS (Docker volume) | Tous les comptes, sessions, manifestes en DB perdus |
+
+Backup recommandé : copie chiffrée sur un drive privé ET dans un
+password manager (1Password, Bitwarden, KeePass).
+
+---
+
+## 12bis. Regle non negociable : publier == commiter
+
+Un artefact publie (launcher signe, jar de mod dans un manifest, plugin uploade) doit
+**revenir sur une branche distante dans la foulee**. Sinon `main` ne reproduit plus la
+production, et un incident devient indebogable.
+
+C'est arrive : au 2026-09-08, le launcher **0.3.42** et **`reborn-hud` 0.4.134** etaient
+en prod sans etre sur `main`. Cf. [`AUDIT_COHERENCE.md` section 3](../archives/audits/AUDIT_COHERENCE.md).
+
+---
+
+## 13. Pieges frequents
+
+### Docker compose ne lit pas `.env.prod`
+
+Compose v2 cherche `.env` à côté du fichier compose. Le symlink doit
+être dans `infra/` :
+
+```bash
+ls -la /opt/reborn/infra/.env
+# doit montrer : infra/.env -> /opt/reborn/.env.prod
+```
+
+Si pas le cas :
+```bash
+sudo ln -sf /opt/reborn/.env.prod /opt/reborn/infra/.env
+```
+
+### `nest start --watch` ne reload pas après modif `.env`
+
+C'est seulement pour `.ts`. Restart à la main : `restart api`.
+
+### Launcher distribué sans `MS_CLIENT_ID` (erreur "Client ID Microsoft manquant")
+
+Tu as builé sans `MS_CLIENT_ID_BUILD` dans l'env. Refais le build avec
+toutes les vars `_BUILD` set (§7).
+
+### Mod purgé à tort par le launcher au démarrage
+
+Le parser de contraintes Fabric peut être trop strict. Le fix du
+2026-05-19 (commit `b7a8f5c`) gère les contraintes "1.21" (prefixe) et
+les contraintes composées (espaces) en mode conservateur. Si tu vois
+encore des purges injustifiées : ouvre le `fabric.mod.json` du mod
+incriminé (7-Zip) et regarde la valeur de `depends.minecraft`.
+
+### Manifest fetch retourne 404
+
+Soit aucun manifest n'a été publié, soit celui en cours est expiré
+(`expiresAt < now`). Republie via §2.
+
+### Port serveur MC custom Minestrator
+
+Le serveur MC écoute sur un port custom (ex: 27106), pas 25565. Faut le
+baker dans le launcher (`REBORN_SERVER_PORT_BUILD`) ET dans l'API
+(`REBORN_SERVER_PORT` du `.env.prod`).
+
+---
+
+## 14. Outils maison
+
+| Outil | Usage |
+|---|---|
+| `packages/manifest-signer/src/build-from-folder.ts` | Génère un manifest unsigned depuis un dossier de jars (calcule sha256 + size). Cf §2.c |
+| `packages/manifest-signer/src/cli.ts` | Sign / verify / gen-keys du manifest |
+| `packages/manifest-uploader` (Rust) | Lit le JWT du Credential Manager, refresh auto, POST le manifest signé. Cf §2.c |
+
+---
+
+## 15. Le plan d'origine
+
+`PLAN_CONCEPTION_LAUNCHER.md` à la racine — ~2500 lignes, source de
+vérité pour les décisions produit + technique. Quand tu doutes du
+*pourquoi* d'un choix, c'est là.
+
+`CLAUDE.md` à la racine — guide architectural pour la prochaine session
+de dev assistée (contexte cross-fichier, pièges connus).

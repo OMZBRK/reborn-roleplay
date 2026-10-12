@@ -1,8 +1,8 @@
 # ADR 0005 — Pipeline d'assets 3D : Blockbench → Nexo → panel staff
 
 **Statut** : Accepté — 2026-08-28
-**Documents liés** : [`NEXO_STAFF_GUIDE.md`](../NEXO_STAFF_GUIDE.md),
-[`EMOTES.md`](../EMOTES.md), [`MCP_OUTILLAGE.md`](../MCP_OUTILLAGE.md)
+**Documents liés** : [`NEXO_STAFF_GUIDE.md`](../staff/NEXO_STAFF_GUIDE.md),
+[`EMOTES.md`](../gameplay/EMOTES.md), [`MCP_OUTILLAGE.md`](../technique/MCP_OUTILLAGE.md)
 
 ## Contexte
 

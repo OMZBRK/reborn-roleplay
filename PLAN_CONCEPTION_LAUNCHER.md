@@ -10,7 +10,7 @@
 > |---|---|
 > | Qu'est-ce qui tourne, en quelle version ? | [`docs/ETAT_DES_LIEUX.md`](./docs/ETAT_DES_LIEUX.md) |
 > | Qu'est-ce qu'on livre d'ici décembre ? | [`docs/ROADMAP_BETA_2026.md`](./docs/ROADMAP_BETA_2026.md) |
-> | Comment on opère au quotidien ? | [`docs/MAINTENANCE.md`](./docs/MAINTENANCE.md) |
+> | Comment on opère au quotidien ? | [`docs/operations/MAINTENANCE.md`](./docs/operations/MAINTENANCE.md) |
 > | Quelles décisions ont changé depuis ? | [`docs/adr/`](./docs/adr/) |
 >
 > Les sections marquées 🕰️ sont **historiques** : elles racontent l'intention, pas l'état.
@@ -22,7 +22,7 @@
 > v1.5 — Passe de cohérence du 2026-09-08 : bandeaux d'historicité (§1 identité visuelle,
 > §11 roadmap, §18), plateforme corrigée (MC 26.2 / Java 25), domaine `.com`, §18 remplacé
 > par un état d'avancement daté, la monnaie premium s'appelle « RBCoins » (ADR 0006). Écarts relevés :
-> [`docs/AUDIT_COHERENCE.md`](./docs/AUDIT_COHERENCE.md).
+> [`docs/archives/audits/AUDIT_COHERENCE.md`](./docs/archives/audits/AUDIT_COHERENCE.md).
 > v1.4 — Réécriture §9.4/§9.5 pour refléter le pivot vers play-token signé API (au lieu du challenge nonce + modlist_hash initial). Ajout §9.6 décrivant l'écosystème mods Reborn complet (HUD + OST). Mise à jour roadmap §11 MVP.  
 > v1.3 — Restructuration des paramètres en onglets, ajout de Steam OAuth, nouvelle release v1.0.5 dédiée au social (amis + DM + mini-fenêtre)  
 > v1.2 — Ajout des sections 14 (sécurité avancée), 15 (staff tooling Discord+panel), 16 (features inspirées d'autres launchers)  
@@ -67,7 +67,7 @@ Un launcher desktop autonome pour le network **Reborn Roleplay**, qui remplace l
 > a été conservée, mais **l'identité visuelle a basculé sur « Akatsuki » le 2026-06-21** :
 > crimson `#A0182B` + or `#D9A95E` + ivoire chaud `#F5E9D0` sur fond bordeaux profond,
 > typo Bebas Neue + Inter. Référence en vigueur :
-> [`docs/REBORN_ASEPRITE_PALETTE.md`](./docs/REBORN_ASEPRITE_PALETTE.md) et le frame Miro
+> [`docs/design/REBORN_ASEPRITE_PALETTE.md`](./docs/design/REBORN_ASEPRITE_PALETTE.md) et le frame Miro
 > *HUD Combat v2*. Les mentions de « maquette de référence » renvoient à cette première inspiration.
 
 ### Objectifs techniques non négociables
