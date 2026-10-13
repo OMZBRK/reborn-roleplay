@@ -7,7 +7,7 @@
 > [`ROADMAP_BETA_2026.md`](./ROADMAP_BETA_2026.md), l'historique des versions dans
 > [`pilotage/JOURNAL_DES_LIVRAISONS.md`](./pilotage/JOURNAL_DES_LIVRAISONS.md).
 >
-> **Dernière mise à jour : 2026-10-12** (restructuration de la documentation). À mettre à jour à **chaque
+> **Dernière mise à jour : 2026-10-13** (reborn-hud 0.4.170, manifest 3.1.127). À mettre à jour à **chaque
 > publication** (commit `docs(etat)` séparé).
 
 ---
@@ -33,10 +33,10 @@
 | Artefact | **En ligne** | Sur `origin/main` | Notes |
 |---|---|---|---|
 | Launcher | **0.3.45** (06/10) | 0.3.45 | ✅ |
-| `reborn-hud` | **0.4.169** — manifest **3.1.126** (11/10) | 0.4.169 | ✅ Dernier contenu : KO-5 Volonté facultative, KO-7 mort RP, scène de mort, menu d'interaction sur un corps, niveau retiré des affichages. Détail de chaque version : [journal](./pilotage/JOURNAL_DES_LIVRAISONS.md) |
+| `reborn-hud` | **0.4.170** — manifest **3.1.127** (13/10) | 0.4.170 | ✅ Dernier contenu : fiche shinobi « portrait en scène », écrans de chirurgie des yeux (test, pas branchés au serveur), scène de mort 10 s, corps portables, parchemins servis par Nexo. Détail de chaque version : [journal](./pilotage/JOURNAL_DES_LIVRAISONS.md) |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | **0.2.4** — manifest 3.1.104 (03/10) | 0.2.4 | ✅ |
-| Plugins **Shinobi** — serveur **dev** | ShinobiCore + ShinobiAbilities du **11/10** (correctif `plugin.yml` `55297e3` inclus) ; ShinobiLearning du 08/10 ; ShinobiSense du 04/10 (**`ByakuganVision.java` non commité**) | `minecraft/shinobi/` | Déploiement SFTP manuel, redémarrage par l'utilisateur |
+| Plugins **Shinobi** — serveur **dev** | ShinobiCore + ShinobiAbilities du **13/10** (`9e00326`) ; pack Nexo parchemins du 13/10 ; ShinobiLearning du 08/10 ; ShinobiSense du 04/10 (**`ByakuganVision.java` non commité**) | `minecraft/shinobi/` | Déploiement SFTP manuel, redémarrage par l'utilisateur |
 | Plugins **Shinobi** — serveur **prod** | ⚠️ non tracé précisément ; au 10/10 son ShinobiCore n'envoyait pas âge / taille / sexe | — | Inventaire à faire avant la mise en prod |
 | `reborn-guardian`, `reborn-ost-plugin` | build Gradle | `minecraft/plugin-*` | Déploiement SFTP manuel |
 

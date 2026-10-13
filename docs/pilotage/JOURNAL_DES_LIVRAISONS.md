@@ -12,6 +12,7 @@
 
 | Version | Manifest | Date | Contenu | Commit(s) |
 |---|---|---|---|---|
+| 0.4.170 | 3.1.127 | 13/10 | Fiche shinobi « portrait en scène » (Identité/Attributs/Techniques/État), écrans de chirurgie des yeux (banc de test, pas branchés), scène de mort 10 s, corps portables/fouillables, dépôt au sol, parchemins servis par Nexo | `9e00326` |
 | 0.4.169 | 3.1.126 | 11/10 | KO-5 Volonté facultative, KO-7 mort RP (RPK validée puis exécutée), menu d'interaction sur un corps, scène de mort, niveau retiré des affichages, fiche sans niveau | `3c18cdc`, `ca732a5` |
 | 0.4.168 | 3.1.125 | 10/10 | Scène des persos : sons, braises de chakra par village, apparence à vignettes façon Ketto, emblème d'Ame, sans Déserteur | `341eac5`, `ead45b3` |
 | 0.4.167 | 3.1.124 | 10/10 | Sélection et création de personnage en scène ; menus à la taille de l'échelle 2 (correctif de la 0.4.166) | `f2acc89`, `d095a64`, `5045870` |
@@ -55,6 +56,7 @@
 
 | Date | Plugins | Contenu |
 |---|---|---|
+| 13/10 | ShinobiCore, ShinobiAbilities, pack Nexo (parchemin_*) | Données de fiche + états de service, `/stats caractere\|citation\|edit\|service\|json`, scène de mort 10 s, corps du mort portable, dépôt au sol ; parchemins = rouleaux SNR dans `plugins/Nexo/pack` — `9e00326` |
 | 11/10 | ShinobiCore | **Correctif `plugin.yml`** (un « : » non quoté empêchait le chargement) — `55297e3` |
 | 11/10 | ShinobiCore, ShinobiAbilities | KO-5 facultatif, KO-7, scène de mort, corps, exécutions, XP / Mérite, lot 4 ; embarque la concentration du chakra |
 | 10/10 | ShinobiCore | Âge, taille, sexe dans la liste des persos — `d453c5a` |
