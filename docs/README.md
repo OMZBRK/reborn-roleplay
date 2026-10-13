@@ -12,6 +12,7 @@
 
 | Document | Répond à |
 |---|---|
+| [`GAMEPLAN.md`](./GAMEPLAN.md) | **Le Game Plan de Reborn** (modèle RedLine) : spécification, feuille de route en 4 phases (système, priorité, dépendance, état), une section par système avec la cible ; on avance point par point dans l'ordre RedLine |
 | [`REPRISE_DE_SESSION.md`](./REPRISE_DE_SESSION.md) | Comment reprendre : quoi lire, règles de travail, outils, prompts |
 | [`CHANTIERS.md`](./CHANTIERS.md) | **Où on en est**, chantier par chantier ; décisions en attente ; tests à faire |
 | [`ETAT_DES_LIEUX.md`](./ETAT_DES_LIEUX.md) | Ce qui tourne **maintenant** : versions en ligne, serveurs, modpack, périmètre |
@@ -29,6 +30,7 @@
 | [`gameplay/APPRENTISSAGE.md`](./gameplay/APPRENTISSAGE.md) | Parchemins, bibliothèques à tirage, séances, concentration du chakra, slots du rang S |
 | [`gameplay/STATS_ET_PROGRESSION.md`](./gameplay/STATS_ET_PROGRESSION.md) | 6 stats, XP invisible, grades, points de Mérite |
 | [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) | Sélection et création en scène, apparence |
+| [`gameplay/FACTION_PROPOSITION.md`](./gameplay/FACTION_PROPOSITION.md) | **Proposition** de design Faction (sections, fonctions, quotas, trésor, coffres, diplomatie), 18 questions ouvertes |
 | [`gameplay/MISSIONS.md`](./gameplay/MISSIONS.md) | Idées de missions et d'entraînements, formats de rapports (pas encore de système en jeu) |
 | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](./gameplay/INVENTAIRE_ET_COSMETIQUES.md) | Sacoche RP, poids, cosmétiques |
 | [`gameplay/EMOTES.md`](./gameplay/EMOTES.md) | Emotes RP (EmoteCraft) et leur distribution |
@@ -81,6 +83,7 @@
 | Document | Contenu |
 |---|---|
 | [`etudes/BENCHMARK_MODS_ET_SERVEURS.md`](./etudes/BENCHMARK_MODS_ET_SERVEURS.md) | **NydoMod 5.5, Ninshu Origins 2.1.8, Solve / FSC / Ketto / Zenkai comparés à Reborn** : ce qui est pratique en RP, ce qu'on écarte, ce qu'on récupère par lots (12/10) |
+| [`etudes/REDLINE_REFERENCES.md`](./etudes/REDLINE_REFERENCES.md) | Cahier des charges RedLine (RP One Piece) lu en entier : 51 systèmes comparés à Reborn, reprises priorisées, éclairage des questions Faction |
 | [`etudes/KO_MEDICAL_STATS_COMPARATIF.md`](./etudes/KO_MEDICAL_STATS_COMPARATIF.md) | KO, RP médical et stats (gameplay et visuel) chez Nydo et Ninshu, ce qu'on intègre et dans quel ordre |
 | [`etudes/benchmark-2026-10/`](./etudes/benchmark-2026-10/) | Les annexes détaillées : combat, progression et monde, yeux, bijū, moteur client de Nydo ; Ninshu 2.1.8 ; serveurs RP ; inventaire Reborn |
 
