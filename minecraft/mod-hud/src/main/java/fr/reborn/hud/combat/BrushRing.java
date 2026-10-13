@@ -35,6 +35,7 @@ public final class BrushRing {
         ctx.pose().pushMatrix();
         ctx.pose().translate(cx, cy);
         ctx.pose().scale(1f / SS, 1f / SS);
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);   // 1 élément GUI (cf. LotGui)
         for (int dy = -half; dy <= half; dy++) {
             int row = (dy + half) * span;
             int runStart = 0, runColor = 0;
@@ -46,7 +47,7 @@ public final class BrushRing {
                     if (!Float.isNaN(u)) color = u <= frac ? fill : u <= trail ? trailColor : base;
                 }
                 if (inRun && color != runColor) {
-                    if (runColor != 0) ctx.fill(runStart, dy, dx, dy + 1, runColor);
+                    if (runColor != 0) lot.fill(runStart, dy, dx, dy + 1, runColor);
                     inRun = false;
                 }
                 if (!inRun && color != 0) {
@@ -56,6 +57,7 @@ public final class BrushRing {
                 }
             }
         }
+        lot.fermer();
         ctx.pose().popMatrix();
     }
 

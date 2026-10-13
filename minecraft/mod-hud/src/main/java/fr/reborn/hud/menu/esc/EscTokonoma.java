@@ -36,7 +36,8 @@ import static fr.reborn.hud.menu.esc.EchapArt.*;
  *
  * <p>Ouverture : deux fusuma coulissent ; fermeture par « Reprendre » : elles se referment.
  * La scène fait 640×360 unités, affichée à un nombre entier k de pixels écran par unité
- * (DA §6 : une seule grille, aucun filtrage) ; le décor fixe est une texture (piece.png), le
+ * (DA §6 : une seule grille, aucun filtrage), le plus grand qui laisse voir toute la zone utile ; la pièce
+ * prolongée remplit le reste de l'écran (voir {@link EchapArt}) ; le décor fixe est une texture (piece.png), le
  * code ne pose que ce qui bouge et le texte. Textures : {@code textures/gui/echap/*}
  * ({@code tools/gen_echap_textures.py}, cf. {@link EchapArt}) ; sons : {@code sounds/esc/*}.
  */
@@ -160,13 +161,24 @@ public final class EscTokonoma {
 
     // ═════════════════════════════════════════════════════════════ rendu
 
-    /** Échelle et origine de la scène pour la fenêtre courante (k entier, origine entière en unités). */
+    /** Partie visible de la fenêtre, en unités (pour caler les infobulles). */
+    private int visL, visT, visR, visB;
+
+    /**
+     * Échelle et origine de la scène pour la fenêtre courante : k entier, le plus grand dont la zone utile
+     * (SAFE_W × SAFE_H) tient dans la fenêtre ; origine entière en unités (négative : bord de scène rogné).
+     */
     private void geometrie() {
         var w = Minecraft.getInstance().getWindow();
         int pw = w.getWidth(), ph = w.getHeight();
-        k = Math.max(1, Math.min(pw / VW, ph / VH));
-        ox = Math.floorDiv(pw / k - VW, 2);
-        oy = Math.floorDiv(ph / k - VH, 2);
+        k = Math.max(1, Math.min(pw / SAFE_W, ph / SAFE_H));
+        int lw = -Math.floorDiv(-pw, k), lh = -Math.floorDiv(-ph, k);
+        ox = Math.floorDiv(lw - VW, 2);
+        oy = Math.floorDiv(lh - VH, 2);
+        visL = -ox;
+        visT = -oy;
+        visR = lw - ox;
+        visB = lh - oy;
     }
 
     private void versUnites(double mouseX, double mouseY) {
@@ -186,13 +198,16 @@ public final class EscTokonoma {
         versUnites(mouseX, mouseY);
         float time = (now - openedAt) / 1000f;
 
-        ctx.fill(0, 0, width, height, 0xFF0E0608);
         DaKit.unites(ctx, k);
         ctx.pose().translate(ox, oy);
+        // la pièce prolongée couvre l'écran ; un aplat seulement au-delà (formats extrêmes)
+        if (visL < -PIECE_MX || visT < -PIECE_MY || visR > VW + PIECE_MX || visB > VH + PIECE_MY) {
+            ctx.fill(visL, visT, visR, visB, 0xFF0E0608);
+        }
 
         hits.clear();
         Font f = Minecraft.getInstance().font;
-        blit(ctx, PIECE, 0, 0, 0, 0, VW, VH, VW, VH);
+        blit(ctx, PIECE, -PIECE_MX, -PIECE_MY, 0, 0, PIECE_W, PIECE_H, PIECE_W, PIECE_H);
         drawWindow(ctx, time);
         drawIdentity(ctx, f);
         drawMenu(ctx, f);
@@ -228,23 +243,27 @@ public final class EscTokonoma {
     // ── fenêtre ronde : étoiles qui scintillent, lumières du village, étoile filante ──
     private void drawWindow(GuiGraphicsExtractor ctx, float time) {
         int x = 51, y = 28, cx = 106, cy = 74;
+        fr.reborn.hud.ui.LotGui etoiles = fr.reborn.hud.ui.LotGui.ouvrir(ctx);   // 18 étoiles = 1 élément GUI
         for (int[] s : stars) {
             float a = 0.25f + 0.75f * (0.5f + 0.5f * (float) Math.sin(time * 1.7f + s[2] / 100f));
             int sx = cx + s[0], sy = cy + s[1];
-            ctx.fill(sx, sy, sx + 1, sy + 1, DaKit.argb(0xE8E4FF, a));
+            etoiles.fill(sx, sy, sx + 1, sy + 1, DaKit.argb(0xE8E4FF, a));
         }
+        etoiles.fermer();
         float flick = 0.70f + 0.30f * (float) Math.sin(time * 4.3f) * (float) Math.sin(time * 1.9f + 1);
         blit(ctx, FENETRE, x, y, 112, 0, 112, 112, 224, 112, DaKit.blanc(flick));
         // étoile filante toutes les ~9 s, gardée dans le disque
         float cyc = time % 9f;
         if (cyc > 6.5f && cyc < 7.3f) {
             float p = (cyc - 6.5f) / 0.8f;
+            fr.reborn.hud.ui.LotGui trainee = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
             for (int i = 0; i < 6; i++) {
                 float q = p - i * 0.035f;
                 if (q < 0) continue;
                 int px = Math.round(cx - 34 + q * 50), py = Math.round(cy - 34 + q * 18);
-                if (Math.hypot(px - cx - 1, py - cy - 10) < 44) ctx.fill(px, py, px + 1, py + 1, DaKit.argb(0xFFFFFF, 1f - i / 6f));
+                if (Math.hypot(px - cx - 1, py - cy - 10) < 44) trainee.fill(px, py, px + 1, py + 1, DaKit.argb(0xFFFFFF, 1f - i / 6f));
             }
+            trainee.fermer();
         }
         // halo de lune qui respire
         float gl = 0.10f + 0.06f * (float) Math.sin(time * 0.9f);
@@ -348,7 +367,8 @@ public final class EscTokonoma {
             ctx.pose().popMatrix();
         }
         arc(ctx, f, "ECHOPPE", x + w / 2f, y + 52, CREME, 1, GRAND, true);
-        String bal = ShopData.received() ? fmt(ShopData.ryo()) + " ryo" : "— ryo";
+        long ryo = ShopData.received() ? ShopData.ryo() : Long.MIN_VALUE;
+        if (ryo != balRyo || bal == null) { balRyo = ryo; bal = ryo == Long.MIN_VALUE ? "— ryo" : fmt(ryo) + " ryo"; }
         float bw = largeurInter(f, bal, 8) + 10;
         float bx = x + w / 2f - bw / 2f;
         ryo(ctx, Math.round(bx), y + 75);
@@ -462,19 +482,29 @@ public final class EscTokonoma {
         inter(ctx, f, "RBCoins par heure de jeu", x + 23, y + 107, OR_CLAIR, 0, 8);
     }
 
+    private long balRyo;
+    private String bal;
+    private EscData.Snapshot floorSnap;
+    private String floorLine;
+
     // ── plancher : communauté + réseaux ──
     private void drawFloor(GuiGraphicsExtractor ctx, Font f) {
         EscData.Snapshot snap = EscData.get();
-        String line = (snap != null && snap.discordMembers() >= 0)
-            ? "Discord : " + fmt(snap.discordMembers()) + " membres" + (snap.discordOnline() >= 0 ? " · " + fmt(snap.discordOnline()) + " en ligne" : "")
-            : "Rejoins la communauté Reborn";
-        arc(ctx, f, "REBORN ROLEPLAY", 20, 336, CREME, 0, MOYEN, true);
-        inter(ctx, f, line, 20, 350, DaKit.argb(0xE8C8C0, 0.75f), 0, 7);
+        if (snap != floorSnap || floorLine == null) {   // String.format à chaque image coûtait : calculé au paquet
+            floorSnap = snap;
+            floorLine = (snap != null && snap.discordMembers() >= 0)
+                ? "Discord : " + fmt(snap.discordMembers()) + " membres" + (snap.discordOnline() >= 0 ? " · " + fmt(snap.discordOnline()) + " en ligne" : "")
+                : "Rejoins la communauté Reborn";
+        }
+        String line = floorLine;
+        // dans la zone utile (y ≤ 346) : le bas du plancher peut sortir de l'écran
+        arc(ctx, f, "REBORN ROLEPLAY", 24, 333, CREME, 0, MOYEN, true);
+        inter(ctx, f, line, 24, 342.5f, DaKit.argb(0xE8C8C0, 0.75f), 0, 7);
         for (int i = 0; i < SOCIALS.length; i++) {
             int id = H_SOCIAL + i;
             float hv = hov[id];
-            int x = 532 + i * 26, y = 337 - Math.round(hv * 2);
-            hits.add(new Hit(id, x - 3, 334, 20, 20));
+            int x = 526 + i * 26, y = 330 - Math.round(hv * 2);
+            hits.add(new Hit(id, x - 3, 327, 20, 20));
             blit(ctx, RESEAUX, x - 1, y - 1, i * 16, hv > 0.5f ? 16 : 0, 16, 16, 64, 32);
         }
     }
@@ -499,7 +529,7 @@ public final class EscTokonoma {
         float w = largeurArc(f, tA, MOYEN);
         for (String l : lignes) w = Math.max(w, largeurInter(f, l, 8));
         int bw = Math.round(w) + 14, bh = 15 + lignes.size() * 8;
-        int x = (int) Math.min(VW - bw - 8, mxU + 8), y = (int) Math.max(4, myU - bh - 6);
+        int x = (int) Math.min(Math.min(VW, visR) - bw - 8, mxU + 8), y = (int) Math.max(Math.max(0, visT) + 4, myU - bh - 6);
         infobulle(ctx, x, y, bw, bh);
         arc(ctx, f, tA, x + 7, y + 5, ENCRE_ROUGE, 0, MOYEN, false);
         for (int i = 0; i < lignes.size(); i++) inter(ctx, f, lignes.get(i), x + 7, y + 17 + i * 8, i == lignes.size() - 1 && lignes.size() > 1 ? ENCRE_DOUCE : ENCRE, 0, 8);
@@ -512,9 +542,12 @@ public final class EscTokonoma {
         else p = ease(opened(now));
         if (p >= 1f) return;
         int off = Math.round(320 * p);
-        ctx.fill(-ox, -oy, VW + ox, VH + oy, DaKit.argb(0x000000, 0.35f * (1 - p)));
+        ctx.fill(visL, visT, visR, visB, DaKit.argb(0x000000, 0.35f * (1 - p)));
+        // un second vantail de chaque côté couvre la pièce prolongée
+        blit(ctx, FUSUMA_L, -320 - off, 0, 0, 0, 320, 360, 320, 360);
         blit(ctx, FUSUMA_L, -off, 0, 0, 0, 320, 360, 320, 360);
         blit(ctx, FUSUMA_R, 320 + off, 0, 0, 0, 320, 360, 320, 360);
+        blit(ctx, FUSUMA_R, 640 + off, 0, 0, 0, 320, 360, 320, 360);
         ctx.fill(320 - off - 1, 0, 320 - off + 1, VH, 0xFF2E1A10);
     }
 

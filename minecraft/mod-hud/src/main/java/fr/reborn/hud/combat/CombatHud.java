@@ -221,6 +221,7 @@ public final class CombatHud {
     /** Arc d'anneau [startDeg, startDeg+sweepDeg], horaire depuis le HAUT. */
     private static void ringBand(GuiGraphicsExtractor ctx, int cx, int cy, int radius,
                                  int thickness, float startDeg, float sweepDeg, int color) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);   // 1 élément GUI (cf. LotGui)
         if (sweepDeg <= 0f) return;
         int rOut = radius, rIn = Math.max(0, radius - thickness);
         float[] ang = ringAngleLut(rOut, rIn);   // angles précalculés (NaN hors bande)
@@ -242,14 +243,15 @@ public final class CombatHud {
                 if (on) {
                     if (runStart == Integer.MIN_VALUE) runStart = dx;
                 } else if (runStart != Integer.MIN_VALUE) {
-                    ctx.fill(cx + runStart, cy + dy, cx + dx, cy + dy + 1, color);
+                    lot.fill(cx + runStart, cy + dy, cx + dx, cy + dy + 1, color);
                     runStart = Integer.MIN_VALUE;
                 }
             }
             if (runStart != Integer.MIN_VALUE) {
-                ctx.fill(cx + runStart, cy + dy, cx + rOut + 1, cy + dy + 1, color);
+                lot.fill(cx + runStart, cy + dy, cx + rOut + 1, cy + dy + 1, color);
             }
         }
+        lot.fermer();
     }
 
     /** Angles (deg, 0 en haut, horaire) de l'anneau [rIn,rOut] ; NaN hors bande. 1 calcul/géométrie. */

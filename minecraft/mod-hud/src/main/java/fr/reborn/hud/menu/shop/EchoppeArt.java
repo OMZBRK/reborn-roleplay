@@ -36,13 +36,16 @@ public final class EchoppeArt {
     /** Noren sur toute la largeur : hampe, lés balancés d'1 GUI, blason 商 au centre. {@code nh} = bas du noren. */
     public static void noren(GuiGraphicsExtractor g, int w, int nh, float time) {
         int y0 = nh - 36;
-        for (int x = 0; x < w; x += 16) DaKit.blit(g, NOREN, x, Math.max(0, y0 - 3), 80, 0, Math.min(16, w - x), 5, 96, 40);
+        // une frise de ~70 blits : un seul élément GUI (cf. LotBlit)
+        fr.reborn.hud.ui.LotBlit lot = fr.reborn.hud.ui.LotBlit.ouvrir(g, NOREN, 96, 40);
+        for (int x = 0; x < w; x += 16) lot.blit(x, Math.max(0, y0 - 3), 80, 0, Math.min(16, w - x), 5);
         int n = (w + 79) / 80;
         int x0 = w / 2 - n * 40;
         for (int i = 0; i < n; i++) {
             int sway = Math.round((float) Math.sin(time * 1.4f + i * 0.8f) * 1.2f);
-            DaKit.blit(g, NOREN, x0 + i * 80, y0 + Math.max(0, sway), 0, 0, 80, 36, 96, 40);
+            lot.blit(x0 + i * 80, y0 + Math.max(0, sway), 0, 0, 80, 36);
         }
+        lot.fermer();
         DaKit.blit(g, BLASON, w / 2 - 14, nh - 32, 0, 0, 28, 28, 28, 28);
     }
 
@@ -125,6 +128,8 @@ public final class EchoppeArt {
 
     /** Fil d'attache vertical (cordelette d'or, 1 GUI). */
     public static void fil(GuiGraphicsExtractor g, int x, int y0, int y1) {
-        for (int y = y0; y < y1; y++) g.fill(x, y, x + 1, y + 1, (y & 1) == 0 ? 0xFFE8C27A : 0xFFC8A05A);
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(g);
+        for (int y = y0; y < y1; y++) lot.fill(x, y, x + 1, y + 1, (y & 1) == 0 ? 0xFFE8C27A : 0xFFC8A05A);
+        lot.fermer();
     }
 }

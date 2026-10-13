@@ -96,6 +96,7 @@ public final class CooldownHud {
 
     /** Assombrit l'arc de cooldown RESTANT (horaire depuis le haut, se réduit à mesure). */
     private static void radialCover(GuiGraphicsExtractor ctx, int x, int y, int size, float frac, int color) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);   // 1 élément GUI (cf. LotGui)
         int cx = x + size / 2, cy = y + size / 2;
         float startDeg = (1f - frac) * 360f;   // l'arc restant va de startDeg à 360
         int r = size / 2;
@@ -110,14 +111,15 @@ public final class CooldownHud {
                 if (on) {
                     if (runStart == Integer.MIN_VALUE) runStart = dx;
                 } else if (runStart != Integer.MIN_VALUE) {
-                    ctx.fill(cx + runStart, cy + dy, cx + dx, cy + dy + 1, color);
+                    lot.fill(cx + runStart, cy + dy, cx + dx, cy + dy + 1, color);
                     runStart = Integer.MIN_VALUE;
                 }
             }
             if (runStart != Integer.MIN_VALUE) {
-                ctx.fill(cx + runStart, cy + dy, cx + r, cy + dy + 1, color);
+                lot.fill(cx + runStart, cy + dy, cx + r, cy + dy + 1, color);
             }
         }
+        lot.fermer();
     }
 
     /** Angles (deg, 0 en haut, horaire) par offset (dx,dy) pour un rayon donné — 1 calcul/rayon. */

@@ -74,18 +74,22 @@ public final class DaKit {
         w = Math.min(w, W);
         h = Math.min(h, H);
         int lw = w - capD, lh = h - capB;
-        blit(ctx, id, x, y, u0, v0, lw, lh, tw, th);
-        blit(ctx, id, x + lw, y, u0 + W - capD, v0, capD, lh, tw, th);
-        blit(ctx, id, x, y + lh, u0, v0 + H - capB, lw, capB, tw, th);
-        blit(ctx, id, x + lw, y + lh, u0 + W - capD, v0 + H - capB, capD, capB, tw, th);
+        LotBlit l = LotBlit.ouvrir(ctx, id, tw, th);   // les 4 morceaux = un seul élément GUI
+        l.blit(x, y, u0, v0, lw, lh);
+        l.blit(x + lw, y, u0 + W - capD, v0, capD, lh);
+        l.blit(x, y + lh, u0, v0 + H - capB, lw, capB);
+        l.blit(x + lw, y + lh, u0 + W - capD, v0 + H - capB, capD, capB);
+        l.fermer();
     }
 
     /** Coupe horizontale seule (bouton, réglette, bandeau) : hauteur pleine. */
     public static void coupeH(GuiGraphicsExtractor ctx, Identifier id, int x, int y, int w, int u0, int v0, int W, int h,
                               int capD, int tw, int th) {
         w = Math.min(w, W);
-        blit(ctx, id, x, y, u0, v0, w - capD, h, tw, th);
-        blit(ctx, id, x + w - capD, y, u0 + W - capD, v0, capD, h, tw, th);
+        LotBlit l = LotBlit.ouvrir(ctx, id, tw, th);
+        l.blit(x, y, u0, v0, w - capD, h);
+        l.blit(x + w - capD, y, u0 + W - capD, v0, capD, h);
+        l.fermer();
     }
 
     /* ================================================================ couleurs */
@@ -116,6 +120,20 @@ public final class DaKit {
 
     /** Majuscules sans accents (ArcadePix n'a ni accents ni minuscules). */
     public static String sansAccents(String s) {
+        if (s == null) return "";
+        String r = SANS_ACCENTS.get(s);
+        if (r == null) {
+            if (SANS_ACCENTS.size() > 4096) SANS_ACCENTS.clear();
+            r = sansAccentsCalcul(s);
+            SANS_ACCENTS.put(s, r);
+        }
+        return r;
+    }
+
+    /** Mémo de {@link #sansAccents} (Normalizer + regex appelés à chaque image coûtaient). */
+    private static final java.util.Map<String, String> SANS_ACCENTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String sansAccentsCalcul(String s) {
         if (s == null) return "";
         return Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}+", "")
             .replace('—', '-').replace('’', '\'').replace('…', '.').toUpperCase(Locale.ROOT);
@@ -361,9 +379,13 @@ public final class DaKit {
         int w = (int) Math.ceil(f.width(c) * 0.5f) + 6;
         int y = Math.round(ymil - 5);
         int col = blanc(a);
-        blit(ctx, id, x, y, u0, v0, 4, 12, tw, th, col);
-        for (int xx = x + 4; xx < x + w - 4; xx += 16) blit(ctx, id, xx, y, u0 + 12, v0, Math.min(16, x + w - 4 - xx), 12, tw, th, col);
-        blit(ctx, id, x + w - 4, y, u0 + 36, v0, 6, 12, tw, th, col);
+        if ((col >>> 24) != 0) {
+            LotBlit l = LotBlit.ouvrir(ctx, id, tw, th);
+            l.blit(x, y, u0, v0, 4, 12, col);
+            for (int xx = x + 4; xx < x + w - 4; xx += 16) l.blit(xx, y, u0 + 12, v0, Math.min(16, x + w - 4 - xx), 12, col);
+            l.blit(x + w - 4, y, u0 + 36, v0, 6, 12, col);
+            l.fermer();
+        }
         arcFin(ctx, f, c, x + w / 2f, ymil - 1.75f, alpha(OR_CLAIR, a), 1, false);
         return w;
     }

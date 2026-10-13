@@ -143,6 +143,7 @@ final class FicheScene {
         float t = ms() / 1000f;
         int pale = 0xFFEEC8;
         int coeurG = FicheArt.mix(b.coul, pale, 0.6f), coeurP = FicheArt.mix(b.coul, pale, 0.3f);
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);   // un seul élément GUI (cf. LotGui)
         for (int k = 0; k < b.n; k++) {
             float x, y, a;
             boolean av;
@@ -163,12 +164,13 @@ final class FicheScene {
             int X = (int) x, Y = (int) y;
             if (b.gros[k]) {
                 int c = FicheArt.argb(b.coul, a * 0.42f);
-                ctx.fill(X - 1, Y, X + 2, Y + 1, c);
-                ctx.fill(X, Y - 1, X + 1, Y + 2, c);
-                ctx.fill(X, Y, X + 1, Y + 1, FicheArt.argb(coeurG, a));
+                lot.fill(X - 1, Y, X + 2, Y + 1, c);
+                lot.fill(X, Y - 1, X + 1, Y + 2, c);
+                lot.fill(X, Y, X + 1, Y + 1, FicheArt.argb(coeurG, a));
             } else {
-                ctx.fill(X, Y, X + 1, Y + 1, FicheArt.argb(coeurP, a));
+                lot.fill(X, Y, X + 1, Y + 1, FicheArt.argb(coeurP, a));
             }
         }
+        lot.fermer();
     }
 }

@@ -44,11 +44,20 @@ public final class Tirage {
         return out;
     }
 
-    /** Statistiques sur {@code n} tirages : rouleaux moyens par rang, et part des tirages avec au moins un A / un S. */
-    public record Stats(double[] perDraw, double atLeastA, double atLeastS, double emptySlots) {}
+    /**
+     * Statistiques sur {@code n} tirages : rouleaux moyens par rang, part des tirages avec au moins un A / un S, cases
+     * vides, et rouleaux « marqués » (réserve de secrets) par tirage.
+     */
+    public record Stats(double[] perDraw, double atLeastA, double atLeastS, double emptySlots, double marked) {}
 
     public static Stats simulate(List<Technique> pool, double[] byRank, Map<String, Double> overrides, int count, int n,
                                  long seed) {
+        return simulate(pool, byRank, overrides, count, n, seed, t -> false);
+    }
+
+    public static Stats simulate(List<Technique> pool, double[] byRank, Map<String, Double> overrides, int count, int n,
+                                 long seed, java.util.function.Predicate<Technique> mark) {
+        double marked = 0;
         Random rnd = new Random(seed);
         double[] per = new double[5];
         int withA = 0, withS = 0;
@@ -60,12 +69,13 @@ public final class Tirage {
                 per[t.rankIndex()]++;
                 a |= t.rank() == 'A';
                 s |= t.rank() == 'S';
+                if (mark.test(t)) marked++;
             }
             if (a) withA++;
             if (s) withS++;
             empty += count - d.size();
         }
         for (int k = 0; k < 5; k++) per[k] /= n;
-        return new Stats(per, withA * 100.0 / n, withS * 100.0 / n, empty / n);
+        return new Stats(per, withA * 100.0 / n, withS * 100.0 / n, empty / n, marked / n);
     }
 }

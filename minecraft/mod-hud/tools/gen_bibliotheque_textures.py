@@ -23,7 +23,13 @@ Contrat (1 texel = 1 GUI) — bibliothèque :
 - brocart.png 440×40 : rangées de 8 (D C B A S), brocart seigaiha à lisières d'or.
 - pieces.png 210×50 : trait de pinceau vermillon 160×4 (0, 0) ; cabochon 42×12 (0, 6) ;
   jauge 204×12 (0, 20) ; remplissage or 196×6 (0, 34) ; remplissage laque 196×6 (0, 42).
-- reglages.png 52×38 : 2 cellules 26×38 (repos, survol), plaque 設 22×22 en (2, 12).
+- reglages.png 104×38 : 4 cellules 26×38 (設 repos, 設 survol, 記 repos, 記 survol), plaque 22×22 en (2, 12).
+Bibliothèques v2 :
+- onglets.png 140×70 : onglets pendus, rangées de 20 (repos, survol, actif), plaque 136×16 en (1, 1)
+  (coupe horizontale, capD 6) ; perche de bambou laqué 140×7 en (0, 61) (coupe horizontale, capD 6).
+- acces.png 84×28 : sceau 秘 « réservé aux membres » 24×24 centré en (14, 14) vermillon (non-membre),
+  en (42, 14) laque noire et or (membre) ; cadenas 9×11 en (58, 0) vermillon (fermé), en (70, 0) or (ouvert).
+- registre.png 336×268 : washi 328×260 en (2, 2) (coupe, capD 8, capB 16) — dépôt et journal.
 - toast.png 264×20 : plaquette 260×16 (coupe horizontale, capD 8).
 - vignette.png 160×90 : vignette lisse (étirée).
 Lecture :
@@ -303,17 +309,73 @@ def pieces():
 
 
 def reglages():
-    im = nouveau(52, 38)
-    for i in range(2):
-        cell = nouveau(26, 38)
-        fa.corde_v(cell, 13, 0, 12, "or", ep=1)
-        kit.ombre_portee(cell, 2, 12, 22, 22, dx=1, dy=2, force=0.55, rayon=1)
-        fa.lq(cell, 3, 13, 20, 20, "noir", seed=4, intensite=1.8 if i else 1.0)
-        fa.liseret(cell, 2, 12, 22, 22)
-        kit.anneau_metal(cell, 13, 12, 1)
-        gf.kj_px(cell, 13, 15, "設", ea.OR_CLAIR if i else ea.OR, ombre=hexc("050304"))
-        im.paste(cell, (i * 26, 0))
-    S.sauver("reglages.png", im, (52, 38))
+    im = nouveau(104, 38)
+    for k, kj in enumerate("設記"):
+        for i in range(2):
+            cell = nouveau(26, 38)
+            fa.corde_v(cell, 13, 0, 12, "or", ep=1)
+            kit.ombre_portee(cell, 2, 12, 22, 22, dx=1, dy=2, force=0.55, rayon=1)
+            fa.lq(cell, 3, 13, 20, 20, "noir", seed=4 + k, intensite=1.8 if i else 1.0)
+            fa.liseret(cell, 2, 12, 22, 22)
+            kit.anneau_metal(cell, 13, 12, 1)
+            gf.kj_px(cell, 13, 15, kj, ea.OR_CLAIR if i else ea.OR, ombre=hexc("050304"))
+            im.paste(cell, ((2 * k + i) * 26, 0))
+    S.sauver("reglages.png", im, (104, 38))
+
+
+# ═════════════════════════════════════ bibliothèques v2 ═════════════════════════════════════
+def onglets():
+    """Onglets pendus FONDS / ARRIVAGES (comme l'échoppe) et la perche de bambou laqué qui les porte."""
+    im = nouveau(140, 70)
+    for r, etat in enumerate(("repos", "survol", "actif")):
+        x, y, w, h = 1, r * 20 + 1, 136, 16
+        kit.ombre_portee(im, x, y, w, h, dx=1, dy=2, force=0.55, rayon=1)
+        if etat == "actif":
+            fa.lq(im, x + 1, y + 1, w - 2, h - 2, "rouge", seed=r, intensite=1.3)
+            fa.liseret(im, x, y, w, h)
+            fa.ferrures3(im, x, y, w, h)
+        elif etat == "survol":
+            fa.lq(im, x + 1, y + 1, w - 2, h - 2, "noir", seed=r, intensite=1.7)
+            fa.liseret(im, x, y, w, h)
+        else:
+            fa.lq(im, x + 1, y + 1, w - 2, h - 2, "noir", seed=r, intensite=0.9)
+            fa.liseret_terne(im, x, y, w, h)
+    # perche : bambou laqué, embouts de laiton aux deux bouts
+    fa.perche(im, 0, 140, 62, "d")
+    fa.lq(im, 0, 61, 6, 7, ["4A3518", "6A4E24", "8E6A30", "B08442", "D9A95E"], seed=3)
+    fa.liseret(im, 0, 61, 6, 7)
+    S.sauver("onglets.png", im, (140, 70))
+
+
+def cadenas(im, x, y, cols, ouvert=False):
+    """Cadenas 9×11 : anse (ouverte : décalée vers le haut et à droite), corps biseauté, trou de serrure."""
+    fonce, moyen, clair, trou = (hexc(c) for c in cols)
+    dy = 0 if not ouvert else -1
+    for (X, Y) in ((2, 1), (2, 2), (2, 3), (3, 0), (4, 0), (5, 0), (6, 1), (6, 2), (6, 3)):
+        if ouvert and X == 2 and Y >= 2:
+            continue
+        rect(im, x + X, y + Y + dy + 1, 1, 1, moyen)
+    rect(im, x, y + 5, 9, 6, fonce)
+    rect(im, x + 1, y + 5, 7, 5, moyen)
+    rect(im, x + 1, y + 5, 7, 1, clair)
+    rect(im, x + 1, y + 5, 1, 5, clair)
+    rect(im, x + 4, y + 7, 1, 2, trou)
+
+
+def acces():
+    im = nouveau(84, 28)
+    gf.hanko_px(im, 14, 14, "秘", taille=24, seed=31, usure=0.10)
+    gf.hanko_px(im, 42, 14, "秘", taille=24, ton=kit.R_LAQUE[1:8], seed=32, encre=ea.OR_CLAIR, usure=0.04)
+    fa.liseret(im, 30, 2, 24, 24)
+    cadenas(im, 58, 0, ("4E0C0B", "AE2C21", "E0705A", "2A0606"))
+    cadenas(im, 70, 0, ("4A3518", "B08442", "F2D59A", "2E2210"), ouvert=True)
+    S.sauver("acces.png", im, (84, 28))
+
+
+def registre():
+    im = nouveau(336, 268)
+    kit.washi(im, 2, 2, 328, 260, "creme", seed=29, bords="nets", ombre=True, fibres=True, taches=True)
+    S.sauver("registre.png", im, (336, 268))
 
 
 def toast():
@@ -502,6 +564,9 @@ if __name__ == "__main__":
     carte()
     pieces()
     reglages()
+    onglets()
+    acces()
+    registre()
     toast()
     rouleau()
     baguettes()

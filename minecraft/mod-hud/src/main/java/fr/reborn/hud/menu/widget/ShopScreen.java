@@ -37,7 +37,7 @@ import java.util.Locale;
  * <p>Habillage au niveau de la fiche (DA §4.1, §6) : textures {@code textures/gui/echoppe/*}
  * ({@code tools/gen_echoppe_textures.py}, cf. {@link EchoppeArt}), 1 texel = 1 GUI, texte {@link DaKit}.
  */
-public class ShopScreen extends Screen {
+public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
 
     private static final int TAB_OUTFITS = 0, TAB_MAPS = 1;
 

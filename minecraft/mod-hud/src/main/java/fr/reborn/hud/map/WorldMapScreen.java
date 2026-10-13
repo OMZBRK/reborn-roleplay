@@ -41,7 +41,7 @@ import java.util.Map;
  * cabochons — textures {@code textures/gui/carte/*} ({@code tools/gen_carte_textures.py}, cf.
  * {@link CarteArt}) ; marqueurs à l'échelle entière (le survol les soulève au lieu de les agrandir).
  */
-public class WorldMapScreen extends Screen {
+public class WorldMapScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
 
     private static final int PAPER = 0xFFECE0BE;
     private static final int INK = 0xFFF5E9D0;

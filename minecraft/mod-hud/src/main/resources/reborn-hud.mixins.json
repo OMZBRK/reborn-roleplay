@@ -51,6 +51,8 @@
     "menu.LoadingOverlayMixin",
     "menu.MenuScaleMixin",
     "menu.MenuScaleResizeMixin",
+    "menu.OpaqueMenuLevelMixin",
+    "menu.OpaqueMenuHudMixin",
     "ClientMannequinSkinMixin",
     "MannequinAccessor",
     "SceneVoidFogMixin",

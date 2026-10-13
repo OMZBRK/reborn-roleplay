@@ -33,7 +33,7 @@ import java.util.List;
  * managers Reborn). Toute redirection vers les écrans vanilla est centralisée dans l'onglet <b>Minecraft</b>.
  * Textures : {@code textures/gui/reglages/*} ({@code tools/gen_reglages_textures.py}, cf. {@link ReglagesArt}).
  */
-public class ConfigShellScreen extends Screen {
+public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
 
     private final Screen parent;
     private final CategoryDef[] categories;

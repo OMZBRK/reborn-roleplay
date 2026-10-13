@@ -108,4 +108,9 @@ L'utilisateur veut rester en pixel art, **sans coût de performance**. Règles d
 5. **Calculer une fois** : mise en page, textes découpés, listes triées recalculés quand les données changent
    (nouveau paquet, redimensionnement), pas à chaque image.
 6. **Atlas** quand un écran utilise beaucoup de petites images (icônes, lettres de rang) : une seule texture.
-
+7. **Peu d'éléments GUI par image** (constat du 2026-10-13) : en 26.x, chaque `fill`, `blit` ou texte est un élément
+   que le jeu compare à tous les autres de la strate — coût **quadratique**. Un tracé « au pixel réel » ou une frise
+   répétée (des centaines d'aplats d'1 px ou de petits blits) se soumet en **un seul élément** avec
+   `ui/LotGui` (aplats) ou `ui/LotBlit` (blits d'une même texture) : rendu identique, coût linéaire.
+8. **Écran opaque = monde caché** : un menu dont le fond couvre tout l'écran implémente `ui/EcranOpaque` (le monde
+   et le HUD ne sont plus calculés derrière lui) et n'appelle jamais le fond flou vanilla (`extractBackground`).

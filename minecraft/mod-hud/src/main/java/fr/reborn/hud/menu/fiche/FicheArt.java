@@ -285,13 +285,17 @@ final class FicheArt {
     /** Motif répété horizontalement, phase conservée (u = x mod période). */
     static void repeteH(GuiGraphicsExtractor ctx, Identifier id, int x0, int x1, int y, int u0, int v0, int tw, int th,
                         int periode, int h) {
+        // période de 3-4 GUI : des centaines de blits → un seul élément GUI (cf. LotBlit)
+        if (h <= 0) return;
+        fr.reborn.hud.ui.LotBlit lot = fr.reborn.hud.ui.LotBlit.ouvrir(ctx, id, tw, th);
         int x = x0;
         while (x < x1) {
             int u = Math.floorMod(x, periode);
             int w = Math.min(periode - u, x1 - x);
-            blit(ctx, id, x, y, u0 + u, v0, w, h, tw, th);
+            lot.blit(x, y, u0 + u, v0, w, h);
             x += w;
         }
+        lot.fermer();
     }
 
     /**
@@ -383,6 +387,20 @@ final class FicheArt {
     static MutableComponent interGras(String s) { return Component.literal(s).setStyle(INTER_GRAS); }
 
     static String sansAccents(String s) {
+        if (s == null) return "";
+        String r = SANS_ACCENTS.get(s);
+        if (r == null) {
+            if (SANS_ACCENTS.size() > 4096) SANS_ACCENTS.clear();
+            r = sansAccentsCalcul(s);
+            SANS_ACCENTS.put(s, r);
+        }
+        return r;
+    }
+
+    /** Mémo de {@link #sansAccents} (Normalizer + regex appelés à chaque image coûtaient). */
+    private static final java.util.Map<String, String> SANS_ACCENTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String sansAccentsCalcul(String s) {
         if (s == null) return "";
         return Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}+", "")
             .replace('—', '-').replace('’', '\'').toUpperCase(Locale.ROOT);
@@ -628,6 +646,8 @@ final class FicheArt {
         int pasN = Math.max(2, Math.round(lon * k * 1.2f));
         ctx.pose().pushMatrix();
         ctx.pose().scale(1f / k, 1f / k);
+        // un seul élément GUI pour tout le tracé (des centaines de fill d'1 px coûtaient en O(n²), cf. LotGui)
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         int px = Integer.MIN_VALUE, py = Integer.MIN_VALUE;
         for (int s = 0; s <= pasN; s++) {
             float t = s / (float) pasN;
@@ -636,8 +656,9 @@ final class FicheArt {
             if (X == px && Y == py) continue;
             px = X;
             py = Y;
-            ctx.fill(X, Y, X + 1, Y + 1, argb(rgb, a0 + (a1 - a0) * t));
+            lot.fill(X, Y, X + 1, Y + 1, argb(rgb, a0 + (a1 - a0) * t));
         }
+        lot.fermer();
         ctx.pose().popMatrix();
     }
 

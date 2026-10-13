@@ -77,6 +77,133 @@
       "name": "Karin",
       "tint": "all",
       "gender": "female"
+    },
+    {
+      "id": "Cheveux_Court",
+      "name": "Court soigné",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Ras",
+      "name": "Rasé de près",
+      "tint": "all",
+      "gender": "male"
+    },
+    {
+      "id": "Cheveux_Undercut",
+      "name": "Rasé sur les côtés",
+      "tint": "all",
+      "gender": "male"
+    },
+    {
+      "id": "Cheveux_Ebouriffe",
+      "name": "Ébouriffé en épis",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Ananas",
+      "name": "Ananas (queue haute)",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_LongsRaides",
+      "name": "Longs raides (raie au milieu)",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Hime",
+      "name": "Hime (frange droite)",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_Pointes",
+      "name": "Pointes en arrière",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Epi",
+      "name": "Épis de côté",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Meche",
+      "name": "Mèche sur l'œil",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_QueueHaute",
+      "name": "Queue de cheval haute",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_QueueBasse",
+      "name": "Queue de cheval basse",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Chignon",
+      "name": "Chignon",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_DoubleChignon",
+      "name": "Chignons doubles",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_Couettes",
+      "name": "Couettes",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_Tresse",
+      "name": "Tresse",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_Carre",
+      "name": "Carré",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_Ondules",
+      "name": "Longs ondulés",
+      "tint": "all",
+      "gender": "female"
+    },
+    {
+      "id": "Cheveux_Bol",
+      "name": "Coupe au bol",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_MiLongs",
+      "name": "Mi-longs en bataille",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Raie",
+      "name": "Raie sur le côté",
+      "tint": "all"
+    },
+    {
+      "id": "Cheveux_Samourai",
+      "name": "Chignon de samouraï",
+      "tint": "all",
+      "gender": "male"
+    },
+    {
+      "id": "Cheveux_Crete",
+      "name": "Crête",
+      "tint": "all",
+      "gender": "male"
     }
   ],
   "outfit": [
@@ -395,7 +522,13 @@
   ],
   "facial": [],
   "tattoo": [],
-  "accessory": [],
+  "accessory": [
+    {
+      "id": "Accessoire_BandeauKonoha",
+      "name": "Bandeau frontal de Konoha",
+      "tint": "none"
+    }
+  ],
   "underwear": [
     {
       "id": "Sous_Homme",

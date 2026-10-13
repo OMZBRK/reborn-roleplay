@@ -1,12 +1,14 @@
 package fr.reborn.hud.yeux;
 
+import fr.reborn.hud.ui.LotGui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Dessin au pixel réel de l'écran (pas à la grille GUI) : disques, anneaux, arcs, amandes, traits. La DA refuse les
  * cercles pixelisés en escalier GUI ; ici chaque ligne est remplie au pixel près. Coordonnées en pixels écran, à
- * utiliser entre {@link #begin} et {@link #end}.
+ * utiliser entre {@link #begin} et {@link #end}. Chaque tracé est soumis comme un seul élément GUI ({@link LotGui}) :
+ * des centaines de lignes d'1 px coûtaient en O(n²) dans le GuiRenderState.
  */
 final class Px {
 
@@ -23,6 +25,12 @@ final class Px {
     static void end(GuiGraphicsExtractor g) { g.pose().popMatrix(); }
 
     static void disc(GuiGraphicsExtractor g, double cx, double cy, double r, int c) {
+        LotGui l = LotGui.ouvrir(g);
+        disc(l, cx, cy, r, c);
+        l.fermer();
+    }
+
+    private static void disc(LotGui g, double cx, double cy, double r, int c) {
         if (r <= 0) return;
         int y0 = (int) Math.floor(cy - r), y1 = (int) Math.ceil(cy + r);
         for (int y = y0; y < y1; y++) {
@@ -35,7 +43,8 @@ final class Px {
     }
 
     /** Anneau d'épaisseur {@code t} (bord extérieur {@code r}). */
-    static void ring(GuiGraphicsExtractor g, double cx, double cy, double r, double t, int c) {
+    static void ring(GuiGraphicsExtractor gg, double cx, double cy, double r, double t, int c) {
+        LotGui g = LotGui.ouvrir(gg);
         double ri = Math.max(0, r - t);
         int y0 = (int) Math.floor(cy - r), y1 = (int) Math.ceil(cy + r);
         for (int y = y0; y < y1; y++) {
@@ -52,26 +61,31 @@ final class Px {
                 g.fill((int) Math.round(cx + i), y, (int) Math.round(cx + o), y + 1, c);
             }
         }
+        g.fermer();
     }
 
     /** Arc d'anneau de {@code a0} à {@code a1} (radians, sens horaire écran). */
-    static void arc(GuiGraphicsExtractor g, double cx, double cy, double r, double t, double a0, double a1, int c) {
+    static void arc(GuiGraphicsExtractor gg, double cx, double cy, double r, double t, double a0, double a1, int c) {
+        LotGui g = LotGui.ouvrir(gg);
         double len = Math.abs(a1 - a0) * r;
         int steps = Math.max(2, (int) Math.ceil(len / Math.max(1, t * 0.45)));
         for (int k = 0; k <= steps; k++) {
             double a = a0 + (a1 - a0) * k / steps;
             disc(g, cx + Math.cos(a) * (r - t / 2), cy + Math.sin(a) * (r - t / 2), t / 2, c);
         }
+        g.fermer();
     }
 
     /** Trait épais de (x0, y0) à (x1, y1). */
-    static void line(GuiGraphicsExtractor g, double x0, double y0, double x1, double y1, double t, int c) {
+    static void line(GuiGraphicsExtractor gg, double x0, double y0, double x1, double y1, double t, int c) {
+        LotGui g = LotGui.ouvrir(gg);
         double len = Math.hypot(x1 - x0, y1 - y0);
         int steps = Math.max(1, (int) Math.ceil(len / Math.max(1, t * 0.45)));
         for (int k = 0; k <= steps; k++) {
             double f = k / (double) steps;
             disc(g, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, t / 2, c);
         }
+        g.fermer();
     }
 
     /**
@@ -85,7 +99,8 @@ final class Px {
         return v > 0 ? Math.sqrt(v) : 0;
     }
 
-    static void almondFill(GuiGraphicsExtractor g, double cx, double cy, double w, double h, int top, int bottom) {
+    static void almondFill(GuiGraphicsExtractor gg, double cx, double cy, double w, double h, int top, int bottom) {
+        LotGui g = LotGui.ouvrir(gg);
         int y0 = (int) Math.floor(cy - h), y1 = (int) Math.ceil(cy + h);
         for (int y = y0; y < y1; y++) {
             double dy = y + 0.5 - cy;
@@ -94,11 +109,13 @@ final class Px {
             float f = (float) ((dy + h) / (2 * h));
             g.fill((int) Math.round(cx - hw), y, (int) Math.round(cx + hw), y + 1, mix(top, bottom, f));
         }
+        g.fermer();
     }
 
     /** Disque découpé par l'amande (iris dans l'œil). */
-    static void discInAlmond(GuiGraphicsExtractor g, double cx, double cy, double r, double ex, double ey, double w,
+    static void discInAlmond(GuiGraphicsExtractor gg, double cx, double cy, double r, double ex, double ey, double w,
                              double h, int c) {
+        LotGui g = LotGui.ouvrir(gg);
         int y0 = (int) Math.floor(cy - r), y1 = (int) Math.ceil(cy + r);
         for (int y = y0; y < y1; y++) {
             double dy = y + 0.5 - cy;
@@ -110,6 +127,7 @@ final class Px {
             int xa = (int) Math.round(Math.max(cx - hw, ex - aw)), xb = (int) Math.round(Math.min(cx + hw, ex + aw));
             if (xb > xa) g.fill(xa, y, xb, y + 1, c);
         }
+        g.fermer();
     }
 
     static int mix(int a, int b, float f) {

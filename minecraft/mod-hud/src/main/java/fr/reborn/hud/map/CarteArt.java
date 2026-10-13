@@ -25,20 +25,22 @@ final class CarteArt {
 
     /** Cadre du rouleau : lisières de brocart sur les côtés, baguettes laquées haut et bas, embouts d'or. */
     static void cadre(GuiGraphicsExtractor g, int w, int h) {
+        fr.reborn.hud.ui.LotBlit l = fr.reborn.hud.ui.LotBlit.ouvrir(g, CADRE, 64, 64);   // ~80 tuiles = 1 élément GUI
         for (int y = BAGUETTE; y < h - BAGUETTE; y += 24) {
             int hh = Math.min(24, h - BAGUETTE - y);
-            DaKit.blit(g, CADRE, 0, y, 24, 24, LISIERE, hh, 64, 64);
-            DaKit.blit(g, CADRE, w - LISIERE, y, 34, 24, LISIERE, hh, 64, 64);
+            l.blit(0, y, 24, 24, LISIERE, hh);
+            l.blit(w - LISIERE, y, 34, 24, LISIERE, hh);
         }
         for (int x = 0; x < w; x += 64) {
             int ww = Math.min(64, w - x);
-            DaKit.blit(g, CADRE, x, 0, 0, 0, ww, 12, 64, 64);
-            DaKit.blit(g, CADRE, x, h - 12, 0, 12, ww, 12, 64, 64);
+            l.blit(x, 0, 0, 0, ww, 12);
+            l.blit(x, h - 12, 0, 12, ww, 12);
         }
-        DaKit.blit(g, CADRE, 0, -2, 0, 24, 10, 14, 64, 64);
-        DaKit.blit(g, CADRE, w - 10, -2, 12, 24, 10, 14, 64, 64);
-        DaKit.blit(g, CADRE, 0, h - 12, 0, 24, 10, 14, 64, 64);
-        DaKit.blit(g, CADRE, w - 10, h - 12, 12, 24, 10, 14, 64, 64);
+        l.blit(0, -2, 0, 24, 10, 14);
+        l.blit(w - 10, -2, 12, 24, 10, 14);
+        l.blit(0, h - 12, 0, 24, 10, 14);
+        l.blit(w - 10, h - 12, 12, 24, 10, 14);
+        l.fermer();
     }
 
     static void entete(GuiGraphicsExtractor g, int cx, int y) {

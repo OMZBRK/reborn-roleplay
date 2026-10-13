@@ -124,6 +124,16 @@ public class TablistScreen extends Screen {
         return Math.max(0, filtered().size() * ROW_H - g.viewH());
     }
 
+    /**
+     * Fond vanilla sans son flou plein écran (plusieurs ms par image) : le voile sombre du fond de menu reste, le jeu
+     * reste visible dessous.
+     */
+    @Override
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        this.extractMenuBackground(ctx);
+        if (this.minecraft != null) this.minecraft.gui.hud.extractDeferredSubtitles();
+    }
+
     // ─── Rendu écran interactif ──────────────────────────
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {

@@ -110,6 +110,20 @@ final class ChirurgieArt {
 
     static String sansAccents(String s) {
         if (s == null) return "";
+        String r = SANS_ACCENTS.get(s);
+        if (r == null) {
+            if (SANS_ACCENTS.size() > 4096) SANS_ACCENTS.clear();
+            r = sansAccentsCalcul(s);
+            SANS_ACCENTS.put(s, r);
+        }
+        return r;
+    }
+
+    /** Mémo de {@link #sansAccents} (Normalizer + regex appelés à chaque image coûtaient). */
+    private static final java.util.Map<String, String> SANS_ACCENTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String sansAccentsCalcul(String s) {
+        if (s == null) return "";
         return Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}+", "")
             .replace('—', '-').replace('’', '\'').replace("Œ", "OE").replace("œ", "oe").toUpperCase(Locale.ROOT);
     }

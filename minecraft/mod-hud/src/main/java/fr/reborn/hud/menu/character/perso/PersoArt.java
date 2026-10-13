@@ -1,6 +1,8 @@
 package fr.reborn.hud.menu.character.perso;
 
 import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.ui.LotBlit;
+import fr.reborn.hud.ui.LotGui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -12,7 +14,6 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 
 import java.text.Normalizer;
-import java.util.Arrays;
 import java.util.Locale;
 
 /**
@@ -54,7 +55,7 @@ final class PersoArt {
 
     static final Identifier PIERRES_LIT = tex("pierres_lit"), PIERRES = tex("pierres"), LOTUS = tex("lotus"),
         OMBRE = tex("ombre"), LUM_CLE = tex("lum_cle"), LUM_FLAQUE = tex("lum_flaque"), HALO = tex("halo"),
-        KAMON_SOL = tex("kamon_sol"), EMBLEMES = tex("emblemes"), BRUME_AVANT = tex("brume_avant"),
+        BRUME_AVANT = tex("brume_avant"),
         SILHOUETTE = tex("silhouette"), PLAQUE_TITRE = tex("plaque_titre"), PROGRESSION = tex("progression"),
         SCEAUX = tex("sceaux"), CHIP = tex("chip"), PERCHE = tex("perche"), PLAQUE_NOM = tex("plaque_nom"),
         BOUTONS = tex("boutons"), FLECHES = tex("fleches"), CURSEURS = tex("curseurs"), TOISE = tex("toise"),
@@ -65,14 +66,9 @@ final class PersoArt {
     /** Pierres éteintes (pierres.png) : cellules. */
     static final int P_VIDE = 0, P_REN = 1, P_15 = 2, P_15B = 3, P_11 = 4, P_10 = 5, P_24 = 6, P_14 = 7, P_16 = 8, P_9 = 9;
 
-    /** Clans du kamon et des emblèmes (ordre alphabétique des fichiers gui/clans/clan_*.png). */
-    static final String[] CLANS = {"aburame", "akimichi", "autre", "hatake", "hoki", "hoshigaki", "hozuki", "hyuga",
-        "kaguya", "kamizuru", "kurama", "nara", "onoki", "sabaku", "sarutobi", "senju", "terumi", "uchiha", "uzumaki",
-        "yamanaka", "yotsuki", "yuki"};
-
+    /** Index du clan dans les atlas d'emblèmes (lus au lancement dans gui/clans/, cf. {@link PersoEmblemes}). */
     static int clanIndex(String slug) {
-        int i = Arrays.asList(CLANS).indexOf(slug == null ? "" : slug);
-        return i < 0 ? Arrays.asList(CLANS).indexOf("autre") : i;
+        return PersoEmblemes.clan(slug);
     }
 
     /** Panneau : (largeur, hauteur nominale) ; texture (w+8)×(16+h+28), texel (4, 16) = coin. */
@@ -190,7 +186,7 @@ final class PersoArt {
         else { row = 96; s = 24; }
         g.pose().pushMatrix();
         g.pose().translate(cale(x), cale(y));
-        etire(g, EMBLEMES, 0, 0, t, t, index * 64f, row, s, s, 1792, 176, argb);
+        etire(g, PersoEmblemes.atlas(), 0, 0, t, t, index * 64f, row, s, s, PersoEmblemes.atlasW(), 176, argb);
         g.pose().popMatrix();
     }
 
@@ -211,16 +207,30 @@ final class PersoArt {
     /* ---- halos (ovales nets, halo.png étiré) ---- */
 
     static void ovale(GuiGraphicsExtractor g, float cx, float cy, float rx, float ry, int rgb, float alpha) {
-        if (alpha <= 0.004f || rx < 0.5f || ry < 0.5f) return;
-        int dw = Math.max(1, Math.round(rx * 2)), dh = Math.max(1, Math.round(ry * 2));
-        g.pose().pushMatrix();
-        g.pose().translate(Math.round(cx - dw / 2f), Math.round(cy - dh / 2f));
-        g.blit(RenderPipelines.GUI_TEXTURED, HALO, 0, 0, 0f, 0f, dw, dh, 64, 64, 64, 64, argb(rgb, alpha));
-        g.pose().popMatrix();
+        LotBlit l = halos(g);
+        ovale(l, cx, cy, rx, ry, rgb, alpha);
+        l.fermer();
     }
 
-    /** halo_px de la maquette : 2 ou 3 ovales concentriques nets. */
+    /** Lot de halos (halo.png) : tous les ovales d'un lot ne font qu'un élément GUI (DA §6, règle 7). */
+    static LotBlit halos(GuiGraphicsExtractor g) { return LotBlit.ouvrir(g, HALO, 64, 64); }
+
+    /** Ovale net (halo.png étiré en dw × dh, coin calé au GUI entier) dans un lot de halos. */
+    static void ovale(LotBlit l, float cx, float cy, float rx, float ry, int rgb, float alpha) {
+        if (alpha <= 0.004f || rx < 0.5f || ry < 0.5f) return;
+        int dw = Math.max(1, Math.round(rx * 2)), dh = Math.max(1, Math.round(ry * 2));
+        l.etire(Math.round(cx - dw / 2f), Math.round(cy - dh / 2f), dw, dh, 0f, 0f, 64, 64, argb(rgb, alpha));
+    }
+
+    /** halo_px de la maquette : 2 ou 3 ovales concentriques nets, en un seul élément GUI. */
     static void halo(GuiGraphicsExtractor g, float cx, float cy, float r, float ryK, int rgb, float force, int niveaux) {
+        if (force <= 0.002f) return;
+        LotBlit l = halos(g);
+        halo(l, cx, cy, r, ryK, rgb, force, niveaux);
+        l.fermer();
+    }
+
+    static void halo(LotBlit l, float cx, float cy, float r, float ryK, int rgb, float force, int niveaux) {
         if (force <= 0.002f) return;
         float[] parts = niveaux >= 3 ? new float[]{0.27f, 0.53f, 1f} : niveaux == 2 ? new float[]{0.4f, 1f} : new float[]{1f};
         int n = parts.length;
@@ -229,7 +239,7 @@ final class PersoArt {
             float k = (n - i) / (float) n;
             float a = (parts[i] - prev) * force;
             prev = parts[i];
-            ovale(g, cx, cy, r * k, r * k * ryK, rgb, a);
+            ovale(l, cx, cy, r * k, r * k * ryK, rgb, a);
         }
     }
 
@@ -302,17 +312,34 @@ final class PersoArt {
         g.pose().popMatrix();
     }
 
+    /** {@link #texteEchelle(GuiGraphicsExtractor, Font, Component, float, float, int, float)} dans un lot de textes. */
+    static void texteEchelle(LotGui.Textes t, GuiGraphicsExtractor g, Font f, Component c, float x, float y, int col, float s) {
+        g.pose().pushMatrix();
+        g.pose().translate(cale(x), cale(y));
+        g.pose().scale(s, s);
+        t.texte(f, c, 0, 0, col, false);
+        g.pose().popMatrix();
+    }
+
     static int ombreDe(int col) {
         return (col & 0xFF000000) | (((col >> 16) & 0xFF) / 4 << 16) | (((col >> 8) & 0xFF) / 4 << 8) | ((col & 0xFF) / 4);
     }
 
     /** ArcadePix ×0,5 (haut des capitales en yHaut) ; ancre 0 gauche, 1 centre, 2 droite. Renvoie la largeur. */
     static float arcFin(GuiGraphicsExtractor g, Font f, Component c, float x, float yHaut, int col, int ancre, boolean ombre) {
+        LotGui.Textes t = LotGui.textes(g);                 // texte + ombre : un seul élément GUI
+        float w = arcFin(t, g, f, c, x, yHaut, col, ancre, ombre);
+        t.fermer();
+        return w;
+    }
+
+    static float arcFin(LotGui.Textes t, GuiGraphicsExtractor g, Font f, Component c, float x, float yHaut, int col, int ancre,
+                        boolean ombre) {
         float s = facteurPetit(), px = pxEcran();
         float w = f.width(c) * s;
         float x0 = ancre == 1 ? x - w / 2f : ancre == 2 ? x - w : x;
-        if (ombre) texteEchelle(g, f, c, x0 + px, yHaut + px, ombreDe(col), s);
-        texteEchelle(g, f, c, x0, yHaut, col, s);
+        if (ombre) texteEchelle(t, g, f, c, x0 + px, yHaut + px, ombreDe(col), s);
+        texteEchelle(t, g, f, c, x0, yHaut, col, s);
         return w;
     }
 
@@ -321,8 +348,10 @@ final class PersoArt {
                          boolean ombre) {
         float w = f.width(c) * s;
         float x0 = ancre == 1 ? x - w / 2f : ancre == 2 ? x - w : x;
-        if (ombre) texteEchelle(g, f, c, x0 + 1, yHaut + 1, ombreDe(col), s);
-        texteEchelle(g, f, c, x0, yHaut, col, s);
+        LotGui.Textes t = LotGui.textes(g);                 // texte + ombre : un seul élément GUI
+        if (ombre) texteEchelle(t, g, f, c, x0 + 1, yHaut + 1, ombreDe(col), s);
+        texteEchelle(t, g, f, c, x0, yHaut, col, s);
+        t.fermer();
         return w;
     }
 
@@ -335,16 +364,34 @@ final class PersoArt {
         return w;
     }
 
+    /** {@link #inter(GuiGraphicsExtractor, Font, Component, float, float, float, int, int)} dans un lot de textes. */
+    static float inter(LotGui.Textes lot, GuiGraphicsExtractor g, Font f, Component c, float x, float ymil, float t, int col,
+                       int ancre) {
+        float s = t / 9f;
+        float w = f.width(c) * s;
+        float x0 = ancre == 1 ? x - w / 2f : ancre == 2 ? x - w : x;
+        texteEchelle(lot, g, f, c, x0, ymil - 4f * s, col, s);
+        return w;
+    }
+
     static float largeur(Font f, Component c, float t) { return f.width(c) * t / 9f; }
 
-    /** Étiquette petites capitales Inter gras 7 espacées de 0,6 GUI ; renvoie la largeur. */
+    /** Étiquette petites capitales Inter gras 7 espacées de 0,6 GUI, en un seul élément GUI ; renvoie la largeur. */
     static float etiq(GuiGraphicsExtractor g, Font f, String s, float x, float ymil, int col) {
+        LotGui.Textes lot = LotGui.textes(g);
+        float w = etiq(lot, g, f, s, x, ymil, col);
+        lot.fermer();
+        return w;
+    }
+
+    /** {@link #etiq(GuiGraphicsExtractor, Font, String, float, float, int)} dans un lot de textes (une lettre = un texte). */
+    static float etiq(LotGui.Textes lot, GuiGraphicsExtractor g, Font f, String s, float x, float ymil, int col) {
         String t = sansAccents(s);
         float xx = x;
         float k = 7f / 9f;
         for (int i = 0; i < t.length(); i++) {
             Component c = interGras(String.valueOf(t.charAt(i)));
-            texteEchelle(g, f, c, xx, ymil - 3f, col, k);
+            texteEchelle(lot, g, f, c, xx, ymil - 3f, col, k);
             xx += f.width(c) * k + 0.6f;
         }
         return Math.max(0, xx - x - 0.6f);
@@ -355,8 +402,10 @@ final class PersoArt {
         Component c = Component.literal(kj);
         float w = f.width(c) * 2f;
         float x = Math.round(cx - w / 2f);
-        if (ombre != 0) texteEchelle(g, f, c, x + 1, Math.round(yHaut) + 1, ombre, 2f);
-        texteEchelle(g, f, c, x, Math.round(yHaut), col, 2f);
+        LotGui.Textes t = LotGui.textes(g);                 // texte + ombre : un seul élément GUI
+        if (ombre != 0) texteEchelle(t, g, f, c, x + 1, Math.round(yHaut) + 1, ombre, 2f);
+        texteEchelle(t, g, f, c, x, Math.round(yHaut), col, 2f);
+        t.fermer();
     }
 
     /* ================================================================ aides (cabochons) */
@@ -365,14 +414,16 @@ final class PersoArt {
         Component c = arcade(t);
         int w = (int) Math.ceil(f.width(c) * facteurPetit()) + 7;
         int y = Math.round(ymil - 5);
-        blit(g, CABOCHON, x, y, 0, 0, 4, 12, 42, 12);
+        LotBlit l = LotBlit.ouvrir(g, CABOCHON, 42, 12);   // les morceaux du cabochon : un seul élément GUI
+        l.blit(x, y, 0, 0, 4, 12);
         int xx = x + 4, fin = x + w - 4;
         while (xx < fin) {
             int ww = Math.min(16, fin - xx);
-            blit(g, CABOCHON, xx, y, 12, 0, ww, 12, 42, 12);
+            l.blit(xx, y, 12, 0, ww, 12);
             xx += ww;
         }
-        blit(g, CABOCHON, fin, y, 36, 0, 6, 12, 42, 12);
+        l.blit(fin, y, 36, 0, 6, 12);
+        l.fermer();
         arcFin(g, f, c, x + w / 2f, ymil - 1.75f, OR_CLAIR, 1, false);
         return w;
     }

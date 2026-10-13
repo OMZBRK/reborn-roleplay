@@ -12,8 +12,9 @@ Usage (depuis minecraft/mod-hud) :
     python tools/gen_personnage_textures.py
 
 Contrat (texels ↔ GUI de la fenêtre de référence 960×540, cx = W/2, d = H − 540) :
-- fond_<village>.png 1280×540 (konoha suna kiri kumo iwa ame) : ciel, étoiles, lune, montagnes, silhouette du
-  village, brume, étang (reflets, colonne de lune, rides) ; texel x = x_GUI − cx + 640, posé en (cx − 640, d).
+- fond_<village>.png 1280×540 (konoha suna kiri kumo iwa ame) : ciel, étoiles, lune, montagnes lointaines, brume,
+  étang (reflets, colonne de lune, rides), teintes du village ; AUCUNE silhouette de village (retirée le 2026-10-13) ;
+  texel x = x_GUI − cx + 640, posé en (cx − 640, d).
 - roseaux_<village>.png 520×180 : touffe gauche [0, 260) posée en (0, H − 180), droite [260, 520) en (W − 260, H − 180).
 - pierres_lit.png 600×288 : 4 colonnes (crea, dais, sel, cote) × 6 villages, cellules 150×48, centre du dessus de la
   pierre au texel (75, 20) de la cellule ; ensō gravé sur crea et sel ; contre-jour à la couleur du village.
@@ -22,10 +23,9 @@ Contrat (texels ↔ GUI de la fenêtre de référence 960×540, cx = W/2, d = H 
 - ombre.png 80×24 (rendu ×2) : ombre de contact, posée en 40×12 GUI centrée sur les pieds (y − 6).
 - lum_cle.png, lum_flaque.png : masques de lumière blancs (alpha = niveau), teints au blit, centrés.
 - halo.png 64×64 : disque lisse (ovales des halos étirés au blit).
-- kamon_sol.png 416×64 : anneau 116×30 en (0, 0) (centre (58, 15)) ; emblèmes couchés 52×16 en (0 + 52·(i % 8),
-  30 + 16·(i / 8)) pour CLANS[i], centre (26, 8).
-- emblemes.png 1792×176 : emblèmes blancs (luminance gardée) à la résolution écran, VILLAGES puis CLANS :
-  rangée 0 cellules 64×64, y = 64 cellules 32×32, y = 96 cellules 24×24, y = 120 cellules 56×56.
+- kamon_sol.png 116×30 : anneau du kamon gravé sur le dais (centre (58, 15)). Les EMBLÈMES (villages, clans) ne
+  sont plus cuits ici : le mod les construit au lancement depuis gui/esc/village_*.png et gui/clans/clan_*.png
+  (PersoEmblemes.java), pour qu'un blason mis à jour s'affiche sans régénérer ces textures.
 - brume_avant.png 1280×180 : banc de brume devant le personnage (étape Nom), posé en (cx − 640, 360 + d).
 - plaque_titre.png 340×50 : « CHOIX DU SHINOBI » ; texel (170, 0) = (cx, 0).
 - progression.png 560×32 : fil kumihimo et cordelettes des 8 sceaux ; texel (280, 0) = (cx, 0).
@@ -412,9 +412,9 @@ def fond(village):
     try:
         pa.lune(Calque(bg), bg, village)
         pa.montagnes(bg, village, seed + 3)
-        c = bg.crop((OX, 0, OX + 960, 540))
-        VILLAGE_FN[village](Calque(c), c, seed + 6)
-        bg.paste(c, (OX, 0))
+        # Plus de silhouette de village (retour du 2026-10-13 : « juste les roches avec les persos ») : le lac, le
+        # ciel, la lune, les montagnes lointaines et la brume suffisent ; le village ne colore plus que le ciel,
+        # l'eau, la brume et les braises. Les fonctions village_* restent pour mémoire.
         pa.brume(bg, 262, 10, 0.07, seed + 4, couleur=(140, 120, 170))
         if village == "suna":
             pa.brume(bg, Y_HOR - 16, 12, 0.10, seed + 9, couleur=(190, 140, 96))
@@ -543,8 +543,8 @@ def liste_clans():
     return sorted(f[5:-4] for f in os.listdir(os.path.join(TEX, "clans")) if f.startswith("clan_") and f.endswith(".png"))
 
 
-def kamon_sol(clans):
-    out = nouveau(416, 30 + 16 * ((len(clans) + 7) // 8))
+def kamon_sol():
+    out = nouveau(116, 30)
     vus = set()
     for s_ in range(1200):
         t = s_ / 1200 * 2 * math.pi
@@ -552,33 +552,6 @@ def kamon_sol(clans):
         if p not in vus:
             vus.add(p)
             pa._px_set(out, p[0], p[1], (255, 255, 255), 0.80)
-    for i, cid in enumerate(clans):
-        em = Image.open(os.path.join(TEX, "clans", f"clan_{cid}.png")).convert("RGBA")
-        W, H = 50, 15
-        a = np.asarray(em.resize((W * 4, H * 4), Image.LANCZOS))[..., 3].astype(float)
-        a = a.reshape(H, 4, W, 4).mean(axis=(1, 3))
-        x0, y0 = (i % 8) * 52 + 1, 30 + (i // 8) * 16
-        for j in range(H):
-            for k in range(W):
-                if a[j, k] > 70:
-                    pa._px_set(out, x0 + k, y0 + j, (255, 255, 255), 0.45 + 0.40 * min(1, a[j, k] / 160))
-    return out
-
-
-def emblemes(clans):
-    cles = [("esc", f"village_{v}") for v in VILLAGES] + [("clans", f"clan_{c}") for c in clans]
-    out = nouveau(64 * len(cles), 176)
-    for i, (dossier, nom) in enumerate(cles):
-        em = Image.open(os.path.join(TEX, dossier, nom + ".png")).convert("RGBA")
-        for (t, y, filtre) in ((64, 0, Image.LANCZOS), (32, 64, Image.BOX), (24, 96, Image.BOX), (56, 120, Image.LANCZOS)):
-            e = em.resize((t, t), filtre if t != em.width else Image.NEAREST)
-            a = np.asarray(e).astype(float)
-            lum = a[..., :3].mean(axis=2) / 255.0
-            o = np.zeros((t, t, 4), np.uint8)
-            g = np.clip(255 * (0.55 + 0.45 * lum), 0, 255).astype(np.uint8)
-            o[..., 0] = o[..., 1] = o[..., 2] = g
-            o[..., 3] = np.where(a[..., 3] > 110, 255, 0)
-            coller(out, o, i * 64, y)
     return out
 
 
@@ -952,8 +925,7 @@ def main():
         sauver("lum_cle.png", masque_lumiere(150, 170, 6, 1.4, 0.25), garder_rgb=True)
         sauver("lum_flaque.png", masque_lumiere(130, 28, 4, 2.0, 0.3), garder_rgb=True)
         sauver("halo.png", halo(), garder_rgb=True)
-        sauver("kamon_sol.png", kamon_sol(clans))
-        sauver("emblemes.png", emblemes(clans))
+        sauver("kamon_sol.png", kamon_sol())
         sauver("brume_avant.png", brume_avant())
         sauver("silhouette.png", silhouette())
     if veut("ui"):

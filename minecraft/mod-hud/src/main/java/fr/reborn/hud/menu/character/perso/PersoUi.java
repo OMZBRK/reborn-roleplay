@@ -1,5 +1,7 @@
 package fr.reborn.hud.menu.character.perso;
 
+import fr.reborn.hud.ui.LotBlit;
+import fr.reborn.hud.ui.LotGui;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -64,20 +66,30 @@ final class PersoUi {
     static void progression(GuiGraphicsExtractor g, Font f, int cx, int etape, float a) {
         int al = argb(0xFFFFFF, a);
         blit(g, PROGRESSION, cx - 280, 0, 0, 0, 560, 32, 560, 32, al);
+        if ((al >>> 24) == 0) return;
+        // les huit sceaux (un lot), puis leurs libellés (un lot de textes) : chaque libellé ne touche que son sceau
+        LotBlit sceaux = LotBlit.ouvrir(g, SCEAUX, 240, 102);
+        for (int i = 0; i < 8; i++) {
+            int etat = i < etape ? 0 : i == etape ? 1 : 2;
+            sceaux.blit(cx - 217 + 62 * i - 15, 10, i * 30, etat * 34, 30, 34, al);
+        }
+        sceaux.fermer();
+        LotGui.Textes libs = LotGui.textes(g);
         for (int i = 0; i < 8; i++) {
             int x = cx - 217 + 62 * i;
             int etat = i < etape ? 0 : i == etape ? 1 : 2;
-            blit(g, SCEAUX, x - 15, 10, i * 30, etat * 34, 30, 34, 240, 102, al);
             int col = etat == 0 ? 0xFFB89A6A : etat == 1 ? CREME : 0xFF7A6A56;
-            arcFin(g, f, arcade(ETAPES[i]), x, etat == 1 ? 44 : 41, alpha(col, a), 1, etat == 1);
+            arcFin(libs, g, f, arcade(ETAPES[i]), x, etat == 1 ? 44 : 41, alpha(col, a), 1, etat == 1);
         }
+        libs.fermer();
     }
 
     /**
      * Question de l'étape (ArcadePix ×1,5) lue par la voix : la partie dite est crème et ombrée, le reste attend à
      * 37 % ; onde or à gauche, animée pendant que la voix parle.
      */
-    static void question(GuiGraphicsExtractor g, Font f, int cx, int y, String texte, int dits, boolean parle, float a) {
+    static void question(GuiGraphicsExtractor g, Font f, int cx, int y, String texte, int dits, boolean parle,
+                         boolean onde, float a) {
         String t = sansAccents(texte);
         Component tout = arcade(t);
         float s = 1.5f;
@@ -89,6 +101,7 @@ final class PersoUi {
             texteEchelle(g, f, dit, x0 + 1, y + 1, alpha(0xFF3D3A34, a), s);
             texteEchelle(g, f, dit, x0, y, alpha(CREME, a), s);
         }
+        if (!onde) return;
         float tt = (System.currentTimeMillis() % 3_600_000L) / 1000f;
         int[] hh = {3, 6, 8, 5, 2};
         int ox = Math.round(x0 - 18), oy = y + 3;
@@ -107,13 +120,17 @@ final class PersoUi {
     static void registre(GuiGraphicsExtractor g, Font f, int x, int y, Ligne[] valeurs, int enCours, float a) {
         int X = x + 14, CV = 74, WL = 212;
         float yy = y + 46;
+        // aplats (repère, nuanciers) et textes du registre : un lot chacun ; aucun texte ne touche un aplat, un emblème
+        // ou une puce posés entre-temps
+        LotGui aplats = LotGui.ouvrir(g);
+        LotGui.Textes txt = LotGui.textes(g);
         for (int k = 0; k < 7; k++) {
             Ligne v = valeurs[k];
             boolean cur = k == enCours;
-            etiq(g, f, LIGNES_REG[k], X + (cur ? 6 : 0), yy, alpha(cur ? OR_CLAIR : v != null ? OR_ETIQ : 0xFF6A5A44, a));
+            etiq(txt, g, f, LIGNES_REG[k], X + (cur ? 6 : 0), yy, alpha(cur ? OR_CLAIR : v != null ? OR_ETIQ : 0xFF6A5A44, a));
             if (cur) {
-                g.fill(X, Math.round(yy) - 6, X + 2, Math.round(yy) + 6, alpha(ROUGE, a));
-                g.fill(X, Math.round(yy) - 6, X + 2, Math.round(yy) - 5, alpha(0xFFE26474, a));
+                aplats.fill(X, Math.round(yy) - 6, X + 2, Math.round(yy) + 6, alpha(ROUGE, a));
+                aplats.fill(X, Math.round(yy) - 6, X + 2, Math.round(yy) - 5, alpha(0xFFE26474, a));
             }
             if (v != null) {
                 float vx = X + CV;
@@ -125,20 +142,29 @@ final class PersoUi {
                     for (int j = 0; j < v.nuancier().length; j++) {
                         int sx = Math.round(vx + j * 13), sy = Math.round(yy) - 6;
                         int c = v.nuancier()[j];
-                        g.fill(sx - 1, sy, sx + 11, sy + 12, alpha(R_OR[2], a));
-                        g.fill(sx, sy + 1, sx + 10, sy + 11, alpha(opaque(c), a));
-                        g.fill(sx, sy + 1, sx + 10, sy + 2, alpha(opaque(mix(c, 0xFFFFFF, 0.3f)), a));
+                        aplats.fill(sx - 1, sy, sx + 11, sy + 12, alpha(R_OR[2], a));
+                        aplats.fill(sx, sy + 1, sx + 10, sy + 11, alpha(opaque(c), a));
+                        aplats.fill(sx, sy + 1, sx + 10, sy + 2, alpha(opaque(mix(c, 0xFFFFFF, 0.3f)), a));
                     }
                     vx += v.nuancier().length * 13 + 4;
                 }
                 if (v.texte() != null && !v.texte().isEmpty()) {
-                    inter(g, f, inter(v.texte()), vx, yy, 9, alpha(cur ? OR_CLAIR : CREME, a), 0);
+                    // ajusté à la place restante avant la puce (taille 9 → 7, puis coupé)
+                    float dispo = X + WL - 10 - vx, t = 9f;
+                    String texte = v.texte();
+                    while (largeur(f, inter(texte), t) > dispo && t > 7f) t -= 0.5f;
+                    while (largeur(f, inter(texte), t) > dispo && texte.length() > 2) {
+                        texte = texte.substring(0, texte.length() - (texte.endsWith("…") ? 2 : 1)).strip() + "…";
+                    }
+                    inter(txt, g, f, inter(texte), vx, yy, t, alpha(cur ? OR_CLAIR : CREME, a), 0);
                 }
                 if (!cur) losange(g, X + WL - 4, Math.round(yy) - 1);
             } else {
-                inter(g, f, inter("—"), X + CV, yy, 9, alpha(0xFF5A4E42, a), 0);
+                inter(txt, g, f, inter("—"), X + CV, yy, 9, alpha(0xFF5A4E42, a), 0);
             }
             yy += 24;
         }
+        aplats.fermer();
+        txt.fermer();
     }
 }

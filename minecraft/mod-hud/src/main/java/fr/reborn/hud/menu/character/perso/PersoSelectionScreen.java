@@ -10,6 +10,7 @@ import fr.reborn.hud.menu.character.scene.SceneSounds;
 import fr.reborn.hud.mixin.HudAccessor;
 import fr.reborn.hud.skin.RebornSkins;
 import fr.reborn.hud.skin.SkinSpec;
+import fr.reborn.hud.ui.EcranOpaque;
 import fr.reborn.hud.ui.MenuScale;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -33,7 +34,7 @@ import static fr.reborn.hud.menu.character.perso.PersoArt.*;
  * pointillée. Le fond est celui du village du perso choisi. Choisir envoie {@code select:<id>} puis l'écran de
  * chargement ; la place libre ouvre la création.
  */
-public final class PersoSelectionScreen extends Screen implements MenuScale.Plancher {
+public final class PersoSelectionScreen extends Screen implements MenuScale.Plancher, EcranOpaque {
 
     /** Une place : un perso ou la place « nouveau shinobi ». */
     public record Role(String id, String nom, String clan, int clanColor, String rang, String village, SkinSpec look,
@@ -94,14 +95,14 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
         prevHidden = mc.gui.hud.isHidden();
         ((HudAccessor) (Object) mc.gui.hud).reborn$setHidden(true);
         openedAt = focusAt = System.currentTimeMillis();
-        PersoSons.musique(scene.village());
+        PersoSons.ambiance(scene.village());
     }
 
     @Override
     public void removed() {
         Minecraft mc = Minecraft.getInstance();
         skins.liberer();
-        if (!(mc.gui.screen() instanceof PersoCreationScreen)) PersoSons.arreterMusique();
+        if (!(mc.gui.screen() instanceof PersoCreationScreen)) PersoSons.arreter();
         ((HudAccessor) (Object) mc.gui.hud).reborn$setHidden(prevHidden);
         super.removed();
     }
@@ -117,7 +118,7 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
         SceneSounds.focus();
         int v = villageDe(i);
         scene.setVillage(v);
-        PersoSons.musique(v);
+        PersoSons.ambiance(v);
     }
 
     public void enter() {
@@ -152,6 +153,7 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
 
     @Override
     public void tick() {
+        PersoSons.tick();
         if (leaveAt >= 0 && System.currentTimeMillis() - leaveAt > (roles.get(focus).creer() ? 700 : 1300)) finish();
     }
 
@@ -202,6 +204,12 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
         return r;
     }
 
+    /** Échelle de l'image en cache : celle de la place la plus proche (un seul rendu par place, étiré en glissant). */
+    private static float kRef(float r, double stat) {
+        int slot = Math.max(-2, Math.min(2, Math.round(r)));
+        return (float) (SK[slot + 2] * stat);
+    }
+
     private static float interp(float[] t, float r) {
         float u = Math.max(-2f, Math.min(2f, r)) + 2f;
         int a = (int) Math.floor(u);
@@ -215,6 +223,12 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
+        PersoPerf.debut();
+        dessiner(g, mx, my, dt);
+        PersoPerf.fin(g);
+    }
+
+    private void dessiner(GuiGraphicsExtractor g, int mx, int my, float dt) {
         int d = height - 540;
         T = Math.max(0, d / 2);
         B = d > 0 ? d / 2 : d;
@@ -261,8 +275,8 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
             float kk = (float) (interp(SK, r) * stat);
             boolean slim = ro.look() != null ? ro.look().slim : RebornSkins.isSlim(Minecraft.getInstance().player.getUUID());
             float lac = r > 0.3f ? -28f : r < -0.3f ? 28f : 24f;
-            PersoPoupee.dessiner(g, skins.get(ro.look(), ro.mort()), slim, cx + interp(SX, r),
-                interp(SY, r) + B + (Math.abs(r) < 0.5f ? 7 : 4), kk, lac, 5, argb(0x6A6474, 0.12f * fade), true);
+            PersoPoupee.dessiner(g, skins, skins.get(ro.look(), ro.mort()), slim, cx + interp(SX, r),
+                interp(SY, r) + B + (Math.abs(r) < 0.5f ? 7 : 4), kk, kRef(r, stat), lac, 5, argb(0x6A6474, 0.12f * fade), true);
         }
         // pierres des places (fixes) : la grande au centre, deux de chaque côté
         for (int s = -2; s <= 2; s++) {
@@ -315,8 +329,8 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
                     PersoFigure.dessiner(g, tex, slim, Math.round(x), Math.round(y), kk, lac, 6, Math.round(13 * 8.4f),
                         Math.round(19 * 8.4f));
                 } else {
-                    int teinte = Math.abs(r) > 0.5f ? (ro.mort() ? 0xC0C0C0 : 0xD8D4DC) : 0xFFFFFF;
-                    PersoPoupee.dessiner(g, tex, slim, x, y, kk, lac, 5, argb(teinte, fade), false);
+                    int teinte = Math.abs(r) > 0.5f ? (ro.mort() ? 0xC0C0C0 : 0xF2EEF6) : 0xFFFFFF;
+                    PersoPoupee.dessiner(g, skins, tex, slim, x, y, kk, kRef(r, stat), lac, 6, argb(teinte, fade), false);
                 }
             }
             hits.add(new int[]{Math.round(x - 9 * kk), Math.round(y - 33 * kk), Math.round(18 * kk), Math.round(34 * kk), i});
@@ -359,7 +373,6 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
         int libres = Math.max(0, CharacterData.slotLimit() - nb);
         String sous = nb + " personnage" + (nb > 1 ? "s" : "") + (libres > 0 ? " · " + libres + " emplacement" + (libres > 1 ? "s" : "") + " libre" + (libres > 1 ? "s" : "") : "");
         inter(g, f, inter(sous), cx, 46, 8, alpha(0xD2C2B59A, ui), 1);
-        PersoUi.chip(g, f, 24, 14, PersoSons.TITRES[scene.village()], false, PersoSons.joue(), false, false, ui);
         g.pose().popMatrix();
         cartouche(g, f, 24, 440 + B, roles.get(focus), ui);
         Role fr = roles.get(focus);
@@ -403,7 +416,6 @@ public final class PersoSelectionScreen extends Screen implements MenuScale.Plan
     private List<int[]> zones() {
         List<int[]> z = new ArrayList<>();
         z.add(new int[]{cx - 170, 0, cx + 170, 60 + T});
-        z.add(new int[]{0, 0, 200, 34 + T});
         z.add(new int[]{cx - 180, 186 + B, cx + 180, 470 + B});
         z.add(new int[]{cx + 180, 214 + B, cx + 310, 404 + B});
         z.add(new int[]{cx + 336, 226 + B, cx + 436, 370 + B});

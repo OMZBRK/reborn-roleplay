@@ -27,7 +27,7 @@ import java.util.List;
  * <p>Clavier : K / Échap ferment, Tab / Maj+Tab changent d'onglet, ← → tournent le personnage. Attributs : clic +1,
  * clic droit −1, Maj tout, 1-6, Entrée valide. Techniques : molette, ↑ ↓.
  */
-public class FicheScreen extends Screen {
+public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
 
     public static final int IDENTITE = 0, ATTRIBUTS = 1, TECHNIQUES = 2, ETAT = 3;
     private static int dernierOnglet = IDENTITE;
@@ -119,6 +119,10 @@ public class FicheScreen extends Screen {
         StatsSounds.stopAmbience();
         super.removed();
     }
+
+    /** Le décor de la scène couvre l'écran (sauf variante « jeu voilé ») : le monde n'est pas rendu derrière. */
+    @Override
+    public boolean couvreEcran() { return !fondJeu && lay != null; }
 
     @Override
     public boolean isPauseScreen() {

@@ -10,8 +10,11 @@ import net.minecraft.resources.Identifier;
  * Textures du menu Échap « Tokonoma » ({@code textures/gui/echap/*}, générées par
  * {@code tools/gen_echap_textures.py} : tailles et ancres = contrat en tête du générateur) et texte de la scène.
  *
- * <p>La scène fait 640×360 unités, affichée à {@code k} pixels écran par unité (entier : 3 en 1080p, 2 en 1366×768,
- * 4 en 1440p) via {@link DaKit#unites}. Le texte suit la typographie de la fiche, ramenée à la scène : ArcadePix au
+ * <p>La scène fait 640×360 unités, affichée à {@code k} pixels écran par unité via {@link DaKit#unites} : k est le
+ * plus grand entier pour lequel la zone utile {@value #SAFE_W}×{@value #SAFE_H} tient dans la fenêtre (3 en 1080p,
+ * fenêtrée ou non, 4 en 1440p, 2 en 1366×768). Le bord de la scène peut donc être un peu rogné, et la pièce se
+ * prolonge tout autour ({@code piece.png} 864×528, scène en ({@value #PIECE_MX}, {@value #PIECE_MY})) : l'écran est
+ * toujours rempli, sans bande vide, quel que soit son format. Le texte suit la typographie de la fiche, ramenée à la scène : ArcadePix au
  * pixel écran (petit, moyen = taille ×1 de la fiche, grand), Inter proportionnel (Inter 9 de la fiche = 18 px en
  * 1080p).
  */
@@ -27,6 +30,10 @@ final class EchapArt {
         FUSUMA_L = tex("fusuma_l"), FUSUMA_R = tex("fusuma_r");
 
     static final int VW = 640, VH = 360;
+    /** Zone utile (tout le contenu) : le reste de la scène est du décor qui peut sortir de l'écran. */
+    static final int SAFE_W = 600, SAFE_H = 332;
+    /** piece.png : la pièce prolongée, scène posée en (PIECE_MX, PIECE_MY). */
+    static final int PIECE_W = 864, PIECE_H = 528, PIECE_MX = 112, PIECE_MY = 84;
 
     /* ---- couleurs (fiche) ---- */
     static final int CREME = DaKit.CREME, CREME_DOUX = 0xFFD8CCB0, OR = DaKit.OR, OR_CLAIR = DaKit.OR_CLAIR,

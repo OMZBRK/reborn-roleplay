@@ -2,6 +2,8 @@ package fr.reborn.hud.parchemin;
 
 import com.google.gson.JsonObject;
 import fr.reborn.hud.ui.DaKit;
+import fr.reborn.hud.ui.LotBlit;
+import fr.reborn.hud.ui.LotGui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -185,11 +187,13 @@ public final class ConcentrationHud {
         trail[trailN % trail.length] = bx;
         trailN++;
         int n = Math.min(trailN, trail.length);
+        LotGui l = LotGui.ouvrir(g);                       // traînée : un seul élément GUI
         for (int i = 1; i < n; i++) {
             int tx = (int) trail[(trailN - 1 - i) % trail.length];
-            g.fill(tx - k / 2, cy - k / 2, tx + Math.max(1, k / 2) + 1, cy + Math.max(1, k / 2) + 1,
+            l.fill(tx - k / 2, cy - k / 2, tx + Math.max(1, k / 2) + 1, cy + Math.max(1, k / 2) + 1,
                 DaKit.argb(col, alpha * Math.max(0f, 0.45f - i * 0.06f)));
         }
+        l.fermer();
         int C = 11 * k;
         float glow = (float) (0.85 + 0.15 * Math.sin(now / 160.0));
         DaKit.blit(g, tex("perle", k), bx - C / 2, cy - C / 2, in ? 0 : C, 0, C, C, 2 * C, C, DaKit.blanc(alpha * glow));
@@ -200,9 +204,13 @@ public final class ConcentrationHud {
         int n = 10, pas = 4 * k, w = 3 * k, left = cx - ((n - 1) * pas) / 2 - w / 2;
         int on = (int) Math.ceil(Math.max(0, stab) * n);
         int cell = stab > 0.3 ? 0 : 1;
+        int bl = DaKit.blanc(alpha);
+        if ((bl >>> 24) == 0) return;
+        LotBlit l = LotBlit.ouvrir(g, tex("goutte", k), 3 * w, 4 * k);   // les dix gouttes : un seul élément GUI
         for (int i = 0; i < n; i++) {
             int c = i < on ? cell : 2;
-            DaKit.blit(g, tex("goutte", k), left + i * pas, y, c * w, 0, w, 4 * k, 3 * w, 4 * k, DaKit.blanc(alpha));
+            l.blit(left + i * pas, y, c * w, 0, w, 4 * k, bl);
         }
+        l.fermer();
     }
 }

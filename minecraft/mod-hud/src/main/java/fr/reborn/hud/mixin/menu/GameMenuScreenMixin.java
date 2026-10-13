@@ -22,7 +22,7 @@ import java.util.List;
  * on les retire tous au RETURN, puis on annule le render vanilla.
  */
 @Mixin(PauseScreen.class) // 26.1 : GameMenuScreen → PauseScreen
-public abstract class GameMenuScreenMixin extends Screen {
+public abstract class GameMenuScreenMixin extends Screen implements fr.reborn.hud.ui.EcranOpaque {
 
     @Unique private EscTokonoma reborn$ui;
 
@@ -37,6 +37,18 @@ public abstract class GameMenuScreenMixin extends Screen {
         if (reborn$ui == null) reborn$ui = new EscTokonoma(this);
         reborn$ui.init();
     }
+
+    /** La pièce couvre tout l'écran : ni flou ni fond vanilla (le flou plein écran coûtait plusieurs ms par image). */
+    @Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
+    private void reborn$noBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        if (reborn$ui == null) return;
+        net.minecraft.client.Minecraft.getInstance().gui.hud.extractDeferredSubtitles();
+        ci.cancel();
+    }
+
+    /** Le monde n'est pas rendu derrière la pièce (voir {@link fr.reborn.hud.ui.EcranOpaque}). */
+    @Override
+    public boolean couvreEcran() { return reborn$ui != null; }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
     private void reborn$render(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {

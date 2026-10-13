@@ -244,12 +244,14 @@ public final class VolonteHud {
         int n = Math.max(48, Math.round(r * 2f * (float) Math.PI * 1.5f));
         int tk = Math.max(1, Math.round(thick));
         java.util.Set<Long> seen = new java.util.HashSet<>();
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(g);   // des centaines de carrés = 1 élément GUI
         for (int i = 0; i < n; i++) {
             double ang = i * Math.PI * 2 / n;
             int x = Math.round(cx + (float) Math.cos(ang) * r - tk / 2f);
             int y = Math.round(cy + (float) Math.sin(ang) * r - tk / 2f);
-            if (seen.add(((long) x << 32) ^ (y & 0xFFFFFFFFL))) g.fill(x, y, x + tk, y + tk, col);
+            if (seen.add(((long) x << 32) ^ (y & 0xFFFFFFFFL))) lot.fill(x, y, x + tk, y + tk, col);
         }
+        lot.fermer();
     }
 
     private static int a(int argb, float f) {

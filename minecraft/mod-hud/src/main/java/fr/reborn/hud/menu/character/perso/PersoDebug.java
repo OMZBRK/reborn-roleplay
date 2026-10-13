@@ -24,24 +24,46 @@ public final class PersoDebug {
 
     private record Shot(String nom, int etape, int village, int echelle, int fw, int fh) {}
 
-    private static final int STEP = 44;
+    private static final int STEP = 44, STEP_PERF = 160;
     private static final List<Shot> SHOTS = new ArrayList<>();
     private static int t = -1;
+    private static boolean perf;
+    private static final StringBuilder RAPPORT = new StringBuilder();
+    private static long somFps, nbFps;
 
     public static void init() {
         String v = System.getenv("REBORN_PERSO_DEBUG");
         if (v == null || v.isBlank()) return;
         boolean vite = "vite".equalsIgnoreCase(v.trim());
+        perf = "perf".equalsIgnoreCase(v.trim());
+        if (perf) {
+            // Banc de performance : monde seul, sélection, puis chaque étape de la création, 8 s chacune.
+            PersoPerf.actif = true;
+            SHOTS.add(new Shot("monde", -9, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("ecran_vide_opaque", -8, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("selection", -1, 0, 2, 1920, 1080));
+            String[] et = {"village", "clan", "sexe", "nom", "age", "taille", "apparence", "recap"};
+            for (int i = 0; i < 8; i++) SHOTS.add(new Shot("creation_" + et[i], i, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("monde_fin", -9, 0, 2, 1920, 1080));
+            ClientTickEvents.END_CLIENT_TICK.register(PersoDebug::tick);
+            return;
+        }
         String[] noms = {"02_creation_village", "03_creation_clan", "04_creation_sexe", "05_creation_nom",
             "06_creation_age", "07_creation_taille", "08_creation_apparence", "09_creation_recapitulatif"};
         SHOTS.add(new Shot("perso_01_selection", -1, 0, 2, 1920, 1080));
         SHOTS.add(new Shot("perso_01b_selection_aya", -2, 0, 2, 1920, 1080));
         SHOTS.add(new Shot("perso_00_intro", -3, 0, 2, 1920, 1080));
         for (int i = 0; i < 8; i++) SHOTS.add(new Shot("perso_" + noms[i], i, 0, 2, 1920, 1080));
+        SHOTS.add(new Shot("perso_08b_creation_couleur_libre", 16, 0, 2, 1920, 1080));
+        SHOTS.add(new Shot("perso_08c_creation_accessoire", 26, 0, 2, 1920, 1080));
+        SHOTS.add(new Shot("perso_09b_recap_accessoire", 27, 0, 2, 1920, 1080));
+        SHOTS.add(new Shot("perso_01c_selection_glisse", -4, 0, 2, 1920, 1080));
         SHOTS.add(new Shot("perso_02b_creation_village_suna", 0, 1, 2, 1920, 1080));
+        SHOTS.add(new Shot("perso_03c_clan_suna", 1, 1, 2, 1920, 1080));
         for (String vv : new String[]{"kiri", "kumo", "iwa", "ame"}) {
             int vi = java.util.Arrays.asList(PersoArt.VILLAGES).indexOf(vv);
             SHOTS.add(new Shot("perso_02c_village_" + vv, 0, vi, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_03c_clan_" + vv, 1, vi, 2, 1920, 1080));
         }
         if (!vite) {
             for (int s : new int[]{3, 4}) {
@@ -50,10 +72,10 @@ public final class PersoDebug {
             }
             SHOTS.add(new Shot("perso_1366_01_selection", -1, 0, 2, 1366, 768));
             SHOTS.add(new Shot("perso_1366_03_clan", 1, 0, 2, 1366, 768));
-            SHOTS.add(new Shot("perso_1366_08_apparence", 6, 0, 2, 1366, 768));
+            SHOTS.add(new Shot("perso_1366_08_apparence", 26, 0, 2, 1366, 768));
             SHOTS.add(new Shot("perso_1366_09_recap", 7, 0, 2, 1366, 768));
             SHOTS.add(new Shot("perso_1706_03_clan", 1, 0, 2, 1706, 960));
-            SHOTS.add(new Shot("perso_1706_08_apparence", 6, 0, 2, 1706, 960));
+            SHOTS.add(new Shot("perso_1706_08_apparence", 26, 0, 2, 1706, 960));
         }
         ClientTickEvents.END_CLIENT_TICK.register(PersoDebug::tick);
     }
@@ -68,13 +90,35 @@ public final class PersoDebug {
             roster();
         }
         if (t < 50) return;
-        int i = (t - 50) / STEP, k = (t - 50) % STEP;
+        int pas = perf ? STEP_PERF : STEP;
+        int i = (t - 50) / pas, k = (t - 50) % pas;
         if (i >= SHOTS.size()) {
             if (k == 2) mc.setScreenAndShow(null);
+            if (k == 4 && perf) ecrireRapport(mc);
             if (k == 6) mc.stop();
             return;
         }
         Shot s = SHOTS.get(i);
+        if (perf) {
+            mc.getFramerateLimitTracker().onInputReceived();
+            if (k == 0) {
+                mc.options.enableVsync().set(false);
+                mc.options.framerateLimit().set(260);
+                mc.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
+            }
+            if (k == 50) { PersoPerf.reset(); somFps = nbFps = 0; }
+            if (k > 50 && k % 10 == 0) { somFps += mc.getFps(); nbFps++; }
+            if (k == pas - 2) {
+                String l = String.format(java.util.Locale.ROOT, "%-20s getFps=%d %s", s.nom(),
+                    nbFps == 0 ? 0 : somFps / nbFps, s.etape() == -9 ? "" : PersoPerf.bilan());
+                RAPPORT.append(l).append("\n");
+                org.slf4j.LoggerFactory.getLogger("reborn-perso-perf").info(l);
+            }
+            if (s.etape() == -9) {
+                if (k == 0) mc.setScreenAndShow(null);
+                return;
+            }
+        }
         if (k == 0) {
             mc.setScreenAndShow(null);
             if (mc.getWindow().getScreenWidth() != s.fw() || mc.getWindow().getScreenHeight() != s.fh()) {
@@ -83,8 +127,12 @@ public final class PersoDebug {
             mc.options.guiScale().set(s.echelle());
             mc.resizeGui();
         }
+        if (k == 3 && s.etape() == -8) {
+            mc.setScreenAndShow(new Vide());
+            return;
+        }
         if (k == 3) {
-            if (s.etape() < 0 && s.etape() > -3) {
+            if (s.etape() < 0 && s.etape() > -3 || s.etape() == -4) {
                 PersoSelectionScreen sc = PersoSelectionScreen.fromRoster(mc);
                 mc.setScreenAndShow(sc);
                 if (s.etape() == -2) sc.setFocus(1);
@@ -94,12 +142,36 @@ public final class PersoDebug {
                 if (s.etape() >= 0) {
                     PersoSons.voixCoupee = true;
                     sc.debugEtat(s.village(), s.village() == 0 ? 2 : 0, 0, "Ren Hyūga", 16, 172, 4, 0, 1, 2, 0);
-                    sc.debugEtape(s.etape());
-                    PersoSons.voixCoupee = false;
+                    sc.debugEtape(s.etape() % 10);
+                    if (s.etape() == 16) sc.debugCouleurLibre(0x2E8A9A);
+                    if (s.etape() / 10 == 2) sc.debugAccessoire();
+                    PersoSons.voixCoupee = !PersoSons.VOIX;
                 }
             }
         }
-        if (k == STEP - 3) Screenshot.grab(mc.gameDirectory, s.nom() + ".png", mc.gameRenderer.mainRenderTarget(), 1, m -> { });
+        if (k == pas - 8 && s.etape() == -4 && mc.gui.screen() instanceof PersoSelectionScreen sel) sel.setFocus(1);
+        if (k == pas - 3 && !perf) Screenshot.grab(mc.gameDirectory, s.nom() + ".png", mc.gameRenderer.mainRenderTarget(), 1, m -> { });
+    }
+
+    /** Écran opaque vide (plancher de coût d'une image sans monde, banc de perf). */
+    private static final class Vide extends net.minecraft.client.gui.screens.Screen implements fr.reborn.hud.ui.EcranOpaque {
+        Vide() { super(net.minecraft.network.chat.Component.literal("vide")); }
+
+        @Override
+        public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float dt) { }
+
+        @Override
+        public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float dt) {
+            PersoPerf.debut();
+            g.fill(0, 0, width, height, 0xFF000000);
+            PersoPerf.fin(g);
+        }
+    }
+
+    private static void ecrireRapport(Minecraft mc) {
+        try {
+            java.nio.file.Files.writeString(mc.gameDirectory.toPath().resolve("perso_perf.txt"), RAPPORT.toString());
+        } catch (java.io.IOException ignored) { }
     }
 
     private static String look(boolean female, int skin, String hair, int hairColor, int eye, String outfit) {

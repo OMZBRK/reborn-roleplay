@@ -48,22 +48,38 @@ Maquettes validées : `Maquettes/personnage/01_selection … 09_creation_recapit
 `-Dreborn.classicCharacterScreens=true`.
 
 - **Décor** : textures fixes par village (Konoha, Suna, Kiri, Kumo, Iwa, Ame) — ciel étoilé pleine largeur, lune,
-  montagnes, silhouette du village à sa couleur, brume, étang (reflets, colonne de lune, rides), roseaux ; fondu
-  quand le village change. Aucun monde du jeu. Au-delà de 1 280 × 540 GUI : copies en miroir (aucune couture).
-- **Animé** (sprites légers) : ~40 lucioles sur trois profondeurs (dérive, scintillement, reflets, traînées),
-  braises de chakra à la couleur du village, onde de la voix, égaliseur de la musique.
+  montagnes lointaines, brume, étang (reflets, colonne de lune, rides), roseaux, pierres ; **plus de silhouette de
+  village** (retirée le 2026-10-13) : le village ne change que les teintes (ciel, eau, brume, braises, roseaux) ;
+  fondu quand le village change. Au-delà de 1 280 × 540 GUI : copies en miroir (aucune couture).
+- **Le monde n'est pas rendu** derrière ces écrans (opaques, `EcranOpaque`) : c'était l'essentiel du coût.
+- **Animé** (un blit par effet, atlas `PersoSprites` construit une fois) : ~40 lucioles sur trois profondeurs
+  (dérive, scintillement, reflets, traînées), braises de chakra à la couleur du village.
 - **Personnage principal** : le joueur LOCAL à qui l'on prête la texture composée (jamais d'entité factice),
   8 GUI/texel en sélection (≈ 47 % de la hauteur), 7,5 en création. **Personnages secondaires** (voisins, vignettes
-  de tenues et de coiffures, vues du dossier, reflets) : « poupée » 2D (`PersoPoupee`, blits affines de la texture
-  de skin) — le renderer d'entité en interface n'a qu'une texture par image.
+  de tenues et de coiffures, vues du dossier, reflets) : « poupée » (`PersoPoupee`) **rendue une fois** en logiciel à
+  la résolution de l'écran (z-buffer, seconde couche, mêmes lumières que le rendu d'entité en interface) dans une
+  texture dynamique, puis affichée en un blit ; recalculée seulement si le skin, l'angle ou l'échelle change
+  (cache `PersoSkins.poupee`). Vignettes : une composition de skin par apparence, pas par image.
+- **Emblèmes** (villages, clans, kamon du dais) : construits au lancement depuis `gui/esc/village_*.png` et
+  `gui/clans/clan_*.png` (`PersoEmblemes`) — plus aucun emblème cuit dans les textures générées (d'anciens logos
+  s'affichaient après la mise à jour des blasons).
+- **Couleur libre** (cheveux, yeux) : pastille « pipette » après la palette du clan → sélecteur laque/or (carré
+  saturation × luminosité, barre de teinte, aperçu nouvelle/avant, code hex au clavier), aperçu immédiat sur le
+  personnage. Le serveur stocke l'apparence telle quelle (`ShinobiCharacter.appearance`) : aucune validation de
+  couleur à adapter.
+- **Banc** : `REBORN_PERSO_DEBUG=1|vite` (captures), `REBORN_PERSO_DEBUG=perf` (FPS, temps d'extraction, nombre
+  d'éléments GUI par écran → `run/perso_perf.txt`).
 - **Création** : fil de 8 sceaux, registre qui se remplit, emblèmes de clan (`gui/clans/clan_<slug>.png`) dans la
   grille, gravés sur le dais, dans le registre et le dossier ; taille ADULTE au cm (153–207, pas de 1 cm), taille
   actuelle selon l'âge, toise ; apparence en vignettes directes (peau, coiffures en têtes, palette de couleurs et
   d'yeux **par clan**, tenues en corps entiers, carrure, « au hasard »), plus aucune flèche ; nom 3 à 20 lettres
   (espaces, apostrophe), « Nom libre » ; plaque de nom au-dessus de la tête.
-- **Sons** : voix off `reborn:voix.creation_<étape>` (catégorie Voix) à chaque étape, question allumée au rythme de la
-  voix, coupable d'un clic ; musique : piste « apaisant » de l'OST (`reborn-ost`, par réflexion) sinon
-  `reborn:esc.ambience` en boucle (catégorie Musique), titre par village (« Nuit sur la Feuille »…).
+- **Sons** (2026-10-13) : **pas de musique**, des **ambiances** de nuit au bord de l'étang faites de sons vanilla en
+  petites touches aléatoires (catégorie Ambiance, `PersoSons`) : clapotis (`block.water.ambient`), insectes
+  (`block.firefly_bush.idle`), vent (`block.dry_grass.ambient`), grenouilles (`entity.frog.ambient`) ; sable à Suna,
+  pluie à Ame, orage lointain à Kumo. Plus d'indicateur de piste. **Voix off désactivée** (et son indicateur retiré) :
+  le mécanisme `reborn:voix.creation_<étape>` reste, réactivable par `-Dreborn.persoVoix=true` pour un vrai
+  enregistrement.
 - **Taille envoyée** : `size` à 4 décimales (`cm / 180`), le serveur lit un double.
 - **Échelle** : ces écrans exigent 840 × 470 GUI (`MenuScale.Plancher`) : en 1366 × 768 ils passent à l'échelle 1
   (mise en page complète, plus petite) au lieu d'un mode compact.

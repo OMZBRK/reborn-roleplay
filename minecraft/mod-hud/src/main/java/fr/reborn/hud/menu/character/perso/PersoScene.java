@@ -1,5 +1,6 @@
 package fr.reborn.hud.menu.character.perso;
 
+import fr.reborn.hud.ui.LotBlit;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 
@@ -125,9 +126,14 @@ final class PersoScene {
         int col = mix(clanRgb, 0xFFFFFF, 0.30f);
         int yc = pieds + 8;
         halo(g, cx, yc + 4, 50, 0.26f, desat(clanRgb, 0.8f), 0.14f * a, 2);
-        blit(g, KAMON_SOL, cx - 58, yc - 15, 0, 0, 116, 30, 416, 78, argb(col, a));
+        int kh = PersoEmblemes.kamonH();
+        int c = argb(col, a);
+        if ((c >>> 24) == 0) return;
+        LotBlit l = LotBlit.ouvrir(g, PersoEmblemes.kamon(), 416, kh);
+        l.blit(cx - 58, yc - 15, 0, 0, 116, 30, c);
         int i = clanIndex(slug);
-        blit(g, KAMON_SOL, cx - 26, yc + 5 - 8, (i % 8) * 52, 30 + (i / 8) * 16, 52, 16, 416, 78, argb(col, a));
+        l.blit(cx - 26, yc + 5 - 8, (i % 8) * 52, 30 + (i / 8) * 16, 52, 16, c);
+        l.fermer();
     }
 
     static void brumeAvant(GuiGraphicsExtractor g, int cx, int y) {
@@ -188,58 +194,48 @@ final class PersoScene {
         return new float[]{x, y};
     }
 
-    /** Lucioles lointaines et moyennes (derrière le personnage). */
+    /** Lucioles lointaines et moyennes (derrière le personnage) : un blit de l'atlas par luciole (+ reflet). */
     void luciolesFond(GuiGraphicsExtractor g, int h, float alpha) {
         float t = (System.currentTimeMillis() % 3_600_000L) / 1000f;
         int hor = Y_HOR + oyFond(h);
+        LotBlit lot = PersoSprites.lot(g);                  // toutes les lucioles du fond : un seul élément GUI
         for (Luciole l : lucioles) {
             if (l.prof() == 2) continue;
             float[] p = position(l, t);
             int X = Math.round(p[0]), Y = Math.round(p[1]);
             float a = (0.55f + 0.45f * (float) Math.sin(t * l.w3() + l.ph())) * alpha;
             if (l.prof() == 0) {
-                g.fill(X, Y, X + 1, Y + 1, argb(LUCIOLE, a * 0.6f));
+                PersoSprites.point(lot, X, Y, a * 0.6f);
                 continue;
             }
-            halo(g, X + 0.5f, Y + 0.5f, 9, 1f, LUCIOLE, 0.13f * a, 3);
-            g.fill(X, Y, X + 1, Y + 1, argb(LUCIOLE_COEUR, a));
-            int c = argb(LUCIOLE, a * 0.4f);
-            g.fill(X - 1, Y, X, Y + 1, c);
-            g.fill(X + 1, Y, X + 2, Y + 1, c);
-            g.fill(X, Y - 1, X + 1, Y, c);
-            g.fill(X, Y + 1, X + 1, Y + 2, c);
+            PersoSprites.lucioleMoyenne(lot, X, Y, a);
             if (Y < hor + 120 && Y > hor - 60) {
                 int ys = Y < hor ? Math.round(hor + (hor - Y) * 0.15f + 12) : Y + 14;
                 int dx = Math.round((float) Math.sin(t * 2.1f + l.ph()));
-                for (int j = 0; j < 3; j++) g.fill(X + dx, ys + j * 2, X + dx + 1, ys + j * 2 + 1, argb(LUCIOLE, (0.22f - j * 0.06f) * a));
+                PersoSprites.reflet(lot, X + dx, ys, a);
             }
         }
+        lot.fermer();
     }
 
     /** Lucioles proches (devant le personnage), avec traînées de vol. */
     void luciolesDevant(GuiGraphicsExtractor g, float alpha) {
         float t = (System.currentTimeMillis() % 3_600_000L) / 1000f;
+        LotBlit lot = PersoSprites.lot(g);                  // lucioles proches et traînées : un seul élément GUI
         for (Luciole l : lucioles) {
             if (l.prof() != 2) continue;
             float[] p = position(l, t);
             int X = Math.round(p[0]), Y = Math.round(p[1]);
             float a = (0.7f + 0.3f * (float) Math.sin(t * l.w3() + l.ph())) * alpha;
-            halo(g, X + 1, Y + 1, 18, 1f, LUCIOLE, 0.15f * a, 3);
-            halo(g, X + 1, Y + 1, 6, 1f, 0xFFF8C0, 0.16f * a, 2);
-            g.fill(X, Y, X + 2, Y + 2, argb(LUCIOLE_COEUR, a));
-            int c = argb(LUCIOLE, 0.55f * a);
-            g.fill(X - 1, Y, X, Y + 1, c);
-            g.fill(X + 2, Y, X + 3, Y + 1, c);
-            g.fill(X, Y - 1, X + 2, Y, c);
-            g.fill(X, Y + 2, X + 2, Y + 3, c);
+            PersoSprites.lucioleProche(lot, X, Y, a);
             if (l.trainee()) {
-                for (int s = 1; s <= 5; s++) {
-                    float[] q = position(l, t - s * 0.09f);
-                    g.fill(Math.round(q[0]), Math.round(q[1]), Math.round(q[0]) + 1, Math.round(q[1]) + 1,
-                        argb(LUCIOLE, (0.45f - s * 0.075f) * a));
+                for (int s = 1; s <= 4; s++) {
+                    float[] q = position(l, t - s * 0.11f);
+                    PersoSprites.point(lot, Math.round(q[0]), Math.round(q[1]), (0.45f - s * 0.09f) * a);
                 }
             }
         }
+        lot.fermer();
     }
 
     /* ================================================================ braises */
@@ -252,7 +248,7 @@ final class PersoScene {
                         boolean devant, int seed, float alpha) {
         float t = (System.currentTimeMillis() % 3_600_000L) / 1000f;
         Random rs = new Random(seed * 7919L + 13);
-        int pale = mix(rgb, 0xFFEEC8, 0.6f), coeur = mix(rgb, 0xFFEEC8, 0.3f);
+        LotBlit lot = PersoSprites.lot(g);                  // toutes les braises de l'anneau : un seul élément GUI
         for (int k = 0; k < n; k++) {
             float ang = rs.nextFloat() * 6.2832f, rr = 0.75f + rs.nextFloat() * 0.4f;
             float per = 2.2f + rs.nextFloat() * 1.8f, ph = rs.nextFloat();
@@ -276,19 +272,9 @@ final class PersoScene {
             if (av != devant) continue;
             a *= alpha;
             if (a <= 0.02f) continue;
-            int X = Math.round(x), Y = Math.round(y);
-            g.fill(X, Y, X + 1, Y + 1, argb(gros ? pale : coeur, a));
-            if (gros) {
-                int c = argb(rgb, a * 0.42f);
-                g.fill(X - 1, Y, X, Y + 1, c);
-                g.fill(X + 1, Y, X + 2, Y + 1, c);
-                g.fill(X, Y - 1, X + 1, Y, c);
-                g.fill(X, Y + 1, X + 1, Y + 2, c);
-            }
-            if (k >= (int) (n * 0.7f)) {
-                g.fill(X, Y + 2, X + 1, Y + 3, argb(rgb, a * 0.45f));
-                g.fill(X, Y + 4, X + 1, Y + 5, argb(rgb, a * 0.2f));
-            }
+            boolean montante = k >= (int) (n * 0.7f);
+            PersoSprites.braise(lot, rgb, (gros ? 1 : 0) + (montante ? 2 : 0), Math.round(x), Math.round(y), a);
         }
+        lot.fermer();
     }
 }

@@ -10,6 +10,8 @@ import fr.reborn.hud.mixin.HudAccessor;
 import fr.reborn.hud.skin.CharacterCatalog;
 import fr.reborn.hud.skin.RebornSkins;
 import fr.reborn.hud.skin.SkinSpec;
+import fr.reborn.hud.ui.EcranOpaque;
+import fr.reborn.hud.ui.LotGui;
 import fr.reborn.hud.ui.MenuScale;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -39,7 +41,7 @@ import static fr.reborn.hud.menu.character.perso.PersoArt.*;
  * <p>Ouverture : la scène, les trois murmures et leur voix off, « appuie sur une touche ». Chaque étape joue sa voix
  * ; la question s'allume au rythme de la parole.
  */
-public final class PersoCreationScreen extends Screen implements MenuScale.Plancher {
+public final class PersoCreationScreen extends Screen implements MenuScale.Plancher, EcranOpaque {
 
     static final int S_VILLAGE = 0, S_CLAN = 1, S_SEXE = 2, S_NOM = 3, S_AGE = 4, S_TAILLE = 5, S_LOOK = 6,
         S_RECAP = 7, STEPS = 8;
@@ -48,7 +50,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         "Est-ce bien toi ?"};
     private static final String[] PAYS = {"Pays du Feu", "Pays du Vent", "Pays de l'Eau", "Pays de la Foudre",
         "Pays de la Terre", "Pays de la Pluie"};
-    private static final int A_SUIVANT = -1, A_RETOUR = -2, A_VOIX = -4, A_HASARD = -5, A_MOINS = -6, A_PLUS = -7;
+    private static final int A_SUIVANT = -1, A_RETOUR = -2, A_VOIX = -4, A_HASARD = -5, A_MOINS = -6, A_PLUS = -7,
+        A_LIBRE_CHEVEUX = -8, A_LIBRE_YEUX = -9;
 
     /* ------------------------------------------------------------- état */
     private int step;
@@ -59,7 +62,10 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     private final SkinSpec look = new SkinSpec();
     private int skinIdx = 4, hairIdx, hairColorIdx = 1, eyeIdx, outfitIdx;
     private boolean maleSlim;
-    private int hairScroll, outfitScroll;
+    private int hairScroll, outfitScroll, accScroll;
+    /** Rangées de tenues affichées (dépend de la hauteur et de la rangée Accessoire), zone de la rangée Accessoire. */
+    private int rangeesTenues = 3;
+    private int[] zoneAcc = new int[4];
     private int vue;
     private float lacet = 26f, lacetCible = 26f;
     private long openedAt, introAt, stepAt, leaveAt = -1, questionsAt, errorAt;
@@ -71,6 +77,15 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     private final PersoScene scene = new PersoScene();
     private final PersoSkins skins = new PersoSkins("c");
+    /** Aperçus : texture du personnage (recomposée au plus toutes les 60 ms pendant un réglage continu) et
+     *  variantes des vignettes (recomposées seulement quand l'apparence change, jamais à chaque image). */
+    private Identifier figureTex;
+    private String figureCle = "", lookCle = "";
+    private long figureAt;
+    private final java.util.Map<String, Identifier> variantes = new java.util.HashMap<>();
+    /** Couleur libre (pipette) : sélecteur ouvert, couleurs libres choisies (-1 = aucune). */
+    private PersoCouleur picker;
+    private int hairLibreC = -1, eyeLibreC = -1;
     private final List<int[]> hits = new ArrayList<>();
     private int[] regle;            // {x, w, vmin, vmax} de la réglette visible
     private int[] zoneFigure = new int[4];
@@ -229,10 +244,39 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     private void appliquerPalette() {
         Palette p = pal();
+        if (hairColorIdx < 0 && hairLibreC < 0) hairColorIdx = 0;
+        if (eyeIdx < 0 && eyeLibreC < 0) eyeIdx = 0;
         hairColorIdx = Math.min(hairColorIdx, p.cheveux().length - 1);
         eyeIdx = Math.min(eyeIdx, p.yeux().length - 1);
-        look.hairColor = 0xFF000000 | p.cheveux()[hairColorIdx];
-        look.eyeColor = look.eyeColorRight = 0xFF000000 | p.yeux()[eyeIdx];
+        look.hairColor = 0xFF000000 | (hairColorIdx < 0 ? hairLibreC : p.cheveux()[hairColorIdx]);
+        look.eyeColor = look.eyeColorRight = 0xFF000000 | (eyeIdx < 0 ? eyeLibreC : p.yeux()[eyeIdx]);
+    }
+
+    private boolean glisseCouleur() { return picker != null; }
+
+    /** Ouvre le sélecteur de couleur libre (0 cheveux, 1 yeux) sur la couleur actuelle. */
+    private void ouvrirLibre(int cible) {
+        SceneSounds.tick();
+        if (cible == 0) {
+            picker = new PersoCouleur("COULEUR LIBRE - CHEVEUX", look.hairColor, rgb -> {
+                hairLibreC = rgb & 0xFFFFFF;
+                hairColorIdx = -1;
+                appliquerPalette();
+            });
+        } else {
+            picker = new PersoCouleur("COULEUR LIBRE - YEUX", look.eyeColor, rgb -> {
+                eyeLibreC = rgb & 0xFFFFFF;
+                eyeIdx = -1;
+                appliquerPalette();
+            });
+        }
+    }
+
+    private void fermerLibre(boolean garder) {
+        if (picker == null) return;
+        if (!garder) picker.annuler();
+        picker = null;
+        SceneSounds.tick();
     }
 
     static String affiche(String clan) {
@@ -251,6 +295,19 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         List<CharacterCatalog.Asset> h = hairs(), o = outfits();
         look.hairId = h.isEmpty() ? "" : h.get(Math.min(hairIdx, h.size() - 1)).id;
         look.outfitId = o.isEmpty() ? "" : o.get(Math.min(outfitIdx, o.size() - 1)).id;
+        // accessoire : retiré s'il n'est plus proposé (changement de sexe ou de clan)
+        if (look.accessoryId != null && !look.accessoryId.isBlank()
+            && accessoires().stream().noneMatch(a -> a.id.equals(look.accessoryId))) look.accessoryId = "";
+    }
+
+    /** Accessoires du catalogue proposés à ce perso (lus à chaque fois : un ajout serveur apparaît tout de suite). */
+    private List<CharacterCatalog.Asset> accessoires() { return available("accessory", look.female); }
+
+    /** Accessoire porté (null = aucun). */
+    private CharacterCatalog.Asset accessoire() {
+        if (look.accessoryId == null || look.accessoryId.isBlank()) return null;
+        for (CharacterCatalog.Asset a : accessoires()) if (a.id.equals(look.accessoryId)) return a;
+        return null;
     }
 
     private List<CharacterCatalog.Asset> hairs() { return available("hair", look.female); }
@@ -272,7 +329,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             ((HudAccessor) (Object) mc.gui.hud).reborn$setHidden(true);
             openedAt = introAt = System.currentTimeMillis();
             stepAt = questionsAt = Long.MAX_VALUE / 4;
-            PersoSons.musique(village);
+            PersoSons.ambiance(village);
             PersoSons.voixIntro();
         }
     }
@@ -282,7 +339,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         Minecraft mc = Minecraft.getInstance();
         skins.liberer();
         PersoSons.couperVoix();
-        if (!(mc.gui.screen() instanceof PersoSelectionScreen)) PersoSons.arreterMusique();
+        if (!(mc.gui.screen() instanceof PersoSelectionScreen)) PersoSons.arreter();
         ((HudAccessor) (Object) mc.gui.hud).reborn$setHidden(prevHidden);
         super.removed();
     }
@@ -294,6 +351,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     /* ------------------------------------------------------------- étapes */
 
     public void setStep(int s) {
+        picker = null;
         step = Math.max(0, Math.min(STEPS - 1, s));
         stepAt = System.currentTimeMillis();
         error = "";
@@ -340,7 +398,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             appliquerPalette();
             applyLists();
             scene.setVillage(v);
-            PersoSons.musique(v);
+            PersoSons.ambiance(v);
             SceneSounds.tick();
         }
     }
@@ -389,6 +447,10 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         Palette p = pal();
         hairColorIdx = r.nextInt(p.cheveux().length);
         eyeIdx = r.nextInt(p.yeux().length);
+        // accessoire : une chance sur deux de n'en porter aucun
+        List<CharacterCatalog.Asset> al = accessoires();
+        look.accessoryId = al.isEmpty() || r.nextInt(2) == 0 ? "" : al.get(r.nextInt(al.size())).id;
+        picker = null;
         if (!look.female) { maleSlim = r.nextBoolean(); look.slim = maleSlim; }
         appliquerPalette();
         applyLists();
@@ -411,6 +473,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     @Override
     public void tick() {
+        PersoSons.tick();
         if (leaveAt >= 0 && System.currentTimeMillis() - leaveAt > 2600) onClose();
     }
 
@@ -421,6 +484,12 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         int k = e.key();
         if (leaveAt >= 0) return true;
         if (intro < 2) { if (System.currentTimeMillis() - introAt > 700) beginScene(); return true; }
+        if (picker != null) {
+            if (k == GLFW.GLFW_KEY_ESCAPE) fermerLibre(false);
+            else if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) fermerLibre(true);
+            else if (k == GLFW.GLFW_KEY_BACKSPACE) picker.effacer();
+            return true;
+        }
         boolean typing = step == S_NOM || (step == S_CLAN && isCustomClan());
         if (k == GLFW.GLFW_KEY_ESCAPE) { back(); return true; }
         if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) { next(); return true; }
@@ -466,6 +535,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     public boolean charTyped(CharacterEvent e) {
         if (intro < 2 || leaveAt >= 0 || !e.isAllowedChatCharacter()) return false;
         String c = e.codepointAsString();
+        if (picker != null) { picker.car(c.charAt(0)); return true; }
         if (step == S_NOM) {
             char ch = c.charAt(0);
             boolean ok = Character.isLetter(ch) || ch == '\'' || ch == '’' || ch == '-' || (ch == ' ' && !name.isEmpty() && !name.endsWith(" "));
@@ -483,6 +553,11 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         if (intro < 2) { if (System.currentTimeMillis() - introAt > 700) beginScene(); return true; }
         if (leaveAt >= 0) return true;
         double mx = e.x(), my = e.y();
+        if (picker != null) {
+            boolean[] ok = {false};
+            if (!picker.clic(mx, my, ok) || ok[0]) fermerLibre(true);
+            return true;
+        }
         if (regle != null && mx >= regle[0] - 4 && mx < regle[0] + regle[1] + 4 && my >= regle[4] - 7 && my < regle[4] + 14) {
             drag = 1;
             glisserRegle(mx);
@@ -511,10 +586,13 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
                 SceneSounds.tick();
             }
             case A_HASARD -> hasard();
+            case A_LIBRE_CHEVEUX -> ouvrirLibre(0);
+            case A_LIBRE_YEUX -> ouvrirLibre(1);
             case A_MOINS -> { if (step == S_AGE) setAge(age - 1); else setCm(cmAdulte() - 1); }
             case A_PLUS -> { if (step == S_AGE) setAge(age + 1); else setCm(cmAdulte() + 1); }
             default -> {
-                if (a >= 1000) { vue = a - 1000; lacetCible = vue == 0 ? 0 : vue == 1 ? 90 : 180; SceneSounds.tick(); }
+                if (a >= 1100) { choisirAccessoire(a - 1100); SceneSounds.tick(); }
+                else if (a >= 1000) { vue = a - 1000; lacetCible = vue == 0 ? 0 : vue == 1 ? 90 : 180; SceneSounds.tick(); }
                 else if (a >= 900) { outfitIdx = a - 900; applyLists(); SceneSounds.tick(); }
                 else if (a >= 800) { eyeIdx = a - 800; appliquerPalette(); SceneSounds.tick(); }
                 else if (a >= 700) { hairColorIdx = a - 700; appliquerPalette(); SceneSounds.tick(); }
@@ -535,6 +613,12 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         }
     }
 
+    /** 0 = aucun, i ≥ 1 = i-ème accessoire de la liste. */
+    private void choisirAccessoire(int i) {
+        List<CharacterCatalog.Asset> al = accessoires();
+        look.accessoryId = i <= 0 || i > al.size() ? "" : al.get(i - 1).id;
+    }
+
     private void glisserRegle(double mx) {
         if (regle == null) return;
         float t = (float) Math.max(0, Math.min(1, (mx - regle[0] - 2) / Math.max(1.0, regle[1] - 4)));
@@ -544,6 +628,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     @Override
     public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
+        if (picker != null && picker.glisser(e.x(), e.y())) return true;
         if (drag == 1) { glisserRegle(e.x()); return true; }
         if (drag == 2) { lacetCible += (float) (e.x() - dragX) * 0.9f; dragX = e.x(); return true; }
         return super.mouseDragged(e, dx, dy);
@@ -551,6 +636,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     @Override
     public boolean mouseReleased(MouseButtonEvent e) {
+        if (picker != null && picker.relacher()) return true;
         if (drag != 0) { drag = 0; return true; }
         return super.mouseReleased(e);
     }
@@ -561,8 +647,11 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             if (mx < width / 2.0) {
                 int max = Math.max(0, (hairs().size() + 3) / 4 - lignesCheveux());
                 hairScroll = Math.max(0, Math.min(max, hairScroll + (v > 0 ? -1 : 1)));
+            } else if (dans(mx, my, zoneAcc[0], zoneAcc[1], zoneAcc[2], zoneAcc[3])) {
+                int max = Math.max(0, (accessoires().size() + 1 + 3) / 4 - 1);
+                accScroll = Math.max(0, Math.min(max, accScroll + (v > 0 ? -1 : 1)));
             } else {
-                int max = Math.max(0, (outfits().size() + 2) / 3 - lignesTenues());
+                int max = Math.max(0, (outfits().size() + 2) / 3 - rangeesTenues);
                 outfitScroll = Math.max(0, Math.min(max, outfitScroll + (v > 0 ? -1 : 1)));
             }
             return true;
@@ -590,7 +679,36 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     private int lignesTenues() { return bas - (108 + T) >= 340 ? 3 : 2; }
 
+    /** Hauteur de la rangée Accessoire dans la planche TENUE (filet, étiquette, vignettes têtes). */
+    private static final int H_ACC = 98;
+
     private void hit(int x, int y, int w, int h, int a) { hits.add(new int[]{x, y + oyHit, w, h, a}); }
+
+    /* ------------------------------------------------------------- aperçus */
+
+    private void majApercus(long now) {
+        String cle = look.serialize();
+        if (figureTex == null || (!cle.equals(figureCle) && (now - figureAt >= 60 || !glisseCouleur()))) {
+            figureCle = cle;
+            figureTex = skins.get(cle, look, false);
+            figureAt = now;
+        }
+        if (!glisseCouleur() && !cle.equals(lookCle)) {
+            lookCle = cle;
+            variantes.clear();
+        }
+    }
+
+    /** Texture d'une variante de l'apparence courante (vignettes), calculée une fois par apparence. */
+    private Identifier variante(String cle, java.util.function.Consumer<SkinSpec> mod) {
+        Identifier id = variantes.get(cle);
+        if (id != null) return id;
+        SkinSpec sp = SkinSpec.deserialize(lookCle);
+        mod.accept(sp);
+        id = skins.get(sp, false);
+        variantes.put(cle, id);
+        return id;
+    }
 
     /* ------------------------------------------------------------- rendu */
 
@@ -599,8 +717,15 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
+        PersoPerf.debut();
+        dessiner(g, mx, my, dt);
+        PersoPerf.fin(g);
+    }
+
+    private void dessiner(GuiGraphicsExtractor g, int mx, int my, float dt) {
         calculer();
         long now = System.currentTimeMillis();
+        majApercus(now);
         hits.clear();
         regle = null;
         Font f = font;
@@ -650,7 +775,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         float stature = step >= S_AGE ? (float) (size * croissance(age) / (172 / 180.0)) : 1f;
         stature = Math.min(1.12f, Math.max(0.7f, stature));
         float k = gros ? 13f : (step == S_RECAP ? 8f : 7.5f);
-        Identifier tex = skins.get(look, false);
+        Identifier tex = figureTex;
         PersoFigure.dessiner(g, tex, look.slim, sx, pieds, k * (gros ? 1f : stature), lacet, 6f,
             Math.round(13 * k), Math.round(19 * k));
         int hautFig = Math.round(pieds - 32 * k * (gros ? 1f : stature));
@@ -668,12 +793,14 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         oyHit = T;
         PersoUi.progression(g, f, cx, step, ui);
         float dur = PersoSons.DUREE_VOIX[step];
-        float lu = PersoSons.voixCoupee ? 1f : Math.min(1f, Math.max(0f, (now - stepAt - 200) / dur));
+        float lu = (!PersoSons.VOIX || PersoSons.voixCoupee) ? 1f : Math.min(1f, Math.max(0f, (now - stepAt - 200) / dur));
         String q = QUESTIONS[step];
-        PersoUi.question(g, f, cx, 62, q, Math.round(lu * sansAccents(q).length()), PersoSons.voixEnCours(), ui);
-        int[] rv = PersoUi.chip(g, f, 24, 14, PersoSons.TITRES[scene.village()], true, PersoSons.joue(),
-            PersoSons.voixEnCours(), PersoSons.voixCoupee, ui);
-        if (rv != null) hit(rv[0], rv[1], rv[2], rv[3], A_VOIX);
+        PersoUi.question(g, f, cx, 62, q, Math.round(lu * sansAccents(q).length()), PersoSons.voixEnCours(),
+            PersoSons.VOIX, ui);
+        if (PersoSons.VOIX) {
+            int[] rv = PersoUi.chip(g, f, 24, 14, "", true, false, PersoSons.voixEnCours(), PersoSons.voixCoupee, ui);
+            if (rv != null) hit(rv[0], rv[1], rv[2], rv[3], A_VOIX);
+        }
         int y0 = 108;
         int xG = step == S_LOOK ? 20 : 24;
         int wG = step == S_LOOK ? 286 : 240;
@@ -688,7 +815,18 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             case S_NOM -> etapeNom(g, f, now, hautFig);
             case S_AGE -> etapeAge(g, f, xG, y0, mx, my - T);
             case S_TAILLE -> etapeTaille(g, f, xG, y0, mx, my - T, sx, pieds, k * stature);
-            case S_LOOK -> etapeLook(g, f, xG, xD, y0, hMax, mx, my - T);
+            case S_LOOK -> {
+                etapeLook(g, f, xG, xD, y0, hMax, mx, my - T);
+                if (picker != null) {
+                    picker.x = xG + 25;
+                    picker.y = y0 + 150;
+                    g.pose().pushMatrix();
+                    g.pose().translate(0, -T);
+                    picker.y += T;
+                    picker.dessiner(g, f, mx, my, now);
+                    g.pose().popMatrix();
+                }
+            }
             case S_RECAP -> etapeRecap(g, f, xG, y0, mx, my - T);
             default -> { }
         }
@@ -747,7 +885,6 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         List<int[]> z = new ArrayList<>();
         int y0 = 108 + T;
         z.add(new int[]{0, 0, width, 80 + T});
-        z.add(new int[]{0, 0, 230, 50 + T});
         z.add(new int[]{10, y0 - 10, 320, 470 + B});
         z.add(new int[]{width - 310, y0 - 10, width - 10, 340 + T});
         z.add(new int[]{cx - 80, 190 + B, cx + 80, 470 + B});
@@ -766,7 +903,9 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         for (int i = 0; i <= Math.min(6, lim); i++) {
             if (i == lim && step == S_RECAP) break;
             if (i == 6) {
-                v[i] = new PersoUi.Ligne("", -1, new int[]{look.skinColor, look.hairColor, look.eyeColor});
+                CharacterCatalog.Asset acc = accessoire();
+                v[i] = new PersoUi.Ligne(acc == null ? "" : nomCourt(acc.name), -1,
+                    new int[]{look.skinColor, look.hairColor, look.eyeColor});
                 continue;
             }
             if (vals[i] == null) continue;
@@ -774,6 +913,16 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             v[i] = new PersoUi.Ligne(vals[i], em, null);
         }
         return v;
+    }
+
+    /** Nom d'accessoire pour le registre : sans son complément (« Bandeau frontal de Konoha » → « Bandeau frontal »). */
+    static String nomCourt(String nom) {
+        if (nom == null) return "";
+        for (String sep : new String[]{" de ", " du ", " des ", " d'", " d’"}) {
+            int k = nom.indexOf(sep);
+            if (k > 0) return nom.substring(0, k);
+        }
+        return nom;
     }
 
     /* ------------------------------------------------------------- étapes : panneaux */
@@ -860,18 +1009,19 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             boolean sur = !sel && dans(mx, my, tx, ty, cw, ch);
             tuile(g, T_SEXE, sel ? ACTIF : sur ? SURVOL : NORMAL, tx, ty, ch);
             if (sel) halo(g, tx + cw / 2f, ty + ch * 0.48f, 50, 1.4f, desat(scene.couleur(), 0.8f), 0.08f, 2);
-            SkinSpec sp = SkinSpec.deserialize(look.serialize());
-            sp.female = i == 1;
-            sp.slim = sp.female || maleSlim;
-            List<CharacterCatalog.Asset> hl = available("hair", sp.female), ol = available("outfit", sp.female);
-            if (sp.female != look.female) {
-                sp.hairId = hl.isEmpty() ? "" : hl.get(0).id;
-                sp.outfitId = ol.isEmpty() ? "" : ol.get(0).id;
-            }
+            boolean fem = i == 1, fin = fem || maleSlim;
+            Identifier vt = variante("sexe" + i, sp -> {
+                sp.female = fem;
+                sp.slim = fin;
+                if (sp.female != look.female) {
+                    List<CharacterCatalog.Asset> hl = available("hair", fem), ol = available("outfit", fem);
+                    sp.hairId = hl.isEmpty() ? "" : hl.get(0).id;
+                    sp.outfitId = ol.isEmpty() ? "" : ol.get(0).id;
+                }
+            });
             float s = Math.min(3.1f, (ch - 50) / 32f);
             g.enableScissor(tx + 1, ty + 1, tx + cw - 1, ty + ch - 1);
-            PersoPoupee.dessiner(g, skins.get(sp, false), sp.slim, tx + cw / 2f, ty + ch - 30, s, i == 0 ? 16 : -16, 5,
-                0xFFFFFFFF, false);
+            PersoPoupee.dessiner(g, skins, vt, fin, tx + cw / 2f, ty + ch - 30, s, i == 0 ? 16 : -16, 5, 0xFFFFFFFF);
             g.disableScissor();
             kanji16(g, f, kj[i], tx + 16, ty + 8, sel ? OR_CLAIR : 0xFF8A7458, 0xFF140608);
             arcFin(g, f, arcade(lib[i]), tx + cw / 2f, ty + ch - 18, sel ? CREME : 0xFFC8B898, 1, sel);
@@ -954,17 +1104,23 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         float pcm = 240f / 172f;
         blit(g, TOISE, x - 6, ysol - 310, 0, 0, 24, 314, 24, 314);
         int adulte = cmAdulte(), cm = cmActuel();
+        LotGui.Textes crans = LotGui.textes(g);              // graduations : un seul élément GUI
         for (int c = 150; c <= 210; c += 10) {
             if (Math.abs(c - adulte) < 4 || Math.abs(c - cm) < 5) continue;
-            arcFin(g, f, arcade(String.valueOf(c)), x + 15, ysol - c * pcm - 1.75f, 0xFFA8946E, 0, false);
+            arcFin(crans, g, f, arcade(String.valueOf(c)), x + 15, ysol - c * pcm - 1.75f, 0xFFA8946E, 0, false);
         }
+        crans.fermer();
         int ya = Math.round(ysol - adulte * pcm);
         if (adulte != cm) {
-            for (int i = x - 3; i < x + 12; i += 2) g.fill(i, ya, i + 1, ya + 1, R_OR[3]);
+            LotGui l = LotGui.ouvrir(g);
+            for (int i = x - 3; i < x + 12; i += 2) l.fill(i, ya, i + 1, ya + 1, R_OR[3]);
+            l.fermer();
             arcFin(g, f, arcade("ADULTE " + adulte), x - 5, ya - 1.75f, 0xFFC8A870, 2, false);
         }
         int Y = Math.round(ysol - cm * pcm);
-        for (int i = x - 62; i < x - 2; i += 2) g.fill(i, Y, i + 1, Y + 1, R_OR[4]);
+        LotGui pointilles = LotGui.ouvrir(g);
+        for (int i = x - 62; i < x - 2; i += 2) pointilles.fill(i, Y, i + 1, Y + 1, R_OR[4]);
+        pointilles.fermer();
         int bx = x + 13;
         blit(g, CURSEURS, bx - 6, Y - 7, 14, 0, 50, 16, 64, 16);
         arcFin(g, f, arcade(cm + " CM"), bx + 20, Y - 1.75f, CREME, 1, true);
@@ -994,6 +1150,20 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     private void etapeLook(GuiGraphicsExtractor g, Font f, int GX, int DX, int y0, int hMax, int mx, int my) {
         int lc = lignesCheveux(), lt = lignesTenues();
         int hG = lc == 2 ? 352 : 302, hD = lt == 3 ? 352 : 254;
+        // planche TENUE : avec des accessoires au catalogue, la rangée Accessoire prend le bas de la planche et les
+        // tenues gardent leurs vignettes pleines tant qu'il en tient deux rangées (sinon vignettes un peu plus basses)
+        List<CharacterCatalog.Asset> al = accessoires();
+        boolean avecAcc = !al.isEmpty();
+        int ch = 92;
+        if (avecAcc) {
+            int place = Math.min(352, hMax) - 36 - H_ACC + 6;
+            lt = 3;
+            while (lt > 1 && place / lt - 6 < 70) lt--;
+            ch = Math.min(92, place / lt - 6);
+            // même bas que la planche APPARENCE ; la rangée Accessoire se pose au bas de la planche
+            hD = Math.max(36 + lt * (ch + 6) - 6 + H_ACC, Math.min(hG, Math.min(352, hMax)));
+        }
+        rangeesTenues = lt;
         PersoArt.panneau(g, P_APPARENCE, GX, y0, hG);
         int X = GX + 14, WL = 258;
         float yy = y0 + 46;
@@ -1013,11 +1183,14 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         etiq(g, f, "PEAU", X, yy, OR_ETIQ);
         String[] tons = {"Très clair", "Très clair", "Clair", "Clair", "Clair", "Mat", "Mat", "Hâlé", "Hâlé", "Brun", "Foncé", "Très foncé"};
         inter(g, f, inter(tons[skinIdx]), X + WL, yy, 7, DOUX, 2);
+        LotGui peaux = LotGui.ouvrir(g);                    // les douze pastilles : un seul élément GUI
         for (int i = 0; i < 12; i++) {
             int px = X + 2 + i * 21, py = Math.round(yy) + 10;
-            pastille(g, px, py, SkinSpec.skinRamp(i / 11f), i == skinIdx, 15);
+            pastille(peaux, px, py, SkinSpec.skinRamp(i / 11f), i == skinIdx, 15);
             hit(px - 2, py - 2, 19, 19, 500 + i);
         }
+        peaux.fermer();
+        if (skinIdx >= 0 && skinIdx < 12) pointe(g, X + 2 + skinIdx * 21 + 15 / 2, Math.round(yy) + 10 + 15 + 4);
         // cheveux : têtes rendues avec la coiffure
         yy += 46;
         List<CharacterCatalog.Asset> hl = hairs();
@@ -1032,10 +1205,10 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             boolean sel = i == hairIdx;
             boolean sur = !sel && dans(mx, my, tx, ty, tw, th);
             tuile(g, T_CHEVEUX, sel ? ACTIF : sur ? SURVOL : NORMAL, tx, ty, th);
-            SkinSpec sp = SkinSpec.deserialize(look.serialize());
-            sp.hairId = hl.get(i).id;
+            String hid = hl.get(i).id;
+            Identifier vt = variante("hair:" + hid, sp -> sp.hairId = hid);
             g.enableScissor(tx + 2, ty + 2, tx + tw - 2, ty + th - 2);
-            PersoPoupee.dessiner(g, skins.get(sp, false), sp.slim, tx + tw / 2f, ty + 6 + 32 * 3.5f, 3.5f, 18, 4, 0xFFFFFFFF, false);
+            PersoPoupee.dessiner(g, skins, vt, look.slim, tx + tw / 2f, ty + 6 + 32 * 3.5f, 3.5f, 18, 4, 0xFFFFFFFF);
             g.disableScissor();
             hit(tx, ty, tw, th, 600 + i);
         }
@@ -1046,26 +1219,42 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         yy += lc * (th + 4) + 26;
         Palette p = pal();
         etiq(g, f, "COULEUR", X, yy, OR_ETIQ);
-        puceClan(g, f, X + WL, yy, p.nom());
-        int nc = p.cheveux().length, pasC = Math.min(26, (WL - 4) / Math.max(1, nc));
+        puceClan(g, f, X + WL, yy, hairColorIdx < 0 ? "Couleur libre" : p.nom());
+        int nc = p.cheveux().length, pasC = Math.min(26, (WL - 4) / Math.max(1, nc + 1));
+        LotGui teintes = LotGui.ouvrir(g);                  // pastilles et pipette : un seul élément GUI
         for (int i = 0; i < nc; i++) {
             int px = X + 2 + i * pasC, py = Math.round(yy) + 10;
-            pastille(g, px, py, p.cheveux()[i], i == hairColorIdx, 17);
+            pastille(teintes, px, py, p.cheveux()[i], i == hairColorIdx, 17);
             hit(px - 2, py - 2, 21, 21, 700 + i);
         }
+        int lx = X + 2 + nc * pasC, ly = Math.round(yy) + 10;
+        pipette(teintes, lx, ly, hairLibreC, hairColorIdx < 0, 17, dans(mx, my, lx - 2, ly - 2, 21, 21));
+        teintes.fermer();
+        if (hairColorIdx >= 0 && hairColorIdx < nc) pointe(g, X + 2 + hairColorIdx * pasC + 17 / 2, ly + 17 + 4);
+        else if (hairColorIdx < 0) pointe(g, lx + 17 / 2, ly + 17 + 4);
+        hit(lx - 2, ly - 2, 21, 21, A_LIBRE_CHEVEUX);
         // yeux
         yy += 46;
         etiq(g, f, "YEUX", X, yy, OR_ETIQ);
-        puceClan(g, f, X + WL, yy, p.nomYeux());
-        for (int i = 0; i < p.yeux().length; i++) {
-            int px = X + 2 + i * 44, py = Math.round(yy) + 10;
-            oeil(g, px, py, p.yeux()[i], i == eyeIdx);
-            hit(px - 2, py - 2, 42, 20, 800 + i);
+        puceClan(g, f, X + WL, yy, eyeIdx < 0 ? "Couleur libre" : p.nomYeux());
+        int ny = p.yeux().length, pasY = Math.min(44, (WL - 4 - 26) / Math.max(1, ny));
+        LotGui yeux = LotGui.ouvrir(g);                     // vignettes d'yeux et pipette : un seul élément GUI
+        for (int i = 0; i < ny; i++) {
+            int px = X + 2 + i * pasY, py = Math.round(yy) + 10;
+            oeil(yeux, px, py, p.yeux()[i], i == eyeIdx, pasY - 6);
+            hit(px - 2, py - 2, pasY - 2, 20, 800 + i);
         }
+        int ex = X + 2 + ny * pasY, ey = Math.round(yy) + 10;
+        pipette(yeux, ex, ey - 1, eyeLibreC, eyeIdx < 0, 17, dans(mx, my, ex - 2, ey - 3, 21, 21));
+        yeux.fermer();
+        if (eyeIdx >= 0 && eyeIdx < ny) pointe(g, X + 2 + eyeIdx * pasY + Math.max(28, Math.min(38, pasY - 6)) / 2, ey + 16 + 4);
+        else if (eyeIdx < 0) pointe(g, ex + 17 / 2, ey - 1 + 17 + 4);
+        hit(ex - 2, ey - 3, 21, 21, A_LIBRE_YEUX);
         // planche TENUE : corps entiers
         PersoArt.panneau(g, P_TENUE, DX, y0, hD);
         List<CharacterCatalog.Asset> ol = outfits();
-        int cw = 80, ch = 92;
+        int cw = 80;
+        float sT = Math.min(2.5f, (ch - 12) / 32f);
         int gx = DX + (276 - 3 * cw - 2 * 6) / 2;
         for (int k = 0; k < 3 * lt; k++) {
             int i = outfitScroll * 3 + k;
@@ -1074,31 +1263,81 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             boolean sel = i == outfitIdx;
             boolean sur = !sel && dans(mx, my, tx, ty, cw, ch);
             tuile(g, T_TENUE, sel ? ACTIF : sur ? SURVOL : NORMAL, tx, ty, ch);
-            SkinSpec sp = SkinSpec.deserialize(look.serialize());
-            sp.outfitId = ol.get(i).id;
-            PersoPoupee.dessiner(g, skins.get(sp, false), sp.slim, tx + cw / 2f, ty + ch - 4, 2.5f, 18, 5, 0xFFFFFFFF, false);
+            String oid = ol.get(i).id;
+            Identifier vt = variante("outfit:" + oid, sp -> sp.outfitId = oid);
+            PersoPoupee.dessiner(g, skins, vt, look.slim, tx + cw / 2f, ty + ch - 4, sT, 18, 5, 0xFFFFFFFF);
             hit(tx, ty, cw, ch, 900 + i);
         }
         int reste = ol.size() - (outfitScroll * 3 + 3 * lt);
         if (reste > 0 || outfitScroll > 0) {
             String t = reste > 0 ? "Molette : " + reste + " autre" + (reste > 1 ? "s" : "") + " tenue" + (reste > 1 ? "s" : "")
                 : "Molette : remonter";
-            inter(g, f, inter(t), DX + 138, y0 + hD - 11, 7, DOUX, 1);
+            int ym = avecAcc ? y0 + 36 + lt * (ch + 6) + 4 : y0 + hD - 11;
+            inter(g, f, inter(t), DX + 138, ym, 7, DOUX, 1);
         }
+        if (avecAcc) rangeeAccessoire(g, f, DX, y0 + hD - H_ACC, al, mx, my);
+        else zoneAcc = new int[4];
         // anneau de rotation autour des pieds
         int pcx = cx + 6, pcy = 452 + B + 6 - T;
+        LotGui anneau = LotGui.ouvrir(g);                   // l'anneau pointillé et ses flèches : un seul élément GUI
         for (int s = 0; s < 360; s += 6) {
             if (s > 200 && s < 340) continue;
             double a = Math.toRadians(s);
             int px = (int) Math.round(pcx + Math.cos(a) * 66), py = (int) Math.round(pcy + Math.sin(a) * 15);
-            g.fill(px, py, px + 1, py + 1, 0x8CD9A95E);
+            anneau.fill(px, py, px + 1, py + 1, 0x8CD9A95E);
         }
         for (int sg = -1; sg <= 1; sg += 2) {
             int ax = pcx + sg * 66;
             for (int j = 0; j < 3; j++) {
-                g.fill(ax - sg * j, pcy - 3 + j, ax - sg * j + 1, pcy - 2 + j, R_OR[5]);
-                g.fill(ax - sg * j, pcy + 3 - j, ax - sg * j + 1, pcy + 4 - j, R_OR[5]);
+                anneau.fill(ax - sg * j, pcy - 3 + j, ax - sg * j + 1, pcy - 2 + j, R_OR[5]);
+                anneau.fill(ax - sg * j, pcy + 3 - j, ax - sg * j + 1, pcy + 4 - j, R_OR[5]);
             }
+        }
+        anneau.fermer();
+    }
+
+    /**
+     * Rangée ACCESSOIRE au bas de la planche TENUE, comme les rangées de la planche APPARENCE : étiquette, nom à droite,
+     * vignettes têtes (« Aucun » puis le catalogue), quatre par rangée, molette au-delà. Pas de couleur : les
+     * accessoires actuels sont en teinte fixe.
+     */
+    private void rangeeAccessoire(GuiGraphicsExtractor g, Font f, int DX, int yHaut, List<CharacterCatalog.Asset> al,
+                                  int mx, int my) {
+        int X = DX + 14, WD = DX + 262;
+        // filet de séparation sous les tenues
+        int yf = yHaut + 16;
+        LotGui filet = LotGui.ouvrir(g);                    // filet pointillé : un seul élément GUI
+        for (int i = X; i < WD; i += 2) filet.fill(i, yf, i + 1, yf + 1, R_OR[3]);
+        filet.fermer();
+        losange(g, DX + 136, yf - 2);
+        float yy = yf + 14;
+        etiq(g, f, "ACCESSOIRE", X, yy, OR_ETIQ);
+        CharacterCatalog.Asset porte = accessoire();
+        inter(g, f, inter(porte == null ? "Aucun" : porte.name), WD, yy, 7, DOUX, 2);
+        int n = al.size() + 1, tw = 60, th = 46;
+        accScroll = Math.max(0, Math.min(accScroll, (n + 3) / 4 - 1));
+        int gx = DX + (276 - 4 * tw - 3 * 4) / 2, ty = Math.round(yy) + 9;
+        zoneAcc = new int[]{gx, ty + oyHit, 4 * tw + 12, th};
+        for (int k = 0; k < 4; k++) {
+            int i = accScroll * 4 + k;
+            if (i >= n) break;
+            int tx = gx + k * (tw + 4);
+            String id = i == 0 ? "" : al.get(i - 1).id;
+            boolean sel = id.equals(look.accessoryId == null ? "" : look.accessoryId);
+            boolean sur = !sel && dans(mx, my, tx, ty, tw, th);
+            tuile(g, T_CHEVEUX, sel ? ACTIF : sur ? SURVOL : NORMAL, tx, ty, th);
+            Identifier vt = variante("acc:" + id, sp -> sp.accessoryId = id);
+            g.enableScissor(tx + 2, ty + 2, tx + tw - 2, ty + th - 2);
+            PersoPoupee.dessiner(g, skins, vt, look.slim, tx + tw / 2f, ty + 6 + 32 * 3.5f, 3.5f, 18, 4, 0xFFFFFFFF);
+            if (i == 0) {
+                g.fill(tx + 2, ty + th - 13, tx + tw - 2, ty + th - 2, 0xB40A0608);
+                arcFin(g, f, arcade("AUCUN"), tx + tw / 2f, ty + th - 10, sel ? CREME : 0xFFC8B898, 1, sel);
+            }
+            g.disableScissor();
+            hit(tx, ty, tw, th, 1100 + i);
+        }
+        if (n > 4) {
+            inter(g, f, inter("Molette · " + (accScroll + 1) + " / " + ((n + 3) / 4)), WD, ty + th + 7, 7, DOUX, 2);
         }
     }
 
@@ -1109,6 +1348,14 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     /** Pastille de couleur carrée (cadre or, reflet) ; choisie = double cadre or vif + pointe dessous. */
     private static void pastille(GuiGraphicsExtractor g, int x, int y, int c, boolean sel, int t) {
+        LotGui l = LotGui.ouvrir(g);
+        pastille(l, x, y, c, sel, t);
+        l.fermer();
+        if (sel) pointe(g, x + t / 2, y + t + 4);
+    }
+
+    /** Pastille dans un lot d'aplats ; la pointe de la pastille choisie est à poser après le lot. */
+    private static void pastille(LotGui g, int x, int y, int c, boolean sel, int t) {
         if (sel) {
             g.fill(x - 3, y - 3, x + t + 3, y + t + 3, R_OR[6]);
             g.fill(x - 2, y - 2, x + t + 2, y + t + 2, 0xFF120A0C);
@@ -1117,12 +1364,54 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         g.fill(x, y, x + t, y + t, opaque(c));
         g.fill(x, y, x + t, y + 1, opaque(mix(c, 0xFFFFFF, 0.35f)));
         g.fill(x, y + t - 1, x + t, y + t, opaque(mix(c, 0x000000, 0.3f)));
+    }
+
+    /**
+     * Pastille « pipette » (couleur libre) : la couleur libre choisie, sinon un petit nuancier en quartiers ; marquée
+     * d'un « + » ; choisie = même cadre que les pastilles de la palette.
+     */
+    private static void pipette(GuiGraphicsExtractor g, int x, int y, int c, boolean sel, int t, boolean survol) {
+        LotGui l = LotGui.ouvrir(g);
+        pipette(l, x, y, c, sel, t, survol);
+        l.fermer();
         if (sel) pointe(g, x + t / 2, y + t + 4);
     }
 
+    /** Pipette dans un lot d'aplats ; la pointe (choisie) est à poser après le lot. */
+    private static void pipette(LotGui g, int x, int y, int c, boolean sel, int t, boolean survol) {
+        if (sel) {
+            g.fill(x - 3, y - 3, x + t + 3, y + t + 3, R_OR[6]);
+            g.fill(x - 2, y - 2, x + t + 2, y + t + 2, 0xFF120A0C);
+        }
+        g.fill(x - 1, y - 1, x + t + 1, y + t + 1, sel || survol ? R_OR[5] : R_OR[3]);
+        if (c >= 0) {
+            g.fill(x, y, x + t, y + t, opaque(c));
+        } else {
+            int m = t / 2;
+            g.fill(x, y, x + m, y + m, 0xFFC23B3B);
+            g.fill(x + m, y, x + t, y + m, 0xFFE8D27A);
+            g.fill(x, y + m, x + m, y + t, 0xFF3A6EA5);
+            g.fill(x + m, y + m, x + t, y + t, 0xFF4E8A4A);
+        }
+        int cx = x + t / 2, cy = y + t / 2;
+        g.fill(cx - 3, cy - 1, cx + 4, cy + 2, 0xD0120A0C);
+        g.fill(cx - 1, cy - 3, cx + 2, cy + 4, 0xD0120A0C);
+        g.fill(cx - 2, cy, cx + 3, cy + 1, 0xFFF5E9D0);
+        g.fill(cx, cy - 2, cx + 1, cy + 3, 0xFFF5E9D0);
+    }
+
     /** Vignette d'œil 38×16 : peau, blanc de l'œil, iris à la couleur, reflet. */
-    private void oeil(GuiGraphicsExtractor g, int x, int y, int iris, boolean sel) {
-        int w = 38, h = 16;
+    private void oeil(GuiGraphicsExtractor g, int x, int y, int iris, boolean sel, int w) {
+        LotGui l = LotGui.ouvrir(g);
+        oeil(l, x, y, iris, sel, w);
+        l.fermer();
+        if (sel) pointe(g, x + Math.max(28, Math.min(38, w)) / 2, y + 16 + 4);
+    }
+
+    /** Vignette d'œil dans un lot d'aplats ; la pointe (choisie) est à poser après le lot. */
+    private void oeil(LotGui g, int x, int y, int iris, boolean sel, int w) {
+        int h = 16;
+        w = Math.max(28, Math.min(38, w));
         if (sel) {
             g.fill(x - 3, y - 3, x + w + 3, y + h + 3, R_OR[6]);
             g.fill(x - 2, y - 2, x + w + 2, y + h + 2, 0xFF120A0C);
@@ -1130,22 +1419,21 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         g.fill(x - 1, y - 1, x + w + 1, y + h + 1, sel ? R_OR[5] : R_OR[3]);
         g.fill(x, y, x + w, y + h, opaque(look.skinColor));
         g.fill(x, y, x + w, y + 2, opaque(look.hairColor));
-        for (int ox : new int[]{6, 22}) {
+        for (int ox : new int[]{w / 2 - 13, w / 2 + 3}) {
             g.fill(x + ox, y + 5, x + ox + 10, y + 11, 0xFFF4F0F4);
             g.fill(x + ox + 3, y + 5, x + ox + 7, y + 11, opaque(iris));
             g.fill(x + ox + 3, y + 5, x + ox + 7, y + 6, opaque(mix(iris, 0, 0.25f)));
             g.fill(x + ox + 4, y + 7, x + ox + 6, y + 9, opaque(mix(iris, 0xFFFFFF, 0.45f)));
             g.fill(x + ox, y + 4, x + ox + 10, y + 5, 0xFF2A2022);
         }
-        if (sel) pointe(g, x + w / 2, y + h + 4);
     }
 
     private void etapeRecap(GuiGraphicsExtractor g, Font f, int x, int y0, int mx, int my) {
         PersoArt.panneau(g, P_DOSSIER, x, y0, 254);
         int wx = x + 14, wy = y0 + 36, ww = 96, wh = 112;
-        Identifier tex = skins.get(look, false);
+        Identifier tex = figureTex;
         g.enableScissor(wx + 4, wy + 4, wx + ww - 4, wy + wh - 4);
-        PersoPoupee.dessiner(g, tex, look.slim, wx + ww / 2f, wy + 12 + 32 * 6f, 6f, 16, 4, 0xFFFFFFFF, false);
+        PersoPoupee.dessiner(g, skins, tex, look.slim, wx + ww / 2f, wy + 12 + 32 * 6f, 6f, 16, 4, 0xFFFFFFFF);
         g.disableScissor();
         int cx0 = wx + ww + 10;
         String clan = clanName();
@@ -1162,7 +1450,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             boolean sel = i == vue;
             boolean sur = !sel && dans(mx, my, vx, vy, 66, 84);
             tuile(g, T_VUE, sel ? ACTIF : sur ? SURVOL : NORMAL, vx, vy, 84);
-            PersoPoupee.dessiner(g, tex, look.slim, vx + 33, vy + 70, 1.7f, lac[i], 4, 0xFFFFFFFF, false);
+            PersoPoupee.dessiner(g, skins, tex, look.slim, vx + 33, vy + 70, 1.7f, lac[i], 4, 0xFFFFFFFF);
             arcFin(g, f, arcade(lib[i]), vx + 33, vy + 74, sel ? CREME : DOUX, 1, false);
             hit(vx, vy, 66, 84, 1000 + i);
         }
@@ -1208,7 +1496,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     void debugEtat(int village, int clan, int sexe, String nom, int age, int cm, int skin, int hair, int hairColor, int eye,
                    int outfit) {
         if (intro < 2) { intro = 2; questionsAt = System.currentTimeMillis() - 5000; }
-        if (village >= 0) { this.village = village; scene.forcerVillage(village); PersoSons.musique(village); }
+        if (village >= 0) { this.village = village; scene.forcerVillage(village); PersoSons.ambiance(village); }
         if (clan >= 0) this.clanIdx = clan;
         this.sexeIdx = sexe;
         look.female = sexe == 1;
@@ -1231,6 +1519,14 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         stepAt = System.currentTimeMillis() - 5000;
         lacet = lacetCible;
     }
+
+    void debugCouleurLibre(int rgb) {
+        ouvrirLibre(0);
+        for (char c : String.format(Locale.ROOT, "%06X", rgb & 0xFFFFFF).toCharArray()) picker.car(c);
+    }
+
+    /** Porte le premier accessoire du catalogue (capture « bandeau porté »). */
+    void debugAccessoire() { choisirAccessoire(1); }
 
     void debugRegleVoix(boolean coupee) { PersoSons.voixCoupee = coupee; }
 }

@@ -420,7 +420,7 @@ public class StaffScreen extends Screen {
                 continue;
             }
             bx += button(ctx, bx, by, "Observer", "watch", () -> act("watch", uuid), grade(snap) < 2) + 4;
-            if ("aide".equals(str(a, "kind"))) bx += button(ctx, bx, by, "Y aller", "plain", () -> act("tp", uuid), false) + 4;
+            if ("aide".equals(str(a, "kind")) || "vol".equals(str(a, "kind"))) bx += button(ctx, bx, by, "Y aller", "plain", () -> act("tp", uuid), false) + 4;
             else bx += button(ctx, bx, by, "Sanctionner", "punish", () -> openProfile(uuid), false) + 4;
             int dw = bw("Ignorer");
             button(ctx, x + w - dw - 6, by, "Ignorer", "plain", () -> dismiss(id), false);
@@ -1072,6 +1072,7 @@ public class StaffScreen extends Screen {
             case "aide" -> 0xFFD97706;
             case "mort" -> 0xFF5A0A12;
             case "yeux" -> 0xFF7A1322;
+            case "vol" -> 0xFF8A5A0C;
             case "signalement" -> 0xFF6B4FA0;
             case "soin" -> OK;
             case "ko" -> 0xFF6B4FA0;

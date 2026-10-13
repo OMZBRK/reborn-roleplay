@@ -479,8 +479,13 @@ public class InventoryScreen extends Screen {
     private void drawPreview(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || modelX2 <= modelX1 || modelY2 <= modelY1) return;
+        // Le rendu d'entité est découpé à sa boîte, et le personnage y est centré (milieu de la hitbox au centre) :
+        // une boîte de 1,8 × taille rognait la seconde couche de la tête et les coiffures hautes (ananas, chignons,
+        // crête). On l'agrandit de la même marge en haut et en bas (et sur les côtés) : le personnage ne bouge pas.
+        int my = modelSize * 3 / 4, mxg = modelSize / 2;   // ¾ de bloc au-dessus de la tête : coiffures 3D comprises
         net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(ctx,
-            modelX1, modelY1, modelX2, modelY2, modelSize, 0f, mouseX, (modelY1 + modelY2) / 2f, mc.player);
+            modelX1 - mxg, modelY1 - my, modelX2 + mxg, modelY2 + my, modelSize, 0f, mouseX, (modelY1 + modelY2) / 2f,
+            mc.player);
     }
 
     /** Plaque cosmétique (plaques.png) : 0 vide, 1 survol, 2 garnie, 3 dépôt possible ; kanji si vide. */

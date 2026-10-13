@@ -13,9 +13,12 @@ code (Inter et ArcadePix à la résolution de l'écran) : aucune lettre n'est cu
 Usage (depuis minecraft/mod-hud) :  python tools/gen_echap_textures.py
 
 Contrat (coordonnées = unités de la scène) :
-- piece.png 640×360 : la pièce entière, décor fixe compris (ciel de la fenêtre en (51, 28), devanture de
-  l'Échoppe (236, 60, 177×121), kamishibai (429, 60), porte-amulettes (429, 197, 177×121), plaque STREAM
-  (495, 54, 44×12), cordons du menu).
+- piece.png 864×528 : la pièce entière, décor fixe compris ; la scène 640×360 y est posée en (MX, MY) = (112, 84)
+  (ciel de la fenêtre en (51, 28) de la scène, devanture de l'Échoppe (236, 60, 177×121), kamishibai (429, 60),
+  porte-amulettes (429, 197, 177×121), plaque STREAM (495, 54, 44×12), cordons du menu). Autour, la pièce se
+  prolonge (mur, poutre, piliers, plafond, plancher) qui s'assombrit vers les bords : le code agrandit la scène au
+  plus grand k entier dont la zone utile (600×332) tient dans la fenêtre, et ce prolongement remplit l'écran
+  quel que soit le format (16:10, 21:9, fenêtre non maximisée) — aucune bande vide.
 - fenetre.png 224×112 : cadre rond + croisillons (0, 0) ; lumières du village (112, 0) — posés en (51, 28).
 - plaques.png 144×60 : 3 rangées de 20 (repos, survol, survol « danger ») ; plaque 132×15 en (8, 2) de la
   cellule, pointe d'or (survol) en (0, 6). Cellule posée en (x − 8, y − 2).
@@ -51,6 +54,8 @@ from ecrans_art import fa, kit, hexc, rect, coller, R_OR, R_LAQUE, R_LAQUE_ROUGE
 
 S = ea.Sortie("echap", budget=900_000)
 W, H = 640, 360
+MX, MY = 112, 84                       # marge du prolongement de la pièce autour de la scène
+EW, EH = W + 2 * MX, H + 2 * MY
 TEX_ESC = os.path.join(ea.TEX, "esc")
 
 # ───────────────────────── rampes de la pièce ─────────────────────────
@@ -357,6 +362,69 @@ def piece(ciel):
     kamishibai(im)
     porte_amulettes(im)
     return im
+
+
+def piece_etendue(scene):
+    """La pièce prolongée sur MX / MY texels autour de la scène : enduit, poutre haute et plancher continus, piliers
+    supplémentaires, plafond de bois sombre au-dessus de la poutre ; assombrie en paliers vers les bords."""
+    im = nouveau(EW, EH)
+    yy, xx = np.mgrid[0:EH, 0:EW].astype(float)
+    v = champ(EW, EH, 71, base=0.58)
+    v -= 0.08 * np.clip((yy - (MY + 250)) / 80, 0, 1)
+    peindre(im, 0, 0, v, R_ENDUIT)
+    susa(im, 0, MY, EW, 330, R_ENDUIT, 72)
+    # plafond (au-dessus de la poutre haute) : bois sombre, une traverse
+    kit.bois(im, 0, 0, EW, MY, "sombre", sens="h", seed=73, noeuds=2)
+    rect(im, 0, MY - 30, EW, 6, hexc("2C170E"))
+    rect(im, 0, MY - 30, EW, 1, hexc("553220"))
+    rect(im, 0, MY - 25, EW, 1, hexc("0E0604"))
+    # poutre haute, continue
+    kit.bois(im, 0, MY, EW, 16, "sombre", sens="h", seed=40, noeuds=3)
+    rect(im, 0, MY + 15, EW, 1, hexc("0E0604"))
+    ao_bande(im, 0, MY + 16, EW, 6, "h", 4, 0.30)
+    # piliers du prolongement (bague de laiton au raccord de la poutre, comme ceux de la scène)
+    for (x0, x1, sd) in ((MX - 100, MX - 86, 74), (EW - MX + 86, EW - MX + 100, 75)):
+        kit.bois(im, x0, MY, x1 - x0, 328, "moyen", sens="v", seed=sd, noeuds=1)
+        rect(im, x0, MY, 1, 328, hexc("A96B3F"))
+        rect(im, x1 - 2, MY, 2, 328, hexc("2C170C"))
+        rect(im, x1 - 3, MY, 1, 328, hexc("3B2012"))
+        fa.lq(im, x0, MY + 16, x1 - x0, 4, ["4A3518", "6A4E24", "8E6A30", "B08442", "D9A95E"], seed=sd, reflet=False)
+        rect(im, x0, MY + 16, x1 - x0, 1, hexc(R_OR[6]))
+        rect(im, x0, MY + 19, x1 - x0, 1, hexc(R_OR[2]))
+        ao_bande(im, x1, MY + 20, 4, 308, "g", 4, 0.35)
+        ao_bande(im, x0 - 4, MY + 20, 4, 308, "d", 3, 0.25)
+    # ombre des piliers de bord de la scène sur le mur du prolongement
+    ao_bande(im, MX - 4, MY + 20, 4, 308, "d", 3, 0.25)
+    ao_bande(im, MX + W, MY + 20, 4, 308, "g", 4, 0.35)
+    # plancher laqué, continu (joints alignés sur ceux de la scène)
+    fy = MY + 328
+    v = np.full((EH - fy, EW), 0.45) + (kit.bruit(EW, EH - fy, 10, 76, 2, etire=(6, 1)) - 0.5) * 0.2
+    v -= 0.30 * np.clip(np.arange(EH - fy)[:, None] / (H - 328 + MY), 0, 1)
+    peindre(im, 0, fy, v, R_PLANCHER, tramage=0.3)
+    for x in range(MX + 37 - 92 * 2, EW, 92):
+        rect(im, x, fy + 2, 1, EH - fy - 2, hexc("0A0304"))
+    rect(im, 0, fy, EW, 1, hexc(R_OR[4]))
+    rect(im, 0, fy + 1, EW, 1, hexc("6A1E27"))
+    rect(im, 0, fy + 2, EW, 1, hexc("0A0304"))
+    # assombri selon la distance à la scène, en 6 niveaux tramés (le regard reste au centre)
+    dx = np.maximum(np.maximum(MX - xx, xx - (MX + W - 1)), 0)
+    dy = np.maximum(np.maximum(MY - yy, yy - (MY + H - 1)), 0)
+    d = np.maximum(dx, dy)
+    g = np.clip(d / 104.0, 0, 1) ** 0.85
+    A = kit.quantifier(g, 6, 0, 0, tramage=0.5) / 5.0 * 0.5
+    fa.assombrir(im, 0, 0, A)
+    # chaque partie garde sa propre palette de 256 couleurs : la scène reste identique au texel près
+    im = quantifiee(im)
+    im.paste(quantifiee(scene), (MX, MY))
+    return im
+
+
+def quantifiee(im):
+    """Même réduction que Sortie.sauver(quantifier=True) (médiane, 256 couleurs, sans tramage)."""
+    a = np.asarray(im.convert("RGBA"))
+    q = Image.fromarray(a[..., :3].copy(), "RGB").quantize(256, method=Image.Quantize.MEDIANCUT,
+                                                           dither=Image.Dither.NONE)
+    return q.convert("RGBA")
 
 
 # ───────────── Échoppe : devanture (planches, comptoir, noren, blason) ─────────────
@@ -810,7 +878,7 @@ def fusuma(cote):
 
 def main():
     ciel, toits = ciel_fenetre()
-    S.sauver("piece.png", piece(ciel), (W, H), quantifier=True)
+    S.sauver("piece.png", piece_etendue(piece(ciel)), (EW, EH))
     fen = nouveau(224, 112)
     fen.alpha_composite(cadre_fenetre(), (0, 0))
     fen.alpha_composite(lumieres_fenetre(toits), (112, 0))

@@ -1,128 +1,104 @@
 package fr.reborn.hud.menu.character.perso;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.resources.Identifier;
-import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 
-import java.lang.reflect.Method;
-import java.util.Optional;
-
 /**
- * Ambiance sonore des écrans perso.
- * <ul>
- *   <li><b>Musique</b> : une piste « apaisant » de l'OST Reborn par village si le mod {@code reborn-ost} est présent
- *   (appel par réflexion, sans dépendance de compilation) ; sinon l'ambiance du menu Échap du mod en boucle, très
- *   bas, catégorie Musique. La musique vanilla est coupée le temps de l'écran. Le titre affiché suit le village.</li>
- *   <li><b>Voix off</b> : {@code reborn:voix.creation_<étape>} (catégorie Voix) à l'arrivée sur chaque étape ;
- *   coupable depuis l'indicateur « Voix off ».</li>
- * </ul>
+ * Ambiance sonore des écrans perso : <b>pas de musique</b>, une nuit au bord de l'étang faite de sons de Minecraft
+ * joués en petites touches discrètes et variées (catégorie Ambiance) : l'eau qui clapote, les insectes des buissons
+ * à lucioles, le vent dans les herbes, une grenouille de temps en temps ; une couleur par village (sable à Suna,
+ * pluie à Ame, orage lointain à Kumo…). La musique du jeu est coupée le temps de l'écran.
+ *
+ * <p>Voix off ({@code reborn:voix.creation_<étape>}) : <b>désactivée</b> (la voix générée a été jugée laide) ; le
+ * mécanisme reste pour un vrai enregistrement, à réactiver avec {@code -Dreborn.persoVoix=true}.
  */
 final class PersoSons {
 
     private PersoSons() {}
 
-    static final String[] TITRES = {"Nuit sur la Feuille", "Vent des dunes", "Brume sur l'eau", "Orage lointain",
-        "Roche endormie", "Pluie d'acier"};
-    private static final String[] PISTES_OST = {"apaisant/track-01", "apaisant/track-02", "apaisant/track-03",
-        "apaisant/track-04", "apaisant/track-05", "apaisant/track-06"};
+    /** Voix off des étapes (désactivée par défaut). */
+    static final boolean VOIX = Boolean.getBoolean("reborn.persoVoix");
+
     /** Durée des voix (ms), pour allumer la question au rythme de la parole. */
     static final int[] DUREE_VOIX = {2341, 1930, 1155, 1264, 1436, 1520, 2041, 1527};
-    static final int DUREE_INTRO = 4557;
     private static final String[] CLES_VOIX = {"village", "clan", "sexe", "nom", "age", "taille", "apparence", "recap"};
 
-    private static Boucle boucle;
-    private static Object ostPiste;
-    private static int villageJoue = -1;
     private static SoundInstance voix;
-    static boolean voixCoupee;
+    static boolean voixCoupee = !VOIX;
 
-    /* ---------------------------------------------------------------- musique */
+    /* ---------------------------------------------------------------- ambiance */
 
-    static boolean joue() {
-        return villageJoue >= 0;
+    /** Une couche : son vanilla, intervalle (ticks) min-max, volume min-max, hauteur min-max. */
+    private record Couche(String son, int iMin, int iMax, float vMin, float vMax, float pMin, float pMax) {}
+
+    private static final Couche EAU = new Couche("block.water.ambient", 50, 110, 0.07f, 0.13f, 0.55f, 0.8f);
+    private static final Couche INSECTES = new Couche("block.firefly_bush.idle", 40, 120, 0.035f, 0.06f, 0.85f, 1.15f);
+    private static final Couche VENT = new Couche("block.dry_grass.ambient", 120, 260, 0.05f, 0.09f, 0.75f, 0.95f);
+    private static final Couche GRENOUILLE = new Couche("entity.frog.ambient", 220, 520, 0.035f, 0.06f, 0.8f, 1.05f);
+    private static final Couche SABLE = new Couche("block.sand.idle", 80, 180, 0.02f, 0.035f, 0.8f, 1.0f);
+    private static final Couche PLUIE = new Couche("weather.rain", 30, 45, 0.05f, 0.08f, 0.9f, 1.0f);
+    private static final Couche ORAGE = new Couche("entity.lightning_bolt.thunder", 600, 1400, 0.025f, 0.04f, 0.5f, 0.6f);
+
+    /** Couches par village : Konoha, Suna, Kiri, Kumo, Iwa, Ame. */
+    private static final Couche[][] VILLAGES = {
+        {EAU, INSECTES, VENT, GRENOUILLE},
+        {EAU, INSECTES, SABLE, VENT},
+        {EAU, EAU, INSECTES, GRENOUILLE},
+        {EAU, INSECTES, VENT, ORAGE},
+        {EAU, INSECTES, VENT},
+        {EAU, PLUIE, INSECTES},
+    };
+
+    private static final RandomSource ALEA = RandomSource.create();
+    private static int village = -1;
+    private static int[] prochain = new int[0];
+    private static int horloge;
+
+    static boolean joue() { return village >= 0; }
+
+    /** Démarre (ou change) l'ambiance pour le village v. */
+    static void ambiance(int v) {
+        v = Math.max(0, Math.min(5, v));
+        try { Minecraft.getInstance().getMusicManager().stopPlaying(); } catch (RuntimeException ignored) { }
+        if (v == village) return;
+        village = v;
+        Couche[] cs = VILLAGES[v];
+        prochain = new int[cs.length];
+        // les premières touches arrivent vite et décalées : l'étang « s'éveille » en une à trois secondes
+        for (int i = 0; i < cs.length; i++) prochain[i] = horloge + 4 + i * 9 + ALEA.nextInt(16);
     }
 
-    /** Démarre (ou change) la musique pour le village v. */
-    static void musique(int v) {
+    /** À appeler à chaque tick de l'écran. */
+    static void tick() {
+        if (village < 0) return;
+        horloge++;
         Minecraft mc = Minecraft.getInstance();
-        try { mc.getMusicManager().stopPlaying(); } catch (RuntimeException ignored) { }
-        if (v == villageJoue && ((boucle != null && !boucle.isStopped() && boucle.cible > 0) || ostPiste != null)) return;
-        villageJoue = v;
-        if (ost(v)) {
-            if (boucle != null) boucle.cible = 0f;
-            return;
+        if (horloge % 20 == 0) {
+            try { mc.getMusicManager().stopPlaying(); } catch (RuntimeException ignored) { }
         }
-        if (boucle == null || boucle.isStopped()) {
-            boucle = new Boucle();
-            mc.getSoundManager().play(boucle);
-        } else {
-            boucle.cible = 1f;
-        }
-    }
-
-    static void arreterMusique() {
-        villageJoue = -1;
-        if (boucle != null) boucle.cible = 0f;
-        if (ostPiste != null) {
+        Couche[] cs = VILLAGES[village];
+        for (int i = 0; i < cs.length && i < prochain.length; i++) {
+            if (horloge < prochain[i]) continue;
+            Couche c = cs[i];
+            prochain[i] = horloge + c.iMin() + ALEA.nextInt(Math.max(1, c.iMax() - c.iMin()));
+            float vol = c.vMin() + ALEA.nextFloat() * (c.vMax() - c.vMin());
+            float pitch = c.pMin() + ALEA.nextFloat() * (c.pMax() - c.pMin());
             try {
-                Object moteur = Class.forName("fr.reborn.ost.RebornOstClient").getMethod("audioEngine").invoke(null);
-                Optional<?> cur = (Optional<?>) moteur.getClass().getMethod("currentTrack").invoke(moteur);
-                if (cur.isPresent() && cur.get().equals(ostPiste)) moteur.getClass().getMethod("stop").invoke(moteur);
-            } catch (Throwable ignored) { }
-            ostPiste = null;
+                mc.getSoundManager().play(new SimpleSoundInstance(Identifier.withDefaultNamespace(c.son()),
+                    SoundSource.AMBIENT, vol, pitch, ALEA, false, 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true));
+            } catch (RuntimeException ignored) { }
         }
     }
 
-    /** Piste de l'OST (réflexion) ; faux si le mod n'est pas là ou la piste absente. */
-    private static boolean ost(int v) {
-        try {
-            if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("reborn-ost")) return false;
-            Class<?> c = Class.forName("fr.reborn.ost.RebornOstClient");
-            Object lib = c.getMethod("library").invoke(null);
-            Object moteur = c.getMethod("audioEngine").invoke(null);
-            Optional<?> piste = (Optional<?>) lib.getClass().getMethod("resolve", String.class)
-                .invoke(lib, PISTES_OST[Math.max(0, Math.min(5, v))]);
-            if (piste.isEmpty()) return false;
-            Method play = null;
-            for (Method m : moteur.getClass().getMethods()) if (m.getName().equals("play") && m.getParameterCount() == 5) play = m;
-            if (play == null) return false;
-            play.invoke(moteur, piste.get(), 0.55f, null, 0f, 0f);
-            ostPiste = piste.get();
-            return true;
-        } catch (Throwable e) {
-            ostPiste = null;
-            return false;
-        }
+    static void arreter() {
+        village = -1;
     }
 
-    /** Boucle d'ambiance du mod, en fondu, catégorie Musique. */
-    private static final class Boucle extends AbstractTickableSoundInstance {
-        float niveau, cible = 1f;
-
-        Boucle() {
-            super(SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath("reborn", "esc.ambience")),
-                SoundSource.MUSIC, RandomSource.create());
-            this.looping = true;
-            this.delay = 0;
-            this.volume = 0.0001f;
-            this.relative = true;
-            this.attenuation = SoundInstance.Attenuation.NONE;
-        }
-
-        @Override
-        public void tick() {
-            niveau += (cible - niveau) * 0.03f;
-            volume = Math.max(0.0001f, 0.45f * niveau);
-            if (cible == 0f && niveau < 0.01f) stop();
-        }
-    }
-
-    /* ---------------------------------------------------------------- voix */
+    /* ---------------------------------------------------------------- voix (désactivée par défaut) */
 
     static void voix(int etape) {
         jouerVoix("voix.creation_" + CLES_VOIX[Math.max(0, Math.min(7, etape))]);
@@ -131,12 +107,11 @@ final class PersoSons {
     static void voixIntro() { jouerVoix("voix.creation_intro"); }
 
     private static void jouerVoix(String cle) {
-        Minecraft mc = Minecraft.getInstance();
         couperVoix();
-        if (voixCoupee) return;
+        if (!VOIX || voixCoupee) return;
         voix = new SimpleSoundInstance(Identifier.fromNamespaceAndPath("reborn", cle), SoundSource.VOICE, 1f, 1f,
             RandomSource.create(), false, 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true);
-        mc.getSoundManager().play(voix);
+        Minecraft.getInstance().getSoundManager().play(voix);
     }
 
     static void couperVoix() {

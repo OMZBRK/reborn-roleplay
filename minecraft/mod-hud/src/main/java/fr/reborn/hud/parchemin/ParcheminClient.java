@@ -36,6 +36,9 @@ public final class ParcheminClient {
                 if (mc.gui.screen() instanceof BibliothequeScreen b && o.get("id").getAsString().equals(b.libId())) b.update(o);
                 else mc.setScreenAndShow(BibliothequeScreen.fromJson(o));
             }
+            case "lib_log" -> {
+                if (mc.gui.screen() instanceof BibliothequeScreen b && o.get("id").getAsString().equals(b.libId())) b.showLog(o);
+            }
             case "lib_cfg" -> {
                 if (mc.gui.screen() instanceof BibliothequeStaffScreen s && o.get("id").getAsString().equals(s.libId())) s.update(o);
                 else mc.setScreenAndShow(BibliothequeStaffScreen.fromJson(o));
@@ -44,6 +47,9 @@ public final class ParcheminClient {
                 String id = o.getAsJsonObject("tech").get("id").getAsString();
                 if (mc.gui.screen() instanceof LectureScreen l && id.equals(l.techId())) l.update(o);
                 else mc.setScreenAndShow(LectureScreen.fromJson(o));
+            }
+            case "steal" -> {
+                if (mc.gui.screen() instanceof BibliothequeScreen b) b.stealState(o);
             }
             case "conc" -> ConcentrationHud.update(o);
             case "toast" -> {

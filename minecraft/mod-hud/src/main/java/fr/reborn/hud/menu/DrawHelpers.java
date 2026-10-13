@@ -10,6 +10,9 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
  * statiques de title screen / ESC menu, pas pour du rendering temps réel
  * intensif. Toutes les fonctions sont statiques et idempotentes.
  *
+ * <p>Performance (26.x) : chaque primitive à plusieurs aplats est soumise comme <b>un seul</b> élément GUI
+ * ({@link fr.reborn.hud.ui.LotGui}, rendu identique) — des centaines de {@code fill} séparés coûtaient en O(n²).
+ *
  * <p>Convention : les coordonnées (x, y) désignent le coin haut-gauche,
  * (w, h) la largeur/hauteur. Les angles sont en degrés (sens horaire,
  * 0° = droite).
@@ -33,14 +36,16 @@ public final class DrawHelpers {
      */
     public static void outlinedRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                     int fillColor, int borderColor) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         if (fillColor != 0) {
-            ctx.fill(x + 1, y + 1, x + w - 1, y + h - 1, fillColor);
+            lot.fill(x + 1, y + 1, x + w - 1, y + h - 1, fillColor);
         }
         // 4 bords 1px chacun.
-        ctx.fill(x, y, x + w, y + 1, borderColor);                // top
-        ctx.fill(x, y + h - 1, x + w, y + h, borderColor);        // bottom
-        ctx.fill(x, y + 1, x + 1, y + h - 1, borderColor);        // left
-        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, borderColor);// right
+        lot.fill(x, y, x + w, y + 1, borderColor);                // top
+        lot.fill(x, y + h - 1, x + w, y + h, borderColor);        // bottom
+        lot.fill(x, y + 1, x + 1, y + h - 1, borderColor);        // left
+        lot.fill(x + w - 1, y + 1, x + w, y + h - 1, borderColor);// right
+        lot.fermer();
     }
 
     /**
@@ -78,9 +83,10 @@ public final class DrawHelpers {
             rect(ctx, x, y, w, h, color);
             return;
         }
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         // Bloc central pleine largeur entre les rangées de coins.
         if (h - 2 * r > 0) {
-            ctx.fill(x, y + r, x + w, y + h - r, color);
+            lot.fill(x, y + r, x + w, y + h - r, color);
         }
         // Rangées de coins : une span horizontale par rangée (miroir haut/bas).
         int r2x4 = 4 * r * r;
@@ -95,9 +101,10 @@ public final class DrawHelpers {
                 inset = r - (dxMax + 1) / 2;        // i tel que 2*(r-i)-1 <= dxMax
                 if (inset < 0) inset = 0;
             }
-            ctx.fill(x + inset, y + j, x + w - inset, y + j + 1, color);
-            ctx.fill(x + inset, y + h - 1 - j, x + w - inset, y + h - j, color);
+            lot.fill(x + inset, y + j, x + w - inset, y + j + 1, color);
+            lot.fill(x + inset, y + h - 1 - j, x + w - inset, y + h - j, color);
         }
+        lot.fermer();
     }
 
     /** Rectangle « carré » (arrondi plafonné) avec bordure 1px. */
@@ -131,11 +138,13 @@ public final class DrawHelpers {
     /** Gradient horizontal — approximation par bandes verticales 1px. */
     public static void horizontalGradient(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                           int colorLeft, int colorRight) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         for (int i = 0; i < w; i++) {
             float t = (float) i / Math.max(1, w - 1);
             int c = Colors.lerp(colorLeft, colorRight, t);
-            ctx.fill(x + i, y, x + i + 1, y + h, c);
+            lot.fill(x + i, y, x + i + 1, y + h, c);
         }
+        lot.fermer();
     }
 
     // ────────────────────────────────────────────────────────
@@ -149,11 +158,13 @@ public final class DrawHelpers {
      */
     public static void glowRect(GuiGraphicsExtractor ctx, int x, int y, int w, int h,
                                 int glowColor, int radius) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         for (int i = radius; i >= 1; i--) {
             float t = 1f - (float) i / radius;
             int c = Colors.withAlpha(glowColor, t * (((glowColor >>> 24) & 0xFF) / 255f));
-            ctx.fill(x - i, y - i, x + w + i, y + h + i, c);
+            lot.fill(x - i, y - i, x + w + i, y + h + i, c);
         }
+        lot.fermer();
     }
 
     /**
@@ -161,12 +172,14 @@ public final class DrawHelpers {
      * dégradé). Utilisé pour les cards / modals.
      */
     public static void dropShadow(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int radius) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         for (int i = radius; i >= 1; i--) {
             int alpha = Math.round(80f * (1f - (float) i / radius));
             int c = (alpha << 24);
-            ctx.fill(x + i, y + h, x + w + i, y + h + i, c);  // bottom
-            ctx.fill(x + w, y + i, x + w + i, y + h, c);      // right
+            lot.fill(x + i, y + h, x + w + i, y + h + i, c);  // bottom
+            lot.fill(x + w, y + i, x + w + i, y + h, c);      // right
         }
+        lot.fermer();
     }
 
     // ────────────────────────────────────────────────────────
@@ -175,14 +188,17 @@ public final class DrawHelpers {
 
     /** Disque plein centré sur (cx, cy). */
     public static void disc(GuiGraphicsExtractor ctx, int cx, int cy, int radius, int color) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         for (int dy = -radius; dy <= radius; dy++) {
             int dx = (int) Math.round(Math.sqrt(radius * radius - dy * dy));
-            ctx.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
+            lot.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
         }
+        lot.fermer();
     }
 
     /** Anneau (cercle non-rempli) d'épaisseur {@code thickness}. */
     public static void ring(GuiGraphicsExtractor ctx, int cx, int cy, int radius, int thickness, int color) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         int rOut = radius;
         int rIn = Math.max(0, radius - thickness);
         int rOutSq = rOut * rOut;
@@ -191,10 +207,11 @@ public final class DrawHelpers {
             for (int dx = -rOut; dx <= rOut; dx++) {
                 int d2 = dx * dx + dy * dy;
                 if (d2 <= rOutSq && d2 >= rInSq) {
-                    ctx.fill(cx + dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
+                    lot.fill(cx + dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
                 }
             }
         }
+        lot.fermer();
     }
 
     /**
@@ -205,6 +222,7 @@ public final class DrawHelpers {
     public static void dashedRing(GuiGraphicsExtractor ctx, int cx, int cy, int radius, int thickness,
                                   int color, float dashLengthDeg, float gapLengthDeg,
                                   float rotationDeg) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         int rOut = radius;
         int rIn = Math.max(0, radius - thickness);
         int rOutSq = rOut * rOut;
@@ -218,11 +236,12 @@ public final class DrawHelpers {
                     while (ang < 0) ang += 360f;
                     float modAng = ang % cycle;
                     if (modAng < dashLengthDeg) {
-                        ctx.fill(cx + dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
+                        lot.fill(cx + dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
                     }
                 }
             }
         }
+        lot.fermer();
     }
 
     // ────────────────────────────────────────────────────────
@@ -234,6 +253,12 @@ public final class DrawHelpers {
      * Utilisé pour les traits du LogoSigil (kanji-like strokes).
      */
     public static void line(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1, int color) {
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
+        line(lot, x0, y0, x1, y1, color);
+        lot.fermer();
+    }
+
+    private static void line(fr.reborn.hud.ui.LotGui ctx, int x0, int y0, int x1, int y1, int color) {
         int dx = Math.abs(x1 - x0);
         int dy = -Math.abs(y1 - y0);
         int sx = x0 < x1 ? 1 : -1;
@@ -252,10 +277,12 @@ public final class DrawHelpers {
     public static void thickLine(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1,
                                  int thickness, int color) {
         int half = thickness / 2;
+        fr.reborn.hud.ui.LotGui lot = fr.reborn.hud.ui.LotGui.ouvrir(ctx);
         for (int t = -half; t <= half; t++) {
             // Pour épaisseur impaire on dessine sur les axes perpendiculaires.
-            line(ctx, x0, y0 + t, x1, y1 + t, color);
-            line(ctx, x0 + t, y0, x1 + t, y1, color);
+            line(lot, x0, y0 + t, x1, y1 + t, color);
+            line(lot, x0 + t, y0, x1 + t, y1, color);
         }
+        lot.fermer();
     }
 }
