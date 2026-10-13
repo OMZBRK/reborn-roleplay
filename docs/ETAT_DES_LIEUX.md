@@ -7,7 +7,7 @@
 > [`ROADMAP_BETA_2026.md`](./ROADMAP_BETA_2026.md), l'historique des versions dans
 > [`pilotage/JOURNAL_DES_LIVRAISONS.md`](./pilotage/JOURNAL_DES_LIVRAISONS.md).
 >
-> **Dernière mise à jour : 2026-10-13** (reborn-hud 0.4.173, manifest 3.1.129). À mettre à jour à **chaque
+> **Dernière mise à jour : 2026-10-13** (reborn-hud 0.4.174, manifest 3.1.130). À mettre à jour à **chaque
 > publication** (commit `docs(etat)` séparé).
 
 ---
@@ -33,10 +33,10 @@
 | Artefact | **En ligne** | Sur `origin/main` | Notes |
 |---|---|---|---|
 | Launcher | **0.3.45** (06/10) | 0.3.45 | ✅ |
-| `reborn-hud` | **0.4.173** — manifest **3.1.129** (13/10) | 0.4.173 | ✅ Dernier contenu : menus existants au niveau de la fiche shinobi (Poste de garde, Infirmerie, sacoche, chat, Échap, échoppe, réglages, carte, tablist) ; avant : sélection/création de perso, chirurgie des yeux (0.4.172). Détail de chaque version : [journal](./pilotage/JOURNAL_DES_LIVRAISONS.md) |
+| `reborn-hud` | **0.4.174** — manifest **3.1.130** (13/10) | 0.4.174 | ✅ Dernier contenu : perf de tous les menus, Échap plein écran, création de personnage corrigée (35 coiffures, couleur libre, bandeau de Konoha), bibliothèques v2 ; avant : menus au niveau de la fiche (0.4.173). Détail de chaque version : [journal](./pilotage/JOURNAL_DES_LIVRAISONS.md) |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | **0.2.4** — manifest 3.1.104 (03/10) | 0.2.4 | ✅ |
-| Plugins **Shinobi** — serveur **dev** | ShinobiCore + ShinobiAbilities du **13/10** (`af4bca8`, yeux) ; pack Nexo parchemins + fiole d'œil du 13/10 ; ShinobiLearning du 08/10 ; ShinobiSense du 04/10 (**`ByakuganVision.java` non commité**) | `minecraft/shinobi/` | Déploiement SFTP manuel, redémarrage par l'utilisateur |
+| Plugins **Shinobi** — serveur **dev** | ShinobiCore + ShinobiAbilities du **13/10** (`de7fe9f`, bibliothèques v2 ; yeux `af4bca8`) ; pack Nexo parchemins + fiole d'œil du 13/10 ; ShinobiLearning du 08/10 ; ShinobiSense du 04/10 (**`ByakuganVision.java` non commité**) | `minecraft/shinobi/` | Déploiement SFTP manuel, redémarrage par l'utilisateur |
 | Plugins **Shinobi** — serveur **prod** | ⚠️ non tracé précisément ; au 10/10 son ShinobiCore n'envoyait pas âge / taille / sexe | — | Inventaire à faire avant la mise en prod |
 | `reborn-guardian`, `reborn-ost-plugin` | build Gradle | `minecraft/plugin-*` | Déploiement SFTP manuel |
 

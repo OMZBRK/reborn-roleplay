@@ -12,6 +12,7 @@
 
 | Version | Manifest | Date | Contenu | Commit(s) |
 |---|---|---|---|---|
+| 0.4.174 | 3.1.130 | 13/10 | Perf de tous les menus (LotGui/LotBlit, écrans opaques), Échap plein écran, création de personnage corrigée (fond sans village, ambiances, vrais blasons, couleur libre, 35 coiffures, bandeau de Konoha), tête de la sacoche, bibliothèques v2 côté client | `e043152` |
 | 0.4.173 | 3.1.129 | 13/10 | Menus existants au niveau de la fiche : Poste de garde, Infirmerie, sacoche, chat, Échap (échelle entière, menu « ryo » sur la devanture), échoppe, réglages (byōbu), carte, tablist (registre 名) | `ac26cf8` |
 | 0.4.172 | 3.1.128 | 13/10 | Sélection/création de personnage au niveau de la fiche (décor nocturne par village, blasons de clan, voix off, musique), chirurgie des yeux complète (prélèvement, greffe, cécité, bandage), scène de mort, menu d'interaction, concentration (ensō), bibliothèque refaite. 0.4.171 jamais publiée | `6a19627`, `af4bca8` |
 | 0.4.170 | 3.1.127 | 13/10 | Fiche shinobi « portrait en scène » (Identité/Attributs/Techniques/État), écrans de chirurgie des yeux (banc de test, pas branchés), scène de mort 10 s, corps portables/fouillables, dépôt au sol, parchemins servis par Nexo | `9e00326` |
@@ -58,6 +59,7 @@
 
 | Date | Plugins | Contenu |
 |---|---|---|
+| 13/10 | ShinobiCore, ShinobiAbilities | Bibliothèques v2 : 7 types, fonds et dépôt, journal, lecture sur place, vol (alerte Poste de garde), secrets paramétrables, migration Publique→Village / Réservée→Académie / Privée→Palais ; API sac — `de7fe9f` |
 | 13/10 | ShinobiCore, ShinobiAbilities (inchangé), pack Nexo (fiole_oeil) | Yeux : œil G/D par personnage, fiole d'œil, `/yeux prelever\|greffer\|consentir\|etat\|definir\|donner`, `/bandage`, alerte Poste de garde — `af4bca8` |
 | 13/10 | ShinobiCore, ShinobiAbilities, pack Nexo (parchemin_*) | Données de fiche + états de service, `/stats caractere\|citation\|edit\|service\|json`, scène de mort 10 s, corps du mort portable, dépôt au sol ; parchemins = rouleaux SNR dans `plugins/Nexo/pack` — `9e00326` |
 | 11/10 | ShinobiCore | **Correctif `plugin.yml`** (un « : » non quoté empêchait le chargement) — `55297e3` |
