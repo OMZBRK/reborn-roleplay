@@ -20,6 +20,7 @@
     "ClientInputAccessor",
     "KeyboardInputMixin",
     "LocalPlayerBodyMixin",
+    "LocalPlayerSprintMixin",
     "EntityChangeLookMixin",
     "PlayerJumpMixin",
     "MouseInteractionMixin",

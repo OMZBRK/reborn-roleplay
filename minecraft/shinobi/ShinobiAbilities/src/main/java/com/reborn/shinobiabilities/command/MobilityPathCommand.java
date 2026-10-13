@@ -53,7 +53,8 @@ public final class MobilityPathCommand implements CommandExecutor, TabCompleter 
             sender.sendMessage(Component.text("Voie invalide : " + args[2] + " (none|one|two).", NamedTextColor.RED));
             return true;
         }
-        CharacterService.ResolvedCharacter rc = core.characters().resolveOwned(args[1]);
+        CharacterService.ResolvedCharacter rc = com.reborn.shinobicore.character.PlayerIds.isRef(args[1])
+                ? com.reborn.shinobicore.character.PlayerIds.character(sender, args[1]) : core.characters().resolveOwned(args[1]);
         if (rc == null || rc.character() == null) {
             sender.sendMessage(Component.text("Personnage introuvable : " + args[1], NamedTextColor.RED));
             return true;

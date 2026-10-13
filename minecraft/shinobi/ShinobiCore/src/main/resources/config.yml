@@ -169,6 +169,82 @@ ko:
     # PV rendus par le repos, en fraction des PV max, toutes les 10 s.
     repos-pv-pct-par-10s: 0.01
 
+# Duel consenti n'importe où (/duel, menu d'interaction du mod ; décision du 2026-10-13).
+# Comme un terrain d'entraînement à deux : défaite à 0 PV ou 0 chakra = ni KO ni blessure,
+# PV et chakra d'avant le duel rendus aux deux, aucune XP de combat, pas de journal d'agression.
+duel:
+  actif: true
+  distance-proposition: 8         # blocs entre les deux pour proposer (×1,5 pour accepter)
+  distance-max: 30                # au-delà, le duel s'arrête (avertissement à 80 %)
+  duree-max-secondes: 300         # puis match nul
+  expiration-secondes: 30         # une proposition sans réponse tombe
+  cooldown-secondes: 10           # entre deux propositions d'un même joueur
+  cooldown-couple-secondes: 60    # avant de reproposer à la même personne
+  compte-a-rebours: 3             # 3-2-1, sans coups entre les deux
+  techniques: true                # false = mains nues et armes seulement
+  teleport-max-blocs: 16          # une téléportation plus longue arrête le duel (un shunshin court non)
+  grace-secondes: 3               # après la fin, les deux ne peuvent plus se toucher
+  annonce:
+    actif: true                   # « X et Y s'affrontent en duel », en gris, aux joueurs proches
+    rayon: 24
+
+# Inventaire (sacoche) — décisions du 2026-10-13 (docs/gameplay/INVENTAIRE_ET_COSMETIQUES.md).
+# Toute clé absente garde la valeur par défaut du code (InventaireConfig).
+inventaire:
+  ramassage:
+    distance: 3.0                 # blocs entre les yeux et l'objet visé (touche Ramasser du mod, F)
+    cadence-ms: 250               # au plus 4 ramassages par seconde
+    poids-max-pourcent: 130       # on peut ramasser au-delà de la limite jusqu'à ce seuil, pas plus
+  surcharge:                      # paliers en % du poids max ; vitesse = facteur de la vitesse de marche
+    charge:
+      de: 100
+      vitesse-de: 0.90
+      vitesse-a: 0.70
+      saut: 1.0
+      sprint: false               # plus de sprint dès « Chargé »
+    surcharge:
+      de: 115
+      vitesse-de: 0.70
+      vitesse-a: 0.35
+      saut: 0.0                   # ni saut, ni dash, ni course aux murs (mobilité ninja coupée)
+    immobile:
+      de: 130                     # au-delà : immobile (on peut encore lâcher, ranger, parler)
+      vitesse: 0.0
+      saut: 0.0
+  sol:
+    disparition-minutes: 10       # un objet au sol disparaît après ce délai
+    disparition-ko-minutes: 15    # objet lâché par un joueur KO
+    balayage-secondes: 10
+    jamais-detruits:
+      parchemins: true            # les rouleaux (identifiant unique) ne disparaissent jamais
+      ids: []                     # ids Nexo / de modèle jamais détruits (reliques, objets de quête)
+  journal:
+    fichier: true                 # logs/inventaire-AAAA-MM-JJ.log
+    poste-de-garde-des: RARE      # rareté à partir de laquelle l'action va au journal du Poste de garde
+  arme:                           # objets acceptés dans l'emplacement Arme (étui)
+    ids: [katana, ninjato, tanto, kendo, gunbai, baton_enma, madara_scythe, bo, nodachi, wakizashi]
+    vanilla: true                 # épées, haches, trident, masse
+  cases-cachees:
+    balayage: true                # range chaque seconde ce qui tombe dans les cases 9-35 de Minecraft
+
+# Rareté des objets (COMMUN, PEU_COMMUN, RARE, EPIQUE, LEGENDAIRE) par id Nexo / id de modèle. Ordre de
+# résolution : clé reborn:rarete posée sur l'objet → cette table → rang du parchemin (D → S) → rareté vanilla → Commun.
+rarete:
+  par-id:
+    kunai: COMMUN
+    kendo: COMMUN
+    bandeau_konoha: PEU_COMMUN
+    masque_anbu: RARE
+    masque_hannya: RARE
+    akatsuki_hat: EPIQUE
+    baton_enma: EPIQUE
+    gunbai: LEGENDAIRE
+    madara_scythe: LEGENDAIRE
+    sac_sacoche: COMMUN
+    sac_bandouliere: PEU_COMMUN
+    sac_dos: PEU_COMMUN
+    sac_lourd: RARE
+
 # Mort RP (KO-7) : la scène qui suit la mort.
 mort-rp:
   scene-min-secondes: 10   # délai avant « Assister à votre réelle fin ? » (yeux qui se ferment, noir)

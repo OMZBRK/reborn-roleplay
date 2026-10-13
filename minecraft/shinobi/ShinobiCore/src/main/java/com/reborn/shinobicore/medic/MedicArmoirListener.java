@@ -110,7 +110,7 @@ public final class MedicArmoirListener implements Listener {
         if (ev.getRawSlot() == MedicArmoirManager.ENCYCLOPEDIA_SLOT) {
             ev.setCancelled(true);
             if (ev.getWhoClicked() instanceof Player p) {
-                p.getInventory().addItem(Encyclopedia.build());
+                com.reborn.shinobicore.inventory.InventoryManager.donner(p, Encyclopedia.build());
                 p.sendMessage(Component.text(
                         "Encyclopédie ajoutée à ton inventaire.",
                         NamedTextColor.GRAY));

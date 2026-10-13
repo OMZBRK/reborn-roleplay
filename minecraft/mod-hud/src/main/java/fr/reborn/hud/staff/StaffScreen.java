@@ -41,6 +41,8 @@ public class StaffScreen extends Screen {
     protected static final int WASHI = 0xFFE3D1A8, WASHI_2 = 0xFFD4BF91, WOOD = 0xFF5A3A22, WOOD_DARK = 0xFF2E1C11;
     protected static final int INK = 0xFF2A1A10, INK_SOFT = 0xFF6B5434, FUDA = 0xFFF0E2C2, FUDA_2 = 0xFFE2CFA4;
     protected static final int OK = 0xFF2F7A3A;
+    /** Player ID (N°) : or brun lisible sur le bois et le washi. */
+    protected static final int PID = 0xFF8A5A0C;
 
     protected static final String[][] TABS = {
             {"alerts", "Alertes"}, {"players", "Joueurs"}, {"chat", "Chat staff"}, {"journal", "Journal"}, {"cmds", "Commandes"}};
@@ -63,7 +65,7 @@ public class StaffScreen extends Screen {
     protected int cardIndex;
     protected int ticks;
     protected int mouseX, mouseY;
-    protected EditBox chatBox, noteBox, searchBox;
+    protected EditBox chatBox, noteBox, searchBox, playerSearch;
 
     public StaffScreen() {
         super(Component.literal("Poste de garde"));
@@ -81,6 +83,8 @@ public class StaffScreen extends Screen {
         noteBox = box("Note pour le casier…", 160);
         searchBox = box("Chercher : ata, zone, météo…", 40);
         searchBox.setResponder(v -> scroll = 0);
+        playerSearch = box("N° (#00042), pseudo ou nom RP", 32);
+        playerSearch.setResponder(v -> scroll = 0);
         StaffClient.send("refresh");
         RebornSounds.playReborn("sacoche.open", 1.0f, 0.5f);
     }
@@ -130,7 +134,10 @@ public class StaffScreen extends Screen {
     protected int sy1() { return Math.min(height - 34, sy0() + GardeArt.PAPIER_H); }
 
     /** Zone qui défile (dans le papier), selon l'onglet : la barre de chat en bas, la recherche en haut. */
-    protected int vy0() { return sy0() + 10 + ("cmds".equals(tab) ? 18 : 0); }
+    protected int vy0() { return sy0() + 10 + ("cmds".equals(tab) || playerList() ? 18 : 0); }
+
+    /** Liste des joueurs (pas la fiche d'un joueur) : la recherche N° / pseudo / nom RP est en haut. */
+    protected boolean playerList() { return "players".equals(tab) && profileUuid == null; }
     protected int vy1() { return sy1() - 6 - ("chat".equals(tab) ? 18 : 0); }
     protected int vx0() { return sx0() + navW() + 12; }
     protected int vx1() { return sx1() - 8; }
@@ -366,8 +373,10 @@ public class StaffScreen extends Screen {
     protected void layoutBoxes(GuiGraphicsExtractor ctx) {
         boolean chat = "chat".equals(tab) && confirm == null;
         boolean cmds = "cmds".equals(tab) && confirm == null;
+        boolean list = playerList() && confirm == null;
         chatBox.setVisible(chat);
         searchBox.setVisible(cmds);
+        playerSearch.setVisible(list);
         noteBox.setVisible(confirm != null && sealAt == 0);
         if (chat) {
             int y = sy1() - 20, x = vx0(), w = vx1() - vx0() - bw("Envoyer") - 6;
@@ -381,6 +390,13 @@ public class StaffScreen extends Screen {
             DaKit.etiq(ctx, font, lab, vx0(), y + 6.5f, DaKit.ENCRE_ROUGE);
             GardeArt.champ(ctx, x - 2, y - 1, w + 2);
             searchBox.setX(x + 2); searchBox.setY(y + 3); searchBox.setWidth(w - 6);
+        }
+        if (list) {
+            DaKit.Etiq lab = DaKit.etiq(font, "Chercher");
+            int y = sy0() + 9, x = vx0() + (int) Math.ceil(lab.w()) + 8, w = vx1() - x;
+            DaKit.etiq(ctx, font, lab, vx0(), y + 6.5f, DaKit.ENCRE_ROUGE);
+            GardeArt.champ(ctx, x - 2, y - 1, w + 2);
+            playerSearch.setX(x + 2); playerSearch.setY(y + 3); playerSearch.setWidth(w - 6);
         }
     }
 
@@ -400,6 +416,7 @@ public class StaffScreen extends Screen {
             head(ctx, str(a, "uuid"), x + 17, y + 7, 22);
             int tx = x + 46;
             Component nm = Component.empty()
+                    .append(pidPart(a))
                     .append(gras(str(a, "rank").isEmpty() ? "" : str(a, "rank") + "  ").withColor(LACQUER & 0xFFFFFF))
                     .append(gras(str(a, "perso").isEmpty() ? str(a, "name") : str(a, "perso")).withColor(INK & 0xFFFFFF))
                     .append(RebornFont.body("  " + str(a, "name")).withColor(INK_SOFT & 0xFFFFFF));
@@ -432,8 +449,12 @@ public class StaffScreen extends Screen {
 
     protected int players(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
         y = section(ctx, "Joueurs en ligne", y);
+        String q = playerSearch.getValue().trim();
+        int shown = 0;
         for (JsonElement e : arr(snap, "players")) {
             JsonObject p = e.getAsJsonObject();
+            if (!matchesPlayer(p, q)) continue;
+            shown++;
             int dx = slide();
             ctx.pose().pushMatrix();
             ctx.pose().translate(dx, 0);
@@ -442,6 +463,7 @@ public class StaffScreen extends Screen {
             fuda(ctx, x, y, w, h, st0.isEmpty() ? OK : LACQUER);
             head(ctx, str(p, "uuid"), x + 17, y + 5, 16);
             Component nm = Component.empty()
+                    .append(pidPart(p))
                     .append(gras(str(p, "rank").isEmpty() ? "" : str(p, "rank") + "  ").withColor(LACQUER & 0xFFFFFF))
                     .append(gras(str(p, "perso").isEmpty() ? "(sans personnage)" : str(p, "perso")).withColor(INK & 0xFFFFFF))
                     .append(RebornFont.body("  " + str(p, "name") + (str(p, "village").isEmpty() ? "" : " · " + str(p, "village")))
@@ -455,7 +477,32 @@ public class StaffScreen extends Screen {
             ctx.pose().popMatrix();
             y += h + 5;
         }
+        if (shown == 0) y = text(ctx, q.isEmpty() ? "Personne en ligne." : "Aucun joueur ne correspond à « " + q + " ».",
+                vx0(), y + 2, INK_SOFT);
         return y;
+    }
+
+    /** « 00042  » en or brun devant le nom (Player ID du personnage actif), ou rien. */
+    protected static MutableComponent pidPart(JsonObject p) {
+        String pid = str(p, "pid");
+        return pid.isEmpty() ? Component.empty() : gras("N° " + pid + "  ").withColor(PID & 0xFFFFFF);
+    }
+
+    /**
+     * Recherche du Poste de garde : {@code #00042} / {@code 42} → Player ID (zéros de tête ignorés) ; sinon pseudo
+     * ou nom RP (contient, sans casse).
+     */
+    protected static boolean matchesPlayer(JsonObject p, String q) {
+        if (q == null || q.isBlank()) return true;
+        String s = q.trim().toLowerCase();
+        String digits = s.startsWith("#") ? s.substring(1) : s;
+        String pid = str(p, "pid");
+        if (!digits.isEmpty() && digits.chars().allMatch(Character::isDigit) && !pid.isEmpty()) {
+            String a = digits.replaceFirst("^0+(?=.)", ""), b = pid.replaceFirst("^0+(?=.)", "");
+            if (s.startsWith("#") ? a.equals(b) : pid.contains(digits) || a.equals(b)) return true;
+            if (s.startsWith("#")) return false;
+        }
+        return str(p, "name").toLowerCase().contains(s) || str(p, "perso").toLowerCase().contains(s);
     }
 
     protected int profile(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
@@ -471,6 +518,7 @@ public class StaffScreen extends Screen {
         head(ctx, uuid, x + 18, y + 10, 32);
         int tx = x + 60;
         Component nm = Component.empty()
+                .append(pidPart(p))
                 .append(gras(str(p, "rank").isEmpty() ? "" : str(p, "rank") + "  ").withColor(LACQUER & 0xFFFFFF))
                 .append(gras(str(p, "perso").isEmpty() ? str(p, "name") : str(p, "perso")).withColor(INK & 0xFFFFFF))
                 .append(RebornFont.body("  " + str(p, "name") + (str(p, "village").isEmpty() ? "" : " · " + str(p, "village")))
@@ -846,6 +894,8 @@ public class StaffScreen extends Screen {
     void debugTab(String id) { switchTab(id); }
 
     void debugProfile(String uuid) { tab = "players"; profileUuid = uuid; scroll = 0; }
+
+    void debugSearch(String q) { playerSearch.setValue(q); scroll = 0; }
 
     void debugSeal() { if (confirm != null) sealAt = System.currentTimeMillis() - 260; }
 

@@ -5,12 +5,13 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Effet d'activation du Byakugan (0,6 s) : flash blanc qui s'éteint et lignes radiales qui convergent vers le centre,
- * comme le « zoom » de l'anime. Ensuite, plus rien à l'écran : seul le négatif reste.
+ * comme le « zoom » de l'anime. Ensuite, plus rien à l'écran : seul le négatif reste. Version discrète (13/10) :
+ * flash et lignes atténués, deux fois moins de lignes.
  */
 public final class ByakuganActivation {
 
     private static final float DUREE = 0.6f;
-    private static final int LIGNES = 56;
+    private static final int LIGNES = 32;
 
     private ByakuganActivation() {}
 
@@ -24,13 +25,13 @@ public final class ByakuganActivation {
         float p = t / DUREE;
 
         // flash
-        int flash = Math.round(230 * Math.max(0f, 1f - t / 0.22f));
+        int flash = Math.round(110 * Math.max(0f, 1f - t / 0.22f));
         if (flash > 0) ctx.fill(0, 0, w, h, (flash << 24) | 0xF4F8FF);
 
         // lignes radiales qui partent des bords et filent vers le centre
         float cx = w / 2f, cy = h / 2f;
         float diag = (float) Math.hypot(cx, cy);
-        int alpha = Math.round(200 * (1f - p));
+        int alpha = Math.round(120 * (1f - p));
         if (alpha <= 0) return;
         long graine = 0x5DEECE66DL;
         for (int i = 0; i < LIGNES; i++) {
@@ -39,7 +40,7 @@ public final class ByakuganActivation {
             float ang = (float) (i * Math.PI * 2 / LIGNES + jitter * 0.09);
             float r1 = diag * (0.55f - 0.35f * p) * (0.85f + 0.3f * jitter);
             float longueur = diag - r1;
-            float epaisseur = 1f + 1.5f * jitter;
+            float epaisseur = 1f + 0.6f * jitter;
             ctx.pose().pushMatrix();
             ctx.pose().translate(cx, cy);
             ctx.pose().rotate(ang);

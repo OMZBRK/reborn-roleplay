@@ -54,6 +54,29 @@ public final class ResponsiveAudit {
             CASES.removeIf(c -> pre.stream().noneMatch(p -> c.name.startsWith(p.trim())));
         }
         ClientTickEvents.END_CLIENT_TICK.register(ResponsiveAudit::tick);
+        // règle 7 (DA §6) : éléments GUI de l'image, relevés après le rendu de chaque écran
+        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((mc0, ecran, w0, h0) ->
+            net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterExtract(ecran).register((s0, g, mx, my, d) ->
+                dernierCompte = GuiCompte.compter(g)));
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "audit-compte"),
+            (ctx, t) -> dernierCompteHud = GuiCompte.compter(ctx));
+    }
+
+    private static GuiCompte.Compte dernierCompteHud;
+
+    /** Dernier compte d'éléments GUI d'un écran (null tant qu'aucun écran n'a été rendu depuis le dernier relevé). */
+    private static GuiCompte.Compte dernierCompte;
+
+    private static void noterCompte(Minecraft mc, String file) {
+        String l = file + "  " + (mc.gui.screen() == null ? "hud " + dernierCompteHud : dernierCompte == null ? "?" : dernierCompte)
+            + System.lineSeparator();
+        try {
+            java.nio.file.Files.writeString(mc.gameDirectory.toPath().resolve("audit_elements.txt"), l,
+                java.nio.charset.StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND);
+        } catch (java.io.IOException ignored) { }
+        System.out.println("[audit] " + l.trim());
     }
 
     private static void add(String name, int settle, Consumer<Minecraft> setup) { CASES.add(new Case(name, settle, setup)); }
@@ -74,7 +97,28 @@ public final class ResponsiveAudit {
             st.onStamina(55, 100, now);
         });
         add("hud_ko_a_terre", 30, mc -> { mc.setScreenAndShow(null); KoClient.update(KoDebug.ko(1, 0, 38, 45, false)); });
+        add("hud_ko_carte", 8, mc -> { KoClient.event(KoClient.EV_KO); KoClient.update(KoDebug.ko(2, 0, 170, 300, true)); });
+        add("hud_ko_inconscient", 70, mc -> { });
         add("hud_ko_ata", 30, mc -> { KoClient.update(KoDebug.ata(2, 0.6f, 12, 20, true, true)); });
+        add("hud_volonte_relever", 8, mc -> {
+            KoClient.update(KoDebug.ko(1, 0, 38, 45, false));
+            fr.reborn.hud.ko.VolonteHud.debugReceive("{\"t\":\"avail\",\"left\":1}");
+        });
+        add("hud_volonte_qte", 6, mc -> {
+            long t0 = 900;
+            fr.reborn.hud.ko.VolonteHud.debugReceive("{\"t\":\"start\",\"keys\":[0,1,2,0],\"times\":[" + t0 + ","
+                + (t0 + 900) + "," + (t0 + 1700) + "," + (t0 + 2500) + "],\"win\":160,\"left\":1}");
+            fr.reborn.hud.ko.VolonteHud.debugAt(1, 200);
+        });
+        add("hud_cooldowns", 6, mc -> {
+            fr.reborn.hud.ko.VolonteHud.clear();
+            KoClient.update(null);
+            var cd = fr.reborn.hud.combat.CooldownState.INSTANCE;
+            cd.trigger(fr.reborn.hud.combat.CooldownState.Ability.values()[0], 7000);
+            if (fr.reborn.hud.combat.CooldownState.Ability.values().length > 1) {
+                cd.trigger(fr.reborn.hud.combat.CooldownState.Ability.values()[1], 30000);
+            }
+        });
         add("hud_normal", 6, mc -> { KoClient.update(null); mc.setScreenAndShow(null); });
 
         // ── Poste de garde ──
@@ -119,11 +163,21 @@ public final class ResponsiveAudit {
         screen("menu_camera", () -> new fr.reborn.hud.camera.CameraScreen(null));
         screen("menu_animations", () -> new fr.reborn.hud.animation.AnimationMenuScreen(null));
         screen("menu_galerie", () -> new fr.reborn.hud.ui.GalleryScreen(null));
+        screen("menu_galerie_detail", () -> new fr.reborn.hud.ui.ScreenshotDetailScreen(null,
+            fr.reborn.hud.screenshot.ScreenshotLibrary.list(false), 0));
+        screen("menu_galerie_retouche", () -> new fr.reborn.hud.ui.ScreenshotEditorScreen(null,
+            fr.reborn.hud.screenshot.ScreenshotLibrary.list(false).getFirst()));
+        screen("menu_galerie_partage", () -> new fr.reborn.hud.ui.ScreenshotShareScreen(null,
+            fr.reborn.hud.screenshot.ScreenshotLibrary.list(false).getFirst()));
+        screen("menu_cosmetique", () -> new fr.reborn.hud.menu.cosmetic.RepositionScreen("audit_chapeau", "Chapeau",
+            fr.reborn.hud.cosmetic.CosmeticTransform.Anchor.HEAD));
         screen("menu_sacoche", fr.reborn.hud.menu.inventory.InventoryScreen::new);
         screen("menu_fiche", fr.reborn.hud.menu.fiche.FicheScreen::new);
         screen("menu_tablist", fr.reborn.hud.menu.tablist.TablistScreen::new);
         screen("menu_carte", fr.reborn.hud.map.WorldMapScreen::new);
         screen("menu_tirage", fr.reborn.hud.menu.tirage.TirageScreen::new);
+        screen("menu_tirage_confirmer", () -> fr.reborn.hud.menu.tirage.TirageScreen.confirm("Uchiha"));
+        add("menu_tirage_resultat", 120, mc -> mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen("RAITON", "Uchiha")));
         screen("menu_echoppe", () -> new fr.reborn.hud.menu.widget.ShopScreen(null));
         screen("menu_regles", () -> new fr.reborn.hud.menu.screens.RulesLoreScreen(null));
         screen("menu_signaler", () -> new fr.reborn.hud.menu.widget.ReportScreen(null));
@@ -170,6 +224,7 @@ public final class ResponsiveAudit {
         if (local == 2 + c.settle) {
             String file = "audit_" + c.name + "__s" + scales[phase] + ".png";
             Screenshot.grab(mc.gameDirectory, file, mc.gameRenderer.mainRenderTarget(), 1, msg -> { });
+            noterCompte(mc, file);
         }
         if (++local > 4 + c.settle) {
             local = 0;

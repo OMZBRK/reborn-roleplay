@@ -55,7 +55,7 @@ public final class MapCommand implements TabExecutor {
             case "donner", "give" -> {
                 if (!s.hasPermission(ADMIN)) return deny(s);
                 if (a.length < 3) return usage(s, "/carte donner <joueur> <carte>");
-                Player target = Bukkit.getPlayerExact(a[1]);
+                Player target = com.reborn.shinobicore.character.PlayerIds.online(s, a[1]);
                 if (target == null) return usage(s, "Joueur introuvable : " + a[1]);
                 var def = places.map(a[2].toLowerCase(Locale.ROOT));
                 if (def == null) return usage(s, "Carte inconnue : " + a[2]);

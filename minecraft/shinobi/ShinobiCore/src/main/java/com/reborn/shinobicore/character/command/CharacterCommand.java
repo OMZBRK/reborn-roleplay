@@ -81,7 +81,9 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private OfflinePlayer resolvePlayer(String name) {
+    private OfflinePlayer resolvePlayer(CommandSender s, String name) {
+        java.util.UUID byPid = com.reborn.shinobicore.character.PlayerIds.ownerByRef(s, name);   // #N° (staff) → compte du personnage
+        if (byPid != null) return Bukkit.getOfflinePlayer(byPid);
         Player online = Bukkit.getPlayerExact(name);
         if (online != null) return online;
         @SuppressWarnings("deprecation")
@@ -105,7 +107,7 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        OfflinePlayer target = resolvePlayer(args[1]);
+        OfflinePlayer target = resolvePlayer(s, args[1]);
         if (target == null) {
             s.sendMessage(Component.text("Joueur inconnu ou jamais connecté : " + args[1], NamedTextColor.RED));
             return;
@@ -152,7 +154,7 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        OfflinePlayer target = resolvePlayer(args[1]);
+        OfflinePlayer target = resolvePlayer(s, args[1]);
         if (target == null) {
             s.sendMessage(Component.text("Joueur inconnu ou jamais connecté : " + args[1], NamedTextColor.RED));
             return;
@@ -195,7 +197,7 @@ public class CharacterCommand implements CommandExecutor, TabCompleter {
                 s.sendMessage(Component.text("Permission insuffisante.", NamedTextColor.RED));
                 return;
             }
-            OfflinePlayer t = resolvePlayer(args[1]);
+            OfflinePlayer t = resolvePlayer(s, args[1]);
             if (t == null) {
                 s.sendMessage(Component.text("Joueur inconnu ou jamais connecté.", NamedTextColor.RED));
                 return;

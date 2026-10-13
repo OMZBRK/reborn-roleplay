@@ -7,7 +7,7 @@ package fr.reborn.hud.menu.inventory;
  * type pour l'équiper. L'ordre de déclaration = l'ordre d'affichage (haut→bas,
  * colonne gauche puis droite).
  *
- * <p>{@code side} : 0 = colonne gauche, 1 = colonne droite. {@code icon} = texture
+ * <p>{@code side} : 0 = colonne gauche, 1 = colonne droite, 2 = onglet Équipement (étui). {@code icon} = texture
  * de fond du slot vide (les emplacements pas encore illustrés retombent sur
  * {@code cadre_reborn_none}, le cadre « à faire »).
  */
@@ -23,7 +23,10 @@ public enum CosmeticSlot {
     TENUE("Tenue", "装", "cadre_reborn_none", 1),
     CEINTURE("Ceinture", "帯", "cadre_reborn_none", 1),
     BAS("Bas", "下", "cadre_reborn_none", 1),
-    DOS("Dos", "背", "slot_dos", 1);
+    DOS("Dos", "背", "slot_dos", 1),
+    // ── Onglet ÉQUIPEMENT (pas un cosmétique) : l'ÉTUI. L'arme rangée ici se voit à la ceinture (diffusée comme un
+    //    cosmétique sur reborn:cosmetics), on la dégaine dans la barre (touche Z) et on la rengaine (13/10). ──
+    ARME("Arme", "刀", "cadre_reborn_none", 2);
 
     public final String label;
     public final String kanji;
@@ -35,6 +38,11 @@ public enum CosmeticSlot {
         this.kanji = kanji;
         this.icon = icon;
         this.side = side;
+    }
+
+    /** Emplacement de l'onglet Cosmétique (colonnes gauche / droite) ; l'étui ({@link #ARME}) est dans Équipement. */
+    public boolean cosmetique() {
+        return side < 2;
     }
 
     public static CosmeticSlot fromName(String s) {

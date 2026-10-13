@@ -36,7 +36,10 @@ public final class StaffDebug {
             case 90 -> shot(mc);                                                   // Alertes
             case 95 -> click(mc, "players");
             case 110 -> shot(mc);                                                  // Joueurs
-            case 115 -> profile(mc, me);
+            case 111 -> search(mc, "#00042");
+            case 120 -> shot(mc);                                                  // Joueurs · recherche #N°
+            case 121 -> search(mc, "");
+            case 122 -> profile(mc, me);
             case 135 -> shot(mc);                                                  // Fiche
             case 140 -> scroll(mc, -12);
             case 155 -> shot(mc);                                                  // Fiche (bas : casier, infractions)
@@ -85,6 +88,10 @@ public final class StaffDebug {
         if (mc.gui.screen() instanceof StaffScreen s) s.debugProfile(uuid);
     }
 
+    private static void search(Minecraft mc, String q) {
+        if (mc.gui.screen() instanceof StaffScreen s) s.debugSearch(q);
+    }
+
     private static void scroll(Minecraft mc, double amount) {
         if (mc.gui.screen() instanceof StaffScreen s) s.mouseScrolled(0, 0, 0, amount);
     }
@@ -100,17 +107,17 @@ public final class StaffDebug {
     private static final String SNAP = """
             {"t":"snap","grade":2,"gradeName":"Modérateur","staffOnline":4,
              "alerts":[
-              {"id":"ag-1","kind":"agression","uuid":"$ME","name":"Raiden_FR","perso":"Kazuki Uchiha","rank":"Genin","village":"konoha","online":true,
+              {"id":"ag-1","kind":"agression","uuid":"$ME","name":"Raiden_FR","perso":"Kazuki Uchiha","pid":"00042","rank":"Genin","village":"konoha","online":true,
                "motif":"Combat hors terrain d'entraînement ×4","ctx":["3 victimes différentes","world 812 64 -233","à l'instant"],"score":157},
-              {"id":"aide-2","kind":"aide","uuid":"$ME","name":"Mika_","perso":"Ren Hyūga","rank":"Genin","online":true,
+              {"id":"aide-2","kind":"aide","uuid":"$ME","name":"Mika_","perso":"Ren Hyūga","pid":"00007","rank":"Genin","online":true,
                "motif":"Appel à l'aide · à terre","ctx":["world 640 70 -120","il y a 2 min"],"score":0},
-              {"id":"rep-3","kind":"signalement","uuid":"$ME","name":"Dais","perso":"Daisuke Sarutobi","rank":"Chūnin","online":true,
+              {"id":"rep-3","kind":"signalement","uuid":"$ME","name":"Dais","perso":"Daisuke Sarutobi","pid":"00013","rank":"Chūnin","online":true,
                "motif":"Signalé par 2 joueurs · HRP au chat","ctx":["world 700 66 -180","il y a 6 min"],"score":60}],
              "players":[
-              {"uuid":"$ME","name":"Raiden_FR","perso":"Kazuki Uchiha","rank":"Genin","village":"konoha","state":"ATA pleine · repos 3/20"},
-              {"uuid":"$ME","name":"Mika_","perso":"Ren Hyūga","rank":"Genin","village":"konoha","state":"À terre"},
-              {"uuid":"$ME","name":"Dais","perso":"Daisuke Sarutobi","rank":"Chūnin","village":"konoha","state":""},
-              {"uuid":"$ME","name":"Aya","perso":"Aya Haruno","rank":"Chūnin","village":"konoha","state":""}],
+              {"uuid":"$ME","name":"Raiden_FR","perso":"Kazuki Uchiha","pid":"00042","rank":"Genin","village":"konoha","state":"ATA pleine · repos 3/20"},
+              {"uuid":"$ME","name":"Mika_","perso":"Ren Hyūga","pid":"00007","rank":"Genin","village":"konoha","state":"À terre"},
+              {"uuid":"$ME","name":"Dais","perso":"Daisuke Sarutobi","pid":"00013","rank":"Chūnin","village":"konoha","state":""},
+              {"uuid":"$ME","name":"Aya","perso":"Aya Haruno","pid":"00000","rank":"Chūnin","village":"konoha","state":""}],
              "chat":[
               {"time":"17:41","grade":1,"name":"Aya","text":"Ren est à terre dans la forêt est, j'y vais.","sys":false},
               {"time":"17:42","grade":0,"name":"Système","text":"Alerte : Kazuki Uchiha (Raiden_FR) · combat hors terrain ×4 (score 157).","sys":true},
@@ -118,14 +125,15 @@ public final class StaffDebug {
               {"time":"17:44","grade":4,"name":"Omz","text":"Ok, applique l'escalade et marque les preuves.","sys":false}],
              "journal":[
               {"time":"17:40","name":"Aya","grade":1,"kind":"soin","type":"Paume de soin","detail":"Ren Hyūga"},
-              {"time":"17:38","name":"Aya","grade":1,"kind":"tp","type":"TP vers","detail":"Ren Hyūga (Mika_)"},
+              {"time":"17:38","name":"Aya","grade":1,"kind":"tp","type":"TP vers","detail":"#00007 Ren Hyūga (Mika_)"},
               {"time":"17:31","name":"Omz","grade":4,"kind":"ko","type":"ATA levée","detail":"Daisuke Sarutobi"},
-              {"time":"17:20","name":"Hiro","grade":2,"kind":"ko","type":"Réveil forcé","detail":"Kazuki Uchiha (Raiden_FR)"},
+              {"time":"17:20","name":"Hiro","grade":2,"kind":"ko","type":"Réveil forcé","detail":"#00042 Kazuki Uchiha (Raiden_FR)"},
               {"time":"16:58","name":"Omz","grade":4,"kind":"monde","type":"Zone créée","detail":"repos « ichiraku »"},
               {"time":"15:47","name":"Hiro","grade":2,"kind":"sanction","type":"Avertissement","detail":"Raiden_FR · Combat d'arène"}],
              "commands":[
               {"cat":"Joueurs et modération","cmd":"/garde","desc":"Ouvrir le Poste de garde","grade":1},
-              {"cat":"Joueurs et modération","cmd":"/tp <joueur>","desc":"Aller à un joueur","grade":1},
+              {"cat":"Joueurs et modération","cmd":"/pid <joueur|#N°>","desc":"N° de personnage, compte, état (hors ligne avec #N°)","grade":1},
+              {"cat":"Joueurs et modération","cmd":"/tp <joueur|#N°>","desc":"Aller à un joueur","grade":1},
               {"cat":"Joueurs et modération","cmd":"/vanish","desc":"Devenir invisible","grade":2},
               {"cat":"Joueurs et modération","cmd":"/pardon <joueur>","desc":"Lever un bannissement","grade":3},
               {"cat":"KO, ATA et soins","cmd":"/ata lever <joueur>","desc":"Lever l'ATA","grade":2},
@@ -134,7 +142,7 @@ public final class StaffDebug {
             """;
 
     private static final String PROFILE = """
-            {"t":"profile","uuid":"$ME","name":"Raiden_FR","perso":"Kazuki Uchiha","rank":"Genin","village":"konoha","online":true,
+            {"t":"profile","uuid":"$ME","name":"Raiden_FR","perso":"Kazuki Uchiha","pid":"00042","rank":"Genin","village":"konoha","online":true,
              "state":"ATA pleine · repos 3/20","hp":412,"hpMax":1380,"chakra":6200,"chakraMax":16000,"ryo":12450,"playtime":2472,"ping":38,
              "frozen":false,"watching":false,"score":157,
              "alts":[{"uuid":"$ME","name":"Raiden_alt","seen":"il y a 3 h"}],

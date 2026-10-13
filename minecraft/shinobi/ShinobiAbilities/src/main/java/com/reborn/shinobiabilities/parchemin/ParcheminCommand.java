@@ -260,7 +260,7 @@ public final class ParcheminCommand implements TabExecutor {
         switch (sub) {
             case "donner" -> {
                 if (args.length < 3) { s.sendMessage("§cUsage : /parchemin donner <joueur> <technique>"); return true; }
-                Player t = Bukkit.getPlayerExact(args[1]);
+                Player t = com.reborn.shinobicore.character.PlayerIds.online(s, args[1]);
                 Ability a = catalog.byId(args[2]);
                 if (t == null) { s.sendMessage("§cJoueur hors ligne."); return true; }
                 if (a == null) { s.sendMessage("§cTechnique inconnue."); return true; }
@@ -272,8 +272,7 @@ public final class ParcheminCommand implements TabExecutor {
                     }
                     slots.reserve(a.id(), "rouleau:" + id);
                 }
-                t.getInventory().addItem(ParcheminItems.create(a, id)).values()
-                        .forEach(rest -> t.getWorld().dropItemNaturally(t.getLocation(), rest));
+                com.reborn.shinobiabilities.util.Donner.a(t, ParcheminItems.create(a, id));
                 s.sendMessage("§aParchemin « " + a.name() + " » donné à " + t.getName() + ".");
             }
             case "slots" -> {
@@ -285,7 +284,7 @@ public final class ParcheminCommand implements TabExecutor {
             }
             case "seance" -> {
                 if (args.length < 3) { s.sendMessage("§cUsage : /parchemin seance <joueur> <technique> [n]"); return true; }
-                Player t = Bukkit.getPlayerExact(args[1]);
+                Player t = com.reborn.shinobicore.character.PlayerIds.online(s, args[1]);
                 Ability a = catalog.byId(args[2]);
                 if (t == null || a == null) { s.sendMessage("§cJoueur hors ligne ou technique inconnue."); return true; }
                 int n = 1;

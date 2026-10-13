@@ -512,6 +512,7 @@ public final class AtaManager implements Listener {
         if (attacker == null || attacker.equals(victim)) return;
         long now = System.currentTimeMillis();
         if (plugin.trainingZones().isTraining(attacker)) return;
+        if (plugin.duels() != null && plugin.duels().together(attacker.getUniqueId(), victim.getUniqueId())) return;
         ShinobiCharacter ac = plugin.characters().getActive(attacker.getUniqueId());
         if (ac == null) { recordHit(victim, attacker, now); return; }
 

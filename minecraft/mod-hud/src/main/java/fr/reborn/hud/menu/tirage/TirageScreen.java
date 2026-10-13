@@ -4,6 +4,7 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
+import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.camera.RebornCamera;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
@@ -29,6 +30,9 @@ import java.util.Random;
  * (陣印術, réf. animé/manga). On canalise son chakra dans une feuille sensible :
  * <b>Katon</b> l'enflamme, <b>Suiton</b> la mouille, <b>Raiton</b> la froisse,
  * <b>Fûton</b> la fend, <b>Doton</b> l'effrite. La réaction révèle la nature.
+ *
+ * <p>Confirmation et résultat au niveau de la fiche shinobi (DA §4.1, §6), signature : la <b>feuille de papier à
+ * chakra</b> sur son sanbō, puis réagie selon la nature ({@code textures/gui/tirage/*}).
  *
  * <p>Rendu <b>subtil + in-world</b> (fidèle à à l'animé), pas de gros
  * GUI plein écran : le décor reste visible, le perso passe en 3ᵉ personne de
@@ -335,49 +339,40 @@ public class TirageScreen extends Screen {
             drawResult(ctx, f, cx, mouseX, mouseY);
         } else {
             // MUDRA / CONCENTRATION / REACTION : texte discret, centré bas.
-            String s = switch (phase) {
+            String t = switch (phase) {
                 case MUDRA -> "Signes de mains";
                 case CONCENTRATION -> "Concentration du chakra";
-                default -> "La feuille reagit";
+                default -> "La feuille réagit";
             };
             int d = (int) ((now() / 350) % 4);
-            Component t = RebornFont.arcade(s + "...".substring(0, d));
-            ctx.text(f, t, cx - f.width(t) / 2, this.height - 54, Colors.FOREGROUND, false);
-            Component sub = RebornFont.arcade("Test de la feuille");
-            ctx.text(f, sub, cx - f.width(sub) / 2, this.height - 40, Colors.withAlpha(Colors.GOLD, 0.7f), false);
+            DaKit.inter9o(ctx, f, DaKit.inter(t + "...".substring(0, d)), cx - f.width(DaKit.inter(t)) / 2f, this.height - 46,
+                DaKit.CREME, 0);
+            DaKit.arcFin(ctx, f, DaKit.arcade("Test de la Feuille"), cx, this.height - 36, DaKit.alpha(DaKit.OR, 0.8f), 1, true);
         }
     }
 
-    // ─────────── Popup de confirmation ───────────
-    private static final int CB_W = 130, CB_H = 32;
-    private int confirmY() { return (int) (this.height * 0.46f) + 20; }
-    private int confirmerX() { return this.width / 2 - CB_W - 8; }
-    private int refuserX() { return this.width / 2 + 8; }
+    // ─────────── Popup de confirmation : la feuille sur son sanbō ───────────
+    private static Identifier tex(String n) { return DaKit.tex("tirage", n); }
+
+    private static final Identifier CONFIRMATION = tex("confirmation"), RESULTAT = tex("resultat"), FEUILLES = tex("feuilles");
+    private static final int CB_W = 90, CB_H = 20;
+    private int confirmPy() { return (int) (this.height * 0.46f) - 60; }
+    private int confirmY() { return confirmPy() + 82; }
+    private int confirmerX() { return this.width / 2 - 150 + 92; }
+    private int refuserX() { return this.width / 2 - 150 + 92 + CB_W + 10; }
 
     private void drawConfirm(GuiGraphicsExtractor ctx, Font f, int cx, int mouseX, int mouseY) {
-        int cy = (int) (this.height * 0.46f);
-        int pw = 340, ph = 150;
-        int px = cx - pw / 2, py = cy - ph / 2 - 6;
-        DrawHelpers.roundedOutlinedRect(ctx, px, py, pw, ph, 6,
-            Colors.withAlpha(0xFF0B0709, 0.96f), Colors.withAlpha(Colors.GOLD, 0.5f));
-        ctx.fill(px + 1, py + 1, px + pw - 1, py + 4, Colors.withAlpha(Colors.GOLD, 0.7f));
-
-        Component title = RebornFont.arcade("TEST DE LA FEUILLE");
-        drawScaled(ctx, f, title, cx, py + 20, 1.5f, Colors.GOLD);
-        Component q = RebornFont.arcade("Canalise ton chakra pour reveler ta nature ?");
-        ctx.text(f, q, cx - f.width(q) / 2, py + 48, Colors.FOREGROUND_SUBTLE, false);
-
-        drawBtn(ctx, f, confirmerX(), confirmY(), CB_W, "CONFIRMER", Colors.SUCCESS, mouseX, mouseY);
-        drawBtn(ctx, f, refuserX(), confirmY(), CB_W, "REFUSER", Colors.DANGER, mouseX, mouseY);
-    }
-
-    private void drawBtn(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, String label, int accent, int mx, int my) {
-        boolean hover = mx >= x && mx < x + w && my >= y && my < y + CB_H;
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, w, CB_H, 6,
-            hover ? Colors.withAlpha(accent, 0.28f) : Colors.withAlpha(0xFF000000, 0.5f),
-            hover ? accent : Colors.withAlpha(Colors.FOREGROUND, 0.4f));
-        Component t = RebornFont.arcade(label);
-        ctx.text(f, t, x + (w - f.width(t)) / 2, y + (CB_H - 8) / 2, Colors.WHITE_PURE, false);
+        int px = cx - 150, py = confirmPy();
+        DaKit.blit(ctx, CONFIRMATION, px - 2, py - 2, 0, 0, 308, 128, 308, 128);
+        DaKit.arcX1(ctx, f, DaKit.arcade("Test de la Feuille"), px + 92, py + 20, DaKit.OR_CLAIR, 0, true);
+        DaKit.inter8(ctx, f, DaKit.inter("Canalise ton chakra dans la feuille"), px + 92, py + 42, DaKit.CREME_VAL, 0);
+        DaKit.inter8(ctx, f, DaKit.inter("pour révéler ta nature ?"), px + 92, py + 54, DaKit.CREME_VAL, 0);
+        boolean h1 = DaKit.dans(mouseX, mouseY, confirmerX(), confirmY(), CB_W, CB_H);
+        boolean h2 = DaKit.dans(mouseX, mouseY, refuserX(), confirmY(), CB_W, CB_H);
+        fr.reborn.hud.menu.settings.ReglagesArt.bouton(ctx, confirmerX(), confirmY(), CB_W, 3);
+        fr.reborn.hud.menu.settings.ReglagesArt.bouton(ctx, refuserX(), confirmY(), CB_W, h2 ? 1 : 0);
+        DaKit.inter9(ctx, f, DaKit.inter("Confirmer"), confirmerX() + CB_W / 2f, confirmY() + 10, h1 ? DaKit.CREME : DaKit.CREME_VAL, 1);
+        DaKit.inter9(ctx, f, DaKit.inter("Refuser"), refuserX() + CB_W / 2f, confirmY() + 10, h2 ? DaKit.CREME : DaKit.CREME_VAL, 1);
     }
 
     private void confirmAccept() {
@@ -399,56 +394,35 @@ public class TirageScreen extends Screen {
         onClose();
     }
 
+    private int resultPy() { return (int) (this.height * 0.46f) - 98; }
+
     private void drawResult(GuiGraphicsExtractor ctx, Font f, int cx, int mouseX, int mouseY) {
         Nature n = nature;
         int col = n.color;
-        int cy = (int) (this.height * 0.46f);
+        int px = cx - 116, py = resultPy();
+        DaKit.blit(ctx, RESULTAT, px - 2, py - 2, 0, 0, 240, 204, 240, 204);
+        DaKit.arcX1(ctx, f, DaKit.arcade("Ta nature"), cx, py + 12, DaKit.OR_ETIQ, 1, false);
 
-        // Panneau central sobre.
-        int pw = 300, ph = 250;
-        int px = cx - pw / 2, py = cy - ph / 2;
-        DrawHelpers.roundedOutlinedRect(ctx, px, py, pw, ph, 6,
-            Colors.withAlpha(0xFF0B0709, 0.96f), Colors.withAlpha(col, 0.55f));
-        // Liseré supérieur teinté nature.
-        ctx.fill(px + 1, py + 1, px + pw - 1, py + 4, Colors.withAlpha(col, 0.8f));
-
-        // « Vous avez obtenu… »
-        Component top = RebornFont.arcade("VOUS AVEZ OBTENU");
-        ctx.text(f, top, cx - f.width(top) / 2, py + 22, Colors.FOREGROUND_SUBTLE, false);
-
-        // Kanji : icône custom si présente, sinon glyphe CJK (police vanilla).
-        int kanjiY = py + 46;
-        int kanjiBox = 108;
+        // la feuille a réagi (à gauche) ; le kanji de la nature (à droite)
+        DaKit.blit(ctx, FEUILLES, cx - 66, py + 28, n.ordinal() * 48, 0, 44, 56, 240, 56);
         if (n.kanjiTexExists()) {
-            ctx.blit(RenderPipelines.GUI_TEXTURED, n.kanjiTex, cx - kanjiBox / 2, kanjiY,
-                0f, 0f, kanjiBox, kanjiBox, 256, 256, 256, 256, Colors.withAlpha(col, 1f));
+            ctx.blit(RenderPipelines.GUI_TEXTURED, n.kanjiTex, cx + 6, py + 32, 0f, 0f, 48, 48, 256, 256, 256, 256, col);
         } else {
-            // Glyphe kanji en gros via la police vanilla (supporte le CJK).
-            drawBigGlyph(ctx, f, n.kanji, cx, kanjiY + kanjiBox / 2, 6.5f, col);
+            drawBigGlyph(ctx, f, n.kanji, cx + 30, py + 60, 4f, col);
         }
 
-        // Nom (le gros kanji au-dessus suffit ; pas de kanji ici sinon tofu ArcadePix).
-        Component name = RebornFont.arcade(n.display);
-        drawScaled(ctx, f, name, cx, py + 170, 1.7f, Colors.WHITE_PURE);
-        Component elem = RebornFont.arcade(n.element);
-        ctx.text(f, elem, cx - f.width(elem) / 2, py + 190, col, false);
+        DaKit.arcX1(ctx, f, DaKit.arcade(n.display), cx, py + 98, DaKit.CREME, 1, true);
+        DaKit.inter9(ctx, f, DaKit.inter(n.element), cx, py + 118, col, 1);
 
-        // Bouton Valider.
-        int bw = 150, bh = 30;
-        int bx = cx - bw / 2, by = py + ph - 40;
-        boolean hover = mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + bh;
-        DrawHelpers.roundedOutlinedRect(ctx, bx, by, bw, bh, 6,
-            hover ? Colors.withAlpha(Colors.SUCCESS, 0.28f) : Colors.withAlpha(0xFF000000, 0.5f),
-            hover ? Colors.SUCCESS : Colors.withAlpha(Colors.FOREGROUND, 0.4f));
-        Component v = RebornFont.arcade("VALIDER");
-        ctx.text(f, v, cx - f.width(v) / 2, by + (bh - 8) / 2, Colors.WHITE_PURE, false);
-
-        // Hint discret : fermer (serveur) ou refaire un test (démo F).
-        Component hint = RebornFont.arcade(serverDriven ? "Entree : valider" : "F : refaire un test");
-        ctx.text(f, hint, cx - f.width(hint) / 2, by + bh + 8, Colors.FOREGROUND_MUTED, false);
+        int bw = 120, bx = cx - bw / 2, by = btnY();
+        boolean hover = DaKit.dans(mouseX, mouseY, bx, by, bw, 20);
+        fr.reborn.hud.menu.settings.ReglagesArt.bouton(ctx, bx, by, bw, 3);
+        DaKit.inter9(ctx, f, DaKit.inter("Valider"), cx, by + 10, hover ? DaKit.CREME : DaKit.CREME_VAL, 1);
+        DaKit.inter7(ctx, f, DaKit.inter(serverDriven ? "Entrée : valider" : "F : refaire un test"), cx, by + 32,
+            DaKit.argb(0xC2B59A, 0.7f), 1);
     }
 
-    private int btnY() { return (int) (this.height * 0.46f) - 125 + 250 - 40; }
+    private int btnY() { return resultPy() + 140; }
 
     private void drawBigGlyph(GuiGraphicsExtractor ctx, Font f, String glyph, int cx, int cy, float scale, int color) {
         Component c = Component.literal(glyph);
@@ -505,8 +479,8 @@ public class TirageScreen extends Screen {
                 return true;
             }
             if (phase == Phase.RESULT) {
-                int bw = 150, bx = this.width / 2 - bw / 2, by = btnY();
-                if (mx >= bx && mx < bx + bw && my >= by && my < by + 30) {
+                int bw = 120, bx = this.width / 2 - bw / 2, by = btnY();
+                if (mx >= bx && mx < bx + bw && my >= by && my < by + 20) {
                     RebornSounds.confirm();
                     onClose();
                     return true;

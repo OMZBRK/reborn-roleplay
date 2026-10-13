@@ -188,6 +188,11 @@ public final class NarutoRun {
             syncToClient(p, false);
             return false;
         }
+        // Sacoche trop lourde (palier « Surchargé ») : pas de course de chakra.
+        if (core.surcharge(p)) {
+            syncToClient(p, false);
+            return false;
+        }
         // Path Two: the run IS the path — no separate per-slot unlock needed.
         if (!isFlux(p) && !toggles.isEnabled(c.id(), MobilityActionSlot.NARUTO_RUN)) {
             p.sendActionBar(Component.text("Course Shinobi non débloquée.", NamedTextColor.GRAY));
@@ -376,6 +381,7 @@ public final class NarutoRun {
                 ShinobiCharacter c = Players.active(core.characters(), p);
                 if (c == null) { stop(p, false); continue; }
                 if (core.ko() != null && core.ko().isImpaired(p.getUniqueId())) { stop(p, true); continue; }
+                if (core.surcharge(p)) { stop(p, true); continue; }
 
                 // Drain — task runs every 10 ticks = half the per-second cost.
                 double drain = costPerSecond() / 2.0;

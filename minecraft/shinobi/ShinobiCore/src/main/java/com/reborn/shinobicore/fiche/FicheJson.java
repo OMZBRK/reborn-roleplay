@@ -59,6 +59,8 @@ public final class FicheJson {
     public JsonObject sections(Player p, ShinobiCharacter c, ApprenticeshipService ap, EnduranceService end) {
         JsonObject o = new JsonObject();
         o.addProperty("rankId", c.rank().name());
+        // Player ID : la fiche ne part qu'au joueur lui-même (pastille « N° 00042 », utile pour un ticket).
+        if (c.hasPlayerId()) o.addProperty("pid", com.reborn.shinobicore.character.PlayerIds.format(c.playerId()));
         put(o, "identite", () -> identite(c));
         put(o, "lignee", () -> lignee(c));
         put(o, "apprentissage", () -> apprentissage(p, c, ap));

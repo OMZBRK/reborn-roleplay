@@ -67,6 +67,10 @@ public final class ShinobiCombat extends JavaPlugin {
 
         CombatListener combat = new CombatListener(this, characters, ko, stamina, stats, attribution);
         getServer().getPluginManager().registerEvents(combat, this);
+        // Étourdissement → ShinobiCore (sacoche en lecture seule, ramassage refusé).
+        services.register(com.reborn.shinobicore.api.StunService.class,
+                (com.reborn.shinobicore.api.StunService) combat::isStunned,
+                this, org.bukkit.plugin.ServicePriority.Normal);
 
         // Le taïjutsu (M1) passe par l'event de dégât mêlée vanilla, qui ne NAÎT
         // que si le monde autorise le PvP. Sur ce serveur le PvP est supprimé au

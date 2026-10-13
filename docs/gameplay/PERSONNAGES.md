@@ -17,6 +17,13 @@
 - Stockage : un YAML par joueur dans `plugins/ShinobiCore/characters/`.
 - Un personnage **mort** (mort RP validée et exécutée) reste dans la liste, marqué « MORT », et n'est plus
   jouable. Voir [`KO_ET_MORT_RP.md`](./KO_ET_MORT_RP.md).
+- **Player ID** (13/10, non publié) : chaque personnage a un **N° à 5 chiffres** (`00000`, `00001`…), attribué à la
+  création (et par migration au démarrage pour les anciens), **jamais réutilisé** — un personnage supprimé reste
+  dans l'index `player-ids.yml`, marqué supprimé ; un mort RP garde son N°. Le N° est dans le YAML du personnage
+  (`playerId`). Le joueur le voit sur **sa fiche** (pastille « N° 00042 » à côté du nom, clic = copie pour un
+  ticket) ; le staff le voit au Poste de garde, dans `/pid` et les journaux, et peut viser un personnage par
+  `#00042` dans ses commandes. **Jamais montré aux autres joueurs** (« rencontrer » garde les noms secrets).
+  Détails : [`../GAMEPLAN.md`](../GAMEPLAN.md) §1.4, [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §2.1 bis.
 
 ---
 

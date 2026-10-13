@@ -83,8 +83,28 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
         return switch (slot) {
             case CHAPEAU, BANDEAU, MASQUE, BOUCLE -> CosmeticTransform.Anchor.HEAD;
             case HAUT, TENUE, MANTEAU, DOS -> CosmeticTransform.Anchor.TORSO;
-            case CEINTURE, BAS -> CosmeticTransform.Anchor.PELVIS;
+            case CEINTURE, BAS, ARME -> CosmeticTransform.Anchor.PELVIS;
         };
+    }
+
+    /**
+     * Placement par défaut d'un emplacement. L'arme à l'étui pend à la <b>hanche gauche</b> : garde sur la ceinture,
+     * poignée vers l'avant et le haut, fourreau qui passe derrière (maquette 01_inventaire) ; les autres gardent le
+     * défaut de leur ancrage.
+     */
+    public static CosmeticTransform defautPour(CosmeticSlot slot) {
+        if (slot == CosmeticSlot.ARME) {
+            return new CosmeticTransform(CosmeticTransform.Anchor.PELVIS, 0.30f, 0f, 0.10f, 0f, 90f, -12f, 0.85f);
+        }
+        return CosmeticTransform.defaultFor(anchorForSlot(slot));
+    }
+
+    /** Transform live d'un cosmétique, avec le défaut propre à son emplacement (étui). */
+    public static CosmeticTransform live(String id, CosmeticSlot slot) {
+        return LIVE.computeIfAbsent(id, k -> {
+            CosmeticTransform applied = CosmeticPresets.loadApplied(k);
+            return applied != null ? applied : defautPour(slot);
+        });
     }
 
     /**
@@ -152,7 +172,7 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
         ItemStack stack = item.toStack();
         if (stack == null || stack.isEmpty()) return;
 
-        CosmeticTransform t = override != null ? override : live(cosmeticId(slot, item), anchorForSlot(slot));
+        CosmeticTransform t = override != null ? override : live(cosmeticId(slot, item), slot);
         ItemDisplayContext ctx = displayContextFor(t.anchor);
 
         // Instance par rendu (plus de champ partagé par slot) : plusieurs avatars

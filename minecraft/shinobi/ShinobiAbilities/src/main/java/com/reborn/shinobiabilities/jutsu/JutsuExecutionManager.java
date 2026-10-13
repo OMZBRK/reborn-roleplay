@@ -222,6 +222,21 @@ public final class JutsuExecutionManager {
             actionBar(p, "Trop blessé pour une technique.", NamedTextColor.RED);
             return null;
         }
+        // Duel consenti : pas de technique pendant le compte à rebours, ni du tout si duel.techniques = false.
+        if (core.ko() != null) {
+            String no = core.ko().techniqueDenial(p.getUniqueId());
+            if (no != null) {
+                actionBar(p, no, NamedTextColor.GOLD);
+                return null;
+            }
+        }
+        // Kenjutsu : une arme à l'étui ou dégainée (emplacement Arme de la sacoche, décision du 2026-10-13).
+        if (core.inventory() != null && a.category() != null && a.category().contains("kenjutsu")
+                && plugin.getConfig().getBoolean("jutsu.kenjutsu-exige-arme", true)
+                && core.inventory().weapon(p) == null) {
+            actionBar(p, "Il te faut une arme à l'étui pour le Kenjutsu.", NamedTextColor.GOLD);
+            return null;
+        }
         if (requireLearned() && !p.hasPermission("shinobiabilities.admin")
                 && !c.knowsAbility(a.id())) {
             actionBar(p, "Technique non apprise : " + a.name(), NamedTextColor.RED);

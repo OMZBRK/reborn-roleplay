@@ -19,5 +19,14 @@ public record CoreServices(CharacterService characters,
                            KoService ko,
                            MobilityService mobility,
                            HudService cooldownHud,
-                           ItemGiveService itemGive) {
+                           ItemGiveService itemGive,
+                           com.reborn.shinobicore.api.InventoryService inventory) {
+
+    /**
+     * Surcharge (sacoche, palier « Surchargé » et au-delà) : la mobilité ninja est coupée — ni dash, ni double saut,
+     * ni course aux murs, ni escalade, ni course de chakra (décision du 2026-10-13). Faux sans le service.
+     */
+    public boolean surcharge(org.bukkit.entity.Player p) {
+        return inventory != null && p != null && inventory.mobiliteBloquee(p.getUniqueId());
+    }
 }

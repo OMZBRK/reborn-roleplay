@@ -2,7 +2,7 @@
 
 > **Le document à lire en premier pour savoir où on en est.** Un chantier par section : son état, ce qui est
 > fait (avec le lien vers la fiche détaillée), ce qui reste, ce qui attend une décision. **Mis à jour le
-> 2026-10-12** après la consolidation de toutes les sessions de travail (8 septembre → 12 octobre).
+> 2026-10-13** après la consolidation de toutes les sessions de travail (8 septembre → 12 octobre).
 >
 > Légende : ✅ fait et en service · 🟢 fait, à tester en jeu · 🟡 en cours / partiel · ⏳ pas commencé ·
 > ❓ décision attendue de l'utilisateur · ⚠️ point de vigilance
@@ -15,15 +15,31 @@
 
 ## 0. Où en est-on — en une minute
 
-- **Date de référence : 12 octobre 2026.** Le Sprint 1 (« Foundation & Design ») devait finir le 8 octobre. **Décision
-  de l'utilisateur : finir le Sprint 1 avant d'ouvrir le Sprint 2** (« sinon on le finira jamais »).
-- **Dernière livraison** : `reborn-hud` **0.4.169** (manifest 3.1.126, 11/10) + ShinobiCore / ShinobiAbilities sur le
-  **serveur dev** : KO-5 Volonté facultative, KO-7 mort RP (RPK validée puis exécutée), scène de mort, progression XP
-  invisible et points de Mérite. Correctif `plugin.yml` déployé le 11/10 (commit `55297e3`).
-- **À faire tout de suite** : tester la 0.4.169 **à deux comptes** sur le dev (cf. §6), puis attaquer ce qui reste du
-  Sprint 1 : **design Faction**, icônes, assets wave 1.
+- **Date de référence : 13 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
+- **Game Plan Reborn : [`GAMEPLAN.md`](./GAMEPLAN.md), on avance point par point dans l'ordre RedLine** (§54 du Game
+  Plan). Points 1 à 3 (Player ID, inventaire, ramassage) validés dans leurs grandes lignes le 13/10 ; prochain : leurs ❓.
+- **Livré les 12-13/10 (serveur dev)** — `reborn-hud` 0.4.170 → **0.4.174** + ShinobiCore / ShinobiAbilities + pack Nexo :
+  - **Tous les menus au niveau de la « fiche shinobi »** (référence de rendu, DA §4.1-4.2) : fiche shinobi « portrait en
+    scène » (remplace l'écran de stats), sélection / création de personnage (lac, lucioles, vrais blasons de clan,
+    taille au cm, apparence en vignettes, pipette de couleur, 35 coiffures, accessoire bandeau de Konoha, ambiances),
+    chirurgie des yeux, scène de mort, menu d'interaction, concentration (ensō A), bibliothèque, Poste de garde,
+    Infirmerie, sacoche, chat, Échap (plein écran), échoppe, réglages, carte, tablist.
+  - **Performance** : causes trouvées et corrigées (éléments GUI regroupés `LotGui`/`LotBlit`, monde non rendu derrière
+    les écrans opaques, flou supprimé) — DA §6 règles 7-8.
+  - **Chirurgie des yeux** complète côté serveur (`medic/yeux`, fiole d'œil Nexo, cécité, bandage).
+  - **Bibliothèques v2** : 7 types, fonds + dépôt, journal, lecture sur place, **vol**, **secrets** paramétrables.
+  - Scène de mort à 10 s, corps du mort portable, correctif du portage (corps en l'air).
+  - Parchemins = rouleaux SNR servis par Nexo ; boîte à outils de style `minecraft/mod-hud/tools/style/`.
+  - Études : benchmark NydoMod / Ninshu / serveurs RP (`etudes/`).
+- **Fait, non publié (13/10)** : finitions d'UI (réglages du chat, icônes, logo de l'Échap) et **duel consenti**
+  (`/duel`, menu d'interaction → invitation → 3-2-1 → combat sans séquelles, visuel discret — `gameplay/KO_ET_MORT_RP.md` §4.1).
+- **En cours** : mise à jour visuelle des derniers menus et HUD en jeu (HUD en jeu = subtil, DA §6 règle 9) ;
+  maquettes des idées RedLine avec comparaison au Google Doc (`etudes/REDLINE_REFERENCES.md`, page de revue hors dépôt
+  `Maquettes/redline/index.html`) ; **proposition de design Faction** (maquettes + `gameplay/FACTION_PROPOSITION.md`).
+- **À tester en jeu** (deux comptes) : KO / mort RP, yeux, bibliothèques (vol, secrets), FPS de chaque menu sur la
+  machine de l'utilisateur.
 - **Dette ouverte** : `tools/bbforge/`, `tools/blockbench-handpaint/`, `ShinobiSense/ByakuganVision.java` et
-  `scripts/publish-mod-manifest.ps1` sont modifiés mais **pas commités** (chantiers d'autres sessions).
+  `scripts/publish-mod-manifest.ps1` (chantiers d'autres sessions) toujours non commités.
 
 ---
 
@@ -35,7 +51,7 @@
 | Design **Progression** | ✅ | Grades RP (9 grades, 08/10) + XP invisible → points de stats (10/10) |
 | Design **Parchemins** | ✅ | Règles validées le 08/10 — [`gameplay/APPRENTISSAGE.md`](./gameplay/APPRENTISSAGE.md) |
 | Design **KO / mort RP** | ✅ | Implémenté KO-1 à KO-7 — [`gameplay/KO_ET_MORT_RP.md`](./gameplay/KO_ET_MORT_RP.md) |
-| Design **Faction Konoha** | ⏳ ❓ | **Pas commencé.** L'utilisateur veut en discuter avec des références visuelles (« très très très important ») : menus de sections, factions, trésor commun, banques, coffres |
+| Design **Faction Konoha** | 🟡 ❓ | **Proposition maquettée en cours (13/10)**, à valider avec l'utilisateur. L'utilisateur veut en discuter avec des références visuelles (« très très très important ») : menus de sections, factions, trésor commun, banques, coffres |
 | Code `StatsService` | ✅ | En service depuis le 28/09 |
 | `ProgressionLadder` (rangs + seuils XP) | ✅ remplacé | Les grades ne montent plus à l'XP ; l'XP donne des points de stats |
 | **8 icônes de recharge** | 🟡 3/8 | Existent : dash, double saut, saut de chakra. **Demandées à l'utilisateur** (il les dessine) : `combat.png`, `course_chakra.png` (32×32, frames empilées verticalement, `mod-hud/src/main/resources/assets/reborn/textures/gui/ability/`). Restent du plan : dodge, block, katon-D, suiton-D, doton-D, fūton-D |

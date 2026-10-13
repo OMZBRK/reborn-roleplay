@@ -76,7 +76,22 @@ public class CharacterManager implements CharacterService {
 
     /** Load (or return cached) characters for an owner. */
     public List<ShinobiCharacter> getAll(UUID owner) {
-        return byOwner.computeIfAbsent(owner, repo::loadAll);
+        return byOwner.computeIfAbsent(owner, o -> withPlayerIds(repo.loadAll(o)));
+    }
+
+    /** Filet après la migration du démarrage : un personnage chargé sans N° en reçoit un (et le garde). */
+    private List<ShinobiCharacter> withPlayerIds(List<ShinobiCharacter> roster) {
+        PlayerIdRegistry ids = plugin.playerIds();
+        if (ids == null) return roster;
+        for (ShinobiCharacter c : roster) {
+            if (c.hasPlayerId()) continue;
+            int n = ids.assign(c.id(), c.ownerId(), c.name());
+            if (n >= 0) {
+                c.setPlayerId(n);
+                repo.save(c);
+            }
+        }
+        return roster;
     }
 
     public Optional<ShinobiCharacter> findById(UUID owner, UUID characterId) {
@@ -98,6 +113,7 @@ public class CharacterManager implements CharacterService {
      *  bypass the markClean — harmless: the record just stays dirty and
      *  re-saves on the next autosave tick.) */
     public void save(ShinobiCharacter c) {
+        if (c.hasPlayerId() && plugin.playerIds() != null) plugin.playerIds().rename(c.id(), c.name());
         repo.save(c);
         List<ShinobiCharacter> list = byOwner.computeIfAbsent(c.ownerId(), k -> new ArrayList<>());
         if (!list.contains(c)) list.add(c);
@@ -121,6 +137,11 @@ public class CharacterManager implements CharacterService {
 
     public ShinobiCharacter create(UUID owner, String name) {
         ShinobiCharacter c = new ShinobiCharacter(owner, name);
+        // Player ID : attribué (et le compteur écrit) avant la première sauvegarde du personnage.
+        if (plugin.playerIds() != null) {
+            int n = plugin.playerIds().assign(c.id(), owner, name);
+            if (n >= 0) c.setPlayerId(n);
+        }
         List<ShinobiCharacter> list = byOwner.computeIfAbsent(owner, k -> new ArrayList<>());
         list.add(c);
         repo.save(c);
@@ -132,6 +153,8 @@ public class CharacterManager implements CharacterService {
         boolean removed = list.removeIf(c -> c.id().equals(characterId));
         if (removed) {
             repo.delete(owner, characterId);
+            // Le N° reste pris pour toujours : l'index le garde, marqué supprimé.
+            if (plugin.playerIds() != null) plugin.playerIds().markDeleted(characterId);
             ShinobiCharacter cur = active.get(owner);
             if (cur != null && cur.id().equals(characterId)) active.remove(owner);
             // Also drop the chat-fallback cache if it pointed at the
@@ -211,6 +234,8 @@ public class CharacterManager implements CharacterService {
      *  state (HP, position, inventory) and strip its attribute modifiers
      *  so nothing leaks into the next apply. */
     private void teardownPrevious(Player player, ShinobiCharacter previous) {
+        // Duel en cours : forfait, PV / chakra d'avant le duel rendus avant de sauver.
+        if (plugin.duels() != null) plugin.duels().release(player, "changement de personnage");
         // Entraînement en cours : on remet les PV / le chakra d'entrée avant de sauver.
         if (plugin.trainingZones() != null) plugin.trainingZones().release(player, previous);
         previous.setCurrentHp(player.getHealth());
@@ -668,5 +693,24 @@ public class CharacterManager implements CharacterService {
             for (ShinobiCharacter c : roster) names.add(c.name());
         }
         return new ArrayList<>(names);
+    }
+
+    /* ------------------------------------------------- Player ID (N°) */
+
+    /**
+     * Personnage par N°, même hors ligne : l'index donne le propriétaire, puis son roster est chargé (et gardé en
+     * cache, comme {@link #getAll}) pour qu'une modification staff suivie d'un {@link #save} reste cohérente.
+     * {@code null} si le N° est inconnu ou le personnage supprimé.
+     */
+    @Override
+    public ResolvedCharacter findByPlayerId(int number) {
+        PlayerIdRegistry ids = plugin.playerIds();
+        if (ids == null || number < 0) return null;
+        PlayerIdRegistry.Entry e = ids.get(number);
+        if (e == null || e.deleted() || e.ownerId() == null) return null;
+        for (ShinobiCharacter c : getAll(e.ownerId())) {
+            if (c.id().equals(e.characterId())) return new ResolvedCharacter(e.ownerId(), c);
+        }
+        return null;
     }
 }

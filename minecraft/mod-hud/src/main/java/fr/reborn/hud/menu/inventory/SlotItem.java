@@ -27,6 +27,10 @@ public final class SlotItem {
     public final String rarity;   // "Rare"… ou null
     public final String actionId; // action contextuelle ("tirage"…) ou null
     public final String actionLabel; // libellé du bouton d'action, ou null
+    /** Peut aller dans l'emplacement Arme (étui) — décidé par le serveur. */
+    public boolean arme;
+    /** Objet unique (rouleau, relique) : jamais détruit au sol. */
+    public boolean unique;
 
     private ItemStack cached;
 

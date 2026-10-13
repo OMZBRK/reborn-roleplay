@@ -13,7 +13,13 @@ public enum CosmeticSlot {
     HAUT,
     TENUE,
     CEINTURE,
-    BAS;
+    BAS,
+    /**
+     * Emplacement <b>Arme</b> de l'onglet Équipement = l'<b>étui</b> (décision du 2026-10-13) : l'arme rangée ici se
+     * voit à la ceinture (diffusée comme un cosmétique, ancrée au bassin) ; on la dégaine dans la barre et on la
+     * rengaine. N'accepte que les armes ({@link RareteItems#arme}).
+     */
+    ARME;
 
     public static CosmeticSlot fromName(String s) {
         if (s == null || s.isBlank()) return null;

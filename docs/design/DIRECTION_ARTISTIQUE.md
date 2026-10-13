@@ -82,7 +82,29 @@ Infirmerie, sacoche, chat ouvert, Échap, échoppe, réglages, carte, tablist. C
 `minecraft/mod-hud/tools/gen_<ecran>_textures.py` (pièces communes : `tools/ecrans_art.py`, `fiche_art.py`,
 `style/kit.py`) et passe par `ui/DaKit.java`. **Signatures ajoutées (à valider)** : paravent **byōbu** = Réglages,
 **registre 名** = Tablist, **pierres de gué sur l'étang** = sélection et création, **fiole** = prélèvement d'œil.
-Restent hors lot : fenêtre des réglages du chat, logo HD de l'Échap, icônes 32×32 rognées par `IconTextures.drawIcon`.
+Finitions faites le 13/10 : réglages du chat, logo de l'Échap en pixel art (`echap/logo.png`), icônes réduites au lieu d'être rognées (`IconTextures`).
+
+**Lot « écrans en jeu restants » (13/10, après la 0.4.174 — non publié)**, en version épurée (retour du 13/10 :
+« faut que ce soit subtil… pas de gros trucs ») : éditeur de HUD et son aide, viseur, caméra, mouvements (emotes /
+démarches), mode photo, galerie (vue détail, retouche, partage), signalement et déconnexion (depuis l'Échap), test de
+la Feuille (confirmation et résultat), repositionnement des cosmétiques ; HUD rendus plus discrets : KO / ATA (plus de
+plaque ni de bandeau épais), Volonté, créneaux de recharge, activation du Byakugan atténuée. Générateurs
+`tools/gen_{editeur,viseur,camera,animations,photo,galerie,signalement,deconnexion,tirage,cosmetique,combat}_textures.py`
+(pièces communes du lot : `tools/jeu_art.py`). **Signatures ajoutées (à valider)** :
+
+| Écran | Signature |
+|---|---|
+| Éditeur de HUD (+ aide) | l'**équerre et le cordeau à encre** du charpentier (sashigane, sumitsubo), règle graduée d'or en filet ; l'ancien « byōbu » du panneau est retiré (signature des Réglages) |
+| Viseur | le **mato de kyūdō** sur sa butte de sable, flèches fichées ; l'aperçu se dessine au centre de la cible |
+| Caméra | le **miroir de bronze** (dōkyō) où se reflète la vue de dessus |
+| Mouvements | l'**éventail** (sensu) entrouvert sur la planche |
+| Mode photo | le **viseur** (conservé, il avait plu) : équerres d'angle, déclencheur vermillon cerclé d'or, sceau 撮 |
+| Galerie | les **tirages pincés sur des fils** (conservés) ; pellicule dans la vue détail |
+| Signaler | la **boîte à doléances** (meyasubako, plaquette 訴) |
+| Se déconnecter | le **chapeau de voyageur** (sugegasa) : se déconnecter, c'est prendre la route |
+| Test de la Feuille | la **feuille de papier à chakra** sur son sanbō ; au résultat, la feuille réagie (brûlée, mouillée, froissée, fendue, effritée) |
+| Cosmétiques | la **pelote à épingles** du tailleur (harisashi) |
+
 
 ## 5. Méthode de travail sur un visuel
 
@@ -114,3 +136,10 @@ L'utilisateur veut rester en pixel art, **sans coût de performance**. Règles d
    `ui/LotGui` (aplats) ou `ui/LotBlit` (blits d'une même texture) : rendu identique, coût linéaire.
 8. **Écran opaque = monde caché** : un menu dont le fond couvre tout l'écran implémente `ui/EcranOpaque` (le monde
    et le HUD ne sont plus calculés derrière lui) et n'appelle jamais le fond flou vanilla (`extractBackground`).
+9. **HUD en jeu : subtil, épuré, petit — jamais de grosses plaques** (retour du 13/10 sur le duel et le KO : « c'est
+   gros, faut que ce soit subtil »). Ce qui s'affiche pendant qu'on joue (invitation, indicateur, compte à rebours,
+   carte de fin, état) est du **texte petit** (Inter 7-8, ArcadePix ×2 au plus pour un mot fort) sur un **voile nuit
+   très léger** ou rien, avec au plus un minuscule sceau et un **filet d'or d'1 px** ; pas de cadre épais, pas de
+   bouton-plaque : un choix cliquable est un **mot souligné au survol**. Rien ne couvre plus que nécessaire, rien de
+   plus large qu'environ **1/4 de l'écran** (hors texte), fondu d'entrée et de sortie. Les plaques laquées restent
+   pour les **menus** (écrans ouverts). Référence : `duel/DuelHud.java` v2.

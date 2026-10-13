@@ -76,7 +76,7 @@ public final class LeafTestManager implements Listener, PluginMessageListener {
 
     // ── API ──────────────────────────────────────────────────────────
     public void giveItem(Player p) {
-        p.getInventory().addItem(LeafTestItem.create(plugin));
+        com.reborn.shinobicore.inventory.InventoryManager.donner(p, LeafTestItem.create(plugin));
         p.sendMessage(Component.text("Tu reçois une Feuille de test.", NamedTextColor.GREEN));
     }
 

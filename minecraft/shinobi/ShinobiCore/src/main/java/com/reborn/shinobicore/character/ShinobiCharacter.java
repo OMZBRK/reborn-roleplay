@@ -196,6 +196,13 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     private boolean dead;
 
     /**
+     * Player ID — N° court du personnage (00000, 00001…), attribué une fois par
+     * {@link PlayerIdRegistry} et jamais réutilisé ; -1 tant qu'il n'est pas attribué.
+     * Visible du joueur lui-même (fiche) et du staff seulement.
+     */
+    private int playerId = -1;
+
+    /**
      * Active injuries on this character. Each {@link Injury} carries a
      * body part, type (Hématome/Brûlure/etc.), origin (Taijutsu/Katon/…)
      * and severity. Persisted across logout / character switch so a
@@ -577,6 +584,14 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
 
     public boolean dead()         { return dead; }
     public void    setDead(boolean v) { this.dead = v; touch(); }
+
+    /* ---------------------------------------------- player id (N°) */
+
+    /** N° du personnage (0…99999), -1 si pas encore attribué. */
+    public int     playerId()     { return playerId; }
+    public boolean hasPlayerId()  { return playerId >= 0; }
+    /** Réservé au registre et au chargement : le N° ne change jamais une fois attribué. */
+    public void    setPlayerId(int n) { if (n != playerId) { this.playerId = n; touch(); } }
 
     /* ---------------------------------------------- jutsu bindings */
 

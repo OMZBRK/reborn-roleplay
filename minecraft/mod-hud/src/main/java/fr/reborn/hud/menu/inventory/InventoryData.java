@@ -28,7 +28,28 @@ public final class InventoryData {
     public record Snapshot(String bagTier, int baseSlots, int extraSlots,
                            double maxWeight, double curWeight,
                            SlotItem bagItem, SlotItem[] bag,
-                           Map<CosmeticSlot, SlotItem> equipped) {}
+                           Map<CosmeticSlot, SlotItem> equipped,
+                           SlotItem[] hotbar, String lecture, int palier, double poidsMax,
+                           boolean armeDegainee, boolean ouvrir) {
+
+        /** Forme courte (bancs, démo solo) : barre lue chez le joueur, pas de verrou, palier 0, plafond 130 %. */
+        public Snapshot(String bagTier, int baseSlots, int extraSlots, double maxWeight, double curWeight,
+                        SlotItem bagItem, SlotItem[] bag, Map<CosmeticSlot, SlotItem> equipped) {
+            this(bagTier, baseSlots, extraSlots, maxWeight, curWeight, bagItem, bag, equipped, null, null, 0, 1.3,
+                false, true);
+        }
+
+        /** Copie avec un autre poids / verrou (bancs d'essai). */
+        public Snapshot avec(double max, double cur, String lecture, int palier) {
+            return new Snapshot(bagTier, baseSlots, extraSlots, max, cur, bagItem, bag, equipped, hotbar, lecture, palier,
+                poidsMax, armeDegainee, ouvrir);
+        }
+
+        /** Métadonnées d'une case de la barre (rareté…), si le serveur les a envoyées. */
+        public SlotItem hotbarMeta(int i) {
+            return hotbar != null && i >= 0 && i < hotbar.length ? hotbar[i] : null;
+        }
+    }
 
     private static volatile Snapshot snapshot = null;
 
@@ -80,7 +101,20 @@ public final class InventoryData {
                 }
             }
 
-            snapshot = new Snapshot(bagTier, baseSlots, extraSlots, maxWeight, curWeight, bagItem, bag, equipped);
+            SlotItem[] hotbar = null;
+            if (root.has("hotbar") && root.get("hotbar").isJsonArray()) {
+                JsonArray h = root.getAsJsonArray("hotbar");
+                hotbar = new SlotItem[9];
+                for (int i = 0; i < h.size() && i < 9; i++) {
+                    JsonElement el = h.get(i);
+                    hotbar[i] = el.isJsonObject() ? parseItem(el.getAsJsonObject()) : null;
+                }
+            }
+            // « ouvrir » absent = ancien serveur, qui n'envoyait la sacoche que pour l'ouvrir.
+            boolean ouvrir = !root.has("ouvrir") || root.get("ouvrir").getAsBoolean();
+            snapshot = new Snapshot(bagTier, baseSlots, extraSlots, maxWeight, curWeight, bagItem, bag, equipped,
+                hotbar, str(root, "lecture", null), intv(root, "palier", 0), dbl(root, "poidsMax", 1.3),
+                root.has("armeDegainee") && root.get("armeDegainee").getAsBoolean(), ouvrir);
         } catch (Exception ignored) {
             // garde le snapshot précédent
         }
@@ -102,7 +136,10 @@ public final class InventoryData {
                 actionId = str(a, "id", null);
                 actionLabel = str(a, "label", null);
             }
-            return new SlotItem(mat, model, count, name, weight, desc, rarity, actionId, actionLabel);
+            SlotItem si = new SlotItem(mat, model, count, name, weight, desc, rarity, actionId, actionLabel);
+            si.arme = o.has("arme") && o.get("arme").getAsBoolean();
+            si.unique = o.has("unique") && o.get("unique").getAsBoolean();
+            return si;
         } catch (Exception e) {
             return null;
         }

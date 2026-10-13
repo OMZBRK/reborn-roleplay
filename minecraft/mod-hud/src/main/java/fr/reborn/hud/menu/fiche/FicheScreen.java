@@ -240,7 +240,7 @@ public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque 
         if (o.perches()) FicheArt.perches(ctx, lay.panG + FicheArt.PW + 10, lay.panD - 10, lay.w);
         try { o.avant(this, ctx, mx, my); } catch (Exception ignored) { }
         entete(ctx, mx, my);
-        cartouche(ctx);
+        cartouche(ctx, mx, my);
         aides(ctx, o);
         ctx.nextStratum();
 
@@ -301,18 +301,70 @@ public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque 
 
     /* ---------------------------------------------------------------- cartouche, aides */
 
-    private void cartouche(GuiGraphicsExtractor ctx) {
+    private void cartouche(GuiGraphicsExtractor ctx, int mx, int my) {
         Font f = this.font;
         StatsData.Snapshot s = snap();
         int x = lay.cartoucheX, y = lay.cartoucheY;
         FicheArt.embleme(ctx, FicheTextes.village(s.village()), x, y + 1, 12, FicheArt.CREME);
-        FicheArt.arcadeX1(ctx, f, FicheArt.arcade(s.name()), x + 18, y + 2, FicheArt.CREME, true);
+        Component nom = FicheArt.arcade(s.name());
+        FicheArt.arcadeX1(ctx, f, nom, x + 18, y + 2, FicheArt.CREME, true);
+        pastillePid(ctx, x + 18 + f.width(nom) + 8, y + 1, mx, my);
         Component g = FicheArt.inter(s.rank());
         int ya = lay.aidesY;
         int w1 = FicheArt.inter9(ctx, f, g, x + 18, ya, FicheArt.DOUX, 0);
         FicheArt.inter9(ctx, f, FicheArt.inter("·"), x + 18 + w1 + 4, ya, FicheArt.OR_ETEINT, 0);
         FicheArt.inter9(ctx, f, FicheArt.inter(s.village()), x + 18 + w1 + 10, ya, FicheArt.DOUX, 0);
         ctx.fill(x + 18, ya + 7, x + 18 + w1, ya + 8, FicheArt.ROUGE);
+    }
+
+    /* ---------------------------------------------------------------- pastille Player ID */
+
+    /** Zone cliquable de la pastille « N° 00042 » (recalculée à chaque image ; largeur 0 = absente). */
+    private int pidX, pidY, pidW, pidH;
+    private long pidCopieAt;
+    private String pidCache;
+    private Component pidTxt, pidCopieTxt;
+    private int pidLargeur;
+
+    /**
+     * Petite pastille discrète « N° 00042 » à droite du nom (Player ID, visible du seul joueur) : laque sombre, filet
+     * d'or éteint, Inter gras 7. Clic = copie du numéro (utile pour un ticket) ; « Copié » s'affiche 1,2 s.
+     */
+    private void pastillePid(GuiGraphicsExtractor ctx, int x, int y, int mx, int my) {
+        String pid = data().pid();
+        if (pid == null) { pidW = 0; return; }
+        Font f = this.font;
+        if (!pid.equals(pidCache)) {
+            pidCache = pid;
+            pidTxt = FicheArt.interGras("N° " + pid);
+            pidCopieTxt = FicheArt.interGras("Copié");
+            pidLargeur = Math.round(f.width(pidTxt) * FicheArt.S7) + 8;
+        }
+        boolean copie = System.currentTimeMillis() - pidCopieAt < 1200;
+        Component c = copie ? pidCopieTxt : pidTxt;
+        int w = pidLargeur, h = 9;
+        boolean sv = mx >= x && mx < x + w && my >= y && my < y + h;
+        if (sv) survol("pid");
+        ctx.fill(x, y, x + w, y + h, sv ? 0xF0281416 : 0xE01A0E10);
+        int bord = sv || copie ? FicheArt.OR : FicheArt.OR_ETEINT;
+        ctx.fill(x, y, x + w, y + 1, bord);
+        ctx.fill(x, y + h - 1, x + w, y + h, bord);
+        ctx.fill(x, y + 1, x + 1, y + h - 1, bord);
+        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, bord);
+        FicheArt.inter7(ctx, f, c, x + w / 2f, y + h / 2f, copie || sv ? FicheArt.OR_CLAIR : FicheArt.OR, 1);
+        pidX = x; pidY = y; pidW = w; pidH = h;
+    }
+
+    private boolean dansPid(double mx, double my) {
+        return pidW > 0 && mx >= pidX && mx < pidX + pidW && my >= pidY && my < pidY + pidH;
+    }
+
+    private void copierPid() {
+        String pid = data().pid();
+        if (pid == null) return;
+        Minecraft.getInstance().keyboardHandler.setClipboard(pid);
+        pidCopieAt = System.currentTimeMillis();
+        StatsSounds.validate();
     }
 
     private String[][] aidesItems;
@@ -473,6 +525,7 @@ public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque 
                 if (dansOnglet(i, mx, my)) { changerOnglet(i); return true; }
             }
             if (dansFermer(mx, my)) { onClose(); return true; }
+            if (dansPid(mx, my)) { copierPid(); return true; }
         }
         Onglet o = onglets[onglet];
         if (o.click(this, mx, my, e.button(), shift)) return true;
@@ -545,6 +598,9 @@ public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque 
     }
 
     public void debugPasserIntro() { passerIntro(); }
+
+    /** Banc : retour « Copié » de la pastille Player ID, sans toucher au presse-papiers. */
+    public void debugPidCopie() { pidCopieAt = System.currentTimeMillis(); }
 
     public void debugCas(String cas) {
         debugSouris(-1, -1);

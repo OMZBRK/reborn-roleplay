@@ -90,6 +90,8 @@ public final class RebornPrefs {
      *  vanilla. Basculable via {@code /rpinv}. (Sur un serveur sans le plugin, l'inventaire
      *  reste vanilla quoi qu'il arrive — cf. HudKeybinds.) */
     public boolean sacocheInventory = true;
+    /** Aura de rareté sous les objets au sol (halo, anneau, braises) — coupable dans Réglages → Interface. */
+    public boolean aurasSol = true;
 
     private boolean loaded = false;
 
@@ -175,5 +177,6 @@ public final class RebornPrefs {
         this.tablistHold = other.tablistHold;
         this.nameplateStyle = other.nameplateStyle;
         this.sacocheInventory = other.sacocheInventory;
+        this.aurasSol = other.aurasSol;
     }
 }

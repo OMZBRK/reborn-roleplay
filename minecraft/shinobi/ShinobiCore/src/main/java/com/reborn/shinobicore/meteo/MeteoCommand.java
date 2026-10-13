@@ -72,7 +72,7 @@ public final class MeteoCommand implements TabExecutor, Listener {
             for (Player p : Bukkit.getOnlinePlayers()) envoyer(p, type, intensite);
             sender.sendMessage("§aMétéo globale : §f" + nom + (type == 0 ? "" : " §7(" + Math.round(intensite * 100) + " %)"));
         } else {
-            Player p = Bukkit.getPlayerExact(cible);
+            Player p = com.reborn.shinobicore.character.PlayerIds.online(sender, cible);
             if (p == null) {
                 sender.sendMessage("§cJoueur introuvable : " + cible);
                 return true;

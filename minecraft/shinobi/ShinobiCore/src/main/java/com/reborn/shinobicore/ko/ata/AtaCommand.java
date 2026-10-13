@@ -37,7 +37,7 @@ public final class AtaCommand implements TabExecutor {
         if (!sender.hasPermission("shinobicore.ata")) { sender.sendMessage("§cPermission refusée."); return true; }
         String sub = args[0].toLowerCase(Locale.ROOT);
         if (args.length < 2) { sender.sendMessage("§cUsage : /" + label + " <voir|lever|appliquer> <joueur> [pleine|allegee]"); return true; }
-        Player target = Bukkit.getPlayerExact(args[1]);
+        Player target = com.reborn.shinobicore.character.PlayerIds.online(sender, args[1]);
         ShinobiCharacter c = target == null ? null : plugin.characters().getActive(target.getUniqueId());
         if (c == null) { sender.sendMessage("§cJoueur introuvable ou sans personnage actif."); return true; }
         switch (sub) {
@@ -46,7 +46,7 @@ public final class AtaCommand implements TabExecutor {
                 boolean ok = plugin.ata().lift(c.id(), "Un médic s'est occupé de toi.");
                 sender.sendMessage(ok ? "§aATA levée pour " + c.name() + "." : "§7" + c.name() + " n'a pas d'ATA.");
                 if (ok && sender instanceof Player sp && plugin.staffPanel() != null)
-                    plugin.staffPanel().log(sp, "ko", "ATA levée", c.name());
+                    plugin.staffPanel().log(sp, "ko", "ATA levée", com.reborn.shinobicore.character.PlayerIds.prefix(c) + c.name());
             }
             case "appliquer" -> {
                 AtaManager.Level lvl = args.length > 2 && args[2].equalsIgnoreCase("allegee")
@@ -54,7 +54,7 @@ public final class AtaCommand implements TabExecutor {
                 plugin.ata().apply(c.id(), target.getUniqueId(), Set.of(), lvl);
                 sender.sendMessage("§aATA " + lvl.name().toLowerCase(Locale.ROOT) + " appliquée à " + c.name() + ".");
                 if (sender instanceof Player sp && plugin.staffPanel() != null)
-                    plugin.staffPanel().log(sp, "ko", "ATA appliquée", c.name() + " · " + lvl.name().toLowerCase(Locale.ROOT));
+                    plugin.staffPanel().log(sp, "ko", "ATA appliquée", com.reborn.shinobicore.character.PlayerIds.prefix(c) + c.name() + " · " + lvl.name().toLowerCase(Locale.ROOT));
             }
             default -> sender.sendMessage("§cUsage : /" + label + " <voir|lever|appliquer> <joueur> [pleine|allegee]");
         }

@@ -41,6 +41,12 @@ public class InterfaceTab extends SectionedTab {
                 RebornPrefs.INSTANCE.tablistHold,
                 v -> { RebornPrefs.INSTANCE.tablistHold = v; RebornPrefs.INSTANCE.save(); }));
 
+        section("Objets au sol");
+        row("Auras de rareté", "Halo coloré sous les objets lâchés (repérer, estimer d'un coup d'œil)",
+            (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
+                RebornPrefs.INSTANCE.aurasSol,
+                v -> { RebornPrefs.INSTANCE.aurasSol = v; RebornPrefs.INSTANCE.save(); }));
+
         section("Noms au-dessus des têtes");
         row("Style", "Apparence du nom RP des autres joueurs",
             (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,

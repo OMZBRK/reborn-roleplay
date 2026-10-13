@@ -1,283 +1,207 @@
-# Sacoche RP — inventaire custom lié au personnage + cosmétiques
+# Inventaire (sacoche), ramassage, cosmétiques et arme
 
-Prototype construit le 2026-08-24. Répond à la demande : **inventaire lié au
-personnage**, **limité par le sac** (non-vanilla visuellement), **système de
-poids**, et faisabilité de **plusieurs cosmétiques 3D**.
-
-Le design suit la ligne Reborn/Naruto tout en restant dans la DA Minecraft
-(cases custom, kanji, palette Akatsuki rouge/or) — cf. [[tirage-feuille]] et
-[[character-creation-design]] pour le pattern client↔serveur réutilisé.
-
----
-
-## TL;DR — réponses à tes 3 questions
-
-| Ta question | Réponse | État |
-|---|---|---|
-| **9 cases de base**, l'espace se débloque **en équipant un sac** | **Fait (v2).** Sans sac = **9 cases « sur soi »** (la barre de base). Équiper une **Sacoche / Bandoulière / Sac / Sac lourd** ajoute des rangées **et** du poids max. Le sac s'équipe dans un emplacement dédié. Cf. §7. | ✅ |
-| Plusieurs **modèles 3D custom** (pas que via la tête) | **Oui — le mythe « que via la tête » est faux sur MC moderne.** Composant `item_model` + resource pack → **n'importe quel item** porte son propre modèle 3D, en nombre illimité. **Nexo** fait exactement ça. Configs de départ créées. Cf. §8. | Config ✅ · Modèles à dessiner ⏳ |
-| Plusieurs **cosmétiques** portés en même temps | **Oui.** Donnée en place (bandeau/masque/manteau/dos, équip/déséquip, aperçu). Rendu **sur le corps** = 1 `RenderLayer` client OU items Nexo. Cf. §4 + §8. | Donnée ✅ · Rendu ⏳ |
-| **Système de poids** | **Fait.** Chaque objet a un poids ; jauge live qui vire au rouge près de la limite ; la limite dépend du sac. | ✅ |
-| Inventaire **différent par personnage** | **Fait.** Le sac est résolu via le **personnage actif** (`plugin.characters().getActive`) et persisté par UUID de perso. | ✅ |
+> **Fiche système, à jour au 2026-10-13** (lot « inventaire et ramassage », codé, **non publié** : ShinobiCore,
+> ShinobiAbilities, ShinobiCombat, `reborn-hud`). Elle décrit **ce qui est codé**. Décisions : GAMEPLAN §2-3 et
+> [`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md) (13/10). Maquettes validées (hors dépôt) :
+> `Maquettes/gameplan/02_inventaire/` (01 sacoche, 02 surpoids, 03 notifications, 04 ramassage).
+>
+> Code : `ShinobiCore/…/inventory/` (serveur), `mod-hud/…/menu/inventory/` (sacoche), `mod-hud/…/sol/`
+> (ramassage, aura), `mod-hud/…/notif/` (notifications, indicateur de surcharge), `mod-hud/…/cosmetic/` (rendu porté).
+> Canaux, messages, config et journaux : [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md).
 
 ---
 
-## 1. Architecture (data-driven, façon Reborn)
+## 1. Le principe en une phrase
 
-Choix clé : le sac RP est **data-driven** (des objets = **données**, pas des
-`ItemStack` vanilla) et **indépendant** de l'inventaire vanilla du personnage.
-On ne touche **ni `ShinobiCharacter` ni le repository** — les sacs sont persistés
-à part. C'est ce qui permet un rendu 100% custom, un poids, une limite de cases,
-et des cosmétiques, sans se battre contre les 36 slots fixes de Minecraft.
-
-```
-  Touche C / commande            reborn:inventory (bidirectionnel)
-  ┌──────────────┐   "open"      ┌───────────────────────────────┐
-  │  mod-hud     │ ────────────► │  ShinobiCore                  │
-  │ (client)     │               │  InventoryManager             │
-  │              │ ◄──────────── │  → sac du PERSO ACTIF (JSON)   │
-  │ InventoryScreen│  JSON sac    │  → persiste rpbags/<uuid>.yml │
-  │              │ ────────────► │  equip / unequip / use / drop │
-  └──────────────┘  actions      └───────────────────────────────┘
-```
-
-### Client — `minecraft/mod-hud` · package `fr.reborn.hud.menu.inventory`
-- **`InventoryScreen`** — l'écran (rendu extractor MC 26.2). Panneau gauche =
-  aperçu 3D du perso + colonne cosmétiques + **jauge de poids** ; panneau droit =
-  **filtres kanji** (par catégorie) + **grille limitée par le sac**. Interaction
-  façon Minecraft : **clic pour prendre / clic pour poser**, clic droit = action
-  rapide (équiper/utiliser), clic dehors = jeter, Échap = annuler/fermer.
-  Infobulles riches (nom teinté rareté, catégorie, poids, description).
-- **`InvItem` / `ItemCategory` / `Rarity` / `CosmeticSlot`** — modèle client.
-- **`InventoryData`** — snapshot volatile poussé par le serveur, **fallback mock**
-  ([`MockInventory`]) pour tester **en solo** sans serveur (comme `CharacterData`).
-- **`InventoryPayload`** — canal `reborn:inventory` (octets UTF-8, même forme que
-  `TiragePayload`).
-- Câblage : `RebornHudClient` (register S2C+C2S + receiver + clear au DISCONNECT),
-  `HudKeybinds` (**touche C** = Sacoche ; en serveur envoie `open`, en solo ouvre
-  le mock), clés lang fr/en.
-
-### Serveur — `minecraft/shinobi/ShinobiCore` · package `com.reborn.shinobicore.inventory`
-- **`RpItemType`** — **registre** des objets (source de vérité) : nom, desc,
-  catégorie, rareté, **poids**, kanji, emplacement cosmétique, `maxStack`. 14
-  objets ninja seedés (kunai, shuriken, tantō, parchemins, pilules, bandeau,
-  masque ANBU, manteau Akatsuki…).
-- **`RpBag`** — le sac d'un perso : nom + **capacité (cases)** + **limite de
-  poids** + contenu `(typeId,count)` + cosmétiques équipés. Logique
-  equip/unequip/use/drop + sérialisation JSON pour le client.
-- **`InventoryManager`** — `Listener` + `PluginMessageListener` + `CommandExecutor` :
-  canal `reborn:inventory`, **persistance 1 fichier/perso**
-  (`plugins/ShinobiCore/rpbags/<charUuid>.yml`), sac de départ auto, actions
-  autoritaires, commande **`/sacoche`** (`open` / `give <id> [n]` / `reset`).
-- Câblage `ShinobiCore.onEnable` (étape 7f) + accessor `rpInventory()` +
-  `flush()` à l'extinction + commande dans `plugin.yml`.
-
-Les deux moitiés **compilent** (client : gradle build ✅ ; serveur : mvn package ✅).
+**Ce que porte le personnage est à lui, se voit, pèse, et se ramasse à la main** : une sacoche liée au personnage
+(barre 1-9 + sac à paliers), une arme à l'étui visible à la ceinture, un poids qui ralentit au lieu d'interdire, et
+des objets au sol qu'on vise et qu'on prend (plus de ramassage automatique).
 
 ---
 
-## 2. Comment tester
+## 2. La sacoche (touche E)
 
-### A. En solo, tout de suite (client seul, données mock)
-Le plus rapide pour juger le **feel + le visuel** sans serveur :
-1. Charger le jar `reborn-hud` buildé (mods du client).
-2. En jeu (monde solo), presser **C** → la Sacoche s'ouvre avec un sac de
-   démonstration (Sac de Chûnin, 24 cases, bandeau équipé, ~13 objets).
-3. Prendre/poser des objets, filtrer par catégorie (chips kanji), glisser un
-   cosmétique sur son emplacement, clic droit pour utiliser une pilule, regarder
-   la **jauge de poids** bouger.
+| Élément | Ce qui est codé |
+|---|---|
+| **Barre 1-9** | La vraie barre d'action du joueur (« sur soi »), affichée comme une obi |
+| **Sac** | Espace en plus débloqué par le sac porté (emplacement Sac, onglet Équipement) |
+| **Capacité de base** | 9 cases, **12 kg** (choix Reborn, pas les 12 + 6 cases / 20 kg de RedLine) |
+| **Persistance** | Par personnage : `plugins/ShinobiCore/rpbags/<uuid du perso>.yml` |
+| **Cases cachées 9-35** | Minecraft a 27 cases que la sacoche n'affiche pas : tout ce qui y tombe (give, plugin) est **rangé** dans la barre, puis le sac, sinon posé au sol, à chaque seconde et à chaque changement de personnage. Les dons des plugins passent par `InventoryService.give` (barre → sac → sol) |
 
-> ⚠️ Le launcher **purge** les mods hors-manifest avant lancement : pour tester
-> le jar local sans publier, lancer le client en direct (java + argfile dev,
-> `-Dreborn.devMenu=true`) **ou** publier le mod (cf. §5).
+### Sacs à paliers (`BagTier`, inchangés)
 
-### B. En serveur (sac réel lié au perso)
-Après déploiement de ShinobiCore (cf. §5) + restart :
-- **`/sacoche`** (ou touche **C**) ouvre le sac du **perso actif**.
-- **`/sacoche give kunai 5`** ajoute des objets ; **`/sacoche reset`** réinitialise.
-- Changer de perso (menu `;`) puis rouvrir → **un sac différent** (preuve du lien
-  perso).
-
----
-
-## 3. Ce qui satisfait la demande, en détail
-
-- **Non-vanilla visuellement** : zéro `ContainerScreen`. Cases dessinées
-  (rounded rects teintés rareté, kanji, points de rareté), panneaux, chips,
-  aperçu 3D — tout est peint par `InventoryScreen`.
-- **Limité par le sac** : `slots` vient du sac (`RpBag`) ; la grille se
-  redimensionne (6 colonnes, N lignes) et refuse d'ajouter quand le sac est plein.
-- **Poids** : `RpItemType.weight` × quantité, sommé (objets + cosmétiques) ;
-  jauge verte → or → rouge, texte `x.x / y.y kg`. Prêt à **coupler au mouvement**
-  plus tard (léger = mobile, lourd = lent — cf. le deck d'inspiration, pilier 08).
-- **Par personnage** : persistance par UUID de perso, résolue à l'ouverture.
-
----
-
-## 4. Cosmétiques 3D — faisabilité (réponse détaillée)
-
-**Oui, plusieurs modèles 3D cosmétiques sont faisables** et c'est même une base
-classique en Fabric. Le prototype pose déjà la **couche donnée** (emplacements,
-équip, aperçu). Reste le **rendu sur le corps**. Voies possibles, de la plus
-simple à la plus riche :
-
-| Approche | Ce que c'est | Effort | Verdict |
-|---|---|---|---|
-| **`RenderLayer` custom + `ModelPart`** | Une couche ajoutée au rendu du joueur (`LivingEntityFeatureRendererRegistrationCallback`), qui dessine un **box texturé** attaché à une partie du corps (tête = bandeau/masque, corps = manteau). | **Faible–Moyen** | ✅ **Reco pour démarrer.** 100% vanilla-render, aucun dépendance. Un modèle par cosmétique. |
-| **GeckoLib (déjà dans le modpack)** | Modèles animés `.geo.json` attachés au joueur via un render layer GeckoLib. Tu l'utilises déjà pour les émotes/anims. | **Moyen** | ✅ pour les cosmétiques **animés/complexes** (manteau qui flotte, familier). |
-| **Couche 3dSkinLayers-like** | Rendre des overlays de skin en relief. | Moyen | Complémentaire (relief cheveux/tenue). |
-| **Modèle d'armure custom** | Traiter le cosmétique comme une armure à modèle custom. | Moyen | Possible mais couple à l'équipement vanilla — on veut justement s'en découpler. |
-
-### Archi recommandée (multi-cosmétiques, vu par tous les joueurs)
-1. **Serveur** : le `RpBag.equipped` (déjà là) est diffusé à tous via un canal
-   type `reborn:cosmetics` (S2C broadcast, comme `reborn:skins`/`reborn:tablist`) :
-   `{playerUuid → {BANDEAU:id, MASQUE:id, MANTEAU:id, DOS:id}}`.
-2. **Client** : un `CosmeticState` (par joueur) reçoit ces données. Un
-   **`RenderLayer<AbstractClientPlayer, PlayerModel>`** enregistré une fois, qui
-   pour chaque emplacement équipé rend le modèle correspondant (registre
-   client `id → (ModelPart|GeoModel, texture, attach point)`), positionné sur la
-   partie de corps (tête/torse/dos) en suivant les transforms vanilla.
-3. **Plusieurs cosmétiques coexistent** naturellement : la couche itère les
-   emplacements ; chaque slot = un modèle indépendant → bandeau **+** masque **+**
-   manteau ensemble, sans conflit (contrairement à la compo de skin 64×64 qui,
-   elle, aplati tout — cf. [[character-creation-design]] Phase 2).
-
-> **Note DA** : garder des modèles **low-poly + texture 16px** pour rester
-> raccord Minecraft. Le bandeau/masque/manteau sont les 3 pièces canon à faire
-> en premier (Blockbench → export `.json`/GeckoLib, pipeline déjà en place via
-> [[emote-geckolib-import]] et le plugin Blockbench maison).
-
-**Pourquoi ce n'est pas livré dans ce prototype** : le pipeline de rendu de MC
-26.2 est en modèle « extractor » (API de render différente de 1.21.1) ; écrire un
-`RenderLayer` à l'aveugle risquait de ne pas compiler. Il n'existe aucun
-`RenderLayer`/`FeatureRenderer` existant dans mod-hud à copier (le package `skin`
-fait de la **compo de texture**, pas des modèles attachés). C'est donc un
-incrément propre à faire en vérifiant l'API réelle (décompiler
-`LivingEntityRenderer`/`RenderLayer` 26.2), pas une rustine.
-
----
-
-## 5. Déploiement — ce qui reste (et pourquoi je ne l'ai pas auto-poussé)
-
-Les deux moitiés sont **buildées et prêtes**. Je n'ai **pas** poussé en prod
-sans ton aval car les deux actions sont **outward-facing / à blast-radius** :
-
-1. **Publier le mod client** (manifest → tous les joueurs). Le changement est
-   **purement additif** (nouveau package + touche C + canal), donc sûr, mais ça
-   touche le launcher de tout le monde → à faire sur ton feu vert. Une fois
-   publié : lancer + presser **C** suffit pour voir la Sacoche (données mock tant
-   que le serveur n'envoie rien).
-2. **Déployer ShinobiCore** (SFTP dev + restart). ⚠️ **Piège** : ce worktree
-   (`emote-bend-test`) **n'a pas** les fichiers serveur du *test de la feuille*
-   (`LeafTestManager`/`LeafTestItem`/`TestFeuilleCommand` — ils sont en
-   *uncommitted* sur la branche `feature/migrate-26.2`). Déployer le jar tel quel
-   **régresserait le test de la feuille** côté serveur. Avant de déployer, il faut
-   **porter ces 3 fichiers** (+ leur câblage) dans ce ShinobiCore pour avoir un
-   **surensemble** (test feuille **+** sacoche). Sinon, garder le serveur actuel
-   (le mock client démontre déjà tout l'UX).
-
-Dis-moi « publie » / « déploie » et je fais les deux proprement (avec vérif
-sha256 + URL 200 avant POST comme pour le tirage, et le port des fichiers
-leaf-test avant le build serveur).
-
----
-
-## 6. Évolutions naturelles (piste courte)
-- **Poids ↔ mobilité** : au-delà d'un seuil, ralentir le shunpo/wall-run
-  (le levier « le loadout devient un choix de build »).
-- **Vrais effets** : `use` d'une pilule → régen chakra ; `equip` bandeau → tag
-  visuel de village ; `drop` → item au sol RP.
-- **Icônes PNG** par objet (hook déjà prévu : `textures/inventory/items/<id>.png`)
-  quand tu veux remplacer les glyphes kanji par de l'art.
-- **Cosmétiques 3D sur le corps** : §4, étape suivante.
-
----
-
-## 7. Système de sacs — 9 cases de base + déblocage par tier (FAIT)
-
-La demande : **de base 9 slots** (la barre), et l'espace se débloque **après
-l'équipement d'un type de sac** — pour la cohérence RP (on ne porte pas 1000
-choses sans contenant) et pour amorcer la **fouille INRP** (qui a un sac a de
-quoi transporter… et à fouiller).
-
-**Modèle** (`BagTier` serveur / `BagTiers` client — à garder synchronisés) :
-
-| Tier | Objet (id) | Cases (base 9 +) | Poids max (base 12 +) | Total cases |
+| Sac | Objet | Cases en plus | Poids max en plus | Total |
 |---|---|---|---|---|
-| Aucun | — | +0 | +0 | **9** |
-| Sacoche | `sac_sacoche` | +9 | +8 kg | **18** |
-| Bandoulière | `sac_bandouliere` | +18 | +16 kg | **27** |
-| Sac ninja | `sac_dos` | +27 | +28 kg | **36** |
-| Sac lourd | `sac_lourd` | +36 | +45 kg | **45** |
+| Aucun (« à la ceinture ») | — | +0 | +0 | 9 cases, 12 kg |
+| Sacoche | `sac_sacoche` | +9 | +8 kg | 18 cases, 20 kg |
+| Bandoulière | `sac_bandouliere` | +18 | +16 kg | 27 cases, 28 kg |
+| Sac ninja | `sac_dos` | +27 | +28 kg | 36 cases, 40 kg |
+| Sac lourd | `sac_lourd` | +36 | +45 kg | 45 cases, 57 kg |
 
-- **Emplacement Sac** dédié dans la Sacoche (carte en haut du panneau gauche).
-  On équipe un sac par **clic droit** dessus (ou glisser sur l'emplacement) ; on
-  le retire par **clic droit sur l'emplacement Sac**. Retirer est **bloqué** si le
-  contenu ne rentre plus dans les 9 cases de base (anti-perte d'objets).
-- **La grille sépare visuellement** la zone **« SUR SOI »** (les 9 premières
-  cases, une rangée type barre vanilla) de la zone **« SAC »** (les rangées
-  débloquées), avec un trait or et le nom du sac.
-- Serveur autoritaire : `RpBag.slots()`/`maxWeight()` sont **dérivés** du tier
-  équipé (plus de capacité fixe). Un changement de sac **repousse** un snapshot
-  frais (la capacité change). En solo, MAJ optimiste via `BagTiers`.
-- Persistance : le fichier `rpbags/<uuid>.yml` stocke maintenant `bagTier`
-  (les anciens fichiers « slots fixes » sont migrés en **Sacoche** au chargement).
-- **Test serveur** : `/sacoche bag sac_lourd` équipe un sac lourd, `/sacoche bag none`
-  le retire. Le sac de départ = **Sacoche équipée** + un **Sac ninja en réserve**
-  (équipe-le pour sentir l'agrandissement).
-- **Amorce fouille INRP** : le sac étant un **objet physique** (tier ⇄ item Nexo,
-  §8), l'étape suivante est de matérialiser le sac équipé sur le joueur et de
-  permettre à un tiers d'inspecter/prendre son contenu.
+### Ce qu'on fait dans la sacoche
+
+| Geste | Effet |
+|---|---|
+| Clic | prendre / poser (fusion des piles, échange) |
+| Clic droit | panneau d'actions : utiliser, équiper, **à l'étui**, jeter, détruire |
+| **Glisser hors de la fenêtre** | lâcher au sol (le clic hors des cases avec un objet en main jette aussi) |
+| Onglet Équipement | **Sac**, **Tête** (rappel), **Arme** (étui) |
+| Onglet Cosmétique | les 10 emplacements de cosmétiques portés |
+
+**Lecture seule** : en **KO**, **porté**, **étourdi** (combat : coup final, garde brisée, parade subie) ou pendant la
+**scène de mort**, la sacoche s'ouvre mais rien ne bouge (« Lecture seule — KO » sous le nom) ; le serveur refuse
+toute action, la touche « jeter » (Q) aussi. L'équipement reste en place.
 
 ---
 
-## 8. Modèles 3D custom via Nexo — le mythe « que via la tête » est faux
+## 3. Tête et Arme (onglet Équipement)
 
-**Réponse courte : sur MC moderne (ta version 26.2, très au-delà de 1.21.4), on
-peut donner un modèle 3D distinct à N'IMPORTE QUEL item — pas seulement la
-tête — et en nombre illimité.** Le « custom que via player_head » date de l'ère
-datapack ; c'est obsolète.
+- **Tête** : **pas de nouvel emplacement**. La plaque « Tête » de l'onglet Équipement rappelle ce que portent les
+  emplacements Chapeau / Masque / Bandeau de l'onglet Cosmétique (masque d'abord, puis chapeau, puis bandeau) ; un
+  clic ouvre l'onglet Cosmétique.
+- **Arme = l'étui** :
+  - on y range une arme (clic ou glisser sur la plaque, ou « À l'étui » dans le panneau) ; seules les armes entrent
+    (ids `inventaire.arme.ids` — katana, ninjato, tantō, kendo, gunbai… — et épées, haches, trident, masse) ;
+  - l'arme à l'étui **se voit à la ceinture**, hanche gauche, pour tous les joueurs (diffusée comme l'emplacement
+    `ARME` de `reborn:cosmetics`, ancrée au bassin, repositionnable comme un cosmétique) ;
+  - **dégainer / rengainer : touche Z** (rebindable) ou le panneau : l'arme passe dans la case tenue (ou la première
+    case libre de la barre, qui devient la case tenue) ; Z à nouveau la remet à l'étui (une arme simplement tenue en
+    main peut aussi être rengainée). « Mains pleines » si la barre est pleine ;
+  - **techniques d'arme** : l'API `InventoryService.weapon(p)` rend l'arme (étui, dégainée, ou tenue en main). Le
+    **Kenjutsu** l'exige (`jutsu.kenjutsu-exige-arme` de ShinobiAbilities, vrai par défaut).
 
-**Le mécanisme vanilla :**
-- Composant **`minecraft:item_model`** (arrivé en 1.21.3, refondu en 1.21.4) :
-  pointe un item vers une **définition de modèle** par id (`reborn:sac_sacoche` →
-  `assets/reborn/items/sac_sacoche.json`).
-- `minecraft:custom_model_data` existe encore mais n'est plus qu'un **sélecteur
-  conditionnel** (varier le modèle selon un état), plus le levier obligatoire.
-- Chaque définition d'item du pack peut pointer vers **n'importe quel modèle** →
-  un papier, un bâton, une carotte peuvent tous rendre un modèle 3D différent.
+---
 
-**Ce que Nexo fait par-dessus :** tu déclares les items en YAML
-(`plugins/Nexo/items/*.yml`), Nexo génère le resource pack et câble le composant
-pour toi. Champs clés : `itemname`, `material` (item vanilla de base), `lore`, et
-`Pack.model: reborn:item/<id>`. Sur 1.21.4+, avec
-`Pack.generation.prefer_item_models: true` (settings.yml), **chaque item Nexo
-reçoit son propre `item_model` = `nexo:<id>`** — plus de collision de numéros
-CustomModelData. **Un item Nexo = un modèle distinct. Illimité.**
+## 4. Le poids et la surcharge
 
-**Coexistence :** chaque sac, chaque cosmétique = une définition séparée
-(`nexo:sac_sacoche`, `nexo:sac_dos`, `nexo:masque_anbu`…). Aucune limite, aucun
-conflit — c'est justement l'intérêt de `item_model` vs l'ancien CustomModelData.
+Poids d'un objet : poids propre posé par le plugin qui le crée (`reborn:rp_weight`, ex. parchemins), sinon barème par
+famille de matériau (`RpWeights`). Le poids compte la barre, le sac, les cosmétiques et l'étui.
 
-**Nexo vs mod client :** Nexo est idéal pour tout ce qui est **item tenu /
-d'inventaire** (le sac en main, l'affichage de fouille) — server-authoritative,
-aucun install client. Un **mod client** (Fabric + GeckoLib / render layers) est
-préférable quand le modèle doit vivre **sur le corps** indépendamment de l'item
-tenu (masque/bandeau/manteau portés en permanence, cosmétiques **animés**). Les
-deux se complètent : Nexo pour l'item, mod pour le porté-sur-le-corps.
+| Palier | Charge (poids / poids max) | Effet |
+|---|---|---|
+| Normal | ≤ 100 % | rien |
+| **Chargé** | 100 – 115 % | vitesse 90 → 70 %, **plus de sprint** |
+| **Surchargé** | 115 – 130 % | vitesse 70 → 35 %, **ni saut, ni dash, ni course aux murs** (mobilité ninja coupée : double saut, saut mural, escalade, onde au sol, course de chakra, Voie du Flux, dash et bonds de combat) |
+| **Immobile** | > 130 % | vitesse 0 ; on peut encore lâcher, ranger, parler |
 
-**Premiers configs créés** (dans `minecraft/server-config/nexo/`) :
-- `items/reborn_sacs.yml` — les 4 sacs (`sac_sacoche`, `sac_bandouliere`,
-  `sac_dos`, `sac_lourd`) avec les **mêmes ids** que `BagTier` côté serveur.
-- `items/reborn_cosmetiques.yml` — `masque_anbu`, `bandeau_konoha`.
-- `README.md` — où poser les fichiers sur le serveur (`plugins/Nexo/items/`),
-  l'arbo du pack (`plugins/Nexo/pack/assets/reborn/models|textures/item/…`),
-  génération/reload (`/nexo reload items|pack`), et le lien avec ShinobiCore.
+- Appliqué par **modificateurs d'attributs** (`movement_speed`, `jump_strength`), plus de potions (ni icône, ni
+  particules, ni fatigue). Le bonus de vitesse du sprint est annulé côté serveur, et le mod empêche de sprinter.
+- Recalcul à **chaque changement** (ramassage, don, action dans la sacoche, Q, changement de personnage) et **chaque
+  seconde** (filet de sécurité).
+- **Une notification au changement de palier** seulement (« Tu es surchargé — tu ralentis », « Tu peux de nouveau
+  courir ») ; plus de message rouge en barre d'action.
+- **Indicateur discret sous les vitals** dès « Chargé » : kanji, mot, pourcentage, jauge d'un pixel 0 → 130 % avec
+  repères à 100 / 115 / 130 %. Les vitals eux-mêmes ne changent pas.
+- **Jauge de la sacoche** graduée 0 → 130 % (mêmes repères), or jusqu'à la limite, laque rouge au-delà ; la valeur
+  affiche « 45,2 / 38,0 kg · 119 % ».
+- Seuils et vitesses : `inventaire.surcharge.*`. Les add-ons lisent le palier par `InventoryService.palier(p)`.
 
-> Il reste à **dessiner** les `.json` (Blockbench) + textures et les déposer dans
-> le pack Nexo. Le YAML n'est que la couche d'enregistrement ; le modèle 3D est
-> l'asset à produire. Pipeline Blockbench déjà en place (cf. [[emote-geckolib-import]]).
+---
 
-Sources : docs.nexomc.com (items, item-appearance, itemmodels-vs-custommodeldata,
-resourcepack, commands) ; minecraft.wiki (Data_component_format).
-```
+## 5. Ramasser
+
+**Plus de ramassage automatique** : marcher sur un objet ne le ramasse plus (survie et aventure ; flèches et tridents
+inchangés ; créatif inchangé).
+
+1. On **vise** l'objet (rayon de la caméra, à 3 blocs au plus des yeux, non caché par un bloc).
+2. Une **invite** discrète apparaît au-dessus : « [F] Ramasser Kunai ×3 », ou « … · trop lourd » / « … · plus de
+   place » quand le mod le prévoit.
+3. Touche **Ramasser = F** (rebindable). Elle n'est prise **que** quand un objet est visé : sinon F garde son rôle
+   (techniques, tyrolienne, grappin, main gauche).
+4. Le serveur vérifie tout : distance, vue, délai de ramassage, objet réservé, état (KO, porté, étourdi, scène de
+   mort), cadence (4 par seconde au plus), **place** (fusion des piles comprise : barre puis sac), **poids**.
+
+| Situation | Résultat |
+|---|---|
+| Place et poids ≤ 130 % | ramassé : « +3 Kunai » |
+| Pile trop grosse pour la place ou le poids | **ramassée en partie** : « +2 Kunai — 1 reste au sol » |
+| Plus aucune case | reste au sol : « Plus assez de place — libère une case » |
+| Au-delà de 130 % même pour un seul | reste au sol : « Trop lourd — 2,4 kg de trop » |
+| KO, porté, étourdi | « Impossible en KO » (…) |
+
+On peut donc **dépasser la limite de poids jusqu'à 130 %** en ramassant (on ralentit), pas au-delà.
+
+---
+
+## 6. Objets au sol
+
+- **Rareté** (cinq niveaux, §7) posée sur l'objet quand il apparaît au sol ; le mod l'affiche en **aura** : halo
+  doux posé à plat (presque invisible pour un Commun), anneau fin à partir de Peu commun, **trois braises qui
+  montent** pour un Légendaire ; l'objet visé a son halo ravivé. Au plus 48 objets à 16 blocs, en un seul lot de
+  rendu ; coupable dans **Réglages → Interface → Auras de rareté**.
+- **Disparition** : **10 min** au sol, **15 min** pour un objet lâché par un joueur KO (ou apparu tout près d'un KO /
+  d'une scène de mort), **jamais** pour un rouleau (identifiant unique), un objet marqué unique ou de quête
+  (`reborn:unique`, `reborn:quete`, ou id listé) — ces derniers sont aussi protégés du feu, de la lave et des
+  explosions. Horloge réelle : un objet d'un tronçon déchargé expire à son rechargement. Les objets de décor posés par
+  un plugin (jamais ramassables) ne sont pas touchés.
+
+---
+
+## 7. Rareté
+
+| Rareté | Couleur | Rang de parchemin | Aura |
+|---|---|---|---|
+| Commun | gris clair `CFC8B8` | D (et E) | presque invisible |
+| Peu commun | vert `6FBF8E` | C | halo doux + anneau fin |
+| Rare | bleu `5E95E0` | B | halo doux + anneau fin |
+| Épique | violet `A97BE0` | A | halo plus présent |
+| Légendaire | **or** `E9BC5C` | S | halo + 3 braises |
+
+**Résolution** (serveur, `RareteItems`) : clé persistante `reborn:rarete` posée sur l'objet → table
+`rarete.par-id` de la config (id Nexo ou id de modèle) → rang du parchemin (modèle `reborn:parchemin_<rang>`) →
+composant vanilla `rarity` → Commun. La rareté colore aussi le liseré des cases de la sacoche et le nom dans les
+notifications (à partir de Peu commun).
+
+---
+
+## 8. Notifications (en bas à droite)
+
+Canal générique `reborn:notif`. Une ligne de texte petit, une petite icône (l'objet, ou un sceau kanji), un voile
+très léger, un filet d'or d'un pixel ; **4 lignes au plus**, la plus récente en bas, **3 s** chacune avec fondu ;
+**gains identiques cumulés** sur 1,5 s (+1, +1, +1 → +3).
+
+| Cas | Exemple |
+|---|---|
+| Gain | « +3 Kunai » (nombre en or ; nom teinté à partir de Peu commun) |
+| Gain partiel | « +2 Kunai — 1 reste au sol » |
+| Perte | « −1 Ration · lâchée » |
+| Refus de place / de poids | « 袋 Plus assez de place — libère une case », « 重 Trop lourd — 2,4 kg de trop » |
+| Palier | « 重 Tu es surchargé — tu ralentis », « Tu peux de nouveau courir » |
+| Sac | « 袋 Sac ninja équipé — +27 cases », « Vide ton sac — avant de le retirer » |
+| État | « 止 Impossible en KO » |
+| Rangement | « 袋 2 objets rangés — dans ta sacoche » (cases cachées) |
+
+Les dons des plugins (bibliothèque, test de la Feuille, soins, carte…) s'annoncent aussi par une ligne « +1 … ».
+
+---
+
+## 9. Journal des objets
+
+- **Fichier tournant** `plugins/ShinobiCore/logs/inventaire-AAAA-MM-JJ.log` : ramassé, lâché (sacoche ou Q), donné,
+  détruit, rangé (case cachée), mis à l'étui, disparu (Rare et plus) — heure, `#N° pseudo (nom RP)`, quantité,
+  objet, rareté, unique, lieu.
+- **Poste de garde** (type `objet`) pour les objets **Rare et plus** et les **uniques**
+  (`inventaire.journal.poste-de-garde-des`).
+
+---
+
+## 10. Cosmétiques portés
+
+- 10 emplacements (`CosmeticSlot`) : chapeau, bandeau, masque, boucle d'oreille, manteau (colonne gauche) ; haut,
+  tenue, ceinture, bas, dos (colonne droite) ; plus l'**étui** (`ARME`, onglet Équipement).
+- Chaque cosmétique est un objet de personnage (échangeable, volable, perdu à la mort RP) rendu **sur le corps** avec
+  son vrai modèle Nexo (`item_model`), ancré sur un os, placement réglable (« Repositionner », pelote à épingles) et
+  **diffusé à tous** (`reborn:cosmetics`), placement compris.
+- Modèles 3D : n'importe quel objet porte son propre modèle par le composant `item_model` (Nexo génère le pack) ;
+  les objets 3D (parchemins, cosmétiques, sacs) vivent dans le pack Nexo (`minecraft/server-config/nexo/`), jamais
+  dans les assets du mod.
+
+---
+
+## 11. Ce qui reste (propositions GAMEPLAN, non codées)
+
+- Ramassage avec un court délai (~0,5 s) interrompu par un coup.
+- « Combien veux-tu jeter ? » pour une pile.
+- Objets uniques qui **retournent** à leur source au lieu de rester au sol.
+- Préfixe de joueur dans les journaux : fait (Player ID) ; journal « utiliser » d'un objet : non.

@@ -837,7 +837,7 @@ public final class LibraryService implements Listener, PluginMessageListener {
     void give(Player p, ItemStack it) {
         var inv = inventory();
         if (inv != null) inv.give(p, it);
-        else p.getInventory().addItem(it).values().forEach(rest -> p.getWorld().dropItemNaturally(p.getLocation(), rest));
+        else com.reborn.shinobiabilities.util.Donner.a(p, it);
     }
 
     // ─────────────────────────────────────────────────────────────── réglages staff

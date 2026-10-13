@@ -43,6 +43,20 @@ public interface CharacterService {
     /** The online player whose ACTIVE character has this name, or null. */
     Player findOnlinePlayerByCharacter(String name);
 
+    /**
+     * Player ID — N° court du personnage (0, 1, 2… affiché « 00042 »), -1 si non attribué. Réservé au joueur
+     * lui-même et au staff : ne jamais l'envoyer aux autres joueurs. Default for older cores.
+     */
+    default int getPlayerId(ShinobiCharacter character) {
+        return character == null ? -1 : character.playerId();
+    }
+
+    /**
+     * Personnage par N°, même hors ligne (lu via l'index player-ids.yml puis le fichier du propriétaire),
+     * ou null si le N° est inconnu ou le personnage supprimé. Default null for older cores.
+     */
+    default ResolvedCharacter findByPlayerId(int number) { return null; }
+
     /** Persist a character through the engine's storage backend. */
     void save(ShinobiCharacter character);
 }

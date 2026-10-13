@@ -48,6 +48,7 @@ public final class AggressionLog implements Listener {
         Player attacker = resolveAttacker(ev.getDamager());
         if (attacker == null || attacker.equals(victim)) return;
         if (plugin.trainingZones().isTraining(victim) || plugin.trainingZones().isTraining(attacker)) return;
+        if (plugin.duels() != null && plugin.duels().together(victim.getUniqueId(), attacker.getUniqueId())) return;
 
         ShinobiCharacter vc = plugin.characters().getActive(victim.getUniqueId());
         ShinobiCharacter ac = plugin.characters().getActive(attacker.getUniqueId());
@@ -63,8 +64,8 @@ public final class AggressionLog implements Listener {
 
         Location l = victim.getLocation();
         String line = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(now))
-                + " | " + attacker.getName() + " (" + ac.name() + ")"
-                + " -> " + victim.getName() + " (" + vc.name() + ")"
+                + " | " + attacker.getName() + " (" + com.reborn.shinobicore.character.PlayerIds.prefix(ac) + ac.name() + ")"
+                + " -> " + victim.getName() + " (" + com.reborn.shinobicore.character.PlayerIds.prefix(vc) + vc.name() + ")"
                 + " | " + l.getWorld().getName() + " " + l.getBlockX() + " " + l.getBlockY() + " " + l.getBlockZ();
         append(line);
         if (plugin.staffPanel() != null) plugin.staffPanel().onAggression(attacker, victim, l);

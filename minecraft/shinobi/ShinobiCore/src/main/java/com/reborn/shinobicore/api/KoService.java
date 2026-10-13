@@ -25,4 +25,11 @@ public interface KoService {
      * kit, techniques capped at rank D. Default false for older cores.
      */
     default boolean isImpaired(UUID playerId) { return false; }
+
+    /**
+     * Why the player may not cast a technique right now because of a consented duel (countdown running, or
+     * techniques disabled by {@code duel.techniques}), or {@code null} when nothing forbids it. Default null for
+     * older cores.
+     */
+    default String techniqueDenial(UUID playerId) { return null; }
 }

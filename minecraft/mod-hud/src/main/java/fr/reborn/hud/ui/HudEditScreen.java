@@ -247,10 +247,12 @@ public class HudEditScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         int editRight = sidePanel.leftEdge();
 
-        // 1) Voile sombre subtil + grille shōji très légère (repère d'alignement, ~60 fills).
-        ctx.fill(0, 0, editRight, this.height, 0x40000000);
-        for (int gx = 24; gx < editRight; gx += 24) ctx.fill(gx, 0, gx + 1, this.height, 0x14FFF0D2);
-        for (int gy = 24; gy < this.height; gy += 24) ctx.fill(0, gy, editRight, gy + 1, 0x14FFF0D2);
+        // 1) Voile sombre subtil + lignes de cordeau très légères (repère d'alignement) : un seul élément GUI.
+        LotGui grille = LotGui.ouvrir(ctx);
+        grille.fill(0, 0, editRight, this.height, 0x40000000);
+        for (int gx = 24; gx < editRight; gx += 24) grille.fill(gx, 0, gx + 1, this.height, gx % 120 == 0 ? 0x22F2D08A : 0x10FFF0D2);
+        for (int gy = 24; gy < this.height; gy += 24) grille.fill(0, gy, editRight, gy + 1, gy % 120 == 0 ? 0x22F2D08A : 0x10FFF0D2);
+        grille.fermer();
 
         // 2) Boîtes HUD (dessinées avant le panneau : le panneau opaque couvre
         //    tout débordement à droite).
@@ -294,7 +296,7 @@ public class HudEditScreen extends Screen {
         if (!sidePanel.isCollapsed() && presetNameField != null
                 && presetNameField.getValue().isBlank() && !presetNameField.isFocused()) {
             int[] r = sidePanel.presetInputRect();
-            HudEditSidePanel.arcText(ctx, this.font, "Nom du preset", r[0], r[1], Colors.FOREGROUND_MUTED);
+            DaKit.inter7(ctx, this.font, DaKit.inter("Nom du preset"), r[0], r[1] + 4, DaKit.INACTIF, 0);
         }
 
         // 7) Feedback.
@@ -312,30 +314,30 @@ public class HudEditScreen extends Screen {
         boolean hidden = !state.visible();
         boolean active = hovered || selected || dragging;
 
-        // Idle : seulement des coins dorés (kanagu) — le HUD reste lisible derrière.
+        // Idle : seulement des équerres dorées aux coins — le HUD reste lisible derrière.
+        LotGui l = LotGui.ouvrir(ctx);
         if (!active) {
-            kanagu(ctx, bx, by, bw, bh, hidden ? RebornColors.withAlpha(Colors.DANGER, 0x99) : 0x99E6D2AA);
+            kanagu(l, bx, by, bw, bh, hidden ? 0x99E26474 : 0x99E6D2AA);
+            l.fermer();
             return;
         }
 
-        // Actif : voile doré + coins pleins ; sélection / drag = liseré d'or complet.
-        int border = hidden ? Colors.DANGER : 0xFFF6CC78;
-        ctx.fill(bx, by, bx + bw, by + bh, hidden ? 0x18FF4040 : 0x16F6CC78);
+        // Actif : voile doré + équerres pleines ; sélection / drag = trait de cordeau complet.
+        int border = hidden ? DaKit.ROUGE_CLAIR : 0xFFF2D08A;
+        l.fill(bx, by, bx + bw, by + bh, hidden ? 0x18FF4040 : 0x14F2D08A);
         if (dragging || selected) {
-            ctx.fill(bx, by, bx + bw, by + 1, border); ctx.fill(bx, by + bh - 1, bx + bw, by + bh, border);
-            ctx.fill(bx, by, bx + 1, by + bh, border); ctx.fill(bx + bw - 1, by, bx + bw, by + bh, border);
+            l.fill(bx, by, bx + bw, by + 1, border); l.fill(bx, by + bh - 1, bx + bw, by + bh, border);
+            l.fill(bx, by, bx + 1, by + bh, border); l.fill(bx + bw - 1, by, bx + bw, by + bh, border);
         }
-        kanagu(ctx, bx, by, bw, bh, border);
+        kanagu(l, bx, by, bw, bh, border);
+        l.fermer();
 
         renderBoxLabel(ctx, element, state, bx, by, bw, bh);
 
         // Poignée resize BR uniquement sur l'élément sélectionné/dragué.
         if (selected || dragging) {
             int[] h = resizeHandleRect(b);
-            if (h != null) {
-                ctx.fill(h[0], h[1], h[0] + h[2], h[1] + h[3], 0xFFF6CC78);
-                ctx.fill(h[0] + 1, h[1] + 1, h[0] + h[2] - 1, h[1] + h[3] - 1, 0xFF8C1C20);
-            }
+            if (h != null) DaKit.blit(ctx, EditeurArt.PIECES, h[0] + (h[2] - 7) / 2, h[1] + (h[3] - 7) / 2, 40, 0, 7, 7, 160, 64);
         }
     }
 
@@ -395,31 +397,37 @@ public class HudEditScreen extends Screen {
         String coordS = state.visible()
             ? String.format("%+d, %+d  x%.2f", state.x(), state.y(), state.scale())
             : "masque";
-        int nameW = HudEditSidePanel.arcW(this.font, nameS);
-        int coordW = HudEditSidePanel.arcW(this.font, coordS);
-        int pillW = nameW + coordW + 18;
-        int pillH = 12;
+        var nameC = DaKit.inter(nameS);
+        var coordC = DaKit.inter(coordS);
+        int nameW = (int) Math.ceil(DaKit.largeur7(this.font, nameC));
+        int coordW = (int) Math.ceil(DaKit.largeur7(this.font, coordC));
+        int pillW = nameW + coordW + 16;
+        int pillH = 11;
         int px = bx;
         int py = by - pillH - 3;
         if (py < 2) py = Math.min(by + bh + 3, this.height - pillH - 2);
-
-        // Étiquette = petite plaque laquée bordée d'or.
-        ctx.fill(px, py, px + pillW, py + pillH, 0xF00E0A0C);
-        ctx.fill(px, py, px + pillW, py + 1, 0xFFF6CC78); ctx.fill(px, py + pillH - 1, px + pillW, py + pillH, 0xFFF6CC78);
-        ctx.fill(px, py, px + 1, py + pillH, 0xFFF6CC78); ctx.fill(px + pillW - 1, py, px + pillW, py + pillH, 0xFFF6CC78);
-        HudEditSidePanel.arcText(ctx, this.font, nameS,
-            px + 6, py + 3, state.visible() ? 0xFFF6CC78 : Colors.DANGER);
-        HudEditSidePanel.arcText(ctx, this.font, coordS,
-            px + 6 + nameW + 6, py + 3, 0xFFE6D2BE);
+        plaque(ctx, px, py, pillW, pillH, 0xF00E0A0C);
+        DaKit.inter7(ctx, this.font, nameC, px + 5, py + pillH / 2f, state.visible() ? DaKit.OR_CLAIR : DaKit.ROUGE_CLAIR, 0);
+        DaKit.inter7(ctx, this.font, coordC, px + 11 + nameW, py + pillH / 2f, DaKit.CREME_VAL, 0);
     }
 
-    /** Coins dorés (kanagu) d'une boîte : 8 fills, longueur adaptée à la taille. */
-    private static void kanagu(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
+    /** Équerres dorées aux coins d'une boîte (8 aplats, dans le lot de la boîte). */
+    private static void kanagu(LotGui l, int x, int y, int w, int h, int c) {
         int s = Math.max(3, Math.min(8, Math.min(w, h) / 4));
-        ctx.fill(x, y, x + s, y + 1, c); ctx.fill(x, y, x + 1, y + s, c);
-        ctx.fill(x + w - s, y, x + w, y + 1, c); ctx.fill(x + w - 1, y, x + w, y + s, c);
-        ctx.fill(x, y + h - 1, x + s, y + h, c); ctx.fill(x, y + h - s, x + 1, y + h, c);
-        ctx.fill(x + w - s, y + h - 1, x + w, y + h, c); ctx.fill(x + w - 1, y + h - s, x + w, y + h, c);
+        l.fill(x, y, x + s, y + 1, c); l.fill(x, y, x + 1, y + s, c);
+        l.fill(x + w - s, y, x + w, y + 1, c); l.fill(x + w - 1, y, x + w, y + s, c);
+        l.fill(x, y + h - 1, x + s, y + h, c); l.fill(x, y + h - s, x + 1, y + h, c);
+        l.fill(x + w - s, y + h - 1, x + w, y + h, c); l.fill(x + w - 1, y + h - s, x + w, y + h, c);
+    }
+
+    /** Petite plaque laquée à liseré d'or (étiquettes, notifications) : un seul élément GUI. */
+    private static void plaque(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int fond) {
+        LotGui l = LotGui.ouvrir(ctx);
+        l.fill(x + 1, y + 2, x + w + 1, y + h + 2, (fond >>> 24) / 2 << 24);
+        l.fill(x, y, x + w, y + h, fond);
+        l.fill(x, y, x + w, y + 1, 0xFFD9A95E); l.fill(x, y + h - 1, x + w, y + h, 0xFF8E6A30);
+        l.fill(x, y, x + 1, y + h, 0xFFD9A95E); l.fill(x + w - 1, y, x + w, y + h, 0xFF8E6A30);
+        l.fermer();
     }
 
     private HudElement elementUnderMouse(int mouseX, int mouseY) {
@@ -794,15 +802,12 @@ public class HudEditScreen extends Screen {
             : age > TOAST_DURATION_MS - TOAST_FADE_OUT_MS ? (TOAST_DURATION_MS - age) / (float) TOAST_FADE_OUT_MS
             : 1f;
         int alpha = (int) (opacity * 255);
-        int pillW = HudEditSidePanel.arcW(this.font, toastText) + 24, pillH = 20;
+        var c = DaKit.inter(toastText);
+        int pillW = (int) Math.ceil(DaKit.largeur8(this.font, c)) + 20, pillH = 16;
         int pillX = (sidePanel.leftEdge() - pillW) / 2;
         int pillY = this.height - 40;
-        FlatRect.fill(ctx, pillX, pillY, pillW, pillH, 6,
-            (alpha << 24) | (Colors.SURFACE_ELEVATED & 0x00FFFFFF));
-        FlatRect.border(ctx, pillX, pillY, pillW, pillH, 6,
-            (alpha << 24) | (Colors.ACCENT & 0x00FFFFFF));
-        HudEditSidePanel.arcText(ctx, this.font, toastText,
-            pillX + 12, pillY + 6, (alpha << 24) | (Colors.FOREGROUND & 0x00FFFFFF));
+        if (alpha > 8) plaque(ctx, pillX, pillY, pillW, pillH, DaKit.alpha(0xF00E0A0C, opacity));
+        DaKit.inter8(ctx, this.font, c, pillX + pillW / 2f, pillY + pillH / 2f, DaKit.alpha(DaKit.CREME, opacity), 1);
     }
 
     private void renderLiveCoordsPill(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
@@ -810,13 +815,13 @@ public class HudEditScreen extends Screen {
         HudElementState state = config.stateOf(draggedElement);
         String raw = String.format("%+d, %+d", state.x(), state.y());
         if (selectedElements.size() > 1) raw = "(" + selectedElements.size() + ") " + raw;
-        int w = HudEditSidePanel.arcW(this.font, raw) + 14, h = 15;
+        var c = DaKit.inter(raw);
+        int w = (int) Math.ceil(DaKit.largeur7(this.font, c)) + 12, h = 11;
         int x = mouseX + 14, y = mouseY + 14;
         if (x + w > this.width - 4) x = mouseX - w - 14;
         if (y + h > this.height - 4) y = mouseY - h - 14;
-        FlatRect.fill(ctx, x, y, w, h, 4, Colors.SURFACE_ELEVATED);
-        FlatRect.border(ctx, x, y, w, h, 4, Colors.ACCENT);
-        HudEditSidePanel.arcText(ctx, this.font, raw, x + 7, y + 4, Colors.FOREGROUND);
+        plaque(ctx, x, y, w, h, 0xF00E0A0C);
+        DaKit.inter7(ctx, this.font, c, x + w / 2f, y + h / 2f, DaKit.OR_CLAIR, 1);
     }
 
     private static boolean inside(int mx, int my, int x, int y, int w, int h) {

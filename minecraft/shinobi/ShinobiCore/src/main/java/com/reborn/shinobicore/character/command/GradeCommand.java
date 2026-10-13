@@ -45,7 +45,7 @@ public final class GradeCommand implements TabExecutor {
         }
         if (args[0].equalsIgnoreCase("voir")) {
             if (args.length < 2) { sender.sendMessage("§cUsage : /grade voir <joueur>"); return true; }
-            Player t = Bukkit.getPlayerExact(args[1]);
+            Player t = com.reborn.shinobicore.character.PlayerIds.online(sender, args[1]);
             ShinobiCharacter c = t == null ? null : plugin.characters().getActive(t.getUniqueId());
             if (c == null) { sender.sendMessage("§cJoueur hors ligne ou sans personnage actif."); return true; }
             describe(sender, c, false);
@@ -53,7 +53,7 @@ public final class GradeCommand implements TabExecutor {
         }
         if (args.length < 2) { sender.sendMessage("§cUsage : /grade <joueur> <grade> [merite|examen]"); return true; }
 
-        Player target = Bukkit.getPlayerExact(args[0]);
+        Player target = com.reborn.shinobicore.character.PlayerIds.online(sender, args[0]);
         ShinobiCharacter tc = target == null ? null : plugin.characters().getActive(target.getUniqueId());
         if (tc == null) { sender.sendMessage("§cJoueur hors ligne ou sans personnage actif."); return true; }
         Rank to = parse(args[1]);
@@ -86,7 +86,7 @@ public final class GradeCommand implements TabExecutor {
         target.sendMessage("§6⛩ §e" + (up ? "Tu es désormais " : "Tu redeviens ") + "§f" + to.displayName()
                 + "§e" + (up ? (exam ? " — examen réussi." : " — au mérite.") : ".") + " §7(" + giver + ")");
         if (sender != target) sender.sendMessage("§a" + line);
-        if (plugin.staffPanel() != null && sender instanceof Player sp) plugin.staffPanel().log(sp, "grade", up ? "Promotion" : "Rétrogradation", line);
+        if (plugin.staffPanel() != null && sender instanceof Player sp) plugin.staffPanel().log(sp, "grade", up ? "Promotion" : "Rétrogradation", com.reborn.shinobicore.character.PlayerIds.prefix(tc) + line);
         plugin.getLogger().info("[grade] " + line);
         return true;
     }

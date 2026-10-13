@@ -18,6 +18,8 @@ import java.util.List;
  *   v2), et les quatre onglets aux échelles 3 et 4 (identiques grâce à MenuScale).</li>
  *   <li>{@code REBORN_FICHE_DEBUG=tailles} : mêmes cas dans des fenêtres 1706×960 (853×480), 1280×720 et 1366×768
  *   (683×384, compact).</li>
+ *   <li>{@code REBORN_FICHE_DEBUG=pid} : la pastille Player ID « N° 00042 » (repos, retour « Copié », échelle 3,
+ *   onglet Attributs, 1366×768 compact).</li>
  * </ul>
  * Captures dans run/screenshots/, puis le jeu se ferme. Un seul client à la fois.
  */
@@ -37,7 +39,13 @@ public final class FicheDebug {
         String v = System.getenv("REBORN_FICHE_DEBUG");
         if (v == null || v.isBlank()) return;
         tailles = "tailles".equalsIgnoreCase(v.trim());
-        if (tailles) {
+        if ("pid".equalsIgnoreCase(v.trim())) {
+            SHOTS.add(new Shot("fiche_pid_1_identite", "identite", 2, 0, 0, false));
+            SHOTS.add(new Shot("fiche_pid_2_copie", "identite_copie", 2, 0, 0, false));
+            SHOTS.add(new Shot("fiche_pid_3_s3", "identite", 3, 0, 0, false));
+            SHOTS.add(new Shot("fiche_pid_4_attributs", "attributs", 2, 0, 0, false));
+            SHOTS.add(new Shot("fiche_pid_5_1366x768", "identite", 2, 1366, 768, false));
+        } else if (tailles) {
             int[][] fen = {{1706, 960}, {1280, 720}, {1366, 768}};
             for (int[] f : fen) {
                 for (int i = 0; i < CAS.length; i++) {
@@ -99,7 +107,8 @@ public final class FicheDebug {
             mc.setScreenAndShow(sc);
             sc.debugPasserIntro();
         }
-        if (k == 6 && mc.gui.screen() instanceof FicheScreen sc) sc.debugCas(s.cas());
+        if (k == 6 && mc.gui.screen() instanceof FicheScreen sc) sc.debugCas(s.cas().replace("_copie", ""));
+        if (k == 20 && s.cas().endsWith("_copie") && mc.gui.screen() instanceof FicheScreen sc) sc.debugPidCopie();
         if (k == STEP - 3) {
             Screenshot.grab(mc.gameDirectory, s.nom() + ".png", mc.gameRenderer.mainRenderTarget(), 1, m -> { });
         }

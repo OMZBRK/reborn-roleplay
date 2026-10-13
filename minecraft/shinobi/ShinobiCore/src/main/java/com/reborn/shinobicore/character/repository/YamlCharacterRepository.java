@@ -244,6 +244,8 @@ public class YamlCharacterRepository implements CharacterRepository {
         c.setSexe(s.getString("sexe", "Homme"));
         c.setAppearance(s.getString("appearance", ""));
         c.setRyo(s.getLong("ryo", 0L));
+        // Player ID (N°) : absent avant la migration du 13/10 — PlayerIdRegistry le pose au démarrage.
+        if (s.isInt("playerId")) c.setPlayerId(s.getInt("playerId"));
         for (String oid : s.getStringList("owned-outfits")) c.addOwnedOutfit(oid);
 
         // disabled-mobility-slots block is no longer read — the mobility
@@ -407,6 +409,8 @@ public class YamlCharacterRepository implements CharacterRepository {
 
         String key = c.id().toString();
         cfg.set(key + ".name", c.name());
+        // Player ID : jamais effacé ici (un perso chargé sans N° ne doit pas écraser celui posé par la migration).
+        if (c.hasPlayerId()) cfg.set(key + ".playerId", c.playerId());
         cfg.set(key + ".clan", c.clan());
         cfg.set(key + ".village", c.village().isBlank() ? null : c.village());
         cfg.set(key + ".sexe", "Homme".equals(c.sexe()) ? null : c.sexe());

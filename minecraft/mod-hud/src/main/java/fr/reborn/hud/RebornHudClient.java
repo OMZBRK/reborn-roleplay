@@ -57,6 +57,12 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "cecite"),
             (ctx, tickCounter) -> fr.reborn.hud.yeux.CeciteHud.render(ctx, ctx.guiWidth(), ctx.guiHeight()));
 
+        // Duel consenti (invitation, bandeau, compte à rebours, fin) : SOUS le menu d'interaction, dont le curseur
+        // doit rester visible au-dessus des boutons du duel.
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "duel"),
+            (ctx, tickCounter) -> fr.reborn.hud.duel.DuelHud.render(ctx));
+
         // Overlay du menu d'interaction live (rendu HUD, pas un écran).
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "interaction"),
@@ -80,6 +86,10 @@ public final class RebornHudClient implements ClientModInitializer {
                 fr.reborn.hud.element.HudElementBounds b = fr.reborn.hud.element.HudElementBounds.currentFor(
                     fr.reborn.hud.element.HudElement.VITALS, st, w, h);
                 fr.reborn.hud.runtime.VitalsHud.render(ctx, mc, b.x(), b.y(), st.scale());
+                // Surcharge (sacoche) : un mot, un pourcentage, une jauge d'1 px, sous les barres — dès « Chargé ».
+                float sc = st.scale();
+                fr.reborn.hud.notif.SurchargeHud.render(ctx, b.x() + 56 * sc, b.y() + (fr.reborn.hud.runtime.VitalsHud.HEIGHT + 1) * sc,
+                    fr.reborn.hud.runtime.VitalsHud.WIDTH - 59, sc);
             });
 
         // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
@@ -261,7 +271,8 @@ public final class RebornHudClient implements ClientModInitializer {
                 // évite le flash de catégorie) ; sinon ouvre le sac.
                 if (mc.gui.screen() instanceof fr.reborn.hud.menu.inventory.InventoryScreen inv) {
                     inv.refresh();
-                } else if (mc.gui.screen() == null) {
+                } else if (mc.gui.screen() == null && fr.reborn.hud.menu.inventory.InventoryData.get().ouvrir()) {
+                    // « ouvrir » = touche E / commande ; un don, un ramassage ou une action ne rouvrent rien.
                     mc.setScreenAndShow(new fr.reborn.hud.menu.inventory.InventoryScreen());
                 }
             }));
@@ -640,6 +651,21 @@ public final class RebornHudClient implements ClientModInitializer {
         // KO-7 : corps (menu d'interaction) + scène de mort (canal reborn:corps).
         fr.reborn.hud.ko.CorpsClient.init();
         fr.reborn.hud.yeux.YeuxClient.init();
+        // Duel consenti (canal reborn:duel, ShinobiCore DuelService) : invitation, bandeau, compte à rebours, fin.
+        fr.reborn.hud.duel.DuelClient.init();
+        fr.reborn.hud.duel.DuelDebug.init();
+        // Inventaire du 13/10 : notifications en bas à droite + état de charge (canal reborn:notif), ramassage volontaire
+        // (touche F quand un objet est visé), aura de rareté au sol, indicateur de surcharge (sous les vitals).
+        fr.reborn.hud.notif.NotifClient.init();
+        fr.reborn.hud.sol.RamasserClient.init();
+        fr.reborn.hud.sol.AuraSol.init();
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "ramasser"),
+            (ctx, tickCounter) -> fr.reborn.hud.sol.RamasserClient.render(ctx));
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "notifs"),
+            (ctx, tickCounter) -> fr.reborn.hud.notif.NotifHud.render(ctx));
+        fr.reborn.hud.audit.InventaireDebug.init();
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.ko.CorpsClient.clear());
         // Concentration du chakra (ShinobiAbilities, canal reborn:parchemin {"t":"conc"}) : plaque au-dessus de la barre d'action.
@@ -663,6 +689,7 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.audit.ResponsiveAudit.init();
         fr.reborn.hud.audit.ConcentrationPreview.init();
         fr.reborn.hud.audit.FeaturePreview.init();
+        fr.reborn.hud.audit.PanoramaBench.init();
         fr.reborn.hud.menu.character.SceneMockups.init();
         fr.reborn.hud.menu.character.scene.ScenePreview.init();
         fr.reborn.hud.menu.character.perso.PersoDebug.init();

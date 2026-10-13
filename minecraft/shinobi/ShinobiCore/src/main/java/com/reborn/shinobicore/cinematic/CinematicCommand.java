@@ -101,7 +101,7 @@ public final class CinematicCommand implements CommandExecutor, TabCompleter {
     }
 
     private Player resolveTarget(CommandSender sender, String[] args, int idx) {
-        if (args.length > idx) return Bukkit.getPlayerExact(args[idx]);
+        if (args.length > idx) return com.reborn.shinobicore.character.PlayerIds.online(sender, args[idx]);
         return sender instanceof Player p ? p : null;
     }
 

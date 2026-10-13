@@ -178,10 +178,7 @@ public final class SpawnMenuScreen extends CoreScreen {
         ItemStack give;
         try { give = new ItemStack(m, amt); }
         catch (RuntimeException ex) { GuiSounds.error(viewer); return; }
-        var leftover = viewer.getInventory().addItem(give);
-        for (ItemStack stuck : leftover.values()) {
-            viewer.getWorld().dropItemNaturally(viewer.getLocation(), stuck);
-        }
+        com.reborn.shinobicore.inventory.InventoryManager.donner(viewer, give);   // barre, sac, sol — jamais les cases cachées 9-35
         GuiSounds.select(viewer);
     }
 

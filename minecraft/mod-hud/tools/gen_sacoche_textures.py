@@ -28,7 +28,8 @@ Contrat (1 texel = 1 GUI) :
 - cases.png 176×22 : cases 22×22 : 0 sac, 1 sac survol, 2 sac choisie, 3 case absente (sac plus petit),
   4 ceinture, 5 ceinture survol, 6 ceinture choisie, 7 dépôt possible.
 - plaques.png 96×25 : plaques cosmétiques 22×22 (+ombre) : 0 vide, 1 survol, 2 garnie, 3 dépôt possible.
-- kanji.png 176×16 : 笠 額 面 耳 衣 上 装 帯 下 背 袋 (cellules 16×16, or éteint) posés sur les plaques vides.
+- kanji.png 208×16 : 笠 額 面 耳 衣 上 装 帯 下 背 袋 刀 頭 (cellules 16×16, or éteint) posés sur les plaques vides
+  (刀 = emplacement Arme / étui, 頭 = rappel « Tête » de l'onglet Équipement, ajoutés le 13/10).
 - socle.png 124×22 : socle laqué sous le personnage, pieds en (62, 3).
 - obi.png 274×34 : obi 270×30 en (0, 0) (+ ombre) ; cases dès (12, 4).
 - champ.png 124×14 : champ de recherche (coupe horizontale, capD 4).
@@ -52,7 +53,7 @@ from ecrans_art import fa, gf, kit, hexc, rect, R_OR, R_LAQUE, R_LAQUE_ROUGE, no
 
 S = ea.Sortie("sacoche", budget=400_000)
 
-KJ_COSM = ["笠", "額", "面", "耳", "衣", "上", "装", "帯", "下", "背", "袋"]
+KJ_COSM = ["笠", "額", "面", "耳", "衣", "上", "装", "帯", "下", "背", "袋", "刀", "頭"]   # + 刀 arme, 頭 tête (13/10)
 KJ_ETAGES = ["全", "袋", "雑"]
 KJ_ONGLETS = ["装", "飾"]
 PLATEAU = ["1E0609", "2A070D", "3A0A12", "4A0C16", "5A0F1A", "6E1220", "821426"]   # laque sang-de-bœuf
@@ -325,10 +326,10 @@ def plaques():
 
 
 def kanji_cosm():
-    im = nouveau(176, 16)
+    im = nouveau(16 * len(KJ_COSM), 16)
     for i, kj in enumerate(KJ_COSM):
         gf.kj_px(im, i * 16 + 8, 0, kj, hexc(R_OR[3]))
-    S.sauver("kanji.png", im, (176, 16))
+    S.sauver("kanji.png", im, (208, 16))
 
 
 def socle():

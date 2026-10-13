@@ -36,8 +36,13 @@ import java.util.Locale;
  * ce qui bouge (étage actif, cases survolées, jauge, objets, texte). Mise en page calculée à l'init (et au
  * redimensionnement), pas à chaque image.
  *
- * <p>Logique inchangée : clic gauche = prendre / poser, clic droit = panneau d'actions, clic hors cases avec un objet
- * en main = jeter. Sons {@code sounds/sacoche/*}.
+ * <p>Logique : clic gauche = prendre / poser, clic droit = panneau d'actions, clic hors cases avec un objet en main =
+ * jeter, <b>glisser hors de la fenêtre = lâcher</b>. Sons {@code sounds/sacoche/*}.
+ *
+ * <p>Ajouts du 13/10 (maquette 01_inventaire) : onglet Équipement avec l'<b>étui</b> (emplacement Arme, l'arme se voit
+ * à la ceinture ; dégainer / rengainer par la touche Z ou le panneau) et le rappel <b>Tête</b> (chapeau / masque /
+ * bandeau de l'onglet Cosmétique) ; jauge de poids graduée <b>0 → 130 %</b> (repères 100 / 115 / 130 %) ; <b>lecture
+ * seule</b> en KO, porté, étourdi ou scène de mort (le serveur refuse de toute façon).
  */
 public class InventoryScreen extends Screen {
 
@@ -64,6 +69,11 @@ public class InventoryScreen extends Screen {
     private static int lastFilter = F_ALL;
     private static int lastTab = TAB_COSM;
 
+    /** Banc d'essai (REBORN_INV_DEBUG) : ouvrir sur l'onglet Équipement / Cosmétique. */
+    public static void debugOnglet(boolean equipement) {
+        lastTab = equipement ? TAB_EQUIP : TAB_COSM;
+    }
+
     private InventoryData.Snapshot snap;
     private String tierDisplay;
     private int extraSlots;
@@ -75,6 +85,9 @@ public class InventoryScreen extends Screen {
 
     private String carriedRef = null;
     private ItemStack carriedStack = null;
+    /** Glisser : objet pris à l'appui (pas un clic), position d'appui, déplacement suffisant. */
+    private boolean pressPick, dragging;
+    private double pressX, pressY;
 
     private String selRef = null;
     private ItemStack selStack = null;
@@ -114,6 +127,10 @@ public class InventoryScreen extends Screen {
     private DaKit.Paragraphe sansSac;
     private float poidsRatio;
     private int jaugeX, jaugeW;
+    private Component nomTete, nomArme, lecture;
+    private static final Component LIB_TETE = DaKit.arcade("Tete"), LIB_ARME = DaKit.arcade("Arme"),
+        DEGAINEE = DaKit.arcade("Degainee");
+    private static final int KJ_ARME = 11, KJ_TETE = 12;
 
     public InventoryScreen() {
         super(Component.literal("Inventaire"));
@@ -128,10 +145,56 @@ public class InventoryScreen extends Screen {
         this.bagRows = (extraSlots + COLS - 1) / COLS;
         this.tierLib = DaKit.arcade(tierDisplay);
         this.compte = DaKit.arcade(extraSlots > 0 ? itemCount() + " / " + extraSlots + "  -  " + tierDisplay : "Aucun sac");
+        poidsTextes();
+    }
+
+    /** Valeur de la jauge : « 8,4 / 20,0 kg », et au-delà de la limite « 45,2 / 38,0 kg · 119 % ». */
+    private void poidsTextes() {
         double cur = snap.curWeight(), max = snap.maxWeight();
         this.poidsRatio = (float) (max > 0 ? cur / max : 0);
-        this.poidsVal = DaKit.inter(String.format(Locale.FRANCE, "%.1f / %.1f kg", cur, max));
+        String v = String.format(Locale.FRANCE, "%.1f / %.1f kg", cur, max);
+        if (poidsRatio > 1f) v += " · " + Math.round(poidsRatio * 100) + " %";
+        this.poidsVal = DaKit.inter(v);
+        Font fo = Minecraft.getInstance().font;
+        SlotItem tete = tete();
+        this.nomTete = DaKit.arcade(tete != null && tete.name != null ? DaKit.ellipse(fo, tete.name, 110) : "-");
+        SlotItem arme = snap.equipped().get(CosmeticSlot.ARME);
+        this.nomArme = arme != null && arme.name != null ? DaKit.arcade(DaKit.ellipse(fo, arme.name, 110))
+            : snap.armeDegainee() ? DEGAINEE : DaKit.arcade("-");
+        String l = verrou();
+        this.lecture = l == null ? null : DaKit.inter("Lecture seule — " + switch (l) {
+            case "mort" -> "scène de mort";
+            default -> l;
+        });
     }
+
+    /** Objet porté à la tête (masque, puis chapeau, puis bandeau), pour le rappel « Tête » de l'onglet Équipement. */
+    private SlotItem tete() {
+        CosmeticSlot cs = teteSlot();
+        return cs != null ? snap.equipped().get(cs) : null;
+    }
+
+    private CosmeticSlot teteSlot() {
+        for (CosmeticSlot cs : new CosmeticSlot[] {CosmeticSlot.MASQUE, CosmeticSlot.CHAPEAU, CosmeticSlot.BANDEAU}) {
+            if (snap.equipped().get(cs) != null) return cs;
+        }
+        return null;
+    }
+
+    /** Raison de la lecture seule (snapshot, ou état de charge plus récent poussé sur reborn:notif), sinon null. */
+    private String verrou() {
+        if (DEBUG_VERROU != null) return DEBUG_VERROU;
+        var p = fr.reborn.hud.notif.NotifClient.poids();
+        if (p != null && InventoryData.fromServer()) return p.verrou();
+        return snap.lecture();
+    }
+
+    private boolean lectureSeule() {
+        return verrou() != null;
+    }
+
+    /** Banc d'essai : verrou imposé (« KO »…). */
+    public static String DEBUG_VERROU;
 
     /** Met à jour l'écran avec le nouvel état sans le recréer (filtre, onglet, recherche, objet en main conservés). */
     public void refresh() {
@@ -216,9 +279,24 @@ public class InventoryScreen extends Screen {
             bagRows = (extraSlots + COLS - 1) / COLS;
             tierLib = DaKit.arcade(tierDisplay);
             compte = DaKit.arcade(extraSlots > 0 ? itemCount() + " / " + extraSlots + "  -  " + tierDisplay : "Aucun sac");
-            poidsRatio = (float) (snap.curWeight() / snap.maxWeight());
-            poidsVal = DaKit.inter(String.format(Locale.FRANCE, "%.1f / %.1f kg", snap.curWeight(), snap.maxWeight()));
+            poidsTextes();
         }
+        if (o.contains("arme")) {   // étui garni + tête (masque) : onglet Équipement de la maquette 01
+            java.util.Map<CosmeticSlot, SlotItem> eq = new java.util.EnumMap<>(CosmeticSlot.class);
+            eq.putAll(snap.equipped());
+            SlotItem arme = new SlotItem("minecraft:iron_sword", null, 1, "Ninjato", 2.0, null, "RARE", null, null);
+            arme.arme = true;
+            eq.put(CosmeticSlot.ARME, arme);
+            eq.put(CosmeticSlot.MASQUE, new SlotItem("minecraft:carved_pumpkin", null, 1, "Masque ANBU", 0.4, null, "RARE",
+                null, null));
+            snap = new InventoryData.Snapshot(snap.bagTier(), snap.baseSlots(), snap.extraSlots(), snap.maxWeight(),
+                snap.curWeight(), snap.bagItem(), snap.bag(), eq, snap.hotbar(), snap.lecture(), snap.palier(),
+                snap.poidsMax(), false, true);
+            tab = TAB_EQUIP;
+        }
+        if (o.contains("p119")) snap = snap.avec(38.0, 45.2, null, 2);
+        if (o.contains("lecture")) DEBUG_VERROU = "KO";
+        if (o.contains("arme") || o.contains("p119") || o.contains("lecture")) poidsTextes();
         if (o.contains("equip")) tab = TAB_EQUIP;
         if (o.contains("porte")) { carriedRef = "B0"; carriedStack = stackAt("B0"); }
         if (o.contains("detail")) {
@@ -230,6 +308,7 @@ public class InventoryScreen extends Screen {
     }
 
     private SlotItem selRefDebug;
+    private String dernierVerrou;
 
     // ─────────── Mise en page (une fois, et à chaque changement de taille ou de sac) ───────────
     private void layout() {
@@ -387,6 +466,12 @@ public class InventoryScreen extends Screen {
             InventoryData.Snapshot cur = InventoryData.get();
             if (cur != snap) refresh();
         }
+        String v = verrou();
+        if (!java.util.Objects.equals(v, dernierVerrou)) {   // KO / porté / étourdi arrivé pendant que la sacoche est ouverte
+            dernierVerrou = v;
+            poidsTextes();
+            if (v != null) { clearCarried(); closePanel(); }
+        }
         long now = System.currentTimeMillis();
         float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
         lastFrame = now;
@@ -494,7 +579,7 @@ public class InventoryScreen extends Screen {
         int etat = droppable ? 3 : hover ? 1 : it != null ? 2 : 0;
         DaKit.blit(ctx, PLAQUES, x, y, etat * 24, 0, 24, 25, 96, 25);
         if (it != null) ctx.item(it.toStack(), x + 3, y + 3);
-        else if (kanji >= 0) DaKit.blit(ctx, KANJI, x + 3, y + 3, kanji * 16, 0, 16, 16, 176, 16,
+        else if (kanji >= 0) DaKit.blit(ctx, KANJI, x + 3, y + 3, kanji * 16, 0, 16, 16, 208, 16,
             hover || droppable ? DaKit.blanc(1f) : DaKit.blanc(0.75f));
     }
 
@@ -510,6 +595,7 @@ public class InventoryScreen extends Screen {
 
     private void drawCosmetics(GuiGraphicsExtractor ctx, int mx, int my) {
         for (CosmeticSlot cs : CosmeticSlot.values()) {
+            if (!cs.cosmetique()) continue;
             int[] p = cosmPos(cs);
             plaque(ctx, p[0], p[1], snap.equipped().get(cs), cs.ordinal(), carriedStack != null, mx, my);
             if (DaKit.dans(mx, my, p[0], p[1], PLATE, PLATE)) hoverCosm = cs;
@@ -521,6 +607,57 @@ public class InventoryScreen extends Screen {
         plaque(ctx, x, y, snap.bagItem(), 10, carriedStack != null && isBagStack(carriedStack), mx, my);
         DaKit.arcFin(ctx, f, LIB_SAC, x + PLATE / 2f, y + PLATE + 5, DaKit.OR_ETIQ, 1, false);
         DaKit.arcFin(ctx, f, tierLib, x + PLATE / 2f, y + PLATE + 12, DaKit.CREME_VAL, 1, false);
+        // Tête : rappel des emplacements Chapeau / Masque / Bandeau de l'onglet Cosmétique (pas un nouvel emplacement)
+        int xt = cosmRightX, yt = teteY();
+        SlotItem tete = tete();
+        plaque(ctx, xt, yt, tete, KJ_TETE, false, mx, my);
+        if (tete != null) pastille(ctx, xt, yt, tete.rarity);
+        DaKit.arcFin(ctx, f, LIB_TETE, xt + PLATE / 2f, yt + PLATE + 5, DaKit.OR_ETIQ, 1, false);
+        DaKit.arcFin(ctx, f, nomTete, xt + PLATE / 2f, yt + PLATE + 12, DaKit.CREME_VAL, 1, false);
+        // Arme : l'étui (l'arme rangée se voit à la ceinture du personnage)
+        int ya = armeY();
+        SlotItem arme = snap.equipped().get(CosmeticSlot.ARME);
+        boolean depot = carriedStack != null && carriedEstArme();
+        plaque(ctx, xt, ya, arme, KJ_ARME, depot, mx, my);
+        if (arme != null) pastille(ctx, xt, ya, arme.rarity);
+        DaKit.arcFin(ctx, f, LIB_ARME, xt + PLATE / 2f, ya + PLATE + 5, DaKit.OR_ETIQ, 1, false);
+        DaKit.arcFin(ctx, f, nomArme, xt + PLATE / 2f, ya + PLATE + 12, snap.armeDegainee() && arme == null
+            ? DaKit.OR_CLAIR : DaKit.CREME_VAL, 1, false);
+    }
+
+    private int teteY() { return colY0; }
+
+    private int armeY() { return colY0 + Math.max(2 * platePitch, PLATE + 26); }
+
+    /** Petit carré de rareté au coin de la plaque (maquette 01). */
+    private void pastille(GuiGraphicsExtractor ctx, int x, int y, String rarity) {
+        fr.reborn.hud.sol.Rarete r = fr.reborn.hud.sol.Rarete.parse(rarity);
+        if (r == null || r == fr.reborn.hud.sol.Rarete.COMMUN) return;
+        ctx.fill(x + 2, y + 2, x + 4, y + 4, r.argb());
+    }
+
+    /** L'objet porté va-t-il à l'étui ? (métadonnée serveur, sinon épée / hache / trident / masse). */
+    private boolean carriedEstArme() {
+        SlotItem m = carriedRef != null ? metaAtAny(carriedRef) : null;
+        if (m != null) return m.arme;
+        if (carriedStack == null) return false;
+        Identifier id = BuiltInRegistries.ITEM.getKey(carriedStack.getItem());
+        String p = id != null ? id.getPath() : "";
+        return p.endsWith("_sword") || p.endsWith("_axe") || p.equals("trident") || p.equals("mace");
+    }
+
+    private SlotItem metaAtAny(String ref) {
+        if (ref == null || ref.length() < 2) return null;
+        if (ref.charAt(0) == 'H') return snap.hotbarMeta(idx(ref));
+        return metaAt(ref);
+    }
+
+    private boolean armeSlotAt(int mx, int my) {
+        return tab == TAB_EQUIP && DaKit.dans(mx, my, cosmRightX, armeY(), PLATE, PLATE);
+    }
+
+    private boolean teteSlotAt(int mx, int my) {
+        return tab == TAB_EQUIP && DaKit.dans(mx, my, cosmRightX, teteY(), PLATE, PLATE);
     }
 
     // ── inrō : étages = filtres ──
@@ -576,18 +713,36 @@ public class InventoryScreen extends Screen {
         if (st == null || st.isEmpty()) return;
         ctx.item(st, x + 3, y + 3);
         ctx.itemDecorations(f, st, x + 3, y + 3);
-        if (meta != null && meta.rarity != null) ctx.fill(x + 3, y + 19, x + 19, y + 20, rarityColor(meta.rarity));
+        if (meta != null && meta.rarity != null
+            && fr.reborn.hud.sol.Rarete.parse(meta.rarity) != fr.reborn.hud.sol.Rarete.COMMUN) {
+            ctx.fill(x + 3, y + 19, x + 19, y + 20, rarityColor(meta.rarity));
+        }
         if (dimmed(st, meta)) ctx.fill(x + 1, y + 1, x + 21, y + 21, 0xA8140306);
     }
 
+    /**
+     * Jauge graduée 0 → 130 % (maquette 01) : or jusqu'à la limite, laque rouge au-delà (on porte encore, on ralentit),
+     * zone de surcharge assombrie, repères à 100 % (or), 115 % (ambre) et 130 % (vermillon, refus de ramasser).
+     */
     private void drawWeight(GuiGraphicsExtractor ctx, Font f) {
         float ym = trayY + trayH - 14;
         boolean over = poidsRatio > 1f;
         DaKit.etiq(ctx, f, etiqPoids, trayX + 14, ym, DaKit.OR_ETIQ);
         int ry = Math.round(ym) - 5;
         DaKit.coupeH(ctx, PIECES, jaugeX, ry, jaugeW, 0, 14, 204, 12, 4, 210, 74);
-        int fw = Math.round((jaugeW - 4) * Math.max(0f, Math.min(1f, poidsRatio)));
-        DaKit.blit(ctx, PIECES, jaugeX + 2, ry + 2, 0, poidsRatio > 0.9f ? 36 : 28, Math.min(196, fw), 6, 210, 74);
+        float plafond = (float) Math.max(1.05, snap.poidsMax());
+        int inner = jaugeW - 4, x0 = jaugeX + 2;
+        int p100 = x0 + Math.round(inner / plafond), pSur = x0 + Math.round(inner * 1.15f / plafond), pFin = x0 + inner;
+        ctx.fill(p100, ry + 2, pFin, ry + 8, 0xFF2E0C10);                                   // zone de surcharge
+        int fw = Math.round(inner * Math.max(0f, Math.min(1f, poidsRatio)) / plafond);
+        DaKit.blit(ctx, PIECES, x0, ry + 2, 0, 28, Math.min(196, fw), 6, 210, 74);           // or jusqu'à 100 %
+        if (over) {
+            int fx = x0 + Math.round(inner * Math.min(plafond, poidsRatio) / plafond);
+            DaKit.blit(ctx, PIECES, p100, ry + 2, 0, 36, Math.max(0, Math.min(196, fx - p100)), 6, 210, 74);
+        }
+        ctx.fill(p100, ry, p100 + 1, ry + 10, 0xFFF2D59A);                                  // repère 100 %
+        ctx.fill(pSur, ry + 1, pSur + 1, ry + 9, 0xFFE0A050);                               // repère 115 %
+        ctx.fill(pFin - 1, ry + 1, pFin, ry + 9, 0xFFD2523E);                               // repère 130 %
         DaKit.inter8(ctx, f, poidsVal, trayX + TRAY_W - 14, ym, over ? DaKit.ROUGE_CLAIR : DaKit.CREME_VAL, 2);
     }
 
@@ -612,16 +767,23 @@ public class InventoryScreen extends Screen {
             int x = hotbarX(i);
             boolean hov = ref.equals(hoverRef), sel = ref.equals(selRef);
             cell(ctx, x, hotbarY, sel ? C_CEINT_CHOISIE : hov && carriedStack != null ? C_DEPOT : hov ? C_CEINT_SURVOL : C_CEINT);
-            drawItem(ctx, f, x, hotbarY, ref.equals(carriedRef) ? null : stackAt(ref), null);
+            drawItem(ctx, f, x, hotbarY, ref.equals(carriedRef) ? null : stackAt(ref), snap.hotbarMeta(i));
             DaKit.arcFin(ctx, f, NUM[i], x + 3, hotbarY + 16, DaKit.argb(0xE8DCC0, 0.55f), 0, false);
         }
     }
 
     private void drawHint(GuiGraphicsExtractor ctx, Font f) {
-        String[][] items = carriedStack != null
-            ? new String[][] {{"Clic", "poser"}, {"Clic dehors", "jeter"}, {"Echap", "annuler"}}
-            : new String[][] {{"Clic", "prendre / poser"}, {"Clic droit", "actions"}, {"Etages", "filtres"}, {"Echap", "fermer"}};
+        String[][] items = lectureSeule()
+            ? new String[][] {{"Lecture seule", null}, {"Echap", "fermer"}}
+            : carriedStack != null
+            ? new String[][] {{"Clic", "poser"}, {"Glisser dehors", "lâcher"}, {"Echap", "annuler"}}
+            : new String[][] {{"Clic", "prendre / poser"}, {"Clic droit", "actions"}, {"Glisser dehors", "lâcher"},
+                {"Echap", "fermer"}};
         DaKit.aides(ctx, f, PIECES, 0, 0, 210, 74, items, this.width - 18, this.height - 14, 1f);
+        if (lecture != null) {
+            // sous l'identité : « Lecture seule — KO » ; le serveur refuse de toute façon
+            DaKit.inter7o(ctx, f, lecture, this.width / 2f, 57, DaKit.argb(0xE8907E, 0.95f), 1);
+        }
     }
 
     // ─────────── Panneau détail (ancré sur l'objet) ───────────
@@ -652,7 +814,8 @@ public class InventoryScreen extends Screen {
             nom = DaKit.interGras(nm.equals(name) ? name : nm.trim() + "…");
         }
         double weight = selMeta != null ? selMeta.weight : 0;
-        String rarity = selMeta != null && selMeta.rarity != null ? selMeta.rarity : "Commune";
+        String rarity = fr.reborn.hud.sol.Rarete.parseOr(selMeta != null ? selMeta.rarity : null,
+            fr.reborn.hud.sol.Rarete.COMMUN).label;
         String desc = selMeta != null && selMeta.desc != null && !selMeta.desc.isBlank() ? selMeta.desc.replace('\n', ' ')
             : "Aucune description.";
 
@@ -703,6 +866,11 @@ public class InventoryScreen extends Screen {
     private void buildPanelButtons() {
         panelButtons.clear();
         if (selRef == null) return;
+        if (selRef.equals("CARME")) {
+            panelButtons.add(new Btn("Dégainer", false, () -> { send("arme:basculer"); closePanel(); }));
+            panelButtons.add(new Btn("Retirer", true, () -> { send("arme:unequip"); closePanel(); }));
+            return;
+        }
         if (selRef.charAt(0) == 'C') {
             final CosmeticSlot cs = CosmeticSlot.fromName(selRef.substring(1));
             final SlotItem cosmItem = cs != null ? snap.equipped().get(cs) : null;
@@ -725,6 +893,8 @@ public class InventoryScreen extends Screen {
         String al = actionLabel(selStack, selMeta);
         if (al != null) panelButtons.add(new Btn(al, false, () -> { send("use:" + ref); closePanel(); }));
         if (isBagStack(selStack)) panelButtons.add(new Btn("Équiper", false, () -> { send("bag:equip:" + ref); closePanel(); }));
+        SlotItem meta = metaAtAny(ref);
+        if (meta != null && meta.arme) panelButtons.add(new Btn("À l'étui", false, () -> { send("arme:equip:" + ref); closePanel(); }));
         panelButtons.add(new Btn("Jeter", false, () -> { send("drop:" + ref); closePanel(); }));
         panelButtons.add(new Btn("Détruire", true, () -> { send("del:" + ref); closePanel(); }));
     }
@@ -742,12 +912,8 @@ public class InventoryScreen extends Screen {
     }
 
     private int rarityColor(String r) {
-        return switch (r.toLowerCase(Locale.ROOT)) {
-            case "rare" -> 0xFF4A9EE0;
-            case "épique", "epique" -> 0xFFB061D9;
-            case "légendaire", "legendaire" -> 0xFFE0A54A;
-            default -> 0xFFE6B4A0;
-        };
+        fr.reborn.hud.sol.Rarete x = fr.reborn.hud.sol.Rarete.parse(r);
+        return x != null ? x.argb() : 0xFFE6B4A0;
     }
 
     private static float ease(float t) { return 1 - (float) Math.pow(1 - t, 3); }
@@ -774,6 +940,7 @@ public class InventoryScreen extends Screen {
     private CosmeticSlot cosmeticAt(int mx, int my) {
         if (tab != TAB_COSM) return null;
         for (CosmeticSlot cs : CosmeticSlot.values()) {
+            if (!cs.cosmetique()) continue;
             int[] p = cosmPos(cs);
             if (DaKit.dans(mx, my, p[0], p[1], PLATE, PLATE)) return cs;
         }
@@ -797,6 +964,23 @@ public class InventoryScreen extends Screen {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
         int mx = (int) e.x(), my = (int) e.y();
+        pressPick = false;
+        dragging = false;
+        pressX = e.x();
+        pressY = e.y();
+        // Lecture seule (KO, porté, étourdi, scène de mort) : on regarde, on ferme ; rien ne bouge.
+        if (lectureSeule()) {
+            if (e.button() == 0 && inClose(mx, my)) { onClose(); return true; }
+            if (e.button() == 0) {
+                for (int i = 0; i < 2; i++) if (inTab(i, mx, my)) { tab = i == 0 ? TAB_EQUIP : TAB_COSM; return true; }
+                int t = tierAt(mx, my);
+                if (t >= 0) { filter = t; return true; }
+            }
+            if (slotAt(mx, my) != null || cosmeticAt(mx, my) != null || armeSlotAt(mx, my) || equipBagSlotAt(mx, my)) {
+                RebornSounds.playReborn("sacoche.deny", 1.0f, 0.4f);
+            }
+            return true;
+        }
 
         if (selRef != null && e.button() == 0) {
             for (Btn b : panelButtons) {
@@ -829,6 +1013,16 @@ public class InventoryScreen extends Screen {
                 if (t != filter) { filter = t; RebornSounds.playReborn("sacoche.tier", 1.0f, 0.55f); }
                 return true;
             }
+            if (armeSlotAt(mx, my)) {
+                if (carriedStack != null) {
+                    send("arme:equip:" + carriedRef); clearCarried(); RebornSounds.playReborn("sacoche.place", 1.0f, 0.6f);
+                } else RebornSounds.playReborn("sacoche.pick", 1.0f, 0.4f);
+                return true;
+            }
+            if (teteSlotAt(mx, my)) {   // la tête se règle dans l'onglet Cosmétique
+                tab = TAB_COSM; RebornSounds.playReborn("sacoche.pick", 0.9f, 0.4f);
+                return true;
+            }
             if (equipBagSlotAt(mx, my)) {
                 if (carriedStack != null && isBagStack(carriedStack)) {
                     send("bag:equip:" + carriedRef); clearCarried(); RebornSounds.playReborn("sacoche.place", 1.0f, 0.6f);
@@ -845,7 +1039,12 @@ public class InventoryScreen extends Screen {
                 return true;
             }
             String ref = slotAt(mx, my);
-            if (ref != null) { handleSlotClick(ref); return true; }
+            if (ref != null) {
+                boolean vide = carriedStack == null;
+                handleSlotClick(ref);
+                pressPick = vide && carriedStack != null;   // pris à l'appui : un glisser peut suivre
+                return true;
+            }
             if (carriedStack != null) { send("drop:" + carriedRef); clearCarried(); RebornSounds.playReborn("sacoche.deny", 1.2f, 0.45f); return true; }
             if (search.isFocused()) { search.setFocused(false); setFocused(null); }
             return true;
@@ -870,8 +1069,71 @@ public class InventoryScreen extends Screen {
                 return true;
             }
             if (equipBagSlotAt(mx, my) && snap.bagItem() != null) { send("bag:unequip"); RebornSounds.playReborn("sacoche.pick", 1.0f, 0.5f); return true; }
+            if (armeSlotAt(mx, my) && snap.equipped().get(CosmeticSlot.ARME) != null) {
+                SlotItem it = snap.equipped().get(CosmeticSlot.ARME);
+                openPanel("CARME", it.toStack(), it, cosmRightX, armeY());
+                RebornSounds.playReborn("sacoche.pick", 1.1f, 0.45f);
+                return true;
+            }
+            if (teteSlotAt(mx, my) && teteSlot() != null) {
+                CosmeticSlot ts = teteSlot();
+                SlotItem it = snap.equipped().get(ts);
+                openPanel("C" + ts.name(), it.toStack(), it, cosmRightX, teteY());
+                RebornSounds.playReborn("sacoche.pick", 1.1f, 0.45f);
+                return true;
+            }
         }
         return super.mouseClicked(e, dbl);
+    }
+
+    @Override
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent e, double dx, double dy) {
+        if (pressPick && carriedStack != null && !dragging
+            && Math.abs(e.x() - pressX) + Math.abs(e.y() - pressY) > 4) dragging = true;
+        return super.mouseDragged(e, dx, dy);
+    }
+
+    /** Glisser : relâcher sur une case = poser ; hors de la fenêtre = lâcher au sol (maquette 01, aide n° 5). */
+    @Override
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent e) {
+        boolean glisse = dragging && carriedStack != null && e.button() == 0;
+        pressPick = false;
+        dragging = false;
+        if (glisse) {
+            int mx = (int) e.x(), my = (int) e.y();
+            String ref = slotAt(mx, my);
+            if (ref != null) {
+                if (!ref.equals(carriedRef)) handleSlotClick(ref);
+                return true;
+            }
+            if (armeSlotAt(mx, my)) {
+                send("arme:equip:" + carriedRef); clearCarried(); RebornSounds.playReborn("sacoche.place", 1.0f, 0.6f);
+                return true;
+            }
+            CosmeticSlot cs = cosmeticAt(mx, my);
+            if (cs != null) {
+                send("cos:equip:" + carriedRef + ":" + cs.name()); clearCarried(); RebornSounds.playReborn("sacoche.place", 1.0f, 0.6f);
+                return true;
+            }
+            if (equipBagSlotAt(mx, my) && isBagStack(carriedStack)) {
+                send("bag:equip:" + carriedRef); clearCarried(); RebornSounds.playReborn("sacoche.place", 1.0f, 0.6f);
+                return true;
+            }
+            if (!dansFenetre(mx, my)) {
+                send("drop:" + carriedRef); clearCarried(); RebornSounds.playReborn("sacoche.deny", 1.2f, 0.45f);
+                return true;
+            }
+            clearCarried(); RebornSounds.playReborn("sacoche.place", 1.1f, 0.4f);   // relâché dans la fenêtre, hors case
+            return true;
+        }
+        return super.mouseReleased(e);
+    }
+
+    /** La « fenêtre » de la sacoche : personnage et plaques, inrō, plateau et obi. */
+    private boolean dansFenetre(int mx, int my) {
+        int x0 = leftX - 6, x1 = trayX + TRAY_W + 10;
+        int y0 = Math.min(colY0, trayY) - 10, y1 = Math.max(obiY + 34, feetY + 30) + 6;
+        return mx >= x0 && mx < x1 && my >= y0 && my < y1;
     }
 
     private void handleSlotClick(String ref) {

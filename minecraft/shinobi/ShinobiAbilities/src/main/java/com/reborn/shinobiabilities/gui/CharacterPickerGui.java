@@ -123,9 +123,7 @@ public final class CharacterPickerGui extends AbilityScreen {
         }
 
         ItemStack scroll = ParcheminItems.create(a);
-        var overflow = target.getInventory().addItem(scroll);
-        overflow.values().forEach(it ->
-                target.getWorld().dropItemNaturally(target.getLocation(), it));
+        com.reborn.shinobiabilities.util.Donner.a(target, scroll);
         GuiSounds.accept(viewer);
         viewer.sendMessage(Component.text("Parchemin de « " + a.name()
                 + " » remis à " + target.getName() + ".", NamedTextColor.GREEN));

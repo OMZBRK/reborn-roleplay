@@ -532,7 +532,7 @@ public final class SeanceService implements Listener {
         pending.remove(pd);
         grant(p, a, -1);
         ItemStack it = ParcheminItems.create(a, pd.scrollId());
-        p.getInventory().addItem(it).values().forEach(rest -> p.getWorld().dropItemNaturally(p.getLocation(), rest));
+        com.reborn.shinobiabilities.util.Donner.a(p, it);
         p.sendMessage(Component.text("Le staff n'a pas validé « " + a.name() + " » : ton rouleau t'est rendu, la dernière"
                 + " séance est à refaire.", NamedTextColor.RED));
         save();

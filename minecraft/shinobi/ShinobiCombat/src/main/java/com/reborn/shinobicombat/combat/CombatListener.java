@@ -188,6 +188,10 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private final Map<UUID, Long> lastKerioxDashMs = new ConcurrentHashMap<>();
     // Dernière esquive par joueur (cooldown).
     private final Map<UUID, Long> lastDodgeMs = new ConcurrentHashMap<>();
+    // Fin de l'étourdissement par joueur (ms epoch) — cf. isStunned.
+    private final Map<UUID, Long> stunnedUntil = new ConcurrentHashMap<>();
+    // Sacoche (surcharge), résolue au premier besoin.
+    private com.reborn.shinobicore.api.InventoryService inventory;
 
     public CombatListener(Plugin plugin, CharacterService characters, KoService ko, StaminaManager stamina,
                           com.reborn.shinobicore.api.StatsService stats,
@@ -478,6 +482,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
         Long last = lastDashMs.get(id);
@@ -508,6 +513,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
         Long last = lastChakraJumpMs.get(id);
@@ -543,6 +549,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
         Long last = lastKerioxDashMs.get(id);
@@ -578,6 +585,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
         Long last = lastDodgeMs.get(id);
@@ -670,6 +678,31 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private void applyHitstun(LivingEntity victim, int ticks) {
         victim.addPotionEffect(new PotionEffect(
                 PotionEffectType.SLOWNESS, ticks, SLOWNESS_AMP, false, false, false));
+        if (victim instanceof Player pv) {
+            long fin = System.currentTimeMillis() + ticks * 50L;
+            stunnedUntil.merge(pv.getUniqueId(), fin, Math::max);
+        }
+    }
+
+    /**
+     * Étourdi (hitstun, garde brisée, parade subie) — publié comme {@link com.reborn.shinobicore.api.StunService} :
+     * la sacoche passe en lecture seule et le ramassage est refusé tant qu'il dure.
+     */
+    public boolean isStunned(UUID id) {
+        Long fin = stunnedUntil.get(id);
+        if (fin == null) return false;
+        if (fin > System.currentTimeMillis()) return true;
+        stunnedUntil.remove(id, fin);
+        return false;
+    }
+
+    /** Mobilité coupée par la surcharge de la sacoche (ShinobiCore {@code InventoryService}), résolue paresseusement. */
+    private boolean surcharge(UUID id) {
+        if (inventory == null) {
+            inventory = plugin.getServer().getServicesManager().load(com.reborn.shinobicore.api.InventoryService.class);
+            if (inventory == null) return false;
+        }
+        return inventory.mobiliteBloquee(id);
     }
 
     /** Applique un SLOWNESS d'amplificateur/durée arbitraires (slow léger d'un coup,

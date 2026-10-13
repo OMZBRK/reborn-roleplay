@@ -80,7 +80,7 @@ public final class PlayEmoteCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Component.text("Tu ne peux pas jouer une emote sur autrui.", NamedTextColor.RED));
                 return true;
             }
-            actor = Bukkit.getPlayerExact(args[1]);
+            actor = com.reborn.shinobicore.character.PlayerIds.online(sender, args[1]);
             if (actor == null) {
                 sender.sendMessage(Component.text("Joueur introuvable : " + args[1], NamedTextColor.RED));
                 return true;
@@ -116,7 +116,7 @@ public final class PlayEmoteCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Component.text("Permission refusée.", NamedTextColor.RED));
                 return null;
             }
-            Player t = Bukkit.getPlayerExact(args[idx]);
+            Player t = com.reborn.shinobicore.character.PlayerIds.online(sender, args[idx]);
             if (t == null) sender.sendMessage(Component.text("Joueur introuvable.", NamedTextColor.RED));
             return t;
         }

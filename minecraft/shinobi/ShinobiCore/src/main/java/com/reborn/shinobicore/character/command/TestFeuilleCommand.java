@@ -32,7 +32,7 @@ public class TestFeuilleCommand implements CommandExecutor {
         if (args.length >= 1 && args[0].equalsIgnoreCase("give")) {
             Player target;
             if (args.length >= 2) {
-                target = Bukkit.getPlayerExact(args[1]);
+                target = com.reborn.shinobicore.character.PlayerIds.online(sender, args[1]);
                 if (target == null) {
                     sender.sendMessage(Component.text("Joueur introuvable : " + args[1], NamedTextColor.RED));
                     return true;

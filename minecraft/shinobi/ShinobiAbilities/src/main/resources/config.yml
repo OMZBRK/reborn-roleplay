@@ -9,6 +9,8 @@ jutsu:
   # granted by /sa learn). Players with shinobiabilities.admin bypass.
   # Keep false during testing so every dummy jutsu is bindable.
   require-learned: false
+  # Kenjutsu : il faut une arme (à l'étui de la sacoche, dégainée, ou tenue en main) — décision du 2026-10-13.
+  kenjutsu-exige-arme: true
   # No hard chakra gate: when true, a character may attempt ANY jutsu even if
   # they can't afford it — the shortfall becomes chakra debt and ShinobiCore's
   # exhaustion ladder collapses them (KO) if they overreach. This is the

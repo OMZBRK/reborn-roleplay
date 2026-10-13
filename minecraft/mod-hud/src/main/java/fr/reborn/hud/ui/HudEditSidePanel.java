@@ -8,8 +8,6 @@ import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.esc.EscData;
 import fr.reborn.hud.ui.style.IconTextures;
-import fr.reborn.hud.ui.style.FlatRect;
-import fr.reborn.hud.ui.style.RebornColors;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -18,8 +16,9 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Panneau latéral droit de l'éditeur HUD, sobre façon Reborn — carte flottante
- * insérée (marges autour), coins carrés, compact.
+ * Panneau latéral droit de l'éditeur HUD, au niveau de la fiche shinobi (DA §4.1, §6) : planche laquée étroite
+ * (textures {@code textures/gui/editeur/*}, {@link EditeurArt}), signature des outils du charpentier — équerre et
+ * cordeau à encre en tête, règle graduée d'or comme filet —, lignes et plaques laquées, texte {@link DaKit}.
  *
  * <p>De haut en bas : header (titre + engrenage + repli + ✕), section ÉLÉMENTS
  * (liste <b>scrollable</b> œil + nom + badge d'échelle), <b>INSPECTEUR</b> de
@@ -259,14 +258,13 @@ public final class HudEditSidePanel {
             return;
         }
 
-        // Carte — fond éclairci pour la lisibilité (pas d'ombre pixellisée : elle
-        // laissait des lignes/pixels parasites autour de la carte).
-        drawByobu(ctx, x0, y0, WIDTH, height);
+        // Planche laquée (texture générée, coupée à la hauteur de l'écran) : un seul élément GUI.
+        DaKit.coupe(ctx, EditeurArt.PANNEAU, x0 - 2, y0 - 2, WIDTH + 8, height + 8, 0, 0, 156, 532, 18, 18, 156, 532);
 
         renderHeader(ctx, mouseX, mouseY);
 
         int y = y0 + HEADER_H + 6;
-        renderSectionLabel(ctx, "Elements", y);
+        renderSectionLabel(ctx, "Éléments", y);
         renderElementList(ctx, mouseX, mouseY);
         renderInspector(ctx, mouseX, mouseY);
 
@@ -277,88 +275,48 @@ public final class HudEditSidePanel {
         renderFooter(ctx, mouseX, mouseY);
     }
 
-    /**
-     * Paravent <b>byōbu</b> (DA Reborn) : cadre de bois laqué, trois feuilles d'or séparées par
-     * des charnières, panneau de laque noire posé dessus pour le contenu (lisibilité inchangée).
-     */
-    private static void drawByobu(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        int frame = 0xFF1A100C, gold = 0xFFC4A050, leaf = 0xFFDCBC6C, gm = 5;
-        ctx.fill(x + 2, y + 3, x + w + 2, y + h + 3, 0x70000000);
-        ctx.fill(x, y, x + w, y + h, gold);
-        for (int yy = y + 8; yy < y + h; yy += 16) ctx.fill(x + 1, yy, x + w - 1, yy + 1, leaf);   // jointures des feuilles d'or
-        for (int k = 1; k < 3; k++) {                                                            // charnières
-            int hx = x + w * k / 3;
-            ctx.fill(hx - 1, y, hx + 1, y + h, frame);
-        }
-        ctx.fill(x, y, x + w, y + 2, frame); ctx.fill(x, y + h - 2, x + w, y + h, frame);
-        ctx.fill(x, y, x + 2, y + h, frame); ctx.fill(x + w - 2, y, x + w, y + h, frame);
-        // panneau de laque intérieur
-        ctx.fill(x + gm, y + gm, x + w - gm, y + h - gm, 0xF20E0A0C);
-        int b = 0xFFF6CC78;
-        ctx.fill(x + gm, y + gm, x + w - gm, y + gm + 1, b); ctx.fill(x + gm, y + h - gm - 1, x + w - gm, y + h - gm, b);
-        ctx.fill(x + gm, y + gm, x + gm + 1, y + h - gm, b); ctx.fill(x + w - gm - 1, y + gm, x + w - gm, y + h - gm, b);
-    }
-
-    /** Languette repliée : une bande cliquable avec un chevron « ‹ » vers le canvas. */
+    /** Languette repliée : planche étroite, chevron « ‹ » d'ouverture au milieu. */
     private void renderCollapsedTab(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         boolean hov = inside(mouseX, mouseY, tabX, y0, TAB_W, height);
-        // Paravent replié : une seule feuille d'or.
-        ctx.fill(tabX, y0, tabX + TAB_W, y0 + height, hov ? 0xFFD8B464 : 0xFFC4A050);
-        for (int yy = y0 + 10; yy < y0 + height; yy += 14) ctx.fill(tabX + 1, yy, tabX + TAB_W - 1, yy + 1, 0xFFDCBC6C);
-        ctx.fill(tabX, y0, tabX + TAB_W, y0 + 1, 0xFF1A100C); ctx.fill(tabX, y0 + height - 1, tabX + TAB_W, y0 + height, 0xFF1A100C);
-        ctx.fill(tabX, y0, tabX + 1, y0 + height, 0xFF1A100C); ctx.fill(tabX + TAB_W - 1, y0, tabX + TAB_W, y0 + height, 0xFF1A100C);
-        // Pastille accent + chevron d'ouverture, centrés verticalement.
-        FlatRect.fill(ctx, tabX + (TAB_W - 5) / 2, y0 + 8, 5, 5, BTN_R, Colors.ACCENT);
-        drawChevron(ctx, tabX + TAB_W / 2, y0 + height / 2, false,
-            hov ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE);
+        DaKit.coupe(ctx, EditeurArt.LANGUETTE, tabX - 2, y0 - 2, TAB_W + 8, height + 8, 0, 0, 22, 532, 6, 18, 22, 532);
+        DaKit.blit(ctx, EditeurArt.PIECES, tabX + (TAB_W - 5) / 2, y0 + height / 2 - 4, 34, 0, 5, 9, 160, 64,
+            DaKit.blanc(hov ? 1f : 0.7f));
         hitTargets.add(new HitTarget(tabX, y0, TAB_W, height, this::toggleCollapsed));
     }
 
-    /** Chevron 5×9 : {@code pointRight=true} referme (›), sinon ouvre (‹). */
-    private static void drawChevron(GuiGraphicsExtractor ctx, int cx, int cy,
-                                    boolean pointRight, int color) {
-        int dir = pointRight ? 1 : -1;
-        for (int i = 0; i < 4; i++) {
-            ctx.fill(cx + dir * (i - 1), cy - 4 + i, cx + dir * (i - 1) + 1, cy - 2 + i, color);
-            ctx.fill(cx + dir * (i - 1), cy + 3 - i, cx + dir * (i - 1) + 1, cy + 5 - i, color);
-        }
-    }
-
     private void renderHeader(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
-        FlatRect.fill(ctx, x0 + PAD, y0 + (HEADER_H - 6) / 2, 6, 6, BTN_R, Colors.ACCENT);
-        arcText(ctx, tr, "Editeur d'interface",
-            x0 + PAD + 10, y0 + (HEADER_H - tr.lineHeight) / 2 + 1, Colors.FOREGROUND);
+        // signature : l'équerre et le cordeau du charpentier, puis le titre
+        DaKit.blit(ctx, EditeurArt.PIECES, x0 + PAD + 2, y0 + 5, 0, 0, 24, 18, 160, 64);
+        DaKit.arcFin(ctx, tr, DaKit.arcade("Éditeur"), x0 + PAD + 30, y0 + 8, DaKit.OR_CLAIR, 0, true);
+        DaKit.arcFin(ctx, tr, DaKit.arcade("du HUD"), x0 + PAD + 30, y0 + 14, DaKit.OR_ETIQ, 0, false);
 
         int cy = y0 + (HEADER_H - CLOSE_SZ) / 2;
 
         int cx = x0 + WIDTH - PAD - CLOSE_SZ;
         boolean hov = inside(mouseX, mouseY, cx, cy, CLOSE_SZ, CLOSE_SZ);
-        if (hov) FlatRect.fill(ctx, cx, cy, CLOSE_SZ, CLOSE_SZ, BTN_R, Colors.DANGER_SOFT);
         HudEditChrome.renderIconGlyph(ctx, "close", cx + CLOSE_SZ / 2, cy + CLOSE_SZ / 2,
-            hov ? Colors.DANGER : Colors.FOREGROUND_SUBTLE);
+            hov ? DaKit.ROUGE_CLAIR : DaKit.DOUX);
         hitTargets.add(new HitTarget(cx, cy, CLOSE_SZ, CLOSE_SZ, onClose));
 
         // Repli du panneau (chevron ›) — à gauche du ✕.
         int vx = cx - CLOSE_SZ - 2;
         boolean vHov = inside(mouseX, mouseY, vx, cy, CLOSE_SZ, CLOSE_SZ);
-        if (vHov) FlatRect.fill(ctx, vx, cy, CLOSE_SZ, CLOSE_SZ, BTN_R, Colors.ACCENT_SOFT);
-        drawChevron(ctx, vx + CLOSE_SZ / 2, cy + CLOSE_SZ / 2, true,
-            vHov ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE);
+        DaKit.blit(ctx, EditeurArt.PIECES, vx + (CLOSE_SZ - 5) / 2, cy + (CLOSE_SZ - 9) / 2, 28, 0, 5, 9, 160, 64,
+            DaKit.blanc(vHov ? 1f : 0.65f));
         hitTargets.add(new HitTarget(vx, cy, CLOSE_SZ, CLOSE_SZ, this::toggleCollapsed));
 
         // Petit engrenage « réglages chat » à gauche du repli.
         int gx = vx - CLOSE_SZ - 2;
         boolean gHov = inside(mouseX, mouseY, gx, cy, CLOSE_SZ, CLOSE_SZ);
-        if (gHov) FlatRect.fill(ctx, gx, cy, CLOSE_SZ, CLOSE_SZ, BTN_R, Colors.ACCENT_SOFT);
-        IconTextures.draw(ctx, "gear", gx + 1, cy + 1, CLOSE_SZ - 2,
-            gHov ? Colors.FOREGROUND : Colors.FOREGROUND_MUTED);
+        IconTextures.draw(ctx, "gear", gx + 1, cy + 1, CLOSE_SZ - 2, gHov ? DaKit.CREME : DaKit.DOUX);
         hitTargets.add(new HitTarget(gx, cy, CLOSE_SZ, CLOSE_SZ, onOpenChatSettings));
 
-        ctx.fill(x0 + PAD, y0 + HEADER_H, x0 + WIDTH - PAD, y0 + HEADER_H + 1, Colors.BORDER);
+        // règle graduée d'or sous l'en-tête
+        DaKit.coupeH(ctx, EditeurArt.PIECES, x0 + PAD, y0 + HEADER_H - 2, WIDTH - 2 * PAD, 0, 20, 132, 5, 6, 160, 64);
     }
 
     private void renderSectionLabel(GuiGraphicsExtractor ctx, String label, int y) {
-        arcText(ctx, tr, label, x0 + PAD, y, Colors.FOREGROUND_MUTED);
+        DaKit.arcFin(ctx, tr, DaKit.arcade(label), x0 + PAD, y + 1, DaKit.OR_ETIQ, 0, false);
     }
 
     // ─────────── Liste d'éléments (scrollable) ───────────
@@ -375,10 +333,12 @@ public final class HudEditSidePanel {
         if (all.length > listRows) {
             int trackH = listRows * ROW_H;
             int trackX = x0 + WIDTH - PAD + 2;
-            ctx.fill(trackX, listTop, trackX + 1, listTop + trackH, Colors.BORDER);
+            LotGui l = LotGui.ouvrir(ctx);
+            l.fill(trackX, listTop, trackX + 1, listTop + trackH, DaKit.SEP);
             int thumbH = Math.max(6, trackH * listRows / all.length);
             int thumbY = listTop + (trackH - thumbH) * scroll / Math.max(1, all.length - listRows);
-            ctx.fill(trackX, thumbY, trackX + 1, thumbY + thumbH, Colors.ACCENT);
+            l.fill(trackX, thumbY, trackX + 1, thumbY + thumbH, DaKit.OR);
+            l.fermer();
         }
     }
 
@@ -389,29 +349,22 @@ public final class HudEditSidePanel {
         boolean selected = e == selectedElement;
         boolean rowHover = inside(mouseX, mouseY, rowX, y - 2, rowW, ROW_H);
 
-        if (selected) {
-            FlatRect.fill(ctx, rowX, y - 2, rowW, ROW_H, BTN_R, Colors.ACCENT_SOFT);
-            ctx.fill(rowX, y - 2, rowX + 2, y - 2 + ROW_H, Colors.ACCENT);
-        } else if (rowHover) {
-            FlatRect.fill(ctx, rowX, y - 2, rowW, ROW_H, BTN_R, 0x12FFFFFF);
+        if (selected || rowHover) {
+            DaKit.coupeH(ctx, EditeurArt.LIGNES, rowX - 1, y - 3, rowW + 2, 0, selected ? 16 : 0, 140, 16, 6, 140, 32);
         }
 
         int eyeX = x0 + PAD;
         int eyeY = y + (tr.lineHeight - EYE_SZ) / 2;
         boolean eyeHover = inside(mouseX, mouseY, eyeX - 2, eyeY - 2, EYE_SZ + 4, EYE_SZ + 4);
-        int eyeColor = st.visible()
-            ? (eyeHover ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE)
-            : Colors.DANGER;
+        int eyeColor = st.visible() ? (eyeHover ? DaKit.CREME : DaKit.DOUX) : DaKit.ROUGE_CLAIR;
         IconTextures.draw(ctx, st.visible() ? "eye_open" : "eye_closed", eyeX, eyeY, EYE_SZ, eyeColor);
 
-        int nameColor = st.visible()
-            ? (selected ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE)
-            : Colors.FOREGROUND_MUTED;
-        arcText(ctx, tr, e.displayName(), eyeX + EYE_SZ + 5, y, nameColor);
+        int nameColor = st.visible() ? (selected || rowHover ? DaKit.CREME : DaKit.CREME_VAL) : DaKit.INACTIF;
+        DaKit.inter8(ctx, tr, DaKit.inter(e.displayName()), eyeX + EYE_SZ + 5, y + 4, nameColor, 0);
 
         if (Math.abs(st.scale() - 1.0f) > 0.01f) {
-            String bs = String.format("x%.2f", st.scale());
-            arcText(ctx, tr, bs, x0 + WIDTH - PAD - arcW(tr, bs), y, Colors.FOREGROUND_MUTED);
+            String bs = String.format("×%.2f", st.scale());
+            DaKit.inter7(ctx, tr, DaKit.inter(bs), x0 + WIDTH - PAD - 2, y + 4, DaKit.OR_ETIQ, 2);
         }
 
         hitTargets.add(new HitTarget(eyeX - 2, eyeY - 2, EYE_SZ + 6, EYE_SZ + 4, () -> toggleVisible(e)));
@@ -434,7 +387,7 @@ public final class HudEditSidePanel {
      */
     private void renderInspector(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         renderSectionLabel(ctx, selectedElement == null
-            ? "Selection" : selectedElement.displayName(), inspectorTop);
+            ? "Sélection" : selectedElement.displayName(), inspectorTop);
 
         int fieldW = (WIDTH - PAD * 2 - 4) / 2;
         int rowY = inspectorTop + LABEL_H + 3;
@@ -446,35 +399,31 @@ public final class HudEditSidePanel {
 
         int resetX = x0 + PAD + fieldW + 4;
         boolean hov = inside(mouseX, mouseY, resetX, row2Y, fieldW, INPUT_H);
-        FlatRect.fill(ctx, resetX, row2Y, fieldW, INPUT_H, BTN_R, hov ? 0x22FFFFFF : Colors.SURFACE);
-        FlatRect.border(ctx, resetX, row2Y, fieldW, INPUT_H, BTN_R, Colors.BORDER);
-        arcText(ctx, tr, "Reinit.", resetX + (fieldW - arcW(tr, "Reinit.")) / 2,
-            row2Y + (INPUT_H - tr.lineHeight) / 2 + 1,
-            hov ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE);
+        bouton(ctx, resetX, row2Y, fieldW, hov ? 1 : 0, "Réinit.", hov ? DaKit.CREME : DaKit.CREME_VAL);
         hitTargets.add(new HitTarget(resetX, row2Y, fieldW, INPUT_H, onResetSelected));
     }
 
     /** Cadre d'un champ de saisie + son préfixe (X / Y / %). */
     private void drawField(GuiGraphicsExtractor ctx, int x, int y, int w, String prefix) {
-        FlatRect.fill(ctx, x, y, w, INPUT_H, BTN_R, Colors.SURFACE);
-        FlatRect.border(ctx, x, y, w, INPUT_H, BTN_R, Colors.BORDER);
-        arcText(ctx, tr, prefix, x + 4, y + (INPUT_H - tr.lineHeight) / 2 + 1, Colors.FOREGROUND_MUTED);
+        DaKit.coupeH(ctx, EditeurArt.CHAMP, x - 1, y - 1, w + 2, 0, 0, 140, 17, 6, 140, 19);
+        DaKit.arcFin(ctx, tr, DaKit.arcade(prefix), x + 4, y + 6, DaKit.OR_ETIQ, 0, false);
+    }
+
+    /** Plaque laquée 15 de haut (0 repos, 1 survol, 2 actif, 3 inactif), libellé Inter 8 centré. */
+    private void bouton(GuiGraphicsExtractor ctx, int x, int y, int w, int etat, String lib, int col) {
+        DaKit.coupeH(ctx, EditeurArt.BOUTONS, x - 1, y - 1, w + 3, 0, etat * 19, 140, 19, 6, 140, 76);
+        DaKit.inter8(ctx, tr, DaKit.inter(lib), x + w / 2f, y + INPUT_H / 2f, col, 1);
     }
 
     // ─────────── Presets ───────────
 
     private void renderPresetInput(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
-        FlatRect.fill(ctx, presetInputX, presetInputY, presetInputW, INPUT_H, BTN_R, Colors.SURFACE);
-        FlatRect.border(ctx, presetInputX, presetInputY, presetInputW, INPUT_H, BTN_R, Colors.BORDER);
+        DaKit.coupeH(ctx, EditeurArt.CHAMP, presetInputX - 1, presetInputY - 1, presetInputW + 2, 0, 0, 140, 17, 6, 140, 19);
 
         int saveX = presetInputX + presetInputW + 4;
         int saveW = x0 + WIDTH - PAD - saveX;
         boolean hov = inside(mouseX, mouseY, saveX, presetInputY, saveW, INPUT_H);
-        FlatRect.fill(ctx, saveX, presetInputY, saveW, INPUT_H, BTN_R,
-            hov ? Colors.ACCENT_HOVER : Colors.ACCENT);
-        arcText(ctx, tr, "Enregistrer",
-            saveX + (saveW - arcW(tr, "Enregistrer")) / 2, presetInputY + (INPUT_H - tr.lineHeight) / 2 + 1,
-            Colors.FOREGROUND);
+        bouton(ctx, saveX, presetInputY, saveW, 2, "Enregistrer", hov ? DaKit.CREME : DaKit.CREME_VAL);
         hitTargets.add(new HitTarget(saveX, presetInputY, saveW, INPUT_H, onSavePreset));
     }
 
@@ -491,7 +440,7 @@ public final class HudEditSidePanel {
             shown++;
         }
         if (shown < total && y + tr.lineHeight <= maxBottom) {
-            arcText(ctx, tr, "+ " + (total - shown) + " autres", x0 + PAD, y + 1, Colors.FOREGROUND_MUTED);
+            DaKit.inter7(ctx, tr, DaKit.inter("+ " + (total - shown) + " autres"), x0 + PAD, y + 4, DaKit.DOUX, 0);
         }
     }
 
@@ -500,15 +449,10 @@ public final class HudEditSidePanel {
         int rowX = x0 + PAD;
         int rowW = WIDTH - PAD * 2;
         boolean hover = inside(mouseX, mouseY, rowX, y, rowW, PRESET_ROW_H);
-
-        int bg = active ? Colors.ACCENT_SOFT : (hover ? 0x12FFFFFF : Colors.SURFACE);
-        int border = active ? Colors.ACCENT : (hover ? Colors.BORDER_STRONG : Colors.BORDER);
-        FlatRect.fill(ctx, rowX, y, rowW, PRESET_ROW_H, BTN_R, bg);
-        FlatRect.border(ctx, rowX, y, rowW, PRESET_ROW_H, BTN_R, border);
-
-        arcText(ctx, tr, HudPresets.displayName(id),
-            rowX + 6, y + (PRESET_ROW_H - tr.lineHeight) / 2,
-            active ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE);
+        DaKit.coupeH(ctx, EditeurArt.BOUTONS, rowX - 1, y - 1, rowW + 3, 0, (active ? 2 : hover ? 1 : 0) * 19, 140, 19, 6,
+            140, 76);
+        DaKit.inter8(ctx, tr, DaKit.inter(HudPresets.displayName(id)), rowX + 7, y + PRESET_ROW_H / 2f,
+            active || hover ? DaKit.CREME : DaKit.CREME_VAL, 0);
 
         hitTargets.add(new HitTarget(rowX, y, rowW, PRESET_ROW_H, () -> applyPreset(id)));
         presetRects.put(id, new int[]{rowX, y, rowW, PRESET_ROW_H});
@@ -540,31 +484,21 @@ public final class HudEditSidePanel {
     }
 
     private void renderFooter(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
-        ctx.fill(x0 + PAD, footerTop, x0 + WIDTH - PAD, footerTop + 1, Colors.BORDER);
+        DaKit.coupeH(ctx, EditeurArt.PIECES, x0 + PAD, footerTop - 2, WIDTH - 2 * PAD, 0, 20, 132, 5, 6, 160, 64);
 
         int btnY = footerTop + (FOOTER_H - INPUT_H) / 2;
         int gap = 4;
-        int applyW = 52;
+        int applyW = 56;
         int resetW = WIDTH - PAD * 2 - applyW - gap;
         int resetX = x0 + PAD;
         int applyX = resetX + resetW + gap;
 
         boolean rHov = inside(mouseX, mouseY, resetX, btnY, resetW, INPUT_H);
-        FlatRect.fill(ctx, resetX, btnY, resetW, INPUT_H, BTN_R,
-            rHov ? Colors.DANGER_SOFT : Colors.SURFACE);
-        FlatRect.border(ctx, resetX, btnY, resetW, INPUT_H, BTN_R,
-            RebornColors.withAlpha(Colors.DANGER, 0x66));
-        arcText(ctx, tr, "Reinitialiser",
-            resetX + (resetW - arcW(tr, "Reinitialiser")) / 2, btnY + (INPUT_H - tr.lineHeight) / 2 + 1,
-            Colors.DANGER);
+        bouton(ctx, resetX, btnY, resetW, rHov ? 1 : 0, "Tout réinitialiser", rHov ? DaKit.ROUGE_CLAIR : 0xFFC86470);
         hitTargets.add(new HitTarget(resetX, btnY, resetW, INPUT_H, () -> { onMutation.run(); onResetAll.run(); }));
 
         boolean aHov = inside(mouseX, mouseY, applyX, btnY, applyW, INPUT_H);
-        FlatRect.fill(ctx, applyX, btnY, applyW, INPUT_H, BTN_R,
-            aHov ? Colors.ACCENT_HOVER : Colors.ACCENT);
-        arcText(ctx, tr, "Appliquer",
-            applyX + (applyW - arcW(tr, "Appliquer")) / 2, btnY + (INPUT_H - tr.lineHeight) / 2 + 1,
-            Colors.FOREGROUND);
+        bouton(ctx, applyX, btnY, applyW, 2, "Appliquer", aHov ? DaKit.CREME : DaKit.CREME_VAL);
         hitTargets.add(new HitTarget(applyX, btnY, applyW, INPUT_H, onApply));
     }
 

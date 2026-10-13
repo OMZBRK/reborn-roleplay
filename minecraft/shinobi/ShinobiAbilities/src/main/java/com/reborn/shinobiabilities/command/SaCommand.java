@@ -230,7 +230,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
                     NamedTextColor.RED);
             return;
         }
-        Player target = args.length >= 3 ? Bukkit.getPlayerExact(args[2])
+        Player target = args.length >= 3 ? com.reborn.shinobicore.character.PlayerIds.online(sender, args[2])
                 : (sender instanceof Player p ? p : null);
         if (target == null) {
             msg(sender, "Joueur cible introuvable (précise un joueur en console).",
@@ -399,7 +399,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
             msg(sender, "Usage : /sa cooldowns clear <joueur>", NamedTextColor.RED);
             return;
         }
-        Player target = Bukkit.getPlayerExact(args[2]);
+        Player target = com.reborn.shinobicore.character.PlayerIds.online(sender, args[2]);
         if (target == null) {
             msg(sender, "Joueur hors-ligne : " + args[2], NamedTextColor.RED);
             return;
@@ -476,7 +476,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
             msg(sender, "Usage : /sa parchemin <technique|random> [joueur]", NamedTextColor.RED);
             return;
         }
-        Player target = args.length >= 3 ? Bukkit.getPlayerExact(args[2])
+        Player target = args.length >= 3 ? com.reborn.shinobicore.character.PlayerIds.online(sender, args[2])
                 : (sender instanceof Player p ? p : null);
         if (target == null) {
             msg(sender, "Cible introuvable (précise un joueur en ligne).", NamedTextColor.RED);
@@ -497,10 +497,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
             msg(sender, "Aucune technique chargée.", NamedTextColor.RED);
             return;
         }
-        var leftover = target.getInventory().addItem(scroll);
-        for (ItemStack stuck : leftover.values()) {
-            target.getWorld().dropItemNaturally(target.getLocation(), stuck);
-        }
+        com.reborn.shinobiabilities.util.Donner.a(target, scroll);
         msg(sender, "Parchemin remis à " + target.getName() + ".", NamedTextColor.GREEN);
     }
 
@@ -513,7 +510,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
                     + " <joueur>", NamedTextColor.RED);
             return;
         }
-        Player target = Bukkit.getPlayerExact(args[1]);
+        Player target = com.reborn.shinobicore.character.PlayerIds.online(sender, args[1]);
         if (target == null) {
             msg(sender, "Joueur hors-ligne : " + args[1], NamedTextColor.RED);
             return;
@@ -609,7 +606,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
 
     private void handleTokens(CommandSender sender, String[] args) {
         if (!requirePerm(sender, "shinobiabilities.admin")) return;
-        Player target = args.length >= 2 ? Bukkit.getPlayerExact(args[1])
+        Player target = args.length >= 2 ? com.reborn.shinobicore.character.PlayerIds.online(sender, args[1])
                 : (sender instanceof Player p ? p : null);
         if (target == null) {
             msg(sender, "Cible introuvable.", NamedTextColor.RED);

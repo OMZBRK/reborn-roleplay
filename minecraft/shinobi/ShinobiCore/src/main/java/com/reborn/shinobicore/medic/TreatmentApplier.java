@@ -381,12 +381,8 @@ public final class TreatmentApplier {
     private static void refund(Player medic, ItemStack[] strip) {
         for (ItemStack s : strip) {
             if (s == null) continue;
-            var leftover = medic.getInventory().addItem(s);
-            // If inventory was full, drop on the ground at the medic's
-            // feet so nothing vanishes.
-            for (ItemStack stuck : leftover.values()) {
-                medic.getWorld().dropItemNaturally(medic.getLocation(), stuck);
-            }
+            // Barre, sac, sinon au sol (rien ne disparaît, rien dans les cases cachées 9-35).
+            com.reborn.shinobicore.inventory.InventoryManager.donner(medic, s);
         }
     }
 }

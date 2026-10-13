@@ -170,10 +170,7 @@ public final class TreatmentScreen extends CoreScreen {
     private static void refundStrip(Player viewer, ItemStack[] strip) {
         for (ItemStack s : strip) {
             if (s == null) continue;
-            var leftover = viewer.getInventory().addItem(s);
-            for (ItemStack stuck : leftover.values()) {
-                viewer.getWorld().dropItemNaturally(viewer.getLocation(), stuck);
-            }
+            com.reborn.shinobicore.inventory.InventoryManager.donner(viewer, s);
         }
     }
 }

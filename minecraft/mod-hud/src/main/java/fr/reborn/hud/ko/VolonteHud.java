@@ -23,7 +23,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public final class VolonteHud {
 
-    private static final String[] KEY_LABEL = {"ESPACE", "CLIC G", "CLIC D"};
+    private static final String[] KEY_LABEL = {"Espace", "Clic gauche", "Clic droit"};
     private static final String[] SEALS = {"子", "丑", "寅", "卯", "辰", "巳", "午"};
     private static final long APPROACH = 750;
 
@@ -175,14 +175,15 @@ public final class VolonteHud {
         boolean downed = s != null && s.phase() == 1 && available;
 
         boolean denying = !deny.isEmpty() && now - denyAt < 2600;
-        int hintY = Math.round(h * 0.60f) - 16;
+        int hintY = (KoHud.dernierYATerre() > 0 ? KoHud.dernierYATerre() : Math.round(h * 0.60f)) - 16;
         if (denying) {
-            Component c = RebornFont.body(deny);
-            g.text(font, c, w / 2 - font.width(c) / 2, hintY, a(Colors.ACCENT_HOVER, 1f), true);
+            fr.reborn.hud.ui.DaKit.inter8(g, font, fr.reborn.hud.ui.DaKit.inter(deny), w / 2f, hintY + 4,
+                fr.reborn.hud.ui.DaKit.ROUGE_CLAIR, 1);
         } else if (downed && !active && !(ended && now - endAt < 1600)) {
-            Component hint = RebornFont.display("[ESPACE]  SE RELEVER" + (left < 2 ? "  ·  " + left + " RESTANTE" + (left > 1 ? "S" : "") : ""));
+            String t = "Espace — se relever" + (left < 2 ? "  ·  " + left + " restante" + (left > 1 ? "s" : "") : "");
             float pulse = 0.55f + 0.45f * (float) Math.sin(now / 260.0);
-            g.text(font, hint, w / 2 - font.width(hint) / 2, hintY, a(Colors.GOLD, pulse), true);
+            fr.reborn.hud.ui.DaKit.inter9o(g, font, fr.reborn.hud.ui.DaKit.inter(t), w / 2f, hintY + 4,
+                a(fr.reborn.hud.ui.DaKit.OR_CLAIR, pulse), 1);
         }
         if (active) drawQte(g, mc, font, w, h, now);
         if (ended && now - endAt < 700) drawEnd(g, w, h, now);
@@ -191,20 +192,20 @@ public final class VolonteHud {
     private static void drawQte(GuiGraphicsExtractor g, Minecraft mc, Font font, int w, int h, long now) {
         long ms = now - startAt;
         int cx = w / 2, cy = Math.round(h * 0.36f);
-        // voile : le monde se fige, plus sombre au centre de l'épreuve
-        g.fill(0, 0, w, h, 0x80000000);
-        Component title = RebornFont.display("VOLONTÉ");
-        g.text(font, title, cx - font.width(title) / 2, cy - 58, Colors.GOLD, true);
+        // voile léger : le monde se fige
+        g.fill(0, 0, w, h, 0x48000000);
+        fr.reborn.hud.ui.DaKit.arcX1(g, font, fr.reborn.hud.ui.DaKit.arcade("Volonté"), cx, cy - 52,
+            fr.reborn.hud.ui.DaKit.OR, 1, true);
         // sceaux de la séquence, sous le cercle
         int n = keys.length;
         for (int i = 0; i < n; i++) {
-            int sx = cx + (int) Math.round((i - (n - 1) / 2.0) * 22);
-            int sy = cy + 40;
+            int sx = cx + (int) Math.round((i - (n - 1) / 2.0) * 18);
+            int sy = cy + 38;
             boolean done = i < step, cur = i == step;
-            int col = done ? Colors.GOLD : cur ? Colors.FOREGROUND : 0x806E6050;
+            int col = done ? fr.reborn.hud.ui.DaKit.OR : cur ? fr.reborn.hud.ui.DaKit.CREME : 0x806E6050;
             Component k = Component.literal(SEALS[i % SEALS.length]);
             g.text(font, k, sx - font.width(k) / 2, sy, col, true);
-            if (cur) g.fill(sx - 4, sy + 11, sx + 4, sy + 12, Colors.GOLD);
+            if (cur) g.fill(sx - 3, sy + 10, sx + 3, sy + 11, fr.reborn.hud.ui.DaKit.OR);
         }
         if (step >= n) return;
         // cercle qui se referme sur le sceau courant : tracé au pixel réel (lisse à toutes les échelles)
@@ -228,15 +229,15 @@ public final class VolonteHud {
         g.pose().scale(2f, 2f);
         g.text(font, seal, -font.width(seal) / 2, -4, p > 0.85f ? 0xFFF6E7B0 : Colors.FOREGROUND, true);
         g.pose().popMatrix();
-        Component key = RebornFont.display(KEY_LABEL[keys[step]]);
-        g.text(font, key, cx - font.width(key) / 2, cy + 21, Colors.GOLD, true);
+        fr.reborn.hud.ui.DaKit.inter8(g, font, fr.reborn.hud.ui.DaKit.inter(KEY_LABEL[keys[step]]), cx, cy + 24,
+            fr.reborn.hud.ui.DaKit.OR_CLAIR, 1);
     }
 
     /** Fin d'épreuve : un éclair bref (blanc debout, rouge s'il flanche) ; les cartes du KO disent la suite. */
     private static void drawEnd(GuiGraphicsExtractor g, int w, int h, long now) {
         float f = Math.max(0f, 1f - (now - endAt) / 700f);
         int rgb = success ? 0xFFF6E7 : 0x8A0F14;
-        g.fill(0, 0, w, h, Math.round((success ? 150 : 120) * f * f) << 24 | rgb);
+        g.fill(0, 0, w, h, Math.round((success ? 70 : 60) * f * f) << 24 | rgb);
     }
 
     /** Anneau en pixels réels : un carré de la taille du trait par pas d'un demi-pixel. */

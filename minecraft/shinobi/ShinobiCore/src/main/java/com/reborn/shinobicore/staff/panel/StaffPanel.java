@@ -255,6 +255,8 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         j.addProperty("online", p != null);
         ShinobiCharacter c = p != null ? plugin.characters().getActive(id) : null;
         j.addProperty("perso", c != null ? c.name() : "");
+        // Player ID (N° du personnage actif) : le Poste de garde est réservé au staff.
+        j.addProperty("pid", c != null && c.hasPlayerId() ? com.reborn.shinobicore.character.PlayerIds.format(c.playerId()) : "");
         j.addProperty("village", c != null ? c.village() : "");
         j.addProperty("rank", c != null ? c.rank().displayName() : "");
         j.addProperty("state", stateOf(id, c));
@@ -584,7 +586,10 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     /** Journalise une action faite par un membre du staff (ou un médic pour les soins). */
     public void log(Player who, String kind, String type, String detail) {
-        store.log(who.getName(), StaffGrades.of(who), kind, type, detail);
+        // Acteur joueur (médic, bibliothèque…) : son N° devant le pseudo, pour retrouver le personnage.
+        int g = StaffGrades.of(who);
+        String tag = g == StaffGrades.NONE ? com.reborn.shinobicore.character.PlayerIds.tag(who) : "";
+        store.log(tag.isEmpty() ? who.getName() : tag + " " + who.getName(), g, kind, type, detail);
     }
 
     /* ================================================================ événements */
@@ -641,7 +646,8 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     private String persoName(Player p) {
         ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
-        return c != null ? c.name() + " (" + p.getName() + ")" : p.getName();
+        // Staff seulement (toasts, chat staff, journal) : le N° préfixe le nom RP.
+        return c != null ? com.reborn.shinobicore.character.PlayerIds.prefix(c) + c.name() + " (" + p.getName() + ")" : p.getName();
     }
 
     private String place(Location l) {
@@ -663,7 +669,8 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 {"Joueurs et modération", "/garde", "Ouvrir le Poste de garde", "1"},
                 {"Joueurs et modération", "#message", "Parler au staff depuis le chat", "1"},
                 {"Joueurs et modération", "/staffchat <message>", "Parler au staff", "1"},
-                {"Joueurs et modération", "/tp <joueur>", "Aller à un joueur", "1"},
+                {"Joueurs et modération", "/pid <joueur|#N°>", "N° de personnage, compte, état (hors ligne avec #N°)", "1"},
+                {"Joueurs et modération", "/tp <joueur|#N°>", "Aller à un joueur", "1"},
                 {"Joueurs et modération", "/vanish", "Devenir invisible", "2"},
                 {"Joueurs et modération", "/pardon <joueur>", "Lever un bannissement", "3"},
                 {"KO, ATA et soins", "/ata voir <joueur>", "État ATA, repos et peur restante", "1"},

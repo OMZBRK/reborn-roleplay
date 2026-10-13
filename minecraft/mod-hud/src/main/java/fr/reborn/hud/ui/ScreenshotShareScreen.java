@@ -36,11 +36,12 @@ public class ScreenshotShareScreen extends Screen {
 
     @Override
     protected void init() {
-        int fieldW = Math.min(320, this.width - 80);
+        int fieldW = 248;
         int fieldX = (this.width - fieldW) / 2;
-        int fieldY = this.height / 2 + 20;
-        captionField = new EditBox(this.font, fieldX, fieldY, fieldW, 16,
+        int fieldY = boxY() + 146;
+        captionField = new EditBox(this.font, fieldX + 4, fieldY + 3, fieldW - 8, 10,
             Component.literal("caption"));
+        captionField.setBordered(false);
         captionField.setMaxLength(280);
         captionField.setHint(Component.literal("Légende (optionnelle)…"));
         this.addRenderableWidget(captionField);
@@ -52,62 +53,66 @@ public class ScreenshotShareScreen extends Screen {
         doneAtMs = System.currentTimeMillis();
     }
 
+    private static final int BW = 300, BH = 214;
+
+    private int boxX() { return (this.width - BW) / 2; }
+
+    private int boxY() { return Math.max(26, (this.height - BH) / 2); }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        ctx.fill(0, 0, this.width, this.height, 0xE6000000);
+        ctx.fill(0, 0, this.width, this.height, 0xD8080406);
         Font tr = this.font;
+        int bx = boxX(), by = boxY(), cx = this.width / 2;
+        GalerieArt.boite(ctx, bx, by, BW, BH);
+        GalerieArt.cartouche(ctx, tr, cx, by - 18, "Partager", "sur le fil d'actualité");
 
-        int cx = this.width / 2;
-        ctx.centeredText(tr, RebornFont.bold("Partager sur le feed"), cx, this.height / 2 - 90, Colors.GOLD);
-        ctx.centeredText(tr, Component.literal(entry.name()), cx, this.height / 2 - 74, Colors.FOREGROUND_MUTED);
-
-        // Aperçu de l'image (fit dans une petite zone).
+        // Aperçu : tirage sur passe-partout de washi.
         int previewH = 96, previewW = 170;
-        int px = cx - previewW / 2, py = this.height / 2 - 58;
+        int py = by + 24;
         ScreenshotTextures.Tex t = ScreenshotTextures.get(entry.path());
+        LotBlit mat = LotBlit.ouvrir(ctx, GalerieArt.TIRAGE, 192, 132);
+        GalerieArt.tirage(mat, cx - previewW / 2 - 6, py - 6, previewW + 12, previewH + 12);
+        mat.fermer();
         if (t != null && t.w() > 0 && t.h() > 0) {
             float scale = Math.min(previewW / (float) t.w(), previewH / (float) t.h());
             int dw = Math.round(t.w() * scale), dh = Math.round(t.h() * scale);
             int ix = cx - dw / 2, iy = py + (previewH - dh) / 2;
-            ctx.fill(ix - 1, iy - 1, ix + dw + 1, iy + dh + 1, Colors.BORDER_STRONG);
             ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), ix, iy, 0f, 0f, dw, dh, t.w(), t.h(), t.w(), t.h());
         }
+        DaKit.inter7(ctx, tr, DaKit.inter(GalleryScreen.dateOf(entry)), cx, py + previewH + 14, DaKit.DOUX, 1);
 
-        // Label + champ légende (rendu explicite, comme l'éditeur — pas de
-        // super.render qui repeindrait le fond par-dessus notre contenu).
-        ctx.text(tr, Component.literal("Légende"), captionField.getX(), captionField.getY() - 12,
-            Colors.FOREGROUND_SUBTLE, false);
+        // Légende : champ laqué, texte de l'EditBox.
+        int fieldX = cx - 124, fieldY = by + 146;
+        DaKit.arcFin(ctx, tr, DaKit.arcade("Légende"), fieldX, fieldY - 8, DaKit.OR_ETIQ, 0, false);
+        DaKit.coupeH(ctx, DaKit.tex("tablist", "champ"), fieldX - 1, fieldY - 1, 250, 0, 0, 260, 18, 6, 260, 18);
         captionField.extractRenderState(ctx, mouseX, mouseY, delta);
+        if (captionField.getValue().isEmpty() && !captionField.isFocused()) {
+            DaKit.inter7(ctx, tr, DaKit.inter("Légende (facultative)…"), fieldX + 5, fieldY + 7, DaKit.INACTIF, 0);
+        }
 
         // Boutons.
         buildButtons();
         for (Btn b : buttons) {
             boolean hov = in(mouseX, mouseY, b.x, b.y, b.w, b.h);
             boolean primary = b.label.startsWith("Partager");
-            int bg = primary ? (hov ? Colors.ACCENT_HOVER : Colors.ACCENT) : (hov ? Colors.ACCENT_HOVER : Colors.BACKDROP_85);
-            ctx.fill(b.x, b.y, b.x + b.w, b.y + b.h, bg);
-            ctx.text(tr, Component.literal(b.label), b.x + (b.w - tr.width(b.label)) / 2, b.y + (b.h - 8) / 2,
-                Colors.WHITE_PURE, false);
+            fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, b.x, b.y, b.w, primary ? 2 : hov ? 1 : 0);
+            DaKit.inter8(ctx, tr, DaKit.inter(b.label), b.x + b.w / 2f, b.y + 8, primary || hov ? DaKit.CREME : DaKit.CREME_VAL, 1);
         }
 
-        // Feedback après confirmation.
+        // Retour après confirmation.
         if (doneAtMs > 0) {
-            ctx.centeredText(tr,
-                Component.literal("✓ Ajouté — sera publié via le launcher"),
-                cx, captionField.getY() + 44, 0xFF4ECE6F);
+            DaKit.inter8(ctx, tr, DaKit.inter("Ajoutée — elle sera publiée par le launcher"), cx, by + BH + 12, 0xFF7CAA94, 1);
         }
     }
 
     private void buildButtons() {
         buttons.clear();
-        int y = captionField.getY() + 26;
-        int h = 18, gap = 8;
-        int wShare = this.font.width("Partager") + 28;
-        int wCancel = this.font.width("Annuler") + 28;
-        int total = wShare + wCancel + gap;
-        int x = (this.width - total) / 2;
-        buttons.add(new Btn("Partager", x, y, wShare, h, this::confirmShare));
-        buttons.add(new Btn("Annuler", x + wShare + gap, y, wCancel, h, this::onClose));
+        int y = boxY() + 176;
+        int h = 16, gap = 8, w = 96;
+        int x = (this.width - 2 * w - gap) / 2;
+        buttons.add(new Btn("Partager", x, y, w, h, this::confirmShare));
+        buttons.add(new Btn("Annuler", x + w + gap, y, w, h, this::onClose));
     }
 
     @Override

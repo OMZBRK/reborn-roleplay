@@ -50,7 +50,7 @@ public final class VanishCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(Component.text("Réservé aux joueurs.", NamedTextColor.RED));
             return true;
         }
-        Player target = plugin.characters().findOnlinePlayerByCharacter(args[0]);
+        Player target = com.reborn.shinobicore.character.PlayerIds.online(sender, args[0]);
         if (target == null) {
             sender.sendMessage(Component.text("Personnage introuvable ou hors ligne : " + args[0],
                     NamedTextColor.RED));

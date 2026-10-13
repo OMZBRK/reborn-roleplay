@@ -1,55 +1,38 @@
 package fr.reborn.hud.menu.widget;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.menu.RebornSounds;
+import fr.reborn.hud.menu.settings.ReglagesArt;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Renderable;
-import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
- * Modal de confirmation « Se déconnecter ? » — ouvert depuis l'onglet
- * Déconnexion du menu ÉCHAP. Annuler revient au menu pause ; Déconnexion quitte
- * le serveur et retourne au menu principal. Même style que {@link QuitConfirmScreen}.
+ * Confirmation « Se déconnecter ? » (ouverte depuis l'Échap), au niveau de la fiche shinobi (DA §4.1, §6), version
+ * épurée. Signature : le <b>chapeau de voyageur</b> (sugegasa) posé sur la planche — se déconnecter, c'est prendre la
+ * route. Annuler revient au menu pause ; Se déconnecter quitte le serveur et retourne au menu principal. Décor :
+ * {@code textures/gui/deconnexion/*} ({@code tools/gen_deconnexion_textures.py}).
  */
 public class DisconnectConfirmScreen extends Screen {
 
-    private final Screen parent;
+    private static final Identifier PLANCHE = DaKit.tex("deconnexion", "planche"), CHAPEAU = DaKit.tex("deconnexion", "chapeau");
+    private static final int W = 260, H = 124, BW = 108;
 
-    private static final int CARD_W = 320;
-    private static final int CARD_H = 170;
+    private final Screen parent;
 
     public DisconnectConfirmScreen(Screen parent) {
         super(Component.literal("Se déconnecter"));
         this.parent = parent;
     }
 
-    @Override
-    protected void init() {
-        int cardW = Math.min(CARD_W, this.width - 24);
-        int cardH = Math.min(CARD_H, this.height - 24);
-        int cardX = (this.width - cardW) / 2;
-        int cardY = (this.height - cardH) / 2;
+    private int px() { return (this.width - W) / 2; }
 
-        int btnW = 120;
-        int btnH = 32;
-        int gap = 12;
-        int btnY = cardY + cardH - 22 - btnH;
-
-        this.addRenderableWidget(RebornButton.ghost(
-            cardX + cardW / 2 - btnW - gap / 2, btnY, btnW, btnH,
-            "Annuler", b -> onClose()
-        ));
-        this.addRenderableWidget(RebornButton.danger(
-            cardX + cardW / 2 + gap / 2, btnY, btnW, btnH,
-            "Déconnexion", b -> disconnect()
-        ));
-    }
+    private int py() { return (this.height - H) / 2 + 8; }
 
     private void disconnect() {
         Minecraft client = Minecraft.getInstance();
@@ -62,56 +45,40 @@ public class DisconnectConfirmScreen extends Screen {
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, Colors.BACKDROP_85);
+    public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        ctx.fill(0, 0, this.width, this.height, Minecraft.getInstance().level == null ? 0xFF0A0608 : 0xC8080406);
+        DaKit.etire(ctx, ReglagesArt.VIGNETTE, 0, 0, this.width, this.height, 160, 90, DaKit.blanc(0.8f));
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-        this.extractBackground(context, mouseX, mouseY, delta);
-        drawCard(context);
-        for (GuiEventListener e : this.children()) {
-            if (e instanceof Renderable d) {
-                d.extractRenderState(context, mouseX, mouseY, delta);
-            }
-        }
+    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+        Font f = this.font;
+        int x = px(), y = py();
+        DaKit.blit(ctx, PLANCHE, x - 2, y - 2, 0, 0, 268, 132, 268, 132);
+        DaKit.blit(ctx, CHAPEAU, x + W / 2 - 32, y - 20, 0, 0, 64, 30, 64, 30);
+        DaKit.arcX1(ctx, f, DaKit.arcade("Se déconnecter ?"), x + W / 2f, y + 24, DaKit.OR_CLAIR, 1, true);
+        DaKit.inter8(ctx, f, DaKit.inter("Tu quittes le serveur pour le menu principal."), x + W / 2f, y + 46,
+            DaKit.CREME_VAL, 1);
+        boolean h1 = DaKit.dans(mouseX, mouseY, b1(), by(), BW, 20), h2 = DaKit.dans(mouseX, mouseY, b2(), by(), BW, 20);
+        ReglagesArt.bouton(ctx, b1(), by(), BW, h1 ? 1 : 0);
+        ReglagesArt.bouton(ctx, b2(), by(), BW, 3);
+        DaKit.inter9(ctx, f, DaKit.inter("Annuler"), b1() + BW / 2f, by() + 10, h1 ? DaKit.CREME : DaKit.CREME_VAL, 1);
+        DaKit.inter9(ctx, f, DaKit.inter("Se déconnecter"), b2() + BW / 2f, by() + 10, h2 ? DaKit.CREME : DaKit.CREME_VAL, 1);
     }
 
-    private void drawCard(GuiGraphicsExtractor context) {
-        Minecraft client = Minecraft.getInstance();
-        if (client == null) return;
-        Font tr = client.font;
+    private int b1() { return px() + W / 2 - BW - 6; }
 
-        int cardW = Math.min(CARD_W, this.width - 24);
-        int cardH = Math.min(CARD_H, this.height - 24);
-        int cardX = (this.width - cardW) / 2;
-        int cardY = (this.height - cardH) / 2;
+    private int b2() { return px() + W / 2 + 6; }
 
-        DrawHelpers.dropShadow(context, cardX, cardY, cardW, cardH, 6);
-        DrawHelpers.roundedOutlinedRect(context, cardX, cardY, cardW, cardH, 12,
-            Colors.SURFACE_ELEVATED, Colors.BORDER_STRONG);
-        context.fill(cardX + 12, cardY, cardX + cardW - 12, cardY + 2, Colors.DANGER);
+    private int by() { return py() + H - 36; }
 
-        Component title = RebornFont.bold("Se déconnecter ?");
-        float titleScale = 1.4f;
-        int titleW = Math.round(tr.width(title) * titleScale);
-        int titleX = cardX + (cardW - titleW) / 2;
-        int titleY = cardY + 22;
-        context.pose().pushMatrix();
-        context.pose().translate(titleX, titleY);
-        context.pose().scale(titleScale, titleScale);
-        context.text(tr, title, 0, 0, Colors.WHITE_PURE, false);
-        context.pose().popMatrix();
-
-        Component desc = RebornFont.body("Tu vas quitter le serveur et revenir");
-        Component desc2 = RebornFont.body("au menu principal.");
-        int descW = tr.width(desc);
-        int desc2W = tr.width(desc2);
-        int descY = cardY + 60;
-        context.text(tr, desc, cardX + (cardW - descW) / 2, descY,
-            Colors.FOREGROUND_SUBTLE, false);
-        context.text(tr, desc2, cardX + (cardW - desc2W) / 2, descY + 12,
-            Colors.FOREGROUND_SUBTLE, false);
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (event.button() == 0) {
+            if (DaKit.dans(event.x(), event.y(), b1(), by(), BW, 20)) { RebornSounds.uiClick(); onClose(); return true; }
+            if (DaKit.dans(event.x(), event.y(), b2(), by(), BW, 20)) { RebornSounds.confirm(); disconnect(); return true; }
+        }
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override

@@ -162,6 +162,7 @@ public class GardeScreen extends StaffScreen {
         }
         chatBox.setVisible(false);
         searchBox.setVisible(false);
+        playerSearch.setVisible(false);
         noteBox.setVisible(false);
         JsonObject snap = StaffClient.koSnapshot();
         frame(ctx);

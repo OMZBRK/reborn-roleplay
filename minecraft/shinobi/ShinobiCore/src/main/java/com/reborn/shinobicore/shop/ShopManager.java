@@ -152,7 +152,7 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
                 return true;
             }
             if (args.length < 3) { sender.sendMessage(Component.text("/ryo " + op + " <joueur> <montant>", NamedTextColor.YELLOW)); return true; }
-            Player target = Bukkit.getPlayerExact(args[1]);
+            Player target = com.reborn.shinobicore.character.PlayerIds.online(sender, args[1]);
             if (target == null) { sender.sendMessage(Component.text("Joueur introuvable : " + args[1], NamedTextColor.RED)); return true; }
             long amount;
             try { amount = Long.parseLong(args[2]); } catch (NumberFormatException e) { sender.sendMessage(Component.text("Montant invalide.", NamedTextColor.RED)); return true; }

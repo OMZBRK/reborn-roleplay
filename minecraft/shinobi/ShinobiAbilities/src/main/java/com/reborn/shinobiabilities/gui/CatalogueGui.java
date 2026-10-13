@@ -257,9 +257,7 @@ public final class CatalogueGui extends AbilityScreen {
     /** Mint and hand the staff member the parchemin for {@code a}. */
     private void giveScroll(Player staff, Ability a) {
         org.bukkit.inventory.ItemStack scroll = ParcheminItems.create(a);
-        var overflow = staff.getInventory().addItem(scroll);
-        overflow.values().forEach(it ->
-                staff.getWorld().dropItemNaturally(staff.getLocation(), it));
+        com.reborn.shinobiabilities.util.Donner.a(staff, scroll);
         GuiSounds.accept(staff);
         staff.sendMessage(Component.text(
                 "Parchemin de « " + a.name() + " » ajouté à ton inventaire.",

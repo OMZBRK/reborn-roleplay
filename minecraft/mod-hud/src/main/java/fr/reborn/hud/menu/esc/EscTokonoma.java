@@ -16,7 +16,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
 
@@ -56,7 +55,8 @@ public final class EscTokonoma {
         }
     }
 
-    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reborn", "textures/gui/title/logo.png");
+    /** Logo Reborn Roleplay en pixel art à l'échelle de la scène (150×52, 1 texel = 1 unité). */
+    private static final Identifier LOGO = tex("logo");
 
     private static final String[] VILLAGE_IDS = {"konoha", "suna", "kiri", "kumo", "iwa"};
     private static final String[] VILLAGE_NAMES = {"KONOHA", "SUNA", "KIRI", "KUMO", "IWA"};
@@ -273,8 +273,7 @@ public final class EscTokonoma {
 
     // ── logo + identité du personnage ──
     private void drawIdentity(GuiGraphicsExtractor ctx, Font f) {
-        int lw = 150, lh = Math.round(150 * 717f / 2048f);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, LOGO, 32, 148, 0f, 0f, lw, lh, 2048, 717, 2048, 717);
+        blit(ctx, LOGO, 32, 148, 0, 0, 150, 52, 150, 52);
         int vi = playerVillage();
         String who = playerName();
         float nw = largeurArc(f, who, MOYEN) + (vi >= 0 ? 13 : 0);

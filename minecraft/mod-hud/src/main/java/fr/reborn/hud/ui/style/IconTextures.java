@@ -1,9 +1,9 @@
 package fr.reborn.hud.ui.style;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -29,6 +29,9 @@ public final class IconTextures {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("reborn-hud/icons");
     private static final int LAZY_SIZE = 16;
+    /** Côté natif des PNG : icônes du HUD (blanches, 96) et de la Sacoche (pixel art coloré, 32). */
+    private static final int TEX_HUD = 96, TEX_SACOCHE = 32;
+    private static final java.util.Set<String> HUD = java.util.Set.of("close", "undo", "redo", "gear", "menu", "discord");
 
     /** PNG bundlés : id stable. */
     private static final Map<String, Identifier> bundled = new HashMap<>();
@@ -120,37 +123,59 @@ public final class IconTextures {
     }
 
     /**
-     * Render une icône à (x, y) avec une taille donnée et tint color ARGB.
+     * Render une icône entière à (x, y), réduite ou agrandie à {@code size} GUI, teintée par {@code colorArgb}
+     * (les PNG du HUD sont blancs sur transparent).
      */
     public static void draw(GuiGraphicsExtractor ctx, String name, int x, int y, int size, int colorArgb) {
         Identifier id = bundled.get(name);
+        int tex = TEX_HUD;
         if (id == null) {
+            tex = LAZY_SIZE;
             id = lazyRegistered.get(name);
             if (id == null) {
                 id = tryCreateLazy(name);
                 if (id == null) return;
             }
+        } else if (!HUD.contains(name)) {
+            tex = TEX_SACOCHE;
         }
-
-        float a = ((colorArgb >>> 24) & 0xFF) / 255f;
-        float r = ((colorArgb >>> 16) & 0xFF) / 255f;
-        float g = ((colorArgb >>>  8) & 0xFF) / 255f;
-        float b = ( colorArgb         & 0xFF) / 255f;
-        ;
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, size, size, size, size);
-        ;
+        blitNet(ctx, id, x, y, size, tex, colorArgb);
     }
 
     /**
-     * Dessine une icône 16×16 (texture native 16) à la taille voulue, sans teinte
-     * — pour les icônes pixel-art colorées de la Sacoche. Retourne false si absente.
+     * Dessine une icône pixel-art de la Sacoche (texture native 32×32, colorée, sans teinte) <b>entière</b>, réduite
+     * à {@code drawSize} GUI. Retourne false si absente.
      */
     public static boolean drawIcon(GuiGraphicsExtractor ctx, String name, int x, int y, int drawSize) {
         Identifier id = bundled.get(name);
         if (id == null) return false;
-        // Icônes Sacoche = textures natives 32×32 (voir README_ICONES.md).
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, drawSize, drawSize, 32, 32);
+        blitNet(ctx, id, x, y, drawSize, HUD.contains(name) ? TEX_HUD : TEX_SACOCHE, 0xFFFFFFFF);
         return true;
+    }
+
+    /**
+     * Pose la texture entière ({@code tex}×{@code tex}) dans la case {@code size}×{@code size} GUI en (x, y), au pixel
+     * écran : la taille rendue est un multiple ou un diviseur entier de la texture (chaque texel garde la même
+     * largeur, aucun trait ne saute) quand on n'y perd pas plus de 15 % ; sinon la taille exacte de la case. Centrée.
+     */
+    private static void blitNet(GuiGraphicsExtractor ctx, Identifier id, int x, int y, int size, int tex, int argb) {
+        if (size <= 0 || (argb >>> 24) == 0) return;
+        int gs = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
+        int t = size * gs;
+        int p = 0;
+        if (t >= tex) {
+            p = t / tex * tex;
+        } else {
+            for (int d = 2; d <= tex; d++) {
+                if (tex % d == 0 && tex / d <= t) { p = tex / d; break; }
+            }
+        }
+        if (p < t * 0.85f) p = t;
+        int off = (t - p) / 2;
+        ctx.pose().pushMatrix();
+        ctx.pose().scale(1f / gs, 1f / gs);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, id, x * gs + off, y * gs + off, 0f, 0f, p, p, tex, tex, tex, tex, argb);
+        ctx.pose().popMatrix();
     }
 
     /** Crée la texture lazy depuis le pattern, ou null si pas trouvé. */

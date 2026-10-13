@@ -22,7 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Éditeur d'annotation : outils crayon / ligne / rectangle / gomme, color picker
+ * Retouche d'une capture (famille de la galerie : planche laquée {@code galerie/outils.png}, plaques segmentées,
+ * texte {@link DaKit} ; carré de couleur et traits regroupés en un élément GUI chacun) — outils crayon / ligne /
+ * rectangle / gomme, color picker
  * (carré SV + barre teinte + hex), épaisseur, undo/redo (Ctrl+Z / Ctrl+Y). Les
  * traits sont composés sur une copie de l'image et enregistrés en nouveau PNG.
  */
@@ -116,19 +118,21 @@ public class ScreenshotEditorScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        ctx.fill(0, 0, this.width, this.height, 0xE6000000);
+        ctx.fill(0, 0, this.width, this.height, 0xE6080406);
         Font tr = this.font;
         computeFit();
 
-        ctx.text(tr, RebornFont.bold("ÉDITEUR"), 12, 8, Colors.GOLD, false);
-        if (!status.isEmpty()) ctx.text(tr, Component.literal(status), 90, 9, Colors.SUCCESS, false);
+        DaKit.arcX1(ctx, tr, DaKit.arcade("Retouche"), 12, 9, DaKit.OR_CLAIR, 0, true);
+        if (!status.isEmpty()) DaKit.inter8(ctx, tr, DaKit.inter(status), 92, 12, 0xFF7CAA94, 0);
 
         if (tex != null) {
-            ctx.fill(imgX - 1, imgY - 1, imgX + drawW + 1, imgY + drawH + 1, Colors.BORDER_STRONG);
+            ctx.fill(imgX - 1, imgY - 1, imgX + drawW + 1, imgY + drawH + 1, 0xFF6A4E24);
             ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex.id(), imgX, imgY, 0f, 0f, drawW, drawH, tex.w(), tex.h(), tex.w(), tex.h());
             float sc = drawW / (float) tex.w();
-            for (Stroke s : strokes) drawStrokeScreen(ctx, s, sc);
-            if (current != null) drawStrokeScreen(ctx, current, sc);
+            LotGui traits = LotGui.ouvrir(ctx);          // tous les traits : un seul élément GUI
+            for (Stroke s : strokes) drawStrokeScreen(traits, s, sc);
+            if (current != null) drawStrokeScreen(traits, current, sc);
+            traits.fermer();
         }
 
         renderPanel(ctx, tr, mouseX, mouseY);
@@ -137,97 +141,99 @@ public class ScreenshotEditorScreen extends Screen {
 
     private void renderPanel(GuiGraphicsExtractor ctx, Font tr, int mouseX, int mouseY) {
         int x = panelX;
-        ctx.fill(x, 0, this.width, this.height, 0xF20C0709);
-        ctx.fill(x, 0, x + 1, this.height, Colors.BORDER_STRONG);
+        DaKit.coupe(ctx, GalerieArt.OUTILS, x - 2, -2, PANEL_W + 8, this.height + 8, 0, 0, 168, 548, 18, 18, 168, 548);
+        DaKit.arcFin(ctx, tr, DaKit.arcade("Couleur"), x + 12, 18, DaKit.OR_ETIQ, 0, false);
 
-        // Aperçu couleur + hex.
-        ctx.fill(x + 12, 30, x + 30, 46, color);
-        ctx.fill(x + 11, 29, x + 31, 47, Colors.BORDER);
-        ctx.fill(x + 12, 30, x + 30, 46, color);
-        // (hexField rendu par super via addRenderableWidget)
-
+        LotGui l = LotGui.ouvrir(ctx);
+        // Aperçu couleur.
+        l.fill(x + 11, 29, x + 31, 47, 0xFFD9A95E);
+        l.fill(x + 12, 30, x + 30, 46, color);
         // Carré Saturation/Valeur.
         int svX = x + 12, svY = 54;
+        l.fill(svX - 1, svY - 1, svX + SV + 1, svY + SV + 1, 0xFF8E6A30);
         for (int py = 0; py < SV; py += 3) {
             for (int px = 0; px < SV; px += 3) {
-                ctx.fill(svX + px, svY + py, svX + px + 3, svY + py + 3,
+                l.fill(svX + px, svY + py, svX + Math.min(SV, px + 3), svY + Math.min(SV, py + 3),
                     hsvToArgb(hue, px / (float) SV, 1 - py / (float) SV));
             }
         }
         int mkx = svX + (int) (sat * SV), mky = svY + (int) ((1 - val) * SV);
-        ctx.fill(mkx - 2, mky - 2, mkx + 2, mky + 2, 0xFFFFFFFF);
-        ctx.fill(mkx - 1, mky - 1, mkx + 1, mky + 1, 0xFF000000);
-
+        l.fill(mkx - 2, mky - 2, mkx + 2, mky + 2, 0xFFFFFFFF);
+        l.fill(mkx - 1, mky - 1, mkx + 1, mky + 1, 0xFF000000);
         // Barre teinte.
         int hueX = svX + SV + 6;
+        l.fill(hueX - 1, svY - 1, hueX + HUE_W + 1, svY + SV + 1, 0xFF8E6A30);
         for (int py = 0; py < SV; py += 2) {
-            ctx.fill(hueX, svY + py, hueX + HUE_W, svY + py + 2, hsvToArgb(py / (float) SV * 360f, 1, 1));
+            l.fill(hueX, svY + py, hueX + HUE_W, svY + py + 2, hsvToArgb(py / (float) SV * 360f, 1, 1));
         }
         int hy = svY + (int) (hue / 360f * SV);
-        ctx.fill(hueX - 1, hy - 1, hueX + HUE_W + 1, hy + 1, 0xFFFFFFFF);
+        l.fill(hueX - 1, hy - 1, hueX + HUE_W + 1, hy + 1, 0xFFFFFFFF);
+        l.fermer();
 
         // Outils.
         int ty = svY + SV + 8;
-        String[] tools = { "Crayon", "Ligne", "Rect", "Gomme" };
+        String[] tools = { "Crayon", "Ligne", "Rectangle", "Gomme" };
         for (int i = 0; i < tools.length; i++) {
             int bx = x + 12 + (i % 2) * 66, by = ty + (i / 2) * 18;
             boolean sel = tool == i;
             boolean hov = in(mouseX, mouseY, bx, by, 62, 16);
-            ctx.fill(bx, by, bx + 62, by + 16, sel ? Colors.ACCENT : (hov ? 0x33FFFFFF : Colors.BACKDROP_85));
-            ctx.text(tr, Component.literal(tools[i]), bx + 6, by + 4, sel ? Colors.WHITE_PURE : Colors.FOREGROUND_SUBTLE, false);
+            fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, bx, by, 62, sel ? 2 : hov ? 1 : 0);
+            DaKit.inter8(ctx, tr, DaKit.inter(tools[i]), bx + 31, by + 8, sel || hov ? DaKit.CREME : DaKit.NEUTRE_TXT, 1);
         }
 
         // Épaisseur.
         int ey = ty + 40;
-        ctx.text(tr, Component.literal("Épaisseur"), x + 12, ey + 3, Colors.FOREGROUND_MUTED, false);
-        sbtn(ctx, tr, "-", x + PANEL_W - 52, ey);
-        ctx.text(tr, Component.literal(String.valueOf(thickness)), x + PANEL_W - 34, ey + 3, Colors.GOLD, false);
-        sbtn(ctx, tr, "+", x + PANEL_W - 20, ey);
+        DaKit.inter8(ctx, tr, DaKit.inter("Épaisseur"), x + 12, ey + 8, DaKit.CREME_VAL, 0);
+        sbtn(ctx, tr, "-", x + PANEL_W - 52, ey, mouseX, mouseY);
+        DaKit.inter8(ctx, tr, DaKit.inter(String.valueOf(thickness)), x + PANEL_W - 31, ey + 8, DaKit.OR_CLAIR, 1);
+        sbtn(ctx, tr, "+", x + PANEL_W - 20, ey, mouseX, mouseY);
 
         // Actions.
         int ay = ey + 22;
-        act(ctx, tr, "Annuler", x + 12, ay, 62, mouseX, mouseY, Colors.BACKDROP_85);
-        act(ctx, tr, "Rétablir", x + 78, ay, 60, mouseX, mouseY, Colors.BACKDROP_85);
-        act(ctx, tr, "Effacer tout", x + 12, ay + 20, 126, mouseX, mouseY, Colors.BACKDROP_85);
-        act(ctx, tr, "Enregistrer", x + 12, ay + 40, 126, mouseX, mouseY, 0xFF3FA85B);
-        act(ctx, tr, "Retour", x + 12, ay + 60, 126, mouseX, mouseY, Colors.ACCENT);
+        act(ctx, tr, "Annuler", x + 12, ay, 62, mouseX, mouseY, 0);
+        act(ctx, tr, "Rétablir", x + 78, ay, 60, mouseX, mouseY, 0);
+        act(ctx, tr, "Effacer tout", x + 12, ay + 20, 126, mouseX, mouseY, 0);
+        act(ctx, tr, "Enregistrer", x + 12, ay + 40, 126, mouseX, mouseY, 2);
+        act(ctx, tr, "Retour", x + 12, ay + 60, 126, mouseX, mouseY, 0);
     }
 
-    private void sbtn(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y) {
-        ctx.fill(x, y, x + 14, y + 16, Colors.BACKDROP_85);
-        ctx.text(tr, Component.literal(s), x + 5, y + 4, Colors.FOREGROUND_SUBTLE, false);
+    private void sbtn(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y, int mx, int my) {
+        boolean hov = in(mx, my, x, y, 14, 16);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, x, y, 14, hov ? 1 : 0);
+        DaKit.inter8(ctx, tr, DaKit.inter(s), x + 7, y + 8, hov ? DaKit.CREME : DaKit.CREME_VAL, 1);
     }
 
-    private void act(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y, int w, int mouseX, int mouseY, int bg) {
+    /** etat : 0 plaque sombre, 2 plaque vermillon (action principale). */
+    private void act(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y, int w, int mouseX, int mouseY, int etat) {
         boolean hov = in(mouseX, mouseY, x, y, w, 16);
-        ctx.fill(x, y, x + w, y + 16, hov ? Colors.ACCENT_HOVER : bg);
-        ctx.text(tr, Component.literal(s), x + (w - tr.width(s)) / 2, y + 4, Colors.WHITE_PURE, false);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, x, y, w, etat == 2 ? 2 : hov ? 1 : 0);
+        DaKit.inter8(ctx, tr, DaKit.inter(s), x + w / 2f, y + 8, hov || etat == 2 ? DaKit.CREME : DaKit.CREME_VAL, 1);
     }
 
-    private void drawStrokeScreen(GuiGraphicsExtractor ctx, Stroke s, float sc) {
+    private void drawStrokeScreen(LotGui l, Stroke s, float sc) {
         int st = Math.max(1, Math.round(s.thickness * sc));
         List<double[]> p = s.pts;
         if (s.type == TOOL_RECT && p.size() >= 2) {
             int x0 = sx(p.get(0)[0], sc), y0 = sy(p.get(0)[1], sc), x1 = sx(p.get(1)[0], sc), y1 = sy(p.get(1)[1], sc);
-            lineScreen(ctx, x0, y0, x1, y0, st, s.color);
-            lineScreen(ctx, x1, y0, x1, y1, st, s.color);
-            lineScreen(ctx, x1, y1, x0, y1, st, s.color);
-            lineScreen(ctx, x0, y1, x0, y0, st, s.color);
+            lineScreen(l, x0, y0, x1, y0, st, s.color);
+            lineScreen(l, x1, y0, x1, y1, st, s.color);
+            lineScreen(l, x1, y1, x0, y1, st, s.color);
+            lineScreen(l, x0, y1, x0, y0, st, s.color);
             return;
         }
         for (int i = 1; i < p.size(); i++) {
-            lineScreen(ctx, sx(p.get(i - 1)[0], sc), sy(p.get(i - 1)[1], sc), sx(p.get(i)[0], sc), sy(p.get(i)[1], sc), st, s.color);
+            lineScreen(l, sx(p.get(i - 1)[0], sc), sy(p.get(i - 1)[1], sc), sx(p.get(i)[0], sc), sy(p.get(i)[1], sc), st, s.color);
         }
         if (p.size() == 1) {
             int x = sx(p.get(0)[0], sc), y = sy(p.get(0)[1], sc);
-            ctx.fill(x - st / 2, y - st / 2, x + st / 2 + 1, y + st / 2 + 1, s.color);
+            l.fill(x - st / 2, y - st / 2, x + st / 2 + 1, y + st / 2 + 1, s.color);
         }
     }
 
     private int sx(double ix, float sc) { return imgX + (int) (ix * sc); }
     private int sy(double iy, float sc) { return imgY + (int) (iy * sc); }
 
-    private static void lineScreen(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1, int th, int color) {
+    private static void lineScreen(LotGui ctx, int x0, int y0, int x1, int y1, int th, int color) {
         int steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) + 1;
         int r = Math.max(1, th) / 2;
         for (int i = 0; i <= steps; i++) {

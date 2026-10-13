@@ -19,6 +19,7 @@ l'équipe veut éviter.
 | Où | Ce qui se passe à 0 PV | Conséquence |
 |---|---|---|
 | **Terrain d'entraînement** (zone staff) | « Défaite » : on se relève aussitôt | **Aucune** : PV remis au maximum, pas de KO, pas de blessure |
+| **Duel consenti** (n'importe où, §4.1) | « Défaite » : le duel s'arrête | **Aucune** : PV et chakra d'avant le duel rendus aux deux |
 | **Partout ailleurs** | KO (à terre → inconscient) | PV perdus **persistants**, blessures, ATA au réveil |
 
 ---
@@ -135,6 +136,53 @@ quelqu'un l'a soigné sur place.
   (`ko.defaite-pct: 1.0`). À la sortie, retour aux valeurs d'entrée : on ne peut ni s'y blesser ni s'y soigner.
 - **Hors zone**, chaque combat est journalisé (`aggression-log.txt` : qui a frappé en premier, où). Le Poste de
   garde lève une alerte quand un joueur enchaîne les combats hors zone.
+
+### 4.1 Le duel consenti (décision du 2026-10-13)
+
+Un « terrain d'entraînement portatif » à deux : il assouplit la règle « combat libre seulement sur les terrains ».
+Code : `ShinobiCore/…/duel/DuelService.java`, `DuelCommand.java` ; mod `duel/DuelClient`, `DuelHud`.
+
+1. **Proposer** — menu d'interaction (R, clic sur un joueur) → « Proposer un duel », ou `/duel proposer <joueur>`.
+   À 8 blocs au plus (`duel.distance-proposition`). Refusé si l'un des deux n'a pas de personnage, est à terre /
+   KO, en ATA, déjà en duel, en mode construction, ou sur un terrain d'entraînement (le combat y est déjà libre).
+   Anti-spam : 10 s entre deux propositions d'un joueur, 60 s avant de reproposer à la même personne (levé dès qu'un
+   duel commence, pour la revanche). Deux propositions croisées valent acceptation.
+2. **Répondre** — la cible voit deux petites lignes au-dessus de la barre d'action (minuscule sceau 決 « X te propose
+   un duel », puis « Entrée accepter · Retour refuser · 30 s » en petit, fil d'or d'1 px qui se vide). Touches
+   **Entrée** / **Retour arrière** (rebindables : « Duel : accepter / refuser »), ou **R** puis clic sur le mot
+   « accepter » / « refuser » (souligné au survol), ou le menu d'interaction sur le proposant
+   (« Duel proposé ▸ Accepter / Refuser »), ou `/duel accepter|refuser [joueur]`. Sans réponse en 30 s
+   (`duel.expiration-secondes`), la proposition tombe. Le proposant voit une ligne grise « Duel proposé à X — en
+   attente · 24 s ».
+   Client sans mod : ligne de tchat avec [Accepter] [Refuser] cliquables.
+3. **Compte à rebours** 3-2-1 sobre en fondu puis « COMBAT » bref (`duel.compte-a-rebours`) : PV et chakra des deux sont mémorisés ;
+   ils ne peuvent pas se toucher ni lancer de technique pendant le décompte.
+4. **Combat** — comme sur un terrain d'entraînement : **pas de KO, pas de blessure, pas de journal d'agression,
+   pas de FearRP, aucune XP de combat**. Techniques permises (`duel.techniques: false` = mains nues et armes). Une
+   annonce discrète part aux joueurs à 24 blocs (« ⚔ X et Y s'affrontent en duel », noms tels que chacun les connaît,
+   `duel.annonce.*`). Indicateur fin en haut au centre : « 決 adversaire · 4:56 · abandon » (R puis clic sur
+   « abandon ») ; il passe en rouge pâle au-delà de 80 % de la distance maximale.
+5. **Fin** — dans tous les cas, **les deux retrouvent exactement leurs PV et leur chakra d'avant le duel**, puis 3 s
+   pendant lesquelles ils ne peuvent plus se toucher (`duel.grace-secondes`). Fin : un mot centré en fondu (VICTOIRE /
+   DÉFAITE / MATCH NUL / DUEL ANNULÉ), un filet d'or fin, la raison en petit gris (≈ 3 s).
+
+| Cause | Issue |
+|---|---|
+| PV à 0 (coup « mortel ») ou chakra à 0 | Défaite de celui qui tombe |
+| `/duel abandonner` ou bouton ABANDON | Défaite de celui qui abandonne |
+| Déconnexion, changement de personnage | Défaite de celui qui part |
+| Plus de 30 blocs entre les deux (`duel.distance-max`), autre monde | Annulé |
+| Téléportation de plus de 16 blocs (`duel.teleport-max-blocs` ; un shunshin court ne compte pas) | Annulé |
+| **Un tiers frappe un duelliste**, ou un duelliste frappe un tiers | Annulé — **ce coup-là suit les règles normales** (KO possible) |
+| KO, mort RP, mode construction en cours de duel | Annulé |
+| 5 min de combat (`duel.duree-max-secondes`) | Match nul |
+| Arrêt du serveur | Annulé (PV d'avant rendus avant la sauvegarde) |
+
+- **Journal staff** : `duel-log.txt` (DEBUT, FIN avec issue, raison, vainqueur, lieu) et journal du Poste de garde
+  (type `duel`).
+- Un duelliste sauvegardé en plein duel (sauvegarde auto, crash) est écrit avec ses **PV d'avant le duel**.
+- Limite connue : un coup mortel venu de l'environnement (chute, lave) ou d'un mob pendant le duel compte comme une
+  défaite, pas comme un KO.
 
 ---
 
@@ -290,6 +338,11 @@ ni parler, ni lancer de commande, ni ouvrir d'inventaire, ni être blessé.
 | `ko.ata.repos-minutes-pleine` / `-allegee` | `20` / `10` | Repos nécessaire |
 | `ko.ata.anti-afk-secondes`, `ko.ata.repos-pv-pct-par-10s` | `120`, `0.01` | Repos |
 | `mort-rp.scene-min-secondes`, `mort-rp.corps-minutes` | `10`, `15` | Scène de mort |
+| `duel.actif`, `duel.techniques` | `true`, `true` | Duels permis ; techniques permises en duel |
+| `duel.distance-proposition`, `duel.distance-max`, `duel.teleport-max-blocs` | `8`, `30`, `16` | Distances (blocs) |
+| `duel.expiration-secondes`, `duel.compte-a-rebours`, `duel.duree-max-secondes`, `duel.grace-secondes` | `30`, `3`, `300`, `3` | Délais |
+| `duel.cooldown-secondes`, `duel.cooldown-couple-secondes` | `10`, `60` | Anti-spam |
+| `duel.annonce.actif`, `duel.annonce.rayon` | `true`, `24` | Annonce RP aux alentours |
 | `medic.paume.*`, `medic.bandage.pv-pct` | cf. config | Soins |
 
 > Une clé absente du `config.yml` **du serveur** prend la valeur par défaut du code. Les réglages de
@@ -302,6 +355,7 @@ ni parler, ni lancer de commande, ni ouvrir d'inventaire, ni être blessé.
 | Sujet | État |
 |---|---|
 | Tester la 0.4.169 à **deux comptes** (RPK, exécution, scène de mort, corps) | à faire |
+| **Duel consenti** (§4.1) : codé le 13/10 (ShinobiCore, ShinobiAbilities, `reborn-hud`), **non publié** ; banc de captures `REBORN_DUEL_DEBUG=1` (`run/screenshots/duel_*.png`) ; à tester à deux comptes | à publier puis tester |
 | Créer la technique `volonte` (ou décider `pour-tous`) | à faire |
 | Animations EmoteCraft des exécutions | à créer (staff animation) |
 | Vente des exécutions en boutique | non branchée |

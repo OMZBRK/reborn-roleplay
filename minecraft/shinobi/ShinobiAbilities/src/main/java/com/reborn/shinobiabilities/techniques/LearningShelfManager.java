@@ -305,10 +305,7 @@ public final class LearningShelfManager implements Listener {
                 saveSync();
                 refresh(viewer, view);
                 if (a != null) {
-                    var leftover = viewer.getInventory().addItem(ParcheminItems.create(a));
-                    for (ItemStack stuck : leftover.values()) {
-                        viewer.getWorld().dropItemNaturally(viewer.getLocation(), stuck);
-                    }
+                    com.reborn.shinobiabilities.util.Donner.a(viewer, ParcheminItems.create(a));
                 }
                 viewer.playSound(viewer.getLocation(),
                         Sound.BLOCK_CHISELED_BOOKSHELF_PICKUP, 0.9f, 0.9f);

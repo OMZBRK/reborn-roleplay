@@ -182,7 +182,7 @@ public final class StatsCommand implements TabExecutor {
         }
         if (!s.hasPermission(ADMIN) || args.length < 4) { usage(s); return; }
         String op = args[1].toLowerCase(Locale.ROOT);
-        OfflinePlayer target = resolvePlayer(args[2]);
+        OfflinePlayer target = resolvePlayer(s, args[2]);
         if (target == null) { err(s, "Joueur inconnu du serveur : " + args[2]); return; }
         int n;
         try { n = Integer.parseInt(args[3]); } catch (NumberFormatException e) { err(s, "Nombre invalide."); return; }
@@ -206,7 +206,9 @@ public final class StatsCommand implements TabExecutor {
     }
 
     /** Joueur en ligne, sinon compte déjà vu par le serveur, sinon UUID brut. */
-    private static OfflinePlayer resolvePlayer(String arg) {
+    private static OfflinePlayer resolvePlayer(CommandSender s, String arg) {
+        UUID byPid = com.reborn.shinobicore.character.PlayerIds.ownerByRef(s, arg);         // #N° (staff) → compte du personnage
+        if (byPid != null) return Bukkit.getOfflinePlayer(byPid);
         Player p = Bukkit.getPlayerExact(arg);
         if (p != null) return p;
         OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(arg);
@@ -219,7 +221,8 @@ public final class StatsCommand implements TabExecutor {
     }
 
     private ShinobiCharacter resolve(CommandSender s, String name) {
-        CharacterService.ResolvedCharacter r = plugin.characters().resolveOwned(name);
+        CharacterService.ResolvedCharacter r = com.reborn.shinobicore.character.PlayerIds.isRef(name)
+                ? com.reborn.shinobicore.character.PlayerIds.character(s, name) : plugin.characters().resolveOwned(name);
         if (r == null) { err(s, "Personnage introuvable : " + name); return null; }
         return r.character();
     }

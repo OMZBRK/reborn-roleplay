@@ -43,6 +43,16 @@ public final class HudKeybinds {
     /** Carte du monde (lieux, et « Y aller » pour le staff). M, rebindable. */
     public static KeyMapping MAP;
 
+    /** Duel consenti : accepter / refuser l'invitation affichée (sans effet sans invitation). Rebindables. */
+    public static KeyMapping DUEL_ACCEPT, DUEL_REFUSE;
+
+    /**
+     * Ramasser l'objet au sol visé (inventaire du 13/10). Défaut <b>F</b> : interceptée par {@code sol/RamasserClient}
+     * SEULEMENT quand un objet est visé et que le serveur gère le ramassage ; sinon F garde son rôle (techniques,
+     * tyrolienne, grappin). Dégainer / rengainer l'arme de l'étui : <b>Z</b>. Rebindables.
+     */
+    public static KeyMapping PICKUP, DEGAINER;
+
     /**
      * Tous les binds Reborn de ce mod, dans l'ordre d'affichage — l'onglet
      * Contrôles ({@code ControlsTab}) les liste pour rebind inline. Rempli à
@@ -109,6 +119,12 @@ public final class HudKeybinds {
         STATS = bind("key.reborn-hud.stats", GLFW.GLFW_KEY_K);
         // Carte du monde — M, rebindable.
         MAP = bind("key.reborn-hud.map", GLFW.GLFW_KEY_M);
+        // Duel : Entrée / Retour arrière, libres en jeu (le tchat a ses propres touches quand il est ouvert).
+        DUEL_ACCEPT = bind("key.reborn-hud.duel_accept", GLFW.GLFW_KEY_ENTER);
+        DUEL_REFUSE = bind("key.reborn-hud.duel_refuse", GLFW.GLFW_KEY_BACKSPACE);
+        // Ramasser (F, partagée avec « main gauche » : prise seulement quand un objet au sol est visé) et dégainer (Z).
+        PICKUP = bind("key.reborn-hud.ramasser", GLFW.GLFW_KEY_F);
+        DEGAINER = bind("key.reborn-hud.degainer", GLFW.GLFW_KEY_Z);
         // (Le « test de la feuille » (gacha nature de chakra) n'est PLUS bindé sur F —
         // retiré à la demande ; la touche F revient au comportement vanilla.)
         // (Le repositionnement cosmétique n'a PLUS de raccourci : il s'ouvre depuis
@@ -234,6 +250,12 @@ public final class HudKeybinds {
                         mc.setScreenAndShow(new fr.reborn.hud.menu.fiche.FicheScreen());
                     }
                 }
+            }
+            while (DUEL_ACCEPT.consumeClick()) {
+                if (Minecraft.getInstance().gui.screen() == null) fr.reborn.hud.duel.DuelClient.accept();
+            }
+            while (DUEL_REFUSE.consumeClick()) {
+                if (Minecraft.getInstance().gui.screen() == null) fr.reborn.hud.duel.DuelClient.refuse();
             }
             while (MAP.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();

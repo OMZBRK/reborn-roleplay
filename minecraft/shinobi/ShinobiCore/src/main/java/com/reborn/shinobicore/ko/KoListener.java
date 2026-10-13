@@ -100,6 +100,8 @@ public final class KoListener implements Listener {
 
         if (lethal) {
             ev.setCancelled(true);
+            // Duel consenti : défaite, le duel se termine, PV d'avant rendus aux deux (ni KO ni blessure).
+            if (plugin.duels() != null && plugin.duels().onLethal(p)) return;
             // Terrain d'entraînement : défaite sans KO ni blessure.
             if (plugin.trainingZones().isTraining(p)) {
                 plugin.trainingZones().defeat(p, false);

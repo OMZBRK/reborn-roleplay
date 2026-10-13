@@ -112,6 +112,22 @@ public final class InteractionMenus {
                 InteractionItem.action("Examiner les yeux", () -> sendCommand("yeux etat " + name))));
     }
 
+    /**
+     * Duel consenti : « Proposer un duel » ; si ce joueur m'a proposé un duel, l'accepter ou le refuser ; si je suis
+     * en duel contre lui, l'abandonner. Le serveur revérifie tout (distance, KO, ATA, anti-spam).
+     */
+    static InteractionItem duel(String name) {
+        if (fr.reborn.hud.duel.DuelClient.inDuelWith(name)) {
+            return InteractionItem.action("Abandonner le duel", () -> sendCommand("duel abandonner"));
+        }
+        if (fr.reborn.hud.duel.DuelClient.invitedBy(name)) {
+            return InteractionItem.submenu("Duel proposé", List.of(
+                InteractionItem.action("Accepter le duel", () -> sendCommand("duel accepter " + name)),
+                InteractionItem.action("Refuser le duel", () -> sendCommand("duel refuser " + name))));
+        }
+        return InteractionItem.action("Proposer un duel", () -> sendCommand("duel proposer " + name));
+    }
+
     public static List<InteractionItem> forPlayer(String name) {
         // NB : les commandes ShinobiCore /rencontrer /amitier /osculter ciblent
         // « la personne regardée » (pas d'argument) → fonctionnent si la cible est
@@ -125,6 +141,7 @@ public final class InteractionMenus {
             InteractionItem.action("Porter", () -> sendCommand("porter " + name)),
             InteractionItem.action("Fouiller", () -> sendCommand("fouiller " + name)),
             InteractionItem.action("Échanger", () -> sendCommand("trade " + name)),
+            duel(name),
             soinsDesYeux(name),
             InteractionItem.submenu("Animations", List.of(
                 InteractionItem.action("Saluer", () -> sendCommand("playemote salut")),

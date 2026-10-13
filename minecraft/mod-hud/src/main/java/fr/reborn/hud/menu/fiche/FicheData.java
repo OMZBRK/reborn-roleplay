@@ -52,10 +52,11 @@ public final class FicheData {
                 Jauge volonte, Jauge soins, String ataNiveau, String ataTxt, String koPhase,
                 List<Blessure> blessures, Map<String, List<FicheTextes.Cran>> echelles) {}
 
+    /** {@code pid} : Player ID du personnage (« 00042 »), envoyé au seul joueur concerné ; null si absent. */
     record Donnees(int v, String rankId, Integer merit, Identite identite, Lignee lignee,
-                   List<Apprentissage> apprentissage, Map<String, TechPlus> techs, Etat etat) {
+                   List<Apprentissage> apprentissage, Map<String, TechPlus> techs, Etat etat, String pid) {
 
-        static final Donnees VIDE = new Donnees(0, null, null, null, null, List.of(), Map.of(), null);
+        static final Donnees VIDE = new Donnees(0, null, null, null, null, List.of(), Map.of(), null, null);
     }
 
     private static volatile Donnees serveur = null;
@@ -131,7 +132,9 @@ public final class FicheData {
         try { tp = techs(r); } catch (Exception ignored) { }
         Etat et = null;
         try { et = etat(obj(r, "etat")); } catch (Exception ignored) { }
-        return new Donnees(v, rankId, merit, id, li, ap, tp, et);
+        String pid = str(r, "pid", null);
+        if (pid != null && (pid.isBlank() || !pid.chars().allMatch(Character::isDigit))) pid = null;
+        return new Donnees(v, rankId, merit, id, li, ap, tp, et, pid);
     }
 
     private static Identite identite(JsonObject o) {
@@ -321,7 +324,7 @@ public final class FicheData {
 
     /** Ren Hyūga des maquettes, au format v2 complet du PROTOCOLE (aussi le snapshot du banc). */
     static final String DEMO_JSON = """
-        {"open":true,"v":2,"name":"Ren Hyūga","clan":"Hyūga","village":"Konohagakure","rank":"Genin","rankId":"GENIN",
+        {"open":true,"v":2,"pid":"00042","name":"Ren Hyūga","clan":"Hyūga","village":"Konohagakure","rank":"Genin","rankId":"GENIN",
          "rankTier":1,"merit":3,"nextRank":"Genin confirmé","natures":["SUITON","FUTON"],"min":1,"max":10,"earned":19,
          "bonus":0,"canRespec":true,"respecFree":false,"respecTokens":1,
          "stats":{"taijutsu":4,"kenjutsu":2,"ninjutsu":4,"controle":5,"vigueur":3,"chakra":5},
@@ -374,7 +377,7 @@ public final class FicheData {
     /** La démonstration sans aucune clé v2 (banc « ancien serveur »). */
     static String demoAncienServeur() {
         JsonObject r = JsonParser.parseString(DEMO_JSON).getAsJsonObject();
-        for (String k : List.of("v", "rankId", "identite", "lignee", "apprentissage", "etat")) r.remove(k);
+        for (String k : List.of("v", "pid", "rankId", "identite", "lignee", "apprentissage", "etat")) r.remove(k);
         JsonArray ts = r.getAsJsonArray("techniques");
         for (JsonElement e : ts) {
             JsonObject t = e.getAsJsonObject();

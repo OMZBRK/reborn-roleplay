@@ -18,7 +18,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Galerie de screenshots — DA Reborn. Les captures sont des <b>tirages</b> pincés sur des fils
+ * Galerie de screenshots, au niveau de la fiche shinobi (DA §4.1, §6). Signature : les <b>tirages</b> pincés sur des fils
  * (une rangée par fil), sous la plaque suspendue « Galerie » et ses onglets Toutes / Favoris.
  * Clic = vue détail, cœur = favori, clic droit = actions (ouvrir, favori, supprimer, dossier),
  * molette = rangée suivante. Même fonctionnement qu'avant.
@@ -92,55 +92,87 @@ public class GalleryScreen extends Screen {
     // ── rendu ────────────────────────────────────────────────────
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
-        g.fill(0, 0, this.width, this.height, 0xB0080406);
-        g.fillGradient(0, 0, this.width, 90, 0x60401016, 0x00000000);
+        g.fill(0, 0, this.width, this.height, 0xA8080406);
+        DaKit.etire(g, fr.reborn.hud.menu.settings.ReglagesArt.VIGNETTE, 0, 0, this.width, this.height, 160, 90, DaKit.blanc(0.9f));
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         layout();
         Font f = this.font;
-        float s = Da.small();
-        Da.header(g, f, this.width / 2, 12, "Galerie", entries.size() + (entries.size() > 1 ? " captures" : " capture"));
-        tab(g, f, "Toutes", this.width / 2 - 64, !onlyFav, mouseX, mouseY);
-        tab(g, f, "Favoris", this.width / 2 + 4, onlyFav, mouseX, mouseY);
-        // fermer
-        int cx = this.width - 24;
-        boolean ch = Da.in(mouseX, mouseY, cx, 10, 14, 14);
-        g.fill(cx, 10, cx + 14, 24, ch ? Da.RED : 0xF00E0A0C);
-        Da.outline(g, cx, 10, 14, 14, ch ? Da.GOLD : Da.GOLD_D);
-        for (int k = -3; k <= 3; k++) {
-            g.fill(cx + 7 + k, 17 + k, cx + 8 + k, 18 + k, Da.CREAM);
-            g.fill(cx + 7 + k, 17 - k, cx + 8 + k, 18 - k, Da.CREAM);
-        }
+        GalerieArt.cartouche(g, f, this.width / 2, 6, "Galerie",
+            entries.size() + (entries.size() > 1 ? " captures" : " capture"));
+        tab(g, f, "Toutes", this.width / 2 - 62, !onlyFav, mouseX, mouseY);
+        tab(g, f, "Favoris", this.width / 2 + 2, onlyFav, mouseX, mouseY);
+        fr.reborn.hud.menu.settings.ReglagesArt.fermer(g, this.width - 24, Da.in(mouseX, mouseY, this.width - 37, 0, 26, 38));
 
         if (entries.isEmpty()) {
-            Da.text(g, f, onlyFav ? "Aucune capture favorite" : "Aucune capture  -  F2 pour photographier",
-                this.width / 2f, this.height / 2f, s, Da.MUTED, 1);
+            DaKit.inter8(g, f, DaKit.inter(onlyFav ? "Aucune capture favorite" : "Aucune capture — F2 pour photographier"),
+                this.width / 2f, this.height / 2f, DaKit.CREME_VAL, 1);
         }
 
         float drop = (1f - ease()) * 24f;
         g.enableScissor(0, gridTop, this.width, gridBottom);
         int hover = -1;
         int firstRow = scrollRow, lastRow = Math.min(rows() - 1, scrollRow + visibleRows());
+        // 1) fils tendus (légère courbe) : un seul élément GUI
+        LotGui fils = LotGui.ouvrir(g);
         for (int r = firstRow; r <= lastRow; r++) {
             int y = gridTop + 8 + (r - scrollRow) * (cellH + ROW_GAP + 8);
-            // fil tendu (légère courbe) + clous
             int x0 = gridX - 16, x1 = gridX + cols * cellW + (cols - 1) * GAP_X + 16;
             for (int x = x0; x < x1; x += 2) {
                 double t = (x - x0) / (double) (x1 - x0);
                 int yy = y - 4 + (int) Math.round(Math.sin(t * Math.PI) * 3);
-                g.fill(x, yy, x + 2, yy + 1, 0xFFC8B496);
+                fils.fill(x, yy, x + 2, yy + 1, 0xFFC8B496);
+                fils.fill(x, yy + 1, x + 2, yy + 2, 0x60000000);
             }
+        }
+        fils.fermer();
+        // 2) passe-partout (un lot), 3) images, 4) liserés et survol (un lot), 5) dates, 6) pinces et cœurs (un lot)
+        java.util.List<int[]> vis = new java.util.ArrayList<>();
+        for (int r = firstRow; r <= lastRow; r++) {
+            int y = gridTop + 8 + (r - scrollRow) * (cellH + ROW_GAP + 8);
             for (int c = 0; c < cols; c++) {
                 int i = r * cols + c;
                 if (i >= entries.size()) break;
-                int x = cellX(i), cy = y + (int) (drop * (1 + c * 0.25f));
-                boolean hov = Da.in(mouseX, mouseY, x, cy, cellW, cellH) && ctxEntry == null && confirmDelete == null;
-                if (hov) hover = i;
-                drawPrint(g, f, entries.get(i), x, cy, hov, mouseX, mouseY);
+                vis.add(new int[]{i, cellX(i), y + (int) (drop * (1 + c * 0.25f))});
             }
         }
+        LotBlit mats = LotBlit.ouvrir(g, GalerieArt.TIRAGE, 192, 132);
+        for (int[] v : vis) GalerieArt.tirage(mats, v[1], v[2], cellW, cellH);
+        mats.fermer();
+        int iw = cellW - 2 * FRAME;
+        for (int[] v : vis) {
+            int ix = v[1] + FRAME, iy = v[2] + FRAME;
+            ScreenshotTextures.Tex t = ScreenshotTextures.thumb(entries.get(v[0]).path());
+            if (t != null) {
+                g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), ix, iy, 0f, 0f, iw, imgH, t.w(), t.h(), t.w(), t.h());
+            } else {
+                g.fill(ix, iy, ix + iw, iy + imgH, 0xFF2A2022);
+            }
+        }
+        LotGui bords = LotGui.ouvrir(g);
+        for (int[] v : vis) {
+            int x = v[1], y = v[2], ix = x + FRAME, iy = y + FRAME;
+            boolean hov = Da.in(mouseX, mouseY, x, y, cellW, cellH) && ctxEntry == null && confirmDelete == null;
+            if (hov) hover = v[0];
+            cadre(bords, ix - 1, iy - 1, iw + 2, imgH + 2, 0xFF96826A);
+            if (hov) cadre(bords, x - 2, y - 2, cellW + 4, cellH + 4, DaKit.ROUGE);
+        }
+        bords.fermer();
+        for (int[] v : vis) {
+            DaKit.inter7(g, f, DaKit.inter(dateOf(entries.get(v[0]))), v[1] + FRAME + 1, v[2] + FRAME + imgH + 6,
+                0xFF64503C, 0);
+        }
+        LotBlit pp = LotBlit.ouvrir(g, GalerieArt.PIECES, 136, 48);
+        for (int[] v : vis) {
+            int x = v[1], y = v[2];
+            boolean on = ScreenshotLibrary.isFavorite(entries.get(v[0]).name());
+            boolean hh = Da.in(mouseX, mouseY, x + cellW - FRAME - 12, y + FRAME + imgH + 1, 14, 11);
+            pp.blit(x + cellW - FRAME - 9, y + FRAME + imgH + 3, on ? 28 : hh ? 20 : 12, 0, 7, 6);
+            pp.blit(x + cellW / 2 - 4, y - 8, 0, 0, 9, 16);
+        }
+        pp.fermer();
         g.disableScissor();
         if (hover != lastHover) { if (hover >= 0) RebornSounds.playReborn("esc.hover", 1.2f, 0.12f); lastHover = hover; }
 
@@ -148,53 +180,28 @@ public class GalleryScreen extends Screen {
         if (maxScroll() > 0) {
             int th = gridBottom - gridTop, bh = Math.max(16, th * visibleRows() / Math.max(1, rows()));
             int by = gridTop + (th - bh) * scrollRow / maxScroll();
-            g.fill(this.width - 8, gridTop, this.width - 7, gridBottom, 0x40C8B496);
-            g.fill(this.width - 9, by, this.width - 6, by + bh, Da.GOLD_D);
+            LotGui a = LotGui.ouvrir(g);
+            a.fill(this.width - 8, gridTop, this.width - 7, gridBottom, 0x40C8B496);
+            a.fill(this.width - 9, by, this.width - 6, by + bh, DaKit.OR_ETEINT);
+            a.fermer();
         }
 
         if (ctxEntry != null) drawContext(g, f, mouseX, mouseY);
         if (confirmDelete != null) drawConfirm(g, f, mouseX, mouseY);
-        Da.hint(g, f, this.width, this.height, "Clic : agrandir     Clic droit : actions     Molette : defiler");
+        DaKit.aides(g, f, fr.reborn.hud.menu.settings.ReglagesArt.PIECES, 0, 0, 120, 40,
+            new String[][]{{"Clic", "agrandir"}, {"Clic droit", "actions"}, {"Molette", "défiler"}}, this.width - 14,
+            this.height - 10, 1f);
+    }
+
+    private static void cadre(LotGui l, int x, int y, int w, int h, int c) {
+        l.fill(x, y, x + w, y + 1, c); l.fill(x, y + h - 1, x + w, y + h, c);
+        l.fill(x, y, x + 1, y + h, c); l.fill(x + w - 1, y, x + w, y + h, c);
     }
 
     private void tab(GuiGraphicsExtractor g, Font f, String label, int x, boolean sel, int mx, int my) {
-        g.fill(x + 30, 40, x + 31, 46, Da.CORD);
-        Da.plate(g, f, x, 46 + (sel ? 2 : 0), 60, 13, label, sel, Da.in(mx, my, x, 46, 60, 15), true);
-    }
-
-    /** Tirage : passe-partout crème, image, bandeau date + cœur, pince en bois. */
-    private void drawPrint(GuiGraphicsExtractor g, Font f, Entry e, int x, int y, boolean hov, int mx, int my) {
-        g.fill(x + 2, y + 3, x + cellW + 2, y + cellH + 3, 0x80000000);
-        g.fill(x, y, x + cellW, y + cellH, 0xFFF4EEDC);
-        if (hov) Da.outline(g, x - 1, y - 1, cellW + 2, cellH + 2, Da.RED);
-        int ix = x + FRAME, iy = y + FRAME, iw = cellW - 2 * FRAME;
-        ScreenshotTextures.Tex t = ScreenshotTextures.thumb(e.path());
-        if (t != null) {
-            g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), ix, iy, 0f, 0f, iw, imgH, t.w(), t.h(), t.w(), t.h());
-        } else {
-            g.fill(ix, iy, ix + iw, iy + imgH, 0xFF2A2022);
-            int dots = (int) (System.currentTimeMillis() / 300 % 4);
-            Da.text(g, f, ".".repeat(dots), ix + iw / 2f, iy + imgH / 2f - 3, 1f, Da.MUTED, 1);
-        }
-        Da.outline(g, ix - 1, iy - 1, iw + 2, imgH + 2, 0xFF96826A);
-        float s = Da.small();
-        Da.text(g, f, dateOf(e), x + FRAME + 1, y + FRAME + imgH + 3, s, 0xFF64503C, 0);
-        heart(g, x + cellW - FRAME - 9, y + FRAME + imgH + 3, ScreenshotLibrary.isFavorite(e.name()),
-            Da.in(mx, my, x + cellW - FRAME - 12, y + FRAME + imgH + 1, 14, 11));
-        // pince
-        int px = x + cellW / 2 - 3;
-        g.fill(px, y - 7, px + 7, y + 6, 0xFFB0804F);
-        Da.outline(g, px, y - 7, 7, 13, 0xFF6E4828);
-        g.fill(px + 3, y - 7, px + 4, y + 6, 0xFF6E4828);
-    }
-
-    private static void heart(GuiGraphicsExtractor g, int x, int y, boolean on, boolean hov) {
-        String[] rows = on ? new String[]{"0110110", "1111111", "1111111", "0111110", "0011100", "0001000"}
-                           : new String[]{"0110110", "1001001", "1000001", "0100010", "0010100", "0001000"};
-        int c = on ? Da.RED : (hov ? Da.RED : 0xFF96826A);
-        for (int j = 0; j < rows.length; j++)
-            for (int i = 0; i < 7; i++)
-                if (rows[j].charAt(i) == '1') g.fill(x + i, y + j, x + i + 1, y + j + 1, c);
+        boolean hov = Da.in(mx, my, x, 46, 60, 16);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(g, x, 46, 58, sel ? 2 : hov ? 1 : 0);
+        DaKit.inter8(g, f, DaKit.inter(label), x + 29, 54, sel ? DaKit.CREME : hov ? DaKit.CREME_VAL : DaKit.NEUTRE_TXT, 1);
     }
 
     /** « 04/10 17:43 » depuis le nom de fichier Minecraft, sinon la date de modification. */
@@ -206,30 +213,37 @@ public class GalleryScreen extends Screen {
 
     private static final String[] CTX = { "Ouvrir", "Favori", "Supprimer", "Dossier" };
 
-    private int ctxW() { return 104; }
+    private int ctxW() { return 112; }
 
     private void drawContext(GuiGraphicsExtractor g, Font f, int mx, int my) {
         int w = ctxW(), h = CTX.length * 14 + 8;
         int x = Math.min(ctxX, this.width - w - 4), y = Math.min(ctxY, this.height - h - 4);
-        Da.panel(g, x, y, w, h);
-        float s = Da.small();
+        GalerieArt.boite(g, x, y, w, h);
         for (int i = 0; i < CTX.length; i++) {
             int iy = y + 4 + i * 14;
             boolean hov = Da.in(mx, my, x, iy, w, 14);
-            if (hov) { g.fill(x + 4, iy + 1, x + w - 4, iy + 13, Da.RED); g.fill(x + 4, iy + 1, x + 6, iy + 13, Da.GOLD); }
+            if (hov) GalerieArt.ligne(g, x + 4, iy, w - 8);
             String label = i == 1 && ScreenshotLibrary.isFavorite(ctxEntry.name()) ? "Retirer des favoris" : CTX[i];
-            Da.text(g, f, label, x + 11, iy + 4, s, hov ? Da.CREAM : (i == 2 ? 0xFFE6826E : Da.MUTED), 0);
+            DaKit.inter8(g, f, DaKit.inter(label), x + 11, iy + 7, hov ? DaKit.CREME : (i == 2 ? DaKit.ROUGE_CLAIR : DaKit.CREME_VAL), 0);
         }
     }
 
     private void drawConfirm(GuiGraphicsExtractor g, Font f, int mx, int my) {
         g.fill(0, 0, this.width, this.height, 0x90000000);
         int w = 200, h = 64, x = (this.width - w) / 2, y = (this.height - h) / 2;
-        Da.panel(g, x, y, w, h);
-        Da.text(g, f, "Supprimer cette capture ?", x + w / 2f, y + 12, Da.small(), Da.CREAM, 1);
-        Da.text(g, f, dateOf(confirmDelete), x + w / 2f, y + 22, Da.small(), Da.MUTED, 1);
-        Da.plate(g, f, x + 20, y + 38, 74, 15, "Annuler", false, Da.in(mx, my, x + 20, y + 38, 74, 15), true);
-        Da.plate(g, f, x + w - 94, y + 38, 74, 15, "Supprimer", true, Da.in(mx, my, x + w - 94, y + 38, 74, 15), true);
+        GalerieArt.boite(g, x, y, w, h);
+        DaKit.inter9(g, f, DaKit.inter("Supprimer cette capture ?"), x + w / 2f, y + 14, DaKit.CREME, 1);
+        DaKit.inter7(g, f, DaKit.inter(dateOf(confirmDelete)), x + w / 2f, y + 26, DaKit.DOUX, 1);
+        confirmerBoutons(g, f, x, y, w, mx, my);
+    }
+
+    /** Boutons Annuler / Supprimer d'une confirmation (planche 200×64 en x, y). */
+    static void confirmerBoutons(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my) {
+        boolean h1 = Da.in(mx, my, x + 20, y + 38, 74, 15), h2 = Da.in(mx, my, x + w - 94, y + 38, 74, 15);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(g, x + 20, y + 38, 74, h1 ? 1 : 0);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(g, x + w - 94, y + 38, 74, 2);
+        DaKit.inter8(g, f, DaKit.inter("Annuler"), x + 57, y + 46, h1 ? DaKit.CREME : DaKit.CREME_VAL, 1);
+        DaKit.inter8(g, f, DaKit.inter("Supprimer"), x + w - 57, y + 46, h2 ? DaKit.CREME : DaKit.CREME_VAL, 1);
     }
 
     // ── interactions ─────────────────────────────────────────────
@@ -252,9 +266,9 @@ public class GalleryScreen extends Screen {
             ctxEntry = null;
             return true;
         }
-        if (Da.in(mx, my, this.width - 24, 10, 14, 14)) { onClose(); return true; }
-        if (Da.in(mx, my, this.width / 2 - 64, 46, 60, 15)) { if (onlyFav) { onlyFav = false; refresh(true); click(); } return true; }
-        if (Da.in(mx, my, this.width / 2 + 4, 46, 60, 15)) { if (!onlyFav) { onlyFav = true; refresh(true); click(); } return true; }
+        if (Da.in(mx, my, this.width - 37, 0, 26, 38)) { onClose(); return true; }
+        if (Da.in(mx, my, this.width / 2 - 62, 46, 58, 16)) { if (onlyFav) { onlyFav = false; refresh(true); click(); } return true; }
+        if (Da.in(mx, my, this.width / 2 + 2, 46, 58, 16)) { if (!onlyFav) { onlyFav = true; refresh(true); click(); } return true; }
 
         int idx = cellAt(mx, my);
         if (idx >= 0) {

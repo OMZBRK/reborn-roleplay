@@ -110,7 +110,8 @@ public final class ShinobiAbilities extends JavaPlugin {
                 servicesManager.load(com.reborn.shinobicore.api.KoService.class),
                 servicesManager.load(com.reborn.shinobicore.api.MobilityService.class),
                 servicesManager.load(com.reborn.shinobicore.api.HudService.class),
-                servicesManager.load(com.reborn.shinobicore.api.ItemGiveService.class));
+                servicesManager.load(com.reborn.shinobicore.api.ItemGiveService.class),
+                servicesManager.load(com.reborn.shinobicore.api.InventoryService.class));
         this.guiRouter = new GuiRouter(core);
 
         // 1. Config + technique catalog. The registry CODE is engine-owned

@@ -35,6 +35,9 @@ Contrat (coordonnées = unités de la scène) :
 - infobulle.png 176×80 : washi 168×72 en (2, 2) (coupe, capD = capB = 10).
 - halo.png 48×48 : halo en crans pleins (blanc, l'alpha porte le niveau), teint au blit.
 - fusuma_l.png / fusuma_r.png 320×360 : portes coulissantes de l'ouverture.
+- logo.png 150×52 : logo Reborn Roleplay en pixel art à l'échelle de la scène (posé en (32, 148)), refait depuis
+  le logo HD textures/gui/title/logo.png : chaque texel prend la matière dominante de sa case (contour, face,
+  arête claire, flanc), aplats d'une rampe courte, sans demi-teinte d'alpha ; badge BETA redessiné (lettres 3×5).
 
 Déterminisme : graines fixes ; deux exécutions écrivent les mêmes octets.
 """
@@ -46,7 +49,7 @@ import random
 import sys
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ecrans_art as ea  # noqa: E402
@@ -876,7 +879,92 @@ def fusuma(cote):
     S.sauver(f"fusuma_{'l' if cote == 0 else 'r'}.png", im, (w, h))
 
 
+LOGO_HD = os.path.join(ea.TEX, "title", "logo.png")
+LOGO_W, LOGO_H = 150, 52
+# matières du logo HD (couleurs relevées sur le PNG) → aplats pixel art
+LOGO_REF = {
+    "contour": [(30, 3, 4), (7, 1, 1), (16, 0, 0), (0, 0, 0), (48, 0, 0)],
+    "flanc": [(112, 29, 21), (96, 0, 0), (96, 16, 16)],
+    "face": [(150, 47, 42), (143, 45, 32), (147, 47, 33), (155, 47, 37)],
+    "arete": [(240, 97, 81), (240, 80, 80)],
+    "badge": [(224, 16, 16), (208, 16, 16)],
+    "blanc": [(240, 240, 240)],
+}
+LOGO_POIDS = {"contour": 1.0, "flanc": 1.15, "face": 1.0, "arete": 2.0, "badge": 1.0, "blanc": 1.0}
+LOGO_COL = {"contour": "1E0608", "flanc": "6C1A16", "arete": "EE604E", "face_sombre": "8E2A24", "face": "A0342C"}
+BETA_3X5 = {"B": ("##.", "#.#", "##.", "#.#", "##."), "E": ("###", "#..", "##.", "#..", "###"),
+            "T": ("###", ".#.", ".#.", ".#.", ".#."), "A": (".#.", "#.#", "###", "#.#", "#.#")}
+
+
+def logo():
+    """Logo Reborn Roleplay en pixel art (150×52) : réduction par matière dominante du logo HD."""
+    src = np.asarray(Image.open(LOGO_HD).convert("RGBA")).astype(float)
+    rgb, al = src[..., :3], src[..., 3] / 255
+    noms = list(LOGO_REF)
+    d = np.full(rgb.shape[:2] + (len(noms),), 1e9)
+    for i, n in enumerate(noms):
+        for c in LOGO_REF[n]:
+            d[..., i] = np.minimum(d[..., i], ((rgb - np.array(c, float)) ** 2).sum(-1))
+    cls = d.argmin(-1)
+
+    def case(m):   # couverture moyenne de chaque texel cible (boîte)
+        im8 = Image.fromarray(np.clip(m * 255, 0, 255).astype(np.uint8), "L")
+        return np.asarray(im8.resize((LOGO_W, LOGO_H), Image.BOX)).astype(float) / 255
+
+    acov = case(al)
+    cov = np.stack([case((cls == i) * al) * LOGO_POIDS[n] for i, n in enumerate(noms)], -1)
+    pick = cov.argmax(-1)
+    # face : deux crans d'après la luminance moyenne de la face dans la case (lissée 3×3)
+    lum = case((cls == noms.index("face")) * al * rgb.mean(-1) / 255)
+    fc = np.where(cov[..., 2] > 0, lum / np.maximum(cov[..., 2], 1e-6), 0.3)
+    fc = np.asarray(Image.fromarray((fc * 255).astype(np.uint8), "L").filter(ImageFilter.MedianFilter(3))
+                    ).astype(float) / 255
+    p = np.zeros((LOGO_H, LOGO_W, 4), np.uint8)
+    for y in range(LOGO_H):
+        for x in range(LOGO_W):
+            if acov[y, x] < 0.5:
+                continue
+            n = noms[pick[y, x]]
+            if n == "face":
+                c = LOGO_COL["face_sombre"] if fc[y, x] < 0.285 else LOGO_COL["face"]
+            elif n in ("badge", "blanc"):
+                c = LOGO_COL["face"]          # le badge est redessiné ci-dessous
+            else:
+                c = LOGO_COL[n]
+            p[y, x] = hexc(c)[:3] + (255,)
+    # ménage : un texel de face ou d'arête isolé (aucun voisin de sa couleur) prend la couleur dominante autour
+    contour = np.array(hexc(LOGO_COL["contour"])[:3])
+    q = p.copy()
+    for y in range(1, LOGO_H - 1):
+        for x in range(1, LOGO_W - 1):
+            c = p[y, x]
+            if c[3] == 0 or (c[:3] == contour).all():
+                continue
+            vs = [tuple(p[y + dy, x + dx]) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+            if tuple(c) in vs:
+                continue
+            vs = [v for v in vs if v[3] and not (np.array(v[:3]) == contour).all()]
+            if vs:
+                q[y, x] = max(set(vs), key=vs.count)
+    im = Image.fromarray(q, "RGBA")
+    # badge BETA : plaque rouge 27×9 en (62, 43), contour, arête claire, flanc ; lettres 3×5 blanches
+    bx, by, bw, bh = 62, 43, 27, 9
+    rect(im, bx, by, bw, bh, hexc("1E0608"))
+    rect(im, bx + 1, by + 1, bw - 2, bh - 2, hexc("D21E22"))
+    rect(im, bx + 1, by + 1, bw - 2, 1, hexc("F2585A"))
+    rect(im, bx + 1, by + bh - 2, bw - 2, 1, hexc("8E1014"))
+    x = bx + (bw - 15) // 2
+    for ch in "BETA":
+        for j, row in enumerate(BETA_3X5[ch]):
+            for i, c in enumerate(row):
+                if c == "#":
+                    rect(im, x + i, by + 2 + j, 1, 1, hexc("F6EEE2"))
+        x += 4
+    S.sauver("logo.png", im, (LOGO_W, LOGO_H))
+
+
 def main():
+    logo()
     ciel, toits = ciel_fenetre()
     S.sauver("piece.png", piece_etendue(piece(ciel)), (EW, EH))
     fen = nouveau(224, 112)

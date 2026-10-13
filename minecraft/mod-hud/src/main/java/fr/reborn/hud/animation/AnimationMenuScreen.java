@@ -1,21 +1,22 @@
 package fr.reborn.hud.animation;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.ui.DaKit;
+import fr.reborn.hud.ui.LotBlit;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Menu d'actions Reborn — DA « mur de dojo » : linteau doré, onglets laqués
- * ({@code ANIMATIONS} / {@code OPTIONS}) et rangées en plaques nominatives de bois
- * suspendues (curseur ► vermillon au survol). Le monde reste visible ; aperçu du perso
- * à droite. Remplace l'ancien {@code WalkStyleScreen}.
+ * Menu des mouvements Reborn, au niveau de la fiche shinobi (DA §4.1, §6), version épurée. Signature :
+ * l'<b>éventail</b> (sensu) entrouvert à cheval sur le haut de la planche laquée ; onglets en plaques segmentées
+ * ({@code Animations} / {@code Options}), lignes laquées sobres (bande vermillon pour le choix en cours), marqueurs
+ * pixel art. Le monde reste visible ; aperçu du perso à droite. Décor : {@code textures/gui/animations/*}.
  *
  * <p>Contenu actuel :
  * <ul>
@@ -39,13 +40,13 @@ public class AnimationMenuScreen extends Screen {
 
     /** Fenêtre de défilement de la liste d'emotes (onglet ANIMATIONS). */
     private int emoteScroll = 0;
-    private static final int MAX_EMOTE_ROWS = 10;
+    private static final int MAX_EMOTE_ROWS = 9;
 
     private static final int PANEL_X = 28;
-    private static final int PANEL_W = 244;
-    private static final int TAB_H = 26;
-    private static final int ROW_H = 24;
-    private static final int HEADER_H = 16;
+    private static final int PANEL_W = 220;
+    private static final int TAB_H = 24;
+    private static final int ROW_H = 20;
+    private static final int HEADER_H = 42;
 
     /** Une rangée : label + marqueur optionnel (●/○) + action + style placeholder. */
     private record Row(String label, String marker, boolean placeholder, Runnable action) {}
@@ -71,10 +72,10 @@ public class AnimationMenuScreen extends Screen {
 
     // ─── Géométrie ───
     private int rowCount() { return rows().size(); }
-    private int panelH() { return HEADER_H + TAB_H + rowCount() * ROW_H + 12; }
-    private int panelY() { return Math.max(24, (this.height - panelH()) / 2); }
+    private int panelH() { return Math.min(340, HEADER_H + TAB_H + rowCount() * ROW_H + 12); }
+    private int panelY() { return Math.max(40, (this.height - panelH()) / 2 + 8); }
     private int tabsY() { return panelY() + HEADER_H; }
-    private int firstRowY() { return tabsY() + TAB_H + 6; }
+    private int firstRowY() { return tabsY() + TAB_H; }
 
     private List<Row> rows() {
         List<Row> r = new ArrayList<>();
@@ -121,46 +122,57 @@ public class AnimationMenuScreen extends Screen {
         return r;
     }
 
-    // ─── DA Reborn : mur de dojo, plaques nominatives suspendues (nafudakake) ───
-    private static final int WOOD = 0xE6462C1A, WOOD_LINE = 0xE63A2414, BEAM = 0xFF28180E, GOLD = 0xFFF6CC78,
-        GOLD_D = 0xFFAA8034, CREAM = 0xFFFAEED6, PLATE = 0xFFCEB488, PLATE_HI = 0xFFECD6AA, PLATE_OFF = 0xFFA89474,
-        PLATE_EDGE = 0xFF6E4A28, INK = 0xFF46280F, INK_RED = 0xFF8C1C20, INK_MUTED = 0xFF7A6448;
+    // ─── DA : l'éventail (sensu) sur la planche laquée (tools/gen_animations_textures.py) ───
+    private static Identifier tex(String n) { return DaKit.tex("animations", n); }
+
+    private static final Identifier PANNEAU = tex("panneau"), EVENTAIL = tex("eventail"), LIGNES = tex("lignes"),
+        PIECES = tex("pieces");
     private int hoveredRow = -1;
 
-    /** Le monde reste visible : simple voile, plus dense à gauche derrière le mur de dojo. */
+    /** Le monde reste visible : simple voile et vignette. */
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        ctx.fill(0, 0, this.width, this.height, 0x3008040C);
-        DrawHelpers.horizontalGradient(ctx, 0, 0, PANEL_X + PANEL_W + 80, this.height, 0x80080408, 0x00000000);
-        int py = panelY(), ph = panelH();
-        ctx.fill(PANEL_X + 2, py + 3, PANEL_X + PANEL_W + 2, py + ph + 3, 0x70000000);
-        ctx.fill(PANEL_X, py, PANEL_X + PANEL_W, py + ph, WOOD);
-        for (int x = PANEL_X + 6; x < PANEL_X + PANEL_W; x += 6) ctx.fill(x, py + 2, x + 1, py + ph - 2, WOOD_LINE);
-        outline(ctx, PANEL_X, py, PANEL_W, ph, 0xFF1E120A);
-        ctx.fill(PANEL_X - 6, py - 8, PANEL_X + PANEL_W + 6, py + 4, BEAM);
-        outline(ctx, PANEL_X - 6, py - 8, PANEL_W + 12, 12, GOLD_D);
+        ctx.fill(0, 0, this.width, this.height, 0x2408040C);
+        DaKit.etire(ctx, fr.reborn.hud.menu.settings.ReglagesArt.VIGNETTE, 0, 0, this.width, this.height, 160, 90,
+            DaKit.blanc(0.7f));
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         super.extractRenderState(ctx, mouseX, mouseY, delta);
-        int py = panelY();
-        Component title = RebornFont.arcade("MENU REBORN");
-        ctx.text(this.font, title, PANEL_X + (PANEL_W - this.font.width(title)) / 2, py - 6, GOLD, false);
+        Font f = this.font;
+        int py = panelY(), ph = panelH();
+        DaKit.coupe(ctx, PANNEAU, PANEL_X - 2, py - 2, PANEL_W + 8, ph + 8, 0, 0, 228, 348, 18, 18, 228, 348);
+        DaKit.blit(ctx, EVENTAIL, PANEL_X + PANEL_W / 2 - 66, py + 20 - 58, 0, 0, 132, 64, 132, 64);
+        DaKit.arcX1(ctx, f, DaKit.arcade("Mouvements"), PANEL_X + PANEL_W / 2f, py + 28, DaKit.OR_CLAIR, 1, true);
 
-        int tabW = (PANEL_W - 24) / 2;
-        drawTab(ctx, PANEL_X + 8, tabsY(), tabW, "ANIMATIONS", section == Section.ANIMATIONS, mouseX, mouseY);
-        drawTab(ctx, PANEL_X + 16 + tabW, tabsY(), tabW, "OPTIONS", section == Section.OPTIONS, mouseX, mouseY);
+        int tabW = (PANEL_W - 2 * 14 + 2) / 2;
+        drawTab(ctx, f, PANEL_X + 14, tabsY(), tabW - 2, "Animations", section == Section.ANIMATIONS, mouseX, mouseY);
+        drawTab(ctx, f, PANEL_X + 14 + tabW, tabsY(), tabW - 2, "Options", section == Section.OPTIONS, mouseX, mouseY);
 
         List<Row> rows = rows();
         int y = firstRowY();
         int hov = -1;
+        LotBlit marq = LotBlit.ouvrir(ctx, PIECES, 64, 16);
         for (int i = 0; i < rows.size(); i++) {
-            boolean hovered = mouseX >= PANEL_X && mouseX < PANEL_X + PANEL_W && mouseY >= y && mouseY < y + ROW_H;
+            Row row = rows.get(i);
+            boolean hovered = mouseX >= PANEL_X + 8 && mouseX < PANEL_X + PANEL_W - 8 && mouseY >= y && mouseY < y + ROW_H;
             if (hovered) hov = i;
-            renderRow(ctx, rows.get(i), y, hovered);
+            boolean live = !row.placeholder();
+            boolean choisi = "●".equals(row.marker());
+            if ((hovered && live) || choisi) {
+                DaKit.coupeH(ctx, LIGNES, PANEL_X + 8, y + 1, PANEL_W - 16 + 2, 0, choisi ? 20 : 0, 208, 20, 6, 208, 40);
+            }
+            int col = !live ? DaKit.INACTIF : hovered || choisi ? DaKit.CREME : DaKit.CREME_VAL;
+            DaKit.inter9(ctx, f, DaKit.inter(libelle(row)), PANEL_X + 20, y + ROW_H / 2f, col, 0);
+            if (!live && !row.label().startsWith("Aucune")) {
+                DaKit.inter7(ctx, f, DaKit.inter("bientôt"), PANEL_X + PANEL_W - 18, y + ROW_H / 2f, DaKit.INACTIF, 2);
+            }
+            int u = marqueur(row);
+            if (u >= 0) marq.blit(PANEL_X + PANEL_W - 24, y + (ROW_H - 7) / 2, u, 0, 7, 7);
             y += ROW_H;
         }
+        marq.fermer();
         if (hov != hoveredRow) {
             hoveredRow = hov;
             if (hov >= 0) fr.reborn.hud.menu.RebornSounds.playReborn("sacoche.hover", 1.1f, 0.2f);
@@ -174,58 +186,40 @@ public class AnimationMenuScreen extends Screen {
             net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(ctx,
                 x0, y0, x1, y1, 70, 0.0f, mouseX, (y0 + y1) / 2f, mc.player);
         }
-        hint(ctx, "CLIC : CHOISIR     MOLETTE : DEFILER     ECHAP : FERMER");
+        DaKit.aides(ctx, f, fr.reborn.hud.menu.settings.ReglagesArt.PIECES, 0, 0, 120, 40,
+            new String[][]{{"Clic", "choisir"}, {"Molette", "défiler"}, {"Échap", "fermer"}}, this.width - 12,
+            this.height - 10, 1f);
     }
 
-    private void drawTab(GuiGraphicsExtractor ctx, int x, int y, int w, String label, boolean active, int mx, int my) {
-        boolean hovered = mx >= x && mx < x + w && my >= y && my < y + TAB_H - 6;
-        ctx.fill(x + 1, y + 2, x + w + 1, y + TAB_H - 4, 0x70000000);
-        ctx.fill(x, y, x + w, y + TAB_H - 6, active ? 0xFFAA1E22 : (hovered ? 0xFF4A2830 : 0xFF3C1E24));
-        outline(ctx, x, y, w, TAB_H - 6, active ? GOLD : 0xFF6E4646);
-        Component t = RebornFont.arcade(label);
-        ctx.text(this.font, t, x + (w - this.font.width(t)) / 2, y + (TAB_H - 6 - 8) / 2,
-            active ? CREAM : 0xFFC8B4A0, false);
+    /** Libellé sans les symboles (dessinés en marqueurs pixel art). */
+    private static String libelle(Row row) {
+        String l = row.label();
+        if (l.startsWith("‹ ") || l.startsWith("▲ ") || l.startsWith("▼ ")) return l.substring(2);
+        return l;
     }
 
-    /** Plaque nominative en bois clair suspendue à deux clous dorés. */
-    private void renderRow(GuiGraphicsExtractor ctx, Row row, int y, boolean hovered) {
-        int x0 = PANEL_X + 12, x1 = PANEL_X + PANEL_W - 12, top = y + 2, bot = y + ROW_H - 2;
-        boolean live = !row.placeholder();
-        ctx.fill(x0 + 18, top - 1, x0 + 20, top, GOLD); ctx.fill(x1 - 20, top - 1, x1 - 18, top, GOLD);
-        ctx.fill(x0, top, x1, bot, !live ? PLATE_OFF : hovered ? PLATE_HI : PLATE);
-        outline(ctx, x0, top, x1 - x0, bot - top, hovered && live ? GOLD : PLATE_EDGE);
-        if (hovered && live) drawArrow(ctx, x0 + 5, y + (ROW_H - 8) / 2, INK_RED);
-        int color = !live ? INK_MUTED : (hovered ? INK_RED : INK);
-        ctx.text(this.font, RebornFont.arcade(row.label()), x0 + 16, y + (ROW_H - 8) / 2, color, false);
+    /** Abscisse du marqueur de ligne dans pieces.png (−1 = aucun). */
+    private static int marqueur(Row row) {
         if (row.marker() != null) {
-            Component m = RebornFont.arcade(row.marker());
-            int mw = this.font.width(m);
-            ctx.text(this.font, m, x1 - 8 - mw, y + (ROW_H - 8) / 2, "●".equals(row.marker()) ? INK_RED : INK_MUTED, false);
+            return switch (row.marker()) {
+                case "●" -> 0;
+                case "○" -> 8;
+                case "▸" -> 16;
+                case "■" -> 24;
+                default -> -1;
+            };
         }
+        if (row.label().startsWith("‹")) return 32;
+        if (row.label().startsWith("▲")) return 40;
+        if (row.label().startsWith("▼")) return 48;
+        return -1;
     }
 
-    private void drawArrow(GuiGraphicsExtractor ctx, int x, int y, int color) {
-        for (int i = 0; i < 8; i++) {
-            int half = Math.min(i, 7 - i);
-            ctx.fill(x, y + i, x + half + 1, y + i + 1, color);
-        }
-    }
-
-    private void hint(GuiGraphicsExtractor ctx, String s) {
-        Component c = RebornFont.arcade(s);
-        int w = Math.round(this.font.width(c) * 0.75f) + 24, x = (this.width - w) / 2, y = this.height - 16;
-        ctx.fill(x, y, x + w, y + 12, 0xF0EADCB6);
-        outline(ctx, x, y, w, 12, 0xFF8C6E48);
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x + 12, y + 3);
-        ctx.pose().scale(0.75f, 0.75f);
-        ctx.text(this.font, c, 0, 0, 0xFF503C28, false);
-        ctx.pose().popMatrix();
-    }
-
-    private static void outline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
-        ctx.fill(x, y, x + w, y + 1, c); ctx.fill(x, y + h - 1, x + w, y + h, c);
-        ctx.fill(x, y, x + 1, y + h, c); ctx.fill(x + w - 1, y, x + w, y + h, c);
+    private void drawTab(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, String label, boolean active, int mx, int my) {
+        boolean hovered = mx >= x && mx < x + w && my >= y && my < y + 16;
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, x, y, w, active ? 2 : hovered ? 1 : 0);
+        DaKit.inter8(ctx, f, DaKit.inter(label), x + w / 2f, y + 8,
+            active ? DaKit.CREME : hovered ? DaKit.CREME_VAL : DaKit.NEUTRE_TXT, 1);
     }
 
     @Override
@@ -233,10 +227,10 @@ public class AnimationMenuScreen extends Screen {
         double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0) {
             // Onglets.
-            int tabW = (PANEL_W - 24) / 2;
+            int tabW = (PANEL_W - 2 * 14 + 2) / 2;
             int ty = tabsY();
-            if (mouseY >= ty && mouseY < ty + TAB_H - 6 && mouseX >= PANEL_X + 8 && mouseX < PANEL_X + PANEL_W - 8) {
-                Section s = mouseX < PANEL_X + 12 + tabW ? Section.ANIMATIONS : Section.OPTIONS;
+            if (mouseY >= ty && mouseY < ty + 16 && mouseX >= PANEL_X + 14 && mouseX < PANEL_X + PANEL_W - 14) {
+                Section s = mouseX < PANEL_X + 14 + tabW ? Section.ANIMATIONS : Section.OPTIONS;
                 if (s != section) {
                     section = s; sub = Sub.NONE; emoteScroll = 0;
                     fr.reborn.hud.menu.RebornSounds.playReborn("sacoche.tier", 1.1f, 0.4f);
@@ -247,7 +241,7 @@ public class AnimationMenuScreen extends Screen {
             List<Row> rows = rows();
             int y = firstRowY();
             for (Row row : rows) {
-                if (mouseX >= PANEL_X && mouseX < PANEL_X + PANEL_W && mouseY >= y && mouseY < y + ROW_H) {
+                if (mouseX >= PANEL_X + 8 && mouseX < PANEL_X + PANEL_W - 8 && mouseY >= y && mouseY < y + ROW_H) {
                     if (!row.placeholder()) {
                         fr.reborn.hud.menu.RebornSounds.playReborn("sacoche.place", 1.0f, 0.45f);
                         row.action().run();

@@ -61,7 +61,6 @@ public final class MapItem {
 
     /** Donne la carte (barre d'action / inventaire, sinon au sol). */
     public static void give(JavaPlugin plugin, Player p, MapDef def) {
-        p.getInventory().addItem(create(plugin, def)).values()
-                .forEach(left -> p.getWorld().dropItemNaturally(p.getLocation(), left));
+        com.reborn.shinobicore.inventory.InventoryManager.donner(p, create(plugin, def));
     }
 }

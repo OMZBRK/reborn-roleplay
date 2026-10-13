@@ -86,10 +86,7 @@ public final class CustomItemScreen extends CoreScreen {
             GuiSounds.error(viewer);
             return;
         }
-        var leftover = viewer.getInventory().addItem(res.item());
-        for (ItemStack stuck : leftover.values()) {
-            viewer.getWorld().dropItemNaturally(viewer.getLocation(), stuck);
-        }
+        com.reborn.shinobicore.inventory.InventoryManager.donner(viewer, res.item());   // barre, sac, sol — jamais les cases cachées 9-35
         viewer.sendMessage(Component.text(
                 res.label() + " ajoute a ton inventaire.", NamedTextColor.GREEN));
         GuiSounds.select(viewer);

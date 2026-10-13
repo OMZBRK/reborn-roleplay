@@ -31,7 +31,7 @@ public final class XpCommand implements TabExecutor {
             if (s instanceof Player p) show(s, p);
             return true;
         }
-        Player t = args.length > 1 ? Bukkit.getPlayerExact(args[1]) : null;
+        Player t = args.length > 1 ? com.reborn.shinobicore.character.PlayerIds.online(s, args[1]) : null;
         if (t == null) { s.sendMessage("§cJoueur hors ligne."); return true; }
         switch (sub) {
             case "voir" -> show(s, t);

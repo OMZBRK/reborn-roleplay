@@ -245,6 +245,12 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         return st != null && st.isDowned();
     }
 
+    /** Duel consenti : compte à rebours ou techniques interdites — see {@link com.reborn.shinobicore.duel.DuelService}. */
+    @Override
+    public String techniqueDenial(UUID playerId) {
+        return plugin.duels() != null ? plugin.duels().techniqueDenial(playerId) : null;
+    }
+
     /** ATA (PainRP / FearRP) — see {@link AtaManager}. */
     @Override
     public boolean isImpaired(UUID playerId) {
@@ -548,6 +554,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
             if (c == null) continue;
             if (c.chakra().current() <= 0.0001 && c.chakra().max() > 0.0) {
+                if (plugin.duels() != null && plugin.duels().onChakraOut(p)) continue;
                 if (plugin.trainingZones().isTraining(p)) {
                     plugin.trainingZones().defeat(p, true);
                     continue;

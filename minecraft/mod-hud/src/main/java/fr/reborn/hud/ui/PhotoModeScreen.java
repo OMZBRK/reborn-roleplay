@@ -11,6 +11,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.nio.file.Files;
@@ -18,7 +19,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Mode photo — viseur DA Reborn.
+ * Mode photo — viseur, au niveau de la fiche shinobi (DA §4.1, §6). Signature conservée (elle a plu) : le viseur
+ * (équerres d'angle or et encre, grille des tiers, cercle central) et le déclencheur de laque vermillon cerclé d'or.
+ * Décor : {@code textures/gui/photo/*} ({@code tools/gen_photo_textures.py}).
  * <ul>
  *   <li>Viseur : repères d'angle, grille des tiers en pointillés, cercle central.</li>
  *   <li>Plaque en haut à gauche : sceau 撮, « Mode photo », FOV / inclinaison / vitesse en direct.</li>
@@ -32,7 +35,7 @@ import java.util.Locale;
  */
 public class PhotoModeScreen extends Screen {
 
-    private static final int PW = 96, PH = 214;
+    private static final int PW = 100, PH = 222;
     private static final int HIDE_FRAMES = 6;
     private static final String[] SLIDERS = { "Vitesse", "Champ de vision", "Inclinaison", "Flou" };
     private static final int[] SWATCH = { 0xFFECDCC4, 0xFF96969E, 0xFFD69E70, 0xFF6E8CBE };
@@ -114,11 +117,11 @@ public class PhotoModeScreen extends Screen {
     }
 
     // ── géométrie ────────────────────────────────────────────────
-    private int sliderY(int i) { return pY + 12 + i * 30; }
+    private int sliderY(int i) { return pY + 10 + i * 28; }
     private int sliderX() { return pX + 8; }
     private int sliderW() { return PW - 16; }
     private int swatchY() { return pY + 136; }
-    private int frameY() { return pY + 176; }
+    private int frameY() { return pY + 172; }
     private int resetY() { return pY + 194; }
     private int shutterX() { return this.width / 2; }
     private int shutterY() { return this.height - 44; }
@@ -160,8 +163,9 @@ public class PhotoModeScreen extends Screen {
             g.pose().popMatrix();
             hover = drawBottom(g, f, mouseX, mouseY, hover);
             if (hover != lastHover) { if (hover >= 0) RebornSounds.playReborn("esc.hover", 1.2f, 0.12f); lastHover = hover; }
-            Da.hint(g, f, this.width, this.height,
-                "ZQSD/Espace : voler   Molette : FOV   Maj+molette : incliner   Entree : capturer   " + quitKey() + " : quitter");
+            DaKit.aides(g, f, fr.reborn.hud.menu.settings.ReglagesArt.PIECES, 0, 0, 120, 40, new String[][]{
+                {"ZQSD", "voler"}, {"Molette", "champ"}, {"Maj+molette", "incliner"}, {"Entrée", "capturer"},
+                {quitKey(), "quitter"}}, this.width - 18, this.height - 8, 1f);
         }
 
         // Flash après la capture.
@@ -172,74 +176,75 @@ public class PhotoModeScreen extends Screen {
         }
     }
 
+    private static Identifier tex(String n) { return DaKit.tex("photo", n); }
+
+    private static final Identifier PANNEAU = tex("panneau"), CARTOUCHE = tex("cartouche"), DECLENCHEUR = tex("declencheur"),
+        COINS = tex("coins"), PIECES = tex("pieces");
+
+    /** Viseur : équerres d'angle (un lot de blits), grille des tiers en pointillés et cercle central (un lot d'aplats). */
     private void drawViewfinder(GuiGraphicsExtractor g) {
-        int w = this.width, h = this.height, m = 16, l = 16;
-        int c = 0xFFF4EAD6;
-        int[][] corners = { { m, m, 1, 1 }, { w - m, m, -1, 1 }, { m, h - m, 1, -1 }, { w - m, h - m, -1, -1 } };
-        for (int[] k : corners) {
-            int x = k[0], y = k[1], sx = k[2], sy = k[3];
-            g.fill(Math.min(x, x + l * sx), y - (sy > 0 ? 0 : 1), Math.max(x, x + l * sx), y + (sy > 0 ? 2 : 1), c);
-            g.fill(x - (sx > 0 ? 0 : 1), Math.min(y, y + l * sy), x + (sx > 0 ? 2 : 1), Math.max(y, y + l * sy), c);
-        }
-        // grille des tiers (pointillés)
+        int w = this.width, h = this.height, m = 14;
+        LotBlit c = LotBlit.ouvrir(g, COINS, 64, 16);
+        c.blit(m, m, 0, 0, 16, 16);
+        c.blit(w - m - 16, m, 16, 0, 16, 16);
+        c.blit(m, h - m - 16, 32, 0, 16, 16);
+        c.blit(w - m - 16, h - m - 16, 48, 0, 16, 16);
+        c.fermer();
+        LotGui l = LotGui.ouvrir(g);
         for (int k = 1; k <= 2; k++) {
             int gx = w * k / 3, gy = h * k / 3;
-            for (int y = 0; y < h; y += 3) g.fill(gx, y, gx + 1, y + 1, 0x90FFFFFF);
-            for (int x = 0; x < w; x += 3) g.fill(x, gy, x + 1, gy + 1, 0x90FFFFFF);
+            for (int y = 0; y < h; y += 4) l.fill(gx, y, gx + 1, y + 2, 0x60FFFFFF);
+            for (int x = 0; x < w; x += 4) l.fill(x, gy, x + 2, gy + 1, 0x60FFFFFF);
         }
-        ring(g, w / 2, h / 2, 7, 0xC0FFFFFF);
+        l.fermer();
+        DaKit.blit(g, PIECES, w / 2 - 7, h / 2 - 7, 0, 18, 15, 15, 112, 32);
     }
 
     private void drawPlaque(GuiGraphicsExtractor g, Font f) {
         PhotoMode p = PhotoMode.INSTANCE;
-        int x = 26, y = 24, w = 150, h = 28;
-        Da.panel(g, x, y, w, h);
-        g.fill(x + 4, y + 4, x + 24, y + 24, Da.RED);
-        Da.outline(g, x + 4, y + 4, 20, 20, Da.GOLD);
-        g.text(f, Component.literal("撮"), x + 9, y + 10, Da.CREAM, false);
-        Da.text(g, f, "Mode photo", x + 30, y + 6, Da.title(), Da.CREAM, 0);
-        Da.text(g, f, String.format(Locale.ROOT, "FOV %d - INCL %d - x%.1f",
-                Math.round(p.fov()), Math.round(p.roll()), p.getCameraSpeed() / 0.35f),
-            x + 30, y + 17, Da.small(), Da.GOLD, 0);
+        int x = 24, y = 22;
+        DaKit.blit(g, CARTOUCHE, x - 2, y - 2, 0, 0, 164, 38, 164, 38);
+        DaKit.arcX1(g, f, DaKit.arcade("Mode photo"), x + 32, y + 7, DaKit.OR_CLAIR, 0, true);
+        DaKit.inter7(g, f, DaKit.inter(String.format(Locale.FRANCE, "Champ %d°  ·  inclinaison %d°  ·  ×%.1f",
+            Math.round(p.fov()), Math.round(p.roll()), p.getCameraSpeed() / 0.35f)), x + 32, y + 21, DaKit.CREME_VAL, 0);
     }
 
     /** Panneau droit ; renvoie l'id survolé (-1 = aucun). */
     private int drawPanel(GuiGraphicsExtractor g, Font f, double mx, double my) {
         PhotoMode p = PhotoMode.INSTANCE;
-        float s = Da.small();
         int hover = -1;
-        Da.panel(g, pX, pY, PW, PH);
+        DaKit.blit(g, PANNEAU, pX - 2, pY - 2, 0, 0, 108, 230, 108, 230);
         for (int i = 0; i < SLIDERS.length; i++) {
             int y = sliderY(i), x = sliderX(), w = sliderW();
-            Da.text(g, f, SLIDERS[i], x, y, s, Da.MUTED, 0);
-            Da.text(g, f, sliderText(i), x + w, y, s, Da.GOLD, 2);
-            int ry = y + 12;
-            g.fill(x, ry, x + w, ry + 1, 0xFF6E5A50);
-            int kx = x + Math.round((w - 1) * sliderValue(i));
-            g.fill(x, ry - 1, kx, ry + 1, Da.GOLD);
-            boolean hot = draggingSlider == i || Da.in(mx, my, x - 3, ry - 5, w + 6, 11);
-            g.fill(kx - 2, ry - 4, kx + 3, ry + 4, Da.CREAM);
-            Da.outline(g, kx - 2, ry - 4, 5, 8, hot ? Da.RED_HOV : Da.RED);
+            DaKit.inter7(g, f, DaKit.inter(SLIDERS[i]), x, y + 4, DaKit.CREME_VAL, 0);
+            DaKit.inter7(g, f, DaKit.inter(sliderText(i)), x + w, y + 4, DaKit.OR_CLAIR, 2);
+            boolean hot = draggingSlider == i || Da.in(mx, my, x - 3, y + 6, w + 6, 14);
+            fr.reborn.hud.menu.settings.ReglagesArt.reglette(g, x, y + 11, w, sliderValue(i), hot);
             if (hot) hover = 10 + i;
         }
         // filtres
-        Da.text(g, f, "Filtre", sliderX(), swatchY() - 9, s, Da.MUTED, 0);
+        DaKit.inter7(g, f, DaKit.inter("Filtre"), sliderX(), swatchY() - 7, DaKit.CREME_VAL, 0);
+        LotBlit cad = LotBlit.ouvrir(g, PIECES, 112, 32);
+        LotGui fond = LotGui.ouvrir(g);
         for (int i = 0; i < SWATCH.length; i++) {
-            int x = sliderX() + i * 20, y = swatchY();
-            boolean sel = p.filter() == i, hov = Da.in(mx, my, x, y, 16, 16);
-            g.fill(x, y, x + 16, y + 16, SWATCH[i]);
-            g.fill(x + 1, y + 1, x + 15, y + 2, 0x40FFFFFF);
-            Da.outline(g, x - (sel ? 1 : 0), y - (sel ? 1 : 0), 16 + (sel ? 2 : 0), 16 + (sel ? 2 : 0),
-                sel ? Da.GOLD : hov ? Da.GOLD_D : 0xFF3C3234);
+            int x = sliderX() + i * 22, y = swatchY();
+            boolean sel = p.filter() == i, hov = Da.in(mx, my, x, y, 18, 18);
+            cad.blit(x, y, (sel ? 2 : hov ? 1 : 0) * 20, 0, 18, 18);
+            fond.fill(x + 3, y + 3, x + 15, y + 15, SWATCH[i]);
             if (hov) hover = 20 + i;
         }
-        Da.text(g, f, PhotoMode.FILTER_LABELS[p.filter()], pX + PW / 2f, swatchY() + 22, s, Da.GOLD, 1);
-        boolean fh = Da.in(mx, my, sliderX(), frameY(), sliderW(), 13);
-        Da.plate(g, f, sliderX(), frameY(), sliderW(), 13, "Cadre : " + PhotoMode.FRAMES[p.frame()] + "  >",
-            p.frame() > 0, fh, true);
-        boolean rh = Da.in(mx, my, sliderX(), resetY(), sliderW(), 13);
-        Da.plate(g, f, sliderX(), resetY(), sliderW(), 13, "Recentrer", false, rh, true);
-        if (fh) hover = 30; if (rh) hover = 31;
+        cad.fermer();
+        fond.fermer();
+        DaKit.inter7(g, f, DaKit.inter(PhotoMode.FILTER_LABELS[p.filter()]), pX + PW / 2f, swatchY() + 25, DaKit.OR_CLAIR, 1);
+        boolean fh = Da.in(mx, my, sliderX(), frameY(), sliderW(), 16);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(g, sliderX(), frameY(), sliderW(), p.frame() > 0 ? 2 : fh ? 1 : 0);
+        DaKit.inter7(g, f, DaKit.inter("Cadre : " + PhotoMode.FRAMES[p.frame()]), sliderX() + sliderW() / 2f, frameY() + 8,
+            fh || p.frame() > 0 ? DaKit.CREME : DaKit.CREME_VAL, 1);
+        boolean rh = Da.in(mx, my, sliderX(), resetY(), sliderW(), 16);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(g, sliderX(), resetY(), sliderW(), rh ? 1 : 0);
+        DaKit.inter7(g, f, DaKit.inter("Recentrer"), sliderX() + sliderW() / 2f, resetY() + 8, rh ? DaKit.CREME : DaKit.CREME_VAL, 1);
+        if (fh) hover = 30;
+        if (rh) hover = 31;
         return hover;
     }
 
@@ -247,39 +252,23 @@ public class PhotoModeScreen extends Screen {
         // déclencheur
         int cx = shutterX(), cy = shutterY();
         boolean sh = dist(mx, my, cx, cy) <= 15;
-        disc(g, cx + 1, cy + 2, 15, 0x70000000);
-        disc(g, cx, cy, 15, Da.GOLD);
-        disc(g, cx, cy, 13, sh ? Da.RED_HOV : Da.RED);
-        disc(g, cx, cy, 6, Da.CREAM);
+        DaKit.blit(g, DECLENCHEUR, cx - 18, cy - 18, sh ? 36 : 0, 0, 36, 36, 72, 36);
         if (sh) hover = 40;
-        // dernières photos
-        int y = this.height - 56;
+        // dernières photos : tirages sur passe-partout de washi
+        int y = this.height - 58;
+        LotBlit mats = LotBlit.ouvrir(g, PIECES, 112, 32);
+        for (int i = 0; i < recent.size(); i++) mats.blit(28 + i * 48, y - 2, 60, 0, 44, 26);
+        mats.fermer();
         for (int i = 0; i < recent.size(); i++) {
-            int x = 30 + i * 46;
-            g.fill(x - 2, y - 2, x + 42, y + 24, 0xFFF4EEDC);
+            int x = 30 + i * 48;
             ScreenshotTextures.Tex t = ScreenshotTextures.thumb(recent.get(i).path());
-            if (t != null) g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), x, y, 0f, 0f, 40, 22, t.w(), t.h(), t.w(), t.h());
-            else g.fill(x, y, x + 40, y + 22, 0xFF2A2022);
+            if (t != null) g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), x, y, 0f, 0f, 38, 20, t.w(), t.h(), t.w(), t.h());
+            else g.fill(x, y, x + 38, y + 20, 0xFF2A2022);
         }
         return hover;
     }
 
     private static double dist(double x, double y, double cx, double cy) { return Math.hypot(x - cx, y - cy); }
-
-    private static void disc(GuiGraphicsExtractor g, int cx, int cy, int r, int col) {
-        for (int dy = -r; dy <= r; dy++) {
-            int dx = (int) Math.round(Math.sqrt((double) r * r - dy * dy));
-            g.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, col);
-        }
-    }
-
-    private static void ring(GuiGraphicsExtractor g, int cx, int cy, int r, int col) {
-        for (int a = 0; a < 48; a++) {
-            double t = a * Math.PI * 2 / 48;
-            int x = cx + (int) Math.round(Math.cos(t) * r), y = cy + (int) Math.round(Math.sin(t) * r);
-            g.fill(x, y, x + 1, y + 1, col);
-        }
-    }
 
     // ── tick : suivi du fichier capturé (cadre + bande) ─────────
     @Override
@@ -314,18 +303,18 @@ public class PhotoModeScreen extends Screen {
             PhotoMode p = PhotoMode.INSTANCE;
             Minecraft mc = Minecraft.getInstance();
             for (int i = 0; i < SLIDERS.length; i++) {
-                int ry = sliderY(i) + 12;
-                if (Da.in(mx, my, sliderX() - 3, ry - 6, sliderW() + 6, 13)) {
+                int ry = sliderY(i) + 16;
+                if (Da.in(mx, my, sliderX() - 3, ry - 8, sliderW() + 6, 14)) {
                     draggingSlider = i; dragSlider(mx); return true;
                 }
             }
             for (int i = 0; i < SWATCH.length; i++) {
-                if (Da.in(mx, my, sliderX() + i * 20, swatchY(), 16, 16)) {
+                if (Da.in(mx, my, sliderX() + i * 22, swatchY(), 18, 18)) {
                     p.setFilter(i); RebornSounds.playReborn("photo.filter", 1f, 0.6f); return true;
                 }
             }
-            if (Da.in(mx, my, sliderX(), frameY(), sliderW(), 13)) { p.cycleFrame(); RebornSounds.playReborn("photo.filter", 0.9f, 0.6f); return true; }
-            if (Da.in(mx, my, sliderX(), resetY(), sliderW(), 13)) { p.resetPosition(mc); RebornSounds.playReborn("esc.select", 1.1f, 0.35f); return true; }
+            if (Da.in(mx, my, sliderX(), frameY(), sliderW(), 16)) { p.cycleFrame(); RebornSounds.playReborn("photo.filter", 0.9f, 0.6f); return true; }
+            if (Da.in(mx, my, sliderX(), resetY(), sliderW(), 16)) { p.resetPosition(mc); RebornSounds.playReborn("esc.select", 1.1f, 0.35f); return true; }
             if (dist(mx, my, shutterX(), shutterY()) <= 15) { capture(); return true; }
             if (Da.in(mx, my, pX, pY, PW, PH)) return true;
         }
@@ -334,7 +323,7 @@ public class PhotoModeScreen extends Screen {
 
     private void dragSlider(double mx) {
         float before = sliderValue(draggingSlider);
-        setSlider(draggingSlider, (float) ((mx - sliderX()) / (sliderW() - 1)));
+        setSlider(draggingSlider, (float) ((mx - sliderX() - 2) / (sliderW() - 4)));
         long now = System.currentTimeMillis();
         if (sliderValue(draggingSlider) != before && now - lastTick > 60) {
             RebornSounds.playReborn("photo.tick", 1f, 0.35f);

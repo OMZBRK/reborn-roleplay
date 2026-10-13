@@ -72,6 +72,19 @@ public final class InteractionMode {
         return active;
     }
 
+    /** Position du curseur (coordonnées GUI) — pour les plaques du duel cliquables en mode interaction. */
+    public double cursorGuiX() { return cursorX; }
+
+    public double cursorGuiY() { return cursorY; }
+
+    /** Banc d'essai : mode curseur actif (sans menu), curseur posé en (x, y) GUI. */
+    public void debugCursor(double x, double y) {
+        active = true;
+        menuOpen = false;
+        cursorX = x;
+        cursorY = y;
+    }
+
     /**
      * Le mode capte la souris uniquement en jeu : si un écran s'ouvre (inventaire, chat…) on sort
      * du mode, sinon la souris restait bloquée dans cet écran.
@@ -117,6 +130,8 @@ public final class InteractionMode {
         Minecraft mc = Minecraft.getInstance();
 
         if (!menuOpen) {
+            // Plaques du duel (invitation, abandon) : cliquables en mode curseur.
+            if (fr.reborn.hud.duel.DuelHud.click(cursorX, cursorY)) { deactivate(); return; }
             // Mode curseur → raycast la cible ; rien sous le curseur = menu « sur soi ».
             HitResult hit = CursorRaycast.raycast(mc, cursorX, cursorY);
             if (hit != null) openMenuFor(mc, hit);

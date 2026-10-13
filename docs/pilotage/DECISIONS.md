@@ -48,6 +48,7 @@
 | 2026-10-10 | Menus Reborn à la **taille de l'échelle 2 en 1080p** quelle que soit l'échelle du joueur — [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §3 |
 | 2026-10-12 | On **reste en pixel art** (pas le rendu « web » HD de Zenkai / GMod), mais **léger et optimisé** : décors et cadres en textures pré-dessinées, code seulement pour ce qui bouge — [`../design/DIRECTION_ARTISTIQUE.md`](../design/DIRECTION_ARTISTIQUE.md) §6 |
 | 2026-10-13 | **Fiche shinobi** (remplace l'écran de stats) : design retenu « **Le portrait en scène** » v2 (personnage réel au centre, panneaux laqués suspendus, lanternes en arc, onglets Identité / Attributs / Techniques / État) — « très très beau… vraiment bien travaillé visuellement » ; maquettes hors dépôt dans `Maquettes/fiche-shinobi/v2/portrait/` |
+| 2026-10-13 | **HUD en jeu subtil** : KO, duel, alertes et overlays en jeu = petits, fins, épurés, jamais de grosses plaques (les plaques laquées restent aux menus plein écran) — [`../design/DIRECTION_ARTISTIQUE.md`](../design/DIRECTION_ARTISTIQUE.md) §6 règle 9 |
 
 ## Monnaies
 
@@ -92,6 +93,13 @@
 | 2026-10-11 | Ancien menu (coffre) sur un corps **retiré** ; prise à la gorge **sans limite de durée** ; corps à l'**apparence Reborn** |
 | 2026-10-11 | Au bout de 60 s : « **Assister à votre réelle fin ?** » — Non → sélection ; Oui → vue grisée, sans HUD, bandes de cinéma |
 
+## Combat — duel
+
+| Date | Décision |
+|---|---|
+| 2026-10-13 | **Duel consenti n'importe où** : menu d'interaction → « Proposer un duel » → la cible accepte ou refuse → combat ; assouplit la règle « combat libre seulement sur les terrains d'entraînement » |
+| 2026-10-13 | **Duel : règles et visuel** — sans séquelles (défaite à 0 PV ou 0 chakra, PV et chakra d'avant rendus), annulé si écart > 30 blocs, tiers qui frappe ou téléport > 16 blocs, nul à 5 min ; invitation 30 s (Entrée / Retour). **Visuel discret** exigé (« c'est gros, faut que ce soit subtil ») : lignes fines, pas de plaques ; titres en police pixel **sans accents** (« met pas d'accents et c'est tout ») — [`../gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md) §4.1 |
+
 ## Apprentissage — [`../gameplay/APPRENTISSAGE.md`](../gameplay/APPRENTISSAGE.md)
 
 | Date | Décision |
@@ -125,3 +133,22 @@
 |---|---|
 | 2026-09-28 | Pas de refonte de l'accueil en tableau de bord |
 | 2026-10-07 | « Plus tard » mémorisé 24 h, « Ignorer cette version » (0.3.45) |
+| 2026-10-13 | **Onboarding du launcher façon Ketto** : carte sombre « Bienvenue sur Reborn — Comptes Microsoft et Discord requis », étape 1 Microsoft, étape 2 Discord ; on ne joue pas sans les deux — [`../GAMEPLAN.md`](../GAMEPLAN.md) §1.8 |
+
+## Game Plan (modèle RedLine) — [`../GAMEPLAN.md`](../GAMEPLAN.md)
+
+| Date | Décision |
+|---|---|
+| 2026-10-13 | **Suivre le Game Plan RedLine point par point**, dans l'ordre de leur document : chaque système de Reborn est repris (aujourd'hui, RedLine, écart, cible) et tranché à son tour (§54) |
+| 2026-10-13 | **Player ID** : un **compte Reborn** (lié Microsoft + Discord, via le launcher) et un **numéro unique par personnage** (ex. N° 82545) ; **états du personnage** : Libre, Combat, KO, Étourdi, Garde, Porté, Prison, Mode staff — §1 |
+| 2026-10-13 | **Inventaire** : on garde la **sacoche** et ses sacs à paliers ; emplacements **Tête** et **Arme** ; ~~**dépasser la limite de poids n'empêche pas de ramasser**~~ → on ramasse jusqu'à **130 %** (ligne « Inventaire : réglages ») ; ça **ralentit progressivement** jusqu'à l'immobilité au-delà d'un seuil ; notifications **en bas à droite**, épurées et simples — §2 |
+| 2026-10-13 | **Ramassage** : plus de ramassage automatique, il faut **ramasser l'objet** (touche) ; chaque objet au sol a une **aura de couleur selon sa rareté** ; disparition après X min — §3 |
+| 2026-10-13 | **Player ID : N° à 5 chiffres à partir de 00000** (« N° ok… on commence par 00000 au cas où ») — remplace la proposition « départ 10 000 » ; jamais réutilisé (supprimé = gardé dans l'index) ; visible du joueur (sa fiche) et du staff seulement, jamais des autres joueurs ; commandes staff avec `#00042`, commande `/pid` — §1.4, [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §2.1 bis |
+| 2026-10-13 | **Discord obligatoire dans le launcher** : on ne joue pas sans compte Discord lié au compte Reborn (étape 2 de l'onboarding) — §1.8 |
+| 2026-10-13 | **Touche F pour ramasser** un objet au sol (ramassage manuel, §3) |
+| 2026-10-13 | **Inventaire : Tête** = on **réutilise** les emplacements Chapeau / Masque / Bandeau de l'onglet Cosmétique (pas de nouvel emplacement), simplement rappelés comme « Tête » dans l'onglet Équipement — [`../gameplay/INVENTAIRE_ET_COSMETIQUES.md`](../gameplay/INVENTAIRE_ET_COSMETIQUES.md) §3 |
+| 2026-10-13 | **Inventaire : Arme = étui** : l'emplacement Arme de l'onglet Équipement garde l'arme **visible à la ceinture** (diffusée à tous, ancrée au bassin) ; on la **dégaine** dans la barre et on la **rengaine** (touche **Z**, rebindable) ; API `weapon(p)` pour les techniques d'arme (le Kenjutsu l'exige) — fiche §3 |
+| 2026-10-13 | **Inventaire : réglages** — ramassage au-delà de la limite **jusqu'à 130 %** (refusé au-delà, pile ramassée en partie possible) ; paliers Chargé 100-115 % (plus de sprint), Surchargé 115-130 % (ni saut, ni dash, ni course aux murs), Immobile au-delà ; **touche sacoche = E** (inchangée) ; **capacité de base = la nôtre** (barre 1-9 + sacs, 12 kg), pas celle de RedLine — fiche §2, §4, §5 |
+| 2026-10-13 | **Objets au sol** : disparition **10 min**, **15 min** pour un objet lâché par un joueur KO, **jamais** pour un rouleau unique ou un objet de quête — fiche §6 |
+| 2026-10-13 | **Rareté à 5 niveaux** : Commun, Peu commun, Rare, Épique, **Légendaire (or)**, clé persistante `reborn:rarete` ; résolution clé posée → table `rarete.par-id` de la config → rang du parchemin (D → S) → rareté vanilla → Commun — fiche §7 |
+| 2026-10-13 | **Maquettes de l'inventaire validées** (`Maquettes/gameplan/02_inventaire/` : sacoche, surpoids, notifications, ramassage) ; codées le jour même, non publiées — fiche |

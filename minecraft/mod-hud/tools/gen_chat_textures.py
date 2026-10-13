@@ -25,6 +25,12 @@ Contrat (1 texel = 1 GUI) :
 - washi.png 304×34 : bande de washi 300×16 (saisie) en (0, 0), 300×15 (recherche) en (0, 18) (coupe
   horizontale, capD 4).
 - emojis.png 144×104 : panneau du sélecteur 140×100 en (0, 0) (+ ombre) ; titre en code (7, 3), filet y 12.
+- reglages.png 548×280 : fenêtre des réglages du chat (chat/ChatSettingsScreen), même signature que le panneau :
+  · panneau 520×272 en (1, 1) (contour au texel 0, ombre jusqu'à 524×276) : laque noire, poutre haute 22 (cartouche
+    du titre 168×15 en (176, 4) de la fenêtre, titre posé par le code), poutre basse 26 (bouton Fermer posé par le
+    code), filets d'or, séparation des deux colonnes en x 260 (y 34 → 232), vagues seigaiha dans le coin bas droit ;
+  · (528, 0) cadre de pastille 15×15 (repos), (528, 16) survol, (528, 32) choisie : pastille 11×11 en (2, 2),
+    couleur posée par le code.
 """
 from __future__ import annotations
 
@@ -166,7 +172,63 @@ def emojis():
     S.sauver("emojis.png", im, (144, 104))
 
 
+RW, RH = 520, 272           # fenêtre des réglages
+RHDR, RBEAM = 22, 26
+
+
+def reglages():
+    im = nouveau(548, 280)
+    x0, y0 = 1, 1
+    fa.panneau(im, x0, y0, RW, RH, seed=41, eclats=False, kanagu_=False)
+    im = poutre(im, x0, y0, RW, RHDR, seed=43, haut=True)
+    im = poutre(im, x0, y0 + RH - RBEAM, RW, RBEAM, seed=44, haut=False)
+    # filets d'or sous / sur les poutres ; filet intérieur discret
+    rect(im, x0 + 1, y0 + RHDR, RW - 2, 1, hexc(R_OR[3]))
+    rect(im, x0 + 1, y0 + RHDR + 1, RW - 2, 2, (8, 4, 6, 110))
+    rect(im, x0 + 1, y0 + RH - RBEAM - 1, RW - 2, 1, hexc(R_OR[3]))
+    oc = hexc(R_OR[5])[:3] + (46,)
+    ih = RH - RBEAM - RHDR - 7
+    rect(im, x0 + 4, y0 + RHDR + 3, RW - 8, 1, oc); rect(im, x0 + 4, y0 + RH - RBEAM - 3, RW - 8, 1, oc)
+    rect(im, x0 + 4, y0 + RHDR + 3, 1, ih, oc); rect(im, x0 + RW - 5, y0 + RHDR + 3, 1, ih, oc)
+    seigaiha(im, x0 + RW - 5 - 96, y0 + RH - RBEAM - 4 - 40, 96, 40)
+    # séparation des colonnes : filet or éteint + ombre, losanges aux bouts
+    cx = x0 + RW // 2
+    ya, yb = y0 + 34, y0 + RH - 40
+    rect(im, cx, ya, 1, yb - ya, hexc(R_OR[2]))
+    rect(im, cx + 1, ya, 1, yb - ya, (8, 4, 6, 140))
+    for Y in (ya - 2, yb):
+        for (dx, dy, c) in ((0, -1, R_OR[6]), (-1, 0, R_OR[5]), (1, 0, R_OR[4]), (0, 1, R_OR[3]), (0, 0, R_OR[7])):
+            rect(im, cx + dx, Y + dy, 1, 1, hexc(c))
+    # cartouche du titre sur la poutre haute (laque noire, liseré or, équerres)
+    tx, tw, th = x0 + RW // 2 - 84, 168, 15
+    kit.ombre_portee(im, tx, y0 + 4, tw, th, dx=1, dy=1, force=0.55, rayon=0)
+    fa.lq(im, tx + 1, y0 + 5, tw - 2, th - 2, "noir", seed=45, intensite=1.2)
+    fa.liseret(im, tx, y0 + 4, tw, th)
+    fa.kanagus_mini(im, tx, y0 + 4, tw, th)
+    for X in (tx - 8, tx + tw + 6):        # clous de part et d'autre
+        rect(im, X, y0 + 10, 2, 2, hexc(R_OR[4])); rect(im, X, y0 + 10, 1, 1, hexc(R_OR[7]))
+    fa.liseret(im, x0, y0, RW, RH)
+    fa.kanagus(im, x0, y0, RW, RH, deborde=0)
+    for X in (x0 + 5, x0 + RW - 7):
+        for Y in (y0 + RHDR - 4, y0 + RH - RBEAM + 3):
+            rect(im, X, Y, 2, 2, hexc(R_OR[4])); rect(im, X, Y, 1, 1, hexc(R_OR[7]))
+    # cadres de pastille de couleur : repos, survol, choisie
+    for i, etat in enumerate(("repos", "survol", "choisie")):
+        X, Y = 528, i * 16
+        kit.ombre_portee(im, X, Y, 15, 15, dx=1, dy=1, force=0.5, rayon=0)
+        rect(im, X + 1, Y + 1, 13, 13, hexc("120806"))
+        if etat == "repos":
+            fa.liseret_terne(im, X, Y, 15, 15)
+        else:
+            fa.liseret(im, X, Y, 15, 15)
+        if etat == "choisie":
+            fa.kanagus_mini(im, X, Y, 15, 15)
+        rect(im, X + 2, Y + 2, 11, 11, (0, 0, 0, 0))   # la couleur est posée par le code
+    S.sauver("reglages.png", im, (548, 280))
+
+
 if __name__ == "__main__":
+    reglages()
     cadre()
     pieces()
     washi()

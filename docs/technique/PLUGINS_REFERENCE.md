@@ -34,7 +34,8 @@ Les addons ne parlent pas à la classe `ShinobiCore` : ils passent par les **ser
 `ServicesManager` de Bukkit (`com.reborn.shinobicore.api.*`, regroupés côté Abilities dans
 `CoreServices`). Services publiés : `CharacterService`, `ResourceService`, `KoService`, `SkillService`,
 `HudService`, `ItemGiveService`, `MobilityService`, `ProgressionLadder`, `StatsService`, `CastAttribution`,
-`TechniqueRegistry`, `XpService`. Annotation `@Stable` = point d'extension sûr, `@Internal` = réservé au
+`TechniqueRegistry`, `XpService`, `InventoryService` (sacoche : palier de surcharge, `weapon(p)`, `give`, verrou —
+13/10) ; ShinobiCombat publie `EnduranceService` et `StunService` (étourdi). Annotation `@Stable` = point d'extension sûr, `@Internal` = réservé au
 Core.
 
 ---
@@ -69,6 +70,8 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/execution` | — | tous / staff | — | Ses exécutions ; staff `donner`, `retirer`, `liste`, `recharger` |
 | `/sckillvote` | — | staff | `shinobicore.staff` | Boutons du tchat RPK : `approve`, `refuse`, `goto <id>` |
 | `/zonerp` | `entrainement`, `zonesrp` | staff | `shinobicore.zonerp` | Zones d'entraînement et de repos : `pos1`, `pos2`, `creer`, `suppr`, `liste`, `ici` |
+| `/duel` | `defi` | tous | `shinobicore.use` | Duel consenti n'importe où, sans séquelles : `proposer <joueur>`, `accepter [joueur]`, `refuser [joueur]`, `abandonner` (menu d'interaction et boutons du mod) — [`KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md) §4.1 |
+| `/pid` | `playerid`, `numero` | staff | `reborn.staff.helper` | **Player ID** : `/pid <joueur\|nom RP\|#N°>` affiche le N°, le nom RP, le compte propriétaire, l'état (vivant, mort RP, supprimé ; KO / ATA si en ligne), en ligne ou non et les autres N° du même compte. Hors ligne avec `#N°` (lu dans l'index). Sans argument : son propre personnage |
 | `/garde` | `postedegarde`, `panelstaff` | staff | `shinobicore.use` | Ouvre le Poste de garde (mod requis, touche F7) |
 | `/infirmerie` | `ko`, `kogestion` | staff | `shinobicore.use` | Ouvre le Poste de garde sur l'onglet Infirmerie |
 | `/staffchat` | `schat` | staff | `shinobicore.use` | Écrire dans le canal staff |
@@ -84,6 +87,24 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/ryo` | — | tous / staff | — | Solde de ryo ; staff `give`, `take`, `set` |
 | `/carte` | `map`, `worldmap` | tous / staff | `shinobicore.use` | Carte (touche M) ; staff `liste`, `tp`, `set`, `del`, `reload` |
 | `/meteo` | `weatherfx` | staff | `shinobicore.meteo` | Météo visuelle : `pluie`, `sable`, `brume`, `clair` + intensité |
+
+### 2.1 bis Syntaxe `#N°` (Player ID) dans les commandes staff
+
+Partout où une commande staff attend un joueur, on peut écrire le **N° du personnage** précédé d'un dièse :
+`#00042` ou `#42` (zéros facultatifs, dièse obligatoire pour ne pas confondre avec un pseudo numérique).
+Résolution commune : `character/PlayerIds` (`online(sender, arg)` = le joueur qui joue **ce** personnage ;
+`character(sender, arg)` = le personnage, même hors ligne ; `ownerByRef` = le compte).
+
+- **ShinobiCore** : `/pid`, `/grade` (`voir` et promotion), `/stats` (`give|set|reset|jeton` — hors ligne pour
+  le personnage), `/fiche edit|service|json`, `/xp`, `/ata voir|lever|appliquer`, `/execution liste|donner|retirer`,
+  `/character create|edit|list <joueur>`, `/ryo give|take|set`, `/carte donner`, `/meteo … <joueur>`,
+  `/cinematic … <joueur>`, `/playemote <emote> <joueur>`, `/testfeuille give`, `/vanish <cible>`.
+- **ShinobiAbilities** : `/sa` (cibles joueur), `/sa mobility path <#N°> …`, `/parchemin donner|seance`.
+- **Commandes vanilla** `/tp`, `/teleport`, `/spectate`, `/kick`, `/gamemode`, `/clear`, `/give`, `/effect`, `/kill` :
+  le `#N°` est remplacé par le pseudo avant exécution (`character/PlayerIdCommandAlias`, joueur en ligne seulement).
+- **Réservé au staff** : la console, `reborn.staff.*`, `shinobicore.staff` ou op. Pour un joueur, `#N°` ne
+  résout rien (sinon il pourrait sonder les N° pour retrouver des noms — le système « rencontrer » garde les
+  noms secrets). Le N° n'est montré qu'au joueur lui-même (fiche) et au staff.
 
 ### 2.2 ShinobiAbilities
 
@@ -167,16 +188,18 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:skins` | S → C | `CharacterSelectManager` | `skin/SkinPayload` | Apparence RP de chaque joueur (`<uuid>\n<SkinSpec>`) |
 | `reborn:creatorpack` | S → C | `creator.CreatorAssetManager` | `skin/CreatorPackPayload` | Assets du créateur de perso |
 | `reborn:vitals` | S → C | `character.VitalsPush` | `runtime/VitalsPayload` | PV, chakra, endurance |
-| `reborn:stats` | ⇄ | `stats.StatsChannel` | `menu/stats/StatsPayload` | Fiche shinobi (points, stats, Mérite, techniques) |
+| `reborn:stats` | ⇄ | `stats.StatsChannel` | `menu/stats/StatsPayload` | Fiche shinobi (points, stats, Mérite, techniques ; `pid` = N° du personnage, envoyé au seul joueur) |
 | `reborn:tablist` | S → C | `lore.TabListManager` | `menu/tablist/TablistPayload` | Tab list RP |
 | `reborn:tirage` | ⇄ | `character.LeafTestManager` | `menu/tirage/TiragePayload` | Test de la feuille |
 | `reborn:ko` | S → C | `ko.KoHudSync` | `ko/KoPayload` | État KO / ATA (binaire) |
 | `reborn:ko_event` | S → C | `ko.KoHudSync` | `ko/KoEventPayload` | Cartes d'événement (À terre, K.O., Second souffle…) |
 | `reborn:volonte` | ⇄ | `ko.VolonteQte` | `ko/VolontePayload` | QTE Volonté : `avail`, `start`, `result`, `ok`, `fail`, `deny` |
+| `reborn:duel` | S → C | `duel.DuelService` | `duel/DuelClient` | Duel consenti : `invit` / `invit_fin`, `attente` / `attente_fin`, `debut` (`adv`, `advId`, `cr`, `duree`, `tech`), `etat` (`d`, `max`, `reste`, chaque seconde), `fin` (`issue` victoire / defaite / nul / annule, `adv`, `raison`) ; réponses par commandes `/duel` ; sans mod : tchat cliquable et titres |
 | `reborn:corps` | S → C | `ko.action.CorpsService`, `DeathScene` | `ko/CorpsClient` | Corps proches + statut RPK, exécutions possédées, corps au sol, scène de mort (`mort`, `fin`) |
-| `reborn:staff` | ⇄ | `staff.panel.StaffPanel` | `staff/StaffPayload` | Poste de garde (alertes, joueurs, chat, journal, Infirmerie) |
-| `reborn:inventory` | ⇄ | `inventory.InventoryManager` | `menu/inventory/InventoryPayload` | Sacoche RP |
-| `reborn:cosmetics` | S → C | `InventoryManager` | `cosmetic/CosmeticsPayload` | Cosmétiques portés |
+| `reborn:staff` | ⇄ | `staff.panel.StaffPanel` | `staff/StaffPayload` | Poste de garde (alertes, joueurs, chat, journal, Infirmerie ; `pid` dans chaque joueur / alerte / fiche) |
+| `reborn:inventory` | ⇄ | `inventory.InventoryManager` | `menu/inventory/InventoryPayload` | Sacoche RP. C2S : `open`, `swap:<A>:<B>`, `bag:equip:<ref>` / `bag:unequip`, `cos:equip:<ref>:<SLOT>` / `cos:unequip:<SLOT>`, `arme:equip:<ref>` / `arme:unequip` / `arme:basculer` (dégainer / rengainer), `drop:<ref>`, `del:<ref>`, `use:<ref>`, `pick:<uuid de l'objet au sol>` (ramassage). S2C : JSON (`ouvrir`, capacité, poids, `palier`, `poidsMax`, `lecture`, `armeDegainee`, `hotbar`, `bag`, `equipped` dont `ARME` ; chaque objet porte `rarity`, `arme`, `unique`) — `ouvrir:false` = rafraîchir sans ouvrir |
+| `reborn:cosmetics` | S → C | `InventoryManager` | `cosmetic/CosmeticsPayload` | Cosmétiques portés, dont l'arme à l'étui (`ARME`, ancrée au bassin) |
+| `reborn:notif` | S → C | `inventory.Notifs` | `notif/NotifClient` | Canal générique (13/10) : `gain` / `perte` (`q`, `nom`, `rar`, `mat`, `model`, `suite`), `msg` (`ton` refus / info / palier / etat, `kj`, `gras`, `texte`) → pile en bas à droite ; `poids` (`cur`, `max`, `palier` 0-3, `libres`, `verrou`) → indicateur de surcharge, sprint coupé, invite de ramassage ; `arme` (`degainee`) |
 | `reborn:shop` | ⇄ | `shop.ShopManager` | `menu/shop/ShopPayload` | Échoppe |
 | `reborn:map` | ⇄ | `map.MapChannel` | `map/MapPayload` | Carte du monde |
 | `reborn:meteo` | S → C | `meteo.MeteoCommand` | `meteo/MeteoPayload` | Météo visuelle |
@@ -207,6 +230,9 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `grades` | bonus passifs par grade, règles de promotion / rétrogradation | idem |
 | `ko` | PV persistants, défaite à l'entraînement, à terre, inconscient, `volonte`, plancher, lits, ATA | [`gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md) |
 | `mort-rp` | `scene-min-secondes`, `corps-minutes` | idem |
+| `inventaire` | `ramassage.distance` (3), `ramassage.cadence-ms` (250), `ramassage.poids-max-pourcent` (130) ; `surcharge.charge` (`de` 100, `vitesse-de` 0,90, `vitesse-a` 0,70, `saut`, `sprint`), `surcharge.surcharge` (`de` 115, 0,70 → 0,35, `saut` 0), `surcharge.immobile` (`de` 130, `vitesse` 0, `saut` 0) ; `sol.disparition-minutes` (10), `sol.disparition-ko-minutes` (15), `sol.balayage-secondes`, `sol.jamais-detruits.parchemins` / `.ids` ; `journal.fichier`, `journal.poste-de-garde-des` (RARE) ; `arme.ids`, `arme.vanilla` ; `cases-cachees.balayage` | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](../gameplay/INVENTAIRE_ET_COSMETIQUES.md) |
+| `rarete` | `par-id` : id Nexo / de modèle → COMMUN, PEU_COMMUN, RARE, EPIQUE, LEGENDAIRE | idem §7 |
+| `duel` | `actif`, `distance-proposition`, `distance-max`, `duree-max-secondes`, `expiration-secondes`, `cooldown-secondes`, `cooldown-couple-secondes`, `compte-a-rebours`, `techniques`, `teleport-max-blocs`, `grace-secondes`, `annonce.actif`, `annonce.rayon` | idem §4.1 |
 | `medic` | `paume.*`, `bandage.*` | idem |
 | `meditation` | régénération, rayon d'annulation | — |
 | `display` | échelle des cœurs, saturation auto, HUD de recharge | — |
@@ -224,7 +250,7 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 
 | Section | Contient |
 |---|---|
-| `jutsu` | apprentissage requis, dépassement, coûts par stats, maîtrise, lancer rapide, incantation, MagicSpells |
+| `jutsu` | apprentissage requis, `kenjutsu-exige-arme` (vrai : une arme à l'étui, dégainée ou en main), dépassement, coûts par stats, maîtrise, lancer rapide, incantation, MagicSpells |
 | `mobility` | jetons aériens, ressenti, Naruto run, contrôle aérien, double saut, saut mural, onde au sol, dash, escalade, pistes, entraînement |
 | `techniques` | répétitions des pompes, `concentration` (épreuve d'équilibre) |
 | `fuinjutsu` | sceaux |
@@ -244,15 +270,18 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | Fichier | Plugin | Contenu |
 |---|---|---|
 | `characters/` | Core | Un YAML par joueur : ses personnages (stats, niveau, XP, apparence, techniques, blessures) |
-| `rpbags/` | Core | Sacoches RP |
+| `rpbags/` | Core | Sacoches RP (barre exclue : sac, sac porté, cosmétiques, étui `ARME`) |
+| `logs/inventaire-AAAA-MM-JJ.log` | Core | Journal des objets, un fichier par jour : `RAMASSE`, `LACHE`, `DONNE`, `DETRUIT`, `RANGE` (case cachée), `ARME_ETUI`, `DISPARU` (Rare et plus) — heure, `#N° pseudo (nom RP)`, quantité, objet, rareté, lieu ; Rare et plus + uniques aussi au Poste de garde (type `objet`) |
 | `creator-assets/` | Core | Catalogue du créateur de personnage |
 | `emotes/` (+ `emotes.yml`) | Core | Fichiers EmoteCraft distribués + catalogue |
 | `ko-state.yml`, `ko-reglages.yml` | Core | États KO en cours, réglages de l'Infirmerie |
 | `ata-state.yml` | Core | ATA en cours |
 | `training-zones.yml` | Core | Zones d'entraînement et de repos |
 | `hospitals.yml`, `hospital-beds.yml` | Core | Points de réveil par village, lits |
-| `aggression-log.txt` | Core | Qui a ouvert chaque combat hors zone |
-| `kill-log.txt` | Core | Demandes, validations, refus et morts RP |
+| `player-ids.yml` | Core | **Player ID** : `next` (prochain N°) + `index` `'00042'` → `n`, `character` (UUID perso), `owner` (UUID compte), `name`, `deleted`. Un N° n'est **jamais réutilisé** (supprimé = `deleted: true`). Écriture atomique (`.tmp` + renommage), compteur écrit avant d'attribuer. Chaque personnage porte aussi `playerId: 42` dans `characters/<compte>.yml`. Migration idempotente au démarrage (ordre : UUID du compte puis UUID du perso) |
+| `aggression-log.txt` | Core | Qui a ouvert chaque combat hors zone (`pseudo (#00042 Nom RP)`) |
+| `duel-log.txt` | Core | Duels : `DEBUT` et `FIN` (issue, raison, vainqueur, lieu) ; aussi au journal du Poste de garde (type `duel`) |
+| `kill-log.txt` | Core | Demandes, validations, refus et morts RP (N° `#00042` après le demandeur et la cible) |
 | `executions.yml` | Core | Catalogue des exécutions (créé avec 3 exemples au premier démarrage) |
 | `executions-joueurs.yml` | Core | Exécutions possédées, par compte |
 | `respec-tokens.yml` | Core | Jetons de réinitialisation des stats (par compte) |

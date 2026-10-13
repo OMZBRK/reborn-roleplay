@@ -544,9 +544,7 @@ public final class YeuxCommand implements TabExecutor, Listener {
     }
 
     private static void give(Player p, ItemStack it) {
-        for (ItemStack left : p.getInventory().addItem(it).values()) {
-            p.getWorld().dropItemNaturally(p.getLocation(), left);
-        }
+        com.reborn.shinobicore.inventory.InventoryManager.donner(p, it);
     }
 
     private String name(Player p) {

@@ -145,6 +145,11 @@ public final class ShinobiCore extends JavaPlugin {
         // 1. Persistence.
         this.characterRepository = new YamlCharacterRepository(this);
         this.characterRepository.init();
+        // 1b. Player ID (N° de personnage, décision du 13/10) : index + migration idempotente des personnages
+        //     existants, avant tout chargement de roster.
+        this.playerIdRegistry = new com.reborn.shinobicore.character.PlayerIdRegistry(this);
+        this.playerIdRegistry.load();
+        this.playerIdRegistry.migrate(new java.io.File(getDataFolder(), "characters"));
 
         // 2. Character roster + active selection.
         this.characterManager = new CharacterManager(this, characterRepository);
@@ -262,6 +267,13 @@ public final class ShinobiCore extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(trainingZones, this);
         Bukkit.getPluginManager().registerEvents(
                 new com.reborn.shinobicore.ko.AggressionLog(this), this);
+        // Player ID : « #00042 » accepté dans /tp, /kick… pour le staff (remplacé par le pseudo).
+        Bukkit.getPluginManager().registerEvents(
+                new com.reborn.shinobicore.character.PlayerIdCommandAlias(), this);
+        // Duel consenti n'importe où (décision du 2026-10-13) : terrain d'entraînement portatif à deux.
+        this.duelService = new com.reborn.shinobicore.duel.DuelService(this);
+        this.duelService.start();
+        Bukkit.getPluginManager().registerEvents(duelService, this);
         // Lits d'hôpital (rapatriement, KO-2) + ATA PainRP / FearRP (KO-3).
         this.hospitals = new com.reborn.shinobicore.ko.HospitalRegistry(this);
         this.ataManager = new com.reborn.shinobicore.ko.ata.AtaManager(this);
@@ -615,6 +627,19 @@ public final class ShinobiCore extends JavaPlugin {
             zoneRpCmd.setExecutor(exec);
             zoneRpCmd.setTabCompleter(exec);
         } else getLogger().warning("Command 'zonerp' is not declared in plugin.yml.");
+        PluginCommand duelCmd = getCommand("duel");
+        if (duelCmd != null) {
+            com.reborn.shinobicore.duel.DuelCommand exec = new com.reborn.shinobicore.duel.DuelCommand(duelService);
+            duelCmd.setExecutor(exec);
+            duelCmd.setTabCompleter(exec);
+        } else getLogger().warning("Command 'duel' is not declared in plugin.yml.");
+        PluginCommand pidCmd = getCommand("pid");
+        if (pidCmd != null) {
+            com.reborn.shinobicore.character.command.PidCommand exec =
+                    new com.reborn.shinobicore.character.command.PidCommand(this);
+            pidCmd.setExecutor(exec);
+            pidCmd.setTabCompleter(exec);
+        } else getLogger().warning("Command 'pid' is not declared in plugin.yml.");
         PluginCommand gradeCmd = getCommand("grade");
         if (gradeCmd != null) {
             com.reborn.shinobicore.character.command.GradeCommand exec =
@@ -810,6 +835,8 @@ public final class ShinobiCore extends JavaPlugin {
         if (deathScene != null) deathScene.stop();
         if (corps != null) corps.stop();
         if (staffBuild != null) staffBuild.restoreAll();
+        // Duels en cours : chacun retrouve PV / chakra d'avant le duel avant le flush.
+        if (duelService != null) duelService.stop();
         // Entraînements en cours : remettre PV / chakra d'entrée avant le flush.
         if (trainingZones != null) trainingZones.stop();
         // Flush live player state (HP / chakra / position / inventory)
@@ -950,10 +977,8 @@ public final class ShinobiCore extends JavaPlugin {
                         "Objet inconnu : " + token, NamedTextColor.RED));
                 return true;
             }
-            var leftover = p.getInventory().addItem(res.item());
-            for (var stuck : leftover.values()) {
-                p.getWorld().dropItemNaturally(p.getLocation(), stuck);
-            }
+            // Barre 1-9, puis sac, puis sol — jamais les cases cachées 9-35 (inventaire du 13/10).
+            com.reborn.shinobicore.inventory.InventoryManager.donner(p, res.item());
             p.sendMessage(Component.text(
                     res.label() + " ajouté à ton inventaire.",
                     NamedTextColor.GREEN));
@@ -1218,6 +1243,12 @@ public final class ShinobiCore extends JavaPlugin {
     @com.reborn.shinobicore.api.Internal
     public CharacterManager characters() { return characterManager; }
 
+    private com.reborn.shinobicore.character.PlayerIdRegistry playerIdRegistry;
+
+    /** Index des Player ID (player-ids.yml) — null avant l'init. */
+    @com.reborn.shinobicore.api.Internal
+    public com.reborn.shinobicore.character.PlayerIdRegistry playerIds() { return playerIdRegistry; }
+
     /** Technique catalog (engine-owned, filled by the world pack). */
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.technique.AbilityRegistry techniques() { return techniqueRegistry; }
@@ -1267,6 +1298,11 @@ public final class ShinobiCore extends JavaPlugin {
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.KoManager ko() { return koManager; }
     public com.reborn.shinobicore.ko.zone.TrainingZones trainingZones() { return trainingZones; }
+
+    private com.reborn.shinobicore.duel.DuelService duelService;
+
+    /** Duel consenti n'importe où ({@code /duel}, canal reborn:duel). */
+    public com.reborn.shinobicore.duel.DuelService duels() { return duelService; }
     public com.reborn.shinobicore.ko.HospitalRegistry hospitals() { return hospitals; }
     public com.reborn.shinobicore.ko.ata.AtaManager ata() { return ataManager; }
 

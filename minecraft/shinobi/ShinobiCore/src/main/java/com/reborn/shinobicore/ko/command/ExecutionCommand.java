@@ -38,7 +38,7 @@ public final class ExecutionCommand implements TabExecutor {
         switch (sub) {
             case "recharger" -> { ex.reload(); s.sendMessage("§aexecutions.yml rechargé (" + ex.all().size() + ")."); }
             case "liste" -> {
-                Player t = args.length > 1 ? Bukkit.getPlayerExact(args[1]) : null;
+                Player t = args.length > 1 ? com.reborn.shinobicore.character.PlayerIds.online(s, args[1]) : null;
                 for (Executions.Def d : ex.all()) {
                     String own = t == null ? "" : (ex.owns(t, d) ? " §a✔" : " §8✘");
                     s.sendMessage("§7- §f" + d.id() + " §7« " + d.name() + " » §8(" + d.durationTicks() / 20.0 + " s)" + own);
@@ -46,7 +46,8 @@ public final class ExecutionCommand implements TabExecutor {
             }
             case "donner", "retirer" -> {
                 if (args.length < 3) { s.sendMessage("§cUsage : /execution " + sub + " <joueur> <id>"); return true; }
-                OfflinePlayer t = Bukkit.getOfflinePlayer(args[1]);
+                java.util.UUID byPid = com.reborn.shinobicore.character.PlayerIds.ownerByRef(s, args[1]);
+                OfflinePlayer t = byPid != null ? Bukkit.getOfflinePlayer(byPid) : Bukkit.getOfflinePlayer(args[1]);
                 if (!ex.give(t.getUniqueId(), args[2], sub.equals("donner"))) { s.sendMessage("§cExécution inconnue."); return true; }
                 s.sendMessage("§a" + (sub.equals("donner") ? "Donnée à " : "Retirée à ") + args[1] + " : " + args[2] + ".");
             }

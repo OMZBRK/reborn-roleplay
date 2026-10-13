@@ -173,7 +173,7 @@ public final class KillRequestManager {
         log("VALIDE", req, staff.getName(), reason);
         if (plugin.staffPanel() != null) {
             plugin.staffPanel().onKillClosed(req.id());
-            plugin.staffPanel().log(staff, "ko", "RPK validée", req.targetName() + " · " + reason);
+            plugin.staffPanel().log(staff, "ko", "RPK validée", pidPrefix(req.targetCharacterId()) + req.targetName() + " · " + reason);
             plugin.staffPanel().system("RPK validée : " + req.targetName() + " (par " + staff.getName()
                     + ") — en attente de l'exécution par " + req.requesterName() + ".");
         }
@@ -215,7 +215,7 @@ public final class KillRequestManager {
         if (req == null) { staff.sendMessage(Component.text("Cette demande n'est plus en attente.", NamedTextColor.RED)); return; }
         Player t = Bukkit.getPlayer(req.targetPlayerId());
         staff.teleport(t != null ? t.getLocation() : req.scene());
-        if (plugin.staffPanel() != null) plugin.staffPanel().log(staff, "tp", "TP vers", req.targetName() + " (mort RP)");
+        if (plugin.staffPanel() != null) plugin.staffPanel().log(staff, "tp", "TP vers", pidPrefix(req.targetCharacterId()) + req.targetName() + " (mort RP)");
     }
 
     /** {@code [Refuser]} : la demande tombe, le personnage reste en vie. */
@@ -230,7 +230,7 @@ public final class KillRequestManager {
         log("REFUSE", req, staff.getName(), "");
         if (plugin.staffPanel() != null) {
             plugin.staffPanel().onKillClosed(req.id());
-            plugin.staffPanel().log(staff, "ko", "RPK refusée", req.targetName() + " (demandée par " + req.requesterName() + ")");
+            plugin.staffPanel().log(staff, "ko", "RPK refusée", pidPrefix(req.targetCharacterId()) + req.targetName() + " (demandée par " + req.requesterName() + ")");
         }
         Player rq = Bukkit.getPlayer(req.requesterId());
         if (rq != null) rq.sendMessage(Component.text("Ta demande de RPK sur " + req.targetName() + " a été refusée.",
@@ -281,10 +281,10 @@ public final class KillRequestManager {
         String ts = fmt.format(new Date());
         Location l = req.scene();
         String line = String.format(
-                "[%s] %s id=%d requester=%s(%s) target=%s(%s) staff=%s loc=%s/%.1f,%.1f,%.1f reason=%s%n",
+                "[%s] %s id=%d requester=%s(%s)%s target=%s(%s)%s staff=%s loc=%s/%.1f,%.1f,%.1f reason=%s%n",
                 ts, verdict, req.id(),
-                req.requesterName(), req.requesterId(),
-                req.targetName(), req.targetPlayerId(),
+                req.requesterName(), req.requesterId(), pidOfPlayer(req.requesterId()),
+                req.targetName(), req.targetPlayerId(), pidOfCharacter(req.targetCharacterId()),
                 staffName,
                 l.getWorld() != null ? l.getWorld().getName() : "?",
                 l.getX(), l.getY(), l.getZ(),
@@ -295,6 +295,26 @@ public final class KillRequestManager {
             plugin.getLogger().log(Level.WARNING,
                     "Failed to write kill-log.txt", ex);
         }
+    }
+
+    /** {@code " #00042"} : N° du personnage actif du demandeur (journal staff), vide sinon. */
+    private String pidOfPlayer(java.util.UUID playerId) {
+        ShinobiCharacter c = playerId == null ? null : plugin.characters().getActive(playerId);
+        String t = com.reborn.shinobicore.character.PlayerIds.tag(c);
+        return t.isEmpty() ? "" : " " + t;
+    }
+
+    /** {@code "#00042 "} devant un nom (journal staff), vide si le personnage n'a pas de N°. */
+    private String pidPrefix(java.util.UUID characterId) {
+        String s = pidOfCharacter(characterId).trim();
+        return s.isEmpty() ? "" : s + " ";
+    }
+
+    /** {@code " #00042"} : N° du personnage visé (via l'index, même hors ligne), vide sinon. */
+    private String pidOfCharacter(java.util.UUID characterId) {
+        if (characterId == null || plugin.playerIds() == null) return "";
+        int n = plugin.playerIds().numberOf(characterId);
+        return n < 0 ? "" : " #" + com.reborn.shinobicore.character.PlayerIds.format(n);
     }
 
     /* --------------------------------------------------------------- chat UI */

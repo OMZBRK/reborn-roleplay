@@ -157,6 +157,16 @@ commands:
     usage: /<command>
     aliases: [help-rp]
     permission: shinobicore.use
+  duel:
+    description: "Duel consenti n'importe où — proposer, accepter, refuser, abandonner (sans séquelles)."
+    usage: "/<command> <proposer <joueur>|accepter [joueur]|refuser [joueur]|abandonner>"
+    aliases: [defi]
+    permission: shinobicore.use
+  pid:
+    description: "Staff — Player ID : N°, nom RP, compte, état d'un personnage (accepte #00042, même hors ligne)."
+    usage: "/<command> <joueur|nom RP|#N°>"
+    aliases: [playerid, numero]
+    permission: reborn.staff.helper
   garde:
     description: Staff — ouvrir le Poste de garde (panel staff en jeu, mod Reborn requis).
     usage: /<command>

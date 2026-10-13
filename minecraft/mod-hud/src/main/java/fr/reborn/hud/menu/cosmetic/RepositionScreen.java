@@ -14,12 +14,16 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.resources.Identifier;
+import fr.reborn.hud.ui.DaKit;
+import fr.reborn.hud.ui.LotBlit;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
 /**
- * <b>Menu de repositionnement cosmétique in-world</b> (façon nanos-world).
+ * <b>Menu de repositionnement cosmétique in-world</b> (façon nanos-world), au niveau de la fiche shinobi (DA §4.1,
+ * §6) : signature, la <b>pelote à épingles</b> du tailleur en tête du panneau laqué ({@code textures/gui/cosmetique/*}).
  * Le joueur reste debout dans le VRAI monde, rendu en 3e personne
  * ({@link RepositionMode} + {@code CameraRepositionMixin}) : on orbite autour de
  * lui (glisser sur le monde), on zoome (molette), et on manipule le cosmétique
@@ -272,9 +276,9 @@ public class RepositionScreen extends Screen {
         if (anchorOpen) drawAnchorList(ctx, f, mouseX, mouseY);
         else if (presetOpen) drawPresetList(ctx, f, mouseX, mouseY);
 
-        Component hint = RebornFont.arcade(
-            "GLISSER : orbiter   •   MOLETTE : zoom   •   GIZMO : glisser un axe   •   MAJ : fin   •   CTRL : accroche");
-        drawScaledCentered(ctx, f, hint, this.width / 2f, barY - 11, INK_DIM, LBL_SCALE);
+        DaKit.aides(ctx, f, fr.reborn.hud.menu.settings.ReglagesArt.PIECES, 0, 0, 120, 40, new String[][]{
+            {"Glisser", "orbiter"}, {"Molette", "zoom"}, {"Gizmo", "glisser un axe"}, {"Maj", "fin"}, {"Ctrl", "accroche"}},
+            this.width / 2f + 190, barY - 10, 1f);
     }
 
     private void drawGizmo(GuiGraphicsExtractor ctx, int mx, int my) {
@@ -331,12 +335,14 @@ public class RepositionScreen extends Screen {
      * filaire (thickLine = des centaines de fills par segment), d'où un mode Tourner fluide.
      */
     private void drawRing(GuiGraphicsExtractor ctx, int axis, int half, int col) {
+        fr.reborn.hud.ui.LotGui l = fr.reborn.hud.ui.LotGui.ouvrir(ctx);   // 48 perles = un élément GUI
         for (int s = 0; s < RING_N; s++) {
             float ax = ringX[axis][s], ay = ringY[axis][s];
             if (Float.isNaN(ax)) continue;
             int cx = Math.round(ax), cy = Math.round(ay);
-            ctx.fill(cx - half, cy - half, cx + half + 1, cy + half + 1, col);
+            l.fill(cx - half, cy - half, cx + half + 1, cy + half + 1, col);
         }
+        l.fermer();
     }
 
     /**
@@ -498,9 +504,9 @@ public class RepositionScreen extends Screen {
         drawScaled(ctx, f, c, cx - (f.width(c) * scale) / 2f, y, color, scale);
     }
 
-    /** Label de section (petites capitales arcade, échelle réduite). */
+    /** Label de section (ArcadePix fin, or d'étiquette). */
     private void sectionLabel(GuiGraphicsExtractor ctx, Font f, String s, int x, int y, int color) {
-        drawScaled(ctx, f, RebornFont.arcade(s), x, y, color, LBL_SCALE);
+        DaKit.arcFin(ctx, f, DaKit.arcade(s), x, y + 1, DaKit.OR_ETIQ, 0, false);
     }
 
     /** Ordonnée pour centrer verticalement un texte d'échelle {@code scale} dans une boîte. */
@@ -508,89 +514,85 @@ public class RepositionScreen extends Screen {
         return boxY + (h - 8f * scale) / 2f;
     }
 
-    // ─────────────────── Panneau CONFIGURATION ───────────────────
-    private void drawPanel(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
-        DrawHelpers.roundedOutlinedRectFull(ctx, panelX, panelY, panelW, panelH, 7, PANEL_FILL, PANEL_BORDER);
-        ctx.fill(panelX + 8, panelY + 1, panelX + panelW - 8, panelY + 2, Colors.withAlpha(ACC, 0.28f));
+    // ─────────────────── Panneau CONFIGURATION (signature : la pelote à épingles) ───────────────────
+    private static Identifier tex(String n) { return DaKit.tex("cosmetique", n); }
 
-        // Titre + pastille + cosmétique ciblé + croix.
-        DrawHelpers.ring(ctx, panelX + pad + 3, panelY + 11, 3, 2, Colors.withAlpha(ACC_HOVER, 0.9f));
-        drawScaled(ctx, f, RebornFont.arcade("CONFIGURATION"), panelX + pad + 11, panelY + 8, INK, LBL_SCALE);
-        // Cosmétique en cours d'édition, à droite (juste avant la croix).
-        Component tgt = Component.literal(cosmeticLabel);
-        float tgtW = f.width(tgt) * LBL_SCALE;
-        drawScaled(ctx, f, tgt, closeX - 5 - tgtW, panelY + 8, Colors.withAlpha(ACC_HOVER, 0.85f), LBL_SCALE);
+    private static final Identifier PANNEAU = tex("panneau"), LISTE = tex("liste"), PIECES = tex("pieces");
+
+    private void drawPanel(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
+        DaKit.coupe(ctx, PANNEAU, panelX - 2, panelY - 2, panelW + 8, panelH + 8, 0, 0, 186, 196, 18, 18, 186, 196);
+
+        // Pelote + titre + cosmétique ciblé + fermer.
+        DaKit.blit(ctx, PIECES, panelX + pad - 2, panelY + 5, 0, 0, 20, 14, 96, 32);
+        DaKit.arcFin(ctx, f, DaKit.arcade("Placement"), panelX + pad + 22, panelY + 9, DaKit.OR_CLAIR, 0, true);
+        Component tgt = DaKit.inter(cosmeticLabel);
+        float tgtW = DaKit.largeur7(f, tgt);
+        DaKit.inter7(ctx, f, tgt, closeX - 5 - tgtW, panelY + 12, DaKit.OR_ETIQ, 0);
         boolean ch = inside(mx, my, closeX, closeY, closeSize, closeSize);
-        drawScaledCentered(ctx, f, Component.literal("✕"), closeX + closeSize / 2f, closeY + 3,
-            ch ? Colors.WHITE_PURE : INK_DIM, VAL_SCALE);
+        fr.reborn.hud.ui.HudEditChrome.renderIconGlyph(ctx, "close", closeX + closeSize / 2, closeY + closeSize / 2,
+            ch ? DaKit.ROUGE_CLAIR : DaKit.DOUX);
 
         // Dropdown preset.
-        sectionLabel(ctx, f, "PRESET", panelX + pad, presetY - labelH, INK_DIM);
+        sectionLabel(ctx, f, "Preset", panelX + pad, presetY - labelH, 0);
         String presetLbl = selectedPreset != null ? selectedPreset : "Choisir un preset…";
         drawDropdownBox(ctx, f, panelX + pad, presetY, panelW - pad * 2, rowH, presetLbl,
             selectedPreset != null, presetOpen, mx, my);
 
-        // Champ nom.
+        // Champ nom (champ laqué, texte de l'EditBox).
+        DaKit.coupeH(ctx, DaKit.tex("tablist", "champ"), nameBox.getX() - 4, nameY - 3, nameBox.getWidth() + 6, 0, 0, 260, 18,
+            6, 260, 18);
         nameBox.extractRenderState(ctx, mx, my, 0f);
-        ctx.fill(nameBox.getX() - 2, nameY + fieldH, nameBox.getX() + nameBox.getWidth(), nameY + fieldH + 1,
-            Colors.withAlpha(0xFFFFFFFF, 0.18f));
 
         // Dropdown ancrage.
-        sectionLabel(ctx, f, "ANCRAGE", panelX + pad, anchorY - labelH, INK_DIM);
+        sectionLabel(ctx, f, "Ancrage", panelX + pad, anchorY - labelH, 0);
         drawDropdownBox(ctx, f, panelX + pad, anchorY, panelW - pad * 2, rowH, t.anchor.label,
             true, anchorOpen, mx, my);
 
-        // Rangée [Sauvegarder] [Supprimer].
-        drawButton(ctx, f, saveX, actionsY, saveW, rowH, "Sauver", Colors.SUCCESS, mx, my);
-        drawButton(ctx, f, delX, actionsY, delW, rowH, "Supprimer", Colors.DANGER, mx, my);
-
-        // [Appliquer] pleine largeur.
-        drawButton(ctx, f, panelX + pad, applyY, panelW - pad * 2, rowH, "✓ Appliquer", ACC_HOVER, mx, my);
+        // Rangée [Sauver] [Supprimer], puis [Appliquer].
+        drawButton(ctx, f, saveX, actionsY, saveW, rowH, "Sauver", 0, mx, my);
+        drawButton(ctx, f, delX, actionsY, delW, rowH, "Supprimer", 1, mx, my);
+        drawButton(ctx, f, panelX + pad, applyY, panelW - pad * 2, rowH, "Appliquer", 2, mx, my);
     }
 
     private void drawDropdownBox(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, int h,
                                  String label, boolean strong, boolean open, int mx, int my) {
         boolean hov = inside(mx, my, x, y, w, h);
-        int fill = open || hov ? Colors.withAlpha(ACC_HOVER, 0.22f) : Colors.withAlpha(0xFF000000, 0.40f);
-        int border = open ? ACC_HOVER : hov ? ACC_HOVER : Colors.withAlpha(ACC, 0.40f);
-        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 3, fill, border);
-        drawScaled(ctx, f, Component.literal(trim(f, label, (int) ((w - 16) / VAL_SCALE))), x + 5,
-            centerY(y, h, VAL_SCALE), strong ? INK : INK_DIM, VAL_SCALE);
-        // Chevron.
-        int ax = x + w - 10, ay = y + h / 2 - 1;
-        DrawHelpers.line(ctx, ax, ay, ax + 3, ay + 3, INK);
-        DrawHelpers.line(ctx, ax + 3, ay + 3, ax + 6, ay, INK);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, x, y - 1, w, open || hov ? 1 : 0);
+        DaKit.inter8(ctx, f, DaKit.inter(trim(f, label, (int) ((w - 18) / DaKit.S8))), x + 6, y + h / 2f,
+            strong ? DaKit.CREME : DaKit.INACTIF, 0);
+        DaKit.blit(ctx, PIECES, x + w - 12, y + h / 2 - 2, 22, 0, 7, 4, 96, 32);
     }
 
+    /** kind : 0 neutre, 1 danger (texte rouge), 2 action principale (laque vermillon). */
     private void drawButton(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, int h,
-                            String label, int accent, int mx, int my) {
+                            String label, int kind, int mx, int my) {
         boolean hov = inside(mx, my, x, y, w, h);
-        int fill = hov ? Colors.withAlpha(accent, 0.28f) : Colors.withAlpha(0xFF000000, 0.40f);
-        int border = hov ? accent : Colors.withAlpha(accent, 0.55f);
-        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 3, fill, border);
-        String lbl = trim(f, label, (int) ((w - 6) / VAL_SCALE));
-        drawScaledCentered(ctx, f, Component.literal(lbl), x + w / 2f, centerY(y, h, VAL_SCALE),
-            hov ? Colors.WHITE_PURE : INK, VAL_SCALE);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, x, y - 1, w, kind == 2 ? 2 : hov ? 1 : 0);
+        int col = kind == 1 ? (hov ? DaKit.ROUGE_CLAIR : 0xFFC86470) : hov || kind == 2 ? DaKit.CREME : DaKit.CREME_VAL;
+        DaKit.inter8(ctx, f, DaKit.inter(label), x + w / 2f, y + h / 2f, col, 1);
     }
 
     private static final int ITEM_H = 13;
+
+    private void liste(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+        DaKit.coupe(ctx, LISTE, x - 2, y - 2, w + 8, h + 8, 0, 0, 172, 172, 12, 12, 172, 172);
+    }
 
     private void drawPresetList(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
         List<String> names = CosmeticPresets.list(cosmeticId);
         int x = panelX + pad, w = panelW - pad * 2, y = presetY + rowH + 2;
         int h = Math.max(ITEM_H, names.size() * ITEM_H) + 4;
-        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 3,
-            Colors.withAlpha(0xFF0C0A0D, 0.97f), Colors.withAlpha(ACC, 0.6f));
+        liste(ctx, x, y, w, h);
         if (names.isEmpty()) {
-            drawScaled(ctx, f, Component.literal("Aucun preset enregistré."), x + 5, y + 4, INK_DIM, VAL_SCALE);
+            DaKit.inter8(ctx, f, DaKit.inter("Aucun preset enregistré."), x + 6, y + 2 + ITEM_H / 2f, DaKit.INACTIF, 0);
             return;
         }
         int iy = y + 2;
         for (String name : names) {
             boolean hov = inside(mx, my, x + 2, iy, w - 4, ITEM_H);
-            if (hov) ctx.fill(x + 2, iy, x + w - 2, iy + ITEM_H, Colors.withAlpha(ACC_HOVER, 0.24f));
-            drawScaled(ctx, f, Component.literal(trim(f, name, (int) ((w - 10) / VAL_SCALE))), x + 5,
-                centerY(iy, ITEM_H, VAL_SCALE), hov ? Colors.WHITE_PURE : INK, VAL_SCALE);
+            if (hov) fr.reborn.hud.ui.GalerieArt.ligne(ctx, x + 3, iy, w - 6);
+            DaKit.inter8(ctx, f, DaKit.inter(trim(f, name, (int) ((w - 12) / DaKit.S8))), x + 7, iy + ITEM_H / 2f,
+                hov ? DaKit.CREME : DaKit.CREME_VAL, 0);
             iy += ITEM_H;
         }
     }
@@ -599,15 +601,14 @@ public class RepositionScreen extends Screen {
         CosmeticTransform.Anchor[] vals = CosmeticTransform.Anchor.values();
         int x = panelX + pad, w = panelW - pad * 2, y = anchorY + rowH + 2;
         int h = vals.length * ITEM_H + 4;
-        DrawHelpers.roundedOutlinedRectFull(ctx, x, y, w, h, 3,
-            Colors.withAlpha(0xFF0C0A0D, 0.97f), Colors.withAlpha(ACC, 0.6f));
+        liste(ctx, x, y, w, h);
         int iy = y + 2;
         for (CosmeticTransform.Anchor a : vals) {
             boolean hov = inside(mx, my, x + 2, iy, w - 4, ITEM_H);
             boolean sel = a == t.anchor;
-            if (hov) ctx.fill(x + 2, iy, x + w - 2, iy + ITEM_H, Colors.withAlpha(ACC_HOVER, 0.24f));
-            drawScaled(ctx, f, Component.literal(a.label), x + 5, centerY(iy, ITEM_H, VAL_SCALE),
-                sel ? ACC_HOVER : hov ? Colors.WHITE_PURE : INK, VAL_SCALE);
+            if (hov) fr.reborn.hud.ui.GalerieArt.ligne(ctx, x + 3, iy, w - 6);
+            DaKit.inter8(ctx, f, DaKit.inter(a.label), x + 7, iy + ITEM_H / 2f,
+                sel ? DaKit.OR_CLAIR : hov ? DaKit.CREME : DaKit.CREME_VAL, 0);
             iy += ITEM_H;
         }
     }
@@ -615,6 +616,7 @@ public class RepositionScreen extends Screen {
     // ─────────────────── Barre du bas ───────────────────
     private void drawBottomBar(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
         String[] labels = { "Déplacer", "Tourner", "Échelle", "Masquer" };
+        LotBlit ic = null;
         for (int i = 0; i < 4; i++) {
             int x = barX[i];
             boolean hov = inside(mx, my, x, barY, barBtnW, barH);
@@ -622,42 +624,16 @@ public class RepositionScreen extends Screen {
                 || (i == 1 && gizmoMode == GizmoMode.ROTATE)
                 || (i == 2 && gizmoMode == GizmoMode.SCALE)
                 || (i == 3 && !gizmoVisible);
-            int fill = sel ? Colors.withAlpha(ACC_HOVER, 0.34f)
-                : hov ? Colors.withAlpha(ACC_HOVER, 0.18f) : PANEL_FILL;
-            int border = sel ? ACC_HOVER : hov ? ACC_HOVER : PANEL_BORDER;
-            DrawHelpers.roundedOutlinedRectFull(ctx, x, barY, barBtnW, barH, 6, fill, border);
-            int gcx = x + 15, gcy = barY + barH / 2;
-            int gcol = sel || hov ? Colors.WHITE_PURE : INK;
-            drawBarGlyph(ctx, i, gcx, gcy, gcol);
-            drawScaled(ctx, f, Component.literal(labels[i]), x + 27, centerY(barY, barH, VAL_SCALE),
-                sel || hov ? Colors.WHITE_PURE : INK, VAL_SCALE);
+            fr.reborn.hud.menu.settings.ReglagesArt.bouton(ctx, x, barY + 2, barBtnW, sel ? 3 : hov ? 1 : 0);
+            DaKit.inter8(ctx, f, DaKit.inter(labels[i]), x + 26, barY + 12, sel || hov ? DaKit.CREME : DaKit.CREME_VAL, 0);
         }
-    }
-
-    private void drawBarGlyph(GuiGraphicsExtractor ctx, int type, int cx, int cy, int col) {
-        switch (type) {
-            case 0 -> { // Déplacer : croix 4 directions
-                DrawHelpers.thickLine(ctx, cx - 6, cy, cx + 6, cy, 2, col);
-                DrawHelpers.thickLine(ctx, cx, cy - 6, cx, cy + 6, 2, col);
-                DrawHelpers.disc(ctx, cx + 6, cy, 2, col);
-                DrawHelpers.disc(ctx, cx - 6, cy, 2, col);
-                DrawHelpers.disc(ctx, cx, cy + 6, 2, col);
-                DrawHelpers.disc(ctx, cx, cy - 6, 2, col);
-            }
-            case 1 -> DrawHelpers.ring(ctx, cx, cy, 6, 2, col); // Tourner : anneau
-            case 2 -> { // Échelle : carré + flèches diagonales
-                DrawHelpers.thickLine(ctx, cx - 5, cy - 5, cx + 5, cy - 5, 2, col);
-                DrawHelpers.thickLine(ctx, cx - 5, cy + 5, cx + 5, cy + 5, 2, col);
-                DrawHelpers.thickLine(ctx, cx - 5, cy - 5, cx - 5, cy + 5, 2, col);
-                DrawHelpers.thickLine(ctx, cx + 5, cy - 5, cx + 5, cy + 5, 2, col);
-                DrawHelpers.thickLine(ctx, cx - 3, cy - 3, cx + 3, cy + 3, 2, col);
-            }
-            case 3 -> { // Masquer : anneau barré
-                DrawHelpers.ring(ctx, cx, cy, 6, 2, col);
-                DrawHelpers.thickLine(ctx, cx - 5, cy - 5, cx + 5, cy + 5, 2, col);
-            }
-            default -> { }
+        ic = LotBlit.ouvrir(ctx, PIECES, 96, 32);
+        for (int i = 0; i < 4; i++) {
+            boolean sel = (i == 0 && gizmoMode == GizmoMode.TRANSLATE) || (i == 1 && gizmoMode == GizmoMode.ROTATE)
+                || (i == 2 && gizmoMode == GizmoMode.SCALE) || (i == 3 && !gizmoVisible);
+            ic.blit(barX[i] + 9, barY + 6, 32 + 12 * i, sel ? 14 : 0, 12, 12);
         }
+        ic.fermer();
     }
 
     // ─────────────────── Interactions ───────────────────

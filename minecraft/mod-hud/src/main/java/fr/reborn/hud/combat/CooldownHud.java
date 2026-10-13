@@ -23,6 +23,8 @@ public final class CooldownHud {
 
     private CooldownHud() {}
 
+    private static final Identifier CRENEAU = fr.reborn.hud.ui.DaKit.tex("combat", "creneau");
+
     public static final int ICON = 22, GAP = 4;
     /** Côté d'une frame source des textures d'icône (native 32×32, dessinée réduite). */
     private static final int FRAME = 32;
@@ -60,9 +62,9 @@ public final class CooldownHud {
         float frac = CooldownState.INSTANCE.fraction(a, now);
         boolean ready = frac <= 0.001f;
 
-        int fill = withA(a.color, ready ? 0.5f : 0.22f);
-        int border = ready ? withA(a.color, 0.95f) : withA(0xFFFFFFFF, 0.3f);
-        DrawHelpers.roundedOutlinedRect(ctx, x, y, ICON, ICON, 5, fill, border);
+        // créneau de laque (liseré d'or prêt, éteint en recharge) : tools/gen_combat_textures.py
+        fr.reborn.hud.ui.DaKit.blit(ctx, CRENEAU, x - 1, y - 1, ready ? 0 : 26, 0, 26, 26, 52, 26);
+        ctx.fill(x + 2, y + 2, x + ICON - 2, y + ICON - 2, withA(a.color, ready ? 0.22f : 0.10f));
 
         // Icône : texture si livrée, sinon glyphe placeholder.
         String slug = a.name().toLowerCase(Locale.ROOT);
@@ -87,10 +89,8 @@ public final class CooldownHud {
             float secs = CooldownState.INSTANCE.remainingMs(a, now) / 1000f;
             int tenths = Math.round(secs * 10f);
             String s = SEC_FMT.computeIfAbsent(tenths, t -> String.format(Locale.US, "%.1f", t / 10f));
-            Component t = RebornFont.bold(s);
-            int tx = x + (ICON - font.width(t)) / 2, ty = y + ICON + 1;
-            ctx.text(font, t, tx + 1, ty + 1, 0xC0000000, false);   // ombre lisibilité
-            ctx.text(font, t, tx, ty, 0xFFFFFFFF, false);
+            fr.reborn.hud.ui.DaKit.inter7o(ctx, font, fr.reborn.hud.ui.DaKit.inter(s), x + ICON / 2f, y + ICON + 5,
+                fr.reborn.hud.ui.DaKit.CREME, 1);
         }
     }
 

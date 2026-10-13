@@ -133,6 +133,8 @@ public final class Progression implements Listener {
         if (!(e.getDamager() instanceof Player p)) return;
         var zones = plugin.trainingZones();
         if (zones == null || zones.zoneAt(p.getLocation()) == null) return;
+        // Un duel ne rapporte pas d'XP de combat, même s'il déborde sur un terrain.
+        if (plugin.duels() != null && plugin.duels().inDuel(p.getUniqueId())) return;
         lastTrainingHit.put(p.getUniqueId(), System.currentTimeMillis());
     }
 }

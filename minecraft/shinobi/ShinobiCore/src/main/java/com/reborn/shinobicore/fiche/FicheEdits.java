@@ -222,7 +222,7 @@ public final class FicheEdits {
 
     private void json(CommandSender s, String[] args) {
         if (!staff(s)) return;
-        Player t = args.length >= 2 ? Bukkit.getPlayerExact(args[1]) : (s instanceof Player p ? p : null);
+        Player t = args.length >= 2 ? com.reborn.shinobicore.character.PlayerIds.online(s, args[1]) : (s instanceof Player p ? p : null);
         if (t == null) { err(s, "Joueur hors ligne."); return; }
         String js = channel.debugJson(t);
         if (js == null) { err(s, "Aucun personnage actif."); return; }
@@ -268,6 +268,11 @@ public final class FicheEdits {
 
     /** Joueur en ligne (son personnage actif), sinon nom de personnage. */
     private ShinobiCharacter target(CommandSender s, String name) {
+        if (com.reborn.shinobicore.character.PlayerIds.isRef(name)) {                      // #N° (staff), même hors ligne
+            CharacterService.ResolvedCharacter r = com.reborn.shinobicore.character.PlayerIds.character(s, name);
+            if (r == null) { err(s, "Aucun personnage n°" + name.substring(1) + "."); return null; }
+            return r.character();
+        }
         Player p = Bukkit.getPlayerExact(name);
         if (p != null) {
             ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());

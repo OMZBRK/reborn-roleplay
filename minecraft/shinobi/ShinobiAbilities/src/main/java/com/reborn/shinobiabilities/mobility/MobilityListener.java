@@ -268,7 +268,8 @@ public final class MobilityListener implements Listener {
 
         ShinobiCharacter c = groundGame(p);
         boolean fired = false;
-        if (c != null && !pickerOpen.test(p)) {
+        // Surchargé (sacoche > 115 %) : ni double saut ni saut mural.
+        if (c != null && !pickerOpen.test(p) && !core.surcharge(p)) {
             if (mobility.wallJump().couldFire(p, c)) {
                 fired = mobility.wallJump().tryActivate(p);
             }
@@ -293,6 +294,8 @@ public final class MobilityListener implements Listener {
         if (coreSessionActive(p)) return;     // swing/ride owns the body
         ShinobiCharacter c = groundGame(p);
         if (c == null) return;
+        // Surchargé (sacoche > 115 %) : ni dash, ni escalade, ni onde au sol.
+        if (core.surcharge(p)) return;
 
         UUID id = p.getUniqueId();
         boolean onGround = p.isOnGround();
