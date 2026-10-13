@@ -229,7 +229,7 @@ public final class CatalogueGui extends AbilityScreen {
                 target.forgetAbility(a.id());
                 nowKnown = false;
             } else {
-                target.learnAbility(a.id());
+                target.learnAbility(a.id(), com.reborn.shinobicore.character.LearnOrigin.STAFF);
                 nowKnown = true;
             }
             router.core().characters().save(target);

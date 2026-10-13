@@ -287,6 +287,20 @@ public class YamlCharacterRepository implements CharacterRepository {
             }
         }
 
+        // Fiche shinobi v2 : origine / date d'apprentissage des techniques,
+        // caractère (3 traits + citation), stade du dōjutsu. Absent = défauts.
+        ConfigurationSection metaSec = s.getConfigurationSection("learned-meta");
+        if (metaSec != null) {
+            for (String aid : metaSec.getKeys(false)) {
+                c.setLearnMeta(aid,
+                        com.reborn.shinobicore.character.LearnOrigin.from(metaSec.getString(aid + ".origin")),
+                        metaSec.getLong(aid + ".at", 0L));
+            }
+        }
+        if (s.isList("caractere.traits")) c.setTraits(s.getStringList("caractere.traits"));
+        c.setCitation(s.getString("caractere.citation"));
+        c.setDojutsuStage(s.getInt("dojutsu-stade", 0));
+
         // Skills & unspent points (the /sc roll system).
         c.setSkillPoints(s.getInt("skill-points", 0));
         ConfigurationSection skillsSec = s.getConfigurationSection("skills");
@@ -465,6 +479,19 @@ public class YamlCharacterRepository implements CharacterRepository {
             cfg.set(key + ".learned." + e.getKey(), e.getValue());
         }
         cfg.set(key + ".known-abilities", null);
+
+        // Fiche shinobi v2 — n'écrire que les valeurs présentes.
+        cfg.set(key + ".learned-meta", null);
+        for (var e : c.learnMetaView().entrySet()) {
+            if (e.getValue() == null || e.getValue().origin() == null) continue;
+            String mk = key + ".learned-meta." + e.getKey();
+            cfg.set(mk + ".origin", e.getValue().origin().name());
+            cfg.set(mk + ".at", e.getValue().at() > 0 ? e.getValue().at() : null);
+        }
+        cfg.set(key + ".caractere", null);
+        if (!c.traits().isEmpty()) cfg.set(key + ".caractere.traits", new ArrayList<>(c.traits()));
+        if (c.citation() != null) cfg.set(key + ".caractere.citation", c.citation());
+        cfg.set(key + ".dojutsu-stade", c.dojutsuStage() > 0 ? c.dojutsuStage() : null);
 
         // Skills & unspent points (the /sc roll system).
         cfg.set(key + ".skill-points", c.skillPoints() > 0 ? c.skillPoints() : null);

@@ -52,6 +52,11 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.skin.SkinCommands.register();
         fr.reborn.hud.menu.inventory.InventoryCommands.register();
 
+        // Cécité d'un œil (orbite vide / œil abîmé) : sous tout le reste du HUD.
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "cecite"),
+            (ctx, tickCounter) -> fr.reborn.hud.yeux.CeciteHud.render(ctx, ctx.guiWidth(), ctx.guiHeight()));
+
         // Overlay du menu d'interaction live (rendu HUD, pas un écran).
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "interaction"),
@@ -276,16 +281,20 @@ public final class RebornHudClient implements ClientModInitializer {
                 net.minecraft.client.Minecraft mc = context.client();
                 if (mc.player == null) return;
                 boolean open = fr.reborn.hud.menu.stats.StatsData.update(payload.content());
-                if (mc.gui.screen() instanceof fr.reborn.hud.menu.stats.StatsScreen st) {
+                fr.reborn.hud.menu.fiche.FicheData.update(payload.content());
+                if (mc.gui.screen() instanceof fr.reborn.hud.menu.fiche.FicheScreen st) {
                     st.refresh();
                 } else if (fr.reborn.hud.menu.esc.EscTokonoma.consumeSilentStatsRequest()) {
                     // réponse à la demande d'identité du menu Échap : ne pas ouvrir la fiche
                 } else if (open && mc.gui.screen() == null) {
-                    mc.setScreenAndShow(new fr.reborn.hud.menu.stats.StatsScreen());
+                    mc.setScreenAndShow(new fr.reborn.hud.menu.fiche.FicheScreen());
                 }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-            (handler, client) -> fr.reborn.hud.menu.stats.StatsData.clear());
+            (handler, client) -> {
+                fr.reborn.hud.menu.stats.StatsData.clear();
+                fr.reborn.hud.menu.fiche.FicheData.clear();
+            });
 
         // Carte du monde (canal reborn:map, bidirectionnel) : ShinobiCore pousse la carte
         // du monde courant + ses lieux ; le client renvoie open / tp:<id> (staff).
@@ -648,6 +657,8 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.chat.ChatDebug.init();
         fr.reborn.hud.combat.CombatDebug.init();
         fr.reborn.hud.parchemin.ParcheminDebug.init();
+        fr.reborn.hud.yeux.YeuxDebug.init();
+        fr.reborn.hud.menu.fiche.FicheDebug.init();
         fr.reborn.hud.audit.ResponsiveAudit.init();
         fr.reborn.hud.audit.ConcentrationPreview.init();
         fr.reborn.hud.audit.FeaturePreview.init();

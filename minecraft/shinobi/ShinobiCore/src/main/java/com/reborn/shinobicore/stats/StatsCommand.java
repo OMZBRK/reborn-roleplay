@@ -36,6 +36,10 @@ import java.util.UUID;
  *   /stats jeton give|take|set &lt;joueur&gt; &lt;n&gt;  jetons d'un compte   (staff / console)
  * </pre>
  *
+ * <p>Fiche v2 ({@code /fiche} est un alias) : {@code caractere}, {@code citation},
+ * et pour le staff {@code edit}, {@code service}, {@code json} — voir
+ * {@link com.reborn.shinobicore.fiche.FicheEdits}.
+ *
  * <p>{@code jeton give} marche aussi joueur hors ligne (compte connu du serveur) :
  * c'est la commande que la boutique exécutera à la livraison.
  */
@@ -46,11 +50,13 @@ public final class StatsCommand implements TabExecutor {
     private final ShinobiCore plugin;
     private final StatsServiceImpl stats;
     private final StatsChannel channel;
+    private final com.reborn.shinobicore.fiche.FicheEdits fiche;
 
     public StatsCommand(ShinobiCore plugin, StatsServiceImpl stats, StatsChannel channel) {
         this.plugin = plugin;
         this.stats = stats;
         this.channel = channel;
+        this.fiche = new com.reborn.shinobicore.fiche.FicheEdits(plugin, channel);
     }
 
     @Override
@@ -121,6 +127,7 @@ public final class StatsCommand implements TabExecutor {
                 stats.respec(c.id());
                 ok(s, c.name() + " : stats remises à " + StatsService.MIN + ".");
             }
+            case "caractere", "caractère", "citation", "edit", "service", "json" -> fiche.handle(s, sub, args);
             default -> usage(s);
         }
         return true;
@@ -225,6 +232,12 @@ public final class StatsCommand implements TabExecutor {
 
     private void usage(CommandSender s) {
         s.sendMessage(Component.text("/stats · /stats alloc nin=2,ctr=1 · /stats respec · /stats jeton", NamedTextColor.GRAY));
+        s.sendMessage(Component.text("/fiche caractere <trait> <trait> <trait> · /fiche citation [texte…]", NamedTextColor.GRAY));
+        if (s.hasPermission(com.reborn.shinobicore.fiche.FicheEdits.STAFF)) {
+            s.sendMessage(Component.text("/fiche edit <joueur> caractere|citation|dojutsu … · "
+                    + "/fiche service <joueur> [mission <rang> [texte] [--date jj/mm] | ajouter <type> <texte> | masquer <n>] · "
+                    + "/fiche json <joueur>", NamedTextColor.GRAY));
+        }
         if (s.hasPermission(ADMIN)) {
             s.sendMessage(Component.text("/stats voir|reset <perso> · /stats give <perso> <n> · "
                     + "/stats set <perso> <stat> <valeur> · /stats jeton give|take|set <joueur> <n>",
@@ -242,8 +255,11 @@ public final class StatsCommand implements TabExecutor {
         List<String> out = new ArrayList<>();
         boolean admin = s.hasPermission(ADMIN);
         if (args.length == 1) {
-            out.addAll(List.of("alloc", "respec", "jeton"));
+            out.addAll(List.of("alloc", "respec", "jeton", "caractere", "citation"));
             if (admin) out.addAll(List.of("voir", "give", "set", "reset"));
+            if (s.hasPermission(com.reborn.shinobicore.fiche.FicheEdits.STAFF)) out.addAll(List.of("edit", "service", "json"));
+        } else if (com.reborn.shinobicore.fiche.FicheEdits.SUBS.contains(args[0].toLowerCase(Locale.ROOT))) {
+            out.addAll(fiche.complete(s, args));
         } else if (args.length == 2 && admin && List.of("voir", "view", "give", "set", "reset")
                 .contains(args[0].toLowerCase(Locale.ROOT))) {
             out.addAll(plugin.characters().allCharacterNames());

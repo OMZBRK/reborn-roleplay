@@ -208,6 +208,19 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
      */
     private final List<Injury> injuries = new ArrayList<>();
 
+    /* ------------------------------------------------ fiche shinobi (v2) */
+    /** Caractère : 3 traits au plus (saisis par le joueur, {@code /fiche caractere}). */
+    private final List<String> traits = new ArrayList<>();
+    /** Citation du personnage, sans guillemets ; {@code null} = aucune. */
+    private String citation;
+    /** Stade d'éveil du dōjutsu du clan (0 = dormant). */
+    private int dojutsuStage;
+    /** Origine et date d'apprentissage des techniques, par id. Absent = inconnu. */
+    private final Map<String, LearnMeta> learnMeta = new HashMap<>();
+
+    /** Origine et date (ms epoch, 0 = inconnue) d'une technique apprise. */
+    public record LearnMeta(LearnOrigin origin, long at) {}
+
     /** Name the viewer knows the subject by — real ("Name Clan") or
      *  nickname. The {@code isNickname} flag is what the renderer uses
      *  to pick a colour. */
@@ -747,14 +760,93 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
         return learned.knows(abilityId);
     }
 
-    /** Add an ability id. Returns true if it wasn't already known. */
+    /** Add an ability id. Returns true if it wasn't already known.
+     *  Origine inconnue — préférer {@link #learnAbility(String, LearnOrigin)}. */
     public boolean learnAbility(String abilityId) {
-        return learned.learn(abilityId);
+        return learnAbility(abilityId, LearnOrigin.INCONNU);
+    }
+
+    /**
+     * Apprend une technique en notant son origine et la date. La méta n'est
+     * écrite que si la technique est nouvelle (et l'origine connue : une
+     * origine {@link LearnOrigin#INCONNU} n'apporte rien, l'absence vaut inconnu).
+     */
+    public boolean learnAbility(String abilityId, LearnOrigin origin) {
+        boolean added = learned.learn(abilityId);
+        if (added && abilityId != null && origin != null && origin != LearnOrigin.INCONNU) {
+            learnMeta.put(abilityId, new LearnMeta(origin, System.currentTimeMillis()));
+            touch();
+        }
+        return added;
     }
 
     /** Remove an ability id. Returns true if it was known. */
     public boolean forgetAbility(String abilityId) {
+        if (abilityId != null && learnMeta.remove(abilityId) != null) touch();
         return learned.forget(abilityId);
+    }
+
+    /** Origine d'une technique connue ({@link LearnOrigin#INCONNU} sans trace). */
+    public LearnOrigin learnOrigin(String abilityId) {
+        LearnMeta m = abilityId == null ? null : learnMeta.get(abilityId);
+        return m == null || m.origin() == null ? LearnOrigin.INCONNU : m.origin();
+    }
+
+    /** Date d'apprentissage (ms epoch), ou {@code null} si inconnue. */
+    public Long learnedAt(String abilityId) {
+        LearnMeta m = abilityId == null ? null : learnMeta.get(abilityId);
+        return m == null || m.at() <= 0 ? null : m.at();
+    }
+
+    /** Vue non modifiable des métas d'apprentissage (persistance). */
+    public Map<String, LearnMeta> learnMetaView() {
+        return Collections.unmodifiableMap(learnMeta);
+    }
+
+    /** Écrit une méta telle quelle (chargement depuis le disque, outil staff). */
+    public void setLearnMeta(String abilityId, LearnOrigin origin, long at) {
+        if (abilityId == null || abilityId.isBlank()) return;
+        if (origin == null || origin == LearnOrigin.INCONNU) {
+            if (learnMeta.remove(abilityId) != null) touch();
+            return;
+        }
+        learnMeta.put(abilityId, new LearnMeta(origin, Math.max(0L, at)));
+        touch();
+    }
+
+    /* ------------------------------------------------ fiche : caractère */
+
+    /** Les traits de caractère (3 au plus), dans l'ordre saisi. */
+    public List<String> traits() { return Collections.unmodifiableList(traits); }
+
+    /** Remplace les traits (les vides sont ignorés, 3 au plus). {@code null} efface. */
+    public void setTraits(List<String> values) {
+        traits.clear();
+        if (values != null) {
+            for (String t : values) {
+                if (t == null || t.isBlank()) continue;
+                if (traits.size() >= 3) break;
+                traits.add(t.trim());
+            }
+        }
+        touch();
+    }
+
+    /** Citation (sans guillemets), ou {@code null}. */
+    public String citation() { return citation; }
+
+    /** Citation ; vide ou {@code null} l'efface. */
+    public void setCitation(String v) {
+        this.citation = (v == null || v.isBlank()) ? null : v.trim();
+        touch();
+    }
+
+    /** Stade d'éveil du dōjutsu (0 = dormant). */
+    public int dojutsuStage() { return dojutsuStage; }
+
+    public void setDojutsuStage(int v) {
+        this.dojutsuStage = Math.max(0, Math.min(9, v));
+        touch();
     }
 
     /** Unmodifiable view of the known-ability ids. */

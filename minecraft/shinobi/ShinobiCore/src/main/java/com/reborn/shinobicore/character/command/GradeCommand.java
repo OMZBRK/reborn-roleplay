@@ -75,6 +75,9 @@ public final class GradeCommand implements TabExecutor {
         }
 
         tc.setRank(to);
+        // États de service (fiche v2) : « Promu <grade>, sur examen / au mérite » ou rétrogradation.
+        // Inscrit avant onRankChanged, qui renvoie la fiche au joueur.
+        if (plugin.serviceRecords() != null) plugin.serviceRecords().promotion(tc, from, to, exam, giver);
         plugin.stats().onRankChanged(tc);
 
         boolean up = to.ordinal() > from.ordinal();

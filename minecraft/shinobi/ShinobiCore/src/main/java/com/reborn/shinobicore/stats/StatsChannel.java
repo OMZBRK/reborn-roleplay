@@ -18,9 +18,11 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Canal {@code reborn:stats} (bidirectionnel) — la <b>fiche shinobi</b> du mod
@@ -33,7 +35,14 @@ import java.util.Map;
  * avant de la valider — le serveur reste seul juge ({@link StatsService#allocate}).
  *
  * <p>C2S : {@code open} · {@code alloc:taijutsu=1,ninjutsu=2} · {@code respec}
- * (gratuit pour le staff, sinon un jeton — {@link RespecTokens}).
+ * (gratuit pour le staff, sinon un jeton — {@link RespecTokens}) · {@code refresh}
+ * (fiche v2, onglet État : renvoi sans ouvrir, 1 fois par seconde au plus).
+ * Tout autre message est ignoré en silence.
+ *
+ * <p><b>Format v2</b> ({@code "v":2}) : les clés historiques ne changent ni de nom
+ * ni de sens ; s'y ajoutent, toutes facultatives, {@code rankId}, {@code identite},
+ * {@code lignee}, {@code apprentissage}, {@code etat} et des clés par technique
+ * ({@link com.reborn.shinobicore.fiche.FicheJson}).
  */
 public final class StatsChannel implements PluginMessageListener {
 
@@ -44,11 +53,15 @@ public final class StatsChannel implements PluginMessageListener {
     private final ShinobiCore plugin;
     private final StatsServiceImpl stats;
     private final RespecTokens tokens;
+    private final com.reborn.shinobicore.fiche.FicheJson fiche;
+    /** Dernier {@code refresh} servi, par joueur (anti-spam : 1 par seconde). */
+    private final Map<UUID, Long> lastRefresh = new HashMap<>();
 
     public StatsChannel(ShinobiCore plugin, StatsServiceImpl stats, RespecTokens tokens) {
         this.plugin = plugin;
         this.stats = stats;
         this.tokens = tokens;
+        this.fiche = new com.reborn.shinobicore.fiche.FicheJson(plugin);
         stats.bindChannel(this);
     }
 
@@ -125,7 +138,15 @@ public final class StatsChannel implements PluginMessageListener {
             RespecOutcome r = requestRespec(p, c);
             p.sendActionBar(Component.text(r.message(), r.ok() ? NamedTextColor.GOLD : NamedTextColor.RED));
             if (!r.ok()) push(p, false);
+        } else if (msg.equals("refresh")) {
+            long now = System.currentTimeMillis();
+            Long last = lastRefresh.get(p.getUniqueId());
+            if (last != null && now - last < 1000L) return;
+            lastRefresh.put(p.getUniqueId(), now);
+            if (lastRefresh.size() > 512) lastRefresh.values().removeIf(t -> now - t > 60_000L);
+            push(p, false);
         }
+        // Message inconnu : ignoré en silence (aucun retour au joueur).
     }
 
     /* ----------------------------------------------------------- outbound */
@@ -136,7 +157,7 @@ public final class StatsChannel implements PluginMessageListener {
         if (c == null) return;
         boolean free = respecFree(p);
         boolean canRespec = free || tokens.mode() == RespecTokens.Mode.TOKEN;
-        byte[] bytes = buildJson(c, open, canRespec, free, tokens.get(p.getUniqueId()))
+        byte[] bytes = buildJson(p, c, open, canRespec, free, tokens.get(p.getUniqueId()))
                 .getBytes(StandardCharsets.UTF_8);
         try {
             p.sendPluginMessage(plugin, CHANNEL, bytes);
@@ -145,8 +166,22 @@ public final class StatsChannel implements PluginMessageListener {
         }
     }
 
-    String buildJson(ShinobiCharacter c, boolean open, boolean canRespec, boolean respecFree, int respecTokens) {
+    /** JSON exact qu'enverrait {@link #push} (outil staff {@code /fiche json}), ou null sans personnage actif. */
+    public String debugJson(Player p) {
+        ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
+        if (c == null) return null;
+        boolean free = respecFree(p);
+        boolean canRespec = free || tokens.mode() == RespecTokens.Mode.TOKEN;
+        return buildJson(p, c, false, canRespec, free, tokens.get(p.getUniqueId()));
+    }
+
+    String buildJson(Player p, ShinobiCharacter c, boolean open, boolean canRespec, boolean respecFree, int respecTokens) {
         StatFormulas.Levers l = StatFormulas.levers();
+        // Services facultatifs, rechargés à chaque envoi (addons démarrés après le cœur).
+        com.reborn.shinobicore.api.ApprenticeshipService ap =
+                Bukkit.getServicesManager().load(com.reborn.shinobicore.api.ApprenticeshipService.class);
+        com.reborn.shinobicore.api.EnduranceService end =
+                Bukkit.getServicesManager().load(com.reborn.shinobicore.api.EnduranceService.class);
         StringBuilder sb = new StringBuilder(2048);
         sb.append('{');
         sb.append("\"open\":").append(open);
@@ -238,9 +273,23 @@ public final class StatsChannel implements PluginMessageListener {
                 sb.append('"').append(e.getKey().key()).append("\":\"").append(e.getValue().name()).append('"');
                 f2 = false;
             }
-            sb.append("}}");
+            sb.append('}');
+            try {
+                com.reborn.shinobicore.fiche.FicheJson.appendMembers(sb,
+                        com.reborn.shinobicore.fiche.FicheJson.techniqueExtras(c, a, ap));
+            } catch (RuntimeException ex) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "[fiche] extras de " + a.id() + " omis", ex);
+            }
+            sb.append('}');
         }
         sb.append(']');
+        // Fiche v2 : clés facultatives (un bloc illisible est omis seul).
+        sb.append(",\"v\":2");
+        try {
+            fiche.appendSections(sb, p, c, ap, end);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "[fiche] sections v2 omises", ex);
+        }
         sb.append('}');
         return sb.toString();
     }

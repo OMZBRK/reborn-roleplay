@@ -184,10 +184,10 @@ public final class BibliothequeScreen extends Screen {
             boolean hot = i == hov && t != null;
             Da.outline(g, cx - 1, cy - 1, CW + 2, CH + 2, hot ? ScrollArt.GOLD : ScrollArt.WOOD_D);
             if (t != null) {
-                int sh = Math.max(8, Math.min(11, CH / 3));
+                int sz = CH - 4;
                 int lift = hot ? 2 : 0;
-                if (hot) g.fillGradient(cx, cy + CH - sh - 8, cx + CW, cy + CH - 3, 0x00F2D49A, 0x38F2D49A);
-                ScrollArt.rolled(g, cx + 6, cy + CH - sh - 6 - lift, CW - 12, sh, t.rank(), now);
+                if (hot) g.fillGradient(cx, cy + 4, cx + CW, cy + CH - 3, 0x00F2D49A, 0x38F2D49A);
+                ScrollArt.item(g, cx + (CW - sz) / 2, cy + 1 - lift, sz, t.rank());
                 ScrollArt.fuda(g, font, cx + CW - 15, cy + CH + 1, t.rank());
             }
         }

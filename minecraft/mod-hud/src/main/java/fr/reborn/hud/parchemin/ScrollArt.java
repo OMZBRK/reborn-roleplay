@@ -4,11 +4,15 @@ import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.ui.Da;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /**
- * Dessin des rouleaux : rouleau fermé (papier washi en volume, embouts de bois, cordon à la couleur du rang),
- * étiquette de rang (fuda) et sceau de rang (hanko). Les rangs A et S ont des embouts dorés, le S scintille.
+ * Dessin des rouleaux : rouleau fermé rendu avec son modèle 3D (rouleaux SNR de l'équipe), étiquette de rang
+ * (fuda) et sceau de rang (hanko).
  */
 public final class ScrollArt {
 
@@ -20,14 +24,14 @@ public final class ScrollArt {
 
     private ScrollArt() {}
 
-    /** Couleur du cordon et de l'étiquette par rang. */
+    /** Couleur du cordon et de l'étiquette par rang, alignée sur les rouleaux SNR (vert, jaune, rouge, violet, interdit). */
     public static int rankColor(char r) {
         return switch (r) {
-            case 'D' -> 0xFF8C98A2;
-            case 'C' -> 0xFF4E9A62;
-            case 'B' -> 0xFF3E6FB8;
-            case 'A' -> 0xFF8A4FC0;
-            default -> 0xFFC01E35;
+            case 'D', 'E' -> 0xFF3E8F62;
+            case 'C' -> 0xFFC9A332;
+            case 'B' -> 0xFFB0303A;
+            case 'A' -> 0xFF7E52B4;
+            default -> 0xFF4E4A42;
         };
     }
 
@@ -35,42 +39,27 @@ public final class ScrollArt {
         return "Rang " + r;
     }
 
-    /** Rouleau fermé couché, coin haut-gauche (x, y), hauteur {@code h} (≈ 11). */
-    public static void rolled(GuiGraphicsExtractor g, int x, int y, int w, int h, char rank, long now) {
-        boolean noble = rank == 'A' || rank == 'S';
-        g.fill(x + 3, y + h, x + w - 1, y + h + 2, 0x50000000);                                   // ombre posée
-        int bx0 = x + 3, bx1 = x + w - 3, mid = y + h / 2;
-        g.fillGradient(bx0, y, bx1, mid, WASHI_HI, WASHI);
-        g.fillGradient(bx0, mid, bx1, y + h, WASHI, WASHI_LO);
-        g.fill(bx0, y + 2, bx1, y + 3, 0x40FFFFFF);                                               // reflet
-        g.fill(bx1 - 3, y + 1, bx1 - 2, y + h - 1, 0x40000000);                                    // tour du papier
-        // embouts (jiku)
-        int cap = noble ? GOLD : WOOD;
-        int capD = noble ? 0xFF8A6A2E : WOOD_D;
-        for (int side = 0; side < 2; side++) {
-            int cx = side == 0 ? x : x + w - 3;
-            g.fill(cx, y - 1, cx + 3, y + h + 1, capD);
-            g.fill(cx, y, cx + 3, y + h, cap);
-            g.fill(cx, y, cx + 1, y + h, noble ? GOLD_HI : WOOD_HI);
+    private static final ItemStack[] STACKS = new ItemStack[5];
+
+    /** L'objet parchemin du rang (modèle 3D SNR du mod, le même qu'en main). */
+    public static ItemStack stack(char rank) {
+        int i = switch (rank) { case 'C' -> 1; case 'B' -> 2; case 'A' -> 3; case 'S' -> 4; default -> 0; };
+        if (STACKS[i] == null) {
+            ItemStack s = new ItemStack(Items.PAPER);
+            s.set(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("reborn", "parchemin_" + "dcbas".charAt(i)));
+            STACKS[i] = s;
         }
-        // cordon et pompon
-        int col = rankColor(rank);
-        int kx = x + w / 2 - 2;
-        g.fill(kx, y - 1, kx + 4, y + h + 1, col);
-        g.fill(kx, y - 1, kx + 4, y, 0x40FFFFFF);
-        g.fill(kx + 1, y + h + 1, kx + 3, y + h + 5, col);
-        g.fill(kx, y + h + 5, kx + 4, y + h + 7, col);
-        // scintillement du rang S
-        if (rank == 'S') {
-            for (int k = 0; k < 4; k++) {
-                long ph = (now / 120 + k * 7) % 24;
-                if (ph < 6) {
-                    int sx = x + 6 + (int) ((k * 37 + now / 400) % Math.max(1, w - 12));
-                    int sy = y - 3 + (int) (ph / 2);
-                    g.fill(sx, sy, sx + 1, sy + 1, GOLD_HI);
-                }
-            }
-        }
+        return STACKS[i];
+    }
+
+    /** Rouleau rendu avec son modèle 3D, dans un carré de côté {@code size} (coin haut-gauche x, y). */
+    public static void item(GuiGraphicsExtractor g, int x, int y, int size, char rank) {
+        float sc = size / 16f;
+        g.pose().pushMatrix();
+        g.pose().translate(x, y);
+        g.pose().scale(sc, sc);
+        g.item(stack(rank), 0, 0);
+        g.pose().popMatrix();
     }
 
     /** Étiquette de papier (fuda) suspendue, avec la lettre du rang. Coin haut-gauche (x, y), 10 × 13. */

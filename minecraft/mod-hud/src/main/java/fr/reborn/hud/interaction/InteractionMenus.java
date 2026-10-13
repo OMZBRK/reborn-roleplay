@@ -58,7 +58,10 @@ public final class InteractionMenus {
      */
     public static List<InteractionItem> forBody(String name, fr.reborn.hud.ko.CorpsClient.Body b) {
         if (b.phase() == 3) {
-            return List.of(InteractionItem.action("Constater la mort", () -> info("Ce corps ne respire plus.")));
+            return List.of(
+                    InteractionItem.action("Constater la mort", () -> info("Ce corps ne respire plus.")),
+                    InteractionItem.action("Porter", () -> sendCommand("corps porter " + name)),
+                    InteractionItem.action("Fouiller", () -> sendCommand("corps fouiller " + name)));
         }
         java.util.List<InteractionItem> l = new java.util.ArrayList<>();
         l.add(InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")));

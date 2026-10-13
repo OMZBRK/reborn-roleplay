@@ -211,8 +211,10 @@ public final class CorpsService implements Listener, TabExecutor {
             p.sendActionBar(Component.text("Trop loin.", NamedTextColor.GRAY));
             return true;
         }
-        if (!plugin.ko().isKo(t.getUniqueId())) {
-            p.sendActionBar(Component.text("Cette personne n'est pas à terre.", NamedTextColor.GRAY));
+        boolean dead = plugin.deathScene() != null && plugin.deathScene().isDead(t.getUniqueId());
+        if (!plugin.ko().isKo(t.getUniqueId()) && !(dead && (act.equals("porter") || act.equals("fouiller")))) {
+            p.sendActionBar(Component.text(dead ? "Ce corps ne respire plus." : "Cette personne n'est pas à terre.",
+                    NamedTextColor.GRAY));
             return true;
         }
         if (running.containsKey(p.getUniqueId())) return true;
@@ -323,9 +325,15 @@ public final class CorpsService implements Listener, TabExecutor {
         if (holder != null && !running.containsKey(h)) holder.removePotionEffect(PotionEffectType.SLOWNESS);
         KoState st = plugin.ko().getKo(victim);
         Player v = Bukkit.getPlayer(victim);
+        // tenu 0,3 bloc au-dessus du sol : on le repose au sol avant de l'épingler, sinon il reste en l'air
+        Location spot = v != null ? PorterManager.dropSpot(v.getLocation(), 0) : null;
+        if (v != null) {
+            v.teleport(spot);
+            v.setFallDistance(0f);
+        }
         if (st != null) {
             st.setCarrierPlayerId(null);
-            if (v != null) st.setLockLocation(v.getLocation().clone());
+            if (spot != null) st.setLockLocation(spot.clone());
         }
     }
 

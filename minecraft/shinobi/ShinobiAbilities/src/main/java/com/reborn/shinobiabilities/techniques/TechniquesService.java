@@ -94,7 +94,7 @@ public final class TechniquesService {
             return;
         }
 
-        c.learnAbility(result.ability().id());
+        c.learnAbility(result.ability().id(), com.reborn.shinobicore.character.LearnOrigin.PARCHEMIN);
         core.characters().save(c);
 
         p.showTitle(Title.title(

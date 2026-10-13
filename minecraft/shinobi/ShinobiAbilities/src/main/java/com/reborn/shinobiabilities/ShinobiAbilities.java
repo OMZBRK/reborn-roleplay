@@ -195,6 +195,10 @@ public final class ShinobiAbilities extends JavaPlugin {
         this.libraries.wire(seances);
         this.techniques.wireSeances(seances::onSeanceEnd);
         getServer().getPluginManager().registerEvents(seances, this);
+        // Fiche shinobi (ShinobiCore) : apprentissages en cours, maître à portée, sceau 師.
+        Bukkit.getServicesManager().register(com.reborn.shinobicore.api.ApprenticeshipService.class,
+                new com.reborn.shinobiabilities.parchemin.ApprenticeshipBridge(seances, scrollCatalog),
+                this, org.bukkit.plugin.ServicePriority.Normal);
         var parchCmd = new com.reborn.shinobiabilities.parchemin.ParcheminCommand(libraries, scrollCatalog, scrollSlots);
         parchCmd.wire(seances);
         parchCmd.wire(minigame.concentration());

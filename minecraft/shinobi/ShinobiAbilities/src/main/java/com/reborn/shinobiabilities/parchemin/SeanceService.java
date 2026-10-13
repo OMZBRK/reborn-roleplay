@@ -51,7 +51,8 @@ import java.util.UUID;
  */
 public final class SeanceService implements Listener {
 
-    private record Progress(int done, long last) {}
+    /** Avancement d'un apprentissage : séances faites, heure de la dernière (ms epoch, 0 = jamais). */
+    public record Progress(int done, long last) {}
     public record Pending(UUID charId, UUID playerId, String playerName, String techId, String scrollId) {}
     private record Training(String techId, String scrollId, boolean master) {}
 
@@ -208,22 +209,55 @@ public final class SeanceService implements Listener {
         return m == 0 ? h + " h" : h + " h " + String.format("%02d", m);
     }
 
-    private boolean isPending(UUID charId, String techId) {
+    public boolean isPending(UUID charId, String techId) {
         for (Pending p : pending) if (p.charId().equals(charId) && p.techId().equals(techId)) return true;
         return false;
     }
 
     /** Un maître de la technique à portée : Maître de la technique, et la connaissant depuis assez longtemps. */
-    private Player masterNear(Player p, String techId) {
+    public Player masterNear(Player p, String techId) {
         for (Player o : p.getWorld().getPlayers()) {
             if (o.equals(p) || o.getLocation().distanceSquared(p.getLocation()) > masterRange * masterRange) continue;
             ShinobiCharacter oc = core.characters().getActive(o.getUniqueId());
-            if (oc == null || !oc.knowsAbility(techId) || oc.abilityMastery(techId) < masterMastery) continue;
-            Long at = learnedAt.getOrDefault(oc.id(), Map.of()).get(techId);
-            if (at != null && System.currentTimeMillis() - at < masterAgeMs) continue;   // trop récent
-            return o;
+            if (isMaster(oc, techId)) return o;
         }
         return null;
+    }
+
+    /**
+     * Ce personnage est-il maître de la technique (peut l'enseigner) : il la connaît,
+     * maîtrise suffisante, et apprise depuis assez longtemps quand la date est connue
+     * (date du parchemin, sinon date notée sur le personnage).
+     */
+    public boolean isMaster(ShinobiCharacter oc, String techId) {
+        if (oc == null || techId == null || !oc.knowsAbility(techId) || oc.abilityMastery(techId) < masterMastery) return false;
+        Long at = learnedAt(oc.id(), techId);
+        if (at == null) at = oc.learnedAt(techId);
+        return at == null || System.currentTimeMillis() - at >= masterAgeMs;      // trop récent sinon
+    }
+
+    // ─────────────────────────────────────────────────────────── lecture (pont)
+
+    /** Copie de l'avancement des apprentissages en cours d'un personnage (technique → avancement). */
+    public Map<String, Progress> progressOf(UUID charId) {
+        Map<String, Progress> m = progress.get(charId);
+        return m == null ? Map.of() : Map.copyOf(m);
+    }
+
+    /** Date d'apprentissage sur parchemin (ms epoch), ou null. */
+    public Long learnedAt(UUID charId, String techId) {
+        Map<String, Long> m = learnedAt.get(charId);
+        return m == null ? null : m.get(techId);
+    }
+
+    /** Délai minimal entre deux séances (ms). */
+    public long cooldownMs() { return cooldownMs; }
+
+    /** Demandes de validation en attente d'un personnage (ids de technique). */
+    public List<String> pendingOf(UUID charId) {
+        List<String> out = new ArrayList<>();
+        for (Pending p : pending) if (p.charId().equals(charId)) out.add(p.techId());
+        return out;
     }
 
     // ─────────────────────────────────────────────────────────────── séance
@@ -323,7 +357,7 @@ public final class SeanceService implements Listener {
     }
 
     private void learn(Player p, ShinobiCharacter c, Ability a, String scrollId) {
-        c.learnAbility(a.id());
+        c.learnAbility(a.id(), com.reborn.shinobicore.character.LearnOrigin.PARCHEMIN);
         core.characters().save(c);
         Map<String, Progress> m = progress.get(c.id());
         if (m != null) m.remove(a.id());
@@ -375,7 +409,7 @@ public final class SeanceService implements Listener {
     }
 
     /** Identifiant du rouleau de {@code techId} porté par le joueur (inventaire principal), ou null. */
-    private static String carriedScroll(Player p, String techId) {
+    public static String carriedScroll(Player p, String techId) {
         for (ItemStack it : p.getInventory().getContents()) {
             if (it == null) continue;
             if (techId.equals(ParcheminItems.abilityIdOf(it))) return ParcheminItems.scrollIdOf(it);

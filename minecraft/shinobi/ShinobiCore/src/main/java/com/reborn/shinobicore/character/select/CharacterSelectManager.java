@@ -432,6 +432,8 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         c.setSize(size);
         c.setAppearance(appearance);
         plugin.characters().save(c);
+        // États de service (fiche v2) : « Enregistré à <village> », daté de la création.
+        if (plugin.serviceRecords() != null) plugin.serviceRecords().enregistrement(c);
 
         plugin.getLogger().info("[character-select] " + p.getName() + " a créé le perso « "
                 + name + " » (clan=" + clan + ", village=" + village + ", sexe=" + sexe

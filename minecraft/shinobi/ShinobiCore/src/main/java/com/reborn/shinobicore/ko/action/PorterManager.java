@@ -5,6 +5,9 @@ import com.reborn.shinobicore.ko.KoState;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -12,6 +15,7 @@ import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -77,7 +81,8 @@ public final class PorterManager implements Listener {
     public boolean carry(Player carrier, Player target) {
         if (carrier == null || target == null) return false;
         if (byCarrier.containsKey(carrier.getUniqueId())) return false;
-        if (!plugin.ko().isKo(target.getUniqueId())) return false;
+        boolean dead = plugin.deathScene() != null && plugin.deathScene().isDead(target.getUniqueId());
+        if (!plugin.ko().isKo(target.getUniqueId()) && !dead) return false;
         // Can't carry yourself; can't carry someone already on a mount.
         if (carrier.getUniqueId().equals(target.getUniqueId())) return false;
         if (target.getVehicle() != null) return false;
@@ -115,12 +120,20 @@ public final class PorterManager implements Listener {
         if (body != null && body.getVehicle() != null) {
             body.leaveVehicle();
         }
-        // Re-pin the KO state to wherever the body just landed.
+        // Le corps se pose au sol devant le porteur : à l'instant du dépôt il est encore sur ses épaules, et
+        // l'épingler là le laissait flotter en l'air.
+        Location spot = null;
+        if (body != null) {
+            spot = dropSpot(carrier != null ? carrier.getLocation() : body.getLocation(), 0.8);
+            body.teleport(spot);
+            body.setFallDistance(0f);
+        }
         KoState st = plugin.ko().getKo(bodyId);
         if (st != null) {
             st.setCarrierPlayerId(null);
-            if (body != null) st.setLockLocation(body.getLocation().clone());
+            if (spot != null) st.setLockLocation(spot.clone());
         }
+        if (body != null && plugin.deathScene() != null) plugin.deathScene().moveBody(body.getUniqueId(), spot);
         if (carrier != null) {
             carrier.sendMessage(Component.text(
                     "Tu déposes la personne.", NamedTextColor.GRAY));
@@ -138,6 +151,38 @@ public final class PorterManager implements Listener {
     }
 
     public boolean isCarrying(UUID carrierId) { return byCarrier.containsKey(carrierId); }
+
+    /**
+     * Point au sol à {@code ahead} blocs devant {@code from} (horizontalement), posé sur le premier bloc solide en
+     * dessous (6 blocs au plus), sinon {@code from}. Sert à déposer un corps porté ou tenu.
+     */
+    public static Location dropSpot(Location from, double ahead) {
+        Vector dir = from.getDirection().setY(0);
+        if (dir.lengthSquared() < 1e-4) dir = new Vector(0, 0, 1);
+        Location at = from.clone().add(dir.normalize().multiply(ahead));
+        Location ground = ground(at);
+        if (ground == null) ground = ground(from.clone());
+        if (ground == null) return from.clone();
+        ground.setYaw(from.getYaw());
+        ground.setPitch(0f);
+        return ground;
+    }
+
+    private static Location ground(Location at) {
+        World w = at.getWorld();
+        int x = at.getBlockX(), z = at.getBlockZ();
+        int top = (int) Math.floor(at.getY() + 1.0);
+        for (int y = top; y >= top - 7 && y > w.getMinHeight(); y--) {
+            Block below = w.getBlockAt(x, y - 1, z);
+            Block feet = w.getBlockAt(x, y, z);
+            Block head = w.getBlockAt(x, y + 1, z);
+            if (below.isSolid() && feet.isPassable() && head.isPassable()) {
+                double surface = y - 1 + below.getBoundingBox().getHeight();
+                return new Location(w, at.getX(), Math.max(surface, y - 1 + 0.01), at.getZ());
+            }
+        }
+        return null;
+    }
     public UUID    carriedBy(UUID bodyId)     { return byCarried.get(bodyId); }
 
     /* ----------------------------------------------- listeners */

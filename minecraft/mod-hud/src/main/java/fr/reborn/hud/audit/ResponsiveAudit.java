@@ -120,7 +120,7 @@ public final class ResponsiveAudit {
         screen("menu_animations", () -> new fr.reborn.hud.animation.AnimationMenuScreen(null));
         screen("menu_galerie", () -> new fr.reborn.hud.ui.GalleryScreen(null));
         screen("menu_sacoche", fr.reborn.hud.menu.inventory.InventoryScreen::new);
-        screen("menu_fiche", fr.reborn.hud.menu.stats.StatsScreen::new);
+        screen("menu_fiche", fr.reborn.hud.menu.fiche.FicheScreen::new);
         screen("menu_tablist", fr.reborn.hud.menu.tablist.TablistScreen::new);
         screen("menu_carte", fr.reborn.hud.map.WorldMapScreen::new);
         screen("menu_tirage", fr.reborn.hud.menu.tirage.TirageScreen::new);

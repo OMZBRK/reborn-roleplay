@@ -102,7 +102,7 @@ commands:
     permission: shinobicore.use
   stats:
     description: Fiche shinobi — six stats, points à répartir, techniques (SPEC_STATS_SERVICE).
-    usage: /<command> [alloc nin=2,ctr=1|respec|jeton|voir|give|set|reset]
+    usage: "/<command> [alloc nin=2,ctr=1|respec|jeton|caractere|citation|voir|give|set|reset|edit|service|json]"
     aliases: [fiche, statistiques]
     permission: shinobicore.use
   sacoche:
@@ -240,6 +240,9 @@ permissions:
     default: op
   shinobicore.stats.admin:
     description: Staff — voir / modifier les stats d'un personnage, points bonus, respec forcé.
+    default: op
+  shinobicore.fiche.staff:
+    description: "Staff — fiche shinobi : éditer caractère, citation et dōjutsu, inscrire ou masquer des états de service (/fiche edit, /fiche service, /fiche json)."
     default: op
   shinobicore.use:
     description: Base permission to use ShinobiCore commands.

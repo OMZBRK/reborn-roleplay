@@ -1,12 +1,5 @@
 package fr.reborn.hud.audit;
 
-import fr.reborn.hud.ko.KoClient;
-import fr.reborn.hud.ko.KoDebug;
-import fr.reborn.hud.ko.VolonteHud;
-import fr.reborn.hud.menu.stats.StatsScreen;
-import fr.reborn.hud.runtime.RebornSession;
-import fr.reborn.hud.runtime.VitalsFeed;
-import fr.reborn.hud.staff.GardeScreen;
 import fr.reborn.hud.staff.StaffClient;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
@@ -15,7 +8,7 @@ import net.minecraft.client.Screenshot;
 /**
  * Aperçu avant publication, <b>inactif en production</b> ({@code REBORN_FEATURE_PREVIEW=1}, monde solo de dev) :
  * rejoue les messages serveur du lot en cours et capture chaque visuel dans run/screenshots/preview_*.png.
- * Lot actuel : Volonté facultative, inconscience → /hopital, menu du corps (RPK, exécutions), scène de mort.
+ * Lot actuel : rouleaux SNR pour les parchemins (en main, 3e personne, au sol, barre d'action).
  */
 public final class FeaturePreview {
 
@@ -30,71 +23,46 @@ public final class FeaturePreview {
 
     private static void cmd(Minecraft mc, String c) { mc.player.connection.sendCommand(c); }
 
-    private static final String START = "{\"t\":\"start\",\"keys\":[0,1,0,2,1],"
-            + "\"times\":[1100,1820,2560,3300,4020],\"win\":190,\"left\":2}";
+    private static final String RANKS = "dcbas";
 
     private static void tick(Minecraft mc) {
         if (mc.player == null || mc.level == null) { t = -1; return; }
         t++;
         switch (t) {
             case 30 -> {
-                RebornSession.debugForceRp = true;
-                VitalsFeed.update(12, 100, 40, 100);
-                cmd(mc, "time set 13000");
+                cmd(mc, "time set 6000");
                 cmd(mc, "weather clear");
-                cmd(mc, "gamemode survival");
-                cmd(mc, "tp @s ~ ~ ~ -90 5");
-                cmd(mc, "kill @e[type=mannequin]");
+                cmd(mc, "gamemode creative");
+                cmd(mc, "clear @s");
+                cmd(mc, "tp @s ~ ~ ~ -90 30");
+                for (int k = 0; k < 5; k++) {
+                    cmd(mc, "item replace entity @s hotbar." + k + " with paper[item_model=\"reborn:parchemin_" + RANKS.charAt(k) + "\"]");
+                }
                 mc.gui.hud.getChat().clearMessages(false);
             }
-            // À terre, sans la Volonté (facultative) : pas d'invite
-            case 60 -> { KoClient.event(KoClient.EV_A_TERRE); KoClient.update(KoDebug.ko(1, 0, 38, 45, false)); }
-            case 100 -> shot(mc, "preview_01_a_terre_sans_volonte");
-            // À terre, avec la technique Volonté : invite Espace
-            case 105 -> VolonteHud.debugReceive("{\"t\":\"avail\",\"left\":2}");
-            case 115 -> shot(mc, "preview_02_a_terre_avec_volonte");
-            // Inconscient, passé les 5 min : plus de compteur, /hopital proposé
-            case 120 -> { VolonteHud.clear(); KoClient.update(KoDebug.ko(2, 0, 0, 300, true)); }
-            case 150 -> shot(mc, "preview_03_inconscient_hopital");
-            // Menu d'interaction sur un corps
-            case 160 -> {
-                KoClient.update(null);
-                cmd(mc, "summon mannequin ^1.5 ^ ^3 {Rotation:[150f,0f],Tags:[\"ko_test\"]}");
-                fr.reborn.hud.ko.CorpsClient.debugReceive("{\"t\":\"bodies\",\"b\":[],\"ex\":["
-                        + "{\"id\":\"coup_de_grace\",\"n\":\"Coup de grâce\"},{\"id\":\"etranglement\",\"n\":\"Étranglement\"}]}");
-            }
-            case 175 -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.debugOpen("Ren Hyūga",
-                    fr.reborn.hud.interaction.InteractionMenus.forBody("Mika_", new fr.reborn.hud.ko.CorpsClient.Body(1, 0)), 5);
-            case 185 -> shot(mc, "preview_04_menu_corps_avant_rpk");
-            case 190 -> fr.reborn.hud.interaction.InteractionMode.INSTANCE.debugOpen("Ren Hyūga",
-                    fr.reborn.hud.interaction.InteractionMenus.forBody("Mika_", new fr.reborn.hud.ko.CorpsClient.Body(2, 2)), 5);
-            case 200 -> shot(mc, "preview_05_menu_corps_rpk_validee");
-            // Corps laissé au sol : habillé de l'apparence Reborn
-            case 205 -> {
-                fr.reborn.hud.interaction.InteractionMode.INSTANCE.debugClose();
-                fr.reborn.hud.skin.SkinSpec l = new fr.reborn.hud.skin.SkinSpec();
-                l.skinColor = fr.reborn.hud.skin.SkinSpec.skinRamp(0.3f);
-                l.hairId = "Cheveux_Sasuke";
-                l.hairColor = 0xFF1A1414;
-                l.outfitId = "Complet_Uchiha";
-                for (var e : mc.level.entitiesForRendering()) {
-                    if (e instanceof net.minecraft.client.entity.ClientMannequin) {
-                        fr.reborn.hud.ko.CorpsClient.debugReceive("{\"t\":\"bodies\",\"b\":[],\"ex\":[],\"cp\":[{\"m\":\""
-                                + e.getUUID() + "\",\"a\":" + com.google.gson.JsonParser.parseString(
-                                        new com.google.gson.Gson().toJson(l.serialize())) + "}]}");
-                    }
+            // Rouleaux SNR : en main (1re personne), un par rang
+            case 50 -> mc.player.getInventory().setSelectedSlot(0);
+            case 60 -> shot(mc, "preview_01_main_rang_d");
+            case 62 -> mc.player.getInventory().setSelectedSlot(2);
+            case 72 -> shot(mc, "preview_02_main_rang_b");
+            case 74 -> mc.player.getInventory().setSelectedSlot(4);
+            case 84 -> shot(mc, "preview_03_main_rang_s");
+            // 3e personne de face, rang S puis rang A en main
+            case 86 -> mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
+            case 100 -> shot(mc, "preview_04_tiers_rang_s");
+            case 102 -> mc.player.getInventory().setSelectedSlot(3);
+            case 112 -> shot(mc, "preview_05_tiers_rang_a");
+            // Au sol, les cinq rangs alignés
+            case 114 -> {
+                mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+                cmd(mc, "tp @s ~ ~ ~ -90 45");
+                for (int k = 0; k < 5; k++) {
+                    cmd(mc, "summon item ~2.2 ~0.1 ~" + (k - 2) * 0.7 + " {NoGravity:1b,PickupDelay:32767,Age:-32768,Motion:[0d,0d,0d],"
+                            + "Item:{id:\"paper\",count:1,components:{\"minecraft:item_model\":\"reborn:parchemin_" + RANKS.charAt(k) + "\"}}}");
                 }
             }
-            case 220 -> shot(mc, "preview_06_corps_apparence_reborn");
-            // Scène de mort : les yeux se ferment, noir, « Assister à votre réelle fin ? », puis vue cinéma
-            case 230 -> fr.reborn.hud.ko.CorpsClient.debugReceive("{\"t\":\"mort\",\"nom\":\"Ren Hyūga\",\"min\":4}");
-            case 245 -> shot(mc, "preview_07_mort_paupieres");
-            case 290 -> shot(mc, "preview_08_mort_noir");
-            case 330 -> shot(mc, "preview_09_mort_question");
-            case 335 -> { if (mc.gui.screen() instanceof fr.reborn.hud.ko.DeathScreen d) d.debugAnswer(true); }
-            case 385 -> shot(mc, "preview_10_mort_scene_cinema");
-            case 395 -> { fr.reborn.hud.ko.CorpsClient.debugReceive("{\"t\":\"fin\"}"); cmd(mc, "kill @e[tag=ko_test]"); }
-            case 410 -> mc.stop();
+            case 140 -> shot(mc, "preview_06_sol_cinq_rangs");
+            case 150 -> { cmd(mc, "kill @e[type=item]"); mc.stop(); }
             default -> { }
         }
     }

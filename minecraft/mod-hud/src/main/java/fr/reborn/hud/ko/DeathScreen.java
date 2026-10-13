@@ -19,7 +19,8 @@ import org.lwjgl.glfw.GLFW;
  * quoi que ce soit).
  * <ol>
  *   <li>Les yeux battent puis se ferment.</li>
- *   <li>Écran noir. Au bout du délai (60 s depuis la mort) : « Assister à votre réelle fin ? » Oui / Non.</li>
+ *   <li>Écran noir. Au bout du délai (10 s depuis la mort, réglé par le serveur) : « Assister à votre réelle fin ? »
+ *       Oui / Non.</li>
  *   <li>Non → il part ({@code /corps quitter}) : le serveur laisse le corps et ouvre la sélection de personnage.</li>
  *   <li>Oui → les yeux se rouvrent sur une vue grisée, sans HUD, en bandes de cinéma ; il regarde la suite (la
  *       souris tourne la vue autour du corps) et part quand il veut (Échap).</li>

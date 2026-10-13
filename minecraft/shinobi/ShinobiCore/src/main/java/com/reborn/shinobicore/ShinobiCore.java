@@ -106,6 +106,8 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.stats.StatsServiceImpl statsService;
     private com.reborn.shinobicore.stats.CastAttributionImpl castAttribution;
     private com.reborn.shinobicore.stats.StatsChannel statsChannel;
+    private com.reborn.shinobicore.fiche.ServiceLogStore serviceLogStore;
+    private com.reborn.shinobicore.fiche.ServiceRecords serviceRecords;
     private com.reborn.shinobicore.map.PlaceRegistry placeRegistry;
     // Jutsu / techniques managers moved out to the standalone
     // ShinobiAbilities plugin. See ShinobiAbilities_RECREATION_PROMPT.md.
@@ -431,6 +433,10 @@ public final class ShinobiCore extends JavaPlugin {
 
         // 7g. Stats (SPEC_STATS_SERVICE) — service, fiche client (reborn:stats),
         //     attribution des dégâts MS / MM / ME aux techniques, /stats.
+        // États de service (fiche shinobi v2) — journal append-only par personnage.
+        this.serviceLogStore = new com.reborn.shinobicore.fiche.ServiceLogStore(this);
+        this.serviceLogStore.start();
+        this.serviceRecords = new com.reborn.shinobicore.fiche.ServiceRecords(this, serviceLogStore);
         this.statsService = new com.reborn.shinobicore.stats.StatsServiceImpl(this);
         this.castAttribution = new com.reborn.shinobicore.stats.CastAttributionImpl(this);
         this.castAttribution.register();
@@ -765,6 +771,8 @@ public final class ShinobiCore extends JavaPlugin {
                 castAttribution, this, org.bukkit.plugin.ServicePriority.Normal);
         services.register(com.reborn.shinobicore.api.TechniqueRegistry.class,
                 techniqueRegistry, this, org.bukkit.plugin.ServicePriority.Normal);
+        services.register(com.reborn.shinobicore.api.ServiceRecordService.class,
+                serviceRecords, this, org.bukkit.plugin.ServicePriority.Normal);
         // Concrete type too: the world pack needs load()/reload access,
         // which is deliberately NOT on the read-only api interface.
         services.register(com.reborn.shinobicore.technique.AbilityRegistry.class,
@@ -827,6 +835,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (dummyManager != null) dummyManager.save();
         if (cinematicManager != null) cinematicManager.shutdown();
         if (medicArmoirManager != null) medicArmoirManager.stop();
+        if (serviceLogStore != null) serviceLogStore.stop();
         if (characterRepository != null) characterRepository.close();
         getLogger().info("ShinobiCore disabled.");
     }
@@ -1205,6 +1214,9 @@ public final class ShinobiCore extends JavaPlugin {
 
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.stats.StatsServiceImpl stats() { return statsService; }
+
+    /** États de service des personnages (fiche shinobi v2). */
+    public com.reborn.shinobicore.fiche.ServiceRecords serviceRecords() { return serviceRecords; }
 
     public com.reborn.shinobicore.inventory.InventoryManager rpInventory() { return rpInventory; }
 

@@ -265,7 +265,7 @@ public final class BibliothequeStaffScreen extends Screen {
             g.fill(sx, y + 10, sx + cw, y + 32, 0xFF1C110B);
             Da.outline(g, sx, y + 10, cw, 22, ScrollArt.WOOD_D);
             if (i < preview.size()) {
-                ScrollArt.rolled(g, sx + 3, y + 17, cw - 6, 8, preview.get(i).rank(), System.currentTimeMillis());
+                ScrollArt.item(g, sx + (cw - 20) / 2, y + 11, 20, preview.get(i).rank());
             }
             sx += cw + 4;
         }

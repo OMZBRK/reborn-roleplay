@@ -43,8 +43,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * ({@code /corps quitter}). Oui → il regarde la suite en vue grisée, sans HUD, bandes de cinéma, et part quand il
  * veut.
  *
- * <p>En partant, le corps reste au sol ({@code mort-rp.corps-minutes}) : un mannequin que le mod habille de
- * l'apparence Reborn du personnage ; puis la sélection de personnage. Une déconnexion laisse aussi le corps.
+ * <p>Tant que le joueur assiste à la scène, <b>le corps, c'est lui</b> : les autres peuvent le porter, le déposer,
+ * le fouiller ({@code /corps}). En partant, le corps reste au sol ({@code mort-rp.corps-minutes}) là où il a été
+ * laissé : un mannequin que le mod habille de l'apparence Reborn du personnage ; puis la sélection de personnage.
+ * Une déconnexion laisse aussi le corps.
  */
 public final class DeathScene implements Listener {
 
@@ -85,7 +87,13 @@ public final class DeathScene implements Listener {
         return out;
     }
 
-    private long minMillis() { return Math.max(0, plugin.getConfig().getLong("mort-rp.scene-min-secondes", 60)) * 1000L; }
+    /** Le corps a été déplacé (porté puis déposé) : la scène continue à cet endroit. */
+    public void moveBody(UUID player, Location to) {
+        if (to == null) return;
+        scenes.computeIfPresent(player, (id, s) -> new Scene(to.clone(), s.name(), s.since(), s.look()));
+    }
+
+    private long minMillis() { return Math.max(0, plugin.getConfig().getLong("mort-rp.scene-min-secondes", 10)) * 1000L; }
 
     /** Le personnage vient de mourir : le joueur reste sur son corps, spectateur de la suite. */
     public void start(Player p, String name) {
@@ -123,6 +131,8 @@ public final class DeathScene implements Listener {
     }
 
     private void end(Player p, boolean select) {
+        if (!scenes.containsKey(p.getUniqueId())) return;
+        plugin.porter().releaseAllInvolving(p.getUniqueId());          // porté : déposé au sol d'abord
         Scene s = scenes.remove(p.getUniqueId());
         if (s == null) return;
         spawnCorpse(p, s);
@@ -165,6 +175,7 @@ public final class DeathScene implements Listener {
         for (Map.Entry<UUID, Scene> e : scenes.entrySet()) {
             Player p = Bukkit.getPlayer(e.getKey());
             if (p == null) continue;
+            if (p.getVehicle() != null) continue;                         // porté : il suit le porteur
             Location at = e.getValue().at();
             Location cur = p.getLocation();
             if (!cur.getWorld().equals(at.getWorld()) || cur.distanceSquared(at) > 0.05) {

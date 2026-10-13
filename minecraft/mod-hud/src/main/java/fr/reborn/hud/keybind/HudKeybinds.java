@@ -231,7 +231,7 @@ public final class HudKeybinds {
                         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
                             new fr.reborn.hud.menu.stats.StatsPayload("open"));
                     } else {
-                        mc.setScreenAndShow(new fr.reborn.hud.menu.stats.StatsScreen());
+                        mc.setScreenAndShow(new fr.reborn.hud.menu.fiche.FicheScreen());
                     }
                 }
             }

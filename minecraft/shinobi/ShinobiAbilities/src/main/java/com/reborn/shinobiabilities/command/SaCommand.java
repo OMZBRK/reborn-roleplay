@@ -181,7 +181,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
         }
         boolean learn = args[0].equalsIgnoreCase("learn");
         boolean changed = learn
-                ? ref.character().learnAbility(a.id())
+                ? ref.character().learnAbility(a.id(), com.reborn.shinobicore.character.LearnOrigin.STAFF)
                 : ref.character().forgetAbility(a.id());
         if (changed) core.characters().save(ref.character());
         msg(sender, (learn ? "Apprise : " : "Oubliée : ") + a.name()
@@ -203,7 +203,7 @@ public final class SaCommand implements CommandExecutor, TabCompleter {
         String prefix = args.length >= 3 ? args[2] : "";
         int added = 0;
         for (Ability a : registry.byCategoryPrefix(prefix)) {
-            if (ref.character().learnAbility(a.id())) added++;
+            if (ref.character().learnAbility(a.id(), com.reborn.shinobicore.character.LearnOrigin.STAFF)) added++;
         }
         if (added > 0) core.characters().save(ref.character());
         msg(sender, added + " technique(s) apprises pour "

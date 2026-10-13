@@ -229,7 +229,7 @@ public final class AdminGui extends AbilityScreen {
             case "learnall" -> {
                 int added = 0;
                 for (Ability a : registry.all().values()) {
-                    if (target.learnAbility(a.id())) added++;
+                    if (target.learnAbility(a.id(), com.reborn.shinobicore.character.LearnOrigin.STAFF)) added++;
                 }
                 if (added > 0) router.core().characters().save(target);
                 GuiSounds.accept(viewer);
