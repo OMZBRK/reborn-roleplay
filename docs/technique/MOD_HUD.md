@@ -78,7 +78,8 @@ JAVA_HOME=/c/Users/omarb/dev-cache/jdk-25.0.4.1+1 REBORN_FEATURE_PREVIEW=1 \
 | Variable | Banc |
 |---|---|
 | `REBORN_FEATURE_PREVIEW=1` | Lot en cours (à réécrire pour chaque lot) : `audit/FeaturePreview.java` |
-| `REBORN_SCENE=1` / `journey` | Sélection / création de personnage en scène |
+| `REBORN_PERSO_DEBUG=1` (`vite` : 1080p seul) | Sélection et création « au bord de l'étang » : roster des maquettes, 8 étapes, 6 villages, échelles 3 et 4, 1366×768, 1706×960 (`perso/PersoDebug.java`) |
+| `REBORN_SCENE=1` / `journey` | Ancienne sélection / création en scène 3D (repli `-Dreborn.sceneCharacterScreens=true`) |
 | `REBORN_KO_DEBUG=1` | Toutes les phases du KO et de l'ATA |
 | `REBORN_STAFF_DEBUG=1`, `REBORN_INFIRMERIE_DEBUG=1` | Poste de garde, Infirmerie |
 | `REBORN_PARCHEMIN_DEBUG=1`, `REBORN_CONC_DEBUG=1` | Bibliothèque / lecture / réglages ; concentration |

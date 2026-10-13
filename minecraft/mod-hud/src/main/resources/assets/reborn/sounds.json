@@ -327,5 +327,68 @@
         "name": "reborn:photo/open"
       }
     ]
+  },
+  "voix.creation_intro": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_intro"
+      }
+    ]
+  },
+  "voix.creation_village": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_village"
+      }
+    ]
+  },
+  "voix.creation_clan": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_clan"
+      }
+    ]
+  },
+  "voix.creation_sexe": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_sexe"
+      }
+    ]
+  },
+  "voix.creation_nom": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_nom"
+      }
+    ]
+  },
+  "voix.creation_age": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_age"
+      }
+    ]
+  },
+  "voix.creation_taille": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_taille"
+      }
+    ]
+  },
+  "voix.creation_apparence": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_apparence"
+      }
+    ]
+  },
+  "voix.creation_recap": {
+    "sounds": [
+      {
+        "name": "reborn:voix/creation_recap"
+      }
+    ]
   }
 }

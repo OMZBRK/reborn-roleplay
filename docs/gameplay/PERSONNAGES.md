@@ -38,6 +38,36 @@ Inspirée de Ketto RP (« comme sur ketto c'est stylé de fou ») et de Soulboun
   apparence, mort ou non (canal `reborn:character`). Le mod tolère un serveur plus ancien (défauts : 18 ans,
   taille 1,0, Homme).
 
+
+## 2 bis. Refonte « au bord de l'étang » (2026-10-13, non publiée)
+
+Maquettes validées : `Maquettes/personnage/01_selection … 09_creation_recapitulatif` (hors dépôt). Code :
+`mod-hud/…/menu/character/perso/` ; textures `textures/gui/personnage/` générées par
+`tools/gen_personnage_textures.py` (primitives versionnées dans `tools/perso_art.py`, copiées des maquettes).
+Écrans par défaut via `CharacterScreens` ; replis `-Dreborn.sceneCharacterScreens=true` (scène 3D) et
+`-Dreborn.classicCharacterScreens=true`.
+
+- **Décor** : textures fixes par village (Konoha, Suna, Kiri, Kumo, Iwa, Ame) — ciel étoilé pleine largeur, lune,
+  montagnes, silhouette du village à sa couleur, brume, étang (reflets, colonne de lune, rides), roseaux ; fondu
+  quand le village change. Aucun monde du jeu. Au-delà de 1 280 × 540 GUI : copies en miroir (aucune couture).
+- **Animé** (sprites légers) : ~40 lucioles sur trois profondeurs (dérive, scintillement, reflets, traînées),
+  braises de chakra à la couleur du village, onde de la voix, égaliseur de la musique.
+- **Personnage principal** : le joueur LOCAL à qui l'on prête la texture composée (jamais d'entité factice),
+  8 GUI/texel en sélection (≈ 47 % de la hauteur), 7,5 en création. **Personnages secondaires** (voisins, vignettes
+  de tenues et de coiffures, vues du dossier, reflets) : « poupée » 2D (`PersoPoupee`, blits affines de la texture
+  de skin) — le renderer d'entité en interface n'a qu'une texture par image.
+- **Création** : fil de 8 sceaux, registre qui se remplit, emblèmes de clan (`gui/clans/clan_<slug>.png`) dans la
+  grille, gravés sur le dais, dans le registre et le dossier ; taille ADULTE au cm (153–207, pas de 1 cm), taille
+  actuelle selon l'âge, toise ; apparence en vignettes directes (peau, coiffures en têtes, palette de couleurs et
+  d'yeux **par clan**, tenues en corps entiers, carrure, « au hasard »), plus aucune flèche ; nom 3 à 20 lettres
+  (espaces, apostrophe), « Nom libre » ; plaque de nom au-dessus de la tête.
+- **Sons** : voix off `reborn:voix.creation_<étape>` (catégorie Voix) à chaque étape, question allumée au rythme de la
+  voix, coupable d'un clic ; musique : piste « apaisant » de l'OST (`reborn-ost`, par réflexion) sinon
+  `reborn:esc.ambience` en boucle (catégorie Musique), titre par village (« Nuit sur la Feuille »…).
+- **Taille envoyée** : `size` à 4 décimales (`cm / 180`), le serveur lit un double.
+- **Échelle** : ces écrans exigent 840 × 470 GUI (`MenuScale.Plancher`) : en 1366 × 768 ils passent à l'échelle 1
+  (mise en page complète, plus petite) au lieu d'un mode compact.
+
 ## 3. La création en 8 étapes
 
 1. **Village** (6 : Konoha, Suna, Kiri, Kumo, Iwa, Ame — **Déserteur retiré**). Emblèmes officiels ; Ame a un

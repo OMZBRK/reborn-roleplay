@@ -20,6 +20,17 @@ public final class MenuScale {
 
     private MenuScale() {}
 
+    /**
+     * Écran Reborn qui exige un écran logique minimal (mise en page fixe, sans mode compact) : on prend alors la plus
+     * grande échelle qui le respecte (1366×768 → échelle 1 plutôt que 683×384). Utilisé par la sélection et la
+     * création de personnage.
+     */
+    public interface Plancher {
+        int plancherW();
+
+        int plancherH();
+    }
+
     public static boolean isReborn(Screen s) {
         return s != null && (s.getClass().getName().startsWith("fr.reborn.hud.")
                 || s instanceof PauseScreen || s instanceof TitleScreen || s instanceof OptionsScreen);
@@ -32,11 +43,16 @@ public final class MenuScale {
      */
     public static int fit(Window w, int scale, Screen s) {
         if (!isReborn(s)) return scale;
+        int minW = MIN_W, minH = MIN_H;
+        if (s instanceof Plancher p) {
+            minW = Math.max(minW, p.plancherW());
+            minH = Math.max(minH, p.plancherH());
+        }
         int best = 1;
         double gap = Double.MAX_VALUE;
         for (int k = 1; k <= 8; k++) {
             int lw = w.getWidth() / k, lh = w.getHeight() / k;
-            if (k > 1 && (lw < MIN_W || lh < MIN_H)) break;
+            if (k > 1 && (lw < minW || lh < minH)) break;
             double d = Math.abs(lh - TARGET_H);
             if (d < gap) { gap = d; best = k; }
         }
