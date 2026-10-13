@@ -61,7 +61,8 @@ public final class InteractionMenus {
             return List.of(
                     InteractionItem.action("Constater la mort", () -> info("Ce corps ne respire plus.")),
                     InteractionItem.action("Porter", () -> sendCommand("corps porter " + name)),
-                    InteractionItem.action("Fouiller", () -> sendCommand("corps fouiller " + name)));
+                    InteractionItem.action("Fouiller", () -> sendCommand("corps fouiller " + name)),
+                    prelever(name));
         }
         java.util.List<InteractionItem> l = new java.util.ArrayList<>();
         l.add(InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")));
@@ -87,7 +88,28 @@ public final class InteractionMenus {
             }
         }
         l.add(InteractionItem.submenu("Exécution", ex));
+        // Yeux : prélever (RPK validée), soigner (médic rang 2 : greffe ; médic : bandage) — le serveur tranche.
+        l.add(b.rpk() == 2 ? prelever(name) : InteractionItem.submenu("Prélever un œil", List.of(
+                InteractionItem.action("Il faut une RPK validée", () -> info("Prélever un œil sur un vivant exige une RPK validée par le staff.")))));
+        l.add(soinsDesYeux(name));
         return l;
+    }
+
+    /** Sous-menu « Prélever un œil » (corps mort, mannequin au sol, ou KO avec RPK validée). {@code cible} : nom ou {@code corps:<uuid>}. */
+    static InteractionItem prelever(String cible) {
+        return InteractionItem.submenu("Prélever un œil", List.of(
+                InteractionItem.action("Œil gauche", () -> sendCommand("yeux prelever " + cible + " gauche")),
+                InteractionItem.action("Œil droit", () -> sendCommand("yeux prelever " + cible + " droit"))));
+    }
+
+    /** Sous-menu « Soins des yeux » : greffe (fiole en main, médic rang 2) et bandage des orbites (médic). */
+    static InteractionItem soinsDesYeux(String name) {
+        return InteractionItem.submenu("Soins des yeux", List.of(
+                InteractionItem.action("Greffer l'œil gauche", () -> sendCommand("yeux greffer " + name + " gauche")),
+                InteractionItem.action("Greffer l'œil droit", () -> sendCommand("yeux greffer " + name + " droit")),
+                InteractionItem.action("Bander les yeux", () -> sendCommand("bandage " + name)),
+                InteractionItem.action("Retirer le bandage", () -> sendCommand("bandage " + name + " retirer")),
+                InteractionItem.action("Examiner les yeux", () -> sendCommand("yeux etat " + name))));
     }
 
     public static List<InteractionItem> forPlayer(String name) {
@@ -103,6 +125,7 @@ public final class InteractionMenus {
             InteractionItem.action("Porter", () -> sendCommand("porter " + name)),
             InteractionItem.action("Fouiller", () -> sendCommand("fouiller " + name)),
             InteractionItem.action("Échanger", () -> sendCommand("trade " + name)),
+            soinsDesYeux(name),
             InteractionItem.submenu("Animations", List.of(
                 InteractionItem.action("Saluer", () -> sendCommand("playemote salut")),
                 InteractionItem.action("Applaudir", () -> sendCommand("playemote applaudir")),
@@ -122,6 +145,11 @@ public final class InteractionMenus {
 
     public static List<InteractionItem> forEntity(Entity e) {
         String type = e.getType().getDescription().getString();
+        if (fr.reborn.hud.ko.CorpsClient.isCorpse(e.getUUID())) {
+            return List.of(
+                    InteractionItem.action("Constater la mort", () -> info("Ce corps est froid.")),
+                    prelever("corps:" + e.getUUID()));
+        }
         return List.of(
             InteractionItem.action("Inspecter (" + type + ")", () -> {
                 String hp = (e instanceof LivingEntity le)

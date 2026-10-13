@@ -300,6 +300,10 @@ public class YamlCharacterRepository implements CharacterRepository {
         if (s.isList("caractere.traits")) c.setTraits(s.getStringList("caractere.traits"));
         c.setCitation(s.getString("caractere.citation"));
         c.setDojutsuStage(s.getInt("dojutsu-stade", 0));
+        // Yeux (chirurgie) : absent = deux yeux du clan, intacts, sans bandage.
+        c.setOeilGauche(com.reborn.shinobicore.medic.yeux.Oeil.fromYaml(s.getConfigurationSection("yeux.gauche")));
+        c.setOeilDroit(com.reborn.shinobicore.medic.yeux.Oeil.fromYaml(s.getConfigurationSection("yeux.droit")));
+        c.setYeuxBandes(s.getBoolean("yeux.bandage", false));
 
         // Skills & unspent points (the /sc roll system).
         c.setSkillPoints(s.getInt("skill-points", 0));
@@ -492,6 +496,11 @@ public class YamlCharacterRepository implements CharacterRepository {
         if (!c.traits().isEmpty()) cfg.set(key + ".caractere.traits", new ArrayList<>(c.traits()));
         if (c.citation() != null) cfg.set(key + ".caractere.citation", c.citation());
         cfg.set(key + ".dojutsu-stade", c.dojutsuStage() > 0 ? c.dojutsuStage() : null);
+        // Yeux (chirurgie) — n'écrire que ce qui a été touché.
+        cfg.set(key + ".yeux", null);
+        com.reborn.shinobicore.medic.yeux.Oeil.toYaml(cfg, key + ".yeux.gauche", c.oeilGauche());
+        com.reborn.shinobicore.medic.yeux.Oeil.toYaml(cfg, key + ".yeux.droit", c.oeilDroit());
+        if (c.yeuxBandes()) cfg.set(key + ".yeux.bandage", true);
 
         // Skills & unspent points (the /sc roll system).
         cfg.set(key + ".skill-points", c.skillPoints() > 0 ? c.skillPoints() : null);

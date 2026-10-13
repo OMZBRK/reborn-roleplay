@@ -1,8 +1,5 @@
 package fr.reborn.hud.interaction;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.entity.Entity;
@@ -10,6 +7,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
+
+import fr.reborn.hud.ui.DaKit;
+import net.minecraft.client.gui.Font;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import java.util.List;
 
@@ -29,10 +31,23 @@ public final class InteractionMode {
 
     public static final InteractionMode INSTANCE = new InteractionMode();
 
+    /* Géométrie en unités menu (DaKit.echelleMenu : 1 unité = la taille d'un GUI à l'échelle 2 en 1080p). */
     private static final int ROW_H = 14;
-    private static final int HEADER_H = 20;
-    private static final int PAD_X = 9;
-    private static final int ARROW_W = 10;
+    private static final int HEADER_H = 24;
+    private static final int SUB_PAD = 5;
+    private static final int PAD_X = 12;
+    private static final int ARROW_W = 12;
+    private static final int MIN_W = 120, MAX_W = 200, MAX_SUB_W = 200;
+
+    /* Textures : tools/gen_interaction_textures.py. */
+    private static final Identifier PANNEAU = DaKit.tex("interaction", "panneau"),
+        SOUS = DaKit.tex("interaction", "sous_panneau"),
+        SURVOL = DaKit.tex("interaction", "survol"),
+        PIECES = DaKit.tex("interaction", "pieces"),
+        ETIQUETTE = DaKit.tex("interaction", "etiquette");
+    /** Sceau du bandeau : 0 人 joueur, 1 屍 corps, 2 己 soi, 3 物 bloc ou chose. */
+    private int sceau = 0;
+    private Component titleC = Component.empty();
 
     private boolean active = false;
     private boolean menuOpen = false;
@@ -111,13 +126,13 @@ public final class InteractionMode {
 
         // Menu ouvert : choix d'un item.
         if (submenuOwner >= 0) {
-            int j = subRowAt(submenuOwner, cursorX, cursorY);
+            int j = subRowAt(submenuOwner, mx(), my());
             if (j >= 0) {
                 run(items.get(submenuOwner).children().get(j));
                 return;
             }
         }
-        int row = mainRowAt(cursorX, cursorY);
+        int row = mainRowAt(mx(), my());
         if (row >= 0) {
             if (!items.get(row).hasChildren()) run(items.get(row));
             // parent : le sous-menu s'ouvre au survol, le clic ne fait rien
@@ -129,6 +144,7 @@ public final class InteractionMode {
 
     private void openSelfMenu(Minecraft mc) {
         title = "Moi";
+        sceau = 2;
         items = InteractionMenus.forSelf();
         layoutAtCursor(mc);
         hovered = submenuOwner = subHovered = -1;
@@ -141,13 +157,16 @@ public final class InteractionMode {
             Entity e = ehr.getEntity();
             if (e instanceof Player pe) {
                 title = pe.getGameProfile().name();
+                sceau = fr.reborn.hud.ko.CorpsClient.body(pe.getUUID()) != null ? 1 : 0;
                 items = InteractionMenus.forPlayer(title, pe.getUUID());
             } else {
                 title = e.getType().getDescription().getString();
+                sceau = 3;
                 items = InteractionMenus.forEntity(e);
             }
         } else if (hit instanceof BlockHitResult bhr) {
             title = "Bloc";
+            sceau = 3;
             items = InteractionMenus.forBlock(bhr.getBlockPos());
         } else {
             return;
@@ -164,48 +183,67 @@ public final class InteractionMode {
         active = true;
         title = t;
         items = it;
+        sceau = t.equals("Moi") ? 2 : t.equals("Bloc") ? 3 : it.stream().anyMatch(x -> x.label().startsWith("Attraper")
+            || x.label().startsWith("Constater")) ? 1 : 0;
         cursorX = mc.getWindow().getGuiScaledWidth() * 0.42;
         cursorY = mc.getWindow().getGuiScaledHeight() * 0.30;
         layoutAtCursor(mc);
         menuOpen = true;
-        if (hover >= 0) { cursorX = panelX + panelW / 2.0; cursorY = rowY(hover) + ROW_H / 2.0; }
+        if (hover >= 0) {
+            double k = 1 / guiParMenu();
+            cursorX = (panelX + panelW / 2.0) * k;
+            cursorY = (rowY(hover) + ROW_H / 2.0) * k;
+        }
         updateHover();
     }
 
     /** Banc d'essai : referme tout. */
     public void debugClose() { if (active) deactivate(); }
 
+    /** Position du curseur en unités menu. */
+    private double mx() { return cursorX * guiParMenu(); }
+
+    private double my() { return cursorY * guiParMenu(); }
+
+    /** Unités menu par unité GUI (échelle GUI / échelle menu). */
+    private static double guiParMenu() {
+        return Minecraft.getInstance().getWindow().getGuiScale() / (double) DaKit.echelleMenu();
+    }
+
     private void layoutAtCursor(Minecraft mc) {
         var tr = mc.font;
-        float sc = fr.reborn.hud.ui.Da.small();
-        int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
-        int maxW = fr.reborn.hud.ui.Da.width(tr, title, fr.reborn.hud.ui.Da.title()) + 16;
-        for (InteractionItem it : items) maxW = Math.max(maxW, fr.reborn.hud.ui.Da.width(tr, it.label(), sc) + PAD_X * 2 + ARROW_W);
-        panelW = Math.max(110, maxW);
+        int km = DaKit.echelleMenu();
+        int sw = mc.getWindow().getWidth() / km, sh = mc.getWindow().getHeight() / km;
+        titleC = DaKit.arcade(title);
+        int maxW = tr.width(titleC) + 30 + 12;
+        for (InteractionItem it : items) {
+            maxW = Math.max(maxW, tr.width(DaKit.inter(it.label())) + PAD_X * 2 + (it.hasChildren() ? ARROW_W : 0));
+        }
+        panelW = Math.max(MIN_W, Math.min(MAX_W, maxW));
         panelH = HEADER_H + items.size() * ROW_H + 6;
         // Au point du clic (curseur), clampé à l'écran.
-        panelX = (int) Math.max(4, Math.min(cursorX, sw - panelW - 4));
-        panelY = (int) Math.max(4, Math.min(cursorY - 6, sh - panelH - 4));
+        panelX = (int) Math.max(4, Math.min(mx(), sw - panelW - 4));
+        panelY = (int) Math.max(4, Math.min(my() - 6, sh - panelH - 4));
 
         subW = new int[items.size()]; subX = new int[items.size()]; subY = new int[items.size()];
         for (int i = 0; i < items.size(); i++) {
             InteractionItem it = items.get(i);
             if (!it.hasChildren()) continue;
             int w = 0;
-            for (InteractionItem c : it.children()) w = Math.max(w, fr.reborn.hud.ui.Da.width(tr, c.label(), sc));
-            subW[i] = Math.max(100, w + PAD_X * 2);
-            int h = it.children().size() * ROW_H + 8;
+            for (InteractionItem c : it.children()) w = Math.max(w, tr.width(DaKit.inter(c.label())));
+            subW[i] = Math.max(MIN_W, Math.min(MAX_SUB_W, w + PAD_X * 2));
+            int h = it.children().size() * ROW_H + SUB_PAD * 2;
             // à droite du menu, ou à gauche s'il n'y a pas la place
             subX[i] = panelX + panelW + subW[i] + 3 <= sw - 4 ? panelX + panelW + 3 : panelX - subW[i] - 3;
-            subY[i] = Math.max(4, Math.min(rowY(i) - 4, sh - h - 4));
+            subY[i] = Math.max(4, Math.min(rowY(i) - SUB_PAD, sh - h - 4));
         }
     }
 
     private void updateHover() {
-        hovered = mainRowAt(cursorX, cursorY);
+        hovered = mainRowAt(mx(), my());
         if (hovered >= 0 && items.get(hovered).hasChildren()) submenuOwner = hovered;
         else if (hovered >= 0) submenuOwner = -1;
-        subHovered = submenuOwner >= 0 ? subRowAt(submenuOwner, cursorX, cursorY) : -1;
+        subHovered = submenuOwner >= 0 ? subRowAt(submenuOwner, mx(), my()) : -1;
     }
 
     private void run(InteractionItem it) {
@@ -236,7 +274,7 @@ public final class InteractionMode {
         if (mx < sx || mx > sx + sw) return -1;
         var ch = items.get(owner).children();
         for (int j = 0; j < ch.size(); j++) {
-            int y = sy + 4 + j * ROW_H;
+            int y = sy + SUB_PAD + j * ROW_H;
             if (my >= y && my < y + ROW_H) return j;
         }
         return -1;
@@ -247,45 +285,26 @@ public final class InteractionMode {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.gui.screen() != null) return;
         var tr = mc.font;
-        float sc = fr.reborn.hud.ui.Da.small();
 
+        DaKit.unites(ctx, DaKit.echelleMenu());
         if (menuOpen) {
-            // Carte laquée : titre sur bandeau vermillon, lignes crème, survol vermillon + liseré or.
-            fr.reborn.hud.ui.Da.panel(ctx, panelX, panelY, panelW, panelH);
-            ctx.fill(panelX + 3, panelY + 3, panelX + panelW - 3, panelY + HEADER_H - 2, fr.reborn.hud.ui.Da.LACQ);
-            ctx.fill(panelX + 3, panelY + HEADER_H - 2, panelX + panelW - 3, panelY + HEADER_H - 1, fr.reborn.hud.ui.Da.GOLD_D);
-            fr.reborn.hud.ui.Da.text(ctx, tr, title, panelX + panelW / 2f, panelY + 6, fr.reborn.hud.ui.Da.title(), fr.reborn.hud.ui.Da.CREAM, 1);
+            planche(ctx, PANNEAU, panelX, panelY, panelW, panelH, 232);
+            // bandeau : sceau à cheval sur le bord gauche, nom de la cible en ArcadePix
+            DaKit.blit(ctx, PIECES, panelX + 5, panelY + 3, 12 + 20 * sceau, 0, 20, 20, 96, 34);
+            DaKit.arcX1(ctx, tr, titleC, panelX + 30, panelY + 9, DaKit.CREME, 0, true);
 
             for (int i = 0; i < items.size(); i++) {
-                InteractionItem it = items.get(i);
-                int y = rowY(i);
                 boolean hot = (i == hovered) || (i == submenuOwner);
-                if (hot) {
-                    ctx.fill(panelX + 4, y + 1, panelX + panelW - 4, y + ROW_H - 1, fr.reborn.hud.ui.Da.RED);
-                    ctx.fill(panelX + 4, y + 1, panelX + 6, y + ROW_H - 1, fr.reborn.hud.ui.Da.GOLD);
-                }
-                fr.reborn.hud.ui.Da.text(ctx, tr, it.label(), panelX + PAD_X + 2, y + (ROW_H - 8 * sc) / 2f + .5f, sc,
-                    hot ? fr.reborn.hud.ui.Da.CREAM : fr.reborn.hud.ui.Da.MUTED, 0);
-                if (it.hasChildren()) {
-                    fr.reborn.hud.ui.Da.text(ctx, tr, ">", panelX + panelW - PAD_X, y + (ROW_H - 8 * sc) / 2f + .5f, sc,
-                        hot ? fr.reborn.hud.ui.Da.GOLD : fr.reborn.hud.ui.Da.GOLD_D, 2);
-                }
+                ligne(ctx, tr, items.get(i), panelX, rowY(i), panelW, hot, i < items.size() - 1);
             }
 
             if (submenuOwner >= 0 && items.get(submenuOwner).hasChildren()) {
                 var ch = items.get(submenuOwner).children();
                 int sx = subX[submenuOwner], sw = subW[submenuOwner], sy = subY[submenuOwner];
-                int sh = ch.size() * ROW_H + 8;
-                fr.reborn.hud.ui.Da.panel(ctx, sx, sy, sw, sh);
+                int sh = ch.size() * ROW_H + SUB_PAD * 2;
+                planche(ctx, SOUS, sx, sy, sw, sh, 200);
                 for (int j = 0; j < ch.size(); j++) {
-                    int y = sy + 4 + j * ROW_H;
-                    boolean hot = j == subHovered;
-                    if (hot) {
-                        ctx.fill(sx + 4, y + 1, sx + sw - 4, y + ROW_H - 1, fr.reborn.hud.ui.Da.RED);
-                        ctx.fill(sx + 4, y + 1, sx + 6, y + ROW_H - 1, fr.reborn.hud.ui.Da.GOLD);
-                    }
-                    fr.reborn.hud.ui.Da.text(ctx, tr, ch.get(j).label(), sx + PAD_X + 2, y + (ROW_H - 8 * sc) / 2f + .5f, sc,
-                        hot ? fr.reborn.hud.ui.Da.CREAM : fr.reborn.hud.ui.Da.MUTED, 0);
+                    ligne(ctx, tr, ch.get(j), sx, sy + SUB_PAD + j * ROW_H, sw, j == subHovered, j < ch.size() - 1);
                 }
             }
             int hot = hovered * 100 + subHovered;
@@ -294,15 +313,40 @@ public final class InteractionMode {
                 lastHot = hot;
             }
         } else {
-            // Mode curseur (pas encore de menu) : petite étiquette laquée près du curseur.
-            String hint = "Clic : interagir";
-            int w = fr.reborn.hud.ui.Da.width(tr, hint, sc) + 10, x = (int) cursorX + 12, y = (int) cursorY + 2;
-            ctx.fill(x, y, x + w, y + 11, 0xC80E0A0C);
-            fr.reborn.hud.ui.Da.outline(ctx, x, y, w, 11, fr.reborn.hud.ui.Da.GOLD_D);
-            fr.reborn.hud.ui.Da.text(ctx, tr, hint, x + 5, y + 2.5f, sc, fr.reborn.hud.ui.Da.CREAM, 0);
+            // Mode curseur (pas encore de menu) : étiquette laquée près du curseur, touche en cabochon.
+            Component clic = DaKit.arcade("Clic"), lib = DaKit.inter("interagir");
+            int tw = (int) Math.ceil(tr.width(clic) * 0.5f) + 6;
+            int w = 5 + tw + 4 + Math.round(DaKit.largeur8(tr, lib)) + 7;
+            int x = (int) Math.round(mx()) + 14, y = (int) Math.round(my()) + 4;
+            DaKit.coupeH(ctx, ETIQUETTE, x, y, w + 2, 0, 0, 132, 16, 8, 132, 16);
+            float ym = y + 7;
+            int cx = x + 5, cy = Math.round(ym - 5);
+            DaKit.blit(ctx, PIECES, cx, cy, 0, 22, 4, 12, 96, 34);
+            DaKit.blit(ctx, PIECES, cx + 4, cy, 12, 22, tw - 8, 12, 96, 34);
+            DaKit.blit(ctx, PIECES, cx + tw - 4, cy, 36, 22, 6, 12, 96, 34);
+            DaKit.arcFin(ctx, tr, clic, cx + tw / 2f, ym - 1.75f, DaKit.OR_CLAIR, 1, false);
+            DaKit.inter8(ctx, tr, lib, cx + tw + 4, ym, DaKit.CREME_VAL, 0);
         }
+        DaKit.finUnites(ctx);
 
         drawCursor(ctx, (int) cursorX, (int) cursorY);
+    }
+
+    /** Planche laquée à la taille voulue (coupe de la texture : région (w+8)×(h+8) posée en (x−2, y−2)). */
+    private static void planche(GuiGraphicsExtractor ctx, Identifier id, int x, int y, int w, int h, int texH) {
+        DaKit.coupe(ctx, id, x - 2, y - 2, w + 8, h + 8, 0, 0, 208, texH, 16, 16, 208, texH);
+    }
+
+    /** Une ligne : survol en laque rouge à réglette d'or, libellé Inter 9, chevron des sous-menus, filet de séparation. */
+    private static void ligne(GuiGraphicsExtractor ctx, Font tr, InteractionItem it, int x, int y, int w, boolean hot,
+                              boolean filet) {
+        if (hot) DaKit.coupeH(ctx, SURVOL, x + 4, y, w - 8, 0, 0, 196, 14, 8, 196, 14);
+        else if (filet) ctx.fill(x + 10, y + ROW_H - 1, x + w - 10, y + ROW_H, 0xFF2D181C);
+        // la mise à mort (Achever, exécutions) en vermillon : l'action qui tue se distingue
+        boolean grave = it.label().startsWith("Achever") || it.action() != null && it.label().startsWith("Exécut");
+        DaKit.inter9(ctx, tr, DaKit.inter(it.label()), x + PAD_X, y + ROW_H / 2f,
+            grave ? (hot ? 0xFFF09A9E : 0xFFE26474) : hot ? DaKit.CREME : 0xFFD6CAB0, 0);
+        if (it.hasChildren()) DaKit.blit(ctx, PIECES, x + w - 15, y + 4, hot ? 5 : 0, 0, 4, 7, 96, 34);
     }
 
     /** Curseur custom 16×16 (pointe en haut-gauche). Le numéro est choisi via

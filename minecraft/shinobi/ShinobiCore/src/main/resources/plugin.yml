@@ -190,6 +190,14 @@ commands:
     description: État ATA (blessé, en attente de soin). Staff — voir / lever / appliquer.
     usage: /<command> [voir|lever|appliquer <joueur> [pleine|allegee]]
     permission: shinobicore.use
+  yeux:
+    description: "Chirurgie des yeux : état des yeux, prélever (corps, mort, KO avec RPK), greffer (médic expert), consentir."
+    usage: "/<command> etat [joueur] | prelever <joueur|corps:id> <gauche|droit> | greffer <joueur> <gauche|droit> | consentir <médic>"
+    permission: shinobicore.use
+  bandage:
+    description: "Médic : poser ou retirer un bandage sur les yeux d'un patient."
+    usage: "/<command> <joueur> [retirer]"
+    permission: shinobicore.use
 permissions:
   reborn.staff.helper:
     description: Poste de garde — Helper (alertes, TP, avertissements, chat staff).
@@ -229,6 +237,9 @@ permissions:
     default: op
     children:
       shinobicore.medic: true
+  shinobicore.yeux.admin:
+    description: "Staff : /yeux definir et /yeux donner (tests de la chirurgie des yeux)."
+    default: op
   shinobicore.meteo:
     description: Allows /meteo (visual weather sent to the client mod).
     default: op

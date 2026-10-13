@@ -1,26 +1,24 @@
 package fr.reborn.hud.parchemin;
 
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
-import fr.reborn.hud.ui.Da;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Bibliothèque à tirage, côté joueur (preview). Motif de l'écran : un meuble à casiers de bois sombre, chaque rouleau
- * couché dans son casier, l'étiquette de rang suspendue dessous. Survol : fiche du rouleau sur papier ; clic : on
- * prend le rouleau (il disparaît pour les autres), dans la limite de poids de la sacoche.
+ * Bibliothèque à tirage, côté joueur. Motif de l'écran : un meuble à casiers (tansu) de bois sombre, linteau laqué et
+ * plaque 書庫, chaque rouleau (modèle 3D SNR) couché dans son casier, son étiquette de rang (fuda) pendue au coin.
+ * Survol : fiche du rouleau sur washi ; clic : on prend le rouleau (il disparaît pour les autres), dans la limite de
+ * poids de la sacoche. Habillage : textures de {@code tools/gen_bibliotheque_textures.py} (cf. {@link BiblioArt}).
  */
 public final class BibliothequeScreen extends Screen {
 
-    private static final int COLS = 3, ROWS = 3, GAP = 5, FRAME = 8, ROOF = 18, LEGS = 6;
-    private static final int TOP = 40, FOOT = 50;
+    private static final int COLS = 3, ROWS = 3, CARTE_W = 168, ECART = 14;
 
     /** Identifiant serveur ({@code null} = démo du banc d'essai, sans réseau). */
     private String libId;
@@ -82,170 +80,146 @@ public final class BibliothequeScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float d) {
-        g.fillGradient(0, 0, width, height, 0xA0080406, 0xD0080406);
+        BiblioArt.fond(g, width, height, 0.62f);
     }
-
-    /** Hauteur d'un casier : s'adapte à la place entre l'en-tête et la jauge de la sacoche. */
-    private int ch() {
-        int avail = height - TOP - FOOT - ROOF - LEGS - 2 * FRAME - (ROWS + 1) * GAP;
-        return Math.max(24, Math.min(40, avail / ROWS));
-    }
-
-    private int cw() { return Math.max(56, Math.min(80, Math.round(ch() * 2.0f))); }
-
-    private int cabW() { return COLS * cw() + (COLS + 1) * GAP + FRAME * 2; }
-
-    private int cabH() { return ROWS * ch() + (ROWS + 1) * GAP + FRAME * 2 + ROOF; }
 
     /**
      * Meuble centré ; si la fiche n'a pas la place à sa droite, c'est l'ensemble meuble + fiche qui est centré
      * (mise en page stable : elle ne bouge pas au survol).
      */
     private int cabX() {
-        int centered = (width - cabW()) / 2, card = 150 + 12;
-        if (centered + cabW() + card <= width - 6) return centered;
-        int group = cabW() + card;
+        int mw = BiblioArt.MEUBLE_W - 4;
+        int centered = (width - mw) / 2;
+        if (centered + mw + ECART + CARTE_W <= width - 8) return centered;
+        int group = mw + ECART + CARTE_W;
         return group <= width - 12 ? (width - group) / 2 : centered;
     }
 
-    private int cabY() { return TOP + Math.max(0, (height - TOP - FOOT - LEGS - cabH()) / 2); }
+    private int cabY() { return 62 + Math.max(0, (height - 62 - 64 - BiblioArt.MEUBLE_H) / 3); }
 
-    private int cellX(int i) { return cabX() + FRAME + GAP + (i % COLS) * (cw() + GAP); }
+    private int cellX(int i) { return cabX() + 24 + (i % COLS) * 110; }
 
-    private int cellY(int i) { return cabY() + ROOF + FRAME + GAP + (i / COLS) * (ch() + GAP); }
+    private int cellY(int i) { return cabY() + 44 + (i / COLS) * 68; }
 
-    private int[] staffButton() { return new int[]{width - 78, 8, 70, 14}; }
+    private int[] staffButton() { return new int[]{width - 38, 12, 22, 22}; }
 
     private int hovered(int mx, int my) {
         if (debugHover >= 0) return debugHover;
-        for (int i = 0; i < cells.length; i++) if (Da.in(mx, my, cellX(i), cellY(i), cw(), ch())) return i;
+        for (int i = 0; i < cells.length; i++) if (DaKit.dans(mx, my, cellX(i), cellY(i), BiblioArt.CW, BiblioArt.CH)) return i;
         return -1;
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         long now = System.currentTimeMillis();
-        Da.header(g, font, width / 2, 6, name, "Nouveau tirage dans " + refresh);
+        BiblioArt.entete(g, font, width, DaKit.arcade(name), DaKit.inter("Nouveau tirage dans " + refresh));
 
-        int x = cabX(), y = cabY(), w = cabW(), h = cabH();
-        int CW = cw(), CH = ch();
-        // meuble (tansu) : ombre, corps en bois veiné, piliers, pieds cerclés de métal
-        g.fill(x + 5, y + 8, x + w + 5, y + h + LEGS + 4, 0x70000000);
-        ScrollArt.wood(g, x, y + ROOF - 2, x + w, y + h, 0x2545F4914F6CDD1DL);
-        Da.outline(g, x, y + ROOF - 2, w, h - ROOF + 2, ScrollArt.WOOD_D);
-        g.fill(x + 1, y + ROOF, x + 4, y + h - 1, 0x22FFE0B0);                                  // pilier gauche
-        g.fill(x + w - 4, y + ROOF, x + w - 1, y + h - 1, 0x30000000);                          // pilier droit
-        for (int side = 0; side < 2; side++) {
-            int lx = side == 0 ? x + 6 : x + w - 18;
-            g.fill(lx, y + h, lx + 12, y + h + LEGS, ScrollArt.WOOD_D);
-            g.fill(lx, y + h + LEGS - 2, lx + 12, y + h + LEGS, ScrollArt.GOLD);
-        }
-        // linteau laqué, filet d'or, plaque « 書庫 »
-        g.fill(x - 6, y, x + w + 6, y + ROOF, ScrollArt.WOOD_D);
-        g.fillGradient(x - 5, y + 1, x + w + 5, y + ROOF - 1, 0xFF3A1016, 0xFF1C080C);
-        g.fill(x - 5, y + 1, x + w + 5, y + 2, 0x40FFE0B0);
-        g.fill(x - 5, y + ROOF - 3, x + w + 5, y + ROOF - 2, ScrollArt.GOLD);
-        int pw = 40, px = x + w / 2 - pw / 2, py = y + 2;
-        g.fill(px, py, px + pw, py + ROOF - 6, ScrollArt.LACQUER);
-        Da.outline(g, px, py, pw, ROOF - 6, ScrollArt.GOLD);
-        g.text(font, Component.literal("書庫"), px + pw / 2 - font.width("書庫") / 2, py + (ROOF - 6 - 8) / 2 + 1, 0xFFF6EBCF, false);
-        // filet d'or autour des casiers
-        Da.outline(g, x + FRAME - 2, y + ROOF + FRAME - 2, w - 2 * FRAME + 4, h - ROOF - 2 * FRAME + 4, 0x50D9A95E);
-        Da.kanagu(g, x, y + ROOF - 2, w, h - ROOF + 2);
+        int x = cabX(), y = cabY();
+        DaKit.blit(g, BiblioArt.MEUBLE, x, y, 0, 0, BiblioArt.MEUBLE_W, BiblioArt.MEUBLE_H, BiblioArt.MEUBLE_W, BiblioArt.MEUBLE_H);
 
         int hov = hovered(mx, my);
+        if (hov != lastHov) {
+            if (hov >= 0 && cells[hov] != null) fr.reborn.hud.menu.RebornSounds.playReborn("esc.hover", 1.1f, 0.10f);
+            lastHov = hov;
+        }
         for (int i = 0; i < cells.length; i++) {
             int cx = cellX(i), cy = cellY(i);
-            boolean open = i < count;
             Technique t = cells[i];
-            if (open) {
-                // fond laqué sombre, lumière chaude venue du haut, plateau de bois
-                g.fill(cx, cy, cx + CW, cy + CH, 0xFF160D09);
-                g.fillGradient(cx, cy, cx + CW, cy + CH - 3, 0x26F2C890, 0x00F2C890);
-                for (int k = 8; k < CW - 4; k += 10) g.fill(cx + k, cy + 3, cx + k + 1, cy + CH - 5, 0x0EFFFFFF);
-                g.fillGradient(cx, cy, cx + CW, cy + 6, 0x80000000, 0x00000000);
-                g.fill(cx, cy + CH - 3, cx + CW, cy + CH, 0xFF5A3A22);
-                g.fill(cx, cy + CH - 3, cx + CW, cy + CH - 2, 0x40FFE0B0);
-                if (t == null) {                                                                   // poussière
-                    for (int k = 0; k < 5; k++) {
-                        int dx = cx + 8 + k * (CW - 16) / 5;
-                        g.fill(dx, cy + CH - 5 - (k % 2), dx + 2, cy + CH - 4 - (k % 2), 0x30C8B4A0);
-                    }
-                }
-            } else {
-                // porte de bois coulissante, anneau doré
-                g.fillGradient(cx, cy, cx + CW, cy + CH, 0xFF6A4628, 0xFF4E321D);
-                g.fill(cx + CW / 2, cy + 2, cx + CW / 2 + 1, cy + CH - 2, 0x60000000);
-                Da.outline(g, cx + 2, cy + 2, CW - 4, CH - 4, 0x40000000);
-                int rx = cx + CW / 2 - 6, ry = cy + CH / 2 - 2;
-                Da.outline(g, rx, ry, 4, 4, ScrollArt.GOLD);
-                Da.outline(g, rx + 8, ry, 4, 4, ScrollArt.GOLD);
-            }
-            boolean hot = i == hov && t != null;
-            Da.outline(g, cx - 1, cy - 1, CW + 2, CH + 2, hot ? ScrollArt.GOLD : ScrollArt.WOOD_D);
+            int v = i >= count ? 2 : t == null ? 1 : 0;
+            DaKit.blit(g, BiblioArt.CASIERS, cx, cy, v * BiblioArt.CW, 0, BiblioArt.CW, BiblioArt.CH, 416, 62);
             if (t != null) {
-                int sz = CH - 4;
-                int lift = hot ? 2 : 0;
-                if (hot) g.fillGradient(cx, cy + 4, cx + CW, cy + CH - 3, 0x00F2D49A, 0x38F2D49A);
-                ScrollArt.item(g, cx + (CW - sz) / 2, cy + 1 - lift, sz, t.rank());
-                ScrollArt.fuda(g, font, cx + CW - 15, cy + CH + 1, t.rank());
+                boolean hot = i == hov;
+                if (hot) DaKit.blit(g, BiblioArt.CASIERS, cx, cy, 3 * BiblioArt.CW, 0, BiblioArt.CW, BiblioArt.CH, 416, 62);
+                int sz = 50, lift = hot ? 2 : 0;
+                ScrollArt.item(g, cx + (BiblioArt.CW - sz) / 2 - 4, cy + 7 - lift, sz, t.rank());
+                BiblioArt.fuda(g, cx + BiblioArt.CW - 17, cy, t.rank());
             }
         }
 
         if (hov >= 0 && cells[hov] != null) card(g, cells[hov], hov);
 
-        // sacoche et aide
-        int rw = Math.min(220, cabW()), rx = (width - rw) / 2, ry = height - FOOT + 12;
+        // sacoche
+        int gx = x + 186 - 100, gy = y + BiblioArt.MEUBLE_H + 4;
         String wt = String.format(java.util.Locale.FRANCE, "%.1f / %.0f kg", weight, maxWeight);
-        Da.ruler(g, font, rx, ry, rw, (float) (weight / maxWeight), "Sacoche", wt, false, true);
-        Da.hint(g, font, width, height, "Clic : prendre le rouleau  -  Echap : fermer");
+        BiblioArt.jauge(g, font, gx, gy, (float) (weight / maxWeight), SACOCHE, DaKit.inter(wt));
+        BiblioArt.aides(g, font, width, height, new String[][]{{"Clic", "prendre le rouleau"}, {"Echap", "fermer"}});
 
         if (staff) {
             int[] b = staffButton();
-            Da.plate(g, font, b[0], b[1], b[2], b[3], "Reglages", false, Da.in(mx, my, b[0], b[1], b[2], b[3]), true);
+            boolean hb = DaKit.dans(mx, my, b[0], b[1], b[2], b[3]);
+            DaKit.blit(g, BiblioArt.REGLAGES, width - 40, 0, hb ? 26 : 0, 0, 26, 38, 52, 38);
+            DaKit.etiq(g, font, REGLAGES, width - 27 - REGLAGES.w() / 2f, 41, hb ? DaKit.OR_CLAIR : DaKit.OR_ETIQ);
         }
         if (toast != null && now - toastAt < 2200) {
             float a = Math.min(1f, (2200 - (now - toastAt)) / 400f);
-            int tw = font.width(toast) + 20, tx = width / 2 - tw / 2, ty = cabY() + ROOF + 4;
-            g.fill(tx, ty, tx + tw, ty + 14, ((int) (a * 0xE0) << 24) | 0x1C0E12);
-            Da.outline(g, tx, ty, tw, 14, ((int) (a * 255) << 24) | (ScrollArt.GOLD & 0xFFFFFF));
-            g.text(font, Component.literal(toast), tx + 10, ty + 3, ((int) (a * 255) << 24) | 0xF5E9D0, false);
+            var c = DaKit.inter(toast);
+            int tw = Math.round(DaKit.largeur8(font, c)) + 28, tx = width / 2 - tw / 2, ty = y + 34;
+            DaKit.coupeH(g, BiblioArt.TOAST, tx, ty, tw + 4, 0, 0, 264, 20, 8, 264, 20);
+            DaKit.inter8(g, font, c, width / 2f, ty + 8, DaKit.alpha(DaKit.CREME, a), 1);
         }
         super.extractRenderState(g, mx, my, delta);
     }
 
-    /** Fiche du rouleau survolé, sur papier washi : à droite du meuble, sinon à gauche, sinon sur la case. */
+    private static final DaKit.Etiq SACOCHE = DaKit.etiq(net.minecraft.client.Minecraft.getInstance().font, "Sacoche"),
+        REGLAGES = DaKit.etiq(net.minecraft.client.Minecraft.getInstance().font, "Reglages");
+    private int lastHov = -1;
+
+    /** Fiche du rouleau survolé, sur washi : à droite du meuble, sinon à gauche, sinon sur le casier. */
     private void card(GuiGraphicsExtractor g, Technique t, int cell) {
-        int w = 150;
-        List<FormattedCharSequence> desc = font.split(Component.literal(t.desc()), w - 16);
-        int h = 74 + desc.size() * 9;
+        int w = CARTE_W, in = 12, iw = w - 2 * in;
+        // nom (ArcadePix ×1, une ou deux lignes), description, puis les lignes de détail
+        java.util.List<Component> nom = lignesArcade(t.name(), iw - 32);
+        DaKit.Paragraphe desc = DaKit.paragraphe(font, t.desc(), iw, DaKit.S8, 10, 6);
+        int yNom = 16, yType = yNom + nom.size() * 10 + 5, yTrait = yType + 9, yDesc = yTrait + 9;
+        int yMeta = yDesc + desc.hauteur() + 8, h = yMeta + 2 * 13 + 20;
+        int mw = BiblioArt.MEUBLE_W - 4;
         int x;
-        if (cabX() + cabW() + 12 + w <= width - 6) x = cabX() + cabW() + 12;
-        else if (cabX() - 12 - w >= 6) x = cabX() - 12 - w;
-        else x = Math.max(6, Math.min(width - w - 6, cellX(cell) + cw() + 4));
-        int y = Math.max(TOP, Math.min(cellY(cell) - 6, height - FOOT - h));
-        g.fill(x + 3, y + 4, x + w + 3, y + h + 4, 0x60000000);
-        g.fillGradient(x, y, x + w, y + h, ScrollArt.WASHI_HI, ScrollArt.WASHI);
-        Da.outline(g, x, y, w, h, 0xFF8C6E48);
-        g.fill(x, y, x + w, y + 3, ScrollArt.rankColor(t.rank()));
-        ScrollArt.hanko(g, font, x + w - 22, y + 8, 14, t.rank());
-        g.text(font, Component.literal(t.name()).withStyle(net.minecraft.ChatFormatting.BOLD), x + 8, y + 9, ScrollArt.INK, false);
-        g.text(font, Component.literal(t.typeLine()), x + 8, y + 20, ScrollArt.INK_SOFT, false);
-        g.fill(x + 8, y + 32, x + w - 8, y + 33, 0x40462810);
-        int ly = y + 37;
-        for (FormattedCharSequence s : desc) { g.text(font, s, x + 8, ly, ScrollArt.INK, false); ly += 9; }
-        ly += 4;
-        g.text(font, Component.literal(ScrollArt.rankName(t.rank()) + " · " + t.difficulty()), x + 8, ly, ScrollArt.INK_SOFT, false);
-        g.text(font, Component.literal(t.seances() + " séance" + (t.seances() > 1 ? "s" : "") + " · "
-                + String.format(java.util.Locale.FRANCE, "%.1f kg", t.weight())), x + 8, ly + 10, ScrollArt.INK_SOFT, false);
-        g.text(font, RebornFont.body("Clic : prendre"), x + 8, y + h - 12, ScrollArt.LACQUER, false);
+        if (cabX() + mw + ECART + w <= width - 6) x = cabX() + mw + ECART;
+        else if (cabX() - ECART - w >= 6) x = cabX() - ECART - w;
+        else x = Math.max(6, Math.min(width - w - 6, cellX(cell) + BiblioArt.CW + 4));
+        int y = Math.max(56, Math.min(cellY(cell) - 10, height - 30 - h));
+        DaKit.coupe(g, BiblioArt.CARTE, x - 2, y - 2, w + 8, h + 8, 0, 0, 176, 300, 8, 16, 176, 300);
+        BiblioArt.brocart(g, x, y, w, t.rank());
+        BiblioArt.sceau26(g, x + w - in - 12, y + 26, t.rank());
+        for (int i = 0; i < nom.size(); i++) DaKit.arcX1(g, font, nom.get(i), x + in, y + yNom + i * 10, DaKit.ENCRE, 0, false);
+        DaKit.inter7(g, font, DaKit.inter(t.typeLine()), x + in, y + yType, DaKit.ENCRE_DOUCE, 0);
+        BiblioArt.trait(g, x + in - 2, y + yTrait, iw - 28);
+        desc.dessiner(g, font, x + in, y + yDesc, DaKit.ENCRE);
+        ligne(g, x + in, y + yMeta, "Rang", ScrollArt.rankName(t.rank()).replace("Rang ", "") + " · " + t.difficulty());
+        ligne(g, x + in, y + yMeta + 13, "Seances", t.seances() + " · " + String.format(java.util.Locale.FRANCE, "%.1f kg", t.weight()));
+        float yb = y + h - 11;
+        int cw = BiblioArt.cabochon(g, font, "Clic", x + in, yb, 1f);
+        DaKit.inter8(g, font, DaKit.inter("prendre le rouleau"), x + in + cw + 4, yb, DaKit.ENCRE_ROUGE, 0);
+    }
+
+    private void ligne(GuiGraphicsExtractor g, int x, int y, String etiq, String val) {
+        DaKit.etiq(g, font, DaKit.etiq(font, etiq), x, y, DaKit.ENCRE_DOUCE);
+        DaKit.inter8(g, font, DaKit.inter(val), x + 52, y, DaKit.ENCRE, 0);
+        g.fill(x, y + 6, x + CARTE_W - 24, y + 7, 0x30462810);
+    }
+
+    /** Coupe un titre ArcadePix ×1 en lignes de largeur max (GUI), deux au plus. */
+    private java.util.List<Component> lignesArcade(String s, int max) {
+        java.util.List<Component> out = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        for (String mot : DaKit.sansAccents(s).split(" +")) {
+            String cand = cur.isEmpty() ? mot : cur + " " + mot;
+            if (!cur.isEmpty() && font.width(DaKit.arcade(cand)) > max && out.size() < 1) {
+                out.add(DaKit.arcade(cur.toString()));
+                cur = new StringBuilder(mot);
+            } else {
+                cur = new StringBuilder(cand);
+            }
+        }
+        if (!cur.isEmpty()) out.add(DaKit.arcade(cur.toString()));
+        return out;
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent e, boolean dbl) {
         if (e.button() != 0) return super.mouseClicked(e, dbl);
         int[] sb = staffButton();
-        if (staff && Da.in(e.x(), e.y(), sb[0], sb[1], sb[2], sb[3])) {
+        if (staff && DaKit.dans(e.x(), e.y(), sb[0], sb[1], sb[2], sb[3])) {
             ParcheminClient.send("cfg_open", libId, null);
             return true;
         }

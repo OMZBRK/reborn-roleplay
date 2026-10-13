@@ -26,39 +26,45 @@ public final class ParcheminDebug {
         return Technique.DEMO.get(0);
     }
 
-    private static final int[] SCALES = {2, 3, 4};
-    private static final int STEP = 95;
-
     private static void tick(Minecraft mc) {
         if (mc.player == null || mc.level == null) { ticks = -1; return; }
         ticks++;
-        if (ticks == 30) { mc.player.connection.sendCommand("time set 6000"); mc.gui.hud.getChat().clearMessages(false); }
+        if (ticks == 30) {
+            mc.player.connection.sendCommand("time set 6000");
+            mc.player.connection.sendCommand("clear @s");
+            mc.gui.hud.getChat().clearMessages(false);
+        }
         if (ticks < 40) return;
-        int phase = (ticks - 40) / STEP, t = (ticks - 40) % STEP;
-        if (phase >= SCALES.length) { if (t == 5) mc.stop(); return; }
-        switch (t) {
-            case 0 -> { mc.options.guiScale().set(SCALES[phase]); mc.resizeGui(); }
+        switch (ticks - 40) {
             case 5 -> ParcheminClient.debugReceive(libJson().toString());
             case 8 -> with(mc, BibliothequeScreen.class, s -> s.debugHover = s.firstFilled());
-            case 20 -> shot(mc);                                                          // bibliothèque + fiche
-            case 25 -> {
-                com.google.gson.JsonObject o = new com.google.gson.JsonObject();
-                o.addProperty("t", "read");
-                o.add("tech", tech(find("katon_gokakyu")));
-                o.addProperty("done", 1);
-                o.addProperty("nextIn", "maintenant");
-                o.addProperty("master", true);
-                ParcheminClient.debugReceive(o.toString());
-            }
-            case 45 -> shot(mc);                                                          // lecture
-            case 50 -> ParcheminClient.debugReceive(cfgJson().toString());
-            case 60 -> shot(mc);                                                          // réglages
-            case 65 -> with(mc, BibliothequeStaffScreen.class, s -> { s.setPage(1); s.setFilter(3); });
-            case 75 -> shot(mc);                                                          // techniques
-            case 80 -> with(mc, BibliothequeStaffScreen.class, s -> s.setPage(2));
-            case 90 -> shot(mc);                                                          // simulation
+            case 20 -> shot(mc, "bib_1_bibliotheque");                                    // bibliothèque + fiche
+            case 22 -> with(mc, BibliothequeScreen.class, s -> { s.debugHover = 4; s.toast("Ta sacoche est trop lourde."); });
+            case 32 -> shot(mc, "bib_2_survol_rang_a");
+            case 35 -> read(mc, "katon_gokakyu", 1, "maintenant", true, false);
+            case 55 -> shot(mc, "bib_3_lecture_c");                                       // lecture
+            case 58 -> read(mc, "rasengan", 7, "2 h 10", false, false);
+            case 78 -> shot(mc, "bib_4_lecture_s");
+            case 80 -> ParcheminClient.debugReceive(cfgJson().toString());
+            case 90 -> shot(mc, "bib_5_reglages");                                        // réglages
+            case 95 -> with(mc, BibliothequeStaffScreen.class, s -> { s.setPage(1); s.setFilter(3); });
+            case 105 -> shot(mc, "bib_6_reglages_techniques");                            // techniques
+            case 110 -> with(mc, BibliothequeStaffScreen.class, s -> s.setPage(2));
+            case 120 -> shot(mc, "bib_7_reglages_simulation");                            // simulation
+            case 126 -> mc.stop();
             default -> { }
         }
+    }
+
+    private static void read(Minecraft mc, String id, int done, String next, boolean master, boolean known) {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        o.addProperty("t", "read");
+        o.add("tech", tech(find(id)));
+        o.addProperty("done", done);
+        o.addProperty("nextIn", next);
+        o.addProperty("master", master);
+        o.addProperty("known", known);
+        ParcheminClient.debugReceive(o.toString());
     }
 
     public static com.google.gson.JsonObject tech(Technique t) {
@@ -124,7 +130,7 @@ public final class ParcheminDebug {
         if (c.isInstance(mc.gui.screen())) a.run(c.cast(mc.gui.screen()));
     }
 
-    private static void shot(Minecraft mc) {
-        Screenshot.grab(mc.gameDirectory, mc.gameRenderer.mainRenderTarget(), msg -> { });
+    private static void shot(Minecraft mc, String name) {
+        Screenshot.grab(mc.gameDirectory, name + ".png", mc.gameRenderer.mainRenderTarget(), 1, msg -> { });
     }
 }

@@ -522,6 +522,22 @@ public final class StaffPanel implements Listener, PluginMessageListener {
     /** La demande de mort RP est tranchée ou tombée. */
     public void onKillClosed(long requestId) { alerts.remove("kill-" + requestId); }
 
+    /**
+     * Chirurgie des yeux : un œil vient d'être prélevé (ou perdu pendant le prélèvement). Alerte {@code yeux}
+     * sur la victime (le propriétaire de l'œil, même si c'est un corps) + ligne dans le chat staff.
+     */
+    public void onPrelevementOeil(Player operator, UUID victim, String victimName, String cote, String type,
+                                  boolean ok, int score, String source, Location at) {
+        long now = System.currentTimeMillis();
+        String key = "yeux-" + victim + "-" + now;
+        String issue = ok ? "œil prélevé (intégrité " + score + " %)" : "œil perdu pendant le prélèvement";
+        alerts.put(key, new Alert(key, "yeux", victim,
+                "Œil " + cote + " (" + type + ") · " + issue + " par " + persoName(operator),
+                List.of(source, place(at)), 0, now));
+        system("Prélèvement d'œil : " + persoName(operator) + " sur " + victimName + " (" + source + ") · œil "
+                + cote + " " + type + " · " + issue + " · " + place(at) + ".");
+    }
+
     /** Signalement d'un joueur par un autre ({@code /signaler}). */
     public void onReport(Player reporter, Player target, String motif) {
         Set<UUID> r = reporters.computeIfAbsent(target.getUniqueId(), k -> ConcurrentHashMap.newKeySet());

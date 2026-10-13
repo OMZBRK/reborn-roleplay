@@ -291,6 +291,16 @@ public final class ShinobiCore extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(palmHealing, this);
         Bukkit.getPluginManager().registerEvents(
                 new com.reborn.shinobicore.medic.BandageListener(this), this);
+        // Chirurgie des yeux : orbites par personnage, fiole d'œil, canal reborn:yeux, /yeux et /bandage.
+        this.yeuxService = new com.reborn.shinobicore.medic.yeux.YeuxService(this);
+        Bukkit.getPluginManager().registerEvents(this.yeuxService, this);
+        com.reborn.shinobicore.medic.yeux.YeuxCommand yeuxCmd =
+                new com.reborn.shinobicore.medic.yeux.YeuxCommand(this, this.yeuxService);
+        Bukkit.getPluginManager().registerEvents(yeuxCmd, this);
+        if (getCommand("yeux") != null) getCommand("yeux").setExecutor(yeuxCmd);
+        if (getCommand("bandage") != null) {
+            getCommand("bandage").setExecutor(new com.reborn.shinobicore.medic.yeux.BandageCommand(this, this.yeuxService));
+        }
 
         // 6e-bis. Chakra exhaustion — the overdraw economy. Casting beyond
         //         your pool pushes it into debt; this ticks the debuff ladder
@@ -1271,6 +1281,11 @@ public final class ShinobiCore extends JavaPlugin {
 
     /** KO-7 : scène de mort (le joueur reste spectateur de son corps). */
     public com.reborn.shinobicore.ko.action.DeathScene deathScene() { return deathScene; }
+
+    private com.reborn.shinobicore.medic.yeux.YeuxService yeuxService;
+
+    /** Chirurgie des yeux : {@code yeux().eyes(uuid)}, {@code yeux().hasWorkingEye(uuid, "sharingan")}. */
+    public com.reborn.shinobicore.medic.yeux.YeuxService yeux() { return yeuxService; }
 
     /** XP, niveaux et points de stats par niveau. */
     public com.reborn.shinobicore.stats.Progression progression() { return progression; }

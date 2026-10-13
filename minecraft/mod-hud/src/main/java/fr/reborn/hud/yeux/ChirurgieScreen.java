@@ -1,6 +1,5 @@
 package fr.reborn.hud.yeux;
 
-import fr.reborn.hud.ui.Da;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -16,8 +15,11 @@ import org.lwjgl.glfw.GLFW;
 import java.util.Random;
 
 /**
- * Chirurgie des yeux, en deux gestes jouables dans le style Reborn (laque, or, washi, tracés lissés au pixel réel,
- * le jeu reste visible sous un voile).
+ * Chirurgie des yeux, en deux gestes jouables, habillée au niveau de la fiche shinobi (DA §4.1) : en-tête suspendu,
+ * étapes en plaques à kanji, planche PATIENT et planche FIOLE / TROUSSE pendues aux perches, l'œil en gros plan sur
+ * son plateau laqué ; le jeu reste visible sous un voile. Décor en textures ({@link ChirurgieArt},
+ * {@code tools/gen_chirurgie_textures.py}) ; le code ne dessine que ce qui bouge (lame, marques, sceau, anneaux,
+ * jauges, texte).
  *
  * <p><b>Prélèvement</b> (signature : la fiole de scellement, à droite) :
  * <ol>
@@ -55,6 +57,8 @@ public final class ChirurgieScreen extends Screen {
     private final Random rnd = new Random();
 
     private int phase;                 // 0, 1, 2 ; 3 = résultat
+    private int lastPhase;             // phase où l'échec est survenu
+    private final long openedAt = System.currentTimeMillis();
     private long phaseStart;
     private int errors;
     private int integrity = 100;
@@ -83,6 +87,7 @@ public final class ChirurgieScreen extends Screen {
     private int stitch;
     private long stitchStart;
     private int stitchHits;
+    private final boolean[] stitchOk = new boolean[6];
 
     // banc d'essai
     private long frozen = -1;
@@ -132,6 +137,7 @@ public final class ChirurgieScreen extends Screen {
         play(SoundEvents.PLAYER_HURT, 0.7f);
         boolean lost = mode == Mode.GREFFE ? errors >= MAX_ERRORS : integrity <= 0;
         if (lost) {
+            lastPhase = phase;
             failed = true;
             phase = 3;
             phaseStart = now();
@@ -227,7 +233,7 @@ public final class ChirurgieScreen extends Screen {
         mouseX = e.x(); mouseY = e.y();
         Layout L = layout();
         if (phase >= 3) {
-            if (Da.in(e.x(), e.y(), L.btnX, L.btnY, L.btnW, 16)) onClose();
+            onClose();
             return true;
         }
         if (mode == Mode.PRELEVEMENT) {
@@ -257,7 +263,7 @@ public final class ChirurgieScreen extends Screen {
             double[] p = stitchPoint(L, stitch);
             float ring = stitchRing();
             boolean onPoint = Math.hypot(e.x() - p[0], e.y() - p[1]) < 9;
-            if (onPoint && ring < 0.22f) { stitchHits++; play(SoundEvents.NOTE_BLOCK_HAT.value(), 1.4f); }
+            if (onPoint && ring < 0.22f) { stitchHits++; stitchOk[stitch] = true; play(SoundEvents.NOTE_BLOCK_HAT.value(), 1.4f); }
             else error(onPoint ? "Suture trop tôt" : "Suture à côté", 0);
             stitch++;
             stitchStart = now() + 250;
@@ -292,6 +298,7 @@ public final class ChirurgieScreen extends Screen {
     public boolean keyPressed(KeyEvent e) {
         if (e.key() == GLFW.GLFW_KEY_ESCAPE) {
             if (phase < 3) {           // abandon = échec
+                lastPhase = phase;
                 failed = true;
                 phase = 3;
                 finish();
@@ -302,21 +309,41 @@ public final class ChirurgieScreen extends Screen {
 
     /* ================================================================ dessin */
 
-    private record Layout(int px, int py, int pw, int ph, int ex, int ey, int r, int sx, int sy, int barTop, int barH,
-                          int barX, int btnX, int btnY, int btnW) {}
+    /**
+     * Mise en page (GUI, référence 960×540 assurée par MenuScale) : en-tête suspendu et étapes en haut, planche
+     * PATIENT à gauche et FIOLE / TROUSSE à droite pendues aux perches (y 84), l'œil sur son plateau au centre,
+     * aides en bas à droite. Compact (W &lt; 840 ou H &lt; 470) : planches collées aux bords, œil plus petit.
+     */
+    private record Layout(int w, int h, int cx, boolean compact, int panG, int panD, int ex, int ey, int r,
+                          int tray, int barX, int barTop, int barH, int cardX, int cardY, int btnX, int btnY,
+                          int btnW, int aidesY, int[] tx) {}
+
+    private static final int PAN_Y = 84;
 
     /** Demi-largeur de l'œil en unités GUI, alignée sur la grille des texels. */
     private static double rg(Layout L) { return EyeArt.snap(L.r * Px.gs()) / Px.gs(); }
 
+    private Layout layoutCache;
+    private int layoutW = -1, layoutH = -1;
+
     private Layout layout() {
-        int pw = Math.min(440, width - 40), ph = Math.min(256, height - 70);
-        int px = (width - pw) / 2, py = 46;
-        int r = Math.min(56, ph / 4);
-        int ex = px + Math.round(pw * 0.42f), ey = py + Math.round(ph * 0.50f);
-        int sx = px + Math.round(pw * 0.80f), sy = py + Math.round(ph * 0.52f);
-        int barH = Math.round(r * 2.2f), barTop = ey - barH / 2, barX = ex + Math.round(r * 1.75f);
+        if (layoutCache != null && layoutW == width && layoutH == height) return layoutCache;
+        int w = width, h = height, cx = w / 2;
+        boolean compact = w < 840 || h < 470;
+        int panG = compact ? 8 : 24, panD = w - (compact ? 8 : 24) - ChirurgieArt.PW;
+        int r = compact ? 42 : 56;
+        double gs = Px.gs();
+        int tray = (int) Math.round(56 * EyeArt.scale(r * gs) / gs);
+        int ex = cx, ey = (PAN_Y + 4 + h - 40) / 2;
+        int barH = Math.round(r * 2.2f), barTop = ey - barH / 2, barX = ex + tray + 14;
+        int cardX = cx - 124, cardY = ey - 56;
         int btnW = 90;
-        return new Layout(px, py, pw, ph, ex, ey, r, sx, sy, barTop, barH, barX, px + (pw - btnW) / 2, py + ph - 28, btnW);
+        int[] tx = {cx - 84, cx, cx + 84};
+        layoutCache = new Layout(w, h, cx, compact, panG, panD, ex, ey, r, tray, barX, barTop, barH, cardX, cardY,
+                cx - 46, cardY + 81, btnW, h - 31, tx);
+        layoutW = w;
+        layoutH = h;
+        return layoutCache;
     }
 
     @Override
@@ -325,66 +352,192 @@ public final class ChirurgieScreen extends Screen {
         Font f = this.font;
         long n = now();
         Layout L = layout();
-        g.fill(0, 0, width, height, 0xA0080506);
-        Da.panel(g, L.px, L.py, L.pw, L.ph);
-        String side = left ? "œil gauche" : "œil droit";
-        String title = mode == Mode.GREFFE ? "Greffe — " + side : "Prélèvement — " + side;
-        String sub = (kind == EyeArt.Kind.NORMAL ? "" : EyeArt.label(kind) + " · ") + patient;
-        Da.header(g, f, width / 2, 10, title, sub.isBlank() ? null : sub);
-        steps(g, f, L);
+        // le jeu reste visible sous un voile (DA §2)
+        g.fill(0, 0, width, height, ChirurgieArt.argb(0x0A0608, 0.70f));
+        ChirurgieArt.etire(g, ChirurgieArt.VIGNETTE, 0, 0, width, height, 64, 36, ChirurgieArt.argb(0xFFFFFF, 0.55f));
 
-        // plateau laqué rond sous la tête du patient
+        ChirurgieArt.perches(g, L.panG + ChirurgieArt.PW + 10, L.panD - 10, L.w);
+        patient(g, f, L);
+        if (mode == Mode.PRELEVEMENT) panneauFiole(g, f, L, n);
+        else panneauTrousse(g, f, L);
+
+        // plateau laqué, peau, œil : textures à échelle entière de pixels écran
         Px.begin(g);
         double k = Px.gs();
         double ex = L.ex * k, ey = L.ey * k, r = EyeArt.snap(L.r * k);
-        EyeArt.plateau(g, ex, ey, r);                      // texture : un seul blit par image
+        EyeArt.plateau(g, ex, ey, r);
         EyeArt.skin(g, ex, ey, r);
         if (mode == Mode.PRELEVEMENT) drawPrelevement(g, L, k, n);
         else drawGreffe(g, L, k, n);
         Px.end(g);
+        if (mode == Mode.PRELEVEMENT && phase == 1) tensionGauge(g, L);
+        if (mode == Mode.GREFFE && phase == 1) chakraGauge(g, L, n);
 
-        bottom(g, f, L);
         if (n - flashAt < 900) {
             float a = 1f - (n - flashAt) / 900f;
-            Da.text(g, f, flashText, L.ex, L.ey + L.r * 1.25f + 6, Da.small(), Px.alpha(0xFFE04848, a), 1);
+            ChirurgieArt.arcadeX1(g, f, ChirurgieArt.arcade(flashText), L.ex, L.ey + L.tray + 8,
+                    ChirurgieArt.argb(ChirurgieArt.ROUGE_VIF, a), 1, true);
         }
+        entete(g, f, L, n);
+        aides(g, f, L);
         if (phase >= 3) result(g, f, L, mx, my);
-        Da.hint(g, f, width, height, hint());
     }
 
-    private String hint() {
-        if (phase >= 3) return "Clic : fermer";
-        if (mode == Mode.PRELEVEMENT) return switch (phase) {
-            case 0 -> "Clic quand la lame passe sur une marque  -  Echap : renoncer";
-            case 1 -> "Maintiens le clic pour tirer, relache dans la bande doree";
-            default -> "Clic quand le sceau passe au centre de la fiole";
-        };
-        return switch (phase) {
-            case 0 -> "Clic maintenu : suis la pointe du scalpel autour de l'orbite";
-            case 1 -> "Garde le fil de chakra dans la zone doree (hauteur de la souris)";
-            default -> "Clic sur le point quand l'anneau le touche";
-        };
-    }
+    /* ---------------------------------------------------------- en-tête et étapes */
 
-    private void steps(GuiGraphicsExtractor g, Font f, Layout L) {
-        String[] names = mode == Mode.GREFFE
-                ? new String[]{"Incision", "Connexion du chakra", "Sutures"}
-                : new String[]{"Inciser", "Détacher", "Sceller"};
-        int bw = 96, gap = 8, total = 3 * bw + 2 * gap, x = L.px + (L.pw - total) / 2, y = L.py + 10;
+    private static final String[] KJ_PRELEVEMENT = {"切", "抜", "封"}, KJ_GREFFE = {"切", "繋", "縫"};
+    private static final String[] LIB_PRELEVEMENT = {"INCISER", "DETACHER", "SCELLER"},
+            LIB_GREFFE = {"INCISION", "CHAKRA", "SUTURES"};
+
+    private void entete(GuiGraphicsExtractor g, Font f, Layout L, long n) {
+        float t = Math.min(1f, (n - openedAt) / 220f);
+        int dy = frozen >= 0 || t >= 1f ? 0 : Math.round(-36 * (1 - (1 - (1 - t) * (1 - t))));
+        g.pose().pushMatrix();
+        g.pose().translate(0, dy);
+        ChirurgieArt.blit(g, mode == Mode.GREFFE ? ChirurgieArt.ENTETE_GREFFE : ChirurgieArt.ENTETE_PRELEVEMENT,
+                L.cx - 160, 0, 320, 48);
+        String[] kj = mode == Mode.GREFFE ? KJ_GREFFE : KJ_PRELEVEMENT;
+        String[] lib = mode == Mode.GREFFE ? LIB_GREFFE : LIB_PRELEVEMENT;
+        int failedAt = failed ? Math.min(lastPhase, 2) : -1;
         for (int i = 0; i < 3; i++) {
-            boolean cur = i == phase, done = i < phase && !(failed && i == Math.min(phase, 2));
-            Da.plate(g, f, x, y, bw, 14, (i + 1) + "  " + names[i], cur, false, true);
-            if (done) Da.outline(g, x, y, bw, 14, Da.GOLD);
-            x += bw + gap;
+            int tx = L.tx[i];
+            int cell = i == failedAt ? 3 : i < phase ? 2 : i == phase ? 1 : 0;
+            ChirurgieArt.blit(g, ChirurgieArt.ETAPES, tx - 13, 36, cell * 26, 0, 26, 36, 104, 36);
+            int ty = cell == 1 ? 46 : 44;
+            int col = switch (cell) {
+                case 1 -> ChirurgieArt.OR_CLAIR;
+                case 2 -> ChirurgieArt.R_OR[7];
+                case 3 -> 0xFFB04040;
+                default -> ChirurgieArt.R_OR[4];
+            };
+            ChirurgieArt.kanji16(g, f, kj[i], tx, ty + 3, col, cell == 1 || cell == 2 ? 0xFF1A0608 : 0);
+            ChirurgieArt.arcFin(g, f, ChirurgieArt.arcade(lib[i]), tx, ty + 22 + 4,
+                    cell == 1 ? ChirurgieArt.CREME : cell == 2 ? ChirurgieArt.CREME_VAL : ChirurgieArt.REPOS, 1, cell == 1);
+        }
+        g.pose().popMatrix();
+    }
+
+    /* ---------------------------------------------------------- planche PATIENT */
+
+    private Component nomPatient, ligneOeil;
+
+    private void patient(GuiGraphicsExtractor g, Font f, Layout L) {
+        int x = L.panG, y = PAN_Y;
+        ChirurgieArt.planche(g, ChirurgieArt.P_PATIENT, x, ChirurgieArt.H_PATIENT);
+        ChirurgieArt.kanji16(g, f, "患", x + ChirurgieArt.PW - 20, y + 8, ChirurgieArt.R_OR[6], ChirurgieArt.OMBRE_KJ);
+        if (nomPatient == null) {
+            nomPatient = ChirurgieArt.arcade(patient.isBlank() ? "Inconnu" : patient);
+            String side = left ? "Œil gauche" : "Œil droit";
+            ligneOeil = ChirurgieArt.inter(kind == EyeArt.Kind.NORMAL ? side : side + " · " + EyeArt.label(kind));
+        }
+        ChirurgieArt.arcadeX1(g, f, nomPatient, x + 12, y + 36, ChirurgieArt.CREME, 0, true);
+        ChirurgieArt.inter7(g, f, ligneOeil, x + 12, y + 52, ChirurgieArt.DOUX, 0);
+        g.fill(x + 12, y + 61, x + ChirurgieArt.PW - 12, y + 62, ChirurgieArt.SEP);
+        int xr = x + ChirurgieArt.PW - 12;
+        if (mode == Mode.PRELEVEMENT) {
+            ChirurgieArt.etiq(g, f, "Intégrité de l'œil", x + 12, y + 74, ChirurgieArt.OR_ETIQ);
+            ChirurgieArt.inter9(g, f, ChirurgieArt.inter(integrity + " %"), xr, y + 74,
+                    integrity < 40 ? ChirurgieArt.ROUGE_VIF : ChirurgieArt.CREME_VAL, 2);
+            ChirurgieArt.blit(g, ChirurgieArt.JAUGE_H, x + 12, y + 81, 176, 9);
+            int fw = Math.round(172 * integrity / 100f);
+            if (fw > 0) {
+                g.fill(x + 14, y + 83, x + 14 + fw, y + 88, integrity < 40 ? 0xFFA0182B : 0xFFB08442);
+                g.fill(x + 14, y + 83, x + 14 + fw, y + 84, integrity < 40 ? 0xFFCC3A4C : 0xFFF2D59A);
+            }
+            ChirurgieArt.etiq(g, f, "Coupes", x + 12, y + 106, ChirurgieArt.OR_ETIQ);
+            for (int i = 0; i < 3; i++) {
+                ChirurgieArt.pion(g, cut[i] ? ChirurgieArt.PION_PERLE : ChirurgieArt.PION_COUPE, xr - 12 - (2 - i) * 14, y + 100);
+            }
+            ChirurgieArt.etiq(g, f, "Tractions", x + 12, y + 124, ChirurgieArt.OR_ETIQ);
+            for (int i = 0; i < 2; i++) {
+                ChirurgieArt.pion(g, i < pulls ? ChirurgieArt.PION_PERLE : ChirurgieArt.PION_PERLE_VIDE, xr - 12 - (1 - i) * 14, y + 118);
+            }
+            ChirurgieArt.etiq(g, f, "Scellé", x + 12, y + 142, ChirurgieArt.OR_ETIQ);
+            ChirurgieArt.pion(g, phase >= 3 && !failed ? ChirurgieArt.PION_PERLE : ChirurgieArt.PION_PERLE_VIDE, xr - 12, y + 136);
+        } else {
+            ChirurgieArt.etiq(g, f, "Erreurs", x + 12, y + 74, ChirurgieArt.OR_ETIQ);
+            ChirurgieArt.inter9(g, f, ChirurgieArt.inter(errors + " / " + MAX_ERRORS), xr, y + 74,
+                    errors >= MAX_ERRORS - 1 ? ChirurgieArt.ROUGE_VIF : ChirurgieArt.CREME_VAL, 2);
+            for (int i = 0; i < MAX_ERRORS; i++) {
+                ChirurgieArt.pion(g, i < errors ? ChirurgieArt.PION_ERREUR : ChirurgieArt.PION_ERREUR_VIDE, x + 12 + i * 15, y + 80);
+            }
+            ChirurgieArt.etiq(g, f, "Incision", x + 12, y + 106, ChirurgieArt.OR_ETIQ);
+            int inc = phase > 0 ? 100 : Math.round(Math.max(0f, lap) * 100);
+            ChirurgieArt.inter9(g, f, ChirurgieArt.inter(inc + " %"), xr, y + 106, ChirurgieArt.CREME_VAL, 2);
+            ChirurgieArt.etiq(g, f, "Fil de chakra", x + 12, y + 124, ChirurgieArt.OR_ETIQ);
+            float s = phase > 1 ? 4f : phase == 1 ? Math.min(4f, inZone) : 0f;
+            ChirurgieArt.inter9(g, f, ChirurgieArt.inter(String.format(java.util.Locale.ROOT, "%.1f / 4 s", s)), xr, y + 124,
+                    ChirurgieArt.CREME_VAL, 2);
+            ChirurgieArt.etiq(g, f, "Sutures", x + 12, y + 142, ChirurgieArt.OR_ETIQ);
+            for (int i = 0; i < 6; i++) {
+                int cell = i < stitch ? (stitchOk[i] ? ChirurgieArt.PION_PERLE : ChirurgieArt.PION_ERREUR) : ChirurgieArt.PION_PERLE_VIDE;
+                ChirurgieArt.pion(g, cell, xr - 12 - (5 - i) * 13, y + 136);
+            }
         }
     }
 
-    /* ---------------------------------------------------------- prélèvement */
+    /* ---------------------------------------------------------- planche FIOLE (prélèvement) */
+
+    private void panneauFiole(GuiGraphicsExtractor g, Font f, Layout L, long n) {
+        int x = L.panD, y = PAN_Y;
+        ChirurgieArt.planche(g, ChirurgieArt.P_FIOLE, x, ChirurgieArt.H_DROITE);
+        ChirurgieArt.kanji16(g, f, "封", x + ChirurgieArt.PW - 20, y + 8, ChirurgieArt.R_OR[6], ChirurgieArt.OMBRE_KJ);
+        int fx = x + ChirurgieArt.PW / 2, fy = y + ChirurgieArt.H_DROITE - 8 - ChirurgieArt.FIOLE_H;
+        ChirurgieArt.blit(g, ChirurgieArt.FIOLE_FOND, fx - 32, fy, ChirurgieArt.FIOLE_W, ChirurgieArt.FIOLE_H);
+        double k = Px.gs();
+        boolean sealed = phase >= 3 && !failed;
+        if (sealed) {
+            Px.begin(g);
+            EyeArt.globe(g, fx * k, (fy + 76 + Math.sin(n / 600.0)) * k, 16.5 * k, kind, n);
+            Px.end(g);
+        }
+        ChirurgieArt.blit(g, ChirurgieArt.FIOLE_FACE, fx - 32, fy, ChirurgieArt.FIOLE_W, ChirurgieArt.FIOLE_H);
+        if (phase == 2) {
+            // l'œil flotte au-dessus de la fiole ; le sceau oscille sur la ligne, cliquer quand il est au centre
+            int ly = fy - 6;
+            Px.begin(g);
+            EyeArt.globe(g, fx * k, (y + 50 + Math.sin(n / 300.0) * 1.5) * k, 16.5 * k, kind, n);
+            Px.end(g);
+            int w = 34;
+            g.fill(fx - w, ly, fx + w + 1, ly + 1, 0xA0D9A95E);
+            g.fill(fx - 3, ly - 3, fx + 4, ly + 4, 0x50F2D08A);
+            g.fill(fx - 1, ly - 5, fx + 2, ly + 6, 0xC0F2D08A);
+            int sx = fx + Math.round(sealPos * w);
+            Px.begin(g);
+            Px.disc(g, sx * k + k / 2, (ly + 0.5) * k, 4.5 * k, 0xFF7A1322);
+            Px.disc(g, sx * k + k / 2, (ly + 0.5) * k, 3.5 * k, 0xFFA0182B);
+            Px.ring(g, sx * k + k / 2, (ly + 0.5) * k, 4.5 * k, Math.max(1, k * 0.6), 0xFFD9A95E);
+            Px.end(g);
+        }
+        String l = sealed ? "Œil scellé" : phase == 2 ? "Prêt à sceller" : "Fiole vide";
+        ChirurgieArt.inter7(g, f, ChirurgieArt.inter(l), fx, y + ChirurgieArt.H_DROITE + 16, ChirurgieArt.argb(ChirurgieArt.CREME, 0.6f), 1);
+    }
+
+    /* ---------------------------------------------------------- planche TROUSSE (greffe) */
+
+    private void panneauTrousse(GuiGraphicsExtractor g, Font f, Layout L) {
+        int x = L.panD, y = PAN_Y;
+        ChirurgieArt.planche(g, ChirurgieArt.P_TROUSSE, x, ChirurgieArt.H_DROITE);
+        ChirurgieArt.kanji16(g, f, "具", x + ChirurgieArt.PW - 20, y + 8, ChirurgieArt.R_OR[6], ChirurgieArt.OMBRE_KJ);
+        int tx = x + ChirurgieArt.PW / 2 - ChirurgieArt.TROUSSE_W / 2;
+        int ty = y + 30 + (ChirurgieArt.H_DROITE - 38 - ChirurgieArt.TROUSSE_H) / 2;
+        ChirurgieArt.blit(g, ChirurgieArt.TROUSSE, tx, ty, ChirurgieArt.TROUSSE_W, ChirurgieArt.TROUSSE_H);
+        int outil = phase == 0 ? 0 : phase == 2 ? 1 : phase == 1 ? 3 : -1;
+        if (outil >= 0) ChirurgieArt.blit(g, ChirurgieArt.TROUSSE_SEL, tx + 33 + 34 * outil - 14, ty + 10, 28, 112);
+        String l = switch (phase) {
+            case 0 -> "Scalpel";
+            case 1 -> "Fil de chakra";
+            case 2 -> "Aiguille et fil";
+            default -> failed ? "Instruments rangés" : "Greffe terminée";
+        };
+        ChirurgieArt.inter7(g, f, ChirurgieArt.inter(l), x + ChirurgieArt.PW / 2f, y + ChirurgieArt.H_DROITE + 16,
+                ChirurgieArt.argb(ChirurgieArt.CREME, 0.6f), 1);
+    }
+
+    /* ---------------------------------------------------------- prélèvement (centre) */
 
     private void drawPrelevement(GuiGraphicsExtractor g, Layout L, double k, long n) {
         double ex = L.ex * k, ey = L.ey * k, r = EyeArt.snap(L.r * k);
-        double sx = L.sx * k, sy = L.sy * k;
-        boolean removed = phase >= 2 || (phase >= 3 && !failed);
         // l'œil dans l'orbite, ou l'orbite vide
         if (phase <= 1) {
             double lift = phase == 1 ? Math.min(1f, tension()) * r * 0.10 + pulls * r * 0.06 : 0;
@@ -409,68 +562,44 @@ public final class ChirurgieScreen extends Screen {
         } else {
             for (int i = 0; i < 3; i++) Px.arc(g, ex, ey, r * 1.22, Math.max(1, k * 0.8), cuts[i] - 0.22, cuts[i] + 0.22, 0x90A01818);
         }
-        // jauge de traction (phase 1)
-        if (phase == 1) tensionGauge(g, L, k);
-        // la fiole (signature)
-        fiole(g, sx, sy, k, phase >= 3 && !failed ? 1f : 0f, n);
-        if (phase == 2) {
-            double gx = sx, gy = sy - k * 74 + Math.sin(n / 300.0) * k * 2;
-            EyeArt.globe(g, gx, gy, r * 0.42, kind, n);
-            // sceau qui oscille sous l'œil
-            double w = k * 30, mxp = sx + sealPos * w, ly = sy - k * 50;
-            Px.line(g, sx - w, ly, sx + w, ly, Math.max(1, k * 0.8), 0x80F6CC78);
-            Px.disc(g, sx, ly, Math.max(2, k * 2.2), 0x60F6CC78);
-            Px.disc(g, mxp, ly, Math.max(3, k * 3.6), 0xFFA0182B);
-            Px.ring(g, mxp, ly, Math.max(3, k * 3.6), Math.max(1, k * 0.7), 0xFFF6CC78);
-        }
     }
 
-    private void tensionGauge(GuiGraphicsExtractor g, Layout L, double k) {
-        double x = L.barX * k, top = L.barTop * k, h = L.barH * k, w = k * 7;
-        g.fill((int) (x - 1), (int) (top - 1), (int) (x + w + 1), (int) (top + h + 1), 0xFFAA8034);
-        g.fill((int) x, (int) top, (int) (x + w), (int) (top + h), 0xFF1A0A0C);
-        int lo = (int) (top + h * (1 - bandHi)), hi = (int) (top + h * (1 - bandLo));
-        g.fill((int) x, lo, (int) (x + w), hi, 0xC0D9A95E);
+    /** Jauge de traction (prélèvement, phase 1) : cadre en texture, bande d'or et remplissage par le code. */
+    private void tensionGauge(GuiGraphicsExtractor g, Layout L) {
+        int x = L.barX, top = L.barTop, h = L.barH;
+        ChirurgieArt.jaugeV(g, x - 3, top - 3, h + 6);
+        int lo = top + Math.round(h * (1 - bandHi)), hi = top + Math.round(h * (1 - bandLo));
+        g.fill(x, lo, x + 7, hi, 0xB0D9A95E);
+        g.fill(x, lo, x + 7, lo + 1, 0xFFF2D59A);
+        g.fill(x, hi - 1, x + 7, hi, 0xFF8E6A30);
         float t = Math.min(1f, tension());
-        int fy = (int) (top + h * (1 - t));
-        g.fill((int) x + 1, fy, (int) (x + w) - 1, (int) (top + h), t > bandHi ? 0xFFC0242C : 0xFFA0182B);
-        g.fill((int) (x - k * 2), fy - 1, (int) (x + w + k * 2), fy + 1, 0xFFFAEED6);
+        int fy = top + Math.round(h * (1 - t));
+        if (t > 0) {
+            g.fill(x + 1, fy, x + 6, top + h, t > bandHi ? 0xFFCC3A4C : 0xFFA0182B);
+            g.fill(x - 3, fy - 1, x + 10, fy + 1, 0xFFFAEED6);
+        }
         for (int i = 0; i < 2; i++) {
-            Px.disc(g, x + w / 2, top + h + k * (6 + i * 6), Math.max(2, k * 2), i < pulls ? 0xFFF6CC78 : 0x50F6CC78);
+            ChirurgieArt.pion(g, i < pulls ? ChirurgieArt.PION_PERLE : ChirurgieArt.PION_PERLE_VIDE, x - 3 + 1, top + h + 6 + i * 12);
         }
     }
 
-    /** Fiole de scellement : verre, liquide de conservation, bouchon de cire rouge frappé du kanji 封. */
-    private void fiole(GuiGraphicsExtractor g, double cx, double cy, double k, float filled, long n) {
-        double w = k * 24, h = k * 74, top = cy - h / 2;
-        Px.disc(g, cx + k * 3, cy + h / 2 + k * 2, w * 1.2, 0x50000000);
-        // verre
-        g.fill((int) (cx - w), (int) (top + k * 8), (int) (cx + w), (int) (cy + h / 2 - w), 0x40C8E0E8);
-        Px.disc(g, cx, cy + h / 2 - w, w, 0x40C8E0E8);
-        // liquide
-        double liq = top + h * 0.38;
-        g.fill((int) (cx - w + k), (int) liq, (int) (cx + w - k), (int) (cy + h / 2 - w), 0xA0C49A3C);
-        Px.disc(g, cx, cy + h / 2 - w, w - k, 0xA0C49A3C);
-        g.fill((int) (cx - w + k), (int) liq, (int) (cx + w - k), (int) (liq + k), 0xC0F2D49A);
-        if (filled > 0) {
-            EyeArt.globe(g, cx, cy + h * 0.12 + Math.sin(n / 500.0) * k, w * 0.78, kind, n);
-            g.fill((int) (cx - w + k), (int) liq, (int) (cx + w - k), (int) (cy + h / 2 - w), 0x40C49A3C);
-        }
-        // reflets
-        g.fill((int) (cx - w + k * 2), (int) (top + k * 10), (int) (cx - w + k * 3.5), (int) (cy + h / 2 - w * 1.4), 0x60FFFFFF);
-        // contour
-        g.fill((int) (cx - w - 1), (int) (top + k * 8), (int) (cx - w), (int) (cy + h / 2 - w), 0xB0E8F4F8);
-        g.fill((int) (cx + w), (int) (top + k * 8), (int) (cx + w + 1), (int) (cy + h / 2 - w), 0xB0E8F4F8);
-        // col et bouchon de cire
-        g.fill((int) (cx - w * 0.75), (int) (top + k * 2), (int) (cx + w * 0.75), (int) (top + k * 9), 0xFF8A1018);
-        g.fill((int) (cx - w * 0.75), (int) (top + k * 2), (int) (cx + w * 0.75), (int) (top + k * 3), 0xFFB82830);
-        Px.disc(g, cx, top + k * 2, w * 0.55, 0xFFA0182B);
-        Px.ring(g, cx, top + k * 2, w * 0.55, Math.max(1, k * 0.6), 0xFFD9A95E);
-        // cordelette dorée
-        g.fill((int) (cx - w * 0.8), (int) (top + k * 9), (int) (cx + w * 0.8), (int) (top + k * 10.2), 0xFFC8A05A);
+    /** Jauge du fil de chakra (greffe, phase 1) : zone d'or qui dérive, curseur à la hauteur de la souris. */
+    private void chakraGauge(GuiGraphicsExtractor g, Layout L, long n) {
+        int x = L.barX, top = L.barTop, h = L.barH;
+        ChirurgieArt.jaugeV(g, x - 3, top - 3, h + 6);
+        double zone = zoneCenter(n);
+        int z0 = Math.max(top, top + (int) Math.round(h * (zone - 0.11))), z1 = Math.min(top + h, top + (int) Math.round(h * (zone + 0.11)));
+        g.fill(x, z0, x + 7, z1, 0xB0D9A95E);
+        g.fill(x, z0, x + 7, z0 + 1, 0xFFF2D59A);
+        int my = (int) Math.round(Math.max(top, Math.min(top + h, mouseY)));
+        g.fill(x - 4, my - 1, x + 11, my + 1, 0xFF8FD8FF);
+        // remplissage : temps tenu dans la zone
+        float p = Math.min(1f, inZone / 4f);
+        int fh = Math.round(h * p);
+        if (fh > 0) g.fill(x + 1, top + h - fh, x + 2, top + h, 0xFF9FE4FF);
     }
 
-    /* ---------------------------------------------------------- greffe */
+    /* ---------------------------------------------------------- greffe (centre) */
 
     private void drawGreffe(GuiGraphicsExtractor g, Layout L, double k, long n) {
         double ex = L.ex * k, ey = L.ey * k, r = EyeArt.snap(L.r * k);
@@ -478,7 +607,6 @@ public final class ChirurgieScreen extends Screen {
         EyeArt.socket(g, ex, ey, r, 0.3f);
         if (placed) EyeArt.eye(g, ex, ey, r, kind, n);
         if (phase == 0) {
-            // tracé pointillé lissé de l'incision + scalpel
             int dots = 40;
             for (int i = 0; i < dots; i++) {
                 double a = i * Math.PI * 2 / dots - Math.PI / 2;
@@ -492,26 +620,21 @@ public final class ChirurgieScreen extends Screen {
             Px.ring(g, tx, ty, k * 7, Math.max(1, k * 0.8), on ? 0xFFF6CC78 : 0x90F6CC78);
             Px.disc(g, tx, ty, Math.max(2, k * 1.8), 0xFFE8E4DC);
         } else if (phase == 1) {
-            double zone = zoneCenter(n);
-            double x = L.barX * k, top = L.barTop * k, h = L.barH * k, w = k * 7;
-            g.fill((int) (x - 1), (int) (top - 1), (int) (x + w + 1), (int) (top + h + 1), 0xFFAA8034);
-            g.fill((int) x, (int) top, (int) (x + w), (int) (top + h), 0xFF0E0A14);
-            int z0 = (int) (top + h * (zone - 0.11)), z1 = (int) (top + h * (zone + 0.11));
-            g.fill((int) x, Math.max((int) top, z0), (int) (x + w), Math.min((int) (top + h), z1), 0xC0D9A95E);
-            double my = Math.max(top, Math.min(top + h, mouseY * k));
-            g.fill((int) (x - k * 3), (int) my - 1, (int) (x + w + k * 3), (int) my + 1, 0xFF8FD8FF);
             // le fil de chakra, de l'orbite à la jauge, plus vif à mesure qu'il tient
+            double x = L.barX * k;
+            double my = Math.max(L.barTop * k, Math.min((L.barTop + L.barH) * k, mouseY * k));
             float p = Math.min(1f, inZone / 4f);
             int c = Px.mix(0x504A90C8, 0xFF9FE4FF, p);
-            Px.line(g, ex + r * 0.3, ey, x - k * 3, my, Math.max(1.5, k * (0.8 + p)), c);
+            Px.line(g, ex + r * 0.3, ey, x - k * 4, my, Math.max(1.5, k * (0.8 + p)), c);
             Px.disc(g, ex, ey, r * 0.18 * (0.5 + p), Px.alpha(0xFF9FE4FF, 0.25f + 0.5f * p));
         } else if (phase >= 2) {
             for (int i = 0; i < 6; i++) {
                 double[] pt = stitchPoint(L, i);
                 double px = pt[0] * k, py = pt[1] * k;
                 if (i < stitch) {
-                    Px.line(g, px - k * 3, py - k * 2, px + k * 3, py + k * 2, Math.max(1, k * 0.8), 0xFF2A1A10);
-                    Px.line(g, px - k * 3, py + k * 2, px + k * 3, py - k * 2, Math.max(1, k * 0.8), 0xFF2A1A10);
+                    int col = stitchOk[i] ? 0xFF2A1A10 : 0xFF7A1322;
+                    Px.line(g, px - k * 3, py - k * 2, px + k * 3, py + k * 2, Math.max(1, k * 0.8), col);
+                    Px.line(g, px - k * 3, py + k * 2, px + k * 3, py - k * 2, Math.max(1, k * 0.8), col);
                 } else {
                     Px.disc(g, px, py, Math.max(2, k * 2), i == stitch ? 0xFFF6CC78 : 0x60F6CC78);
                     if (i == stitch && phase == 2) {
@@ -521,66 +644,75 @@ public final class ChirurgieScreen extends Screen {
                 }
             }
         }
-        trousse(g, L.sx * k, L.sy * k, k);
     }
 
-    /** Trousse d'instruments déroulée sur un linge (signature de la greffe). */
-    private void trousse(GuiGraphicsExtractor g, double cx, double cy, double k) {
-        double w = k * 38, h = k * 70;
-        g.fill((int) (cx - w + k * 3), (int) (cy - h / 2 + k * 3), (int) (cx + w + k * 3), (int) (cy + h / 2 + k * 3), 0x50000000);
-        g.fill((int) (cx - w), (int) (cy - h / 2), (int) (cx + w), (int) (cy + h / 2), 0xFFEADCB6);
-        g.fill((int) (cx - w), (int) (cy - h / 2), (int) (cx + w), (int) (cy - h / 2 + k * 3), 0xFFA0182B);
-        g.fill((int) (cx - w), (int) (cy + h / 2 - k * 3), (int) (cx + w), (int) (cy + h / 2), 0xFFA0182B);
-        for (int i = 0; i < 4; i++) {
-            double x = cx - w + k * 13 + i * k * 17.5;
-            g.fill((int) (x - k * 2), (int) (cy - h / 2 + k * 6), (int) (x + k * 2), (int) (cy + h / 2 - k * 6), 0x30603E24);
+    /* ---------------------------------------------------------- aides et résultat */
+
+    private int aidesKey = -1;
+    private Component[] aidesT = new Component[0], aidesA = new Component[0];
+    private float aidesTotal;
+
+    private String[][] aidesItems() {
+        if (phase >= 3) return new String[][]{{"CLIC", "fermer"}};
+        String[] a = mode == Mode.PRELEVEMENT ? switch (phase) {
+            case 0 -> new String[]{"CLIC", "couper quand la lame passe sur une marque"};
+            case 1 -> new String[]{"MAINTENIR", "tirer, relâcher dans la bande d'or"};
+            default -> new String[]{"CLIC", "sceller quand le sceau passe au centre"};
+        } : switch (phase) {
+            case 0 -> new String[]{"MAINTENIR", "suivre la pointe du scalpel"};
+            case 1 -> new String[]{"SOURIS", "garder le fil dans la zone d'or"};
+            default -> new String[]{"CLIC", "quand l'anneau touche le point"};
+        };
+        return new String[][]{a, {"ECHAP", "renoncer"}};
+    }
+
+    private void aides(GuiGraphicsExtractor g, Font f, Layout L) {
+        int key = (mode.ordinal() << 4) | Math.min(phase, 3);
+        if (key != aidesKey) {
+            aidesKey = key;
+            String[][] it = aidesItems();
+            aidesT = new Component[it.length];
+            aidesA = new Component[it.length];
+            aidesTotal = 10f * (it.length - 1);
+            for (int i = 0; i < it.length; i++) {
+                aidesT[i] = ChirurgieArt.arcade(it[i][0]);
+                aidesA[i] = ChirurgieArt.inter(it[i][1]);
+                aidesTotal += ChirurgieArt.largeurCabochon(f, aidesT[i]) + 4 + f.width(aidesA[i]) * ChirurgieArt.S8;
+            }
         }
-        double t = Math.max(1, k * 0.9);
-        double x0 = cx - w + k * 13, s = k * 17.5;
-        Px.line(g, x0, cy - h * 0.20, x0, cy + h * 0.32, t * 1.6, 0xFF5A3A22);           // scalpel : manche
-        Px.line(g, x0, cy - h * 0.34, x0, cy - h * 0.20, t, 0xFFC8C8D0);                 // lame
-        Px.line(g, x0, cy - h * 0.34, x0 + k * 2.5, cy - h * 0.26, t, 0xFFE8E8F0);
-        Px.line(g, x0 + s, cy - h * 0.34, x0 + s, cy + h * 0.32, t * 0.7, 0xFFD8D8E0);   // aiguille
-        Px.ring(g, x0 + s, cy - h * 0.34, k * 2, Math.max(1, k * 0.5), 0xFFD8D8E0);
-        Px.line(g, x0 + s * 2, cy - h * 0.30, x0 + s * 2 - k * 2.5, cy + h * 0.30, t, 0xFF8C8C94);   // pince
-        Px.line(g, x0 + s * 2, cy - h * 0.30, x0 + s * 2 + k * 2.5, cy + h * 0.30, t, 0xFF8C8C94);
-        Px.line(g, x0 + s * 3, cy - h * 0.18, x0 + s * 3, cy + h * 0.30, t * 1.6, 0xFF4E9A62);   // fil de suture
-        Px.disc(g, x0 + s * 3, cy - h * 0.24, k * 4, 0xFF3E8F62);
-        Px.ring(g, x0 + s * 3, cy - h * 0.24, k * 4, Math.max(1, k * 0.6), 0xFF2A6A44);
-    }
-
-    /* ---------------------------------------------------------- bas et résultat */
-
-    private void bottom(GuiGraphicsExtractor g, Font f, Layout L) {
-        int y = L.py + L.ph - 24;
-        if (mode == Mode.PRELEVEMENT) {
-            Da.ruler(g, f, L.px + 30, y, 150, integrity / 100f, "Intégrité de l'œil", integrity + " %", false, true);
-        } else {
-            Da.text(g, f, "Erreurs", L.px + 30, y, Da.small(), Da.MUTED, 0);
-            for (int i = 0; i < MAX_ERRORS; i++) {
-                int x = L.px + 30 + i * 14, yy = y + 9;
-                g.fill(x, yy, x + 10, yy + 10, i < errors ? 0xFFA0182B : 0x402A1A1C);
-                Da.outline(g, x, yy, 10, 10, i < errors ? 0xFFF0C8B0 : 0x60AA8034);
+        float y = L.aidesY;
+        float x = L.w - (L.compact ? 10 : 24) - aidesTotal;
+        for (int i = 0; i < aidesT.length; i++) {
+            x += ChirurgieArt.cabochon(g, f, aidesT[i], Math.round(x), y);
+            x += 4 + ChirurgieArt.inter8(g, f, aidesA[i], x + 4, y, ChirurgieArt.argb(ChirurgieArt.CREME, 0.6f));
+            if (i < aidesT.length - 1) {
+                int X = Math.round(x + 5);
+                g.fill(X, Math.round(y), X + 1, Math.round(y) + 1, ChirurgieArt.OR_ETEINT);
+                x += 10;
             }
         }
     }
 
     private void result(GuiGraphicsExtractor g, Font f, Layout L, int mx, int my) {
-        g.fill(L.px + 2, L.py + 2, L.px + L.pw - 2, L.py + L.ph - 2, 0xB0080506);
+        g.fill(0, 0, width, height, 0x700A0608);
+        int x = L.cardX, y = L.cardY;
+        ChirurgieArt.blit(g, ChirurgieArt.RESULTAT, x, y, 248, 112);
+        ChirurgieArt.blit(g, ChirurgieArt.RESULTAT_SCEAUX, x + 248 - 40, y + 9, failed ? 26 : 0, 0, 26, 26, 52, 26);
         String side = left ? "gauche" : "droit";
         String title, line;
         if (mode == Mode.PRELEVEMENT) {
-            title = failed ? "L'œil est perdu" : "Œil " + side + " prélevé";
-            line = failed ? "Il n'a pas survécu au prélèvement." : "Intégrité " + integrity + " %  -  scellé dans une fiole.";
+            title = failed ? "L'oeil est perdu" : "Oeil " + side + " preleve";
+            line = failed ? "Il n'a pas survécu au prélèvement." : "Intégrité " + integrity + " %  ·  scellé dans une fiole.";
         } else {
-            title = failed ? "La greffe a échoué" : "Greffe réussie";
-            line = failed ? "L'œil est perdu ; l'orbite reste vide." : "Œil " + side + " en place  -  " + errors + " erreur(s).";
+            title = failed ? "La greffe a echoue" : "Greffe reussie";
+            line = failed ? "L'œil est perdu ; l'orbite reste vide." : "Œil " + side + " en place  ·  " + errors + " erreur(s).";
         }
-        int cy = L.py + L.ph / 2 - 26;
-        Da.text(g, f, title, width / 2f, cy, Da.title(), failed ? 0xFFE06060 : Da.GOLD, 1);
-        g.text(f, Component.literal(line), width / 2 - f.width(line) / 2, cy + 18, 0xFFD8CFC4, false);
-        boolean hot = Da.in(mx, my, L.btnX, L.btnY, L.btnW, 16);
-        Da.plate(g, f, L.btnX, L.btnY, L.btnW, 16, "Fermer", true, hot, true);
+        ChirurgieArt.arcadeX1(g, f, ChirurgieArt.arcade(title), L.cx, y + 17, failed ? 0xFFE06060 : ChirurgieArt.OR_CLAIR, 1, true);
+        ChirurgieArt.inter9(g, f, ChirurgieArt.inter(line), L.cx, y + 54, ChirurgieArt.CREME_VAL, 1);
+        ChirurgieArt.inter7(g, f, ChirurgieArt.inter("Le serveur confirme l'issue."), L.cx, y + 68,
+                ChirurgieArt.argb(ChirurgieArt.DOUX, 0.8f), 1);
+        boolean hot = mx >= L.btnX && mx < L.btnX + 92 && my >= L.btnY && my < L.btnY + 20;
+        ChirurgieArt.blit(g, ChirurgieArt.BOUTON, L.btnX, L.btnY, hot ? 92 : 0, 0, 92, 20, 184, 20);
     }
 
     private static double norm(double a) {
@@ -603,6 +735,8 @@ public final class ChirurgieScreen extends Screen {
         this.errors = errors;
         this.integrity = integrity;
         this.failed = phase >= 3 && (mode == Mode.GREFFE ? errors >= MAX_ERRORS : integrity <= 0);
+        this.lastPhase = 2;
+        this.layoutCache = null;
         long base = 1_000_000_000L;
         this.phaseStart = base;
         this.frozen = base + elapsedMs;
@@ -614,7 +748,8 @@ public final class ChirurgieScreen extends Screen {
             cut[1] = phase > 0;
             cut[2] = phase > 0;
             if (phase == 1) { pulling = true; pullStart = frozen - 900; pulls = 1; bandLo = 0.58f; bandHi = 0.74f; }
-            if (phase == 2) sealPos = 0.35f;
+            if (phase == 2) { sealPos = 0.35f; pulls = 2; }
+            if (phase >= 3) pulls = 2;
         } else {
             lap = phase == 0 ? Math.min(1f, (elapsedMs - 900) / 6000f) : 1f;
             inZone = phase == 1 ? 2.6f : 4f;
@@ -626,7 +761,8 @@ public final class ChirurgieScreen extends Screen {
             } else if (phase == 1) {                            // fil tenu dans la zone
                 this.mouseY = L.barTop + L.barH * zoneCenter(frozen);
             }
-            if (phase == 2) { stitch = 3; stitchStart = frozen - 700; }
+            if (phase == 2) { stitch = 3; stitchStart = frozen - 700; stitchOk[0] = true; stitchOk[2] = true; }
+            if (phase >= 3) { stitch = 6; java.util.Arrays.fill(stitchOk, errors < MAX_ERRORS); }
         }
     }
 }

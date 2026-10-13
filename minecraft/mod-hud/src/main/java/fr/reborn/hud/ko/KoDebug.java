@@ -17,8 +17,9 @@ public final class KoDebug {
     private KoDebug() {}
 
     public static void init() {
-        if (!"1".equals(System.getenv("REBORN_KO_DEBUG"))) return;
-        ClientTickEvents.END_CLIENT_TICK.register(KoDebug::tick);
+        String v = System.getenv("REBORN_KO_DEBUG");
+        if ("mort".equals(v)) ClientTickEvents.END_CLIENT_TICK.register(KoDebug::mort);
+        else if ("1".equals(v)) ClientTickEvents.END_CLIENT_TICK.register(KoDebug::tick);
     }
 
     public static KoPayload ko(int phase, int cause, int left, int total, boolean hosp) {
@@ -65,6 +66,56 @@ public final class KoDebug {
             case 720 -> mc.stop();
             default -> { }
         }
+    }
+
+    /**
+     * {@code REBORN_KO_DEBUG=mort} : scène de mort (yeux qui se ferment, question, survol, vue cinéma) puis menu
+     * d'interaction (curseur, joueur avec sous-menu, corps KO, sur soi). Captures nommées mort_* et interaction_*.
+     */
+    private static void mort(Minecraft mc) {
+        if (mc.player == null || mc.level == null) { ticks = -1; return; }
+        ticks++;
+        var c = mc.player.connection;
+        var im = fr.reborn.hud.interaction.InteractionMode.INSTANCE;
+        switch (ticks) {
+            case 40 -> {
+                c.sendCommand("time set 13000");
+                c.sendCommand("weather clear");
+                c.sendCommand("gamemode survival");
+                c.sendCommand("tp @s ~ ~ ~ -90 5");
+                c.sendCommand("kill @e[tag=ko_test]");
+                c.sendCommand("clear @s");
+            }
+            case 70 -> mc.gui.hud.getChat().clearMessages(false);
+            case 80 -> mc.setScreenAndShow(new DeathScreen("Ren Hyūga", 2));
+            case 96 -> named(mc, "mort_1_paupieres");
+            case 150 -> named(mc, "mort_2_question");
+            case 152 -> { if (mc.gui.screen() instanceof DeathScreen d) d.debugHover = 0; }
+            case 160 -> named(mc, "mort_3_survol_oui");
+            case 162 -> { if (mc.gui.screen() instanceof DeathScreen d) { d.debugHover = 1; } }
+            case 170 -> named(mc, "mort_4_survol_non");
+            case 172 -> { if (mc.gui.screen() instanceof DeathScreen d) { d.debugHover = -1; d.debugAnswer(true); } }
+            case 250 -> named(mc, "mort_5_cinema");
+            case 255 -> { if (mc.gui.screen() instanceof DeathScreen d) d.restore(); mc.setScreenAndShow(null); }
+            case 275 -> { im.toggle(); }
+            case 285 -> named(mc, "interaction_1_curseur");
+            case 287 -> im.debugOpen("Kazuki_Uchiha", fr.reborn.hud.interaction.InteractionMenus.forPlayer("Kazuki_Uchiha"), 8);
+            case 297 -> named(mc, "interaction_2_joueur_sous_menu");
+            case 299 -> im.debugOpen("Ren_Hyuga", fr.reborn.hud.interaction.InteractionMenus.forBody("Ren_Hyuga", new CorpsClient.Body(2, 2)), 1);
+            case 309 -> named(mc, "interaction_3_corps");
+            case 311 -> im.debugOpen("Moi", fr.reborn.hud.interaction.InteractionMenus.forSelf(), 3);
+            case 321 -> named(mc, "interaction_4_soi");
+            case 323 -> im.debugOpen("Bloc", fr.reborn.hud.interaction.InteractionMenus.forBlock(mc.player.blockPosition()), -1);
+            case 333 -> named(mc, "interaction_5_bloc");
+            case 335 -> im.debugClose();
+            case 340 -> c.sendCommand("kill @e[tag=ko_test]");
+            case 350 -> mc.stop();
+            default -> { }
+        }
+    }
+
+    private static void named(Minecraft mc, String name) {
+        Screenshot.grab(mc.gameDirectory, name + ".png", mc.gameRenderer.mainRenderTarget(), 1, m -> { });
     }
 
     private static void shot(Minecraft mc) {

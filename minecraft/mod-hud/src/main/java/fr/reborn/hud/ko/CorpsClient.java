@@ -56,6 +56,8 @@ public final class CorpsClient {
     private static List<Exec> execs = List.of();
     /** mannequin (corps au sol) → skin Reborn composé. */
     private static final Map<UUID, Skin> corpses = new ConcurrentHashMap<>();
+    /** Mannequins qui sont des corps au sol (menu d'interaction : prélever un œil). */
+    private static final java.util.Set<UUID> corpseIds = ConcurrentHashMap.newKeySet();
 
     private CorpsClient() {}
 
@@ -83,10 +85,16 @@ public final class CorpsClient {
                 JsonArray arr = o.has("ex") ? o.getAsJsonArray("ex") : new JsonArray();
                 for (JsonElement e : arr) ex.add(new Exec(e.getAsJsonObject().get("id").getAsString(), e.getAsJsonObject().get("n").getAsString()));
                 execs = List.copyOf(ex);
-                if (o.has("cp")) for (JsonElement e : o.getAsJsonArray("cp")) {
-                    JsonObject c = e.getAsJsonObject();
-                    try { dressCorpse(UUID.fromString(c.get("m").getAsString()), c.get("a").getAsString()); }
-                    catch (RuntimeException ignored) { }
+                if (o.has("cp")) {
+                    corpseIds.clear();
+                    for (JsonElement e : o.getAsJsonArray("cp")) {
+                        JsonObject c = e.getAsJsonObject();
+                        try {
+                            UUID m = UUID.fromString(c.get("m").getAsString());
+                            corpseIds.add(m);
+                            dressCorpse(m, c.get("a").getAsString());
+                        } catch (RuntimeException ignored) { }
+                    }
                 }
             }
             case "mort" -> {
@@ -115,6 +123,9 @@ public final class CorpsClient {
     /** Skin Reborn d'un corps au sol, ou null (voir {@code ClientMannequinSkinMixin}). */
     public static Skin corpseSkin(UUID mannequin) { return corpses.get(mannequin); }
 
+    /** Ce mannequin est-il un corps au sol (connu du serveur) ? */
+    public static boolean isCorpse(UUID mannequin) { return corpseIds.contains(mannequin) || corpses.containsKey(mannequin); }
+
     private static void endScene() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.gui.screen() instanceof DeathScreen d) {
@@ -127,6 +138,7 @@ public final class CorpsClient {
         endScene();
         bodies.clear();
         corpses.clear();
+        corpseIds.clear();
     }
 
     public static Body body(UUID id) { return bodies.get(id); }

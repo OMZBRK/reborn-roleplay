@@ -1,8 +1,7 @@
 package fr.reborn.hud.parchemin;
 
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
-import fr.reborn.hud.ui.Da;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -19,6 +18,7 @@ import java.util.Random;
  * Réglage d'une bibliothèque par le staff (preview). Tout se règle à la souris : modèle de départ, nombre de rouleaux,
  * délai entre deux tirages, pourcentage par rang, puis exceptions technique par technique (filtrées par branche ou
  * nature). En bas, un tirage d'aperçu et la simulation de 10 000 tirages montrent tout de suite l'effet des réglages.
+ * Habillage : planche laquée, plaques-boutons, réglettes d'or ({@code tools/gen_bibliotheque_textures.py}).
  */
 public final class BibliothequeStaffScreen extends Screen {
 
@@ -51,7 +51,7 @@ public final class BibliothequeStaffScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float d) {
-        g.fillGradient(0, 0, width, height, 0xB0080406, 0xD8080406);
+        BiblioArt.fond(g, width, height, 0.72f);
     }
 
     /** Réglages reçus du serveur ({@code {"t":"lib_cfg"}}). */
@@ -147,159 +147,176 @@ public final class BibliothequeStaffScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         hits.clear();
-        float sc = Da.small();
-        Da.header(g, font, width / 2, 6, "Réglages de la bibliothèque", name);
-        int w = Math.min(width - 24, 560), h = Math.min(height - 60, 330);
-        int x = (width - w) / 2, y = 40 + Math.max(0, (height - 60 - h) / 2);
-        Da.panel(g, x, y, w, h);
+        BiblioArt.entete(g, font, width, DaKit.arcade("Reglages de la bibliotheque"), DaKit.inter(name));
+        int w = Math.min(width - 24, 568), h = Math.min(height - 88, 290);
+        int x = (width - w) / 2, y = 60 + Math.max(0, (height - 88 - h) / 4);
+        DaKit.coupe(g, BiblioArt.PANNEAU, x - 2, y - 2, w + 8, h + 8, 0, 0, 576, 348, 16, 16, 576, 348);
 
         // onglets
-        int saveW = w < 480 ? 66 : 80, rollW = w < 480 ? 82 : 100;
-        int tw = Math.max(54, Math.min(72, (w - 24 - saveW - rollW - 16) / 3 - 4));
-        int tx = x + 12, ty = y + 10;
+        int saveW = w < 480 ? 70 : 84, rollW = w < 480 ? 84 : 104;
+        int tw = Math.max(58, Math.min(80, (w - 28 - saveW - rollW - 16) / 3 - 4));
+        int tx = x + 14, ty = y + 12;
         for (int i = 0; i < PAGES.length; i++) {
             final int p = i;
-            Da.plate(g, font, tx, ty, tw, 14, PAGES[i], page == i, Da.in(mx, my, tx, ty, tw, 14), true);
+            BiblioArt.plaque(g, font, tx, ty, tw, 14, PAGES[i], page == i, DaKit.dans(mx, my, tx, ty, tw, 14), true);
             hits.add(new Hit(tx, ty, tw, 14, () -> setPage(p)));
-            tx += tw + 4;
+            tx += tw + 5;
         }
-        int sx = x + w - 12 - saveW, rx = sx - 4 - rollW;
-        Da.plate(g, font, sx, ty, saveW, 14, "Enregistrer", true, Da.in(mx, my, sx, ty, saveW, 14), true);
+        int sx = x + w - 14 - saveW, rx = sx - 6 - rollW;
+        BiblioArt.plaque(g, font, sx, ty, saveW, 14, "Enregistrer", true, DaKit.dans(mx, my, sx, ty, saveW, 14), true);
         hits.add(new Hit(sx, ty, saveW, 14, this::saveToServer));
-        Da.plate(g, font, rx, ty, rollW, 14, w < 480 ? "Tirer" : "Tirer maintenant", false, Da.in(mx, my, rx, ty, rollW, 14), libId != null);
+        BiblioArt.plaque(g, font, rx, ty, rollW, 14, w < 480 ? "Tirer" : "Tirer maintenant", false,
+            DaKit.dans(mx, my, rx, ty, rollW, 14), libId != null);
         if (libId != null) hits.add(new Hit(rx, ty, rollW, 14, () -> ParcheminClient.send("reroll", libId, null)));
-        g.fill(x + 10, ty + 20, x + w - 10, ty + 21, 0x40F6CC78);
-        int cx = x + 14, cy = ty + 30, cw = w - 28, ch = y + h - 12 - cy;
-        g.fill(cx - 6, cy - 6, cx + cw + 6, y + h - 8, 0x0CF6CC78);                         // fond de la page
-        Da.outline(g, cx - 6, cy - 6, cw + 12, y + h - 2 - cy, 0x24F6CC78);
+        g.fill(x + 12, ty + 21, x + w - 12, ty + 22, 0xFF6A4E24);
+        g.fill(x + 12, ty + 22, x + w - 12, ty + 23, 0xFF120608);
+        int cx = x + 16, cy = ty + 34, cw = w - 32, ch = y + h - 14 - cy;
         switch (page) {
-            case 0 -> settings(g, cx, cy, cw, ch, sc, mx, my);
-            case 1 -> techniques(g, cx, cy, cw, ch, sc, mx, my);
-            default -> simulation(g, cx, cy, cw, ch, sc, mx, my);
+            case 0 -> settings(g, cx, cy, cw, ch, mx, my);
+            case 1 -> techniques(g, cx, cy, cw, ch, mx, my);
+            default -> simulation(g, cx, cy, cw, ch, mx, my);
         }
-        Da.hint(g, font, width, height, page == 1 ? "- / + : regler une technique  -  nom en or : revenir au taux du rang"
-                : "Reglettes : clic a gauche pour baisser, a droite pour monter");
+        BiblioArt.aides(g, font, width, height, page == 1
+            ? new String[][]{{"- +", "régler une technique"}, {"Clic nom en or", "taux du rang"}, {"Molette", "défiler"}, {"Echap", "fermer"}}
+            : new String[][]{{"Clic", "réglette : à gauche baisse, à droite monte"}, {"Echap", "fermer"}});
         super.extractRenderState(g, mx, my, delta);
     }
 
-    private void settings(GuiGraphicsExtractor g, int x, int y, int w, int h, float sc, int mx, int my) {
-        int colW = (w - 24) / 2, lx = x, rx = x + colW + 24;
-        Da.text(g, font, "Modele de depart", lx, y, sc, Da.GOLD, 0);
-        int bx = lx, by = y + 9, bw = (colW - 6) / 3;
+    /** Titre de section : ArcadePix ×1 or, ombré (comme les intertitres des planches de la fiche). */
+    private void titre(GuiGraphicsExtractor g, String s, int x, int y) {
+        DaKit.arcX1(g, font, DaKit.arcade(s), x, y, DaKit.OR, 0, true);
+    }
+
+    private void settings(GuiGraphicsExtractor g, int x, int y, int w, int h, int mx, int my) {
+        int colW = (w - 28) / 2, lx = x, rx = x + colW + 28;
+        titre(g, "Modele de depart", lx, y);
+        int bx = lx, by = y + 14, bw = (colW - 8) / 3;
         for (int i = 0; i < MODELS.length; i++) {
             final int m = i;
-            Da.plate(g, font, bx, by, bw, 13, MODELS[i], model == i, Da.in(mx, my, bx, by, bw, 13), true);
-            hits.add(new Hit(bx, by, bw, 13, () -> setModel(m)));
-            bx += bw + 3;
+            BiblioArt.plaque(g, font, bx, by, bw, 14, MODELS[i], model == i, DaKit.dans(mx, my, bx, by, bw, 14), true);
+            hits.add(new Hit(bx, by, bw, 14, () -> setModel(m)));
+            bx += bw + 4;
         }
-        int ly = by + 24;
-        Da.ruler(g, font, lx, ly, colW, (count - 1) / 8f, "Rouleaux par tirage", String.valueOf(count), false, true);
+        int ly = by + 30;
+        boolean hc = DaKit.dans(mx, my, lx, ly + 4, colW, 14);
+        BiblioArt.reglette(g, font, lx, ly, colW, (count - 1) / 8f, "Rouleaux par tirage", String.valueOf(count), hc);
         hits.add(new Hit(lx, ly + 4, colW / 2, 14, () -> { count = Math.max(1, count - 1); recompute(); }));
         hits.add(new Hit(lx + colW / 2, ly + 4, colW / 2, 14, () -> { count = Math.min(9, count + 1); recompute(); }));
-        ly += 26;
-        Da.ruler(g, font, lx, ly, colW, (delayH - 1) / 23f, "Delai entre deux tirages", delayH + " h", false, true);
+        ly += 30;
+        boolean hd = DaKit.dans(mx, my, lx, ly + 4, colW, 14);
+        BiblioArt.reglette(g, font, lx, ly, colW, (delayH - 1) / 23f, "Delai entre deux tirages", delayH + " h", hd);
         hits.add(new Hit(lx, ly + 4, colW / 2, 14, () -> delayH = Math.max(1, delayH - 1)));
         hits.add(new Hit(lx + colW / 2, ly + 4, colW / 2, 14, () -> delayH = Math.min(24, delayH + 1)));
 
-        Da.text(g, font, "Apparition par rang", rx, y, sc, Da.GOLD, 0);
-        int ry = y + 10, step = Math.max(18, Math.min(24, (h - 12) / 5));
+        g.fill(x + colW + 13, y, x + colW + 14, y + h - 4, 0xFF2D181C);
+        titre(g, "Apparition par rang", rx, y);
+        int ry = y + 14, step = Math.max(20, Math.min(26, (h - 16) / 5));
         for (int r = 0; r < 5; r++) {
             char rank = "DCBAS".charAt(r);
-            ScrollArt.fuda(g, font, rx, ry + 3, rank);
-            int rw = colW - 16;
-            Da.ruler(g, font, rx + 16, ry, rw, slider(byRank[r]), "Rang " + rank, pct(byRank[r]), false, true);
+            BiblioArt.fuda(g, rx - 1, ry - 1, rank);
+            int rw = colW - 18;
+            boolean hr = DaKit.dans(mx, my, rx + 18, ry + 4, rw, 14);
+            BiblioArt.reglette(g, font, rx + 18, ry, rw, slider(byRank[r]), "Rang " + rank, pct(byRank[r]), hr);
             final int rr = r;
-            hits.add(new Hit(rx + 16, ry + 4, rw / 2, 14, () -> { byRank[rr] = STEPS[Math.max(0, stepOf(byRank[rr]) - 1)]; recompute(); }));
-            hits.add(new Hit(rx + 16 + rw / 2, ry + 4, rw / 2, 14, () -> { byRank[rr] = STEPS[Math.min(STEPS.length - 1, stepOf(byRank[rr]) + 1)]; recompute(); }));
+            hits.add(new Hit(rx + 18, ry + 4, rw / 2, 14, () -> { byRank[rr] = STEPS[Math.max(0, stepOf(byRank[rr]) - 1)]; recompute(); }));
+            hits.add(new Hit(rx + 18 + rw / 2, ry + 4, rw / 2, 14, () -> { byRank[rr] = STEPS[Math.min(STEPS.length - 1, stepOf(byRank[rr]) + 1)]; recompute(); }));
             ry += step;
         }
     }
 
-    private void techniques(GuiGraphicsExtractor g, int x, int y, int w, int h, float sc, int mx, int my) {
-        g.fill(x, y - 2, x + 150, y + 10, 0xFF1C0E12);
-        Da.outline(g, x, y - 2, 150, 12, Da.PLATE_EDGE);
-        g.text(font, Component.literal("Rechercher…"), x + 4, y, 0xFF7A6E5C, false);
-        int fx = x + 156, fy = y - 2;
+    private void techniques(GuiGraphicsExtractor g, int x, int y, int w, int h, int mx, int my) {
+        DaKit.coupeH(g, BiblioArt.CHAMP, x, y - 3, 150, 0, 0, 152, 14, 4, 152, 14);
+        DaKit.inter7(g, font, DaKit.inter("Rechercher…"), x + 6, y + 4, 0xFF7A6E5C, 0);
+        int fx = x + 158, fy = y - 2;
         for (int i = 0; i < FILTERS.length; i++) {
-            int fw = Math.max(26, Da.width(font, FILTERS[i], sc) + 10);
-            if (fx + fw > x + w) { fx = x; fy += 15; }
+            int fw = Math.max(30, Math.round(DaKit.largeurFin(font, DaKit.arcade(FILTERS[i]))) + 14);
+            if (fx + fw > x + w) { fx = x; fy += 17; }
             final int f = i;
-            Da.plate(g, font, fx, fy, fw, 12, FILTERS[i], filter == i, Da.in(mx, my, fx, fy, fw, 12), true);
+            BiblioArt.plaque(g, font, fx, fy, fw, 12, FILTERS[i], filter == i, DaKit.dans(mx, my, fx, fy, fw, 12), true);
             hits.add(new Hit(fx, fy, fw, 12, () -> setFilter(f)));
-            fx += fw + 2;
+            fx += fw + 3;
         }
-        int ry = fy + 18, rowH = 13;
-        int rows = Math.max(1, (y + h - 10 - ry) / rowH);
+        int ry = fy + 21, rowH = 14;
+        int rows = Math.max(1, (y + h - 12 - ry) / rowH);
         List<Technique> list = filtered();
         scroll = Math.max(0, Math.min(scroll, Math.max(0, list.size() - rows)));
         for (int i = 0; i < rows && i + scroll < list.size(); i++) {
             Technique t = list.get(i + scroll);
             int yy = ry + i * rowH;
-            if (i % 2 == 0) g.fill(x, yy - 2, x + w, yy + rowH - 2, 0x10FFFFFF);
-            g.fill(x + 2, yy, x + 6, yy + 8, ScrollArt.rankColor(t.rank()));
-            g.text(font, Component.literal(t.name()), x + 10, yy, 0xFFF5E9D0, false);
-            String type = t.typeLine() + (slotInfo.containsKey(t.id()) ? " · slots " + slotInfo.get(t.id()) : "");
-            g.text(font, Component.literal(type), x + w / 2 - 20, yy, 0xFF9A8C78, false);
-            double p = Tirage.chance(t, byRank, overrides);
+            float ym = yy + 4;
+            if (i % 2 == 0) g.fill(x, yy - 3, x + w, yy + rowH - 3, 0x0EFFFFFF);
+            g.fill(x + 2, yy, x + 5, yy + 8, ScrollArt.rankColor(t.rank()));
+            g.fill(x + 2, yy, x + 5, yy + 1, 0x60FFFFFF);
             boolean custom = overrides.containsKey(t.id());
+            DaKit.inter9(g, font, DaKit.inter(t.name()), x + 11, ym, custom ? DaKit.OR_CLAIR : DaKit.CREME_VAL, 0);
+            String type = t.typeLine() + (slotInfo.containsKey(t.id()) ? " · slots " + slotInfo.get(t.id()) : "");
+            DaKit.inter8(g, font, DaKit.inter(type), x + w / 2f - 20, ym, 0xFF9A8C78, 0);
+            double p = Tirage.chance(t, byRank, overrides);
             String ps = pct(p);
             int px = x + w - 62;
-            g.text(font, Component.literal(ps), px + 24 - font.width(ps) / 2, yy, custom ? Da.GOLD : 0xFFC8B4A0, false);
+            DaKit.inter8(g, font, DaKit.inter(ps), px + 25, ym, custom ? DaKit.OR_CLAIR : 0xFFC8B4A0, 1);
             final Technique tt = t;
-            Da.plate(g, font, px - 12, yy - 2, 12, 11, "-", false, Da.in(mx, my, px - 12, yy - 2, 12, 11), true);
-            Da.plate(g, font, px + 50, yy - 2, 12, 11, "+", false, Da.in(mx, my, px + 50, yy - 2, 12, 11), true);
+            BiblioArt.cheville(g, px - 13, yy - 2, false, DaKit.dans(mx, my, px - 12, yy - 2, 12, 11));
+            BiblioArt.cheville(g, px + 50, yy - 2, true, DaKit.dans(mx, my, px + 50, yy - 2, 12, 11));
             hits.add(new Hit(px - 12, yy - 2, 12, 11, () -> { overrides.put(tt.id(), STEPS[Math.max(0, stepOf(Tirage.chance(tt, byRank, overrides)) - 1)]); recompute(); }));
             hits.add(new Hit(px + 50, yy - 2, 12, 11, () -> { overrides.put(tt.id(), STEPS[Math.min(STEPS.length - 1, stepOf(Tirage.chance(tt, byRank, overrides)) + 1)]); recompute(); }));
-            if (custom) hits.add(new Hit(x + 10, yy - 1, font.width(t.name()), 10, () -> { overrides.remove(tt.id()); recompute(); }));
+            if (custom) hits.add(new Hit(x + 11, yy - 1, font.width(DaKit.inter(t.name())), 10, () -> { overrides.remove(tt.id()); recompute(); }));
         }
         if (list.size() > rows) {
-            String more = (scroll + 1) + "-" + Math.min(list.size(), scroll + rows) + " sur " + list.size() + " · molette";
-            g.text(font, Component.literal(more), x + w - font.width(more), y + h - 8, 0xFF7A6E5C, false);
+            String more = (scroll + 1) + "-" + Math.min(list.size(), scroll + rows) + " sur " + list.size();
+            DaKit.inter7(g, font, DaKit.inter(more), x + w, y + h - 6, 0xFF7A6E5C, 2);
         }
     }
 
-    private void simulation(GuiGraphicsExtractor g, int x, int y, int w, int h, float sc, int mx, int my) {
-        Da.text(g, font, "Apercu d'un tirage", x, y, sc, Da.GOLD, 0);
-        int sx = x, cw = Math.min(46, (w - 90) / Math.max(1, count) - 4);
+    private void simulation(GuiGraphicsExtractor g, int x, int y, int w, int h, int mx, int my) {
+        titre(g, "Apercu d'un tirage", x, y);
+        int sx = x, cw = 48;
+        int step = Math.min(cw + 4, (w - 100) / Math.max(1, count));
         for (int i = 0; i < count; i++) {
-            g.fill(sx, y + 10, sx + cw, y + 32, 0xFF1C110B);
-            Da.outline(g, sx, y + 10, cw, 22, ScrollArt.WOOD_D);
-            if (i < preview.size()) {
-                ScrollArt.item(g, sx + (cw - 20) / 2, y + 11, 20, preview.get(i).rank());
-            }
-            sx += cw + 4;
+            DaKit.blit(g, BiblioArt.MINI, sx, y + 13, 0, 0, Math.min(48, step - 2), 26, 48, 26);
+            if (i < preview.size()) ScrollArt.item(g, sx + (Math.min(48, step - 2) - 22) / 2, y + 14, 22, preview.get(i).rank());
+            sx += step;
         }
-        Da.plate(g, font, sx + 4, y + 14, 80, 14, "Nouvel apercu", false, Da.in(mx, my, sx + 4, y + 14, 80, 14), true);
-        hits.add(new Hit(sx + 4, y + 14, 80, 14, () -> { seed++; recompute(); }));
+        BiblioArt.plaque(g, font, sx + 6, y + 18, 84, 14, "Nouvel apercu", false, DaKit.dans(mx, my, sx + 6, y + 18, 84, 14), true);
+        hits.add(new Hit(sx + 6, y + 18, 84, 14, () -> { seed++; recompute(); }));
 
-        int by = y + 44;
-        Da.text(g, font, "Sur 10 000 tirages, rouleaux par tirage en moyenne", x, by, sc, Da.GOLD, 0);
-        by += 11;
+        int by = y + 52;
+        titre(g, "Sur 10 000 tirages", x, by);
+        DaKit.inter8(g, font, DaKit.inter("rouleaux par tirage en moyenne"), x + 4 + font.width(DaKit.arcade("Sur 10 000 tirages")), by + 3.5f,
+            0xFF9A8C78, 0);
+        by += 14;
         double[] pr = stats.perDraw();
         double max = Math.max(0.01, java.util.Arrays.stream(pr).max().orElse(1));
         int barW = w - 120;
+        int pas = h < 230 ? 14 : 18;
         for (int r = 0; r < 5; r++) {
             char rank = "DCBAS".charAt(r);
-            ScrollArt.fuda(g, font, x, by + 1, rank);
+            BiblioArt.fuda(g, x - 1, by - 2, rank);
             int len = (int) Math.max(1, Math.round(barW * (pr[r] / max)));
-            g.fill(x + 16, by + 3, x + 16 + barW, by + 10, 0x30000000);
-            g.fill(x + 16, by + 3, x + 16 + len, by + 10, ScrollArt.rankColor(rank));
+            g.fill(x + 18, by + 4, x + 18 + barW, by + 11, 0x50000000);
+            g.fill(x + 18, by + 11, x + 18 + barW, by + 12, 0xFF2D181C);
+            BiblioArt.brocartH(g, x + 18, by + 4, len, 7, rank);
             String v = pr[r] >= 0.1 ? String.format(Locale.FRANCE, "%.1f", pr[r])
                     : pr[r] >= 0.001 ? String.format(Locale.FRANCE, "%.3f", pr[r]) : String.format(Locale.FRANCE, "%.4f", pr[r]);
-            g.text(font, Component.literal(v), x + 22 + barW, by + 2, 0xFFE6D7BC, false);
-            by += h < 230 ? 12 : 15;
+            DaKit.inter8(g, font, DaKit.inter(v), x + 24 + barW, by + 7.5f, DaKit.CREME_VAL, 0);
+            by += pas;
         }
-        by += h < 230 ? 2 : 4;
-        g.text(font, Component.literal(String.format(Locale.FRANCE, "Au moins un rang A : %.1f %% des tirages", stats.atLeastA())), x, by, 0xFFE6D7BC, false);
-        g.text(font, Component.literal(String.format(Locale.FRANCE, "Au moins un rang S : %.2f %% des tirages", stats.atLeastS())), x, by + 10, 0xFFE6D7BC, false);
-        g.text(font, Component.literal(String.format(Locale.FRANCE, "Cases vides en moyenne : %.1f sur %d", stats.emptySlots(), count)), x, by + 20, 0xFFC8B4A0, false);
+        by += 6;
+        ligneStat(g, x, by, "Au moins un rang A", String.format(Locale.FRANCE, "%.1f %% des tirages", stats.atLeastA()));
+        ligneStat(g, x, by + 13, "Au moins un rang S", String.format(Locale.FRANCE, "%.2f %% des tirages", stats.atLeastS()));
+        ligneStat(g, x, by + 26, "Cases vides", String.format(Locale.FRANCE, "%.1f sur %d en moyenne", stats.emptySlots(), count));
+    }
+
+    private void ligneStat(GuiGraphicsExtractor g, int x, int y, String etiq, String val) {
+        DaKit.etiq(g, font, DaKit.etiq(font, etiq), x, y, DaKit.OR_ETIQ);
+        DaKit.inter8(g, font, DaKit.inter(val), x + 120, y, DaKit.CREME_VAL, 0);
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent e, boolean dbl) {
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit h = hits.get(i);
-            if (Da.in(e.x(), e.y(), h.x, h.y, h.w, h.h)) {
+            if (DaKit.dans(e.x(), e.y(), h.x, h.y, h.w, h.h)) {
                 RebornSounds.uiClick();
                 h.r.run();
                 return true;

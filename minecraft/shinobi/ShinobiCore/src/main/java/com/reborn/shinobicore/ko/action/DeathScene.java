@@ -50,8 +50,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class DeathScene implements Listener {
 
-    private record Scene(Location at, String name, long since, String look) {}
-    private record Corpse(long until, Location at, String look) {}
+    private record Scene(Location at, String name, long since, String look, UUID charId) {}
+    private record Corpse(long until, Location at, String look, UUID owner, UUID charId, String name) {}
+
+    /** Propriétaire d'un corps au sol (joueur, personnage mort, nom) et où il est — pour la chirurgie des yeux. */
+    public record CorpseOwner(UUID mannequin, UUID player, UUID charId, String name, Location at) {}
 
     private final ShinobiCore plugin;
     private final Map<UUID, Scene> scenes = new ConcurrentHashMap<>();
@@ -77,6 +80,22 @@ public final class DeathScene implements Listener {
 
     public boolean isDead(UUID player) { return scenes.containsKey(player); }
 
+    /** Personnage mort dont {@code player} est en scène de mort ({@code null} hors scène ou inconnu). */
+    public UUID deadCharacter(UUID player) {
+        Scene s = scenes.get(player);
+        return s != null ? s.charId() : null;
+    }
+
+    /** À qui est ce corps au sol (mannequin), ou {@code null} s'il n'existe plus. Position = celle du mannequin. */
+    public CorpseOwner corpseOwner(UUID mannequin) {
+        if (mannequin == null) return null;
+        Corpse c = corpses.get(mannequin);
+        if (c == null || c.owner() == null) return null;
+        Entity e = Bukkit.getEntity(mannequin);
+        Location at = e != null && e.isValid() ? e.getLocation() : c.at();
+        return new CorpseOwner(mannequin, c.owner(), c.charId(), c.name(), at);
+    }
+
     /** Corps au sol près de {@code at} → apparence Reborn (pour que le mod l'habille). */
     public Map<UUID, String> corpsesNear(Location at, double r) {
         Map<UUID, String> out = new java.util.LinkedHashMap<>();
@@ -90,7 +109,7 @@ public final class DeathScene implements Listener {
     /** Le corps a été déplacé (porté puis déposé) : la scène continue à cet endroit. */
     public void moveBody(UUID player, Location to) {
         if (to == null) return;
-        scenes.computeIfPresent(player, (id, s) -> new Scene(to.clone(), s.name(), s.since(), s.look()));
+        scenes.computeIfPresent(player, (id, s) -> new Scene(to.clone(), s.name(), s.since(), s.look(), s.charId()));
     }
 
     private long minMillis() { return Math.max(0, plugin.getConfig().getLong("mort-rp.scene-min-secondes", 10)) * 1000L; }
@@ -102,7 +121,8 @@ public final class DeathScene implements Listener {
         plugin.ko().forceClear(p.getUniqueId());
         Location at = p.getLocation().clone();
         var ch = plugin.characters().getActive(p.getUniqueId());
-        scenes.put(p.getUniqueId(), new Scene(at, name, System.currentTimeMillis(), ch != null ? ch.appearance() : ""));
+        scenes.put(p.getUniqueId(), new Scene(at, name, System.currentTimeMillis(), ch != null ? ch.appearance() : "",
+                ch != null ? ch.id() : null));
         p.setInvulnerable(true);
         p.closeInventory();
         p.setPose(Pose.SLEEPING, true);
@@ -165,7 +185,8 @@ public final class DeathScene implements Listener {
                     c.getEquipment().setItem(slot, p.getInventory().getItem(slot));
                 }
             });
-            corpses.put(m.getUniqueId(), new Corpse(System.currentTimeMillis() + minutes * 60_000L, s.at(), s.look()));
+            corpses.put(m.getUniqueId(), new Corpse(System.currentTimeMillis() + minutes * 60_000L, s.at(), s.look(),
+                    p.getUniqueId(), s.charId(), s.name()));
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Corps de " + s.name() + " : mannequin impossible (" + ex.getMessage() + ").");
         }

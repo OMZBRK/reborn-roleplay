@@ -639,6 +639,7 @@ public final class RebornHudClient implements ClientModInitializer {
             (handler, client) -> fr.reborn.hud.ko.VolonteHud.clear());
         // KO-7 : corps (menu d'interaction) + scène de mort (canal reborn:corps).
         fr.reborn.hud.ko.CorpsClient.init();
+        fr.reborn.hud.yeux.YeuxClient.init();
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.ko.CorpsClient.clear());
         // Concentration du chakra (ShinobiAbilities, canal reborn:parchemin {"t":"conc"}) : plaque au-dessus de la barre d'action.
@@ -664,6 +665,7 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.audit.FeaturePreview.init();
         fr.reborn.hud.menu.character.SceneMockups.init();
         fr.reborn.hud.menu.character.scene.ScenePreview.init();
+        fr.reborn.hud.menu.character.perso.PersoDebug.init();
         // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
         // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
         fr.reborn.hud.byakugan.ByakuganDebug.init();

@@ -69,7 +69,15 @@ public final class YeuxDebug {
         if (j == 0 && k == 20) shot(mc, "yeux_11_cecite_gauche");
         if (j == 1 && k == 0) CeciteHud.set(false, true, true);
         if (j == 1 && k == 20) shot(mc, "yeux_12_cecite_droite_bandage");
-        if (j == 2 && k == 0) { CeciteHud.set(false, false, false); mc.stop(); }
+        var im = fr.reborn.hud.interaction.InteractionMode.INSTANCE;
+        if (j == 2 && k == 0) { CeciteHud.set(false, false, false); im.toggle(); }
+        if (j == 2 && k == 2) im.debugOpen("Itachi_Uchiha", fr.reborn.hud.interaction.InteractionMenus.forBody("Itachi_Uchiha",
+                new fr.reborn.hud.ko.CorpsClient.Body(3, 0)), 3);
+        if (j == 2 && k == 20) shot(mc, "yeux_13_menu_corps_prelever");
+        if (j == 3 && k == 0) im.debugOpen("Ren_Hyuga", fr.reborn.hud.interaction.InteractionMenus.forBody("Ren_Hyuga",
+                new fr.reborn.hud.ko.CorpsClient.Body(2, 0)), 7);
+        if (j == 3 && k == 20) shot(mc, "yeux_14_menu_ko_soins");
+        if (j == 4 && k == 0) { im.debugClose(); mc.stop(); }
     }
 
     private static void shot(Minecraft mc, String name) {

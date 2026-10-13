@@ -1,32 +1,30 @@
 package fr.reborn.hud.parchemin;
 
 import com.google.gson.JsonObject;
-import fr.reborn.hud.combat.BrushRing;
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
- * Concentration du chakra (ShinobiAbilities, message {@code {"t":"conc"}} du canal parchemin), à l'encre, sans
- * plaque — dans l'esprit de l'ensō d'endurance du HUD de combat.
- * <ul>
- *   <li><b>Ensō</b> (style par défaut) : autour du viseur, le cercle au pinceau se referme en or à mesure que la
- *       concentration tient ; dedans, un trait d'encre horizontal porte la zone d'or et la perle de chakra.</li>
- *   <li><b>Trait</b> : un coup de pinceau horizontal sous le viseur, zone d'or, perle, et un fil d'or de progression.</li>
- * </ul>
- * La stabilité : gouttes d'encre sous le tracé, qui s'éteignent. Un à-coup (pas, saut, coup) fait trembler l'encre.
+ * Concentration du chakra (ShinobiAbilities, message {@code {"t":"conc"}} du canal parchemin) — piste « ensō A ».
+ *
+ * <p>Discret, au-dessus de la barre d'action : un ensō (cercle de pinceau) tracé au pixel réel de l'écran, traversé
+ * d'un trait d'encre horizontal. Sur le trait, la zone d'or et la perle de chakra (bleue dans l'or, laque hors de
+ * l'or) ; l'ensō se referme en or à mesure que la concentration tient. Sous l'ensō, dix gouttes d'encre disent la
+ * stabilité ; un à-coup (pas, saut, coup) fait trembler l'encre. Le rang en sceau au bout du trait.
+ *
+ * <p>DA §6 : tout le fixe est pré-dessiné ({@code tools/gen_concentration_textures.py}, une série de textures par
+ * échelle, 1 texel = 1 pixel écran) ; le code ne pose que la zone, la perle, les gouttes et le texte. La taille est
+ * celle des menus (échelle 2 en 1080p) quelle que soit l'échelle d'interface du joueur.
  */
 public final class ConcentrationHud {
 
-    private static final int CHAKRA = 0xFF6FD3FF, LOST = 0xFFE0505A;
-    private static final int INK = 0xD0120A0C, INK_SOFT = 0x700A0608;
     private static final long END_SHOW = 1400, FADE = 300, HINT = 3500;
-
-    /** Style choisi : {@code REBORN_CONC_STYLE=trait} pour le trait de pinceau, sinon l'ensō. */
-    public static String style = "trait".equalsIgnoreCase(System.getenv("REBORN_CONC_STYLE")) ? "trait" : "enso";
+    /** Géométrie (unités menu) : rayon de l'ensō, cellule de l'atlas, trait, course utile de la perle. */
+    private static final int R = 13, CELL = 36, TRAIT = 144, COURSE = 66, FRAMES = 40;
 
     private static boolean active;
     private static String state = "run", rank = "D";
@@ -80,158 +78,131 @@ public final class ConcentrationHud {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.gui.hud.isHidden()) return;
         long now = System.currentTimeMillis();
-        boolean running = state.equals("run");
+        boolean running = state.equals("run"), ok = state.equals("ok");
         if (running && now - lastUpdate > 1500) { active = false; return; }
         if (!running && now - endedAt > END_SHOW + FADE) { active = false; return; }
 
-        Font font = mc.font;
-        int w = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
         float alpha = Math.min(1f, (now - startedAt) / (float) FADE);
         if (!running) alpha *= 1f - Math.max(0f, (now - endedAt - END_SHOW) / (float) FADE);
         if (alpha <= 0.01f) return;
 
-        // tremblement de l'encre après un à-coup
+        Font font = mc.font;
+        var win = mc.getWindow();
+        int gs = Math.max(1, win.getGuiScale());
+        int km = DaKit.echelleMenu();
+        int k = Math.max(1, Math.min(4, km));
+        int guiH = win.getGuiScaledHeight();
+
+        // tremblement de l'encre après un à-coup (en pixels)
         float shake = Math.max(0f, 1f - (now - joltAt) / 350f);
-        int sx = shake > 0 ? Math.round((float) Math.sin(now / 18.0) * 3 * shake) : 0;
-        int sy = shake > 0 ? Math.round((float) Math.cos(now / 23.0) * 2 * shake) : 0;
+        int sx = shake > 0 ? Math.round((float) Math.sin(now / 18.0) * 2 * k * shake) : 0;
+        int sy = shake > 0 ? Math.round((float) Math.cos(now / 23.0) * k * shake) : 0;
+
+        // centre de l'ensō : au-dessus des cœurs / de la barre d'action (pixels écran)
+        int cx = win.getWidth() / 2 + sx;
+        int cy = (guiH - 39) * gs - 10 * k - R * k + sy;
 
         double f = Math.min(1, (now - lastUpdate) / 50.0);
-        View v = new View(displayPos(now), prevCenter + (center - prevCenter) * f, alpha, now);
-        if (style.equals("trait")) trait(g, font, w / 2 + sx, h / 2 + 34 + sy, v);
-        else enso(g, font, w / 2 + sx, h / 2 + sy, v);
+        double vPos = displayPos(now), vCenter = prevCenter + (center - prevCenter) * f;
+        float prog = ok ? 1f : (float) Math.min(1, held / secs);
+        int frame = Math.round(prog * (FRAMES - 1));
 
-        // consigne / alerte, discrètes, sous le tracé
-        int ty = style.equals("trait") ? h / 2 + 66 : h / 2 + 52;
+        DaKit.debutPx(g);
+        int bl = DaKit.blanc(alpha);
+        DaKit.blit(g, tex("trait", k), cx - TRAIT * k / 2, cy - 5 * k, 0, 0, TRAIT * k, 10 * k, TRAIT * k, 10 * k, bl);
+        if (running) zone(g, cx, cy, k, vCenter, alpha);
+        int F = CELL * k;
+        float ea = state.equals("ko") ? alpha * 0.55f : alpha;
+        DaKit.blit(g, tex("enso", k), cx - F / 2, cy - F / 2, (frame % 8) * F, (frame / 8) * F, F, F, 8 * F, 5 * F,
+            DaKit.blanc(ea));
+        if (running) {
+            perle(g, cx, cy, k, vPos, alpha, now);
+            gouttes(g, cx, cy + (R + 5) * k, k, alpha);
+        }
+        DaKit.finPx(g);
+
+        // texte et sceaux, en unités menu
+        DaKit.unites(g, km);
+        float ucx = cx / (float) km, ucy = cy / (float) km;
+        if (!running) {
+            DaKit.kanji16(g, font, ok ? "集" : "散", ucx, ucy - 8, DaKit.alpha(ok ? DaKit.OR_CLAIR : DaKit.ROUGE_CLAIR, alpha),
+                DaKit.argb(0x0A0608, 0.8f * alpha));
+        }
+        int rx = Math.round(ucx + TRAIT / 2f + 4), ry = Math.round(ucy - 7);
+        int col = Math.max(0, "DCBAS".indexOf(rank.isEmpty() ? 'D' : rank.charAt(0)));
+        DaKit.blit(g, SCEAUX, rx, ry, col * 16, 0, 16, 16, 80, 16, DaKit.blanc(alpha));
+        if (helped) {
+            Component m = DaKit.inter("avec un maître");
+            DaKit.inter7o(g, font, m, rx + 19, ucy, DaKit.argb(0xE8C27A, 0.9f * alpha), 0);
+        }
+
+        // consigne / alerte, discrètes, au-dessus de l'ensō
+        float ty = ucy - R - 9;
         long since = now - startedAt;
         if (running && since < HINT) {
             float a = alpha * (since > HINT - 700 ? (HINT - since) / 700f : 1f);
-            Component hint = RebornFont.body("Reste immobile · tourne la tête pour garder le chakra dans l'or");
-            g.text(font, hint, w / 2 - font.width(hint) / 2, ty, a(Colors.FOREGROUND_SUBTLE, a * 0.9f), true);
+            Component hint = DaKit.inter("Reste immobile · tourne la tête pour garder le chakra dans l'or");
+            DaKit.inter7o(g, font, hint, ucx, ty, DaKit.argb(0xE8DCC0, 0.95f * a), 1);
         } else if (running && stab <= 0.3) {
             float pulse = (float) (0.55 + 0.45 * Math.sin(now / 120.0));
-            Component warn = RebornFont.body("Ton chakra se disperse");
-            g.text(font, warn, w / 2 - font.width(warn) / 2, ty, a(Colors.ACCENT_HOVER, alpha * pulse), true);
+            DaKit.inter7o(g, font, DaKit.inter("Ton chakra se disperse"), ucx, ty, DaKit.argb(0xE26474, alpha * pulse), 1);
         } else if (!running) {
-            boolean ok = state.equals("ok");
-            Component t = RebornFont.body(ok ? "Chakra concentré" : "Chakra dispersé — la séance ne compte pas");
-            g.text(font, t, w / 2 - font.width(t) / 2, ty, a(ok ? Colors.GOLD : Colors.ACCENT_HOVER, alpha), true);
+            Component t = DaKit.inter(ok ? "Chakra concentré" : "Chakra dispersé — la séance ne compte pas");
+            DaKit.inter7o(g, font, t, ucx, ty, DaKit.argb(ok ? 0xF2D08A : 0xE26474, alpha), 1);
         }
+        DaKit.finUnites(g);
     }
 
-    private record View(double pos, double center, float alpha, long now) {}
+    /* ---------------------------------------------------------------- textures (pixel réel) */
 
-    /* ------------------------------------------------------------------ ensō */
+    private static final Identifier[][] TEX = new Identifier[4][5];
+    private static final String[] NOMS = {"enso", "trait", "perle", "goutte"};
+    private static final Identifier SCEAUX = DaKit.tex("concentration", "sceaux");
 
-    private static void enso(GuiGraphicsExtractor g, Font font, int cx, int cy, View v) {
-        boolean running = state.equals("run"), ok = state.equals("ok");
-        int r = 34;
-        float prog = ok ? 1f : (float) Math.min(1, held / secs);
-        int fill = ok ? Colors.GOLD : state.equals("ko") ? a(LOST, 0.8f) : 0xFFD9A95E;
-        BrushRing.enso(g, cx, cy, r, prog, prog, a(fill, v.alpha), a(fill, v.alpha), a(0x55F5E9D0, v.alpha));
-
-        if (!running) {
-            // 集 au centre, en or ou en laque
-            Component k = Component.literal("集");
-            float sc = 2f;
-            g.pose().pushMatrix();
-            g.pose().translate(cx - font.width(k) * sc / 2f, cy - 4 * sc);
-            g.pose().scale(sc, sc);
-            g.text(font, k, 0, 0, a(ok ? Colors.GOLD : Colors.ACCENT_HOVER, v.alpha), false);
-            g.pose().popMatrix();
-            return;
-        }
-        // trait d'encre horizontal (diamètre), zone d'or, perle
-        int half = r - 10, y = cy;
-        brush(g, cx - half, cx + half, y, 3, a(INK, v.alpha), 7);
-        zoneAndBead(g, cx - half, cx + half, y, v);
-        drops(g, cx, cy + r + 8, v);
-        // rang discret au-dessus de l'ouverture du cercle
-        Component rk = RebornFont.body(rank + (helped ? " · maître" : ""));
-        g.text(font, rk, cx - font.width(rk) / 2, cy - r - 12, a(Colors.FOREGROUND_MUTED, v.alpha * 0.9f), true);
+    private static Identifier tex(String nom, int k) {
+        int i = java.util.Arrays.asList(NOMS).indexOf(nom);
+        if (TEX[i][k] == null) TEX[i][k] = DaKit.tex("concentration", nom + "_" + k);
+        return TEX[i][k];
     }
 
-    /* ----------------------------------------------------------------- trait */
-
-    private static void trait(GuiGraphicsExtractor g, Font font, int cx, int cy, View v) {
-        boolean running = state.equals("run"), ok = state.equals("ok");
-        int half = 70;
-        // coup de pinceau : large, effilé aux deux bouts
-        brush(g, cx - half, cx + half, cy, 5, a(INK, v.alpha), 3);
-        // fil d'or de progression juste au-dessus
-        float prog = ok ? 1f : (float) Math.min(1, held / secs);
-        g.fill(cx - half + 6, cy - 6, cx + half - 6, cy - 5, a(0x40D9A95E, v.alpha));
-        g.fill(cx - half + 6, cy - 6, cx - half + 6 + Math.round((2 * half - 12) * prog), cy - 5, a(Colors.GOLD, v.alpha));
-        // 集 à gauche, rang à droite
-        Component k = Component.literal("集");
-        g.text(font, k, cx - half - 14, cy - 4, a(ok ? Colors.GOLD : running ? Colors.FOREGROUND_SUBTLE : Colors.ACCENT_HOVER, v.alpha), true);
-        Component rk = RebornFont.body(rank + (helped ? " · maître" : ""));
-        g.text(font, rk, cx + half + 6, cy - 4, a(Colors.FOREGROUND_MUTED, v.alpha * 0.9f), true);
-        if (!running) return;
-        zoneAndBead(g, cx - half + 4, cx + half - 4, cy, v);
-        drops(g, cx, cy + 10, v);
+    /** Zone d'or sur le trait : lavis d'or et deux traits nets aux bornes. */
+    private static void zone(GuiGraphicsExtractor g, int cx, int cy, int k, double c, float alpha) {
+        int x0 = cx - COURSE * k, span = 2 * COURSE * k;
+        int zl = Math.max(x0, x0 + (int) Math.round((c - zone + 1) / 2 * span));
+        int zr = Math.min(x0 + span, x0 + (int) Math.round((c + zone + 1) / 2 * span));
+        g.fill(zl, cy - 2 * k, zr, cy + 2 * k, DaKit.argb(0xD9A95E, 0.50f * alpha));
+        g.fill(zl, cy - 2 * k, zr, cy - 2 * k + Math.max(1, k / 2), DaKit.argb(0xF2D59A, 0.55f * alpha));
+        int t = Math.max(1, k / 2);
+        g.fill(zl, cy - 4 * k, zl + t, cy + 4 * k, DaKit.argb(0xF2D59A, alpha));
+        g.fill(zr - t, cy - 4 * k, zr, cy + 4 * k, DaKit.argb(0xF2D59A, alpha));
     }
 
-    /* ---------------------------------------------------------------- communs */
-
-    /** Zone d'or (lavis + deux traits) et perle de chakra avec sa traînée. */
-    private static void zoneAndBead(GuiGraphicsExtractor g, int x0, int x1, int y, View v) {
-        int span = x1 - x0;
-        int zl = Math.max(x0, x0 + (int) Math.round((v.center - zone + 1) / 2 * span));
-        int zr = Math.min(x1, x0 + (int) Math.round((v.center + zone + 1) / 2 * span));
-        g.fill(zl, y - 2, zr, y + 3, a(0x70D9A95E, v.alpha));
-        g.fill(zl, y - 4, zl + 1, y + 5, a(Colors.GOLD, v.alpha));
-        g.fill(zr - 1, y - 4, zr, y + 5, a(Colors.GOLD, v.alpha));
-
-        int bx = x0 + (int) Math.round((v.pos + 1) / 2 * span);
-        int col = in ? CHAKRA : LOST;
+    /** Perle de chakra et sa traînée. */
+    private static void perle(GuiGraphicsExtractor g, int cx, int cy, int k, double p, float alpha, long now) {
+        int x0 = cx - COURSE * k, span = 2 * COURSE * k;
+        int bx = x0 + (int) Math.round((p + 1) / 2 * span);
+        int col = in ? 0x6FD3FF : 0xE0505A;
         trail[trailN % trail.length] = bx;
         trailN++;
         int n = Math.min(trailN, trail.length);
-        for (int k = 1; k < n; k++) {
-            int tx = (int) trail[(trailN - 1 - k) % trail.length];
-            g.fill(tx - 1, y - 1, tx + 1, y + 2, a(col, v.alpha * Math.max(0f, 0.45f - k * 0.06f)));
+        for (int i = 1; i < n; i++) {
+            int tx = (int) trail[(trailN - 1 - i) % trail.length];
+            g.fill(tx - k / 2, cy - k / 2, tx + Math.max(1, k / 2) + 1, cy + Math.max(1, k / 2) + 1,
+                DaKit.argb(col, alpha * Math.max(0f, 0.45f - i * 0.06f)));
         }
-        float glow = (float) (0.5 + 0.5 * Math.sin(v.now / 160.0));
-        g.fill(bx - 3, y - 3, bx + 4, y + 4, a(col, v.alpha * (0.18f + 0.12f * glow)));
-        g.fill(bx - 2, y - 2, bx + 3, y + 3, a(col, v.alpha * 0.55f));
-        g.fill(bx - 1, y - 1, bx + 2, y + 2, a(0xFFFFFFFF, v.alpha * 0.9f));
+        int C = 11 * k;
+        float glow = (float) (0.85 + 0.15 * Math.sin(now / 160.0));
+        DaKit.blit(g, tex("perle", k), bx - C / 2, cy - C / 2, in ? 0 : C, 0, C, C, 2 * C, C, DaKit.blanc(alpha * glow));
     }
 
-    /** Stabilité : dix gouttes d'encre, qui s'éteignent (or → laque quand ça devient critique). */
-    private static void drops(GuiGraphicsExtractor g, int cx, int y, View v) {
-        int n = 10, gap = 5, left = cx - (n - 1) * gap / 2;
+    /** Stabilité : dix gouttes d'encre, qui s'éteignent (or, puis laque quand ça devient critique). */
+    private static void gouttes(GuiGraphicsExtractor g, int cx, int y, int k, float alpha) {
+        int n = 10, pas = 4 * k, w = 3 * k, left = cx - ((n - 1) * pas) / 2 - w / 2;
         int on = (int) Math.ceil(Math.max(0, stab) * n);
-        int col = stab > 0.3 ? Colors.GOLD : Colors.ACCENT_HOVER;
+        int cell = stab > 0.3 ? 0 : 1;
         for (int i = 0; i < n; i++) {
-            int x = left + i * gap;
-            if (i < on) {
-                g.fill(x - 1, y, x + 1, y + 2, a(col, v.alpha * 0.95f));
-                g.fill(x, y - 1, x + 1, y + 3, a(col, v.alpha * 0.6f));
-            } else {
-                g.fill(x, y, x + 1, y + 1, a(INK_SOFT, v.alpha));
-            }
+            int c = i < on ? cell : 2;
+            DaKit.blit(g, tex("goutte", k), left + i * pas, y, c * w, 0, w, 4 * k, 3 * w, 4 * k, DaKit.blanc(alpha));
         }
-    }
-
-    /**
-     * Coup de pinceau horizontal de {@code x0} à {@code x1} : épaisseur max {@code thick}, effilé aux bouts, bord
-     * irrégulier (bruit déterministe par colonne) pour l'effet de poils.
-     */
-    private static void brush(GuiGraphicsExtractor g, int x0, int x1, int y, int thick, int color, int seed) {
-        int len = Math.max(1, x1 - x0);
-        for (int x = x0; x < x1; x++) {
-            float u = (x - x0) / (float) len;
-            float taper = (float) Math.sin(Math.PI * Math.min(1f, Math.max(0f, u * 1.08f - 0.02f)));
-            int hash = (x * 73856093) ^ (seed * 19349663);
-            float rough = ((hash >>> 8) & 0xFF) / 255f;
-            int t = Math.max(1, Math.round(thick * (0.55f + 0.45f * taper) - rough * 0.8f));
-            int top = y - t / 2 - ((hash & 3) == 0 ? 1 : 0);
-            g.fill(x, top, x + 1, top + t, color);
-        }
-    }
-
-    private static int a(int argb, float f) {
-        int al = Math.round(((argb >>> 24) & 0xFF) * Math.max(0f, Math.min(1f, f)));
-        return al << 24 | (argb & 0xFFFFFF);
     }
 }

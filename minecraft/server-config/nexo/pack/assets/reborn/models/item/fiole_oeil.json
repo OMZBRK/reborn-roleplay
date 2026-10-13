@@ -1,0 +1,331 @@
+{
+ "credit": "Reborn — fiole d'œil (tools : script de session, 2026-10-13)",
+ "texture_size": [
+  32,
+  32
+ ],
+ "textures": {
+  "0": "reborn:item/fiole_oeil",
+  "particle": "reborn:item/fiole_oeil"
+ },
+ "elements": [
+  {
+   "name": "ventre",
+   "from": [
+    4.5,
+    0,
+    4.5
+   ],
+   "to": [
+    11.5,
+    8,
+    11.5
+   ],
+   "faces": {
+    "north": {
+     "uv": [
+      0.0,
+      0.0,
+      8.0,
+      8.0
+     ],
+     "texture": "#0"
+    },
+    "south": {
+     "uv": [
+      0.0,
+      0.0,
+      8.0,
+      8.0
+     ],
+     "texture": "#0"
+    },
+    "east": {
+     "uv": [
+      0.0,
+      0.0,
+      8.0,
+      8.0
+     ],
+     "texture": "#0"
+    },
+    "west": {
+     "uv": [
+      0.0,
+      0.0,
+      8.0,
+      8.0
+     ],
+     "texture": "#0"
+    },
+    "up": {
+     "uv": [
+      8.0,
+      0.0,
+      12.0,
+      4.0
+     ],
+     "texture": "#0"
+    },
+    "down": {
+     "uv": [
+      12.0,
+      0.0,
+      16.0,
+      4.0
+     ],
+     "texture": "#0"
+    }
+   }
+  },
+  {
+   "name": "col",
+   "from": [
+    6.5,
+    8,
+    6.5
+   ],
+   "to": [
+    9.5,
+    10,
+    9.5
+   ],
+   "faces": {
+    "north": {
+     "uv": [
+      8.0,
+      4.0,
+      10.0,
+      8.0
+     ],
+     "texture": "#0"
+    },
+    "south": {
+     "uv": [
+      8.0,
+      4.0,
+      10.0,
+      8.0
+     ],
+     "texture": "#0"
+    },
+    "east": {
+     "uv": [
+      8.0,
+      4.0,
+      10.0,
+      8.0
+     ],
+     "texture": "#0"
+    },
+    "west": {
+     "uv": [
+      8.0,
+      4.0,
+      10.0,
+      8.0
+     ],
+     "texture": "#0"
+    },
+    "up": {
+     "uv": [
+      8.0,
+      0.0,
+      12.0,
+      4.0
+     ],
+     "texture": "#0"
+    },
+    "down": {
+     "uv": [
+      8.0,
+      0.0,
+      12.0,
+      4.0
+     ],
+     "texture": "#0"
+    }
+   }
+  },
+  {
+   "name": "bouchon",
+   "from": [
+    6,
+    10,
+    6
+   ],
+   "to": [
+    10,
+    12.5,
+    10
+   ],
+   "faces": {
+    "north": {
+     "uv": [
+      10.0,
+      4.0,
+      13.0,
+      7.0
+     ],
+     "texture": "#0"
+    },
+    "south": {
+     "uv": [
+      10.0,
+      4.0,
+      13.0,
+      7.0
+     ],
+     "texture": "#0"
+    },
+    "east": {
+     "uv": [
+      10.0,
+      4.0,
+      13.0,
+      7.0
+     ],
+     "texture": "#0"
+    },
+    "west": {
+     "uv": [
+      10.0,
+      4.0,
+      13.0,
+      7.0
+     ],
+     "texture": "#0"
+    },
+    "up": {
+     "uv": [
+      13.0,
+      4.0,
+      16.0,
+      7.0
+     ],
+     "texture": "#0"
+    },
+    "down": {
+     "uv": [
+      10.0,
+      4.0,
+      13.0,
+      7.0
+     ],
+     "texture": "#0"
+    }
+   }
+  }
+ ],
+ "display": {
+  "gui": {
+   "rotation": [
+    25,
+    -135,
+    0
+   ],
+   "translation": [
+    0,
+    1.5,
+    0
+   ],
+   "scale": [
+    1.35,
+    1.35,
+    1.35
+   ]
+  },
+  "ground": {
+   "translation": [
+    0,
+    2,
+    0
+   ],
+   "scale": [
+    0.7,
+    0.7,
+    0.7
+   ]
+  },
+  "fixed": {
+   "rotation": [
+    0,
+    180,
+    0
+   ],
+   "scale": [
+    1.2,
+    1.2,
+    1.2
+   ]
+  },
+  "thirdperson_righthand": {
+   "rotation": [
+    0,
+    45,
+    0
+   ],
+   "translation": [
+    0,
+    2.5,
+    1.5
+   ],
+   "scale": [
+    0.6,
+    0.6,
+    0.6
+   ]
+  },
+  "thirdperson_lefthand": {
+   "rotation": [
+    0,
+    45,
+    0
+   ],
+   "translation": [
+    0,
+    2.5,
+    1.5
+   ],
+   "scale": [
+    0.6,
+    0.6,
+    0.6
+   ]
+  },
+  "firstperson_righthand": {
+   "rotation": [
+    0,
+    -30,
+    0
+   ],
+   "translation": [
+    1,
+    3,
+    0
+   ],
+   "scale": [
+    0.75,
+    0.75,
+    0.75
+   ]
+  },
+  "firstperson_lefthand": {
+   "rotation": [
+    0,
+    -30,
+    0
+   ],
+   "translation": [
+    1,
+    3,
+    0
+   ],
+   "scale": [
+    0.75,
+    0.75,
+    0.75
+   ]
+  }
+ }
+}

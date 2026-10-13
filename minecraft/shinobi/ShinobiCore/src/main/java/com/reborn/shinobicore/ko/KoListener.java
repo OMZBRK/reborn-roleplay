@@ -371,7 +371,8 @@ public final class KoListener implements Listener {
         if (cmd.startsWith("/sc help") || cmd.startsWith("/shinobi help")
                 || cmd.startsWith("/sc welcome") || cmd.startsWith("/shinobi welcome")
                 || isCommand(cmd, "me") || isCommand(cmd, "aide") || isCommand(cmd, "help-rp")
-                || isCommand(cmd, "hopital") || isCommand(cmd, "hospital")) {
+                || isCommand(cmd, "hopital") || isCommand(cmd, "hospital")
+                || cmd.startsWith("/yeux consentir")) {               // à terre : accepter une greffe d'œil
             return;
         }
         ev.setCancelled(true);

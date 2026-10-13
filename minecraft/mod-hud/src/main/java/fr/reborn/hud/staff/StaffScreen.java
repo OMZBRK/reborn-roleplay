@@ -1201,6 +1201,7 @@ public class StaffScreen extends Screen {
             case "agression" -> LACQUER;
             case "aide" -> 0xFFD97706;
             case "mort" -> 0xFF5A0A12;
+            case "yeux" -> 0xFF7A1322;
             case "signalement" -> 0xFF6B4FA0;
             case "soin" -> OK;
             case "ko" -> 0xFF6B4FA0;

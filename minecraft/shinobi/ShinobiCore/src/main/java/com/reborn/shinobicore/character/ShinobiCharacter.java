@@ -215,6 +215,11 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     private String citation;
     /** Stade d'éveil du dōjutsu du clan (0 = dormant). */
     private int dojutsuStage;
+    /** Yeux (chirurgie des yeux) : {@code null} = jamais touché, c'est-à-dire l'œil du clan, intact. */
+    private com.reborn.shinobicore.medic.yeux.Oeil oeilGauche;
+    private com.reborn.shinobicore.medic.yeux.Oeil oeilDroit;
+    /** Bandage posé sur les orbites ({@code /bandage}). */
+    private boolean yeuxBandes;
     /** Origine et date d'apprentissage des techniques, par id. Absent = inconnu. */
     private final Map<String, LearnMeta> learnMeta = new HashMap<>();
 
@@ -848,6 +853,21 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
         this.dojutsuStage = Math.max(0, Math.min(9, v));
         touch();
     }
+
+    /** Œil gauche tel que stocké ; {@code null} = jamais touché (voir {@code YeuxService#oeil}). */
+    public com.reborn.shinobicore.medic.yeux.Oeil oeilGauche() { return oeilGauche; }
+
+    /** Œil droit tel que stocké ; {@code null} = jamais touché. */
+    public com.reborn.shinobicore.medic.yeux.Oeil oeilDroit() { return oeilDroit; }
+
+    public void setOeilGauche(com.reborn.shinobicore.medic.yeux.Oeil o) { this.oeilGauche = o; touch(); }
+
+    public void setOeilDroit(com.reborn.shinobicore.medic.yeux.Oeil o) { this.oeilDroit = o; touch(); }
+
+    /** Bandage sur les orbites. */
+    public boolean yeuxBandes() { return yeuxBandes; }
+
+    public void setYeuxBandes(boolean v) { this.yeuxBandes = v; touch(); }
 
     /** Unmodifiable view of the known-ability ids. */
     public Set<String> knownAbilities() {

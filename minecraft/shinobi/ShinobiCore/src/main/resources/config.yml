@@ -190,6 +190,13 @@ medic:
   bandage:
     pv-pct: 0.05                  # plafonné au plancher ko.plancher-pct
 
+# Chirurgie des yeux (/yeux, /bandage, canal reborn:yeux).
+yeux:
+  jeton-secondes: 120             # durée de validité d'une opération ouverte (écran du mod)
+  portee: 3.0                     # distance max opérateur ↔ patient / corps (blocs)
+  seuil-cecite: 25                # sous cette intégrité, l'œil ne voit plus
+  consentement-secondes: 60       # délai pour accepter une greffe (patient conscient)
+
 meditation:
   enabled: true
   # Régén pilotée par les stats : chaque intervalle rend
