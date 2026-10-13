@@ -29,16 +29,22 @@
 
 ## 2. L'objet parchemin
 
-| Rang | Modèle 3D (mod) | Poids dans la sacoche |
-|---|---|---|
-| D (et E) | `reborn:parchemin_d` — embouts bois | 0,2 kg |
-| C | `reborn:parchemin_c` | 0,2 kg |
-| B | `reborn:parchemin_b` | 0,2 kg |
-| A | `reborn:parchemin_a` — embouts or | 0,5 kg |
-| S | `reborn:parchemin_s` — embouts or | 0,8 kg |
+| Rang | Modèle 3D (pack Nexo) | Rouleau SNR d'origine | Poids dans la sacoche |
+|---|---|---|---|
+| D (et E) | `reborn:parchemin_d` | SNRRouleauVert | 0,2 kg |
+| C | `reborn:parchemin_c` | SNRRouleauJaune | 0,2 kg |
+| B | `reborn:parchemin_b` | SNRRouleauRouge | 0,2 kg |
+| A | `reborn:parchemin_a` | SNRRouleauViolet | 0,5 kg |
+| S | `reborn:parchemin_s` | SNRRouleauTechInterdites | 0,8 kg |
 
-- Modèles produits par `tools/bbforge` (`models/parchemin_*.py`), convertis en objets Java par
-  `tools/bbforge/java_item.py`, livrés dans le mod (`assets/reborn/items`, `models/item`, `textures/item`).
+- **Modèles de l'équipe** (« Pack Cosmétique Ninja », dossier projet `Modélisation/Pack Cosmétique Ninja/Rouleau -
+  FULL` et `Rouleau des Techniques Interdites - FULL`), adoptés le 2026-10-12 à la place des modèles bbforge.
+  **Livrés par le pack Nexo** (`minecraft/server-config/nexo/pack/assets/reborn/` : `items/`, `models/item/`,
+  `textures/item/` `parchemin_*`), comme tous les objets 3D du serveur ; ils ne sont plus dans le mod. Le
+  serveur pose `item_model = reborn:parchemin_<rang>` (`ParcheminItems`). Réglages d'affichage revus : taille en main et au sol réduite, rouleau interdit rendu visible en première
+  personne (il était prévu porté dans le dos). La couleur de rang des écrans suit ces rouleaux
+  (`ScrollArt.rankColor`), et les écrans (bibliothèque, simulation staff) affichent le **même modèle 3D**
+  (`ScrollArt.item`).
 - L'objet porte la technique dans ses données (`parchemin_ability`, `parchemin_id`). Code :
   `techniques/ParcheminItems.java`.
 - **Clic droit rouleau en main** : écran de lecture (le rouleau se déroule entre ses baguettes : technique,

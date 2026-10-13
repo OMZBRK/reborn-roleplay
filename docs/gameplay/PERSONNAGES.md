@@ -87,3 +87,23 @@ Inspirée de Ketto RP (« comme sur ketto c'est stylé de fou ») et de Soulboun
 | Hétérochromie, sourcils, pilosité, accessoires, zones de couleur des tenues | absents de l'étape Apparence |
 | Assets wave 1 : 3 clans starter complets (Uchiha, Hyuga, Neutre) | 5 tenues Uchiha seulement |
 | Décors 3D éventuels (au lieu du vide sombre) | idée, non tranchée |
+
+## 7. Retours joueurs (2026-10-13) — à traiter dans la refonte au niveau « fiche shinobi »
+
+Retour de **Dadil** (testeur) :
+
+| Écran | Retour | Piste |
+|---|---|---|
+| Sélection | Fond noir, étoiles à un seul endroit ; « vide » | Habiller la scène : plans de fond (ciel, silhouette du village, brume), lucioles et braises réparties, sol |
+| Sélection | Personnage trop petit | Agrandir le perso (cadrage caméra plus serré) |
+| Sélection | Pas de musique | Ambiance musicale douce (piste OST existante ou nouvelle) |
+| Sélection | Police (avis subjectif) | À revoir avec la typo de la fiche shinobi (ArcadePix titres + Inter) |
+| Création | Une voix en plus du texte affiché (« avant le nom… ») | Voix off sur les questions de l'étape (fichiers audio à enregistrer ou générer) |
+| Création | Personnage trop petit | Même correctif que la sélection |
+| Création | Changer de village ne change pas le fond | Teinte / décor du fond selon le village (priorité tertiaire) |
+| Création | Pas de logo de clan | Emblème du clan à l'étape Clan et sur le récapitulatif |
+| Création | Taille : pas de 1 cm | Pas de 1 cm sur le réglage de taille |
+| Création | « À quoi ressembles-tu » pas intuitif (flèches) | Refaire la personnalisation du skin : choix visuels directs (vignettes cliquables, aperçu immédiat), moins de flèches |
+
+L'utilisateur demande aussi de **faire mieux** sur les lucioles et l'habillage général de ces menus, au niveau
+des maquettes de la fiche shinobi (cf. `../design/DIRECTION_ARTISTIQUE.md` §4.1).

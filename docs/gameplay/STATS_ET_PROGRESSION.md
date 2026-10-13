@@ -70,6 +70,17 @@ plus deux ressources. Genjutsu absent de la beta.
 
 ### 1.2 La fiche shinobi (`/stats`, touche K)
 
+> **Depuis la 0.4.170 (13/10)** : l'écran est remplacé par la **fiche shinobi « portrait en scène »** (package
+> `fr.reborn.hud.menu.fiche`, textures `gui/fiche/` générées par `tools/gen_fiche_textures.py`, banc
+> `REBORN_FICHE_DEBUG=1`) : personnage réel au centre, onglets **Identité / Attributs / Techniques / État**, lanternes
+> en arc (signature conservée), répartition des points dans l'onglet Attributs. Données serveur ajoutées au paquet
+> (ShinobiCore `fiche/`) : âge, taille, sexe, caractère et citation, dōjutsu, palier de Mérite, **états de service**
+> (journal), techniques apprises et en apprentissage, état du corps en phrases. Commandes : joueur
+> `/stats caractere <t1> <t2> <t3>`, `/stats citation [texte]` ; staff `/stats edit <joueur> caractere|citation|dojutsu …`,
+> `/stats service <joueur> mission <rang> [texte] | ajouter <type> <texte> | masquer <n>`, `/stats json <joueur>`.
+> La description ci-dessous de l'ancien écran reste valable pour la logique de répartition.
+
+
 - Écran du mod « lanternes célestes » : une lanterne par stat (sa hauteur = sa valeur), plaques ema avec
   −/+, points en attente en silhouette dorée, « VALIDER » fait s'envoler les lanternes ; sons dédiés.
 - **Infobulles en phrases, sans chiffres exacts** (« Tes techniques te coûtent moins cher », paliers Novice →

@@ -115,6 +115,7 @@ lieux placés « à l'œil », à corriger en jeu (`/carte set`).
 | **Poste de garde** (panel staff en jeu) + Infirmerie | ✅ en prod (0.4.157 → 0.4.160) ; ⏳ casier dans l'API, synchro des grades staff panel → jeu | [`staff/GUIDE_STAFF_EN_JEU.md`](./staff/GUIDE_STAFF_EN_JEU.md) |
 | **Sélection / création de personnage en scène** | ✅ 0.4.167-0.4.168 ; ❓ palettes par clan ; vignettes de coiffures à agrandir | [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) |
 | **Missions / entraînements** | 💡 idées consolidées, pas de système en jeu (hors roadmap beta) | [`gameplay/MISSIONS.md`](./gameplay/MISSIONS.md) |
+| **Benchmark mods et serveurs RP** | ✅ étude du 12/10 (Nydo, Ninshu, Solve/FSC/Ketto/Zenkai) ; lots A→E proposés, ❓ décisions 11-16 ci-dessous | [`etudes/BENCHMARK_MODS_ET_SERVEURS.md`](./etudes/BENCHMARK_MODS_ET_SERVEURS.md) |
 | **Carte du monde, échoppe, Échap, sacoche** | ✅ ; ⏳ solde RBCoins réel et activations (boost Discord, stream…) ; liens X / YouTube à confirmer | [`technique/MOD_HUD.md`](./technique/MOD_HUD.md) |
 | **Météo client** (pluie, sable, brume) | ✅ 0.4.161-0.4.162 | `/meteo` |
 | **Launcher** | ✅ 0.3.45 (fenêtre de mise à jour corrigée) ; ❓ bouton « Copier le lien » OAuth et/ou signature de code (Norton bloque le launcher non signé) | [`operations/RELEASING.md`](./operations/RELEASING.md) |
@@ -140,6 +141,12 @@ lieux placés « à l'œil », à corriger en jeu (`/carte set`).
 | 8 | Vente des **exécutions** et des **jetons de réinitialisation** (boutique launcher ou échoppe en ryo) | Aucune boutique ne les vend |
 | 9 | Launcher : bouton « Copier le lien » et/ou signature de code | Problème Norton chez des joueurs |
 | 10 | Afficher ou non les chiffres sur les tuiles de la fiche shinobi | Infobulles déjà sans chiffres |
+| 11 | Faction : reprendre **réputation par village, diplomatie, quotas de grades** (6 Jōnin, Sannin) ? | Benchmark §5 lot A3 |
+| 12 | **Règles de combat** faciles (parade avec réarmement, garde haute/basse, pression de garde, tenketsu, loadout) : Sprint 1 ou 2 ? | Benchmark §5 lot B |
+| 13 | **Bureau des missions** tenu par les joueurs (modèle Solve), par le staff, ou les deux ? | Benchmark §5 lot C |
+| 14 | **Vol d'yeux** (extraction sur corps KO / cadavre validée par le staff, cécité, bandage, greffe) dans la beta ? | Benchmark §5 lot E1 |
+| 15 | **Greffe d'ADN** (marchand type Kabuto) : compatible avec les clans sur candidature ? | Benchmark §2.6 |
+| 16 | **Porte de sortie** dans la demande de RPK (modèle Solve) | Benchmark §5 lot A4 |
 
 ---
 

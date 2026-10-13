@@ -76,6 +76,14 @@
 | [`design/REBORN_ASEPRITE_PALETTE.md`](./design/REBORN_ASEPRITE_PALETTE.md), [`design/reborn-akatsuki.gpl`](./design/reborn-akatsuki.gpl) | Palette Akatsuki |
 | [`design/refs/`](./design/refs/) | Images de référence |
 
+## Études
+
+| Document | Contenu |
+|---|---|
+| [`etudes/BENCHMARK_MODS_ET_SERVEURS.md`](./etudes/BENCHMARK_MODS_ET_SERVEURS.md) | **NydoMod 5.5, Ninshu Origins 2.1.8, Solve / FSC / Ketto / Zenkai comparés à Reborn** : ce qui est pratique en RP, ce qu'on écarte, ce qu'on récupère par lots (12/10) |
+| [`etudes/KO_MEDICAL_STATS_COMPARATIF.md`](./etudes/KO_MEDICAL_STATS_COMPARATIF.md) | KO, RP médical et stats (gameplay et visuel) chez Nydo et Ninshu, ce qu'on intègre et dans quel ordre |
+| [`etudes/benchmark-2026-10/`](./etudes/benchmark-2026-10/) | Les annexes détaillées : combat, progression et monde, yeux, bijū, moteur client de Nydo ; Ninshu 2.1.8 ; serveurs RP ; inventaire Reborn |
+
 ## Archives
 
 Études, audits, propositions de design d'origine, passations et migrations terminées :

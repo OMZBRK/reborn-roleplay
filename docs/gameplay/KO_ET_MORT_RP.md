@@ -236,16 +236,23 @@ blessures à chaque KO. L'encyclopédie médicale, les armoires et les traitemen
 
 ---
 
+> **Porter un corps (correctif du 13/10)** : au dépôt (accroupi), le corps est posé **au sol devant le porteur**
+> (`PorterManager.dropSpot`) ; avant, il restait figé à la hauteur des épaules, en l'air. Même correctif pour la
+> prise à la gorge.
+
 ## 9. La scène de mort
 
 Le joueur dont le personnage meurt **reste sur place**, allongé, et **ne peut plus rien faire** : ni bouger,
 ni parler, ni lancer de commande, ni ouvrir d'inventaire, ni être blessé.
 
 1. Ses yeux battent puis **se ferment** ; écran noir.
-2. **60 s après la mort** (`mort-rp.scene-min-secondes`) : « **Assister à votre réelle fin ?** » Oui / Non.
+2. **10 s après la mort** (`mort-rp.scene-min-secondes`, 60 avant le 13/10) : « **Assister à votre réelle fin ?** » Oui / Non.
 3. **Non** → il part : le corps reste au sol et il arrive à la **sélection de personnage**.
 4. **Oui** → ses yeux se rouvrent sur une **vue grisée, sans aucun HUD, en bandes de cinéma** ; il regarde la
    suite (glisser la souris tourne la vue autour du corps) et part quand il veut avec **Échap**.
+   **Tant qu'il regarde, le corps, c'est lui** : les autres peuvent le **porter, le déposer, le fouiller**
+   (menu d'interaction : Constater la mort, Porter, Fouiller). S'il part, le mannequin apparaît là où le corps a
+   été laissé.
 - En partant (ou en se déconnectant), son **corps reste au sol 15 min** (`mort-rp.corps-minutes`) : un
   mannequin allongé, **habillé de l'apparence Reborn** du personnage (le mod reçoit l'apparence par
   `reborn:corps` et la compose).
@@ -282,7 +289,7 @@ ni parler, ni lancer de commande, ni ouvrir d'inventaire, ni être blessé.
 | `ko.lits-nexo`, `ko.lit-occupe-minutes` | `[lit, bed, futon]`, `15` | Lits d'hôpital |
 | `ko.ata.repos-minutes-pleine` / `-allegee` | `20` / `10` | Repos nécessaire |
 | `ko.ata.anti-afk-secondes`, `ko.ata.repos-pv-pct-par-10s` | `120`, `0.01` | Repos |
-| `mort-rp.scene-min-secondes`, `mort-rp.corps-minutes` | `60`, `15` | Scène de mort |
+| `mort-rp.scene-min-secondes`, `mort-rp.corps-minutes` | `10`, `15` | Scène de mort |
 | `medic.paume.*`, `medic.bandage.pv-pct` | cf. config | Soins |
 
 > Une clé absente du `config.yml` **du serveur** prend la valeur par défaut du code. Les réglages de

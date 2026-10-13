@@ -57,6 +57,23 @@
 - Références externes fournies : Ketto RP (sélection et création), Soulbound 2.0, Nanos World (chat), panels
   de modération GTA RP, Zenkai / Shinoda (concurrents).
 
+### 4.1 La référence de rendu : la fiche shinobi « portrait en scène » v2 (2026-10-13)
+
+Jugée « très très belle… vraiment bien travaillée visuellement ». **C'est le niveau visé pour tous les menus.**
+Maquettes hors dépôt : `Maquettes/fiche-shinobi/v2/portrait/`. Le style est codé dans la **boîte à outils de
+style** `minecraft/mod-hud/tools/style/` (Python + Pillow + numpy) :
+
+- `kit.py` : rampes de couleurs à ombres pourpres, tramage Bayer 4×4 aligné sur la grille, laque urushi avec
+  reflet tramé, liseré or biseauté, ferrures kanagu dessinées à la main, panneaux laqués, cordelettes kumihimo,
+  nœuds agemaki, glands, plaques suspendues, onglets pendus, washi (fibres, bords déchirés), bois veiné,
+  bandes de tissu, sceaux hanko, tampons, boutons-plaques (normal / survol / actif / inactif), lanternes ;
+  ombres en paliers de 1 px (jamais de flou baveux) ; texte ArcadePix au pixel, Inter net à la résolution écran.
+- `perso.py` : le vrai personnage Reborn composé depuis les couches de skin du mod (face, 3/4, buste).
+- `demo.py` : planches de démonstration.
+
+Tout nouveau menu se maquette **avec ce kit**, puis ses parties fixes deviennent des textures générées par
+script (cf. §6).
+
 ## 5. Méthode de travail sur un visuel
 
 1. **Maquettes d'abord**, souvent plusieurs séries (« fais-en d'autres ») avant un choix.
@@ -65,3 +82,20 @@
 3. Corriger ce qui est visiblement raté **avant** de montrer (chevauchements, textes qui dépassent, glyphes
    manquants).
 4. Garder le **fonctionnement existant** quand il convient ; seul l'habillage change.
+
+## 6. Performance — pixel art léger (décision du 2026-10-12)
+
+L'utilisateur veut rester en pixel art, **sans coût de performance**. Règles d'implémentation pour tout écran ou HUD :
+
+1. **Ce qui ne bouge pas est une texture** pré-dessinée (PNG pixel art, générée par script si besoin, cf.
+   `minecraft/mod-hud/tools/gen_yeux_textures.py`) affichée en **un seul `blit`** : cadres, décors, plateaux,
+   personnages, ornements. Pas de cercles ou de dégradés reconstruits ligne par ligne à chaque image.
+2. **Le code ne dessine que ce qui bouge** : curseurs, jauges, marqueurs, petits effets, texte.
+3. **Échelle entière** : une texture s'affiche à un multiple entier de pixels écran (texels nets, aucun
+   filtrage), et tous les éléments d'un même écran partagent la même grille.
+4. **Pas d'effet plein écran calculé au pixel** (flous, distorsions, particules par centaines) ni de fond
+   animé lourd ; une animation = quelques éléments qui se déplacent.
+5. **Calculer une fois** : mise en page, textes découpés, listes triées recalculés quand les données changent
+   (nouveau paquet, redimensionnement), pas à chaque image.
+6. **Atlas** quand un écran utilise beaucoup de petites images (icônes, lettres de rang) : une seule texture.
+

@@ -46,6 +46,8 @@
 | 2026-10-03 | Écrans en jeu : le jeu visible derrière un voile ; création de perso : jamais le monde du jeu ; pixel art détaillé, pas de fonds animés lourds |
 | 2026-10-08 | HUD vitals de base **inchangé** ; HUD combat en version discrète ; pas d'effets « RPG » |
 | 2026-10-10 | Menus Reborn à la **taille de l'échelle 2 en 1080p** quelle que soit l'échelle du joueur — [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §3 |
+| 2026-10-12 | On **reste en pixel art** (pas le rendu « web » HD de Zenkai / GMod), mais **léger et optimisé** : décors et cadres en textures pré-dessinées, code seulement pour ce qui bouge — [`../design/DIRECTION_ARTISTIQUE.md`](../design/DIRECTION_ARTISTIQUE.md) §6 |
+| 2026-10-13 | **Fiche shinobi** (remplace l'écran de stats) : design retenu « **Le portrait en scène** » v2 (personnage réel au centre, panneaux laqués suspendus, lanternes en arc, onglets Identité / Attributs / Techniques / État) — « très très beau… vraiment bien travaillé visuellement » ; maquettes hors dépôt dans `Maquettes/fiche-shinobi/v2/portrait/` |
 
 ## Monnaies
 
@@ -100,6 +102,7 @@
 | 2026-10-08 | Rang S à **slots limités** par technique ; mort du détenteur = slot libéré, héritage seulement si le rouleau est porté |
 | 2026-10-08 | Séances (D 1 … S 20), une par jour ; échec = séance perdue ; easter egg de perte du rouleau ; **maître = maîtrise ≥ 80 et connue depuis 14 jours** ; progression liée au personnage, rouleau en main requis ; fin d'un S validée par le staff |
 | 2026-10-09 | Concentration du chakra : en jeu, avant tout ce qui demande du chakra **sauf le Taïjutsu** ; **un mouvement ou un saut doit fausser le test** |
+| 2026-10-12 | Les parchemins prennent les **rouleaux SNR de l'équipe** (les modèles générés par bbforge sont jugés moches) : D vert, C jaune, B rouge, A violet, S rouleau des techniques interdites ; les écrans affichent le même modèle 3D ; **les objets 3D vivent dans le pack Nexo, pas dans le mod** |
 
 ## Personnages — [`../gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md)
 
