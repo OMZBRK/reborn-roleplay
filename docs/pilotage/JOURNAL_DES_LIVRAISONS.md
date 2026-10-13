@@ -12,6 +12,7 @@
 
 | Version | Manifest | Date | Contenu | Commit(s) |
 |---|---|---|---|---|
+| 0.4.175 | 3.1.131 | 14/10 | Duel consenti, N° de personnage (/pid), inventaire et ramassage façon Game Plan (F, aura de rareté, surcharge 100/115/130 %, étui d'arme Z), derniers écrans en jeu (éditeur HUD, viseur, caméra, photo, galerie, signaler, cosmétiques), HUD KO/Volonté/ATA allégés | `d6bba37` |
 | 0.4.174 | 3.1.130 | 13/10 | Perf de tous les menus (LotGui/LotBlit, écrans opaques), Échap plein écran, création de personnage corrigée (fond sans village, ambiances, vrais blasons, couleur libre, 35 coiffures, bandeau de Konoha), tête de la sacoche, bibliothèques v2 côté client | `e043152` |
 | 0.4.173 | 3.1.129 | 13/10 | Menus existants au niveau de la fiche : Poste de garde, Infirmerie, sacoche, chat, Échap (échelle entière, menu « ryo » sur la devanture), échoppe, réglages (byōbu), carte, tablist (registre 名) | `ac26cf8` |
 | 0.4.172 | 3.1.128 | 13/10 | Sélection/création de personnage au niveau de la fiche (décor nocturne par village, blasons de clan, voix off, musique), chirurgie des yeux complète (prélèvement, greffe, cécité, bandage), scène de mort, menu d'interaction, concentration (ensō), bibliothèque refaite. 0.4.171 jamais publiée | `6a19627`, `af4bca8` |
@@ -51,6 +52,7 @@
 
 | Version | Date | Contenu | Commit |
 |---|---|---|---|
+| 0.3.46 | 14/10 | Accueil Microsoft puis Discord (obligatoire) façon Game Plan, vrai fond de Konoha | `f2a877d` |
 | 0.3.45 | 06/10 | Fenêtre de mise à jour qui revenait en boucle : « Plus tard » 24 h, « Ignorer cette version », erreur de vérification avec « Réessayer » | `7d1cddc`, `f7e7f2a` |
 | 0.3.44 | 28/09 | Boîte de téléchargement à taille fixe ; sélecteur Build / Dev revenu (variables `REBORN_SERVER_DEV_*`) | `aee8fb6` |
 | 0.3.43 | 28/09 | Galerie et feed corrigés ; keepalive du JWT (mods optionnels qui disparaissaient) ; version MC dynamique ; barre de téléchargement « Slosh » | `c104b41` |
@@ -59,6 +61,7 @@
 
 | Date | Plugins | Contenu |
 |---|---|---|
+| 14/10 | ShinobiCore, ShinobiAbilities, ShinobiCombat (ensemble : nouvelle API inventaire) | `/duel`, `/pid` + `player-ids.yml` (N° par personnage dès 00000), inventaire : ramassage manuel, rareté, surcharge, notifications `reborn:notif`, journal objets — `d6bba37` |
 | 13/10 | ShinobiCore, ShinobiAbilities | Bibliothèques v2 : 7 types, fonds et dépôt, journal, lecture sur place, vol (alerte Poste de garde), secrets paramétrables, migration Publique→Village / Réservée→Académie / Privée→Palais ; API sac — `de7fe9f` |
 | 13/10 | ShinobiCore, ShinobiAbilities (inchangé), pack Nexo (fiole_oeil) | Yeux : œil G/D par personnage, fiole d'œil, `/yeux prelever\|greffer\|consentir\|etat\|definir\|donner`, `/bandage`, alerte Poste de garde — `af4bca8` |
 | 13/10 | ShinobiCore, ShinobiAbilities, pack Nexo (parchemin_*) | Données de fiche + états de service, `/stats caractere\|citation\|edit\|service\|json`, scène de mort 10 s, corps du mort portable, dépôt au sol ; parchemins = rouleaux SNR dans `plugins/Nexo/pack` — `9e00326` |
