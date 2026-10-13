@@ -12,6 +12,7 @@
 
 | Version | Manifest | Date | Contenu | Commit(s) |
 |---|---|---|---|---|
+| 0.4.172 | 3.1.128 | 13/10 | Sélection/création de personnage au niveau de la fiche (décor nocturne par village, blasons de clan, voix off, musique), chirurgie des yeux complète (prélèvement, greffe, cécité, bandage), scène de mort, menu d'interaction, concentration (ensō), bibliothèque refaite. 0.4.171 jamais publiée | `6a19627`, `af4bca8` |
 | 0.4.170 | 3.1.127 | 13/10 | Fiche shinobi « portrait en scène » (Identité/Attributs/Techniques/État), écrans de chirurgie des yeux (banc de test, pas branchés), scène de mort 10 s, corps portables/fouillables, dépôt au sol, parchemins servis par Nexo | `9e00326` |
 | 0.4.169 | 3.1.126 | 11/10 | KO-5 Volonté facultative, KO-7 mort RP (RPK validée puis exécutée), menu d'interaction sur un corps, scène de mort, niveau retiré des affichages, fiche sans niveau | `3c18cdc`, `ca732a5` |
 | 0.4.168 | 3.1.125 | 10/10 | Scène des persos : sons, braises de chakra par village, apparence à vignettes façon Ketto, emblème d'Ame, sans Déserteur | `341eac5`, `ead45b3` |
@@ -56,6 +57,7 @@
 
 | Date | Plugins | Contenu |
 |---|---|---|
+| 13/10 | ShinobiCore, ShinobiAbilities (inchangé), pack Nexo (fiole_oeil) | Yeux : œil G/D par personnage, fiole d'œil, `/yeux prelever\|greffer\|consentir\|etat\|definir\|donner`, `/bandage`, alerte Poste de garde — `af4bca8` |
 | 13/10 | ShinobiCore, ShinobiAbilities, pack Nexo (parchemin_*) | Données de fiche + états de service, `/stats caractere\|citation\|edit\|service\|json`, scène de mort 10 s, corps du mort portable, dépôt au sol ; parchemins = rouleaux SNR dans `plugins/Nexo/pack` — `9e00326` |
 | 11/10 | ShinobiCore | **Correctif `plugin.yml`** (un « : » non quoté empêchait le chargement) — `55297e3` |
 | 11/10 | ShinobiCore, ShinobiAbilities | KO-5 facultatif, KO-7, scène de mort, corps, exécutions, XP / Mérite, lot 4 ; embarque la concentration du chakra |
