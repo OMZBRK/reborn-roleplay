@@ -2,9 +2,9 @@ package fr.reborn.hud.map;
 
 import fr.reborn.hud.menu.Colors;
 import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
 import fr.reborn.hud.ui.CloudIntro;
+import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.ui.UiAmbience;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -35,23 +35,23 @@ import java.util.Map;
  * <p>Sons : {@code reborn:map.*} ({@code tools/ui-art/gen_map_sfx.py}) — parchemin qui se
  * déroule / s'enroule, tic de zoom, froissement au glisser, tampon à la sélection, cloche
  * au voyage, ambiance vent + oiseaux.
+ *
+ * <p>Habillage au niveau de la fiche (DA §4.1, §6) : cadre du rouleau (baguettes laquées, lisières
+ * de brocart), en-tête suspendu, rose des vents, cartes de washi, boutons laqués, aides en
+ * cabochons — textures {@code textures/gui/carte/*} ({@code tools/gen_carte_textures.py}, cf.
+ * {@link CarteArt}) ; marqueurs à l'échelle entière (le survol les soulève au lieu de les agrandir).
  */
 public class WorldMapScreen extends Screen {
 
     private static final int PAPER = 0xFFECE0BE;
-    private static final int PAPER_SPOT = 0xFFF4EBD2;
     private static final int INK = 0xFFF5E9D0;
-    private static final int INK_DIM = 0xFFB9A98A;
     private static final int OUTLINE = 0xFF2B2018;
     private static final int GOLD = 0xFFF6CC78;
-    private static final int LACQ = 0xFF5C1418;
-    private static final int ROPE = 0xFFC8A05A;
-    private static final int PARCH = 0xF2EADCB4;
     private static final int PARCH_INK = 0xFF3C2A1C;
 
     private static final float MAX_ZOOM_FACTOR = 8f, MIN_ZOOM_FACTOR = 0.75f;
 
-    private static final Identifier COMPASS = tex("compass"), ARROW = tex("arrow");
+    private static final Identifier ARROW = tex("arrow");
     private static final Map<MapData.Type, Identifier> ICON = new HashMap<>();
     static {
         ICON.put(MapData.Type.LIEU, tex("marker_lieu"));
@@ -86,7 +86,10 @@ public class WorldMapScreen extends Screen {
     private String travelId;
     private boolean keyLeft, keyRight, keyUp, keyDown;
 
-    private final CloudIntro clouds = new CloudIntro(1000, 0xF4F6FA, 0xFFFFFFFF);
+    /** Banc de captures ({@code REBORN_CARTE_BANC=1}, client de dev) : sans intro, premier lieu choisi. */
+    private static final boolean BANC = "1".equals(System.getenv("REBORN_CARTE_BANC"));
+
+    private final CloudIntro clouds = new CloudIntro(BANC ? 1 : 1000, 0xF4F6FA, 0xFFFFFFFF);
 
     public WorldMapScreen() {
         super(Component.literal("Carte du monde"));
@@ -133,6 +136,11 @@ public class WorldMapScreen extends Screen {
         def = MapDefs.get(snap.map());
         if (!snap.map().equals(prevMap)) zoom = -1;
         if (selected != null && find(selected) == null) selected = null;
+        if (BANC && selected == null) {
+            for (MapData.Place p : snap.places()) {
+                if (p.type() != MapData.Type.ZONE) { selected = p.id(); selectedAt = System.currentTimeMillis(); break; }
+            }
+        }
     }
 
     /* --------------------------------------------------------------- vue */
@@ -222,13 +230,6 @@ public class WorldMapScreen extends Screen {
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, PAPER);
-        // Petites taches claires sur le parchemin (motif fixe, pas d'aléa par frame).
-        for (int i = 0; i < 70; i++) {
-            int x = (int) ((i * 7919L * 31) % Math.max(1, this.width));
-            int y = (int) ((i * 104729L * 17) % Math.max(1, this.height));
-            int s = 3 + (i % 3) * 2;
-            ctx.fill(x, y, x + s, y + s, PAPER_SPOT);
-        }
     }
 
     @Override
@@ -244,9 +245,9 @@ public class WorldMapScreen extends Screen {
         goW = 0;
 
         if (def == null) {
-            Component msg = RebornFont.arcade("CARTE \"" + snap.map().toUpperCase(Locale.ROOT)
-                + "\" ABSENTE DU MOD - METS A JOUR LE LAUNCHER");
-            ctx.text(f, msg, (this.width - f.width(msg)) / 2, this.height / 2, OUTLINE, false);
+            CarteArt.cadre(ctx, this.width, this.height);
+            DaKit.inter9(ctx, f, DaKit.inter("Carte « " + snap.map() + " » absente du mod : mets à jour le launcher."),
+                this.width / 2f, this.height / 2f, DaKit.ENCRE, 1);
         } else {
             float intro = clouds.progress();
             ctx.pose().pushMatrix();
@@ -269,7 +270,8 @@ public class WorldMapScreen extends Screen {
             drawMarkers(ctx, f, mouseX, mouseY, dt);
             drawPlayer(ctx);
             ctx.pose().popMatrix();
-            drawVignette(ctx);
+            CarteArt.vignette(ctx, this.width, this.height);
+            CarteArt.cadre(ctx, this.width, this.height);
             drawCompass(ctx);
             drawScaleAndCursor(ctx, f, mouseX, mouseY);
         }
@@ -293,44 +295,46 @@ public class WorldMapScreen extends Screen {
 
     /* ---- en-tête et aide ---- */
 
-    /** Plaque laquée suspendue : nom de la carte + où se trouve le joueur. */
+    /** Plaque laquée suspendue à la baguette : nom de la carte, puis où se trouve le joueur. */
     private void drawHeader(GuiGraphicsExtractor ctx, Font f) {
-        Component title = RebornFont.arcade("CARTE DE " + snap.title().toUpperCase(Locale.ROOT));
+        int cx = this.width / 2;
+        CarteArt.entete(ctx, cx, 2);
+        DaKit.arcX1(ctx, f, DaKit.arcade("Carte de " + snap.title()), cx, 21, DaKit.CREME, 1, true);
         int places = 0;
         for (MapData.Place p : snap.places()) if (p.type() != MapData.Type.ZONE) places++;
-        String subS = (snap.here() ? "Tu es dans cette region" : "Tu n'es pas dans cette region")
-            + "  -  " + places + " lieu" + (places > 1 ? "x" : "");
-        Component sub = RebornFont.arcade(subS.toUpperCase(Locale.ROOT));
-        float ts = 1.25f;
-        int pw = (int) Math.max(f.width(title) * ts, f.width(sub) * 0.7f) + 34;
-        int ph = 30;
-        int px = this.width / 2 - pw / 2, py = 6;
-        DrawHelpers.line(ctx, px + 24, 0, px + 32, py + 2, ROPE);
-        DrawHelpers.line(ctx, px + pw - 24, 0, px + pw - 32, py + 2, ROPE);
-        ctx.fill(px + 2, py + 3, px + pw + 2, py + ph + 3, 0x55000000);
-        ctx.fill(px, py, px + pw, py + ph, LACQ);
-        frame(ctx, px, py, pw, ph, GOLD);
-        frame(ctx, px + 3, py + 3, pw - 6, ph - 6, 0xFF963C32);
-        drawScaled(ctx, f, title, this.width / 2f, py + 6, ts, INK, false);
-        drawScaled(ctx, f, sub, this.width / 2f, py + 19, 0.7f, 0xFFE6B4A0, false);
+        String sub = (snap.here() ? "Tu es dans cette région" : "Tu n'es pas dans cette région")
+            + " · " + places + " lieu" + (places > 1 ? "x" : "");
+        Component c = DaKit.inter(sub);
+        int w = Math.round(DaKit.largeur7(f, c)) + 16;
+        CarteArt.etiquette(ctx, cx - w / 2, 44, w);
+        DaKit.inter7(ctx, f, c, cx, 52, DaKit.ENCRE, 1);
         if (!MapData.fromServer()) {
-            Component demo = RebornFont.arcade("APERCU HORS LIGNE");
-            ctx.text(f, demo, this.width - 8 - f.width(demo), 8, Colors.withAlpha(Colors.WARNING, 0.85f), false);
+            Component demo = DaKit.inter("Aperçu hors ligne");
+            int dw = Math.round(DaKit.largeur7(f, demo)) + 14;
+            CarteArt.etiquette(ctx, 16, 18, dw);
+            DaKit.inter7(ctx, f, demo, 16 + dw / 2f, 26, DaKit.ENCRE_ROUGE, 1);
         }
     }
 
+    /** Aides en cabochons, centrées sur une bande de washi au-dessus de la baguette basse. */
     private void drawHints(GuiGraphicsExtractor ctx, Font f) {
-        String hint = "[GLISSER] DEPLACER   [MOLETTE] ZOOM   [CLIC] CHOISIR UN LIEU"
-            + (snap.canTp() ? "   [DOUBLE-CLIC] Y ALLER" : "")
-            + (snap.here() ? "   [ESPACE] MA POSITION" : "")
-            + "   [FLECHES] PARCOURIR   [M] FERMER";
-        Component c = RebornFont.arcade(hint);
-        float s = 0.7f;
-        int w = Math.round(f.width(c) * s) + 20, h = 12;
-        int x = this.width / 2 - w / 2, y = this.height - h - 4;
-        ctx.fill(x, y, x + w, y + h, PARCH);
-        frame(ctx, x, y, w, h, 0xFF8C6E48);
-        drawScaled(ctx, f, c, this.width / 2f, y + 3, s, PARCH_INK, false);
+        java.util.List<String[]> l = new java.util.ArrayList<>();
+        l.add(new String[]{"Glisser", "déplacer"});
+        l.add(new String[]{"Molette", "zoom"});
+        l.add(new String[]{"Clic", "choisir un lieu"});
+        if (snap.canTp()) l.add(new String[]{"Double clic", "y aller"});
+        if (snap.here()) l.add(new String[]{"Espace", "ma position"});
+        l.add(new String[]{"M", "fermer"});
+        String[][] items = l.toArray(new String[0][]);
+        float total = CarteArt.largeurAides(f, items);
+        if (total > this.width - 60 && items.length > 4) {
+            l.remove(2);
+            items = l.toArray(new String[0][]);
+            total = CarteArt.largeurAides(f, items);
+        }
+        int w = Math.round(total) + 20, y = this.height - CarteArt.BAGUETTE - 22;
+        CarteArt.bandeau(ctx, this.width / 2 - w / 2, y, w);
+        CarteArt.aides(ctx, f, items, this.width / 2f + total / 2f, y + 8);
     }
 
     /* ---- carte : zones, marqueurs, joueur ---- */
@@ -341,7 +345,13 @@ public class WorldMapScreen extends Screen {
         if (a < 0.03f) return;
         for (MapData.Place p : snap.places()) {
             if (p.type() != MapData.Type.ZONE) continue;
-            drawOutlined(ctx, f, RebornFont.arcade(p.name().toUpperCase(Locale.ROOT)), sx(p.x()), sy(p.z()), 1.25f, a);
+            Component c = DaKit.arcade(p.name());
+            int x = Math.round(sx(p.x())), y = Math.round(sy(p.z())) - 3;
+            int o = Colors.withAlpha(OUTLINE, a);
+            for (int[] d : new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {1, 1}}) {
+                DaKit.arcX1(ctx, f, c, x + d[0], y + d[1], o, 1, false);
+            }
+            DaKit.arcX1(ctx, f, c, x, y, Colors.withAlpha(INK, a), 1, false);
         }
     }
 
@@ -357,23 +367,21 @@ public class WorldMapScreen extends Screen {
             float h = hoverAnim.getOrDefault(p.id(), 0f);
             h += ((hot || sel ? 1f : 0f) - h) * Math.min(1f, dt * 12f);
             hoverAnim.put(p.id(), h);
-            // Ombre au sol + anneau pulsé si sélectionné.
+            // Ombre au sol, halo d'or au survol / à la sélection, anneau pulsé si sélectionné.
             DrawHelpers.disc(ctx, Math.round(x), Math.round(y + 1), 4, 0x55000000);
+            if (h > 0.05f) CarteArt.halo(ctx, x, y - 8, 1, DaKit.argb(0xFFD070, 0.35f * h));
             if (sel) {
                 float k = ((System.currentTimeMillis() - selectedAt) % 1200) / 1200f;
                 DrawHelpers.ring(ctx, Math.round(x), Math.round(y), Math.round(6 + 14 * k), 1, Colors.withAlpha(GOLD, 1f - k));
             }
-            // Icône (sautille légèrement, grossit au survol).
-            float s = 1f + 0.35f * h;
-            float bob = sel ? (float) Math.sin(time * 5f) * 1.5f : 0f;
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(x, y - 8 * s + bob);
-            ctx.pose().scale(s, s);
+            // Icône à l'échelle entière : soulevée de 2 GUI au survol, sautille si sélectionnée.
+            int lift = Math.round(2 * h);
+            int bob = sel ? Math.round((float) Math.sin(time * 5f) * 1.5f) : 0;
             ctx.blit(RenderPipelines.GUI_TEXTURED, ICON.getOrDefault(p.type(), ICON.get(MapData.Type.LIEU)),
-                -8, -8, 0f, 0f, 16, 16, 16, 16);
-            ctx.pose().popMatrix();
+                Math.round(x) - 8, Math.round(y) - 16 - lift + bob, 0f, 0f, 16, 16, 16, 16);
             float na = Math.max(names, sel ? 1f : 0f);
-            if (na > 0.03f) drawOutlined(ctx, f, Component.literal(p.name()), x, y + 4, 0.85f, na);
+            if (na > 0.03f) DaKit.inter9o(ctx, f, DaKit.inter(p.name()), Math.round(x), Math.round(y) + 9,
+                Colors.withAlpha(INK, na), 1);
         }
     }
 
@@ -393,37 +401,29 @@ public class WorldMapScreen extends Screen {
         ctx.pose().popMatrix();
     }
 
-    /** Bords assombris : la carte « respire » dans le cadre. */
-    private void drawVignette(GuiGraphicsExtractor ctx) {
-        int e = Math.max(16, Math.min(this.width, this.height) / 9);
-        ctx.fillGradient(0, 0, this.width, e, 0x50281C10, 0x00281C10);
-        ctx.fillGradient(0, this.height - e, this.width, this.height, 0x00281C10, 0x50281C10);
-        DrawHelpers.horizontalGradient(ctx, 0, 0, e, this.height, 0x50281C10, 0x00281C10);
-        DrawHelpers.horizontalGradient(ctx, this.width - e, 0, e, this.height, 0x00281C10, 0x50281C10);
-    }
-
+    /** Rose des vents laquée, en haut à droite (sous la baguette). */
     private void drawCompass(GuiGraphicsExtractor ctx) {
-        int s = 40;
-        int x = this.width - s - 12, y = 10;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, COMPASS, x, y, 0f, 0f, s, s, 40, 40, 40, 40);
+        CarteArt.boussole(ctx, this.width - 48 - CarteArt.LISIERE - 10, CarteArt.BAGUETTE + 8);
     }
 
-    /** Échelle graphique (bas gauche) + coordonnées monde sous le curseur. */
+    /** Échelle graphique à l'encre et coordonnées sous le curseur, sur une carte de washi (bas gauche). */
     private void drawScaleAndCursor(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
         double blocksPerScreenPx = def.blocksPerPixel() / zoom;
         int[] nice = {10, 25, 50, 100, 250, 500, 1000, 2500};
         int len = nice[nice.length - 1];
         for (int n : nice) if (n / blocksPerScreenPx >= 40) { len = n; break; }
         int px = (int) Math.round(len / blocksPerScreenPx);
-        int x = 12, y = this.height - 28;
-        ctx.fill(x - 4, y - 12, x + Math.max(px, 70) + 6, y + 16, PARCH);
-        frame(ctx, x - 4, y - 12, Math.max(px, 70) + 10, 28, 0xFF8C6E48);
+        int w = Math.max(px, 74) + 20, h = 40;
+        int x0 = CarteArt.LISIERE + 10, y0 = this.height - CarteArt.BAGUETTE - 28 - h;
+        CarteArt.washi(ctx, x0, y0, w, h);
+        int x = x0 + 10, y = y0 + 22;
+        DaKit.inter7(ctx, f, DaKit.inter(len + " blocs"), x, y0 + 13, DaKit.ENCRE_DOUCE, 0);
         ctx.fill(x, y, x + px, y + 2, PARCH_INK);
         ctx.fill(x, y - 3, x + 1, y + 5, PARCH_INK);
         ctx.fill(x + px - 1, y - 3, x + px, y + 5, PARCH_INK);
-        drawScaledLeft(ctx, f, RebornFont.arcade(len + " BLOCS"), x, y - 10, 0.7f, PARCH_INK);
+        ctx.fill(x + px / 2, y - 1, x + px / 2 + 1, y + 3, PARCH_INK);
         String coord = "X " + Math.round(worldX(mx)) + "   Z " + Math.round(worldZ(my));
-        drawScaledLeft(ctx, f, RebornFont.arcade(coord), x, y + 6, 0.7f, 0xFF6E5438);
+        DaKit.inter7(ctx, f, DaKit.inter(coord), x, y0 + 33, DaKit.ENCRE, 0);
     }
 
     /* ---- fiche du lieu sélectionné ---- */
@@ -436,41 +436,38 @@ public class WorldMapScreen extends Screen {
         String dist = null;
         if (snap.here() && mc.player != null) {
             double d = Math.hypot(mc.player.getX() - p.x(), mc.player.getZ() - p.z());
-            dist = d < 1000 ? Math.round(d) + " BLOCS" : String.format(Locale.ROOT, "%.1f KM", d / 1000);
+            dist = d < 1000 ? Math.round(d) + " blocs" : String.format(Locale.FRANCE, "%.1f km", d / 1000);
         }
-        int w = Math.max(160, f.width(p.name()) + 46), h = 58;
-        int x = Math.round(this.width - w - 12 + (1f - in) * (w + 20)), y = this.height - h - 22;
-        ctx.fill(x + 2, y + 3, x + w + 2, y + h + 3, 0x40000000);
-        ctx.fill(x, y, x + w, y + h, 0xFFEADCB4);
-        frame(ctx, x, y, w, h, 0xFF8C6E48);
-        ctx.fill(x, y, x + w, y + 3, LACQ);
+        int nameW = f.width(DaKit.arcade(p.name()));
+        int w = Math.min(188, Math.max(160, nameW + 46)), h = 66;
+        int x = Math.round(this.width - CarteArt.LISIERE - 10 - w + (1f - in) * (w + 24));
+        int y = this.height - CarteArt.BAGUETTE - 28 - h;
+        CarteArt.washi(ctx, x, y, w, h);
         Identifier icon = ICON.getOrDefault(p.type(), ICON.get(MapData.Type.LIEU));
-        ctx.blit(RenderPipelines.GUI_TEXTURED, icon, x + 8, y + 10, 0f, 0f, 16, 16, 16, 16);
-        ctx.text(f, Component.literal(p.name()), x + 30, y + 9, PARCH_INK, false);
-        String meta = typeLabel(p.type()) + "   X " + p.x() + "  Z " + p.z();
-        drawScaledLeft(ctx, f, RebornFont.arcade(meta), x + 30, y + 21, 0.7f, 0xFF7A6448);
-        if (dist != null) drawScaledLeft(ctx, f, RebornFont.arcade("A " + dist + " DE TOI"), x + 30, y + 30, 0.7f, 0xFF7A6448);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, icon, x + 8, y + 11, 0f, 0f, 16, 16, 16, 16);
+        DaKit.arcX1(ctx, f, DaKit.arcade(DaKit.ellipse(f, p.name(), w - 40)), x + 30, y + 11, DaKit.ENCRE, 0, false);
+        DaKit.inter7(ctx, f, DaKit.inter(typeLabel(p.type()) + " · X " + p.x() + "  Z " + p.z()), x + 30, y + 25,
+            DaKit.ENCRE_DOUCE, 0);
+        if (dist != null) DaKit.inter8(ctx, f, DaKit.inter("À " + dist + " de toi"), x + 30, y + 35, DaKit.ENCRE, 0);
         if (snap.canTp()) {
-            goW = 70;
-            goH = 15;
+            goW = 78;
+            goH = 20;
             goX = x + w - goW - 8;
-            goY = y + h - goH - 7;
+            goY = y + h - goH - 6;
             boolean hot = mx >= goX && mx < goX + goW && my >= goY && my < goY + goH;
-            ctx.fill(goX, goY, goX + goW, goY + goH, hot ? 0xFFC02A30 : 0xFFAA1E22);
-            frame(ctx, goX, goY, goW, goH, GOLD);
-            Component go = RebornFont.arcade("Y ALLER");
-            ctx.text(f, go, goX + (goW - f.width(go)) / 2, goY + 4, INK, false);
+            CarteArt.bouton(ctx, goX, goY, goW, hot);
+            DaKit.arcX1(ctx, f, DaKit.arcade("Y aller"), goX + goW / 2f, goY + 6.5f, DaKit.CREME, 1, true);
         } else {
-            drawScaledLeft(ctx, f, RebornFont.arcade("TELEPORTATION RESERVEE AU STAFF"), x + 10, y + h - 12, 0.65f, 0xFF9C8462);
+            DaKit.inter7(ctx, f, DaKit.inter("Téléportation réservée au staff"), x + 10, y + h - 10, 0xFF8A7458, 0);
         }
     }
 
     private static String typeLabel(MapData.Type t) {
         return switch (t) {
             case PNJ -> "PNJ";
-            case PORTE -> "PORTE";
-            case ZONE -> "ZONE";
-            default -> "LIEU";
+            case PORTE -> "Porte";
+            case ZONE -> "Zone";
+            default -> "Lieu";
         };
     }
 
@@ -627,50 +624,16 @@ public class WorldMapScreen extends Screen {
         travelAt = System.currentTimeMillis();
     }
 
-    /* ------------------------------------------------------------ helpers */
-
-    private static void frame(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int color) {
-        DrawHelpers.outlinedRect(ctx, x, y, w, h, 0, color);
-    }
-
-    /** Texte centré sur (cx, top) avec contour sombre 1 px (lisible sur toute la carte). */
-    private void drawOutlined(GuiGraphicsExtractor ctx, Font f, Component c, float cx, float top, float scale, float alpha) {
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(cx - f.width(c) * scale / 2f, top);
-        ctx.pose().scale(scale, scale);
-        int o = Colors.withAlpha(OUTLINE, alpha), in = Colors.withAlpha(INK, alpha);
-        for (int[] d : new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {1, 1}}) {
-            ctx.text(f, c, d[0], d[1], o, false);
-        }
-        ctx.text(f, c, 0, 0, in, false);
-        ctx.pose().popMatrix();
-    }
-
-    private void drawScaled(GuiGraphicsExtractor ctx, Font f, Component c, float cx, float top,
-                            float scale, int color, boolean shadow) {
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(cx - f.width(c) * scale / 2f, top);
-        ctx.pose().scale(scale, scale);
-        ctx.text(f, c, 0, 0, color, shadow);
-        ctx.pose().popMatrix();
-    }
-
-    private void drawScaledLeft(GuiGraphicsExtractor ctx, Font f, Component c, float x, float y, float scale, int color) {
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x, y);
-        ctx.pose().scale(scale, scale);
-        ctx.text(f, c, 0, 0, color, false);
-        ctx.pose().popMatrix();
-    }
+    /* ------------------------------------------------------------ infobulle */
 
     private void drawTip(GuiGraphicsExtractor ctx, Font f, MapData.Place p, int mx, int my) {
-        Component c = Component.literal(p.name());
-        Component t = RebornFont.arcade(typeLabel(p.type()));
-        int w = f.width(c) + Math.round(f.width(t) * 0.7f) + 18, h = 14;
-        int x = Math.min(mx + 10, this.width - w - 4), y = Math.max(my - 20, 4);
-        ctx.fill(x, y, x + w, y + h, 0xF2EADCB4);
-        frame(ctx, x, y, w, h, 0xFF8C6E48);
-        ctx.text(f, c, x + 5, y + 3, PARCH_INK, false);
-        drawScaledLeft(ctx, f, t, x + 9 + f.width(c), y + 4, 0.7f, 0xFF9C8462);
+        Component c = DaKit.inter(p.name());
+        Component t = DaKit.arcade(typeLabel(p.type()));
+        float tw = DaKit.largeurFin(f, t);
+        int w = Math.round(DaKit.largeur8(f, c) + tw) + 22;
+        int x = Math.min(mx + 10, this.width - w - 12), y = Math.max(my - 22, 14);
+        CarteArt.etiquette(ctx, x, y, w);
+        DaKit.inter8(ctx, f, c, x + 8, y + 8, DaKit.ENCRE, 0);
+        DaKit.arcFin(ctx, f, t, x + w - 8, y + 6.25f, DaKit.ENCRE_ROUGE, 2, false);
     }
 }

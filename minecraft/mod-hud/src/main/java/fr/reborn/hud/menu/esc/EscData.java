@@ -43,11 +43,14 @@ public final class EscData {
 
     private EscData() {}
 
-    /** Une chaîne Twitch suivie (nom d'affichage nettoyé + URL brute). */
-    public record Stream(String name, String url, boolean live, String title) {}
+    /**
+     * Une chaîne Twitch suivie (nom d'affichage nettoyé + URL brute) ; {@code nomTexte} / {@code titreTexte} :
+     * versions d'origine (accents, casse), pour le texte Inter.
+     */
+    public record Stream(String name, String url, boolean live, String title, String nomTexte, String titreTexte) {}
 
-    /** Une patch note (champs nettoyés ArcadePix + URL web brute). */
-    public record PatchNote(String version, String title, String date, String url) {}
+    /** Une patch note (champs nettoyés ArcadePix + URL web brute) ; {@code titreTexte} : titre d'origine (Inter). */
+    public record PatchNote(String version, String title, String date, String url, String titreTexte) {}
 
     /** Snapshot immuable exposé au render thread (volatile publish). */
     public record Snapshot(
@@ -130,7 +133,8 @@ public final class EscData {
                     arcadeSafe(optStr(o, "version", null), 16),
                     arcadeSafe(optStr(o, "title", null), 60),
                     formatDate(optStr(o, "publishedAt", null)),
-                    optStr(o, "url", null)));
+                    optStr(o, "url", null),
+                    texte(optStr(o, "title", null), 90)));
             }
         }
 
@@ -144,7 +148,9 @@ public final class EscData {
                     arcadeSafe(optStr(o, "name", null), 20),
                     optStr(o, "url", null),
                     o.has("live") && !o.get("live").isJsonNull() && o.get("live").getAsBoolean(),
-                    arcadeSafe(optStr(o, "title", null), 60)));
+                    arcadeSafe(optStr(o, "title", null), 60),
+                    texte(optStr(o, "name", null), 24),
+                    texte(optStr(o, "title", null), 90)));
             }
         }
 
@@ -161,6 +167,14 @@ public final class EscData {
         try {
             return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : def;
         } catch (Exception e) { return def; }
+    }
+
+    /** Texte d'origine nettoyé pour Inter : caractères de contrôle retirés, espaces réduits, tronqué. */
+    private static String texte(String s, int max) {
+        if (s == null) return null;
+        String out = s.replaceAll("\\p{Cntrl}", " ").replaceAll(" {2,}", " ").trim();
+        if (out.length() > max) out = out.substring(0, max).trim() + "…";
+        return out;
     }
 
     /** ISO-8601 → "12 MAI 2026" (majuscules ASCII pour ArcadePix). */

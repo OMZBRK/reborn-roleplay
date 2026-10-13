@@ -1,8 +1,6 @@
 package fr.reborn.hud.menu.settings;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -60,40 +58,17 @@ public class SliderWidget extends AbstractWidget {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
-        // Layout : track à gauche prend ~70% de la largeur, valeur à droite.
+        // Réglette d'or à gauche (~72 % de la largeur), valeur Inter 9 or clair à droite.
         int x0 = getX();
         int y0 = getY();
         int w = getWidth();
         int h = getHeight();
-
         int trackW = Math.round(w * 0.72f);
-        int trackH = 4;
-        int trackY = y0 + (h - trackH) / 2;
-        int trackX = x0;
-
-        // BG track.
-        DrawHelpers.roundedRect(ctx, trackX, trackY, trackW, trackH, 2, Colors.BORDER_STRONG);
-
-        // Fill (accent).
         float t = max > min ? (value - min) / (float) (max - min) : 0f;
-        int fillW = Math.round(trackW * t);
-        DrawHelpers.roundedRect(ctx, trackX, trackY, fillW, trackH, 2, Colors.ACCENT);
+        ReglagesArt.reglette(ctx, x0, y0 + (h - 10) / 2, trackW, t, isHovered() || dragging);
 
-        // Thumb (cercle).
-        int thumbX = trackX + fillW;
-        int thumbY = trackY + trackH / 2;
-        DrawHelpers.disc(ctx, thumbX, thumbY, 6,
-            isHovered() || dragging ? Colors.ACCENT_HOVER : Colors.WHITE_PURE);
-        DrawHelpers.disc(ctx, thumbX, thumbY, 4, Colors.ACCENT);
-
-        // Valeur à droite (texte body).
         var tr = client.font;
-        String valueStr = value + suffix;
-        Component valueText = RebornFont.bold(valueStr);
-        int valueW = tr.width(valueText);
-        int valueX = x0 + w - valueW - 4;
-        int valueY = y0 + (h - tr.lineHeight) / 2;
-        ctx.text(tr, valueText, valueX, valueY, Colors.FOREGROUND, false);
+        DaKit.inter9(ctx, tr, DaKit.inter(value + suffix), x0 + w - 2, y0 + h / 2f, DaKit.OR_CLAIR, 2);
     }
 
     @Override

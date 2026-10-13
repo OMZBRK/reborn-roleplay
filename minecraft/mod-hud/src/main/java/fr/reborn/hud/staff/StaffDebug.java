@@ -42,7 +42,9 @@ public final class StaffDebug {
             case 155 -> shot(mc);                                                  // Fiche (bas : casier, infractions)
             case 160 -> confirm(mc);
             case 180 -> shot(mc);                                                  // Confirmation
-            case 185 -> click(mc, "chat");
+            case 181 -> { if (mc.gui.screen() instanceof StaffScreen s) s.debugSeal(); }
+            case 184 -> shot(mc);                                                  // Sceau 罰 apposé
+            case 187 -> click(mc, "chat");
             case 200 -> shot(mc);                                                  // Chat staff
             case 205 -> click(mc, "journal");
             case 220 -> shot(mc);                                                  // Journal

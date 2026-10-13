@@ -1,8 +1,6 @@
 package fr.reborn.hud.menu.settings;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -52,33 +50,16 @@ public class SegmentedControl extends AbstractWidget {
 
         int segW = getWidth() / options.length;
         int h = getHeight();
-
-        // Container BG.
-        DrawHelpers.roundedOutlinedRect(ctx, getX(), getY(), getWidth(), h, 6,
-            Colors.SURFACE, Colors.BORDER_STRONG);
+        int py = getY() + (h - 16) / 2;
 
         for (int i = 0; i < options.length; i++) {
             Option opt = options[i];
             int sx = getX() + i * segW;
             boolean active = opt.value.equals(currentValue);
             boolean hovered = isHovered() && mouseX >= sx && mouseX < sx + segW;
-
-            if (active) {
-                // Segment actif — fond accent soft + texte blanc.
-                DrawHelpers.roundedRect(ctx, sx + 2, getY() + 2, segW - 4, h - 4, 4,
-                    Colors.ACCENT);
-            } else if (hovered) {
-                DrawHelpers.roundedRect(ctx, sx + 2, getY() + 2, segW - 4, h - 4, 4,
-                    Colors.SURFACE_ELEVATED);
-            }
-
-            Component label = RebornFont.body(opt.label);
-            int labelW = tr.width(label);
-            int textX = sx + (segW - labelW) / 2;
-            int textY = getY() + (h - tr.lineHeight) / 2;
-            int color = active ? Colors.WHITE_PURE :
-                        hovered ? Colors.FOREGROUND : Colors.FOREGROUND_SUBTLE;
-            ctx.text(tr, label, textX, textY, color, false);
+            ReglagesArt.segment(ctx, sx + 1, py, segW - 3, active ? 2 : hovered ? 1 : 0);
+            int color = active ? DaKit.CREME : hovered ? 0xFFE8DCC0 : 0xFFB8A47E;
+            DaKit.inter8(ctx, tr, DaKit.inter(opt.label), sx + segW / 2f - 1, py + 8, color, 1);
         }
     }
 

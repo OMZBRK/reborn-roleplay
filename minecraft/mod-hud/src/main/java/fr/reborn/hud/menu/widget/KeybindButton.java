@@ -1,9 +1,6 @@
 package fr.reborn.hud.menu.widget;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -94,16 +91,13 @@ public final class KeybindButton extends Button {
         boolean live = isListening();
         boolean hovered = isHovered();
 
-        int bg = live ? Colors.ACCENT_SOFT : (hovered ? Colors.SURFACE_ELEVATED : Colors.SURFACE);
-        int border = live ? Colors.ACCENT : (hovered ? Colors.ACCENT_HOVER : Colors.BORDER_STRONG);
-        DrawHelpers.roundedOutlinedRect(ctx, x0, y0, w, h, 6, bg, border);
-
-        Component label = live
-            ? RebornFont.bold("> " + mapping.getTranslatedKeyMessage().getString() + " <")
-            : RebornFont.bold(mapping.getTranslatedKeyMessage().getString());
-        int color = live ? Colors.WHITE_PURE : (hovered ? Colors.WHITE_PURE : Colors.FOREGROUND);
-        int tw = tr.width(label);
-        ctx.text(tr, label, x0 + (w - tw) / 2, y0 + (h - tr.lineHeight) / 2 + 1, color, false);
+        // Touche laquée des Paramètres (plaque segmentée) : rouge en écoute, éclaircie au survol.
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(ctx, x0 + 1, y0 + (h - 16) / 2, w - 3, live ? 2 : hovered ? 1 : 0);
+        String key = mapping.getTranslatedKeyMessage().getString();
+        String label = live ? "› " + key + " ‹" : key;
+        int color = live || hovered ? fr.reborn.hud.ui.DaKit.CREME : fr.reborn.hud.ui.DaKit.OR_CLAIR;
+        fr.reborn.hud.ui.DaKit.inter9(ctx, tr, fr.reborn.hud.ui.DaKit.inter(fr.reborn.hud.ui.DaKit.ellipse(tr, label, w - 10)),
+            x0 + w / 2f - 1, y0 + h / 2f, color, 1);
     }
 
     @Override

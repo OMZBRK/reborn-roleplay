@@ -4,8 +4,8 @@ import fr.reborn.hud.RebornHudClient;
 import fr.reborn.hud.element.HudElement;
 import fr.reborn.hud.element.HudElementBounds;
 import fr.reborn.hud.element.HudElementState;
-import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -47,11 +47,11 @@ public final class ChatPanel {
     private static final int GAP = 6;
 
     // ─── palette Reborn (kit commun des menus) ───
-    private static final int LACQUER = 0xFFA0182B, LACQUER_HI = 0xFFC01E35, LACQUER_LO = 0xFF7A1322;
-    private static final int GOLD = 0xFFD9A95E, GOLD_SOFT = 0xFF3A2C14, GOLD_DARK = 0xFF5A4012;
+    private static final int LACQUER = 0xFFA0182B;
+    private static final int GOLD = 0xFFD9A95E;
     private static final int IVORY = 0xFFF5E9D0, IVORY_2 = 0xFFC2B59A, MUTED = 0xFF7A6E5C;
-    private static final int WASHI = 0xFFE3D1A8, WASHI_2 = 0xFFD4BF91, INK = 0xFF2A1A10, INK_SOFT = 0xFF8A7250;
-    private static final int WOOD_DARK = 0xFF2E1C11, NIGHT = 0x0A0608, NIGHT_HI = 0x1C0E12;
+    private static final int WASHI = 0xFFE3D1A8, INK = 0xFF2A1A10, INK_SOFT = 0xFF8A7250;
+    private static final int NIGHT = 0x0A0608, NIGHT_HI = 0x1C0E12;
 
     private static final ChatTab[] TABS = {ChatTab.GENERAL, ChatTab.RP, ChatTab.GROUP};
 
@@ -165,15 +165,12 @@ public final class ChatPanel {
         int alpha = clamp(Math.round(s.opacity * 2.55f), 110, 248);
         int bt = y + h - BEAM;
 
-        // ombre portée, cadre bois sombre, laque noire
-        ctx.fill(x + 2, y + 3, x + w + 3, y + h + 3, 0x55000000);
-        chamfer(ctx, x - 1, y - 1, w + 2, h + 2, WOOD_DARK);
-        chamferGradient(ctx, x, y, w, h, (alpha << 24) | NIGHT_HI, (alpha << 24) | NIGHT);
+        // fond des messages à l'opacité du joueur, puis le cadre (poutres, montants, ferrures, maki-e) en une coupe
+        ctx.fillGradient(x + 3, y + HDR, x + w - 3, bt, (alpha << 24) | NIGHT_HI, (alpha << 24) | NIGHT);
+        DaKit.coupe(ctx, CADRE, x, y, w + 4, h + 4, 0, 0, 334, 224, 84, 62, 334, 224);
 
         // ─── messages ───
         int ax0 = x + PAD + 1, ax1 = x + w - PAD - 4, ay0 = y + HDR + 5, ay1 = bt - 4;
-        DrawHelpers.outlinedRect(ctx, x + 3, y + HDR + 2, w - 6, bt - y - HDR - 4, 0, 0x30D9A95E);
-        seigaiha(ctx, x + w - 4 - 66, ay1 - 30, 66, 30);
         int tw = ax1 - ax0;
         List<ChatEntry> list = entries(all, true);
         int[] hs = new int[list.size()];
@@ -223,11 +220,9 @@ public final class ChatPanel {
             Component lbl = RebornFont.body("Derniers messages");
             int pw = font.width(lbl) + 24, px = x + w / 2 - pw / 2, py = ay1 - 16;
             boolean hov = in(mx, my, px, py, pw, 13);
-            chamfer(ctx, px - 1, py - 1, pw + 2, 15, WOOD_DARK);
-            chamferGradient(ctx, px, py, pw, 13, hov ? 0xFFD62440 : LACQUER_HI, LACQUER_LO);
-            DrawHelpers.outlinedRect(ctx, px + 1, py + 1, pw - 2, 11, 0, 0x80D9A95E);
-            icon(ctx, I_DOWN, px + 5, py + 2, 9, IVORY);
-            ctx.text(font, lbl, px + 17, py + 3, IVORY, false);
+            DaKit.coupeH(ctx, PIECES, px, py, pw + 1, 0, 0, 120, 15, 4, 150, 120);
+            icon(ctx, I_DOWN, px + 5, py + 2, 9, hov ? 0xFFFFFFFF : IVORY);
+            ctx.text(font, lbl, px + 17, py + 3, hov ? 0xFFFFFFFF : IVORY, false);
             BTNS.add(new Btn(px, py, pw, 13, () -> scrollPx = 0));
         }
 
@@ -240,65 +235,11 @@ public final class ChatPanel {
         }
     }
 
-    /** Poutre de bois veinée (en-tête et saisie), biseau clair, filet d'or côté laque. */
-    private static void beam(GuiGraphicsExtractor ctx, int x, int y, int w, int h, boolean top) {
-        if (top) chamferGradient(ctx, x, y, w, h, 0xFF744C2C, 0xFF4E321D);
-        else chamferGradient(ctx, x, y, w, h, 0xFF5E3D23, 0xFF3A2414);
-        long seed = top ? 0x2545F4914F6CDD1DL : 0x5DEECE66DL;
-        for (int yy = y + 1; yy < y + h - 1; yy += 2) {
-            seed = seed * 6364136223846793005L + 1442695040888963407L;
-            int a = 0x14 + (int) ((seed >>> 59) & 0x0F);
-            int sx = x + 2 + (int) ((seed >>> 33) % 40);
-            ctx.fill(sx, yy, x + w - 2 - (int) ((seed >>> 45) % 40), yy + 1, (a << 24) | 0x1A0D06);
-        }
-        ctx.fill(x + 1, y, x + w - 1, y + 1, 0x40FFE0B0);
-        if (top) {
-            ctx.fill(x, y + h, x + w, y + h + 1, GOLD_SOFT);
-            ctx.fill(x, y + h + 1, x + w, y + h + 3, 0x50000000);
-        } else {
-            ctx.fill(x, y - 1, x + w, y, GOLD_SOFT);
-        }
-    }
-
-    /** Ferrure d'angle dorée miniature (L de 7 px, rivet). */
-    private static void kanagu(GuiGraphicsExtractor ctx, int cx, int cy, int dx, int dy) {
-        int L = 7, T = 2;
-        int x0 = Math.min(cx, cx + dx * L), x1 = Math.max(cx, cx + dx * L);
-        int y0 = Math.min(cy, cy + dy * L), y1 = Math.max(cy, cy + dy * L);
-        int ty0 = dy > 0 ? cy : cy - T, ty1 = dy > 0 ? cy + T : cy;
-        int tx0 = dx > 0 ? cx : cx - T, tx1 = dx > 0 ? cx + T : cx;
-        ctx.fill(x0, ty0, x1, ty1, GOLD);
-        ctx.fill(tx0, y0, tx1, y1, GOLD);
-        ctx.fill(x0, ty0, x1, ty0 + 1, 0xFFF2D49A);
-        int rx = cx + dx * 4 - (dx < 0 ? 1 : 0), ry = cy + dy * 4 - (dy < 0 ? 1 : 0);
-        ctx.fill(rx, ry, rx + 1, ry + 1, GOLD);
-    }
-
-    /** Motif du chat : vagues seigaiha dorées très discrètes, comme un maki-e dans le coin de la laque. */
-    private static void seigaiha(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        ctx.enableScissor(x, y, x + w, y + h);
-        for (int r = 0; r < h / 5 + 2; r++) {
-            int cy = y + r * 5 + 6;
-            int off = (r % 2) * 6;
-            for (int cx = x - 6 + off; cx < x + w + 12; cx += 12) {
-                int fade = Math.max(0, Math.min(0x22, (cx - x) * 0x22 / Math.max(1, w) + (cy - y) * 0x0C / Math.max(1, h)));
-                if (fade < 4) continue;
-                DrawHelpers.ring(ctx, cx, cy, 6, 1, (fade << 24) | 0xD9A95E);
-                DrawHelpers.ring(ctx, cx, cy, 3, 1, ((fade * 2 / 3) << 24) | 0xD9A95E);
-            }
-        }
-        ctx.disableScissor();
-    }
-
     private static void header(GuiGraphicsExtractor ctx, Font font, List<GuiMessage> all, int tick, int x, int y, int w,
                                double mx, double my) {
-        beam(ctx, x, y, w, HDR, true);
-        kanagu(ctx, x, y, 1, 1);
-        kanagu(ctx, x + w, y, -1, 1);
-
         // poignée de déplacement
         boolean hovH = dragging || in(mx, my, x + 3, y + 3, 14, 13);
-        if (hovH) chamfer(ctx, x + 3, y + 3, 14, 13, 0x40000000);
+        if (hovH) DaKit.blit(ctx, PIECES, x + 3, y + 3, 0, 104, 14, 13, 150, 120);
         icon(ctx, I_GRIP, x + 4, y + 4, 12, hovH ? GOLD : IVORY_2);
         BTNS.add(new Btn(x + 3, y + 3, 14, 13, ChatPanel::beginDrag, true));
 
@@ -306,13 +247,12 @@ public final class ChatPanel {
         int tx = x + 20;
         if (searchOpen) {
             int fw = searchX - 4 - tx;
-            chamfer(ctx, tx - 1, y + 2, fw + 2, 15, WOOD_DARK);
-            chamferGradient(ctx, tx, y + 3, fw, 13, WASHI, WASHI_2);
-            if (searchFocused) ctx.fill(tx + 1, y + 14, tx + fw - 1, y + 15, LACQUER);
+            DaKit.coupeH(ctx, WASHI_TEX, tx, y + 2, fw, 0, 18, 300, 15, 4, 304, 34);
+            if (searchFocused) ctx.fill(tx + 1, y + 15, tx + fw - 1, y + 16, LACQUER);
             boolean empty = query.isEmpty();
             String shown = empty ? "Rechercher dans le chat…" : query;
             while (!empty && font.width(shown) > fw - 12 && shown.length() > 1) shown = shown.substring(1);
-            ctx.text(font, Component.literal(shown), tx + 5, y + 5, empty ? INK_SOFT : INK, false);
+            ctx.text(font, Component.literal(shown), tx + 5, y + 6, empty ? INK_SOFT : INK, false);
             if (searchFocused && (System.currentTimeMillis() / 500) % 2 == 0) {
                 int cx = tx + 5 + (empty ? 0 : font.width(shown));
                 ctx.fill(cx, y + 4, cx + 1, y + 14, INK);
@@ -323,18 +263,10 @@ public final class ChatPanel {
                 Component lbl = RebornFont.body(t.displayName());
                 int pw = font.width(lbl) + 14;
                 boolean sel = t == tab, hov = !sel && in(mx, my, tx, y + 3, pw, 13);
-                if (sel) {
-                    chamfer(ctx, tx - 1, y + 2, pw + 2, 15, WOOD_DARK);
-                    chamferGradient(ctx, tx, y + 3, pw, 13, LACQUER_HI, LACQUER_LO);
-                    ctx.fill(tx + 2, y + 14, tx + pw - 2, y + 15, GOLD);
-                } else if (hov) {
-                    chamfer(ctx, tx, y + 3, pw, 13, 0x40000000);
-                }
+                if (sel) DaKit.coupeH(ctx, PIECES, tx, y + 3, pw + 1, 0, 0, 120, 15, 4, 150, 120);
+                else if (hov) DaKit.coupeH(ctx, PIECES, tx, y + 3, pw + 1, 0, 16, 120, 15, 4, 150, 120);
                 ctx.text(font, lbl, tx + 7, y + 5, sel ? IVORY : hov ? WASHI : IVORY_2, false);
-                if (!sel && unread(all, t, tick) > 0) {
-                    ctx.fill(tx + pw - 6, y + 2, tx + pw - 1, y + 7, GOLD);
-                    ctx.fill(tx + pw - 5, y + 3, tx + pw - 2, y + 6, LACQUER_HI);
-                }
+                if (!sel && unread(all, t, tick) > 0) DaKit.blit(ctx, PIECES, tx + pw - 6, y + 2, 122, 0, 5, 5, 150, 120);
                 final ChatTab target = t;
                 BTNS.add(new Btn(tx, y + 3, pw, 13, () -> setTab(target)));
                 tx += pw + 2;
@@ -343,71 +275,62 @@ public final class ChatPanel {
 
         // loupe
         boolean hovS = in(mx, my, searchX, iy, 14, 14);
-        if (hovS || searchOpen) chamfer(ctx, searchX, iy, 14, 13, searchOpen ? 0x60000000 : 0x40000000);
+        if (hovS || searchOpen) DaKit.blit(ctx, PIECES, searchX, iy, 0, 104, 14, 13, 150, 120);
         icon(ctx, I_SEARCH, searchX + 2, iy + 1, 11, hovS || searchOpen ? GOLD : IVORY_2);
         BTNS.add(new Btn(searchX, iy, 14, 14, ChatPanel::toggleSearch));
 
         // réglages
         boolean hovG = in(mx, my, gearX, iy, 14, 14);
-        if (hovG) chamfer(ctx, gearX, iy, 14, 13, 0x40000000);
+        if (hovG) DaKit.blit(ctx, PIECES, gearX, iy, 0, 104, 14, 13, 150, 120);
         icon(ctx, I_SETTINGS, gearX + 2, iy + 1, 11, hovG ? GOLD : IVORY_2);
         BTNS.add(new Btn(gearX, iy, 14, 14, ChatPanel::openSettings));
     }
 
     /** Poutre basse : sceau de mode, bande de washi pour écrire, emoji, envoi laqué. Embouts dorés. */
     private static void inputBeam(GuiGraphicsExtractor ctx, Font font, int x, int bt, int w, double mx, double my) {
-        beam(ctx, x, bt, w, BEAM, false);
-        kanagu(ctx, x, bt + BEAM, 1, -1);
-        kanagu(ctx, x + w, bt + BEAM, -1, -1);
         int rowY = bt + (BEAM - ROW) / 2;
 
         // mode : dire / narrer (/me)
         Component chip = RebornFont.body(meMode ? "/me" : "Dire");
         int cw = Math.max(30, font.width(chip) + 14), cx = x + PAD - 1;
         boolean hovC = in(mx, my, cx, rowY, cw, ROW);
-        chamfer(ctx, cx - 1, rowY - 1, cw + 2, ROW + 2, WOOD_DARK);
-        if (meMode) chamferGradient(ctx, cx, rowY, cw, ROW, hovC ? 0xFFD62440 : LACQUER_HI, LACQUER_LO);
-        else chamferGradient(ctx, cx, rowY, cw, ROW, hovC ? 0xFF3A2416 : 0xFF2A1A10, 0xFF1A0F09);
-        DrawHelpers.outlinedRect(ctx, cx + 1, rowY + 1, cw - 2, ROW - 2, 0, meMode ? GOLD : 0x90D9A95E);
+        plaque(ctx, cx, rowY, cw, meMode, hovC);
         ctx.text(font, chip, cx + cw / 2 - font.width(chip) / 2, rowY + 4, IVORY, false);
         BTNS.add(new Btn(cx, rowY, cw, ROW, ChatPanel::toggleMode));
 
         // envoyer
         int sx = x + w - PAD + 1 - ROW;
         boolean hovSend = in(mx, my, sx, rowY, ROW, ROW);
-        chamfer(ctx, sx - 1, rowY - 1, ROW + 2, ROW + 2, WOOD_DARK);
-        chamferGradient(ctx, sx, rowY, ROW, ROW, hovSend ? 0xFFD62440 : LACQUER_HI, LACQUER_LO);
-        DrawHelpers.outlinedRect(ctx, sx + 1, rowY + 1, ROW - 2, ROW - 2, 0, GOLD);
+        plaque(ctx, sx, rowY, ROW, true, hovSend);
         icon(ctx, I_SEND, sx + 3, rowY + 3, 10, IVORY);
         BTNS.add(new Btn(sx, rowY, ROW, ROW, ChatPanel::send));
 
         // emoji
         int ex = sx - 4 - ROW;
         boolean hovE = in(mx, my, ex, rowY, ROW, ROW) || EmojiPicker.isOpen();
-        chamfer(ctx, ex - 1, rowY - 1, ROW + 2, ROW + 2, WOOD_DARK);
-        chamferGradient(ctx, ex, rowY, ROW, ROW, hovE ? 0xFF3A2416 : 0xFF2A1A10, 0xFF1A0F09);
-        DrawHelpers.outlinedRect(ctx, ex + 1, rowY + 1, ROW - 2, ROW - 2, 0, hovE ? GOLD : 0x90D9A95E);
+        plaque(ctx, ex, rowY, ROW, false, hovE);
         icon(ctx, I_EMOJI, ex + 3, rowY + 3, 10, hovE ? 0xFFF2D49A : GOLD);
         emojiRect = new int[]{ex, rowY, ROW, ROW};
         BTNS.add(new Btn(ex, rowY, ROW, ROW, EmojiPicker::toggle));
 
         // bande de washi
         int fx = cx + cw + 5, fw = ex - 5 - fx;
-        chamfer(ctx, fx - 1, rowY - 1, fw + 2, ROW + 2, WOOD_DARK);
-        chamferGradient(ctx, fx, rowY, fw, ROW, WASHI, WASHI_2);
-        long seed = 0x9E3779B97F4A7C15L;
-        for (int i = 0; i < fw / 6; i++) {
-            seed = seed * 6364136223846793005L + 1442695040888963407L;
-            int fxx = fx + 2 + (int) ((seed >>> 33) % Math.max(1, fw - 8));
-            int fyy = rowY + 2 + (int) ((seed >>> 17) % (ROW - 4));
-            ctx.fill(fxx, fyy, fxx + 2 + (int) ((seed >>> 50) % 4), fyy + 1, 0x14462810);
-        }
+        DaKit.coupeH(ctx, WASHI_TEX, fx, rowY, fw, 0, 0, 300, ROW, 4, 304, 34);
         if (!searchFocused()) ctx.fill(fx + 1, rowY + ROW - 2, fx + fw - 1, rowY + ROW - 1, 0x70A0182B);
         fieldRect = new int[]{fx + 5, rowY, fw - 10, ROW};
     }
 
     private static Identifier tex(String name) {
         return Identifier.fromNamespaceAndPath("reborn-hud", "textures/gui/chat/" + name + ".png");
+    }
+
+    /** Cadre, pièces et washi du panneau (tools/gen_chat_textures.py, contrat en tête du script). */
+    static final Identifier CADRE = DaKit.tex("chat", "cadre"), PIECES = DaKit.tex("chat", "pieces"),
+            WASHI_TEX = DaKit.tex("chat", "washi"), EMOJIS = DaKit.tex("chat", "emojis");
+
+    /** Plaque 16 de la poutre basse (mode, emoji, envoi) : laque noire ou rouge, survol. */
+    private static void plaque(GuiGraphicsExtractor ctx, int x, int y, int w, boolean rouge, boolean survol) {
+        DaKit.coupeH(ctx, PIECES, x, y, w + 1, 0, 32 + ((rouge ? 2 : 0) + (survol ? 1 : 0)) * 18, 120, 17, 4, 150, 120);
     }
 
     private static final Identifier I_GRIP = tex("chat_grip"), I_SEARCH = tex("chat_search"),
@@ -426,11 +349,6 @@ public final class ChatPanel {
         ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
     }
 
-    private static void chamferGradient(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int top, int bottom) {
-        ctx.fillGradient(x + 1, y, x + w - 1, y + h, top, bottom);
-        ctx.fillGradient(x, y + 1, x + 1, y + h - 1, top, bottom);
-        ctx.fillGradient(x + w - 1, y + 1, x + w, y + h - 1, top, bottom);
-    }
 
     private static void drawEntry(GuiGraphicsExtractor ctx, Font font, ChatEntry e, boolean header, int x, int y, int w,
                                   String playerName, ChatSettings s, int a, boolean shadow, boolean record) {

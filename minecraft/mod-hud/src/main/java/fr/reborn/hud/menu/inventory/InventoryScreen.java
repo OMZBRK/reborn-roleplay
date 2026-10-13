@@ -1,17 +1,14 @@
 package fr.reborn.hud.menu.inventory;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
 import fr.reborn.hud.menu.stats.StatsData;
-import fr.reborn.hud.ui.style.IconTextures;
+import fr.reborn.hud.ui.DaKit;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -24,18 +21,23 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * <b>Sacoche « inrō »</b> — l'inventaire RP dans la DA Reborn (carte, fiche, Échap) : plaque laquée suspendue + onglets pendus, cadres laque/or, bande de parchemin.
+ * <b>Sacoche « inrō »</b> — l'inventaire RP, au niveau de la fiche shinobi (DA §4.1) : plaque laquée suspendue,
+ * onglets pendus (装 équipement, 飾 cosmétique), plaque 閉, aides en cabochons.
  *
- * <p>Le monde reste visible derrière (voile plus sombre sur les bords).
+ * <p>Le monde reste visible derrière, sous un voile et une vignette.
  *
- * <p>Signature : un <b>inrō</b> (boîte laquée à étages portée à la ceinture). Chaque étage est un
- * filtre (Tout / Sac / Divers) ; l'étage actif glisse vers le <b>plateau</b> laqué rouge qui contient
- * le sac. Le cordon porte une perle (ojime) et un netsuke. La barre 1-9 est une <b>obi</b> de soie.
- * Gauche : personnage sur un socle laqué, cosmétiques / sac sur des plaques à coins dorés.
+ * <p>Signature : un <b>inrō</b> (boîte laquée à étages portée à la ceinture). Chaque étage est un filtre
+ * (全 Tout / 袋 Sac / 雑 Divers) ; l'étage actif glisse vers le <b>plateau</b> de laque sang-de-bœuf qui contient
+ * le sac. Le cordon passe par les flancs, perle (ojime) en haut, netsuke en bas. La barre 1-9 est une <b>obi</b> de
+ * soie indigo. Gauche : personnage sur un socle laqué, cosmétiques / sac sur des plaques à ferrures.
  *
- * <p>Logique inchangée : clic gauche = prendre / poser, clic droit = panneau d'actions,
- * clic hors cases avec un objet en main = jeter. Textures {@code textures/gui/sacoche/*}
- * ({@code tools/ui-art/gen_sacoche_art.py}), sons {@code sounds/sacoche/*}.
+ * <p>Tout le décor fixe est une texture ({@code textures/gui/sacoche/*}, générées par
+ * {@code tools/gen_sacoche_textures.py}, contrat en tête du script), posée à 1 texel = 1 GUI ; le code ne dessine que
+ * ce qui bouge (étage actif, cases survolées, jauge, objets, texte). Mise en page calculée à l'init (et au
+ * redimensionnement), pas à chaque image.
+ *
+ * <p>Logique inchangée : clic gauche = prendre / poser, clic droit = panneau d'actions, clic hors cases avec un objet
+ * en main = jeter. Sons {@code sounds/sacoche/*}.
  */
 public class InventoryScreen extends Screen {
 
@@ -43,14 +45,20 @@ public class InventoryScreen extends Screen {
     private static final String[] FILTER_NAME = {"TOUT", "SAC", "DIVERS"};
     private static final int TAB_EQUIP = 0, TAB_COSM = 1;
 
-    // Palette DA Reborn.
-    private static final int GOLD = 0xFFF6CC78, GOLD_D = 0xFFAA8034, CREAM = 0xFFFAEED6, LACQ = 0xFF5C1418,
-        BLACK_L = 0xFF0E0A0C, SHINE = 0xFF46383C, MUTED = 0xFFC8B4A0;
+    // ─── textures (contrat : tools/gen_sacoche_textures.py) ───
+    private static Identifier t(String n) { return DaKit.tex("sacoche", n); }
+    private static final Identifier VIGNETTE = t("vignette"), ENTETE = t("entete"), ONGLETS = t("onglets"),
+        FERMER = t("fermer"), INRO = t("inro"), CORDON = t("cordon"), PLATEAU3 = t("plateau3"), PLATEAU4 = t("plateau4"),
+        CASES = t("cases"), PLAQUES = t("plaques"), KANJI = t("kanji"), SOCLE = t("socle"), OBI = t("obi"),
+        CHAMP = t("champ"), PIECES = t("pieces"), DETAIL = t("detail"), BOUTONS = t("boutons");
 
-    private static Identifier tex(String p) { return Identifier.fromNamespaceAndPath("reborn", "textures/gui/" + p + ".png"); }
-    private static final Identifier GLOW = tex("stats/glow"),
-        TIER_ON = tex("sacoche/tier_on"), TIER_OFF = tex("sacoche/tier_off"), NETSUKE = tex("sacoche/netsuke"),
-        OJIME = tex("sacoche/ojime"), OBI = tex("sacoche/obi"), PEDESTAL = tex("sacoche/pedestal");
+    private static final int CELL = 22, PITCH = 25, COLS = 9;
+    private static final int TRAY_W = 246, INRO_W = 52, TIER_H = 34, TIER_PITCH = 35, TIER_SLIDE = 18;
+    private static final int PLATE = 22, LEFT_W = 176, MODEL_W = 116;
+    private static final int DETAIL_W = 200, DETAIL_H = 150;
+    /** Cases de l'atlas cases.png. */
+    private static final int C_SAC = 0, C_SAC_SURVOL = 1, C_SAC_CHOISIE = 2, C_ABSENTE = 3, C_CEINT = 4,
+        C_CEINT_SURVOL = 5, C_CEINT_CHOISIE = 6, C_DEPOT = 7;
 
     private static String lastSearch = "";
     private static int lastFilter = F_ALL;
@@ -73,26 +81,39 @@ public class InventoryScreen extends Screen {
     private SlotItem selMeta = null;
     private int anchorX, anchorY;
     private final List<Btn> panelButtons = new ArrayList<>();
+    private DetailCache detail;
 
     private String hoverRef = null, lastHoverRef = null;
     private CosmeticSlot hoverCosm = null;
     private final long openedAt = System.currentTimeMillis();
     private long lastFrame = openedAt;
-    private boolean closing;
+    private boolean closing, opened;
     private final float[] tierAnim = new float[FILTER_NAME.length];
 
-    // Layout (coordonnées écran GUI).
-    private int margin, top, bottom;
-    private int leftX, leftW;
-    private int inroX, inroW = 52, tierH = 38, tierGap = 6, tierY0;
-    private int trayX, trayY, trayW, trayH;
-    private int gridX, gridY, cell, gap = 4, gridCols = 9, hotbarY, obiX, obiY, obiW, obiH;
-    private int cosmLeftX, cosmRightX, cosmY0, cosmSize = 22, cosmGap = 8;
-    private static final int COSM_ROWS = 5;
-    private int modelX1, modelY1, modelX2, modelY2;
-    private int closeX, closeY, closeSize = 14;
-    private int plateX, plateW = 168, plateH = 28, tabsY;
-    private int tabEquipX0, tabEquipX1, tabCosmX0, tabCosmX1;
+    // ─── mise en page (coordonnées GUI), calculée par layout() ───
+    private int rows, trayX, trayY, trayH, gridX, gridY, obiX, obiY, hotbarX0, hotbarY;
+    private int inroX, tierY0;
+    private int leftX, colY0, platePitch, cosmLeftX, cosmRightX;
+    private int modelX1, modelY1, modelX2, modelY2, feetY, modelSize;
+    private int contentTop, contentBottom;
+    private int closeX, closeY = 12;
+    private final int[] tabX = new int[2];
+    private int tabY = 44;
+
+    // ─── textes calculés une fois ───
+    private static final Component TITRE = DaKit.arcade("Sacoche"), ECHAP = DaKit.arcade("Echap"),
+        AUCUN_SAC = DaKit.arcade("Aucun sac equipe"), LIB_SAC = DaKit.arcade("Sac");
+    private static final Component[] TAB_LIB = {DaKit.arcade("Equipement"), DaKit.arcade("Cosmetique")};
+    private static final Component[] FILTER_LIB = {DaKit.arcade("Tout"), DaKit.arcade("Sac"), DaKit.arcade("Divers")};
+    private static final Component[] NUM = new Component[9];
+    static {
+        for (int i = 0; i < 9; i++) NUM[i] = DaKit.arcade(String.valueOf(i + 1));
+    }
+    private Component identite, compte, poidsVal, tierLib;
+    private DaKit.Etiq etiqPoids;
+    private DaKit.Paragraphe sansSac;
+    private float poidsRatio;
+    private int jaugeX, jaugeW;
 
     public InventoryScreen() {
         super(Component.literal("Inventaire"));
@@ -104,13 +125,19 @@ public class InventoryScreen extends Screen {
         this.snap = InventoryData.get();
         this.tierDisplay = BagTiers.fromName(snap.bagTier()).displayName;
         this.extraSlots = Math.max(0, snap.extraSlots());
-        this.bagRows = (extraSlots + gridCols - 1) / gridCols;
+        this.bagRows = (extraSlots + COLS - 1) / COLS;
+        this.tierLib = DaKit.arcade(tierDisplay);
+        this.compte = DaKit.arcade(extraSlots > 0 ? itemCount() + " / " + extraSlots + "  -  " + tierDisplay : "Aucun sac");
+        double cur = snap.curWeight(), max = snap.maxWeight();
+        this.poidsRatio = (float) (max > 0 ? cur / max : 0);
+        this.poidsVal = DaKit.inter(String.format(Locale.FRANCE, "%.1f / %.1f kg", cur, max));
     }
 
     /** Met à jour l'écran avec le nouvel état sans le recréer (filtre, onglet, recherche, objet en main conservés). */
     public void refresh() {
         loadSnapshot();
         if (selRef != null && stackAt(selRef) == null) closePanel();
+        if (search != null) layout();
     }
 
     @Override
@@ -119,17 +146,26 @@ public class InventoryScreen extends Screen {
         if (mc.gui != null) {
             ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(true);
         }
-        search = new EditBox(this.font, 0, 0, 120, 12, Component.literal("search"));
+        search = new EditBox(this.font, 0, 0, 108, 10, Component.literal("search"));
         search.setMaxLength(48);
-        search.setHint(Component.literal("Chercher…"));
+        search.setHint(DaKit.inter("Chercher…").withColor(0xFF8E6A5A));
         search.setBordered(false);
-        search.setTextColor(CREAM);
+        search.setTextColor(DaKit.CREME);
         search.setValue(lastSearch);
         search.setResponder(v -> lastSearch = v);
         this.addRenderableWidget(search);
         for (int i = 0; i < tierAnim.length; i++) tierAnim[i] = i == filter ? 1f : 0f;
-        send("open");
-        RebornSounds.playReborn("sacoche.open", 1.0f, 0.55f);
+        etiqPoids = DaKit.etiq(this.font, "Poids");
+        sansSac = DaKit.paragraphe(this.font, "Portez une sacoche, une bandoulière ou un sac pour débloquer de "
+            + "l'espace de rangement.", 180, DaKit.S7, 9, 3);
+        identite = DaKit.inter(DaKit.ellipse(this.font, identity(), Math.round(150 / DaKit.S7)));
+        if (!opened && DEBUG != null) debugState();
+        layout();
+        if (!opened) {   // premier init seulement (pas au redimensionnement)
+            opened = true;
+            send("open");
+            RebornSounds.playReborn("sacoche.open", 1.0f, 0.55f);
+        }
     }
 
     @Override
@@ -154,64 +190,109 @@ public class InventoryScreen extends Screen {
         return false;
     }
 
-    // ─────────── Layout ───────────
+    /**
+     * Banc de captures, <b>inactif en production</b> : {@code REBORN_SACOCHE_DEBUG} (client de dev, avec
+     * {@code REBORN_AUDIT=1 REBORN_AUDIT_ONLY=menu_sacoche}) impose un état : {@code detail} (panneau d'actions
+     * ouvert), {@code porte} (objet en main), {@code equip} (onglet équipement), {@code vide} (aucun sac),
+     * {@code lourd} (sac lourd plein, surcharge). Valeurs combinables séparées par des virgules.
+     */
+    private static final String DEBUG = System.getenv("REBORN_SACOCHE_DEBUG");
+
+    private void debugState() {
+        java.util.Set<String> o = java.util.Set.of(DEBUG.split(","));
+        if (o.contains("vide")) {
+            snap = new InventoryData.Snapshot("NONE", 9, 0, 12.0, 3.1, null, new SlotItem[0], snap.equipped());
+        }
+        if (o.contains("lourd")) {
+            SlotItem[] bag = new SlotItem[36];
+            String[] mats = {"minecraft:iron_sword", "minecraft:arrow", "minecraft:bread", "minecraft:paper", "minecraft:leather",
+                "minecraft:string", "minecraft:bone", "minecraft:flint", "minecraft:feather"};
+            for (int i = 0; i < 31; i++) bag[i] = new SlotItem(mats[i % mats.length], null, 1 + i % 5, "Objet " + i, 1.6);
+            snap = new InventoryData.Snapshot("SAC_LOURD", 9, 36, 57.0, 59.6, snap.bagItem(), bag, snap.equipped());
+        }
+        if (o.contains("vide") || o.contains("lourd")) {
+            tierDisplay = BagTiers.fromName(snap.bagTier()).displayName;
+            extraSlots = snap.extraSlots();
+            bagRows = (extraSlots + COLS - 1) / COLS;
+            tierLib = DaKit.arcade(tierDisplay);
+            compte = DaKit.arcade(extraSlots > 0 ? itemCount() + " / " + extraSlots + "  -  " + tierDisplay : "Aucun sac");
+            poidsRatio = (float) (snap.curWeight() / snap.maxWeight());
+            poidsVal = DaKit.inter(String.format(Locale.FRANCE, "%.1f / %.1f kg", snap.curWeight(), snap.maxWeight()));
+        }
+        if (o.contains("equip")) tab = TAB_EQUIP;
+        if (o.contains("porte")) { carriedRef = "B0"; carriedStack = stackAt("B0"); }
+        if (o.contains("detail")) {
+            SlotItem m = new SlotItem("minecraft:paper", null, 1, "Parchemin — Katon : Gōkakyū", 0.3,
+                "Rassembler le chakra dans la poitrine et souffler une grande boule de feu. Se lit à la bibliothèque.",
+                "Rare", "lire", "Lire");
+            selRefDebug = m;
+        }
+    }
+
+    private SlotItem selRefDebug;
+
+    // ─────────── Mise en page (une fois, et à chaque changement de taille ou de sac) ───────────
     private void layout() {
-        margin = Math.max(12, (int) (this.width * 0.03f));
-        plateX = (this.width - plateW) / 2;
-        tabsY = 8 + plateH + 6;
-        top = tabsY + 22;
-        bottom = this.height - 22;
-        closeX = this.width - margin - closeSize;
-        closeY = 10;
+        int W = this.width, H = this.height;
+        rows = Math.max(3, Math.min(4, bagRows));
+        trayH = 30 + rows * PITCH - 3 + 30;
+        int obiH = 30;
+        contentTop = 84;
+        contentBottom = H - 26;
+        int availH = contentBottom - contentTop;
 
-        // Bloc central compact : [personnage + plaques] [inrō] [plateau ajusté au sac], centré à l'écran.
-        leftW = clampI((int) (this.width * 0.26f), 168, 230);
-        int rows = Math.max(3, bagRows);
-        int availTrayW = this.width - 2 * margin - leftW - 14 - inroW - 30;
-        cell = clampI((availTrayW - 40 - (gridCols - 1) * gap) / gridCols, 18, 30);
-        // Hauteur : le plateau + l'obi doivent tenir entre l'en-tête et le bas.
-        int maxH = bottom - top;
-        while (cell > 18 && (30 + rows * (cell + gap) - gap + 26) + 10 + (cell + 10) > maxH) cell--;
-        int gridW = gridCols * cell + (gridCols - 1) * gap;
-        trayW = gridW + 40;
-        trayH = 30 + rows * (cell + gap) - gap + 26;
-        obiH = cell + 10;
-        cosmSize = clampI((maxH - 30) / COSM_ROWS - cosmGap, 18, 28);
-        int colH = COSM_ROWS * (cosmSize + cosmGap) - cosmGap;
-        int blockH = Math.max(trayH + 10 + obiH, Math.max(colH + 24, FILTER_NAME.length * (tierH + tierGap) + 40));
-        int blockW = leftW + 14 + inroW + 30 + trayW;
-        int blockTop = top + Math.max(0, (maxH - blockH) / 2);
-        leftX = Math.max(margin, (this.width - blockW) / 2);
-        inroX = leftX + leftW + 14;
-        trayX = inroX + inroW + 30;
-        trayY = blockTop;
-        gridX = trayX + 20;
+        // bloc : [plaques | personnage | plaques] [inrō] [plateau + obi]
+        int rightH = trayH + 8 + obiH;
+        platePitch = Math.max(26, Math.min(36, (Math.max(rightH, 176) - PLATE) / 4));
+        int colH = 4 * platePitch + PLATE;
+        int blockH = Math.max(rightH, Math.max(colH + 26, 176));
+        int blockTop = contentTop + Math.max(0, (availH - blockH) * 2 / 5);
+        int blockW = LEFT_W + 26 + INRO_W + 30 + TRAY_W + 12;
+        leftX = Math.max(8, (W - blockW) / 2);
+
+        inroX = leftX + LEFT_W + 26;
+        trayX = inroX + INRO_W + 30;
+        trayY = blockTop + Math.max(0, (blockH - rightH) / 2);
+        gridX = trayX + 12;
         gridY = trayY + 30;
-        obiX = trayX - 20;
-        obiW = trayW + 20;
-        obiY = trayY + trayH + 10;
-        hotbarY = obiY + 5;
-        tierY0 = trayY + 4;
+        obiX = trayX - 12;
+        obiY = trayY + trayH + 8;
+        hotbarX0 = obiX + 24;
+        hotbarY = obiY + 4;
+        tierY0 = trayY + 6;
 
-        // Gauche : deux colonnes de plaques autour du personnage, socle sous ses pieds.
-        cosmY0 = blockTop + (blockH - colH) / 2;
-        cosmLeftX = leftX + 4;
-        cosmRightX = leftX + leftW - 4 - cosmSize;
-        modelX1 = cosmLeftX + cosmSize + 10;
-        modelX2 = cosmRightX - 10;
-        modelY1 = blockTop;
-        modelY2 = blockTop + blockH - 14;
+        colY0 = blockTop + Math.max(0, (blockH - 26 - colH) / 2);
+        cosmLeftX = leftX;
+        cosmRightX = leftX + LEFT_W - PLATE;
+        modelX1 = leftX + PLATE + 8;
+        modelX2 = modelX1 + MODEL_W;
+        feetY = colY0 + colH + 2;
+        modelSize = Math.max(40, Math.min(80, Math.round(colH * 0.46f)));
+        modelY1 = feetY - Math.round(1.8f * modelSize);
+        modelY2 = feetY;
 
-        // Recherche : en tête du plateau.
-        search.setX(trayX + 14);
-        search.setY(trayY + 9);
-        search.setWidth(Math.min(150, trayW / 2));
+        // en-tête
+        tabX[0] = W / 2 - 92;
+        tabX[1] = W / 2 + 92;
+        closeX = W - 34;
+
+        // recherche (champ dans l'en-tête du plateau)
+        search.setX(trayX + 17);
+        search.setY(trayY + 10);
+        search.setWidth(110);
+
+        // jauge de poids : POIDS [rainure] valeur
+        int vw = (int) Math.ceil(DaKit.largeur8(this.font, poidsVal));
+        jaugeX = trayX + 14 + Math.round(etiqPoids.w()) + 8;
+        jaugeW = Math.max(40, Math.min(204, trayX + TRAY_W - 14 - vw - 8 - jaugeX));
+        detail = null;
+        if (selRefDebug != null) {
+            openPanel("B3", stackAt("B3"), selRefDebug, bagX(3), bagY(3));
+            selRefDebug = null;
+        }
     }
 
-    private int hotbarX(int i) {
-        int w = 9 * cell + 8 * gap;
-        return obiX + (obiW - w) / 2 + i * (cell + gap);
-    }
+    private int hotbarX(int i) { return hotbarX0 + i * PITCH; }
 
     // ─────────── Accès items ───────────
     private ItemStack stackAt(String ref) {
@@ -292,17 +373,12 @@ public class InventoryScreen extends Screen {
     }
 
     // ─────────── Rendu ───────────
-    /** Fond : le monde reste visible, sous un voile plus marqué sur les bords (lisibilité). */
+    /** Fond : le monde reste visible, sous un voile et une vignette (texture lisse étirée). */
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
         float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 180f);
-        int w = this.width, h = this.height;
-        int center = Colors.withAlpha(0xFF08040C, 0.30f * appear), edge = Colors.withAlpha(0xFF08040C, 0.62f * appear);
-        ctx.fill(0, 0, w, h, center);
-        ctx.fillGradient(0, 0, w, h / 4, edge, 0x00000000);
-        ctx.fillGradient(0, h - h / 4, w, h, 0x00000000, edge);
-        fr.reborn.hud.menu.DrawHelpers.horizontalGradient(ctx, 0, 0, w / 5, h, edge, 0x00000000);
-        fr.reborn.hud.menu.DrawHelpers.horizontalGradient(ctx, w - w / 5, 0, w / 5, h, 0x00000000, edge);
+        ctx.fill(0, 0, this.width, this.height, DaKit.argb(0x08040A, 0.34f * appear));
+        DaKit.etire(ctx, VIGNETTE, 0, 0, this.width, this.height, 160, 90, DaKit.blanc(appear));
     }
 
     @Override
@@ -311,7 +387,6 @@ public class InventoryScreen extends Screen {
             InventoryData.Snapshot cur = InventoryData.get();
             if (cur != snap) refresh();
         }
-        layout();
         long now = System.currentTimeMillis();
         float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
         lastFrame = now;
@@ -327,19 +402,19 @@ public class InventoryScreen extends Screen {
 
         drawHeader(ctx, f, mouseX, mouseY);
 
-        // Gauche : socle + personnage + plaques.
-        ctx.blit(RenderPipelines.GUI_TEXTURED, PEDESTAL, (modelX1 + modelX2) / 2 - 48, modelY2 - 4, 0f, 0f, 96, 16, 96, 16);
+        // gauche : socle + personnage + plaques
+        DaKit.blit(ctx, SOCLE, (modelX1 + modelX2) / 2 - 60, feetY - 6, 0, 0, 124, 22, 124, 22);
         drawPreview(ctx, mouseX, mouseY);
-        if (tab == TAB_COSM) drawCosmetics(ctx, f, mouseX, mouseY);
+        if (tab == TAB_COSM) drawCosmetics(ctx, mouseX, mouseY);
         else drawEquip(ctx, f, mouseX, mouseY);
 
-        // Inrō + plateau + obi : glissent légèrement à l'ouverture.
+        // inrō + plateau + obi : glissent légèrement à l'ouverture
         int slideX = Math.round((1f - appear) * 24);
         ctx.pose().pushMatrix();
         ctx.pose().translate(slideX, 0);
         drawInro(ctx, f, time, mouseX - slideX, mouseY);
-        drawTray(ctx, f, mouseX - slideX, mouseY);
-        drawObi(ctx, f, mouseX - slideX, mouseY);
+        drawTray(ctx, f);
+        drawObi(ctx, f);
         ctx.pose().popMatrix();
         search.extractRenderState(ctx, mouseX, mouseY, delta);
 
@@ -360,37 +435,32 @@ public class InventoryScreen extends Screen {
         drawHint(ctx, f);
     }
 
-    // ── en-tête : plaque laquée suspendue + onglets pendus + croix ──
+    // ── en-tête : plaque laquée suspendue, onglets pendus, plaque 閉 ──
     private void drawHeader(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
         int cx = this.width / 2;
-        line(ctx, cx - 64, 0, cx - 56, 8, 0xFFC8A05A);
-        line(ctx, cx + 64, 0, cx + 56, 8, 0xFFC8A05A);
-        frame(ctx, plateX, 8, plateW, plateH, LACQ, GOLD);
-        outline(ctx, plateX + 2, 10, plateW - 4, plateH - 4, 0xFF963C32);
-        scaledCentered(ctx, f, "SACOCHE", cx, 11, 1.25f, CREAM);
-        scaledCentered(ctx, f, identity(), cx, 25, 0.75f, 0xFFE6B4A0);
+        DaKit.blit(ctx, ENTETE, cx - 160, 0, 0, 0, 320, 48, 320, 48);
+        DaKit.arcX1(ctx, f, TITRE, cx, 19, DaKit.CREME, 1, true);
+        DaKit.inter7o(ctx, f, identite, cx, 47, DaKit.argb(0xE8DCC0, 0.78f), 1);
 
-        String[] labels = {"EQUIPEMENT", "COSMETIQUE"};
-        int[] tabs = {TAB_EQUIP, TAB_COSM};
-        int gapT = 6, total = 0;
-        int[] w = new int[2];
-        for (int i = 0; i < 2; i++) { w[i] = arcW(f, labels[i], 0.75f) + 14; total += w[i]; }
-        total += gapT;
-        int x = cx - total / 2;
         for (int i = 0; i < 2; i++) {
-            boolean act = tab == tabs[i];
-            boolean hov = mx >= x && mx < x + w[i] && my >= tabsY && my < tabsY + 12;
-            ctx.fill(x + w[i] / 2, 8 + plateH, x + w[i] / 2 + 1, tabsY, 0xFFC8A05A);
-            frame(ctx, x, tabsY, w[i], 12, act ? 0xFFAA1E22 : (hov ? 0xFF4A2830 : 0xFF3C1E24), act ? GOLD : 0xFF6E4646);
-            scaledCentered(ctx, f, labels[i], x + w[i] / 2, tabsY + 3, 0.75f, act ? CREAM : MUTED);
-            if (i == 0) { tabEquipX0 = x; tabEquipX1 = x + w[i]; } else { tabCosmX0 = x; tabCosmX1 = x + w[i]; }
-            x += w[i] + gapT;
+            boolean act = tab == (i == 0 ? TAB_EQUIP : TAB_COSM);
+            boolean hov = !act && inTab(i, mx, my);
+            int etat = act ? 2 : hov ? 1 : 0;
+            DaKit.blit(ctx, ONGLETS, tabX[i] - 13, 36, (i * 3 + etat) * 26, 0, 26, 36, 156, 36);
+            int ty = act ? 46 : 44;
+            DaKit.arcFin(ctx, f, TAB_LIB[i], tabX[i], ty + 26, act ? DaKit.CREME : hov ? DaKit.CREME_VAL : 0xFFA88C5E, 1, act);
         }
-        // Croix de fermeture : petite plaque laquée.
-        boolean h = mx >= closeX && mx < closeX + closeSize && my >= closeY && my < closeY + closeSize;
-        frame(ctx, closeX, closeY, closeSize, closeSize, h ? 0xFFAA1E22 : BLACK_L, h ? GOLD : GOLD_D);
-        int c = h ? CREAM : MUTED, ccx = closeX + closeSize / 2, ccy = closeY + closeSize / 2;
-        for (int k = -3; k <= 3; k++) { ctx.fill(ccx + k, ccy + k, ccx + k + 1, ccy + k + 1, c); ctx.fill(ccx + k, ccy - k, ccx + k + 1, ccy - k + 1, c); }
+        boolean h = inClose(mx, my);
+        DaKit.blit(ctx, FERMER, closeX - 13, 0, h ? 26 : 0, 0, 26, 38, 52, 38);
+        DaKit.arcFin(ctx, f, ECHAP, closeX, 41, h ? DaKit.CREME_VAL : 0xFFA88C5E, 1, false);
+    }
+
+    private boolean inTab(int i, double mx, double my) {
+        return DaKit.dans(mx, my, tabX[i] - 12, 40, 24, 38);
+    }
+
+    private boolean inClose(double mx, double my) {
+        return DaKit.dans(mx, my, closeX - 12, 10, 24, 36);
     }
 
     private static String identity() {
@@ -401,31 +471,26 @@ public class InventoryScreen extends Screen {
             var p = Minecraft.getInstance().player;
             if (p != null) b.append(p.getName().getString());
         }
-        if (s != null && s.rank() != null && !s.rank().isBlank() && !"?".equals(s.rank())) b.append("  -  ").append(s.rank());
-        if (s != null && s.village() != null && !s.village().isBlank()) b.append("  -  ").append(s.village());
-        return fr.reborn.hud.menu.esc.EscData.arcadeSafe(b.toString(), 48);
+        if (s != null && s.rank() != null && !s.rank().isBlank() && !"?".equals(s.rank())) b.append(" · ").append(s.rank());
+        if (s != null && s.village() != null && !s.village().isBlank()) b.append(" · ").append(s.village());
+        return b.toString();
     }
 
     private void drawPreview(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || modelX2 <= modelX1 || modelY2 <= modelY1) return;
-        int size = Math.max(40, Math.min(150, (int) ((modelY2 - modelY1) * 0.42f)));
         net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(ctx,
-            modelX1, modelY1, modelX2, modelY2, size, 0.0f, mouseX, (modelY1 + modelY2) / 2f, mc.player);
+            modelX1, modelY1, modelX2, modelY2, modelSize, 0f, mouseX, (modelY1 + modelY2) / 2f, mc.player);
     }
 
-    /** Plaque laquée à coins dorés (kanagu). state : 0 neutre, 1 survol, 2 occupé, 3 déposable. */
-    private void plate(GuiGraphicsExtractor ctx, int x, int y, int s, int state) {
-        ctx.fill(x + 1, y + 2, x + s + 1, y + s + 2, 0x80000000);
-        int border = switch (state) { case 1, 3 -> GOLD; case 2 -> 0xFFD2A050; default -> GOLD_D; };
-        frame(ctx, x, y, s, s, state == 3 ? 0xFF1E2A14 : BLACK_L, border);
-        ctx.fill(x + 3, y + 2, x + s / 2 + 2, y + 3, SHINE);
-        int k = state == 1 || state == 3 ? CREAM : GOLD;
-        ctx.fill(x, y, x + 4, y + 1, k); ctx.fill(x, y, x + 1, y + 4, k);
-        ctx.fill(x + s - 4, y, x + s, y + 1, k); ctx.fill(x + s - 1, y, x + s, y + 4, k);
-        ctx.fill(x, y + s - 1, x + 4, y + s, k); ctx.fill(x, y + s - 4, x + 1, y + s, k);
-        ctx.fill(x + s - 4, y + s - 1, x + s, y + s, k); ctx.fill(x + s - 1, y + s - 4, x + s, y + s, k);
-        if (state == 1) glow(ctx, x + s / 2f, y + s / 2f, s * 2, Colors.withAlpha(0xFFFFD28C, 0.18f));
+    /** Plaque cosmétique (plaques.png) : 0 vide, 1 survol, 2 garnie, 3 dépôt possible ; kanji si vide. */
+    private void plaque(GuiGraphicsExtractor ctx, int x, int y, SlotItem it, int kanji, boolean droppable, int mx, int my) {
+        boolean hover = DaKit.dans(mx, my, x, y, PLATE, PLATE);
+        int etat = droppable ? 3 : hover ? 1 : it != null ? 2 : 0;
+        DaKit.blit(ctx, PLAQUES, x, y, etat * 24, 0, 24, 25, 96, 25);
+        if (it != null) ctx.item(it.toStack(), x + 3, y + 3);
+        else if (kanji >= 0) DaKit.blit(ctx, KANJI, x + 3, y + 3, kanji * 16, 0, 16, 16, 176, 16,
+            hover || droppable ? DaKit.blanc(1f) : DaKit.blanc(0.75f));
     }
 
     private int[] cosmPos(CosmeticSlot cs) {
@@ -435,81 +500,62 @@ public class InventoryScreen extends Screen {
             if (o.side == cs.side) row++;
         }
         int x = cs.side == 0 ? cosmLeftX : cosmRightX;
-        return new int[] { x, cosmY0 + row * (cosmSize + cosmGap) };
+        return new int[] { x, colY0 + row * platePitch };
     }
 
-    private void cosmoSlot(GuiGraphicsExtractor ctx, Font f, int x, int y, SlotItem it, String kanji, int mx, int my, boolean droppable) {
-        boolean hover = mx >= x && mx < x + cosmSize && my >= y && my < y + cosmSize;
-        plate(ctx, x, y, cosmSize, droppable ? 3 : hover ? 1 : (it != null ? 2 : 0));
-        if (it != null) ctx.item(it.toStack(), x + (cosmSize - 16) / 2, y + (cosmSize - 16) / 2);
-        else if (kanji != null) {
-            Component k = Component.literal(kanji);
-            ctx.text(f, k, x + (cosmSize - f.width(k)) / 2, y + (cosmSize - 8) / 2, 0x80C8A05A, false);
-        }
-    }
-
-    private void drawCosmetics(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
+    private void drawCosmetics(GuiGraphicsExtractor ctx, int mx, int my) {
         for (CosmeticSlot cs : CosmeticSlot.values()) {
             int[] p = cosmPos(cs);
-            cosmoSlot(ctx, f, p[0], p[1], snap.equipped().get(cs), cs.kanji, mx, my, carriedStack != null);
-            if (mx >= p[0] && mx < p[0] + cosmSize && my >= p[1] && my < p[1] + cosmSize) hoverCosm = cs;
+            plaque(ctx, p[0], p[1], snap.equipped().get(cs), cs.ordinal(), carriedStack != null, mx, my);
+            if (DaKit.dans(mx, my, p[0], p[1], PLATE, PLATE)) hoverCosm = cs;
         }
     }
 
     private void drawEquip(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
-        int x = cosmLeftX, y = cosmY0;
-        cosmoSlot(ctx, f, x, y, snap.bagItem(), "袋", mx, my, carriedStack != null && isBagStack(carriedStack));
-        scaledText(ctx, f, "SAC", x, y + cosmSize + 4, 0.75f, MUTED);
+        int x = cosmLeftX, y = colY0;
+        plaque(ctx, x, y, snap.bagItem(), 10, carriedStack != null && isBagStack(carriedStack), mx, my);
+        DaKit.arcFin(ctx, f, LIB_SAC, x + PLATE / 2f, y + PLATE + 5, DaKit.OR_ETIQ, 1, false);
+        DaKit.arcFin(ctx, f, tierLib, x + PLATE / 2f, y + PLATE + 12, DaKit.CREME_VAL, 1, false);
     }
 
     // ── inrō : étages = filtres ──
     private void drawInro(GuiGraphicsExtractor ctx, Font f, float time, int mx, int my) {
-        int cordX = inroX + inroW / 2;
-        int endY = tierY0 + FILTER_NAME.length * (tierH + tierGap);
-        // Cordon (himo) derrière les étages, perle en haut, netsuke en bas.
-        for (int y = trayY - 14; y < endY + 8; y += 2) {
-            ctx.fill(cordX, y, cordX + 1, y + 1, 0xFFC4322C);
-            ctx.fill(cordX + 1, y + 1, cordX + 2, y + 2, 0xFF8C1E1E);
-        }
+        DaKit.blit(ctx, CORDON, inroX - 4, tierY0 - 20, 0, 0, 60, 176, 60, 176);
         float pulse = 0.5f + 0.5f * (float) Math.sin(time * 2.4f);
-        glow(ctx, cordX + 1, trayY - 10, 18, Colors.withAlpha(0xFFFFDC8C, 0.25f + 0.25f * pulse));
-        ctx.blit(RenderPipelines.GUI_TEXTURED, OJIME, cordX - 4, trayY - 15, 0f, 0f, 10, 10, 10, 10);
+        DaKit.blit(ctx, PIECES, inroX - 4 + 26, tierY0 - 20 + 4, 30, 44, 9, 9, 210, 74, DaKit.blanc(0.35f + 0.5f * pulse));
         for (int i = 0; i < FILTER_NAME.length; i++) {
-            int y = tierY0 + i * (tierH + tierGap);
-            int dx = Math.round(tierAnim[i] * 18);
+            int y = tierY0 + i * TIER_PITCH;
+            int dx = Math.round(tierAnim[i] * TIER_SLIDE);
             boolean act = filter == i;
-            boolean hov = mx >= inroX && mx < inroX + inroW + 18 && my >= y && my < y + tierH;
-            ctx.fill(inroX + dx + 1, y + 2, inroX + dx + inroW + 1, y + tierH + 2, 0x90000000);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, act ? TIER_ON : TIER_OFF, inroX + dx, y, 0f, 0f, inroW, tierH, 52, 38);
-            scaledCentered(ctx, f, FILTER_NAME[i], inroX + dx + inroW / 2, y + 9, 0.75f, act ? GOLD : (hov ? CREAM : 0xFFC8B08C));
-            if (act) {   // glissière dorée vers le plateau
-                ctx.fill(inroX + dx + inroW, y + tierH / 2, trayX, y + tierH / 2 + 1, GOLD_D);
+            boolean hov = !act && DaKit.dans(mx, my, inroX, y, INRO_W + TIER_SLIDE, TIER_H);
+            int etat = act ? 2 : hov ? 1 : 0;
+            if (act) {   // glissière d'or vers le plateau
+                ctx.fill(inroX + dx + INRO_W, y + TIER_H / 2, trayX, y + TIER_H / 2 + 1, DaKit.OR_ETEINT);
+                ctx.fill(inroX + dx + INRO_W, y + TIER_H / 2 + 1, trayX, y + TIER_H / 2 + 2, 0xFF1A0608);
             }
+            DaKit.blit(ctx, INRO, inroX - 1 + dx, y, etat * 56, i * 36, 56, 36, 168, 108);
+            DaKit.arcFin(ctx, f, FILTER_LIB[i], inroX + dx + INRO_W / 2f, y + 24, act ? DaKit.CREME : hov ? DaKit.CREME_VAL
+                : 0xFFA88C5E, 1, act);
         }
-        ctx.blit(RenderPipelines.GUI_TEXTURED, NETSUKE, cordX - 10, endY + 6, 0f, 0f, 22, 22, 22, 22);
     }
 
     // ── plateau laqué : recherche, compteur, grille du sac, poids ──
-    private void drawTray(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
-        ctx.fill(trayX + 2, trayY + 3, trayX + trayW + 2, trayY + trayH + 3, 0x90000000);
-        frame(ctx, trayX, trayY, trayW, trayH, 0xD80E0A0C, GOLD);
-        kanagu(ctx, trayX, trayY, trayW, trayH, 6, GOLD);
-        int ix = trayX + 5, iy = trayY + 5, iw = trayW - 10, ih = trayH - 10;
-        // Laque rouge légèrement transparente : le monde transparaît derrière le plateau.
-        ctx.fillGradient(ix, iy, ix + iw, iy + ih, 0xD2961A1C, 0xD2600E12);
-        ctx.fill(ix, iy, ix + iw, iy + 1, 0xFFBE3C38);
-        // recherche : simple filet sous le champ
-        ctx.fill(search.getX() - 2, trayY + 21, search.getX() + search.getWidth(), trayY + 22, 0xFFC86E5A);
-        String count = extraSlots > 0 ? itemCount() + " / " + extraSlots + "  -  " + tierDisplay : "AUCUN SAC";
-        String cap = fr.reborn.hud.menu.esc.EscData.arcadeSafe(count, 40);
-        scaledText(ctx, f, cap, trayX + trayW - 12 - arcW(f, cap, 0.75f), trayY + 11, 0.75f, GOLD);
+    private void drawTray(GuiGraphicsExtractor ctx, Font f) {
+        DaKit.blit(ctx, rows == 4 ? PLATEAU4 : PLATEAU3, trayX, trayY, 0, 0, TRAY_W + 4, trayH + 4, TRAY_W + 4, trayH + 4);
+        DaKit.blit(ctx, CHAMP, trayX + 12, trayY + 6, 0, 0, 124, 14, 124, 14);
+        DaKit.arcFin(ctx, f, compte, trayX + TRAY_W - 14, trayY + 11.25f, DaKit.OR, 2, true);
 
         if (extraSlots > 0) {
-            for (int i = 0; i < extraSlots; i++) {
-                ItemStack st = stackAt("B" + i);
+            int n = rows * COLS;
+            for (int i = 0; i < n; i++) {
+                int x = bagX(i), y = bagY(i);
+                if (i >= extraSlots) { DaKit.blit(ctx, CASES, x, y, C_ABSENTE * 22, 0, 22, 22, 176, 22, DaKit.blanc(0.5f)); continue; }
+                String ref = "B" + i;
+                boolean hov = ref.equals(hoverRef), sel = ref.equals(selRef);
+                cell(ctx, x, y, sel ? C_SAC_CHOISIE : hov && carriedStack != null ? C_DEPOT : hov ? C_SAC_SURVOL : C_SAC);
+                ItemStack st = ref.equals(carriedRef) ? null : stackAt(ref);
                 SlotItem meta = snap.bag() != null && i < snap.bag().length ? snap.bag()[i] : null;
-                drawCell(ctx, f, bagX(i), bagY(i), ("B" + i).equals(carriedRef) ? null : st, meta,
-                    hoverRef != null && hoverRef.equals("B" + i), ("B" + i).equals(selRef), false);
+                drawItem(ctx, f, x, y, st, meta);
             }
         } else {
             drawNoBagNotice(ctx, f);
@@ -517,142 +563,135 @@ public class InventoryScreen extends Screen {
         drawWeight(ctx, f);
     }
 
-    /** Case du plateau : creux de laque rouge, liseré doré ; survol = halo. */
-    private void drawCell(GuiGraphicsExtractor ctx, Font f, int x, int y, ItemStack st, SlotItem meta, boolean hover, boolean sel, boolean belt) {
-        int fill = belt ? 0xFF101430 : (sel ? 0xFF7A1A1E : 0xFF460A0E);
-        ctx.fill(x, y, x + cell, y + cell, fill);
-        ctx.fill(x, y, x + cell, y + 1, belt ? 0xFF080A1C : 0xFF28060A);
-        ctx.fill(x, y, x + 1, y + cell, belt ? 0xFF080A1C : 0xFF28060A);
-        outline(ctx, x, y, cell, cell, hover ? 0xFFFFECBE : (belt ? 0xFFD2B064 : 0xFFB0803C));
-        if (hover) glow(ctx, x + cell / 2f, y + cell / 2f, cell * 2, Colors.withAlpha(0xFFFFD28C, 0.22f));
-        if (st != null && !st.isEmpty()) {
-            int ix = x + (cell - 16) / 2, iy = y + (cell - 16) / 2;
-            ctx.item(st, ix, iy);
-            ctx.itemDecorations(f, st, ix, iy);
-            if (meta != null && meta.rarity != null)
-                ctx.fill(x + 2, y + cell - 3, x + cell - 2, y + cell - 2, Colors.withAlpha(rarityColor(meta.rarity), 0.95f));
-            if (dimmed(st, meta)) ctx.fill(x + 1, y + 1, x + cell - 1, y + cell - 1, 0x99200408);
-        }
+    private static void cell(GuiGraphicsExtractor ctx, int x, int y, int etat) {
+        DaKit.blit(ctx, CASES, x, y, etat * 22, 0, 22, 22, 176, 22);
+    }
+
+    private void drawItem(GuiGraphicsExtractor ctx, Font f, int x, int y, ItemStack st, SlotItem meta) {
+        if (st == null || st.isEmpty()) return;
+        ctx.item(st, x + 3, y + 3);
+        ctx.itemDecorations(f, st, x + 3, y + 3);
+        if (meta != null && meta.rarity != null) ctx.fill(x + 3, y + 19, x + 19, y + 20, rarityColor(meta.rarity));
+        if (dimmed(st, meta)) ctx.fill(x + 1, y + 1, x + 21, y + 21, 0xA8140306);
     }
 
     private void drawWeight(GuiGraphicsExtractor ctx, Font f) {
-        double cur = snap.curWeight(), max = snap.maxWeight();
-        double ratio = max > 0 ? cur / max : 0;
-        float r = (float) Math.min(1.0, ratio);
-        int y = trayY + trayH - 14, x0 = trayX + 14;
-        scaledText(ctx, f, "POIDS", x0, y - 2, 0.75f, 0xFFF0C8AA);
-        int lx = x0 + 34, lw = Math.max(40, Math.min(180, trayW / 2 - 40));
-        ctx.fill(lx, y + 1, lx + lw, y + 2, 0xFF782824);
-        int fw = Math.round(lw * r);
-        int col = ratio > 1.0 ? 0xFFFF5A4A : GOLD;
-        if (fw > 0) ctx.fill(lx, y, lx + fw, y + 2, col);
-        String amt = String.format(Locale.ROOT, "%.1f / %.1f KG", cur, max);
-        scaledText(ctx, f, amt, lx + lw + 8, y - 2, 0.75f, ratio > 1.0 ? 0xFFFF7A6A : 0xFFF0C8AA);
+        float ym = trayY + trayH - 14;
+        boolean over = poidsRatio > 1f;
+        DaKit.etiq(ctx, f, etiqPoids, trayX + 14, ym, DaKit.OR_ETIQ);
+        int ry = Math.round(ym) - 5;
+        DaKit.coupeH(ctx, PIECES, jaugeX, ry, jaugeW, 0, 14, 204, 12, 4, 210, 74);
+        int fw = Math.round((jaugeW - 4) * Math.max(0f, Math.min(1f, poidsRatio)));
+        DaKit.blit(ctx, PIECES, jaugeX + 2, ry + 2, 0, poidsRatio > 0.9f ? 36 : 28, Math.min(196, fw), 6, 210, 74);
+        DaKit.inter8(ctx, f, poidsVal, trayX + TRAY_W - 14, ym, over ? DaKit.ROUGE_CLAIR : DaKit.CREME_VAL, 2);
     }
 
     private void drawNoBagNotice(GuiGraphicsExtractor ctx, Font f) {
-        int cx = trayX + trayW / 2, cy = trayY + trayH / 2 - 10;
-        IconTextures.drawIcon(ctx, "slot_bag", cx - 14, cy - 30, 28);
-        ctx.fill(cx - 18, cy + 2, cx + 18, cy + 3, GOLD_D);
-        scaledCentered(ctx, f, "AUCUN SAC EQUIPE", cx, cy + 10, 1f, GOLD);
-        Component l1 = Component.literal("Portez une sacoche, une bandoulière ou un sac");
-        Component l2 = Component.literal("pour débloquer de l'espace de rangement.");
-        ctx.text(f, l1, cx - f.width(l1) / 2, cy + 26, 0xFFE6C8B4, false);
-        ctx.text(f, l2, cx - f.width(l2) / 2, cy + 37, 0xFFB49682, false);
+        int cx = trayX + TRAY_W / 2, top = gridY + 4;
+        DaKit.blit(ctx, PIECES, cx - 13, top, 0, 44, 28, 28, 210, 74);
+        DaKit.arcX1(ctx, f, AUCUN_SAC, cx, top + 34, DaKit.OR, 1, true);
+        int lines = sansSac.lignes().size();
+        float y = top + 48;
+        for (int i = 0; i < lines; i++) {
+            var l = sansSac.lignes().get(i);
+            float w = f.width(l) * DaKit.S7;
+            DaKit.texteEchelle(ctx, f, l, cx - w / 2f, y + i * 9, DaKit.argb(0xE8DCC0, 0.72f), DaKit.S7);
+        }
     }
 
     // ── obi : ceinture de soie, barre 1-9 ──
-    private void drawObi(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
-        ctx.fill(obiX + 2, obiY + 3, obiX + obiW + 2, obiY + obiH + 3, 0x90000000);
-        for (int x = obiX; x < obiX + obiW; x += 48) {
-            int w = Math.min(48, obiX + obiW - x);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, OBI, x, obiY, 0f, 0f, w, obiH, w, 30, 48, 30);
-        }
+    private void drawObi(GuiGraphicsExtractor ctx, Font f) {
+        DaKit.blit(ctx, OBI, obiX, obiY, 0, 0, 274, 34, 274, 34);
         for (int i = 0; i < 9; i++) {
-            ItemStack st = stackAt("H" + i);
+            String ref = "H" + i;
             int x = hotbarX(i);
-            drawCell(ctx, f, x, hotbarY, ("H" + i).equals(carriedRef) ? null : st, null,
-                hoverRef != null && hoverRef.equals("H" + i), ("H" + i).equals(selRef), true);
-            scaledText(ctx, f, String.valueOf(i + 1), x + 2, hotbarY + cell - 6, 0.6f, 0xC0E6DCC8);
+            boolean hov = ref.equals(hoverRef), sel = ref.equals(selRef);
+            cell(ctx, x, hotbarY, sel ? C_CEINT_CHOISIE : hov && carriedStack != null ? C_DEPOT : hov ? C_CEINT_SURVOL : C_CEINT);
+            drawItem(ctx, f, x, hotbarY, ref.equals(carriedRef) ? null : stackAt(ref), null);
+            DaKit.arcFin(ctx, f, NUM[i], x + 3, hotbarY + 16, DaKit.argb(0xE8DCC0, 0.55f), 0, false);
         }
     }
 
     private void drawHint(GuiGraphicsExtractor ctx, Font f) {
-        String s = carriedStack != null
-            ? "CLIC : POSER     CLIC DEHORS : JETER     ECHAP : ANNULER"
-            : "CLIC : PRENDRE / POSER     CLIC DROIT : ACTIONS     ETAGES : FILTRES     ECHAP : FERMER";
-        int w = arcW(f, s, 0.75f) + 24, x = (this.width - w) / 2, y = this.height - 16;
-        ctx.fill(x, y, x + w, y + 12, 0xF0EADCB6);
-        outline(ctx, x, y, w, 12, 0xFF8C6E48);
-        scaledCentered(ctx, f, s, this.width / 2, y + 3, 0.75f, 0xFF503C28);
+        String[][] items = carriedStack != null
+            ? new String[][] {{"Clic", "poser"}, {"Clic dehors", "jeter"}, {"Echap", "annuler"}}
+            : new String[][] {{"Clic", "prendre / poser"}, {"Clic droit", "actions"}, {"Etages", "filtres"}, {"Echap", "fermer"}};
+        DaKit.aides(ctx, f, PIECES, 0, 0, 210, 74, items, this.width - 18, this.height - 14, 1f);
     }
 
     // ─────────── Panneau détail (ancré sur l'objet) ───────────
     private static final class Btn {
-        final String label, icon;
-        final int accent;
+        final Component label;
+        final boolean danger;
         final Runnable act;
-        int x, y, w, h;
-        Btn(String label, String icon, int accent, Runnable act) {
-            this.label = label; this.icon = icon; this.accent = accent; this.act = act;
+        int x, y, w;
+        Btn(String label, boolean danger, Runnable act) {
+            this.label = DaKit.arcade(label);
+            this.danger = danger; this.act = act;
         }
     }
 
-    private void drawDetailPanel(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
+    /** Textes du panneau détail, calculés à l'ouverture. */
+    private record DetailCache(Component nom, boolean nomArcade, Component rarete, int rareteCol, Component poids, DaKit.Paragraphe desc,
+                               DaKit.Etiq eRarete, DaKit.Etiq ePoids, int px, int py) {}
+
+    private DetailCache buildDetail(Font f) {
         String name = selMeta != null && selMeta.name != null ? selMeta.name : hoverName(selStack);
         if (name == null) name = "Objet";
+        // titre en ArcadePix ×1 s'il tient ; sinon Inter gras (minuscules, accents) coupé par « … »
+        Component nom = DaKit.arcade(name);
+        boolean arcade = f.width(nom) <= DETAIL_W - 48;
+        if (!arcade) {
+            String nm = name;
+            while (nm.length() > 1 && f.width(DaKit.interGras(nm + "…")) > DETAIL_W - 48) nm = nm.substring(0, nm.length() - 1);
+            nom = DaKit.interGras(nm.equals(name) ? name : nm.trim() + "…");
+        }
         double weight = selMeta != null ? selMeta.weight : 0;
-        String rarity = selMeta != null ? selMeta.rarity : null;
-        String desc = selMeta != null ? selMeta.desc : null;
+        String rarity = selMeta != null && selMeta.rarity != null ? selMeta.rarity : "Commune";
+        String desc = selMeta != null && selMeta.desc != null && !selMeta.desc.isBlank() ? selMeta.desc.replace('\n', ' ')
+            : "Aucune description.";
 
-        int pad = 9, w = 200;
-        List<String> descLines = new ArrayList<>();
-        if (desc != null) for (String part : desc.split("\n")) wrap(f, part, w - pad * 2 - 20, descLines);
+        int px = anchorX + CELL + 6;
+        if (px + DETAIL_W > this.width - 4) px = anchorX - DETAIL_W - 6;
+        if (px < 4) px = 4;
+        int py = Math.max(contentTop - 20, Math.min(anchorY - 8, contentBottom - DETAIL_H));
 
         buildPanelButtons();
-        int headH = 13 + (rarity != null ? 11 : 0) + (descLines.isEmpty() ? 0 : (9 + 6 + descLines.size() * 9));
-        int actH = 20;
-        int h = pad + headH + 8 + actH + pad - 6;
-
-        int px = anchorX + cell + 6;
-        if (px + w > this.width - 4) px = anchorX - w - 6;
-        if (px < 4) px = 4;
-        int py = anchorY;
-        if (py + h > bottom) py = bottom - h;
-        if (py < top) py = top;
-
-        ctx.fill(px + 2, py + 3, px + w + 2, py + h + 3, 0x90000000);
-        frame(ctx, px, py, w, h, 0xF60E0A0C, GOLD);
-        kanagu(ctx, px, py, w, h, 5, GOLD);
-        ctx.fill(px + 4, py + 2, px + w / 2, py + 3, SHINE);
-
-        int tx = px + pad, ty = py + pad;
-        if (selStack != null) ctx.item(selStack, px + w - pad - 18, py + pad);
-        ctx.text(f, Component.literal(name), tx, ty, CREAM, false);
-        int nw = f.width(name);
-        if (weight > 0) ctx.text(f, Component.literal("  " + String.format(Locale.ROOT, "%.2f kg", weight)), tx + nw, ty, MUTED, false);
-        ty += 12;
-        if (rarity != null) { ctx.text(f, Component.literal(rarity), tx, ty, rarityColor(rarity), false); ty += 11; }
-        if (!descLines.isEmpty()) {
-            ty += 6;
-            scaledText(ctx, f, "DESCRIPTION", tx, ty, 0.75f, GOLD);
-            ty += 9;
-            for (String l : descLines) { ctx.text(f, Component.literal(l), tx, ty, MUTED, false); ty += 9; }
-        }
-        int sepY = py + h - pad - actH + 2;
-        ctx.fill(tx, sepY, px + w - pad, sepY + 1, GOLD_D);
-
-        int ax = tx, ay = sepY + 5;
+        int bx = px + 12, by = py + DETAIL_H - 28;
         for (Btn b : panelButtons) {
-            boolean iconOnly = b.label.isEmpty();
-            int lblW = iconOnly ? 0 : f.width(b.label) + 4;
-            int bw = 14 + lblW + 4;
-            b.x = ax; b.y = ay - 3; b.w = bw; b.h = 16;
-            boolean hov = mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h;
-            if (hov) frame(ctx, b.x, b.y, b.w, b.h, Colors.withAlpha(b.accent, 0.25f), GOLD_D);
-            IconTextures.drawIcon(ctx, b.icon, ax + 2, ay - 1, 12);
-            if (!iconOnly) ctx.text(f, Component.literal(b.label), ax + 18, ay, hov ? 0xFFFFFFFF : CREAM, false);
-            ax += bw + 6;
+            b.x = bx; b.y = by;
+            b.w = (int) Math.ceil(DaKit.largeurFin(f, b.label)) + 16;
+            bx += b.w + 5;
+        }
+        return new DetailCache(nom, arcade, DaKit.inter(rarity), rarityColor(rarity),
+            DaKit.inter(weight > 0 ? String.format(Locale.FRANCE, "%.2f kg", weight) : "—"),
+            DaKit.paragraphe(f, desc, DETAIL_W - 24, DaKit.S7, 9, 4),
+            DaKit.etiq(f, "Rareté"), DaKit.etiq(f, "Poids"), px, py);
+    }
+
+    private void drawDetailPanel(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
+        if (detail == null) detail = buildDetail(f);
+        DetailCache d = detail;
+        int px = d.px(), py = d.py();
+        DaKit.blit(ctx, DETAIL, px - 4, py - 4, 0, 0, DETAIL_W + 8, DETAIL_H + 8, DETAIL_W + 8, DETAIL_H + 8);
+        if (d.nomArcade()) DaKit.arcX1(ctx, f, d.nom(), px + 12, py + 11, DaKit.CREME, 0, true);
+        else DaKit.inter9o(ctx, f, d.nom(), px + 12, py + 14.5f, DaKit.CREME, 0);
+        if (selStack != null) ctx.item(selStack, px + DETAIL_W - 26, py + 6);
+
+        int lx = px + 12, vx = px + 70;
+        DaKit.etiq(ctx, f, d.eRarete(), lx, py + 40, DaKit.OR_ETIQ);
+        DaKit.inter8(ctx, f, d.rarete(), vx, py + 40, d.rareteCol(), 0);
+        ctx.fill(lx, py + 48, px + DETAIL_W - 12, py + 49, DaKit.SEP);
+        DaKit.etiq(ctx, f, d.ePoids(), lx, py + 56, DaKit.OR_ETIQ);
+        DaKit.inter8(ctx, f, d.poids(), vx, py + 56, DaKit.CREME_VAL, 0);
+        ctx.fill(lx, py + 64, px + DETAIL_W - 12, py + 65, DaKit.SEP);
+        d.desc().dessiner(ctx, f, lx, py + 71, DaKit.argb(0xE8DCC0, 0.78f));
+
+        for (Btn b : panelButtons) {
+            boolean hov = DaKit.dans(mx, my, b.x, b.y, b.w, 16);
+            int row = (b.danger ? 2 : 0) + (hov ? 1 : 0);
+            DaKit.coupeH(ctx, BOUTONS, b.x - 1, b.y - 1, b.w + 2, 0, row * 20, 104, 20, 6, 104, 80);
+            DaKit.arcFin(ctx, f, b.label, b.x + b.w / 2f, b.y + 6.25f, hov ? DaKit.CREME : 0xFFD8CCB0, 1, true);
         }
     }
 
@@ -662,7 +701,7 @@ public class InventoryScreen extends Screen {
         if (selRef.charAt(0) == 'C') {
             final CosmeticSlot cs = CosmeticSlot.fromName(selRef.substring(1));
             final SlotItem cosmItem = cs != null ? snap.equipped().get(cs) : null;
-            panelButtons.add(new Btn("Repositionner", "act_equip", GOLD, () -> {
+            panelButtons.add(new Btn("Repositionner", false, () -> {
                 Minecraft mc = Minecraft.getInstance();
                 closePanel();
                 if (cs == null) return;
@@ -671,7 +710,7 @@ public class InventoryScreen extends Screen {
                     fr.reborn.hud.cosmetic.CosmeticFeatureRenderer.anchorForSlot(cs);
                 mc.setScreenAndShow(new fr.reborn.hud.menu.cosmetic.RepositionScreen(id, cs.label, anchor));
             }));
-            panelButtons.add(new Btn("Retirer", "act_trash", Colors.DANGER, () -> {
+            panelButtons.add(new Btn("Retirer", true, () -> {
                 if (cs != null) send("cos:unequip:" + cs.name());
                 closePanel();
             }));
@@ -679,27 +718,22 @@ public class InventoryScreen extends Screen {
         }
         final String ref = selRef;
         String al = actionLabel(selStack, selMeta);
-        if (al != null) panelButtons.add(new Btn(al, "act_leaf", GOLD, () -> { send("use:" + ref); closePanel(); }));
-        if (isBagStack(selStack)) panelButtons.add(new Btn("Équiper", "act_equip", GOLD, () -> { send("bag:equip:" + ref); closePanel(); }));
-        panelButtons.add(new Btn("Drop", "act_drop", 0xFFAA1E22, () -> { send("drop:" + ref); closePanel(); }));
-        panelButtons.add(new Btn("", "act_trash", Colors.DANGER, () -> { send("del:" + ref); closePanel(); }));
+        if (al != null) panelButtons.add(new Btn(al, false, () -> { send("use:" + ref); closePanel(); }));
+        if (isBagStack(selStack)) panelButtons.add(new Btn("Équiper", false, () -> { send("bag:equip:" + ref); closePanel(); }));
+        panelButtons.add(new Btn("Jeter", false, () -> { send("drop:" + ref); closePanel(); }));
+        panelButtons.add(new Btn("Détruire", true, () -> { send("del:" + ref); closePanel(); }));
+    }
+
+    private void openPanel(String ref, ItemStack st, SlotItem meta, int ax, int ay) {
+        selRef = ref; selStack = st; selMeta = meta;
+        anchorX = ax; anchorY = ay;
+        detail = null;
     }
 
     private void closePanel() {
         selRef = null; selStack = null; selMeta = null;
         panelButtons.clear();
-    }
-
-    private static void wrap(Font f, String s, int maxW, List<String> out) {
-        if (s.isEmpty()) return;
-        String[] words = s.split(" ");
-        StringBuilder line = new StringBuilder();
-        for (String w : words) {
-            String test = line.length() == 0 ? w : line + " " + w;
-            if (f.width(test) > maxW && line.length() > 0) { out.add(line.toString()); line = new StringBuilder(w); }
-            else line = new StringBuilder(test);
-        }
-        if (line.length() > 0) out.add(line.toString());
+        detail = null;
     }
 
     private int rarityColor(String r) {
@@ -711,65 +745,20 @@ public class InventoryScreen extends Screen {
         };
     }
 
-    // ─────────── petits outils de dessin ───────────
-    private static void frame(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int fill, int border) {
-        ctx.fill(x, y, x + w, y + h, fill);
-        outline(ctx, x, y, w, h, border);
-    }
-
-    private static void outline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
-        ctx.fill(x, y, x + w, y + 1, c); ctx.fill(x, y + h - 1, x + w, y + h, c);
-        ctx.fill(x, y, x + 1, y + h, c); ctx.fill(x + w - 1, y, x + w, y + h, c);
-    }
-
-    private static void kanagu(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int s, int c) {
-        ctx.fill(x, y, x + s, y + 2, c); ctx.fill(x, y, x + 2, y + s, c);
-        ctx.fill(x + w - s, y, x + w, y + 2, c); ctx.fill(x + w - 2, y, x + w, y + s, c);
-        ctx.fill(x, y + h - 2, x + s, y + h, c); ctx.fill(x, y + h - s, x + 2, y + h, c);
-        ctx.fill(x + w - s, y + h - 2, x + w, y + h, c); ctx.fill(x + w - 2, y + h - s, x + w, y + h, c);
-    }
-
-    private static void line(GuiGraphicsExtractor ctx, int x0, int y0, int x1, int y1, int c) {
-        int n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
-        for (int i = 0; i <= n; i++) {
-            int x = x0 + (x1 - x0) * i / Math.max(1, n), y = y0 + (y1 - y0) * i / Math.max(1, n);
-            ctx.fill(x, y, x + 1, y + 1, c);
-        }
-    }
-
-    private static void glow(GuiGraphicsExtractor ctx, float cx, float cy, int size, int argb) {
-        ctx.blit(RenderPipelines.GUI_TEXTURED, GLOW, Math.round(cx - size / 2f), Math.round(cy - size / 2f), 0f, 0f,
-            size, size, 64, 64, 64, 64, argb);
-    }
-
-    private static int arcW(Font f, String s, float sc) { return Math.round(f.width(RebornFont.arcade(s)) * sc); }
-
-    private static void scaledText(GuiGraphicsExtractor ctx, Font f, String s, float x, float y, float sc, int c) {
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x, y);
-        ctx.pose().scale(sc, sc);
-        ctx.text(f, RebornFont.arcade(s), 0, 0, c, false);
-        ctx.pose().popMatrix();
-    }
-
-    private static void scaledCentered(GuiGraphicsExtractor ctx, Font f, String s, float cx, float y, float sc, int c) {
-        scaledText(ctx, f, s, cx - f.width(RebornFont.arcade(s)) * sc / 2f, y, sc, c);
-    }
-
     private static float ease(float t) { return 1 - (float) Math.pow(1 - t, 3); }
 
     // ─────────── Géométrie ───────────
-    private int bagX(int i) { return gridX + (i % gridCols) * (cell + gap); }
-    private int bagY(int i) { return gridY + (i / gridCols) * (cell + gap); }
+    private int bagX(int i) { return gridX + (i % COLS) * PITCH; }
+    private int bagY(int i) { return gridY + (i / COLS) * PITCH; }
 
     private String slotAt(int mx, int my) {
         for (int i = 0; i < extraSlots; i++) {
             int x = bagX(i), y = bagY(i);
-            if (mx >= x && mx < x + cell && my >= y && my < y + cell) return "B" + i;
+            if (mx >= x && mx < x + CELL && my >= y && my < y + CELL) return "B" + i;
         }
         for (int i = 0; i < 9; i++) {
             int x = hotbarX(i), y = hotbarY;
-            if (mx >= x && mx < x + cell && my >= y && my < y + cell) return "H" + i;
+            if (mx >= x && mx < x + CELL && my >= y && my < y + CELL) return "H" + i;
         }
         return null;
     }
@@ -781,20 +770,20 @@ public class InventoryScreen extends Screen {
         if (tab != TAB_COSM) return null;
         for (CosmeticSlot cs : CosmeticSlot.values()) {
             int[] p = cosmPos(cs);
-            if (mx >= p[0] && mx < p[0] + cosmSize && my >= p[1] && my < p[1] + cosmSize) return cs;
+            if (DaKit.dans(mx, my, p[0], p[1], PLATE, PLATE)) return cs;
         }
         return null;
     }
 
     private boolean equipBagSlotAt(int mx, int my) {
-        return tab == TAB_EQUIP && mx >= cosmLeftX && mx < cosmLeftX + cosmSize && my >= cosmY0 && my < cosmY0 + cosmSize;
+        return tab == TAB_EQUIP && DaKit.dans(mx, my, cosmLeftX, colY0, PLATE, PLATE);
     }
 
     private int tierAt(int mx, int my) {
-        if (mx < inroX || mx >= inroX + inroW + 18) return -1;
+        if (mx < inroX || mx >= inroX + INRO_W + TIER_SLIDE) return -1;
         for (int i = 0; i < FILTER_NAME.length; i++) {
-            int y = tierY0 + i * (tierH + tierGap);
-            if (my >= y && my < y + tierH) return i;
+            int y = tierY0 + i * TIER_PITCH;
+            if (my >= y && my < y + TIER_H) return i;
         }
         return -1;
     }
@@ -802,12 +791,11 @@ public class InventoryScreen extends Screen {
     // ─────────── Interactions ───────────
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
-        layout();
         int mx = (int) e.x(), my = (int) e.y();
 
         if (selRef != null && e.button() == 0) {
             for (Btn b : panelButtons) {
-                if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
+                if (DaKit.dans(mx, my, b.x, b.y, b.w, 16)) {
                     RebornSounds.playReborn("sacoche.place", 1.0f, 0.5f);
                     b.act.run();
                     return true;
@@ -817,17 +805,19 @@ public class InventoryScreen extends Screen {
         }
 
         if (e.button() == 0) {
-            if (mx >= search.getX() - 2 && mx < search.getX() + search.getWidth() + 2
-                    && my >= search.getY() - 2 && my < search.getY() + 14) {
+            if (DaKit.dans(mx, my, trayX + 12, trayY + 6, 124, 14)) {
                 search.mouseClicked(e, dbl);
                 setFocused(search);
                 search.setFocused(true);
                 return true;
             }
-            if (mx >= closeX && mx < closeX + closeSize && my >= closeY && my < closeY + closeSize) { onClose(); return true; }
-            if (my >= tabsY && my <= tabsY + 12) {
-                if (mx >= tabEquipX0 && mx <= tabEquipX1) { tab = TAB_EQUIP; RebornSounds.playReborn("sacoche.pick", 0.9f, 0.4f); return true; }
-                if (mx >= tabCosmX0 && mx <= tabCosmX1) { tab = TAB_COSM; RebornSounds.playReborn("sacoche.pick", 0.9f, 0.4f); return true; }
+            if (inClose(mx, my)) { onClose(); return true; }
+            for (int i = 0; i < 2; i++) {
+                if (inTab(i, mx, my)) {
+                    int nt = i == 0 ? TAB_EQUIP : TAB_COSM;
+                    if (nt != tab) { tab = nt; RebornSounds.playReborn("sacoche.pick", 0.9f, 0.4f); }
+                    return true;
+                }
             }
             int t = tierAt(mx, my);
             if (t >= 0) {
@@ -861,8 +851,7 @@ public class InventoryScreen extends Screen {
             if (ref != null && carriedStack == null) {
                 ItemStack st = stackAt(ref);
                 if (st != null && !st.isEmpty()) {
-                    selRef = ref; selStack = st; selMeta = metaAt(ref);
-                    anchorX = slotRefX(ref); anchorY = slotRefY(ref);
+                    openPanel(ref, st, metaAt(ref), slotRefX(ref), slotRefY(ref));
                     RebornSounds.playReborn("sacoche.pick", 1.1f, 0.45f);
                 }
                 return true;
@@ -871,8 +860,7 @@ public class InventoryScreen extends Screen {
             if (cs != null && snap.equipped().get(cs) != null) {
                 SlotItem it = snap.equipped().get(cs);
                 int[] p = cosmPos(cs);
-                selRef = "C" + cs.name(); selStack = it.toStack(); selMeta = it;
-                anchorX = p[0]; anchorY = p[1];
+                openPanel("C" + cs.name(), it.toStack(), it, p[0], p[1]);
                 RebornSounds.playReborn("sacoche.pick", 1.1f, 0.45f);
                 return true;
             }
@@ -928,9 +916,5 @@ public class InventoryScreen extends Screen {
     public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
         if (search != null && search.isFocused() && search.charTyped(event)) return true;
         return super.charTyped(event);
-    }
-
-    private static int clampI(int v, int min, int max) {
-        return Math.max(min, Math.min(max, v));
     }
 }

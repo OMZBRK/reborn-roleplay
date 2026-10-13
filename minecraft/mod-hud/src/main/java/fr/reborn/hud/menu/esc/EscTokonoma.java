@@ -2,7 +2,6 @@ package fr.reborn.hud.menu.esc;
 
 import fr.reborn.hud.menu.IconPack;
 import fr.reborn.hud.menu.RebornBranding;
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
 import fr.reborn.hud.menu.shop.ShopData;
@@ -10,6 +9,7 @@ import fr.reborn.hud.menu.stats.StatsData;
 import fr.reborn.hud.menu.widget.DisconnectConfirmScreen;
 import fr.reborn.hud.menu.widget.ReportScreen;
 import fr.reborn.hud.menu.widget.ShopScreen;
+import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.ui.UiAmbience;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -17,7 +17,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
 
@@ -27,60 +26,65 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
+import static fr.reborn.hud.menu.esc.EchapArt.*;
+
 /**
  * Menu Échap « tokonoma » : une pièce traditionnelle de nuit. Fenêtre ronde sur le village,
- * logo Reborn Roleplay et menu en plaques laquées à gauche ; poutre aux emblèmes des cinq
- * villages et, dans l'alcôve, quatre éléments distincts : Échoppe (devanture noren), Stream
- * (kamishibai), Dev blog (kawaraban) et Récompenses (omamori). Réseaux en bas à droite.
+ * logo Reborn Roleplay et menu en plaques laquées suspendues à gauche ; poutre aux emblèmes des
+ * cinq villages et, dans l'alcôve, quatre éléments distincts : Échoppe (devanture noren),
+ * Stream (kamishibai), Dev blog (kawaraban) et Récompenses (omamori). Réseaux en bas à droite.
  *
  * <p>Ouverture : deux fusuma coulissent ; fermeture par « Reprendre » : elles se referment.
- * Tout est dessiné dans un espace virtuel 640×360 mis à l'échelle de l'écran.
- * Textures : {@code textures/gui/esc/*} ({@code tools/ui-art/gen_esc_art.py}),
- * sons : {@code sounds/esc/*} ({@code gen_esc_sfx.py}).
+ * La scène fait 640×360 unités, affichée à un nombre entier k de pixels écran par unité
+ * (DA §6 : une seule grille, aucun filtrage) ; le décor fixe est une texture (piece.png), le
+ * code ne pose que ce qui bouge et le texte. Textures : {@code textures/gui/echap/*}
+ * ({@code tools/gen_echap_textures.py}, cf. {@link EchapArt}) ; sons : {@code sounds/esc/*}.
  */
 public final class EscTokonoma {
 
-    private static final int VW = 640, VH = 360;
     private static final int OPEN_MS = 720, CLOSE_MS = 300;
+    /** Banc de captures : zone survolée imposée ({@code REBORN_ESC_SURVOL=<id>}, client de dev seulement). */
+    private static final int SURVOL_FORCE = survolForce();
 
-    private static Identifier tex(String p) { return Identifier.fromNamespaceAndPath("reborn", "textures/gui/" + p + ".png"); }
+    private static int survolForce() {
+        try {
+            String v = System.getenv("REBORN_ESC_SURVOL");
+            return v == null || v.isBlank() ? -1 : Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
 
-    private static final Identifier ROOM = tex("esc/room"), WINDOW = tex("esc/window"), WINDOW_LIGHTS = tex("esc/window_lights"),
-        WINDOW_FRAME = tex("esc/window_frame"), FUSUMA_L = tex("esc/fusuma_l"), FUSUMA_R = tex("esc/fusuma_r"),
-        KAMISHIBAI = tex("esc/kamishibai"), KAWARABAN = tex("esc/kawaraban"), RACK = tex("esc/rack"),
-        OMAMORI = tex("esc/omamori"), OMAMORI_LABEL = tex("esc/omamori_label"), RBCOIN = tex("esc/rbcoin"),
-        KAMON_PLATE = tex("esc/kamon_plate"), LOGO = tex("title/logo"), GLOW = tex("stats/glow"),
-        SHOP_WALL = tex("shop/wall"), NOREN = tex("shop/noren"), CREST = tex("shop/crest"), CHOCHIN = tex("shop/chochin");
+    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reborn", "textures/gui/title/logo.png");
 
     private static final String[] VILLAGE_IDS = {"konoha", "suna", "kiri", "kumo", "iwa"};
     private static final String[] VILLAGE_NAMES = {"KONOHA", "SUNA", "KIRI", "KUMO", "IWA"};
-    private static final String[] VILLAGE_LANDS = {"FEU", "VENT", "EAU", "FOUDRE", "TERRE"};
-    private static final Identifier[] VILLAGE_TEX = new Identifier[5];
-    static { for (int i = 0; i < 5; i++) VILLAGE_TEX[i] = tex("esc/village_" + VILLAGE_IDS[i]); }
+    private static final String[] VILLAGE_TITRES = {"Konohagakure", "Sunagakure", "Kirigakure", "Kumogakure", "Iwagakure"};
+    private static final String[] VILLAGE_LANDS = {"Pays du Feu", "Pays du Vent", "Pays de l'Eau", "Pays de la Foudre",
+        "Pays de la Terre"};
 
     private static final String[] MENU = {"REPRENDRE", "PARAMETRES", "SIGNALER", "DECONNEXION"};
 
     /** Activations qui rapportent des RBCoins par heure de jeu (état réel à brancher sur l'API). */
-    private record Charm(String label, String title, String how, int color) {}
+    private record Charm(String title, String how) {}
     private static final Charm[] CHARMS = {
-        new Charm("BOOST", "BOOST DISCORD", "BOOSTE LE DISCORD REBORN", 0xFFDC5AC8),
-        new Charm("PSEUDO", "TAG DANS LE PSEUDO", "AJOUTE LE TAG REBORN A TON PSEUDO", 0xFF468CDC),
-        new Charm("BIO", "LIEN DANS LA BIO", "METS LE LIEN REBORN DANS TA BIO", 0xFF46AA64),
-        new Charm("STREAM", "STREAM REBORN", "STREAME SUR LE SERVEUR", 0xFF965AF0),
-        new Charm("PREMIUM", "PREMIUM", "SOUTIENS LE SERVEUR", 0xFFE6B43C),
+        new Charm("Boost Discord", "Booste le Discord Reborn."),
+        new Charm("Tag dans le pseudo", "Ajoute le tag Reborn à ton pseudo."),
+        new Charm("Lien dans la bio", "Mets le lien Reborn dans ta bio."),
+        new Charm("Stream Reborn", "Streame sur le serveur."),
+        new Charm("Premium", "Soutiens le serveur."),
     };
+    private static final int[] CHARM_COL = {0xDC5AC8, 0x468CDC, 0x46AA64, 0x965AF0, 0xE6B43C};
 
-    private record Social(String id, String label, String url) {}
-    private static final Identifier[] SOCIAL_TEX = {
-        tex("esc/social_discord"), tex("esc/social_x"), tex("esc/social_youtube"), tex("esc/social_site") };
+    private record Social(String label, String url) {}
     private static final Social[] SOCIALS = {
-        new Social("discord", "DISCORD", RebornBranding.DISCORD_URL),
-        new Social("x", "X", RebornBranding.X_URL),
-        new Social("youtube", "YOUTUBE", RebornBranding.YOUTUBE_URL),
-        new Social("site", "SITE", RebornBranding.SITE_URL),
+        new Social("Discord", RebornBranding.DISCORD_URL),
+        new Social("X", RebornBranding.X_URL),
+        new Social("YouTube", RebornBranding.YOUTUBE_URL),
+        new Social("Site", RebornBranding.SITE_URL),
     };
 
-    // Zones cliquables (ids) recalculées à chaque frame.
+    // Zones cliquables (ids) recalculées à chaque image.
     private static final int H_SHOP = 10, H_STREAM = 11, H_STREAM_PREV = 12, H_STREAM_NEXT = 13,
         H_BLOG = 14, H_BLOG_PREV = 15, H_BLOG_NEXT = 16, H_CHARM = 20, H_SOCIAL = 30, H_KAMON = 40;
     private record Hit(int id, int x, int y, int w, int h) {
@@ -103,18 +107,20 @@ public final class EscTokonoma {
     private final float[] charmKick = new float[CHARMS.length];
     private int streamIdx, blogIdx;
     private long lastStreamRotate = System.currentTimeMillis(), lastBlogRotate = System.currentTimeMillis();
-    private final float[][] stars;
-    private float scale = 1f, ox, oy;
-    /** Échelle des textes : police ~2/3 de la taille de base, arrondie à un nombre entier de pixels écran. */
-    private static float ts = 0.66f;
+    private final int[][] stars;
+    /** Origine de la scène, en unités (entières) depuis le coin de l'écran. */
+    private int ox, oy;
+    private double mxU, myU;
 
     public EscTokonoma(Screen screen) {
         this.screen = screen;
         Random r = new Random(7);
-        stars = new float[22][3];
-        for (float[] s : stars) {
-            double a = Math.PI + r.nextDouble() * Math.PI, d = 8 + r.nextDouble() * 52;
-            s[0] = (float) (Math.cos(a) * d); s[1] = (float) (Math.sin(a) * d * 0.8 - 6); s[2] = r.nextFloat() * 6.28f;
+        stars = new int[18][3];
+        for (int[] s : stars) {
+            double a = Math.PI + r.nextDouble() * Math.PI, d = 10 + r.nextDouble() * 38;
+            s[0] = (int) Math.round(Math.cos(a) * d);
+            s[1] = (int) Math.round(Math.sin(a) * d * 0.8 - 4);
+            s[2] = r.nextInt(628);
         }
     }
 
@@ -154,6 +160,21 @@ public final class EscTokonoma {
 
     // ═════════════════════════════════════════════════════════════ rendu
 
+    /** Échelle et origine de la scène pour la fenêtre courante (k entier, origine entière en unités). */
+    private void geometrie() {
+        var w = Minecraft.getInstance().getWindow();
+        int pw = w.getWidth(), ph = w.getHeight();
+        k = Math.max(1, Math.min(pw / VW, ph / VH));
+        ox = Math.floorDiv(pw / k - VW, 2);
+        oy = Math.floorDiv(ph / k - VH, 2);
+    }
+
+    private void versUnites(double mouseX, double mouseY) {
+        double gs = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
+        mxU = mouseX * gs / k - ox;
+        myU = mouseY * gs / k - oy;
+    }
+
     public void render(GuiGraphicsExtractor ctx, int width, int height, int mouseX, int mouseY) {
         long now = System.currentTimeMillis();
         float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
@@ -161,92 +182,91 @@ public final class EscTokonoma {
         if (!openSoundPlayed) { openSoundPlayed = true; RebornSounds.playReborn("esc.open", 1.0f, 0.6f); }
         if (closingAt > 0 && now - closingAt >= CLOSE_MS) { Minecraft.getInstance().setScreenAndShow(null); return; }
 
-        scale = Math.min(width / (float) VW, height / (float) VH);
-        ts = Math.max(1, Math.round(scale * 0.62f)) / scale;
-        ox = (width - VW * scale) / 2f;
-        oy = (height - VH * scale) / 2f;
-        double mx = (mouseX - ox) / scale, my = (mouseY - oy) / scale;
+        geometrie();
+        versUnites(mouseX, mouseY);
         float time = (now - openedAt) / 1000f;
 
-        ctx.fill(0, 0, width, height, 0xFF140C0A);
-        ctx.pose().pushMatrix();
+        ctx.fill(0, 0, width, height, 0xFF0E0608);
+        DaKit.unites(ctx, k);
         ctx.pose().translate(ox, oy);
-        ctx.pose().scale(scale, scale);
 
         hits.clear();
         Font f = Minecraft.getInstance().font;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, ROOM, 0, 0, 0f, 0f, VW, VH, VW, VH);
+        blit(ctx, PIECE, 0, 0, 0, 0, VW, VH, VW, VH);
         drawWindow(ctx, time);
         drawIdentity(ctx, f);
-        drawMenu(ctx, f, mx, my);
+        drawMenu(ctx, f);
         drawKamon(ctx, f, time);
-        drawShop(ctx, f, 236, 60, 177, 121, time);
-        drawStream(ctx, f, 429, 60, now, time);
-        drawBlog(ctx, f, 236, 197, now);
-        drawRack(ctx, f, 429, 197, time, dt);
+        drawShop(ctx, f, time);
+        drawStream(ctx, f, now, time);
+        drawBlog(ctx, f, now);
+        drawRack(ctx, f, time, dt);
         drawFloor(ctx, f);
 
         // survol (après avoir enregistré toutes les zones)
         int h = -1;
-        for (Hit hit : hits) if (hit.in(mx, my)) h = hit.id;
+        for (Hit hit : hits) if (hit.in(mxU, myU)) h = hit.id;
+        if (SURVOL_FORCE >= 0) h = SURVOL_FORCE;
         if (h != hovered) {
             hovered = h;
-            if (h >= 0 && opened(now) >= 1f) RebornSounds.playReborn(h >= H_CHARM && h < H_CHARM + CHARMS.length ? "esc.charm" : "esc.hover",
-                h >= H_CHARM && h < H_CHARM + CHARMS.length ? 1.3f : 1.0f, h >= H_CHARM && h < H_CHARM + CHARMS.length ? 0.18f : 0.3f);
-            if (h >= H_CHARM && h < H_CHARM + CHARMS.length) charmKick[h - H_CHARM] = 1f;
+            boolean charm = h >= H_CHARM && h < H_CHARM + CHARMS.length;
+            if (h >= 0 && opened(now) >= 1f) RebornSounds.playReborn(charm ? "esc.charm" : "esc.hover", charm ? 1.3f : 1.0f,
+                charm ? 0.18f : 0.3f);
+            if (charm) charmKick[h - H_CHARM] = 1f;
         }
         for (int i = 0; i < hov.length; i++) {
             float target = (i == hovered) ? 1f : 0f;
             hov[i] += (target - hov[i]) * Math.min(1f, dt * 14f);
         }
-        drawTooltip(ctx, f, mx, my);
+        drawTooltip(ctx, f);
         drawFusuma(ctx, now);
-        ctx.pose().popMatrix();
+        DaKit.finUnites(ctx);
     }
 
     private float opened(long now) { return Math.min(1f, Math.max(0f, (now - openedAt - 100) / (float) (OPEN_MS - 100))); }
 
     // ── fenêtre ronde : étoiles qui scintillent, lumières du village, étoile filante ──
     private void drawWindow(GuiGraphicsExtractor ctx, float time) {
-        int x = 51, y = 28, ws = 112, cx = 107, cy = 84;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW, x, y, 0f, 0f, ws, ws, 140, 140, 140, 140);
-        for (float[] s : stars) {
-            float a = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(time * 1.7f + s[2]));
-            int sx = Math.round(cx + s[0] * 0.8f), sy = Math.round(cy + s[1] * 0.8f);
-            ctx.fill(sx, sy, sx + 1, sy + 1, argb(a, 0xF0F0FF));
+        int x = 51, y = 28, cx = 106, cy = 74;
+        for (int[] s : stars) {
+            float a = 0.25f + 0.75f * (0.5f + 0.5f * (float) Math.sin(time * 1.7f + s[2] / 100f));
+            int sx = cx + s[0], sy = cy + s[1];
+            ctx.fill(sx, sy, sx + 1, sy + 1, DaKit.argb(0xE8E4FF, a));
         }
-        float flick = 0.75f + 0.25f * (float) Math.sin(time * 4.3f) * (float) Math.sin(time * 1.9f + 1);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW_LIGHTS, x, y, 0f, 0f, ws, ws, 140, 140, 140, 140, argb(flick, 0xFFFFFF));
+        float flick = 0.70f + 0.30f * (float) Math.sin(time * 4.3f) * (float) Math.sin(time * 1.9f + 1);
+        blit(ctx, FENETRE, x, y, 112, 0, 112, 112, 224, 112, DaKit.blanc(flick));
         // étoile filante toutes les ~9 s, gardée dans le disque
         float cyc = time % 9f;
         if (cyc > 6.5f && cyc < 7.3f) {
             float p = (cyc - 6.5f) / 0.8f;
-            for (int k = 0; k < 7; k++) {
-                float q = p - k * 0.03f;
+            for (int i = 0; i < 6; i++) {
+                float q = p - i * 0.035f;
                 if (q < 0) continue;
-                int px = Math.round(cx - 37 + q * 56), py = Math.round(cy - 40 + q * 21);
-                if (Math.hypot(px - cx, py - cy) < 49) ctx.fill(px, py, px + 1, py + 1, argb(1f - k / 7f, 0xFFFFFF));
+                int px = Math.round(cx - 34 + q * 50), py = Math.round(cy - 34 + q * 18);
+                if (Math.hypot(px - cx - 1, py - cy - 10) < 44) ctx.fill(px, py, px + 1, py + 1, DaKit.argb(0xFFFFFF, 1f - i / 6f));
             }
         }
         // halo de lune qui respire
-        float g = 0.10f + 0.05f * (float) Math.sin(time * 0.9f);
-        glow(ctx, x + 83, y + 29, 36, argb(g, 0xFFECC8));
-        ctx.blit(RenderPipelines.GUI_TEXTURED, WINDOW_FRAME, x, y, 0f, 0f, ws, ws, 140, 140, 140, 140);
+        float gl = 0.10f + 0.06f * (float) Math.sin(time * 0.9f);
+        halo(ctx, x + 78, y + 30, 1, DaKit.argb(0xFFECC8, gl));
+        blit(ctx, FENETRE, x, y, 0, 0, 112, 112, 224, 112);
     }
 
     // ── logo + identité du personnage ──
     private void drawIdentity(GuiGraphicsExtractor ctx, Font f) {
         int lw = 150, lh = Math.round(150 * 717f / 2048f);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, LOGO, 32, 150, 0f, 0f, lw, lh, 2048, 717, 2048, 717);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, LOGO, 32, 148, 0f, 0f, lw, lh, 2048, 717, 2048, 717);
         int vi = playerVillage();
         String who = playerName();
-        int tw = tw(f, who) + (vi >= 0 ? 14 : 0);
-        int x = 107 - tw / 2;
+        float nw = largeurArc(f, who, MOYEN) + (vi >= 0 ? 13 : 0);
+        float x = 107 - nw / 2f;
         if (vi >= 0) {
-            ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE_TEX[vi], x, 209, 0f, 0f, 9, 9, 48, 48, 48, 48, 0xFF8C1C20);
+            blit(ctx, KAMONS, Math.round(x), 203, vi * 22, 66, 10, 10, 110, 78, 0xFF8E1628);
             x += 13;
         }
-        text(ctx, f, who, x, 210, 0xFF5A3420);
+        arc(ctx, f, who, x, 205, ENCRE, 0, MOYEN, false);
+        String sub = playerSub(vi);
+        if (!sub.isEmpty()) inter(ctx, f, sub, 107, 215.5f, ENCRE_DOUCE, 1, 7);
     }
 
     private static String playerName() {
@@ -256,9 +276,15 @@ public final class EscTokonoma {
             var p = Minecraft.getInstance().player;
             name = p != null ? p.getName().getString() : "";
         }
-        String out = EscData.arcadeSafe(name, 22);
-        if (s != null && s.rank() != null && !s.rank().isBlank() && !"?".equals(s.rank())) out += " - " + EscData.arcadeSafe(s.rank(), 10);
-        return out;
+        return EscData.arcadeSafe(name, 22);
+    }
+
+    private static String playerSub(int vi) {
+        StatsData.Snapshot s = StatsData.get();
+        String rank = s != null && s.rank() != null && !s.rank().isBlank() && !"?".equals(s.rank()) ? s.rank() : null;
+        String vil = vi >= 0 ? VILLAGE_TITRES[vi] : null;
+        if (rank == null) return vil == null ? "" : vil;
+        return vil == null ? rank : rank + " · " + vil;
     }
 
     private static int playerVillage() {
@@ -269,24 +295,18 @@ public final class EscTokonoma {
         return -1;
     }
 
-    // ── menu : plaques laquées ──
-    private void drawMenu(GuiGraphicsExtractor ctx, Font f, double mx, double my) {
+    // ── menu : plaques laquées suspendues ──
+    private void drawMenu(GuiGraphicsExtractor ctx, Font f) {
         for (int i = 0; i < MENU.length; i++) {
             int y = 230 + i * 22;
             float hv = hov[i];
-            int x = 41 + Math.round(hv * 3);
             hits.add(new Hit(i, 41, y, 132, 15));
-            boolean danger = i == 3;
-            int fill = danger ? lerp(0xFF3C1E24, 0xFF6E1E22, hv) : lerp(0xFF3C1E24, 0xFFAA1E22, hv);
-            int border = lerp(0xFF6E4646, 0xFFF6CC78, hv);
-            ctx.fill(107, y - 5, 108, y, 0xFFC8A05A);               // cordelette
-            frame(ctx, x, y, 132, 15, fill, border);
-            ctx.fill(x + 2, y + 2, x + 130, y + 3, argb(0.18f + 0.2f * hv, 0xFFFFFF));
-            centered(ctx, f, MENU[i], x + 66, y + 4, lerp(0xFFBEA0A0, 0xFFFAEED6, hv));
-            if (hv > 0.05f) {                                          // pointe dorée
-                int ax = x - 7, ay = y + 4;
-                for (int k = 0; k < 4; k++) ctx.fill(ax + k, ay + k, ax + k + 1, ay + 7 - k, argb(hv, 0xF6CC78));
-            }
+            boolean hot = hv > 0.5f;
+            int x = 41 + Math.round(hv * 3);
+            int row = !hot ? 0 : (i == 3 ? 2 : 1);
+            blit(ctx, PLAQUES, x - 8, y - 2, 0, row * 20, 144, 20, 144, 60);
+            int col = hot ? CREME : CREME_DOUX;
+            arc(ctx, f, MENU[i], x + 66, y + 4.5f, col, 1, MOYEN, hot);
         }
     }
 
@@ -298,102 +318,105 @@ public final class EscTokonoma {
             boolean m = i == mine;
             float hv = hov[H_KAMON + i];
             hits.add(new Hit(H_KAMON + i, x - 2, y - 2, 22, 22));
-            int plate = m ? 0xFFFFFFFF : lerp(0xFF8C8478, 0xFFD2CABC, hv);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, KAMON_PLATE, x, y, 0f, 0f, 18, 18, 48, 48, 48, 48, plate);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, VILLAGE_TEX[i], x + 3, y + 3, 0f, 0f, 12, 12, 48, 48, 48, 48,
-                m ? 0xFF2A1A12 : 0xFF46403A);
             if (m) {
                 float pulse = 0.5f + 0.5f * (float) Math.sin(time * 2.2f);
-                ring(ctx, x - 1, y - 1, 20, argb(0.5f + 0.5f * pulse, 0xF6CC78));
-                text(ctx, f, VILLAGE_NAMES[i], x + 22, y + 6, 0xFFF6CC78);
+                halo(ctx, x + 9, y + 9, 1, DaKit.argb(0xF6CC78, 0.10f + 0.10f * pulse));
+            }
+            int row = m ? 2 : hv > 0.5f ? 1 : 0;
+            blit(ctx, KAMONS, x - 2, y - 2, i * 22, row * 22, 22, 22, 110, 78);
+            if (m) {
+                int t = tailleQuiTient(f, VILLAGE_NAMES[i], 44);
+                arc(ctx, f, VILLAGE_NAMES[i], x + 23, y + (t == MOYEN ? 6 : 7), OR_CLAIR, 0, t, true);
             }
         }
     }
 
     // ── Échoppe : devanture noren + chōchin ──
-    private void drawShop(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, int h, float time) {
+    private void drawShop(GuiGraphicsExtractor ctx, Font f, float time) {
+        int x = 236, y = 60, w = 177, h = 121;
         float hv = hov[H_SHOP];
         hits.add(new Hit(H_SHOP, x, y, w, h));
-        ctx.blit(RenderPipelines.GUI_TEXTURED, SHOP_WALL, x, y, 150f, 60f, w, h, 480, 270);
-        for (int nx = x + 1; nx < x + w - 1; nx += 64) {
-            int nw = Math.min(64, x + w - 1 - nx);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, NOREN, nx, y + 1, 0f, 0f, nw, 40, 64, 40);
-        }
-        ctx.blit(RenderPipelines.GUI_TEXTURED, CREST, x + w / 2 - 14, y + 4, 0f, 0f, 28, 28, 28, 28);
         float flick = 0.8f + 0.2f * (float) Math.sin(time * 6.1f) * (float) Math.sin(time * 2.3f);
         for (int side = 0; side < 2; side++) {
-            int lx = side == 0 ? x + 8 : x + w - 26, ly = y + 46;
-            glow(ctx, lx + 9, ly + 13, 32, argb((0.35f + 0.25f * hv) * flick, 0xFFAA5A));
+            int lx = side == 0 ? x + 17 : x + w - 17, ly = y + 44;
+            halo(ctx, lx, ly + 16, 1, DaKit.argb(0xFF9A50, (0.22f + 0.18f * hv) * flick));
             float sway = (float) Math.sin(time * 1.4f + side) * 0.05f;
             ctx.pose().pushMatrix();
-            ctx.pose().translate(lx + 9, ly);
+            ctx.pose().translate(lx, ly);
             ctx.pose().rotate(sway);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, CHOCHIN, -9, 0, 0f, 0f, 18, 26, 22, 32, 22, 32);
+            blit(ctx, CHOCHIN, -10, 0, hv > 0.5f ? 20 : 0, 0, 20, 32, 40, 32);
             ctx.pose().popMatrix();
         }
-        bigCentered(ctx, f, "ECHOPPE", x + w / 2, y + 50, 2f, 0xFFFAEED6);
-        String bal = ShopData.received() ? ShopData.ryo() + " RBCOINS" : "- RBCOINS";
-        int bx = x + w / 2 - (tw(f, bal) + 14) / 2;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, RBCOIN, bx, y + 74, 0f, 0f, 10, 10, 12, 12, 12, 12);
-        text(ctx, f, bal, bx + 14, y + 75, 0xFFF6CC78);
-        String go = "ENTRER  >";
-        text(ctx, f, go, x + w - 10 - tw(f, go) + Math.round(hv * 2), y + h - 14, lerp(0xFFE6C8A0, 0xFFFAEED6, hv));
-        outline(ctx, x, y, w, h, lerp(0xFFB48C50, 0xFFF6CC78, hv));
-        if (hv > 0.02f) outline(ctx, x - 1, y - 1, w + 2, h + 2, argb(hv * 0.6f, 0xF6CC78));
+        arc(ctx, f, "ECHOPPE", x + w / 2f, y + 52, CREME, 1, GRAND, true);
+        String bal = ShopData.received() ? fmt(ShopData.ryo()) + " ryo" : "— ryo";
+        float bw = largeurInter(f, bal, 8) + 10;
+        float bx = x + w / 2f - bw / 2f;
+        ryo(ctx, Math.round(bx), y + 75);
+        inter(ctx, f, bal, bx + 10, y + 78, OR_CLAIR, 0, 8);
+        // « Entrer ›» en bas à droite, sur le comptoir
+        float ew = largeurInter(f, "Entrer", 8);
+        int ex = Math.round(x + w - 12 - ew - 10 + hv * 2);
+        inter(ctx, f, "Entrer", ex, y + h - 8, DaKit.argb(0xF5E9D0, 0.75f + 0.25f * hv), 0, 8);
+        fleche(ctx, Math.round(ex + ew + 3), y + h - 12, true, hv > 0.5f);
+        if (hv > 0.02f) contour(ctx, x - 2, y - 2, w + 4, h + 4, DaKit.argb(0xF2D08A, 0.85f * hv));
     }
 
     // ── Stream : kamishibai ──
-    private void drawStream(GuiGraphicsExtractor ctx, Font f, int x, int y, long now, float time) {
+    private void drawStream(GuiGraphicsExtractor ctx, Font f, long now, float time) {
+        int x = 429, y = 60;
         float hv = hov[H_STREAM];
-        ctx.blit(RenderPipelines.GUI_TEXTURED, KAMISHIBAI, x, y + 4, 0f, 0f, 177, 117, 178, 132, 178, 132);
-        int sx = x + 30, sy = y + 24, sw = 117, sh = 88;
-        ctx.fill(sx - 1, sy - 1, sx + sw + 1, sy + sh, 0xFF1A1624);
-        plate(ctx, f, "STREAM", x + 88, y - 6, 0xFF28345E);
+        int sx = x + 30, sy = y + 23, sw = 117, sh = 89;
+        int ts = tailleQuiTient(f, "STREAM", 38);
+        arc(ctx, f, "STREAM", x + 88, y - (ts == MOYEN ? 3 : 2), CREME, 1, ts, true);
         hits.add(new Hit(H_STREAM, sx, sy, sw, sh));
 
         EscData.Snapshot snap = EscData.get();
         List<EscData.Stream> streams = snap != null ? snap.streams() : List.of();
         if (streams.isEmpty()) {
-            IconPack.twitch(ctx, sx + sw / 2 - 8, sy + 24, 16, 0xFF6E6488);
-            centered(ctx, f, "AUCUN STREAM", sx + sw / 2, sy + 48, 0xFF8C84A0);
+            IconPack.twitch(ctx, sx + sw / 2 - 8, sy + 22, 16, 0xFF5A5478);
+            inter(ctx, f, "Aucun stream en ce moment", sx + sw / 2f, sy + 50, 0xFF8C84A0, 1, 7);
             return;
         }
         if (streams.size() > 1 && now - lastStreamRotate > 7000) { streamIdx++; lastStreamRotate = now; }
         int idx = Math.floorMod(streamIdx, streams.size());
         EscData.Stream s = streams.get(idx);
         // badge
-        int bc = s.live() ? 0xFFC82828 : 0xFF5A5664;
-        String badge = s.live() ? "LIVE" : "OFFLINE";
-        int bw = tw(f, badge) + 10;
-        ctx.fill(sx + 4, sy + 4, sx + 4 + bw, sy + 15, bc);
+        String badge = s.live() ? "LIVE" : "HORS LIGNE";
+        int bw = Math.round(largeurArc(f, badge, PETIT)) + 10;
+        badge(ctx, sx + 5, sy + 5, bw, s.live());
+        arc(ctx, f, badge, sx + 5 + bw / 2f, sy + 8.5f, CREME, 1, PETIT, false);
         if (s.live()) {
             float p = 0.5f + 0.5f * (float) Math.sin(time * 5f);
-            ctx.fill(sx + bw + 7, sy + 8, sx + bw + 11, sy + 12, argb(0.4f + 0.6f * p, 0xFF4040));
+            blit(ctx, PIECES, sx + bw + 8, sy + 9, 92, 14, 3, 3, 128, 48, DaKit.blanc(0.3f + 0.7f * p));
         }
-        text(ctx, f, badge, sx + 9, sy + 6, 0xFFFAEED6);
-        bigCentered(ctx, f, fit(f, s.name() != null ? s.name() : "STREAM", 88), sx + sw / 2, sy + 30, 1.25f,
-            lerp(0xFFE6DCF0, 0xFFFFFFFF, hv));
-        if (s.live() && s.title() != null && !s.title().isBlank()) centered(ctx, f, fit(f, s.title(), sw - 8), sx + sw / 2, sy + 46, 0xFFA096B4);
-        else centered(ctx, f, "HORS LIGNE", sx + sw / 2, sy + 46, 0xFF7C7490);
-        if (streams.size() > 1) {
-            arrows(ctx, f, sx, sy + sh - 14, sw, idx, streams.size(), H_STREAM_PREV, H_STREAM_NEXT, 0xFFC8BEDC);
+        String nom = s.nomTexte() != null && !s.nomTexte().isBlank() ? s.nomTexte() : (s.name() != null ? s.name() : "Stream");
+        arc(ctx, f, ellipseArc(f, EscData.arcadeSafe(nom, 24), sw - 12, MOYEN), sx + sw / 2f, sy + 30,
+            hv > 0.5f ? 0xFFFFFFFF : 0xFFE6DCF0, 1, MOYEN, true);
+        String titre = s.titreTexte() != null && !s.titreTexte().isBlank() ? s.titreTexte() : null;
+        if (s.live() && titre != null) {
+            List<String> l = lignes(f, titre, sw - 14, 7, 2);
+            for (int i = 0; i < l.size(); i++) inter(ctx, f, l.get(i), sx + sw / 2f, sy + 46 + i * 7, 0xFFA096B4, 1, 7);
+        } else {
+            inter(ctx, f, "Hors ligne", sx + sw / 2f, sy + 46, 0xFF7C7490, 1, 7);
         }
-        outline(ctx, sx - 1, sy - 1, sw + 2, sh + 2, argb(0.3f + 0.7f * hv, 0xF6CC78));
+        if (streams.size() > 1) arrows(ctx, f, sx + 4, sy + sh - 13, sw - 8, idx, streams.size(), H_STREAM_PREV, H_STREAM_NEXT,
+            0xFFC8BEDC);
+        if (hv > 0.02f) contour(ctx, sx - 3, sy - 3, sw + 6, sh + 6, DaKit.argb(0xF2D08A, 0.85f * hv));
     }
 
     // ── Dev blog : kawaraban ──
-    private void drawBlog(GuiGraphicsExtractor ctx, Font f, int x, int y, long now) {
+    private void drawBlog(GuiGraphicsExtractor ctx, Font f, long now) {
+        int x = 236 + 21, y = 197;
         float hv = hov[H_BLOG];
         int lift = Math.round(hv);
-        x += 21;                                                    // taille native, centré dans le bloc de 177
-        ctx.blit(RenderPipelines.GUI_TEXTURED, KAWARABAN, x, y - lift, 0f, 0f, 134, 122, 134, 122);
-        int px = x + 13, py = y + 20 - lift, pw = 108;
-        hits.add(new Hit(H_BLOG, px, py + 12, pw, 86));
-        text(ctx, f, "DEV BLOG", px + 4, py + 2, 0xFFFAEED6);
+        blit(ctx, KAWARABAN, x, y - lift, 0, 0, 134, 122, 134, 122);
+        int px = x + 15, py = y + 21 - lift, pw = 104;
+        hits.add(new Hit(H_BLOG, px, py + 14, pw, 82));
+        arc(ctx, f, "DEV BLOG", px + 5, py + 3.5f, CREME, 0, MOYEN, false);
         EscData.Snapshot snap = EscData.get();
         List<EscData.PatchNote> notes = snap != null ? snap.patchNotes() : List.of();
         if (notes.isEmpty()) {
-            centered(ctx, f, "AUCUNE NOTE", px + pw / 2, py + 46, 0xFF78603C);
+            inter(ctx, f, "Aucune note pour l'instant", px + pw / 2f, py + 50, ENCRE_DOUCE, 1, 7);
             return;
         }
         if (notes.size() > 1 && now - lastBlogRotate > 8000) { blogIdx++; lastBlogRotate = now; }
@@ -402,78 +425,84 @@ public final class EscTokonoma {
         if (n.date() != null) {
             String[] parts = n.date().split(" ");              // « 12 MAI 2026 » → « 12 MAI »
             String d = parts.length >= 2 ? parts[0] + " " + parts[1] : n.date();
-            text(ctx, f, d, px + pw - 4 - tw(f, d), py + 2, 0xFFC8BEAA);
+            arc(ctx, f, d, px + pw - 5, py + 4.5f, 0xFFC8BEAA, 2, PETIT, false);
         }
-        bigCentered(ctx, f, fit(f, n.version() != null ? n.version() : "PATCH", 80), px + pw / 2, py + 18, 1.25f, 0xFFB42420);
-        ctx.fill(px + 10, py + 33, px + pw - 10, py + 34, 0xFF96785A);
-        List<String> lines = wrap(f, n.title() != null ? n.title() : "", pw - 16, 3);
-        for (int i = 0; i < lines.size(); i++) centered(ctx, f, lines.get(i), px + pw / 2, py + 40 + i * 10, 0xFF46321E);
-        text(ctx, f, "LIRE >", px + pw - 4 - tw(f, "LIRE >"), py + 86, lerp(0xFF8C2A20, 0xFFC82A2E, hv));
-        if (notes.size() > 1) arrows(ctx, f, px, py + 86, 60, idx, notes.size(), H_BLOG_PREV, H_BLOG_NEXT, 0xFF46321E);
+        arc(ctx, f, ellipseArc(f, n.version() != null ? n.version() : "PATCH", pw - 16, MOYEN), px + pw / 2f, py + 20,
+            ENCRE_ROUGE, 1, MOYEN, false);
+        filet(ctx, px + pw / 2 - 30, py + 31, 60);
+        String titre = n.titreTexte() != null && !n.titreTexte().isBlank() ? n.titreTexte() : (n.title() != null ? n.title() : "");
+        List<String> l = lignes(f, titre, pw - 14, 8, 4);
+        for (int i = 0; i < l.size(); i++) inter(ctx, f, l.get(i), px + pw / 2f, py + 40 + i * 8, ENCRE, 1, 8);
+        float lw = largeurInter(f, "Lire", 8);
+        inter(ctx, f, "Lire", px + pw - 14 - lw, py + 88, hv > 0.5f ? 0xFFC82A2E : ENCRE_ROUGE, 0, 8);
+        fleche(ctx, px + pw - 11, py + 84, true, hv > 0.5f);
+        if (notes.size() > 1) arrows(ctx, f, px + 2, py + 84, 56, idx, notes.size(), H_BLOG_PREV, H_BLOG_NEXT, ENCRE_DOUCE);
     }
 
     // ── Récompenses : omamori ──
-    private void drawRack(GuiGraphicsExtractor ctx, Font f, int x, int y, float time, float dt) {
-        ctx.blit(RenderPipelines.GUI_TEXTURED, RACK, x, y, 0f, 0f, 177, 121, 226, 122, 226, 122);
-        text(ctx, f, "RECOMPENSES", x + 8, y + 7, 0xFFFAEED6);
-        String sub = "+5 / H";
-        text(ctx, f, sub, x + 169 - tw(f, sub), y + 7, 0xFFF6CC78);
+    private void drawRack(GuiGraphicsExtractor ctx, Font f, float time, float dt) {
+        int x = 429, y = 197;
+        arc(ctx, f, "RECOMPENSES", x + 10, y + 9, OR_CLAIR, 0, MOYEN, true);
+        inter(ctx, f, "+5 / h", x + 167, y + 12, OR, 2, 8);
         for (int i = 0; i < CHARMS.length; i++) {
-            Charm c = CHARMS[i];
             int cx = x + 24 + i * 32, top = y + 26;
             float hv = hov[H_CHARM + i];
             charmKick[i] = Math.max(0f, charmKick[i] - dt * 0.9f);
             float ang = (float) Math.sin(time * 1.6f + i * 1.3f) * 0.05f
                 + (float) Math.sin(time * 9f) * 0.22f * charmKick[i];
-            hits.add(new Hit(H_CHARM + i, cx - 13, top, 26, 40));
-            glow(ctx, cx, top + 22, 34, argb(0.12f + 0.25f * hv, c.color() & 0xFFFFFF));
+            hits.add(new Hit(H_CHARM + i, cx - 13, top, 26, 42));
+            halo(ctx, cx, top + 24, 1, DaKit.argb(CHARM_COL[i], 0.10f + 0.25f * hv));
             ctx.pose().pushMatrix();
             ctx.pose().translate(cx, top);
             ctx.pose().rotate(ang);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, OMAMORI, -11, 0, 0f, 0f, 22, 36, 22, 36, c.color());
-            ctx.blit(RenderPipelines.GUI_TEXTURED, OMAMORI_LABEL, -6, 12, 0f, 0f, 12, 18, 12, 18);
+            blit(ctx, OMAMORI, -12, 0, i * 24, 0, 24, 40, 120, 40);
             ctx.pose().popMatrix();
         }
-        ctx.blit(RenderPipelines.GUI_TEXTURED, RBCOIN, x + 8, y + 101, 0f, 0f, 10, 10, 12, 12, 12, 12);
-        text(ctx, f, "RBCOINS PAR HEURE DE JEU", x + 22, y + 102, 0xFFF6CC78);
+        piece(ctx, x + 9, y + 102);
+        inter(ctx, f, "RBCoins par heure de jeu", x + 23, y + 107, OR_CLAIR, 0, 8);
     }
 
     // ── plancher : communauté + réseaux ──
     private void drawFloor(GuiGraphicsExtractor ctx, Font f) {
         EscData.Snapshot snap = EscData.get();
         String line = (snap != null && snap.discordMembers() >= 0)
-            ? "DISCORD  " + snap.discordMembers() + " MEMBRES" + (snap.discordOnline() >= 0 ? "  -  " + snap.discordOnline() + " EN LIGNE" : "")
-            : "REJOINS LA COMMUNAUTE REBORN";
-        text(ctx, f, "REBORN ROLEPLAY", 20, 337, 0xFFFAEED6);
-        text(ctx, f, line, 20, 347, 0xFFC8A096);
+            ? "Discord : " + fmt(snap.discordMembers()) + " membres" + (snap.discordOnline() >= 0 ? " · " + fmt(snap.discordOnline()) + " en ligne" : "")
+            : "Rejoins la communauté Reborn";
+        arc(ctx, f, "REBORN ROLEPLAY", 20, 336, CREME, 0, MOYEN, true);
+        inter(ctx, f, line, 20, 350, DaKit.argb(0xE8C8C0, 0.75f), 0, 7);
         for (int i = 0; i < SOCIALS.length; i++) {
             int id = H_SOCIAL + i;
             float hv = hov[id];
             int x = 532 + i * 26, y = 337 - Math.round(hv * 2);
             hits.add(new Hit(id, x - 3, 334, 20, 20));
-            ctx.blit(RenderPipelines.GUI_TEXTURED, SOCIAL_TEX[i], x, y, 0f, 0f, 14, 14, 32, 32, 32, 32, lerp(0xFFC8C8C8, 0xFFFFFFFF, hv));
+            blit(ctx, RESEAUX, x - 1, y - 1, i * 16, hv > 0.5f ? 16 : 0, 16, 16, 64, 32);
         }
     }
 
-    private void drawTooltip(GuiGraphicsExtractor ctx, Font f, double mx, double my) {
-        List<String> lines = null;
+    private void drawTooltip(GuiGraphicsExtractor ctx, Font f) {
+        String titre = null;
+        List<String> lignes = new ArrayList<>();
         if (hovered >= H_CHARM && hovered < H_CHARM + CHARMS.length) {
             Charm c = CHARMS[hovered - H_CHARM];
-            lines = List.of(c.title(), c.how(), "+5 RBCOINS / HEURE DE JEU");
+            titre = c.title();
+            lignes.add(c.how());
+            lignes.add("+5 RBCoins par heure de jeu");
         } else if (hovered >= H_SOCIAL && hovered < H_SOCIAL + SOCIALS.length) {
-            lines = List.of(SOCIALS[hovered - H_SOCIAL].label());
+            titre = SOCIALS[hovered - H_SOCIAL].label();
         } else if (hovered >= H_KAMON && hovered < H_KAMON + 5) {
             int i = hovered - H_KAMON;
-            lines = List.of(VILLAGE_NAMES[i], "PAYS : " + VILLAGE_LANDS[i]);
+            titre = VILLAGE_TITRES[i];
+            lignes.add(VILLAGE_LANDS[i]);
         }
-        if (lines == null) return;
-        int w = 0;
-        for (String l : lines) w = Math.max(w, tw(f, l));
-        w += 10;
-        int h = lines.size() * 10 + 6;
-        int x = (int) Math.min(VW - w - 4, mx + 8), y = (int) Math.max(4, my - h - 4);
-        frame(ctx, x, y, w, h, 0xF0EADCB4, 0xFF8C6E46);
-        for (int i = 0; i < lines.size(); i++) text(ctx, f, lines.get(i), x + 5, y + 4 + i * 10, i == 0 ? 0xFF8C1C20 : 0xFF46321E);
+        if (titre == null) return;
+        String tA = EscData.arcadeSafe(titre, 30);
+        float w = largeurArc(f, tA, MOYEN);
+        for (String l : lignes) w = Math.max(w, largeurInter(f, l, 8));
+        int bw = Math.round(w) + 14, bh = 15 + lignes.size() * 8;
+        int x = (int) Math.min(VW - bw - 8, mxU + 8), y = (int) Math.max(4, myU - bh - 6);
+        infobulle(ctx, x, y, bw, bh);
+        arc(ctx, f, tA, x + 7, y + 5, ENCRE_ROUGE, 0, MOYEN, false);
+        for (int i = 0; i < lignes.size(); i++) inter(ctx, f, lignes.get(i), x + 7, y + 17 + i * 8, i == lignes.size() - 1 && lignes.size() > 1 ? ENCRE_DOUCE : ENCRE, 0, 8);
     }
 
     // ── fusuma : ouverture / fermeture ──
@@ -483,9 +512,9 @@ public final class EscTokonoma {
         else p = ease(opened(now));
         if (p >= 1f) return;
         int off = Math.round(320 * p);
-        ctx.fill(0, 0, VW, VH, argb(0.35f * (1 - p), 0x000000));
-        ctx.blit(RenderPipelines.GUI_TEXTURED, FUSUMA_L, -off, 0, 0f, 0f, 320, 360, 320, 360);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, FUSUMA_R, 320 + off, 0, 0f, 0f, 320, 360, 320, 360);
+        ctx.fill(-ox, -oy, VW + ox, VH + oy, DaKit.argb(0x000000, 0.35f * (1 - p)));
+        blit(ctx, FUSUMA_L, -off, 0, 0, 0, 320, 360, 320, 360);
+        blit(ctx, FUSUMA_R, 320 + off, 0, 0, 0, 320, 360, 320, 360);
         ctx.fill(320 - off - 1, 0, 320 - off + 1, VH, 0xFF2E1A10);
     }
 
@@ -493,10 +522,11 @@ public final class EscTokonoma {
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || closingAt > 0) return false;
-        double mx = (mouseX - ox) / scale, my = (mouseY - oy) / scale;
+        geometrie();
+        versUnites(mouseX, mouseY);
         int id = -1;
         // les flèches passent avant le corps du carrousel
-        for (Hit h : hits) if (h.in(mx, my) && (id < 0 || isArrow(h.id))) id = h.id;
+        for (Hit h : hits) if (h.in(mxU, myU) && (id < 0 || isArrow(h.id))) id = h.id;
         if (id < 0) return false;
         Minecraft mc = Minecraft.getInstance();
         EscData.Snapshot snap = EscData.get();
@@ -546,109 +576,26 @@ public final class EscTokonoma {
 
     // ═════════════════════════════════════════════════════════════ petits outils
 
+    /** Carrousel : flèches « ‹ › » d'or et compteur Inter au centre. */
     private void arrows(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, int idx, int size, int prevId, int nextId, int col) {
-        String ind = (idx + 1) + "/" + size;
-        centered(ctx, f, ind, x + w / 2, y + 2, col);
-        text(ctx, f, "<", x + 4, y + 2, lerp(col, 0xFFF6CC78, hov[prevId]));
-        text(ctx, f, ">", x + w - 10, y + 2, lerp(col, 0xFFF6CC78, hov[nextId]));
-        hits.add(new Hit(prevId, x, y - 2, 16, 13));
-        hits.add(new Hit(nextId, x + w - 16, y - 2, 16, 13));
+        inter(ctx, f, (idx + 1) + " / " + size, x + w / 2f, y + 4.5f, col, 1, 7);
+        fleche(ctx, x, y, false, hov[prevId] > 0.5f);
+        fleche(ctx, x + w - 8, y, true, hov[nextId] > 0.5f);
+        hits.add(new Hit(prevId, x - 3, y - 3, 14, 15));
+        hits.add(new Hit(nextId, x + w - 11, y - 3, 14, 15));
     }
 
-    private static void plate(GuiGraphicsExtractor ctx, Font f, String s, int cx, int y, int fill) {
-        int w = tw(f, s) + 14;
-        frame(ctx, cx - w / 2, y, w, 13, fill, 0xFFF6CC78);
-        centered(ctx, f, s, cx, y + 3, 0xFFFAEED6);
+    /** Contour d'or d'1 unité (survol), coins abattus. */
+    private static void contour(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
+        ctx.fill(x + 1, y, x + w - 1, y + 1, c);
+        ctx.fill(x + 1, y + h - 1, x + w - 1, y + h, c);
+        ctx.fill(x, y + 1, x + 1, y + h - 1, c);
+        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, c);
     }
 
-    private static void frame(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int fill, int border) {
-        ctx.fill(x, y, x + w, y + h, fill);
-        outline(ctx, x, y, w, h, border);
-    }
-
-    private static void outline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int c) {
-        ctx.fill(x, y, x + w, y + 1, c); ctx.fill(x, y + h - 1, x + w, y + h, c);
-        ctx.fill(x, y, x + 1, y + h, c); ctx.fill(x + w - 1, y, x + w, y + h, c);
-    }
-
-    private static void ring(GuiGraphicsExtractor ctx, int x, int y, int s, int c) {
-        double r = s / 2.0, cx = x + r, cy = y + r;
-        for (int i = 0; i < 64; i++) {
-            double a = i * Math.PI * 2 / 64;
-            int px = (int) Math.round(cx + Math.cos(a) * r), py = (int) Math.round(cy + Math.sin(a) * r);
-            ctx.fill(px, py, px + 1, py + 1, c);
-        }
-    }
-
-    private static void glow(GuiGraphicsExtractor ctx, float cx, float cy, int size, int argb) {
-        ctx.blit(RenderPipelines.GUI_TEXTURED, GLOW, Math.round(cx - size / 2f), Math.round(cy - size / 2f), 0f, 0f,
-            size, size, 64, 64, 64, 64, argb);
-    }
-
-    /** Largeur affichée (police réduite) d'un texte ArcadePix. */
-    private static int tw(Font f, String s) { return Math.round(f.width(RebornFont.arcade(s)) * ts); }
-
-    /** Texte à la taille réduite {@link #ts}, recentré verticalement dans l'ancienne boîte de 8 px. */
-    private static void text(GuiGraphicsExtractor ctx, Font f, String s, float x, float y, int c) {
-        drawScaled(ctx, f, s, x, y, 1f, c);
-    }
-
-    private static void centered(GuiGraphicsExtractor ctx, Font f, String s, int cx, int y, int c) {
-        drawScaled(ctx, f, s, cx - tw(f, s) / 2f, y, 1f, c);
-    }
-
-    private static void bigCentered(GuiGraphicsExtractor ctx, Font f, String s, int cx, int y, float sc, int c) {
-        drawScaled(ctx, f, s, cx - f.width(RebornFont.arcade(s)) * ts * sc / 2f, y, sc, c);
-    }
-
-    private static void drawScaled(GuiGraphicsExtractor ctx, Font f, String s, float x, float y, float sc, int c) {
-        float k = ts * sc;
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x, y + 8 * sc * (1 - ts) / 2f);
-        ctx.pose().scale(k, k);
-        ctx.text(f, RebornFont.arcade(s), 0, 0, c, false);
-        ctx.pose().popMatrix();
-    }
-
-    private static void smallCentered(GuiGraphicsExtractor ctx, Font f, String s, int cx, int y, float sc, int c) {
-        bigCentered(ctx, f, s, cx, y, sc, c);
-    }
-
-    private static String fit(Font f, String s, int maxW) {
-        if (tw(f, s) <= maxW) return s;
-        while (s.length() > 1 && tw(f, s + "..") > maxW) s = s.substring(0, s.length() - 1);
-        return s.trim() + "..";
-    }
-
-    private static List<String> wrap(Font f, String s, int maxW, int maxLines) {
-        List<String> out = new ArrayList<>();
-        StringBuilder cur = new StringBuilder();
-        for (String word : s.split(" ")) {
-            String cand = cur.length() == 0 ? word : cur + " " + word;
-            if (tw(f, cand) <= maxW) { cur = new StringBuilder(cand); continue; }
-            if (cur.length() > 0) out.add(cur.toString());
-            cur = new StringBuilder(word);
-            if (out.size() == maxLines) break;
-        }
-        if (cur.length() > 0 && out.size() < maxLines) out.add(cur.toString());
-        if (out.size() == maxLines && out.size() > 0) out.set(maxLines - 1, fit(f, out.get(maxLines - 1), maxW));
-        return out;
+    private static String fmt(long v) {
+        return String.format(Locale.FRANCE, "%,d", v).replace(' ', ' ').replace(' ', ' ');
     }
 
     private static float ease(float t) { return t < 0.5f ? 4 * t * t * t : 1 - (float) Math.pow(-2 * t + 2, 3) / 2; }
-
-    private static int argb(float a, int rgb) {
-        int al = Math.max(0, Math.min(255, Math.round(a * 255)));
-        return (al << 24) | (rgb & 0xFFFFFF);
-    }
-
-    private static int lerp(int a, int b, float t) {
-        t = Math.max(0f, Math.min(1f, t));
-        int r = 0;
-        for (int s = 0; s < 32; s += 8) {
-            int ca = (a >>> s) & 0xFF, cb = (b >>> s) & 0xFF;
-            r |= (Math.round(ca + (cb - ca) * t) & 0xFF) << s;
-        }
-        return r;
-    }
 }

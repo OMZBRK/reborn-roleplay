@@ -1,8 +1,7 @@
 package fr.reborn.hud.menu.settings;
 
 import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.RebornFont;
-import fr.reborn.hud.menu.widget.RebornButton;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -10,7 +9,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Base immédiat-mode pour les onglets de paramètres Reborn.
@@ -23,16 +21,16 @@ import java.util.Locale;
  * passes avancent le curseur Y de façon strictement identique, les contrôles
  * et leurs libellés ne peuvent jamais se désaligner (y compris au scroll).
  *
- * <p>DA : titre de section en {@link RebornFont#bold} majuscule discret, label
- * à gauche / contrôle à droite, hint gris sous le label. Aligné sur le menu
- * ÉCHAP et la maquette de référence.
+ * <p>DA (niveau de la fiche, DA §4.1) : titre de section en ArcadePix ×1 or suivi d'un filet
+ * à losanges, libellé Inter 9 crème à gauche / contrôle à droite, aide Inter 7 sous le libellé,
+ * filet sombre entre les lignes ; contrôles laqués de {@link ReglagesArt}.
  */
 public abstract class SectionedTab implements SettingsTab {
 
     protected static final int ROW_H = 40;
     protected static final int SECTION_GAP = 30;   // hauteur réservée à un en-tête de section
-    protected static final int BUTTON_H = 22;
-    protected static final int BUTTON_GAP = 12;
+    protected static final int BUTTON_H = 20;
+    protected static final int BUTTON_GAP = 10;
     protected static final int CONTROL_W = 240;
 
     private final List<AbstractWidget> widgets = new ArrayList<>();
@@ -104,17 +102,23 @@ public abstract class SectionedTab implements SettingsTab {
     /** Largeur du contrôle. */
     protected int controlW() { return controlW; }
 
-    /** En-tête de section (majuscule discret). */
+    /** En-tête de section : ArcadePix ×1 or, filet à losanges jusqu'au bord droit. */
     protected void section(String title) {
         if (pass == Pass.RENDER) {
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(originX, cursorY + 8);
-            ctx.pose().scale(1.1f, 1.1f);
-            ctx.text(tr, RebornFont.bold(title.toUpperCase(Locale.ROOT)),
-                0, 0, Colors.FOREGROUND_SUBTLE, false);
-            ctx.pose().popMatrix();
+            int w = DaKit.arcX1(ctx, tr, DaKit.arcade(title), originX, cursorY + 10, DaKit.OR_CLAIR, 0, true);
+            ReglagesArt.filet(ctx, originX + w + 8, originX + width, cursorY + 13);
         }
         cursorY += SECTION_GAP;
+    }
+
+    /** Libellé (Inter 9 crème) et aide (Inter 7) d'une ligne, puis le filet de séparation. */
+    private void libelle(String label, String hint) {
+        float ym = hint != null ? cursorY + 15 : cursorY + 18;
+        DaKit.inter9(ctx, tr, DaKit.inter(label), originX, ym, DaKit.CREME, 0);
+        if (hint != null) {
+            DaKit.inter7(ctx, tr, DaKit.inter(hint), originX, cursorY + 27, DaKit.argb(0xC2B59A, 0.85f), 0);
+        }
+        ctx.fill(originX, cursorY + ROW_H - 2, originX + width, cursorY + ROW_H - 1, DaKit.SEP);
     }
 
     /**
@@ -124,14 +128,7 @@ public abstract class SectionedTab implements SettingsTab {
      */
     protected void row(String label, String hint, WidgetFactory factory) {
         if (pass == Pass.RENDER) {
-            ctx.text(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
-            if (hint != null) {
-                ctx.pose().pushMatrix();
-                ctx.pose().translate(originX, cursorY + 23);
-                ctx.pose().scale(0.85f, 0.85f);
-                ctx.text(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.pose().popMatrix();
-            }
+            libelle(label, hint);
         } else {
             widgets.add(factory.create(controlX, cursorY + 6, controlW));
         }
@@ -141,13 +138,10 @@ public abstract class SectionedTab implements SettingsTab {
     /** Ligne label (+ hint) seule, sans contrôle (le contrôle suit, ex. bouton). */
     protected void labelRow(String label, String hint) {
         if (pass == Pass.RENDER) {
-            ctx.text(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
+            float ym = hint != null ? cursorY + 15 : cursorY + 18;
+            DaKit.inter9(ctx, tr, DaKit.inter(label), originX, ym, DaKit.CREME, 0);
             if (hint != null) {
-                ctx.pose().pushMatrix();
-                ctx.pose().translate(originX, cursorY + 23);
-                ctx.pose().scale(0.85f, 0.85f);
-                ctx.text(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.pose().popMatrix();
+                DaKit.inter7(ctx, tr, DaKit.inter(hint), originX, cursorY + 27, DaKit.argb(0xC2B59A, 0.85f), 0);
             }
         }
         cursorY += ROW_H;
@@ -156,28 +150,21 @@ public abstract class SectionedTab implements SettingsTab {
     /** Ligne lecture seule : label (+ hint) à gauche, valeur à droite. */
     protected void valueRow(String label, String hint, String value, int valueColor) {
         if (pass == Pass.RENDER) {
-            ctx.text(tr, RebornFont.bold(label), originX, cursorY + 10, Colors.WHITE_PURE, false);
-            if (hint != null) {
-                ctx.pose().pushMatrix();
-                ctx.pose().translate(originX, cursorY + 23);
-                ctx.pose().scale(0.85f, 0.85f);
-                ctx.text(tr, RebornFont.body(hint), 0, 0, Colors.FOREGROUND_MUTED, false);
-                ctx.pose().popMatrix();
-            }
+            libelle(label, hint);
             if (value != null) {
-                int vw = tr.width(RebornFont.bold(value));
-                ctx.text(tr, RebornFont.bold(value),
-                    originX + width - vw, cursorY + 10, valueColor, false);
+                int col = valueColor == Colors.WHITE_PURE ? DaKit.OR_CLAIR
+                    : valueColor == Colors.FOREGROUND_MUTED ? DaKit.NEUTRE_TXT : valueColor;
+                String v = DaKit.ellipse(tr, value, Math.max(40, width - 150));
+                DaKit.inter9(ctx, tr, DaKit.inter(v), originX + width, hint != null ? cursorY + 15 : cursorY + 18, col, 2);
             }
         }
         cursorY += ROW_H;
     }
 
-    /** Bouton pleine largeur (action), style Reborn ghost. */
+    /** Bouton pleine largeur (action) : bouton-plaque laqué, flèche d'or. */
     protected void actionButton(String label, Runnable action) {
         if (pass == Pass.LAYOUT) {
-            widgets.add(RebornButton.ghost(originX, cursorY, width, BUTTON_H,
-                label, btn -> action.run()));
+            widgets.add(new PlaqueBouton(originX, cursorY, width, BUTTON_H, label, action));
         }
         cursorY += BUTTON_H + BUTTON_GAP;
     }

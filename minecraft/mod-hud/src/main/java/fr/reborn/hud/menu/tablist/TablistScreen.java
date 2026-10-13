@@ -1,9 +1,6 @@
 package fr.reborn.hud.menu.tablist;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
-import fr.reborn.hud.menu.esc.EscData;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -27,11 +24,20 @@ import java.util.Locale;
  *
  * <p>v1 : données <b>mockées</b> ({@link MockTablist}). v2 : flux serveur
  * {@code reborn:tablist} (ShinobiCore).
+ *
+ * <p>Habillage au niveau de la fiche (DA §4.1, §6) : le registre (名簿) — planche laquée à 90 % posée
+ * sur le jeu, sceau vermillon, onglets laqués, lignes à filets, fiche du joueur sur washi. Textures
+ * {@code textures/gui/tablist/*} ({@code tools/gen_tablist_textures.py}), texte {@link DaKit}.
  */
 public class TablistScreen extends Screen {
 
     private static final String[] TABS = {"Connaissances", "Amis", "Staff", "Général"};
     private static final int GOLD = 0xFFF2C14E;
+
+    private static net.minecraft.resources.Identifier tex(String n) { return DaKit.tex("tablist", n); }
+
+    private static final net.minecraft.resources.Identifier PLANCHE = tex("planche"), ONGLETS = tex("onglets"),
+        LIGNES = tex("lignes"), CHAMP = tex("champ"), FICHE = tex("fiche"), PIECES = tex("pieces");
 
     private static final int MAX_W = 640, MAX_H = 400;
     private static final int PAD = 14;
@@ -139,10 +145,9 @@ public class TablistScreen extends Screen {
     static void drawPanel(GuiGraphicsExtractor ctx, Font tr, Geom g, List<TabEntry> all,
                           int activeTab, String searchText, String rpDate, boolean interactive,
                           TabEntry selected, int scrollY, int mouseX, int mouseY) {
-        // Épuré, façon tablist vanilla : léger voile global + un bloc translucide
-        // derrière le contenu — pas de cadre, pas de bordure, pas d'ombre.
+        // Léger voile sur le jeu (qui reste visible), puis la planche laquée du registre.
         ctx.fill(0, 0, g.w(), g.h(), 0x30000000);
-        ctx.fill(g.px(), g.py(), g.px() + g.pw(), g.py() + g.ph(), 0x59000000);
+        DaKit.coupe(ctx, PLANCHE, g.px() - 2, g.py() - 2, g.pw() + 8, g.ph() + 8, 0, 0, 664, 424, 18, 18, 664, 424);
 
         List<TabEntry> rows = filtered(all, activeTab, searchText);
 
@@ -169,44 +174,33 @@ public class TablistScreen extends Screen {
     private static void drawHeader(GuiGraphicsExtractor ctx, Font tr, Geom g,
                                    int online, String searchText, String rpDate, boolean interactive) {
         int cx = g.px() + g.pw() / 2;
-        Component title = RebornFont.arcade("REBORN ROLEPLAY");
-        ctx.text(tr, title, cx - tr.width(title) / 2, g.py() + 9, Colors.WHITE_PURE, false);
-        Component sub = RebornFont.arcade("PLAY.REBORN-RP.FR");
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(cx, g.py() + 21);
-        ctx.pose().scale(0.8f, 0.8f);
-        ctx.text(tr, sub, -tr.width(sub) / 2, 0, Colors.FOREGROUND_MUTED, false);
-        ctx.pose().popMatrix();
+        Component title = DaKit.arcade("Reborn Roleplay");
+        int tw = DaKit.arcX1(ctx, tr, title, cx, g.py() + 11, DaKit.CREME, 1, true);
+        DaKit.blit(ctx, PIECES, cx - tw / 2 - 28, g.py() + 7, 0, 0, 22, 22, 96, 32);
+        DaKit.inter7(ctx, tr, DaKit.inter("play.reborn-rp.fr"), cx, g.py() + 26, DaKit.argb(0xC2B59A, 0.8f), 1);
 
         // Compteur + date RP (calendrier lore) à droite.
-        Component count = RebornFont.arcade(online + " EN LIGNE");
         int rightEdge = g.px() + g.pw() - PAD;
-        ctx.text(tr, count, rightEdge - tr.width(count), g.py() + 12, Colors.ACCENT_HOVER, false);
-        Component date = RebornFont.arcade(EscData.arcadeSafe(rpDate, 28));
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(rightEdge, g.py() + 25);
-        ctx.pose().scale(0.8f, 0.8f);
-        ctx.text(tr, date, -tr.width(date), 0, Colors.FOREGROUND_SUBTLE, false);
-        ctx.pose().popMatrix();
+        DaKit.inter9(ctx, tr, DaKit.inter(online + " en ligne"), rightEdge, g.py() + 15, DaKit.OR_CLAIR, 2);
+        DaKit.inter7(ctx, tr, DaKit.inter(rpDate == null ? "" : rpDate), rightEdge, g.py() + 27, DaKit.argb(0xC2B59A, 0.8f), 2);
 
-        // Recherche épurée : simple soulignement (le champ réel est rendu
-        // par-dessus par l'écran). Pas de boîte encadrée.
-        ctx.fill(g.searchX() - 2, g.searchY() + 15, g.searchX() + g.searchW() + 2, g.searchY() + 16,
-            Colors.withAlpha(Colors.BORDER_STRONG, 0.8f));
+        // Champ de recherche laqué (le champ réel est rendu par-dessus par l'écran).
+        DaKit.coupeH(ctx, CHAMP, g.searchX() - 3, g.searchY() - 1, g.searchW() + 6, 0, 0, 260, 18, 6, 260, 18);
         if (!interactive && (searchText == null || searchText.isEmpty())) {
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(g.searchX() + 2, g.searchY() + 3);
-            ctx.pose().scale(0.9f, 0.9f);
-            ctx.text(tr, RebornFont.body("Rechercher un joueur…"), 0, 0, Colors.FOREGROUND_MUTED, false);
-            ctx.pose().popMatrix();
+            DaKit.inter8(ctx, tr, DaKit.inter("Rechercher un joueur…"), g.searchX() + 2, g.searchY() + 7, DaKit.NEUTRE_TXT, 0);
         }
     }
 
-    private static int[] tabXs(Font tr, Geom g) {
-        int gap = 20, total = 0;
+    private static int[] tabWs(Font tr) {
         int[] w = new int[TABS.length];
+        for (int i = 0; i < TABS.length; i++) w[i] = Math.round(DaKit.largeur8(tr, DaKit.inter(TABS[i]))) + 22;
+        return w;
+    }
+
+    private static int[] tabXs(Font tr, Geom g) {
+        int gap = 8, total = 0;
+        int[] w = tabWs(tr);
         for (int i = 0; i < TABS.length; i++) {
-            w[i] = tr.width(RebornFont.arcade(EscData.arcadeSafe(TABS[i], 20)));
             total += w[i];
             if (i < TABS.length - 1) total += gap;
         }
@@ -218,136 +212,125 @@ public class TablistScreen extends Screen {
 
     private static void drawTabs(GuiGraphicsExtractor ctx, Font tr, Geom g,
                                  int activeTab, boolean interactive, int mouseX, int mouseY) {
-        int[] xs = tabXs(tr, g);
+        int[] xs = tabXs(tr, g), ws = tabWs(tr);
         for (int i = 0; i < TABS.length; i++) {
-            Component label = RebornFont.arcade(EscData.arcadeSafe(TABS[i], 20));
-            int w = tr.width(label), x = xs[i];
+            int w = ws[i], x = xs[i], y = g.tabsY() + 3;
             boolean active = i == activeTab;
-            boolean hover = interactive && mouseX >= x - 6 && mouseX < x + w + 6
+            boolean hover = interactive && mouseX >= x && mouseX < x + w
                 && mouseY >= g.tabsY() && mouseY < g.tabsY() + TAB_H;
-            int color = active ? Colors.WHITE_PURE : (hover ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED);
-            ctx.text(tr, label, x, g.tabsY() + 6, color, false);
-            if (active) DrawHelpers.roundedRect(ctx, x, g.tabsY() + TAB_H - 4, w, 2, 1, Colors.ACCENT);
+            int etat = active ? 2 : hover ? 1 : 0;
+            DaKit.coupeH(ctx, ONGLETS, x - 1, y - 1, w + 3, 0, etat * 20, 160, 20, 6, 160, 60);
+            DaKit.inter8(ctx, tr, DaKit.inter(TABS[i]), x + w / 2f, y + 8, active || hover ? DaKit.CREME : 0xFFB8A47E, 1);
         }
     }
 
-    private static void drawColumnHeaders(GuiGraphicsExtractor ctx, Font tr, Geom g) {
-        int y = g.colHeadY() + 3;
-        mini(ctx, tr, "NOM", g.nameX(), y);
-        mini(ctx, tr, "GRADE", g.gradeX(), y);
-        Component ping = RebornFont.arcade("PING");
-        mini(ctx, tr, "PING", g.pingX() + 20 - tr.width(ping) / 2, y);
-        ctx.fill(g.listX(), g.listTop() - 1, g.listX() + g.listW(), g.listTop(),
-            Colors.withAlpha(Colors.BORDER, 0.6f));
-    }
+    /** Étiquettes des colonnes, calculées une fois (police prête). */
+    private static DaKit.Etiq E_NOM, E_GRADE, E_PING;
 
-    private static void mini(GuiGraphicsExtractor ctx, Font tr, String s, int x, int y) {
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x, y);
-        ctx.pose().scale(0.85f, 0.85f);
-        ctx.text(tr, RebornFont.arcade(s), 0, 0, Colors.FOREGROUND_MUTED, false);
-        ctx.pose().popMatrix();
+    private static void drawColumnHeaders(GuiGraphicsExtractor ctx, Font tr, Geom g) {
+        if (E_NOM == null) {
+            E_NOM = DaKit.etiq(tr, "Nom");
+            E_GRADE = DaKit.etiq(tr, "Grade");
+            E_PING = DaKit.etiq(tr, "Ping");
+        }
+        float y = g.colHeadY() + 7;
+        DaKit.etiq(ctx, tr, E_NOM, g.nameX(), y, DaKit.OR_ETIQ);
+        DaKit.etiq(ctx, tr, E_GRADE, g.gradeX(), y, DaKit.OR_ETIQ);
+        DaKit.etiq(ctx, tr, E_PING, g.pingX() + 8 - E_PING.w() / 2f, y, DaKit.OR_ETIQ);
+        ctx.fill(g.listX(), g.listTop() - 1, g.listX() + g.listW(), g.listTop(), 0xFF6A4E24);
     }
 
     private static void drawRow(GuiGraphicsExtractor ctx, Font tr, Geom g, TabEntry e, int y,
                                 boolean isSel, boolean interactive, int mouseX, int mouseY) {
         boolean hover = interactive && mouseX >= g.listX() && mouseX < g.listX() + g.listW()
             && mouseY >= y && mouseY < y + ROW_H && mouseY >= g.listTop() && mouseY < g.listBottom();
-        if (isSel) {
-            DrawHelpers.roundedRect(ctx, g.listX(), y + 1, g.listW(), ROW_H - 2, 4, Colors.ACCENT_SOFT);
-        } else if (hover) {
-            DrawHelpers.roundedRect(ctx, g.listX(), y + 1, g.listW(), ROW_H - 2, 4,
-                Colors.withAlpha(Colors.SURFACE_ELEVATED, 0.6f));
+        if (isSel || hover) {
+            DaKit.coupeH(ctx, LIGNES, g.listX() - 1, y, g.listW() + 3, 0, isSel ? 20 : 0, 640, 20, 6, 640, 40);
+        } else {
+            ctx.fill(g.listX(), y + ROW_H - 1, g.listX() + g.listW(), y + ROW_H, DaKit.SEP);
         }
-        int midY = y + (ROW_H - tr.lineHeight) / 2;
-        int mx = g.markerX(), my = y + ROW_H / 2;
+        float mid = y + ROW_H / 2f;
+        int mx = g.markerX() - 4, my = Math.round(mid) - 4;
 
         int nameColor;
         if (e.relation() == TabEntry.Relation.SOI) {
-            nameColor = Colors.WHITE_PURE;
-            DrawHelpers.disc(ctx, mx, my, 3, Colors.WHITE_PURE);
+            nameColor = DaKit.CREME;
+            DaKit.blit(ctx, PIECES, mx, my, 24, 0, 9, 9, 96, 32);
         } else if (e.staff()) {
-            nameColor = GOLD;
-            drawStar(ctx, mx, my, 4, GOLD);
+            nameColor = 0xFFF2D08A;
+            DaKit.blit(ctx, PIECES, mx, my, 34, 0, 9, 9, 96, 32);
         } else if (e.relation() == TabEntry.Relation.AMI) {
-            nameColor = e.clanColor() != 0 ? e.clanColor() : Colors.SUCCESS;
-            DrawHelpers.disc(ctx, mx, my, 3, Colors.SUCCESS);
+            nameColor = e.clanColor() != 0 ? e.clanColor() : 0xFF9CC4B0;
+            DaKit.blit(ctx, PIECES, mx, my, 44, 0, 9, 9, 96, 32);
         } else if (e.relation() == TabEntry.Relation.CONNAISSANCE) {
-            nameColor = e.clanColor() != 0 ? e.clanColor() : Colors.ACCENT_HOVER;
-            DrawHelpers.ring(ctx, mx, my, 3, 1, Colors.ACCENT_HOVER);
+            nameColor = e.clanColor() != 0 ? e.clanColor() : 0xFFE26474;
+            DaKit.blit(ctx, PIECES, mx, my, 54, 0, 9, 9, 96, 32);
         } else {
-            nameColor = Colors.FOREGROUND_MUTED;
+            nameColor = 0xFF8A7A6A;
         }
 
-        ctx.text(tr, RebornFont.bold(e.name()), g.nameX(), midY, nameColor, false);
-        int gradeColor = e.known() ? Colors.FOREGROUND_SUBTLE : Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.7f);
-        ctx.text(tr, RebornFont.body(e.grade()), g.gradeX(), midY, gradeColor, false);
+        int nameMax = g.gradeX() - g.nameX() - 10;
+        DaKit.inter9(ctx, tr, DaKit.inter(DaKit.ellipse(tr, e.name(), nameMax)), g.nameX(), mid, nameColor, 0);
+        int gradeColor = e.known() ? DaKit.DOUX : 0xFF6A5C52;
+        DaKit.inter8(ctx, tr, DaKit.inter(e.grade()), g.gradeX(), mid, gradeColor, 0);
         drawPing(ctx, tr, e.ping(), g.pingX(), y);
     }
 
     private static void drawPing(GuiGraphicsExtractor ctx, Font tr, int ping, int x, int rowY) {
         int filled = ping < 40 ? 4 : ping < 90 ? 3 : ping < 160 ? 2 : 1;
-        int color = filled >= 3 ? Colors.SUCCESS : filled == 2 ? GOLD : Colors.DANGER;
-        int by = rowY + ROW_H / 2 + 5;
-        for (int i = 0; i < 4; i++) {
-            int hgt = 2 + i * 2;
-            int c = i < filled ? color : Colors.withAlpha(Colors.FOREGROUND_MUTED, 0.35f);
-            ctx.fill(x + i * 4, by - hgt, x + i * 4 + 2, by, c);
+        int v = filled >= 3 ? 0 : filled == 2 ? 10 : 20;
+        int by = rowY + (ROW_H - 9) / 2;
+        if (filled == 3) {
+            DaKit.blit(ctx, PIECES, x, by, 64, 0, 11, 9, 96, 32);
+            DaKit.blit(ctx, PIECES, x + 12, by, 92, 0, 3, 9, 96, 32);
+        } else {
+            DaKit.blit(ctx, PIECES, x, by, 64, v, 15, 9, 96, 32);
         }
-        Component ms = RebornFont.body(String.valueOf(ping));
-        ctx.text(tr, ms, x - tr.width(ms) - 6, rowY + (ROW_H - tr.lineHeight) / 2,
-            Colors.FOREGROUND_MUTED, false);
-    }
-
-    private static void drawStar(GuiGraphicsExtractor ctx, int cx, int cy, int r, int color) {
-        ctx.fill(cx - r, cy, cx + r + 1, cy + 1, color);
-        ctx.fill(cx, cy - r, cx + 1, cy + r + 1, color);
+        DaKit.inter7(ctx, tr, DaKit.inter(String.valueOf(ping)), x - 5, rowY + ROW_H / 2f, 0xFF8A7A6A, 2);
     }
 
     private static void drawScrollbar(GuiGraphicsExtractor ctx, Geom g, int total, int scrollY) {
         int vh = g.viewH();
         int max = Math.max(0, total - vh);
         if (max <= 0) return;
-        int x = g.listX() + g.listW() + 4, top = g.listTop();
-        DrawHelpers.roundedRect(ctx, x, top, 3, vh, 1, Colors.SURFACE);
+        int x = g.listX() + g.listW() + 5, top = g.listTop();
+        for (int yy = top; yy < top + vh; yy += 20) DaKit.blit(ctx, PIECES, x, yy, 24, 12, 4, Math.min(20, top + vh - yy), 96, 32);
         int thumbH = Math.max(24, (int) ((long) vh * vh / total));
         int travel = vh - thumbH;
         int thumbY = top + (int) ((long) travel * scrollY / max);
-        DrawHelpers.roundedRect(ctx, x, thumbY, 3, thumbH, 1, Colors.BORDER_STRONG);
+        DaKit.blit(ctx, PIECES, x - 1, thumbY, 30, 12, 6, 2, 96, 32);
+        for (int yy = thumbY + 2; yy < thumbY + thumbH - 2; yy += 8) DaKit.blit(ctx, PIECES, x - 1, yy, 30, 14, 6, Math.min(8, thumbY + thumbH - 2 - yy), 96, 32);
+        DaKit.blit(ctx, PIECES, x - 1, thumbY + thumbH - 2, 30, 22, 6, 2, 96, 32);
     }
 
     private static void drawDetail(GuiGraphicsExtractor ctx, Font tr, Geom g, TabEntry e) {
-        int cw = Math.min(300, g.pw() - 40), ch = 150;
+        int cw = Math.min(300, g.pw() - 40), ch = 132;
         int cx = g.px() + (g.pw() - cw) / 2, cy = g.py() + (g.ph() - ch) / 2;
         ctx.fill(g.px(), g.py(), g.px() + g.pw(), g.py() + g.ph(), 0x88000000);
-        DrawHelpers.dropShadow(ctx, cx, cy, cw, ch, 6);
-        DrawHelpers.roundedOutlinedRect(ctx, cx, cy, cw, ch, 10, Colors.SURFACE_ELEVATED, Colors.BORDER_STRONG);
-        ctx.fill(cx + 12, cy, cx + cw - 12, cy + 2, e.staff() ? GOLD : Colors.ACCENT);
+        DaKit.coupe(ctx, FICHE, cx - 2, cy - 2, cw + 8, ch + 8, 0, 0, 336, 180, 14, 14, 336, 180);
 
-        int nameColor = e.staff() ? GOLD : (e.clanColor() != 0 ? e.clanColor() : Colors.WHITE_PURE);
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(cx + 16, cy + 14);
-        ctx.pose().scale(1.3f, 1.3f);
-        ctx.text(tr, RebornFont.bold(e.name()), 0, 0, nameColor, false);
-        ctx.pose().popMatrix();
+        int nameColor = e.staff() ? 0xFF8E6A30 : DaKit.ENCRE;
+        DaKit.arcX1(ctx, tr, DaKit.arcade(DaKit.ellipse(tr, e.name(), cw - 30)), cx + 14, cy + 13, nameColor, 0, false);
+        if (e.clanColor() != 0) ctx.fill(cx + 14, cy + 23, cx + 44, cy + 24, e.clanColor());
 
         if (!e.known()) {
-            ctx.text(tr, RebornFont.body("Aucune information — tu ne connais pas ce joueur (Pas RP)."),
-                cx + 16, cy + 44, Colors.FOREGROUND_MUTED, false);
+            DaKit.Paragraphe p = DaKit.paragraphe(tr, "Aucune information : tu ne connais pas ce joueur (pas RP).",
+                cw - 28, DaKit.S8, 10, 3);
+            p.dessiner(ctx, tr, cx + 14, cy + 34, DaKit.ENCRE_DOUCE);
         } else {
-            int ly = cy + 44;
-            kv(ctx, tr, "Grade", e.grade(), cx + 16, ly); ly += 18;
-            kv(ctx, tr, "Clan", e.clan() == null ? "—" : e.clan(), cx + 16, ly); ly += 18;
-            kv(ctx, tr, "Âge", e.age() + " ans", cx + 16, ly); ly += 18;
-            kv(ctx, tr, "Affinité", e.affinity(), cx + 16, ly);
+            int ly = cy + 38;
+            kv(ctx, tr, "Grade", e.grade(), cx + 14, ly, cw); ly += 16;
+            kv(ctx, tr, "Clan", e.clan() == null ? "—" : e.clan(), cx + 14, ly, cw); ly += 16;
+            kv(ctx, tr, "Age", e.age() + " ans", cx + 14, ly, cw); ly += 16;
+            kv(ctx, tr, "Affinite", e.affinity(), cx + 14, ly, cw);
         }
-        Component hint = RebornFont.body("Échap / clic pour fermer");
-        ctx.text(tr, hint, cx + cw - tr.width(hint) - 12, cy + ch - 14, Colors.FOREGROUND_MUTED, false);
+        DaKit.inter7(ctx, tr, DaKit.inter("Échap ou clic pour fermer"), cx + cw - 12, cy + ch - 10, DaKit.ENCRE_DOUCE, 2);
     }
 
-    private static void kv(GuiGraphicsExtractor ctx, Font tr, String k, String v, int x, int y) {
-        ctx.text(tr, RebornFont.body(k), x, y, Colors.FOREGROUND_MUTED, false);
-        ctx.text(tr, RebornFont.bold(v), x + 80, y, Colors.WHITE_PURE, false);
+    private static void kv(GuiGraphicsExtractor ctx, Font tr, String k, String v, int x, int y, int cw) {
+        DaKit.etiq(ctx, tr, DaKit.etiq(tr, k), x, y, DaKit.ENCRE_DOUCE);
+        DaKit.inter9(ctx, tr, DaKit.inter(v == null ? "—" : v), x + 70, y, DaKit.ENCRE, 0);
+        ctx.fill(x, y + 7, x + cw - 28, y + 8, 0x30462810);
     }
 
     /** Overlay lecture seule (mode hold) — appelé par le mixin PlayerListHud. */
@@ -378,11 +361,10 @@ public class TablistScreen extends Screen {
         if (button == 0) {
             if (selected != null) { selected = null; return true; }
             Geom g = geom();
-            int[] xs = tabXs(this.font, g);
+            int[] xs = tabXs(this.font, g), ws = tabWs(this.font);
             if (my >= g.tabsY() && my < g.tabsY() + TAB_H) {
                 for (int i = 0; i < TABS.length; i++) {
-                    int w = this.font.width(RebornFont.arcade(EscData.arcadeSafe(TABS[i], 20)));
-                    if (mx >= xs[i] - 6 && mx < xs[i] + w + 6) {
+                    if (mx >= xs[i] && mx < xs[i] + ws[i]) {
                         activeTab = i; scrollY = 0; selected = null; return true;
                     }
                 }

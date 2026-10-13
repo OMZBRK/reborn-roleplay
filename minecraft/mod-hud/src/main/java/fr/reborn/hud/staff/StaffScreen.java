@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import fr.reborn.hud.menu.DrawHelpers;
 import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
@@ -13,6 +14,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
@@ -124,8 +126,8 @@ public class StaffScreen extends Screen {
 
     protected int sx0() { return Math.max(Math.round(width * 0.07f) + 6, width / 2 - 320); }
     protected int sx1() { return width - sx0(); }
-    protected int sy0() { return 42; }
-    protected int sy1() { return height - 34; }
+    protected int sy0() { return 48; }
+    protected int sy1() { return Math.min(height - 34, sy0() + GardeArt.PAPIER_H); }
 
     /** Zone qui défile (dans le papier), selon l'onglet : la barre de chat en bas, la recherche en haut. */
     protected int vy0() { return sy0() + 10 + ("cmds".equals(tab) ? 18 : 0); }
@@ -206,57 +208,21 @@ public class StaffScreen extends Screen {
         return 1f - (1f - t) * (1f - t) * (1f - t);
     }
 
-    /** Planche de bois veiné, ferrures d'or aux coins, papier washi qui se déroule (makimono), rouleau en bas. */
+    /**
+     * Cadre de bois veiné à ferrures d'or et papier washi qui se déroule (makimono) sous la poutre laquée ; le rouleau
+     * (jiku) descend avec le papier. Décor : textures {@link GardeArt} (une coupe chacune).
+     */
     protected void frame(GuiGraphicsExtractor ctx) {
         int x0 = sx0(), x1 = sx1(), y0 = sy0(), y1 = sy1();
-        int m = 11;
-        ctx.fill(x0 - m - 2, y0 - m + 2, x1 + m + 4, y1 + m + 6, 0x70000000);              // ombre portée
-        ctx.fill(x0 - m - 1, y0 - m - 1, x1 + m + 1, y1 + m + 1, WOOD_DARK);
-        ctx.fillGradient(x0 - m, y0 - m, x1 + m, y1 + m, 0xFF744C2C, 0xFF4E321D);
-        // veinage horizontal
-        long seed = 0x2545F4914F6CDD1DL;
-        for (int yy = y0 - m; yy < y1 + m; yy += 2) {
-            seed = seed * 6364136223846793005L + 1442695040888963407L;
-            int a = 0x14 + (int) ((seed >>> 59) & 0x0F);
-            int sx = x0 - m + (int) ((seed >>> 33) % 60);
-            ctx.fill(sx, yy, x1 + m - (int) ((seed >>> 45) % 60), yy + 1, (a << 24) | 0x1A0D06);
-        }
-        // biseau clair en haut / à gauche du cadre
-        ctx.fill(x0 - m, y0 - m, x1 + m, y0 - m + 1, 0x40FFE0B0);
-        ctx.fill(x0 - m, y0 - m, x0 - m + 1, y1 + m, 0x30FFE0B0);
-        DrawHelpers.outlinedRect(ctx, x0 - 3, y0 - 3, x1 - x0 + 6, y1 - y0 + 6, 0, WOOD_DARK);
-        DrawHelpers.outlinedRect(ctx, x0 - 2, y0 - 2, x1 - x0 + 4, y1 - y0 + 4, 0, GOLD_SOFT);
-        kanagu(ctx, x0 - m - 1, y0 - m - 1, 1, 1);
-        kanagu(ctx, x1 + m + 1, y0 - m - 1, -1, 1);
-        kanagu(ctx, x0 - m - 1, y1 + m + 1, 1, -1);
-        kanagu(ctx, x1 + m + 1, y1 + m + 1, -1, -1);
-
-        // poutre laquée en tête du papier
-        ctx.fillGradient(x0, y0, x1, y0 + 4, LACQUER_HI, LACQUER_LO);
-        ctx.fill(x0, y0 + 4, x1, y0 + 5, GOLD_SOFT);
-        // papier qui se déroule
         int yb = paperBottom();
-        if (yb > y0 + 5) {
-            ctx.fillGradient(x0, y0 + 5, x1, yb, WASHI, 0xFFDAC79C);
-            long s = 0x5DEECE66DL;
-            for (int i = 0; i < 90; i++) {
-                s = s * 6364136223846793005L + 1442695040888963407L;
-                int fx = x0 + (int) ((s >>> 33) % Math.max(1, x1 - x0 - 6));
-                int fy = y0 + 5 + (int) ((s >>> 17) % Math.max(1, y1 - y0 - 6));
-                if (fy >= yb) continue;
-                ctx.fill(fx, fy, fx + 2 + (int) ((s >>> 50) % 6), fy + 1, 0x12462810);
-            }
-            ctx.fillGradient(x0, y0 + 5, x1, y0 + 12, 0x38000000, 0);                 // ombre sous la poutre
-            DrawHelpers.horizontalGradient(ctx, x0, y0 + 5, 6, yb - y0 - 5, 0x22000000, 0);
-            DrawHelpers.horizontalGradient(ctx, x1 - 6, y0 + 5, 6, yb - y0 - 5, 0, 0x22000000);
+        if (yb > y0) {
+            ctx.enableScissor(x0, y0, x1, yb);
+            GardeArt.papier(ctx, x0, y0, x1 - x0, y1 - y0);
+            GardeArt.filigrane(ctx, x1 - 74, y1 - 70, infirmerie() ? 1 : 0);
+            ctx.disableScissor();
         }
-        // rouleau (jiku) qui descend avec le papier, embouts dorés
-        if (yb < y1 - 1) {
-            ctx.fill(x0 - 4, yb, x1 + 4, yb + 5, WOOD_DARK);
-            ctx.fill(x0 - 4, yb + 1, x1 + 4, yb + 2, 0xFF6A4528);
-            ctx.fill(x0 - 9, yb - 1, x0 - 3, yb + 6, GOLD);
-            ctx.fill(x1 + 3, yb - 1, x1 + 9, yb + 6, GOLD);
-        }
+        GardeArt.cadre(ctx, x0, y0, x1 - x0, y1 - y0);
+        if (yb < y1 - 1) GardeArt.jiku(ctx, x0, yb, x1 - x0);
     }
 
     /** Bas du papier pendant le déroulé d'ouverture. */
@@ -265,57 +231,28 @@ public class StaffScreen extends Screen {
         return Math.round(sy0() + 5 + (sy1() - sy0() - 5) * u);
     }
 
-    /** Ferrure d'angle (kanagu) dorée : L de 11 px avec un rivet. */
-    protected void kanagu(GuiGraphicsExtractor ctx, int cx, int cy, int dx, int dy) {
-        int L = 20, T = 5;
-        int x0 = Math.min(cx, cx + dx * L), x1 = Math.max(cx, cx + dx * L);
-        int y0 = Math.min(cy, cy + dy * L), y1 = Math.max(cy, cy + dy * L);
-        int ty0 = dy > 0 ? cy : cy - T, ty1 = dy > 0 ? cy + T : cy;
-        int tx0 = dx > 0 ? cx : cx - T, tx1 = dx > 0 ? cx + T : cx;
-        ctx.fill(x0 - 1, ty0 - 1, x1 + 1, ty1 + 1, 0xFF5A4012);
-        ctx.fill(tx0 - 1, y0 - 1, tx1 + 1, y1 + 1, 0xFF5A4012);
-        ctx.fill(x0, ty0, x1, ty1, GOLD);
-        ctx.fill(tx0, y0, tx1, y1, GOLD);
-        ctx.fill(x0, ty0, x1, ty0 + 1, 0xFFF2D49A);                                   // reflet
-        ctx.fill(tx0, y0, tx0 + 1, y1, 0xFFF2D49A);
-        int rx = cx + dx * 9, ry = cy + dy * 2;                                         // rivets
-        ctx.fill(rx, ry, rx + 2, ry + 2, 0xFF5A4012);
-        int qx = cx + dx * 2, qy = cy + dy * 9;
-        ctx.fill(qx, qy, qx + 2, qy + 2, 0xFF5A4012);
-    }
+    /** L'en-tête montre-t-il l'Infirmerie (医) plutôt que le Poste de garde (番) ? */
+    protected boolean infirmerie() { return false; }
 
-    /** Plaque laquée suspendue, double filet d'or, sceau 番 (poste de garde), reflet qui passe. */
+    /**
+     * En-tête suspendu (texture : plaque laquée, cordons, glands, sceau et titre cuits) ; reflet doré qui passe
+     * toutes les 7 s. Le détail de l'onglet est donné par la navigation et les titres de section.
+     */
     protected void plaque(GuiGraphicsExtractor ctx, String title) {
-        Component t = RebornFont.display(title);
-        int tw = font.width(t);
-        int pw = tw + 46, ph = 22, x = width / 2 - pw / 2, y = 6;
-        ctx.fill(x + 14, 0, x + 15, y, GOLD);
-        ctx.fill(x + pw - 15, 0, x + pw - 14, y, GOLD);
-        ctx.fill(x + 13, y - 2, x + 16, y, GOLD);
-        ctx.fill(x + pw - 16, y - 2, x + pw - 13, y, GOLD);
-        ctx.fill(x + 2, y + 3, x + pw + 3, y + ph + 3, 0x66000000);
-        ctx.fill(x - 1, y - 1, x + pw + 1, y + ph + 1, WOOD_DARK);
-        ctx.fillGradient(x, y, x + pw, y + ph, LACQUER_HI, LACQUER_LO);
-        DrawHelpers.outlinedRect(ctx, x, y, pw, ph, 0, GOLD);
-        DrawHelpers.outlinedRect(ctx, x + 2, y + 2, pw - 4, ph - 4, 0, 0x70D9A95E);
-        // sceau 番
-        ctx.fill(x + 5, y + 4, x + 20, y + 18, 0xFF5A0E18);
-        DrawHelpers.outlinedRect(ctx, x + 5, y + 4, 15, 14, 0, GOLD);
-        ctx.text(font, Component.literal("番"), x + 8, y + 7, IVORY, false);
-        ctx.text(font, t, x + 27, y + 7, IVORY, true);
-        // reflet doré toutes les 7 s
+        int cx = width / 2;
+        GardeArt.entete(ctx, cx, infirmerie() ? 1 : 0);
         float ph2 = (System.currentTimeMillis() % 7000L) / 1100f;
         if (ph2 < 1f) {
+            int x = cx - 149, y = 9, pw = 298, ph = 26;
             int bx = x + Math.round(ph2 * (pw + 24)) - 12;
-            ctx.enableScissor(x + 1, y + 1, x + pw - 1, y + ph - 1);
-            for (int k = 0; k < 6; k++) ctx.fill(bx + k, y + 1 + k * 3, bx + k + 5, y + 4 + k * 3, 0x30FFF2D0);
+            ctx.enableScissor(x, y, x + pw, y + ph);
+            for (int k = 0; k < 8; k++) ctx.fill(bx + k, y + k * 3, bx + k + 5, y + 3 + k * 3, 0x22FFF2D0);
             ctx.disableScissor();
         }
     }
 
-    /** Onglets en plaquettes suspendues (coins coupés), compteur d'alertes en sceau rouge. */
-    /** Largeur de la colonne de navigation (dans le papier, à gauche). */
-    protected int navW() { return 70; }
+    /** Largeur de la colonne de navigation (dans le papier, à gauche ; sa bande est cuite dans le washi). */
+    protected int navW() { return 74; }
 
     /**
      * Groupes de la navigation : la première ligne de chaque groupe est {sceau, titre}, les suivantes
@@ -328,50 +265,36 @@ public class StaffScreen extends Screen {
         return new String[][][]{g};
     }
 
-    /** Colonne de navigation compacte : groupes à sceau, entrées laquées quand elles sont actives, compteurs. */
+    /** Colonne de navigation : groupes à sceau vermillon, entrée active en laque rouge, compteurs en pastilles. */
     protected void tabs(GuiGraphicsExtractor ctx, JsonObject snap) {
-        int x0 = sx0() + 3, w = navW(), y = sy0() + 10;
+        int x0 = sx0() + 3, w = navW(), y = sy0() + 12;
         int yb = paperBottom();
         if (yb > sy0() + 12) {
             ctx.enableScissor(x0 - 3, sy0() + 5, x0 + w + 4, yb);
-            ctx.fill(x0 - 3, sy0() + 5, x0 + w + 2, sy1(), 0x16462810);
-            ctx.fill(x0 + w + 2, sy0() + 8, x0 + w + 3, sy1() - 4, 0x50462810);
             long now = System.currentTimeMillis();
             for (String[][] group : navGroups()) {
-                ctx.fill(x0 + 1, y, x0 + 11, y + 10, 0xFF5A0E18);
-                DrawHelpers.outlinedRect(ctx, x0 + 1, y, 10, 10, 0, GOLD);
-                ctx.text(font, Component.literal(group[0][0]), x0 + 2, y + 1, IVORY, false);
-                ctx.pose().pushMatrix();
-                ctx.pose().translate(x0 + 14, y + 2);
-                ctx.pose().scale(0.75f, 0.75f);
-                ctx.text(font, RebornFont.bold(group[0][1].toUpperCase()), 0, 0, LACQUER_LO, false);
-                ctx.pose().popMatrix();
-                y += 13;
+                GardeArt.sceauVierge(ctx, x0, y - 1);
+                ctx.text(font, Component.literal(group[0][0]), x0 + 2, y + 1, DaKit.CREME_KJ, false);
+                DaKit.etiq(ctx, font, DaKit.etiq(font, group[0][1]), x0 + 15, y + 4.5f, DaKit.ENCRE_ROUGE);
+                y += 14;
                 for (int i = 1; i < group.length; i++) {
                     String id = group[i][0], label = group[i][1];
-                    boolean sel = id.equals(tab), hov = !sel && hover(x0, y, w, 12);
-                    if (sel) {
-                        chamferGradient(ctx, x0, y, w, 12, LACQUER_HI, LACQUER_LO);
-                        ctx.fill(x0, y + 2, x0 + 2, y + 10, GOLD);
-                    } else if (hov) {
-                        chamfer(ctx, x0, y, w, 12, 0x30FFFFFF);
-                    }
+                    boolean sel = id.equals(tab), hov = !sel && hover(x0, y, w, 13);
+                    if (sel || hov) GardeArt.navEntree(ctx, x0, y, w, sel);
                     int count = tabCount(id, snap);
-                    int room = w - 10 - (count > 0 ? 12 : 0);
-                    ctx.text(font, RebornFont.body(fit(label, room)), x0 + 6, y + 2, sel ? IVORY : INK, false);
+                    int room = w - 10 - (count > 0 ? 14 : 0);
+                    DaKit.inter9(ctx, font, RebornFont.body(fit(label, room)), x0 + 6, y + 6.5f, sel ? IVORY : INK, 0);
                     if (count > 0) {
-                        String n = String.valueOf(count);
-                        int bw = Math.max(9, font.width(n) + 4), bx = x0 + w - bw - 2;
+                        Component n = DaKit.arcade(String.valueOf(count));
+                        int bw = Math.max(11, (int) Math.ceil(DaKit.largeurFin(font, n)) + 6), bx = x0 + w - bw - 2;
                         boolean urgent = "blesses".equals(id) || "alerts".equals(id);
-                        int fill = urgent && (now / 400) % 2 == 0 ? 0xFFFF4040 : LACQUER_HI;
-                        chamfer(ctx, bx - 1, y + 1, bw + 2, 10, WOOD_DARK);
-                        chamfer(ctx, bx, y + 2, bw, 8, fill);
-                        ctx.text(font, Component.literal(n), bx + bw / 2 - font.width(n) / 2, y + 2, IVORY, false);
+                        GardeArt.pastille(ctx, bx, y + 1, bw, urgent && (now / 400) % 2 == 0);
+                        DaKit.arcFin(ctx, font, n, bx + bw / 2f, y + 4.75f, IVORY, 1, false);
                     }
-                    hits.add(new Hit(x0, y, w, 12, () -> switchTab(id)));
-                    y += 13;
+                    hits.add(new Hit(x0, y, w, 13, () -> switchTab(id)));
+                    y += 14;
                 }
-                y += 7;
+                y += 8;
             }
             ctx.disableScissor();
         }
@@ -386,13 +309,14 @@ public class StaffScreen extends Screen {
         return "alerts".equals(id) && snap != null ? arr(snap, "alerts").size() : 0;
     }
 
+    /** Badge du grade staff (laque noire, pastille à la couleur du grade, nom en ArcadePix or). */
     protected void gradeBadge(GuiGraphicsExtractor ctx, int grade, String name) {
-        Component g = RebornFont.bold(name);
-        int gw = font.width(g) + 18, gx = sx0() - 10, gy = height - 18;
-        chamfer(ctx, gx - 1, gy - 1, gw + 2, 15, WOOD_DARK);
-        chamferGradient(ctx, gx, gy, gw, 13, 0xFF1F0E11, 0xFF150A0D);
-        ctx.fill(gx + 5, gy + 4, gx + 10, gy + 9, gradeColor(grade) | 0xFF000000);
-        ctx.text(font, g, gx + 14, gy + 3, GOLD, false);
+        Component g = DaKit.arcade(name);
+        int gw = font.width(g) + 22, gx = sx0() - 10, gy = height - 18;
+        GardeArt.badgeGrade(ctx, gx, gy, gw);
+        ctx.fill(gx + 6, gy + 5, gx + 11, gy + 10, gradeColor(grade) | 0xFF000000);
+        ctx.fill(gx + 6, gy + 5, gx + 11, gy + 6, 0x40FFFFFF);
+        DaKit.arcX1(ctx, font, g, gx + 15, gy + 4, DaKit.OR_CLAIR, 0, true);
     }
 
     /** Rectangle aux coins coupés (1 px). */
@@ -416,18 +340,13 @@ public class StaffScreen extends Screen {
         confirm = null;
     }
 
-    /** Planche « Fermer » aux embouts dorés. */
+    /** Planche « Fermer » aux embouts dorés (texture), libellé ArcadePix. */
     protected void closeButton(GuiGraphicsExtractor ctx) {
-        int w = 116, x = width / 2 - w / 2, y = height - 19;
-        boolean hov = hover(x, y, w, 15);
-        chamfer(ctx, x - 1, y - 1, w + 2, 17, WOOD_DARK);
-        chamferGradient(ctx, x, y, w, 15, hov ? 0xFF8A603C : 0xFF6A4528, WOOD);
-        ctx.fill(x - 4, y + 3, x, y + 12, GOLD);
-        ctx.fill(x + w, y + 3, x + w + 4, y + 12, GOLD);
-        if (hov) ctx.fill(x + 6, y + 13, x + w - 6, y + 14, GOLD);
-        Component c = RebornFont.body("Fermer");
-        ctx.text(font, c, x + w / 2 - font.width(c) / 2, y + 4, IVORY, false);
-        hits.add(new Hit(x, y, w, 15, this::onClose));
+        int w = 124, x = width / 2 - w / 2, y = height - 20;
+        boolean hov = hover(x + 4, y, 116, 17);
+        GardeArt.fermer(ctx, x, y, hov);
+        DaKit.arcX1(ctx, font, DaKit.arcade("Fermer"), width / 2f, y + 5, hov ? DaKit.OR_CLAIR : IVORY, 1, true);
+        hits.add(new Hit(x + 4, y + 1, 116, 15, this::onClose));
     }
 
     /** Bandes de washi scellées, au-dessus du pied. */
@@ -436,14 +355,10 @@ public class StaffScreen extends Screen {
         long now = System.currentTimeMillis();
         for (StaffClient.Toast t : StaffClient.toasts()) {
             Component c = RebornFont.body(t.text());
-            int w = font.width(c) + 24, x = width / 2 - w / 2;
+            int w = Math.min(440, font.width(c) + 26), x = width / 2 - w / 2;
             int dy = Math.round((1f - ease((now - t.at()) / 180f)) * 8);
-            ctx.fill(x + 2, y + dy + 2, x + w + 2, y + dy + 16, 0x66000000);
-            chamfer(ctx, x - 1, y + dy - 1, w + 2, 16, WOOD_DARK);
-            ctx.fillGradient(x, y + dy, x + w, y + dy + 14, WASHI, 0xFFDAC79C);
-            ctx.fill(x, y + dy, x + 10, y + dy + 14, LACQUER);
-            ctx.fill(x + 3, y + dy + 4, x + 7, y + dy + 10, GOLD);
-            ctx.text(font, c, x + 16, y + dy + 3, INK, false);
+            GardeArt.toast(ctx, x, y + dy, w);
+            DaKit.inter9(ctx, font, c, x + 17, y + dy + 8, INK, 0);
             y -= 18;
         }
     }
@@ -455,17 +370,16 @@ public class StaffScreen extends Screen {
         searchBox.setVisible(cmds);
         noteBox.setVisible(confirm != null && sealAt == 0);
         if (chat) {
-            int y = sy1() - 20, x = vx0(), w = vx1() - vx0() - 60;
-            ctx.fill(x - 2, y - 1, x + w, y + 14, 0x99FFFFFF);
-            DrawHelpers.outlinedRect(ctx, x - 2, y - 1, w + 2, 15, 0, WOOD_DARK);
+            int y = sy1() - 20, x = vx0(), w = vx1() - vx0() - bw("Envoyer") - 6;
+            GardeArt.champ(ctx, x - 2, y - 1, w + 2);
             chatBox.setX(x + 2); chatBox.setY(y + 3); chatBox.setWidth(w - 6);
-            button(ctx, vx1() - 54, y - 1, "Envoyer", "punish", this::sendChat, false);
+            button(ctx, vx1() - bw("Envoyer"), y + 1, "Envoyer", "punish", this::sendChat, false);
         }
         if (cmds) {
-            int y = sy0() + 6, x = vx0() + 46, w = vx1() - x;
-            ctx.text(font, RebornFont.body("Chercher"), vx0(), y + 3, INK_SOFT, false);
-            ctx.fill(x - 2, y - 1, x + w, y + 14, 0x99FFFFFF);
-            DrawHelpers.outlinedRect(ctx, x - 2, y - 1, w + 2, 15, 0, WOOD_DARK);
+            DaKit.Etiq lab = DaKit.etiq(font, "Chercher");
+            int y = sy0() + 9, x = vx0() + (int) Math.ceil(lab.w()) + 8, w = vx1() - x;
+            DaKit.etiq(ctx, font, lab, vx0(), y + 6.5f, DaKit.ENCRE_ROUGE);
+            GardeArt.champ(ctx, x - 2, y - 1, w + 2);
             searchBox.setX(x + 2); searchBox.setY(y + 3); searchBox.setWidth(w - 6);
         }
     }
@@ -486,8 +400,8 @@ public class StaffScreen extends Screen {
             head(ctx, str(a, "uuid"), x + 17, y + 7, 22);
             int tx = x + 46;
             Component nm = Component.empty()
-                    .append(RebornFont.bold(str(a, "rank").isEmpty() ? "" : "[" + str(a, "rank") + "] ").withColor(LACQUER & 0xFFFFFF))
-                    .append(RebornFont.bold(str(a, "perso").isEmpty() ? str(a, "name") : str(a, "perso")).withColor(INK & 0xFFFFFF))
+                    .append(gras(str(a, "rank").isEmpty() ? "" : str(a, "rank") + "  ").withColor(LACQUER & 0xFFFFFF))
+                    .append(gras(str(a, "perso").isEmpty() ? str(a, "name") : str(a, "perso")).withColor(INK & 0xFFFFFF))
                     .append(RebornFont.body("  " + str(a, "name")).withColor(INK_SOFT & 0xFFFFFF));
             ctx.text(font, nm, tx, y + 5, INK, false);
             ctx.text(font, RebornFont.body(str(a, "motif")), tx, y + 15, LACQUER_LO, false);
@@ -508,7 +422,7 @@ public class StaffScreen extends Screen {
             bx += button(ctx, bx, by, "Observer", "watch", () -> act("watch", uuid), grade(snap) < 2) + 4;
             if ("aide".equals(str(a, "kind"))) bx += button(ctx, bx, by, "Y aller", "plain", () -> act("tp", uuid), false) + 4;
             else bx += button(ctx, bx, by, "Sanctionner", "punish", () -> openProfile(uuid), false) + 4;
-            int dw = font.width(RebornFont.body("Ignorer")) + 12;
+            int dw = bw("Ignorer");
             button(ctx, x + w - dw - 6, by, "Ignorer", "plain", () -> dismiss(id), false);
             ctx.pose().popMatrix();
             y += h + 7;
@@ -528,15 +442,15 @@ public class StaffScreen extends Screen {
             fuda(ctx, x, y, w, h, st0.isEmpty() ? OK : LACQUER);
             head(ctx, str(p, "uuid"), x + 17, y + 5, 16);
             Component nm = Component.empty()
-                    .append(RebornFont.bold(str(p, "rank").isEmpty() ? "" : "[" + str(p, "rank") + "] ").withColor(LACQUER & 0xFFFFFF))
-                    .append(RebornFont.bold(str(p, "perso").isEmpty() ? "(sans personnage)" : str(p, "perso")).withColor(INK & 0xFFFFFF))
+                    .append(gras(str(p, "rank").isEmpty() ? "" : str(p, "rank") + "  ").withColor(LACQUER & 0xFFFFFF))
+                    .append(gras(str(p, "perso").isEmpty() ? "(sans personnage)" : str(p, "perso")).withColor(INK & 0xFFFFFF))
                     .append(RebornFont.body("  " + str(p, "name") + (str(p, "village").isEmpty() ? "" : " · " + str(p, "village")))
                             .withColor(INK_SOFT & 0xFFFFFF));
             ctx.text(font, nm, x + 40, y + 5, INK, false);
             String st = str(p, "state");
             small(ctx, st.isEmpty() ? "En forme" : st, x + 40, y + 15, st.isEmpty() ? OK : LACQUER_LO);
             String uuid = str(p, "uuid");
-            int fw = font.width(RebornFont.body("Fiche")) + 12;
+            int fw = bw("Fiche");
             button(ctx, x + w - fw - 8, y + 7, "Fiche", "punish", () -> openProfile(uuid), false);
             ctx.pose().popMatrix();
             y += h + 5;
@@ -546,7 +460,7 @@ public class StaffScreen extends Screen {
 
     protected int profile(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
         int g = grade(snap);
-        button(ctx, vx0(), y, "← Joueurs", "plain", () -> { profileUuid = null; scroll = 0; StaffClient.clearProfile(); }, false);
+        button(ctx, vx0(), y, "Retour aux joueurs", "plain", () -> { profileUuid = null; scroll = 0; StaffClient.clearProfile(); }, false);
         y += 18;
         JsonObject p = StaffClient.profile();
         if (p == null || !profileUuid.equals(str(p, "uuid"))) return text(ctx, "Chargement de la fiche…", vx0(), y, INK_SOFT);
@@ -557,8 +471,8 @@ public class StaffScreen extends Screen {
         head(ctx, uuid, x + 18, y + 10, 32);
         int tx = x + 60;
         Component nm = Component.empty()
-                .append(RebornFont.bold(str(p, "rank").isEmpty() ? "" : "[" + str(p, "rank") + "] ").withColor(LACQUER & 0xFFFFFF))
-                .append(RebornFont.bold(str(p, "perso").isEmpty() ? str(p, "name") : str(p, "perso")).withColor(INK & 0xFFFFFF))
+                .append(gras(str(p, "rank").isEmpty() ? "" : str(p, "rank") + "  ").withColor(LACQUER & 0xFFFFFF))
+                .append(gras(str(p, "perso").isEmpty() ? str(p, "name") : str(p, "perso")).withColor(INK & 0xFFFFFF))
                 .append(RebornFont.body("  " + str(p, "name") + (str(p, "village").isEmpty() ? "" : " · " + str(p, "village")))
                         .withColor(INK_SOFT & 0xFFFFFF));
         ctx.text(font, nm, tx, y + 6, INK, false);
@@ -591,26 +505,26 @@ public class StaffScreen extends Screen {
         if (alts.isEmpty()) y = text(ctx, "Aucun autre compte vu avec la même IP.", x + 2, y, INK_SOFT) + 4;
         for (JsonElement e : alts) {
             JsonObject a = e.getAsJsonObject();
-            chamfer(ctx, x - 1, y - 1, w + 2, 18, WOOD_DARK);
-            chamferGradient(ctx, x, y, w, 16, FUDA, FUDA_2);
-            ctx.text(font, RebornFont.bold(str(a, "name")), x + 6, y + 4, INK, false);
-            small(ctx, "IP partagée · vu " + str(a, "seen"), x + 10 + font.width(RebornFont.bold(str(a, "name"))), y + 5, INK_SOFT);
+            GardeArt.carte(ctx, x, y, w, 16, false);
+            ctx.text(font, gras(str(a, "name")), x + 6, y + 4, INK, false);
+            small(ctx, "IP partagée · vu " + str(a, "seen"), x + 10 + font.width(gras(str(a, "name"))), y + 5, INK_SOFT);
             String altId = str(a, "uuid");
-            int vw = font.width(RebornFont.body("Voir")) + 12;
+            int vw = bw("Voir");
             button(ctx, x + w - vw - 3, y + 1, "Voir", "plain", () -> openProfile(altId), false);
             y += 19;
         }
 
         y = section(ctx, "Casier", y + 2);
-        ctx.text(font, RebornFont.body("Infractions : ").append(RebornFont.bold(String.valueOf(num(p, "recordTotal"))).withColor(LACQUER & 0xFFFFFF))
-                .append(RebornFont.body("     Actives : ")).append(RebornFont.bold(String.valueOf(num(p, "recordActive"))).withColor(LACQUER & 0xFFFFFF)),
+        ctx.text(font, RebornFont.body("Infractions : ").append(gras(String.valueOf(num(p, "recordTotal"))).withColor(LACQUER & 0xFFFFFF))
+                .append(RebornFont.body("     Actives : ")).append(gras(String.valueOf(num(p, "recordActive"))).withColor(LACQUER & 0xFFFFFF)),
                 x + 2, y, INK, false);
         y += 12;
         JsonArray rec = arr(p, "record");
         if (rec.isEmpty()) y = text(ctx, "Casier vierge.", x + 2, y, INK_SOFT) + 4;
         for (JsonElement e : rec) {
             JsonObject r = e.getAsJsonObject();
-            ctx.fill(x, y, x + w, y + 12, 0x59FFFFFF);
+            ctx.fill(x, y, x + w, y + 12, 0x40FFF8E8);
+            ctx.fill(x, y + 12, x + w, y + 13, 0x30462810);
             ctx.fill(x, y, x + 2, y + 12, bool(r, "active") ? LACQUER : 0xFF7A6E5C);
             small(ctx, str(r, "when"), x + 6, y + 3, INK_SOFT);
             small(ctx, fit(str(r, "text"), w - 120), x + 62, y + 3, INK);
@@ -628,11 +542,10 @@ public class StaffScreen extends Screen {
             boolean hov = hover(ox, oy, cw, ch) && !locked;
             int lift = hov ? 1 : 0;
             oy -= lift;
-            ctx.fill(ox + 2, oy + 2 + lift, ox + cw + 2, oy + ch + 2 + lift, hov ? 0x662E1C11 : 0x4D2E1C11);
-            chamfer(ctx, ox - 1, oy - 1, cw + 2, ch + 2, WOOD_DARK);
-            chamferGradient(ctx, ox, oy, cw, ch, hov ? 0xFFF9EED8 : FUDA, FUDA_2);
+            GardeArt.carte(ctx, ox, oy, cw, ch, hov);
             int tone0 = locked ? 0xFF7A6E5C : switch (str(o, "tone")) { case "warn" -> 0xFF8A5A0C; case "mute" -> 0xFFB45309; default -> LACQUER; };
             ctx.fill(ox + 1, oy + 1, ox + cw - 1, oy + 3, tone0);
+            ctx.fill(ox + 1, oy + 1, ox + cw - 1, oy + 2, 0x30FFFFFF);
             if (locked) ctx.fill(ox + cw - 9, oy + 6, ox + cw - 5, oy + 10, 0xFF9A8A70);
             ctx.text(font, RebornFont.body(fit(str(o, "name"), cw - 10)), ox + 5, oy + 4, INK, false);
             int s = num(o, "strikes");
@@ -665,8 +578,8 @@ public class StaffScreen extends Screen {
             int x = vx0(), w = vx1() - vx0();
             Component head = Component.empty()
                     .append(RebornFont.body(str(m, "time") + "  ").withColor(INK_SOFT & 0xFFFFFF))
-                    .append(sys ? RebornFont.bold("Système  ").withColor(LACQUER & 0xFFFFFF)
-                            : RebornFont.bold(gradeShort(num(m, "grade")) + " " + str(m, "name") + "  ").withColor(gradeColor(num(m, "grade")) & 0xFFFFFF));
+                    .append(sys ? gras("Système  ").withColor(LACQUER & 0xFFFFFF)
+                            : gras(gradeShort(num(m, "grade")) + " " + str(m, "name") + "  ").withColor(gradeColor(num(m, "grade")) & 0xFFFFFF));
             int hw = font.width(head);
             List<String> wrapped = wrap(str(m, "text"), w - hw - 12);
             int h = 4 + wrapped.size() * 10;
@@ -686,15 +599,8 @@ public class StaffScreen extends Screen {
         int x = vx0();
         for (String[] f : LOG_FILTERS) {
             boolean sel = f[0].equals(logFilter);
-            Component c = RebornFont.body(f[1]);
-            int w = font.width(c) + 12;
-            chamfer(ctx, x - 1, y - 1, w + 2, 15, WOOD_DARK);
-            if (sel) chamferGradient(ctx, x, y, w, 13, LACQUER_HI, LACQUER_LO);
-            else chamferGradient(ctx, x, y, w, 13, hover(x, y, w, 13) ? 0xFFFBF2DE : 0xFFF4EAD2, 0xFFE0CFA9);
-            ctx.text(font, c, x + 6, y + 3, sel ? IVORY : INK, false);
             final String id = f[0];
-            if (visible(y, 13)) hits.add(new Hit(x, y, w, 13, () -> { logFilter = id; scroll = 0; RebornSounds.uiClick(); }));
-            x += w + 4;
+            x += button(ctx, x, y, f[1], sel ? "punish" : "plain", () -> { logFilter = id; scroll = 0; RebornSounds.uiClick(); }, false) + 4;
         }
         y += 19;
         int count = 0;
@@ -704,13 +610,13 @@ public class StaffScreen extends Screen {
             count++;
             int w = vx1() - vx0();
             int kc = kindColor(str(r, "kind"));
-            chamferGradient(ctx, vx0(), y, w, 14, 0x66FFFFFF, 0x33FFFFFF);
+            ctx.fill(vx0(), y, vx0() + w, y + 14, (count % 2 == 0 ? 0x30 : 0x50) << 24 | 0xFFF8E8);
             ctx.fill(vx0(), y + 1, vx0() + 3, y + 13, kc);
-            ctx.fill(vx0() + 3, y + 13, vx0() + w - 1, y + 14, 0x22462810);
+            ctx.fill(vx0() + 3, y + 13, vx0() + w, y + 14, 0x2A462810);
             ctx.text(font, RebornFont.body(str(r, "time")), vx0() + 6, y + 3, INK_SOFT, false);
-            Component who = RebornFont.bold(gradeShort(num(r, "grade")) + " " + str(r, "name")).withColor(gradeColor(num(r, "grade")) & 0xFFFFFF);
+            Component who = gras(gradeShort(num(r, "grade")) + " " + str(r, "name")).withColor(gradeColor(num(r, "grade")) & 0xFFFFFF);
             ctx.text(font, who, vx0() + 40, y + 3, INK, false);
-            ctx.text(font, RebornFont.bold(str(r, "type")), vx0() + 130, y + 3, kc, false);
+            ctx.text(font, gras(str(r, "type")), vx0() + 130, y + 3, kc, false);
             ctx.text(font, RebornFont.body(fit(str(r, "detail"), w - 230)), vx0() + 225, y + 3, INK, false);
             y += 16;
         }
@@ -736,8 +642,9 @@ public class StaffScreen extends Screen {
             int need = num(c, "grade");
             boolean ok = need <= g;
             int x = vx0(), w = vx1() - vx0();
-            ctx.fill(x, y, x + w, y + 16, ok ? 0x59FFFFFF : 0x26FFFFFF);
-            DrawHelpers.outlinedRect(ctx, x, y, w, 16, 0, WASHI_2);
+            ctx.fill(x, y, x + w, y + 16, ok ? 0x48FFF8E8 : 0x1CFFF8E8);
+            ctx.fill(x, y + 15, x + w, y + 16, 0x2A462810);
+            ctx.fill(x, y, x + 2, y + 15, ok ? GOLD : 0xFFB8A88A);
             int cmdW = Math.round(w * 0.36f);
             ctx.text(font, RebornFont.body(fit(cmd, cmdW - 8)), x + 5, y + 4, ok ? WOOD_DARK : 0xFF9A8A70, false);
             small(ctx, fit(desc, Math.round((w - cmdW - 132) / 0.75f)), x + 5 + cmdW, y + 5, ok ? INK : 0xFF9A8A70);
@@ -746,8 +653,8 @@ public class StaffScreen extends Screen {
             int gx = x + w - 76 - gw;
             DrawHelpers.outlinedRect(ctx, gx, y + 3, gw, 10, 0, gradeColor(need));
             small(ctx, gl, gx + 3, y + 5, gradeColor(need));
-            if (ok) button(ctx, x + w - 68, y + 1, "Préparer", "plain", () -> prepare(cmd), false);
-            else button(ctx, x + w - 68, y + 1, "Verrouillé", "plain", null, true);
+            if (ok) button(ctx, x + w - 68, y + 2, 64, "Préparer", "plain", () -> prepare(cmd), false);
+            else button(ctx, x + w - 68, y + 2, 64, "Verrouillé", "plain", null, true);
             y += 18;
         }
         if (shown == 0) y = text(ctx, "Aucune commande ne correspond.", vx0(), y + 2, INK_SOFT);
@@ -766,27 +673,19 @@ public class StaffScreen extends Screen {
         int shownMsgs = Math.min(msgs.size(), 4);
         int mh = 132 + shownMsgs * 21 + (shownMsgs == 0 ? 12 : 0);
         int y = Math.max(10, height / 2 - mh / 2);
-        ctx.fill(x - 8, y - 4, x + mw + 12, y + mh + 12, 0x80000000);
-        ctx.fill(x - 9, y - 9, x + mw + 9, y + mh + 9, WOOD_DARK);
-        ctx.fillGradient(x - 8, y - 8, x + mw + 8, y + mh + 8, 0xFF744C2C, 0xFF4E321D);
-        DrawHelpers.outlinedRect(ctx, x - 2, y - 2, mw + 4, mh + 4, 0, GOLD);
-        kanagu(ctx, x - 9, y - 9, 1, 1);
-        kanagu(ctx, x + mw + 9, y - 9, -1, 1);
-        kanagu(ctx, x - 9, y + mh + 9, 1, -1);
-        kanagu(ctx, x + mw + 9, y + mh + 9, -1, -1);
-        ctx.fillGradient(x, y, x + mw, y + mh, WASHI, 0xFFDAC79C);
-        ctx.fillGradient(x, y, x + mw, y + 3, LACQUER_HI, LACQUER_LO);
-        int cx = x + 10, cy = y + 8;
+        GardeArt.papierNu(ctx, x, y, mw, mh);
+        GardeArt.cadre(ctx, x, y, mw, mh);
+        int cx = x + 10, cy = y + 11;
         String who = str(p, "perso").isEmpty() ? str(p, "name") : str(p, "perso");
-        ctx.text(font, RebornFont.display("Sanctionner " + who + " ?"), cx, cy, LACQUER_LO, false);
-        cy += 16;
-        ctx.fill(cx, cy, x + mw - 10, cy + 34, 0xFFECDCB8);
-        DrawHelpers.outlinedRect(ctx, cx, cy, mw - 20, 34, 0, WOOD_DARK);
+        GardeArt.losange(ctx, cx, cy + 1);
+        DaKit.arcX1(ctx, font, DaKit.arcade(fit("Sanctionner " + who + " ?", mw - 40)), cx + 9, cy, DaKit.ENCRE_ROUGE, 0, false);
+        cy += 14;
+        GardeArt.carte(ctx, cx, cy, mw - 20, 34, false);
         String[][] rows = {{"Motif", str(confirm, "name")}, {"Sanction", str(confirm, "next")},
                 {"Strike", String.valueOf(num(confirm, "strikes") + 1)}};
         for (int i = 0; i < rows.length; i++) {
             small(ctx, rows[i][0], cx + 6, cy + 4 + i * 10, INK_SOFT);
-            ctx.text(font, RebornFont.bold(rows[i][1]), cx + 60, cy + 3 + i * 10, LACQUER, false);
+            ctx.text(font, gras(rows[i][1]), cx + 60, cy + 3 + i * 10, LACQUER, false);
         }
         cy += 40;
         small(ctx, "Messages récents — marque ceux qui servent de preuve", cx, cy, INK_SOFT);
@@ -795,15 +694,14 @@ public class StaffScreen extends Screen {
         if (shownMsgs == 0) { small(ctx, "Aucun message récent.", cx, cy + 2, INK_SOFT); cy += 12; }
         for (int i = 0; i < shownMsgs; i++) {
             JsonObject m = msgs.get(i).getAsJsonObject();
-            ctx.fill(cx, cy, x + mw - 10, cy + 19, 0x66FFFFFF);
-            DrawHelpers.outlinedRect(ctx, cx, cy, mw - 20, 19, 0, WASHI_2);
+            ctx.fill(cx, cy, x + mw - 10, cy + 19, 0x48FFF8E8);
+            ctx.fill(cx, cy + 18, x + mw - 10, cy + 19, 0x2A462810);
+            ctx.fill(cx, cy, cx + 2, cy + 18, flags.contains(i) ? LACQUER : GOLD);
             small(ctx, str(m, "time"), cx + 4, cy + 2, INK_SOFT);
             ctx.text(font, RebornFont.body(fit(str(m, "text"), mw - 60)), cx + 4, cy + 9, INK, false);
             boolean on = flags.contains(i);
             int fx = x + mw - 30;
-            ctx.fill(fx, cy + 3, fx + 13, cy + 16, WOOD_DARK);
-            ctx.fill(fx + 1, cy + 4, fx + 12, cy + 15, on ? LACQUER : 0xFFEFE3C6);
-            ctx.text(font, Component.literal("⚑"), fx + 3, cy + 6, on ? IVORY : LACQUER, false);
+            GardeArt.drapeau(ctx, fx, cy + 3, on);
             final int idx = i;
             hits.add(new Hit(fx, cy + 3, 13, 13, () -> { if (!flags.remove(idx)) flags.add(idx); RebornSounds.uiClick(); }));
             cy += 21;
@@ -811,15 +709,14 @@ public class StaffScreen extends Screen {
         cy += 2;
         small(ctx, "Note pour le casier", cx, cy, INK_SOFT);
         cy += 9;
-        ctx.fill(cx, cy, x + mw - 10, cy + 14, 0x99FFFFFF);
-        DrawHelpers.outlinedRect(ctx, cx, cy, mw - 20, 14, 0, WOOD_DARK);
+        GardeArt.champ(ctx, cx, cy - 1, mw - 20);
         noteBox.setX(cx + 4); noteBox.setY(cy + 3); noteBox.setWidth(mw - 30);
         cy += 20;
         if (sealAt == 0) {
             button(ctx, cx, cy, "Annuler", "plain", () -> confirm = null, false);
-            int ww = font.width(RebornFont.body("Avertir seulement")) + 12;
+            int ww = bw("Avertir seulement");
             button(ctx, x + mw / 2 - ww / 2, cy, "Avertir seulement", "plain", () -> sendSanction(true), false);
-            int sw = font.width(RebornFont.body("Apposer le sceau")) + 12;
+            int sw = bw("Apposer le sceau");
             button(ctx, x + mw - 10 - sw, cy, "Apposer le sceau", "punish", () -> sendSanction(false), false);
         } else {
             seal(ctx, x + mw - 70, y + 14);
@@ -832,15 +729,8 @@ public class StaffScreen extends Screen {
         float scale = 1.6f - 0.6f * t;
         ctx.pose().pushMatrix();
         ctx.pose().translate(x + 28, y + 28);
-        ctx.pose().rotate((float) Math.toRadians(-12));
         ctx.pose().scale(scale, scale);
-        int a = Math.round(235 * t) << 24;
-        int c = a | (LACQUER & 0xFFFFFF);
-        ctx.fill(-26, -26, 26, -23, c); ctx.fill(-26, 23, 26, 26, c);
-        ctx.fill(-26, -26, -23, 26, c); ctx.fill(23, -26, 26, 26, c);
-        ctx.fill(-23, -23, 23, 23, (Math.round(40 * t) << 24) | (LACQUER & 0xFFFFFF));
-        ctx.pose().scale(3f, 3f);
-        ctx.text(font, Component.literal("罰"), -4, -5, c, false);
+        GardeArt.sceau(ctx, -32, -32, DaKit.blanc(0.92f * t));
         ctx.pose().popMatrix();
         // éclaboussures d'encre au moment de l'impact
         if (t >= 1f) {
@@ -957,6 +847,8 @@ public class StaffScreen extends Screen {
 
     void debugProfile(String uuid) { tab = "players"; profileUuid = uuid; scroll = 0; }
 
+    void debugSeal() { if (confirm != null) sealAt = System.currentTimeMillis() - 260; }
+
     void debugConfirm(int offenseIndex) {
         JsonObject p = StaffClient.profile();
         if (p == null) return;
@@ -1006,17 +898,14 @@ public class StaffScreen extends Screen {
 
     /* =================================================================== petits dessins */
 
-    /** Titre de section : losange d'or, titre laqué, coup de pinceau qui s'efface. */
+    /** Titre de section : losange d'or, titre ArcadePix à l'encre rouge, trait de pinceau vermillon qui s'effile. */
     protected int section(GuiGraphicsExtractor ctx, String title, int y) {
-        Component c = RebornFont.display(title);
+        Component c = DaKit.arcade(title);
         int x = vx0();
-        ctx.fill(x + 1, y + 5, x + 4, y + 8, GOLD);
-        ctx.fill(x + 2, y + 4, x + 3, y + 9, GOLD);
-        ctx.text(font, c, x + 8, y + 2, LACQUER_LO, false);
-        int tw = font.width(c);
-        int len = Math.max(10, (vx1() - x - tw - 14) * 2 / 3);
-        DrawHelpers.horizontalGradient(ctx, x + tw + 14, y + 5, len, 2, LACQUER_LO, 0x007A1322);
-        DrawHelpers.horizontalGradient(ctx, x + tw + 14, y + 8, len / 2, 1, GOLD, 0x00D9A95E);
+        GardeArt.losange(ctx, x, y + 3);
+        int tw = DaKit.arcX1(ctx, font, c, x + 9, y + 2, DaKit.ENCRE_ROUGE, 0, false);
+        int len = Math.max(10, Math.min(240, (vx1() - x - tw - 18) * 2 / 3));
+        GardeArt.trait(ctx, x + tw + 16, y + 3, len);
         return y + 16;
     }
 
@@ -1027,73 +916,58 @@ public class StaffScreen extends Screen {
     }
 
     /**
-     * Plaquette de bois (fuda) : coins gauches coupés, veinage, ficelle rouge passée dans le trou, liseré de couleur
-     * selon le type. Légèrement soulevée au survol.
+     * Plaquette de hinoki (fuda, texture) : coins gauches biseautés, ficelle rouge passée dans le trou, liseré de
+     * couleur selon le type. Légèrement soulevée et cerclée d'or au survol.
      */
     protected void fuda(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int accent) {
         boolean hov = confirm == null && hover(x, y, w, h);
         int lift = hov ? 1 : 0;
         y -= lift;
-        ctx.fill(x + 3, y + 3 + lift, x + w + 3, y + h + 3 + lift, hov ? 0x662E1C11 : 0x4D2E1C11);
-        // silhouette de l'étiquette : coins gauches biseautés
-        ctx.fill(x + 5, y - 1, x + w + 1, y + h + 1, WOOD_DARK);
-        ctx.fill(x - 1, y + 5, x + 5, y + h - 5, WOOD_DARK);
-        for (int k = 0; k < 5; k++) ctx.fill(x + 4 - k, y + k, x + 5, y + h - k, WOOD_DARK);
-        ctx.fillGradient(x + 5, y, x + w, y + h, hov ? 0xFFF7EAD0 : FUDA, FUDA_2);
-        for (int k = 0; k < 5; k++) ctx.fillGradient(x + 5 - k, y + 1 + k, x + 5, y + h - 1 - k, FUDA, FUDA_2);
-        ctx.fill(x, y + 5, x + 1, y + h - 5, FUDA_2);
-        // veinage
-        long s = (long) y * 31 + w;
-        for (int k = 0; k < 4; k++) {
-            s = s * 6364136223846793005L + 1442695040888963407L;
-            int gy = y + 3 + (int) ((s >>> 40) % Math.max(1, h - 6));
-            ctx.fill(x + 8 + (int) ((s >>> 20) % 30), gy, x + w - 4 - (int) ((s >>> 30) % 60), gy + 1, 0x10462810);
-        }
-        // trou + ficelle rouge
-        int hy = y + h / 2;
-        ctx.fill(x + 3, hy - 1, x + 6, hy + 2, WOOD_DARK);
-        ctx.fill(x - 4, hy, x + 4, hy + 1, LACQUER);
-        ctx.fill(x - 6, hy - 2, x - 4, hy + 3, LACQUER);
-        // liseré de type
+        GardeArt.fuda(ctx, x, y, w, h, hov);
+        GardeArt.ficelle(ctx, x + 3, y + h / 2);
         ctx.fill(x + 9, y + 3, x + 11, y + h - 3, accent);
+        ctx.fill(x + 9, y + 3, x + 10, y + h - 3, 0x30FFFFFF);
     }
 
-    /** Score en sceau laqué (couleur selon la gravité). */
+    /** Score en sceau laqué (rouge si grave, ambre sinon), calé à droite en {@code right}. */
     protected void badge(GuiGraphicsExtractor ctx, int right, int y, String label, boolean strong) {
-        Component c = RebornFont.bold(label);
-        int w = font.width(c) + 10;
-        int fill = strong ? LACQUER : 0xFF8A5A0C;
-        chamfer(ctx, right - w - 1, y - 1, w + 2, 14, WOOD_DARK);
-        chamferGradient(ctx, right - w, y, w, 12, fill, strong ? LACQUER_LO : 0xFF6A4508);
-        DrawHelpers.outlinedRect(ctx, right - w + 1, y + 1, w - 2, 10, 0, 0x99D9A95E);
-        ctx.text(font, c, right - w + 5, y + 2, IVORY, false);
+        Component c = DaKit.arcade(label);
+        int w = (int) Math.ceil(DaKit.largeurFin(font, c)) + 12;
+        GardeArt.sceauScore(ctx, right - w, y, w, strong);
+        DaKit.arcFin(ctx, font, c, right - w / 2f, y + 4.75f, IVORY, 1, true);
     }
 
-    /** Bouton laqué / papier, coins coupés, filet d'or au survol ; renvoie sa largeur. */
+    /** Largeur d'un bouton pour ce libellé. */
+    protected int bw(String label) {
+        return (int) Math.ceil(DaKit.largeurFin(font, DaKit.arcade(label))) + 14;
+    }
+
+    /** Bouton-plaque laqué (texture) : noir, rouge (« punish »), vert (« watch »), éteint ; renvoie sa largeur. */
     protected int button(GuiGraphicsExtractor ctx, int x, int y, String label, String style, Runnable action, boolean locked) {
-        Component c = RebornFont.body(label);
-        int w = font.width(c) + 14, h = 12;
+        return button(ctx, x, y, bw(label), label, style, action, locked);
+    }
+
+    /** Bouton de largeur imposée (libellé centré). */
+    protected int button(GuiGraphicsExtractor ctx, int x, int y, int w, String label, String style, Runnable action, boolean locked) {
+        int h = 12;
         boolean hov = !locked && hover(x, y, w, h);
-        int top, bottom;
-        switch (style) {
-            case "punish" -> { top = hov ? 0xFFD8263F : LACQUER_HI; bottom = hov ? LACQUER : LACQUER_LO; }
-            case "watch" -> { top = hov ? 0xFFE4F2CF : 0xFFD8EBBE; bottom = 0xFFB4CF92; }
-            default -> { top = hov ? 0xFFFBF2DE : 0xFFF4EAD2; bottom = 0xFFE0CFA9; }
-        }
-        if (locked) { top = 0xFFDDD2BA; bottom = 0xFFCDBF9F; }
-        chamfer(ctx, x, y + 1, w, h + 1, 0x802E1C11);                                   // relief
-        chamfer(ctx, x - 1, y - 1, w + 2, h + 2, WOOD_DARK);
-        chamferGradient(ctx, x, y, w, h, top, bottom);
-        if ("punish".equals(style) && !locked) ctx.fill(x + 2, y + 1, x + w - 2, y + 2, 0x55FFD8A0);
-        if (hov) ctx.fill(x + 3, y + h - 1, x + w - 3, y + h, GOLD);
-        int color = "punish".equals(style) && !locked ? IVORY : locked ? 0xFF9A8A70 : INK;
-        ctx.text(font, c, x + 7, y + 2, color, false);
-        if (locked) ctx.fill(x + w - 5, y + 3, x + w - 3, y + 6, 0xFF9A8A70);   // petit cadenas
+        int ligne = locked ? GardeArt.B_INACTIF : switch (style) {
+            case "punish" -> GardeArt.B_ROUGE;
+            case "watch" -> GardeArt.B_VERT;
+            default -> GardeArt.B_NOIR;
+        };
+        GardeArt.bouton(ctx, x, y, w, ligne, hov);
+        int color = locked ? 0xFF9A8A70 : hov ? DaKit.OR_CLAIR : IVORY;
+        DaKit.arcFin(ctx, font, DaKit.arcade(label), x + w / 2f - (locked ? 2 : 0), y + 4.25f, color, 1, !locked);
+        if (locked) ctx.fill(x + w - 6, y + 4, x + w - 4, y + 7, 0xFF9A8A70);   // petit cadenas
         if (visible(y, h) || confirm != null) hits.add(new Hit(x, y, w, h, locked ? null : () -> {
             if (action != null) action.run();
         }));
         return w;
     }
+
+    /** Nom ou valeur en Inter gras (comme la fiche). */
+    protected static MutableComponent gras(String s) { return DaKit.interGras(s); }
 
     protected void head(GuiGraphicsExtractor ctx, String uuid, int x, int y, int size) {
         ctx.fill(x - 2, y - 2, x + size + 2, y + size + 2, WOOD_DARK);
@@ -1115,11 +989,7 @@ public class StaffScreen extends Screen {
     }
 
     protected void small(GuiGraphicsExtractor ctx, String s, int x, int y, int color) {
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x, y);
-        ctx.pose().scale(0.75f, 0.75f);
-        ctx.text(font, RebornFont.body(s), 0, 0, color, false);
-        ctx.pose().popMatrix();
+        DaKit.texteEchelle(ctx, font, RebornFont.body(s), x, y, color, 0.75f);
     }
 
     protected boolean hover(int x, int y, int w, int h) {

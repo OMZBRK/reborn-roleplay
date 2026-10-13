@@ -1,10 +1,6 @@
 package fr.reborn.hud.menu.screens;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.IconPack;
-import fr.reborn.hud.menu.RebornFont;
-import fr.reborn.hud.menu.esc.EscData;
+import fr.reborn.hud.menu.RebornSounds;
 import fr.reborn.hud.menu.settings.AccountTab;
 import fr.reborn.hud.menu.settings.AudioTab;
 import fr.reborn.hud.menu.settings.CameraTab;
@@ -12,31 +8,30 @@ import fr.reborn.hud.menu.settings.ControlsTab;
 import fr.reborn.hud.menu.settings.DiscordTab;
 import fr.reborn.hud.menu.settings.InterfaceTab;
 import fr.reborn.hud.menu.settings.MinecraftTab;
+import fr.reborn.hud.menu.settings.ReglagesArt;
 import fr.reborn.hud.menu.settings.RebornPrefs;
 import fr.reborn.hud.menu.settings.SettingsTab;
 import fr.reborn.hud.menu.settings.VideoTab;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Écran Paramètres Reborn — refonte : « ← Retour » en
- * haut-gauche, barre d'onglets <b>responsive</b> (Vidéo / Audio / Contrôles /
- * Caméra / Interface / Discord / Compte / Minecraft) qui se replie sur
- * plusieurs rangées centrées en petite fenêtre, puis le contenu de la catégorie
- * active dans une colonne centrée scrollable.
+ * Écran Paramètres Reborn, au niveau de la fiche shinobi (DA §4.1, §6). Signature : le byōbu, paravent à feuilles
+ * d'or déplié dans une pièce de laque, la nuit ; devant lui, la planche laquée des réglages. En-tête suspendu
+ * « PARAMÈTRES », huit onglets pendus à kanji (Vidéo 映, Audio 音, Contrôles 操, Caméra 写, Interface 面, Discord 話,
+ * Compte 名, Minecraft 箱), plaque 閉 pour revenir (ou Échap). Le contenu de la catégorie active défile dans la
+ * planche.
  *
- * <p>Chaque catégorie ne propose que des réglages <b>réellement câblés</b>
- * (client-side, via {@code mc.options} ou les managers Reborn). Toute
- * redirection vers les écrans vanilla est centralisée dans l'onglet
- * <b>Minecraft</b> (cf {@link MinecraftTab}).
+ * <p>Chaque catégorie ne propose que des réglages <b>réellement câblés</b> (client-side, via {@code mc.options} ou les
+ * managers Reborn). Toute redirection vers les écrans vanilla est centralisée dans l'onglet <b>Minecraft</b>.
+ * Textures : {@code textures/gui/reglages/*} ({@code tools/gen_reglages_textures.py}, cf. {@link ReglagesArt}).
  */
 public class ConfigShellScreen extends Screen {
 
@@ -44,32 +39,14 @@ public class ConfigShellScreen extends Screen {
     private final CategoryDef[] categories;
     private int activeIdx;
 
-    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reborn", "textures/gui/title/logo.png");
-    private static final int LOGO_TEX_W = 2048;
-    private static final int LOGO_TEX_H = 717;
+    private static final int TAB_ATTACHE = 36;     // haut des cellules d'onglets (fil d'or)
+    private static final int PLANCHE_Y = 88;
+    private static final int PAD_X = 24, PAD_Y = 16;
+    private static final int MAX_CONTENT_W = 520;
+    private static final int BOTTOM_MARGIN = 20;
+    private static final int SCROLLBAR_MIN_THUMB = 24;
 
-    private static final int RETURN_Y = 14;
-    private static final int LOGO_Y = 10;
-    private static final int TABBAR_Y = 62;
-    private static final int TAB_H = 36;         // icône + label ArcadePix
-    private static final int TAB_ICON = 16;
-    private static final int TAB_PAD = 10;       // padding horizontal interne d'un onglet
-    private static final int TAB_GAP = 4;
-    private static final int TAB_ROW_GAP = 6;     // espace vertical entre 2 rangées d'onglets
-    private static final int TABBAR_SIDE_PAD = 16; // marge latérale mini de la barre
-    private static final int CONTENT_TOP_PAD = 22;
-    private static final int MAX_CONTENT_W = 560;
-    private static final int VIEWPORT_BOTTOM_PAD = 16;
-    private static final int BOTTOM_MARGIN = 24;
-    private static final int SCROLLBAR_W = 4;
-    private static final int SCROLLBAR_MIN_THUMB = 28;
-
-    @FunctionalInterface
-    private interface Icon {
-        void draw(GuiGraphicsExtractor ctx, int x, int y, int size, int color);
-    }
-
-    private record CategoryDef(String id, String label, Icon icon, SettingsTab tab) {}
+    private record CategoryDef(String id, String label, String kanji, SettingsTab tab) {}
 
     private int scrollY = 0;
     private List<AbstractWidget> contentWidgets = List.of();
@@ -77,14 +54,7 @@ public class ConfigShellScreen extends Screen {
 
     private boolean draggingScrollbar = false;
     private int scrollbarGrabDy = 0;
-
-    // Layout des onglets recalculé à l'init + à chaque frame (dépend de la
-    // largeur écran) : la barre se replie sur plusieurs rangées centrées
-    // quand elle déborde, pour rester lisible en petite fenêtre / GUI Scale 3.
-    private int[] tabX = new int[0];
-    private int[] tabY = new int[0];
-    private int[] tabW = new int[0];
-    private int tabRowCount = 1;
+    private int hoveredTab = -1;
 
     public ConfigShellScreen(Screen parent) {
         this(parent, 0);
@@ -95,16 +65,26 @@ public class ConfigShellScreen extends Screen {
         this.parent = parent;
         RebornPrefs.INSTANCE.ensureLoaded();
         this.categories = new CategoryDef[] {
-            new CategoryDef("video", "Vidéo", IconPack::monitor, new VideoTab(this)),
-            new CategoryDef("audio", "Audio", IconPack::volume, new AudioTab()),
-            new CategoryDef("controls", "Contrôles", IconPack::keyboard, new ControlsTab(this)),
-            new CategoryDef("camera", "Caméra", IconPack::camera, new CameraTab(this)),
-            new CategoryDef("interface", "Interface", IconPack::layout, new InterfaceTab(this)),
-            new CategoryDef("discord", "Discord", IconPack::discord, new DiscordTab()),
-            new CategoryDef("account", "Compte", IconPack::user, new AccountTab()),
-            new CategoryDef("minecraft", "Minecraft", IconPack::cube, new MinecraftTab(this)),
+            new CategoryDef("video", "Video", "映", new VideoTab(this)),
+            new CategoryDef("audio", "Audio", "音", new AudioTab()),
+            new CategoryDef("controls", "Controles", "操", new ControlsTab(this)),
+            new CategoryDef("camera", "Camera", "写", new CameraTab(this)),
+            new CategoryDef("interface", "Interface", "面", new InterfaceTab(this)),
+            new CategoryDef("discord", "Discord", "話", new DiscordTab()),
+            new CategoryDef("account", "Compte", "名", new AccountTab()),
+            new CategoryDef("minecraft", "Minecraft", "箱", new MinecraftTab(this)),
         };
-        this.activeIdx = Math.max(0, Math.min(categories.length - 1, initialIdx));
+        this.activeIdx = Math.max(0, Math.min(categories.length - 1, initialIdx + ongletBanc()));
+    }
+
+    /** Banc de captures : onglet imposé ({@code REBORN_REGLAGES_ONGLET=<n>}, client de dev seulement). */
+    private static int ongletBanc() {
+        try {
+            String v = System.getenv("REBORN_REGLAGES_ONGLET");
+            return v == null || v.isBlank() ? 0 : Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private SettingsTab activeTab() {
@@ -112,83 +92,44 @@ public class ConfigShellScreen extends Screen {
     }
 
     // ─── Géométrie ───────────────────────────────────────
-    private int tabBarHeight() {
-        return tabRowCount * TAB_H + (tabRowCount - 1) * TAB_ROW_GAP;
-    }
-    private int viewportTop() { return TABBAR_Y + tabBarHeight() + 8; }
-    private int viewportBottom() { return this.height - VIEWPORT_BOTTOM_PAD; }
-    private int viewportH() { return Math.max(0, viewportBottom() - viewportTop()); }
-
-    private int contentW() {
-        return Math.max(240, Math.min(MAX_CONTENT_W, this.width - 80));
-    }
+    private int contentW() { return Math.max(260, Math.min(MAX_CONTENT_W, this.width - 2 * PAD_X - 64)); }
     private int contentX() { return (this.width - contentW()) / 2; }
-    private int contentTopBase() { return viewportTop() + CONTENT_TOP_PAD; }
+    private int plancheX() { return contentX() - PAD_X; }
+    private int plancheW() { return contentW() + 2 * PAD_X; }
+    private int plancheH() { return Math.min(648, this.height - PLANCHE_Y - 8); }
+    private int viewportTop() { return PLANCHE_Y + PAD_Y - 4; }
+    private int viewportBottom() { return PLANCHE_Y + plancheH() - PAD_Y + 4; }
+    private int viewportH() { return Math.max(0, viewportBottom() - viewportTop()); }
+    private int contentTopBase() { return PLANCHE_Y + PAD_Y; }
     private int contentBottom() { return contentTopBase() + activeTab().height() + BOTTOM_MARGIN; }
     private int maxScroll() { return Math.max(0, contentBottom() - viewportBottom()); }
     private boolean hasScroll() { return maxScroll() > 0; }
 
-    // ─── Onglets (barre responsive : repli multi-rangées centrées) ──
-    /** Largeur d'un onglet = max(label ArcadePix, icône) + padding. */
-    private int tabWidth(Font tr, String label) {
-        int labelW = tr.width(RebornFont.arcade(EscData.arcadeSafe(label, 20)));
-        return Math.max(labelW, TAB_ICON) + TAB_PAD * 2;
+    /** Centre de l'onglet i : huit onglets répartis sous la plaque de 520. */
+    private int tabX(int i) {
+        int span = Math.min(520, this.width - 40);
+        float pitch = span / (float) categories.length;
+        return Math.round(this.width / 2f - span / 2f + pitch * (i + 0.5f));
     }
 
-    /**
-     * Répartit les onglets en rangées qui tiennent dans la largeur dispo
-     * (packing gauche→droite), chaque rangée étant recentrée indépendamment.
-     * Remplit {@link #tabX}/{@link #tabY}/{@link #tabW} + {@link #tabRowCount}.
-     */
-    private void computeTabLayout(Font tr) {
-        int n = categories.length;
-        if (tabX.length != n) {
-            tabX = new int[n];
-            tabY = new int[n];
-            tabW = new int[n];
+    private int tabAt(double mx, double my) {
+        if (my < TAB_ATTACHE + 6 || my > TAB_ATTACHE + 46) return -1;
+        int span = Math.min(520, this.width - 40);
+        float pitch = span / (float) categories.length;
+        for (int i = 0; i < categories.length; i++) {
+            if (Math.abs(mx - tabX(i)) <= pitch / 2f) return i;
         }
-        int avail = Math.max(120, this.width - 2 * TABBAR_SIDE_PAD);
+        return -1;
+    }
 
-        int[] w = new int[n];
-        for (int i = 0; i < n; i++) w[i] = tabWidth(tr, categories[i].label);
+    private int fermerX() { return this.width - 30; }
 
-        // Assignation gloutonne des rangées.
-        int[] rowOf = new int[n];
-        int row = 0, rowW = 0;
-        for (int i = 0; i < n; i++) {
-            int add = w[i] + (rowW > 0 ? TAB_GAP : 0);
-            if (rowW > 0 && rowW + add > avail) {
-                row++;
-                rowW = 0;
-                add = w[i];
-            }
-            rowOf[i] = row;
-            rowW += add;
-        }
-        tabRowCount = row + 1;
-
-        // Centrage par rangée.
-        for (int r = 0; r < tabRowCount; r++) {
-            int total = 0, cnt = 0;
-            for (int i = 0; i < n; i++) {
-                if (rowOf[i] == r) { total += w[i] + (cnt > 0 ? TAB_GAP : 0); cnt++; }
-            }
-            int cx = (this.width - total) / 2;
-            for (int i = 0; i < n; i++) {
-                if (rowOf[i] != r) continue;
-                tabW[i] = w[i];
-                tabX[i] = cx;
-                tabY[i] = TABBAR_Y + r * (TAB_H + TAB_ROW_GAP);
-                cx += w[i] + TAB_GAP;
-            }
-        }
+    private boolean overBack(double mx, double my) {
+        return mx >= fermerX() - 13 && mx < fermerX() + 13 && my >= 0 && my < 46;
     }
 
     @Override
     protected void init() {
-        // La géométrie du contenu dépend de la hauteur de barre → calculer les
-        // rangées d'onglets AVANT de layouter le contenu (et à chaque resize).
-        computeTabLayout(this.font);
         rebuildContent();
     }
 
@@ -212,6 +153,7 @@ public class ConfigShellScreen extends Screen {
         if (idx == activeIdx) return;
         activeIdx = idx;
         scrollY = 0;
+        RebornSounds.playReborn("stats.tab", 1.0f, 0.5f);
         rebuildContent();
     }
 
@@ -234,46 +176,32 @@ public class ConfigShellScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        // Même fond que le menu ÉCHAP : un seul dégradé vertical doux.
-        int bottomTint = Colors.lerp(Colors.BACKGROUND, Colors.ACCENT, 0.10f);
-        DrawHelpers.verticalGradient(ctx, 0, 0, this.width, this.height, Colors.BACKGROUND, bottomTint);
-        Font tr = this.font;
-        computeTabLayout(tr);
+        ReglagesArt.fond(ctx, this.width, this.height);
+        Font f = this.font;
+        int cx = this.width / 2;
 
-        // Logo top-centre (comme l'ÉCHAP).
-        int logoW = Math.min(Math.round(this.width * 0.10f), 132);
-        int logoH = Math.round(logoW * (float) LOGO_TEX_H / LOGO_TEX_W);
-        ctx.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, (this.width - logoW) / 2, LOGO_Y, 0f, 0f, logoW, logoH, LOGO_TEX_W, LOGO_TEX_H, LOGO_TEX_W, LOGO_TEX_H);
+        ReglagesArt.planche(ctx, plancheX(), PLANCHE_Y, plancheW(), plancheH());
 
-        // « ‹ RETOUR » haut-gauche (hit-test dans mouseClicked).
-        boolean backHover = overBack(mouseX, mouseY);
-        ctx.text(tr, RebornFont.arcade("< RETOUR"), 16, RETURN_Y,
-            backHover ? Colors.WHITE_PURE : Colors.FOREGROUND_MUTED, false);
-
-        // Barre d'onglets responsive : icône au-dessus du label ArcadePix.
+        // Onglets pendus (sous l'en-tête) : plaquette à kanji, libellé ArcadePix ×0,5 dessous.
+        int hov = tabAt(mouseX, mouseY);
+        hoveredTab = hov;
         for (int i = 0; i < categories.length; i++) {
-            int x = tabX[i];
-            int y = tabY[i];
-            int w = tabW[i];
-            boolean active = i == activeIdx;
-            boolean hover = mouseX >= x && mouseX < x + w
-                && mouseY >= y && mouseY < y + TAB_H;
-            int bg = active ? Colors.ACCENT_SOFT : (hover ? Colors.SURFACE_ELEVATED : Colors.TRANSPARENT);
-            if (bg != Colors.TRANSPARENT) {
-                DrawHelpers.roundedRect(ctx, x, y, w, TAB_H, 8, bg);
-            }
-            int fg = active ? Colors.WHITE_PURE : (hover ? Colors.FOREGROUND_SUBTLE : Colors.FOREGROUND_MUTED);
-            categories[i].icon.draw(ctx, x + (w - TAB_ICON) / 2, y + 4, TAB_ICON, fg);
-            Component label = RebornFont.arcade(EscData.arcadeSafe(categories[i].label, 20));
-            int lw = tr.width(label);
-            ctx.text(tr, label, x + (w - lw) / 2, y + 4 + TAB_ICON + 3, fg, false);
-            if (active) {
-                DrawHelpers.roundedRect(ctx, x + TAB_PAD, y + TAB_H - 2,
-                    w - 2 * TAB_PAD, 2, 1, Colors.ACCENT);
-            }
+            int tx = tabX(i);
+            boolean active = i == activeIdx, hot = i == hov && !active;
+            ReglagesArt.onglet(ctx, tx, TAB_ATTACHE, active ? 2 : hot ? 1 : 0);
+            int ty = TAB_ATTACHE + 8 + (active ? 2 : 0);
+            DaKit.kanji16(ctx, f, categories[i].kanji, tx, ty + 3, active ? DaKit.CREME_KJ : hot ? DaKit.OR_CLAIR : DaKit.OR,
+                active ? 0xFF140608 : 0);
+            DaKit.arcFin(ctx, f, DaKit.arcade(categories[i].label), tx, ty + 26, active ? DaKit.CREME : hot ? 0xFFE8DCC0
+                : 0xFFA88C5E, 1, active);
         }
-        // Séparateur sous les onglets.
-        ctx.fill(0, viewportTop() - 4, this.width, viewportTop() - 3, Colors.BORDER);
+        ReglagesArt.entete(ctx, cx);
+        DaKit.arcX1(ctx, f, DaKit.arcade("Parametres"), cx, 19, DaKit.CREME, 1, true);
+
+        // Plaque 閉 (retour) en haut à droite, touche Échap dessous.
+        boolean backHover = overBack(mouseX, mouseY);
+        ReglagesArt.fermer(ctx, fermerX(), backHover);
+        DaKit.arcFin(ctx, f, DaKit.arcade("Echap"), fermerX(), 41, backHover ? DaKit.CREME : 0xFFA88C5E, 1, false);
     }
 
     @Override
@@ -284,7 +212,7 @@ public class ConfigShellScreen extends Screen {
         int contentW = contentW();
         int contentYScrolled = contentTopBase() - scrollY;
 
-        ctx.enableScissor(0, viewportTop(), this.width, viewportBottom());
+        ctx.enableScissor(plancheX() + 4, viewportTop(), plancheX() + plancheW() - 4, viewportBottom());
         activeTab().renderPassive(ctx, contentX, contentYScrolled, contentW);
         for (AbstractWidget w : contentWidgets) {
             if (w.visible) {
@@ -301,15 +229,12 @@ public class ConfigShellScreen extends Screen {
         int top = viewportTop();
         int vh = viewportH();
         int x = scrollbarX();
-        DrawHelpers.roundedRect(ctx, x, top, SCROLLBAR_W, vh, SCROLLBAR_W / 2, Colors.SURFACE);
-        int thumbH = thumbHeight();
-        int thumbY = thumbY();
-        int color = draggingScrollbar ? Colors.ACCENT : Colors.BORDER_STRONG;
-        DrawHelpers.roundedRect(ctx, x, thumbY, SCROLLBAR_W, thumbH, SCROLLBAR_W / 2, color);
+        ReglagesArt.rail(ctx, x, top, vh);
+        ReglagesArt.curseur(ctx, x - 1, thumbY(), thumbHeight());
     }
 
     private int scrollbarX() {
-        return Math.min(contentX() + contentW() + 12, this.width - SCROLLBAR_W - 6);
+        return plancheX() + plancheW() - 12;
     }
 
     private int thumbHeight() {
@@ -331,11 +256,6 @@ public class ConfigShellScreen extends Screen {
         return mouseY >= viewportTop() && mouseY <= viewportBottom();
     }
 
-    private boolean overBack(double mouseX, double mouseY) {
-        int w = this.font.width(RebornFont.arcade("< RETOUR"));
-        return mouseX >= 12 && mouseX <= 16 + w + 6 && mouseY >= RETURN_Y - 4 && mouseY <= RETURN_Y + 14;
-    }
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double hAmount, double vAmount) {
         if (hasScroll() && inContentViewport(mouseX, mouseY)) {
@@ -350,18 +270,16 @@ public class ConfigShellScreen extends Screen {
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0) {
-            // « ← Retour ».
+            // Plaque 閉 = retour.
             if (overBack(mouseX, mouseY)) {
                 onClose();
                 return true;
             }
-            // Onglets (positions calculées par computeTabLayout, multi-rangées).
-            for (int i = 0; i < categories.length && i < tabX.length; i++) {
-                int x = tabX[i], y = tabY[i], w = tabW[i];
-                if (mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + TAB_H) {
-                    selectCategory(i);
-                    return true;
-                }
+            // Onglets pendus.
+            int t = tabAt(mouseX, mouseY);
+            if (t >= 0) {
+                selectCategory(t);
+                return true;
             }
             // Scrollbar.
             if (hasScroll() && overScrollbar(mouseX, mouseY)) {
@@ -382,7 +300,7 @@ public class ConfigShellScreen extends Screen {
 
     @Override
     public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dX, double dY) {
-        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
+        double mouseY = event.y();
         if (draggingScrollbar) {
             dragScrollbarTo(mouseY);
             return true;
@@ -392,7 +310,7 @@ public class ConfigShellScreen extends Screen {
 
     @Override
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
-        double mouseX = event.x(), mouseY = event.y(); int button = event.button();
+        int button = event.button();
         if (button == 0 && draggingScrollbar) {
             draggingScrollbar = false;
             return true;
@@ -402,7 +320,7 @@ public class ConfigShellScreen extends Screen {
 
     private boolean overScrollbar(double mouseX, double mouseY) {
         int x = scrollbarX();
-        return mouseX >= x - 4 && mouseX <= x + SCROLLBAR_W + 4
+        return mouseX >= x - 4 && mouseX <= x + 8
             && mouseY >= viewportTop() && mouseY <= viewportBottom();
     }
 

@@ -1,23 +1,20 @@
 package fr.reborn.hud.menu.widget;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
+import fr.reborn.hud.menu.shop.EchoppeArt;
 import fr.reborn.hud.menu.shop.ShopData;
 import fr.reborn.hud.menu.shop.ShopPayload;
 import fr.reborn.hud.skin.CharacterCatalog;
 import fr.reborn.hud.skin.RebornSkins;
 import fr.reborn.hud.skin.SkinSpec;
+import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.ui.UiAmbience;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,28 +33,13 @@ import java.util.Locale;
  *
  * <p>Sons {@code reborn:shop.*} ({@code tools/ui-art/gen_shop_sfx.py}) : fūrin à l'entrée,
  * pièces au paiement, tissu à l'équipement, perle de boulier à la sélection, ambiance.
+ *
+ * <p>Habillage au niveau de la fiche (DA §4.1, §6) : textures {@code textures/gui/echoppe/*}
+ * ({@code tools/gen_echoppe_textures.py}, cf. {@link EchoppeArt}), 1 texel = 1 GUI, texte {@link DaKit}.
  */
 public class ShopScreen extends Screen {
 
     private static final int TAB_OUTFITS = 0, TAB_MAPS = 1;
-
-    private static final int CREAM = 0xFFFAEED6;
-    private static final int GOLD = 0xFFF6CC78;
-    private static final int LACQ = 0xFF5C1418;
-    private static final int ROPE = 0xFFC8A05A;
-    private static final int PAPER = 0xFFEADCB4;
-    private static final int PAPER_SEL = 0xFFF6EAC6;
-    private static final int PAPER_INK = 0xFF3C2A1C;
-    private static final int PAPER_DIM = 0xFF8C7458;
-    private static final int OWNED = 0xFF2E7D4A;
-
-    private static final Identifier WALL = tex("wall"), NOREN = tex("noren"), CREST = tex("crest"),
-        CHOCHIN = tex("chochin"), COIN = tex("coin"), STAMP = tex("stamp"), SCROLL = tex("scroll"), ROBE = tex("robe");
-    private static final Identifier GLOW = Identifier.fromNamespaceAndPath("reborn", "textures/gui/stats/glow.png");
-
-    private static Identifier tex(String n) {
-        return Identifier.fromNamespaceAndPath("reborn", "textures/gui/shop/" + n + ".png");
-    }
 
     private final Screen parent;
 
@@ -156,29 +138,7 @@ public class ShopScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        float time = (System.currentTimeMillis() - openedAt) / 1000f;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, WALL, 0, 0, 0f, 0f, this.width, this.height, 480, 270, 480, 270);
-        // Noren : pans indigo répétés + blason au centre, léger mouvement d'air.
-        norenH = this.height < 400 ? 28 : 40;
-        for (int x = 0, k = 0; x < this.width; x += 64, k++) {
-            int sway = Math.round((float) Math.sin(time * 1.4f + k * 0.8f) * 1.2f);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, NOREN, x, sway - (40 - norenH), 0f, 0f, 64, 40, 64, 40);
-        }
-        int cs = norenH < 40 ? 20 : 28;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, CREST, this.width / 2 - cs / 2, (norenH - cs) / 2, 0f, 0f, cs, cs, 28, 28, 28, 28);
-        // Chōchin qui se balancent de part et d'autre.
-        for (int side = 0; side < 2; side++) {
-            float cx = side == 0 ? this.width * 0.045f + 12 : this.width * 0.955f - 12;
-            float ang = (float) Math.sin(time * 1.1f + side * 2f) * 0.08f;
-            int top = norenH + 2;
-            blitGlow(ctx, cx, top + 26, 70, Colors.withAlpha(0xFFFF8A50, 0.35f + 0.05f * (float) Math.sin(time * 7f + side)));
-            ctx.fill(Math.round(cx), norenH - 2, Math.round(cx) + 1, top + 4, 0xFF2A1E18);
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(cx, top + 4);
-            ctx.pose().rotate(ang);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, CHOCHIN, -11, 0, 0f, 0f, 22, 32, 22, 32);
-            ctx.pose().popMatrix();
-        }
+        EchoppeArt.mur(ctx, this.width, this.height);
     }
 
     @Override
@@ -193,154 +153,172 @@ public class ShopScreen extends Screen {
         Font f = this.font;
         boolean compact = this.height < 400;
         float time = (System.currentTimeMillis() - openedAt) / 1000f;
+        int W = this.width, H = this.height;
 
         // ── Géométrie ──
-        listW = compact ? 200 : 250;
-        listX = this.width - listW - (compact ? 14 : 28);
-        tabsY = norenH + (compact ? 8 : 14);
-        listY = tabsY + 18;
-        int footY = this.height - (compact ? 22 : 30);
-        int detailH = compact ? 30 : 40;
-        listH = footY - 8 - detailH - 8 - listY;
-        rowH = compact ? 17 : 20;
+        norenH = compact ? 30 : 36;
+        listW = compact ? 214 : Math.max(240, Math.min(290, Math.round(W * 0.28f)));
+        listX = W - listW - (compact ? 18 : 30);
+        int bourseY = norenH + (compact ? 4 : 6);
+        tabsY = norenH + (compact ? 24 : 30);
+        int panelY = tabsY + 24;
+        rowH = compact ? 19 : 21;
+        int btnH = 20;
+        int footY = H - btnH - (compact ? 10 : 14);
+        int detailH = compact ? 38 : 50;
+        int detailY = footY - 8 - detailH;
+        listY = panelY + 9;
+        listH = detailY - 10 - listY - 9;
+        listH = Math.max(rowH, listH - listH % rowH);
 
-        // ── Estrade + personnage (zone gauche) ──
-        int stageW = listX - 20;
-        int cx = stageW / 2 + 10;
-        int floorY = (int) (this.height * (compact ? 0.86f : 0.84f));
-        blitGlow(ctx, cx, floorY - this.height * 0.28f, this.height * 0.75f, 0x40FFC878);
-        ctx.fillGradient(cx - 80, floorY - 4, cx + 80, floorY + 10, 0xFF5A3A24, 0xFF2A1A12);
-        for (int k = 0; k < 3; k++) ctx.fill(cx - 80 + k * 2, floorY - 4 - k, cx + 80 - k * 2, floorY - 3 - k, 0xFF7A5232);
+        // ── Scène : lumière, estrade, personnage ──
+        int stageR = listX - 24;
+        int cx = Math.max(110, stageR / 2 + 8);
+        int pieds = H - EchoppeArt.SOL + 18;
+        int etagereY = H - EchoppeArt.SOL - 46;
+        if (cx - 104 >= 20 + 128) EchoppeArt.etagere(ctx, 20, etagereY);
+        if (stageR - 12 - 128 >= cx + 104) EchoppeArt.etagere(ctx, stageR - 12 - 128, etagereY);
+        EchoppeArt.halo(ctx, cx, pieds - H * 0.28f, Math.max(3, Math.round(H / 130f)), DaKit.argb(0xFFA850, 0.26f));
+        EchoppeArt.halo(ctx, cx, pieds + 4, 3, DaKit.argb(0xFFC070, 0.30f));
+        EchoppeArt.estrade(ctx, cx, pieds);
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            int size = (int) (this.height * 0.30f);
-            int y0 = (int) (this.height * 0.16f);
-            renderAvatar360(ctx, cx - size, y0, cx + size, floorY, size, avatarSpin, mc.player);
-            Component hint = RebornFont.arcade("CLIC DROIT MAINTENU : TOURNER");
-            drawScaled(ctx, f, hint, cx - f.width(hint) * 0.35f, floorY + 14, 0.7f, 0x99FAEED6);
+            int size = (int) (H * 0.28f);
+            // boîte centrée sur le milieu du corps (pieds − 0,9 × taille) : les pieds posent sur l'estrade
+            int mid = pieds - Math.round(size * 0.9f);
+            renderAvatar360(ctx, cx - size, mid - size, cx + size, mid + size, size, avatarSpin, mc.player);
         }
 
-        // ── Enseigne (titre) + bourse ──
-        int py = norenH + 6;
-        Component title = RebornFont.arcade("ECHOPPE");
-        Component sub = RebornFont.arcade("TENUES & CARTES");
-        int pw = Math.max(f.width(title) * 13 / 10, Math.round(f.width(sub) * 0.7f)) + 26;
-        int px = 14;
-        ctx.fill(px + 2, py + 3, px + pw + 2, py + 33, 0x55000000);
-        ctx.fill(px, py, px + pw, py + 30, LACQ);
-        frame(ctx, px, py, pw, 30, GOLD);
-        drawScaled(ctx, f, title, px + 13, py + 6, 1.3f, CREAM);
-        drawScaled(ctx, f, sub, px + 13, py + 19, 0.7f, 0xFFE6B4A0);
+        // ── Chōchin, enseigne ──
+        float flick = 0.85f + 0.15f * (float) Math.sin(time * 6.1f) * (float) Math.sin(time * 2.3f);
+        float[] lx = W - listW < 420 ? new float[]{Math.min(stageR - 12, 196)}
+            : new float[]{196, stageR - 12};
+        for (float l : lx) EchoppeArt.halo(ctx, l, norenH + 24, 3, DaKit.argb(0xFF8A40, 0.34f * flick));
+        DaKit.blit(ctx, EchoppeArt.ENSEIGNE, 12, norenH - 12, 0, 0, 156, 62, 156, 62);
+        for (int i = 0; i < lx.length; i++) {
+            float ang = (float) Math.sin(time * 1.1f + i * 2f) * 0.07f;
+            EchoppeArt.fil(ctx, Math.round(lx[i]), norenH - 6, norenH + 2);
+            EchoppeArt.chochin(ctx, lx[i], norenH + 2, ang, flick > 0.95f);
+        }
+        DaKit.arcX1(ctx, f, DaKit.arcade("Echoppe"), 90, norenH + 7, DaKit.CREME, 1, true);
+        DaKit.inter7(ctx, f, DaKit.inter("Tenues et cartes"), 90, norenH + 21, DaKit.argb(0xE8DCC0, 0.75f), 1);
 
-        String bal = ShopData.received() ? fmtRyo(ShopData.ryo()) : "…";
-        Component balC = RebornFont.arcade(bal + " RYO");
-        int bw = f.width(balC) + 26, bx = listX + listW - bw;
-        ctx.fill(bx, py - 2, bx + bw, py + 12, 0xD0281810);
-        frame(ctx, bx, py - 2, bw, 14, 0xFFA07840);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, COIN, bx + 5, py + 0, 0f, 0f, 10, 10, 10, 10);
-        ctx.text(f, balC, bx + 19, py + 1, GOLD, false);
+        // ── Bourse (ryo) ──
+        String bal = ShopData.received() ? fmtRyo(ShopData.ryo()) + " ryo" : "…";
+        int bw = Math.round(DaKit.largeur8(f, DaKit.inter(bal))) + 26;
+        int bx = listX + listW - bw;
+        EchoppeArt.fil(ctx, bx + 8, norenH - 4, bourseY + 1);
+        EchoppeArt.fil(ctx, bx + bw - 9, norenH - 4, bourseY + 1);
+        EchoppeArt.bourse(ctx, bx, bourseY, bw);
+        EchoppeArt.ryo(ctx, bx + 6, bourseY + 3);
+        DaKit.inter8(ctx, f, DaKit.inter(bal), bx + 20, bourseY + 8, DaKit.OR_CLAIR, 0);
 
-        // ── Onglets suspendus ──
+        // ── Onglets pendus ──
         int nOut = Math.max(0, outfits.size() - 1), nMaps = ShopData.maps().size();
-        tabOutfitsBtn = tabTag(ctx, f, "TENUES (" + nOut + ")", listX, tabsY, tab == TAB_OUTFITS, mouseX, mouseY);
-        tabMapsBtn = tabTag(ctx, f, "CARTES (" + nMaps + ")", tabOutfitsBtn[2] + 6, tabsY, tab == TAB_MAPS, mouseX, mouseY);
+        tabOutfitsBtn = tabTag(ctx, f, "Tenues", nOut, listX, tabsY, tab == TAB_OUTFITS, mouseX, mouseY);
+        tabMapsBtn = tabTag(ctx, f, "Cartes", nMaps, tabOutfitsBtn[2] + 8, tabsY, tab == TAB_MAPS, mouseX, mouseY);
 
         // ── Tableau d'étiquettes ──
-        ctx.fill(listX - 6, listY - 6, listX + listW + 6, listY + listH + 6, 0xE0201410);
-        frame(ctx, listX - 6, listY - 6, listW + 12, listH + 12, 0xFF6E4A2E);
+        EchoppeArt.planche(ctx, listX - 10, panelY, listW + 20, listH + 18);
         List<Entry> all = list();
         int visible = Math.max(1, listH / rowH);
         scroll = Math.max(0, Math.min(scroll, Math.max(0, all.size() - visible)));
         hoveredRow = -1;
         String worn = wornOutfit();
         if (all.isEmpty()) {
-            Component e1 = Component.literal(tab == TAB_MAPS ? "Aucune carte en vente." : "Aucune tenue au catalogue.");
-            ctx.text(f, e1, listX + (listW - f.width(e1)) / 2, listY + listH / 2 - 4, 0xFFB09070, false);
+            DaKit.inter8(ctx, f, DaKit.inter(tab == TAB_MAPS ? "Aucune carte en vente." : "Aucune tenue au catalogue."),
+                listX + listW / 2f, listY + listH / 2f, DaKit.NEUTRE_TXT, 1);
         }
+        int tagW = listW - 10;
         for (int row = 0; row < visible && (row + scroll) < all.size(); row++) {
             int idx = row + scroll;
             Entry e = all.get(idx);
             int ry = listY + row * rowH;
             boolean sel = idx == selected;
-            boolean hov = mouseX >= listX && mouseX < listX + listW && mouseY >= ry && mouseY < ry + rowH - 2;
+            boolean hov = mouseX >= listX && mouseX < listX + tagW + 4 && mouseY >= ry && mouseY < ry + rowH - 2;
             if (hov) hoveredRow = idx;
             int ox = sel ? 4 : hov ? 2 : 0;
-            int tx0 = listX + ox, tx1 = listX + listW - 4 + ox;
-            ctx.fill(tx0 + 1, ry + 2, tx1 + 1, ry + rowH - 1, 0x60000000);
-            ctx.fill(tx0, ry + 1, tx1, ry + rowH - 2, sel ? PAPER_SEL : PAPER);
-            frame(ctx, tx0, ry + 1, tx1 - tx0, rowH - 3, sel ? GOLD : 0xFF9C7E58);
-            ctx.fill(tx0 + 3, ry + rowH / 2 - 1, tx0 + 5, ry + rowH / 2 + 1, 0xFF6E4A2E); // œillet
-            ctx.blit(RenderPipelines.GUI_TEXTURED, e.map ? SCROLL : ROBE, tx0 + 8, ry + (rowH - 14) / 2, 0f, 0f, 14, 14, 14, 14);
-            ctx.text(f, Component.literal(trim(f, e.name, listW - 110)), tx0 + 26, ry + (rowH - 8) / 2, PAPER_INK, false);
-            // statut / prix
+            int tx0 = listX + ox, th = 18, ty = ry + (rowH - th) / 2;
+            EchoppeArt.etiquette(ctx, tx0, ty, tagW - ox, sel ? (hov ? 3 : 2) : (hov ? 1 : 0));
+            EchoppeArt.icone14(ctx, e.map ? EchoppeArt.IC_CARTE : EchoppeArt.IC_ROBE, tx0 + 14, ty + 2);
+            int right = tx0 + tagW - ox - 8;
             boolean owned = !e.map && (e.id.isEmpty() || ShopData.owns(e.id));
-            if (!e.map && e.id.equals(worn == null ? "" : worn)) {
-                Component tg = RebornFont.arcade("PORTEE");
-                drawScaled(ctx, f, tg, tx1 - 6 - f.width(tg) * 0.75f, ry + (rowH - 6) / 2f, 0.75f, OWNED);
+            boolean wornIt = !e.map && e.id.equals(worn == null ? "" : worn);
+            int nameMax = right - (tx0 + 32) - 56;
+            DaKit.inter9(ctx, f, DaKit.inter(DaKit.ellipse(f, e.name, nameMax)), tx0 + 32, ty + 9, DaKit.ENCRE, 0);
+            if (wornIt) {
+                EchoppeArt.icone14(ctx, EchoppeArt.IC_SCEAU_PORTE, right - 14, ty + 2);
+                DaKit.inter7(ctx, f, DaKit.inter("portée"), right - 18, ty + 9, 0xFF2E6A4A, 2);
             } else if (owned && !e.id.isEmpty()) {
-                ctx.blit(RenderPipelines.GUI_TEXTURED, STAMP, tx1 - 22, ry + (rowH - 18) / 2, 0f, 0f, 18, 18, 22, 22, 22, 22);
+                EchoppeArt.icone14(ctx, EchoppeArt.IC_SCEAU_POSSEDE, right - 14, ty + 2);
             } else if (!e.id.isEmpty() || e.map) {
-                Component pc = Component.literal(fmtRyo(priceOf(e)));
-                int pxr = tx1 - 6 - f.width(pc);
-                ctx.text(f, pc, pxr, ry + (rowH - 8) / 2, 0xFF8C5A14, false);
-                ctx.blit(RenderPipelines.GUI_TEXTURED, COIN, pxr - 13, ry + (rowH - 10) / 2, 0f, 0f, 10, 10, 10, 10);
+                boolean can = ShopData.received() && ShopData.ryo() >= priceOf(e);
+                Component pc = DaKit.inter(fmtRyo(priceOf(e)));
+                float pw = DaKit.largeur8(f, pc);
+                DaKit.inter8(ctx, f, pc, right, ty + 9, can ? 0xFF6E4A14 : 0xFF9A3A30, 2);
+                EchoppeArt.ryo(ctx, Math.round(right - pw - 13), ty + 4);
             }
         }
         if (all.size() > visible) {
-            int trackH = listH;
-            int thumbH = Math.max(12, trackH * visible / all.size());
+            int rx = listX + listW + 1, trackH = listH;
+            EchoppeArt.rail(ctx, rx, listY, trackH);
+            int thumbH = Math.max(14, trackH * visible / all.size());
             int thumbY = listY + (trackH - thumbH) * scroll / Math.max(1, all.size() - visible);
-            ctx.fill(listX + listW + 2, listY, listX + listW + 3, listY + trackH, 0x40FFFFFF);
-            ctx.fill(listX + listW + 1, thumbY, listX + listW + 4, thumbY + thumbH, GOLD);
+            EchoppeArt.curseur(ctx, rx - 1, thumbY, thumbH);
         }
         if (hoveredRow >= 0 && hoveredRow != lastHoveredRow) RebornSounds.playReborn("stats.hover", 1.2f, 0.15f);
         lastHoveredRow = hoveredRow;
 
         // ── Détail de l'article sélectionné ──
         Entry cur = current();
-        int dy = listY + listH + 8;
-        ctx.fill(listX - 6, dy, listX + listW + 6, dy + detailH, 0xE0201410);
-        frame(ctx, listX - 6, dy, listW + 12, detailH, 0xFF6E4A2E);
+        EchoppeArt.planche(ctx, listX - 10, detailY, listW + 20, detailH);
         if (cur != null) {
-            ctx.text(f, Component.literal(trim(f, cur.name, listW - 10)), listX, dy + 5, CREAM, false);
-            String desc = cur.map ? "Objet : tiens-la en main (clic droit ou M) pour ouvrir la carte."
-                : cur.id.isEmpty() ? "Retirer sa tenue." : "Tenue : apercu en direct sur ton personnage.";
-            if (!compact) drawScaled(ctx, f, Component.literal(desc), listX, dy + 18, 0.75f, 0xFFB4A08A);
-            if (!compact && cur.map) drawScaled(ctx, f, Component.literal("Rachetable si elle est perdue."), listX, dy + 27, 0.75f, 0xFF8C7A66);
+            DaKit.arcX1(ctx, f, DaKit.arcade(DaKit.ellipse(f, cur.name, listW - 8)), listX, detailY + 9, DaKit.CREME, 0, true);
+            String desc = cur.map ? "Objet : tiens-la en main (clic droit ou M) pour ouvrir la carte. Rachetable si elle est perdue."
+                : cur.id.isEmpty() ? "Retirer sa tenue." : "Tenue : aperçu en direct sur ton personnage.";
+            DaKit.Paragraphe p = DaKit.paragraphe(f, desc, listW - 4, DaKit.S8, 9, compact ? 1 : 2);
+            p.dessiner(ctx, f, listX, detailY + 21, DaKit.DOUX);
         }
 
         // ── Boutons ──
-        int bh = compact ? 15 : 18;
         boolean curOwned = cur != null && !cur.map && (cur.id.isEmpty() || ShopData.owns(cur.id));
         boolean wornNow = cur != null && !cur.map && cur.id.equals(worn == null ? "" : worn);
-        backBtn = lacquerButton(ctx, f, 14, footY, 90, bh, "< RETOUR", true, false, mouseX, mouseY);
+        backBtn = plaque(ctx, f, 18, footY, 96, btnH, "Retour", 0, true, mouseX, mouseY);
         buyBtn = null;
         equipBtn = null;
         if (cur != null && (cur.map || (!cur.id.isEmpty() && !ShopData.owns(cur.id)))) {
             long price = priceOf(cur);
             boolean can = ShopData.received() && ShopData.ryo() >= price;
-            String label = (cur.map ? "ACHETER LA CARTE  " : "ACHETER  ") + fmtRyo(price);
-            buyBtn = lacquerButton(ctx, f, listX - 6, footY, listW + 12, bh, label, can, true, mouseX, mouseY);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, COIN, buyBtn[2] - 16, footY + (bh - 10) / 2, 0f, 0f, 10, 10, 10, 10);
+            String label = (cur.map ? "Acheter la carte  " : "Acheter  ") + fmtRyo(price);
+            buyBtn = plaque(ctx, f, listX - 10, footY, listW + 20, btnH, label, 2, can, mouseX, mouseY);
+            float lw = f.width(DaKit.arcade(label));
+            EchoppeArt.ryo(ctx, Math.round(listX + listW / 2f + lw / 2f + 5), footY + 5);
         } else if (cur != null && !cur.map) {
-            equipBtn = lacquerButton(ctx, f, listX - 6, footY, listW + 12, bh, wornNow ? "DEJA PORTEE" : "EQUIPER",
-                curOwned && !wornNow, true, mouseX, mouseY);
+            equipBtn = plaque(ctx, f, listX - 10, footY, listW + 20, btnH, wornNow ? "Deja portee" : "Equiper", 2,
+                curOwned && !wornNow, mouseX, mouseY);
         }
 
-        // ── Message du marchand (papier qui glisse) ──
+        // ── Aides ──
+        EchoppeArt.aides(ctx, f, compact
+                ? new String[][]{{"Clic droit", "tourner"}, {"Tab", "onglet"}}
+                : new String[][]{{"Clic droit", "tourner"}, {"Haut Bas", "parcourir"}, {"Tab", "onglet"}},
+            stageR, footY + btnH / 2f);
+
+        // ── Message du marchand (papier qui glisse sous le noren) ──
         String toast = ShopData.toast();
         long age = System.currentTimeMillis() - ShopData.toastAt();
         if (toast != null && age < 3200) {
             float in = Math.min(1f, age / 180f), out = Math.max(0f, (age - 2800) / 400f);
-            Component tc = Component.literal(toast);
-            int tw = f.width(tc) + 24, th = 16;
-            int tx = this.width / 2 - tw / 2;
-            int ty = Math.round(norenH - th + (th + 10) * (in - out));
-            ctx.fill(tx + 2, ty + 2, tx + tw + 2, ty + th + 2, 0x55000000);
-            ctx.fill(tx, ty, tx + tw, ty + th, PAPER);
-            frame(ctx, tx, ty, tw, th, 0xFF9C7E58);
-            ctx.text(f, tc, tx + 12, ty + 4, PAPER_INK, false);
+            boolean ok = toast.startsWith("§a"), err = toast.startsWith("§c");
+            String txt = toast.replaceAll("§.", "");
+            Component tc = DaKit.inter(txt);
+            int tw = Math.round(DaKit.largeur8(f, tc)) + 28, th = 16;
+            int tx = W / 2 - tw / 2;
+            int ty = Math.round(norenH - th + (th + 12) * (in - out));
+            EchoppeArt.toast(ctx, tx, ty, tw);
+            DaKit.inter8(ctx, f, tc, W / 2f, ty + 9, ok ? 0xFF2E6A4A : err ? DaKit.ENCRE_ROUGE : DaKit.ENCRE, 1);
         }
+        EchoppeArt.noren(ctx, W, norenH, time);
     }
 
     /** Réagit aux réponses du serveur (nouveau message) par le bon son. */
@@ -357,46 +335,30 @@ public class ShopScreen extends Screen {
         }
     }
 
-    private int[] tabTag(GuiGraphicsExtractor ctx, Font f, String label, int x, int y, boolean active, int mx, int my) {
-        Component c = RebornFont.arcade(label);
-        int w = f.width(c) + 14, h = 13;
+    /** Onglet pendu : libellé ArcadePix ×0,5, compte en or ; fil d'or depuis le noren. */
+    private int[] tabTag(GuiGraphicsExtractor ctx, Font f, String label, int count, int x, int y, boolean active, int mx,
+                         int my) {
+        Component c = DaKit.arcade(label), n = DaKit.arcade(String.valueOf(count));
+        float lw = DaKit.largeurFin(f, c), nw = DaKit.largeurFin(f, n);
+        int w = Math.round(lw + nw) + 26, h = 16;
         boolean hov = mx >= x && mx < x + w && my >= y && my < y + h;
-        ctx.fill(x + w / 2, norenH, x + w / 2 + 1, y, ROPE);
-        ctx.fill(x, y, x + w, y + h, active ? 0xFFAA1E22 : (hov ? 0xFF4A242A : 0xFF3C1E24));
-        frame(ctx, x, y, w, h, active ? GOLD : 0xFF6E4646);
-        ctx.text(f, c, x + 7, y + 3, active ? CREAM : 0xFFC8A0A0, false);
-        return new int[]{x, y, x + w, y + h};
+        int dy = active ? 2 : 0;
+        EchoppeArt.fil(ctx, x + w / 2, norenH - 4, y + dy);
+        EchoppeArt.onglet(ctx, x, y + dy, w, active ? 2 : hov ? 1 : 0);
+        float ty = y + dy + h / 2f - 1.75f;
+        DaKit.arcFin(ctx, f, c, x + 9, ty, active || hov ? DaKit.CREME : 0xFFD8CCB0, 0, active);
+        DaKit.arcFin(ctx, f, n, x + 9 + lw + 8, ty, active ? DaKit.OR_CLAIR : DaKit.OR, 0, false);
+        return new int[]{x, y, x + w, y + h + 2};
     }
 
-    private int[] lacquerButton(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, int h, String label,
-                                boolean enabled, boolean primary, int mx, int my) {
+    /** Bouton-plaque : ton 0 = laque noire, 2 = laque rouge ; libellé ArcadePix ×1. */
+    private int[] plaque(GuiGraphicsExtractor ctx, Font f, int x, int y, int w, int h, String label, int ton,
+                         boolean enabled, int mx, int my) {
         boolean hov = enabled && mx >= x && mx < x + w && my >= y && my < y + h;
-        int fill = !enabled ? 0xFF2C1812 : primary ? (hov ? 0xFFC02A30 : 0xFFAA1E22) : (hov ? 0xFF7A2A30 : LACQ);
-        if (enabled && primary && hov) blitGlow(ctx, x + w / 2f, y + h / 2f, w + 30, 0x55FFBE6E);
-        ctx.fill(x, y, x + w, y + h, fill);
-        frame(ctx, x, y, w, h, enabled ? (primary ? GOLD : 0xFFA06E50) : 0xFF4A2E22);
-        Component c = RebornFont.arcade(label);
-        ctx.text(f, c, x + (w - f.width(c)) / 2, y + (h - 7) / 2, enabled ? CREAM : 0xFF7A5E4A, false);
+        int etat = !enabled ? 4 : ton + (hov ? 1 : 0);
+        EchoppeArt.bouton(ctx, x, y, w, etat);
+        DaKit.arcX1(ctx, f, DaKit.arcade(label), x + w / 2f, y + (h - 7) / 2f, enabled ? DaKit.CREME : DaKit.INACTIF, 1, enabled);
         return new int[]{x, y, x + w, y + h};
-    }
-
-    private void blitGlow(GuiGraphicsExtractor ctx, float cx, float cy, float size, int argb) {
-        int s = Math.round(size);
-        if (s < 2) return;
-        ctx.blit(RenderPipelines.GUI_TEXTURED, GLOW, Math.round(cx - s / 2f), Math.round(cy - s / 2f),
-            0f, 0f, s, s, 64, 64, 64, 64, argb);
-    }
-
-    private static void frame(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int color) {
-        DrawHelpers.outlinedRect(ctx, x, y, w, h, 0, color);
-    }
-
-    private static void drawScaled(GuiGraphicsExtractor ctx, Font f, Component c, float x, float y, float s, int color) {
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x, y);
-        ctx.pose().scale(s, s);
-        ctx.text(f, c, 0, 0, color, false);
-        ctx.pose().popMatrix();
     }
 
     private static String fmtRyo(long v) {

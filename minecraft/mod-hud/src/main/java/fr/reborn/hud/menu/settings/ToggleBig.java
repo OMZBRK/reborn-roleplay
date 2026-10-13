@@ -1,7 +1,5 @@
 package fr.reborn.hud.menu.settings;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -38,24 +36,8 @@ public class ToggleBig extends AbstractWidget {
 
     @Override
     protected void extractWidgetRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        int x0 = getX();
-        int y0 = getY();
-        int w = getWidth();
-        int h = getHeight();
-        boolean hovered = isHovered();
-
-        int trackBg = checked
-            ? (hovered ? Colors.ACCENT_HOVER : Colors.ACCENT)
-            : (hovered ? Colors.SURFACE_OVERLAY : Colors.SURFACE_ELEVATED);
-        int border = checked ? Colors.ACCENT_HOVER : Colors.BORDER_STRONG;
-
-        DrawHelpers.roundedOutlinedRect(ctx, x0, y0, w, h, h / 2, trackBg, border);
-
-        // Knob — disque blanc à gauche si OFF, à droite si ON.
-        int knobR = (h - 6) / 2;
-        int knobCy = y0 + h / 2;
-        int knobCx = checked ? x0 + w - knobR - 3 : x0 + knobR + 3;
-        DrawHelpers.disc(ctx, knobCx, knobCy, knobR, Colors.WHITE_PURE);
+        // Interrupteur laqué 40×14 (ReglagesArt) centré dans la zone cliquable 44×22.
+        ReglagesArt.interrupteur(ctx, getX() + (getWidth() - 40) / 2, getY() + (getHeight() - 14) / 2, checked, isHovered());
     }
 
     @Override

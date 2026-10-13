@@ -1,6 +1,6 @@
 package fr.reborn.hud.chat;
 
-import fr.reborn.hud.menu.DrawHelpers;
+import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -37,6 +37,7 @@ public final class EmojiPicker {
     private static final int CELL_W = 22;
     private static final int CELL_H = 20;
     private static final int HDR = 12;
+    private static final net.minecraft.network.chat.Component TITRE = DaKit.arcade("Emojis");
     private static final float EMOJI_SCALE = 1.7f;
 
     private EmojiPicker() {}
@@ -48,9 +49,8 @@ public final class EmojiPicker {
     public static boolean isOpen() { return open; }
 
     // ─── Géométrie (coordonnées locales du chat) : au-dessus du bouton emoji du panneau, aligné à sa droite.
-    private static int rows() { return (EMOTES.length + COLS - 1) / COLS; }
-    private static int pickerW() { return COLS * CELL_W + 8; }
-    private static int pickerH() { return rows() * CELL_H + 8 + HDR; }
+    private static int pickerW() { return 140; }
+    private static int pickerH() { return 100; }
     private static int pickerX() { int[] b = ChatPanel.emojiRect(); return b[0] + b[2] - pickerW(); }
     private static int pickerY() { return ChatPanel.emojiRect()[1] - pickerH() - 4; }
 
@@ -60,20 +60,15 @@ public final class EmojiPicker {
         var tr = Minecraft.getInstance().font;
         int px = pickerX(), py = pickerY();
         int pw = pickerW(), ph = pickerH();
-        ctx.fill(px + 2, py + 3, px + pw + 2, py + ph + 3, 0x55000000);
-        ctx.fill(px - 1, py, px + pw + 1, py + ph, 0xFF2E1C11);
-        ctx.fill(px, py - 1, px + pw, py + ph + 1, 0xFF2E1C11);
-        ctx.fillGradient(px, py, px + pw, py + ph, 0xF51C0E12, 0xF50A0608);
-        DrawHelpers.outlinedRect(ctx, px + 2, py + 2, pw - 4, ph - 4, 0, 0x50D9A95E);
-        ctx.text(tr, fr.reborn.hud.menu.RebornFont.body("Emojis"), px + 7, py + 3, 0xFFD9A95E, false);
-        ctx.fill(px + 5, py + HDR, px + pw - 5, py + HDR + 1, 0x403A2C14);
+        // panneau laqué (tools/gen_chat_textures.py : emojis.png 140×100 + ombre, filet d'or y 12)
+        DaKit.blit(ctx, ChatPanel.EMOJIS, px, py, 0, 0, 144, 104, 144, 104);
+        DaKit.arcFin(ctx, tr, TITRE, px + 8, py + 5, DaKit.OR, 0, true);
         for (int i = 0; i < EMOTES.length; i++) {
             int col = i % COLS, row = i / COLS;
             int cx = px + 4 + col * CELL_W;
             int cy = py + 4 + HDR + row * CELL_H;
             if (inside(mouseX, mouseY, cx, cy, CELL_W, CELL_H)) {
-                ctx.fill(cx, cy, cx + CELL_W, cy + CELL_H, 0x30D9A95E);
-                DrawHelpers.outlinedRect(ctx, cx, cy, CELL_W, CELL_H, 0, 0x90D9A95E);
+                DaKit.blit(ctx, ChatPanel.PIECES, cx, cy, 122, 8, CELL_W, CELL_H, 150, 120);
             }
             ctx.pose().pushMatrix();
             ctx.pose().translate(cx + CELL_W / 2f, cy + CELL_H / 2f);

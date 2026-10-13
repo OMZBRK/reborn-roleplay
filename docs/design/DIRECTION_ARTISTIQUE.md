@@ -74,6 +74,16 @@ style** `minecraft/mod-hud/tools/style/` (Python + Pillow + numpy) :
 Tout nouveau menu se maquette **avec ce kit**, puis ses parties fixes deviennent des textures générées par
 script (cf. §6).
 
+### 4.2 Écrans remis au niveau de la fiche (13/10, hud 0.4.170 → 0.4.173)
+
+Fiche shinobi, sélection et création de personnage, chirurgie des yeux, scène de mort, menu d'interaction,
+concentration du chakra (ensō A retenu par défaut), bibliothèque / lecture / réglages staff, Poste de garde,
+Infirmerie, sacoche, chat ouvert, Échap, échoppe, réglages, carte, tablist. Chaque écran a son générateur
+`minecraft/mod-hud/tools/gen_<ecran>_textures.py` (pièces communes : `tools/ecrans_art.py`, `fiche_art.py`,
+`style/kit.py`) et passe par `ui/DaKit.java`. **Signatures ajoutées (à valider)** : paravent **byōbu** = Réglages,
+**registre 名** = Tablist, **pierres de gué sur l'étang** = sélection et création, **fiole** = prélèvement d'œil.
+Restent hors lot : fenêtre des réglages du chat, logo HD de l'Échap, icônes 32×32 rognées par `IconTextures.drawIcon`.
+
 ## 5. Méthode de travail sur un visuel
 
 1. **Maquettes d'abord**, souvent plusieurs séries (« fais-en d'autres ») avant un choix.
