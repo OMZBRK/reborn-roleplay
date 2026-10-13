@@ -12,6 +12,7 @@
 
 | Version | Manifest | Date | Contenu | Commit(s) |
 |---|---|---|---|---|
+| 0.4.173 | 3.1.129 | 13/10 | Menus existants au niveau de la fiche : Poste de garde, Infirmerie, sacoche, chat, Échap (échelle entière, menu « ryo » sur la devanture), échoppe, réglages (byōbu), carte, tablist (registre 名) | `ac26cf8` |
 | 0.4.172 | 3.1.128 | 13/10 | Sélection/création de personnage au niveau de la fiche (décor nocturne par village, blasons de clan, voix off, musique), chirurgie des yeux complète (prélèvement, greffe, cécité, bandage), scène de mort, menu d'interaction, concentration (ensō), bibliothèque refaite. 0.4.171 jamais publiée | `6a19627`, `af4bca8` |
 | 0.4.170 | 3.1.127 | 13/10 | Fiche shinobi « portrait en scène » (Identité/Attributs/Techniques/État), écrans de chirurgie des yeux (banc de test, pas branchés), scène de mort 10 s, corps portables/fouillables, dépôt au sol, parchemins servis par Nexo | `9e00326` |
 | 0.4.169 | 3.1.126 | 11/10 | KO-5 Volonté facultative, KO-7 mort RP (RPK validée puis exécutée), menu d'interaction sur un corps, scène de mort, niveau retiré des affichages, fiche sans niveau | `3c18cdc`, `ca732a5` |
