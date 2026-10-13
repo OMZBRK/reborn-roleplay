@@ -538,6 +538,20 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 + cote + " " + type + " · " + issue + " · " + place(at) + ".");
     }
 
+    /**
+     * Vol d'un parchemin dans une bibliothèque (ShinobiAbilities, docs/gameplay/APPRENTISSAGE.md §3.7). Alerte
+     * {@code vol} sur le voleur + ligne dans le chat staff.
+     */
+    public void onVolParchemin(Player thief, String library, String technique, char rank, Location at) {
+        long now = System.currentTimeMillis();
+        String key = "vol-" + thief.getUniqueId() + "-" + now;
+        alerts.put(key, new Alert(key, "vol", thief.getUniqueId(),
+                "Parchemin volé : " + technique + " (rang " + rank + ") · " + library,
+                List.of(place(at)), rank == 'S' ? 60 : rank == 'A' ? 30 : 0, now));
+        system("Vol de parchemin : " + persoName(thief) + " · " + technique + " (rang " + rank + ") · " + library
+                + " · " + place(at) + ".");
+    }
+
     /** Signalement d'un joueur par un autre ({@code /signaler}). */
     public void onReport(Player reporter, Player target, String motif) {
         Set<UUID> r = reporters.computeIfAbsent(target.getUniqueId(), k -> ConcurrentHashMap.newKeySet());

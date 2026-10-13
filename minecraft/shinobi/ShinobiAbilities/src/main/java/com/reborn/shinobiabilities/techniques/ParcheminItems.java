@@ -88,6 +88,33 @@ public final class ParcheminItems {
         return abilityIdOf(item) != null;
     }
 
+    /** PDC : nom de la bibliothèque d'où le rouleau a été volé (docs/gameplay/APPRENTISSAGE.md §3.7). */
+    public static final String PDC_STOLEN = "parchemin_vole";
+    private static final String STOLEN_PREFIX = "Volé à ";
+
+    /**
+     * Marque le rouleau « volé à &lt;bibliothèque&gt; » : donnée {@code parchemin_vole} et ligne de lore (la marque
+     * d'un vol précédent est remplacée). Le rouleau reste le même objet (technique, identifiant, slot S).
+     */
+    public static void markStolen(ItemStack item, String library) {
+        if (item == null) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+        Keys.setString(meta, PDC_STOLEN, library);
+        List<Component> lore = meta.lore() == null ? new ArrayList<>() : new ArrayList<>(meta.lore());
+        lore.removeIf(c -> net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(c).startsWith(STOLEN_PREFIX));
+        lore.add(Component.text(STOLEN_PREFIX + library, TextColor.color(0x9E2B25))
+                .decoration(TextDecoration.ITALIC, true));
+        meta.lore(lore);
+        item.setItemMeta(meta);
+    }
+
+    /** Bibliothèque d'où le rouleau a été volé, ou null. */
+    public static String stolenFrom(ItemStack item) {
+        return item == null ? null : Keys.getString(item, PDC_STOLEN);
+    }
+
     /** A random scroll over the whole registry (admin handout). */
     public static ItemStack createRandom(AbilityRegistry registry) {
         var all = new ArrayList<>(registry.all().values());

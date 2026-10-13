@@ -78,6 +78,7 @@ public final class ShinobiAbilities extends JavaPlugin {
     private LearningMinigame minigame;
     private TechniquesService techniques;
     private com.reborn.shinobiabilities.parchemin.ScrollCatalog scrollCatalog;
+    private com.reborn.shinobiabilities.parchemin.VolService volService;
     private com.reborn.shinobiabilities.parchemin.SlotRegistry scrollSlots;
     private com.reborn.shinobiabilities.parchemin.LibraryService libraries;
     private com.reborn.shinobiabilities.parchemin.SeanceService seances;
@@ -182,10 +183,11 @@ public final class ShinobiAbilities extends JavaPlugin {
         // Parchemins : catalogue des techniques éligibles, slots du rang S, bibliothèques à tirage.
         this.scrollCatalog = new com.reborn.shinobiabilities.parchemin.ScrollCatalog(abilities);
         this.scrollCatalog.load(getConfig().getConfigurationSection("parchemins"));
+        this.scrollCatalog.loadTags(getDataFolder(), getConfig().getBoolean("abilities.load-debug", false));
         this.scrollSlots = new com.reborn.shinobiabilities.parchemin.SlotRegistry(this);
         this.scrollSlots.loadConfig(getConfig().getConfigurationSection("parchemins"));
         this.scrollSlots.load();
-        this.libraries = new com.reborn.shinobiabilities.parchemin.LibraryService(this, scrollCatalog, scrollSlots);
+        this.libraries = new com.reborn.shinobiabilities.parchemin.LibraryService(this, core, scrollCatalog, scrollSlots);
         this.libraries.load();
         this.libraries.register();
         this.seances = new com.reborn.shinobiabilities.parchemin.SeanceService(this, core, scrollCatalog, scrollSlots,
@@ -193,6 +195,11 @@ public final class ShinobiAbilities extends JavaPlugin {
         this.seances.loadConfig(getConfig().getConfigurationSection("parchemins"));
         this.seances.load();
         this.libraries.wire(seances);
+        // Vol dans les bibliothèques (canal immobile, alerte aux membres et au Poste de garde).
+        this.volService = new com.reborn.shinobiabilities.parchemin.VolService(this, libraries, scrollCatalog);
+        this.volService.loadConfig(getConfig().getConfigurationSection("parchemins.vol"));
+        this.volService.register();
+        this.libraries.wire(volService);
         this.techniques.wireSeances(seances::onSeanceEnd);
         getServer().getPluginManager().registerEvents(seances, this);
         // Fiche shinobi (ShinobiCore) : apprentissages en cours, maître à portée, sceau 師.
@@ -371,7 +378,11 @@ public final class ShinobiAbilities extends JavaPlugin {
     public void reloadAll() {
         reloadConfig();
         if (abilities != null) loadAllAbilities();
-        if (scrollCatalog != null) scrollCatalog.load(getConfig().getConfigurationSection("parchemins"));
+        if (scrollCatalog != null) {
+            scrollCatalog.load(getConfig().getConfigurationSection("parchemins"));
+            scrollCatalog.loadTags(getDataFolder(), getConfig().getBoolean("abilities.load-debug", false));
+        }
+        if (volService != null) volService.loadConfig(getConfig().getConfigurationSection("parchemins.vol"));
         if (scrollSlots != null) scrollSlots.loadConfig(getConfig().getConfigurationSection("parchemins"));
         if (seances != null) seances.loadConfig(getConfig().getConfigurationSection("parchemins"));
         if (minigame != null) minigame.concentration().loadConfig(getConfig().getConfigurationSection("techniques.concentration"));

@@ -307,10 +307,30 @@ fuinjutsu:
 # ------------------------------------------------------------
 parchemins:
   # Catégories de techniques qui peuvent sortir des bibliothèques (début du chemin).
-  # Les techniques de clan (kekkei/*, taijutsu/juken), ANBU, senjutsu et « autres »
-  # restent hors des bibliothèques.
+  # Les techniques de clan (kekkei/*, taijutsu/juken) et ANBU ne sortent que des
+  # réserves (secrets, ci-dessous) ; senjutsu et « autres » restent hors des bibliothèques.
   categories: ["taijutsu/goken", "bukijutsu/kenjutsu", "ninjutsu/"]
   exclues: []
+  # Secrets (APPRENTISSAGE.md §3.8) : ne sortent JAMAIS du tirage commun (Village,
+  # Académie, Hôpital…), seulement des bibliothèques dont la RÉSERVE les contient
+  # (réglée par le staff, onglet « Secrets » ; défaut : Clan = techniques du clan,
+  # ANBU = techniques ANBU, Palais = rangs A et S). Une entrée d'abilities.yml peut
+  # aussi porter « secret: true|false », « clan: "Uchiha" », « anbu: true ».
+  secrets:
+    rang-s: true                    # le rang S (Hiden) est toujours secret
+    categories: ["kekkei/", "taijutsu/juken", "autres/kinjutsu", "autres/juinjutsu"]
+    anbu: ["autres/kinjutsu", "autres/juinjutsu"]
+    techniques: []                  # identifiants rendus secrets en plus
+    clans:                          # clan → débuts de catégorie de ses techniques
+      uchiha: ["kekkei/dojutsu/sharingan"]
+      hyuga: ["kekkei/dojutsu/byakugan", "taijutsu/juken"]
+      senju: ["kekkei/mokuton"]
+    pourcentages: [30, 20, 10, 3, 0.5]   # % par défaut d'une technique de réserve (D C B A S)
+  # Vol (APPRENTISSAGE.md §3.7) : durée de la fouille = durée de base de la
+  # bibliothèque (réglée en jeu, 6 s par défaut) × facteur du rang (D C B A S).
+  vol:
+    facteurs: [1, 1.5, 2, 3, 4]
+    tolerance-mouvement: 0.45       # en blocs : au-delà, la fouille s'interrompt
   # Rang S : nombre maximum de détenteurs par technique (rouleaux en jeu + personnages
   # qui la connaissent). Exceptions par technique : slots-par-technique: { rasengan: 1 }
   slots-s: 2

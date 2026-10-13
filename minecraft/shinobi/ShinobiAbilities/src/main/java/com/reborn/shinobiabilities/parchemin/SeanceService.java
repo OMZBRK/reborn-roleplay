@@ -42,6 +42,9 @@ import java.util.UUID;
  *   <li>« S'entraîner » : une épreuve (mudras ou pompes). Une séance par technique toutes les
  *       {@code seance-heures}. Réussie, elle compte (double avec un maître à côté) ; ratée, elle est perdue.</li>
  *   <li>Il faut le rouleau en main du début à la fin. La progression est liée au personnage.</li>
+ *   <li>Lecture sur place (bibliothèques v2) : devant une bibliothèque Clan, Académie ou Palais dont le fonds contient
+ *       le rouleau, un membre peut s'entraîner sans l'emporter, si un maître de la technique est présent. Le rouleau
+ *       reste sur l'étagère (il n'est ni consommé ni perdu) ; le rang S ne s'apprend pas sur place.</li>
  *   <li>Toutes les séances faites : la technique est apprise et le rouleau consommé. Rang S : le rouleau est remis au
  *       staff et une demande de validation s'ouvre ({@code /parchemin valider|refuser}).</li>
  *   <li>Très rarement, une séance fait perdre le rouleau (déchiré, emporté par le vent…).</li>
@@ -54,7 +57,8 @@ public final class SeanceService implements Listener {
     /** Avancement d'un apprentissage : séances faites, heure de la dernière (ms epoch, 0 = jamais). */
     public record Progress(int done, long last) {}
     public record Pending(UUID charId, UUID playerId, String playerName, String techId, String scrollId) {}
-    private record Training(String techId, String scrollId, boolean master) {}
+    /** Séance en cours ; {@code libId} non nul = lecture sur place devant cette bibliothèque. */
+    private record Training(String techId, String scrollId, boolean master, String libId) {}
 
     private static final String[] MISHAPS = {
         "Une bourrasque arrache le rouleau de tes mains et l'emporte au loin.",
@@ -189,6 +193,10 @@ public final class SeanceService implements Listener {
     }
 
     private JsonObject readJson(Player p, ShinobiCharacter c, Ability a) {
+        return readJson(p, c, a, null);
+    }
+
+    private JsonObject readJson(Player p, ShinobiCharacter c, Ability a, Library onsite) {
         Progress pr = progress.getOrDefault(c.id(), Map.of()).getOrDefault(a.id(), new Progress(0, 0));
         long wait = pr.last() + cooldownMs - System.currentTimeMillis();
         JsonObject o = new JsonObject();
@@ -199,7 +207,36 @@ public final class SeanceService implements Listener {
         o.addProperty("master", masterNear(p, a.id()) != null);
         o.addProperty("known", c.knowsAbility(a.id()));
         o.addProperty("pending", isPending(c.id(), a.id()));
+        if (onsite != null) {
+            JsonObject l = new JsonObject();
+            l.addProperty("id", onsite.id);
+            l.addProperty("name", onsite.name);
+            o.add("onsite", l);
+        }
         return o;
+    }
+
+    /** Lecture sur place d'un rouleau du fonds (écran de lecture, « S'entraîner » sans emporter le rouleau). */
+    public void readOnsite(Player p, Library l, String techId) {
+        Ability a = catalog.byId(techId);
+        ShinobiCharacter c = core.characters().getActive(p.getUniqueId());
+        if (a == null || c == null) return;
+        String err = onsiteError(p, l, a);
+        if (err != null && !err.equals(NO_MASTER)) { channel.toast(p, err); return; }
+        channel.send(p, readJson(p, c, a, l));
+    }
+
+    private static final String NO_MASTER = "La lecture sur place demande un maître de cette technique à tes côtés.";
+
+    /** Ce qui empêche une séance sur place, ou null. */
+    private String onsiteError(Player p, Library l, Ability a) {
+        if (l == null || !l.type.onsiteReading()) return "Cette bibliothèque ne permet pas la lecture sur place.";
+        if (l.distanceSq(p.getLocation()) > LibraryService.REACH_SQ) return "Reste devant la bibliothèque pour lire sur place.";
+        if (!channel.isMember(p, l)) return "La lecture sur place est réservée aux membres.";
+        if (channel.fondsCellOf(l, a.id()) < 0) return "Ce rouleau n'est plus sur l'étagère.";
+        if (ScrollCatalog.rank(a) == 'S') return "Un rouleau de rang S ne s'étudie pas sur place : il faut l'emporter.";
+        if (masterNear(p, a.id()) == null) return NO_MASTER;
+        return null;
     }
 
     private static String duration(long ms) {
@@ -262,12 +299,27 @@ public final class SeanceService implements Listener {
 
     // ─────────────────────────────────────────────────────────────── séance
 
-    /** Demande du client (« S'entraîner » / « Terminer »). */
+    /** Demande du client (« S'entraîner » / « Terminer »), rouleau en main. */
     public void train(Player p, String techId) {
+        train(p, techId, null);
+    }
+
+    /**
+     * Demande du client (« S'entraîner » / « Terminer »). {@code libId} non nul : lecture sur place devant cette
+     * bibliothèque (rouleau dans son fonds, maître présent) ; sinon il faut le rouleau en main.
+     */
+    public void train(Player p, String techId, String libId) {
+        Library lib = libId == null ? null : channel.byId(libId);
         ItemStack it = p.getInventory().getItemInMainHand();
-        String held = ParcheminItems.abilityIdOf(it);
-        if (held == null || !held.equals(techId)) { channel.toast(p, "Garde le rouleau en main pour t'entraîner."); return; }
         Ability a = catalog.byId(techId);
+        if (libId != null) {
+            if (a == null) return;
+            String err = onsiteError(p, lib, a);
+            if (err != null) { channel.toast(p, err); return; }
+        } else {
+            String held = ParcheminItems.abilityIdOf(it);
+            if (held == null || !held.equals(techId)) { channel.toast(p, "Garde le rouleau en main pour t'entraîner."); return; }
+        }
         ShinobiCharacter c = core.characters().getActive(p.getUniqueId());
         if (a == null || c == null) return;
         if (c.knowsAbility(a.id())) { channel.toast(p, "Tu connais déjà cette technique."); return; }
@@ -276,13 +328,14 @@ public final class SeanceService implements Listener {
         if (minigame.isActive(p)) { channel.toast(p, "Termine d'abord ton entraînement en cours."); return; }
         Progress pr = progress.getOrDefault(c.id(), Map.of()).getOrDefault(a.id(), new Progress(0, 0));
         int total = ScrollCatalog.seances(ScrollCatalog.rank(a));
-        if (pr.done() >= total) { complete(p, c, a, scrollIdOrNew(it)); return; }
+        if (pr.done() >= total) { complete(p, c, a, lib != null ? null : scrollIdOrNew(it), lib != null); return; }
         if (pr.last() != 0 && System.currentTimeMillis() - pr.last() < cooldownMs) {
             channel.toast(p, "Ton corps a besoin de repos : prochaine séance plus tard.");
             return;
         }
         Player master = masterNear(p, a.id());
-        training.put(p.getUniqueId(), new Training(a.id(), scrollIdOrNew(it), master != null));
+        training.put(p.getUniqueId(), new Training(a.id(), lib != null ? null : scrollIdOrNew(it), master != null,
+                lib != null ? lib.id : null));
         if (master != null) {
             master.sendMessage(Component.text(c.name() + " s'entraîne à « " + a.name() + " » sous ton regard.", NamedTextColor.GOLD));
         }
@@ -301,10 +354,22 @@ public final class SeanceService implements Listener {
         ShinobiCharacter c = core.characters().getActive(p.getUniqueId());
         Ability a = r.ability();
         if (c == null || a == null) return;
-        ItemStack it = p.getInventory().getItemInMainHand();
-        if (!a.id().equals(ParcheminItems.abilityIdOf(it))) {
-            p.sendMessage(Component.text("Tu as lâché le rouleau : la séance ne compte pas.", NamedTextColor.RED));
-            return;
+        Library lib = tr.libId() == null ? null : channel.byId(tr.libId());
+        if (tr.libId() != null) {                                          // lecture sur place
+            if (lib == null || channel.fondsCellOf(lib, a.id()) < 0) {
+                p.sendMessage(Component.text("Le rouleau a quitté l'étagère : la séance ne compte pas.", NamedTextColor.RED));
+                return;
+            }
+            if (lib.distanceSq(p.getLocation()) > LibraryService.REACH_SQ) {
+                p.sendMessage(Component.text("Tu t'es éloigné de la bibliothèque : la séance ne compte pas.", NamedTextColor.RED));
+                return;
+            }
+        } else {
+            ItemStack it = p.getInventory().getItemInMainHand();
+            if (!a.id().equals(ParcheminItems.abilityIdOf(it))) {
+                p.sendMessage(Component.text("Tu as lâché le rouleau : la séance ne compte pas.", NamedTextColor.RED));
+                return;
+            }
         }
         Map<String, Progress> m = progress.computeIfAbsent(c.id(), k -> new HashMap<>());
         Progress pr = m.getOrDefault(a.id(), new Progress(0, 0));
@@ -322,7 +387,7 @@ public final class SeanceService implements Listener {
         } else {
             p.sendMessage(Component.text("Séance ratée : elle ne compte pas. Réessaie plus tard.", NamedTextColor.RED));
         }
-        if (rnd.nextDouble() < mishap) {                                   // easter egg : le rouleau est perdu
+        if (lib == null && rnd.nextDouble() < mishap) {                    // easter egg : le rouleau est perdu
             String msg = MISHAPS[rnd.nextInt(MISHAPS.length)];
             p.getInventory().setItemInMainHand(null);
             if (ScrollCatalog.rank(a) == 'S') slots.release(a.id(), "rouleau:" + tr.scrollId());
@@ -331,12 +396,16 @@ public final class SeanceService implements Listener {
             log(p, "Parchemin perdu (aléa)", a.name());
             return;
         }
-        if (done >= total) complete(p, c, a, tr.scrollId());
-        else channel.send(p, readJson(p, c, a));
+        if (done >= total) complete(p, c, a, tr.scrollId(), lib != null);
+        else channel.send(p, readJson(p, c, a, lib));
     }
 
     /** Toutes les séances faites : apprise, ou demande de validation staff pour le rang S. */
-    private void complete(Player p, ShinobiCharacter c, Ability a, String scrollId) {
+    private void complete(Player p, ShinobiCharacter c, Ability a, String scrollId, boolean onsite) {
+        if (onsite) {                                                      // sur place : le rouleau reste sur l'étagère
+            learn(p, c, a, null);
+            return;
+        }
         p.getInventory().setItemInMainHand(null);
         if (ScrollCatalog.rank(a) == 'S') {
             pending.add(new Pending(c.id(), p.getUniqueId(), p.getName(), a.id(), scrollId));
@@ -362,7 +431,7 @@ public final class SeanceService implements Listener {
         Map<String, Progress> m = progress.get(c.id());
         if (m != null) m.remove(a.id());
         learnedAt.computeIfAbsent(c.id(), k -> new HashMap<>()).put(a.id(), System.currentTimeMillis());
-        if (ScrollCatalog.rank(a) == 'S') slots.transfer(a.id(), scrollId, c.id().toString());
+        if (ScrollCatalog.rank(a) == 'S' && scrollId != null) slots.transfer(a.id(), scrollId, c.id().toString());
         save();
         p.showTitle(Title.title(
                 Component.text("Technique apprise !", NamedTextColor.GOLD, TextDecoration.BOLD),

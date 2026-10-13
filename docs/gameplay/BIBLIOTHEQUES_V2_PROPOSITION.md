@@ -1,9 +1,13 @@
-# Bibliothèques v2 — proposition (à valider)
+# Bibliothèques v2 — proposition (implémentée)
 
-> **Statut : proposition du 2026-10-12**, en réponse à la demande : « il faut le principe de bibliothèque clan,
-> ANBU, palais du Kage… (aujourd'hui publique, réservée, privée) » et « mettre les parchemins que l'on possède dans
-> la bibliothèque, pour qu'ils y restent : chacun peut faire sa propre bibliothèque avec ses rouleaux ». Rien
-> n'est codé. Le système actuel est décrit dans [`APPRENTISSAGE.md`](./APPRENTISSAGE.md) §3.
+> **Statut : implémentée (choix par défaut du 13/10)**, codée le 2026-10-13 (ShinobiAbilities, API sac de
+> ShinobiCore, `reborn-hud`) ; **pas encore déployée ni publiée**. Choix retenus (révisables) : entrée « Bibliothèques
+> v2 » de [`DECISIONS.md`](../pilotage/DECISIONS.md) — ~~non-membre voit sans prendre~~ (remplacé le même jour
+> par les **vols possibles** et les **secrets paramétrables**, `APPRENTISSAGE.md` §3.7 et §3.8), lecture sur place Clan /
+> Académie / Palais avec maître (rang S exclu), bibliothèque personnelle créée par le joueur (une par personnage). Ce
+> qui est codé, commandes et réglages : [`APPRENTISSAGE.md`](./APPRENTISSAGE.md) §3. Ce document garde la
+> proposition d'origine du 2026-10-12 (demande : « il faut le principe de bibliothèque clan, ANBU, palais du
+> Kage… » et « chacun peut faire sa propre bibliothèque avec ses rouleaux »).
 
 ---
 

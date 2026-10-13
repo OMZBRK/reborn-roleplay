@@ -37,10 +37,10 @@ commands:
     aliases: [mob, voie]
     permission: shinobiabilities.staff
   bibliotheque:
-    description: Staff — bibliothèques de parchemins (créer, régler, nouveau tirage, supprimer, liste).
-    usage: /<command> <creer <nom>|regler|tirage|suppr|liste>
+    description: "Bibliothèques de parchemins : bibliothèque personnelle, autorisations, journal ; staff : créer, régler, ouvrir, tirage, supprimer, liste."
+    usage: "/<command> <perso [retirer]|autoriser <joueur>|retirer <joueur>|journal|creer <nom> <type> [propriétaire]|regler|ouvrir <minutes>|tirage|suppr|liste>"
     aliases: [biblio]
-    permission: shinobiabilities.staff
+    permission: shinobiabilities.use
   parchemin:
     description: Staff — parchemins (donner, slots du rang S, séances, validations du rang S).
     usage: /<command> <donner|slots|seance|attente|valider|refuser|concentration>
@@ -56,6 +56,12 @@ permissions:
   shinobiabilities.staff:
     description: Staff — SUIVI learning validation + trail editing.
     default: op
+  shinobiabilities.biblio.anbu:
+    description: "Bibliothèques : membre des bibliothèques ANBU (fonction ANBU)."
+    default: false
+  shinobiabilities.biblio.palais:
+    description: "Bibliothèques : membre des réserves du palais (conseil, bras droit du Kage ; le grade Kage suffit)."
+    default: false
   shinobiabilities.fuinjutsu:
     description: Allows channeling the Sceau de Contention on a transformed jinchūriki.
     default: true

@@ -103,6 +103,8 @@
 | 2026-10-08 | Séances (D 1 … S 20), une par jour ; échec = séance perdue ; easter egg de perte du rouleau ; **maître = maîtrise ≥ 80 et connue depuis 14 jours** ; progression liée au personnage, rouleau en main requis ; fin d'un S validée par le staff |
 | 2026-10-09 | Concentration du chakra : en jeu, avant tout ce qui demande du chakra **sauf le Taïjutsu** ; **un mouvement ou un saut doit fausser le test** |
 | 2026-10-12 | Les parchemins prennent les **rouleaux SNR de l'équipe** (les modèles générés par bbforge sont jugés moches) : D vert, C jaune, B rouge, A violet, S rouleau des techniques interdites ; les écrans affichent le même modèle 3D ; **les objets 3D vivent dans le pack Nexo, pas dans le mod** |
+| 2026-10-13 | **Bibliothèques v2** (choix par défaut, l'utilisateur a dit « continue » sans trancher — révisables) : 7 types Village / Académie / Clan / ANBU / Palais du Kage / Hôpital / Personnelle ; deux étagères **Fonds** (rouleaux déposés, permanents) et **Arrivages** (tirage) ; non-membre = voit sans prendre ; lecture sur place seulement Clan / Académie / Palais avec maître présent ; bibliothèque personnelle créée par le joueur, une par personnage — [`../gameplay/BIBLIOTHEQUES_V2_PROPOSITION.md`](../gameplay/BIBLIOTHEQUES_V2_PROPOSITION.md) · ~~non-membre = voit sans prendre~~ → vols possibles (ligne suivante) |
+| 2026-10-13 | **Vols possibles** (remplace « non-membre = voit sans prendre ») : un non-membre peut **voler** un rouleau d'une bibliothèque « membres » — fouille immobile de quelques secondes devant le meuble (durée de base réglable × rang), interrompue si on bouge ou qu'on est frappé ; rouleau marqué « volé à … », journal `vol`, alerte discrète aux membres connectés (anonyme sauf réglage) et alerte `vol` au Poste de garde. Réglable par bibliothèque : vol permis / interdit, durée, alerte nominative. **Secrets paramétrables** : rang S (Hiden), kekkei, jūken, kinjutsu, juinjutsu, techniques de clan / ANBU et toute technique `secret: true` ne sortent **jamais** du tirage commun (Village, Académie, Hôpital) mais seulement des bibliothèques dont la **réserve** les contient (défauts : Clan = son clan, ANBU = kinjutsu / ANBU, Palais = rangs A et S ; onglet staff « Secrets »). Une bibliothèque de **Clan** tire désormais ses arrivages dans sa réserve seulement (arrivages actifs par défaut, tirage commun coupé). Dépôt rendu visible : bouton « Déposer » sur toutes les bibliothèques, grisé avec la raison — [`../gameplay/APPRENTISSAGE.md`](../gameplay/APPRENTISSAGE.md) §3.7, §3.8 |
 
 ## Personnages — [`../gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md)
 
@@ -112,6 +114,10 @@
 | 2026-10-10 | **Déserteur retiré** des villages ; emblème d'Ame ajouté ; braises de chakra à la couleur du village ; sons immersifs |
 | 2026-10-10 | Garder la **police des menus de base** |
 | 2026-10-10 | Apparence façon Ketto dans la DA Reborn ; **palettes par clan** à prévoir |
+| 2026-10-13 | Refonte « au bord de l'étang » : esthétique validée (« c'est vraiment ça ») ; bouton « Au hasard » gardé |
+| 2026-10-13 | Décor : **plus de silhouette de village** derrière le lac (« juste les roches avec les persos ») ; le village ne teinte plus que le ciel, l'eau et les braises |
+| 2026-10-13 | ~~Voix off des étapes~~ **désactivée** (voix générée jugée laide ; mécanisme gardé pour un vrai enregistrement, `-Dreborn.persoVoix=true`) ; ~~musique~~ → **ambiances de nature nocturne** (eau, insectes, vent, grenouilles) |
+| 2026-10-13 | Cheveux et yeux : **couleur libre** (pipette) en plus des palettes de clan ; les personnages voisins rendus comme le principal |
 
 ## Launcher
 

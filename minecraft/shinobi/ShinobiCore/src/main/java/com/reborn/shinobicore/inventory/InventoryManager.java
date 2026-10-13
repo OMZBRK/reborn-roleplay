@@ -686,6 +686,33 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         push(p);
     }
 
+    /**
+     * Stockage du sac porté (hors barre d'action) du personnage actif, case par case (null = vide). Copies : pour
+     * retirer un objet, {@link #takeFromBag}. Sert aux bibliothèques (dépôt d'un rouleau rangé dans le sac).
+     */
+    public List<ItemStack> bagStorage(Player p) {
+        List<ItemStack> out = new ArrayList<>();
+        RpBag b = bagFor(p);
+        if (b == null) return out;
+        for (int i = 0; i < b.extraSlots(); i++) {
+            ItemStack s = b.getStorage(i);
+            out.add(s == null ? null : s.clone());
+        }
+        return out;
+    }
+
+    /** Retire et rend l'objet de la case {@code i} du stockage du sac (null si vide) ; persiste et rafraîchit. */
+    public ItemStack takeFromBag(Player p, int i) {
+        RpBag b = bagFor(p);
+        if (b == null || i < 0 || i >= b.extraSlots()) return null;
+        ItemStack s = b.getStorage(i);
+        if (s == null) return null;
+        b.setStorage(i, null);
+        persist(p, b);
+        push(p);
+        return s;
+    }
+
     /** Rend un item : 1re case libre du hotbar, sinon du stockage, sinon au sol. */
     private void giveOrDrop(Player p, RpBag b, ItemStack s) {
         if (isEmpty(s)) return;

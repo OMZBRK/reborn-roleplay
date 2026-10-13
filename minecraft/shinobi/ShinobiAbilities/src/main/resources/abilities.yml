@@ -56,6 +56,15 @@
 #                              # une invocation / une zone qui frappe longtemps
 # Aucune stat ne verrouille l'apprentissage ni le lancer (§1.0).
 #
+# ════════════════ PARCHEMINS : SECRETS (docs/gameplay/APPRENTISSAGE.md §3.8) ════════════════
+# Clés optionnelles, lues par les bibliothèques seulement :
+#   secret: true        # jamais au tirage commun, seulement dans les réserves
+#                       # (false = force une technique « commune » malgré son rang / sa catégorie)
+#   clan: "Uchiha"      # technique du clan : réserve par défaut des archives de ce clan
+#   anbu: true          # réserve par défaut des bibliothèques ANBU
+# Par défaut sont secrets : le rang HIDEN, kekkei/*, taijutsu/juken,
+# autres/kinjutsu, autres/juinjutsu (config.yml → parchemins.secrets).
+#
 # Exemple MagicSpells complet (décommente + adapte le nom du sort) :
 #  - id: ms_katon_demo
 #    name: "Katon — Démo MagicSpells"
