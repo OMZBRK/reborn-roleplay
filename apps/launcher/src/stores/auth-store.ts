@@ -37,6 +37,10 @@ type AuthState = {
   isLoading: boolean;
   error: string | null;
   savedAccounts: SavedAccount[];
+  /** DEV uniquement : laisse entrer sans compte Discord lie (dev-login sans
+   *  OAuth Discord configure). Jamais mis a true en build release. */
+  discordGateSkipped: boolean;
+  setDiscordGateSkipped: (v: boolean) => void;
   setSession: (session: { user: LauncherUser; accessToken: string } | null) => void;
   setUser: (user: LauncherUser) => void;
   setResuming: (v: boolean) => void;
@@ -55,6 +59,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   error: null,
   savedAccounts: [],
+  discordGateSkipped: false,
+  setDiscordGateSkipped: (discordGateSkipped) =>
+    set({ discordGateSkipped: import.meta.env.DEV && discordGateSkipped }),
   setSession: (session) =>
     set({
       user: session?.user ?? null,

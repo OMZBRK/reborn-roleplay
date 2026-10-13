@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -29,7 +29,8 @@ import pkg from "../../package.json";
 import { useAuthStore } from "../stores/auth-store";
 import { useSettingsStore } from "../stores/settings-store";
 import { getPrefs, setPrefs, type Preferences } from "../lib/prefs";
-import { logout, refreshMe, startDiscordLink, unlinkDiscord } from "../lib/auth";
+import { logout, refreshMe, unlinkDiscord } from "../lib/auth";
+import { useDiscordLink } from "../hooks/use-discord-link";
 import { getSystemSpecs, type SystemSpecs } from "../lib/system";
 import {
   getGameInfo,
@@ -466,71 +467,23 @@ function AccountTab() {
 function ConnectionsTab() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
-  const [busy, setBusy] = useState<"linking" | "unlinking" | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [waitingForCallback, setWaitingForCallback] = useState(false);
-  const pollRef = useRef<number | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
+  // Liaison + polling partagés avec l'écran d'accueil (hooks/use-discord-link).
+  const discordLink = useDiscordLink();
+  const { error, setError } = discordLink;
+  const waitingForCallback = discordLink.waiting;
+  const busy: "linking" | "unlinking" | null = discordLink.linking
+    ? "linking"
+    : unlinking
+    ? "unlinking"
+    : null;
 
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) {
-        window.clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    };
-  }, []);
-
-  function startPolling() {
-    if (pollRef.current) return;
-    let elapsed = 0;
-    const intervalMs = 2500;
-    const timeoutMs = 5 * 60_000;
-    pollRef.current = window.setInterval(async () => {
-      elapsed += intervalMs;
-      try {
-        const fresh = await refreshMe();
-        if (fresh.discord) {
-          setUser(fresh);
-          stopPolling();
-          setWaitingForCallback(false);
-        }
-      } catch {
-        // Reseau en vol -> on retente au prochain tick.
-      }
-      if (elapsed >= timeoutMs) {
-        stopPolling();
-        setWaitingForCallback(false);
-        setError(
-          "Aucune liaison détectée après 5 min. Si tu as validé côté Discord, clique sur Rafraîchir.",
-        );
-      }
-    }, intervalMs);
-  }
-
-  function stopPolling() {
-    if (pollRef.current) {
-      window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }
-
-  async function handleLink() {
-    setError(null);
-    setBusy("linking");
-    try {
-      await startDiscordLink();
-      setWaitingForCallback(true);
-      startPolling();
-    } catch (err) {
-      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
-    } finally {
-      setBusy(null);
-    }
-  }
+  const handleLink = discordLink.link;
+  const handleManualRefresh = discordLink.refreshNow;
 
   async function handleUnlink() {
     setError(null);
-    setBusy("unlinking");
+    setUnlinking(true);
     try {
       await unlinkDiscord();
       const fresh = await refreshMe();
@@ -538,21 +491,7 @@ function ConnectionsTab() {
     } catch (err) {
       setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
     } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleManualRefresh() {
-    setError(null);
-    try {
-      const fresh = await refreshMe();
-      setUser(fresh);
-      if (fresh.discord) {
-        stopPolling();
-        setWaitingForCallback(false);
-      }
-    } catch (err) {
-      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Erreur");
+      setUnlinking(false);
     }
   }
 

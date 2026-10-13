@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { MinecraftHead } from "./MinecraftHead";
 
@@ -26,28 +25,21 @@ function formatLastSeen(iso: string): string {
   return REL.format(Math.round(diffSec / 31_536_000), "year");
 }
 
+// Puce discrète sous la carte d'accueil : tête + pseudo, croix au survol.
+// La date de dernière connexion passe en infobulle.
 export function SavedAccountCard({ pseudo, lastSeen, seed, onClick, onRemove }: Props) {
+  const seen = formatLastSeen(lastSeen);
   return (
-    <motion.div
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.97 }}
-      transition={{ type: "spring", stiffness: 320, damping: 24 }}
-      className="no-drag group relative w-[148px] flex-shrink-0"
-    >
+    <span className="rb-welcome-chip no-drag">
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full flex-col items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-center transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-elevated)]"
+        className="rb-welcome-chip-main"
+        title={seen ? `Se reconnecter avec ${pseudo} · vu ${seen}` : `Se reconnecter avec ${pseudo}`}
       >
-        <MinecraftHead seed={seed} size={56} />
-        <span className="mt-1 max-w-full truncate font-medium text-[var(--color-foreground)]">
-          {pseudo}
-        </span>
-        <span className="text-xs text-[var(--color-foreground-subtle)]">
-          {formatLastSeen(lastSeen)}
-        </span>
+        <MinecraftHead seed={seed} size={18} />
+        <span>{pseudo}</span>
       </button>
-
       {onRemove && (
         <button
           type="button"
@@ -57,11 +49,11 @@ export function SavedAccountCard({ pseudo, lastSeen, seed, onClick, onRemove }: 
           }}
           aria-label={`Oublier le compte ${pseudo}`}
           title="Oublier ce compte"
-          className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-surface-overlay)] text-[var(--color-foreground-subtle)] opacity-0 transition-opacity hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)] group-hover:opacity-100 focus:opacity-100"
+          className="rb-welcome-chip-x"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-3 w-3" />
         </button>
       )}
-    </motion.div>
+    </span>
   );
 }

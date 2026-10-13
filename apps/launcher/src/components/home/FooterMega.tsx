@@ -117,9 +117,10 @@ function SocialLink({
 
 // Glyphs SVG minimalistes — lucide-react ne livre pas Discord/Twitch/TikTok
 // officiellement, on dessine nous-memes pour eviter une dep brand-icons.
-function DiscordGlyph() {
+// Exporte : reutilise par l'ecran d'accueil (routes/Login.tsx).
+export function DiscordGlyph({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <path d="M20 4.5A18 18 0 0 0 15.5 3l-.4.8a13 13 0 0 0-6.2 0L8.5 3A18 18 0 0 0 4 4.5C1.5 8.5.8 12.4 1.2 16.2A17 17 0 0 0 6.4 19l1.1-1.7c-1-.3-1.9-.8-2.7-1.4l.7-.5a13 13 0 0 0 13 0l.7.5c-.8.6-1.7 1-2.7 1.4L17.6 19a17 17 0 0 0 5.2-2.8c.4-4.3-.5-8.2-2.8-11.7zM9 14.4c-1 0-1.9-.9-1.9-2.1S8 10.2 9 10.2s1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm6 0c-1 0-1.9-.9-1.9-2.1s.9-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z" />
     </svg>
   );

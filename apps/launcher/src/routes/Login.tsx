@@ -1,6 +1,7 @@
-import { motion } from "framer-motion";
+import { useEffect, useState, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Check, Loader2 } from "lucide-react";
 import pkg from "../../package.json";
 import { useAuthStore } from "../stores/auth-store";
 import type { LauncherUser } from "../stores/auth-store";
@@ -11,45 +12,93 @@ import {
   forgetAccount,
   loginWithMicrosoft,
   loginWithSavedAccount,
+  logout,
 } from "../lib/auth";
 import { MicrosoftLoginButton } from "../components/login/MicrosoftLoginButton";
 import { SavedAccountsCarousel } from "../components/login/SavedAccountsCarousel";
+import { MinecraftHead } from "../components/login/MinecraftHead";
+import { DiscordGlyph } from "../components/home/FooterMega";
+import { useDiscordLink } from "../hooks/use-discord-link";
 import type { SavedAccount } from "../lib/types";
+import {
+  APERCU_ACCOUNTS,
+  APERCU_DISCORD,
+  APERCU_USER,
+  readApercu,
+  type ApercuPhase,
+} from "../lib/login-preview";
+import konohaBg from "../assets/login/konoha_vrai.jpg";
+
+// Écran de connexion présenté en carte d'accueil à deux étapes (façon Ketto) :
+//   1. Compte Microsoft → auth_login_microsoft / auth_login_with_saved_account
+//   2. Compte Discord   → discord_link_start + polling auth_me (useDiscordLink,
+//      même logique que Paramètres > Connexions)
+// Les deux faits, suite normale : whitelist pour un PLAYER, accueil sinon.
+// App.tsx renvoie ici tout user authentifié sans Discord lié.
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
+type Phase = "microsoft" | "discord" | "attente" | "fini";
+
 export function Login() {
   const navigate = useNavigate();
-  const setSession = useAuthStore((s) => s.setSession);
+  // Aperçu DEV-ONLY (?apercu=etape1|etape2|attente|fini) pour les captures
+  // hors Tauri ; toujours null en release.
+  const [pv, setPv] = useState<ApercuPhase | null>(readApercu);
+
+  const storeUser = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const authError = useAuthStore((s) => s.error);
-  const savedAccounts = useAuthStore((s) => s.savedAccounts);
+  const storeAccounts = useAuthStore((s) => s.savedAccounts);
+  const setSession = useAuthStore((s) => s.setSession);
   const setLoading = useAuthStore((s) => s.setLoading);
   const setError = useAuthStore((s) => s.setError);
   const addSavedAccount = useAuthStore((s) => s.addSavedAccount);
   const removeSavedAccount = useAuthStore((s) => s.removeSavedAccount);
+  const setDiscordGateSkipped = useAuthStore((s) => s.setDiscordGateSkipped);
+  const discord = useDiscordLink();
 
-  const btnState: "idle" | "loading" | "error" = isLoading
-    ? "loading"
-    : authError
-    ? "error"
-    : "idle";
+  const user: LauncherUser | null = pv
+    ? pv === "etape1"
+      ? null
+      : { ...APERCU_USER, discord: pv === "fini" ? APERCU_DISCORD : null }
+    : storeUser;
+  const authed = pv ? pv !== "etape1" : isAuthenticated && !!storeUser;
+  const accounts = pv ? APERCU_ACCOUNTS : storeAccounts;
+  const waiting = pv ? pv === "attente" : discord.waiting;
+
+  const phase: Phase = !authed
+    ? "microsoft"
+    : user?.discord
+    ? "fini"
+    : waiting
+    ? "attente"
+    : "discord";
+  const error = phase === "microsoft" ? authError : discord.error;
+  const busy = !pv && (isLoading || discord.linking);
+
+  const btnState: "idle" | "loading" | "error" = busy ? "loading" : authError ? "error" : "idle";
+
+  // Les deux comptes faits → suite normale.
+  const destination = user?.role === "PLAYER" ? "/whitelist" : "/home";
+  useEffect(() => {
+    if (phase !== "fini" || pv) return;
+    const t = window.setTimeout(() => navigate(destination, { replace: true }), 1400);
+    return () => window.clearTimeout(t);
+  }, [phase, pv, destination, navigate]);
 
   async function runInteractiveLogin() {
+    if (pv) return setPv("etape2");
     setLoading(true);
     setError(null);
     try {
       const session = await loginWithMicrosoft();
       await persistAccount(session.user, addSavedAccount);
       setSession(session);
-      navigate("/home", { replace: true });
     } catch (err) {
       const parsed = asAuthError(err);
-      if (parsed.kind === "user_canceled") {
-        setError(null);
-        return;
-      }
-      setError(explainAuthError(parsed));
+      setError(parsed.kind === "user_canceled" ? null : explainAuthError(parsed));
     } finally {
       setLoading(false);
     }
@@ -62,46 +111,39 @@ export function Login() {
       const session = await devLogin("OMZ");
       await persistAccount(session.user, addSavedAccount);
       setSession(session);
-      navigate("/home", { replace: true });
     } catch (err) {
-      const parsed = asAuthError(err);
-      setError(explainAuthError(parsed));
+      setError(explainAuthError(asAuthError(err)));
     } finally {
       setLoading(false);
     }
   }
 
   async function handleRemoveSaved(account: SavedAccount) {
-    // Best-effort : on supprime d'abord les slots keyring per-uuid (Rust),
-    // puis l'entree carousel (plugin-store). Si le keyring fail (rare), on
-    // retire quand meme la carte du UI — sinon l'utilisateur ne peut plus
-    // s'en debarrasser.
+    if (pv) return;
+    // Best-effort : slots keyring per-uuid (Rust) puis entrée plugin-store.
     try {
       await forgetAccount(account.minecraftUuid);
     } catch {
-      // Slots deja vides ou keyring inaccessible : on continue.
+      // Slots déjà vides ou keyring inaccessible : on retire quand même la puce.
     }
     await removeSavedAccount(account.pseudo);
   }
 
   async function handlePickSaved(account: SavedAccount) {
+    if (pv) return setPv("etape2");
     setLoading(true);
     setError(null);
     try {
       const session = await loginWithSavedAccount(account.minecraftUuid);
       await persistAccount(session.user, addSavedAccount);
       setSession(session);
-      navigate("/home", { replace: true });
     } catch (err) {
       const parsed = asAuthError(err);
       if (
         parsed.kind === "no_stored_credentials" ||
         parsed.kind === "stored_credentials_expired"
       ) {
-        // Fallback : pas de refresh utilisable → OAuth interactif. La
-        // fenetre MS s'ouvrira ; passe `setLoading(false)` avant pour que
-        // l'UI affiche bien "Connexion…" mais permette au flow interactif
-        // de prendre le relais sans concurrence.
+        // Pas de refresh utilisable → OAuth interactif.
         setLoading(false);
         await runInteractiveLogin();
         return;
@@ -112,92 +154,218 @@ export function Login() {
     }
   }
 
-  return (
-    <div className="reborn-radial-bg-strong reborn-pattern-overlay relative flex h-full w-full items-center justify-center px-8">
-      <div className="flex w-full max-w-lg flex-col items-center gap-8">
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.05, ease: EASE_OUT_EXPO }}
-          className="flex flex-col items-center text-center"
-        >
-          <h1
-            className="font-display text-7xl font-semibold tracking-[0.09em]"
-            style={{
-              background:
-                "linear-gradient(180deg, #fffaf0 0%, var(--color-foreground) 52%, rgba(224, 176, 106, 0.72) 100%)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              color: "transparent",
-              filter:
-                "drop-shadow(0 0 28px rgba(176, 28, 50, 0.45)) drop-shadow(0 2px 3px rgba(0,0,0,0.5))",
-            }}
-          >
-            REBORN
-          </h1>
-          <p className="mt-3 text-xs uppercase tracking-[0.32em] text-[var(--color-gold)]">
-            Roleplay · Naruto Edition
-          </p>
-        </motion.div>
+  async function handleSwitchAccount() {
+    if (pv) return setPv("etape1");
+    discord.cancel();
+    discord.setError(null);
+    try {
+      await logout();
+    } finally {
+      setSession(null);
+    }
+  }
 
-        {savedAccounts.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15, ease: EASE_OUT_EXPO }}
-            className="w-full"
-          >
+  return (
+    <div className="rb-welcome">
+      <div className="rb-welcome-bg" style={{ backgroundImage: `url(${konohaBg})` }} aria-hidden />
+      <div className="rb-welcome-veil" aria-hidden />
+
+      <div className="rb-welcome-center">
+        <motion.section
+          className="rb-welcome-card no-drag"
+          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: EASE_OUT_EXPO }}
+        >
+          <div className="rb-welcome-mark">R</div>
+          <h1 className="rb-welcome-title">Bienvenue sur Reborn</h1>
+          <p className="rb-welcome-sub">
+            {phase === "fini" ? "Tout est prêt. Bonne aventure." : "Comptes Microsoft et Discord requis."}
+          </p>
+
+          <ol className="rb-welcome-steps">
+            <StepRow
+              n={1}
+              state={phase === "microsoft" ? "current" : "done"}
+              title="Compte Microsoft"
+              hint="Minecraft Java doit être sur ce compte"
+              done={
+                user && (
+                  <span className="rb-welcome-done">
+                    <MinecraftHead seed={user.minecraftUuid} size={16} />
+                    <span className="rb-welcome-done-name">{user.minecraftUsername}</span>
+                  </span>
+                )
+              }
+            />
+            <StepRow
+              n={2}
+              state={phase === "fini" ? "done" : phase === "microsoft" ? "todo" : "current"}
+              title="Compte Discord"
+              hint="Nécessaire pour rejoindre le serveur"
+              done={
+                user?.discord && (
+                  <span className="rb-welcome-done">
+                    <DiscordGlyph className="h-3.5 w-3.5 text-[#8b93f8]" />
+                    <span className="rb-welcome-done-name">@{user.discord.username}</span>
+                  </span>
+                )
+              }
+            />
+          </ol>
+
+          <div className="rb-welcome-action">
+            <AnimatePresence mode="wait" initial={false}>
+              {phase === "microsoft" && (
+                <Fade key="ms">
+                  <MicrosoftLoginButton state={btnState} onClick={runInteractiveLogin} />
+                </Fade>
+              )}
+              {phase === "discord" && (
+                <Fade key="dc">
+                  <button
+                    type="button"
+                    className="rb-welcome-cta"
+                    onClick={() => (pv ? setPv("attente") : discord.link())}
+                    disabled={busy}
+                  >
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <DiscordGlyph className="h-[18px] w-[18px]" />
+                    )}
+                    <span>Lier mon compte Discord</span>
+                  </button>
+                </Fade>
+              )}
+              {phase === "attente" && (
+                <Fade key="wait">
+                  <div className="rb-welcome-wait">
+                    <div className="rb-welcome-wait-line">
+                      <Loader2 className="h-4 w-4 animate-spin text-[var(--color-accent-bright)]" />
+                      <span>En attente de Discord…</span>
+                    </div>
+                    <p className="rb-welcome-wait-hint">
+                      Autorise Reborn dans ton navigateur, on s'occupe du reste.
+                    </p>
+                    <div className="rb-welcome-wait-links">
+                      <button
+                        type="button"
+                        className="rb-welcome-link"
+                        onClick={() => !pv && discord.reopen()}
+                      >
+                        Rouvrir la page
+                      </button>
+                      <span aria-hidden>·</span>
+                      <button
+                        type="button"
+                        className="rb-welcome-link is-muted"
+                        onClick={() => (pv ? setPv("etape2") : discord.cancel())}
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                </Fade>
+              )}
+              {phase === "fini" && (
+                <Fade key="ok">
+                  <button
+                    type="button"
+                    className="rb-welcome-cta is-done"
+                    onClick={() => !pv && navigate(destination, { replace: true })}
+                  >
+                    <Check className="h-4 w-4" strokeWidth={3} />
+                    <span>Entrer dans Reborn</span>
+                  </button>
+                </Fade>
+              )}
+            </AnimatePresence>
+
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rb-welcome-error"
+              >
+                <AlertCircle className="mt-px h-3.5 w-3.5 flex-shrink-0" />
+                <span>{error}</span>
+              </motion.p>
+            )}
+          </div>
+        </motion.section>
+
+        {/* Sous la carte, discret : comptes enregistrés (étape 1) ou
+            changement de compte (étape 2). */}
+        <div className="rb-welcome-below no-drag">
+          {phase === "microsoft" && (
             <SavedAccountsCarousel
-              accounts={savedAccounts}
+              accounts={accounts}
               onPick={handlePickSaved}
-              onAdd={runInteractiveLogin}
               onRemove={handleRemoveSaved}
             />
-          </motion.div>
-        )}
-
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.25, ease: EASE_OUT_EXPO }}
-          className="flex w-full max-w-sm flex-col gap-3"
-        >
-          <MicrosoftLoginButton state={btnState} onClick={runInteractiveLogin} />
-
-          {authError && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="no-drag flex items-start gap-2 rounded-md border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)]/40 p-3 text-sm text-[var(--color-danger)]"
-            >
-              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <p>{authError}</p>
-            </motion.div>
+          )}
+          {(phase === "discord" || phase === "attente") && (
+            <button type="button" className="rb-welcome-link is-muted" onClick={handleSwitchAccount}>
+              Ce n'est pas toi ? Changer de compte Microsoft
+            </button>
           )}
 
-          {import.meta.env.DEV && (
-            <button
-              type="button"
-              onClick={handleDevLogin}
-              disabled={isLoading}
-              className="no-drag mt-1 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-[var(--color-warning)]/50 px-3 text-xs text-[var(--color-warning)] transition-colors hover:bg-[var(--color-warning-soft)] disabled:opacity-60"
-              title="Bypass Microsoft — disponible uniquement en dev"
-            >
+          {import.meta.env.DEV && !pv && phase === "microsoft" && (
+            <button type="button" className="rb-welcome-dev" onClick={handleDevLogin} disabled={busy}>
               [DEV] Connexion sans Microsoft
             </button>
           )}
-        </motion.div>
-
-        <motion.p
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.35, ease: EASE_OUT_EXPO }}
-          className="mt-4 text-xs text-[var(--color-foreground-muted)]"
-        >
-          v{pkg.version} — Non affilié à Microsoft ou Mojang
-        </motion.p>
+          {import.meta.env.DEV && !pv && (phase === "discord" || phase === "attente") && (
+            <button type="button" className="rb-welcome-dev" onClick={() => setDiscordGateSkipped(true)}>
+              [DEV] Passer l'étape Discord
+            </button>
+          )}
+        </div>
       </div>
+
+      <p className="rb-welcome-foot">v{pkg.version} — Non affilié à Microsoft, Mojang ou Discord</p>
     </div>
+  );
+}
+
+function StepRow({
+  n,
+  state,
+  title,
+  hint,
+  done,
+}: {
+  n: number;
+  state: "todo" | "current" | "done";
+  title: string;
+  hint: string;
+  done?: ReactNode;
+}) {
+  return (
+    <li className={`rb-welcome-step is-${state}`}>
+      <span className="rb-welcome-num">
+        {state === "done" ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : n}
+      </span>
+      <span className="rb-welcome-step-text">
+        <span className="rb-welcome-step-title">{title}</span>
+        {state === "done" && done ? done : <span className="rb-welcome-step-hint">{hint}</span>}
+      </span>
+    </li>
+  );
+}
+
+function Fade({ children }: { children: ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.22, ease: EASE_OUT_EXPO }}
+      className="flex w-full flex-col items-center"
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -213,8 +381,6 @@ async function persistAccount(
       minecraftUuid: user.minecraftUuid,
     });
   } catch {
-    // Si l'ecriture du plugin-store echoue (disque plein, permissions), on
-    // ne bloque pas la connexion — la liste se reconstruira au prochain
-    // login reussi.
+    // Écriture plugin-store en échec : on ne bloque pas la connexion.
   }
 }

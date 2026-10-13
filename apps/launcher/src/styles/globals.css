@@ -6504,3 +6504,391 @@ select.tk-create-select {
   font-size: 18px;
   font-variant-numeric: tabular-nums;
 }
+
+/* ===========================================================================
+   Ecran d'accueil : comptes Microsoft + Discord (routes/Login.tsx)
+   Inspiration Ketto : fond floute, carte sombre centree, etapes numerotees,
+   un seul gros bouton. Aux couleurs Reborn (nuit / laque / or, Bebas + Inter).
+   =========================================================================== */
+.rb-welcome {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--color-background);
+}
+.rb-welcome-bg {
+  position: absolute;
+  inset: -40px;
+  background-size: cover;
+  background-position: center 55%;
+  /* vraie vue de Konoha (Tour de l'Hokage, fin d'après-midi), déjà adoucie dans le JPEG : flou fort façon Ketto */
+  filter: blur(20px) saturate(1.1) brightness(0.84);
+  transform: scale(1.04);
+}
+.rb-welcome-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 46% 52% at 50% 50%, rgba(10, 6, 8, 0.1) 0%, rgba(10, 6, 8, 0.4) 70%, rgba(10, 6, 8, 0.75) 100%),
+    linear-gradient(180deg, rgba(10, 6, 8, 0.75) 0%, rgba(10, 6, 8, 0) 18%, rgba(10, 6, 8, 0) 80%, rgba(10, 6, 8, 0.7) 100%);
+}
+.rb-welcome-center {
+  position: relative;
+  z-index: 1;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 40px 16px;
+}
+.rb-welcome-card {
+  position: relative;
+  width: 448px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 38px 40px 34px;
+  background: linear-gradient(180deg, rgba(25, 12, 15, 0.96) 0%, rgba(14, 7, 9, 0.97) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.rb-welcome-card::before {
+  /* filet laque en haut de carte */
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -1px;
+  width: 120px;
+  height: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, var(--color-accent-bright), transparent);
+  border-radius: 2px;
+}
+.rb-welcome-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(ellipse 120% 120% at 30% 20%, var(--color-accent-bright) 0%, transparent 60%),
+    linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+  padding-top: 3px;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    0 0 0 1px var(--color-accent-soft),
+    0 10px 26px -6px rgba(176, 28, 50, 0.7);
+}
+.rb-welcome-title {
+  margin-top: 22px;
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-align: center;
+  background: linear-gradient(180deg, #fffaf0 0%, var(--color-foreground) 55%, rgba(224, 176, 106, 0.85) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+.rb-welcome-sub {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--color-foreground-subtle);
+  text-align: center;
+}
+.rb-welcome-steps {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+  width: 100%;
+  border-top: 1px solid var(--color-hairline);
+}
+.rb-welcome-step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 6px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+.rb-welcome-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 18px;
+  padding-top: 2px;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground-subtle);
+  transition: all var(--duration-base) var(--ease-out);
+}
+.rb-welcome-step.is-current .rb-welcome-num {
+  border-color: var(--color-accent);
+  color: var(--color-foreground);
+  background: var(--color-accent-soft);
+  box-shadow: 0 0 12px -2px var(--color-accent-glow);
+}
+.rb-welcome-step.is-done .rb-welcome-num {
+  padding-top: 0;
+  border-color: rgba(224, 176, 106, 0.55);
+  background: var(--color-gold-soft);
+  color: var(--color-gold-bright);
+}
+.rb-welcome-step.is-todo {
+  opacity: 0.6;
+}
+.rb-welcome-step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.rb-welcome-step-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.rb-welcome-step-hint {
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+.rb-welcome-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--color-gold);
+}
+.rb-welcome-done > div {
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+.rb-welcome-done-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-welcome-action {
+  width: 100%;
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+}
+.rb-welcome-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 48px;
+  min-width: 290px;
+  padding: 0 26px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(ellipse 90% 140% at 30% 0%, rgba(230, 57, 80, 0.55) 0%, transparent 60%),
+    linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent-pressed) 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    0 0 0 3px rgba(176, 28, 50, 0.18),
+    0 12px 28px -10px rgba(176, 28, 50, 0.8);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    filter var(--duration-fast);
+}
+.rb-welcome-cta:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),
+    0 0 0 3px rgba(230, 57, 80, 0.3),
+    0 14px 32px -10px rgba(230, 57, 80, 0.85);
+}
+.rb-welcome-cta:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.rb-welcome-cta:disabled {
+  cursor: wait;
+  opacity: 0.85;
+}
+.rb-welcome-cta.is-error {
+  border-color: var(--color-danger);
+}
+.rb-welcome-cta.is-done {
+  background:
+    radial-gradient(ellipse 90% 140% at 30% 0%, rgba(244, 205, 134, 0.35) 0%, transparent 60%),
+    linear-gradient(180deg, #b98a45 0%, #8a6326 100%);
+  color: #1a0f05;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+    0 0 0 3px rgba(224, 176, 106, 0.16),
+    0 12px 28px -10px rgba(224, 176, 106, 0.6);
+}
+.rb-welcome-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.rb-welcome-wait-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.rb-welcome-wait-hint {
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+.rb-welcome-wait-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+.rb-welcome-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--color-accent-bright);
+  cursor: pointer;
+  text-underline-offset: 3px;
+}
+.rb-welcome-link:hover {
+  text-decoration: underline;
+}
+.rb-welcome-link.is-muted {
+  color: var(--color-foreground-muted);
+}
+.rb-welcome-link.is-muted:hover {
+  color: var(--color-foreground-subtle);
+}
+.rb-welcome-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  font-size: 12px;
+  color: #ff8a8a;
+}
+.rb-welcome-below {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+}
+.rb-welcome-accounts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 560px;
+}
+.rb-welcome-accounts-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+  margin-right: 2px;
+}
+.rb-welcome-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  background: rgba(16, 8, 10, 0.72);
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(6px);
+  transition: border-color var(--duration-fast);
+}
+.rb-welcome-chip:hover {
+  border-color: var(--color-border-strong);
+}
+.rb-welcome-chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 4px 4px 5px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+}
+.rb-welcome-chip-main > div {
+  border-radius: 999px !important;
+  box-shadow: none !important;
+}
+.rb-welcome-chip-main:hover {
+  color: var(--color-foreground);
+}
+.rb-welcome-chip-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 3px;
+  border-radius: 999px;
+  background: none;
+  border: none;
+  color: var(--color-foreground-muted);
+  opacity: 0.5;
+  cursor: pointer;
+}
+.rb-welcome-chip:hover .rb-welcome-chip-x {
+  opacity: 1;
+}
+.rb-welcome-chip-x:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+.rb-welcome-dev {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(245, 158, 11, 0.5);
+  background: rgba(10, 6, 8, 0.6);
+  font-size: 11px;
+  color: var(--color-warning);
+  cursor: pointer;
+}
+.rb-welcome-foot {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(201, 189, 162, 0.45);
+}

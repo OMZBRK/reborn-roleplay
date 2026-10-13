@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 import { Login } from "./routes/Login";
 import { Home } from "./routes/Home";
 import { Lore } from "./routes/Lore";
@@ -34,6 +34,9 @@ const DRAG_HEIGHT = 32;
 export function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isResuming = useAuthStore((s) => s.isResuming);
+  const user = useAuthStore((s) => s.user);
+  const discordGateSkipped = useAuthStore((s) => s.discordGateSkipped);
+  const location = useLocation();
   const setSession = useAuthStore((s) => s.setSession);
   const setResuming = useAuthStore((s) => s.setResuming);
   const loadSavedAccounts = useAuthStore((s) => s.loadSavedAccounts);
@@ -75,7 +78,12 @@ export function App() {
   // sans sidebar (login + resume), avec un spacer non-interactif de 72px
   // au-dessus de la sidebar sur les ecrans auth pour ne pas avaler le click
   // du logo R. WindowControls passent au-dessus en z-50 (cf composant).
-  const showSidebarSpacer = isAuthenticated && !isResuming;
+  // Ecran d'accueil (Player ID, cf docs/pilotage/DECISIONS.md) : comptes
+  // Microsoft ET Discord requis. Tant que Discord n'est pas lie, le user
+  // authentifie reste sur /login (etape 2 de la carte d'accueil).
+  const needsDiscord = isAuthenticated && !user?.discord && !discordGateSkipped;
+  const canEnter = isAuthenticated && !needsDiscord;
+  const showSidebarSpacer = canEnter && !isResuming && location.pathname !== "/login";
 
   return (
     <div className="relative h-screen overflow-hidden bg-background">
@@ -87,7 +95,7 @@ export function App() {
             <Route path="/login" element={<Login />} />
 
             <Route
-              element={isAuthenticated ? <AuthenticatedLayout /> : <Navigate to="/login" replace />}
+              element={canEnter ? <AuthenticatedLayout /> : <Navigate to="/login" replace />}
             >
               <Route path="/home" element={<Home />} />
               <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
@@ -108,7 +116,7 @@ export function App() {
               <Route path="/settings" element={<Settings />} />
             </Route>
 
-            <Route path="*" element={<Navigate to={isAuthenticated ? "/home" : "/login"} replace />} />
+            <Route path="*" element={<Navigate to={canEnter ? "/home" : "/login"} replace />} />
           </Routes>
         )}
       </div>
