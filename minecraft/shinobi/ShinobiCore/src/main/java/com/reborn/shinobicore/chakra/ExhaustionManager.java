@@ -99,12 +99,13 @@ public final class ExhaustionManager {
                 // Rasengan - signal chakra depletion before the KO fires.
                 org.bukkit.Bukkit.getPluginManager().callEvent(
                         new com.reborn.shinobicore.event.ChakraDepletedEvent(p, c.id(), debt));
-                if (plugin.ko() != null) {
-                    plugin.ko().enterKo(p, c.id(), KoState.Cause.CHAKRA);
+                // Un seul chemin vers le KO par le chakra, avec les mêmes exceptions que le scan à 0 (duel, terrain,
+                // grâce, mode staff) — ETATS_JOUEUR §2.4 n° 10.
+                if (plugin.ko() != null && plugin.ko().chakraCollapse(p, c)) {
+                    p.showTitle(Title.title(
+                            Component.text("Épuisement", NamedTextColor.DARK_RED),
+                            Component.text("Ton chakra s'effondre…", NamedTextColor.GRAY)));
                 }
-                p.showTitle(Title.title(
-                        Component.text("Épuisement", NamedTextColor.DARK_RED),
-                        Component.text("Ton chakra s'effondre…", NamedTextColor.GRAY)));
             } else {
                 int left = koAt - secs;
                 p.sendActionBar(Component.text(

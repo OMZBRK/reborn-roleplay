@@ -11,8 +11,10 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -24,8 +26,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -75,6 +75,9 @@ public final class CorpsService implements Listener, TabExecutor {
     private static final double SCAN = 16;
     /** Identifiant de l'exécution sans animation (toujours disponible). */
     public static final String SOBRE = "sobre";
+    /** Lenteurs d'état en modificateurs nommés (plus de potion infinie qui survit au crash ni de retrait par type). */
+    private static final NamespacedKey LENTEUR_GORGE = new NamespacedKey("shinobicore", "tient_gorge");
+    private static final NamespacedKey LENTEUR_EXECUTION = new NamespacedKey("shinobicore", "execute");
 
     private final ShinobiCore plugin;
     private final Executions executions;
@@ -112,6 +115,11 @@ public final class CorpsService implements Listener, TabExecutor {
 
     /** Corps tenu debout (gorge, exécution) : le KO ne lui remet pas sa pose couchée. */
     public boolean isHeld(UUID victim) { return held.containsKey(victim); }
+
+    /** Tient quelqu'un (gorge) ou exécute en ce moment. */
+    public boolean isHolding(UUID holder) {
+        return holder != null && (running.containsKey(holder) || held.containsValue(holder));
+    }
 
     public void send(Player p, JsonObject o) {
         p.sendPluginMessage(plugin, CHANNEL, o.toString().getBytes(StandardCharsets.UTF_8));
@@ -300,6 +308,22 @@ public final class CorpsService implements Listener, TabExecutor {
             return true;
         }
         if (plugin.porter().carrierOf(p.getUniqueId()) != null) return true;
+        // Correctifs urgents (ETATS_JOUEUR §9 étape 0) : un gelé n'agit pas (ses commandes restaient libres)…
+        if (com.reborn.shinobicore.etat.Verrous.gele(p.getUniqueId())
+                || com.reborn.shinobicore.etat.Verrous.cinematique(p.getUniqueId())) {
+            p.sendActionBar(Component.text("Tu ne peux pas maintenant.", NamedTextColor.GRAY));
+            return true;
+        }
+        // … et on ne porte, ne tient, ne fouille ni n'exécute un gelé, un staff en mode staff ou un invisible.
+        if (com.reborn.shinobicore.etat.Verrous.horsJeu(t.getUniqueId())
+                || (plugin.vanish() != null && plugin.vanish().isVanished(t.getUniqueId()))) {
+            p.sendMessage(Component.text("Personne ici.", NamedTextColor.GRAY));
+            return true;
+        }
+        if (com.reborn.shinobicore.etat.Verrous.gele(t.getUniqueId())) {
+            p.sendActionBar(Component.text("Gelé par le staff : on n'y touche pas.", NamedTextColor.GRAY));
+            return true;
+        }
         if (!t.getWorld().equals(p.getWorld()) || t.getLocation().distance(p.getLocation()) > REACH) {
             p.sendActionBar(Component.text("Trop loin.", NamedTextColor.GRAY));
             return true;
@@ -351,7 +375,7 @@ public final class CorpsService implements Listener, TabExecutor {
         if (st != null) st.setCarrierPlayerId(p.getUniqueId());
         held.put(t.getUniqueId(), p.getUniqueId());
         heldSince.put(t.getUniqueId(), System.currentTimeMillis());
-        p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, PotionEffect.INFINITE_DURATION, 2, true, false, false));
+        com.reborn.shinobicore.util.Effets.lenteur(p, LENTEUR_GORGE, 3);   // comme une lenteur III, sans potion infinie
         play(p, "attraper_gorge");
         AutoMe.broadcast(plugin, p, "attrape " + tName + " à la gorge.");
         KoJournal.log(plugin, p, "Prise à la gorge", KoJournal.who(plugin, t));
@@ -398,7 +422,7 @@ public final class CorpsService implements Listener, TabExecutor {
         held.put(t.getUniqueId(), p.getUniqueId());
         heldSince.put(t.getUniqueId(), System.currentTimeMillis());
         running.put(p.getUniqueId(), new Run(t.getUniqueId(), d, at, ticks, lethal));
-        p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, d.durationTicks() + 10, 6, true, false, false));
+        com.reborn.shinobicore.util.Effets.lenteur(p, LENTEUR_EXECUTION, 7);   // figé le temps de l'exécution
         play(p, d.killerEmote());
         play(t, d.victimEmote());
         AutoMe.broadcast(plugin, p, (lethal ? (d.id().equals(SOBRE) ? "achève " : "exécute ")
@@ -413,7 +437,7 @@ public final class CorpsService implements Listener, TabExecutor {
     private void finish(Player k) {
         Run run = running.remove(k.getUniqueId());
         if (run == null) return;
-        k.removePotionEffect(PotionEffectType.SLOWNESS);
+        com.reborn.shinobicore.util.Effets.retirer(k, Attribute.MOVEMENT_SPEED, LENTEUR_EXECUTION);
         if (plugin.emotes() != null) plugin.emotes().stop(k);
         release(run.victim());
     }
@@ -421,7 +445,7 @@ public final class CorpsService implements Listener, TabExecutor {
     private void abort(Player k, String why) {
         Run run = running.remove(k.getUniqueId());
         if (run == null) return;
-        k.removePotionEffect(PotionEffectType.SLOWNESS);
+        com.reborn.shinobicore.util.Effets.retirer(k, Attribute.MOVEMENT_SPEED, LENTEUR_EXECUTION);
         Player v = Bukkit.getPlayer(run.victim());
         if (plugin.emotes() != null) {
             plugin.emotes().stop(k);
@@ -465,7 +489,7 @@ public final class CorpsService implements Listener, TabExecutor {
         heldSince.remove(victim);
         if (h == null) return;
         Player holder = Bukkit.getPlayer(h);
-        if (holder != null && !running.containsKey(h)) holder.removePotionEffect(PotionEffectType.SLOWNESS);
+        if (holder != null) com.reborn.shinobicore.util.Effets.retirer(holder, Attribute.MOVEMENT_SPEED, LENTEUR_GORGE);
         KoState st = plugin.ko().getKo(victim);
         Player v = Bukkit.getPlayer(victim);
         // tenu 0,3 bloc au-dessus du sol : on le repose au sol avant de l'épingler, sinon il reste en l'air

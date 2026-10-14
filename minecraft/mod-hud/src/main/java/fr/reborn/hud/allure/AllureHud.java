@@ -32,6 +32,8 @@ public final class AllureHud {
     public static void render(GuiGraphicsExtractor g) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options == null || mc.gui.hud.isHidden() || mc.gui.screen() != null) return;
+        // Préparer / manger occupe la place du filet de sprint (on ne sprinte pas en mangeant).
+        if (fr.reborn.hud.nourriture.NourritureClient.filetActif()) return;
         Allure a = Allure.INSTANCE;
         long now = System.currentTimeMillis();
         float dt = dernierRendu == 0 ? 0f : Math.min(0.1f, (now - dernierRendu) / 1000f);

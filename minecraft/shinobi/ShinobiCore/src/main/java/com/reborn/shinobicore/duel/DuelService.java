@@ -334,6 +334,12 @@ public final class DuelService implements Listener {
         if (plugin.ko() != null && plugin.ko().isKo(id)) return self ? "Tu es à terre." : "Ce joueur est à terre.";
         if (plugin.ko() != null && plugin.ko().isImpaired(id))
             return self ? "Trop blessé pour un duel (ATA)." : "Ce joueur est trop blessé pour un duel.";
+        // Correctifs urgents (ETATS_JOUEUR §2.4 n° 9) : gel, mode staff, scène de mort, porté / tenu, cinématique.
+        if (com.reborn.shinobicore.etat.Verrous.horsJeu(id)) return self ? "Pas en mode staff." : "Personne de ce nom ici.";
+        String corps = com.reborn.shinobicore.etat.Verrous.corpsIndisponible(id);
+        if (corps != null) return self ? corps : "Ce joueur ne peut pas se battre maintenant.";
+        if (com.reborn.shinobicore.etat.Verrous.porteur(id))
+            return self ? "Dépose d'abord la personne que tu portes." : "Ce joueur porte quelqu'un.";
         if (plugin.trainingZones() != null && plugin.trainingZones().zoneAt(p.getLocation()) != null)
             return "Sur un terrain d'entraînement, le combat est déjà libre : pas besoin de duel.";
         return null;

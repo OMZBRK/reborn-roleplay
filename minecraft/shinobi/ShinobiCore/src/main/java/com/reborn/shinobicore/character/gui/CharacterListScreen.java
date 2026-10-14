@@ -126,7 +126,7 @@ public final class CharacterListScreen extends CoreScreen {
                 return;
             }
             viewer.closeInventory();
-            core().characters().setActive(viewer, c);
+            if (!core().characters().setActive(viewer, c)) return;   // refusé (KO, combat, gel…) : déjà prévenu
             viewer.sendMessage(Component.text(
                     "Tu joues maintenant " + c.name() + ".", NamedTextColor.GREEN));
         } else {

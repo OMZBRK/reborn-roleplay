@@ -30,6 +30,8 @@ public final class StaminaManager {
     private final Map<UUID, Double> current = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastConsume = new ConcurrentHashMap<>();
     private final ToDoubleFunction<UUID> maxOf;
+    /** Multiplicateur de récupération (modificateurs : FAIM ×0,5, Fatigue, dango…) ; 1 par défaut. */
+    private ToDoubleFunction<UUID> regenMult = id -> 1.0;
 
     /** @param maxOf compte joueur → maximum d'endurance (stats du personnage actif) */
     public StaminaManager(ToDoubleFunction<UUID> maxOf) {
@@ -88,6 +90,11 @@ public final class StaminaManager {
         return next;
     }
 
+    /** Branche le multiplicateur de récupération (nourriture, 14/10). */
+    public void setRegenMultiplier(ToDoubleFunction<UUID> f) {
+        this.regenMult = f == null ? id -> 1.0 : f;
+    }
+
     /** Régénère les joueurs suivis hors délai post-coup. */
     public void tickRegen(double dtSeconds) {
         long now = System.currentTimeMillis();
@@ -97,7 +104,8 @@ public final class StaminaManager {
             if (last != null && now - last < REGEN_DELAY_MS) continue; // délai actif
             double m = max(e.getKey());
             if (e.getValue() >= m) continue;
-            e.setValue(Math.min(m, e.getValue() + add));
+            double mult = regenMult.applyAsDouble(e.getKey());
+            e.setValue(Math.min(m, e.getValue() + add * Math.max(0.0, mult)));
         }
     }
 

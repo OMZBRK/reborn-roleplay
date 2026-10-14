@@ -135,6 +135,8 @@ public class MeditationManager implements Listener {
                                 * (intervalSec / 10.0)
                                 * plugin.getConfig().getDouble("meditation.stats-multiplier", 3.0);
                     }
+                    // Modificateurs (thé vert : méditation ×1,25 — nourriture, 14/10).
+                    if (plugin.modificateurs() != null) amount *= plugin.modificateurs().multiplicateur(id, "meditation");
                     double added = Math.min(amount, pool.max() - pool.current());
                     if (added > 0) {
                         pool.regen(added);

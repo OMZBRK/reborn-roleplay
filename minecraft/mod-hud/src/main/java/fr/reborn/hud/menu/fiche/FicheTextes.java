@@ -106,16 +106,19 @@ final class FicheTextes {
         };
     }
 
-    record Nature(String id, String kj, String nom, int couleur) {}
+    /** Nature de chakra : son icône peinte remplace l'ancien sceau kanji (décision du 14/10). */
+    record Nature(String id, String nom, int couleur) {
+        fr.reborn.hud.ui.NatureIcones.Nature icone() { return fr.reborn.hud.ui.NatureIcones.parse(id); }
+    }
 
     static final List<Nature> NATURES = List.of(
-        new Nature("SUITON", "水", "Suiton", 0x6A9CC8),
-        new Nature("FUTON", "風", "Fūton", 0x86B49C),
-        new Nature("KATON", "火", "Katon", 0xD0704C),
-        new Nature("RAITON", "雷", "Raiton", 0xD8C860),
-        new Nature("DOTON", "土", "Doton", 0xA88458));
+        new Nature("SUITON", "Suiton", 0x6A9CC8),
+        new Nature("FUTON", "Fūton", 0x86B49C),
+        new Nature("KATON", "Katon", 0xD0704C),
+        new Nature("RAITON", "Raiton", 0xD8C860),
+        new Nature("DOTON", "Doton", 0xA88458));
 
-    /** Index de nature (colonne hanko rangée 1), −1 si aucune. */
+    /** Index de nature dans {@link #NATURES}, −1 si aucune. */
     static int nature(String id) {
         String c = id == null ? "" : id.toUpperCase(Locale.ROOT);
         for (int i = 0; i < NATURES.size(); i++) if (NATURES.get(i).id().equals(c)) return i;

@@ -204,7 +204,7 @@ public class AmitierCommand implements CommandExecutor {
         RayTraceResult trace = viewer.getWorld().rayTraceEntities(
                 eye, dir, maxDist, 0.25,
                 e -> e instanceof Player other
-                        && !other.getUniqueId().equals(viewer.getUniqueId()));
+                        && !other.getUniqueId().equals(viewer.getUniqueId()) && !com.reborn.shinobicore.staff.outils.ModeStaff.horsJeu(other));
         if (trace == null) return null;
         Entity hit = trace.getHitEntity();
         return hit instanceof Player p ? p : null;

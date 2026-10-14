@@ -122,6 +122,9 @@ public final class StaffStore {
         return out;
     }
 
+    /** Dernière connexion vue (epoch ms, 0 = inconnue). */
+    public synchronized long vuLe(UUID id) { return lastSeen.getOrDefault(id, 0L); }
+
     public synchronized String nameOf(UUID id) { return lastName.getOrDefault(id, id.toString().substring(0, 8)); }
 
     /* ============================================================ disque */

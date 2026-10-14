@@ -127,6 +127,9 @@ public final class VitalsHud {
         // Libellé « cur/max » caché : recomposé uniquement quand la vie RP change.
         if (hpCur != cHpCur || hpMax != cHpMax) { cHpLabel = hpCur + "/" + hpMax; cHpCur = hpCur; cHpMax = hpMax; }
         bar(ctx, tr, cx, y1, cw, barH, HP_COLOR, hpCur / (float) hpMax, cHpLabel);
+        // Régénération passive en cours (nourriture, 14/10) : une lueur douce qui glisse sur la barre rouge.
+        VitalsFeed.Satiete sat = VitalsFeed.satiete();
+        if (sat != null && sat.regenere()) lueur(ctx, cx, y1, Math.round(cw * Math.max(0f, Math.min(1f, hpCur / (float) hpMax))), barH);
 
         // Chakra : valeur RP du serveur (plus les champs XP détournés qui se
         // désynchronisaient à la reco).
@@ -149,13 +152,51 @@ public final class VitalsHud {
         bar(ctx, tr, cx, y2, cw - voiceW, barH, CK_COLOR, ckRatio, cCkLabel);
         voiceIcons(ctx, cx + cw - voiceW + 4, y2 + (barH - 10) / 2);
 
-        // Stamina (faim). Libellé « % » caché : recomposé quand le pourcentage change.
-        float st = p.getFoodData().getFoodLevel() / 20f;
+        // Satiété (nourriture, 14/10) : poussée par ShinobiCore dans reborn:vitals ; sans elle (ancien serveur, solo),
+        // la faim vanilla comme avant. Or pâle = ce qu'apporte le repas en cours ; repère de 2 px à 90 % (régénération).
+        float st = sat != null ? sat.valeur() : p.getFoodData().getFoodLevel() / 20f;
         int stPct = Math.round(st * 100);
         if (stPct != cStPct) { cStLabel = stPct + "%"; cStPct = stPct; }
-        bar(ctx, tr, cx, y3, cw, barH, ST_COLOR, st, cStLabel);
+        if (sat != null && sat.aVenir() > 0.004f) {
+            float fan = Math.min(1f, st + sat.aVenir());
+            DrawHelpers.roundedRectFull(ctx, cx, y3, cw, barH, barH / 2, BAR_BG);
+            DrawHelpers.roundedRectFull(ctx, cx, y3, Math.max(barH, Math.round(cw * fan)), barH, barH / 2, 0x60F6E2B4);
+            barSansFond(ctx, tr, cx, y3, cw, barH, ST_COLOR, st, cStLabel);
+        } else {
+            bar(ctx, tr, cx, y3, cw, barH, ST_COLOR, st, cStLabel);
+        }
+        if (sat != null) {
+            int rx = cx + Math.round(cw * 0.90f);
+            ctx.fill(rx, y3 + 2, rx + 1, y3 + barH - 2, st >= 0.90f ? 0xE69A7234 : 0xE68E6A30);
+        }
 
         ctx.pose().popMatrix();
+    }
+
+    /** Remplissage seul (le fond est déjà posé, avec l'or pâle du repas). */
+    private static void barSansFond(GuiGraphicsExtractor ctx, Font tr, int x, int y, int w, int h,
+                                    int color, float ratio, String label) {
+        ratio = Math.max(0f, Math.min(1f, ratio));
+        int fw = Math.round(w * ratio);
+        if (fw > 0) DrawHelpers.roundedRectFull(ctx, x, y, Math.max(h, fw), h, h / 2, color);
+        ctx.fill(x + h / 2, y + 1, x + w - h / 2, y + 2, 0x30FFFFFF);
+        if (label != null && !label.isEmpty()) {
+            int lw = tr.width(label);
+            ctx.text(tr, Component.literal(label), x + (w - lw) / 2, y + (h - 8) / 2, WHITE, true);
+        }
+    }
+
+    /** Lueur douce qui glisse lentement sur la partie pleine de la barre de vie (régénération). */
+    private static void lueur(GuiGraphicsExtractor ctx, int x, int y, int fw, int h) {
+        if (fw <= h) return;
+        float t = (System.currentTimeMillis() % 2400) / 2400f;
+        int c = x + Math.round(fw * t);
+        for (int d = -8; d <= 8; d++) {
+            int xx = c + d;
+            if (xx < x + h / 2 || xx >= x + fw - h / 2) continue;
+            int a = Math.round(70 * (1 - Math.abs(d) / 9f));
+            ctx.fill(xx, y + 2, xx + 1, y + h - 2, (a << 24) | 0xFFD6D6);
+        }
     }
 
     /** Barre « pilule » (fond arrondi + remplissage) avec texte centré. */

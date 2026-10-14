@@ -327,6 +327,16 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         plugin.getLogger().info("[character-select] reçu de " + p.getName() + " : '" + msg + "'");
         // "open" = le client (touche) demande d'ouvrir/rouvrir la sélection.
         if (msg.equals("open")) {
+            // Correctif urgent (ETATS_JOUEUR §2.4 n° 4) : la sélection téléporte à l'ancre et rend invulnérable — elle
+            // servait d'évasion (KO, gel, porté, duel, combat, scène de mort…). Refusée hors état « libre » quand on
+            // incarne déjà quelqu'un ; la sélection de la connexion (sans personnage actif) reste ouverte.
+            if (!isSelecting(p.getUniqueId()) && plugin.characters().getActive(p.getUniqueId()) != null) {
+                String refus = com.reborn.shinobicore.etat.Verrous.changementPerso(p.getUniqueId());
+                if (refus != null) {
+                    p.sendActionBar(Component.text("Changement de personnage impossible : " + refus, NamedTextColor.RED));
+                    return;
+                }
+            }
             beginSelection(p);
             return;
         }
@@ -352,8 +362,19 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
                     NamedTextColor.RED));
             return;
         }
+        // Un KO suit le compte : s'il appartient à un autre personnage, il faut reprendre celui-là (sinon le KO
+        // « périmé » s'appliquait au nouveau personnage, ou le joueur s'en échappait).
+        String koDe = koSurAutrePerso(p, chosen);
+        if (koDe != null) {
+            p.sendMessage(Component.text(koDe + " est à terre : reprends ce personnage.", NamedTextColor.RED));
+            return;
+        }
         endSelection(p);
-        plugin.characters().setActive(p, chosen); // téléporte au dernier emplacement + stats/inventaire
+        if (!plugin.characters().setActive(p, chosen)) {   // refusé (prévenu) : on rouvre la sélection
+            beginSelection(p);
+            return;
+        }
+        // (setActive téléporte au dernier emplacement + stats/inventaire)
 
         // Reset de sécurité : force un état de mouvement sain après la sélection
         // (évitait le "stun" résiduel walkSpeed/flySpeed/freezeTicks).
@@ -373,6 +394,13 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
                 plugin.rpInventory().broadcastCosmetics(p); // cosmétiques 3D visibles entre joueurs
             }
         }, 10L);
+    }
+
+    /** Nom du personnage KO de ce compte s'il n'est pas {@code chosen}, sinon null. */
+    private String koSurAutrePerso(Player p, ShinobiCharacter chosen) {
+        var st = plugin.ko() != null ? plugin.ko().getKo(p.getUniqueId()) : null;
+        if (st == null || st.characterId() == null || st.characterId().equals(chosen.id())) return null;
+        return plugin.characters().findById(p.getUniqueId(), st.characterId()).map(ShinobiCharacter::name).orElse("Ton personnage");
     }
 
     /**
@@ -439,6 +467,12 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
                 + name + " » (clan=" + clan + ", village=" + village + ", sexe=" + sexe
                 + ", age=" + age + ", size=" + size + ")");
 
+        if (plugin.ko() != null && plugin.ko().isKo(p.getUniqueId())) {
+            p.sendMessage(Component.text("Personnage « " + name + " » créé. Ton personnage à terre doit être repris d'abord.",
+                    NamedTextColor.GOLD));
+            sendRoster(p, plugin.characters().getAll(p.getUniqueId()));
+            return;
+        }
         endSelection(p);
         plugin.characters().setActive(p, c);
         sendSelected(p); // ferme l'écran client (perso appliqué)

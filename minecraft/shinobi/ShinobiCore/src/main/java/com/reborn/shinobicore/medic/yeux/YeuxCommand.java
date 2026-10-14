@@ -298,8 +298,41 @@ public final class YeuxCommand implements TabExecutor, Listener {
         boolean ok = a[2].equalsIgnoreCase("ok");
         int score;
         try { score = Math.max(0, Math.min(100, Integer.parseInt(a[3]))); } catch (NumberFormatException ex) { score = 0; }
+        // Correctif urgent (ETATS_JOUEUR §2.3) : le mod ne décide plus seul. Une réussite doit être plausible — durée
+        // minimale de l'opération et score cohérent avec le mini-jeu ; sinon rien n'est appliqué et le staff est prévenu.
+        long ecoule = System.currentTimeMillis() - (j.expire() - yeux.jetonMillis());
+        // greffe : tracé ≥ 6,9 s + fil 4 s + 6 sutures ≈ 18 s au mieux ; prélèvement : 3 incisions + 2 tractions + sceau ≈ 4 s
+        long min = Math.max(0, plugin.getConfig().getLong("yeux.chirurgie-min-secondes." + j.mode().id,
+                j.mode() == Mode.GREFFE ? 12 : 3)) * 1000L;
+        String suspect = suspect(j.mode() == Mode.GREFFE, ok, score, ecoule, min);
+        if (suspect != null) {
+            plugin.getLogger().warning("[yeux] résultat refusé de " + op.getName() + " (" + suspect + ") : " + String.join(" ", a));
+            com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.INTERACTION,
+                    "CHIRURGIE_SUSPECTE").acteur(op).detail(j.mode().id + " · " + suspect).lieu(op.getLocation()).ecrire();
+            if (plugin.staffPanel() != null) {
+                plugin.staffPanel().system("Chirurgie des yeux suspecte : " + op.getName() + " (" + j.mode().id + ", " + suspect
+                        + ") — résultat ignoré.");
+            }
+            msg(op, "Opération interrompue : le geste n'a pas été mené à bien.");
+            return;
+        }
         if (j.mode() == Mode.PRELEVEMENT) finishPrelevement(op, j, ok, score);
         else finishGreffe(op, j, ok, score);
+    }
+
+    /**
+     * Règle pure : pourquoi ce résultat de chirurgie est invraisemblable (null = accepté). Un échec est toujours
+     * accepté. Une réussite exige au moins {@code minMs} d'opération ; en greffe, le score vaut 100 − 15 × erreurs avec
+     * moins de 5 erreurs (100, 85, 70, 55, 40) ; en prélèvement, l'intégrité restante (1 à 100).
+     */
+    static String suspect(boolean greffe, boolean ok, int score, long ecouleMs, long minMs) {
+        if (!ok) return null;
+        if (ecouleMs < minMs) return "trop rapide (" + ecouleMs / 1000.0 + " s)";
+        if (greffe) {
+            boolean valide = score >= 40 && score <= 100 && (100 - score) % 15 == 0;
+            return valide ? null : "score de greffe impossible (" + score + ")";
+        }
+        return score >= 1 && score <= 100 ? null : "intégrité impossible (" + score + ")";
     }
 
     private void finishPrelevement(Player op, Jeton j, boolean ok, int score) {

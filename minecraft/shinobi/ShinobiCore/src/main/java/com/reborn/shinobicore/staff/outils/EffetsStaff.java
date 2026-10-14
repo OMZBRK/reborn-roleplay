@@ -136,8 +136,9 @@ public final class EffetsStaff implements Listener {
                 o.addProperty("fondu", 20);
                 envoyer(p, CANAL_ECRAN, o);
             }
-            p.removePotionEffect(PotionEffectType.BLINDNESS);
-            p.removePotionEffect(PotionEffectType.DARKNESS);
+            // seulement les effets infinis de l'écran noir (pas une cécité de technique ou l'obscurité d'un KO)
+            com.reborn.shinobicore.util.Effets.retirerInfini(p, PotionEffectType.BLINDNESS);
+            com.reborn.shinobicore.util.Effets.retirerInfini(p, PotionEffectType.DARKNESS);
             p.clearTitle();
         }
         var e = Journal.entree(Categorie.STAFF, "ECRAN_NOIR_FIN").cible(cible);

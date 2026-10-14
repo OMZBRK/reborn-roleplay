@@ -32,6 +32,12 @@ public final class StaffClient {
     private static volatile JsonObject profile;
     private static volatile JsonObject koSnapshot;
     private static volatile JsonObject journal;
+    private static volatile JsonObject cherche;
+    /** Son des nouvelles alertes quand le Poste de garde est ouvert (cloche de l'onglet Alertes). */
+    static boolean cloche = true;
+    /** Modes du joueur local (message {@code mode} du serveur) : indicateur discret en jeu. */
+    static volatile boolean modeStaff, modeAnim;
+    private static final java.util.Set<String> ALERTES_VUES = new java.util.HashSet<>();
     private static final Map<String, JsonObject> NOTES = new HashMap<>();
     private static final Deque<Toast> TOASTS = new ArrayDeque<>();
     private static KeyMapping key;
@@ -47,7 +53,9 @@ public final class StaffClient {
         ClientPlayNetworking.registerGlobalReceiver(StaffPayload.ID,
                 (payload, ctx) -> ctx.client().execute(() -> receive(payload.json())));
         ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
-            snapshot = null; profile = null; journal = null;
+            snapshot = null; profile = null; journal = null; cherche = null;
+            modeStaff = false; modeAnim = false;
+            synchronized (ALERTES_VUES) { ALERTES_VUES.clear(); }
             synchronized (NOTES) { NOTES.clear(); }
         });
         key = KeyMappingHelper.registerKeyMapping(new KeyMapping(
@@ -72,7 +80,17 @@ public final class StaffClient {
                 if (mc.gui.screen() instanceof GardeScreen g) { if (g.onKo()) g.show("alerts"); }
                 else mc.setScreenAndShow(new GardeScreen("alerts"));
             }
-            case "snap" -> snapshot = o;
+            case "snap" -> {
+                nouvellesAlertes(o, mc);
+                snapshot = o;
+                if (o.has("modeStaff")) modeStaff = o.get("modeStaff").getAsBoolean();
+                if (o.has("modeAnim")) modeAnim = o.get("modeAnim").getAsBoolean();
+            }
+            case "cherche" -> cherche = o;
+            case "mode" -> {
+                modeStaff = o.has("staff") && o.get("staff").getAsBoolean();
+                modeAnim = o.has("anim") && o.get("anim").getAsBoolean();
+            }
             case "open_ko" -> {
                 if (mc.gui.screen() instanceof GardeScreen g) g.show("ko");
                 else mc.setScreenAndShow(new GardeScreen("ko"));
@@ -92,6 +110,24 @@ public final class StaffClient {
         }
     }
 
+    /** Petit son quand une alerte nouvelle arrive alors que le Poste de garde est ouvert. */
+    private static void nouvellesAlertes(JsonObject o, Minecraft mc) {
+        boolean neuve = false;
+        synchronized (ALERTES_VUES) {
+            boolean premier = snapshot == null;
+            if (o.has("alerts") && o.get("alerts").isJsonArray()) for (var e : o.getAsJsonArray("alerts")) {
+                try {
+                    String id = e.getAsJsonObject().get("id").getAsString();
+                    if (ALERTES_VUES.add(id) && !premier) neuve = true;
+                } catch (RuntimeException ignored) { }
+            }
+        }
+        if (neuve && cloche && !demo && mc.gui.screen() instanceof StaffScreen) fr.reborn.hud.menu.RebornSounds.playReborn("stats.light", 1.3f, 0.5f);
+    }
+
+    /** Dernière réponse {@code cherche} (recherche universelle, hors ligne compris). */
+    public static JsonObject cherche() { return cherche; }
+
     /** Banc d'essai : injecte un message comme s'il venait du serveur. */
     static void debugReceive(String raw) { receive(raw); }
 
@@ -101,6 +137,8 @@ public final class StaffClient {
             while (TOASTS.size() > 3) TOASTS.pollFirst();
         }
     }
+
+    static void debugEffacerToasts() { synchronized (TOASTS) { TOASTS.clear(); } }
 
     public static Toast[] toasts() {
         synchronized (TOASTS) {

@@ -28,7 +28,7 @@ import java.util.UUID;
 /**
  * Plaques staff au-dessus des têtes, en <b>mode staff</b> seulement ({@code reborn:plaques}, PLUGINS_REFERENCE
  * §4 bis.5) : une ligne petite et fine « 00042 · Nom RP · état » au-dessus de la plaque de nom RP, voile nuit léger,
- * mince jauge de PV d'1 px dessous ; 番 or devant un staff, « gelé » en bleu glacier. Taille fixe à l'écran (unités
+ * mince jauge de PV d'1 px dessous ; petit losange d'or devant un staff, « gelé » en bleu glacier. Taille fixe à l'écran (unités
  * menu), fondu avec la distance (le serveur n'envoie que les joueurs à ≤ 64 blocs). Rien n'est envoyé aux joueurs.
  */
 public final class PlaquesStaff {
@@ -138,7 +138,10 @@ public final class PlaquesStaff {
         l.fermer();
         float tx = x0;
         if (p.staff()) {
-            DaKit.texteEchelle(g, f, Component.literal("番"), tx, ym - 3.5f, DaKit.alpha(DaKit.OR, a), DaKit.S7);
+            // petit losange d'or devant un staff (aucun kanji, DA §3)
+            int dx = Math.round(tx) + 2, dy = Math.round(ym);
+            g.fill(dx, dy - 1, dx + 1, dy + 2, DaKit.alpha(DaKit.OR, a));
+            g.fill(dx - 1, dy, dx + 2, dy + 1, DaKit.alpha(DaKit.OR, a));
             tx += 9;
         }
         tx += DaKit.inter7o(g, f, cPid, tx, ym, DaKit.alpha(DaKit.OR_CLAIR, a), 0);

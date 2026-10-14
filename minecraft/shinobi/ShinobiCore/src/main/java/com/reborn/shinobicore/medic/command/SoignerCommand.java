@@ -89,7 +89,7 @@ public final class SoignerCommand implements CommandExecutor {
         Vector dir = eye.getDirection();
         RayTraceResult trace = viewer.getWorld().rayTraceEntities(
                 eye, dir, RANGE, RADIUS,
-                e -> (e instanceof Player p && !p.getUniqueId().equals(viewer.getUniqueId()))
+                e -> (e instanceof Player p && !p.getUniqueId().equals(viewer.getUniqueId()) && !com.reborn.shinobicore.staff.outils.ModeStaff.horsJeu(p))
                         || e instanceof Villager);
         return trace == null ? null : trace.getHitEntity();
     }

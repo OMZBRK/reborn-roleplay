@@ -158,7 +158,8 @@ public final class DeathScene implements Listener {
         spawnCorpse(p, s);
         p.setInvulnerable(false);
         p.setPose(Pose.STANDING, false);
-        p.removePotionEffect(PotionEffectType.SLOWNESS);
+        // seulement la lenteur de la scène (niveau 11, 2 s rafraîchies), pas celle d'un autre système
+        com.reborn.shinobicore.util.Effets.retirerSiSien(p, PotionEffectType.SLOWNESS, 10, 40);
         JsonObject o = new JsonObject();
         o.addProperty("t", "fin");
         if (plugin.corps() != null && p.isOnline()) plugin.corps().send(p, o);

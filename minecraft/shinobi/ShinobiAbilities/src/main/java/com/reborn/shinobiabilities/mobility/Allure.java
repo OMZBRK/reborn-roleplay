@@ -92,6 +92,7 @@ public final class Allure implements PluginMessageListener, Listener {
     private int tick;
     private EnduranceService endurance;
     private StunService stun;
+    private com.reborn.shinobicore.api.ModificateurService modifs;
 
     public Allure(JavaPlugin plugin, CoreServices core, NarutoRun narutoRun) {
         this.plugin = plugin;
@@ -194,6 +195,7 @@ public final class Allure implements PluginMessageListener, Listener {
         if (tick % 50 == 1) {          // services optionnels : relus toutes les 5 s (ordre de chargement des plugins)
             endurance = Bukkit.getServicesManager().load(EnduranceService.class);
             stun = Bukkit.getServicesManager().load(StunService.class);
+            modifs = Bukkit.getServicesManager().load(com.reborn.shinobicore.api.ModificateurService.class);
         }
         boolean on = actif();
         double dt = PERIODE / 20.0;
@@ -260,6 +262,8 @@ public final class Allure implements PluginMessageListener, Listener {
         if (core.ko() != null && core.ko().isImpaired(id)) return false;
         if (stun != null && stun.isStunned(id)) return false;
         if (core.inventory() != null && core.inventory().palier(id) >= InventoryService.CHARGE) return false;
+        // Modificateurs (nourriture, 14/10) : FAIM, Fatigue de la pilule, repas en cours.
+        if (modifs != null && modifs.refuse(id, "SPRINTER")) return false;
         return p.getPassengers().isEmpty();
     }
 

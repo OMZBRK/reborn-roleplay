@@ -296,13 +296,22 @@ public final class InnerWorldManager {
         if (player.isOnline()) {
             player.teleport(back);
             player.setInvulnerable(false);
-            player.removePotionEffect(PotionEffectType.SLOWNESS);
-            player.removePotionEffect(PotionEffectType.BLINDNESS);
+            // Seulement NOS effets (lenteur 251 du gel, cécité courte de l'entrée) : un étourdi, une lenteur d'ATA ou
+            // une cécité venue d'ailleurs restent (ETATS_JOUEUR §2.4 n° 6).
+            retirerSiSien(player, PotionEffectType.SLOWNESS, 250, 20 * (freezeSeconds() + 3));
+            retirerSiSien(player, PotionEffectType.BLINDNESS, 0, 20 * 2);
             player.getWorld().playSound(back, Sound.ENTITY_ENDERMAN_TELEPORT, 0.9f, 0.8f);
             player.getWorld().spawnParticle(Particle.REVERSE_PORTAL,
                     back.clone().add(0, 1, 0), 40, 0.4, 0.8, 0.4, 0.05);
         } else {
             player.setInvulnerable(false);
+        }
+    }
+
+    private static void retirerSiSien(Player p, PotionEffectType type, int amplifier, int maxTicks) {
+        PotionEffect pe = p.getPotionEffect(type);
+        if (pe != null && !pe.isInfinite() && pe.getAmplifier() == amplifier && pe.getDuration() <= maxTicks) {
+            p.removePotionEffect(type);
         }
     }
 

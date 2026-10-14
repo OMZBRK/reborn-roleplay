@@ -138,6 +138,9 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
 
     public void stop() {
         if (ticker != null) { ticker.cancel(); ticker = null; }
+        // Arrêt du serveur : tous les minuteurs sont figés (le KO ne s'écoule pas pendant l'arrêt).
+        long now = System.currentTimeMillis();
+        for (KoState st : active.values()) st.pause(now);
         save();
     }
 
@@ -183,6 +186,8 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                 catch (IllegalArgumentException ex) { phase = KoState.Phase.UNCONSCIOUS; }
                 st.setPhase(phase, s.getLong("phase-start", start));
                 st.setHospitalOffered(s.getBoolean("hospital-offered", false));
+                // Minuteur figé (déconnexion, arrêt) ; une ligne d'avant ce champ est figée au chargement.
+                st.pause(s.getLong("paused-at", System.currentTimeMillis()));
                 for (String a : s.getStringList("attackers")) {
                     try { st.attackers().add(UUID.fromString(a)); } catch (IllegalArgumentException ignored) { }
                 }
@@ -204,6 +209,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             cfg.set(key + ".phase",       st.phase().name());
             cfg.set(key + ".phase-start", st.phaseStartMillis());
             cfg.set(key + ".hospital-offered", st.hospitalOffered());
+            if (st.isPaused()) cfg.set(key + ".paused-at", st.pausedAt());
             List<String> atk = new ArrayList<>();
             for (UUID a : st.attackers()) atk.add(a.toString());
             cfg.set(key + ".attackers", atk);
@@ -248,7 +254,30 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
     /** Duel consenti : compte à rebours ou techniques interdites — see {@link com.reborn.shinobicore.duel.DuelService}. */
     @Override
     public String techniqueDenial(UUID playerId) {
+        if (isOutOfPlay(playerId)) return "Mode staff : aucune technique.";
+        // Correctifs urgents (ETATS_JOUEUR §9 étape 0) : gel, mort, cinématique, porté / tenu, étourdi, garde.
+        String v = com.reborn.shinobicore.etat.Verrous.technique(playerId);
+        if (v != null) return v;
         return plugin.duels() != null ? plugin.duels().techniqueDenial(playerId) : null;
+    }
+
+    /** Kit de mobilité refusé (KO, douleur / ATA, gel, étourdi, garde, porté…) — see {@link com.reborn.shinobicore.etat.Verrous#mobilite}. */
+    @Override
+    public String mobilityDenial(UUID playerId) {
+        return com.reborn.shinobicore.etat.Verrous.mobilite(playerId);
+    }
+
+    /** Téléportation demandée par le joueur refusée (évasion) — see {@link com.reborn.shinobicore.etat.Verrous#teleportation}. */
+    @Override
+    public String teleportDenial(UUID playerId) {
+        return com.reborn.shinobicore.etat.Verrous.teleportation(playerId);
+    }
+
+    /** Mode staff (hors mode animation) : aucune mécanique RP — see {@link com.reborn.shinobicore.staff.outils.ModeStaff}. */
+    @Override
+    public boolean isOutOfPlay(UUID playerId) {
+        var o = plugin.outilsStaff();
+        return o != null && o.mode().horsJeu(playerId);
     }
 
     /** ATA (PainRP / FearRP) — see {@link AtaManager} — ou douleur (PV sous le seuil, {@link DouleurManager}) :
@@ -257,6 +286,17 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
     public boolean isImpaired(UUID playerId) {
         return (plugin.ata() != null && plugin.ata().isImpaired(playerId))
                 || (plugin.douleur() != null && plugin.douleur().isInPain(playerId));
+    }
+
+    /**
+     * Déconnexion d'un joueur KO : son minuteur est figé et reprendra à son retour, sur le même personnage (décision du
+     * 14/10 : se déconnecter à terre n'évite plus l'achèvement ; la demande de RPK reste en attente).
+     */
+    public void pauseOffline(UUID playerId) {
+        KoState st = active.get(playerId);
+        if (st == null) return;
+        st.pause(System.currentTimeMillis());
+        save();
     }
 
     /** Remember who hit whom, so a KO knows its protagonists. */
@@ -594,18 +634,21 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
             if (c == null) continue;
             if (c.chakra().current() <= 0.0001 && c.chakra().max() > 0.0) {
-                if (plugin.duels() != null && plugin.duels().onChakraOut(p)) continue;
-                if (plugin.trainingZones().isTraining(p)) {
-                    plugin.trainingZones().defeat(p, true);
-                    continue;
-                }
-                enterKo(p, c.id(), KoState.Cause.CHAKRA);
+                chakraCollapse(p, c);
             }
         }
 
         for (KoState st : active.values()) {
             Player p = Bukkit.getPlayer(st.playerId());
-            if (p == null) continue;
+            // Hors ligne : le minuteur est figé (filet de sécurité derrière pauseOffline).
+            if (p == null) { st.pause(now); continue; }
+            if (st.isPaused()) {
+                // Reprise au retour, une fois le même personnage repris (pas pendant l'écran de sélection).
+                if (!canResume(p, st)) continue;
+                st.resume(now);
+                applyKoEffects(p);
+                save();
+            }
 
             if (st.isDowned()) {
                 long left = st.phaseStartMillis() + downedMillis - now;
@@ -668,6 +711,34 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         }
     }
 
+    /**
+     * <b>Le seul chemin</b> vers un KO par le chakra (scan à 0 et effondrement de l'épuisement,
+     * {@link com.reborn.shinobicore.chakra.ExhaustionManager}) — avant, les deux chemins n'avaient pas les mêmes
+     * exceptions (ETATS_JOUEUR §2.4 n° 10). Exceptions : déjà KO, grâce après un réveil, mode staff (rien), duel
+     * (défaite), terrain d'entraînement (défaite).
+     *
+     * @return vrai si le joueur est tombé KO
+     */
+    public boolean chakraCollapse(Player p, ShinobiCharacter c) {
+        if (p == null || c == null || active.containsKey(p.getUniqueId())) return false;
+        Long graceEnd = reviveGraceUntil.get(p.getUniqueId());
+        if (graceEnd != null && System.currentTimeMillis() < graceEnd) return false;
+        if (isOutOfPlay(p.getUniqueId())) return false;
+        if (plugin.duels() != null && plugin.duels().onChakraOut(p)) return false;
+        if (plugin.trainingZones().isTraining(p)) {
+            plugin.trainingZones().defeat(p, true);
+            return false;
+        }
+        return enterKo(p, c.id(), KoState.Cause.CHAKRA) != null;
+    }
+
+    /** Le minuteur figé peut-il reprendre : joueur hors de l'écran de sélection, sur le personnage tombé KO. */
+    private boolean canResume(Player p, KoState st) {
+        if (plugin.characterSelect() != null && plugin.characterSelect().isSelecting(p.getUniqueId())) return false;
+        ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
+        return c != null && (st.characterId() == null || st.characterId().equals(c.id()));
+    }
+
     /** Durée de la phase en cours (à terre ou inconscient), pour l'affichage. */
     public long phaseMillis(KoState st) {
         return st.isDowned() ? downedMillis : unconsciousMillisFor(st.cause());
@@ -713,9 +784,12 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
     }
 
     private void clearKoEffects(Player p) {
-        p.removePotionEffect(PotionEffectType.DARKNESS);
-        p.removePotionEffect(PotionEffectType.BLINDNESS);
-        p.removePotionEffect(PotionEffectType.SLOWNESS);
+        // Seulement les effets du KO (rafraîchis, 2-3 s) : une lenteur d'ATA, un étourdi ou l'écran noir du staff
+        // restent (ETATS_JOUEUR §2.4 n° 6).
+        com.reborn.shinobicore.util.Effets.retirerSiSien(p, PotionEffectType.DARKNESS, 0, 60);
+        com.reborn.shinobicore.util.Effets.retirerSiSien(p, PotionEffectType.BLINDNESS, 0, 60);
+        com.reborn.shinobicore.util.Effets.retirerSiSien(p, PotionEffectType.SLOWNESS, 1, 40);
+        com.reborn.shinobicore.util.Effets.retirerSiSien(p, PotionEffectType.SLOWNESS, 6, 40);
         p.setPose(Pose.STANDING, false);
         AttributeInstance jump = p.getAttribute(Attribute.JUMP_STRENGTH);
         if (jump != null) jump.removeModifier(noJumpKey);

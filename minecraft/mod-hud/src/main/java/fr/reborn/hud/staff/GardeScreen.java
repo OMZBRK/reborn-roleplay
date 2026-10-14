@@ -4,56 +4,45 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import fr.reborn.hud.map.MapDefs;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
-import fr.reborn.hud.ui.DaKit;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static fr.reborn.hud.staff.GardeArt.*;
+
 /**
- * Poste de garde unifié : les onglets staff ({@link StaffScreen} — alertes, joueurs, chat, journal, commandes) et
- * l'onglet vedette <b>Infirmerie</b> (gestion visuelle du KO), calé à droite, toujours laqué, avec un compteur des
- * blessés KO qui pulse. Ouvert par F7, {@code /garde} (onglet Alertes) ou {@code /infirmerie} (onglet Infirmerie).
- * Motif de l'Infirmerie : chaque blessé est une bande de papier (tanzaku) suspendue à une corde, et son temps
- * restant est un bâton d'encens qui se consume. Sous-onglets :
+ * Poste de garde complet : le volet ({@link StaffScreen}) et l'<b>Infirmerie</b> (gestion visuelle du KO), rangée dans
+ * l'onglet Outils. Ouvert par F7, {@code /garde} (Alertes) ou {@code /infirmerie} (Outils › Blessés).
  *
  * <ul>
- *   <li><b>Blessés</b> : cinq bandes à la fois, flèches / perles / molette pour les suivantes, filtres par état ;</li>
- *   <li><b>Zones</b> : sur la carte du monde du mod — glisser pour tracer, tirer les coins, déplacer ; type, nom,
- *       village, hauteur ; contour montré en jeu ;</li>
- *   <li><b>Hôpitaux</b> : zones de type hôpital et leurs lits (mode sélection en jeu pour en ajouter) ;</li>
- *   <li><b>Réglages</b> : le parcours d'un blessé en frise à étirer, les seuils de soin sur une barre de vie.</li>
+ *   <li><b>Blessés</b> (dans le volet) : à terre, inconscients, en ATA ; filtres en mots, temps restant en barre fine,
+ *       actions en mots (Réveiller, KO / Hôpital, TP, Lever l'ATA, Fiche) ;</li>
+ *   <li><b>Zones</b> et <b>Hôpitaux</b> (volet élargi) : la carte du monde du mod — glisser pour tracer, tirer les
+ *       coins, déplacer ; type, nom, village, hauteur ; lits des hôpitaux (mode sélection en jeu) ;</li>
+ *   <li><b>Réglages</b> (volet élargi) : le parcours d'un blessé en frise à étirer, seuils de soin et réglettes.</li>
  * </ul>
  * Toutes les actions passent par le serveur ({@code InfirmeriePanel}), qui revérifie le grade.
  */
 public class GardeScreen extends StaffScreen {
 
-    private static final String[][] KO_GROUP = {{"医", "Infirmerie"},
-            {"blesses", "Blessés"}, {"zones", "Zones"}, {"hopitaux", "Hôpitaux"}, {"reglages", "Réglages"}};
     private static final String[][] FILTERS = {{"all", "Tous"}, {"down", "À terre"}, {"ko", "Inconscients"}, {"ata", "En ATA"}};
-    /** Bandes par page selon la largeur disponible (2 à 5). */
-    private int perPage() { return Math.max(2, Math.min(5, (vx1() - vx0() - 32) / 64)); }
-    private static final int C_TRAIN = 0xFFA0182B, C_REST = 0xFF2F7A3A, C_HOSP = 0xFF3F78C8;
+    private static final int C_TRAIN = 0xFFD05060, C_REST = 0xFF70B880, C_HOSP = 0xFF6A9CE0;
 
     private String filter = "all";
-    private int page;
 
     /* carte */
-    private double camX, camZ, bpp = 2.0;      // centre (monde) et blocs par pixel d'écran
+    private double camX, camZ, bpp = 2.0;
     private boolean camReady;
-    private int mx0, my0, mx1, my1;             // zone de la carte à l'écran
-    private String selId;                       // zone sélectionnée (enregistrée)
-    private JsonObject edit;                    // copie modifiable (nouvelle zone ou zone sélectionnée)
+    private int mx0, my0, mx1, my1;
+    private String selId;
+    private JsonObject edit;
     private boolean dirty;
-    private String dragMode;                    // draw | move | resize | pan | slider
+    private String dragMode;
     private int dragCorner;
     private double dragWx, dragWz, dragStartX, dragStartY;
     private int[] dragOrig;
@@ -62,142 +51,105 @@ public class GardeScreen extends StaffScreen {
     /* réglages */
     private final Map<String, Integer> local = new LinkedHashMap<>();
     private boolean settingsDirty;
-    private record Slider(String key, int x, int y, int w, int min, int max, boolean delta, double perPx) { }
+    private record Slider(String key, int x, int y, int w, int h, int min, int max, boolean delta, double perPx) { }
     private final List<Slider> sliders = new ArrayList<>();
     private Slider dragSlider;
     private int dragSliderStart;
 
     public GardeScreen(String initialTab) {
         super();
-        tab = "ko".equals(initialTab) ? "blesses" : "alerts";
+        if ("ko".equals(initialTab)) { tab = "outils"; outil = "blesses"; }
+        else tab = "alerts";
     }
 
     public boolean onKo() {
-        return "blesses".equals(tab) || "zones".equals(tab) || "hopitaux".equals(tab) || "reglages".equals(tab);
+        return "outils".equals(tab) && outil != null && List.of("blesses", "zones", "hopitaux", "reglages").contains(outil);
     }
 
-    /** Ouvre l'Infirmerie ({@code ko}) ou un onglet staff sans recréer l'écran. */
+    /** Ouvre l'Infirmerie ({@code ko}) ou un onglet sans recréer l'écran. */
     public void show(String id) {
-        String target = "ko".equals(id) ? "blesses" : id;
-        if (!target.equals(tab) && !("blesses".equals(target) && onKo())) switchTab(target);
+        if ("ko".equals(id)) {
+            if (!onKo()) { switchTab("outils"); outil = "blesses"; }
+        } else if (!id.equals(tab)) switchTab(id);
     }
 
     @Override
     protected void init() {
         super.init();
-        nameBox = koBox("Nom de la zone", 32);
-        villageBox = koBox("Village (konoha…)", 24);
+        nameBox = box(nameBox, "Nom de la zone", 32);
+        villageBox = box(villageBox, "Village (konoha…)", 24);
         nameBox.setResponder(v -> { if (edit != null && !v.equals(str(edit, "id"))) { edit.addProperty("id", v); dirty = true; } });
         villageBox.setResponder(v -> { if (edit != null && !v.equals(str(edit, "village"))) { edit.addProperty("village", v); dirty = true; } });
         StaffClient.send("ko_refresh");
-        StaffClient.send("refresh");
-    }
-
-    private EditBox koBox(String hint, int max) {
-        EditBox b = new EditBox(this.font, 0, 0, 80, 12, Component.literal(hint));
-        b.setMaxLength(max);
-        indice(b, hint);
-        b.setBordered(false);
-        b.setTextShadow(false);
-        b.setTextColor(INK);
-        b.setVisible(false);
-        this.addRenderableWidget(b);
-        return b;
     }
 
     @Override
     public void tick() {
         super.tick();
-        if (ticks % (onKo() ? 20 : 60) == 0) StaffClient.send("ko_refresh");   // le compteur de l'onglet reste à jour
+        if (ticks % (onKo() ? 20 : 60) == 0) StaffClient.send("ko_refresh");
     }
 
     @Override
-    protected boolean infirmerie() { return onKo(); }
-
-    @Override
-    protected String[][][] navGroups() { return new String[][][]{G_GARDE, G_OUTILS, KO_GROUP}; }
-
-    @Override
-    protected int navW() { return 74; }
-
-    @Override
-    protected int tabCount(String id, JsonObject snap) {
-        if ("blesses".equals(id)) {
-            JsonObject ko = StaffClient.koSnapshot();
-            int n = 0;
-            if (ko != null) for (JsonElement e : arr(ko, "injured")) {
-                String s = str(e.getAsJsonObject(), "state");
-                if ("down".equals(s) || "ko".equals(s) || "chakra".equals(s)) n++;   // urgents : KO en cours
-            }
-            return n;
-        }
-        return super.tabCount(id, StaffClient.snapshot());
+    protected boolean large() {
+        return "outils".equals(tab) && ("zones".equals(outil) || "hopitaux".equals(outil) || "reglages".equals(outil));
     }
 
     @Override
-    protected void switchTab(String id) {
-        boolean changed = !id.equals(tab);
-        super.switchTab(id);
-        page = 0;
-        edit = null;
-        dirty = false;
-        if (changed && ("hopitaux".equals(id) || "zones".equals(id))) { selId = null; camReady = false; }
-    }
-
-    /* =================================================================== rendu */
-
-    @Override
-    protected void drawScreen(GuiGraphicsExtractor ctx, int mx, int my, float delta) {
+    protected void dessiner(net.minecraft.client.gui.GuiGraphicsExtractor ctx) {
         sliders.clear();
-        nameBox.setVisible(false);
-        villageBox.setVisible(false);
-        if (!onKo()) {                                  // onglets staff : rendu du Poste de garde
-            super.drawScreen(ctx, mx, my, delta);
-            return;
+        String avant = outil;
+        super.dessiner(ctx);
+        if (avant != null && !avant.equals(outil)) { edit = null; dirty = false; selId = null; camReady = false; }
+    }
+
+    /** Urgents (KO en cours) — compteur de l'outil Blessés. */
+    private int urgents(JsonObject ko) {
+        int n = 0;
+        if (ko != null) for (JsonElement e : arr(ko, "injured")) {
+            String s = str(e.getAsJsonObject(), "state");
+            if ("down".equals(s) || "ko".equals(s) || "chakra".equals(s)) n++;
         }
-        JsonObject snap = StaffClient.koSnapshot();
-        frame(ctx);
-        JsonObject staff = StaffClient.snapshot();
-        tabs(ctx, staff != null ? staff : snap);
-        plaque(ctx, "");
-        String titre = switch (tab) {
-            case "zones" -> "Zones";
-            case "hopitaux" -> "Hôpitaux";
-            case "reglages" -> "Réglages";
-            default -> "Blessés";
-        };
-        String meta = "";
-        if (snap != null) {
-            int n = arr(snap, "injured").size(), urg = tabCount("blesses", snap);
-            meta = switch (tab) {
-                case "zones" -> arr(snap, "zones").size() + " zone(s)";
-                case "hopitaux" -> hospitals(snap).size() + " hôpital(aux)";
-                case "reglages" -> grade(snap) >= 3 ? "modifiable" : "lecture seule";
-                default -> n == 0 ? "aucun" : n + " blessé(s) · " + urg + " urgent(s)";
-            };
-        }
-        ctx.enableScissor(sx0(), sy0(), sx1(), paperBottom());
-        entete(ctx, new String[]{titre}, meta);
-        ctx.disableScissor();
-        if (snap == null) {
-            text(ctx, "Connexion à l'infirmerie…", vx0(), vy0() + 4, INK_SOFT);
-        } else if (paperBottom() >= sy1() - 2) {
-            if (local.isEmpty() || !settingsDirty) loadSettings(snap);
-            switch (tab) {
-                case "zones" -> zones(ctx, snap, false);
-                case "hopitaux" -> zones(ctx, snap, true);
-                case "reglages" -> reglages(ctx, snap);
-                default -> blesses(ctx, snap);
+        return n;
+    }
+
+    Object[] resumeKo(String id) {
+        JsonObject ko = StaffClient.koSnapshot();
+        return switch (id) {
+            case "blesses" -> {
+                int n = ko == null ? 0 : arr(ko, "injured").size();
+                yield new Object[]{urgents(ko), n == 0 ? "Aucun blessé" : n + " blessé(s) · " + urgents(ko) + " urgent(s)"};
             }
-        }
-        closeButton(ctx);
+            case "zones" -> new Object[]{0, (ko == null ? 0 : arr(ko, "zones").size()) + " zone(s) · tracer sur la carte"};
+            case "hopitaux" -> new Object[]{0, (ko == null ? 0 : hospitals(ko).size()) + " hôpital(aux) · choisir les lits"};
+            case "reglages" -> new Object[]{0, ko != null && grade(ko) >= 3 ? "Durées du KO et de l'ATA, seuils de soin" : "Lecture seule (Admin)"};
+            default -> new Object[]{0, ""};
+        };
+    }
+
+    @Override
+    protected int compteOnglet(String id, JsonObject snap) {
+        if ("outils".equals(id)) return urgents(StaffClient.koSnapshot());
+        return super.compteOnglet(id, snap);
+    }
+
+    /** Corps d'un outil de l'Infirmerie. */
+    int outilKo(JsonObject snap, int y) {
+        JsonObject ko = StaffClient.koSnapshot();
+        if (ko == null) return vide(y, "Connexion à l'infirmerie…", null);
+        if (local.isEmpty() || !settingsDirty) loadSettings(ko);
+        return switch (outil) {
+            case "zones" -> { zones(ko, false); yield vy1(); }
+            case "hopitaux" -> { zones(ko, true); yield vy1(); }
+            case "reglages" -> reglages(ko, y + 2);
+            default -> blesses(ko, y);
+        };
     }
 
     /* =================================================================== blessés */
 
-    private List<JsonObject> injured(JsonObject snap) {
+    private List<JsonObject> injured(JsonObject ko) {
         List<JsonObject> out = new ArrayList<>();
-        for (JsonElement e : arr(snap, "injured")) {
+        for (JsonElement e : arr(ko, "injured")) {
             JsonObject j = e.getAsJsonObject();
             String s = str(j, "state");
             boolean keep = switch (filter) {
@@ -211,211 +163,67 @@ public class GardeScreen extends StaffScreen {
         return out;
     }
 
-    private int stateColor(String s) {
+    private static int stateColor(String s) {
         return switch (s) {
-            case "down" -> LACQUER;
-            case "chakra" -> 0xFF3F78C8;
-            case "ata" -> 0xFFD97706;
-            case "light" -> 0xFFB9A04A;
-            default -> 0xFF3B2A12;
+            case "down" -> TERRE;
+            case "chakra" -> GLACE;
+            case "ata" -> ROUGE;
+            case "light" -> OR;
+            default -> ROUGE;
         };
     }
 
-    private void blesses(GuiGraphicsExtractor ctx, JsonObject snap) {
-        int y = vy0();
-        // filtres
-        int fx = vx0();
-        for (int i = 0; i < FILTERS.length; i++) {
-            String[] f = FILTERS[i];
+    private int blesses(JsonObject ko, int y) {
+        float x = ix();
+        for (String[] f : FILTERS) {
             int count = 0;
-            for (JsonElement e : arr(snap, "injured")) {
+            for (JsonElement e : arr(ko, "injured")) {
                 String s = str(e.getAsJsonObject(), "state");
-                if ("all".equals(f[0]) || f[0].equals(s) || ("ko".equals(f[0]) && "chakra".equals(s))
-                        || ("ata".equals(f[0]) && "light".equals(s))) count++;
+                if ("all".equals(f[0]) || f[0].equals(s) || ("ko".equals(f[0]) && "chakra".equals(s)) || ("ata".equals(f[0]) && "light".equals(s))) count++;
             }
-            String label = f[1] + " " + count;
-            boolean sel = f[0].equals(filter);
-            final String id = f[0];
-            fx += button(ctx, fx, y, label, sel ? "punish" : "plain", () -> { filter = id; page = 0; viewAt = System.currentTimeMillis(); }, false) + 4;
+            x += mot(f[1] + " " + count, x, y + 6, 13, f[0].equals(filter), () -> filter = f[0]) + 9;
         }
-
-        List<JsonObject> list = injured(snap);
-        int pages = Math.max(1, (list.size() + perPage() - 1) / perPage());
-        page = Math.min(page, pages - 1);
-        int top = y + 20, x0 = vx0() + 16, x1 = vx1() - 16;
-        // corde + flèches laquées
-        GardeArt.corde(ctx, x0 - 18, top - 2, x1 - x0 + 36);
-        arrow(ctx, vx0() - 4, top - 7, "<", page > 0, () -> { page--; viewAt = System.currentTimeMillis(); });
-        arrow(ctx, vx1() - 12, top - 7, ">", page < pages - 1, () -> { page++; viewAt = System.currentTimeMillis(); });
-
-        int bottom = vy1() - 14;
-        if (list.isEmpty()) {
-            Component c = RebornFont.body("Aucun blessé pour l'instant.");
-            ctx.text(font, c, (vx0() + vx1()) / 2 - font.width(c) / 2, top + 30, INK_SOFT, false);
-        }
-        int gap = 6, sw = (x1 - x0 - gap * (perPage() - 1)) / perPage(), sh = Math.min(bottom - top - 8, 236);
-        bottom = Math.min(bottom, top + 6 + sh + 8);
-        for (int i = 0; i < perPage(); i++) {
-            int idx = page * perPage() + i;
-            if (idx >= list.size()) break;
-            int dx = slide();
-            strip(ctx, list.get(idx), x0 + i * (sw + gap) + dx, top + 6, sw, sh, i);
-        }
-        // perles de pagination
-        int bw = pages * 10, bx = (vx0() + vx1()) / 2 - bw / 2;
-        for (int p = 0; p < pages; p++) {
-            int cx = bx + p * 10;
-            boolean on = p == page;
-            GardeArt.perle(ctx, cx, bottom + 2, on);
-            final int target = p;
-            hits.add(new Hit(cx - 2, bottom, 10, 10, () -> { page = target; viewAt = System.currentTimeMillis(); }));
-        }
-        if (!list.isEmpty()) {
-            String info = (page * perPage() + 1) + "–" + Math.min(list.size(), (page + 1) * perPage()) + " sur " + list.size();
-            small(ctx, info, vx1() - Math.round(font.width(RebornFont.body(info)) * 0.75f) - 2, bottom + 3, INK_SOFT);
-        }
-    }
-
-    private void arrow(GuiGraphicsExtractor ctx, int x, int y, String glyph, boolean enabled, Runnable action) {
-        boolean hov = enabled && hover(x, y, 16, 16);
-        GardeArt.fleche(ctx, x, y, "<".equals(glyph) ? -1 : 1, !enabled ? 2 : hov ? 1 : 0);
-        if (enabled) hits.add(new Hit(x, y, 16, 16, () -> { action.run(); RebornSounds.uiClick(); }));
-    }
-
-    /** Ficelle, trou et bandeau d'état d'une bande (texture tanzaku dessous). */
-    private void stripPaper(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int col) {
-        ctx.fill(x + w / 2, y - 8, x + w / 2 + 1, y, LACQUER);                 // ficelle depuis la corde
-        ctx.fill(x + w / 2 + 1, y - 8, x + w / 2 + 2, y, 0xFF5A0E18);
-        GardeArt.tanzaku(ctx, x, y, w, h);
-        ctx.fill(x + 1, y + 1, x + w - 1, y + 4, col);
-        ctx.fill(x + 1, y + 1, x + w - 1, y + 2, 0x40FFFFFF);
-        ctx.fill(x + 1, y + 4, x + w - 1, y + 5, 0x30462810);
-        ctx.fill(x + w / 2 - 1, y + 6, x + w / 2 + 2, y + 9, WOOD_DARK);        // trou
-    }
-
-    /** Encens debout qui se consume (bâton, braise, fumée) sur sa coupelle ; base = haut de la coupelle. */
-    private void incense(GuiGraphicsExtractor ctx, int sx, int base, int maxH, float frac) {
-        int stickH = Math.max(1, Math.round(maxH * Math.max(0f, Math.min(1f, frac))));
-        GardeArt.coupelle(ctx, sx + 1, base);
-        ctx.fill(sx, base - stickH, sx + 2, base, 0xFF6A3A1A);
-        ctx.fill(sx, base - stickH, sx + 1, base, 0xFF84502A);
-        int glow = (System.currentTimeMillis() / 300) % 2 == 0 ? 0xFFFFB050 : 0xFFE0602A;
-        ctx.fill(sx - 1, base - stickH - 2, sx + 3, base - stickH, glow);
-        ctx.fill(sx, base - stickH - 2, sx + 2, base - stickH - 1, 0xFFFFE8B0);
-        int smokeA = 0x40 + (int) (Math.abs(Math.sin(System.currentTimeMillis() / 500.0)) * 0x30);
-        int sway = (int) Math.round(Math.sin(System.currentTimeMillis() / 420.0));
-        ctx.fill(sx + sway, base - stickH - 7, sx + 2 + sway, base - stickH - 3, (smokeA << 24) | 0x786E64);
-        ctx.fill(sx - sway, base - stickH - 11, sx + 1 - sway, base - stickH - 8, ((smokeA / 2) << 24) | 0x786E64);
-    }
-
-    /** Bande de papier (tanzaku) pendue à la corde : visage, nom, état, encens, temps, détails, actions. */
-    private void strip(GuiGraphicsExtractor ctx, JsonObject j, int x, int y, int w, int h, int i) {
-        String state = str(j, "state");
-        int col = stateColor(state);
-        if (h < 110) { stripTight(ctx, j, state, col, x, y, w, h); return; }
-        stripPaper(ctx, x, y, w, h, col);
-        // kanji vertical estompé
-        String vert = switch (state) { case "down" -> "倒"; case "chakra" -> "尽"; case "ata" -> "痛"; case "light" -> "傷"; default -> "気"; };
-        DaKit.kanji16(ctx, font, vert, x + 11, y + 9, 0x26462810, 0);
-        int cy = y + 12;
-        head(ctx, str(j, "uuid"), x + w / 2 - 8, cy, 16);
-        cy += 21;
-        centered(ctx, fitBold(str(j, "perso"), w - 6), x + w / 2, cy, INK, true);
-        cy += 10;
-        boolean tight = h < 120;
-        if (!tight) {
-            smallCentered(ctx, fit(str(j, "name"), Math.round((w - 4) / 0.75f)), x + w / 2, cy, INK_SOFT);
-            cy += 9;
-        }
-        centered(ctx, fit(str(j, "label"), w - 4), x + w / 2, cy, col, false);
-        cy += tight ? 10 : 13;
-        int left = num(j, "left"), total = Math.max(1, num(j, "total"));
-        boolean repos = "repos".equals(str(j, "unit"));
-        float frac = repos ? 1f - left / (float) total : left / (float) total;
-        String tt = repos ? left + "/" + total + " min" : "s".equals(str(j, "unit")) && total <= 120 ? left + " s" : (left / 60) + ":" + String.format("%02d", left % 60);
-        if (y + h - 28 - cy < 40) {
-            // place réduite : encens couché + temps
-            int bw2 = w - 12, fill = Math.max(1, Math.round(bw2 * Math.max(0f, Math.min(1f, frac))));
-            ctx.fill(x + 6, cy + 1, x + 6 + bw2, cy + 3, 0x40462810);
-            ctx.fill(x + 6, cy + 1, x + 6 + fill, cy + 3, 0xFF6A3A1A);
-            int ember = (System.currentTimeMillis() / 300) % 2 == 0 ? 0xFFFFB050 : 0xFFE0602A;
-            ctx.fill(x + 5 + fill, cy, x + 8 + fill, cy + 4, ember);
-            smallCentered(ctx, tt, x + w / 2, cy + 5, INK);
-            stripButtons(ctx, j, state, x, y, w, h);
-            return;
-        }
-        // encens qui se consume
-        int sx = x + w / 2 - 14, base = cy + 24;
-        incense(ctx, sx, base, 22, frac);
-        String t = repos ? left + "/" + total : "s".equals(str(j, "unit")) && total <= 120 ? left + " s" : (left / 60) + ":" + String.format("%02d", left % 60);
-        DaKit.arcX1(ctx, font, DaKit.arcade(t), sx + 10, base - 14, INK, 0, false);
-        small(ctx, repos ? "min de repos" : "restant", sx + 10, base - 4, INK_SOFT);
-        cy = base + 9;
-        ctx.fill(x + 8, cy - 3, x + w - 8, cy - 2, 0x26462810);
-        for (JsonElement m : arr(j, "meta")) {
-            if (cy > y + h - 36) break;
-            smallCentered(ctx, fit(m.getAsString(), Math.round((w - 6) / 0.75f)), x + w / 2, cy, INK_SOFT);
-            cy += 8;
-        }
-        stripButtons(ctx, j, state, x, y, w, h);
-    }
-
-    /** Bande en place réduite : petit visage, nom, état et temps sur une ligne, encens couché, actions. */
-    private void stripTight(GuiGraphicsExtractor ctx, JsonObject j, String state, int col, int x, int y, int w, int h) {
-        stripPaper(ctx, x, y, w, h, col);
-        head(ctx, str(j, "uuid"), x + 5, y + 10, 12);
-        ctx.text(font, gras(fitBold(str(j, "perso"), w - 24)), x + 20, y + 10, INK, false);
-        int left = num(j, "left"), total = Math.max(1, num(j, "total"));
-        boolean repos = "repos".equals(str(j, "unit"));
-        String tt = repos ? left + "/" + total + " min" : "s".equals(str(j, "unit")) && total <= 120 ? left + " s" : (left / 60) + ":" + String.format("%02d", left % 60);
-        small(ctx, fit(str(j, "label") + " · " + tt, Math.round((w - 24) / 0.75f)), x + 20, y + 19, col);
-        int by = y + h - 30;
-        int room = by - 4 - (y + 30);
-        if (room >= 30) {
-            // place libre : encens debout au centre, détails dessous
+        y += 14;
+        pz.filetH(ix(), ix() + iw(), y - 0.5f, FILET);
+        List<JsonObject> list = injured(ko);
+        if (list.isEmpty()) return vide(y, "Aucun blessé pour l'instant.", "À terre, inconscients et ATA apparaissent ici.");
+        for (JsonObject j : list) {
+            String state = str(j, "state"), uuid = str(j, "uuid");
+            int col = stateColor(state);
+            int h = 35;
+            boolean hov = hover(px0() + 1, y, pw() - 2, h) && cliquable(y, h);
+            if (hov) pz.fond(px0() + 1, y, px1() - 1, y + h, NUIT_2);
+            pz.fond(px0() + 1, y + 4, px0() + 2, y + h - 4, col);
+            pz.visage(uuid, ix(), y + 4, 12);
+            int left = num(j, "left"), total = Math.max(1, num(j, "total"));
+            boolean repos = "repos".equals(str(j, "unit"));
+            String tt = repos ? left + "/" + total + " min" : "s".equals(str(j, "unit")) && total <= 120 ? left + " s"
+                    : (left / 60) + ":" + String.format("%02d", left % 60);
+            float tw = pz.texteD(tt, ix() + iw(), y + 7.5f, 12, col, true);
+            txt(str(j, "perso").isEmpty() ? str(j, "name") : str(j, "perso"), ix() + 18, y + 7.5f, iw() - 18 - tw - 6, 15, CREME, false);
+            List<String> meta = new ArrayList<>();
+            meta.add(str(j, "label"));
+            for (JsonElement m : arr(j, "meta")) meta.add(m.getAsString());
+            txt(String.join(" · ", meta), ix() + 18, y + 16.5f, iw() - 18, 12, GRIS_2, false);
             float frac = repos ? 1f - left / (float) total : left / (float) total;
-            int maxH = Math.min(26, room - 14);
-            int sx = x + w / 2 - 1, base = y + 32 + maxH + 2;
-            incense(ctx, sx, base, maxH, frac);
-            int my = base + 8;
-            for (JsonElement m : arr(j, "meta")) {
-                if (my > by - 8) break;
-                smallCentered(ctx, fit(m.getAsString(), Math.round((w - 6) / 0.75f)), x + w / 2, my, INK_SOFT);
-                my += 8;
+            float bx = ix() + 18, bw = iw() - 18;
+            pz.px(bx, y + 21.5f, bx + bw, y + 22.5f, 0xFF2C2024);
+            pz.px(bx, y + 21.5f, bx + bw * Math.max(0f, Math.min(1f, frac)), y + 22.5f, col);
+            float ax = ix() + 18, cy = y + 29;
+            boolean koEtat = "down".equals(state) || "ko".equals(state) || "chakra".equals(state);
+            if (koEtat) {
+                ax += motAction("Réveiller", ax, cy, true, () -> koAct("wake", uuid)) + 9;
+                if ("down".equals(state)) ax += motAction("KO", ax, cy, false, () -> koAct("knockout", uuid)) + 9;
+                else ax += motAction("Hôpital", ax, cy, false, () -> koAct("hospital", uuid)) + 9;
+            } else {
+                ax += motAction("Lever l'ATA", ax, cy, true, () -> koAct("lift_ata", uuid)) + 9;
+                ax += motAction("Fiche", ax, cy, false, () -> openProfile(uuid)) + 9;
             }
-        } else if (by - (y + 28) >= 4) {
-            float frac = repos ? 1f - left / (float) total : left / (float) total;
-            int bw2 = w - 10, fill = Math.max(1, Math.round(bw2 * Math.max(0f, Math.min(1f, frac))));
-            ctx.fill(x + 5, y + 27, x + 5 + bw2, y + 29, 0x40462810);
-            ctx.fill(x + 5, y + 27, x + 5 + fill, y + 29, 0xFF6A3A1A);
-            int ember = (System.currentTimeMillis() / 300) % 2 == 0 ? 0xFFFFB050 : 0xFFE0602A;
-            ctx.fill(x + 4 + fill, y + 26, x + 7 + fill, y + 30, ember);
+            motAction("TP", ax, cy, false, () -> koAct("tp", uuid));
+            y += h;
+            pz.filetH(ix() + 18, ix() + iw(), y - 0.5f, SEP);
         }
-        stripButtons(ctx, j, state, x, y, w, h);
-    }
-
-    /** Actions d'une bande (hors rotation pour des clics exacts). */
-    private void stripButtons(GuiGraphicsExtractor ctx, JsonObject j, String state, int x, int y, int w, int h) {
-        String uuid = str(j, "uuid");
-        int by = y + h - 30, bw = w - 6;
-        boolean ko = "down".equals(state) || "ko".equals(state) || "chakra".equals(state);
-        if (ko) {
-            wide(ctx, x + 3, by, bw, "Réveiller", "punish", () -> koAct("wake", uuid));
-            if ("down".equals(state)) half(ctx, x + 3, by + 14, bw, "KO", () -> koAct("knockout", uuid), "TP", () -> koAct("tp", uuid));
-            else half(ctx, x + 3, by + 14, bw, "Hôpital", () -> koAct("hospital", uuid), "TP", () -> koAct("tp", uuid));
-        } else {
-            wide(ctx, x + 3, by, bw, "Lever l'ATA", "watch", () -> koAct("lift_ata", uuid));
-            half(ctx, x + 3, by + 14, bw, "Fiche", () -> openProfile(uuid), "TP", () -> koAct("tp", uuid));
-        }
-    }
-
-    private void wide(GuiGraphicsExtractor ctx, int x, int y, int w, String label, String style, Runnable r) {
-        button(ctx, x, y, w, label, style, r, false);
-    }
-
-    private void half(GuiGraphicsExtractor ctx, int x, int y, int w, String a, Runnable ra, String b, Runnable rb) {
-        int wa = button(ctx, x, y, a, "plain", ra, false);
-        button(ctx, x + Math.max(wa + 2, w - bw(b)), y, b, "plain", rb, false);
+        return y + 2;
     }
 
     private void koAct(String op, String uuid) {
@@ -427,33 +235,16 @@ public class GardeScreen extends StaffScreen {
         RebornSounds.uiClick();
     }
 
-    private String fitBold(String s, int maxW) {
-        if (font.width(gras(s)) <= maxW) return s;
-        String t = s;
-        while (t.length() > 1 && font.width(gras(t + "…")) > maxW) t = t.substring(0, t.length() - 1);
-        return t + "…";
-    }
-
-    private void centered(GuiGraphicsExtractor ctx, String s, int cx, int y, int color, boolean bold) {
-        Component c = bold ? gras(s) : RebornFont.body(s);
-        ctx.text(font, c, cx - font.width(c) / 2, y, color, false);
-    }
-
-    private void smallCentered(GuiGraphicsExtractor ctx, String s, int cx, int y, int color) {
-        int w = Math.round(font.width(RebornFont.body(s)) * 0.75f);
-        small(ctx, s, cx - w / 2, y, color);
-    }
-
     /* =================================================================== carte : zones et hôpitaux */
 
     private int kindColor0(String kind) {
         return switch (kind) { case "repos" -> C_REST; case "hopital" -> C_HOSP; default -> C_TRAIN; };
     }
 
-    private MapDefs.Def mapDef(JsonObject snap) {
-        String world = str(snap.getAsJsonObject("me"), "world");
+    private MapDefs.Def mapDef(JsonObject ko) {
+        String world = str(ko.getAsJsonObject("me"), "world");
         String id = null;
-        for (JsonElement e : arr(snap, "maps")) {
+        for (JsonElement e : arr(ko, "maps")) {
             JsonObject m = e.getAsJsonObject();
             if (world.equals(str(m, "world"))) { id = str(m, "id"); break; }
             if (id == null) id = str(m, "id");
@@ -466,26 +257,28 @@ public class GardeScreen extends StaffScreen {
     private double wx(double sxp) { return camX + (sxp - (mx0 + mx1) / 2.0) * bpp; }
     private double wz(double syp) { return camZ + (syp - (my0 + my1) / 2.0) * bpp; }
 
-    private JsonObject zoneById(JsonObject snap, String id) {
-        for (JsonElement e : arr(snap, "zones")) if (id != null && id.equals(str(e.getAsJsonObject(), "id"))) return e.getAsJsonObject();
+    private JsonObject zoneById(JsonObject ko, String id) {
+        for (JsonElement e : arr(ko, "zones")) if (id != null && id.equals(str(e.getAsJsonObject(), "id"))) return e.getAsJsonObject();
         return null;
     }
 
-    private void zones(GuiGraphicsExtractor ctx, JsonObject snap, boolean hospitals) {
-        JsonObject me = snap.getAsJsonObject("me");
-        int panelW = Math.max(130, (vx1() - vx0()) * 38 / 100);
-        mx0 = vx0(); my0 = vy0() + (hospitals ? 18 : 2); mx1 = vx1() - panelW - 8; my1 = vy1() - 2;
-        if (hospitals) hospitalChips(ctx, snap);
+    private void zones(JsonObject ko, boolean hospitals) {
+        JsonObject me = ko.getAsJsonObject("me");
+        int panelW = Math.max(150, Math.min(190, (vx1() - vx0()) * 34 / 100));
+        mx0 = vx0(); my0 = vy0() + 4 + (hospitals ? 16 : 0); mx1 = vx1() - panelW - 8; my1 = vy1() - 2;
+        if (hospitals) hospitalChips(ko);
         if (!camReady) {
-            JsonObject focus = hospitals ? zoneById(snap, selId) : null;
+            JsonObject focus = hospitals ? zoneById(ko, selId) : null;
             if (focus != null) { camX = (num(focus, "x1") + num(focus, "x2")) / 2.0; camZ = (num(focus, "z1") + num(focus, "z2")) / 2.0; bpp = 0.6; }
             else { camX = me.get("x").getAsDouble(); camZ = me.get("z").getAsDouble(); bpp = 1.5; }
             camReady = true;
         }
-        // cadre de la carte
-        ctx.fill(mx0, my0, mx1, my1, 0xFFD9C79A);
+        var ctx = ctxCourant;
+        pz.vider(ctx);   // ce qui précède (puces des hôpitaux) sous le ciseau du corps
+        // fond et carte (dessin immédiat : sous les zones du pinceau, soumises après)
+        ctx.fill(mx0, my0, mx1, my1, 0xFF1E1A16);
         ctx.enableScissor(mx0, my0, mx1, my1);
-        MapDefs.Def def = mapDef(snap);
+        MapDefs.Def def = mapDef(ko);
         if (def != null) {
             float zoom = (float) (def.blocksPerPixel() / bpp);
             ctx.pose().pushMatrix();
@@ -495,187 +288,157 @@ public class GardeScreen extends StaffScreen {
                     def.width(), def.height(), def.width(), def.height(), def.width(), def.height());
             ctx.pose().popMatrix();
         }
-        // quadrillage tous les 16 blocs quand on est proche
         if (bpp < 1.2) {
             double g0 = Math.floor(wx(mx0) / 16) * 16;
-            for (double gx = g0; sx(gx) < mx1; gx += 16) ctx.fill(Math.round(sx(gx)), my0, Math.round(sx(gx)) + 1, my1, 0x18000000);
+            for (double gx = g0; sx(gx) < mx1; gx += 16) pz.fond(Math.round(sx(gx)), my0, Math.round(sx(gx)) + 1, my1, 0x18000000);
             double h0 = Math.floor(wz(my0) / 16) * 16;
-            for (double gz = h0; sy(gz) < my1; gz += 16) ctx.fill(mx0, Math.round(sy(gz)), mx1, Math.round(sy(gz)) + 1, 0x18000000);
+            for (double gz = h0; sy(gz) < my1; gz += 16) pz.fond(mx0, Math.round(sy(gz)), mx1, Math.round(sy(gz)) + 1, 0x18000000);
         }
-        // zones
-        for (JsonElement e : arr(snap, "zones")) {
+        for (JsonElement e : arr(ko, "zones")) {
             JsonObject z = e.getAsJsonObject();
             if (hospitals && !"hopital".equals(str(z, "kind"))) continue;
             boolean isSel = edit != null && str(z, "id").equals(selId);
-            JsonObject src = isSel ? edit : z;
-            drawZone(ctx, src, isSel);
-            if ("hopital".equals(str(z, "kind"))) drawBeds(ctx, z);
+            drawZone(isSel ? edit : z, isSel);
+            if ("hopital".equals(str(z, "kind"))) drawBeds(z);
         }
-        if (edit != null && selId == null) drawZone(ctx, edit, true);
-        // toi
-        float px = sx(me.get("x").getAsDouble()), pz = sy(me.get("z").getAsDouble());
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(px, pz);
-        ctx.pose().rotate((float) Math.toRadians(45));
-        ctx.fill(-3, -3, 3, 3, WOOD_DARK);
-        ctx.fill(-2, -2, 2, 2, GOLD);
-        ctx.pose().popMatrix();
-        ctx.disableScissor();
-        GardeArt.cadreCarte(ctx, mx0, my0, mx1, my1);
-        // échelle + aide
+        if (edit != null && selId == null) drawZone(edit, true);
+        float px = sx(me.get("x").getAsDouble()), pzz = sy(me.get("z").getAsDouble());
+        pz.pastille(px, pzz, 2.5f, NUIT);
+        pz.pastille(px, pzz, 1.6f, OR);
+        pz.vider(ctx);
+        ctx.disableScissor();   // revient au ciseau du corps ouvert par l'écran
+        pz.cadre(mx0, my0, mx1 - mx0, my1 - my0, FILET_2);
         String help = hospitals ? "Molette : zoom · clic droit : déplacer la carte"
                 : "Glisser : tracer · clic : modifier · molette : zoom · clic droit : déplacer";
-        ctx.fill(mx0, my1 - 9, mx1, my1, 0xB3140A08);
-        small(ctx, fit(help, Math.round((mx1 - mx0 - 6) / 0.75f)), mx0 + 3, my1 - 7, IVORY_2);
-        String scale = Math.round(bpp * 40) + " blocs";
-        ctx.fill(mx1 - 50, my0 + 4, mx1 - 10, my0 + 5, WOOD_DARK);
-        small(ctx, scale, mx1 - 50, my0 + 7, WOOD_DARK);
-
-        // panneau latéral
+        pz.fond(mx0, my1 - 9, mx1, my1, 0xC80A0708);
+        pz.texte(fit(help, mx1 - mx0 - 8, 11, false), mx0 + 4, my1 - 4.5f, 11, GRIS, false);
+        pz.fond(mx1 - 48, my0 + 5, mx1 - 8, my0 + 6, CREME);
+        pz.texte(Math.round(bpp * 40) + " blocs", mx1 - 48, my0 + 10, 11, CREME, false);
         int px0 = mx1 + 8, px1 = vx1();
-        if (hospitals) hospitalPanel(ctx, snap, px0, px1);
-        else zonePanel(ctx, snap, px0, px1);
+        if (hospitals) hospitalPanel(ko, px0, px1);
+        else zonePanel(ko, px0, px1);
     }
 
-    private void drawZone(GuiGraphicsExtractor ctx, JsonObject z, boolean sel) {
+    private void drawZone(JsonObject z, boolean sel) {
         int col = kindColor0(str(z, "kind"));
         int x1 = Math.round(sx(Math.min(num(z, "x1"), num(z, "x2")))), x2 = Math.round(sx(Math.max(num(z, "x1"), num(z, "x2")) + 1));
         int y1 = Math.round(sy(Math.min(num(z, "z1"), num(z, "z2")))), y2 = Math.round(sy(Math.max(num(z, "z1"), num(z, "z2")) + 1));
-        ctx.fill(x1, y1, x2, y2, ((sel ? 0x55 : 0x30) << 24) | (col & 0xFFFFFF));
-        DrawHelpers.outlinedRect(ctx, x1, y1, Math.max(2, x2 - x1), Math.max(2, y2 - y1), 0, col);
-        if (sel) DrawHelpers.outlinedRect(ctx, x1 - 1, y1 - 1, Math.max(2, x2 - x1) + 2, Math.max(2, y2 - y1) + 2, 0, GOLD);
+        pz.fond(x1, y1, x2, y2, ((sel ? 0x55 : 0x30) << 24) | (col & 0xFFFFFF));
+        pz.cadre(x1, y1, Math.max(2, x2 - x1), Math.max(2, y2 - y1), col);
+        if (sel) pz.cadre(x1 - 1, y1 - 1, Math.max(2, x2 - x1) + 2, Math.max(2, y2 - y1) + 2, OR);
         String id = str(z, "id");
-        if (x2 - x1 > 24 && y2 - y1 > 9 && !id.isEmpty()) {
-            Component c = gras(fit(id, x2 - x1 - 4));
-            ctx.text(font, c, (x1 + x2) / 2 - font.width(c) / 2, (y1 + y2) / 2 - 4, col, false);
-        }
-        if (sel) {
-            int[][] corners = {{x1, y1}, {x2, y1}, {x1, y2}, {x2, y2}};
-            for (int[] c : corners) {
-                ctx.fill(c[0] - 3, c[1] - 3, c[0] + 3, c[1] + 3, WOOD_DARK);
-                ctx.fill(c[0] - 2, c[1] - 2, c[0] + 2, c[1] + 2, GOLD);
-            }
+        if (x2 - x1 > 24 && y2 - y1 > 9 && !id.isEmpty()) pz.texteC(fit(id, x2 - x1 - 4, 12, true), (x1 + x2) / 2f, (y1 + y2) / 2f, 12, CREME, true);
+        if (sel) for (int[] c : new int[][]{{x1, y1}, {x2, y1}, {x1, y2}, {x2, y2}}) {
+            pz.fond(c[0] - 3, c[1] - 3, c[0] + 3, c[1] + 3, NUIT);
+            pz.fond(c[0] - 2, c[1] - 2, c[0] + 2, c[1] + 2, OR);
         }
     }
 
-    private void drawBeds(GuiGraphicsExtractor ctx, JsonObject z) {
+    private void drawBeds(JsonObject z) {
         JsonArray beds = arr(z, "beds");
         for (int i = 0; i < beds.size(); i++) {
             JsonObject b = beds.get(i).getAsJsonObject();
             int bx = Math.round(sx(b.get("x").getAsDouble())), bz = Math.round(sy(b.get("z").getAsDouble()));
             boolean busy = !str(b, "who").isEmpty();
-            ctx.fill(bx - 3, bz - 2, bx + 4, bz + 3, WOOD_DARK);
-            ctx.fill(bx - 2, bz - 1, bx + 3, bz + 2, busy ? 0xFFC88A8A : 0xFFF5F0E6);
-            if (bpp < 0.8) small(ctx, String.valueOf(i + 1), bx - 1, bz - 9, WOOD_DARK);
+            pz.fond(bx - 3, bz - 2, bx + 4, bz + 3, NUIT);
+            pz.fond(bx - 2, bz - 1, bx + 3, bz + 2, busy ? ROUGE : CREME);
+            if (bpp < 0.8) pz.texte(String.valueOf(i + 1), bx - 1, bz - 6, 11, CREME, true);
         }
     }
 
-    /* ------------------------------------------------------------------- panneau des zones */
+    /** Petit bouton à contour (11 de haut) ; renvoie sa largeur. */
+    private int petit(int x, int y, String label, boolean actif, Runnable r) {
+        int w = Math.round(pz.largeur(label, 12, actif)) + 10, h = 11;
+        boolean hov = hover(x, y, w, h);
+        pz.fond(x, y, x + w, y + h, actif ? LAQUE : hov ? NUIT_3 : NUIT_2);
+        pz.cadre(x, y, w, h, actif ? LAQUE_HAUT : hov ? OR_DOUX : FILET_2);
+        pz.texteC(label, x + w / 2f, y + 5.5f, 12, CREME, actif);
+        hits.add(new Hit(x, y, w, h, () -> { r.run(); RebornSounds.uiClick(); }, null, null));
+        return w;
+    }
 
-    private void zonePanel(GuiGraphicsExtractor ctx, JsonObject snap, int x0, int x1) {
-        int y = vy0();
+    private void zonePanel(JsonObject ko, int x0, int x1) {
+        int y = vy0() + 4;
         int w = x1 - x0;
         if (edit != null) {
             boolean fresh = selId == null;
             boolean hosp = "hopital".equals(str(edit, "kind"));
-            int labBas = Math.round(font.width(RebornFont.body("Bas")) * 0.75f) + 4, labHaut = Math.round(font.width(RebornFont.body("Haut")) * 0.75f) + 4;
-            boolean wrapH = bw("−") * 2 + bw("+") * 2 + 16 + labBas + labHaut + bw("Ma hauteur") > w - 8;
-            boolean wrapA = !fresh && bw("Enregistrer") + bw("Voir en jeu") + bw("TP") + bw("Suppr.") + 9 > w - 10;
-            int ph = 104 + (hosp ? 16 : 0) + (wrapH ? 14 : 0) + (wrapA ? 14 : 0);
-            panelBox(ctx, x0, y, w, ph);
-            DaKit.arcX1(ctx, font, DaKit.arcade(fitArc(fresh ? "Nouvelle zone" : "Zone : " + selId, w - 14)), x0 + 6, y + 6, DaKit.ENCRE_ROUGE, 0, false);
-            // types
+            txt(fresh ? "Nouvelle zone" : "Zone « " + selId + " »", x0, y + 5, w, 15, CREME, true);
+            y += 14;
             String[][] kinds = {{"entrainement", "Entraînement"}, {"repos", "Repos"}, {"hopital", "Hôpital"}};
-            int tw = (w - 16) / 3;
-            for (int k = 0; k < 3; k++) {
-                String id = kinds[k][0];
-                boolean on = id.equals(str(edit, "kind"));
-                int tx = x0 + 5 + k * (tw + 3);
-                button(ctx, tx, y + 18, tw, "", on ? "punish" : "plain",
-                        () -> { edit.addProperty("kind", id); dirty = true; RebornSounds.uiClick(); }, false);
-                ctx.fill(tx + 4, y + 22, tx + 7, y + 26, kindColor0(id));
-                ctx.fill(tx + 4, y + 22, tx + 7, y + 23, 0x50FFFFFF);
-                String lab = bw(kinds[k][1]) + 4 > tw ? (k == 0 ? "Entraîn." : kinds[k][1]) : kinds[k][1];
-                DaKit.arcFin(ctx, font, DaKit.arcade(lab), tx + 4 + tw / 2f, y + 22.25f,
-                        hover(tx, y + 18, tw, 12) ? DaKit.OR_CLAIR : IVORY, 1, true);
+            float kx = x0;
+            for (String[] k : kinds) {
+                boolean on = k[0].equals(str(edit, "kind"));
+                pz.pastille(kx + 2, y + 4, 1.5f, kindColor0(k[0]));
+                kx += 6 + mot(k[1], kx + 6, y + 4, 13, on, () -> { edit.addProperty("kind", k[0]); dirty = true; }) + 8;
             }
-            // nom (+ village pour un hôpital)
-            small(ctx, "Nom", x0 + 6, y + 36, INK_SOFT);
-            fieldAt(ctx, nameBox, x0 + 30, y + 34, w - 36, str(edit, "id"));
-            int yy = y + 50;
+            y += 12;
+            pz.texte("Nom", x0, y + 3, 12, GRIS, false);
+            fieldAt(nameBox, x0, y + 8, w, str(edit, "id"));
+            y += 30;
             if (hosp) {
-                small(ctx, "Village", x0 + 6, yy + 2, INK_SOFT);
-                fieldAt(ctx, villageBox, x0 + 30, yy, w - 36, str(edit, "village"));
-                yy += 16;
+                pz.texte("Village", x0, y + 3, 12, GRIS, false);
+                fieldAt(villageBox, x0, y + 8, w, str(edit, "village"));
+                y += 30;
             }
-            // hauteur
-            small(ctx, "Hauteur : bloc " + num(edit, "y0") + " → " + num(edit, "y1"), x0 + 6, yy + 2, INK_SOFT);
-            yy += 10;
-            int bx = x0 + 6;
-            small(ctx, "Bas", bx, yy + 3, INK_SOFT);
-            bx += labBas;
-            bx += button(ctx, bx, yy, "−", "plain", () -> bump("y0", -1), false) + 2;
-            bx += button(ctx, bx, yy, "+", "plain", () -> bump("y0", 1), false) + 6;
-            small(ctx, "Haut", bx, yy + 3, INK_SOFT);
-            bx += labHaut;
-            bx += button(ctx, bx, yy, "−", "plain", () -> bump("y1", -1), false) + 2;
-            bx += button(ctx, bx, yy, "+", "plain", () -> bump("y1", 1), false) + 6;
-            if (wrapH) { bx = x0 + 6; yy += 14; }
-            button(ctx, bx, yy, "Ma hauteur", "plain", () -> {
-                int my = num(snap.getAsJsonObject("me"), "y");
+            pz.texte("Hauteur : bloc " + num(edit, "y0") + " → " + num(edit, "y1"), x0, y + 3, 12, GRIS, false);
+            y += 9;
+            int bx = x0;
+            pz.texte("Bas", bx, y + 5.5f, 12, GRIS_2, false);
+            bx += 16;
+            bx += petit(bx, y, "−", false, () -> bump("y0", -1)) + 2;
+            bx += petit(bx, y, "+", false, () -> bump("y0", 1)) + 8;
+            pz.texte("Haut", bx, y + 5.5f, 12, GRIS_2, false);
+            bx += 19;
+            bx += petit(bx, y, "−", false, () -> bump("y1", -1)) + 2;
+            petit(bx, y, "+", false, () -> bump("y1", 1));
+            y += 14;
+            petit(x0, y, "Ma hauteur", false, () -> {
+                int my = num(ko.getAsJsonObject("me"), "y");
                 edit.addProperty("y0", my - 2);
                 edit.addProperty("y1", my + 10);
                 dirty = true;
-            }, false);
-            yy += 15;
+            });
+            y += 15;
             int sizeX = Math.abs(num(edit, "x2") - num(edit, "x1")) + 1, sizeZ = Math.abs(num(edit, "z2") - num(edit, "z1")) + 1;
-            small(ctx, "Taille " + sizeX + " × " + sizeZ + " blocs", x0 + 6, yy, INK_SOFT);
-            yy += 9;
-            int ax = x0 + 6;
-            ax += button(ctx, ax, yy, fresh ? "Créer" : "Enregistrer", (fresh || dirty) ? "punish" : "plain", this::saveZone, false) + 3;
+            pz.texte("Taille " + sizeX + " × " + sizeZ + " blocs", x0, y + 3, 12, GRIS_2, false);
+            y += 10;
+            int ax = x0;
+            ax += petit(ax, y, fresh ? "Créer" : "Enregistrer", fresh || dirty, this::saveZone) + 4;
             if (!fresh) {
-                ax += button(ctx, ax, yy, "Voir en jeu", "watch", () -> zoneMsg("zone_show", selId), false) + 3;
-                if (wrapA) { ax = x0 + 6; yy += 14; }
-                ax += button(ctx, ax, yy, "TP", "plain", () -> zoneMsg("zone_tp", selId), false) + 3;
-                button(ctx, ax, yy, "Suppr.", "plain", () -> { zoneMsg("zone_delete", selId); edit = null; selId = null; }, false);
-            } else {
-                button(ctx, ax, yy, "Annuler", "plain", () -> edit = null, false);
-            }
-            y += ph + 6;
+                ax += petit(ax, y, "Voir en jeu", false, () -> zoneMsg("zone_show", selId)) + 4;
+                ax += petit(ax, y, "TP", false, () -> zoneMsg("zone_tp", selId)) + 4;
+                if (ax + 40 > x1) { ax = x0; y += 14; }
+                petit(ax, y, "Suppr.", false, () -> { zoneMsg("zone_delete", selId); edit = null; selId = null; });
+            } else petit(ax, y, "Annuler", false, () -> edit = null);
+            y += 18;
         } else {
-            panelBox(ctx, x0, y, w, 30);
-            small(ctx, "Glisse sur la carte pour tracer", x0 + 6, y + 6, INK);
-            small(ctx, "une zone, ou choisis-en une ci-dessous.", x0 + 6, y + 15, INK_SOFT);
-            y += 36;
+            for (String l : wrap("Glisse sur la carte pour tracer une zone, ou choisis-en une ci-dessous.", w, 12)) {
+                pz.texte(l, x0, y + 3, 12, GRIS, false);
+                y += 9;
+            }
+            y += 6;
         }
-        // registre des zones
-        for (JsonElement e : arr(snap, "zones")) {
+        pz.filetH(x0, x1, y, FILET);
+        y += 4;
+        for (JsonElement e : arr(ko, "zones")) {
             JsonObject z = e.getAsJsonObject();
             if (y > vy1() - 14) break;
             String id = str(z, "id");
             boolean sel = id.equals(selId);
-            boolean hovRow = !sel && hover(x0, y, w, 13);
-            ctx.fill(x0, y, x1, y + 13, sel ? 0x99FFF6E0 : hovRow ? 0x70FFF8E8 : 0x40FFF8E8);
-            ctx.fill(x0, y + 12, x1, y + 13, 0x2A462810);
-            if (sel) DrawHelpers.outlinedRect(ctx, x0, y, w, 13, 0, GOLD);
-            ctx.fill(x0 + 1, y + 1, x0 + 4, y + 12, kindColor0(str(z, "kind")));
-            ctx.text(font, RebornFont.body(fit(id, w - 50)), x0 + 7, y + 3, INK, false);
+            boolean hovRow = hover(x0, y, w, 13);
+            if (sel || hovRow) pz.fond(x0 - 2, y, x1, y + 13, sel ? NUIT_3 : NUIT_2);
+            pz.pastille(x0 + 2, y + 6.5f, 1.5f, kindColor0(str(z, "kind")));
+            txt(id, x0 + 8, y + 6.5f, w - 50, 13, sel ? CREME : GRIS, sel);
             int sx2 = Math.abs(num(z, "x2") - num(z, "x1")) + 1, sz2 = Math.abs(num(z, "z2") - num(z, "z1")) + 1;
-            small(ctx, sx2 + "×" + sz2, x1 - 30, y + 4, INK_SOFT);
-            hits.add(new Hit(x0, y, w, 13, () -> selectZone(z, true)));
-            y += 15;
+            pz.texteD(sx2 + "×" + sz2, x1, y + 6.5f, 11, GRIS_2, false);
+            hits.add(new Hit(x0, y, w, 13, () -> selectZone(z, true), null, null));
+            y += 14;
         }
     }
 
-    private void panelBox(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        GardeArt.panneau(ctx, x - 1, y - 1, w + 2, h + 2);
-    }
-
-    private void fieldAt(GuiGraphicsExtractor ctx, EditBox box, int x, int y, int w, String value) {
-        GardeArt.champ(ctx, x - 2, y - 2, w + 2);
-        box.setVisible(true);
-        box.setX(x + 1); box.setY(y + 2); box.setWidth(w - 4);
-        indiceDe(ctx, box, x - 2, y - 1, w);
+    private void fieldAt(EditBox box, int x, int y, int w, String value) {
+        champ(box, x, y, w, null);
         if (!box.isFocused() && !box.getValue().equals(value)) box.setValue(value);
     }
 
@@ -721,67 +484,69 @@ public class GardeScreen extends StaffScreen {
 
     /* ------------------------------------------------------------------- hôpitaux */
 
-    private List<JsonObject> hospitals(JsonObject snap) {
+    private List<JsonObject> hospitals(JsonObject ko) {
         List<JsonObject> out = new ArrayList<>();
-        for (JsonElement e : arr(snap, "zones")) if ("hopital".equals(str(e.getAsJsonObject(), "kind"))) out.add(e.getAsJsonObject());
+        for (JsonElement e : arr(ko, "zones")) if ("hopital".equals(str(e.getAsJsonObject(), "kind"))) out.add(e.getAsJsonObject());
         return out;
     }
 
-    private void hospitalChips(GuiGraphicsExtractor ctx, JsonObject snap) {
-        List<JsonObject> hs = hospitals(snap);
+    private void hospitalChips(JsonObject ko) {
+        List<JsonObject> hs = hospitals(ko);
         if (selId == null && !hs.isEmpty()) { selId = str(hs.get(0), "id"); camReady = false; }
-        int x = vx0(), y = vy0();
+        float x = vx0();
+        int y = vy0() + 6;
         for (JsonObject h : hs) {
             String id = str(h, "id");
-            x += button(ctx, x, y, id, id.equals(selId) ? "punish" : "plain", () -> { selId = id; camReady = false; }, false) + 4;
+            x += mot(id, x, y, 13, id.equals(selId), () -> { selId = id; camReady = false; }) + 9;
         }
-        button(ctx, x, y, "+ Nouvel hôpital", "plain", () -> {
-            switchTab("zones");
+        motAction("+ Nouvel hôpital", x, y, true, () -> {
+            outil = "zones";
             StaffClient.toast("Trace la zone sur la carte puis choisis le type Hôpital.");
-        }, false);
+        });
     }
 
-    private void hospitalPanel(GuiGraphicsExtractor ctx, JsonObject snap, int x0, int x1) {
-        int y = vy0() + 18, w = x1 - x0;
-        JsonObject h = zoneById(snap, selId);
+    private void hospitalPanel(JsonObject ko, int x0, int x1) {
+        int y = vy0() + 20, w = x1 - x0;
+        JsonObject h = zoneById(ko, selId);
         if (h == null) {
-            panelBox(ctx, x0, y, w, 44);
-            small(ctx, "Aucun hôpital pour l'instant.", x0 + 6, y + 6, INK);
-            small(ctx, "Trace une zone de type Hôpital", x0 + 6, y + 16, INK_SOFT);
-            small(ctx, "dans l'onglet Zones.", x0 + 6, y + 25, INK_SOFT);
+            for (String l : wrap("Aucun hôpital pour l'instant. Trace une zone de type Hôpital dans l'outil Zones.", w, 12)) {
+                pz.texte(l, x0, y + 3, 12, GRIS, false);
+                y += 9;
+            }
             return;
         }
         JsonArray beds = arr(h, "beds");
         int busy = 0;
         for (JsonElement e : beds) if (!str(e.getAsJsonObject(), "who").isEmpty()) busy++;
-        panelBox(ctx, x0, y, w, 52);
-        DaKit.arcX1(ctx, font, DaKit.arcade(fitArc("Hôpital : " + selId, w - 14)), x0 + 6, y + 6, 0xFF2A4F8A, 0, false);
+        txt("Hôpital « " + selId + " »", x0, y + 5, w, 15, CREME, true);
+        y += 13;
         String v = str(h, "village");
-        small(ctx, "Village : " + (v.isEmpty() ? "tous (par défaut)" : v), x0 + 6, y + 17, INK);
-        small(ctx, beds.size() + " lit(s) · " + (beds.size() - busy) + " libre(s) · " + busy + " occupé(s)", x0 + 6, y + 25, INK_SOFT);
-        int bx = x0 + 6;
-        bx += button(ctx, bx, y + 36, "+ Ajouter des lits", "punish", () -> zoneMsg("bed_pick", selId), false) + 3;
-        button(ctx, bx, y + 36, "TP", "plain", () -> zoneMsg("zone_tp", selId), false);
-        y += 58;
-        if (beds.isEmpty()) {
-            small(ctx, "Pas encore de lit : « Ajouter des lits »,", x0 + 2, y, INK_SOFT);
-            small(ctx, "vise chaque meuble et clic droit.", x0 + 2, y + 8, INK_SOFT);
+        pz.texte("Village : " + (v.isEmpty() ? "tous (par défaut)" : v), x0, y + 3, 12, GRIS, false);
+        y += 9;
+        pz.texte(beds.size() + " lit(s) · " + (beds.size() - busy) + " libre(s) · " + busy + " occupé(s)", x0, y + 3, 12, GRIS_2, false);
+        y += 10;
+        int bx = x0;
+        bx += petit(bx, y, "+ Ajouter des lits", true, () -> zoneMsg("bed_pick", selId)) + 4;
+        petit(bx, y, "TP", false, () -> zoneMsg("zone_tp", selId));
+        y += 16;
+        pz.filetH(x0, x1, y, FILET);
+        y += 4;
+        if (beds.isEmpty()) for (String l : wrap("Pas encore de lit : « Ajouter des lits », vise chaque meuble et clic droit.", w, 12)) {
+            pz.texte(l, x0, y + 3, 12, GRIS_2, false);
+            y += 9;
         }
         for (int i = 0; i < beds.size(); i++) {
-            if (y > vy1() - 14) { small(ctx, "… et " + (beds.size() - i) + " autre(s)", x0 + 2, y + 2, INK_SOFT); break; }
+            if (y > vy1() - 14) { pz.texte("… et " + (beds.size() - i) + " autre(s)", x0, y + 4, 12, GRIS_2, false); break; }
             JsonObject b = beds.get(i).getAsJsonObject();
             String who = str(b, "who");
-            ctx.fill(x0, y, x1, y + 13, 0x40FFF8E8);
-            ctx.fill(x0, y + 12, x1, y + 13, 0x2A462810);
-            ctx.fill(x0 + 2, y + 3, x0 + 12, y + 10, WOOD_DARK);
-            ctx.fill(x0 + 3, y + 4, x0 + 11, y + 9, who.isEmpty() ? 0xFF9FB7D9 : 0xFFC88A8A);
-            ctx.text(font, RebornFont.body("Lit " + (i + 1)), x0 + 16, y + 3, INK, false);
-            small(ctx, fit(who.isEmpty() ? "libre" : who, 80), x0 + 46, y + 4, who.isEmpty() ? OK : LACQUER_LO);
+            pz.pastille(x0 + 2, y + 6, 1.5f, who.isEmpty() ? OK : ROUGE);
+            pz.texte("Lit " + (i + 1), x0 + 8, y + 6, 13, CREME, false);
+            txt(who.isEmpty() ? "libre" : who, x0 + 36, y + 6, w - 36 - 60, 12, who.isEmpty() ? OK : ROUGE, false);
             final int idx = i;
-            int xw = bw("Retirer"), tw = bw("TP");
-            button(ctx, x1 - xw, y, "Retirer", "plain", () -> bedMsg("bed_remove", idx), false);
-            button(ctx, x1 - xw - tw - 2, y, "TP", "plain", () -> bedMsg("bed_tp", idx), false);
-            y += 15;
+            float rw = pz.largeur("Retirer", 12, false);
+            motCouleur("Retirer", x1 - rw, y + 6, 12, GRIS_2, () -> bedMsg("bed_remove", idx));
+            motCouleur("TP", x1 - rw - 16, y + 6, 12, GRIS, () -> bedMsg("bed_tp", idx));
+            y += 13;
         }
     }
 
@@ -796,21 +561,21 @@ public class GardeScreen extends StaffScreen {
 
     /* =================================================================== réglages */
 
-    private void loadSettings(JsonObject snap) {
-        JsonObject s = snap.getAsJsonObject("settings");
+    private void loadSettings(JsonObject ko) {
+        JsonObject s = ko.getAsJsonObject("settings");
         if (s == null) return;
         for (Map.Entry<String, JsonElement> e : s.entrySet()) local.put(e.getKey(), e.getValue().getAsInt());
     }
 
     private int v(String k) { return local.getOrDefault(k, 0); }
 
-    private void reglages(GuiGraphicsExtractor ctx, JsonObject snap) {
-        boolean admin = grade(snap) >= 3;
-        int y = vy0();
-        section(ctx, "Le parcours d'un blessé", y - 1);
-        int bx = vx1();
-        int w1 = bw("Appliquer"), w2 = bw("Valeurs d'origine");
-        button(ctx, bx - w1, y - 1, "Appliquer", settingsDirty ? "punish" : "plain", () -> {
+    private int reglages(JsonObject ko, int y) {
+        boolean admin = grade(ko) >= 3;
+        int x0 = vx0(), x1 = vx1(), w = x1 - x0;
+        pz.texte("Le parcours d'un blessé", x0, y + 5, 15, CREME, true);
+        int w1 = largeurBouton("Appliquer"), w2 = largeurBouton("Valeurs d'origine");
+        refusVerrou = "Réservé aux Admins.";
+        bouton(x1 - w1, y - 2, w1, "Appliquer", settingsDirty, () -> {
             JsonObject o = new JsonObject();
             o.addProperty("a", "settings_set");
             JsonObject vals = new JsonObject();
@@ -820,17 +585,19 @@ public class GardeScreen extends StaffScreen {
             settingsDirty = false;
             RebornSounds.confirm();
         }, !admin);
-        button(ctx, bx - w1 - w2 - 4, y - 1, "Valeurs d'origine", "plain", () -> {
+        bouton(x1 - w1 - w2 - 4, y - 2, w2, "Valeurs d'origine", false, () -> {
             StaffClient.send("settings_reset");
             settingsDirty = false;
         }, !admin);
-        if (!admin) small(ctx, "Lecture seule : réservé aux Admins.", vx0() + 4, y + 14, LACQUER_LO);
-        else small(ctx, "Tire les poignées dorées pour allonger ou raccourcir une étape.", vx0() + 4, y + 14, INK_SOFT);
-
-        // frise
-        int fy = y + 34, fh = 30, fx0 = vx0() + 4, fx1 = vx1() - 4;
-        String[][] stages = {{"terre", "倒", "À terre", "0xFFA0182B"}, {"inco", "気", "Inconscient", "0xFF3B2A12"},
-                {"hop", "院", "Hôpital", "0xFF3F78C8"}, {"pleine", "痛", "ATA", "0xFFD97706"}, {"ok", "回", "Rétabli", "0xFF2F7A3A"}};
+        refusVerrou = null;
+        y += 14;
+        pz.texte(admin ? "Tire les poignées d'or pour allonger ou raccourcir une étape." : "Lecture seule : réservé aux Admins.",
+                x0, y + 3, 12, admin ? GRIS_2 : ROUGE, false);
+        y += 12;
+        // frise (sans kanji : couleur + nom + valeur)
+        int fy = y, fh = 28, fx0 = x0, fx1 = x1;
+        String[][] stages = {{"terre", "À terre", "" + TERRE}, {"inco", "Inconscient", "" + ROUGE},
+                {"hop", "Hôpital", "" + C_HOSP}, {"pleine", "ATA", "" + 0xFFD0885C}, {"ok", "Rétabli", "" + OK}};
         double[] weight = {Math.sqrt(v("terre") / 120.0) * 10, Math.sqrt(v("inco") / 900.0) * 10, 2.4,
                 Math.sqrt(v("pleine") / 60.0) * 10, 2.4};
         double sum = 0;
@@ -839,11 +606,9 @@ public class GardeScreen extends StaffScreen {
         for (int i = 0; i < stages.length; i++) {
             int sw = (int) Math.round((fx1 - fx0) * Math.max(1.6, weight[i]) / sum);
             if (i == stages.length - 1) sw = fx1 - cx;
-            int col = (int) Long.parseLong(stages[i][3].substring(2), 16);
-            ctx.fill(cx, fy, cx + sw, fy + fh, WOOD_DARK);
-            ctx.fill(cx + 1, fy + 1, cx + sw - 1, fy + fh - 1, col);
-            ctx.fill(cx + 1, fy + 1, cx + sw - 1, fy + 2, 0x40FFFFFF);
-            ctx.fill(cx + 1, fy + fh - 3, cx + sw - 1, fy + fh - 1, 0x30000000);
+            int col = Integer.parseInt(stages[i][2]);
+            pz.fond(cx, fy, cx + sw - 1, fy + fh, GardeArt.sombre(col, 0.35f));
+            pz.fond(cx, fy, cx + sw - 1, fy + 2, col);
             String val = switch (stages[i][0]) {
                 case "terre" -> v("terre") + " s";
                 case "inco" -> (v("inco") / 60) + " min" + (v("inco") % 60 > 0 ? " " + v("inco") % 60 + " s" : "");
@@ -851,92 +616,79 @@ public class GardeScreen extends StaffScreen {
                 case "pleine" -> v("pleine") + " / " + v("allegee") + " min";
                 default -> "";
             };
-            Component kc = Component.literal(stages[i][1]);
-            ctx.text(font, kc, cx + sw / 2 - font.width(kc) / 2, fy + 3, 0xFFF5E9D0, false);
-            Component lc = gras(fit(stages[i][2], sw - 4));
-            ctx.text(font, lc, cx + sw / 2 - font.width(lc) / 2, fy + 12, IVORY, false);
-            if (!val.isEmpty()) smallCentered(ctx, fit(val, Math.round((sw - 4) / 0.75f)), cx + sw / 2, fy + 22, 0xFFF5E9D0);
+            pz.texteC(fit(stages[i][1], sw - 6, 13, true), cx + sw / 2f, fy + 10, 13, CREME, true);
+            if (!val.isEmpty()) pz.texteC(fit(val, sw - 6, 12, false), cx + sw / 2f, fy + 20, 12, GRIS, false);
             String key = stages[i][0];
             if (key.equals("terre") || key.equals("inco") || key.equals("pleine")) {
                 int gx = cx + sw - 3;
-                ctx.fill(gx - 1, fy + 5, gx + 5, fy + fh - 5, WOOD_DARK);
-                ctx.fill(gx, fy + 6, gx + 4, fy + fh - 6, GOLD);
+                pz.fond(gx - 1, fy + 5, gx + 3, fy + fh - 5, NUIT);
+                pz.fond(gx, fy + 6, gx + 2, fy + fh - 6, OR);
                 double perPx = switch (key) { case "terre" -> 1.0; case "inco" -> 5.0; default -> 0.25; };
                 int[] lim = switch (key) { case "terre" -> new int[]{10, 120}; case "inco" -> new int[]{60, 900}; default -> new int[]{1, 60}; };
-                if (admin) sliders.add(new Slider(key, gx - 3, fy, 10, lim[0], lim[1], true, perPx));
+                if (admin) sliders.add(new Slider(key, gx - 3, fy, 9, fh, lim[0], lim[1], true, perPx));
             }
             if (key.equals("inco")) {
                 int hx = cx + (int) Math.round(sw * Math.min(0.95, v("hopital") / (double) Math.max(1, v("inco"))));
-                ctx.fill(hx, fy + fh, hx + 1, fy + fh + 7, GOLD);
-                small(ctx, "/hopital " + v("hopital") + " s", hx - 20, fy + fh + 9, INK_SOFT);
-                if (admin) sliders.add(new Slider("hopital", hx - 4, fy + fh, 8, 0, 600, true, 4.0));
+                pz.fond(hx, fy + fh, hx + 1, fy + fh + 6, OR);
+                pz.texte("/hopital " + v("hopital") + " s", hx - 20, fy + fh + 10, 11, GRIS_2, false);
+                if (admin) sliders.add(new Slider("hopital", hx - 4, fy + fh, 8, 8, 0, 600, true, 4.0));
             }
             cx += sw;
         }
-        // peur
-        int peurW = (int) Math.round((fx1 - fx0) * 0.72);
-        ctx.fill(fx0, fy + fh + 20, fx0 + peurW, fy + fh + 24, LACQUER);
-        for (int k = fx0; k < fx0 + peurW; k += 6) ctx.fill(k, fy + fh + 20, k + 3, fy + fh + 24, 0xFFC84A5A);
-        small(ctx, "Peur : au moins " + v("peur") + " min après le KO", fx0, fy + fh + 26, LACQUER_LO);
-
-        // seuils de soin + petits réglages
-        int ry = fy + fh + 40;
-        int colW = (vx1() - vx0() - 12) / 2;
-        int lx = vx0() + 4;
-        panelBox(ctx, lx, ry, colW, 60);
-        DaKit.arcX1(ctx, font, DaKit.arcade("Seuils de soin"), lx + 6, ry + 5, DaKit.ENCRE_ROUGE, 0, false);
-        int hx0 = lx + 8, hx1 = lx + colW - 8, hy = ry + 26;
-        ctx.fill(hx0 - 1, hy - 1, hx1 + 1, hy + 9, WOOD_DARK);
-        DrawHelpers.horizontalGradient(ctx, hx0, hy, hx1 - hx0, 8, 0xFF6B1A1A, 0xFFE04A3A);
+        y = fy + fh + 18;
+        pz.texte("Peur : au moins " + v("peur") + " min après le KO", x0, y + 3, 12, ROUGE, false);
+        y += 14;
+        // seuils de soin + réglettes
+        int colW = (w - 12) / 2;
+        int lx = x0;
+        pz.capitales("Seuils de soin", lx, y + 3, 11, GRIS_2);
+        int hx0 = lx, hx1 = lx + colW, hy = y + 22;
+        pz.px(hx0, hy, hx1, hy + 3, 0xFF3A2026);
         int pl = hx0 + (hx1 - hx0) * v("plancher") / 100, r1 = hx0 + (hx1 - hx0) * v("rang1") / 100;
-        ctx.fill(hx0, hy, pl, hy + 8, 0x40FFFFFF);
-        marker(ctx, pl, hy, "Plancher " + v("plancher") + " %", true);
-        marker(ctx, r1, hy, "Médic 1 · " + v("rang1") + " %", true);
-        marker(ctx, hx1, hy, "Rang 2 · 100 %", false);
-        if (admin) {
-            sliders.add(new Slider("plancher", hx0, hy - 3, hx1 - hx0, 5, Math.max(6, v("rang1") - 5), false, 0));
-        }
-        small(ctx, "repos, bandage, hôpital", hx0, hy + 12, INK_SOFT);
-
-        int rx = lx + colW + 4;
-        panelBox(ctx, rx, ry, colW, 60);
-        int full = Math.round(100f / Math.max(1, v("paume")) * 1000f / 1000f * 10f / 1.5f);
-        sliderRow(ctx, rx + 6, ry + 5, colW - 12, "Paume de soin", "soin complet ≈ " + Math.max(1, Math.round(1000f / Math.max(1, v("paume")) / 1.5f)) + " s", "paume", 5, 50, admin);
-        sliderRow(ctx, rx + 6, ry + 23, colW - 12, "Chuchotement", v("chuchot") + " blocs", "chuchot", 1, 16, admin);
-        sliderRow(ctx, rx + 6, ry + 41, colW - 12, "Peur", v("peur") + " min", "peur", 0, 60, admin);
+        pz.px(hx0, hy, pl, hy + 3, ROUGE);
+        marker(pl, hy, "Plancher " + v("plancher") + " %", 0);
+        marker(r1, hy, "Médic 1 · " + v("rang1") + " %", 0);
+        marker(hx1, hy, "Rang 2 · 100 %", 1);
+        if (admin) sliders.add(new Slider("plancher", hx0, hy - 3, hx1 - hx0, 9, 5, Math.max(6, v("rang1") - 5), false, 0));
+        pz.texte("repos, bandage, hôpital", hx0, hy + 9, 11, GRIS_2, false);
+        int rx = lx + colW + 12;
+        sliderRow(rx, y, colW, "Paume de soin", "soin complet ≈ " + Math.max(1, Math.round(1000f / Math.max(1, v("paume")) / 1.5f)) + " s", "paume", 5, 50, admin);
+        sliderRow(rx, y + 18, colW, "Chuchotement", v("chuchot") + " blocs", "chuchot", 1, 16, admin);
+        sliderRow(rx, y + 36, colW, "Peur", v("peur") + " min", "peur", 0, 60, admin);
+        return y + 56;
     }
 
-    private void marker(GuiGraphicsExtractor ctx, int x, int y, String label, boolean above) {
-        ctx.fill(x - 1, y - 4, x + 2, y + 12, WOOD_DARK);
-        ctx.fill(x, y - 3, x + 1, y + 11, GOLD);
-        if (above) {
-            int w = Math.round(font.width(RebornFont.body(label)) * 0.75f);
-            small(ctx, label, x - w / 2, y - 11, INK);
-        }
+    private void marker(int x, int y, String label, int ancre) {
+        pz.fond(x, y - 3, x + 1, y + 6, OR);
+        if (ancre == 1) pz.texteD(label, x + 1, y - 7, 11, CREME, false);
+        else pz.texteC(label, x, y - 7, 11, CREME, false);
     }
 
-    private void sliderRow(GuiGraphicsExtractor ctx, int x, int y, int w, String label, String value, String key, int min, int max, boolean admin) {
-        small(ctx, label, x, y, INK);
-        int vw = Math.round(font.width(RebornFont.body(value)) * 0.75f);
-        small(ctx, value, x + w - vw, y, LACQUER_LO);
-        int ty = y + 12, tx0 = x + 3, tx1 = x + w - 3;
-        GardeArt.rainure(ctx, tx0, ty - 1, tx1 - tx0);
+    private void sliderRow(int x, int y, int w, String label, String value, String key, int min, int max, boolean admin) {
+        pz.texte(label, x, y + 3, 12, CREME, false);
+        pz.texteD(value, x + w, y + 3, 12, OR, false);
+        int ty = y + 11, tx0 = x + 2, tx1 = x + w - 2;
+        pz.px(tx0, ty, tx1, ty + 1, FILET_2);
         int kx = tx0 + (int) Math.round((tx1 - tx0) * (v(key) - min) / (double) Math.max(1, max - min));
-        ctx.fill(tx0 + 1, ty, kx, ty + 2, LACQUER);
-        ctx.fill(tx0 + 1, ty, kx, ty + 1, 0xFFC01E35);
-        GardeArt.poignee(ctx, kx, ty - 4);
-        if (admin) sliders.add(new Slider(key, tx0, ty - 3, tx1 - tx0, min, max, false, 0));
+        pz.px(tx0, ty, kx, ty + 1, LAQUE_HAUT);
+        pz.fond(kx - 2, ty - 3, kx + 2, ty + 4, OR);
+        if (admin) sliders.add(new Slider(key, tx0, ty - 4, tx1 - tx0, 9, min, max, false, 0));
     }
 
-    /* =================================================================== banc d'essai (StaffDebug) */
+    /* =================================================================== banc d'essai */
 
-    void debugPage(int p) { page = p; }
+    void debugPage(int p) { }
 
-    void debugKoTab(String id) { switchTab(id); }
+    void debugKoTab(String id) {
+        if (!"outils".equals(tab)) switchTab("outils");
+        outil = id;
+        scroll = 0;
+        camReady = false;
+    }
 
     void debugSelect(String id) {
-        JsonObject snap = StaffClient.koSnapshot();
-        JsonObject z = snap == null ? null : zoneById(snap, id);
+        JsonObject ko = StaffClient.koSnapshot();
+        JsonObject z = ko == null ? null : zoneById(ko, id);
         if (z != null) { selectZone(z, true); bpp = 0.9; }
     }
 
@@ -955,15 +707,14 @@ public class GardeScreen extends StaffScreen {
     /* =================================================================== entrées */
 
     private boolean inMap(double x, double y) {
-        return onKo() && ("zones".equals(tab) || "hopitaux".equals(tab)) && x >= mx0 && x < mx1 && y >= my0 && y < my1 - 9;
+        return large() && ("zones".equals(outil) || "hopitaux".equals(outil)) && x >= mx0 && x < mx1 && y >= my0 && y < my1 - 9;
     }
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
         double x = e.x(), y = e.y();
-        // réglettes
-        if (onKo() && e.button() == 0) for (Slider s : sliders) {
-            if (x >= s.x() && x < s.x() + Math.max(8, s.w()) && y >= s.y() && y < s.y() + (s.delta() ? 30 : 9)) {
+        if (menu == null && "reglages".equals(outil) && e.button() == 0) for (Slider s : sliders) {
+            if (x >= s.x() && x < s.x() + Math.max(8, s.w()) && y >= s.y() && y < s.y() + s.h()) {
                 dragSlider = s;
                 dragSliderStart = v(s.key());
                 dragStartX = x;
@@ -971,12 +722,11 @@ public class GardeScreen extends StaffScreen {
                 return true;
             }
         }
-        if (inMap(x, y)) {
-            JsonObject snap = StaffClient.koSnapshot();
+        if (menu == null && inMap(x, y)) {
+            JsonObject ko = StaffClient.koSnapshot();
             if (e.button() == 1 || e.button() == 2) { dragMode = "pan"; dragStartX = x; dragStartY = y; dragWx = camX; dragWz = camZ; return true; }
-            if ("hopitaux".equals(tab) || snap == null) return true;
+            if ("hopitaux".equals(outil) || ko == null) return true;
             double wxv = wx(x), wzv = wz(y);
-            // coin d'une zone sélectionnée
             if (edit != null) {
                 int x1 = Math.round(sx(Math.min(num(edit, "x1"), num(edit, "x2")))), x2 = Math.round(sx(Math.max(num(edit, "x1"), num(edit, "x2")) + 1));
                 int y1 = Math.round(sy(Math.min(num(edit, "z1"), num(edit, "z2")))), y2 = Math.round(sy(Math.max(num(edit, "z1"), num(edit, "z2")) + 1));
@@ -990,8 +740,7 @@ public class GardeScreen extends StaffScreen {
                     }
                 }
             }
-            // une zone : sélection + déplacement
-            JsonArray zs = arr(snap, "zones");
+            JsonArray zs = arr(ko, "zones");
             for (int i = zs.size() - 1; i >= 0; i--) {
                 JsonObject z = zs.get(i).getAsJsonObject();
                 JsonObject src = z.get("id").getAsString().equals(selId) && edit != null ? edit : z;
@@ -1005,17 +754,16 @@ public class GardeScreen extends StaffScreen {
                     return true;
                 }
             }
-            // vide : nouvelle zone
             selId = null;
             edit = new JsonObject();
             edit.addProperty("id", "");
             edit.addProperty("kind", "entrainement");
             edit.addProperty("village", "");
-            edit.addProperty("world", str(snap.getAsJsonObject("me"), "world"));
+            edit.addProperty("world", str(ko.getAsJsonObject("me"), "world"));
             int bxv = (int) Math.floor(wxv), bzv = (int) Math.floor(wzv);
             edit.addProperty("x1", bxv); edit.addProperty("z1", bzv);
             edit.addProperty("x2", bxv); edit.addProperty("z2", bzv);
-            int myy = num(snap.getAsJsonObject("me"), "y");
+            int myy = num(ko.getAsJsonObject("me"), "y");
             edit.addProperty("y0", myy - 2); edit.addProperty("y1", myy + 10);
             nameBox.setValue("");
             villageBox.setValue("");
@@ -1076,8 +824,8 @@ public class GardeScreen extends StaffScreen {
         if (dragSlider != null) { dragSlider = null; return true; }
         if ("draw".equals(dragMode) && edit != null) {
             normalize(edit);
-            if (num(edit, "x2") - num(edit, "x1") < 1 || num(edit, "z2") - num(edit, "z1") < 1) edit = null;   // simple clic
-            else nameBox.setFocused(true);
+            if (num(edit, "x2") - num(edit, "x1") < 1 || num(edit, "z2") - num(edit, "z1") < 1) edit = null;
+            else { setFocused(nameBox); nameBox.setFocused(true); }
         }
         dragMode = null;
         return super.mouseReleased(e);
@@ -1092,14 +840,6 @@ public class GardeScreen extends StaffScreen {
             camZ = wzv - (y - (my0 + my1) / 2.0) * bpp;
             return true;
         }
-        if (!onKo()) return super.mouseScrolled(x, y, h, v);
-        if ("blesses".equals(tab)) {
-            JsonObject snap = StaffClient.koSnapshot();
-            int pages = snap == null ? 1 : Math.max(1, (injured(snap).size() + perPage() - 1) / perPage());
-            int np = Math.max(0, Math.min(pages - 1, page + (v < 0 ? 1 : -1)));
-            if (np != page) { page = np; viewAt = System.currentTimeMillis(); RebornSounds.uiClick(); }
-            return true;
-        }
-        return true;
+        return super.mouseScrolled(x, y, h, v);
     }
 }

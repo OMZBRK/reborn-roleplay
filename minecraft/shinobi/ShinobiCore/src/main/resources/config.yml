@@ -853,3 +853,211 @@ panel-bridge:
   api-url: "https://api.reborn-rp.com/v1"
   hmac-secret: ""       # = REBORN_WEBHOOK_SECRET du panel ; vide => lit System.getenv("REBORN_WEBHOOK_SECRET")
   poll-seconds: 5
+
+# ----------------------------------------------------------------------
+# MODIFICATEURS (docs/technique/ETATS_JOUEUR.md §4.4) — effets datés posés
+# sur un personnage (plats, pilules, staff…). Un type = nom, famille,
+# bonus (or) ou malus (vermillon), icône (fichier
+# textures/gui/effets/<icone>.png du mod), empilement
+# (REMPLACE_SI_PLUS_FORT | PROLONGE | CUMULE + plafond | IGNORE),
+# persistance à la déconnexion (GELE | CONTINUE | PERDU), au-ko
+# (PERDU | GARDE ; défaut : les bonus partent, les malus restent),
+# visible (SOI | STAFF | AUCUN), journal, durée par défaut, texte court
+# (valeur : {x} = intensité, {p} = intensité × 100), effets (multiplicateurs
+# nommés : "x", "1+x", "1-x" ou un nombre), refuse (capacités retirées :
+# SPRINTER, COURSE_NINJA), ensuite (type posé à la fin naturelle).
+# ----------------------------------------------------------------------
+modificateurs:
+  sync-secondes: 10
+  types:
+    regeneration:
+      nom: "Régénération"
+      famille: CORPS
+      bonus: true
+      icone: regeneration
+      duree-secondes: 300
+      valeur: "×{x}"
+      effets:
+        regen: "x"
+    satiete_prolongee:
+      nom: "Satiété prolongée"
+      famille: CORPS
+      bonus: true
+      icone: satiete_prolongee
+      duree-secondes: 900
+      valeur: "−{p} %"
+      effets:
+        satiete_perte: "1-x"
+    endurance:
+      nom: "Endurance"
+      famille: CORPS
+      bonus: true
+      icone: endurance
+      duree-secondes: 300
+      valeur: "+{p} %"
+      effets:
+        endurance_regen: "1+x"
+    meditation:
+      nom: "Méditation"
+      famille: ESPRIT
+      bonus: true
+      icone: meditation
+      duree-secondes: 600
+      valeur: "×{x}"
+      effets:
+        meditation: "x"
+    pilule_soldat:
+      nom: "Pilule du soldat"
+      famille: CHAKRA
+      bonus: true
+      icone: pilule
+      duree-secondes: 180
+      valeur: "+{p} %"
+      effets:
+        endurance_regen: "1+x"
+      ensuite: fatigue
+    fatigue:
+      nom: "Fatigue"
+      famille: CORPS
+      bonus: false
+      icone: fatigue
+      au-ko: GARDE
+      duree-secondes: 300
+      valeur: "pas de sprint"
+      effets:
+        endurance_regen: 0.5
+      refuse: [SPRINTER, COURSE_NINJA]
+    poison:
+      nom: "Poison"
+      famille: CORPS
+      bonus: false
+      icone: poison
+      au-ko: GARDE
+      duree-secondes: 120
+      valeur: "pas de régénération"
+      effets:
+        regen: 0
+    pilule_recharge:
+      nom: "Pilule du soldat (délai)"
+      famille: CHAKRA
+      bonus: false
+      icone: pilule
+      persistance: CONTINUE
+      au-ko: GARDE
+      visible: AUCUN
+      duree-secondes: 600
+
+# ----------------------------------------------------------------------
+# NOURRITURE (docs/gameplay/NOURRITURE.md v3, validée le 14/10) — satiété,
+# régénération passive, cuisinier (membre d'une entreprise RESTAURANT,
+# /entreprise), repas, tendre, ration sèche, pilule du soldat.
+# ----------------------------------------------------------------------
+nourriture:
+  actif: true
+  satiete:
+    depart: 80                    # % d'un personnage jamais vu
+    perte-par-seconde: 0.0125     # ≈ 1 h 30 de rassasié à affamé : ~2 repas par soirée
+    activite:
+      assis: 0.5
+      marche: 1.0
+      trot: 1.5
+      sprint: 4.0
+      nage: 2.0
+      combat: 3.0
+    technique-par-10-chakra: 0.2  # % de satiété par 10 chakra dépensés
+    vitesse-sprint: 5.8           # blocs/s au-delà desquels on compte un sprint
+    combat-secondes: 10           # « en combat » après un coup donné ou reçu
+    afk-secondes: 300             # satiété figée au-delà (regard immobile)
+    affame: 20                    # sous ce seuil : « Affamé » (icône ambre)
+  regeneration:
+    seuil: 90
+    pv-pourcent-par-seconde: 0.25
+    pause-apres-coup-secondes: 30
+    plafond-ata: 30
+  faim:
+    endurance-recuperation: 0.5   # à 0 % : récupération d'endurance ×0,5, plus de sprint, jamais de dégâts
+  cuisine:
+    preparation-secondes: 15
+    plats-par-panier: 2
+    distance-max: 4
+    plat-chaud-minutes: 10
+    poste-de-son-entreprise: true # un cuisinier n'utilise que les fourneaux de SON restaurant
+  repas:
+    assis-multiplicateur: 2
+    pause-apres-coup-secondes: 30
+    effets-froid: 0.5             # plat froid : effets réduits de moitié (la satiété reste)
+  tendre:
+    distance: 3
+    delai-secondes: 10
+  pilule:
+    satiete: 20
+    endurance: 0.4
+    duree-secondes: 180
+    recharge-minutes: 10
+    refus-apres-coup-secondes: 30
+  ration:
+    nom: "Ration sèche"
+    satiete: 25
+    duree-secondes: 20
+    icone: ration
+    plafond: 60
+  plats:
+    ramen_shoyu:
+      nom: "Ramen shōyu"
+      satiete: 60
+      duree-secondes: 45
+      icone: ramen
+      reste: bol_vide
+      effets:
+        - {type: regeneration, intensite: 2, duree-secondes: 300}
+    ramen_miso:
+      nom: "Ramen miso"
+      satiete: 65
+      duree-secondes: 45
+      icone: ramen
+      reste: bol_vide
+      effets:
+        - {type: satiete_prolongee, intensite: 0.25, duree-secondes: 900}
+    dango:
+      nom: "Dango"
+      satiete: 20
+      duree-secondes: 30
+      icone: dango
+      effets:
+        - {type: endurance, intensite: 0.2, duree-secondes: 300}
+    the_vert:
+      nom: "Thé vert"
+      satiete: 5
+      duree-secondes: 20
+      icone: the
+      effets:
+        - {type: meditation, intensite: 1.25, duree-secondes: 600}
+    bento:
+      nom: "Bento"
+      satiete: 70
+      duree-secondes: 60
+      icone: bento
+      effets:
+        - {type: satiete_prolongee, intensite: 0.5, duree-secondes: 1200}
+  # Échoppe, onglet « Vivres » : la ration pour tous ; les paniers (recette) pour les cuisiniers seulement.
+  vivres:
+    ration_seche:
+      nom: "Ration sèche"
+      prix: 30
+      quantite: 2
+      cuisinier-seulement: false
+    panier_ramen_shoyu:
+      recette: ramen_shoyu
+      prix: 30
+    panier_ramen_miso:
+      recette: ramen_miso
+      prix: 30
+    panier_dango:
+      recette: dango
+      prix: 20
+    panier_the_vert:
+      recette: the_vert
+      prix: 10
+    panier_bento:
+      recette: bento
+      prix: 40

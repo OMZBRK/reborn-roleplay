@@ -53,6 +53,9 @@ public final class HudKeybinds {
      */
     public static KeyMapping PICKUP, DEGAINER;
 
+    /** Mode interaction (R) : lu par les invites (« [R] Tendre … », nourriture). */
+    public static KeyMapping INTERACTION;
+
     /**
      * Tous les binds Reborn de ce mod, dans l'ordre d'affichage — l'onglet
      * Contrôles ({@code ControlsTab}) les liste pour rebind inline. Rempli à
@@ -78,6 +81,7 @@ public final class HudKeybinds {
         KeyMapping openEditScreen = bind("key.reborn-hud.open_editor", GLFW.GLFW_KEY_H);
         KeyMapping openCrosshair = bind("key.reborn-hud.open_crosshair", GLFW.GLFW_KEY_J);
         KeyMapping openInteraction = bind("key.reborn-hud.open_interaction", GLFW.GLFW_KEY_R);
+        INTERACTION = openInteraction;
         // F1 : remplace le « masquer l'ATH » vanilla (cf KeyboardCinemaMixin qui
         // annule le F1 de Minecraft tant que ce bind vaut F1). Libère la touche K.
         KeyMapping toggleCinema = bind("key.reborn-hud.toggle_cinema", GLFW.GLFW_KEY_F1);
@@ -255,7 +259,10 @@ public final class HudKeybinds {
                 if (Minecraft.getInstance().gui.screen() == null) fr.reborn.hud.duel.DuelClient.accept();
             }
             while (DUEL_REFUSE.consumeClick()) {
-                if (Minecraft.getInstance().gui.screen() == null) fr.reborn.hud.duel.DuelClient.refuse();
+                if (Minecraft.getInstance().gui.screen() != null) continue;
+                // Retour : refuse le duel proposé, sinon ce qu'on me tend (nourriture, 14/10).
+                if (fr.reborn.hud.duel.DuelClient.hasInvite()) fr.reborn.hud.duel.DuelClient.refuse();
+                else fr.reborn.hud.nourriture.NourritureClient.refuser();
             }
             while (MAP.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();

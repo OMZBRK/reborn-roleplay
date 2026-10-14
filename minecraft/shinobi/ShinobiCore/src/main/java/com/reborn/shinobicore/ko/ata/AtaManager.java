@@ -504,8 +504,12 @@ public final class AtaManager implements Listener {
         restricted.remove(ev.getPlayer().getUniqueId());
     }
 
-    /** FearRP + coups affaiblis. Après les plugins de combat (HIGHEST). */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    /**
+     * FearRP + coups affaiblis. Après les plugins de combat qui posent les dégâts (LOW) mais <b>avant</b> le calcul du
+     * coup mortel ({@code KoListener.onDamage}, HIGH) : un blessé en ATA qui frappe avec une arme est refusé, et son
+     * M1 à mains nues divisé par deux, avant de savoir si le coup met KO (ETATS_JOUEUR §2.4 n° 3 ; était HIGHEST).
+     */
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onHit(EntityDamageByEntityEvent ev) {
         if (!(ev.getEntity() instanceof Player victim)) return;
         Player attacker = attackerOf(ev.getDamager());

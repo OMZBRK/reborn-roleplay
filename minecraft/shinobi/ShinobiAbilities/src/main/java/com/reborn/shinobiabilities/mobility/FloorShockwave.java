@@ -160,6 +160,9 @@ public final class FloorShockwave {
 
         for (Entity e : p.getWorld().getNearbyEntities(p.getLocation(), radius, radius / 2, radius)) {
             if (!(e instanceof LivingEntity le) || e == p) continue;
+            // ni staff, ni invisible, ni faux corps, ni corps KO (ETATS_JOUEUR §2.4 n° 17, test n° 27)
+            if (com.reborn.shinobicore.etat.Verrous.horsCible(e)
+                    || com.reborn.shinobicore.etat.Verrous.ko(e.getUniqueId())) continue;
             le.damage(damage, p);
             Vector away = le.getLocation().toVector().subtract(p.getLocation().toVector());
             away.setY(0);

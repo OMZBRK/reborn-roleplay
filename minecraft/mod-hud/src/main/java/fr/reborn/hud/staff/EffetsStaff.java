@@ -21,7 +21,7 @@ import net.minecraft.resources.Identifier;
  * Effets staff vus par les joueurs (PLUGINS_REFERENCE §4 bis.3-4), en <b>HUD subtil</b> (DA §6, règle 9) :
  * <ul>
  *   <li><b>Annonce</b> ({@code reborn:annonce}) : une ligne fine en haut au centre, sur un voile nuit très léger —
- *       minuscule sceau 告 (globale, vermillon) ou 伝 (personnelle, laque noire), titre en petites capitales d'or,
+ *       minuscule marque carrée (globale vermillon, personnelle or ; aucun kanji), titre en petites capitales d'or,
  *       texte Inter 8 crème ; un filet d'or d'1 px se résorbe pendant la durée ; fondu d'entrée et de sortie.</li>
  *   <li><b>Écran noir</b> ({@code reborn:ecran} {@code noir}) : fondu au noir au-dessus du HUD, le tchat reste
  *       lisible par-dessus ; texte centré sobre (Inter 9 crème, filet d'or).</li>
@@ -33,7 +33,7 @@ import net.minecraft.resources.Identifier;
 public final class EffetsStaff {
 
     private static final Identifier VOILE = DaKit.tex("duel", "voile");
-    private static final int VERMILLON = 0xFFA0182B, LAQUE_NOIRE = 0xFF1A1012;
+    private static final int VERMILLON = 0xFFA0182B;
 
     /** Annonce en cours (null = aucune). */
     record Annonce(boolean perso, String titre, String texte, long at, long dureeMs) { }
@@ -155,6 +155,29 @@ public final class EffetsStaff {
             if (age > a.dureeMs() + 450) annonce = null;
             else if (!mc.gui.hud.isHidden() || noir > 0f) ligneAnnonce(g, mc.font, a, age);
         }
+        if ((StaffClient.modeAnim || StaffClient.modeStaff) && !mc.gui.hud.isHidden() && !(mc.gui.screen() instanceof StaffScreen))
+            indicateurMode(g, mc.font);
+    }
+
+    /**
+     * Indicateur discret du mode du staff (mode staff / mode animation), en haut à droite : pastille et un mot,
+     * Inter 7 sur rien (DA §6, règle 9). Seul le staff concerné le voit.
+     */
+    private static void indicateurMode(GuiGraphicsExtractor g, Font f) {
+        var win = Minecraft.getInstance().getWindow();
+        int km = DaKit.echelleMenu();
+        int sw = win.getWidth() / km;
+        DaKit.unites(g, km);
+        boolean anim = StaffClient.modeAnim;
+        Component c = DaKit.inter(anim ? "Mode animation · journalisé" : "Mode staff · hors RP");
+        float w = DaKit.largeur7(f, c);
+        float x = sw - 8 - w;
+        int col = anim ? 0xFFB48CD8 : 0xFF80B68C;
+        LotGui l = LotGui.ouvrir(g);
+        l.fill(Math.round(x) - 6, 7, Math.round(x) - 3, 10, DaKit.alpha(col, 0.85f));
+        l.fermer();
+        DaKit.inter7o(g, f, c, x, 8.5f, DaKit.alpha(DaKit.CREME_VAL, 0.8f), 0);
+        DaKit.finUnites(g);
     }
 
     private static void texteNoir(GuiGraphicsExtractor g, Font f, float a) {
@@ -196,14 +219,13 @@ public final class EffetsStaff {
         // sceau
         int sx = Math.round(x), sy = y0 + h / 2 - 5;
         LotGui l = LotGui.ouvrir(g);
-        l.fill(sx, sy, sx + 10, sy + 10, DaKit.alpha(an.perso() ? DaKit.OR_ETEINT : 0xFF5A0E18, a));
-        l.fill(sx + 1, sy + 1, sx + 9, sy + 9, DaKit.alpha(an.perso() ? LAQUE_NOIRE : VERMILLON, a));
+        // petite marque carrée (aucun kanji, DA §3) : vermillon = à tous, or = personnelle
+        l.fill(sx + 3, sy + 3, sx + 7, sy + 7, DaKit.alpha(an.perso() ? DaKit.OR_ETEINT : VERMILLON, a));
         // filet d'or qui se résorbe (durée restante)
         float reste = Math.max(0f, 1f - age / (float) an.dureeMs());
         int fw = Math.round((w - 16) * reste), fx = Math.round(x + 16 + (w - 16 - fw) / 2f), fy = y0 + h + 1;
         l.fill(fx, fy, fx + fw, fy + 1, DaKit.alpha(DaKit.OR_ETEINT, a));
         l.fermer();
-        DaKit.texteEchelle(g, f, Component.literal(an.perso() ? "伝" : "告"), sx + 1, sy + 1, DaKit.alpha(DaKit.CREME_KJ, a), 1f);
         float tx = x + 16;
         float ym = y0 + 4 + (p.lignes().size() > 1 ? 0 : 0.5f);
         if (titre != null) {

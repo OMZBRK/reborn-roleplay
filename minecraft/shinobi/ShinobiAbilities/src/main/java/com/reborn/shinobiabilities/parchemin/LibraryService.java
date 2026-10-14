@@ -977,6 +977,7 @@ public final class LibraryService implements Listener, PluginMessageListener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
     public void onClickBlock(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK || e.getHand() != EquipmentSlot.HAND || e.getClickedBlock() == null) return;
+        if (horsJeu(e.getPlayer())) return;   // mode staff : aucune mécanique RP (ShinobiCore ModeStaff)
         Library l = at(e.getClickedBlock().getLocation());
         if (l == null) return;
         e.setCancelled(true);
@@ -987,6 +988,7 @@ public final class LibraryService implements Listener, PluginMessageListener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onClickEntity(PlayerInteractEntityEvent e) {
         if (e.getHand() != EquipmentSlot.HAND) return;
+        if (horsJeu(e.getPlayer())) return;
         Entity en = e.getRightClicked();
         Library l = at(en.getLocation());
         if (l == null) l = at(en.getLocation().clone().add(0, -0.5, 0));
@@ -1009,5 +1011,10 @@ public final class LibraryService implements Listener, PluginMessageListener {
                 && sc.staffPanel() != null) {
             sc.staffPanel().log(p, "parchemins", type, detail);
         }
+    }
+
+    /** Staff en mode staff : hors jeu, pas de bibliothèque (KoService#isOutOfPlay). */
+    private boolean horsJeu(org.bukkit.entity.Player p) {
+        return core.ko() != null && core.ko().isOutOfPlay(p.getUniqueId());
     }
 }

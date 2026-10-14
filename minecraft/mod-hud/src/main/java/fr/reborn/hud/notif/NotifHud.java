@@ -44,6 +44,8 @@ public final class NotifHud {
         ItemStack icone;
         String kanji;
         int kanjiCol;
+        /** Picto d'effet ({@code textures/gui/effets/<nom>.png}, nourriture) à la place d'un kanji. */
+        String picto;
         float largeur = -1;
 
         Ligne(String cle, long now) {
@@ -90,6 +92,11 @@ public final class NotifHud {
 
     /** Une ligne simple : sceau kanji, mot en gras, suite (« Plus assez de place — libère une case »). */
     public static void message(String ton, String kanji, String gras, String texte) {
+        message(ton, kanji, gras, texte, null);
+    }
+
+    /** Idem avec un petit picto d'effet ({@code "ic"} : regeneration, ryo, faim…) au lieu d'un kanji. */
+    public static void message(String ton, String kanji, String gras, String texte, String picto) {
         long now = System.currentTimeMillis();
         String cle = "msg|" + ton + "|" + gras + "|" + texte;
         synchronized (LIGNES) {
@@ -103,8 +110,9 @@ public final class NotifHud {
                 default -> DaKit.OR;
             };
             int colGras = "palier".equals(ton) ? AMBRE : DaKit.CREME;
-            l.kanji = kanji;
+            l.kanji = picto != null ? null : kanji;
             l.kanjiCol = accent;
+            l.picto = picto;
             if (gras != null) l.morceaux.add(new Morceau(DaKit.interGras(gras), colGras));
             if (texte != null) l.morceaux.add(new Morceau(DaKit.inter((gras != null ? "— " : "") + texte),
                 "palier".equals(ton) ? DaKit.CREME_VAL : CREME_DOUX));
@@ -165,7 +173,7 @@ public final class NotifHud {
             for (Morceau m : l.morceaux) w += DaKit.largeur7(f, m.c()) + 2;
             l.largeur = w;
         }
-        boolean icone = l.icone != null || l.kanji != null;
+        boolean icone = l.icone != null || l.kanji != null || l.picto != null;
         float W = l.largeur + (icone ? 10 : 0) + 13;
         int x0 = Math.round(xr - W);
         DaKit.etire(g, VOILE, x0, Math.round(ym) - 6, Math.round(W), 12, 64, 16, DaKit.blanc(a));
@@ -188,6 +196,8 @@ public final class NotifHud {
             g.pose().scale(0.5f, 0.5f);
             g.item(l.icone, 0, 0);
             g.pose().popMatrix();
+        } else if (l.picto != null) {
+            fr.reborn.hud.nourriture.EffetsIcones.poser(g, l.picto, x - 10, ym - 4.5f, 9, DaKit.blanc(a));
         } else if (l.kanji != null) {
             Component kj = Component.literal(l.kanji);
             float kw = f.width(kj) * 0.875f;

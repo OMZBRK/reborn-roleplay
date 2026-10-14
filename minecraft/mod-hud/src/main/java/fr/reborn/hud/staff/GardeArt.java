@@ -1,188 +1,294 @@
 package fr.reborn.hud.staff;
 
+import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.ui.DaKit;
+import fr.reborn.hud.ui.LotBlit;
+import fr.reborn.hud.ui.LotGui;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
- * Décor fixe du Poste de garde et de l'Infirmerie (DA §6) : textures générées par {@code tools/gen_garde_textures.py}
- * (contrat des coordonnées dans l'en-tête du script), posées à 1 texel = 1 GUI, par coupe quand la pièce est plus
- * petite que sa texture. Le code des écrans ne dessine que ce qui bouge ou dépend des données.
+ * Kit du Poste de garde v3 (direction A, « le volet », 14/10) : palette nuit / laque / or allégée, <b>icônes au
+ * trait</b> (atlas {@code garde/icones.png}, généré par {@code tools/gen_garde_icones.py} à chaque taille en pixels
+ * écran : nettes à toutes les échelles, aucun kanji) et un <b>pinceau</b> qui regroupe le dessin d'une région en
+ * quelques éléments GUI (DA §6, règle 7) : les aplats en un lot, les filets d'1 px écran en un lot, les visages, les
+ * icônes en un lot, puis tous les textes en un lot. On peint dans n'importe quel ordre ; {@link Pinceau#vider}
+ * soumet dans l'ordre fond → filets → visages → icônes → textes (à appeler avant chaque changement de ciseau).
  */
 final class GardeArt {
 
     private GardeArt() {}
 
-    static final Identifier CADRE = DaKit.tex("garde", "cadre"), WASHI = DaKit.tex("garde", "washi"),
-        ENTETE = DaKit.tex("garde", "entete"), BOUTONS = DaKit.tex("garde", "boutons"), FUDA = DaKit.tex("garde", "fuda"),
-        CARTE = DaKit.tex("garde", "carte"), TANZAKU = DaKit.tex("garde", "tanzaku"), PANNEAU = DaKit.tex("garde", "panneau"),
-        CARTE_CADRE = DaKit.tex("garde", "carte_cadre"), SCEAU = DaKit.tex("garde", "sceau"), PIECES = DaKit.tex("garde", "pieces"),
-        BOUTONS16 = DaKit.tex("garde", "boutons16"), FEUILLE = DaKit.tex("garde", "feuille");
+    /* ================================================================ palette (maquettes v3, _kit_v3.py) */
 
-    /** Papier maximal (le cadre et le papier ne s'étirent jamais au-delà). */
-    static final int PAPIER_W = 640, PAPIER_H = 500;
+    static final int NUIT = 0xFF110B0D, NUIT_2 = 0xFF1B1215, NUIT_3 = 0xFF26191E, VOILE = 0xEC110B0D;
+    static final int LAQUE = 0xFFA0182B, LAQUE_SOMBRE = 0xFF46121B, LAQUE_HAUT = 0xFFCC3A4C;
+    static final int FILET = 0xFF3A282D, FILET_2 = 0xFF543C42, SEP = 0xFF1E1418;
+    static final int OR = 0xFFD9A95E, OR_CLAIR = 0xFFE8C27A, OR_DOUX = 0xFF967648;
+    static final int CREME = 0xFFEEE4D2, GRIS = 0xFFA0948A, GRIS_2 = 0xFF706462, GRIS_3 = 0xFF4E4444;
+    static final int OK = 0xFF80B68C, TERRE = 0xFFE2A04A, ROUGE = 0xFFE46676, GLACE = 0xFF8CBADE, NOIR_V = 0xFFA692D2,
+            STAFF = 0xFFC8AC70, ANIM = 0xFFB48CD8;
 
-    private static final int PW = 680, PH = 232;   // pieces.png
-
-    /* ------------------------------------------------------------------ cadre, papier, en-tête */
-
-    /** Cadre de bois autour du papier (x0, y0, w, h). */
-    static void cadre(GuiGraphicsExtractor ctx, int x0, int y0, int w, int h) {
-        DaKit.coupe(ctx, CADRE, x0 - 12, y0 - 12, w + 28, h + 28, 0, 0, 668, 528, 48, 48, 668, 528);
+    /** Couleur d'une catégorie du journal (pastilles sobres). */
+    static int categorie(String cat) {
+        return switch (cat == null ? "" : cat) {
+            case "KO" -> 0xFFC45464;
+            case "COMBAT" -> 0xFFCE884C;
+            case "STAFF" -> 0xFF8098B0;
+            case "JOUEUR" -> 0xFF6EAAA0;
+            case "INVENTAIRE" -> 0xFFA88460;
+            case "OBJET" -> 0xFFC0A060;
+            case "CHAT" -> 0xFF969696;
+            case "INTERACTION" -> 0xFF96B06E;
+            case "ECONOMIE" -> 0xFFD4B45A;
+            case "COMMANDE" -> 0xFF78788C;
+            case "DUEL" -> 0xFFAA78B4;
+            case "BIBLIOTHEQUE" -> 0xFF7890C0;
+            default -> 0xFF8C8478;
+        };
     }
 
-    /** Papier washi (poutre laquée, bande de navigation) en (x0, y0, w, h). */
-    static void papier(GuiGraphicsExtractor ctx, int x0, int y0, int w, int h) {
-        DaKit.coupe(ctx, WASHI, x0, y0, w, h, 0, 0, PAPIER_W, PAPIER_H, 8, 8, PAPIER_W, PAPIER_H);
+    /** Assombrit une couleur (bord des étiquettes). */
+    static int sombre(int col, float k) {
+        int r = Math.round(((col >> 16) & 0xFF) * k), g = Math.round(((col >> 8) & 0xFF) * k), b = Math.round((col & 0xFF) * k);
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
-    /** Papier sans la bande de navigation (fenêtres posées par-dessus). */
-    static void papierNu(GuiGraphicsExtractor ctx, int x0, int y0, int w, int h) {
-        DaKit.coupe(ctx, WASHI, x0, y0, w, h, 90, 0, PAPIER_W - 90, PAPIER_H, 8, 8, PAPIER_W, PAPIER_H);
+    /* ================================================================ icônes (contrat : tools/gen_garde_icones.py) */
+
+    static final Identifier ICONES = DaKit.tex("garde", "icones");
+    private static final String[] NOMS = {"chercher", "cloche", "joueurs", "journal", "outils", "croix", "gauche", "droite",
+            "bas", "haut", "aller", "ramener", "revenir", "observer", "geler", "sac", "noir", "noter", "sanction", "radio",
+            "plus", "reveiller", "annonce", "chat", "commandes", "infirmerie", "zones", "verrou", "filtre", "emote",
+            "tenue", "seisme", "zero", "suppr", "lien", "horloge", "point", "epee", "alerte", "crane",
+            "drapeau", "aide", "renvoyer", "hopital", "reglages", "masque", "bouclier", "copier", "tri", "coeur",
+            "cercle"};
+    private static final int[] TAILLES = {5, 6, 7, 8, 10, 12, 14, 15, 16, 18, 20, 21, 24, 28, 30, 32, 40};
+    private static final Map<String, Integer> INDEX = new HashMap<>();
+    private static final Map<Integer, Integer> RANGEE = new HashMap<>();
+    static final int ATLAS_W, ATLAS_H;
+
+    static {
+        for (int i = 0; i < NOMS.length; i++) INDEX.put(NOMS[i], i);
+        int y = 0, w = 0;
+        for (int p : TAILLES) {
+            RANGEE.put(p, y);
+            y += p + 2;
+            w = Math.max(w, NOMS.length * (p + 2));
+        }
+        ATLAS_W = w;
+        ATLAS_H = y;
     }
 
-    /** Rouleau (jiku) au bas du papier pendant le déroulé : embouts d'or hors du papier. */
-    static void jiku(GuiGraphicsExtractor ctx, int x0, int y, int w) {
-        DaKit.coupeH(ctx, PIECES, x0 - 9, y - 2, w + 18, 0, 150, 680, 9, 14, PW, PH);
-    }
+    static int echelle() { return Math.max(1, Minecraft.getInstance().getWindow().getGuiScale()); }
 
-    /** En-tête suspendu : 0 Poste de garde, 1 Infirmerie (plaque 300 de large centrée en cx). */
-    static void entete(GuiGraphicsExtractor ctx, int cx, int row) {
-        DaKit.blit(ctx, ENTETE, cx - 160, 0, 0, row * 48, 320, 48, 320, 96);
-    }
+    /* ================================================================ pinceau */
 
-    /* ------------------------------------------------------------------ boutons, plaquettes */
+    /** Un texte en attente : séquence, coin haut gauche (GUI), couleur, échelle de la police. */
+    private record Txt(FormattedCharSequence c, float x, float y, int col, float s) { }
 
-    static final int B_NOIR = 0, B_ROUGE = 2, B_VERT = 4, B_INACTIF = 6;
+    private record Vis(Identifier skin, int px, int py, int k) { }
 
-    /** Bouton laqué 12 de haut (+ ombre) ; ligne de base B_*, survol ajoute 1 (sauf inactif). */
-    static void bouton(GuiGraphicsExtractor ctx, int x, int y, int w, int ligne, boolean survol) {
-        int r = ligne == B_INACTIF ? B_INACTIF : ligne + (survol ? 1 : 0);
-        DaKit.coupeH(ctx, BOUTONS, x, y, w, 0, r * 13, 200, 13, 6, 200, 91);
-    }
+    /**
+     * Pinceau d'une région : collecte puis soumet en lots (voir la classe). Coordonnées en unités GUI ; les filets et
+     * les icônes sont posés au pixel écran.
+     */
+    static final class Pinceau {
+        private final List<int[]> fonds = new ArrayList<>(64);
+        private final List<int[]> filets = new ArrayList<>(64);
+        private final List<Vis> visages = new ArrayList<>(16);
+        private final List<int[]> icones = new ArrayList<>(32);
+        private final List<Txt> textes = new ArrayList<>(96);
+        private Font font;
 
-    /** Bouton d'action 16 de haut (+ ombre), mêmes lignes B_* ; survol ajoute 1 (sauf inactif). */
-    static void boutonGrand(GuiGraphicsExtractor ctx, int x, int y, int w, int ligne, boolean survol) {
-        int r = ligne == B_INACTIF ? B_INACTIF : ligne + (survol ? 1 : 0);
-        DaKit.coupeH(ctx, BOUTONS16, x, y, w, 0, r * 17, 240, 17, 6, 240, 119);
-    }
+        void police(Font f) { this.font = f; }
 
-    /** Plaquette de hinoki (fuda) : boîte de contour (x, y, w, h), ombre comprise hors boîte. */
-    static void fuda(GuiGraphicsExtractor ctx, int x, int y, int w, int h, boolean survol) {
-        DaKit.coupe(ctx, FUDA, x, y, w + 3, h + 3, 0, survol ? 88 : 0, 560, 88, 12, 12, 560, 176);
-    }
+        Font police() { return font; }
 
-    /** Trou percé et ficelle rouge d'une fuda, trou centré en (cx, cy). */
-    static void ficelle(GuiGraphicsExtractor ctx, int cx, int cy) {
-        DaKit.blit(ctx, PIECES, cx - 11, cy - 3, 0, 32, 14, 7, PW, PH);
-    }
+        /* ---- aplats (GUI) */
+        void fond(int x0, int y0, int x1, int y1, int col) {
+            if (x1 > x0 && y1 > y0 && (col >>> 24) != 0) fonds.add(new int[]{x0, y0, x1, y1, col});
+        }
 
-    /** Carte d'infraction (washi, bord de bois) : boîte (x, y, w, h). */
-    static void carte(GuiGraphicsExtractor ctx, int x, int y, int w, int h, boolean survol) {
-        DaKit.coupe(ctx, CARTE, x, y, w + 2, h + 2, 0, survol ? 62 : 0, 560, 62, 8, 8, 560, 124);
-    }
+        /* ---- filets d'1 px écran (coordonnées GUI, éventuellement fractionnaires) */
+        void filetH(float x0, float x1, float y, int col) {
+            int k = echelle();
+            int X0 = Math.round(x0 * k), X1 = Math.round(x1 * k), Y = Math.round(y * k);
+            if (X1 > X0) filets.add(new int[]{X0, Y, X1, Y + 1, col});
+        }
 
-    /** Grande carte de washi (formulaires pleine largeur) : boîte (x, y, w, h), jusqu'à 558×402. */
-    static void feuille(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        DaKit.coupe(ctx, FEUILLE, x, y, w + 2, h + 2, 0, 0, 560, 404, 8, 8, 560, 404);
-    }
+        void filetV(float x, float y0, float y1, int col) {
+            int k = echelle();
+            int X = Math.round(x * k), Y0 = Math.round(y0 * k), Y1 = Math.round(y1 * k);
+            if (Y1 > Y0) filets.add(new int[]{X, Y0, X + 1, Y1, col});
+        }
 
-    /** Panneau de washi à bord de bois : boîte (x, y, w, h). */
-    static void panneau(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        DaKit.coupe(ctx, PANNEAU, x, y, w + 3, h + 3, 0, 0, 303, 223, 10, 10, 304, 224);
-    }
+        /** Rectangle au pixel écran (barre fine, pastille). */
+        void px(float x0, float y0, float x1, float y1, int col) {
+            int k = echelle();
+            int X0 = Math.round(x0 * k), Y0 = Math.round(y0 * k), X1 = Math.round(x1 * k), Y1 = Math.round(y1 * k);
+            if (X1 > X0 && Y1 > Y0) filets.add(new int[]{X0, Y0, X1, Y1, col});
+        }
 
-    /** Bande de papier (tanzaku) d'un blessé : boîte (x, y, w, h). */
-    static void tanzaku(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        DaKit.coupe(ctx, TANZAKU, x, y, w + 3, h + 3, 0, 0, 133, 303, 10, 10, 134, 304);
-    }
+        /** Contour d'1 px écran autour de (x, y, w, h) GUI. */
+        void cadre(float x, float y, float w, float h, int col) {
+            int k = echelle();
+            int X0 = Math.round(x * k), Y0 = Math.round(y * k), X1 = Math.round((x + w) * k), Y1 = Math.round((y + h) * k);
+            filets.add(new int[]{X0, Y0, X1, Y0 + 1, col});
+            filets.add(new int[]{X0, Y1 - 1, X1, Y1, col});
+            filets.add(new int[]{X0, Y0 + 1, X0 + 1, Y1 - 1, col});
+            filets.add(new int[]{X1 - 1, Y0 + 1, X1, Y1 - 1, col});
+        }
 
-    /** Cadre de la carte autour de la zone (mx0, my0)–(mx1, my1). */
-    static void cadreCarte(GuiGraphicsExtractor ctx, int mx0, int my0, int mx1, int my1) {
-        DaKit.coupe(ctx, CARTE_CADRE, mx0 - 5, my0 - 5, mx1 - mx0 + 14, my1 - my0 + 14, 0, 0, 470, 510, 12, 12, 470, 510);
-    }
+        /* ---- icônes : taille en GUI (5, 6, 7, 8, 10), coin haut gauche en GUI */
+        void icone(String nom, float x, float y, int taille, int col) {
+            Integer i = INDEX.get(nom);
+            if (i == null || (col >>> 24) == 0) return;
+            int k = echelle();
+            icones.add(new int[]{i, Math.round(x * k), Math.round(y * k), taille * k, col});
+        }
 
-    /* ------------------------------------------------------------------ petites pièces */
+        /** Pastille ronde de rayon r (GUI) centrée en (cx, cy). */
+        void pastille(float cx, float cy, float r, int col) {
+            int k = echelle();
+            int d = Math.max(3, Math.round(2 * r * k));
+            Integer i = INDEX.get("point");
+            // l'icône « point » a un disque de rayon 6 sur 24 : on prend une icône 2× plus grande que le disque
+            int p = d * 2;
+            icones.add(new int[]{i, Math.round(cx * k) - p / 2, Math.round(cy * k) - p / 2, p, col});
+        }
 
-    /** Entrée de navigation : active (laque rouge) ou survolée (washi éclairci). */
-    static void navEntree(GuiGraphicsExtractor ctx, int x, int y, int w, boolean active) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, 0, active ? 0 : 13, 90, 13, 6, PW, PH);
-    }
+        /* ---- visage du joueur (skin du tchat), côté d'environ taille GUI, net (multiple de 8 px) */
+        void visage(String uuid, float x, float y, int taille) {
+            Identifier skin = null;
+            try {
+                var conn = Minecraft.getInstance().getConnection();
+                PlayerInfo info = conn != null && uuid != null && !uuid.isEmpty() ? conn.getPlayerInfo(UUID.fromString(uuid)) : null;
+                if (info != null) skin = info.getSkin().body().texturePath();
+            } catch (RuntimeException ignored) { }
+            int k = echelle();
+            int kk = Math.max(1, Math.round(taille * k / 8f));
+            int X = Math.round(x * k), Y = Math.round(y * k);
+            int off = (taille * k - kk * 8) / 2;
+            if (skin == null) {
+                filets.add(new int[]{X + off, Y + off, X + off + kk * 8, Y + off + kk * 8, 0xFF3A2C30});
+                return;
+            }
+            visages.add(new Vis(skin, X + off, Y + off, kk));
+        }
 
-    static void pastille(GuiGraphicsExtractor ctx, int x, int y, int w, boolean vive) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, vive ? 124 : 100, 0, 24, 11, 4, PW, PH);
-    }
+        /* ---- textes */
+        /** Texte Inter (taille en px de maquette à l'échelle 2 : 11 à 18), milieu de ligne en cy. Renvoie la largeur GUI. */
+        float texte(String s, float x, float cy, int taillePx, int col, boolean gras) {
+            if (s == null || s.isEmpty()) return 0;
+            Component c = gras ? DaKit.interGras(s) : RebornFont.body(s);
+            float k = taillePx / 18f;
+            textes.add(new Txt(c.getVisualOrderText(), x, cy - 4f * k, col, k));
+            return font.width(c) * k;
+        }
 
-    static void sceauVierge(GuiGraphicsExtractor ctx, int x, int y) {
-        DaKit.blit(ctx, PIECES, x, y, 100, 12, 11, 11, PW, PH);
-    }
+        float texteD(String s, float xd, float cy, int taillePx, int col, boolean gras) {
+            float w = largeur(s, taillePx, gras);
+            texte(s, xd - w, cy, taillePx, col, gras);
+            return w;
+        }
 
-    static void trait(GuiGraphicsExtractor ctx, int x, int y, int w) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, 0, 26, 240, 5, 40, PW, PH);
-    }
+        float texteC(String s, float xc, float cy, int taillePx, int col, boolean gras) {
+            float w = largeur(s, taillePx, gras);
+            texte(s, xc - w / 2f, cy, taillePx, col, gras);
+            return w;
+        }
 
-    static void losange(GuiGraphicsExtractor ctx, int x, int y) {
-        DaKit.blit(ctx, PIECES, x, y, 20, 32, 5, 5, PW, PH);
-    }
+        /** ArcadePix ×1 (capitales de 7 GUI), haut des capitales en y. */
+        float arcade(String s, float x, float y, int col) {
+            Component c = DaKit.arcade(s);
+            textes.add(new Txt(c.getVisualOrderText(), x, y, col, 1f));
+            return font.width(c) - 1;
+        }
 
-    /** Planche « Fermer » 124×17 (embouts compris). */
-    static void fermer(GuiGraphicsExtractor ctx, int x, int y, boolean survol) {
-        DaKit.blit(ctx, PIECES, x, y, survol ? 130 : 0, 40, 124, 17, PW, PH);
-    }
+        /** Petites capitales espacées (en-têtes de section), Inter gras. */
+        float capitales(String s, float x, float cy, int taillePx, int col) {
+            String t = DaKit.sansAccents(s);
+            float k = taillePx / 18f, xx = x;
+            for (int i = 0; i < t.length(); i++) {
+                String ch = String.valueOf(t.charAt(i));
+                xx += texte(ch, xx, cy, taillePx, col, true) + 0.6f;
+                if (ch.equals(" ")) xx += 1.2f * k * 2;
+            }
+            return xx - x;
+        }
 
-    static void badgeGrade(GuiGraphicsExtractor ctx, int x, int y, int w) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, 0, 58, 160, 14, 6, PW, PH);
-    }
+        float largeur(String s, int taillePx, boolean gras) {
+            if (s == null || s.isEmpty()) return 0;
+            return font.width(gras ? DaKit.interGras(s) : RebornFont.body(s)) * (taillePx / 18f);
+        }
 
-    static void sceauScore(GuiGraphicsExtractor ctx, int x, int y, int w, boolean fort) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, 0, fort ? 72 : 85, 140, 13, 5, PW, PH);
-    }
+        boolean vide() { return fonds.isEmpty() && filets.isEmpty() && visages.isEmpty() && icones.isEmpty() && textes.isEmpty(); }
 
-    static void toast(GuiGraphicsExtractor ctx, int x, int y, int w) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, 0, 98, 440, 16, 6, PW, PH);
-    }
-
-    static void champ(GuiGraphicsExtractor ctx, int x, int y, int w) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, 0, 114, 600, 15, 4, PW, PH);
-    }
-
-    /** Flèche 16×16 : sens −1 (gauche) ou 1 ; état 0 actif, 1 survol, 2 éteint. */
-    static void fleche(GuiGraphicsExtractor ctx, int x, int y, int sens, int etat) {
-        DaKit.blit(ctx, PIECES, x, y, (sens < 0 ? 0 : 48) + 16 * etat, 130, 16, 16, PW, PH);
-    }
-
-    static void perle(GuiGraphicsExtractor ctx, int x, int y, boolean allumee) {
-        DaKit.blit(ctx, PIECES, x, y, allumee ? 107 : 100, 130, 6, 6, PW, PH);
-    }
-
-    static void drapeau(GuiGraphicsExtractor ctx, int x, int y, boolean on) {
-        DaKit.blit(ctx, PIECES, x, y, on ? 128 : 114, 130, 13, 13, PW, PH);
-    }
-
-    /** Coupelle d'encens 12×4, centrée en cx, haut en y. */
-    static void coupelle(GuiGraphicsExtractor ctx, int cx, int y) {
-        DaKit.blit(ctx, PIECES, cx - 6, y, 144, 131, 12, 4, PW, PH);
-    }
-
-    /** Corde de paille torsadée (6 de haut). */
-    static void corde(GuiGraphicsExtractor ctx, int x, int y, int w) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, 0, 160, 680, 6, 8, PW, PH);
-    }
-
-    static void rainure(GuiGraphicsExtractor ctx, int x, int y, int w) {
-        DaKit.coupeH(ctx, PIECES, x, y, w, 0, 168, 300, 4, 3, PW, PH);
-    }
-
-    static void poignee(GuiGraphicsExtractor ctx, int cx, int y) {
-        DaKit.blit(ctx, PIECES, cx - 3, y, 0, 174, 7, 9, PW, PH);
-    }
-
-    /** Filigrane 64×64 (0 番, 1 医). */
-    static void filigrane(GuiGraphicsExtractor ctx, int x, int y, int kj) {
-        DaKit.blit(ctx, PIECES, x, y, 320 + 64 * kj, 168, 64, 64, PW, PH);
-    }
-
-    static void sceau(GuiGraphicsExtractor ctx, int x, int y, int argb) {
-        DaKit.blit(ctx, SCEAU, x, y, 0, 0, 64, 64, 64, 64, argb);
+        /** Soumet tout ce qui a été peint, sous le ciseau courant. */
+        void vider(GuiGraphicsExtractor ctx) {
+            if (!fonds.isEmpty()) {
+                LotGui l = LotGui.ouvrir(ctx);
+                for (int[] f : fonds) l.fill(f[0], f[1], f[2], f[3], f[4]);
+                l.fermer();
+                fonds.clear();
+            }
+            if (!filets.isEmpty() || !visages.isEmpty() || !icones.isEmpty()) {
+                DaKit.debutPx(ctx);
+                if (!filets.isEmpty()) {
+                    LotGui l = LotGui.ouvrir(ctx);
+                    for (int[] f : filets) l.fill(f[0], f[1], f[2], f[3], f[4]);
+                    l.fermer();
+                    filets.clear();
+                }
+                for (Vis v : visages) {
+                    int s = v.k() * 8;
+                    ctx.blit(RenderPipelines.GUI_TEXTURED, v.skin(), v.px(), v.py(), 8f, 8f, s, s, 8, 8, 64, 64);
+                    ctx.blit(RenderPipelines.GUI_TEXTURED, v.skin(), v.px(), v.py(), 40f, 8f, s, s, 8, 8, 64, 64);
+                }
+                visages.clear();
+                if (!icones.isEmpty()) {
+                    LotBlit l = LotBlit.ouvrir(ctx, ICONES, ATLAS_W, ATLAS_H);
+                    for (int[] ic : icones) {
+                        int p = ic[3];
+                        Integer y = RANGEE.get(p);
+                        if (y != null) l.blit(ic[1], ic[2], ic[0] * (p + 2), y, p, p, ic[4]);
+                        else {
+                            // taille absente de l'atlas (échelle > 4) : la plus grande, étirée
+                            int q = TAILLES[TAILLES.length - 1];
+                            for (int t : TAILLES) if (t >= p) { q = t; break; }
+                            l.etire(ic[1], ic[2], p, p, ic[0] * (q + 2), RANGEE.get(q), q, q, ic[4]);
+                        }
+                    }
+                    l.fermer();
+                    icones.clear();
+                }
+                DaKit.finPx(ctx);
+            }
+            if (!textes.isEmpty()) {
+                LotGui.Textes t = LotGui.textes(ctx);
+                for (Txt x : textes) {
+                    ctx.pose().pushMatrix();
+                    ctx.pose().translate(DaKit.cale(x.x()), DaKit.cale(x.y()));
+                    if (x.s() != 1f) ctx.pose().scale(x.s(), x.s());
+                    t.texte(font, x.c(), 0, 0, x.col(), false);
+                    ctx.pose().popMatrix();
+                }
+                t.fermer();
+                textes.clear();
+            }
+        }
     }
 }

@@ -23,11 +23,11 @@ public final class CooldownHud {
 
     private CooldownHud() {}
 
-    private static final Identifier CRENEAU = fr.reborn.hud.ui.DaKit.tex("combat", "creneau");
-
-    public static final int ICON = 22, GAP = 4;
-    /** Côté d'une frame source des textures d'icône (native 32×32, dessinée réduite). */
-    private static final int FRAME = 32;
+    /**
+     * Côté d'un créneau en unités de l'élément HUD : 16 = une icône 32 px à 1:1 à l'échelle 2 (élément à 1,0).
+     * Les icônes peintes portent leur propre cadre (gabarit de l'utilisateur) : plus de créneau laqué autour.
+     */
+    public static final int ICON = 16, GAP = 3;
     private static final CooldownState.Ability[] SHOWN = CooldownState.Ability.values();
     private static final java.util.Map<String, Boolean> TEX_EXISTS = new ConcurrentHashMap<>();
     /** LUT d'angles par rayon pour le voile radial : à rayon fixe l'angle de chaque
@@ -37,61 +37,67 @@ public final class CooldownHud {
     private static final java.util.Map<Integer, String> SEC_FMT = new ConcurrentHashMap<>();
 
     public static int width()  { return SHOWN.length * ICON + Math.max(0, SHOWN.length - 1) * GAP; }
-    public static int height() { return ICON + 10; }   // icône + ligne de secondes en dessous
+    public static int height() { return ICON + 9; }   // icône + ligne de secondes en dessous
 
+    /**
+     * Les icônes sont posées au <b>pixel écran</b> à une taille multiple de 16 px (texture 32 px si la taille est un
+     * multiple de 32, sinon la version 16 px) : jamais de réduction au plus proche, quelle que soit l'échelle de
+     * l'élément (éditeur de HUD) ou l'échelle GUI. Taille retenue = le plus grand multiple de 16 qui tient dans le
+     * créneau (16 unités × échelle de l'élément × échelle GUI), centrée dedans. Les secondes restent en unités GUI.
+     */
     public static void render(GuiGraphicsExtractor ctx, int x, int y, float scale) {
         long now = System.currentTimeMillis();
         Font font = Minecraft.getInstance().font;
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x, y);
-        if (scale != 1f) ctx.pose().scale(scale, scale);
+        int gs = fr.reborn.hud.ui.DaKit.echelleGui();
+        float cible = ICON * scale * gs;                          // côté du créneau en pixels écran
+        int d = Math.max(16, (int) Math.floor(cible / 16f + 0.02f) * 16);
+        int off = Math.max(0, Math.round((cible - d) / 2f));
         // On n'affiche que les capacités EN COOLDOWN (sauf celles marquées alwaysShow) ;
         // elles se compactent depuis la gauche.
         int ix = 0;
         for (CooldownState.Ability a : SHOWN) {
             boolean onCd = CooldownState.INSTANCE.fraction(a, now) > 0.001f;
             if (!onCd && !a.alwaysShow && !CooldownState.INSTANCE.isActive(a)) continue;
-            drawIcon(ctx, font, ix, 0, a, now);
+            int sx = Math.round((x + ix * scale) * gs) + off, sy = Math.round(y * gs) + off;
+            drawIcon(ctx, font, sx, sy, d, a, now);
+            float frac = CooldownState.INSTANCE.fraction(a, now);
+            if (frac > 0.001f) {
+                // secondes SOUS l'icône (unités GUI, comme avant)
+                float secs = CooldownState.INSTANCE.remainingMs(a, now) / 1000f;
+                int tenths = Math.round(secs * 10f);
+                String s = SEC_FMT.computeIfAbsent(tenths, t -> String.format(Locale.US, "%.1f", t / 10f));
+                ctx.pose().pushMatrix();
+                ctx.pose().translate(x + ix * scale, y);
+                if (scale != 1f) ctx.pose().scale(scale, scale);
+                fr.reborn.hud.ui.DaKit.inter7o(ctx, font, fr.reborn.hud.ui.DaKit.inter(s), ICON / 2f, ICON + 4.5f,
+                    fr.reborn.hud.ui.DaKit.CREME, 1);
+                ctx.pose().popMatrix();
+            }
             ix += ICON + GAP;
         }
-        ctx.pose().popMatrix();
     }
 
-    private static void drawIcon(GuiGraphicsExtractor ctx, Font font, int x, int y,
+    /** Icône de côté {@code d} pixels écran en (px, py) pixels écran, voile radial si en recharge. */
+    private static void drawIcon(GuiGraphicsExtractor ctx, Font font, int px, int py, int d,
                                  CooldownState.Ability a, long now) {
         float frac = CooldownState.INSTANCE.fraction(a, now);
         boolean ready = frac <= 0.001f;
-
-        // créneau de laque (liseré d'or prêt, éteint en recharge) : tools/gen_combat_textures.py
-        fr.reborn.hud.ui.DaKit.blit(ctx, CRENEAU, x - 1, y - 1, ready ? 0 : 26, 0, 26, 26, 52, 26);
-        ctx.fill(x + 2, y + 2, x + ICON - 2, y + ICON - 2, withA(a.color, ready ? 0.22f : 0.10f));
-
-        // Icône : texture si livrée, sinon glyphe placeholder.
         String slug = a.name().toLowerCase(Locale.ROOT);
-        if (texExists(slug)) {
-            // Icône 32×32 native (bande verticale de frames empilées), dessinée réduite
-            // via blit avec scaling (dest inner ← source FRAME). Animée par le temps.
-            int inner = ICON - 4;
+        int cote = d % 32 == 0 ? 32 : 16;
+        String nom = cote == 32 ? slug : slug + "_16";
+        if (!texExists(nom)) { nom = slug; cote = 32; }
+        fr.reborn.hud.ui.DaKit.debutPx(ctx);
+        if (texExists(nom)) {
             int frames = Math.max(1, a.frames);
             int fr = (frames <= 1 || a.frameMs <= 0) ? 0 : (int) ((now / a.frameMs) % frames);
-            ctx.blit(RenderPipelines.GUI_TEXTURED, iconId(slug),
-                x + 2, y + 2, 0f, (float) (fr * FRAME), inner, inner, FRAME, FRAME, FRAME, FRAME * frames);
+            ctx.blit(RenderPipelines.GUI_TEXTURED, iconId(nom), px, py, 0f, (float) (fr * cote), d, d, cote, cote,
+                cote, cote * frames);
         } else {
-            Component g = RebornFont.arcade(a.glyph);
-            ctx.text(font, g, x + (ICON - font.width(g)) / 2, y + (ICON - 8) / 2,
-                ready ? 0xFFFFFFFF : 0x99FFFFFF, false);
+            ctx.fill(px, py, px + d, py + d, withA(a.color, 0.35f));
         }
-
-        // Cooldown : voile radial LÉGER (l'icône reste bien visible) + secondes SOUS l'icône.
-        if (!ready) {
-            radialCover(ctx, x, y, ICON, frac, 0x55000000);
-            // Cache par dixième de seconde affiché : ne reformate que quand la valeur change.
-            float secs = CooldownState.INSTANCE.remainingMs(a, now) / 1000f;
-            int tenths = Math.round(secs * 10f);
-            String s = SEC_FMT.computeIfAbsent(tenths, t -> String.format(Locale.US, "%.1f", t / 10f));
-            fr.reborn.hud.ui.DaKit.inter7o(ctx, font, fr.reborn.hud.ui.DaKit.inter(s), x + ICON / 2f, y + ICON + 5,
-                fr.reborn.hud.ui.DaKit.CREME, 1);
-        }
+        // Cooldown : voile radial LÉGER (l'icône reste bien visible), dessiné au pixel écran.
+        if (!ready) radialCover(ctx, px, py, d, frac, 0x66000000);
+        fr.reborn.hud.ui.DaKit.finPx(ctx);
     }
 
     /** Assombrit l'arc de cooldown RESTANT (horaire depuis le haut, se réduit à mesure). */

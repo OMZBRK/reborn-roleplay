@@ -6,7 +6,11 @@ import com.reborn.shinobicore.api.KoService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.SoundCategory;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,6 +20,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.bukkit.potion.PotionEffect;
@@ -71,24 +76,24 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private static final double FINISHER_KB_H = 1.15;
     /** Composante verticale de la poussée de finition M1. */
     private static final double FINISHER_KB_Y = 0.42;
-    /** Durée du petit stun (SLOWNESS fort) de la finition M1, en ticks. */
-    private static final int FINISHER_HITSTUN_TICKS = 8;
+    /** Durée de l'étourdi de la finition M1, en ticks (décision du 14/10 : étourdi = immobile total, 1 à 2 s). */
+    private static final int FINISHER_HITSTUN_TICKS = 20;
 
     // --- M2 (garde / blocage) ----------------------------------------------
     /** Fraction de dégâts absorbée par la garde (0.7 → la victime encaisse 30 %). */
     private static final double BLOCK_REDUCTION = 0.7;
     /** Stamina drainée à chaque coup bloqué. */
     private static final double GUARD_DRAIN = 25.0;
-    /** Durée du stun de guard break, en ticks. */
-    private static final int GUARD_BREAK_STUN_TICKS = 20;
+    /** Durée de l'étourdi de guard break, en ticks (2 s). */
+    private static final int GUARD_BREAK_STUN_TICKS = 40;
 
     // --- parade TIMÉE (façon Sekiro) ---------------------------------------
     /** Fenêtre après le DÉBUT de garde pendant laquelle un coup encaissé est PARÉ
      *  (deflect) au lieu d'être simplement bloqué. Presser clic droit pile à l'impact
      *  = parade ; maintenir au-delà = garde normale (chip). */
     private static final long PARRY_WINDOW_MS = 320L;
-    /** Stun infligé à l'ATTAQUANT paré (ticks) — son ouverture critique. */
-    private static final int PARRY_ATTACKER_STUN_TICKS = 16;
+    /** Étourdi infligé à l'ATTAQUANT paré (ticks, 1,5 s) — son ouverture critique. */
+    private static final int PARRY_ATTACKER_STUN_TICKS = 30;
     /** Recul infligé à l'attaquant paré (repoussé en arrière). */
     private static final double PARRY_ATTACKER_KB = 0.55;
     /** Stamina rendue à la victime qui pare proprement (récompense de skill). */
@@ -192,6 +197,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private final Map<UUID, Long> stunnedUntil = new ConcurrentHashMap<>();
     // Sacoche (surcharge), résolue au premier besoin.
     private com.reborn.shinobicore.api.InventoryService inventory;
+    /** Immobilité serveur (modificateurs nommés, transitoires : rien dans le NBT, et le Kai ne les retire pas). */
+    private final NamespacedKey cleEtourdiVitesse, cleEtourdiSaut, cleGardeVitesse, cleGardeSaut;
 
     public CombatListener(Plugin plugin, CharacterService characters, KoService ko, StaminaManager stamina,
                           com.reborn.shinobicore.api.StatsService stats,
@@ -202,6 +209,10 @@ public final class CombatListener implements Listener, PluginMessageListener {
         this.stamina = stamina;
         this.stats = stats;
         this.attribution = attribution;
+        this.cleEtourdiVitesse = new NamespacedKey(plugin, "etourdi_vitesse");
+        this.cleEtourdiSaut = new NamespacedKey(plugin, "etourdi_saut");
+        this.cleGardeVitesse = new NamespacedKey(plugin, "garde_vitesse");
+        this.cleGardeSaut = new NamespacedKey(plugin, "garde_saut");
     }
 
     // ------------------------------------------------------------------ M1 --
@@ -231,6 +242,11 @@ public final class CombatListener implements Listener, PluginMessageListener {
             e.setCancelled(true);
             return;
         }
+        // ÉTOURDI : immobile total, ne frappe pas (décision du 14/10, ETATS_JOUEUR §2.4 n° 7).
+        if (isStunned(attacker.getUniqueId())) {
+            e.setCancelled(true);
+            return;
+        }
 
         // Taïjutsu (MAINS NUES) et KENJUTSU (arme tranchante) partagent le même moteur
         // de coups : combo M1 + coût d'endurance + dégâts (« mêmes coups que le taï »
@@ -241,7 +257,11 @@ public final class CombatListener implements Listener, PluginMessageListener {
         Material held = attacker.getInventory().getItemInMainHand().getType();
         if (!held.isAir() && !isKenjutsuWeapon(held)) return;
 
-        // Un joueur KO ne frappe pas.
+        // Un joueur KO ne frappe pas ; un staff en mode staff non plus (et ne se fait pas frapper).
+        if (ko != null && (ko.isOutOfPlay(attacker.getUniqueId()) || ko.isOutOfPlay(victim.getUniqueId()))) {
+            e.setCancelled(true);
+            return;
+        }
         if (ko != null && ko.isKo(attacker.getUniqueId())) {
             e.setCancelled(true);
             return;
@@ -288,7 +308,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
         // ---- Finition (« pyramid ») : gros recul + petit stun + gros slow + particules ----
         if (finisher) {
             applyKnockback(attacker, victim, FINISHER_KB_H, FINISHER_KB_Y);
-            applyHitstun(victim, FINISHER_HITSTUN_TICKS);        // petit stun (slow fort, court)
+            // étourdi (immobile total, 1 s) — sauf si la victime garde : la garde l'encaisse (réduction + endurance)
+            if (!guarded) applyHitstun(victim, FINISHER_HITSTUN_TICKS);
             // Gros slow qui prend le relais APRÈS le stun (SLOWNESS ne s'empile pas :
             // on programme le slow doux pour la fin du stun).
             final LivingEntity fv = victim;
@@ -434,6 +455,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (!CombatChannel.CHANNEL_IN.equals(channel)) return;
+        // mode staff (ShinobiCore) : aucune mécanique RP — ni garde, ni dash, ni bond, ni esquive
+        if (ko != null && ko.isOutOfPlay(player.getUniqueId())) return;
         byte kind;
         float dx = 0f;
         float dz = 0f;
@@ -482,6 +505,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (immobile(id)) return;   // étourdi ou en garde : immobile (décisions du 14/10)
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
@@ -513,6 +537,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (immobile(id)) return;
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
@@ -549,6 +574,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (immobile(id)) return;
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
@@ -585,6 +611,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (immobile(id)) return;
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
@@ -614,7 +641,10 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
+        if (isStunned(id)) return;     // étourdi : ni garde ni parade
         if (!blocking.add(id)) return; // déjà en garde
+        // Garde = immobile (décision du 14/10) : imposé aussi par le serveur, plus seulement par le mod.
+        figer(player, cleGardeVitesse, cleGardeSaut);
         // Horodate le début de garde → ouvre la fenêtre de parade timée.
         blockStartMs.put(id, System.currentTimeMillis());
         CombatChannel.sendAnim(plugin, nearbyPlayers(player),
@@ -624,6 +654,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
     /** Fin de garde. Diffuse l'anim block-off si le joueur bloquait effectivement. */
     private void stopBlocking(Player player, boolean guardBroken) {
         blockStartMs.remove(player.getUniqueId());
+        liberer(player, cleGardeVitesse, cleGardeSaut);
         if (!blocking.remove(player.getUniqueId()) && !guardBroken) return;
         CombatChannel.sendAnim(plugin, nearbyPlayers(player),
                 player.getEntityId(), CombatChannel.ANIM_BLOCK_OFF);
@@ -674,13 +705,70 @@ public final class CombatListener implements Listener, PluginMessageListener {
         victim.getWorld().playSound(victim.getLocation(), key, SoundCategory.PLAYERS, 1.0f, pitch);
     }
 
-    /** Applique un ralentissement fort (stun), sans particules/ambiance. */
+    /**
+     * Étourdi. Joueur : <b>immobile total</b> (vitesse et saut à zéro par modificateurs nommés, garde rompue, ni M1,
+     * ni garde, ni dash, ni technique, ni mobilité — ces deux-là lisent {@code StunService}) ; le recul du coup
+     * s'applique quand même (vélocité). Autre créature : forte lenteur comme avant.
+     */
     private void applyHitstun(LivingEntity victim, int ticks) {
-        victim.addPotionEffect(new PotionEffect(
-                PotionEffectType.SLOWNESS, ticks, SLOWNESS_AMP, false, false, false));
-        if (victim instanceof Player pv) {
-            long fin = System.currentTimeMillis() + ticks * 50L;
-            stunnedUntil.merge(pv.getUniqueId(), fin, Math::max);
+        if (!(victim instanceof Player pv)) {
+            victim.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SLOWNESS, ticks, SLOWNESS_AMP, false, false, false));
+            return;
+        }
+        long fin = System.currentTimeMillis() + ticks * 50L;
+        stunnedUntil.merge(pv.getUniqueId(), fin, Math::max);
+        if (blocking.contains(pv.getUniqueId())) stopBlocking(pv, false);
+        figer(pv, cleEtourdiVitesse, cleEtourdiSaut);
+        planifierFinEtourdi(pv, ticks);
+    }
+
+    /** Lève l'immobilité de l'étourdi à sa fin (reprogrammé si un nouvel étourdi l'a prolongé). */
+    private void planifierFinEtourdi(Player pv, long ticks) {
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!pv.isOnline()) return;
+            Long fin = stunnedUntil.get(pv.getUniqueId());
+            long reste = fin == null ? 0 : fin - System.currentTimeMillis();
+            if (reste > 0) { planifierFinEtourdi(pv, reste / 50L); return; }
+            liberer(pv, cleEtourdiVitesse, cleEtourdiSaut);
+        }, Math.max(1L, ticks) + 1L);
+    }
+
+    /** Arrêt du plugin : personne ne reste figé (les tâches de fin d'étourdi sont annulées avec lui). */
+    public static void libererTout(Plugin plugin) {
+        for (Player p : plugin.getServer().getOnlinePlayers()) {
+            liberer(p, new NamespacedKey(plugin, "etourdi_vitesse"), new NamespacedKey(plugin, "etourdi_saut"));
+            liberer(p, new NamespacedKey(plugin, "garde_vitesse"), new NamespacedKey(plugin, "garde_saut"));
+        }
+    }
+
+    /** Étourdi ou en garde : aucun déplacement de combat (dash, bond, keriox, esquive). */
+    private boolean immobile(UUID id) {
+        return isStunned(id) || blocking.contains(id);
+    }
+
+    /** Vitesse et saut à zéro sous deux clés nommées (transitoires, cumulables avec l'allure sans l'écraser). */
+    private static void figer(Player p, NamespacedKey vitesse, NamespacedKey saut) {
+        poser(p.getAttribute(Attribute.MOVEMENT_SPEED), vitesse);
+        poser(p.getAttribute(Attribute.JUMP_STRENGTH), saut);
+    }
+
+    private static void liberer(Player p, NamespacedKey vitesse, NamespacedKey saut) {
+        enlever(p.getAttribute(Attribute.MOVEMENT_SPEED), vitesse);
+        enlever(p.getAttribute(Attribute.JUMP_STRENGTH), saut);
+    }
+
+    private static void poser(AttributeInstance a, NamespacedKey cle) {
+        if (a == null) return;
+        enlever(a, cle);
+        a.addTransientModifier(new AttributeModifier(cle, -1.0,
+                AttributeModifier.Operation.MULTIPLY_SCALAR_1, EquipmentSlotGroup.ANY));
+    }
+
+    private static void enlever(AttributeInstance a, NamespacedKey cle) {
+        if (a == null) return;
+        for (AttributeModifier m : a.getModifiers().toArray(new AttributeModifier[0])) {
+            if (cle.equals(m.getKey())) a.removeModifier(m);
         }
     }
 
@@ -734,12 +822,22 @@ public final class CombatListener implements Listener, PluginMessageListener {
 
     @EventHandler
     public void onDeath(PlayerDeathEvent e) {
+        liberer(e.getEntity(), cleEtourdiVitesse, cleEtourdiSaut);
+        liberer(e.getEntity(), cleGardeVitesse, cleGardeSaut);
         forget(e.getEntity().getUniqueId());
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
+        liberer(e.getPlayer(), cleEtourdiVitesse, cleEtourdiSaut);
+        liberer(e.getPlayer(), cleGardeVitesse, cleGardeSaut);
         forget(e.getPlayer().getUniqueId());
+    }
+
+    /** Tombé KO en garde : la garde tombe (elle n'était pas nettoyée au KO, ETATS_JOUEUR §2.2 d). */
+    @EventHandler
+    public void onKo(com.reborn.shinobicore.event.KoEnterEvent e) {
+        if (blocking.contains(e.player().getUniqueId())) stopBlocking(e.player(), false);
     }
 
     /** Le taïjutsu a besoin du PvP vanilla : l'{@link EntityDamageByEntityEvent}
@@ -778,5 +876,6 @@ public final class CombatListener implements Listener, PluginMessageListener {
         lastChakraJumpMs.remove(id);
         lastKerioxDashMs.remove(id);
         lastDodgeMs.remove(id);
+        stunnedUntil.remove(id);
     }
 }

@@ -87,12 +87,54 @@ final class StaffDemo {
                 if (snap != null) {
                     boolean on = !StaffScreen.bool(snap, "modeStaff");
                     snap.addProperty("modeStaff", on);
-                    toast(on ? "Mode staff activé : plaques visibles, tu es invisible." : "Mode staff coupé.");
+                    snap.addProperty("modeAnim", false);
+                    toast(on ? "Mode staff activé : invisible, aucune mécanique RP." : "Mode staff coupé.");
                 }
             }
+            case "modeanim" -> {
+                JsonObject snap = StaffClient.snapshot();
+                if (snap != null) {
+                    boolean on = !StaffScreen.bool(snap, "modeAnim");
+                    snap.addProperty("modeAnim", on);
+                    snap.addProperty("modeStaff", false);
+                    toast(on ? "Mode animation : mécaniques RP permises, tout est journalisé." : "Mode animation coupé.");
+                }
+            }
+            case "cherche" -> StaffClient.debugReceive(cherche(o).toString());
+            case "kill" -> toast("ok".equals(StaffScreen.str(o, "v")) ? "Mise à mort validée." : "Mise à mort refusée.");
+            case "dismiss" -> toast("Alerte ignorée.");
             case "profile" -> { if (profil != null) StaffClient.debugReceive(profil); }
             default -> { }
         }
+    }
+
+    /** Index des N° du serveur simulé (personnages hors ligne compris). */
+    private static final String[][] INDEX = {
+            {"00009", "Sora Uchiha", "sorasan", "Jōnin", "il y a 2 j"}, {"00118", "Ren Uchiha", "renU", "Genin", "il y a 5 h"},
+            {"00077", "Kazuki Nara", "kaznara", "Chūnin", "hier"}};
+
+    private static JsonObject cherche(JsonObject q) {
+        String t = GardeActions.sans(StaffScreen.str(q, "q"));
+        JsonObject r = new JsonObject();
+        r.addProperty("t", "cherche");
+        r.addProperty("req", StaffScreen.num(q, "req"));
+        r.addProperty("q", t);
+        JsonArray js = new JsonArray();
+        for (String[] e : INDEX) {
+            JsonObject p = new JsonObject();
+            p.addProperty("uuid", "00000000-0000-0000-0000-0000000" + e[0]);
+            p.addProperty("pid", e[0]);
+            p.addProperty("perso", e[1]);
+            p.addProperty("name", e[2]);
+            p.addProperty("rank", e[3]);
+            p.addProperty("online", false);
+            p.addProperty("vu", e[4]);
+            boolean ok = true;
+            for (String w : t.split(" +")) if (!GardeRecherche.correspond(p, w)) ok = false;
+            if (ok) js.add(p);
+        }
+        r.add("joueurs", js);
+        return r;
     }
 
     private static void toast(String m) {

@@ -1,9 +1,8 @@
 package fr.reborn.hud.staff;
 
-import fr.reborn.hud.menu.RebornFont;
+import com.google.gson.JsonObject;
 import fr.reborn.hud.menu.RebornSounds;
-import fr.reborn.hud.ui.DaKit;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
 
 import java.util.ArrayList;
@@ -12,29 +11,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/**
- * Fenêtre de formulaire du Poste de garde, posée sur la vue : action qui demande un paramètre (motif du gel, texte de
- * l'écran noir, message d'une annonce, force du séisme…) ou <b>confirmation d'une action destructive</b> (le bouton
- * reste éteint tant que le N° du personnage n'a pas été retapé). Papier nu dans le cadre de bois, titre à l'encre
- * rouge, libellés alignés dans une colonne, choix en puces, Annuler à gauche, l'action à droite.
- */
-final class GardeFormulaire implements StaffScreen.Fenetre {
+import static fr.reborn.hud.staff.GardeArt.*;
 
-    /** Un champ : texte libre ({@code choix == null}) ou choix en puces ({id, libellé}…, le premier par défaut). */
-    record Champ(String cle, String label, String hint, String[][] choix, boolean requis) {
-        static Champ texte(String cle, String label, String hint, boolean requis) { return new Champ(cle, label, hint, null, requis); }
-        static Champ choix(String cle, String label, String[][] choix) { return new Champ(cle, label, null, choix, false); }
+/**
+ * Formulaire <b>dans le volet même</b> (maquette A_02b : « l'action choisie s'ouvre dans le volet, pas de fenêtre en
+ * plus ») : icône et titre, une ligne d'explication, champs (texte libre ou choix en mots soulignés), notes, puis
+ * « Annuler » en mot et l'action en plaque laquée fine « … · Entrée ». Sert aux actions à paramètre (gel, écran noir,
+ * annonce, note, emote, tenue, séisme, écoute radio), aux confirmations (annonce globale, séisme, suppression d'une
+ * note, validation d'une mise à mort) et aux actions destructives, qui restent éteintes tant que le N° n'est pas
+ * retapé.
+ */
+final class GardeFormulaire {
+
+    /** Un champ : texte libre ({@code choix == null}) ou choix en mots ({id, libellé}…, {@code defaut} = indice). */
+    record Champ(String cle, String label, String hint, String[][] choix, boolean requis, int defaut) {
+        static Champ texte(String cle, String label, String hint, boolean requis) { return new Champ(cle, label, hint, null, requis, 0); }
+        static Champ choix(String cle, String label, String[][] choix) { return new Champ(cle, label, null, choix, false, 0); }
+        static Champ choix(String cle, String label, String[][] choix, int defaut) { return new Champ(cle, label, null, choix, false, defaut); }
     }
 
     private final StaffScreen s;
     private final EditBox[] boites = new EditBox[3];
     private EditBox exigerBox;
-    /** Vrai pendant le dessin de la fenêtre (les info-bulles y sont permises). */
-    boolean dessine;
-
-    private String titre = "", texte = "", bouton = "Valider", exiger;
+    private boolean actif;
+    private String icone = "noter", titre = "", texte = "", bouton = "Valider", exiger, eteint;
     private boolean danger;
     private List<Champ> liste = List.of();
+    private List<String> notes = List.of();
     private final Map<String, String> valeurs = new HashMap<>();
     private Consumer<Map<String, String>> action;
 
@@ -45,44 +48,86 @@ final class GardeFormulaire implements StaffScreen.Fenetre {
         exigerBox = s.box(exigerBox, "N° du personnage", 12);
     }
 
+    boolean actif() { return actif; }
+
+    void fermer() {
+        actif = false;
+        for (EditBox b : boites) if (b != null) b.setFocused(false);
+    }
+
+    /**
+     * Ouvre le formulaire. {@code exiger} : N° à retaper pour confirmer (comparé sans # ni zéros de tête) ou null ;
+     * {@code danger} : action irréversible.
+     */
+    void ouvrir(String icone, String titre, String texte, String bouton, boolean danger, String exiger, List<Champ> champs,
+                List<String> notes, Consumer<Map<String, String>> action) {
+        this.icone = icone;
+        this.titre = titre;
+        this.texte = texte == null ? "" : texte;
+        this.bouton = bouton;
+        this.danger = danger;
+        this.exiger = exiger;
+        this.eteint = null;
+        this.liste = new ArrayList<>(champs);
+        this.notes = notes == null ? List.of() : notes;
+        this.action = action;
+        valeurs.clear();
+        int k = 0;
+        EditBox premier = null;
+        for (Champ c : liste) {
+            if (c.choix() != null) valeurs.put(c.cle(), c.choix()[Math.min(c.defaut(), c.choix().length - 1)][0]);
+            else if (k < boites.length) {
+                boites[k].setValue("");
+                s.indice(boites[k], c.hint());
+                if (premier == null) premier = boites[k];
+                k++;
+            }
+        }
+        exigerBox.setValue("");
+        if (premier == null && exiger != null) premier = exigerBox;
+        s.menu = null;
+        actif = true;
+        if (premier != null) { s.setFocused(premier); premier.setFocused(true); }
+        RebornSounds.uiClick();
+    }
+
+    /** Écoute radio d'un joueur (A_02b) : prête côté mod ; éteinte tant que le serveur n'a pas {@code /radio}. */
+    static void ecouteRadio(GardeFormulaire f, JsonObject p) {
+        boolean dispo = radioDisponible();
+        String nom = StaffScreen.name(p);
+        String pid = StaffScreen.str(p, "pid");
+        String ref = pid.isEmpty() ? StaffScreen.str(p, "name") : "#" + pid;
+        f.ouvrir("radio", "Écouter l'escouade de " + nom,
+                dispo ? "Tu entends l'escouade comme un membre, sans pouvoir parler." : "La radio n'est pas encore sur ce serveur : l'écoute s'activera avec elle.",
+                "Écouter", false, null, List.of(
+                        GardeFormulaire.Champ.texte("m", "Motif (obligatoire)", "Plainte n° 212 : harcèlement radio", true),
+                        GardeFormulaire.Champ.choix("d", "Durée", new String[][]{{"5", "5"}, {"10", "10"}, {"15", "15"}, {"30", "30 min"}}, 1)),
+                List.of("Inscrit au journal, visible des autres staffs.", "Le joueur n'est pas prévenu. Rien n'est enregistré."),
+                v -> {
+                    var mc = Minecraft.getInstance();
+                    if (mc.player != null && dispo)
+                        mc.player.connection.sendCommand("radio ecouter " + ref + " " + v.get("d") + " " + v.get("m"));
+                });
+        if (!dispo) f.eteint = "Bientôt";
+    }
+
+    /** Le serveur connaît-il la commande {@code /radio} (docs/gameplay/RADIO.md §8) ? */
+    static boolean radioDisponible() {
+        var c = Minecraft.getInstance().getConnection();
+        try { return c != null && c.getCommands().getRoot().getChild("radio") != null; }
+        catch (RuntimeException e) { return false; }
+    }
+
     boolean possede(EditBox b) {
         if (b == exigerBox) return true;
         for (EditBox x : boites) if (x == b) return true;
         return false;
     }
 
-    /**
-     * Ouvre la fenêtre. {@code exiger} : texte à retaper pour confirmer (un N°, comparé sans # ni zéros de tête) ou
-     * null ; {@code danger} : bouton rouge et bandeau d'avertissement.
-     */
-    void ouvrir(String titre, String texte, String bouton, boolean danger, String exiger, List<Champ> champs,
-                Consumer<Map<String, String>> action) {
-        this.titre = titre;
-        this.texte = texte == null ? "" : texte;
-        this.bouton = bouton;
-        this.danger = danger;
-        this.exiger = exiger;
-        this.liste = new ArrayList<>(champs);
-        this.action = action;
-        valeurs.clear();
-        int k = 0;
-        for (Champ c : liste) {
-            if (c.choix() != null) valeurs.put(c.cle(), c.choix()[0][0]);
-            else if (k < boites.length) {
-                boites[k].setValue("");
-                s.indice(boites[k], c.hint());
-                k++;
-            }
-        }
-        exigerBox.setValue("");
-        s.fenetre = this;
-        RebornSounds.uiClick();
-    }
-
-    /** Valeur d'un champ texte (pour les bancs). */
     void debugValeur(int i, String v) { if (i < boites.length) boites[i].setValue(v); }
 
     private boolean valide() {
+        if (eteint != null) return false;
         int k = 0;
         for (Champ c : liste) {
             if (c.choix() != null) continue;
@@ -91,14 +136,14 @@ final class GardeFormulaire implements StaffScreen.Fenetre {
         }
         if (exiger != null) {
             String a = StaffClient.normPid(exigerBox.getValue()), b = StaffClient.normPid(exiger);
-            return !a.isEmpty() && a.equals(b);
+            return !a.isEmpty() && a.equalsIgnoreCase(b);
         }
         return true;
     }
 
-    /** Entrée : valide si possible. */
     boolean entree() {
-        if (!valide()) return false;
+        if (!actif) return false;
+        if (!valide()) { RebornSounds.deny(); return true; }
         valider();
         return true;
     }
@@ -106,81 +151,61 @@ final class GardeFormulaire implements StaffScreen.Fenetre {
     private void valider() {
         Map<String, String> v = new HashMap<>(valeurs);
         int k = 0;
-        for (Champ c : liste) {
-            if (c.choix() == null && k < boites.length) v.put(c.cle(), boites[k++].getValue().trim());
-        }
-        s.fenetre = null;
+        for (Champ c : liste) if (c.choix() == null && k < boites.length) v.put(c.cle(), boites[k++].getValue().trim());
+        actif = false;
         if (action != null) action.accept(v);
         RebornSounds.confirm();
     }
 
-    @Override
-    public void dessiner(GuiGraphicsExtractor ctx) {
-        dessine = true;
-        var font = s.police();
-        int mw = Math.min(360, s.width - 40), x = s.width / 2 - mw / 2;
-        int cw = mw - 24, labW = 64, ctrlW = cw - labW;
-        DaKit.Paragraphe p = DaKit.paragraphe(font, texte, cw, DaKit.S8, 10, 6);
-        // hauteur
-        int h = 12 + 16 + (p.lignes().isEmpty() ? 0 : p.hauteur() + 8) + (danger ? 0 : 0);
-        List<int[][]> flux = new ArrayList<>();
-        for (Champ c : liste) {
-            if (c.choix() == null) { h += 20; flux.add(null); continue; }
-            int[] lw = new int[c.choix().length];
-            for (int i = 0; i < lw.length; i++) lw[i] = s.bw(c.choix()[i][1]);
-            int[][] f = StaffScreen.flux(lw, ctrlW, 4);
-            flux.add(f);
-            h += (f[f.length - 1][1] + 1) * 16 + 4;
-        }
-        if (exiger != null) h += 34;
-        h += 10 + StaffScreen.H_BTN_G + 12;
-        int y = Math.max(10, s.height / 2 - h / 2);
-        GardeArt.papierNu(ctx, x, y, mw, h);
-        GardeArt.cadre(ctx, x, y, mw, h);
-        int cx = x + 12, cy = y + 12;
-        if (danger) ctx.fill(x + 2, y + 2, x + mw - 2, y + 4, StaffScreen.LACQUER);
-        GardeArt.losange(ctx, cx, cy + 1);
-        DaKit.arcX1(ctx, font, DaKit.arcade(s.fitArc(titre, cw - 12)), cx + 9, cy, DaKit.ENCRE_ROUGE, 0, false);
-        cy += 16;
-        if (!p.lignes().isEmpty()) {
-            p.dessiner(ctx, font, cx, cy, danger ? StaffScreen.LACQUER_LO : StaffScreen.INK);
-            cy += p.hauteur() + 8;
-        }
+    /** Dessine le formulaire à partir de y (GUI) dans la largeur w ; renvoie le bas. */
+    int dessiner(GardeArt.Pinceau pz, int x, int y, int w) {
+        pz.icone(icone, x, y + 1, 8, danger ? ROUGE : OR);
+        s.txt(titre, x + 14, y + 5, w - 14, 15, CREME, true);
+        y += 12;
+        if (!texte.isEmpty()) {
+            List<String> l = s.wrap(texte, w - 14, 12);
+            for (String li : l) { pz.texte(li, x + 14, y + 3, 12, danger ? ROUGE : GRIS_2, false); y += 9; }
+            y += 4;
+        } else y += 2;
         int k = 0;
-        for (int i = 0; i < liste.size(); i++) {
-            Champ c = liste.get(i);
-            DaKit.texteEchelle(ctx, font, RebornFont.body(s.fit(c.label(), Math.round((labW - 6) / DaKit.S8))), cx,
-                    cy + 4, StaffScreen.INK_SOFT, DaKit.S8);
+        for (Champ c : liste) {
             if (c.choix() == null) {
-                if (k < boites.length) s.placer(ctx, boites[k++], cx + labW, cy, ctrlW);
-                cy += 20;
+                pz.texte(c.label(), x, y + 3, 12, GRIS, false);
+                y += 8;
+                if (k < boites.length) s.champ(boites[k++], x, y, w, null);
+                y += 23;
             } else {
-                int[][] f = flux.get(i);
-                for (int j = 0; j < c.choix().length; j++) {
-                    String id = c.choix()[j][0];
-                    boolean sel = id.equals(valeurs.get(c.cle()));
-                    s.button(ctx, cx + labW + f[j][0], cy + 1 + f[j][1] * 16, c.choix()[j][1], sel ? "punish" : "plain",
-                            () -> { valeurs.put(c.cle(), id); RebornSounds.uiClick(); }, false);
+                float lw = pz.largeur(c.label(), 12, false);
+                pz.texte(c.label(), x, y + 3, 12, GRIS, false);
+                float ox = x + Math.max(30, lw + 9);
+                for (String[] ch : c.choix()) {
+                    float cw = pz.largeur(ch[1], 13, true);
+                    if (ox + cw > x + w) { ox = x + Math.max(30, lw + 9); y += 12; }
+                    boolean on = ch[0].equals(valeurs.get(c.cle()));
+                    ox += s.mot(ch[1], ox, y + 3, 13, on, () -> valeurs.put(c.cle(), ch[0])) + 9;
                 }
-                cy += (f[f.length - 1][1] + 1) * 16 + 4;
+                y += 15;
             }
         }
         if (exiger != null) {
-            cy += 2;
-            s.txt8(ctx, "Pour confirmer, tape le N° « " + exiger + " » :", cx, cy, cw, StaffScreen.LACQUER_LO);
-            cy += 11;
-            s.placer(ctx, exigerBox, cx, cy, Math.min(140, cw));
-            cy += 21;
+            pz.texte("Pour confirmer, retape le N° « " + exiger + " »", x, y + 3, 12, ROUGE, false);
+            y += 8;
+            s.champ(exigerBox, x, y, Math.min(110, w), null);
+            y += 23;
         }
-        cy += 6;
-        s.bouton(ctx, cx, cy, "Annuler", "plain", () -> s.fenetre = null, false);
-        int bw = s.bwG(bouton);
+        for (String n : notes) {
+            for (String li : s.wrap(n, w, 12)) { pz.texte(li, x, y + 3, 12, GRIS_2, false); y += 9; }
+        }
+        y += 7;
         boolean ok = valide();
-        s.refusVerrou = exiger != null ? "Retape le N° du personnage pour confirmer." : "Remplis les champs demandés.";
-        s.bouton(ctx, cx + cw - bw, cy, bw, bouton, danger ? "punish" : "watch", this::valider, !ok);
+        String lab = eteint != null ? eteint : bouton + "  ·  Entrée";
+        int bw = s.largeurBouton(lab);
+        int bx = x + w - bw;
+        s.refusVerrou = eteint != null ? "La radio n'existe pas encore sur ce serveur."
+                : exiger != null ? "Retape le N° du personnage pour confirmer." : "Remplis les champs obligatoires.";
+        s.bouton(bx, y, bw, lab, true, this::valider, !ok);
         s.refusVerrou = null;
-        if (!ok) s.tip(cx + cw - bw, cy, bw, StaffScreen.H_BTN_G,
-                exiger != null ? "Retape le N° du personnage pour déverrouiller." : "Remplis les champs demandés.");
-        dessine = false;
+        s.motCouleur("Annuler", bx - 10 - pz.largeur("Annuler", 13, false), y + 8.5f, 13, GRIS, this::fermer);
+        return y + 17 + 6;
     }
 }

@@ -40,6 +40,7 @@ public final class OutilsStaff {
     private final NotesStaff notes;
     private final EffetsStaff effets;
     private final ModeStaff mode;
+    private final ModeAnimation animation;
     private final VoirSac voirSac;
     private final TenuesForcees tenues;
     private final GestionPerso perso;
@@ -54,6 +55,7 @@ public final class OutilsStaff {
         this.notes = new NotesStaff(plugin);
         this.effets = new EffetsStaff(plugin);
         this.mode = new ModeStaff(plugin);
+        this.animation = new ModeAnimation(plugin);
         this.voirSac = new VoirSac(plugin);
         this.tenues = new TenuesForcees(plugin);
         this.perso = new GestionPerso(plugin);
@@ -64,6 +66,7 @@ public final class OutilsStaff {
         pm.registerEvents(gels, plugin);
         pm.registerEvents(effets, plugin);
         pm.registerEvents(mode, plugin);
+        pm.registerEvents(animation, plugin);
         pm.registerEvents(voirSac, plugin);
         mode.demarrer();
         OutilsCommandes exec = new OutilsCommandes(plugin, this);
@@ -77,6 +80,7 @@ public final class OutilsStaff {
 
     public void arreter() {
         mode.arreter();
+        animation.arreter();
         effets.arreter();
     }
 
@@ -84,6 +88,7 @@ public final class OutilsStaff {
     public NotesStaff notes() { return notes; }
     public EffetsStaff effets() { return effets; }
     public ModeStaff mode() { return mode; }
+    public ModeAnimation animation() { return animation; }
     public VoirSac voirSac() { return voirSac; }
     public TenuesForcees tenues() { return tenues; }
     public GestionPerso perso() { return perso; }

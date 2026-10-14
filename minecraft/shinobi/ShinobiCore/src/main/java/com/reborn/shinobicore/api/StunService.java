@@ -11,4 +11,10 @@ public interface StunService {
 
     /** Le joueur est-il étourdi en ce moment ? */
     boolean isStunned(UUID playerId);
+
+    /**
+     * Le joueur est-il en garde (touche de parade maintenue) ? Garde = immobile, sans technique (décision du 14/10).
+     * Défaut {@code false} pour un ShinobiCombat plus ancien.
+     */
+    default boolean isGuarding(UUID playerId) { return false; }
 }

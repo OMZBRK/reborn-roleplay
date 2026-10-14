@@ -28,6 +28,8 @@ public final class ShopData {
     private static volatile Set<String> owned = Set.of();
     private static volatile String appearance = "";
     private static volatile List<MapOffer> maps = List.of();
+    /** Onglet « Vivres » (nourriture, 14/10) : ration pour tous, paniers d'ingrédients pour les cuisiniers. */
+    private static volatile List<MapOffer> vivres = List.of();
     private static volatile boolean received = false;
     private static volatile String toast = null;
     private static volatile long toastAt = 0L;
@@ -37,12 +39,13 @@ public final class ShopData {
     public static boolean owns(String id){ return id != null && owned.contains(id); }
     public static String appearance()    { return appearance == null ? "" : appearance; }
     public static List<MapOffer> maps()  { return maps; }
+    public static List<MapOffer> vivres() { return vivres; }
     public static boolean received()     { return received; }
     public static String toast()         { return toast; }
     public static long toastAt()         { return toastAt; }
 
     public static void clear() {
-        ryo = 0L; owned = Set.of(); appearance = ""; maps = List.of(); received = false; toast = null;
+        ryo = 0L; owned = Set.of(); appearance = ""; maps = List.of(); vivres = List.of(); received = false; toast = null;
     }
 
     /** Parse le JSON serveur {@code {ryo,price,owned[],appearance,toast?}} (thread client). */
@@ -65,6 +68,14 @@ public final class ShopData {
                 }
             }
             maps = List.copyOf(offers);
+            List<MapOffer> viv = new ArrayList<>();
+            if (o.has("vivres") && o.get("vivres").isJsonArray()) {
+                for (JsonElement e : o.getAsJsonArray("vivres")) {
+                    JsonObject m = e.getAsJsonObject();
+                    viv.add(new MapOffer(m.get("id").getAsString(), m.get("name").getAsString(), m.get("price").getAsLong()));
+                }
+            }
+            vivres = List.copyOf(viv);
             appearance = (o.has("appearance") && !o.get("appearance").isJsonNull())
                     ? o.get("appearance").getAsString() : "";
             if (o.has("toast") && !o.get("toast").isJsonNull()) {

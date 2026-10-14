@@ -243,6 +243,7 @@ public final class JutsuEffectRegistry {
             for (Entity e : caster.getWorld().getNearbyEntities(
                     caster.getLocation(), 6, 4, 6)) {
                 if (!(e instanceof LivingEntity le) || e == caster) continue;
+                if (com.reborn.shinobicore.etat.Verrous.horsCible(e)) continue;   // staff, invisible, faux corps…
                 Vector pull = caster.getLocation().toVector()
                         .subtract(le.getLocation().toVector()).normalize()
                         .multiply(0.8).setY(0.1);
@@ -427,7 +428,7 @@ public final class JutsuEffectRegistry {
                                       int durationTicks, Sound sfx) {
         for (Entity e : caster.getWorld().getNearbyEntities(
                 caster.getLocation(), range, range / 2, range)) {
-            if (e instanceof LivingEntity le && e != caster) {
+            if (e instanceof LivingEntity le && e != caster && !com.reborn.shinobicore.etat.Verrous.horsCible(e)) {
                 le.addPotionEffect(new PotionEffect(
                         PotionEffectType.GLOWING, durationTicks, 0, false, false));
             }
@@ -444,6 +445,8 @@ public final class JutsuEffectRegistry {
         for (Entity e : caster.getWorld().getNearbyEntities(
                 origin, length, length, length)) {
             if (!(e instanceof LivingEntity le) || e == caster) continue;
+            // staff en mode staff, invisible, scène de mort, faux corps… : hors d'atteinte (ETATS_JOUEUR §9 étape 0)
+            if (com.reborn.shinobicore.etat.Verrous.horsCible(e)) continue;
             Vector to = e.getLocation().toVector().subtract(origin.toVector());
             if (to.length() > length) continue;
             if (to.normalize().dot(dir) < 0.6) continue;
@@ -465,6 +468,7 @@ public final class JutsuEffectRegistry {
         for (Entity e : caster.getWorld().getNearbyEntities(
                 caster.getLocation(), radius, radius, radius)) {
             if (!(e instanceof LivingEntity le) || e == caster) continue;
+            if (com.reborn.shinobicore.etat.Verrous.horsCible(e)) continue;
             Vector away = le.getLocation().toVector()
                     .subtract(caster.getLocation().toVector());
             away.setY(0);

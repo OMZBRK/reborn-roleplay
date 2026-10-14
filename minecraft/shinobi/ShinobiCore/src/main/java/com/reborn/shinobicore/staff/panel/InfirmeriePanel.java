@@ -82,6 +82,9 @@ public final class InfirmeriePanel implements Listener {
     private final StaffPanel panel;
     private final File settingsFile;
     private final Map<UUID, String> picking = new ConcurrentHashMap<>();   // staff → zone hôpital
+
+    /** Le staff est-il en train de choisir des lits (clic droit permis en mode staff) ? */
+    public boolean choixDeLits(UUID staff) { return staff != null && picking.containsKey(staff); }
     private final Map<UUID, BukkitTask> outlines = new ConcurrentHashMap<>();
     private BukkitTask pickTicker;
 

@@ -24,7 +24,8 @@ import java.util.Locale;
  * <b>Échoppe</b> (Boutique du menu ÉCHAP) — tenues et cartes, dans une échoppe de nuit :
  * noren indigo au blason 商, chōchin rouges qui se balancent, mur de planches. Le
  * personnage est présenté sur une estrade éclairée (rotation libre au clic droit maintenu),
- * le catalogue est un tableau d'étiquettes de papier en deux onglets : TENUES / CARTES.
+ * le catalogue est un tableau d'étiquettes de papier en onglets : TENUES / CARTES / VIVRES (rations, paniers
+ * d'ingrédients des cuisiniers : C2S {@code buyvivre:<id>}, nourriture du 14/10).
  *
  * <p>Tenue : sélection → aperçu live sur son propre corps, ACHETER (si assez de ryo) puis
  * ÉQUIPER. Carte (objet « Carte — région », {@link ShopData#maps()}) : ACHETER donne l'objet
@@ -39,7 +40,7 @@ import java.util.Locale;
  */
 public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
 
-    private static final int TAB_OUTFITS = 0, TAB_MAPS = 1;
+    private static final int TAB_OUTFITS = 0, TAB_MAPS = 1, TAB_VIVRES = 2;
 
     private final Screen parent;
 
@@ -65,7 +66,7 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
     // Géométrie (calculée dans le rendu).
     private int listX, listY, listW, listH, rowH = 20, tabsY, norenH;
     // Zones cliquables (x1,y1,x2,y2), posées au rendu, lues en mouseClicked.
-    private int[] buyBtn, equipBtn, backBtn, tabOutfitsBtn, tabMapsBtn;
+    private int[] buyBtn, equipBtn, backBtn, tabOutfitsBtn, tabMapsBtn, tabVivresBtn;
 
     public ShopScreen(Screen parent) {
         super(Component.literal("Boutique"));
@@ -118,6 +119,11 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
 
     private List<Entry> list() {
         if (tab == TAB_OUTFITS) return outfits;
+        if (tab == TAB_VIVRES) {
+            List<Entry> viv = new ArrayList<>();
+            for (ShopData.MapOffer m : ShopData.vivres()) viv.add(new Entry("vivre:" + m.id(), m.name(), true, m.price()));
+            return viv;
+        }
         List<Entry> maps = new ArrayList<>();
         for (ShopData.MapOffer m : ShopData.maps()) maps.add(new Entry(m.id(), m.name(), true, m.price()));
         return maps;
@@ -201,7 +207,7 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
             EchoppeArt.chochin(ctx, lx[i], norenH + 2, ang, flick > 0.95f);
         }
         DaKit.arcX1(ctx, f, DaKit.arcade("Echoppe"), 90, norenH + 7, DaKit.CREME, 1, true);
-        DaKit.inter7(ctx, f, DaKit.inter("Tenues et cartes"), 90, norenH + 21, DaKit.argb(0xE8DCC0, 0.75f), 1);
+        DaKit.inter7(ctx, f, DaKit.inter(ShopData.vivres().isEmpty() ? "Tenues et cartes" : "Tenues, cartes, vivres"), 90, norenH + 21, DaKit.argb(0xE8DCC0, 0.75f), 1);
 
         // ── Bourse (ryo) ──
         String bal = ShopData.received() ? fmtRyo(ShopData.ryo()) + " ryo" : "…";
@@ -217,6 +223,8 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
         int nOut = Math.max(0, outfits.size() - 1), nMaps = ShopData.maps().size();
         tabOutfitsBtn = tabTag(ctx, f, "Tenues", nOut, listX, tabsY, tab == TAB_OUTFITS, mouseX, mouseY);
         tabMapsBtn = tabTag(ctx, f, "Cartes", nMaps, tabOutfitsBtn[2] + 8, tabsY, tab == TAB_MAPS, mouseX, mouseY);
+        tabVivresBtn = ShopData.vivres().isEmpty() ? null
+            : tabTag(ctx, f, "Vivres", ShopData.vivres().size(), tabMapsBtn[2] + 8, tabsY, tab == TAB_VIVRES, mouseX, mouseY);
 
         // ── Tableau d'étiquettes ──
         EchoppeArt.planche(ctx, listX - 10, panelY, listW + 20, listH + 18);
@@ -226,7 +234,7 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
         hoveredRow = -1;
         String worn = wornOutfit();
         if (all.isEmpty()) {
-            DaKit.inter8(ctx, f, DaKit.inter(tab == TAB_MAPS ? "Aucune carte en vente." : "Aucune tenue au catalogue."),
+            DaKit.inter8(ctx, f, DaKit.inter(tab == TAB_MAPS ? "Aucune carte en vente." : tab == TAB_VIVRES ? "Aucun vivre en vente." : "Aucune tenue au catalogue."),
                 listX + listW / 2f, listY + listH / 2f, DaKit.NEUTRE_TXT, 1);
         }
         int tagW = listW - 10;
@@ -274,7 +282,10 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
         EchoppeArt.planche(ctx, listX - 10, detailY, listW + 20, detailH);
         if (cur != null) {
             DaKit.arcX1(ctx, f, DaKit.arcade(DaKit.ellipse(f, cur.name, listW - 8)), listX, detailY + 9, DaKit.CREME, 0, true);
-            String desc = cur.map ? "Objet : tiens-la en main (clic droit ou M) pour ouvrir la carte. Rachetable si elle est perdue."
+            boolean vivre = cur.id.startsWith("vivre:");
+            String desc = vivre ? (cur.id.startsWith("vivre:panier") ? "Panier pour cuisinier : clic droit sur un fourneau de ton restaurant, 15 s, deux plats."
+                    : "De quoi tenir : +25 % de satiété, sans effet, jamais au-dessus de 60 %. Clic droit pour manger.")
+                : cur.map ? "Objet : tiens-la en main (clic droit ou M) pour ouvrir la carte. Rachetable si elle est perdue."
                 : cur.id.isEmpty() ? "Retirer sa tenue." : "Tenue : aperçu en direct sur ton personnage.";
             DaKit.Paragraphe p = DaKit.paragraphe(f, desc, listW - 4, DaKit.S8, 9, compact ? 1 : 2);
             p.dessiner(ctx, f, listX, detailY + 21, DaKit.DOUX);
@@ -289,7 +300,7 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
         if (cur != null && (cur.map || (!cur.id.isEmpty() && !ShopData.owns(cur.id)))) {
             long price = priceOf(cur);
             boolean can = ShopData.received() && ShopData.ryo() >= price;
-            String label = (cur.map ? "Acheter la carte  " : "Acheter  ") + fmtRyo(price);
+            String label = (cur.map && !cur.id.startsWith("vivre:") ? "Acheter la carte  " : "Acheter  ") + fmtRyo(price);
             buyBtn = plaque(ctx, f, listX - 10, footY, listW + 20, btnH, label, 2, can, mouseX, mouseY);
             float lw = f.width(DaKit.arcade(label));
             EchoppeArt.ryo(ctx, Math.round(listX + listW / 2f + lw / 2f + 5), footY + 5);
@@ -376,6 +387,7 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
             if (hit(equipBtn, mx, my)) { equip(); return true; }
             if (hit(tabOutfitsBtn, mx, my)) { switchTab(TAB_OUTFITS); return true; }
             if (hit(tabMapsBtn, mx, my)) { switchTab(TAB_MAPS); return true; }
+            if (hit(tabVivresBtn, mx, my)) { switchTab(TAB_VIVRES); return true; }
             if (hoveredRow >= 0 && hoveredRow < list().size()) {
                 if (selected != hoveredRow) {
                     selected = hoveredRow;
@@ -447,7 +459,11 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
         int n = list().size();
         if (k == org.lwjgl.glfw.GLFW.GLFW_KEY_UP && n > 0) { selected = Math.max(0, selected - 1); ensureVisible(); preview(); RebornSounds.playReborn("shop.select", 1.0f, 0.5f); return true; }
         if (k == org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN && n > 0) { selected = Math.min(n - 1, selected + 1); ensureVisible(); preview(); RebornSounds.playReborn("shop.select", 1.0f, 0.5f); return true; }
-        if (k == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) { switchTab(tab == TAB_OUTFITS ? TAB_MAPS : TAB_OUTFITS); return true; }
+        if (k == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
+            int nt = tab == TAB_OUTFITS ? TAB_MAPS : tab == TAB_MAPS && !ShopData.vivres().isEmpty() ? TAB_VIVRES : TAB_OUTFITS;
+            switchTab(nt);
+            return true;
+        }
         return super.keyPressed(event);
     }
 
@@ -461,6 +477,11 @@ public class ShopScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque {
         Entry e = current();
         if (e == null || !ClientPlayNetworking.canSend(ShopPayload.ID)) { RebornSounds.playReborn("stats.deny", 1f, 0.6f); return; }
         if (!ShopData.received() || ShopData.ryo() < priceOf(e)) { RebornSounds.playReborn("stats.deny", 1f, 0.6f); return; }
+        if (e.map && e.id.startsWith("vivre:")) {
+            lastAction = "buymap";
+            ClientPlayNetworking.send(new ShopPayload("buyvivre:" + e.id.substring(6)));
+            return;
+        }
         if (e.map) {
             lastAction = "buymap";
             ClientPlayNetworking.send(new ShopPayload("buymap:" + e.id));

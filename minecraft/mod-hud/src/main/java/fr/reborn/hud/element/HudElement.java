@@ -30,7 +30,9 @@ public enum HudElement {
     AIR           ("air",            "Air",          "Bulles d'air sous l'eau",                 HudAnchor.BOTTOM_CENTER),
     VITALS        ("vitals",         "Vitals RP",    "Tête + vie + chakra + stamina (panneau RP)", HudAnchor.TOP_LEFT, 19, 17, 0.80f),
     COMBAT_ENDURANCE("combat_endurance", "Endurance", "Barre d'endurance de combat (garde M2)", HudAnchor.CENTER, -435, -201, 0.45f),
-    COOLDOWNS     ("cooldowns",       "Cooldowns",    "Icônes de cooldown (dash, sauts…)",        HudAnchor.BOTTOM_CENTER, -404, -386, 0.60f);
+    // 14/10 : ancré en haut à gauche sous les vitals (l'ancien décalage depuis le bas-centre sortait de l'écran
+    // en 1366×768) ; échelle 1,0 = icônes 32 px à 1:1 à l'échelle GUI 2
+    COOLDOWNS     ("cooldowns",       "Cooldowns",    "Icônes de cooldown (dash, sauts…)",        HudAnchor.TOP_LEFT, 0, 0, 1.00f);
 
     private final String id;
     private final String displayName;

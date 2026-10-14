@@ -64,6 +64,15 @@ public final class PiluleConsumeListener implements Listener {
 
         Player p = ev.getPlayer();
         ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
+        // Nourriture v3 (14/10) : une toutes les 10 min, pas dans les 30 s après un coup, mode staff exclu.
+        var nourriture = plugin.nourriture();
+        if (nourriture != null) {
+            String refus = nourriture.refusPilule(p);
+            if (refus != null) {
+                p.sendActionBar(Component.text("Pilule du soldat : " + refus + ".", NamedTextColor.RED));
+                return;
+            }
+        }
 
         // Chakra refill on the active character's pool.
         if (c != null) {
@@ -75,7 +84,10 @@ public final class PiluleConsumeListener implements Listener {
 
         // Speed II for 3 minutes. Particles off, ambient on so it
         // reads as an in-character buff rather than a vanilla potion.
-        p.addPotionEffect(new PotionEffect(PotionEffectType.SPEED,
+        // v3 : la Vitesse II est remplacée par +20 % de satiété et l'endurance (+40 %, 3 min) puis la Fatigue
+        // (contrecoup, 5 min) — registre des modificateurs. Sans le module (mode build) : ancien effet.
+        if (nourriture != null) nourriture.pilulePrise(p);
+        else p.addPotionEffect(new PotionEffect(PotionEffectType.SPEED,
                 SPEED_DURATION_TICKS, 1, true, true, true));
 
         // 5 Faible hématomes on the right torso. Origin AUTRE because

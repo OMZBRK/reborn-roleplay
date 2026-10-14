@@ -289,11 +289,40 @@ commands:
     aliases: [deletecharacter]
     permission: reborn.staff.helper
   modestaff:
-    description: "Staff — mode staff : invisible aux joueurs, vol, aucune action de jeu, plaques au-dessus des têtes."
-    usage: "/<command>"
+    description: "Staff — mode staff : invisible aux joueurs, vol, aucune mécanique RP, plaques au-dessus des têtes."
+    usage: "/<command> [anim]"
     aliases: [staffmode, sm]
     permission: reborn.staff.helper
+  modeanim:
+    description: "Animateur / MJ — mode animation : visible, mécaniques RP permises pour un event, tout est journalisé."
+    usage: "/<command>"
+    aliases: [modeanimation]
+    permission: reborn.staff.animation
+  entreprise:
+    description: "Entreprises (restaurant, forge, échoppe) — staff : creer, supprimer, renommer, membre, poste, info, liste ; joueur : les siennes."
+    usage: "/<command> [creer|supprimer|renommer|membre|poste|info|liste] …"
+    aliases: [entreprises]
+    permission: shinobicore.use
+  tendre:
+    description: "Tendre l'objet en main ou des ryo à un joueur tout proche ; l'autre prend (F) ou refuse (Retour)."
+    usage: "/<command> <joueur> [ryo <montant>] | prendre | refuser"
+    aliases: [donner]
+    permission: shinobicore.use
+  nourriture:
+    description: "Satiété et effets — joueur : son état ; staff : etat, satiete, donner, effet, retirer (journalisé)."
+    usage: "/<command> [etat|satiete|donner|effet|retirer] [cible] …"
+    aliases: [satiete]
+    permission: shinobicore.use
 permissions:
+  shinobicore.entreprise:
+    description: "Gérer les entreprises (/entreprise creer, membre, poste…) ; aussi accordé aux modérateurs du Poste de garde."
+    default: op
+  shinobicore.nourriture.staff:
+    description: "Outils staff de la nourriture (/nourriture satiete, donner, effet, retirer)."
+    default: op
+  reborn.staff.animation:
+    description: "Mode animation (/modeanim) : incarner un personnage pour un event, entièrement journalisé."
+    default: op
   reborn.staff.helper:
     description: Poste de garde — Helper (alertes, TP, avertissements, chat staff).
     default: false

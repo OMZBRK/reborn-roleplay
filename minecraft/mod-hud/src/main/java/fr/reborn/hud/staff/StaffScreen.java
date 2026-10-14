@@ -3,110 +3,85 @@ package fr.reborn.hud.staff;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.menu.RebornSounds;
-import fr.reborn.hud.ui.DaKit;
-import fr.reborn.hud.ui.LotGui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.multiplayer.PlayerInfo;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+
+import static fr.reborn.hud.staff.GardeArt.*;
 
 /**
- * Poste de garde — panel staff en jeu, dans la DA Reborn (kit commun : voile sur le jeu, plaque laquée suspendue,
- * cadre de bois et papier washi). Motif propre à l'écran : chaque joueur est une plaquette de bois (fuda) et
- * sanctionner revient à apposer le sceau rouge 罰.
+ * Poste de garde v3 — direction A, « le volet » (maquettes validées le 14/10, {@code Maquettes/gameplan/04_staff/v3/
+ * A_*}). Un panneau étroit (~202 GUI, 404 px en 1080p) collé à droite, <b>par-dessus le jeu qui continue</b> : le
+ * monde et le HUD restent rendus et visibles, sans voile ni flou (le staff voit la scène pendant qu'il agit).
  *
- * <p><b>Structure (refonte du 14/10, « clarifier, bien espacer, rien ne dépasse »)</b> : une colonne de navigation en
- * groupes nommés (番 Garde : Alertes, Joueurs, Journal ; 令 Outils : Annonces, Chat staff, Commandes ; 医 Infirmerie
- * dans {@link GardeScreen}) ; chaque vue a la même ossature — un <b>en-tête fixe</b> (titre ou fil d'Ariane, compteur,
- * filet), une <b>zone d'outils fixe</b> (recherche, filtres, carte d'identité de la fiche, en-têtes de colonnes), un
- * <b>corps qui défile</b> (barre de défilement quand il dépasse) et un <b>pied fixe</b> (saisie du chat, pagination du
- * journal). Grille régulière : marges de 8, gouttières de 6, lignes espacées de 4 ; colonnes calculées depuis la
- * largeur disponible (une fois par taille d'écran), textes coupés par « … » avec info-bulle au survol.
+ * <p>En-tête « POSTE DE GARDE » (ArcadePix or), puce du mode staff / animation, fermeture ; quatre onglets à icône au
+ * trait : <b>Alertes</b> (en attente / traitées / les miennes, actions en mots), <b>Joueurs</b> (liste, 4 icônes
+ * d'action au survol, clic droit = toutes les actions, fiche compacte — {@link GardeFiche} ; recherche universelle
+ * façon B dans le champ — {@link GardeRecherche}), <b>Journal</b> (jetons de filtre, groupé par jour —
+ * {@link GardeJournal}), <b>Outils</b> (annonces, séisme, chat staff, commandes, Infirmerie, modes —
+ * {@link GardeOutils}). Aucun kanji (DA §3). Une action à paramètre s'ouvre dans le volet même
+ * ({@link GardeFormulaire}).
  *
- * <p>Toutes les données viennent du serveur ({@link StaffClient}) ; chaque bouton envoie une demande que le serveur
- * revérifie (grade, cible, palier). Protocole : {@code docs/technique/PLUGINS_REFERENCE.md} §4 bis.
+ * <p>Performance (DA §6) : chaque région est peinte par un {@link GardeArt.Pinceau} (aplats, filets, icônes et textes
+ * en lots : quelques éléments GUI), la mise en page tient en quelques constantes, les textes coupés sont mémorisés.
+ * Toutes les données viennent du serveur ({@link StaffClient}) ; chaque bouton envoie une demande que le serveur
+ * revérifie. Protocole : {@code docs/technique/PLUGINS_REFERENCE.md} §4 bis.
  */
 public class StaffScreen extends Screen {
 
-    /* --------------------------------------------------------------- palette (kit DA Reborn) */
-    protected static final int LACQUER = 0xFFA0182B, LACQUER_HI = 0xFFC01E35, LACQUER_LO = 0xFF7A1322;
-    protected static final int GOLD = 0xFFD9A95E, GOLD_SOFT = 0xFF3A2C14, IVORY = 0xFFF5E9D0, IVORY_2 = 0xFFC2B59A;
-    protected static final int WASHI = 0xFFE3D1A8, WASHI_2 = 0xFFD4BF91, WOOD = 0xFF5A3A22, WOOD_DARK = 0xFF2E1C11;
-    protected static final int INK = 0xFF2A1A10, INK_SOFT = 0xFF6B5434, FUDA = 0xFFF0E2C2, FUDA_2 = 0xFFE2CFA4;
-    protected static final int OK = 0xFF2F7A3A, GLACE = 0xFF2F6A8A, ETEINT = 0xFF9A8A70;
-    /** Player ID (N°) : or brun lisible sur le bois et le washi. */
-    protected static final int PID = 0xFF8A5A0C;
-    /** Indice des champs de saisie : gris doux, nettement plus clair que le texte saisi. */
-    protected static final int HINT = 0xFFA8977A;
-    /** Lignes de liste : fond clair, fond alterné, survol, filet. */
-    protected static final int L_FOND = 0x48FFF8E8, L_ALT = 0x26FFF8E8, L_SURVOL = 0x80FFF8E8, L_FILET = 0x2A462810;
+    /** Largeur du volet (GUI) et marge à l'écran. */
+    static final int PW = 202, MARGE = 8, H_TETE = 48, H_PIED = 19;
 
-    /* --------------------------------------------------------------- grille */
-    /** Gouttière entre colonnes et entre blocs. */
-    protected static final int GAP = 6;
-    /** Espace entre deux lignes de liste. */
-    protected static final int RG = 4;
-    /** Hauteurs : petit bouton (filtres, lignes denses), grand bouton (actions), champ de saisie. */
-    protected static final int H_BTN = 12, H_BTN_G = 16, H_CHAMP = 14;
-
-    protected static final String[][] G_GARDE = {{"番", "Garde"}, {"alerts", "Alertes"}, {"players", "Joueurs"}, {"journal", "Journal"}};
-    protected static final String[][] G_OUTILS = {{"令", "Outils"}, {"annonces", "Annonces"}, {"chat", "Chat staff"}, {"cmds", "Commandes"}};
-
-    protected record Hit(int x, int y, int w, int h, Runnable action, String refus) {
-        Hit(int x, int y, int w, int h, Runnable action) { this(x, y, w, h, action, null); }
-
+    protected record Hit(int x, int y, int w, int h, Runnable action, Runnable droit, String refus) {
         boolean in(double mx, double my) { return mx >= x && mx < x + w && my >= y && my < y + h; }
     }
 
-    /** Fenêtre posée par-dessus la vue (formulaire d'action, confirmation, détail d'une entrée du journal). */
-    protected interface Fenetre { void dessiner(GuiGraphicsExtractor ctx); }
+    /** Élément d'un menu contextuel (null = séparateur). */
+    record Item(String icone, String label, char touche, String verrou, boolean danger, Runnable action) { }
+
+    record Menu(int x, int y, int w, List<Item> items, Object source) { }
 
     protected final List<Hit> hits = new ArrayList<>();
+    protected final GardeArt.Pinceau pz = new GardeArt.Pinceau();
     protected String tab = "alerts";
     protected String profileUuid;
-    protected JsonObject confirm;
-    protected Fenetre fenetre;
-    protected final Set<Integer> flags = new HashSet<>();
-    protected long sealAt;
+    /** Sous-vue de l'onglet Outils (null = la liste des outils). */
+    protected String outil;
+    String alerteVue = "attente";
     protected int scroll, contentH;
-    protected long openedAt, viewAt;
-    protected int cardIndex;
-    protected int ticks;
-    protected int mouseX, mouseY;
-    protected boolean ouvert;
-    /** Vrai pendant le dessin du corps qui défile (les clics n'y comptent que dans la partie visible). */
-    protected boolean dansCorps;
-    protected EditBox chatBox, noteBox, searchBox, playerSearch;
-    protected final List<EditBox> champs = new ArrayList<>();
+    protected int ticks, mouseX, mouseY;
+    protected long openedAt;
+    protected boolean ouvert, dansCorps;
+    protected Menu menu;
     protected String tipTexte;
-    /** Raison donnée au clic sur le prochain bouton éteint (null = grade insuffisant). */
+    /** Raison donnée au clic sur le prochain bouton éteint. */
     protected String refusVerrou;
+    protected EditBox searchBox;
+    protected final List<EditBox> champs = new ArrayList<>();
+    protected final Map<EditBox, String> indices = new HashMap<>();
+    private final Map<String, String> fitCache = new HashMap<>();
+    /** Filtre rapide de la liste des joueurs et tri. */
+    String filtreJoueurs = "tous", tri = "pid";
+    /** Ligne survolée (pour les icônes d'action). */
+    String survolUuid;
+    /** Alerte choisie pour « Valider… » / « Répondre » (formulaire dans le volet). */
+    JsonObject alerteForm;
 
     protected final GardeFiche fiche = new GardeFiche(this);
     protected final GardeJournal journalVue = new GardeJournal(this);
     protected final GardeAnnonces annoncesVue = new GardeAnnonces(this);
+    protected final GardeOutils outilsVue = new GardeOutils(this);
     protected final GardeFormulaire formulaire = new GardeFormulaire(this);
-
-    /* géométrie calculée une fois par taille d'écran (init) */
-    protected int gx0, gx1, gy0, gy1;
-    private final Map<String, String> fitCache = new HashMap<>();
+    protected final GardeRecherche recherche = new GardeRecherche(this);
 
     public StaffScreen() {
         super(Component.literal("Poste de garde"));
@@ -116,83 +91,59 @@ public class StaffScreen extends Screen {
 
     @Override
     protected void init() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.gui != null) ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(true);
-        grille();
+        pz.police(font);
         champs.clear();
-        chatBox = box(chatBox, "Écrire au staff…", 200);
-        noteBox = box(noteBox, "Note pour le casier…", 160);
-        searchBox = box(searchBox, "Chercher une commande : ata, zone, météo…", 40);
-        searchBox.setResponder(v -> scroll = 0);
-        playerSearch = box(playerSearch, "N° (#00042), pseudo ou nom RP", 32);
-        playerSearch.setResponder(v -> scroll = 0);
+        fitCache.clear();
+        searchBox = box(searchBox, "Nom, pseudo ou #N°", 40);
+        searchBox.setResponder(v -> { scroll = 0; recherche.modifie(v); });
         fiche.init();
         journalVue.init();
         annoncesVue.init();
+        outilsVue.init();
         formulaire.init();
         if (!ouvert) {
             ouvert = true;
             openedAt = System.currentTimeMillis();
-            viewAt = openedAt + 120;
             StaffClient.send("refresh");
-            RebornSounds.playReborn("sacoche.open", 1.0f, 0.5f);
+            RebornSounds.playReborn("sacoche.open", 1.15f, 0.4f);
         }
     }
 
-    /** Géométrie du cadre et du papier (une fois par taille d'écran ; règle DA §6.5). */
-    protected void grille() {
-        gx0 = Math.max(Math.round(width * 0.07f) + 6, width / 2 - 320);
-        gx1 = width - gx0;
-        gy0 = 48;
-        gy1 = Math.min(height - 34, gy0 + GardeArt.PAPIER_H);
-        fitCache.clear();
-    }
-
-    /** Champ de saisie sans bordure (le champ de washi est dessiné à part) ; garde la valeur après un redimensionnement. */
+    /** Champ de saisie sans bordure (le cadre est dessiné à part) ; garde la valeur après un redimensionnement. */
     protected EditBox box(EditBox ancien, String hint, int max) {
-        EditBox b = new EditBox(this.font, 0, 0, 100, 12, Component.literal(hint));
+        // rendu vanilla coupé (texte, curseur, indice) : le pinceau redessine la saisie en Inter (champ(...))
+        EditBox b = new EditBox(this.font, 0, 0, 100, 12, Component.literal(hint)) {
+            @Override
+            public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float d) { }
+        };
         b.setMaxLength(max);
-        indice(b, hint);
+        b.setHint(Component.empty());
+        indices.put(b, hint == null ? "" : hint);
         b.setBordered(false);
-        b.setTextShadow(false);   // saisie sans ombre portée (l'ombre bavait sur le washi)
-        b.setTextColor(INK);
+        b.setTextShadow(false);
+        b.setTextColor(CREME);
         b.setVisible(false);
-        if (ancien != null) b.setValue(ancien.getValue());
+        if (ancien != null) {
+            b.setValue(ancien.getValue());
+            b.setFocused(ancien.isFocused());
+        }
         this.addRenderableWidget(b);
         champs.add(b);
         return b;
     }
 
-    protected EditBox box(String hint, int max) { return box(null, hint, max); }
+    protected void indice(EditBox b, String hint) { indices.put(b, hint == null ? "" : hint); }
 
-    /** Indices des champs, dessinés par {@link #indiceDe} : l'indice vanilla de l'EditBox a une ombre forcée. */
-    protected final Map<EditBox, String> indices = new HashMap<>();
-
-    protected void indice(EditBox b, String hint) {
-        b.setHint(Component.empty());
-        indices.put(b, hint == null ? "" : hint);
-    }
-
-    /** Indice gris doux, sans ombre, quand le champ est vide (x, y = coin du champ de washi, w = sa largeur). */
-    protected void indiceDe(GuiGraphicsExtractor ctx, EditBox box, int x, int y, int w) {
-        String h = indices.get(box);
-        if (h == null || h.isEmpty() || !box.getValue().isEmpty() || !box.isVisible()) return;
-        ctx.text(font, RebornFont.body(fit(h, w - 10)), x + 4, y + 3, HINT, false);
-    }
-
-    /** Police de l'écran (accès des vues du paquet). */
     net.minecraft.client.gui.Font police() { return font; }
 
     @Override
     public void onClose() {
-        RebornSounds.playReborn("sacoche.close", 1.0f, 0.5f);
+        RebornSounds.playReborn("sacoche.close", 1.15f, 0.4f);
         super.onClose();
     }
 
     @Override
     public void removed() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.gui != null) ((fr.reborn.hud.mixin.HudAccessor) (Object) mc.gui.hud).reborn$setHidden(false);
         StaffClient.clearProfile();
         super.removed();
     }
@@ -208,898 +159,969 @@ public class StaffScreen extends Screen {
             if (profileUuid != null) requestProfile(profileUuid);
         }
         journalVue.tick();
+        recherche.tick();
     }
 
     /* =================================================================== géométrie */
 
-    protected int sx0() { return gx0; }
-    protected int sx1() { return gx1; }
-    protected int sy0() { return gy0; }
-    protected int sy1() { return gy1; }
+    /** Volet élargi (carte des zones, réglages du KO) ? */
+    protected boolean large() { return false; }
 
-    /** Haut de l'en-tête de vue (titre / fil d'Ariane). */
-    protected int hy() { return sy0() + 10; }
-    /** Haut de la zone d'outils fixe (sous l'en-tête). */
-    protected int oy() { return hy() + 20; }
-    /** Corps qui défile : sous les outils, au-dessus du pied. */
-    protected int vy0() { int t = toolsH(); return oy() + t; }
-    protected int vy1() { return sy1() - 6 - footerH(); }
-    protected int vx0() { return sx0() + navW() + 12; }
-    protected int vx1() { return sx1() - 9; }
+    protected int pw() { return large() ? Math.max(PW, Math.min(width - 2 * MARGE, 640)) : PW; }
 
-    /** Hauteur de la zone d'outils fixe de la vue (0 = le corps commence sous l'en-tête). */
+    /** Glissement d'ouverture depuis la droite (GUI). */
+    protected int glisse() {
+        float t = Math.min(1f, (System.currentTimeMillis() - openedAt) / 160f);
+        return Math.round((1f - ease(t)) * 24);
+    }
+
+    protected int px0() { return width - MARGE - pw() + glisse(); }
+    protected int px1() { return px0() + pw(); }
+    protected int py0() { return MARGE; }
+    protected int ix() { return px0() + 8; }
+    protected int iw() { return pw() - 16; }
+    protected int top() { return py0() + H_TETE; }
+    protected int ph;
+    /** Contexte de l'image en cours (dessins immédiats : carte de l'Infirmerie). */
+    protected GuiGraphicsExtractor ctxCourant;
+    protected int py1() { return py0() + ph; }
+    /** Corps qui défile. */
+    protected int vy0() { return top() + toolsH(); }
+    protected int vy1() {
+        if ("outils".equals(tab) && "chat".equals(outil) && !formulaire.actif()) return py1() - 30;
+        return py1() - (pied() == null ? 6 : H_PIED + 2);
+    }
+    protected int vx0() { return ix(); }
+    protected int vx1() { return ix() + iw(); }
+
+    static float ease(float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        return 1f - (1f - t) * (1f - t) * (1f - t);
+    }
+
+    /** Hauteur de la zone d'outils fixe de la vue. */
     protected int toolsH() {
         return switch (tab) {
-            case "players" -> profileUuid == null ? 36 : fiche.hauteurOutils();
+            case "players" -> profileUuid != null ? 0 : recherche.active() ? 23 : 38;
             case "journal" -> journalVue.hauteurOutils();
-            case "cmds" -> 22;
-            default -> 0;
+            case "outils" -> outilsVue.hauteurOutils();
+            default -> 16;
         };
     }
 
-    /** Hauteur du pied fixe (saisie du chat, pagination). */
-    protected int footerH() {
+    /** Texte d'aide du pied (null = pas de pied). */
+    protected String pied() {
+        if (formulaire.actif()) return "Échap : annuler";
         return switch (tab) {
-            case "chat" -> 22;
-            case "journal" -> 20;
-            default -> 0;
+            case "players" -> profileUuid != null ? "Échap : retour à la liste"
+                    : recherche.active() ? "Flèches : choisir  ·  Entrée : ouvrir  ·  Échap : effacer"
+                    : "Clic : fiche  ·  Clic droit : actions  ·  F7 : fermer";
+            case "journal" -> "Ctrl + clic sur un N° : filtrer ce joueur";
+            case "outils" -> outilsVue.pied();
+            default -> "Une alerte = un clic : « Y aller » vous téléporte";
         };
     }
 
-    /** Liste des joueurs (pas la fiche d'un joueur). */
-    protected boolean playerList() { return "players".equals(tab) && profileUuid == null; }
+    /** Le volet prend-il toute la hauteur (listes longues) ou s'ajuste-t-il à son contenu ? */
+    protected boolean pleineHauteur() {
+        return switch (tab) {
+            case "players" -> profileUuid == null;
+            case "journal" -> true;
+            case "outils" -> outilsVue.pleineHauteur();
+            default -> false;
+        };
+    }
 
     /* =================================================================== rendu */
 
     @Override
     public void extractBackground(GuiGraphicsExtractor ctx, int mx, int my, float delta) {
-        float appear = Math.min(1f, (System.currentTimeMillis() - openedAt) / 180f);
-        int center = (Math.round(0x50 * appear) << 24) | 0x08040C, edge = (Math.round(0xA8 * appear) << 24) | 0x08040C;
-        ctx.fill(0, 0, width, height, center);
-        ctx.fillGradient(0, 0, width, height / 4, edge, 0);
-        ctx.fillGradient(0, height - height / 4, width, height, 0, edge);
-        DrawHelpers.horizontalGradient(ctx, 0, 0, width / 6, height, edge, 0);
-        DrawHelpers.horizontalGradient(ctx, width - width / 6, 0, width / 6, height, 0, edge);
+        // Rien : le jeu reste visible tel quel derrière le volet (pas de voile ni de flou plein écran, DA §6).
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mx, int my, float delta) {
+        if (debugSouris != null) { int[] p = debugSouris.get(); mx = p[0]; my = p[1]; }
         mouseX = mx;
         mouseY = my;
         hits.clear();
-        cardIndex = 0;
         tipTexte = null;
         dansCorps = false;
-        cacherChamps();
-        drawScreen(ctx, mx, my, delta);
-        if (confirm != null || fenetre != null) {
-            // une fenêtre est ouverte : seuls ses champs restent visibles
-            for (EditBox b : champs) if (!formulaire.possede(b) && b != noteBox) b.setVisible(false);
-        }
-        super.extractRenderState(ctx, mx, my, delta);   // champs de saisie
-        toasts(ctx);
-        bulle(ctx);
-    }
-
-    protected void cacherChamps() {
+        survolUuid = null;
         for (EditBox b : champs) b.setVisible(false);
+        dessiner(ctx);
+        super.extractRenderState(ctx, mx, my, delta);   // champs de saisie
+        surcouches(ctx);
     }
 
-    /** Tout le dessin propre à l'écran (surchargé par l'Infirmerie). */
-    protected void drawScreen(GuiGraphicsExtractor ctx, int mx, int my, float delta) {
+    /** Tout le dessin du volet. */
+    protected void dessiner(GuiGraphicsExtractor ctx) {
+        ctxCourant = ctx;
         JsonObject snap = StaffClient.snapshot();
+        int full = height - 2 * MARGE;
+        if (pleineHauteur()) ph = full;
+        else ph = Math.max(140, Math.min(full, H_TETE + toolsH() + contentH + (pied() == null ? 6 : H_PIED + 2) + 4));
 
-        frame(ctx);
-        tabs(ctx, snap);
-        plaque(ctx, "");
-        boolean pret = paperBottom() >= sy1() - 2;
-
-        ctx.enableScissor(sx0(), sy0(), sx1(), paperBottom());
-        entete(ctx, chemin(snap), meta(snap));
-        if (snap != null) outils(ctx, snap);
-        ctx.disableScissor();
+        int x0 = px0(), x1 = px1(), y0 = py0(), y1 = py1();
+        // ombre en paliers (pas de flou), fond nuit, filet, filet d'or d'1 px en haut
+        pz.fond(x1, y0 + 2, x1 + 2, y1 + 2, 0x6E000000);
+        pz.fond(x0 + 2, y1, x1, y1 + 2, 0x6E000000);
+        pz.fond(x1 + 2, y0 + 4, x1 + 3, y1 + 3, 0x37000000);
+        pz.fond(x0 + 4, y1 + 2, x1 + 2, y1 + 3, 0x37000000);
+        pz.fond(x0, y0, x1, y1, VOILE);
+        pz.cadre(x0, y0, pw(), ph, FILET);
+        pz.filetH(x0, x1, y0, OR_DOUX);
+        entete(snap);
+        onglets(snap);
+        if (snap != null) outils(snap);
+        pz.vider(ctx);
 
         // corps qui défile
-        int bas = Math.min(vy1(), paperBottom());
-        ctx.enableScissor(vx0() - 10, vy0(), vx1() + 2, Math.max(vy0(), bas));
+        int a = vy0(), b = Math.max(vy0(), vy1());
+        ctx.enableScissor(x0 + 1, a, x1 - 1, b);
         dansCorps = true;
-        int y0 = vy0() + 2 - scroll;
+        int y = a + 2 - scroll;
         int end;
-        if (snap == null) end = vide(ctx, y0, "Connexion au poste de garde…", null);
-        else end = switch (tab) {
-            case "players" -> profileUuid == null ? players(ctx, snap, y0) : fiche.corps(ctx, snap, y0);
-            case "chat" -> chat(ctx, snap, y0);
-            case "journal" -> journalVue.corps(ctx, snap, y0);
-            case "annonces" -> annoncesVue.corps(ctx, snap, y0);
-            case "cmds" -> commands(ctx, snap, y0);
-            default -> alerts(ctx, snap, y0);
-        };
+        if (snap == null) end = vide(y, "Connexion au poste de garde…", null);
+        else end = corps(snap, y);
+        pz.vider(ctx);
         dansCorps = false;
         ctx.disableScissor();
-        contentH = end - y0 + 4;
-        int vue = vy1() - vy0();
+        contentH = end - y + 2;
+        int vue = b - a;
         scroll = Math.max(0, Math.min(scroll, Math.max(0, contentH - vue)));
-        if (pret) barreDefilement(ctx, vy0(), vy1(), contentH);
-
-        if (pret && snap != null) {
-            ctx.enableScissor(sx0(), sy0(), sx1(), paperBottom());
-            pied(ctx, snap);
-            ctx.disableScissor();
+        barre(a, b, contentH);
+        outilsVue.piedChat();
+        String p = pied();
+        if (p != null) {
+            pz.filetH(ix(), ix() + iw(), y1 - H_PIED, FILET);
+            pz.texteC(fit(p, iw(), 12, false), (x0 + x1) / 2f, y1 - H_PIED / 2f, 12, GRIS_2, false);
         }
-        closeButton(ctx);
-        if (confirm != null) confirmModal(ctx, snap);
-        else if (fenetre != null) {
-            hits.clear();
-            ctx.nextStratum();
-            ctx.fill(0, 0, width, height, 0x99060304);
-            fenetre.dessiner(ctx);
-        }
+        pz.vider(ctx);
     }
 
-    /** Fil d'Ariane de la vue : le premier élément est le titre de l'onglet (cliquable s'il y a une suite). */
-    protected String[] chemin(JsonObject snap) {
+    /** Contenu du corps de la vue courante ; renvoie le bas du contenu. */
+    protected int corps(JsonObject snap, int y) {
+        if (formulaire.actif() && !"players".equals(tab)) return formulaire.dessiner(pz, ix(), y + 4, iw()) + 4;
         return switch (tab) {
-            case "players" -> {
-                JsonObject p = StaffClient.profile();
-                if (profileUuid == null) yield new String[]{"Joueurs"};
-                if (p == null || !profileUuid.equals(str(p, "uuid"))) yield new String[]{"Joueurs", "Fiche"};
-                yield new String[]{"Joueurs", (str(p, "pid").isEmpty() ? "" : "N° " + str(p, "pid") + "  ·  ") + name(p)};
-            }
-            case "journal" -> journalVue.chemin();
-            case "annonces" -> new String[]{"Annonces et effets"};
-            case "chat" -> new String[]{"Chat staff"};
-            case "cmds" -> new String[]{"Commandes"};
-            default -> new String[]{"Alertes"};
+            case "players" -> profileUuid != null ? fiche.corps(snap, y) : recherche.active() ? recherche.corps(snap, y) : joueurs(snap, y);
+            case "journal" -> journalVue.corps(snap, y);
+            case "outils" -> outilsVue.corps(snap, y);
+            default -> alertes(snap, y);
         };
     }
 
-    /** Compteur ou état affiché à droite de l'en-tête. */
-    protected String meta(JsonObject snap) {
-        if (snap == null) return "";
-        return switch (tab) {
-            case "players" -> {
-                if (profileUuid != null) yield "";
-                int n = arr(snap, "players").size(), shown = 0;
-                String q = playerSearch.getValue().trim();
-                for (JsonElement e : arr(snap, "players")) if (matchesPlayer(e.getAsJsonObject(), q)) shown++;
-                yield q.isEmpty() ? n + " en ligne" : shown + " sur " + n + " en ligne";
-            }
-            case "journal" -> journalVue.meta();
-            case "chat" -> num(snap, "staffOnline") + " staff en ligne";
-            case "cmds" -> {
-                int n = 0, ok = 0, g = grade(snap);
-                for (JsonElement e : arr(snap, "commands")) { n++; if (num(e.getAsJsonObject(), "grade") <= g) ok++; }
-                yield ok + " sur " + n + " accessibles";
-            }
-            case "annonces" -> "";
-            default -> {
-                int n = arr(snap, "alerts").size();
-                yield n == 0 ? "aucune en attente" : n + " en attente";
-            }
-        };
+    /** Surcouches : menu contextuel, notifications, info-bulle. */
+    protected void surcouches(GuiGraphicsExtractor ctx) {
+        boolean rien = menu == null && tipTexte == null && StaffClient.toasts().length == 0;
+        if (rien) return;
+        ctx.nextStratum();
+        if (menu != null) dessinerMenu();
+        toasts();
+        bulle();
+        pz.vider(ctx);
     }
 
-    /** Retour au début de l'onglet (clic sur le premier élément du fil d'Ariane, ou « Retour »). */
-    protected void retourRacine() {
-        if ("players".equals(tab) && profileUuid != null) {
-            profileUuid = null;
-            scroll = 0;
-            StaffClient.clearProfile();
+    /* ------------------------------------------------------------------- en-tête et onglets */
+
+    protected void entete(JsonObject snap) {
+        int x0 = px0(), y0 = py0();
+        pz.arcade("POSTE DE GARDE", ix(), y0 + 6, OR);
+        int rx = px1() - 8;
+        boolean hovX = hover(rx - 10, y0 + 5, 12, 12);
+        pz.icone("croix", rx - 8, y0 + 7, 8, hovX ? CREME : GRIS);
+        hits.add(new Hit(rx - 10, y0 + 5, 12, 12, this::onClose, null, null));
+        tip(rx - 10, y0 + 5, 12, 12, "Fermer (F7)");
+        rx -= 15;
+        if (snap == null) return;
+        boolean staff = bool(snap, "modeStaff"), anim = bool(snap, "modeAnim");
+        String lab = anim ? "Animation" : "Mode staff";
+        float w = pz.largeur(lab, 12, false) + 12;
+        int col = anim ? ANIM : staff ? OK : GRIS_2;
+        float cx = rx - w;
+        boolean hov = hover(Math.round(cx), y0 + 6, Math.round(w), 11);
+        pz.fond(Math.round(cx), y0 + 6, rx, y0 + 17, anim ? 0xFF2A1E34 : staff ? 0xFF18261E : hov ? NUIT_3 : NUIT_2);
+        pz.cadre(cx, y0 + 6, w, 11, anim ? 0xFF5C4478 : staff ? 0xFF34563E : FILET_2);
+        pz.pastille(cx + 5, y0 + 11.5f, 1.5f, col);
+        pz.texte(lab, cx + 8.5f, y0 + 11.5f, 12, col, false);
+        hits.add(new Hit(Math.round(cx), y0 + 6, Math.round(w), 11, () -> {
+            StaffClient.send(anim ? "modeanim" : "modestaff");
             RebornSounds.uiClick();
-        } else if ("journal".equals(tab)) journalVue.retourRacine();
+        }, null, null));
+        tip(Math.round(cx), y0 + 6, Math.round(w), 11, anim
+                ? "Mode animation actif : tu joues pour un event, mécaniques RP permises, tout est journalisé. Clique pour le couper."
+                : staff ? "Mode staff actif : invisible aux joueurs, aucune mécanique RP, plaques au-dessus des têtes. Clique pour le couper."
+                : "Mode staff inactif. Clique pour l'activer (invisible, aucune mécanique RP, plaques).");
     }
 
-    /* ------------------------------------------------------------------- en-tête de vue */
+    private static final String[][] ONGLETS = {{"alerts", "cloche", "Alertes"}, {"players", "joueurs", "Joueurs"},
+            {"journal", "journal", "Journal"}, {"outils", "outils", "Outils"}};
 
-    /**
-     * En-tête fixe : losange d'or, titre de l'onglet en ArcadePix à l'encre rouge (estompé et cliquable s'il y a une
-     * suite), chevron, suite du fil d'Ariane en Inter gras ; compteur à droite ; bouton « Retour » dans une
-     * sous-vue ; filet sous toute la largeur.
-     */
-    protected void entete(GuiGraphicsExtractor ctx, String[] chemin, String meta) {
-        int x = vx0(), y = hy(), xr = vx1();
-        boolean suite = chemin.length > 1;
-        if (suite) {
-            int rw = bw("< Retour");
-            button(ctx, xr - rw, y, "< Retour", "plain", this::retourRacine, false);
-            xr -= rw + GAP;
-        } else if (meta != null && !meta.isEmpty()) {
-            Component m = RebornFont.body(meta);
-            float mw = font.width(m) * DaKit.S8;
-            DaKit.texteEchelle(ctx, font, m, xr - mw, y + 3, INK_SOFT, DaKit.S8);
-            xr -= Math.round(mw) + GAP;
+    protected void onglets(JsonObject snap) {
+        int ty = py0() + 26;
+        float[] ws = new float[ONGLETS.length];
+        float[] lw = new float[ONGLETS.length];
+        int[] badges = new int[ONGLETS.length];
+        float total = 0;
+        for (int i = 0; i < ONGLETS.length; i++) {
+            boolean on = ONGLETS[i][0].equals(tab);
+            lw[i] = pz.largeur(ONGLETS[i][2], 13, on);
+            badges[i] = compteOnglet(ONGLETS[i][0], snap);
+            ws[i] = 11 + lw[i] + (badges[i] > 0 ? 11 : 0);
+            total += ws[i];
         }
-        GardeArt.losange(ctx, x, y + 3);
-        Component racine = DaKit.arcade(chemin[0]);
-        int tw = font.width(racine) - 1;
-        boolean hovRacine = suite && hover(x + 9, y, tw, 10);
-        DaKit.arcX1(ctx, font, racine, x + 9, y + 2, suite ? (hovRacine ? DaKit.ENCRE_ROUGE : INK_SOFT) : DaKit.ENCRE_ROUGE, 0, false);
-        if (suite) {
-            hits.add(new Hit(x + 9, y, tw, 10, this::retourRacine));
-            int cx = x + 9 + tw + 6;
-            LotGui l = LotGui.ouvrir(ctx);
-            l.fill(cx, y + 2, cx + 1, y + 9, INK_SOFT);
-            l.fill(cx + 1, y + 3, cx + 2, y + 8, INK_SOFT);
-            l.fill(cx + 2, y + 4, cx + 3, y + 7, INK_SOFT);
-            l.fill(cx + 3, y + 5, cx + 4, y + 6, INK_SOFT);
-            l.fermer();
-            int sx = cx + 10;
-            String reste = String.join("  ›  ", java.util.Arrays.copyOfRange(chemin, 1, chemin.length));
-            txtG(ctx, reste, sx, y + 1, xr - sx, INK);
-        } else {
-            int len = Math.max(0, Math.min(240, xr - (x + tw + 24)));
-            if (len > 20) GardeArt.trait(ctx, x + tw + 16, y + 3, len);
-        }
-        ctx.fill(x, y + 15, vx1(), y + 16, 0x30462810);
-    }
-
-    /** Zone d'outils fixe de la vue (sous l'en-tête) : recherche, filtres, carte d'identité, en-têtes de colonnes. */
-    protected void outils(GuiGraphicsExtractor ctx, JsonObject snap) {
-        switch (tab) {
-            case "players" -> {
-                if (profileUuid == null) {
-                    recherche(ctx, playerSearch, oy(), "Chercher");
-                    enTetesJoueurs(ctx, oy() + 22);
-                } else fiche.outils(ctx, snap, oy());
+        float gap = Math.min(16, (iw() - total) / (ONGLETS.length - 1));
+        float ox = ix();
+        for (int i = 0; i < ONGLETS.length; i++) {
+            String id = ONGLETS[i][0];
+            boolean on = id.equals(tab);
+            boolean hov = !on && hover(Math.round(ox) - 2, ty - 1, Math.round(ws[i]) + 4, 16);
+            pz.icone(ONGLETS[i][1], ox, ty + 1, 8, on ? OR : hov ? GRIS : GRIS_2);
+            pz.texte(ONGLETS[i][2], ox + 11, ty + 5, 13, on ? CREME : hov ? CREME : GRIS, on);
+            if (badges[i] > 0) {
+                float bx = ox + 11 + lw[i] + 3;
+                String n = badges[i] > 99 ? "99" : String.valueOf(badges[i]);
+                pz.fond(Math.round(bx), ty + 1, Math.round(bx) + 8, ty + 9, LAQUE);
+                pz.texteC(n, bx + 4, ty + 4.75f, 10, CREME, true);
             }
-            case "cmds" -> recherche(ctx, searchBox, oy(), "Chercher");
-            case "journal" -> journalVue.outils(ctx, snap, oy());
-            default -> { }
+            if (on) pz.fond(Math.round(ox) - 2, ty + 14, Math.round(ox + ws[i]) + 2, ty + 15, OR);
+            hits.add(new Hit(Math.round(ox) - 2, ty - 1, Math.round(ws[i]) + 4, 16, () -> switchTab(id), null, null));
+            ox += ws[i] + gap;
         }
+        pz.filetH(ix(), ix() + iw(), ty + 15.5f, FILET);
     }
 
-    /** Pied fixe de la vue. */
-    protected void pied(GuiGraphicsExtractor ctx, JsonObject snap) {
-        if ("chat".equals(tab)) {
-            int y = sy1() - 20, x = vx0(), wEnv = bwG("Envoyer"), w = vx1() - vx0() - wEnv - GAP;
-            ctx.fill(x, y - 4, vx1(), y - 3, 0x30462810);
-            placer(ctx, chatBox, x, y + 1, w);
-            bouton(ctx, vx1() - wEnv, y, wEnv, "Envoyer", "punish", this::sendChat, false);
-        } else if ("journal".equals(tab)) journalVue.pied(ctx, snap, sy1() - 18);
-    }
-
-    /** Ligne de recherche : étiquette « CHERCHER » puis champ sur toute la largeur. */
-    protected void recherche(GuiGraphicsExtractor ctx, EditBox box, int y, String label) {
-        DaKit.Etiq lab = DaKit.etiq(font, label);
-        DaKit.etiq(ctx, font, lab, vx0(), y + 7, DaKit.ENCRE_ROUGE);
-        int x = vx0() + (int) Math.ceil(lab.w()) + 8;
-        placer(ctx, box, x, y, vx1() - x);
-    }
-
-    /** Champ de washi (14 de haut) avec son EditBox, en (x, y), largeur w. */
-    protected void placer(GuiGraphicsExtractor ctx, EditBox box, int x, int y, int w) {
-        GardeArt.champ(ctx, x, y, w);
-        // les champs sont dessinés hors du ciseau du corps : on cache ceux que le défilement masque
-        box.setVisible(!dansCorps || y >= vy0() && y + H_CHAMP <= Math.min(vy1(), paperBottom()));
-        indiceDe(ctx, box, x, y, w);
-        box.setX(x + 4);
-        box.setY(y + 3);
-        box.setWidth(Math.max(10, w - 8));
-    }
-
-    /* ------------------------------------------------------------------- décor commun */
-
-    protected static float ease(float t) {
-        t = Math.max(0f, Math.min(1f, t));
-        return 1f - (1f - t) * (1f - t) * (1f - t);
-    }
-
-    /**
-     * Cadre de bois veiné à ferrures d'or et papier washi qui se déroule (makimono) sous la poutre laquée ; le rouleau
-     * (jiku) descend avec le papier. Décor : textures {@link GardeArt} (une coupe chacune).
-     */
-    protected void frame(GuiGraphicsExtractor ctx) {
-        int x0 = sx0(), x1 = sx1(), y0 = sy0(), y1 = sy1();
-        int yb = paperBottom();
-        if (yb > y0) {
-            ctx.enableScissor(x0, y0, x1, yb);
-            GardeArt.papier(ctx, x0, y0, x1 - x0, y1 - y0);
-            GardeArt.filigrane(ctx, x1 - 74, y1 - 70, infirmerie() ? 1 : 0);
-            ctx.disableScissor();
-        }
-        GardeArt.cadre(ctx, x0, y0, x1 - x0, y1 - y0);
-        if (yb < y1 - 1) GardeArt.jiku(ctx, x0, yb, x1 - x0);
-    }
-
-    /** Bas du papier pendant le déroulé d'ouverture. */
-    protected int paperBottom() {
-        float u = ease((System.currentTimeMillis() - openedAt) / 340f);
-        return Math.round(sy0() + 5 + (sy1() - sy0() - 5) * u);
-    }
-
-    /** L'en-tête montre-t-il l'Infirmerie (医) plutôt que le Poste de garde (番) ? */
-    protected boolean infirmerie() { return false; }
-
-    /** En-tête suspendu (texture : plaque laquée, cordons, glands, sceau et titre cuits) ; reflet doré toutes les 7 s. */
-    protected void plaque(GuiGraphicsExtractor ctx, String title) {
-        int cx = width / 2;
-        GardeArt.entete(ctx, cx, infirmerie() ? 1 : 0);
-        float ph2 = (System.currentTimeMillis() % 7000L) / 1100f;
-        if (ph2 < 1f) {
-            int x = cx - 149, y = 9, pw = 298, ph = 26;
-            int bx = x + Math.round(ph2 * (pw + 24)) - 12;
-            ctx.enableScissor(x, y, x + pw, y + ph);
-            LotGui l = LotGui.ouvrir(ctx);
-            for (int k = 0; k < 8; k++) l.fill(bx + k, y + k * 3, bx + k + 5, y + 3 + k * 3, 0x22FFF2D0);
-            l.fermer();
-            ctx.disableScissor();
-        }
-    }
-
-    /** Largeur de la colonne de navigation (dans le papier, à gauche ; sa bande est cuite dans le washi). */
-    protected int navW() { return 74; }
-
-    /**
-     * Groupes de la navigation : la première ligne de chaque groupe est {sceau, titre}, les suivantes {id, libellé}.
-     * Le Poste de garde seul a deux groupes ; l'écran unifié ajoute l'Infirmerie.
-     */
-    protected String[][][] navGroups() { return new String[][][]{G_GARDE, G_OUTILS}; }
-
-    /**
-     * Colonne de navigation : groupes nommés à sceau vermillon, entrée active en laque rouge (filet d'or), compteurs
-     * en pastilles ; en bas, la bascule du mode staff.
-     */
-    protected void tabs(GuiGraphicsExtractor ctx, JsonObject snap) {
-        int x0 = sx0() + 3, w = navW(), y = sy0() + 12;
-        int yb = paperBottom();
-        if (yb > sy0() + 12) {
-            ctx.enableScissor(x0 - 3, sy0() + 5, x0 + w + 4, yb);
-            long now = System.currentTimeMillis();
-            for (String[][] group : navGroups()) {
-                GardeArt.sceauVierge(ctx, x0, y - 1);
-                ctx.text(font, Component.literal(group[0][0]), x0 + 2, y + 1, DaKit.CREME_KJ, false);
-                DaKit.etiq(ctx, font, DaKit.etiq(font, group[0][1]), x0 + 15, y + 4.5f, DaKit.ENCRE_ROUGE);
-                y += 14;
-                for (int i = 1; i < group.length; i++) {
-                    String id = group[i][0], label = group[i][1];
-                    boolean sel = id.equals(tab), hov = !sel && hover(x0, y, w, 13);
-                    if (sel || hov) GardeArt.navEntree(ctx, x0, y, w, sel);
-                    int count = tabCount(id, snap);
-                    int room = w - 10 - (count > 0 ? 14 : 0);
-                    DaKit.inter9(ctx, font, RebornFont.body(fit(label, room)), x0 + 6, y + 6.5f, sel ? IVORY : INK, 0);
-                    if (count > 0) {
-                        Component n = DaKit.arcade(String.valueOf(count));
-                        int bw = Math.max(11, (int) Math.ceil(DaKit.largeurFin(font, n)) + 6), bx = x0 + w - bw - 2;
-                        boolean urgent = "blesses".equals(id) || "alerts".equals(id);
-                        GardeArt.pastille(ctx, bx, y + 1, bw, urgent && (now / 400) % 2 == 0);
-                        DaKit.arcFin(ctx, font, n, bx + bw / 2f, y + 4.75f, IVORY, 1, false);
-                    }
-                    hits.add(new Hit(x0, y, w, 13, () -> switchTab(id)));
-                    y += 14;
-                }
-                y += 8;
-            }
-            if (snap != null && y + 26 < sy1() - 6) modeStaff(ctx, snap, x0, sy1() - 28, w);
-            ctx.disableScissor();
-        }
-        if (snap != null) gradeBadge(ctx, num(snap, "grade"), str(snap, "gradeName"));
-    }
-
-    /** Bascule du mode staff (plaques au-dessus des têtes, invisibilité), en bas de la navigation. */
-    protected void modeStaff(GuiGraphicsExtractor ctx, JsonObject snap, int x, int y, int w) {
-        boolean on = bool(snap, "modeStaff");
-        DaKit.etiq(ctx, font, DaKit.etiq(font, "Mode staff"), x + 2, y + 3, INK_SOFT);
-        int bwd = w - 4;
-        button(ctx, x + 2, y + 9, bwd, on ? "Actif" : "Inactif", on ? "watch" : "plain", () -> {
-            StaffClient.send("modestaff");
-            RebornSounds.uiClick();
-        }, grade(snap) < 1);
-        tip(x + 2, y + 9, bwd, H_BTN, on ? "Mode staff actif : tu vois les plaques au-dessus des têtes et tu es invisible aux joueurs. Clique pour le couper."
-                : "Active le mode staff : plaques « N° · nom · état » au-dessus des têtes, invisible aux joueurs.");
-    }
-
-    /** Onglets de l'écran (ids de toutes les entrées de navigation). */
-    protected String[][] tabList() {
-        List<String[]> l = new ArrayList<>();
-        for (String[][] g : navGroups()) for (int i = 1; i < g.length; i++) l.add(g[i]);
-        return l.toArray(new String[0][]);
-    }
-
-    /** Compteur affiché en rouge sur une entrée de navigation (0 = aucun). */
-    protected int tabCount(String id, JsonObject snap) {
+    protected int compteOnglet(String id, JsonObject snap) {
         return "alerts".equals(id) && snap != null ? arr(snap, "alerts").size() : 0;
     }
 
-    /** Badge du grade staff (laque noire, pastille à la couleur du grade, nom en ArcadePix or). */
-    protected void gradeBadge(GuiGraphicsExtractor ctx, int grade, String name) {
-        Component g = DaKit.arcade(name);
-        int gw = font.width(g) + 22, gx = sx0() - 10, gy = height - 18;
-        GardeArt.badgeGrade(ctx, gx, gy, gw);
-        ctx.fill(gx + 6, gy + 5, gx + 11, gy + 10, gradeColor(grade) | 0xFF000000);
-        ctx.fill(gx + 6, gy + 5, gx + 11, gy + 6, 0x40FFFFFF);
-        DaKit.arcX1(ctx, font, g, gx + 15, gy + 4, DaKit.OR_CLAIR, 0, true);
-    }
-
-    /** Rectangle aux coins coupés (1 px). */
-    protected static void chamfer(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int color) {
-        ctx.fill(x + 1, y, x + w - 1, y + h, color);
-        ctx.fill(x, y + 1, x + 1, y + h - 1, color);
-        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
-    }
-
     protected void switchTab(String id) {
-        if (!id.equals(tab)) { RebornSounds.uiClick(); viewAt = System.currentTimeMillis(); }
+        if (!id.equals(tab)) RebornSounds.uiClick();
+        else if ("players".equals(id) && profileUuid != null) { retourListe(); return; }
+        else if ("outils".equals(id) && outil != null) { outil = null; scroll = 0; return; }
         tab = id;
         scroll = 0;
-        if (!"players".equals(id)) profileUuid = null;
-        confirm = null;
-        fenetre = null;
+        menu = null;
+        formulaire.fermer();
+        if (!"players".equals(id)) { profileUuid = null; StaffClient.clearProfile(); }
         if ("journal".equals(id)) journalVue.ouvrir();
+        if ("players".equals(id) && profileUuid == null) setFocused(searchBox);
     }
 
-    /** Planche « Fermer » aux embouts dorés (texture), libellé ArcadePix. */
-    protected void closeButton(GuiGraphicsExtractor ctx) {
-        int w = 124, x = width / 2 - w / 2, y = height - 20;
-        boolean hov = hover(x + 4, y, 116, 17);
-        GardeArt.fermer(ctx, x, y, hov);
-        DaKit.arcX1(ctx, font, DaKit.arcade("Fermer"), width / 2f, y + 5, hov ? DaKit.OR_CLAIR : IVORY, 1, true);
-        hits.add(new Hit(x + 4, y + 1, 116, 15, this::onClose));
-    }
-
-    /** Bandes de washi scellées, au-dessus du pied. */
-    protected void toasts(GuiGraphicsExtractor ctx) {
-        int y = height - 44;
-        long now = System.currentTimeMillis();
-        StaffClient.Toast[] ts = StaffClient.toasts();
-        if (ts.length == 0) return;
-        ctx.nextStratum();
-        for (StaffClient.Toast t : ts) {
-            Component c = RebornFont.body(t.text());
-            int w = Math.min(440, font.width(c) + 26), x = width / 2 - w / 2;
-            int dy = Math.round((1f - ease((now - t.at()) / 180f)) * 8);
-            GardeArt.toast(ctx, x, y + dy, w);
-            DaKit.inter9(ctx, font, RebornFont.body(fit(t.text(), w - 26)), x + 17, y + dy + 8, INK, 0);
-            y -= 18;
+    /** Zone d'outils fixe (sous les onglets). */
+    protected void outils(JsonObject snap) {
+        int y = top();
+        switch (tab) {
+            case "players" -> {
+                if (profileUuid != null) return;
+                champ(searchBox, ix(), y, iw(), "chercher");
+                if (recherche.active()) return;
+                filtresJoueurs(snap, y + 23);
+                pz.filetH(ix(), ix() + iw(), y + 37.5f, FILET);
+            }
+            case "journal" -> journalVue.outils(snap, y);
+            case "outils" -> outilsVue.outils(snap, y);
+            default -> {
+                float x = ix();
+                String[][] vues = {{"attente", "En attente " + arr(snap, "alerts").size()}, {"traitees", "Traitées"}, {"miennes", "Les miennes"}};
+                for (String[] v : vues) x += mot(v[1], x, y + 5, 13, alerteVue.equals(v[0]), () -> { alerteVue = v[0]; scroll = 0; }) + 9;
+                boolean son = StaffClient.cloche;
+                int bx = ix() + iw() - 9;
+                pz.icone("cloche", bx, y + 1, 8, son ? OR : hover(bx - 2, y - 1, 12, 12) ? GRIS : GRIS_2);
+                hits.add(new Hit(bx - 2, y - 1, 12, 12, () -> { StaffClient.cloche = !StaffClient.cloche; RebornSounds.uiClick(); }, null, null));
+                tip(bx - 2, y - 1, 12, 12, son ? "Son des nouvelles alertes : activé" : "Son des nouvelles alertes : coupé");
+                pz.filetH(ix(), ix() + iw(), y + 15.5f, FILET);
+            }
         }
     }
 
-    /** Barre de défilement fine à droite du corps, quand le contenu dépasse. */
-    protected void barreDefilement(GuiGraphicsExtractor ctx, int y0, int y1, int total) {
-        int vue = y1 - y0;
-        if (total <= vue + 2 || vue < 20) return;
-        int x = vx1() + 4;
-        int th = Math.max(14, vue * vue / total);
-        int ty = y0 + Math.round((vue - th) * (scroll / (float) Math.max(1, total - vue)));
-        LotGui l = LotGui.ouvrir(ctx);
-        l.fill(x, y0, x + 2, y1, 0x22462810);
-        l.fill(x, ty, x + 2, ty + th, 0xFFB08442);
-        l.fill(x, ty, x + 1, ty + th, 0xFFD9A95E);
-        l.fermer();
+    /* =================================================================== alertes */
+
+    private static String[] typeAlerte(String kind) {
+        return switch (kind) {
+            case "mort" -> new String[]{"crane", "Mise à mort RP"};
+            case "agression" -> new String[]{"epee", "Agression"};
+            case "aide" -> new String[]{"aide", "Appel à l'aide"};
+            case "signalement" -> new String[]{"drapeau", "Signalement"};
+            case "yeux" -> new String[]{"observer", "Prélèvement d'œil"};
+            case "vol" -> new String[]{"sac", "Vol de parchemin"};
+            default -> new String[]{"alerte", kind.isEmpty() ? "Alerte" : kind};
+        };
     }
 
-    /** Info-bulle (texte complet d'une valeur coupée, aide d'un bouton) : bande d'encre bordée d'or près du curseur. */
-    protected void bulle(GuiGraphicsExtractor ctx) {
+    static int couleurAlerte(String kind) {
+        return switch (kind) {
+            case "mort" -> ROUGE;
+            case "agression" -> TERRE;
+            case "aide" -> GLACE;
+            case "signalement" -> NOIR_V;
+            default -> STAFF;
+        };
+    }
+
+    protected int alertes(JsonObject snap, int y) {
+        if (!"attente".equals(alerteVue)) return traitees(snap, y, "miennes".equals(alerteVue));
+        JsonArray al = arr(snap, "alerts");
+        if (al.isEmpty()) {
+            y = vide(y, "Aucune alerte. Le village est calme.", "Combats hors zone, appels à l'aide, signalements et mises à mort arrivent ici.");
+        }
+        int g = grade(snap);
+        for (JsonElement e : al) {
+            JsonObject a = e.getAsJsonObject();
+            String kind = str(a, "kind"), id = str(a, "id");
+            int col = couleurAlerte(kind);
+            int h = 52;
+            boolean hov = hover(px0() + 1, y, pw() - 2, h) && cliquable(y, h);
+            if (hov) pz.fond(px0() + 1, y, px1() - 1, y + h, NUIT_3);
+            pz.fond(px0() + 1, y + 5, px0() + 2, y + h - 5, col);
+            String[] ty = typeAlerte(kind);
+            pz.icone(ty[0], ix(), y + 3, 7, col);
+            pz.capitales(ty[1], ix() + 10, y + 6.5f, 11, col);
+            JsonArray ctx = arr(a, "ctx");
+            String quand = ctx.isEmpty() ? "" : ctx.get(ctx.size() - 1).getAsString();
+            pz.texteD(quand, ix() + iw(), y + 6.5f, 12, GRIS_2, false);
+            String qui = (str(a, "pid").isEmpty() ? "" : str(a, "pid") + " ") + name(a);
+            pz.texte(fit(qui, iw(), 15, false), ix(), y + 19, 15, CREME, false);
+            List<String> det = new ArrayList<>();
+            if (!str(a, "motif").isEmpty()) det.add(str(a, "motif"));
+            for (int i = 0; i < ctx.size() - 1; i++) det.add(ctx.get(i).getAsString());
+            if (num(a, "score") > 0) det.add("score " + num(a, "score"));
+            String d = String.join(" · ", det);
+            txt(d, ix(), y + 29.5f, iw(), 12, GRIS, false);
+            JsonObject cible = a.deepCopy();
+            cible.addProperty("_alerte", id);
+            float x = ix();
+            float cy = y + 42;
+            x += motAction(kind.equals("signalement") ? "Voir le chat" : "Y aller", x, cy, true, kind.equals("signalement")
+                    ? () -> { openProfile(str(a, "uuid")); fiche.ouvrirSection("sanctions"); }
+                    : () -> GardeActions.envoyer(this, "tp", cible, Map.of())) + 10;
+            switch (kind) {
+                case "mort" -> {
+                    refusVerrou = g < 2 ? "Réservé aux modérateurs et plus." : null;
+                    x += motVerrou("Valider…", x, cy, g < 2, () -> validerRpk(a)) + 10;
+                    motVerrou("Refuser", x, cy, g < 2, () -> killVerdict(id, false, ""));
+                    refusVerrou = null;
+                }
+                case "aide" -> {
+                    x += motAction("Répondre", x, cy, false, () -> repondre(a)) + 10;
+                    motAction("Fiche", x, cy, false, () -> openProfile(str(a, "uuid")));
+                }
+                case "signalement" -> {
+                    refusVerrou = g < 2 ? "Réservé aux modérateurs et plus." : null;
+                    x += motVerrou("Observer", x, cy, g < 2, () -> GardeActions.envoyer(this, "watch", cible, Map.of())) + 10;
+                    refusVerrou = null;
+                    motAction("Fiche", x, cy, false, () -> openProfile(str(a, "uuid")));
+                }
+                default -> {
+                    refusVerrou = g < 2 ? "Réservé aux modérateurs et plus." : null;
+                    x += motVerrou("Observer", x, cy, g < 2, () -> GardeActions.envoyer(this, "watch", cible, Map.of())) + 10;
+                    refusVerrou = null;
+                    motAction("Fiche", x, cy, false, () -> openProfile(str(a, "uuid")));
+                }
+            }
+            float iw2 = pz.largeur("Ignorer", 13, false);
+            motCouleur("Ignorer", ix() + iw() - iw2, cy, 13, GRIS_2, () -> dismiss(id));
+            y += h;
+            pz.filetH(ix(), ix() + iw(), y - 0.5f, FILET);
+        }
+        // traitées récemment (aperçu)
+        JsonArray tr = arr(snap, "traitees");
+        if (!tr.isEmpty()) {
+            y += 8;
+            pz.capitales("Traitées récemment", ix(), y + 3, 11, GRIS_2);
+            y += 11;
+            for (int i = 0; i < Math.min(3, tr.size()); i++) {
+                txt(ligneTraitee(tr.get(i).getAsJsonObject()), ix(), y + 3, iw(), 12, GRIS_3, false);
+                y += 10;
+            }
+        }
+        return y + 4;
+    }
+
+    private int traitees(JsonObject snap, int y, boolean miennes) {
+        JsonArray tr = arr(snap, "traitees");
+        int n = 0;
+        for (JsonElement e : tr) {
+            JsonObject t = e.getAsJsonObject();
+            if (miennes && !bool(t, "moi")) continue;
+            n++;
+            int col = couleurAlerte(str(t, "kind"));
+            pz.pastille(ix() + 2, y + 6, 1.5f, col);
+            txt(ligneTraitee(t), ix() + 7, y + 6, iw() - 7, 12, GRIS, false);
+            y += 13;
+            pz.filetH(ix() + 7, ix() + iw(), y - 0.5f, SEP);
+        }
+        if (n == 0) y = vide(y, miennes ? "Tu n'as traité aucune alerte récemment." : "Aucune alerte traitée récemment.",
+                "« Y aller », « Ignorer » et les verdicts de mise à mort apparaissent ici.");
+        return y + 4;
+    }
+
+    private static String ligneTraitee(JsonObject t) {
+        String[] ty = typeAlerte(str(t, "kind"));
+        String qui = (str(t, "pid").isEmpty() ? "" : str(t, "pid") + " ") + str(t, "perso");
+        return ty[1] + " · " + qui + " — " + str(t, "par") + " " + str(t, "quoi") + " · " + str(t, "time");
+    }
+
+    private void validerRpk(JsonObject a) {
+        alerteForm = a;
+        String id = str(a, "id");
+        formulaire.ouvrir("crane", "Valider la mise à mort ?", (str(a, "motif").isEmpty() ? "" : str(a, "motif") + ". ")
+                        + "La victime ne meurt pas tout de suite : le demandeur reçoit le droit d'achever.",
+                "Valider", true, null, List.of(GardeFormulaire.Champ.texte("note", "Raison (obligatoire)", "Scène validée avec les deux joueurs…", true)),
+                List.of("Inscrit au journal, visible des autres staffs."), v -> killVerdict(id, true, v.get("note")));
+    }
+
+    private void repondre(JsonObject a) {
+        JsonObject cible = a.deepCopy();
+        cible.addProperty("_alerte", str(a, "id"));
+        formulaire.ouvrir("annonce", "Répondre à " + name(a), "Une ligne discrète en haut de son écran.", "Envoyer", false, null,
+                List.of(GardeFormulaire.Champ.texte("m", "Message", "Un staff arrive, ne bouge pas.", true)),
+                List.of(), v -> GardeActions.envoyer(this, "announce", cible, v));
+    }
+
+    /* =================================================================== joueurs */
+
+    private static final String[][] FILTRES = {{"tous", "Tous"}, {"terre", "À terre"}, {"geles", "Gelés"}, {"notes", "Notés"}};
+
+    private boolean passeFiltre(JsonObject p, String f) {
+        return switch (f) {
+            case "terre" -> { String st = str(p, "state"); yield st.contains("terre") || st.contains("Inconscient"); }
+            case "geles" -> bool(p, "gele");
+            case "notes" -> num(p, "notes") > 0;
+            default -> true;
+        };
+    }
+
+    private void filtresJoueurs(JsonObject snap, int y) {
+        float x = ix();
+        JsonArray all = arr(snap, "players");
+        for (String[] f : FILTRES) {
+            int n = 0;
+            for (JsonElement e : all) if (passeFiltre(e.getAsJsonObject(), f[0])) n++;
+            boolean on = f[0].equals(filtreJoueurs);
+            x += mot(f[1] + " " + n, x, y + 4.5f, 13, on, () -> { filtreJoueurs = f[0]; scroll = 0; }) + 9;
+        }
+        String t = switch (tri) { case "nom" -> "Nom"; case "etat" -> "État"; default -> "N°"; };
+        float tw = pz.largeur(t, 12, false);
+        int tx = Math.round(ix() + iw() - tw - 8);
+        boolean hov = hover(tx - 2, y - 1, Math.round(tw) + 12, 12);
+        pz.texte(t, tx, y + 4.5f, 12, hov ? CREME : GRIS_2, false);
+        pz.icone("tri", tx + tw + 2, y + 1.5f, 6, hov ? CREME : GRIS_2);
+        hits.add(new Hit(tx - 2, y - 1, Math.round(tw) + 12, 12, () -> {
+            tri = switch (tri) { case "pid" -> "nom"; case "nom" -> "etat"; default -> "pid"; };
+            RebornSounds.uiClick();
+        }, null, null));
+        tip(tx - 2, y - 1, Math.round(tw) + 12, 12, "Trier par N°, nom ou état");
+    }
+
+    /** Joueurs de la liste, filtrés et triés. */
+    List<JsonObject> listeJoueurs(JsonObject snap) {
+        List<JsonObject> out = new ArrayList<>();
+        for (JsonElement e : arr(snap, "players")) if (passeFiltre(e.getAsJsonObject(), filtreJoueurs)) out.add(e.getAsJsonObject());
+        switch (tri) {
+            case "nom" -> out.sort((a, b) -> name(a).compareToIgnoreCase(name(b)));
+            case "etat" -> out.sort((a, b) -> Integer.compare(poidsEtat(b), poidsEtat(a)));
+            default -> out.sort((a, b) -> Integer.compare(pidNum(a), pidNum(b)));
+        }
+        return out;
+    }
+
+    private static int pidNum(JsonObject p) {
+        try { return Integer.parseInt(str(p, "pid")); } catch (NumberFormatException e) { return Integer.MAX_VALUE; }
+    }
+
+    private static int poidsEtat(JsonObject p) {
+        String st = str(p, "state");
+        if (st.contains("terre") || st.contains("Inconscient")) return 5;
+        if (st.contains("ATA")) return 4;
+        if (bool(p, "gele")) return 3;
+        if (bool(p, "noir")) return 2;
+        return st.isEmpty() ? 0 : 1;
+    }
+
+    /** État court affiché à droite d'une ligne et sa couleur. */
+    static Object[] etatCourt(JsonObject p) {
+        String st = str(p, "state");
+        String premier = st.isEmpty() ? "" : st.split(" · ")[0];
+        if (bool(p, "modeAnim")) return new Object[]{"Animation", ANIM};
+        if (bool(p, "modeStaff")) return new Object[]{"Mode staff", STAFF};
+        if (premier.contains("terre") || premier.contains("Inconscient")) return new Object[]{premier, TERRE};
+        if (premier.startsWith("ATA")) return new Object[]{premier.replace(" · ", " "), ROUGE};
+        if (bool(p, "noir")) return new Object[]{"Écran noir", NOIR_V};
+        if (bool(p, "gele")) return new Object[]{"Gelé", GLACE};
+        if (premier.contains("Duel")) return new Object[]{"En duel", TERRE};
+        if (!premier.isEmpty()) return new Object[]{premier, GRIS};
+        return new Object[]{"En forme", OK};
+    }
+
+    /** Marqueurs de la seconde ligne : étiquettes, notes, gel. */
+    static Object[] marques(JsonObject p) {
+        List<String> m = new ArrayList<>();
+        for (JsonElement e : arr(p, "etiquettes")) m.add(e.getAsString());
+        int n = num(p, "notes");
+        if (n > 0) m.add(n + " note" + (n > 1 ? "s" : ""));
+        if (bool(p, "gele") && !etatCourt(p)[0].equals("Gelé")) m.add("gelé");
+        String s = String.join(" · ", m);
+        int col = s.contains("surveill") ? TERRE : s.contains("avertissement") ? ROUGE : s.equals("gelé") ? GLACE : GRIS;
+        return new Object[]{s, col};
+    }
+
+    protected int joueurs(JsonObject snap, int y) {
+        List<JsonObject> l = listeJoueurs(snap);
+        if (arr(snap, "players").isEmpty()) return vide(y, "Personne en ligne pour l'instant.", null);
+        if (l.isEmpty()) return vide(y, "Aucun joueur pour ce filtre.", "Clique sur « Tous » pour revoir la liste.");
+        for (JsonObject p : l) y = ligneJoueur(p, y, false, null);
+        return y + 2;
+    }
+
+    /**
+     * Une ligne de joueur (23 GUI) : visage, nom RP, « N° · pseudo · grade », état à droite (pastille), marqueurs ;
+     * au survol, quatre icônes d'action (aller, ramener, geler, plus). {@code surligne} : terme de recherche à
+     * surligner dans le nom ; {@code choisie} : ligne choisie au clavier (recherche).
+     */
+    protected int ligneJoueur(JsonObject p, int y, boolean choisie, String surligne) {
+        int h = 23;
+        String uuid = str(p, "uuid");
+        boolean horsLigne = p.has("online") && !bool(p, "online");
+        boolean hov = menu == null && hover(px0() + 1, y, pw() - 2, h) && cliquable(y, h);
+        if (hov) survolUuid = uuid;
+        if (hov || choisie) {
+            pz.fond(px0() + 1, y, px1() - 1, y + h, NUIT_3);
+            pz.fond(px0() + 1, y, px0() + 2, y + h, OR);
+        }
+        pz.visage(uuid, ix(), y + 5.5f, 12);
+        float tx = ix() + 18, droite = ix() + iw();
+        float wmax;
+        if (hov && !horsLigne) {
+            // actions éclair : 1 clic, sans ouvrir la fiche
+            float bx = droite;
+            String[] ics = {"plus", "geler", "ramener", "aller"};
+            GardeActions.Action[] acts = {null, GardeActions.GELER, GardeActions.RAMENER, GardeActions.ALLER};
+            int g = grade(StaffClient.snapshot());
+            for (int k = 0; k < 4; k++) {
+                bx -= 14;
+                int X = Math.round(bx), Y = y + 5;
+                boolean on = hover(X, Y, 13, 13);
+                GardeActions.Action a = acts[k];
+                String refus = a == null ? null : GardeActions.refus(a, g, p);
+                pz.fond(X, Y, X + 13, Y + 13, on ? NUIT_3 : NUIT_2);
+                pz.cadre(X, Y, 13, 13, on ? OR_DOUX : "aller".equals(ics[k]) ? OR_DOUX : FILET_2);
+                String ic = a == GardeActions.GELER && GardeActions.gele(p) ? "geler" : ics[k];
+                pz.icone(ic, X + 2.5f, Y + 2.5f, 8, refus != null ? GRIS_3 : "aller".equals(ics[k]) ? OR : CREME);
+                if (a == null) {
+                    final int mx = X, my = Y + 13;
+                    hits.add(new Hit(X, Y, 13, 13, () -> ouvrirMenuJoueur(p, mx, my), null, null));
+                    if (on) tipGauche(Math.round(droite - 56), Y, "Toutes les actions");
+                } else {
+                    hits.add(new Hit(X, Y, 13, 13, () -> GardeActions.lancer(this, a, p), null, null));
+                    if (on) tipGauche(Math.round(droite - 56), Y, a.libelle(p).replace("…", "") + "  " + a.touche());
+                }
+            }
+            wmax = bx - tx - 4;
+        } else {
+            Object[] et = etatCourt(p);
+            String e = horsLigne ? "hors ligne" + (str(p, "vu").isEmpty() ? "" : " · vu " + str(p, "vu")) : (String) et[0];
+            int col = horsLigne ? GRIS_2 : (int) et[1];
+            float ew = pz.texteD(e, droite, y + 7.5f, 12, col, false);
+            if (!horsLigne) pz.pastille(droite - ew - 4.5f, y + 7.5f, 1.5f, col);
+            wmax = droite - ew - 9 - tx;
+            Object[] mq = marques(p);
+            if (!((String) mq[0]).isEmpty() && !horsLigne) pz.texteD(fit((String) mq[0], 70, 12, false), droite, y + 16.5f, 12, (int) mq[1], false);
+        }
+        String nom = name(p);
+        if (surligne != null && !surligne.isEmpty()) surligner(nom, surligne, tx, y + 7.5f, wmax, 15, horsLigne ? GRIS : CREME);
+        else pz.texte(fit(nom, wmax, 15, false), tx, y + 7.5f, 15, horsLigne ? GRIS : CREME, false);
+        String sous = (str(p, "pid").isEmpty() ? "—" : str(p, "pid")) + " · " + str(p, "name") + (str(p, "rank").isEmpty() ? "" : " · " + str(p, "rank"));
+        float sousMax = hov ? wmax : Math.min(wmax + 30, iw() - 18 - 74);
+        if (surligne != null && !surligne.isEmpty() && !GardeActions.sans(nom).contains(GardeActions.sans(surligne)))
+            surligner(sous, surligne, tx, y + 16.5f, sousMax, 12, GRIS_2);
+        else pz.texte(fit(sous, sousMax, 12, false), tx, y + 16.5f, 12, GRIS_2, false);
+        if (cliquable(y, h)) hits.add(new Hit(px0() + 1, y, pw() - 2, h, () -> openProfile(uuid), () -> ouvrirMenuJoueur(p, mouseX, mouseY), null));
+        pz.filetH(tx, droite, y + h - 0.5f, SEP);
+        return y + h;
+    }
+
+    /** Texte avec la partie qui correspond à {@code terme} en or (recherche). */
+    protected void surligner(String s, String terme, float x, float cy, float maxW, int taille, int col) {
+        String f = fit(s, maxW, taille, false);
+        int i = GardeActions.sans(f).indexOf(GardeActions.sans(terme));
+        if (i < 0 || terme.isBlank()) { pz.texte(f, x, cy, taille, col, false); return; }
+        int j = Math.min(f.length(), i + terme.trim().length());
+        float xx = x;
+        xx += pz.texte(f.substring(0, i), xx, cy, taille, col, false);
+        xx += pz.texte(f.substring(i, j), xx, cy, taille, OR_CLAIR, false);
+        pz.texte(f.substring(j), xx, cy, taille, col, false);
+    }
+
+    /* =================================================================== menu contextuel */
+
+    void ouvrirMenuJoueur(JsonObject p, int x, int y) {
+        List<Item> items = new ArrayList<>();
+        int g = grade(StaffClient.snapshot());
+        for (GardeActions.Action a : GardeActions.menuLigne()) items.add(a == null ? null : item(a, p, g));
+        ouvrirMenu(items, x, y, p);
+    }
+
+    /** Élément de menu pour une action (grisé avec cadenas et « Admin » si le grade ne suffit pas). */
+    Item item(GardeActions.Action a, JsonObject p, int g) {
+        String verrou = g < a.grade() ? gradeName(a.grade()) : null;
+        String refus = verrou == null ? GardeActions.refus(a, g, p) : null;
+        Runnable r = refus != null ? () -> { StaffClient.toast(refus); RebornSounds.deny(); } : () -> GardeActions.lancer(this, a, p);
+        boolean danger = a == GardeActions.RESET || a == GardeActions.SUPPR;
+        return new Item(a.icone(), a.libelle(p), a.touche(), verrou, danger, refus != null ? r : r);
+    }
+
+    /** Ouvre un menu à gauche du volet, à hauteur de y (recalé dans l'écran). */
+    void ouvrirMenu(List<Item> items, int x, int y, Object source) {
+        int w = 150;
+        int h = 5;
+        for (Item it : items) h += it == null ? 5 : 17;
+        int mx = Math.min(x, px0() - w - 4);
+        if (mx < 4) mx = Math.max(4, x - w);
+        int my = Math.max(4, Math.min(y - 20, height - h - 4));
+        menu = new Menu(mx, my, w, items, source);
+        RebornSounds.uiClick();
+    }
+
+    private void dessinerMenu() {
+        Menu m = menu;
+        int h = 5;
+        for (Item it : m.items()) h += it == null ? 5 : 17;
+        int x = m.x(), y = m.y(), w = m.w();
+        pz.fond(x + w, y + 2, x + w + 2, y + h + 2, 0x78000000);
+        pz.fond(x + 2, y + h, x + w, y + h + 2, 0x78000000);
+        pz.fond(x, y, x + w, y + h, 0xF8110B0D);
+        pz.cadre(x, y, w, h, FILET_2);
+        pz.filetH(x, x + w, y, OR_DOUX);
+        int yy = y + 2;
+        for (Item it : m.items()) {
+            if (it == null) { pz.filetH(x + 6, x + w - 6, yy + 2.5f, FILET); yy += 5; continue; }
+            boolean verrou = it.verrou() != null;
+            boolean hov = hover(x + 2, yy, w - 4, 17);
+            if (hov && !verrou) {
+                pz.fond(x + 2, yy, x + w - 2, yy + 17, LAQUE_SOMBRE);
+                pz.fond(x + 2, yy, x + 3, yy + 17, OR);
+            }
+            int col = verrou ? GRIS_3 : it.danger() ? ROUGE : CREME;
+            pz.icone(it.icone(), x + 8, yy + 4.5f, 8, verrou ? GRIS_3 : it.danger() ? ROUGE : GRIS);
+            pz.texte(fit(it.label(), w - 50, 14, false), x + 21, yy + 8.5f, 14, col, false);
+            if (verrou) {
+                pz.icone("verrou", x + w - 15, yy + 5, 7, GRIS_3);
+                pz.texteD(it.verrou(), x + w - 18, yy + 8.5f, 11, GRIS_3, false);
+            } else if (it.touche() != 0) touche(String.valueOf(it.touche()), x + w - 6, yy + 4);
+            final Item fi = it;
+            hits.add(new Hit(x + 2, yy, w - 4, 17, () -> {
+                menu = null;
+                if (fi.verrou() != null) { StaffClient.toast("Réservé au grade " + fi.verrou() + " et plus."); RebornSounds.deny(); }
+                else fi.action().run();
+            }, null, null));
+            yy += 17;
+        }
+    }
+
+    /** Petite touche de clavier (raccourci) calée à droite en xd, haut en y ; renvoie sa largeur. */
+    float touche(String t, float xd, float y) {
+        float w = Math.max(9, pz.largeur(t, 11, true) + 5);
+        float x = xd - w;
+        pz.fond(Math.round(x), Math.round(y), Math.round(xd), Math.round(y) + 9, NUIT_3);
+        pz.cadre(x, y, w, 9, FILET_2);
+        pz.texteC(t, x + w / 2f, y + 4.5f, 11, GRIS, true);
+        return w;
+    }
+
+    /* =================================================================== surcouches : notifications, info-bulle */
+
+    protected void toasts() {
+        StaffClient.Toast[] ts = StaffClient.toasts();
+        if (ts.length == 0) return;
+        int y = py1() - H_PIED - 18;
+        long now = System.currentTimeMillis();
+        for (int i = ts.length - 1; i >= 0; i--) {
+            StaffClient.Toast t = ts[i];
+            String s = fit(t.text(), iw() - 12, 12, false);
+            float w = pz.largeur(s, 12, false) + 12;
+            float x = px0() + pw() / 2f - w / 2f;
+            int dy = Math.round((1f - ease((now - t.at()) / 160f)) * 6);
+            int X = Math.round(x), Y = y + dy;
+            pz.fond(X, Y, X + Math.round(w), Y + 14, 0xF5080506);
+            pz.cadre(X, Y, Math.round(w), 14, FILET_2);
+            pz.fond(X, Y, X + 1, Y + 14, OR);
+            pz.texte(s, x + 6, Y + 7, 12, CREME, false);
+            y -= 17;
+        }
+    }
+
+    protected void bulle() {
         if (tipTexte == null || tipTexte.isBlank()) return;
-        DaKit.Paragraphe p = DaKit.paragraphe(font, tipTexte, 220, DaKit.S8, 9, 6);
+        List<String> lignes = wrap(tipTexte, 150, 12);
         float w = 0;
-        for (var l : p.lignes()) w = Math.max(w, font.width(l) * DaKit.S8);
-        int bw = Math.round(w) + 10, bh = p.hauteur() + 7;
-        int x = Math.min(width - bw - 4, mouseX + 10), y = mouseY + 14;
-        if (y + bh > height - 4) y = mouseY - bh - 6;
-        ctx.nextStratum();
-        LotGui l = LotGui.ouvrir(ctx);
-        l.fill(x, y, x + bw, y + bh, 0xF0150C0A);
-        l.fill(x, y, x + bw, y + 1, 0xFF8E6A30);
-        l.fill(x, y + bh - 1, x + bw, y + bh, 0xFF8E6A30);
-        l.fill(x, y, x + 1, y + bh, 0xFF8E6A30);
-        l.fill(x + bw - 1, y, x + bw, y + bh, 0xFF8E6A30);
-        l.fermer();
-        p.dessiner(ctx, font, x + 5, y + 4, DaKit.CREME_VAL);
+        for (String l : lignes) w = Math.max(w, pz.largeur(l, 12, false));
+        int bw = Math.round(w) + 10, bh = lignes.size() * 8 + 6;
+        int x = Math.min(width - bw - 4, mouseX + 8), y = mouseY + 12;
+        if (x + bw > px0() && mouseX < px0()) x = Math.max(4, mouseX - bw - 6);
+        if (y + bh > height - 4) y = mouseY - bh - 4;
+        pz.fond(x, y, x + bw, y + bh, 0xF5080506);
+        pz.cadre(x, y, bw, bh, FILET_2);
+        for (int i = 0; i < lignes.size(); i++) pz.texte(lignes.get(i), x + 5, y + 7 + i * 8, 12, CREME, false);
     }
 
-    /** Info-bulle si la souris est sur (x, y, w, h) (hors fenêtre ouverte, et dans la partie visible du corps). */
+    /** Info-bulle si la souris est sur (x, y, w, h) (et, dans le corps, dans sa partie visible). */
     protected void tip(int x, int y, int w, int h, String texte) {
-        if (texte == null || (fenetre != null || confirm != null) && !formulaire.dessine) return;
+        if (texte == null || menu != null) return;
         if (dansCorps && (mouseY < vy0() || mouseY >= vy1())) return;
         if (hover(x, y, w, h)) tipTexte = texte;
     }
 
-    /* =================================================================== onglets */
-
-    protected int alerts(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
-        JsonArray al = arr(snap, "alerts");
-        if (al.isEmpty()) return calm(ctx, y);
-        int g = grade(snap);
-        for (JsonElement e : al) {
-            JsonObject a = e.getAsJsonObject();
-            int dx = slide();
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(dx, 0);
-            int x = vx0() + 6, w = vx1() - vx0() - 6, h = 58;
-            String kind = str(a, "kind");
-            fuda(ctx, x, y, w, h, kindColor(kind));
-            head(ctx, str(a, "uuid"), x + 16, y + 10, 24);
-            int tx = x + 48, xr = x + w - 8;
-            // à droite : type d'alerte (petites capitales) et sceau du score
-            DaKit.Etiq et = DaKit.etiq(font, kindLabel(kind));
-            DaKit.etiq(ctx, font, et, xr - et.w(), y + 9, kindColor(kind));
-            int rx = xr - Math.round(et.w()) - GAP;
-            int score = num(a, "score");
-            if (score > 0) rx -= badge(ctx, rx, y + 4, "SCORE " + score, score >= 100) + GAP;
-            identite(ctx, a, tx, y + 6, rx - tx, true);
-            txt(ctx, str(a, "motif"), tx, y + 18, xr - tx, LACQUER_LO);
-            txt7(ctx, join(arr(a, "ctx")), tx, y + 29, xr - tx, INK_SOFT);
-            String uuid = str(a, "uuid");
-            int bx = tx, by = y + h - 20;
-            String id = str(a, "id");
-            if ("mort".equals(kind)) {
-                bx += bouton(ctx, bx, by, "Valider la RPK", "punish", () -> killVerdict(id, true), g < 2) + GAP;
-                bx += bouton(ctx, bx, by, "Refuser", "plain", () -> killVerdict(id, false), g < 2) + GAP;
-                bouton(ctx, bx, by, "Y aller", "plain", () -> act("tp", uuid), false);
-            } else {
-                bx += bouton(ctx, bx, by, "Observer", "watch", () -> act("watch", uuid), g < 2) + GAP;
-                if ("aide".equals(kind) || "vol".equals(kind)) bouton(ctx, bx, by, "Y aller", "plain", () -> act("tp", uuid), false);
-                else bouton(ctx, bx, by, "Ouvrir la fiche", "punish", () -> openProfile(uuid), false);
-            }
-            int dw = bwG("Ignorer");
-            bouton(ctx, xr - dw, by, dw, "Ignorer", "plain", () -> dismiss(id), false);
-            ctx.pose().popMatrix();
-            y += h + RG + 2;
-        }
-        return y;
+    /** Bulle courte posée à gauche d'un groupe d'icônes (au survol), comme sur la maquette A_01. */
+    private void tipGauche(int xd, int y, String t) {
+        float w = pz.largeur(t, 12, false) + 9;
+        int X = Math.round(xd - 4 - w);
+        pz.fond(X, y, X + Math.round(w), y + 12, 0xF5080506);
+        pz.cadre(X, y, Math.round(w), 12, FILET_2);
+        pz.texteC(t, X + w / 2f, y + 6, 12, CREME, false);
     }
 
-    protected static String kindLabel(String kind) {
-        return switch (kind) {
-            case "agression" -> "Agression";
-            case "aide" -> "Appel à l'aide";
-            case "mort" -> "Demande de RPK";
-            case "yeux" -> "Yeux";
-            case "vol" -> "Vol";
-            case "signalement" -> "Signalement";
-            default -> kind.isEmpty() ? "Alerte" : kind;
-        };
+    /* =================================================================== primitives */
+
+    /** Mot de filtre : gras crème souligné d'or quand actif, gris sinon (souligné au survol). */
+    float mot(String s, float x, float cy, int taille, boolean actif, Runnable r) {
+        float w = pz.largeur(s, taille, actif);
+        int X = Math.round(x), Y = Math.round(cy - 6);
+        boolean hov = hover(X - 1, Y, Math.round(w) + 2, 12) && cliquable(Y, 12);
+        pz.texte(s, x, cy, taille, actif || hov ? CREME : GRIS, actif);
+        if (actif) pz.filetH(x, x + w, cy + 5.5f, OR);
+        else if (hov) pz.filetH(x, x + w, cy + 5.5f, GRIS);
+        if (r != null && cliquable(Y, 12)) hits.add(new Hit(X - 1, Y, Math.round(w) + 2, 12, () -> { r.run(); RebornSounds.uiClick(); }, null, null));
+        return w;
     }
 
-    /* ------------------------------------------------------------------- joueurs */
-
-    /** Colonnes de la liste des joueurs : {x N°, x identité, x état, largeur état, x bouton} (relatives à la ligne). */
-    protected int[] colonnesJoueurs() {
-        int w = vx1() - vx0() - 6;
-        int pidW = font.width(gras("00000")) + 10;
-        int btn = bw("Fiche");
-        int etatW = Math.max(90, Math.min(150, w * 28 / 100));
-        int xPid = 38, xId = xPid + pidW, xBtn = w - 8 - btn, xEtat = xBtn - GAP - etatW;
-        return new int[]{xPid, xId, xEtat, etatW, xBtn};
+    /** Mot d'action (13) : primaire en or gras, sinon crème ; souligné au survol. */
+    float motAction(String s, float x, float cy, boolean primaire, Runnable r) {
+        float w = pz.largeur(s, 13, primaire);
+        int X = Math.round(x), Y = Math.round(cy - 6);
+        boolean hov = hover(X - 1, Y, Math.round(w) + 2, 12) && cliquable(Y, 12);
+        int col = primaire ? (hov ? OR_CLAIR : OR) : CREME;
+        pz.texte(s, x, cy, 13, col, primaire);
+        if (hov) pz.filetH(x, x + w, cy + 5.5f, col);
+        if (r != null && cliquable(Y, 12)) hits.add(new Hit(X - 1, Y, Math.round(w) + 2, 12, () -> { r.run(); RebornSounds.uiClick(); }, null, null));
+        return w;
     }
 
-    protected void enTetesJoueurs(GuiGraphicsExtractor ctx, int y) {
-        int[] c = colonnesJoueurs();
-        int x = vx0() + 6;
-        DaKit.etiq(ctx, font, DaKit.etiq(font, "N°"), x + c[0], y + 5, INK_SOFT);
-        DaKit.etiq(ctx, font, DaKit.etiq(font, "Personnage · compte"), x + c[1], y + 5, INK_SOFT);
-        DaKit.etiq(ctx, font, DaKit.etiq(font, "État"), x + c[2], y + 5, INK_SOFT);
+    /** Mot d'une couleur donnée (souligné au survol). */
+    float motCouleur(String s, float x, float cy, int taille, int col, Runnable r) {
+        float w = pz.largeur(s, taille, false);
+        int X = Math.round(x), Y = Math.round(cy - 6);
+        boolean hov = hover(X - 1, Y, Math.round(w) + 2, 12) && cliquable(Y, 12);
+        pz.texte(s, x, cy, taille, hov ? CREME : col, false);
+        if (hov) pz.filetH(x, x + w, cy + 5.5f, CREME);
+        if (r != null && cliquable(Y, 12)) hits.add(new Hit(X - 1, Y, Math.round(w) + 2, 12, r, null, null));
+        return w;
     }
 
-    protected int players(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
-        String q = playerSearch.getValue().trim();
-        JsonArray all = arr(snap, "players");
-        if (all.isEmpty()) return vide(ctx, y, "Personne en ligne pour l'instant.", null);
-        int[] c = colonnesJoueurs();
-        int shown = 0;
-        for (JsonElement e : all) {
-            JsonObject p = e.getAsJsonObject();
-            if (!matchesPlayer(p, q)) continue;
-            shown++;
-            int dx = slide();
-            ctx.pose().pushMatrix();
-            ctx.pose().translate(dx, 0);
-            String st = str(p, "state");
-            int x = vx0() + 6, w = vx1() - vx0() - 6, h = 28;
-            String uuid = str(p, "uuid");
-            if (visible(y, h)) hits.add(new Hit(x, y, w, h, () -> openProfile(uuid)));
-            fuda(ctx, x, y, w, h, bool(p, "gele") ? GLACE : st.isEmpty() ? OK : LACQUER);
-            head(ctx, uuid, x + 16, y + 6, 16);
-            String pid = str(p, "pid");
-            txtG(ctx, pid.isEmpty() ? "—" : pid, x + c[0], y + 5, c[1] - c[0] - 4, PID);
-            txt7(ctx, str(p, "rank"), x + c[0], y + 17, c[1] - c[0] - 4, LACQUER);
-            int idW = c[2] - c[1] - GAP;
-            txtG(ctx, str(p, "perso").isEmpty() ? "(sans personnage)" : str(p, "perso"), x + c[1], y + 5, idW, INK);
-            String compte = str(p, "name") + (str(p, "village").isEmpty() ? "" : "  ·  " + str(p, "village"));
-            txt7(ctx, compte, x + c[1], y + 17, idW, INK_SOFT);
-            txt8(ctx, st.isEmpty() ? "En forme" : st, x + c[2], y + 6, c[3], st.isEmpty() ? OK : LACQUER_LO);
-            txt7(ctx, marqueurs(p), x + c[2], y + 17, c[3], INK_SOFT);
-            button(ctx, x + c[4], y + 8, "Fiche", "punish", () -> openProfile(uuid), false);
-            ctx.pose().popMatrix();
-            y += h + RG;
-        }
-        if (shown == 0) y = vide(ctx, y, "Aucun joueur ne correspond à « " + q + " ».", "Cherche un N° (#00042), un pseudo ou un nom RP.");
-        return y;
+    /** Mot d'action, éteint (gris, cadenas au clic) si {@code verrou}. */
+    float motVerrou(String s, float x, float cy, boolean verrou, Runnable r) {
+        if (!verrou) return motAction(s, x, cy, false, r);
+        float w = pz.largeur(s, 13, false);
+        pz.texte(s, x, cy, 13, GRIS_3, false);
+        int X = Math.round(x), Y = Math.round(cy - 6);
+        String raison = refusVerrou;
+        if (cliquable(Y, 12)) hits.add(new Hit(X - 1, Y, Math.round(w) + 2, 12, null, null, raison));
+        return w;
     }
 
-    /** Marqueurs courts d'un joueur : gelé, écran noir, mode staff, notes et étiquettes. */
-    protected static String marqueurs(JsonObject p) {
-        List<String> m = new ArrayList<>();
-        if (bool(p, "gele")) m.add("gelé");
-        if (bool(p, "noir")) m.add("écran noir");
-        if (bool(p, "modeStaff")) m.add("mode staff");
-        for (JsonElement e : arr(p, "etiquettes")) m.add(e.getAsString());
-        int n = num(p, "notes");
-        if (n > 0) m.add(n + " note" + (n > 1 ? "s" : ""));
-        return String.join(" · ", m);
-    }
-
-    /** « N° 00042 » en or brun devant le nom (Player ID du personnage actif), ou rien. */
-    protected static MutableComponent pidPart(JsonObject p) {
-        String pid = str(p, "pid");
-        return pid.isEmpty() ? Component.empty() : gras("N° " + pid + "  ").withColor(PID & 0xFFFFFF);
-    }
-
-    /**
-     * Ligne d'identité « N° 00042  Genin  Kazuki Uchiha  Raiden_FR · konoha » tenant dans maxW : le compte puis le
-     * grade cèdent la place, le nom RP est coupé en dernier ; texte complet en info-bulle si coupé.
-     */
-    protected void identite(GuiGraphicsExtractor ctx, JsonObject p, int x, int y, int maxW, boolean village) {
-        String pid = str(p, "pid"), rank = str(p, "rank");
-        String perso = str(p, "perso").isEmpty() ? str(p, "name") : str(p, "perso");
-        String reste = str(p, "perso").isEmpty() ? "" : str(p, "name") + (village && !str(p, "village").isEmpty() ? " · " + str(p, "village") : "");
-        String complet = (pid.isEmpty() ? "" : "N° " + pid + "  ") + (rank.isEmpty() ? "" : rank + "  ") + perso + (reste.isEmpty() ? "" : "  " + reste);
-        int wPid = pid.isEmpty() ? 0 : font.width(gras("N° " + pid)) + 6;
-        int wRank = rank.isEmpty() ? 0 : font.width(gras(rank)) + 6;
-        int wPerso = font.width(gras(perso)), wReste = reste.isEmpty() ? 0 : font.width(RebornFont.body(reste)) + 6;
-        boolean coupe = false;
-        if (wPid + wRank + wPerso > maxW) { wRank = 0; rank = ""; }
-        int cx = x;
-        if (!pid.isEmpty()) { ctx.text(font, gras("N° " + pid), cx, y, PID, false); cx += wPid; }
-        if (!rank.isEmpty()) { ctx.text(font, gras(rank), cx, y, LACQUER, false); cx += wRank; }
-        int room = x + maxW - cx;
-        if (wPerso > room) { coupe = true; ctx.text(font, gras(fitG(perso, room)), cx, y, INK, false); }
-        else {
-            ctx.text(font, gras(perso), cx, y, INK, false);
-            cx += wPerso + 6;
-            int room2 = x + maxW - cx;
-            if (!reste.isEmpty()) {
-                if (room2 >= 30) {
-                    String r = fit(reste, room2);
-                    coupe |= !r.equals(reste);
-                    ctx.text(font, RebornFont.body(r), cx, y, INK_SOFT, false);
-                } else coupe = true;
-            }
-        }
-        if (coupe) tip(x, y - 1, maxW, 10, complet);
-    }
-
-    /**
-     * Recherche du Poste de garde : {@code #00042} / {@code 42} → Player ID (zéros de tête ignorés) ; sinon pseudo
-     * ou nom RP (contient, sans casse).
-     */
-    protected static boolean matchesPlayer(JsonObject p, String q) {
-        if (q == null || q.isBlank()) return true;
-        String s = q.trim().toLowerCase();
-        String digits = s.startsWith("#") ? s.substring(1) : s;
-        String pid = str(p, "pid");
-        if (!digits.isEmpty() && digits.chars().allMatch(Character::isDigit) && !pid.isEmpty()) {
-            String a = digits.replaceFirst("^0+(?=.)", ""), b = pid.replaceFirst("^0+(?=.)", "");
-            if (s.startsWith("#") ? a.equals(b) : pid.contains(digits) || a.equals(b)) return true;
-            if (s.startsWith("#")) return false;
-        }
-        return str(p, "name").toLowerCase().contains(s) || str(p, "perso").toLowerCase().contains(s);
-    }
-
-    /* ------------------------------------------------------------------- chat staff */
-
-    protected int chat(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
-        JsonArray lines = arr(snap, "chat");
-        if (lines.isEmpty()) return vide(ctx, y, "Aucun message pour l'instant.", "Écris au staff ci-dessous, ou en jeu avec # au début d'un message.");
-        int x = vx0(), w = vx1() - vx0();
-        int colT = 30, colA = Math.max(70, Math.min(110, w / 5));
-        int start = Math.max(0, lines.size() - 60);
-        for (int i = start; i < lines.size(); i++) {
-            JsonObject m = lines.get(i).getAsJsonObject();
-            boolean sys = bool(m, "sys");
-            List<String> wrapped = wrap(str(m, "text"), w - colT - colA - 12);
-            int h = 5 + wrapped.size() * 10;
-            ctx.fill(x, y, x + w, y + h, sys ? 0x14A0182B : (i % 2 == 0 ? L_FOND : L_ALT));
-            ctx.fill(x, y, x + 2, y + h, sys ? LACQUER : GOLD);
-            txt8(ctx, str(m, "time"), x + 6, y + 3, colT, INK_SOFT);
-            String auteur = sys ? "Système" : gradeName(num(m, "grade")) + " · " + str(m, "name");
-            txtG(ctx, auteur, x + 6 + colT, y + 2, colA - 6, sys ? LACQUER : gradeColor(num(m, "grade")));
-            for (int k = 0; k < wrapped.size(); k++) {
-                ctx.text(font, RebornFont.body(wrapped.get(k)), x + 6 + colT + colA, y + 2 + k * 10, INK, false);
-            }
-            y += h + 2;
-        }
-        txt7(ctx, "En jeu, le même canal s'ouvre aussi avec # au début d'un message.", vx0(), y + 3, w, INK_SOFT);
-        return y + 14;
-    }
-
-    /* ------------------------------------------------------------------- commandes */
-
-    protected int commands(GuiGraphicsExtractor ctx, JsonObject snap, int y) {
-        int g = grade(snap);
-        String q = searchBox.getValue().trim().toLowerCase();
-        String cat = null;
-        int shown = 0;
-        int x = vx0(), w = vx1() - vx0();
-        int btnW = 66, tagW = 52;
-        int cmdW = Math.max(110, Math.min(190, (w - btnW - tagW) * 40 / 100));
-        int descX = x + 6 + cmdW + GAP, descW = x + w - btnW - tagW - 2 * GAP - descX;
-        for (JsonElement e : arr(snap, "commands")) {
-            JsonObject c = e.getAsJsonObject();
-            String cmd = str(c, "cmd"), desc = str(c, "desc");
-            if (!q.isEmpty() && !(cmd + " " + desc).toLowerCase().contains(q)) continue;
-            if (!str(c, "cat").equals(cat)) {
-                cat = str(c, "cat");
-                y = section(ctx, cat, y + (shown > 0 ? 4 : 0));
-            }
-            shown++;
-            int need = num(c, "grade");
-            boolean ok = need <= g;
-            ctx.fill(x, y, x + w, y + 18, ok ? L_FOND : 0x1CFFF8E8);
-            ctx.fill(x, y + 17, x + w, y + 18, L_FILET);
-            ctx.fill(x, y, x + 2, y + 17, ok ? GOLD : 0xFFB8A88A);
-            txt(ctx, cmd, x + 6, y + 5, cmdW, ok ? WOOD_DARK : ETEINT);
-            txt8(ctx, desc, descX, y + 6, descW, ok ? INK : ETEINT);
-            String gl = gradeName(need) + (need < 4 ? "+" : "");
-            int gw = Math.round(font.width(RebornFont.body(gl)) * DaKit.S7) + 6;
-            int gx = x + w - btnW - GAP - gw;
-            DrawHelpers.outlinedRect(ctx, gx, y + 4, gw, 10, 0, gradeColor(need));
-            DaKit.texteEchelle(ctx, font, RebornFont.body(gl), gx + 3, y + 6, gradeColor(need), DaKit.S7);
-            if (ok) button(ctx, x + w - btnW - 2, y + 3, btnW, "Préparer", "plain", () -> prepare(cmd), false);
-            else button(ctx, x + w - btnW - 2, y + 3, btnW, "Verrouillé", "plain", null, true);
-            y += 20;
-        }
-        if (shown == 0) y = vide(ctx, y, q.isEmpty() ? "Aucune commande." : "Aucune commande ne correspond à « " + q + " ».", null);
-        return y + 4;
-    }
-
-    /* =================================================================== confirmation de sanction */
-
-    protected void confirmModal(GuiGraphicsExtractor ctx, JsonObject snap) {
-        JsonObject p = StaffClient.profile();
-        if (p == null) { confirm = null; return; }
-        hits.clear();   // la fenêtre capte tous les clics
-        ctx.nextStratum();
-        ctx.fill(0, 0, width, height, 0x99060304);
-        int mw = Math.min(340, width - 40), x = width / 2 - mw / 2;
-        JsonArray msgs = arr(p, "msgs");
-        int shownMsgs = Math.min(msgs.size(), 4);
-        int mh = 150 + shownMsgs * 22 + (shownMsgs == 0 ? 12 : 0);
-        int y = Math.max(10, height / 2 - mh / 2);
-        GardeArt.papierNu(ctx, x, y, mw, mh);
-        GardeArt.cadre(ctx, x, y, mw, mh);
-        int cx = x + 12, cw = mw - 24, cy = y + 12;
-        GardeArt.losange(ctx, cx, cy + 1);
-        DaKit.arcX1(ctx, font, DaKit.arcade(fitArc("Sanctionner " + name(p) + " ?", cw - 12)), cx + 9, cy, DaKit.ENCRE_ROUGE, 0, false);
-        cy += 16;
-        GardeArt.carte(ctx, cx, cy, cw, 36, false);
-        String[][] rows = {{"Motif", str(confirm, "name")}, {"Sanction", str(confirm, "next")},
-                {"Strike", String.valueOf(num(confirm, "strikes") + 1)}};
-        for (int i = 0; i < rows.length; i++) {
-            DaKit.texteEchelle(ctx, font, RebornFont.body(rows[i][0]), cx + 8, cy + 6 + i * 10, INK_SOFT, DaKit.S8);
-            txtG(ctx, rows[i][1], cx + 64, cy + 4 + i * 10, cw - 72, LACQUER);
-        }
-        cy += 44;
-        String lab = "Preuves marquées : " + flags.size();
-        float lw = font.width(RebornFont.body(lab)) * DaKit.S8;
-        txt8(ctx, "Messages récents — marque ceux qui servent de preuve", cx, cy, cw - Math.round(lw) - GAP, INK_SOFT);
-        DaKit.texteEchelle(ctx, font, RebornFont.body(lab), cx + cw - lw, cy, INK_SOFT, DaKit.S8);
-        cy += 11;
-        if (shownMsgs == 0) { txt8(ctx, "Aucun message récent.", cx, cy + 2, cw, INK_SOFT); cy += 12; }
-        for (int i = 0; i < shownMsgs; i++) {
-            JsonObject m = msgs.get(i).getAsJsonObject();
-            boolean on = flags.contains(i);
-            ctx.fill(cx, cy, cx + cw, cy + 20, L_FOND);
-            ctx.fill(cx, cy + 19, cx + cw, cy + 20, L_FILET);
-            ctx.fill(cx, cy, cx + 2, cy + 19, on ? LACQUER : GOLD);
-            txt7(ctx, str(m, "time"), cx + 6, cy + 2, cw - 30, INK_SOFT);
-            txt(ctx, str(m, "text"), cx + 6, cy + 10, cw - 30, INK);
-            int fx = cx + cw - 17;
-            GardeArt.drapeau(ctx, fx, cy + 3, on);
-            final int idx = i;
-            hits.add(new Hit(cx, cy, cw, 20, () -> { if (!flags.remove(idx)) flags.add(idx); RebornSounds.uiClick(); }));
-            cy += 22;
-        }
-        cy += 4;
-        txt8(ctx, "Note pour le casier (facultatif)", cx, cy, cw, INK_SOFT);
-        cy += 10;
-        if (sealAt == 0) placer(ctx, noteBox, cx, cy, cw);
-        else noteBox.setVisible(false);
-        cy += 22;
-        if (sealAt == 0) {
-            bouton(ctx, cx, cy, "Annuler", "plain", () -> confirm = null, false);
-            int ww = bwG("Avertir seulement"), sw = bwG("Apposer le sceau");
-            bouton(ctx, cx + cw - sw - GAP - ww, cy, ww, "Avertir seulement", "plain", () -> sendSanction(true), false);
-            bouton(ctx, cx + cw - sw, cy, sw, "Apposer le sceau", "punish", () -> sendSanction(false), false);
+    /** Bouton plein (laque) ou contour, h 17 ; éteint = gris + cadenas. Renvoie sa largeur. */
+    int bouton(int x, int y, int w, String label, boolean plein, Runnable r, boolean eteint) {
+        int h = 17;
+        boolean hov = !eteint && hover(x, y, w, h) && cliquable(y, h);
+        if (eteint) {
+            pz.fond(x, y, x + w, y + h, NUIT_3);
+            pz.cadre(x, y, w, h, FILET);
+            pz.texteC(fit(label, w - 14, 13, true), x + w / 2f - 3, y + 8.5f, 13, GRIS_3, true);
+            pz.icone("verrou", x + w - 10, y + 5, 6, GRIS_3);
+        } else if (plein) {
+            pz.fond(x, y, x + w, y + h, hov ? 0xFFB41E33 : LAQUE);
+            pz.filetH(x, x + w, y, LAQUE_HAUT);
+            pz.texteC(fit(label, w - 6, 13, true), x + w / 2f, y + 8.5f, 13, CREME, true);
         } else {
-            seal(ctx, x + mw - 74, y + 14);
-            if (System.currentTimeMillis() - sealAt > 1100) { confirm = null; sealAt = 0; }
+            pz.fond(x, y, x + w, y + h, hov ? NUIT_3 : NUIT_2);
+            pz.cadre(x, y, w, h, hov ? OR_DOUX : FILET_2);
+            pz.texteC(fit(label, w - 6, 13, false), x + w / 2f, y + 8.5f, 13, CREME, false);
         }
+        if (cliquable(y, h)) hits.add(new Hit(x, y, w, h, eteint ? null : () -> { if (r != null) r.run(); }, null, refusVerrou));
+        return w;
     }
 
-    protected void seal(GuiGraphicsExtractor ctx, int x, int y) {
-        float t = Math.min(1f, (System.currentTimeMillis() - sealAt) / 220f);
-        float scale = 1.6f - 0.6f * t;
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(x + 28, y + 28);
-        ctx.pose().scale(scale, scale);
-        GardeArt.sceau(ctx, -32, -32, DaKit.blanc(0.92f * t));
-        ctx.pose().popMatrix();
-        // éclaboussures d'encre au moment de l'impact
-        if (t >= 1f) {
-            float fade = Math.max(0f, 1f - (System.currentTimeMillis() - sealAt - 220) / 900f);
-            long s = 0x9E3779B97F4A7C15L;
-            LotGui l = LotGui.ouvrir(ctx);
-            for (int k = 0; k < 14; k++) {
-                s = s * 6364136223846793005L + 1442695040888963407L;
-                double ang = ((s >>> 40) % 360) * Math.PI / 180.0;
-                int r = 30 + (int) ((s >>> 20) % 18), sz = 1 + (int) ((s >>> 50) % 3);
-                int px = x + 28 + (int) (Math.cos(ang) * r), py = y + 28 + (int) (Math.sin(ang) * r);
-                l.fill(px, py, px + sz, py + sz, (Math.round(200 * fade) << 24) | (LACQUER & 0xFFFFFF));
+    int largeurBouton(String label) { return Math.max(56, Math.round(pz.largeur(label, 13, true)) + 20); }
+
+    /** Champ de saisie (h 17) : fond, filet (or si actif), icône facultative, indice gris quand vide. */
+    void champ(EditBox b, int x, int y, int w, String icone) {
+        boolean focus = b.isFocused();
+        pz.fond(x, y, x + w, y + 17, NUIT_2);
+        pz.cadre(x, y, w, 17, focus ? OR_DOUX : FILET_2);
+        int tx = x + 5;
+        if (icone != null) {
+            pz.icone(icone, x + 5, y + 4.5f, 8, focus ? OR : GRIS);
+            tx = x + 17;
+        }
+        boolean visible = !dansCorps || y >= vy0() && y + 17 <= vy1();
+        b.setVisible(visible);
+        b.setX(tx);
+        b.setY(y + 5);
+        b.setWidth(Math.max(10, x + w - 5 - tx));
+        String h = indices.get(b);
+        if (visible && b.getValue().isEmpty() && h != null && !h.isEmpty()) pz.texte(fit(h, x + w - 5 - tx, 14, false), tx, y + 8.5f, 14, GRIS_2, false);
+        if (visible) {
+            // saisie en Inter 14 : défile pour garder le curseur visible
+            String v = b.getValue();
+            float avail = x + w - 5 - tx;
+            int cur = Math.max(0, Math.min(b.getCursorPosition(), v.length()));
+            int start = 0;
+            while (start < cur && pz.largeur(v.substring(start, cur), 14, false) > avail) start++;
+            String vis = v.substring(start);
+            while (!vis.isEmpty() && pz.largeur(vis, 14, false) > avail) vis = vis.substring(0, vis.length() - 1);
+            if (!vis.isEmpty()) pz.texte(vis, tx, y + 8.5f, 14, CREME, false);
+            if (focus && (System.currentTimeMillis() / 500) % 2 == 0) {
+                float cx = tx + pz.largeur(v.substring(start, cur), 14, false);
+                pz.px(cx, y + 4, cx + 1f / GardeArt.echelle(), y + 13, OR);
             }
-            l.fermer();
         }
+        if (visible) hits.add(new Hit(x, y, w, 17, () -> { setFocused(b); b.setFocused(true); }, null, null));
     }
 
-    /** État vide des alertes : grand 静 (le calme) estompé. */
-    protected int calm(GuiGraphicsExtractor ctx, int y) {
-        int cx = (vx0() + vx1()) / 2;
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(cx - 24, y + 14);
-        ctx.pose().scale(6f, 6f);
-        ctx.text(font, Component.literal("静"), 0, 0, 0x30462810, false);
-        ctx.pose().popMatrix();
-        Component c = RebornFont.body("Aucune alerte. Le village est calme.");
-        ctx.text(font, c, cx - font.width(c) / 2, y + 72, INK_SOFT, false);
-        Component d = RebornFont.body("Les combats hors zone, appels à l'aide et signalements arrivent ici.");
-        float dw = font.width(d) * DaKit.S8;
-        DaKit.texteEchelle(ctx, font, d, cx - dw / 2f, y + 86, 0xFF8C7A5C, DaKit.S8);
-        return y + 100;
+    /** Barre de défilement fine, à droite du volet. */
+    protected void barre(int y0, int y1, int total) {
+        int vue = y1 - y0;
+        if (total <= vue + 2 || vue < 20) return;
+        int x = px1() - 4;
+        int th = Math.max(14, vue * vue / total);
+        int ty = y0 + Math.round((vue - th) * (scroll / (float) Math.max(1, total - vue)));
+        pz.fond(x, y0, x + 1, y1, 0xFF241A1E);
+        pz.fond(x, ty, x + 1, ty + th, FILET_2);
     }
 
-    /** État vide explicite : une phrase, et une aide plus petite dessous. */
-    protected int vide(GuiGraphicsExtractor ctx, int y, String phrase, String aide) {
-        int cx = (vx0() + vx1()) / 2, w = vx1() - vx0() - 16;
-        String p = fit(phrase, w);
-        Component c = RebornFont.body(p);
-        ctx.text(font, c, cx - font.width(c) / 2, y + 18, INK_SOFT, false);
+    /** État vide : une phrase, une aide plus petite. */
+    protected int vide(int y, String phrase, String aide) {
+        float cx = ix() + iw() / 2f;
+        pz.texteC(fit(phrase, iw(), 14, false), cx, y + 18, 14, GRIS, false);
         if (aide != null) {
-            String a = fit(aide, Math.round(w / DaKit.S8));
-            Component d = RebornFont.body(a);
-            float dw = font.width(d) * DaKit.S8;
-            DaKit.texteEchelle(ctx, font, d, cx - dw / 2f, y + 31, 0xFF8C7A5C, DaKit.S8);
+            List<String> l = wrap(aide, iw() - 10, 12);
+            for (int i = 0; i < l.size(); i++) pz.texteC(l.get(i), cx, y + 30 + i * 8, 12, GRIS_2, false);
+            return y + 36 + l.size() * 8;
         }
-        return y + 46;
+        return y + 34;
     }
 
-    protected void sendSanction(boolean warnOnly) {
-        JsonObject p = StaffClient.profile();
-        if (p == null || confirm == null) return;
-        JsonObject o = new JsonObject();
-        o.addProperty("a", "sanction");
-        o.addProperty("t", str(p, "uuid"));
-        o.addProperty("o", str(confirm, "id"));
-        o.addProperty("warnOnly", warnOnly);
-        o.addProperty("note", noteBox.getValue());
-        JsonArray ev = new JsonArray();
-        JsonArray msgs = arr(p, "msgs");
-        for (int i : flags) if (i < msgs.size()) {
-            JsonObject m = msgs.get(i).getAsJsonObject();
-            ev.add(str(m, "time") + " — " + str(m, "text"));
-        }
-        o.add("ev", ev);
-        StaffClient.send(o);
-        if (warnOnly) { confirm = null; RebornSounds.uiClick(); }
-        else { sealAt = System.currentTimeMillis(); RebornSounds.confirm(); }
+    /** Texte coupé par « … » avec info-bulle du texte complet. */
+    float txt(String s, float x, float cy, float maxW, int taille, int col, boolean gras) {
+        if (s == null || s.isEmpty()) return 0;
+        String f = fit(s, maxW, taille, gras);
+        float w = pz.texte(f, x, cy, taille, col, gras);
+        if (!f.equals(s)) tip(Math.round(x), Math.round(cy - 5), Math.round(maxW), 10, s);
+        return w;
     }
 
-    /* =================================================================== actions */
+    /** Coupe s pour tenir dans maxW (GUI) à cette taille (mémorisé). */
+    String fit(String s, float maxW, int taille, boolean gras) {
+        if (s == null) return "";
+        String cle = taille + (gras ? "g" : "m") + ":" + Math.round(maxW * 4) + ":" + s;
+        String r = fitCache.get(cle);
+        if (r != null) return r;
+        if (fitCache.size() > 4000) fitCache.clear();
+        r = s;
+        if (pz.largeur(r, taille, gras) > maxW) {
+            String t = s;
+            while (t.length() > 1 && pz.largeur(t + "…", taille, gras) > maxW) t = t.substring(0, t.length() - 1);
+            r = t.stripTrailing() + "…";
+        }
+        fitCache.put(cle, r);
+        return r;
+    }
 
-    protected void act(String op, String uuid) {
-        JsonObject o = new JsonObject();
-        o.addProperty("a", "act");
-        o.addProperty("op", op);
-        o.addProperty("t", uuid);
-        StaffClient.send(o);
+    List<String> wrap(String s, float maxW, int taille) {
+        List<String> out = new ArrayList<>();
+        if (s == null) return out;
+        StringBuilder line = new StringBuilder();
+        for (String word : s.split(" ")) {
+            String next = line.isEmpty() ? word : line + " " + word;
+            if (pz.largeur(next, taille, false) > maxW && !line.isEmpty()) {
+                out.add(line.toString());
+                line = new StringBuilder(word);
+            } else line = new StringBuilder(next);
+        }
+        if (!line.isEmpty()) out.add(line.toString());
+        for (int i = 0; i < out.size(); i++) out.set(i, fit(out.get(i), maxW, taille, false));
+        return out;
+    }
+
+    boolean hover(int x, int y, int w, int h) {
+        if (menu != null && mouseX >= menu.x() && mouseX < menu.x() + menu.w() && mouseY >= menu.y()) {
+            int mh = 5;
+            for (Item it : menu.items()) mh += it == null ? 5 : 17;
+            if (mouseY < menu.y() + mh) {
+                // seules les lignes du menu réagissent sous le menu
+                return x >= menu.x() && x < menu.x() + menu.w() && mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+            }
+        }
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+    }
+
+    /** Un élément du corps est-il dans la partie visible (pas masqué par le défilement) ? */
+    boolean cliquable(int y, int h) {
+        return !dansCorps || y + h > vy0() && y < vy1();
+    }
+
+    /* =================================================================== navigation et actions */
+
+    protected void retourListe() {
+        profileUuid = null;
+        scroll = 0;
+        formulaire.fermer();
+        StaffClient.clearProfile();
+        setFocused(searchBox);
         RebornSounds.uiClick();
     }
 
-    /** Verdict sur une demande de mort RP (alerte « mort »). */
-    protected void killVerdict(String id, boolean ok) {
+    protected void openProfile(String uuid) {
+        if (uuid == null || uuid.isEmpty()) return;
+        tab = "players";
+        profileUuid = uuid;
+        scroll = 0;
+        menu = null;
+        formulaire.fermer();
+        fiche.ouvrir();
+        setFocused(null);
+        requestProfile(uuid);
+        RebornSounds.uiClick();
+    }
+
+    /** Ouvre la fiche de {@code p} (si besoin) puis un formulaire dans le volet. */
+    void ficheFormulaire(JsonObject p, java.util.function.Consumer<GardeFormulaire> ouvrir) {
+        String uuid = str(p, "uuid");
+        if (!"players".equals(tab) || !uuid.equals(profileUuid)) openProfile(uuid);
+        fiche.cible = p;
+        ouvrir.accept(formulaire);
+        scroll = 0;
+    }
+
+    /** Ouvre la fiche sur la section Sanctions dépliée. */
+    void ficheSanctions(String uuid) {
+        if (!"players".equals(tab) || !uuid.equals(profileUuid)) openProfile(uuid);
+        fiche.ouvrirSection("sanctions");
+    }
+
+    protected void requestProfile(String uuid) {
+        JsonObject o = new JsonObject();
+        o.addProperty("a", "profile");
+        o.addProperty("t", uuid);
+        StaffClient.send(o);
+    }
+
+    protected void killVerdict(String id, boolean ok, String note) {
         JsonObject o = new JsonObject();
         o.addProperty("a", "kill");
         o.addProperty("id", id);
         o.addProperty("v", ok ? "ok" : "no");
+        if (note != null && !note.isBlank()) o.addProperty("note", note);
         StaffClient.send(o);
         if (ok) RebornSounds.confirm(); else RebornSounds.uiClick();
     }
@@ -1112,416 +1134,154 @@ public class StaffScreen extends Screen {
         RebornSounds.uiClick();
     }
 
-    protected void openProfile(String uuid) {
-        tab = "players";
-        profileUuid = uuid;
-        scroll = 0;
-        fenetre = null;
-        fiche.ouvrir();
-        requestProfile(uuid);
-        RebornSounds.uiClick();
-    }
-
-    protected void requestProfile(String uuid) {
-        JsonObject o = new JsonObject();
-        o.addProperty("a", "profile");
-        o.addProperty("t", uuid);
-        StaffClient.send(o);
-    }
-
-    protected void sendChat() {
-        String m = chatBox.getValue().trim();
-        if (m.isEmpty()) return;
-        JsonObject o = new JsonObject();
-        o.addProperty("a", "chat");
-        o.addProperty("m", m);
-        StaffClient.send(o);
-        chatBox.setValue("");
-        scroll = Integer.MAX_VALUE / 2;   // descend au dernier message
-    }
-
-    protected void prepare(String cmd) {
-        Minecraft.getInstance().keyboardHandler.setClipboard(cmd.startsWith("#") ? "#" : cmd);
-        StaffClient.toast(cmd + " · copiée, colle-la dans le chat (Ctrl+V)");
-        RebornSounds.uiClick();
-    }
-
     /* =================================================================== banc d'essai (StaffDebug) */
 
-    void debugTab(String id) { switchTab(id); }
+    /** Onglets du banc (anciens ids compris : annonces, chat, cmds → Outils). */
+    void debugTab(String id) {
+        switch (id) {
+            case "annonces", "chat", "cmds", "seisme", "modes" -> { switchTab("outils"); outil = id; }
+            default -> switchTab(id);
+        }
+    }
 
-    void debugProfile(String uuid) { tab = "players"; profileUuid = uuid; scroll = 0; fiche.ouvrir(); requestProfile(uuid); }
+    void debugProfile(String uuid) { openProfile(uuid); }
 
-    void debugSearch(String q) { playerSearch.setValue(q); scroll = 0; }
-
-    void debugCmdSearch(String q) { searchBox.setValue(q); scroll = 0; }
+    void debugSearch(String q) { tab = "players"; profileUuid = null; searchBox.setValue(q); setFocused(searchBox); searchBox.setFocused(true); scroll = 0; }
 
     void debugScroll(int px) { scroll = px; }
 
-    void debugSeal() { if (confirm != null) sealAt = System.currentTimeMillis() - 260; }
+    void debugMenuPlus() { fiche.ouvrirPlus(); }
 
-    void debugConfirm(int offenseIndex) {
-        JsonObject p = StaffClient.profile();
-        if (p == null) return;
-        confirm = arr(p, "offenses").get(offenseIndex).getAsJsonObject();
-        flags.clear();
-        flags.add(0);
-        flags.add(1);
+    void debugValiderRpk() {
+        JsonArray al = arr(StaffClient.snapshot(), "alerts");
+        if (!al.isEmpty()) validerRpk(al.get(0).getAsJsonObject());
+    }
+
+    void debugMenuFiltre() { journalVue.debugMenu(); }
+
+    /** Banc : position de souris imposée (survols des captures). */
+    java.util.function.Supplier<int[]> debugSouris;
+
+    /** Banc : survole l'icône {@code k} (0 = plus, 1 = geler…) de la ligne {@code i} de la liste. */
+    void debugSurvolLigne(int i, int k) {
+        debugSouris = () -> new int[]{ix() + iw() - 14 * (k + 1) + 6, vy0() + 2 + 23 * i + 11};
     }
 
     /* =================================================================== entrées */
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
-        if (e.button() == 0) {
+        double x = e.x(), y = e.y();
+        if (e.button() == 0 || e.button() == 1) {
+            boolean dansMenu = false;
+            if (menu != null) {
+                int mh = 5;
+                for (Item it : menu.items()) mh += it == null ? 5 : 17;
+                dansMenu = x >= menu.x() && x < menu.x() + menu.w() && y >= menu.y() && y < menu.y() + mh;
+            }
             for (int i = hits.size() - 1; i >= 0; i--) {
                 Hit h = hits.get(i);
-                if (h.in(e.x(), e.y())) {
-                    if (h.action() != null) h.action().run();
-                    else {
-                        StaffClient.toast(h.refus() != null ? h.refus() : "Ton grade ne permet pas cette action.");
-                        RebornSounds.deny();
-                    }
-                    return true;
+                if (!h.in(x, y)) continue;
+                if (menu != null && !dansMenu) { menu = null; return true; }
+                if (e.button() == 1) {
+                    if (h.droit() != null) { h.droit().run(); return true; }
+                    continue;
                 }
+                if (h.action() != null) {
+                    if (e.hasControlDown() && journalVue.ctrlClic(x, y)) return true;
+                    h.action().run();
+                } else {
+                    StaffClient.toast(h.refus() != null ? h.refus() : "Ton grade ne permet pas cette action.");
+                    RebornSounds.deny();
+                }
+                // un clic hors d'un champ lui retire le focus
+                if (getFocused() instanceof EditBox b && !(b.isMouseOver(x, y))) { b.setFocused(false); }
+                return true;
             }
+            if (menu != null) { menu = null; return true; }
         }
-        return super.mouseClicked(e, dbl);
+        boolean r = super.mouseClicked(e, dbl);
+        return r || x >= px0();
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double hAmount, double vAmount) {
-        if (confirm == null && fenetre == null) scroll = Math.max(0, scroll - (int) Math.round(vAmount * 18));
+        if (menu != null) return true;
+        scroll = Math.max(0, scroll - (int) Math.round(vAmount * 18));
         return true;
     }
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent e) {
         int k = e.key();
+        boolean saisie = getFocused() instanceof EditBox b && b.isFocused() && b.isVisible();
         if (k == GLFW.GLFW_KEY_ESCAPE) {
-            if (confirm != null) { confirm = null; return true; }
-            if (fenetre != null) { fenetre = null; return true; }
-            if ("players".equals(tab) && profileUuid != null) { retourRacine(); return true; }
+            if (menu != null) { menu = null; return true; }
+            if (formulaire.actif()) { formulaire.fermer(); return true; }
+            if ("players".equals(tab) && profileUuid == null && !searchBox.getValue().isEmpty()) { searchBox.setValue(""); return true; }
+            if ("players".equals(tab) && profileUuid != null) { retourListe(); return true; }
+            if ("journal".equals(tab) && journalVue.echap()) return true;
+            if ("outils".equals(tab) && outil != null) { outil = null; scroll = 0; return true; }
             onClose();
             return true;
         }
-        if ((k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER)) {
-            if (chatBox.isVisible() && chatBox.isFocused()) { sendChat(); return true; }
-            if (fenetre == formulaire && formulaire.entree()) return true;
+        if (k == GLFW.GLFW_KEY_F7 && !saisie) { onClose(); return true; }
+        if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) {
+            if (formulaire.actif() && formulaire.entree()) return true;
+            if ("players".equals(tab) && profileUuid == null && recherche.active() && recherche.entree()) return true;
+            if (outilsVue.entree()) return true;
+            if (journalVue.entree()) return true;
             if (fiche.entree()) return true;
+        }
+        if ("players".equals(tab) && profileUuid == null && recherche.active()) {
+            if (k == GLFW.GLFW_KEY_DOWN) { recherche.deplacer(1); return true; }
+            if (k == GLFW.GLFW_KEY_UP) { recherche.deplacer(-1); return true; }
+        }
+        if (!saisie && "players".equals(tab) && profileUuid != null && !formulaire.actif() && menu == null) {
+            if (k == GLFW.GLFW_KEY_TAB) { fiche.ouvrirPlus(); return true; }
+            if (fiche.raccourci(k)) return true;
         }
         return super.keyPressed(e);
     }
 
-    /* =================================================================== petits dessins */
-
-    /** Titre de section : losange d'or, titre ArcadePix à l'encre rouge, trait de pinceau vermillon qui s'effile. */
-    protected int section(GuiGraphicsExtractor ctx, String title, int y) {
-        Component c = DaKit.arcade(fitArc(title, vx1() - vx0() - 20));
-        int x = vx0();
-        GardeArt.losange(ctx, x, y + 3);
-        int tw = DaKit.arcX1(ctx, font, c, x + 9, y + 2, DaKit.ENCRE_ROUGE, 0, false);
-        int len = Math.max(10, Math.min(240, (vx1() - x - tw - 18) * 2 / 3));
-        GardeArt.trait(ctx, x + tw + 16, y + 3, len);
-        return y + 16;
-    }
-
-    /** Glissement d'entrée d'une plaquette (décalé par carte), en px. */
-    protected int slide() {
-        float t = (System.currentTimeMillis() - viewAt - cardIndex++ * 45L) / 260f;
-        return Math.round((1f - ease(t)) * 26f);
-    }
-
-    /**
-     * Plaquette de hinoki (fuda, texture) : coins gauches biseautés, ficelle rouge passée dans le trou, liseré de
-     * couleur selon le type. Légèrement soulevée et cerclée d'or au survol.
-     */
-    protected void fuda(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int accent) {
-        boolean hov = confirm == null && fenetre == null && hover(x, y, w, h) && (!dansCorps || mouseY >= vy0() && mouseY < vy1());
-        int lift = hov ? 1 : 0;
-        y -= lift;
-        GardeArt.fuda(ctx, x, y, w, h, hov);
-        GardeArt.ficelle(ctx, x + 3, y + h / 2);
-        ctx.fill(x + 9, y + 3, x + 11, y + h - 3, accent);
-        ctx.fill(x + 9, y + 3, x + 10, y + h - 3, 0x30FFFFFF);
-    }
-
-    /** Score en sceau laqué (rouge si grave, ambre sinon), calé à droite en {@code right} ; renvoie sa largeur. */
-    protected int badge(GuiGraphicsExtractor ctx, int right, int y, String label, boolean strong) {
-        Component c = DaKit.arcade(label);
-        int w = (int) Math.ceil(DaKit.largeurFin(font, c)) + 12;
-        GardeArt.sceauScore(ctx, right - w, y, w, strong);
-        DaKit.arcFin(ctx, font, c, right - w / 2f, y + 4.75f, IVORY, 1, true);
-        return w;
-    }
-
-    /** Largeur d'un petit bouton pour ce libellé. */
-    protected int bw(String label) {
-        return (int) Math.ceil(DaKit.largeurFin(font, DaKit.arcade(label))) + 14;
-    }
-
-    /** Largeur d'un grand bouton pour ce libellé (Inter gras 8). */
-    protected int bwG(String label) {
-        return Math.max(52, (int) Math.ceil(font.width(gras(label)) * DaKit.S8) + 18);
-    }
-
-    /** Petit bouton-plaque laqué (12 de haut) : noir, rouge (« punish »), vert (« watch »), éteint ; renvoie sa largeur. */
-    protected int button(GuiGraphicsExtractor ctx, int x, int y, String label, String style, Runnable action, boolean locked) {
-        return button(ctx, x, y, bw(label), label, style, action, locked);
-    }
-
-    /** Petit bouton de largeur imposée (libellé centré). */
-    protected int button(GuiGraphicsExtractor ctx, int x, int y, int w, String label, String style, Runnable action, boolean locked) {
-        int h = H_BTN;
-        boolean hov = !locked && hover(x, y, w, h) && cliquable(y, h);
-        GardeArt.bouton(ctx, x, y, w, ligne(style, locked), hov);
-        int color = locked ? ETEINT : hov ? DaKit.OR_CLAIR : IVORY;
-        String lab = fitArcFin(label, w - (locked ? 12 : 6));
-        DaKit.arcFin(ctx, font, DaKit.arcade(lab), x + w / 2f - (locked ? 2 : 0), y + 4.25f, color, 1, !locked);
-        if (locked) ctx.fill(x + w - 6, y + 4, x + w - 4, y + 7, ETEINT);   // petit cadenas
-        if (cliquable(y, h)) hits.add(new Hit(x, y, w, h, locked ? null : () -> { if (action != null) action.run(); }, refusVerrou));
-        return w;
-    }
-
-    /** Grand bouton d'action (16 de haut, libellé Inter gras 8) ; renvoie sa largeur. */
-    protected int bouton(GuiGraphicsExtractor ctx, int x, int y, String label, String style, Runnable action, boolean locked) {
-        return bouton(ctx, x, y, bwG(label), label, style, action, locked);
-    }
-
-    protected int bouton(GuiGraphicsExtractor ctx, int x, int y, int w, String label, String style, Runnable action, boolean locked) {
-        int h = H_BTN_G;
-        boolean hov = !locked && hover(x, y, w, h) && cliquable(y, h);
-        GardeArt.boutonGrand(ctx, x, y, w, ligne(style, locked), hov);
-        int color = locked ? ETEINT : hov ? DaKit.OR_CLAIR : IVORY;
-        String lab = fitG(label, Math.round((w - (locked ? 16 : 10)) / DaKit.S8));
-        Component c = gras(lab);
-        float tw = font.width(c) * DaKit.S8;
-        DaKit.texteEchelle(ctx, font, c, x + w / 2f - tw / 2f - (locked ? 2 : 0), y + 4.5f, color, DaKit.S8);
-        if (locked) ctx.fill(x + w - 7, y + 6, x + w - 5, y + 10, ETEINT);
-        if (cliquable(y, h)) hits.add(new Hit(x, y, w, h, locked ? null : () -> { if (action != null) action.run(); }, refusVerrou));
-        return w;
-    }
-
-    private static int ligne(String style, boolean locked) {
-        return locked ? GardeArt.B_INACTIF : switch (style) {
-            case "punish" -> GardeArt.B_ROUGE;
-            case "watch" -> GardeArt.B_VERT;
-            default -> GardeArt.B_NOIR;
-        };
-    }
-
-    /** Un bouton est-il cliquable à cette hauteur (dans le corps : seulement dans sa partie visible) ? */
-    protected boolean cliquable(int y, int h) {
-        return !dansCorps || visible(y, h);
-    }
-
-    /** Nom ou valeur en Inter gras (comme la fiche). */
-    protected static MutableComponent gras(String s) { return DaKit.interGras(s); }
-
-    protected void head(GuiGraphicsExtractor ctx, String uuid, int x, int y, int size) {
-        ctx.fill(x - 2, y - 2, x + size + 2, y + size + 2, WOOD_DARK);
-        ctx.fill(x - 1, y - 1, x + size + 1, y + size + 1, GOLD);
-        Identifier skin = null;
-        try {
-            var conn = Minecraft.getInstance().getConnection();
-            PlayerInfo info = conn != null ? conn.getPlayerInfo(UUID.fromString(uuid)) : null;
-            if (info != null) skin = info.getSkin().body().texturePath();
-        } catch (RuntimeException ignored) { }
-        if (skin == null) { ctx.fill(x, y, x + size, y + size, 0xFF3A2C14); return; }
-        ctx.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 8f, 8f, size, size, 8, 8, 64, 64);
-        ctx.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 40f, 8f, size, size, 8, 8, 64, 64);
-    }
-
-    protected int text(GuiGraphicsExtractor ctx, String s, int x, int y, int color) {
-        ctx.text(font, RebornFont.body(s), x, y, color, false);
-        return y + 11;
-    }
-
-    protected void small(GuiGraphicsExtractor ctx, String s, int x, int y, int color) {
-        DaKit.texteEchelle(ctx, font, RebornFont.body(s), x, y, color, 0.75f);
-    }
-
-    /* ------------------------------------------------------------------- texte coupé + info-bulle */
-
-    /** Inter 9 tenant dans maxW (coupé par « … », info-bulle du texte complet) ; renvoie la largeur dessinée. */
-    protected int txt(GuiGraphicsExtractor ctx, String s, int x, int y, int maxW, int col) {
-        if (s == null || s.isEmpty() || maxW <= 4) return 0;
-        String f = fit(s, maxW);
-        ctx.text(font, RebornFont.body(f), x, y, col, false);
-        if (!f.equals(s)) tip(x, y - 1, maxW, 10, s);
-        return font.width(RebornFont.body(f));
-    }
-
-    /** Inter gras 9 tenant dans maxW. */
-    protected int txtG(GuiGraphicsExtractor ctx, String s, int x, int y, int maxW, int col) {
-        if (s == null || s.isEmpty() || maxW <= 4) return 0;
-        String f = fitG(s, maxW);
-        ctx.text(font, gras(f), x, y, col, false);
-        if (!f.equals(s)) tip(x, y - 1, maxW, 10, s);
-        return font.width(gras(f));
-    }
-
-    /** Inter 8 tenant dans maxW (unités GUI). */
-    protected int txt8(GuiGraphicsExtractor ctx, String s, int x, int y, int maxW, int col) {
-        return txtEch(ctx, s, x, y, maxW, col, DaKit.S8);
-    }
-
-    /** Inter 7 tenant dans maxW (unités GUI). */
-    protected int txt7(GuiGraphicsExtractor ctx, String s, int x, int y, int maxW, int col) {
-        return txtEch(ctx, s, x, y, maxW, col, DaKit.S7);
-    }
-
-    private int txtEch(GuiGraphicsExtractor ctx, String s, int x, int y, int maxW, int col, float k) {
-        if (s == null || s.isEmpty() || maxW <= 4) return 0;
-        String f = fit(s, (int) Math.floor(maxW / k));
-        DaKit.texteEchelle(ctx, font, RebornFont.body(f), x, y, col, k);
-        if (!f.equals(s)) tip(x, y - 1, maxW, Math.round(10 * k), s);
-        return Math.round(font.width(RebornFont.body(f)) * k);
-    }
-
-    /** Coupe s (Inter 9) par « … » pour tenir dans maxW (mémorisé). */
-    protected String fit(String s, int maxW) { return coupe(s, maxW, 0); }
-
-    /** Coupe s (Inter gras 9). */
-    protected String fitG(String s, int maxW) { return coupe(s, maxW, 1); }
-
-    /** Coupe s (ArcadePix ×1). */
-    protected String fitArc(String s, int maxW) { return coupe(s, maxW, 2); }
-
-    /** Coupe s (ArcadePix ×0,5 des petits boutons). */
-    protected String fitArcFin(String s, int maxW) { return coupe(s, maxW, 3); }
-
-    private String coupe(String s, int maxW, int police) {
-        if (s == null) return "";
-        String cle = police + ":" + maxW + ":" + s;
-        String r = fitCache.get(cle);
-        if (r != null) return r;
-        if (fitCache.size() > 4000) fitCache.clear();
-        r = s;
-        if (largeur(r, police) > maxW) {
-            String t = s;
-            while (t.length() > 1 && largeur(t + "…", police) > maxW) t = t.substring(0, t.length() - 1);
-            r = t.stripTrailing() + "…";
-        }
-        fitCache.put(cle, r);
-        return r;
-    }
-
-    private float largeur(String s, int police) {
-        return switch (police) {
-            case 1 -> font.width(gras(s));
-            case 2 -> font.width(DaKit.arcade(s)) - 1;
-            case 3 -> DaKit.largeurFin(font, DaKit.arcade(s));
-            default -> font.width(RebornFont.body(s));
-        };
-    }
-
-    protected boolean hover(int x, int y, int w, int h) {
-        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
-    }
-
-    /** Le bouton est-il dans la zone visible du corps (pas masqué par le défilement) ? */
-    protected boolean visible(int y, int h) {
-        return y >= vy0() - 1 && y + h <= vy1() + 1;
-    }
-
-    protected List<String> wrap(String s, int maxW) {
-        List<String> out = new ArrayList<>();
-        StringBuilder line = new StringBuilder();
-        for (String word : s.split(" ")) {
-            String next = line.isEmpty() ? word : line + " " + word;
-            if (font.width(RebornFont.body(next)) > maxW && !line.isEmpty()) {
-                out.add(line.toString());
-                line = new StringBuilder(word);
-            } else {
-                line = new StringBuilder(next);
-            }
-        }
-        if (!line.isEmpty()) out.add(line.toString());
-        if (out.isEmpty()) out.add("");
-        for (int i = 0; i < out.size(); i++) out.set(i, fit(out.get(i), maxW));   // un mot plus long que la ligne
-        return out;
-    }
-
-    /**
-     * Disposition en flux (puces de filtres) : pour des largeurs données, renvoie {x relatif, rangée} de chaque
-     * élément dans la largeur maxW.
-     */
-    protected static int[][] flux(int[] largeurs, int maxW, int gap) {
-        int[][] out = new int[largeurs.length][2];
-        int x = 0, r = 0;
-        for (int i = 0; i < largeurs.length; i++) {
-            if (x > 0 && x + largeurs[i] > maxW) { x = 0; r++; }
-            out[i][0] = x;
-            out[i][1] = r;
-            x += largeurs[i] + gap;
-        }
-        return out;
-    }
-
     /* =================================================================== JSON + grades */
 
-    protected static String str(JsonObject o, String k) {
+    static String str(JsonObject o, String k) {
         try { return o != null && o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : ""; }
         catch (RuntimeException e) { return ""; }
     }
 
-    protected static int num(JsonObject o, String k) {
+    static int num(JsonObject o, String k) {
         try { return o != null && o.has(k) ? o.get(k).getAsInt() : 0; } catch (RuntimeException e) { return 0; }
     }
 
-    protected static long lng(JsonObject o, String k) {
+    static long lng(JsonObject o, String k) {
         try { return o != null && o.has(k) ? o.get(k).getAsLong() : 0L; } catch (RuntimeException e) { return 0L; }
     }
 
-    protected static boolean bool(JsonObject o, String k) {
+    static boolean bool(JsonObject o, String k) {
         try { return o != null && o.has(k) && o.get(k).getAsBoolean(); } catch (RuntimeException e) { return false; }
     }
 
-    protected static JsonArray arr(JsonObject o, String k) {
+    static JsonArray arr(JsonObject o, String k) {
         return o != null && o.has(k) && o.get(k).isJsonArray() ? o.getAsJsonArray(k) : new JsonArray();
     }
 
-    protected static JsonObject obj(JsonObject o, String k) {
+    static JsonObject obj(JsonObject o, String k) {
         return o != null && o.has(k) && o.get(k).isJsonObject() ? o.getAsJsonObject(k) : null;
     }
 
-    protected static String join(JsonArray a) {
-        List<String> parts = new ArrayList<>();
-        for (JsonElement e : a) parts.add(e.getAsString());
-        return String.join(" · ", parts);
-    }
-
-    protected static String name(JsonObject p) {
+    static String name(JsonObject p) {
         return str(p, "perso").isEmpty() ? str(p, "name") : str(p, "perso");
     }
 
-    protected static int grade(JsonObject snap) { return num(snap, "grade"); }
+    static int grade(JsonObject snap) { return num(snap, "grade"); }
 
-    protected static String gradeName(int g) {
+    static String gradeName(int g) {
         return switch (g) { case 1 -> "Helper"; case 2 -> "Modo"; case 3 -> "Admin"; case 4 -> "Owner"; default -> "Joueur"; };
     }
 
-    protected static String gradeShort(int g) { return "[" + gradeName(g) + "]"; }
-
-    protected static int gradeColor(int g) {
-        return switch (g) { case 1 -> 0xFF2F6A7A; case 2 -> 0xFF8A5A0C; case 3 -> LACQUER; case 4 -> 0xFF3B2A12; default -> INK_SOFT; };
-    }
-
-    protected static int kindColor(String kind) {
-        return switch (kind) {
-            case "agression" -> LACQUER;
-            case "aide" -> 0xFFD97706;
-            case "mort" -> 0xFF5A0A12;
-            case "yeux" -> 0xFF7A1322;
-            case "vol" -> 0xFF8A5A0C;
-            case "signalement" -> 0xFF6B4FA0;
-            case "soin" -> OK;
-            case "ko" -> 0xFF6B4FA0;
-            case "sanction" -> LACQUER;
-            case "tp" -> 0xFF2F6A7A;
-            case "monde" -> 0xFF8A5A0C;
-            default -> INK_SOFT;
-        };
+    static int gradeColor(int g) {
+        return switch (g) { case 1 -> 0xFF78B4C0; case 2 -> TERRE; case 3 -> ROUGE; case 4 -> OR; default -> GRIS; };
     }
 }

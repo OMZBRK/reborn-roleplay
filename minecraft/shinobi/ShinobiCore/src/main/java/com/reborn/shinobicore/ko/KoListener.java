@@ -63,6 +63,35 @@ public final class KoListener implements Listener {
         this.plugin = plugin;
     }
 
+    /* ========================================== l'attaquant doit être en état */
+
+    /**
+     * Correctif urgent (ETATS_JOUEUR §2.4 n° 2) : ShinobiCore annulait les dégâts <b>reçus</b> par un KO mais pas ceux
+     * qu'il <b>donne</b> (projectile, technique, coup). Avant tout le reste (LOWEST) : un joueur KO, mort en scène,
+     * gelé ou en cinématique ne blesse personne.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onAttackerState(EntityDamageByEntityEvent ev) {
+        Player attacker = attackerOf(ev);
+        if (attacker == null) return;
+        if (attaqueInterdite(attacker.getUniqueId())) ev.setCancelled(true);
+    }
+
+    /** Pas de projectile (arc, kunai, boule de neige…) lancé par un corps hors d'état, ni par un étourdi. */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onLaunch(org.bukkit.event.entity.ProjectileLaunchEvent ev) {
+        if (!(ev.getEntity().getShooter() instanceof Player shooter)) return;
+        UUID id = shooter.getUniqueId();
+        if (attaqueInterdite(id) || com.reborn.shinobicore.etat.Verrous.etourdi(id)) ev.setCancelled(true);
+    }
+
+    private boolean attaqueInterdite(UUID id) {
+        return plugin.ko().isKo(id)
+                || com.reborn.shinobicore.etat.Verrous.mort(id)
+                || com.reborn.shinobicore.etat.Verrous.gele(id)
+                || com.reborn.shinobicore.etat.Verrous.cinematique(id);
+    }
+
     /* =================================================== damage cap + KO entry */
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -299,6 +328,8 @@ public final class KoListener implements Listener {
         // Drop any carry mount the leaving player was on/holding.
         UUID id = ev.getPlayer().getUniqueId();
         plugin.porter().releaseAllInvolving(id);
+        // KO hors ligne : minuteur figé, reprise au retour (décision du 14/10).
+        plugin.ko().pauseOffline(id);
     }
 
     /* ============================================================ input lock */

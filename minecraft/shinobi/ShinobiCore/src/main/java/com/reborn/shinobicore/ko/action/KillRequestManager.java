@@ -99,12 +99,12 @@ public final class KillRequestManager {
                 + (online == 0 ? " (aucun staff en ligne : elle attend au Poste de garde tant que la cible est KO)." : "."),
                 NamedTextColor.GRAY));
 
-        // 2) la demande tombe si la victime n'est plus KO ou se déconnecte
+        // 2) la demande tombe si la victime n'est plus KO. Une déconnexion ne la fait plus tomber (décision du 14/10) :
+        //    le KO est figé hors ligne et la demande attend son retour (ETATS_JOUEUR §2.4 n° 15).
         BukkitTask watch = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             KillRequest live = pending.get(id);
             if (live == null) return;
-            Player t = Bukkit.getPlayer(live.targetPlayerId());
-            if (t == null || !plugin.ko().isKo(live.targetPlayerId())) {
+            if (!plugin.ko().isKo(live.targetPlayerId())) {
                 pending.remove(id);
                 if (live.timeoutTask() != null) live.timeoutTask().cancel();
                 if (plugin.staffPanel() != null) plugin.staffPanel().onKillClosed(live.id());

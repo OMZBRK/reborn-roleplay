@@ -7,7 +7,9 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,8 +18,6 @@ import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.player.PlayerInputEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
@@ -51,6 +51,10 @@ import java.util.UUID;
  * s'accroupissant : seul le porteur dépose.
  */
 public final class PorterManager implements Listener {
+
+    /** Lenteur du porteur (comme une lenteur II) en modificateur nommé : ni potion infinie qui survit au crash, ni
+     *  retrait par type qui effaçait l'étourdi ou la lenteur d'ATA du porteur (ETATS_JOUEUR §9 étape 0). */
+    private static final NamespacedKey LENTEUR_PORTEUR = new NamespacedKey("shinobicore", "porteur");
 
     private final ShinobiCore plugin;
 
@@ -105,6 +109,9 @@ public final class PorterManager implements Listener {
         if (target.getVehicle() != null) return false;
         if (plugin.ko().isKo(carrier.getUniqueId()) || isPain(carrier.getUniqueId())
                 || carrier.getVehicle() != null) return false;
+        // Correctifs urgents (ETATS_JOUEUR §9 étape 0) : ni porter un gelé, un staff en mode staff ou un invisible,
+        // ni porter quand on est soi-même gelé, en mode staff ou en cinématique.
+        if (refuse(carrier, target)) return false;
         Long protect = noCarryUntil.get(target.getUniqueId());
         if (protect != null && protect > System.currentTimeMillis()) {
             carrier.sendActionBar(Component.text("Il vient de se dégager : attends un instant.", NamedTextColor.GRAY));
@@ -117,8 +124,7 @@ public final class PorterManager implements Listener {
         if (st != null) st.setCarrierPlayerId(carrier.getUniqueId());
 
         carrier.addPassenger(target);
-        carrier.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
-                Integer.MAX_VALUE, 1, true, false, false));
+        com.reborn.shinobicore.util.Effets.lenteur(carrier, LENTEUR_PORTEUR, 2);
 
         byCarrier.put(carrier.getUniqueId(), target.getUniqueId());
         byCarried.put(target.getUniqueId(), carrier.getUniqueId());
@@ -142,6 +148,27 @@ public final class PorterManager implements Listener {
         return plugin.douleur() != null && plugin.douleur().isInPain(id);
     }
 
+    /** Gel, mode staff, invisibilité, cinématique : personne ne porte ni n'est porté. */
+    private boolean refuse(Player carrier, Player target) {
+        UUID c = carrier.getUniqueId(), t = target.getUniqueId();
+        if (com.reborn.shinobicore.etat.Verrous.gele(c) || com.reborn.shinobicore.etat.Verrous.horsJeu(c)
+                || com.reborn.shinobicore.etat.Verrous.cinematique(c)) return true;
+        if (com.reborn.shinobicore.etat.Verrous.gele(t)) {
+            carrier.sendActionBar(Component.text("Gelé par le staff : on n'y touche pas.", NamedTextColor.GRAY));
+            return true;
+        }
+        return com.reborn.shinobicore.etat.Verrous.horsJeu(t)
+                || (plugin.vanish() != null && plugin.vanish().isVanished(t));
+    }
+
+    /** Le porteur tombe KO d'un coup (sans passer par la douleur) : il lâche ce qu'il porte ou tient. */
+    @EventHandler(priority = org.bukkit.event.EventPriority.MONITOR)
+    public void onKoEnter(com.reborn.shinobicore.event.KoEnterEvent ev) {
+        UUID id = ev.player().getUniqueId();
+        if (byCarrier.containsKey(id)) release(id);
+        if (plugin.corps() != null) plugin.corps().onActorDisabled(ev.player(), "Tu perds connaissance.");
+    }
+
     /** Porteur de ce corps, ou null. */
     public UUID carrierOf(UUID bodyId) { return byCarried.get(bodyId); }
 
@@ -162,7 +189,7 @@ public final class PorterManager implements Listener {
         Player carrier = Bukkit.getPlayer(carrierId);
         Player body    = Bukkit.getPlayer(bodyId);
         if (carrier != null) {
-            carrier.removePotionEffect(PotionEffectType.SLOWNESS);
+            com.reborn.shinobicore.util.Effets.retirer(carrier, Attribute.MOVEMENT_SPEED, LENTEUR_PORTEUR);
         }
         if (body != null && body.getVehicle() != null) {
             releasing = true;
@@ -356,6 +383,12 @@ public final class PorterManager implements Listener {
             Player body    = Bukkit.getPlayer(bodyId);
             if (carrier == null || body == null) {
                 releaseAllInvolving(carrierId);
+                continue;
+            }
+            // Porteur hors d'état (KO, douleur, mort, gel) : il dépose — filet de sécurité derrière onKoEnter.
+            if (plugin.ko().isKo(carrierId) || isPain(carrierId) || com.reborn.shinobicore.etat.Verrous.gele(carrierId)
+                    || (plugin.deathScene() != null && plugin.deathScene().isDead(carrierId))) {
+                release(carrierId);
                 continue;
             }
             // If anything broke the passenger relationship (e.g.

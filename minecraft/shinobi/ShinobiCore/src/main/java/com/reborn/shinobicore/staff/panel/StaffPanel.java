@@ -60,6 +60,9 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     private record Alert(String id, String kind, UUID target, String motif, List<String> ctx, int score, long at) { }
     private record ChatLine(long at, int grade, String name, String text, boolean sys) { }
+    /** Alerte traitée (Poste de garde v3, onglets « Traitées » / « Les miennes ») : qui, quoi, quand. */
+    private record Traitee(long at, String kind, UUID target, String par, UUID parId, String quoi) { }
+    private final Deque<Traitee> traitees = new ArrayDeque<>();
     private record Said(long at, String text) { }
 
     private final ShinobiCore plugin;
@@ -181,9 +184,17 @@ public final class StaffPanel implements Listener, PluginMessageListener {
             case "modestaff" -> {
                 if (plugin.outilsStaff() == null) return;
                 boolean on = plugin.outilsStaff().mode().basculer(p);
-                toast(p, on ? "Mode staff activé." : "Mode staff désactivé.");
+                toast(p, on ? "Mode staff activé : invisible, aucune mécanique RP." : "Mode staff désactivé.");
                 sendSnapshot(p);
             }
+            case "modeanim" -> {
+                if (plugin.outilsStaff() == null) return;
+                if (!com.reborn.shinobicore.staff.outils.ModeAnimation.permis(p)) { toast(p, "Réservé aux animateurs et MJ."); return; }
+                boolean on = plugin.outilsStaff().animation().basculer(p);
+                toast(p, on ? "Mode animation : mécaniques RP permises, tout est journalisé." : "Mode animation désactivé.");
+                sendSnapshot(p);
+            }
+            case "cherche" -> cherche(p, in);
             case "sanction" -> {
                 UUID t = uuid(in, "t");
                 if (t != null) sanction(p, grade, t, str(in, "o"), in.has("warnOnly") && in.get("warnOnly").getAsBoolean(),
@@ -193,11 +204,13 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 long kid;
                 try { kid = Long.parseLong(str(in, "id").replace("kill-", "")); } catch (NumberFormatException e) { return; }
                 if (grade < StaffGrades.MODO) { toast(p, "Réservé aux modérateurs et plus."); return; }
+                traiter(str(in, "id"), p, "ok".equals(str(in, "v")) ? "a validé la mise à mort" : "a refusé la mise à mort");
                 if ("ok".equals(str(in, "v"))) plugin.killRequests().approveWithReason(p, kid, str(in, "note"));
                 else plugin.killRequests().refuse(p, kid);
                 sendSnapshot(p);
             }
             case "dismiss" -> {
+                traiter(str(in, "id"), p, "l'a ignorée");
                 dismissed.add(str(in, "id"));
                 alerts.remove(str(in, "id"));
                 log(p, "alerte", "Alerte ignorée", str(in, "id"));
@@ -316,6 +329,23 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         o.add("commands", commands());
         var outils = plugin.outilsStaff();
         o.addProperty("modeStaff", outils != null && outils.mode().actif(viewer.getUniqueId()));
+        o.addProperty("modeAnim", outils != null && outils.animation().actif(viewer.getUniqueId()));
+        o.addProperty("animPossible", com.reborn.shinobicore.staff.outils.ModeAnimation.permis(viewer));
+        JsonArray tr = new JsonArray();
+        for (Traitee x : traitees) {
+            JsonObject j = new JsonObject();
+            Player tp = Bukkit.getPlayer(x.target());
+            ShinobiCharacter tc = tp != null ? plugin.characters().getActive(x.target()) : null;
+            j.addProperty("kind", x.kind());
+            j.addProperty("pid", tc != null && tc.hasPlayerId() ? com.reborn.shinobicore.character.PlayerIds.format(tc.playerId()) : "");
+            j.addProperty("perso", tc != null ? tc.name() : store.nameOf(x.target()));
+            j.addProperty("par", x.parId().equals(viewer.getUniqueId()) ? "Toi" : x.par());
+            j.addProperty("quoi", x.quoi());
+            j.addProperty("time", hm(x.at()));
+            j.addProperty("moi", x.parId().equals(viewer.getUniqueId()));
+            tr.add(j);
+        }
+        o.add("traitees", tr);
         JsonArray cats = new JsonArray();
         for (var c : com.reborn.shinobicore.api.JournalService.Categorie.values()) {
             JsonObject j = new JsonObject();
@@ -350,6 +380,7 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         j.addProperty("gele", frozen(id));
         j.addProperty("noir", outils != null && outils.effets().enNoir(id));
         j.addProperty("modeStaff", outils != null && outils.mode().actif(id));
+        j.addProperty("modeAnim", outils != null && outils.animation().actif(id));
         return j;
     }
 
@@ -385,6 +416,13 @@ public final class StaffPanel implements Listener, PluginMessageListener {
             o.addProperty("chakra", Math.round(c.chakra().current()));
             o.addProperty("chakraMax", Math.round(c.chakra().max()));
             o.addProperty("ryo", c.ryo());
+            // Nourriture (14/10) : entreprise(s) et satiété, une ligne de la fiche.
+            var nour = plugin.nourriture();
+            if (nour != null) {
+                String ent = nour.entreprises().resume(c.id());
+                if (!ent.isEmpty()) o.addProperty("entreprise", ent);
+                o.addProperty("satiete", Math.round(nour.satiete().satiete(p)));
+            }
         }
         o.addProperty("frozen", frozen(id));
         var outils = plugin.outilsStaff();
@@ -576,7 +614,77 @@ public final class StaffPanel implements Listener, PluginMessageListener {
             }
             default -> { return; }
         }
+        String alerte = str(in, "alerte");
+        if (!alerte.isEmpty()) {
+            String quoi = switch (op) { case "tp" -> "y est allé"; case "watch" -> "l'a observé"; case "announce" -> "a répondu"; default -> "a agi"; };
+            if (traiter(alerte, staff, quoi)) alerts.remove(alerte);
+        }
         sendProfile(staff, id);
+    }
+
+    /** Range une alerte dans les « traitées » (20 dernières). Renvoie false si elle n'existe plus. */
+    private boolean traiter(String alertId, Player staff, String quoi) {
+        Alert a = alerts.get(alertId);
+        if (a == null) return false;
+        traitees.addFirst(new Traitee(System.currentTimeMillis(), a.kind(), a.target(), staff.getName(), staff.getUniqueId(), quoi));
+        while (traitees.size() > 20) traitees.pollLast();
+        return true;
+    }
+
+    /** Mode staff / animation du joueur, pour l'indicateur discret du mod (message {@code mode}). */
+    public void envoyerMode(Player p) {
+        if (!modded(p)) return;
+        var o = plugin.outilsStaff();
+        JsonObject j = new JsonObject();
+        j.addProperty("t", "mode");
+        j.addProperty("staff", o != null && o.mode().actif(p.getUniqueId()));
+        j.addProperty("anim", o != null && o.animation().actif(p.getUniqueId()));
+        send(p, j);
+    }
+
+    /**
+     * Recherche universelle du Poste de garde ({@code a: cherche}) : personnages de l'index des N° (hors ligne
+     * compris) dont le N°, le nom RP ou le pseudo du compte correspond. 20 résultats au plus.
+     */
+    private void cherche(Player viewer, JsonObject in) {
+        String q = str(in, "q").trim().toLowerCase(java.util.Locale.ROOT);
+        JsonObject r = new JsonObject();
+        r.addProperty("t", "cherche");
+        r.addProperty("req", intDe(in, "req", 0));
+        r.addProperty("q", q);
+        JsonArray js = new JsonArray();
+        if (q.length() >= 2 && plugin.playerIds() != null) {
+            String[] mots = q.split(" +");
+            for (var e : plugin.playerIds().entries()) {
+                if (e.deleted()) continue;
+                String pseudo = store.nameOf(e.ownerId());
+                String pid = com.reborn.shinobicore.character.PlayerIds.format(e.number());
+                boolean ok = true;
+                for (String w : mots) {
+                    String d = w.startsWith("#") ? w.substring(1) : w;
+                    boolean num = !d.isEmpty() && d.chars().allMatch(Character::isDigit);
+                    boolean m = num ? pid.contains(d) || String.valueOf(e.number()).equals(d.replaceFirst("^0+(?=.)", ""))
+                            : e.name().toLowerCase(java.util.Locale.ROOT).contains(w) || pseudo.toLowerCase(java.util.Locale.ROOT).contains(w);
+                    if (!m) { ok = false; break; }
+                }
+                if (!ok) continue;
+                Player en = Bukkit.getPlayer(e.ownerId());
+                ShinobiCharacter actif = en != null ? plugin.characters().getActive(e.ownerId()) : null;
+                boolean online = actif != null && actif.hasPlayerId() && actif.playerId() == e.number();
+                JsonObject j = new JsonObject();
+                j.addProperty("uuid", e.ownerId().toString());
+                j.addProperty("pid", pid);
+                j.addProperty("perso", e.name());
+                j.addProperty("name", pseudo);
+                j.addProperty("online", online);
+                long vu = store.vuLe(e.ownerId());
+                j.addProperty("vu", en != null ? "en ligne (autre perso)" : vu > 0 ? ago(vu) : "");
+                js.add(j);
+                if (js.size() >= 20) break;
+            }
+        }
+        r.add("joueurs", js);
+        send(viewer, r);
     }
 
     /* ================================================================ journal universel, notes */
@@ -745,6 +853,19 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         String key = "aide-" + p.getUniqueId();
         alerts.put(key, new Alert(key, "aide", p.getUniqueId(), "Appel à l'aide · à terre",
                 List.of(place(p.getLocation())), 0, System.currentTimeMillis()));
+    }
+
+    /**
+     * Déconnexion en combat (moins de 15 s après un coup porté ou reçu, {@link com.reborn.shinobicore.etat.EnCombat}) :
+     * alerte au Poste de garde + ligne au chat staff ; pas de sanction automatique (décision du 14/10). Le libellé
+     * sert de type tant que le mod n'a pas de pictogramme dédié.
+     */
+    public void onDecoEnCombat(Player p, String contre, Location at) {
+        long now = System.currentTimeMillis();
+        String key = "deco-" + p.getUniqueId() + "-" + now;
+        alerts.put(key, new Alert(key, "Déco en combat", p.getUniqueId(), "Déconnexion en plein combat · contre " + contre,
+                List.of(place(at)), 20, now));
+        system("Déconnexion en combat : " + persoName(p) + " (contre " + contre + ") · " + place(at) + ".");
     }
 
     /** Demande de mise à mort RP : attend la décision du staff. */
@@ -922,7 +1043,8 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 {"Joueurs et modération", "/journal [#N°] [catégorie] [h:24]", "Journal universel (tout est tracé)", "1"},
                 {"Joueurs et modération", "/note <#N°> ajouter <texte>", "Notes staff sur un personnage", "1"},
                 {"Joueurs et modération", "/annoncejoueur <joueur> <message>", "Message à un seul joueur", "1"},
-                {"Joueurs et modération", "/modestaff", "Mode staff : invisible, plaques au-dessus des têtes", "1"},
+                {"Joueurs et modération", "/modestaff", "Mode staff : invisible, aucune mécanique RP, plaques au-dessus des têtes", "1"},
+                {"Joueurs et modération", "/modeanim", "Mode animation (animateur / MJ) : jouer pour un event, tout est journalisé", "1"},
                 {"Joueurs et modération", "/ramener <joueur>", "Ramener un joueur (/retour <joueur> pour le renvoyer)", "2"},
                 {"Joueurs et modération", "/geler <joueur> [motif]", "Gel persistant (/degeler)", "2"},
                 {"Joueurs et modération", "/voirsac <joueur>", "Voir barre, sacoche et équipement", "2"},

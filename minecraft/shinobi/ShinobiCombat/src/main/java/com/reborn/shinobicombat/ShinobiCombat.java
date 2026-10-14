@@ -57,6 +57,10 @@ public final class ShinobiCombat extends JavaPlugin {
             var c = characters.getActive(owner);
             return c == null ? StaminaManager.DEFAULT_MAX : stats.maxStamina(c.id());
         });
+        // Récupération modulée par les modificateurs de ShinobiCore (FAIM, Fatigue, dango… — nourriture, 14/10).
+        final com.reborn.shinobicore.api.ModificateurService modifs =
+                services.load(com.reborn.shinobicore.api.ModificateurService.class);
+        if (modifs != null) stamina.setRegenMultiplier(id -> modifs.multiplicateur(id, "endurance_regen"));
         // Techniques de taïjutsu / bukijutsu payées en endurance (ShinobiAbilities).
         services.register(com.reborn.shinobicore.api.EnduranceService.class,
                 new com.reborn.shinobicombat.combat.EnduranceBridge(this, stamina),
@@ -68,8 +72,12 @@ public final class ShinobiCombat extends JavaPlugin {
         CombatListener combat = new CombatListener(this, characters, ko, stamina, stats, attribution);
         getServer().getPluginManager().registerEvents(combat, this);
         // Étourdissement → ShinobiCore (sacoche en lecture seule, ramassage refusé).
+        // + garde (lue par ShinobiCore : pas de technique ni de mobilité en garde, décision du 14/10).
         services.register(com.reborn.shinobicore.api.StunService.class,
-                (com.reborn.shinobicore.api.StunService) combat::isStunned,
+                new com.reborn.shinobicore.api.StunService() {
+                    @Override public boolean isStunned(java.util.UUID id) { return combat.isStunned(id); }
+                    @Override public boolean isGuarding(java.util.UUID id) { return combat.isGuarding(id); }
+                },
                 this, org.bukkit.plugin.ServicePriority.Normal);
 
         // Le taïjutsu (M1) passe par l'event de dégât mêlée vanilla, qui ne NAÎT
@@ -124,6 +132,7 @@ public final class ShinobiCombat extends JavaPlugin {
     @Override
     public void onDisable() {
         if (regenTask != null) regenTask.cancel();
+        CombatListener.libererTout(this);   // étourdi / garde : rien ne reste figé après un rechargement
         if (getServer().getMessenger().isOutgoingChannelRegistered(this, CombatChannel.CHANNEL)) {
             getServer().getMessenger().unregisterOutgoingPluginChannel(this, CombatChannel.CHANNEL);
         }

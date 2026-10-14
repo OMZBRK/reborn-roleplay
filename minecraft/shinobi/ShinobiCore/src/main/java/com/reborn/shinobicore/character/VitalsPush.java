@@ -17,7 +17,9 @@ import java.io.IOException;
  * dépense/régén de chakra), sans attendre le prochain tick tablist.
  *
  * <p>Corps du paquet = 4 entiers bruts {@code hp, maxHp, chakra, maxChakra}
- * (DataOutputStream, big-endian) — contrat miroir de {@code VitalsPayload} côté mod.
+ * (DataOutputStream, big-endian) — contrat miroir de {@code VitalsPayload} côté mod. Pour un mod qui déclare
+ * {@code reborn:nourriture}, 4 entiers de plus : satiété ‰, satiété à venir ‰ (repas en cours), pause de la
+ * régénération (s), drapeaux (1 régénère, 2 affamé, 4 FAIM, 8 ATA, 16 satiété figée).
  * Envoyé seulement aux joueurs ayant un personnage actif.
  */
 public final class VitalsPush {
@@ -61,9 +63,12 @@ public final class VitalsPush {
             if (attr != null) maxHp = attr.getValue();
             byte[] body;
             try {
+                // Nourriture (14/10) : satiété ‰, à venir ‰, pause de régénération (s), drapeaux — ajoutés
+                // seulement pour un mod qui déclare reborn:nourriture (un ancien mod lit 4 entiers exactement).
+                int[] ext = plugin.nourriture() == null ? null : plugin.nourriture().vitalsEtendus(p);
                 body = encode(
                         (int) Math.round(p.getHealth()), (int) Math.round(Math.max(1.0, maxHp)),
-                        (int) Math.round(c.chakra().current()), (int) Math.round(c.chakra().max()));
+                        (int) Math.round(c.chakra().current()), (int) Math.round(c.chakra().max()), ext);
             } catch (IOException e) {
                 continue;
             }
@@ -71,13 +76,14 @@ public final class VitalsPush {
         }
     }
 
-    private static byte[] encode(int hp, int mhp, int ck, int mck) throws IOException {
-        ByteArrayOutputStream b = new ByteArrayOutputStream(16);
+    private static byte[] encode(int hp, int mhp, int ck, int mck, int[] ext) throws IOException {
+        ByteArrayOutputStream b = new ByteArrayOutputStream(32);
         try (DataOutputStream out = new DataOutputStream(b)) {
             out.writeInt(hp);
             out.writeInt(mhp);
             out.writeInt(ck);
             out.writeInt(mck);
+            if (ext != null) for (int v : ext) out.writeInt(v);
         }
         return b.toByteArray();
     }

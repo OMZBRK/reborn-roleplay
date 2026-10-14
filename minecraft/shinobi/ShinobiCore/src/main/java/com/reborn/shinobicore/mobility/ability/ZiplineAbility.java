@@ -117,6 +117,12 @@ public class ZiplineAbility implements MobilityAbility {
             actionBar(p, "Zipline désactivée.", NamedTextColor.RED);
             return false;
         }
+        // Correctif urgent (ETATS_JOUEUR §2.4 n° 1) : refus par état (KO, gel, mort, cinématique, étourdi…).
+        String refus = com.reborn.shinobicore.etat.Verrous.mobilite(id);
+        if (refus != null) {
+            actionBar(p, refus, NamedTextColor.RED);
+            return false;
+        }
         if (!p.hasPermission("shinobicore.mobility.zipline")) {
             actionBar(p, "Tu n'as pas la permission d'utiliser la Zipline.", NamedTextColor.RED);
             return false;
@@ -235,6 +241,7 @@ public class ZiplineAbility implements MobilityAbility {
     public boolean tryActivateNear(Player p) {
         UUID id = p.getUniqueId();
         if (traveling.containsKey(id)) return false;  // already riding
+        if (com.reborn.shinobicore.etat.Verrous.mobilite(id) != null) return false;   // KO, gel, étourdi… (§2.4 n° 1)
 
         double actRadius = plugin.getConfig().getDouble("mobility.zipline.activation-radius", 3.0);
         double r2 = actRadius * actRadius;
@@ -295,6 +302,7 @@ public class ZiplineAbility implements MobilityAbility {
     private void tickTravel(Player p, Travel t, double speed, long maxTicks) {
         UUID id = p.getUniqueId();
         if (!p.isOnline() || p.isDead()) { cancelTravel(id); return; }
+        if (com.reborn.shinobicore.etat.Verrous.mobilite(id) != null) { cancelTravel(id); return; }
         if (traveling.get(id) != t) { if (t.task != null) t.task.cancel(); return; }
         if (++t.ticks > maxTicks)  { cancelTravel(id); return; }
 

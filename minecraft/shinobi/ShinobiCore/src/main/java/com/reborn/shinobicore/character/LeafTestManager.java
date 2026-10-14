@@ -28,7 +28,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * #onPluginMessageReceived} lance {@link #runTest} : tirage <b>pondéré par le
  * clan</b> (Uchiha→Katon…), attribution ({@code addChakraAffinity}+save, cadenas
  * niveau 6/12, max 3), effet in-world (particules + son, vu par tous), puis envoi
- * du résultat {@code <NATURE>|<clan>} qui ouvre le popup animé du mod.
+ * du résultat {@code <NATURE>|<clan>|<AUTRES>} qui ouvre le test animé du mod ({@code AUTRES} = natures déjà
+ * éveillées, séparées par des virgules, vide pour la première).
  */
 public final class LeafTestManager implements Listener, PluginMessageListener {
 
@@ -112,7 +113,12 @@ public final class LeafTestManager implements Listener, PluginMessageListener {
         p.getWorld().playSound(p.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.3f);
         elementBurst(p, picked);
 
-        send(p, picked.name() + "|" + (c.clan() == null ? "" : c.clan()));
+        // 3e champ : natures déjà éveillées (double nature → la feuille du mod réagit en bandes, une par nature)
+        StringBuilder autres = new StringBuilder();
+        for (ChakraAffinity a : ChakraAffinity.ROLLABLE) {
+            if (a != picked && c.hasChakraAffinity(a)) autres.append(autres.length() == 0 ? "" : ",").append(a.name());
+        }
+        send(p, picked.name() + "|" + (c.clan() == null ? "" : c.clan()) + "|" + autres);
         p.sendMessage(Component.text("La feuille réagit — affinité " + picked.displayName() + " éveillée.",
                 NamedTextColor.GREEN));
         return true;

@@ -1,0 +1,7 @@
+{
+ "credit": "Reborn \u2014 nourriture (tools/gen_nourriture_textures.py, 2026-10-14)",
+ "parent": "minecraft:item/generated",
+ "textures": {
+  "layer0": "reborn:item/plat_bento"
+ }
+}

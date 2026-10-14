@@ -122,6 +122,14 @@ public final class ParkourCommand implements CommandExecutor, TabCompleter {
                     p.sendMessage(Component.text("Parcours inconnu.", NamedTextColor.RED));
                     return true;
                 }
+                // Correctif urgent (ETATS_JOUEUR §2.4 n° 4) : le départ téléporte — refusé en KO, douleur, ATA, gel,
+                // porté, duel, combat récent (15 s), étourdi, mode staff… (évasion).
+                var ko = p.getServer().getServicesManager().load(com.reborn.shinobicore.api.KoService.class);
+                String refus = ko != null ? ko.teleportDenial(p.getUniqueId()) : null;
+                if (refus != null) {
+                    p.sendMessage(Component.text("Impossible de lancer le parcours : " + refus, NamedTextColor.RED));
+                    return true;
+                }
                 if (!runner.start(p, pk)) {
                     p.sendMessage(Component.text("Impossible de lancer ce parcours "
                             + "(déjà en cours, monde déchargé, ou moins de 2 ancres).",

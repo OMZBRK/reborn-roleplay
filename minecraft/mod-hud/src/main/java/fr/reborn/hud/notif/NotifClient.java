@@ -79,7 +79,7 @@ public final class NotifClient {
             case "gain", "perte" -> NotifHud.objet("gain".equals(t), (int) dbl(o, "q", 1), str(o, "nom", "Objet"),
                 str(o, "rar", "COMMUN"), str(o, "mat", null), str(o, "model", null), str(o, "suite", null));
             case "msg" -> NotifHud.message(str(o, "ton", "info"), str(o, "kj", null), str(o, "gras", null),
-                str(o, "texte", null));
+                str(o, "texte", null), str(o, "ic", null));
             case "arme" -> {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null) {

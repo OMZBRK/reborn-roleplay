@@ -22,5 +22,36 @@ public final class VitalsFeed {
         current = new Vitals(hp, Math.max(1, maxHp), chakra, Math.max(1, maxChakra));
     }
 
-    public static void clear() { current = null; }
+    public static void clear() { current = null; satiete = null; }
+
+    /**
+     * Satiété (nourriture, 14/10) : 0..1, à venir (repas en cours) 0..1, pause de la régénération (s), drapeaux
+     * ({@link #F_REGEN}…). {@code null} : serveur sans satiété → la barre or retombe sur la faim vanilla.
+     */
+    public record Satiete(float valeur, float aVenir, int pauseRegen, int drapeaux, long recuA) {
+        public boolean regenere() { return (drapeaux & F_REGEN) != 0; }
+        public boolean affame() { return (drapeaux & F_AFFAME) != 0; }
+        public boolean faim() { return (drapeaux & F_FAIM) != 0; }
+        /** Secondes de pause restantes, décomptées localement depuis la réception. */
+        public int pauseRestante() {
+            return Math.max(0, pauseRegen - (int) ((System.currentTimeMillis() - recuA) / 1000));
+        }
+    }
+
+    public static final int F_REGEN = 1, F_AFFAME = 2, F_FAIM = 4, F_ATA = 8, F_GELE = 16;
+
+    private static volatile Satiete satiete = null;
+
+    public static Satiete satiete() { return satiete; }
+
+    public static void satiete(int[] ext) {
+        if (ext == null || ext.length < 4) return;
+        satiete = new Satiete(Math.max(0, Math.min(1000, ext[0])) / 1000f, Math.max(0, ext[1]) / 1000f, ext[2], ext[3],
+            System.currentTimeMillis());
+    }
+
+    /** Banc d'essai : satiété simulée. */
+    public static void debugSatiete(float v, float aVenir, int pause, int drapeaux) {
+        satiete = new Satiete(v, aVenir, pause, drapeaux, System.currentTimeMillis());
+    }
 }

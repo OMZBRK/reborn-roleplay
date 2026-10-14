@@ -5,12 +5,14 @@ import com.reborn.shinobicore.character.gui.GuiSounds;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.GameMode;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -45,6 +47,9 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class StaffBuildManager implements Listener {
 
+    /** Marque dans le NBT du joueur (survit à un crash) : il était en construction. Lue à la connexion. */
+    private static final NamespacedKey MARQUE = new NamespacedKey("shinobicore", "construction");
+
     private final ShinobiCore plugin;
     private final Set<UUID> building = ConcurrentHashMap.newKeySet();
     private final Map<UUID, ItemStack[]> snapshots = new HashMap<>();
@@ -73,6 +78,7 @@ public final class StaffBuildManager implements Listener {
         }
         snapshots.put(id, cloneContents(p.getInventory().getContents()));
         building.add(id);
+        p.getPersistentDataContainer().set(MARQUE, PersistentDataType.BYTE, (byte) 1);
         p.setGameMode(GameMode.CREATIVE);
         p.sendMessage(Component.text(
                 "Mode construction ACTIVE — creatif. Ton inventaire RP est sauvegarde.",
@@ -97,6 +103,7 @@ public final class StaffBuildManager implements Listener {
     private boolean restore(Player p) {
         UUID id = p.getUniqueId();
         if (!building.remove(id)) return false;
+        p.getPersistentDataContainer().remove(MARQUE);
         p.setGameMode(GameMode.SURVIVAL);
         ItemStack[] snap = snapshots.remove(id);
         p.getInventory().clear();
@@ -135,6 +142,16 @@ public final class StaffBuildManager implements Listener {
             if (p != null) restore(p);
             else { building.remove(id); snapshots.remove(id); }
         }
+    }
+
+    /**
+     * Connexion après un arrêt brutal : le joueur portait encore la marque de construction (le mode, en mémoire, est
+     * perdu). Efface la marque et renvoie {@code true} — l'appelant le remet en survie (ETATS_JOUEUR §9 étape 0).
+     */
+    public static boolean marqueConstruction(Player p) {
+        if (!p.getPersistentDataContainer().has(MARQUE, PersistentDataType.BYTE)) return false;
+        p.getPersistentDataContainer().remove(MARQUE);
+        return true;
     }
 
     private static ItemStack[] cloneContents(ItemStack[] src) {

@@ -32,10 +32,11 @@ public final class CooldownState {
         CHAKRA_JUMP("Saut de chakra", 0xFF9B7FE0, "^", false, 1, 0L),
         // Indicateurs d'ÉTAT (pas de cooldown) : visibles tant qu'actifs via setActive(...).
         // COMBAT = « en combat » (activité : coup porté/reçu récemment), COURSE_CHAKRA =
-        // Naruto Run active. Icône = reborn:textures/gui/ability/{combat,course_chakra}.png
-        // quand livrée (sinon glyphe placeholder). Textures à fournir par l'user.
+        // Naruto Run active. Icônes peintes reborn:textures/gui/ability/{combat,course_chakra}.png (14/10,
+        // tools/gen_natures_textures.py ; course de chakra animée, 4 images à 100 ms). garde.png est livrée pour la
+        // parade (pas encore déclarée ici) ; l'esquive attend.
         COMBAT("En combat", 0xFFFF6B5C, "!!", false, 1, 0L),
-        COURSE_CHAKRA("Course de chakra", 0xFF62D0FF, "->", false, 1, 0L);
+        COURSE_CHAKRA("Course de chakra", 0xFF62D0FF, "->", false, 4, 100L);
 
         public final String label;
         public final int color;
@@ -64,7 +65,10 @@ public final class CooldownState {
     }
 
     /** Un mode-indicateur est-il actif ? */
-    public boolean isActive(Ability a) { return active.contains(a); }
+    public boolean isActive(Ability a) { return active.contains(a) || debugActifs.contains(a); }
+
+    /** Banc de captures (REBORN_AUDIT) : indicateurs forcés, que le tick de CombatInput ne remet pas à zéro. */
+    public final java.util.Set<Ability> debugActifs = java.util.EnumSet.noneOf(Ability.class);
 
     /** Démarre (ou redémarre) le cooldown d'une capacité. */
     public void trigger(Ability a, long durationMs) {
@@ -89,5 +93,5 @@ public final class CooldownState {
         return Math.max(0L, c.duration - (now - c.start));
     }
 
-    public void clear() { map.clear(); active.clear(); }
+    public void clear() { map.clear(); active.clear(); debugActifs.clear(); }
 }

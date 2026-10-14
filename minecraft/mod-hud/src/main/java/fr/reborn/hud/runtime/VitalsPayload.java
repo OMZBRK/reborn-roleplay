@@ -11,7 +11,10 @@ import net.minecraft.resources.Identifier;
  * bruts {@code hp, maxHp, chakra, maxChakra} — alimente {@link VitalsFeed} pour un
  * HUD de vitals réellement live. Miroir du contrat serveur {@code VitalsPush}.
  */
-public record VitalsPayload(int hp, int maxHp, int chakra, int maxChakra) implements CustomPacketPayload {
+public record VitalsPayload(int hp, int maxHp, int chakra, int maxChakra, int[] ext) implements CustomPacketPayload {
+
+    /** Sans les champs de la nourriture (ancien serveur). */
+    public VitalsPayload(int hp, int maxHp, int chakra, int maxChakra) { this(hp, maxHp, chakra, maxChakra, null); }
 
     public static final Identifier IDENTIFIER = Identifier.fromNamespaceAndPath("reborn", "vitals");
     public static final CustomPacketPayload.Type<VitalsPayload> ID = new CustomPacketPayload.Type<>(IDENTIFIER);
@@ -19,7 +22,12 @@ public record VitalsPayload(int hp, int maxHp, int chakra, int maxChakra) implem
     public static final StreamCodec<FriendlyByteBuf, VitalsPayload> CODEC = new StreamCodec<>() {
         @Override
         public VitalsPayload decode(FriendlyByteBuf buf) {
-            return new VitalsPayload(buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt());
+            int hp = buf.readInt(), mhp = buf.readInt(), ck = buf.readInt(), mck = buf.readInt();
+            // Nourriture (14/10) : satiété ‰, à venir ‰, pause de régénération (s), drapeaux — si le serveur les envoie.
+            int[] ext = null;
+            if (buf.readableBytes() >= 16) ext = new int[] {buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt()};
+            buf.skipBytes(buf.readableBytes());
+            return new VitalsPayload(hp, mhp, ck, mck, ext);
         }
 
         @Override
@@ -28,6 +36,7 @@ public record VitalsPayload(int hp, int maxHp, int chakra, int maxChakra) implem
             buf.writeInt(value.maxHp);
             buf.writeInt(value.chakra);
             buf.writeInt(value.maxChakra);
+            if (value.ext != null) for (int v : value.ext) buf.writeInt(v);
         }
     };
 

@@ -188,6 +188,19 @@ public final class NarutoRun {
             syncToClient(p, false);
             return false;
         }
+        String refus = core.ko() != null ? core.ko().mobilityDenial(p.getUniqueId()) : null;   // étourdi, garde, gel…
+        if (refus != null) {
+            p.sendActionBar(Component.text(refus, NamedTextColor.RED));
+            syncToClient(p, false);
+            return false;
+        }
+        // Faim, Fatigue (nourriture, 14/10) : pas de course ninja.
+        String refusModif = com.reborn.shinobicore.api.ModificateurService.refusDe(p, "COURSE_NINJA");
+        if (refusModif != null) {
+            p.sendActionBar(Component.text(refusModif + " : pas de course ninja.", NamedTextColor.RED));
+            syncToClient(p, false);
+            return false;
+        }
         // Sacoche trop lourde (palier « Surchargé ») : pas de course de chakra.
         if (core.surcharge(p)) {
             syncToClient(p, false);
@@ -381,7 +394,9 @@ public final class NarutoRun {
                 ShinobiCharacter c = Players.active(core.characters(), p);
                 if (c == null) { stop(p, false); continue; }
                 if (core.ko() != null && core.ko().isImpaired(p.getUniqueId())) { stop(p, true); continue; }
+                if (core.ko() != null && core.ko().mobilityDenial(p.getUniqueId()) != null) { stop(p, true); continue; }
                 if (core.surcharge(p)) { stop(p, true); continue; }
+                if (com.reborn.shinobicore.api.ModificateurService.refusDe(p, "COURSE_NINJA") != null) { stop(p, true); continue; }
 
                 // Drain — task runs every 10 ticks = half the per-second cost.
                 double drain = costPerSecond() / 2.0;

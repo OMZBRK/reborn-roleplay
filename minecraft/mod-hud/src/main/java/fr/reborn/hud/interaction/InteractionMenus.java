@@ -167,7 +167,9 @@ public final class InteractionMenus {
         // NB : les commandes ShinobiCore /rencontrer /amitier /osculter ciblent
         // « la personne regardée » (pas d'argument) → fonctionnent si la cible est
         // à peu près devant. Les autres (porter/fouiller…) attendent un plugin.
-        return List.of(
+        java.util.List<InteractionItem> l = new java.util.ArrayList<>();
+        l.addAll(tendre(name));
+        l.addAll(List.of(
             InteractionItem.action("Saluer", () -> sendCommand("me salue " + name)),
             InteractionItem.action("Se présenter", () -> sendCommand("rencontrer")),
             InteractionItem.action("Message privé…", () -> openChat("/msg " + name + " ")),
@@ -176,7 +178,6 @@ public final class InteractionMenus {
             // porter / fouiller une personne consciente : pas encore de demande d'accord (RedLine) — grisés
             InteractionItem.disabled("Porter", "à terre ou en douleur"),
             InteractionItem.disabled("Fouiller", "à terre"),
-            InteractionItem.action("Échanger", () -> sendCommand("trade " + name)),
             duel(name),
             soinsDesYeux(name),
             InteractionItem.submenu("Animations", List.of(
@@ -193,7 +194,33 @@ public final class InteractionMenus {
                 InteractionItem.action("Geler", () -> sendCommand("freeze " + name)),
                 InteractionItem.action("Sanctionner", () -> sendCommand("sanction " + name))
             ))
-        );
+        ));
+        return l;
+    }
+
+    /**
+     * <b>Tendre</b> (décision du 14/10 : un geste, pas une fenêtre d'échange) : « Tendre &lt;objet en main&gt; » et
+     * « Donner des ryo » (montants courants, ou un montant tapé). L'autre prend avec F ou refuse avec Retour ; le serveur
+     * revérifie tout (distance, place, poids, solde) et journalise le don.
+     */
+    static List<InteractionItem> tendre(String name) {
+        java.util.List<InteractionItem> l = new java.util.ArrayList<>();
+        Minecraft mc = Minecraft.getInstance();
+        net.minecraft.world.item.ItemStack main = mc.player == null ? net.minecraft.world.item.ItemStack.EMPTY
+            : mc.player.getMainHandItem();
+        if (!main.isEmpty()) {
+            String quoi = main.getHoverName().getString() + (main.getCount() > 1 ? " ×" + main.getCount() : "");
+            l.add(InteractionItem.action("Tendre " + quoi, () -> sendCommand("tendre " + name)));
+        } else {
+            l.add(InteractionItem.disabled("Tendre", "rien en main"));
+        }
+        java.util.List<InteractionItem> ryo = new java.util.ArrayList<>();
+        for (int n : new int[] {10, 50, 100, 120, 150, 200, 500}) {
+            ryo.add(InteractionItem.action(n + " ryo", () -> sendCommand("tendre " + name + " ryo " + n)));
+        }
+        ryo.add(InteractionItem.action("Autre montant…", () -> openChat("/tendre " + name + " ryo ")));
+        l.add(InteractionItem.submenu("Donner des ryo", ryo));
+        return l;
     }
 
     public static List<InteractionItem> forEntity(Entity e) {

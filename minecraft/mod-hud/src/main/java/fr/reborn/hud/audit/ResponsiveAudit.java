@@ -113,13 +113,19 @@ public final class ResponsiveAudit {
         add("hud_cooldowns", 6, mc -> {
             fr.reborn.hud.ko.VolonteHud.clear();
             KoClient.update(null);
+            mc.setScreenAndShow(null);
             var cd = fr.reborn.hud.combat.CooldownState.INSTANCE;
-            cd.trigger(fr.reborn.hud.combat.CooldownState.Ability.values()[0], 7000);
-            if (fr.reborn.hud.combat.CooldownState.Ability.values().length > 1) {
-                cd.trigger(fr.reborn.hud.combat.CooldownState.Ability.values()[1], 30000);
-            }
+            cd.trigger(fr.reborn.hud.combat.CooldownState.Ability.DASH, 7000);
+            cd.trigger(fr.reborn.hud.combat.CooldownState.Ability.DOUBLE_JUMP, 30000);
+            cd.trigger(fr.reborn.hud.combat.CooldownState.Ability.CHAKRA_JUMP, 35000);
+            cd.debugActifs.add(fr.reborn.hud.combat.CooldownState.Ability.COMBAT);       // icônes peintes du 14/10
+            cd.debugActifs.add(fr.reborn.hud.combat.CooldownState.Ability.COURSE_CHAKRA);
         });
-        add("hud_normal", 6, mc -> { KoClient.update(null); mc.setScreenAndShow(null); });
+        add("hud_normal", 6, mc -> {
+            fr.reborn.hud.combat.CooldownState.INSTANCE.debugActifs.clear();
+            KoClient.update(null);
+            mc.setScreenAndShow(null);
+        });
 
         // ── Poste de garde ──
         for (String tab : new String[]{"alerts", "players", "journal", "annonces", "chat", "cmds"}) {
@@ -175,9 +181,17 @@ public final class ResponsiveAudit {
         screen("menu_fiche", fr.reborn.hud.menu.fiche.FicheScreen::new);
         screen("menu_tablist", fr.reborn.hud.menu.tablist.TablistScreen::new);
         screen("menu_carte", fr.reborn.hud.map.WorldMapScreen::new);
-        screen("menu_tirage", fr.reborn.hud.menu.tirage.TirageScreen::new);
+        // test de la Feuille (14/10) : signes, confirmation, concentration, réaction et résultat par nature, double nature
+        screen("menu_tirage_signes", () -> fr.reborn.hud.menu.tirage.TirageScreen.banc("RAITON", null, 0));
         screen("menu_tirage_confirmer", () -> fr.reborn.hud.menu.tirage.TirageScreen.confirm("Uchiha"));
-        add("menu_tirage_resultat", 120, mc -> mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen("RAITON", "Uchiha")));
+        screen("menu_tirage_concentration", () -> fr.reborn.hud.menu.tirage.TirageScreen.banc("RAITON", null, 1));
+        for (String n : new String[]{"KATON", "SUITON", "DOTON", "FUTON", "RAITON"}) {
+            String bas = n.toLowerCase(java.util.Locale.ROOT);
+            screen("menu_tirage_reaction_" + bas, () -> fr.reborn.hud.menu.tirage.TirageScreen.banc(n, null, 2));
+            add("menu_tirage_resultat_" + bas, 30, mc -> mc.setScreenAndShow(fr.reborn.hud.menu.tirage.TirageScreen.banc(n, null, 3)));
+        }
+        add("menu_tirage_resultat_double", 30, mc -> mc.setScreenAndShow(fr.reborn.hud.menu.tirage.TirageScreen.banc("RAITON", "SUITON", 3)));
+        screen("menu_tirage_reaction_double", () -> fr.reborn.hud.menu.tirage.TirageScreen.banc("KATON", "FUTON", 2));
         screen("menu_echoppe", () -> new fr.reborn.hud.menu.widget.ShopScreen(null));
         screen("menu_regles", () -> new fr.reborn.hud.menu.screens.RulesLoreScreen(null));
         screen("menu_signaler", () -> new fr.reborn.hud.menu.widget.ReportScreen(null));

@@ -114,7 +114,10 @@ public final class LectureScreen extends Screen {
     private void content(GuiGraphicsExtractor g, int x, int top, long now, int mx, int my) {
         // colonne de droite : grand kanji de la nature et sceau du rang (la lecture commence ici)
         int rx = x + PW - 76;
-        DaKit.blit(g, BiblioArt.KANJI, rx + 8, top + 26, kanjiIndex(t) * 44, 0, 44, 44, 352, 44);
+        // nature : son icône peinte (14/10) ; sinon le sceau de la branche
+        fr.reborn.hud.ui.NatureIcones.Nature nat = fr.reborn.hud.ui.NatureIcones.parse(t.nature());
+        if (nat != null) fr.reborn.hud.ui.NatureIcones.dessiner(g, nat, rx + 14, top + 32, 32);
+        else DaKit.blit(g, BiblioArt.KANJI, rx + 8, top + 26, kanjiIndex(t) * 44, 0, 44, 44, 352, 44);
         BiblioArt.sceau26(g, rx + 30, top + 96, t.rank());
         g.fill(rx - 6, top + 24, rx - 5, top + PH - 22, 0x38462810);
 

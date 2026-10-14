@@ -170,6 +170,9 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
             if (plugin.deathScene() != null && plugin.deathScene().isDead(id)) return "mort";
             if (plugin.ko() != null && plugin.ko().isKo(id)) return "KO";
             if (plugin.porter() != null && plugin.porter().carriedBy(id) != null) return "porté";
+            // Correctifs urgents (ETATS_JOUEUR §2.2 h) : le lâcher par la sacoche contournait le gel ; tenu à la gorge.
+            if (com.reborn.shinobicore.etat.Verrous.gele(id)) return "gelé";
+            if (com.reborn.shinobicore.etat.Verrous.tenu(id)) return "tenu";
         } catch (RuntimeException ignored) { }
         StunService s = stun();
         if (s != null && s.isStunned(id)) return "étourdi";
@@ -542,6 +545,13 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         }
         String[] parts = msg.split(":");
         String cmd = parts[0];
+        // Mode staff : ni ramasser, ni lâcher, ni utiliser (manger, pilule), ni détruire (aucune mécanique RP).
+        if ((cmd.equals("pick") || cmd.equals("drop") || cmd.equals("use") || cmd.equals("del"))
+                && com.reborn.shinobicore.staff.outils.ModeStaff.horsJeu(p)) {
+            Notifs.msg(p, "refus", null, "Mode staff", " : aucune action RP sur les objets.");
+            push(p, false);
+            return;
+        }
         if (cmd.equals("pick")) {
             if (parts.length >= 2 && ramassage.ramasser(p, b, parts[1])) {
                 persist(p, b);
@@ -1142,6 +1152,34 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         else if (p != null && s != null) {
             p.getInventory().addItem(s).values().forEach(r -> p.getWorld().dropItemNaturally(p.getLocation(), r));
         }
+    }
+
+    /**
+     * Nourriture (14/10) : peut-il recevoir cette pile de la main à la main ? Mêmes règles que le ramassage (place,
+     * poids jusqu'à {@code inventaire.ramassage.poids-max-pourcent}). {@code null} = oui, sinon la raison courte.
+     */
+    public String refusReception(Player p, ItemStack s) {
+        if (p == null || isEmpty(s)) return "rien à prendre";
+        RpBag b = bagFor(p);
+        if (b == null) return p.getInventory().firstEmpty() < 0 ? "plus de place" : null;
+        ItemStack unite = RareteItems.normaliser(s.clone());
+        unite.setAmount(1);
+        if (placePour(p, b, unite, s.getAmount()) < s.getAmount()) return "plus de place";
+        double max = b.maxWeight() * InventaireConfig.get(plugin).poidsMaxRatio;
+        if (max > 0 && weight(p) + RpWeights.of(s) > max + 1e-6) return "trop lourd";
+        return null;
+    }
+
+    /** Nourriture (14/10) : range une pile reçue (barre puis sac), sans notification ni journal. Renvoie le reste. */
+    public int recevoir(Player p, ItemStack s) {
+        RpBag b = bagFor(p);
+        if (b == null) return p.getInventory().addItem(s).values().stream().mapToInt(ItemStack::getAmount).sum();
+        int reste = ranger(p, b, s.clone());
+        persist(p, b);
+        p.updateInventory();
+        push(p, false);
+        recalc(p);
+        return reste;
     }
 
     /**

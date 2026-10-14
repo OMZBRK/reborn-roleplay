@@ -133,7 +133,7 @@ public final class RencontrerRootScreen extends CoreScreen {
                 eye, eye.getDirection(), maxDist,
                 /* raySize */ 0.25,
                 entity -> entity instanceof Player other
-                        && !other.getUniqueId().equals(viewer.getUniqueId()));
+                        && !other.getUniqueId().equals(viewer.getUniqueId()) && !com.reborn.shinobicore.staff.outils.ModeStaff.horsJeu(other));
         if (trace == null) return null;
         Entity hit = trace.getHitEntity();
         return hit instanceof Player p ? p : null;

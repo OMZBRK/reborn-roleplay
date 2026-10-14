@@ -39,7 +39,7 @@ public final class OutilsCommandes implements TabExecutor {
 
     static final String[] COMMANDES = {"journal", "note", "annonce", "annoncejoueur", "aller", "ramener", "retour",
             "geler", "degeler", "voirsac", "noir", "seisme", "tenue", "emoteforcee", "persoreset", "persosuppr",
-            "modestaff"};
+            "modestaff", "modeanim"};
 
     private final ShinobiCore plugin;
     private final OutilsStaff o;
@@ -71,6 +71,14 @@ public final class OutilsCommandes implements TabExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender s, @NotNull Command cmd, @NotNull String label, @NotNull String[] a) {
         String c = cmd.getName().toLowerCase(Locale.ROOT);
+        // mode animation : permission dédiée, un animateur n'a pas besoin d'un grade staff
+        if (c.equals("modeanim") || c.equals("modestaff") && a.length >= 1 && a[0].toLowerCase(Locale.ROOT).startsWith("anim")) {
+            if (!(s instanceof Player sp)) { err(s, "En jeu seulement."); return true; }
+            if (!ModeAnimation.permis(sp)) { err(s, "Réservé aux animateurs et MJ (" + ModeAnimation.PERMISSION + ")."); return true; }
+            boolean on = o.animation().basculer(sp);
+            ok(s, on ? "Mode animation activé : visible, mécaniques RP permises, tout est journalisé." : "Mode animation désactivé.");
+            return true;
+        }
         if (OutilsStaff.grade(s) == StaffGrades.NONE) { err(s, "Réservé au staff."); return true; }
         switch (c) {
             case "journal" -> journal(s, a);
@@ -175,7 +183,8 @@ public final class OutilsCommandes implements TabExecutor {
                 if (!(s instanceof Player sp)) { err(s, "En jeu seulement."); return true; }
                 if (!OutilsStaff.exige(s, OutilsStaff.G_MODE_STAFF)) return true;
                 boolean on = o.mode().basculer(sp);
-                ok(s, on ? "Mode staff activé : invisible aux joueurs, aucune action de jeu." : "Mode staff désactivé.");
+                ok(s, on ? "Mode staff activé : invisible aux joueurs, aucune mécanique RP (tes messages vont au chat staff)."
+                        : "Mode staff désactivé.");
             }
             default -> { return false; }
         }
@@ -365,7 +374,9 @@ public final class OutilsCommandes implements TabExecutor {
         if (c.equals("journal")) {
             for (Categorie k : Categorie.values()) out.add(k.name().toLowerCase(Locale.ROOT));
             out.addAll(List.of("h:24", "d:7", "p:2", "j:"));
-        } else if (a.length == 1 && !c.equals("modestaff") && !c.equals("seisme")) {
+        } else if (a.length == 1 && c.equals("modestaff")) {
+            out.add("anim");
+        } else if (a.length == 1 && !c.equals("modeanim") && !c.equals("seisme")) {
             if (c.equals("noir")) out.add("tous");
             if (c.equals("annonce")) out.add("joueur");
             for (Player p : Bukkit.getOnlinePlayers()) out.add(p.getName());

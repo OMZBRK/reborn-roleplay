@@ -44,6 +44,7 @@ public final class PaumeCommand implements TabExecutor {
             Entity looked = p.getTargetEntity(5);
             if (looked instanceof Player lp) target = lp;
         }
+        if (target != null && com.reborn.shinobicore.staff.outils.ModeStaff.horsJeu(target)) target = null;   // mode staff : personne ne peut le cibler
         if (target == null) {
             p.sendMessage("§7Regarde le blessé (ou nomme-le) : /" + label + " [joueur].");
             return true;

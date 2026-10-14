@@ -100,6 +100,14 @@ public class GrappleAbility implements MobilityAbility {
             actionBar(p, "Grappin désactivé.", NamedTextColor.RED);
             return false;
         }
+        // Correctif urgent (ETATS_JOUEUR §2.4 n° 1) : l'écouteur passe même sur un clic annulé (HIGHEST,
+        // ignoreCancelled = false) — c'est ici que KO, douleur, ATA, gel, mort, cinématique, mode staff, porté,
+        // étourdi et garde refusent le grappin.
+        String refus = com.reborn.shinobicore.etat.Verrous.mobilite(id);
+        if (refus != null) {
+            actionBar(p, refus, NamedTextColor.RED);
+            return false;
+        }
         if (!p.hasPermission("shinobicore.mobility.grapple")) {
             actionBar(p, "Tu n'as pas la permission d'utiliser le Grappin.", NamedTextColor.RED);
             return false;
@@ -190,6 +198,8 @@ public class GrappleAbility implements MobilityAbility {
     private void tick(Player p, Session s) {
         UUID id = p.getUniqueId();
         if (!p.isOnline() || p.isDead()) { end(p, false, "offline"); return; }
+        // tombé KO, gelé, étourdi… en plein vol : le grappin lâche
+        if (com.reborn.shinobicore.etat.Verrous.mobilite(p.getUniqueId()) != null) { end(p, false, "etat"); return; }
         if (active.get(id) != s) { cancelTask(s); return; }
 
         long   maxT      = plugin.getConfig().getLong("mobility.grapple.max-ticks", 100L);

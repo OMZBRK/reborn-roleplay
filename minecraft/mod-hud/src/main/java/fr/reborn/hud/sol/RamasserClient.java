@@ -74,6 +74,13 @@ public final class RamasserClient {
         if (k == null) return;
         boolean pris = false;
         while (k.consumeClick()) {
+            // On me tend quelque chose (nourriture, 14/10) : F prend, si aucun objet au sol n'est visé.
+            if ((cible == null || !cible.isAlive()) && mc.gui.screen() == null
+                    && fr.reborn.hud.nourriture.NourritureClient.aOffre()) {
+                fr.reborn.hud.nourriture.NourritureClient.prendre();
+                pris = true;
+                continue;
+            }
             if (cible != null && cible.isAlive() && mc.gui.screen() == null && actif(mc)) {
                 pris = true;
                 if (ClientPlayNetworking.canSend(InventoryPayload.ID)) {

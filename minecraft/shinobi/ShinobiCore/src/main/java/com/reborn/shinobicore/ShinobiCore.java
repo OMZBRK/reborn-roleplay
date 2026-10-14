@@ -269,6 +269,10 @@ public final class ShinobiCore extends JavaPlugin {
         this.injuryHealer.start();
         Bukkit.getPluginManager().registerEvents(
                 new com.reborn.shinobicore.ko.KoListener(this), this);
+        // Correctifs urgents des états (ETATS_JOUEUR §9 étape 0) : « en combat » 15 s + déco en combat signalée,
+        // nettoyage à la connexion des drapeaux vanilla laissés par un arrêt (Invulnerable, potions infinies…).
+        Bukkit.getPluginManager().registerEvents(new com.reborn.shinobicore.etat.EnCombat(this), this);
+        Bukkit.getPluginManager().registerEvents(new com.reborn.shinobicore.etat.NettoyageConnexion(this), this);
         // Terrains d'entraînement + PV persistants hors zone + journal des
         // agressions (lot KO-1, docs/gameplay/KO_ET_MORT_RP.md).
         this.trainingZones = new com.reborn.shinobicore.ko.zone.TrainingZones(this);
@@ -834,6 +838,13 @@ public final class ShinobiCore extends JavaPlugin {
         this.outilsStaff = new com.reborn.shinobicore.staff.outils.OutilsStaff(this);
         this.outilsStaff.demarrer();
 
+        // Nourriture (GAMEPLAN §12, NOURRITURE.md v3) : registre des modificateurs (reborn:modifs), entreprises
+        // (/entreprise), satiété + régénération (reborn:vitals étendu), cuisine, repas, geste « tendre » (/tendre).
+        if (!buildMode) {
+            this.nourriture = new com.reborn.shinobicore.nourriture.NourritureModule(this);
+            this.nourriture.start();
+        }
+
         getLogger().info("ShinobiCore enabled \u2014 mobility + character + chakra systems online.");
     }
 
@@ -844,6 +855,7 @@ public final class ShinobiCore extends JavaPlugin {
         // inventory rather than creative build junk.
         if (panelBridge != null) panelBridge.stop();
         if (outilsStaff != null) outilsStaff.arreter();
+        if (nourriture != null) nourriture.stop();
         if (vitalsPush != null) vitalsPush.stop();
         if (progression != null) progression.stop();
         if (deathScene != null) deathScene.stop();
@@ -915,6 +927,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (tabList             != null) tabList.reloadConfig();
         if (characterSelect     != null) characterSelect.reloadConfig();
         if (optimization        != null) optimization.apply();
+        if (nourriture          != null) nourriture.reload();
         if (to != null) {
             to.sendMessage(Component.text("Configuration ShinobiCore rechargée.", NamedTextColor.GREEN));
         }
@@ -1352,6 +1365,16 @@ public final class ShinobiCore extends JavaPlugin {
     /** Journal universel (14/10) ; les add-ons passent par le service {@code JournalService}. */
     public com.reborn.shinobicore.journal.JournalServiceImpl journal() { return journal; }
     public com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff() { return outilsStaff; }
+
+    private com.reborn.shinobicore.nourriture.NourritureModule nourriture;
+
+    /** Nourriture, satiété, entreprises, modificateurs (14/10) ; null en mode build ou avant l'init. */
+    public com.reborn.shinobicore.nourriture.NourritureModule nourriture() { return nourriture; }
+
+    /** Registre des modificateurs (ETATS_JOUEUR §4.4), ou null. */
+    public com.reborn.shinobicore.modificateur.ModificateurRegistry modificateurs() {
+        return nourriture == null ? null : nourriture.modifs();
+    }
     public com.reborn.shinobicore.ko.HospitalBeds beds() { return hospitalBeds; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.action.PorterManager porter() { return porterManager; }

@@ -76,12 +76,15 @@ public class NoCharacterLockdown {
     /** Remove lockdown effects and stop tracking the player. */
     public void release(Player p) {
         if (p == null) return;
-        locked.remove(p.getUniqueId());
+        // Appelé à chaque activation de personnage : on ne retire que NOS effets (verrou réellement posé, et
+        // signature du verrou : même niveau, durée longue finie). Avant, le retrait par type levait l'écran noir du
+        // staff ou un étourdi (ETATS_JOUEUR §2.4 n° 6).
+        if (!locked.remove(p.getUniqueId())) return;
         if (!p.isOnline()) return;
-        p.removePotionEffect(PotionEffectType.BLINDNESS);
-        p.removePotionEffect(PotionEffectType.SLOWNESS);
-        p.removePotionEffect(PotionEffectType.JUMP_BOOST);
-        p.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+        retirerVerrou(p, PotionEffectType.BLINDNESS, 0);
+        retirerVerrou(p, PotionEffectType.SLOWNESS, SLOWNESS_AMPLIFIER);
+        retirerVerrou(p, PotionEffectType.JUMP_BOOST, JUMP_LOCK_AMPLIFIER);
+        retirerVerrou(p, PotionEffectType.MINING_FATIGUE, 9);
         // Clear any lingering title by overwriting with an empty one that
         // fades quickly.
         p.showTitle(Title.title(
@@ -89,6 +92,14 @@ public class NoCharacterLockdown {
                 Component.empty(),
                 Title.Times.times(Duration.ZERO, Duration.ofMillis(1), Duration.ofMillis(200))
         ));
+    }
+
+    /** Retire l'effet s'il porte la signature du verrou (niveau identique, durée finie de plus d'une minute). */
+    private static void retirerVerrou(Player p, PotionEffectType type, int amplifier) {
+        org.bukkit.potion.PotionEffect pe = p.getPotionEffect(type);
+        if (pe != null && !pe.isInfinite() && pe.getAmplifier() == amplifier && pe.getDuration() > 20 * 60) {
+            p.removePotionEffect(type);
+        }
     }
 
     private void tick() {

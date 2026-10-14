@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
  * <ul>
  *   <li>C2S {@code open} → S2C état {@code {ryo, price, owned[], appearance}}</li>
  *   <li>C2S {@code buy:<id>} → validation (solde, pas déjà possédée) → débit + ajout</li>
+ *   <li>C2S {@code buyvivre:<id>} → vivre de l'onglet Vivres (nourriture : ration, panier si cuisinier)</li>
  *   <li>C2S {@code equip:<id>\n<blob>} → si possédée → applique l'apparence + rediffuse</li>
  * </ul>
  * L'apparence (blob SkinSpec sérialisé) reste opaque côté serveur : le client la
@@ -63,6 +64,12 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         if (c == null) return; // pas de perso actif → pas de boutique
         if (msg.equals("open")) {
             sendState(p, c, null);
+        } else if (msg.startsWith("buyvivre:")) {
+            String id = msg.substring("buyvivre:".length()).trim();
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                var n = plugin.nourriture();
+                sendState(p, c, n == null ? "§cPas de vivres ici." : n.acheterVivre(p, c, id));
+            });
         } else if (msg.startsWith("buymap:")) {
             String id = msg.substring("buymap:".length()).trim();
             Bukkit.getScheduler().runTask(plugin, () -> handleBuyMap(p, c, id));
@@ -133,6 +140,8 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
             }
         }
         sb.append(']');
+        // Onglet « Vivres » (nourriture, 14/10) : rations pour tous, paniers d'ingrédients pour les cuisiniers.
+        if (plugin.nourriture() != null) sb.append(",\"vivres\":").append(plugin.nourriture().vivresJson(p, c));
         if (toast != null) sb.append(",\"toast\":\"").append(esc(toast)).append('"');
         sb.append('}');
         try {

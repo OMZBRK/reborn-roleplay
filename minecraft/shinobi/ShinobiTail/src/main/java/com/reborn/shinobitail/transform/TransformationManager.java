@@ -552,7 +552,9 @@ public final class TransformationManager {
         clearModifier(p, Attribute.KNOCKBACK_RESISTANCE, MOD_KB);
         clearModifier(p, Attribute.SCALE, MOD_SCALE);
         for (PotionEffectType type : t.appliedEffects()) {
-            p.removePotionEffect(type);
+            // nos effets de stade sont infinis : un effet fini du même type (pilule, technique) reste (§2.4 n° 6)
+            org.bukkit.potion.PotionEffect pe = p.getPotionEffect(type);
+            if (pe != null && pe.isInfinite()) p.removePotionEffect(type);
         }
         t.appliedEffects().clear();
     }

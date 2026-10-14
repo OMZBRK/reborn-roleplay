@@ -59,6 +59,8 @@ public final class KoState {
     private       Phase   phase = Phase.UNCONSCIOUS;
     private       long    phaseStartMillis;
     private       boolean hospitalOffered;
+    /** Minuteur figé depuis cet instant (joueur hors ligne ou en sélection de personnage), 0 = il court. */
+    private       long    pausedAt;
     /** Joueurs qui ont frappé la victime juste avant la chute (FearRP). */
     private final Set<UUID> attackers = new LinkedHashSet<>();
 
@@ -100,6 +102,29 @@ public final class KoState {
 
     public boolean blindExpired()      { return System.currentTimeMillis() >= blindUntil; }
     public boolean isBeingCarried()    { return carrierPlayerId != null; }
+
+    /* ------------------------------------------- minuteur figé hors ligne */
+
+    /** Le minuteur est-il figé (déconnexion : décision du 14/10, le KO ne s'écoule pas hors ligne) ? */
+    public boolean isPaused()          { return pausedAt > 0; }
+    public long    pausedAt()          { return pausedAt; }
+
+    /** Fige le minuteur à {@code now} (sans effet s'il l'est déjà). */
+    public void pause(long now) {
+        if (pausedAt <= 0) pausedAt = Math.max(1, now);
+    }
+
+    /** Reprend le minuteur là où il s'était arrêté : la phase est décalée de la durée de la pause. */
+    public void resume(long now) {
+        if (pausedAt <= 0) return;
+        phaseStartMillis = resumedPhaseStart(phaseStartMillis, pausedAt, now);
+        pausedAt = 0;
+    }
+
+    /** Règle pure : début de phase après une pause de {@code pausedAt} à {@code now}. */
+    public static long resumedPhaseStart(long phaseStart, long pausedAt, long now) {
+        return phaseStart + Math.max(0, now - pausedAt);
+    }
 
     /* --------------------------------------------------------------- I/O */
 

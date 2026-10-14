@@ -1,0 +1,73 @@
+# Reborn — Nourriture (GAMEPLAN §12, docs/gameplay/NOURRITURE.md v3 — 14/10)
+#
+# Les objets de jeu (panier, plats, ration, bol vide) sont CRÉÉS PAR SHINOBICORE (PAPER + item_model reborn:<id> +
+# données en PDC : recette, chaleur, part entamée). Seuls ces objets-là se mangent et se cuisinent.
+# Ce fichier n'enregistre les mêmes visuels dans Nexo que pour l'affichage staff (/nexo give, catalogue) : un objet
+# donné par /nexo n'a pas les données de ShinobiCore et ne se mange pas. Pour tester : /nourriture donner.
+#
+# Modèles et textures : pack/assets/reborn/{items,models/item,textures/item}/<id>.* — générés par
+# minecraft/mod-hud/tools/gen_nourriture_textures.py (sprites 16×16, item/generated).
+
+plat_ramen_shoyu:
+  itemname: "<#E8C27A>Ramen shōyu"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo)."
+  Pack:
+    model: reborn:item/plat_ramen_shoyu
+
+plat_ramen_miso:
+  itemname: "<#E8C27A>Ramen miso"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo)."
+  Pack:
+    model: reborn:item/plat_ramen_miso
+
+plat_dango:
+  itemname: "<#E8C27A>Dango"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo)."
+  Pack:
+    model: reborn:item/plat_dango
+
+plat_the_vert:
+  itemname: "<#E8C27A>Thé vert"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo)."
+  Pack:
+    model: reborn:item/plat_the_vert
+
+plat_bento:
+  itemname: "<#E8C27A>Bento"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo)."
+  Pack:
+    model: reborn:item/plat_bento
+
+ration_seche:
+  itemname: "<#E8C27A>Ration sèche"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo)."
+  Pack:
+    model: reborn:item/ration_seche
+
+panier_ingredients:
+  itemname: "<#E8C27A>Panier d'ingrédients"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo)."
+  Pack:
+    model: reborn:item/panier_ingredients
+
+bol_vide:
+  itemname: "<#E8C27A>Bol vide"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo)."
+  Pack:
+    model: reborn:item/bol_vide

@@ -199,11 +199,27 @@ public class CharacterManager implements CharacterService {
      * character's last position is captured before the switch, and then this
      * new character is teleported to ITS own last-known position (if one is
      * saved and its world is loaded).
+     *
+     * <p>Correctif urgent (ETATS_JOUEUR §2.4 n° 4) : un <b>changement</b> de personnage en ligne est refusé hors état
+     * « libre » (KO, douleur, gel, porté, duel, combat, scène de mort…), et personne ne quitte un personnage KO pour un
+     * autre (le KO suit le compte). Renvoie {@code false} si refusé (le joueur est prévenu).
      */
-    public void setActive(Player player, ShinobiCharacter character) {
-        if (character == null) return;
+    public boolean setActive(Player player, ShinobiCharacter character) {
+        if (character == null) return false;
         boolean online = player != null && player.isOnline();
         ShinobiCharacter previous = active.get(character.ownerId());
+        if (online && (previous == null || !previous.id().equals(character.id()))) {
+            String refus = previous != null ? com.reborn.shinobicore.etat.Verrous.changementPerso(player.getUniqueId()) : null;
+            var ko = plugin.ko() != null ? plugin.ko().getKo(player.getUniqueId()) : null;
+            if (refus == null && ko != null && ko.characterId() != null && !ko.characterId().equals(character.id())) {
+                refus = "ton personnage à terre doit être repris d'abord.";
+            }
+            if (refus != null) {
+                player.sendMessage(net.kyori.adventure.text.Component.text("Changement de personnage impossible : " + refus,
+                        net.kyori.adventure.text.format.NamedTextColor.RED));
+                return false;
+            }
+        }
 
         // 1. Announce — BEFORE anything is captured or swapped, so a
         //    hotbar-hijacking picker (ShinobiAbilities) can restore the
@@ -232,6 +248,7 @@ public class CharacterManager implements CharacterService {
         if (online) {
             applyNext(player, character);
         }
+        return true;
     }
 
     /** Teardown half of a switch: persist the previous character's live

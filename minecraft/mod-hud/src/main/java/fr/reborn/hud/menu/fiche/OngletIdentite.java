@@ -249,7 +249,8 @@ final class OngletIdentite implements Onglet {
         int wg = FicheArt.inter9(ctx, f, gradeNom, X + CV, gradeY, FicheArt.CREME, 0);
         if (!gradeKj.isEmpty()) FicheArt.kanji16g(ctx, f, gradeKj, X + CV + wg + 6, gradeY - 8, FicheArt.R_OR[3], 0);
         for (Nat n : natures) {
-            FicheArt.hanko(ctx, n.idx(), FicheArt.H_NATURES, n.x() + 9, naturesY);
+            // icône peinte de la nature (décision du 14/10), plus de sceau kanji
+            fr.reborn.hud.ui.NatureIcones.dessiner(ctx, FicheTextes.NATURES.get(n.idx()).icone(), n.x() + 1, naturesY - 8, 16);
             FicheArt.inter9(ctx, f, n.nom(), n.x() + 22, naturesY, FicheArt.CREME, 0);
         }
         if (naturesVide != null) FicheArt.inter9(ctx, f, naturesVide, X + CV, naturesY, FicheArt.DOUX, 0);

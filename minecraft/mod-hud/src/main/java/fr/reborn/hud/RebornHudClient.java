@@ -90,6 +90,8 @@ public final class RebornHudClient implements ClientModInitializer {
                 float sc = st.scale();
                 fr.reborn.hud.notif.SurchargeHud.render(ctx, b.x() + 56 * sc, b.y() + (fr.reborn.hud.runtime.VitalsHud.HEIGHT + 1) * sc,
                     fr.reborn.hud.runtime.VitalsHud.WIDTH - 59, sc);
+                // Effets (modificateurs) et état de la satiété : petites icônes + minuteur, sous les vitals (nourriture).
+                fr.reborn.hud.nourriture.EffetsHud.render(ctx, b.x() + 56 * sc, b.y() + (fr.reborn.hud.runtime.VitalsHud.HEIGHT + 1) * sc, sc);
             });
 
         // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
@@ -126,9 +128,10 @@ public final class RebornHudClient implements ClientModInitializer {
             fr.reborn.hud.runtime.VitalsPayload.ID, fr.reborn.hud.runtime.VitalsPayload.CODEC);
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
             fr.reborn.hud.runtime.VitalsPayload.ID,
-            (payload, context) -> context.client().execute(
-                () -> fr.reborn.hud.runtime.VitalsFeed.update(
-                    payload.hp(), payload.maxHp(), payload.chakra(), payload.maxChakra())));
+            (payload, context) -> context.client().execute(() -> {
+                fr.reborn.hud.runtime.VitalsFeed.update(payload.hp(), payload.maxHp(), payload.chakra(), payload.maxChakra());
+                fr.reborn.hud.runtime.VitalsFeed.satiete(payload.ext());
+            }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.runtime.VitalsFeed.clear());
 
@@ -222,7 +225,7 @@ public final class RebornHudClient implements ClientModInitializer {
 
         // Test de la feuille (canal reborn:tirage, S2C) : ShinobiCore a tiré la
         // nature (autoritaire, pondérée par le clan) et l'a attribuée → ouvre le
-        // popup client avec le VRAI résultat. Contenu = "<NATURE>|<clan>".
+        // popup client avec le VRAI résultat. Contenu = "<NATURE>|<clan>[|<AUTRES>]" (AUTRES = natures déjà éveillées).
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
             fr.reborn.hud.menu.tirage.TiragePayload.ID, fr.reborn.hud.menu.tirage.TiragePayload.CODEC);
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.serverboundPlay().register(
@@ -248,7 +251,7 @@ public final class RebornHudClient implements ClientModInitializer {
                     if (mc.gui.screen() instanceof fr.reborn.hud.menu.tirage.TirageScreen ts && ts.isAwaiting()) {
                         // Test déjà en cours (post-Confirmer) : on injecte la nature
                         // dans l'écran existant → aucun aller-retour caméra.
-                        ts.applyServerResult(nature);
+                        ts.applyServerResult(nature, parts.length > 1 ? parts[1] : null);   // « clan|AUTRES »
                     } else {
                         mc.setScreenAndShow(new fr.reborn.hud.menu.tirage.TirageScreen(nature, clan));
                     }
@@ -656,6 +659,13 @@ public final class RebornHudClient implements ClientModInitializer {
         // Duel consenti (canal reborn:duel, ShinobiCore DuelService) : invitation, bandeau, compte à rebours, fin.
         fr.reborn.hud.duel.DuelClient.init();
         fr.reborn.hud.duel.DuelDebug.init();
+        // Nourriture (14/10) : canaux reborn:nourriture (préparer, manger, tendre, plat en main) et reborn:modifs
+        // (effets) ; ligne + filet au-dessus de la barre d'action, offre « F prendre · Retour refuser ».
+        fr.reborn.hud.nourriture.NourritureClient.init();
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "nourriture"),
+            (ctx, tickCounter) -> fr.reborn.hud.nourriture.NourritureHud.render(ctx));
+        fr.reborn.hud.nourriture.NourritureDebug.init();
         // Inventaire du 13/10 : notifications en bas à droite + état de charge (canal reborn:notif), ramassage volontaire
         // (touche F quand un objet est visé), aura de rareté au sol, indicateur de surcharge (sous les vitals).
         fr.reborn.hud.notif.NotifClient.init();

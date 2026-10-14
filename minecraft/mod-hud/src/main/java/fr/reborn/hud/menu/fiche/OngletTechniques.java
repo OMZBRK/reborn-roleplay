@@ -47,6 +47,8 @@ final class OngletTechniques implements Onglet {
     // ---- détail (recalculé au choix)
     private Component dTitre, dMeta, dOrigine, dMaitrise, dSeances;
     private String dLettre, dNatKj;
+    /** Nature de la technique affichée : son icône remplace le kanji du coin du panneau (14/10). */
+    private fr.reborn.hud.ui.NatureIcones.Nature dNat;
     private int dMaitriseN = -1, dFaites, dTotal;
     private final List<String> dMudras = new ArrayList<>();
     private final List<Component> dMudrasNoms = new ArrayList<>();
@@ -205,6 +207,7 @@ final class OngletTechniques implements Onglet {
             dMeta = FicheArt.inter("Aucune technique apprise.");
             dLettre = "";
             dNatKj = "術";
+            dNat = null;
             for (int k = 0; k < 6; k++) couronne[k] = lanterne(s, k, false);
             return;
         }
@@ -220,7 +223,8 @@ final class OngletTechniques implements Onglet {
             FicheData.TechPlus p = d(s).techs().get(t.id());
             String grp = p != null && p.groupe() != null ? p.groupe() : FicheTextes.groupe(t.category(), t.rank());
             int nat = FicheTextes.nature(t.nature());
-            dNatKj = nat >= 0 ? FicheTextes.NATURES.get(nat).kj() : FicheTextes.GROUPES_KJ[groupeIdx(grp)];
+            dNat = nat >= 0 ? FicheTextes.NATURES.get(nat).icone() : null;
+            dNatKj = FicheTextes.GROUPES_KJ[groupeIdx(grp)];
             String meta = (FicheArt.rangDeBase(dLettre) ? "Fondamentale" : "Rang " + dLettre) + "  ·  "
                 + FicheTextes.groupeNom(grp) + (nat >= 0 ? "  ·  " + FicheTextes.NATURES.get(nat).nom() : "");
             dMeta = FicheArt.inter(FicheArt.ellipse(f, meta, X1 - 24));
@@ -254,7 +258,8 @@ final class OngletTechniques implements Onglet {
             FicheData.Apprentissage a = l.appr();
             String grp = FicheTextes.groupe(a.cat(), a.letter());
             int nat = FicheTextes.nature(a.nature());
-            dNatKj = nat >= 0 ? FicheTextes.NATURES.get(nat).kj() : FicheTextes.GROUPES_KJ[groupeIdx(grp)];
+            dNat = nat >= 0 ? FicheTextes.NATURES.get(nat).icone() : null;
+            dNatKj = FicheTextes.GROUPES_KJ[groupeIdx(grp)];
             dMeta = FicheArt.inter((dLettre.isEmpty() ? "" : "Rang " + dLettre + "  ·  ") + FicheTextes.groupeNom(grp)
                 + (nat >= 0 ? "  ·  " + FicheTextes.NATURES.get(nat).nom() : ""));
             dSeances = FicheArt.inter(FicheTextes.avancement(a.done(), a.total()));
@@ -348,7 +353,8 @@ final class OngletTechniques implements Onglet {
         int x0 = L.panG, y0 = L.panY;
         FicheArt.panneau(ctx, FicheArt.P_DETAIL, x0, y0, hDetail);
         FicheArt.arcadeX1(ctx, f, dTitre, x0 + 14, y0 + 13, FicheArt.OR_CLAIR, true);
-        FicheArt.kanjiTitre(ctx, f, dNatKj, x0, y0);
+        if (dNat != null) fr.reborn.hud.ui.NatureIcones.dessiner(ctx, dNat, x0 + FicheArt.PW - 28, y0 + 8, 16);
+        else FicheArt.kanjiTitre(ctx, f, dNatKj, x0, y0);
         ctx.enableScissor(x0, y0 + 30, x0 + FicheArt.PW, y0 + hDetail - 4);
         int X = x0 + 14, X1 = x0 + FicheArt.PW - 14;
         int yy = y0 + 46;
