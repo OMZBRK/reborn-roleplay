@@ -20,10 +20,20 @@
   Plan).
   - **Publié le 14/10** (`reborn-hud` 0.4.175, launcher 0.3.46) : Player ID (N° par personnage, `/pid`), accueil
     Microsoft + Discord, inventaire / ramassage F / aura de rareté / surcharge, duel consenti, derniers écrans en jeu.
-  - **Fait le 14/10, non publié** (`reborn-hud` 0.4.176) : journal universel (tout est tracé quel que soit le grade) +
-    commandes staff RedLine ; Poste de garde clarifié ; allures marche / trot / sprint
-    ([`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md)) ; Douleur sous 5 % des PV, exécution unifiée,
-    portage en douleur, agonie (KO_ET_MORT_RP).
+  - **Publié le 14/10** (`reborn-hud` 0.4.176 → **0.4.178**, plugins Shinobi, pack Nexo nourriture) : journal universel
+    (tout est tracé quel que soit le grade) + commandes staff RedLine ; Poste de garde v3 (volet + recherche) ; mode
+    staff sans mécanique RP et mode animation ; allures marche / trot / sprint
+    ([`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md)) ; chaîne KO v2 (douleur, exécution par F, portage,
+    agonie) ; correctifs urgents des états (étape 0 de [`technique/ETATS_JOUEUR.md`](./technique/ETATS_JOUEUR.md)) ;
+    nourriture v3 et entreprises ([`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md),
+    [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md)) ; natures canoniques et Test de la Feuille refait.
+    **En recette** : [`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md).
+  - **Validé, à coder** : radio en escouades ([`gameplay/RADIO.md`](./gameplay/RADIO.md)) ; refonte des états en
+    trois couches (étapes 1 à 9). **Prochain point du Game Plan** : monnaie (ryo). **En attente** : Faction.
+  - **Discord staff et joueurs** : audit + lecture des salons en lecture seule (`--lire`, `--tout`), style visé
+    d'après les captures (Zenkai, Ketto, FSC, Seizen, REDLINE · RL), plan cible en deux volets
+    ([`operations/DISCORD_STAFF.md`](./operations/DISCORD_STAFF.md)), en attente de l'invitation du bot sur le
+    serveur modèle et les cibles. Boards Trello / Miro synchronisés le 14/10.
   - **Plus tard** : système de combat (décision du 14/10).
 - **Livré les 12-13/10 (serveur dev)** — `reborn-hud` 0.4.170 → **0.4.174** + ShinobiCore / ShinobiAbilities + pack Nexo :
   - **Tous les menus au niveau de la « fiche shinobi »** (référence de rendu, DA §4.1-4.2) : fiche shinobi « portrait en
@@ -38,13 +48,7 @@
   - Scène de mort à 10 s, corps du mort portable, correctif du portage (corps en l'air).
   - Parchemins = rouleaux SNR servis par Nexo ; boîte à outils de style `minecraft/mod-hud/tools/style/`.
   - Études : benchmark NydoMod / Ninshu / serveurs RP (`etudes/`).
-- **Fait, non publié (13/10)** : finitions d'UI (réglages du chat, icônes, logo de l'Échap) et **duel consenti**
-  (`/duel`, menu d'interaction → invitation → 3-2-1 → combat sans séquelles, visuel discret — `gameplay/KO_ET_MORT_RP.md` §4.1).
-- **En cours** : mise à jour visuelle des derniers menus et HUD en jeu (HUD en jeu = subtil, DA §6 règle 9) ;
-  maquettes des idées RedLine avec comparaison au Google Doc (`etudes/REDLINE_REFERENCES.md`, page de revue hors dépôt
-  `Maquettes/redline/index.html`) ; **proposition de design Faction** (maquettes + `gameplay/FACTION_PROPOSITION.md`).
-- **À tester en jeu** (deux comptes) : KO / mort RP, yeux, bibliothèques (vol, secrets), FPS de chaque menu sur la
-  machine de l'utilisateur.
+- **À tester en jeu** (deux comptes) : toute la recette [`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md).
 - **Dette ouverte** : `tools/bbforge/`, `tools/blockbench-handpaint/`, `ShinobiSense/ByakuganVision.java` et
   `scripts/publish-mod-manifest.ps1` (chantiers d'autres sessions) toujours non commités.
 

@@ -76,7 +76,7 @@ Nom typique : `RebornLauncher_0.2.0_x64-setup.exe`.
 cd apps/launcher
 pnpm exec tauri signer sign `
   -f ../../secrets/tauri-updater.key `
-  -p rebornlauncher `
+  -p <mot de passe de la clé> `
   src-tauri/target/release/bundle/nsis/RebornLauncher_0.3.0_x64-setup.exe
 ```
 

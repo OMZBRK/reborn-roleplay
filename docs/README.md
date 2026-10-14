@@ -67,6 +67,8 @@
 | Document | Pour |
 |---|---|
 | [`operations/PUBLICATION.md`](./operations/PUBLICATION.md) | **Publier le mod et déployer les plugins** (checklist, script, SFTP, prompt) |
+| [`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md) | **Tout tester de A à Z en jeu** (checklist numérotée, à jour de la 0.4.178) |
+| [`operations/DISCORD_STAFF.md`](./operations/DISCORD_STAFF.md) | Discord staff et joueurs : invitation du bot, audit et lecture des salons (lecture seule), style visé, plan cible, bannières à produire |
 | [`operations/MAINTENANCE.md`](./operations/MAINTENANCE.md) | Opérations courantes du VPS : mods du manifest, rôles, env, logs, backups |
 | [`operations/RELEASING.md`](./operations/RELEASING.md) | Publier le launcher (auto-update Ed25519) |
 | [`operations/AUTO_UPDATE_TEST_PROTOCOL.md`](./operations/AUTO_UPDATE_TEST_PROTOCOL.md) | Tester l'auto-update |

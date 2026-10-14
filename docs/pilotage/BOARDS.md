@@ -3,7 +3,7 @@
 > **Ce document décrit comment les boards sont organisés, ce qu'on y met, et l'état de leur synchronisation avec
 > le dépôt.** Les boards sont la vitrine de l'avancement pour le staff (et pour la communauté, côté Trello). Ils
 > **suivent** les documents du dépôt : en cas d'écart, c'est le dépôt qui fait foi et les boards qu'on corrige.
-> Mis à jour le 2026-10-12.
+> Mis à jour le 2026-10-14.
 
 ---
 
@@ -33,6 +33,10 @@ fiche publique du dépôt si elle existe (le dépôt est public). Commentaire da
 
 Cartes connues : Sprint 1 `L72RSjdK` · KO / mort RP `gs3UC9fB` · Médical `x04oWuq0` · Graphisme HUD `QSfjPeqc` ·
 Poste de garde `KffW79ed` · Technique Creator `xylVgQ58` · modrinth-sync `A1wrwmZ4` · sorts claniques `ScwJ0pMp`.
+Ajoutées le 14/10 (In Production) : Game Plan, suivi point par point `HWy6kfc7` · États du joueur `nZb7nKaq` ·
+Radio en escouades `kjFadbcE` · Monnaie `8FlE0akL`. Autres chantiers souvent commentés : Sprint 2 `UoFMizpN` ·
+Combat `hzVHMsfU` · Déplacement `8AnAy11X` · Communication RP `arA0gQ51` · Faction `u9ifx7lu` ·
+Bibliothèque `y6Ra6Xxr` · Assets `b6tB4PnR`.
 
 ## 3. Organisation du Miro
 
@@ -40,7 +44,10 @@ Frames : *Roadmap*, *Sprint Timeline*, *Matrice Combat* (39 techniques beta / 49
 *ShinobiCore — API existante*, *📌 État réel* (au 17/09), *Livré depuis le 17/09*, *Livraisons 5-8 oct*,
 *Bilan Sprint 1*. Palette Akatsuki (`#A0182B`, or `#D9A95E`, fond `#0A0608`).
 
-Frames ajoutées le 12/10 : *Livré du 08 au 11/10*, *Sprint 1, bilan au 12/10*, *💀 Mort RP — le cycle*. ⚠️ Encore
+Frames ajoutées le 12/10 : *Livré du 08 au 11/10*, *Sprint 1, bilan au 12/10*, *💀 Mort RP — le cycle*. Ajoutées le
+14/10, à droite de la même rangée : *✅ Livré du 12 au 14/10* et *🗺️ Game Plan RedLine — point par point* (fait /
+validé, code à venir / à venir). Les frames du 12/10 avaient pris le style clair « Bright Paper » ; celles du 14/10
+reviennent à la palette Akatsuki, comme *État réel*. ⚠️ Encore
 périmées : *Sprint Timeline* (dates des Sprints 2-4 non recalées), frame HUD v1 (bandeau « obsolète ») ; *Progression
 Timeline* est marquée « remplacée ».
 
@@ -52,8 +59,10 @@ Timeline* est marquée « remplacée ».
 | 09-17 | Trello + Miro | Dates et checklists des 4 sprints ; carte Technique Creator ; « dette soldée » |
 | 10-06 | Trello + Miro | 6 cartes `Done` (stats, carte + échoppe, DA des menus, Byakugan, Technique Creator, launchers) ; carte Poste de garde ; frame *Livré depuis le 17/09* |
 | 10-08 | Trello + Miro | 7 cartes `Done` (mode photo + noms, KO-1→4 + KO-6, launcher 0.3.45, Poste de garde + Infirmerie, météo, chat, HUD combat) ; bilan daté sur la carte Sprint 1 ; frames livraisons et bilan |
-| **10-12** | Trello | 5 cartes `Done` (grades, parchemins, persos en scène, progression XP, mort RP) ; descriptions réécrites d'après le code (Stats, Progression, Parchemins, KO, Graphisme HUD, Modélisation 3D, Animations) ; commentaires datés (Sprint 1 bilan, Sprint 2, Faction, Médical, Assets, Poste de garde) |
-| **10-12** | Miro | Frames *Livré du 08 au 11/10*, *Sprint 1, bilan au 12/10*, *Mort RP — le cycle* ; *État réel* passé au 12/10 ; *Progression Timeline* marquée « remplacée » |
+| 10-12 | Trello | 5 cartes `Done` (grades, parchemins, persos en scène, progression XP, mort RP) ; descriptions réécrites d'après le code (Stats, Progression, Parchemins, KO, Graphisme HUD, Modélisation 3D, Animations) ; commentaires datés (Sprint 1 bilan, Sprint 2, Faction, Médical, Assets, Poste de garde) |
+| 10-12 | Miro | Frames *Livré du 08 au 11/10*, *Sprint 1, bilan au 12/10*, *Mort RP — le cycle* ; *État réel* passé au 12/10 ; *Progression Timeline* marquée « remplacée » |
+| **10-14** | Trello | 14 cartes `Done` (menus au niveau de la fiche, yeux + bibliothèques v2, Game Plan + études, Player ID, launcher 0.3.46, inventaire / ramassage, duel, journal + commandes staff + modes, allures, KO v2, Poste de garde v3, correctifs des états, nourriture v3 + entreprises, natures + Test de la Feuille) ; 4 cartes `In Production` (Game Plan suivi `HWy6kfc7`, États du joueur `nZb7nKaq`, Radio en escouades `kjFadbcE`, Monnaie `8FlE0akL`) ; commentaires datés 14/10 (KO, Poste de garde, Graphisme HUD, Sprint 1 bilan, Sprint 2, Déplacement, Communication RP, Faction, Combat, Médical, Bibliothèque, Assets) |
+| **10-14** | Miro | Frames *Livré du 12 au 14/10* et *Game Plan RedLine — point par point* ; *État réel* passé au 14/10 (`reborn-hud` 0.4.178, launcher 0.3.46) |
 
 ## 5. Mise à jour du 12/10 — ✅ appliquée (gardée comme modèle de contenu)
 
@@ -89,6 +98,9 @@ Timeline* est marquée « remplacée ».
 ## 6. Pièges des connecteurs
 
 - Trello MCP : le paramètre `items` est ignoré à la création d'une checklist (ajouter les éléments un par un) ;
-  `&amp;` est stocké littéralement ; déconnexions (`ENOTFOUND`).
+  `&amp;` est stocké littéralement ; déconnexions (`ENOTFOUND`). La liste `Done` (40+ cartes) dépasse la limite de
+  sortie de `list_by_list` : préférer `trelloReadList` `get` (noms + IDs) puis lire les cartes une à une.
+- Miro : `canvas_read_as_svg` renvoie le gras des `textArea` échappé (`&lt;b&gt;`) ; c'est la sérialisation, pas le
+  contenu. On écrit `<b>` en clair dans le corps d'un `textArea`.
 - Les connecteurs se réautorisent depuis les **réglages des connecteurs de claude.ai** (ou `/mcp` dans un terminal
   `claude`).

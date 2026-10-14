@@ -78,9 +78,9 @@ $env:MANIFEST_PUBLIC_KEY_HEX_BUILD = (Get-Content .\secrets\manifest_ed25519_pub
 $env:MS_CLIENT_ID_BUILD = "affd0327-8cb3-479c-80aa-a8be73b8ba4d"
 $env:REBORN_SERVER_HOST_BUILD = "play.reborn-rp.com"
 $env:REBORN_SERVER_PORT_BUILD = "27106"
-$env:DISCORD_CLIENT_ID_BUILD = "1500528272939684001"
+$env:DISCORD_CLIENT_ID_BUILD = "<client ID de l'application Discord>"
 $env:TAURI_SIGNING_PRIVATE_KEY = ".\secrets\tauri-updater.key"
-$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "rebornlauncher"
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<mot de passe de la clé — gestionnaire de mots de passe, jamais dans le dépôt>"
 
 pnpm launcher:build
 ```
