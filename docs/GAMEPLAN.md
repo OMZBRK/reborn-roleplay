@@ -116,7 +116,7 @@ codés et attendent leurs tests à deux comptes.
 | Treasure System | **Caches, reliques, coffre porté** | 🟠 Important | Sacoche, économie | ❌ | après la beta | §35 |
 | Faction / Crew System | **Faction** (villages, organisations, sections, fonctions) | 🟠 Important | Player ID | ✍🏻 proposition maquettée ; escouades Genin ✅ | proposition en cours | §37 |
 | Proximity Chat | **PlasmoVoice** + chat RP en panneau | 🟠 Important | Player ID | ✍🏻 vocal + icône ✅ ; portées, volume par joueur ❌ | proposition | §17 |
-| DenDen Mushi system | **Appel de service** (oiseau messager, oreillette) | 🟠 Important | Chat de proximité | ✍🏻 `/aide` seulement | proposition | §18 |
+| DenDen Mushi system | **Appel de service** (système à part) + **radio = escouades** (oreillettes) | 🟠 Important | Chat de proximité | ✍🏻 `/aide` seulement | radio décidée 14/10, maquettes v3 ([`RADIO.md`](./gameplay/RADIO.md)) ; appel de service à concevoir | §18 |
 | Medic Job | **Médical** (médics, paume, bandages, hôpitaux) | 🟠 Important | Déplacements | ✍🏻 base ✅ ; verrou de combat, `MedicalService` ❌ | proposition | §26 |
 | Journalist & Camera System | **Avis de recherche-objet**, photo-preuve | 🟠 Important | Déplacements | ✍🏻 mode photo client ✅ ; objets ❌ | proposition | §46 |
 | Island capture system | **Conflit territorial** | 🟠 Important | Économie, combat, carte | ❌ | après la beta | §41 |
@@ -125,7 +125,7 @@ codés et attendent leurs tests à deux comptes.
 
 | Système RedLine | Équivalent Reborn | Priorité | Dépend de | État | Cible | § |
 |---|---|---|---|---|---|---|
-| Nourriture / satiété / régénération | **Consommables à effets** (pas de faim, pas de régénération) | 🟠 Important | États, sacoche | ❌ (faim neutralisée) | proposition | §12 |
+| Nourriture / satiété / régénération | **Un cuisinier joueur** prépare et donne de la main à la main ; manger prend du temps ; pilules seules portables | 🟠 Important | États, sacoche, monnaie | ❌ (faim mal neutralisée) | principe validé 14/10, maquettes v3 | §12 |
 | Duel System | **Duel consenti n'importe où** | 🟠 Important | Combat, KO | ✍🏻 codé le 13/10, non publié | décidé 13/10 | §15 |
 | Trading system | **Fenêtre d'échange** | 🟠 Important | Interaction, monnaie | ❌ | proposition | §16 |
 | Spell Deck System | **Presets de techniques** | 🟠 Important | Progression | ✍🏻 5 liaisons par objet ✅ ; presets ❌ | proposition | §33 |
@@ -883,17 +883,35 @@ plats à **effets génériques** (buff ou malus : régénération ×2 / ×3, sat
 types différents se cumulent, **le même type est remplacé par le plus fort** ; effets **gelés à la déconnexion**,
 **perdus au KO** ; à 0 % : pas de sprint, endurance −50 %. Tout est réglable ; « regarder l'existant avant de coder ».
 
-## 12.3 Cible proposée
+## 12.3 Cible — **14/10 : un cuisinier joueur, de la main à la main** (v3 **validée et codée le 14/10**, non publiée)
 
-→ **Pas de régénération passive** (contraire aux PV persistants) et **pas de faim punitive** (la saturation reste
-pleine).
-→ On reprend le **modèle « effet générique »** pour les **consommables** (pilules de soldat, hyōrōgan, plats
-d'Ichiraku, poisons, antidotes) : type, puissance, durée ; deux types différents se cumulent ; le même type est
-remplacé par le plus fort ; gel à la déconnexion ; perte au KO ; icône + minuteur dans la zone d'effets (§4).
-→ **Pas de consommable dans les 30 s qui suivent un coup reçu** (anti-potion en combat) ; un repas commencé est mis en
-pause par un coup, pas perdu.
-→ Les **pilules à contrecoup** (pilules Akimichi : gros bonus puis malus) prennent ce modèle.
-→ Toutes les valeurs dans `config.yml`, avec un bloc « valeurs de départ ».
+> ~~Consommables à effets portés partout~~ puis ~~restaurant à carte, PNJ et places (v2)~~ → remplacés le 14/10 :
+> « beaucoup trop mécanique et pas assez RP… un mec qui vend et prépare les aliments/plats, et les joueurs, quand ils
+> ont faim, viennent manger en commandant ; le mec donne la nourriture et le RP se passe ; la consommation du plat
+> prend tout de même du temps. » Fiche : [`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md) ; maquettes
+> `Maquettes/gameplan/12_nourriture/v3/` (01 à 05). Plus aucune écriture décorative (kanji, sceaux) sur ces visuels.
+
+→ **Satiété** dans la barre or actuelle des vitals (repère à 90 %), ~2 repas par soirée ; **régénération** dès 90 %,
+0,25 % des PV/s, bloquée 30 s après un coup, jusqu'à 100 % hors ATA et 30 % en ATA ; **FAIM** à 0 % : plus de sprint,
+endurance −50 %, jamais de dégâts.
+→ **Cuisinier = un joueur** (métier donné par le staff ou la Faction, 2-3 à la beta) : panier d'ingrédients + fourneau,
+15 s pour deux plats ; il **tend** le plat (R, l'autre prend avec F), le client **tend** les ryo ; prix, commande et
+conversation = RP. Pas de PNJ, pas de carte, pas de caisse.
+→ **Manger prend du temps** (30 s à 1 min, deux fois plus vite assis), un coup fige le repas, effets à la fin, en
+petites icônes d'objet sous les vitals. ❓ Plat **chaud 10 min** puis effets ÷2 (proposé) pour garder « on vient
+manger sur place ».
+→ **Pilule du soldat** seul consommable de mission (contrecoup) ; sang et Akimichi après la beta. ❓ Personne au
+fourneau : ration sèche sans effet à l'échoppe (proposé).
+→ Staff : `/cuisinier ajouter|retirer|liste` et une ligne dans la fiche joueur ; tout dans le journal universel.
+→ Défaut relevé : la faim vanilla n'est pas tenue (l'effet SATURATION de 90 s n'est jamais renouvelé) — **corrigé**.
+→ **Décisions du 14/10** : recommandations de la v3 validées — plat chaud 10 min puis effets ÷2 ; ration sèche à
+l'échoppe (+25 %, sans effet, jamais au-dessus de 60 %) ; panier réservé aux cuisiniers ; payer en tendant les ryo ;
+~~`/cuisinier`~~ → **cuisinier = membre d'une entreprise RESTAURANT** créée par le staff
+([`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md)).
+→ **Codé le 14/10 (non publié)** : registre des modificateurs (premier usage de [`technique/ETATS_JOUEUR.md`](./technique/ETATS_JOUEUR.md)
+§4.4), satiété dans la barre or, régénération, FAIM, cuisine au poste, repas progressif, tendre (objet ou ryo), onglet
+Vivres de l'échoppe, pilule v3, entreprises — détail et écarts : [`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md)
+§13 ; captures `Maquettes/gameplan/12_nourriture/code/`.
 
 ---
 
@@ -901,13 +919,16 @@ pause par un coup, pas perdu.
 
 > RedLine : *Player State System* (Idle, Combat, KO, Stunned, Guarding, Carried, Prison, Staff Mode + états spéciaux
 > Logia, Haki, Granite marin). La **liste des états est validée le 13/10** (§1.5) ; les états spéciaux sont une
-> proposition (§34).
+> proposition (§34). **14/10 : principe validé** (« structurer correctement les choses et prendre toutes les
+> possibilités des clans et autres ») ; **code après le chantier nourriture**. Étude et conception complètes :
+> [`technique/ETATS_JOUEUR.md`](./technique/ETATS_JOUEUR.md) (inventaire du code, inventaire Naruto par clan, modèle,
+> matrice, « contourne X », migration, tests, points à trancher).
 
 ## 13.1 Aujourd'hui chez Reborn
 
-- États **éclatés** : KO (`ko/KoState`, phases à terre / inconscient, porté), ATA (`KoService.isImpaired`), gel staff
-  (en mémoire dans le Poste de garde), vanish (`VanishManager`), garde brisée (lenteur appliquée par ShinobiCombat),
-  duel (`DuelService`). Ni prison ni menottes.
+- États **éclatés** : ≈ 70 états ou drapeaux dans une trentaine de classes de six plugins, sans lecteur commun (seul
+  `KoService.isImpaired` est partagé) ; aucun état « combat » ; l'étourdi n'empêche ni coup ni technique ; plusieurs
+  évasions et effets qui survivent aux crashs. Ni prison ni menottes. Détail : fiche, §2.
 
 ## 13.2 Chez RedLine
 
@@ -923,6 +944,13 @@ concentration en **modificateurs**.
 anti-chakra** (canon Naruto, équivalent du granite marin) : objet qui pose l'état et bloque le chakra.
 → **Étiquette « contourne X »** sur les attaques, vérifiée avant chaque dégât, prête pour les défenses absolues
 (§34).
+→ **Conception du 14/10** ([`technique/ETATS_JOUEUR.md`](./technique/ETATS_JOUEUR.md)) : l'état principal est **résolu**
+à partir de **trois couches** exclusives — **Vital** (valide, douleur, à terre, inconscient, mort), **Contrôle** (libre,
+garde, étourdi, entravé, porté, contrôlé, corps vide) et **Cadre** (monde, entraînement, duel, prison, construction,
+staff, hors jeu) — plus des **modificateurs** cumulables (ATA, combat, surcharge, poisons, modes, menottes… même
+registre que les effets de la nourriture, §12) ; 44 **capacités** calculées par une matrice unique ; un paquet
+`reborn:etat` ; une catégorie de journal `ETAT` ; migration en dix étapes sans casse, en commençant par un lot de
+correctifs urgents. 17 points à trancher (fiche §11).
 
 ---
 
@@ -994,7 +1022,10 @@ le duel au lieu d'être ignoré.
 
 # 🔁 16. Échange
 
-> RedLine : *Trading system*. **Proposition, à valider point par point.**
+> RedLine : *Trading system*. **Décision du 14/10 : pas de fenêtre d'échange sécurisé entre joueurs** (« pas RP ») ;
+> on échange à la main, et un échange garanti n'existera, à la limite, **qu'à la banque** (§20). Le bouton « Échanger »
+> du menu R est à retirer. La cible ci-dessous (§16.3) est **abandonnée** ; ses règles anti-duplication resservent pour la
+> banque.
 
 ## 16.1 Aujourd'hui chez Reborn
 
@@ -1023,8 +1054,11 @@ journal économie + objets (§6).
 
 ## 17.1 Aujourd'hui chez Reborn
 
-- **PlasmoVoice** dans le modpack ; le mod détecte PlasmoVoice et affiche l'icône **muet / parle / assourdi** dans le
-  panneau vitals (`voice/RebornVoiceAddon`, `VoiceState`) ; bulles de frappe au chat.
+- **PlasmoVoice** dans le modpack (client `2.1.16` dans le dernier manifest ; `reborn-hud` compile contre `2.1.14`) ;
+  le mod détecte PlasmoVoice et affiche l'icône **muet / parle / assourdi** dans le panneau vitals
+  (`voice/RebornVoiceAddon`, `VoiceState`) ; bulles de frappe au chat.
+- **Plugin PlasmoVoice installé sur le serveur** (confirmé par l'utilisateur le 14/10 ; version à relever sur le panel,
+  rien dans le dépôt).
 - **Pas de portées** chuchoter / parler / crier gérées par Reborn ; pas de volume par joueur.
 - **Chat écrit** en panneau (Général / RP / Groupe, `/me`) ; à terre, on chuchote (4 blocs).
 
@@ -1041,6 +1075,16 @@ Reborn discret dans le panneau vitals.
 → **Volume par joueur** (§14).
 → En KO à terre : chuchotement seulement (déjà la règle pour le chat écrit).
 → Outils staff : couper un joueur localement ou partout (journalisé). **Le vocal n'est jamais journalisé.**
+→ **Radio = une escouade** (**décidé le 14/10**, conception v2) : une seconde façon de parler, par-dessus
+PlasmoVoice, avec une **oreillette** portée (emplacement Boucle d'oreille) et une **touche à soi** (B, configurable).
+Quelqu'un **crée** l'escouade, ajoute des gens **à côté de lui** (menu R), et ceux qu'il a ajoutés peuvent en ajouter ;
+**persistante** (déconnecté = toujours membre). En parlant à la radio on est entendu à 4 blocs, en chuchoté ; son
+radio filtré par le client ; en jeu, un **élément « Escouade » de l'éditeur de HUD** ([tête] Nom de ceux qui parlent).
+**À terre : radio très dégradée** (hachée). L'oreillette peut être **prise** (coupée, ou gardée pour parler à la place
+du propriétaire). Le **staff peut écouter** (un bouton de la fiche joueur ou `/radio ecouter`, journalisé). Fiche
+[`gameplay/RADIO.md`](./gameplay/RADIO.md), maquettes `Maquettes/gameplan/18_radio/v3/` (et `v2/` pour le menu R et le vol).
+→ **Portée chuchotée** : l'addon officiel `pv-addon-whisper` (Paper 26.x) donne un mode chuchoté à moitié de portée
+sans rien coder ; un cycle à trois portées demande en plus une activation « crier » (même mécanique que la radio).
 
 ---
 
@@ -1052,7 +1096,8 @@ Reborn discret dans le panneau vitals.
 
 - Pas de téléphone (et pas dans l'univers). `/aide` (à terre / KO, alerte les médics à 48 blocs et le Poste de
   garde), `/staffchat`, `/signaler`, `/msg`.
-- « Radio moderne » en **cut list** (volière + annonce suffisent pour la beta).
+- « Radio moderne » en **cut list** (volière + annonce suffisent pour la beta). **Révisé le 14/10** : l'utilisateur
+  demande une radio au sens canon (oreillettes) → **escouades radio**, §17.3 et [`gameplay/RADIO.md`](./gameplay/RADIO.md).
 
 ## 18.2 Chez RedLine
 
@@ -1063,12 +1108,14 @@ les membres**, le premier qui décroche prend l'appel ; haut-parleur selon le mo
 ## 18.3 Cible proposée
 
 → **Appel de service** : « appeler l'hôpital / la police / le bureau des missions » (par un **oiseau messager**, un
-sceau, ou les **oreillettes** des équipes en mission) : tous les membres **en service** de la section reçoivent
+sceau, le menu R… — **pas par la radio**) : tous les membres **en service** de la section reçoivent
 l'appel, **le premier qui l'accepte le prend**, les autres le voient pris. C'est `/aide` généralisé aux sections de la
 Faction (§37).
-→ Plus tard : un **objet de transmission qui garde son historique** (une oreillette volée révèle les derniers
-échanges) — générateur d'enquêtes.
-→ Interdit en KO et menotté (§13).
+→ **L'appel de service n'est pas la radio** (décision du 14/10) : il reste un **système à part**, à concevoir
+(support RP : oiseau messager, menu R, sceau…).
+→ **Radio (§17.3)** : l'oreillette garde ses données comme le Den Den Mushi — **qui la porte a accès à l'escouade**
+(vol = écoute et fausse voix ; parade : le créateur exclut l'oreillette). Jamais d'historique vocal.
+→ Interdit en **inconscient** ; **à terre**, radio autorisée mais très dégradée ; menotté : à voir avec §13.
 
 ---
 
@@ -1279,6 +1326,12 @@ chacun change la technique à sa façon).
 l'emplacement est une information RP.
 → **Chaque palier de maîtrise change la technique à sa façon** (zone, recharge, effet), pas seulement +X % de dégâts.
 → Écarté : la maîtrise achetée par la nourriture (la maîtrise vient de l'usage et des séances, 08/10).
+→ **14/10 — le cuisinier est le cœur de la nourriture** (§12) : métier tenu par un joueur (staff ou Faction, 2-3 à la
+beta) ; panier d'ingrédients (réservé aux cuisiniers) + fourneau Nexo, 15 s pour deux plats ; il donne et se fait payer
+de la main à la main, fixe ses prix ; plus tard, recettes spéciales et ingrédients rares placés à la main —
+[`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md) §4.
+→ **14/10 — codé** : le métier passe par les **entreprises** (type RESTAURANT, gérant / employé, fourneaux marqués par
+le staff) — [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md).
 
 ---
 
@@ -1541,6 +1594,9 @@ entrée **Faction dans l'Échap** en plus de la touche J ; (4) un **tag court** 
 tablist et les journaux.
 → **Prison** et menottes pour la police (§13).
 → Ordre de réalisation : journal économie + objets (§6) **avant** le trésor.
+→ **Entreprises (14/10, codé côté staff)** : restaurant, forge, échoppe — nom, type, responsable, membres (gérant,
+employé), postes ; créées et gérées par le staff (`/entreprise`) en attendant un onglet **Entreprise** du menu Faction
+où le gérant recrute et gère (conçu, non codé) — [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md) §4.
 
 ---
 
@@ -1898,7 +1954,7 @@ Minecraft, Nexo et le menu R.
 | 15 | Duel | §15 | décidé 13/10 | Publier puis tester à deux comptes |
 | 16 | Échange | §16 | proposition | Fenêtre d'échange (objets + ryo, 3-2-1) |
 | 17 | Chat de proximité | §17 | proposition | Trois portées ; indicateur ; outils staff |
-| 18 | Transmissions | §18 | proposition | Appel de service ; support RP (oiseau, oreillette, sceau) |
+| 18 | Transmissions | §18 | radio décidée (14/10), maquettes v3 | Radio = escouades (oreillette, ajout à côté, persistante, vol, écoute staff) ; appel de service à part, à concevoir ; fiche `gameplay/RADIO.md` |
 | 19 | Monnaie | §19 | proposition | Bourse-objet |
 | 20 | Banque | §20 | proposition | Compte au guichet, solde à retirer, plafond (Faction Q7, Q9) |
 | 21 | Professions et petits boulots | §21 | proposition | Spécialisations = fonctions de section |

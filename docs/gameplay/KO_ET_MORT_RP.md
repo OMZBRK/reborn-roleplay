@@ -103,6 +103,8 @@ C'est l'**agonie** de RedLine (fenêtre courte avant le KO), à la différence q
 - `/aide` (appel aux médics) n'est **plus mentionné** dans les textes du jeu (décision du 14/10 : « la commande
   n'existe pas » pour les joueurs) ; le code reste en place.
 - Un coup de plus, ou la fin du compte à rebours, le fait passer **inconscient**.
+- **Un corps à terre ne blesse personne** (14/10) : ni coup, ni projectile, ni technique, ni grappin — refusé par le
+  serveur même avec un client modifié (ETATS_JOUEUR §9 étape 0).
 - `ko.a-terre: false` désactive cette phase (KO direct, comme avant).
 
 ### La Volonté (QTE de relève) — **facultative**
@@ -133,7 +135,13 @@ C'est l'**agonie** de RedLine (fenêtre courte avant le KO), à la différence q
   la minuterie seulement quand la commande devient utilisable).
 - **Après les 5 minutes, il reste inconscient** et `/hopital` apparaît (« Se laisser emmener à l'hôpital »). Il
   n'y a plus de rapatriement automatique (décision du 2026-10-10).
-- Cause chakra (chakra à 0) : épuisement, teinte bleue, réveil automatique à la fin du délai.
+- Cause chakra (chakra à 0) : épuisement, teinte bleue, réveil automatique à la fin du délai. Un seul chemin y mène
+  (chakra à 0 ou effondrement de l'épuisement) : en duel c'est une défaite, sur un terrain d'entraînement aussi, en
+  mode staff rien (14/10).
+- **Déconnexion pendant le KO** (décision du 14/10) : le minuteur — à terre comme inconscient — est **figé** et
+  **repris au retour**, là où il en était (`paused-at` dans `ko-state.yml`) ; il est aussi figé pendant un arrêt du
+  serveur et pendant l'écran de sélection. Le joueur doit reprendre **ce** personnage (un autre est refusé tant
+  qu'il est KO), et une demande de RPK en attente **reste** en attente.
 
 ### ③ L'hôpital
 
@@ -156,6 +164,9 @@ quelqu'un l'a soigné sur place.
 | Courir, course de chakra, dash, double saut, saut de chakra | Marcher |
 | **Toute technique** (ninjutsu, taïjutsu, kenjutsu…) | **Coups à mains nues (M1)**, divisés par deux |
 | Frapper avec une arme ou un projectile | — |
+
+- Cette règle s'applique **avant** le calcul du coup mortel (14/10) : un blessé en ATA ne peut plus mettre KO avec une
+  arme, et son M1 est divisé par deux avant de savoir s'il fait tomber.
 
 - **La peur (FearRP) a été retirée** le 2026-10-10 (« inutile »). Le NLR reste à la charge du joueur (simple
   rappel).
@@ -294,7 +305,11 @@ blessures à chaque KO. L'encyclopédie médicale, les armoires et les traitemen
 - Le mod sait quels corps sont proches, qui est en douleur et où en est le RPK grâce au canal `reborn:corps` (mis à
   jour toutes les ½ s). Les actions passent par `/corps <action> <joueur>`, toujours revérifiées par le serveur
   (distance 3,5 blocs, état de la cible, RPK accordé, exécution possédée ; l'acteur ne doit être ni KO, ni en
-  douleur, ni porté).
+  douleur, ni porté, **ni gelé**). On ne porte, ne tient, ne fouille ni n'exécute un joueur **gelé** par le staff, un
+  staff en **mode staff** ou un **invisible** (14/10).
+- **Le porteur qui tombe KO dépose** aussitôt ce qu'il porte (et lâche la gorge ou l'exécution en cours) ; même chose
+  s'il tombe en douleur, meurt ou est gelé (14/10). Les lenteurs du porteur, de la gorge et de l'exécution ne sont plus
+  des potions (rien ne reste après un crash).
 - Sur un **joueur conscient** (pas en douleur), « Porter » et « Fouiller » sont **grisés** (« à terre ou en douleur »,
   « à terre ») : ils envoyaient des commandes qui n'existent pas ; la demande d'accord de RedLine reste à faire.
 - Code : `ko/action/CorpsService.java`, mod `interaction/InteractionMenus.forBody` / `forPain` / `animation`,
@@ -336,8 +351,9 @@ se fait à la touche F (§8).
    cette action qui tue.** Le personnage est marqué mort et sauvegardé, `CharacterDeathEvent` est émis (les
    addons libèrent ce qu'il détenait : slots du rang S, cf.
    [`APPRENTISSAGE.md`](./APPRENTISSAGE.md) §6), tout est journalisé, et la scène de mort commence (§9).
-- **La demande tombe** si la cible n'est plus KO (relevée, soignée, hôpital) ou se déconnecte ; le staff et le
-  demandeur sont prévenus. Le refus est annoncé à tout le staff.
+- **La demande tombe** si la cible n'est plus KO (relevée, soignée, hôpital) ; le staff et le demandeur sont
+  prévenus. **Une déconnexion ne la fait plus tomber** (14/10) : le KO est figé hors ligne et la demande attend le
+  retour de la victime. Le refus est annoncé à tout le staff.
 - Journaux : journal universel, catégorie `KO` (`RPK_DEMANDE`, `RPK_VALIDE`, `RPK_REFUSE`, `RPK_EXPIRE`, `RPK_MORT` ; remplace `kill-log.txt` le 14/10) et journal du Poste de garde.
 - Commandes : `/sckillvote approve|refuse|goto <id>` (boutons du tchat). Code :
   `ko/action/KillRequestManager.java`.

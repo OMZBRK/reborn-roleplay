@@ -1,8 +1,7 @@
 # Guide staff en jeu
 
 > **Pour le staff du serveur.** Ce qu'il faut savoir pour modérer et animer en jeu : le Poste de garde, les
-> grades staff, et les commandes rangées par situation. À jour au 2026-10-12 (`reborn-hud` 0.4.169, ShinobiCore
-> du serveur dev). L'annuaire complet des commandes est dans
+> grades staff, et les commandes rangées par situation. À jour au 2026-10-14 (Poste de garde v3, non publié). L'annuaire complet des commandes est dans
 > [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md).
 >
 > Le panel web (`panel.reborn-rp.com` : whitelist, tickets, fichiers…) est un autre outil ; ajouter un modèle 3D
@@ -24,26 +23,49 @@ synchronisés avec les rôles du panel web.
 
 ## 2. Le Poste de garde (F7 ou `/garde`)
 
-Panel staff en jeu (mod Reborn requis ; sans mod, `/staff` ouvre l'ancien panneau). Colonne de navigation à
-gauche :
+Panel staff en jeu (mod Reborn requis ; sans mod, `/staff` ouvre l'ancien panneau). **Version 3 (14/10) : un volet
+étroit à droite**, le jeu continue et reste visible à gauche — on voit la scène pendant qu'on agit. F7 ou Échap pour
+fermer. En haut : la puce **Mode staff** (verte quand il est actif, clic = bascule ; violette « Animation » en mode
+animation) et quatre onglets.
 
-**番 GARDE**
-- **Alertes** : combats hors terrain d'entraînement (à partir de 2 par heure, avec un score), appels `/aide`,
-  signalements `/signaler`, **demandes de mise à mort RP**. Boutons d'action sur chaque alerte (Observer, Y aller,
-  Ignorer, Valider la RPK, Refuser…).
-- **Joueurs** : liste et **fiche joueur** (personnage, PV, chakra, ryo, temps de jeu, ping, état KO / ATA, comptes
-  liés par IP, casier). Actions : téléporter, ramener, geler, observer, réveiller, lever l'ATA.
-- **Chat staff** : canal privé (aussi `/staffchat <message>`, ou `#message` dans le chat).
-- **Journal** : tout ce que fait le staff (sanctions, téléportations, `/ata`, `/zonerp`, `/hopital`, soins,
-  grades, RPK), filtrable (ex. « KO »).
-- **Commandes** : aide-mémoire des commandes avec le grade minimum, recherche, bouton « Préparer ».
+- **Alertes** : combats hors terrain d'entraînement (score), appels à l'aide, signalements, **demandes de mise à mort
+  RP**, prélèvements d'œil, vols de parchemin. Chaque alerte a ses actions en mots : **Y aller** (te téléporte),
+  Valider… (raison obligatoire) / Refuser pour une mise à mort, Répondre (une ligne sur son écran) pour un appel à
+  l'aide, Voir le chat pour un signalement, Observer, Fiche, Ignorer. Sous-onglets **En attente · Traitées · Les
+  miennes** (qui a fait quoi). La cloche coupe le petit son des nouvelles alertes.
+- **Joueurs** : la liste (visage, nom RP, N° · pseudo · grade, état à droite), filtres **Tous · À terre · Gelés ·
+  Notés**, tri N° / nom / état. **Au survol** d'une ligne : 4 icônes en un clic (Aller à, Ramener, Geler, toutes les
+  actions). **Clic** = fiche, **clic droit** = toutes les actions.
+- **Recherche universelle** (le champ en haut de Joueurs) : nom RP, pseudo, `#00042` — **joueurs hors ligne compris**
+  — et **actions** : taper « gel » propose « Geler… » sur le joueur choisi, « gel kazu » cherche Kazu et propose Geler.
+  Flèches pour choisir, Entrée pour ouvrir la fiche ou lancer l'action.
+- **Fiche** (compacte) : identité, étiquettes, état, distance, PV, chakra, ping, temps de jeu, ryo ; **8 actions** :
+  Aller à, Ramener, Observer, Geler, Sacoche, Écran noir, Noter, **Plus** (Écouter la radio, Annonce perso, Forcer une
+  emote, Imposer une tenue, Réveiller, Lever l'ATA, Revenir, Le renvoyer, Sanctionner, puis Séisme, Remettre à zéro,
+  Supprimer — grisés avec un cadenas si ton grade ne suffit pas). Une action à paramètre s'ouvre **dans le volet**
+  (motif, durée…) ; remettre à zéro / supprimer demandent de **retaper le N°**. Sections repliées : **Notes**,
+  **Sanctions** (casier, messages récents, choix de l'infraction puis preuves à cocher), **Journal du joueur**, **Radio**
+  (écoute : prête, active quand la radio existera), **Comptes liés**.
+- **Raccourcis dans la fiche** (aucun champ actif) : **A** aller, **R** ramener, **O** observer, **G** geler, **S**
+  sacoche, **N** écran noir, **T** noter, **E** écouter la radio, **M** annonce perso, **B** revenir, **X** sanctionner,
+  **Tab** = Plus.
+- **Journal** : le journal universel (tout ce que fait tout le monde). Texte libre, **jetons** de filtre (#N°,
+  catégories, période) avec leur croix, « + Filtre » ; entrées groupées par jour ; clic = détail (lieu, Y aller, fiche,
+  Copier) ; **Ctrl + clic sur un N°** = filtrer ce joueur.
+- **Outils** : Annonces (aperçu), Chat staff, Séisme (Admin) ; **Infirmerie** : Blessés (réveiller, KO, hôpital, TP,
+  lever l'ATA), Zones et Hôpitaux (la carte s'ouvre dans le volet élargi : glisser pour tracer, molette = zoom, clic
+  droit = déplacer), Réglages du KO ; **Modes** (mode staff, mode animation) ; Commandes (aide-mémoire, clic = copier).
 
-**医 INFIRMERIE**
-- **Blessés** : joueurs à terre, inconscients ou en ATA, en carrousel au-delà de 5.
-- **Zones** : tracer, déplacer, redimensionner les terrains d'entraînement, zones de repos et hôpitaux **sur la
-  carte de Konoha** (molette = zoom, clic droit = déplacer la vue).
-- **Hôpitaux** : choisir les lits (meubles Nexo « lit », « bed », « futon »), nombre illimité.
-- **Réglages** : durées du KO et de l'ATA (appliqués à chaud ; un `/sc reload` les annule jusqu'au redémarrage).
+### Mode staff et mode animation
+
+- **Mode staff** (`/modestaff`, puce du Poste de garde) : invisible aux joueurs, vol, invulnérable, plaques « N° · nom ·
+  état » au-dessus des têtes. **Aucune mécanique RP** : ni coup, ni technique, ni menu R (porter, fouiller, exécuter…),
+  ni duel, ni ramassage, ni objet, ni bloc RP (coffre, bibliothèque), ni monture, ni tchat RP — **tes messages partent au
+  chat staff**. **Personne ne peut te cibler.** Tous les outils staff restent permis.
+- **Mode animation** (`/modeanim`, permission `reborn.staff.animation`) : pour un animateur ou un MJ qui **joue** un
+  personnage pendant un event. Visible, mécaniques RP permises, mais **tout est journalisé** (commandes, tchat, coups).
+  Les autres staffs te voient « Animation » ; une petite ligne en haut à droite te le rappelle. Exclusif avec le mode
+  staff.
 
 **Sanctions** : 9 infractions RP avec escalade par récidive sur 90 jours ; la confirmation joint les derniers
 messages du joueur comme preuves et une note ; le sceau applique avertissement, mute ou ban (`/pardon` pour
@@ -115,6 +137,5 @@ Cible : pseudo, nom RP ou `#N°`. **Tout est journalisé** : la commande tapée 
 - Casier et journal dans la base du panel web (module `incidents` vide).
 - Synchronisation des grades staff panel → jeu.
 - Commande `/sanction` hors du Poste de garde.
-- Écrans du mod pour les annonces, l'écran noir, la secousse du séisme, les plaques du mode staff, le journal et les
-  notes au Poste de garde (repli vanilla en attendant).
+- La radio (l'écoute staff est prête dans la fiche, grisée « Bientôt » tant que `/radio` n'existe pas).
 - Carte des zones pour un autre village que Konoha.

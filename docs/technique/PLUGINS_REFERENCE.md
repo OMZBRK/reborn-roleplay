@@ -102,7 +102,11 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/emoteforcee` | `forceemote` | Modérateur | `reborn.staff.helper` | Fait jouer une emote à la cible (`stop` pour arrêter) ; même catalogue que `/playemote` |
 | `/persoreset` | `resetcharacter` | Admin | `reborn.staff.helper` | Remise à zéro : XP, niveau, stats, techniques, grade (Genin), ryo, sacoche, inventaire, blessures, apparence. Gardés : N°, nom, clan, village, âge, taille, sexe, natures. Confirmation (`confirmer` sous 60 s) + sauvegarde `sauvegardes/perso/…` |
 | `/persosuppr` | `deletecharacter` | Admin | `reborn.staff.helper` | Supprime le personnage (slot libéré, N° réservé) ; joueur en ligne déconnecté. Confirmation + sauvegarde |
-| `/modestaff` | `staffmode`, `sm` | Helper | `reborn.staff.helper` | Mode staff : invisible aux joueurs et au staff hors mode staff, vol, invulnérable, aucune action de jeu, plaques au-dessus des têtes (`reborn:plaques`) ; tombe à la déconnexion |
+| `/modestaff` | `staffmode`, `sm` | Helper | `reborn.staff.helper` | Mode staff : invisible aux joueurs et au staff hors mode staff, vol, invulnérable, **aucune mécanique RP** et personne ne peut le cibler (§4 bis.7), tchat redirigé vers le chat staff, plaques au-dessus des têtes (`reborn:plaques`) ; tombe à la déconnexion. `/modestaff anim` = `/modeanim` |
+| `/entreprise` | `entreprises` | Modérateur (ou `shinobicore.entreprise`) ; joueur : les siennes | `shinobicore.use` | **Entreprises** (14/10) : `creer <restaurant\|forge\|echoppe> "<nom>" [responsable]`, `supprimer <e> confirmer`, `renommer <e> "<nom>"`, `membre ajouter\|retirer\|role <e> <cible> [gerant\|employe]`, `poste ajouter <e> [libellé]` / `poste retirer` (en visant le bloc ou le meuble), `info`, `liste` ; journal Staff `ENTREPRISE_*` — [`../gameplay/ENTREPRISES.md`](../gameplay/ENTREPRISES.md) |
+| `/tendre` | `donner` | Joueur | `shinobicore.use` | **Tendre** (14/10) : `/tendre <joueur>` (objet en main), `/tendre <joueur> ryo <montant>`, `/tendre prendre\|refuser` (touches F / Retour du mod) ; journal `DON` — [`../gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §5 |
+| `/nourriture` | `satiete` | Joueur : son état ; Modérateur (ou `shinobicore.nourriture.staff`) | `shinobicore.use` | `etat [cible]`, `satiete <cible> <0-100>`, `donner <cible> <plat:id\|panier:id\|ration\|bol> [n] [froid]`, `effet <cible> <type> <intensité> <secondes>`, `retirer <cible> <type>` ; journal Staff |
+| `/modeanim` | `modeanimation` | Animateur / MJ | `reborn.staff.animation` | **Mode animation** (14/10) : incarner un personnage pour un event — visible, mécaniques RP permises, **tout journalisé** (entrée / sortie, commandes, tchat, coups) ; exclusif avec le mode staff ; tombe à la déconnexion (§4 bis.7) |
 
 ### 2.1 bis Syntaxe `#N°` (Player ID) dans les commandes staff
 
@@ -172,6 +176,7 @@ Modérateur).
 | Permission | Effet |
 |---|---|
 | `shinobicore.staff` | Statut staff général (commandes staff, messages RPK) |
+| `reborn.staff.animation` | Mode animation `/modeanim` (animateur, MJ ; OP par défaut ; pas besoin d'un grade staff) |
 | `shinobicore.admin`, `shinobiabilities.admin` | Contourne les vérifications (techniques non apprises, prérequis) |
 | `shinobicore.medic` | Médic rang 1 : paume jusqu'à 60 % des PV, reçoit les `/aide` |
 | `shinobicore.medic.expert` | Médic rang 2 : paume jusqu'à 100 %, lève toute ATA |
@@ -203,10 +208,12 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:character` | ⇄ | `character.select.CharacterSelectManager` | `menu/character/CharacterPayload` | Liste des persos (âge, taille, sexe, apparence), sélection, création |
 | `reborn:skins` | S → C | `CharacterSelectManager` | `skin/SkinPayload` | Apparence RP de chaque joueur (`<uuid>\n<SkinSpec>`) |
 | `reborn:creatorpack` | S → C | `creator.CreatorAssetManager` | `skin/CreatorPackPayload` | Assets du créateur de perso |
-| `reborn:vitals` | S → C | `character.VitalsPush` | `runtime/VitalsPayload` | PV, chakra, endurance |
+| `reborn:vitals` | S → C | `character.VitalsPush` | `runtime/VitalsPayload` | 4 entiers bruts (PV, PV max, chakra, chakra max) ; **+ 4 entiers** pour un mod qui déclare `reborn:nourriture` (14/10) : satiété ‰, satiété à venir ‰ (repas en cours), pause de la régénération (s), drapeaux (1 régénère, 2 affamé, 4 FAIM, 8 ATA, 16 satiété figée) — un ancien mod lit 4 entiers exactement, il ne reçoit donc jamais les champs ajoutés |
+| `reborn:nourriture` | S → C | `nourriture.NourritureCanal` | `nourriture/NourritureClient` | Préparer, manger, tendre, plat en main (§4 ter) |
+| `reborn:modifs` | S → C | `modificateur.ModificateurRegistry` | `nourriture/NourritureClient` | Effets actifs visibles (modificateurs) : `{"mods":[{"id","nom","ic","b","val","reste","duree","pause"}]}` (§4 ter) |
 | `reborn:stats` | ⇄ | `stats.StatsChannel` | `menu/stats/StatsPayload` | Fiche shinobi (points, stats, Mérite, techniques ; `pid` = N° du personnage, envoyé au seul joueur) |
 | `reborn:tablist` | S → C | `lore.TabListManager` | `menu/tablist/TablistPayload` | Tab list RP |
-| `reborn:tirage` | ⇄ | `character.LeafTestManager` | `menu/tirage/TiragePayload` | Test de la feuille |
+| `reborn:tirage` | ⇄ | `character.LeafTestManager` | `menu/tirage/TiragePayload` | Test de la feuille : S2C `confirm\|<clan>`, `<NATURE>\|<clan>\|<AUTRES>` (AUTRES = natures déjà éveillées, virgules ; 14/10) ou `deny` ; C2S `go` |
 | `reborn:ko` | S → C | `ko.KoHudSync` | `ko/KoPayload` | État KO / ATA (binaire) |
 | `reborn:ko_event` | S → C | `ko.KoHudSync` | `ko/KoEventPayload` | Cartes d'événement (À terre, K.O., Second souffle…) |
 | `reborn:volonte` | ⇄ | `ko.VolonteQte` | `ko/VolontePayload` | QTE Volonté : `avail`, `start`, `result`, `ok`, `fail`, `deny` |
@@ -215,8 +222,8 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:staff` | ⇄ | `staff.panel.StaffPanel` | `staff/StaffPayload` | Poste de garde (alertes, joueurs, chat, journal, Infirmerie ; `pid` dans chaque joueur / alerte / fiche) |
 | `reborn:inventory` | ⇄ | `inventory.InventoryManager` | `menu/inventory/InventoryPayload` | Sacoche RP. C2S : `open`, `swap:<A>:<B>`, `bag:equip:<ref>` / `bag:unequip`, `cos:equip:<ref>:<SLOT>` / `cos:unequip:<SLOT>`, `arme:equip:<ref>` / `arme:unequip` / `arme:basculer` (dégainer / rengainer), `drop:<ref>`, `del:<ref>`, `use:<ref>`, `pick:<uuid de l'objet au sol>` (ramassage). S2C : JSON (`ouvrir`, capacité, poids, `palier`, `poidsMax`, `lecture`, `armeDegainee`, `hotbar`, `bag`, `equipped` dont `ARME` ; chaque objet porte `rarity`, `arme`, `unique`) — `ouvrir:false` = rafraîchir sans ouvrir |
 | `reborn:cosmetics` | S → C | `InventoryManager` | `cosmetic/CosmeticsPayload` | Cosmétiques portés, dont l'arme à l'étui (`ARME`, ancrée au bassin) |
-| `reborn:notif` | S → C | `inventory.Notifs` | `notif/NotifClient` | Canal générique (13/10) : `gain` / `perte` (`q`, `nom`, `rar`, `mat`, `model`, `suite`), `msg` (`ton` refus / info / palier / etat, `kj`, `gras`, `texte`) → pile en bas à droite ; `poids` (`cur`, `max`, `palier` 0-3, `libres`, `verrou`) → indicateur de surcharge, sprint coupé, invite de ramassage ; `arme` (`degainee`) |
-| `reborn:shop` | ⇄ | `shop.ShopManager` | `menu/shop/ShopPayload` | Échoppe |
+| `reborn:notif` | S → C | `inventory.Notifs` | `notif/NotifClient` | Canal générique (13/10) : `gain` / `perte` (`q`, `nom`, `rar`, `mat`, `model`, `suite`), `msg` (`ton` refus / info / palier / etat, `kj`, `gras`, `texte`, `ic` = picto d'effet au lieu d'un kanji, 14/10) → pile en bas à droite ; `poids` (`cur`, `max`, `palier` 0-3, `libres`, `verrou`) → indicateur de surcharge, sprint coupé, invite de ramassage ; `arme` (`degainee`) |
+| `reborn:shop` | ⇄ | `shop.ShopManager` | `menu/shop/ShopPayload` | Échoppe ; état + `vivres` (14/10 : onglet Vivres, filtré : paniers pour les cuisiniers), C2S `buyvivre:<id>` |
 | `reborn:map` | ⇄ | `map.MapChannel` | `map/MapPayload` | Carte du monde |
 | `reborn:meteo` | S → C | `meteo.MeteoCommand` | `meteo/MeteoPayload` | Météo visuelle |
 | `reborn:typing` | ⇄ | `chat.TypingManager` | `chat/TypingPayload` | Indicateur « en train d'écrire » |
@@ -234,6 +241,43 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:annonce` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` | Annonce globale ou personnelle (§4 bis.3) |
 | `reborn:ecran` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` (+ `mixin/CameraSeismeMixin`) | Écran noir forcé, séisme (§4 bis.4) |
 | `reborn:plaques` | S → C | `staff.outils.ModeStaff` | `staff/PlaquesStaff` | Plaques staff au-dessus des têtes, en mode staff (§4 bis.5) |
+
+---
+
+## 4 ter. Nourriture et modificateurs — protocole (14/10)
+
+> ShinobiCore `nourriture/` et `modificateur/` ⇄ mod `fr.reborn.hud.nourriture`. JSON UTF-8 brut, champs optionnels,
+> inconnus ignorés des deux côtés. Fiches : [`../gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §13,
+> [`ETATS_JOUEUR.md`](./ETATS_JOUEUR.md) §4.4.
+
+**`reborn:nourriture`** (S → C) :
+
+| `t` | Champs | Affichage |
+|---|---|---|
+| `prep` / `prep_fin` | `nom`, `ic`, `dur` (s), `fait` (s) / `ok` | Ligne + filet au-dessus de la barre d'action (« Ramen shōyu — au fourneau · 9 s ») |
+| `repas` / `repas_fin` | `nom`, `ic`, `dur`, `fait` (s mangées), `vit` (0 = trot : pas de progrès, 1, 2 = assis), `pause` (s figées), `froid` / `ok` | Idem ; gris pendant une pause (« Repas en pause — reprend dans 28 s ») ; le mod extrapole entre deux paquets |
+| `offre` / `offre_fin` | `de` (nom tel que je le connais), `quoi`, `etat` (chaud / froid), `mat`, `model` (icône de l'objet) ou `ic` (`ryo`), `s` | « Teuchi te tend un Ramen shōyu — chaud » / « F prendre · Retour refuser · 10 s » |
+| `attente` / `attente_fin` | `a`, `quoi`, `s` | « Tu tends … à … — 8 s » (gris) |
+| `main` | `nom`, `ic`, `chaud` (s restantes, 0 = froid) ; sans `nom` = plus de plat en main | « chaud · 7 min » ou « Froid — effet réduit de moitié » sous les vitals |
+
+Déclarer `reborn:nourriture` (le mod enregistre un récepteur) vaut « je lis les vitals étendus ». Réponses : commandes
+`/tendre prendre|refuser` ; préparer et manger passent par le clic droit (`PlayerInteractEvent`, `PlayerInteractEntityEvent`
+pour les meubles Nexo).
+
+**`reborn:modifs`** (S → C) : à chaque changement et toutes les `modificateurs.sync-secondes` (10) :
+`{"mods":[{"id":"regeneration","nom":"Régénération","ic":"regeneration","b":1,"val":"×2","reste":287,"duree":300,"pause":0}]}`
+— types `visible: SOI` seulement ; `ic` = fichier `textures/gui/effets/<ic>.png` du mod ; `pause` = régénération
+figée par un coup (icône grise). Le mod décompte seul.
+
+**Service** `api/ModificateurService` (ServicesManager, `@Stable`) : `multiplicateur(compte, effet)`,
+`raison(compte, capacité)` / `refuse`, `poser(joueur, type, intensité, duréeMs, source)`, `retirer`, `actifs` ;
+raccourci statique `ModificateurService.refusDe(joueur, "SPRINTER")`. Effets lus aujourd'hui : `regen` (satiété),
+`satiete_perte` (satiété), `endurance_regen` (ShinobiCombat), `meditation` (méditation) ; capacités : `SPRINTER`
+(allure), `COURSE_NINJA` (course de chakra). Contributeurs dérivés : FAIM (satiété 0 %), repas en cours (pas de sprint).
+
+**Journal** : `OBJET` `PREPARATION`, `REPAS`, `ACHAT`, `PILULE`, `DON` (objet) ; `ECONOMIE` `DON` (ryo, plus les lignes
+`GAIN` / `DEPENSE` du journal des ryo avec le motif « don à … ») ; `STAFF` `ENTREPRISE_*`, `SATIETE`, `DONNER`,
+`MODIF_POSE`, `MODIF_RETRAIT` ; `JOUEUR` `MODIF_POSE` / `MODIF_RETRAIT` / `MODIF_FIN` pour les types `journal: true`.
 
 ---
 
@@ -315,7 +359,13 @@ affiche l'action telle quelle si elle ne la connaît pas) :
 | `act` | selon `op` | `t` **ou** `pid`, `op`, et selon `op` : `m` (message), `s` (secondes), `v` (valeur), `r` (rayon) | `toast` + `profile` |
 | `annonce` | Modérateur | `m` (message), `titre` (facultatif), `s` (durée d'affichage, défaut 8) | `toast` |
 | `seisme` | Admin | `r` (rayon en blocs autour du staff ; 0 = tout le serveur), `f` (force 1-10, défaut 5), `s` (durée, défaut 4), `m` (message facultatif) | `toast` |
-| `modestaff` | Helper | — (bascule) | `toast` + `snap` (`modeStaff`) |
+| `modestaff` | Helper | — (bascule) | `toast` + `snap` (`modeStaff`) + `mode` |
+| `modeanim` | `reborn.staff.animation` | — (bascule, 14/10) | `toast` + `snap` (`modeAnim`) + `mode` |
+| `cherche` | Helper | `q` (≥ 2 caractères : N° avec ou sans `#`, nom RP, pseudo ; mots séparés = tous requis), `req` | `cherche` (recherche universelle du Poste de garde v3, **hors ligne compris**) |
+
+Champ facultatif de `act` (14/10) : `alerte` = id de l'alerte d'où vient l'action (« Y aller », « Observer », « Répondre ») ;
+le serveur la range dans les **alertes traitées** (et la retire des alertes en attente). `kill` accepte `note` (raison de la
+validation, déjà lue par le serveur).
 
 **`op` de `act`** (les anciens restent : `tp`, `bring`, `freeze`, `watch`, `revive`, `lift_ata`) :
 
@@ -363,9 +413,26 @@ tâche de fond, puis répond ; dans ce cas `acteur` / `cible` peuvent n'avoir qu
 (elles survivent à un changement de nom RP ou de pseudo).
 
 **Champs ajoutés aux réponses existantes** :
-- `snap` : `modeStaff` (bool, le spectateur est en mode staff), `journalCats` (liste `{id,label}`).
+- `snap` : `modeStaff` (bool, le spectateur est en mode staff), `journalCats` (liste `{id,label}`) ; 14/10 : `modeAnim`
+  (bool), `animPossible` (bool, permission `reborn.staff.animation`), `traitees` (20 dernières alertes traitées :
+  `{kind, pid, perso, par, quoi, time, moi}` — `par` = « Toi » pour le spectateur, `quoi` = « y est allé », « l'a
+  ignorée », « a validé / refusé la mise à mort », « l'a observé », « a répondu »).
 - `person` (chaque joueur de `players`, `alerts`) : `notes` (nombre), `etiquettes` (tableau des étiquettes des notes),
-  `gele` (bool), `noir` (bool), `modeStaff` (bool).
+  `gele` (bool), `noir` (bool), `modeStaff` (bool), `modeAnim` (bool, 14/10).
+
+`cherche` (S → C, 14/10) :
+
+```json
+{"t":"cherche","req":3,"q":"uchi","joueurs":[{"uuid":"<compte>","pid":"00009","perso":"Sora Uchiha","name":"sorasan",
+  "online":false,"vu":"il y a 2 j"}]}
+```
+
+Lu dans l'index des N° (`PlayerIdRegistry`, personnages supprimés exclus), 20 résultats au plus ; `online` = ce
+personnage est joué en ce moment ; `vu` = dernière connexion du compte (« en ligne (autre perso) » si le compte joue un
+autre personnage). Le mod fusionne avec les joueurs en ligne de `snap`.
+
+`mode` (S → C, 14/10) : `{"t":"mode","staff":false,"anim":true}` — envoyé au staff concerné à chaque entrée / sortie du
+mode staff ou du mode animation ; le mod affiche un indicateur discret en haut à droite.
 - `profile` : idem, plus `geleMotif`, `gelePar`, `retour` (bool : `return` possible), `back` (bool : `back` possible
   pour le spectateur).
 
@@ -408,7 +475,39 @@ effacer. Les staffs en mode staff se voient entre eux (ils sont invisibles aux j
 ### 4 bis.6 Commandes en jeu (équivalents tapés, mêmes droits)
 
 Détail dans §2.1 : `/journal`, `/note`, `/annonce`, `/annoncejoueur`, `/aller`, `/ramener`, `/retour`, `/geler`,
-`/degeler`, `/voirsac`, `/noir`, `/seisme`, `/tenue`, `/emoteforcee`, `/persoreset`, `/persosuppr`, `/modestaff`.
+`/degeler`, `/voirsac`, `/noir`, `/seisme`, `/tenue`, `/emoteforcee`, `/persoreset`, `/persosuppr`, `/modestaff`,
+`/modeanim`.
+
+### 4 bis.7 Mode staff et mode animation (14/10)
+
+**Mode staff = aucune mécanique RP** (`staff/outils/ModeStaff`, décision du 14/10). Point d'entrée commun pour les
+addons : `KoService#isOutOfPlay(UUID)` (méthode par défaut ajoutée à l'API `@Stable`, vraie en mode staff) ;
+`KoService#techniqueDenial` renvoie « Mode staff : aucune technique. ». Ce qui est bloqué, et où :
+
+| Mécanique | Garde |
+|---|---|
+| Frapper / être frappé (mêlée, projectiles, techniques) | `ModeStaff` `EntityDamageByEntityEvent` / `EntityDamageEvent` (LOWEST) ; ShinobiCombat `onMelee` (`isOutOfPlay` de l'attaquant ou de la victime) |
+| Techniques | ShinobiAbilities `JutsuExecutionManager.gateOrWarn` via `techniqueDenial` |
+| Garde, dash, bond de chakra, esquive | ShinobiCombat `CombatListener` (canal `reborn:combatin`) |
+| Menu R et commandes RP : `/corps` (porter, fouiller, exécuter, gorge, RPK), `/yeux`, `/bandage`, `/rencontrer`, `/amitier`, `/osculter`, `/soigner`, `/paume`, `/aide`, `/me`, `/duel`, `/meditation`, `/assoir`, `/allonger`, `/ramper`, `/playemote` (sur soi), `/testfeuille` (hors `give`), `/hopital` (hors `set` / `suppr` / `liste`), `/radio` (hors outils staff), `/trade`, `/lookdown` | `ModeStaff` `PlayerCommandPreprocessEvent` (LOWEST) |
+| Ramassage (touche F, `pick:`), lâcher, utiliser (manger, pilule), détruire | `InventoryManager` (canal `reborn:inventory`) ; `EntityPickupItemEvent`, `PlayerDropItemEvent`, `PlayerItemConsumeEvent` |
+| Blocs et meubles RP (coffres, portes, bibliothèques, chaises), objet en main | `PlayerInteractEvent` (clic droit refusé, clic gauche libre), `PlayerInteractEntityEvent` ; ShinobiAbilities `LibraryService` |
+| Monture | `EntityMountEvent` ; on descend en entrant dans le mode |
+| Tchat RP | `AsyncChatEvent` (LOWEST) : le message part au **chat staff** (le `#` du chat staff marche toujours) |
+| Radio | `/radio` refusé hors sous-commandes staff (`ecouter`, `stop`, `couper`, `retirer`) — la radio n'existe pas encore |
+
+**Réciproque — personne ne cible un staff en mode staff** : coups (annulés), regard des commandes RP (les rayons de
+`/rencontrer`, `/osculter`, `/soigner`, `/amitier`, `/paume` l'ignorent), commandes RP qui le **nomment** (pseudo ou nom
+RP : « Personne de ce nom ici. »), clic droit sur lui, monter sur lui, cible des mobs. Restent permis : Poste de garde,
+commandes staff, `/voirsac`, `/emoteforcee`, `/playemote <emote> <joueur>`, choix des lits de l'Infirmerie.
+*Non couvert* : la perception de ShinobiSense (Byakugan, détection du chakra), hors du périmètre de ce chantier.
+
+**Mode animation** (`staff/outils/ModeAnimation`, `/modeanim`, permission `reborn.staff.animation`) : l'animateur ou le
+MJ incarne un personnage pour un event — visible, mécaniques RP permises. **Journal** : `STAFF / MODE_ANIMATION`
+(entrée, sortie et durée), et `STAFF / ANIMATION` pour **chaque commande, chaque message et chaque coup porté** pendant
+le mode (en plus des catégories habituelles). Indicateurs : `modeAnim` dans `person` et `snap`, « Animation » dans
+l'état des plaques (`reborn:plaques`) et du Poste de garde, message `mode` → ligne fine en haut à droite de l'écran de
+l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec le mode staff ; tombe à la déconnexion.
 
 ---
 
@@ -430,7 +529,9 @@ Détail dans §2.1 : `/journal`, `/note`, `/annonce`, `/annoncejoueur`, `/aller`
 | `rarete` | `par-id` : id Nexo / de modèle → COMMUN, PEU_COMMUN, RARE, EPIQUE, LEGENDAIRE | idem §7 |
 | `duel` | `actif`, `distance-proposition`, `distance-max`, `duree-max-secondes`, `expiration-secondes`, `cooldown-secondes`, `cooldown-couple-secondes`, `compte-a-rebours`, `techniques`, `teleport-max-blocs`, `grace-secondes`, `annonce.actif`, `annonce.rayon` | idem §4.1 |
 | `medic` | `paume.*`, `bandage.*` | idem |
-| `meditation` | régénération, rayon d'annulation | — |
+| `meditation` | régénération, rayon d'annulation (× modificateur `meditation`) | — |
+| `modificateurs` | `sync-secondes` ; `types.<id>` : `nom`, `famille`, `bonus`, `icone`, `empilement`, `plafond`, `persistance`, `au-ko`, `visible`, `journal`, `duree-secondes`, `valeur`, `effets`, `refuse`, `ensuite` (types livrés : `regeneration`, `satiete_prolongee`, `endurance`, `meditation`, `pilule_soldat`, `fatigue`, `poison`, `pilule_recharge`) | [`ETATS_JOUEUR.md`](./ETATS_JOUEUR.md) §4.4 |
+| `nourriture` | `actif` ; `satiete.*` (départ 80, perte 0,0125 %/s, `activite.*`, technique, vitesse du sprint, combat, AFK, affamé 20) ; `regeneration.*` (seuil 90, 0,25 %/s, pause 30 s, plafond ATA 30) ; `faim.endurance-recuperation` ; `cuisine.*` (15 s, 2 plats, 4 blocs, chaud 10 min, poste de son entreprise) ; `repas.*` (assis ×2, pause 30 s, effets froids ×0,5) ; `tendre.*` (3 blocs, 10 s) ; `pilule.*` ; `ration` ; `plats.<id>` (`nom`, `satiete`, `duree-secondes`, `icone`, `reste`, `effets`) ; `vivres.<id>` (`prix`, `quantite`, `recette`, `cuisinier-seulement`) | [`gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §11, §13 |
 | `display` | échelle des cœurs, saturation auto, HUD de recharge | — |
 | `mobility` | Naruto run, sauts, dash, grappin, tyrolienne, escalade | — |
 | `character-select` | point de sélection des persos | [`gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md) |
@@ -477,6 +578,9 @@ Détail dans §2.1 : `/journal`, `/note`, `/annonce`, `/annoncejoueur`, `/aller`
 | `player-ids.yml` | Core | **Player ID** : `next` (prochain N°) + `index` `'00042'` → `n`, `character` (UUID perso), `owner` (UUID compte), `name`, `deleted`. Un N° n'est **jamais réutilisé** (supprimé = `deleted: true`). Écriture atomique (`.tmp` + renommage), compteur écrit avant d'attribuer. Chaque personnage porte aussi `playerId: 42` dans `characters/<compte>.yml`. Migration idempotente au démarrage (ordre : UUID du compte puis UUID du perso) |
 | `logs/<categorie>-AAAA-MM-JJ.log` | Core | **Journal universel** (14/10) : un fichier par catégorie (`joueur`, `inventaire`, `objet`, `combat`, `ko`, `duel`, `economie`, `interaction`, `bibliotheque`, `staff`, `commande`, `chat`, `systeme`) et par jour, une ligne par entrée : `AAAA-MM-JJ HH:mm:ss \| CAT \| ACTION \| #00042 Pseudo (Nom RP) [Grade] \| cible \| détail \| monde x y z` (`—` = vide). Rétention `journal.retention-jours`. Remplace `aggression-log.txt` (→ `combat`), `kill-log.txt` et `ko-log.txt` (→ `ko`), `duel-log.txt` (→ `duel`) ; les anciens fichiers restent sur le disque, plus alimentés |
 | `gels.yml` | Core | Gels staff persistants, par compte : `par`, `motif`, `le`, `nom` |
+| `entreprises.yml` | Core | Entreprises (14/10) : `nom`, `type`, `responsable` (UUID perso), `cree-le`, `cree-par`, `membres` (`perso`, `compte`, `nom`, `numero`, `role`), `postes` (`monde`, `x`, `y`, `z`, `libelle`) |
+| `satiete.yml` | Core | Satiété par personnage (UUID → %) |
+| `modificateurs.yml` | Core | Modificateurs actifs par personnage : `type`, `n` (intensité), `duree`, `reste` (gelé), `fin` (continu, epoch), `source` ; les types `PERDU` ne sont pas écrits |
 | `notes-staff.yml` | Core | Notes staff par N° : `id`, `le`, `auteur`, `auteur-uuid`, `auteur-pid`, `auteur-grade`, `etiquette`, `texte` |
 | `tenues-forcees.yml` | Core | Tenues imposées, par personnage : id, staff, date, pièce d'origine (sérialisée) |
 | `sauvegardes/perso/<date>-<N°>-<reset\|suppr>/` | Core | Copie de `characters/<compte>.yml` et de la sacoche avant `/persoreset` ou `/persosuppr` |

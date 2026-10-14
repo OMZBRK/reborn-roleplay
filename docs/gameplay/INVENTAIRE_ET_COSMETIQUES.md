@@ -124,6 +124,22 @@ On peut donc **dépasser la limite de poids jusqu'à 130 %** en ramassant (on ra
 
 ---
 
+## 5 bis. Tendre (de la main à la main, 14/10)
+
+Décision du 14/10 : **pas de fenêtre d'échange** ; on se passe les objets à la main. Codé avec la nourriture
+([`NOURRITURE.md`](./NOURRITURE.md) §5, §13) :
+
+- Objet en main, quelqu'un tout près (3 blocs) : une invite « **[R] Tendre** Ramen shōyu » au-dessus de lui (plats,
+  rations, paniers) ; le menu R propose « **Tendre <objet en main>** » et « **Donner des ryo ▸** » (10 à 500, ou un
+  montant tapé) — il remplace l'ancienne entrée « Échanger ».
+- L'autre voit deux lignes au-dessus de sa barre : « X te tend un Ramen shōyu — chaud », « **F** prendre · **Retour**
+  refuser » (10 s). F ne prend l'offre que si aucun objet au sol n'est visé (sinon F ramasse).
+- À la prise, le serveur revérifie tout : distance, ligne de vue, objet toujours en main, **place et poids** (mêmes
+  règles que le ramassage : jusqu'à 130 %), solde pour les ryo ; KO, sacoche en lecture seule et mode staff refusent.
+- Notification chez les deux (« +1 Ramen shōyu — de Teuchi · chaud », « −1 … · tendu à Ren », « +120 ryo — de Ren ») ;
+  **journal `DON`** (catégorie Objet ; Économie pour les ryo). Les noms suivent le système « rencontrer » : un inconnu
+  reste « Quelqu'un ».
+
 ## 6. Objets au sol
 
 - **Rareté** (cinq niveaux, §7) posée sur l'objet quand il apparaît au sol ; le mod l'affiche en **aura** : halo

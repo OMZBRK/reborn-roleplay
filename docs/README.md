@@ -31,8 +31,11 @@
 | [`gameplay/STATS_ET_PROGRESSION.md`](./gameplay/STATS_ET_PROGRESSION.md) | 6 stats, XP invisible, grades, points de Mérite |
 | [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) | Sélection et création en scène, apparence |
 | [`gameplay/FACTION_PROPOSITION.md`](./gameplay/FACTION_PROPOSITION.md) | **Proposition** de design Faction (sections, fonctions, quotas, trésor, coffres, diplomatie), 18 questions ouvertes |
+| [`gameplay/RADIO.md`](./gameplay/RADIO.md) | Radio = **escouades** (décidé 14/10, non codé) : oreillette, ajout à côté, persistance, à terre, vol, écoute staff, faisabilité PlasmoVoice 2.x, 8 questions |
 | [`gameplay/MISSIONS.md`](./gameplay/MISSIONS.md) | Idées de missions et d'entraînements, formats de rapports (pas encore de système en jeu) |
 | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](./gameplay/INVENTAIRE_ET_COSMETIQUES.md) | Sacoche RP, poids, cosmétiques |
+| [`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md) | Nourriture v3 (codée 14/10, non publiée) : satiété, régénération, FAIM, cuisinier joueur, repas, tendre, ration, pilule du soldat, modificateurs |
+| [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md) | Entreprises (restaurant, forge, échoppe) créées par le staff : membres, rôles, postes ; futur onglet du menu Faction |
 | [`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md) | Allures marche / trot / sprint, endurance, emboîtement avec la surcharge et la course ninja |
 | [`gameplay/EMOTES.md`](./gameplay/EMOTES.md) | Emotes RP (EmoteCraft) et leur distribution |
 | [`gameplay/ANIMATIONS_BASE.md`](./gameplay/ANIMATIONS_BASE.md) | Catalogue d'animations à produire |
@@ -52,6 +55,7 @@
 | [`technique/MOD_HUD.md`](./technique/MOD_HUD.md) | Le mod client : packages, touches, taille des menus, **banc de captures**, pièges 26.2 |
 | [`technique/MIGRATION_26.2.md`](./technique/MIGRATION_26.2.md) | Plateforme actuelle : versions, API 26.2, recette de build |
 | [`technique/SPEC_STATS_SERVICE.md`](./technique/SPEC_STATS_SERVICE.md) | Spécification du `StatsService` |
+| [`technique/ETATS_JOUEUR.md`](./technique/ETATS_JOUEUR.md) | **Conception (non codée)** des états du joueur : inventaire du code et des clans, couches, modificateurs, matrice, « contourne X », migration |
 | [`technique/AUDIT_TECHNIQUES_ET_CREATOR.md`](./technique/AUDIT_TECHNIQUES_ET_CREATOR.md) | Système de techniques et Technique Creator |
 | [`technique/CREATEUR_PERSONNAGE_ASSETS.md`](./technique/CREATEUR_PERSONNAGE_ASSETS.md) | Pipeline des skins (catalogue, masques de couleur) |
 | [`technique/MCP_OUTILLAGE.md`](./technique/MCP_OUTILLAGE.md) | Faisabilité MCP : Blockbench, Discord, Blender |
