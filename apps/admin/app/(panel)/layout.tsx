@@ -10,6 +10,7 @@ import {
   IconDashboard,
   IconInbox,
   IconLogout,
+  IconMegaphone,
   IconPlayers,
   IconServer,
   IconShield,
@@ -37,6 +38,7 @@ const NAV: NavItem[] = [
   { href: '/abilities', label: 'Techniques', Icon: IconTechnique },
   { href: '/wiki', label: 'Wiki', Icon: IconBook },
   { href: '/wiki/ideas', label: 'Idées', Icon: IconBulb },
+  { href: '/discord', label: 'Discord', Icon: IconMegaphone },
   { href: '/audit', label: 'Audit', Icon: IconAudit },
   { href: '/anomalies', label: 'Anomalies', Icon: IconShield },
 ];

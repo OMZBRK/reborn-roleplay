@@ -365,3 +365,51 @@ export function IconOpen(p: IconProps) {
     </Base>
   );
 }
+
+export function IconMegaphone(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+    </Base>
+  );
+}
+
+export function IconExternal(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4 11 13" />
+      <path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
+    </Base>
+  );
+}
+
+export function IconImage(p: IconProps) {
+  return (
+    <Base {...p}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="9" cy="10" r="1.8" />
+      <path d="m21 16-5-5-9 9" />
+    </Base>
+  );
+}
+
+export function IconArrowUp(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </Base>
+  );
+}
+
+export function IconArrowDown(p: IconProps) {
+  return (
+    <Base {...p}>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
+    </Base>
+  );
+}

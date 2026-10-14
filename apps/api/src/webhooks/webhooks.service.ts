@@ -114,6 +114,66 @@ export interface ModsUpdatePayload {
   mods: string[];
 }
 
+/** Spec de cadre composants v2 (format de apps/bot/src/messages/cadre.ts). */
+export interface StaffCadreSpec {
+  couleur?: string;
+  blocs: {
+    texte?: string;
+    images?: string[];
+    separateur?: boolean;
+    liens?: { libelle: string; url: string; emoji?: string }[];
+  }[];
+}
+
+export type StaffDiscordCanal = 'annonces' | 'dev-updates';
+export type StaffDiscordPing = 'aucun' | 'testeurs' | 'everyone';
+
+/** Panel → bot : aperçu ou publication d'une annonce / dev update du Discord staff. */
+export interface StaffMessagePayload {
+  canal: StaffDiscordCanal;
+  mode: 'apercu' | 'publier';
+  spec: StaffCadreSpec;
+  images: { nom: string; base64: string }[];
+  ping?: StaffDiscordPing;
+  /** ID d'un message du bot à remplacer (supprimé après l'envoi du nouveau). */
+  cleRemplacement?: string;
+}
+
+export interface StaffMessageEditPayload {
+  canal: StaffDiscordCanal;
+  messageId: string;
+  spec: StaffCadreSpec;
+  images: { nom: string; base64: string }[];
+  ping?: StaffDiscordPing;
+}
+
+export interface StaffMessageDeletePayload {
+  canal: StaffDiscordCanal | 'apercu';
+  messageId: string;
+}
+
+export interface StaffMessageResult {
+  messageId: string | null;
+  channelId?: string;
+  url: string | null;
+  /** Aperçu sans salon de test : rendu JSON des composants. */
+  rendu?: { components: unknown[]; pieces: string[] };
+}
+
+/**
+ * Échec d'un appel bot qui DOIT remonter à l'appelant (contrairement aux
+ * notifications best-effort). `status` = statut HTTP du bot, 0 si injoignable.
+ */
+export class BotWebhookError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly details?: string[],
+  ) {
+    super(message);
+  }
+}
+
 @Injectable()
 export class WebhooksService implements OnModuleInit {
   private readonly logger = new Logger(WebhooksService.name);
@@ -206,6 +266,92 @@ export class WebhooksService implements OnModuleInit {
   /** Annonce « N mises a jour de mods disponibles » (cron Modrinth → bot Discord). */
   async modsUpdate(payload: ModsUpdatePayload): Promise<void> {
     await this.dispatch('/webhooks/mods-update', payload);
+  }
+
+  // ── Messages du panel (page « Discord ») — appels STRICTS ──────────
+  // Le staff attend le résultat (lien du message, erreur de contenu) : on
+  // lève BotWebhookError au lieu de journaliser et rendre null. Délai long :
+  // l'envoi des images à Discord peut prendre plusieurs secondes.
+
+  async staffMessage(
+    payload: StaffMessagePayload,
+  ): Promise<StaffMessageResult> {
+    return this.call<StaffMessageResult>(
+      '/webhooks/staff-message',
+      payload,
+      60_000,
+    );
+  }
+
+  async staffMessageEdit(
+    payload: StaffMessageEditPayload,
+  ): Promise<StaffMessageResult> {
+    return this.call<StaffMessageResult>(
+      '/webhooks/staff-message/edit',
+      payload,
+      60_000,
+    );
+  }
+
+  async staffMessageDelete(
+    payload: StaffMessageDeletePayload,
+  ): Promise<{ deleted: boolean; absent?: boolean }> {
+    return this.call('/webhooks/staff-message/delete', payload, 20_000);
+  }
+
+  private async call<T>(
+    path: string,
+    payload: object,
+    timeoutMs: number,
+  ): Promise<T> {
+    const baseUrl = process.env.REBORN_BOT_WEBHOOK_URL;
+    const secret = process.env.REBORN_WEBHOOK_SECRET;
+    if (!baseUrl || !secret) {
+      throw new BotWebhookError(
+        0,
+        'Bot non configuré (REBORN_BOT_WEBHOOK_URL / REBORN_WEBHOOK_SECRET).',
+      );
+    }
+    const body = JSON.stringify(payload);
+    const signature = createHmac('sha256', secret).update(body).digest('hex');
+    const url = `${baseUrl.replace(/\/$/, '')}${path}`;
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-reborn-signature': signature,
+        },
+        body,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Webhook ${path} injoignable (${url}) : ${(err as Error).message}`,
+      );
+      throw new BotWebhookError(0, 'Bot Discord injoignable.');
+    }
+    const text = await res.text().catch(() => '');
+    let parsed: unknown = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = null;
+    }
+    if (!res.ok) {
+      const p = (parsed ?? {}) as { error?: string; details?: string[] };
+      this.logger.warn(
+        `Webhook ${path} → ${res.status} : ${text.slice(0, 200)}`,
+      );
+      throw new BotWebhookError(
+        res.status,
+        p.error ?? `HTTP ${res.status}`,
+        p.details,
+      );
+    }
+    this.logger.log(`Webhook ${path} → 200 OK`);
+    return parsed as T;
   }
 
   private async dispatch<T = unknown>(

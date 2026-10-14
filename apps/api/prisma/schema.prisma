@@ -733,3 +733,45 @@ enum TechniqueGraphStatus {
   PUBLISHED
   ARCHIVED
 }
+
+enum StaffDiscordChannel {
+  ANNONCES
+  DEV_UPDATES
+}
+
+enum StaffDiscordMessageStatus {
+  DRAFT
+  PUBLISHED
+  REMOVED
+}
+
+/// Message rédigé dans le panel staff (page « Discord ») puis posté par le bot dans le salon
+/// `annonces` ou `dev-updates` du serveur Discord STAFF (route signée /webhooks/staff-message).
+/// `blocs` = spec de cadre composants v2 (texte markdown, images, séparateur, liens), même format que
+/// apps/bot/src/scripts/post-message.ts ; les images y sont citées par leur nom de média
+/// (`<uuid>.<ext>`, stocké par l'API hors de /uploads public). Aucun ID Discord n'est versionné :
+/// ceux stockés ici viennent des réponses du bot.
+model StaffDiscordMessage {
+  id               String                    @id @default(uuid())
+  channel          StaffDiscordChannel
+  status           StaffDiscordMessageStatus @default(DRAFT)
+  title            String                    // dérivé du premier titre markdown (historique)
+  color            String                    @default("#A0182B")
+  blocks           Json
+  ping             String                    @default("aucun") // aucun | testeurs | everyone
+  discordMessageId String?
+  discordChannelId String?
+  discordUrl       String?
+  previewMessageId String?                   // dernier aperçu posté dans le salon de test
+  createdById      String                    // User Reborn (champ plat, cf. TechniqueGraph)
+  createdByName    String
+  updatedById      String?
+  updatedByName    String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  publishedAt      DateTime?
+  removedAt        DateTime?
+
+  @@index([status, updatedAt])
+  @@index([channel, createdAt])
+}

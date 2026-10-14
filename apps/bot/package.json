@@ -10,7 +10,12 @@
     "build": "tsc",
     "start": "node --enable-source-maps dist/index.js",
     "start:dev": "tsx watch src/index.ts",
-    "register": "tsx src/scripts/register-commands.ts"
+    "register": "tsx src/scripts/register-commands.ts",
+    "audit:guild": "tsx src/scripts/audit-guild.ts",
+    "plan:guild": "tsx src/scripts/plan-guild.ts",
+    "apply:guild": "tsx src/scripts/apply-guild.ts",
+    "post:banners": "tsx src/scripts/post-banners.ts",
+    "post:message": "tsx src/scripts/post-message.ts"
   },
   "dependencies": {
     "discord.js": "^14.18.0",

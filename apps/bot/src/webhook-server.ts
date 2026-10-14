@@ -12,6 +12,15 @@ import {
 import { config } from "./config.js";
 import { packEmbedsForMessages, paginateLong } from "./embeds.js";
 import {
+  ErreurRequete,
+  modifierStaffMessage,
+  posterStaffMessage,
+  supprimerStaffMessage,
+  type StaffMessageDeletePayload,
+  type StaffMessageEditPayload,
+  type StaffMessagePayload,
+} from "./messages/staff-message.js";
+import {
   buildTicketAnnouncement,
   cacheTicketPayload,
   type TicketPayloadFull,
@@ -32,6 +41,8 @@ import {
  * Endpoints :
  *   POST /webhooks/whitelist  → cree un thread "Whitelist · <pseudoMC>"
  *   POST /webhooks/tickets    → cree un thread "Ticket · <category> · <subject>"
+ *   POST /webhooks/staff-message[/edit|/delete] → annonces / dev updates du
+ *        Discord staff rediges dans le panel (cf messages/staff-message.ts)
  *   GET  /healthz             → 200 ok (pour readiness probe)
  */
 
@@ -296,14 +307,56 @@ async function handle(client: Client, req: IncomingMessage, res: ServerResponse)
       return reply(res, 500, { error: (err as Error).message });
     }
   }
+  // Messages rediges dans le panel staff (page « Discord ») : annonces et
+  // dev updates du serveur staff. Les erreurs de contenu / de config sont
+  // renvoyees avec leur statut pour que le panel les affiche telles quelles.
+  if (
+    url === "/webhooks/staff-message" ||
+    url === "/webhooks/staff-message/edit" ||
+    url === "/webhooks/staff-message/delete"
+  ) {
+    const p = payload as { canal?: string; mode?: string; messageId?: string };
+    console.log(
+      `[webhook] ${url} canal=${p.canal ?? "?"} mode=${p.mode ?? "-"} message=${p.messageId ?? "-"}`,
+    );
+    try {
+      const out =
+        url === "/webhooks/staff-message"
+          ? await posterStaffMessage(client, payload as StaffMessagePayload)
+          : url === "/webhooks/staff-message/edit"
+            ? await modifierStaffMessage(client, payload as StaffMessageEditPayload)
+            : await supprimerStaffMessage(client, payload as StaffMessageDeletePayload);
+      return reply(res, 200, out);
+    } catch (err) {
+      if (err instanceof ErreurRequete) {
+        console.warn(`[webhook] ${url} ${err.status} : ${err.message}`);
+        return reply(res, err.status, { error: err.message, details: err.details });
+      }
+      console.error(`[webhook] ${url} crash :`, err);
+      return reply(res, 500, { error: (err as Error).message });
+    }
+  }
   console.warn(`[webhook] 404 route inconnue : ${url}`);
   reply(res, 404, { error: "route inconnue" });
 }
 
+// Plafond du corps lu AVANT la verification HMAC : les messages du panel
+// transportent leurs images en base64 (25 Mo max cote bot, ~34 Mo encodes).
+const MAX_BODY_BYTES = 40 * 1024 * 1024;
+
 function readBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error("corps de requete trop volumineux"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });

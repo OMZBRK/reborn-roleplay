@@ -16,6 +16,7 @@ export class ApiError extends Error {
 
 interface FetchOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  /** Objet sérialisé en JSON, ou FormData envoyé tel quel (multipart). */
   body?: unknown;
   /** Set false to bypass the bearer header (used by login flows). */
   authenticated?: boolean;
@@ -75,7 +76,10 @@ export async function api<T>(path: string, opts: FetchOptions = {}): Promise<T> 
 
   const doFetch = () => {
     const headers: Record<string, string> = {};
-    if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+    // FormData (upload multipart) : le navigateur pose lui-même le
+    // Content-Type avec la frontière ; on ne sérialise pas.
+    const isForm = typeof FormData !== 'undefined' && opts.body instanceof FormData;
+    if (opts.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
     if (authed) {
       const token = getAccessToken();
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -83,7 +87,12 @@ export async function api<T>(path: string, opts: FetchOptions = {}): Promise<T> 
     return fetch(`${API_BASE}${path}`, {
       method: opts.method ?? 'GET',
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body:
+        opts.body === undefined
+          ? undefined
+          : isForm
+            ? (opts.body as FormData)
+            : JSON.stringify(opts.body),
       cache: 'no-store',
     });
   };

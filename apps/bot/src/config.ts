@@ -56,4 +56,16 @@ export const config = {
   /** Optionnel : notifs "Claude a fini" postees dans ce salon. Utilise si
    *  aucun user DM n'est configure. Vide → fallback sur le salon tickets. */
   claudeNotifyChannelId: process.env.DISCORD_CLAUDE_NOTIFY_CHANNEL_ID ?? "",
+  /** Serveur Discord STAFF (« RBN - STAFF »), cible des messages rédigés dans le panel
+   *  (route /webhooks/staff-message). Vide = route désactivée (503). */
+  staffGuildId: process.env.DISCORD_STAFF_GUILD_ID ?? "",
+  /** Salon `annonces` du serveur staff (panel → « Annonces »). */
+  staffAnnoncesChannelId: process.env.DISCORD_STAFF_ANNONCES_CHANNEL_ID ?? "",
+  /** Salon `dev-updates` du serveur staff (panel → « Dev updates »). */
+  staffDevUpdatesChannelId: process.env.DISCORD_STAFF_DEVUPDATES_CHANNEL_ID ?? "",
+  /** Optionnel : salon de test (ex. privé Direction) où « Aperçu » poste le message.
+   *  Vide = l'aperçu renvoie seulement le rendu JSON, rien n'est posté. */
+  staffApercuChannelId: process.env.DISCORD_STAFF_APERCU_CHANNEL_ID ?? "",
+  /** Optionnel : rôle pingé par « @Testeur » en dev-updates. Vide = rôle nommé « Testeur ». */
+  staffTesteurRoleId: process.env.DISCORD_STAFF_TESTEUR_ROLE_ID ?? "",
 };

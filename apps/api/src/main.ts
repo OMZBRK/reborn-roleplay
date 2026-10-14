@@ -40,6 +40,15 @@ async function bootstrap() {
   // /uploads, hors du préfixe global /v1 — le launcher rend l'image via l'URL
   // absolue renvoyee par POST /v1/upload. UploadService a deja cree le dossier
   // au boot (constructeur).
+  // Les images des messages Discord du panel vivent dans <uploads>/.staff-media
+  // (cf staff-messages/staff-media.config.ts) : jamais servies ici. express.static
+  // ignore deja les dossiers a point ; on le rend explicite.
+  app.use(
+    `${UPLOADS_ROUTE}/.staff-media`,
+    (_req: express.Request, res: express.Response) => {
+      res.status(404).end();
+    },
+  );
   app.use(UPLOADS_ROUTE, express.static(resolveUploadDir()));
 
   app.setGlobalPrefix('v1');

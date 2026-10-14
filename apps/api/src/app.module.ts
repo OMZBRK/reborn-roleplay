@@ -24,6 +24,7 @@ import { SecurityModule } from './security/security.module';
 import { ServerStatusModule } from './server-status/server-status.module';
 import { ShotsModule } from './shots/shots.module';
 import { StaffModule } from './staff/staff.module';
+import { StaffMessagesModule } from './staff-messages/staff-messages.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { UploadModule } from './upload/upload.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -58,6 +59,7 @@ import { WikiModule } from './wiki/wiki.module';
     ServerStatusModule,
     ShotsModule,
     StaffModule,
+    StaffMessagesModule,
     TicketsModule,
     UploadModule,
     WebhooksModule,
