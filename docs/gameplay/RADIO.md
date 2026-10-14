@@ -1,6 +1,7 @@
 # Radio — l'oreillette et l'escouade
 
-> **Statut : conception v3 (2026-10-14), décidée, rien n'est codé.** Demande du 14/10 : « le proximity chat c'est déjà Plasmo
+> **Statut : codée le 2026-10-14 (non publiée, non testée sur serveur)** — plugin `ShinobiRadio` + mod `reborn-hud`
+> (`radio/`, `voice/RadioVoix`), détail au **§12**. Conception v3 du même jour, décidée. Demande du 14/10 : « le proximity chat c'est déjà Plasmo
 > Voice, mais ce serait bien de faire un truc RADIO ». Une première proposition à canaux (équipe, section, fréquences
 > libres, appel de service) a été **remplacée le jour même** par les décisions de l'utilisateur
 > ([`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md), 14/10) : **la radio = une escouade**. Ce qui reste marqué
@@ -51,8 +52,8 @@
 | Élément | État au 14/10 | Où |
 |---|---|---|
 | Plasmo Voice **serveur** | **Installé** (confirmé par l'utilisateur le 14/10) ; version à relever sur le panel | serveur dev / prod |
-| Plasmo Voice **client** | `plasmovoice-fabric-26.2-2.1.16` dans le modpack (dernier manifest signé, 3.1.132) ; `reborn-hud` compile contre **2.1.14** (`libs/`, `compileOnly`) ; client de dev en 2.1.14 | [`../ETAT_DES_LIEUX.md`](../ETAT_DES_LIEUX.md) §4, `minecraft/mod-hud/build.gradle` |
-| `RebornVoiceAddon` | Addon **client** PV vide (`@Addon(scope = CLIENT)`), détection de présence | `mod-hud/.../voice/RebornVoiceAddon.java` |
+| Plasmo Voice **client** | `plasmovoice-fabric-26.2-2.1.16` dans le modpack (dernier manifest signé, 3.1.132) ; **`reborn-hud` compile contre 2.1.17** depuis le 14/10 (`libs/`, `compileOnly`) ; client de dev en 2.1.17 (`run/mods/`) | [`../ETAT_DES_LIEUX.md`](../ETAT_DES_LIEUX.md) §4, `minecraft/mod-hud/build.gradle` |
+| `RebornVoiceAddon` | Addon **client** PV : détection de présence + branche la radio (`voice/RadioVoix`, 14/10) | `mod-hud/.../voice/RebornVoiceAddon.java` |
 | `VoiceState` | « Je parle », micro coupé / mute serveur, assourdi ; entités qui parlent (bulles) | `mod-hud/.../voice/VoiceState.java` |
 | Emplacement **Boucle d'oreille** | Un des 10 `CosmeticSlot`, rendu sur le corps, diffusé à tous | [`INVENTAIRE_ET_COSMETIQUES.md`](./INVENTAIRE_ET_COSMETIQUES.md) §10 |
 | Menu R (interaction) | Menu contextuel sur un joueur / un corps (Ausculter, Porter, Fouiller, Exécution…) | `mod-hud/.../interaction/` |
@@ -214,4 +215,56 @@ dans un nouveau module Maven **`ShinobiRadio`**, Plasmo Voice **2.1.17** partout
 Questions restantes :
 1. ~~Élément Escouade : par défaut seulement ceux qui parlent ou toute l'escouade ?~~ **Tranché le 14/10 : seulement ceux qui parlent** (toute l'escouade en option).
 2. ~~Position par défaut : sous les vitals, à gauche ?~~ **Validé le 14/10.**
-3. Commandes staff en plus de l'écoute (`/radio couper`, `/radio retirer`) : oui ?
+3. Commandes staff en plus de l'écoute (`/radio couper`, `/radio retirer`) : **codées** (Modérateur), à confirmer ou
+   retirer.
+4. Touches : **B** est aussi la touche par défaut d'Emotecraft et **N** celle du menu OST (`mod-ost`) — à rebinder
+   chez l'un ou l'autre dans le modpack (les deux touches radio sont réglables dans les contrôles Reborn).
+5. Réparer une oreillette : en attendant les artisans, `/radio reparer` (Modérateur ou permission
+   `shinobiradio.artisan`). Obtention (échoppe, prix) : à décider ; aujourd'hui `/radio donner` (Admin) ou `/nexo give`.
+
+---
+
+## 12. Ce qui est codé (14/10, non publié)
+
+**Serveur — plugin `ShinobiRadio`** (`minecraft/shinobi/ShinobiRadio`, module de l'agrégateur Maven, `depend:
+[ShinobiCore, PlasmoVoice]`). Référence : [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §2.4
+(commandes), §4 quater (protocole `reborn:radio`, Plasmo Voice, journal), §5.3 (config), §6 (`escouades.yml`).
+
+| Pièce | Classe | Ce qu'elle fait |
+|---|---|---|
+| Plugin | `ShinobiRadio` | Charge l'addon Plasmo Voice dans `onLoad`, services ShinobiCore, boucle toutes les 5 ticks |
+| Addon PV | `RadioAddon` (`@Addon reborn-radio`, `@InjectPlasmoVoice`) | Enregistre la voix à l'initialisation de Plasmo Voice (et à chaque rechargement) |
+| Voix | `VoixRadio` | Activation `radio` (sans proximité, non transitive, conditions à chaque paquet), ligne `radio` (volume à part), une source de diffusion par émetteur, chuchoté à 4 blocs sur la ligne de proximité, trames sautées à terre |
+| Règles | `Radio` | Instantané immuable (qui émet, qui entend) lu par la voix ; états (inconscient, à terre, porté, mort RP, mode staff) ; créer / ajouter / accepter (10 s) / quitter / renommer / exclure / exclure l'oreillette / dissoudre ; couper / prendre l'oreillette d'un joueur à terre ; staff (info, écoute, coupure, retrait, don, réparation) ; dissolution après 30 jours ; journal |
+| Données | `Escouade`, `Escouades` | Escouades persistantes (`escouades.yml`, écriture atomique), numéros d'oreillettes jamais réutilisés |
+| Oreillette | `Oreillettes` | Reconnaît l'objet (`oreillette.ids`), lit / écrit ses données (numéro, escouade, propriétaire, coupée), lore discrète |
+| Canal | `Canal` | `reborn:radio` (S → C) |
+| Commande | `RadioCommande` | `/radio …` (joueurs et staff, grades du Poste de garde) |
+
+Changements dans **ShinobiCore** (à redéployer avec) : `InventoryService#cosmetique` / `#poserCosmetique` (lire et poser
+l'objet d'un emplacement cosmétique), `KoService#isDowned` (à terre vs inconscient), catégorie de journal **`RADIO`**,
+et `ModeStaff` accepte aussi `/radio info|donner|reparer` en mode staff.
+
+**Client — mod `reborn-hud`** (paquet `radio/`) :
+
+| Pièce | Classe | Maquette |
+|---|---|---|
+| Canal, état, invitation, paroles | `RadioClient` | — |
+| Écran N (centré, épuré, sans kanji ; survol → Exclure, « Couper l'oreillette » si elle a été prise ; Renommer, Quitter et Dissoudre avec second clic) | `RadioScreen`, textures `textures/gui/radio/panneau_<h>.png` (`tools/gen_radio_textures.py`) | v3/01 |
+| Élément HUD « Escouade » (`HudElement.ESCOUADE`, défaut sous les vitals à gauche, têtes d'exemple dans l'éditeur, case « Afficher toute l'escouade » dans l'inspecteur) ; invitation ; ligne staff « écoute · Kagerō · 9:41 » ; rappel bref si B ne peut pas émettre | `RadioHud` | v3/02, v3/02b, v3/03 |
+| Menu R : Radio › Créer / Ajouter à « … » / Voir l'escouade (N) ; sur un joueur à terre : Oreillette › Couper / Prendre | `RadioMenus` (+ `interaction/InteractionMenus`) | v2/01, v2/03 |
+| Son radio (passe-bande, souffle ; haché à terre), icône PV masquée, touche B recopiée dans l'activation PV (forcée en push-to-talk) | `voice/RadioVoix` (chargé par `RebornVoiceAddon`) | — |
+| Touches **B** (parler, maintenir) et **N** (écran), réglables | `keybind/HudKeybinds` | — |
+| Banc de captures `REBORN_RADIO_DEBUG=1` (`REBORN_RADIO_POS` pour le point de vue) | `RadioDebug` | captures `Maquettes/gameplan/18_radio/code/` |
+
+L'écoute du Poste de garde (fiche › Plus › « Écouter la radio… ») s'active dès que le serveur a la radio (commande
+`/radio` déclarée ou premier message `reborn:radio`). Plasmo Voice du mod passé en **2.1.17** (`libs/`).
+
+**Oreillette (pack Nexo)** : `oreillette` dans `minecraft/server-config/nexo/items/reborn_cosmetiques.yml`, modèle et
+texture `pack/assets/reborn/{models/item,textures/item,items}/oreillette.*` générés par
+`minecraft/mod-hud/tools/gen_oreillette_nexo.py` (jamais dans les assets du mod).
+
+**Pas vérifiable sans serveur** : la voix elle-même (routage des trames, chuchoté, coupures, effet radio sur de vraies
+voix, masquage de l'icône, touche B dans Plasmo Voice, réflexion sur le type d'activation), le rendu de l'oreillette
+portée sur le corps, et la persistance après redémarrage. Les écrans et le HUD sont capturés sur le client de dev avec
+des messages simulés.

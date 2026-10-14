@@ -138,17 +138,19 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         if (!actif) {
             if (surcharge.palier(p.getUniqueId()) != NORMAL) surcharge.appliquer(p, 0, 1, InventaireConfig.get(plugin), false);
             else if (b == null) surcharge.retirer(p);
-            return;
+            // Créatif (15/10) : pas de surcharge, mais l'état est poussé quand même (palier 0) — le mod n'active le
+            // ramassage volontaire (F) qu'après l'avoir reçu, et l'indicateur de surcharge doit retomber.
+            if (b == null || p.getGameMode() == GameMode.SPECTATOR) return;
         }
         double cur = hotbarWeight(p) + b.storageWeight();
         double max = b.maxWeight();
-        int avant = surcharge.appliquer(p, cur, max, InventaireConfig.get(plugin), true);
+        int avant = actif ? surcharge.appliquer(p, cur, max, InventaireConfig.get(plugin), true) : -1;
         if (avant >= 0) Surcharge.annoncer(p, avant, surcharge.palier(p.getUniqueId()));
         int libres = 0;
         for (int i = 0; i < RpBag.HOTBAR_SLOTS; i++) if (isEmpty(p.getInventory().getItem(i))) libres++;
         for (int i = 0; i < b.extraSlots(); i++) if (b.getStorage(i) == null) libres++;
         String verrou = lockReason(p);
-        int pal = surcharge.palier(p.getUniqueId());
+        int pal = actif ? surcharge.palier(p.getUniqueId()) : NORMAL;
         String sig = round2(cur) + "|" + round2(max) + "|" + pal + "|" + libres + "|" + verrou;
         if (!sig.equals(dernierEtat.get(p.getUniqueId()))) {
             dernierEtat.put(p.getUniqueId(), sig);
@@ -410,6 +412,7 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         b.append(",\"rarity\":\"").append(leaf ? RpRarity.RARE.name() : RareteItems.of(s).name()).append('"');
         if (RareteItems.arme(s)) b.append(",\"arme\":true");
         if (RareteItems.unique(s)) b.append(",\"unique\":true");
+        if (com.reborn.shinobicore.monnaie.Bourse.est(s)) b.append(",\"ryo\":").append(com.reborn.shinobicore.monnaie.Bourse.montant(s));
         if (leaf) b.append(",\"action\":{\"id\":\"tirage\",\"label\":\"Faire le test\"}");
         b.append('}');
         return b.toString();
@@ -853,6 +856,34 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         return prev;
     }
 
+    @Override
+    public ItemStack cosmetique(Player p, String slot) {
+        CosmeticSlot cs = CosmeticSlot.fromName(slot);
+        RpBag b = cs == null ? null : bagFor(p);
+        ItemStack s = b == null ? null : b.equipped().get(cs);
+        return isEmpty(s) ? null : s.clone();
+    }
+
+    @Override
+    public ItemStack poserCosmetique(Player p, String slot, ItemStack s) {
+        CosmeticSlot cs = CosmeticSlot.fromName(slot);
+        RpBag b = cs == null ? null : bagFor(p);
+        if (b == null) return null;
+        ItemStack prev;
+        if (isEmpty(s)) prev = b.equipped().remove(cs);
+        else {
+            ItemStack one = s.clone();
+            one.setAmount(1);
+            prev = b.equipped().put(cs, one);
+        }
+        persist(p, b);
+        p.updateInventory();
+        push(p, false);
+        broadcastCosmetics(p);
+        recalc(p);
+        return prev;
+    }
+
     /**
      * Staff ({@code /persoreset}, 14/10) : vide la sacoche du personnage {@code charId} (fichier supprimé, le code
      * appelant en a fait une sauvegarde). Si {@code online} le joue, la sacoche vide est re-semée et poussée.
@@ -1016,6 +1047,11 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
     private boolean doDrop(Player p, RpBag b, String ref) {
         ItemStack it = refGet(p, b, ref);
         if (isEmpty(it)) return false;
+        // Monnaie (15/10) : la bourse se pose avec un montant (« Combien veux-tu poser ? ») ; ici, toute la bourse.
+        if (com.reborn.shinobicore.monnaie.Bourse.est(it) && plugin.monnaie() != null) {
+            plugin.monnaie().bourses().poser(p, com.reborn.shinobicore.monnaie.Bourse.montant(it));
+            return false;
+        }
         ItemStack lache = sansDegainee(it.clone());
         Item e = p.getWorld().dropItemNaturally(p.getLocation(), lache);
         e.setThrower(p.getUniqueId());
@@ -1030,7 +1066,8 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent e) {
         Player p = e.getPlayer();
-        if (!survie(p) || activeCharId(p) == null) return;
+        // Créatif compris (15/10) : notification et journal comme en survie.
+        if (p.getGameMode() == GameMode.SPECTATOR || activeCharId(p) == null) return;
         if (lockReason(p) != null) {
             e.setCancelled(true);
             return;
@@ -1209,6 +1246,38 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         recalc(p);
         return s;
     }
+
+    /** Monnaie (15/10) : pose {@code s} (copie, ou null pour vider) dans la case {@code i} du sac ; persiste et pousse. */
+    public void poserDansSac(Player p, int i, ItemStack s) {
+        RpBag b = bagFor(p);
+        if (b == null || i < 0 || i >= b.extraSlots()) return;
+        b.setStorage(i, isEmpty(s) ? null : s.clone());
+        persist(p, b);
+    }
+
+    /** Monnaie (15/10, fouille d'un corps dont le joueur est parti) : sac d'un personnage non joué, en copies. */
+    public List<ItemStack> sacDuPersonnage(UUID charId) {
+        List<ItemStack> out = new ArrayList<>();
+        if (charId == null || dir == null) return out;
+        RpBag b = cache.computeIfAbsent(charId, this::loadOrSeed);
+        for (int i = 0; i < b.extraSlots(); i++) {
+            ItemStack s = b.getStorage(i);
+            out.add(s == null ? null : s.clone());
+        }
+        return out;
+    }
+
+    /** Monnaie (15/10) : écrit la case {@code i} du sac d'un personnage non joué et sauvegarde. */
+    public void poserDansSacDe(UUID charId, int i, ItemStack s) {
+        if (charId == null || dir == null) return;
+        RpBag b = cache.computeIfAbsent(charId, this::loadOrSeed);
+        if (i < 0 || i >= b.extraSlots()) return;
+        b.setStorage(i, isEmpty(s) ? null : s.clone());
+        saveBag(charId, b);
+    }
+
+    /** Monnaie (15/10) : le JSON d'objet de la sacoche (mêmes champs que le canal reborn:inventory). */
+    public String jsonObjet(ItemStack s) { return itemJson(s); }
 
     /** Rend un item : barre (fusion des piles comprise), sinon sac, sinon au sol. */
     private void giveOrDrop(Player p, RpBag b, ItemStack s) {

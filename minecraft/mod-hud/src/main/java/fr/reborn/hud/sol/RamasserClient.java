@@ -63,8 +63,8 @@ public final class RamasserClient {
 
     private static boolean actif(Minecraft mc) {
         if (mc.player == null || mc.level == null || mc.gameMode == null) return false;
-        GameType g = mc.gameMode.getPlayerMode();
-        if (g != GameType.SURVIVAL && g != GameType.ADVENTURE) return false;
+        // Survie, aventure et créatif (15/10 : le staff et le build sont souvent en créatif) ; pas le spectateur.
+        if (mc.gameMode.getPlayerMode() == GameType.SPECTATOR) return false;
         return NotifClient.ramassageServeur() && (NotifClient.debugActif || ClientPlayNetworking.canSend(InventoryPayload.ID));
     }
 
@@ -101,7 +101,7 @@ public final class RamasserClient {
         }
     }
 
-    /** END : objet visé pour le tick suivant (et l'aura « visée »). */
+    /** END : objet visé pour le tick suivant (et la lueur « visée »). */
     private static void apresTick(Minecraft mc) {
         ItemEntity avant = cible;
         cible = debugCible != null ? debugCible : (actif(mc) ? viser(mc) : null);
@@ -189,7 +189,9 @@ public final class RamasserClient {
     private static String refus(ItemStack s, int n) {
         NotifClient.Poids p = NotifClient.poids();
         if (p == null) return null;
-        double unit = PoidsObjet.unite(s);
+        Minecraft mc = Minecraft.getInstance();
+        boolean creatif = mc.gameMode != null && mc.gameMode.getPlayerMode() == GameType.CREATIVE;
+        double unit = creatif ? 0 : PoidsObjet.unite(s);   // pas de limite de poids en créatif (serveur idem)
         double plafond = p.max() * InventoryData.get().poidsMax();
         if (unit > 0 && p.cur() + unit > plafond + 1e-6) return "trop lourd";
         if (p.libres() <= 0 && !fusionPossible(s)) return "plus de place";

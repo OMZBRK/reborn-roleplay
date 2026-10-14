@@ -130,8 +130,8 @@ commands:
     usage: /<command> reload
     permission: shinobicore.creator.admin
   ryo:
-    description: Boutique — affiche le solde ryo, ou (staff) give/take/set la monnaie d'un joueur.
-    usage: /ryo [give|take|set] <joueur> <montant>
+    description: "Ryo — joueur : ce qu'il porte (la bourse) ; staff : donner, retirer, fixer (bourse ou compte, motif obligatoire)."
+    usage: "/ryo [donner|retirer|fixer <cible> <montant> [bourse|compte] \"<motif>\"]"
   carte:
     description: Carte du monde (touche M) — lieux, et pour le staff téléportation + édition.
     usage: /<command> [liste|tp <id>|set <id> <type> <nom>|del <id>|reload]
@@ -313,12 +313,23 @@ commands:
     usage: "/<command> [etat|satiete|donner|effet|retirer] [cible] …"
     aliases: [satiete]
     permission: shinobicore.use
+  banque:
+    description: "Banque — guichetier : sceller, refuser, client ; staff : voir, coffre, palier, geler, degeler, guichet, contrepasser, masse, solde, tresor."
+    usage: "/<command> [voir|coffre|palier|geler|degeler|guichet|contrepasser|masse|solde|tresor|sceller|refuser|client] …"
+    permission: shinobicore.use
+  testament:
+    description: "Testament RP — joueur : deposer (au guichet), voir ; staff : enregistrer, valider, revoquer, voir."
+    usage: "/<command> [deposer|enregistrer|valider|revoquer|voir] …"
+    permission: shinobicore.use
 permissions:
   shinobicore.entreprise:
     description: "Gérer les entreprises (/entreprise creer, membre, poste…) ; aussi accordé aux modérateurs du Poste de garde."
     default: op
   shinobicore.nourriture.staff:
     description: "Outils staff de la nourriture (/nourriture satiete, donner, effet, retirer)."
+    default: op
+  shinobicore.banque.admin:
+    description: "Outils staff de la banque (/banque coffre, palier, geler, guichet, contrepasser, masse, solde, tresor ; /testament enregistrer, valider) ; aussi accordé aux admins du Poste de garde."
     default: op
   reborn.staff.animation:
     description: "Mode animation (/modeanim) : incarner un personnage pour un event, entièrement journalisé."
@@ -422,5 +433,5 @@ permissions:
     description: Allows /playemote reload (reload emotes.yml).
     default: op
   shinobicore.ryo.admin:
-    description: Allows /ryo give|take|set — grant/adjust the ryo shop currency. Staff.
+    description: "Allows /ryo donner|retirer|fixer (give|take|set) — bourse ou compte, motif obligatoire. Staff."
     default: op

@@ -26,3 +26,14 @@ bandeau_konoha:
     - "<dark_gray>Cosmétique"
   Pack:
     model: reborn:item/bandeau_konoha
+
+# Radio (ShinobiRadio, 14/10) — à porter dans l'emplacement Boucle d'oreille. Les données (numéro, escouade,
+# propriétaire, coupée) sont posées par ShinobiRadio sur l'objet. Visuel : tools/gen_oreillette_nexo.py (mod-hud).
+oreillette:
+  itemname: "<#E8DCC0>Oreillette"
+  material: PAPER
+  lore:
+    - "<gray>Écouteur laqué cerclé de laiton, micro à pince."
+    - "<dark_gray>Radio · Boucle d'oreille"
+  Pack:
+    model: reborn:item/oreillette

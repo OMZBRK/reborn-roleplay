@@ -43,6 +43,10 @@ public final class InventaireDebug {
     private static void tick(Minecraft mc) {
         if (mc.player == null || mc.level == null) { t = -1; return; }
         t++;
+        if ("lueur".equals(System.getenv("REBORN_INV_DEBUG"))) {
+            lueur(mc);
+            return;
+        }
         // REBORN_INV_DEBUG=arme : seulement l'arme à la ceinture (mannequins), après la mise en place.
         if (t == 26 && "arme".equals(System.getenv("REBORN_INV_DEBUG"))) t = 381;
         var c = mc.player.connection;
@@ -150,6 +154,85 @@ public final class InventaireDebug {
             case 488 -> c.sendCommand("execute as @e[type=minecraft:mannequin] at @s run tp @s ~ ~ ~ -90 0");
             case 512 -> shot(mc, "inv_05c_arme_dos");
             case 516 -> mc.stop();
+            default -> { }
+        }
+    }
+
+    /**
+     * {@code REBORN_INV_DEBUG=lueur} (15/10) : lueur de rareté (halo pixel art au sol, pixels qui scintillent dès Rare) sur les 5 raretés,
+     * un Épique caché derrière un muret (ne doit pas luire), en <b>survie</b> puis en <b>créatif</b>, sans puis avec un
+     * objet visé ; en créatif la visée est réelle (vérifie que F est actif en créatif) → {@code run/screenshots/lueur_*.png}.
+     */
+    /** Tangage retenu pour la visée réelle en créatif (balayage de 10° à 34°, premier objet visé). */
+    private static Float pitchVisee;
+
+    private static void lueur(Minecraft mc) {
+        var c = mc.player.connection;
+        if (t >= 20 && t < 232) {   // regard imposé (caméra du mod comprise : le tp seul ne la tourne pas)
+            float pitch = 30f;
+            if (t >= 172) {
+                if (pitchVisee == null && RamasserClient.cible() != null) pitchVisee = mc.player.getXRot();
+                pitch = pitchVisee != null ? pitchVisee : Math.min(34f, 10f + (t - 172));
+            }
+            mc.player.setYRot(-90f);
+            mc.player.setXRot(pitch);
+            mc.player.yRotO = -90f;
+            mc.player.xRotO = pitch;
+            if (fr.reborn.hud.camera.RebornCamera.INSTANCE.isEnabled()) fr.reborn.hud.camera.RebornCamera.INSTANCE.initOrientation(-90f, pitch);
+        }
+        switch (t) {
+            case 20 -> {
+                fr.reborn.hud.runtime.RebornSession.debugForceRp = true;
+                NotifClient.debugActif = true;
+                c.sendCommand("time set 6000");
+                c.sendCommand("weather clear");
+                c.sendCommand("gamemode survival");
+                c.sendCommand("kill @e[type=item]");
+                c.sendCommand("tp @s ~ ~ ~ -90 30");
+            }
+            case 26 -> {
+                // muret provisoire (retiré à la fin) : l'objet caché derrière ne doit pas luire. Coordonnées relatives
+                // sans rotation (~) : le banc suppose un sol plat et dégagé devant le joueur (6 blocs).
+                c.sendCommand("fill ~6 ~ ~-1 ~6 ~1 ~1 minecraft:stone_bricks keep");
+            }
+            case 32 -> {
+                // de gauche à droite à l'écran (joueur tourné vers l'est) : Commun → Légendaire ; le Rare dans l'axe de la
+                // caméra d'épaule (décalée d'un demi-bloc), pour la visée réelle
+                c.sendCommand("summon item ~3.2 ~0.05 ~-1.9 " + objet("minecraft:iron_nugget", 3, "Kunai", "COMMUN", null));
+                c.sendCommand("summon item ~3.2 ~0.05 ~-0.7 " + objet("minecraft:bread", 4, "Ration", "PEU_COMMUN", null));
+                c.sendCommand("summon item ~3.2 ~0.05 ~0.5 " + objet("minecraft:paper", 1, "Parchemin — Suiton", "RARE", null));
+                c.sendCommand("summon item ~3.2 ~0.05 ~1.7 " + objet("minecraft:skeleton_skull", 1, "Masque ANBU", "EPIQUE", null));
+                c.sendCommand("summon item ~3.2 ~0.05 ~2.9 " + objet("minecraft:diamond_sword", 1, "Kubikiribōchō", "LEGENDAIRE", null));
+                c.sendCommand("summon item ~7.5 ~0.05 ~0 " + objet("minecraft:emerald", 1, "Caché", "EPIQUE", null));
+            }
+            case 40 -> NotifClient.recevoir("{\"t\":\"poids\",\"cur\":8.4,\"max\":20,\"palier\":0,\"libres\":4}");
+            case 60, 108, 126, 166, 196, 226 -> {
+                mc.gui.hud.getChat().clearMessages(false);
+                mc.gui.toastManager().clear();
+            }
+            case 90 -> shot(mc, "lueur_01_survie");
+            case 96 -> RamasserClient.debugCible = proche(mc, -0.5, 3.2);
+            case 112 -> shot(mc, "lueur_02_survie_vise_rare");
+            case 114 -> RamasserClient.debugCible = proche(mc, 1.9, 3.2);
+            case 130 -> shot(mc, "lueur_03_survie_vise_commun");
+            case 132 -> {
+                RamasserClient.debugCible = null;
+                c.sendCommand("gamemode creative");
+            }
+            case 170 -> shot(mc, "lueur_04_creatif");
+            case 200 -> {
+                ItemEntity v = RamasserClient.cible();
+                org.slf4j.LoggerFactory.getLogger("reborn-inv-debug").info("[inv-debug] creatif : visee reelle = {} (tangage {})",
+                    v == null ? "aucune" : v.getItem().getHoverName().getString(), pitchVisee);
+                shot(mc, "lueur_05_creatif_vise");
+            }
+            case 230 -> shot(mc, "lueur_06_creatif_scintillement");
+            case 232 -> {
+                c.sendCommand("gamemode survival");
+                c.sendCommand("kill @e[type=item]");
+                c.sendCommand("fill ~6 ~ ~-1 ~6 ~1 ~1 minecraft:air replace minecraft:stone_bricks");
+            }
+            case 240 -> mc.stop();
             default -> { }
         }
     }

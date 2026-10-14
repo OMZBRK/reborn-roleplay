@@ -37,6 +37,8 @@ public interface JournalService {
         DUEL("Duel"),
         ECONOMIE("Économie"),
         INTERACTION("Interaction"),
+        /** Radio en escouades (ShinobiRadio, 14/10) : escouades, oreillettes, émissions — jamais le contenu vocal. */
+        RADIO("Radio"),
         BIBLIOTHEQUE("Bibliothèque"),
         STAFF("Staff"),
         COMMANDE("Commande"),
@@ -68,6 +70,7 @@ public interface JournalService {
                 case "TCHAT", "MESSAGE", "MESSAGES" -> CHAT;
                 case "SYSTEM", "SERVEUR" -> SYSTEME;
                 case "PLAYER" -> JOUEUR;
+                case "ESCOUADE", "OREILLETTE" -> RADIO;
                 default -> null;
             };
         }

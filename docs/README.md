@@ -36,6 +36,7 @@
 | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](./gameplay/INVENTAIRE_ET_COSMETIQUES.md) | Sacoche RP, poids, cosmétiques |
 | [`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md) | Nourriture v3 (codée 14/10, non publiée) : satiété, régénération, FAIM, cuisinier joueur, repas, tendre, ration, pilule du soldat, modificateurs |
 | [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md) | Entreprises (restaurant, forge, échoppe) créées par le staff : membres, rôles, postes ; futur onglet du menu Faction |
+| [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) | **Proposition** (14/10, maquettée) : bourse-objet, compte et guichet, échange garanti, coffre à paliers, sources / puits chiffrés, vol, staff, RBCoins ; 12 questions |
 | [`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md) | Allures marche / trot / sprint, endurance, emboîtement avec la surcharge et la course ninja |
 | [`gameplay/EMOTES.md`](./gameplay/EMOTES.md) | Emotes RP (EmoteCraft) et leur distribution |
 | [`gameplay/ANIMATIONS_BASE.md`](./gameplay/ANIMATIONS_BASE.md) | Catalogue d'animations à produire |

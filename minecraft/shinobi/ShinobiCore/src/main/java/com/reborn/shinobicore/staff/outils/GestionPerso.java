@@ -95,6 +95,8 @@ public final class GestionPerso {
         c.setSkillPoints(0);
         RyoJournal.contexte("remise à zéro du personnage", s);
         try { c.setRyo(0); } finally { RyoJournal.fin(); }
+        // Monnaie et banque (15/10) : la bourse part avec la sacoche ; le compte est vidé (le coffre va aux saisies).
+        if (plugin.monnaie() != null) plugin.monnaie().banque().reinitialiser(s, c);
         c.clearInjuries();
         c.setAppearance("");
         c.clearInventorySnapshot();

@@ -40,6 +40,7 @@
     "EntityNameTagHideMixin",
     "LivingEntityRenderStateByakuganMixin",
     "LivingEntityRendererByakuganMixin",
+    "ItemCountBourseMixin",
     "GameRendererByakuganAccessor",
     "GameRendererMeteoMixin",
     "GameRendererKoMixin",

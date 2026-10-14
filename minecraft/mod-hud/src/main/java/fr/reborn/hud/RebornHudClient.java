@@ -659,6 +659,13 @@ public final class RebornHudClient implements ClientModInitializer {
         // Duel consenti (canal reborn:duel, ShinobiCore DuelService) : invitation, bandeau, compte à rebours, fin.
         fr.reborn.hud.duel.DuelClient.init();
         fr.reborn.hud.duel.DuelDebug.init();
+        // Radio en escouades (14/10, canal reborn:radio, ShinobiRadio) : élément HUD « Escouade » (éditeur de HUD),
+        // invitation (Entrée / Retour), écran N ; le son radio passe par l'addon Plasmo Voice (voice/RadioVoix).
+        fr.reborn.hud.radio.RadioClient.init();
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "escouade"),
+            (ctx, tickCounter) -> fr.reborn.hud.radio.RadioHud.render(ctx));
+        fr.reborn.hud.radio.RadioDebug.init();
         // Nourriture (14/10) : canaux reborn:nourriture (préparer, manger, tendre, plat en main) et reborn:modifs
         // (effets) ; ligne + filet au-dessus de la barre d'action, offre « F prendre · Retour refuser ».
         fr.reborn.hud.nourriture.NourritureClient.init();
@@ -666,6 +673,13 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "nourriture"),
             (ctx, tickCounter) -> fr.reborn.hud.nourriture.NourritureHud.render(ctx));
         fr.reborn.hud.nourriture.NourritureDebug.init();
+        // Monnaie et banque (15/10) : canaux reborn:monnaie (bourse, « Combien ? », fouille d'un corps) et reborn:banque
+        // (guichet) ; montant de la bourse en or sur la case (mixin ItemCountBourseMixin) ; filet « Fouille de… ».
+        fr.reborn.hud.monnaie.MonnaieClient.init();
+        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "fouille"),
+            (ctx, tickCounter) -> fr.reborn.hud.monnaie.FouilleHud.render(ctx));
+        fr.reborn.hud.monnaie.MonnaieDebug.init();
         // Inventaire du 13/10 : notifications en bas à droite + état de charge (canal reborn:notif), ramassage volontaire
         // (touche F quand un objet est visé), aura de rareté au sol, indicateur de surcharge (sous les vitals).
         fr.reborn.hud.notif.NotifClient.init();

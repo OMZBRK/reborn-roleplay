@@ -74,7 +74,8 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
             String id = msg.substring("buymap:".length()).trim();
             Bukkit.getScheduler().runTask(plugin, () -> handleBuyMap(p, c, id));
         } else if (msg.startsWith("buy:")) {
-            handleBuy(p, c, msg.substring("buy:".length()).trim());
+            String id = msg.substring("buy:".length()).trim();
+            Bukkit.getScheduler().runTask(plugin, () -> handleBuy(p, c, id));   // la bourse se touche sur le fil principal
         } else if (msg.startsWith("equip:")) {
             String body = msg.substring("equip:".length());
             int nl = body.indexOf('\n');
@@ -87,10 +88,8 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
     private void handleBuy(Player p, ShinobiCharacter c, String id) {
         if (id.isEmpty()) return;
         if (c.ownsOutfit(id)) { sendState(p, c, "§eTu possèdes déjà cette tenue."); return; }
-        com.reborn.shinobicore.journal.RyoJournal.contexte("achat tenue « " + id + " »", p);
-        boolean paye = c.trySpendRyo(tenuePrice);
-        com.reborn.shinobicore.journal.RyoJournal.fin();
-        if (!paye) { sendState(p, c, "§cPas assez de ryo (" + tenuePrice + ")."); return; }
+        String refus = payer(p, c, tenuePrice, "achat tenue « " + id + " »");
+        if (refus != null) { sendState(p, c, "§c" + refus); return; }
         c.addOwnedOutfit(id);
         plugin.characters().save(c);
         sendState(p, c, "§aTenue achetée ! §7(-" + tenuePrice + " ryo)");
@@ -100,10 +99,8 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         var places = plugin.places();
         var def = places == null ? null : places.map(id);
         if (def == null || def.price() <= 0) { sendState(p, c, "§cCette carte n'est pas en vente."); return; }
-        com.reborn.shinobicore.journal.RyoJournal.contexte("achat carte « " + id + " »", p);
-        boolean paye = c.trySpendRyo(def.price());
-        com.reborn.shinobicore.journal.RyoJournal.fin();
-        if (!paye) { sendState(p, c, "§cPas assez de ryo (" + def.price() + ")."); return; }
+        String refus = payer(p, c, def.price(), "achat carte « " + id + " »");
+        if (refus != null) { sendState(p, c, "§c" + refus); return; }
         plugin.characters().save(c);
         com.reborn.shinobicore.map.MapItem.give(plugin, p, def);
         sendState(p, c, "§aCarte de " + def.title() + " achetée ! §7(-" + def.price() + " ryo)");
@@ -120,10 +117,29 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         sendState(p, c, "§aTenue équipée.");
     }
 
+    /**
+     * Monnaie (15/10) : l'échoppe se paie avec la <b>bourse</b> (« Pas assez dans ta bourse — passe au guichet ») ;
+     * null si payé. Sans le module monnaie (mode build), repli sur l'ancien solde du personnage.
+     */
+    public String payer(Player p, ShinobiCharacter c, long prix, String motif) {
+        var m = plugin.monnaie();
+        if (m != null) return m.bourses().payer(p, prix, motif);
+        com.reborn.shinobicore.journal.RyoJournal.contexte(motif, p);
+        boolean paye = c.trySpendRyo(prix);
+        com.reborn.shinobicore.journal.RyoJournal.fin();
+        return paye ? null : "Pas assez de ryo (" + prix + ").";
+    }
+
+    /** Ce que le joueur porte (bourse), ou l'ancien solde sans le module monnaie. */
+    private long portee(Player p, ShinobiCharacter c) {
+        var m = plugin.monnaie();
+        return m != null ? m.bourses().montant(p) : c.ryo();
+    }
+
     // ─────────────────────────── réseau (S2C) ───────────────────────────
     private void sendState(Player p, ShinobiCharacter c, String toast) {
         StringBuilder sb = new StringBuilder(160);
-        sb.append("{\"ryo\":").append(c.ryo()).append(",\"price\":").append(tenuePrice).append(",\"owned\":[");
+        sb.append("{\"ryo\":").append(portee(p, c)).append(",\"price\":").append(tenuePrice).append(",\"owned\":[");
         boolean first = true;
         for (String o : c.ownedOutfits()) { if (!first) sb.append(','); sb.append('"').append(esc(o)).append('"'); first = false; }
         sb.append("],\"appearance\":\"").append(esc(c.appearance())).append('"');

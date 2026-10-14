@@ -90,8 +90,12 @@ public final class RebornPrefs {
      *  vanilla. Basculable via {@code /rpinv}. (Sur un serveur sans le plugin, l'inventaire
      *  reste vanilla quoi qu'il arrive — cf. HudKeybinds.) */
     public boolean sacocheInventory = true;
-    /** Aura de rareté sous les objets au sol (halo, anneau, braises) — coupable dans Réglages → Interface. */
+    /** Lueur de rareté des objets au sol (petit halo pixel art) — Réglages → Interface. */
     public boolean aurasSol = true;
+
+    // ────────────────── Radio ──────
+    /** Élément HUD « Escouade » : toute l'escouade (ceux qui se taisent en retrait) au lieu de ceux qui parlent seulement. */
+    public boolean radioToutEscouade = false;
 
     private boolean loaded = false;
 
@@ -178,5 +182,6 @@ public final class RebornPrefs {
         this.nameplateStyle = other.nameplateStyle;
         this.sacocheInventory = other.sacocheInventory;
         this.aurasSol = other.aurasSol;
+        this.radioToutEscouade = other.radioToutEscouade;
     }
 }

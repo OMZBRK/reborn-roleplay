@@ -300,6 +300,11 @@ public final class CorpsService implements Listener, TabExecutor {
             return true;
         }
         if (args.length < 2) return true;
+        // Monnaie (15/10) : un corps laissé au sol (mannequin) se fouille même si le joueur est parti.
+        if (act.equals("fouiller") && args[1].startsWith("corps:") && plugin.monnaie() != null) {
+            plugin.monnaie().fouille().commencerCorps(p, args[1].substring("corps:".length()));
+            return true;
+        }
         Player t = Bukkit.getPlayerExact(args[1]);
         if (t == null || t == p) { p.sendMessage(Component.text("Personne ici.", NamedTextColor.GRAY)); return true; }
         if (plugin.ko().isKo(p.getUniqueId()) || (plugin.deathScene() != null && plugin.deathScene().isDead(p.getUniqueId()))) return true;
@@ -352,6 +357,12 @@ public final class CorpsService implements Listener, TabExecutor {
             }
             case "gorge" -> grab(p, t, tName);
             case "fouiller" -> {
+                // Monnaie (15/10) : 3 s immobile, puis la sacoche du corps (barre, sac, bourse) en mode fouille.
+                if (plugin.monnaie() != null && plugin.monnaie().canal().modde(p)) {
+                    plugin.monnaie().fouille().commencer(p, t);
+                    KoJournal.log(plugin, p, "Fouille", KoJournal.who(plugin, t));
+                    return true;
+                }
                 if (plugin.coreGui() != null) plugin.coreGui().openFouiller(p, t.getUniqueId());
                 AutoMe.broadcast(plugin, p, "fouille les affaires de " + tName + ".");
                 KoJournal.log(plugin, p, "Fouille", KoJournal.who(plugin, t));

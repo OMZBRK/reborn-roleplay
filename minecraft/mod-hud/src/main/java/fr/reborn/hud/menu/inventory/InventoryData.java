@@ -120,7 +120,8 @@ public final class InventoryData {
         }
     }
 
-    private static SlotItem parseItem(JsonObject o) {
+    /** Un objet du JSON de la sacoche (aussi : guichet, fouille). */
+    public static SlotItem parseItem(JsonObject o) {
         if (o == null) return null;
         try {
             String mat = str(o, "mat", "minecraft:paper");
@@ -139,6 +140,7 @@ public final class InventoryData {
             SlotItem si = new SlotItem(mat, model, count, name, weight, desc, rarity, actionId, actionLabel);
             si.arme = o.has("arme") && o.get("arme").getAsBoolean();
             si.unique = o.has("unique") && o.get("unique").getAsBoolean();
+            si.ryo = o.has("ryo") ? o.get("ryo").getAsLong() : -1;   // bourse (15/10) : montant
             return si;
         } catch (Exception e) {
             return null;

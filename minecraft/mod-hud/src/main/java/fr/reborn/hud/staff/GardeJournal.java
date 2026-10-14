@@ -29,7 +29,8 @@ final class GardeJournal {
 
     static final Object[][] CATS = {
             {"JOUEUR", "Joueur"}, {"INVENTAIRE", "Inventaire"}, {"OBJET", "Objet"}, {"COMBAT", "Combat"}, {"KO", "KO / mort"},
-            {"DUEL", "Duel"}, {"ECONOMIE", "Économie"}, {"INTERACTION", "Interaction"}, {"BIBLIOTHEQUE", "Bibliothèque"},
+            {"DUEL", "Duel"}, {"ECONOMIE", "Économie"}, {"INTERACTION", "Interaction"}, {"RADIO", "Radio"},
+            {"BIBLIOTHEQUE", "Bibliothèque"},
             {"STAFF", "Staff"}, {"COMMANDE", "Commande"}, {"CHAT", "Tchat"}, {"SYSTEME", "Système"}};
     static final String[][] PERIODES = {{"1h", "1 h"}, {"24h", "24 h"}, {"7j", "7 j"}, {"tout", "Tout"}};
     private static final int PAR = 50;

@@ -15,7 +15,7 @@
 
 ## 0. Où en est-on — en une minute
 
-- **Date de référence : 14 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
+- **Date de référence : 15 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
 - **Game Plan Reborn : [`GAMEPLAN.md`](./GAMEPLAN.md), on avance point par point dans l'ordre RedLine** (§54 du Game
   Plan).
   - **Publié le 14/10** (`reborn-hud` 0.4.175, launcher 0.3.46) : Player ID (N° par personnage, `/pid`), accueil
@@ -28,12 +28,16 @@
     nourriture v3 et entreprises ([`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md),
     [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md)) ; natures canoniques et Test de la Feuille refait.
     **En recette** : [`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md).
-  - **Validé, à coder** : radio en escouades ([`gameplay/RADIO.md`](./gameplay/RADIO.md)) ; refonte des états en
-    trois couches (étapes 1 à 9). **Prochain point du Game Plan** : monnaie (ryo). **En attente** : Faction.
-  - **Discord staff et joueurs** : audit + lecture des salons en lecture seule (`--lire`, `--tout`), style visé
-    d'après les captures (Zenkai, Ketto, FSC, Seizen, REDLINE · RL), plan cible en deux volets
-    ([`operations/DISCORD_STAFF.md`](./operations/DISCORD_STAFF.md)), en attente de l'invitation du bot sur le
-    serveur modèle et les cibles. Boards Trello / Miro synchronisés le 14/10.
+  - **Fait le 14-15/10, à publier** (`reborn-hud` 0.4.179, nouveau plugin **ShinobiRadio**) : radio en escouades
+    ([`gameplay/RADIO.md`](./gameplay/RADIO.md) §12) ; monnaie et banque — bourse-objet, guichet, virement, échange
+    garanti, coffre à paliers, solde hebdomadaire, fouille à 30 %, testament
+    ([`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md)) ; lâcher / ramasser en créatif ; halo de
+    rareté pixel art ; sacoche sans kanji. La voix radio se teste à 3 comptes sur le dev.
+  - **Validé, à coder** : refonte des états en trois couches (étapes 1 à 9). **En attente** : Faction. Objets 3D
+    (bourse, oreillette, plats…) modélisés par l'utilisateur dans Blockbench (provisoires dans le pack Nexo).
+  - **Discord staff « RBN - STAFF »** : rework appliqué le 14/10 (rôles réseau, salons, permissions, bannières,
+    messages en cadre) ; page « Discord » du panel staff commitée (déploiement web à faire)
+    ([`operations/DISCORD_STAFF.md`](./operations/DISCORD_STAFF.md)). Boards Trello / Miro synchronisés le 14/10.
   - **Plus tard** : système de combat (décision du 14/10).
 - **Livré les 12-13/10 (serveur dev)** — `reborn-hud` 0.4.170 → **0.4.174** + ShinobiCore / ShinobiAbilities + pack Nexo :
   - **Tous les menus au niveau de la « fiche shinobi »** (référence de rendu, DA §4.1-4.2) : fiche shinobi « portrait en

@@ -254,6 +254,13 @@ public class HudEditScreen extends Screen {
         for (int gy = 24; gy < this.height; gy += 24) grille.fill(0, gy, editRight, gy + 1, gy % 120 == 0 ? 0x22F2D08A : 0x10FFF0D2);
         grille.fermer();
 
+        // 1bis) Élément « Escouade » (radio) : des têtes d'exemple pour voir la taille (il est vide en silence).
+        HudElementState esc = config.stateOf(HudElement.ESCOUADE);
+        if (esc.visible()) {
+            HudElementBounds eb = HudElementBounds.currentFor(HudElement.ESCOUADE, esc, this.width, this.height);
+            fr.reborn.hud.radio.RadioHud.apercu(ctx, eb.x(), eb.y(), esc.scale());
+        }
+
         // 2) Boîtes HUD (dessinées avant le panneau : le panneau opaque couvre
         //    tout débordement à droite).
         HudElement hovered = elementUnderMouse(mouseX, mouseY);
@@ -723,6 +730,11 @@ public class HudEditScreen extends Screen {
 
     public void openChatSettings() {
         Minecraft.getInstance().setScreenAndShow(new ChatSettingsScreen(this));
+    }
+
+    /** Banc d'essai (REBORN_RADIO_DEBUG) : sélectionne un élément comme un clic dans la liste. */
+    public void debugSelectionner(HudElement element) {
+        selectElement(element);
     }
 
     private void selectElement(HudElement element) {

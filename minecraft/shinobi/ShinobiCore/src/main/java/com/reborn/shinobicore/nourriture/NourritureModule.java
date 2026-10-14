@@ -294,11 +294,16 @@ public final class NourritureModule implements Listener {
         } else it = NourritureItems.ration(cfg.ration, v.quantite());
         String refus = plugin.rpInventory() == null ? null : plugin.rpInventory().refusReception(p, it);
         if (refus != null) return "§c" + Character.toUpperCase(refus.charAt(0)) + refus.substring(1) + ".";
-        RyoJournal.contexte("achat « " + v.nom() + " »", p);
-        boolean paye = c.trySpendRyo(v.prix());
-        RyoJournal.fin();
-        if (!paye) return "§cPas assez de ryo (" + v.prix() + ").";
-        plugin.characters().save(c);
+        // Monnaie (15/10) : payé avec la bourse.
+        String pb;
+        if (plugin.monnaie() != null) pb = plugin.monnaie().bourses().payer(p, v.prix(), "achat « " + v.nom() + " »");
+        else {
+            RyoJournal.contexte("achat « " + v.nom() + " »", p);
+            pb = c.trySpendRyo(v.prix()) ? null : "Pas assez de ryo (" + v.prix() + ").";
+            RyoJournal.fin();
+            plugin.characters().save(c);
+        }
+        if (pb != null) return "§c" + pb;
         donnerSansBruit(p, it);
         Notifs.objet(p, true, it, v.quantite(), v.prix() + " ryo");
         Journal.entree(Categorie.OBJET, "ACHAT").acteur(p).detail(v.quantite() + " × " + v.nom() + " · " + v.prix() + " ryo").ecrire();

@@ -415,7 +415,8 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         if (c != null) {
             o.addProperty("chakra", Math.round(c.chakra().current()));
             o.addProperty("chakraMax", Math.round(c.chakra().max()));
-            o.addProperty("ryo", c.ryo());
+            // Monnaie et banque (15/10) : section « Économie » de la fiche (le ryo quitte la ligne ping / temps de jeu).
+            if (plugin.monnaie() != null) o.add("eco", plugin.monnaie().banque().ficheStaff(c, p));
             // Nourriture (14/10) : entreprise(s) et satiété, une ligne de la fiche.
             var nour = plugin.nourriture();
             if (nour != null) {
@@ -908,6 +909,23 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 List.of(place(at)), rank == 'S' ? 60 : rank == 'A' ? 30 : 0, now));
         system("Vol de parchemin : " + persoName(thief) + " · " + technique + " (rang " + rank + ") · " + library
                 + " · " + place(at) + ".");
+    }
+
+    /**
+     * Monnaie et banque (15/10) : alerte {@code economie} (virement ou échange ≥ 10 000, vol ≥ 1 000, trois virements
+     * vers le même compte en 24 h, comptes liés, bourse en double, grosse bourse ramassée) + ligne dans le chat staff.
+     */
+    public void onAlerteEconomie(UUID who, String texte, Location at, int score) {
+        long now = System.currentTimeMillis();
+        String key = "eco-" + who + "-" + now;
+        alerts.put(key, new Alert(key, "economie", who, texte, at == null ? List.of() : List.of(place(at)), score, now));
+        system("Économie : " + texte + (at == null ? "" : " · " + place(at)) + ".");
+    }
+
+    /** Deux comptes déjà vus avec la même IP (Poste de garde, « Comptes liés ») ? */
+    public boolean comptesLies(UUID a, UUID b) {
+        if (a == null || b == null || a.equals(b)) return false;
+        try { return store.alts(a).containsKey(b); } catch (RuntimeException e) { return false; }
     }
 
     /** Signalement d'un joueur par un autre ({@code /signaler}). */

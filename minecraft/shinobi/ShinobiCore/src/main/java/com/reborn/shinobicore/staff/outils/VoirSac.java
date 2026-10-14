@@ -90,7 +90,11 @@ public final class VoirSac implements Listener {
                 .decoration(TextDecoration.ITALIC, false));
         List<Component> lore = new ArrayList<>();
         lore.add(gris("Compte : " + cible.getName()));
-        if (c != null) lore.add(gris("Ryo : " + c.ryo()));
+        if (c != null && plugin.monnaie() != null) {
+            var cp = plugin.monnaie().banque().compte(c);
+            lore.add(gris("Bourse : " + com.reborn.shinobicore.monnaie.Bourse.fmt(plugin.monnaie().bourses().montant(cible))
+                    + " ryo · compte : " + com.reborn.shinobicore.monnaie.Bourse.fmt(cp.solde()) + " ryo"));
+        } else if (c != null) lore.add(gris("Ryo : " + c.ryo()));
         if (im != null) lore.add(gris(String.format(java.util.Locale.FRANCE, "Poids : %.1f / %.1f", im.weight(cible), im.maxWeight(cible))));
         lore.add(gris(prise ? "Clic : prendre l'objet (journalisé)" : "Lecture seule"));
         m.lore(lore);

@@ -50,7 +50,7 @@ dependencies {
     // PlasmoVoice (API client, pour la bulle de parole + icônes voix). Jar deobf
     // du modpack en compileOnly ; fourni au runtime par le mod plasmovoice du
     // modpack. La feature voix se désactive proprement si la classe est absente.
-    compileOnly  files('libs/plasmovoice-fabric-26.2-2.1.14.jar')
+    compileOnly  files('libs/plasmovoice-fabric-26.2-2.1.17.jar')
 }
 
 processResources {

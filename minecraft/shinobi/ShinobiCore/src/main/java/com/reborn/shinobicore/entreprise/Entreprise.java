@@ -21,7 +21,9 @@ public final class Entreprise {
     public enum Type {
         RESTAURANT("Restaurant", "fourneau"),
         FORGE("Forge", "enclume"),
-        ECHOPPE("Échoppe", "comptoir");
+        ECHOPPE("Échoppe", "comptoir"),
+        /** Banque (15/10, MONNAIE_ET_BANQUE.md §5) : ses membres sont guichetiers ; postes = guichets. */
+        BANQUE("Banque", "guichet");
 
         public final String libelle, poste;
 

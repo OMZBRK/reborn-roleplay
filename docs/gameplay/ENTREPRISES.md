@@ -15,7 +15,7 @@ Elle a :
 | Champ | Contenu |
 |---|---|
 | **Nom** | libre, unique (« Ichiraku Ramen ») ; identifiant dérivé (`ichiraku_ramen`) |
-| **Type** | `RESTAURANT` (codé), `FORGE`, `ECHOPPE` (prévus : le type dit ce que l'entreprise permet) |
+| **Type** | `RESTAURANT` (codé), `BANQUE` (codé le 15/10), `FORGE`, `ECHOPPE` (prévus : le type dit ce que l'entreprise permet) |
 | **Responsable** | le premier gérant ; le staff peut en nommer d'autres |
 | **Membres** | des **personnages** (pas des comptes), chacun avec un **rôle** : `gérant` ou `employé` |
 | **Postes de travail** | des blocs ou des meubles Nexo marqués par le staff (fourneaux d'un restaurant, enclume d'une forge…) |
@@ -27,6 +27,7 @@ Un personnage peut appartenir à plusieurs entreprises. Ce que le type permet :
 | `RESTAURANT` | **cuisiner** : acheter des paniers d'ingrédients à l'échoppe (onglet Vivres), préparer au fourneau de **son** restaurant (15 s, deux plats) | fourneau |
 | `FORGE` | (à venir : réparer, forger — GAMEPLAN §25) | enclume |
 | `ECHOPPE` | (à venir : vendre au comptoir) | comptoir |
+| `BANQUE` | **tenir le guichet** (15/10) : ses membres sont **guichetiers** quand ils sont à 6 blocs d'un guichet (de leur banque si le guichet en nomme une) — affichés à l'écran du guichet, ils ouvrent le compte d'un client (menu R « Ouvrir son compte », `/banque client`), **scellent** ou refusent les échanges garantis (`/banque sceller\|refuser`), ne voient jamais le solde ; solde de fonction +300 / semaine | guichet (marqué par `/banque guichet ajouter <village> ["libellé"] [entreprise]`) — [`MONNAIE_ET_BANQUE.md`](./MONNAIE_ET_BANQUE.md) §5, §15.4 |
 
 ## 2. Ce qui est codé (14/10)
 
@@ -47,7 +48,7 @@ Noms à plusieurs mots **entre guillemets** ; cible = pseudo, nom RP ou `#N°`.
 
 | Commande | Effet |
 |---|---|
-| `/entreprise creer <restaurant\|forge\|echoppe> "<nom>" [responsable]` | Crée ; le responsable éventuel devient gérant |
+| `/entreprise creer <restaurant\|forge\|echoppe\|banque> "<nom>" [responsable]` | Crée ; le responsable éventuel devient gérant |
 | `/entreprise supprimer <entreprise> confirmer` | Supprime (sans `confirmer` : rappel de ce qui sera perdu) |
 | `/entreprise renommer <entreprise> "<nouveau nom>"` | Renomme |
 | `/entreprise membre ajouter <entreprise> <cible> [gerant\|employe]` | Ajoute (employé par défaut) ; le joueur est prévenu |
@@ -57,6 +58,10 @@ Noms à plusieurs mots **entre guillemets** ; cible = pseudo, nom RP ou `#N°`.
 | `/entreprise poste retirer` | Retire le poste **visé** |
 | `/entreprise info <entreprise>` · `/entreprise liste [type]` | Consulter |
 | `/entreprise` (joueur) | Ses entreprises et son rôle |
+
+Banque (15/10) : `/entreprise creer banque "Banque de Konoha" #00042`, puis viser le comptoir :
+`/banque guichet ajouter konoha "Banque de Konoha" banque_de_konoha` (le guichet est rattaché à l'entreprise ; sans
+entreprise, tout membre d'une entreprise `BANQUE` à côté fait office de guichetier ; sans guichetier, libre-service).
 
 Exemple pour Konoha : `/entreprise creer restaurant "Ichiraku Ramen" #00042`, puis viser le fourneau :
 `/entreprise poste ajouter ichiraku_ramen "fourneau gauche"`, puis `/entreprise membre ajouter ichiraku_ramen Ayame`.

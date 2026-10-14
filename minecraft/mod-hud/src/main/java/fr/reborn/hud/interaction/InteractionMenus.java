@@ -114,6 +114,9 @@ public final class InteractionMenus {
         l.add(moi ? InteractionItem.disabled("Porter", A_BOUT)
             : InteractionItem.action("Porter", () -> sendCommand("corps porter " + name)));
         l.add(InteractionItem.action("Fouiller", () -> sendCommand("corps fouiller " + name)));
+        // Radio (14/10) : couper ou prendre l'oreillette d'un joueur à terre / inconscient.
+        InteractionItem ore = fr.reborn.hud.radio.RadioMenus.oreillette(name, b.phase() == 2);
+        if (ore != null) l.add(ore);
         switch (b.rpk()) {
             case 2 -> {
                 l.add(InteractionItem.disabled("RPK validé", "exécuter : F"));
@@ -168,7 +171,13 @@ public final class InteractionMenus {
         // « la personne regardée » (pas d'argument) → fonctionnent si la cible est
         // à peu près devant. Les autres (porter/fouiller…) attendent un plugin.
         java.util.List<InteractionItem> l = new java.util.ArrayList<>();
+        // Banque (15/10) : le guichetier en service ouvre le compte de son client (le client valide lui-même).
+        if (fr.reborn.hud.monnaie.MonnaieClient.guichetier())
+            l.add(InteractionItem.action("Ouvrir son compte", () -> sendCommand("banque client " + name)));
         l.addAll(tendre(name));
+        // Radio en escouades (14/10) : créer / ajouter face à face, voir l'escouade.
+        InteractionItem radio = fr.reborn.hud.radio.RadioMenus.radio(name);
+        if (radio != null) l.add(radio);
         l.addAll(List.of(
             InteractionItem.action("Saluer", () -> sendCommand("me salue " + name)),
             InteractionItem.action("Se présenter", () -> sendCommand("rencontrer")),
@@ -209,7 +218,9 @@ public final class InteractionMenus {
         net.minecraft.world.item.ItemStack main = mc.player == null ? net.minecraft.world.item.ItemStack.EMPTY
             : mc.player.getMainHandItem();
         if (!main.isEmpty()) {
-            String quoi = main.getHoverName().getString() + (main.getCount() > 1 ? " ×" + main.getCount() : "");
+            long ryo = fr.reborn.hud.monnaie.BourseClient.montant(main);
+            String quoi = ryo >= 0 ? "Bourse · " + fr.reborn.hud.monnaie.BourseClient.fmt(ryo) + " ryo"   // la bourse se tend entière
+                : main.getHoverName().getString() + (main.getCount() > 1 ? " ×" + main.getCount() : "");
             l.add(InteractionItem.action("Tendre " + quoi, () -> sendCommand("tendre " + name)));
         } else {
             l.add(InteractionItem.disabled("Tendre", "rien en main"));
@@ -228,6 +239,8 @@ public final class InteractionMenus {
         if (fr.reborn.hud.ko.CorpsClient.isCorpse(e.getUUID())) {
             return List.of(
                     InteractionItem.action("Constater la mort", () -> info("Ce corps est froid.")),
+                    // Monnaie (15/10) : le corps laissé au sol se fouille même si le joueur est parti.
+                    InteractionItem.action("Fouiller", () -> sendCommand("corps fouiller corps:" + e.getUUID())),
                     prelever("corps:" + e.getUUID()));
         }
         return List.of(

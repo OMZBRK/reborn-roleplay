@@ -81,7 +81,7 @@ public final class ModeStaff implements Listener {
     private static final Map<String, Set<String>> EXCEPTIONS = Map.of(
             "testfeuille", Set.of("give"), "feuille", Set.of("give"), "leaftest", Set.of("give"),
             "hopital", Set.of("set", "suppr", "liste"), "hospital", Set.of("set", "suppr", "liste"),
-            "radio", Set.of("ecouter", "stop", "couper", "retirer"));
+            "radio", Set.of("ecouter", "stop", "couper", "retirer", "info", "donner", "reparer"));
 
     private record Avant(boolean vol, boolean enVol, boolean invulnerable, boolean collision, boolean vanish) { }
 

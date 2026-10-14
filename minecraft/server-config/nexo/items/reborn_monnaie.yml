@@ -1,0 +1,42 @@
+# Reborn — Monnaie (GAMEPLAN §19-20, docs/gameplay/MONNAIE_ET_BANQUE.md — 15/10)
+#
+# La BOURSE est CRÉÉE PAR SHINOBICORE (PAPER + item_model reborn:bourse_plate|bourse_garnie|bourse_lourde selon le
+# montant + montant en PDC reborn:ryo, identifiant reborn:bourse_id). Seule une bourse créée par ShinobiCore contient
+# des ryo : une bourse donnée par /nexo est vide et sans effet (catalogue seulement). Pour donner des ryo : /ryo donner.
+# Le TESTAMENT est un enregistrement du guichet (/testament) ; l'objet ne sert qu'au catalogue et aux scènes RP.
+#
+# Visuels PROVISOIRES (sprites 16×16, item/generated) : pack/assets/reborn/{items,models/item,textures/item}/<id>.*
+# générés par minecraft/mod-hud/tools/gen_monnaie_nexo.py. L'utilisateur modélise les vrais (Blockbench) en gardant les
+# mêmes identifiants.
+
+bourse_plate:
+  itemname: "<#F2D08A>Bourse"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo) : moins de 100 ryo."
+  Pack:
+    model: reborn:item/bourse_plate
+
+bourse_garnie:
+  itemname: "<#F2D08A>Bourse"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo) : moins de 5 000 ryo."
+  Pack:
+    model: reborn:item/bourse_garnie
+
+bourse_lourde:
+  itemname: "<#F2D08A>Bourse"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo) : 5 000 ryo et plus."
+  Pack:
+    model: reborn:item/bourse_lourde
+
+testament:
+  itemname: "<#E8DCC0>Testament scellé"
+  material: PAPER
+  lore:
+    - "<gray>Document RP. Le testament valable est celui enregistré au guichet."
+  Pack:
+    model: reborn:item/testament

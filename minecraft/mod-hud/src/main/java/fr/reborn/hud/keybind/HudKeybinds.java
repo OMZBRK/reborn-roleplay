@@ -53,6 +53,14 @@ public final class HudKeybinds {
      */
     public static KeyMapping PICKUP, DEGAINER;
 
+    /**
+     * Radio en escouades (docs/gameplay/RADIO.md, 14/10) : <b>B</b> maintenu = parler à l'escouade (la touche est
+     * recopiée dans l'activation « radio » de Plasmo Voice, cf. {@code voice/RadioVoix}) ; <b>N</b> = écran de
+     * l'escouade. Rebindables (B est aussi la touche par défaut d'Emotecraft, N celle du menu OST : à rebinder chez
+     * l'un ou l'autre si besoin).
+     */
+    public static KeyMapping RADIO_PARLER, RADIO_ECRAN;
+
     /** Mode interaction (R) : lu par les invites (« [R] Tendre … », nourriture). */
     public static KeyMapping INTERACTION;
 
@@ -127,6 +135,9 @@ public final class HudKeybinds {
         DUEL_ACCEPT = bind("key.reborn-hud.duel_accept", GLFW.GLFW_KEY_ENTER);
         DUEL_REFUSE = bind("key.reborn-hud.duel_refuse", GLFW.GLFW_KEY_BACKSPACE);
         // Ramasser (F, partagée avec « main gauche » : prise seulement quand un objet au sol est visé) et dégainer (Z).
+        // Radio : B parler (maintenir), N écran de l'escouade.
+        RADIO_PARLER = bind("key.reborn-hud.radio_parler", GLFW.GLFW_KEY_B);
+        RADIO_ECRAN = bind("key.reborn-hud.radio_ecran", GLFW.GLFW_KEY_N);
         PICKUP = bind("key.reborn-hud.ramasser", GLFW.GLFW_KEY_F);
         DEGAINER = bind("key.reborn-hud.degainer", GLFW.GLFW_KEY_Z);
         // (Le « test de la feuille » (gacha nature de chakra) n'est PLUS bindé sur F —
@@ -256,13 +267,23 @@ public final class HudKeybinds {
                 }
             }
             while (DUEL_ACCEPT.consumeClick()) {
-                if (Minecraft.getInstance().gui.screen() == null) fr.reborn.hud.duel.DuelClient.accept();
+                if (Minecraft.getInstance().gui.screen() != null) continue;
+                // Entrée : l'invitation radio d'abord (10 s), sinon le duel proposé.
+                if (!fr.reborn.hud.radio.RadioClient.accepter()) fr.reborn.hud.duel.DuelClient.accept();
             }
             while (DUEL_REFUSE.consumeClick()) {
                 if (Minecraft.getInstance().gui.screen() != null) continue;
-                // Retour : refuse le duel proposé, sinon ce qu'on me tend (nourriture, 14/10).
+                // Retour : refuse l'invitation radio, sinon le duel proposé, sinon ce qu'on me tend (nourriture, 14/10).
+                if (fr.reborn.hud.radio.RadioClient.refuser()) continue;
                 if (fr.reborn.hud.duel.DuelClient.hasInvite()) fr.reborn.hud.duel.DuelClient.refuse();
                 else fr.reborn.hud.nourriture.NourritureClient.refuser();
+            }
+            while (RADIO_PARLER.consumeClick()) {
+                if (Minecraft.getInstance().gui.screen() == null) fr.reborn.hud.radio.RadioClient.appuiB();
+            }
+            while (RADIO_ECRAN.consumeClick()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.gui.screen() == null && mc.player != null) mc.setScreenAndShow(new fr.reborn.hud.radio.RadioScreen());
             }
             while (MAP.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();

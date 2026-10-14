@@ -111,8 +111,13 @@ public final class TendreService implements TabExecutor {
         String pb = obstacle(de, a, k.distanceTendre + 0.5);
         if (pb != null) { module.refus(de, "Impossible de tendre", pb); return; }
         ShinobiCharacter cd = plugin.characters().getActive(de.getUniqueId());
+        // Monnaie (15/10) : « Donner des ryo » paie avec la bourse ; la bourse en main se tend entière.
+        var monnaie = plugin.monnaie();
+        if (ryo <= 0 && monnaie != null && com.reborn.shinobicore.monnaie.Bourse.est(main))
+            ryo = com.reborn.shinobicore.monnaie.Bourse.montant(main);
+        long porte = monnaie != null ? monnaie.bourses().montant(de) : cd.ryo();
         if (ryo > 0) {
-            if (cd.ryo() < ryo) { module.refus(de, "Pas assez de ryo", "tu as " + cd.ryo() + " ryo"); return; }
+            if (porte < ryo) { module.refus(de, "Pas assez dans ta bourse", "tu as " + porte + " ryo sur toi"); return; }
         } else if (main == null || main.getType().isAir()) {
             module.refus(de, "Main vide", "prends l'objet en main");
             return;
@@ -211,6 +216,24 @@ public final class TendreService implements TabExecutor {
         ShinobiCharacter cd = plugin.characters().getActive(de.getUniqueId());
         ShinobiCharacter ca = plugin.characters().getActive(a.getUniqueId());
         if (cd == null || ca == null) return;
+        var monnaie = plugin.monnaie();
+        if (monnaie != null) {   // Monnaie (15/10) : de bourse à bourse
+            if (!monnaie.bourses().debiter(de, n, "DON", "don à " + PlayerIds.prefix(ca) + ca.name(), de)) {
+                module.refus(a, "Don annulé", "pas assez de ryo");
+                module.refus(de, "Pas assez dans ta bourse", "tu as " + monnaie.bourses().montant(de) + " ryo sur toi");
+                return;
+            }
+            if (!monnaie.bourses().crediter(a, n, "DON", "don de " + PlayerIds.prefix(cd) + cd.name(), de)) {
+                monnaie.bourses().crediter(de, n, "DON", "don rendu (plus de place chez " + PlayerIds.prefix(ca) + ca.name() + ")", de);
+                module.refus(a, "Plus de place pour ta bourse", "libère une case");
+                module.refus(de, "Don annulé", nom(a, de) + " n'a plus de place");
+                return;
+            }
+            module.info(a, "ryo", "+" + n + " ryo", "de " + nom(de, a));
+            module.info(de, "ryo", "−" + n + " ryo", "à " + nom(a, de));
+            a.playSound(a.getLocation(), Sound.BLOCK_CHAIN_STEP, SoundCategory.PLAYERS, 0.5f, 1.6f);
+            return;
+        }
         RyoJournal.contexte("don à " + PlayerIds.prefix(ca) + ca.name(), de);
         boolean ok = cd.trySpendRyo(n);
         RyoJournal.fin();

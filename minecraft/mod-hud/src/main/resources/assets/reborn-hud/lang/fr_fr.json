@@ -23,6 +23,8 @@
   "key.reborn-hud.dash": "Dash de combat (8 dir.)",
   "key.reborn-hud.ramasser": "Ramasser l'objet visé",
   "key.reborn-hud.degainer": "Dégainer / rengainer l'arme",
+  "key.reborn-hud.radio_parler": "Radio : parler (maintenir)",
+  "key.reborn-hud.radio_ecran": "Radio : écran de l'escouade",
   "key.reborn-hud.parry": "Garde / Parade (maintenir)",
   "key.reborn-hud.tirage_feuille": "Test de la feuille (tirage de nature)",
   "key.reborn-hud.inventory": "Sacoche (inventaire RP)",

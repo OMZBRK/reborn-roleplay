@@ -45,7 +45,7 @@ animation) et quatre onglets.
   Supprimer — grisés avec un cadenas si ton grade ne suffit pas). Une action à paramètre s'ouvre **dans le volet**
   (motif, durée…) ; remettre à zéro / supprimer demandent de **retaper le N°**. Sections repliées : **Notes**,
   **Sanctions** (casier, messages récents, choix de l'infraction puis preuves à cocher), **Journal du joueur**, **Radio**
-  (écoute : prête, active quand la radio existera), **Comptes liés**.
+  (écoute de son escouade : motif, durée), **Comptes liés**.
 - **Raccourcis dans la fiche** (aucun champ actif) : **A** aller, **R** ramener, **O** observer, **G** geler, **S**
   sacoche, **N** écran noir, **T** noter, **E** écouter la radio, **M** annonce perso, **B** revenir, **X** sanctionner,
   **Tab** = Plus.
@@ -125,6 +125,51 @@ Cible : pseudo, nom RP ou `#N°`. **Tout est journalisé** : la commande tapée 
   Admin) ; `/journal [#N°] [catégorie] [h:24] [texte]` ; `/modestaff` (invisible aux joueurs, aucune action de jeu).
 - Le **vocal n'est jamais journalisé**.
 
+### Radio (escouades, 14/10, pas encore publiée)
+Cible : pseudo, nom RP ou `#N°`. Le contenu vocal n'est **jamais** enregistré ; les faits le sont (catégorie `RADIO` du
+journal, et `STAFF` pour vos actions).
+- **Écouter une escouade** : fiche › Plus › « Écouter la radio… » (touche **E**), ou `/radio ecouter <cible> [minutes]
+  <motif>` (Helper ; 10 min par défaut, 60 au plus ; **motif obligatoire**). Vous entendez l'escouade comme un membre,
+  **sans pouvoir parler** ; une petite ligne « écoute · Kagerō · 9:41 » s'affiche au-dessus de l'élément Escouade. Le
+  joueur **n'est pas prévenu** ; l'écoute est au journal, visible des autres staffs. `/radio stop` pour arrêter.
+- **Voir** : `/radio info <cible>` (oreillette, escouade, membres, oreillettes exclues).
+- **Sanctionner** : `/radio couper <cible> [minutes] [motif]` (Modo, interdit d'émettre, 30 min par défaut ; perdu au
+  redémarrage) ; `/radio retirer <cible> [motif]` (Modo, le retire de son escouade).
+- **Objets** : `/radio donner <cible>` (Admin, oreillette neuve) ; `/radio reparer [cible]` (Modo ou permission
+  `shinobiradio.artisan` : répare l'oreillette coupée portée ou en main).
+- En **mode staff** : vous n'émettez ni n'entendez par une oreillette (aucune mécanique RP) ; seules les commandes
+  ci-dessus marchent.
+
+### Monnaie et banque (15/10, pas encore publiées)
+Cible : pseudo, nom RP ou `#N°`. **Motif obligatoire** pour tout ce qui change un montant ou un état ; tout est au
+journal (catégorie `ECONOMIE`), consultation comprise. Le ryo **porté** est un objet (la bourse) ; le ryo **à l'abri**
+est sur le **compte**, au guichet du village. Détails : [`../gameplay/MONNAIE_ET_BANQUE.md`](../gameplay/MONNAIE_ET_BANQUE.md).
+- **Fiche joueur** : section **Économie** (bourse, compte et palier, coffre, solde, dernier mouvement) avec
+  *Donner…* · *Retirer…* · *Voir le coffre* · *Geler le compte* · *Journal économie ›* ; les formulaires s'ouvrent
+  dans le volet.
+- **Donner / retirer** : `/ryo donner|retirer|fixer <cible> <montant> [bourse|compte] "<motif>"` (Admin ; compte par
+  défaut, même hors ligne ; la bourse seulement si le personnage est joué). Exemple :
+  `/ryo donner #00042 500 compte "récompense mission C (Tora)"`.
+- **Consulter** : `/banque voir <cible>` (Modo) ; `/banque coffre <cible>` (Admin, ouvre le coffre du compte, ce que
+  vous retirez est journalisé) ; `/banque masse [village]` (bourses + comptes + trésor).
+- **Geler** : `/banque geler|degeler <cible> "<motif>"` (plus aucune opération au guichet) ; `/banque palier <cible>
+  <1-4> "<motif>"`.
+- **Corriger** : `/banque contrepasser <n° d'opération> "<raison>"` (virement, staff, solde, héritage : ligne inverse,
+  l'originale reste ; le N° est dans le journal, « op 123 »).
+- **Mettre en place une banque** : viser le comptoir (bloc, meuble ou PNJ), `/banque guichet ajouter konoha "Banque de
+  Konoha"` ; pour un guichetier joueur : `/entreprise creer banque "Banque de Konoha" <responsable>`, puis `/entreprise
+  membre ajouter …` ; `/banque guichet liste|retirer`.
+- **Solde du dimanche** : payée par le **trésor du village** — le remplir : `/banque tresor konoha ajouter 10000
+  "subvention de lancement"` ; barème : `/banque solde bareme` ; versement forcé : `/banque solde payer [village]`
+  (une fois par compte et par semaine, 3 h de présence RP requises).
+- **Testament** : un joueur le dépose au guichet (`/testament deposer …`) ; une fois la scène vue en RP :
+  `/testament valider <cible>` (ou `/testament enregistrer <cible> <héritier>[:part] … "texte"`). À la mort RP, compte et
+  coffre restent gelés 7 jours (annuler la mort les dégèle), puis vont aux héritiers d'un testament validé, sinon au
+  trésor du village.
+- **Alertes « economie »** au Poste de garde : virement ou échange ≥ 10 000, vol sur un corps ≥ 1 000, trois virements
+  vers le même compte en 24 h, virement entre comptes liés (même IP), grosse bourse ramassée par un autre, bourse en
+  double.
+
 ## 4. Les médics
 
 - Rang 1 : permission `shinobicore.medic` ; rang 2 : `shinobicore.medic.expert`. À donner au grade « Corps
@@ -137,5 +182,6 @@ Cible : pseudo, nom RP ou `#N°`. **Tout est journalisé** : la commande tapée 
 - Casier et journal dans la base du panel web (module `incidents` vide).
 - Synchronisation des grades staff panel → jeu.
 - Commande `/sanction` hors du Poste de garde.
-- La radio (l'écoute staff est prête dans la fiche, grisée « Bientôt » tant que `/radio` n'existe pas).
+- La radio est **codée, pas encore publiée** (plugin ShinobiRadio + Plasmo Voice serveur) : tant qu'elle n'est pas sur le
+  serveur, l'écoute de la fiche reste grisée « Bientôt ».
 - Carte des zones pour un autre village que Konoha.

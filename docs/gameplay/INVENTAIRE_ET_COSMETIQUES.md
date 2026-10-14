@@ -6,7 +6,7 @@
 > `Maquettes/gameplan/02_inventaire/` (01 sacoche, 02 surpoids, 03 notifications, 04 ramassage).
 >
 > Code : `ShinobiCore/…/inventory/` (serveur), `mod-hud/…/menu/inventory/` (sacoche), `mod-hud/…/sol/`
-> (ramassage, aura), `mod-hud/…/notif/` (notifications, indicateur de surcharge), `mod-hud/…/cosmetic/` (rendu porté).
+> (ramassage, lueur de rareté), `mod-hud/…/notif/` (notifications, indicateur de surcharge), `mod-hud/…/cosmetic/` (rendu porté).
 > Canaux, messages, config et journaux : [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md).
 
 ---
@@ -101,8 +101,14 @@ famille de matériau (`RpWeights`). Le poids compte la barre, le sac, les cosmé
 
 ## 5. Ramasser
 
-**Plus de ramassage automatique** : marcher sur un objet ne le ramasse plus (survie et aventure ; flèches et tridents
-inchangés ; créatif inchangé).
+**Plus de ramassage automatique** : marcher sur un objet ne le ramasse plus (survie, aventure **et créatif** depuis le
+15/10 ; flèches et tridents inchangés ; le spectateur ne ramasse rien). En créatif, F ramasse avec les mêmes règles,
+**sans limite de poids** (pas de surcharge en créatif).
+
+> Correctif du 15/10 (« lâcher ne marche qu'en aventure, pas en créatif ») : le créatif gardait le ramassage auto de
+> Minecraft. Un objet lâché depuis la sacoche (glisser dehors, « Jeter ») tombe aux pieds du joueur avec un délai de
+> ramassage de 0,5 s : il revenait aussitôt dans la barre, comme si rien n'avait été lâché ; F, elle, était coupée en
+> créatif (mod et serveur). Le créatif suit maintenant les mêmes règles ; Q y donne aussi notification et journal.
 
 1. On **vise** l'objet (rayon de la caméra, à 3 blocs au plus des yeux, non caché par un bloc).
 2. Une **invite** discrète apparaît au-dessus : « [F] Ramasser Kunai ×3 », ou « … · trop lourd » / « … · plus de
@@ -139,13 +145,22 @@ Décision du 14/10 : **pas de fenêtre d'échange** ; on se passe les objets à 
 - Notification chez les deux (« +1 Ramen shōyu — de Teuchi · chaud », « −1 … · tendu à Ren », « +120 ryo — de Ren ») ;
   **journal `DON`** (catégorie Objet ; Économie pour les ryo). Les noms suivent le système « rencontrer » : un inconnu
   reste « Quelqu'un ».
+- **La bourse (15/10)** : le ryo porté est un objet de la sacoche (une case, sans poids, montant en or sur la case,
+  ligne « Sur toi : 1 240 ryo » sous la barre) ; « Donner des ryo » et l'échoppe paient avec elle ; la glisser hors de la
+  fenêtre (ou clic droit « Poser… ») demande « Combien veux-tu poser ? » ; une bourse au sol reste 30 min et rejoint la
+  bourse de qui la ramasse (F). La sacoche n'a plus **aucun kanji décoratif** (onglets, étages, emplacements, Échap :
+  icônes simples). Détail : [`MONNAIE_ET_BANQUE.md`](./MONNAIE_ET_BANQUE.md) §15.
 
 ## 6. Objets au sol
 
-- **Rareté** (cinq niveaux, §7) posée sur l'objet quand il apparaît au sol ; le mod l'affiche en **aura** : halo
-  doux posé à plat (presque invisible pour un Commun), anneau fin à partir de Peu commun, **trois braises qui
-  montent** pour un Légendaire ; l'objet visé a son halo ravivé. Au plus 48 objets à 16 blocs, en un seul lot de
-  rendu ; coupable dans **Réglages → Interface → Auras de rareté**.
+- **Rareté** (cinq niveaux, §7) posée sur l'objet quand il apparaît au sol ; le mod l'affiche en **lueur** (v3 du
+  15/10, après deux retours : l'ancien halo lisse avec anneau faisait « cheap », le contour façon effet Lueur « fait
+  trop ») : un **petit halo pixel art plaqué au sol** sous l'objet (11×11 texels de 1/16 de bloc, ~0,7 bloc, disque en
+  escalier à 3 tons), à la couleur de la rareté, alpha faible qui **respire lentement** ; à partir de Rare, **1-2
+  pixels scintillent** de temps en temps (plus souvent pour Épique et Légendaire). Commun : rien ; l'objet **visé** a
+  un halo un peu plus vif (crème pour un Commun). Pas de particules, pas d'anneau. Seuls les objets **en vue** ont leur
+  halo (rien à travers un mur). Au plus 48 objets à 16 blocs, un quad par objet en un seul lot ; coupable dans
+  **Réglages → Interface → Lueur de rareté**.
 - **Disparition** : **10 min** au sol, **15 min** pour un objet lâché par un joueur KO (ou apparu tout près d'un KO /
   d'une scène de mort), **jamais** pour un rouleau (identifiant unique), un objet marqué unique ou de quête
   (`reborn:unique`, `reborn:quete`, ou id listé) — ces derniers sont aussi protégés du feu, de la lave et des
@@ -156,13 +171,13 @@ Décision du 14/10 : **pas de fenêtre d'échange** ; on se passe les objets à 
 
 ## 7. Rareté
 
-| Rareté | Couleur | Rang de parchemin | Aura |
+| Rareté | Couleur | Rang de parchemin | Lueur au sol |
 |---|---|---|---|
-| Commun | gris clair `CFC8B8` | D (et E) | presque invisible |
-| Peu commun | vert `6FBF8E` | C | halo doux + anneau fin |
-| Rare | bleu `5E95E0` | B | halo doux + anneau fin |
-| Épique | violet `A97BE0` | A | halo plus présent |
-| Légendaire | **or** `E9BC5C` | S | halo + 3 braises |
+| Commun | gris clair `CFC8B8` | D (et E) | aucune (halo crème quand on le vise) |
+| Peu commun | vert `6FBF8E` | C | petit halo |
+| Rare | bleu `5E95E0` | B | petit halo + 1-2 pixels qui scintillent toutes les ~4 s |
+| Épique | violet `A97BE0` | A | idem, toutes les ~3 s |
+| Légendaire | **or** `E9BC5C` | S | idem, toutes les ~2 s |
 
 **Résolution** (serveur, `RareteItems`) : clé persistante `reborn:rarete` posée sur l'objet → table
 `rarete.par-id` de la config (id Nexo ou id de modèle) → rang du parchemin (modèle `reborn:parchemin_<rang>`) →
@@ -210,6 +225,8 @@ Les dons des plugins (bibliothèque, test de la Feuille, soins, carte…) s'anno
 - Chaque cosmétique est un objet de personnage (échangeable, volable, perdu à la mort RP) rendu **sur le corps** avec
   son vrai modèle Nexo (`item_model`), ancré sur un os, placement réglable (« Repositionner », pelote à épingles) et
   **diffusé à tous** (`reborn:cosmetics`), placement compris.
+- **Boucle d'oreille** : l'emplacement de l'**oreillette** de la radio (objet Nexo `oreillette`, 14/10) — portée là, elle
+  donne accès à son escouade ([`RADIO.md`](./RADIO.md) §3, §12).
 - Modèles 3D : n'importe quel objet porte son propre modèle par le composant `item_model` (Nexo génère le pack) ;
   les objets 3D (parchemins, cosmétiques, sacs) vivent dans le pack Nexo (`minecraft/server-config/nexo/`), jamais
   dans les assets du mod.

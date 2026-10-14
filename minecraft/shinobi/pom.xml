@@ -22,5 +22,6 @@
         <module>ShinobiSense</module>
         <module>ShinobiLearning</module>
         <module>ShinobiCombat</module>
+        <module>ShinobiRadio</module>
     </modules>
 </project>

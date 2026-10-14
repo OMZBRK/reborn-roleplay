@@ -1,0 +1,45 @@
+# ShinobiRadio — la radio en escouades (docs/gameplay/RADIO.md, docs/technique/PLUGINS_REFERENCE.md).
+# Une config déjà présente sur le serveur n'est jamais réécrite : une clé absente prend la valeur par défaut du code.
+
+escouade:
+  # Membres au plus (décision du 14/10).
+  taille-max: 8
+  # Distance pour créer / ajouter / prendre ou couper une oreillette (blocs, face à face).
+  distance: 3.0
+  # Délai pour accepter une invitation (secondes).
+  invitation-secondes: 10
+  # Dissolution automatique si personne ne s'est connecté depuis N jours.
+  dissolution-jours: 30
+  # Longueur maximale du nom d'escouade.
+  nom-max: 24
+
+oreillette:
+  # Identifiants d'objet reconnus comme oreillette (id Nexo, sinon clé du modèle d'objet item_model).
+  ids:
+    - oreillette
+  # Emplacement cosmétique où elle doit être portée pour fonctionner.
+  emplacement: BOUCLE
+  # Id Nexo utilisé par /radio donner (repli : PAPER + item_model reborn:oreillette).
+  id-nexo: oreillette
+
+voix:
+  # Rayon (blocs) où l'on est entendu en chuchoté, voix normale, quand on parle à la radio.
+  chuchote-blocs: 4
+  # Poids de l'activation « radio » (traitée avant la proximité) et de la ligne de sources « radio » (curseur de volume).
+  activation-poids: 20
+  ligne-poids: 20
+  volume-defaut: 1.0
+  # À terre : part des trames de 20 ms sautées (en rafales de 80 ms) côté serveur, en plus de l'effet « haché » du mod.
+  hache-trames-perdues: 0.35
+  # Porté (sur les épaules, tenu à la gorge) : radio hachée comme à terre.
+  porte-hache: true
+
+staff:
+  ecoute-minutes-defaut: 10
+  ecoute-minutes-max: 60
+  coupure-minutes-defaut: 30
+
+journal:
+  # Une ligne RADIO / EMISSION par prise de parole (qui, escouade, durée) — jamais le contenu.
+  emissions: true
+  emission-min-secondes: 1

@@ -63,7 +63,9 @@ public final class HudEditSidePanel {
     /** Lignes d'éléments minimum avant de rogner ailleurs. */
     private static final int MIN_LIST_ROWS = 3;
     /** Hauteur du bloc inspecteur : label + ligne X/Y + ligne taille/réinit. */
-    private static final int INSPECTOR_H = LABEL_H + 3 + INPUT_H + 4 + INPUT_H;
+    /** Ligne d'option propre à l'élément (case « Afficher toute l'escouade » pour la radio), réservée pour tous. */
+    private static final int OPTION_H = 14;
+    private static final int INSPECTOR_H = LABEL_H + 3 + INPUT_H + 4 + INPUT_H + OPTION_H;
 
     private final HudConfig config;
     private final Font tr;
@@ -401,6 +403,25 @@ public final class HudEditSidePanel {
         boolean hov = inside(mouseX, mouseY, resetX, row2Y, fieldW, INPUT_H);
         bouton(ctx, resetX, row2Y, fieldW, hov ? 1 : 0, "Réinit.", hov ? DaKit.CREME : DaKit.CREME_VAL);
         hitTargets.add(new HitTarget(resetX, row2Y, fieldW, INPUT_H, onResetSelected));
+
+        // Option de l'élément « Escouade radio » : toute l'escouade (ceux qui se taisent en retrait).
+        if (selectedElement == HudElement.ESCOUADE) {
+            int oy = row2Y + INPUT_H + 4, ox = x0 + PAD;
+            boolean on = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE.radioToutEscouade;
+            boolean oh = inside(mouseX, mouseY, ox, oy, WIDTH - PAD * 2, OPTION_H - 2);
+            int bord = oh ? DaKit.CREME : DaKit.CREME_VAL;
+            ctx.fill(ox, oy + 2, ox + 8, oy + 3, bord);
+            ctx.fill(ox, oy + 9, ox + 8, oy + 10, bord);
+            ctx.fill(ox, oy + 2, ox + 1, oy + 10, bord);
+            ctx.fill(ox + 7, oy + 2, ox + 8, oy + 10, bord);
+            if (on) ctx.fill(ox + 2, oy + 4, ox + 6, oy + 8, DaKit.OR_CLAIR);
+            DaKit.inter8(ctx, tr, DaKit.inter("Afficher toute l'escouade"), ox + 13, oy + 6, oh ? DaKit.CREME : DaKit.CREME_VAL, 0);
+            hitTargets.add(new HitTarget(ox, oy, WIDTH - PAD * 2, OPTION_H - 2, () -> {
+                var pr = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE;
+                pr.radioToutEscouade = !pr.radioToutEscouade;
+                pr.save();
+            }));
+        }
     }
 
     /** Cadre d'un champ de saisie + son préfixe (X / Y / %). */

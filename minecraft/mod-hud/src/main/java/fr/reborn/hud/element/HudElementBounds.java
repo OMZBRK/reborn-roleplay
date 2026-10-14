@@ -43,6 +43,10 @@ public record HudElementBounds(int x, int y, int width, int height) {
             // Rangée d'icônes de cooldown : par défaut sous les vitals, en haut à gauche (déplaçable).
             case COOLDOWNS -> new HudElementBounds(30, 92, fr.reborn.hud.combat.CooldownHud.width(),
                 fr.reborn.hud.combat.CooldownHud.height());
+            // Élément « Escouade » (radio) : trois lignes d'exemple, juste sous les vitals, à gauche (maquette v3/02,
+            // défaut validé le 14/10 ; il est vide en silence, donc ne gêne pas les recharges quand personne ne parle).
+            case ESCOUADE -> new HudElementBounds(11, 68, fr.reborn.hud.radio.RadioHud.LARGEUR,
+                fr.reborn.hud.radio.RadioHud.HAUTEUR);
         };
     }
 

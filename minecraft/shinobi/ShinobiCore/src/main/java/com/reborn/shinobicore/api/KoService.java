@@ -28,6 +28,12 @@ public interface KoService {
     default boolean isImpaired(UUID playerId) { return false; }
 
     /**
+     * True while the player is KO <b>and still in the downed (agony) phase</b> — à terre, crawling, before falling
+     * unconscious. {@code isKo && !isDowned} = unconscious. Default false for older cores.
+     */
+    default boolean isDowned(UUID playerId) { return false; }
+
+    /**
      * Why the player may not cast a technique right now, or {@code null} when nothing forbids it: consented duel
      * (countdown running, or techniques disabled by {@code duel.techniques}), staff mode, and since the urgent-fix
      * batch (ETATS_JOUEUR §9 step 0) frozen by staff, RP death scene, cinematic, carried / held, <b>stunned</b>,

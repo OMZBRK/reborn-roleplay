@@ -114,6 +114,7 @@ public class InventoryScreen extends Screen {
     private int tabY = 44;
 
     // ─── textes calculés une fois ───
+    private static final Component TITRE_FOUILLE = DaKit.arcade("Fouille");
     private static final Component TITRE = DaKit.arcade("Sacoche"), ECHAP = DaKit.arcade("Echap"),
         AUCUN_SAC = DaKit.arcade("Aucun sac equipe"), LIB_SAC = DaKit.arcade("Sac");
     private static final Component[] TAB_LIB = {DaKit.arcade("Equipement"), DaKit.arcade("Cosmetique")};
@@ -123,7 +124,7 @@ public class InventoryScreen extends Screen {
         for (int i = 0; i < 9; i++) NUM[i] = DaKit.arcade(String.valueOf(i + 1));
     }
     private Component identite, compte, poidsVal, tierLib;
-    private DaKit.Etiq etiqPoids;
+    private DaKit.Etiq etiqPoids, etiqBourse;
     private DaKit.Paragraphe sansSac;
     private float poidsRatio;
     private int jaugeX, jaugeW;
@@ -137,14 +138,41 @@ public class InventoryScreen extends Screen {
         loadSnapshot();
     }
 
+    // ─── Monnaie (15/10) : sacoche d'un corps en mode fouille (maquette 05) ───
+    private fr.reborn.hud.monnaie.FouilleVue fouille;
+    /** Le « Combien ? » s'ouvre par-dessus : la fouille (ou la sacoche) reste ouverte côté serveur. */
+    private boolean versCombien;
+
+    /** La sacoche d'un corps (barre, sac, bourse) : on prend, on ne pose rien. */
+    public InventoryScreen(fr.reborn.hud.monnaie.FouilleVue v) {
+        super(Component.literal("Fouille"));
+        this.fouille = v;
+        loadSnapshot();
+    }
+
+    public boolean enFouille() { return fouille != null; }
+
+    /** Nouvel état de la fouille (après une prise) : rafraîchi en place. */
+    public void majFouille(fr.reborn.hud.monnaie.FouilleVue v) {
+        this.fouille = v;
+        refresh();
+    }
+
+    private InventoryData.Snapshot snapFouille() {
+        var f = fouille;
+        return new InventoryData.Snapshot("NONE", 9, f.bag().length, 0, 0, null, f.bag(),
+            new java.util.EnumMap<>(CosmeticSlot.class), f.hotbar(), null, 0, 1.3, false, true);
+    }
+
     /** (Re)lit l'état courant. Appelé au boot et à chaque push serveur (refresh en place). */
     private void loadSnapshot() {
-        this.snap = InventoryData.get();
+        this.snap = fouille != null ? snapFouille() : InventoryData.get();
         this.tierDisplay = BagTiers.fromName(snap.bagTier()).displayName;
         this.extraSlots = Math.max(0, snap.extraSlots());
         this.bagRows = (extraSlots + COLS - 1) / COLS;
         this.tierLib = DaKit.arcade(tierDisplay);
-        this.compte = DaKit.arcade(extraSlots > 0 ? itemCount() + " / " + extraSlots + "  -  " + tierDisplay : "Aucun sac");
+        this.compte = DaKit.arcade(extraSlots > 0 ? itemCount() + " / " + extraSlots + "  -  " + (fouille != null ? "Sac" : tierDisplay)
+            : fouille != null ? "Sans sac" : "Aucun sac");
         poidsTextes();
     }
 
@@ -221,12 +249,13 @@ public class InventoryScreen extends Screen {
         etiqPoids = DaKit.etiq(this.font, "Poids");
         sansSac = DaKit.paragraphe(this.font, "Portez une sacoche, une bandoulière ou un sac pour débloquer de "
             + "l'espace de rangement.", 180, DaKit.S7, 9, 3);
-        identite = DaKit.inter(DaKit.ellipse(this.font, identity(), Math.round(150 / DaKit.S7)));
+        identite = DaKit.inter(DaKit.ellipse(this.font, fouille != null ? fouille.cible() + " · " + fouille.etat() : identity(),
+            Math.round(150 / DaKit.S7)));
         if (!opened && DEBUG != null) debugState();
         layout();
         if (!opened) {   // premier init seulement (pas au redimensionnement)
             opened = true;
-            send("open");
+            if (fouille == null) send("open");
             RebornSounds.playReborn("sacoche.open", 1.0f, 0.55f);
         }
     }
@@ -239,6 +268,8 @@ public class InventoryScreen extends Screen {
         }
         lastFilter = filter;
         lastTab = tab;
+        if (fouille != null && !versCombien) fr.reborn.hud.monnaie.MonnaieClient.envoyer("fouille:fermer");
+        versCombien = false;
         super.removed();
     }
 
@@ -385,6 +416,10 @@ public class InventoryScreen extends Screen {
         int i = idx(ref);
         if (i < 0) return null;
         if (ref.charAt(0) == 'H') {
+            if (fouille != null) {
+                SlotItem si = snap.hotbarMeta(i);
+                return si != null ? si.toStack() : null;
+            }
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || i >= 9) return null;
             ItemStack s = mc.player.getInventory().getItem(i);
@@ -462,7 +497,7 @@ public class InventoryScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        if (InventoryData.fromServer()) {
+        if (InventoryData.fromServer() && fouille == null) {
             InventoryData.Snapshot cur = InventoryData.get();
             if (cur != snap) refresh();
         }
@@ -514,7 +549,9 @@ public class InventoryScreen extends Screen {
                 ctx.setTooltipForNextFrame(f, Component.literal(hoverCosm.label), mouseX, mouseY);
             } else if (hoverRef != null) {
                 ItemStack tip = stackAt(hoverRef);
-                if (tip != null) ctx.setTooltipForNextFrame(f, tip, mouseX, mouseY);
+                long ryo = fr.reborn.hud.monnaie.BourseClient.montant(tip);
+                if (ryo >= 0) ctx.setTooltipForNextFrame(f, bulleBourse(ryo), java.util.Optional.empty(), mouseX, mouseY);
+                else if (tip != null) ctx.setTooltipForNextFrame(f, tip, mouseX, mouseY);
             }
         }
         drawHint(ctx, f);
@@ -524,7 +561,7 @@ public class InventoryScreen extends Screen {
     private void drawHeader(GuiGraphicsExtractor ctx, Font f, int mx, int my) {
         int cx = this.width / 2;
         DaKit.blit(ctx, ENTETE, cx - 160, 0, 0, 0, 320, 48, 320, 48);
-        DaKit.arcX1(ctx, f, TITRE, cx, 19, DaKit.CREME, 1, true);
+        DaKit.arcX1(ctx, f, fouille != null ? TITRE_FOUILLE : TITRE, cx, 19, DaKit.CREME, 1, true);
         DaKit.inter7o(ctx, f, identite, cx, 47, DaKit.argb(0xE8DCC0, 0.78f), 1);
 
         for (int i = 0; i < 2; i++) {
@@ -568,9 +605,16 @@ public class InventoryScreen extends Screen {
         // une boîte de 1,8 × taille rognait la seconde couche de la tête et les coiffures hautes (ananas, chignons,
         // crête). On l'agrandit de la même marge en haut et en bas (et sur les côtés) : le personnage ne bouge pas.
         int my = modelSize * 3 / 4, mxg = modelSize / 2;   // ¾ de bloc au-dessus de la tête : coiffures 3D comprises
+        net.minecraft.world.entity.LivingEntity qui = mc.player;
+        if (fouille != null && mc.level != null) {
+            try {
+                var e = mc.level.getEntity(java.util.UUID.fromString(fouille.uuid()));
+                if (e instanceof net.minecraft.world.entity.LivingEntity le) qui = le;
+            } catch (RuntimeException ignored) { }
+        }
         net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(ctx,
             modelX1 - mxg, modelY1 - my, modelX2 + mxg, modelY2 + my, modelSize, 0f, mouseX, (modelY1 + modelY2) / 2f,
-            mc.player);
+            qui);
     }
 
     /** Plaque cosmétique (plaques.png) : 0 vide, 1 survol, 2 garnie, 3 dépôt possible ; kanji si vide. */
@@ -726,6 +770,13 @@ public class InventoryScreen extends Screen {
      */
     private void drawWeight(GuiGraphicsExtractor ctx, Font f) {
         float ym = trayY + trayH - 14;
+        if (fouille != null) {   // en fouille : la bourse du corps et ce qu'on peut encore y prendre
+            DaKit.etiq(ctx, f, etiqBourse != null ? etiqBourse : (etiqBourse = DaKit.etiq(f, "Bourse")), trayX + 14, ym, DaKit.OR_ETIQ);
+            String v = fr.reborn.hud.monnaie.BourseClient.fmt(fouille.bourse()) + " ryo" + (fouille.plafond()
+                ? " · " + fr.reborn.hud.monnaie.BourseClient.fmt(fouille.reste()) + " à prendre au plus" : " · mort RP : sans plafond");
+            DaKit.inter8(ctx, f, DaKit.inter(v), trayX + TRAY_W - 14, ym, fr.reborn.hud.monnaie.BourseClient.OR, 2);
+            return;
+        }
         boolean over = poidsRatio > 1f;
         DaKit.etiq(ctx, f, etiqPoids, trayX + 14, ym, DaKit.OR_ETIQ);
         int ry = Math.round(ym) - 5;
@@ -770,10 +821,72 @@ public class InventoryScreen extends Screen {
             drawItem(ctx, f, x, hotbarY, ref.equals(carriedRef) ? null : stackAt(ref), snap.hotbarMeta(i));
             DaKit.arcFin(ctx, f, NUM[i], x + 3, hotbarY + 16, DaKit.argb(0xE8DCC0, 0.55f), 0, false);
         }
+        surToi(ctx, f);
+    }
+
+    private static final net.minecraft.resources.Identifier PIECE = DaKit.tex("monnaie", "piece");
+
+    /**
+     * Sous la barre, une ligne discrète « Sur toi : 1 240 ryo » (maquette 01 ; descendue d'un cran le 15/10 : trop
+     * collée à la barre) ; en fouille : « Tu prends, tu ne poses rien · touche Q bloquée ».
+     */
+    private void surToi(GuiGraphicsExtractor ctx, Font f) {
+        float xd = obiX + 270, ym = obiY + 34 + 13;
+        if (fouille != null) {
+            DaKit.inter7o(ctx, f, DaKit.inter("Tu prends, tu ne poses rien · touche Q bloquée"), xd, ym, DaKit.argb(0xE8DCC0, 0.62f), 2);
+            return;
+        }
+        long n = fr.reborn.hud.monnaie.MonnaieClient.bourse();
+        if (n < 0) return;
+        Component c = DaKit.inter("Sur toi : " + fr.reborn.hud.monnaie.BourseClient.fmt(n) + " ryo");
+        float w = DaKit.largeur8(f, c);
+        DaKit.inter8(ctx, f, c, xd, ym, fr.reborn.hud.monnaie.BourseClient.OR, 2);
+        DaKit.blit(ctx, PIECE, Math.round(xd - w - 13), Math.round(ym - 6), 0, 0, 12, 12, 12, 12, DaKit.blanc(0.95f));
+    }
+
+    private static java.util.List<Component> bulleBourse(long n) {
+        return java.util.List.of(Component.literal("Bourse"),
+            Component.literal(fr.reborn.hud.monnaie.BourseClient.fmt(n) + " ryo").withStyle(st -> st.withBold(true).withColor(0xF2D08A)),
+            Component.literal("Clic droit : poser").withColor(0xC2B59A),
+            Component.literal("Glisser dehors : poser au sol").withColor(0xC2B59A));
+    }
+
+    private boolean estBourse(ItemStack s) { return fr.reborn.hud.monnaie.BourseClient.montant(s) >= 0; }
+
+    /** « Combien veux-tu poser ? » au-dessus de la sacoche. */
+    private void poserBourse(ItemStack s) {
+        long n = fr.reborn.hud.monnaie.BourseClient.montant(s);
+        clearCarried();
+        if (n <= 0) return;
+        RebornSounds.playReborn("sacoche.pick", 1.0f, 0.5f);
+        versCombien = true;
+        Minecraft.getInstance().setScreenAndShow(fr.reborn.hud.monnaie.CombienScreen.poser(this, n));
+    }
+
+    /** Fouille : clic sur une case du corps. La bourse demande « Prendre combien ? ». */
+    private boolean clicFouille(String ref) {
+        ItemStack st = stackAt(ref);
+        if (st == null || st.isEmpty()) return true;
+        if (estBourse(st)) {
+            var v = fouille;
+            String info = v.plafond() ? fr.reborn.hud.monnaie.BourseClient.fmt(v.reste()) + " au plus dans cette scène"
+                : "mort RP : sans plafond";
+            var c = new fr.reborn.hud.monnaie.CombienScreen(this, "vol", "Prendre dans la bourse",
+                v.cible().split(" ")[0] + " porte " + fr.reborn.hud.monnaie.BourseClient.fmt(v.bourse()) + " ryo", v.reste(), "Prendre",
+                info, n -> fr.reborn.hud.monnaie.MonnaieClient.envoyer("vol:" + n));
+            c.ancre(trayX + TRAY_W + 26, trayY + 18);
+            versCombien = true;
+            Minecraft.getInstance().setScreenAndShow(c);
+            return true;
+        }
+        fr.reborn.hud.monnaie.MonnaieClient.envoyer("fouille:prendre:" + ref);
+        RebornSounds.playReborn("sacoche.pick", 1.0f, 0.5f);
+        return true;
     }
 
     private void drawHint(GuiGraphicsExtractor ctx, Font f) {
-        String[][] items = lectureSeule()
+        String[][] items = fouille != null ? new String[][] {{"Clic", "prendre"}, {"Echap", "fermer"}}
+            : lectureSeule()
             ? new String[][] {{"Lecture seule", null}, {"Echap", "fermer"}}
             : carriedStack != null
             ? new String[][] {{"Clic", "poser"}, {"Glisser dehors", "lâcher"}, {"Echap", "annuler"}}
@@ -890,6 +1003,11 @@ public class InventoryScreen extends Screen {
             return;
         }
         final String ref = selRef;
+        if (estBourse(selStack)) {
+            final ItemStack b = selStack;
+            panelButtons.add(new Btn("Poser…", false, () -> { closePanel(); poserBourse(b); }));
+            return;
+        }
         String al = actionLabel(selStack, selMeta);
         if (al != null) panelButtons.add(new Btn(al, false, () -> { send("use:" + ref); closePanel(); }));
         if (isBagStack(selStack)) panelButtons.add(new Btn("Équiper", false, () -> { send("bag:equip:" + ref); closePanel(); }));
@@ -968,6 +1086,18 @@ public class InventoryScreen extends Screen {
         dragging = false;
         pressX = e.x();
         pressY = e.y();
+        // Fouille (15/10) : on prend, on ne pose rien.
+        if (fouille != null) {
+            if (e.button() == 0 && inClose(mx, my)) { onClose(); return true; }
+            if (e.button() == 0) {
+                for (int i = 0; i < 2; i++) if (inTab(i, mx, my)) { tab = i == 0 ? TAB_EQUIP : TAB_COSM; return true; }
+                int t = tierAt(mx, my);
+                if (t >= 0) { filter = t; return true; }
+            }
+            String ref = slotAt(mx, my);
+            if (ref != null) return clicFouille(ref);
+            return true;
+        }
         // Lecture seule (KO, porté, étourdi, scène de mort) : on regarde, on ferme ; rien ne bouge.
         if (lectureSeule()) {
             if (e.button() == 0 && inClose(mx, my)) { onClose(); return true; }
@@ -1045,6 +1175,7 @@ public class InventoryScreen extends Screen {
                 pressPick = vide && carriedStack != null;   // pris à l'appui : un glisser peut suivre
                 return true;
             }
+            if (carriedStack != null && estBourse(carriedStack)) { poserBourse(carriedStack); return true; }
             if (carriedStack != null) { send("drop:" + carriedRef); clearCarried(); RebornSounds.playReborn("sacoche.deny", 1.2f, 0.45f); return true; }
             if (search.isFocused()) { search.setFocused(false); setFocused(null); }
             return true;
@@ -1120,6 +1251,7 @@ public class InventoryScreen extends Screen {
                 return true;
             }
             if (!dansFenetre(mx, my)) {
+                if (estBourse(carriedStack)) { poserBourse(carriedStack); return true; }
                 send("drop:" + carriedRef); clearCarried(); RebornSounds.playReborn("sacoche.deny", 1.2f, 0.45f);
                 return true;
             }

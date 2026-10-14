@@ -7,10 +7,10 @@ reste est du texte posé par le code.
 Usage (depuis minecraft/mod-hud) :  python tools/gen_inventaire_textures.py
 
 Contrat :
-- aura.png 256×128 (texture du MONDE, teintée par la couleur de rareté au sommet) : halo doux 128×128 en (0, 0)
-  (disque, alpha (1 − d)^1,8, lissé) ; anneau fin 128×128 en (128, 0) (ellipse lissée, ~3 texels). Posés à plat au
-  sol sous l'objet (ground/AuraSol), un seul lot pour tous les objets.
-- braise.png 8×8 : point de braise doux (blanc, teinté or), trois par objet Légendaire, qui montent.
+- lueur.png 44×11 (texture du MONDE, teintée par la couleur de rareté au sommet ; 15/10, remplace aura.png et
+  braise.png) : halo PIXEL ART 11×11 (1 texel = 1/16 de bloc, comme les objets), disque en escalier à 3 tons d'alpha
+  (cœur, milieu, bord), blanc ; 4 images côte à côte : 0 = halo seul, 1-3 = halo + 1-2 pixels qui scintillent. Posé à
+  plat au sol sous l'objet (sol/AuraSol), un quad par objet, un seul lot, rendu NEAREST.
 - touche.png 11×11 : touche du clavier pour l'invite « [F] Ramasser » : fond nuit alpha 170, liseré or d'1 texel,
   coins rognés ; la lettre est posée par le code (ArcadePix), unités menu.
 - voile_droite.png 64×16 : voile nuit très léger des notifications, transparent à gauche → 0,42 à droite (dernier
@@ -34,32 +34,35 @@ from ecrans_art import hexc, rect, R_OR, nouveau  # noqa: E402
 S = ea.Sortie("inventaire", budget=120_000)
 
 
-def aura():
-    im = np.zeros((128, 256, 4), np.float64)
-    yy, xx = np.mgrid[0:128, 0:128].astype(float)
-    d = np.sqrt(((xx + 0.5 - 64) / 63.5) ** 2 + ((yy + 0.5 - 64) / 63.5) ** 2)
-    a = np.clip(1 - d, 0, 1) ** 1.8
-    im[:, :128, :3] = 255
-    im[:, :128, 3] = a * 255
-    # anneau : sur-échantillonné ×4 puis réduit (lissé au pixel réel)
-    big = Image.new("L", (512, 512), 0)
-    dr = ImageDraw.Draw(big)
-    dr.ellipse([4 * 18, 4 * 18, 4 * 110, 4 * 110], outline=255, width=10)
-    ring = np.asarray(big.resize((128, 128), Image.LANCZOS)).astype(float) / 255.0
-    # léger halo intérieur pour que l'anneau ne soit pas sec
-    im[:, 128:, :3] = 255
-    im[:, 128:, 3] = np.clip(ring, 0, 1) * 255
-    S.sauver("aura.png", Image.fromarray(np.clip(im, 0, 255).astype(np.uint8), "RGBA"), (256, 128))
+LUEUR = [
+    "...eeeee...",
+    "..eemmmee..",
+    ".emmmmmmme.",
+    "eemmcccmmee",
+    "emmcccccmme",
+    "emmcccccmme",
+    "emmcccccmme",
+    "eemmcccmmee",
+    ".emmmmmmme.",
+    "..eemmmee..",
+    "...eeeee...",
+]
+LUEUR_ALPHA = {"e": 0.20, "m": 0.38, "c": 0.58, "s": 1.0}
+# pixels qui scintillent (x, y) par image (1 à 3)
+LUEUR_ETINCELLES = [[], [(3, 4)], [(7, 3), (6, 7)], [(4, 7)]]
 
 
-def braise():
-    yy, xx = np.mgrid[0:8, 0:8].astype(float)
-    d = np.sqrt((xx + 0.5 - 4) ** 2 + (yy + 0.5 - 4) ** 2) / 4.0
-    a = np.clip(1 - d, 0, 1) ** 1.4
-    p = np.zeros((8, 8, 4), np.uint8)
-    p[..., 0], p[..., 1], p[..., 2] = 255, 246, 220
-    p[..., 3] = np.clip(a * 255, 0, 255).astype(np.uint8)
-    S.sauver("braise.png", Image.fromarray(p, "RGBA"), (8, 8))
+def lueur():
+    im = np.zeros((11, 44, 4), np.uint8)
+    for f, pts in enumerate(LUEUR_ETINCELLES):
+        for y, ligne in enumerate(LUEUR):
+            for x, ch in enumerate(ligne):
+                if ch == ".":
+                    continue
+                if (x, y) in pts:
+                    ch = "s"
+                im[y, f * 11 + x] = (255, 255, 255, round(LUEUR_ALPHA[ch] * 255))
+    S.sauver("lueur.png", Image.fromarray(im, "RGBA"), (44, 11))
 
 
 def touche():
@@ -91,8 +94,7 @@ def voile(nom, centre):
 
 
 if __name__ == "__main__":
-    aura()
-    braise()
+    lueur()
     touche()
     voile("voile_droite.png", False)
     voile("voile_centre.png", True)

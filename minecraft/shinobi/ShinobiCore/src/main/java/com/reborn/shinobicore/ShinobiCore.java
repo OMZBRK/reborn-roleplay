@@ -845,6 +845,13 @@ public final class ShinobiCore extends JavaPlugin {
             this.nourriture.start();
         }
 
+        // Monnaie et banque (GAMEPLAN §19-20, MONNAIE_ET_BANQUE.md, décisions du 15/10) : bourse-objet, compte et
+        // guichets, échange garanti, solde du dimanche, vol sur un corps ; /ryo, /banque, /testament.
+        if (!buildMode) {
+            this.monnaie = new com.reborn.shinobicore.monnaie.MonnaieModule(this);
+            this.monnaie.start();
+        }
+
         getLogger().info("ShinobiCore enabled \u2014 mobility + character + chakra systems online.");
     }
 
@@ -856,6 +863,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (panelBridge != null) panelBridge.stop();
         if (outilsStaff != null) outilsStaff.arreter();
         if (nourriture != null) nourriture.stop();
+        if (monnaie != null) monnaie.stop();
         if (vitalsPush != null) vitalsPush.stop();
         if (progression != null) progression.stop();
         if (deathScene != null) deathScene.stop();
@@ -928,6 +936,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (characterSelect     != null) characterSelect.reloadConfig();
         if (optimization        != null) optimization.apply();
         if (nourriture          != null) nourriture.reload();
+        if (monnaie             != null) monnaie.reload();
         if (to != null) {
             to.sendMessage(Component.text("Configuration ShinobiCore rechargée.", NamedTextColor.GREEN));
         }
@@ -1370,6 +1379,11 @@ public final class ShinobiCore extends JavaPlugin {
 
     /** Nourriture, satiété, entreprises, modificateurs (14/10) ; null en mode build ou avant l'init. */
     public com.reborn.shinobicore.nourriture.NourritureModule nourriture() { return nourriture; }
+
+    private com.reborn.shinobicore.monnaie.MonnaieModule monnaie;
+
+    /** Monnaie et banque (15/10) ; null en mode build ou avant l'init. */
+    public com.reborn.shinobicore.monnaie.MonnaieModule monnaie() { return monnaie; }
 
     /** Registre des modificateurs (ETATS_JOUEUR §4.4), ou null. */
     public com.reborn.shinobicore.modificateur.ModificateurRegistry modificateurs() {

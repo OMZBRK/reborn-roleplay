@@ -106,8 +106,8 @@ codés et attendent leurs tests à deux comptes.
 | Player State System (KO, combat, Logia, Haki, Granite) | **8 états** + modificateurs ; « contournements » (§34) | 🟠 Important | Déplacements | ✍🏻 états éclatés ; prison ❌ | validé 13/10 (liste) | §13 |
 | Interaction System (E key) | **Mode interaction R** | 🟠 Important | Phase 1 | ✍🏻 menus joueur et corps ✅ ; entrées sans commande serveur (échanger, cadenas…) ; masque, volume vocal ❌ | proposition | §14 |
 | Skill Tree (skills) | **Progression** : 6 stats, XP invisible, grades, parchemins | 🟠 Important | Combat | ✅ (Mérite, bonus de grade ❓) | nos décisions + 2 ajouts | §32 |
-| Bank System | **Compte au guichet du village** | 🟠 Important | Sacoche, Faction | ❌ | proposition | §20 |
-| Economy | **Ryo** (+ RBCoins de compte) | 🟠 Important | Sacoche | ✍🏻 solde et échoppe ✅ ; aucune source de gain, bourse-objet ❌ | proposition | §19 |
+| Bank System | **Compte au guichet du village** | 🟠 Important | Sacoche, Faction | ❌ | proposition maquettée 14/10 | §20 |
+| Economy | **Ryo** (+ RBCoins de compte) | 🟠 Important | Sacoche | ✍🏻 solde et échoppe ✅ ; aucune source de gain, bourse-objet ❌ | proposition maquettée 14/10 | §19 |
 | Robbery System | **Vols** (parchemins, puis points de vol) | 🟠 Important | Interaction | ✍🏻 vol de parchemins ✅ ; points de vol configurés ❌ | proposition | §48 |
 | Legal Jobs (blacksmith, medic, merchant) | **Spécialisations** de section + **missions de rang D** | 🟠 Important | Économie | ✍🏻 médic ✅ ; missions ❌ | proposition | §21 |
 | Illegal Activities (smuggling, contraband) | **Contrebande** (pilules interdites, receleurs) | 🟠 Important | Économie | ❌ | après la beta | §31 |
@@ -1083,6 +1083,8 @@ radio filtré par le client ; en jeu, un **élément « Escouade » de l'éditeu
 **À terre : radio très dégradée** (hachée). L'oreillette peut être **prise** (coupée, ou gardée pour parler à la place
 du propriétaire). Le **staff peut écouter** (un bouton de la fiche joueur ou `/radio ecouter`, journalisé). Fiche
 [`gameplay/RADIO.md`](./gameplay/RADIO.md), maquettes `Maquettes/gameplan/18_radio/v3/` (et `v2/` pour le menu R et le vol).
+→ **Codé le 14/10** (non publié) : plugin `ShinobiRadio` (addon serveur Plasmo Voice) + mod (écran N, élément HUD
+« Escouade », menu R, son radio) — [`gameplay/RADIO.md`](./gameplay/RADIO.md) §12.
 → **Portée chuchotée** : l'addon officiel `pv-addon-whisper` (Paper 26.x) donne un mode chuchoté à moitié de portée
 sans rien coder ; un cycle à trois portées demande en plus une activation « crier » (même mécanique que la radio).
 
@@ -1116,19 +1118,29 @@ Faction (§37).
 → **Radio (§17.3)** : l'oreillette garde ses données comme le Den Den Mushi — **qui la porte a accès à l'escouade**
 (vol = écoute et fausse voix ; parade : le créateur exclut l'oreillette). Jamais d'historique vocal.
 → Interdit en **inconscient** ; **à terre**, radio autorisée mais très dégradée ; menotté : à voir avec §13.
+→ **Codé le 14/10** (non publié) : oreillette = données sur l'objet (numéro, escouade, propriétaire, coupée), vol par le
+menu R (couper / prendre), parade du créateur (exclure l'oreillette) — [`gameplay/RADIO.md`](./gameplay/RADIO.md) §12.
 
 ---
 
 # 🪙 19. Monnaie (RedLine : Berry → Reborn : Ryo)
 
-> RedLine : *Berry Currency System*. **Proposition, à valider point par point.**
+> RedLine : *Berry Currency System*. **Décidé et codé le 15/10 (non publié)** — réponses aux 12 questions dans la fiche
+> §14, ce qui est codé §15 ; proposition du 14/10 : fiche
+> [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) (état des lieux du code, bourse, compte, guichet,
+> échange garanti, coffre et paliers, sources / puits chiffrés, vol, journal, staff, RBCoins, 12 questions) ; maquettes
+> `Maquettes/gameplan/19_monnaie/` (01 bourse dans la sacoche, 02 poser et tendre, 03 guichet, 04 coffre et paliers,
+> 05 vol sur un corps, 06 staff).
 
 ## 19.1 Aujourd'hui chez Reborn
 
 - **Ryo** : un champ `ryo` sur le personnage (`ShinobiCharacter`), pas d'objet physique ; `/ryo give|take|set` (staff)
-  ; **aucune source de gain** en jeu (missions à venir) ; dépensé à l'**échoppe** (tenues, cartes).
-- **RBCoins** : monnaie de compte, achetée ou gagnée (Bug Bounty, activations), **sans conversion** avec le ryo
-  ([ADR 0006](./adr/0006-monnaies-ryo-et-rbcoins.md)) ; le solde affiché dans l'Échap est encore celui des ryo.
+  ; **aucune source de gain** en jeu (missions à venir) ; dépensé à l'**échoppe** (tenues 500, cartes 150, vivres 10 à
+  40) ; donné de la main à la main (« Donner des ryo », `TendreService`) ; chaque mouvement journalisé (`RyoJournal`).
+  Audit complet des sources et des puits : fiche §1.
+- **RBCoins** : monnaie de compte (`User.rbCoinBalance`, affiché dans le launcher ; rien ne la crédite encore),
+  **sans conversion** avec le ryo ([ADR 0006](./adr/0006-monnaies-ryo-et-rbcoins.md)) ; en jeu, l'Échap n'affiche
+  **aucun solde de RBCoins** et sa carte ÉCHOPPE montre le ryo (« — ryo » tant que l'échoppe n'a pas été ouverte).
 - La Faction propose **bourse** (sur soi, volable) et **compte** (à l'abri, au guichet du village) —
   [`gameplay/FACTION_PROPOSITION.md`](./gameplay/FACTION_PROPOSITION.md) §6.
 
@@ -1146,12 +1158,23 @@ Faction).
 → Le **compte** reste à l'abri (§20) ; la mort RP laisse la bourse sur le corps.
 → Gains et dépenses **journalisés** (§6).
 → Montant visible dans la sacoche, pas sur le HUD (§4).
+→ **Détail (14/10)** : une seule bourse sur soi, sans poids, montant abrégé en or sur la case ; au sol 30 min ;
+« Donner des ryo » et l'échoppe paient avec la bourse ; fouille d'un corps = sa sacoche en mode fouille, 5 000 ryo au
+plus par scène (pas de plafond à la mort RP) ; Échap corrigé (bourse sur la carte ÉCHOPPE, solde de RBCoins dans
+RÉCOMPENSES) — fiche §3, §8, §12.
+→ **Décisions du 15/10** : solde actuel → **compte** ; bourse sans poids ; vol sur un corps **30 % de la bourse au plus**
+(remplace 5 000 par scène) ; bourse au sol 30 min ; RBCoins dans l'Échap, distincts du ryo. **Codé le 15/10** (bourse-
+objet, poser / ramasser / coffres, échoppe et « Donner des ryo » par la bourse, fouille 3 s et sacoche du corps, montant
+en or sur la case, ligne « Sur toi », Échap) — fiche §15, captures `Maquettes/gameplan/19_monnaie/code/`.
 
 ---
 
 # 🏦 20. Banque
 
-> RedLine : *Bank System*. **Proposition, à valider point par point** (lié à la Faction, lot F4).
+> RedLine : *Bank System*. **Décidé et codé le 15/10 (non publié)** : compte, guichets (PNJ / bloc et guichetier
+> joueur, entreprise BANQUE), échange garanti, coffre à paliers, solde du dimanche, testament (fiche §15). Proposition du
+> 14/10 (lié à la Faction, lot F4) : même fiche,
+> [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) §4-§7, §9-§11 ; maquettes 03, 04, 06.
 
 ## 20.1 Aujourd'hui chez Reborn
 
@@ -1171,6 +1194,18 @@ passif** pour tous (inflation, l'argent naît des missions et du staff).
 → **Liste d'objets refusés** au coffre du compte ; **plafond de compte** qui s'agrandit contre paiement (puits
 d'argent) — ❓ à décider avec la Faction (Q7, Q9).
 → Un déserteur ne peut plus atteindre le guichet de son ancien village (compte gelé de fait).
+→ **Détail (14/10)** : guichet = bloc / meuble / PNJ en libre-service, ou **guichetier joueur** (entreprise BANQUE) ;
+déposer, retirer, **virement au guichet seulement** (1 %, motif obligatoire), **échange garanti** = dépôt fiduciaire
+des deux parties au guichet, scellé par le guichetier (c'est « l'échange garanti à la banque » de la décision du 14/10,
+§16) ; coffre du compte à **paliers** 2 / 6 / 12 / 18 cases (0 / 2 000 / 8 000 / 25 000 ryo) et objets refusés
+(parchemins, uniques, volés, explosifs) ; **solde du dimanche** sur le compte ; tableau sources / puits pour Konoha
+(≈ +5 % de masse par semaine) ; une section « Économie » dans la fiche du Poste de garde et `/banque` — fiche §4-§11,
+questions §14.
+→ **Décisions du 15/10** : mort RP = compte et coffre gelés 7 j puis trésor, **sauf testament validé** (héritage vu en
+RP) ; échange garanti au guichet scellé par le guichetier, 2 % ; PNJ / bloc **et** guichetier joueur ; paliers
+2 / 6 / 12 / 18 cases (0 / 2 000 / 8 000 / 25 000) ; **armes acceptées au coffre sauf les armes RP légendaires /
+mythiques** (liste configurable) ; virement 1 % (5 % hors village), 20 000 / jour, motif obligatoire. **Codé le 15/10**
+— fiche §15-§20.
 
 ---
 
@@ -1955,8 +1990,8 @@ Minecraft, Nexo et le menu R.
 | 16 | Échange | §16 | proposition | Fenêtre d'échange (objets + ryo, 3-2-1) |
 | 17 | Chat de proximité | §17 | proposition | Trois portées ; indicateur ; outils staff |
 | 18 | Transmissions | §18 | radio décidée (14/10), maquettes v3 | Radio = escouades (oreillette, ajout à côté, persistante, vol, écoute staff) ; appel de service à part, à concevoir ; fiche `gameplay/RADIO.md` |
-| 19 | Monnaie | §19 | proposition | Bourse-objet |
-| 20 | Banque | §20 | proposition | Compte au guichet, solde à retirer, plafond (Faction Q7, Q9) |
+| 19 | Monnaie | §19 | proposition maquettée (14/10) | Bourse-objet : migration du solde, poids, plafond de fouille, mort RP — [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) §14 |
+| 20 | Banque | §20 | proposition maquettée (14/10) | Guichet PNJ / guichetier joueur, échange garanti, paliers, objets refusés, virement (Faction Q7, Q9) — même fiche §14 |
 | 21 | Professions et petits boulots | §21 | proposition | Spécialisations = fonctions de section |
 | 22 | Missions de rang D | §22 | proposition | Bureau des missions (décision n° 13) |
 | 23-28 | Mineur, bûcheron, forgeron, médecin, cuisinier, cartographe | §23-§28 | proposition (médecin) / après la beta (le reste) | Verrou de combat sur les soins ; bandage du médic |

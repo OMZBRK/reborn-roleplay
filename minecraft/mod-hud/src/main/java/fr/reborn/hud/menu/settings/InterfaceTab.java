@@ -42,7 +42,7 @@ public class InterfaceTab extends SectionedTab {
                 v -> { RebornPrefs.INSTANCE.tablistHold = v; RebornPrefs.INSTANCE.save(); }));
 
         section("Objets au sol");
-        row("Auras de rareté", "Halo coloré sous les objets lâchés (repérer, estimer d'un coup d'œil)",
+        row("Lueur de rareté", "Petit halo sous les objets au sol, à la couleur de leur rareté",
             (cx, cy, cw) -> new ToggleBig(cx + cw - ToggleBig.DEFAULT_WIDTH, cy,
                 RebornPrefs.INSTANCE.aurasSol,
                 v -> { RebornPrefs.INSTANCE.aurasSol = v; RebornPrefs.INSTANCE.save(); }));

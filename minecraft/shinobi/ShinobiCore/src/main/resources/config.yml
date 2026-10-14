@@ -1061,3 +1061,69 @@ nourriture:
     panier_bento:
       recette: bento
       prix: 40
+
+# Monnaie et banque (GAMEPLAN §19-20, docs/gameplay/MONNAIE_ET_BANQUE.md, décisions du 15/10).
+# Tous les défauts sont dans le code (MonnaieConfig) : ces sections sont facultatives et ne surchargent que ce
+# qu'elles contiennent (un serveur dont le config.yml ne les a pas tourne avec les mêmes valeurs).
+monnaie:
+  etats:                          # icône de la bourse : plate < garnie ≤ … < lourde
+    garnie: 100
+    lourde: 5000
+  sol-minutes: 30                 # une bourse posée reste au sol 30 min, puis elle est perdue (journal PERTE)
+  alerte-ramasse: 5000            # bourse ≥ ce montant ramassée par un autre → alerte economie
+  vol:
+    pourcent: 30                  # décision 3 : au plus 30 % de la bourse par scène (tous voleurs confondus)
+    sans-plafond-mort-rp: true    # à la mort RP, la bourse se prend entière (le reste est perdu)
+    fouille-secondes: 3           # immobile avant d'ouvrir la sacoche du corps
+    alerte: 1000                  # vol ≥ ce montant → alerte vol au Poste de garde
+    corps-minutes: 15
+banque:
+  guichet:
+    portee: 5.0                   # distance au guichet pour rester sur l'écran
+    portee-guichetier: 6.0        # un membre d'une entreprise BANQUE à cette distance = guichetier en service
+    frais-allie-pourcent: 5       # dépôt, retrait, virement au guichet d'un village allié
+  allies: {}                      # ex. konoha: [suna]  (les villages dont les personnages sont servis à ce guichet)
+  villages-refuses: [deserteur, exile, nukenin]
+  virement:
+    frais-pourcent: 1
+    frais-min: 5
+    frais-autre-village-pourcent: 5
+    plafond-jour: 20000
+    alerte: 10000
+  echange:
+    frais-pourcent: 2
+    frais-min: 10
+    distance: 4.0                 # les deux personnages au même guichet
+    alerte: 10000
+  paliers:                        # décision 7 : coût unique (depuis le compte), cases du coffre, plafond des dépôts (0 = aucun)
+    - {nom: Livret, cout: 0, cases: 2, plafond: 5000}
+    - {nom: Compte, cout: 2000, cases: 6, plafond: 20000}
+    - {nom: "Compte scellé", cout: 8000, cases: 12, plafond: 60000}
+    - {nom: "Chambre forte", cout: 25000, cases: 18, plafond: 0}
+  refuses:                        # décision 8 : armes acceptées, sauf les armes RP légendaires / mythiques
+    parchemins: true
+    uniques: true
+    voles: true
+    ids: [parchemin_explosif, kibakufuda, fumigene, bombe_fumigene]
+    armes-ids: [gunbai, kubikiribocho, samehada, kiba, nuibari, shibuki, hiramekarei, kabutowari]
+    armes-rarete-min: LEGENDAIRE
+    tag: legendaire               # clé reborn:legendaire posée sur un objet = refusé
+  solde:
+    jour: SUNDAY
+    heure: 18
+    fuseau: Europe/Paris
+    presence-heures: 3
+    fonction-banque: 300          # en plus du grade, pour les guichetiers (entreprise BANQUE)
+    bareme:
+      ACADEMICIEN: 0
+      GENIN: 200
+      GENIN_CONFIRME: 300
+      CHUNIN: 500
+      KONIN: 700
+      TOKUBETSU_JONIN: 900
+      JONIN: 1200
+      COMMANDANT_JONIN: 1600
+      KAGE: 2000
+  tresor-initial: {}              # ex. konoha: 10000 (posé une fois si le trésor n'existe pas ; ensuite /banque tresor)
+  mort-rp:
+    gel-jours: 7                  # décision 4 : puis trésor du village, ou héritiers d'un testament validé

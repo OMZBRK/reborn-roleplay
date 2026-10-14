@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.reborn</groupId>
+    <artifactId>ShinobiRadio</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>ShinobiRadio</name>
+    <description>Radio en escouades (oreillette, escouade persistante, voix radio) pour le serveur RP Reborn :
+        addon serveur Plasmo Voice (activation « radio », ligne de sources « radio »). Dépend de ShinobiCore
+        (personnages, états, sacoche, journal) et de Plasmo Voice 2.1.x — docs/gameplay/RADIO.md.</description>
+
+    <properties>
+        <java.version>25</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <plasmovoice.version>2.1.17</plasmovoice.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>purpur</id>
+            <url>https://repo.purpurmc.org/snapshots</url>
+        </repository>
+        <!-- Dépôt Maven officiel de Plasmo Voice (plasmovoice.com/docs/api). -->
+        <repository>
+            <id>plasmoverse</id>
+            <url>https://repo.plasmoverse.com/releases</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.purpurmc.purpur</groupId>
+            <artifactId>purpur-api</artifactId>
+            <version>26.2.build.2620-stable</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.reborn</groupId>
+            <artifactId>ShinobiCore</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- API serveur Plasmo Voice : fournie à l'exécution par le plugin PlasmoVoice (jar spigot-2.1.17). -->
+        <dependency>
+            <groupId>su.plo.voice.api</groupId>
+            <artifactId>server</artifactId>
+            <version>${plasmovoice.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>${project.artifactId}-${project.version}</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>${java.version}</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

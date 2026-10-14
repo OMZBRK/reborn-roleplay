@@ -188,6 +188,8 @@ final class GardeFiche {
         y = sec(pz, "radio", "radio", "Radio", 0, GardeFormulaire.radioDisponible() ? "Écouter son escouade (motif, durée)"
                 : "Écoute staff prête · la radio arrive bientôt", y, null);
         y = sec(pz, "comptes", "lien", "Comptes liés", StaffScreen.arr(p, "alts").size(), apercuComptes(p, complet), y, yy -> comptes(p, yy));
+        // Monnaie et banque (15/10, maquette 06) : une section « Économie », pas un écran.
+        if (p.has("eco")) y = sec(pz, "economie", "cercle", "Économie", 0, GardeEconomie.apercu(p), y, yy -> GardeEconomie.contenu(s, p, yy));
         return y + 2;
     }
 

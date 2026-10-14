@@ -22,6 +22,7 @@
 | **ShinobiLearning** | `minecraft/shinobi/ShinobiLearning` | Maven | ShinobiCore, ShinobiAbilities | Académie, équipes Genin, transmission de maîtrise par un sensei |
 | **ShinobiSense** | `minecraft/shinobi/ShinobiSense` | Maven | ShinobiCore, ShinobiAbilities, ShinobiTail | Perception : radar de chakra, genjutsu, dōjutsu (Byakugan) |
 | **ShinobiTail** | `minecraft/shinobi/ShinobiTail` | Maven | ShinobiCore | Démons à queues : rage, corruption, monde intérieur, transformation |
+| **ShinobiRadio** | `minecraft/shinobi/ShinobiRadio` | Maven | **`depend`** : ShinobiCore, **PlasmoVoice** (plugin serveur `spigot-2.1.17`) | Radio en escouades (14/10) : oreillette, escouades persistantes, addon serveur Plasmo Voice (activation et ligne « radio »), écoute staff — [`../gameplay/RADIO.md`](../gameplay/RADIO.md) |
 | **RebornGuardian** | `minecraft/plugin-guardian` | Gradle | — | Vérifie le play-token au JOIN, kick sinon |
 | **RebornOst** | `minecraft/plugin-ost` | Gradle | — | Diffusion des musiques (OST), zones, late-join |
 
@@ -35,7 +36,8 @@ Les addons ne parlent pas à la classe `ShinobiCore` : ils passent par les **ser
 `CoreServices`). Services publiés : `CharacterService`, `ResourceService`, `KoService`, `SkillService`,
 `HudService`, `ItemGiveService`, `MobilityService`, `ProgressionLadder`, `StatsService`, `CastAttribution`,
 `TechniqueRegistry`, `XpService`, `JournalService` (journal universel, 14/10 : `entree(cat, action).acteur(…).cible(…).detail(…).lieu(…).ecrire()`), `InventoryService` (sacoche : palier de surcharge, `weapon(p)`, `give`, verrou —
-13/10) ; ShinobiCombat publie `EnduranceService` et `StunService` (étourdi). Annotation `@Stable` = point d'extension sûr, `@Internal` = réservé au
+13/10 ; `cosmetique(p, slot)` / `poserCosmetique(p, slot, objet)`, 14/10, pour la radio) ; `KoService#isDowned` (à terre,
+14/10 : `isKo && !isDowned` = inconscient) ; ShinobiCombat publie `EnduranceService` et `StunService` (étourdi). Annotation `@Stable` = point d'extension sûr, `@Internal` = réservé au
 Core.
 
 ---
@@ -84,7 +86,9 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/sacoche` | `sac`, `inv` | tous / staff | `shinobicore.use` | Sacoche RP ; staff `give`, `reset` |
 | `/playemote`, `/stopemote` | `emote`, `pe`, `se` | tous | `shinobicore.emote` | Jouer / arrêter une emote |
 | `/creator` | — | staff | `shinobicore.creator.admin` | `reload` des assets du créateur de personnage |
-| `/ryo` | — | tous / staff | — | Solde de ryo ; staff `give`, `take`, `set` |
+| `/ryo` | — | tous / Admin (ou `shinobicore.ryo.admin`) | — | **Monnaie (15/10)** : joueur « Sur toi : 1 240 ryo » (la bourse) ; staff `donner\|retirer\|fixer <cible> <montant> [bourse\|compte] "<motif>"` (compte par défaut, même hors ligne ; **motif obligatoire** ; `give\|take\|set` en alias) — [`../gameplay/MONNAIE_ET_BANQUE.md`](../gameplay/MONNAIE_ET_BANQUE.md) §15.5 |
+| `/banque` | — | guichetier : `sceller`, `refuser`, `client <joueur>` ; Modérateur : `voir` ; Admin (ou `shinobicore.banque.admin`) : le reste | `shinobicore.use` | **Banque (15/10)** : `voir <cible>`, `coffre <cible>`, `palier <cible> <1-4> "<motif>"`, `geler\|degeler <cible> "<motif>"`, `guichet ajouter <village> ["libellé"] [entreprise]` / `retirer` / `liste` (en visant le bloc, le meuble ou le PNJ), `contrepasser <n° d'op> "<raison>"`, `masse [village]`, `solde [bareme\|payer [village]]`, `tresor <village> [ajouter\|retirer\|fixer <n> "<motif>"]` ; tout journalisé (`ECONOMIE`) — idem §15.5 |
+| `/testament` | — | joueur : `deposer` (au guichet), `voir` ; Admin : `enregistrer`, `valider`, `revoquer` ; Modérateur : `voir <cible>` | `shinobicore.use` | **Testament (15/10)** : `deposer <héritier>[:part] … ["texte"]` (héritier = `#N°` ou nom d'un contact), `enregistrer <cible> <héritier>[:part] … ["texte"]` (validé d'office) ; à la mort RP, après 7 jours de gel, compte et coffre vont aux héritiers d'un testament validé — idem §15.6 |
 | `/carte` | `map`, `worldmap` | tous / staff | `shinobicore.use` | Carte (touche M) ; staff `liste`, `tp`, `set`, `del`, `reload` |
 | `/meteo` | `weatherfx` | staff | `shinobicore.meteo` | Météo visuelle : `pluie`, `sable`, `brume`, `clair` + intensité |
 | `/journal` | `logs` | Helper | `reborn.staff.helper` | **Journal universel** (14/10) : `/journal [#N°] [catégorie…] [j:<pseudo\|nom RP>] [h:<heures>\|d:<jours>] [p:<page>] [texte]`, 12 lignes par page, lieu au survol ; au-delà de l'index mémoire, relit les fichiers |
@@ -95,7 +99,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/ramener` | `bring` | Modérateur | `reborn.staff.helper` | Ramener la cible à soi (sa position est mémorisée) |
 | `/retour` | `back` | Helper / Modérateur | `reborn.staff.helper` | Sans argument : revenir où l'on était ; `/retour <cible>` (Modérateur) : la renvoyer où elle était |
 | `/geler`, `/degeler` | `freeze`, `unfreeze` | Modérateur | `reborn.staff.helper` | Gel **persistant** (`gels.yml`) : ni déplacement (la chute reste), ni coup, ni interaction, ni lâcher, ni bloc ; tchat et commandes ouverts ; titre rappelé à la reconnexion. `/degeler` marche hors ligne (`#N°`) |
-| `/voirsac` | `invsee`, `voirinv` | Modérateur | `reborn.staff.helper` | Coffre en lecture : barre, sac porté, équipement, fiche (ryo, poids). **Admin** : clic = prendre l'objet (il arrive dans sa sacoche, journalisé) |
+| `/voirsac` | `invsee`, `voirinv` | Modérateur | `reborn.staff.helper` | Coffre en lecture : barre, sac porté, équipement, fiche (bourse et compte, poids). **Admin** : clic = prendre l'objet (il arrive dans sa sacoche, journalisé) |
 | `/noir` | `blind`, `ecrannoir` | Modérateur | `reborn.staff.helper` | Écran noir : `/noir <cible> [secondes] [message]`, `/noir <cible> off` (ou retaper sans argument) ; `tous` = Admin (joueurs non staff). Persiste à la reconnexion |
 | `/seisme` | `earthquake` | Admin | `reborn.staff.helper` | `/seisme [rayon\|tous] [force 1-10] [secondes] [message]` : secousse + grondement ; `tous` = tout le serveur + annonce « La terre tremble… » |
 | `/tenue` | `forceclothes` | Modérateur | `reborn.staff.helper` | `/tenue <cible> <id Nexo\|main\|retirer>` : impose l'emplacement cosmétique `TENUE` (verrouillé), rend l'ancienne pièce à la levée. **TODO** : l'apparence de skin de l'échoppe ne peut pas être imposée |
@@ -152,6 +156,33 @@ Résolution commune : `character/PlayerIds` (`online(sender, arg)` = le joueur q
 | ShinobiTail | `/tail` | `biju`, `bijuu` | `shinobitail.use` | Démons à queues : statut + outils MJ |
 | RebornOst | `/ost play\|playat\|playglobal\|stop` | — | `reborn.ost.broadcast` | Diffusion musicale |
 
+### 2.4 ShinobiRadio (`/radio`, 14/10)
+
+Permission de la commande : `shinobiradio.use` (tous). `<joueur>` : pseudo, nom RP du personnage actif, ou `#N°` pour
+le staff. Tout est revérifié côté serveur (distance 3 blocs, oreillettes, états, grade).
+
+| Sous-commande | Pour | Ce qu'elle fait |
+|---|---|---|
+| `creer <joueur>` | joueur (menu R) | Invite un joueur **à côté** (3 blocs) à créer une escouade avec soi (10 s pour accepter). Les deux portent une oreillette en état, sans escouade ; nom par défaut : le prénom du créateur |
+| `ajouter <joueur>` | membre (menu R) | Invite un joueur à côté dans son escouade (8 au plus ; tout membre peut ajouter ; re-lie l'oreillette d'un membre qui en a une neuve) |
+| `accepter` / `refuser` | invité (touches Entrée / Retour du mod) | Répond à l'invitation |
+| `quitter` | membre (écran N) | Quitte l'escouade (l'oreillette est déliée ; le plus ancien devient créateur ; vide = dissoute) |
+| `renommer <nom>` | créateur | Renomme (2 à 24 caractères) |
+| `exclure <membre>` | créateur | Exclut un membre (UUID du compte ou du personnage, ou nom) ; son oreillette ne capte plus rien |
+| `exclure-oreillette <membre>` | créateur | Exclut l'oreillette liée à ce membre (parade au vol), le membre reste |
+| `dissoudre confirmer` | créateur | Dissout l'escouade |
+| `oreillette couper\|prendre <joueur>` | joueur (menu R sur un joueur à terre / inconscient, à côté) | Coupe son oreillette (fil arraché) ou la prend (elle va dans la sacoche) |
+| `info <joueur>` | Helper | Oreillette (n°, état, propriétaire), escouade, membres, oreillettes exclues |
+| `ecouter <joueur> [minutes] <motif>` | Helper (Poste de garde : fiche › Plus › « Écouter la radio… ») | Écoute l'escouade du joueur (défaut 10 min, max 60), **sans pouvoir parler**, motif obligatoire, journalisé ; le joueur n'est pas prévenu |
+| `stop` | Helper | Arrête l'écoute |
+| `couper <joueur> [minutes] [motif]` | Modérateur | Interdit d'émettre (défaut 30 min ; en mémoire, perdu au redémarrage) |
+| `retirer <joueur> [motif]` | Modérateur | Retire le joueur de son escouade |
+| `donner <joueur>` | Admin | Donne une oreillette neuve (objet Nexo `oreillette`) |
+| `reparer [joueur]` | Modérateur ou `shinobiradio.artisan` | Répare l'oreillette coupée portée (ou en main) |
+
+En mode staff, `/radio` n'accepte que `ecouter`, `stop`, `couper`, `retirer`, `info`, `donner`, `reparer`
+(`ModeStaff`, §4 bis.7).
+
 ---
 
 ## 3. Permissions
@@ -184,6 +215,7 @@ Modérateur).
 | `shinobicore.execution.<id>` | Possède l'exécution `<id>` (alternative à `/execution donner`) |
 | `shinobicore.hopital`, `shinobicore.ata`, `shinobicore.zonerp` | Outils staff du KO |
 | `shinobicore.stats.admin`, `shinobicore.character.admin`, `shinobicore.ryo.admin` | Outils staff des persos |
+| `shinobicore.banque.admin` (op) | Outils staff de la banque (`/banque` sauf `voir`, `/testament enregistrer\|valider\|revoquer`) ; aussi accordé au grade Admin du Poste de garde |
 | `shinobicore.map.tp`, `shinobicore.map.admin` | Carte : téléportation, édition |
 | `shinobicore.emote.others`, `shinobicore.emote.admin` | Emotes sur autrui, catalogue |
 | `shinobicore.mobility.zipline`, `shinobicore.mobility.grapple` | Accès à la tyrolienne et au grappin |
@@ -191,6 +223,9 @@ Modérateur).
 | `shinobilearning.instructor` | Instructeur de l'académie |
 | `shinobisense.dojutsu.any` | Tous les dōjutsu, quel que soit le clan |
 | `shinobitail.gm`, `shinobitail.admin` | Maître du jeu des démons à queues |
+| `shinobiradio.use` | Radio (escouades, oreillette) — tous par défaut |
+| `shinobiradio.artisan` | Réparer une oreillette coupée (`/radio reparer`) — OP par défaut, à donner aux artisans |
+| `pv.activation.radio` | Activation « radio » de Plasmo Voice (déclarée par ShinobiRadio, **tous** par défaut ; les conditions RP sont vérifiées à chaque paquet) |
 
 > ⚠️ **Les OP ont toutes les permissions non déclarées** (défaut Bukkit). C'est pratique en test mais
 > trompeur : un OP « a » toujours toutes les exécutions et le rang médic expert.
@@ -211,6 +246,8 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:vitals` | S → C | `character.VitalsPush` | `runtime/VitalsPayload` | 4 entiers bruts (PV, PV max, chakra, chakra max) ; **+ 4 entiers** pour un mod qui déclare `reborn:nourriture` (14/10) : satiété ‰, satiété à venir ‰ (repas en cours), pause de la régénération (s), drapeaux (1 régénère, 2 affamé, 4 FAIM, 8 ATA, 16 satiété figée) — un ancien mod lit 4 entiers exactement, il ne reçoit donc jamais les champs ajoutés |
 | `reborn:nourriture` | S → C | `nourriture.NourritureCanal` | `nourriture/NourritureClient` | Préparer, manger, tendre, plat en main (§4 ter) |
 | `reborn:modifs` | S → C | `modificateur.ModificateurRegistry` | `nourriture/NourritureClient` | Effets actifs visibles (modificateurs) : `{"mods":[{"id","nom","ic","b","val","reste","duree","pause"}]}` (§4 ter) |
+| `reborn:monnaie` | S ⇄ C | `monnaie.MonnaieCanal` | `monnaie/MonnaieClient` | Bourse, « Combien ? », fouille d'un corps (§4 quinquies) |
+| `reborn:banque` | S ⇄ C | `banque.GuichetCanal` | `monnaie/MonnaieClient` | Écran du guichet, échange garanti, guichetier (§4 quinquies) |
 | `reborn:stats` | ⇄ | `stats.StatsChannel` | `menu/stats/StatsPayload` | Fiche shinobi (points, stats, Mérite, techniques ; `pid` = N° du personnage, envoyé au seul joueur) |
 | `reborn:tablist` | S → C | `lore.TabListManager` | `menu/tablist/TablistPayload` | Tab list RP |
 | `reborn:tirage` | ⇄ | `character.LeafTestManager` | `menu/tirage/TiragePayload` | Test de la feuille : S2C `confirm\|<clan>`, `<NATURE>\|<clan>\|<AUTRES>` (AUTRES = natures déjà éveillées, virgules ; 14/10) ou `deny` ; C2S `go` |
@@ -222,7 +259,7 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:staff` | ⇄ | `staff.panel.StaffPanel` | `staff/StaffPayload` | Poste de garde (alertes, joueurs, chat, journal, Infirmerie ; `pid` dans chaque joueur / alerte / fiche) |
 | `reborn:inventory` | ⇄ | `inventory.InventoryManager` | `menu/inventory/InventoryPayload` | Sacoche RP. C2S : `open`, `swap:<A>:<B>`, `bag:equip:<ref>` / `bag:unequip`, `cos:equip:<ref>:<SLOT>` / `cos:unequip:<SLOT>`, `arme:equip:<ref>` / `arme:unequip` / `arme:basculer` (dégainer / rengainer), `drop:<ref>`, `del:<ref>`, `use:<ref>`, `pick:<uuid de l'objet au sol>` (ramassage). S2C : JSON (`ouvrir`, capacité, poids, `palier`, `poidsMax`, `lecture`, `armeDegainee`, `hotbar`, `bag`, `equipped` dont `ARME` ; chaque objet porte `rarity`, `arme`, `unique`) — `ouvrir:false` = rafraîchir sans ouvrir |
 | `reborn:cosmetics` | S → C | `InventoryManager` | `cosmetic/CosmeticsPayload` | Cosmétiques portés, dont l'arme à l'étui (`ARME`, ancrée au bassin) |
-| `reborn:notif` | S → C | `inventory.Notifs` | `notif/NotifClient` | Canal générique (13/10) : `gain` / `perte` (`q`, `nom`, `rar`, `mat`, `model`, `suite`), `msg` (`ton` refus / info / palier / etat, `kj`, `gras`, `texte`, `ic` = picto d'effet au lieu d'un kanji, 14/10) → pile en bas à droite ; `poids` (`cur`, `max`, `palier` 0-3, `libres`, `verrou`) → indicateur de surcharge, sprint coupé, invite de ramassage ; `arme` (`degainee`) |
+| `reborn:notif` | S → C | `inventory.Notifs` | `notif/NotifClient` | Canal générique (13/10) : `gain` / `perte` (`q`, `nom`, `rar`, `mat`, `model`, `suite`), `msg` (`ton` refus / info / palier / etat, `kj`, `gras`, `texte`, `ic` = picto d'effet au lieu d'un kanji, 14/10) → pile en bas à droite ; `poids` (`cur`, `max`, `palier` 0-3, `libres`, `verrou` ; poussé aussi en créatif avec `palier` 0 — 15/10) → indicateur de surcharge, sprint coupé, invite de ramassage ; `arme` (`degainee`) |
 | `reborn:shop` | ⇄ | `shop.ShopManager` | `menu/shop/ShopPayload` | Échoppe ; état + `vivres` (14/10 : onglet Vivres, filtré : paniers pour les cuisiniers), C2S `buyvivre:<id>` |
 | `reborn:map` | ⇄ | `map.MapChannel` | `map/MapPayload` | Carte du monde |
 | `reborn:meteo` | S → C | `meteo.MeteoCommand` | `meteo/MeteoPayload` | Météo visuelle |
@@ -241,8 +278,100 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:annonce` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` | Annonce globale ou personnelle (§4 bis.3) |
 | `reborn:ecran` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` (+ `mixin/CameraSeismeMixin`) | Écran noir forcé, séisme (§4 bis.4) |
 | `reborn:plaques` | S → C | `staff.outils.ModeStaff` | `staff/PlaquesStaff` | Plaques staff au-dessus des têtes, en mode staff (§4 bis.5) |
+| `reborn:radio` | S → C | `shinobiradio.Canal` (ShinobiRadio) | `radio/RadioClient` | Radio en escouades : état, qui parle, invitation, écoute staff (§4 quater) |
 
 ---
+
+## 4 quater. Radio en escouades — protocole (14/10)
+
+> ShinobiRadio (`com.reborn.shinobiradio`) ⇄ mod `fr.reborn.hud.radio` + `fr.reborn.hud.voice.RadioVoix`. JSON UTF-8
+> brut, champs optionnels, inconnus ignorés. Fiche : [`../gameplay/RADIO.md`](../gameplay/RADIO.md). **La voix ne
+> passe pas par ce canal** : elle passe par Plasmo Voice (UDP) ; ce canal ne porte que de quoi afficher.
+
+**`reborn:radio`** (S → C) :
+
+| `t` | Champs | Quand / affichage |
+|---|---|---|
+| `etat` | `ore` (`aucune` · `neuve` = pas liée · `ok` · `coupee` · `exclue`), `num` (n° de l'oreillette), `volee` + `proprio` + `proprioId` (je porte l'oreillette d'un autre), `canal` (escouade entendue si ce n'est pas la mienne), `h` (je suis à terre ou porté : haché), `muet` (inconscient / mort), `staff` (mode staff), `coupe` (coupé par le staff), `esc` : `id`, `nom`, `n`, `max`, `createur` (suis-je le créateur), `membres` : `id` (compte), `perso`, `nom`, `court` (« Aki U. »), `etat` (`en_ligne`, `a_terre`, `inconscient`, `mort`, `hors_ligne`), `ore` (`ok`, `coupee`, `sans`, `prise`, vide hors ligne), `createur`, `moi` | À la connexion et à chaque changement (recalculé toutes les 5 ticks, envoyé seulement s'il change) → écran N, menu R, élément « Escouade » |
+| `parle` / `tait` | `src` (UUID de la source Plasmo Voice), `id` (UUID du compte dont on montre la tête : le **propriétaire** de l'oreillette), `nom` (court), `h` (haché : l'émetteur ou moi à terre) / `src`, `compte` | Quelqu'un parle sur mon escouade / se tait → une ligne [tête] Nom, effacée 1,5 s après ; clic de squelch |
+| `invit` / `invit_fin` | `de` (court), `esc`, `creation` (bool), `s` (10) | « Aki U. t'ajoute à l'escouade Kagerō — Entrée accepter · Retour refuser · 10 s » |
+| `ecoute` / `ecoute_fin` | `esc`, `reste` (s) | Staff seulement : « écoute · Kagerō · 9:41 » au-dessus de l'élément Escouade |
+
+Réponses : commandes `/radio …` (§2.4). Sans le mod : invitation au tchat (`/radio accepter|refuser`), messages au tchat.
+
+**Plasmo Voice, serveur (`VoixRadio`)** : activation `radio` (« Radio (escouade) », icône
+`plasmovoice:textures/icons/microphone_radio.png`, permission `pv.activation.radio` pour tous, poids
+`voix.activation-poids`), `setProximity(false)`, `setTransitive(false)`, **conditions à chaque paquet** (personnage,
+oreillette portée en état et liée à une escouade existante, numéro non exclu, ni inconscient, ni mort RP, ni mode staff,
+ni coupé). Une **source de diffusion** par émetteur sur la **ligne `radio`** (volume à part dans le menu de Plasmo Voice,
+icône masquée), destinataires = porteurs connectés d'une oreillette de l'escouade, non inconscients, + staff à l'écoute ;
+à terre ou porté, des trames de 20 ms sautent en rafales de 80 ms (`voix.hache-trames-perdues`). En plus, **chuchoté** :
+la trame part sur une source joueur de la ligne `proximity`, distance `voix.chuchote-blocs` (4), sauf vers ceux qui
+l'entendent déjà à la radio. Début / fin de chaque prise de parole → `parle` / `tait` et journal.
+
+**Plasmo Voice, client (`voice/RadioVoix`)** : l'activation `radio` reçue du serveur est forcée en push-to-talk et prend
+la touche Reborn « Radio : parler » (B) ; son icône d'activation est masquée (`HudActivationRenderEvent`) ; les
+échantillons de la ligne `radio` passent par un passe-bande 300-3000 Hz, une saturation douce et un léger souffle
+(`AudioSourceWriteEvent`) ; haché : trous de 60 ms en rafales, bitcrush 6 bits, échantillonnage tenu, souffle plus fort.
+
+**Journal** (catégorie `RADIO`, **jamais de contenu vocal**) : `INVITATION`, `INVITATION_REFUSEE`, `INVITATION_EXPIREE`,
+`CREATION`, `AJOUT`, `DEPART`, `EXCLUSION`, `OREILLETTE_EXCLUE`, `RENOMMAGE`, `DISSOLUTION` (créateur, vide, 30 jours),
+`OREILLETTE_COUPEE`, `OREILLETTE_PRISE`, `OREILLETTE_REPAREE`, `EMISSION` (qui, escouade, durée, « haché »,
+« oreillette d'autrui » — `journal.emissions`). Staff (catégorie `STAFF`) : `RADIO_ECOUTE` (escouade, motif, durée),
+`RADIO_ECOUTE_FIN`, `RADIO_COUPURE`, `RADIO_RETRAIT`, `RADIO_DONNER`.
+
+**L'oreillette** : objet dont l'id Nexo ou la clé de modèle est dans `oreillette.ids` (`oreillette`), portée dans
+l'emplacement cosmétique `BOUCLE`. Données (PDC `shinobiradio:*`) : `numero` (jamais réutilisé), `escouade`, `proprio`
+(personnage), `proprio_compte`, `proprio_nom`, `coupee`. Lore : « Oreillette radio · N° 12 · Coupée — à réparer chez un
+artisan » (jamais le nom de l'escouade). Visuel : pack Nexo `reborn:item/oreillette` (`minecraft/mod-hud/tools/gen_oreillette_nexo.py`).
+
+---
+
+## 4 quinquies. Monnaie et banque — protocole (15/10)
+
+> ShinobiCore `monnaie/`, `banque/` ⇄ mod `fr.reborn.hud.monnaie`. JSON UTF-8 brut S → C, texte C → S, sans préfixe.
+> Fiche : [`../gameplay/MONNAIE_ET_BANQUE.md`](../gameplay/MONNAIE_ET_BANQUE.md) §15-§17.
+
+**La bourse** est un objet (`PAPER`, item_model `reborn:bourse_plate|bourse_garnie|bourse_lourde`, PDC `reborn:ryo`
+LONG, `reborn:bourse_id`, `reborn:rp_weight` 0, une pile) : le mod lit `custom_data.PublicBukkitValues."reborn:ryo"` et
+peint le montant abrégé en or (`mixin/ItemCountBourseMixin`). Le JSON d'objet de `reborn:inventory` porte `"ryo":N`
+pour une bourse.
+
+**`reborn:monnaie` S → C** :
+
+| `t` | Champs | Effet |
+|---|---|---|
+| `bourse` | `n` | Ce que le joueur porte (ligne « Sur toi », carte ÉCHOPPE de l'Échap) |
+| `combien` | `mode` (`ranger`), `titre`, `question`, `max`, `action` | Ouvre « Combien ? » par-dessus l'écran courant ; la réponse part en `<mode>:<n>` |
+| `fouille_prog` / `fouille_prog_fin` | `nom`, `s` | Filet « Fouille de Kenta · 2 s · ne bouge pas » au-dessus de la barre |
+| `fouille` | `cible`, `etat`, `uuid`, `bourse`, `reste`, `plafond`, `pourcent`, `extraSlots`, `hotbar[9]`, `bag[]` (objets au format sacoche) | Ouvre (ou rafraîchit) la sacoche du corps en mode fouille |
+| `fouille_ferme` | — | Ferme la fouille (cible relevée, partie, trop loin) |
+
+**`reborn:monnaie` C → S** : `poser:<n>` (bourse au sol), `ranger:<n>` (coffre posé ouvert), `vol:<n>` (bourse du
+corps fouillé), `fouille:prendre:<H0..H8|B0..>`, `fouille:fermer`.
+
+**`reborn:banque` S → C** : `{"t":"guichet","ouvrir","onglet","banque","titulaire","numero","guichetier"?,"allie",
+"fraisAllie","compte","bourse","plafond","palier","paliers":[{n,nom,cout,cases,plafond}],"coffre":[objet|null],
+"sacoche":[{"ref","item","refus"?}],"historique":[{"le","d","t"}],"solde"?:{"montant","semaine"},
+"contacts":[{"ref","nom"}],"virement":{"pourcent","min","autre","plafondJour","deja"},"proches":[{"uuid","nom"}],
+"echange"?:{"id","autre","moi":{"ryo","source","confirme","objets"},"lui":{…},"attenteSceau","guichetier"?,"frais",
+"pourcent","recevoir"},"gele"?,"toast"?,"refus"?:{"ref","texte"}}` ; `{"t":"ferme"}` (guichet trop loin) ;
+`{"t":"guichetier","actif"}` (menu R « Ouvrir son compte ») ; `{"t":"sceau","a","b","id"}` (au guichetier).
+
+**`reborn:banque` C → S** : `ouvrir`, `fermer`, `onglet:<n>`, `deposer:<n>`, `retirer:<n>`,
+`virer:<#N°|c:uuid>\n<n>\n<motif>`, `palier:<k>`, `coffre:depot:<ref>`, `coffre:retrait:<i>`, `echange:ouvrir:<uuid>`,
+`echange:ryo:<n>:<bourse|compte>`, `echange:objet:<ref>`, `echange:retirer:<i>`, `echange:recevoir:<bourse|compte>`,
+`echange:confirmer`, `echange:annuler`, `echange:sceller`, `echange:refuser`.
+
+Autres entrées : clic droit sur un guichet (`PlayerInteractEvent` / `PlayerInteractEntityEvent`) ; `/corps fouiller
+<joueur>` et `/corps fouiller corps:<uuid du mannequin>` (menu R) ; coffres posés (`InventoryClickEvent` : clic sur la
+bourse du coffre = la reprendre, clic sur la sienne = « Combien veux-tu ranger ? ») ; `Ramassage` (touche F) ; `/tendre`.
+Canal de la fiche staff : `reborn:staff` `profile` porte `eco` (`bourse`, `compte`, `palier`, `palierNom`, `plafond`,
+`cases`, `occupees`, `coffre`, `solde`, `grade`, `soldeRecue`, `dernier`, `dernierTexte`, `gele`?, `testament`?) à la
+place de `ryo` ; alertes de type `economie`.
+
+**RBCoins** (Échap) : propriété système `-Dreborn.rbcoins=<n>` ou `-Dreborn.rbcoinsPath=<fichier>` posée par le launcher
+au lancement (**pas encore envoyée** par le launcher : « — »).
 
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 
@@ -315,6 +444,7 @@ facultatifs). Si les deux sont présents, `t` gagne.
 | `DUEL` | Duel | proposition, début, fin (issue, raison) |
 | `ECONOMIE` | Économie | ryo gagnés, dépensés, donnés / retirés / fixés par le staff, achats à l'échoppe |
 | `INTERACTION` | Interaction | menu d'interaction (porter, gorge, fouiller, achever…), soins, rencontrer, échange, ouverture de l'inventaire d'autrui |
+| `RADIO` | Radio | escouades (création, ajout, départ, exclusion, renommage, dissolution), oreillettes (coupée, prise, exclue, réparée), émissions (qui, escouade, durée) — jamais la voix (§4 quater) |
 | `BIBLIOTHEQUE` | Bibliothèque | dépôts, prises, vols de parchemins, séances |
 | `STAFF` | Staff | toute action du Poste de garde et des commandes staff (tp, gel, noir, séisme, annonce, notes, reset…) |
 | `COMMANDE` | Commande | **chaque commande tapée par n'importe qui** (joueur ou staff, vanilla comprise) et par la console |
@@ -490,11 +620,11 @@ addons : `KoService#isOutOfPlay(UUID)` (méthode par défaut ajoutée à l'API `
 | Techniques | ShinobiAbilities `JutsuExecutionManager.gateOrWarn` via `techniqueDenial` |
 | Garde, dash, bond de chakra, esquive | ShinobiCombat `CombatListener` (canal `reborn:combatin`) |
 | Menu R et commandes RP : `/corps` (porter, fouiller, exécuter, gorge, RPK), `/yeux`, `/bandage`, `/rencontrer`, `/amitier`, `/osculter`, `/soigner`, `/paume`, `/aide`, `/me`, `/duel`, `/meditation`, `/assoir`, `/allonger`, `/ramper`, `/playemote` (sur soi), `/testfeuille` (hors `give`), `/hopital` (hors `set` / `suppr` / `liste`), `/radio` (hors outils staff), `/trade`, `/lookdown` | `ModeStaff` `PlayerCommandPreprocessEvent` (LOWEST) |
-| Ramassage (touche F, `pick:`), lâcher, utiliser (manger, pilule), détruire | `InventoryManager` (canal `reborn:inventory`) ; `EntityPickupItemEvent`, `PlayerDropItemEvent`, `PlayerItemConsumeEvent` |
+| Ramassage (touche F, `pick:` ; ramassage auto annulé en survie, aventure **et créatif** depuis le 15/10, sans limite de poids en créatif), lâcher (Q journalisé aussi en créatif), utiliser (manger, pilule), détruire | `InventoryManager` (canal `reborn:inventory`) ; `EntityPickupItemEvent`, `PlayerDropItemEvent`, `PlayerItemConsumeEvent` |
 | Blocs et meubles RP (coffres, portes, bibliothèques, chaises), objet en main | `PlayerInteractEvent` (clic droit refusé, clic gauche libre), `PlayerInteractEntityEvent` ; ShinobiAbilities `LibraryService` |
 | Monture | `EntityMountEvent` ; on descend en entrant dans le mode |
 | Tchat RP | `AsyncChatEvent` (LOWEST) : le message part au **chat staff** (le `#` du chat staff marche toujours) |
-| Radio | `/radio` refusé hors sous-commandes staff (`ecouter`, `stop`, `couper`, `retirer`) — la radio n'existe pas encore |
+| Radio | `/radio` refusé hors sous-commandes staff (`ecouter`, `stop`, `couper`, `retirer`, `info`, `donner`, `reparer`) ; ShinobiRadio : ni émission ni écoute par l'oreillette en mode staff (seule l'écoute staff journalisée) |
 
 **Réciproque — personne ne cible un staff en mode staff** : coups (annulés), regard des commandes RP (les rayons de
 `/rencontrer`, `/osculter`, `/soigner`, `/amitier`, `/paume` l'ignorent), commandes RP qui le **nomment** (pseudo ou nom
@@ -532,6 +662,8 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `meditation` | régénération, rayon d'annulation (× modificateur `meditation`) | — |
 | `modificateurs` | `sync-secondes` ; `types.<id>` : `nom`, `famille`, `bonus`, `icone`, `empilement`, `plafond`, `persistance`, `au-ko`, `visible`, `journal`, `duree-secondes`, `valeur`, `effets`, `refuse`, `ensuite` (types livrés : `regeneration`, `satiete_prolongee`, `endurance`, `meditation`, `pilule_soldat`, `fatigue`, `poison`, `pilule_recharge`) | [`ETATS_JOUEUR.md`](./ETATS_JOUEUR.md) §4.4 |
 | `nourriture` | `actif` ; `satiete.*` (départ 80, perte 0,0125 %/s, `activite.*`, technique, vitesse du sprint, combat, AFK, affamé 20) ; `regeneration.*` (seuil 90, 0,25 %/s, pause 30 s, plafond ATA 30) ; `faim.endurance-recuperation` ; `cuisine.*` (15 s, 2 plats, 4 blocs, chaud 10 min, poste de son entreprise) ; `repas.*` (assis ×2, pause 30 s, effets froids ×0,5) ; `tendre.*` (3 blocs, 10 s) ; `pilule.*` ; `ration` ; `plats.<id>` (`nom`, `satiete`, `duree-secondes`, `icone`, `reste`, `effets`) ; `vivres.<id>` (`prix`, `quantite`, `recette`, `cuisinier-seulement`) | [`gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §11, §13 |
+| `monnaie` | `etats.garnie` (100), `etats.lourde` (5 000), `sol-minutes` (30), `alerte-ramasse` (5 000), `vol.pourcent` (30), `vol.sans-plafond-mort-rp` (vrai), `vol.fouille-secondes` (3), `vol.alerte` (1 000), `vol.corps-minutes` (15) — **facultatif, défauts dans le code** | [`gameplay/MONNAIE_ET_BANQUE.md`](../gameplay/MONNAIE_ET_BANQUE.md) §17 |
+| `banque` | `guichet.*` (portée 5, guichetier 6, frais allié 5 %), `allies`, `villages-refuses`, `virement.*` (1 %, min 5, 5 %, 20 000 / jour, alerte 10 000), `echange.*` (2 %, min 10, distance 4, alerte 10 000), `paliers` (nom, coût, cases, plafond), `refuses.*` (parchemins, uniques, volés, `ids`, `armes-ids`, `armes-rarete-min`, `tag`), `solde.*` (jour, heure, fuseau, présence 3 h, fonction banque +300, `bareme.<GRADE>`), `tresor-initial`, `mort-rp.gel-jours` (7) — **facultatif** | idem |
 | `display` | échelle des cœurs, saturation auto, HUD de recharge | — |
 | `mobility` | Naruto run, sauts, dash, grappin, tyrolienne, escalade | — |
 | `character-select` | point de sélection des persos | [`gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md) |
@@ -559,6 +691,11 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 - **ShinobiSense** : `sense`, `genjutsu`, `dojutsu` (dont `byakugan`).
 - **ShinobiTail** : `triggers`, `rage`, `corruption`, `control-window`, `inner-world`, `fake-body`,
   `final-stage`, `aura`, `union`, `stage-power`, `messages`.
+- **ShinobiRadio** : `escouade` (`taille-max` 8, `distance` 3, `invitation-secondes` 10, `dissolution-jours` 30,
+  `nom-max` 24), `oreillette` (`ids` [oreillette], `emplacement` BOUCLE, `id-nexo` oreillette), `voix`
+  (`chuchote-blocs` 4, `activation-poids` 20, `ligne-poids` 20, `volume-defaut` 1,0, `hache-trames-perdues` 0,35,
+  `porte-hache` vrai), `staff` (`ecoute-minutes-defaut` 10, `ecoute-minutes-max` 60, `coupure-minutes-defaut` 30),
+  `journal` (`emissions` vrai, `emission-min-secondes` 1).
 
 ---
 
@@ -580,6 +717,8 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `gels.yml` | Core | Gels staff persistants, par compte : `par`, `motif`, `le`, `nom` |
 | `entreprises.yml` | Core | Entreprises (14/10) : `nom`, `type`, `responsable` (UUID perso), `cree-le`, `cree-par`, `membres` (`perso`, `compte`, `nom`, `numero`, `role`), `postes` (`monde`, `x`, `y`, `z`, `libelle`) |
 | `satiete.yml` | Core | Satiété par personnage (UUID → %) |
+| `banque/comptes.yml` | Core | **Comptes** (15/10), par UUID de personnage : `owner`, `nom`, `numero`, `village`, `solde`, `palier`, `coffre` (objets base64), `gel.*`, `mort-le`, `regle`, `migre`, `bourse` (dernier montant connu), `virements.*`, `presence.*`, `solde-semaine.*`, `historique` (10) |
+| `banque/banque.yml` | Core | `tresors.<village>`, `saisies.<village>` (objets), `guichets` (id, type bloc / entité, monde, x, y, z, entité, village, libellé, entreprise), `testaments.<perso>` (texte, héritiers `perso\|compte\|nom\|part`, statut DEPOSE / VALIDE, le, par, validé par), `operations.<n>` (500 dernières), `prochaine-operation`, `semaine-payee` |
 | `modificateurs.yml` | Core | Modificateurs actifs par personnage : `type`, `n` (intensité), `duree`, `reste` (gelé), `fin` (continu, epoch), `source` ; les types `PERDU` ne sont pas écrits |
 | `notes-staff.yml` | Core | Notes staff par N° : `id`, `le`, `auteur`, `auteur-uuid`, `auteur-pid`, `auteur-grade`, `etiquette`, `texte` |
 | `tenues-forcees.yml` | Core | Tenues imposées, par personnage : id, staff, date, pièce d'origine (sérialisée) |
@@ -598,6 +737,7 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `shelves.yml`, `bindings.yml` | Abilities | Étagères d'apprentissage, liaisons de touches |
 | `mobility-paths.yml`, `mobility-unlocks.yml`, `parkours.yml`, `trails.yml` | Abilities | Voies et déblocages de mobilité, parcours, pistes |
 | `beasts.yml` | Tail | Démons à queues |
+| `escouades.yml` | Radio | `prochain-numero` (oreillettes, jamais réutilisé) ; `escouades.<uuid>` : `nom`, `createur` (perso), `cree-le`, `derniere-connexion`, `oreillettes-exclues`, `membres.<perso>` : `compte`, `nom`, `ajoute-par`, `depuis`, `oreillette` (n°), `prise`. Écriture atomique, toutes les ~20 s et à l'arrêt |
 
 ---
 

@@ -366,8 +366,10 @@ public final class EscTokonoma {
             ctx.pose().popMatrix();
         }
         arc(ctx, f, "ECHOPPE", x + w / 2f, y + 52, CREME, 1, GRAND, true);
-        long ryo = ShopData.received() ? ShopData.ryo() : Long.MIN_VALUE;
-        if (ryo != balRyo || bal == null) { balRyo = ryo; bal = ryo == Long.MIN_VALUE ? "— ryo" : fmt(ryo) + " ryo"; }
+        // Monnaie (15/10) : la carte ÉCHOPPE lit la BOURSE (ce que l'on porte), plus le dernier état de l'échoppe.
+        long b = fr.reborn.hud.monnaie.MonnaieClient.bourse();
+        long ryo = b >= 0 ? b : ShopData.received() ? ShopData.ryo() : Long.MIN_VALUE;
+        if (ryo != balRyo || bal == null) { balRyo = ryo; bal = ryo == Long.MIN_VALUE ? "Sur toi · — ryo" : "Sur toi · " + fr.reborn.hud.monnaie.BourseClient.fmt(ryo) + " ryo"; }
         float bw = largeurInter(f, bal, 8) + 10;
         float bx = x + w / 2f - bw / 2f;
         ryo(ctx, Math.round(bx), y + 75);
@@ -477,12 +479,17 @@ public final class EscTokonoma {
             blit(ctx, OMAMORI, -12, 0, i * 24, 0, 24, 40, 120, 40);
             ctx.pose().popMatrix();
         }
+        // Solde de RBCoins du compte (15/10, ADR 0006 : jamais mêlé au ryo) — transmis par le launcher, sinon « — ».
+        long rb = fr.reborn.hud.monnaie.RbCoins.solde();
+        if (rb != balRb || rbTxt == null) { balRb = rb; rbTxt = (rb < 0 ? "—" : fr.reborn.hud.monnaie.BourseClient.fmt(rb)) + " RBCoins"; }
         piece(ctx, x + 9, y + 102);
-        inter(ctx, f, "RBCoins par heure de jeu", x + 23, y + 107, OR_CLAIR, 0, 8);
+        float rw = largeurInter(f, rbTxt, 8);
+        inter(ctx, f, rbTxt, x + 23, y + 107, OR_CLAIR, 0, 8);
+        inter(ctx, f, "· +5 par heure de jeu", x + 23 + rw + 4, y + 107, DaKit.argb(0xF2D08A, 0.7f), 0, 8);
     }
 
-    private long balRyo;
-    private String bal;
+    private long balRyo, balRb = Long.MIN_VALUE;
+    private String bal, rbTxt;
     private EscData.Snapshot floorSnap;
     private String floorLine;
 

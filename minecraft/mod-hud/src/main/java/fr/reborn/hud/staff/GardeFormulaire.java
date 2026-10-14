@@ -113,6 +113,7 @@ final class GardeFormulaire {
 
     /** Le serveur connaît-il la commande {@code /radio} (docs/gameplay/RADIO.md §8) ? */
     static boolean radioDisponible() {
+        if (fr.reborn.hud.radio.RadioClient.serveur()) return true;   // ShinobiRadio a parlé sur reborn:radio
         var c = Minecraft.getInstance().getConnection();
         try { return c != null && c.getCommands().getRoot().getChild("radio") != null; }
         catch (RuntimeException e) { return false; }

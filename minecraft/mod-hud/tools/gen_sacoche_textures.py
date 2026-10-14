@@ -14,12 +14,12 @@ Contrat (1 texel = 1 GUI) :
 - vignette.png 160×90 : vignette lisse (étirée sur l'écran).
 - entete.png 320×48 : plaque laquée 280×28 en (20, 8), cordons, agemaki ; titre en code (haut des capitales
   y 19, centré en x 160).
-- onglets.png 156×36 : cellules 26×36, colonne = onglet (装 équipement, 飾 cosmétique) × état (repos, survol,
+- onglets.png 156×36 : cellules 26×36, colonne = onglet (icône arme : équipement, icône tenue : cosmétique) × état (repos, survol,
   actif) : cellule (2·onglet + ... ) -> u = (onglet·3 + état)·26. Fil depuis (13, 0), plaquette 22 en (2, 8)
   (actif : (2, 10)).
-- fermer.png 52×38 : cellules 26×38 (repos, survol), plaque 閉 22×22 en (2, 12).
-- inro.png 168×108 : étages 56×36, rangée = étage (全 TOUT, 袋 SAC, 雑 DIVERS), colonne = état (repos, survol,
-  actif). Corps 52×34 en (1, 0), ombre jusqu'à 56×36 ; kanji cuit centré (haut y 5) ; libellé en code (haut des capitales y 24).
+- fermer.png 52×38 : cellules 26×38 (repos, survol), plaque à croix 22×22 en (2, 12).
+- inro.png 168×108 : étages 56×36, rangée = étage (TOUT grille, SAC sac, DIVERS points), colonne = état (repos, survol,
+  actif). Corps 52×34 en (1, 0), ombre jusqu'à 56×36 ; icône cuite centrée (haut y 6) ; libellé en code (haut des capitales y 24).
   Étages empilés au pas de 35, cellule posée en (x inrō − 1, y).
 - cordon.png 60×176 : cordon derrière les étages ; repère (0, 0) = (x inrō − 4, y premier étage − 20) ;
   ojime centré en (30, 8), brins des flancs en x 2 et x 56, netsuke centré en (30, 160).
@@ -28,13 +28,13 @@ Contrat (1 texel = 1 GUI) :
 - cases.png 176×22 : cases 22×22 : 0 sac, 1 sac survol, 2 sac choisie, 3 case absente (sac plus petit),
   4 ceinture, 5 ceinture survol, 6 ceinture choisie, 7 dépôt possible.
 - plaques.png 96×25 : plaques cosmétiques 22×22 (+ombre) : 0 vide, 1 survol, 2 garnie, 3 dépôt possible.
-- kanji.png 208×16 : 笠 額 面 耳 衣 上 装 帯 下 背 袋 刀 頭 (cellules 16×16, or éteint) posés sur les plaques vides
-  (刀 = emplacement Arme / étui, 頭 = rappel « Tête » de l'onglet Équipement, ajoutés le 13/10).
+- kanji.png 208×16 (nom historique) : icônes chapeau, bandeau, masque, boucle, manteau, haut, tenue, ceinture, bas,
+  dos, sac, arme, tête (cellules 16×16, or éteint) posées sur les plaques vides — aucun kanji (15/10, DA §3).
 - socle.png 124×22 : socle laqué sous le personnage, pieds en (62, 3).
 - obi.png 274×34 : obi 270×30 en (0, 0) (+ ombre) ; cases dès (12, 4).
 - champ.png 124×14 : champ de recherche (coupe horizontale, capD 4).
 - pieces.png 210×74 : cabochon 42×12 (0, 0) ; rainure de jauge 204×12 (0, 14) ; or 196×6 (0, 28) ;
-  laque rouge 196×6 (0, 36) ; sceau 袋 26×26 (+ombre) (0, 44) ; ojime lueur 9×9 (30, 44).
+  laque rouge 196×6 (0, 36) ; cadre « aucun sac » 26×26 (0, 44) ; ojime lueur 9×9 (30, 44).
 - detail.png 208×158 : planche fixe 200×150 en (4, 4) (+ombre), bandeau rouge (9, 9, 190×18).
 - boutons.png 104×80 : plaques-boutons 100×16 en (1, 1) par rangées de 20 : normal, survol, rouge (danger),
   rouge survol (coupe horizontale, capD 6).
@@ -53,9 +53,65 @@ from ecrans_art import fa, gf, kit, hexc, rect, R_OR, R_LAQUE, R_LAQUE_ROUGE, no
 
 S = ea.Sortie("sacoche", budget=400_000)
 
-KJ_COSM = ["笠", "額", "面", "耳", "衣", "上", "装", "帯", "下", "背", "袋", "刀", "頭"]   # + 刀 arme, 頭 tête (13/10)
-KJ_ETAGES = ["全", "袋", "雑"]
-KJ_ONGLETS = ["装", "飾"]
+# Icônes simples au trait (15/10, DA §3 : plus aucun kanji décoratif) — même disposition que les anciens kanji.
+# Ordre de kanji.png = ordre de CosmeticSlot (mod) : chapeau … dos, puis sac, arme, tête.
+IC_COSM = ["chapeau", "bandeau", "masque", "boucle", "manteau", "haut", "tenue", "ceinture", "bas", "dos", "sac",
+           "arme", "tete"]
+IC_ETAGES = ["tout", "sac", "divers"]
+IC_ONGLETS = ["arme", "tenue"]      # Équipement (étui, sac), Cosmétique (tenue)
+
+# Sprites de 12 × 12 au plus : « # » trait, « o » trait assombri (ombre portée ajoutée au besoin).
+ICONES = {
+    "chapeau": [".....##.....", "....#oo#....", "...#oooo#...", "..#oooooo#..", ".#oooooooo#.", "############",
+                "....#..#....", "....#..#...."],
+    "bandeau": ["............", "############", "#o########o#", "#o#oooooo#o#", "#o#o####o#o#", "#o#oooooo#o#",
+                "#o########o#", "############"],
+    "masque": ["...######...", "..#oooooo#..", ".#oooooooo#.", ".#o##oo##o#.", ".#oooooooo#.", ".#oooooooo#.",
+               "..#oo##oo#..", "...#oooo#...", "....####...."],
+    "boucle": ["....###.....", "...#...#....", "...#...#....", "....###.....", ".....#......", "....###.....",
+               "...#ooo#....", "....###.....", ".....#......"],
+    "manteau": ["...##..##...", "..#oo##oo#..", ".#oooooooo#.", ".#oo#oo#oo#.", "#ooo#oo#ooo#", "#ooo#oo#ooo#",
+                "#ooo#oo#ooo#", "############"],
+    "haut": ["..###..###..", ".#ooo##ooo#.", "#oooooooooo#", "###oooooo###", "..#oooooo#..", "..#oooooo#..",
+             "..#oooooo#..", "..########.."],
+    "tenue": ["..###..###..", ".#oo#..#oo#.", "#oooo##oooo#", "###oo##oo###", "..#o####o#..", "..#oo##oo#..",
+              "..#oo##oo#..", "..########.."],
+    "ceinture": ["............", "............", "############", "#oooo##oooo#", "#ooo#..#ooo#", "#oooo##oooo#",
+                 "############", "............"],
+    "bas": [".##########.", ".#oooooooo#.", ".#oooooooo#.", ".#ooo##ooo#.", ".#oo#..#oo#.", ".#oo#..#oo#.",
+            ".#oo#..#oo#.", ".####..####."],
+    "dos": ["..########..", ".#oooooooo#.", ".#o#oooo#o#.", ".#oo#oo#oo#.", ".#ooo##ooo#.", ".#oo#oo#oo#.",
+            ".#o#oooo#o#.", "..########.."],
+    "sac": ["....####....", "...#....#...", "....####....", "..#oooooo#..", ".#oooooooo#.", ".#ooo##ooo#.",
+            ".#oooooooo#.", "..########.."],
+    "arme": ["..........##", ".........#o#", "........#o#.", ".......#o#..", "......#o#...", ".....#o#....",
+             "...##.##....", "...###......", "..#.##......", ".#.........."],
+    "tete": ["....####....", "...#oooo#...", "...#oooo#...", "...#oooo#...", "....#oo#....", ".....##.....",
+             "..########..", ".#oooooooo#."],
+    "tout": ["##.##.##", "##.##.##", "........", "##.##.##", "##.##.##", "........", "##.##.##", "##.##.##"],
+    "divers": ["............", ".##..##..##.", ".##..##..##.", "............"],
+    "fermer": ["##......##", "###....###", ".###..###.", "..######..", "...####...", "...####...", "..######..",
+               ".###..###.", "###....###", "##......##"],
+}
+
+
+def ico_px(img, cx, y, nom, couleur, ombre=None, echelle=1):
+    """Pose l'icône {nom} centrée en cx, haut en y ; « o » = trait assombri ; ombre portée d'1 px (bas droite)."""
+    rows = ICONES[nom]
+    w = max(len(r) for r in rows) * echelle
+    x0 = int(round(cx - w / 2))
+    c = couleur if isinstance(couleur, tuple) else hexc(couleur)
+    sombre = tuple(int(v * 0.55) for v in c[:3]) + (255,)
+    if ombre is not None:
+        oc = ombre if isinstance(ombre, tuple) else hexc(ombre)
+        for j, row in enumerate(rows):
+            for i, ch in enumerate(row):
+                if ch != ".":
+                    rect(img, x0 + i * echelle + 1, y + j * echelle + 1, echelle, echelle, oc)
+    for j, row in enumerate(rows):
+        for i, ch in enumerate(row):
+            if ch != ".":
+                rect(img, x0 + i * echelle, y + j * echelle, echelle, echelle, c if ch == "#" else sombre)
 PLATEAU = ["1E0609", "2A070D", "3A0A12", "4A0C16", "5A0F1A", "6E1220", "821426"]   # laque sang-de-bœuf
 
 
@@ -93,7 +149,7 @@ def entete():
 
 def onglets():
     im = nouveau(156, 36)
-    for o, kj in enumerate(KJ_ONGLETS):
+    for o, ic in enumerate(IC_ONGLETS):
         for e, etat in enumerate(("repos", "survol", "actif")):
             cell = nouveau(26, 36)
             ty = 8 + (2 if etat == "actif" else 0)
@@ -101,7 +157,7 @@ def onglets():
             fa.plaquette22(cell, 2, ty, etat, seed=o * 3 + e)
             kit.anneau_metal(cell, 13, ty, 1)
             col = ea.OR_CLAIR if etat == "actif" else (ea.OR if etat == "survol" else hexc(R_OR[4]))
-            gf.kj_px(cell, 13, ty + 3, kj, col, ombre=hexc("1A0608") if etat == "actif" else hexc("050304"))
+            ico_px(cell, 13, ty + 5, ic, col, ombre=hexc("1A0608") if etat == "actif" else hexc("050304"))
             im.paste(cell, ((o * 3 + e) * 26, 0))
     S.sauver("onglets.png", im, (156, 36))
 
@@ -113,7 +169,7 @@ def fermer():
         fa.corde_v(cell, 13, 0, 12, "rouge", ep=2)
         fa.plaquette22(cell, 2, 12, "fermer_survol" if i else "fermer")
         kit.anneau_metal(cell, 13, 12, 1)
-        gf.kj_px(cell, 13, 15, "閉", gf.CREME_KJ, ombre=hexc("050304"))
+        ico_px(cell, 13, 18, "fermer", gf.CREME_KJ, ombre=hexc("050304"))
         im.paste(cell, (i * 26, 0))
     S.sauver("fermer.png", im, (52, 38))
 
@@ -129,7 +185,7 @@ def masque_etage(w, h, r=3):
     return m
 
 
-def etage(kj, etat, seed):
+def etage(ic, etat, seed):
     W, H = 52, 34
     cell = nouveau(56, 36)
     m = masque_etage(W, H)
@@ -171,18 +227,19 @@ def etage(kj, etat, seed):
         rect(body, X - 1, 15, 3, 3, hexc(R_OR[2]))
         rect(body, X, 16, 1, 1, hexc("0A0506"))
         rect(body, X - 1, 15, 1, 1, hexc(R_OR[6]))
-    # kanji cuit
+    # icône cuite (plus de kanji, 15/10)
     kc = ea.OR_CLAIR if actif else (ea.OR if etat == "survol" else hexc(R_OR[4]))
-    gf.kj_px(body, W // 2, 5, kj, kc, ombre=hexc("1A0608") if actif else hexc("050304"))
+    hi = len(ICONES[ic])
+    ico_px(body, W // 2, 6 + (12 - hi) // 2, ic, kc, ombre=hexc("1A0608") if actif else hexc("050304"))
     cell.alpha_composite(body, (1, 0))
     return cell
 
 
 def inro():
     im = nouveau(168, 108)
-    for t, kj in enumerate(KJ_ETAGES):
+    for t, ic in enumerate(IC_ETAGES):
         for e, etat in enumerate(("repos", "survol", "actif")):
-            im.paste(etage(kj, etat, seed=11 + t), (e * 56, t * 36))
+            im.paste(etage(ic, etat, seed=11 + t), (e * 56, t * 36))
     S.sauver("inro.png", im, (168, 108))
 
 
@@ -326,9 +383,11 @@ def plaques():
 
 
 def kanji_cosm():
-    im = nouveau(16 * len(KJ_COSM), 16)
-    for i, kj in enumerate(KJ_COSM):
-        gf.kj_px(im, i * 16 + 8, 0, kj, hexc(R_OR[3]))
+    """kanji.png (nom gardé : contrat du mod) — désormais des icônes simples, une par emplacement."""
+    im = nouveau(16 * len(IC_COSM), 16)
+    for i, ic in enumerate(IC_COSM):
+        hi = len(ICONES[ic])
+        ico_px(im, i * 16 + 8, (16 - hi) // 2, ic, hexc(R_OR[4]))
     S.sauver("kanji.png", im, (208, 16))
 
 
@@ -390,7 +449,10 @@ def pieces():
     rect(im, 0, 28, 196, 1, hexc(R_OR[7]))
     fa.lq(im, 0, 36, 196, 6, "rouge", seed=5)
     rect(im, 0, 36, 196, 1, hexc("E26474"))
-    gf.hanko_px(im, 13, 57, "袋", 26, ea.R_VERM, seed=8, usure=0.05)
+    # « Aucun sac » : un sac au trait vermillon dans un cadre fin (plus de sceau kanji, 15/10)
+    rect(im, 0, 44, 26, 1, hexc(ea.R_VERM[3])); rect(im, 0, 69, 26, 1, hexc(ea.R_VERM[2]))
+    rect(im, 0, 44, 1, 26, hexc(ea.R_VERM[3])); rect(im, 25, 44, 1, 26, hexc(ea.R_VERM[2]))
+    ico_px(im, 13, 53, "sac", hexc(ea.R_VERM[4]))
     # lueur de l'ojime (petite étoile d'or, posée à alpha variable par le code)
     for (dx, dy, c, al) in ((4, 4, R_OR[8], 255), (3, 4, R_OR[6], 200), (5, 4, R_OR[6], 200), (4, 3, R_OR[6], 200),
                             (4, 5, R_OR[6], 200), (2, 4, R_OR[5], 110), (6, 4, R_OR[5], 110), (4, 2, R_OR[5], 110),

@@ -1,0 +1,19 @@
+name: ShinobiRadio
+version: ${project.version}
+main: com.reborn.shinobiradio.ShinobiRadio
+api-version: '1.21'
+authors: [Reborn]
+description: "Radio en escouades (oreillette, escouade persistante, voix radio) — addon serveur Plasmo Voice."
+depend: [ShinobiCore, PlasmoVoice]
+commands:
+  radio:
+    description: "Radio en escouades : créer, ajouter, accepter, quitter, renommer, exclure, oreillette ; staff : info, écouter, stop, couper, retirer, donner, réparer."
+    usage: "/radio <creer|ajouter|accepter|refuser|quitter|renommer|exclure|exclure-oreillette|dissoudre|oreillette|info|ecouter|stop|couper|retirer|donner|reparer>"
+    permission: shinobiradio.use
+permissions:
+  shinobiradio.use:
+    description: "Utiliser la radio (escouades, oreillette)."
+    default: true
+  shinobiradio.artisan:
+    description: "Réparer une oreillette coupée (artisan)."
+    default: op

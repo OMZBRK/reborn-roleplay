@@ -72,9 +72,9 @@ public final class EntrepriseCommand implements TabExecutor {
     /* ================================================================ sous-commandes */
 
     private void creer(CommandSender s, List<String> a) {
-        if (a.size() < 3) { err(s, "/entreprise creer <restaurant|forge|echoppe> \"<nom>\" [responsable]"); return; }
+        if (a.size() < 3) { err(s, "/entreprise creer <restaurant|forge|echoppe|banque> \"<nom>\" [responsable]"); return; }
         Entreprise.Type t = Entreprise.Type.parse(a.get(1));
-        if (t == null) { err(s, "Type inconnu : " + a.get(1) + " (restaurant, forge, echoppe)."); return; }
+        if (t == null) { err(s, "Type inconnu : " + a.get(1) + " (restaurant, forge, echoppe, banque)."); return; }
         String nom = a.get(2);
         Entreprise e = service.creer(nom, t, s.getName());
         if (e == null) { err(s, "Une entreprise porte déjà ce nom (ou nom vide)."); return; }
@@ -307,10 +307,10 @@ public final class EntrepriseCommand implements TabExecutor {
         if (a.length == 1) r.addAll(List.of("creer", "supprimer", "renommer", "membre", "poste", "info", "liste"));
         else if (a.length == 2) {
             switch (a[0].toLowerCase(Locale.ROOT)) {
-                case "creer" -> r.addAll(List.of("restaurant", "forge", "echoppe"));
+                case "creer" -> r.addAll(List.of("restaurant", "forge", "echoppe", "banque"));
                 case "membre" -> r.addAll(List.of("ajouter", "retirer", "role"));
                 case "poste" -> r.addAll(List.of("ajouter", "retirer"));
-                case "liste" -> r.addAll(List.of("restaurant", "forge", "echoppe"));
+                case "liste" -> r.addAll(List.of("restaurant", "forge", "echoppe", "banque"));
                 default -> service.toutes().forEach(e -> r.add(e.id()));
             }
         } else if (a.length == 3 && (a[0].equalsIgnoreCase("membre") || a[0].equalsIgnoreCase("poste"))) {

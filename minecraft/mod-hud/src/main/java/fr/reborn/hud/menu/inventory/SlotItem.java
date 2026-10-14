@@ -31,6 +31,8 @@ public final class SlotItem {
     public boolean arme;
     /** Objet unique (rouleau, relique) : jamais détruit au sol. */
     public boolean unique;
+    /** Bourse (15/10) : montant en ryo, −1 si ce n'est pas une bourse. */
+    public long ryo = -1;
 
     private ItemStack cached;
 
@@ -76,6 +78,10 @@ public final class SlotItem {
             if (mm != null) s.set(DataComponents.ITEM_MODEL, mm);
         }
         if (name != null) s.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+        if (ryo >= 0) {
+            fr.reborn.hud.monnaie.BourseClient.marquer(s, ryo);
+            s.set(DataComponents.MAX_STACK_SIZE, 1);
+        }
         cached = s;
         return s;
     }

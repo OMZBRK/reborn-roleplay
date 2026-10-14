@@ -106,6 +106,21 @@ Après publication : mettre à jour `docs/ETAT_DES_LIEUX.md` (version + numéro 
   puis chaque addon, aucune `NoClassDefFoundError`, aucun `Invalid plugin.yml`.
 - Les plugins non Shinobi (Guardian, OST) se déploient pareil.
 
+**Radio (ShinobiRadio, 14/10)** — premier déploiement :
+- Jar **`ShinobiRadio-1.0.0-SNAPSHOT.jar`** (nouveau, dans `plugins/`), **avec** `ShinobiCore-1.0.0-SNAPSHOT.jar`
+  (API ajoutée : `InventoryService#cosmetique|poserCosmetique`, `KoService#isDowned`, catégorie de journal `RADIO`). Build :
+  `mvn -o -q clean package -pl ShinobiRadio -am` depuis `minecraft/shinobi`.
+- **Plugin serveur Plasmo Voice requis** (`depend` : sans lui ShinobiRadio ne se charge pas) : le jar
+  `plasmovoice-spigot-2.1.17` (Modrinth, Paper / Purpur 26.1.2 → 26.3) déjà installé selon l'utilisateur — **vérifier la
+  version sur le panel** (2.1.x). Le port UDP de Plasmo Voice doit rester ouvert comme aujourd'hui.
+- **Modpack** : passer le client Plasmo Voice à **`plasmovoice-fabric-26.2-2.1.17`** (le mod compile contre 2.1.17 ; le
+  manifest signé 3.1.132 livre 2.1.16, compatible en principe mais à aligner).
+- **Pack Nexo** : nouveaux fichiers `nexo/pack/assets/reborn/{items,models/item,textures/item}/oreillette.*` et l'entrée
+  `oreillette` de `nexo/items/reborn_cosmetiques.yml` → copier dans `plugins/Nexo/`, puis `/nexo reload all`.
+- Au premier démarrage : `plugins/ShinobiRadio/config.yml` est créé ; logs attendus : `[radio] Activation et ligne
+  « radio » enregistrées dans Plasmo Voice.` puis `ShinobiRadio activé — 0 escouade(s), voix radio prête.`
+- Vérifier aussi le YAML de `ShinobiRadio/src/main/resources/plugin.yml` et `config.yml` (et ceux du jar), §1.4.
+
 **Incidents connus** : SFTP et port de jeu muets en même temps = panne réseau ou hôte, pas les identifiants.
 Le serveur **prod** n'est pas sur les mêmes accès que le dev — vérifier `server.properties` avant de toucher à
 quoi que ce soit.

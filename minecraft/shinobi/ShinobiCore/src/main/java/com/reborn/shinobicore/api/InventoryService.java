@@ -38,6 +38,20 @@ public interface InventoryService {
     /** Donne un objet : barre 1-9, puis sac, puis au sol ; jamais dans les cases cachées 9-35 de Minecraft. */
     void give(Player player, ItemStack item);
 
+    /**
+     * L'objet porté dans un emplacement cosmétique du personnage actif ({@code "BOUCLE"}, {@code "TENUE"}…), copie,
+     * ou {@code null}. Sert aux add-ons dont l'objet agit quand il est porté (oreillette de ShinobiRadio). Default null
+     * for older cores.
+     */
+    default ItemStack cosmetique(Player player, String slot) { return null; }
+
+    /**
+     * Pose {@code item} (copie, quantité 1) dans l'emplacement cosmétique {@code slot} du personnage actif, ou le vide
+     * si {@code item} est null ; persiste, rafraîchit la sacoche et rediffuse les cosmétiques. Renvoie l'objet qui s'y
+     * trouvait (à rendre ou à jeter par l'appelant). Default null for older cores (rien n'est fait).
+     */
+    default ItemStack poserCosmetique(Player player, String slot, ItemStack item) { return null; }
+
     /** Pourquoi la sacoche est en lecture seule (« KO », « porté », « étourdi », « mort »), ou {@code null}. */
     String lockReason(Player player);
 }

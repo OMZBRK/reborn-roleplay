@@ -32,7 +32,10 @@ public enum HudElement {
     COMBAT_ENDURANCE("combat_endurance", "Endurance", "Barre d'endurance de combat (garde M2)", HudAnchor.CENTER, -435, -201, 0.45f),
     // 14/10 : ancré en haut à gauche sous les vitals (l'ancien décalage depuis le bas-centre sortait de l'écran
     // en 1366×768) ; échelle 1,0 = icônes 32 px à 1:1 à l'échelle GUI 2
-    COOLDOWNS     ("cooldowns",       "Cooldowns",    "Icônes de cooldown (dash, sauts…)",        HudAnchor.TOP_LEFT, 0, 0, 1.00f);
+    COOLDOWNS     ("cooldowns",       "Cooldowns",    "Icônes de cooldown (dash, sauts…)",        HudAnchor.TOP_LEFT, 0, 0, 1.00f),
+    // Radio en escouades (14/10, RADIO.md §5) : tête du skin → nom de ceux qui parlent ; défaut validé : sous les
+    // vitals, à gauche (maquette v3/02). Option « Afficher toute l'escouade » dans l'inspecteur.
+    ESCOUADE      ("escouade",        "Escouade radio", "Têtes et noms de ceux qui parlent à la radio", HudAnchor.TOP_LEFT, 0, 0, 1.00f);
 
     private final String id;
     private final String displayName;

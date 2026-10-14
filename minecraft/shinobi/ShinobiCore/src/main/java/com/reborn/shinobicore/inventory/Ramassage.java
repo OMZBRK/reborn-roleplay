@@ -33,7 +33,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>poids : on peut dépasser la limite jusqu'à <b>130 %</b>, pas au-delà ; une pile est ramassée en partie si elle
  *       ne rentre pas toute (« +2 Kunai — 1 reste au sol »).</li>
  * </ul>
- * Les flèches (et tridents) gardent le ramassage de Minecraft. Créatif / spectateur : inchangé.
+ * Les flèches (et tridents) gardent le ramassage de Minecraft. <b>Créatif</b> (15/10) : mêmes règles (plus de
+ * ramassage automatique, F ramasse), sauf la limite de poids (pas de surcharge en créatif, cf.
+ * {@code InventoryManager.recalc}) ; seul le spectateur, qui ne ramasse jamais, est hors du système. Avant le 15/10
+ * le créatif gardait le ramassage auto de Minecraft : un objet lâché depuis la sacoche (à ses pieds, délai 10 ticks)
+ * revenait aussitôt dans sa barre — « lâcher ne marche pas en créatif » — et F n'y faisait rien.
  */
 final class Ramassage implements Listener {
 
@@ -46,23 +50,23 @@ final class Ramassage implements Listener {
         this.inv = inv;
     }
 
-    private static boolean survie(Player p) {
-        GameMode g = p.getGameMode();
-        return g == GameMode.SURVIVAL || g == GameMode.ADVENTURE;
+    /** Survie, aventure et créatif : ramassage volontaire seulement. */
+    private static boolean enJeu(Player p) {
+        return p.getGameMode() != GameMode.SPECTATOR;
     }
 
     /* ─────────── plus de ramassage automatique ─────────── */
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onAttempt(PlayerAttemptPickupItemEvent e) {
-        if (!survie(e.getPlayer())) return;
+        if (!enJeu(e.getPlayer())) return;
         e.setFlyAtPlayer(false);
         e.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent e) {
-        if (e.getEntity() instanceof Player p && survie(p)) e.setCancelled(true);
+        if (e.getEntity() instanceof Player p && enJeu(p)) e.setCancelled(true);
     }
 
     void oublier(UUID id) {
@@ -84,7 +88,7 @@ final class Ramassage implements Listener {
             Notifs.msg(p, "etat", "止", "Impossible " + verrou(verrou), null);
             return false;
         }
-        if (!survie(p)) return false;
+        if (!enJeu(p)) return false;
         Item it = trouver(p, arg);
         if (it == null) return false;
         Location oeil = p.getEyeLocation();
@@ -102,6 +106,10 @@ final class Ramassage implements Listener {
 
         ItemStack sol = it.getItemStack();
         if (sol == null || sol.getType().isAir()) return false;
+        // Monnaie (15/10) : une bourse au sol rejoint la bourse du joueur (pas une case de plus).
+        if (com.reborn.shinobicore.monnaie.Bourse.est(sol) && plugin.monnaie() != null) {
+            return plugin.monnaie().bourses().ramasser(p, it);
+        }
         ItemStack unite = RareteItems.normaliser(sol.clone());
         unite.setAmount(1);
         int total = sol.getAmount();
@@ -113,8 +121,8 @@ final class Ramassage implements Listener {
             son(p, false);
             return false;
         }
-        // poids : jusqu'à 130 % de la limite
-        double unitPoids = RpWeights.of(unite);
+        // poids : jusqu'à 130 % de la limite (sans limite en créatif : pas de surcharge)
+        double unitPoids = p.getGameMode() == GameMode.CREATIVE ? 0 : RpWeights.of(unite);
         double max = b.maxWeight();
         double cur = inv.weight(p);
         int parPoids = total;
