@@ -7,7 +7,7 @@
 > [`ROADMAP_BETA_2026.md`](./ROADMAP_BETA_2026.md), l'historique des versions dans
 > [`pilotage/JOURNAL_DES_LIVRAISONS.md`](./pilotage/JOURNAL_DES_LIVRAISONS.md).
 >
-> **Dernière mise à jour : 2026-10-14** (reborn-hud 0.4.175, manifest 3.1.131 ; launcher 0.3.46). À mettre à jour à **chaque
+> **Dernière mise à jour : 2026-10-15** (reborn-hud 0.4.179, manifest 3.1.135 ; launcher 0.3.46). À mettre à jour à **chaque
 > publication** (commit `docs(etat)` séparé).
 
 ---
@@ -33,10 +33,10 @@
 | Artefact | **En ligne** | Sur `origin/main` | Notes |
 |---|---|---|---|
 | Launcher | **0.3.46** (14/10) | 0.3.46 | ✅ Accueil Microsoft puis Discord obligatoire |
-| `reborn-hud` | **0.4.175** — manifest **3.1.131** (14/10) | 0.4.175 | ✅ Dernier contenu : duel consenti, N° de personnage, inventaire et ramassage façon Game Plan, derniers écrans en jeu. Détail de chaque version : [journal](./pilotage/JOURNAL_DES_LIVRAISONS.md) |
+| `reborn-hud` | **0.4.179** — manifest **3.1.135** (15/10) | 0.4.179 | ✅ Livre d'un coup 0.4.176 (journal universel, commandes staff, allures, KO v2), 0.4.178 (Poste de garde v3, états du joueur, nourriture et entreprises, natures canoniques) et 0.4.179 (radio en escouades, monnaie et banque, halo pixel art) : les manifests 3.1.132 à 3.1.134 ont été signés mais jamais envoyés (401 du launcher). Le 3.1.135 passe aussi PlasmoVoice client en 2.1.17. ⚠️ Touches radio par défaut B / N en conflit avec Emotecraft / OST. Détail de chaque version : [journal](./pilotage/JOURNAL_DES_LIVRAISONS.md) |
 | `reborn-integrity` | 0.3.1 | 0.3.1 | ✅ |
 | `reborn-ost` | **0.2.4** — manifest 3.1.104 (03/10) | 0.2.4 | ✅ |
-| Plugins **Shinobi** — serveur **dev** | ShinobiCore + ShinobiAbilities + ShinobiCombat du **14/10** (`d6bba37` : `/duel`, `/pid`, `player-ids.yml`, nouvelle API inventaire ; bibliothèques v2 `de7fe9f`) ; pack Nexo parchemins + fiole d'œil du 13/10 ; ShinobiLearning du 08/10 ; ShinobiSense du 04/10 (**`ByakuganVision.java` non commité**) | `minecraft/shinobi/` | Déploiement SFTP manuel, redémarrage par l'utilisateur |
+| Plugins **Shinobi** — serveur **dev** | ShinobiCore, ShinobiAbilities, ShinobiCombat, ShinobiTail, ShinobiLearning et le nouveau **ShinobiRadio** du **15/10** (`17397e3` : journal universel, commandes staff, allures, KO v2, états du joueur, nourriture, entreprises, monnaie et banque, radio en escouades) ; plugin serveur **PlasmoVoice 2.1.17** (2.1.14 en `.bak`) ; pack Nexo nourriture (14/10) puis monnaie + testament + oreillette (15/10), parchemins + fiole d'œil du 13/10 ; ShinobiSense du 04/10 (**`ByakuganVision.java` non commité**) | `minecraft/shinobi/` | Déploiement SFTP manuel, redémarrage par l'utilisateur |
 | Plugins **Shinobi** — serveur **prod** | ⚠️ non tracé précisément ; au 10/10 son ShinobiCore n'envoyait pas âge / taille / sexe | — | Inventaire à faire avant la mise en prod |
 | `reborn-guardian`, `reborn-ost-plugin` | build Gradle | `minecraft/plugin-*` | Déploiement SFTP manuel |
 
@@ -80,7 +80,7 @@ Modpack joueur (26.2) : **requis** `fabric-api`, `fabric-language-kotlin`, `sodi
 `emotecraft` 3.4.0, `PlayerAnimationLibMerged` 1.2.6, `reborn-hud`, `reborn-integrity`, `reborn-ost` ;
 **optionnels** `iris`, `zoomify`, `NoChatReports`, `entity_model_features`, `DistantHorizons`.
 
-- Les pistes OST sont livrées **par le manifest**, pas dans un jar. `reborn-hud` pèse ~23,9 Mo.
+- Les pistes OST sont livrées **par le manifest**, pas dans un jar. `reborn-hud` pèse ~27,8 Mo.
 - `secrets/manifest-signed.json` peut être périmé : partir du **dernier** `manifest-signed-v*.json` ou du live.
 - ❓ À vérifier : l'existence réelle de deux manifests distincts (un modpack unifié a été évoqué en septembre).
 
