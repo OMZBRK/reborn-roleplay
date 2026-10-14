@@ -74,6 +74,8 @@ public final class ShinobiAbilities extends JavaPlugin {
     private MobilityModule mobility;
     private com.reborn.shinobiabilities.mobility.MobilityPaths mobilityPaths;
     private com.reborn.shinobiabilities.mobility.MobilityPathTwoModule pathTwo;
+    /** Trois allures (marche / trot / sprint), canal reborn:allure — décision du 2026-10-14. */
+    private com.reborn.shinobiabilities.mobility.Allure allure;
     private LearningShelfManager shelves;
     private LearningMinigame minigame;
     private TechniquesService techniques;
@@ -173,6 +175,15 @@ public final class ShinobiAbilities extends JavaPlugin {
         getServer().getMessenger().registerIncomingPluginChannel(this,
                 com.reborn.shinobiabilities.mobility.AnimRelayListener.CHANNEL,
                 new com.reborn.shinobiabilities.mobility.AnimRelayListener(this));
+
+        // Canal reborn:allure : marche par défaut, trot (touche de sprint maintenue), sprint (double appui, endurance).
+        // Modificateur de vitesse posé ici (autorité), prédit par le mod. Cf. Allure.
+        this.allure = new com.reborn.shinobiabilities.mobility.Allure(this, core, mobility.narutoRun());
+        getServer().getMessenger().registerOutgoingPluginChannel(this, com.reborn.shinobiabilities.mobility.Allure.CHANNEL);
+        getServer().getMessenger().registerIncomingPluginChannel(this, com.reborn.shinobiabilities.mobility.Allure.CHANNEL,
+                allure);
+        getServer().getPluginManager().registerEvents(allure, this);
+        allure.start();
 
         // 4. Techniques / learning.
         this.shelves = new LearningShelfManager(this, abilities, guiRouter);
@@ -353,6 +364,7 @@ public final class ShinobiAbilities extends JavaPlugin {
         if (minigame != null) minigame.abortAll();
         if (mobility != null) mobility.disable();
         if (pathTwo != null) pathTwo.stop();
+        if (allure != null) allure.stop();
         if (bindings != null) bindings.saveSync();
         if (shelves != null) shelves.saveSync();
 

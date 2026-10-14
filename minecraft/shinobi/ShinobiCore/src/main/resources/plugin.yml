@@ -56,11 +56,11 @@ commands:
     permission: shinobicore.staff
     usage: "/<command> [voir|donner|retirer|niveau] …"
   corps:
-    description: Actions sur un corps à terre (menu d'interaction du mod).
-    usage: "/<command> porter|gorge|fouiller|rpk|achever|executer <joueur> [exécution] · quitter"
+    description: "Actions sur un corps à terre ou une personne en douleur (menu d'interaction du mod)."
+    usage: "/<command> porter|gorge|fouiller|rpk|achever|executer <joueur> [exécution] · annuler · quitter"
   execution:
-    description: "Exécutions possédées (staff : donner, retirer, liste, recharger)."
-    usage: "/<command> [donner|retirer <joueur> <id>|liste [joueur]|recharger]"
+    description: "Exécutions possédées (staff : donner, retirer, liste, recharger, forcer, douleur, annuler)."
+    usage: "/<command> [donner|retirer <joueur> <id>|liste [joueur]|recharger|forcer|douleur|annuler <joueur>]"
   sckillvote:
     description: Vote interne pour valider/refuser une demande Tuer.
     usage: /<command> approve|refuse|goto <id>
@@ -208,6 +208,91 @@ commands:
     description: "Médic : poser ou retirer un bandage sur les yeux d'un patient."
     usage: "/<command> <joueur> [retirer]"
     permission: shinobicore.use
+  journal:
+    description: "Staff — journal universel : filtres #N°, catégorie, j:<joueur>, h:<heures>, d:<jours>, p:<page>, texte."
+    usage: "/<command> [#N°] [catégorie…] [j:<pseudo|nom RP>] [h:<heures>|d:<jours>] [p:<page>] [texte]"
+    aliases: [logs]
+    permission: reborn.staff.helper
+  note:
+    description: "Staff — notes staff sur un personnage (rattachées au N°)."
+    usage: "/<command> <cible|#N°> [ajouter [etiquette:<mot>] <texte> | suppr <id>]"
+    aliases: [notes, tag]
+    permission: reborn.staff.helper
+  annonce:
+    description: "Staff (Modérateur) — annonce à tous en haut de l'écran ; « joueur » pour une seule personne."
+    usage: "/<command> <message> | /<command> joueur <cible> <message>"
+    aliases: [broadcast, bc]
+    permission: reborn.staff.helper
+  annoncejoueur:
+    description: "Staff — message affiché à un seul joueur (scène, convocation)."
+    usage: "/<command> <cible> <message>"
+    aliases: [broadcastplayer, bcp]
+    permission: reborn.staff.helper
+  aller:
+    description: "Staff — se téléporter à un joueur (pseudo, nom RP ou #N°)."
+    usage: "/<command> <cible>"
+    aliases: [goto, stp]
+    permission: reborn.staff.helper
+  ramener:
+    description: "Staff (Modérateur) — ramener un joueur à soi."
+    usage: "/<command> <cible>"
+    aliases: [bring]
+    permission: reborn.staff.helper
+  retour:
+    description: "Staff — revenir où l'on était avant /aller ; avec une cible (Modérateur) : la renvoyer où elle était avant /ramener."
+    usage: "/<command> [cible]"
+    aliases: [back]
+    permission: reborn.staff.helper
+  geler:
+    description: "Staff (Modérateur) — gel persistant (survit à la déconnexion et au redémarrage)."
+    usage: "/<command> <cible> [motif]"
+    aliases: [freeze]
+    permission: reborn.staff.helper
+  degeler:
+    description: "Staff (Modérateur) — lever un gel (hors ligne possible avec #N°)."
+    usage: "/<command> <cible>"
+    aliases: [unfreeze]
+    permission: reborn.staff.helper
+  voirsac:
+    description: "Staff (Modérateur) — voir la barre, la sacoche et l'équipement d'un joueur ; prendre un objet = Admin."
+    usage: "/<command> <cible>"
+    aliases: [invsee, voirinv]
+    permission: reborn.staff.helper
+  noir:
+    description: "Staff (Modérateur) — écran noir forcé, avec durée et message ; « tous » = Admin."
+    usage: "/<command> <cible|tous> [secondes|off] [message]"
+    aliases: [blind, ecrannoir]
+    permission: reborn.staff.helper
+  seisme:
+    description: "Staff (Admin) — séisme : écran qui tremble et grondement, sur un rayon ou tout le serveur."
+    usage: "/<command> [rayon|tous] [force 1-10] [secondes] [message]"
+    aliases: [earthquake]
+    permission: reborn.staff.helper
+  tenue:
+    description: "Staff (Modérateur) — imposer une tenue (emplacement Tenue de la sacoche) ; « retirer » la rend."
+    usage: "/<command> <cible> <id Nexo|main|retirer>"
+    aliases: [forceclothes]
+    permission: reborn.staff.helper
+  emoteforcee:
+    description: "Staff (Modérateur) — faire jouer une emote à un joueur ; « stop » l'arrête."
+    usage: "/<command> <cible> <emote|stop>"
+    aliases: [forceemote]
+    permission: reborn.staff.helper
+  persoreset:
+    description: "Staff (Admin) — remettre un personnage à zéro (confirmation, sauvegarde avant)."
+    usage: "/<command> <cible|#N°> [confirmer]"
+    aliases: [resetcharacter]
+    permission: reborn.staff.helper
+  persosuppr:
+    description: "Staff (Admin) — supprimer un personnage, slot libéré, N° réservé (confirmation, sauvegarde avant)."
+    usage: "/<command> <cible|#N°> [confirmer]"
+    aliases: [deletecharacter]
+    permission: reborn.staff.helper
+  modestaff:
+    description: "Staff — mode staff : invisible aux joueurs, vol, aucune action de jeu, plaques au-dessus des têtes."
+    usage: "/<command>"
+    aliases: [staffmode, sm]
+    permission: reborn.staff.helper
 permissions:
   reborn.staff.helper:
     description: Poste de garde — Helper (alertes, TP, avertissements, chat staff).

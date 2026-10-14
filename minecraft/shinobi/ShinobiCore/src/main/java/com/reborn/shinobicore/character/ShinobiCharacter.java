@@ -393,14 +393,28 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
 
     // ── Boutique : monnaie ryo + tenues possédées ──
     public long ryo()                    { return ryo; }
-    public void setRyo(long v)           { this.ryo = Math.max(0L, v); touch(); }
+    public void setRyo(long v)           {
+        long avant = this.ryo;
+        this.ryo = Math.max(0L, v); touch();
+        if (avant != this.ryo && ryoHook != null) ryoHook.change(this, avant, this.ryo);
+    }
+    /** Chargement depuis le disque : pas un mouvement d'argent, rien n'est journalisé. */
+    public void restoreRyo(long v)       { this.ryo = Math.max(0L, v); }
     public void addRyo(long v)           { setRyo(this.ryo + v); }
     /** Dépense {@code v} ryo si le solde suffit. {@code true} = débité. */
     public boolean trySpendRyo(long v)   {
         if (v <= 0) return true;
         if (ryo < v) return false;
-        ryo -= v; touch(); return true;
+        long avant = ryo;
+        ryo -= v; touch();
+        if (ryoHook != null) ryoHook.change(this, avant, ryo);
+        return true;
     }
+
+    /** Journal économique (14/10) : appelé à chaque mouvement de ryo, quelle qu'en soit la source. */
+    @FunctionalInterface
+    public interface RyoHook { void change(ShinobiCharacter c, long avant, long apres); }
+    public static volatile RyoHook ryoHook;
     public java.util.Set<String> ownedOutfits() { return ownedOutfits; }
     public boolean ownsOutfit(String id) { return id != null && ownedOutfits.contains(id); }
     public void addOwnedOutfit(String id){ if (id != null && !id.isBlank() && ownedOutfits.add(id)) touch(); }

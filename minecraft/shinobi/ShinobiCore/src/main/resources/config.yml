@@ -168,6 +168,18 @@ ko:
     anti-afk-secondes: 120
     # PV rendus par le repos, en fraction des PV max, toutes les 10 s.
     repos-pv-pct-par-10s: 0.01
+  # Douleur (Pain RP, 14/10) : sous ce seuil de PV, avant le KO. Démarche ralentie, ni course ni
+  # technique, aucun coup ; les autres peuvent le porter sans accord ou l'exécuter (→ inconscient).
+  douleur:
+    actif: true
+    seuil-pct: 0.05               # fraction des PV max
+    vitesse: 0.6                  # facteur de la vitesse de marche
+    lutte-appuis: 8               # porté en douleur : appuis sur Espace pour se dégager
+    lutte-oubli-secondes: 1.5     # la jauge perd un appui toutes les N secondes
+    lutte-protection-secondes: 6  # après s'être dégagé, on ne peut pas le reprendre tout de suite
+  # Exécution (menu d'interaction) : canalisation de l'exécution « sans animation ».
+  execution:
+    canalisation-secondes: 3
 
 # Duel consenti n'importe où (/duel, menu d'interaction du mod ; décision du 2026-10-13).
 # Comme un terrain d'entraînement à deux : défaite à 0 PV ou 0 chakra = ni KO ni blessure,
@@ -187,6 +199,24 @@ duel:
   annonce:
     actif: true                   # « X et Y s'affrontent en duel », en gris, aux joueurs proches
     rayon: 24
+
+# Journal universel (décision du 14/10 : tout est journalisé, quel que soit le grade).
+# Fichiers : plugins/ShinobiCore/<dossier>/<categorie>-AAAA-MM-JJ.log ; consultation : Poste de garde, /journal.
+journal:
+  actif: true
+  dossier: logs
+  retention-jours: 90             # fichiers plus vieux supprimés (0 = jamais)
+  memoire: 20000                  # entrées gardées en mémoire pour le Poste de garde
+  disque-max-jours: 31            # période maximale relue sur disque par une recherche
+  chat: true                      # messages du tchat (le vocal n'est jamais journalisé)
+  coffres: true                   # ouvertures de coffres et conteneurs
+  xp: false                       # chaque gain d'XP (bavard : un par joueur et par minute) ; les niveaux, toujours
+  commandes:
+    tous: true                    # commandes des joueurs aussi (le staff et la console : toujours)
+    ignorer: []                   # préfixes jamais journalisés, ex. "/login"
+  combat:
+    degats: true                  # chaque coup entre joueurs
+    seuil-pv: 0.0                 # ignorer les coups plus faibles
 
 # Inventaire (sacoche) — décisions du 2026-10-13 (docs/gameplay/INVENTAIRE_ET_COSMETIQUES.md).
 # Toute clé absente garde la valeur par défaut du code (InventaireConfig).

@@ -45,18 +45,61 @@ public final class InteractionMenus {
         info("Copié : §e" + text);
     }
 
-    /** Menu d'un joueur ; sur un corps à terre / KO / mort, celui du corps (KO-7). */
+    /** Menu d'un joueur ; sur un corps à terre / KO / mort, celui du corps (KO-7) ; en douleur, {@link #forPain}. */
     public static List<InteractionItem> forPlayer(String name, java.util.UUID id) {
         fr.reborn.hud.ko.CorpsClient.Body b = fr.reborn.hud.ko.CorpsClient.body(id);
+        if (b != null && b.phase() == fr.reborn.hud.ko.CorpsClient.PHASE_DOULEUR) return forPain(name);
         return b != null ? forBody(name, b) : forPlayer(name);
+    }
+
+    /** Je suis moi-même en douleur : porter, attraper, exécuter me sont fermés. */
+    private static final String A_BOUT = "à bout de forces";
+
+    /**
+     * Personne <b>en douleur</b> (PV sous 5 %, encore debout) : on peut la <b>porter sans son accord</b> ; l'exécuter
+     * se fait à la touche (F maintenue, {@link fr.reborn.hud.ko.ExecuterClient}) — le menu ne garde que le choix de
+     * l'animation, si l'on en possède. Le reste du menu d'un joueur conscient demeure.
+     */
+    public static List<InteractionItem> forPain(String name) {
+        boolean moi = fr.reborn.hud.ko.CorpsClient.douleur();
+        java.util.List<InteractionItem> l = new java.util.ArrayList<>();
+        l.add(InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")));
+        l.add(moi ? InteractionItem.disabled("Porter", A_BOUT)
+            : InteractionItem.action("Porter (sans accord)", () -> sendCommand("corps porter " + name)));
+        InteractionItem anim = moi ? null : animation();
+        if (anim != null) l.add(anim);
+        l.add(InteractionItem.action("Saluer", () -> sendCommand("me salue " + name)));
+        l.add(InteractionItem.action("Se présenter", () -> sendCommand("rencontrer")));
+        l.add(InteractionItem.action("Message privé…", () -> openChat("/msg " + name + " ")));
+        l.add(soinsDesYeux(name));
+        return l;
+    }
+
+    /**
+     * « Animation d'exécution ▸ » : choisir l'exécution jouée à la touche F (« sans animation » ou une exécution
+     * possédée ; la courante est marquée). Null si l'on n'en possède aucune : l'entrée disparaît.
+     */
+    public static InteractionItem animation() {
+        var ex = fr.reborn.hud.ko.CorpsClient.executions();
+        if (ex.isEmpty()) return null;
+        String cur = fr.reborn.hud.ko.ExecuterClient.choix();
+        java.util.List<InteractionItem> ch = new java.util.ArrayList<>();
+        ch.add(InteractionItem.action(("sobre".equals(cur) ? "› " : "") + "Sans animation",
+            () -> fr.reborn.hud.ko.ExecuterClient.choisir("sobre")));
+        for (fr.reborn.hud.ko.CorpsClient.Exec e : ex) {
+            ch.add(InteractionItem.action((e.id().equals(cur) ? "› " : "") + e.name(),
+                () -> fr.reborn.hud.ko.ExecuterClient.choisir(e.id())));
+        }
+        return InteractionItem.submenu("Animation d'exécution", ch);
     }
 
     /**
      * Corps à terre ou KO : ausculter, fouiller, porter, attraper à la gorge, et la mise à mort RP. Avant la
-     * validation du staff : « Demander une RPK ». Après : « Achever » et les exécutions possédées — c'est cette
-     * dernière action qui tue.
+     * validation du staff : « Demander un RPK », puis « RPK demandé » (grisé). Une fois le RPK validé, l'exécution se
+     * fait à la touche F (deux appuis : armer, puis maintenir) ; le menu ne garde que le choix de l'animation.
      */
     public static List<InteractionItem> forBody(String name, fr.reborn.hud.ko.CorpsClient.Body b) {
+        boolean moi = fr.reborn.hud.ko.CorpsClient.douleur();
         if (b.phase() == 3) {
             return List.of(
                     InteractionItem.action("Constater la mort", () -> info("Ce corps ne respire plus.")),
@@ -66,36 +109,28 @@ public final class InteractionMenus {
         }
         java.util.List<InteractionItem> l = new java.util.ArrayList<>();
         l.add(InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")));
-        l.add(InteractionItem.action("Attraper à la gorge", () -> sendCommand("corps gorge " + name)));
-        l.add(InteractionItem.action("Porter", () -> sendCommand("corps porter " + name)));
+        l.add(moi ? InteractionItem.disabled("Attraper à la gorge", A_BOUT)
+            : InteractionItem.action("Attraper à la gorge", () -> sendCommand("corps gorge " + name)));
+        l.add(moi ? InteractionItem.disabled("Porter", A_BOUT)
+            : InteractionItem.action("Porter", () -> sendCommand("corps porter " + name)));
         l.add(InteractionItem.action("Fouiller", () -> sendCommand("corps fouiller " + name)));
-        java.util.List<InteractionItem> ex = new java.util.ArrayList<>();
         switch (b.rpk()) {
             case 2 -> {
-                l.add(InteractionItem.action("Achever", () -> sendCommand("corps achever " + name)));
-                for (fr.reborn.hud.ko.CorpsClient.Exec e : fr.reborn.hud.ko.CorpsClient.executions()) {
-                    ex.add(InteractionItem.action(e.name(), () -> sendCommand("corps executer " + name + " " + e.id())));
-                }
-                if (ex.isEmpty()) ex.add(InteractionItem.action("Aucune exécution possédée", () -> info("Les exécutions s'obtiennent à la boutique.")));
+                l.add(InteractionItem.disabled("RPK validé", "exécuter : F"));
+                InteractionItem anim = moi ? null : animation();
+                if (anim != null) l.add(anim);
             }
-            case 1 -> {
-                l.add(InteractionItem.action("RPK en attente du staff…", () -> info("Le staff n'a pas encore tranché.")));
-                ex.add(InteractionItem.action("RPK pas encore validée", () -> {}));
-            }
-            default -> {
-                l.add(InteractionItem.action("Demander une RPK", () -> sendCommand("corps rpk " + name)));
-                ex.add(InteractionItem.action("Il faut une RPK validée", () -> info("Demande d'abord une RPK au staff.")));
-            }
+            case 1 -> l.add(InteractionItem.disabled("RPK demandé", "en attente du staff"));
+            default -> l.add(InteractionItem.action("Demander un RPK", () -> sendCommand("corps rpk " + name)));
         }
-        l.add(InteractionItem.submenu("Exécution", ex));
-        // Yeux : prélever (RPK validée), soigner (médic rang 2 : greffe ; médic : bandage) — le serveur tranche.
+        // Yeux : prélever (RPK validé), soigner (médic rang 2 : greffe ; médic : bandage) — le serveur tranche.
         l.add(b.rpk() == 2 ? prelever(name) : InteractionItem.submenu("Prélever un œil", List.of(
-                InteractionItem.action("Il faut une RPK validée", () -> info("Prélever un œil sur un vivant exige une RPK validée par le staff.")))));
+                InteractionItem.action("Il faut un RPK validé", () -> info("Prélever un œil sur un vivant exige un RPK validé par le staff.")))));
         l.add(soinsDesYeux(name));
         return l;
     }
 
-    /** Sous-menu « Prélever un œil » (corps mort, mannequin au sol, ou KO avec RPK validée). {@code cible} : nom ou {@code corps:<uuid>}. */
+    /** Sous-menu « Prélever un œil » (corps mort, mannequin au sol, ou KO avec RPK validé). {@code cible} : nom ou {@code corps:<uuid>}. */
     static InteractionItem prelever(String cible) {
         return InteractionItem.submenu("Prélever un œil", List.of(
                 InteractionItem.action("Œil gauche", () -> sendCommand("yeux prelever " + cible + " gauche")),
@@ -138,8 +173,9 @@ public final class InteractionMenus {
             InteractionItem.action("Message privé…", () -> openChat("/msg " + name + " ")),
             InteractionItem.action("Demander en ami", () -> sendCommand("amitier")),
             InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")),
-            InteractionItem.action("Porter", () -> sendCommand("porter " + name)),
-            InteractionItem.action("Fouiller", () -> sendCommand("fouiller " + name)),
+            // porter / fouiller une personne consciente : pas encore de demande d'accord (RedLine) — grisés
+            InteractionItem.disabled("Porter", "à terre ou en douleur"),
+            InteractionItem.disabled("Fouiller", "à terre"),
             InteractionItem.action("Échanger", () -> sendCommand("trade " + name)),
             duel(name),
             soinsDesYeux(name),

@@ -36,8 +36,6 @@ import java.util.Map;
  */
 public class GardeScreen extends StaffScreen {
 
-    private static final String[][] GARDE_GROUP = {{"番", "Garde"},
-            {"alerts", "Alertes"}, {"players", "Joueurs"}, {"chat", "Chat staff"}, {"journal", "Journal"}, {"cmds", "Commandes"}};
     private static final String[][] KO_GROUP = {{"医", "Infirmerie"},
             {"blesses", "Blessés"}, {"zones", "Zones"}, {"hopitaux", "Hôpitaux"}, {"reglages", "Réglages"}};
     private static final String[][] FILTERS = {{"all", "Tous"}, {"down", "À terre"}, {"ko", "Inconscients"}, {"ata", "En ATA"}};
@@ -98,8 +96,9 @@ public class GardeScreen extends StaffScreen {
     private EditBox koBox(String hint, int max) {
         EditBox b = new EditBox(this.font, 0, 0, 80, 12, Component.literal(hint));
         b.setMaxLength(max);
-        b.setHint(Component.literal(hint));
+        indice(b, hint);
         b.setBordered(false);
+        b.setTextShadow(false);
         b.setTextColor(INK);
         b.setVisible(false);
         this.addRenderableWidget(b);
@@ -108,11 +107,7 @@ public class GardeScreen extends StaffScreen {
 
     @Override
     public void tick() {
-        ticks++;
-        if (ticks % 40 == 0) {
-            StaffClient.send("refresh");
-            if (profileUuid != null && !onKo()) requestProfile(profileUuid);
-        }
+        super.tick();
         if (ticks % (onKo() ? 20 : 60) == 0) StaffClient.send("ko_refresh");   // le compteur de l'onglet reste à jour
     }
 
@@ -120,7 +115,7 @@ public class GardeScreen extends StaffScreen {
     protected boolean infirmerie() { return onKo(); }
 
     @Override
-    protected String[][][] navGroups() { return new String[][][]{GARDE_GROUP, KO_GROUP}; }
+    protected String[][][] navGroups() { return new String[][][]{G_GARDE, G_OUTILS, KO_GROUP}; }
 
     @Override
     protected int navW() { return 74; }
@@ -160,21 +155,30 @@ public class GardeScreen extends StaffScreen {
             super.drawScreen(ctx, mx, my, delta);
             return;
         }
-        chatBox.setVisible(false);
-        searchBox.setVisible(false);
-        playerSearch.setVisible(false);
-        noteBox.setVisible(false);
         JsonObject snap = StaffClient.koSnapshot();
         frame(ctx);
         JsonObject staff = StaffClient.snapshot();
         tabs(ctx, staff != null ? staff : snap);
-        String title = switch (tab) {
-            case "zones" -> "Infirmerie · zones";
-            case "hopitaux" -> "Infirmerie · hôpitaux";
-            case "reglages" -> "Infirmerie · réglages";
-            default -> "Infirmerie · " + (snap == null ? 0 : arr(snap, "injured").size()) + " blessé(s)";
+        plaque(ctx, "");
+        String titre = switch (tab) {
+            case "zones" -> "Zones";
+            case "hopitaux" -> "Hôpitaux";
+            case "reglages" -> "Réglages";
+            default -> "Blessés";
         };
-        plaque(ctx, title);
+        String meta = "";
+        if (snap != null) {
+            int n = arr(snap, "injured").size(), urg = tabCount("blesses", snap);
+            meta = switch (tab) {
+                case "zones" -> arr(snap, "zones").size() + " zone(s)";
+                case "hopitaux" -> hospitals(snap).size() + " hôpital(aux)";
+                case "reglages" -> grade(snap) >= 3 ? "modifiable" : "lecture seule";
+                default -> n == 0 ? "aucun" : n + " blessé(s) · " + urg + " urgent(s)";
+            };
+        }
+        ctx.enableScissor(sx0(), sy0(), sx1(), paperBottom());
+        entete(ctx, new String[]{titre}, meta);
+        ctx.disableScissor();
         if (snap == null) {
             text(ctx, "Connexion à l'infirmerie…", vx0(), vy0() + 4, INK_SOFT);
         } else if (paperBottom() >= sy1() - 2) {
@@ -520,7 +524,7 @@ public class GardeScreen extends StaffScreen {
         GardeArt.cadreCarte(ctx, mx0, my0, mx1, my1);
         // échelle + aide
         String help = hospitals ? "Molette : zoom · clic droit : déplacer la carte"
-                : "Glisse pour tracer une zone · clique une zone pour la modifier · molette : zoom · clic droit : déplacer";
+                : "Glisser : tracer · clic : modifier · molette : zoom · clic droit : déplacer";
         ctx.fill(mx0, my1 - 9, mx1, my1, 0xB3140A08);
         small(ctx, fit(help, Math.round((mx1 - mx0 - 6) / 0.75f)), mx0 + 3, my1 - 7, IVORY_2);
         String scale = Math.round(bpp * 40) + " blocs";
@@ -574,11 +578,12 @@ public class GardeScreen extends StaffScreen {
         if (edit != null) {
             boolean fresh = selId == null;
             boolean hosp = "hopital".equals(str(edit, "kind"));
-            boolean wrapH = bw("−") * 2 + bw("+") * 2 + 16 + bw("Ma hauteur") > w - 8;
+            int labBas = Math.round(font.width(RebornFont.body("Bas")) * 0.75f) + 4, labHaut = Math.round(font.width(RebornFont.body("Haut")) * 0.75f) + 4;
+            boolean wrapH = bw("−") * 2 + bw("+") * 2 + 16 + labBas + labHaut + bw("Ma hauteur") > w - 8;
             boolean wrapA = !fresh && bw("Enregistrer") + bw("Voir en jeu") + bw("TP") + bw("Suppr.") + 9 > w - 10;
             int ph = 104 + (hosp ? 16 : 0) + (wrapH ? 14 : 0) + (wrapA ? 14 : 0);
             panelBox(ctx, x0, y, w, ph);
-            DaKit.arcX1(ctx, font, DaKit.arcade(fit(fresh ? "Nouvelle zone" : "Zone : " + selId, w - 14)), x0 + 6, y + 6, DaKit.ENCRE_ROUGE, 0, false);
+            DaKit.arcX1(ctx, font, DaKit.arcade(fitArc(fresh ? "Nouvelle zone" : "Zone : " + selId, w - 14)), x0 + 6, y + 6, DaKit.ENCRE_ROUGE, 0, false);
             // types
             String[][] kinds = {{"entrainement", "Entraînement"}, {"repos", "Repos"}, {"hopital", "Hôpital"}};
             int tw = (w - 16) / 3;
@@ -607,8 +612,12 @@ public class GardeScreen extends StaffScreen {
             small(ctx, "Hauteur : bloc " + num(edit, "y0") + " → " + num(edit, "y1"), x0 + 6, yy + 2, INK_SOFT);
             yy += 10;
             int bx = x0 + 6;
+            small(ctx, "Bas", bx, yy + 3, INK_SOFT);
+            bx += labBas;
             bx += button(ctx, bx, yy, "−", "plain", () -> bump("y0", -1), false) + 2;
             bx += button(ctx, bx, yy, "+", "plain", () -> bump("y0", 1), false) + 6;
+            small(ctx, "Haut", bx, yy + 3, INK_SOFT);
+            bx += labHaut;
             bx += button(ctx, bx, yy, "−", "plain", () -> bump("y1", -1), false) + 2;
             bx += button(ctx, bx, yy, "+", "plain", () -> bump("y1", 1), false) + 6;
             if (wrapH) { bx = x0 + 6; yy += 14; }
@@ -666,6 +675,7 @@ public class GardeScreen extends StaffScreen {
         GardeArt.champ(ctx, x - 2, y - 2, w + 2);
         box.setVisible(true);
         box.setX(x + 1); box.setY(y + 2); box.setWidth(w - 4);
+        indiceDe(ctx, box, x - 2, y - 1, w);
         if (!box.isFocused() && !box.getValue().equals(value)) box.setValue(value);
     }
 
@@ -745,7 +755,7 @@ public class GardeScreen extends StaffScreen {
         int busy = 0;
         for (JsonElement e : beds) if (!str(e.getAsJsonObject(), "who").isEmpty()) busy++;
         panelBox(ctx, x0, y, w, 52);
-        DaKit.arcX1(ctx, font, DaKit.arcade(fit("Hôpital : " + selId, w - 14)), x0 + 6, y + 6, 0xFF2A4F8A, 0, false);
+        DaKit.arcX1(ctx, font, DaKit.arcade(fitArc("Hôpital : " + selId, w - 14)), x0 + 6, y + 6, 0xFF2A4F8A, 0, false);
         String v = str(h, "village");
         small(ctx, "Village : " + (v.isEmpty() ? "tous (par défaut)" : v), x0 + 6, y + 17, INK);
         small(ctx, beds.size() + " lit(s) · " + (beds.size() - busy) + " libre(s) · " + busy + " occupé(s)", x0 + 6, y + 25, INK_SOFT);
@@ -873,7 +883,7 @@ public class GardeScreen extends StaffScreen {
         int ry = fy + fh + 40;
         int colW = (vx1() - vx0() - 12) / 2;
         int lx = vx0() + 4;
-        panelBox(ctx, lx, ry, colW, 50);
+        panelBox(ctx, lx, ry, colW, 60);
         DaKit.arcX1(ctx, font, DaKit.arcade("Seuils de soin"), lx + 6, ry + 5, DaKit.ENCRE_ROUGE, 0, false);
         int hx0 = lx + 8, hx1 = lx + colW - 8, hy = ry + 26;
         ctx.fill(hx0 - 1, hy - 1, hx1 + 1, hy + 9, WOOD_DARK);
@@ -889,11 +899,11 @@ public class GardeScreen extends StaffScreen {
         small(ctx, "repos, bandage, hôpital", hx0, hy + 12, INK_SOFT);
 
         int rx = lx + colW + 4;
-        panelBox(ctx, rx, ry, colW, 50);
+        panelBox(ctx, rx, ry, colW, 60);
         int full = Math.round(100f / Math.max(1, v("paume")) * 1000f / 1000f * 10f / 1.5f);
-        sliderRow(ctx, rx + 5, ry + 5, colW - 10, "Paume de soin", "soin complet ≈ " + Math.max(1, Math.round(1000f / Math.max(1, v("paume")) / 1.5f)) + " s", "paume", 5, 50, admin);
-        sliderRow(ctx, rx + 5, ry + 21, colW - 10, "Chuchotement", v("chuchot") + " blocs", "chuchot", 1, 16, admin);
-        sliderRow(ctx, rx + 5, ry + 37, colW - 10, "Peur", v("peur") + " min", "peur", 0, 60, admin);
+        sliderRow(ctx, rx + 6, ry + 5, colW - 12, "Paume de soin", "soin complet ≈ " + Math.max(1, Math.round(1000f / Math.max(1, v("paume")) / 1.5f)) + " s", "paume", 5, 50, admin);
+        sliderRow(ctx, rx + 6, ry + 23, colW - 12, "Chuchotement", v("chuchot") + " blocs", "chuchot", 1, 16, admin);
+        sliderRow(ctx, rx + 6, ry + 41, colW - 12, "Peur", v("peur") + " min", "peur", 0, 60, admin);
     }
 
     private void marker(GuiGraphicsExtractor ctx, int x, int y, String label, boolean above) {
@@ -909,7 +919,7 @@ public class GardeScreen extends StaffScreen {
         small(ctx, label, x, y, INK);
         int vw = Math.round(font.width(RebornFont.body(value)) * 0.75f);
         small(ctx, value, x + w - vw, y, LACQUER_LO);
-        int ty = y + 9, tx0 = x, tx1 = x + w;
+        int ty = y + 12, tx0 = x + 3, tx1 = x + w - 3;
         GardeArt.rainure(ctx, tx0, ty - 1, tx1 - tx0);
         int kx = tx0 + (int) Math.round((tx1 - tx0) * (v(key) - min) / (double) Math.max(1, max - min));
         ctx.fill(tx0 + 1, ty, kx, ty + 2, LACQUER);

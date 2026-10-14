@@ -36,6 +36,8 @@ public final class CombatState {
     private float staminaCurrent = 100f;
     private float staminaMax = 100f;
     private long lastStaminaMs = 0L;
+    /** La dernière dépense d'endurance venait du sprint (pas du combat). */
+    private boolean depenseSprint = false;
     /** Endurance juste dépensée : reste affichée en laque puis rejoint la jauge. */
     private float trail = 1f;
     private long trailHoldUntil = 0L;
@@ -72,10 +74,14 @@ public final class CombatState {
             trail = Math.max(trailFraction(now), before);
             trailHoldUntil = now + 380L;
             trailUpdatedMs = now;
+            // Le sprint (allures, 14/10) paie dans la même endurance : sa dépense et sa récupération ne doivent pas
+            // allumer le HUD de combat (ensō, barre). Une dépense hors sprint (coup, technique) reste du combat.
+            fr.reborn.hud.allure.Allure al = fr.reborn.hud.allure.Allure.INSTANCE;
+            depenseSprint = al.sprinte() || now - al.dernierSprintMs() < 600L;
         }
         this.staminaCurrent = current;
         this.staminaMax = max <= 0 ? 100f : max;
-        this.lastStaminaMs = now;
+        if (!depenseSprint) this.lastStaminaMs = now;
     }
 
     /** Parade timée reçue du serveur ({@code role} : 0 = a paré / 1 = s'est fait parer). */

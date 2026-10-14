@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.reborn.shinobicore.ShinobiCore;
 import com.reborn.shinobicore.character.AutoMe;
 import com.reborn.shinobicore.character.ShinobiCharacter;
+import com.reborn.shinobicore.ko.KoJournal;
 import com.reborn.shinobicore.ko.KoState;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -18,7 +19,9 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Pose;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.potion.PotionEffect;
@@ -36,19 +39,33 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Actions sur un corps à terre ou KO, depuis le <b>menu d'interaction</b> du mod (touche R, clic sur le corps).
+ * Actions sur un corps à terre, KO ou mort — et sur un personnage <b>en douleur</b> — depuis le <b>menu
+ * d'interaction</b> du mod (touche R, clic sur la personne).
  *
  * <ul>
- *   <li>Canal {@code reborn:corps} (S2C, JSON) : chaque demi-seconde, les corps proches du joueur
- *       ({@code {"t":"bodies","b":[{"u","ph","rpk"}],"ex":[{"id","n"}]}} — ph 1 à terre, 2 inconscient, 3 mort ;
- *       rpk 0 rien, 1 demande en attente du staff, 2 RPK accordée à ce joueur ; ex = ses exécutions). Le mod en
- *       déduit le menu. La scène de mort passe aussi par ce canal ({@link DeathScene}).</li>
- *   <li>{@code /corps <action> <joueur> [exécution]} : porter, gorge, fouiller, rpk, achever, executer — toujours
- *       revérifié ici (distance, état du corps, RPK accordée, exécution possédée).</li>
- *   <li><b>Attraper à la gorge</b> : le corps est tenu debout devant soi, sans limite de durée, on avance
- *       lentement ; accroupi pour lâcher.</li>
- *   <li><b>Exécution</b> : après une RPK validée, la victime est placée face au tueur, les deux jouent leur
- *       animation, et la mort tombe à l'instant prévu ({@link KillRequestManager#kill}).</li>
+ *   <li>Canal {@code reborn:corps} (S2C, JSON) : chaque demi-seconde, si quelque chose a changé —
+ *       {@code b} les corps proches ({@code {"u","ph","rpk"}} — ph 1 à terre, 2 inconscient, 3 mort ; rpk 0 rien,
+ *       1 demande en attente du staff, 2 RPK accordé à ce joueur), {@code dl} les personnages en douleur proches
+ *       ({@code {"u"}}), {@code ex} ses exécutions, {@code cp} les corps au sol, et {@code me} son propre état
+ *       ({@code d} en douleur, {@code c} porté, {@code s} jauge de lutte 0..1, {@code x} exécution en cours :
+ *       {@code r} 0 exécuteur / 1 victime, {@code e} ticks écoulés, {@code d} durée, {@code k} instant du coup,
+ *       {@code l} 1 = mort RP). Un mod plus ancien ignore {@code dl} et {@code me}. La scène de mort passe aussi par
+ *       ce canal ({@link DeathScene}).</li>
+ *   <li>{@code /corps <action> <joueur> [exécution]} : porter, gorge, fouiller, rpk, executer (et achever = exécuter
+ *       sans animation) ; {@code /corps annuler} : la touche Exécuter du mod a été relâchée — toujours revérifié ici (distance, état, RPK accordé, exécution possédée).</li>
+ *   <li><b>Attraper à la gorge</b> (corps KO) : tenu debout devant soi, sans limite de durée, on avance lentement ;
+ *       accroupi pour lâcher.</li>
+ *   <li><b>Exécuter</b> — une seule action, dont l'effet dépend de la cible :
+ *     <ul>
+ *       <li>cible <b>en douleur</b> : mise hors de combat, <b>sans RPK</b> — la cible tombe <b>inconsciente</b>
+ *           (sans agonie ni Volonté) ; ce n'est pas une mort ;</li>
+ *       <li>cible <b>KO</b> avec une <b>RPK validé</b> pour l'exécuteur : <b>mort RP</b>
+ *           ({@link KillRequestManager#kill}).</li>
+ *     </ul>
+ *     Canalisation : la victime est tenue face à l'exécuteur, les deux sont figés, l'animation de l'exécution
+ *     choisie joue (ou « sans animation » : {@code ko.execution.canalisation-secondes}, 3 s), le coup tombe à
+ *     l'instant prévu. <b>Interrompue</b> si l'exécuteur est frappé, s'accroupit, tombe en douleur ou KO, si la
+ *     victime en douleur est soignée, ou si l'un des deux se déconnecte.</li>
  * </ul>
  */
 public final class CorpsService implements Listener, TabExecutor {
@@ -56,6 +73,8 @@ public final class CorpsService implements Listener, TabExecutor {
     public static final String CHANNEL = "reborn:corps";
     private static final double REACH = 3.5;
     private static final double SCAN = 16;
+    /** Identifiant de l'exécution sans animation (toujours disponible). */
+    public static final String SOBRE = "sobre";
 
     private final ShinobiCore plugin;
     private final Executions executions;
@@ -68,7 +87,8 @@ public final class CorpsService implements Listener, TabExecutor {
     private BukkitTask task;
     private long ticks;
 
-    private record Run(UUID victim, Executions.Def def, Location killerAt, long startTick) {}
+    /** {@code lethal} : mort RP (cible KO + RPK) ; sinon mise hors de combat d'une cible en douleur. */
+    private record Run(UUID victim, Executions.Def def, Location killerAt, long startTick, boolean lethal) {}
 
     public CorpsService(ShinobiCore plugin) {
         this.plugin = plugin;
@@ -83,6 +103,10 @@ public final class CorpsService implements Listener, TabExecutor {
 
     public void stop() {
         if (task != null) task.cancel();
+        for (UUID k : new ArrayList<>(running.keySet())) {
+            Player kp = Bukkit.getPlayer(k);
+            if (kp != null) abort(kp, "");
+        }
         for (UUID v : new ArrayList<>(held.keySet())) release(v);
     }
 
@@ -91,6 +115,16 @@ public final class CorpsService implements Listener, TabExecutor {
 
     public void send(Player p, JsonObject o) {
         p.sendPluginMessage(plugin, CHANNEL, o.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private boolean pain(UUID id) {
+        return plugin.douleur() != null && plugin.douleur().isInPain(id);
+    }
+
+    /** Exécution sans animation : canalisation seule, le coup tombe à la fin. */
+    private Executions.Def sobre() {
+        int t = (int) Math.round(Math.max(0.5, plugin.getConfig().getDouble("ko.execution.canalisation-secondes", 3)) * 20);
+        return new Executions.Def(SOBRE, "Sans animation", "", "", t, t, true);
     }
 
     /* ================================================================ ticker */
@@ -102,9 +136,12 @@ public final class CorpsService implements Listener, TabExecutor {
             Player v = Bukkit.getPlayer(e.getKey()), h = Bukkit.getPlayer(e.getValue());
             Run run = h != null ? running.get(h.getUniqueId()) : null;
             boolean grab = run == null;
-            if (v == null || h == null || !plugin.ko().isKo(v.getUniqueId()) || plugin.ko().isKo(h.getUniqueId())
+            boolean valid = v != null && (plugin.ko().isKo(v.getUniqueId())
+                    || (run != null && !run.lethal() && pain(v.getUniqueId())));
+            if (v == null || h == null || !valid || plugin.ko().isKo(h.getUniqueId())
                     || !v.getWorld().equals(h.getWorld())) {
-                if (run != null && h != null) abort(h, "La scène est interrompue.");
+                if (run != null && h != null) abort(h, v != null && !valid && !run.lethal()
+                        ? "Il s'est repris : l'exécution échoue." : "La scène est interrompue.");
                 release(e.getKey());
                 continue;
             }
@@ -121,7 +158,7 @@ public final class CorpsService implements Listener, TabExecutor {
             }
             if (v.getPose() != Pose.STANDING) v.setPose(Pose.STANDING, true);
         }
-        // exécutions : tueur figé, mort à l'instant prévu, fin de scène
+        // exécutions : tueur figé, le coup tombe à l'instant prévu, fin de scène
         for (Map.Entry<UUID, Run> e : running.entrySet()) {
             Player k = Bukkit.getPlayer(e.getKey());
             Run run = e.getValue();
@@ -129,17 +166,26 @@ public final class CorpsService implements Listener, TabExecutor {
             if (k == null) { running.remove(e.getKey()); release(run.victim()); continue; }
             long t = ticks - run.startTick();
             if (k.getLocation().distanceSquared(run.killerAt()) > 0.01) k.teleport(run.killerAt());
-            if (t == run.def().deathTick()) {
-                if (v != null) {
-                    v.getWorld().playSound(v.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.6f);
-                    v.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, v.getLocation().add(0, 1.2, 0), 8, 0.2, 0.3, 0.2, 0.1);
-                    release(run.victim());
-                    plugin.killRequests().kill(k, v, "exécution « " + run.def().name() + " »");
-                }
-            }
+            if (t == run.def().deathTick() && v != null) strike(k, v, run);
             if (t >= run.def().durationTicks()) finish(k);
         }
         if (ticks % 10 == 0) broadcastBodies();
+    }
+
+    /** L'instant du coup : mort RP, ou mise hors de combat. */
+    private void strike(Player k, Player v, Run run) {
+        v.getWorld().playSound(v.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.6f);
+        v.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, v.getLocation().add(0, 1.2, 0), 8, 0.2, 0.3, 0.2, 0.1);
+        String how = run.def().id().equals(SOBRE) ? (run.lethal() ? "achevé" : "sans animation")
+                : "exécution « " + run.def().name() + " »";
+        if (run.lethal()) {
+            release(run.victim());
+            plugin.killRequests().kill(k, v, how);
+            return;
+        }
+        if (plugin.ko().executeToKo(k, v)) {
+            KoJournal.log(plugin, k, "Exécution", "met K.O. " + KoJournal.who(plugin, v) + " (" + how + ")");
+        }
     }
 
     /* ======================================================= état des corps */
@@ -151,6 +197,7 @@ public final class CorpsService implements Listener, TabExecutor {
             JsonObject o = new JsonObject();
             o.addProperty("t", "bodies");
             JsonArray b = new JsonArray();
+            JsonArray dl = new JsonArray();
             for (Player p : online) {
                 if (p == viewer || !p.getWorld().equals(viewer.getWorld())
                         || p.getLocation().distanceSquared(viewer.getLocation()) > SCAN * SCAN) continue;
@@ -160,7 +207,14 @@ public final class CorpsService implements Listener, TabExecutor {
                     KoState st = plugin.ko().getKo(p.getUniqueId());
                     if (st != null) ph = st.isDowned() ? 1 : 2;
                 }
-                if (ph == 0) continue;
+                if (ph == 0) {
+                    if (pain(p.getUniqueId())) {
+                        JsonObject e = new JsonObject();
+                        e.addProperty("u", p.getUniqueId().toString());
+                        dl.add(e);
+                    }
+                    continue;
+                }
                 JsonObject e = new JsonObject();
                 e.addProperty("u", p.getUniqueId().toString());
                 e.addProperty("ph", ph);
@@ -168,6 +222,7 @@ public final class CorpsService implements Listener, TabExecutor {
                 b.add(e);
             }
             o.add("b", b);
+            o.add("dl", dl);
             JsonArray ex = new JsonArray();
             for (Executions.Def d : executions.ownedBy(viewer)) {
                 JsonObject e = new JsonObject();
@@ -186,11 +241,39 @@ public final class CorpsService implements Listener, TabExecutor {
                 });
             }
             o.add("cp", cp);
+            o.add("me", me(viewer));
             String json = o.toString();
             if (json.equals(lastSent.get(viewer.getUniqueId()))) continue;
             lastSent.put(viewer.getUniqueId(), json);
             viewer.sendPluginMessage(plugin, CHANNEL, json.getBytes(StandardCharsets.UTF_8));
         }
+    }
+
+    /** Son propre état (douleur, porté, lutte, exécution en cours) pour le HUD discret du mod. */
+    private JsonObject me(Player viewer) {
+        UUID id = viewer.getUniqueId();
+        JsonObject me = new JsonObject();
+        if (pain(id)) me.addProperty("d", 1);
+        if (plugin.porter().carrierOf(id) != null) {
+            me.addProperty("c", 1);
+            double s = plugin.porter().struggleOf(id);
+            if (s >= 0) me.addProperty("s", Math.round(s * 100) / 100.0);
+        }
+        Run run = running.get(id);
+        int role = 0;
+        if (run == null) {
+            for (Run r : running.values()) if (r.victim().equals(id)) { run = r; role = 1; break; }
+        }
+        if (run != null) {
+            JsonObject x = new JsonObject();
+            x.addProperty("r", role);
+            x.addProperty("e", ticks - run.startTick());
+            x.addProperty("d", run.def().durationTicks());
+            x.addProperty("k", run.def().deathTick());
+            x.addProperty("l", run.lethal() ? 1 : 0);
+            me.add("x", x);
+        }
+        return me;
     }
 
     /* ============================================================== actions */
@@ -203,18 +286,33 @@ public final class CorpsService implements Listener, TabExecutor {
             if (plugin.deathScene() != null) plugin.deathScene().leave(p);
             return true;
         }
+        // touche Exécuter relâchée avant la fin de la canalisation (mod) : on renonce
+        if (act.equals("annuler")) {
+            if (running.containsKey(p.getUniqueId())) abort(p, "Tu renonces.");
+            return true;
+        }
         if (args.length < 2) return true;
         Player t = Bukkit.getPlayerExact(args[1]);
         if (t == null || t == p) { p.sendMessage(Component.text("Personne ici.", NamedTextColor.GRAY)); return true; }
         if (plugin.ko().isKo(p.getUniqueId()) || (plugin.deathScene() != null && plugin.deathScene().isDead(p.getUniqueId()))) return true;
+        if (pain(p.getUniqueId())) {
+            p.sendActionBar(Component.text("À bout de forces : tu ne peux pas.", NamedTextColor.GRAY));
+            return true;
+        }
+        if (plugin.porter().carrierOf(p.getUniqueId()) != null) return true;
         if (!t.getWorld().equals(p.getWorld()) || t.getLocation().distance(p.getLocation()) > REACH) {
             p.sendActionBar(Component.text("Trop loin.", NamedTextColor.GRAY));
             return true;
         }
         boolean dead = plugin.deathScene() != null && plugin.deathScene().isDead(t.getUniqueId());
-        if (!plugin.ko().isKo(t.getUniqueId()) && !(dead && (act.equals("porter") || act.equals("fouiller")))) {
-            p.sendActionBar(Component.text(dead ? "Ce corps ne respire plus." : "Cette personne n'est pas à terre.",
-                    NamedTextColor.GRAY));
+        boolean ko = plugin.ko().isKo(t.getUniqueId());
+        boolean pain = !ko && !dead && pain(t.getUniqueId());
+        boolean allowed = ko
+                || (dead && (act.equals("porter") || act.equals("fouiller")))
+                || (pain && (act.equals("porter") || act.equals("executer")));
+        if (!allowed) {
+            p.sendActionBar(Component.text(dead ? "Ce corps ne respire plus." : pain ? "Il tient encore debout."
+                    : "Cette personne n'est pas à terre.", NamedTextColor.GRAY));
             return true;
         }
         if (running.containsKey(p.getUniqueId())) return true;
@@ -222,26 +320,21 @@ public final class CorpsService implements Listener, TabExecutor {
         switch (act) {
             case "porter" -> {
                 release(t.getUniqueId());
-                if (!plugin.porter().carry(p, t)) p.sendMessage(Component.text("Impossible de porter cette personne maintenant.", NamedTextColor.RED));
+                if (plugin.porter().carry(p, t)) {
+                    if (pain) AutoMe.broadcast(plugin, p, "soulève " + tName + " de force.");
+                } else {
+                    p.sendMessage(Component.text("Impossible de porter cette personne maintenant.", NamedTextColor.RED));
+                }
             }
             case "gorge" -> grab(p, t, tName);
             case "fouiller" -> {
                 if (plugin.coreGui() != null) plugin.coreGui().openFouiller(p, t.getUniqueId());
                 AutoMe.broadcast(plugin, p, "fouille les affaires de " + tName + ".");
+                KoJournal.log(plugin, p, "Fouille", KoJournal.who(plugin, t));
             }
             case "rpk" -> plugin.killRequests().request(p, t);
-            case "achever" -> {
-                if (plugin.killRequests().validatedFor(p.getUniqueId(), t.getUniqueId()) == null) {
-                    p.sendMessage(Component.text("Il faut une RPK validée par le staff.", NamedTextColor.RED));
-                    return true;
-                }
-                release(t.getUniqueId());
-                plugin.porter().releaseAllInvolving(t.getUniqueId());
-                AutoMe.broadcast(plugin, p, "achève " + tName + ".");
-                t.getWorld().playSound(t.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.6f);
-                plugin.killRequests().kill(p, t, "achevé");
-            }
-            case "executer" -> execute(p, t, tName, args.length > 2 ? args[2] : "");
+            case "achever" -> execute(p, t, tName, SOBRE);
+            case "executer" -> execute(p, t, tName, args.length > 2 ? args[2] : SOBRE);
             default -> { }
         }
         return true;
@@ -261,18 +354,39 @@ public final class CorpsService implements Listener, TabExecutor {
         p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, PotionEffect.INFINITE_DURATION, 2, true, false, false));
         play(p, "attraper_gorge");
         AutoMe.broadcast(plugin, p, "attrape " + tName + " à la gorge.");
+        KoJournal.log(plugin, p, "Prise à la gorge", KoJournal.who(plugin, t));
         p.sendActionBar(Component.text("Tu le tiens à la gorge · accroupis-toi pour lâcher.", NamedTextColor.GRAY));
     }
 
+    /**
+     * Exécuter : en douleur → mise hors de combat (sans RPK) ; KO + RPK accordé → mort RP. {@code id} = une
+     * exécution possédée, ou {@link #SOBRE}.
+     */
     private void execute(Player p, Player t, String tName, String id) {
-        if (plugin.killRequests().validatedFor(p.getUniqueId(), t.getUniqueId()) == null) {
-            p.sendMessage(Component.text("Il faut une RPK validée par le staff pour exécuter.", NamedTextColor.RED));
+        boolean lethal = plugin.ko().isKo(t.getUniqueId());
+        if (lethal && plugin.killRequests().validatedFor(p.getUniqueId(), t.getUniqueId()) == null) {
+            p.sendMessage(Component.text("Il faut un RPK validé par le staff pour exécuter quelqu'un à terre (mort RP).",
+                    NamedTextColor.RED));
             return;
         }
-        Executions.Def d = executions.get(id);
-        if (d == null || !executions.owns(p, d)) {
+        if (!lethal && !pain(t.getUniqueId())) {
+            p.sendMessage(Component.text("Il tient encore debout.", NamedTextColor.GRAY));
+            return;
+        }
+        if (plugin.porter().isCarrying(p.getUniqueId())) {
+            p.sendActionBar(Component.text("Dépose d'abord la personne que tu portes.", NamedTextColor.GRAY));
+            return;
+        }
+        Executions.Def d = id == null || id.isBlank() || id.equals(SOBRE) ? sobre() : executions.get(id);
+        if (d == null || !(d.id().equals(SOBRE) || executions.owns(p, d))) {
             p.sendMessage(Component.text("Exécution inconnue ou non possédée.", NamedTextColor.RED));
             return;
+        }
+        for (Run r : running.values()) {
+            if (r.victim().equals(t.getUniqueId())) {
+                p.sendActionBar(Component.text("Quelqu'un s'en charge déjà.", NamedTextColor.GRAY));
+                return;
+            }
         }
         plugin.porter().releaseAllInvolving(t.getUniqueId());
         plugin.porter().releaseAllInvolving(p.getUniqueId());
@@ -283,11 +397,17 @@ public final class CorpsService implements Listener, TabExecutor {
         if (st != null) st.setCarrierPlayerId(p.getUniqueId());
         held.put(t.getUniqueId(), p.getUniqueId());
         heldSince.put(t.getUniqueId(), System.currentTimeMillis());
-        running.put(p.getUniqueId(), new Run(t.getUniqueId(), d, at, ticks));
+        running.put(p.getUniqueId(), new Run(t.getUniqueId(), d, at, ticks, lethal));
         p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, d.durationTicks() + 10, 6, true, false, false));
         play(p, d.killerEmote());
         play(t, d.victimEmote());
-        AutoMe.broadcast(plugin, p, "exécute " + tName + ".");
+        AutoMe.broadcast(plugin, p, (lethal ? (d.id().equals(SOBRE) ? "achève " : "exécute ")
+                : "met " ) + tName + (lethal ? "." : " hors de combat."));
+        KoJournal.log(plugin, p, "Exécution (début)", KoJournal.who(plugin, t) + " · "
+                + (lethal ? "mort RP" : "mise hors de combat (douleur)") + " · " + d.name());
+        if (plugin.koHud() == null || !plugin.koHud().modded(t)) {
+            t.sendActionBar(Component.text(lethal ? "On t'exécute…" : "On te met hors de combat…", NamedTextColor.RED));
+        }
     }
 
     private void finish(Player k) {
@@ -302,12 +422,35 @@ public final class CorpsService implements Listener, TabExecutor {
         Run run = running.remove(k.getUniqueId());
         if (run == null) return;
         k.removePotionEffect(PotionEffectType.SLOWNESS);
+        Player v = Bukkit.getPlayer(run.victim());
         if (plugin.emotes() != null) {
             plugin.emotes().stop(k);
-            Player v = Bukkit.getPlayer(run.victim());
             if (v != null) plugin.emotes().stop(v);
         }
-        k.sendActionBar(Component.text(why, NamedTextColor.GRAY));
+        release(run.victim());
+        if (!why.isEmpty()) k.sendActionBar(Component.text(why, NamedTextColor.GRAY));
+        KoJournal.log(plugin, k, "Exécution interrompue", (v != null ? KoJournal.who(plugin, v) : run.victim().toString())
+                + (why.isEmpty() ? "" : " · " + why));
+    }
+
+    /** L'acteur n'a plus la force (douleur) : exécution annulée, prise à la gorge lâchée. */
+    public void onActorDisabled(Player p, String why) {
+        if (p == null) return;
+        if (running.containsKey(p.getUniqueId())) abort(p, why);
+        for (Map.Entry<UUID, UUID> e : held.entrySet()) if (e.getValue().equals(p.getUniqueId())) release(e.getKey());
+    }
+
+    /** Staff : arrête toute exécution où ce joueur est exécuteur ou victime. */
+    public boolean abortInvolving(UUID id) {
+        boolean any = false;
+        for (Map.Entry<UUID, Run> e : new ArrayList<>(running.entrySet())) {
+            if (!e.getKey().equals(id) && !e.getValue().victim().equals(id)) continue;
+            Player k = Bukkit.getPlayer(e.getKey());
+            if (k != null) abort(k, "Le staff a interrompu la scène.");
+            else running.remove(e.getKey());
+            any = true;
+        }
+        return any;
     }
 
     private void play(Player p, String emote) {
@@ -330,6 +473,7 @@ public final class CorpsService implements Listener, TabExecutor {
         if (v != null) {
             v.teleport(spot);
             v.setFallDistance(0f);
+            if (st == null && v.getPose() != Pose.STANDING) v.setPose(Pose.STANDING, false);
         }
         if (st != null) {
             st.setCarrierPlayerId(null);
@@ -341,8 +485,16 @@ public final class CorpsService implements Listener, TabExecutor {
     public void onSneak(PlayerToggleSneakEvent ev) {
         if (!ev.isSneaking()) return;
         UUID me = ev.getPlayer().getUniqueId();
-        if (running.containsKey(me)) return;
+        if (running.containsKey(me)) { abort(ev.getPlayer(), "Tu renonces."); return; }
         for (Map.Entry<UUID, UUID> e : held.entrySet()) if (e.getValue().equals(me)) release(e.getKey());
+    }
+
+    /** Un exécuteur frappé est interrompu. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onKillerHit(EntityDamageEvent ev) {
+        if (ev.getEntity() instanceof Player k && running.containsKey(k.getUniqueId())) {
+            abort(k, "Interrompu : tu as été frappé.");
+        }
     }
 
     @EventHandler
@@ -350,6 +502,11 @@ public final class CorpsService implements Listener, TabExecutor {
         UUID me = ev.getPlayer().getUniqueId();
         lastSent.remove(me);
         if (running.containsKey(me)) abort(ev.getPlayer(), "");
+        for (Map.Entry<UUID, Run> e : new ArrayList<>(running.entrySet())) {
+            if (!e.getValue().victim().equals(me)) continue;
+            Player k = Bukkit.getPlayer(e.getKey());
+            if (k != null) abort(k, "La cible est partie.");
+        }
         release(me);
         for (Map.Entry<UUID, UUID> e : held.entrySet()) if (e.getValue().equals(me)) release(e.getKey());
     }

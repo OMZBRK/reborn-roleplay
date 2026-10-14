@@ -19,7 +19,8 @@ import java.util.logging.Level;
 /**
  * Journal des objets : ramassé, lâché, disparu, détruit, donné, rangé (cases cachées), arme équipée / dégainée.
  * <ul>
- *   <li>fichier tournant {@code plugins/ShinobiCore/logs/inventaire-AAAA-MM-JJ.log} (une ligne par action) ;</li>
+ *   <li>journal universel ({@link com.reborn.shinobicore.journal.Journal}) : {@code logs/inventaire-AAAA-MM-JJ.log}
+ *       (et {@code objet-…} pour les objets obtenus), une ligne par action ;</li>
  *   <li>Poste de garde (type {@code objet}) pour les objets {@code Rare} et plus, et les uniques
  *       ({@code inventaire.journal.poste-de-garde-des}).</li>
  * </ul>
@@ -38,13 +39,19 @@ public final class JournalObjets {
         InventaireConfig cfg = InventaireConfig.get(plugin);
         RpRarity r = RareteItems.of(s);
         boolean unique = RareteItems.unique(s);
-        String qui = qui(plugin, p);
         String objet = q + "× " + RareteItems.nom(s) + " [" + r.name() + (unique ? ", unique" : "") + "]";
         String lieu = ou == null || ou.getWorld() == null ? "" : ou.getWorld().getName() + " " + ou.getBlockX() + " "
             + ou.getBlockY() + " " + ou.getBlockZ();
         if (cfg.journalFichier) {
-            ecrire(plugin, LocalTime.now().format(HEURE) + " | " + qui + " | " + action + " | " + objet
-                + (lieu.isEmpty() ? "" : " | " + lieu) + (detail == null || detail.isEmpty() ? "" : " | " + detail));
+            // Journal universel (14/10) : même fichier qu'avant (logs/inventaire-AAAA-MM-JJ.log), format commun ;
+            // un objet obtenu (toute source : staff, échoppe, parchemin…) va dans la catégorie OBJET.
+            boolean obtenu = "DONNE".equals(action);
+            var e = com.reborn.shinobicore.journal.Journal.entree(obtenu
+                    ? com.reborn.shinobicore.api.JournalService.Categorie.OBJET
+                    : com.reborn.shinobicore.api.JournalService.Categorie.INVENTAIRE, obtenu ? "OBTENU" : action);
+            if (p != null) e.acteur(p);
+            e.cibleTexte(RareteItems.nom(s)).detail(objet + (detail == null || detail.isEmpty() ? "" : " · " + detail))
+                .lieu(ou).ecrire();
         }
         if ((unique || r.auMoins(cfg.journalGardeMin)) && p != null && plugin.staffPanel() != null) {
             try {
@@ -53,24 +60,6 @@ public final class JournalObjets {
             } catch (RuntimeException ignored) {
                 // le journal du Poste de garde est un plus, jamais bloquant
             }
-        }
-    }
-
-    private static String qui(ShinobiCore plugin, Player p) {
-        if (p == null) return "—";
-        String tag = PlayerIds.tag(p);
-        var c = plugin.characters() != null ? plugin.characters().getActive(p.getUniqueId()) : null;
-        return (tag.isEmpty() ? "" : tag + " ") + p.getName() + (c != null ? " (" + c.name() + ")" : "");
-    }
-
-    private static synchronized void ecrire(ShinobiCore plugin, String ligne) {
-        File dir = new File(plugin.getDataFolder(), "logs");
-        if (!dir.exists() && !dir.mkdirs()) return;
-        File f = new File(dir, "inventaire-" + LocalDate.now() + ".log");
-        try (PrintWriter w = new PrintWriter(new FileWriter(f, StandardCharsets.UTF_8, true))) {
-            w.println(ligne);
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "Échec d'écriture du journal d'inventaire", e);
         }
     }
 }

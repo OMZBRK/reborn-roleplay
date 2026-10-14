@@ -20,7 +20,7 @@
 > **États** : ✅ fait · ✍🏻 en cours ou partiel · ❌ pas commencé. Quand un état est incertain, il est noté ✍🏻 avec
 > la raison. **Priorités** : 🔴 Critique · 🟠 Important · 🟡 Secondaire · 🟢 Plus tard.
 >
-> Mis à jour le **2026-10-13**. Aucun secret, aucune adresse de serveur dans ce document (dépôt public).
+> Mis à jour le **2026-10-14**. Aucun secret, aucune adresse de serveur dans ce document (dépôt public).
 
 ---
 
@@ -44,7 +44,7 @@ L'expérience repose sur **trois valeurs** :
 | Valeur | Ce qu'elle veut dire chez Reborn (décisions déjà prises) |
 |---|---|
 | **Liberté** | L'apprentissage est **libre** : aucune stat ne ferme une porte RP (23/09) ; les bibliothèques sont en **accès libre**, les restrictions sont RP (08/10) ; le NLR est laissé au joueur (06/10) ; le duel se joue **n'importe où** si les deux acceptent (13/10) |
-| **Conséquence** | Se battre hors d'un terrain d'entraînement **coûte** : PV persistants, KO, ATA, hôpital (06/10) ; la **mort RP** existe (RPK validée par le staff, puis jouée) ; un parchemin est **unique** et peut être **volé** ou perdu (08/10, 13/10) ; les grades se gagnent **en RP**, pas à l'XP (08/10) |
+| **Conséquence** | Se battre hors d'un terrain d'entraînement **coûte** : PV persistants, KO, ATA, hôpital (06/10) ; la **mort RP** existe (RPK validé par le staff, puis jouée) ; un parchemin est **unique** et peut être **volé** ou perdu (08/10, 13/10) ; les grades se gagnent **en RP**, pas à l'XP (08/10) |
 | **Immersion** | Toute l'interface est dans la **DA Reborn** (nuit, laque, or ; une signature par écran) ; les inconnus restent « Inconnu » tant qu'on ne s'est pas présenté ; niveau et XP **invisibles** (10/10) ; infobulles **sans chiffres** (29/09) ; HUD en jeu **subtil** (13/10) |
 
 Ce document est la **référence centrale** du projet Reborn pour l'équipe (Omar, le staff, les sessions Claude). Il
@@ -98,7 +98,7 @@ codés et attendent leurs tests à deux comptes.
 
 | Système RedLine | Équivalent Reborn | Priorité | Dépend de | État | Cible | § |
 |---|---|---|---|---|---|---|
-| Player movements | Marche, course, Naruto run | 🟠 Important | — | ✅ | — | §7 |
+| Player movements | **Marche** par défaut, **trot** (sprint maintenu), **sprint** (double appui, endurance), Naruto run | 🟠 Important | — | ✍🏻 trois allures codées 14/10 (non publiées) | validé 14/10 | §7 |
 | Advanced Movement (dash, double jump) | Dash, double saut, saut de chakra, mur, escalade, voies de mobilité | 🟠 Important | Déplacements | ✅ ; 3 styles de course ❌ (Sprint 2) ; dégâts de chute désactivés | proposition | §7 |
 | Combat — Brawler / Swordsman | **Taïjutsu / Kenjutsu** : M1, garde, parade, endurance | 🟠 Important | Interaction, équipement | ✍🏻 M1, parade, garde brisée ✅ ; jauge de garde, clash, coup chargé ❌ ; 39 techniques Sprints 2-3 | proposition (lot B) | §9 |
 | Combat — Sniper | **Armes de jet** (kunai, shuriken) | 🟠 Important | Interaction, équipement | ❌ objets et effets de techniques seulement, pas de lancer | proposition | §10 |
@@ -289,7 +289,7 @@ Tous les systèmes (combat, déplacement, interaction, techniques, sacoche) **li
 | **Garde** | Absorber les coups | Attaquer (pendant la garde) | ✅ parade (touche C) |
 | **Porté** | Tenter de se libérer (Espace) | Se déplacer, attaquer, interagir | ✅ porté / tenu à la gorge (corps KO seulement) |
 | **Prison** | Se déplacer dans une zone fermée | Techniques, sortie de la zone | ❌ |
-| **Mode staff** | Caméra libre, outils staff | Toute action de jeu | ✍🏻 `/vanish` (3 modes) et « Observer » du Poste de garde ; le **gel** staff est tenu en mémoire seulement |
+| **Mode staff** | Caméra libre, outils staff | Toute action de jeu | ✍🏻 `/modestaff` (14/10, non publié : invisible, vol, aucune action de jeu, plaques côté serveur ; affichage des plaques dans le mod à faire), `/vanish`, « Observer » ; le **gel** staff est **persistant** depuis le 14/10 |
 
 *Propositions, à valider* :
 → L'ATA, le duel, la méditation, la scène de mort et la concentration du chakra ne sont **pas des états** mais des
@@ -311,7 +311,11 @@ reconnexion, cf. §11).
 
 ## 1.7 Mode staff
 
-→ **Aujourd'hui** : `/vanish`, « Observer » et téléportations du Poste de garde (F7).
+→ **Aujourd'hui** : `/vanish`, « Observer » et téléportations du Poste de garde (F7). **Codé le 14/10 (serveur, non
+publié)** : `/modestaff` — invisible aux joueurs et au staff hors mode staff (les staffs en mode staff se voient),
+vol, invulnérable, ni coup ni ramassage ni lâcher ; le serveur envoie chaque seconde les **plaques** (N°, nom RP,
+pseudo, état, PV) des joueurs à 64 blocs sur `reborn:plaques` (affichage côté mod à faire) ; entrée et sortie au
+journal. Protocole : [`technique/PLUGINS_REFERENCE.md`](./technique/PLUGINS_REFERENCE.md) §4 bis.5.
 → *Proposition* : en mode staff, un **calque au-dessus des têtes**, visible des seuls staffs : N° du personnage, nom
 RP, compte, état (§1.5), PV ; les staffs en mode staff se voient entre eux ; accès en direct à la sacoche, à l'état et
 aux journaux du joueur visé. Le mode staff ne modifie **aucune donnée** sans action explicite.
@@ -584,15 +588,15 @@ commande est journalisée.
 | tp, bring, freeze, invisible, revive | ✅ Poste de garde, `/vanish`, réveiller |
 | heal, damage, kill | ✍🏻 soins et `/ata` ; pas de commande directe de dégâts |
 | mute | ✅ sanctions |
-| invsee (sacoche) | ❌ |
-| Annonce globale / personnelle | ❌ |
-| Écran noir forcé | ❌ (le noir de la scène de mort existe) |
-| Tenue forcée, emote forcée | ❌ (`/playemote` existe côté joueur) |
-| Supprimer / remettre à zéro un personnage | ✍🏻 `/sacoche reset`, `/stats reset` séparés ; pas de commande globale |
-| Gel (*freeze*) | ✅ mais tenu en mémoire seulement (perdu au redémarrage) |
-| Séisme | ❌ |
-| Notes staff | ✍🏻 casier des sanctions seulement |
-| Cible par identifiant | ❌ (par nom) |
+| invsee (sacoche) | ✍🏻 `/voirsac` (14/10, non publié) : lecture Modérateur, prise Admin |
+| Annonce globale / personnelle | ✍🏻 `/annonce`, `/annoncejoueur` (14/10) ; bandeau du mod à faire (repli : titres vanilla) |
+| Écran noir forcé | ✍🏻 `/noir` (14/10) ; écran du mod à faire (repli : Cécité + Obscurité) |
+| Tenue forcée, emote forcée | ✍🏻 `/tenue` (emplacement cosmétique `TENUE` ; l'apparence de skin de l'échoppe : non), `/emoteforcee` (14/10) |
+| Supprimer / remettre à zéro un personnage | ✍🏻 `/persoreset`, `/persosuppr` (14/10) : confirmation + sauvegarde |
+| Gel (*freeze*) | ✍🏻 persistant depuis le 14/10 (`/geler`, `gels.yml`) |
+| Séisme | ✍🏻 `/seisme` (14/10) : grondement serveur, secousse du mod à faire ; passages nommés : plus tard |
+| Notes staff | ✍🏻 `/note` + Poste de garde (14/10), par N° |
+| Cible par identifiant | ✅ `#N°` partout (13/10) |
 
 ## 5.4 Cible proposée
 
@@ -609,6 +613,31 @@ nommés** (grottes, mines, sentiers) et sert la rotation des gisements (§23).
 → **Notes staff** sur un personnage : texte, auteur, date, visibles des staffs selon leur grade, suppression selon
 droits, rattachées au N° (survivent à un changement de nom RP).
 → **Tout est journalisé** (staff, cible, action, heure) — c'est déjà le cas du journal du Poste de garde.
+
+## 5.5 Codé le 14/10 (serveur, non publié)
+
+Demande de l'utilisateur (14/10) : « staff command et les logs : il faut que **tout** soit référencé et traçable,
+quel que soit le grade ». Côté **ShinobiCore** (`staff/outils/`), toutes les commandes ciblent un pseudo, un nom RP ou
+un `#N°`, et **chaque exécution est journalisée** (la commande tapée et son effet, catégorie `STAFF`) :
+
+| Commande | Grade | Ce qu'elle fait |
+|---|---|---|
+| `/annonce <message>` · `/annoncejoueur <cible> <message>` | Modérateur · Helper | Annonce globale / personnelle (canal `reborn:annonce`) |
+| `/aller`, `/ramener`, `/retour [cible]` | Helper · Modérateur | Aller, ramener, revenir / renvoyer à la position d'avant |
+| `/geler <cible> [motif]`, `/degeler` | Modérateur | Gel **persistant** : ni déplacement, ni coup, ni interaction |
+| `/voirsac <cible>` | Modérateur (prendre : Admin) | Barre, sac, équipement, en coffre de lecture |
+| `/noir <cible\|tous> [s\|off] [message]` | Modérateur (`tous` : Admin) | Écran noir forcé (canal `reborn:ecran`) |
+| `/seisme [rayon\|tous] [force] [s] [message]` | Admin | Écran qui tremble + grondement ; `tous` = annonce globale |
+| `/tenue <cible> <id\|main\|retirer>` | Modérateur | Emplacement `TENUE` imposé et verrouillé, ancienne pièce rendue à la levée |
+| `/emoteforcee <cible> <emote\|stop>` | Modérateur | Emote jouée par la cible |
+| `/persoreset`, `/persosuppr <cible\|#N°> [confirmer]` | Admin | Remise à zéro / suppression, sauvegarde avant |
+| `/note <cible\|#N°> [ajouter\|suppr]` | Helper (supprimer : auteur ou Admin) | Notes staff rattachées au N° |
+| `/modestaff` | Helper | Mode staff (§1.7) |
+| `/journal …` | Helper | Journal universel (§6.4) |
+
+Les mêmes actions existent en boutons au Poste de garde (protocole : [`technique/PLUGINS_REFERENCE.md`](./technique/PLUGINS_REFERENCE.md)
+§4 bis, écrans du mod en cours). **Reste** : écrans du mod (bandeau d'annonce, écran noir, secousse, plaques, journal,
+notes) ; apparence de skin imposée ; séisme branché sur des passages nommés ; synchronisation des grades avec le panel web.
 
 ---
 
@@ -644,6 +673,28 @@ combat (KO, relève, RPK), interactions (porter, fouiller, échanger, voler), st
 → **Le vocal n'est jamais journalisé** (à écrire dans le guide staff).
 → Plus tard : remonter le journal et le casier dans la base du panel web.
 
+## 6.4 Codé le 14/10 (serveur, non publié) — **décision : tout est journalisé, quel que soit le grade**
+
+→ **Journal universel** (`ShinobiCore/journal/`, service `JournalService` publié pour les add-ons) : chaque entrée =
+horodatage, **catégorie**, action, **acteur** (N°, pseudo, nom RP, grade staff au moment de l'action), **cible**
+éventuelle, détail, lieu. Catégories : Joueur, Inventaire, Objet, Combat, KO / mort, Duel, Économie, Interaction,
+Bibliothèque, Staff, Commande, Tchat, Système.
+→ **Stockage** : un fichier par catégorie et par jour (`plugins/ShinobiCore/logs/<categorie>-AAAA-MM-JJ.log`, rétention
+90 jours réglable), écriture sur un fil dédié (jamais bloquante) ; **index mémoire** des 20 000 dernières entrées
+(relu au démarrage) pour le Poste de garde ; une recherche plus ancienne relit les fichiers.
+→ **Tous les anciens journaux y passent** : agressions, RPK et mort RP, KO (`KoJournal`), duels, objets
+(`inventaire-…` garde son nom), journal du Poste de garde (gardé aussi dans `staff-journal.yml` pour l'onglet
+existant), bibliothèques, chat staff, alertes.
+→ **Trous bouchés** : connexions / déconnexions (durée, « déconnecté en KO / en duel »), expulsions, choix / création /
+suppression de personnage, niveau, mode de jeu, téléportations par commande, **chaque coup entre joueurs**, morts
+vanilla, **chaque mouvement de ryo** (crochet unique sur le personnage : échoppe, staff, reset — aucune action
+silencieuse), objets obtenus, équipés, utilisés, **coffres** et inventaires d'autrui, prises staff, tchat, et
+**toutes les commandes** de tout le monde (vanilla comprise : `/tp`, `/gamemode`, `/give`…), de la console, du RCON
+et du panel web.
+→ **Consultation** : `/journal [#N°] [catégorie] [j:<joueur>] [h:<heures>|d:<jours>] [p:<page>] [texte]` et le
+Poste de garde (filtres catégorie / N° / joueur / période / texte, pagination — écran du mod en cours).
+→ Le vocal n'est jamais journalisé. **Reste** : écran du journal au Poste de garde (mod), remontée au panel web.
+
 ---
 
 # 🏃 7. Déplacements
@@ -659,6 +710,12 @@ combat (KO, relève, RPK), interactions (porter, fouiller, échanger, voler), st
 - Interdits en ATA : courir, course de chakra, dash, double saut, saut de chakra ; en KO : tout sauf ramper.
 - Démarches RP (menu « . »), postures (`/assoir`, `/allonger`, `/ramper`).
 - ⏳ **Trois styles de course** prévus au Sprint 2.
+- ✍🏻 **Codé 14/10 (non publié) — les trois allures** de RedLine : **marche** par défaut (× 0,75, lente, RP), **trot**
+  tant que la touche de sprint est maintenue (× 1,15, gratuit), **sprint** sur un **double appui** (× 1,55, 20
+  d'endurance par seconde ≈ 5 s, essoufflé jusqu'à 30 %) ; même endurance que le combat (durée qui suit la Vigueur) ;
+  barre fine au-dessus de la barre d'action **seulement** en sprint et en récupération, traînée blanche ; vitesse posée
+  par le serveur et prédite par le mod ; coupé en Chargé, ATA, étourdi, en portant quelqu'un ; neutre en KO, porté,
+  course ninja. Fiche [`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md).
 
 ## 7.2 Chez RedLine
 
@@ -770,8 +827,8 @@ un chargeur ; on ramasse ses projectiles au sol (§3).
   **inconscient 5 min** → `/hopital` proposé (pas de rapatriement automatique) → réveil à 30 % + **ATA** (pas de
   technique, M1 à mains nues seulement) → sortie par médic ou repos RP.
 - **PV persistants**, plancher de 30 % sans médic ; blessures ; soins tenus.
-- **Menu d'interaction sur les corps** (R) : ausculter, porter, attraper à la gorge, fouiller, demander une RPK.
-- **Mort RP** : RPK validée par le staff (la victime ne valide rien), puis jouée par le demandeur (achever,
+- **Menu d'interaction sur les corps** (R) : ausculter, porter, attraper à la gorge, fouiller, demander un RPK.
+- **Mort RP** : RPK validé par le staff (la victime ne valide rien), puis jouée par le demandeur (achever,
   exécution) ; écran noir, « Assister à votre réelle fin ? », scène de mort.
 - KO réappliqué à la reconnexion.
 - Fiche : [`gameplay/KO_ET_MORT_RP.md`](./gameplay/KO_ET_MORT_RP.md) — à tester à deux comptes.
@@ -785,8 +842,22 @@ direct = 20 s d'**agonie** où un soin relève à 5 %.
 
 ## 11.3 Cible
 
-→ **On garde nos règles** (décisions du 06/10 et du 10/10) : pas d'exécution libre (toute mort passe par une RPK),
+→ **On garde nos règles** (décisions du 06/10 et du 10/10) : pas d'exécution libre (toute mort passe par un RPK),
 pas de relève à 10 % ni d'hôpital à 50 %.
+→ **14/10 — Pain RP, exécution, portage, agonie repris de RedLine** (demande de l'utilisateur), emboîtés dans nos
+mécaniques — fiche [`gameplay/KO_ET_MORT_RP.md`](./gameplay/KO_ET_MORT_RP.md) §1 bis, §2, §6 bis, §8 :
+
+| RedLine | Reborn (codé le 14/10, non publié) | Écart assumé |
+|---|---|---|
+| Pain RP à 5 % : pas de sprint / dash / double saut, marche lente | **Douleur** ≤ 5 % (réglable) : marche ×0,6, ni course ni mobilité ninja, **ni technique ni coup** | Pas d'animation de douleur (vitesse seulement) |
+| Vignette noire + léger tremblement | Bords noirs qui battent au cœur, vision troublée et dédoublée par à-coups, désaturation, vacillement de caméra, cœur et souffle, sons étouffés ; aucun HUD ajouté | Coupable par « Effets de distorsion » |
+| E maintenu → exécution → KO | **F maintenue** (touche Ramasser, invite « [F] Exécuter », anneau autour du viseur ; 3 s, sans RPK) → **inconscient direct** ; animation choisie au menu R (si possédée) | F au lieu de E (E = sacoche) ; état intégré au nom RP (glyphe 痛) |
+| Porter un Pain RP sans demande | **Porter (sans accord)** ; le porté **se débat avec Espace** (8 appuis), protégé 6 s après | — |
+| Porter un KO sans accord | Inchangé (déjà le cas) ; un porté ne descend plus seul | — |
+| Agonie : 0 PV → 20 s au sol, immobile ; un soin relève à 5 % + Pain RP | **À terre = agonie** : 45 s, on **rampe** ; Volonté ou soin → debout à 5 % = **douleur** | 45 s et reptation gardés ; l'agonie vaut aussi quand on tombe depuis la douleur |
+| KO 15 min, relève seul à 10 min, hôpital 15 min à 50 % | Inchangé chez nous (5 min, `/hopital`, 30 %, ATA) | Nos règles du 10/10 |
+| Exécution = KO | Exécution d'une personne **en douleur** = KO ; d'un **KO avec RPK** = mort RP (F en deux temps : confirmer, puis maintenir) | La mort reste derrière le RPK |
+
 → *Proposition* : **un KO qui se reconnecte reprend son compte à rebours à zéro** (on ne passe pas son inconscience
 déconnecté) — RedLine §KO, benchmark « déconnexion en pleine scène ».
 → Restes connus (fiche KO §12) : technique `volonte`, animations d'exécution, vente des exécutions, coma, saignement.
@@ -865,7 +936,7 @@ anti-chakra** (canon Naruto, équivalent du granite marin) : objet qui pose l'é
   `mod-hud/…/interaction/InteractionMenus`.
 - **Sur un joueur** : saluer, **se présenter** (`/rencontrer`), message privé, ami, ausculter, porter, fouiller,
   échanger, **duel**, animations, sous-menu staff.
-- **Sur un corps KO** : attraper à la gorge, porter, fouiller, demander une RPK, achever, exécutions, prélever un œil,
+- **Sur un corps KO** : attraper à la gorge, porter, fouiller, demander un RPK, achever, exécutions, prélever un œil,
   soins des yeux.
 - **Connu / inconnu** : un personnage reste « Inconnu » tant qu'on ne s'est pas présenté (`CharacterDisplay`,
   `TabListManager`).
@@ -1781,7 +1852,7 @@ Minecraft, Nexo et le menu R.
 | **Parchemins et bibliothèques v2** | Objet unique, 7 types de bibliothèques, fonds et arrivages, journal, lecture sur place, **vol**, **secrets** | ✅ sur le dev, à tester | [`gameplay/APPRENTISSAGE.md`](./gameplay/APPRENTISSAGE.md) §2-3 |
 | **Séances et concentration du chakra** | Séances par rang, maître, mini-jeu de concentration | ✍🏻 rendu à trancher (n° 2) | idem §4 |
 | **Slots du rang S** | Nombre limité de détenteurs par technique, héritage | ✅ | idem §5 |
-| **Mort RP** | RPK validée par le staff, exécutions, scène de mort, corps à l'apparence Reborn | ✅ à tester à deux comptes | [`gameplay/KO_ET_MORT_RP.md`](./gameplay/KO_ET_MORT_RP.md) §7-9 |
+| **Mort RP** | RPK validé par le staff, exécutions, scène de mort, corps à l'apparence Reborn | ✅ à tester à deux comptes | [`gameplay/KO_ET_MORT_RP.md`](./gameplay/KO_ET_MORT_RP.md) §7-9 |
 | **ATA et terrains d'entraînement** | Blessé en attente de soin ; zones d'entraînement et de repos | ✅ | idem §2-4 |
 | **Yeux** | Chirurgie (prélèvement, greffe, cécité, bandage), fiole d'œil Nexo, **Byakugan** | ✅ (Byakugan non commité) | `ShinobiCore/…/medic/yeux/`, ShinobiSense |
 | **Clans et sorts claniques** | 11 entrées, verrous, candidature ; 18 sorts claniques à produire | ✍🏻 | [`ROADMAP_BETA_2026.md`](./ROADMAP_BETA_2026.md) §3.2 |

@@ -19,6 +19,7 @@ Contrat (1 texel = 1 GUI) — dossier textures/gui/garde/ :
 - entete.png 320×96 : rangées de 48 (0 Poste de garde 番, 1 Infirmerie 医) : plaque laquée 300×28 en (10, 8),
   cordons, agemaki et glands, sceau et titre ArcadePix cuits. Posée en (largeur/2 − 160, 0).
 - boutons.png 200×91 : rangées de 13 (noir, noir survol, rouge, rouge survol, vert, vert survol, inactif) ;
+- boutons16.png 240×119 : mêmes rangées, de 17 (bouton 240×16 + ombre d'1 GUI) : boutons d'action. Coupe capD 6 ;
   bouton 200×12 en (0, 13·r), ombre d'1 GUI dessous. Coupe horizontale, capD 6.
 - fuda.png 560×176 : rangées de 88 (repos, survol) : plaquette de hinoki (contour compris) 557×85 en (0, 0),
   coins gauches biseautés de 5, ombre (3, 3). Coupe : (x − 1, y − 1), (w + 5, h + 5), capD = capB = 12.
@@ -26,6 +27,8 @@ Contrat (1 texel = 1 GUI) — dossier textures/gui/garde/ :
   Coupe capD = capB = 8.
 - tanzaku.png 134×304 : bande de papier 130×300 (contour compris) en (0, 0), ombre (3, 3), feuilles d'or.
   Coupe capD = capB = 10.
+- feuille.png 560×404 : grande carte de washi à bord de bois 558×402 (+ ombre 2) pour les formulaires pleine
+  largeur. Coupe capD = capB = 8.
 - panneau.png 304×224 : carte de washi à bord de bois et équerres 300×220 en (0, 0), ombre 2. Coupe 10 / 10.
 - carte_cadre.png 470×510 : cadre de la carte (bois 3 GUI + filet d'or), intérieur transparent. Coupe 12 / 12.
 - sceau.png 64×64 : sceau 罰 vermillon (tampon, incliné).
@@ -252,6 +255,16 @@ def boutons():
     S.sauver("boutons.png", im, (200, 91))
 
 
+def boutons_grands():
+    """Boutons d'action 16 de haut (actions de la fiche, fenêtres, envois) : mêmes tons, rangées de 17."""
+    im = nouveau(240, 17 * 7)
+    specs = [("noir", False, False), ("noir", True, False), ("rouge", False, False), ("rouge", True, False),
+             ("vert", False, False), ("vert", True, False), ("noir", False, True)]
+    for r, (ton, sv, off) in enumerate(specs):
+        bouton(im, 0, 17 * r, 240, 16, ton, sv, off)
+    S.sauver("boutons16.png", im, (240, 119))
+
+
 # ═════════════════════════════════════ fuda (plaquettes de hinoki) ═════════════════════════════════════
 def plaquette_bois(im, x, y, w, h, survol, seed):
     """Plaquette de hinoki contour compris (w × h), coins gauches biseautés de 5, ombre (3, 3)."""
@@ -315,6 +328,13 @@ def cartes():
     for r in range(2):
         carte_washi(im, 0, 62 * r, 558, 60, r == 1, seed=41)
     S.sauver("carte.png", im, (560, 124))
+
+
+def feuille():
+    """Grande carte de washi à bord de bois (formulaires pleine largeur : annonces, séisme), 558×402 + ombre 2."""
+    im = nouveau(560, 404)
+    carte_washi(im, 0, 0, 558, 402, False, seed=43)
+    S.sauver("feuille.png", im, (560, 404))
 
 
 def panneau():
@@ -543,8 +563,10 @@ def main():
     washi()
     entete()
     boutons()
+    boutons_grands()
     fuda()
     cartes()
+    feuille()
     panneau()
     tanzaku()
     carte_cadre()

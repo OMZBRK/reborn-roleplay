@@ -16,7 +16,8 @@ final class GardeArt {
     static final Identifier CADRE = DaKit.tex("garde", "cadre"), WASHI = DaKit.tex("garde", "washi"),
         ENTETE = DaKit.tex("garde", "entete"), BOUTONS = DaKit.tex("garde", "boutons"), FUDA = DaKit.tex("garde", "fuda"),
         CARTE = DaKit.tex("garde", "carte"), TANZAKU = DaKit.tex("garde", "tanzaku"), PANNEAU = DaKit.tex("garde", "panneau"),
-        CARTE_CADRE = DaKit.tex("garde", "carte_cadre"), SCEAU = DaKit.tex("garde", "sceau"), PIECES = DaKit.tex("garde", "pieces");
+        CARTE_CADRE = DaKit.tex("garde", "carte_cadre"), SCEAU = DaKit.tex("garde", "sceau"), PIECES = DaKit.tex("garde", "pieces"),
+        BOUTONS16 = DaKit.tex("garde", "boutons16"), FEUILLE = DaKit.tex("garde", "feuille");
 
     /** Papier maximal (le cadre et le papier ne s'étirent jamais au-delà). */
     static final int PAPIER_W = 640, PAPIER_H = 500;
@@ -60,6 +61,12 @@ final class GardeArt {
         DaKit.coupeH(ctx, BOUTONS, x, y, w, 0, r * 13, 200, 13, 6, 200, 91);
     }
 
+    /** Bouton d'action 16 de haut (+ ombre), mêmes lignes B_* ; survol ajoute 1 (sauf inactif). */
+    static void boutonGrand(GuiGraphicsExtractor ctx, int x, int y, int w, int ligne, boolean survol) {
+        int r = ligne == B_INACTIF ? B_INACTIF : ligne + (survol ? 1 : 0);
+        DaKit.coupeH(ctx, BOUTONS16, x, y, w, 0, r * 17, 240, 17, 6, 240, 119);
+    }
+
     /** Plaquette de hinoki (fuda) : boîte de contour (x, y, w, h), ombre comprise hors boîte. */
     static void fuda(GuiGraphicsExtractor ctx, int x, int y, int w, int h, boolean survol) {
         DaKit.coupe(ctx, FUDA, x, y, w + 3, h + 3, 0, survol ? 88 : 0, 560, 88, 12, 12, 560, 176);
@@ -73,6 +80,11 @@ final class GardeArt {
     /** Carte d'infraction (washi, bord de bois) : boîte (x, y, w, h). */
     static void carte(GuiGraphicsExtractor ctx, int x, int y, int w, int h, boolean survol) {
         DaKit.coupe(ctx, CARTE, x, y, w + 2, h + 2, 0, survol ? 62 : 0, 560, 62, 8, 8, 560, 124);
+    }
+
+    /** Grande carte de washi (formulaires pleine largeur) : boîte (x, y, w, h), jusqu'à 558×402. */
+    static void feuille(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
+        DaKit.coupe(ctx, FEUILLE, x, y, w + 2, h + 2, 0, 0, 560, 404, 8, 8, 560, 404);
     }
 
     /** Panneau de washi à bord de bois : boîte (x, y, w, h). */

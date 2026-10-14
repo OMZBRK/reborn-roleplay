@@ -101,6 +101,21 @@ mobility:
       max-vertical: 2.5
       ramp-ms: 120000
 
+  # Trois allures (RedLine « Player movements », 14/10) : MARCHE par défaut, TROT tant que la touche de
+  # sprint est maintenue, SPRINT sur un double appui (endurance). Vitesses = multiples de la marche
+  # Minecraft (le +30 % du sprint vanilla est compensé). Défauts identiques dans le code.
+  allure:
+    enabled: true
+    marche: 0.75
+    trot: 1.15
+    sprint: 1.55
+    # Endurance de combat (ShinobiCombat) dépensée par seconde de sprint : 20 → 5 s avec 100.
+    sprint-endurance-par-seconde: 20.0
+    # Endurance minimale pour lancer un sprint.
+    sprint-endurance-min: 10.0
+    # Vidé = essoufflé : pas de sprint avant d'avoir retrouvé ce pourcentage.
+    sprint-relance-pourcent: 30
+
   # Air-control (reworked §4.1): momentum-aware steering that is ALWAYS
   # available while airborne; the leap window only RAISES the cap. Never brakes
   # speed above the cap (a dash carries + bleeds naturally); never touches Y.

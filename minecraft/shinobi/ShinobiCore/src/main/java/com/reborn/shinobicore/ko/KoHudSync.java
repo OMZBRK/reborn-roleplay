@@ -39,7 +39,9 @@ public final class KoHudSync {
     public static final String EVENT_CHANNEL = "reborn:ko_event";
 
     public static final byte EV_A_TERRE = 1, EV_KO = 2, EV_REVEIL = 3, EV_HOPITAL = 4,
-            EV_RETABLI = 5, EV_DEFAITE = 6, EV_RELEVE = 7;
+            EV_RETABLI = 5, EV_DEFAITE = 6, EV_RELEVE = 7,
+            /** Entrée en douleur (PV sous le seuil, {@link DouleurManager}). Un mod plus ancien l'ignore. */
+            EV_DOULEUR = 8;
 
     private final ShinobiCore plugin;
     private final Set<UUID> shown = ConcurrentHashMap.newKeySet();

@@ -86,12 +86,24 @@
 | ~~2026-10-06~~ | ~~ATA : techniques rang D maximum ; FearRP 20 min~~ → **aucune technique, seulement le M1 à mains nues ; FearRP retirée** (10/10) |
 | 2026-10-10 | La **Volonté** (QTE de relève) devient **facultative** : une compétence / technique, pas un droit |
 | ~~2026-10-10 (14 h)~~ | ~~Mort RP avec consentement de la victime~~ → **pas de validation joueur** (10/10, 15 h) |
-| 2026-10-10 | La RPK part au **tchat du staff** et au Poste de garde |
+| 2026-10-10 | Le RPK part au **tchat du staff** et au Poste de garde |
 | 2026-10-10 | Menu d'interaction sur un corps : **exécution** (animations stylées, **vendables**), attraper à la gorge, porter, RPK |
-| 2026-10-10 | **Valider une RPK ne tue pas** : la mort tombe à la dernière action du demandeur (achever / exécuter) |
+| 2026-10-10 | **Valider un RPK ne tue pas** : la mort tombe à la dernière action du demandeur (achever / exécuter) |
 | 2026-10-10 | Le mort reste sur place, écran noir, ne peut plus rien faire |
 | 2026-10-11 | Ancien menu (coffre) sur un corps **retiré** ; prise à la gorge **sans limite de durée** ; corps à l'**apparence Reborn** |
 | 2026-10-11 | Au bout de 60 s : « **Assister à votre réelle fin ?** » — Non → sélection ; Oui → vue grisée, sans HUD, bandes de cinéma |
+| 2026-10-14 | **Pain system sous 5 % des PV « comme décrit sur le doc » RedLine** : état **Douleur** avant le KO (marche lente, ni course ni mobilité ninja, ni technique ni coup), seuil réglable (`ko.douleur.seuil-pct`) — fiche §1 bis |
+| ~~2026-10-14~~ | ~~Exécution par une entrée « Exécuter » au menu R~~ → **à la touche F** (plus bas) |
+| 2026-10-14 | **Carry while in Pain RP** : porter une personne en douleur **sans son accord** ; elle **se débat avec Espace** (jauge, protection 6 s) ; un corps porté ne descend plus seul — fiche §6 bis |
+| 2026-10-14 | **Agonie = notre « à terre »** (on rampe, 45 s gardés) ; un soin ou la Volonté relèvent **en douleur** (5 %) comme chez RedLine — fiche §2 |
+| 2026-10-14 | KO / ATA : **plus de voile rouge sur les bords** (DA §3) → bords assombris, désaturation — fiche §10 ; ~~étiquettes d'état au-dessus des têtes~~ → état **intégré au nom RP** (ligne v2) |
+| 2026-10-14 | **Exécution à la touche F maintenue** (« comme pour ramasser », touche Ramasser) : invite « [F] Exécuter » en visant, **maintenir** = canalisation (anneau autour du viseur), **relâcher = annuler** ; douleur → inconscient sans RPK ; KO → mort RP seulement avec un **RPK validé**, **en deux temps** (un appui arme « Confirmer · mort RP définitive », le second maintenu exécute) ; priorité de F : objet visé > joueur visé > rôle normal ; le menu R ne garde que le choix de l'animation (si possédée) — fiche §8 |
+| 2026-10-14 | **Style unique pour toute la chaîne KO / mort**, dérivé de l'écran « inconscient » (seul jugé bien) : titre pixel centré, filet d'or, minuterie, sous-texte gris ; « visuellement pour les menus c'est pas ça » pour le reste — fiche §10 |
+| 2026-10-14 | **À terre et inconscient : plus de HUD de jeu** (vitals, cœurs, barre d'action, viseur, HUD Reborn) ; en douleur : HUD normal — fiche §2, §10 |
+| 2026-10-14 | **Douleur : pas de ligne de HUD** (« moche au-dessus ») mais un **ressenti** : bords noirs au rythme du cœur, vision troublée et dédoublée par à-coups, désaturation, vacillement de caméra, cœur et souffle lourd, sons étouffés ; coupable par « Effets de distorsion » — fiche §1 bis |
+| 2026-10-14 | **État au nom RP** (glyphe 痛 / 倒 / 気絶 / 屍 accolé, nom teinté) au lieu d'une étiquette séparée ; « R · porter, exécuter » supprimé — fiche §1 bis, §10 |
+| 2026-10-14 | **Porté de force** : seulement « Espace · se débattre » et un filet fin, **uniquement si le porté est en douleur** (pas en KO / mort) — fiche §6 bis |
+| 2026-10-14 | **`/aide` retiré des textes du jeu** (« la commande n'existe pas ») ; **`/hopital` n'apparaît qu'après les 5 minutes** ; vocabulaire : **« un RPK »** (masculin) partout — fiche §2, §7 |
 
 ## Combat — duel
 
@@ -152,3 +164,5 @@
 | 2026-10-13 | **Objets au sol** : disparition **10 min**, **15 min** pour un objet lâché par un joueur KO, **jamais** pour un rouleau unique ou un objet de quête — fiche §6 |
 | 2026-10-13 | **Rareté à 5 niveaux** : Commun, Peu commun, Rare, Épique, **Légendaire (or)**, clé persistante `reborn:rarete` ; résolution clé posée → table `rarete.par-id` de la config → rang du parchemin (D → S) → rareté vanilla → Commun — fiche §7 |
 | 2026-10-13 | **Maquettes de l'inventaire validées** (`Maquettes/gameplan/02_inventaire/` : sacoche, surpoids, notifications, ramassage) ; codées le jour même, non publiées — fiche |
+| 2026-10-14 | **Déplacements : trois allures façon RedLine** (« marcher, trottiner, sprint, comme c'est décrit ») — **marche** par défaut (lente, RP), **trot** = touche de sprint Minecraft **maintenue** (proposé : Ctrl, rebindable ; Shift reste l'accroupi), **sprint** = **double appui** (endurance du combat, ~5 s, essoufflé jusqu'à 30 %) ; barre fine **seulement** en sprint / récupération, traînée blanche ; vitesses réglables (`mobility.allure`) ; coupé en Chargé, ATA, étourdi, en portant ; neutre en KO, porté, course ninja — [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md). En attente : course ninja seulement depuis le sprint ? seuil de faim RedLine (0 %) ? |
+| 2026-10-14 | **Staff et journaux : « il faut que TOUT soit référencé et traçable, quel que soit le grade »** (du joueur à l'Owner) — journal universel unique (catégories, acteur avec N° et grade, cible, lieu ; fichiers journaliers par catégorie + index mémoire), **toutes les commandes** de tout le monde journalisées (vanilla et console comprises), aucun mouvement de ryo ni d'objet silencieux ; commandes staff à la RedLine (annonces, aller / ramener / retour, gel **persistant**, voir la sacoche, écran noir, séisme, tenue et emote forcées, reset / suppression de perso avec confirmation et sauvegarde, notes par N°, mode staff) — [`../GAMEPLAN.md`](../GAMEPLAN.md) §5.5 et §6.4, [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §4 bis *(grades par outil et rétention 90 j choisis par l'agent, à valider)* |

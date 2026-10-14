@@ -83,7 +83,15 @@ public final class MovementAnimations {
     private static final int FRESH_TICKS = 60;
 
     /** Codes {@code state} du canal reborn:anim (contrat client↔client). */
-    private static final byte C_NONE = 0, C_WALK = 1, C_RUN = 2, C_NARUTO = 3, C_JUMP = 4, C_CROUCH = 5;
+    private static final byte C_NONE = 0, C_WALK = 1, C_RUN = 2, C_NARUTO = 3, C_JUMP = 4, C_CROUCH = 5, C_SPRINT = 6;
+
+    /**
+     * Vitesse de lecture par allure (14/10) : la marche Reborn est plus lente que celle de Minecraft, le sprint plus
+     * rapide que le trot — même anim de course, cadence plus vive.
+     */
+    private static final float VIT_MARCHE = 0.85f, VIT_TROT = 1.0f, VIT_SPRINT = 1.3f;
+    /** Désactivé si PlayerAnimationLib refuse le modificateur de vitesse (l'anim joue alors à sa cadence). */
+    private boolean vitesseOk = true;
 
     /** Styles de marche : {label, fichier}. Index 0 = démarche par défaut. */
     private static final String[][] WALK_STYLES = {
@@ -101,7 +109,7 @@ public final class MovementAnimations {
         {"Pyramide", "run_pyramid.emotecraft"},
     };
 
-    private enum MoveState { NONE, WALK, RUN, NARUTO, POSE, JUMP, CROUCH }
+    private enum MoveState { NONE, WALK, RUN, SPRINT, NARUTO, POSE, JUMP, CROUCH }
 
     /** État de détection par joueur (local comme distant). */
     private static final class Tracker {
@@ -280,8 +288,13 @@ public final class MovementAnimations {
         }
 
         MoveState desired = computeState(player, t, true);
+        if (desired == MoveState.SPRINT && tickCounter % 2 == 0) trainee(player);
         boolean walkChanged = desired == MoveState.WALK && t.appliedWalk != selectedWalk;
-        if (desired != t.applied || walkChanged) {
+        if (course(desired) && course(t.applied) && desired != t.applied) {
+            vitesse(player, desired);                            // trot ↔ sprint : même anim, autre cadence
+            t.applied = desired;
+            sendState(player, desired, selectedWalk);
+        } else if (desired != t.applied || walkChanged) {
             applyState(player, desired, selectedWalk);
             t.applied = desired;
             t.appliedWalk = selectedWalk;
@@ -297,8 +310,12 @@ public final class MovementAnimations {
         int walk = 0;
         RemoteInfo ri = remote.get(p.getUUID());
         if (ri != null && fresh(ri)) walk = clamp(ri.walk);
+        if (desired == MoveState.SPRINT && tickCounter % 2 == 0) trainee(p);
         boolean walkChanged = desired == MoveState.WALK && t.appliedWalk != walk;
-        if (desired != t.applied || walkChanged) {
+        if (course(desired) && course(t.applied) && desired != t.applied) {
+            vitesse(p, desired);
+            t.applied = desired;
+        } else if (desired != t.applied || walkChanged) {
             applyState(p, desired, walk);
             t.applied = desired;
             t.appliedWalk = walk;
@@ -327,7 +344,7 @@ public final class MovementAnimations {
                 if (a == null && !walkAnims.isEmpty()) a = walkAnims.get(0); // fallback style défaut
                 yield a;
             }
-            case RUN    -> run;
+            case RUN, SPRINT -> run;
             case NARUTO -> narutoRun;
             case POSE   -> idlePose;
             case JUMP   -> jump;
@@ -343,6 +360,49 @@ public final class MovementAnimations {
             controller.replaceAnimationWithFade(
                 AbstractFadeModifier.standardFadeIn(fade, EasingType.EASE_IN_OUT_SINE),
                 RawAnimation.begin().then(anim, anim.loopType()));
+        }
+        vitesse(player, desired);
+    }
+
+    private static boolean course(MoveState s) { return s == MoveState.RUN || s == MoveState.SPRINT; }
+
+    /** Cadence de l'anim selon l'allure (modificateur de vitesse PAL, ajouté une fois par avatar). */
+    private void vitesse(AbstractClientPlayer player, MoveState st) {
+        if (!vitesseOk) return;
+        try {
+            PlayerAnimationController c = controllerOf(player);
+            if (c == null) return;
+            float v = switch (st) {
+                case WALK -> VIT_MARCHE;
+                case SPRINT -> VIT_SPRINT;
+                default -> VIT_TROT;
+            };
+            com.zigythebird.playeranimcore.animation.layered.modifier.SpeedModifier sm = null;
+            for (var m : c.getModifiers()) {
+                if (m instanceof com.zigythebird.playeranimcore.animation.layered.modifier.SpeedModifier s) { sm = s; break; }
+            }
+            if (sm == null) {
+                if (v == 1f) return;
+                c.addModifierLast(new com.zigythebird.playeranimcore.animation.layered.modifier.SpeedModifier(v));
+            } else {
+                sm.speed = v;
+            }
+        } catch (Throwable e) {
+            vitesseOk = false;
+            LOG.warn("vitesse d'anim indisponible ({})", e.toString());
+        }
+    }
+
+    /** Traînée de sprint (RedLine : fumée blanche) : une bouffée discrète derrière les pieds, un tick sur deux. */
+    private static void trainee(AbstractClientPlayer p) {
+        ClientLevel level = (ClientLevel) p.level();
+        double yaw = Math.toRadians(p.getYRot());
+        double bx = Math.sin(yaw) * 0.35, bz = -Math.cos(yaw) * 0.35;   // derrière le joueur
+        for (int i = 0; i < 2; i++) {
+            double rx = (Math.random() - 0.5) * 0.3, rz = (Math.random() - 0.5) * 0.3;
+            level.addParticle(net.minecraft.core.particles.ParticleTypes.WHITE_SMOKE,
+                p.getX() + bx + rx, p.getY() + 0.1 + i * 0.12, p.getZ() + bz + rz,
+                bx * 0.04, 0.01, bz * 0.04);
         }
     }
 
@@ -395,7 +455,10 @@ public final class MovementAnimations {
             ? NarutoRun.INSTANCE.isActive()
             : remoteNaruto(player.getUUID());
         if (naruto && narutoRun != null) return MoveState.NARUTO;
-        if (player.isSprinting() && run != null) return MoveState.RUN;
+        if (player.isSprinting() && run != null) {
+            boolean sprint = isLocal ? fr.reborn.hud.allure.Allure.INSTANCE.sprinte() : remoteSprint(player.getUUID());
+            return sprint ? MoveState.SPRINT : MoveState.RUN;
+        }
         return (!walkAnims.isEmpty() && walkAnims.get(0) != null) ? MoveState.WALK : MoveState.NONE;
     }
 
@@ -410,6 +473,11 @@ public final class MovementAnimations {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    private boolean remoteSprint(UUID uuid) {
+        RemoteInfo ri = remote.get(uuid);
+        return ri != null && fresh(ri) && ri.state == C_SPRINT;
     }
 
     private boolean remoteNaruto(UUID uuid) {
@@ -442,6 +510,7 @@ public final class MovementAnimations {
         return switch (s) {
             case WALK   -> C_WALK;
             case RUN    -> C_RUN;
+            case SPRINT -> C_SPRINT;
             case NARUTO -> C_NARUTO;
             case JUMP   -> C_JUMP;
             case CROUCH -> C_CROUCH;

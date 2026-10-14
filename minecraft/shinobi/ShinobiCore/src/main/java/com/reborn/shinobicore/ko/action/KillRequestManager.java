@@ -28,11 +28,11 @@ import java.util.logging.Level;
  * Mort RP (KO-7, « RPK ») : le staff tranche, la victime n'a rien à valider.
  *
  * <ol>
- *   <li>« Demander une RPK » sur un corps à terre ou KO ({@link #request}) : <b>tout le staff en ligne</b> reçoit un
+ *   <li>« Demander un RPK » sur un corps à terre ou KO ({@link #request}) : <b>tout le staff en ligne</b> reçoit un
  *       message au tchat (qui, qui, où ; boutons {@code /sckillvote approve|refuse|goto <id>}) et l'alerte « Mort
  *       RP » arrive au Poste de garde (Valider / Refuser / Y aller). Sans staff en ligne, elle y attend tant que la
  *       victime est KO.</li>
- *   <li>Validation : la RPK est <b>accordée</b> au demandeur, le personnage ne meurt pas encore. Le demandeur joue
+ *   <li>Validation : le RPK est <b>accordé</b> au demandeur, le personnage ne meurt pas encore. Le demandeur joue
  *       sa scène, puis l'achève ou l'exécute ({@link CorpsService}) : c'est cette dernière action qui tue
  *       ({@link #kill}) — personnage marqué mort, {@link com.reborn.shinobicore.event.CharacterDeathEvent} (les
  *       addons libèrent ce qu'il détenait), journaux, puis la scène de mort ({@link DeathScene}).</li>
@@ -132,7 +132,7 @@ public final class KillRequestManager {
 
     /* --------------------------------------------------------------- decide */
 
-    /** {@code [Valider]} au tchat : demande la raison, puis accorde la RPK. */
+    /** {@code [Valider]} au tchat : demande la raison, puis accorde le RPK. */
     public void approve(Player staff, long requestId) {
         if (staff == null || !staff.hasPermission("shinobicore.staff")) return;
         KillRequest req = pending.get(requestId);
@@ -141,7 +141,7 @@ public final class KillRequestManager {
             return;
         }
         plugin.chatInputs().prompt(staff,
-                "Donne la raison validant la RPK (ou 'cancel') :",
+                "Donne la raison validant le RPK (ou 'cancel') :",
                 reason -> {
                     String trimmed = reason == null ? "" : reason.trim();
                     if (trimmed.isEmpty() || "cancel".equalsIgnoreCase(trimmed)) {
@@ -160,7 +160,7 @@ public final class KillRequestManager {
     }
 
     /**
-     * Accorde la RPK : le personnage <b>ne meurt pas encore</b>. Le demandeur peut désormais l'achever ou
+     * Accorde le RPK : le personnage <b>ne meurt pas encore</b>. Le demandeur peut désormais l'achever ou
      * l'exécuter (menu d'interaction sur le corps) ; la mort tombe à cette dernière action.
      */
     private void validate(Player staff, long requestId, String reason) {
@@ -173,8 +173,8 @@ public final class KillRequestManager {
         log("VALIDE", req, staff.getName(), reason);
         if (plugin.staffPanel() != null) {
             plugin.staffPanel().onKillClosed(req.id());
-            plugin.staffPanel().log(staff, "ko", "RPK validée", pidPrefix(req.targetCharacterId()) + req.targetName() + " · " + reason);
-            plugin.staffPanel().system("RPK validée : " + req.targetName() + " (par " + staff.getName()
+            plugin.staffPanel().log(staff, "ko", "RPK validé", pidPrefix(req.targetCharacterId()) + req.targetName() + " · " + reason);
+            plugin.staffPanel().system("RPK validé : " + req.targetName() + " (par " + staff.getName()
                     + ") — en attente de l'exécution par " + req.requesterName() + ".");
         }
         notifyStaff(Component.text("[Staff] ", NamedTextColor.LIGHT_PURPLE)
@@ -183,15 +183,15 @@ public final class KillRequestManager {
                         NamedTextColor.GRAY)));
         Player rq = Bukkit.getPlayer(req.requesterId());
         if (rq != null) {
-            rq.sendMessage(Component.text("☠ RPK validée : ", NamedTextColor.DARK_RED, TextDecoration.BOLD)
-                    .append(Component.text("tu peux achever ou exécuter " + req.targetName()
-                            + " (menu d'interaction sur son corps).", NamedTextColor.GRAY)
+            rq.sendMessage(Component.text("☠ RPK validé : ", NamedTextColor.DARK_RED, TextDecoration.BOLD)
+                    .append(Component.text("tu peux exécuter " + req.targetName()
+                            + " (vise son corps et maintiens F).", NamedTextColor.GRAY)
                             .decoration(TextDecoration.BOLD, false)));
             rq.playSound(rq.getLocation(), org.bukkit.Sound.BLOCK_BELL_RESONATE, 0.6f, 0.5f);
         }
     }
 
-    /** RPK accordée à {@code killer} sur {@code target}, ou null. */
+    /** RPK accordé à {@code killer} sur {@code target}, ou null. */
     public KillRequest validatedFor(UUID killer, UUID target) {
         for (KillRequest r : pending.values()) {
             if (r.validated() && r.requesterId().equals(killer) && r.targetPlayerId().equals(target)) return r;
@@ -199,7 +199,7 @@ public final class KillRequestManager {
         return null;
     }
 
-    /** Pour le menu d'interaction : 0 rien, 1 demande de {@code viewer} en attente du staff, 2 RPK accordée à viewer. */
+    /** Pour le menu d'interaction : 0 rien, 1 demande de {@code viewer} en attente du staff, 2 RPK accordé à viewer. */
     public int statusFor(UUID viewer, UUID target) {
         for (KillRequest r : pending.values()) {
             if (!r.targetPlayerId().equals(target) || !r.requesterId().equals(viewer)) continue;
@@ -230,7 +230,7 @@ public final class KillRequestManager {
         log("REFUSE", req, staff.getName(), "");
         if (plugin.staffPanel() != null) {
             plugin.staffPanel().onKillClosed(req.id());
-            plugin.staffPanel().log(staff, "ko", "RPK refusée", pidPrefix(req.targetCharacterId()) + req.targetName() + " (demandée par " + req.requesterName() + ")");
+            plugin.staffPanel().log(staff, "ko", "RPK refusé", pidPrefix(req.targetCharacterId()) + req.targetName() + " (demandée par " + req.requesterName() + ")");
         }
         Player rq = Bukkit.getPlayer(req.requesterId());
         if (rq != null) rq.sendMessage(Component.text("Ta demande de RPK sur " + req.targetName() + " a été refusée.",
@@ -241,13 +241,13 @@ public final class KillRequestManager {
     }
 
     /**
-     * La dernière action : le personnage meurt (achever, ou fin d'une exécution). Exige une RPK accordée à
+     * La dernière action : le personnage meurt (achever, ou fin d'une exécution). Exige un RPK accordé à
      * {@code killer}. Le joueur reste sur place, dans la scène de mort ({@link DeathScene}).
      */
     public boolean kill(Player killer, Player target, String how) {
         KillRequest req = validatedFor(killer.getUniqueId(), target.getUniqueId());
         if (req == null) {
-            killer.sendMessage(Component.text("Aucune RPK validée sur cette personne.", NamedTextColor.RED));
+            killer.sendMessage(Component.text("Aucun RPK validé sur cette personne.", NamedTextColor.RED));
             return false;
         }
         pending.remove(req.id());
@@ -289,12 +289,13 @@ public final class KillRequestManager {
                 l.getWorld() != null ? l.getWorld().getName() : "?",
                 l.getX(), l.getY(), l.getZ(),
                 reason);
-        try (BufferedWriter w = new BufferedWriter(new FileWriter(logFile, true))) {
-            w.write(line);
-        } catch (IOException ex) {
-            plugin.getLogger().log(Level.WARNING,
-                    "Failed to write kill-log.txt", ex);
-        }
+        // Journal universel (14/10) : logs/ko-AAAA-MM-JJ.log (remplace kill-log.txt), catégorie KO.
+        com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.KO, "RPK_" + verdict).acteur(req.requesterId())
+                .ciblePersonnage(req.targetPlayerId(), req.targetCharacterId())
+                .detail("demande n°" + req.id() + " · " + req.requesterName() + " → " + req.targetName()
+                        + ("-".equals(staffName) ? "" : " · staff " + staffName)
+                        + (reason == null || reason.isBlank() ? "" : " · " + reason))
+                .lieu(req.scene()).ecrire();
     }
 
     /** {@code " #00042"} : N° du personnage actif du demandeur (journal staff), vide sinon. */

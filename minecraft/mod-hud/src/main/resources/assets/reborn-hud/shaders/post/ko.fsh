@@ -6,9 +6,11 @@
 //   pixel 0 = (R mode, G force, B/A temps bits 0-15)
 //   pixel 1 = (R temps bits 16-23, G épuisement de chakra 0/1, B phase cardiaque, A PV / PV max)
 //   pixel 2 = (R temps restant de la phase, fraction)
-// Modes : 1 à terre (monde qui se vide de ses couleurs, vignette rouge qui bat au rythme du cœur, vision qui
-// tangue et se dédouble), 2 inconscient (noir et blanc, flou, paupières lourdes qui respirent), 3 ATA (douleur
-// sourde : légère désaturation, pulsation discrète sur les bords). Chakra épuisé : bleu glacé au lieu du rouge.
+// Modes : 1 à terre / agonie (monde qui se vide de ses couleurs, bords qui s'assombrissent au rythme du cœur,
+// vision qui tangue et se dédouble), 2 inconscient (noir et blanc, flou, paupières lourdes qui respirent), 3 ATA
+// (douleur sourde : légère désaturation, bords à peine plus sombres au battement), 4 douleur — PV sous 5 %
+// (désaturation légère, bords assombris, la vue tremble à peine). Plus de voile rouge (rejeté, DA §3, 14/10) :
+// les bords s'assombrissent ; chakra épuisé = bleu nuit.
 
 uniform sampler2D InSampler;
 uniform sampler2D ParamsSampler;
@@ -65,7 +67,8 @@ void main() {
     vec3 orig = texture(InSampler, uv).rgb;
     vec3 col = orig;
 
-    vec3 teinte = chakra ? vec3(0.16, 0.42, 0.85) : vec3(0.62, 0.02, 0.05);
+    // couleur des bords : presque noir (un soupçon de bleu nuit pour l'épuisement de chakra)
+    vec3 teinte = chakra ? vec3(0.03, 0.06, 0.13) : vec3(0.025, 0.018, 0.018);
 
     if (mode == 1) {
         // ---------------- à terre : la vision tangue et se dédouble, les couleurs s'en vont
@@ -80,10 +83,10 @@ void main() {
         c = mix(c, flou(uv, px, 6.0), smoothstep(0.35, 0.95, dist));
         // désaturation
         c = mix(c, vec3(lum(c)), 0.6);
-        // vignette qui bat
-        float v = smoothstep(0.28, 1.0, dist) * (0.55 + 0.45 * pulse);
-        c = mix(c, teinte * (0.35 + 0.4 * pulse), clamp(v * 0.85, 0.0, 0.9));
-        c *= 0.82 + 0.1 * pulse;
+        // bords qui s'assombrissent au battement
+        float v = smoothstep(0.30, 1.0, dist) * (0.6 + 0.4 * pulse);
+        c = mix(c, teinte, clamp(v * 0.8, 0.0, 0.85));
+        c *= 0.84 + 0.08 * pulse;
         col = c;
     } else if (mode == 2) {
         // ---------------- inconscient : noir et blanc flou, paupières lourdes qui s'ouvrent et se ferment
@@ -91,7 +94,7 @@ void main() {
         float l = lum(c);
         c = vec3(l) * vec3(1.0, 0.97, 0.94);
         c = mix(vec3(0.18), c, 0.6);                                      // contraste écrasé
-        c += teinte * 0.12 * pulse * (1.0 - dist);                        // le cœur, encore
+        c *= 1.0 + 0.06 * pulse * (1.0 - dist);                           // le cœur, encore
         float ouverture = 0.16 + 0.07 * sin(t * 0.8) + 0.03 * pulse;      // paupières
         float yy = abs(uv.y - 0.5);
         float paupiere = smoothstep(ouverture, ouverture + 0.12, yy);
@@ -104,7 +107,29 @@ void main() {
         float douleur = 0.6 + 0.4 * (1.0 - hp);
         vec3 c = mix(orig, vec3(lum(orig)), 0.25 * douleur);
         float v = smoothstep(0.45, 1.05, dist) * (0.35 + 0.65 * pulse) * douleur;
-        c = mix(c, teinte * 0.5, clamp(v * 0.6, 0.0, 0.6));
+        c = mix(c, teinte, clamp(v * 0.5, 0.0, 0.5));
+        col = c;
+    } else if (mode == 4) {
+        // ---------------- douleur : à bout de forces, encore debout. Pas de rouge : le cœur assombrit les bords à
+        // chaque battement, la vue se trouble et se dédouble par à-coups, les couleurs s'en vont à moitié.
+        float D = p2.g;                                                    // « Effets de distorsion » (0..1)
+        // à-coups : un pic bref toutes les ~4 à 6 s (deux sinus désaccordés), plus un frisson au battement
+        float acoup = pow(max(0.0, sin(t * 1.13)), 14.0) + 0.7 * pow(max(0.0, sin(t * 0.71 + 2.0)), 18.0);
+        acoup = clamp(acoup + 0.25 * pulse, 0.0, 1.0) * D;
+        vec2 tremble = vec2(sin(t * 7.3) * 0.6 + sin(t * 2.1) * 0.5, cos(t * 5.9) * 0.5) * px * (0.5 + 0.8 * pulse) * D;
+        vec2 uv2 = uv + tremble;
+        vec3 c = texture(InSampler, uv2).rgb;
+        // vision double : une seconde image décalée, plus nette aux bords et aux à-coups
+        vec3 dbl = texture(InSampler, uv2 + vec2(5.0 + 7.0 * acoup, 1.5 * acoup) * px).rgb;
+        c = mix(c, dbl, (0.10 + 0.32 * acoup) * D);
+        // trouble aux bords, et partout pendant l'à-coup
+        c = mix(c, flou(uv2, px, 4.0 + 5.0 * acoup), clamp(smoothstep(0.45, 1.0, dist) + 0.55 * acoup, 0.0, 1.0) * D);
+        // désaturation partielle, un peu plus au battement
+        c = mix(c, vec3(lum(c)), 0.42 + 0.12 * pulse);
+        // bords qui s'assombrissent au rythme du cœur (noir, jamais rouge)
+        float v = smoothstep(0.26, 1.0, dist) * (0.6 + 0.4 * pulse);
+        c = mix(c, teinte, clamp(v * 0.95, 0.0, 0.92));
+        c *= 0.86 + 0.08 * pulse;
         col = c;
     }
 

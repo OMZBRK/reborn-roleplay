@@ -145,6 +145,8 @@ public class CharacterManager implements CharacterService {
         List<ShinobiCharacter> list = byOwner.computeIfAbsent(owner, k -> new ArrayList<>());
         list.add(c);
         repo.save(c);
+        com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.JOUEUR, "CREATION_PERSO").acteur(owner)
+                .ciblePersonnage(owner, c.id()).detail(name).ecrire();
         return c;
     }
 
@@ -152,6 +154,8 @@ public class CharacterManager implements CharacterService {
         List<ShinobiCharacter> list = getAll(owner);
         boolean removed = list.removeIf(c -> c.id().equals(characterId));
         if (removed) {
+            com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.JOUEUR, "SUPPRESSION_PERSO").acteur(owner)
+                    .cibleTexte(characterId.toString()).ecrire();
             repo.delete(owner, characterId);
             // Le N° reste pris pour toujours : l'index le garde, marqué supprimé.
             if (plugin.playerIds() != null) plugin.playerIds().markDeleted(characterId);

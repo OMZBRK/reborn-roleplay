@@ -664,19 +664,12 @@ public final class DuelService implements Listener {
     }
 
     private void log(String kind, Player a, Player b, String detail) {
-        String line = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + " | " + kind + " | "
-                + describe(a) + " vs " + describe(b)
-                + (a != null ? " | " + a.getWorld().getName() + " " + a.getLocation().getBlockX() + " "
-                    + a.getLocation().getBlockY() + " " + a.getLocation().getBlockZ() : "")
-                + (detail.isEmpty() ? "" : " | " + detail);
-        try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            try (PrintWriter w = new PrintWriter(new FileWriter(logFile, StandardCharsets.UTF_8, true))) {
-                w.println(line);
-            }
-        } catch (IOException ex) {
-            plugin.getLogger().log(Level.WARNING, "Échec d'écriture de duel-log.txt", ex);
-        }
+        // Journal universel (14/10) : remplace duel-log.txt → logs/duel-AAAA-MM-JJ.log.
+        var je = com.reborn.shinobicore.journal.Journal.entree(
+                com.reborn.shinobicore.api.JournalService.Categorie.DUEL, kind);
+        if (a != null) je.acteur(a).lieu(a.getLocation());
+        if (b != null) je.cible(b);
+        je.detail(detail).ecrire();
         if (plugin.staffPanel() != null && a != null) {
             try {
                 plugin.staffPanel().log(a, "duel", kind.toLowerCase(), describe(a) + " vs " + describe(b)

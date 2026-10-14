@@ -89,6 +89,20 @@ Règles complètes : [`../gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.
 - Musiques : `/ost play|playat|playglobal|stop`.
 - Cinématiques : `/cinematic`. Invisibilité : `/vanish`.
 
+### Outils staff (14/10, pas encore publiés)
+Cible : pseudo, nom RP ou `#N°`. **Tout est journalisé** : la commande tapée et son effet (`/journal`).
+- **Joueurs** : `/aller <cible>` puis `/retour` ; `/ramener <cible>` puis `/retour <cible>` (Modo) ;
+  `/geler <cible> [motif]` / `/degeler` (Modo, **persistant** : survit à la déconnexion) ; `/voirsac <cible>` (Modo,
+  prendre un objet : Admin) ; `/noir <cible> [secondes|off] [message]` (Modo) ; `/emoteforcee <cible> <emote|stop>`,
+  `/tenue <cible> <id Nexo|main|retirer>` (Modo).
+- **Messages** : `/annoncejoueur <cible> <message>` (convocation, scène) ; `/annonce <message>` à tous (Modo).
+- **Monde** : `/seisme [rayon|tous] [force] [secondes] [message]` (Admin).
+- **Personnages** : `/persoreset <#N°>`, `/persosuppr <#N°>` (Admin) — demande, puis la même commande + `confirmer`
+  sous 60 s ; une sauvegarde est faite avant (`sauvegardes/perso/`).
+- **Suivi** : `/note <#N°> ajouter [etiquette:<mot>] <texte>`, `/note <#N°>` pour lire (supprimer : l'auteur ou un
+  Admin) ; `/journal [#N°] [catégorie] [h:24] [texte]` ; `/modestaff` (invisible aux joueurs, aucune action de jeu).
+- Le **vocal n'est jamais journalisé**.
+
 ## 4. Les médics
 
 - Rang 1 : permission `shinobicore.medic` ; rang 2 : `shinobicore.medic.expert`. À donner au grade « Corps
@@ -100,5 +114,7 @@ Règles complètes : [`../gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.
 
 - Casier et journal dans la base du panel web (module `incidents` vide).
 - Synchronisation des grades staff panel → jeu.
-- Commandes `/geler` et `/sanction` hors du Poste de garde (« à venir » dans l'aide-mémoire).
+- Commande `/sanction` hors du Poste de garde.
+- Écrans du mod pour les annonces, l'écran noir, la secousse du séisme, les plaques du mode staff, le journal et les
+  notes au Poste de garde (repli vanilla en attendant).
 - Carte des zones pour un autre village que Konoha.

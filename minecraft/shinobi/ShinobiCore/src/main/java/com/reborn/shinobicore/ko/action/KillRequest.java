@@ -57,7 +57,7 @@ public final class KillRequest {
 
     public void setTimeoutTask(BukkitTask t) { this.timeoutTask = t; }
 
-    /* ---- validation staff (RPK accordée au demandeur, la mort vient à sa dernière action) */
+    /* ---- validation staff (RPK accordé au demandeur, la mort vient à sa dernière action) */
     private String validatedBy;
     private String reason;
 

@@ -15,9 +15,16 @@
 
 ## 0. Où en est-on — en une minute
 
-- **Date de référence : 13 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
+- **Date de référence : 14 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
 - **Game Plan Reborn : [`GAMEPLAN.md`](./GAMEPLAN.md), on avance point par point dans l'ordre RedLine** (§54 du Game
-  Plan). Points 1 à 3 (Player ID, inventaire, ramassage) validés dans leurs grandes lignes le 13/10 ; prochain : leurs ❓.
+  Plan).
+  - **Publié le 14/10** (`reborn-hud` 0.4.175, launcher 0.3.46) : Player ID (N° par personnage, `/pid`), accueil
+    Microsoft + Discord, inventaire / ramassage F / aura de rareté / surcharge, duel consenti, derniers écrans en jeu.
+  - **Fait le 14/10, non publié** (`reborn-hud` 0.4.176) : journal universel (tout est tracé quel que soit le grade) +
+    commandes staff RedLine ; Poste de garde clarifié ; allures marche / trot / sprint
+    ([`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md)) ; Douleur sous 5 % des PV, exécution unifiée,
+    portage en douleur, agonie (KO_ET_MORT_RP).
+  - **Plus tard** : système de combat (décision du 14/10).
 - **Livré les 12-13/10 (serveur dev)** — `reborn-hud` 0.4.170 → **0.4.174** + ShinobiCore / ShinobiAbilities + pack Nexo :
   - **Tous les menus au niveau de la « fiche shinobi »** (référence de rendu, DA §4.1-4.2) : fiche shinobi « portrait en
     scène » (remplace l'écran de stats), sélection / création de personnage (lac, lucioles, vrais blasons de clan,

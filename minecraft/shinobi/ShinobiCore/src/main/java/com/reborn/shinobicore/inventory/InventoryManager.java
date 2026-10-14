@@ -558,6 +558,14 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
             push(p, false);
             return;
         }
+        // Tenue imposée par le staff (/tenue, 14/10) : l'emplacement TENUE ne bouge plus.
+        if (cmd.equals("cos") && com.reborn.shinobicore.staff.outils.TenuesForcees.verrouille(p, parts)) {
+            Notifs.msg(p, "refus", "禁", "Ta tenue est imposée par le staff.", null);
+            push(p, false);
+            return;
+        }
+        // Journal universel : objet utilisé (nom lu avant l'action, qui peut le consommer).
+        String utilise = cmd.equals("use") && parts.length >= 2 ? journalNom(refGet(p, b, parts[1])) : null;
         boolean changed = false;
         boolean touched = true; // repousse un snapshot frais après toute action (resync)
         switch (cmd) {
@@ -601,12 +609,21 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
             }
             default -> touched = false;
         }
+        if ((changed && (cmd.equals("bag") || cmd.equals("cos") || cmd.equals("arme"))) || utilise != null) {
+            com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.INVENTAIRE,
+                    utilise != null ? "UTILISE" : "EQUIPEMENT").acteur(p)
+                    .detail(utilise != null ? utilise : msg).lieu(p.getLocation()).ecrire();
+        }
         if (changed) persist(p, b);
         if (touched) {
             p.updateInventory();
             push(p, false);
         }
         if (changed) recalc(p);
+    }
+
+    private static String journalNom(ItemStack s) {
+        return s == null || s.getType().isAir() ? null : s.getAmount() + "× " + RareteItems.nom(s);
     }
 
     // ─────────── Résolution des références de slot (H0..H8 / B0..Bn) ───────────
@@ -802,6 +819,57 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         ItemStack prev = b.equipped().put(cs, one);
         if (prev != null) giveOrDrop(p, b, prev);
         return true;
+    }
+
+    /**
+     * Staff ({@code /tenue}, 14/10) : pose {@code s} (copie, quantité 1) dans l'emplacement {@code TENUE} du personnage
+     * actif, ou le vide si {@code s} est null ; renvoie la pièce qui s'y trouvait (le code appelant la garde pour la
+     * rendre). Persiste, rafraîchit et rediffuse les cosmétiques.
+     */
+    public ItemStack staffPoserTenue(Player p, ItemStack s) {
+        RpBag b = bagFor(p);
+        if (b == null) return null;
+        ItemStack prev;
+        if (isEmpty(s)) prev = b.equipped().remove(CosmeticSlot.TENUE);
+        else {
+            ItemStack one = s.clone();
+            one.setAmount(1);
+            prev = b.equipped().put(CosmeticSlot.TENUE, one);
+        }
+        persist(p, b);
+        p.updateInventory();
+        push(p, false);
+        broadcastCosmetics(p);
+        return prev;
+    }
+
+    /**
+     * Staff ({@code /persoreset}, 14/10) : vide la sacoche du personnage {@code charId} (fichier supprimé, le code
+     * appelant en a fait une sauvegarde). Si {@code online} le joue, la sacoche vide est re-semée et poussée.
+     */
+    public void staffReinitialiserSac(UUID charId, Player online) {
+        if (charId == null || dir == null) return;
+        cache.remove(charId);
+        File f = new File(dir, charId + ".yml");
+        if (f.exists() && !f.delete()) plugin.getLogger().warning("[sacoche] Suppression échouée : " + f.getName());
+        if (online != null && charId.equals(activeCharId(online))) {
+            bagFor(online);
+            push(online, false);
+            recalc(online);
+        }
+    }
+
+    /** Dossier des sacoches ({@code rpbags/}), pour les sauvegardes staff. */
+    public File staffDossierSacs() { return dir; }
+
+    /** Copies de la barre, du sac porté et de l'équipement du personnage actif (lecture staff, {@code /voirsac}). */
+    public java.util.Map<String, ItemStack> staffApercu(Player p) {
+        java.util.Map<String, ItemStack> out = new java.util.LinkedHashMap<>();
+        RpBag b = bagFor(p);
+        if (b == null) return out;
+        if (b.wornBag() != null) out.put("SAC", b.wornBag().clone());
+        b.equipped().forEach((k, v) -> { if (!isEmpty(v)) out.put("EQ:" + k.name(), v.clone()); });
+        return out;
     }
 
     private boolean unequipCos(Player p, RpBag b, CosmeticSlot cs) {

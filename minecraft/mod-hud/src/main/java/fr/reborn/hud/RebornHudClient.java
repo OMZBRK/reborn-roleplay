@@ -163,6 +163,8 @@ public final class RebornHudClient implements ClientModInitializer {
                 () -> fr.reborn.hud.animation.NarutoRun.INSTANCE.setActive(payload.active())));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.animation.NarutoRun.INSTANCE.reset());
+        // Trois allures (14/10) : marche par défaut, trot (sprint maintenu), sprint (double appui) — canal reborn:allure.
+        fr.reborn.hud.allure.AllureClient.init();
 
         // Synchro des démarches ENTRE JOUEURS (canal reborn:anim, bidirectionnel avec
         // ShinobiAbilities). C2S : {uuid,state,walk} quand notre état change (+ heartbeat).

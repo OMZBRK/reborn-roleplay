@@ -730,6 +730,8 @@ public final class LibraryService implements Listener, PluginMessageListener {
         String techName = a == null ? "?" : a.name();
         char r = a == null ? 'D' : ScrollCatalog.rank(a);
         l.log(who(p), "prise", fondsShelf ? "fonds" : "arrivages", a == null ? "" : a.id(), techName, r);
+        com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.BIBLIOTHEQUE, "PRISE").acteur(p).cibleTexte(l.name)
+                .detail(techName + " (rang " + r + ") · " + (fondsShelf ? "fonds" : "arrivages")).lieu(p.getLocation()).ecrire();
         save();
         give(p, it);
         toast(p, "Rouleau pris : " + techName);
@@ -759,6 +761,8 @@ public final class LibraryService implements Listener, PluginMessageListener {
         char r = a == null ? 'D' : ScrollCatalog.rank(a);
         String techName = a == null ? techId : a.name();
         l.log(who(p), "depot", "fonds", techId, techName, r);
+        com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.BIBLIOTHEQUE, "DEPOT").acteur(p).cibleTexte(l.name)
+                .detail(techName + " (rang " + r + ")" + (stolen == null ? "" : " · volé à " + stolen)).lieu(p.getLocation()).ecrire();
         save();
         toast(p, "Rouleau déposé : " + techName);
         if (r == 'A' || r == 'S') logStaff(p, "Parchemin rang " + r + " déposé", techName + " · " + l.name);

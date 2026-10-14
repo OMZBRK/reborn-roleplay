@@ -1,59 +1,181 @@
 package fr.reborn.hud.staff;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 /**
  * Banc d'essai visuel du Poste de garde, <b>inactif en production</b> : ne fait rien sauf si
- * {@code REBORN_STAFF_DEBUG=1} (client de dev, {@code gradlew runClient}). Injecte un état d'exemple (comme s'il
- * venait du serveur), ouvre chaque onglet, prend une capture dans run/screenshots/, puis ferme le jeu.
+ * {@code REBORN_STAFF_DEBUG} est posé (client de dev, {@code gradlew runClient}). Injecte un état d'exemple (comme
+ * s'il venait du serveur), ouvre chaque onglet et sous-vue, prend une capture dans run/screenshots/, puis ferme le
+ * jeu.
+ *
+ * <ul>
+ *   <li>{@code =1} : chaque cas en 1920×1080, 1366×768 et 1920×1080 avec l'échelle GUI 3 du joueur (MenuScale
+ *   ramène le menu à la taille de l'échelle 2 ; le HUD en jeu, lui, est à l'échelle 3) ;</li>
+ *   <li>{@code =vite} : 1920×1080 seul ;</li>
+ *   <li>{@code =<cas>,<cas>…} : ces cas seuls, aux trois tailles.</li>
+ * </ul>
+ * Captures {@code run/screenshots/garde_<taille>_<nn>_<cas>.png}.
  */
 public final class StaffDebug {
 
-    private static int ticks = -1;
+    /** Une capture : nom, cas (onglet / sous-vue), fenêtre et échelle GUI, données denses (noms longs, listes longues). */
+    private record Shot(String nom, String cas, int fw, int fh, int echelle, boolean dense) {}
+
+    /** Tous les onglets et sous-vues du Poste de garde et de l'Infirmerie (audit et captures avant / après). */
+    static final String[] CAS = {
+            "alertes", "alertes_vides", "joueurs", "joueurs_recherche", "joueurs_aucun", "fiche_haut", "fiche_bas",
+            "sanction", "sanction_sceau", "chat", "journal", "journal_filtre", "commandes", "commandes_recherche",
+            "blesses", "blesses_p2", "zones", "zones_nouvelle", "hopitaux", "reglages",
+            "dense_alertes", "dense_joueurs", "dense_fiche", "dense_journal",
+            "fiche_sanctions", "fiche_notes", "fiche_comptes", "journal_detail", "journal_pid", "journal_vide",
+            "annonces", "annonce_confirm", "action_noir", "action_suppr",
+            "hud_annonce", "hud_annonce_perso", "hud_noir", "hud_plaques"};
+
+    private static final int STEP = 30;
+    private static final List<Shot> SHOTS = new ArrayList<>();
+    private static int t = -1;
 
     private StaffDebug() {}
 
     public static void init() {
-        if (!"1".equals(System.getenv("REBORN_STAFF_DEBUG"))) return;
+        String v = System.getenv("REBORN_STAFF_DEBUG");
+        if (v == null || v.isBlank()) return;
+        v = v.trim();
+        boolean vite = "vite".equalsIgnoreCase(v);
+        int[][] tailles = vite ? new int[][]{{1920, 1080, 2}}
+                : new int[][]{{1920, 1080, 2}, {1366, 768, 2}, {1920, 1080, 3}};
+        Set<String> only = new HashSet<>();
+        if (!"1".equals(v) && !vite) only.addAll(List.of(v.split(",")));
+        for (int[] f : tailles) {
+            String tag = f[2] == 3 ? "s3" : f[0] + "x" + f[1];
+            for (int i = 0; i < CAS.length; i++) {
+                String c = CAS[i];
+                if (!only.isEmpty() && !only.contains(c)) continue;
+                SHOTS.add(new Shot(String.format("garde_%s_%02d_%s", tag, i + 1, c),
+                        "dense_fiche".equals(c) ? "fiche_haut" : c.replace("dense_", ""), f[0], f[1], f[2], c.startsWith("dense_")));
+            }
+        }
         ClientTickEvents.END_CLIENT_TICK.register(StaffDebug::tick);
     }
 
     private static void tick(Minecraft mc) {
-        if (mc.player == null || mc.level == null) { ticks = -1; return; }
-        ticks++;
+        if (mc.player == null || mc.level == null) { t = -1; return; }
+        t++;
+        if (t == 20) {
+            mc.player.connection.sendCommand("time set 13000");
+            mc.player.connection.sendCommand("weather clear");
+            mc.gui.hud.getChat().clearMessages(false);
+        }
+        if (t < 40) return;
+        int i = (t - 40) / STEP, k = (t - 40) % STEP;
+        if (i >= SHOTS.size()) {
+            if (k == 2) mc.setScreenAndShow(null);
+            if (k == 6) mc.stop();
+            return;
+        }
+        Shot s = SHOTS.get(i);
         String me = mc.player.getUUID().toString();
-        switch (ticks) {
-            case 40 -> mc.player.connection.sendCommand("time set 13000");
-            case 60 -> {
-                inject(SNAP.replace("$ME", me));
-                inject(PROFILE.replace("$ME", me));
-                mc.setScreenAndShow(new GardeScreen("alerts"));
+        if (k == 0) {
+            mc.setScreenAndShow(null);
+            EffetsStaff.effacer();
+            PlaquesStaff.debugEffacer();
+            mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+            if (mc.getWindow().getScreenWidth() != s.fw() || mc.getWindow().getScreenHeight() != s.fh()) {
+                mc.getWindow().setWindowed(s.fw(), s.fh());
             }
-            case 90 -> shot(mc);                                                   // Alertes
-            case 95 -> click(mc, "players");
-            case 110 -> shot(mc);                                                  // Joueurs
-            case 111 -> search(mc, "#00042");
-            case 120 -> shot(mc);                                                  // Joueurs · recherche #N°
-            case 121 -> search(mc, "");
-            case 122 -> profile(mc, me);
-            case 135 -> shot(mc);                                                  // Fiche
-            case 140 -> scroll(mc, -12);
-            case 155 -> shot(mc);                                                  // Fiche (bas : casier, infractions)
-            case 160 -> confirm(mc);
-            case 180 -> shot(mc);                                                  // Confirmation
-            case 181 -> { if (mc.gui.screen() instanceof StaffScreen s) s.debugSeal(); }
-            case 184 -> shot(mc);                                                  // Sceau 罰 apposé
-            case 187 -> click(mc, "chat");
-            case 200 -> shot(mc);                                                  // Chat staff
-            case 205 -> click(mc, "journal");
-            case 220 -> shot(mc);                                                  // Journal
-            case 225 -> click(mc, "cmds");
-            case 240 -> shot(mc);                                                  // Commandes
-            case 260 -> mc.stop();
+            mc.options.guiScale().set(s.echelle());
+            mc.resizeGui();
+        }
+        if (k == 4) {
+            inject(snap(me, s.dense(), s.cas()));
+            inject(profile(me, s.dense()));
+            StaffDemo.activer(me, profile(me, s.dense()));
+            StaffClient.debugReceive(InfirmerieDebug.snapshot(me));
+            if (s.cas().startsWith("hud_")) { hud(mc, s.cas()); return; }
+            boolean ko = switch (s.cas()) {
+                case "blesses", "blesses_p2", "zones", "zones_nouvelle", "hopitaux", "reglages" -> true;
+                default -> false;
+            };
+            GardeScreen g = new GardeScreen(ko ? "ko" : "alerts");
+            mc.setScreenAndShow(g);
+            setup(g, s.cas(), me);
+        }
+        if (k == 8 && "fiche_bas".equals(s.cas()) && mc.gui.screen() instanceof StaffScreen g) g.mouseScrolled(0, 0, 0, -40);
+        if (k == 8 && "journal_detail".equals(s.cas()) && mc.gui.screen() instanceof StaffScreen g) g.journalVue.debugDetail(2);
+        if (k == STEP - 6 && "sanction_sceau".equals(s.cas()) && mc.gui.screen() instanceof StaffScreen g) g.debugSeal();
+        if (k == STEP - 3) {
+            Screenshot.grab(mc.gameDirectory, s.nom() + ".png", mc.gameRenderer.mainRenderTarget(), 1, m -> { });
+        }
+    }
+
+    private static void setup(GardeScreen g, String cas, String me) {
+        switch (cas) {
+            case "alertes", "alertes_vides" -> g.debugTab("alerts");
+            case "joueurs" -> g.debugTab("players");
+            case "joueurs_recherche" -> { g.debugTab("players"); g.debugSearch("#00042"); }
+            case "joueurs_aucun" -> { g.debugTab("players"); g.debugSearch("Itachi"); }
+            case "fiche_haut", "fiche_bas" -> g.debugProfile(me);
+            case "fiche_sanctions" -> { g.debugProfile(me); g.fiche.sous = "sanctions"; }
+            case "fiche_notes" -> { g.debugProfile(me); g.fiche.sous = "notes"; }
+            case "fiche_comptes" -> { g.debugProfile(me); g.fiche.sous = "comptes"; }
+            case "action_noir" -> { g.debugProfile(me); g.fiche.debugAction("blind"); g.formulaire.debugValeur(0, "Vous perdez connaissance…"); }
+            case "action_suppr" -> { g.debugProfile(me); g.fiche.debugAction("perso_suppr"); }
+            case "sanction", "sanction_sceau" -> { g.debugProfile(me); g.fiche.sous = "sanctions"; g.debugConfirm(3); }
+            case "chat" -> g.debugTab("chat");
+            case "journal", "journal_detail" -> g.debugTab("journal");
+            case "journal_filtre" -> {
+                g.debugTab("journal");
+                g.journalVue.cats.add("COMBAT");
+                g.journalVue.cats.add("KO");
+                g.journalVue.periode = "24h";
+                g.journalVue.demander();
+            }
+            case "journal_pid" -> { g.journalVue.filtrerPid("00042", "Kazuki Uchiha"); g.debugTab("journal"); }
+            case "journal_vide" -> { g.debugTab("journal"); g.journalVue.debugTexte("introuvable"); }
+            case "annonces" -> {
+                g.debugTab("annonces");
+                g.annoncesVue.debugRemplir(false, "Hokage", "Rassemblement devant la tour du Hokage dans dix minutes.", "");
+            }
+            case "annonce_confirm" -> {
+                g.debugTab("annonces");
+                g.annoncesVue.debugRemplir(false, "Hokage", "Rassemblement devant la tour du Hokage dans dix minutes.", "");
+                g.annoncesVue.debugEnvoyer();
+            }
+            case "commandes" -> g.debugTab("cmds");
+            case "commandes_recherche" -> { g.debugTab("cmds"); g.debugCmdSearch("ata"); }
+            case "blesses" -> g.debugKoTab("blesses");
+            case "blesses_p2" -> { g.debugKoTab("blesses"); g.debugPage(1); }
+            case "zones" -> { g.debugKoTab("zones"); g.debugSelect("dojo"); }
+            case "zones_nouvelle" -> { g.debugKoTab("zones"); g.debugDraft(15905, 9690, 15930, 9705); }
+            case "hopitaux" -> g.debugKoTab("hopitaux");
+            case "reglages" -> g.debugKoTab("reglages");
+            default -> { }
+        }
+    }
+
+    /** Effets en jeu (HUD) : annonce globale / personnelle, écran noir, plaques staff (sur soi, vue de face). */
+    private static void hud(Minecraft mc, String cas) {
+        switch (cas) {
+            case "hud_annonce" -> {
+                EffetsStaff.debugAnnonce(false, "Hokage", "Rassemblement devant la tour du Hokage dans dix minutes.", 1500);
+                EffetsStaff.recevoir("{\"t\":\"seisme\",\"f\":3,\"s\":1}");
+            }
+            case "hud_annonce_perso" -> EffetsStaff.debugAnnonce(true, "", "Le Hokage te convoque à son bureau. Viens seul.", 1500);
+            case "hud_noir" -> EffetsStaff.recevoir("{\"t\":\"noir\",\"on\":true,\"texte\":\"Vous perdez connaissance…\",\"fondu\":4,\"s\":0}");
+            case "hud_plaques" -> {
+                PlaquesStaff.debugSoi(mc.player.getUUID());
+                mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
+            }
             default -> { }
         }
     }
@@ -61,47 +183,100 @@ public final class StaffDebug {
     /** Audit responsive : Poste de garde ouvert sur {@code tab} (fiche du joueur si {@code profile}). */
     public static void openDemo(Minecraft mc, String tab, boolean profile) {
         String me = mc.player.getUUID().toString();
-        inject(SNAP.replace("$ME", me));
-        inject(PROFILE.replace("$ME", me));
+        inject(snap(me, false, tab));
+        inject(profile(me, false));
         GardeScreen s = new GardeScreen("alerts");
         mc.setScreenAndShow(s);
         s.debugTab(tab);
         if (profile) s.debugProfile(me);
     }
 
-    private static void inject(String json) {
-        JsonObject o = JsonParser.parseString(json).getAsJsonObject();
-        try {
-            var m = StaffClient.class.getDeclaredMethod("receive", String.class);
-            m.setAccessible(true);
-            m.invoke(null, o.toString());
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
+    /** État d'exemple ; {@code dense} : noms et motifs longs, listes longues (pires cas de mise en page). */
+    static String snap(String me, boolean dense, String cas) {
+        JsonObject o = JsonParser.parseString(SNAP.replace("$ME", me)).getAsJsonObject();
+        if ("alertes_vides".equals(cas)) o.add("alerts", new JsonArray());
+        // champs du protocole du 14/10 (PLUGINS_REFERENCE §4 bis.2) : marqueurs des joueurs, mode staff
+        o.addProperty("modeStaff", "annonces".equals(cas) || "joueurs".equals(cas));
+        JsonArray pl = o.getAsJsonArray("players");
+        JsonObject p0 = pl.get(0).getAsJsonObject();
+        p0.addProperty("notes", 3);
+        JsonArray et = new JsonArray();
+        et.add("surveillé");
+        et.add("avertissement");
+        p0.add("etiquettes", et);
+        pl.get(1).getAsJsonObject().addProperty("gele", true);
+        pl.get(3).getAsJsonObject().addProperty("modeStaff", true);
+        if (dense) densify(o, me);
+        return o.toString();
+    }
+
+    static String profile(String me, boolean dense) {
+        JsonObject p = JsonParser.parseString(PROFILE.replace("$ME", me)).getAsJsonObject();
+        p.addProperty("notes", 3);
+        p.addProperty("back", true);
+        p.addProperty("retour", false);
+        JsonArray et = new JsonArray();
+        et.add("surveillé");
+        et.add("avertissement");
+        p.add("etiquettes", et);
+        if (dense) {
+            p.addProperty("gele", true);
+            p.addProperty("gelePar", "Hiro");
+            p.addProperty("geleMotif", "refus d'obtempérer");
+            p.addProperty("noir", true);
+            p.addProperty("perso", "Kazuki Uchiha-Senju no Mikoto");
+            p.addProperty("name", "xX_Raiden_FR_Officiel_Xx");
+            p.addProperty("village", "kirigakure");
+            p.addProperty("rank", "Jōnin spécial");
+            p.addProperty("state", "ATA pleine · repos 3/20 · gelé par Hiro");
+            p.addProperty("ryo", 1234567);
+            p.addProperty("playtime", 98765);
+        }
+        return p.toString();
+    }
+
+    private static void densify(JsonObject o, String me) {
+        String[] persos = {"Kazuki Uchiha-Senju no Mikoto", "Ren Hyūga de la Branche Secondaire", "Daisuke Sarutobi",
+                "Aya Haruno", "Kenta Aburame", "Sora Nara", "Mei Akimichi", "Hana Inuzuka", "Itsuki Yamanaka",
+                "Shion Hōzuki", "Tetsuya Kaguya", "Yūki Senju", "Nobu Hatake", "Asuka Uzumaki-Namikaze"};
+        String[] pseudos = {"xX_Raiden_FR_Officiel_Xx", "Mika_", "Dais", "Aya", "kenta.a", "sora", "mei.a", "hana_rp",
+                "itsuki_y", "ShionHozukiDu75", "tetsu", "yuki", "nobu", "asuka_un"};
+        JsonArray pl = new JsonArray();
+        for (int i = 0; i < persos.length; i++) {
+            JsonObject p = new JsonObject();
+            p.addProperty("uuid", me);
+            p.addProperty("name", pseudos[i]);
+            p.addProperty("perso", persos[i]);
+            p.addProperty("pid", String.format("%05d", 42 + i * 137));
+            p.addProperty("rank", i % 3 == 0 ? "Jōnin spécial" : i % 3 == 1 ? "Genin" : "Chūnin");
+            p.addProperty("village", i % 4 == 0 ? "kirigakure" : "konoha");
+            p.addProperty("state", i % 5 == 0 ? "ATA pleine · repos 3/20 · gelé" : i % 5 == 2 ? "À terre" : "");
+            pl.add(p);
+        }
+        o.add("players", pl);
+        JsonArray al = o.getAsJsonArray("alerts");
+        JsonObject a0 = al.get(0).getAsJsonObject();
+        a0.addProperty("perso", persos[0]);
+        a0.addProperty("name", pseudos[0]);
+        a0.addProperty("rank", "Jōnin spécial");
+        a0.addProperty("motif", "Combat hors terrain d'entraînement ×4 sur des joueurs sans arme, en pleine place du marché de Konoha");
+        al.get(1).getAsJsonObject().addProperty("perso", persos[1]);
+        for (int k = 0; k < 4; k++) al.add(al.get(k % 3).deepCopy());
+        JsonArray j = o.getAsJsonArray("journal");
+        for (int k = 0; k < 4; k++) {
+            JsonObject e = new JsonObject();
+            e.addProperty("time", "14:0" + k);
+            e.addProperty("name", "Administrateur_Principal");
+            e.addProperty("grade", 3);
+            e.addProperty("kind", k % 2 == 0 ? "sanction" : "tp");
+            e.addProperty("type", k % 2 == 0 ? "Bannissement temporaire" : "Téléportation forcée");
+            e.addProperty("detail", "#00042 Kazuki Uchiha-Senju no Mikoto (xX_Raiden_FR_Officiel_Xx) · Combat hors terrain ×4, marché");
+            j.add(e);
         }
     }
 
-    private static void click(Minecraft mc, String tab) {
-        if (mc.gui.screen() instanceof StaffScreen s) s.debugTab(tab);
-    }
-
-    private static void profile(Minecraft mc, String uuid) {
-        if (mc.gui.screen() instanceof StaffScreen s) s.debugProfile(uuid);
-    }
-
-    private static void search(Minecraft mc, String q) {
-        if (mc.gui.screen() instanceof StaffScreen s) s.debugSearch(q);
-    }
-
-    private static void scroll(Minecraft mc, double amount) {
-        if (mc.gui.screen() instanceof StaffScreen s) s.mouseScrolled(0, 0, 0, amount);
-    }
-
-    private static void confirm(Minecraft mc) {
-        if (mc.gui.screen() instanceof StaffScreen s) s.debugConfirm(3);
-    }
-
-    private static void shot(Minecraft mc) {
-        Screenshot.grab(mc.gameDirectory, mc.gameRenderer.mainRenderTarget(), msg -> { });
+    private static void inject(String json) {
+        StaffClient.debugReceive(json);
     }
 
     private static final String SNAP = """

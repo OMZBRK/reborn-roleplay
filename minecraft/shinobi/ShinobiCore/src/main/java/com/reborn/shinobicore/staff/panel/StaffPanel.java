@@ -72,7 +72,11 @@ public final class StaffPanel implements Listener, PluginMessageListener {
     private final Map<UUID, Deque<Long>> aggressions = new ConcurrentHashMap<>();
     private final Map<UUID, Set<UUID>> victims = new ConcurrentHashMap<>();
     private final Map<UUID, Set<UUID>> reporters = new ConcurrentHashMap<>();
-    private final Set<UUID> frozen = ConcurrentHashMap.newKeySet();
+    /** Gel persistant (outils staff, gels.yml) ; avant le 14/10 il était tenu en mémoire ici. */
+    private boolean frozen(UUID id) {
+        var o = plugin.outilsStaff();
+        return o != null && o.gels().gele(id);
+    }
 
     public StaffPanel(ShinobiCore plugin) {
         this.plugin = plugin;
@@ -137,12 +141,48 @@ public final class StaffPanel implements Listener, PluginMessageListener {
             case "open" -> openFor(p);
             case "refresh" -> sendSnapshot(p);
             case "profile" -> {
-                UUID t = uuid(in, "t");
+                UUID t = cible(in);
                 if (t != null) sendProfile(p, t);
             }
             case "act" -> {
-                UUID t = uuid(in, "t");
-                if (t != null) act(p, grade, str(in, "op"), t);
+                UUID t = cible(in);
+                if (t != null) act(p, grade, str(in, "op"), t, in);
+            }
+            case "journal" -> journalQuery(p, in);
+            case "notes" -> sendNotes(p, in);
+            case "note_add" -> {
+                int pid = pidDe(in);
+                if (pid < 0 || plugin.outilsStaff() == null) { toast(p, "Personnage introuvable (ou sans N°)."); return; }
+                if (plugin.outilsStaff().notes().ajouter(p, pid, str(in, "etiquette"), str(in, "texte")) == null) toast(p, "Note vide.");
+                else toast(p, "Note ajoutée.");
+                sendNotes(p, in);
+            }
+            case "note_del" -> {
+                int pid = pidDe(in);
+                if (pid < 0 || plugin.outilsStaff() == null) return;
+                int r = plugin.outilsStaff().notes().supprimer(p, pid, str(in, "id"));
+                toast(p, r > 0 ? "Note supprimée." : r < 0 ? "Seul l'auteur ou un Admin peut supprimer cette note." : "Note introuvable.");
+                sendNotes(p, in);
+            }
+            case "annonce" -> {
+                if (grade < com.reborn.shinobicore.staff.outils.OutilsStaff.G_ANNONCE) { toast(p, "Réservé aux modérateurs et plus."); return; }
+                String m = str(in, "m").trim();
+                if (m.isEmpty() || plugin.outilsStaff() == null) return;
+                plugin.outilsStaff().effets().annonceGlobale(p, str(in, "titre"), m, intDe(in, "s", 8));
+                toast(p, "Annonce envoyée à tous.");
+            }
+            case "seisme" -> {
+                if (grade < com.reborn.shinobicore.staff.outils.OutilsStaff.G_SEISME) { toast(p, "Réservé aux admins et plus."); return; }
+                if (plugin.outilsStaff() == null) return;
+                int n = plugin.outilsStaff().effets().seisme(p, p.getLocation(), intDe(in, "r", 0), intDe(in, "f", 5),
+                        intDe(in, "s", 4), str(in, "m"));
+                toast(p, "Séisme : " + n + " joueur(s).");
+            }
+            case "modestaff" -> {
+                if (plugin.outilsStaff() == null) return;
+                boolean on = plugin.outilsStaff().mode().basculer(p);
+                toast(p, on ? "Mode staff activé." : "Mode staff désactivé.");
+                sendSnapshot(p);
             }
             case "sanction" -> {
                 UUID t = uuid(in, "t");
@@ -179,6 +219,37 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     static UUID uuid(JsonObject o, String k) {
         try { return UUID.fromString(str(o, k)); } catch (IllegalArgumentException e) { return null; }
+    }
+
+    static int intDe(JsonObject o, String k, int def) {
+        try { JsonElement e = o.get(k); return e == null || e.isJsonNull() ? def : e.getAsInt(); }
+        catch (RuntimeException e) { return def; }
+    }
+
+    static long longDe(JsonObject o, String k) {
+        try { JsonElement e = o.get(k); return e == null || e.isJsonNull() ? 0L : e.getAsLong(); }
+        catch (RuntimeException e) { return 0L; }
+    }
+
+    /** Cible d'une requête : {@code t} (UUID du compte) ou {@code pid} (N°, avec ou sans #). */
+    private UUID cible(JsonObject in) {
+        UUID t = uuid(in, "t");
+        if (t != null) return t;
+        String pid = str(in, "pid").trim();
+        if (pid.isEmpty()) return null;
+        int n = com.reborn.shinobicore.character.PlayerIdRegistry.parse(pid.startsWith("#") ? pid : "#" + pid);
+        if (n < 0 || plugin.playerIds() == null) return null;
+        var e = plugin.playerIds().get(n);
+        return e == null ? null : e.ownerId();
+    }
+
+    /** N° visé : {@code pid}, sinon personnage actif du compte {@code t}. -1 si aucun. */
+    private int pidDe(JsonObject in) {
+        String pid = str(in, "pid").trim();
+        if (!pid.isEmpty()) return com.reborn.shinobicore.character.PlayerIdRegistry.parse(pid.startsWith("#") ? pid : "#" + pid);
+        UUID t = uuid(in, "t");
+        ShinobiCharacter c = t != null ? plugin.characters().getActive(t) : null;
+        return c != null && c.hasPlayerId() ? c.playerId() : -1;
     }
 
     /* ================================================================ snapshot */
@@ -243,6 +314,16 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         }
         o.add("journal", jr);
         o.add("commands", commands());
+        var outils = plugin.outilsStaff();
+        o.addProperty("modeStaff", outils != null && outils.mode().actif(viewer.getUniqueId()));
+        JsonArray cats = new JsonArray();
+        for (var c : com.reborn.shinobicore.api.JournalService.Categorie.values()) {
+            JsonObject j = new JsonObject();
+            j.addProperty("id", c.name());
+            j.addProperty("label", c.label());
+            cats.add(j);
+        }
+        o.add("journalCats", cats);
         send(viewer, o);
     }
 
@@ -260,6 +341,15 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         j.addProperty("village", c != null ? c.village() : "");
         j.addProperty("rank", c != null ? c.rank().displayName() : "");
         j.addProperty("state", stateOf(id, c));
+        var outils = plugin.outilsStaff();
+        int pidN = c != null && c.hasPlayerId() ? c.playerId() : -1;
+        j.addProperty("notes", outils != null && pidN >= 0 ? outils.notes().nombre(pidN) : 0);
+        JsonArray et = new JsonArray();
+        if (outils != null && pidN >= 0) outils.notes().etiquettes(pidN).forEach(et::add);
+        j.add("etiquettes", et);
+        j.addProperty("gele", frozen(id));
+        j.addProperty("noir", outils != null && outils.effets().enNoir(id));
+        j.addProperty("modeStaff", outils != null && outils.mode().actif(id));
         return j;
     }
 
@@ -272,7 +362,7 @@ public final class StaffPanel implements Listener, PluginMessageListener {
             if (v != null) parts.add("ATA " + (v.level() == AtaManager.Level.PLEINE ? "pleine" : "allégée")
                     + " · repos " + v.restMinutes() + "/" + v.requiredMinutes());
         }
-        if (frozen.contains(id)) parts.add("Gelé");
+        if (frozen(id)) parts.add("Gelé");
         if (store.mutedUntil(id) > System.currentTimeMillis()) parts.add("Muet");
         return String.join(" · ", parts);
     }
@@ -296,7 +386,13 @@ public final class StaffPanel implements Listener, PluginMessageListener {
             o.addProperty("chakraMax", Math.round(c.chakra().max()));
             o.addProperty("ryo", c.ryo());
         }
-        o.addProperty("frozen", frozen.contains(id));
+        o.addProperty("frozen", frozen(id));
+        var outils = plugin.outilsStaff();
+        var gel = outils != null ? outils.gels().gel(id) : null;
+        o.addProperty("geleMotif", gel != null ? gel.motif() : "");
+        o.addProperty("gelePar", gel != null ? gel.par() : "");
+        o.addProperty("retour", outils != null && outils.peutRenvoyer(id));
+        o.addProperty("back", outils != null && outils.peutRevenir(viewer.getUniqueId()));
         o.addProperty("watching", plugin.vanish() != null && plugin.vanish().isVanished(viewer.getUniqueId()));
         Alert ag = alerts.get("ag-" + id);
         o.addProperty("score", ag != null ? ag.score() : 0);
@@ -364,34 +460,43 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     /* ================================================================ actions */
 
-    private void act(Player staff, int grade, String op, UUID id) {
+    private void act(Player staff, int grade, String op, UUID id, JsonObject in) {
+        var outils = plugin.outilsStaff();
         Player t = Bukkit.getPlayer(id);
         String who = t != null ? persoName(t) : store.nameOf(id);
         int need = switch (op) {
-            case "tp" -> StaffGrades.HELPER;
+            case "tp", "back", "announce" -> StaffGrades.HELPER;
+            case "shake" -> StaffGrades.ADMIN;
             default -> StaffGrades.MODO;
         };
         if (grade < need) { toast(staff, "Ton grade ne permet pas cette action (" + StaffGrades.name(need) + " requis)."); return; }
-        if (t == null && !op.equals("unfreeze")) { toast(staff, who + " n'est pas en ligne."); return; }
+        if (outils == null && !op.equals("watch") && !op.equals("revive") && !op.equals("lift_ata")) { toast(staff, "Outils staff indisponibles."); return; }
+        if (t == null && !op.equals("unfreeze") && !op.equals("freeze") && !op.equals("back")) { toast(staff, who + " n'est pas en ligne."); return; }
         switch (op) {
             case "tp" -> {
-                staff.teleport(t.getLocation());
-                log(staff, "tp", "TP vers", who);
+                outils.aller(staff, t);
+                log(staff, "staff", "TP vers", who);
                 toast(staff, "Téléporté vers " + who + ".");
             }
+            case "back" -> {
+                if (outils.retour(staff)) toast(staff, "Retour effectué.");
+                else toast(staff, "Aucune position de retour.");
+            }
             case "bring" -> {
-                t.teleport(staff.getLocation());
-                log(staff, "tp", "Ramené", who + " → " + staff.getName());
+                outils.ramener(staff, t);
+                log(staff, "staff", "Ramené", who + " → " + staff.getName());
                 toast(staff, who + " a été ramené.");
             }
-            case "freeze" -> {
-                boolean on = frozen.add(id);
-                if (!on) frozen.remove(id);
-                if (on) t.showTitle(Title.title(Component.text("Gelé", NamedTextColor.AQUA),
-                        Component.text("Un membre du staff t'a immobilisé.", NamedTextColor.GRAY)));
-                else t.sendMessage("§7Tu peux de nouveau bouger.");
-                log(staff, "sanction", on ? "Gelé" : "Dégelé", who);
-                toast(staff, who + (on ? " est gelé." : " est dégelé."));
+            case "return" -> {
+                if (outils.renvoyer(staff, t)) toast(staff, who + " est renvoyé à sa position.");
+                else toast(staff, who + " n'a pas été ramené.");
+            }
+            case "freeze", "unfreeze" -> {
+                boolean on = op.equals("freeze") && !frozen(id);
+                if (on) outils.gels().geler(staff, id, t != null ? t.getName() : store.nameOf(id), str(in, "m"));
+                else outils.gels().degeler(staff, id);
+                log(staff, "staff", on ? "Gelé" : "Dégelé", who);
+                toast(staff, who + (on ? " est gelé (persistant)." : " est dégelé."));
             }
             case "watch" -> {
                 var v = plugin.vanish();
@@ -400,6 +505,7 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                     v.disable(staff);
                     toast(staff, "Observation terminée : tu es de nouveau visible.");
                 } else {
+                    if (outils != null) outils.memoriser(staff);
                     v.enable(staff, com.reborn.shinobicore.vanish.VanishManager.Mode.HIDE_ALL, Set.of());
                     Location l = t.getLocation().clone().add(t.getLocation().getDirection().multiply(-4)).add(0, 1.5, 0);
                     staff.teleport(l.setDirection(t.getLocation().toVector().subtract(l.toVector())));
@@ -424,9 +530,138 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 log(staff, "ko", "ATA levée", who);
                 toast(staff, "ATA levée pour " + who + ".");
             }
+            case "invsee" -> outils.voirSac().ouvrir(staff, t);
+            case "blind" -> {
+                if (outils.effets().enNoir(id)) {
+                    outils.effets().finNoir(staff, id);
+                    toast(staff, "Écran noir levé pour " + who + ".");
+                } else {
+                    outils.effets().noir(staff, t, str(in, "m"), intDe(in, "s", 0));
+                    toast(staff, "Écran noir sur " + who + ".");
+                }
+            }
+            case "shake" -> {
+                outils.effets().secouerUn(staff, t, intDe(in, "v", 5), intDe(in, "s", 4));
+                toast(staff, "Séisme sur " + who + ".");
+            }
+            case "announce" -> {
+                String m = str(in, "m").trim();
+                if (m.isEmpty()) return;
+                outils.effets().annoncePerso(staff, t, m, intDe(in, "s", 8));
+                toast(staff, "Message affiché à " + who + ".");
+            }
+            case "emote" -> {
+                String v = str(in, "v").trim();
+                if (v.isEmpty() || plugin.emotes() == null) return;
+                if (v.equalsIgnoreCase("stop")) plugin.emotes().stop(t);
+                else {
+                    var e = plugin.emotes().resolve(v);
+                    if (e == null) { toast(staff, "Emote inconnue : " + v); return; }
+                    plugin.emotes().play(t, e);
+                }
+                com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.STAFF,
+                        "EMOTE_FORCEE").acteur(staff).cible(t).detail(v).ecrire();
+                toast(staff, "Emote « " + v + " » pour " + who + ".");
+            }
+            case "outfit" -> {
+                String v = str(in, "v").trim();
+                if (v.isEmpty()) return;
+                if (v.equalsIgnoreCase("retirer")) {
+                    toast(staff, outils.tenues().lever(staff, t) ? "Tenue rendue à " + who + "." : who + " n'a pas de tenue imposée.");
+                } else {
+                    var it = outils.tenues().fabriquer(staff, v);
+                    if (it == null) { toast(staff, "Tenue introuvable : " + v); return; }
+                    toast(staff, outils.tenues().imposer(staff, t, it, v) ? "Tenue imposée à " + who + "." : who + " n'a pas de personnage actif.");
+                }
+            }
             default -> { return; }
         }
         sendProfile(staff, id);
+    }
+
+    /* ================================================================ journal universel, notes */
+
+    private void journalQuery(Player viewer, JsonObject in) {
+        var j = com.reborn.shinobicore.journal.Journal.impl();
+        if (j == null) { toast(viewer, "Journal indisponible."); return; }
+        java.util.Set<com.reborn.shinobicore.api.JournalService.Categorie> cats =
+                java.util.EnumSet.noneOf(com.reborn.shinobicore.api.JournalService.Categorie.class);
+        if (in.has("cat") && in.get("cat").isJsonArray()) {
+            for (JsonElement e : in.getAsJsonArray("cat")) {
+                var c = com.reborn.shinobicore.api.JournalService.Categorie.parse(e.getAsString());
+                if (c != null) cats.add(c);
+            }
+        }
+        String pidS = str(in, "pid").trim();
+        int pid = pidS.isEmpty() ? -1 : com.reborn.shinobicore.character.PlayerIdRegistry.parse(pidS.startsWith("#") ? pidS : "#" + pidS);
+        var req = new com.reborn.shinobicore.journal.JournalServiceImpl.Requete(cats, pid, str(in, "joueur"),
+                longDe(in, "du"), longDe(in, "au"), str(in, "q"), intDe(in, "page", 0), intDe(in, "par", 50));
+        long reqId = longDe(in, "req");
+        j.chercher(req, res -> {
+            if (!viewer.isOnline()) return;
+            JsonObject o = new JsonObject();
+            o.addProperty("t", "journal");
+            o.addProperty("req", reqId);
+            o.addProperty("total", res.total());
+            o.addProperty("page", res.page());
+            o.addProperty("pages", res.pages());
+            o.addProperty("source", res.source());
+            JsonArray cl = new JsonArray();
+            for (var c : com.reborn.shinobicore.api.JournalService.Categorie.values()) {
+                JsonObject x = new JsonObject();
+                x.addProperty("id", c.name());
+                x.addProperty("label", c.label());
+                cl.add(x);
+            }
+            o.add("cats", cl);
+            JsonArray arr = new JsonArray();
+            SimpleDateFormat f = new SimpleDateFormat("dd/MM HH:mm:ss");
+            for (var l : res.lignes()) {
+                JsonObject e = new JsonObject();
+                e.addProperty("id", l.id());
+                e.addProperty("at", l.at());
+                e.addProperty("date", f.format(new Date(l.at())));
+                e.addProperty("cat", l.cat().name());
+                e.addProperty("action", l.action());
+                e.add("acteur", l.acteur() == null ? com.google.gson.JsonNull.INSTANCE : l.acteur().json());
+                e.add("cible", l.cible() == null ? com.google.gson.JsonNull.INSTANCE : l.cible().json());
+                e.addProperty("detail", l.detail());
+                e.addProperty("lieu", l.lieu());
+                arr.add(e);
+            }
+            o.add("entries", arr);
+            send(viewer, o);
+        });
+    }
+
+    private void sendNotes(Player viewer, JsonObject in) {
+        var outils = plugin.outilsStaff();
+        int pid = pidDe(in);
+        JsonObject o = new JsonObject();
+        o.addProperty("t", "notes");
+        o.addProperty("pid", pid >= 0 ? com.reborn.shinobicore.character.PlayerIdRegistry.format(pid) : "");
+        var e = pid >= 0 && plugin.playerIds() != null ? plugin.playerIds().get(pid) : null;
+        o.addProperty("perso", e != null ? e.name() : "");
+        o.addProperty("pseudo", e != null && e.ownerId() != null ? store.nameOf(e.ownerId()) : "");
+        JsonArray arr = new JsonArray();
+        if (outils != null && pid >= 0) {
+            SimpleDateFormat f = new SimpleDateFormat("dd/MM HH:mm");
+            for (var n : outils.notes().de(pid)) {
+                JsonObject j = new JsonObject();
+                j.addProperty("id", n.id());
+                j.addProperty("at", n.at());
+                j.addProperty("date", f.format(new Date(n.at())));
+                j.addProperty("auteur", n.auteur());
+                j.addProperty("auteurPid", n.auteurPid());
+                j.addProperty("auteurGrade", n.auteurGrade());
+                j.addProperty("etiquette", n.etiquette());
+                j.addProperty("texte", n.texte());
+                j.addProperty("suppr", com.reborn.shinobicore.staff.outils.NotesStaff.peutSupprimer(viewer, n));
+                arr.add(j);
+            }
+        }
+        o.add("entries", arr);
+        send(viewer, o);
     }
 
     private void sanction(Player staff, int grade, UUID id, String offenseId, boolean warnOnly, String note, JsonArray ev) {
@@ -570,6 +805,8 @@ public final class StaffPanel implements Listener, PluginMessageListener {
     public void staffChat(Player from, String text) {
         int g = StaffGrades.of(from);
         chat.addLast(new ChatLine(System.currentTimeMillis(), g, from.getName(), text, false));
+        com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.CHAT,
+                "CHAT_STAFF").acteur(from).detail(text).ecrire();
         while (chat.size() > 100) chat.pollFirst();
         Component line = Component.text("[Staff] ", NamedTextColor.GOLD)
                 .append(Component.text(StaffGrades.name(g) + " " + from.getName() + " : ", NamedTextColor.YELLOW))
@@ -579,17 +816,37 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     public void system(String text) {
         chat.addLast(new ChatLine(System.currentTimeMillis(), 0, "Système", text, true));
+        com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.SYSTEME,
+                "ALERTE_STAFF").detail(text).ecrire();
         while (chat.size() > 100) chat.pollFirst();
         Component line = Component.text("[Staff] ", NamedTextColor.GOLD).append(Component.text(text, NamedTextColor.RED));
         for (Player p : Bukkit.getOnlinePlayers()) if (StaffGrades.of(p) > 0) p.sendMessage(line);
     }
 
     /** Journalise une action faite par un membre du staff (ou un médic pour les soins). */
+    /** Poste de garde seulement : l'appelant a déjà écrit au journal universel (ex. {@code KoJournal}). */
+    public void logSansJournal(Player who, String kind, String type, String detail) {
+        int g = StaffGrades.of(who);
+        String tag = g == StaffGrades.NONE ? com.reborn.shinobicore.character.PlayerIds.tag(who) : "";
+        store.log(tag.isEmpty() ? who.getName() : tag + " " + who.getName(), g, kind, type, detail);
+    }
+
     public void log(Player who, String kind, String type, String detail) {
         // Acteur joueur (médic, bibliothèque…) : son N° devant le pseudo, pour retrouver le personnage.
         int g = StaffGrades.of(who);
         String tag = g == StaffGrades.NONE ? com.reborn.shinobicore.character.PlayerIds.tag(who) : "";
         store.log(tag.isEmpty() ? who.getName() : tag + " " + who.getName(), g, kind, type, detail);
+        // Journal universel (14/10). « objet », « duel » et « staff » sont déjà journalisés par l'appelant.
+        if (kind == null || kind.equals("objet") || kind.equals("duel") || kind.equals("staff")) return;
+        var cat = switch (kind) {
+            case "soin", "yeux" -> com.reborn.shinobicore.api.JournalService.Categorie.INTERACTION;
+            case "parchemins" -> com.reborn.shinobicore.api.JournalService.Categorie.BIBLIOTHEQUE;
+            case "ko" -> g > StaffGrades.NONE ? com.reborn.shinobicore.api.JournalService.Categorie.STAFF
+                    : com.reborn.shinobicore.api.JournalService.Categorie.KO;
+            default -> com.reborn.shinobicore.api.JournalService.Categorie.STAFF;
+        };
+        com.reborn.shinobicore.journal.Journal.entree(cat, (kind + "_" + type).toUpperCase(java.util.Locale.ROOT)
+                .replace(' ', '_')).acteur(who).detail(detail).ecrire();
     }
 
     /* ================================================================ événements */
@@ -633,15 +890,6 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         store.seen(ev.getPlayer().getUniqueId(), ev.getPlayer().getName(), null);
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onMove(PlayerMoveEvent ev) {
-        if (!frozen.contains(ev.getPlayer().getUniqueId())) return;
-        if (ev.getFrom().getX() != ev.getTo().getX() || ev.getFrom().getZ() != ev.getTo().getZ()
-                || ev.getFrom().getY() < ev.getTo().getY()) {
-            ev.setCancelled(true);
-        }
-    }
-
     /* ================================================================ utilitaires */
 
     private String persoName(Player p) {
@@ -670,7 +918,21 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 {"Joueurs et modération", "#message", "Parler au staff depuis le chat", "1"},
                 {"Joueurs et modération", "/staffchat <message>", "Parler au staff", "1"},
                 {"Joueurs et modération", "/pid <joueur|#N°>", "N° de personnage, compte, état (hors ligne avec #N°)", "1"},
-                {"Joueurs et modération", "/tp <joueur|#N°>", "Aller à un joueur", "1"},
+                {"Joueurs et modération", "/aller <joueur|#N°>", "Aller à un joueur (/retour pour revenir)", "1"},
+                {"Joueurs et modération", "/journal [#N°] [catégorie] [h:24]", "Journal universel (tout est tracé)", "1"},
+                {"Joueurs et modération", "/note <#N°> ajouter <texte>", "Notes staff sur un personnage", "1"},
+                {"Joueurs et modération", "/annoncejoueur <joueur> <message>", "Message à un seul joueur", "1"},
+                {"Joueurs et modération", "/modestaff", "Mode staff : invisible, plaques au-dessus des têtes", "1"},
+                {"Joueurs et modération", "/ramener <joueur>", "Ramener un joueur (/retour <joueur> pour le renvoyer)", "2"},
+                {"Joueurs et modération", "/geler <joueur> [motif]", "Gel persistant (/degeler)", "2"},
+                {"Joueurs et modération", "/voirsac <joueur>", "Voir barre, sacoche et équipement", "2"},
+                {"Joueurs et modération", "/noir <joueur> [secondes|off] [message]", "Écran noir forcé", "2"},
+                {"Joueurs et modération", "/annonce <message>", "Annonce à tous", "2"},
+                {"Joueurs et modération", "/tenue <joueur> <id|main|retirer>", "Imposer une tenue", "2"},
+                {"Joueurs et modération", "/emoteforcee <joueur> <emote|stop>", "Forcer une emote", "2"},
+                {"Joueurs et modération", "/persoreset <#N°>", "Remettre un personnage à zéro (confirmation)", "3"},
+                {"Joueurs et modération", "/persosuppr <#N°>", "Supprimer un personnage (confirmation)", "3"},
+                {"Monde et zones", "/seisme [rayon|tous] [force] [s] [message]", "Séisme (écran qui tremble)", "3"},
                 {"Joueurs et modération", "/vanish", "Devenir invisible", "2"},
                 {"Joueurs et modération", "/pardon <joueur>", "Lever un bannissement", "3"},
                 {"KO, ATA et soins", "/ata voir <joueur>", "État ATA, repos et peur restante", "1"},

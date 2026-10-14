@@ -56,7 +56,7 @@ public final class Nameplates {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.options == null || mc.gui.hud.isHidden()) return;
         // Sans data serveur (hors serveur Shinobi / solo), on ne remplace rien.
-        if (!TablistData.hasData()) return;
+        if (!TablistData.hasData() && !debugAvatars) return;
 
         Camera cam = mc.gameRenderer.mainCamera();
         if (cam == null || !cam.isInitialized()) return;
@@ -74,7 +74,10 @@ public final class Nameplates {
         Vec3 look = mc.player.getViewVector(pt);
         Vec3 rayEnd = eye.add(look.x * MAX_DIST, look.y * MAX_DIST, look.z * MAX_DIST);
 
-        for (Player e : mc.level.players()) {
+        Iterable<? extends net.minecraft.world.entity.Entity> cibles = debugAvatars
+            ? mc.level.entitiesForRendering() : mc.level.players();
+        for (net.minecraft.world.entity.Entity e : cibles) {
+            if (!(e instanceof net.minecraft.world.entity.Avatar)) continue;
             if (e == mc.player) continue;                 // pas de plaque sur soi
             if (e.isCrouching()) continue;                // accroupi = discret (comme vanilla)
             if (e.isInvisible()) continue;
@@ -86,9 +89,10 @@ public final class Nameplates {
         }
     }
 
-    private static void drawFor(GuiGraphicsExtractor ctx, Font font, Player e, Vec3 camPos,
+    private static void drawFor(GuiGraphicsExtractor ctx, Font font, net.minecraft.world.entity.Entity e, Vec3 camPos,
                                 Matrix4f vp, int gw, int gh, double dist, float pt) {
         TablistData.RpName rp = TablistData.rpNameFor(e.getUUID());
+        if (rp == null && debugAvatars) rp = new TablistData.RpName("Ren Hyūga", TabEntry.Relation.CONNAISSANCE, 0x5577DD, "Hyūga", "Konoha");
         boolean known = rp != null && rp.relation() != TabEntry.Relation.INCONNU
             && rp.name() != null && !rp.name().isBlank();
         String name = known ? rp.name() : null;
@@ -108,13 +112,51 @@ public final class Nameplates {
         float sy = (1f - (ndcY * 0.5f + 0.5f)) * gh;
         float alpha = (float) Math.max(0.45, 1.0 - dist / (MAX_DIST + 2.0));
 
-        switch (Math.floorMod(RebornPrefs.INSTANCE.nameplateStyle, 4)) {
-            case 1 -> drawFilet(ctx, font, sx, sy, name, clanCol, alpha);
-            case 2 -> drawVillage(ctx, font, sx, sy, name, clanCol, village, alpha);
-            case 3 -> drawRuban(ctx, font, sx, sy, name, alpha);
-            default -> drawDetoure(ctx, font, sx, sy, name, clanCol, alpha);
+        // État KO (14/10) intégré au nom : nom teinté et petit glyphe accolé à droite (douleur, à terre,
+        // inconscient, mort) — plus de ligne séparée au-dessus.
+        fr.reborn.hud.ko.CorpsClient.Body etat = fr.reborn.hud.ko.CorpsClient.body(e.getUUID());
+        String glyphe = null;
+        int glypheCol = 0xFFE26474;
+        if (etat != null) {
+            switch (etat.phase()) {
+                case fr.reborn.hud.ko.CorpsClient.PHASE_DOULEUR -> { glyphe = "痛"; teinte = 0xFFEBC2BC; }
+                case 1 -> { glyphe = "倒"; teinte = 0xFFEBC2BC; }
+                case 2 -> { glyphe = "気絶"; teinte = 0xFFB4ACA2; glypheCol = 0xFFB4ACA2; }
+                case 3 -> { glyphe = "屍"; teinte = 0xFF8E867C; glypheCol = 0xFF8E867C; }
+                default -> { }
+            }
+        }
+        try {
+            switch (Math.floorMod(RebornPrefs.INSTANCE.nameplateStyle, 4)) {
+                case 1 -> drawFilet(ctx, font, sx, sy, name, clanCol, alpha);
+                case 2 -> drawVillage(ctx, font, sx, sy, name, clanCol, village, alpha);
+                case 3 -> drawRuban(ctx, font, sx, sy, name, alpha);
+                default -> drawDetoure(ctx, font, sx, sy, name, clanCol, alpha);
+            }
+        } finally {
+            teinte = 0;
+        }
+        if (glyphe != null) {
+            // petit glyphe accolé à droite du nom (police du jeu : l'ArcadePix n'a pas de kanji), même hauteur
+            int style = Math.floorMod(RebornPrefs.INSTANCE.nameplateStyle, 4);
+            String s = name != null ? name : (style == 2 ? "Inconnu" : "???");
+            float w = Da.width(font, s, Da.title());
+            float gx = sx + w / 2f + (style == 0 ? 10 : style == 2 ? 13 : 6);
+            float gy = sy - (style == 0 ? 8 * Da.title() + 2 : style == 2 ? 13 : 14) - 1;
+            ctx.pose().pushMatrix();
+            ctx.pose().translate(gx, gy);
+            ctx.pose().scale(0.75f, 0.75f);
+            ctx.text(font, net.minecraft.network.chat.Component.literal(glyphe), 0, 0, fade(glypheCol, alpha), true);
+            ctx.pose().popMatrix();
         }
     }
+
+    /** Banc d'essai (KoDebug) : plaques aussi sur les mannequins. */
+    public static boolean debugAvatars;
+    /** Teinte du nom pendant le dessin d'une plaque (état KO ; 0 = crème). */
+    private static int teinte;
+
+    private static int creme() { return teinte != 0 ? teinte : Da.CREAM; }
 
     /**
      * Plaque au style choisi par le joueur, centrée en {@code (x, y)} (bas de la plaque) — pour les écrans qui
@@ -145,7 +187,7 @@ public final class Nameplates {
         String s = name != null ? name : "???";
         float w = Da.width(f, s, sc);
         float top = y - 8 * sc - 2;
-        outlined(g, f, s, x, top, sc, name != null ? Da.CREAM : UNKNOWN, OUTLINE, a);
+        outlined(g, f, s, x, top, sc, name != null ? creme() : UNKNOWN, OUTLINE, a);
         if (name != null) {
             int bx = Math.round(x + w / 2f + 3), by = Math.round(top + 1);
             g.fill(bx - 1, by - 1, bx + 5, by + 5, fade(OUTLINE, a));
@@ -158,7 +200,7 @@ public final class Nameplates {
         float sc = Da.title();
         String s = name != null ? name : "???";
         float top = y - 14;
-        outlined(g, f, s, x, top, sc, name != null ? Da.CREAM : UNKNOWN, 0xFF000000, a);
+        outlined(g, f, s, x, top, sc, name != null ? creme() : UNKNOWN, 0xFF000000, a);
         int ly = Math.round(top + 8 * sc + 2);
         int half = Math.max(16, Math.round(Da.width(f, s, sc) / 2f) + 6);
         int cx = Math.round(x);
@@ -199,7 +241,7 @@ public final class Nameplates {
             }
             tx += icon + 4;
         }
-        Da.text(g, f, s, tx, y0 + (h - 8 * sc) / 2f + .5f, sc, fade(name != null ? Da.CREAM : UNKNOWN, a), 0);
+        Da.text(g, f, s, tx, y0 + (h - 8 * sc) / 2f + .5f, sc, fade(name != null ? creme() : UNKNOWN, a), 0);
         g.fill(x0 + 2, y0 + h, x0 + w - 2, y0 + h + 1, fade(name != null ? clanCol : 0xFF786E6E, a));
     }
 
@@ -220,7 +262,7 @@ public final class Nameplates {
             g.fill(x0 - 5 + notch, y0 + i, x0, y0 + i + 1, body);
             g.fill(x0 + w, y0 + i, x0 + w + 5 - notch, y0 + i + 1, body);
         }
-        Da.text(g, f, s, x, y0 + (h - 8 * sc) / 2f + .5f, sc, fade(name != null ? Da.CREAM : UNKNOWN, a), 1);
+        Da.text(g, f, s, x, y0 + (h - 8 * sc) / 2f + .5f, sc, fade(name != null ? creme() : UNKNOWN, a), 1);
     }
 
     // ── outils ───────────────────────────────────────────────────

@@ -251,10 +251,12 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         return plugin.duels() != null ? plugin.duels().techniqueDenial(playerId) : null;
     }
 
-    /** ATA (PainRP / FearRP) — see {@link AtaManager}. */
+    /** ATA (PainRP / FearRP) — see {@link AtaManager} — ou douleur (PV sous le seuil, {@link DouleurManager}) :
+     *  mêmes interdits côté ShinobiAbilities (techniques, kit de mobilité, course de chakra). */
     @Override
     public boolean isImpaired(UUID playerId) {
-        return plugin.ata() != null && plugin.ata().isImpaired(playerId);
+        return (plugin.ata() != null && plugin.ata().isImpaired(playerId))
+                || (plugin.douleur() != null && plugin.douleur().isInPain(playerId));
     }
 
     /** Remember who hit whom, so a KO knows its protagonists. */
@@ -278,9 +280,18 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
      *          player was already KO (no double-entry).
      */
     public KoState enterKo(Player player, UUID charId, KoState.Cause cause) {
+        return enterKo(player, charId, cause, false);
+    }
+
+    /**
+     * @param direct vrai = inconscient tout de suite, sans phase à terre (agonie) ni Volonté — une exécution sur
+     *               un personnage en douleur ({@link #executeToKo}).
+     */
+    public KoState enterKo(Player player, UUID charId, KoState.Cause cause, boolean direct) {
         if (player == null) return null;
         KoState existing = active.get(player.getUniqueId());
         if (existing != null) return existing;
+        if (plugin.douleur() != null) plugin.douleur().clear(player);
 
         // Notify addon plugins (ShinobiAbilities) before the KO effects
         // land, so the jutsu picker can restore the hotbar and any
@@ -328,7 +339,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                 if (now - t <= ATTACKER_WINDOW_MILLIS) st.attackers().add(attacker);
             });
         }
-        boolean downed = cause == KoState.Cause.HP && downedEnabled
+        boolean downed = !direct && cause == KoState.Cause.HP && downedEnabled
                 && (plugin.volonte() == null || !plugin.volonte().skipDowned(charId));
         st.setPhase(downed ? KoState.Phase.DOWNED : KoState.Phase.UNCONSCIOUS, now);
         active.put(player.getUniqueId(), st);
@@ -342,7 +353,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         if (downed && !modEvent(player, KoHudSync.EV_A_TERRE)) {
             player.showTitle(Title.title(
                     Component.text("À terre", NamedTextColor.DARK_RED, TextDecoration.BOLD),
-                    Component.text("Tu peux encore ramper… /aide pour appeler", NamedTextColor.GRAY),
+                    Component.text("Tu peux encore ramper…", NamedTextColor.GRAY),
                     Title.Times.times(Duration.ofMillis(200),
                             Duration.ofSeconds(2),
                             Duration.ofMillis(800))));
@@ -351,8 +362,34 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             showUnconsciousTitle(player);
         }
 
+        StringBuilder by = new StringBuilder();
+        for (UUID a : st.attackers()) {
+            Player ap = Bukkit.getPlayer(a);
+            if (ap != null) by.append(by.length() == 0 ? "par " : ", ").append(KoJournal.who(plugin, ap));
+        }
+        KoJournal.log(plugin, player, downed ? "Agonie (à terre)" : cause == KoState.Cause.CHAKRA
+                ? "Inconscient (chakra)" : direct ? "Inconscient (exécuté)" : "Inconscient", by.toString());
         save();
         return st;
+    }
+
+    /**
+     * Exécution d'un personnage en douleur (menu d'interaction, ou {@code /execution forcer} pour le staff) :
+     * il tombe <b>inconscient</b> sur-le-champ, sans agonie ni Volonté. Ce n'est pas une mort : la mort RP passe
+     * toujours par un RPK validé.
+     *
+     * @param killer l'exécuteur, ou null (staff)
+     */
+    public boolean executeToKo(Player killer, Player victim) {
+        if (victim == null || isKo(victim.getUniqueId())) return false;
+        ShinobiCharacter c = plugin.characters().getActive(victim.getUniqueId());
+        if (c == null) return false;
+        if (killer != null) recordHit(victim.getUniqueId(), killer.getUniqueId());
+        plugin.porter().releaseAllInvolving(victim.getUniqueId());
+        victim.setHealth(Math.max(0.5, Math.min(1.0, victim.getHealth())));
+        c.setCurrentHp(victim.getHealth());
+        enterKo(victim, c.id(), KoState.Cause.HP, true);
+        return true;
     }
 
     /** À terre → inconscient (timer écoulé, ou nouveau coup reçu). */
@@ -366,6 +403,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             st.setLockLocation(p.getLocation().clone());
             applyKoEffects(p);
             showUnconsciousTitle(p);
+            KoJournal.log(plugin, p, "Inconscient", "fin de l'agonie");
         }
         save();
     }
@@ -460,6 +498,8 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                             Duration.ofSeconds(3),
                             Duration.ofMillis(800))));
             p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BREATH, 0.8f, 0.8f);
+            KoJournal.log(plugin, p, title, String.format("PV %.0f/%.0f%s", p.getHealth(), p.getMaxHealth(),
+                    cause == KoState.Cause.HP && ataLevel != null ? " · ATA " + ataLevel.name().toLowerCase() : ""));
         }
         // PainRP / FearRP after a blow — not after chakra fatigue.
         if (cause == KoState.Cause.HP && ataLevel != null && plugin.ata() != null
@@ -575,7 +615,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
                 }
                 applyKoEffects(p);
                 if (!modded(p)) p.sendActionBar(Component.text(
-                        String.format("À terre — %d s · tu peux ramper · /aide pour appeler",
+                        String.format("À terre — %d s · tu peux ramper",
                                 left / 1000L + 1), NamedTextColor.RED));
                 continue;
             }

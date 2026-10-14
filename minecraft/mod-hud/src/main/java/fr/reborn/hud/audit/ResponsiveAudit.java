@@ -122,7 +122,7 @@ public final class ResponsiveAudit {
         add("hud_normal", 6, mc -> { KoClient.update(null); mc.setScreenAndShow(null); });
 
         // ── Poste de garde ──
-        for (String tab : new String[]{"alerts", "players", "chat", "journal", "cmds"}) {
+        for (String tab : new String[]{"alerts", "players", "journal", "annonces", "chat", "cmds"}) {
             add("garde_" + tab, 22, mc -> StaffDebug.openDemo(mc, tab, false));
         }
         add("garde_fiche", 22, mc -> StaffDebug.openDemo(mc, "players", true));

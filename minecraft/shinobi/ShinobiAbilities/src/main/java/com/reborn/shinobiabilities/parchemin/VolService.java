@@ -209,6 +209,8 @@ public final class VolService implements Listener {
         ParcheminItems.markStolen(it, l.name);
         String thief = libs.who(p);
         l.log(thief, "vol", v.fonds() ? "fonds" : "arrivages", a == null ? v.techId() : a.id(), techName, r);
+        com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.BIBLIOTHEQUE, "VOL").acteur(p).cibleTexte(l.name)
+                .detail(techName + " (rang " + r + ") · " + (v.fonds() ? "fonds" : "arrivages")).lieu(p.getLocation()).ecrire();
         libs.save();
         if (fits) {
             libs.give(p, it);

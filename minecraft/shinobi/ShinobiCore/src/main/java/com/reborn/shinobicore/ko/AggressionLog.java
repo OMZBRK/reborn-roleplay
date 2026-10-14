@@ -67,7 +67,9 @@ public final class AggressionLog implements Listener {
                 + " | " + attacker.getName() + " (" + com.reborn.shinobicore.character.PlayerIds.prefix(ac) + ac.name() + ")"
                 + " -> " + victim.getName() + " (" + com.reborn.shinobicore.character.PlayerIds.prefix(vc) + vc.name() + ")"
                 + " | " + l.getWorld().getName() + " " + l.getBlockX() + " " + l.getBlockY() + " " + l.getBlockZ();
-        append(line);
+        // Journal universel (14/10) : logs/combat-AAAA-MM-JJ.log (remplace aggression-log.txt).
+        com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.COMBAT, "AGRESSION").acteur(attacker).cible(victim)
+                .detail("ouvre le combat hors terrain d'entraînement").lieu(l).ecrire();
         if (plugin.staffPanel() != null) plugin.staffPanel().onAggression(attacker, victim, l);
     }
 

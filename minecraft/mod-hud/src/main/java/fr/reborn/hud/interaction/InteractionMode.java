@@ -65,6 +65,9 @@ public final class InteractionMode {
     /** Position calculée de chaque sous-menu (même valeur au rendu et au clic). */
     private int[] subX = new int[0], subY = new int[0];
     private int lastHot = -2;
+    /** Menu à enchaîner après l'action choisie (confirmation), au même endroit. */
+    private String chainTitle;
+    private List<InteractionItem> chainItems;
 
     private InteractionMode() {}
 
@@ -172,7 +175,8 @@ public final class InteractionMode {
             Entity e = ehr.getEntity();
             if (e instanceof Player pe) {
                 title = pe.getGameProfile().name();
-                sceau = fr.reborn.hud.ko.CorpsClient.body(pe.getUUID()) != null ? 1 : 0;
+                var body = fr.reborn.hud.ko.CorpsClient.body(pe.getUUID());
+                sceau = body != null && body.phase() != fr.reborn.hud.ko.CorpsClient.PHASE_DOULEUR ? 1 : 0;
                 items = InteractionMenus.forPlayer(title, pe.getUUID());
             } else {
                 title = e.getType().getDescription().getString();
@@ -232,7 +236,8 @@ public final class InteractionMode {
         titleC = DaKit.arcade(title);
         int maxW = tr.width(titleC) + 30 + 12;
         for (InteractionItem it : items) {
-            maxW = Math.max(maxW, tr.width(DaKit.inter(it.label())) + PAD_X * 2 + (it.hasChildren() ? ARROW_W : 0));
+            maxW = Math.max(maxW, tr.width(DaKit.inter(it.label())) + PAD_X * 2 + (it.hasChildren() ? ARROW_W : 0)
+                + raisonW(tr, it));
         }
         panelW = Math.max(MIN_W, Math.min(MAX_W, maxW));
         panelH = HEADER_H + items.size() * ROW_H + 6;
@@ -245,7 +250,7 @@ public final class InteractionMode {
             InteractionItem it = items.get(i);
             if (!it.hasChildren()) continue;
             int w = 0;
-            for (InteractionItem c : it.children()) w = Math.max(w, tr.width(DaKit.inter(c.label())));
+            for (InteractionItem c : it.children()) w = Math.max(w, tr.width(DaKit.inter(c.label())) + raisonW(tr, c));
             subW[i] = Math.max(MIN_W, Math.min(MAX_SUB_W, w + PAD_X * 2));
             int h = it.children().size() * ROW_H + SUB_PAD * 2;
             // à droite du menu, ou à gauche s'il n'y a pas la place
@@ -262,8 +267,37 @@ public final class InteractionMode {
     }
 
     private void run(InteractionItem it) {
+        // entrée grisée : rien n'est envoyé, le menu reste ouvert (la raison est déjà affichée)
+        if (it.isDisabled()) {
+            fr.reborn.hud.menu.RebornSounds.playReborn("esc.hover", 0.6f, 0.2f);
+            return;
+        }
+        chainItems = null;
         if (it.action() != null) it.action().run();
+        if (chainItems != null) {
+            Minecraft mc = Minecraft.getInstance();
+            title = chainTitle;
+            items = chainItems;
+            chainItems = null;
+            double k = 1 / guiParMenu();
+            cursorX = panelX * k;
+            cursorY = (panelY + 6) * k;
+            layoutAtCursor(mc);
+            hovered = submenuOwner = subHovered = -1;
+            menuOpen = true;
+            updateHover();
+            return;
+        }
         deactivate();
+    }
+
+    /**
+     * Depuis l'action d'une entrée : ouvre {@code next} à la place du menu courant (confirmation d'une action
+     * grave, par exemple une mise à mort RP).
+     */
+    public void chain(String nextTitle, List<InteractionItem> next) {
+        chainTitle = nextTitle;
+        chainItems = next;
     }
 
     private static double clamp(double v, double lo, double hi) {
@@ -352,14 +386,28 @@ public final class InteractionMode {
         DaKit.coupe(ctx, id, x - 2, y - 2, w + 8, h + 8, 0, 0, 208, texH, 16, 16, 208, texH);
     }
 
-    /** Une ligne : survol en laque rouge à réglette d'or, libellé Inter 9, chevron des sous-menus, filet de séparation. */
+    /** Largeur réservée à la raison d'une entrée grisée (Inter 7, à droite), 0 sinon. */
+    private static int raisonW(Font tr, InteractionItem it) {
+        return it.isDisabled() ? Math.round(DaKit.largeur7(tr, DaKit.inter(it.reason()))) + 10 : 0;
+    }
+
+    /** Une ligne : survol en laque rouge à réglette d'or, libellé Inter 9, chevron des sous-menus, filet de séparation.
+     *  Grisée : libellé éteint, pas de survol, raison en petit à droite. */
     private static void ligne(GuiGraphicsExtractor ctx, Font tr, InteractionItem it, int x, int y, int w, boolean hot,
                               boolean filet) {
+        if (it.isDisabled()) {
+            if (filet) ctx.fill(x + 10, y + ROW_H - 1, x + w - 10, y + ROW_H, 0xFF2D181C);
+            DaKit.inter9(ctx, tr, DaKit.inter(it.label()), x + PAD_X, y + ROW_H / 2f, 0xFF7A6E60, 0);
+            DaKit.inter7o(ctx, tr, DaKit.inter(it.reason()), x + w - PAD_X, y + ROW_H / 2f, 0xFF8E8172, 2);
+            return;
+        }
         if (hot) DaKit.coupeH(ctx, SURVOL, x + 4, y, w - 8, 0, 0, 196, 14, 8, 196, 14);
         else if (filet) ctx.fill(x + 10, y + ROW_H - 1, x + w - 10, y + ROW_H, 0xFF2D181C);
-        // la mise à mort (Achever, exécutions) en vermillon : l'action qui tue se distingue
-        boolean grave = it.label().startsWith("Achever") || it.action() != null && it.label().startsWith("Exécut");
-        DaKit.inter9(ctx, tr, DaKit.inter(it.label()), x + PAD_X, y + ROW_H / 2f,
+        // la mise à mort (Achever, exécutions, confirmation) en vermillon : l'action grave se distingue
+        String l = it.label();
+        boolean grave = l.startsWith("Achever") || l.startsWith("Confirmer la mise")
+            || it.hasChildren() && l.startsWith("Exécut");
+        DaKit.inter9(ctx, tr, DaKit.inter(l), x + PAD_X, y + ROW_H / 2f,
             grave ? (hot ? 0xFFF09A9E : 0xFFE26474) : hot ? DaKit.CREME : 0xFFD6CAB0, 0);
         if (it.hasChildren()) DaKit.blit(ctx, PIECES, x + w - 15, y + 4, hot ? 5 : 0, 0, 4, 7, 96, 34);
     }

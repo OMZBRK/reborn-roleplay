@@ -39,7 +39,7 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>{@code /yeux prelever <joueur|corps:<uuidMannequin>> <gauche|droit>} — sur un joueur en scène de mort,
- *       un corps au sol, ou un corps KO sur lequel l'opérateur a une RPK validée. Ouvre l'écran (mode
+ *       un corps au sol, ou un corps KO sur lequel l'opérateur a un RPK validé. Ouvre l'écran (mode
  *       {@code prelevement}) avec un jeton à usage unique.</li>
  *   <li>{@code /yeux greffer <joueur> <gauche|droit>} — médic expert, fiole en main, orbite vide. Patient
  *       inconscient : écran direct ; sinon il doit accepter ({@code /yeux consentir <médic>}).</li>
@@ -169,7 +169,7 @@ public final class YeuxCommand implements TabExecutor, Listener {
 
     /**
      * Raison pour laquelle on ne peut pas (ou plus) prélever sur cette cible, ou {@code null}. Joueur : en scène de
-     * mort, ou KO avec une RPK validée pour l'opérateur, et toujours le même personnage. Corps : toujours au sol.
+     * mort, ou KO avec un RPK validé pour l'opérateur, et toujours le même personnage. Corps : toujours au sol.
      */
     private String ineligible(Player op, Cible c, double reach) {
         DeathScene ds = plugin.deathScene();
@@ -188,7 +188,7 @@ public final class YeuxCommand implements TabExecutor, Listener {
             } else {
                 if (!plugin.ko().isKo(t.getUniqueId())) return "Cette personne n'est pas à terre.";
                 if (plugin.killRequests().validatedFor(op.getUniqueId(), t.getUniqueId()) == null) {
-                    return "Il faut une RPK validée par le staff sur cette personne.";
+                    return "Il faut un RPK validé par le staff sur cette personne.";
                 }
                 ShinobiCharacter act = plugin.characters().getActive(t.getUniqueId());
                 if (act == null || !act.id().equals(c.charId())) return "Ce n'est plus la même personne.";
@@ -331,7 +331,7 @@ public final class YeuxCommand implements TabExecutor, Listener {
             victim.sendMessage(Component.text("On t'a pris l'œil " + j.cote().nom + ".", NamedTextColor.DARK_RED));
         }
         String source = c.corps() ? "corps au sol"
-                : plugin.deathScene() != null && plugin.deathScene().isDead(c.player()) ? "mort, en scène" : "KO, RPK validée";
+                : plugin.deathScene() != null && plugin.deathScene().isDead(c.player()) ? "mort, en scène" : "KO, RPK validé";
         alert(op, c, j, ok, integ, source, at);
     }
 

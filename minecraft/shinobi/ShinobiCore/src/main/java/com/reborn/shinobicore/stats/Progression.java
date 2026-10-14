@@ -90,6 +90,13 @@ public final class Progression implements Listener {
         c.setExperience(Math.max(0, xp));
         c.setLevel(level);
         plugin.characterRepository().save(c);
+        // Journal universel (14/10) : chaque changement de niveau ; chaque gain d'XP si journal.xp (bavard).
+        if (level != before || plugin.getConfig().getBoolean("journal.xp", false)) {
+            com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.JOUEUR,
+                    level != before ? "NIVEAU" : "XP").acteur(p)
+                    .detail(String.format(java.util.Locale.FRANCE, "%+.1f XP (%s)", amount, why)
+                            + (level != before ? " · niveau " + before + " → " + level : "")).ecrire();
+        }
         return level;
     }
 

@@ -106,6 +106,33 @@ plaque ni de bandeau épais), Volonté, créneaux de recharge, activation du Bya
 | Cosmétiques | la **pelote à épingles** du tailleur (harisashi) |
 
 
+**Poste de garde clarifié (14/10, non publié)** — retour : « brouillon, pas facile de s'y retrouver ; bien espacer sans
+que ça dépasse / s'emboîte ». Identité gardée (cadre de bois, washi, plaquettes fuda, sceau 罰, 番 / 医), structure
+refaite :
+
+- **Navigation en groupes nommés** : 番 Garde (Alertes, Joueurs, Journal) · 令 Outils (Annonces, Chat staff,
+  Commandes) · 医 Infirmerie ; entrée active en laque rouge ; bascule **Mode staff** en bas de la colonne.
+- **Même ossature pour chaque vue** : en-tête fixe (titre ArcadePix ou **fil d'Ariane** « JOUEURS ▸ N° 00042 · nom »
+  + « < Retour », compteur à droite, filet), zone d'outils fixe (recherche, puces, carte d'identité, en-têtes de
+  colonnes), corps qui défile avec **barre de défilement**, pied fixe (saisie du chat, pagination).
+- **Grille** : marges 8, gouttières 6, lignes espacées de 4 ; colonnes calculées depuis la largeur (683×384 à
+  960×540) ; tout texte trop long est **coupé par « … » avec info-bulle** (bande d'encre bordée d'or).
+- **Boutons** : grands boutons d'action 16 GUI (Inter gras 8, texture `garde/boutons16.png`) pour les actions,
+  petits 12 GUI (ArcadePix) pour les puces et les lignes denses ; bouton éteint = raison au clic.
+- **Fiche joueur** : carte d'identité fixe (N°, grade, nom, compte, pastilles gelé / écran noir / étiquettes, six
+  repères) + sous-onglets Actions · Sanctions · Notes · Comptes liés · Journal ›. Actions en **panneaux par famille**
+  (Déplacement, Surveillance, Soins, Mise en scène, Personnage en liseré rouge) ; paramètres dans une **fenêtre de
+  formulaire** ; destructif = **retaper le N°**.
+- **Journal universel** : puces de catégories à pastille de couleur **sobre** (bleu-vert, brun, ambre, laque,
+  lie-de-vin, vert, violet, ardoise, encre, gris), période, texte, N° ; lignes alternées à liseré de couleur ; clic =
+  fenêtre de détail.
+- **États vides explicites** (une phrase + une aide plus petite), grande carte de washi `garde/feuille.png` pour les
+  formulaires pleine largeur.
+- **HUD en jeu (règle 9)** : annonce = une ligne fine en haut (minuscule sceau 告 global / 伝 perso, titre en petites
+  capitales d'or, filet d'or d'1 px qui se résorbe) ; écran noir = fondu, texte centré Inter 9 crème + filet ; séisme =
+  légère secousse de caméra (réglage vanilla « Effets de distorsion ») ; plaques staff = une ligne Inter 7 sur voile
+  léger « 00042 · nom · état » + jauge de PV d'1 px. Captures : `Maquettes/gameplan/04_staff/avant|apres/`.
+
 ## 5. Méthode de travail sur un visuel
 
 1. **Maquettes d'abord**, souvent plusieurs séries (« fais-en d'autres ») avant un choix.

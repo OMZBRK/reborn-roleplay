@@ -84,9 +84,12 @@ public final class ShinobiCore extends JavaPlugin {
     private com.reborn.shinobicore.medic.PalmHealing palmHealing;
     private com.reborn.shinobicore.ko.KoHudSync koHudSync;
     private com.reborn.shinobicore.staff.panel.StaffPanel staffPanel;
+    private com.reborn.shinobicore.journal.JournalServiceImpl journal;
+    private com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff;
     private com.reborn.shinobicore.ko.HospitalBeds hospitalBeds;
     private com.reborn.shinobicore.chakra.ExhaustionManager exhaustionManager;
     private com.reborn.shinobicore.ko.action.PorterManager porterManager;
+    private com.reborn.shinobicore.ko.DouleurManager douleurManager;
     private com.reborn.shinobicore.ko.action.KillRequestManager killRequestManager;
     private com.reborn.shinobicore.ko.injury.InjuryHealer injuryHealer;
     private com.reborn.shinobicore.dummy.DummyManager dummyManager;
@@ -116,6 +119,8 @@ public final class ShinobiCore extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+        // Journal universel (14/10) : avant tout le reste, pour que chaque système puisse journaliser.
+        this.journal = com.reborn.shinobicore.journal.JournalDemarrage.demarrer(this);
 
         // Mode serveur. « build » = serveur créatif staff : on saute toutes les
         // features RP (character selector, lockdown, HUD vitals/chakra, tablist,
@@ -239,6 +244,10 @@ public final class ShinobiCore extends JavaPlugin {
         //     Persistence: ko-state.yml + injuries on each character.
         this.koManager = new com.reborn.shinobicore.ko.KoManager(this);
         this.koManager.start();
+        // Douleur (Pain RP) : sous 5 % des PV, avant le KO — exécution et portage sans accord possibles.
+        this.douleurManager = new com.reborn.shinobicore.ko.DouleurManager(this);
+        this.douleurManager.start();
+        Bukkit.getPluginManager().registerEvents(douleurManager, this);
         this.porterManager = new com.reborn.shinobicore.ko.action.PorterManager(this);
         this.porterManager.start();
         Bukkit.getPluginManager().registerEvents(porterManager, this);
@@ -821,6 +830,10 @@ public final class ShinobiCore extends JavaPlugin {
         this.panelBridge = new com.reborn.shinobicore.panel.PanelBridge(this);
         this.panelBridge.start();
 
+        // Outils staff à la RedLine (14/10) : gel persistant, notes, annonces, écran noir, séisme, mode staff…
+        this.outilsStaff = new com.reborn.shinobicore.staff.outils.OutilsStaff(this);
+        this.outilsStaff.demarrer();
+
         getLogger().info("ShinobiCore enabled \u2014 mobility + character + chakra systems online.");
     }
 
@@ -830,6 +843,7 @@ public final class ShinobiCore extends JavaPlugin {
         // BEFORE the flush below, so the capture records the survival
         // inventory rather than creative build junk.
         if (panelBridge != null) panelBridge.stop();
+        if (outilsStaff != null) outilsStaff.arreter();
         if (vitalsPush != null) vitalsPush.stop();
         if (progression != null) progression.stop();
         if (deathScene != null) deathScene.stop();
@@ -862,6 +876,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (characterManager != null) characterManager.stopWelcomeTicker();
         if (rpInventory != null) rpInventory.flush();
         if (porterManager != null) porterManager.stop();
+        if (douleurManager != null) douleurManager.stop();
         if (injuryHealer != null) injuryHealer.stop();
         if (koManager != null) koManager.stop();
         if (ataManager != null) ataManager.stop();
@@ -874,6 +889,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (medicArmoirManager != null) medicArmoirManager.stop();
         if (serviceLogStore != null) serviceLogStore.stop();
         if (characterRepository != null) characterRepository.close();
+        com.reborn.shinobicore.journal.JournalDemarrage.arreter(journal);
         getLogger().info("ShinobiCore disabled.");
     }
 
@@ -1297,6 +1313,8 @@ public final class ShinobiCore extends JavaPlugin {
     public VisibilityManager visibility() { return visibility; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.KoManager ko() { return koManager; }
+    /** Douleur (PV sous le seuil, avant le KO). */
+    public com.reborn.shinobicore.ko.DouleurManager douleur() { return douleurManager; }
     public com.reborn.shinobicore.ko.zone.TrainingZones trainingZones() { return trainingZones; }
 
     private com.reborn.shinobicore.duel.DuelService duelService;
@@ -1331,6 +1349,9 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.medic.PalmHealing palm() { return palmHealing; }
     public com.reborn.shinobicore.ko.KoHudSync koHud() { return koHudSync; }
     public com.reborn.shinobicore.staff.panel.StaffPanel staffPanel() { return staffPanel; }
+    /** Journal universel (14/10) ; les add-ons passent par le service {@code JournalService}. */
+    public com.reborn.shinobicore.journal.JournalServiceImpl journal() { return journal; }
+    public com.reborn.shinobicore.staff.outils.OutilsStaff outilsStaff() { return outilsStaff; }
     public com.reborn.shinobicore.ko.HospitalBeds beds() { return hospitalBeds; }
     @com.reborn.shinobicore.api.Internal
     public com.reborn.shinobicore.ko.action.PorterManager porter() { return porterManager; }

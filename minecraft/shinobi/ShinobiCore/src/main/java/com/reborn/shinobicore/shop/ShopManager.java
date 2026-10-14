@@ -80,7 +80,10 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
     private void handleBuy(Player p, ShinobiCharacter c, String id) {
         if (id.isEmpty()) return;
         if (c.ownsOutfit(id)) { sendState(p, c, "§eTu possèdes déjà cette tenue."); return; }
-        if (!c.trySpendRyo(tenuePrice)) { sendState(p, c, "§cPas assez de ryo (" + tenuePrice + ")."); return; }
+        com.reborn.shinobicore.journal.RyoJournal.contexte("achat tenue « " + id + " »", p);
+        boolean paye = c.trySpendRyo(tenuePrice);
+        com.reborn.shinobicore.journal.RyoJournal.fin();
+        if (!paye) { sendState(p, c, "§cPas assez de ryo (" + tenuePrice + ")."); return; }
         c.addOwnedOutfit(id);
         plugin.characters().save(c);
         sendState(p, c, "§aTenue achetée ! §7(-" + tenuePrice + " ryo)");
@@ -90,7 +93,10 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         var places = plugin.places();
         var def = places == null ? null : places.map(id);
         if (def == null || def.price() <= 0) { sendState(p, c, "§cCette carte n'est pas en vente."); return; }
-        if (!c.trySpendRyo(def.price())) { sendState(p, c, "§cPas assez de ryo (" + def.price() + ")."); return; }
+        com.reborn.shinobicore.journal.RyoJournal.contexte("achat carte « " + id + " »", p);
+        boolean paye = c.trySpendRyo(def.price());
+        com.reborn.shinobicore.journal.RyoJournal.fin();
+        if (!paye) { sendState(p, c, "§cPas assez de ryo (" + def.price() + ")."); return; }
         plugin.characters().save(c);
         com.reborn.shinobicore.map.MapItem.give(plugin, p, def);
         sendState(p, c, "§aCarte de " + def.title() + " achetée ! §7(-" + def.price() + " ryo)");
@@ -158,10 +164,15 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
             try { amount = Long.parseLong(args[2]); } catch (NumberFormatException e) { sender.sendMessage(Component.text("Montant invalide.", NamedTextColor.RED)); return true; }
             ShinobiCharacter c = plugin.characters().getActive(target.getUniqueId());
             if (c == null) { sender.sendMessage(Component.text(target.getName() + " n'a pas de personnage actif.", NamedTextColor.RED)); return true; }
-            switch (op) {
-                case "give" -> c.addRyo(amount);
-                case "take" -> c.setRyo(c.ryo() - amount);
-                case "set"  -> c.setRyo(amount);
+            com.reborn.shinobicore.journal.RyoJournal.contexte("staff /ryo " + op + " " + amount, sender);
+            try {
+                switch (op) {
+                    case "give" -> c.addRyo(amount);
+                    case "take" -> c.setRyo(c.ryo() - amount);
+                    case "set"  -> c.setRyo(amount);
+                }
+            } finally {
+                com.reborn.shinobicore.journal.RyoJournal.fin();
             }
             plugin.characters().save(c);
             sendState(target, c, "§6Ryo : " + c.ryo());

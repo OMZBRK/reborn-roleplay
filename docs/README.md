@@ -33,6 +33,7 @@
 | [`gameplay/FACTION_PROPOSITION.md`](./gameplay/FACTION_PROPOSITION.md) | **Proposition** de design Faction (sections, fonctions, quotas, trésor, coffres, diplomatie), 18 questions ouvertes |
 | [`gameplay/MISSIONS.md`](./gameplay/MISSIONS.md) | Idées de missions et d'entraînements, formats de rapports (pas encore de système en jeu) |
 | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](./gameplay/INVENTAIRE_ET_COSMETIQUES.md) | Sacoche RP, poids, cosmétiques |
+| [`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md) | Allures marche / trot / sprint, endurance, emboîtement avec la surcharge et la course ninja |
 | [`gameplay/EMOTES.md`](./gameplay/EMOTES.md) | Emotes RP (EmoteCraft) et leur distribution |
 | [`gameplay/ANIMATIONS_BASE.md`](./gameplay/ANIMATIONS_BASE.md) | Catalogue d'animations à produire |
 

@@ -17,7 +17,7 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 /**
- * Exécutions : mises à mort animées, jouées sur un corps après une RPK validée (cosmétiques, <b>vendables</b>).
+ * Exécutions : mises à mort animées, jouées sur un corps après un RPK validé (cosmétiques, <b>vendables</b>).
  *
  * <p>Catalogue {@code executions.yml} (dossier du plugin, rechargeable) : nom, emote du tueur et de la victime
  * (fichiers EmoteCraft déposés dans {@code emotes/}, voir EmoteManager), durée, et l'instant où la mort tombe.
@@ -70,7 +70,7 @@ public final class Executions {
     private void writeDefaults() {
         YamlConfiguration y = new YamlConfiguration();
         y.options().setHeader(List.of(
-                "Exécutions (mises à mort animées après une RPK validée). Cosmétiques, vendables.",
+                "Exécutions (mises à mort animées après un RPK validé). Cosmétiques, vendables.",
                 "emote-tueur / emote-victime : clés d'emotes EmoteCraft (plugins/ShinobiCore/emotes/).",
                 "duree-ticks : durée de la scène (20 = 1 s) · mort-au-tick : instant où le personnage meurt.",
                 "gratuite: true = disponible pour tous. Sinon : /execution donner <joueur> <id>, ou la",

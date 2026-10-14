@@ -69,7 +69,7 @@ public final class InfirmerieDebug {
         Screenshot.grab(mc.gameDirectory, mc.gameRenderer.mainRenderTarget(), msg -> { });
     }
 
-    private static String snapshot(String me) {
+    static String snapshot(String me) {
         JsonObject o = new JsonObject();
         o.addProperty("t", "ko_snap");
         o.addProperty("grade", 4);

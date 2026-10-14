@@ -1,9 +1,11 @@
 # KO, blessures, soins et mort RP
 
-> **Fiche système, à jour au 2026-10-12** (ShinobiCore et ShinobiAbilities sur le serveur dev, `reborn-hud`
-> 0.4.169). Elle décrit **ce qui est codé**, pas une intention. La réflexion de départ (références GTA RP,
+> **Fiche système, à jour au 2026-10-14** (serveur dev : ShinobiCore et ShinobiAbilities du 14/10, `reborn-hud`
+> 0.4.175 ; **la douleur, l'exécution unifiée et le portage en douleur du 14/10 sont codés, non publiés**, §1 bis,
+> §6 bis, §8). Elle décrit **ce qui est codé**, pas une intention. La réflexion de départ (références GTA RP,
 > GMod, Arma…) et les variantes écartées sont dans
-> [`archives/conception/PROPOSITION_KO_PAINRP_2026-10-06.md`](../archives/conception/PROPOSITION_KO_PAINRP_2026-10-06.md).
+> [`archives/conception/PROPOSITION_KO_PAINRP_2026-10-06.md`](../archives/conception/PROPOSITION_KO_PAINRP_2026-10-06.md) ;
+> l'alignement sur le Game Plan RedLine (*KO / Pain System*) dans [`../GAMEPLAN.md`](../GAMEPLAN.md) §11.
 >
 > Code : `ShinobiCore/…/ko/` (KO, ATA, zones, corps, mort RP), `ShinobiCore/…/medic/` (soins),
 > `mod-hud/…/ko/` (habillage, QTE, scène de mort).
@@ -27,12 +29,14 @@ l'équipe veut éviter.
 ## 2. Le cycle complet
 
 ```
-combat hors zone ──► PV à 0
-                      │
-                      ▼
-              ① À TERRE (45 s) ──[Volonté, si le perso la connaît]──► SECOND SOUFFLE (debout, 5 % PV)
-                      │ coup de plus, temps écoulé, échec            │ retombe à 0 PV → KO direct
-                      ▼                                                ▼
+combat hors zone ──► PV ≤ 5 % ──► ⓪ DOULEUR (debout, à bout de forces) ──── soin au-dessus de 5 % ──► normal
+                                     │ PV à 0                 │ « Exécuter » (touche F maintenue, 3 s, sans RPK)
+                                     ▼                        ▼
+              ① À TERRE = AGONIE (45 s, on rampe)        ② INCONSCIENT direct (ni agonie ni Volonté)
+                 │  ├─[Volonté]──► SECOND SOUFFLE : debout à 5 % = DOULEUR (+ ATA allégée)
+                 │  └─[soin : bandage, paume]──► relevé, en DOULEUR s'il reste ≤ 5 % (+ ATA allégée)
+                 │ coup de plus, temps écoulé, échec
+                 ▼
               ② INCONSCIENT (5 min) ──── soigné sur place ────► ④ ATA allégée
                       │ les 5 min passent
                       ▼
@@ -40,16 +44,64 @@ combat hors zone ──► PV à 0
                                                                                         │ médic ou repos
                                                                                         ▼
                                                                                      rétabli
-
-   Sur un corps à terre ou inconscient, les autres peuvent : ausculter, porter, attraper à la gorge,
-   fouiller, demander une mise à mort RP (§6).
+   Sur une personne en douleur : la porter sans son accord (elle se débat avec Espace), l'exécuter (§6 bis).
+   Sur un corps à terre ou inconscient : ausculter, porter, attraper à la gorge, fouiller, demander un RPK,
+   puis l'exécuter (mort RP) une fois le RPK validé (§6, §7, §8).
 ```
 
-### ① À terre — 45 s (`ko.a-terre-secondes`)
+### Tableau des états et des transitions (14/10)
 
-- Le joueur **rampe** lentement : pas de saut, pas de technique, pas d'attaque.
+| État | On y entre | On en sort | Ce qu'on peut faire | Ce que les autres peuvent faire |
+|---|---|---|---|---|
+| **⓪ Douleur** 痛 | PV ≤ 5 % (`ko.douleur.seuil-pct`) hors terrain, hors duel ; second souffle ; relevé d'agonie par un soin | PV > 5 % → normal ; 0 PV → agonie ; exécuté → inconscient | Marcher (×0,6), parler, `/me`, se soigner (bandage) | Porter **sans accord**, exécuter (→ K.O.), soigner, ausculter |
+| **① Agonie** 倒 (« à terre ») | 0 PV | Volonté ou soin → douleur ; coup, 45 s, échec → inconscient | **Ramper** (pose allongée, lent, sans saut), chuchoter, `/me` | Porter, gorge, fouiller, soigner, demander un RPK |
+| **② Inconscient** 気絶 | Fin d'agonie, exécution en douleur, épuisement de chakra | Soin → réveil (ATA allégée) ; `/hopital` après 5 min → ATA pleine | Chuchoter, `/me`, `/hopital` (après 5 min) | Idem, + exécuter (mort RP) si RPK validé |
+| **Porté** | Quelqu'un le porte (douleur, KO, mort) | Le porteur s'accroupit ; en douleur : se débattre (Espace) ; reprendre des forces | En douleur : Espace pour se débattre | — |
+| **Mort RP** 屍 | Exécution d'un KO avec RPK validé | Sélection de personnage | Rien (scène de mort, §9) | Porter, fouiller, constater |
+
+### ⓪ Douleur — sous 5 % des PV (14/10, Pain RP du Game Plan RedLine)
+
+Code : `ko/DouleurManager.java` ; mod `ko/KoClient` (caméra, sons), `ko.fsh` (mode 4), `nameplate/Nameplates`
+(glyphe au nom), `mixin/CameraKoMixin`, `mixin/SoundEngineKoMixin`.
+
+- **Entrée** : les PV tombent à 5 % du max ou moins (`ko.douleur.seuil-pct`), hors terrain d'entraînement, hors duel,
+  hors mode construction. État **dérivé des PV** (persistants) : recalculé chaque quart de seconde et à la reconnexion,
+  rien à sauvegarder. Le **second souffle** de la Volonté (debout à 5 %) et un **soin pendant l'agonie** (bandage,
+  paume) ramènent donc **en douleur** — c'est la règle RedLine « relevé pendant l'agonie → 5 % + Pain RP ».
+- **Restrictions** : démarche ×0,6 (`ko.douleur.vitesse`), **ni course** (faim maintenue à 6 comme l'ATA), ni course
+  de chakra, dash, double saut ou saut de chakra, **aucune technique** (via `KoService.isImpaired`, comme l'ATA :
+  ShinobiAbilities n'a pas changé), **aucun coup** (mains nues, arme, projectile). En entrant en douleur, on lâche ce
+  qu'on portait ou tenait à la gorge, et une exécution qu'on canalisait s'arrête. Duel refusé.
+- **Interactions** : une personne en douleur ne peut ni porter, ni attraper (entrées grisées « à bout de forces »
+  au menu R), ni exécuter (pas d'invite F) ; elle peut parler, faire des `/me`, se bander.
+- **Sortie** : remonter au-dessus du seuil (bandage, paume, repos jusqu'à 30 %) ; à 0 PV → agonie ; exécutée →
+  inconsciente.
+- **Ce que voient les autres** (v2 du 14/10) : l'état est **intégré au nom RP** (plaque de nom existante, quand on
+  regarde la personne à 5 blocs) — le nom se teinte d'un rose pâle et un petit glyphe 痛 est accolé à droite ; plus
+  de ligne séparée au-dessus. À portée (3,5 blocs), en la visant : l'invite **« [F] Exécuter »** sous le viseur, dans
+  le style de « [F] Ramasser » (§8). Plus la démarche ralentie.
+- **Ce que vit la victime** (v2 du 14/10 : « il n'y a pas de visuel poignant ») : **aucune ligne de HUD** (la
+  ligne du haut est supprimée) — seulement, à l'entrée, un filet d'or et « à bout de forces » ≈ 1,5 s. La douleur
+  se **ressent** : bords qui s'assombrissent à chaque battement de cœur (noir, jamais rouge), vision qui se trouble
+  et se **dédouble par à-coups** (toutes les 4 à 6 s), désaturation partielle, léger **vacillement de la caméra**
+  qui tressaille au battement, **cœur** audible et **respiration lourde**, **sons du monde étouffés** (÷2). Tout
+  ce qui bouge suit le réglage vanilla **« Effets de distorsion »** (0 % = aucun vacillement ni dédoublement). HUD de
+  jeu normal. Client sans mod : sous-titre « Douleur — à bout de forces » et une ligne de tchat.
+
+### ① À terre (agonie) — 45 s (`ko.a-terre-secondes`)
+
+C'est l'**agonie** de RedLine (fenêtre courte avant le KO), à la différence qu'on **rampe** au lieu d'être figé.
+
+- Le joueur **rampe** lentement (pose allongée forcée, lenteur II, saut supprimé) : pas de technique, pas d'attaque.
+  La reptation **se sent** : chaque poussée fait tanguer la vue (caméra, coupée par « Effets de distorsion »), le
+  cœur bat vite, les sons s'étouffent.
+- **Plus de HUD** (v2 du 14/10) : viseur, barre d'action, cœurs, faim, vitals RP, endurance, recharges… sont masqués
+  (`ko/KoMasqueHud`) ; restent le tchat, les noms et le bloc « À terre » (titre pixel, filet d'or qui se vide autour
+  d'un losange qui bat, secondes, « Tu rampes · tu peux chuchoter », ou « Espace pour te relever » avec la Volonté).
+- Un **soin** (bandage, paume) le relève, en **douleur** s'il reste sous 5 % des PV, avec une ATA allégée.
 - Il **chuchote** (portée 4 blocs, `ko.chuchotement-blocs`) et peut faire des `/me`.
-- `/aide` : fumée rouge visible et alerte aux médics (`shinobicore.medic`) et au Poste de garde.
+- `/aide` (appel aux médics) n'est **plus mentionné** dans les textes du jeu (décision du 14/10 : « la commande
+  n'existe pas » pour les joueurs) ; le code reste en place.
 - Un coup de plus, ou la fin du compte à rebours, le fait passer **inconscient**.
 - `ko.a-terre: false` désactive cette phase (KO direct, comme avant).
 
@@ -76,8 +128,9 @@ combat hors zone ──► PV à 0
 ### ② Inconscient — 5 min (`ko.inconscient-secondes`)
 
 - Corps immobile, vision assombrie ; le joueur voit, chuchote et fait des `/me`. Commandes autorisées :
-  `/me`, `/aide`, `/hopital`.
-- **Pendant les 5 minutes, `/hopital` n'est PAS proposé.**
+  `/me`, `/hopital`. **Plus de HUD** de jeu (comme à terre) : seul le bloc « Inconscient » (la base du style KO).
+- **Pendant les 5 minutes, `/hopital` n'est PAS proposé** — ni au tchat ni à l'écran (la ligne « /hopital » remplace
+  la minuterie seulement quand la commande devient utilisable).
 - **Après les 5 minutes, il reste inconscient** et `/hopital` apparaît (« Se laisser emmener à l'hôpital »). Il
   n'y a plus de rapatriement automatique (décision du 2026-10-10).
 - Cause chakra (chakra à 0) : épuisement, teinte bleue, réveil automatique à la fin du délai.
@@ -134,7 +187,7 @@ quelqu'un l'a soigné sur place.
 - **Dans un terrain d'entraînement** : PV et chakra mémorisés à l'entrée, combat libre, **défaite à 0 PV
   = PV remis au maximum** (ou chakra plein si c'est le chakra qui a lâché), sans KO ni blessure
   (`ko.defaite-pct: 1.0`). À la sortie, retour aux valeurs d'entrée : on ne peut ni s'y blesser ni s'y soigner.
-- **Hors zone**, chaque combat est journalisé (`aggression-log.txt` : qui a frappé en premier, où). Le Poste de
+- **Hors zone**, chaque combat est journalisé (journal universel, catégorie `COMBAT`, action `AGRESSION` : qui a frappé en premier, où — remplace `aggression-log.txt` depuis le 14/10 ; chaque coup est aussi tracé, action `DEGATS`). Le Poste de
   garde lève une alerte quand un joueur enchaîne les combats hors zone.
 
 ### 4.1 Le duel consenti (décision du 2026-10-13)
@@ -178,7 +231,7 @@ Code : `ShinobiCore/…/duel/DuelService.java`, `DuelCommand.java` ; mod `duel/D
 | 5 min de combat (`duel.duree-max-secondes`) | Match nul |
 | Arrêt du serveur | Annulé (PV d'avant rendus avant la sauvegarde) |
 
-- **Journal staff** : `duel-log.txt` (DEBUT, FIN avec issue, raison, vainqueur, lieu) et journal du Poste de garde
+- **Journal staff** : journal universel, catégorie `DUEL` (`logs/duel-AAAA-MM-JJ.log`, remplace `duel-log.txt` le 14/10 : DEBUT, FIN avec issue, raison, vainqueur, lieu) et journal du Poste de garde
   (type `duel`).
 - Un duelliste sauvegardé en plein duel (sauvegarde auto, crash) est écrit avec ses **PV d'avant le duel**.
 - Limite connue : un coup mortel venu de l'environnement (chute, lave) ou d'un mob pendant le duel compte comme une
@@ -233,14 +286,37 @@ blessures à chaque KO. L'encyclopédie médicale, les armoires et les traitemen
 | **Attraper à la gorge** | Le corps est tenu **debout** devant soi, **sans limite de durée** ; on avance lentement ; s'accroupir le lâche |
 | **Porter** | Le corps passe sur les épaules ; s'accroupir le dépose |
 | **Fouiller** | Ouvrir les affaires du corps |
-| **Demander une RPK** | Envoie la demande de mise à mort RP au staff (§7) |
-| **Achever** | *Seulement après une RPK validée* : tue le personnage |
-| **Exécution ▸** | *Seulement après une RPK validée* : liste des exécutions possédées (§8) |
+| **Demander un RPK** | Envoie la demande de mise à mort RP au staff (§7) ; ensuite « RPK demandé — en attente du staff » (grisé) |
+| **RPK validé** | Ligne grise « exécuter : F » : l'exécution se fait **à la touche F** (v2 du 14/10, §8), plus au menu |
+| **Animation d'exécution ▸** | *Seulement si l'on possède une exécution animée* : choisir « Sans animation » ou une exécution (la courante est marquée « › ») ; elle servira à la touche F. Sinon l'entrée n'existe pas |
 
-- Le mod sait quels corps sont proches et où en est la RPK grâce au canal `reborn:corps` (mis à jour toutes
-  les ½ s). Les actions passent par `/corps <action> <joueur>`, toujours revérifiées par le serveur
-  (distance 3,5 blocs, corps bien KO, RPK accordée, exécution possédée).
-- Code : `ko/action/CorpsService.java`, mod `interaction/InteractionMenus.forBody`, `ko/CorpsClient.java`.
+- Une entrée **grisée** s'affiche en gris avec sa raison à droite ; un clic ne fait rien (le menu reste ouvert).
+- Le mod sait quels corps sont proches, qui est en douleur et où en est le RPK grâce au canal `reborn:corps` (mis à
+  jour toutes les ½ s). Les actions passent par `/corps <action> <joueur>`, toujours revérifiées par le serveur
+  (distance 3,5 blocs, état de la cible, RPK accordé, exécution possédée ; l'acteur ne doit être ni KO, ni en
+  douleur, ni porté).
+- Sur un **joueur conscient** (pas en douleur), « Porter » et « Fouiller » sont **grisés** (« à terre ou en douleur »,
+  « à terre ») : ils envoyaient des commandes qui n'existent pas ; la demande d'accord de RedLine reste à faire.
+- Code : `ko/action/CorpsService.java`, mod `interaction/InteractionMenus.forBody` / `forPain` / `animation`,
+  `InteractionItem.disabled`, `ko/CorpsClient.java`, `ko/ExecuterClient.java` (touche F).
+
+### 6 bis. Une personne en douleur — porter sans accord, exécuter (14/10)
+
+Menu R sur une personne en douleur : **Ausculter**, **Porter (sans accord)**, **Animation d'exécution ▸** (si l'on en
+possède), puis le menu d'un joueur conscient (saluer, se présenter, message privé, soins des yeux). L'exécution elle-même
+se fait à la touche F (§8).
+
+- **Porter sans accord** (`/corps porter`) : elle passe sur les épaules, le porteur est ralenti (lenteur II), un `/me`
+  automatique l'annonce (« soulève X de force »). **Elle peut se débattre avec Espace** : chaque appui remplit une
+  jauge (8 appuis, `ko.douleur.lutte-appuis`) qui perd un appui toutes les 1,5 s (`ko.douleur.lutte-oubli-secondes`) ;
+  pleine, elle se dégage, posée au sol devant le porteur, et ne peut pas être reprise pendant 6 s
+  (`ko.douleur.lutte-protection-secondes`). Le porteur voit « Il se débat… ». Si elle reprend des forces (PV au-dessus
+  du seuil), elle est reposée ; si elle tombe KO sur les épaules, elle reste portée (inconsciente, ne se débat plus).
+  Le porteur la dépose en s'accroupissant (dépôt au sol devant lui, `PorterManager.dropSpot`).
+- **Un corps porté ne descend plus seul** en s'accroupissant (correctif du 14/10, vaut aussi pour les corps KO) : seul
+  le porteur dépose. Côté victime (v2, « simple et efficace ») : seulement **« Espace · se débattre »** sous un filet
+  d'or d'1 px qui se remplit. **Uniquement en douleur** : porté KO, inconscient ou mort, il n'y a ni invite ni lutte.
+- **Exécuter** : voir §8.
 
 ---
 
@@ -248,36 +324,65 @@ blessures à chaque KO. L'encyclopédie médicale, les armoires et les traitemen
 
 **La victime n'a rien à valider. Le staff tranche, puis c'est le demandeur qui joue la mort.**
 
-1. **Demande** — « Demander une RPK » sur un corps à terre ou KO. Tout le staff en ligne reçoit au tchat :
+1. **Demande** — « Demander un RPK » sur un corps à terre ou KO. Tout le staff en ligne reçoit au tchat :
    `☠ [Staff] RPK : Kazuki Uchiha (Raiden_FR) veut mettre à mort Ren Hyūga (Mika_) · world 640 70 -120
-   [Valider] [Refuser] [Y aller]`, et une alerte « mort » apparaît au Poste de garde (Valider la RPK / Refuser /
+   [Valider] [Refuser] [Y aller]`, et une alerte « mort » apparaît au Poste de garde (Valider le RPK / Refuser /
    Y aller, Modérateur et plus). Sans staff en ligne, la demande attend au Poste de garde.
 2. **Validation** — le staff donne une raison (au tchat, ou depuis le Poste de garde). **Le personnage ne
-   meurt pas** : la RPK est **accordée** au demandeur, qui est prévenu. Le staff voit « RPK validée … — X doit
+   meurt pas** : le RPK est **accordé** au demandeur, qui est prévenu. Le staff voit « RPK validé … — X doit
    maintenant l'exécuter ».
-3. **La dernière action** — le demandeur joue sa scène, puis choisit « Achever » ou une exécution. **C'est
+3. **La dernière action** — le demandeur joue sa scène, puis vise le corps et l'exécute à la touche F (premier appui :
+   confirmer, second appui maintenu : exécuter ; animation choisie au menu R). **C'est
    cette action qui tue.** Le personnage est marqué mort et sauvegardé, `CharacterDeathEvent` est émis (les
    addons libèrent ce qu'il détenait : slots du rang S, cf.
    [`APPRENTISSAGE.md`](./APPRENTISSAGE.md) §6), tout est journalisé, et la scène de mort commence (§9).
 - **La demande tombe** si la cible n'est plus KO (relevée, soignée, hôpital) ou se déconnecte ; le staff et le
   demandeur sont prévenus. Le refus est annoncé à tout le staff.
-- Journaux : `kill-log.txt` (DEMANDE, VALIDE, REFUSE, EXPIRE, MORT) et journal du Poste de garde.
+- Journaux : journal universel, catégorie `KO` (`RPK_DEMANDE`, `RPK_VALIDE`, `RPK_REFUSE`, `RPK_EXPIRE`, `RPK_MORT` ; remplace `kill-log.txt` le 14/10) et journal du Poste de garde.
 - Commandes : `/sckillvote approve|refuse|goto <id>` (boutons du tchat). Code :
   `ko/action/KillRequestManager.java`.
 
 ---
 
-## 8. Les exécutions
+## 8. Les exécutions (unifiées le 14/10 ; à la touche F depuis la v2)
 
-- **Mises à mort animées**, jouées après une RPK validée. Ce sont des **cosmétiques vendables** (« animation
-  stylée »).
+**Une seule action « Exécuter », à la touche Ramasser (F, rebindable), maintenue** — « comme pour ramasser ». En
+visant à 3,5 blocs au plus une cible exécutable, une invite apparaît sous le viseur, dans le style de « [F] Ramasser »
+(voile, touche, Inter 8, filet d'1 px) : **« [F] Exécuter »**, ou **« [F] Exécuter · mort RP »** sur un corps KO.
+**Maintenir** F lance l'exécution, un **fin anneau d'or** se remplit autour du viseur (« exécution », « · mort RP ») ;
+**relâcher** avant la fin l'annule (`/corps annuler`). Côté victime : un anneau rose pâle et « on te met hors de
+combat » / « on t'exécute ». **Priorité de F** : objet au sol visé (ramasser) > personne exécutable > rôle normal de
+F (techniques, tyrolienne, grappin, main gauche) — F n'est prise que lorsqu'une personne exécutable est visée.
+Code : mod `ko/ExecuterClient.java`.
+
+| Cible | Il faut | Effet | Confirmation |
+|---|---|---|---|
+| **En douleur** (debout, PV ≤ 5 %) | rien (pas de RPK) | **Mise hors de combat** : elle tombe **inconsciente** sur-le-champ, sans agonie ni Volonté. **Ce n'est pas une mort.** | Non : F maintenue (comme le « E maintenu » de RedLine) |
+| **KO** (à terre ou inconsciente) | un **RPK validé** pour l'exécuteur (§7) | **Mort RP** (`KillRequestManager.kill`) | **Oui, en deux temps** : un premier appui arme « [F] Confirmer · mort RP définitive » (4 s), le second, maintenu, exécute |
+| Debout, ou KO sans RPK | — | Pas d'invite (au menu R : « Demander un RPK » / « RPK demandé ») | — |
+
+- **Qui** : tout joueur avec un personnage, ni KO, ni en douleur, ni porté, ne portant personne, à 3,5 blocs au plus.
+  Une seule exécution à la fois par cible.
+- **Canalisation** : la victime est tenue debout face à l'exécuteur, les deux sont figés, l'animation choisie joue
+  (ou « Sans animation » : 3 s, `ko.execution.canalisation-secondes`), le coup tombe à l'instant prévu
+  (`mort-au-tick`). L'animation se choisit au menu R (« Animation d'exécution », seulement si l'on en possède une).
+- **Interruption** : F relâchée, l'exécuteur est frappé, s'accroupit (renonce), tombe en douleur ou KO ; la victime en
+  douleur est soignée au-dessus du seuil (« Il s'est repris ») ; l'un des deux se déconnecte ; le staff
+  (`/execution annuler`).
+- « Achever » (`/corps achever`, anciens clients) = exécuter **sans animation** (désormais 3 s de canalisation au lieu
+  d'un coup instantané).
+- **Staff** : `/execution forcer <joueur|#N°>` (met K.O. inconscient, comme une exécution en douleur — arbitrage),
+  `/execution douleur <joueur>` (PV au seuil, pour tester ou arbitrer), `/execution annuler <joueur>` (arrête une
+  exécution en cours). La mort RP, elle, passe toujours par un RPK (§7) : pas de commande pour tuer.
+- **Journal** : début, interruption (raison), coup (« met K.O. … ») au journal universel (catégorie KO, `logs/ko-AAAA-MM-JJ.log`) et au Poste de garde, via `ko/KoJournal` ; la mort
+  RP au journal universel (`RPK_MORT`, catégorie KO).
+- Les animations sont des **cosmétiques vendables** (« animation stylée »), valables pour les deux cas.
 - Catalogue `executions.yml` (dossier de ShinobiCore, créé au premier démarrage) : pour chaque exécution, un
-  nom, l'animation du tueur et celle de la victime (clés d'emotes EmoteCraft), la durée et l'instant où la mort
+  nom, l'animation du tueur et celle de la victime (clés d'emotes EmoteCraft), la durée et l'instant où le coup
   tombe. Rechargé par `/execution recharger`.
-- Au lancement : la victime est placée debout face au tueur, les deux sont figés, les animations jouent, la
-  mort tombe à l'instant prévu.
 - Possession **par compte** (`executions-joueurs.yml`) : `/execution donner|retirer <joueur> <id>`, ou la
-  permission `shinobicore.execution.<id>`. Une entrée `gratuite: true` appartient à tout le monde.
+  permission `shinobicore.execution.<id>`. Une entrée `gratuite: true` appartient à tout le monde. « Sans animation »
+  est toujours disponible.
 - ⚠️ **Aucune animation n'existe encore.** Les 3 exemples (Coup de grâce, Lame dans le dos, Étranglement)
   pointent vers des emotes à créer (`execution_coup_de_grace`, `…_victime`…). Sans fichier, la scène se joue
   sans animation. **La vente en boutique n'est pas branchée.**
@@ -311,14 +416,28 @@ ni parler, ni lancer de commande, ni ouvrir d'inventaire, ni être blessé.
 
 ## 10. Habillage visuel et sonore (KO-6)
 
-- Filtre plein écran `ko.fsh` (mod) : **à terre** désaturation + vignette rouge au rythme du cœur ;
-  **inconscient** noir et blanc, flou, grain, paupières ; **ATA** pulsation légère ; **cause chakra** teinte bleu
-  glacé. Priorité des filtres : KO > Byakugan > Météo.
-- Cartes de titre (倒 À terre, 気絶 K.O., 病院 Hôpital, 回復 Rétabli, 敗 Défaite, 志 Second souffle), plaque ATA
-  痛 avec 10 crans de repos, sons de cœur et de souffle.
+- **Un seul style pour toute la chaîne** (v2 du 14/10, « visuellement c'est pas ça », sauf « inconscient ») : tout
+  dérive de l'écran « Inconscient » — **titre pixel centré, filet d'or d'1 px autour d'un losange, temps en Inter 9,
+  sous-texte gris en Inter 7**, rien d'autre (pas de plaque, pas de kanji, pas de voile rouge). Transitions (douleur,
+  à terre, inconscient, réveil, hôpital, rétabli, second souffle, défaite) = ce bloc en fondu ≈ 3 s ; à terre = le
+  bloc plus bas ; porté = le filet et « Espace · se débattre » ; exécution = un anneau autour du viseur ; ATA = une
+  ligne « Blessé », filet des minutes de repos, détail gris. Planche avant / après :
+  `Maquettes/gameplan/06_ko/v2/planche_avant_apres.png`.
+- **À terre et inconscient : plus de HUD de jeu** (`ko/KoMasqueHud`, viseur, barre d'action, cœurs, faim, armure,
+  air, expérience, effets, boss, tableau, message d'action, vitals RP, endurance, recharges, concentration, allure,
+  notifications, ramassage, interaction, duel) ; restent le tchat, les titres, la liste, les bulles, les noms.
+- Filtre plein écran `ko.fsh` (mod) : **à terre (agonie)** désaturation + **bords qui s'assombrissent** au rythme du
+  cœur, vision qui tangue ; **inconscient** noir et blanc, flou, grain, paupières ; **douleur** bords noirs qui battent,
+  vision troublée et dédoublée par à-coups, désaturation partielle (§1 bis) ; **ATA** pulsation légère ; **cause
+  chakra** bords bleu nuit. Priorité des filtres : KO > Byakugan > Météo. Caméra (`CameraKoMixin`) et sons étouffés
+  (`SoundEngineKoMixin`) en douleur et à terre ; tout ce qui bouge suit « Effets de distorsion ».
+- **14/10 : plus de voile rouge sur les bords** (effet « RPG » rejeté, [`../design/DIRECTION_ARTISTIQUE.md`](../design/DIRECTION_ARTISTIQUE.md)
+  §3) : à terre et en ATA, la vignette rouge est remplacée par un léger assombrissement.
+- État au **nom RP** (plaque de nom, `nameplate/Nameplates`) : nom teinté et petit glyphe accolé — 痛 douleur, 倒 à
+  terre, 気絶 inconscient, 屍 mort ; plus d'étiquette séparée (l'ancienne `EtatTete` est supprimée).
 - Le HUD du KO évite le chat et les jauges. Les titres vanilla ne s'affichent que pour un client sans mod.
 - Canaux `reborn:ko` (état) et `reborn:ko_event` (cartes). Code : `ko/KoHudSync.java`, mod `ko/KoHud.java`.
-- Défaut connu : la carte « K.O. » se superpose à « INCONSCIENT » pendant environ 1 s.
+- La transition « Inconscient » se place au-dessus du bloc (plus de superposition).
 
 ---
 
@@ -337,6 +456,9 @@ ni parler, ni lancer de commande, ni ouvrir d'inventaire, ni être blessé.
 | `ko.lits-nexo`, `ko.lit-occupe-minutes` | `[lit, bed, futon]`, `15` | Lits d'hôpital |
 | `ko.ata.repos-minutes-pleine` / `-allegee` | `20` / `10` | Repos nécessaire |
 | `ko.ata.anti-afk-secondes`, `ko.ata.repos-pv-pct-par-10s` | `120`, `0.01` | Repos |
+| `ko.douleur.actif`, `ko.douleur.seuil-pct`, `ko.douleur.vitesse` | `true`, `0.05`, `0.6` | Douleur : seuil de PV, démarche |
+| `ko.douleur.lutte-appuis`, `ko.douleur.lutte-oubli-secondes`, `ko.douleur.lutte-protection-secondes` | `8`, `1.5`, `6` | Porté en douleur : se débattre |
+| `ko.execution.canalisation-secondes` | `3` | Exécution sans animation |
 | `mort-rp.scene-min-secondes`, `mort-rp.corps-minutes` | `10`, `15` | Scène de mort |
 | `duel.actif`, `duel.techniques` | `true`, `true` | Duels permis ; techniques permises en duel |
 | `duel.distance-proposition`, `duel.distance-max`, `duel.teleport-max-blocs` | `8`, `30`, `16` | Distances (blocs) |
@@ -354,6 +476,9 @@ ni parler, ni lancer de commande, ni ouvrir d'inventaire, ni être blessé.
 
 | Sujet | État |
 |---|---|
+| **Douleur, exécution à la touche F, portage en douleur, style KO unique, HUD masqué** (14/10, v2 après retours) : codés (ShinobiCore + `reborn-hud`), **non publiés** ; captures `Maquettes/gameplan/06_ko/v2/` ; banc `REBORN_KO_DEBUG=douleur` (captures `Maquettes/gameplan/06_ko/`) ; à tester à deux comptes | à publier puis tester |
+| Animation de douleur (démarche « blessé ») | non faite : la douleur ne change que la vitesse |
+| Demande de portage / de fouille d'une personne consciente (accord, Espace pour se dégager — RedLine) | à faire (entrées grisées en attendant) |
 | Tester la 0.4.169 à **deux comptes** (RPK, exécution, scène de mort, corps) | à faire |
 | **Duel consenti** (§4.1) : codé le 13/10 (ShinobiCore, ShinobiAbilities, `reborn-hud`), **non publié** ; banc de captures `REBORN_DUEL_DEBUG=1` (`run/screenshots/duel_*.png`) ; à tester à deux comptes | à publier puis tester |
 | Créer la technique `volonte` (ou décider `pour-tous`) | à faire |

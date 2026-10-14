@@ -243,7 +243,7 @@ public class YamlCharacterRepository implements CharacterRepository {
         c.setVillage(s.getString("village", ""));
         c.setSexe(s.getString("sexe", "Homme"));
         c.setAppearance(s.getString("appearance", ""));
-        c.setRyo(s.getLong("ryo", 0L));
+        c.restoreRyo(s.getLong("ryo", 0L));
         // Player ID (N°) : absent avant la migration du 13/10 — PlayerIdRegistry le pose au démarrage.
         if (s.isInt("playerId")) c.setPlayerId(s.getInt("playerId"));
         for (String oid : s.getStringList("owned-outfits")) c.addOwnedOutfit(oid);

@@ -1,8 +1,5 @@
 package fr.reborn.hud.ko;
 
-import fr.reborn.hud.menu.Colors;
-import fr.reborn.hud.menu.DrawHelpers;
-import fr.reborn.hud.menu.RebornFont;
 import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.ui.LotGui;
 import net.minecraft.client.Minecraft;
@@ -11,22 +8,27 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 /**
- * Affichage du KO / de l'ATA dans la DA Reborn (lot KO-6), <b>version discrète</b> (retour du 13/10 : « faut que ce
- * soit subtil ») — pas de plaque ni de bandeau épais : kanji de la police du jeu, texte du kit ({@link DaKit}) ombré
- * d'un pixel, fils de jauge de 1 à 2 px. Remplace les titres, la barre d'action et la barre de boss vanilla quand le
- * serveur sait que le mod est là.
+ * Affichage de toute la chaîne KO / mort dans <b>un seul style</b> (v2 du 14/10, retours de l'utilisateur : « visuellement
+ * c'est pas ça », sauf l'écran « inconscient » jugé bien). Tout dérive de ce bloc-là :
+ * <b>titre pixel (ArcadePix) centré</b>, <b>filet d'or d'1 px</b> qui se vide autour d'un <b>losange</b>, un temps en
+ * Inter 9, un <b>sous-texte gris</b> en Inter 7 — rien d'autre, pas de plaque, pas de kanji, pas de voile rouge.
  * <ul>
- *   <li><b>Moments forts</b> (à terre, KO, réveil, hôpital, rétabli, défaite) : bandeau sombre en travers de l'écran,
- *       titre en police Reborn bordé d'or, kanji au-dessus, sous-titre ;</li>
- *   <li><b>À terre</b> : plaque laquée en bas d'écran, sceau 倒, décompte qui se vide en rouge ;</li>
- *   <li><b>Inconscient</b> : presque rien (les paupières sont lourdes) — un mot pâle, un fil d'or qui se vide, et
- *       l'invitation à l'hôpital quand elle arrive ;</li>
- *   <li><b>ATA</b> : petite plaque en haut d'écran, sceau 痛, barre de repos à crans d'or, marque 恐 de la peur.</li>
+ *   <li><b>Transitions</b> (douleur, à terre, K.O., réveil, hôpital, rétabli, second souffle, défaite) : le bloc, sans
+ *       temps, le filet qui s'étire, en fondu ≈ 3 s ; la douleur n'a que cette entrée brève, en petit ;</li>
+ *   <li><b>À terre (agonie)</b> : le bloc, plus bas (on regarde le sol en rampant), losange qui bat au rythme du cœur ;</li>
+ *   <li><b>Inconscient</b> : le bloc au centre ; « /hopital » n'apparaît qu'une fois la commande utilisable ;</li>
+ *   <li><b>Porté de force</b> (en douleur seulement) : le filet et « Espace · se débattre », rien de plus ;</li>
+ *   <li><b>Exécution</b> : un fin anneau autour du viseur ({@link #anneau}) et un mot (exécuteur : {@link ExecuterClient}) ;</li>
+ *   <li><b>ATA</b> : une ligne discrète en haut, filet d'or des minutes de repos.</li>
  * </ul>
+ * En agonie et inconscient, le reste du HUD est masqué ({@link KoMasqueHud}). La douleur, elle, se <b>ressent</b>
+ * (filtre {@code ko.fsh} mode 4, caméra, sons — {@link KoClient}) au lieu de s'afficher.
  */
 public final class KoHud {
 
     private static final float CARD_IN = 0.2f, CARD_HOLD = 2.1f, CARD_OUT = 0.8f;
+    /** Couleurs du bloc (celles de l'écran « inconscient »). */
+    private static final int TITRE = 0xB0F5E9D0, FILET_FOND = 0x50D9A95E, GRIS = 0xA0C2B59A;
 
     private KoHud() {}
 
@@ -42,62 +44,44 @@ public final class KoHud {
         int h = mc.getWindow().getGuiScaledHeight();
         Font font = mc.font;
         KoPayload s = KoClient.state();
+        boolean ko = s != null && s.phase() > 0;
         if (s != null) {
             if (s.phase() == 1) downed(ctx, font, s, w, h);
             else if (s.phase() == 2) unconscious(ctx, font, s, w, h);
             else if (s.ata() > 0) ata(ctx, font, s, w, h);
-            else if (s.fear()) fearOnly(ctx, font, w);
         }
+        if (!ko && CorpsClient.porte() && CorpsClient.lutte() >= 0f) porte(ctx, font, w, h);
+        CorpsClient.Exe x = CorpsClient.exe();
+        if (x != null && x.role() == 1) victime(ctx, font, x, w, h);
+        ExecuterClient.render(ctx, font, w, h);
         card(ctx, font, w, h);
     }
 
-    /* ================================================================ moments forts */
+    /* ================================================================ le bloc commun */
 
     /**
-     * Carte d'un moment fort, discrète : voile horizontal très léger, kanji de la police du jeu, titre ArcadePix
-     * à la taille du texte, deux filets d'or qui s'étirent, sous-titre Inter 7. Rien de plus.
+     * Le bloc : titre pixel centré en (cx, y), filet d'or de largeur {@code fw} sous le titre, rempli à {@code frac}
+     * depuis le centre, losange {@code losange} au milieu ; renvoie l'ordonnée du filet.
      */
-    private static void card(GuiGraphicsExtractor ctx, Font font, int w, int h) {
-        float t = KoClient.sinceEvent();
-        if (t > CARD_IN + CARD_HOLD + CARD_OUT) return;
-        float a = t < CARD_IN ? t / CARD_IN : t < CARD_IN + CARD_HOLD ? 1f : 1f - (t - CARD_IN - CARD_HOLD) / CARD_OUT;
-        a = Math.max(0f, Math.min(1f, a));
-        String title, sub, kanji;
-        int color;
-        switch (KoClient.lastEvent()) {
-            case KoClient.EV_A_TERRE -> { title = "À terre"; sub = "Tu peux encore ramper…"; kanji = "倒"; color = DaKit.ROUGE_CLAIR; }
-            case KoClient.EV_KO -> { title = "K.O."; sub = "Tu perds connaissance."; kanji = "気絶"; color = DaKit.ROUGE_CLAIR; }
-            case KoClient.EV_REVEIL -> { title = "Réveil"; sub = "Tu reprends conscience."; kanji = "目覚"; color = DaKit.OR_CLAIR; }
-            case KoClient.EV_HOPITAL -> { title = "Hôpital"; sub = "On t'a ramené. Tu es encore très faible."; kanji = "病院"; color = DaKit.CREME; }
-            case KoClient.EV_RETABLI -> { title = "Rétabli"; sub = "Tes forces sont revenues."; kanji = "回復"; color = DaKit.OR_CLAIR; }
-            case KoClient.EV_RELEVE -> { title = "Second souffle"; sub = "Debout… mais ton corps est à bout."; kanji = "志"; color = DaKit.OR_CLAIR; }
-            case KoClient.EV_DEFAITE -> { title = "Défaite"; sub = "Relève-toi, l'entraînement continue."; kanji = "敗"; color = DaKit.OR_CLAIR; }
-            default -> { return; }
+    private static int bloc(GuiGraphicsExtractor ctx, Font font, float cx, int y, String titre, int col, int fw,
+                            float frac, int losange, float a) {
+        int fy = y;
+        if (titre != null) {
+            DaKit.arcX1(ctx, font, DaKit.arcade(titre), cx, y, DaKit.alpha(col, a), 1, true);
+            fy = y + 12;
         }
-        // inconscient : le bloc du milieu d'écran peut remonter (chat) → la carte passe plus haut
-        KoPayload st = KoClient.state();
-        int cy = Math.round(h * (st != null && st.phase() == 2 ? 0.17f : 0.30f));
-        // voile très léger derrière le texte (deux dégradés = deux éléments)
-        int band = Math.round(a * 80);
-        DrawHelpers.horizontalGradient(ctx, w / 2 - 160, cy - 18, 160, 42, 0, band << 24 | 0x050304);
-        DrawHelpers.horizontalGradient(ctx, w / 2, cy - 18, 160, 42, band << 24 | 0x050304, 0);
+        filet(ctx, Math.round(cx), fy, fw, frac, losange, a);
+        return fy;
+    }
 
-        Component kc = Component.literal(kanji);
-        ctx.text(font, kc, w / 2 - font.width(kc) / 2, cy - 14, DaKit.alpha(DaKit.OR, a), true);
-        Component tc = DaKit.arcade(title);
-        int tw = font.width(tc);
-        DaKit.arcX1(ctx, font, tc, w / 2f, cy - 2, DaKit.alpha(color, a), 1, true);
-        // filets d'or qui s'étirent
-        int gold = DaKit.alpha(DaKit.OR, a * 0.9f);
-        int len = Math.round(36 * Math.min(1f, t / 0.5f));
-        int ry = cy + 1;
+    /** Filet d'or d'1 px, rempli depuis le centre, losange au milieu. */
+    private static void filet(GuiGraphicsExtractor ctx, int cx, int y, int fw, float frac, int losange, float a) {
+        int fill = Math.round(fw * Math.max(0f, Math.min(1f, frac)));
         LotGui l = LotGui.ouvrir(ctx);
-        l.fill(w / 2 - tw / 2 - 8 - len, ry, w / 2 - tw / 2 - 8, ry + 1, gold);
-        l.fill(w / 2 + tw / 2 + 8, ry, w / 2 + tw / 2 + 8 + len, ry + 1, gold);
-        diamond(l, w / 2 - tw / 2 - 10 - len, ry, gold);
-        diamond(l, w / 2 + tw / 2 + 10 + len, ry, gold);
+        l.fill(cx - fw / 2, y, cx + fw / 2, y + 1, DaKit.alpha(FILET_FOND, a));
+        if (fill > 0) l.fill(cx - fill / 2, y, cx + fill / 2, y + 1, DaKit.alpha(DaKit.OR, a));
+        diamond(l, cx, y, DaKit.alpha(losange, a));
         l.fermer();
-        DaKit.inter7o(ctx, font, DaKit.inter(sub), w / 2f, cy + 13, DaKit.alpha(DaKit.CREME_VAL, a), 1);
     }
 
     private static void diamond(LotGui l, int x, int y, int color) {
@@ -105,39 +89,51 @@ public final class KoHud {
         l.fill(x, y - 1, x + 1, y + 2, color);
     }
 
-    /* ================================================================ à terre */
+    /* ================================================================ transitions */
 
-    /** À terre : une ligne (kanji 倒, « À terre », secondes), un fil rouge qui se vide, le conseil. Aucun cadre. */
+    /** Transition : le bloc sans temps, filet qui s'étire, sous-texte ; fondu. La douleur : plus petite, plus brève. */
+    private static void card(GuiGraphicsExtractor ctx, Font font, int w, int h) {
+        float t = KoClient.sinceEvent();
+        byte ev = KoClient.lastEvent();
+        boolean petit = ev == KoClient.EV_DOULEUR;
+        float hold = petit ? 1.2f : CARD_HOLD;
+        if (t > CARD_IN + hold + CARD_OUT) return;
+        float a = t < CARD_IN ? t / CARD_IN : t < CARD_IN + hold ? 1f : 1f - (t - CARD_IN - hold) / CARD_OUT;
+        a = Math.max(0f, Math.min(1f, a));
+        String title, sub;
+        int color, losange = DaKit.OR;
+        switch (ev) {
+            case KoClient.EV_A_TERRE -> { title = "À terre"; sub = "Tu rampes encore…"; color = TITRE; losange = DaKit.ROUGE_CLAIR; }
+            case KoClient.EV_KO -> { return; }   // le bloc « Inconscient » est lui-même la transition (pas de doublon)
+            case KoClient.EV_REVEIL -> { title = "Réveil"; sub = "Tu reprends conscience."; color = TITRE; }
+            case KoClient.EV_HOPITAL -> { title = "Hôpital"; sub = "On t'a ramené. Tu es encore très faible."; color = TITRE; }
+            case KoClient.EV_RETABLI -> { title = "Rétabli"; sub = "Tes forces sont revenues."; color = TITRE; }
+            case KoClient.EV_RELEVE -> { title = "Second souffle"; sub = "Debout… mais à bout de forces."; color = TITRE; }
+            case KoClient.EV_DEFAITE -> { title = "Défaite"; sub = "Relève-toi, l'entraînement continue."; color = TITRE; }
+            case KoClient.EV_DOULEUR -> { title = null; sub = "à bout de forces"; color = TITRE; losange = DaKit.ROUGE_CLAIR; }
+            default -> { return; }
+        }
+        KoPayload st = KoClient.state();
+        int cy = Math.round(h * (st != null && st.phase() == 2 ? 0.30f : petit ? 0.58f : 0.36f));
+        int fw = Math.round((petit ? 60 : 140) * Math.min(1f, t / 0.5f));
+        int fy = bloc(ctx, font, w / 2f, cy, title, color, fw, 1f, losange, a);
+        DaKit.inter7o(ctx, font, DaKit.inter(sub), w / 2f, fy + 8, DaKit.alpha(GRIS, a), 1);
+    }
+
+    /* ================================================================ à terre (agonie) */
+
+    /** Agonie : le bloc plus bas, filet qui se vide, losange rouge qui bat, temps, « Tu rampes ». */
     private static void downed(GuiGraphicsExtractor ctx, Font font, KoPayload s, int w, int h) {
         float left = Math.max(0f, s.left() - KoClient.sinceState());
         float frac = s.total() > 0 ? left / s.total() : 0f;
         float pulse = KoClient.pulse();
-        int pw = 150, ph = 26;
-        int x = w / 2 - pw / 2, y = Math.round(h * 0.60f);   // sous le viseur, au-dessus du chat
-        // le chat (déplaçable, plus large aux grandes échelles) ne doit pas passer sous le bloc
-        int[] chat = box(fr.reborn.hud.element.HudElement.CHAT, w, h);
-        if (chat != null && hits(x, y, pw, ph, chat)) {
-            int above = chat[1] - ph - 4;
-            if (above >= h / 2 + 14) y = above;
-            else if (chat[0] + chat[2] + 6 + pw <= w - 4) x = Math.max(x, chat[0] + chat[2] + 6);
-            else y = Math.max(h / 2 + 14, above);
-        }
+        int y = Math.round(h * 0.66f);
         dernierY = y;
-        Component k = Component.literal("倒");
-        ctx.text(font, k, x, y, DaKit.ROUGE_CLAIR, true);
-        DaKit.inter9o(ctx, font, DaKit.inter("À terre"), x + 12, y + 4, DaKit.CREME, 0);
-        DaKit.inter9o(ctx, font, DaKit.inter(Math.round(Math.ceil(left)) + " s"), x + pw, y + 4, DaKit.OR_CLAIR, 2);
-        // fil qui se vide (2 px), plus vif au battement
-        int by = y + 11, fw = Math.max(1, Math.round(pw * frac));
-        LotGui l = LotGui.ouvrir(ctx);
-        l.fill(x, by, x + pw, by + 2, 0x50000000);
-        l.fill(x, by, x + fw, by + 2, DaKit.alpha(0xFFC01E35, 0.7f + 0.3f * pulse));
-        l.fill(x, by, x + fw, by + 1, DaKit.alpha(0xFFE26474, 0.6f + 0.4f * pulse));
-        l.fermer();
-        String hint = "Tu peux ramper · /aide pour appeler à l'aide" + (VolonteHud.available() ? " · Espace pour te relever" : "");
-        float hw = DaKit.largeur7(font, DaKit.inter(hint)) / 2f;
-        DaKit.inter7o(ctx, font, DaKit.inter(hint), Math.max(4 + hw, Math.min(w - 4 - hw, x + pw / 2f)), by + 9,
-            DaKit.CREME_VAL, 1);
+        int coeur = DaKit.alpha(DaKit.ROUGE_CLAIR, 0.55f + 0.45f * pulse);
+        int fy = bloc(ctx, font, w / 2f, y, "À terre", TITRE, 120, frac, coeur, 1f);
+        DaKit.inter9o(ctx, font, DaKit.inter(Math.round(Math.ceil(left)) + " s"), w / 2f, fy + 9, DaKit.OR_CLAIR, 1);
+        String sous = VolonteHud.available() ? "Tu rampes · Espace pour te relever" : "Tu rampes · tu peux chuchoter";
+        DaKit.inter7o(ctx, font, DaKit.inter(sous), w / 2f, fy + 20, GRIS, 1);
     }
 
     /* ================================================================ inconscient */
@@ -148,75 +144,88 @@ public final class KoHud {
         boolean chakra = s.cause() == 1;
         int accent = chakra ? 0xFF6FA8E8 : DaKit.ROUGE_CLAIR;
         int cy = Math.round(h * 0.50f);
-        // le bloc (mot, fil, temps, invitation) remonte s'il tombe sur le chat
+        // le bloc remonte s'il tombe sur le chat
         int[] chat = box(fr.reborn.hud.element.HudElement.CHAT, w, h);
         if (chat != null && hits(w / 2 - 110, cy, 220, 56, chat)) cy = Math.max(Math.round(h * 0.28f), chat[1] - 60);
-        DaKit.arcX1(ctx, font, DaKit.arcade(chakra ? "Épuisement" : "Inconscient"), w / 2f, cy, 0xB0F5E9D0, 1, true);
-        // fil d'or qui se vide
-        int bw = 140, bx = w / 2 - bw / 2, by = cy + 12;
-        int fill = Math.round(bw * frac);
-        LotGui l = LotGui.ouvrir(ctx);
-        l.fill(bx, by, bx + bw, by + 1, 0x50D9A95E);
-        l.fill(w / 2 - fill / 2, by, w / 2 + fill / 2, by + 1, DaKit.OR);
-        diamond(l, w / 2, by, accent);
-        l.fermer();
-        int m = (int) Math.ceil(left) / 60, sec = (int) Math.ceil(left) % 60;
-        if (left > 0 || !s.hospital()) {
+        int by = bloc(ctx, font, w / 2f, cy, chakra ? "Épuisement" : "Inconscient", TITRE, 140, frac, accent, 1f);
+        // « /hopital » seulement quand la commande est utilisable (fin des 5 minutes, signalée par le serveur)
+        boolean hopital = s.hospital() && left <= 0.5f;
+        if (!hopital) {
+            int m = (int) Math.ceil(left) / 60, sec = (int) Math.ceil(left) % 60;
             DaKit.inter9o(ctx, font, DaKit.inter(String.format("%d:%02d", m, sec)), w / 2f, by + 9, DaKit.OR_CLAIR, 1);
         }
-        DaKit.inter7o(ctx, font, DaKit.inter("Tu peux chuchoter et faire des /me"), w / 2f, by + 20, 0xA0C2B59A, 1);
-        if (s.hospital()) {
+        DaKit.inter7o(ctx, font, DaKit.inter("Tu peux chuchoter et faire des /me"), w / 2f, by + 20, GRIS, 1);
+        if (hopital) {
             float blink = 0.65f + 0.35f * (float) Math.sin(System.currentTimeMillis() / 400.0);
-            DaKit.inter7o(ctx, font, DaKit.inter("/hopital — se laisser emmener à l'hôpital"), w / 2f, by + 31,
+            DaKit.inter7o(ctx, font, DaKit.inter("/hopital — se laisser emmener à l'hôpital"), w / 2f, by + 9,
                 DaKit.alpha(DaKit.OR_CLAIR, blink), 1);
         }
     }
 
-    /* ================================================================ ATA */
+    /* ================================================================ porté de force (douleur) */
 
-    /** ATA : une ligne en haut d'écran (kanji 痛, état, peur 恐), dix crans d'or fins, le détail. Voile léger. */
-    private static void ata(GuiGraphicsExtractor ctx, Font font, KoPayload s, int w, int h) {
-        boolean full = s.ata() == 2;
-        int pw = 160, ph = 26;
-        int x = w / 2 - pw / 2, y = 6;
-        // le panneau vitals (haut-gauche par défaut) garde sa place : on se pousse à droite, sinon dessous
-        int[] vit = box(fr.reborn.hud.element.HudElement.VITALS, w, h);
-        if (vit != null && hits(x, y, pw, ph, vit)) {
-            if (vit[0] + vit[2] + 6 + pw <= w - 4) x = vit[0] + vit[2] + 6;
-            else y = vit[1] + vit[3] + 6;
-        }
-        DrawHelpers.horizontalGradient(ctx, x - 12, y - 3, pw / 2 + 12, ph + 4, 0, 0x50050304);
-        DrawHelpers.horizontalGradient(ctx, x + pw / 2, y - 3, pw / 2 + 12, ph + 4, 0x50050304, 0);
-        ctx.text(font, Component.literal("痛"), x, y, full ? DaKit.ROUGE_CLAIR : DaKit.OR, true);
-        DaKit.inter8(ctx, font, DaKit.inter(full ? "Grièvement blessé" : "Blessé"), x + 12, y + 4, DaKit.CREME, 0);
-        if (s.fear()) {
-            Component fear = Component.literal("恐");
-            ctx.text(font, fear, x + pw - font.width(fear), y, DaKit.ROUGE_CLAIR, true);
-        }
-        // dix crans de repos, fins
-        int by = y + 11, seg = 10, gap = 2;
-        int sw = (pw - gap * (seg - 1)) / seg;
-        int filled = Math.round(s.rest() * seg * 10f);   // dixièmes de cran
-        LotGui l = LotGui.ouvrir(ctx);
-        for (int i = 0; i < seg; i++) {
-            int sx = x + i * (sw + gap);
-            l.fill(sx, by, sx + sw, by + 2, 0x60000000);
-            int part = Math.max(0, Math.min(10, filled - i * 10));
-            if (part > 0) l.fill(sx, by, sx + Math.max(1, sw * part / 10), by + 2, s.resting() ? 0xFF7FD69A : DaKit.OR);
-        }
-        l.fermer();
-        String detail = "Repos " + s.restMin() + "/" + s.restRequired() + " min"
-                + (s.resting() ? " · en cours" : "") + " · ou un médic";
-        DaKit.inter7o(ctx, font, DaKit.inter(detail), x, by + 9, DaKit.CREME_VAL, 0);
+    /** Porté en douleur : le filet (jauge de lutte) et « Espace · se débattre ». */
+    private static void porte(GuiGraphicsExtractor ctx, Font font, int w, int h) {
+        int y = Math.round(h * 0.62f);
+        filet(ctx, w / 2, y, 90, CorpsClient.lutte(), DaKit.OR, 0.95f);
+        DaKit.inter7o(ctx, font, DaKit.inter("Espace · se débattre"), w / 2f, y + 8, GRIS, 1);
     }
 
-    private static void fearOnly(GuiGraphicsExtractor ctx, Font font, int w) {
-        Component k = Component.literal("恐");
-        Component c = DaKit.inter("La peur te tient encore");
-        float cw = font.width(k) + 4 + DaKit.largeur7(font, c);
-        int x = Math.round(w / 2f - cw / 2f);
-        ctx.text(font, k, x, 6, DaKit.ROUGE_CLAIR, true);
-        DaKit.inter7o(ctx, font, c, x + font.width(k) + 4, 10, DaKit.CREME_VAL, 0);
+    /* ================================================================ exécution */
+
+    /** Victime d'une exécution : anneau sobre autour du viseur, un mot. */
+    private static void victime(GuiGraphicsExtractor ctx, Font font, CorpsClient.Exe x, int w, int h) {
+        float p = x.progress();
+        if (p >= 1f) return;
+        anneau(ctx, w / 2, h / 2, p, 0xFFC97A80);
+        DaKit.inter7o(ctx, font, DaKit.inter(x.lethal() ? "on t'exécute" : "on te met hors de combat"), w / 2f,
+            h / 2f + 17, GRIS, 1);
+    }
+
+    /**
+     * Fin anneau autour du viseur (rayon 11 GUI) : le tour en or très pâle (1 px écran), la part remplie ({@code frac},
+     * sens horaire depuis midi) en {@code col} sur 2 px, avec une petite tête lumineuse.
+     */
+    public static void anneau(GuiGraphicsExtractor ctx, int cx, int cy, float frac, int col) {
+        int k = DaKit.echelleGui();
+        float r = 11f * k, ox = cx * k, oy = cy * k;
+        int n = Math.max(64, Math.round(2f * (float) Math.PI * r * 1.5f));
+        DaKit.debutPx(ctx);
+        for (int i = 0; i < n; i++) {
+            float u = i / (float) n;
+            double ang = -Math.PI / 2 + u * Math.PI * 2;
+            float c = (float) Math.cos(ang), s = (float) Math.sin(ang);
+            int px = Math.round(ox + c * r), py = Math.round(oy + s * r);
+            if (u > frac) {
+                ctx.fill(px, py, px + 1, py + 1, 0x55D9A95E);
+            } else {
+                int qx = Math.round(ox + c * (r - 1)), qy = Math.round(oy + s * (r - 1));
+                ctx.fill(px, py, px + 1, py + 1, col);
+                ctx.fill(qx, qy, qx + 1, qy + 1, col);
+            }
+        }
+        if (frac > 0f && frac < 1f) {
+            double ang = -Math.PI / 2 + frac * Math.PI * 2;
+            int hx = Math.round(ox + (float) Math.cos(ang) * (r - 0.5f)), hy = Math.round(oy + (float) Math.sin(ang) * (r - 0.5f));
+            ctx.fill(hx - 1, hy - 1, hx + 2, hy + 2, DaKit.alpha(DaKit.OR_CLAIR, 0.9f));
+        }
+        DaKit.finPx(ctx);
+    }
+
+    /* ================================================================ ATA */
+
+    /** ATA : une ligne discrète en haut — « Blessé », filet d'or des minutes de repos, le détail en gris. */
+    private static void ata(GuiGraphicsExtractor ctx, Font font, KoPayload s, int w, int h) {
+        boolean full = s.ata() == 2;
+        int y = 8;
+        int[] vit = box(fr.reborn.hud.element.HudElement.VITALS, w, h);
+        int cx = w / 2;
+        if (vit != null && hits(cx - 80, y - 4, 160, 26, vit)) y = vit[1] + vit[3] + 8;
+        DaKit.inter8(ctx, font, DaKit.inter(full ? "Grièvement blessé" : "Blessé"), cx, y, DaKit.CREME, 1);
+        filet(ctx, cx, y + 7, 120, s.rest(), s.resting() ? 0xFF7FD69A : DaKit.ROUGE_CLAIR, 1f);
+        String detail = "repos " + s.restMin() + "/" + s.restRequired() + " min" + (s.resting() ? " · en cours" : "")
+            + " · ou un médic";
+        DaKit.inter7o(ctx, font, DaKit.inter(detail), cx, y + 15, GRIS, 1);
     }
 
     /* ================================================================ commun */
@@ -236,5 +245,4 @@ public final class KoHud {
     private static boolean hits(int x, int y, int w, int h, int[] r) {
         return x < r[0] + r[2] && r[0] < x + w && y < r[1] + r[3] && r[1] < y + h;
     }
-
 }

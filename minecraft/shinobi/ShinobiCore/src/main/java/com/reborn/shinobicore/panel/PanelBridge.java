@@ -227,6 +227,8 @@ public final class PanelBridge {
         Bukkit.getScheduler().runTask(plugin, () -> {
             try {
                 boolean ok = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+                com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.STAFF,
+                        "PANEL_WEB").detail("/" + command + (ok ? "" : " (échec)")).ecrire();
                 future.complete(ok);
             } catch (Throwable t) {
                 plugin.getLogger().warning("[panel-bridge] echec dispatch '" + command

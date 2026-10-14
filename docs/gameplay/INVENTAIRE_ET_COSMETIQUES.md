@@ -178,7 +178,8 @@ Les dons des plugins (bibliothèque, test de la Feuille, soins, carte…) s'anno
 
 ## 9. Journal des objets
 
-- **Fichier tournant** `plugins/ShinobiCore/logs/inventaire-AAAA-MM-JJ.log` : ramassé, lâché (sacoche ou Q), donné,
+- **Fichier tournant** `plugins/ShinobiCore/logs/inventaire-AAAA-MM-JJ.log` (catégorie `INVENTAIRE` du journal universel
+  depuis le 14/10, format commun ; objets obtenus → `logs/objet-…`, équipements et objets utilisés aussi tracés) : ramassé, lâché (sacoche ou Q), donné,
   détruit, rangé (case cachée), mis à l'étui, disparu (Rare et plus) — heure, `#N° pseudo (nom RP)`, quantité,
   objet, rareté, unique, lieu.
 - **Poste de garde** (type `objet`) pour les objets **Rare et plus** et les **uniques**

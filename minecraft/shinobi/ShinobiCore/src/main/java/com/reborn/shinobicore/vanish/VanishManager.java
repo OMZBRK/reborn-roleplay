@@ -46,6 +46,8 @@ public final class VanishManager {
     private final ShinobiCore plugin;
     private final Map<UUID, State> vanished = new ConcurrentHashMap<>();
     private final Set<UUID> cinematicHidden = ConcurrentHashMap.newKeySet();
+    /** Staff en « mode staff » (/modestaff, 14/10) : invisibles aux joueurs <b>et</b> au staff hors mode staff. */
+    private final Set<UUID> staffMode = ConcurrentHashMap.newKeySet();
 
     public VanishManager(ShinobiCore plugin) { this.plugin = plugin; }
 
@@ -71,7 +73,9 @@ public final class VanishManager {
         State s = vanished.get(tid);
         if (s == null) return true;
         return switch (s.mode) {
-            case HIDE_ALL -> viewer.hasPermission(STAFF_PERM);
+            // Mode staff : seuls les staffs eux-mêmes en mode staff le voient.
+            case HIDE_ALL -> staffMode.contains(tid) ? staffMode.contains(viewer.getUniqueId())
+                    : viewer.hasPermission(STAFF_PERM);
             case HIDE_EXCEPT -> viewer.hasPermission(STAFF_PERM)
                     || s.exceptions.contains(viewer.getUniqueId());
             case SHOW_EXCEPT -> !s.exceptions.contains(viewer.getUniqueId());
@@ -98,10 +102,19 @@ public final class VanishManager {
         refreshAllTabs();
     }
 
+    /** Mode staff : marque / démarque (à appeler avant {@link #enable} / {@link #disable}). */
+    public void setStaffMode(UUID id, boolean on) {
+        if (id == null) return;
+        if (on) staffMode.add(id); else staffMode.remove(id);
+    }
+
+    public boolean inStaffMode(UUID id) { return id != null && staffMode.contains(id); }
+
     /** Drop all state for a player (logout). */
     public void clear(UUID id) {
         if (id == null) return;
         vanished.remove(id);
+        staffMode.remove(id);
         cinematicHidden.remove(id);
     }
 

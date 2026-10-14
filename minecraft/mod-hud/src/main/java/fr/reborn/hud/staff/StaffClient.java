@@ -15,10 +15,14 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Client du Poste de garde (panel staff) : canal {@link StaffPayload}, touche F7, dernier état reçu.
- * Le serveur décide de tout (grade, actions possibles) ; le client affiche et envoie des demandes.
+ * Client du Poste de garde (panel staff) : canal {@link StaffPayload}, touche F7, dernier état reçu (instantané,
+ * fiche, Infirmerie, réponse du journal universel, notes par N°). Les effets en jeu (annonces, écran noir, séisme,
+ * plaques staff) sont dans {@link EffetsStaff} et {@link PlaquesStaff}. Le serveur décide de tout (grade, actions
+ * possibles) ; le client affiche et envoie des demandes. Protocole : {@code docs/technique/PLUGINS_REFERENCE.md} §4 bis.
  */
 public final class StaffClient {
 
@@ -27,8 +31,13 @@ public final class StaffClient {
     private static volatile JsonObject snapshot;
     private static volatile JsonObject profile;
     private static volatile JsonObject koSnapshot;
+    private static volatile JsonObject journal;
+    private static final Map<String, JsonObject> NOTES = new HashMap<>();
     private static final Deque<Toast> TOASTS = new ArrayDeque<>();
     private static KeyMapping key;
+
+    /** Banc d'essai : les demandes partent vers {@link StaffDemo} (serveur simulé conforme au protocole). */
+    static boolean demo;
 
     private StaffClient() {}
 
@@ -37,7 +46,10 @@ public final class StaffClient {
         PayloadTypeRegistry.serverboundPlay().register(StaffPayload.ID, StaffPayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(StaffPayload.ID,
                 (payload, ctx) -> ctx.client().execute(() -> receive(payload.json())));
-        ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> { snapshot = null; profile = null; });
+        ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
+            snapshot = null; profile = null; journal = null;
+            synchronized (NOTES) { NOTES.clear(); }
+        });
         key = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.reborn-hud.staff_panel", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F7, RebornKeyCategory.REBORN));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -45,6 +57,8 @@ public final class StaffClient {
                 if (client.gui.screen() == null) send("open");
             }
         });
+        EffetsStaff.init();
+        PlaquesStaff.init();
     }
 
     private static void receive(String raw) {
@@ -68,6 +82,11 @@ public final class StaffClient {
                 if (mc.gui.screen() instanceof StaffScreen) mc.setScreenAndShow(null);
             }
             case "profile" -> profile = o;
+            case "journal" -> journal = o;
+            case "notes" -> {
+                String pid = o.has("pid") ? o.get("pid").getAsString() : "";
+                synchronized (NOTES) { NOTES.put(normPid(pid), o); }
+            }
             case "toast" -> toast(o.get("m").getAsString());
             default -> { }
         }
@@ -97,7 +116,24 @@ public final class StaffClient {
 
     public static JsonObject koSnapshot() { return koSnapshot; }
 
+    /** Dernière réponse {@code journal} reçue (null si le serveur ne la gère pas encore). */
+    public static JsonObject journal() { return journal; }
+
+    /** Notes staff reçues pour ce N° (null tant que la réponse {@code notes} n'est pas arrivée). */
+    public static JsonObject notes(String pid) {
+        synchronized (NOTES) { return NOTES.get(normPid(pid)); }
+    }
+
     public static void clearProfile() { profile = null; }
+
+    /** « #00042 », « 42 », « 00042 » → « 42 » (clé des notes). */
+    static String normPid(String pid) {
+        if (pid == null) return "";
+        String s = pid.trim();
+        if (s.startsWith("#")) s = s.substring(1);
+        s = s.replaceFirst("^0+(?=.)", "");
+        return s;
+    }
 
     public static void send(String action) {
         JsonObject o = new JsonObject();
@@ -106,6 +142,7 @@ public final class StaffClient {
     }
 
     public static void send(JsonObject o) {
+        if (demo) { StaffDemo.handle(o); return; }
         if (ClientPlayNetworking.canSend(StaffPayload.ID)) ClientPlayNetworking.send(new StaffPayload(o.toString()));
     }
 }
