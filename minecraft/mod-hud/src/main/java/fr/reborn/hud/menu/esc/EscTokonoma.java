@@ -100,6 +100,7 @@ public final class EscTokonoma {
     private final Screen screen;
     private final long openedAt = System.currentTimeMillis();
     private long closingAt = -1L;
+    private boolean fermetureDemandee;
     private long lastFrame = System.currentTimeMillis();
     private boolean openSoundPlayed;
     private final List<Hit> hits = new ArrayList<>();
@@ -192,7 +193,9 @@ public final class EscTokonoma {
         float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
         lastFrame = now;
         if (!openSoundPlayed) { openSoundPlayed = true; RebornSounds.playReborn("esc.open", 1.0f, 0.6f); }
-        if (closingAt > 0 && now - closingAt >= CLOSE_MS) { Minecraft.getInstance().setScreenAndShow(null); return; }
+        // Fin de « Reprendre » : jamais de changement d'écran ici (on est au milieu de l'extraction de l'image) —
+        // la fermeture est postée sur la boucle client et faite avant l'image suivante ; d'ici là, fusuma closes.
+        if (closingAt > 0 && now - closingAt >= CLOSE_MS) demanderFermeture();
 
         geometrie();
         versUnites(mouseX, mouseY);
@@ -236,6 +239,19 @@ public final class EscTokonoma {
         drawTooltip(ctx, f);
         drawFusuma(ctx, now);
         DaKit.finUnites(ctx);
+    }
+
+    /**
+     * Ferme l'écran pause au début de l'image suivante, hors extraction. Changer d'écran pendant le rendu
+     * (l'ancien {@code setScreenAndShow(null)} dans {@link #render}) faisait rendre le monde à une image où il
+     * n'avait pas été extrait : crash Sodium « Global terrain uniforms have not been updated » (15/10).
+     * {@code gui.setScreen} et non {@code setScreenAndShow} : ce dernier forcerait une image sans le monde (flash).
+     */
+    private void demanderFermeture() {
+        if (fermetureDemandee) return;
+        fermetureDemandee = true;
+        Minecraft mc = Minecraft.getInstance();
+        mc.schedule(() -> { if (mc.gui.screen() == screen) mc.gui.setScreen(null); });
     }
 
     private float opened(long now) { return Math.min(1f, Math.max(0f, (now - openedAt - 100) / (float) (OPEN_MS - 100))); }

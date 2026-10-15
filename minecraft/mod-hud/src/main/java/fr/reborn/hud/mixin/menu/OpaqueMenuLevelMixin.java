@@ -4,9 +4,7 @@ import fr.reborn.hud.ui.EcranOpaque;
 import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Menus opaques (voir {@link EcranOpaque}) : le monde caché derrière n'est ni extrait ni rendu. Le drapeau
@@ -16,14 +14,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Minecraft.class)
 public abstract class OpaqueMenuLevelMixin {
 
-    @Inject(method = "renderFrame", at = @At("HEAD"))
-    private void reborn$opaqueDebut(boolean renderLevel, CallbackInfo ci) {
-        EcranOpaque.debutImage((Minecraft) (Object) this);
-    }
-
+    /**
+     * La décision est prise juste avant l'extraction, pas en tête de {@code renderFrame} : un
+     * {@code setScreenAndShow} appelé pendant l'image relance {@code renderFrame}, qui ressort aussitôt (surface
+     * déjà acquise) — un HEAD l'aurait quand même recalculée et l'image aurait rendu un monde non extrait
+     * (crash Sodium « Global terrain uniforms have not been updated », 15/10).
+     */
     @ModifyArg(method = "renderFrame", index = 1, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/renderer/GameRenderer;extract(Lnet/minecraft/client/DeltaTracker;Z)V"))
     private boolean reborn$opaqueExtract(boolean renderLevel) {
+        EcranOpaque.debutImage((Minecraft) (Object) this);
         return EcranOpaque.monde(renderLevel);
     }
 

@@ -10,7 +10,8 @@ import net.minecraft.client.gui.screens.Screen;
  *
  * <p>Branché par {@code mixin/menu/OpaqueMenuLevelMixin} sur {@code Minecraft.renderFrame} et
  * {@code OpaqueMenuHudMixin} sur {@code Hud.extractRenderState}. L'état est lu une fois
- * par image ({@link #debutImage}) pour que l'extraction et le rendu d'une même image fassent le même choix.
+ * par image ({@link #debutImage}, juste avant {@code GameRenderer.extract}) pour que l'extraction et le rendu d'une
+ * même image fassent le même choix, même si l'écran change pendant l'image.
  */
 public interface EcranOpaque {
 
@@ -24,7 +25,7 @@ public interface EcranOpaque {
         private Etat() {}
     }
 
-    /** Appelé en tête de chaque image. */
+    /** Appelé une fois par image, juste avant l'extraction (jamais par un {@code renderFrame} réentrant qui ressort à vide). */
     static void debutImage(Minecraft mc) {
         Screen s = mc.gui == null ? null : mc.gui.screen();
         boolean c = false;

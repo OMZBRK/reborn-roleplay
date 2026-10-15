@@ -716,6 +716,7 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.audit.ConcentrationPreview.init();
         fr.reborn.hud.audit.FeaturePreview.init();
         fr.reborn.hud.audit.PanoramaBench.init();
+        fr.reborn.hud.menu.esc.EscDebug.init();   // banc du menu Échap (REBORN_ESC_DEBUG, dev uniquement)
         fr.reborn.hud.menu.character.SceneMockups.init();
         fr.reborn.hud.menu.character.scene.ScenePreview.init();
         fr.reborn.hud.menu.character.perso.PersoDebug.init();
