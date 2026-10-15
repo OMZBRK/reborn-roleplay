@@ -116,6 +116,18 @@ mobility:
     # Vidé = essoufflé : pas de sprint avant d'avoir retrouvé ce pourcentage.
     sprint-relance-pourcent: 30
 
+  # Marche sur l'eau (contrôle du chakra, 15/10) : capacité MARCHE_EAU à débloquer (/sa mobility unlock
+  # <perso> marche_eau, ou récompense d'un parcours d'entraînement). Accroupi maintenu = s'enfoncer. Chakra
+  # vide, KO, douleur / ATA, étourdi, surchargé, mode staff : on tombe à l'eau. Défauts identiques dans le code.
+  marche-eau:
+    enabled: true
+    # Chakra dépensé par seconde passée debout sur l'eau, selon l'allure.
+    chakra-par-seconde:
+      immobile: 0.3
+      marche: 0.5
+      trot: 0.8
+      sprint: 1.5
+
   # Air-control (reworked §4.1): momentum-aware steering that is ALWAYS
   # available while airborne; the leap window only RAISES the cap. Never brakes
   # speed above the cap (a dash carries + bleeds naturally); never touches Y.

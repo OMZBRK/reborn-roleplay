@@ -1,0 +1,378 @@
+# ======================================================================
+# Catalogue des boutiques-lieux (docs/gameplay/BOUTIQUES.md §4, décisions du 15/10)
+# ======================================================================
+# Copié dans plugins/ShinobiCore/boutique-catalogue.yml au premier démarrage ; éditable, puis /boutique recharger.
+# Les prix et les conditions vivent ICI (serveur), jamais dans le mod.
+#
+# Une entrée = un article :
+#   nom        : libellé affiché
+#   categorie  : tenues | hauts | bas | manteaux | coiffes | masques | accessoires
+#                (les vivres et les cartes du bazar viennent de la nourriture et de places.yml)
+#   genre      : tenue = calque de skin, ajouté à la GARDE-ROBE du personnage (ownedOutfits : liée au personnage,
+#                         perdue à sa mort RP, ni échangeable ni volable) ;
+#                objet = cosmétique 3D Nexo remis dans la sacoche (échangeable, volable, perdu à la mort RP)
+#   nexo       : (objet) identifiant de l'objet Nexo
+#   emplacement: (objet) CHAPEAU | BANDEAU | MASQUE | BOUCLE | MANTEAU | HAUT | TENUE | CEINTURE | BAS | DOS
+#   prix       : en ryo (payé avec la bourse ; ventes détruites en V1, journal ECONOMIE ACHAT)
+#   conditions : liste ; grade>=chunin, fonction=anbu (permission reborn.fonction.anbu), entreprise=<id>
+#                → grisé avec la raison ; clan=uchiha, village=konoha, sexe=femme, personnage=#00042 → caché
+#
+# Répartition du 15/10 : les 59 tenues du mod sont toutes des tenues complètes (calques vérifiés : corps, bras et
+# jambes couverts) → catégorie « tenues » ; prix par gamme (200 à 400 au quotidien, 450 à 900 les belles tenues,
+# 1 200 à 1 400 la cérémonie, 450 à 800 les tenues de clan). Hauts, bas et manteaux attendent leurs assets.
+articles:
+  Complet_Uchiha:
+    nom: "Tenue Uchiha"
+    categorie: tenues
+    genre: tenue
+    prix: 600
+    conditions: ["clan=uchiha"]
+  Complet_Sasuke:
+    nom: "Sasuke"
+    categorie: tenues
+    genre: tenue
+    prix: 700
+    conditions: ["clan=uchiha"]
+  Complet_Sasuke2:
+    nom: "Sasuke (alt)"
+    categorie: tenues
+    genre: tenue
+    prix: 700
+    conditions: ["clan=uchiha"]
+  Complet_Obito:
+    nom: "Obito"
+    categorie: tenues
+    genre: tenue
+    prix: 800
+    conditions: ["clan=uchiha"]
+  Complet_UchihaTraining:
+    nom: "Entraînement Uchiha"
+    categorie: tenues
+    genre: tenue
+    prix: 450
+    conditions: ["clan=uchiha"]
+  Complet_Sakura:
+    nom: "Sakura"
+    categorie: tenues
+    genre: tenue
+    prix: 520
+    conditions: ["sexe=femme"]
+  Complet_Tsunade:
+    nom: "Tsunade"
+    categorie: tenues
+    genre: tenue
+    prix: 900
+    conditions: ["sexe=femme"]
+  Complet_Ceremonie:
+    nom: "Cérémonie"
+    categorie: tenues
+    genre: tenue
+    prix: 1400
+  Complet_Ceremonie2:
+    nom: "Cérémonie 2"
+    categorie: tenues
+    genre: tenue
+    prix: 1200
+  Complet_Taijutsuka:
+    nom: "Taijutsuka"
+    categorie: tenues
+    genre: tenue
+    prix: 480
+  Complet_Femme1:
+    nom: "Tenue féminine"
+    categorie: tenues
+    genre: tenue
+    prix: 450
+    conditions: ["sexe=femme"]
+  Complet_Karin:
+    nom: "Karin"
+    categorie: tenues
+    genre: tenue
+    prix: 650
+    conditions: ["sexe=femme"]
+  tenueh1:
+    nom: "Tenue 1"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh2:
+    nom: "Tenue 2"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh3:
+    nom: "Tenue 3"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh4:
+    nom: "Tenue 4"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh5:
+    nom: "Tenue 5"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh6:
+    nom: "Tenue 6"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh7:
+    nom: "Tenue 7"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh8:
+    nom: "Tenue 8"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh9:
+    nom: "Tenue 9"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh10:
+    nom: "Tenue 10"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh11:
+    nom: "Tenue 11"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh12:
+    nom: "Tenue 12"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh13:
+    nom: "Tenue 13"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh14:
+    nom: "Tenue 14"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh15:
+    nom: "Tenue 15"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh16:
+    nom: "Tenue 16"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh17:
+    nom: "Tenue 17"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh18:
+    nom: "Tenue 18"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh19:
+    nom: "Tenue 19"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh20:
+    nom: "Tenue 20"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh21:
+    nom: "Tenue 21"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh22:
+    nom: "Tenue 22"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh23:
+    nom: "Tenue 23"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh24:
+    nom: "Tenue 24"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh25:
+    nom: "Tenue 25"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh26:
+    nom: "Tenue 26"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh27:
+    nom: "Tenue 27"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh28:
+    nom: "Tenue 28"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh29:
+    nom: "Tenue 29"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh30:
+    nom: "Tenue 30"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh31:
+    nom: "Tenue 31"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh32:
+    nom: "Tenue 32"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh33:
+    nom: "Tenue 33"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh34:
+    nom: "Tenue 34"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh35:
+    nom: "Tenue 35"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh36:
+    nom: "Tenue 36"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh37:
+    nom: "Tenue 37"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh38:
+    nom: "Tenue 38"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh39:
+    nom: "Tenue 39"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh40:
+    nom: "Tenue 40"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh41:
+    nom: "Tenue 41"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh42:
+    nom: "Tenue 42"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  tenueh43:
+    nom: "Tenue 43"
+    categorie: tenues
+    genre: tenue
+    prix: 250
+  tenueh44:
+    nom: "Tenue 44"
+    categorie: tenues
+    genre: tenue
+    prix: 350
+  tenueh45:
+    nom: "Tenue 45"
+    categorie: tenues
+    genre: tenue
+    prix: 200
+  tenueh46:
+    nom: "Tenue 46"
+    categorie: tenues
+    genre: tenue
+    prix: 300
+  tenueh47:
+    nom: "Tenue 47"
+    categorie: tenues
+    genre: tenue
+    prix: 400
+  masque_hannya:
+    nom: "Masque Hannya"
+    categorie: masques
+    genre: objet
+    nexo: masque_hannya
+    emplacement: MASQUE
+    prix: 450
+  masque_anbu:
+    nom: "Masque ANBU"
+    categorie: masques
+    genre: objet
+    nexo: masque_anbu
+    emplacement: MASQUE
+    prix: 600
+    conditions: ["fonction=anbu"]
+  bandeau_konoha:
+    nom: "Bandeau de Konoha"
+    categorie: coiffes
+    genre: objet
+    nexo: bandeau_konoha
+    emplacement: BANDEAU
+    prix: 120
+    conditions: ["village=konoha"]
+  akatsuki_hat:
+    nom: "Chapeau de voyage"
+    categorie: coiffes
+    genre: objet
+    nexo: akatsuki_hat
+    emplacement: CHAPEAU
+    prix: 350
+  rouleau_jaune:
+    nom: "Rouleau jaune"
+    categorie: accessoires
+    genre: objet
+    nexo: rouleau_jaune
+    emplacement: DOS
+    prix: 120
+  rouleau_vert:
+    nom: "Rouleau vert"
+    categorie: accessoires
+    genre: objet
+    nexo: rouleau_vert
+    emplacement: DOS
+    prix: 120
+  rouleau_violet:
+    nom: "Rouleau violet"
+    categorie: accessoires
+    genre: objet
+    nexo: rouleau_violet
+    emplacement: DOS
+    prix: 150

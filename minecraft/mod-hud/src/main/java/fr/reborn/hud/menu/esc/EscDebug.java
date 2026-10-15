@@ -94,15 +94,15 @@ public final class EscDebug {
             pas(5, mc -> clic(mc, 0), "clic REPRENDRE");
             attendreFerme(20, "REPRENDRE après " + noms[b - 1]);
         }
-        // Échoppe (devanture)
+        // Boutique (devanture ; écran vide depuis le 15/10)
         ouvrir();
-        pas(25, mc -> clicUnites(mc, 236 + 88, 60 + 60), "clic ECHOPPE");
+        pas(25, mc -> clicUnites(mc, 236 + 88, 60 + 60), "clic BOUTIQUE");
         pas(15, mc -> verifie(!(mc.gui.screen() instanceof PauseScreen) && mc.gui.screen() != null,
-            "ECHOPPE ouvre " + nom(mc.gui.screen())), "vérif");
+            "BOUTIQUE ouvre " + nom(mc.gui.screen())), "vérif");
         pas(5, EscDebug::echapTouche, "retour (Échap)");
-        pas(15, mc -> verifie(mc.gui.screen() instanceof PauseScreen, "retour de ECHOPPE → " + nom(mc.gui.screen())), "vérif retour");
+        pas(15, mc -> verifie(mc.gui.screen() instanceof PauseScreen, "retour de BOUTIQUE → " + nom(mc.gui.screen())), "vérif retour");
         pas(5, EscDebug::echapTouche, "Échap");
-        attendreFerme(10, "Échap après ECHOPPE");
+        attendreFerme(10, "Échap après BOUTIQUE");
     }
 
     // ── construction ──

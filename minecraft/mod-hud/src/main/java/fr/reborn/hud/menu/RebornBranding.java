@@ -98,6 +98,9 @@ public final class RebornBranding {
             host + (port == 25565 ? "" : ":" + port),
             ServerData.Type.OTHER
         );
+        // Pack Nexo obligatoire : accepté d'office, jamais d'écran de confirmation (voir aussi
+        // ConnectScreenMixin.startConnecting et ClientCommonPacketListenerPackMixin pour les autres chemins).
+        info.setResourcePackStatus(ServerData.ServerPackStatus.ENABLED);
         ServerAddress address = new ServerAddress(host, port);
         LOGGER.info("connexion directe a {}:{} (cible={})", host, port, target);
         ConnectScreen.startConnecting(parent, client, address, info, false, null);

@@ -10,7 +10,7 @@ import net.minecraft.resources.Identifier;
  * {@code LoadingOverlay} (fond Mojang) sans annuler sa logique (fade,
  * complétion du reload, transition vers le title). On peint un fond noir plein
  * qui masque le logo Mojang, le logo Reborn centré et une barre de progression
- * sobre — même vocabulaire visuel que {@link ConnectingRenderer} (Reborn).
+ * sobre. Le trajet vers le serveur a sa propre scène ({@link ChargementScene}).
  */
 public final class BootLoadingRenderer {
 

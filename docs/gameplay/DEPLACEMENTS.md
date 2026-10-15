@@ -1,6 +1,7 @@
 # Déplacements : marche, trot, sprint
 
-> **Fiche système, à jour au 2026-10-14** (lot « allures », codé, **non publié** : ShinobiAbilities, `reborn-hud`).
+> **Fiche système, à jour au 2026-10-15** (lot « allures », codé, **non publié** : ShinobiAbilities, `reborn-hud` ;
+> **marche sur l'eau** ajoutée le 15/10, §10, non publiée).
 > Elle décrit **ce qui est codé**. Décision : GAMEPLAN §7 et [`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md)
 > (14/10). Référence : RedLine *Player movements* (marche par défaut, jogging sur Shift maintenu, sprint sur double
 > Shift avec une barre qui n'apparaît qu'en sprint, ~5 s). Captures (hors dépôt) : `Maquettes/gameplan/05_deplacements/`.
@@ -105,3 +106,77 @@ sprint, fin de sprint, essoufflement, récupération → `run/screenshots/allure
   permettre que depuis le sprint (« quatrième rapport »), ce qui ferait du sprint la porte d'entrée de la course ninja.
 - ❓ **Faim** : le vanilla coupe trot et sprint sous 30 % de faim ; RedLine ne coupe le sprint qu'à 0 %.
 - ❓ **Dégâts de chute et roulade** (GAMEPLAN §7.3) : non traités ici.
+
+---
+
+## 10. Marche sur l'eau (15/10)
+
+> Codé le 15/10, **non publié** (ShinobiAbilities `mobility/MarcheEau`, mod `eau/`). Demande : « fais la marche sur
+> l'eau avec les mêmes visuels d'eau qui bouge en marchant ; il faut vraiment que ce soit aussi bien, si ce n'est
+> mieux » (référence Shinoda, [`../etudes/CONCURRENCE_SHINODA.md`](../etudes/CONCURRENCE_SHINODA.md)). Captures, GIF
+> et planche comparative (hors dépôt) : `Maquettes/gameplan/eau_v6/` (version actuelle ; v5 : `eau_v5/`,
+> v4 : `eau_v4/`, v3 : `eau_v3/`, v1 : `eau_meteo/`).
+
+### 10.1 Pour le joueur
+
+- **Capacité apprise** : `MARCHE_EAU` (« Marche sur l'eau »), une capacité de mobilité comme le dash ou l'escalade :
+  débloquée par un **parcours d'entraînement** qui la récompense ou par le staff (`/sa mobility unlock <perso>
+  marche_eau`). La leçon d'académie « Marche sur l'eau » (ShinobiLearning) ne la débloque pas encore d'elle-même.
+- **Automatique** : on marche sur l'eau comme sur le sol — marche, trot, sprint, saut, avec les allures habituelles.
+- **Accroupi maintenu** (~0,35 s) : on **s'enfonce** volontairement. Un appui bref (dash, course ninja) ne fait pas
+  couler.
+- **Dans l'eau, Saut** près de la surface : on **remonte d'un bond** sur l'eau (si on en a le droit).
+- **Chakra** : un peu, en continu, tant qu'on se tient sur l'eau — 0,3/s immobile, 0,5 en marche, 0,8 au trot, 1,5 au
+  sprint (le chakra ne remonte pas tout seul : la méditation le rend). **Chakra vide = on tombe à l'eau.**
+- **On tombe aussi** : KO (à terre, inconscient), douleur ou ATA, étourdi, gelé, porté, mode staff, surchargé
+  (tout ce que refuse `KoService.mobilityDenial`) — le serveur retire le permis, la surface redevient de l'eau.
+- Se poser sur l'eau après un saut **n'inflige pas de dégâts de chute**. En créatif : gratuit.
+
+### 10.2 Ce qu'on voit (tout le monde, pas seulement soi)
+
+Refait le 15/10 (retours « c'est hideux, fais subtil », « toujours pas ça », puis « ça fait trop ajout ») sur la
+référence Shinoda : **l'eau reste strictement celle du jeu**, aucune déformation, et les flaques doivent sembler en
+faire partie ; v6 : chaque pas se lit comme un impact sur l'eau.
+
+- À **chaque pas** (pied gauche puis droit), une **onde** part du pied : petite au point d'impact, elle s'étale vite
+  puis ralentit, son contour ondoie pendant l'expansion, puis elle s'efface (~1,6 s) ; une **seconde onde** plus faible
+  la suit 0,15 s plus tard. Allure : galet arrondi, convexe et irrégulier (0,8 à 1,3 bloc à la fin), **trait fin et
+  doux** bleu-blanc pâle (eau du biome mêlée de blanc, ~30 % d'opacité), très léger éclaircissement intérieur, même
+  lumière que l'eau (sombre la nuit) et brouillard. Les ondes des pas successifs se chevauchent.
+- **Gouttelettes** : à chaque pas, 3 à 4 gouttes d'eau du jeu jaillissent du pied et retombent (6 à 7 au sprint) ; à
+  la **retombée d'un saut**, une onde plus grande et une petite gerbe (12 gouttes). Pas de nuage blanc (la bouffée du
+  sprint des allures reste coupée sur l'eau).
+- **Sons** : un bruit de pas dans l'eau à chaque pas (éclaboussure légère + clapotis, pitch et volume variés), plus
+  marqué au sprint, une éclaboussure à la retombée. Pluie et orage : rien de plus.
+- Les autres joueurs voient les ondes et gouttes et entendent les pas **sans réseau** : chaque client détecte lui-même les joueurs debout à la
+  surface de l'eau (pieds à la surface, pas dans l'eau) et pose leurs effets.
+- Réglages : constantes en tête de `eau/Ondes.java` (diamètre, aplatissement, irrégularité, durées, seconde onde,
+  ondoiement, expansion, retombée, flou et opacité du trait, intérieur, part de blanc, écart des pieds, gouttelettes,
+  volume des sons).
+
+### 10.3 Technique
+
+- **Physique** : Minecraft calcule le mouvement côté client. Quand le serveur le permet (`reborn:eau`), le mod donne au
+  bloc d'eau de surface une **forme de collision** (hauteur de l'eau + 2 cm, seulement si les pieds sont au-dessus,
+  seulement pour le joueur local — `mixin/BlockStateEauMixin`). Le serveur accepte ces positions (aucun contrôle de
+  vol ne se déclenche au-dessus de l'eau) ; il détecte lui-même qui se tient sur l'eau pour débiter le chakra.
+- **Rendu** (Sodium et Iris) : un décalque très léger dessiné **après l'eau translucide**
+  (`LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN`) avec le pipeline de l'ombre des entités du jeu (translucide, sans
+  écriture de profondeur, décalé vers la caméra, brouillard) : chaque flaque est un petit maillage de 48 × 3 quads
+  (remplissage très faible, puis le trait en deux bandes dont l'opacité monte jusqu'au contour et redescend : trait fin
+  et doux, lisse à toute distance), texture d'un seul texel blanc (`textures/environment/flaque.png`), couleur
+  assombrie selon la lumière. L'eau des chunks n'est jamais touchée.
+- **Coût** mesuré au banc (portable, iGPU Intel Iris Xe, avec Sodium) : ~0,24 ms CPU par image en moyenne pendant le
+  banc (~5 ondes à l'écran, ~730 quads), 0 quand il n'y a pas d'onde ; gouttelettes = quelques particules du jeu par
+  pas. Mémoire ajoutée : texture 1 texel, ~9 Ko de tableaux (128 ondes au plus), tampons réutilisés de 64 Ko (CPU)
+  et 3 × 128 Ko (GPU). Aucune allocation par image ; rien au-delà de 56 blocs ni caméra sous l'eau.
+- **Shader Iris** : rien de particulier, le décalque est dessiné après l'eau du pack (non vérifié en jeu : Iris
+  n'est pas dans le modpack).
+- **Limites** : un joueur téléporté au-dessus de l'eau avant que ses chunks n'arrivent tombe dedans (Saut pour
+  remonter) ; les plantes aquatiques qui affleurent portent aussi (eau dans le bloc) ; une chute d'eau ne porte pas.
+
+### 10.4 Réglages
+
+`ShinobiAbilities/config.yml`, `mobility.marche-eau` : `enabled` (true), `chakra-par-seconde.immobile` 0.3, `marche`
+0.5, `trot` 0.8, `sprint` 1.5 (défauts identiques dans le code). Canal : [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md)
+(`reborn:eau`). Banc : `REBORN_EAU_DEBUG=1` ([`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §5).

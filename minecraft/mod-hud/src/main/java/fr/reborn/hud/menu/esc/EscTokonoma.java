@@ -4,11 +4,9 @@ import fr.reborn.hud.menu.IconPack;
 import fr.reborn.hud.menu.RebornBranding;
 import fr.reborn.hud.menu.RebornSounds;
 import fr.reborn.hud.menu.screens.ConfigShellScreen;
-import fr.reborn.hud.menu.shop.ShopData;
 import fr.reborn.hud.menu.stats.StatsData;
 import fr.reborn.hud.menu.widget.DisconnectConfirmScreen;
 import fr.reborn.hud.menu.widget.ReportScreen;
-import fr.reborn.hud.menu.widget.ShopScreen;
 import fr.reborn.hud.ui.DaKit;
 import fr.reborn.hud.ui.UiAmbience;
 import net.minecraft.client.Minecraft;
@@ -30,7 +28,8 @@ import static fr.reborn.hud.menu.esc.EchapArt.*;
 /**
  * Menu Échap « tokonoma » : une pièce traditionnelle de nuit. Fenêtre ronde sur le village,
  * logo Reborn Roleplay et menu en plaques laquées suspendues à gauche ; poutre aux emblèmes des
- * cinq villages et, dans l'alcôve, quatre éléments distincts : Échoppe (devanture noren),
+ * cinq villages et, dans l'alcôve, quatre éléments distincts : Boutique (devanture noren, écran vide en attendant ses
+ * visuels — décision du 15/10),
  * Stream (kamishibai), Dev blog (kawaraban) et Récompenses (omamori). Réseaux en bas à droite.
  *
  * <p>Ouverture : deux fusuma coulissent ; fermeture par « Reprendre » : elles se referment.
@@ -132,9 +131,6 @@ public final class EscTokonoma {
         active = true;
         closeSoundPlayed = false;
         EscData.refreshIfStale();
-        if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(fr.reborn.hud.menu.shop.ShopPayload.ID)) {
-            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new fr.reborn.hud.menu.shop.ShopPayload("open"));
-        }
         if (StatsData.get() == null
             && net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(fr.reborn.hud.menu.stats.StatsPayload.ID)) {
             silentStatsRequest = true; // identité (nom, village) sans ouvrir la fiche
@@ -365,7 +361,7 @@ public final class EscTokonoma {
         }
     }
 
-    // ── Échoppe : devanture noren + chōchin ──
+    // ── Boutique : devanture noren + chōchin (15/10 : l'ancienne échoppe ; l'écran est vide en attendant ses visuels) ──
     private void drawShop(GuiGraphicsExtractor ctx, Font f, float time) {
         int x = 236, y = 60, w = 177, h = 121;
         float hv = hov[H_SHOP];
@@ -381,15 +377,8 @@ public final class EscTokonoma {
             blit(ctx, CHOCHIN, -10, 0, hv > 0.5f ? 20 : 0, 0, 20, 32, 40, 32);
             ctx.pose().popMatrix();
         }
-        arc(ctx, f, "ECHOPPE", x + w / 2f, y + 52, CREME, 1, GRAND, true);
-        // Monnaie (15/10) : la carte ÉCHOPPE lit la BOURSE (ce que l'on porte), plus le dernier état de l'échoppe.
-        long b = fr.reborn.hud.monnaie.MonnaieClient.bourse();
-        long ryo = b >= 0 ? b : ShopData.received() ? ShopData.ryo() : Long.MIN_VALUE;
-        if (ryo != balRyo || bal == null) { balRyo = ryo; bal = ryo == Long.MIN_VALUE ? "Sur toi · — ryo" : "Sur toi · " + fr.reborn.hud.monnaie.BourseClient.fmt(ryo) + " ryo"; }
-        float bw = largeurInter(f, bal, 8) + 10;
-        float bx = x + w / 2f - bw / 2f;
-        ryo(ctx, Math.round(bx), y + 75);
-        inter(ctx, f, bal, bx + 10, y + 78, OR_CLAIR, 0, 8);
+        arc(ctx, f, "BOUTIQUE", x + w / 2f, y + 52, CREME, 1, GRAND, true);
+        inter(ctx, f, "Bientôt", x + w / 2f, y + 78, DaKit.argb(0xF2D08A, 0.8f), 1, 8);
         // « Entrer ›» en bas à droite, sur le comptoir
         float ew = largeurInter(f, "Entrer", 8);
         int ex = Math.round(x + w - 12 - ew - 10 + hv * 2);
@@ -504,8 +493,8 @@ public final class EscTokonoma {
         inter(ctx, f, "· +5 par heure de jeu", x + 23 + rw + 4, y + 107, DaKit.argb(0xF2D08A, 0.7f), 0, 8);
     }
 
-    private long balRyo, balRb = Long.MIN_VALUE;
-    private String bal, rbTxt;
+    private long balRb = Long.MIN_VALUE;
+    private String rbTxt;
     private EscData.Snapshot floorSnap;
     private String floorLine;
 
@@ -590,7 +579,7 @@ public final class EscTokonoma {
             case 1 -> { select(); mc.setScreenAndShow(new ConfigShellScreen(screen)); }
             case 2 -> { select(); mc.setScreenAndShow(new ReportScreen(screen)); }
             case 3 -> { select(); mc.setScreenAndShow(new DisconnectConfirmScreen(screen)); }
-            case H_SHOP -> { select(); mc.setScreenAndShow(new ShopScreen(screen)); }
+            case H_SHOP -> { select(); mc.setScreenAndShow(new fr.reborn.hud.boutique.BoutiqueVideScreen(screen)); }
             case H_STREAM_PREV, H_STREAM_NEXT -> {
                 streamIdx += id == H_STREAM_NEXT ? 1 : -1; lastStreamRotate = System.currentTimeMillis();
                 RebornSounds.playReborn("esc.page", 1.0f, 0.5f);

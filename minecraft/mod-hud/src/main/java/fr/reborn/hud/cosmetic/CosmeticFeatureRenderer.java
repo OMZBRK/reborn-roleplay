@@ -62,6 +62,12 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
      */
     private static final Map<String, CosmeticTransform> LIVE = new ConcurrentHashMap<>();
 
+    /**
+     * Essai au tailleur (boutiques, 15/10) : cosmétiques 3D posés sur le joueur LOCAL pour lui seul, par-dessus ce qu'il
+     * porte, le temps de l'écran ({@code BoutiqueScreen} vide la table en sortant). Jamais diffusé.
+     */
+    public static final Map<CosmeticSlot, SlotItem> ESSAI = new ConcurrentHashMap<>();
+
     public CosmeticFeatureRenderer(RenderLayerParent<AvatarRenderState, PlayerModel> parent,
                                    EntityModelSet models) {
         super(parent);
@@ -135,10 +141,16 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
         // Joueur LOCAL avec sac déjà poussé : source autoritaire locale (InventoryData
         // + placement local via live() = aperçu direct de l'éditeur).
         boolean isLocal = state.id == mc.player.getId();
+        if (isLocal && !ESSAI.isEmpty()) {
+            for (Map.Entry<CosmeticSlot, SlotItem> e : ESSAI.entrySet()) {
+                renderCosmetic(poseStack, collector, light, state, model, resolver, living, e.getKey(), e.getValue(), null);
+            }
+        }
         if (isLocal && InventoryData.fromServer()) {
             Map<CosmeticSlot, SlotItem> equipped = InventoryData.get().equipped();
             if (equipped == null || equipped.isEmpty()) return;
             for (Map.Entry<CosmeticSlot, SlotItem> e : equipped.entrySet()) {
+                if (ESSAI.containsKey(e.getKey())) continue;   // la pièce essayée remplace celle de l'emplacement
                 renderCosmetic(poseStack, collector, light, state, model, resolver, living,
                     e.getKey(), e.getValue(), null);
             }

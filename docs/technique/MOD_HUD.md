@@ -12,7 +12,8 @@
 
 | Package | Contenu |
 |---|---|
-| `menu/` | Menu principal, Échap « Tokonoma » (`esc/`), réglages (`settings/`), fiche shinobi « lanternes célestes » (`stats/`), sacoche « inrō » (`inventory/`), échoppe (`shop/`), tab list (`tablist/`), test de la Feuille (`tirage/`), connexion (`connect/`), personnages (`character/` + `character/scene/`) |
+| `boutique/` | Boutiques-lieux (15/10) : `BoutiqueScreen` (tailleur et bazar, par-dessus le jeu), `CameraEssayage` (caméra d'essayage dans le monde, trois cadrages, repli sur voile), `BoutiqueClient` (canal `reborn:boutique`), `BoutiqueVideScreen` (la BOUTIQUE vide de l'Échap), `BoutiqueDebug` (banc) — [`../gameplay/BOUTIQUES.md`](../gameplay/BOUTIQUES.md) §13 |
+| `menu/` | Menu principal, Échap « Tokonoma » (`esc/`), réglages (`settings/`), fiche shinobi « lanternes célestes » (`stats/`), sacoche « inrō » (`inventory/`), ancienne échoppe (`shop/`, plus ouverte par l'Échap depuis le 15/10), tab list (`tablist/`), test de la Feuille (`tirage/`), connexion et chargement (`connect/` : scène « nuit de pleine lune » du trajet vers le serveur, §8), personnages (`character/` + `character/scene/`) |
 | `sol/`, `notif/` | Ramassage volontaire (touche F, invite), lueur de rareté au sol (`AuraSol`, v3 du 15/10 : petit halo pixel art `gui/inventaire/lueur.png` 44×11 — 4 images 11×11, halo seul puis 1-2 pixels qui scintillent — généré par `tools/gen_inventaire_textures.py`, teint à la couleur de la rareté, respiration d'alpha ; objets en vue seulement ; sélection par tick, ≤ 48 objets à 16 blocs, un quad par objet en un seul lot `submitCustomGeometry`), rareté client ; ramassage F actif en survie, aventure et créatif ; notifications en bas à droite et état de charge (`reborn:notif`), indicateur de surcharge sous les vitals (13/10) |
 | `ko/` | HUD du KO et de l'ATA, QTE Volonté, menu des corps (`CorpsClient`), scène de mort (`DeathScreen`) |
 | `staff/` | Poste de garde v3 « le volet » (14/10) : `StaffScreen` (volet, onglets, alertes, liste, menus), `GardeFiche` (fiche compacte, sections, sanction), `GardeRecherche` (recherche universelle, hors ligne et actions), `GardeJournal` (jetons, jours), `GardeOutils` + `GardeAnnonces` (outils, chat, commandes, modes), `GardeFormulaire` (formulaire dans le volet), `GardeActions` (catalogue des actions et raccourcis), `GardeArt` (palette, icônes `garde/icones.png`, pinceau en lots) ; `GardeScreen` = l'écran ouvert, avec l'Infirmerie dans Outils ; effets staff en jeu (`EffetsStaff` : annonce, écran noir, séisme via `mixin/CameraSeismeMixin`, indicateur du mode staff / animation ; `PlaquesStaff` : plaques du mode staff ; canaux `reborn:annonce`, `reborn:ecran`, `reborn:plaques` par `CanalJson`), serveur simulé du banc (`StaffDemo`) |
@@ -25,7 +26,8 @@
 | `interaction/` | Mode interaction (touche R) : curseur, menus contextuels (joueur, corps, entité, bloc, soi) |
 | `camera/`, `screenshot/` | Caméra 3ᵉ personne, mode photo (filtres, cadres), galerie |
 | `nameplate/` | Noms au-dessus des têtes (4 styles au choix) |
-| `byakugan/`, `meteo/`, `effets/` | Vision Byakugan, météo client (pluie, sable, brume), filtres plein écran |
+| `byakugan/`, `meteo/`, `effets/` | Vision Byakugan, météo client (pluie, vent de sable, brume, **blizzard, tempête de sable** — 15/10), filtres plein écran |
+| `eau/` | **Marche sur l'eau** (15/10) : `MarcheEauClient` (permis `reborn:eau`, surface solide pour le joueur local via `mixin/BlockStateEauMixin`, accroupi = s'enfoncer, Saut = remonter), `Ondes` (marcheurs détectés sur chaque client ; à chaque pas une **onde** qui part du pied et s'étale + une seconde plus faible, gouttelettes, bruit de pas dans l'eau ; **réglages = constantes en tête de la classe**), `EauRendu` (contour fin et doux de chaque flaque, maillage à dégradé d'opacité, après l'eau translucide ; l'eau du jeu n'est pas modifiée), `EauDebug` (banc) |
 | `skin/` | Compositeur de skins Reborn (`RebornSkins`, `SkinSpec`) |
 | `editor/`, `element/`, `config/` | Éditeur de HUD (déplacer / redimensionner / masquer), éléments, presets |
 | `emote/`, `animation/` | Emotes EmoteCraft, Naruto run, synchronisation d'animations |
@@ -99,12 +101,18 @@ JAVA_HOME=/c/Users/omarb/dev-cache/jdk-25.0.4.1+1 REBORN_FEATURE_PREVIEW=1 \
 | `REBORN_ALLURE_DEBUG=1` | Trois allures (14/10, `allure/AllureDebug`) : piste dans le ciel au-dessus du spawn (effacée à la fin, dégâts de chute coupés le temps du banc), caméra de face le temps du banc, marche / trot / sprint / fin de sprint / essoufflé / récupération → `run/screenshots/allure_0*.png` + vitesses mesurées `allure_vitesses.txt` ; endurance simulée (solo, pas de plugin) ; copie dans `Maquettes/gameplan/05_deplacements/` |
 | `REBORN_NOURRITURE_DEBUG=1` (+ `REBORN_NOURRITURE_POS="x y z lacet tangage"`, point de vue, jamais noté dans le dépôt) | Nourriture (14/10, `nourriture/NourritureDebug`) : 18 cas — préparer au fourneau, plats prêts, invite « [R] Tendre », menu R (Tendre / Donner des ryo), on me tend (F prendre · Retour refuser), je tends, manger (or pâle dans la barre), repas en pause, plat froid, effet Régénération ×2 (nom 3 s), plusieurs effets, régénération en pause, Affamé, Faim, Fatigue (contrecoup), ration achetée, ration assis, onglet Vivres de l'échoppe → `run/screenshots/nourriture_*.png`, copies dans `Maquettes/gameplan/12_nourriture/code/`. Le joueur de dev (pseudo tiré au hasard, parfois un joueur mort d'un ancien banc : il est ressuscité) passe en créatif et vole le temps du banc ; barre d'action, mode de jeu, heure et météo rendus à la fin, mannequin retiré |
 | `REBORN_MONNAIE_DEBUG=1` (+ `REBORN_MONNAIE_POS="x y z lacet tangage"`, jamais noté dans le dépôt) | Monnaie et banque (15/10, `monnaie/MonnaieDebug`) : 17 captures en 1920×1080 à l'échelle GUI 2, vue à la première personne (rendues à la fin) — bourse dans la sacoche (survol, « Sur toi »), « Combien veux-tu poser ? », bourse au sol (invite [F]), menu R (Tendre Bourse · 990 ryo), guichet (Déposer, Retirer, Virement, Échange garanti : choisir puis en cours, Coffre et paliers avec un parchemin refusé), fouille (filet 3 s, sacoche du corps, « Prendre dans la bourse »), coffre posé (« Combien veux-tu ranger ? »), Poste de garde (section Économie, formulaire Donner), Échap (bourse, RBCoins) → `run/screenshots/monnaie_*.png`, copies dans `Maquettes/gameplan/19_monnaie/code/`. Le pack de dev `run/resourcepacks/reborn_rouleaux_dev` (copie des provisoires du pack Nexo, bourse comprise) est activé le temps du banc ; barre d'action, mode de jeu, heure, météo, packs, caméra et échelle rendus à la fin ; les envois au serveur sont interceptés |
+| `REBORN_BOUTIQUE_DEBUG=1` | Boutiques-lieux (15/10, `boutique/BoutiqueDebug`) : 12 captures en 1920×1080 à l'échelle GUI 2 — une petite échoppe de tailleur est construite dans le ciel au-dessus du joueur (blocs relevés puis rendus), le personnage est placé sur l'estrade : comptoir des vêtements sur « Hauts » (vide), essai, de dos, cadrage visage, confirmation d'achat, après l'achat, comptoir des masques (essai du masque 3D), condition grisée + info-bulle, bazar, repli sur voile (mur devant la caméra), carte BOUTIQUE de l'Échap, écran Boutique vide → `run/screenshots/boutique_*.png`, copies dans `Maquettes/gameplan/42_boutiques/code/`. Pack de dev `run/resourcepacks/reborn_boutique_dev` (modèles Nexo du masque Hannya, du chapeau, des rouleaux ; hors dépôt) activé le temps du banc ; envois au serveur interceptés |
 | `REBORN_RADIO_DEBUG=1` (+ `REBORN_RADIO_POS="x y z lacet tangage"`, jamais noté dans le dépôt) | Radio en escouades (14/10, `radio/RadioDebug`) : 17 captures en 1920×1080 à l'échelle GUI 2 (rendue à la fin) — écran N (survol « Exclure », dissolution à confirmer, vu d'un membre, renommer, sans escouade), élément Escouade (silence, Sakura parle, j'émets, toute l'escouade, invitation, à terre « haché », écoute staff, oreillette volée), éditeur de HUD (élément sélectionné, case « Afficher toute l'escouade »), menu R (Ajouter à « Kagerō », Créer une escouade, Oreillette sur un joueur à terre) → `run/screenshots/radio_*.png`, copies dans `Maquettes/gameplan/18_radio/code/`. Têtes RP prêtées par `RebornSkins` (rendues à la fin) ; la voix n'est pas simulée |
 | `REBORN_METEO_DEBUG=1`, `REBORN_BYAKUGAN_DEBUG=1` | Météo ; Byakugan |
+| `REBORN_METEO_DEBUG=tempetes` | Blizzard et tempête de sable (15/10, `meteo/MeteoDebug`) : sol dégagé cherché par le serveur intégré près du point d'apparition, mannequins à 4, 8, 12 et 18 blocs ; clair, blizzard 75 % / 100 % / 3ᵉ personne / nuit / 40 %, tempête de sable 75 % / 100 % / 3ᵉ personne / soir, entrées et sorties en images de GIF → `run/screenshots/meteo_t*.png`, `metgif_*.png` ; copies et GIF dans `Maquettes/gameplan/eau_meteo/`. Remet position, heure et caméra |
+| `REBORN_EAU_DEBUG=1` | Marche sur l'eau (15/10, `eau/EauDebug`, permis forcé, allures simulées) : mer ouverte **profonde** cherchée par le serveur intégré (fond à 10 blocs, sinon 3), joueur tenu en l'air tant que l'eau n'est pas arrivée chez le client puis posé dessus ; immobile, marche, trot, sprint (dos), de face, 1ʳᵉ personne (regard vers le bas en avançant, puis à reculons pour voir la traînée de flaques, comme la référence Shinoda), saut et retombée, s'enfoncer (accroupi), remonter (Saut), un mannequin qui traverse (« autre joueur ») ; retour au large avant la 1ʳᵉ personne, le saut et l'autre joueur ; angles tenus à chaque tick et aucun écran (la souris ou une perte de focus ne dérangent pas le banc) → `run/screenshots/eau_*.png` + images de GIF `eaugif_*` ; coût CPU du rendu dans le log (`[eau-banc]`). Monde **« New World »** (Konoha n'a pas de mer). Flaques : `Maquettes/gameplan/eau_v6/` (v5 : `eau_v5/`, v4 : `eau_v4/`, v3 : `eau_v3/`, v1 : `eau_meteo/`) |
+| Avec **Sodium** | Les bancs de l'eau et de la météo ont été validés avec le pack du launcher copié le temps des essais dans `run/mods` (sodium, sodium-extra, lithium, entityculling, ETF, YACL, fabric-language-kotlin), puis retiré ; `run/config` et le monde de dev remis à l'identique |
 | `REBORN_AUDIT=1` (+ `REBORN_AUDIT_SCALES`, `REBORN_AUDIT_ONLY`) | Audit responsive : écrans et états du HUD × échelles. Relève aussi le **nombre d'éléments GUI** de chaque capture (DA §6, règle 7 ; `audit/GuiCompte`) dans `run/audit_elements.txt` |
 | `REBORN_AUDIT_ONLY=menu_hud,menu_viseur,menu_camera,menu_animations,menu_photo,menu_galerie,menu_signaler,menu_deconnexion,menu_tirage,menu_cosmetique` | Écrans en jeu du lot du 13/10 (dont `menu_galerie_detail` / `_retouche` / `_partage`, `menu_tirage_confirmer` / `_resultat`, `menu_cosmetique`) |
 | `REBORN_AUDIT_ONLY=hud_ko,hud_volonte,hud_cooldowns,hud_combat` | HUD discrets : KO (à terre, carte, inconscient, ATA), Volonté (invitation, épreuve), recharges (`hud_cooldowns` : dash, double saut et saut de chakra en recharge + combat et course de chakra forcés par `CooldownState.debugActifs`) |
 | `REBORN_AUDIT_ONLY=menu_tirage` | Test de la Feuille refait (14/10) : `menu_tirage_signes`, `_confirmer`, `_concentration`, `_reaction_<nature>` et `_resultat_<nature>` pour les 5 natures, `_reaction_double` (Katon + Fūton), `_resultat_double` (Raiton, Suiton déjà éveillé) ; écran ouvert à une étape précise par `TirageScreen.banc(nature, autres, étape)`. GIF de chaque réaction générés par `tools/gen_tirage_textures.py` → `Maquettes/test_feuille/` |
+| `REBORN_CHARGEMENT_DEBUG=scene` | Scène de chargement (15/10, `menu/connect/ChargementDebug`, horloge imposée) : une capture par état (`chargement_01_connexion` … `_04_monde`) puis 180 images à 20 i/s (`chgif_*`) ; écrit le coût moyen d'extraction par image dans le log. Copies et GIF dans `Maquettes/gameplan/chargement/v2/` |
+| `REBORN_CHARGEMENT_DEBUG=serveur` (+ `REBORN_CHARGEMENT_SERVEUR=hôte:port`, défaut `127.0.0.1:25599` ; `REBORN_CHARGEMENT_PACK2="url sha1"`) | Vrai trajet vers un serveur de test **local** (serveur vanilla 26.2 hors dépôt, `online-mode=false`, pack exigé servi en HTTP local) avec un `ServerData` réglé sur « Demander » : Échap annule ; 1ᵉʳ passage (pack en configuration + pack poussé pendant l'écran du monde, comme Nexo) ; 2ᵉ passage (pack servi par le cache) ; pack renvoyé en jeu (comme `/nexo reload`). « OK » / « ECHEC » dans le log, captures `chsrv_*` |
 | `REBORN_MOCKUPS` | Maquettes de scènes |
 
 - Un banc injecte de faux messages serveur (via des méthodes `debugReceive`) et prend des captures à des ticks
@@ -123,7 +131,53 @@ JAVA_HOME=/c/Users/omarb/dev-cache/jdk-25.0.4.1+1 REBORN_FEATURE_PREVIEW=1 \
 - Payloads : JSON UTF-8 brut sans préfixe de longueur ; enregistrer le type dans les deux sens si le mod envoie.
 - Le jar fait ~23,9 Mo. **Un jar qui grossit fortement = un asset intrus** (cf. publication).
 - Plaques de nom : positionner sur l'image interpolée (partialTick), pas sur le dernier tick.
+- **Brouillard et Sodium** (15/10) : Sodium copie le `FogData` pour ses chunks dans son propre `@Inject` RETURN de
+  `FogRenderer.setupFog`. Un mixin qui modifie le brouillard doit passer **avant** lui (`priority = 500`, cf.
+  `FogRendererMeteoMixin`), sinon seules les entités sont noyées et le terrain garde le brouillard du jeu (c'était le
+  cas de la pluie, du sable et de la brume avant le 15/10).
+- **Décalque posé sur l'eau ou le sol** (15/10, `eau/EauRendu`) : `LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN`
+  (par-dessus l'eau de Sodium), maillage construit à la main puis `RenderType.prepare().drawFromBuffer(...)` avec
+  `RenderTypes.entityShadow(texture)` = translucide, sans écriture de profondeur, décalé vers la caméra (pas de
+  scintillement), brouillard, **pas d'éclairage** (assombrir soi-même la couleur des sommets selon la lumière) ;
+  `entityTranslucent` éclaire avec les deux lumières des entités : un décalque clair y sort gris. Quads dans le sens
+  qui fait face au ciel.
+- **Pas d'allocation par image** dans ce qui se dessine à chaque image (exigence perf du 15/10 : le concurrent tourne
+  en 4 Go) : réserves d'objets, listes et tableaux préalloués, vidés puis réutilisés ; tampons GPU réutilisés en
+  rotation sur 3 images. Seuls restent les petits objets d'en-tête de l'API du jeu (`BufferBuilder`, `MeshData`).
 
 ## 7. Historique des versions
 
 Le détail version par version (0.4.139 → 0.4.169) est dans [`../pilotage/JOURNAL_DES_LIVRAISONS.md`](../pilotage/JOURNAL_DES_LIVRAISONS.md).
+
+## 8. Trajet vers le serveur : scène de chargement et pack Nexo (15/10)
+
+- **Scène** (`menu/connect/ChargementScene`, textures `textures/gui/chargement/*` générées par
+  `tools/gen_chargement_textures.py`) : nuit bleue, grande pleine lune au centre, cumulus éclairés par la lune (cuits
+  dans le ciel), voiles et brume qui dérivent, collines et village aux fenêtres chaudes, arbres et lisière de cimes au
+  premier plan, corbeaux, feuilles, étoiles qui scintillent (le shinobi a été retiré le 15/10, retour utilisateur).
+  En bas, centrée : une **barre pixel art** (40 % de la largeur, cadre fin sombre, remplissage bleu en 5 rangées avec
+  reflet, tête claire), le **pourcentage à droite** et le **libellé petit au-dessus**, en **ArcadePix** (police des
+  menus, capitales, au pixel écran) : « CONNEXION AU SERVEUR », « TELECHARGEMENT DES RESSOURCES », « APPLICATION DES
+  RESSOURCES », « CHARGEMENT DU MONDE ». Progression inconnue (connexion) : un éclat bleu glisse dans la barre, sans
+  pourcentage. Ni logo, ni bouton : **Échap annule** la connexion.
+- **Écrans couverts**, une seule horloge (aucun saut) : `ConnectScreen`, rechargement des ressources du pack serveur
+  (`LoadingOverlay` : fond, logo et barre Mojang retirés par `@WrapWithCondition`, choix fait une fois par écran),
+  `LevelLoadingScreen` (pendant le trajet et sur tout serveur distant ; vanilla en solo). Toasts masqués tant que la
+  scène est à l'écran ; le toast vanilla « Téléchargement du pack » n'est plus jamais affiché. Fondus : depuis la nuit à l'entrée ; à l'arrivée, la scène s'éteint dans la nuit puis la nuit s'efface sur le
+  jeu (élément HUD `chargement_fondu`). L'écran du monde est **retenu** tant qu'un pack serveur est en route ou qu'un
+  rechargement est à l'écran (garde-fou 120 s). Le splash du démarrage reste `BootLoadingRenderer`.
+- **Coût** : 8 textures, ~40 Ko sur disque, ~2,2 Mo de VRAM, **libérées** dès que plus aucun écran ne les dessine ;
+  une trentaine de blits et d'aplats par image (la barre : une douzaine d'aplats, pas de texture) ; aucune allocation par image dans le code de la scène (états et textes
+  en cache, hachage au lieu de `Random`). Mesuré par le banc : ~0,17 ms d'extraction CPU par image en 1080p (k = 4),
+  ~0,13 ms en 1366×768.
+- **Pack Nexo sans confirmation** : `ConnectScreenMixin.startConnecting` passe le serveur visé en « packs serveur :
+  activés » (bouton JOUER, liste des serveurs, quickPlay du launcher) et `ClientCommonPacketListenerPackMixin` accepte
+  tout push de pack (configuration ou jeu) sans écran, même si le `ServerData` est absent ou réglé sur « Demander ».
+  Le cache vanilla (`downloads/`, par SHA-1) évite tout retéléchargement d'un pack inchangé (journal : « Returning cached
+  file since actual hash matches requested ») — **à condition que le serveur envoie le SHA-1**.
+- **Côté serveur (rien d'obligatoire)** : l'écran de confirmation est un écran du client, le serveur ne peut pas le
+  retirer ; c'est le mod qui le supprime. Dans `plugins/Nexo/settings.yml`, section `Pack` → dispatch (noms à vérifier
+  dans la version installée) : garder le pack **obligatoire** (les clients sans le mod devront toujours l'accepter),
+  le texte d'invite ne s'affiche plus pour les joueurs Reborn, garder l'envoi de l'empreinte SHA-1 (sinon chaque
+  connexion retélécharge le pack). Envoyer le pack pendant la phase de configuration (avant l'arrivée en jeu), si Nexo
+  le propose, raccourcit le trajet ; sinon l'écran du monde attend le pack poussé à l'arrivée.

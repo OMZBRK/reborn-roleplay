@@ -18,7 +18,7 @@ public abstract class LevelRainMeteoMixin {
 
     @Inject(method = "getRainLevel(F)F", at = @At("RETURN"), cancellable = true)
     private void reborn$meteoPluie(float partialTick, CallbackInfoReturnable<Float> cir) {
-        if (!((Object) this instanceof ClientLevel) || !MeteoClient.pluie3D()) return;
+        if (!((Object) this instanceof ClientLevel) || !(MeteoClient.pluie3D() || MeteoClient.neige3D())) return;
         float i = MeteoClient.intensite();
         if (i > cir.getReturnValueF()) cir.setReturnValue(i);
     }

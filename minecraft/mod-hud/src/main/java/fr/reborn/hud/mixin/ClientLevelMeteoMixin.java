@@ -16,5 +16,6 @@ public abstract class ClientLevelMeteoMixin {
     @Inject(method = "getPrecipitationAt", at = @At("HEAD"), cancellable = true)
     private void reborn$meteoPrecipitation(BlockPos pos, CallbackInfoReturnable<Biome.Precipitation> cir) {
         if (MeteoClient.pluie3D()) cir.setReturnValue(Biome.Precipitation.RAIN);
+        else if (MeteoClient.neige3D()) cir.setReturnValue(Biome.Precipitation.SNOW);   // blizzard : neige partout
     }
 }

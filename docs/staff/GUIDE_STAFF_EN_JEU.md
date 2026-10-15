@@ -170,6 +170,31 @@ est sur le **compte**, au guichet du village. Détails : [`../gameplay/MONNAIE_E
   vers le même compte en 24 h, virement entre comptes liés (même IP), grosse bourse ramassée par un autre, bourse en
   double.
 
+### Boutiques : tailleur et bazar (15/10, pas encore publiées)
+Les tenues ne s'achètent plus depuis l'Échap (sa carte **BOUTIQUE** ouvre un écran vide, en attendant ses visuels) :
+elles se vendent chez un **tailleur**, un lieu du village ; vivres et cartes au **bazar**. Les bâtisseurs construisent la
+boutique ; vous ne faites que **marquer** les comptoirs et les estrades. Tout est journalisé (`BOUTIQUE_*`), chaque achat
+aussi (`ECONOMIE ACHAT`). Détails : [`../gameplay/BOUTIQUES.md`](../gameplay/BOUTIQUES.md) §13.
+- **Créer** : `/boutique creer tailleur "Tailleur Hōsen" konoha [entreprise]` (ou `bazar "Bazar de Konoha" konoha`).
+- **Comptoirs** (un par rayon) : visez le bloc, le meuble ou le PNJ, puis `/boutique comptoir ajouter tailleur_hosen
+  hauts bas` ; un autre `… masques`, un autre `… coiffes accessoires`. Catégories : `tenues`, `hauts`, `bas`,
+  `manteaux`, `coiffes`, `masques`, `accessoires` (tailleur), `vivres`, `cartes` (bazar). Sans catégorie : toutes
+  celles du genre. Changer (en visant) : `/boutique comptoir categories masques` ; liste précise :
+  `/boutique comptoir articles masque_hannya bandeau_konoha` (`tous` pour revenir) ; libellé : `/boutique comptoir nom
+  "Rayon des masques"` ; retirer : `/boutique comptoir retirer`.
+- **Estrade d'essayage** (tailleur) : tenez-vous où le client se tiendra, **regardez vers où la caméra sera** (face au
+  miroir), `/boutique estrade ajouter tailleur_hosen` : la ligne de visée de la caméra s'affiche 10 s (fumée = un bloc
+  gêne). Ajuster : `/boutique camera tailleur_hosen 2,7 1,0` (distance, hauteur). Sans estrade, le personnage est
+  dessiné sur un voile.
+- **Prix et articles** : catalogue commun `plugins/ShinobiCore/boutique-catalogue.yml` (prix, catégories, conditions ;
+  `/boutique recharger` après modification) ; propre à une boutique : `/boutique article prix tailleur_hosen tenueh12
+  300` (`catalogue` pour revenir), `/boutique article retirer|remettre tailleur_hosen <id>`.
+- **Gérer** : `/boutique fermer|ouvrir <b>` (« Fermé — revenez plus tard »), `/boutique info <b>`, `/boutique liste
+  [village]`, `/boutique voir <b> [n° de comptoir]` (ouvre l'écran à distance pour tester), `/boutique supprimer <b>
+  confirmer`.
+- **Garde-robe** (tenues liées au personnage) : `/boutique donner|reprendre <cible> <tenue> "<motif>"`.
+- **Fonction** (masque ANBU…) : donnez la permission `reborn.fonction.anbu` en attendant le menu Faction.
+
 ## 4. Les médics
 
 - Rang 1 : permission `shinobicore.medic` ; rang 2 : `shinobicore.medic.expert`. À donner au grade « Corps

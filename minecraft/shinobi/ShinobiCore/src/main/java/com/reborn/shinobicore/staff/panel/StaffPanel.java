@@ -1086,7 +1086,7 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 {"Monde et zones", "/carte tp <lieu>", "Se rendre à un lieu de la carte", "2"},
                 {"Monde et zones", "/dummy", "Cibles d'entraînement", "2"},
                 {"Monde et zones", "/zonerp creer <entrainement|repos> <id>", "Créer une zone RP", "3"},
-                {"Monde et zones", "/meteo <type> [intensité] [joueur|tous]", "Météo visuelle", "3"},
+                {"Monde et zones", "/meteo <type> [intensité] [durée] [tous|monde|ici|joueur]", "Météo : pluie, sable, brume, blizzard, tempête de sable", "3"},
                 {"Monde et zones", "/cinematic play <nom>", "Lancer une cinématique", "3"},
                 {"Serveur", "/sc reload", "Recharger ShinobiCore", "4"},
                 {"Serveur", "/sa reload", "Recharger les techniques", "4"},

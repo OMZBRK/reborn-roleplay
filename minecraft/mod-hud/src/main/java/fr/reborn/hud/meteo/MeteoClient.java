@@ -6,7 +6,8 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 
 /**
- * Météo vue par le joueur local (alimentée par {@link MeteoPayload}) : pluie, tempête de sable, brume.
+ * Météo vue par le joueur local (alimentée par {@link MeteoPayload}) : pluie, vent de sable, brume, blizzard et
+ * tempête de sable.
  *
  * <p>Pluie : la pluie de Minecraft telle quelle (LevelRainMeteoMixin, ClientLevelMeteoMixin), avec ses sons, plus
  * l'ambiance du filtre (voiles de pluie, bruine, brouillard gris-bleu) et des embruns au sol ; en orage, éclairs du
@@ -15,12 +16,18 @@ import net.minecraft.resources.Identifier;
  * à jour à chaque image (type, intensité, temps), plus le brouillard en distance du jeu ({@code FogRendererMeteoMixin}) ;
  * poussière 3D et vent dans le sable ({@link #tick()}).
  *
- * <p>Changement de météo : l'intensité redescend à 0 puis la nouvelle monte (fondu ~2 s). L'intensité « vit » un peu
- * toute seule (rafales lentes ±15 %).
+ * <p><b>Blizzard</b> (15/10) : mur de brouillard blanc-bleuté (visibilité {@link #visibilite}, 6 à 12 blocs en tempête),
+ * neige du jeu qui tombe partout ({@code ClientLevelMeteoMixin}), flocons rapides en diagonale et rafales de poudreuse au
+ * ras du sol portés par le vent, bise ; voile froid très léger sur l'écran. <b>Tempête de sable</b> : même principe en
+ * ocre — mur de sable, grains et volutes chassés par le vent, souffle sourd, voile chaud. Le brouillard suit le jour et
+ * la nuit (il s'assombrit avec le ciel).
+ *
+ * <p>Changement de météo : l'intensité redescend à 0 puis la nouvelle monte (fondu ~2 s, ~3 s pour les tempêtes : on
+ * « entre » dans le mur). L'intensité « vit » un peu toute seule (rafales lentes ±15 %).
  */
 public final class MeteoClient {
 
-    public static final byte CLAIR = 0, PLUIE = 1, SABLE = 2, BRUME = 3;
+    public static final byte CLAIR = 0, PLUIE = 1, SABLE = 2, BRUME = 3, BLIZZARD = 4, TEMPETE = 5;
     public static final Identifier FILTRE = Identifier.fromNamespaceAndPath("reborn-hud", "meteo");
     /** Lue par le filtre (entrée « texture » reborn-hud:meteo_params → textures/effect/meteo_params.png). */
     public static final Identifier PARAMS = Identifier.fromNamespaceAndPath("reborn-hud", "textures/effect/meteo_params.png");
@@ -35,7 +42,7 @@ public final class MeteoClient {
     private MeteoClient() {}
 
     public static void update(byte t, float i) {
-        cibleType = (t >= CLAIR && t <= BRUME) ? t : CLAIR;
+        cibleType = (t >= CLAIR && t <= TEMPETE) ? t : CLAIR;
         cibleIntensite = Math.max(0f, Math.min(1f, i));
         if (cibleType == CLAIR) cibleIntensite = 0f;
     }
@@ -43,6 +50,17 @@ public final class MeteoClient {
     public static void clear() { update(CLAIR, 0f); }
 
     public static byte type() { return type; }
+
+    /** Tempête dense (blizzard ou tempête de sable) en cours ? */
+    public static boolean tempete() { return (type == BLIZZARD || type == TEMPETE) && intensite > 0.002f; }
+
+    /**
+     * Visibilité (blocs) du blizzard et de la tempête de sable selon l'intensité — <b>même courbe que le plugin</b>
+     * ({@code MeteoCommand.visibilite}) : 100 % → 6 blocs, 90 % → ~8, 75 % → 12, 55 % → ~21, 25 % → ~48.
+     */
+    public static float visibilite(float i) {
+        return (float) (6.0 * Math.exp(4.0 * Math.log(2.0) * (1.0 - Math.max(0f, Math.min(1f, i)))));
+    }
 
     /** Brume : 1 au ras du sol, diminue quand le joueur s'élève au-dessus du sol (lissé). */
     private static float facteurHauteur = 1f;
@@ -88,12 +106,63 @@ public final class MeteoClient {
                     net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER, net.minecraft.sounds.SoundSource.WEATHER,
                     1.2f + 0.8f * i, 0.8f + rnd.nextFloat() * 0.2f, false);
         }
-        if (type == SABLE) { poussiere(mc, i, rnd); volutes(mc, i, rnd, true); }
-        if (type == BRUME) volutes(mc, i, rnd, false);
+        if (type == SABLE) { poussiere(mc, i, rnd); volutes(mc, i, rnd, true, 0.86f, 0.70f, 0.50f, 0.0); }
+        if (type == BRUME) volutes(mc, i, rnd, false, 0.88f, 0.90f, 0.92f, 0.0);
         if (type == PLUIE) embruns(mc, i, rnd);
         if (type == SABLE && sonTicks % 50 == 0) {
             mc.level.playLocalSound(x, y + 1, z, net.minecraft.sounds.SoundEvents.ELYTRA_FLYING,
                     net.minecraft.sounds.SoundSource.WEATHER, 0.08f + 0.22f * i, 0.55f + rnd.nextFloat() * 0.15f, false);
+        }
+        if (type == BLIZZARD) {
+            flocons(mc, i, rnd, false);
+            volutes(mc, i * 0.8f, rnd, false, 0.93f, 0.96f, 1.0f, 0.22 + 0.5 * i);
+            if (sonTicks % 45 == 0) {                                   // bise : souffle plus aigu que le sable
+                mc.level.playLocalSound(x, y + 1, z, net.minecraft.sounds.SoundEvents.ELYTRA_FLYING,
+                        net.minecraft.sounds.SoundSource.WEATHER, 0.10f + 0.26f * i, 0.95f + rnd.nextFloat() * 0.2f, false);
+            }
+        }
+        if (type == TEMPETE) {
+            flocons(mc, i, rnd, true);
+            volutes(mc, i, rnd, true, 0.86f, 0.70f, 0.50f, 0.35 + 0.6 * i);
+            if (sonTicks % 40 == 0) {                                   // souffle sourd et grains
+                mc.level.playLocalSound(x, y + 1, z, net.minecraft.sounds.SoundEvents.ELYTRA_FLYING,
+                        net.minecraft.sounds.SoundSource.WEATHER, 0.14f + 0.3f * i, 0.5f + rnd.nextFloat() * 0.12f, false);
+            }
+        }
+    }
+
+    /**
+     * Blizzard et tempête de sable : flocons (ou grains) qui filent en diagonale avec le vent autour de la caméra, nés
+     * en amont pour traverser le champ de vision. Particules du jeu (neige de la poudreuse, cendre teintée), sans
+     * gravité ni freinage ; nombre borné (≤ ~45 par tick à 100 %).
+     */
+    private static void flocons(Minecraft mc, float i, net.minecraft.util.RandomSource rnd, boolean sable) {
+        if (mc.particleEngine == null) return;
+        double ang = angleVent();
+        double vx = Math.cos(ang), vz = Math.sin(ang);
+        int n = Math.round(4 + 40 * (float) Math.pow(i, 1.3));
+        var cam = mc.gameRenderer.mainCamera().position();
+        for (int k = 0; k < n; k++) {
+            double ox = (rnd.nextDouble() - 0.5) * 28, oz = (rnd.nextDouble() - 0.5) * 28;
+            double px = cam.x + ox - vx * 9, pz = cam.z + oz - vz * 9;
+            double py = cam.y - 3 + rnd.nextDouble() * 10;
+            var p = mc.particleEngine.createParticle(sable ? net.minecraft.core.particles.ParticleTypes.WHITE_ASH
+                    : net.minecraft.core.particles.ParticleTypes.SNOWFLAKE, px, py, pz, 0, 0, 0);
+            if (p == null) continue;
+            var acc = (fr.reborn.hud.mixin.ParticleMeteoAccessor) p;
+            acc.reborn$setGravity(0f);
+            acc.reborn$setFriction(1f);
+            acc.reborn$setHasPhysics(false);
+            double v = (sable ? 0.45 : 0.35) + 0.75 * i + rnd.nextDouble() * 0.25;
+            double chute = sable ? (rnd.nextDouble() - 0.5) * 0.05 : -(0.06 + 0.1 * rnd.nextDouble());
+            p.setParticleSpeed(vx * v, chute, vz * v);
+            p.setLifetime(18 + rnd.nextInt(18));
+            p.scale(sable ? 0.8f + rnd.nextFloat() * 0.9f : 0.6f + rnd.nextFloat() * 0.7f);
+            if (p instanceof net.minecraft.client.particle.SingleQuadParticle q) {
+                float c = 0.88f + rnd.nextFloat() * 0.18f;
+                if (sable) q.setColor(0.84f * c, 0.66f * c, 0.42f * c);
+                else q.setColor(Math.min(1f, 0.97f * c), Math.min(1f, 0.98f * c), 1.0f);
+            }
         }
     }
 
@@ -102,9 +171,11 @@ public final class MeteoClient {
      * transparentes et teintées, portées par le vent (vite pour le sable, à peine pour la brume). Elles naissent à
      * distance, dans le brouillard, pour ne pas apparaître sous les yeux ; la brume reste collée au sol.
      */
-    private static void volutes(Minecraft mc, float i, net.minecraft.util.RandomSource rnd, boolean sable) {
+    private static void volutes(Minecraft mc, float i, net.minecraft.util.RandomSource rnd, boolean sable,
+                                float cr, float cg, float cb, double vent) {
         if (mc.particleEngine == null) return;
         float moyenne = sable ? 0.4f + 2.6f * i * i : 0.3f + 1.2f * i;          // volutes par tick, en moyenne
+        if (vent > 0) moyenne += 1.5f * i;                                      // tempête : plus de rafales
         int n = (int) moyenne + (rnd.nextFloat() < moyenne - (int) moyenne ? 1 : 0);
         double ang = angleVent();
         double vx = Math.cos(ang), vz = Math.sin(ang);
@@ -123,14 +194,14 @@ public final class MeteoClient {
             var acc = (fr.reborn.hud.mixin.ParticleMeteoAccessor) p;
             acc.reborn$setGravity(0f);
             acc.reborn$setHasPhysics(false);
-            double v = sable ? 0.08 + 0.35 * i + rnd.nextDouble() * 0.08 : 0.01 + 0.02 * rnd.nextDouble();
+            double v = vent > 0 ? vent + rnd.nextDouble() * 0.1
+                    : sable ? 0.08 + 0.35 * i + rnd.nextDouble() * 0.08 : 0.01 + 0.02 * rnd.nextDouble();
             p.setParticleSpeed(vx * v, (rnd.nextDouble() - 0.5) * 0.004, vz * v);
             p.setLifetime(sable ? 90 + rnd.nextInt(60) : 200 + rnd.nextInt(120));
             p.scale(sable ? 3f + rnd.nextFloat() * 4f : 4f + rnd.nextFloat() * 5f);
             if (p instanceof net.minecraft.client.particle.SingleQuadParticle q) {
                 float c = 0.92f + rnd.nextFloat() * 0.12f;
-                if (sable) q.setColor(0.86f * c, 0.70f * c, 0.50f * c);
-                else q.setColor(0.88f * c, 0.90f * c, 0.92f * c);
+                q.setColor(Math.min(1f, cr * c), Math.min(1f, cg * c), Math.min(1f, cb * c));
                 ((fr.reborn.hud.mixin.SingleQuadParticleMeteoAccessor) q)
                         .reborn$setAlpha(sable ? 0.05f + 0.14f * i : 0.05f + 0.12f * i);
             }
@@ -231,6 +302,9 @@ public final class MeteoClient {
     /** Pluie Reborn en cours : le jeu affiche alors sa propre pluie (LevelRainMeteoMixin, ClientLevelMeteoMixin). */
     public static boolean pluie3D() { return type == PLUIE && intensite > 0.002f; }
 
+    /** Blizzard en cours : le jeu fait tomber sa neige partout (LevelRainMeteoMixin, ClientLevelMeteoMixin). */
+    public static boolean neige3D() { return type == BLIZZARD && intensite > 0.002f; }
+
     /** 1 = le joueur est sous le ciel, 0 = à l'abri (lissé) : les gouttelettes sur l'objectif n'apparaissent que dehors. */
     private static float exposition = 1f;
 
@@ -248,7 +322,9 @@ public final class MeteoClient {
         long now = System.currentTimeMillis();
         float dt = dernier == 0L ? 0f : Math.min(0.25f, (now - dernier) / 1000f);
         dernier = now;
-        float vitesse = 0.5f * dt;                       // ~2 s pour aller de 0 à 1
+        // ~2 s pour aller de 0 à 1 ; ~3 s pour entrer dans une tempête ou en sortir
+        float vitesse = ((type == BLIZZARD || type == TEMPETE || cibleType == BLIZZARD || cibleType == TEMPETE)
+                ? 0.33f : 0.5f) * dt;
         if (type != cibleType) {
             intensite = Math.max(0f, intensite - vitesse);
             if (intensite <= 0f) type = cibleType;

@@ -1674,6 +1674,21 @@ tirage payant sur la puissance, pas de VIP qui donne plus de missions ou de ress
 → **Petite icône** qui distingue un cosmétique de compte (RBCoins) d'un objet de personnage (gagné en jeu).
 → Vente des **exécutions** et des **jetons de réinitialisation** : décision n° 8 en attente.
 
+## 39.4 Proposition du 15/10 (maquettée, à valider) — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) §6-§7
+
+> **Décision du 15/10** : « Change le nom ÉCHOPPE par BOUTIQUE tout simplement, et ne mets RIEN dedans ; je te passerai
+> des screens. » → la carte de l'Échap s'appelle **BOUTIQUE** et ouvre un **écran vide** (« Boutique — bientôt »,
+> codé, non publié) ; la boutique de compte ci-dessous attend les visuels de l'utilisateur. Pas de RBCoins pour l'instant.
+
+→ La carte ÉCHOPPE de l'Échap devient **BOUTIQUE** (solde de RBCoins) et ouvre la **boutique de compte**, partout : la
+caméra vient en face du personnage, dans le monde ; onglets **Cosmétiques · Abonnement · Mes cosmétiques** ; chaque
+cosmétique de compte porte un **petit losange d'or** ; jamais perdu à la mort RP, ni échangeable ni volable.
+→ Achats par le **serveur** qui appelle l'API (signée, comme `/v1/game/candidature`) ; le **launcher** transmet le
+solde au lancement (`-Dreborn.rbcoinsPath`, déjà lu par le mod) ; achat de RBCoins **seulement dans le launcher**.
+→ **Abonnement « Soutien »** (un niveau) : RBCoins mensuels, cosmétique du mois, badge, peut-être +1 emplacement de
+personnage ; **rien** qui touche à la progression, au combat ou à l'économie. Maquettes
+`Maquettes/gameplan/42_boutiques/05_rbcoins.png`, `06_vip.png` ; questions n° 9 à 12 de la fiche.
+
 ---
 
 # ⛵ 40. Voyages entre pays (RedLine : bateaux et charpentier)
@@ -1728,15 +1743,32 @@ village, renommée).
 
 ---
 
-# 👘 42. Boutique en jeu (échoppe)
+# 👘 42. Boutique en jeu (échoppe → tailleur)
 
-> RedLine : *In-Game Shop Zone*. **Fait** chez Reborn.
+> RedLine : *In-Game Shop Zone*. **Échoppe faite** chez Reborn (depuis l'Échap, partout) ; **la zone boutique reste à faire** — proposition du 15/10.
 
 → **Aujourd'hui** : l'**échoppe** vend tenues et cartes en ryo (`ShinobiCore/…/shop/`, écran dans la DA) ; tenues
 achetées **liées au personnage** ; tenues d'institution débloquées par fonction ou grade (Faction §3.1).
 → **RedLine** : zone boutique, vêtements en monnaie de jeu, liés à l'identifiant, non échangeables, perdus à la mort du
 personnage (contradiction avec leurs cosmétiques de compte).
 → **Cible** : garder la règle claire — **gagné en jeu = lié au personnage**, **payé en RBCoins = lié au compte**.
+
+**Proposition du 15/10 (maquettée, à valider)** — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) §1-§5, §8-§12 :
+l'échoppe actuelle **n'est pas** la *Shop Zone* (elle s'ouvre de l'Échap, partout). Cible : le **tailleur**, un **lieu**
+du village (comptoir et estrade d'essayage marqués par le staff, `/boutique …`) ; clic droit sur le comptoir → le
+personnage monte sur l'estrade, la **caméra se pose en face de lui dans le monde**, un menu s'affiche par-dessus le jeu
+(catégories, vignettes de la pièce sur son corps, **bourse**), on **essaie** gratuitement, on **tourne** (glisser) et on
+**zoome** (en pied, buste, visage) ; achat en ryo **lié au personnage** ; conditions de grade, fonction, clan, village,
+entreprise (grisées avec la raison ou cachées) ; vivres et cartes partent au **bazar** ; entreprise **TAILLEUR**
+possible ; tout est journalisé. Maquettes `Maquettes/gameplan/42_boutiques/01` à `04`, `07` ; 12 questions (§12).
+
+**Décidé et codé le 15/10 (non publié)** — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) §13 : recommandations
+prises ; le staff crée des **boutiques-lieux** (`/boutique creer tailleur|bazar`) et configure **chaque comptoir** avec
+une ou plusieurs **catégories** (tenues, hauts, bas, manteaux, coiffes, masques, accessoires ; vivres, cartes au bazar)
+et, s'il le faut, une liste précise d'articles et des prix propres ; boutiques spécialisées possibles (masques,
+accessoires…). Écran par-dessus le jeu, caméra dans le monde en face du personnage (repli sur voile), essai gratuit,
+rotation réelle, trois cadrages, bourse, « Acheter » / « Acheter et porter » confirmés, conditions grisées ou cachées,
+achats journalisés `ECONOMIE ACHAT`. L'Échap n'ouvre plus l'échoppe. Captures `Maquettes/gameplan/42_boutiques/code/`.
 
 ---
 
@@ -2005,9 +2037,10 @@ Minecraft, Nexo et le menu R.
 | 36 | Carte | §36 | proposition | Marqueur + boussole, zones survolables, brouillard des pays étrangers ? |
 | 37 | **Faction** | §37 | proposition maquettée | Les 18 questions de la proposition (décision n° 1) |
 | 38 | Caractéristiques | §38 | proposition | Lié à la décision n° 5 |
-| 39 | Boutique en argent réel | §39 | nos décisions | Slot de personnage payant acceptable ? ; vente des exécutions et jetons (n° 8) |
+| 39 | Boutique en argent réel | §39 | proposition maquettée (15/10) | Boutique de compte depuis l'Échap ; abonnement « Soutien » ; slot de personnage payant acceptable ? ; vente des exécutions et jetons (n° 8) — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) §12 |
 | 40-41 | Voyages entre pays, conflit territorial | §40-§41 | après la beta | KO réel ou d'entraînement dans un conflit ? |
-| 42-45 | Échoppe, création, éditeur, sélection | §42-§45 | fait + ajouts | Cinématique d'arrivée ; kit de départ ; frange / arrière ; formes d'iris ; journal RP |
+| 42 | Boutique en jeu → **le tailleur** (lieu) | §42 | proposition maquettée (15/10) | Caméra dans le monde, estrade, garde-robe hors boutique, bazar, prix, conditions — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) §12 |
+| 43-45 | Création, éditeur, sélection | §43-§45 | fait + ajouts | Cinématique d'arrivée ; kit de départ ; frange / arrière ; formes d'iris ; journal RP |
 | 46 | Avis de recherche, preuves | §46 | proposition | Avis-objet, photo-objet |
 | 47 | Launcher | §47 | fait + validé 13/10 | Délai et blocage des candidatures ; « Copier le lien » (n° 9) |
 | 48 | Vols | §48 | proposition | Points de vol, effectif minimum de forces de l'ordre |

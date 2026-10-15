@@ -35,6 +35,7 @@
 | [`gameplay/MISSIONS.md`](./gameplay/MISSIONS.md) | Idées de missions et d'entraînements, formats de rapports (pas encore de système en jeu) |
 | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](./gameplay/INVENTAIRE_ET_COSMETIQUES.md) | Sacoche RP, poids, cosmétiques |
 | [`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md) | Nourriture v3 (codée 14/10, non publiée) : satiété, régénération, FAIM, cuisinier joueur, repas, tendre, ration, pilule du soldat, modificateurs |
+| [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) | **Proposition** (15/10, maquettée) : le tailleur du village en ryo (lieu, essayage en caméra, conditions), le bazar, la boutique de compte en RBCoins depuis l'Échap, l'abonnement ; 12 questions |
 | [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md) | Entreprises (restaurant, forge, échoppe) créées par le staff : membres, rôles, postes ; futur onglet du menu Faction |
 | [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) | **Proposition** (14/10, maquettée) : bourse-objet, compte et guichet, échange garanti, coffre à paliers, sources / puits chiffrés, vol, staff, RBCoins ; 12 questions |
 | [`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md) | Allures marche / trot / sprint, endurance, emboîtement avec la surcharge et la course ninja |

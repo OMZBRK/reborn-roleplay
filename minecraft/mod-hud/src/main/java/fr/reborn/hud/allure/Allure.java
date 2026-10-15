@@ -64,6 +64,12 @@ public final class Allure {
 
     private Allure() {}
 
+    /** Autres bancs de captures (solo, sans plugin) : allures simulées ; {@code doubleAppui} = demander le sprint. */
+    public void banc(boolean doubleAppui) {
+        debug = true;
+        if (doubleAppui) debugDoubleAppui = true;
+    }
+
     /* ------------------------------------------------------------ lecture */
 
     public Etat etat() { return etat; }

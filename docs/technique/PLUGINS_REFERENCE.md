@@ -90,7 +90,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/banque` | — | guichetier : `sceller`, `refuser`, `client <joueur>` ; Modérateur : `voir` ; Admin (ou `shinobicore.banque.admin`) : le reste | `shinobicore.use` | **Banque (15/10)** : `voir <cible>`, `coffre <cible>`, `palier <cible> <1-4> "<motif>"`, `geler\|degeler <cible> "<motif>"`, `guichet ajouter <village> ["libellé"] [entreprise]` / `retirer` / `liste` (en visant le bloc, le meuble ou le PNJ), `contrepasser <n° d'op> "<raison>"`, `masse [village]`, `solde [bareme\|payer [village]]`, `tresor <village> [ajouter\|retirer\|fixer <n> "<motif>"]` ; tout journalisé (`ECONOMIE`) — idem §15.5 |
 | `/testament` | — | joueur : `deposer` (au guichet), `voir` ; Admin : `enregistrer`, `valider`, `revoquer` ; Modérateur : `voir <cible>` | `shinobicore.use` | **Testament (15/10)** : `deposer <héritier>[:part] … ["texte"]` (héritier = `#N°` ou nom d'un contact), `enregistrer <cible> <héritier>[:part] … ["texte"]` (validé d'office) ; à la mort RP, après 7 jours de gel, compte et coffre vont aux héritiers d'un testament validé — idem §15.6 |
 | `/carte` | `map`, `worldmap` | tous / staff | `shinobicore.use` | Carte (touche M) ; staff `liste`, `tp`, `set`, `del`, `reload` |
-| `/meteo` | `weatherfx` | staff | `shinobicore.meteo` | Météo visuelle : `pluie`, `sable`, `brume`, `clair` + intensité |
+| `/meteo` | `weatherfx`, `blizzard`, `tempetedeneige`, `tempetedesable` | staff | `shinobicore.meteo` | Météo visuelle (15/10) : `/meteo <type> [intensité] [durée] [cible]` — types `pluie`, `sable` (vent de sable), `brume`, **`blizzard`**, **`tempetesable`**, `clair` ; intensité 0-100, `leger` / `moyen` / `fort` / `max`, ou **visibilité** `v8` (blizzard et tempête : 100 % = 6 blocs, 90 % ≈ 8, 75 % = 12) ; durée `30s` / `10m` / `2h` (la météo posée s'efface ensuite) ; cible `tous` (défaut, efface le reste), `monde`, `ici [rayon]` (zone ronde autour de soi, fondue sur le dernier quart du rayon), ou un joueur ; priorité joueur > zone > monde > globale ; `clair ici` retire les zones où l'on est ; `/meteo liste`. Les alias `/blizzard …` et `/tempetedesable …` posent directement le type. Journalisé (`STAFF` / `METEO`) ; rien n'est gardé au redémarrage |
 | `/journal` | `logs` | Helper | `reborn.staff.helper` | **Journal universel** (14/10) : `/journal [#N°] [catégorie…] [j:<pseudo\|nom RP>] [h:<heures>\|d:<jours>] [p:<page>] [texte]`, 12 lignes par page, lieu au survol ; au-delà de l'index mémoire, relit les fichiers |
 | `/note` | `notes`, `tag` | Helper | `reborn.staff.helper` | Notes staff par N° : `/note <cible> [ajouter [etiquette:<mot>] <texte> \| suppr <id>]` ; sans sous-commande = liste (✕ cliquable si on peut supprimer : auteur ou Admin) |
 | `/annonce` | `broadcast`, `bc` | Modérateur | `reborn.staff.helper` | Annonce à tous (bandeau du mod, sinon titre) ; `/annonce joueur <cible> <message>` = une seule personne |
@@ -108,6 +108,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/persosuppr` | `deletecharacter` | Admin | `reborn.staff.helper` | Supprime le personnage (slot libéré, N° réservé) ; joueur en ligne déconnecté. Confirmation + sauvegarde |
 | `/modestaff` | `staffmode`, `sm` | Helper | `reborn.staff.helper` | Mode staff : invisible aux joueurs et au staff hors mode staff, vol, invulnérable, **aucune mécanique RP** et personne ne peut le cibler (§4 bis.7), tchat redirigé vers le chat staff, plaques au-dessus des têtes (`reborn:plaques`) ; tombe à la déconnexion. `/modestaff anim` = `/modeanim` |
 | `/entreprise` | `entreprises` | Modérateur (ou `shinobicore.entreprise`) ; joueur : les siennes | `shinobicore.use` | **Entreprises** (14/10) : `creer <restaurant\|forge\|echoppe> "<nom>" [responsable]`, `supprimer <e> confirmer`, `renommer <e> "<nom>"`, `membre ajouter\|retirer\|role <e> <cible> [gerant\|employe]`, `poste ajouter <e> [libellé]` / `poste retirer` (en visant le bloc ou le meuble), `info`, `liste` ; journal Staff `ENTREPRISE_*` — [`../gameplay/ENTREPRISES.md`](../gameplay/ENTREPRISES.md) |
+| `/boutique` | `boutiques` | Modérateur (ou `shinobicore.boutique`) | `shinobicore.use` | **Boutiques-lieux** (15/10) : `creer <tailleur\|bazar> "<nom>" [village] [entreprise]`, `supprimer <b> confirmer`, `comptoir ajouter <b> [catégories…]` (en visant un bloc, un meuble Nexo ou un PNJ) / `comptoir retirer` / `comptoir categories <cat…>` / `comptoir articles <id…\|tous>` / `comptoir nom "<libellé>"` (en visant le comptoir), `estrade ajouter\|retirer <b>` (là où se tient le staff, regard vers la caméra), `camera <b> <distance> <hauteur>`, `article prix <b> <id> <prix\|catalogue>` / `article retirer\|remettre <b> <id>`, `ouvrir\|fermer <b>`, `info <b>`, `liste [village]`, `voir <b> [n°]` (écran à distance, test), `donner\|reprendre <cible> <tenue> "<motif>"` (garde-robe), `recharger` (catalogue) ; catégories `tenues, hauts, bas, manteaux, coiffes, masques, accessoires, vivres, cartes` ; journal Staff `BOUTIQUE_*` — [`../gameplay/BOUTIQUES.md`](../gameplay/BOUTIQUES.md) §13 |
 | `/tendre` | `donner` | Joueur | `shinobicore.use` | **Tendre** (14/10) : `/tendre <joueur>` (objet en main), `/tendre <joueur> ryo <montant>`, `/tendre prendre\|refuser` (touches F / Retour du mod) ; journal `DON` — [`../gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §5 |
 | `/nourriture` | `satiete` | Joueur : son état ; Modérateur (ou `shinobicore.nourriture.staff`) | `shinobicore.use` | `etat [cible]`, `satiete <cible> <0-100>`, `donner <cible> <plat:id\|panier:id\|ration\|bol> [n] [froid]`, `effet <cible> <type> <intensité> <secondes>`, `retirer <cible> <type>` ; journal Staff |
 | `/modeanim` | `modeanimation` | Animateur / MJ | `reborn.staff.animation` | **Mode animation** (14/10) : incarner un personnage pour un event — visible, mécaniques RP permises, **tout journalisé** (entrée / sortie, commandes, tchat, coups) ; exclusif avec le mode staff ; tombe à la déconnexion (§4 bis.7) |
@@ -215,6 +216,8 @@ Modérateur).
 | `shinobicore.execution.<id>` | Possède l'exécution `<id>` (alternative à `/execution donner`) |
 | `shinobicore.hopital`, `shinobicore.ata`, `shinobicore.zonerp` | Outils staff du KO |
 | `shinobicore.stats.admin`, `shinobicore.character.admin`, `shinobicore.ryo.admin` | Outils staff des persos |
+| `shinobicore.boutique` (op) | Outils staff des boutiques-lieux (`/boutique`) ; aussi accordé au grade Modérateur du Poste de garde |
+| `reborn.fonction.<fonction>` | Remplit la condition `fonction=<fonction>` d'un article de boutique (ex. `reborn.fonction.anbu` pour le masque ANBU) — en attendant le menu Faction |
 | `shinobicore.banque.admin` (op) | Outils staff de la banque (`/banque` sauf `voir`, `/testament enregistrer\|valider\|revoquer`) ; aussi accordé au grade Admin du Poste de garde |
 | `shinobicore.map.tp`, `shinobicore.map.admin` | Carte : téléportation, édition |
 | `shinobicore.emote.others`, `shinobicore.emote.admin` | Emotes sur autrui, catalogue |
@@ -260,9 +263,10 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:inventory` | ⇄ | `inventory.InventoryManager` | `menu/inventory/InventoryPayload` | Sacoche RP. C2S : `open`, `swap:<A>:<B>`, `bag:equip:<ref>` / `bag:unequip`, `cos:equip:<ref>:<SLOT>` / `cos:unequip:<SLOT>`, `arme:equip:<ref>` / `arme:unequip` / `arme:basculer` (dégainer / rengainer), `drop:<ref>`, `del:<ref>`, `use:<ref>`, `pick:<uuid de l'objet au sol>` (ramassage). S2C : JSON (`ouvrir`, capacité, poids, `palier`, `poidsMax`, `lecture`, `armeDegainee`, `hotbar`, `bag`, `equipped` dont `ARME` ; chaque objet porte `rarity`, `arme`, `unique`) — `ouvrir:false` = rafraîchir sans ouvrir |
 | `reborn:cosmetics` | S → C | `InventoryManager` | `cosmetic/CosmeticsPayload` | Cosmétiques portés, dont l'arme à l'étui (`ARME`, ancrée au bassin) |
 | `reborn:notif` | S → C | `inventory.Notifs` | `notif/NotifClient` | Canal générique (13/10) : `gain` / `perte` (`q`, `nom`, `rar`, `mat`, `model`, `suite`), `msg` (`ton` refus / info / palier / etat, `kj`, `gras`, `texte`, `ic` = picto d'effet au lieu d'un kanji, 14/10) → pile en bas à droite ; `poids` (`cur`, `max`, `palier` 0-3, `libres`, `verrou` ; poussé aussi en créatif avec `palier` 0 — 15/10) → indicateur de surcharge, sprint coupé, invite de ramassage ; `arme` (`degainee`) |
-| `reborn:shop` | ⇄ | `shop.ShopManager` | `menu/shop/ShopPayload` | Échoppe ; état + `vivres` (14/10 : onglet Vivres, filtré : paniers pour les cuisiniers), C2S `buyvivre:<id>` |
+| `reborn:boutique` | ⇄ | `boutique.BoutiqueService` | `boutique/BoutiqueClient` | Boutiques-lieux (15/10) : tailleur (caméra d'essayage), bazar (§4 sexies) |
+| `reborn:shop` | ⇄ | `shop.ShopManager` | `menu/shop/ShopPayload` | **Ancienne échoppe** (plus ouverte par l'Échap depuis le 15/10) : `open` et `equip:` restent ; les achats `buy*` sont refusés quand les boutiques-lieux tournent (« L'échoppe a déménagé ») |
 | `reborn:map` | ⇄ | `map.MapChannel` | `map/MapPayload` | Carte du monde |
-| `reborn:meteo` | S → C | `meteo.MeteoCommand` | `meteo/MeteoPayload` | Météo visuelle |
+| `reborn:meteo` | S → C | `meteo.MeteoCommand` | `meteo/MeteoPayload` | Météo visuelle : `byte type` (0 clair, 1 pluie, 2 sable, 3 brume, **4 blizzard, 5 tempête de sable** — 15/10) + `float intensité` 0..1 ; renvoyé à chaque changement de la météo **effective** du joueur (zones). Un mod antérieur ignore 4 et 5 (clair) ; le mod récent ignore d'éventuels octets en plus |
 | `reborn:typing` | ⇄ | `chat.TypingManager` | `chat/TypingPayload` | Indicateur « en train d'écrire » |
 | `reborn:emote` | ⇄ | `emote.EmoteManager` | `emote/EmotePayload` | Jouer une emote (visible par les proches) |
 | `reborn:emotepack` | S → C | `EmoteManager` | `emote/EmotePackPayload` | Distribution des fichiers d'emotes au JOIN |
@@ -271,6 +275,7 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:naruto` | C → S | `RunChannelListener` | (ancien nom) | Alias accepté pour les vieux mods |
 | `reborn:allure` | ⇄ | `shinobiabilities.mobility.Allure` | `allure/AllurePayload` | Trois allures (14/10, octets bruts). C2S : `2` sprint / `0` arrêt + n° de demande. S2C `0` réglages (actif, marche, trot, sprint) ; S2C `1` état (allure accordée, endurance 0-1, drapeaux neutre / essoufflé, n° de demande) — [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) |
 | `reborn:anim` | ⇄ | `shinobiabilities.mobility.AnimRelayListener` | `animation/AnimSyncPayload` | Synchronisation d'animations |
+| `reborn:eau` | S → C | `shinobiabilities.mobility.MarcheEau` | `eau/EauPayload` | **Marche sur l'eau** (15/10, octets bruts) : `0` réglages (actif, chakra/s immobile, marche, trot, sprint) ; `1` permis (0/1 + raison : 0 aucune, 1 pas appris, 2 chakra, 3 état, 4 hors jeu, 5 surcharge, 6 désactivé). Envoyé seulement aux clients qui écoutent le canal ; les ondes vues des autres ne passent pas par le réseau — [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §10 |
 | `reborn:combat`, `reborn:combatin` | ⇄ | `shinobicombat.net.CombatChannel` | `combat/CombatPayload`, `CombatInputPayload` | HUD combat, entrées M1 / parade |
 | `reborn:byakugan` | S → C | `shinobisense.ByakuganVision` | `byakugan/ByakuganPayload` | Vision Byakugan |
 | `reborn:ost`, `reborn:ost_request` | ⇄ | `ost.plugin.network.OstChannel` | `ost/network/*` (mod-ost) | Musiques |
@@ -341,7 +346,7 @@ pour une bourse.
 
 | `t` | Champs | Effet |
 |---|---|---|
-| `bourse` | `n` | Ce que le joueur porte (ligne « Sur toi », carte ÉCHOPPE de l'Échap) |
+| `bourse` | `n` | Ce que le joueur porte (ligne « Sur toi » de la sacoche ; la carte de l'Échap, devenue BOUTIQUE le 15/10, ne l'affiche plus) |
 | `combien` | `mode` (`ranger`), `titre`, `question`, `max`, `action` | Ouvre « Combien ? » par-dessus l'écran courant ; la réponse part en `<mode>:<n>` |
 | `fouille_prog` / `fouille_prog_fin` | `nom`, `s` | Filet « Fouille de Kenta · 2 s · ne bouge pas » au-dessus de la barre |
 | `fouille` | `cible`, `etat`, `uuid`, `bourse`, `reste`, `plafond`, `pourcent`, `extraSlots`, `hotbar[9]`, `bag[]` (objets au format sacoche) | Ouvre (ou rafraîchit) la sacoche du corps en mode fouille |
@@ -372,6 +377,34 @@ place de `ryo` ; alertes de type `economie`.
 
 **RBCoins** (Échap) : propriété système `-Dreborn.rbcoins=<n>` ou `-Dreborn.rbcoinsPath=<fichier>` posée par le launcher
 au lancement (**pas encore envoyée** par le launcher : « — »).
+
+## 4 sexies. Boutiques-lieux — protocole (15/10)
+
+> ShinobiCore `boutique/` ⇄ mod `fr.reborn.hud.boutique`. JSON UTF-8 brut S → C, texte C → S, sans préfixe.
+> Fiche : [`../gameplay/BOUTIQUES.md`](../gameplay/BOUTIQUES.md) §13.
+
+**Entrée** : clic droit sur un **comptoir** (bloc exact, meuble Nexo à 1 bloc près, ou PNJ précis) → refus si la
+boutique est fermée (« Fermé — revenez plus tard »), en KO / porté / étourdi / gelé / tenu, en mode staff ou moins de
+5 s après un coup (donné ou reçu) ; tailleur : téléportation sur l'**estrade** libre la plus proche du comptoir
+(≤ 12 blocs ; « Quelqu'un essaie déjà » si toutes sont prises) ; sans mod : message dans le tchat.
+
+**`reborn:boutique` S → C** :
+
+| `t` | Champs | Effet |
+|---|---|---|
+| `ouvrir` | `boutique` (`id`, `nom`, `genre` tailleur / bazar, `sous` « Konoha · Au comptoir : Hōsen »), `comptoir` (libellé), `bourse`, `appearance` (SkinSpec du personnage), `cam`? (`x`, `y`, `z` pieds sur l'estrade, `yaw` regard du client vers la caméra, `dist`, `haut`), `categories` [`{id, nom}`] (celles du comptoir, dans l'ordre), `articles` [`{id, nom, cat, genre` tenue / objet / vivre / carte`, prix, possede?, verrou?, raison?, item?` (format sacoche + `slot` = emplacement cosmétique)`}`], `toast`? | Ouvre l'écran (sans `cam` : point de vue calculé là où se tient le joueur, sinon repli sur voile) |
+| `etat` | mêmes champs sans `cam` | Rafraîchit (après un achat : `toast` « §a… » / « §c… ») |
+| `ferme` | — | Ferme l'écran (coup reçu, plus de 8 blocs de l'estrade ou du comptoir, boutique fermée / supprimée) |
+
+Articles **cachés** au client (clan, village, sexe, pièce unique d'un autre) ; **grisés** avec `verrou` (« Réservé aux
+Chūnin et au-dessus », « Réservé à la fonction ANBU », « Réservé à « X » ») et `raison` (« Ton grade : Genin »…).
+
+**`reborn:boutique` C → S** : `fermer`, `etat`, `acheter:<id>`, `acheter_porter:<id>[\n<apparence>]` (tenue :
+l'apparence complète avec la tenue ; objet : posé dans son emplacement cosmétique s'il est libre), `porter:<id>\n<apparence>`
+(tenue de la garde-robe), `ranger\n<apparence>` (retirer la tenue portée). Ids : catalogue (`tenueh12`, `masque_hannya`…),
+`vivre:<id>`, `carte:<id>`. Le serveur revérifie tout ; paiement **bourse** (`BourseService.debiter`, action `ACHAT`) ;
+tenue → `ownedOutfits` (garde-robe) ; objet → sacoche (`refusReception` : « Libère une case ») ; vivres → `NourritureModule.acheterVivre` ;
+cartes → `MapItem.give`.
 
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 
@@ -680,7 +713,7 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | Section | Contient |
 |---|---|
 | `jutsu` | apprentissage requis, `kenjutsu-exige-arme` (vrai : une arme à l'étui, dégainée ou en main), dépassement, coûts par stats, maîtrise, lancer rapide, incantation, MagicSpells |
-| `mobility` | jetons aériens, ressenti, Naruto run, **`allure`** (marche, trot, sprint, coût d'endurance du sprint, relance ; 14/10), contrôle aérien, double saut, saut mural, onde au sol, dash, escalade, pistes, entraînement |
+| `mobility` | jetons aériens, ressenti, Naruto run, **`allure`** (marche, trot, sprint, coût d'endurance du sprint, relance ; 14/10), **`marche-eau`** (`enabled`, `chakra-par-seconde.immobile` 0.3 / `marche` 0.5 / `trot` 0.8 / `sprint` 1.5 ; 15/10), contrôle aérien, double saut, saut mural, onde au sol, dash, escalade, pistes, entraînement |
 | `techniques` | répétitions des pompes, `concentration` (épreuve d'équilibre) |
 | `fuinjutsu` | sceaux |
 | `parchemins` | catégories, exclusions, `slots-s`, `slots-par-technique`, `seance-heures`, `perte-rare`, `maitre` |
@@ -715,6 +748,8 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `player-ids.yml` | Core | **Player ID** : `next` (prochain N°) + `index` `'00042'` → `n`, `character` (UUID perso), `owner` (UUID compte), `name`, `deleted`. Un N° n'est **jamais réutilisé** (supprimé = `deleted: true`). Écriture atomique (`.tmp` + renommage), compteur écrit avant d'attribuer. Chaque personnage porte aussi `playerId: 42` dans `characters/<compte>.yml`. Migration idempotente au démarrage (ordre : UUID du compte puis UUID du perso) |
 | `logs/<categorie>-AAAA-MM-JJ.log` | Core | **Journal universel** (14/10) : un fichier par catégorie (`joueur`, `inventaire`, `objet`, `combat`, `ko`, `duel`, `economie`, `interaction`, `bibliotheque`, `staff`, `commande`, `chat`, `systeme`) et par jour, une ligne par entrée : `AAAA-MM-JJ HH:mm:ss \| CAT \| ACTION \| #00042 Pseudo (Nom RP) [Grade] \| cible \| détail \| monde x y z` (`—` = vide). Rétention `journal.retention-jours`. Remplace `aggression-log.txt` (→ `combat`), `kill-log.txt` et `ko-log.txt` (→ `ko`), `duel-log.txt` (→ `duel`) ; les anciens fichiers restent sur le disque, plus alimentés |
 | `gels.yml` | Core | Gels staff persistants, par compte : `par`, `motif`, `le`, `nom` |
+| `boutiques.yml` | Core | Boutiques-lieux (15/10) : `nom`, `genre` (tailleur / bazar), `village`, `entreprise`, `ouverte`, `camera.distance` / `camera.hauteur`, `cree-le`, `cree-par`, `comptoirs` (`type` bloc / entite, `monde`, `x`, `y`, `z`, `entite`? UUID du PNJ, `libelle`, `categories`, `articles`), `estrades` (`monde`, `x`, `y`, `z`, `yaw`), `prix` (id → ryo), `exclus` |
+| `boutique-catalogue.yml` | Core | Catalogue des boutiques (copié du jar au premier démarrage, relu par `/boutique recharger`) : `articles.<id>` → `nom`, `categorie`, `genre` (tenue / objet), `nexo`, `emplacement`, `prix`, `conditions` |
 | `entreprises.yml` | Core | Entreprises (14/10) : `nom`, `type`, `responsable` (UUID perso), `cree-le`, `cree-par`, `membres` (`perso`, `compte`, `nom`, `numero`, `role`), `postes` (`monde`, `x`, `y`, `z`, `libelle`) |
 | `satiete.yml` | Core | Satiété par personnage (UUID → %) |
 | `banque/comptes.yml` | Core | **Comptes** (15/10), par UUID de personnage : `owner`, `nom`, `numero`, `village`, `solde`, `palier`, `coffre` (objets base64), `gel.*`, `mort-le`, `regle`, `migre`, `bourse` (dernier montant connu), `virements.*`, `presence.*`, `solde-semaine.*`, `historique` (10) |

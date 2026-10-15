@@ -3,7 +3,7 @@
 gen_echap_textures.py — textures du menu Échap « Tokonoma » au niveau de la fiche shinobi (DA §4.1, §6).
 
 Signature conservée : la pièce traditionnelle de nuit — fenêtre ronde sur le village, menu en plaques laquées
-suspendues, poutre aux kamon des cinq villages et, dans l'alcôve (tokonoma), l'Échoppe (devanture noren et
+suspendues, poutre aux kamon des cinq villages et, dans l'alcôve (tokonoma), la Boutique (devanture noren et
 chōchin), le Stream (kamishibai), le Dev blog (kawaraban) et les Récompenses (omamori). Ouverture par deux fusuma.
 
 Espace : la scène fait 640×360 unités ; 1 texel = 1 unité ; le code l'affiche à un multiple entier k de pixels
@@ -459,7 +459,7 @@ def devanture(im):
     kit.ombre_portee(im, x + 1, ny + nh, w - 2, 1, dx=0, dy=1, force=0.6, rayon=1)
     rect(im, x, ny, w, 3, hexc("2A1A10"))
     rect(im, x, ny, w, 1, hexc("6E4124"))
-    # blason 商 : disque blanc cerné d'indigo
+    # blason : disque blanc cerné d'indigo, kimono au trait (15/10 : BOUTIQUE, aucun kanji — DA §3)
     cx, cyb = x + w // 2, ny + 17
     disc = disque_masque(23, 11.2)
     p = np.zeros((23, 23, 4), np.uint8)
@@ -467,7 +467,20 @@ def devanture(im):
     ring = disc & ~disque_masque(23, 9.6)
     p[ring] = hexc("C8BCA4")
     coller(im, p, cx - 11, cyb - 11)
-    kit.kanji(im, cx, cyb - 7, "商", 14, police="gras", couleur=hexc("1F2848"), ancre="c")
+    kimono = ("...##...##...",
+              ".####.#.####.",
+              "######.######",
+              "######.######",
+              "..####.####..",
+              "..#########..",
+              "..#########..",
+              "..####.####..",
+              "..####.####..",
+              "..#########..")
+    for j, ligne in enumerate(kimono):
+        for i, ch in enumerate(ligne):
+            if ch == "#":
+                rect(im, cx - 6 + i, cyb - 5 + j, 1, 1, hexc("A0182B") if j in (5, 6) else hexc("1F2848"))
     # cadre : liseré or et ferrures
     fa.liseret(im, x, y, w, h)
     kit.kanagu(im, x, y, w, h, "moyen", deborde=1)
@@ -646,7 +659,7 @@ def kamons():
 
 
 def chochin():
-    """Chōchin rouge 店 (20×32) : anneaux laqués noirs, côtes de bambou, papier rouge en crans ; 2 images
+    """Chōchin rouge (20×32), sans kanji depuis le 15/10 (DA §3) : anneaux laqués noirs, côtes de bambou, papier rouge en crans ; 2 images
     (repos, plus vive au survol)."""
     im = nouveau(40, 32)
     for f in range(2):
@@ -669,7 +682,6 @@ def chochin():
             rect(im, ox + 10 - ww // 2, j0, ww, 1, hexc("4A2E35"))
         rect(im, ox + 9, 0, 2, 2, hexc(R_OR[4]))
         rect(im, ox + 9, 0, 1, 1, hexc(R_OR[7]))
-        kit.kanji(im, ox + 10, 11, "店", 10, police="gothic", couleur=hexc("1E0A0A"), ancre="c")
     S.sauver("chochin.png", im, (40, 32))
 
 

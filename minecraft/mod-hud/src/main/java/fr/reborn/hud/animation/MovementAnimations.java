@@ -396,6 +396,7 @@ public final class MovementAnimations {
     /** Traînée de sprint (RedLine : fumée blanche) : une bouffée discrète derrière les pieds, un tick sur deux. */
     private static void trainee(AbstractClientPlayer p) {
         ClientLevel level = (ClientLevel) p.level();
+        if (fr.reborn.hud.eau.MarcheEauClient.surEau(level, p)) return;   // sur l'eau : pas de bouffée (lue comme une gerbe)
         double yaw = Math.toRadians(p.getYRot());
         double bx = Math.sin(yaw) * 0.35, bz = -Math.cos(yaw) * 0.35;   // derrière le joueur
         for (int i = 0; i < 2; i++) {

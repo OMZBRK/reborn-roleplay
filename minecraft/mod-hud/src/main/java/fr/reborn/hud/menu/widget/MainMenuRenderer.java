@@ -58,7 +58,6 @@ public final class MainMenuRenderer {
 
     /**
      * Multiplicateur responsive — réduit l'UI sur petites fenêtres.
-     * Conservé pour {@link fr.reborn.hud.menu.connect.ConnectingRenderer}.
      */
     public static float responsiveScale(int screenW) {
         if (screenW <= 700) return 0.55f;

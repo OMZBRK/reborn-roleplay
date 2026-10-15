@@ -7,8 +7,8 @@ import net.minecraft.resources.Identifier;
 
 /**
  * Canal {@code reborn:meteo} (S2C, ShinobiCore → client) : météo vue par le joueur local.
- * Format (big-endian, {@code DataOutputStream} côté Paper) : {@code byte meteo} (0 clair, 1 pluie, 2 sable, 3 brume),
- * {@code float intensité} (0..1).
+ * Format (big-endian, {@code DataOutputStream} côté Paper) : {@code byte meteo} (0 clair, 1 pluie, 2 sable, 3 brume,
+ * 4 blizzard, 5 tempête de sable), {@code float intensité} (0..1) ; d'éventuels octets en plus sont ignorés.
  */
 public record MeteoPayload(byte meteo, float intensity) implements CustomPacketPayload {
 
@@ -17,7 +17,9 @@ public record MeteoPayload(byte meteo, float intensity) implements CustomPacketP
     public static final StreamCodec<FriendlyByteBuf, MeteoPayload> CODEC = new StreamCodec<>() {
         @Override
         public MeteoPayload decode(FriendlyByteBuf buf) {
-            return new MeteoPayload(buf.readByte(), buf.readFloat());
+            MeteoPayload m = new MeteoPayload(buf.readByte(), buf.readFloat());
+            buf.skipBytes(buf.readableBytes());   // champs ajoutés plus tard : ignorés (compatibilité)
+            return m;
         }
 
         @Override

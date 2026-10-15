@@ -418,6 +418,8 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     public java.util.Set<String> ownedOutfits() { return ownedOutfits; }
     public boolean ownsOutfit(String id) { return id != null && ownedOutfits.contains(id); }
     public void addOwnedOutfit(String id){ if (id != null && !id.isBlank() && ownedOutfits.add(id)) touch(); }
+    /** Boutiques (15/10) : reprise staff d'une tenue de la garde-robe. */
+    public boolean removeOwnedOutfit(String id){ boolean r = id != null && ownedOutfits.remove(id); if (r) touch(); return r; }
     public void setAge(int age)        { this.age = Math.max(0, age); touch(); }
     public void setSize(double size)   { this.size = Math.max(0.25, Math.min(4.0, size)); touch(); }
     public void setNinjaArt(NinjaArt a){ this.ninjaArt = a; touch(); }

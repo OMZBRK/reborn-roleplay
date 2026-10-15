@@ -22,7 +22,9 @@ public enum MobilityActionSlot {
     DASH("Dash Shinobi", Material.SUGAR,
             "Maintiens Accroupi au sol puis relâche."),
     CLIMB("Escalade", Material.LADDER,
-            "Accroupi en l'air contre un mur pour t'agripper.");
+            "Accroupi en l'air contre un mur pour t'agripper."),
+    MARCHE_EAU("Marche sur l'eau", Material.LILY_PAD,
+            "Marche sur l'eau (un peu de chakra) ; accroupi pour t'enfoncer.");
 
     private final String displayName;
     private final Material icon;

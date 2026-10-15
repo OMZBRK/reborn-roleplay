@@ -358,6 +358,19 @@ cinematic:
   # 2 × this interval for three lines).
   text-interval-ticks: 40
 
+# Météo visuelle (/meteo, mod reborn-hud) : zones et effets de jeu. Défauts identiques dans le code.
+meteo:
+  # Rayon d'une zone posée avec « ici » quand aucun rayon n'est donné (blocs).
+  zone-rayon-defaut: 150
+  # Fondu au bord d'une zone (part du rayon) : la tempête s'éclaircit en s'approchant du bord.
+  zone-bord: 0.25
+  # Effets de jeu, à découvert seulement (ciel au-dessus de la tête) ; 0 = aucun effet.
+  effets:
+    # Blizzard : ralentissement à 100 % d'intensité (0.08 = -8 % de vitesse).
+    blizzard-lenteur: 0.08
+    # Tempête de sable : rien d'imposé par défaut.
+    tempete-sable-lenteur: 0.0
+
 mobility:
   # Air-tokens gate airborne mobility abilities (primarily Double Jump).
   # With max=1 a player gets at most ONE airborne manoeuvre per ground
@@ -814,7 +827,8 @@ character-select:
 
 # Boutique de tenues (skins) — canal reborn:shop + écran client mod-hud.
 shop:
-  # Prix plat (en ryo) d'une tenue dans la boutique. La monnaie ryo se donne via /ryo.
+  # Ancienne échoppe de l'Échap (prix plat d'une tenue). Depuis le 15/10, les tenues se vendent chez le tailleur et
+  # les vivres et cartes au bazar (boutiques-lieux, /boutique) : prix et conditions dans boutique-catalogue.yml.
   tenue-price: 500
 
 # ----------------------------------------------------------------------

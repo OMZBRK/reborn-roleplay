@@ -626,6 +626,10 @@ public final class RebornHudClient implements ClientModInitializer {
             (handler, client) -> fr.reborn.hud.meteo.MeteoClient.clear());
         fr.reborn.hud.meteo.MeteoDebug.init();
 
+        // Marche sur l'eau (canal reborn:eau depuis ShinobiAbilities, 15/10) : surface solide pour le joueur local quand
+        // le serveur le permet, petites flaques à chaque pas vues de tous (eau/Ondes, eau/EauRendu).
+        fr.reborn.hud.eau.MarcheEauClient.init();
+
         // KO / ATA (canaux reborn:ko + reborn:ko_event depuis ShinobiCore KoHudSync, lot KO-6) : filtre de douleur
         // reborn-hud:ko (prioritaire), affichage dans la DA Reborn à la place des titres / barres vanilla, sons.
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
@@ -680,6 +684,10 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "fouille"),
             (ctx, tickCounter) -> fr.reborn.hud.monnaie.FouilleHud.render(ctx));
         fr.reborn.hud.monnaie.MonnaieDebug.init();
+        // Boutiques-lieux (15/10) : canal reborn:boutique (tailleur avec caméra d'essayage dans le monde, bazar) ; banc
+        // REBORN_BOUTIQUE_DEBUG.
+        fr.reborn.hud.boutique.BoutiqueClient.init();
+        fr.reborn.hud.boutique.BoutiqueDebug.init();
         // Inventaire du 13/10 : notifications en bas à droite + état de charge (canal reborn:notif), ramassage volontaire
         // (touche F quand un objet est visé), aura de rareté au sol, indicateur de surcharge (sous les vitals).
         fr.reborn.hud.notif.NotifClient.init();
@@ -723,6 +731,9 @@ public final class RebornHudClient implements ClientModInitializer {
         // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
         // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
         fr.reborn.hud.byakugan.ByakuganDebug.init();
+        // Trajet vers le serveur (15/10) : scène « nuit de pleine lune » (connexion, pack serveur, monde), fondu vers
+        // le jeu, banc REBORN_CHARGEMENT_DEBUG.
+        fr.reborn.hud.menu.connect.ChargementScene.init();
 
         // Cosmétiques 3D sur le joueur : rend chaque cosmétique ÉQUIPÉ avec son
         // modèle d'item Nexo réel, ancré sur le corps + transform par-cosmétique.

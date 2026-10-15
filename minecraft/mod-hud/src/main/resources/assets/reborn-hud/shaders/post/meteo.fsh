@@ -9,7 +9,9 @@
 //   pixel 2 = (R exposition au ciel, G/B soleil à l'écran codé sur [-0,5 ; 1,5], A visibilité du soleil)
 //   pixel 3 = (R/G lacet de la caméra déroulé, 0..3600° sur 16 bits ; B/A tangage -90..90° sur 16 bits)
 // Types : 1 pluie (bords mouillés, voiles, nuit bleue, halo, grain), 2 sable (lumière chaude ; le volume est en 3D
-//         dans le monde), 3 brume (bords enveloppés, volutes, nappes au sol, faisceaux ; nappes 3D en plus).
+//         dans le monde), 3 brume (bords enveloppés, volutes, nappes au sol, faisceaux ; nappes 3D en plus),
+//         4 blizzard et 5 tempête de sable (le mur est dans le brouillard du jeu, les flocons / grains en 3D ; ici
+//         seulement un voile discret : teinte froide ou chaude, bords voilés, rafales qui balaient l'écran).
 
 uniform sampler2D InSampler;
 uniform sampler2D ParamsSampler;
@@ -186,6 +188,23 @@ void main() {
         col += vec3(1.0, 0.95, 0.85) * ray * 0.45 * I;
         col += halo(uv, px) * vec3(0.95, 0.95, 1.0) * 0.4 * I;
         col = mix(col, vec3(lum(col)), 0.25 * I);
+    }
+
+    if (type == 4 || type == 5) {
+        // ---------------- blizzard (4) / tempête de sable (5) : voile discret, rien de plus large que nécessaire
+        bool neige = type == 4;
+        vec3 teinte = neige ? vec3(0.86, 0.90, 0.97) : vec3(0.76, 0.64, 0.45);
+        float l = lum(col);
+        // étalonnage : froid et désaturé (blizzard) / chaud et terne (sable)
+        vec3 etal = neige ? vec3(l) * vec3(0.92, 0.98, 1.08) : vec3(l) * vec3(1.06, 0.97, 0.80);
+        col = mix(col, etal, 0.35 * I);
+        // rafales : nappes étirées dans le sens du vent qui balaient l'écran (accrochées au monde par qm)
+        float raf = fbm3(vec2(qm.x * 0.8 - t * (neige ? 0.9 : 1.3), qm.y * 3.5 + qm.x * 0.6));
+        float dens = I * (0.06 + 0.14 * smoothstep(0.45, 0.85, raf));
+        col = mix(col, teinte * (0.55 + 0.45 * l / max(0.2, lum(teinte))), clamp(dens, 0.0, 0.3));
+        // bords voilés (givre / poussière sur l'objectif), très léger
+        col = mix(col, teinte * max(l, 0.25), bordure * I * 0.22);
+        col += (hash(uv * InSize + fract(t * 11.0) * 100.0) - 0.5) * 0.025 * I;          // grain
     }
 
     fragColor = vec4(col, 1.0);

@@ -138,9 +138,9 @@ commands:
     aliases: [map, worldmap]
     permission: shinobicore.use
   meteo:
-    description: Météo visuelle (mod client) — pluie, tempête de sable, brume.
-    usage: /<command> <pluie|sable|brume|clair> [intensité 0-100 | leger | moyen | fort | tempete] [joueur|tous]
-    aliases: [weatherfx]
+    description: "Météo visuelle (mod client) — pluie, vent de sable, brume, blizzard, tempête de sable."
+    usage: "/<command> <pluie|sable|brume|blizzard|tempetesable|clair> [intensité 0-100 | leger | moyen | fort | v<blocs>] [durée 30s|10m|2h] [tous|monde|ici [rayon]|joueur] — /<command> liste"
+    aliases: [weatherfx, blizzard, tempetedeneige, tempetedesable]
     permission: shinobicore.meteo
   zonerp:
     description: Zones RP — terrains d'entraînement (sans séquelles) et zones de repos (outil staff).
@@ -303,6 +303,11 @@ commands:
     usage: "/<command> [creer|supprimer|renommer|membre|poste|info|liste] …"
     aliases: [entreprises]
     permission: shinobicore.use
+  boutique:
+    description: "Boutiques-lieux (tailleur, bazar) — staff : creer, comptoir (catégories), estrade, camera, article, ouvrir, fermer, info, liste, voir, donner, reprendre, recharger."
+    usage: "/<command> <creer|supprimer|comptoir|estrade|camera|article|ouvrir|fermer|info|liste|voir|donner|reprendre|recharger> …"
+    aliases: [boutiques]
+    permission: shinobicore.use
   tendre:
     description: "Tendre l'objet en main ou des ryo à un joueur tout proche ; l'autre prend (F) ou refuse (Retour)."
     usage: "/<command> <joueur> [ryo <montant>] | prendre | refuser"
@@ -324,6 +329,9 @@ commands:
 permissions:
   shinobicore.entreprise:
     description: "Gérer les entreprises (/entreprise creer, membre, poste…) ; aussi accordé aux modérateurs du Poste de garde."
+    default: op
+  shinobicore.boutique:
+    description: "Gérer les boutiques-lieux (/boutique creer, comptoir, estrade, article, voir…) ; aussi accordé aux modérateurs du Poste de garde."
     default: op
   shinobicore.nourriture.staff:
     description: "Outils staff de la nourriture (/nourriture satiete, donner, effet, retirer)."

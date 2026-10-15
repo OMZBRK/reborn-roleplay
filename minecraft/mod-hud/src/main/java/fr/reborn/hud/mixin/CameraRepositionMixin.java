@@ -33,6 +33,15 @@ public abstract class CameraRepositionMixin {
     @Inject(method = "update", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/Camera;alignWithEntity(F)V", shift = At.Shift.AFTER))
     private void reborn$repositionCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
+        // Essayage du tailleur (boutiques, 15/10) : point de vue fixe en face du personnage, posé dans le monde.
+        fr.reborn.hud.boutique.CameraEssayage ess = fr.reborn.hud.boutique.CameraEssayage.INSTANCE;
+        if (ess.active()) {
+            Minecraft mc = Minecraft.getInstance();
+            float pt = deltaTracker.getGameTimeDeltaPartialTick(true);
+            setRotation(ess.yaw(), ess.pitch());
+            setPosition(ess.position(mc.player == null ? null : mc.player.getEyePosition(pt)));
+            return;
+        }
         RepositionMode mode = RepositionMode.INSTANCE;
         if (!mode.isActive()) return;
         Minecraft mc = Minecraft.getInstance();

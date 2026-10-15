@@ -76,6 +76,8 @@ public final class ShinobiAbilities extends JavaPlugin {
     private com.reborn.shinobiabilities.mobility.MobilityPathTwoModule pathTwo;
     /** Trois allures (marche / trot / sprint), canal reborn:allure — décision du 2026-10-14. */
     private com.reborn.shinobiabilities.mobility.Allure allure;
+    /** Marche sur l'eau, canal reborn:eau — 15/10. */
+    private com.reborn.shinobiabilities.mobility.MarcheEau marcheEau;
     private LearningShelfManager shelves;
     private LearningMinigame minigame;
     private TechniquesService techniques;
@@ -184,6 +186,13 @@ public final class ShinobiAbilities extends JavaPlugin {
                 allure);
         getServer().getPluginManager().registerEvents(allure, this);
         allure.start();
+
+        // Canal reborn:eau : marche sur l'eau (contrôle du chakra, 15/10). Le serveur donne le permis (appris, chakra,
+        // état) et débite le chakra ; le mod rend la surface solide pour son joueur et dessine les ondes. Cf. MarcheEau.
+        this.marcheEau = new com.reborn.shinobiabilities.mobility.MarcheEau(this, core, mobility.toggles(), allure);
+        getServer().getMessenger().registerOutgoingPluginChannel(this, com.reborn.shinobiabilities.mobility.MarcheEau.CHANNEL);
+        getServer().getPluginManager().registerEvents(marcheEau, this);
+        marcheEau.start();
 
         // 4. Techniques / learning.
         this.shelves = new LearningShelfManager(this, abilities, guiRouter);
@@ -365,6 +374,7 @@ public final class ShinobiAbilities extends JavaPlugin {
         if (mobility != null) mobility.disable();
         if (pathTwo != null) pathTwo.stop();
         if (allure != null) allure.stop();
+        if (marcheEau != null) marcheEau.stop();
         if (bindings != null) bindings.saveSync();
         if (shelves != null) shelves.saveSync();
 

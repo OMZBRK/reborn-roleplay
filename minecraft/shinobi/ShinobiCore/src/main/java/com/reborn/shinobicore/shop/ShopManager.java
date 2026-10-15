@@ -15,6 +15,8 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.charset.StandardCharsets;
 
 /**
+ * <b>Ancienne échoppe de l'Échap</b> (remplacée le 15/10 par les boutiques-lieux, package {@code boutique} : les achats
+ * {@code buy*} sont refusés quand elles tournent ; {@code open} et {@code equip} restent pour les anciens clients).
  * Boutique de TENUES (skins) et de CARTES (objets « Carte — région », prix par carte
  * dans {@code places.yml}). Autoritaire côté serveur : monnaie <b>ryo</b> +
  * possession de tenues stockées sur {@link ShinobiCharacter} (persistées YAML).
@@ -64,6 +66,9 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         if (c == null) return; // pas de perso actif → pas de boutique
         if (msg.equals("open")) {
             sendState(p, c, null);
+        } else if (msg.startsWith("buy") && plugin.boutiques() != null) {
+            // Boutiques-lieux (15/10, BOUTIQUES.md §5) : plus d'achat en ryo depuis l'Échap (anciens clients compris).
+            sendState(p, c, "§cL'échoppe a déménagé : les tenues chez le tailleur, les vivres et les cartes au bazar.");
         } else if (msg.startsWith("buyvivre:")) {
             String id = msg.substring("buyvivre:".length()).trim();
             Bukkit.getScheduler().runTask(plugin, () -> {

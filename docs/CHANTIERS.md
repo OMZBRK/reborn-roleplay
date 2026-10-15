@@ -28,7 +28,15 @@
     nourriture v3 et entreprises ([`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md),
     [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md)) ; natures canoniques et Test de la Feuille refait.
     **En recette** : [`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md).
-  - **Fait le 14-15/10, à publier** (`reborn-hud` 0.4.179, nouveau plugin **ShinobiRadio**) : radio en escouades
+  - **Publié le 15/10** (`reborn-hud` **0.4.181**, ShinobiCore / ShinobiAbilities) : boutiques en jeu (tailleur à
+    comptoirs par catégorie configurés par le staff, bazar ; carte BOUTIQUE de l'Échap vide en attendant les visuels)
+    ([`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md)) ; météo blizzard et tempête de sable (`/meteo`, zones,
+    durée) + correctif du brouillard sous Sodium ; marche sur l'eau (capacité `marche_eau`, eau vanilla + ondes de pas,
+    gouttes et sons) ([`gameplay/DEPLACEMENTS.md`](./gameplay/DEPLACEMENTS.md) §10) ; scène de chargement « nuit de
+    pleine lune » sur tout le trajet vers le serveur, rien de Mojang, pack Nexo accepté sans confirmation
+    ([`technique/MOD_HUD.md`](./technique/MOD_HUD.md) §8). Étude concurrente :
+    [`etudes/CONCURRENCE_SHINODA.md`](./etudes/CONCURRENCE_SHINODA.md).
+  - **Publié le 15/10** (`reborn-hud` 0.4.179 et correctif 0.4.180, nouveau plugin **ShinobiRadio**) : radio en escouades
     ([`gameplay/RADIO.md`](./gameplay/RADIO.md) §12) ; monnaie et banque — bourse-objet, guichet, virement, échange
     garanti, coffre à paliers, solde hebdomadaire, fouille à 30 %, testament
     ([`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md)) ; lâcher / ramasser en créatif ; halo de
