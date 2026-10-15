@@ -153,10 +153,20 @@ export class AuthService {
 
   /**
    * Roule le refresh token : invalide l'ancien et en emet un nouveau.
-   * Detecte les replays (refresh deja revoque) -> revoque toutes les
-   * sessions du user, oblige a re-login.
+   * Detecte les replays (refresh deja revoque) -> revoque la FAMILLE du
+   * token (la chaine de rotation de cette connexion), oblige a re-login sur
+   * cet appareil. Les autres appareils / outils (autres familles) restent
+   * connectes : avant le 15/10, un vieux launcher reste ouvert coupait toutes
+   * les sessions du compte toutes les 10 min.
+   *
+   * `nouvelleFamille` (ADMIN / OWNER) : ouvre une famille neuve sans consommer
+   * le token presente (manifest-uploader).
    */
-  async refresh(rawRefreshToken: string, meta: { userAgent?: string; ip?: string }): Promise<AuthResult> {
+  async refresh(
+    rawRefreshToken: string,
+    meta: { userAgent?: string; ip?: string },
+    opts: { nouvelleFamille?: boolean } = {},
+  ): Promise<AuthResult> {
     const session = await this.prisma.session.findUnique({
       where: { refreshToken: rawRefreshToken },
       include: { user: true },
@@ -165,9 +175,9 @@ export class AuthService {
     if (!session) throw new UnauthorizedException('Refresh token inconnu.');
 
     if (session.revokedAt) {
-      // Replay detecte : on revoque toutes les sessions du user.
+      // Replay detecte : on revoque la famille du token (null = sessions d'avant le 15/10).
       await this.prisma.session.updateMany({
-        where: { userId: session.userId, revokedAt: null },
+        where: { userId: session.userId, revokedAt: null, familyId: session.familyId },
         data: { revokedAt: new Date() },
       });
       throw new UnauthorizedException('Refresh token replay : sessions revoquees.');
@@ -181,13 +191,20 @@ export class AuthService {
       throw new HttpException('Compte banni.', HttpStatus.FORBIDDEN);
     }
 
-    // Marque l'ancienne session revoquee + emet un nouveau couple.
+    if (opts.nouvelleFamille) {
+      if (session.user.role !== Role.ADMIN && session.user.role !== Role.OWNER) {
+        throw new HttpException('Nouvelle famille de sessions reservee a ADMIN / OWNER.', HttpStatus.FORBIDDEN);
+      }
+      return this.issueTokens(session.user, meta);
+    }
+
+    // Marque l'ancienne session revoquee + emet un nouveau couple dans la meme famille.
     await this.prisma.session.update({
       where: { id: session.id },
       data: { revokedAt: new Date() },
     });
 
-    return this.issueTokens(session.user, meta);
+    return this.issueTokens(session.user, meta, session.familyId ?? session.id);
   }
 
   async logout(userId: string, refreshToken?: string): Promise<void> {
@@ -316,6 +333,7 @@ export class AuthService {
   private async issueTokens(
     user: User,
     meta: { userAgent?: string; ip?: string },
+    familyId: string = randomUUID(),
   ): Promise<AuthResult> {
     const payload: JwtPayload = {
       sub: user.id,
@@ -338,6 +356,7 @@ export class AuthService {
         userAgent: meta.userAgent,
         ipAddress: meta.ip,
         expiresAt,
+        familyId,
       },
     });
 

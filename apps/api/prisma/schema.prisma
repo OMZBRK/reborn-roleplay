@@ -124,6 +124,12 @@ model Session {
   createdAt    DateTime  @default(now())
   expiresAt    DateTime
   revokedAt    DateTime?
+  /// Famille de rotation : une connexion = une famille, chaque refresh la prolonge. Un replay ne révoque que sa
+  /// famille (avant le 15/10 : toutes les sessions du compte, d'où des appareils qui se coupaient entre eux).
+  /// Null = session antérieure au 15/10.
+  familyId     String?
+
+  @@index([familyId])
 }
 
 // ──────────────────────────────────────────────────────

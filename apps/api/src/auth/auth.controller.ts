@@ -36,7 +36,7 @@ export class AuthController {
     @Headers('user-agent') userAgent: string | undefined,
     @Ip() ip: string,
   ) {
-    return this.auth.refresh(dto.refreshToken, { userAgent, ip });
+    return this.auth.refresh(dto.refreshToken, { userAgent, ip }, { nouvelleFamille: dto.nouvelleFamille });
   }
 
   /**

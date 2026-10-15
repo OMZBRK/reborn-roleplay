@@ -1,4 +1,4 @@
-import { IsString, Matches, MinLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, Matches, MinLength } from 'class-validator';
 
 export class LoginDto {
   @IsString()
@@ -10,6 +10,14 @@ export class RefreshDto {
   @IsString()
   @MinLength(20)
   refreshToken!: string;
+
+  /**
+   * Ouvre une nouvelle famille de sessions sans consommer ce refresh token (outils staff comme manifest-uploader,
+   * qui ne doivent pas faire tourner les jetons du launcher). Réservé ADMIN / OWNER.
+   */
+  @IsOptional()
+  @IsBoolean()
+  nouvelleFamille?: boolean;
 }
 
 export class DevLoginDto {
