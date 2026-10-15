@@ -92,22 +92,42 @@ fn read_secret(name: &str) -> Result<String, String> {
         .map_err(|e| format!("{e}"))
 }
 
-/// Jetons renvoyes par `/auth/refresh`, avec l'UUID du compte (slot du carrousel).
-struct Refreshed {
-    access: String,
-    refresh: String,
-    uuid: Option<String>,
+/// Jetons propres a l'uploader (sa propre famille de sessions, 15/10) : il ne fait plus tourner ceux du launcher,
+/// sinon launcher(s) et uploader se presentaient tour a tour des jetons deja consommes (replay, sessions coupees).
+const UP_SERVICE: &str = "fr.reborn-rp.manifest-uploader";
+const UP_ACCESS: &str = "access_token";
+const UP_REFRESH: &str = "refresh_token";
+
+fn read_up(name: &str) -> Result<String, String> {
+    Entry::new(UP_SERVICE, name)
+        .and_then(|e| e.get_password())
+        .map_err(|e| format!("{e}"))
 }
 
+fn save_up(access: &str, refresh: &str) {
+    if let Ok(entry) = Entry::new(UP_SERVICE, UP_ACCESS) {
+        let _ = entry.set_password(access);
+    }
+    if let Ok(entry) = Entry::new(UP_SERVICE, UP_REFRESH) {
+        let _ = entry.set_password(refresh);
+    }
+}
+
+/// `/auth/refresh` ; `nouvelle_famille` ouvre une famille neuve sans consommer `refresh` (ADMIN / OWNER).
 fn refresh_token(
     client: &reqwest::blocking::Client,
     api: &str,
     refresh: &str,
-) -> Result<Refreshed, String> {
+    nouvelle_famille: bool,
+) -> Result<(String, String), String> {
     let url = format!("{}/auth/refresh", api.trim_end_matches('/'));
+    let mut body = serde_json::json!({ "refreshToken": refresh });
+    if nouvelle_famille {
+        body["nouvelleFamille"] = serde_json::Value::Bool(true);
+    }
     let resp = client
         .post(&url)
-        .json(&serde_json::json!({ "refreshToken": refresh }))
+        .json(&body)
         .send()
         .map_err(|e| format!("refresh request : {e}"))?;
     let status = resp.status();
@@ -127,58 +147,42 @@ fn refresh_token(
         .and_then(|x| x.as_str())
         .ok_or("refreshToken absent de la reponse refresh")?
         .to_string();
-    let uuid = v
-        .pointer("/user/minecraftUuid")
-        .and_then(|x| x.as_str())
-        .map(str::to_string);
-    Ok(Refreshed {
-        access,
-        refresh: new_refresh,
-        uuid,
-    })
+    Ok((access, new_refresh))
 }
 
-/// Lit le JWT depuis le Credential Manager + refresh automatique si possible.
-/// Retourne le token a utiliser pour la requete, ou un code d'exit en cas d'echec.
+/// JWT a utiliser : d'abord la famille de l'uploader (rotation normale) ; sinon une famille neuve ouverte depuis le
+/// refresh token du launcher, **sans le consommer** ; en dernier recours, le JWT du launcher tel quel.
 fn acquire_token(client: &reqwest::blocking::Client, api: &str) -> Result<String, ExitCode> {
-    let mut token = match read_secret(KEY_ACCESS) {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!(
-                "Impossible de lire le JWT depuis le Credential Manager : {e}.\n\
-                 Lance le launcher et login Microsoft d'abord."
-            );
-            return Err(ExitCode::from(2));
-        }
-    };
-
-    if let Ok(refresh) = read_secret(KEY_REFRESH) {
-        match refresh_token(client, api, &refresh) {
-            Ok(r) => {
-                println!("Refresh OK — nouveau JWT acquis.");
-                token = r.access;
-                if let Ok(entry) = Entry::new(SERVICE, KEY_ACCESS) {
-                    let _ = entry.set_password(&token);
-                }
-                if let Ok(entry) = Entry::new(SERVICE, KEY_REFRESH) {
-                    let _ = entry.set_password(&r.refresh);
-                }
-                // Le carrousel de comptes du launcher garde sa propre copie du
-                // refresh token (`reborn_refresh_token:<uuid>`). Sans cette mise a
-                // jour, il presente au prochain clic un token deja consomme ici :
-                // l'API y voit un replay et revoque toutes les sessions.
-                if let Some(uuid) = r.uuid {
-                    if let Ok(entry) = Entry::new(SERVICE, &format!("{KEY_REFRESH}:{uuid}")) {
-                        let _ = entry.set_password(&r.refresh);
-                    }
-                }
+    if let Ok(refresh) = read_up(UP_REFRESH) {
+        match refresh_token(client, api, &refresh, false) {
+            Ok((access, new_refresh)) => {
+                save_up(&access, &new_refresh);
+                println!("Refresh OK — JWT de l'uploader (sa propre famille de sessions).");
+                return Ok(access);
             }
-            Err(e) => {
-                eprintln!("Refresh echec ({e}) — on tente avec le JWT existant.");
-            }
+            Err(e) => eprintln!("Session de l'uploader expiree ({e}) — on en ouvre une nouvelle."),
         }
     }
-    Ok(token)
+    if let Ok(launcher_refresh) = read_secret(KEY_REFRESH) {
+        match refresh_token(client, api, &launcher_refresh, true) {
+            Ok((access, new_refresh)) => {
+                save_up(&access, &new_refresh);
+                println!("Nouvelle famille de sessions ouverte pour l'uploader (jetons du launcher intacts).");
+                return Ok(access);
+            }
+            Err(e) => eprintln!("Ouverture d'une session uploader impossible ({e}) — on tente le JWT du launcher."),
+        }
+    }
+    match read_secret(KEY_ACCESS) {
+        Ok(t) => Ok(t),
+        Err(e) => {
+            eprintln!(
+                "Impossible de lire le JWT depuis le Credential Manager : {e}.
+                 Lance le launcher et login Microsoft d'abord."
+            );
+            Err(ExitCode::from(2))
+        }
+    }
 }
 
 fn post_json(

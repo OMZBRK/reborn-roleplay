@@ -74,7 +74,7 @@ Prérequis : JDK 25, `secrets/manifest_ed25519_private.pem` + `…_public.pem`, 
 
 | Symptôme | Cause | Que faire |
 |---|---|---|
-| HTTP 401 « Refresh token replay : sessions révoquées » | Jetons du launcher consommés ou révoqués | Déconnexion complète puis **reconnexion Microsoft** (pas le carrousel de comptes), **fermer le launcher**, relancer **une seule fois** l'uploader (`-SkipBuild`) — ne pas réessayer en boucle |
+| HTTP 401 « Refresh token replay » / « Session de l'uploader expirée » | Depuis le 15/10, l'uploader a **sa propre famille de sessions** (entrées `fr.reborn-rp.manifest-uploader` du gestionnaire d'identifiants), ouverte depuis le jeton du launcher sans le consommer, et un replay ne coupe plus que sa famille. Si elle a expiré et que le jeton du launcher est mort aussi | Ouvrir le launcher, **reconnexion Microsoft**, puis relancer **une seule fois** l'uploader (`manifest-uploader manifest --file …`) — ne pas réessayer en boucle |
 | Statut HTTP invisible (sortie tronquée) | — | Vérifier avec `manifest-uploader get-manifest`, **ne jamais renvoyer** deux fois |
 | `issuedAt` dans le futur | Horloge / date saisie | Re-signer avec l'heure réelle |
 | Le joueur a encore l'ancienne version | Le launcher a lu le manifest avant la publication | Relancer le launcher ; vérifier la version du jar dans `mods/` |
