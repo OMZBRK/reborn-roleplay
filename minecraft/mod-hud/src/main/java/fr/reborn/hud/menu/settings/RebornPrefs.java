@@ -97,6 +97,12 @@ public final class RebornPrefs {
     /** Élément HUD « Escouade » : toute l'escouade (ceux qui se taisent en retrait) au lieu de ceux qui parlent seulement. */
     public boolean radioToutEscouade = false;
 
+    // ────────────────── Touches ──────
+    /** Carte des touches déjà migrée ({@code keybind/TouchesMigration.VERSION}) : 0 = jamais (anciens défauts). */
+    public int touchesVersion = 0;
+    /** Raccourci « couper le micro » de Plasmo Voice (M, conflit avec la carte) déjà migré. */
+    public boolean touchesPv = false;
+
     private boolean loaded = false;
 
     private RebornPrefs() {}
@@ -183,5 +189,7 @@ public final class RebornPrefs {
         this.sacocheInventory = other.sacocheInventory;
         this.aurasSol = other.aurasSol;
         this.radioToutEscouade = other.radioToutEscouade;
+        this.touchesVersion = other.touchesVersion;
+        this.touchesPv = other.touchesPv;
     }
 }

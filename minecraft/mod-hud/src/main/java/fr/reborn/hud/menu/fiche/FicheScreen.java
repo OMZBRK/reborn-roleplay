@@ -375,7 +375,8 @@ public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque 
 
     private void aides(GuiGraphicsExtractor ctx, Onglet o) {
         Font f = this.font;
-        String[][] items = lay.compact ? AIDES_COMPACT : o.aides();
+        String[][] items = fr.reborn.hud.keybind.HudKeybinds.aides(lay.compact ? AIDES_COMPACT : o.aides(), "K",
+            fr.reborn.hud.keybind.HudKeybinds.STATS);
         if (items != aidesItems) {
             aidesItems = items;
             int n = items.length;

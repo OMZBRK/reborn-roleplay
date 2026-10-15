@@ -395,9 +395,7 @@ public final class ShinobiCore extends JavaPlugin {
                 new com.reborn.shinobicore.ko.gui.EtatScreen(coreGuiRouter),
                 new com.reborn.shinobicore.ko.gui.FouillerScreen(coreGuiRouter));
         coreGuiRouter.bindCharacter(
-                new com.reborn.shinobicore.character.gui.CharacterListScreen(coreGuiRouter),
-                new com.reborn.shinobicore.character.gui.CharacterEditScreen(coreGuiRouter),
-                new com.reborn.shinobicore.character.gui.ClanPickerScreen(coreGuiRouter));
+                new com.reborn.shinobicore.character.gui.CharacterListScreen(coreGuiRouter));
         coreGuiRouter.bindRencontrer(
                 new com.reborn.shinobicore.character.gui.RencontrerRootScreen(coreGuiRouter),
                 new com.reborn.shinobicore.character.gui.GiveNameScreen(coreGuiRouter),

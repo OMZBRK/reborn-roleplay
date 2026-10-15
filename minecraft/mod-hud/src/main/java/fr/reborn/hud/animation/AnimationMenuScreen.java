@@ -18,14 +18,12 @@ import java.util.List;
  * ({@code Animations} / {@code Options}), lignes laquées sobres (bande vermillon pour le choix en cours), marqueurs
  * pixel art. Le monde reste visible ; aperçu du perso à droite. Décor : {@code textures/gui/animations/*}.
  *
- * <p>Contenu actuel :
+ * <p>Touche « . » (15/10 : démarches <b>et</b> émotes réunies ici ; la roue d'Emotecraft n'a plus de touche par
+ * défaut, B étant la radio) — la même touche referme le menu :
  * <ul>
- *   <li><b>OPTIONS</b> → Démarche (sous-liste des styles de marche, fonctionnel),
- *       Charge chakra / Méditation / Posture combat (placeholders — mécaniques
- *       plugin à venir).</li>
- *   <li><b>ANIMATIONS</b> → Favoris / Bind / Liste d'émotes (placeholders — la
- *       liste d'émotes façon Reborn viendra ; émotes via Emotecraft touche B en
- *       attendant).</li>
+ *   <li><b>ÉMOTES</b> (onglet ouvert d'abord) → les émotes du serveur Reborn puis celles d'Emotecraft, jouées par
+ *       {@code /playemote} ;</li>
+ *   <li><b>DÉMARCHES</b> → les styles de marche (choix en cours en vermillon).</li>
  * </ul>
  */
 public class AnimationMenuScreen extends Screen {
@@ -33,10 +31,8 @@ public class AnimationMenuScreen extends Screen {
     private final Screen parent;
 
     private enum Section { ANIMATIONS, OPTIONS }
-    private enum Sub { NONE, WALK }
 
-    private Section section = Section.OPTIONS;
-    private Sub sub = Sub.NONE;
+    private Section section = Section.ANIMATIONS;
 
     /** Fenêtre de défilement de la liste d'emotes (onglet ANIMATIONS). */
     private int emoteScroll = 0;
@@ -79,22 +75,15 @@ public class AnimationMenuScreen extends Screen {
 
     private List<Row> rows() {
         List<Row> r = new ArrayList<>();
-        if (section == Section.OPTIONS) {
-            if (sub == Sub.WALK) {
-                r.add(new Row("‹ Retour", null, false, () -> { sub = Sub.NONE; }));
-                MovementAnimations anim = MovementAnimations.INSTANCE;
-                for (int i = 0; i < anim.walkStyleCount(); i++) {
-                    final int idx = i;
-                    boolean selected = anim.selectedWalk() == i;
-                    r.add(new Row(anim.walkStyleName(i), selected ? "●" : "○", false,
-                        () -> anim.setWalkStyle(idx)));
-                }
-            } else {
-                r.add(new Row("Démarche", "▸", false, () -> { sub = Sub.WALK; }));
-                r.add(new Row("Charge chakra", null, true, () -> {}));
-                r.add(new Row("Méditation", null, true, () -> {}));
-                r.add(new Row("Posture combat", null, true, () -> {}));
+        if (section == Section.OPTIONS) {   // démarches
+            MovementAnimations anim = MovementAnimations.INSTANCE;
+            for (int i = 0; i < anim.walkStyleCount(); i++) {
+                final int idx = i;
+                boolean selected = anim.selectedWalk() == i;
+                r.add(new Row(anim.walkStyleName(i), selected ? "●" : "○", false,
+                    () -> anim.setWalkStyle(idx)));
             }
+            if (r.isEmpty()) r.add(new Row("Aucune démarche chargée", null, true, () -> {}));
         } else { // ANIMATIONS — liste d'emotes EmoteCraft, jouées via /playemote.
             List<String> emotes = fr.reborn.hud.emote.EmoteAnimations.INSTANCE.names();
             if (emotes.isEmpty()) {
@@ -144,11 +133,11 @@ public class AnimationMenuScreen extends Screen {
         int py = panelY(), ph = panelH();
         DaKit.coupe(ctx, PANNEAU, PANEL_X - 2, py - 2, PANEL_W + 8, ph + 8, 0, 0, 228, 348, 18, 18, 228, 348);
         DaKit.blit(ctx, EVENTAIL, PANEL_X + PANEL_W / 2 - 66, py + 20 - 58, 0, 0, 132, 64, 132, 64);
-        DaKit.arcX1(ctx, f, DaKit.arcade("Mouvements"), PANEL_X + PANEL_W / 2f, py + 28, DaKit.OR_CLAIR, 1, true);
+        DaKit.arcX1(ctx, f, DaKit.arcade("Animations"), PANEL_X + PANEL_W / 2f, py + 28, DaKit.OR_CLAIR, 1, true);
 
         int tabW = (PANEL_W - 2 * 14 + 2) / 2;
-        drawTab(ctx, f, PANEL_X + 14, tabsY(), tabW - 2, "Animations", section == Section.ANIMATIONS, mouseX, mouseY);
-        drawTab(ctx, f, PANEL_X + 14 + tabW, tabsY(), tabW - 2, "Options", section == Section.OPTIONS, mouseX, mouseY);
+        drawTab(ctx, f, PANEL_X + 14, tabsY(), tabW - 2, "Émotes", section == Section.ANIMATIONS, mouseX, mouseY);
+        drawTab(ctx, f, PANEL_X + 14 + tabW, tabsY(), tabW - 2, "Démarches", section == Section.OPTIONS, mouseX, mouseY);
 
         List<Row> rows = rows();
         int y = firstRowY();
@@ -187,7 +176,7 @@ public class AnimationMenuScreen extends Screen {
                 x0, y0, x1, y1, 70, 0.0f, mouseX, (y0 + y1) / 2f, mc.player);
         }
         DaKit.aides(ctx, f, fr.reborn.hud.menu.settings.ReglagesArt.PIECES, 0, 0, 120, 40,
-            new String[][]{{"Clic", "choisir"}, {"Molette", "défiler"}, {"Échap", "fermer"}}, this.width - 12,
+            new String[][]{{"Clic", "choisir"}, {"Molette", "défiler"}, {fermerTouche(), "fermer"}}, this.width - 12,
             this.height - 10, 1f);
     }
 
@@ -232,7 +221,7 @@ public class AnimationMenuScreen extends Screen {
             if (mouseY >= ty && mouseY < ty + 16 && mouseX >= PANEL_X + 14 && mouseX < PANEL_X + PANEL_W - 14) {
                 Section s = mouseX < PANEL_X + 14 + tabW ? Section.ANIMATIONS : Section.OPTIONS;
                 if (s != section) {
-                    section = s; sub = Sub.NONE; emoteScroll = 0;
+                    section = s; emoteScroll = 0;
                     fr.reborn.hud.menu.RebornSounds.playReborn("sacoche.tier", 1.1f, 0.4f);
                 }
                 return true;
@@ -265,6 +254,21 @@ public class AnimationMenuScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
     }
+
+    private static String fermerTouche() {
+        var k = fr.reborn.hud.keybind.HudKeybinds.ANIMATIONS;
+        return k == null || k.isUnbound() ? "Échap" : k.getTranslatedKeyMessage().getString();
+    }
+
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        var k = fr.reborn.hud.keybind.HudKeybinds.ANIMATIONS;
+        if (k != null && k.matches(event)) { onClose(); return true; }
+        return super.keyPressed(event);
+    }
+
+    /** Banc des touches : ouvre sur l'onglet Démarches. */
+    public AnimationMenuScreen demarches() { section = Section.OPTIONS; return this; }
 
     @Override
     public boolean isPauseScreen() {

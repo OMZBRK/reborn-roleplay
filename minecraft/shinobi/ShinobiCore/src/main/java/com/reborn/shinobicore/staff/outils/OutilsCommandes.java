@@ -38,7 +38,7 @@ import java.util.Set;
 public final class OutilsCommandes implements TabExecutor {
 
     static final String[] COMMANDES = {"journal", "note", "annonce", "annoncejoueur", "aller", "ramener", "retour",
-            "geler", "degeler", "voirsac", "noir", "seisme", "tenue", "emoteforcee", "persoreset", "persosuppr",
+            "geler", "degeler", "voirsac", "noir", "seisme", "tenue", "emoteforcee",
             "modestaff", "modeanim"};
 
     private final ShinobiCore plugin;
@@ -172,12 +172,6 @@ public final class OutilsCommandes implements TabExecutor {
                 Player t = enLigne(s, a[0]);
                 if (t == null) return true;
                 emote(s, t, a[1]);
-            }
-            case "persoreset", "persosuppr" -> {
-                if (!OutilsStaff.exige(s, OutilsStaff.G_PERSO)) return true;
-                if (a.length < 1) { info(s, "/" + c + " <cible|#N°> [confirmer]"); return true; }
-                o.perso().demander(s, c.equals("persoreset") ? "reset" : "suppr", a[0],
-                        a.length >= 2 && a[1].equalsIgnoreCase("confirmer"));
             }
             case "modestaff" -> {
                 if (!(s instanceof Player sp)) { err(s, "En jeu seulement."); return true; }
@@ -387,7 +381,6 @@ public final class OutilsCommandes implements TabExecutor {
                 case "noir" -> out.addAll(List.of("off", "10", "30", "60"));
                 case "tenue" -> out.addAll(List.of("main", "retirer"));
                 case "note" -> out.addAll(List.of("ajouter", "suppr"));
-                case "persoreset", "persosuppr" -> out.add("confirmer");
                 case "emoteforcee" -> { if (plugin.emotes() != null) { out.add("stop"); out.addAll(plugin.emotes().declaredKeys()); } }
                 default -> { }
             }

@@ -52,7 +52,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | Commande | Alias | Pour | Perm. | Ce qu'elle fait |
 |---|---|---|---|---|
 | `/shinobi` | `sc`, `shinobicore` | tous / staff | `shinobicore.use` | Commande racine (`/sc help`, `/sc reload`) |
-| `/character` | `char`, `characters` | tous | `shinobicore.use` | Gérer ses personnages (liste, création, sélection) |
+| `/character` | `char`, `characters` | tous | `shinobicore.use` | `select` (ses personnages, repli de la sélection du mod), `list [joueur]` (texte ; `[joueur]` et `cinematic <nom\|none>` : `shinobicore.character.admin`). `create` / `edit` retirés le 15/10 : gestion au Poste de garde (§4 bis.2, `persos`) |
 | `/stats` | `fiche`, `statistiques` | tous / staff | `shinobicore.use` | Fiche shinobi : répartir ses points, réinitialiser, jeton ; staff `give`, `set`, `reset` |
 | `/xp` | — | staff | `shinobicore.staff` | `voir`, `donner`, `retirer`, `niveau <joueur> <n>` — l'XP est invisible pour le joueur |
 | `/grade` | — | tous / gradés / staff | `shinobicore.use` | Voir son grade ; promouvoir ou rétrograder selon son propre grade |
@@ -104,8 +104,6 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/seisme` | `earthquake` | Admin | `reborn.staff.helper` | `/seisme [rayon\|tous] [force 1-10] [secondes] [message]` : secousse + grondement ; `tous` = tout le serveur + annonce « La terre tremble… » |
 | `/tenue` | `forceclothes` | Modérateur | `reborn.staff.helper` | `/tenue <cible> <id Nexo\|main\|retirer>` : impose l'emplacement cosmétique `TENUE` (verrouillé), rend l'ancienne pièce à la levée. **TODO** : l'apparence de skin de l'échoppe ne peut pas être imposée |
 | `/emoteforcee` | `forceemote` | Modérateur | `reborn.staff.helper` | Fait jouer une emote à la cible (`stop` pour arrêter) ; même catalogue que `/playemote` |
-| `/persoreset` | `resetcharacter` | Admin | `reborn.staff.helper` | Remise à zéro : XP, niveau, stats, techniques, grade (Genin), ryo, sacoche, inventaire, blessures, apparence. Gardés : N°, nom, clan, village, âge, taille, sexe, natures. Confirmation (`confirmer` sous 60 s) + sauvegarde `sauvegardes/perso/…` |
-| `/persosuppr` | `deletecharacter` | Admin | `reborn.staff.helper` | Supprime le personnage (slot libéré, N° réservé) ; joueur en ligne déconnecté. Confirmation + sauvegarde |
 | `/modestaff` | `staffmode`, `sm` | Helper | `reborn.staff.helper` | Mode staff : invisible aux joueurs et au staff hors mode staff, vol, invulnérable, **aucune mécanique RP** et personne ne peut le cibler (§4 bis.7), tchat redirigé vers le chat staff, plaques au-dessus des têtes (`reborn:plaques`) ; tombe à la déconnexion. `/modestaff anim` = `/modeanim` |
 | `/entreprise` | `entreprises` | Modérateur (ou `shinobicore.entreprise`) ; joueur : les siennes | `shinobicore.use` | **Entreprises** (14/10) : `creer <restaurant\|forge\|echoppe> "<nom>" [responsable]`, `supprimer <e> confirmer`, `renommer <e> "<nom>"`, `membre ajouter\|retirer\|role <e> <cible> [gerant\|employe]`, `poste ajouter <e> [libellé]` / `poste retirer` (en visant le bloc ou le meuble), `info`, `liste` ; journal Staff `ENTREPRISE_*` — [`../gameplay/ENTREPRISES.md`](../gameplay/ENTREPRISES.md) |
 | `/boutique` | `boutiques` | Modérateur (ou `shinobicore.boutique`) | `shinobicore.use` | **Boutiques-lieux** (15/10) : `creer <tailleur\|bazar> "<nom>" [village] [entreprise]`, `supprimer <b> confirmer`, `comptoir ajouter <b> [catégories…]` (en visant un bloc, un meuble Nexo ou un PNJ) / `comptoir retirer` / `comptoir categories <cat…>` / `comptoir articles <id…\|tous>` / `comptoir nom "<libellé>"` (en visant le comptoir), `estrade ajouter\|retirer <b>` (là où se tient le staff, regard vers la caméra), `camera <b> <distance> <hauteur>`, `article prix <b> <id> <prix\|catalogue>` / `article retirer\|remettre <b> <id>`, `ouvrir\|fermer <b>`, `info <b>`, `liste [village]`, `voir <b> [n°]` (écran à distance, test), `donner\|reprendre <cible> <tenue> "<motif>"` (garde-robe), `recharger` (catalogue) ; catégories `tenues, hauts, bas, manteaux, coiffes, masques, accessoires, vivres, cartes` ; journal Staff `BOUTIQUE_*` — [`../gameplay/BOUTIQUES.md`](../gameplay/BOUTIQUES.md) §13 |
@@ -122,7 +120,7 @@ Résolution commune : `character/PlayerIds` (`online(sender, arg)` = le joueur q
 
 - **ShinobiCore** : `/pid`, `/grade` (`voir` et promotion), `/stats` (`give|set|reset|jeton` — hors ligne pour
   le personnage), `/fiche edit|service|json`, `/xp`, `/ata voir|lever|appliquer`, `/execution liste|donner|retirer`,
-  `/character create|edit|list <joueur>`, `/ryo give|take|set`, `/carte donner`, `/meteo … <joueur>`,
+  `/character list <joueur>`, `/ryo give|take|set`, `/carte donner`, `/meteo … <joueur>`,
   `/cinematic … <joueur>`, `/playemote <emote> <joueur>`, `/testfeuille give`, `/vanish <cible>`.
 - **ShinobiAbilities** : `/sa` (cibles joueur), `/sa mobility path <#N°> …`, `/parchemin donner|seance`.
 - **Commandes vanilla** `/tp`, `/teleport`, `/spectate`, `/kick`, `/gamemode`, `/clear`, `/give`, `/effect`, `/kill` :
@@ -215,7 +213,7 @@ Modérateur).
 | `shinobicore.grade.staff` | Donne n'importe quel grade |
 | `shinobicore.execution.<id>` | Possède l'exécution `<id>` (alternative à `/execution donner`) |
 | `shinobicore.hopital`, `shinobicore.ata`, `shinobicore.zonerp` | Outils staff du KO |
-| `shinobicore.stats.admin`, `shinobicore.character.admin`, `shinobicore.ryo.admin` | Outils staff des persos |
+| `shinobicore.stats.admin`, `shinobicore.character.admin`, `shinobicore.ryo.admin` | Outils staff des persos (`character.admin` : `/character list <joueur>`, `/character cinematic` ; la gestion des personnages se fait au Poste de garde, selon le grade staff, §4 bis.2) |
 | `shinobicore.boutique` (op) | Outils staff des boutiques-lieux (`/boutique`) ; aussi accordé au grade Modérateur du Poste de garde |
 | `reborn.fonction.<fonction>` | Remplit la condition `fonction=<fonction>` d'un article de boutique (ex. `reborn.fonction.anbu` pour le masque ANBU) — en attendant le menu Faction |
 | `shinobicore.banque.admin` (op) | Outils staff de la banque (`/banque` sauf `voir`, `/testament enregistrer\|valider\|revoquer`) ; aussi accordé au grade Admin du Poste de garde |
@@ -525,6 +523,10 @@ affiche l'action telle quelle si elle ne la connaît pas) :
 | `modestaff` | Helper | — (bascule) | `toast` + `snap` (`modeStaff`) + `mode` |
 | `modeanim` | `reborn.staff.animation` | — (bascule, 14/10) | `toast` + `snap` (`modeAnim`) + `mode` |
 | `cherche` | Helper | `q` (≥ 2 caractères : N° avec ou sans `#`, nom RP, pseudo ; mots séparés = tous requis), `req` | `cherche` (recherche universelle du Poste de garde v3, **hors ligne compris**) |
+| `persos` | Helper | `t` (ou `pid`) | `persos` — personnages du compte, **hors ligne compris** (15/10, `staff/panel/PersonnagesPanel`) |
+| `perso_act` | selon `op` | `t`, `c` (UUID du personnage) **ou** `pid`, `op`, champs, `motif` (≤ 160 car.) | `toast` + `persos` + `profile` |
+| `perso_slots` | Admin | `t`, `delta` (+1 / −1), `motif` **obligatoire** | idem |
+| `perso_creer` | Admin | `t`, `nom` (2-32 car., unique sur le compte), `motif` **obligatoire** | idem |
 
 Champ facultatif de `act` (14/10) : `alerte` = id de l'alerte d'où vient l'action (« Y aller », « Observer », « Répondre ») ;
 le serveur la range dans les **alertes traitées** (et la retire des alertes en attente). `kill` accepte `note` (raison de la
@@ -545,6 +547,37 @@ validation, déjà lue par le serveur).
 | `announce` | Helper | annonce personnelle à la cible ; `m`, `s` |
 | `emote` | Modérateur | forcer une emote ; `v` = id de l'emote, `stop` pour arrêter |
 | `outfit` | Modérateur | forcer une tenue (emplacement cosmétique `TENUE`) ; `v` = id Nexo de la tenue, `main` = l'objet que le staff a en main, `retirer` pour rendre la sienne |
+
+**`op` de `perso_act`** (15/10 ; le serveur revérifie le grade et les valeurs ; champ vide = inchangé ; tout est journalisé
+`STAFF` avec « avant → après » et le motif) :
+
+| `op` | Grade min | Champs | Effet |
+|---|---|---|---|
+| `identite` | Modérateur | `nom`, `age` (0-1000), `taille` (cm, 45-720 → `size = cm / 180`), `sexe` (`Homme` / `Femme`) | affichage et skin rafraîchis si joué |
+| `origine` | Modérateur | `village` (`Konohagakure`… `Amegakure`, `Déserteur`, `""` = aucun), `clan` (libre, ≤ 24 ; clan connu normalisé ; `aucun` → `None`) | |
+| `art` | Modérateur | `art` (`TAIJUTSU` / `KENJUTSU`), `affinite` (`STRENGTH` / `INTELLIGENCE` / `AGILITY`) | |
+| `actif` | Modérateur | `motif` **obligatoire** | `setActive` sur le joueur **en ligne** (refusé : KO, combat, gel…, sélection en cours, mort RP) |
+| `progression` | Admin | `rang` (nom de `Rank`), `bonus` (points de stats bonus, total 0-500) | états de service + `onRankChanged` |
+| `mort` / `ressusciter` | Admin | `motif` **obligatoire** | `dead` ; s'il est joué : KO effacé et retour à la sélection |
+| `reset` / `suppr` | Admin | `motif` **obligatoire** (le client exige aussi le N° retapé) | `GestionPerso.executer` : sauvegarde `sauvegardes/perso/` puis remise à zéro / suppression |
+
+`persos` (S → C) :
+
+```json
+{"t":"persos","uuid":"<compte>","pseudo":"Raiden_FR","online":true,"selection":false,"playtime":2472,"grade":3,
+ "slots":{"used":3,"bonus":2,"base":2,"total":4},
+ "droits":{"voir":1,"modifier":2,"actif":2,"progression":3,"mort":3,"emplacements":3,"creer":3,"reset":3,"suppr":3},
+ "rangs":[{"id":"GENIN","label":"Genin"}],"villages":[{"id":"Konohagakure","label":"Konoha"}],
+ "persos":[{"id":"<uuid perso>","pid":"00042","nom":"Kazuki Uchiha","clan":"Uchiha","village":"Konohagakure",
+   "villageCourt":"Konoha","rang":"Genin","rangId":"GENIN","age":14,"taille":168,"sexe":"Homme","art":"TAIJUTSU",
+   "affinite":"STRENGTH","mort":false,"actif":true,"cree":"02/10/2026","niveau":4,"pvMax":1380,"chakraMax":16000,
+   "points":3,"bonus":2,"techniques":6,"blessures":1,"ryo":12450,"natures":["Katon"],
+   "stats":[{"n":"Taïjutsu","v":14}]}]}
+```
+
+`base` / `total` = −1 et pas de `playtime` quand le compte est hors ligne (la base dépend de ses permissions). `cree` =
+date de l'enregistrement aux états de service, vide pour un personnage antérieur. Un roster hors ligne est relu du
+disque puis relâché après chaque réponse.
 
 **Réponses S → C** (champ `t`) :
 
@@ -638,7 +671,7 @@ effacer. Les staffs en mode staff se voient entre eux (ils sont invisibles aux j
 ### 4 bis.6 Commandes en jeu (équivalents tapés, mêmes droits)
 
 Détail dans §2.1 : `/journal`, `/note`, `/annonce`, `/annoncejoueur`, `/aller`, `/ramener`, `/retour`, `/geler`,
-`/degeler`, `/voirsac`, `/noir`, `/seisme`, `/tenue`, `/emoteforcee`, `/persoreset`, `/persosuppr`, `/modestaff`,
+`/degeler`, `/voirsac`, `/noir`, `/seisme`, `/tenue`, `/emoteforcee`, `/modestaff`,
 `/modeanim`.
 
 ### 4 bis.7 Mode staff et mode animation (14/10)
@@ -757,7 +790,8 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `modificateurs.yml` | Core | Modificateurs actifs par personnage : `type`, `n` (intensité), `duree`, `reste` (gelé), `fin` (continu, epoch), `source` ; les types `PERDU` ne sont pas écrits |
 | `notes-staff.yml` | Core | Notes staff par N° : `id`, `le`, `auteur`, `auteur-uuid`, `auteur-pid`, `auteur-grade`, `etiquette`, `texte` |
 | `tenues-forcees.yml` | Core | Tenues imposées, par personnage : id, staff, date, pièce d'origine (sérialisée) |
-| `sauvegardes/perso/<date>-<N°>-<reset\|suppr>/` | Core | Copie de `characters/<compte>.yml` et de la sacoche avant `/persoreset` ou `/persosuppr` |
+| `sauvegardes/perso/<date>-<N°>-<reset\|suppr>/` | Core | Copie de `characters/<compte>.yml` et de la sacoche avant une remise à zéro ou une suppression (Poste de garde › Personnages) |
+| `emplacements.yml` | Core | Emplacements de personnage débloqués (+) ou retirés (−) par le staff, par compte : `<uuid du compte>: <bonus>` ; s'ajoute à la base 2 / premium 4 / staff 7 (15/10) |
 | `logs/ko-AAAA-MM-JJ.log` (catégorie KO, via `ko/KoJournal`) | Core | Transitions du KO (douleur, agonie, inconscient, réveil, hôpital), portages, prises à la gorge, fouilles, exécutions (début, interruption, coup), commandes staff `/execution forcer\|douleur\|annuler` — `#00042 Nom RP (pseudo)` ; aussi au journal du Poste de garde (`ko`) |
 | `executions.yml` | Core | Catalogue des exécutions (créé avec 3 exemples au premier démarrage) |
 | `executions-joueurs.yml` | Core | Exécutions possédées, par compte |

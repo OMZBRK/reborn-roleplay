@@ -23,15 +23,20 @@ import static fr.reborn.hud.staff.GardeArt.*;
  */
 final class GardeFormulaire {
 
-    /** Un champ : texte libre ({@code choix == null}) ou choix en mots ({id, libellé}…, {@code defaut} = indice). */
-    record Champ(String cle, String label, String hint, String[][] choix, boolean requis, int defaut) {
-        static Champ texte(String cle, String label, String hint, boolean requis) { return new Champ(cle, label, hint, null, requis, 0); }
-        static Champ choix(String cle, String label, String[][] choix) { return new Champ(cle, label, null, choix, false, 0); }
-        static Champ choix(String cle, String label, String[][] choix, int defaut) { return new Champ(cle, label, null, choix, false, defaut); }
+    /**
+     * Un champ : texte libre ({@code choix == null}, {@code valeur} = texte déjà saisi à l'ouverture) ou choix en mots
+     * ({id, libellé}…, {@code defaut} = indice).
+     */
+    record Champ(String cle, String label, String hint, String[][] choix, boolean requis, int defaut, String valeur) {
+        static Champ texte(String cle, String label, String hint, boolean requis) { return new Champ(cle, label, hint, null, requis, 0, ""); }
+        /** Texte pré-rempli (valeur actuelle à modifier). */
+        static Champ texte(String cle, String label, String hint, boolean requis, String valeur) { return new Champ(cle, label, hint, null, requis, 0, valeur == null ? "" : valeur); }
+        static Champ choix(String cle, String label, String[][] choix) { return new Champ(cle, label, null, choix, false, 0, ""); }
+        static Champ choix(String cle, String label, String[][] choix, int defaut) { return new Champ(cle, label, null, choix, false, defaut, ""); }
     }
 
     private final StaffScreen s;
-    private final EditBox[] boites = new EditBox[3];
+    private final EditBox[] boites = new EditBox[4];
     private EditBox exigerBox;
     private boolean actif;
     private String icone = "noter", titre = "", texte = "", bouton = "Valider", exiger, eteint;
@@ -77,7 +82,7 @@ final class GardeFormulaire {
         for (Champ c : liste) {
             if (c.choix() != null) valeurs.put(c.cle(), c.choix()[Math.min(c.defaut(), c.choix().length - 1)][0]);
             else if (k < boites.length) {
-                boites[k].setValue("");
+                boites[k].setValue(c.valeur());
                 s.indice(boites[k], c.hint());
                 if (premier == null) premier = boites[k];
                 k++;
@@ -126,6 +131,8 @@ final class GardeFormulaire {
     }
 
     void debugValeur(int i, String v) { if (i < boites.length) boites[i].setValue(v); }
+
+    void debugExiger(String v) { exigerBox.setValue(v); }
 
     private boolean valide() {
         if (eteint != null) return false;

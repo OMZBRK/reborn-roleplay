@@ -4,8 +4,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 
 /**
- * État client de la « course chakraïque » (Naruto run), basculé par une touche
- * dédiée (cf {@code HudKeybinds}).
+ * État client de la « course chakraïque » (Naruto run). Depuis le 15/10, plus de touche dédiée : c'est le
+ * <b>4ᵉ rapport</b> des allures, un <b>triple appui</b> sur la touche de sprint (le 3ᵉ maintenu), lu par
+ * {@code allure/Allure} qui appelle {@link #demarrer()} puis {@link #arreter()} au relâchement.
  *
  * <ul>
  *   <li>Pilote le <b>mouvement libre</b> caméra-relatif (corps qui pivote vers
@@ -38,6 +39,20 @@ public final class NarutoRun {
     public void toggle() {
         active = !active;
         requestToServer(active);
+    }
+
+    /** Triple appui sur la touche de sprint : demande la course (optimiste, le serveur peut refuser). */
+    public void demarrer() {
+        if (active) return;
+        active = true;
+        requestToServer(true);
+    }
+
+    /** Touche de sprint relâchée : fin de la course. */
+    public void arreter() {
+        if (!active) return;
+        active = false;
+        requestToServer(false);
     }
 
     /**

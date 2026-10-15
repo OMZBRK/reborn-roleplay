@@ -2,7 +2,6 @@ package fr.reborn.hud.staff;
 
 import com.google.gson.JsonObject;
 import fr.reborn.hud.menu.RebornSounds;
-import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -154,15 +153,9 @@ final class GardeActions {
                             GardeFormulaire.Champ.choix("v", "Force", new String[][]{{"5", "Moyenne"}, {"3", "Légère"}, {"8", "Forte"}}),
                             GardeFormulaire.Champ.choix("s", "Durée", new String[][]{{"4", "4 s"}, {"2", "2 s"}, {"8", "8 s"}})),
                     List.of(), v -> envoyer(s, "shake", p, v)));
-            case "perso_reset", "perso_suppr" -> {
-                String pid = StaffScreen.str(p, "pid");
-                boolean suppr = "perso_suppr".equals(a.id());
-                s.ficheFormulaire(p, f -> f.ouvrir(suppr ? "suppr" : "zero", (suppr ? "Supprimer " : "Remettre à zéro ") + nom + " ?",
-                        suppr ? "Supprime le personnage. Son N° ne sera jamais réutilisé. Irréversible."
-                                : "Stats, techniques, inventaire, ryo, grade. Une sauvegarde est faite avant. Irréversible.",
-                        suppr ? "Supprimer" : "Remettre à zéro", true, pid.isEmpty() ? StaffScreen.str(p, "name") : pid, List.of(),
-                        List.of("Inscrit au journal, visible des autres staffs."), v -> commandePerso(a.id(), p)));
-            }
+            // personnage joué, visé par son N° ; même formulaire que la section Personnages (motif + N° retapé)
+            case "perso_reset", "perso_suppr" -> s.ficheFormulaire(p, f -> s.fiche.persos.lourdParPid(p,
+                    "perso_suppr".equals(a.id()) ? "suppr" : "reset"));
             case "radio" -> s.ficheFormulaire(p, f -> GardeFormulaire.ecouteRadio(f, p));
             case "sanction" -> s.ficheSanctions(uuid);
             default -> { }
@@ -186,27 +179,5 @@ final class GardeActions {
         }
         StaffClient.send(o);
         RebornSounds.uiClick();
-    }
-
-    /**
-     * Remise à zéro / suppression : commandes {@code /persoreset} et {@code /persosuppr} (Admin), qui demandent
-     * « confirmer » sous 60 s ; la confirmation a été faite dans le volet (N° retapé).
-     */
-    private static void commandePerso(String op, JsonObject p) {
-        String pid = StaffScreen.str(p, "pid");
-        String ref = pid.isEmpty() ? StaffScreen.str(p, "name") : "#" + pid;
-        String cmd = ("perso_reset".equals(op) ? "persoreset " : "persosuppr ") + ref;
-        if (StaffClient.demo) {
-            JsonObject o = new JsonObject();
-            o.addProperty("a", "act");
-            o.addProperty("op", op);
-            StaffClient.send(o);
-            return;
-        }
-        var mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-        mc.player.connection.sendCommand(cmd);
-        mc.player.connection.sendCommand(cmd + " confirmer");
-        RebornSounds.confirm();
     }
 }

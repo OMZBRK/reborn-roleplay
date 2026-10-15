@@ -83,6 +83,6 @@ public final class CapturePreview {
         }
         float sc = fr.reborn.hud.ui.Da.small();
         fr.reborn.hud.ui.Da.text(ctx, tr, "Capture enregistree", x + PAD, y + TH + PAD + 5, sc, fr.reborn.hud.ui.Da.GOLD, 0);
-        fr.reborn.hud.ui.Da.text(ctx, tr, "[G] Galerie", x + PAD, y + TH + PAD + 14, sc, fr.reborn.hud.ui.Da.MUTED, 0);
+        fr.reborn.hud.ui.Da.text(ctx, tr, "Galerie : mode photo [" + (fr.reborn.hud.keybind.HudKeybinds.PHOTO != null ? fr.reborn.hud.keybind.HudKeybinds.PHOTO.getTranslatedKeyMessage().getString() : "P") + "]", x + PAD, y + TH + PAD + 14, sc, fr.reborn.hud.ui.Da.MUTED, 0);
     }
 }

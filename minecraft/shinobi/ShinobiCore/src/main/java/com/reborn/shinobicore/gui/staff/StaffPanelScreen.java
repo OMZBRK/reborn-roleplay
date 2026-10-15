@@ -80,8 +80,9 @@ public final class StaffPanelScreen extends CoreScreen {
         }
         if (viewer.hasPermission("shinobicore.character.admin")) {
             buttons.add(Ui.accent(Material.PLAYER_HEAD, "Persos", "persos", null,
-                    "&7Liste tes personnages (/character list).",
-                    "&eClique pour lancer"));
+                    "&7Gestion des personnages : Poste de garde (F7),",
+                    "&7fiche du joueur, section Personnages.",
+                    "&eClique pour l'ouvrir"));
         }
         if (viewer.hasPermission("shinobicore.staff")) {
             buttons.add(Ui.secondary(Material.REDSTONE, "Mecaniques", "meca", null,
@@ -160,7 +161,7 @@ public final class StaffPanelScreen extends CoreScreen {
             case "persos" -> {
                 if (!viewer.hasPermission("shinobicore.character.admin")) return;
                 viewer.closeInventory();
-                viewer.performCommand("character list");
+                viewer.performCommand("garde");
             }
             case "moderation" -> {
                 if (!viewer.hasPermission("shinobicore.vanish")) return;

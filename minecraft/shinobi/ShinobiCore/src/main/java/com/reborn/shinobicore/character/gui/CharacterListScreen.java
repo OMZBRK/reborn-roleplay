@@ -21,16 +21,15 @@ import java.util.UUID;
 /**
  * Head-per-character picker — framework port of the legacy
  * {@code CharacterListGui}, identical tiles and auto-sizing (1-6 rows,
- * header strip from 2 rows up). Two use cases via {@link Action}:
- * picking your own character to play, or staff picking which of a
- * target's characters to edit. The roster is resolved live at render.
+ * header strip from 2 rows up): picking your own character to play
+ * (repli de la sélection du mod, {@code /character select}). The roster
+ * is resolved live at render. L'ancien mode « édition staff » a été
+ * retiré le 15/10 : la gestion staff est au Poste de garde (F7 › fiche ›
+ * Personnages).
  */
 public final class CharacterListScreen extends CoreScreen {
 
-    public enum Action { SELECT, EDIT }
-
     static final String S_OWNER  = "owner";
-    static final String S_ACTION = "action";
 
     private static final String ACT_PICK = "pick";
 
@@ -40,18 +39,15 @@ public final class CharacterListScreen extends CoreScreen {
 
     /* ------------------------------------------------------------- open */
 
-    public void open(Player viewer, UUID targetOwner, Action action) {
-        router.screens().open(viewer, this, Map.of(
-                S_OWNER, targetOwner,
-                S_ACTION, action));
+    public void open(Player viewer) {
+        router.screens().open(viewer, this, Map.of(S_OWNER, viewer.getUniqueId()));
     }
 
     /* -------------------------------------------------------- rendering */
 
     @Override
     public Component title(Player viewer, View view) {
-        return Component.text(view.get(S_ACTION) == Action.SELECT
-                ? "Sélectionner un Personnage" : "Édition — Personnages");
+        return Component.text("Sélectionner un Personnage");
     }
 
     @Override
@@ -63,7 +59,6 @@ public final class CharacterListScreen extends CoreScreen {
 
     @Override
     public void render(Player viewer, View view, Inventory inv) {
-        Action action = view.get(S_ACTION);
         int rows = inv.getSize() / 9;
         if (rows >= 2) {
             ItemStack border = GuiIcons.border();
@@ -74,19 +69,10 @@ public final class CharacterListScreen extends CoreScreen {
         for (ShinobiCharacter c : roster(view)) {
             int slot = headStart + placed;
             if (slot >= inv.getSize()) break;
-            // Dead characters keep their red "Mort" tag; SELECT mode
-            // still lists them so the player understands why they
-            // can't be picked (the click refuses with an explanation).
-            String hint;
-            if (c.dead()) {
-                hint = action == Action.SELECT
-                        ? "&cMort — sélection impossible"
-                        : "&cMort — clique pour modifier (édition staff)";
-            } else {
-                hint = action == Action.SELECT
-                        ? "&aClique pour jouer ce personnage"
-                        : "&eClique pour modifier ce personnage";
-            }
+            // Dead characters keep their red "Mort" tag and stay listed
+            // so the player understands why they can't be picked (the
+            // click refuses with an explanation).
+            String hint = c.dead() ? "&cMort — sélection impossible" : "&aClique pour jouer ce personnage";
             ItemStack head = GuiIcons.head(
                     Bukkit.getOfflinePlayer(c.ownerId()),
                     (c.dead() ? "✖ " : "") + c.name(),
@@ -118,20 +104,16 @@ public final class CharacterListScreen extends CoreScreen {
                 .findById(owner, charId).orElse(null);
         if (c == null) return;
 
-        if (view.get(S_ACTION) == Action.SELECT) {
-            if (c.dead()) {
-                viewer.sendMessage(Component.text(
-                        "Ce personnage est mort. Demande à un staff de le ressusciter via /character edit.",
-                        NamedTextColor.RED));
-                return;
-            }
-            viewer.closeInventory();
-            if (!core().characters().setActive(viewer, c)) return;   // refusé (KO, combat, gel…) : déjà prévenu
+        if (c.dead()) {
             viewer.sendMessage(Component.text(
-                    "Tu joues maintenant " + c.name() + ".", NamedTextColor.GREEN));
-        } else {
-            router.openCharacterEdit(viewer, c);
+                    "Ce personnage est mort. Seul le staff peut le ressusciter.",
+                    NamedTextColor.RED));
+            return;
         }
+        viewer.closeInventory();
+        if (!core().characters().setActive(viewer, c)) return;   // refusé (KO, combat, gel…) : déjà prévenu
+        viewer.sendMessage(Component.text(
+                "Tu joues maintenant " + c.name() + ".", NamedTextColor.GREEN));
     }
 
     /* ----------------------------------------------------------- helpers */

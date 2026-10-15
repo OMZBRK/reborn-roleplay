@@ -250,7 +250,7 @@ public final class HudEditChrome {
         }
 
         String[][] keys = {
-            {"H",         "Ouvrir / Fermer"},
+            {"Échap",     "Fermer"},
             {"Shift",     "+ Drag"},
             {"Ctrl+Z",    "Annuler"},
             {"Ctrl+Clic", "Sélection multi."}

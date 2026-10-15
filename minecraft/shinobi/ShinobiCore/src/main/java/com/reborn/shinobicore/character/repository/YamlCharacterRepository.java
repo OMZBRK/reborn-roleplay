@@ -346,8 +346,8 @@ public class YamlCharacterRepository implements CharacterRepository {
         // run the designated intro once; flipped true on completion.
         c.setIntroSeen(s.getBoolean("intro-seen", false));
 
-        // Death flag (set by validated /tuer requests; cleared by
-        // /character edit). Default false so fresh characters are
+        // Death flag (set by validated /tuer requests; set or cleared by
+        // the staff from the Poste de garde, F7 › fiche › Personnages). Default false so fresh characters are
         // selectable; older saves without the key behave the same way.
         c.setDead(s.getBoolean("dead", false));
 

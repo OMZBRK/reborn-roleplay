@@ -16,7 +16,7 @@ import java.util.UUID;
  * Entrées « Radio » et « Oreillette » du menu R (maquettes v2/01 et v2/03, validées) :
  * <ul>
  *   <li>sur un joueur debout, à côté : « Radio › Créer une escouade avec lui » (sans escouade) ou « Radio › Ajouter à
- *       « Kagerō » » et « Voir l'escouade (N) » ;</li>
+ *       « Kagerō » » et « Voir l'escouade » ;</li>
  *   <li>sur un joueur à terre ou inconscient : « Oreillette › Couper son oreillette / Prendre son oreillette ».</li>
  * </ul>
  * Rien n'apparaît si le serveur n'a pas la radio. Le serveur revérifie tout (distance 3 blocs, oreillettes, états).
@@ -50,7 +50,7 @@ public final class RadioMenus {
         else if (Boolean.FALSE.equals(porte)) l.add(InteractionItem.disabled("Ajouter", "il n'a pas d'oreillette"));
         else l.add(InteractionItem.action("Ajouter à « " + esc.nom() + " »",
                 () -> InteractionMenus.sendCommand("radio ajouter " + name)));
-        l.add(InteractionItem.action("Voir l'escouade (N)", () -> {
+        l.add(InteractionItem.action("Voir l'escouade", () -> {
             Minecraft mc = Minecraft.getInstance();
             mc.execute(() -> mc.setScreenAndShow(new RadioScreen()));
         }));

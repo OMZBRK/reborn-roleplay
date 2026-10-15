@@ -45,6 +45,8 @@ final class EauDebug {
         if (!"1".equals(System.getenv("REBORN_EAU_DEBUG"))) return;
         MarcheEauClient.debug = true;
         ClientTickEvents.END_CLIENT_TICK.register(EauDebug::tick);
+        // films « 60 i/s » : chaque image rendue est capturée pendant que le monde tourne au ralenti (/tick rate)
+        net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.END_MAIN.register(ctx -> filmer());
     }
 
     private static void tick(Minecraft mc) {
@@ -157,6 +159,11 @@ final class EauDebug {
             shot(mc, String.format(Locale.ROOT, "eaugif_%04d", r));
         }
         if (mannequin >= 0 && r > 740 && r < 858) deplacerMannequin(mc);
+        // films : le monde passe à 1 tick/s (1/20 du temps réel), chaque image rendue est capturée (demi-définition)
+        if (r == 88 || r == 248 || r == 528) { c.sendCommand("tick rate 1"); Ondes.horlogeMonde = true; }
+        film = r >= 90 && r < 112 ? "eaufilm_marche" : r >= 250 && r < 272 ? "eaufilm_sprint"
+                : r >= 530 && r < 552 ? "eaufilm_vers_le_bas" : null;
+        if (r == 112 || r == 272 || r == 552) { c.sendCommand("tick rate 20"); Ondes.horlogeMonde = false; }
         // angles tenus à chaque tick : la souris (fenêtre au premier plan) ne dérange pas le banc
         if (r < 860) { mc.player.setXRot(r < 330 ? 30f : r < 480 ? 8f : r < 522 ? 80f : r < 565 ? 62f : r < 735 ? 24f : 22f); mc.player.setYRot(0f); }
         if (mc.gui.screen() != null) mc.setScreenAndShow(null);                // aucun écran pendant le banc (Échap sur perte de focus)
@@ -246,6 +253,9 @@ final class EauDebug {
         c.sendCommand(String.format(Locale.ROOT, "tp @s %.3f %.3f %.3f %.1f %.1f", ox, oy, oz, oyaw, opitch));
         c.sendCommand("gamemode " + omode);
         regles(c, true);
+        c.sendCommand("tick rate 20");
+        Ondes.horlogeMonde = false;
+        film = null;
         MarcheEauClient.debug = false;
         mc.options.pauseOnLostFocus = pauseAvant;
         if (EauRendu.mesures > 0) {
@@ -264,6 +274,17 @@ final class EauDebug {
         c.sendCommand("gamerule send_command_feedback " + on);
         c.sendCommand("gamerule fallDamage " + on);
         c.sendCommand("gamerule fall_damage " + on);
+    }
+
+    private static String film;
+    private static int imageFilm;
+
+    /** Capture de l'image rendue (fin du rendu du monde, sans HUD) pendant un film. */
+    private static void filmer() {
+        if (film == null) return;
+        Minecraft mc = Minecraft.getInstance();
+        Screenshot.grab(mc.gameDirectory, String.format(Locale.ROOT, "%s_%05d.png", film, imageFilm++),
+                mc.gameRenderer.mainRenderTarget(), 2, m -> { });
     }
 
     private static void shot(Minecraft mc, String name) {

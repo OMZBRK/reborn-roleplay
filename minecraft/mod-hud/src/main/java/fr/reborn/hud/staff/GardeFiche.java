@@ -37,8 +37,10 @@ final class GardeFiche {
     private JsonObject infraction;
     private final Set<Integer> preuves = new HashSet<>();
     private net.minecraft.client.gui.components.EditBox noteSanction;
+    /** Section « Personnages » (15/10) : liste, détail et gestion staff des personnages du compte. */
+    final GardePersonnages persos;
 
-    GardeFiche(StaffScreen s) { this.s = s; }
+    GardeFiche(StaffScreen s) { this.s = s; this.persos = new GardePersonnages(s); }
 
     void init() {
         noteSanction = s.box(noteSanction, "Note pour le casier (facultatif)", 160);
@@ -49,6 +51,13 @@ final class GardeFiche {
         notesDemandees = null;
         infraction = null;
         cible = null;
+        persos.ouvrir();
+    }
+
+    /** Échap dans la fiche : ferme la confirmation de sanction ou le détail d'un personnage. */
+    boolean echap() {
+        if (infraction != null) { infraction = null; return true; }
+        return persos.echap();
     }
 
     void ouvrirSection(String id) {
@@ -179,8 +188,10 @@ final class GardeFiche {
         // formulaire de l'action choisie, dans le volet
         if (s.formulaire.actif()) return s.formulaire.dessiner(pz, ix, y + 7, iw) + 2;
         if (infraction != null) return confirmationSanction(snap, p, y + 7);
+        if (persos.detailOuvert()) return persos.detail(p, y + 7) + 2;
 
         // sections repliées
+        y = sec(pz, "persos", "joueurs", "Personnages", persos.compte(p), persos.apercu(p), y, yy -> persos.contenu(p, yy));
         y = sec(pz, "notes", "noter", "Notes", compteNotes(p), apercuNotes(p), y, yy -> notes(snap, p, yy));
         y = sec(pz, "sanctions", "sanction", "Sanctions", StaffScreen.num(p, "recordTotal"), apercuSanctions(p, complet), y, yy -> sanctions(snap, p, yy));
         y = sec(pz, "journal", "journal", "Journal du joueur", 0, pid.isEmpty() ? "Pas de N° : aucun personnage actif"
@@ -267,6 +278,13 @@ final class GardeFiche {
                 s.switchTab("journal");
             };
             case "radio" -> () -> { JsonObject p = profil(); if (p != null) GardeActions.lancer(s, GardeActions.RADIO, p); };
+            case "persos" -> () -> {
+                section = ouvert ? null : id;
+                infraction = null;
+                JsonObject p = profil();
+                if (!ouvert && p != null) persos.demander(StaffScreen.str(p, "uuid"), true);
+                RebornSounds.uiClick();
+            };
             default -> () -> { section = ouvert ? null : id; infraction = null; RebornSounds.uiClick(); };
         };
         if (s.cliquable(y, h)) s.hits.add(new StaffScreen.Hit(s.px0() + 1, y, s.pw() - 2, h, clic, null, null));

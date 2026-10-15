@@ -33,6 +33,8 @@ public final class StaffClient {
     private static volatile JsonObject koSnapshot;
     private static volatile JsonObject journal;
     private static volatile JsonObject cherche;
+    /** Dernière réponse {@code persos} (fiche › Personnages, 15/10). */
+    private static volatile JsonObject persos;
     /** Son des nouvelles alertes quand le Poste de garde est ouvert (cloche de l'onglet Alertes). */
     static boolean cloche = true;
     /** Modes du joueur local (message {@code mode} du serveur) : indicateur discret en jeu. */
@@ -100,6 +102,7 @@ public final class StaffClient {
                 if (mc.gui.screen() instanceof StaffScreen) mc.setScreenAndShow(null);
             }
             case "profile" -> profile = o;
+            case "persos" -> persos = o;
             case "journal" -> journal = o;
             case "notes" -> {
                 String pid = o.has("pid") ? o.get("pid").getAsString() : "";
@@ -151,6 +154,12 @@ public final class StaffClient {
     public static JsonObject snapshot() { return snapshot; }
 
     public static JsonObject profile() { return profile; }
+
+    /** Personnages du compte {@code uuid} (null tant que la réponse {@code persos} n'est pas arrivée). */
+    public static JsonObject persos(String uuid) {
+        JsonObject p = persos;
+        return p != null && uuid != null && p.has("uuid") && uuid.equals(p.get("uuid").getAsString()) ? p : null;
+    }
 
     public static JsonObject koSnapshot() { return koSnapshot; }
 

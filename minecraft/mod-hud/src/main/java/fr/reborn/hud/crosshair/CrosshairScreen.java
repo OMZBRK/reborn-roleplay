@@ -33,7 +33,7 @@ import java.util.function.Supplier;
  *
  * <p>Décor fixe : {@code textures/gui/viseur/*} ({@code tools/gen_viseur_textures.py}). Mise en page calculée à
  * l'init ; chaque réglage est enregistré immédiatement. Sons : flèche fichée à l'ouverture, corde d'arc au choix
- * d'un modèle, clic de menu pour le reste. Ouvert par la touche J et depuis Paramètres › Interface.
+ * d'un modèle, clic de menu pour le reste. Ouvert depuis l'éditeur de HUD (Échap → Interface → « Personnaliser le viseur ») et Paramètres › Interface.
  */
 public class CrosshairScreen extends Screen {
 

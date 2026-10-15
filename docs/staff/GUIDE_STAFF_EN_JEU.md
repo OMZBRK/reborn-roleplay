@@ -43,9 +43,19 @@ animation) et quatre onglets.
   Aller à, Ramener, Observer, Geler, Sacoche, Écran noir, Noter, **Plus** (Écouter la radio, Annonce perso, Forcer une
   emote, Imposer une tenue, Réveiller, Lever l'ATA, Revenir, Le renvoyer, Sanctionner, puis Séisme, Remettre à zéro,
   Supprimer — grisés avec un cadenas si ton grade ne suffit pas). Une action à paramètre s'ouvre **dans le volet**
-  (motif, durée…) ; remettre à zéro / supprimer demandent de **retaper le N°**. Sections repliées : **Notes**,
+  (motif, durée…) ; remettre à zéro / supprimer demandent un **motif** et de **retaper le N°**. Sections repliées :
+  **Personnages** (voir ci-dessous), **Notes**,
   **Sanctions** (casier, messages récents, choix de l'infraction puis preuves à cocher), **Journal du joueur**, **Radio**
   (écoute de son escouade : motif, durée), **Comptes liés**.
+- **Personnages** (section de la fiche, 15/10) : tous les personnages du compte, **même hors ligne** (trouve-le par la
+  recherche). Une ligne par personnage (N°, nom, clan · village · grade · âge, « joué » / « mort RP »), les
+  emplacements du compte (**Ajouter… / Retirer…**, Admin) et **+ Créer un personnage…** (Admin). Clic sur une ligne =
+  le détail : identité, date de création, natures, techniques, ryo, blessures, **fiche shinobi** (stats, PV, chakra,
+  points) ; puis **Identité…**, **Clan et village…**, **Art et affinité…** (Modo), **Jouer ce personnage…** (Modo,
+  joueur en ligne, motif), **Grade et points…** (Admin), **Déclarer mort RP… / Ressusciter…**, **Remettre à zéro…**,
+  **Supprimer…** (Admin, motif obligatoire ; N° retapé pour les deux derniers, sauvegarde faite avant). Échap = retour
+  à la liste. Tout est journalisé. Remplace `/character create|edit` et les anciennes commandes `/persoreset`,
+  `/persosuppr`. Détail : [`../gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md) §1 bis.
 - **Raccourcis dans la fiche** (aucun champ actif) : **A** aller, **R** ramener, **O** observer, **G** geler, **S**
   sacoche, **N** écran noir, **T** noter, **E** écouter la radio, **M** annonce perso, **B** revenir, **X** sanctionner,
   **Tab** = Plus.
@@ -119,8 +129,9 @@ Cible : pseudo, nom RP ou `#N°`. **Tout est journalisé** : la commande tapée 
   `/tenue <cible> <id Nexo|main|retirer>` (Modo).
 - **Messages** : `/annoncejoueur <cible> <message>` (convocation, scène) ; `/annonce <message>` à tous (Modo).
 - **Monde** : `/seisme [rayon|tous] [force] [secondes] [message]` (Admin).
-- **Personnages** : `/persoreset <#N°>`, `/persosuppr <#N°>` (Admin) — demande, puis la même commande + `confirmer`
-  sous 60 s ; une sauvegarde est faite avant (`sauvegardes/perso/`).
+- **Personnages** : au Poste de garde, fiche › **Personnages** (§2) ; `/persoreset` et `/persosuppr` ont été retirés le
+  15/10 (la remise à zéro et la suppression demandent un motif et le N° retapé, une sauvegarde est faite avant dans
+  `sauvegardes/perso/`).
 - **Suivi** : `/note <#N°> ajouter [etiquette:<mot>] <texte>`, `/note <#N°>` pour lire (supprimer : l'auteur ou un
   Admin) ; `/journal [#N°] [catégorie] [h:24] [texte]` ; `/modestaff` (invisible aux joueurs, aucune action de jeu).
 - Le **vocal n'est jamais journalisé**.

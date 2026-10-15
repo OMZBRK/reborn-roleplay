@@ -44,6 +44,10 @@ public final class EscTokonoma {
     private static final int OPEN_MS = 720, CLOSE_MS = 300;
     /** Banc de captures : zone survolée imposée ({@code REBORN_ESC_SURVOL=<id>}, client de dev seulement). */
     private static final int SURVOL_FORCE = survolForce();
+    /** Banc des touches ({@code keybind/TouchesDebug}) : zone survolée imposée à chaud (−1 = aucune). */
+    public static int survolBanc = -1;
+    /** Zones du banc : plaque INTERFACE et carte d'identité (Personnage). */
+    public static final int BANC_INTERFACE = 1, BANC_PERSONNAGE = 50;
 
     private static int survolForce() {
         try {
@@ -63,7 +67,13 @@ public final class EscTokonoma {
     private static final String[] VILLAGE_LANDS = {"Pays du Feu", "Pays du Vent", "Pays de l'Eau", "Pays de la Foudre",
         "Pays de la Terre"};
 
-    private static final String[] MENU = {"REPRENDRE", "PARAMETRES", "SIGNALER", "DECONNEXION"};
+    /**
+     * Plaques du menu (15/10 : INTERFACE ajoutée — l'éditeur de HUD et le viseur n'ont plus de touche). Pas de 20
+     * unités (22 avant, pour 4 plaques) : les cordons peints dans {@code piece.png} restent cachés sous les plaques, les
+     * bouts visibles entre deux plaques sont recopiés de la texture ({@link #drawMenu}).
+     */
+    private static final String[] MENU = {"REPRENDRE", "INTERFACE", "PARAMETRES", "SIGNALER", "DECONNEXION"};
+    private static final int MENU_Y = 230, MENU_PAS = 20;
 
     /** Activations qui rapportent des RBCoins par heure de jeu (état réel à brancher sur l'API). */
     private record Charm(String title, String how) {}
@@ -86,7 +96,7 @@ public final class EscTokonoma {
 
     // Zones cliquables (ids) recalculées à chaque image.
     private static final int H_SHOP = 10, H_STREAM = 11, H_STREAM_PREV = 12, H_STREAM_NEXT = 13,
-        H_BLOG = 14, H_BLOG_PREV = 15, H_BLOG_NEXT = 16, H_CHARM = 20, H_SOCIAL = 30, H_KAMON = 40;
+        H_BLOG = 14, H_BLOG_PREV = 15, H_BLOG_NEXT = 16, H_CHARM = 20, H_SOCIAL = 30, H_KAMON = 40, H_PERSO = 50;
     private record Hit(int id, int x, int y, int w, int h) {
         boolean in(double mx, double my) { return mx >= x && mx < x + w && my >= y && my < y + h; }
     }
@@ -221,6 +231,7 @@ public final class EscTokonoma {
         int h = -1;
         for (Hit hit : hits) if (hit.in(mxU, myU)) h = hit.id;
         if (SURVOL_FORCE >= 0) h = SURVOL_FORCE;
+        if (survolBanc >= 0) h = survolBanc;
         if (h != hovered) {
             hovered = h;
             boolean charm = h >= H_CHARM && h < H_CHARM + CHARMS.length;
@@ -289,6 +300,11 @@ public final class EscTokonoma {
         int vi = playerVillage();
         String who = playerName();
         float nw = largeurArc(f, who, MOYEN) + (vi >= 0 ? 13 : 0);
+        // Carte « Personnage » (15/10 : plus de touche ;) : nom et village cliquables, flèche d'or à droite du nom.
+        float hv = hov[H_PERSO];
+        hits.add(new Hit(H_PERSO, 40, 201, 134, 20));
+        if (hv > 0.02f) contour(ctx, 38, 200, 138, 22, DaKit.argb(0xF2D08A, 0.85f * hv));
+        fleche(ctx, Math.round(107 + nw / 2f + 5), 201, true, hv > 0.5f);
         float x = 107 - nw / 2f;
         if (vi >= 0) {
             blit(ctx, KAMONS, Math.round(x), 203, vi * 22, 66, 10, 10, 110, 78, 0xFF8E1628);
@@ -327,13 +343,17 @@ public final class EscTokonoma {
 
     // ── menu : plaques laquées suspendues ──
     private void drawMenu(GuiGraphicsExtractor ctx, Font f) {
+        // bouts de cordon visibles entre deux plaques : recopiés du premier, peint dans piece.png (106, 245)
+        for (int i = 1; i < MENU.length; i++) {
+            blit(ctx, PIECE, 106, MENU_Y + i * MENU_PAS - 5, 106 + PIECE_MX, 245 + PIECE_MY, 2, 5, PIECE_W, PIECE_H);
+        }
         for (int i = 0; i < MENU.length; i++) {
-            int y = 230 + i * 22;
+            int y = MENU_Y + i * MENU_PAS;
             float hv = hov[i];
             hits.add(new Hit(i, 41, y, 132, 15));
             boolean hot = hv > 0.5f;
             int x = 41 + Math.round(hv * 3);
-            int row = !hot ? 0 : (i == 3 ? 2 : 1);
+            int row = !hot ? 0 : (i == MENU.length - 1 ? 2 : 1);
             blit(ctx, PLAQUES, x - 8, y - 2, 0, row * 20, 144, 20, 144, 60);
             int col = hot ? CREME : CREME_DOUX;
             arc(ctx, f, MENU[i], x + 66, y + 4.5f, col, 1, MOYEN, hot);
@@ -530,6 +550,12 @@ public final class EscTokonoma {
             lignes.add("+5 RBCoins par heure de jeu");
         } else if (hovered >= H_SOCIAL && hovered < H_SOCIAL + SOCIALS.length) {
             titre = SOCIALS[hovered - H_SOCIAL].label();
+        } else if (hovered == 1) {
+            titre = "Personnaliser l'interface";
+            lignes.add("Placer le HUD, régler le viseur");
+        } else if (hovered == H_PERSO) {
+            titre = "Personnage";
+            lignes.add("Sélection et création des personnages");
         } else if (hovered >= H_KAMON && hovered < H_KAMON + 5) {
             int i = hovered - H_KAMON;
             titre = VILLAGE_TITRES[i];
@@ -576,9 +602,11 @@ public final class EscTokonoma {
         EscData.Snapshot snap = EscData.get();
         switch (id) {
             case 0 -> { RebornSounds.playReborn("esc.close", 1.0f, 0.55f); closeSoundPlayed = true; closingAt = System.currentTimeMillis(); }
-            case 1 -> { select(); mc.setScreenAndShow(new ConfigShellScreen(screen)); }
-            case 2 -> { select(); mc.setScreenAndShow(new ReportScreen(screen)); }
-            case 3 -> { select(); mc.setScreenAndShow(new DisconnectConfirmScreen(screen)); }
+            case 1 -> { select(); mc.setScreenAndShow(new fr.reborn.hud.ui.HudEditScreen(screen)); }
+            case 2 -> { select(); mc.setScreenAndShow(new ConfigShellScreen(screen)); }
+            case 3 -> { select(); mc.setScreenAndShow(new ReportScreen(screen)); }
+            case 4 -> { select(); mc.setScreenAndShow(new DisconnectConfirmScreen(screen)); }
+            case H_PERSO -> { select(); fr.reborn.hud.keybind.HudKeybinds.ouvrirPersonnage(mc); }
             case H_SHOP -> { select(); mc.setScreenAndShow(new fr.reborn.hud.boutique.BoutiqueVideScreen(screen)); }
             case H_STREAM_PREV, H_STREAM_NEXT -> {
                 streamIdx += id == H_STREAM_NEXT ? 1 : -1; lastStreamRotate = System.currentTimeMillis();

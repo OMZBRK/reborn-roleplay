@@ -833,7 +833,8 @@ public class InventoryScreen extends Screen {
     private void surToi(GuiGraphicsExtractor ctx, Font f) {
         float xd = obiX + 270, ym = obiY + 34 + 13;
         if (fouille != null) {
-            DaKit.inter7o(ctx, f, DaKit.inter("Tu prends, tu ne poses rien · touche Q bloquée"), xd, ym, DaKit.argb(0xE8DCC0, 0.62f), 2);
+            DaKit.inter7o(ctx, f, DaKit.inter("Tu prends, tu ne poses rien · touche "
+                + fr.reborn.hud.keybind.HudKeybinds.nom(Minecraft.getInstance().options.keyDrop, "Q") + " bloquée"), xd, ym, DaKit.argb(0xE8DCC0, 0.62f), 2);
             return;
         }
         long n = fr.reborn.hud.monnaie.MonnaieClient.bourse();

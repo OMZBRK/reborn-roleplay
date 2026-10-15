@@ -104,8 +104,165 @@ final class StaffDemo {
             case "kill" -> toast("ok".equals(StaffScreen.str(o, "v")) ? "Mise à mort validée." : "Mise à mort refusée.");
             case "dismiss" -> toast("Alerte ignorée.");
             case "profile" -> { if (profil != null) StaffClient.debugReceive(profil); }
+            case "persos" -> StaffClient.debugReceive(persos(StaffScreen.str(o, "t")).toString());
+            case "perso_act" -> persoAct(o);
+            case "perso_slots" -> {
+                JsonObject d = persos(StaffScreen.str(o, "t"));
+                JsonObject sl = d.getAsJsonObject("slots");
+                int delta = StaffScreen.num(o, "delta") >= 0 ? 1 : -1;
+                sl.addProperty("bonus", StaffScreen.num(sl, "bonus") + delta);
+                if (StaffScreen.num(sl, "total") > 0) sl.addProperty("total", StaffScreen.num(sl, "total") + delta);
+                StaffClient.debugReceive(d.toString());
+                toast(delta > 0 ? "Emplacement débloqué." : "Emplacement retiré.");
+            }
+            case "perso_creer" -> {
+                JsonObject d = persos(StaffScreen.str(o, "t"));
+                JsonObject c = perso("demo-" + System.nanoTime(), "01413", StaffScreen.str(o, "nom"), "", "", "Genin", 12, 180, false, false, "15/10/2026");
+                d.getAsJsonArray("persos").add(c);
+                d.getAsJsonObject("slots").addProperty("used", d.getAsJsonArray("persos").size());
+                StaffClient.debugReceive(d.toString());
+                toast("Personnage « " + StaffScreen.str(o, "nom") + " » créé (N° 01413).");
+            }
             default -> { }
         }
+    }
+
+    /* ================================================================ personnages d'un compte (fiche › Personnages) */
+
+    private static final Map<String, JsonObject> PERSOS = new HashMap<>();
+    /** Compte hors ligne du banc (personnages de « sorasan »). */
+    static final String HORS_LIGNE = "00000000-0000-0000-0000-000000000009";
+
+    private static JsonObject perso(String id, String pid, String nom, String clan, String village, String rang, int age, int taille,
+                                    boolean actif, boolean mort, String cree) {
+        JsonObject c = new JsonObject();
+        c.addProperty("id", id);
+        c.addProperty("pid", pid);
+        c.addProperty("nom", nom);
+        c.addProperty("clan", clan);
+        c.addProperty("village", village);
+        c.addProperty("villageCourt", village.replace("gakure", ""));
+        c.addProperty("rang", rang);
+        c.addProperty("rangId", GardeActions.sans(rang).toUpperCase(Locale.ROOT).replace(' ', '_'));
+        c.addProperty("age", age);
+        c.addProperty("taille", taille);
+        c.addProperty("sexe", "Homme");
+        c.addProperty("art", "TAIJUTSU");
+        c.addProperty("affinite", "STRENGTH");
+        c.addProperty("mort", mort);
+        c.addProperty("actif", actif);
+        c.addProperty("cree", cree);
+        c.addProperty("niveau", 4);
+        c.addProperty("pvMax", 1380);
+        c.addProperty("chakraMax", 16000);
+        c.addProperty("points", 3);
+        c.addProperty("bonus", 2);
+        c.addProperty("techniques", 6);
+        c.addProperty("blessures", 1);
+        c.addProperty("ryo", 12450);
+        JsonArray nat = new JsonArray();
+        nat.add("Katon");
+        c.add("natures", nat);
+        JsonArray st = new JsonArray();
+        String[] noms = {"Taïjutsu", "Kenjutsu", "Ninjutsu", "Contrôle", "Vigueur", "Chakra"};
+        int[] vals = {14, 6, 11, 9, 12, 10};
+        for (int i = 0; i < noms.length; i++) {
+            JsonObject x = new JsonObject();
+            x.addProperty("n", noms[i]);
+            x.addProperty("v", vals[i]);
+            st.add(x);
+        }
+        c.add("stats", st);
+        return c;
+    }
+
+    private static JsonObject persos(String uuid) {
+        JsonObject d = PERSOS.get(uuid);
+        if (d == null) {
+            boolean horsLigne = HORS_LIGNE.equals(uuid);
+            d = new JsonObject();
+            d.addProperty("t", "persos");
+            d.addProperty("uuid", uuid);
+            d.addProperty("pseudo", horsLigne ? "sorasan" : "Raiden_FR");
+            d.addProperty("online", !horsLigne);
+            d.addProperty("selection", false);
+            JsonArray l = new JsonArray();
+            if (horsLigne) {
+                l.add(perso("demo-sora", "00009", "Sora Uchiha", "Uchiha", "Konohagakure", "Jōnin", 27, 183, false, false, "28/09/2026"));
+                l.add(perso("demo-kiyo", "00311", "Kiyo Hōzuki", "Hozuki", "Kirigakure", "Genin", 15, 164, false, false, "11/10/2026"));
+            } else {
+                l.add(perso("demo-kazuki", "00042", "Kazuki Uchiha", "Uchiha", "Konohagakure", "Genin", 14, 168, true, false, "02/10/2026"));
+                l.add(perso("demo-ren", "00118", "Ren Uchiha", "Uchiha", "Konohagakure", "Chūnin", 19, 181, false, false, "07/10/2026"));
+                l.add(perso("demo-akira", "00087", "Akira Sabaku", "Sabaku", "Sunagakure", "Tokubetsu Jōnin", 31, 176, false, true, ""));
+                d.addProperty("playtime", 2472);
+            }
+            d.add("persos", l);
+            JsonObject sl = new JsonObject();
+            sl.addProperty("used", l.size());
+            sl.addProperty("bonus", horsLigne ? 1 : 2);
+            sl.addProperty("base", horsLigne ? -1 : 2);
+            sl.addProperty("total", horsLigne ? -1 : 4);
+            d.add("slots", sl);
+            JsonObject dr = new JsonObject();
+            String[][] g = {{"voir", "1"}, {"modifier", "2"}, {"actif", "2"}, {"progression", "3"}, {"mort", "3"}, {"emplacements", "3"},
+                    {"creer", "3"}, {"reset", "3"}, {"suppr", "3"}};
+            for (String[] x : g) dr.addProperty(x[0], Integer.parseInt(x[1]));
+            d.add("droits", dr);
+            PERSOS.put(uuid, d);
+        }
+        d.addProperty("grade", StaffScreen.grade(StaffClient.snapshot()));
+        return d;
+    }
+
+    /** Vide les personnages simulés (nouveau cas du banc). */
+    static void persosAZero() { PERSOS.clear(); }
+
+    private static void persoAct(JsonObject o) {
+        JsonObject d = persos(StaffScreen.str(o, "t"));
+        JsonArray l = d.getAsJsonArray("persos");
+        JsonObject c = null;
+        int idx = -1;
+        for (int i = 0; i < l.size(); i++) {
+            JsonObject x = l.get(i).getAsJsonObject();
+            if (StaffScreen.str(x, "id").equals(StaffScreen.str(o, "c")) || !StaffScreen.str(o, "pid").isEmpty()
+                    && StaffClient.normPid(StaffScreen.str(x, "pid")).equals(StaffClient.normPid(StaffScreen.str(o, "pid")))) { c = x; idx = i; }
+        }
+        if (c == null) { toast("Personnage introuvable (supprimé ?)."); return; }
+        String nom = StaffScreen.str(c, "nom");
+        final JsonObject cc = c;
+        String msg = switch (StaffScreen.str(o, "op")) {
+            case "identite" -> {
+                for (String k : new String[]{"nom", "sexe"}) if (!StaffScreen.str(o, k).isEmpty()) cc.addProperty(k, StaffScreen.str(o, k));
+                for (String k : new String[]{"age", "taille"}) {
+                    try { cc.addProperty(k, Integer.parseInt(StaffScreen.str(o, k))); } catch (NumberFormatException ignored) { }
+                }
+                yield "Identité mise à jour.";
+            }
+            case "origine" -> {
+                cc.addProperty("village", StaffScreen.str(o, "village"));
+                cc.addProperty("villageCourt", StaffScreen.str(o, "village").replace("gakure", ""));
+                cc.addProperty("clan", StaffScreen.str(o, "clan").equalsIgnoreCase("aucun") ? "" : StaffScreen.str(o, "clan"));
+                yield "Clan et village mis à jour.";
+            }
+            case "art" -> { cc.addProperty("art", StaffScreen.str(o, "art")); cc.addProperty("affinite", StaffScreen.str(o, "affinite")); yield "Art et affinité mis à jour."; }
+            case "progression" -> {
+                cc.addProperty("rangId", StaffScreen.str(o, "rang"));
+                try { cc.addProperty("bonus", Integer.parseInt(StaffScreen.str(o, "bonus"))); } catch (NumberFormatException ignored) { }
+                yield "Progression mise à jour.";
+            }
+            case "actif" -> {
+                for (var e : l) e.getAsJsonObject().addProperty("actif", false);
+                cc.addProperty("actif", true);
+                yield "Le joueur joue maintenant " + nom + ".";
+            }
+            case "mort" -> { cc.addProperty("mort", true); cc.addProperty("actif", false); yield nom + " est mort RP."; }
+            case "ressusciter" -> { cc.addProperty("mort", false); yield nom + " est ressuscité."; }
+            case "reset" -> { cc.addProperty("rang", "Genin"); cc.addProperty("points", 0); cc.addProperty("bonus", 0); yield nom + " remis à zéro. Sauvegarde faite."; }
+            case "suppr" -> { l.remove(idx); d.getAsJsonObject("slots").addProperty("used", l.size()); yield nom + " supprimé. Sauvegarde faite."; }
+            default -> "Action envoyée.";
+        };
+        StaffClient.debugReceive(d.toString());
+        toast(msg);
     }
 
     /** Index des N° du serveur simulé (personnages hors ligne compris). */

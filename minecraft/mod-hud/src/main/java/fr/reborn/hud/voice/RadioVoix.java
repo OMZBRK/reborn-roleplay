@@ -66,9 +66,46 @@ public final class RadioVoix {
     /** Thread client, chaque tick : resynchronise la touche si le joueur l'a changée dans les contrôles Reborn. */
     void tick() {
         if (HudKeybinds.RADIO_PARLER == null) return;
+        migrerMuet();
         InputConstants.Key k = KeyMappingHelper.getBoundKeyOf(HudKeybinds.RADIO_PARLER);
         if (k.equals(derniereTouche)) return;
         client.getActivationManager().getActivationByName(NOM).ifPresent(this::regler);
+    }
+
+    /**
+     * Migration des touches du 15/10 (une fois, drapeau {@code RebornPrefs.touchesPv}) : le raccourci « couper le
+     * micro » de Plasmo Voice est sur M par défaut, comme la carte Reborn ; s'il y est encore (jamais changé) et que la
+     * carte est bien sur M, on le laisse sans touche (le micro se coupe toujours depuis le menu Plasmo Voice, touche V).
+     * Un raccourci personnalisé n'est pas touché.
+     */
+    private void migrerMuet() {
+        var prefs = fr.reborn.hud.menu.settings.RebornPrefs.INSTANCE;
+        if (prefs.touchesPv || HudKeybinds.MAP == null) return;
+        try {
+            var hk = client.getHotkeys().getHotkey("key.plasmovoice.general.mute_microphone");
+            if (hk.isEmpty()) return;                                   // Plasmo Voice pas encore prêt : on réessaie
+            Set<Hotkey.Key> keys = hk.get().getKeys();
+            InputConstants.Key carte = KeyMappingHelper.getBoundKeyOf(HudKeybinds.MAP);
+            boolean surM = keys.size() == 1 && keys.contains(Hotkey.Type.KEYSYM.getOrCreate(org.lwjgl.glfw.GLFW.GLFW_KEY_M));
+            if (surM && carte.getType() == InputConstants.Type.KEYSYM && carte.getValue() == org.lwjgl.glfw.GLFW.GLFW_KEY_M) {
+                hk.get().setKeys(Set.of());
+                sauverConfig();
+                org.slf4j.LoggerFactory.getLogger("reborn-hud/touches")
+                    .info("Plasmo Voice : « couper le micro » M -> aucune (M = carte)");
+            }
+        } catch (RuntimeException e) {
+            return;
+        }
+        prefs.touchesPv = true;
+        prefs.save();
+    }
+
+    /** Écrit la config de Plasmo Voice ({@code VoiceClientConfig.save(boolean)}, hors API : par réflexion). */
+    private void sauverConfig() {
+        try {
+            Object cfg = client.getConfig();
+            cfg.getClass().getMethod("save", boolean.class).invoke(cfg, true);
+        } catch (ReflectiveOperationException | RuntimeException ignored) { }
     }
 
     /** Activation radio active (j'émets) ? */

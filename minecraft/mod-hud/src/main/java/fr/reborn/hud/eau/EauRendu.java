@@ -9,58 +9,52 @@ import com.mojang.blaze3d.vertex.MeshData;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.core.BlockPos;
-import net.minecraft.resources.Identifier;
-import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.world.level.material.FogType;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
 
 import java.nio.ByteBuffer;
 
 /**
- * Rendu des flaques de la marche sur l'eau ({@link Ondes}) : <b>l'eau du jeu n'est pas touchée</b>, on pose seulement,
- * à plat sur la surface, le contour de chaque flaque.
+ * Rendu des plis de la marche sur l'eau ({@link Ondes}) : <b>l'eau du jeu n'est pas touchée</b> ; autour de chaque
+ * pas, on redessine par-dessus un petit patch de <b>la même texture d'eau</b> dont le motif est déplacé le long d'un
+ * contour irrégulier — la surface semble se plier, comme une réfraction.
  *
- * <h2>Technique (15/10, v5–v6)</h2>
- * Un décalque très léger dessiné <b>après l'eau translucide</b> ({@code LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN},
- * par-dessus l'eau de Sodium comme de celle d'un pack Iris) avec le pipeline de l'<b>ombre des entités</b> du jeu
- * ({@code RenderTypes.entityShadow} : translucide, sans écriture de profondeur, légèrement décalé vers la caméra,
- * brouillard ; aucune ressource de shader). Chaque flaque est un maillage de {@link #SEGMENTS} × 3 quads : un
- * remplissage très faible, puis le trait en deux bandes dont l'opacité monte du bord intérieur au contour et redescend
- * à 0 au bord extérieur (dégradé des sommets : trait fin et doux, lisse à toute distance). Texture : un texel blanc
- * ({@code textures/environment/flaque.png}). Couleur = eau du biome mêlée de blanc, assombrie comme l'eau selon la
- * lumière (le pipeline n'éclaire pas). Tampons préalloués et réutilisés (CPU : {@link ByteBufferBuilder} ; GPU :
- * 3 tampons en rotation), aucune allocation par image hormis les en-têtes {@code BufferBuilder}/{@code MeshData} de
- * l'API ; rien quand il n'y a pas de flaque, ni caméra sous l'eau.
+ * <h2>Technique (15/10, v8)</h2>
+ * Dessiné <b>après l'eau translucide</b> ({@code LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN}) avec le pipeline
+ * translucide des blocs du jeu ({@code RenderTypes.translucentMovingBlock} : sprite d'eau animé de l'atlas, lumière du
+ * bloc, brouillard — les mêmes que l'eau), teinte de l'eau du biome. Le patch est une grille de cellules de 1/16 de
+ * bloc alignées sur les texels de l'eau (chaque cellule reste dans un bloc : UV continus). À chaque sommet, un champ
+ * de distorsion : bande gaussienne autour d'un contour r(θ) irrégulier (4 harmoniques propres au pas, qui frémissent
+ * lentement) ; dans la bande, le point où l'on lit la texture est décalé radialement (dérivée de gaussienne : le motif
+ * est tiré vers la crête des deux côtés, d'où le pli) ; l'opacité du patch suit la bande (nulle ailleurs) ; un liseré
+ * clair très faible marque la crête. Tout s'atténue jusqu'à zéro en fin de vie.
+ * Animation au temps réel de l'image ({@link Ondes#temps()}). Grilles et tampons préalloués et réutilisés, aucune
+ * allocation par image hormis les en-têtes {@code BufferBuilder}/{@code MeshData} de l'API ; rien quand il n'y a pas
+ * de pli, ni caméra sous l'eau.
  */
 final class EauRendu {
 
-    /** Hauteur du décalque au-dessus de la surface de l'eau (blocs). */
-    private static final double DECALAGE = 0.006;
-    /** Segments du contour d'une flaque. */
-    static final int SEGMENTS = 48;
-    private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath("reborn-hud", "textures/environment/flaque.png");
-    private static final float[] COS = new float[SEGMENTS + 1], SIN = new float[SEGMENTS + 1];
-    static {
-        for (int k = 0; k <= SEGMENTS; k++) {
-            double t = 2 * Math.PI * k / SEGMENTS;
-            COS[k] = (float) Math.cos(t);
-            SIN[k] = (float) Math.sin(t);
-        }
-    }
-    /** Contour courant (intérieur, milieu du trait, extérieur), relatif à la caméra : tableaux de travail réutilisés. */
-    private static final float[] IX = new float[SEGMENTS + 1], IZ = new float[SEGMENTS + 1], CX = new float[SEGMENTS + 1],
-            CZ = new float[SEGMENTS + 1], OX = new float[SEGMENTS + 1], OZ = new float[SEGMENTS + 1];
-    private static final BlockPos.MutableBlockPos P = new BlockPos.MutableBlockPos();
+    /** Cellules de la grille par bloc (texels de l'eau). */
+    private static final int PAR_BLOC = 16;
+    /** Taille maximale de la grille d'un pli (cellules par côté). */
+    private static final int GRILLE = 64;
+    /** Hauteur du patch au-dessus de la surface de l'eau (blocs). */
+    private static final double DECALAGE = 0.004;
+    /** Résolution angulaire du contour (rayon précalculé par pli et par image). */
+    private static final int ANGLES = 128;
+
+    private static final int G1 = GRILLE + 1;
+    private static final float[] SX = new float[G1 * G1], SZ = new float[G1 * G1], AL = new float[G1 * G1],
+            BL = new float[G1 * G1];
+    private static final double[] RTHETA = new double[ANGLES + 1];
 
     private static ByteBufferBuilder octets;
     private static final GpuBuffer[] TAMPONS = new GpuBuffer[3];
     private static int image;
-    private static RenderType type;
     private static boolean enPanne;
 
     static long mesures, cumul, pire, quads;
@@ -86,111 +80,126 @@ final class EauRendu {
 
     private static void dessiner() {
         Minecraft mc = Minecraft.getInstance();
-        ClientLevel level = mc.level;
-        if (level == null) return;
+        if (mc.level == null) return;
         Camera cam = mc.gameRenderer.mainCamera();
         if (cam.getFluidInCamera() != FogType.NONE && cam.getFluidInCamera() != FogType.ATMOSPHERIC) return;
-        float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
-        double now = Ondes.temps(mc, pt);
+        double now = Ondes.temps();                                     // temps réel de l'image
         Vec3 c = cam.position();
-        if (type == null) type = RenderTypes.entityShadow(TEXTURE);
-        if (octets == null) octets = new ByteBufferBuilder(64 * 1024);
-        int assombri = level.getSkyDarken();
+        RenderType rt = RenderTypes.translucentMovingBlock();
+        TextureAtlasSprite sp = mc.getModelManager().getFluidStateModelSet().get(Fluids.WATER.defaultFluidState())
+                .stillMaterial().sprite();
+        if (octets == null) octets = new ByteBufferBuilder(128 * 1024);
         BufferBuilder bb = null;
         int n = 0;
         for (int i = 0; i < Ondes.CAPACITE; i++) {
             if (!Ondes.ACTIVE[i]) continue;
             double age = now - Ondes.NAISSANCE[i], u = age / Ondes.VIE[i];
             if (age < 0 || u >= 1) continue;
-            double dx = Ondes.FX[i] - c.x, dz = Ondes.FZ[i] - c.z;
-            if (dx * dx + dz * dz > Ondes.PORTEE * Ondes.PORTEE) continue;
-            // apparition en 60 ms, puis décroissance jusqu'à 0 (plus marquée en fin de vie)
-            double f = Ondes.FORCE[i] * Math.min(1, age / 0.06) * Math.pow(1 - u, 1.4);
-            if (f * Ondes.OPACITE < 0.01) continue;
-            if (bb == null) bb = new BufferBuilder(octets, type.primitiveTopology(), type.format());
-            // expansion : rapide à l'impact puis freinée (ease-out cubique sur la première partie de la vie)
-            double ue = Math.min(1, u / Ondes.EXPANSION), e = 1 - (1 - ue) * (1 - ue) * (1 - ue);
-            e = 0.9 * e + 0.1 * u;                                          // elle continue à peine de grandir
-            double sc = Ondes.ECHELLE_DEBUT + (Ondes.ECHELLE_FIN - Ondes.ECHELLE_DEBUT) * e;
-            double a = Ondes.DEMI_A[i] * sc, b = Ondes.DEMI_B[i] * sc, fl = Ondes.FLOU * (0.7 + 0.3 * e);
-            double ca = Math.cos(Ondes.ANGLE[i]), sa = Math.sin(Ondes.ANGLE[i]);
-            // le contour ondoie pendant l'expansion (les harmoniques glissent), puis se calme
-            double p1 = Ondes.PHASE1[i] + age * 1.6, p2 = Ondes.PHASE2[i] - age * 2.1, p3 = age * 9.0;
-            double ond = Ondes.ONDOIEMENT * (1 - u);
-            for (int k = 0; k <= SEGMENTS; k++) {
-                int kk = k == SEGMENTS ? 0 : k;                             // contour fermé exactement
-                double t = 2 * Math.PI * kk / SEGMENTS;
-                double w = 1 + Ondes.CABOSSE * (0.65 * Math.sin(2 * t + p1) + 0.35 * Math.sin(3 * t + p2))
-                        + ond * Math.sin(5 * t + p3);
-                double lx = a * COS[kk] * w, lz = b * SIN[kk] * w;
-                double nx = COS[kk] / a, nz = SIN[kk] / b, nn = Math.sqrt(nx * nx + nz * nz);  // normale de l'ellipse
-                nx /= nn; nz /= nn;
-                IX[k] = (float) (dx + (lx - nx * fl) * ca - (lz - nz * fl) * sa);
-                IZ[k] = (float) (dz + (lx - nx * fl) * sa + (lz - nz * fl) * ca);
-                CX[k] = (float) (dx + lx * ca - lz * sa);
-                CZ[k] = (float) (dz + lx * sa + lz * ca);
-                OX[k] = (float) (dx + (lx + nx * fl) * ca - (lz + nz * fl) * sa);
-                OZ[k] = (float) (dz + (lx + nx * fl) * sa + (lz + nz * fl) * ca);
-            }
-            int rgb = couleur(level, i, assombri);
-            int dedans = alpha(Ondes.INTERIEUR * f) | rgb, trait = alpha(Ondes.OPACITE * f) | rgb, dehors = rgb;
-            float y = (float) (Ondes.FY[i] + DECALAGE - c.y), cx = (float) dx, cz = (float) dz;
-            for (int k = 0; k < SEGMENTS; k++) {
-                // faces tournées vers le ciel : centre → bord intérieur, puis intérieur → trait → extérieur
-                sommet(bb, cx, y, cz, dedans);
-                sommet(bb, cx, y, cz, dedans);
-                sommet(bb, IX[k + 1], y, IZ[k + 1], dedans);
-                sommet(bb, IX[k], y, IZ[k], dedans);
-                sommet(bb, IX[k], y, IZ[k], dedans);
-                sommet(bb, IX[k + 1], y, IZ[k + 1], dedans);
-                sommet(bb, CX[k + 1], y, CZ[k + 1], trait);
-                sommet(bb, CX[k], y, CZ[k], trait);
-                sommet(bb, CX[k], y, CZ[k], trait);
-                sommet(bb, CX[k + 1], y, CZ[k + 1], trait);
-                sommet(bb, OX[k + 1], y, OZ[k + 1], dehors);
-                sommet(bb, OX[k], y, OZ[k], dehors);
-                n += 3;
-            }
+            double ox = Ondes.FX[i] - c.x, oz = Ondes.FZ[i] - c.z;
+            if (ox * ox + oz * oz > Ondes.PORTEE * Ondes.PORTEE) continue;
+            double fe = Math.min(1, age / Ondes.FONDU_ENTREE);
+            double env = Ondes.FORCE[i] * fe * fe * (3 - 2 * fe) * Math.pow(1 - u, 1.5);
+            if (env < 0.01) continue;
+            if (bb == null) bb = new BufferBuilder(octets, rt.primitiveTopology(), rt.format());
+            n += pli(bb, i, age, u, env, c, sp);
         }
         quads += n;
         if (bb == null) return;
         MeshData m = bb.build();
         if (m == null) return;
-        try (m) { tirer(m); }
+        try (m) { tirer(rt, m); }
     }
 
-    /**
-     * Bleu-blanc pâle : l'eau du biome mêlée de blanc ({@link Ondes#BLANC}), assombrie comme l'eau selon la lumière du
-     * lieu (ciel selon l'heure, blocs) — sombre la nuit, jamais phosphorescente. Sans alpha.
-     */
-    private static int couleur(ClientLevel level, int i, int assombri) {
-        P.set(Ondes.FX[i], Ondes.FY[i] + 0.2, Ondes.FZ[i]);
-        int lum = LightCoordsUtil.getLightCoords(level, P);
-        int l = Math.max(LightCoordsUtil.block(lum), LightCoordsUtil.sky(lum) - assombri);
-        double k = 0.10 + 0.90 * Math.pow(Math.max(0, l) / 15.0, 1.4);
-        int t = Ondes.TEINTE[i];
-        double m = Ondes.BLANC;
-        int r = clamp((int) ((((t >> 16) & 255) * (1 - m) + 255 * m) * k));
-        int g = clamp((int) ((((t >> 8) & 255) * (1 - m) + 255 * m) * k));
-        int bl = clamp((int) (((t & 255) * (1 - m) + 255 * m) * k));
-        return r << 16 | g << 8 | bl;
+    /** Un pli : champ de distorsion sur la grille, puis les cellules non vides en quads texturés. */
+    private static int pli(BufferBuilder bb, int i, double age, double u, double env, Vec3 c, TextureAtlasSprite sp) {
+        double e = 1 - (1 - u) * (1 - u);
+        double r0 = Ondes.RAYON[i] * (Ondes.ECHELLE_DEBUT + (Ondes.ECHELLE_FIN - Ondes.ECHELLE_DEBUT) * e);
+        double w = Ondes.BANDE, fv = Ondes.FREMISSEMENT_VITESSE;
+        // contour r(θ) : 4 harmoniques propres au pli, qui glissent lentement (frémissement), + un léger tremblé ample
+        double rmax = 0, rmin = 1e9;
+        for (int k = 0; k <= ANGLES; k++) {
+            double t = 2 * Math.PI * k / ANGLES, s = 1;
+            for (int h = 0; h < 4; h++) {
+                double sens = (h & 1) == 0 ? 1 : -1;
+                s += Ondes.AMP[i * 4 + h] * Math.sin((h + 2) * t + Ondes.PHASE[i * 4 + h] + sens * age * fv * (0.35 + 0.15 * h));
+            }
+            s += Ondes.FREMISSEMENT * (1 - u) * Math.sin(3 * t + Ondes.PHASE[i * 4] * 0.7 + age * fv);
+            double r = r0 * s;
+            RTHETA[k] = r;
+            rmax = Math.max(rmax, r);
+            rmin = Math.min(rmin, r);
+        }
+        double portee = rmax + 2.6 * w, interieur = Math.max(0, rmin - 2.6 * w);
+        // grille alignée sur les texels de l'eau
+        double fx = Ondes.FX[i], fz = Ondes.FZ[i];
+        int gx0 = (int) Math.floor((fx - portee) * PAR_BLOC), gz0 = (int) Math.floor((fz - portee) * PAR_BLOC);
+        int nx = Math.min(GRILLE, (int) Math.ceil((fx + portee) * PAR_BLOC) - gx0);
+        int nz = Math.min(GRILLE, (int) Math.ceil((fz + portee) * PAR_BLOC) - gz0);
+        double depl = Ondes.DEPLACEMENT / 0.4289;                       // max de s·e^(−s²) ramené à 1
+        for (int a = 0; a <= nx; a++) {
+            for (int b = 0; b <= nz; b++) {
+                int q = a * G1 + b;
+                double x = (gx0 + a) / (double) PAR_BLOC, z = (gz0 + b) / (double) PAR_BLOC;
+                double dx = x - fx, dz = z - fz, r = Math.sqrt(dx * dx + dz * dz);
+                SX[q] = (float) x;
+                SZ[q] = (float) z;
+                if (r > portee || r < interieur || r < 1e-4) { AL[q] = 0; BL[q] = 0; continue; }
+                double t = Math.atan2(dz, dx);
+                double kf = (t < 0 ? t + 2 * Math.PI : t) / (2 * Math.PI) * ANGLES;
+                int k = (int) kf;
+                double rt = RTHETA[k] + (RTHETA[Math.min(ANGLES, k + 1)] - RTHETA[k]) * (kf - k);
+                double s = (r - rt) / w;
+                double g = Math.exp(-s * s);
+                // on lit la texture un peu plus loin du centre à l'intérieur, plus près à l'extérieur : le motif se
+                // resserre sur la crête (le pli)
+                double d = depl * env * s * g;
+                SX[q] = (float) (x + dx / r * d);
+                SZ[q] = (float) (z + dz / r * d);
+                double bande = Math.sqrt(g);                                  // e^(−s²/2) : la bande, plus large
+                double g2 = g * g, g4 = g2 * g2, g8 = g4 * g4;                // e^(−8s²) : la crête, fine
+                AL[q] = (float) (Ondes.OPACITE * env * bande);
+                BL[q] = (float) (Ondes.LISERE * env * g8);
+            }
+        }
+        int teinte = Ondes.TEINTE[i], lum = Ondes.LUMIERE[i];
+        int tr = (teinte >> 16) & 255, tg = (teinte >> 8) & 255, tb = teinte & 255;
+        float y = (float) (Ondes.FY[i] + DECALAGE - c.y);
+        float u0 = sp.getU0(), du = sp.getU1() - u0, v0 = sp.getV0(), dv = sp.getV1() - v0;
+        int quadsPli = 0;
+        for (int a = 0; a < nx; a++) {
+            for (int b = 0; b < nz; b++) {
+                int q00 = a * G1 + b, q10 = (a + 1) * G1 + b, q01 = a * G1 + b + 1, q11 = (a + 1) * G1 + b + 1;
+                if (AL[q00] < 0.004f && AL[q10] < 0.004f && AL[q01] < 0.004f && AL[q11] < 0.004f) continue;
+                // le bloc de la cellule : UV de la texture d'eau relatifs à ce bloc (comme la face d'eau du jeu)
+                int bx = Math.floorDiv(gx0 + a, PAR_BLOC), bz = Math.floorDiv(gz0 + b, PAR_BLOC);
+                float x0 = (float) ((gx0 + a) / (double) PAR_BLOC - c.x), x1 = (float) ((gx0 + a + 1) / (double) PAR_BLOC - c.x);
+                float z0 = (float) ((gz0 + b) / (double) PAR_BLOC - c.z), z1 = (float) ((gz0 + b + 1) / (double) PAR_BLOC - c.z);
+                // (x0,z0) → (x0,z1) → (x1,z1) → (x1,z0) : face tournée vers le ciel
+                sommet(bb, x0, y, z0, q00, bx, bz, tr, tg, tb, lum, u0, du, v0, dv);
+                sommet(bb, x0, y, z1, q01, bx, bz, tr, tg, tb, lum, u0, du, v0, dv);
+                sommet(bb, x1, y, z1, q11, bx, bz, tr, tg, tb, lum, u0, du, v0, dv);
+                sommet(bb, x1, y, z0, q10, bx, bz, tr, tg, tb, lum, u0, du, v0, dv);
+                quadsPli++;
+            }
+        }
+        return quadsPli;
     }
 
-    private static int alpha(double a) { return clamp((int) (a * 255)) << 24; }
-
-    private static int clamp(int v) { return Math.max(0, Math.min(255, v)); }
-
-    private static void sommet(BufferBuilder bb, float x, float y, float z, int coul) {
+    private static void sommet(BufferBuilder bb, float x, float y, float z, int q, int bx, int bz, int tr, int tg,
+                               int tb, int lum, float u0, float du, float v0, float dv) {
+        float lx = Math.max(0f, Math.min(1f, SX[q] - bx)), lz = Math.max(0f, Math.min(1f, SZ[q] - bz));
+        float bl = BL[q];
+        int r = (int) (tr + (255 - tr) * bl), g = (int) (tg + (255 - tg) * bl), b = (int) (tb + (255 - tb) * bl);
+        int al = Math.max(0, Math.min(255, (int) (AL[q] * 255)));
         bb.addVertex(x, y, z)
-                .setColor(coul)
-                .setUv(0.5f, 0.5f)
-                .setOverlay(OverlayTexture.NO_OVERLAY)
-                .setLight(LightCoordsUtil.FULL_BRIGHT)
+                .setColor(al << 24 | r << 16 | g << 8 | b)
+                .setUv(u0 + du * lx, v0 + dv * lz)
+                .setLight(lum)
                 .setNormal(0f, 1f, 0f);
     }
 
     /** Envoie le maillage dans un tampon GPU réutilisé (rotation sur 3 images) et le dessine tout de suite. */
-    private static void tirer(MeshData m) {
+    private static void tirer(RenderType rt, MeshData m) {
         GpuDevice dev = RenderSystem.getDevice();
         ByteBuffer data = m.vertexBuffer();
         int taille = data.remaining();
@@ -200,11 +209,11 @@ final class EauRendu {
         if (tampon == null || tampon.isClosed() || tampon.size() < taille) {
             if (tampon != null && !tampon.isClosed()) tampon.close();
             long cap = Math.max(64 * 1024, Long.highestOneBit(taille) << 1);
-            TAMPONS[image] = tampon = dev.createBuffer(() -> "reborn eau flaques", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, cap);
+            TAMPONS[image] = tampon = dev.createBuffer(() -> "reborn eau plis", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, cap);
         }
         dev.createCommandEncoder().writeToBuffer(tampon.slice(0, taille), data);
-        var seq = RenderSystem.getSequentialBuffer(type.primitiveTopology());
+        var seq = RenderSystem.getSequentialBuffer(rt.primitiveTopology());
         int n = m.drawState().indexCount();
-        type.prepare().drawFromBuffer(tampon, seq.getBuffer(n), seq.type(), 0, 0, n);
+        rt.prepare().drawFromBuffer(tampon, seq.getBuffer(n), seq.type(), 0, 0, n);
     }
 }

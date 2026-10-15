@@ -93,6 +93,17 @@ public final class StaffPanel implements Listener, PluginMessageListener {
 
     private InfirmeriePanel infirmerie;
 
+    private PersonnagesPanel personnages;
+
+    /** Fiche › Personnages (15/10) : gestion staff des personnages d'un compte, sur ce canal. */
+    PersonnagesPanel personnages() {
+        if (personnages == null) personnages = new PersonnagesPanel(plugin, this);
+        return personnages;
+    }
+
+    /** Renvoie la fiche d'un joueur au spectateur (après une action venue d'un sous-panneau). */
+    void profil(Player viewer, UUID id) { sendProfile(viewer, id); }
+
     /** L'Infirmerie (gestion visuelle du KO) partage ce canal. */
     public InfirmeriePanel infirmerie() {
         if (infirmerie == null) infirmerie = new InfirmeriePanel(plugin, this);
@@ -221,6 +232,7 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 if (!m.isEmpty()) staffChat(p, m);
                 sendSnapshot(p);
             }
+            case "persos", "perso_act", "perso_slots", "perso_creer" -> personnages().handle(p, grade, a, in);
             default -> infirmerie().handle(p, grade, a, in);
         }
     }
@@ -1070,8 +1082,7 @@ public final class StaffPanel implements Listener, PluginMessageListener {
                 {"Joueurs et modération", "/annonce <message>", "Annonce à tous", "2"},
                 {"Joueurs et modération", "/tenue <joueur> <id|main|retirer>", "Imposer une tenue", "2"},
                 {"Joueurs et modération", "/emoteforcee <joueur> <emote|stop>", "Forcer une emote", "2"},
-                {"Joueurs et modération", "/persoreset <#N°>", "Remettre un personnage à zéro (confirmation)", "3"},
-                {"Joueurs et modération", "/persosuppr <#N°>", "Supprimer un personnage (confirmation)", "3"},
+                {"Joueurs et modération", "F7 › fiche › Personnages", "Personnages du joueur : consulter (Helper), modifier (Modo), grade, mort RP, emplacements, créer, remettre à zéro, supprimer (Admin)", "1"},
                 {"Monde et zones", "/seisme [rayon|tous] [force] [s] [message]", "Séisme (écran qui tremble)", "3"},
                 {"Joueurs et modération", "/vanish", "Devenir invisible", "2"},
                 {"Joueurs et modération", "/pardon <joueur>", "Lever un bannissement", "3"},

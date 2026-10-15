@@ -795,7 +795,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         if (jump != null) jump.removeModifier(noJumpKey);
     }
 
-    /** Force-clear KO state (used by /character edit and on shutdown if
+    /** Force-clear KO state (used by the Poste de garde and on shutdown if
      *  a staff member chooses to wipe a stale row). */
     public void forceClear(UUID playerId) {
         active.remove(playerId);

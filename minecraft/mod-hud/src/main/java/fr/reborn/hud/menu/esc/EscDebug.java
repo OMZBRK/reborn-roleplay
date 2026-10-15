@@ -81,8 +81,8 @@ public final class EscDebug {
     }
 
     private static void boutons() {
-        String[] noms = {"PARAMETRES", "SIGNALER", "DECONNEXION"};
-        for (int i = 1; i <= 3; i++) {
+        String[] noms = {"INTERFACE", "PARAMETRES", "SIGNALER", "DECONNEXION"};
+        for (int i = 1; i <= noms.length; i++) {
             int b = i;
             ouvrir();
             pas(25, mc -> clic(mc, b), "clic " + noms[b - 1]);
@@ -138,9 +138,10 @@ public final class EscDebug {
     }
 
     /** Clic gauche sur la plaque n° {@code i} du menu (centre, en unités de scène). */
-    private static void clic(Minecraft mc, int i) { clicUnites(mc, 41 + 66, 230 + i * 22 + 7); }
+    public static void clic(Minecraft mc, int i) { clicUnites(mc, 41 + 66, 230 + i * 20 + 7); }
 
-    private static void clicUnites(Minecraft mc, int ux, int uy) {
+    /** Clic gauche en unités de scène (aussi utilisé par le banc des touches, {@code keybind/TouchesDebug}). */
+    public static void clicUnites(Minecraft mc, int ux, int uy) {
         Screen s = mc.gui.screen();
         if (s == null) { System.out.println("[EscDebug] (pas d'écran pour cliquer)"); return; }
         var w = mc.getWindow();

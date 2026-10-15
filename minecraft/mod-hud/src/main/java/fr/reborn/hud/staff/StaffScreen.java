@@ -213,7 +213,7 @@ public class StaffScreen extends Screen {
     protected String pied() {
         if (formulaire.actif()) return "Échap : annuler";
         return switch (tab) {
-            case "players" -> profileUuid != null ? "Échap : retour à la liste"
+            case "players" -> profileUuid != null ? (fiche.persos.detailOuvert() ? "Échap : retour aux personnages" : "Échap : retour à la liste")
                     : recherche.active() ? "Flèches : choisir  ·  Entrée : ouvrir  ·  Échap : effacer"
                     : "Clic : fiche  ·  Clic droit : actions  ·  F7 : fermer";
             case "journal" -> "Ctrl + clic sur un N° : filtrer ce joueur";
@@ -1219,6 +1219,7 @@ public class StaffScreen extends Screen {
             if (menu != null) { menu = null; return true; }
             if (formulaire.actif()) { formulaire.fermer(); return true; }
             if ("players".equals(tab) && profileUuid == null && !searchBox.getValue().isEmpty()) { searchBox.setValue(""); return true; }
+            if ("players".equals(tab) && profileUuid != null && fiche.echap()) return true;
             if ("players".equals(tab) && profileUuid != null) { retourListe(); return true; }
             if ("journal".equals(tab) && journalVue.echap()) return true;
             if ("outils".equals(tab) && outil != null) { outil = null; scroll = 0; return true; }

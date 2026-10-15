@@ -20,19 +20,14 @@ import java.util.Map;
  * un mannequin) dont les pieds sont posés à la surface de l'eau, sans y être, est un marcheur — aucune donnée réseau à
  * relayer, tout le monde voit les mêmes flaques.
  *
- * <p>Version du 15/10 (référence Shinoda, v6) : <b>l'eau reste strictement celle du jeu</b>. Chaque pas se lit comme
- * un <b>impact sur l'eau</b> :
- * <ul>
- *   <li>une onde part du pied : petite au point d'impact, elle s'étale vite puis ralentit, son contour ondoie
- *       pendant l'expansion, et elle s'efface en fin de vie ; une seconde onde plus faible la suit 0,15 s plus tard.
- *       L'onde a l'allure d'un galet arrondi, convexe et irrégulier (0,8 à 1,3 bloc à la fin), trait fin et doux
- *       bleu-blanc pâle, très léger éclaircissement intérieur ; les ondes des pas successifs se chevauchent ;</li>
- *   <li>quelques <b>gouttelettes</b> (éclaboussures du jeu) jaillissent du pied et retombent, un peu plus au sprint,
- *       une petite gerbe à la retombée d'un saut ;</li>
- *   <li>un <b>bruit de pas dans l'eau</b> (pitch et volume variés), plus marqué au sprint et à la retombée.</li>
- * </ul>
+ * <p>Version du 15/10 (référence Shinoda, v8) : <b>l'eau du jeu n'est pas touchée</b>, mais à chaque pas sa
+ * <b>texture se plie localement</b> : autour du point d'impact, le long d'un contour irrégulier propre à chaque pas
+ * (~0,6 à 1 bloc), le motif de l'eau est déplacé comme par une réfraction, avec un liseré clair très léger sur la
+ * crête du pli. Le pli s'étale à peine, frémit lentement puis se résorbe (~1,4 s). Ce n'est pas un anneau dessiné.
+ * À chaque pas aussi, quelques <b>gouttelettes</b> (éclaboussures du jeu), une petite gerbe à la retombée d'un saut,
+ * et un <b>bruit de pas dans l'eau</b> (pitch et volume variés), plus marqué au sprint et à la retombée.
  * Tout est posé par chaque client pour chaque marcheur visible : les autres joueurs voient et entendent les pas.
- * {@link EauRendu} dessine les ondes.
+ * {@link EauRendu} dessine les plis.
  *
  * <p><b>Tous les réglages sont les constantes ci-dessous</b> (distances en blocs, durées en secondes, opacités 0..1).
  */
@@ -40,32 +35,29 @@ final class Ondes {
 
     /* ======================================================================================= RÉGLAGES */
 
-    /** Diamètre d'une flaque (blocs), tiré entre ces bornes ; rapport largeur / longueur du galet. */
-    static final float DIAMETRE_MIN = 0.8f, DIAMETRE_MAX = 1.3f;
-    static final float APLATI_MIN = 0.62f, APLATI_MAX = 0.90f;
-    /** Irrégularité du contour (part du rayon), assez faible pour que le galet reste convexe. */
-    static final float CABOSSE = 0.065f;
-    /** Durée de vie (s) d'une onde à la marche et au sprint (interpolée selon l'allure). */
-    static final float DUREE_MARCHE = 1.6f, DUREE_SPRINT = 1.7f;
-    /** Seconde onde : retard (s), force (part de l'opacité) et taille (part de la première). */
-    static final float ONDE2_RETARD = 0.15f, ONDE2_FORCE = 0.55f, ONDE2_TAILLE = 0.82f;
-    /** Ondoiement du contour pendant l'expansion (part du rayon, s'éteint en fin de vie). */
-    static final float ONDOIEMENT = 0.035f;
+    /** Rayon moyen du pli (blocs), tiré entre ces bornes (diamètre ~0,6 à 1 bloc). */
+    static final float RAYON_MIN = 0.30f, RAYON_MAX = 0.50f;
+    /** Irrégularité du contour : amplitude totale (part du rayon) de 4 harmoniques tirées au hasard. */
+    static final float IRREGULIER = 0.24f;
+    /** Demi-largeur de la bande pliée de part et d'autre du contour (blocs). */
+    static final float BANDE = 0.10f;
+    /** Déplacement maximal du motif de l'eau dans le pli (blocs ; 1 texel = 0,0625). */
+    static final float DEPLACEMENT = 0.14f;
+    /** Liseré clair sur la crête du pli : part de blanc mêlée à l'eau à son maximum. */
+    static final float LISERE = 0.50f;
+    /** Opacité du patch d'eau redessinée au cœur du pli (la texture d'eau garde aussi sa propre transparence). */
+    static final float OPACITE = 0.9f;
+    /** Étalement : facteur d'échelle à l'impact → en fin de vie (faible). */
+    static final float ECHELLE_DEBUT = 0.9f, ECHELLE_FIN = 1.15f;
+    /** Frémissement lent du contour et du pli (part du rayon, vitesse en rad/s). */
+    static final float FREMISSEMENT = 0.06f, FREMISSEMENT_VITESSE = 2.4f;
+    /** Durée de vie (s) à la marche et au sprint ; fondu d'entrée (s). */
+    static final float DUREE_MARCHE = 1.6f, DUREE_SPRINT = 1.6f;
+    static final float FONDU_ENTREE = 0.10f;
     /** Allures (blocs/s) de la marche et du sprint, pour l'interpolation. */
     static final double ALLURE_MARCHE = 3.0, ALLURE_SPRINT = 6.0;
-    /** Retombée d'un saut : onde plus grande et plus longue. */
-    static final float SAUT_TAILLE = 1.5f, SAUT_DUREE = 2.0f;
-    /** Expansion : facteur d'échelle à l'impact → en fin de vie, très rapide au début puis freinée (ease-out). */
-    static final float ECHELLE_DEBUT = 0.22f, ECHELLE_FIN = 1.15f;
-    /** Part de la vie consacrée à l'essentiel de l'expansion (au-delà, l'onde ne grandit presque plus). */
-    static final float EXPANSION = 0.55f;
-    /** Trait : demi-épaisseur du flou (blocs) de part et d'autre du contour, opacité au centre du trait. */
-    static final float FLOU = 0.045f;
-    static final float OPACITE = 0.32f;
-    /** Léger éclaircissement de l'intérieur de la flaque (opacité). */
-    static final float INTERIEUR = 0.07f;
-    /** Couleur : eau du biome mêlée de blanc dans cette proportion (bleu-blanc pâle, désaturé). */
-    static final float BLANC = 0.68f;
+    /** Retombée d'un saut : pli plus grand et plus long. */
+    static final float SAUT_TAILLE = 1.45f, SAUT_DUREE = 1.7f;
     /** Pied gauche / droit : décalage latéral de la flaque (blocs). */
     static final double ECART_PIEDS = 0.12;
     /** Gouttelettes par pas (marche → sprint, tirées entre ces bornes) et à la retombée d'un saut. */
@@ -83,10 +75,10 @@ final class Ondes {
     static final int CAPACITE = 128;
     static final double[] FX = new double[CAPACITE], FZ = new double[CAPACITE], FY = new double[CAPACITE];
     static final double[] NAISSANCE = new double[CAPACITE];
-    static final float[] DEMI_A = new float[CAPACITE], DEMI_B = new float[CAPACITE], ANGLE = new float[CAPACITE];
-    static final float[] PHASE1 = new float[CAPACITE], PHASE2 = new float[CAPACITE], VIE = new float[CAPACITE];
-    static final float[] FORCE = new float[CAPACITE];
-    static final int[] TEINTE = new int[CAPACITE];
+    static final float[] RAYON = new float[CAPACITE], VIE = new float[CAPACITE], FORCE = new float[CAPACITE];
+    /** Contour irrégulier : 4 harmoniques (ordres 2 à 5) par pli, amplitude et phase. */
+    static final float[] AMP = new float[CAPACITE * 4], PHASE = new float[CAPACITE * 4];
+    static final int[] TEINTE = new int[CAPACITE], LUMIERE = new int[CAPACITE];
     static final boolean[] ACTIVE = new boolean[CAPACITE];
     private static int tete;
     static int actives;
@@ -116,10 +108,23 @@ final class Ondes {
 
     static boolean vide() { return actives == 0; }
 
-    /** Temps de la simulation (s) : le temps du monde (s'arrête quand le jeu est en pause), interpolé. */
-    static double temps(Minecraft mc, float partialTick) {
-        return mc.level == null ? 0 : (mc.level.getGameTime() + partialTick) / 20.0;
+    private static final long DEBUT = System.nanoTime();
+
+    /**
+     * Horloge des ondes (s) : le temps réel (nanosecondes), lu au tick pour la naissance d'une onde et à <b>chaque
+     * image</b> pour son animation — l'expansion, l'ondoiement et le fondu sont donc continus à toute fréquence
+     * d'images. (Le temps du monde avance par ticks et, sur un serveur, par à-coups de synchronisation : il saccadait.)
+     */
+    static double temps() {
+        if (horlogeMonde) {                                             // banc : films au ralenti (/tick rate)
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.level != null) return (mc.level.getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(false)) / 20.0;
+        }
+        return (System.nanoTime() - DEBUT) * 1e-9;
     }
+
+    /** Banc seulement : l'horloge suit le temps du monde, pour filmer au ralenti avec {@code /tick rate}. */
+    static boolean horlogeMonde;
 
     /**
      * Surface de l'eau sous les pieds d'une entité qui s'y tient debout (pieds à la surface à quelques cm près, pas
@@ -139,7 +144,7 @@ final class Ondes {
         ClientLevel level = mc.level;
         if (level == null || mc.player == null) { vider(); return; }
         tick++;
-        double now = temps(mc, 0f);
+        double now = temps();
         Vec3 cam = mc.gameRenderer.mainCamera().position();
         RandomSource rnd = level.getRandom();
         for (Entity e : level.entitiesForRendering()) {
@@ -219,7 +224,6 @@ final class Ondes {
     private static void impact(ClientLevel level, double x, double y, double z, float echelle, float duree,
                                double now, RandomSource rnd) {
         flaque(level, x, y, z, echelle, duree, 1f, now, rnd);
-        flaque(level, x, y, z, echelle * ONDE2_TAILLE, duree * 0.9f, ONDE2_FORCE, now + ONDE2_RETARD, rnd);
     }
 
     /** Gouttelettes du jeu (éclaboussures) qui jaillissent du pied et retombent, un peu vers l'avant du pas. */
@@ -243,15 +247,21 @@ final class Ondes {
         tete = (tete + 1) % CAPACITE;
         FX[i] = x; FY[i] = y; FZ[i] = z;
         NAISSANCE[i] = now;
-        float d = echelle * (DIAMETRE_MIN + rnd.nextFloat() * (DIAMETRE_MAX - DIAMETRE_MIN));
-        DEMI_A[i] = d / 2;
-        DEMI_B[i] = d / 2 * (APLATI_MIN + rnd.nextFloat() * (APLATI_MAX - APLATI_MIN));
-        ANGLE[i] = rnd.nextFloat() * 6.2832f;
-        PHASE1[i] = rnd.nextFloat() * 6.2832f;
-        PHASE2[i] = rnd.nextFloat() * 6.2832f;
+        RAYON[i] = echelle * (RAYON_MIN + rnd.nextFloat() * (RAYON_MAX - RAYON_MIN));
+        float total = 0;
+        for (int h = 0; h < 4; h++) {                                   // ordres 2..5, les plus bas dominent
+            float a = (0.4f + rnd.nextFloat()) / (1 + h);
+            AMP[i * 4 + h] = a;
+            PHASE[i * 4 + h] = rnd.nextFloat() * 6.2832f;
+            total += a;
+        }
+        for (int h = 0; h < 4; h++) AMP[i * 4 + h] *= IRREGULIER / total;
         VIE[i] = duree;
         FORCE[i] = force;
-        TEINTE[i] = net.minecraft.client.renderer.BiomeColors.getAverageWaterColor(level, BlockPos.containing(x, y - 0.1, z));
+        BlockPos b = BlockPos.containing(x, y - 0.1, z);
+        TEINTE[i] = net.minecraft.client.renderer.BiomeColors.getAverageWaterColor(level, b);
+        LUMIERE[i] = net.minecraft.util.LightCoordsUtil.max(net.minecraft.util.LightCoordsUtil.getLightCoords(level, b),
+                net.minecraft.util.LightCoordsUtil.getLightCoords(level, b.above()));
         if (!ACTIVE[i]) actives++;
         ACTIVE[i] = true;
     }

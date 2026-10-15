@@ -188,7 +188,8 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
      * Whether the character has been ruled <em>dead</em> by a validated
      * Tuer request. Dead characters cannot be re-selected from
      * {@code /character}; they are kept on the roster (greyed out, with
-     * a "Mort" tag) so staff can revive them via {@code /character edit}
+     * a "Mort" tag) so staff can revive them from the Poste de garde
+     * (F7 › fiche › Personnages)
      * after a clarification or RP rewind. Independent from KO state —
      * a player can be KO without being dead, and a character can be
      * dead without anyone being currently logged in as them.
@@ -632,7 +633,7 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
         return removed;
     }
 
-    /** Clear every injury (used by {@code /character edit reset}). */
+    /** Clear every injury (staff reset of a character, Poste de garde). */
     public void clearInjuries() { injuries.clear(); touch(); }
 
     /* ---------------------------------------------- inventory snapshot API */

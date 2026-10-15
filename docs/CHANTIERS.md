@@ -28,6 +28,11 @@
     nourriture v3 et entreprises ([`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md),
     [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md)) ; natures canoniques et Test de la Feuille refait.
     **En recette** : [`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md).
+  - **Publié le 15/10** (`reborn-hud` **0.4.182**, `reborn-ost` 0.2.5, ShinobiCore) : carte des touches réduite (26 → 15,
+    sans conflit, migration une fois, défauts selon le clavier AZERTY/QWERTZ) ([`technique/MOD_HUD.md`](./technique/MOD_HUD.md)
+    §2) ; marche sur l'eau v8 (pli de la texture d'eau, fluide) ; gestion des personnages au Poste de garde (F7 › fiche ›
+    Personnages, ancien `/character edit`, `/persoreset`, `/persosuppr` retirés) ([`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) §1 bis).
+    **Prochain chantier** : Factions et sections (proposition v2 en maquettes).
   - **Publié le 15/10** (`reborn-hud` **0.4.181**, ShinobiCore / ShinobiAbilities) : boutiques en jeu (tailleur à
     comptoirs par catégorie configurés par le staff, bazar ; carte BOUTIQUE de l'Échap vide en attendant les visuels)
     ([`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md)) ; météo blizzard et tempête de sable (`/meteo`, zones,

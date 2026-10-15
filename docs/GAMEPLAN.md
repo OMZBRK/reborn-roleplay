@@ -215,7 +215,7 @@ faction et journaux s'en servent pour reconnaître un personnage de façon fiabl
   13/10, chacun a aussi un **N° court** (Player ID, §1.4 — **fait**).
 - Chaque personnage a un `id` (UUID aléatoire) et un `ownerId` (UUID Minecraft) — `ShinobiCharacter`. Le Poste de garde
   agit sur le **joueur** (UUID Minecraft) et affiche le nom du personnage ; les commandes prennent un `<joueur>`
-  (`/grade`, `/ryo`, `/character edit`).
+  (`/grade`, `/ryo`) ; la gestion des personnages d'un compte est au Poste de garde, fiche › Personnages (15/10).
 - **Slots de personnage** : 2 par défaut, 4 avec `reborn.premium` (dormant), 7 pour le staff
   (`CharacterSelectManager`).
 - Fiche : [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md).
@@ -522,7 +522,7 @@ parchemin unique serait perdu pour tout le serveur.
 - **Vitals de base** (PV, chakra, endurance) : **inchangés** par décision du 08/10.
 - **HUD combat discret** : endurance en ensō autour du viseur, chiffres de dégâts, combo, icônes de recharge
   (`mod-hud/…/combat/`) ; HUD du KO, de l'ATA, du duel (subtils, DA §6 règle 9).
-- **Éditeur de HUD** (touche H) : déplacer, redimensionner, masquer chaque élément ; presets.
+- **Éditeur de HUD** (Échap → INTERFACE depuis le 15/10, plus de touche) : déplacer, redimensionner, masquer chaque élément ; presets.
 - Viseur, noms au-dessus des têtes (4 styles), chat en panneau, carte en M.
 - **Faim** : la jauge vanilla est masquée (mixin du HUD) et le serveur garde la saturation pleine en permanence
   (`display.auto-saturation`) ; le panneau vitals (`runtime/VitalsHud`) affiche tête, vie, chakra, endurance et
@@ -592,7 +592,7 @@ commande est journalisée.
 | Annonce globale / personnelle | ✍🏻 `/annonce`, `/annoncejoueur` (14/10) ; bandeau du mod à faire (repli : titres vanilla) |
 | Écran noir forcé | ✍🏻 `/noir` (14/10) ; écran du mod à faire (repli : Cécité + Obscurité) |
 | Tenue forcée, emote forcée | ✍🏻 `/tenue` (emplacement cosmétique `TENUE` ; l'apparence de skin de l'échoppe : non), `/emoteforcee` (14/10) |
-| Supprimer / remettre à zéro un personnage | ✍🏻 `/persoreset`, `/persosuppr` (14/10) : confirmation + sauvegarde |
+| Supprimer / remettre à zéro un personnage | ✍🏻 Poste de garde › fiche › Personnages (15/10, remplace `/persoreset`, `/persosuppr`) : motif + N° retapé + sauvegarde |
 | Gel (*freeze*) | ✍🏻 persistant depuis le 14/10 (`/geler`, `gels.yml`) |
 | Séisme | ✍🏻 `/seisme` (14/10) : grondement serveur, secousse du mod à faire ; passages nommés : plus tard |
 | Notes staff | ✍🏻 `/note` + Poste de garde (14/10), par N° |
@@ -630,7 +630,7 @@ un `#N°`, et **chaque exécution est journalisée** (la commande tapée et son 
 | `/seisme [rayon\|tous] [force] [s] [message]` | Admin | Écran qui tremble + grondement ; `tous` = annonce globale |
 | `/tenue <cible> <id\|main\|retirer>` | Modérateur | Emplacement `TENUE` imposé et verrouillé, ancienne pièce rendue à la levée |
 | `/emoteforcee <cible> <emote\|stop>` | Modérateur | Emote jouée par la cible |
-| `/persoreset`, `/persosuppr <cible\|#N°> [confirmer]` | Admin | Remise à zéro / suppression, sauvegarde avant |
+| ~~`/persoreset`, `/persosuppr`~~ | Admin | Retirées le 15/10 : Poste de garde › fiche › Personnages (motif, N° retapé, sauvegarde avant) |
 | `/note <cible\|#N°> [ajouter\|suppr]` | Helper (supprimer : auteur ou Admin) | Notes staff rattachées au N° |
 | `/modestaff` | Helper | Mode staff (§1.7) |
 | `/journal …` | Helper | Journal universel (§6.4) |
@@ -703,7 +703,7 @@ Poste de garde (filtres catégorie / N° / joueur / période / texte, pagination
 
 ## 7.1 Aujourd'hui chez Reborn
 
-- Marche, course et saut de Minecraft ; **Naruto run** ; **dash** (V), **double saut**, **saut de chakra** (chargé),
+- Marche, course et saut de Minecraft ; **Naruto run** (triple appui sur le sprint depuis le 15/10) ; **dash** (G depuis le 15/10), **double saut**, **saut de chakra** (chargé),
   **saut mural**, **escalade**, **glissade et roulade** (voie de mobilité n° 2), grappin et tyrolienne ; **voies de
   mobilité** débloquées par des parcours (`/trainingground`) ; endurance en ensō (`ShinobiAbilities/…/mobility/`).
 - **Dégâts de chute désactivés** pour tout le monde (`MobilityListener`).
@@ -1083,7 +1083,7 @@ radio filtré par le client ; en jeu, un **élément « Escouade » de l'éditeu
 **À terre : radio très dégradée** (hachée). L'oreillette peut être **prise** (coupée, ou gardée pour parler à la place
 du propriétaire). Le **staff peut écouter** (un bouton de la fiche joueur ou `/radio ecouter`, journalisé). Fiche
 [`gameplay/RADIO.md`](./gameplay/RADIO.md), maquettes `Maquettes/gameplan/18_radio/v3/` (et `v2/` pour le menu R et le vol).
-→ **Codé le 14/10** (non publié) : plugin `ShinobiRadio` (addon serveur Plasmo Voice) + mod (écran N, élément HUD
+→ **Codé le 14/10** (non publié) : plugin `ShinobiRadio` (addon serveur Plasmo Voice) + mod (écran de l'escouade sur B bref, élément HUD
 « Escouade », menu R, son radio) — [`gameplay/RADIO.md`](./gameplay/RADIO.md) §12.
 → **Portée chuchotée** : l'addon officiel `pv-addon-whisper` (Paper 26.x) donne un mode chuchoté à moitié de portée
 sans rien coder ; un cycle à trois portées demande en plus une activation « crier » (même mécanique que la radio).

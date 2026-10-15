@@ -51,7 +51,7 @@ public final class FirstPersonIntegration {
                     KeyMapping.resetMapping();
                     client.options.save();
                     LOG.info("First-Person Model (tr7zw) : bascule dédiée neutralisée "
-                        + "→ la 1ère personne est pilotée uniquement par la caméra Reborn (touche Y).");
+                        + "→ la 1ère personne est pilotée uniquement par la caméra Reborn (touche Vue, F5).");
                 }
                 return;
             }

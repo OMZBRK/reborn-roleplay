@@ -324,7 +324,7 @@ public class WorldMapScreen extends Screen implements fr.reborn.hud.ui.EcranOpaq
         l.add(new String[]{"Clic", "choisir un lieu"});
         if (snap.canTp()) l.add(new String[]{"Double clic", "y aller"});
         if (snap.here()) l.add(new String[]{"Espace", "ma position"});
-        l.add(new String[]{"M", "fermer"});
+        l.add(new String[]{fr.reborn.hud.keybind.HudKeybinds.nom(fr.reborn.hud.keybind.HudKeybinds.MAP, "M"), "fermer"});
         String[][] items = l.toArray(new String[0][]);
         float total = CarteArt.largeurAides(f, items);
         if (total > this.width - 60 && items.length > 4) {

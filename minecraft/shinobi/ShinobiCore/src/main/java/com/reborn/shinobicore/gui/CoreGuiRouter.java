@@ -32,37 +32,18 @@ public final class CoreGuiRouter implements ScreenRouter {
     }
 
     private com.reborn.shinobicore.character.gui.CharacterListScreen characterList;
-    private com.reborn.shinobicore.character.gui.CharacterEditScreen characterEdit;
-    private com.reborn.shinobicore.character.gui.ClanPickerScreen clanPicker;
 
-    /** One-time wiring from the main class (character cluster). */
-    public void bindCharacter(
-            com.reborn.shinobicore.character.gui.CharacterListScreen characterList,
-            com.reborn.shinobicore.character.gui.CharacterEditScreen characterEdit,
-            com.reborn.shinobicore.character.gui.ClanPickerScreen clanPicker) {
+    /** One-time wiring from the main class (character cluster). La gestion staff des personnages (ex-éditeur et
+     *  sélecteur de clan en coffre) est au Poste de garde depuis le 15/10 : {@code staff.panel.PersonnagesPanel}. */
+    public void bindCharacter(com.reborn.shinobicore.character.gui.CharacterListScreen characterList) {
         this.characterList = characterList;
-        this.characterEdit = characterEdit;
-        this.clanPicker = clanPicker;
     }
 
     /* ----------------------------------------------- character navigation */
 
-    /** The editor screen (shared chat-prompt + nickname helpers live on it). */
-    public com.reborn.shinobicore.character.gui.CharacterEditScreen characterEdit() {
-        return characterEdit;
-    }
-
-    public void openCharacterList(Player viewer, java.util.UUID targetOwner,
-            com.reborn.shinobicore.character.gui.CharacterListScreen.Action action) {
-        characterList.open(viewer, targetOwner, action);
-    }
-
-    public void openCharacterEdit(Player viewer, ShinobiCharacter c) {
-        characterEdit.open(viewer, c);
-    }
-
-    public void openClanPicker(Player viewer, ShinobiCharacter c) {
-        clanPicker.open(viewer, c);
+    /** Repli de la sélection (sans le mod) : les personnages du joueur, clic = le jouer. */
+    public void openCharacterList(Player viewer) {
+        characterList.open(viewer);
     }
 
     private com.reborn.shinobicore.character.gui.RencontrerRootScreen rencontrerRoot;
@@ -246,10 +227,9 @@ public final class CoreGuiRouter implements ScreenRouter {
         return screens;
     }
 
-    /** The character system's "home": the viewer's own roster in SELECT mode. */
+    /** The character system's "home": the viewer's own roster (pick one to play). */
     @Override
     public void openHub(Player p) {
-        characterList.open(p, p.getUniqueId(),
-                com.reborn.shinobicore.character.gui.CharacterListScreen.Action.SELECT);
+        characterList.open(p);
     }
 }

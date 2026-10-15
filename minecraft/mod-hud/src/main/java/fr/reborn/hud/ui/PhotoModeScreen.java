@@ -31,7 +31,8 @@ import java.util.Locale;
  * </ul>
  * En mouvement (ZQSD / glisser) l'interface s'efface pour ne laisser que le viseur. À la capture,
  * l'interface est masquée quelques images (la photo est propre), puis flash + obturateur.
- * Molette = champ de vision, Maj + molette = inclinaison, Entrée = capturer, P / Échap = quitter.
+ * Molette = champ de vision, Maj + molette = inclinaison, Entrée = capturer, G = galerie (bouton « Galerie » à côté des
+ * dernières photos, qui y mènent aussi : depuis le 15/10 la galerie n'a plus de touche en jeu), P / Échap = quitter.
  */
 public class PhotoModeScreen extends Screen {
 
@@ -165,7 +166,7 @@ public class PhotoModeScreen extends Screen {
             if (hover != lastHover) { if (hover >= 0) RebornSounds.playReborn("esc.hover", 1.2f, 0.12f); lastHover = hover; }
             DaKit.aides(g, f, fr.reborn.hud.menu.settings.ReglagesArt.PIECES, 0, 0, 120, 40, new String[][]{
                 {"ZQSD", "voler"}, {"Molette", "champ"}, {"Maj+molette", "incliner"}, {"Entrée", "capturer"},
-                {quitKey(), "quitter"}}, this.width - 18, this.height - 8, 1f);
+                {HudKeybinds.nom(GLFW.GLFW_KEY_G), "galerie"}, {quitKey(), "quitter"}}, this.width - 18, this.height - 8, 1f);
         }
 
         // Flash après la capture.
@@ -265,7 +266,23 @@ public class PhotoModeScreen extends Screen {
             if (t != null) g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, t.id(), x, y, 0f, 0f, 38, 20, t.w(), t.h(), t.w(), t.h());
             else g.fill(x, y, x + 38, y + 20, 0xFF2A2022);
         }
+        // Galerie (15/10) : à droite des dernières photos.
+        int gx = galerieX(), gy = galerieY();
+        boolean gh = Da.in(mx, my, gx, gy, GALERIE_W, 16) || Da.in(mx, my, 28, y - 2, recent.size() * 48, 26);
+        fr.reborn.hud.menu.settings.ReglagesArt.segment(g, gx, gy, GALERIE_W, gh ? 1 : 0);
+        DaKit.inter7(g, f, DaKit.inter("Galerie"), gx + GALERIE_W / 2f, gy + 8, gh ? DaKit.CREME : DaKit.CREME_VAL, 1);
+        if (gh) hover = 41;
         return hover;
+    }
+
+    private static final int GALERIE_W = 52;
+    private int galerieX() { return 30 + recent.size() * 48 + (recent.isEmpty() ? 0 : 4); }
+    private int galerieY() { return this.height - 56; }
+
+    /** Ouvre la galerie ; la fermer ramène au mode photo. */
+    private void ouvrirGalerie() {
+        RebornSounds.playReborn("esc.select", 1.1f, 0.35f);
+        Minecraft.getInstance().setScreenAndShow(new GalleryScreen(new PhotoModeScreen()));
     }
 
     private static double dist(double x, double y, double cx, double cy) { return Math.hypot(x - cx, y - cy); }
@@ -316,6 +333,8 @@ public class PhotoModeScreen extends Screen {
             if (Da.in(mx, my, sliderX(), frameY(), sliderW(), 16)) { p.cycleFrame(); RebornSounds.playReborn("photo.filter", 0.9f, 0.6f); return true; }
             if (Da.in(mx, my, sliderX(), resetY(), sliderW(), 16)) { p.resetPosition(mc); RebornSounds.playReborn("esc.select", 1.1f, 0.35f); return true; }
             if (dist(mx, my, shutterX(), shutterY()) <= 15) { capture(); return true; }
+            if (Da.in(mx, my, galerieX(), galerieY(), GALERIE_W, 16)
+                || Da.in(mx, my, 28, this.height - 60, recent.size() * 48, 26)) { ouvrirGalerie(); return true; }
             if (Da.in(mx, my, pX, pY, PW, PH)) return true;
         }
         return super.mouseClicked(event, doubleClick);
@@ -378,6 +397,7 @@ public class PhotoModeScreen extends Screen {
             return true;
         }
         if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER) { capture(); return true; }
+        if (event.key() == GLFW.GLFW_KEY_G && hideFrames == 0) { ouvrirGalerie(); return true; }
         // Ouvre le chat par-dessus la freecam (touche chat = T, ou commande = /).
         Minecraft mc = Minecraft.getInstance();
         if (mc.options != null) {

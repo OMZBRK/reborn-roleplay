@@ -38,6 +38,21 @@ public final class RebornVoiceAddon implements AddonInitializer {
             (h, mc) -> radio.reinitialiser());
     }
 
+    /** Banc des touches : raccourcis de Plasmo Voice (nom → touches), hors Commandes de Minecraft. */
+    public static java.util.List<String> raccourcis() {
+        java.util.List<String> l = new java.util.ArrayList<>();
+        PlasmoVoiceClient c = su.plo.voice.client.ModVoiceClient.INSTANCE;
+        if (c == null) return l;
+        c.getHotkeys().getCategories().forEach((cat, hks) -> {
+            for (var hk : hks) {
+                StringBuilder k = new StringBuilder();
+                for (var key : hk.getKeys()) k.append(key.getType()).append(':').append(key.getCode()).append(' ');
+                l.add(String.format("%-34s %s", "pv " + hk.getName(), k.length() == 0 ? "aucune" : k.toString().trim()));
+            }
+        });
+        return l;
+    }
+
     /** J'émets à la radio en ce moment (touche B tenue et activation active) ? Faux sans Plasmo Voice. */
     public static boolean radioEmet() {
         try {

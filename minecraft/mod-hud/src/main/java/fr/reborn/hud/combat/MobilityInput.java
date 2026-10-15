@@ -13,7 +13,7 @@ import net.minecraft.world.phys.Vec3;
  * ({@link CooldownState.Ability#DOUBLE_JUMP}) au lieu d'une recharge au sol — pour
  * que le PvP ne repose pas que sur la mobilité. Pas de particules (retour user).
  *
- * <p>Le dash 8-dir, lui, est sur la touche V ({@link CombatInput#dash}).
+ * <p>Le dash 8-dir, lui, est sur la touche G ({@link CombatInput#dash}).
  */
 public final class MobilityInput {
 

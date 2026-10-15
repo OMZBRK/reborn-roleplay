@@ -312,11 +312,24 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
         } catch (Exception ignored) { }
     }
 
-    /** Nombre de personnages autorisés selon le grade : lambda 2, premium 4, staff 7. */
-    private int slotLimit(Player p) {
+    /** Base selon le grade : lambda 2, premium 4, staff 7. */
+    public static int slotBase(Player p) {
         if (p.hasPermission("shinobicore.staff")) return 7;
         if (p.hasPermission("reborn.premium")) return 4; // dormant tant que la boutique n'existe pas
         return 2;
+    }
+
+    /** Emplacements débloqués / retirés par le staff (Poste de garde, 15/10). */
+    private EmplacementsBonus emplacements;
+
+    public EmplacementsBonus emplacements() {
+        if (emplacements == null) emplacements = new EmplacementsBonus(plugin);
+        return emplacements;
+    }
+
+    /** Nombre de personnages autorisés : base du grade + bonus staff du compte (au moins 1). */
+    public int slotLimit(Player p) {
+        return Math.max(1, slotBase(p) + emplacements().of(p.getUniqueId()));
     }
 
     // ── Réception (C2S : "select:<id>" | "create") ───────────────

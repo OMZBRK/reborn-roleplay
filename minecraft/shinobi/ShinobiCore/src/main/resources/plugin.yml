@@ -278,16 +278,6 @@ commands:
     usage: "/<command> <cible> <emote|stop>"
     aliases: [forceemote]
     permission: reborn.staff.helper
-  persoreset:
-    description: "Staff (Admin) — remettre un personnage à zéro (confirmation, sauvegarde avant)."
-    usage: "/<command> <cible|#N°> [confirmer]"
-    aliases: [resetcharacter]
-    permission: reborn.staff.helper
-  persosuppr:
-    description: "Staff (Admin) — supprimer un personnage, slot libéré, N° réservé (confirmation, sauvegarde avant)."
-    usage: "/<command> <cible|#N°> [confirmer]"
-    aliases: [deletecharacter]
-    permission: reborn.staff.helper
   modestaff:
     description: "Staff — mode staff : invisible aux joueurs, vol, aucune mécanique RP, plaques au-dessus des têtes."
     usage: "/<command> [anim]"
@@ -408,7 +398,7 @@ permissions:
     description: Allows using the Zipline de Ninja (deployable zipline).
     default: true
   shinobicore.character.admin:
-    description: Admin access to create/edit/delete any character.
+    description: "Staff — /character list <joueur> et /character cinematic (la gestion des personnages est au Poste de garde, F7)."
     default: op
   shinobicore.admin:
     description: Admin access for debug commands.

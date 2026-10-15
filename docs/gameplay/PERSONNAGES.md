@@ -24,6 +24,50 @@
   ticket) ; le staff le voit au Poste de garde, dans `/pid` et les journaux, et peut viser un personnage par
   `#00042` dans ses commandes. **Jamais montré aux autres joueurs** (« rencontrer » garde les noms secrets).
   Détails : [`../GAMEPLAN.md`](../GAMEPLAN.md) §1.4, [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §2.1 bis.
+- **Emplacements** : base 2 (premium 4, staff 7) **+ bonus du compte** débloqué ou retiré par le staff
+  (`emplacements.yml`, 15/10, non publié), au moins 1.
+
+## 1 bis. Gestion staff (Poste de garde, 15/10, non publiée)
+
+Tout se fait au **Poste de garde (F7) › fiche du joueur › section Personnages** — y compris pour un joueur **hors
+ligne** (le trouver par la recherche : nom RP, pseudo ou `#N°`). Code : serveur `staff/panel/PersonnagesPanel.java`,
+mod `staff/GardePersonnages.java` ; protocole [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md)
+§4 bis.2.
+
+- **Liste** : un personnage par ligne (N°, nom, clan · village · grade · âge ; « joué » / « mort RP »), puis
+  « Emplacements 3 / 4 (bonus +2) » avec Ajouter… / Retirer…, et « + Créer un personnage… ».
+- **Détail** (clic sur une ligne) : âge, taille, sexe, date de création (états de service ; « — » pour un personnage
+  antérieur), art, affinité, natures, nombre de techniques, ryo, blessures, temps de jeu du **compte** (en ligne
+  seulement : pas de compteur par personnage) ; **fiche shinobi** : les six stats, PV et chakra max, points à
+  répartir, bonus staff, niveau.
+- **Actions** (formulaire dans le volet ; grisées avec cadenas si le grade ne suffit pas ; le serveur revérifie) :
+
+| Action | Grade | Motif | Effet |
+|---|---|---|---|
+| Consulter | Helper | — | liste, détail, fiche shinobi |
+| Identité… (nom, âge, taille en cm, sexe) | Modérateur | facultatif | nom unique sur le compte ; affichage (tab, plaque) et skin mis à jour si joué |
+| Clan et village… | Modérateur | facultatif | clan libre (un clan connu est corrigé, « aucun » le retire) ; 6 villages, Déserteur, aucun |
+| Art et affinité… | Modérateur | facultatif | étiquettes RP, sans effet sur les stats |
+| Jouer ce personnage… | Modérateur | **obligatoire** | bascule le joueur (en ligne) sur ce personnage ; refusé s'il est à terre, en combat, gelé, à l'écran de sélection, ou si le personnage est mort |
+| Grade et points… | Admin | facultatif | grade (inscrit aux états de service, points recalculés), points de stats bonus |
+| Déclarer mort RP… / Ressusciter… | Admin | **obligatoire** | hors scène (une mise à mort passe par les alertes) ; s'il est joué, le joueur revient à la sélection |
+| Remettre à zéro… | Admin | **obligatoire** + N° retapé | comme l'ancien `/persoreset` (sauvegarde `sauvegardes/perso/` avant) |
+| Supprimer… | Admin | **obligatoire** + N° retapé | comme l'ancien `/persosuppr` (sauvegarde avant, N° réservé, joueur déconnecté s'il le jouait) |
+| Emplacement + / − | Admin | **obligatoire** | bonus du compte, de −(base − 1) à +20 |
+| Créer un personnage… | Admin | **obligatoire** | nom seulement (le reste se règle ensuite ; apparence par défaut), N° attribué tout de suite |
+
+- **Journal** : chaque action est au journal universel (`STAFF` : `PERSO_IDENTITE`, `PERSO_ORIGINE`, `PERSO_ART`,
+  `PERSO_PROGRESSION`, `PERSO_ACTIF_FORCE`, `PERSO_MORT_RP`, `PERSO_RESSUSCITE`, `PERSO_CREE`, `PERSO_RESET`,
+  `PERSO_SUPPRIME`, `EMPLACEMENT_AJOUTE`, `EMPLACEMENT_RETIRE` ; détail « avant → après » et motif) et au journal du
+  Poste de garde. Le joueur, s'il est en ligne, reçoit une ligne (« Le staff a modifié ton personnage : … »).
+- **Hors ligne** : tout est enregistré tout de suite et s'applique à la reconnexion, sauf « Jouer ce personnage »
+  (connecté seulement) et la base d'emplacements (qui dépend de ses permissions : seul le bonus s'affiche).
+- **Retiré le 15/10** : `/character create|edit` et leurs écrans-coffres (éditeur, sélecteur de clan), `/persoreset`,
+  `/persosuppr`. Restent : `/character select` (repli de la sélection sans le mod), `/character list [joueur]` (texte,
+  console comprise), `/character cinematic`. Les points de stats « +1 / −1 » de l'ancien éditeur deviennent un total
+  (Grade et points…). Les écrans joueurs « rencontrer » (donner son nom, surnom, demande de nom) ne changent pas.
+- **Banc** : `REBORN_STAFF_DEBUG=vite:persos,persos_detail,…` (10 cas, captures
+  `Maquettes/gameplan/04_staff/personnages/`).
 
 ---
 

@@ -33,6 +33,8 @@ public final class StaffDebug {
             "joueurs", "joueurs_survol", "joueurs_menu", "recherche", "recherche_action", "recherche_hors_ligne",
             "fiche", "fiche_plus", "fiche_radio", "fiche_notes", "fiche_sanctions", "sanction", "fiche_comptes",
             "action_noir", "action_suppr",
+            "persos", "persos_detail", "persos_identite", "persos_grade", "persos_mort", "persos_suppr", "persos_creer",
+            "persos_emplacement", "persos_refus", "persos_hors_ligne",
             "journal", "journal_filtre", "journal_menu", "journal_vide",
             "outils", "annonces", "annonce_confirm", "seisme", "chat", "commandes", "modes",
             "blesses", "zones", "zones_nouvelle", "hopitaux", "reglages",
@@ -49,11 +51,12 @@ public final class StaffDebug {
         String v = System.getenv("REBORN_STAFF_DEBUG");
         if (v == null || v.isBlank()) return;
         v = v.trim();
-        boolean vite = "vite".equalsIgnoreCase(v);
+        // « vite:<cas>,<cas> » : ces cas seuls, en 1920×1080 seulement
+        boolean vite = "vite".equalsIgnoreCase(v) || v.startsWith("vite:");
         int[][] tailles = vite ? new int[][]{{1920, 1080, 2}}
                 : new int[][]{{1920, 1080, 2}, {1366, 768, 2}, {1920, 1080, 3}};
         Set<String> only = new HashSet<>();
-        if (!"1".equals(v) && !vite) only.addAll(List.of(v.split(",")));
+        if (!"1".equals(v) && !"vite".equalsIgnoreCase(v)) only.addAll(List.of((v.startsWith("vite:") ? v.substring(5) : v).split(",")));
         for (int[] f : tailles) {
             String tag = f[2] == 3 ? "s3" : f[0] + "x" + f[1];
             for (int i = 0; i < CAS.length; i++) {
@@ -101,6 +104,7 @@ public final class StaffDebug {
             inject(snap(me, s.dense(), s.cas()));
             inject(profile(me, s.dense()));
             StaffDemo.activer(me, profile(me, s.dense()));
+            StaffDemo.persosAZero();
             StaffClient.debugReceive(InfirmerieDebug.snapshot(me));
             if (s.cas().startsWith("hud_")) { hud(mc, s.cas()); return; }
             GardeScreen g = new GardeScreen("alerts");
@@ -122,7 +126,12 @@ public final class StaffDebug {
             case "recherche_action" -> g.debugSearch("gel kazu");
             case "recherche_hors_ligne" -> g.debugSearch("sora");
             case "fiche", "fiche_plus", "fiche_radio", "fiche_notes", "fiche_sanctions", "sanction", "fiche_comptes",
-                 "action_noir", "action_suppr" -> g.debugProfile(me);
+                 "action_noir", "action_suppr", "persos", "persos_detail", "persos_identite", "persos_grade", "persos_mort",
+                 "persos_suppr", "persos_creer", "persos_emplacement", "persos_refus" -> g.debugProfile(me);
+            case "persos_hors_ligne" -> {
+                g.debugProfile(StaffDemo.HORS_LIGNE);
+                g.fiche.cible = horsLigne();
+            }
             case "journal", "journal_vide", "journal_menu" -> g.debugTab("journal");
             case "journal_filtre" -> {
                 g.debugTab("journal");
@@ -172,6 +181,14 @@ public final class StaffDebug {
                 g.formulaire.debugValeur(0, "Vous perdez connaissance…");
             }
             case "action_suppr" -> GardeActions.lancer(g, GardeActions.SUPPR, StaffClient.profile());
+            case "persos", "persos_detail", "persos_identite", "persos_grade", "persos_mort", "persos_suppr", "persos_creer",
+                 "persos_emplacement", "persos_refus", "persos_hors_ligne" -> {
+                JsonObject p = "persos_hors_ligne".equals(cas) ? horsLigne() : StaffClient.profile();
+                g.fiche.ouvrirSection("persos");
+                g.fiche.persos.demander(StaffScreen.str(p, "uuid"), true);
+                g.fiche.persos.debug(p, cas);
+                if ("persos_refus".equals(cas)) StaffClient.toast("Réservé au grade Admin et plus.");
+            }
             case "journal_filtre" -> g.journalVue.debugDeplier(0);
             case "journal_menu" -> g.debugMenuFiltre();
             case "journal_vide" -> g.journalVue.debugTexte("introuvable");
@@ -255,6 +272,11 @@ public final class StaffDebug {
         o.addProperty("modeAnim", false);
         o.addProperty("animPossible", true);
         if ("action_suppr".equals(cas)) { o.addProperty("grade", 3); o.addProperty("gradeName", "Admin"); }
+        if (cas.startsWith("persos")) {
+            boolean helper = "persos_refus".equals(cas);
+            o.addProperty("grade", helper ? 1 : 3);
+            o.addProperty("gradeName", helper ? "Helper" : "Admin");
+        }
         if (dense) densify(o, me);
         return o.toString();
     }
@@ -300,6 +322,19 @@ public final class StaffDebug {
     }
 
     private static void inject(String json) { StaffClient.debugReceive(json); }
+
+    /** Joueur hors ligne du banc (résultat de recherche) : fiche Personnages d'un compte non connecté. */
+    private static JsonObject horsLigne() {
+        JsonObject p = new JsonObject();
+        p.addProperty("uuid", StaffDemo.HORS_LIGNE);
+        p.addProperty("pid", "00009");
+        p.addProperty("perso", "Sora Uchiha");
+        p.addProperty("name", "sorasan");
+        p.addProperty("rank", "Jōnin");
+        p.addProperty("online", false);
+        p.addProperty("vu", "il y a 2 j");
+        return p;
+    }
 
     private static final String SNAP = """
             {"t":"snap","grade":2,"gradeName":"Modérateur","staffOnline":4,

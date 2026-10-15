@@ -35,7 +35,13 @@ public final class InventoryCommands {
         RebornPrefs.INSTANCE.sacocheInventory = sacoche;
         RebornPrefs.INSTANCE.save();
         src.sendFeedback(Component.literal(sacoche
-            ? "§a[Reborn] Inventaire : SACOCHE RP (touche E). Tape §f/rpinv vanilla§a pour l'inventaire Minecraft."
-            : "§7[Reborn] Inventaire : VANILLA Minecraft (touche E). Tape §f/rpinv custom§7 pour la sacoche RP."));
+            ? "§a[Reborn] Inventaire : SACOCHE RP (touche " + touche() + "). Tape §f/rpinv vanilla§a pour l'inventaire Minecraft."
+            : "§7[Reborn] Inventaire : VANILLA Minecraft (touche " + touche() + "). Tape §f/rpinv custom§7 pour la sacoche RP."));
+    }
+
+    /** Nom réel de la touche Inventaire sur le clavier du joueur. */
+    private static String touche() {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        return mc.options == null ? "E" : fr.reborn.hud.keybind.HudKeybinds.nom(mc.options.keyInventory, "E");
     }
 }

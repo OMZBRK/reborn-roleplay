@@ -10,7 +10,9 @@ import net.minecraft.network.chat.Component;
 
 /**
  * Onglet Contrôles — réglages souris/déplacement câblés sur {@code mc.options}
- * <b>et</b> les commandes Reborn (re-bindables inline via {@link KeybindButton}).
+ * <b>et</b> les commandes Reborn (re-bindables inline via {@link KeybindButton}) : la carte des touches du 15/10, avec
+ * les touches Minecraft que Reborn utilise (sacoche, vue, allures) et celles des autres mods du modpack (OST, Plasmo
+ * Voice) quand ils sont là.
  * Les binds Reborn vivent aussi dans l'écran vanilla « Commandes » sous la
  * catégorie « Reborn » (cf. {@code RebornKeyCategory}) ; on les remonte ici pour
  * qu'ils soient accessibles sans quitter les paramètres Reborn.
@@ -25,6 +27,22 @@ public class ControlsTab extends SectionedTab {
 
     public ControlsTab(Screen parent) {
         this.parent = parent;
+    }
+
+    /** Une ligne de touche (rien si le mod qui la porte est absent). */
+    private void touche(KeyMapping km, String label, String aide) {
+        if (km == null) return;
+        String l = label != null ? label : Component.translatable(km.getName()).getString();
+        int btnW = Math.min(KEY_BTN_W, controlW());
+        row(l, aide, (cx, cy, cw) -> new KeybindButton(cx + cw - btnW, cy, btnW, 24, km));
+    }
+
+    private static String aide(KeyMapping km) {
+        if (km == HudKeybinds.RADIO_PARLER) return "Maintenir : parler à l'escouade · appui bref : écran de l'escouade";
+        if (km == HudKeybinds.ANIMATIONS) return "Démarches et émotes";
+        if (km == HudKeybinds.PHOTO) return "La galerie s'ouvre depuis le mode photo";
+        if (km == HudKeybinds.PICKUP) return "Seulement s'il y a quelque chose à faire, sinon la touche garde son rôle";
+        return null;
     }
 
     @Override
@@ -66,14 +84,21 @@ public class ControlsTab extends SectionedTab {
 
         section("Commandes Reborn");
 
-        // Chaque bind Reborn : label à gauche, bouton de re-bind à droite.
-        // Clic sur le bouton → écoute la prochaine touche (Échap = dé-bind).
+        // Carte des touches du 15/10 (docs/technique/MOD_HUD.md §2), dans l'ordre de la carte : les touches Minecraft
+        // que Reborn détourne (sacoche, vue, allures) sont listées à leur place. Clic → écoute la prochaine touche
+        // (Échap = aucune).
+        touche(o.keyInventory, "Sacoche", null);
         for (KeyMapping km : HudKeybinds.REBORN_KEYS) {
-            String label = Component.translatable(km.getName()).getString();
-            int btnW = Math.min(KEY_BTN_W, controlW());
-            row(label, null, (cx, cy, cw) ->
-                new KeybindButton(cx + cw - btnW, cy, btnW, 24, km));
+            if (km == HudKeybinds.FREELOOK) touche(o.keyTogglePerspective, "Vue", "Épaule / 1re personne ; côté et cadrage : onglet Caméra");
+            if (km == HudKeybinds.DASH) touche(o.keySprint, "Allures", "Maintenir : trot · 2 appuis : sprint · 3 appuis : course de chakra");
+            touche(km, null, aide(km));
         }
+
+        section("Autres mods");
+        touche(KeyMapping.get("key.reborn-ost.open_menu"), "Menu OST", "Musiques du serveur");
+        touche(KeyMapping.get("key.plasmovoice.settings"), "Plasmo Voice", "Micro, casque et touches de la voix : dans ce menu");
+        touche(KeyMapping.get("key.reborn-hud.staff_panel"), "Poste de garde", "Staff seulement");
+        labelRow("Toutes les touches", "Minecraft et les autres mods : Options → Commandes");
 
         spacer(4);
     }

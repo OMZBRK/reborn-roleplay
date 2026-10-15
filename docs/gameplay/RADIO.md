@@ -5,7 +5,7 @@
 > Voice, mais ce serait bien de faire un truc RADIO ». Une première proposition à canaux (équipe, section, fréquences
 > libres, appel de service) a été **remplacée le jour même** par les décisions de l'utilisateur
 > ([`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md), 14/10) : **la radio = une escouade**. Ce qui reste marqué
-> *(proposition)* est à valider ; les questions sont au §11. **v3 (retours du même jour)** : écran N épuré et centré,
+> *(proposition)* est à valider ; les questions sont au §11. **v3 (retours du même jour)** : écran de l'escouade épuré et centré,
 > élément HUD « Escouade » (tête → nom) placé par l'éditeur de HUD, écoute staff minimale, **aucun kanji décoratif**,
 > et les recommandations par défaut adoptées (§4, §11).
 >
@@ -13,7 +13,7 @@
 > à côté de `RBLAUNCHER/` :
 > - **v3** (référence) : `v3/01_ecran_escouade.png`, `v3/02_hud_escouade.png`, `v3/02b_editeur_hud.png`,
 >   `v3/03_staff_ecoute.png` (`_maquettes_v3.py`) ;
-> - **v2**, encore valable pour l'ajout par le menu R et le vol : `v2/01_escouade.png` (menu R seulement : l'écran N
+> - **v2**, encore valable pour l'ajout par le menu R et le vol : `v2/01_escouade.png` (menu R seulement : l'écran de l'escouade
 >   et le cordon sont remplacés par la v3), `v2/03_a_terre_oreillette.png` (**validé tel quel**) ;
 > - v1 (à canaux) et le reste de la v2 : pour mémoire.
 >
@@ -34,7 +34,8 @@
 4. **Créer / ajouter** : par le **menu R** sur un joueur **à côté de soi** (« Radio › Ajouter à « Kagerō » »). Le
    créateur ajoute ; **ceux qu'il a ajoutés peuvent ajouter aussi**. Toujours en face à face.
 5. **Persistante** : se déconnecter ne fait pas quitter l'escouade.
-6. **Touches configurables** : **B** (maintenir) pour parler, **N** pour le petit écran de l'escouade.
+6. **Une seule touche, configurable** (15/10) : **B maintenu** pour parler, **B appui bref** (moins de 0,25 s, sans
+   tenir) pour le petit écran de l'escouade, que B referme. La touche N n'est plus à la radio (elle ouvre le menu OST).
 7. En parlant à la radio on est aussi entendu **à 4 blocs, en chuchoté**. À l'écoute : son radio (bande étroite,
    souffle, clic). HUD : un **élément « Escouade »** de l'éditeur de HUD (déplaçable, redimensionnable) qui montre
    seulement **[tête du skin] Nom** de ceux qui parlent.
@@ -110,7 +111,7 @@ proximité ; bon **modèle de code**). Où vit l'addon serveur : §11.
 - Obtention *(proposition)* : échoppe / artisan, prix modeste. Une oreillette coupée se **répare** chez un artisan
   (ou on en rachète une, puis un membre vous ré-ajoute).
 
-## 4. L'escouade (maquettes v2/01 pour le menu R, v3/01 pour l'écran N)
+## 4. L'escouade (maquettes v2/01 pour le menu R, v3/01 pour l'écran de l'escouade)
 
 - **Créer** : menu R sur un joueur à côté → « Radio › Créer une escouade avec lui ». L'escouade naît avec les deux
   joueurs. Nom par défaut : celui du créateur, **renommable** (« Kagerō »).
@@ -119,7 +120,7 @@ proximité ; bon **modèle de code**). Où vit l'addon serveur : §11.
   « Aki U. t'ajoute à l'escouade Kagerō — Entrée accepter · Retour refuser » ; il a **10 s pour accepter** (adopté).
   Il doit porter une oreillette.
 - **Persistante** : déconnecté = toujours membre (« hors ligne » dans la liste). Survit aux redémarrages.
-- **Petit écran N** (maquette v3/01) : **centré, épuré**, sans ornement ni kanji. Titre « Escouade Kagerō », « 4 membres
+- **Petit écran de l'escouade** (appui bref sur B ; maquette v3/01) : **centré, épuré**, sans ornement ni kanji. Titre « Escouade Kagerō », « 4 membres
   sur 8 », puis une ligne par membre : **tête du skin, nom, état** (point de couleur + « en ligne », « à terre »,
   « hors ligne », « toi · créateur »). **Survoler** un membre montre « Exclure » (créateur seul). En bas, trois mots
   soulignés au survol : **Renommer, Quitter, Dissoudre…** (Renommer et Dissoudre : créateur seul). Pas de bouton
@@ -129,7 +130,7 @@ proximité ; bon **modèle de code**). Où vit l'addon serveur : §11.
 |---|---|
 | Distance pour ajouter | 3 blocs, face à face |
 | Taille maximale | **8** membres |
-| Quitter | À tout moment, depuis l'écran N |
+| Quitter | À tout moment, depuis l'écran de l'escouade |
 | Exclure | Le **créateur seul**, à distance (exclure un membre **ou une oreillette** précise : parade au vol) |
 | Créateur qui quitte | Le **plus ancien** membre devient créateur |
 | Dissolution | Par le créateur ; automatique si l'escouade est vide, ou si **personne ne s'est connecté depuis 30 jours** |
@@ -148,7 +149,7 @@ proximité ; bon **modèle de code**). Où vit l'addon serveur : §11.
   - **à terre** : « haché » après le nom ;
   - en silence : **rien à l'écran** ; option de l'éditeur « Afficher toute l'escouade » (ceux qui se taisent en
     retrait) ;
-  - **déplaçable et redimensionnable** dans l'éditeur de HUD (touche H) : une entrée `ESCOUADE` de l'énumération
+  - **déplaçable et redimensionnable** dans l'éditeur de HUD (Échap → INTERFACE) : une entrée `ESCOUADE` de l'énumération
     `element/HudElement` (comme `COMBAT_ENDURANCE` et `COOLDOWNS`), ses limites dans `HudElementBounds`, des têtes
     d'exemple affichées dans l'éditeur. Défaut **validé le 14/10** : sous les vitals, à gauche.
 - **Plus de ligne « radio · canal »** à côté des vitals (v1/v2), et l'icône d'activation de Plasmo Voice est masquée
@@ -170,7 +171,7 @@ Sur un joueur **à terre** (ou inconscient), le menu R propose **« Oreillette �
 | **Couper son oreillette** | Fil arraché : l'oreillette devient **muette** (sur lui). Il reste membre, mais n'entend ni n'émet tant qu'il n'a pas une oreillette réparée ou neuve. |
 | **Prendre son oreillette** | Elle passe dans la **sacoche** du preneur. S'il la **porte**, il entend l'escouade et parle **à la place** du propriétaire : chez les autres, l'élément Escouade affiche **la tête et le nom du propriétaire** (« Ren H. ») avec une autre voix (adopté). Chez lui, un rappel discret « oreillette de Ren Hyūga ». |
 
-- **Parade** : le créateur **exclut l'oreillette** (par son numéro) depuis l'écran N ; elle ne capte plus rien.
+- **Parade** : le créateur **exclut l'oreillette** (par son numéro) depuis l'écran de l'escouade ; elle ne capte plus rien.
 - Le vol passe par la **fouille** existante (KO_ET_MORT_RP) : mêmes conditions, même journal des objets.
 
 ## 8. Staff (maquette v3/03)
@@ -217,8 +218,9 @@ Questions restantes :
 2. ~~Position par défaut : sous les vitals, à gauche ?~~ **Validé le 14/10.**
 3. Commandes staff en plus de l'écoute (`/radio couper`, `/radio retirer`) : **codées** (Modérateur), à confirmer ou
    retirer.
-4. Touches : **B** est aussi la touche par défaut d'Emotecraft et **N** celle du menu OST (`mod-ost`) — à rebinder
-   chez l'un ou l'autre dans le modpack (les deux touches radio sont réglables dans les contrôles Reborn).
+4. ~~Touches : **B** est aussi la touche par défaut d'Emotecraft et **N** celle du menu OST~~ **Réglé le 15/10** (carte
+   des touches, [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §2) : B seule pour la radio (maintenir = parler,
+   appui bref = écran), la roue d'Emotecraft n'a plus de touche (émotes dans le menu « . »), N passe au menu OST.
 5. Réparer une oreillette : en attendant les artisans, `/radio reparer` (Modérateur ou permission
    `shinobiradio.artisan`). Obtention (échoppe, prix) : à décider ; aujourd'hui `/radio donner` (Admin) ou `/nexo give`.
 
@@ -250,11 +252,11 @@ et `ModeStaff` accepte aussi `/radio info|donner|reparer` en mode staff.
 | Pièce | Classe | Maquette |
 |---|---|---|
 | Canal, état, invitation, paroles | `RadioClient` | — |
-| Écran N (centré, épuré, sans kanji ; survol → Exclure, « Couper l'oreillette » si elle a été prise ; Renommer, Quitter et Dissoudre avec second clic) | `RadioScreen`, textures `textures/gui/radio/panneau_<h>.png` (`tools/gen_radio_textures.py`) | v3/01 |
+| Écran de l'escouade, appui bref sur B (centré, épuré, sans kanji ; survol → Exclure, « Couper l'oreillette » si elle a été prise ; Renommer, Quitter et Dissoudre avec second clic) | `RadioScreen`, textures `textures/gui/radio/panneau_<h>.png` (`tools/gen_radio_textures.py`) | v3/01 |
 | Élément HUD « Escouade » (`HudElement.ESCOUADE`, défaut sous les vitals à gauche, têtes d'exemple dans l'éditeur, case « Afficher toute l'escouade » dans l'inspecteur) ; invitation ; ligne staff « écoute · Kagerō · 9:41 » ; rappel bref si B ne peut pas émettre | `RadioHud` | v3/02, v3/02b, v3/03 |
-| Menu R : Radio › Créer / Ajouter à « … » / Voir l'escouade (N) ; sur un joueur à terre : Oreillette › Couper / Prendre | `RadioMenus` (+ `interaction/InteractionMenus`) | v2/01, v2/03 |
+| Menu R : Radio › Créer / Ajouter à « … » / Voir l'escouade ; sur un joueur à terre : Oreillette › Couper / Prendre | `RadioMenus` (+ `interaction/InteractionMenus`) | v2/01, v2/03 |
 | Son radio (passe-bande, souffle ; haché à terre), icône PV masquée, touche B recopiée dans l'activation PV (forcée en push-to-talk) | `voice/RadioVoix` (chargé par `RebornVoiceAddon`) | — |
-| Touches **B** (parler, maintenir) et **N** (écran), réglables | `keybind/HudKeybinds` | — |
+| Touche **B**, réglable : maintenir = parler, appui bref = écran (15/10, `HudKeybinds#tickRadio` ; B referme l'écran) | `keybind/HudKeybinds` | `Maquettes/gameplan/touches/touches_01*`, `_02*` |
 | Banc de captures `REBORN_RADIO_DEBUG=1` (`REBORN_RADIO_POS` pour le point de vue) | `RadioDebug` | captures `Maquettes/gameplan/18_radio/code/` |
 
 L'écoute du Poste de garde (fiche › Plus › « Écouter la radio… ») s'active dès que le serveur a la radio (commande

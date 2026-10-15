@@ -148,7 +148,7 @@ public class CameraScreen extends Screen {
 
         if (py + PH + 14 < this.height) {
             DaKit.aides(g, f, ReglagesArt.PIECES, 0, 0, 120, 40,
-                new String[][]{{"Glisser", "régler"}, {"Molette", "affiner"}, {"O", "fermer"}}, px + PW, py + PH + 10, 1f);
+                new String[][]{{"Glisser", "régler"}, {"Molette", "affiner"}, {"Échap", "fermer"}}, px + PW, py + PH + 10, 1f);
         }
     }
 

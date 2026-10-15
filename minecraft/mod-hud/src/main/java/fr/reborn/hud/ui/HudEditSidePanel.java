@@ -53,7 +53,8 @@ public final class HudEditSidePanel {
     private static final int CARD_R = 4;   // coin de la carte
     private static final int BTN_R = 2;    // coins carrés des boutons/lignes
     private static final int HEADER_H = 24;
-    private static final int FOOTER_H = 28;
+    /** Pied : « Personnaliser le viseur » (15/10, le viseur n'a plus de touche), puis Tout réinitialiser / Appliquer. */
+    private static final int FOOTER_H = 47;
     private static final int LABEL_H = 11;
     private static final int ROW_H = 14;
     private static final int INPUT_H = 15;
@@ -95,6 +96,8 @@ public final class HudEditSidePanel {
     public Runnable onSavePreset = () -> {};
     /** Ouvre les réglages du chat (petit engrenage dans le header). */
     public Runnable onOpenChatSettings = () -> {};
+    /** Ouvre l'éditeur de viseur (bouton du pied de carte). */
+    public Runnable onOpenCrosshair = () -> {};
     public Runnable onMutation = () -> {};
     /** Replie / déplie la carte — l'écran doit re-layouter ses champs de saisie. */
     public Runnable onToggleCollapse = () -> {};
@@ -504,10 +507,19 @@ public final class HudEditSidePanel {
         return false;
     }
 
+    /** Rect du bouton « Personnaliser le viseur » (x, y, w, h) — le banc des touches y clique. */
+    public int[] viseurRect() { return new int[]{x0 + PAD, footerTop + 6, WIDTH - PAD * 2, INPUT_H}; }
+
     private void renderFooter(GuiGraphicsExtractor ctx, int mouseX, int mouseY) {
         DaKit.coupeH(ctx, EditeurArt.PIECES, x0 + PAD, footerTop - 2, WIDTH - 2 * PAD, 0, 20, 132, 5, 6, 160, 64);
 
-        int btnY = footerTop + (FOOTER_H - INPUT_H) / 2;
+        int viseurY = footerTop + 6;
+        int vw = WIDTH - PAD * 2;
+        boolean vHov = inside(mouseX, mouseY, x0 + PAD, viseurY, vw, INPUT_H);
+        bouton(ctx, x0 + PAD, viseurY, vw, vHov ? 1 : 0, "Personnaliser le viseur", vHov ? DaKit.CREME : DaKit.CREME_VAL);
+        hitTargets.add(new HitTarget(x0 + PAD, viseurY, vw, INPUT_H, onOpenCrosshair));
+
+        int btnY = viseurY + INPUT_H + 4;
         int gap = 4;
         int applyW = 56;
         int resetW = WIDTH - PAD * 2 - applyW - gap;

@@ -18,7 +18,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 /**
- * Écran de l'escouade (touche N, réglable) — maquette validée v3/01 (14/10) : <b>centré, épuré, sans ornement ni
+ * Écran de l'escouade (appui bref sur la touche radio B, réglable ; la même touche le referme) — maquette validée v3/01 (14/10) : <b>centré, épuré, sans ornement ni
  * kanji</b>. Titre « Escouade Kagerō », « 4 membres sur 8 », puis une ligne par membre : tête du skin, nom, état
  * (point de couleur + « en ligne », « à terre », « hors ligne », « toi · créateur »…). Survoler un membre montre
  * « Exclure » (créateur seul ; « Couper l'oreillette » en plus si elle lui a été prise). En bas, trois mots soulignés au
@@ -88,7 +88,7 @@ public class RadioScreen extends Screen {
             membres(ctx, f, e, x, y, mouseX, mouseY);
             actions(ctx, f, e, cx, y + h - 26, mouseX, mouseY);
         }
-        txt(ctx, f, DaKit.inter(RadioHud.touche(HudKeybinds.RADIO_ECRAN, "N") + "  fermer"), cx, y + h + 8, 6, PIED, 1);
+        txt(ctx, f, DaKit.inter(RadioHud.touche(HudKeybinds.RADIO_PARLER, "B") + "  fermer"), cx, y + h + 8, 6, PIED, 1);
         super.extractRenderState(ctx, mouseX, mouseY, delta);
     }
 
@@ -323,7 +323,7 @@ public class RadioScreen extends Screen {
             if (k == GLFW.GLFW_KEY_ESCAPE) { this.removeWidget(renommer); renommer = null; return true; }
             return super.keyPressed(event);
         }
-        if (HudKeybinds.RADIO_ECRAN != null && HudKeybinds.RADIO_ECRAN.matches(event)) {
+        if (HudKeybinds.RADIO_PARLER != null && HudKeybinds.RADIO_PARLER.matches(event)) {
             onClose();
             return true;
         }

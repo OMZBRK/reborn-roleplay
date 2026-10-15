@@ -10,7 +10,9 @@ import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Keybinds Reborn OST. Une seule entrée pour l'instant : ouvrir le menu.
+ * Keybinds Reborn OST. Une seule entrée pour l'instant : ouvrir le menu, touche <b>N</b> depuis le 15/10 (M est la carte
+ * de mod-hud, N a été libérée par la radio). Les joueurs restés sur l'ancien défaut M sont passés à N une fois par la
+ * migration des touches de mod-hud ({@code fr.reborn.hud.keybind.TouchesMigration}).
  *
  * <p>Catégorie « Reborn » partagée ({@code reborn:controls}) → même section que
  * les binds de {@code mod-hud} dans Options → Commandes, dissociée de « Divers ».
@@ -37,7 +39,7 @@ public final class OstKeybinds {
         openMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.reborn-ost.open_menu",
             InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_M,
+            GLFW.GLFW_KEY_N,
             rebornCategory()
         ));
 

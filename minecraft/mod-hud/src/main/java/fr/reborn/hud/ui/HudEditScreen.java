@@ -88,6 +88,12 @@ public class HudEditScreen extends Screen {
     /** Debounce de l'historique : une frappe continue = une seule entrée d'undo. */
     private long lastFieldEditMs = 0L;
 
+    /** Banc des touches : centre du bouton « Personnaliser le viseur » du pied de carte. */
+    public int[] debugCentreViseur() {
+        int[] r = sidePanel.viseurRect();
+        return new int[]{r[0] + r[2] / 2, r[1] + r[3] / 2};
+    }
+
     public HudEditScreen(Screen parent) {
         super(Component.translatable("reborn-hud.screen.title"));
         this.parent = parent;
@@ -102,6 +108,8 @@ public class HudEditScreen extends Screen {
         this.sidePanel.onSelect = this::selectElement;
         this.sidePanel.onSavePreset = this::savePresetFromField;
         this.sidePanel.onOpenChatSettings = this::openChatSettings;
+        this.sidePanel.onOpenCrosshair = () -> Minecraft.getInstance().setScreenAndShow(
+            new fr.reborn.hud.crosshair.CrosshairScreen(this));
         this.sidePanel.onResetSelected = this::resetSelectedElement;
         this.sidePanel.onToggleCollapse = () -> {
             sidePanel.layout(this.width, this.height);
