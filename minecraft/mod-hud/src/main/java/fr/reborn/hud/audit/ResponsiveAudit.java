@@ -39,6 +39,9 @@ public final class ResponsiveAudit {
 
     private ResponsiveAudit() {}
 
+    /** Réglage de l'élément « recharges » avant les cas à l'échelle forcée, rendu par {@code hud_normal}. */
+    private static fr.reborn.hud.element.HudElementState echelleCooldowns;
+
     public static void init() {
         if (!"1".equals(System.getenv("REBORN_AUDIT"))) return;
         String sc = System.getenv("REBORN_AUDIT_SCALES");
@@ -121,7 +124,21 @@ public final class ResponsiveAudit {
             cd.debugActifs.add(fr.reborn.hud.combat.CooldownState.Ability.COMBAT);       // icônes peintes du 14/10
             cd.debugActifs.add(fr.reborn.hud.combat.CooldownState.Ability.COURSE_CHAKRA);
         });
+        // Recharges à l'échelle de l'éditeur de HUD (15/10 : sous 1,0 les icônes tombaient à la moitié)
+        for (float e : new float[]{0.75f, 0.9f, 0.95f, 1.25f, 1.5f}) {
+            add("hud_cooldowns_e" + Math.round(e * 100), 4, mc -> {
+                var cfg = fr.reborn.hud.RebornHudClient.config();
+                var el = fr.reborn.hud.element.HudElement.COOLDOWNS;
+                if (echelleCooldowns == null) echelleCooldowns = cfg.stateOf(el);
+                cfg.setState(el, echelleCooldowns.withScale(e));
+            });
+        }
         add("hud_normal", 6, mc -> {
+            if (echelleCooldowns != null) {
+                fr.reborn.hud.RebornHudClient.config().setState(fr.reborn.hud.element.HudElement.COOLDOWNS,
+                    echelleCooldowns);
+                echelleCooldowns = null;
+            }
             fr.reborn.hud.combat.CooldownState.INSTANCE.debugActifs.clear();
             KoClient.update(null);
             mc.setScreenAndShow(null);

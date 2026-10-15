@@ -73,6 +73,9 @@ public final class HudKeybinds {
     /** Dash de combat (G) et regard libre (Alt gauche, maintenu). */
     public static KeyMapping DASH, FREELOOK;
 
+    /** Course de chakra en bascule (X) : un appui la lance, un autre l'arrête ; le triple appui sur le sprint reste. */
+    public static KeyMapping COURSE_CHAKRA;
+
     /** Appui plus court que ça sur la touche radio (sans la tenir) = écran de l'escouade. */
     public static final long RADIO_BREF_MS = 250L;
     private static long radioDepuis = -1L;
@@ -194,6 +197,9 @@ public final class HudKeybinds {
         DASH = bind("key.reborn-hud.dash", GLFW.GLFW_KEY_G);
         // Garde / parade (touche dédiée MAINTENUE). Lue par CombatInput.tick.
         PARRY = bind("key.reborn-hud.parry", GLFW.GLFW_KEY_C);
+        // Course de chakra (X, 15/10 au soir, demande du user : une touche à part en plus du triple appui). Même
+        // position en AZERTY et QWERTZ. Conflit voulu avec « charger la barre » du créatif (X + chiffre), comme C.
+        COURSE_CHAKRA = bind("key.reborn-hud.course_chakra", GLFW.GLFW_KEY_X);
 
         TouchesMigration.init();
         TouchesDebug.init();

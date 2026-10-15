@@ -122,6 +122,21 @@ public final class TouchesDebug {
         pas(1, mc -> touche(mc, cle(mc.options.keyUp), false), "Avancer relâchée");
         pas(10, TouchesDebug::depart, "départ de la piste");
 
+        // Touche dédiée (X, bascule) : un appui lance la course sans le sprint, un autre l'arrête
+        pas(6, mc -> touche(mc, cle(mc.options.keyUp), true), "Avancer maintenue");
+        pas(4, mc -> touche(mc, cle(HudKeybinds.COURSE_CHAKRA), true), "X");
+        pas(1, mc -> touche(mc, cle(HudKeybinds.COURSE_CHAKRA), false), "");
+        pas(3, mc -> verifie(fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive(), "X : course de chakra"), "vérif");
+        pas(1, mc -> deCote(mc, true), "regard libre (Alt), vue de côté");
+        pas(10, mc -> shot(mc, "touches_06b_course_touche_x"), "capture");
+        pas(1, mc -> deCote(mc, false), "fin du regard libre");
+        pas(6, mc -> verifie(fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive(), "X relâché : la course continue"), "vérif");
+        pas(1, mc -> touche(mc, cle(HudKeybinds.COURSE_CHAKRA), true), "X (2e appui)");
+        pas(1, mc -> touche(mc, cle(HudKeybinds.COURSE_CHAKRA), false), "");
+        pas(4, mc -> verifie(!fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive(), "2e appui sur X : arrêt"), "vérif");
+        pas(1, mc -> touche(mc, cle(mc.options.keyUp), false), "Avancer relâchée");
+        pas(10, TouchesDebug::depart, "départ de la piste");
+
         // P puis G : galerie depuis le mode photo
         pas(10, mc -> touche(mc, cle(HudKeybinds.PHOTO), true), "P");
         pas(1, mc -> touche(mc, cle(HudKeybinds.PHOTO), false), "");

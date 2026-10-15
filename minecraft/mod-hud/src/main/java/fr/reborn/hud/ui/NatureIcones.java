@@ -67,14 +67,16 @@ public final class NatureIcones {
         if (n == null || (argb >>> 24) == 0) return;
         int gs = DaKit.echelleGui();
         int px = tGui * gs;
-        // la plus grande taille entière (k × 64, 48, 32 ou 16 px) qui tient dans la case, centrée : jamais de facteur
-        // non entier ; à taille égale, la texture la plus détaillée
-        int cote = 16, d = 0;
+        // la taille entière (k × 64, 48, 32 ou 16 px) la plus proche de la case, centrée ; à écart égal, la texture la
+        // plus détaillée. Aucune à 15 % près : la case telle quelle avec la texture de 64 px (DaKit.cotePx)
+        int cote = 64, d = px;
+        float ecart = Float.MAX_VALUE;
         for (int c : new int[]{64, 48, 32, 16}) {
-            int k = px / c;
-            if (k >= 1 && k * c > d) { d = k * c; cote = c; }
+            int t = DaKit.cotePx(px, c);
+            if (t % c != 0) continue;
+            float e = Math.abs(t - px);
+            if (e < ecart) { ecart = e; d = t; cote = c; }
         }
-        if (d == 0) { d = 16; cote = 16; }
         int t = cote == 64 ? 3 : cote == 48 ? 2 : cote == 32 ? 1 : 0;
         int img = n.images <= 1 ? 0 : (int) ((now / 100L) % n.images);
         int sx = Math.round(x * gs) + (px - d) / 2, sy = Math.round(y * gs) + (px - d) / 2;

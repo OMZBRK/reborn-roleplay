@@ -384,8 +384,10 @@ public final class NarutoRun {
             if (active.isEmpty()) { ticker.cancel(); ticker = null; return; }
             if (Tps.shouldDefer()) return;
             tickCounter++;
+            // Souffle : nouvelles clés (15/10). Les anciennes wind-* (élytre relancée chaque seconde, jugée pénible)
+            // restent dans les config.yml déjà déployés mais ne sont plus lues.
             long windLoop = Math.max(10L, plugin.getConfig()
-                    .getLong("mobility.naruto-run.wind-loop-ticks", 20L));
+                    .getLong("mobility.naruto-run.souffle-periode-ticks", 40L));
             boolean playWind = (tickCounter * 10L) % windLoop < 10L;
 
             for (UUID id : active.toArray(new UUID[0])) {
@@ -436,13 +438,14 @@ public final class NarutoRun {
                     // else: pause — keep the current multiplier
                 }
 
-                if (playWind) {
+                if (playWind && p.getVelocity().clone().setY(0).lengthSquared() > 0.01) {
                     try {
                         Sound s = Sound.valueOf(plugin.getConfig()
-                                .getString("mobility.naruto-run.wind-sound", "ITEM_ELYTRA_FLYING"));
+                                .getString("mobility.naruto-run.souffle-son", "ENTITY_BREEZE_IDLE_AIR"));
+                        float ton = (float) plugin.getConfig().getDouble("mobility.naruto-run.souffle-ton", 1.0)
+                                + (float) (Math.random() * 0.2 - 0.1);   // varie un peu : pas la même boucle
                         p.playSound(p.getLocation(), s,
-                                (float) plugin.getConfig().getDouble("mobility.naruto-run.wind-volume", 0.35),
-                                (float) plugin.getConfig().getDouble("mobility.naruto-run.wind-pitch", 1.2));
+                                (float) plugin.getConfig().getDouble("mobility.naruto-run.souffle-volume", 0.2), ton);
                     } catch (IllegalArgumentException ignore) { }
                 }
                 if (plugin.getConfig().getBoolean("mobility.naruto-run.particles", true)

@@ -147,6 +147,17 @@ public final class DaKit {
     private static int unite;
 
     /**
+     * Côté en pixels écran d'une icône pixel art de {@code base} px visée à {@code voulu} px : le multiple entier de la
+     * base le plus proche s'il tombe à 15 % près (net), sinon la taille visée telle quelle. Avant le 15/10, on prenait
+     * le multiple inférieur : à l'échelle 0,95 une icône de 32 px tombait d'un coup à 16 px.
+     */
+    public static int cotePx(float voulu, int base) {
+        int k = Math.max(1, Math.round(voulu / base));
+        if (Math.abs(k * base - voulu) <= 0.15f * voulu) return k * base;
+        return Math.max(4, Math.round(voulu));
+    }
+
+    /**
      * Dessine en « unités menu » : 1 unité = {@code k} pixels écran (pose mise à l'échelle k / échelle GUI). Le texte
      * se cale alors sur cette grille. À refermer par {@link #finUnites}.
      */

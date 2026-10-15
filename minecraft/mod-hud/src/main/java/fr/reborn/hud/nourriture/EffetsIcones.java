@@ -77,10 +77,7 @@ public final class EffetsIcones {
         float voulu = cote * k;                        // pixels écran visés
         int cadre = i.w;                               // côté d'une image (carrée si bande)
         int ch = i.images > 1 ? i.w : i.h;
-        float s;
-        float r = voulu / cadre;
-        if (r >= 1) s = (float) Math.floor(r);
-        else s = 1f / (float) Math.ceil(1 / r);
+        float s = DaKit.cotePx(voulu, cadre) / (float) cadre;
         float wPx = cadre * s, hPx = ch * s;
         int image = i.images > 1 ? (int) ((System.currentTimeMillis() / 160) % i.images) : 0;
         DaKit.debutPx(g);

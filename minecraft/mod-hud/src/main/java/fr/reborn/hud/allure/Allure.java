@@ -19,7 +19,8 @@ import java.nio.ByteBuffer;
  *       Commandes) — c'est le sprint vanilla, gratuit ;</li>
  *   <li><b>Sprint</b> : <b>double appui</b> sur la même touche (le second maintenu) — plus rapide, payé en endurance
  *       (~5 s), puis récupération ; vidé = essoufflé jusqu'à 30 %.</li>
- *   <li><b>Course de chakra</b> (« 4ᵉ rapport », 15/10) : <b>triple appui</b>, le troisième maintenu — seulement si le
+ *   <li><b>Course de chakra</b> (« 4ᵉ rapport », 15/10) : <b>touche dédiée</b> (X, bascule) ou <b>triple appui</b>, le
+ *       troisième maintenu — seulement si le
  *       chakra le permet (le serveur vérifie en plus qu'elle est apprise, et refuse sinon) ; relâcher la touche
  *       l'arrête. Demande envoyée au plugin par {@link fr.reborn.hud.animation.NarutoRun} (canal {@code reborn:run}).</li>
  * </ul>
@@ -59,6 +60,8 @@ public final class Allure {
     private int t, dernierAppui = -1000, relache, horsSprint, serie, debutCourse;
     /** La course de chakra en cours a été lancée par le triple appui (et s'arrête au relâchement). */
     private boolean course;
+    /** La course de chakra en cours a été lancée par la touche dédiée (et s'arrête par elle). */
+    private boolean courseTouche;
     /** Chakra minimal pour demander la course (défaut du plugin, {@code mobility.naruto-run.min-chakra-to-start}). */
     private static final int CHAKRA_COURSE = 5;
     private byte seq;
@@ -127,7 +130,10 @@ public final class Allure {
             if (serie == 3) tripleAppui = true;
         }
         relache = tenu ? 0 : relache + 1;
-        courseDeChakra(mc, tripleAppui, nouvelleSerie, bascule);
+        boolean toucheCourse = false;
+        KeyMapping kc = fr.reborn.hud.keybind.HudKeybinds.COURSE_CHAKRA;
+        if (kc != null) while (kc.consumeClick()) toucheCourse = true;
+        courseDeChakra(mc, tripleAppui, nouvelleSerie, bascule, toucheCourse);
 
         boolean mcSprint = p.isSprinting();
         // Sprint lancé sans la touche (double appui sur Avancer, vanilla) : on le garde jusqu'à l'arrêt.
@@ -176,8 +182,26 @@ public final class Allure {
      * serveur tranche), relâcher la touche l'arrête (« Sprint : basculer » : un nouvel appui l'arrête). Un refus ou un
      * arrêt du serveur (non apprise, KO, chakra épuisé…) remet {@code NarutoRun} à l'arrêt : on lâche alors.
      */
-    private void courseDeChakra(Minecraft mc, boolean tripleAppui, boolean nouvelleSerie, boolean bascule) {
+    private void courseDeChakra(Minecraft mc, boolean tripleAppui, boolean nouvelleSerie, boolean bascule,
+                                boolean toucheCourse) {
         fr.reborn.hud.animation.NarutoRun run = fr.reborn.hud.animation.NarutoRun.INSTANCE;
+        // Touche dédiée (X) : bascule, indépendante du sprint (relâcher le sprint ne l'arrête pas)
+        if (toucheCourse && mc.gui.screen() == null) {
+            if (run.isActive()) {
+                run.arreter();
+                course = false;
+                courseTouche = false;
+            } else if (chakraSuffit()) {
+                run.demarrer();
+                course = false;
+                courseTouche = true;
+            }
+            return;
+        }
+        if (courseTouche) {
+            if (!run.isActive()) courseTouche = false;
+            return;
+        }
         if (tripleAppui && !run.isActive() && mc.gui.screen() == null && chakraSuffit()) {
             run.demarrer();
             course = true;

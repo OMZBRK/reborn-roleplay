@@ -88,10 +88,11 @@ mobility:
     # Sneak-TAP toggles the run: press+release faster than this.
     toggle-tap-max-ms: 300
     particles: true
-    wind-sound: "ITEM_ELYTRA_FLYING"
-    wind-volume: 0.35
-    wind-pitch: 1.2
-    wind-loop-ticks: 20
+    # Souffle discret pendant la course (seulement en mouvement), ton légèrement varié.
+    souffle-son: "ENTITY_BREEZE_IDLE_AIR"
+    souffle-volume: 0.2
+    souffle-ton: 1.0
+    souffle-periode-ticks: 40
     # Boost for other mobility (dash / double-jump / wall-jump) while running.
     # Ramps from 1x up to these maxes over boost.ramp-ms of MOVING time
     # (2.5x after 2 minutes by default) — separate from, and faster than, the

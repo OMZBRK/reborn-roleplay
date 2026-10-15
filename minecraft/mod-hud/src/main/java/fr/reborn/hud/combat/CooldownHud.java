@@ -40,18 +40,18 @@ public final class CooldownHud {
     public static int height() { return ICON + 9; }   // icône + ligne de secondes en dessous
 
     /**
-     * Les icônes sont posées au <b>pixel écran</b> à une taille multiple de 16 px (texture 32 px si la taille est un
-     * multiple de 32, sinon la version 16 px) : jamais de réduction au plus proche, quelle que soit l'échelle de
-     * l'élément (éditeur de HUD) ou l'échelle GUI. Taille retenue = le plus grand multiple de 16 qui tient dans le
-     * créneau (16 unités × échelle de l'élément × échelle GUI), centrée dedans. Les secondes restent en unités GUI.
+     * Les icônes sont posées au <b>pixel écran</b>, à la taille du créneau (16 unités × échelle de l'élément × échelle
+     * GUI) : un multiple de 16 px quand il tombe tout près (net), sinon la taille exacte (voir
+     * {@link fr.reborn.hud.ui.DaKit#cotePx}). Elles suivent donc l'échelle de l'éditeur de HUD comme les secondes,
+     * qui restent en unités GUI.
      */
     public static void render(GuiGraphicsExtractor ctx, int x, int y, float scale) {
         long now = System.currentTimeMillis();
         Font font = Minecraft.getInstance().font;
         int gs = fr.reborn.hud.ui.DaKit.echelleGui();
         float cible = ICON * scale * gs;                          // côté du créneau en pixels écran
-        int d = Math.max(16, (int) Math.floor(cible / 16f + 0.02f) * 16);
-        int off = Math.max(0, Math.round((cible - d) / 2f));
+        int d = fr.reborn.hud.ui.DaKit.cotePx(cible, 16);
+        int off = Math.round((cible - d) / 2f);
         // On n'affiche que les capacités EN COOLDOWN (sauf celles marquées alwaysShow) ;
         // elles se compactent depuis la gauche.
         int ix = 0;
@@ -83,7 +83,7 @@ public final class CooldownHud {
         float frac = CooldownState.INSTANCE.fraction(a, now);
         boolean ready = frac <= 0.001f;
         String slug = a.name().toLowerCase(Locale.ROOT);
-        int cote = d % 32 == 0 ? 32 : 16;
+        int cote = d % 16 == 0 && d % 32 != 0 ? 16 : 32;   // taille hors multiple : la version la plus détaillée
         String nom = cote == 32 ? slug : slug + "_16";
         if (!texExists(nom)) { nom = slug; cote = 32; }
         fr.reborn.hud.ui.DaKit.debutPx(ctx);
