@@ -92,11 +92,18 @@ fn read_secret(name: &str) -> Result<String, String> {
         .map_err(|e| format!("{e}"))
 }
 
+/// Jetons renvoyes par `/auth/refresh`, avec l'UUID du compte (slot du carrousel).
+struct Refreshed {
+    access: String,
+    refresh: String,
+    uuid: Option<String>,
+}
+
 fn refresh_token(
     client: &reqwest::blocking::Client,
     api: &str,
     refresh: &str,
-) -> Result<(String, String), String> {
+) -> Result<Refreshed, String> {
     let url = format!("{}/auth/refresh", api.trim_end_matches('/'));
     let resp = client
         .post(&url)
@@ -120,7 +127,15 @@ fn refresh_token(
         .and_then(|x| x.as_str())
         .ok_or("refreshToken absent de la reponse refresh")?
         .to_string();
-    Ok((access, new_refresh))
+    let uuid = v
+        .pointer("/user/minecraftUuid")
+        .and_then(|x| x.as_str())
+        .map(str::to_string);
+    Ok(Refreshed {
+        access,
+        refresh: new_refresh,
+        uuid,
+    })
 }
 
 /// Lit le JWT depuis le Credential Manager + refresh automatique si possible.
@@ -139,14 +154,23 @@ fn acquire_token(client: &reqwest::blocking::Client, api: &str) -> Result<String
 
     if let Ok(refresh) = read_secret(KEY_REFRESH) {
         match refresh_token(client, api, &refresh) {
-            Ok((new_access, new_refresh)) => {
+            Ok(r) => {
                 println!("Refresh OK — nouveau JWT acquis.");
-                token = new_access;
+                token = r.access;
                 if let Ok(entry) = Entry::new(SERVICE, KEY_ACCESS) {
                     let _ = entry.set_password(&token);
                 }
                 if let Ok(entry) = Entry::new(SERVICE, KEY_REFRESH) {
-                    let _ = entry.set_password(&new_refresh);
+                    let _ = entry.set_password(&r.refresh);
+                }
+                // Le carrousel de comptes du launcher garde sa propre copie du
+                // refresh token (`reborn_refresh_token:<uuid>`). Sans cette mise a
+                // jour, il presente au prochain clic un token deja consomme ici :
+                // l'API y voit un replay et revoque toutes les sessions.
+                if let Some(uuid) = r.uuid {
+                    if let Ok(entry) = Entry::new(SERVICE, &format!("{KEY_REFRESH}:{uuid}")) {
+                        let _ = entry.set_password(&r.refresh);
+                    }
                 }
             }
             Err(e) => {
