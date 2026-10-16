@@ -19,10 +19,9 @@ import java.nio.ByteBuffer;
  *       Commandes) — c'est le sprint vanilla, gratuit ;</li>
  *   <li><b>Sprint</b> : <b>double appui</b> sur la même touche (le second maintenu) — plus rapide, payé en endurance
  *       (~5 s), puis récupération ; vidé = essoufflé jusqu'à 30 %.</li>
- *   <li><b>Course de chakra</b> (« 4ᵉ rapport », 15/10) : <b>touche dédiée</b> (X, bascule) ou <b>triple appui</b>, le
- *       troisième maintenu — seulement si le
- *       chakra le permet (le serveur vérifie en plus qu'elle est apprise, et refuse sinon) ; relâcher la touche
- *       l'arrête. Demande envoyée au plugin par {@link fr.reborn.hud.animation.NarutoRun} (canal {@code reborn:run}).</li>
+ *   <li><b>Course de chakra</b> : <b>touche dédiée seulement</b> (X, bascule ; le triple appui sur le sprint est
+ *       retiré le 16/10 à la demande de l'utilisateur) — seulement si le chakra le permet (le serveur vérifie en plus
+ *       qu'elle est apprise, et refuse sinon) ; un nouvel appui l'arrête. Demande envoyée au plugin par {@link fr.reborn.hud.animation.NarutoRun} (canal {@code reborn:run}).</li>
  * </ul>
  *
  * <p><b>Prédiction</b> : la vitesse est le modificateur d'attribut {@code reborn:allure} que ShinobiAbilities pose
@@ -57,11 +56,7 @@ public final class Allure {
     // État local.
     private Etat etat = Etat.NEUTRE;
     private boolean amorce, sprintVoulu, latch, avaitSprint, sprintEnvoye, arretTrot, pose;
-    private int t, dernierAppui = -1000, relache, horsSprint, serie, debutCourse;
-    /** La course de chakra en cours a été lancée par le triple appui (et s'arrête au relâchement). */
-    private boolean course;
-    /** La course de chakra en cours a été lancée par la touche dédiée (et s'arrête par elle). */
-    private boolean courseTouche;
+    private int t, dernierAppui = -1000, relache, horsSprint, serie;
     /** Chakra minimal pour demander la course (défaut du plugin, {@code mobility.naruto-run.min-chakra-to-start}). */
     private static final int CHAKRA_COURSE = 5;
     private byte seq;
@@ -120,20 +115,18 @@ public final class Allure {
         boolean tenu = k.isDown() || debugTenu;
         int fenetre = Math.max(3, mc.options.sprintWindow().get());
 
-        boolean doubleAppui = debugDoubleAppui, tripleAppui = false, nouvelleSerie = false;
+        boolean doubleAppui = debugDoubleAppui;
         debugDoubleAppui = false;
         for (int i = 0; i < appuis; i++) {
-            if (t - dernierAppui <= fenetre) serie++;
-            else { serie = 1; nouvelleSerie = true; }
+            serie = t - dernierAppui <= fenetre ? serie + 1 : 1;
             dernierAppui = t;
             if (serie >= 2) doubleAppui = true;
-            if (serie == 3) tripleAppui = true;
         }
         relache = tenu ? 0 : relache + 1;
         boolean toucheCourse = false;
         KeyMapping kc = fr.reborn.hud.keybind.HudKeybinds.COURSE_CHAKRA;
         if (kc != null) while (kc.consumeClick()) toucheCourse = true;
-        courseDeChakra(mc, tripleAppui, nouvelleSerie, bascule, toucheCourse);
+        courseDeChakra(mc, toucheCourse);
 
         boolean mcSprint = p.isSprinting();
         // Sprint lancé sans la touche (double appui sur Avancer, vanilla) : on le garde jusqu'à l'arrêt.
@@ -178,43 +171,14 @@ public final class Allure {
     }
 
     /**
-     * 4ᵉ rapport : le triple appui demande la course de chakra (si le chakra suffit ; sans état de chakra reçu, le
-     * serveur tranche), relâcher la touche l'arrête (« Sprint : basculer » : un nouvel appui l'arrête). Un refus ou un
-     * arrêt du serveur (non apprise, KO, chakra épuisé…) remet {@code NarutoRun} à l'arrêt : on lâche alors.
+     * Course de chakra : la touche dédiée (X) la bascule, indépendamment du sprint. Un refus ou un arrêt du serveur
+     * (non apprise, KO, chakra épuisé…) remet {@code NarutoRun} à l'arrêt.
      */
-    private void courseDeChakra(Minecraft mc, boolean tripleAppui, boolean nouvelleSerie, boolean bascule,
-                                boolean toucheCourse) {
+    private void courseDeChakra(Minecraft mc, boolean toucheCourse) {
+        if (!toucheCourse || mc.gui.screen() != null) return;
         fr.reborn.hud.animation.NarutoRun run = fr.reborn.hud.animation.NarutoRun.INSTANCE;
-        // Touche dédiée (X) : bascule, indépendante du sprint (relâcher le sprint ne l'arrête pas)
-        if (toucheCourse && mc.gui.screen() == null) {
-            if (run.isActive()) {
-                run.arreter();
-                course = false;
-                courseTouche = false;
-            } else if (chakraSuffit()) {
-                run.demarrer();
-                course = false;
-                courseTouche = true;
-            }
-            return;
-        }
-        if (courseTouche) {
-            if (!run.isActive()) courseTouche = false;
-            return;
-        }
-        if (tripleAppui && !run.isActive() && mc.gui.screen() == null && chakraSuffit()) {
-            run.demarrer();
-            course = true;
-            debutCourse = t;
-            return;
-        }
-        if (!course) return;
-        if (!run.isActive()) { course = false; return; }
-        boolean fin = bascule ? nouvelleSerie && t - debutCourse > 2 : relache > GRACE_RELACHE;
-        if (fin) {
-            run.arreter();
-            course = false;
-        }
+        if (run.isActive()) run.arreter();
+        else if (chakraSuffit()) run.demarrer();
     }
 
     private static boolean chakraSuffit() {
@@ -295,7 +259,6 @@ public final class Allure {
         endurance = 1f;
         total = 1.0;
         relache = horsSprint = serie = 0;
-        course = false;
     }
 
     /* -------------------------------------------------------------- banc */

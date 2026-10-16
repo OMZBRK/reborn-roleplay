@@ -703,7 +703,7 @@ Poste de garde (filtres catégorie / N° / joueur / période / texte, pagination
 
 ## 7.1 Aujourd'hui chez Reborn
 
-- Marche, course et saut de Minecraft ; **Naruto run** (triple appui sur le sprint depuis le 15/10) ; **dash** (G depuis le 15/10), **double saut**, **saut de chakra** (chargé),
+- Marche, course et saut de Minecraft ; **Naruto run** (touche X seule depuis le 16/10) ; **dash** (G depuis le 15/10), **double saut**, **saut de chakra** (chargé),
   **saut mural**, **escalade**, **glissade et roulade** (voie de mobilité n° 2), grappin et tyrolienne ; **voies de
   mobilité** débloquées par des parcours (`/trainingground`) ; endurance en ensō (`ShinobiAbilities/…/mobility/`).
 - **Dégâts de chute désactivés** pour tout le monde (`MobilityListener`).

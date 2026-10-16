@@ -18,7 +18,7 @@ import java.util.List;
  * photo), G dash, C parade ; F7 (staff) est dans {@code StaffClient}, N (OST) dans mod-ost. La <b>vue</b> est la
  * touche vanilla « Changer de vue » (F5) : en caméra Reborn elle bascule épaule ↔ 1ʳᵉ personne. Éditeur de HUD et
  * viseur : Échap → Interface ; caméra : Réglages → Caméra ; personnage : Échap (carte d'identité) ; course de chakra :
- * triple appui sur la touche de sprint ({@code allure/Allure}).
+ * touche X seule (le triple appui sur le sprint est retiré le 16/10).
  *
  * <p>Catégorie « Reborn » ({@link RebornKeyCategory}) dans le menu Commandes vanilla ; tout reste réglable dans
  * Réglages → Contrôles ({@code ControlsTab}, qui itère {@link #REBORN_KEYS}). Les anciens défauts des joueurs existants
@@ -73,7 +73,7 @@ public final class HudKeybinds {
     /** Dash de combat (G) et regard libre (Alt gauche, maintenu). */
     public static KeyMapping DASH, FREELOOK;
 
-    /** Course de chakra en bascule (X) : un appui la lance, un autre l'arrête ; le triple appui sur le sprint reste. */
+    /** Course de chakra en bascule (X) : un appui la lance, un autre l'arrête ; le triple appui sur le sprint est retiré (16/10). */
     public static KeyMapping COURSE_CHAKRA;
 
     /** Volet Faction (J, 16/10, FACTION.md) : ta section, ton village, les annonces ; la même touche le referme. */
@@ -202,7 +202,7 @@ public final class HudKeybinds {
         DASH = bind("key.reborn-hud.dash", GLFW.GLFW_KEY_G);
         // Garde / parade (touche dédiée MAINTENUE). Lue par CombatInput.tick.
         PARRY = bind("key.reborn-hud.parry", GLFW.GLFW_KEY_C);
-        // Course de chakra (X, 15/10 au soir, demande du user : une touche à part en plus du triple appui). Même
+        // Course de chakra (X, 15/10 au soir, demande du user : seule touche depuis le 16/10, triple appui retiré). Même
         // position en AZERTY et QWERTZ. Conflit voulu avec « charger la barre » du créatif (X + chiffre), comme C.
         COURSE_CHAKRA = bind("key.reborn-hud.course_chakra", GLFW.GLFW_KEY_X);
 

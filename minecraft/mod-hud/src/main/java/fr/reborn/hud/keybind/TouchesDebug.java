@@ -113,12 +113,12 @@ public final class TouchesDebug {
         pas(2, mc -> appuiSprint(mc, true), "triple 2");
         pas(1, mc -> appuiSprint(mc, false), "");
         pas(2, mc -> appuiSprint(mc, true), "triple 3 (maintenu)");
-        pas(3, mc -> verifie(fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive(), "3 appuis : course de chakra"), "vérif");
+        pas(3, mc -> verifie(!fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive(), "3 appuis : plus de course de chakra (16/10)"), "vérif");
         pas(1, mc -> deCote(mc, true), "regard libre (Alt), vue de côté");
-        pas(10, mc -> shot(mc, "touches_06_course_de_chakra"), "capture");
+        pas(10, mc -> shot(mc, "touches_06_triple_appui_sans_course"), "capture");
         pas(1, mc -> deCote(mc, false), "fin du regard libre");
         pas(1, mc -> appuiSprint(mc, false), "sprint relâché");
-        pas(10, mc -> verifie(!fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive(), "relâcher arrête la course"), "vérif");
+        pas(10, mc -> verifie(!fr.reborn.hud.animation.NarutoRun.INSTANCE.isActive(), "toujours pas de course"), "vérif");
         pas(1, mc -> touche(mc, cle(mc.options.keyUp), false), "Avancer relâchée");
         pas(10, TouchesDebug::depart, "départ de la piste");
 

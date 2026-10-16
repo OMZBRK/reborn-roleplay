@@ -17,7 +17,8 @@ import java.util.List;
  * La missive ouverte (maquette v3c 05, CLOCHE_ET_MISSIVES.md §3.5) : la lettre <b>seule au centre</b>, dans le même
  * écran laqué — « À », volière et heure d'arrivée, le texte crème en grand, la signature (ou « sans signature ») et le
  * cachet brisé en pied. Sous la lettre : « Cachet déjà brisé quand tu l'as prise : quelqu'un l'a lue avant toi. » si
- * c'est le cas, puis Garder (Échap) · Brûler · Tendre (menu R).
+ * c'est le cas, puis Garder (Échap) · Brûler · Tendre (menu R). Lue <b>sur place</b> à la volière (16/10) : la
+ * missive reste à la volière, le pied propose Laisser (Échap) · Prendre.
  */
 public final class LettreScreen extends Screen {
 
@@ -87,13 +88,16 @@ public final class LettreScreen extends Screen {
         pz.italique(sg, x + zw - 17 - cw - pz.largeurItalique(sg, 16), yb, 16, CommArt.CREME_DOUX);
         float cx = x0 + w / 2f;
         float ys = y0 + h + 11;
+        boolean surPlace = CommClient.bool(o, "surPlace");
         if (CommClient.bool(o, "dejaBrise"))
-            pz.texteC("Cachet déjà brisé quand tu l'as prise : quelqu'un l'a lue avant toi.", cx, ys, 14, CommArt.AMBRE, false);
+            pz.texteC(surPlace ? "Cachet déjà brisé : quelqu'un l'a lue avant toi."
+                    : "Cachet déjà brisé quand tu l'as prise : quelqu'un l'a lue avant toi.", cx, ys, 14, CommArt.AMBRE, false);
         else if (CommClient.bool(o, "vientDeBriser"))
             pz.texteC("Tu viens de briser le cachet : il le restera.", cx, ys, 14, CommArt.CREME_DOUX, false);
-        // Garder  Échap · Brûler · Tendre  menu R
-        String g = "Garder  Échap", b = "Brûler", t = "Tendre  menu R", sep = "    ·    ";
-        float tot = pz.largeur(g + sep + b + sep + t, 13, false);
+        // Garder  Échap · Brûler · Tendre  menu R   (sur place : Laisser  Échap · Prendre)
+        String g = surPlace ? "Laisser  Échap" : "Garder  Échap", b = surPlace ? "Prendre" : "Brûler",
+               t = surPlace ? "" : "Tendre  menu R", sep = "    ·    ";
+        float tot = pz.largeur(g + sep + b + (t.isEmpty() ? "" : sep + t), 13, false);
         float xx = cx - tot / 2f, yy = ys + 14;
         xx += pz.texte(g + sep, xx, yy, 13, CommArt.CREME_DOUX, false);
         bw = pz.largeur(b, 13, false);
@@ -101,11 +105,20 @@ public final class LettreScreen extends Screen {
         by = yy;
         boolean hov = DaKit.dans(mx, my, Math.round(bx - 2), Math.round(by - 6), Math.round(bw + 4), 12);
         xx += pz.texte(b, xx, yy, 13, hov ? CommArt.OR_CLAIR : CommArt.CREME_DOUX, hov);
-        pz.texte(sep + t, xx, yy, 13, CommArt.CREME_DOUX, false);
+        if (!t.isEmpty()) pz.texte(sep + t, xx, yy, 13, CommArt.CREME_DOUX, false);
         String toast = CommClient.toastActif();
         if (toast != null) pz.texteC(toast, cx, yy + 14, 13, CommClient.toastRefus ? CommArt.ROUGE : CommArt.AMBRE, false);
         pz.vider(ctx);
         CommArt.sprite(ctx, CommArt.CACHET_BRISE, 18, 16, x + zw - 10 - cw, yb - 12, cw, -1);
+    }
+
+    /** Lue sur place : la prendre maintenant (retour à la volière, que le serveur met à jour). */
+    private void prendre() {
+        JsonObject q = CommClient.a("prendre");
+        q.addProperty("id", CommClient.str(o, "id"));
+        CommClient.send(q);
+        RebornSounds.uiClick();
+        onClose();
     }
 
     private void bruler() {
@@ -123,7 +136,10 @@ public final class LettreScreen extends Screen {
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent e, boolean dbl) {
-        if (DaKit.dans(e.x(), e.y(), Math.round(bx - 2), Math.round(by - 6), Math.round(bw + 4), 12)) { bruler(); return true; }
+        if (DaKit.dans(e.x(), e.y(), Math.round(bx - 2), Math.round(by - 6), Math.round(bw + 4), 12)) {
+            if (CommClient.bool(o, "surPlace")) prendre(); else bruler();
+            return true;
+        }
         return super.mouseClicked(e, dbl);
     }
 

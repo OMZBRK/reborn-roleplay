@@ -576,7 +576,7 @@ public final class VoliereScreen extends Screen {
         pz.h(x0 + 20, x0 + w - 23, yf, CommArt.FILET);
         float cx = x0 + w / 2f - 1.5f;
         pz.texteC("Tu peux prendre n'importe quelle missive (" + CommClient.str(o, "seuilPrendre") + " et plus).", cx, yf + 15, 13, CommArt.CREME_DOUX, false);
-        pz.texteC("La lire brise son cachet, pour toujours.", cx, yf + 26, 13, CommArt.GRIS, false);
+        pz.texteC("La lire brise son cachet pour toujours ; elle reste ici.", cx, yf + 26, 13, CommArt.GRIS, false);
         String tr = "Transférer une missive ›";
         float tw = pz.largeur(tr, 14, true);
         boolean ht = DaKit.dans(mx, my, Math.round(cx - tw / 2 - 2), Math.round(yf + 35), Math.round(tw + 4), 14);

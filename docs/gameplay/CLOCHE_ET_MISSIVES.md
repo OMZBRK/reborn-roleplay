@@ -203,7 +203,7 @@ heure d'arrivée, **Envoyer par corbeau · Entrée**. Le brouillon est gardé si
   la liste affiche ses missives en tête, en or, « pour toi ». Une missive multiple y apparaît **en une ligne par
   copie** : « Pour Mei Kazane et 2 autres » (sa copie), « Pour Aya Inuzuka et 2 autres » (celle d'Aya), avec « aussi
   pour Aya et Yui » en sous-ligne (maquette v3c 04).
-- **Prendre** (écran « Missives ici », maquette v3c 04 ; « Lire » = prendre et ouvrir tout de suite) : **toute
+- **Prendre** (écran « Missives ici », maquette v3c 04 ; « Lire » = l'ouvrir **sur place** : le cachet se brise pour toujours mais la missive **reste à la volière** ; seul « Prendre » la met dans la sacoche — corrigé le 16/10, hud 0.4.186) : **toute
   personne** au seuil « Prendre à une volière » (Genin par défaut), **même si la missive ne lui est pas destinée**.
   Rien ne s'affiche pour les autres joueurs ; c'est écrit au **journal staff**.
 - Non prise en 7 jours : le gardien la **brûle** (journal).

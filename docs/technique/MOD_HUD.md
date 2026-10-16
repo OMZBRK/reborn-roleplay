@@ -31,7 +31,7 @@
 | `eau/` | **Marche sur l'eau** (15/10) : `MarcheEauClient` (permis `reborn:eau`, surface solide pour le joueur local via `mixin/BlockStateEauMixin`, accroupi = s'enfoncer, Saut = remonter), `Ondes` (marcheurs détectés sur chaque client ; à chaque pas un **pli de la texture d'eau** autour du pied, gouttelettes, bruit de pas dans l'eau ; **réglages = constantes en tête de la classe**), `EauRendu` (patch de la texture d'eau aux UV déplacés autour d'un contour irrégulier, après l'eau translucide ; l'eau du jeu n'est pas modifiée), `EauDebug` (banc) |
 | `skin/` | Compositeur de skins Reborn (`RebornSkins`, `SkinSpec`) |
 | `editor/`, `element/`, `config/` | Éditeur de HUD (déplacer / redimensionner / masquer), éléments, presets |
-| `emote/`, `animation/` | Emotes EmoteCraft, menu des animations (touche « . » : émotes et démarches), course de chakra (touche X ou triple appui sur le sprint, `allure/Allure`), synchronisation d'animations |
+| `emote/`, `animation/` | Emotes EmoteCraft, menu des animations (touche « . » : émotes et démarches), course de chakra (touche X, `allure/Allure`), synchronisation d'animations |
 | `ui/` | `MenuScale` (taille des menus), `Da` (kit de dessin DA) |
 | `audit/` | Bancs de test : `ResponsiveAudit`, `ConcentrationPreview`, `FeaturePreview` |
 | `mixin/` | Tous les mixins (déclarés dans `reborn-hud.mixins.json`) |
@@ -53,8 +53,8 @@ le Poste de garde quand ils sont là) et dans Options → Commandes, catégorie 
 | **.** | Animations : émotes (Reborn et Emotecraft) et démarches ; la même touche referme | **F5** | Vue : épaule ↔ 1ʳᵉ personne (touche « Changer de vue » de Minecraft, détournée en caméra Reborn) |
 | **Alt gauche** | Regard libre (maintenir) | **F1** | Mode cinéma |
 | **P** | Mode photo ; la **galerie** s'ouvre dedans (bouton « Galerie », ou G) | **G** | Dash de combat |
-| **C** | Parade (maintenir) | **Ctrl gauche** | Allures (touche de sprint de Minecraft) : tenir = trot, 2 appuis = sprint, **3 appuis = course de chakra** ([`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md)) |
-| **X** | Course de chakra en bascule (15/10 au soir) : un appui la lance, un autre l'arrête ; s'ajoute au triple appui | | |
+| **C** | Parade (maintenir) | **Ctrl gauche** | Allures (touche de sprint de Minecraft) : tenir = trot, 2 appuis = sprint (le triple appui ne lance plus la course depuis le 16/10) ([`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md)) |
+| **X** | Course de chakra en bascule (15/10 au soir) : un appui la lance, un autre l'arrête ; seule commande de la course depuis le 16/10 | | |
 | **N** | Menu OST (`mod-ost`) | **V** | Réglages de Plasmo Voice (touche de Plasmo Voice) |
 | **F7** | Poste de garde (staff) | Espace (à terre) / Entrée, Échap (mort) | Volonté (si apprise) / scène de mort |
 | **J** | Volet Faction (16/10) : ta section, ton village, les annonces ; la même touche le referme. Libre dans Minecraft et le modpack, même lettre en AZERTY / QWERTZ (aucune migration) | **Entrée / Retour** | Aussi : accepter / refuser une invitation dans une section (après la radio, avant le duel) |
@@ -62,7 +62,7 @@ le Poste de garde quand ils sont là) et dans Options → Commandes, catégorie 
 **Sans touche** depuis le 15/10 : éditeur de HUD et viseur → Échap → **INTERFACE** (bouton « Personnaliser le viseur » au
 pied de l'éditeur) ; menu personnage → Échap, **carte d'identité** (nom et village, sous le logo) ; caméra (style Reborn /
 Minecraft, épaule, préréglage, repositionner) → **Réglages → Caméra** ; galerie → mode photo ; écran de l'escouade → B bref ;
-course de chakra → touche **X** (bascule, rajoutée le 15/10 au soir à la demande de l'utilisateur) ou triple appui sur le sprint.
+course de chakra → touche **X** (bascule, rajoutée le 15/10 au soir ; le triple appui sur le sprint est retiré le 16/10 à la demande de l'utilisateur).
 
 **Migration** (`keybind/TouchesMigration`, une fois, drapeau `touchesVersion` de `reborn_prefs.json` : 1 = nouvelle carte,
 2 = disposition du clavier, ci-dessous) : une touche dont la

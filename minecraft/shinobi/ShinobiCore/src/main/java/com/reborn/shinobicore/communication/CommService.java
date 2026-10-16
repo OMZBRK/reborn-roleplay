@@ -953,6 +953,7 @@ public final class CommService implements Listener {
         if (v == null || !pres(p, v)) { canal.toast(p, "Approche-toi de la volière.", true); return; }
         if (ModeStaff.horsJeu(p)) { canal.toast(p, "En mode staff : aucune mécanique RP.", true); return; }
         if (!peutPrendre(p, v)) { canal.toast(p, "Prendre à une volière : à partir de Genin.", true); return; }
+        if (lire) { lireSurPlace(p, m, v, c); return; }
         InventoryManager im = plugin.rpInventory();
         ItemStack probe = MissiveObjet.creer(m);
         String refus = im == null ? null : im.refusReception(p, probe);
@@ -972,6 +973,28 @@ public final class CommService implements Listener {
         if (lire) envoyerLettre(p, m, briseAvant, m.briseePar != null && !briseAvant);
         else canal.toast(p, "Missive prise : dans ta sacoche.", false);
         ouvrirVoliere(p, v, 1, false);
+    }
+
+    /**
+     * « Lire » à la volière (16/10, correction demandée) : la lecture brise le cachet pour toujours mais la missive
+     * RESTE à la volière ; seul « Prendre » la met dans la sacoche.
+     */
+    private void lireSurPlace(Player p, Missive m, Voliere v, ShinobiCharacter c) {
+        boolean briseAvant = !m.scellee;
+        if (m.scellee) {
+            briser(m, c.id());
+            store.marquerMissives();
+            p.playSound(p.getLocation(), Sound.ITEM_AXE_WAX_OFF, SoundCategory.PLAYERS, 0.9f, 0.8f);
+        }
+        p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, SoundCategory.PLAYERS, 0.8f, 1f);
+        boolean pourLui = c.id().equals(m.pour().perso());
+        Journal.entree(Categorie.MISSIVE, "LECTURE").acteur(p).ciblePersonnage(p.getUniqueId(), c.id())
+                .detail(m.id + " lue sur place à " + v.nom + " · pour " + m.pour().nom()
+                        + (pourLui ? "" : " · lue par quelqu'un d'autre que le destinataire")
+                        + (briseAvant ? "" : " · cachet brisé à cette lecture"))
+                .lieu(p.getLocation()).ecrire();
+        ouvrirVoliere(p, v, 1, false);           // la liste montre le cachet brisé ; la missive reste là
+        envoyerLettre(p, m, briseAvant, !briseAvant, true);
     }
 
     private void briser(Missive m, UUID par) {
@@ -1001,6 +1024,11 @@ public final class CommService implements Listener {
     }
 
     private void envoyerLettre(Player p, Missive m, boolean dejaBrise, boolean vientDeBriser) {
+        envoyerLettre(p, m, dejaBrise, vientDeBriser, false);
+    }
+
+    /** {@code surPlace} : lue à la volière sans la prendre (l'écran propose alors Laisser · Prendre). */
+    private void envoyerLettre(Player p, Missive m, boolean dejaBrise, boolean vientDeBriser, boolean surPlace) {
         if (!canal.modde(p)) {
             p.sendMessage("§6[Missive] §7À " + String.join(", ", m.dests.stream().map(Dest::nom).toList()) + " :");
             p.sendMessage("§f" + Riche.plat(Riche.deBalises(m.texte)));
@@ -1021,6 +1049,7 @@ public final class CommService implements Listener {
         if (m.signee) o.addProperty("signe", m.auteurNom);
         o.addProperty("dejaBrise", dejaBrise && c != null && m.briseePar != null && !m.briseePar.equals(c.id()));
         o.addProperty("vientDeBriser", vientDeBriser);
+        if (surPlace) o.addProperty("surPlace", true);
         canal.envoyer(p, o);
     }
 

@@ -29,7 +29,7 @@ qu'on ne sprinte pas.
 | **Marche** | rien (ZQSD) | **0,75** → ~3,2 blocs/s | — | la **démarche** choisie (menu « . »), cadence 0,85 |
 | **Trot** | **touche de sprint maintenue** (Ctrl gauche par défaut) | **1,15** → ~5 blocs/s | gratuit (faim vanilla) | course, cadence 1 |
 | **Sprint** | **double appui** sur la touche de sprint, le second maintenu | **1,55** → ~6,7 blocs/s | **20 d'endurance par seconde** (~5 s avec 100) | course, cadence 1,3 + **traînée de fumée blanche** |
-| **Course de chakra** (15/10) | **touche X** (bascule : un appui la lance, un autre l'arrête) ou **triple appui**, le troisième maintenu ; relâcher l'arrête | celle de la course ninja (ShinobiAbilities, `mobility.naruto-run`) | chakra (`chakra-cost-per-second`) | course ninja |
+| **Course de chakra** (15/10) | **touche X** seule (bascule : un appui la lance, un autre l'arrête) ; le triple appui sur le sprint est retiré le 16/10 (hud 0.4.186) | celle de la course ninja (ShinobiAbilities, `mobility.naruto-run`) | chakra (`chakra-cost-per-second`) | course ninja |
 
 - La touche est **celle du sprint de Minecraft** (Options → Commandes → Déplacement → Sprint), donc **rebindable** et
   sans conflit avec les touches Reborn (R interaction, F ramasser, Z dégainer, E sacoche, X lâcher, G dash, C garde…). RedLine utilise Shift, qui est chez nous l'accroupi (et le saut de chakra Shift + Espace).
@@ -73,7 +73,7 @@ qu'on ne sprinte pas.
 | **Garde** (C maintenue) | immobile | — | ❌ |
 | Faim ≤ 30 % (vanilla) | ✅ | ❌ | ❌ |
 | **KO**, **porté**, véhicule, nage, vol, créatif | allure **neutre** (le modificateur est retiré, une autre mécanique gère la vitesse) |
-| **Course ninja** (triple appui) / Voie du Flux | allure **neutre** : la course possède la vitesse ; lancer la course coupe le sprint |
+| **Course ninja** (touche X) / Voie du Flux | allure **neutre** : la course possède la vitesse ; lancer la course coupe le sprint |
 
 ## 6. Autorité et prédiction
 
@@ -100,11 +100,11 @@ qu'on ne sprinte pas.
 `REBORN_ALLURE_DEBUG=1` (client de dev, solo, endurance simulée) : piste dans le ciel au-dessus du spawn, marche, trot,
 sprint, fin de sprint, essoufflement, récupération → `run/screenshots/allure_0*.png` et les vitesses mesurées dans
 `allure_vitesses.txt` ; la piste est effacée à la fin. Cf. [`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §5.
-Le triple appui et la touche X (course de chakra) sont éprouvés par le banc des touches (`REBORN_TOUCHES_DEBUG=1`, même section). Son de la course (15/10 au soir) : souffle discret (`ENTITY_BREEZE_IDLE_AIR`, volume 0,2, ton varié, toutes les 2 s et seulement en mouvement), clés `mobility.naruto-run.souffle-*` ; l'ancienne élytre relancée chaque seconde (`wind-*`) n'est plus lue.
+La touche X (course de chakra ; le banc vérifie aussi que le triple appui ne la lance plus) est éprouvée par le banc des touches (`REBORN_TOUCHES_DEBUG=1`, même section). Son de la course (15/10 au soir) : souffle discret (`ENTITY_BREEZE_IDLE_AIR`, volume 0,2, ton varié, toutes les 2 s et seulement en mouvement), clés `mobility.naruto-run.souffle-*` ; l'ancienne élytre relancée chaque seconde (`wind-*`) n'est plus lue.
 
 ## 9. En attente
 
-- ✅ **Course ninja depuis le sprint** (décidé et codé le 15/10, non publié) : la touche L disparaît ; la course de
+- ✅ **Course de chakra sur la touche X seule** (16/10, hud 0.4.186 : le triple appui sur le sprint est retiré, « c'est chiant ») — historique : la touche L disparaît ; la course de
   chakra est le **4ᵉ rapport**, un **triple appui** sur la touche de sprint (le 3ᵉ maintenu, dans la fenêtre du double
   appui de Minecraft, `sprintWindow`). Le mod ne la demande que si le chakra connu suffit (≥ 5, défaut de
   `min-chakra-to-start` ; sans état de chakra reçu, il laisse le serveur trancher) ; le plugin vérifie le reste (apprise,

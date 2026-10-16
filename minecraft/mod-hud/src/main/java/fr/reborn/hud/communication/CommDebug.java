@@ -26,7 +26,7 @@ public final class CommDebug {
 
     static final String[] CLOCHE = {"rediger", "bande_normale", "bande_importante", "bande_danger", "bande_fondu", "chef_section",
             "menu_r", "echelle3", "petit", "sans_delai"};
-    static final String[] VOLIERE = {"ecrire", "ajouter", "missives", "lecture", "alerte_missive", "alerte_palais", "transfert",
+    static final String[] VOLIERE = {"ecrire", "ajouter", "missives", "lecture", "lecture_sur_place", "alerte_missive", "alerte_palais", "transfert",
             "menu_r", "vide"};
 
     private record Shot(String nom, String cas, int fw, int fh, int echelle) { }
@@ -368,6 +368,11 @@ public final class CommDebug {
             case "voliere:vide" -> recevoir(voliere(1, false, true));
             case "voliere:transfert" -> recevoir(voliere(1, true, false));
             case "voliere:lecture" -> recevoir(lettre());
+            case "voliere:lecture_sur_place" -> {
+                JsonObject o = lettre();
+                o.addProperty("surPlace", true);
+                recevoir(o);
+            }
             case "voliere:alerte_missive" -> BandeHud.alerte("missive", "tour de volière de Suna", 8);
             case "voliere:alerte_palais" -> {
                 BandeHud.alerte("missive", "tour de volière de Suna", 8);
