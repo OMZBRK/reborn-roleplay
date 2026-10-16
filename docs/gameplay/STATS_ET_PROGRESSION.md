@@ -112,6 +112,9 @@ plus deux ressources. Genjutsu absent de la beta.
   pleine → le client envoie `go`, le serveur tire → **réaction animée** (32 images, 2,24 s) : Katon s'enflamme et se
   consume, Suiton se gorge d'eau et goutte, Doton se dessèche et s'effrite, Raiton se froisse en zigzag, Fūton se coupe
   net en deux. Puis le symbole canonique, le nom, une phrase, « Valider » ; la caméra revient en glissant.
+- **v3 (16/10)** : au gros plan, les deux doigts dessinés sont remplacés, même place et même taille, par **le bout du
+  bras Minecraft du joueur** qui pince la feuille par le haut (`TirageBras` : court tronçon carré 4 px, 3 en « slim »,
+  face avant + dessous de la main, son skin manche comprise, texels carrés ×5, sans étirement) ; réactions inchangées.
 - **Double nature** : la feuille se partage en bandes qui réagissent **l'une après l'autre** (natures déjà éveillées
   d'abord, la nouvelle en dernier).
 - **Renoncer** (Échap avant la fin de la jauge) n'envoie rien : la feuille n'est pas consommée.

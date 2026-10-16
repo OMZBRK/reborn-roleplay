@@ -22,7 +22,9 @@ import java.util.Locale;
  *       ({@code [tirage-banc]}) : il ne doit plus bouger.</li>
  *   <li>{@code =bug} : ancien journal du bug de caméra (lacet / orbite pendant les signes).</li>
  * </ul>
- * Le jeu se ferme tout seul ; heure, météo, caméra et blocs posés sont rendus.
+ * Le jeu se ferme tout seul ; heure, météo, caméra et blocs posés sont rendus. {@code REBORN_TIRAGE_SKIN=slim:<id>}
+ * (ou {@code wide:<id>}) impose le skin du bras du gros plan (v3), par ex.
+ * {@code slim:minecraft:textures/entity/player/slim/makena.png} ; sinon c'est celui du joueur.
  */
 public final class TirageDebug {
 
@@ -43,6 +45,11 @@ public final class TirageDebug {
     public static void init() {
         mode = System.getenv("REBORN_TIRAGE_DEBUG");
         if (mode == null || mode.isBlank()) return;
+        String peau = System.getenv("REBORN_TIRAGE_SKIN");
+        if (peau != null && !peau.isBlank()) {
+            TirageBras.debugSlim = peau.startsWith("slim:");
+            TirageBras.debugSkin = net.minecraft.resources.Identifier.parse(peau.replaceFirst("^(slim|wide):", ""));
+        }
         String seuls = System.getenv("REBORN_TIRAGE_CAS");
         for (Cas c : List.of(
                 new Cas("katon", "KATON", null, false, false),
@@ -117,8 +124,8 @@ public final class TirageDebug {
             TirageHorloge.avancer(50);
         }
         if (ts != null) {
-            System.out.println(String.format(Locale.ROOT, "[tirage-banc] %s t=%d phase=%s lacet=%.2f (départ %.2f) camYaw=%.1f mode=%s",
-                c.nom(), local, ts.phaseNom(), mc.player.getYRot(), yawDepart, RebornCamera.INSTANCE.camYaw(),
+            System.out.println(String.format(Locale.ROOT, "[tirage-banc] %s t=%d img=%d phase=%s lacet=%.2f (départ %.2f) camYaw=%.1f mode=%s",
+                c.nom(), local, image - 1, ts.phaseNom(), mc.player.getYRot(), yawDepart, RebornCamera.INSTANCE.camYaw(),
                 RebornCamera.INSTANCE.mode()));
             // événements à l'horloge de l'écran (pas aux ticks, qui s'accumulent quand une capture ralentit le jeu)
             long e = TirageHorloge.now() - ouvert;

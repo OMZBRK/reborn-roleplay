@@ -26,14 +26,14 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * <b>Test de la Feuille</b> v2 (16/10) — on canalise son chakra dans une feuille de papier à chakra tenue entre deux
- * doigts ; sa réaction révèle la nature (canon) : <b>Katon</b> elle s'enflamme et se consume, <b>Suiton</b> elle se
- * gorge d'eau et goutte, <b>Doton</b> elle se dessèche et s'effrite, <b>Raiton</b> elle se froisse en zigzag,
- * <b>Fūton</b> elle se coupe net en deux. Double nature : la feuille se partage en bandes qui réagissent l'une après
+ * <b>Test de la Feuille</b> v3 (16/10) — on canalise son chakra dans une feuille de papier à chakra pincée par le
+ * haut par le bout du bras Minecraft du joueur (à son skin : {@link TirageBras}) ; sa réaction révèle la nature
+ * (canon) : <b>Katon</b> elle s'enflamme et se consume, <b>Suiton</b> elle se gorge d'eau et goutte, <b>Doton</b>
+ * elle se dessèche et s'effrite, <b>Raiton</b> elle se froisse en zigzag, <b>Fūton</b> elle se coupe net en deux. Double nature : la feuille se partage en bandes qui réagissent l'une après
  * l'autre (les natures déjà éveillées d'abord, la nouvelle en dernier).
  *
  * <p>Mise en scène : la caméra quitte l'épaule et glisse vers un plan fixe de ¾ face posé dans le monde
- * ({@link CameraTirage}) ; le personnage lève la feuille devant son visage entre deux doigts, l'autre main en
+ * ({@link CameraTirage}) ; le personnage lève la feuille devant son visage, l'autre main en
  * demi-sceau ({@link TirageAnimations}) ; l'écran occupe la droite, sobre (voile de nuit, titre or, filet) : la feuille
  * en gros plan (pixel art, une case d'atlas par image, {@code tools/gen_tirage_textures.py}), « Maintenir [Espace] pour
  * canaliser » et sa jauge, la lueur de chakra qui grandit autour de la feuille, puis la réaction de la nature, le
@@ -88,6 +88,9 @@ public class TirageScreen extends Screen {
     /** Banc : maintien simulé de la touche de canalisation. */
     boolean debugTenir;
     private boolean initialise;
+    /** Le bras qui tient la feuille au gros plan (skin du joueur relu toutes les 10 ticks). */
+    private final TirageBras bras = new TirageBras();
+    private int ticks;
 
     /** Le serveur a répondu : fixe la nature de l'écran en cours. {@code clanEtAutres} = « clan|AUTRES » (facultatif). */
     public void applyServerResult(String natureName) { applyServerResult(natureName, null); }
@@ -157,6 +160,7 @@ public class TirageScreen extends Screen {
     protected void init() {
         if (initialise) return;                 // redimensionnement : on garde l'état
         initialise = true;
+        bras.actualiser();
         if (confirmMode) { setPhase(Phase.CONFIRM); return; }
         startTest();
         if (bancEtape >= 0) {
@@ -285,6 +289,7 @@ public class TirageScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer p = mc.player;
         if (p == null || mc.level == null) return;
+        if (++ticks % 10 == 0) bras.actualiser();
         Vec3 main = CameraTirage.INSTANCE.main();
         switch (phase) {
             case ENTREE -> { if (ecoule() >= ENTREE_MS) setPhase(Phase.CANAL); }
@@ -463,6 +468,8 @@ public class TirageScreen extends Screen {
                 DaKit.blanc(Math.min(1f, (float) Math.pow(glow, 0.8) * a)));
             drawEtincelles(ctx, ccx, ccy, glow);
         }
+        // le bout du bras pince la feuille par le haut, par-dessus (la feuille réagit sous le poing, le bras reste)
+        bras.dessiner(ctx, fx, fy, Z, a, phase == Phase.REACTION ? 0f : glow, pouls);
     }
 
     /** Image de la case pour la bande i (−1 = feuille intacte). */
@@ -615,7 +622,9 @@ public class TirageScreen extends Screen {
     private void drawConfirm(GuiGraphicsExtractor ctx, Font f, int cx, int mouseX, int mouseY) {
         int top = confirmTop();
         lueur(ctx, cx, top + 84, 170, CHAKRA, 0.14f + 0.05f * (float) Math.sin(now() / 420.0));
-        DaKit.blit(ctx, FEUILLE, cx - CW / 2, top + (int) Math.round(Math.sin(now() / 600.0)), 0, 0, CW, CH, CW, CH);
+        int bob = (int) Math.round(Math.sin(now() / 600.0));
+        DaKit.blit(ctx, FEUILLE, cx - CW / 2, top + bob, 0, 0, CW, CH, CW, CH);
+        bras.dessiner(ctx, cx - CW / 2, top + bob, 1, 1f, 0f, 0f);
         int y = top + CH + 2;
         DaKit.arcX1(ctx, f, DaKit.arcade("Test de la Feuille"), cx, y, DaKit.OR_CLAIR, 1, true);
         ReglagesArt.filet(ctx, cx - 70, cx + 70, y + 12);

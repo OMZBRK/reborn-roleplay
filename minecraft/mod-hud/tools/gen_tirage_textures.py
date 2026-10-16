@@ -1,32 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-gen_tirage_textures.py — test de la Feuille v2 (16/10) : la feuille de papier à chakra tenue **entre deux doigts**, en
+gen_tirage_textures.py — test de la Feuille v3 (16/10) : la feuille de papier à chakra pincée par le haut par **le bout
+du bras Minecraft** du joueur (posé par le code, au skin du joueur : TirageBras ; v2 = deux doigts dessinés, refusés), en
 gros plan, sa lueur de chakra, et sa réaction selon la nature, image par image (menu/tirage/TirageScreen). Aucun kanji
 (DA §3), pixel art léger (DA §6) : chaque image est une case d'atlas posée en UN blit ; le code choisit la case, pose la
 lueur, la jauge et le texte.
 
 Réactions (canon, cf. référence vidéo du 16/10, refaites à notre main) :
-  - Katon  : elle prend feu par un coin du bas, la flamme remonte et la consume ; il reste un bout carbonisé sous les
-             doigts, des braises qui s'éteignent, des cendres qui tombent, un filet de fumée ;
-  - Suiton : l'humidité gagne depuis les doigts, la feuille s'assombrit, devient translucide, s'affaisse et goutte ;
+  - Katon  : elle prend feu par un coin du bas, la flamme remonte et la consume ; il reste un bout carbonisé dans le
+             poing, des braises qui s'éteignent, des cendres qui tombent, un filet de fumée ;
+  - Suiton : l'humidité gagne depuis la main, la feuille s'assombrit, devient translucide, s'affaisse et goutte ;
   - Doton  : elle se dessèche (brunit depuis les bords), se craquelle et s'effrite par le bas en poussière ;
   - Raiton : des plis en zigzag la traversent comme des éclairs, puis elle se froisse en boule à facettes, crépitante ;
   - Fūton  : un souffle, puis une coupe nette en diagonale : le bas glisse le long de la coupe et s'envole.
   Double nature : le code coupe chaque image en bandes verticales (une par nature, UV) qui réagissent l'une après
-  l'autre — les doigts et la feuille sont au même endroit dans toutes les cases, la jointure ne se voit pas.
+  l'autre — la feuille est au même endroit dans toutes les cases, la jointure ne se voit pas.
 
 1 texel = 1 GUI. Contrat (textures/gui/tirage/) :
-- feuille.png             128×160 : la feuille intacte tenue par les deux doigts (confirmation, canalisation).
+- feuille.png             128×160 : la feuille intacte (confirmation, canalisation).
 - feuille_<nature>.png   1024×640 : 32 images 128×160 (8 colonnes × 4 rangées, ordre de lecture), 70 ms chacune
                                     (2,24 s) ; la dernière reste affichée au résultat.
-  Dans une case : feuille 60×80 en (34, 44) ; doigts du haut de la case jusqu'à y ≈ 56.
+  Dans une case : feuille 60×80 en (34, 44) ; le bout du bras (code) occupe x 54..73, du haut jusqu'à y = 57.
 - aura.png                512×160 : 4 images 128×160 de la lueur de chakra autour de la feuille (contour vivant,
                                     bleu), posées par-dessus avec l'alpha de la charge, 110 ms chacune.
 - pieces.png              192×48  : cabochon de touche (3 morceaux, coupe), cadre et remplissage de la jauge,
                                     pastille de nature, filet.
 - halo.png                 64×64  : halo doux blanc (teinté et étiré par le code).
 - bouton.png              100×40  : plaque laquée fine 96×16, repos / survol (pas de 20).
-GIF de contrôle et planche : Maquettes/gameplan/test_feuille_v2/ (reaction_<nature>.gif, planche_reactions.png).
+GIF de contrôle et planche : Maquettes/gameplan/test_feuille_v3/ (reaction_<nature>.gif, planche_reactions.png ; le
+bout du bras y est figuré par un aplat, le vrai est celui du jeu).
 
 Usage (depuis minecraft/mod-hud) :  python tools/gen_tirage_textures.py
 """
@@ -45,7 +47,7 @@ from jeu_art import ea, kit, nouveau  # noqa: E402
 
 S = ea.Sortie("tirage", budget=1_400_000)
 MAQ = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..",
-                                    "Maquettes", "gameplan", "test_feuille_v2"))
+                                    "Maquettes", "gameplan", "test_feuille_v3"))
 
 CW, CH = 128, 160        # case
 LW, LH = 60, 80          # feuille
@@ -53,7 +55,8 @@ OX, OY = 34, 44          # feuille dans la case
 NF, COLS = 32, 8
 SS = 4                   # sur-échantillonnage des déformations
 NATURES = ("katon", "suiton", "doton", "futon", "raiton")
-GX = OX + LW // 2        # axe des doigts
+GX = OX + LW // 2        # axe du bras (TirageBras.AXE)
+MAIN_X0, MAIN_L, MAIN_Y1 = 54, 20, 57   # bout du bras posé par le code (aperçus des GIF seulement)
 
 
 # ═══════════════════════════════════════ outils ═══════════════════════════════════════
@@ -160,13 +163,9 @@ def bruit(w, h, cel, seed, oct_=2):
     return kit.bruit(w, h, cel, seed, oct_).astype(np.float32)
 
 
-# ═══════════════════════════════════════ la feuille et les doigts ═══════════════════════════════════════
-PEAU = ["7A4A30", "9A6242", "B87C56", "CF9468", "DEA87C", "EABB90", "F4CFA8"]
-ONGLE = ["C89A86", "E2BCA8", "F2D6C8"]
-
-
+# ═══════════════════════════════════════ la feuille ═══════════════════════════════════════
 def feuille_base():
-    """Washi blanc 60×80, bords nets, modelé doux : lumière d'en haut à gauche, ombre des doigts en haut."""
+    """Washi blanc 60×80, bords nets, modelé doux : lumière d'en haut à gauche, ombre du poing en haut."""
     im = nouveau(LW, LH)
     kit.washi(im, 0, 0, LW, LH, "blanc", seed=7, bords="nets", ombre=False, taches=False)
     a = np.asarray(im, np.float32) / 255.0
@@ -174,77 +173,19 @@ def feuille_base():
     mod = 1.0 + 0.035 * (1 - xx / LW) - 0.05 * (yy / LH) ** 2
     # légère courbure : la feuille pend, un pli doux au milieu
     mod -= 0.025 * np.exp(-((xx - LW * 0.62) / 5.0) ** 2) * (yy / LH)
-    # ombre des doigts sur le haut
-    d = np.hypot((xx - LW / 2) / 9.0, (yy - 2) / 8.0)
+    # ombre du poing sur le haut
+    d = np.hypot((xx - LW / 2) / 12.0, (yy - 12) / 6.0)
     mod -= 0.10 * np.clip(1 - d, 0, 1)
     a[..., :3] = np.clip(a[..., :3] * mod[..., None], 0, 1)
     return a
 
 
-def doigt(hr_h, larg, long_, avant=True):
-    """Un doigt vu de dos, pointe en bas, sur-échantillonné (SS) : couleur lissée puis réduite par l'appelant."""
-    W, H = larg * SS, long_ * SS
-    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-    X = (xx + 0.5) / SS - larg / 2
-    Y = (yy + 0.5) / SS
-    r = larg / 2
-    # corps + bout arrondi
-    bout = long_ - r
-    dist = np.where(Y < bout, np.abs(X), np.hypot(X, Y - bout))
-    m = dist <= r
-    # modelé cylindrique, lumière à gauche
-    n = np.clip(X / r, -1, 1)
-    v = 0.62 - 0.30 * n + 0.10 * np.sqrt(np.clip(1 - n * n, 0, 1))
-    v -= 0.10 * (Y < 2.5)                           # ombre en haut (sous la main)
-    # pli de l'articulation
-    for yk in (long_ * 0.30, long_ * 0.33):
-        v -= 0.10 * (np.abs(Y - yk) < 0.6) * (np.abs(X) < r * 0.7)
-    if not avant:
-        v -= 0.16
-    idx = np.clip((v * (len(PEAU) - 1) + 0.5).astype(int), 0, len(PEAU) - 1)
-    pal = np.array([c(h) for h in PEAU])
-    out = pal[idx]
-    out[..., 3] = m.astype(np.float32)
-    # ongle (vu de dos : au bout)
-    if avant:
-        on = (np.abs(X + 0.3) < r * 0.62) & (Y > bout - r * 0.95) & (Y < long_ - 1.1) & m
-        out[on] = c(ONGLE[1])
-        on2 = on & (X < -0.6) & (Y < bout)
-        out[on2] = c(ONGLE[2])
-        bord_on = on & ((np.abs(X + 0.3) > r * 0.5) | (Y > long_ - 1.9))
-        out[bord_on] = c(ONGLE[0])
-    # liseré sombre (lisible sur la feuille blanche et sur la nuit)
-    e = m & (dist > r - 0.9)
-    out[e, :3] = c(PEAU[0])[:3]
-    return out
-
-
-def calque_doigts(arriere):
-    """Les deux doigts (index devant la feuille, majeur derrière), réduits à la taille de la case ; ils sortent de
-    l'ombre en haut (fondu d'alpha sur 18 GUI : la main reste hors champ)."""
-    hr = vide(CW * SS, CH * SS)
-    haut = 10
-    if arriere:
-        d = doigt(None, 9, OY + 13 - haut, avant=False)
-        over(hr, d, (GX + 1) * SS, haut * SS)
-    else:
-        d = doigt(None, 10, OY + 9 - haut, avant=True)
-        over(hr, d, (GX - 9) * SS, haut * SS)
-    a = reduire(hr)
-    yy = np.arange(CH, dtype=np.float32)[:, None]
-    a[..., 3] *= np.clip((yy - haut) / 18.0, 0, 1)
-    return a
-
-
 BASE = None
-DOIGT_AR = None
-DOIGT_AV = None
 
 
 def case(feuille_couche, x=OX, y=OY, entre=None):
-    """Assemble une case : majeur (derrière), feuille, [entre : flammes…], index (devant)."""
+    """Assemble une case : feuille, [entre : flammes…]. Le bout du bras est posé par le code, par-dessus."""
     a = vide(CW, CH)
-    over(a, DOIGT_AR)
     if feuille_couche is not None:
         if feuille_couche.shape[:2] == (CH, CW):
             over(a, feuille_couche)
@@ -252,7 +193,6 @@ def case(feuille_couche, x=OX, y=OY, entre=None):
             over(a, feuille_couche, x, y)
     if entre is not None:
         over(a, entre)
-    over(a, DOIGT_AV)
     return a
 
 
@@ -269,7 +209,7 @@ def katon(f):
     yy, xx = np.mgrid[0:LH, 0:LW].astype(np.float32)
     ix, iy = LW * 0.20, LH + 2.0                          # allumage : coin bas gauche
     D = np.sqrt((xx - ix) ** 2 + ((yy - iy) * 0.78) ** 2) + (bruit(LW, LH, 7, 21, 3) - 0.5) * 11
-    reste_y = 15                                           # le bout qui reste sous les doigts
+    reste_y = 15                                           # le bout qui reste dans le poing
     rmax = float(np.percentile(D[yy > reste_y], 99.5))
     if t < 0.06:
         R = 3.0 * t / 0.06
@@ -564,7 +504,7 @@ def raiton(f):
         leaf[..., :3] = np.where((bas1 & ~m)[..., None], leaf[..., :3] * 0.80, leaf[..., :3])
         leaf[..., :3] = np.where((haut & ~m)[..., None], np.clip(leaf[..., :3] * 1.06 + 0.02, 0, 1), leaf[..., :3])
         leaf[..., :3] = np.where(m[..., None], leaf[..., :3] * 0.58, leaf[..., :3])
-    # 2. froissage : facettes contrastées + contour qui se rétracte vers les doigts en boule à facettes
+    # 2. froissage : facettes contrastées + contour qui se rétracte vers le poing en boule à facettes
     cr = lisse(0.36, 0.90, t)
     lab, bord, P = voronoi(LW, LH, 40, 31)
     rs = np.random.RandomState(32)
@@ -575,7 +515,7 @@ def raiton(f):
     leaf[..., :3] = np.where(pli[..., None], leaf[..., :3] * (1 - 0.35 * cr), leaf[..., :3])
     hrL = agrandir(leaf)
     X, Y = grille_hr()
-    cyb = 10.0                                            # centre de la boule, sous les doigts
+    cyb = 10.0                                            # centre de la boule, sous le poing
     Xc, Yc = X - LW / 2, Y - cyb
     th = np.arctan2(Xc, Yc)
     rsn = np.random.RandomState(34)
@@ -709,10 +649,9 @@ def distance(m, rmax):
 
 
 def aura(k):
-    """Contour vivant de chakra autour de la feuille (et des doigts), image k sur 4."""
+    """Contour vivant de chakra autour de la feuille, image k sur 4 (la main a son liseré, posé par le code)."""
     m = np.zeros((CH, CW), bool)
     m[OY:OY + LH, OX:OX + LW] = BASE[..., 3] > 0.5
-    m |= (DOIGT_AV[..., 3] > 0.5) | (DOIGT_AR[..., 3] > 0.5)
     m[:OY - 8, :] = False                                   # pas de lueur sur la main hors champ
     dist = distance(m, 12)
     yy, xx = np.mgrid[0:CH, 0:CW].astype(np.float32)
@@ -810,21 +749,26 @@ def halo():
     return Image.fromarray(o, "RGBA")
 
 
+def main_apercu(b, x=0, y=0):
+    """Aperçu des GIF de contrôle : le bout du bras figuré par un aplat (le vrai, au skin du joueur, est en jeu)."""
+    b.paste((176, 128, 96, 255), (x + MAIN_X0, y + 22, x + MAIN_X0 + MAIN_L, y + MAIN_Y1 - 5))
+    b.paste((120, 86, 64, 255), (x + MAIN_X0, y + MAIN_Y1 - 5, x + MAIN_X0 + MAIN_L, y + MAIN_Y1))
+
+
 def gif(frames, chemin, echelle=3, fond=(14, 10, 12), tenir=14, ms=70):
     imgs = []
     seq = [frames[0]] * 6 + list(frames) + [frames[-1]] * tenir
     for fr in seq:
         b = Image.new("RGBA", (CW, CH), fond + (255,))
         b.alpha_composite(en_image(fr))
+        main_apercu(b)
         imgs.append(b.convert("RGB").resize((CW * echelle, CH * echelle), Image.NEAREST))
     imgs[0].save(chemin, save_all=True, append_images=imgs[1:], duration=ms, loop=0)
 
 
 def main():
-    global BASE, DOIGT_AR, DOIGT_AV, ZZ
+    global BASE, ZZ
     BASE = feuille_base()
-    DOIGT_AR = calque_doigts(True)
-    DOIGT_AV = calque_doigts(False)
     ZZ = zigzags()
     intacte = case(BASE)
     S.sauver("feuille.png", en_image(intacte), (CW, CH))
@@ -848,6 +792,7 @@ def main():
     for r, n in enumerate(toutes):
         for i, fr in enumerate(toutes[n][::pas]):
             pl.alpha_composite(en_image(fr), (10 + i * CW, 7 + r * (CH + 6)))
+            main_apercu(pl, 10 + i * CW, 7 + r * (CH + 6))
     pl.convert("RGB").save(os.path.join(MAQ, "planche_reactions.png"))
     print("GIF ->", MAQ)
 
