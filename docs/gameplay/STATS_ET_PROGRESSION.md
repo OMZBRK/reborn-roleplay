@@ -97,6 +97,30 @@ plus deux ressources. Genjutsu absent de la beta.
 - Mode `stats.respec` : `TOKEN` (défaut), `FREE` (test), `STAFF`.
 - ⚠️ **Aucune boutique ne vend encore de jetons** (pistes : boutique du launcher, ou jeton en ryo dans l'échoppe).
 
+### 1.4 Les natures de chakra : le test de la Feuille
+
+- **Tirage** (inchangé, serveur autoritaire, `ShinobiCore` `character/LeafTestManager`) : objet « Test de la Feuille »
+  (clic droit) ou `/testfeuille` (`/testfeuille give [joueur]` donne l'objet) → confirmation → tirage pondéré par le
+  clan (20 par nature, +40 sur celle du clan), attribution et sauvegarde. 3 natures au plus : 2ᵉ au niveau 6, 3ᵉ au
+  niveau 12. L'objet est consommé au tirage.
+- **Mise en scène v2 (16/10, mod `menu/tirage/`)** : après « Confirmer », la caméra quitte l'épaule et **glisse** vers
+  un plan fixe de ¾ face posé dans le monde (`CameraTirage` : premier angle dont la vue n'est coupée par aucun bloc,
+  sinon raccourci devant l'obstacle) ; le personnage lève la feuille **entre deux doigts** devant son visage, l'autre
+  main en demi-sceau (animation `feuille_canal`, respiration en boucle). À droite, écran sobre : la feuille en gros plan
+  (pixel art ×2), « **Maintenir [Espace] pour canaliser** » (ou clic maintenu) et sa jauge (2,2 s ; elle redescend si
+  on lâche), la **lueur de chakra** qui grandit autour de la feuille, la liste des cinq natures et leur effet. Jauge
+  pleine → le client envoie `go`, le serveur tire → **réaction animée** (32 images, 2,24 s) : Katon s'enflamme et se
+  consume, Suiton se gorge d'eau et goutte, Doton se dessèche et s'effrite, Raiton se froisse en zigzag, Fūton se coupe
+  net en deux. Puis le symbole canonique, le nom, une phrase, « Valider » ; la caméra revient en glissant.
+- **Double nature** : la feuille se partage en bandes qui réagissent **l'une après l'autre** (natures déjà éveillées
+  d'abord, la nouvelle en dernier).
+- **Renoncer** (Échap avant la fin de la jauge) n'envoie rien : la feuille n'est pas consommée.
+- **Vu des autres** : bouffée de chakra puis effet de la nature à la main du joueur (flammèches et fumée, gouttes,
+  poussière de terre, étincelles, coup de vent), une seconde bouffée une seconde plus tard ; son de balise.
+  L'animation du personnage reste locale (pas de synchro d'animation entre joueurs aujourd'hui).
+- Textures `gui/tirage/` générées par `minecraft/mod-hud/tools/gen_tirage_textures.py`, animations par
+  `tools/gen_tirage_animation.py` ; banc `REBORN_TIRAGE_DEBUG` ([`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §5).
+
 ---
 
 ## 2. Les points de stats viennent de l'XP

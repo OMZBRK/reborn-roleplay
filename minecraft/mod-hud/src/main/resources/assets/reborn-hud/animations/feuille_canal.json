@@ -1,0 +1,310 @@
+{
+ "format_version": "1.8.0",
+ "geckolib_format_version": 2,
+ "animations": {
+  "feuille_canal": {
+   "model": {
+    "body_control": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    },
+    "waist": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    }
+   },
+   "parents": {
+    "waist": "body_control",
+    "left_leg": "body_control",
+    "right_leg": "body_control",
+    "torso": "waist",
+    "head": "waist",
+    "right_arm": "waist",
+    "left_arm": "waist"
+   },
+   "animation_length": 3.7,
+   "loop": true,
+   "player_animation_library": {
+    "name": "Test de la Feuille — canaliser",
+    "author": "Reborn",
+    "description": "La feuille tenue entre deux doigts devant le visage, l'autre main en demi-sceau, respiration."
+   },
+   "bones": {
+    "right_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.320": {
+       "vector": [
+        -52.0,
+        -16.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.700": {
+       "vector": [
+        -78.0,
+        -32.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "1.450": {
+       "vector": [
+        -80.0,
+        -32.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.200": {
+       "vector": [
+        -78.0,
+        -32.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.950": {
+       "vector": [
+        -80.0,
+        -32.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "3.700": {
+       "vector": [
+        -78.0,
+        -32.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": 0.0,
+       "easing": "easeInOutSine"
+      },
+      "0.320": {
+       "value": -38.0,
+       "easing": "easeInOutSine"
+      },
+      "0.700": {
+       "value": -72.0,
+       "easing": "easeInOutSine"
+      },
+      "1.450": {
+       "value": -75.0,
+       "easing": "easeInOutSine"
+      },
+      "2.200": {
+       "value": -72.0,
+       "easing": "easeInOutSine"
+      },
+      "2.950": {
+       "value": -75.0,
+       "easing": "easeInOutSine"
+      },
+      "3.700": {
+       "value": -72.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "left_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.400": {
+       "vector": [
+        -26.0,
+        14.0,
+        -6.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.700": {
+       "vector": [
+        -40.0,
+        25.0,
+        -10.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "1.450": {
+       "vector": [
+        -41.5,
+        25.0,
+        -10.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.200": {
+       "vector": [
+        -40.0,
+        25.0,
+        -10.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.950": {
+       "vector": [
+        -41.5,
+        25.0,
+        -10.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "3.700": {
+       "vector": [
+        -40.0,
+        25.0,
+        -10.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": 0.0,
+       "easing": "easeInOutSine"
+      },
+      "0.400": {
+       "value": -60.0,
+       "easing": "easeInOutSine"
+      },
+      "0.700": {
+       "value": -95.0,
+       "easing": "easeInOutSine"
+      },
+      "1.450": {
+       "value": -97.0,
+       "easing": "easeInOutSine"
+      },
+      "2.200": {
+       "value": -95.0,
+       "easing": "easeInOutSine"
+      },
+      "2.950": {
+       "value": -97.0,
+       "easing": "easeInOutSine"
+      },
+      "3.700": {
+       "value": -95.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "head": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.450": {
+       "vector": [
+        6.0,
+        8.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.700": {
+       "vector": [
+        10.0,
+        14.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "1.450": {
+       "vector": [
+        11.5,
+        14.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.200": {
+       "vector": [
+        10.0,
+        14.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "2.950": {
+       "vector": [
+        11.5,
+        14.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "3.700": {
+       "vector": [
+        10.0,
+        14.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "torso": {
+     "bend": {
+      "0.000": {
+       "value": 0.0,
+       "easing": "easeInOutSine"
+      },
+      "0.700": {
+       "value": 2.0,
+       "easing": "easeInOutSine"
+      },
+      "1.450": {
+       "value": 3.0,
+       "easing": "easeInOutSine"
+      },
+      "2.200": {
+       "value": 2.0,
+       "easing": "easeInOutSine"
+      },
+      "2.950": {
+       "value": 3.0,
+       "easing": "easeInOutSine"
+      },
+      "3.700": {
+       "value": 2.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    }
+   }
+  }
+ }
+}

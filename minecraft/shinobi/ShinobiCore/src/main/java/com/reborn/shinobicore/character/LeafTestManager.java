@@ -24,7 +24,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * Orchestration du <b>test de la feuille</b> (serveur autoritaire).
  *
  * <p>Flux : item/commande → {@link #beginConfirm} envoie {@code confirm|<clan>}
- * au client (popup Confirmer/Refuser) → le client répond {@code go} → {@link
+ * au client (popup Confirmer/Refuser) → le client répond {@code go} quand le joueur a fini de canaliser (jauge
+ * pleine, mod 16/10 ; renoncer avant n'envoie rien et ne consomme rien) → {@link
  * #onPluginMessageReceived} lance {@link #runTest} : tirage <b>pondéré par le
  * clan</b> (Uchiha→Katon…), attribution ({@code addChakraAffinity}+save, cadenas
  * niveau 6/12, max 3), effet in-world (particules + son, vu par tous), puis envoi
@@ -181,17 +182,39 @@ public final class LeafTestManager implements Listener, PluginMessageListener {
         return null;
     }
 
+    /**
+     * Effet vu des joueurs proches (16/10) : la réaction de la feuille, sobre, à la main droite levée devant le visage
+     * (pose du mod, {@code feuille_canal}) — une bouffée de chakra bleu, puis la nature : flammèches et fumée (Katon),
+     * gouttes (Suiton), poussière de terre (Doton), étincelles (Raiton), souffle (Fūton) ; une seconde bouffée plus
+     * discrète une seconde après (la feuille finit de réagir).
+     */
     private void elementBurst(Player p, ChakraAffinity a) {
-        Location l = p.getEyeLocation().add(p.getEyeLocation().getDirection().multiply(0.8));
-        Particle particle = switch (a) {
-            case KATON  -> Particle.FLAME;
-            case SUITON -> Particle.SPLASH;
-            case RAITON -> Particle.ELECTRIC_SPARK;
-            case FUTON  -> Particle.CLOUD;
-            case DOTON  -> Particle.LARGE_SMOKE;
-            default     -> Particle.ENCHANT;
-        };
-        p.getWorld().spawnParticle(particle, l, 24, 0.25, 0.35, 0.25, 0.02);
+        double r = Math.toRadians(p.getLocation().getYaw());
+        double fx = -Math.sin(r), fz = Math.cos(r), dx = -Math.cos(r), dz = -Math.sin(r);
+        Location main = p.getLocation().add(fx * 0.42 + dx * 0.16, 1.52, fz * 0.42 + dz * 0.16);
+        p.getWorld().spawnParticle(Particle.DUST, main, 10, 0.12, 0.16, 0.12, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(124, 196, 255), 0.6f));
+        reaction(main, a, 1.0);
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (p.isOnline() && p.getWorld().equals(main.getWorld())) reaction(main, a, 0.5);
+        }, 20L);
+    }
+
+    private static void reaction(Location l, ChakraAffinity a, double force) {
+        var w = l.getWorld();
+        int n = (int) Math.round(10 * force);
+        switch (a) {
+            case KATON -> {
+                w.spawnParticle(Particle.SMALL_FLAME, l, n, 0.10, 0.14, 0.10, 0.01);
+                w.spawnParticle(Particle.SMOKE, l.clone().add(0, 0.15, 0), n / 2 + 1, 0.08, 0.1, 0.08, 0.01);
+            }
+            case SUITON -> w.spawnParticle(Particle.DRIPPING_WATER, l.clone().add(0, -0.15, 0), n, 0.12, 0.08, 0.12, 0);
+            case RAITON -> w.spawnParticle(Particle.ELECTRIC_SPARK, l, n + 2, 0.14, 0.16, 0.14, 0.04);
+            case FUTON -> w.spawnParticle(Particle.SWEEP_ATTACK, l, 1, 0, 0, 0, 0);
+            case DOTON -> w.spawnParticle(Particle.FALLING_DUST, l.clone().add(0, -0.1, 0), n, 0.12, 0.08, 0.12, 0,
+                    org.bukkit.Material.DIRT.createBlockData());
+            default -> w.spawnParticle(Particle.ENCHANT, l, n, 0.2, 0.2, 0.2, 0.2);
+        }
     }
 
     /** Retire une Feuille de test de la main (si présente). */

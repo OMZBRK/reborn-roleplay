@@ -59,6 +59,7 @@ public abstract class CameraThirdPersonMixin {
         if (PhotoMode.INSTANCE.isActive()) return;
         // Le mode repositionnement prend le contrôle de la caméra (orbite dédiée).
         if (fr.reborn.hud.cosmetic.RepositionMode.INSTANCE.isActive()) return;
+        if (fr.reborn.hud.menu.tirage.CameraTirage.INSTANCE.active()) return;   // test de la Feuille (CameraRepositionMixin)
         if (fr.reborn.hud.boutique.CameraEssayage.INSTANCE.active()) return;
         RebornCamera cam = RebornCamera.INSTANCE;
         Entity focusedEntity = this.entity;

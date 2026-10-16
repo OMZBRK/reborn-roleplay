@@ -1,0 +1,134 @@
+{
+ "format_version": "1.8.0",
+ "geckolib_format_version": 2,
+ "animations": {
+  "feuille_fin": {
+   "model": {
+    "body_control": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    },
+    "waist": {
+     "pivot": [
+      0.0,
+      12.0,
+      0.0
+     ]
+    }
+   },
+   "parents": {
+    "waist": "body_control",
+    "left_leg": "body_control",
+    "right_leg": "body_control",
+    "torso": "waist",
+    "head": "waist",
+    "right_arm": "waist",
+    "left_arm": "waist"
+   },
+   "animation_length": 0.45,
+   "loop": false,
+   "player_animation_library": {
+    "name": "Test de la Feuille — fin",
+    "author": "Reborn",
+    "description": "Les bras redescendent."
+   },
+   "bones": {
+    "right_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        -78.0,
+        -32.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.450": {
+       "vector": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": -72.0,
+       "easing": "easeInOutSine"
+      },
+      "0.450": {
+       "value": 0.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "left_arm": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        -40.0,
+        25.0,
+        -10.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.450": {
+       "vector": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     },
+     "bend": {
+      "0.000": {
+       "value": -95.0,
+       "easing": "easeInOutSine"
+      },
+      "0.450": {
+       "value": 0.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "head": {
+     "rotation": {
+      "0.000": {
+       "vector": [
+        10.0,
+        14.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      },
+      "0.450": {
+       "vector": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "easing": "easeInOutSine"
+      }
+     }
+    },
+    "torso": {
+     "bend": {
+      "0.000": {
+       "value": 2.0,
+       "easing": "easeInOutSine"
+      },
+      "0.450": {
+       "value": 0.0,
+       "easing": "easeInOutSine"
+      }
+     }
+    }
+   }
+  }
+ }
+}

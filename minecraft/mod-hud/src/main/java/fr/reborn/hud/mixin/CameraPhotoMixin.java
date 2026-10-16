@@ -54,5 +54,7 @@ public abstract class CameraPhotoMixin {
         }
         if (PhotoMode.INSTANCE.isActive()) cir.setReturnValue(PhotoMode.INSTANCE.fov());
         else if (fr.reborn.hud.boutique.CameraEssayage.INSTANCE.active()) cir.setReturnValue(fr.reborn.hud.boutique.CameraEssayage.FOV);
+        else if (fr.reborn.hud.menu.tirage.CameraTirage.INSTANCE.active())
+            cir.setReturnValue(fr.reborn.hud.menu.tirage.CameraTirage.INSTANCE.fov(cir.getReturnValue()));
     }
 }

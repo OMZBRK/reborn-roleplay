@@ -28,11 +28,25 @@ public abstract class CameraRepositionMixin {
     @Shadow protected abstract void setPosition(Vec3 pos);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
+    @Unique
+    private static final fr.reborn.hud.menu.tirage.CameraTirage.Pose reborn$poseTirage =
+        new fr.reborn.hud.menu.tirage.CameraTirage.Pose();
+
     // Après alignWithEntity (cf. CameraThirdPersonMixin) : le culling se construit ensuite
     // sur notre caméra → pas de trous de chunks.
     @Inject(method = "update", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/Camera;alignWithEntity(F)V", shift = At.Shift.AFTER))
     private void reborn$repositionCamera(DeltaTracker deltaTracker, CallbackInfo ci) {
+        // Test de la Feuille (16/10) : plan fixe de ¾ face posé dans le monde, glissements d'entrée et de retour.
+        fr.reborn.hud.menu.tirage.CameraTirage tir = fr.reborn.hud.menu.tirage.CameraTirage.INSTANCE;
+        if (tir.active()) {
+            net.minecraft.client.Camera self = (net.minecraft.client.Camera) (Object) this;
+            tir.poser(Minecraft.getInstance(), self.position(), self.yRot(), self.xRot(),
+                deltaTracker.getGameTimeDeltaPartialTick(true), reborn$poseTirage);
+            setRotation(reborn$poseTirage.yaw, reborn$poseTirage.pitch);
+            setPosition(reborn$poseTirage.pos);
+            return;
+        }
         // Essayage du tailleur (boutiques, 15/10) : point de vue fixe en face du personnage, posé dans le monde.
         fr.reborn.hud.boutique.CameraEssayage ess = fr.reborn.hud.boutique.CameraEssayage.INSTANCE;
         if (ess.active()) {

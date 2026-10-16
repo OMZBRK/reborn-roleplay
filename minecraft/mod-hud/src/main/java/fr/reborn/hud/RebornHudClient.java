@@ -48,6 +48,7 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.animation.MovementAnimations.INSTANCE.register();
         fr.reborn.hud.combat.CombatAnimations.INSTANCE.register();
         fr.reborn.hud.menu.tirage.TirageAnimations.INSTANCE.register();
+        fr.reborn.hud.menu.tirage.CameraTirage.init();   // caméra du test de la Feuille (filet de sécurité) + banc
         fr.reborn.hud.chat.ChatBlockCommands.register();
         fr.reborn.hud.skin.SkinCommands.register();
         fr.reborn.hud.menu.inventory.InventoryCommands.register();
