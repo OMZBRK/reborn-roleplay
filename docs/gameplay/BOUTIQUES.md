@@ -1,6 +1,6 @@
 # Boutiques — le tailleur du village (ryo) et la boutique de compte (RBCoins)
 
-> **Statut : décidé et codé le 15/10, non publié** (ShinobiCore `boutique/`, reborn-hud `boutique/`) — §13. Game Plan
+> **Statut : décidé et codé le 15/10, publié sur le dev le 15/10 (hud 0.4.181, manifest 3.1.137)** (ShinobiCore `boutique/`, reborn-hud `boutique/`) — §13. Game Plan
 > n° 39 (boutique en argent réel) et n° 42 (boutique en jeu). Demande du 15/10 : « va sur l'In-Game Shop Zone dans
 > l'ensemble, au lieu de l'échoppe actuelle […] on ne quitte pas le jeu, juste un menu qui s'affiche, on peut changer
 > directement, on peut faire tourner le personnage, avec la bourse notée. »
@@ -383,7 +383,7 @@ Les **essais** ne sont pas journalisés (bruit). Le Poste de garde voit les acha
 
 ---
 
-## 13. Ce qui est codé (15/10, non publié)
+## 13. Ce qui est codé (15/10, publié sur le dev : hud 0.4.181, manifest 3.1.137)
 
 ### 13.1 L'Échap : la carte BOUTIQUE et son écran vide
 

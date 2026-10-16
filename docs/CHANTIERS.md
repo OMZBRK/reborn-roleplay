@@ -28,7 +28,7 @@
     nourriture v3 et entreprises ([`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md),
     [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md)) ; natures canoniques et Test de la Feuille refait.
     **En recette** : [`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md).
-  - **Codé le 16/10, non publié** : cloche du village et volières / missives par corbeau (ShinobiCore `communication/`,
+  - **Publié sur le dev le 16/10** (`reborn-hud` 0.4.184) : cloche du village et volières / missives par corbeau (ShinobiCore `communication/`,
     mod `communication/`, objets Nexo provisoires) — [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) §10.
   - **Publié le 15/10** (`reborn-hud` **0.4.182**, `reborn-ost` 0.2.5, ShinobiCore) : carte des touches réduite (26 → 15,
     sans conflit, migration une fois, défauts selon le clavier AZERTY/QWERTZ) ([`technique/MOD_HUD.md`](./technique/MOD_HUD.md)
@@ -143,7 +143,7 @@ bibliothèques privées, grades.
 **Médical** — 🟡 paume de soin, bandages, `/soigner`, armoires, hôpitaux et lits ✅ ; ⏳ antidotes, coma,
 `MedicalService` (Sprint 3). Lien avec le KO volontairement léger.
 
-**Communication RP** (volière, annonces) — ⏳ Sprint 3.
+**Communication RP** (volière, annonces) — ✅ cloche et volières publiées le 16/10 (hud 0.4.184).
 
 **Méditation** — en cut list (post-beta), mais la méditation de base existe (régénération du chakra, repos ATA).
 

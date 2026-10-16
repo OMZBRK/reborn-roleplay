@@ -1,6 +1,7 @@
 # Radio — l'oreillette et l'escouade
 
-> **Statut : codée le 2026-10-14 (non publiée, non testée sur serveur)** — plugin `ShinobiRadio` + mod `reborn-hud`
+> **Statut : codée le 2026-10-14, publiée sur le dev le 15/10 (hud 0.4.179, manifest 3.1.135, plugin ShinobiRadio,
+> PlasmoVoice 2.1.17)** — plugin `ShinobiRadio` + mod `reborn-hud`
 > (`radio/`, `voice/RadioVoix`), détail au **§12**. Conception v3 du même jour, décidée. Demande du 14/10 : « le proximity chat c'est déjà Plasmo
 > Voice, mais ce serait bien de faire un truc RADIO ». Une première proposition à canaux (équipe, section, fréquences
 > libres, appel de service) a été **remplacée le jour même** par les décisions de l'utilisateur
@@ -226,7 +227,7 @@ Questions restantes :
 
 ---
 
-## 12. Ce qui est codé (14/10, non publié)
+## 12. Ce qui est codé (14/10, publié sur le dev le 15/10 : hud 0.4.179, manifest 3.1.135)
 
 **Serveur — plugin `ShinobiRadio`** (`minecraft/shinobi/ShinobiRadio`, module de l'agrégateur Maven, `depend:
 [ShinobiCore, PlasmoVoice]`). Référence : [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §2.4

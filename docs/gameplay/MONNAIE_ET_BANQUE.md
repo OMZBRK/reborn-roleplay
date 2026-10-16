@@ -1,6 +1,6 @@
 # Monnaie et banque — la bourse, le compte, le guichet
 
-> **Statut : décidé le 15/10 (réponses aux 12 questions, §14), codé le 15/10, non publié.** Game Plan n° 19 (Monnaie)
+> **Statut : décidé le 15/10 (réponses aux 12 questions, §14), codé le 15/10, publié sur le dev le 15/10 (hud 0.4.179, manifest 3.1.135).** Game Plan n° 19 (Monnaie)
 > et n° 20 (Banque). Ce qui est codé, le protocole, les réglages, les objets à modéliser et ce qui reste : §15 à §20.
 > Proposition d'origine (14/10) gardée ci-dessous comme spécification, corrigée là où les décisions l'ont changée.
 >
@@ -413,7 +413,7 @@ d'un cran dans le code.
 
 ---
 
-## 15. Ce qui est codé (15/10, non publié)
+## 15. Ce qui est codé (15/10, publié sur le dev : hud 0.4.179, manifest 3.1.135)
 
 ### 15.1 Serveur — ShinobiCore, paquets `monnaie/` et `banque/`
 

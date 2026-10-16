@@ -12,6 +12,14 @@
 
 | Version | Manifest | Date | Contenu | Commit(s) |
 |---|---|---|---|---|
+| 0.4.184 | 3.1.141 | 16/10 | Volet Faction sur J (sections, grades de section, caisse et taxe, tenue prêtée, invitations R et volet, annonces, tag dans la tablist, outil Factions au F7), cloche d'annonces (bande en haut de l'écran), volières et missives par corbeau | `a0c79ed` |
+| 0.4.183 | 3.1.140 | 15/10 | Icônes (recharges, effets, natures) à la bonne taille à toutes les échelles de l'éditeur de HUD, touche X pour la course de chakra | `099ac90` |
+| 0.4.182 | 3.1.138 | 15/10 | 15 touches Reborn au lieu de 26, sans conflit, défauts AZERTY / QWERTZ et migration unique ; marche sur l'eau v8 ; personnages gérés au Poste de garde (F7) | `b5bf568` |
+| 0.4.181 | 3.1.137 | 15/10 | Boutiques en jeu (tailleur à comptoirs, bazar, `/boutique`), météo blizzard / tempête de sable, marche sur l'eau, scène de chargement « nuit de pleine lune » (pack accepté sans écran). Inclut 0.4.180 | `7b4f214` |
+| 0.4.180 | (3.1.136) | 15/10 | Crash au clic « Reprendre » de l'Échap avec Sodium. Manifest 3.1.136 signé, jamais envoyé : livrée par le 3.1.137 | `7426b18` |
+| 0.4.179 | 3.1.135 | 15/10 | Radio en escouades (ShinobiRadio, PlasmoVoice client 2.1.17), monnaie et banque, ramassage en créatif, halo de rareté pixel art, sacoche sans kanji. Le 3.1.135 livre aussi 0.4.176 et 0.4.178 (3.1.132 à 3.1.134 signés, jamais envoyés : 401 du launcher) | `17397e3` |
+| 0.4.178 | (3.1.135) | 15/10 | Poste de garde v3 (volet, recherche universelle, mode staff), étape 0 des états du joueur, nourriture v3 et entreprises, natures canoniques et Test de la Feuille | `a75d19a` |
+| 0.4.176 | (3.1.135) | 15/10 | Journal universel et commandes staff, Poste de garde clarifié, allures (marche, trot, sprint), chaîne KO v2 | `deb4490` |
 | 0.4.175 | 3.1.131 | 14/10 | Duel consenti, N° de personnage (/pid), inventaire et ramassage façon Game Plan (F, aura de rareté, surcharge 100/115/130 %, étui d'arme Z), derniers écrans en jeu (éditeur HUD, viseur, caméra, photo, galerie, signaler, cosmétiques), HUD KO/Volonté/ATA allégés | `d6bba37` |
 | 0.4.174 | 3.1.130 | 13/10 | Perf de tous les menus (LotGui/LotBlit, écrans opaques), Échap plein écran, création de personnage corrigée (fond sans village, ambiances, vrais blasons, couleur libre, 35 coiffures, bandeau de Konoha), tête de la sacoche, bibliothèques v2 côté client | `e043152` |
 | 0.4.173 | 3.1.129 | 13/10 | Menus existants au niveau de la fiche : Poste de garde, Infirmerie, sacoche, chat, Échap (échelle entière, menu « ryo » sur la devanture), échoppe, réglages (byōbu), carte, tablist (registre 名) | `ac26cf8` |
@@ -45,6 +53,7 @@
 
 | Version | Manifest | Date | Contenu |
 |---|---|---|---|
+| 0.2.5 | 3.1.139 | 15/10 | Touche N par défaut (carte des touches réduite) — `b5bf568` |
 | 0.2.4 | 3.1.104 | 03/10 | Menu OST refait sur la maquette (disque laqué, cordes de shamisen) |
 | 0.2.3 | 3.1.103 | 03/10 | Couleurs DA |
 
@@ -61,6 +70,11 @@
 
 | Date | Plugins | Contenu |
 |---|---|---|
+| 16/10 | ShinobiCore, pack Nexo (communication) | Factions et sections, cloche d'annonces, volières et missives, journaux `FACTION` et `MISSIVE` ; objets provisoires `cloche_village`, `perchoir_voliere`, `missive_scellee` / `missive_descellee` (`/nexo reload all` après redémarrage) — `a0c79ed` |
+| 15/10 soir | ShinobiAbilities | Souffle discret de la course de chakra (clés `mobility.naruto-run.souffle-*`) — `099ac90` |
+| 15/10 soir | ShinobiCore | Personnages gérés depuis le Poste de garde (`/character edit`, `/persoreset`, `/persosuppr` retirées) — `b5bf568` |
+| 15/10 | ShinobiCore, ShinobiAbilities | Boutiques (`/boutique`), `/meteo blizzard\|tempetesable`, capacité `MARCHE_EAU` — `7b4f214` |
+| 15/10 | Six plugins Shinobi dont le nouveau **ShinobiRadio**, plugin PlasmoVoice 2.1.17, pack Nexo (nourriture puis monnaie, testament, oreillette) | Journal universel, commandes staff, allures, KO v2, états du joueur, nourriture, entreprises, monnaie et banque, radio en escouades — `17397e3` |
 | 14/10 | ShinobiCore, ShinobiAbilities, ShinobiCombat (ensemble : nouvelle API inventaire) | `/duel`, `/pid` + `player-ids.yml` (N° par personnage dès 00000), inventaire : ramassage manuel, rareté, surcharge, notifications `reborn:notif`, journal objets — `d6bba37` |
 | 13/10 | ShinobiCore, ShinobiAbilities | Bibliothèques v2 : 7 types, fonds et dépôt, journal, lecture sur place, vol (alerte Poste de garde), secrets paramétrables, migration Publique→Village / Réservée→Académie / Privée→Palais ; API sac — `de7fe9f` |
 | 13/10 | ShinobiCore, ShinobiAbilities (inchangé), pack Nexo (fiole_oeil) | Yeux : œil G/D par personnage, fiole d'œil, `/yeux prelever\|greffer\|consentir\|etat\|definir\|donner`, `/bandage`, alerte Poste de garde — `af4bca8` |

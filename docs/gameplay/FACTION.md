@@ -1,6 +1,6 @@
 # Faction et sections
 
-> **Statut : v3 validée le 2026-10-16 (questions tranchées, §14) ; socle codé le 16/10, non publié (§15).** Game Plan n° 37
+> **Statut : v3 validée le 2026-10-16 (questions tranchées, §14) ; socle codé et publié sur le dev le 16/10 (hud 0.4.184, manifest 3.1.141, ShinobiCore du 16/10 ; §15) ; mécaniques par section validées le 16/10, à coder au lot suivant (§12).** Game Plan n° 37
 > ([`../GAMEPLAN.md`](../GAMEPLAN.md) §37). Intègre les **dix retours de l'utilisateur sur la v2 du 15/10**
 > (consignés dans [`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md), 16/10). La cloche d'annonces et les
 > missives par corbeau ont leur fiche : [`CLOCHE_ET_MISSIVES.md`](./CLOCHE_ET_MISSIVES.md). Questions : §14 (Q1 à Q5 ;
@@ -39,8 +39,8 @@
 9. **Trésorerie** : chaque section a sa caisse ; le village prélève une **taxe unique** sur ses entrées (10 % par
    défaut) et ne puise jamais à la main dedans ; le trésor du village reste celui de la banque.
 10. **Invitation** en face à face (menu R) **ou depuis le panneau** (personnes connues à 30 blocs, plus loin selon
-    le grade de section). Chaque section aura **ses mécaniques** (menottes, soins, missions secrètes, cours…) **après
-    la beta**, sur un **socle commun** livré maintenant.
+    le grade de section). Chaque section aura **ses mécaniques** (menottes, soins, missions secrètes, cours…), **validées le
+    16/10, à coder au lot suivant**, sur un **socle commun** livré maintenant.
 
 ---
 
@@ -53,7 +53,7 @@
 | 3. Gestion et création de grades | §6 : grades du village = `Rank` + droits par seuil ; grades de section créés par le chef de section ; charges du village |
 | 4. Tenue de section | §7 : une tenue choisie par le chef de section, prêtée aux membres (garde-robe) |
 | 5. Trésorerie par section, taxe, autonomie | §8 : caisse par section, taxe unique sur les entrées, dotation par le village |
-| 6. Mécaniques propres à chaque section | §12 : liste « plus tard » et socle commun maintenant |
+| 6. Mécaniques propres à chaque section | §12 : socle commun maintenant ; mécaniques validées le 16/10, à coder au lot suivant |
 | 7. Volet à droite, sur une touche | §10 : volet v3 sur **J** |
 | 8. Visibilité selon le joueur, seulement les gens connus | §4 : tableau par profil, règle de connaissance |
 | 9. Inviter aussi depuis le panneau | §9 : menu R **et** panneau |
@@ -238,11 +238,12 @@ renommer, cacher, dissoudre, changer le chef), **lieux** de section (porte, coff
 
 ---
 
-## 12. Mécaniques propres à chaque section — plus tard
+## 12. Mécaniques propres à chaque section — validé, à coder (lot suivant)
 
 **Socle commun livré à la beta** : droits de section (§6.3), lieux posés par le staff (portes, coffres, plus tard
 zones), caisse, tenue prêtée, cloche ciblée sur la section, volière, journal de section. Chaque mécanique ci-dessous
-s'y branche, **après la beta**, une fiche à la fois :
+s'y branche, une fiche à la fois. **Validé par l'utilisateur le 16/10 (synchro des boards) : à coder au lot
+suivant** (n'est plus repoussé après la beta) :
 
 | Section | Mécaniques à venir | S'appuie sur |
 |---|---|---|
@@ -267,7 +268,8 @@ s'y branche, **après la beta**, une fiche à la fois :
 | **F5** | Lieux de section (portes, coffres) posés par le staff, droits par grade de section | F2, F4 |
 | **F6** | Caisse de section, taxe, dotation (banque), tenue de section prêtée | F4, banque |
 | C1-C3, V1-V4 | Cloche, volières, missives : [`CLOCHE_ET_MISSIVES.md`](./CLOCHE_ET_MISSIVES.md) §8 | F1, F3 |
-| après | Mécaniques de section (§12), réputation, diplomatie, Bingo Book, désertion encadrée, zones de faction | F5 |
+| suivant | Mécaniques de section (§12) — validé le 16/10, à coder | F5 |
+| après | Réputation, diplomatie, Bingo Book, désertion encadrée, zones de faction | F5 |
 
 Chaque lot finit par des captures du client de dev montrées avant toute publication, et le YAML passé au parseur.
 
@@ -310,7 +312,7 @@ ryo.
 
 ---
 
-## 15. Ce qui est codé (16/10, non publié)
+## 15. Ce qui est codé (16/10, publié sur le dev : hud 0.4.184, manifest 3.1.141)
 
 **Serveur — ShinobiCore, package `faction/`** (référence : [`../technique/PLUGINS_REFERENCE.md`](../technique/PLUGINS_REFERENCE.md) §4 ter) :
 
@@ -326,7 +328,7 @@ ryo.
   caisse au trésor).
 - **Grades de section** : créer (au-dessus du dernier), renommer, ordonner, supprimer (membres → dernier grade), droits
   en cases ; monter / descendre / exclure **sous son propre grade** ; on ne donne que des droits qu'on a.
-- **Seuils du village** (voir les sections, cloche, volières : réglés par le chef, utilisés par la cloche plus tard) et
+- **Seuils du village** (voir les sections, cloche, volières : réglés par le chef, utilisés par la cloche et les volières depuis le 16/10) et
   **charges** (droits en cases, une par personnage, case « publique »).
 - **Visibilité filtrée par le serveur** (`Regles`, `FactionVue`) : inconnus comptés jamais nommés (ni nom, ni UUID, ni
   N°), « Inconnu(e) » dans sa propre section, registre complet pour le chef de section, Kage figure publique, section
@@ -341,7 +343,7 @@ ryo.
 - **Tenue de section prêtée** : portable tant qu'on est membre (garde-robe de la boutique de tenues), jamais ajoutée à
   `ownedOutfits`, retirée en quittant la section.
 - **Annonces** publiées depuis le volet (village : seuil « cloche du village » ou charge « annonces » ; section : droit
-  « annoncer à la section »), une ligne sobre aux membres en ligne ; **sans la cloche** (elle s'y branchera).
+  « annoncer à la section »), une ligne sobre aux membres en ligne ; la cloche du village (16/10) les reprend dans l'onglet Annonces.
 - **Journal** : catégorie universelle **`FACTION`** (ajout seul) + lignes courtes par section et par faction pour le
   volet. **Tag** de faction dans la tablist (après le grade).
 - Persistance YAML `plugins/ShinobiCore/factions/` (`factions.yml`, `membres.yml`).
@@ -352,6 +354,8 @@ du menu R, outil staff **F7 › Outils › Factions** (`staff/GardeFactions`). B
 ([`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §5).
 
 **Pas dans ce chantier (lots suivants)** : lieux de section (portes, coffres posés par le staff, accès par grade — F5),
-cloche et volières ([`CLOCHE_ET_MISSIVES.md`](./CLOCHE_ET_MISSIVES.md)), guichet intégré (dotation et dépense depuis
+guichet intégré (dotation et dépense depuis
 l'écran du guichet ; d'ici là, les commandes au guichet), quotas et délais de `/grade` (v2 §6), mécaniques propres à
-chaque section (§12), réputation, diplomatie, Bingo Book, plusieurs sections par personnage.
+chaque section (§12, validé, lot suivant), réputation, diplomatie, Bingo Book, plusieurs sections par personnage.
+La cloche et les volières, prévues ici à l'origine, sont livrées dans la même publication (hud 0.4.184) :
+[`CLOCHE_ET_MISSIVES.md`](./CLOCHE_ET_MISSIVES.md).
