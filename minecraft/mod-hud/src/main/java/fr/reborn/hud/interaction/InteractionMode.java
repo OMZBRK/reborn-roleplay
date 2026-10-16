@@ -179,14 +179,18 @@ public final class InteractionMode {
                 sceau = body != null && body.phase() != fr.reborn.hud.ko.CorpsClient.PHASE_DOULEUR ? 1 : 0;
                 items = InteractionMenus.forPlayer(title, pe.getUUID());
             } else {
-                title = e.getType().getDescription().getString();
+                String lieu = fr.reborn.hud.communication.CommClient.titreR(e.getX(), e.getY(), e.getZ());
+                title = lieu != null ? lieu : e.getType().getDescription().getString();
                 sceau = 3;
                 items = InteractionMenus.forEntity(e);
             }
         } else if (hit instanceof BlockHitResult bhr) {
-            title = "Bloc";
+            var bp = bhr.getBlockPos();
+            // cloche / volière (16/10) : le nom du lieu plutôt que « Bloc »
+            String lieu = fr.reborn.hud.communication.CommClient.titreR(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5);
+            title = lieu != null ? lieu : "Bloc";
             sceau = 3;
-            items = InteractionMenus.forBlock(bhr.getBlockPos());
+            items = InteractionMenus.forBlock(bp);
         } else {
             return;
         }

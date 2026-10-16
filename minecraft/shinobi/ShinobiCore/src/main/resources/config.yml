@@ -1141,3 +1141,44 @@ banque:
   tresor-initial: {}              # ex. konoha: 10000 (posé une fois si le trésor n'existe pas ; ensuite /banque tresor)
   mort-rp:
     gel-jours: 7                  # décision 4 : puis trésor du village, ou héritiers d'un testament validé
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Factions et sections (docs/gameplay/FACTION.md, 16/10) — volet J, /faction
+# ═══════════════════════════════════════════════════════════════════════
+# Données dans plugins/ShinobiCore/factions/ (factions.yml, membres.yml). Les six villages existent d'office (KON,
+# SUN, KIR, KUM, IWA, AME) ; chaque personnage est rattaché à la faction de son village, sans section.
+faction:
+  taxe:
+    defaut: 10                    # % prélevé sur chaque entrée d'une caisse de section (pas les dotations)
+    plafond: 30                   # le chef de faction (Kage) règle son taux entre 0 et ce plafond
+  sections:
+    places-defaut: 8              # proposé à la création ; le chef de section les change ensuite
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Cloche du village et volières (docs/gameplay/CLOCHE_ET_MISSIVES.md, 16/10)
+# ═══════════════════════════════════════════════════════════════════════
+# Points posés par le staff (/cloche poser, /voliere poser) et missives dans plugins/ShinobiCore/communication/
+# (points.yml, missives.yml). Qui sonne et qui écrit au palais : seuils de la Faction (volet J › Gestion).
+communication:
+  cloche:
+    rayon-defaut: 250             # zone de la cloche (blocs), réglable à la pose
+    delai-cloche-secondes: 120    # entre deux annonces d'une même cloche
+    delai-personne-secondes: 600  # entre deux annonces d'une même personne
+    danger-par-heure: 3           # annonces « danger » par village et par heure
+    texte-max: 200
+    duree:                        # secondes à l'écran (la bande en haut)
+      normale: 10
+      importante: 12
+      danger: 15
+  voliere:
+    cout-village: 10              # ryo par copie, dans le village (pris dans la bourse)
+    cout-autre-village: 40        # ryo par copie, de tour à tour vers un autre village
+    delai-base-secondes: 60       # même volière, volière du palais
+    blocs-par-minute: 250         # +1 min par tranche de blocs
+    delai-max-pays-secondes: 480
+    delai-max-autre-village-secondes: 1200
+    garde-jours: 7                # non prise : le gardien la brûle
+    texte-max: 600
+    adresse-max: 40               # adresse écrite à la main (« Au chef de la Police »)
+    destinataires-max: 10         # par missive (une copie et un coût chacun) ; aucune limite d'envois
+    duree-alerte: 8               # secondes de la ligne « un corbeau a déposé une missive pour toi »

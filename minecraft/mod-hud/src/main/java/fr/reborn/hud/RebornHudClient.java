@@ -670,6 +670,12 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "escouade"),
             (ctx, tickCounter) -> fr.reborn.hud.radio.RadioHud.render(ctx));
         fr.reborn.hud.radio.RadioDebug.init();
+        // Faction et sections (16/10, canal reborn:faction, ShinobiCore FactionCanal) : volet J, invitation (Entrée /
+        // Retour), « Inviter dans … » du menu R, outil staff du Poste de garde ; banc REBORN_FACTION_DEBUG.
+        fr.reborn.hud.faction.FactionClient.init();
+        // Cloche du village et volières (16/10, canal reborn:communication, ShinobiCore CommCanal) : menu R sur la cloche
+        // et le perchoir, écrans centrés, bande du haut ; bancs REBORN_CLOCHE_DEBUG / REBORN_VOLIERE_DEBUG.
+        fr.reborn.hud.communication.CommClient.init();
         // Nourriture (14/10) : canaux reborn:nourriture (préparer, manger, tendre, plat en main) et reborn:modifs
         // (effets) ; ligne + filet au-dessus de la barre d'action, offre « F prendre · Retour refuser ».
         fr.reborn.hud.nourriture.NourritureClient.init();

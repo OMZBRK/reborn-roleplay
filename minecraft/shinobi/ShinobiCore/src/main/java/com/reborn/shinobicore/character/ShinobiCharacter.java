@@ -417,7 +417,11 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     public interface RyoHook { void change(ShinobiCharacter c, long avant, long apres); }
     public static volatile RyoHook ryoHook;
     public java.util.Set<String> ownedOutfits() { return ownedOutfits; }
-    public boolean ownsOutfit(String id) { return id != null && ownedOutfits.contains(id); }
+    public boolean ownsOutfit(String id) { return id != null && (ownedOutfits.contains(id) || (!pretTenue.isEmpty() && pretTenue.equals(id))); }
+    /** Tenue de section prêtée tant qu'on est membre (FACTION.md §7) : dans la garde-robe sans entrer dans ownedOutfits ; jamais persistée. */
+    private transient String pretTenue = "";
+    public String pretTenue() { return pretTenue; }
+    public void setPretTenue(String id) { this.pretTenue = id == null ? "" : id; }
     public void addOwnedOutfit(String id){ if (id != null && !id.isBlank() && ownedOutfits.add(id)) touch(); }
     /** Boutiques (15/10) : reprise staff d'une tenue de la garde-robe. */
     public boolean removeOwnedOutfit(String id){ boolean r = id != null && ownedOutfits.remove(id); if (r) touch(); return r; }

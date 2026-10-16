@@ -857,6 +857,17 @@ public final class ShinobiCore extends JavaPlugin {
             this.boutiques.start();
         }
 
+        // Factions et sections (FACTION.md, 16/10) : registre, villages d'office, sections, grades de section, charges,
+        // caisse et taxe, annonces, invitations ; canal reborn:faction (volet J), /faction.
+        if (!buildMode) {
+            this.factions = new com.reborn.shinobicore.faction.FactionService(this);
+            this.factions.start();
+            // Cloche du village et volières (CLOCHE_ET_MISSIVES.md, 16/10) : points posés par le staff, annonces,
+            // missives par corbeau ; canal reborn:communication, /cloche /voliere /missive.
+            this.communication = new com.reborn.shinobicore.communication.CommService(this);
+            this.communication.start();
+        }
+
         getLogger().info("ShinobiCore enabled \u2014 mobility + character + chakra systems online.");
     }
 
@@ -870,6 +881,8 @@ public final class ShinobiCore extends JavaPlugin {
         if (nourriture != null) nourriture.stop();
         if (monnaie != null) monnaie.stop();
         if (boutiques != null) boutiques.stop();
+        if (communication != null) communication.stop();
+        if (factions != null) factions.stop();
         if (vitalsPush != null) vitalsPush.stop();
         if (progression != null) progression.stop();
         if (deathScene != null) deathScene.stop();
@@ -1393,6 +1406,16 @@ public final class ShinobiCore extends JavaPlugin {
     public com.reborn.shinobicore.monnaie.MonnaieModule monnaie() { return monnaie; }
 
     private com.reborn.shinobicore.boutique.BoutiqueService boutiques;
+
+    private com.reborn.shinobicore.faction.FactionService factions;
+
+    /** Factions et sections (16/10) ; null en mode build ou avant l'init. */
+    public com.reborn.shinobicore.faction.FactionService factions() { return factions; }
+
+    private com.reborn.shinobicore.communication.CommService communication;
+
+    /** Cloche du village et volières (16/10) ; null en mode build ou avant l'init. */
+    public com.reborn.shinobicore.communication.CommService communication() { return communication; }
 
     /** Boutiques-lieux (15/10) ; null en mode build ou avant l'init. */
     public com.reborn.shinobicore.boutique.BoutiqueService boutiques() { return boutiques; }

@@ -111,10 +111,10 @@ codés et attendent leurs tests à deux comptes.
 | Robbery System | **Vols** (parchemins, puis points de vol) | 🟠 Important | Interaction | ✍🏻 vol de parchemins ✅ ; points de vol configurés ❌ | proposition | §48 |
 | Legal Jobs (blacksmith, medic, merchant) | **Spécialisations** de section + **missions de rang D** | 🟠 Important | Économie | ✍🏻 médic ✅ ; missions ❌ | proposition | §21 |
 | Illegal Activities (smuggling, contraband) | **Contrebande** (pilules interdites, receleurs) | 🟠 Important | Économie | ❌ | après la beta | §31 |
-| Letter system | **Volière** | 🟠 Important | Player ID | ❌ (Sprint 3) | proposition | §30 |
+| Letter system | **Volière** (missives par corbeau) + **cloche du village** | 🟠 Important | Player ID, Faction | ❌ | proposition maquettée (16/10), Q6-Q8 | §30 |
 | Storage System | **Coffres configurables** (+ bibliothèques) | 🟠 Important | Player ID | ✍🏻 bibliothèques ✅ ; coffres ❌ | proposition (F5) | §29 |
 | Treasure System | **Caches, reliques, coffre porté** | 🟠 Important | Sacoche, économie | ❌ | après la beta | §35 |
-| Faction / Crew System | **Faction** (villages, organisations, sections, fonctions) | 🟠 Important | Player ID | ✍🏻 proposition maquettée ; escouades Genin ✅ | proposition en cours | §37 |
+| Faction / Crew System | **Faction** (villages, organisations, sections, grades de section) | 🟠 Important | Player ID | ✍🏻 proposition v3 maquettée (16/10) ; escouades Genin ✅ | v3 soumise, Q1-Q5 | §37 |
 | Proximity Chat | **PlasmoVoice** + chat RP en panneau | 🟠 Important | Player ID | ✍🏻 vocal + icône ✅ ; portées, volume par joueur ❌ | proposition | §17 |
 | DenDen Mushi system | **Appel de service** (système à part) + **radio = escouades** (oreillettes) | 🟠 Important | Chat de proximité | ✍🏻 `/aide` seulement | radio décidée 14/10, maquettes v3 ([`RADIO.md`](./gameplay/RADIO.md)) ; appel de service à concevoir | §18 |
 | Medic Job | **Médical** (médics, paume, bandages, hôpitaux) | 🟠 Important | Déplacements | ✍🏻 base ✅ ; verrou de combat, `MedicalService` ❌ | proposition | §26 |
@@ -1418,8 +1418,10 @@ journal).
 
 # ✉️ 30. Volière (RedLine : boîtes aux lettres)
 
-> RedLine : *Mailbox & Letter System*. **Proposition, à valider point par point** (chantier « Communication RP »,
-> Sprint 3).
+> RedLine : *Mailbox & Letter System*. **Proposition maquettée (16/10), soumise** : fiche
+> [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) (volières, missives par corbeau, cloche du
+> village ; questions Q6 à Q8 ; maquettes `Maquettes/gameplan/37_faction/v3/` 06 à 08). La cible ci-dessous (§30.3)
+> est gardée pour mémoire.
 
 ## 30.1 Aujourd'hui chez Reborn
 
@@ -1436,6 +1438,13 @@ lit qu'à une boîte aux lettres**.
 → **Volière** (et bureau du village) : anonyme par défaut, **sceau de signature** facultatif, **coût par destinataire**
 en ryo (puits d'argent), plusieurs destinataires (coût total affiché), **lecture seulement à la volière**, transfert.
 → Support naturel des propositions de trêve (Faction, maquette 05), des convocations du Kage et du Bingo Book.
+→ **16/10 (demande de l'utilisateur)** : le corbeau ne va **pas** au destinataire, il va à une **volière** (petite,
+grande, tour, palais du Kage) ; délai selon la distance ; le destinataire doit y aller ; **n'importe qui** (dès un
+seuil de grade) peut prendre une missive (espionnage) ; missive-**objet** Nexo **scellée / descellée** ; la volière du
+palais déclenche seulement une **alerte** chez les gradés. Plus une **cloche du village** pour les annonces à ceux qui
+sont là (texte de 200 caractères, normale / importante / danger, sections et grades ciblés, signée) — fiche
+[`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md). « Sceau de signature » devient **signature** ; le
+**cachet** de fermeture est toujours là ; la lecture se fait partout une fois l'objet en main.
 
 ---
 
@@ -1604,8 +1613,11 @@ hôpitaux, zones de ressources.
 
 # 🏯 37. Menus — Faction
 
-> RedLine : *Faction System* (ouvert par Échap > Faction). **Proposition maquettée, en cours de validation** :
-> [`gameplay/FACTION_PROPOSITION.md`](./gameplay/FACTION_PROPOSITION.md) (18 questions ouvertes).
+> RedLine : *Faction System* (ouvert par Échap > Faction). **Proposition v3 maquettée (16/10), soumise** :
+> [`gameplay/FACTION.md`](./gameplay/FACTION.md) (dix retours de l'utilisateur sur la v2 intégrés, questions Q1 à Q5,
+> maquettes `Maquettes/gameplan/37_faction/v3/`) ; cloche et missives :
+> [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) (Q6 à Q8). La v2 (15/10) remplaçait
+> [`gameplay/FACTION_PROPOSITION.md`](./gameplay/FACTION_PROPOSITION.md) (13/10, 18 questions, koma de shōgi).
 
 ## 37.1 Aujourd'hui chez Reborn
 
@@ -1623,7 +1635,22 @@ territoires, membres ; **zones de faction** (bâtiments, portes, coffres, zones 
 
 ## 37.3 Cible proposée
 
-→ La proposition Faction, **plus** quatre reprises : (1) **portes et zones de faction** à accès réglé (quartier ANBU,
+→ **v3 (16/10, sur les retours de l'utilisateur)** : panneau = **volet à droite sur J** (style Poste de garde) ;
+**visibilité par profil** (joueur sans droit : sa section puis le village, membres et grades, sans plus ; gradés : les
+sections ; chef : tout) et **seulement les personnes connues** (« se présenter ») ; sections invisibles du public,
+**ANBU = « ? »** ; **sections créées** par le chef de faction et le staff ; grades du village = `/grade` avec droits par
+seuil, **grades de section créés par le chef de section** (monter / descendre façon Flashback) ; **places fixées par
+le chef de section** (aucune limite du système) ; **tenue de section** prêtée ; **caisse par section** et **taxe**
+unique du village ; invitation **menu R ou panneau** ; mécaniques par section (prison, soins, missions secrètes,
+cours…) après la beta sur un socle commun. Lots F1 à F6 — [`gameplay/FACTION.md`](./gameplay/FACTION.md).
+→ *(v2, 15/10, pour mémoire)* faction créée par le staff (nom, tag de 3 lettres, village / organisation, emblème, chef) ; le chef
+crée ses **fonctions** et coche leurs droits ; **sections de métier** (ANBU scellée, Police, Corps médical, Académie,
+Bureau des missions, Garde des portes) avec chef de section qui invite **en face à face** (menu R, Entrée / Retour) ;
+**portes et coffres posés par le staff** (F7 › Outils › Factions), le chef dit qui les ouvre ; quotas et délais simples
+dans `/grade` ; trésor = celui de la banque ; journal `FACTION` en ajout seul ; tag dans la tablist ; écran
+**Échap › FACTION** sans touche, sans kanji (signature : le bandeau frontal gravé). Réputation, diplomatie, Bingo Book,
+désertion encadrée : après la beta. Beta = lots F1 à F5 — [`gameplay/FACTION.md`](./gameplay/FACTION.md).
+→ *(13/10, pour mémoire)* La proposition Faction, **plus** quatre reprises : (1) **portes et zones de faction** à accès réglé (quartier ANBU,
 réserve du palais, poste de police) ; (2) une **renommée du village** distincte de la réputation personnelle ; (3) une
 entrée **Faction dans l'Échap** en plus de la touche J ; (4) un **tag court** (KON, SUN, KIR, KUM, IWA, AME) dans la
 tablist et les journaux.
@@ -2028,14 +2055,14 @@ Minecraft, Nexo et le menu R.
 | 22 | Missions de rang D | §22 | proposition | Bureau des missions (décision n° 13) |
 | 23-28 | Mineur, bûcheron, forgeron, médecin, cuisinier, cartographe | §23-§28 | proposition (médecin) / après la beta (le reste) | Verrou de combat sur les soins ; bandage du médic |
 | 29 | Stockage et coffres | §29 | proposition | Coffres configurables, liste centrale (Faction F5) |
-| 30 | Volière | §30 | proposition | Anonyme par défaut, coût par destinataire, lecture sur place |
+| 30 | Volière et cloche | §30 | proposition maquettée (16/10) | Q6 à Q8 de [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) §9 (alerte d'arrivée, délais et coûts, visiteurs et seuil de la cloche) |
 | 31 | Contrebande | §31 | après la beta | — |
 | 32 | Progression | §32 | nos décisions | Classement staff ; plafond d'XP 24 h ; Mérite (n° 4), bonus de grade (n° 5), plafond des stats (n° 7) |
 | 33 | Deck de techniques | §33 | proposition | Presets + recharge globale |
 | 34 | Équivalents chakra (Logia, Haki, granite) | §34 | après la beta | Étiquette « contourne X » |
 | 35 | Caches et reliques | §35 | après la beta | Coffre porté, lâché si frappé |
 | 36 | Carte | §36 | proposition | Marqueur + boussole, zones survolables, brouillard des pays étrangers ? |
-| 37 | **Faction** | §37 | proposition maquettée | Les 18 questions de la proposition (décision n° 1) |
+| 37 | **Faction** | §37 | proposition v3 maquettée (16/10) | Q1 à Q5 de [`gameplay/FACTION.md`](./gameplay/FACTION.md) §14 (figure publique, création des sections, une section par personnage, taxe, tenue) |
 | 38 | Caractéristiques | §38 | proposition | Lié à la décision n° 5 |
 | 39 | Boutique en argent réel | §39 | proposition maquettée (15/10) | Boutique de compte depuis l'Échap ; abonnement « Soutien » ; slot de personnage payant acceptable ? ; vente des exécutions et jetons (n° 8) — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) §12 |
 | 40-41 | Voyages entre pays, conflit territorial | §40-§41 | après la beta | KO réel ou d'entraînement dans un conflit ? |

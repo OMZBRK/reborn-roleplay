@@ -43,6 +43,7 @@ public class ControlsTab extends SectionedTab {
         if (km == HudKeybinds.PHOTO) return "La galerie s'ouvre depuis le mode photo";
         if (km == HudKeybinds.COURSE_CHAKRA) return "Un appui la lance, un autre l'arrête (aussi : 3 appuis sur le sprint)";
         if (km == HudKeybinds.PICKUP) return "Seulement s'il y a quelque chose à faire, sinon la touche garde son rôle";
+        if (km == HudKeybinds.FACTION) return "Ta section, ton village, les annonces ; la même touche referme";
         return null;
     }
 

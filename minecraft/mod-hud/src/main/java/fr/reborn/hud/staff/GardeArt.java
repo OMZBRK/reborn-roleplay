@@ -57,6 +57,7 @@ final class GardeArt {
             case "DUEL" -> 0xFFAA78B4;
             case "BIBLIOTHEQUE" -> 0xFF7890C0;
             case "RADIO" -> 0xFF9FB0D0;
+            case "FACTION" -> 0xFFC8A070;
             default -> 0xFF8C8478;
         };
     }

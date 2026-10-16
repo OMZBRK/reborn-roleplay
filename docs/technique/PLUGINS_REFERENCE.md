@@ -110,6 +110,8 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/tendre` | `donner` | Joueur | `shinobicore.use` | **Tendre** (14/10) : `/tendre <joueur>` (objet en main), `/tendre <joueur> ryo <montant>`, `/tendre prendre\|refuser` (touches F / Retour du mod) ; journal `DON` — [`../gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §5 |
 | `/nourriture` | `satiete` | Joueur : son état ; Modérateur (ou `shinobicore.nourriture.staff`) | `shinobicore.use` | `etat [cible]`, `satiete <cible> <0-100>`, `donner <cible> <plat:id\|panier:id\|ration\|bol> [n] [froid]`, `effet <cible> <type> <intensité> <secondes>`, `retirer <cible> <type>` ; journal Staff |
 | `/modeanim` | `modeanimation` | Animateur / MJ | `reborn.staff.animation` | **Mode animation** (14/10) : incarner un personnage pour un event — visible, mécaniques RP permises, **tout journalisé** (entrée / sortie, commandes, tchat, coups) ; exclusif avec le mode staff ; tombe à la déconnexion (§4 bis.7) |
+| `/faction` | `factions` | Joueur ; staff : `admin` | `shinobicore.use` | **Faction et sections** (16/10) : sans argument = le volet J ; `info`, `inviter <joueur>` (face à face, 3 blocs — ce qu'envoie le menu R), `accepter`, `refuser`, `quitter`, `annoncer [section] <texte>`, au guichet (6 blocs) `verser <montant> [motif]`, `prime <#N°\|nom> <montant> <motif>`, `doter <section> <montant> [motif]` ; staff `admin liste`, `info <tag>`, `creer <tag> <village\|organisation> <motif…> nom=<nom>` (Admin), `chef <tag> <#N°\|aucun> <motif…>` (Modo), `section <tag> <modèle\|libre> <#N° chef> <motif…> [nom=<nom>]` (Modo), `cacher <section> <oui\|non> <motif…>` (Modo), `dissoudre <section> <motif…>` (Admin), `caisse <section> <ajouter\|retirer\|fixer> <n> <motif…>` (Admin) ; journal `FACTION` — [`../gameplay/FACTION.md`](../gameplay/FACTION.md) §15 |
+| `/cloche` · `/voliere` (`volieres`) · `/missive` | — | Staff | `shinobicore.use` (grade staff vérifié dans le code) | **Cloche du village et volières** (16/10, staff, journal `STAFF`) : `/cloche poser <village> [rayon] ["lieu"]` (Modo, vise le meuble à 6 blocs), `liste` (Helper), `retirer <id>`, `taire <village> [minutes]` (Modo, 0 = rendre la parole, retire la ligne en cours) ; `/voliere poser "<nom>" <petite\|grande\|tour\|palais> <village>` (Modo, vise le perchoir), `liste` (Helper), `vider <id> "<motif>"`, `retirer <id> "<motif>"` (Admin) ; `/missive lire <id> "<motif>"` (Admin, motif obligatoire). Les joueurs n'ont pas de commande : menu R ou clic droit sur le meuble — [`../gameplay/CLOCHE_ET_MISSIVES.md`](../gameplay/CLOCHE_ET_MISSIVES.md) §10 |
 
 ### 2.1 bis Syntaxe `#N°` (Player ID) dans les commandes staff
 
@@ -200,6 +202,13 @@ En mode staff, `/radio` n'accepte que `ecouter`, `stop`, `couper`, `retirer`, `i
 
 Chaque action du Poste de garde exige un niveau minimum (ex. téléportation = Helper, valider un RPK =
 Modérateur).
+**Factions (16/10)** : voir l'outil F7 › Outils › Factions = Helper ; créer / corriger une section, nommer un chef de
+faction = Modérateur ; créer, renommer ou dissoudre une faction, dissoudre une section, corriger une caisse, régler la
+taxe d'office = Admin. Côté joueurs, les droits viennent du jeu (chef de faction, charges, grades de section, seuils du
+village), jamais d'une permission.
+**Cloche et volières (16/10)** : `/cloche liste`, `/voliere liste` = Helper ; poser une cloche ou une volière, retirer une
+cloche, faire taire les cloches = Modérateur ; vider ou retirer une volière, lire une missive (`/missive lire`, motif) =
+Admin. Qui sonne, qui écrit au palais, qui prend à une volière : seuils et droits de la Faction, jamais une permission.
 
 ### 3.2 Permissions de gameplay
 
@@ -248,6 +257,8 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:nourriture` | S → C | `nourriture.NourritureCanal` | `nourriture/NourritureClient` | Préparer, manger, tendre, plat en main (§4 ter) |
 | `reborn:modifs` | S → C | `modificateur.ModificateurRegistry` | `nourriture/NourritureClient` | Effets actifs visibles (modificateurs) : `{"mods":[{"id","nom","ic","b","val","reste","duree","pause"}]}` (§4 ter) |
 | `reborn:monnaie` | S ⇄ C | `monnaie.MonnaieCanal` | `monnaie/MonnaieClient` | Bourse, « Combien ? », fouille d'un corps (§4 quinquies) |
+| `reborn:faction` | S ⇄ C | `faction.FactionCanal` | `faction/FactionClient` | Volet J (vue filtrée par profil et par contacts), invitations, état du menu R, outil staff Factions (§4 septies) |
+| `reborn:communication` | S ⇄ C | `communication.CommCanal` | `communication/CommClient` | Cloche du village et volières : points proches pour le menu R, écrans (cloche, volière, lettre), bande du haut (annonce, missive, palais) (§4 octies) |
 | `reborn:banque` | S ⇄ C | `banque.GuichetCanal` | `monnaie/MonnaieClient` | Écran du guichet, échange garanti, guichetier (§4 quinquies) |
 | `reborn:stats` | ⇄ | `stats.StatsChannel` | `menu/stats/StatsPayload` | Fiche shinobi (points, stats, Mérite, techniques ; `pid` = N° du personnage, envoyé au seul joueur) |
 | `reborn:tablist` | S → C | `lore.TabListManager` | `menu/tablist/TablistPayload` | Tab list RP |
@@ -403,6 +414,74 @@ l'apparence complète avec la tenue ; objet : posé dans son emplacement cosmét
 `vivre:<id>`, `carte:<id>`. Le serveur revérifie tout ; paiement **bourse** (`BourseService.debiter`, action `ACHAT`) ;
 tenue → `ownedOutfits` (garde-robe) ; objet → sacoche (`refusReception` : « Libère une case ») ; vivres → `NourritureModule.acheterVivre` ;
 cartes → `MapItem.give`.
+
+## 4 septies. Faction et sections — protocole (16/10)
+
+> ShinobiCore `faction/` ⇄ mod `fr.reborn.hud.faction` (et `staff/GardeFactions`). Canal `reborn:faction`, JSON UTF-8
+> brut dans les deux sens, sans préfixe. Le client demande `{"a": …}`, le serveur répond `{"t": …}`. **Tout est
+> revérifié et filtré côté serveur** : un inconnu n'est jamais nommé (ni nom, ni UUID, ni N°), une section cachée vue
+> d'un non-membre est `{"q":true}` et rien d'autre. Fiche : [`../gameplay/FACTION.md`](../gameplay/FACTION.md).
+
+**S → C**
+
+| `t` | Contenu |
+|---|---|
+| `vue` | `ok` (sinon `raison`), `ouvrir`? (touche J), `faction{tag,nom,type,embleme,n,kage}`, `moi{nom,rang,rangNom,profil,chefFaction,chefSection,charge?,titre}`, `onglets[section?,village,sections?,annonces,gestion?]`, `section?{id,nom,insigne,cachee,places,n,chef,monGrade,monRang,chefNom,chefFem?,droits[],membres[personne+grade,gradeId,rang,chef?,rangVillage?],tenue{id,nom,accessoire},lieux[{nom,type,acces}],caisse?{solde,taux,lignes[{t,le,n}]},grades?[{id,nom,droits,n}],journal?[{t,le}]}`, `village{total,groupes[{rang,nom,total,connus[personne],inconnus}]}`, `sections?[{q:true} \| {id,nom,insigne,cachee,n,chef:personne,connus[personne+grade],caisse?}]`, `annonces[{le,texte,titre,auteur?,section?}]`, `gestion?{droits[],chef,taux,plafond,tresor?,taxeSemaine?,seuils[{id,nom,rang}],rangs[],sections[{id,nom,insigne,cachee,n,places,chefNom,caisse?}],charges[{id,nom,publique,droits,titulaires[{id,nom}]}],journal?,modeles[],candidats?[{id,nom,rang,section?}]}`, `peut{annoncerVillage,annoncerSection}`. Une **personne** = `{nom,connu}` ; si connue : `+ id` (personnage), `online`, `u` (UUID Minecraft, en ligne seulement), `moi?`, `publique?` |
+| `proches` | `{pres[{id,u,nom,rang,dist,refus?}],loin[…],distance,n,places}` : personnes **connues** à 30 blocs (et en ligne plus loin si « inviter à distance ») |
+| `etat` | `{section?,insigne?,inviter,refus?,organisation?}` : pour « Inviter dans … » du menu R (à la connexion et à chaque changement) |
+| `invit` / `invit_fin` | `{de,section,insigne,faction,s,panneau}` : invitation chez l'invité (Entrée / Retour), 10 s face à face, 30 s panneau |
+| `toast` | `{m,refus?}` |
+| `staff` | `{grade,factions[{tag,nom,type,embleme,serveur,n,taux,chef?{id,nom,pid},sections[{id,nom,insigne,cachee,n,places,caisse,chefNom,grades[]}],charges[],journal[]}]}` |
+
+**C → S** (`a`) : `open`, `close`, `refresh`, `etat`, `proches`, `inviter{p}`, `repondre{oui}`, `quitter`, `places{n}`,
+`tenue{id,nom,acc}`, `grade_creer{nom}`, `grade_renommer{id,nom}`, `grade_suppr{id}`, `grade_ordre{id,sens}`,
+`grade_droits{id,droits[]}`, `monter{p}`, `descendre{p}`, `exclure{p,motif}`, `section_creer{modele,nom,insigne,chef,places,cachee}`,
+`section_cacher{id,v}`, `section_chef{id,p}`, `section_renommer{id,nom,insigne}`, `section_dissoudre{id,motif}`,
+`taux{n}`, `seuil{id,rang}`, `charge_creer{nom}`, `charge_droits{id,droits[],publique}`, `charge_titulaire{id,p,oui}`,
+`charge_suppr{id}`, `annoncer{section,texte}` ; staff : `staff`, `staff_close`, `staff_faction{tag,nom,type,embleme,chef,motif}`,
+`staff_chef{tag,chef,motif}`, `staff_renommer{tag,nom,motif}`, `staff_dissoudre_faction{tag,motif}`, `staff_taux{tag,n,motif}`,
+`staff_section{tag,modele,nom,chef,cachee,motif}`, `staff_section_maj{id,nom?,cachee?,places?,chef?,motif}`,
+`staff_section_dissoudre{id,motif}`, `staff_caisse{id,op,n,motif}`. Refus → `toast` avec `refus`.
+
+**Droits** — seuils du village : `voir_sections` (Chūnin), `cloche_village` (Jōnin), `voliere_palais` (Chūnin),
+`alertes_palais` (Jōnin), `prendre_voliere` (Genin) ; grade de section : `inviter`, `inviter_distance`, `exclure`,
+`monter`, `voir_caisse`, `depenser`, `coffre_voir`, `coffre_retirer`, `cloche_section`, `journal` ; charge : `sections`,
+`taxe`, `caisses`, `doter`, `journal`, `annonces`, `alertes_palais`, `inviter_org`. Le chef de section a tous les droits
+de sa section ; le chef de faction tous ceux de sa faction.
+
+## 4 octies. Cloche du village et volières — protocole (16/10)
+
+> ShinobiCore `communication/` ⇄ mod `fr.reborn.hud.communication`. Canal `reborn:communication`, JSON UTF-8 brut dans
+> les deux sens, sans préfixe. Le client demande `{"a": …}`, le serveur répond `{"t": …}`. **Tout est revérifié côté
+> serveur** (droits de la Faction, distance 6,5 blocs, coût, anti-spam). Texte riche = segments `[["texte","" | "g" |
+> "i" | "gi"], …]` (gras, italique seulement). Fiche : [`../gameplay/CLOCHE_ET_MISSIVES.md`](../gameplay/CLOCHE_ET_MISSIVES.md).
+
+**S → C**
+
+| `t` | Contenu |
+|---|---|
+| `points` | `l[{k:"cloche"\|"voliere",id,x,y,z,nom}]` : cloches que ce joueur peut sonner et volières à 48 blocs (envoyé toutes les 2 s s'il a changé) — menu R |
+| `cloche` | `ouvrir`, `id`, `lieu`, `nom`, `titre` (signature imposée), `village` (sinon : chef de section), `max`, `sections[{id,nom,insigne,nouvelle?}]` (jamais une section cachée), `fixe?` (sa section), `grades[9]`, `libreDepuis`, `attenteCloche`, `attenteMoi`, `delaiMoi`, `tue?`, `dangers`, `zone`, `concernes` |
+| `compte` | `{zone,concernes}` (réponse à `compter`) |
+| `annonce` | `{type,titre,texte,signe,s,village}` : la bande du haut chez les concernés présents |
+| `annonce_fin` | le staff a tu la cloche : la ligne en cours se retire |
+| `voliere` | `ouvrir?`, `onglet` (0 Écrire, 1 Missives ici), `id`, `nom`, `type`, `moi`, `now`, `bourse`, `max`, `adresseMax`, `destMax`, `garde`, `capacite`, `contacts[{ref:"c:<perso>",nom,sous,mc?}]`, `destinations[{id,nom,lieu,delai,cout,cond?,refus?}]`, `missives[{id,pour,autres[],toi?,signe?,de,le,scellee}]`, `peutPrendre`, `seuilPrendre`, `enMain?{id,pour,scellee}` |
+| `envoye` | `{transfert}` : le brouillon s'efface |
+| `lettre` | `{id,a[],lieu,heure,texte,signe?,dejaBrise,vientDeBriser}` : la missive ouverte |
+| `alerte` | `{k:"missive",lieu,s}` (« un corbeau a déposé une missive pour toi à … ») ou `{k:"palais",s}` (sans auteur, sans contenu, sans destinataire) |
+| `toast` · `ferme` | `{m,refus?}` · ferme l'écran ouvert |
+
+**C → S** (`a`) : `ouvrir{id,missives?}`, `compter{id,tout,sections[],grades[]}`, `sonner{id,type,texte,tout,sections[],grades[]}`,
+`envoyer{voliere,vers,dests[{ref}|{adresse}],texte,signee}`, `transferer{voliere,vers,dests[1]}` (la missive en main),
+`prendre{id,lire?}`, `bruler{id}`. Clic droit sur le meuble (bloc de barrière ou entité) : ouvre l'écran ; clic droit avec
+une missive en main : la lit (la première lecture brise le cachet).
+
+**Règles** — sonner : seuil `cloche_village` du village (Jōnin) ou charge `annonces` → tout le village (visiteurs
+compris) ou des sections ; droit de grade `cloche_section` → sa section seulement ; anti-spam 2 min par cloche, 10 min
+par personne, 3 « danger » par heure et par village. Volières : dans le pays toute volière ; hors du pays de tour à tour ;
+le palais exige `voliere_palais` (Chūnin) ; prendre exige `prendre_voliere` (Genin) ; délai 1 min (même volière, palais),
+1 min + 1 min par 250 blocs (pays, 8 min au plus), 1 min par 250 blocs (autre village, 20 min au plus) ; coût par copie
+10 / 40 ryo, pris dans la bourse. Pleine, une volière brûle la plus ancienne ; non prise en 7 jours, brûlée.
 
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 
@@ -718,6 +797,8 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `stats` | `points-per-rank` (= points de **Mérite**), respec, plafond doux, PV, chakra, endurance, régén, coûts, critique, roue des natures | idem + [`SPEC_STATS_SERVICE.md`](./SPEC_STATS_SERVICE.md) |
 | `progression` | `niveau-max`, `xp-base`, `xp-par-niveau`, `points-par-niveau`, `gains.*` | [`gameplay/STATS_ET_PROGRESSION.md`](../gameplay/STATS_ET_PROGRESSION.md) |
 | `grades` | bonus passifs par grade, règles de promotion / rétrogradation | idem |
+| `faction` | `taxe.defaut` (10), `taxe.plafond` (30, le Kage règle son taux dessous), `sections.places-defaut` (8) | [`gameplay/FACTION.md`](../gameplay/FACTION.md) |
+| `communication` | `cloche.rayon-defaut` (250), `cloche.delai-cloche-secondes` (120), `cloche.delai-personne-secondes` (600), `cloche.danger-par-heure` (3), `cloche.texte-max` (200), `cloche.duree.{normale,importante,danger}` (10 / 12 / 15 s) ; `voliere.cout-village` (10 ryo), `voliere.cout-autre-village` (40), `voliere.delai-base-secondes` (60), `voliere.blocs-par-minute` (250), `voliere.delai-max-pays-secondes` (480), `voliere.delai-max-autre-village-secondes` (1200), `voliere.garde-jours` (7), `voliere.texte-max` (600), `voliere.adresse-max` (40), `voliere.destinataires-max` (10 par missive, aucune limite d'envois), `voliere.duree-alerte` (8 s) | [`gameplay/CLOCHE_ET_MISSIVES.md`](../gameplay/CLOCHE_ET_MISSIVES.md) |
 | `ko` | PV persistants, défaite à l'entraînement, à terre, inconscient, `volonte`, plancher, lits, ATA, `douleur` (seuil, vitesse, lutte), `execution.canalisation-secondes` | [`gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md) |
 | `mort-rp` | `scene-min-secondes`, `corps-minutes` | idem |
 | `inventaire` | `ramassage.distance` (3), `ramassage.cadence-ms` (250), `ramassage.poids-max-pourcent` (130) ; `surcharge.charge` (`de` 100, `vitesse-de` 0,90, `vitesse-a` 0,70, `saut`, `sprint`), `surcharge.surcharge` (`de` 115, 0,70 → 0,35, `saut` 0), `surcharge.immobile` (`de` 130, `vitesse` 0, `saut` 0) ; `sol.disparition-minutes` (10), `sol.disparition-ko-minutes` (15), `sol.balayage-secondes`, `sol.jamais-detruits.parchemins` / `.ids` ; `journal.fichier`, `journal.poste-de-garde-des` (RARE) ; `arme.ids`, `arme.vanilla` ; `cases-cachees.balayage` | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](../gameplay/INVENTAIRE_ET_COSMETIQUES.md) |
@@ -778,6 +859,8 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `ata-state.yml` | Core | ATA en cours |
 | `training-zones.yml` | Core | Zones d'entraînement et de repos |
 | `hospitals.yml`, `hospital-beds.yml` | Core | Points de réveil par village, lits |
+| `factions/factions.yml`, `factions/membres.yml` | Core | Factions (seuils, taxe, charges, annonces, journal court) et sections (grades, places, tenue, caisse et mouvements) ; registre des personnages (nom, grade du village, village, faction, section, grade de section). Journal complet : `logs/faction-…` (catégorie `FACTION`) |
+| `communication/points.yml`, `communication/missives.yml` | Core | Cloches (village, coordonnées ou entité du meuble, rayon, dernière annonce, cloche tue) et volières (nom, type, village) ; chaque copie de missive (auteur, signée, destinataires, texte à balises `<g>` `<i>`, départ, arrivée, état `VOL` / `ATTENTE` / `PRISE` / `BRULEE`, cachet, preneur). L'objet missive ne porte que son identifiant (`reborn:missive`). Journal : catégories `FACTION` (action `CLOCHE`), `MISSIVE`, `STAFF` |
 | `player-ids.yml` | Core | **Player ID** : `next` (prochain N°) + `index` `'00042'` → `n`, `character` (UUID perso), `owner` (UUID compte), `name`, `deleted`. Un N° n'est **jamais réutilisé** (supprimé = `deleted: true`). Écriture atomique (`.tmp` + renommage), compteur écrit avant d'attribuer. Chaque personnage porte aussi `playerId: 42` dans `characters/<compte>.yml`. Migration idempotente au démarrage (ordre : UUID du compte puis UUID du perso) |
 | `logs/<categorie>-AAAA-MM-JJ.log` | Core | **Journal universel** (14/10) : un fichier par catégorie (`joueur`, `inventaire`, `objet`, `combat`, `ko`, `duel`, `economie`, `interaction`, `bibliotheque`, `staff`, `commande`, `chat`, `systeme`) et par jour, une ligne par entrée : `AAAA-MM-JJ HH:mm:ss \| CAT \| ACTION \| #00042 Pseudo (Nom RP) [Grade] \| cible \| détail \| monde x y z` (`—` = vide). Rétention `journal.retention-jours`. Remplace `aggression-log.txt` (→ `combat`), `kill-log.txt` et `ko-log.txt` (→ `ko`), `duel-log.txt` (→ `duel`) ; les anciens fichiers restent sur le disque, plus alimentés |
 | `gels.yml` | Core | Gels staff persistants, par compte : `par`, `motif`, `le`, `nom` |

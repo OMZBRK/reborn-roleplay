@@ -1,0 +1,57 @@
+# Reborn — Cloche du village et volières (docs/gameplay/CLOCHE_ET_MISSIVES.md §4 — 16/10)
+#
+# Visuels PROVISOIRES générés par minecraft/mod-hud/tools/gen_communication_textures.py :
+#   pack/assets/reborn/{items,models/item,textures/item}/<id>.*
+# L'utilisateur modélise les vrais (Blockbench) en GARDANT CES IDENTIFIANTS.
+#
+# MEUBLES (posés par le staff) : la cloche de la place et le perchoir d'une volière ne font rien seuls. Le staff vise
+# le meuble posé et l'enregistre : /cloche poser <village> [rayon] ["lieu"] ou /voliere poser "<nom>" <type> <village>.
+# Ensuite : menu R ou clic droit → écran de la cloche / de la volière (mod Reborn). Hitbox en barrières : ShinobiCore
+# reconnaît le clic sur le bloc de barrière (ou sur l'entité d'interaction si tu passes en « interactions »).
+#
+# MISSIVES : créées par SHINOBICORE (PAPER + item_model reborn:missive_scellee | reborn:missive_descellee + identifiant
+# en PDC reborn:missive). Une missive donnée par /nexo est vide (catalogue seulement).
+
+cloche_village:
+  itemname: "<#D9A95E>Cloche du village"
+  material: PAPER
+  lore:
+    - "<gray>Meuble du staff : à poser sur la place, puis /cloche poser <village>."
+  Pack:
+    model: reborn:item/cloche_village
+  Mechanics:
+    furniture:
+      hitbox:
+        barriers:
+          - 0,0,0
+          - 0,1,0
+
+perchoir_voliere:
+  itemname: "<#D9A95E>Perchoir de volière"
+  material: PAPER
+  lore:
+    - "<gray>Meuble du staff : point d'interaction d'une volière, puis /voliere poser."
+  Pack:
+    model: reborn:item/perchoir_voliere
+  Mechanics:
+    furniture:
+      hitbox:
+        barriers:
+          - 0,0,0
+          - 0,1,0
+
+missive_scellee:
+  itemname: "<#E8DCC0>Missive scellée"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo) : une vraie missive part d'une volière."
+  Pack:
+    model: reborn:item/missive_scellee
+
+missive_descellee:
+  itemname: "<#E8DCC0>Missive"
+  material: PAPER
+  lore:
+    - "<gray>Visuel seulement (catalogue Nexo) : cachet brisé."
+  Pack:
+    model: reborn:item/missive_descellee

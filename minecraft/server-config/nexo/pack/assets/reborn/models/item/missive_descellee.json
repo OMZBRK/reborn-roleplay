@@ -1,0 +1,7 @@
+{
+  "credit": "Reborn — provisoire (tools/gen_communication_textures.py, 2026-10-16), à remplacer par le modèle Blockbench",
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "reborn:item/missive_descellee"
+  }
+}

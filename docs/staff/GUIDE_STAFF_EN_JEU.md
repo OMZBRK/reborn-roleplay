@@ -204,7 +204,47 @@ aussi (`ECONOMIE ACHAT`). Détails : [`../gameplay/BOUTIQUES.md`](../gameplay/BO
   [village]`, `/boutique voir <b> [n° de comptoir]` (ouvre l'écran à distance pour tester), `/boutique supprimer <b>
   confirmer`.
 - **Garde-robe** (tenues liées au personnage) : `/boutique donner|reprendre <cible> <tenue> "<motif>"`.
-- **Fonction** (masque ANBU…) : donnez la permission `reborn.fonction.anbu` en attendant le menu Faction.
+- **Fonction** (masque ANBU…) : donnez la permission `reborn.fonction.anbu` en attendant les mécaniques de section
+  (le menu Faction est codé, voir ci-dessous ; les mécaniques propres à l'ANBU viennent après la beta).
+
+### Factions et sections (16/10, pas encore publiées)
+Chaque personnage appartient à la faction de son village (KON, SUN, KIR, KUM, IWA, AME, d'office) ; les joueurs ouvrent
+le volet **J**. Le **chef de faction** (le Kage) crée les sections, règle la taxe et les seuils ; chaque **chef de
+section** gère ses places, ses grades, sa tenue et sa caisse. Vous gardez la vue d'ensemble et la correction : **F7 ›
+Outils › Factions**. Toute action demande un **motif** et va au journal (catégorie **Faction**, filtre du Journal).
+- **Liste** (Helper) : chaque faction, son tag, son effectif, son chef ou « chef à nommer ». Clic : la fiche.
+- **Chef…** (Modérateur) : nommer le chef de faction (N° `#00031` ou nom exact ; vide = aucun). À faire en premier
+  pour chaque village : sans chef, personne ne peut créer de section.
+- **Section…** (Modérateur) : créer une section (modèle ANBU, Police, Médical, Académie, Missions, Garde, ou libre), son
+  chef, cachée ou non. Clic sur une section : **Corriger…** (nom, places, visibilité, nouveau chef), **Caisse…** et
+  **Dissoudre…** (Admin).
+- **+ Créer une faction**, **Renommer**, **Dissoudre** (Admin) : pour une organisation (Kurogane…) dont les membres
+  sont des personnages sans village ; un village ne se dissout pas.
+- **Porte…, Coffre…, Quotas** : grisés, lot suivant (lieux de section posés par le staff).
+- En secours : `/faction admin liste|info|creer|chef|section|cacher|dissoudre|caisse` (voir PLUGINS_REFERENCE §2.1).
+- Ce que voient les joueurs est filtré par le serveur : un inconnu n'est jamais nommé, l'ANBU (et toute section cachée)
+  n'est qu'un « ? » pour les gradés. Le Poste de garde, lui, voit tout.
+
+### Cloche du village et volières (16/10, pas encore publiées)
+Les builders construisent la place et les volières ; vous posez seulement le **point d'interaction** : un meuble Nexo
+(provisoires `cloche_village` et `perchoir_voliere`, `/nexo give <toi> cloche_village`), posé à sa place, puis enregistré
+en le **visant** (6 blocs) :
+- **Cloche** (Modérateur) : `/cloche poser KON 250 "Place centrale de Konoha"` — le village (KON, SUN, KIR, KUM, IWA,
+  AME), la zone en blocs (250 par défaut), le nom du lieu. Une cloche par village à la beta.
+- **Volière** (Modérateur) : `/voliere poser "Grande volière de Konoha" grande KON` — type `petite` (quartier, 12
+  missives), `grande` (cœur du village, 40), `tour` (une par village : la seule qui écrit aux autres villages, 80),
+  `palais` (dans le palais du Kage, derrière sa porte : réservée aux Chūnin et plus, alerte les gradés).
+- Ensuite les joueurs passent par le **menu R** (ou un clic droit) sur le meuble : « Sonner la cloche » (Jōnin et plus,
+  charges « annonces », chefs de section pour leur section), « Écrire une missive », « Missives ici ».
+- **Lister** (Helper) : `/cloche liste`, `/voliere liste` (missives en attente / capacité). Aussi dans **F7 › Outils ›
+  Commandes**, rubrique « Cloche et volières ».
+- **Faire taire** une cloche abusive (Modérateur) : `/cloche taire KON 30` (30 min ; `0` rend la parole) retire aussi
+  la ligne en cours chez tout le monde. Une annonce abusive reste une faute RP (sanctions habituelles).
+- **Admin** : `/voliere vider <id> "<motif>"` (brûle les missives en attente), `/voliere retirer <id> "<motif>"`,
+  `/missive lire <id> "<motif>"` (harcèlement, enquête ; l'identifiant vient d'un `/signaler` ou du Journal).
+- Tout va au journal : catégorie **Faction** (action Cloche), **Missive** (envoi, arrivée, prise, lecture, transfert,
+  brûlée) et **Staff** (poses, retraits, lectures). En mode staff, aucune de ces actions n'est possible (comme toute
+  mécanique RP).
 
 ## 4. Les médics
 

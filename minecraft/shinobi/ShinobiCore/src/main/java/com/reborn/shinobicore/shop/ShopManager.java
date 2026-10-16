@@ -147,6 +147,8 @@ public final class ShopManager implements PluginMessageListener, CommandExecutor
         sb.append("{\"ryo\":").append(portee(p, c)).append(",\"price\":").append(tenuePrice).append(",\"owned\":[");
         boolean first = true;
         for (String o : c.ownedOutfits()) { if (!first) sb.append(','); sb.append('"').append(esc(o)).append('"'); first = false; }
+        // tenue de section prêtée (FACTION.md §7) : portable tant qu'on est membre
+        if (!c.pretTenue().isEmpty() && !c.ownedOutfits().contains(c.pretTenue())) { if (!first) sb.append(','); sb.append('"').append(esc(c.pretTenue())).append('"'); }
         sb.append("],\"appearance\":\"").append(esc(c.appearance())).append('"');
         sb.append(",\"maps\":[");
         first = true;

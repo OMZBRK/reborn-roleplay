@@ -25,12 +25,15 @@ class GardeOutils {
             {"seisme", "seisme", "Séisme"},
             {"", "", "Infirmerie"}, {"blesses", "infirmerie", "Blessés"}, {"zones", "zones", "Zones d'entraînement et de repos"},
             {"hopitaux", "hopital", "Hôpitaux et lits"}, {"reglages", "reglages", "Réglages du KO"},
+            {"", "", "Factions"}, {"factions", "drapeau", "Factions et sections"},
             {"", "", "Modes et aide"}, {"modes", "bouclier", "Mode staff et mode animation"}, {"cmds", "commandes", "Commandes"}};
 
     protected final StaffScreen s;
     private EditBox chatBox, cmdBox;
+    /** Outil Factions (16/10) : canal reborn:faction. */
+    final GardeFactions factionsVue;
 
-    GardeOutils(StaffScreen s) { this.s = s; }
+    GardeOutils(StaffScreen s) { this.s = s; this.factionsVue = new GardeFactions(s); }
 
     void init() {
         chatBox = s.box(chatBox, "Écrire au staff…", 200);
@@ -44,13 +47,14 @@ class GardeOutils {
 
     int hauteurOutils() { return s.outil == null ? 0 : "cmds".equals(s.outil) ? 38 : 16; }
 
-    boolean pleineHauteur() { return s.outil != null && ("chat".equals(s.outil) || "cmds".equals(s.outil) || "blesses".equals(s.outil)); }
+    boolean pleineHauteur() { return s.outil != null && ("chat".equals(s.outil) || "cmds".equals(s.outil) || "blesses".equals(s.outil) || "factions".equals(s.outil)); }
 
     String pied() {
         if (s.outil == null) return "Clic : ouvrir l'outil";
         return switch (s.outil) {
             case "chat" -> null;
             case "cmds" -> "Clic : copier la commande, à coller dans le tchat";
+            case "factions" -> factionsVue.pied();
             default -> "Échap : retour aux outils";
         };
     }
@@ -78,6 +82,7 @@ class GardeOutils {
             case "chat" -> chat(snap, y);
             case "cmds" -> commandes(snap, y);
             case "modes" -> modes(snap, y + 2);
+            case "factions" -> factionsVue.corps(snap, y);
             default -> outilKo(snap, y);
         };
     }
@@ -102,6 +107,7 @@ class GardeOutils {
             case "modes" -> new Object[]{0, StaffScreen.bool(snap, "modeAnim") ? "Mode animation actif"
                     : StaffScreen.bool(snap, "modeStaff") ? "Mode staff actif : aucune mécanique RP" : "Hors mode staff"};
             case "cmds" -> new Object[]{0, "Aide-mémoire, grade requis, copier en un clic"};
+            case "factions" -> factionsVue.resume();
             default -> s instanceof GardeScreen g ? g.resumeKo(id) : new Object[]{0, ""};
         };
     }
@@ -139,6 +145,7 @@ class GardeOutils {
         s.scroll = "chat".equals(id) ? Integer.MAX_VALUE / 2 : 0;
         if ("chat".equals(id)) s.setFocused(chatBox);
         if ("cmds".equals(id)) s.setFocused(cmdBox);
+        if ("factions".equals(id)) factionsVue.ouvrir();
         RebornSounds.uiClick();
     }
 

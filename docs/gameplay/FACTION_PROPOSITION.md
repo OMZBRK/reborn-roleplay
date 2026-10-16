@@ -1,6 +1,10 @@
-# Faction — proposition de design
+# Faction — proposition de design (13/10, remplacée)
 
-> **Statut : proposition (2026-10-13), rien n'est codé.** C'est le dernier design du Sprint 1 (« Design Faction
+> ⚠️ **Remplacée le 2026-10-15 par la proposition v2 : [`FACTION.md`](./FACTION.md)** (aucun kanji, sections de
+> métier, fonctions créées par le chef, lieux posés par le staff, banque déjà codée, 8 questions). Gardée pour mémoire :
+> réputation, diplomatie, Bingo Book et désertion y sont détaillés pour l'après-beta.
+>
+> **Statut d'origine : proposition (2026-10-13), rien n'est codé.** C'est le dernier design du Sprint 1 (« Design Faction
 > Konoha : sections, trésor commun, banques, coffres, références visuelles », [`CHANTIERS.md`](../CHANTIERS.md) §1,
 > décisions en attente n° 1 et 11). L'utilisateur doit valider ou corriger ce document. Les questions à trancher sont
 > au §16.

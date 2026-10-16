@@ -178,6 +178,9 @@ public final class InteractionMenus {
         // Radio en escouades (14/10) : créer / ajouter face à face, voir l'escouade.
         InteractionItem radio = fr.reborn.hud.radio.RadioMenus.radio(name);
         if (radio != null) l.add(radio);
+        // Faction (16/10) : « Inviter dans la Police » si mon grade de section le permet (le serveur revérifie).
+        InteractionItem faction = fr.reborn.hud.faction.FactionClient.menuR(name);
+        if (faction != null) l.add(0, faction);
         l.addAll(List.of(
             InteractionItem.action("Saluer", () -> sendCommand("me salue " + name)),
             InteractionItem.action("Se présenter", () -> sendCommand("rencontrer")),
@@ -243,6 +246,9 @@ public final class InteractionMenus {
                     InteractionItem.action("Fouiller", () -> sendCommand("corps fouiller corps:" + e.getUUID())),
                     prelever("corps:" + e.getUUID()));
         }
+        // Cloche et volières (16/10) : le meuble Nexo visé (entité d'interaction) d'une cloche ou d'un perchoir.
+        java.util.List<InteractionItem> comm = fr.reborn.hud.communication.CommClient.menuR(e.getX(), e.getY(), e.getZ());
+        if (!comm.isEmpty()) return comm;
         return List.of(
             InteractionItem.action("Inspecter (" + type + ")", () -> {
                 String hp = (e instanceof LivingEntity le)
@@ -255,6 +261,9 @@ public final class InteractionMenus {
     }
 
     public static List<InteractionItem> forBlock(BlockPos pos) {
+        // Cloche et volières (16/10) : « Sonner la cloche », « Écrire une missive », « Missives ici » sur le meuble visé.
+        java.util.List<InteractionItem> comm = fr.reborn.hud.communication.CommClient.menuR(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+        if (!comm.isEmpty()) return comm;
         return List.of(
             InteractionItem.action("Inspecter le bloc", () -> {
                 Minecraft mc = Minecraft.getInstance();

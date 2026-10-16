@@ -76,6 +76,9 @@ public final class HudKeybinds {
     /** Course de chakra en bascule (X) : un appui la lance, un autre l'arrête ; le triple appui sur le sprint reste. */
     public static KeyMapping COURSE_CHAKRA;
 
+    /** Volet Faction (J, 16/10, FACTION.md) : ta section, ton village, les annonces ; la même touche le referme. */
+    public static KeyMapping FACTION;
+
     /** Appui plus court que ça sur la touche radio (sans la tenir) = écran de l'escouade. */
     public static final long RADIO_BREF_MS = 250L;
     private static long radioDepuis = -1L;
@@ -178,6 +181,8 @@ public final class HudKeybinds {
         // Ordre = ordre d'affichage dans Réglages → Contrôles (carte des touches du 15/10).
         STATS = bind("key.reborn-hud.stats", GLFW.GLFW_KEY_K);
         MAP = bind("key.reborn-hud.map", GLFW.GLFW_KEY_M);
+        // Volet Faction (16/10) : J, libre dans Minecraft et le modpack ; même lettre en AZERTY et QWERTZ.
+        FACTION = bind("key.reborn-hud.faction", GLFW.GLFW_KEY_J);
         INTERACTION = bind("key.reborn-hud.open_interaction", GLFW.GLFW_KEY_R);
         // Ramasser (F, partagée avec « main gauche » : prise seulement quand un objet au sol est visé) et dégainer (Z).
         PICKUP = bind("key.reborn-hud.ramasser", GLFW.GLFW_KEY_F);
@@ -278,15 +283,18 @@ public final class HudKeybinds {
                     }
                 }
             }
+            while (FACTION.consumeClick()) fr.reborn.hud.faction.FactionClient.appuiJ();
             while (DUEL_ACCEPT.consumeClick()) {
                 if (Minecraft.getInstance().gui.screen() != null) continue;
-                // Entrée : l'invitation radio d'abord (10 s), sinon le duel proposé.
-                if (!fr.reborn.hud.radio.RadioClient.accepter()) fr.reborn.hud.duel.DuelClient.accept();
+                // Entrée : l'invitation radio d'abord (10 s), puis celle d'une section (Faction), sinon le duel proposé.
+                if (fr.reborn.hud.radio.RadioClient.accepter()) continue;
+                if (!fr.reborn.hud.faction.FactionClient.accepter()) fr.reborn.hud.duel.DuelClient.accept();
             }
             while (DUEL_REFUSE.consumeClick()) {
                 if (Minecraft.getInstance().gui.screen() != null) continue;
                 // Retour : refuse l'invitation radio, sinon le duel proposé, sinon ce qu'on me tend (nourriture, 14/10).
                 if (fr.reborn.hud.radio.RadioClient.refuser()) continue;
+                if (fr.reborn.hud.faction.FactionClient.refuser()) continue;
                 if (fr.reborn.hud.duel.DuelClient.hasInvite()) fr.reborn.hud.duel.DuelClient.refuse();
                 else fr.reborn.hud.nourriture.NourritureClient.refuser();
             }

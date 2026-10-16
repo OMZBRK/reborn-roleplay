@@ -256,6 +256,10 @@ public class TabListManager implements Listener {
                 }
                 String village = oc.village();
                 if (!village.isBlank()) sb.append(",\"v\":\"").append(esc(village)).append('"');
+                // tag de faction (FACTION.md §3) : KON, SUN… ou celui d'une organisation
+                var fs = plugin.factions();
+                var fm = fs == null ? null : fs.membre(oc.id());
+                if (fm != null && !fm.faction.isEmpty()) sb.append(",\"ft\":\"").append(esc(fm.faction)).append('"');
                 sb.append(",\"a\":").append(oc.age());
                 sb.append(",\"af\":\"").append(oc.affinity() != null ? oc.affinity().name() : "").append('"');
             } else {

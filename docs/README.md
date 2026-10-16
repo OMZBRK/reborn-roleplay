@@ -30,7 +30,9 @@
 | [`gameplay/APPRENTISSAGE.md`](./gameplay/APPRENTISSAGE.md) | Parchemins, bibliothèques à tirage, séances, concentration du chakra, slots du rang S |
 | [`gameplay/STATS_ET_PROGRESSION.md`](./gameplay/STATS_ET_PROGRESSION.md) | 6 stats, XP invisible, grades, points de Mérite |
 | [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) | Sélection et création en scène, apparence |
-| [`gameplay/FACTION_PROPOSITION.md`](./gameplay/FACTION_PROPOSITION.md) | **Proposition** de design Faction (sections, fonctions, quotas, trésor, coffres, diplomatie), 18 questions ouvertes |
+| [`gameplay/FACTION.md`](./gameplay/FACTION.md) | **Proposition v3** (16/10, maquettée, retours de l'utilisateur sur la v2) : volet à droite sur J, visibilité par profil et seulement les gens connus, ANBU = « ? », sections créées par le chef, grades de section, places, tenue, caisse par section et taxe, invitation menu R ou panneau ; Q1 à Q5 |
+| [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) | **Proposition** (16/10, maquettée) : cloche d'annonces du village (texte, type, sections, grades, signée) ; missives par corbeau vers des volières (délai, coût, palais du Kage, prise par n'importe qui, scellée / descellée) ; objets Nexo à modéliser ; Q6 à Q8 |
+| [`gameplay/FACTION_PROPOSITION.md`](./gameplay/FACTION_PROPOSITION.md) | Proposition du 13/10, **remplacée** par `FACTION.md` (gardée pour l'après-beta : réputation, diplomatie, Bingo Book) |
 | [`gameplay/RADIO.md`](./gameplay/RADIO.md) | Radio = **escouades** (décidé 14/10, non codé) : oreillette, ajout à côté, persistance, à terre, vol, écoute staff, faisabilité PlasmoVoice 2.x, 8 questions |
 | [`gameplay/MISSIONS.md`](./gameplay/MISSIONS.md) | Idées de missions et d'entraînements, formats de rapports (pas encore de système en jeu) |
 | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](./gameplay/INVENTAIRE_ET_COSMETIQUES.md) | Sacoche RP, poids, cosmétiques |

@@ -316,6 +316,24 @@ commands:
     description: "Testament RP — joueur : deposer (au guichet), voir ; staff : enregistrer, valider, revoquer, voir."
     usage: "/<command> [deposer|enregistrer|valider|revoquer|voir] …"
     permission: shinobicore.use
+  faction:
+    description: "Faction et sections (volet J) — joueur : info, inviter, accepter, refuser, quitter, annoncer, verser, prime, doter ; staff : admin liste, info, creer, chef, section, cacher, dissoudre, caisse (journalisé)."
+    usage: "/<command> [info|inviter|accepter|refuser|quitter|annoncer|verser|prime|doter|admin] …"
+    aliases: [factions]
+    permission: shinobicore.use
+  cloche:
+    description: "Cloche du village (staff, journalisé) : poser <village> [rayon] [\"lieu\"] (vise le meuble), liste, retirer <id>, taire <village> [minutes]."
+    usage: "/<command> [poser|liste|retirer|taire] …"
+    permission: shinobicore.use
+  voliere:
+    description: "Volières (staff, journalisé) : poser \"<nom>\" <petite|grande|tour|palais> <village> (vise le perchoir), liste, vider <id> \"<motif>\", retirer <id> \"<motif>\"."
+    usage: "/<command> [poser|liste|vider|retirer] …"
+    aliases: [volieres]
+    permission: shinobicore.use
+  missive:
+    description: "Missives (Admin, journalisé) : lire <id> \"<motif>\" — motif obligatoire (harcèlement, enquête)."
+    usage: "/<command> lire <id> \"<motif>\""
+    permission: shinobicore.use
 permissions:
   shinobicore.entreprise:
     description: "Gérer les entreprises (/entreprise creer, membre, poste…) ; aussi accordé aux modérateurs du Poste de garde."

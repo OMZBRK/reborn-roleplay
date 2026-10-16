@@ -43,6 +43,10 @@ public interface JournalService {
         STAFF("Staff"),
         COMMANDE("Commande"),
         CHAT("Tchat"),
+        /** Factions et sections (FACTION.md, 16/10) : création, membres, grades, caisse, annonces — en ajout seul. */
+        FACTION("Faction"),
+        /** Missives et volières (CLOCHE_ET_MISSIVES.md, 16/10) : envoi, arrivée, prise, lecture, transfert, brûlée. */
+        MISSIVE("Missive"),
         SYSTEME("Système");
 
         private final String label;
