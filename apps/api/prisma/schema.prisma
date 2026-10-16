@@ -743,6 +743,7 @@ enum TechniqueGraphStatus {
 enum StaffDiscordChannel {
   ANNONCES
   DEV_UPDATES
+  BUILD_UPDATES
 }
 
 enum StaffDiscordMessageStatus {
@@ -752,7 +753,7 @@ enum StaffDiscordMessageStatus {
 }
 
 /// Message rédigé dans le panel staff (page « Discord ») puis posté par le bot dans le salon
-/// `annonces` ou `dev-updates` du serveur Discord STAFF (route signée /webhooks/staff-message).
+/// `annonces`, `dev-updates` ou `build-updates` du serveur Discord STAFF (route signée /webhooks/staff-message).
 /// `blocs` = spec de cadre composants v2 (texte markdown, images, séparateur, liens), même format que
 /// apps/bot/src/scripts/post-message.ts ; les images y sont citées par leur nom de média
 /// (`<uuid>.<ext>`, stocké par l'API hors de /uploads public). Aucun ID Discord n'est versionné :

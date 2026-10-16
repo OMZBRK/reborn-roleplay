@@ -41,7 +41,7 @@ import {
  * Endpoints :
  *   POST /webhooks/whitelist  → cree un thread "Whitelist · <pseudoMC>"
  *   POST /webhooks/tickets    → cree un thread "Ticket · <category> · <subject>"
- *   POST /webhooks/staff-message[/edit|/delete] → annonces / dev updates du
+ *   POST /webhooks/staff-message[/edit|/delete] → annonces / dev / build updates du
  *        Discord staff rediges dans le panel (cf messages/staff-message.ts)
  *   GET  /healthz             → 200 ok (pour readiness probe)
  */

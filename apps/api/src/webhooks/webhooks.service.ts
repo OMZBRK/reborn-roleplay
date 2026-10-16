@@ -125,10 +125,10 @@ export interface StaffCadreSpec {
   }[];
 }
 
-export type StaffDiscordCanal = 'annonces' | 'dev-updates';
+export type StaffDiscordCanal = 'annonces' | 'dev-updates' | 'build-updates';
 export type StaffDiscordPing = 'aucun' | 'testeurs' | 'everyone';
 
-/** Panel → bot : aperçu ou publication d'une annonce / dev update du Discord staff. */
+/** Panel → bot : aperçu ou publication d'une annonce / dev update / build update du Discord staff. */
 export interface StaffMessagePayload {
   canal: StaffDiscordCanal;
   mode: 'apercu' | 'publier';

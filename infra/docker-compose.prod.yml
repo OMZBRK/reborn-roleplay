@@ -134,11 +134,12 @@ services:
       # Salon dédié aux annonces de mises à jour de mods (optionnel ; fallback
       # sur le salon tickets si absent).
       DISCORD_MODS_CHANNEL_ID: ${DISCORD_MODS_CHANNEL_ID:-}
-      # Messages du panel (annonces / dev updates du Discord staff) — cf
+      # Messages du panel (annonces / dev / build updates du Discord staff) — cf
       # docs/operations/DISCORD_STAFF.md §11. Vides = routes staff-message en 503.
       DISCORD_STAFF_GUILD_ID: ${DISCORD_STAFF_GUILD_ID:-}
       DISCORD_STAFF_ANNONCES_CHANNEL_ID: ${DISCORD_STAFF_ANNONCES_CHANNEL_ID:-}
       DISCORD_STAFF_DEVUPDATES_CHANNEL_ID: ${DISCORD_STAFF_DEVUPDATES_CHANNEL_ID:-}
+      DISCORD_STAFF_BUILDUPDATES_CHANNEL_ID: ${DISCORD_STAFF_BUILDUPDATES_CHANNEL_ID:-}
       DISCORD_STAFF_APERCU_CHANNEL_ID: ${DISCORD_STAFF_APERCU_CHANNEL_ID:-}
       DISCORD_STAFF_TESTEUR_ROLE_ID: ${DISCORD_STAFF_TESTEUR_ROLE_ID:-}
       REBORN_WEBHOOK_SECRET: ${REBORN_WEBHOOK_SECRET}

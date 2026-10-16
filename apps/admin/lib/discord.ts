@@ -1,12 +1,13 @@
 import { api } from './api';
 
 /**
- * Wrappers typés sur `/v1/admin/discord/*` : annonces et dev updates du
- * Discord staff, postées par le bot (cadre composants v2). Format des blocs
+ * Wrappers typés sur `/v1/admin/discord/*` : annonces, dev updates et build
+ * updates du Discord staff, postées par le bot (cadre composants v2). Format des blocs
  * identique à apps/bot/src/messages/cadre.ts.
  */
 
-export type Canal = 'annonces' | 'dev-updates';
+export const CANAUX = ['annonces', 'dev-updates', 'build-updates'] as const;
+export type Canal = (typeof CANAUX)[number];
 export type PingOption = 'aucun' | 'testeurs' | 'everyone';
 export type ActionMessage = 'brouillon' | 'apercu' | 'publier';
 export type StatutMessage = 'brouillon' | 'publie' | 'retire';
@@ -92,12 +93,21 @@ export const MAX_IMAGE_OCTETS = 8 * 1024 * 1024;
 export const CANAL_LIBELLE: Record<Canal, string> = {
   annonces: 'Annonces',
   'dev-updates': 'Dev updates',
+  'build-updates': 'Build updates',
+};
+
+/** Mention proposée par salon (désactivée par défaut) ; aucune en build-updates. */
+export const CANAL_PING: Record<Canal, Exclude<PingOption, 'aucun'> | null> = {
+  annonces: 'everyone',
+  'dev-updates': 'testeurs',
+  'build-updates': null,
 };
 
 /** Nom affiché du salon dans l'aperçu (plan validé de RBN - STAFF). */
 export const CANAL_SALON: Record<Canal, string> = {
   annonces: '📣・annonces',
   'dev-updates': '🛰️・dev-updates',
+  'build-updates': '🏗️・build-updates',
 };
 
 // ── Modèles prêts ───────────────────────────────────────
@@ -137,6 +147,28 @@ export function modeles(): Modele[] {
         {
           texte:
             '## À tester\n1. Première vérification, avec la touche ou la commande.\n2. Deuxième vérification.\nUn post par retour dans {#retours-de-test}. Pour {@Testeur}.',
+        },
+      ],
+    },
+    {
+      id: 'build-update',
+      nom: 'Build update',
+      description: 'Zone, avant / après, avancement, auteurs',
+      canal: 'build-updates',
+      couleur: '#D9A95E',
+      blocs: [
+        {
+          texte: `# Build Update · ${aujourdhui()}\n-# Zone : nom de la zone · avancement : 0 %`,
+        },
+        { texte: 'Ce qui a été construit, en deux phrases : **ce qui change** pour le joueur qui arrive dans la zone.' },
+        { texte: '## Avant' },
+        { images: [] },
+        { texte: '## Après' },
+        { images: [] },
+        { separateur: true },
+        {
+          texte:
+            '**Avancement :** 0 % · prochaine étape : …\n**Auteurs :** pseudo, pseudo\n-# Retours et idées dans {#build}.',
         },
       ],
     },

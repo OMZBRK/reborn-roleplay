@@ -63,6 +63,8 @@ export const config = {
   staffAnnoncesChannelId: process.env.DISCORD_STAFF_ANNONCES_CHANNEL_ID ?? "",
   /** Salon `dev-updates` du serveur staff (panel → « Dev updates »). */
   staffDevUpdatesChannelId: process.env.DISCORD_STAFF_DEVUPDATES_CHANNEL_ID ?? "",
+  /** Salon `build-updates` du serveur staff (panel → « Build updates »). */
+  staffBuildUpdatesChannelId: process.env.DISCORD_STAFF_BUILDUPDATES_CHANNEL_ID ?? "",
   /** Optionnel : salon de test (ex. privé Direction) où « Aperçu » poste le message.
    *  Vide = l'aperçu renvoie seulement le rendu JSON, rien n'est posté. */
   staffApercuChannelId: process.env.DISCORD_STAFF_APERCU_CHANNEL_ID ?? "",

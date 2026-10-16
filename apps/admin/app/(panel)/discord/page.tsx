@@ -16,7 +16,9 @@ import {
 import { ApiError } from '@/lib/api';
 import {
   CANAL_LIBELLE,
+  CANAL_PING,
   CANAL_SALON,
+  CANAUX,
   COULEURS,
   LIMITE_IMAGES,
   LIMITE_LIENS,
@@ -38,7 +40,7 @@ import {
 
 /**
  * Page « Discord » : rédiger, prévisualiser et publier les messages du bot
- * dans `annonces` et `dev-updates` du Discord staff (cadre composants v2).
+ * dans `annonces`, `dev-updates` et `build-updates` du Discord staff (cadre composants v2).
  * Historique avec modification (réécrit le message Discord) et retrait.
  * API : /v1/admin/discord/* (ADMIN+), bot : /webhooks/staff-message.
  */
@@ -253,7 +255,7 @@ export default function DiscordPage() {
 
   const peutEnvoyer = blocsApi.length > 0 && nbTexte <= LIMITE_TEXTE && nbImages <= LIMITE_IMAGES && !sauver.isPending;
   const historiqueFiltre = (historique.data ?? []).filter((m) => filtre === 'tous' || m.canal === filtre);
-  const optionPing: PingOption = canal === 'annonces' ? 'everyone' : 'testeurs';
+  const optionPing = CANAL_PING[canal];
 
   return (
     <div className="px-10 py-10 max-w-[1500px] mx-auto">
@@ -263,8 +265,9 @@ export default function DiscordPage() {
           Annonces Discord
         </h1>
         <p className="mt-2 text-sm text-[var(--color-foreground-subtle)]">
-          Rédige un message pour <span className="text-[var(--color-foreground)]">annonces</span> ou{' '}
-          <span className="text-[var(--color-foreground)]">dev-updates</span>, vérifie l’aperçu, puis publie : le bot le poste
+          Rédige un message pour <span className="text-[var(--color-foreground)]">annonces</span>,{' '}
+          <span className="text-[var(--color-foreground)]">dev-updates</span> ou{' '}
+          <span className="text-[var(--color-foreground)]">build-updates</span>, vérifie l’aperçu, puis publie : le bot le poste
           dans un cadre. Un message publié se modifie sur place.
         </p>
       </header>
@@ -317,7 +320,7 @@ export default function DiscordPage() {
               <div>
                 <div className="mb-2 text-xs uppercase tracking-wider text-[var(--color-foreground-muted)]">Salon</div>
                 <div className="inline-flex rounded-[10px] border border-[var(--color-border-strong)] p-1 bg-[var(--color-background)]">
-                  {(['annonces', 'dev-updates'] as Canal[]).map((c) => (
+                  {CANAUX.map((c) => (
                     <button
                       key={c}
                       type="button"
@@ -365,16 +368,18 @@ export default function DiscordPage() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-[var(--color-foreground-subtle)] cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={ping === optionPing}
-                  onChange={(e) => setPing(e.target.checked ? optionPing : 'aucun')}
-                  className="h-4 w-4 accent-[var(--color-accent)]"
-                />
-                Mentionner {canal === 'annonces' ? '@everyone' : '@Testeur'}
-                <span className="text-[11px] text-[var(--color-foreground-muted)]">(notifie à la publication)</span>
-              </label>
+              {optionPing && (
+                <label className="flex items-center gap-2 text-sm text-[var(--color-foreground-subtle)] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={ping === optionPing}
+                    onChange={(e) => setPing(e.target.checked ? optionPing : 'aucun')}
+                    className="h-4 w-4 accent-[var(--color-accent)]"
+                  />
+                  Mentionner {optionPing === 'everyone' ? '@everyone' : '@Testeur'}
+                  <span className="text-[11px] text-[var(--color-foreground-muted)]">(notifie à la publication)</span>
+                </label>
+              )}
             </div>
           </div>
 
@@ -475,7 +480,7 @@ export default function DiscordPage() {
             Historique
           </h2>
           <div className="flex items-center gap-2">
-            {(['tous', 'annonces', 'dev-updates'] as const).map((f) => (
+            {(['tous', ...CANAUX] as const).map((f) => (
               <button
                 key={f}
                 type="button"

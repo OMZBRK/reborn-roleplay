@@ -39,10 +39,12 @@ const IMAGES_MAX = 10;
 const CANAL_ENUM: Record<Canal, StaffDiscordChannel> = {
   annonces: StaffDiscordChannel.ANNONCES,
   'dev-updates': StaffDiscordChannel.DEV_UPDATES,
+  'build-updates': StaffDiscordChannel.BUILD_UPDATES,
 };
 const ENUM_CANAL: Record<StaffDiscordChannel, Canal> = {
   ANNONCES: 'annonces',
   DEV_UPDATES: 'dev-updates',
+  BUILD_UPDATES: 'build-updates',
 };
 const STATUT: Record<
   StaffDiscordMessageStatus,

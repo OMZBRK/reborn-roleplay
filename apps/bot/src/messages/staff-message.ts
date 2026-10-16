@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- *  MESSAGES DU PANEL — annonces et dev updates du Discord staff
+ *  MESSAGES DU PANEL — annonces, dev updates et build updates du Discord staff
  * ============================================================================
  *
  *  Appelé par webhook-server.ts sur les routes signées HMAC (même secret, même vérification que les autres) :
@@ -13,6 +13,7 @@
  *
  *  Salons : uniquement ceux fixés par l'environnement (aucun ID dans le dépôt) :
  *    DISCORD_STAFF_GUILD_ID, DISCORD_STAFF_ANNONCES_CHANNEL_ID, DISCORD_STAFF_DEVUPDATES_CHANNEL_ID,
+ *    DISCORD_STAFF_BUILDUPDATES_CHANNEL_ID,
  *    DISCORD_STAFF_APERCU_CHANNEL_ID (optionnel : sans lui, l'aperçu renvoie seulement le rendu JSON).
  *  Chaque salon doit appartenir au serveur staff. Le bot ne modifie / supprime QUE ses propres messages.
  * ============================================================================
@@ -29,7 +30,8 @@ import {
   type Ping,
 } from "./cadre.js";
 
-export type CanalStaff = "annonces" | "dev-updates";
+export const CANAUX_STAFF = ["annonces", "dev-updates", "build-updates"] as const;
+export type CanalStaff = (typeof CANAUX_STAFF)[number];
 export type PingStaff = "aucun" | "testeurs" | "everyone";
 
 export interface ImageTransmise {
@@ -46,7 +48,7 @@ export interface StaffMessagePayload {
   mode: "apercu" | "publier";
   spec: CadreSpec;
   images?: ImageTransmise[];
-  /** Désactivé par défaut. `testeurs` seulement en dev-updates, `everyone` seulement en annonces. */
+  /** Désactivé par défaut. `testeurs` seulement en dev-updates, `everyone` seulement en annonces ; aucun en build-updates. */
   ping?: PingStaff;
   /** ID d'un message du bot à remplacer : supprimé APRÈS l'envoi du nouveau (même salon, auteur = le bot). */
   cleRemplacement?: string;
@@ -81,23 +83,19 @@ const MAX_TOTAL_OCTETS = 25 * 1024 * 1024;
 const RE_SNOWFLAKE = /^\d{15,22}$/;
 const RE_NOM = /^[A-Za-z0-9._-]{1,100}$/;
 
+/** Salon (ID fixé par l'environnement) et nom de la variable, par canal. */
+const SALONS: Record<CanalStaff | "apercu", { id: () => string; env: string }> = {
+  annonces: { id: () => config.staffAnnoncesChannelId, env: "DISCORD_STAFF_ANNONCES_CHANNEL_ID" },
+  "dev-updates": { id: () => config.staffDevUpdatesChannelId, env: "DISCORD_STAFF_DEVUPDATES_CHANNEL_ID" },
+  "build-updates": { id: () => config.staffBuildUpdatesChannelId, env: "DISCORD_STAFF_BUILDUPDATES_CHANNEL_ID" },
+  apercu: { id: () => config.staffApercuChannelId, env: "DISCORD_STAFF_APERCU_CHANNEL_ID" },
+};
+
 function idSalon(canal: CanalStaff | "apercu"): string {
-  const id =
-    canal === "annonces"
-      ? config.staffAnnoncesChannelId
-      : canal === "dev-updates"
-        ? config.staffDevUpdatesChannelId
-        : config.staffApercuChannelId;
-  if (!id) {
-    const env =
-      canal === "annonces"
-        ? "DISCORD_STAFF_ANNONCES_CHANNEL_ID"
-        : canal === "dev-updates"
-          ? "DISCORD_STAFF_DEVUPDATES_CHANNEL_ID"
-          : "DISCORD_STAFF_APERCU_CHANNEL_ID";
-    throw new ErreurRequete(503, `salon « ${canal} » non configuré (${env})`);
-  }
-  return id;
+  const { id, env } = SALONS[canal];
+  const valeur = id();
+  if (!valeur) throw new ErreurRequete(503, `salon « ${canal} » non configuré (${env})`);
+  return valeur;
 }
 
 async function serveurStaff(client: Client): Promise<Guild> {
@@ -188,7 +186,7 @@ async function messageDuBot(client: Client, ch: SendableChannels, messageId: str
 }
 
 function verifierCanal(canal: unknown): asserts canal is CanalStaff {
-  if (canal !== "annonces" && canal !== "dev-updates") throw new ErreurRequete(400, `canal inconnu : ${String(canal)}`);
+  if (!(CANAUX_STAFF as readonly unknown[]).includes(canal)) throw new ErreurRequete(400, `canal inconnu : ${String(canal)}`);
 }
 
 export async function posterStaffMessage(client: Client, p: StaffMessagePayload) {

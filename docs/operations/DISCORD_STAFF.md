@@ -13,6 +13,10 @@
 > tout en haut),
 > script d'application **écrit mais jamais exécuté** (§3 bis). Rien n'a été modifié sur Discord. Le Discord
 > joueurs (§5.2) reste une proposition.
+>
+> **16/10** : salon `🏗️・build-updates` créé dans Création, juste après `🛰️・dev-updates` et sur son modèle
+> (plan → `plan:guild` → lots `salons`, `overwrites`, `salons-ordre` ; vérifié par audit), bannière BUILD UPDATES
+> posée, postable depuis le panel (§5.1, §11 ; code non déployé).
 
 ---
 
@@ -331,13 +335,20 @@ exceptions (*propres*).
 | **▬《🔥》Nos serveurs •** | `🍥・shinobi-reborn` (x, nom à confirmer) · `🎓・projet-x` · `☄️・trello-roadmap` | Staff en lecture, Haut Staff écrit |
 | **▬《🏮》Staff Global •** | `📜・règlement-staff`* · `🏯・hiérarchie`* · `💬・général-staff` · `🎲・bordel` · `🌙・absences`* · `✏️・décisions`* · `👑・chat-direction` (chat-direction) · `🚫・demote`* · `🚀・transmission`* · `📬・suggestions`* · `🐞・bug-interne`* (forums) · `📣・communication` (forum comm du Pôle Création) · vocal `🎙️・Réunion` | Staff ; règlement-staff, hiérarchie et décisions en lecture (Haut Staff écrit) ; chat-direction, demote, transmission : **Haut Staff seulement** |
 | **▬《🍥》Roleplay — Shinobi Reborn •** (Pôle Roleplay) | `📥・recrutement` · `🎭・mj` · `🎉・animation` · `🛡️・modération` · `📖・lore` (forums ; lore lisible aussi par Création) | Tag `Shinobi Reborn`, Haut Staff, Responsable Roleplay |
-| **▬《🛠️》Création •** (Pôle Création) | `🛰️・dev-updates`* (bot) · `🖥️・consoles`* (bot) · `🧪・retours-de-test` (feedback-dev, 13 fils) · `🐞・bugs`* · `💻・dev` · `🧱・build` · `🗺️・map` · `🧊・modélisation` · `🎞️・animation` · `🎨・graphisme` (graphisme-texturepack) · `📐・game-design`* | Tag `\| Création`, Haut Staff, Responsable Création ; dev-updates lisible par tout le staff (seul le bot écrit) ; consoles : Création seulement ; retours-de-test et bugs : tout le staff, retours-de-test aussi les **Invité(e)s** |
+| **▬《🛠️》Création •** (Pôle Création) | `🛰️・dev-updates`* (bot) · `🏗️・build-updates`* (bot, 16/10) · `🖥️・consoles`* (bot) · `🧪・retours-de-test` (feedback-dev, 13 fils) · `🐞・bugs`* · `💻・dev` · `🧱・build` · `🗺️・map` · `🧊・modélisation` · `🎞️・animation` · `🎨・graphisme` (graphisme-texturepack) · `📐・game-design`* | Tag `\| Création`, Haut Staff, Responsable Création ; dev-updates et build-updates lisibles par tout le staff (seul le bot écrit) ; consoles : Création seulement ; retours-de-test et bugs : tout le staff, retours-de-test aussi les **Invité(e)s** |
 | **▬《🔊》Vocaux •** (catégorie vide « Communications ») | `🔊・Vocal staff` · `🔊・Taff` (Taff voice) · `🔊・Vocal libre` (Voc) | Staff ; **`🔊・Vocal libre` aussi aux Invité(e)s** (voir, se connecter, parler, vidéo — décision du 14/10 au soir), les autres vocaux restent staff |
 | **▬《📜》Logs •*** | `🔵・logs-serveur` (💻」logs, salon système, fermé à @everyone) · `🔵・commandes`* · `🔴・sanctions`* · `🟠・arrivées-départs`* · `🟠・messages`* · `🟠・vocal`* · `🟠・rôles`* · `🟠・invitations`* · `🟡・journal-jeu`* · `🟡・alertes`* | **Direction** (et Co-Fondateur) en lecture, le bot écrit |
 | **▬《🗄️》Archives •** (Archives) | `🗄️・archives` · `🗄️・archive-roleplay` · `🗄️・archive-création` (forums archive des deux pôles) | Direction |
 
-\* = créé par le plan (22 créations : 1 catégorie, 21 salons). Les salons de logs restent vides tant que le bot
-n'a pas le code des logs (§7.2).
+\* = créé par le plan (22 créations : 1 catégorie, 21 salons ; + `🏗️・build-updates` le 16/10). Les salons de
+logs restent vides tant que le bot n'a pas le code des logs (§7.2).
+
+**`🏗️・build-updates`** (ajouté le 16/10) — sujet : « Avancées du build publiées : zone, avant/après,
+avancement ». Mêmes permissions que dev-updates : Staff, `| Création` et Haut Staff voient, personne n'écrit
+sauf le bot (la Direction garde ses droits d'administratrice). Usage : **un post par avancée marquante** (pas un
+journal au fil de l'eau) avec la **zone**, des **captures avant / après**, l'**avancement** (en % et prochaine
+étape) et les **auteurs** ; posté depuis le panel (§11, modèle « Build update »), sans mention. Les échanges de
+travail restent dans `🧱・build` et `🗺️・map`.
 
 **Ce que la simulation a montré** (accès par membre, avant → après, détail dans le `DIFF.md` hors dépôt) :
 
@@ -430,7 +441,8 @@ dans `Maquettes/discord/` à montrer avant toute publication (règle 2).
 **Faites le 14/10 pour le staff** (hors dépôt, `Maquettes\discord\`) : `01_sidebar_salons.png` (barre des salons
 par profil, calculée depuis le plan), `02_roles.png` (écran Rôles), `03_membres.png` (liste des membres groupée,
 pseudos fictifs), `04_bannieres.png` + `bannieres\*.png` (WELCOME, RULES, HIERARCHY, ANNOUNCEMENTS, DEV UPDATES,
-TEST FEEDBACK, TICKETS, ABSENCES, MEETING — 1200 × 340, **titre seul** en capitales pinceau, sans sur-titre
+TEST FEEDBACK, TICKETS, ABSENCES, MEETING ; BUILD UPDATES ajoutée le 16/10 avec Hashirama, Mokuton, village en
+chantier — 1200 × 340, **titre seul** en capitales pinceau, sans sur-titre
 ni sous-titre, et **un vrai personnage de Naruto (ou un duo) par bannière** : Naruto, Tsunade, les Hokage
 (Hashirama, Tobirama, Minato), Shikamaru, Orochimaru, Rock Lee + Gai, Iruka, Kakashi plongé dans son livre,
 Hiruzen ; renders détourés, étalonnés nuit / laque, contre-jour, ombre portée, coupés par le bord ; sources et
@@ -502,20 +514,22 @@ captures). Générateurs Python dans `Maquettes\discord\_sources\`.
 
 ---
 
-## 11. Publier depuis le panel (annonces, dev updates)
+## 11. Publier depuis le panel (annonces, dev updates, build updates)
 
 > Ajouté le 14/10 (demande : « permettre de faire les messages dans annonces ou bien dev-updates depuis le panel
 > staff »). Code écrit, **pas encore déployé** (train web) : rien n'a été posté sur Discord pendant le
 > développement. Même rendu que `post-message.ts` (un cadre composants v2), partagé dans
-> `apps/bot/src/messages/cadre.ts`.
+> `apps/bot/src/messages/cadre.ts`. **16/10** : `build-updates` ajouté comme troisième salon (même cadre, aucune
+> mention possible), code non déployé.
 
 ### 11.1 Utilisation
 
 Panel → **Discord** (menu de gauche), réservé aux comptes **ADMIN** et **OWNER** (le rang Reborn le plus proche de
 Direction / Lead ; HELPER, MODERATOR, etc. reçoivent un 403).
 
-1. Choisir le **salon** (Annonces / Dev updates) et, si besoin, un **modèle** : « Dev update » (Ajouts /
-   Ajustements / Fix / À tester), « Annonce », « Installation du launcher ».
+1. Choisir le **salon** (Annonces / Dev updates / Build updates) et, si besoin, un **modèle** : « Dev update »
+   (Ajouts / Ajustements / Fix / À tester), « Build update » (zone, galeries Avant / Après, avancement,
+   auteurs), « Annonce », « Installation du launcher ».
 2. Composer les **blocs** : texte (markdown Discord : `#`, `##`, `-#` petit texte, `**gras**`, listes,
    `{#salon}` et `{@rôle}` résolus par le bot, jamais notifiés), galerie (glisser-déposer, 10 images max par
    message, 8 Mo par image), séparateur, boutons-liens (5 max). L'aperçu de droite reproduit le client Discord
@@ -524,7 +538,7 @@ Direction / Lead ; HELPER, MODERATOR, etc. reçoivent un 403).
    « Aperçu · non publié », le précédent aperçu du même message est remplacé). Sans ce salon, le bot vérifie
    seulement le rendu et ne poste rien.
 4. **Publier** (confirmation) : le bot poste dans le salon. Option **Mentionner** désactivée par défaut :
-   `@Testeur` en dev-updates, `@everyone` en annonces ; c'est la seule façon de notifier.
+   `@Testeur` en dev-updates, `@everyone` en annonces, aucune en build-updates ; c'est la seule façon de notifier.
 5. **Historique** (bas de page) : auteur, date, salon, statut (Brouillon / Publié / Retiré), lien Discord.
    **Modifier** recharge le message ; sur un message publié, « Mettre à jour sur Discord » **réécrit le message
    sur place** (même lien, aucune notification). **Retirer** supprime le message de Discord et le garde dans
@@ -539,7 +553,7 @@ API (`/v1`, JWT + `@MinRole(ADMIN)`, module `apps/api/src/staff-messages/`) :
 
 | Méthode | Route | Rôle |
 |---|---|---|
-| GET | `/admin/discord/messages[?canal=annonces\|dev-updates]` | Historique (100 derniers) |
+| GET | `/admin/discord/messages[?canal=annonces\|dev-updates\|build-updates]` | Historique (100 derniers) |
 | GET | `/admin/discord/messages/:id` | Un message |
 | POST | `/admin/discord/messages` | Crée un brouillon ; `action` = `brouillon` (défaut) · `apercu` · `publier` |
 | PATCH | `/admin/discord/messages/:id` | Contenu complet ; publié + `publier` = réécriture du message Discord ; publié + `apercu` = aperçu sans enregistrer |
@@ -558,7 +572,7 @@ Bot (`apps/bot/src/webhook-server.ts`, signé `X-Reborn-Signature` = HMAC-SHA256
 |---|---|---|
 | `POST /webhooks/staff-message` | `{ canal, mode: "apercu" \| "publier", spec: { couleur, blocs }, images: [{ nom, base64 \| url }], ping?, cleRemplacement? }` | `{ messageId, channelId, url }` ; aperçu sans salon de test : `{ messageId: null, url: null, rendu }` |
 | `POST /webhooks/staff-message/edit` | `{ canal, messageId, spec, images, ping? }` | `{ messageId, channelId, url }` |
-| `POST /webhooks/staff-message/delete` | `{ canal: "annonces" \| "dev-updates" \| "apercu", messageId }` | `{ deleted, absent }` |
+| `POST /webhooks/staff-message/delete` | `{ canal: "annonces" \| "dev-updates" \| "build-updates" \| "apercu", messageId }` | `{ deleted, absent }` |
 
 `cleRemplacement` = ID d'un message du bot du même salon, supprimé **après** l'envoi du nouveau (sert aux aperçus).
 Erreurs renvoyées avec leur statut et affichées dans le panel : 400 contenu (limites Discord : 4000 caractères
@@ -572,6 +586,7 @@ message disparu, 503 serveur / salon non configuré.
 | `DISCORD_STAFF_GUILD_ID` | bot | Serveur « RBN - STAFF » ; vide = routes en 503 |
 | `DISCORD_STAFF_ANNONCES_CHANNEL_ID` | bot | Salon `📣・annonces` |
 | `DISCORD_STAFF_DEVUPDATES_CHANNEL_ID` | bot | Salon `🛰️・dev-updates` |
+| `DISCORD_STAFF_BUILDUPDATES_CHANNEL_ID` | bot | Salon `🏗️・build-updates` (vide = ce salon en 503, les autres marchent) |
 | `DISCORD_STAFF_APERCU_CHANNEL_ID` | bot, optionnel | Salon de test des aperçus (ex. privé Direction) |
 | `DISCORD_STAFF_TESTEUR_ROLE_ID` | bot, optionnel | Rôle pingé ; vide = rôle nommé « Testeur » |
 | `REBORN_STAFF_MEDIA_DIR` | API, optionnel | Dossier des images ; défaut `<REBORN_UPLOAD_DIR>/.staff-media` (dossier à point jamais servi par `/uploads`, persisté par le volume des uploads) |
@@ -584,7 +599,8 @@ Chaque salon doit appartenir au serveur staff (sinon 503). Le bot a besoin, dans
 ### 11.4 Mise en prod (train web, rien n'est fait)
 
 1. Base : `pnpm exec prisma migrate deploy` (migration `20261014200000_staff_discord_messages`, une table et deux
-   enums ; jamais appliquée, aucune base locale ne tournait).
+   enums ; jamais appliquée, aucune base locale ne tournait) puis `20261016100000_staff_discord_build_updates`
+   (valeur `BUILD_UPDATES` ajoutée à l'enum).
 2. `.env.prod` du VPS : les variables du §11.3 (IDs copiés depuis Discord, mode développeur) ;
    `infra/docker-compose.prod.yml` les passe au conteneur du bot.
 3. Rebuild `api`, `bot`, `admin` depuis `origin/main`.
@@ -605,3 +621,5 @@ Chaque salon doit appartenir au serveur staff (sinon 503). Le bot a besoin, dans
 9. Journal d'audit du panel : lignes `discord.message.*` avec l'auteur.
 10. `pnpm --filter @reborn/bot post:message --guild <id> --fichier <…>.json` (sans `--envoyer`) : la simulation
     marche toujours (rendu partagé).
+11. Salon **Build updates**, modèle « Build update » : deux galeries (Avant / Après), pas de case « Mentionner » ;
+    publier → le cadre arrive dans `🏗️・build-updates` sous la bannière, filtre « Build updates » de l'historique.

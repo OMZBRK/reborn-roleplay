@@ -19,7 +19,7 @@ DISCORD_GUILD_ID
 DISCORD_TICKETS_CHANNEL_ID
 ```
 
-Optionnelles, pour les messages rediges dans le panel (annonces / dev updates du
+Optionnelles, pour les messages rediges dans le panel (annonces / dev / build updates du
 Discord staff, routes `POST /webhooks/staff-message[/edit|/delete]`, rendu partage
 avec `scripts/post-message.ts` dans `src/messages/cadre.ts`) :
 
@@ -27,6 +27,7 @@ avec `scripts/post-message.ts` dans `src/messages/cadre.ts`) :
 DISCORD_STAFF_GUILD_ID
 DISCORD_STAFF_ANNONCES_CHANNEL_ID
 DISCORD_STAFF_DEVUPDATES_CHANNEL_ID
+DISCORD_STAFF_BUILDUPDATES_CHANNEL_ID
 DISCORD_STAFF_APERCU_CHANNEL_ID   # salon de test des apercus
 DISCORD_STAFF_TESTEUR_ROLE_ID     # sinon role nomme « Testeur »
 ```

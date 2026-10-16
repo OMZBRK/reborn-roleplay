@@ -181,6 +181,7 @@ const POSTES: Poste[] = [
   },
   { cle: "annonces", salon: "annonces", fichier: "announcements.png" },
   { cle: "dev-updates", salon: "dev-updates", fichier: "dev_updates.png" },
+  { cle: "build-updates", salon: "build-updates", fichier: "build_updates.png" },
   {
     cle: "retours-de-test",
     salon: "retours-de-test",

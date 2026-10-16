@@ -14,7 +14,7 @@ import {
 } from 'class-validator';
 import { STAFF_MEDIA_ID_RE } from '../staff-media.config';
 
-export const CANAUX = ['annonces', 'dev-updates'] as const;
+export const CANAUX = ['annonces', 'dev-updates', 'build-updates'] as const;
 export const PINGS = ['aucun', 'testeurs', 'everyone'] as const;
 export const ACTIONS = ['brouillon', 'apercu', 'publier'] as const;
 export type Canal = (typeof CANAUX)[number];
