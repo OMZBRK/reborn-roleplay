@@ -1165,6 +1165,10 @@ communication:
     delai-cloche-secondes: 120    # entre deux annonces d'une même cloche
     delai-personne-secondes: 600  # entre deux annonces d'une même personne
     danger-par-heure: 3           # annonces « danger » par village et par heure
+    # Sonner sans délai (aucun des trois anti-spam ci-dessus) : grade du village par défaut du seuil « Sonner sans
+    # délai » (le Kage le règle dans J › Gestion ; le chef de faction en bénéficie toujours). Noms de /grade.
+    sans-delai-des: COMMANDANT_JONIN
+    sans-delai-animation: true    # le staff en mode animation sonne aussi sans délai (events) ; tout reste au journal
     texte-max: 200
     duree:                        # secondes à l'écran (la bande en haut)
       normale: 10

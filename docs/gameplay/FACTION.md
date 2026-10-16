@@ -146,6 +146,7 @@ partir de quel grade** on a chaque droit du village (un seuil par droit, lisible
 |---|---|
 | Voir les sections | Chūnin |
 | Sonner la cloche du village (tout le village) | Jōnin |
+| Sonner sans délai (aucun anti-spam de la cloche, CLOCHE_ET_MISSIVES.md §2.5 ; le chef de faction l'a toujours) | Commandant Jōnin (config `communication.cloche.sans-delai-des`, tant que le chef ne l'a pas réglé) |
 | Écrire à la volière du palais | Chūnin |
 | Recevoir les alertes du palais | Jōnin |
 | Prendre à une volière | Genin |

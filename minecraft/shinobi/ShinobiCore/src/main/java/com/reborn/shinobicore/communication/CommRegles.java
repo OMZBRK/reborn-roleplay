@@ -100,7 +100,17 @@ public final class CommRegles {
      */
     public static String refusCloche(long now, long derniereCloche, long dernierePersonne, int dangersHeure, String type,
                                      long taireJusqua, Reglages k) {
+        return refusCloche(now, derniereCloche, dernierePersonne, dangersHeure, type, taireJusqua, false, k);
+    }
+
+    /**
+     * Idem ; {@code sansDelai} (seuil « Sonner sans délai », Kage, animateur) lève tout l'anti-spam : seule une cloche
+     * tue par le staff refuse encore.
+     */
+    public static String refusCloche(long now, long derniereCloche, long dernierePersonne, int dangersHeure, String type,
+                                     long taireJusqua, boolean sansDelai, Reglages k) {
         if (taireJusqua > now) return "La cloche a été tue par le staff (encore " + minutes(taireJusqua - now) + ").";
+        if (sansDelai) return null;
         if (derniereCloche > 0 && now - derniereCloche < k.delaiCloche() * 1000L)
             return "La cloche vient de sonner : encore " + minutes(k.delaiCloche() * 1000L - (now - derniereCloche)) + ".";
         if (dernierePersonne > 0 && now - dernierePersonne < k.delaiPersonne() * 1000L)

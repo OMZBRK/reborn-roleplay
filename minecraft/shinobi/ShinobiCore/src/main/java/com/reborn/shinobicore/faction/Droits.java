@@ -25,17 +25,38 @@ public final class Droits {
 
     /* ================================================================ seuils du village */
 
-    /** {id, libellé, seuil par défaut}. La cloche et les volières s'y brancheront (CLOCHE_ET_MISSIVES.md). */
+    /**
+     * Seuil « Sonner sans délai » : à partir de ce grade du village, la cloche ne connaît plus d'anti-spam (ni délai par
+     * cloche, ni par personne, ni limite « danger » ; CLOCHE_ET_MISSIVES.md §2.5). Son défaut vient de la config
+     * ({@code communication.cloche.sans-delai-des}) tant que le chef de faction ne l'a pas réglé.
+     */
+    public static final String SANS_DELAI = "cloche_sans_delai";
+
+    /** {id, libellé, seuil par défaut}. La cloche et les volières s'y branchent (CLOCHE_ET_MISSIVES.md). */
     public static final Object[][] SEUILS = {
             {"voir_sections", "Voir les sections", Rank.CHUNIN},
             {"cloche_village", "Sonner la cloche du village", Rank.JONIN},
+            {SANS_DELAI, "Sonner sans délai", Rank.COMMANDANT_JONIN},
             {"voliere_palais", "Écrire à la volière du palais", Rank.CHUNIN},
             {"alertes_palais", "Recevoir les alertes du palais", Rank.JONIN},
             {"prendre_voliere", "Prendre à une volière", Rank.GENIN}};
 
+    private static volatile Rank sansDelaiDefaut = Rank.COMMANDANT_JONIN;
+
+    /** Défaut du seuil « Sonner sans délai » (config staff), appliqué aux villages qui ne l'ont pas réglé. */
+    public static void sansDelaiDefaut(Rank r) { if (r != null) sansDelaiDefaut = r; }
+
+    /** Seuil par défaut d'un droit ({@code null} si inconnu). */
+    public static Rank defaut(String id) {
+        if (SANS_DELAI.equals(id)) return sansDelaiDefaut;
+        for (Object[] s : SEUILS) if (s[0].equals(id)) return (Rank) s[2];
+        return null;
+    }
+
+    /** Seuils posés à la création d'une faction ; « sans délai » n'y est pas : il suit la config tant qu'il n'est pas réglé. */
     public static Map<String, Rank> seuilsParDefaut() {
         Map<String, Rank> m = new LinkedHashMap<>();
-        for (Object[] s : SEUILS) m.put((String) s[0], (Rank) s[2]);
+        for (Object[] s : SEUILS) if (!SANS_DELAI.equals(s[0])) m.put((String) s[0], (Rank) s[2]);
         return m;
     }
 

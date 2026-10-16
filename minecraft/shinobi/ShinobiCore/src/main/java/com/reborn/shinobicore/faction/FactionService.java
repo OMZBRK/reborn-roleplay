@@ -802,10 +802,11 @@ public final class FactionService implements Listener {
         if (f == null || !f.village()) return "Seuls les villages ont des seuils.";
         if (!staff && !gestion(m, f, Droits.C_TAXE)) return "Seuls le chef de faction et ses chargés règlent les seuils.";
         if (!Droits.seuilConnu(droit) || r == null) return "Seuil inconnu.";
-        Rank avant = f.seuils.get(droit);
-        if (avant == r) return null;
+        Rank avant = f.seuils.getOrDefault(droit, Droits.defaut(droit));
+        if (avant == r && f.seuils.containsKey(droit)) return null;
         f.seuils.put(droit, r);
-        journal(f, null, acteur, null, "SEUIL", "« " + libelleSeuil(droit) + " » dès " + r.displayName() + (avant == null ? "" : " (avant : " + avant.displayName() + ")"));
+        if (avant != r)
+            journal(f, null, acteur, null, "SEUIL", "« " + libelleSeuil(droit) + " » dès " + r.displayName() + (avant == null ? "" : " (avant : " + avant.displayName() + ")"));
         changement(f);
         return null;
     }

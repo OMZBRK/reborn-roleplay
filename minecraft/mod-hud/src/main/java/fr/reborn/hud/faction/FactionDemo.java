@@ -334,6 +334,7 @@ final class FactionDemo {
         g.addProperty("tresor", 48200);
         g.addProperty("taxeSemaine", 1140);
         g.add("seuils", a(seuil("voir_sections", "Voir les sections", "CHUNIN"), seuil("cloche_village", "Sonner la cloche du village", "JONIN"),
+                seuil("cloche_sans_delai", "Sonner sans délai", "COMMANDANT_JONIN"),
                 seuil("voliere_palais", "Écrire à la volière du palais", "CHUNIN"), seuil("alertes_palais", "Recevoir les alertes du palais", "JONIN"),
                 seuil("prendre_voliere", "Prendre à une volière", "GENIN")));
         String[][] rangs = {{"ACADEMICIEN", "Académicien"}, {"GENIN", "Genin"}, {"GENIN_CONFIRME", "Genin confirmé"}, {"CHUNIN", "Chūnin"},

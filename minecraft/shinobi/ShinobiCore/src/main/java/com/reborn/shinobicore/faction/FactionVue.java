@@ -356,7 +356,7 @@ final class FactionVue {
             JsonObject x = new JsonObject();
             x.addProperty("id", (String) s[0]);
             x.addProperty("nom", (String) s[1]);
-            x.addProperty("rang", f.seuils.getOrDefault((String) s[0], (Rank) s[2]).name());
+            x.addProperty("rang", f.seuils.getOrDefault((String) s[0], Droits.defaut((String) s[0])).name());
             seuils.add(x);
         }
         o.add("seuils", seuils);

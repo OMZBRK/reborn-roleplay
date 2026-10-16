@@ -443,7 +443,8 @@ cartes → `MapItem.give`.
 `staff_section{tag,modele,nom,chef,cachee,motif}`, `staff_section_maj{id,nom?,cachee?,places?,chef?,motif}`,
 `staff_section_dissoudre{id,motif}`, `staff_caisse{id,op,n,motif}`. Refus → `toast` avec `refus`.
 
-**Droits** — seuils du village : `voir_sections` (Chūnin), `cloche_village` (Jōnin), `voliere_palais` (Chūnin),
+**Droits** — seuils du village : `voir_sections` (Chūnin), `cloche_village` (Jōnin), `cloche_sans_delai` (Commandant
+Jōnin, défaut de la config `communication.cloche.sans-delai-des` tant que le village ne l'a pas réglé), `voliere_palais` (Chūnin),
 `alertes_palais` (Jōnin), `prendre_voliere` (Genin) ; grade de section : `inviter`, `inviter_distance`, `exclure`,
 `monter`, `voir_caisse`, `depenser`, `coffre_voir`, `coffre_retirer`, `cloche_section`, `journal` ; charge : `sections`,
 `taxe`, `caisses`, `doter`, `journal`, `annonces`, `alertes_palais`, `inviter_org`. Le chef de section a tous les droits
@@ -461,7 +462,7 @@ de sa section ; le chef de faction tous ceux de sa faction.
 | `t` | Contenu |
 |---|---|
 | `points` | `l[{k:"cloche"\|"voliere",id,x,y,z,nom}]` : cloches que ce joueur peut sonner et volières à 48 blocs (envoyé toutes les 2 s s'il a changé) — menu R |
-| `cloche` | `ouvrir`, `id`, `lieu`, `nom`, `titre` (signature imposée), `village` (sinon : chef de section), `max`, `sections[{id,nom,insigne,nouvelle?}]` (jamais une section cachée), `fixe?` (sa section), `grades[9]`, `libreDepuis`, `attenteCloche`, `attenteMoi`, `delaiMoi`, `tue?`, `dangers`, `zone`, `concernes` |
+| `cloche` | `ouvrir`, `id`, `lieu`, `nom`, `titre` (signature imposée), `village` (sinon : chef de section), `max`, `sections[{id,nom,insigne,nouvelle?}]` (jamais une section cachée), `fixe?` (sa section), `grades[9]`, `libreDepuis`, `attenteCloche`, `attenteMoi`, `delaiMoi`, `sansDelai?` (`"grade"` \| `"animation"` : attentes à 0), `tue?`, `dangers`, `zone`, `concernes` |
 | `compte` | `{zone,concernes}` (réponse à `compter`) |
 | `annonce` | `{type,titre,texte,signe,s,village}` : la bande du haut chez les concernés présents |
 | `annonce_fin` | le staff a tu la cloche : la ligne en cours se retire |
@@ -478,7 +479,9 @@ une missive en main : la lit (la première lecture brise le cachet).
 
 **Règles** — sonner : seuil `cloche_village` du village (Jōnin) ou charge `annonces` → tout le village (visiteurs
 compris) ou des sections ; droit de grade `cloche_section` → sa section seulement ; anti-spam 2 min par cloche, 10 min
-par personne, 3 « danger » par heure et par village. Volières : dans le pays toute volière ; hors du pays de tour à tour ;
+par personne, 3 « danger » par heure et par village, levé en entier (seule `/cloche taire` refuse encore) pour le seuil
+`cloche_sans_delai`, le chef de faction et le staff en mode animation (`sans-delai-animation`) — `cloche.sansDelai` =
+`"grade"` ou `"animation"`, journal « sans délai (…) ». Volières : dans le pays toute volière ; hors du pays de tour à tour ;
 le palais exige `voliere_palais` (Chūnin) ; prendre exige `prendre_voliere` (Genin) ; délai 1 min (même volière, palais),
 1 min + 1 min par 250 blocs (pays, 8 min au plus), 1 min par 250 blocs (autre village, 20 min au plus) ; coût par copie
 10 / 40 ryo, pris dans la bourse. Pleine, une volière brûle la plus ancienne ; non prise en 7 jours, brûlée.
@@ -798,7 +801,7 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `progression` | `niveau-max`, `xp-base`, `xp-par-niveau`, `points-par-niveau`, `gains.*` | [`gameplay/STATS_ET_PROGRESSION.md`](../gameplay/STATS_ET_PROGRESSION.md) |
 | `grades` | bonus passifs par grade, règles de promotion / rétrogradation | idem |
 | `faction` | `taxe.defaut` (10), `taxe.plafond` (30, le Kage règle son taux dessous), `sections.places-defaut` (8) | [`gameplay/FACTION.md`](../gameplay/FACTION.md) |
-| `communication` | `cloche.rayon-defaut` (250), `cloche.delai-cloche-secondes` (120), `cloche.delai-personne-secondes` (600), `cloche.danger-par-heure` (3), `cloche.texte-max` (200), `cloche.duree.{normale,importante,danger}` (10 / 12 / 15 s) ; `voliere.cout-village` (10 ryo), `voliere.cout-autre-village` (40), `voliere.delai-base-secondes` (60), `voliere.blocs-par-minute` (250), `voliere.delai-max-pays-secondes` (480), `voliere.delai-max-autre-village-secondes` (1200), `voliere.garde-jours` (7), `voliere.texte-max` (600), `voliere.adresse-max` (40), `voliere.destinataires-max` (10 par missive, aucune limite d'envois), `voliere.duree-alerte` (8 s) | [`gameplay/CLOCHE_ET_MISSIVES.md`](../gameplay/CLOCHE_ET_MISSIVES.md) |
+| `communication` | `cloche.rayon-defaut` (250), `cloche.delai-cloche-secondes` (120), `cloche.delai-personne-secondes` (600), `cloche.danger-par-heure` (3), `cloche.sans-delai-des` (`COMMANDANT_JONIN` : défaut du seuil du village « Sonner sans délai », nom de `/grade`), `cloche.sans-delai-animation` (true : le staff en mode animation sonne sans délai), `cloche.texte-max` (200), `cloche.duree.{normale,importante,danger}` (10 / 12 / 15 s) ; `voliere.cout-village` (10 ryo), `voliere.cout-autre-village` (40), `voliere.delai-base-secondes` (60), `voliere.blocs-par-minute` (250), `voliere.delai-max-pays-secondes` (480), `voliere.delai-max-autre-village-secondes` (1200), `voliere.garde-jours` (7), `voliere.texte-max` (600), `voliere.adresse-max` (40), `voliere.destinataires-max` (10 par missive, aucune limite d'envois), `voliere.duree-alerte` (8 s) | [`gameplay/CLOCHE_ET_MISSIVES.md`](../gameplay/CLOCHE_ET_MISSIVES.md) |
 | `ko` | PV persistants, défaite à l'entraînement, à terre, inconscient, `volonte`, plancher, lits, ATA, `douleur` (seuil, vitesse, lutte), `execution.canalisation-secondes` | [`gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md) |
 | `mort-rp` | `scene-min-secondes`, `corps-minutes` | idem |
 | `inventaire` | `ramassage.distance` (3), `ramassage.cadence-ms` (250), `ramassage.poids-max-pourcent` (130) ; `surcharge.charge` (`de` 100, `vitesse-de` 0,90, `vitesse-a` 0,70, `saut`, `sprint`), `surcharge.surcharge` (`de` 115, 0,70 → 0,35, `saut` 0), `surcharge.immobile` (`de` 130, `vitesse` 0, `saut` 0) ; `sol.disparition-minutes` (10), `sol.disparition-ko-minutes` (15), `sol.balayage-secondes`, `sol.jamais-detruits.parchemins` / `.ids` ; `journal.fichier`, `journal.poste-de-garde-des` (RARE) ; `arme.ids`, `arme.vanilla` ; `cases-cachees.balayage` | [`gameplay/INVENTAIRE_ET_COSMETIQUES.md`](../gameplay/INVENTAIRE_ET_COSMETIQUES.md) |

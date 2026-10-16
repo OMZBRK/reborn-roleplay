@@ -130,8 +130,18 @@ d'écriture est gardé) ; « — Signé : Nom, charge » en gris ; filet du temp
 
 - **2 min** entre deux annonces d'une même cloche, **10 min** par personne, **3 « danger » par heure** et par village ;
   le staff peut **faire taire** une cloche ou retirer la ligne en cours (`/cloche taire`).
+- **Sonner sans délai** (16/10) : à partir d'un grade, plusieurs annonces à la suite **sans aucun des trois délais**
+  (ni par cloche, ni par personne, ni limite « danger »). Seuil du village **« Sonner sans délai »** (FACTION.md §6.1),
+  réglé par le Kage dans J › Gestion avec les autres seuils, défaut **Commandant Jōnin** (config staff
+  `communication.cloche.sans-delai-des`, appliquée tant que le Kage n'a pas réglé le seuil) ; le **chef de faction (le
+  Kage) en bénéficie toujours**. Le staff en **mode animation** aussi (events, `communication.cloche.sans-delai-animation`,
+  oui par défaut) ; en mode staff on ne sonne pas du tout (aucune mécanique RP). Une cloche **tue par le staff** reste
+  muette pour tout le monde. Leurs annonces comptent quand même (la cloche « vient de sonner » pour les autres, les
+  « danger » s'ajoutent à l'heure du village). Sous l'écran : « la cloche peut sonner, sans délai pour ton grade »
+  (« sans délai en mode animation »).
 - Journal `FACTION` / `CLOCHE`, en ajout seul : auteur (`#N°`), cloche, type, cible (sections, grades), texte, nombre de
-  destinataires. Le chef de faction le lit ; le staff aussi.
+  destinataires ; une annonce sans délai le dit (« sans délai (grade Commandant Jōnin) », « (chef de faction) »,
+  « (mode animation) »). Le chef de faction le lit ; le staff aussi.
 - `/annonce` du staff reste à part (HRP, tout le serveur).
 
 ---

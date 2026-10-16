@@ -387,6 +387,9 @@ public final class ClocheScreen extends Screen {
         long dt = (System.currentTimeMillis() - ouvert) / 1000;
         long tue = CommClient.num(o, "tue") - dt, ac = CommClient.num(o, "attenteCloche") - dt, am = CommClient.num(o, "attenteMoi") - dt;
         if (tue > 0) return "la cloche est tue par le staff (encore " + duree(tue) + ")";
+        // seuil « Sonner sans délai » du village (ou Kage, ou staff en animation) : aucun anti-spam
+        String sd = CommClient.str(o, "sansDelai");
+        if (!sd.isEmpty()) return "la cloche peut sonner, " + ("animation".equals(sd) ? "sans délai en mode animation" : "sans délai pour ton grade");
         if (ac > 0) return "la cloche vient de sonner : encore " + duree(ac);
         if (am > 0) return "tu as sonné il y a peu : encore " + duree(am);
         long libre = CommClient.num(o, "libreDepuis");

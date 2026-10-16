@@ -25,7 +25,7 @@ import java.util.UUID;
 public final class CommDebug {
 
     static final String[] CLOCHE = {"rediger", "bande_normale", "bande_importante", "bande_danger", "bande_fondu", "chef_section",
-            "menu_r", "echelle3", "petit"};
+            "menu_r", "echelle3", "petit", "sans_delai"};
     static final String[] VOLIERE = {"ecrire", "ajouter", "missives", "lecture", "alerte_missive", "alerte_palais", "transfert",
             "menu_r", "vide"};
 
@@ -122,6 +122,16 @@ public final class CommDebug {
         o.addProperty("nom", nom);
         o.addProperty("insigne", ins);
         if (nouvelle) o.addProperty("nouvelle", true);
+        return o;
+    }
+
+    /** Cas « sans délai » : un Commandant Jōnin (seuil « Sonner sans délai » du village) juste après une annonce. */
+    static JsonObject clocheSansDelai() {
+        JsonObject o = cloche(false);
+        o.addProperty("nom", "Hiroshi Hatake");
+        o.addProperty("titre", "Commandant Jōnin");
+        o.addProperty("libreDepuis", 25);
+        o.addProperty("sansDelai", "grade");
         return o;
     }
 
@@ -313,6 +323,16 @@ public final class CommDebug {
                 if (mc.gui.screen() instanceof ClocheScreen c) {
                     c.debugCocher("kon_police", "kon_garde", "kon_brigade_port");
                     c.debugGrades("Chūnin", "Konin", "Tokubetsu Jōnin", "Jōnin", "Commandant Jōnin", "Kage");
+                }
+            }
+            case "cloche:sans_delai" -> {
+                CommClient.annonce.poser(List.of(new CommArt.Seg("Deuxième appel : ", ""),
+                        new CommArt.Seg("toutes les équipes de garde", "g"), new CommArt.Seg(" se rassemblent à la porte nord, maintenant.", "")));
+                CommClient.annonceType = "danger";
+                recevoir(clocheSansDelai());
+                if (mc.gui.screen() instanceof ClocheScreen c) {
+                    c.debugCocher("kon_garde", "kon_sentinelles");
+                    c.debugGrades("Genin confirmé", "Chūnin", "Konin", "Tokubetsu Jōnin", "Jōnin", "Commandant Jōnin", "Kage");
                 }
             }
             case "cloche:chef_section" -> {

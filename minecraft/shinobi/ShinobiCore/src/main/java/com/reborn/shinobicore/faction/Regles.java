@@ -41,9 +41,15 @@ public final class Regles {
     public static boolean seuil(Lecteur l, Faction f, String droit) {
         if (l == null || f == null || !f.tag.equals(l.faction())) return false;
         if (l.chefFaction()) return true;
-        Rank s = f.seuils.get(droit);
+        Rank s = f.seuils.getOrDefault(droit, Droits.defaut(droit));
         return s != null && l.rang() != null && l.rang().ordinal() >= s.ordinal();
     }
+
+    /**
+     * Sonner la cloche sans aucun délai (ni par cloche, ni par personne, ni limite « danger ») : chef de faction (le
+     * Kage) toujours, sinon grade du village au moins au seuil « Sonner sans délai » (CLOCHE_ET_MISSIVES.md §2.5).
+     */
+    public static boolean sansDelai(Lecteur l, Faction f) { return seuil(l, f, Droits.SANS_DELAI); }
 
     /**
      * Une section est-elle lisible (nom, chef, effectif) ? Une section cachée ne l'est que pour ses membres, le chef de

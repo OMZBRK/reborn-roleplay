@@ -973,9 +973,10 @@ final class FactionPages {
         y += 13;
         for (JsonElement e : arr(g, "seuils")) {
             JsonObject x = e.getAsJsonObject();
-            s.txt(str(x, "nom"), ix(), y + 6.5f, iw() - 92, 13, CREME, false);
-            s.pz.texteD("dès", ix() + iw() - 78, y + 6.5f, 12, GRIS_2, false);
-            int bx = ix() + iw() - 75, bw = 75;
+            // 77 de large : « Commandant Jōnin » (seuil « Sonner sans délai ») tient avant le chevron
+            s.txt(str(x, "nom"), ix(), y + 6.5f, iw() - 94, 13, CREME, false);
+            s.pz.texteD("dès", ix() + iw() - 80, y + 6.5f, 12, GRIS_2, false);
+            int bx = ix() + iw() - 77, bw = 77;
             boolean hov = taxe && s.hover(bx, y, bw, 13) && s.cliquable(y, 13) && s.menu == null;
             s.pz.fond(bx, y, bx + bw, y + 13, hov ? NUIT_3 : NUIT_2);
             s.pz.cadre(bx, y, bw, 13, hov ? OR_DOUX : FILET_2);

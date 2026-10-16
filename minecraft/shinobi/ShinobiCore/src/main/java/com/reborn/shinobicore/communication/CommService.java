@@ -80,6 +80,8 @@ public final class CommService implements Listener {
     final CommStore store;
     private CommCanal canal;
     CommRegles.Reglages k = CommRegles.Reglages.defaut();
+    /** Le staff en mode animation sonne sans délai (events) ; {@code communication.cloche.sans-delai-animation}. */
+    boolean sansDelaiAnimation = true;
     private final Map<UUID, Long> dernierePersonne = new ConcurrentHashMap<>();
     private final Map<String, List<Long>> dangers = new ConcurrentHashMap<>();
     private final Map<UUID, String> pointsEnvoyes = new ConcurrentHashMap<>();
@@ -109,7 +111,14 @@ public final class CommService implements Listener {
 
     public void stop() { store.sauver(); }
 
-    public void recharger() { k = CommRegles.Reglages.lire(plugin.getConfig().getConfigurationSection("communication")); }
+    public void recharger() {
+        k = CommRegles.Reglages.lire(plugin.getConfig().getConfigurationSection("communication"));
+        String des = plugin.getConfig().getString("communication.cloche.sans-delai-des", "COMMANDANT_JONIN");
+        Rank r = Droits.rang(des);
+        if (r == null) plugin.getLogger().warning("[cloche] sans-delai-des inconnu (« " + des + " ») : Commandant Jōnin.");
+        Droits.sansDelaiDefaut(r == null ? Rank.COMMANDANT_JONIN : r);
+        sansDelaiAnimation = plugin.getConfig().getBoolean("communication.cloche.sans-delai-animation", true);
+    }
 
     public CommCanal canal() { return canal; }
 
@@ -334,6 +343,18 @@ public final class CommService implements Listener {
         return null;
     }
 
+    /**
+     * Pourquoi ce sonneur n'a aucun délai : {@code "grade"} (seuil « Sonner sans délai » ou chef de faction, le Kage),
+     * {@code "animation"} (staff en mode animation), sinon {@code null} (anti-spam normal).
+     */
+    String sansDelai(Player p, DroitCloche d) {
+        if (d == null) return null;
+        if (Regles.sansDelai(fs().lecteur(d.m()), d.f())) return "grade";
+        var o = plugin.outilsStaff();
+        if (sansDelaiAnimation && o != null && o.animation() != null && o.animation().actif(p.getUniqueId())) return "animation";
+        return null;
+    }
+
     /** « Hokage », « Conseillère », « Commissaire de la Police », sinon le grade du village. */
     String titre(Membre m, Faction f, Section s, boolean section) {
         if (!section && m.perso.equals(f.chef)) return f.village() ? FactionService.kage(f) : "Chef de " + f.nom;
@@ -437,13 +458,15 @@ public final class CommService implements Listener {
         JsonArray gr = new JsonArray();
         for (Rank r : Rank.values()) gr.add(r.displayName());
         o.add("grades", gr);
+        String sd = sansDelai(p, d);
         o.addProperty("libreDepuis", c.derniere <= 0 ? -1 : (now - c.derniere) / 1000);
-        o.addProperty("attenteCloche", Math.max(0, (c.derniere + k.delaiCloche() * 1000L - now) / 1000));
+        o.addProperty("attenteCloche", sd != null ? 0 : Math.max(0, (c.derniere + k.delaiCloche() * 1000L - now) / 1000));
         Long dp = dernierePersonne.get(d.m().perso);
-        o.addProperty("attenteMoi", dp == null ? 0 : Math.max(0, (dp + k.delaiPersonne() * 1000L - now) / 1000));
+        o.addProperty("attenteMoi", sd != null || dp == null ? 0 : Math.max(0, (dp + k.delaiPersonne() * 1000L - now) / 1000));
         o.addProperty("delaiMoi", k.delaiPersonne());
+        if (sd != null) o.addProperty("sansDelai", sd);
         if (c.taireJusqua > now) o.addProperty("tue", (c.taireJusqua - now) / 1000);
-        o.addProperty("dangers", Math.max(0, k.dangerParHeure() - dangersHeure(d.f().tag, now)));
+        o.addProperty("dangers", sd != null ? k.dangerParHeure() : Math.max(0, k.dangerParHeure() - dangersHeure(d.f().tag, now)));
         int[] n = compte(c, d.f(), new Cible(d.village(), d.section() == null ? Set.of() : Set.of(d.section().id), Set.of(Rank.values())));
         o.addProperty("zone", n[0]);
         o.addProperty("concernes", n[1]);
@@ -479,8 +502,9 @@ public final class CommService implements Listener {
         if (ci.grades().isEmpty()) { canal.toast(p, "Coche au moins un grade.", true); return; }
         if (!ci.tout() && ci.sections().isEmpty()) { canal.toast(p, "Coche au moins une section.", true); return; }
         long now = System.currentTimeMillis();
+        String sd = sansDelai(p, d);
         String r = CommRegles.refusCloche(now, c.derniere, dernierePersonne.getOrDefault(d.m().perso, 0L),
-                dangersHeure(d.f().tag, now), type, c.taireJusqua, k);
+                dangersHeure(d.f().tag, now), type, c.taireJusqua, sd != null, k);
         if (r != null) { canal.toast(p, r, true); return; }
         c.derniere = now;
         store.marquerPoints();
@@ -525,7 +549,9 @@ public final class CommService implements Listener {
         Journal.entree(Categorie.FACTION, "CLOCHE").acteur(p).ciblePersonnage(d.m().owner, d.m().perso)
                 .detail("[" + d.f().tag + "] cloche " + c.id + " · " + type + " · " + (ci.tout() ? "tout le village" : String.join(", ", noms))
                         + " · grades " + (grs.size() == Rank.values().length ? "tous" : String.join(", ", grs)) + " · " + n
-                        + " destinataire(s) sur " + z.size() + " dans la zone · « " + plat + " »")
+                        + " destinataire(s) sur " + z.size() + " dans la zone"
+                        + (sd == null ? "" : " · sans délai (" + ("animation".equals(sd) ? "mode animation" : d.m().perso.equals(d.f().chef)
+                                ? "chef de faction" : "grade " + d.m().rang.displayName()) + ")") + " · « " + plat + " »")
                 .lieu(centre(c)).ecrire();
         JsonObject f = new JsonObject();
         f.addProperty("t", "ferme");
