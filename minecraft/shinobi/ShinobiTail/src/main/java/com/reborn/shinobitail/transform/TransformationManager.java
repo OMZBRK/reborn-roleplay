@@ -521,9 +521,17 @@ public final class TransformationManager {
         applyModifier(p, Attribute.ATTACK_DAMAGE, MOD_DAMAGE,
                 st.damageMultiplier() - 1.0,
                 AttributeModifier.Operation.MULTIPLY_SCALAR_1);
-        applyModifier(p, Attribute.MOVEMENT_SPEED, MOD_SPEED,
-                st.bonusSpeedPercent() / 100.0,
-                AttributeModifier.Operation.MULTIPLY_SCALAR_1);
+        // Étape 5 d'ETATS_JOUEUR : la vitesse du manteau est un facteur de l'applicateur unique des états (composé
+        // avec la douleur, la surcharge… et connu du mod) ; repli : le modificateur d'attribut d'avant.
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        if (etats != null && etats.appliqueEffetsPhysiques()) {
+            clearModifier(p, Attribute.MOVEMENT_SPEED, MOD_SPEED);
+            etats.facteur(p, "biju", 1.0 + st.bonusSpeedPercent() / 100.0, 1.0);
+        } else {
+            applyModifier(p, Attribute.MOVEMENT_SPEED, MOD_SPEED,
+                    st.bonusSpeedPercent() / 100.0,
+                    AttributeModifier.Operation.MULTIPLY_SCALAR_1);
+        }
         applyModifier(p, Attribute.KNOCKBACK_RESISTANCE, MOD_KB,
                 st.knockbackResistance(),
                 AttributeModifier.Operation.ADD_NUMBER);
@@ -549,6 +557,8 @@ public final class TransformationManager {
     private void clearStageEffects(Player p, ActiveTransformation t) {
         clearModifier(p, Attribute.ATTACK_DAMAGE, MOD_DAMAGE);
         clearModifier(p, Attribute.MOVEMENT_SPEED, MOD_SPEED);
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        if (etats != null) etats.facteur(p, "biju", 1.0, 1.0);
         clearModifier(p, Attribute.KNOCKBACK_RESISTANCE, MOD_KB);
         clearModifier(p, Attribute.SCALE, MOD_SCALE);
         for (PotionEffectType type : t.appliedEffects()) {
@@ -597,6 +607,8 @@ public final class TransformationManager {
     public void clearAllModifiers(Player p) {
         clearModifier(p, Attribute.ATTACK_DAMAGE, MOD_DAMAGE);
         clearModifier(p, Attribute.MOVEMENT_SPEED, MOD_SPEED);
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        if (etats != null) etats.facteur(p, "biju", 1.0, 1.0);
         clearModifier(p, Attribute.KNOCKBACK_RESISTANCE, MOD_KB);
         clearModifier(p, Attribute.SCALE, MOD_SCALE);
     }

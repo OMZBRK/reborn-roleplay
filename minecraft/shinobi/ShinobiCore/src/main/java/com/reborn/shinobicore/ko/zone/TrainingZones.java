@@ -257,8 +257,14 @@ public final class TrainingZones implements Listener {
         } else {
             p.setHealth(Math.max(1.0, p.getMaxHealth() * defeatPct));
         }
-        p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 3, false, false, false));
-        p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 30, 0, false, false, false));
+        // Étape 7 d'ETATS_JOUEUR : modificateurs nommés (defaite, defaite_cecite) ; repli : les potions d'avant.
+        var etats = plugin.etats();
+        if (etats == null || !etats.affliger(p, "defaite", 3000L, "défaite à l'entraînement")) {
+            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 3, false, false, false));
+        }
+        if (etats == null || !etats.affliger(p, "defaite_cecite", 1500L, "défaite à l'entraînement")) {
+            p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 30, 0, false, false, false));
+        }
         boolean modded = plugin.koHud() != null
                 && plugin.koHud().event(p, com.reborn.shinobicore.ko.KoHudSync.EV_DEFAITE);
         if (!modded) p.showTitle(Title.title(

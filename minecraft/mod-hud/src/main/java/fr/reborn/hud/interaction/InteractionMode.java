@@ -95,6 +95,8 @@ public final class InteractionMode {
     public boolean isCapturing() {
         if (!active) return false;
         if (Minecraft.getInstance().gui.screen() != null) { deactivate(); return false; }
+        // État du serveur : INTERAGIR refusé (à terre, inconscient, étourdi…) — le menu se referme (souris libérée).
+        if (fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("int")) { deactivate(); return false; }
         return true;
     }
 
@@ -106,6 +108,8 @@ public final class InteractionMode {
         }
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.player == null || mc.gui.screen() != null) return;
+        // À terre, inconscient, étourdi, porté… : pas de menu R (il restait ouvrable, souris figée derrière).
+        if (fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("int")) return;
         active = true;
         menuOpen = false;
         cursorX = mc.getWindow().getGuiScaledWidth() / 2.0;

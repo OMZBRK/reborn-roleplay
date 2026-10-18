@@ -58,6 +58,16 @@ public class CharacterDamageEvent extends Event implements Cancellable {
     /** True if this hit would drop the player into KO. */
     public boolean isLethal() { return lethal; }
 
+    private com.reborn.shinobicore.api.etat.DegatContexte contexte;
+
+    /**
+     * Contexte de la porte des dégâts (étiquettes, technique, défense appliquée ou contournée — ETATS_JOUEUR §6.3), ou
+     * null (dégât non évalué).
+     */
+    public com.reborn.shinobicore.api.etat.DegatContexte contexte() { return contexte; }
+
+    public void contexte(com.reborn.shinobicore.api.etat.DegatContexte c) { this.contexte = c; }
+
     @Override
     public boolean isCancelled() { return cancelled; }
 

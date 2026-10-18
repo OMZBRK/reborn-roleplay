@@ -77,7 +77,6 @@ public final class VolService implements Listener {
         return Math.round(l.theftSeconds * factors[ScrollCatalog.bucket(r)] * 1000.0);
     }
 
-    public boolean isStealing(Player p) { return active.containsKey(p.getUniqueId()); }
 
     // ─────────────────────────────────────────────────────────────── début
 
@@ -91,6 +90,10 @@ public final class VolService implements Listener {
             return;
         }
         if (!libs.canSteal(p, l)) { libs.toast(p, "Il faut un personnage actif."); return; }
+        // États (ETATS_JOUEUR §2.2 f, étape 2) : ni à terre, ni étourdi, ni porté, ni gelé, ni entravé (INTERAGIR).
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        String refusEtat = etats == null ? null : etats.refus(p.getUniqueId(), com.reborn.shinobicore.api.etat.Capacite.INTERAGIR);
+        if (refusEtat != null) { libs.toast(p, refusEtat); return; }
         boolean fonds = "fonds".equals(shelf);
         String techId, scrollId = null;
         Library.Deposit dep = null;
@@ -138,6 +141,13 @@ public final class VolService implements Listener {
             Library l = libs.byId(v.libId());
             if (p == null || !p.isOnline()) { it.remove(); continue; }
             if (l == null) { it.remove(); fail(p, "La bibliothèque a disparu."); continue; }
+            // L'état a changé (KO, étourdi, porté, gelé…) : la fouille s'arrête.
+            var etats = com.reborn.shinobicore.api.EtatService.get();
+            if (etats != null && !etats.peut(p.getUniqueId(), com.reborn.shinobicore.api.etat.Capacite.INTERAGIR)) {
+                it.remove();
+                fail(p, "La fouille est interrompue.");
+                continue;
+            }
             Location at = p.getLocation();
             if (at.getWorld() != v.from().getWorld() || at.distanceSquared(v.from()) > moveTolerance * moveTolerance
                     || l.distanceSq(at) > LibraryService.REACH_SQ) {

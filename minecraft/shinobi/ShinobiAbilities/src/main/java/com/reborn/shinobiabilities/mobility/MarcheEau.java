@@ -168,7 +168,13 @@ public final class MarcheEau implements Listener {
         if (c == null) return HORS_JEU;
         if (core.ko() != null) {
             if (core.ko().isOutOfPlay(id)) return HORS_JEU;
-            if (core.ko().isKo(id) || core.ko().mobilityDenial(id) != null) return ETAT;
+            if (core.ko().isKo(id)) return ETAT;
+            // La matrice des états refuse aussi la mobilité au palier « Surchargé » : on garde le code SURCHARGE
+            // (message propre côté mod) quand c'est la sacoche qui bloque.
+            var etats = com.reborn.shinobicore.api.EtatService.get();
+            var v = etats != null ? etats.verifier(id, com.reborn.shinobicore.api.etat.Capacite.MOBILITE) : null;
+            if (v != null && !v.ok()) return v.ligne() != null && v.ligne().startsWith("mod.surcharge") ? SURCHARGE : ETAT;
+            if (v == null && core.ko().mobilityDenial(id) != null) return ETAT;
         }
         if (core.surcharge(p)) return SURCHARGE;
         if (modifs != null && modifs.refuse(id, "MARCHE_EAU")) return ETAT;

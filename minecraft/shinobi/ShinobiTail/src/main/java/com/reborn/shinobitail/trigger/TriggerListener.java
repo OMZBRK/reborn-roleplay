@@ -81,6 +81,7 @@ public final class TriggerListener implements Listener {
         }
         if (plugin.innerWorld().inSession(p.getUniqueId())) return;
         if (plugin.ko() == null || plugin.ko().isKo(p.getUniqueId())) return;
+        if (!dansLeMonde(p)) return;
 
         JinchurikiData data = plugin.jinchuriki().ofActive(p);
         if (data == null || data.finalReleaseReached()
@@ -153,6 +154,7 @@ public final class TriggerListener implements Listener {
             if (plugin.transformations().isTransformed(p.getUniqueId())) continue;
             if (plugin.innerWorld().inSession(p.getUniqueId())) continue;
             if (plugin.ko().isKo(p.getUniqueId())) continue;
+            if (!dansLeMonde(p)) continue;
             JinchurikiData data = plugin.jinchuriki().ofActive(p);
             if (data == null || data.finalReleaseReached()
                     || data.sealRemoved()) continue;
@@ -193,6 +195,15 @@ public final class TriggerListener implements Listener {
         return last == null || System.currentTimeMillis() - last >= cd;
     }
 
+    /**
+     * La rage ne se déclenche que dans le monde (ETATS_JOUEUR étape 2, §2.2 g) : ni en duel, ni sur un terrain
+     * d'entraînement, ni en mode staff / construction / prison / hors jeu. Vrai = cadre MONDE (ou service absent).
+     */
+    private static boolean dansLeMonde(Player p) {
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        return etats == null || etats.etat(p).cadre() == com.reborn.shinobicore.api.etat.Cadre.MONDE;
+    }
+
     /* ------------------------------------------------------------ KO save */
 
     @EventHandler
@@ -206,6 +217,9 @@ public final class TriggerListener implements Listener {
         }
 
         if (ev.cause() != KoState.Cause.HP) return;
+        // Avec le service des états de ShinobiCore, le sauvetage passe par le VETO de l'entrée en KO (onAvantKo) : le
+        // jinchūriki ne tombe jamais (ni blessure, ni ATA). Ce chemin-ci (KO puis réveil) ne reste qu'en repli.
+        if (com.reborn.shinobicore.api.EtatService.get() != null) return;
         ConfigurationSection cfg = plugin.getConfig()
                 .getConfigurationSection("triggers.on-ko");
         if (cfg == null || !cfg.getBoolean("enabled", true)) return;
@@ -247,6 +261,42 @@ public final class TriggerListener implements Listener {
             }
             plugin.transformations().begin(p, data, beast, 1,
                     ActiveTransformation.Cause.KO_SAVE);
+        });
+    }
+
+    /**
+     * Le bijū sauve son hôte (ETATS_JOUEUR §10 n° 30) : <b>veto</b> de l'entrée en KO par les PV ({@code EtatChangeEvent}
+     * annoncé par la chaîne KO) — l'hôte reste debout, soigné, transformé (ou en Union pour un duo uni). Mêmes
+     * conditions et mêmes chances qu'avant ; un hôte déjà transformé tombe (la transformation s'arrête au KO).
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onAvantKo(com.reborn.shinobicore.api.event.EtatChangeEvent ev) {
+        if (ev.couche() != com.reborn.shinobicore.api.etat.Couche.VITAL) return;
+        if (!ev.apres().equals("A_TERRE") && !ev.apres().equals("INCONSCIENT")) return;
+        String src = ev.source().nom();
+        if (!"coup mortel".equals(src) && !"exécution".equals(src)) return;   // pas le chakra
+        Player p = ev.player();
+        if (plugin.transformations().isTransformed(p.getUniqueId())) return;
+        ConfigurationSection cfg = plugin.getConfig().getConfigurationSection("triggers.on-ko");
+        if (cfg == null || !cfg.getBoolean("enabled", true)) return;
+        JinchurikiData data = plugin.jinchuriki().ofActive(p);
+        if (data == null || data.finalReleaseReached()) return;
+        BeastDefinition beast = plugin.beasts().byId(data.beastId());
+        if (beast == null) return;
+        double healPct = cfg.getDouble("heal-percent", 35);
+        if (!data.sealRemoved()) {
+            double chance = Chances.helpChance(
+                    plugin.getConfig().getConfigurationSection("triggers.help"),
+                    beast, data, 100.0, cfg.getDouble("save-chance-bonus", 15));
+            if (!Chances.roll(chance)) return;
+        }
+        ev.setCancelled(true);
+        boolean union = data.sealRemoved();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!p.isOnline()) return;
+            p.setHealth(Math.max(p.getHealth(), Math.min(p.getMaxHealth(), p.getMaxHealth() * healPct / 100.0)));
+            if (union) plugin.transformations().startUnion(p, data, beast);
+            else plugin.transformations().begin(p, data, beast, 1, ActiveTransformation.Cause.KO_SAVE);
         });
     }
 

@@ -48,6 +48,12 @@ public abstract class KeyboardInputMixin {
             ((ClientInputAccessor) (Object) this).reborn$setMoveVector(Vec2.ZERO);
             return;
         }
+        // ÉTAT DU SERVEUR (reborn:etat, ETATS_JOUEUR §7.1) : BOUGER refusé (inconscient, étourdi, entravé, porté,
+        // gelé, trop lourd…) — on ne pousse pas contre l'épinglage du serveur. Ramper (à terre) reste permis.
+        if (player != null && fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("bou")) {
+            ((ClientInputAccessor) (Object) this).reborn$setMoveVector(Vec2.ZERO);
+            return;
+        }
         RebornCamera cam = RebornCamera.INSTANCE;
         if (!cam.isEnabled()) return;
         if (player == null || mc.options == null) return;

@@ -139,6 +139,7 @@ public final class Allure {
         boolean interdit = neutre || srvEssouffle
             || fr.reborn.hud.notif.NotifClient.sprintBloque()
             || fr.reborn.hud.combat.CombatInput.INSTANCE.isBlocking()
+            || fr.reborn.hud.etat.EtatClient.refuse("spr")      // état du serveur (reborn:etat) : SPRINTER refusé
             || endurance <= 0.02f;
         if (doubleAppui && !interdit) sprintVoulu = true;
         if (interdit || (!bascule && relache > GRACE_RELACHE) || (!mcSprint && !tenu && horsSprint > fenetre)) {
@@ -152,7 +153,8 @@ public final class Allure {
         }
         etat = neutre ? Etat.NEUTRE : !mcSprint ? Etat.MARCHE : sprint ? Etat.SPRINT : Etat.TROT;
         if (etat == Etat.SPRINT) dernierSprintMs = System.currentTimeMillis();
-        arretTrot = !neutre && !latch && !sprintVoulu && relache > GRACE_RELACHE;
+        arretTrot = !neutre && ((!latch && !sprintVoulu && relache > GRACE_RELACHE)
+            || fr.reborn.hud.etat.EtatClient.refuse("tro"));   // état du serveur : TROTTER refusé (douleur, ATA…)
 
         if (etat == Etat.NEUTRE) {
             if (pose) retirer(p);

@@ -396,19 +396,13 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         return j;
     }
 
+    /** État de la fiche : un seul constructeur avec les plaques du mode staff (ETATS_JOUEUR §2.4 n° 13). */
     private String stateOf(UUID id, ShinobiCharacter c) {
-        List<String> parts = new ArrayList<>();
-        KoState ko = plugin.ko().getKo(id);
-        if (ko != null) parts.add(ko.isDowned() ? "À terre" : "Inconscient");
-        if (c != null && plugin.ata() != null) {
-            AtaManager.View v = plugin.ata().view(c.id());
-            if (v != null) parts.add("ATA " + (v.level() == AtaManager.Level.PLEINE ? "pleine" : "allégée")
-                    + " · repos " + v.restMinutes() + "/" + v.requiredMinutes());
-        }
-        if (frozen(id)) parts.add("Gelé");
-        if (store.mutedUntil(id) > System.currentTimeMillis()) parts.add("Muet");
-        return String.join(" · ", parts);
+        return com.reborn.shinobicore.etat.EtatTexte.resume(plugin, id, c, true);
     }
+
+    /** Fin du mutisme d'un compte (epoch ms, 0 = pas muet). */
+    public long mutedUntil(UUID id) { return store.mutedUntil(id); }
 
     /* ================================================================ fiche */
 
@@ -879,6 +873,15 @@ public final class StaffPanel implements Listener, PluginMessageListener {
         alerts.put(key, new Alert(key, "Déco en combat", p.getUniqueId(), "Déconnexion en plein combat · contre " + contre,
                 List.of(place(at)), 20, now));
         system("Déconnexion en combat : " + persoName(p) + " (contre " + contre + ") · " + place(at) + ".");
+    }
+
+    /** Détenu hors de la zone de sa prison (ETATS_JOUEUR §7.3, 17/10) : évasion signalée, rien d'automatique. */
+    public void onEvasion(Player p, String zone, Location at) {
+        long now = System.currentTimeMillis();
+        String key = "evasion-" + p.getUniqueId() + "-" + now;
+        alerts.put(key, new Alert(key, "Évasion", p.getUniqueId(), "Hors de la prison · zone " + zone,
+                List.of(place(at)), 20, now));
+        system("Évasion possible : " + persoName(p) + " hors de la zone " + zone + " · " + place(at) + ".");
     }
 
     /** Demande de mise à mort RP : attend la décision du staff. */

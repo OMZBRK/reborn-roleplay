@@ -89,10 +89,22 @@ final class Surcharge {
         enlever(p.getAttribute(Attribute.JUMP_STRENGTH));
     }
 
+    /** Derniers facteurs calculés ({vitesse, saut}), ou null. */
+    double[] facteurs(UUID id) {
+        double[] f = appliques.get(id);
+        return f == null ? null : f.clone();
+    }
+
     private void poser(Player p, double vit, double saut) {
         double[] prec = appliques.get(p.getUniqueId());
         if (prec != null && Math.abs(prec[0] - vit) < 0.005 && Math.abs(prec[1] - saut) < 0.005) return;
         appliques.put(p.getUniqueId(), new double[] {vit, saut});
+        // Étape 5 d'ETATS_JOUEUR : l'applicateur unique pose vitesse et saut (reborn:etat_*) ; on ne fait que calculer.
+        if (com.reborn.shinobicore.etat.Applicateur.actif()) {
+            enlever(p.getAttribute(Attribute.MOVEMENT_SPEED));
+            enlever(p.getAttribute(Attribute.JUMP_STRENGTH));
+            return;
+        }
         modifier(p.getAttribute(Attribute.MOVEMENT_SPEED), vit);
         modifier(p.getAttribute(Attribute.JUMP_STRENGTH), saut);
     }

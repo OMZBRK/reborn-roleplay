@@ -59,6 +59,15 @@ combat hors zone ──► PV ≤ 5 % ──► ⓪ DOULEUR (debout, à bout de 
 | **Porté** | Quelqu'un le porte (douleur, KO, mort) | Le porteur s'accroupit ; en douleur : se débattre (Espace) ; reprendre des forces | En douleur : Espace pour se débattre | — |
 | **Mort RP** 屍 | Exécution d'un KO avec RPK validé | Sélection de personnage | Rien (scène de mort, §9) | Porter, fouiller, constater |
 
+> **Refonte des états (17/10, non publiée)** — [`../technique/ETATS_JOUEUR.md`](../technique/ETATS_JOUEUR.md) §9 :
+> ce tableau est désormais la couche **Vital** du service des états, et « ce qu'on peut faire » vient de la matrice
+> `etats.yml` (mêmes règles qu'ici). Changements visibles : **pas de garde en douleur** ; un corps à terre n'ouvre plus le
+> menu R et ne saute plus (le mod bloque en avance) ; le **jinchūriki sauvé par son bijū ne tombe plus du tout** (ni
+> KO, ni blessure, ni ATA : veto de l'entrée en KO) ; les relèves de la **Volonté** et le second souffle **survivent au
+> redémarrage** (`volonte.yml`) ; un **détenu** (prison) se réveille dans la zone de sa prison avec `/hopital` ; mode
+> staff refusé à un personnage en prison ; la méditation s'arrête au KO ; les simples passages (douleur, agonie,
+> inconscient, réveil, porté, déposé) passent au journal **`ETAT`** (le KO garde RPK, exécutions, fouille, hôpital).
+
 ### ⓪ Douleur — sous 5 % des PV (14/10, Pain RP du Game Plan RedLine)
 
 Code : `ko/DouleurManager.java` ; mod `ko/KoClient` (caméra, sons), `ko.fsh` (mode 4), `nameplate/Nameplates`
@@ -296,7 +305,7 @@ blessures à chaque KO. L'encyclopédie médicale, les armoires et les traitemen
 | **Ausculter (état)** | Voir les blessures et l'état |
 | **Attraper à la gorge** | Le corps est tenu **debout** devant soi, **sans limite de durée** ; on avance lentement ; s'accroupir le lâche |
 | **Porter** | Le corps passe sur les épaules ; s'accroupir le dépose |
-| **Fouiller** | Ouvrir les affaires du corps |
+| **Fouiller** | 3 s immobile, puis la **sacoche RP du corps** en mode Fouille (barre, sac, bourse ; on prend, on ne pose rien) — jamais de coffre vanilla : sans le mod à jour, « La fouille demande le mod Reborn à jour. » (18/10) |
 | **Demander un RPK** | Envoie la demande de mise à mort RP au staff (§7) ; ensuite « RPK demandé — en attente du staff » (grisé) |
 | **RPK validé** | Ligne grise « exécuter : F » : l'exécution se fait **à la touche F** (v2 du 14/10, §8), plus au menu |
 | **Animation d'exécution ▸** | *Seulement si l'on possède une exécution animée* : choisir « Sans animation » ou une exécution (la courante est marquée « › ») ; elle servira à la touche F. Sinon l'entrée n'existe pas |

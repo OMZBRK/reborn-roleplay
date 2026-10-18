@@ -1,7 +1,8 @@
 # Cloche du village, missives et volières
 
 > **Statut : validée et codée le 2026-10-16, publiée sur le dev le 16/10 (hud 0.4.184, manifest 3.1.141, ShinobiCore
-> du 16/10, objets Nexo provisoires ; §10) ; Q6 et Q8 tranchées le 16/10, Q7 en partie (§9).**
+> du 16/10, objets Nexo provisoires ; §10) ; Q6 et Q8 tranchées le 16/10, Q7 en partie (§9). Cloche, volière et
+> missives validées en jeu le 17/10 (avec la lecture sur place et la cloche sans délai, hud 0.4.185-0.4.186).**
 > Communication RP sans instantané :
 > la **cloche** pour annoncer à ceux qui sont là, le **corbeau** pour écrire à ceux qui sont loin. Remplace et précise
 > [`../GAMEPLAN.md`](../GAMEPLAN.md) §30 (Volière) ; branché sur la Faction ([`FACTION.md`](./FACTION.md) v3 : droits

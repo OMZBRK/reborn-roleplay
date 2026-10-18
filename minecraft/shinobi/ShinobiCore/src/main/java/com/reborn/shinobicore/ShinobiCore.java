@@ -868,6 +868,12 @@ public final class ShinobiCore extends JavaPlugin {
             this.communication.start();
         }
 
+        // États du joueur (ETATS_JOUEUR.md, refonte codée le 17/10) : service « peut-il X ? » + matrice (etats.yml),
+        // suivi chaque tick (journal ETAT, paquet reborn:etat), applicateur unique (vitesse, saut, faim), porte des
+        // dégâts (ciblable, peut frapper, défenses), actions longues, prison, /etats. Après tous les détenteurs.
+        this.etatsModule = new com.reborn.shinobicore.etat.EtatsModule(this);
+        this.etatsModule.demarrer();
+
         getLogger().info("ShinobiCore enabled \u2014 mobility + character + chakra systems online.");
     }
 
@@ -877,6 +883,7 @@ public final class ShinobiCore extends JavaPlugin {
         // BEFORE the flush below, so the capture records the survival
         // inventory rather than creative build junk.
         if (panelBridge != null) panelBridge.stop();
+        if (etatsModule != null) etatsModule.arreter();
         if (outilsStaff != null) outilsStaff.arreter();
         if (nourriture != null) nourriture.stop();
         if (monnaie != null) monnaie.stop();
@@ -957,6 +964,7 @@ public final class ShinobiCore extends JavaPlugin {
         if (nourriture          != null) nourriture.reload();
         if (monnaie             != null) monnaie.reload();
         if (boutiques           != null) boutiques.recharger();
+        if (etatsModule         != null) etatsModule.service().charger();
         if (to != null) {
             to.sendMessage(Component.text("Configuration ShinobiCore rechargée.", NamedTextColor.GREEN));
         }
@@ -1419,6 +1427,15 @@ public final class ShinobiCore extends JavaPlugin {
 
     /** Boutiques-lieux (15/10) ; null en mode build ou avant l'init. */
     public com.reborn.shinobicore.boutique.BoutiqueService boutiques() { return boutiques; }
+
+    private com.reborn.shinobicore.etat.EtatsModule etatsModule;
+
+    /** Service des états du joueur (ETATS_JOUEUR §8), ou null avant l'init. */
+    public com.reborn.shinobicore.etat.EtatServiceImpl etats() { return etatsModule == null ? null : etatsModule.service(); }
+
+    /** Fenêtres d'attribution des dégâts (porte des dégâts, §6). */
+    @com.reborn.shinobicore.api.Internal
+    public com.reborn.shinobicore.stats.CastAttributionImpl castAttributionImpl() { return castAttribution; }
 
     /** Registre des modificateurs (ETATS_JOUEUR §4.4), ou null. */
     public com.reborn.shinobicore.modificateur.ModificateurRegistry modificateurs() {

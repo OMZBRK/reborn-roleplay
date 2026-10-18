@@ -16,7 +16,10 @@
 >
 > **16/10** : salon `🏗️・build-updates` créé dans Création, juste après `🛰️・dev-updates` et sur son modèle
 > (plan → `plan:guild` → lots `salons`, `overwrites`, `salons-ordre` ; vérifié par audit), bannière BUILD UPDATES
-> posée, postable depuis le panel (§5.1, §11 ; code non déployé).
+> posée, postable depuis le panel (§5.1, §11).
+>
+> **17/10** : **déploiement web fait** (train web) : page « Discord » du panel et salon `🏗️・build-updates` en ligne
+> (§11.4).
 
 ---
 
@@ -520,7 +523,7 @@ captures). Générateurs Python dans `Maquettes\discord\_sources\`.
 > staff »). Code écrit, **pas encore déployé** (train web) : rien n'a été posté sur Discord pendant le
 > développement. Même rendu que `post-message.ts` (un cadre composants v2), partagé dans
 > `apps/bot/src/messages/cadre.ts`. **16/10** : `build-updates` ajouté comme troisième salon (même cadre, aucune
-> mention possible), code non déployé.
+> mention possible) ; déployé le 17/10.
 
 ### 11.1 Utilisation
 
@@ -596,7 +599,10 @@ Chaque salon doit appartenir au serveur staff (sinon 503). Le bot a besoin, dans
 **Envoyer des messages**, **Joindre des fichiers**, **Intégrer des liens** et, pour `@everyone`, **Mentionner
 @everyone** (le rôle `Testeur` doit être mentionnable ou le bot avoir cette permission).
 
-### 11.4 Mise en prod (train web, rien n'est fait)
+### 11.4 Mise en prod (train web) — ✅ faite (17/10)
+
+> Déploiement confirmé par l'utilisateur le 17/10 : panel « Discord » et salon `build-updates` en ligne. Étapes
+> gardées pour mémoire (nouveau déploiement, autre VPS).
 
 1. Base : `pnpm exec prisma migrate deploy` (migration `20261014200000_staff_discord_messages`, une table et deux
    enums ; jamais appliquée, aucune base locale ne tournait) puis `20261016100000_staff_discord_build_updates`

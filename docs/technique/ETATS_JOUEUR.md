@@ -4,7 +4,8 @@
 > structurer correctement les choses et prendre toutes les possibilités des clans et autres ») ; **le code vient après
 > le chantier nourriture** (GAMEPLAN §12), qui doit d'ailleurs créer le registre des modificateurs décrit ici (§4.4).
 > **Toutes les recommandations ont été validées le 14/10** (§11, avec les variantes de l'utilisateur) et **l'étape 0
-> (correctifs urgents) est codée** le 14/10 (§9, « Étape 0 faite ») ; le reste (service, couches, matrice) n'est pas codé.
+> (correctifs urgents) est codée** le 14/10 (§9, « Étape 0 faite »). **Étapes 1 à 9 codées le 17/10** sur validation
+> de l'utilisateur (§9, « Étapes 1 à 9 faites ») — **non publié** ; ce qui reste et pourquoi y est listé.
 >
 > Sources : [`../GAMEPLAN.md`](../GAMEPLAN.md) §1.5 (états validés le 13/10), §13 (Player State System), §34 (Logia →
 > équivalents chakra) ; fiches [`../gameplay/KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md),
@@ -1019,6 +1020,69 @@ OK ; YAML des sources et des jars validés ; règles pures vérifiées (KO figé
 | §2.3 | Mod : aucune entrée bloquée en KO, voiles contournables (F1, mode photo), `DeathScreen` sans `removed()`, neuf états non remis à zéro | paquet `reborn:etat` + mod (étape 3) ; le serveur refuse déjà tout |
 | — | Vocal (chuchoté à terre, muet en mort) | API serveur de PlasmoVoice, avec la radio |
 | — | Prison, menottes, entraves, fractures | nouveaux états (étape 8 ; fractures après la beta) |
+
+#### Étapes 1 à 9 faites le 17/10 (code, non publié)
+
+Codées sur validation du 17/10, dans l'ordre du document, **en gardant les anciens tests en repli** (un add-on sans
+service, ou `applicateur: false` dans `etats.yml`, retrouve exactement le comportement de l'étape 0). Builds des sept
+modules Maven (Core, Abilities, Combat, Tail, Sense, Learning, Radio) et du mod OK ; YAML (`plugin.yml`, `config.yml`,
+`etats.yml`, sources et jar) validés ; **banc hors dépôt de 168 vérifications** sur les règles pures (matrice d'`etats.yml`,
+état principal, défenses : cas du §10 n° 1-4, 9-11, 13-16, 19, 23-27, 29, 32 + messages de l'étape 0) ; client de dev
+lancé (banc `REBORN_KO_DEBUG=1`, mixins chargés, blocages vérifiés).
+
+| Étape | Fait | Où |
+|---|---|---|
+| **1** Service | API `@Stable` `api/EtatService` + `api/etat/*` (couches, `Principal` et sa résolution, `Capacite` ×47, `Capacites`, `Etat`, `Verdict`, `Lien`, `Source`, `Modificateur`, `ModificateurSpec`, `Famille`, `Etiquette`, `Resultat`, `DegatContexte`) ; événements `EtatChangeEvent` (annulable), `EtatChangedEvent`, `ModificateurPoseEvent` (annulable), `ModificateurRetireEvent` ; **matrice pure** `etat/Matrice` (sans Bukkit) lue dans **`etats.yml`** (38 lignes, l'ordre du fichier = la priorité) ; façade `EtatServiceImpl` qui **lit les détenteurs** (KO, douleur, scène de mort, portage, gorge, exécution, ShinobiCombat, zones, duel, construction, mode staff, cinématique, sélection, gel, vanish, ATA, surcharge, en combat) ; catégorie de journal **`ETAT`** ; `/etats` (lire, poser, lever, prison, recharger) | `ShinobiCore/api/…`, `etat/{Matrice,EtatServiceImpl,EtatSuivi,EtatsCommand,EtatsModule}`, `resources/etats.yml`, `plugin.yml` |
+| **2** Lecteurs | `Verrous` délègue (`technique`, `mobilite`, `changementPerso`, `teleportation`, `horsCible`) — donc `KoService.techniqueDenial / mobilityDenial / teleportDenial`, grappin, tyrolienne, sélection, `setActive`, parcours ; `lockReason` (sacoche) complété par `MODIFIER_SACOCHE` ; `/corps` (acteur `PORTER` / `EXECUTER` / `FOUILLER`, cible `ETRE_*` — §5.2 règle 3) ; duel (`DUEL`) ; mode staff (`MODE_STAFF` : prison) ; méditation (`CANALISER`, arrêtée au KO) ; paume (`SOIGNER`) ; lancer de technique (`TECHNIQUE` avec mudras, **revérifié au lancer** et à chaque pas d'incantation) ; sprint (`SPRINTER`) ; marche sur l'eau ; onde au sol (`peutCibler`) ; dash / esquive / saut de chakra / keriox (`MOBILITE`) ; garde (`GARDER`) ; séance (`CANALISER`) ; vol de parchemin (`INTERAGIR`, interrompu) ; Union du bijū (`TECHNIQUE`) ; rage du bijū seulement dans le monde ; radio (par l'API) ; **un seul constructeur** du résumé d'état staff (`EtatTexte` : plaques et fiche, §2.4 n° 13) | Core, Abilities, Combat, Tail, Radio |
+| **3** `reborn:etat` + mod | `EtatSuivi` : paquet au changement (regroupé par tick), au JOIN, au changement de personnage ; mod `etat/EtatClient` (remis à zéro à la déconnexion) ; blocages en avance : déplacement (`bou`), saut (`sau`), coup sur une entité visée (`fra`), sprint / trot (`spr` / `tro`), garde (`gar`), menu R fermé et refusé (`int`), ramassage (`ram`), invite d'exécution (`exe`) — seulement dans un cadre de jeu ; mode photo et F1 refusés sous un voile imposé (KO, mort, écran noir) ; `DeathScreen.removed()` rend HUD et caméra ; filtre « États » au journal du Poste de garde | mod `etat/EtatClient`, `RebornHudClient`, mixins `KeyboardInput`, `PlayerJump`, `MouseInteraction`, `Allure`, `CombatInput`, `InteractionMode`, `RamasserClient`, `ExecuterClient`, `CinemaBars`, `HudKeybinds`, `EffetsStaff`, `DeathScreen`, `GardeJournal` |
+| **4** Écrivains | **Contrôle tenu par le service** : étourdi (durée) et garde de ShinobiCombat, onde au sol (étourdi), monde intérieur (`CORPS_VIDE.MONDE_INTERIEUR`), entrave / contrôle par l'API (liens : source partie, tombée, autre personnage, hors portée ; une valeur plus faible n'écrase pas une plus forte) ; **verrou de garde** 1 s après une garde brisée ; **veto de l'entrée en KO** (`EtatChangeEvent` annoncé par `KoManager.enterKo`) — le **bijū sauve son hôte par veto** (§10 n° 30 : ni KO, ni blessure, ni ATA) ; cadre `STAFF` et `CONSTRUCTION` annoncés (veto) ; **actions longues** `Occupations` (`OCCUPE(action)` + `fin_si`) — la fouille d'un corps (3 s) y passe ; **Volonté persistée** (`volonte.yml`, §2.4 n° 16) ; étourdi rompu au KO, garde / étourdi rompus au changement de personnage (§2.4 n° 18) ; séances, concentration et parcours arrêtés au KO / changement de personnage ; simples passages du KO journalisés en `ETAT` (§7.4) | Core `KoManager`, `KoListener`, `VolonteQte`, `KoJournal`, `FouilleService`, `ModeStaff`, `StaffBuildManager`, `etat/Occupations` ; Combat `CombatListener` ; Tail `TriggerListener`, `InnerWorldManager` ; Abilities `FloorShockwave`, `LearningMinigame`, `ParkourListener` |
+| **5** Applicateur | `etat/Applicateur` : **un** modificateur transitoire `reborn:etat_vitesse` et **un** `reborn:etat_saut` (produit des lignes, plancher 0,25, 0 = immobile), la **faim tenue** (une seule règle : douleur, ATA — §2.4 n° 14), sprint vanilla coupé quand `TROTTER` est refusé ; se taisent : `shinobicore:ko_douleur`, `reborn:surcharge` (la surcharge calcule seulement), `shinobicore:porteur` / `tient_gorge` / `execute`, lenteurs vanilla du KO et de l'ATA, saut coupé du KO, figeage de l'étourdi et de la garde (Combat), vitesse du manteau du bijū (facteur `biju`) ; **`Invulnerable` n'est plus écrit** (sélection, cinématique, scène de mort, mode staff, monde intérieur) : la porte des dégâts annule pour un non-`CIBLABLE` | Core `etat/Applicateur`, `DouleurManager`, `AtaManager`, `KoManager`, `Surcharge`, `PorterManager`, `CorpsService`, `SatieteService`, `CharacterSelectManager`, `CinematicPlayback`, `DeathScene`, `ModeStaff` ; Combat ; Tail |
+| **6** Porte des dégâts | `etat/PorteDegats` : **LOW** cible non `CIBLABLE` → annulé (sauf vide, `/kill`) ; attaquant sans `FRAPPER_MAINS / ARME / PROJECTILE` → annulé avec la raison (pas pour un coup de technique, vérifié au lancer) ; **NORMAL** défenses des modificateurs (`defense:`) confrontées aux **étiquettes** (technique : `etiquettes:` d'abilities.yml, sinon nature + catégorie ; M1 `MELEE PHYSIQUE` + `ARME` + PDC `reborn:etiquettes` de l'arme ; projectile ; environnement, feu = `KATON`), contournement × faiblesse, conditions (chakra, menottes, déshydraté), mot discret à l'attaquant (« Traverse », « Défendu »), journal `DEFENSE` une fois par combat ; `CharacterDamageEvent#contexte()` | Core `etat/PorteDegats`, `etat/Defense`, `stats/CastAttributionImpl.attribution`, `technique/AbilityRegistry.etiquettes`, `KoListener` |
+| **7** Modificateurs | Effets des techniques sur un **joueur** = types nommés du registre (`jutsu_revele`, `_aveugle`, `_nausee`, `_poison`, `_affaibli`, `_faiblesse`, `_fatigue`, `_gel`, `_racine_bois`, `_racine_sceau`, `_vitesse`) dont l'applicateur pose les potions courtes rafraîchies (retirées par leur source) ou la vitesse ; rien sur un joueur non ciblable ; mobs : potions ; épuisement de chakra (`epuisement_1..4`), défaite à l'entraînement (`defaite`, `defaite_cecite`) ; registre : clés `etat-ligne`, `potions`, `defense`, `immunise`, types lus aussi dans `etats.yml` ; immunités et `ModificateurPoseEvent` à la pose | Abilities `JutsuEffectRegistry.afflict` ; Core `ExhaustionManager`, `TrainingZones`, `modificateur/*`, `etats.yml` |
+| **8** Nouveaux états | **Prison** : cadre `PRISON` (peine par personnage, temps réel, `prison.yml`), zones `/zonerp creer prison <id>`, évasion = journal + alerte « Évasion » au Poste de garde, `/hopital` → zone de la prison, mode staff refusé ; **menottes** (`menottes`, `etat-ligne: mod.menottes` : ni technique, ni mobilité, ni arme, défenses de chakra coupées) ; **entrave / contrôle** par l'API (lien, durée, `ROMPRE_LIEN` accordée) et `/etats poser` ; **hydratation** (défense `INTANGIBLE` contre `PHYSIQUE`, contournée par `RAITON` ×1,5, `ANTI_CHAKRA`, `SENJUTSU`) et `deshydrate` | Core `etat/Prison`, `EtatServiceImpl`, `TrainingZone`, `ZoneRpCommand`, `KoManager.hospitalize`, `StaffPanel.onEvasion`, `etats.yml` |
+| **9** Nettoyage | Code mort retiré : FearRP (`AtaManager.fearOf` réduit, branche de la peur supprimée), `ExhaustionManager.isExhausted`, `VolService.isStealing`, `util/MovementCompat` ; Radio ne lit plus `Verrous` ; javadoc de `KoService`, `StunService`, `InventoryService.lockReason` renvoyant à `EtatService` | Core, Abilities, Radio |
+
+**Choix faits (décision non tranchée → option du document, sinon la plus prudente)** :
+
+- **Douleur : pas de garde** (matrice §4.6, `Gar ❌ ¹`, « à trancher ») ; **garde : ni ramassage ni menu R** (matrice).
+- **Note ⁹ d'`EN_COMBAT`** (ni fouille, ni soin tenu, ni séance, ni vol en combat) **non branchée** : elle bloquerait la
+  fouille juste après un KO — à trancher par l'utilisateur ; la ligne est prête dans `etats.yml`.
+- **Allure** : reste **non neutre** quand le trot est refusé (rendre l'allure neutre en ATA accélérerait la marche ×0,75
+  → ×1) ; seul `SPRINTER` est lu par le serveur, le mod coupe le trot (`tro`).
+- **Duel** : le cadre `DUEL` et l'entraînement restent lus chez `DuelService` / `TrainingZones` (pas d'annonce de veto) ;
+  sélection et cinématique aussi.
+- **Vital** : la chaîne KO reste le **détenteur unique** (le service annonce et lit) ; `KoState` reste rangé par compte
+  avec son `characterId` (changer de personnage pendant un KO est refusé, l'effet est le même).
+- **Vanish seul** (sans mode staff) : non ciblable et sans duel, mais peut encore frapper (le mode staff couvre le cas).
+- **Cécité des yeux** : ne bloque ni le mode photo ni F1 (permanente, ce serait priver un borgne du mode photo).
+- **Visibilité, vol, gamemode, pose** : restent chez leurs systèmes (§7.5, pas d'applicateur unique pour ceux-là).
+- **Garde, ATA ½, résistance du bijū** restent chez eux (même résultat : multiplications qui commutent, ordre déjà
+  correct depuis l'étape 0) ; la porte des dégâts ne fait que les immunités, le droit de frapper et les défenses de
+  modificateurs.
+- **Effets de techniques** invisibles au HUD (`visible: AUCUN`) : HUD inchangé (règle « HUD subtil »).
+
+**Reste (et pourquoi)** : ShinobiSense (Kai, genjutsu, Byakugan, dōjutsu, chakra masqué) **hors périmètre** de ce lot
+— le Kai retire encore par type, le Byakugan révèle encore les staffs invisibles, ses potions et celles du genjutsu
+ne passent pas par le registre ; recharges de techniques et endurance encore **par compte** (§2.4 n° 18) ;
+dette de chakra, scène de mort et RPK en attente non persistés au redémarrage ; `LibraryService` / `SeanceService` /
+`VolService` castent encore `ShinobiCore` (il manque une API du journal staff) et `SealingLink` importe ShinobiTail
+(n° 20) ; `KoState.blindUntil` gardé (persisté) ; anciens canaux toujours émis (un mod ancien peut encore se
+connecter) — à retirer quand tous les clients auront la version qui lit `reborn:etat` ; `@Deprecated` posé quand plus
+personne n'appellera `isImpaired`, `techniqueDenial`, `lockReason`.
+
+#### Point d'accroche des actions longues (serrures et coffres, crochetage, casse de porte)
+
+Rien à ajouter au service : une action longue est une **occupation**
+(`EtatService#occuper(joueur, "crocheter", cible, 0.45, {FRAPPE, BOUGE, KO, DOULEUR, CONTROLE}, raison -> …)`) —
+pendant qu'elle dure, la ligne `mod.occupe` refuse technique, coup, garde, course, saut, ramassage, interaction et
+changement de personnage ; le service l'**interrompt** (rappel unique avec la raison : « Tu as été frappé. », « Tu as
+bougé. », « Tu es tombé. ») sur un coup reçu, un mouvement au-delà de la tolérance, une chute du vital, une perte de
+contrôle (étourdi, entravé, porté), un changement de cadre, la déconnexion ou le changement de personnage ;
+`terminer()` à la réussite. Les **refus au départ** se lisent dans l'état : `verifier(INTERAGIR)` /
+`verifier(UTILISER_OBJET)`, `etat.vital() == VALIDE`, `etat.controle() == LIBRE`, `etat.a("en_combat")`,
+`etat.a("menottes")`, `etat.cadre()` (`STAFF`, `CONSTRUCTION`, `HORS_JEU`) — exactement le tableau de
+[`../gameplay/SERRURES_ET_COFFRES.md`](../gameplay/SERRURES_ET_COFFRES.md) §7 ; « forcer » ajoute `verifier(FRAPPER_ARME)`
+et n'exige pas l'absence de combat. Gabarit déjà en place : la fouille d'un corps (`monnaie/FouilleService`).
 
 ### Étape 1 — Le service en lecture seule
 

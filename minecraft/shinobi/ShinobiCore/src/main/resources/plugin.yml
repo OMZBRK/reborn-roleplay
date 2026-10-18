@@ -46,6 +46,11 @@ commands:
     usage: /<command>
     aliases: ["état", "état_perso"]
     permission: shinobicore.use
+  etats:
+    description: "Staff — états du joueur (ETATS_JOUEUR) : lire, poser, lever, prison, recharger etats.yml."
+    usage: "/<command> <joueur> | poser <joueur> <id> [s] [n] | lever <joueur> <id|controle|prison|occupe> | prison <joueur> <minutes> [zone] [motif] | recharger"
+    aliases: ["états"]
+    permission: shinobicore.staff
   osculter:
     description: Ausculte la personne en face de toi pour voir son état.
     usage: /<command>
@@ -144,7 +149,7 @@ commands:
     permission: shinobicore.meteo
   zonerp:
     description: Zones RP — terrains d'entraînement (sans séquelles) et zones de repos (outil staff).
-    usage: /<command> <pos1|pos2|creer <entrainement|repos> <id>|suppr <id>|liste|ici>
+    usage: /<command> <pos1|pos2|creer <entrainement|repos|prison> <id>|suppr <id>|liste|ici>
     aliases: [entrainement, zonesrp]
     permission: shinobicore.zonerp
   hopital:

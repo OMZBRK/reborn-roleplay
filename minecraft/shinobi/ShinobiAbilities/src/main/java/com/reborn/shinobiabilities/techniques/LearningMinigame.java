@@ -407,4 +407,20 @@ public final class LearningMinigame implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         abort(event.getPlayer());
     }
+
+    /** KO : la séance s'arrête (ETATS_JOUEUR §2.2 f — elle continuait, et une séance « suivi » bloquait sans fin). */
+    @EventHandler
+    public void onKo(com.reborn.shinobicore.event.KoEnterEvent event) {
+        if (isActive(event.player())) {
+            abort(event.player());
+            event.player().sendActionBar(Component.text("Entraînement interrompu.", NamedTextColor.GRAY));
+        }
+    }
+
+    /** Changement de personnage : la séance ne passe pas à l'autre personnage. */
+    @EventHandler
+    public void onSwitch(com.reborn.shinobicore.api.event.CharacterSwitchEvent event) {
+        if (event.previous() != null && event.previous().id().equals(event.next().id())) return;
+        abort(event.player());
+    }
 }

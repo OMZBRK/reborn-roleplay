@@ -227,8 +227,14 @@ final class Radio {
         boolean koB = ko != null && ko.isKo(id);
         boolean aTerre = koB && ko.isDowned(id);
         boolean horsJeu = ko != null && ko.isOutOfPlay(id);
-        return new Vu(p, c, item, info, canalE, escouades.dePerso(c.id()), aTerre, koB && !aTerre, Verrous.mort(id),
-                horsJeu, Verrous.porte(id));
+        // Étape 9 d'ETATS_JOUEUR : par l'API des états (plus de lecture des classes internes de ShinobiCore) ; repli.
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        var e = etats != null ? etats.etat(id) : null;
+        boolean mort = e != null ? e.vital() == com.reborn.shinobicore.api.etat.Vital.MORT : Verrous.mort(id);
+        boolean porte = e != null ? e.controle() == com.reborn.shinobicore.api.etat.Controle.PORTE
+                && e.lien() != null && "PORTE".equals(e.lien().type()) : Verrous.porte(id);   // porté, pas tenu à la gorge
+        return new Vu(p, c, item, info, canalE, escouades.dePerso(c.id()), aTerre, koB && !aTerre, mort,
+                horsJeu, porte);
     }
 
     private boolean entend(Vu v) {

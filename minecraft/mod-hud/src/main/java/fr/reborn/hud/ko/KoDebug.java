@@ -224,7 +224,25 @@ public final class KoDebug {
                 c.sendCommand("kill @e[tag=ko_test]");
             }
             case 60 -> c.sendCommand("summon mannequin ^1 ^ ^4 {NoGravity:1b,Rotation:[120f,0f],Tags:[\"ko_test\"]}");
-            case 100 -> { KoClient.event(KoClient.EV_A_TERRE); KoClient.update(ko(1, 0, 38, 45, false)); }
+            case 100 -> {
+                KoClient.event(KoClient.EV_A_TERRE);
+                KoClient.update(ko(1, 0, 38, 45, false));
+                // États du serveur (reborn:etat, 17/10) : à terre — ramper, chuchoter, ni coup, ni saut, ni menu R.
+                fr.reborn.hud.etat.EtatClient.recevoir("{\"v\":1,\"seq\":1,\"p\":\"A_TERRE\",\"c\":{\"vital\":\"A_TERRE\","
+                        + "\"ctrl\":\"LIBRE\",\"cadre\":\"MONDE\"},\"cap\":{\"bou\":1,\"tro\":0,\"spr\":0,\"sau\":0,\"mob\":0,"
+                        + "\"fra\":0,\"gar\":0,\"tec\":0,\"ram\":0,\"int\":0,\"exe\":0,\"par\":1,\"voc\":1,\"sac\":\"L\"},"
+                        + "\"vit\":0.7,\"saut\":0,\"mods\":[],\"raison\":{\"int\":\"Tu es à terre.\"}}");
+            }
+            case 105 -> {
+                var im = fr.reborn.hud.interaction.InteractionMode.INSTANCE;
+                im.toggle();
+                System.out.println("[etat-banc] à terre : menu R ouvert=" + im.isActive()
+                        + " · saut refusé=" + fr.reborn.hud.etat.EtatClient.refuse("sau")
+                        + " · ramper=" + fr.reborn.hud.etat.EtatClient.niveau("bou")
+                        + " · voile imposé=" + fr.reborn.hud.etat.EtatClient.voileBloqueImmersion()
+                        + " · F1 masque le HUD=" + fr.reborn.hud.immersion.CinemaBars.INSTANCE.hidesHud());
+                if (im.isActive()) im.deactivate();
+            }
             case 112 -> shot(mc);                                   // carte « À terre »
             case 190 -> shot(mc);                                   // à terre : plaque + vignette
             case 200 -> { KoClient.event(KoClient.EV_KO); KoClient.update(ko(2, 0, 170, 300, true)); }
@@ -239,7 +257,16 @@ public final class KoDebug {
             case 560 -> shot(mc);                                   // repos en cours
             case 570 -> { KoClient.event(KoClient.EV_RETABLI); KoClient.update(ata(0, 0f, 0, 0, false, true)); }
             case 582 -> shot(mc);                                   // carte « Rétabli » + peur résiduelle
-            case 640 -> { KoClient.event(KoClient.EV_DEFAITE); KoClient.update(null); }
+            case 640 -> {
+                KoClient.event(KoClient.EV_DEFAITE);
+                KoClient.update(null);
+                fr.reborn.hud.etat.EtatClient.clear();
+                var im = fr.reborn.hud.interaction.InteractionMode.INSTANCE;
+                im.toggle();
+                System.out.println("[etat-banc] libre : menu R ouvert=" + im.isActive()
+                        + " · saut refusé=" + fr.reborn.hud.etat.EtatClient.refuse("sau"));
+                if (im.isActive()) im.deactivate();
+            }
             case 652 -> shot(mc);                                   // carte « Défaite »
             case 700 -> c.sendCommand("kill @e[tag=ko_test]");
             case 720 -> mc.stop();

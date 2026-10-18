@@ -116,6 +116,18 @@ public final class CorpsService implements Listener, TabExecutor {
     /** Corps tenu debout (gorge, exécution) : le KO ne lui remet pas sa pose couchée. */
     public boolean isHeld(UUID victim) { return held.containsKey(victim); }
 
+    /** Celui qui tient cette victime (gorge ou exécution), ou null. */
+    public UUID holderOf(UUID victim) { return victim == null ? null : held.get(victim); }
+
+    /** Exécute quelqu'un en ce moment (touche F maintenue). */
+    public boolean isExecuting(UUID killer) { return killer != null && running.containsKey(killer); }
+
+    /** Tient quelqu'un à la gorge (hors exécution). */
+    public boolean holdsThroat(UUID holder) {
+        if (holder == null || running.containsKey(holder)) return false;
+        return held.containsValue(holder);
+    }
+
     /** Tient quelqu'un (gorge) ou exécute en ce moment. */
     public boolean isHolding(UUID holder) {
         return holder != null && (running.containsKey(holder) || held.containsValue(holder));
@@ -301,7 +313,15 @@ public final class CorpsService implements Listener, TabExecutor {
         }
         if (args.length < 2) return true;
         // Monnaie (15/10) : un corps laissé au sol (mannequin) se fouille même si le joueur est parti.
-        if (act.equals("fouiller") && args[1].startsWith("corps:") && plugin.monnaie() != null) {
+        if (act.equals("fouiller") && args[1].startsWith("corps:")) {
+            if (fouilleImpossible(p)) return true;
+            if (com.reborn.shinobicore.etat.Verrous.gele(p.getUniqueId())
+                    || com.reborn.shinobicore.etat.Verrous.cinematique(p.getUniqueId())) {
+                p.sendActionBar(Component.text("Tu ne peux pas maintenant.", NamedTextColor.GRAY));
+                return true;
+            }
+            String r = com.reborn.shinobicore.etat.Verrous.refus(p.getUniqueId(), com.reborn.shinobicore.api.etat.Capacite.FOUILLER);
+            if (r != null) { p.sendActionBar(Component.text(r, NamedTextColor.GRAY)); return true; }
             plugin.monnaie().fouille().commencerCorps(p, args[1].substring("corps:".length()));
             return true;
         }
@@ -345,6 +365,26 @@ public final class CorpsService implements Listener, TabExecutor {
             return true;
         }
         if (running.containsKey(p.getUniqueId())) return true;
+        // Étape 2 d'ETATS_JOUEUR : la matrice tranche aussi (menotté, entravé, occupé, prison… ; cible en duel, tenue
+        // par l'exécution d'un autre — un seul détenteur de la couche Contrôle, §5.2 règle 3).
+        com.reborn.shinobicore.api.etat.Capacite capActeur = switch (act) {
+            case "porter", "gorge" -> com.reborn.shinobicore.api.etat.Capacite.PORTER;
+            case "executer", "achever" -> com.reborn.shinobicore.api.etat.Capacite.EXECUTER;
+            case "fouiller" -> com.reborn.shinobicore.api.etat.Capacite.FOUILLER;
+            default -> null;
+        };
+        com.reborn.shinobicore.api.etat.Capacite capCible = switch (act) {
+            case "porter", "gorge" -> com.reborn.shinobicore.api.etat.Capacite.ETRE_PORTE;
+            case "executer", "achever" -> com.reborn.shinobicore.api.etat.Capacite.ETRE_EXECUTE;
+            case "fouiller" -> com.reborn.shinobicore.api.etat.Capacite.ETRE_FOUILLE;
+            default -> null;
+        };
+        if (capActeur != null) {
+            String r = com.reborn.shinobicore.etat.Verrous.refus(p.getUniqueId(), capActeur);
+            if (r != null) { p.sendActionBar(Component.text(r, NamedTextColor.GRAY)); return true; }
+            r = com.reborn.shinobicore.etat.Verrous.refusSur(p.getUniqueId(), t.getUniqueId(), capCible);
+            if (r != null) { p.sendActionBar(Component.text("Impossible : " + r + ".", NamedTextColor.GRAY)); return true; }
+        }
         String tName = name(t);
         switch (act) {
             case "porter" -> {
@@ -358,13 +398,9 @@ public final class CorpsService implements Listener, TabExecutor {
             case "gorge" -> grab(p, t, tName);
             case "fouiller" -> {
                 // Monnaie (15/10) : 3 s immobile, puis la sacoche du corps (barre, sac, bourse) en mode fouille.
-                if (plugin.monnaie() != null && plugin.monnaie().canal().modde(p)) {
-                    plugin.monnaie().fouille().commencer(p, t);
-                    KoJournal.log(plugin, p, "Fouille", KoJournal.who(plugin, t));
-                    return true;
-                }
-                if (plugin.coreGui() != null) plugin.coreGui().openFouiller(p, t.getUniqueId());
-                AutoMe.broadcast(plugin, p, "fouille les affaires de " + tName + ".");
+                // 18/10 : toujours la sacoche RP — plus de repli sur l'ancien coffre vanilla (FouillerScreen).
+                if (fouilleImpossible(p)) return true;
+                plugin.monnaie().fouille().commencer(p, t);
                 KoJournal.log(plugin, p, "Fouille", KoJournal.who(plugin, t));
             }
             case "rpk" -> plugin.killRequests().request(p, t);
@@ -373,6 +409,23 @@ public final class CorpsService implements Listener, TabExecutor {
             default -> { }
         }
         return true;
+    }
+
+    /**
+     * La fouille se fait dans la sacoche RP du corps (écran du mod, canal {@code reborn:monnaie}) et nulle part
+     * ailleurs (18/10) : sans le module monnaie ou sans le canal, on refuse avec un message plutôt que d'ouvrir un
+     * coffre vanilla — même règle que l'ancien menu KO au clic droit, retiré au profit du menu R.
+     */
+    private boolean fouilleImpossible(Player p) {
+        if (plugin.monnaie() == null) {
+            p.sendActionBar(Component.text("La fouille n'est pas disponible ici.", NamedTextColor.GRAY));
+            return true;
+        }
+        if (!plugin.monnaie().canal().modde(p)) {
+            p.sendActionBar(Component.text("La fouille demande le mod Reborn à jour.", NamedTextColor.GRAY));
+            return true;
+        }
+        return false;
     }
 
     private void grab(Player p, Player t, String tName) {
@@ -386,7 +439,9 @@ public final class CorpsService implements Listener, TabExecutor {
         if (st != null) st.setCarrierPlayerId(p.getUniqueId());
         held.put(t.getUniqueId(), p.getUniqueId());
         heldSince.put(t.getUniqueId(), System.currentTimeMillis());
-        com.reborn.shinobicore.util.Effets.lenteur(p, LENTEUR_GORGE, 3);   // comme une lenteur III, sans potion infinie
+        // comme une lenteur III, sans potion infinie — étape 5 : ligne mod.tient.GORGE de l'applicateur unique
+        if (!com.reborn.shinobicore.etat.Applicateur.actif()) com.reborn.shinobicore.util.Effets.lenteur(p, LENTEUR_GORGE, 3);
+        else com.reborn.shinobicore.etat.Applicateur.reappliquer(plugin, p);
         play(p, "attraper_gorge");
         AutoMe.broadcast(plugin, p, "attrape " + tName + " à la gorge.");
         KoJournal.log(plugin, p, "Prise à la gorge", KoJournal.who(plugin, t));
@@ -433,7 +488,9 @@ public final class CorpsService implements Listener, TabExecutor {
         held.put(t.getUniqueId(), p.getUniqueId());
         heldSince.put(t.getUniqueId(), System.currentTimeMillis());
         running.put(p.getUniqueId(), new Run(t.getUniqueId(), d, at, ticks, lethal));
-        com.reborn.shinobicore.util.Effets.lenteur(p, LENTEUR_EXECUTION, 7);   // figé le temps de l'exécution
+        // figé le temps de l'exécution — étape 5 : ligne mod.tient.EXECUTION de l'applicateur unique
+        if (!com.reborn.shinobicore.etat.Applicateur.actif()) com.reborn.shinobicore.util.Effets.lenteur(p, LENTEUR_EXECUTION, 7);
+        else com.reborn.shinobicore.etat.Applicateur.reappliquer(plugin, p);
         play(p, d.killerEmote());
         play(t, d.victimEmote());
         AutoMe.broadcast(plugin, p, (lethal ? (d.id().equals(SOBRE) ? "achève " : "exécute ")

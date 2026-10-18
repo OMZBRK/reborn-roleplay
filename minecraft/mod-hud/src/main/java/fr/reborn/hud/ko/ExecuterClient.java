@@ -83,6 +83,7 @@ public final class ExecuterClient {
         if (mc.player == null || mc.level == null || mc.gui.screen() != null) return null;
         KoPayload s = KoClient.state();
         if (s != null && s.phase() > 0 || CorpsClient.douleur() || CorpsClient.porte()) return null;
+        if (fr.reborn.hud.etat.EtatClient.refuse("exe")) return null;   // état du serveur : EXECUTER refusé
         if (fr.reborn.hud.sol.RamasserClient.cible() != null) return null;          // l'objet visé passe avant
         if (fr.reborn.hud.interaction.InteractionMode.INSTANCE.isActive()) return null;
         Entity e = mc.crosshairPickEntity;

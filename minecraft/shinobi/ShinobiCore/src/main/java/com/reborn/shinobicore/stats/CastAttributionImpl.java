@@ -193,6 +193,18 @@ public final class CastAttributionImpl implements CastAttribution, Listener {
         scaled.put(e, Boolean.TRUE);
     }
 
+    /** La technique d'où vient un coup (fenêtre d'attribution ouverte), ou null — sert à la porte des dégâts (§6). */
+    public record Attribution(Player lanceur, String technique, ChakraAffinity nature) {}
+
+    public Attribution attribution(EntityDamageByEntityEvent e) {
+        if (e == null || isGenuineMelee(e)) return null;
+        Player caster = resolveCaster(e.getDamager());
+        if (caster == null) return null;
+        Window w = live(caster.getUniqueId());
+        if (w == null || w.kind() != Kind.TECHNIQUE) return null;
+        return new Attribution(caster, w.techniqueId(), w.nature());
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         windows.remove(e.getPlayer().getUniqueId());

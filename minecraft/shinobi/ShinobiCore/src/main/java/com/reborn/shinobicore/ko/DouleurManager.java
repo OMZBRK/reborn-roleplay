@@ -95,6 +95,9 @@ public final class DouleurManager implements Listener {
 
     public boolean isInPain(UUID playerId) { return playerId != null && inPain.contains(playerId); }
 
+    /** Multiplicateur de démarche en douleur ({@code ko.douleur.vitesse}, ×0,6), lu par la matrice des états. */
+    public double vitesse() { return speed; }
+
     /** Fraction des PV max sous laquelle on entre en douleur. */
     public double threshold() { return threshold; }
 
@@ -169,6 +172,13 @@ public final class DouleurManager implements Listener {
     }
 
     private void apply(Player p) {
+        // Étape 5 d'ETATS_JOUEUR : l'applicateur des états pose la démarche (×0,6) et tient la faim (une seule règle).
+        if (com.reborn.shinobicore.etat.Applicateur.actif()) {
+            AttributeInstance ms0 = p.getAttribute(Attribute.MOVEMENT_SPEED);
+            if (ms0 != null) ms0.removeModifier(slowKey);
+            if (p.isSprinting()) p.setSprinting(false);
+            return;
+        }
         AttributeInstance ms = p.getAttribute(Attribute.MOVEMENT_SPEED);
         if (ms != null && ms.getModifier(slowKey) == null) {
             ms.addTransientModifier(new AttributeModifier(slowKey, speed - 1.0,
@@ -185,7 +195,8 @@ public final class DouleurManager implements Listener {
     private void clearEffects(Player p) {
         AttributeInstance ms = p.getAttribute(Attribute.MOVEMENT_SPEED);
         if (ms != null) ms.removeModifier(slowKey);
-        if (starved.remove(p.getUniqueId()) && (plugin.ata() == null || !plugin.ata().isImpaired(p.getUniqueId()))) {
+        if (starved.remove(p.getUniqueId()) && !com.reborn.shinobicore.etat.Applicateur.actif()
+                && (plugin.ata() == null || !plugin.ata().isImpaired(p.getUniqueId()))) {
             p.setFoodLevel(20);
             p.setSaturation(20f);
         }

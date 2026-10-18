@@ -132,6 +132,14 @@ public final class ModeStaff implements Listener {
                     NamedTextColor.RED));
             return false;
         }
+        // Étape 4 d'ETATS_JOUEUR : le passage au cadre STAFF s'annonce au service (veto possible).
+        var etats = plugin.etats();
+        if (etats != null && etats.transition(p, com.reborn.shinobicore.api.etat.Couche.CADRE, "STAFF",
+                com.reborn.shinobicore.api.etat.Source.staff(p.getName(), p.getUniqueId()), null)
+                == com.reborn.shinobicore.api.etat.Resultat.VETO) {
+            p.sendMessage(Component.text("Mode staff refusé pour l'instant.", NamedTextColor.RED));
+            return false;
+        }
         entrer(p);
         return true;
     }
@@ -143,7 +151,8 @@ public final class ModeStaff implements Listener {
         if (plugin.deathScene() != null && plugin.deathScene().isDead(id)) return "ton personnage est mort (scène en cours).";
         if (plugin.porter() != null && plugin.porter().carrierOf(id) != null) return "on te porte.";
         if (plugin.corps() != null && plugin.corps().isHeld(id)) return "on te tient.";
-        return null;
+        // Étape 2 d'ETATS_JOUEUR : la matrice (MODE_STAFF) — et la prison (décision du 14/10 n° 6).
+        return com.reborn.shinobicore.etat.Verrous.refus(id, com.reborn.shinobicore.api.etat.Capacite.MODE_STAFF);
     }
 
     private void entrer(Player p) {
@@ -161,7 +170,7 @@ public final class ModeStaff implements Listener {
         if (p.getVehicle() != null) p.leaveVehicle();
         p.setAllowFlight(true);
         p.setFlying(true);
-        p.setInvulnerable(true);
+        if (!com.reborn.shinobicore.etat.Applicateur.actif()) p.setInvulnerable(true);   // sinon : mode staff = non ciblable (porte des dégâts)
         p.setCollidable(false);
         p.sendActionBar(Component.text("Mode staff : invisible, aucune mécanique RP.", NamedTextColor.GOLD));
         Journal.entree(Categorie.STAFF, "MODE_STAFF").acteur(p).detail("entrée").lieu(p.getLocation()).ecrire();
@@ -234,17 +243,8 @@ public final class ModeStaff implements Listener {
 
     /** État court (KO, ATA, duel, gelé, écran noir, animation) — sert aussi au Poste de garde. */
     public String etat(Player p, ShinobiCharacter c) {
-        List<String> parts = new ArrayList<>();
-        KoState ko = plugin.ko() != null ? plugin.ko().getKo(p.getUniqueId()) : null;
-        if (ko != null) parts.add(ko.isDowned() ? "À terre" : "Inconscient");
-        if (c != null && plugin.ata() != null && plugin.ata().view(c.id()) != null) parts.add("ATA");
-        if (plugin.duels() != null && plugin.duels().inDuel(p.getUniqueId())) parts.add("Duel");
-        OutilsStaff o = plugin.outilsStaff();
-        if (o != null && o.gels().gele(p.getUniqueId())) parts.add("Gelé");
-        if (o != null && o.effets().enNoir(p.getUniqueId())) parts.add("Écran noir");
-        if (o != null && o.animation().actif(p.getUniqueId())) parts.add("Animation");
-        if (c == null) parts.add("Sans personnage");
-        return String.join(" · ", parts);
+        // Un seul constructeur avec la fiche du Poste de garde (ETATS_JOUEUR §2.4 n° 13).
+        return com.reborn.shinobicore.etat.EtatTexte.resume(plugin, p.getUniqueId(), c, false);
     }
 
     /* ================================================================ aucune mécanique RP */

@@ -100,6 +100,9 @@ public final class PalmHealing implements Listener {
         if (rankOf(medic) == 0) return "Tu ne maîtrises pas le chakra médical.";
         if (medic.equals(patient)) return "La paume de soin ne se pratique pas sur soi.";
         if (plugin.ko().isKo(medic.getUniqueId())) return "Tu es toi-même hors d'état.";
+        // États (étape 2) : un médic gelé, porté, étourdi, entravé, menotté, en mode staff ne soigne pas.
+        String etat = com.reborn.shinobicore.etat.Verrous.refus(medic.getUniqueId(), com.reborn.shinobicore.api.etat.Capacite.SOIGNER);
+        if (etat != null) return etat;
         if (byMedic.containsKey(medic.getUniqueId())) return "Tu soignes déjà quelqu'un (/paume stop).";
         if (byPatient.containsKey(patient.getUniqueId())) return "Quelqu'un soigne déjà cette personne.";
         double range = cfg("portee", 4.0);

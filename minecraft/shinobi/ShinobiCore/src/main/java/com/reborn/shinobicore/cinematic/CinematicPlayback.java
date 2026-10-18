@@ -80,7 +80,7 @@ public final class CinematicPlayback {
         // Enter cinematic state: immobilise + invulnerable + invisible (so the
         // player can't even see their own body); close any GUI.
         p.closeInventory();
-        p.setInvulnerable(true);
+        if (!com.reborn.shinobicore.etat.Applicateur.actif()) p.setInvulnerable(true);   // sinon : cinématique = hors jeu, non ciblable
         p.setInvisible(true);
         p.setWalkSpeed(0f);
         p.setFlySpeed(0f);

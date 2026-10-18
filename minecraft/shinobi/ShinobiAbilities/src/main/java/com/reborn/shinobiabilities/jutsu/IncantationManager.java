@@ -73,6 +73,14 @@ public final class IncantationManager {
         final int[] step = {0};
         BukkitTask task = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             if (!p.isOnline()) { cancelById(id); return; }
+            // Étape 2 d'ETATS_JOUEUR : un étourdi, une garde, la douleur, un portage, une entrave
+            // (technique à mudras) interrompent l'incantation.
+            var etats = com.reborn.shinobicore.api.EtatService.get();
+            if (etats != null && !etats.verifier(id, com.reborn.shinobicore.api.etat.Capacite.TECHNIQUE,
+                    ability.mudraCount() > 0).ok()) {
+                cancelById(id);
+                return;
+            }
             int i = step[0];
 
             float pitch = steps == 1 ? 1.2f : 1.0f + 0.4f * i / (float) (steps - 1);

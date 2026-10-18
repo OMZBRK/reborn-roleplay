@@ -10,6 +10,24 @@
 
 ---
 
+## 0. Statut de recette au 17/10 (`reborn-hud` 0.4.188)
+
+Les systèmes publiés après cette liste ont leur propre recette dans leur fiche ; état des retours de l'utilisateur :
+
+| Système | Recette | Fiche |
+|---|---|---|
+| Radio en escouades | ✅ validée en jeu le 17/10 | [`../gameplay/RADIO.md`](../gameplay/RADIO.md) |
+| Boutiques en jeu (tailleur, bazar) | ✅ validées en jeu le 17/10 | [`../gameplay/BOUTIQUES.md`](../gameplay/BOUTIQUES.md) |
+| Factions et sections (volet J) | ✅ validées en jeu le 17/10 | [`../gameplay/FACTION.md`](../gameplay/FACTION.md) |
+| Cloche du village | ✅ validée en jeu le 17/10 | [`../gameplay/CLOCHE_ET_MISSIVES.md`](../gameplay/CLOCHE_ET_MISSIVES.md) |
+| Volière et missives | ✅ validées en jeu le 17/10 | même fiche |
+| Marche sur l'eau | ✅ validée en jeu le 17/10 | [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §10 |
+| Test de la Feuille (v3) | ✅ validé en jeu le 17/10 (§3 ci-dessous) | [`../gameplay/STATS_ET_PROGRESSION.md`](../gameplay/STATS_ET_PROGRESSION.md) |
+| Monnaie : bourse | ✅ validée en jeu le 17/10 | [`../gameplay/MONNAIE_ET_BANQUE.md`](../gameplay/MONNAIE_ET_BANQUE.md) |
+| Monnaie : **banque** | ⏳ **pas encore testée** (guichet, coffre à paliers, virement, échange garanti) | même fiche §20 |
+
+---
+
 ## 1. Launcher
 
 - [ ] 1.1 Se déconnecter du launcher → écran « Bienvenue sur Reborn », fond flou de Konoha (réel, pas pixel art).

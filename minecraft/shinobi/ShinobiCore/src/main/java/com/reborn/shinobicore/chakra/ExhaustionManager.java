@@ -50,11 +50,6 @@ public final class ExhaustionManager {
         deficitSeconds.clear();
     }
 
-    /** True while this player's active character is in chakra deficit. */
-    public boolean isExhausted(UUID playerId) {
-        return deficitSeconds.containsKey(playerId);
-    }
-
     private void tick() {
         if (!plugin.getConfig().getBoolean("chakra.overdraw.enabled", true)) return;
         if (Tps.shouldDefer()) return;
@@ -124,6 +119,11 @@ public final class ExhaustionManager {
      * tracking them.
      */
     private void applyLadder(Player p, double ratio) {
+        // Étape 7 d'ETATS_JOUEUR : un modificateur nommé (epuisement_1..4, etats.yml) dont l'applicateur pose les
+        // effets — retirés par leur source, jamais par type. Repli : les potions d'avant.
+        var etats = plugin.etats();
+        String palier = ratio >= 0.85 ? "epuisement_4" : ratio >= 0.66 ? "epuisement_3" : ratio >= 0.33 ? "epuisement_2" : "epuisement_1";
+        if (etats != null && etats.affliger(p, palier, 2000L, "dette de chakra")) return;
         int dur = 40; // 2 s, refreshed every 1 s tick
         int amp = ratio >= 0.66 ? 2 : ratio >= 0.33 ? 1 : 0;
         addEffect(p, PotionEffectType.SLOWNESS, dur, amp);

@@ -65,6 +65,8 @@ public final class RamasserClient {
         if (mc.player == null || mc.level == null || mc.gameMode == null) return false;
         // Survie, aventure et créatif (15/10 : le staff et le build sont souvent en créatif) ; pas le spectateur.
         if (mc.gameMode.getPlayerMode() == GameType.SPECTATOR) return false;
+        // État du serveur (reborn:etat) : RAMASSER refusé (à terre, étourdi, porté, garde…) — pas d'invite.
+        if (fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("ram")) return false;
         return NotifClient.ramassageServeur() && (NotifClient.debugActif || ClientPlayNetworking.canSend(InventoryPayload.ID));
     }
 

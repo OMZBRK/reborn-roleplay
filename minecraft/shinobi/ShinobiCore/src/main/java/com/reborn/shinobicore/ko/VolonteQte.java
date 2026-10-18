@@ -58,6 +58,36 @@ public final class VolonteQte implements PluginMessageListener {
         var m = Bukkit.getMessenger();
         if (!m.isOutgoingChannelRegistered(plugin, CHANNEL)) m.registerOutgoingPluginChannel(plugin, CHANNEL);
         m.registerIncomingPluginChannel(plugin, CHANNEL, this);
+        charger();
+    }
+
+    /* ---------------------------------------------------------------- persistance (ETATS_JOUEUR §2.4 n° 16) */
+
+    /** Relèves et second souffle survivent au redémarrage (ils étaient perdus) : {@code volonte.yml}, par personnage. */
+    private java.io.File fichier() { return new java.io.File(plugin.getDataFolder(), "volonte.yml"); }
+
+    private void charger() {
+        java.io.File f = fichier();
+        if (!f.exists()) return;
+        var y = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(f);
+        var r = y.getConfigurationSection("releves");
+        if (r != null) for (String k : r.getKeys(false)) {
+            try { releves.put(UUID.fromString(k), r.getInt(k)); } catch (IllegalArgumentException ignored) { }
+        }
+        for (String k : y.getStringList("second-souffle")) {
+            try { secondWind.add(UUID.fromString(k)); } catch (IllegalArgumentException ignored) { }
+        }
+    }
+
+    private void sauver() {
+        var y = new org.bukkit.configuration.file.YamlConfiguration();
+        releves.forEach((k, v) -> y.set("releves." + k, v));
+        y.set("second-souffle", secondWind.stream().map(UUID::toString).toList());
+        try {
+            y.save(fichier());
+        } catch (java.io.IOException e) {
+            plugin.getLogger().warning("[volonte] sauvegarde impossible : " + e.getMessage());
+        }
     }
 
     /** Vrai si ce personnage doit tomber directement en KO (relèves épuisées ou second souffle en cours). */
@@ -90,8 +120,9 @@ public final class VolonteQte implements PluginMessageListener {
     /** Soin d'un médic : relèves et second souffle remis à zéro. */
     public void reset(UUID charId) {
         if (charId == null) return;
-        releves.remove(charId);
-        secondWind.remove(charId);
+        boolean ch = releves.remove(charId) != null;
+        ch |= secondWind.remove(charId);
+        if (ch) sauver();
     }
 
     @Override
@@ -179,6 +210,7 @@ public final class VolonteQte implements PluginMessageListener {
         if (cid != null) {
             releves.merge(cid, 1, Integer::sum);
             secondWind.add(cid);
+            sauver();
             // l'obstination se paie : la blessure la plus grave s'aggrave d'un cran
             com.reborn.shinobicore.ko.injury.Injury worst = null;
             for (var inj : c.injuries()) {

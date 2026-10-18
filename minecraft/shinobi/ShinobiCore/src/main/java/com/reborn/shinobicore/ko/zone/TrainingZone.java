@@ -19,7 +19,9 @@ public record TrainingZone(String id, Kind kind, String world,
                            int maxX, int maxY, int maxZ, String village) {
 
     public enum Kind {
-        ENTRAINEMENT, REPOS, HOPITAL;
+        ENTRAINEMENT, REPOS, HOPITAL,
+        /** Prison (ETATS_JOUEUR §4.2, 17/10) : zone d'une peine — en sortir est une évasion signalée au staff. */
+        PRISON;
 
         public String label() { return name().toLowerCase(Locale.ROOT); }
 

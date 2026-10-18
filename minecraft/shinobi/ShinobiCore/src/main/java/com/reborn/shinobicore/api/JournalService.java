@@ -47,6 +47,8 @@ public interface JournalService {
         FACTION("Faction"),
         /** Missives et volières (CLOCHE_ET_MISSIVES.md, 16/10) : envoi, arrivée, prise, lecture, transfert, brûlée. */
         MISSIVE("Missive"),
+        /** États du joueur (ETATS_JOUEUR.md §7.4, 17/10) : transitions de couche, modificateurs posés / retirés. */
+        ETAT("États"),
         SYSTEME("Système");
 
         private final String label;

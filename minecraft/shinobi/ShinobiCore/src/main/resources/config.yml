@@ -317,6 +317,20 @@ meditation:
   # Spawns an invisible marker armor stand so the player visually "sits"
   # on top of the block (not inside it).
   use-armor-stand-seat: true
+  # Halo de méditation (18/10, mod reborn-hud) : disque de lumière au sol + lueurs qui montent,
+  # vu des joueurs proches (canal reborn:meditation).
+  halo:
+    enabled: true
+    portee: 48.0                  # blocs : au-delà, le halo n'est pas envoyé
+    couleur: "#86F59E"            # vert doux de la référence
+    par-nature: false             # true = teinte de la nature de chakra principale (ci-dessous)
+    natures:
+      katon: "#FFA36C"
+      suiton: "#7DB8FF"
+      futon: "#C8F5E0"
+      doton: "#E0BE82"
+      raiton: "#FFF08A"
+    particules-vanilla: false     # anciennes particules « villageois content » (clients sans le mod)
 
 display:
   # Compact visual health bar. 20.0 scale = always exactly 10 hearts rendered,

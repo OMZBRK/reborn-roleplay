@@ -33,6 +33,7 @@ public final class CombatInput {
 
     /** À appeler chaque client tick (piloté par {@code HudKeybinds}). */
     public void tick(Minecraft mc) {
+        CombatAnimations.INSTANCE.tick(mc);   // relâches de garde différées (soi et les autres)
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.gui.screen() != null) {
             setBlocking(false);
@@ -51,7 +52,9 @@ public final class CombatInput {
         // utiliser les objets.
         boolean parryHeld = fr.reborn.hud.keybind.HudKeybinds.PARRY != null
                 && fr.reborn.hud.keybind.HudKeybinds.PARRY.isDown();
-        setBlocking(parryHeld);
+        // État du serveur (reborn:etat) : GARDER refusé (étourdi, douleur, à terre, porté…) — pas de garde locale
+        // qui figerait le joueur alors que le serveur ne garde pas.
+        setBlocking(parryHeld && !fr.reborn.hud.etat.EtatClient.refuse("gar"));
 
         // Onglets HUD (CD icons). « En combat » = ACTIVITÉ de combat (coup porté ou
         // reçu récemment), PAS un toggle. Course de chakra tant que la Naruto Run tourne.

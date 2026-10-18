@@ -62,6 +62,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/rencontrer` | `meet`, `introduce` | tous | `shinobicore.use` | Se présenter à la personne regardée |
 | `/amitier` | `friend`, `amis` | tous | `shinobicore.use` | Demande d'amitié |
 | `/etat` | `état` | tous | `shinobicore.use` | État ressenti de son propre personnage |
+| `/etats` | `états` | staff | `shinobicore.staff` | **États du joueur** (17/10, [`ETATS_JOUEUR.md`](./ETATS_JOUEUR.md) §8) : `<joueur>` (état principal, couches, lien, modificateurs, lignes de la matrice, refus, vitesse) · `poser <joueur> <id> [s] [n]` (type du registre — `menottes`, `hydratation`… — ou `etourdi` / `entrave` / `controle` / `corps_vide`) · `lever <joueur> <id\|controle\|prison\|occupe>` · `prison <joueur> <minutes> [zone] [motif]` · `recharger` (relit `etats.yml`) ; journal `STAFF` |
 | `/osculter` | `ausculter`, `auscult`, `examine` | tous | `shinobicore.osculter` | Ausculter la personne en face |
 | `/soigner` | `heal`, `treat` | tous | `shinobicore.use` | Traiter les blessures (silhouette + recette) |
 | `/paume` | `shosen`, `soin` | médics / patient | `shinobicore.use` | Paume de soin maintenue ; `accepter`, `stop` |
@@ -71,7 +72,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/corps` | — | tous | — | Actions du menu d'interaction du mod sur un corps (KO, mort) ou une personne **en douleur** : `porter` (sans accord en douleur), `gorge`, `fouiller`, `rpk`, `executer <joueur> [id\|sobre]` (douleur → K.O. ; KO + RPK → mort RP ; canalisation), `achever` (= exécuter sans animation), `annuler` (touche F relâchée : renoncer à l'exécution en cours), et `quitter` (fin de la scène de mort) — [`KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md) §6, §8 |
 | `/execution` | — | tous / staff | — | Ses exécutions ; staff `donner`, `retirer`, `liste`, `recharger`, `forcer <joueur>` (K.O. inconscient), `douleur <joueur>` (PV au seuil de douleur), `annuler <joueur>` (arrête une exécution en cours) |
 | `/sckillvote` | — | staff | `shinobicore.staff` | Boutons du tchat RPK : `approve`, `refuse`, `goto <id>` |
-| `/zonerp` | `entrainement`, `zonesrp` | staff | `shinobicore.zonerp` | Zones d'entraînement et de repos : `pos1`, `pos2`, `creer`, `suppr`, `liste`, `ici` |
+| `/zonerp` | `entrainement`, `zonesrp` | staff | `shinobicore.zonerp` | Zones d'entraînement, de repos et de **prison** (17/10) : `pos1`, `pos2`, `creer <entrainement\|repos\|prison> <id>`, `suppr`, `liste`, `ici` |
 | `/duel` | `defi` | tous | `shinobicore.use` | Duel consenti n'importe où, sans séquelles : `proposer <joueur>`, `accepter [joueur]`, `refuser [joueur]`, `abandonner` (menu d'interaction et boutons du mod) — [`KO_ET_MORT_RP.md`](../gameplay/KO_ET_MORT_RP.md) §4.1 |
 | `/pid` | `playerid`, `numero` | staff | `reborn.staff.helper` | **Player ID** : `/pid <joueur\|nom RP\|#N°>` affiche le N°, le nom RP, le compte propriétaire, l'état (vivant, mort RP, supprimé ; KO / ATA si en ligne), en ligne ou non et les autres N° du même compte. Hors ligne avec `#N°` (lu dans l'index). Sans argument : son propre personnage |
 | `/garde` | `postedegarde`, `panelstaff` | staff | `shinobicore.use` | Ouvre le Poste de garde (mod requis, touche F7) |
@@ -285,6 +286,7 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:allure` | ⇄ | `shinobiabilities.mobility.Allure` | `allure/AllurePayload` | Trois allures (14/10, octets bruts). C2S : `2` sprint / `0` arrêt + n° de demande. S2C `0` réglages (actif, marche, trot, sprint) ; S2C `1` état (allure accordée, endurance 0-1, drapeaux neutre / essoufflé, n° de demande) — [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) |
 | `reborn:anim` | ⇄ | `shinobiabilities.mobility.AnimRelayListener` | `animation/AnimSyncPayload` | Synchronisation d'animations |
 | `reborn:eau` | S → C | `shinobiabilities.mobility.MarcheEau` | `eau/EauPayload` | **Marche sur l'eau** (15/10, octets bruts) : `0` réglages (actif, chakra/s immobile, marche, trot, sprint) ; `1` permis (0/1 + raison : 0 aucune, 1 pas appris, 2 chakra, 3 état, 4 hors jeu, 5 surcharge, 6 désactivé). Envoyé seulement aux clients qui écoutent le canal ; les ondes vues des autres ne passent pas par le réseau — [`../gameplay/DEPLACEMENTS.md`](../gameplay/DEPLACEMENTS.md) §10 |
+| `reborn:meditation` | S → C | `character.MeditationManager` | `meditation/MeditationPayload` | **Halo de méditation** (18/10, octets bruts) : `0`, nombre (int), puis pour chaque méditant à moins de `meditation.halo.portee` (48) blocs, destinataire compris : identifiant réseau de l'entité (int) et couleur RGB (int). Envoyé au début / à la fin d'une méditation et toutes les 10 ticks **seulement si la liste change** ; liste vide une fois quand il n'y a plus personne |
 | `reborn:combat`, `reborn:combatin` | ⇄ | `shinobicombat.net.CombatChannel` | `combat/CombatPayload`, `CombatInputPayload` | HUD combat, entrées M1 / parade |
 | `reborn:byakugan` | S → C | `shinobisense.ByakuganVision` | `byakugan/ByakuganPayload` | Vision Byakugan |
 | `reborn:ost`, `reborn:ost_request` | ⇄ | `ost.plugin.network.OstChannel` | `ost/network/*` (mod-ost) | Musiques |
@@ -485,6 +487,71 @@ par personne, 3 « danger » par heure et par village, levé en entier (seule `/
 le palais exige `voliere_palais` (Chūnin) ; prendre exige `prendre_voliere` (Genin) ; délai 1 min (même volière, palais),
 1 min + 1 min par 250 blocs (pays, 8 min au plus), 1 min par 250 blocs (autre village, 20 min au plus) ; coût par copie
 10 / 40 ryo, pris dans la bourse. Pleine, une volière brûle la plus ancienne ; non prise en 7 jours, brûlée.
+
+## 4 nonies. États du joueur — API, matrice, protocole (17/10)
+
+> ShinobiCore `etat/` + `api/EtatService` + `api/etat/*` ⇄ mod `fr.reborn.hud.etat`. Conception et statut par étape :
+> [`ETATS_JOUEUR.md`](./ETATS_JOUEUR.md) (§8 API, §9 migration). JSON UTF-8 brut, champs inconnus ignorés.
+
+**Service** `api/EtatService` (ServicesManager, `@Stable`, `EtatService.get()` = null si absent → repli de l'add-on) :
+
+| Méthode | Rôle |
+|---|---|
+| `etat(compte)` | Instantané `Etat` : `principal()` (14 valeurs, §4.3), `vital()` / `controle()` / `cadre()`, `lien()`, `modificateurs()` (posés + dérivés : `ata`, `surcharge`, `en_combat`, `gel_staff`, `invisible`, `porteur`, `occupe`), `capacites()` |
+| `peut(compte, Capacite)`, `verifier(compte, Capacite[, param])`, `refus(compte, Capacite)` | « Peut-il X ? » — `Verdict(niveau 0/1/2, raison, ligne)` ; `verifier(…, TECHNIQUE, Boolean mudras)` : une technique sans mudra passe une entrave |
+| `peutCibler(source, cible, étiquettes)` | Effets de zone, soins, onde au sol : faux pour mode staff, invisible, mort en scène, cinématique, sélection, monde intérieur, support d'armure, créatif / spectateur |
+| `transition(joueur, Couche, valeur, Source, Lien[, duréeMs])` | Contrôle **tenu par le service** : `ETOURDI`, `GARDE`, `ENTRAVE`, `CONTROLE`, `CORPS_VIDE[.MONDE_INTERIEUR]` (lien + durée ; `LIBRE` lève tout, `"-GARDE"` lève seulement la garde) ; Vital et Cadre : **annonce** (veto) — renvoie `APPLIQUEE`, `INCHANGEE`, `REFUSEE` (une valeur plus faible n'écrase pas une plus forte ; un seul détenteur, §5.2), `VETO` |
+| `poser` / `retirer` / `dissiper(famille, puissance)` | Registre des modificateurs (`ModificateurSpec(id, intensité, duréeMs)`) |
+| `facteur(joueur, clé, vitesse, saut)` | Multiplicateurs physiques d'un add-on (manteau du bijū : clé `biju`) ; `1, 1` retire |
+| `appliqueEffetsPhysiques()` | Vrai = l'applicateur unique pose vitesse, saut, faim, invulnérabilité : l'add-on ne fige plus lui-même |
+| `occuper(joueur, action, cible, tolérance, Set<FinSi>, surInterruption)` / `occupation(compte)` | Action longue `OCCUPE(action)` : interrompue (`BOUGE`, `FRAPPE`, `KO`, `DOULEUR`, `CONTROLE`, `CADRE`, `CIBLE`, + déconnexion, changement de personnage) ; `terminer()` = fin normale |
+| `emprisonner(joueur, duréeMs, zone, motif, Source)` / `liberer` / `peine` | Cadre `PRISON` (peine par personnage, temps réel) |
+
+**Événements** (`api/event`) : `EtatChangeEvent` (avant, **annulable** — la chaîne KO l'annonce à l'entrée en KO, source
+`coup mortel` / `exécution` / `chakra à 0` ; ShinobiTail l'annule pour le sauvetage du bijū), `EtatChangedEvent` (après,
+au plus un par tick et par joueur), `ModificateurPoseEvent` (avant, annulable, intensité / durée modifiables),
+`ModificateurRetireEvent` (`fin`, `retire`, `dissipe`, `ko`). `CharacterDamageEvent#contexte()` : `DegatContexte`
+(étiquettes, technique, attaquant, défense, `contourneePar`, multiplicateur).
+
+**`etats.yml`** (ShinobiCore, relu par `/sc reload` et `/etats recharger`) : `vitesse-plancher` (0,25), `sync`
+(`reborn:etat`), `journal` (catégorie `ETAT`), `applicateur` (`false` = repli sur les anciens écrivains de vitesse, saut,
+faim, `Invulnerable`) ; `lignes` = la matrice (§4.6) — une ligne par valeur de couche (`vital.*`, `controle.*`,
+`cadre.*`, variantes `controle.PORTE.GORGE`, `controle.ENTRAVE.EXECUTION`, `controle.CORPS_VIDE.MONDE_INTERIEUR`,
+`cadre.HORS_JEU.CINEMATIQUE`), par modificateur dérivé (`mod.*`) et par contexte (`ctx.volonte`, `ctx.hopital`,
+`ctx.se_debattre`, `ctx.duel_technique`) ; clés `raison`, `refuse` / `sauf`, `limite`, `raisons`, `accorde`, `force`,
+`si-vital`, `vitesse`, `saut`, `faim-tenue` ; groupes `TOUT`, `FRAPPER`, `DEPLACEMENT`, `SACOCHE`. L'**ordre du fichier**
+est la priorité (la raison affichée est celle de la première ligne qui refuse). `modificateurs` = types du registre
+propres aux états (`menottes`, `hydratation`, `deshydrate`, `jutsu_*`, `epuisement_1..4`, `defaite`, `defaite_cecite`),
+clés en plus de §4 ter : `etat-ligne` (ligne de la matrice activée), `potions` (`"BLINDNESS:0"` — effets courts
+rafraîchis par l'applicateur, joueur seulement), `defense` (`type` `INTANGIBLE` / `REDUCTION` / `ABSORPTION` / `RENVOI` /
+`ESQUIVE` / `IMMUNITE`, `contre`, `sauf`, `faiblesse`, `conditions` `CHAKRA_POSITIF` / `PAS_MENOTTE` / `PAS_DESHYDRATE`,
+`valeur`), `immunise` (familles ou types refusés) ; `config.yml` garde la priorité sur un même id.
+
+**Capacités** (`api/etat/Capacite`) : `BOUGER` `TROTTER` `SPRINTER` `SAUTER` `MOBILITE` · `FRAPPER_MAINS` `FRAPPER_ARME`
+`FRAPPER_PROJECTILE` `GARDER` `TECHNIQUE` `CANALISER` · `UTILISER_OBJET` `OUVRIR_SACOCHE` `MODIFIER_SACOCHE` `LACHER`
+`RAMASSER` `DEGAINER` `CONSOMMER` · `INTERAGIR` `PORTER` `EXECUTER` `SOIGNER` `FOUILLER` · `ETRE_PORTE` `ETRE_FOUILLE`
+`ETRE_EXECUTE` · `PARLER` `VOCAL` `RADIO` `EMOTE` `COMMANDES` · `VISIBLE` `CIBLABLE` `NOM_VISIBLE` · `TOMBE_KO`
+`BLESSURES` `XP_COMBAT` · `CHANGER_PERSO` `SE_DECONNECTER_SANS_SUITE` `TELEPORTE_PAR_COMMANDE` `MODE_STAFF` `DUEL` ·
+spéciales `SE_DEBATTRE` `VOLONTE` `HOPITAL` `DISSIPER` `ROMPRE_LIEN` `VOLER`.
+
+**`reborn:etat`** (S → C) : à chaque changement (regroupé par tick), au JOIN (+2 s) et au changement de personnage —
+`{"v":1,"seq":12,"p":"A_TERRE","c":{"vital":"A_TERRE","ctrl":"LIBRE","cadre":"MONDE"},"cap":{"bou":1,"tro":0,"spr":0,
+"sau":0,"mob":0,"fra":0,"gar":0,"tec":0,"ram":0,"int":0,"exe":0,"par":1,"voc":1,"debattre":0,"sac":"L"},"vit":0.7,
+"saut":0,"lien":{"type":"PORTE","nom":"…"},"mods":[{"id":"ata","n":2,"fin":0}],"raison":{"int":"Tu es à terre."}}` —
+capacités `2` permis, `1` limité, `0` refusé ; `sac` `M` / `L` / `0` ; `mods` = modificateurs **dérivés** seulement (le
+registre garde `reborn:modifs` et ses icônes) ; `fin` en ms. Le mod (`EtatClient`) bloque en avance : déplacement
+(`bou`), saut (`sau`), coup sur une entité visée (`fra`), sprint / trot (`spr` / `tro`), garde (`gar`), menu R (`int`),
+ramassage (`ram`), invite d'exécution (`exe`), mode photo et F1 sous un voile imposé (KO, mort, écran noir) — seulement
+dans un cadre de jeu (monde, entraînement, duel, prison). Remis à zéro à la déconnexion. Les anciens canaux
+(`reborn:ko`, `reborn:corps` `me`, `reborn:notif` `poids` / `verrou`, drapeaux de `reborn:allure`) restent émis.
+
+**Journal** : catégorie `ETAT` (« États », `logs/etat-AAAA-MM-JJ.log`) — `ETAT_CONTROLE` (entrave, contrôle, corps vide ;
+pas la garde ni l'étourdi), `ETAT_CADRE` (sauf connexion), `VETO`, `LIEN_ROMPU`, `OCCUPE_INTERROMPU`, `DEFENSE` (une par
+combat et par défense), `PRISON`, `PRISON_FIN`, `EVASION`, et les simples passages de la chaîne KO (`DOULEUR`,
+`FIN_DE_DOULEUR`, `AGONIE_…`, `INCONSCIENT…`, `REVEIL`, `SECOND_SOUFFLE`, `PORTE`, `DEPOSE`, `SE_DEGAGE`) ; `STAFF`
+`ETATS_POSER`, `ETATS_LEVER`, `ETATS_PRISON`. Poste de garde : alerte « Évasion ».
+
+---
 
 ## 4 ter. Nourriture et modificateurs — protocole (14/10)
 
@@ -809,7 +876,7 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `rarete` | `par-id` : id Nexo / de modèle → COMMUN, PEU_COMMUN, RARE, EPIQUE, LEGENDAIRE | idem §7 |
 | `duel` | `actif`, `distance-proposition`, `distance-max`, `duree-max-secondes`, `expiration-secondes`, `cooldown-secondes`, `cooldown-couple-secondes`, `compte-a-rebours`, `techniques`, `teleport-max-blocs`, `grace-secondes`, `annonce.actif`, `annonce.rayon` | idem §4.1 |
 | `medic` | `paume.*`, `bandage.*` | idem |
-| `meditation` | régénération, rayon d'annulation (× modificateur `meditation`) | — |
+| `meditation` | régénération, rayon d'annulation (× modificateur `meditation`) ; `halo` (18/10) : `enabled`, `portee`, `couleur`, `par-nature` + `natures.<nature>`, `particules-vanilla` (anciennes particules, défaut `false`) | — |
 | `modificateurs` | `sync-secondes` ; `types.<id>` : `nom`, `famille`, `bonus`, `icone`, `empilement`, `plafond`, `persistance`, `au-ko`, `visible`, `journal`, `duree-secondes`, `valeur`, `effets`, `refuse`, `ensuite` (types livrés : `regeneration`, `satiete_prolongee`, `endurance`, `meditation`, `pilule_soldat`, `fatigue`, `poison`, `pilule_recharge`) | [`ETATS_JOUEUR.md`](./ETATS_JOUEUR.md) §4.4 |
 | `nourriture` | `actif` ; `satiete.*` (départ 80, perte 0,0125 %/s, `activite.*`, technique, vitesse du sprint, combat, AFK, affamé 20) ; `regeneration.*` (seuil 90, 0,25 %/s, pause 30 s, plafond ATA 30) ; `faim.endurance-recuperation` ; `cuisine.*` (15 s, 2 plats, 4 blocs, chaud 10 min, poste de son entreprise) ; `repas.*` (assis ×2, pause 30 s, effets froids ×0,5) ; `tendre.*` (3 blocs, 10 s) ; `pilule.*` ; `ration` ; `plats.<id>` (`nom`, `satiete`, `duree-secondes`, `icone`, `reste`, `effets`) ; `vivres.<id>` (`prix`, `quantite`, `recette`, `cuisinier-seulement`) | [`gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §11, §13 |
 | `monnaie` | `etats.garnie` (100), `etats.lourde` (5 000), `sol-minutes` (30), `alerte-ramasse` (5 000), `vol.pourcent` (30), `vol.sans-plafond-mort-rp` (vrai), `vol.fouille-secondes` (3), `vol.alerte` (1 000), `vol.corps-minutes` (15) — **facultatif, défauts dans le code** | [`gameplay/MONNAIE_ET_BANQUE.md`](../gameplay/MONNAIE_ET_BANQUE.md) §17 |
@@ -860,6 +927,9 @@ l'animateur, ligne « X passe en mode animation » au chat staff. Exclusif avec 
 | `emotes/` (+ `emotes.yml`) | Core | Fichiers EmoteCraft distribués + catalogue |
 | `ko-state.yml`, `ko-reglages.yml` | Core | États KO en cours, réglages de l'Infirmerie |
 | `ata-state.yml` | Core | ATA en cours |
+| `etats.yml` | Core | Matrice des états et types de modificateurs des états (§4 nonies) — complétée depuis le jar à chaque démarrage, jamais écrasée |
+| `prison.yml` | Core | Peines de prison par personnage (17/10) : `fin` (epoch, temps réel), `zone`, `motif`, `par` |
+| `volonte.yml` | Core | Volonté (QTE de relève) par personnage : `releves`, `second-souffle` — survivent au redémarrage depuis le 17/10 |
 | `training-zones.yml` | Core | Zones d'entraînement et de repos |
 | `hospitals.yml`, `hospital-beds.yml` | Core | Points de réveil par village, lits |
 | `factions/factions.yml`, `factions/membres.yml` | Core | Factions (seuils, taxe, charges, annonces, journal court) et sections (grades, places, tenue, caisse et mouvements) ; registre des personnages (nom, grade du village, village, faction, section, grade de section). Journal complet : `logs/faction-…` (catégorie `FACTION`) |

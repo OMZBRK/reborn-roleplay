@@ -698,8 +698,12 @@ public final class RebornHudClient implements ClientModInitializer {
         // Inventaire du 13/10 : notifications en bas à droite + état de charge (canal reborn:notif), ramassage volontaire
         // (touche F quand un objet est visé), aura de rareté au sol, indicateur de surcharge (sous les vitals).
         fr.reborn.hud.notif.NotifClient.init();
+        // États du joueur tenus par le serveur (reborn:etat, ETATS_JOUEUR §7.2) : blocages en avance (saut, coup, menu R…).
+        fr.reborn.hud.etat.EtatClient.init();
         fr.reborn.hud.sol.RamasserClient.init();
         fr.reborn.hud.sol.AuraSol.init();
+        // Halo de méditation (18/10) : disque de lumière au sol + lueurs qui montent, vu de tous (reborn:meditation).
+        fr.reborn.hud.meditation.MeditationClient.init();
         net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "ramasser"),
             (ctx, tickCounter) -> fr.reborn.hud.sol.RamasserClient.render(ctx));

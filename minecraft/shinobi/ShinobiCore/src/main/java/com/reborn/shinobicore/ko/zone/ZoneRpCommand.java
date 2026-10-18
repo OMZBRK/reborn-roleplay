@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * {@code /zonerp pos1|pos2|creer <entrainement|repos> <id>|suppr <id>|liste|ici} — outil staff
+ * {@code /zonerp pos1|pos2|creer <entrainement|repos|prison> <id>|suppr <id>|liste|ici} — outil staff
  * pour délimiter les terrains d'entraînement et les zones de repos (restaurant, onsen,
  * auberge, hôpital). pos1 / pos2 prennent le bloc sous les pieds.
  */
@@ -43,7 +43,7 @@ public final class ZoneRpCommand implements TabExecutor {
             case "creer" -> {
                 if (!(sender instanceof Player p)) { sender.sendMessage("§cEn jeu uniquement."); return true; }
                 TrainingZone.Kind kind = args.length >= 3 ? TrainingZone.Kind.parse(args[1]) : null;
-                if (kind == null) { p.sendMessage("§cUsage : /" + label + " creer <entrainement|repos> <id>"); return true; }
+                if (kind == null) { p.sendMessage("§cUsage : /" + label + " creer <entrainement|repos|prison> <id>"); return true; }
                 Location[] sel = selections.get(p.getUniqueId());
                 if (sel == null || sel[0] == null || sel[1] == null) {
                     p.sendMessage("§cDéfinis d'abord pos1 et pos2.");
@@ -79,7 +79,7 @@ public final class ZoneRpCommand implements TabExecutor {
                           + (zones.isTraining(p) ? " §7(entraînement en cours)" : ""));
             }
             default -> sender.sendMessage("§cUsage : /" + label
-                    + " <pos1|pos2|creer <entrainement|repos> <id>|suppr <id>|liste|ici>");
+                    + " <pos1|pos2|creer <entrainement|repos|prison> <id>|suppr <id>|liste|ici>");
         }
         return true;
     }

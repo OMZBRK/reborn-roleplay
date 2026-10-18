@@ -325,6 +325,10 @@ public final class SeanceService implements Listener {
         if (c.knowsAbility(a.id())) { channel.toast(p, "Tu connais déjà cette technique."); return; }
         if (isPending(c.id(), a.id())) { channel.toast(p, "Ta demande de validation est entre les mains du staff."); return; }
         if (core.ko() != null && core.ko().isKo(p.getUniqueId())) return;
+        // États (étape 2) : ni porté, ni gelé, ni étourdi, ni entravé, ni en mode staff (CANALISER).
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        String refusEtat = etats == null ? null : etats.refus(p.getUniqueId(), com.reborn.shinobicore.api.etat.Capacite.CANALISER);
+        if (refusEtat != null) { channel.toast(p, refusEtat); return; }
         if (minigame.isActive(p)) { channel.toast(p, "Termine d'abord ton entraînement en cours."); return; }
         Progress pr = progress.getOrDefault(c.id(), Map.of()).getOrDefault(a.id(), new Progress(0, 0));
         int total = ScrollCatalog.seances(ScrollCatalog.rank(a));

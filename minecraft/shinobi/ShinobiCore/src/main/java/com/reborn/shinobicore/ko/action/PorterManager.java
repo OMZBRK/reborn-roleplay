@@ -124,7 +124,9 @@ public final class PorterManager implements Listener {
         if (st != null) st.setCarrierPlayerId(carrier.getUniqueId());
 
         carrier.addPassenger(target);
-        com.reborn.shinobicore.util.Effets.lenteur(carrier, LENTEUR_PORTEUR, 2);
+        // Étape 5 d'ETATS_JOUEUR : la lenteur du porteur est la ligne mod.porteur (applicateur unique) ; repli sinon.
+        if (!com.reborn.shinobicore.etat.Applicateur.actif()) com.reborn.shinobicore.util.Effets.lenteur(carrier, LENTEUR_PORTEUR, 2);
+        else com.reborn.shinobicore.etat.Applicateur.reappliquer(plugin, carrier);
 
         byCarrier.put(carrier.getUniqueId(), target.getUniqueId());
         byCarried.put(target.getUniqueId(), carrier.getUniqueId());

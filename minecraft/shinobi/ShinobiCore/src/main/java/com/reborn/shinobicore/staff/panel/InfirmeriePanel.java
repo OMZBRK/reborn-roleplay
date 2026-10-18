@@ -196,6 +196,7 @@ public final class InfirmeriePanel implements Listener {
 
         JsonArray zs = new JsonArray();
         for (TrainingZone z : plugin.trainingZones().all()) {
+            if (z.kind() == TrainingZone.Kind.PRISON) continue;   // pas une zone de soin (l'Infirmerie ne la connaît pas)
             JsonObject j = new JsonObject();
             j.addProperty("id", z.id());
             j.addProperty("kind", z.kind().label());
@@ -369,6 +370,7 @@ public final class InfirmeriePanel implements Listener {
             case ENTRAINEMENT -> Color.fromRGB(200, 30, 50);
             case REPOS -> Color.fromRGB(60, 170, 80);
             case HOPITAL -> Color.fromRGB(70, 130, 220);
+            case PRISON -> Color.fromRGB(120, 110, 100);
         };
         Particle.DustOptions dust = new Particle.DustOptions(col, 1.4f);
         long end = System.currentTimeMillis() + seconds * 1000L;

@@ -1,6 +1,6 @@
 # Faction et sections
 
-> **Statut : v3 validée le 2026-10-16 (questions tranchées, §14) ; socle codé et publié sur le dev le 16/10 (hud 0.4.184, manifest 3.1.141, ShinobiCore du 16/10 ; §15) ; mécaniques par section validées le 16/10, à coder au lot suivant (§12).** Game Plan n° 37
+> **Statut : v3 validée le 2026-10-16 (questions tranchées, §14) ; socle codé et publié sur le dev le 16/10 (hud 0.4.184, manifest 3.1.141, ShinobiCore du 16/10 ; §15) ; validé en jeu le 17/10 ; coffres de section et portes à clé validés à coder le 17/10 (§11, §13) ; mécaniques par section plus tard (§12).** Game Plan n° 37
 > ([`../GAMEPLAN.md`](../GAMEPLAN.md) §37). Intègre les **dix retours de l'utilisateur sur la v2 du 15/10**
 > (consignés dans [`../pilotage/DECISIONS.md`](../pilotage/DECISIONS.md), 16/10). La cloche d'annonces et les
 > missives par corbeau ont leur fiche : [`CLOCHE_ET_MISSIVES.md`](./CLOCHE_ET_MISSIVES.md). Questions : §14 (Q1 à Q5 ;
@@ -39,8 +39,13 @@
 9. **Trésorerie** : chaque section a sa caisse ; le village prélève une **taxe unique** sur ses entrées (10 % par
    défaut) et ne puise jamais à la main dedans ; le trésor du village reste celui de la banque.
 10. **Invitation** en face à face (menu R) **ou depuis le panneau** (personnes connues à 30 blocs, plus loin selon
-    le grade de section). Chaque section aura **ses mécaniques** (menottes, soins, missions secrètes, cours…), **validées le
-    16/10, à coder au lot suivant**, sur un **socle commun** livré maintenant.
+    le grade de section). Chaque section aura **ses mécaniques** (menottes, soins, missions secrètes, cours…), **plus
+    tard** (décision du 17/10), sur un **socle commun** livré maintenant.
+
+> **17/10 — portes et zones** : une porte de section n'est **qu'un verrou avec clé**. **Aucune zone ne doit être
+> inaccessible** : une porte verrouillée peut être **crochetée ou cassée** (si possible). Le reste des « zones de
+> faction » (accès par grade, territoires fermés) **n'est pas voulu**. Les **coffres de section** sont validés à
+> coder (§11, §13).
 
 ---
 
@@ -53,14 +58,14 @@
 | 3. Gestion et création de grades | §6 : grades du village = `Rank` + droits par seuil ; grades de section créés par le chef de section ; charges du village |
 | 4. Tenue de section | §7 : une tenue choisie par le chef de section, prêtée aux membres (garde-robe) |
 | 5. Trésorerie par section, taxe, autonomie | §8 : caisse par section, taxe unique sur les entrées, dotation par le village |
-| 6. Mécaniques propres à chaque section | §12 : socle commun maintenant ; mécaniques validées le 16/10, à coder au lot suivant |
+| 6. Mécaniques propres à chaque section | §12 : socle commun maintenant ; mécaniques vues plus tard (17/10) |
 | 7. Volet à droite, sur une touche | §10 : volet v3 sur **J** |
 | 8. Visibilité selon le joueur, seulement les gens connus | §4 : tableau par profil, règle de connaissance |
 | 9. Inviter aussi depuis le panneau | §9 : menu R **et** panneau |
 | 10. Pas de limite de places imposée | §5 : le chef de section fixe ses places |
 
-Ce qui ne bouge pas de la v2 : faction créée par le staff, tag, six villages d'office, lieux (portes, coffres) **posés
-par le staff** au Poste de garde, journal `FACTION` en ajout seul, tag dans la tablist, quotas et délais simples dans
+Ce qui ne bouge pas de la v2 : faction créée par le staff, tag, six villages d'office, coffres de section **posés
+par le staff** au Poste de garde (portes : verrou à clé, décision du 17/10, §11), journal `FACTION` en ajout seul, tag dans la tablist, quotas et délais simples dans
 `/grade` (v2 §6), réputation / diplomatie / Bingo Book après la beta.
 
 ---
@@ -234,17 +239,28 @@ Chaque action envoie une ligne sobre à la personne concernée et au chef de sec
 ## 11. Staff et lieux (Poste de garde, F7 › Outils › Factions) — maquette v2 04
 
 Inchangé : créer une faction, nommer le chef, quotas et délais, journal, dissoudre ; **en plus** : sections (créer,
-renommer, cacher, dissoudre, changer le chef), **lieux** de section (porte, coffre : on vise le bloc), et la pose des
+renommer, cacher, dissoudre, changer le chef), **coffres de section** (on vise le bloc), et la pose des
 **cloches** et **volières** ([`CLOCHE_ET_MISSIVES.md`](./CLOCHE_ET_MISSIVES.md) §5). `/faction admin …` en secours.
+
+**Portes — décision du 17/10** (remplace ~~portes de section posées par le staff, accès par grade, zones de faction~~) :
+
+- une porte se protège **uniquement par un verrou avec clé** : qui a la clé ouvre (la clé est un objet, elle se
+  prête, se perd, se vole) ;
+- **aucune zone n'est inaccessible** : une porte verrouillée peut être **crochetée** ou **cassée** (si c'est faisable
+  techniquement), ce qui laisse une trace (journal, bruit) mais jamais un mur infranchissable ;
+- **pas d'autres zones de faction** : ni zones à accès par grade, ni territoires fermés.
+
+**Coffres de section — validés à coder le 17/10** (après la refonte des états du joueur) : coffres posés par le staff,
+rattachés à une section, voir / déposer / retirer selon les droits du grade de section (§6.3), journal `FACTION`.
 
 ---
 
-## 12. Mécaniques propres à chaque section — validé, à coder (lot suivant)
+## 12. Mécaniques propres à chaque section — plus tard (17/10)
 
-**Socle commun livré à la beta** : droits de section (§6.3), lieux posés par le staff (portes, coffres, plus tard
-zones), caisse, tenue prêtée, cloche ciblée sur la section, volière, journal de section. Chaque mécanique ci-dessous
-s'y branche, une fiche à la fois. **Validé par l'utilisateur le 16/10 (synchro des boards) : à coder au lot
-suivant** (n'est plus repoussé après la beta) :
+**Socle commun livré à la beta** : droits de section (§6.3), coffres de section (à coder) et portes à clé (§11),
+caisse, tenue prêtée, cloche ciblée sur la section, volière, journal de section. Chaque mécanique ci-dessous
+s'y branche, une fiche à la fois. **17/10 : vues plus tard, pas maintenant** (remplace ~~à coder au lot suivant~~,
+synchro des boards du 16/10) :
 
 | Section | Mécaniques à venir | S'appuie sur |
 |---|---|---|
@@ -253,7 +269,7 @@ suivant** (n'est plus repoussé après la beta) :
 | **ANBU** | Missions secrètes, **noms de code** entre membres, masque qui cache l'identité, bibliothèque ANBU (au lieu de `shinobiabilities.biblio.anbu`) | Connu / inconnu, masques (§14) |
 | **Académie** | Cours, examens (Genin, Chūnin), inscription des élèves, carnet de l'élève | `/squad`, `/grade` |
 | **Bureau des missions** | Registre, attribution, récompenses, part au trésor | GAMEPLAN §22 |
-| **Garde des portes** | Contrôle aux portes, registre des entrées, laissez-passer | Portes de faction, zones |
+| **Garde des portes** | Contrôle aux portes, registre des entrées, laissez-passer | Portes à clé (§11) |
 | Toutes | **Appel de service** (« appeler l'hôpital, la police ») : le premier membre en service qui accepte le prend | GAMEPLAN §18.3 |
 
 ---
@@ -266,11 +282,11 @@ suivant** (n'est plus repoussé après la beta) :
 | **F2** | Poste de garde › Factions (v2 04) : factions, chefs, sections, quotas | F1 |
 | **F3** | **Volet J** en lecture : Ma section, Village, Sections, Annonces ; inconnus comptés ; « ? » | F1 |
 | **F4** | Gestion : création de section, grades de section et fiche du membre, places, seuils et charges, invitations **R et panneau**, exclure, quitter | F3 |
-| **F5** | Lieux de section (portes, coffres) posés par le staff, droits par grade de section | F2, F4 |
+| **F5** | **Coffres de section** posés par le staff, droits par grade de section ; **portes à clé** (verrou + clé, crochetage / casse, aucune zone inaccessible) — validés à coder le 17/10 | F2, F4, états du joueur |
 | **F6** | Caisse de section, taxe, dotation (banque), tenue de section prêtée | F4, banque |
 | C1-C3, V1-V4 | Cloche, volières, missives : [`CLOCHE_ET_MISSIVES.md`](./CLOCHE_ET_MISSIVES.md) §8 | F1, F3 |
-| suivant | Mécaniques de section (§12) — validé le 16/10, à coder | F5 |
-| après | Réputation, diplomatie, Bingo Book, désertion encadrée, zones de faction | F5 |
+| plus tard | Mécaniques de section (§12) — vues plus tard (17/10) | F5 |
+| après | Réputation, diplomatie, Bingo Book, désertion encadrée (plus de « zones de faction » : décision du 17/10) | F5 |
 
 Chaque lot finit par des captures du client de dev montrées avant toute publication, et le YAML passé au parseur.
 
@@ -354,9 +370,9 @@ ryo.
 du menu R, outil staff **F7 › Outils › Factions** (`staff/GardeFactions`). Banc `REBORN_FACTION_DEBUG`
 ([`../technique/MOD_HUD.md`](../technique/MOD_HUD.md) §5).
 
-**Pas dans ce chantier (lots suivants)** : lieux de section (portes, coffres posés par le staff, accès par grade — F5),
+**Pas dans ce chantier (lots suivants)** : coffres de section et portes à clé (F5, validés à coder le 17/10),
 guichet intégré (dotation et dépense depuis
 l'écran du guichet ; d'ici là, les commandes au guichet), quotas et délais de `/grade` (v2 §6), mécaniques propres à
-chaque section (§12, validé, lot suivant), réputation, diplomatie, Bingo Book, plusieurs sections par personnage.
+chaque section (§12, plus tard), réputation, diplomatie, Bingo Book, plusieurs sections par personnage.
 La cloche et les volières, prévues ici à l'origine, sont livrées dans la même publication (hud 0.4.184) :
 [`CLOCHE_ET_MISSIVES.md`](./CLOCHE_ET_MISSIVES.md).

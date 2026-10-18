@@ -72,6 +72,9 @@ public final class CombatChannel {
     public static final byte ANIM_PYRAMID = 4;
     public static final byte ANIM_BLOCK_ON = 5;
     public static final byte ANIM_BLOCK_OFF = 6;
+    /** Parade réussie (18/10) : coup de garde du défenseur ({@code block_parry.json} côté mod). Un client plus ancien
+     *  l'ignore (anim inconnue = no-op). */
+    public static final byte ANIM_PARRY = 7;
 
     /** Intentions C2S sur {@link #CHANNEL_IN}. */
     public static final byte KIND_BLOCK_ON = 2;

@@ -19,6 +19,7 @@ public final class CombatDebug {
     private CombatDebug() {}
 
     public static void init() {
+        ParadeDebug.init();   // banc de la garde / parade (REBORN_PARADE_DEBUG, 18/10)
         if (!"1".equals(System.getenv("REBORN_COMBAT_DEBUG"))) return;
         ClientTickEvents.END_CLIENT_TICK.register(CombatDebug::tick);
     }

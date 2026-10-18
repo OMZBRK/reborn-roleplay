@@ -30,7 +30,11 @@ public record TypeModificateur(
         String valeur,
         Map<String, String> effets,
         List<String> refuse,
-        String ensuite) {
+        String ensuite,
+        String etatLigne,
+        Map<org.bukkit.potion.PotionEffectType, Integer> potions,
+        com.reborn.shinobicore.etat.Defense defense,
+        List<String> immunise) {
 
     public enum Empilement { REMPLACE_SI_PLUS_FORT, PROLONGE, CUMULE, IGNORE }
 
@@ -62,7 +66,53 @@ public record TypeModificateur(
                 s.getString("valeur", ""),
                 eff,
                 ref,
-                s.getString("ensuite", null));
+                s.getString("ensuite", null),
+                s.getString("etat-ligne", null),
+                potions(s.getStringList("potions")),
+                defense(s.getConfigurationSection("defense")),
+                upper(s.getStringList("immunise")));
+    }
+
+    /** {@code immunise: [ESPRIT, poison]} — familles ou types dont ce modificateur refuse la pose (§4.4). */
+    private static List<String> upper(List<String> l) {
+        List<String> out = new ArrayList<>();
+        for (String x : l) out.add(x.trim().toUpperCase(Locale.ROOT));
+        return out;
+    }
+
+    /**
+     * {@code potions: ["BLINDNESS:0", "NAUSEA"]} — effets vanilla courts que l'applicateur des états rafraîchit sur le
+     * joueur tant que le modificateur est actif (étape 7 d'ETATS_JOUEUR : les potions des techniques passent par ici).
+     */
+    private static Map<org.bukkit.potion.PotionEffectType, Integer> potions(List<String> l) {
+        Map<org.bukkit.potion.PotionEffectType, Integer> m = new LinkedHashMap<>();
+        for (String x : l) {
+            String[] p = x.trim().split(":");
+            org.bukkit.potion.PotionEffectType t = org.bukkit.Registry.EFFECT.get(
+                    org.bukkit.NamespacedKey.minecraft(p[0].trim().toLowerCase(Locale.ROOT)));
+            if (t == null) continue;
+            int amp = 0;
+            if (p.length > 1) {
+                try { amp = Math.max(0, Integer.parseInt(p[1].trim())); } catch (NumberFormatException ignored) { }
+            }
+            m.put(t, amp);
+        }
+        return m;
+    }
+
+    /** Section {@code defense:} (§6 : intangible, réduction…), ou null. */
+    private static com.reborn.shinobicore.etat.Defense defense(ConfigurationSection d) {
+        if (d == null) return null;
+        return com.reborn.shinobicore.etat.Defense.lire(versMap(d));
+    }
+
+    private static Map<String, Object> versMap(ConfigurationSection s) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        for (String k : s.getKeys(false)) {
+            Object v = s.get(k);
+            m.put(k, v instanceof ConfigurationSection cs ? versMap(cs) : v);
+        }
+        return m;
     }
 
     private static <E extends Enum<E>> E enumOr(Class<E> c, String v, E def) {

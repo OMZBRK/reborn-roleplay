@@ -82,6 +82,17 @@ public final class ParkourListener implements Listener {
         runner.stop(e.getPlayer(), false);
     }
 
+    /** KO ou changement de personnage : le parcours s'arrête (ETATS_JOUEUR étape 2 — il continuait). */
+    @EventHandler
+    public void onKo(com.reborn.shinobicore.event.KoEnterEvent e) {
+        if (runner.isRunning(e.player())) runner.stop(e.player(), true);
+    }
+
+    @EventHandler
+    public void onSwitch(com.reborn.shinobicore.api.event.CharacterSwitchEvent e) {
+        if (runner.isRunning(e.player())) runner.stop(e.player(), false);
+    }
+
     /* ----------------------------------------------------- reaction presses */
 
     @EventHandler(priority = EventPriority.HIGH)

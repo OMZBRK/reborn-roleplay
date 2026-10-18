@@ -253,7 +253,8 @@ public final class HudKeybinds {
             }
             while (PHOTO.consumeClick()) {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.gui.screen() == null) {
+                // À terre, inconscient, scène de mort, écran noir du staff : pas de mode photo (il levait le voile).
+                if (mc.gui.screen() == null && !fr.reborn.hud.etat.EtatClient.voileBloqueImmersion()) {
                     mc.setScreenAndShow(new fr.reborn.hud.ui.PhotoModeScreen());
                 }
             }

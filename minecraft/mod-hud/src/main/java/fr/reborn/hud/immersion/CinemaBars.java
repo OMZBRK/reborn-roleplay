@@ -44,8 +44,11 @@ public final class CinemaBars {
     public Mode mode() { return mode; }
     /** Vrai dès qu'un effet est actif (HUD masqué ou bandes). */
     public boolean isEnabled() { return mode != Mode.HUD; }
-    /** Vrai si le mode courant masque le HUD (CLEAN ou BARS). */
-    public boolean hidesHud() { return mode != Mode.HUD; }
+    /**
+     * Vrai si le mode courant masque le HUD (CLEAN ou BARS) — jamais sous un voile imposé (KO, scène de mort, écran
+     * noir du staff : F1 le levait, ETATS_JOUEUR §2.3).
+     */
+    public boolean hidesHud() { return mode != Mode.HUD && !fr.reborn.hud.etat.EtatClient.voileBloqueImmersion(); }
     /** Vrai si les bandes doivent être dessinées (mode BARS uniquement). */
     public boolean barsActive() { return mode == Mode.BARS; }
 

@@ -76,6 +76,17 @@ public final class StaffBuildManager implements Listener {
             GuiSounds.error(p);
             return;
         }
+        // Étape 4 d'ETATS_JOUEUR : la matrice (MODE_STAFF : porté, tenu, mort, prison…) et le veto des plugins.
+        String refusEtat = com.reborn.shinobicore.etat.Verrous.refus(id, com.reborn.shinobicore.api.etat.Capacite.MODE_STAFF);
+        var etats = plugin.etats();
+        if (refusEtat == null && etats != null && etats.transition(p, com.reborn.shinobicore.api.etat.Couche.CADRE,
+                "CONSTRUCTION", com.reborn.shinobicore.api.etat.Source.staff(p.getName(), id), null)
+                == com.reborn.shinobicore.api.etat.Resultat.VETO) refusEtat = "refusé pour l'instant.";
+        if (refusEtat != null) {
+            p.sendMessage(Component.text("Construction impossible : " + refusEtat, NamedTextColor.RED));
+            GuiSounds.error(p);
+            return;
+        }
         snapshots.put(id, cloneContents(p.getInventory().getContents()));
         building.add(id);
         p.getPersistentDataContainer().set(MARQUE, PersistentDataType.BYTE, (byte) 1);

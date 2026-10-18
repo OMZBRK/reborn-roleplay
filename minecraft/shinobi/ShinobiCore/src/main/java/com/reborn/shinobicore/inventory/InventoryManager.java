@@ -158,6 +158,11 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         }
     }
 
+    /** Vitesse et saut calculés par la surcharge ({vitesse, saut}), ou null — l'applicateur des états les pose. */
+    public double[] facteursSurcharge(UUID playerId) {
+        return surcharge.facteurs(playerId);
+    }
+
     @Override
     public int palier(UUID playerId) {
         return surcharge.palier(playerId);
@@ -178,7 +183,31 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         } catch (RuntimeException ignored) { }
         StunService s = stun();
         if (s != null && s.isStunned(id)) return "étourdi";
+        // Étape 2 d'ETATS_JOUEUR : le reste vient de la matrice (MODIFIER_SACOCHE) — entravé, menotté, mode staff…
+        var etats = plugin.etats();
+        if (etats != null) {
+            var v = etats.verifier(id, com.reborn.shinobicore.api.etat.Capacite.MODIFIER_SACOCHE, null);
+            if (!v.ok()) return codeVerrou(v.ligne(), v.raison());
+        }
         return null;
+    }
+
+    /** Ligne de la matrice → code court affiché par le mod (« KO », « porté », « gelé »…). */
+    private static String codeVerrou(String ligne, String raison) {
+        if (ligne == null) return raison;
+        if (ligne.startsWith("vital.MORT")) return "mort";
+        if (ligne.startsWith("vital.A_TERRE") || ligne.startsWith("vital.INCONSCIENT")) return "KO";
+        if (ligne.equals("controle.PORTE")) return "porté";
+        if (ligne.startsWith("controle.PORTE.") || ligne.startsWith("controle.ENTRAVE.EXECUTION")) return "tenu";
+        if (ligne.startsWith("controle.ETOURDI")) return "étourdi";
+        if (ligne.startsWith("mod.gel_staff")) return "gelé";
+        if (ligne.startsWith("controle.ENTRAVE")) return "entravé";
+        if (ligne.startsWith("controle.CONTROLE")) return "contrôlé";
+        if (ligne.startsWith("controle.CORPS_VIDE")) return "esprit ailleurs";
+        if (ligne.startsWith("mod.menottes")) return "menotté";
+        if (ligne.startsWith("cadre.STAFF")) return "mode staff";
+        if (ligne.startsWith("cadre.HORS_JEU")) return "hors jeu";
+        return raison;
     }
 
     private StunService stun() {

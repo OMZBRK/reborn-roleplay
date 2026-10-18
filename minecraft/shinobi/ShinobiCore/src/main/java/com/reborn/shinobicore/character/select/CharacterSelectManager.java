@@ -134,7 +134,8 @@ public class CharacterSelectManager implements Listener, PluginMessageListener {
                 + anchor.getBlockX() + "," + anchor.getBlockY() + "," + anchor.getBlockZ());
 
         selecting.put(p.getUniqueId(), new SelectState(p, anchor));
-        p.setInvulnerable(true);
+        // Étape 5 d'ETATS_JOUEUR : hors jeu = non ciblable (porte des dégâts), plus de drapeau Invulnerable en NBT.
+        if (!com.reborn.shinobicore.etat.Applicateur.actif()) p.setInvulnerable(true);
         // Pas de setWalkSpeed(0) : le gel se fait par l'épinglage onMove (setTo).
         // Toucher walkSpeed causait un "stun" si mal restauré après sélection.
         p.teleport(anchor);

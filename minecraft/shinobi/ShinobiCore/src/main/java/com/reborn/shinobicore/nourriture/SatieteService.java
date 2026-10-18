@@ -248,8 +248,10 @@ public final class SatieteService implements Listener, ModificateurRegistry.Cont
     /** Faim vanilla : tenue pleine, sauf quand l'ATA ou la douleur la tiennent à 6 (pas de trot). */
     private void neutraliserFaimVanilla(Player p) {
         UUID id = p.getUniqueId();
-        boolean tenue = (plugin.ata() != null && plugin.ata().isImpaired(id))
-                || (plugin.douleur() != null && plugin.douleur().isInPain(id));
+        boolean tenue = com.reborn.shinobicore.etat.Applicateur.actif()
+                ? com.reborn.shinobicore.etat.Applicateur.faimTenue(id)          // une seule règle (ETATS_JOUEUR §7.5)
+                : (plugin.ata() != null && plugin.ata().isImpaired(id))
+                        || (plugin.douleur() != null && plugin.douleur().isInPain(id));
         if (tenue) return;
         if (p.getFoodLevel() < 20) p.setFoodLevel(20);
         if (p.getSaturation() < 5f) p.setSaturation(5f);

@@ -69,6 +69,8 @@ public final class FouilleService implements Listener {
         Location depart;
         long debut;
         boolean ouverte, mort;
+        /** Action longue OCCUPE(fouille) du service des états (ETATS_JOUEUR étape 4), ou null. */
+        com.reborn.shinobicore.api.EtatService.Occupation occ;
     }
 
     private static final class Scene {
@@ -101,7 +103,7 @@ public final class FouilleService implements Listener {
         f.nom = c.name();
         f.mort = mort;
         f.etat = mort ? "mort" : plugin.ko().isKo(t.getUniqueId()) ? "à terre" : "inconscient";
-        lancer(p, f);
+        if (!lancer(p, f)) return;
         Notifs.msg(t, "etat", null, "On te fouille", null);
         AutoMe.broadcast(plugin, p, "fouille les affaires de " + f.nom + ".");
     }
@@ -127,18 +129,39 @@ public final class FouilleService implements Listener {
         f.nom = co.name();
         f.mort = true;
         f.etat = "mort";
-        lancer(p, f);
+        if (!lancer(p, f)) return;
         AutoMe.broadcast(plugin, p, "fouille le corps de " + f.nom + ".");
     }
 
-    private void lancer(Player p, Fouille f) {
+    /** Lance la fouille ; false si l'état l'a refusée d'emblée (la raison est déjà affichée). */
+    private boolean lancer(Player p, Fouille f) {
         fermer(p, null);
         f.depart = p.getLocation().clone();
         f.debut = System.currentTimeMillis();
         fouilles.put(p.getUniqueId(), f);
         int s = MonnaieConfig.get().fouilleSecondes;
-        if (s <= 0) { ouvrir(p, f); return; }
+        if (s <= 0) { ouvrir(p, f); return true; }
+        // Une seule mécanique d'interruption (ETATS_JOUEUR étape 4) : OCCUPE(fouille) — bouger, être frappé, tomber,
+        // perdre le contrôle de son corps. Les vérifications propres à la fouille (cible relevée, partie) restent ici.
+        var etats = plugin.etats();
+        if (etats != null) {
+            Player cible = f.cibleJoueur != null ? Bukkit.getPlayer(f.cibleJoueur) : null;
+            f.occ = etats.occuper(p, "fouille", cible, 0.35,
+                    java.util.EnumSet.of(com.reborn.shinobicore.api.EtatService.FinSi.BOUGE,
+                            com.reborn.shinobicore.api.EtatService.FinSi.FRAPPE,
+                            com.reborn.shinobicore.api.EtatService.FinSi.KO,
+                            com.reborn.shinobicore.api.EtatService.FinSi.CONTROLE),
+                    raison -> {
+                        if (fouilles.get(p.getUniqueId()) == f && !f.ouverte) {
+                            fermer(p, raison == null || raison.isEmpty() ? null : "Fouille interrompue : "
+                                    + Character.toLowerCase(raison.charAt(0)) + raison.substring(1));
+                        }
+                    });
+            // refusée d'emblée (déjà occupé, à terre…) : le rappel a déjà fermé la fouille — pas de filet orphelin
+            if (fouilles.get(p.getUniqueId()) != f) return false;
+        }
         module.canal().envoyer(p, new MonnaieCanal.J().s("t", "fouille_prog").s("nom", f.nom).n("s", s));
+        return true;
     }
 
     /* ================================================================ boucle */
@@ -206,6 +229,7 @@ public final class FouilleService implements Listener {
     public void fermer(Player p, String raison) {
         Fouille f = fouilles.remove(p.getUniqueId());
         if (f == null) return;
+        if (f.occ != null) f.occ.terminer();
         module.canal().envoyer(p, new MonnaieCanal.J().s("t", f.ouverte ? "fouille_ferme" : "fouille_prog_fin"));
         if (raison != null) p.sendActionBar(net.kyori.adventure.text.Component.text(raison,
                 net.kyori.adventure.text.format.NamedTextColor.GRAY));
@@ -214,6 +238,7 @@ public final class FouilleService implements Listener {
     /* ================================================================ sacoche du corps */
 
     private void ouvrir(Player p, Fouille f) {
+        if (f.occ != null) { f.occ.terminer(); f.occ = null; }
         f.ouverte = true;
         envoyerEtat(p, f);
         p.playSound(p.getLocation(), Sound.ITEM_BUNDLE_DROP_CONTENTS, SoundCategory.PLAYERS, 0.4f, 1.2f);

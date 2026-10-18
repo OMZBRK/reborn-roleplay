@@ -49,9 +49,17 @@ public class MeditationManager implements Listener {
 
     private final ShinobiCore plugin;
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
+    /** Canal du halo de méditation (mod : {@code meditation/MeditationClient}). */
+    public static final String CANAL_HALO = "reborn:meditation";
+    /** Dernière liste envoyée à chaque joueur (signature) ; absent = rien ou liste vide. */
+    private final Map<UUID, Long> haloEnvoye = new java.util.HashMap<>();
 
     public MeditationManager(ShinobiCore plugin) {
         this.plugin = plugin;
+        // Halo de méditation (18/10) : qui médite, envoyé aux mods proches (canal reborn:meditation).
+        var m = Bukkit.getMessenger();
+        if (!m.isOutgoingChannelRegistered(plugin, CANAL_HALO)) m.registerOutgoingPluginChannel(plugin, CANAL_HALO);
+        Bukkit.getScheduler().runTaskTimer(plugin, this::synchroHalo, 20L, 10L);
     }
 
     public boolean isMeditating(UUID id) {
@@ -73,6 +81,14 @@ public class MeditationManager implements Listener {
             p.sendMessage(Component.text("Sélectionne d'abord un personnage.", NamedTextColor.RED));
             return false;
         }
+        // États (ETATS_JOUEUR §2.2 f, étape 2) : ni à terre, ni porté, ni gelé, ni étourdi, ni entravé (CANALISER).
+        // La douleur et l'ATA restent permises : méditer fait partie du repos qui en sort.
+        String refus = com.reborn.shinobicore.etat.Verrous.refus(p.getUniqueId(),
+                com.reborn.shinobicore.api.etat.Capacite.CANALISER);
+        if (refus != null) {
+            p.sendActionBar(Component.text(refus, NamedTextColor.GRAY));
+            return false;
+        }
 
         // Capture horizontal anchor at the player's current spot.
         Location anchor = p.getLocation().clone();
@@ -90,7 +106,9 @@ public class MeditationManager implements Listener {
 
         UUID id = p.getUniqueId();
         Session s = new Session(anchor, seat, radiusSq);
+        s.couleur = couleurHalo(c);
         sessions.put(id, s);
+        synchroHalo();
 
         // Chakra + particle ticker. Runs every 5 ticks.
         s.task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
@@ -118,8 +136,11 @@ public class MeditationManager implements Listener {
                 }
             }
 
-            pl.getWorld().spawnParticle(Particle.HAPPY_VILLAGER,
-                    pl.getLocation().add(0, 1.2, 0), 4, 0.3, 0.3, 0.3, 0.0);
+            // Le halo du mod (reborn:meditation) remplace les particules du jeu ; repli réglable.
+            if (plugin.getConfig().getBoolean("meditation.halo.particules-vanilla", false)) {
+                pl.getWorld().spawnParticle(Particle.HAPPY_VILLAGER,
+                        pl.getLocation().add(0, 1.2, 0), 4, 0.3, 0.3, 0.3, 0.0);
+            }
 
             s.ticksSinceRegen += 5;
             if (s.ticksSinceRegen >= intervalTicks) {
@@ -169,6 +190,7 @@ public class MeditationManager implements Listener {
             } catch (Exception ignore) { /* seat may already be dead */ }
             if (!s.seat.isDead()) s.seat.remove();
         }
+        synchroHalo();
         Player p = Bukkit.getPlayer(id);
         if (p != null && p.isOnline() && message != null) {
             p.sendMessage(Component.text(message, NamedTextColor.YELLOW));
@@ -191,6 +213,12 @@ public class MeditationManager implements Listener {
         }
     }
 
+    /** Un KO (même par le chakra) arrête la méditation (ETATS_JOUEUR §2.2 f). */
+    @EventHandler
+    public void onKo(com.reborn.shinobicore.event.KoEnterEvent e) {
+        if (sessions.containsKey(e.player().getUniqueId())) stop(e.player(), "Tu perds le fil de ta méditation.");
+    }
+
     @EventHandler
     public void onTeleport(PlayerTeleportEvent e) {
         if (sessions.containsKey(e.getPlayer().getUniqueId())) {
@@ -201,6 +229,72 @@ public class MeditationManager implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         stopInternal(e.getPlayer().getUniqueId(), null);
+        haloEnvoye.remove(e.getPlayer().getUniqueId());
+    }
+
+    /* ------------------------------------------------- halo (reborn:meditation) */
+
+    /**
+     * Envoie à chaque joueur moddé la liste des méditants proches (lui compris) : octet 0, nombre (int), puis
+     * identifiant réseau de l'entité (int) et couleur du halo (int RGB) — seulement quand elle change (signature),
+     * au démarrage / à l'arrêt d'une méditation et toutes les 10 ticks (arrivées, départs, distance). Rien à faire
+     * quand personne ne médite et que tout le monde a reçu la liste vide.
+     */
+    private void synchroHalo() {
+        if (sessions.isEmpty() && haloEnvoye.isEmpty()) return;
+        boolean actif = plugin.getConfig().getBoolean("meditation.halo.enabled", true);
+        double portee = plugin.getConfig().getDouble("meditation.halo.portee", 48.0), p2 = portee * portee;
+        for (Player v : Bukkit.getOnlinePlayers()) {
+            if (!v.getListeningPluginChannels().contains(CANAL_HALO)) continue;
+            int n = 0;
+            long sig = 17;
+            java.nio.ByteBuffer b = java.nio.ByteBuffer.allocate(5 + 8 * sessions.size());
+            b.put((byte) 0).putInt(0);
+            if (actif) {
+                for (Map.Entry<UUID, Session> e : sessions.entrySet()) {
+                    Player m = Bukkit.getPlayer(e.getKey());
+                    if (m == null || m.getWorld() != v.getWorld()) continue;
+                    if (m.getLocation().distanceSquared(v.getLocation()) > p2) continue;
+                    if (!v.canSee(m)) continue;
+                    b.putInt(m.getEntityId()).putInt(e.getValue().couleur);
+                    sig = sig * 31 + m.getEntityId();
+                    sig = sig * 31 + e.getValue().couleur;
+                    n++;
+                }
+            }
+            Long avant = haloEnvoye.get(v.getUniqueId());
+            if (n == 0 && avant == null) continue;
+            if (avant != null && avant == sig) continue;
+            b.putInt(1, n);
+            byte[] data = java.util.Arrays.copyOf(b.array(), 5 + 8 * n);
+            try {
+                v.sendPluginMessage(plugin, CANAL_HALO, data);
+            } catch (Exception ignored) { /* client sans le mod */ }
+            if (n == 0) haloEnvoye.remove(v.getUniqueId()); else haloEnvoye.put(v.getUniqueId(), sig);
+        }
+    }
+
+    /**
+     * Couleur du halo : {@code meditation.halo.couleur} (vert doux de la référence), ou celle de la nature de chakra
+     * principale du personnage si {@code meditation.halo.par-nature} est vrai (teintes sobres en config).
+     */
+    private int couleurHalo(ShinobiCharacter c) {
+        var cfg = plugin.getConfig();
+        int defaut = rgb(cfg.getString("meditation.halo.couleur", "#86F59E"), 0x86F59E);
+        if (c == null || !cfg.getBoolean("meditation.halo.par-nature", false)) return defaut;
+        ChakraAffinity a = c.primaryChakraAffinity();
+        if (a == null || a == ChakraAffinity.NONE) return defaut;
+        return rgb(cfg.getString("meditation.halo.natures." + a.name().toLowerCase(java.util.Locale.ROOT)), defaut);
+    }
+
+    private static int rgb(String s, int defaut) {
+        if (s == null) return defaut;
+        String h = s.trim().replace("#", "");
+        try {
+            return Integer.parseInt(h, 16) & 0xFFFFFF;
+        } catch (NumberFormatException e) {
+            return defaut;
+        }
     }
 
     /* --------------------------------------------------------- internals */
@@ -235,6 +329,7 @@ public class MeditationManager implements Listener {
         final double radiusSq;
         long ticksSinceRegen;
         int age;
+        int couleur;
         BukkitTask task;
 
         Session(Location anchor, ArmorStand seat, double radiusSq) {

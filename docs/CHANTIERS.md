@@ -15,9 +15,21 @@
 
 ## 0. Où en est-on — en une minute
 
-- **Date de référence : 15 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
+- **Date de référence : 17 octobre 2026.** Sprint 1 prolongé (décision : le finir avant le Sprint 2).
 - **Game Plan Reborn : [`GAMEPLAN.md`](./GAMEPLAN.md), on avance point par point dans l'ordre RedLine** (§54 du Game
   Plan).
+  - **Recette du 17/10** (en jeu) : radio, boutiques, factions, cloche, volière et missives, marche sur l'eau, Test de
+    la Feuille **validés** ; monnaie : bourse OK, **banque pas encore testée**
+    ([`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md) §0).
+  - **Prochains chantiers (validés à coder le 17/10)** : 1. **refonte des états du joueur**, étapes 1 à 9
+    ([`technique/ETATS_JOUEUR.md`](./technique/ETATS_JOUEUR.md)) — **en cours** ; 2. ~~**coffres de section** puis
+    **portes à clé** : verrou + clé seulement, une porte verrouillée se crochète ou se casse, **aucune zone
+    inaccessible**, pas d'autres « zones de faction » ([`gameplay/FACTION.md`](./gameplay/FACTION.md) §11-§13)~~ — **mis de côté le 18/10** ([`gameplay/SERRURES_ET_COFFRES.md`](./gameplay/SERRURES_ET_COFFRES.md), proposition en réserve) ; effet visuel de méditation en cours (18/10).
+    **Plus tard** : mécaniques propres à chaque section (FACTION §12). Modèles 3D : l'utilisateur les fait en parallèle.
+  - **Publié le 16/10** (`reborn-hud` 0.4.185 → **0.4.188**, manifest **3.1.145**, ShinobiCore du 16/10) : fenêtre du
+    jeu « 26.2* Reborn » + logo, cloche sans délai à partir d'un grade (0.4.185) ; course de chakra sur X seule, lecture
+    sur place à la volière (0.4.186) ; Test de la Feuille v2 (0.4.187) puis v3, vraie main Minecraft au skin du joueur
+    (0.4.188).
   - **Publié le 14/10** (`reborn-hud` 0.4.175, launcher 0.3.46) : Player ID (N° par personnage, `/pid`), accueil
     Microsoft + Discord, inventaire / ramassage F / aura de rareté / surcharge, duel consenti, derniers écrans en jeu.
   - **Publié le 14/10** (`reborn-hud` 0.4.176 → **0.4.178**, plugins Shinobi, pack Nexo nourriture) : journal universel
@@ -28,13 +40,13 @@
     nourriture v3 et entreprises ([`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md),
     [`gameplay/ENTREPRISES.md`](./gameplay/ENTREPRISES.md)) ; natures canoniques et Test de la Feuille refait.
     **En recette** : [`operations/RECETTE_GAMEPLAY.md`](./operations/RECETTE_GAMEPLAY.md).
-  - **Publié sur le dev le 16/10** (`reborn-hud` 0.4.184) : cloche du village et volières / missives par corbeau (ShinobiCore `communication/`,
+  - **Publié sur le dev le 16/10** (`reborn-hud` 0.4.184) : **factions et sections** (volet J, socle F1-F4,
+    [`gameplay/FACTION.md`](./gameplay/FACTION.md) §15), cloche du village et volières / missives par corbeau (ShinobiCore `communication/`,
     mod `communication/`, objets Nexo provisoires) — [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) §10.
   - **Publié le 15/10** (`reborn-hud` **0.4.182**, `reborn-ost` 0.2.5, ShinobiCore) : carte des touches réduite (26 → 15,
     sans conflit, migration une fois, défauts selon le clavier AZERTY/QWERTZ) ([`technique/MOD_HUD.md`](./technique/MOD_HUD.md)
     §2) ; marche sur l'eau v8 (pli de la texture d'eau, fluide) ; gestion des personnages au Poste de garde (F7 › fiche ›
     Personnages, ancien `/character edit`, `/persoreset`, `/persosuppr` retirés) ([`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) §1 bis).
-    **Prochain chantier** : Factions et sections (proposition v2 en maquettes).
   - **Publié le 15/10** (`reborn-hud` **0.4.181**, ShinobiCore / ShinobiAbilities) : boutiques en jeu (tailleur à
     comptoirs par catégorie configurés par le staff, bazar ; carte BOUTIQUE de l'Échap vide en attendant les visuels)
     ([`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md)) ; météo blizzard et tempête de sable (`/meteo`, zones,
@@ -48,11 +60,11 @@
     garanti, coffre à paliers, solde hebdomadaire, fouille à 30 %, testament
     ([`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md)) ; lâcher / ramasser en créatif ; halo de
     rareté pixel art ; sacoche sans kanji. La voix radio se teste à 3 comptes sur le dev.
-  - **Validé, à coder** : refonte des états en trois couches (étapes 1 à 9). **En attente** : Faction. Objets 3D
-    (bourse, oreillette, plats…) modélisés par l'utilisateur dans Blockbench (provisoires dans le pack Nexo).
+  - Objets 3D (bourse, oreillette, plats, cloche, corbeau…) modélisés par l'utilisateur dans Blockbench, en
+    parallèle (provisoires dans le pack Nexo).
   - **Discord staff « RBN - STAFF »** : rework appliqué le 14/10 (rôles réseau, salons, permissions, bannières,
-    messages en cadre) ; page « Discord » du panel staff commitée (déploiement web à faire)
-    ([`operations/DISCORD_STAFF.md`](./operations/DISCORD_STAFF.md)). Boards Trello / Miro synchronisés le 14/10.
+    messages en cadre) ; page « Discord » du panel staff et salon `build-updates` **déployés** (train web, 17/10)
+    ([`operations/DISCORD_STAFF.md`](./operations/DISCORD_STAFF.md)). Boards Trello / Miro synchronisés le 17/10.
   - **Plus tard** : système de combat (décision du 14/10).
 - **Livré les 12-13/10 (serveur dev)** — `reborn-hud` 0.4.170 → **0.4.174** + ShinobiCore / ShinobiAbilities + pack Nexo :
   - **Tous les menus au niveau de la « fiche shinobi »** (référence de rendu, DA §4.1-4.2) : fiche shinobi « portrait en
@@ -81,7 +93,7 @@
 | Design **Progression** | ✅ | Grades RP (9 grades, 08/10) + XP invisible → points de stats (10/10) |
 | Design **Parchemins** | ✅ | Règles validées le 08/10 — [`gameplay/APPRENTISSAGE.md`](./gameplay/APPRENTISSAGE.md) |
 | Design **KO / mort RP** | ✅ | Implémenté KO-1 à KO-7 — [`gameplay/KO_ET_MORT_RP.md`](./gameplay/KO_ET_MORT_RP.md) |
-| Design **Faction Konoha** | 🟡 ❓ | **Proposition maquettée en cours (13/10)**, à valider avec l'utilisateur. L'utilisateur veut en discuter avec des références visuelles (« très très très important ») : menus de sections, factions, trésor commun, banques, coffres |
+| Design **Faction Konoha** | ✅ | v3 validée le 16/10, socle publié (hud 0.4.184), **validé en jeu le 17/10** ; coffres de section et portes à clé mis de côté le 18/10 ; mécaniques par section plus tard — [`gameplay/FACTION.md`](./gameplay/FACTION.md) |
 | Code `StatsService` | ✅ | En service depuis le 28/09 |
 | `ProgressionLadder` (rangs + seuils XP) | ✅ remplacé | Les grades ne montent plus à l'XP ; l'XP donne des points de stats |
 | **8 icônes de recharge** | 🟡 3/8 | Existent : dash, double saut, saut de chakra. **Demandées à l'utilisateur** (il les dessine) : `combat.png`, `course_chakra.png` (32×32, frames empilées verticalement, `mod-hud/src/main/resources/assets/reborn/textures/gui/ability/`). Restent du plan : dodge, block, katon-D, suiton-D, doton-D, fūton-D |
@@ -137,8 +149,9 @@ dev avec un rendu jugé moche. ⏳ apprentissage des techniques de clan. [`gamep
 `volonte` à créer (aujourd'hui personne n'a la Volonté), animations d'exécution, vente des exécutions, coma,
 saignement. [`gameplay/KO_ET_MORT_RP.md`](./gameplay/KO_ET_MORT_RP.md)
 
-**Faction** — ⏳ ❓ cf. §1. Dépendances : rangs médicaux (Corps médical), fonctions RP (ANBU, conseil),
-bibliothèques privées, grades.
+**Faction** — ✅ socle (volet J, sections, grades de section, invitations) publié le 16/10, validé en jeu le 17/10 ;
+⏸️ coffres de section et portes à clé mis de côté le 18/10 ; mécaniques par section plus tard.
+[`gameplay/FACTION.md`](./gameplay/FACTION.md)
 
 **Médical** — 🟡 paume de soin, bandages, `/soigner`, armoires, hôpitaux et lits ✅ ; ⏳ antidotes, coma,
 `MedicalService` (Sprint 3). Lien avec le KO volontairement léger.
@@ -177,7 +190,7 @@ lieux placés « à l'œil », à corriger en jeu (`/carte set`).
 
 | # | Question | Contexte |
 |---|---|---|
-| 1 | **Design Faction Konoha** : sections, trésor commun, banques, coffres, références visuelles | Dernier design du Sprint 1 |
+| 1 | ~~**Design Faction Konoha**~~ — tranché (v3 du 16/10, portes et coffres le 17/10) | [`gameplay/FACTION.md`](./gameplay/FACTION.md) |
 | 2 | **Rendu de la concentration du chakra** : ensō A ou trait B | Mécanique active sur le dev avec un rendu rejeté |
 | 3 | **Technique `volonte`** : la créer au catalogue (et comment l'apprendre) ou activer `ko.volonte.pour-tous` | Aujourd'hui personne n'a la Volonté |
 | 4 | **Usage des points de Mérite** | Gagnés au grade, ne servent à rien pour l'instant |

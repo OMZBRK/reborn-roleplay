@@ -259,6 +259,9 @@ public final class Allure implements PluginMessageListener, Listener {
     /** Le sprint (pas le trot) est-il permis : ni ATA, ni étourdi, ni chargé, ni en train de porter quelqu'un. */
     private boolean sprintPermis(Player p) {
         UUID id = p.getUniqueId();
+        // Étape 2 d'ETATS_JOUEUR : la matrice des états (SPRINTER) — douleur, ATA, chargé, porteur, menotté, garde…
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        if (etats != null && !etats.peut(id, com.reborn.shinobicore.api.etat.Capacite.SPRINTER)) return false;
         if (core.ko() != null && core.ko().isImpaired(id)) return false;
         if (stun != null && stun.isStunned(id)) return false;
         if (core.inventory() != null && core.inventory().palier(id) >= InventoryService.CHARGE) return false;

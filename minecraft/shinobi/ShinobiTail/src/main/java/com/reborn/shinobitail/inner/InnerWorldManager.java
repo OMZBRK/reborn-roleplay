@@ -69,7 +69,12 @@ public final class InnerWorldManager {
         sessions.put(id, session);
 
         // --- phase 1: freeze ------------------------------------------------
-        player.setInvulnerable(true);
+        // Étapes 4-5 d'ETATS_JOUEUR : l'hôte est CORPS_VIDE (monde intérieur) dans la couche Contrôle — non ciblable,
+        // ni fouillable, ni technique — et plus de drapeau Invulnerable en NBT quand le service pose les effets.
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        if (etats != null) etats.transition(player, com.reborn.shinobicore.api.etat.Couche.CONTROLE,
+                "CORPS_VIDE.MONDE_INTERIEUR", com.reborn.shinobicore.api.etat.Source.systeme("monde intérieur"), null);
+        if (etats == null || !etats.appliqueEffetsPhysiques()) player.setInvulnerable(true);
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
                 20 * (freezeSeconds() + 3), 250, true, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS,
@@ -284,6 +289,9 @@ public final class InnerWorldManager {
 
     private void returnPlayer(Player player, InnerWorldSession session) {
         sessions.remove(session.playerId());
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        if (etats != null && player.isOnline()) etats.transition(player, com.reborn.shinobicore.api.etat.Couche.CONTROLE,
+                "-CORPS_VIDE", com.reborn.shinobicore.api.etat.Source.systeme("monde intérieur"), null);
 
         Location back = session.returnLocation();
         if (session.fakeBodyId() != null) {

@@ -45,6 +45,11 @@ plus deux ressources. Genjutsu absent de la beta.
 - **Endurance max** = 100 + eff(Vigueur) × 8 + eff(Taïjutsu) × 4.
 - **Régénération du chakra** (par 10 s, en méditant — seule source de régénération) = chakra max × (1 % +
   0,15 % × eff(Contrôle)).
+  - *Visuel de la méditation (18/10)* : `/meditation` assoit le joueur ; sous lui, un **halo** — disque de lumière
+    vert doux qui épouse le sol, respire lentement, apparaît et s'éteint en fondu — et de petites lueurs qui
+    montent, vus de **tous les joueurs à moins de 48 blocs** (canal `reborn:meditation`, mod `meditation/`). Couleur
+    `meditation.halo.couleur` ; `meditation.halo.par-nature: true` teinte le halo selon la nature de chakra
+    principale (katon orangé, suiton bleu, fūton vert pâle, doton ocre, raiton jaune ; désactivé par défaut).
 - **Coût d'une technique** : fixé par son **rang**, réduit de 3 % par point effectif de Contrôle.
 
 | Rang | E | D | C | B | A | S (et Hiden) |

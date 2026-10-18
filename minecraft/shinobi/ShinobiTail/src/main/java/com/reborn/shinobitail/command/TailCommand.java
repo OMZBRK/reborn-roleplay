@@ -158,6 +158,10 @@ public final class TailCommand implements CommandExecutor, TabCompleter {
         } else if (t != null) {
             p.sendMessage(err("Le démon gronde déjà — reprends d'abord le contrôle."));
         } else {
+            // États (ETATS_JOUEUR étape 2) : pas d'Union à terre, porté, gelé, en duel sans technique, en mode staff…
+            var etats = com.reborn.shinobicore.api.EtatService.get();
+            String refus = etats == null ? null : etats.refus(p.getUniqueId(), com.reborn.shinobicore.api.etat.Capacite.TECHNIQUE);
+            if (refus != null) { p.sendMessage(err(refus)); return true; }
             plugin.transformations().startUnion(p, data, beast);
         }
         return true;

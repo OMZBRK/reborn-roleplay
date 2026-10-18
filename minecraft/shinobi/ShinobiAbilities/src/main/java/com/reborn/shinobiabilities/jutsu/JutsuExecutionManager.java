@@ -223,7 +223,17 @@ public final class JutsuExecutionManager {
             return null;
         }
         // Duel consenti : pas de technique pendant le compte à rebours, ni du tout si duel.techniques = false.
-        if (core.ko() != null) {
+        // Étape 2 d'ETATS_JOUEUR : la matrice des états répond pour tout (gel, porté, étourdi, garde, entravé — une
+        // technique sans mudra passe une entrave —, prison, menottes, occupé…) ; repli sur KoService sinon.
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        if (etats != null) {
+            String no = etats.verifier(p.getUniqueId(), com.reborn.shinobicore.api.etat.Capacite.TECHNIQUE,
+                    a.mudraCount() > 0).refus();
+            if (no != null) {
+                actionBar(p, no, NamedTextColor.GOLD);
+                return null;
+            }
+        } else if (core.ko() != null) {
             String no = core.ko().techniqueDenial(p.getUniqueId());
             if (no != null) {
                 actionBar(p, no, NamedTextColor.GOLD);
@@ -298,6 +308,16 @@ public final class JutsuExecutionManager {
         if (!p.isOnline()) return;
         ShinobiCharacter c = com.reborn.shinobicore.util.Players.active(core.characters(), p);
         if (c == null) return;
+        // L'état a pu changer pendant l'incantation (étourdi, mis en garde, porté, KO…) : on revérifie au lancer.
+        var etats = com.reborn.shinobicore.api.EtatService.get();
+        if (etats != null) {
+            String no = etats.verifier(p.getUniqueId(), com.reborn.shinobicore.api.etat.Capacite.TECHNIQUE,
+                    a.mudraCount() > 0).refus();
+            if (no != null) {
+                actionBar(p, no, NamedTextColor.GOLD);
+                return;
+            }
+        }
         double cost = effectiveCost(c, a);
         if (TechniqueCosts.kind(plugin, a) == com.reborn.shinobicore.api.StatsService.CostKind.STAMINA) {
             var end = TechniqueCosts.endurance();

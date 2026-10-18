@@ -42,6 +42,9 @@ public final class EffetsStaff {
 
     /* écran noir */
     private static volatile boolean noirOn;
+
+    /** Écran noir du staff en cours (voile imposé : ni mode photo, ni F1 ne le lèvent). */
+    public static boolean noirActif() { return noirOn; }
     private static volatile long noirDepuis, noirFonduMs = 1000;
     private static volatile float noirDepart;
     private static volatile String noirTexte = "";

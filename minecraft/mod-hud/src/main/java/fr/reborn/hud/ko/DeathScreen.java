@@ -56,6 +56,16 @@ public final class DeathScreen extends Screen {
         hideHud(true);
     }
 
+    /**
+     * L'écran se ferme ou un autre le remplace : le HUD et la caméra sont toujours rendus (ETATS_JOUEUR §2.3 — sans
+     * ça, un écran ouvert par-dessus laissait le HUD caché d'une session à l'autre).
+     */
+    @Override
+    public void removed() {
+        restore();
+        super.removed();
+    }
+
     /** Fermeture (fin de scène) : HUD et caméra rendus. */
     public void restore() {
         Minecraft mc = Minecraft.getInstance();

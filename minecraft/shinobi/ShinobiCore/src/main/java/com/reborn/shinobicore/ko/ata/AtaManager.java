@@ -345,19 +345,9 @@ public final class AtaManager implements Listener {
         return null;
     }
 
-    /** Le personnage est-il sous l'effet de la peur ? */
+    /** FearRP retiré (2026-10-10) : plus jamais de peur. Code mort supprimé le 17/10 (ETATS_JOUEUR §2.4 n° 21). */
     private Fear fearOf(UUID characterId) {
-        if (true) return null; // FearRP retiré (2026-10) : l'ATA seule suffit
-        State st = states.get(characterId);
-        Fear f = fears.get(characterId);
-        long now = System.currentTimeMillis();
-        if (f != null && f.until() < now) { fears.remove(characterId); f = null; }
-        if (st != null) {
-            Set<UUID> atk = new HashSet<>(st.attackers);
-            if (f != null) atk.addAll(f.attackers());
-            return new Fear(Long.MAX_VALUE, atk);
-        }
-        return f;
+        return null;
     }
 
     /* ============================================================ ticker */
@@ -392,13 +382,16 @@ public final class AtaManager implements Listener {
                 continue;
             }
 
-            // PainRP : pas de sprint (faim ≤ 6), démarche ralentie.
-            restricted.add(pid);
-            p.removePotionEffect(PotionEffectType.SATURATION);
-            if (p.getFoodLevel() != 6) p.setFoodLevel(6);
-            p.setSaturation(0f);
+            // PainRP : pas de sprint (faim ≤ 6), démarche ralentie. Étape 5 d'ETATS_JOUEUR : l'applicateur des états
+            // pose les deux (ligne mod.ata de la matrice) ; ce code ne sert plus qu'en repli.
+            if (!com.reborn.shinobicore.etat.Applicateur.actif()) {
+                restricted.add(pid);
+                p.removePotionEffect(PotionEffectType.SATURATION);
+                if (p.getFoodLevel() != 6) p.setFoodLevel(6);
+                p.setSaturation(0f);
+                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, true, false, false));
+            }
             if (p.isSprinting()) p.setSprinting(false);
-            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, true, false, false));
 
             if (resting) restingNow.add(c.id()); else restingNow.remove(c.id());
             if (resting) {
@@ -520,23 +513,6 @@ public final class AtaManager implements Listener {
         ShinobiCharacter ac = plugin.characters().getActive(attacker.getUniqueId());
         if (ac == null) { recordHit(victim, attacker, now); return; }
 
-        Fear fear = fearOf(ac.id());
-        if (fear != null) {
-            if (fear.attackers().contains(victim.getUniqueId())) {
-                ev.setCancelled(true);
-                attacker.sendActionBar(Component.text("La peur te paralyse face à " + victim.getName() + "…",
-                        NamedTextColor.DARK_RED));
-                return;
-            }
-            Map<UUID, Long> mine = hitBy.get(attacker.getUniqueId());
-            Long provoked = mine != null ? mine.get(victim.getUniqueId()) : null;
-            if (provoked == null || now - provoked > SELF_DEFENSE_MILLIS) {
-                ev.setCancelled(true);
-                attacker.sendActionBar(Component.text("Trop blessé pour provoquer un combat — tu ne peux que te défendre.",
-                        NamedTextColor.GRAY));
-                return;
-            }
-        }
         // ATA : seul le M1 à mains nues passe (ni arme, ni projectile, ni technique).
         if (states.containsKey(ac.id())) {
             boolean bareHand = ev.getDamager() == attacker

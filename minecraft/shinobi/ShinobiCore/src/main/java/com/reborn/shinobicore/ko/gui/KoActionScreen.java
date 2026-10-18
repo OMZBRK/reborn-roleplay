@@ -136,10 +136,9 @@ public final class KoActionScreen extends CoreScreen {
                         "examine attentivement la silhouette de " + tName + ".");
             }
             case ACT_FOUILLER -> {
+                // 18/10 : la fouille passe toujours par /corps (sacoche RP du corps, 3 s, 30 %, journal).
                 viewer.closeInventory();
-                router.openFouiller(viewer, targetId);
-                AutoMe.broadcast(core(), viewer,
-                        "fouille les affaires de " + tName + ".");
+                viewer.performCommand("corps fouiller " + target.getName());
             }
             case ACT_PORTER -> {
                 viewer.closeInventory();

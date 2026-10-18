@@ -3,7 +3,7 @@
 > **Ce document décrit comment les boards sont organisés, ce qu'on y met, et l'état de leur synchronisation avec
 > le dépôt.** Les boards sont la vitrine de l'avancement pour le staff (et pour la communauté, côté Trello). Ils
 > **suivent** les documents du dépôt : en cas d'écart, c'est le dépôt qui fait foi et les boards qu'on corrige.
-> Mis à jour le 2026-10-16.
+> Mis à jour le 2026-10-18.
 
 ---
 
@@ -42,6 +42,12 @@ Scène de chargement `ChXm1lsf` · Touches `7OWy5DlO` · Personnages au F7 `bYdq
 Cloche et volières `Uc3C51RF` ; passées en `Done` : Radio `kjFadbcE`, Monnaie `8FlE0akL`. Ajoutées le 16/10
 (In Production) : En attente de l'équipe `3tjRoBGa` · Portes et coffres de section `5pObxJ0O` · Mécaniques par
 section `9Mhhyc9R` ; Game Plan `HWy6kfc7` réécrite, États du joueur `nZb7nKaq` « validé, à coder ».
+Ajoutées le 17/10 (`Done`) : Test de la Feuille v2 et v3 `RHFdt3A5` · Fenêtre « 26.2* Reborn » `bHX4590Z` · Discord
+staff build-updates + panel `pUlAUXJz`. Renommées le 17/10 : États du joueur `nZb7nKaq` « en cours de code », Coffres
+de section + portes à clé `5pObxJ0O`, Mécaniques par section `9Mhhyc9R` « plus tard », Sprint 2 `UoFMizpN`
+« repoussé », Combat `hzVHMsfU` « plus tard ». Le 18/10 : Sprint 3 `zIlrZylj` · Sprint 4 `jDN8pkpu` · Méditation
+`h70Rj1pK` ; Sprint 1 renommée « prolongé », États du joueur `nZb7nKaq` « codée, publication en cours (hud 0.4.189) »,
+Faction `u9ifx7lu` « socle livré, validé en jeu le 17/10 », Coffres `5pObxJ0O` « mis de côté (18/10) ».
 
 ## 3. Organisation du Miro
 
@@ -53,9 +59,10 @@ Frames ajoutées le 12/10 : *Livré du 08 au 11/10*, *Sprint 1, bilan au 12/10*,
 14/10, à droite de la même rangée : *✅ Livré du 12 au 14/10* et *🗺️ Game Plan RedLine — point par point* (fait /
 validé, code à venir / à venir). Les frames du 12/10 avaient pris le style clair « Bright Paper » ; celles du 14/10
 reviennent à la palette Akatsuki, comme *État réel*. Ajoutée le 16/10 : *✅ Livré du 15 au 16/10* ; *Game Plan* et
-*État réel* passés au 16/10. ⚠️ Encore
-périmées : *Sprint Timeline* (dates des Sprints 2-4 non recalées), frame HUD v1 (bandeau « obsolète ») ; *Progression
-Timeline* est marquée « remplacée ».
+*État réel* passés au 16/10. Le 17/10 : *Livré du 15 au 16/10* devient *✅ Livré du 15 au 17/10* (0.4.185 →
+0.4.188, Discord en ligne, prochains chantiers) ; *Game Plan* et *État réel* passés au 17/10 ; *Sprint Timeline*
+**marquée** « plan d'origine, non recalé » (bandeau + Sprint 2 « repoussé », dates non touchées). ⚠️ Encore
+périmées : frame HUD v1 (bandeau « obsolète ») ; *Progression Timeline* est marquée « remplacée ».
 
 ## 4. État de la synchronisation
 
@@ -69,8 +76,11 @@ Timeline* est marquée « remplacée ».
 | 10-12 | Miro | Frames *Livré du 08 au 11/10*, *Sprint 1, bilan au 12/10*, *Mort RP — le cycle* ; *État réel* passé au 12/10 ; *Progression Timeline* marquée « remplacée » |
 | 10-14 | Trello | 14 cartes `Done` (menus au niveau de la fiche, yeux + bibliothèques v2, Game Plan + études, Player ID, launcher 0.3.46, inventaire / ramassage, duel, journal + commandes staff + modes, allures, KO v2, Poste de garde v3, correctifs des états, nourriture v3 + entreprises, natures + Test de la Feuille) ; 4 cartes `In Production` (Game Plan suivi `HWy6kfc7`, États du joueur `nZb7nKaq`, Radio en escouades `kjFadbcE`, Monnaie `8FlE0akL`) ; commentaires datés 14/10 (KO, Poste de garde, Graphisme HUD, Sprint 1 bilan, Sprint 2, Déplacement, Communication RP, Faction, Combat, Médical, Bibliothèque, Assets) |
 | 10-14 | Miro | Frames *Livré du 12 au 14/10* et *Game Plan RedLine — point par point* ; *État réel* passé au 14/10 (`reborn-hud` 0.4.178, launcher 0.3.46) |
-| **10-16** | Trello | 8 cartes `Done` (boutiques en jeu `WUIQQQFz`, météo `uzS7qoNx`, marche sur l'eau `mPF1Jv9H`, scène de chargement `ChXm1lsf`, touches `7OWy5DlO`, personnages au F7 `bYdqXoP3`, factions `KtR21DYw`, cloche et volières `Uc3C51RF`) ; Radio `kjFadbcE` et Monnaie `8FlE0akL` passées en `Done` ; `In Production` : Game Plan `HWy6kfc7` réécrite, nouvelle « En attente de l'équipe » `3tjRoBGa`, États du joueur `nZb7nKaq` « validé, à coder », nouvelles « Portes et coffres de section » `5pObxJ0O` et « Mécaniques par section » `9Mhhyc9R` ; commentaires datés 16/10 (Communication RP, Faction, Déplacement, Poste de garde, Sprint 1, Modélisation 3D, Combat, v1.1 Boutique launcher) |
-| **10-16** | Miro | Frame *Livré du 15 au 16/10* ; *Game Plan* et *État réel* passés au 16/10 (`reborn-hud` 0.4.184, launcher 0.3.46) |
+| 10-16 | Trello | 8 cartes `Done` (boutiques en jeu `WUIQQQFz`, météo `uzS7qoNx`, marche sur l'eau `mPF1Jv9H`, scène de chargement `ChXm1lsf`, touches `7OWy5DlO`, personnages au F7 `bYdqXoP3`, factions `KtR21DYw`, cloche et volières `Uc3C51RF`) ; Radio `kjFadbcE` et Monnaie `8FlE0akL` passées en `Done` ; `In Production` : Game Plan `HWy6kfc7` réécrite, nouvelle « En attente de l'équipe » `3tjRoBGa`, États du joueur `nZb7nKaq` « validé, à coder », nouvelles « Portes et coffres de section » `5pObxJ0O` et « Mécaniques par section » `9Mhhyc9R` ; commentaires datés 16/10 (Communication RP, Faction, Déplacement, Poste de garde, Sprint 1, Modélisation 3D, Combat, v1.1 Boutique launcher) |
+| 10-16 | Miro | Frame *Livré du 15 au 16/10* ; *Game Plan* et *État réel* passés au 16/10 (`reborn-hud` 0.4.184, launcher 0.3.46) |
+| **10-17** | Trello | 3 cartes `Done` (Test de la Feuille v2-v3 `RHFdt3A5`, fenêtre « 26.2* Reborn » `bHX4590Z`, Discord build-updates + panel en ligne `pUlAUXJz`) ; « validé en jeu le 17/10 » sur Radio, Boutiques, Factions, Cloche et volières (+ 0.4.185-0.4.186), Marche sur l'eau, Natures (commentaire) ; Monnaie : bourse validée, banque à tester ; Touches + 0.4.186 ; `In Production` : États du joueur « en cours de code », « Coffres de section + portes à clé (crochetage / casse, aucune zone inaccessible) », Mécaniques par section « plus tard », Game Plan au 17/10 ; cartes périmées corrigées : Communication RP (livrée), Déplacement (marche sur l'eau livrée), Sprint 2 « repoussé, dates à recaler », Combat « plus tard » ; commentaire 17/10 sur Faction |
+| **10-17** | Miro | *✅ Livré du 15 au 17/10* (2 blocs ajoutés, 4 mis à jour) ; *Game Plan* et *État réel* au 17/10 (`reborn-hud` 0.4.188, manifest 3.1.145, ost 0.2.5, launcher 0.3.46) ; *Sprint Timeline* marquée « plan d'origine, non recalé » |
+| **10-18** | Trello | **Plan de vol** : checklist Sprint 1 — 7 éléments cochés (designs Progression, Parchemins, Faction, KO ; `StatsService` ; `ProgressionLadder` « remplacé » ; grades alignés), 3 marqués « en cours » (icônes 3/8, assets wave 1, terraforming) ; nouvelle checklist « Hors plan — livré, en cours, mis de côté (au 18/10) » (6 livrés cochés avec version et « validé en jeu le 17/10 » ; en cours hud 0.4.189 : états du joueur codés, effet visuel de méditation, animation de blocage à la parade ; mis de côté : serrures, clés et coffres ; plus tard : prison et menottes avec la police, mécaniques par section, combat et métiers) ; carte renommée « prolongé » + bilan daté. Sprint 3 : 4 cochés « livré en avance » (bibliothèque, KO étendu, Faction, Communication RP), 3 « partiel » (Hyuga / Byakugan, médical, assets wave 2) + point daté. Sprint 2 : description (coffres mis de côté, états à 0.4.189), parade « animation de blocage 0.4.189 » + commentaire. Sprint 4 : commentaire « pas commencé ». Hors plan de vol : États du joueur renommée et réécrite, Game Plan au 18/10, Faction renommée + description + commentaire, commentaires Méditation et Combat |
 
 ## 5. Mise à jour du 12/10 — ✅ appliquée (gardée comme modèle de contenu)
 

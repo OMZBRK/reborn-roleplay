@@ -6,6 +6,11 @@ import java.util.UUID;
  * The unconscious-state machine (KO). World-agnostic: any world has a
  * collapse state; what causes it (chakra debt, cursed-energy burnout)
  * is content.
+ *
+ * <p>Depuis le 17/10 (ETATS_JOUEUR étapes 2 et 9), {@link #techniqueDenial}, {@link #mobilityDenial} et
+ * {@link #teleportDenial} <b>délèguent</b> à {@link EtatService} (matrice d'{@code etats.yml}) : pour une nouvelle
+ * lecture, préférer {@code EtatService#verifier(UUID, Capacite)}. Ces méthodes seront {@code @Deprecated} quand plus
+ * aucun add-on ne les appellera (ShinobiSense, hors de ce lot, et les replis des add-ons).
  */
 @Stable
 public interface KoService {

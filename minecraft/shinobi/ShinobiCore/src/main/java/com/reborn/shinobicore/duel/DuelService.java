@@ -342,6 +342,9 @@ public final class DuelService implements Listener {
             return self ? "Dépose d'abord la personne que tu portes." : "Ce joueur porte quelqu'un.";
         if (plugin.trainingZones() != null && plugin.trainingZones().zoneAt(p.getLocation()) != null)
             return "Sur un terrain d'entraînement, le combat est déjà libre : pas besoin de duel.";
+        // Étape 2 d'ETATS_JOUEUR : ce que la matrice refuse en plus (prison, menottes, entrave, occupé, en combat…).
+        String r = com.reborn.shinobicore.etat.Verrous.refus(id, com.reborn.shinobicore.api.etat.Capacite.DUEL);
+        if (r != null) return self ? r : "Ce joueur ne peut pas se battre maintenant.";
         return null;
     }
 

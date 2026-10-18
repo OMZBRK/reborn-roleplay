@@ -52,6 +52,10 @@ public interface InventoryService {
      */
     default ItemStack poserCosmetique(Player player, String slot, ItemStack item) { return null; }
 
-    /** Pourquoi la sacoche est en lecture seule (« KO », « porté », « étourdi », « mort »), ou {@code null}. */
+    /**
+     * Pourquoi la sacoche est en lecture seule (« KO », « porté », « étourdi », « mort », « gelé », « entravé »,
+     * « menotté », « mode staff »…), ou {@code null}. Depuis le 17/10, complété par la matrice des états
+     * ({@code EtatService}, capacité {@code MODIFIER_SACOCHE}).
+     */
     String lockReason(Player player);
 }

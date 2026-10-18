@@ -68,12 +68,18 @@ qu'on ne sprinte pas.
 | **Chargé** (sacoche 100-115 %) | ralentie | ❌ (déjà : sprint vanilla coupé) | ❌ |
 | **Surchargé**, **Immobile** | ralentie / 0 | ❌ | ❌ |
 | **ATA** (blessé) | ✅ | ❌ (faim tenue à 6) | ❌ |
-| **Étourdi** (ShinobiCombat) | ✅ | ✅ | ❌ |
+| **Étourdi** (ShinobiCombat) | immobile (14/10) | — | ❌ |
 | **Porter quelqu'un** | ralentie (porteur) | selon l'état | ❌ |
 | **Garde** (C maintenue) | immobile | — | ❌ |
 | Faim ≤ 30 % (vanilla) | ✅ | ❌ | ❌ |
 | **KO**, **porté**, véhicule, nage, vol, créatif | allure **neutre** (le modificateur est retiré, une autre mécanique gère la vitesse) |
 | **Course ninja** (touche X) / Voie du Flux | allure **neutre** : la course possède la vitesse ; lancer la course coupe le sprint |
+
+> **Depuis la refonte des états (17/10, non publiée)** : ce tableau est lu dans la matrice `etats.yml` (capacités
+> `TROTTER`, `SPRINTER`, `BOUGER`, `SAUTER`) — [`../technique/ETATS_JOUEUR.md`](../technique/ETATS_JOUEUR.md). Le sprint
+> est aussi refusé aux menottés, entravés, occupés ; le mod reçoit l'état (`reborn:etat`) et coupe trot et sprint en
+> avance. Les lenteurs d'état (douleur ×0,6, ATA ×0,85, porteur ×0,7, gorge ×0,55, surcharge, manteau du bijū…) sont
+> **un seul** modificateur `reborn:etat_vitesse` (produit, plancher 0,25) qui se compose avec l'allure.
 
 ## 6. Autorité et prédiction
 
@@ -119,7 +125,8 @@ La touche X (course de chakra ; le banc vérifie aussi que le triple appui ne la
 
 ## 10. Marche sur l'eau (15/10)
 
-> Codé le 15/10, **non publié** (ShinobiAbilities `mobility/MarcheEau`, mod `eau/`). Demande : « fais la marche sur
+> Codé le 15/10, publié sur le dev le 15/10 (hud 0.4.181, v8 en 0.4.182 ; ShinobiAbilities `mobility/MarcheEau`, mod `eau/`),
+> **validé en jeu le 17/10**. Demande : « fais la marche sur
 > l'eau avec les mêmes visuels d'eau qui bouge en marchant ; il faut vraiment que ce soit aussi bien, si ce n'est
 > mieux » (référence Shinoda, [`../etudes/CONCURRENCE_SHINODA.md`](../etudes/CONCURRENCE_SHINODA.md)). Captures, GIF
 > et planche comparative (hors dépôt) : `Maquettes/gameplan/eau_v8/` (version actuelle, pli de la texture, films 60 i/s ; v7 : `eau_v7/`, v6 : `eau_v6/`, v5 : `eau_v5/`,

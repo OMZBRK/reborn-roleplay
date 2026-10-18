@@ -255,6 +255,8 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
     @Override
     public String techniqueDenial(UUID playerId) {
         if (isOutOfPlay(playerId)) return "Mode staff : aucune technique.";
+        // Étape 2 d'ETATS_JOUEUR : la matrice répond pour tout (gel, mort, porté, étourdi, garde, duel, prison,
+        // menottes, entrave…) ; les anciens tests ci-dessous ne servent que de repli si le service est absent.
         // Correctifs urgents (ETATS_JOUEUR §9 étape 0) : gel, mort, cinématique, porté / tenu, étourdi, garde.
         String v = com.reborn.shinobicore.etat.Verrous.technique(playerId);
         if (v != null) return v;
@@ -331,6 +333,18 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         if (player == null) return null;
         KoState existing = active.get(player.getUniqueId());
         if (existing != null) return existing;
+        // Étape 4 d'ETATS_JOUEUR : l'entrée en KO s'annonce au service des états — un plugin peut s'y opposer
+        // (EtatChangeEvent annulé : le bijū sauve son hôte, §10 n° 30). null = refusé, rien n'a changé.
+        var etats = plugin.etats();
+        if (etats != null) {
+            boolean versTerre = !direct && cause == KoState.Cause.HP && downedEnabled
+                    && (plugin.volonte() == null || !plugin.volonte().skipDowned(charId));
+            var r = etats.transition(player, com.reborn.shinobicore.api.etat.Couche.VITAL,
+                    versTerre ? "A_TERRE" : "INCONSCIENT",
+                    com.reborn.shinobicore.api.etat.Source.systeme(cause == KoState.Cause.CHAKRA ? "chakra à 0"
+                            : direct ? "exécution" : "coup mortel"), null);
+            if (r == com.reborn.shinobicore.api.etat.Resultat.VETO) return null;
+        }
         if (plugin.douleur() != null) plugin.douleur().clear(player);
 
         // Notify addon plugins (ShinobiAbilities) before the KO effects
@@ -559,9 +573,14 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         String village = c != null ? c.village() : "";
         // 1. premier lit libre de l'hôpital du village ; 2. entrée de la zone hôpital ;
         // 3. ancien point /hopital set ; 4. spawn du monde.
-        HospitalBeds.Bed bed = plugin.beds() != null ? plugin.beds().claim(village, playerId) : null;
-        Location dest = bed != null ? bed.location() : null;
-        boolean onBed = dest != null;
+        // Prison (ETATS_JOUEUR §10 n° 4, décision du 14/10 n° 8) : un détenu se réveille à l'infirmerie de la prison,
+        // c'est-à-dire dans la zone de sa peine — jamais à l'hôpital du village (ce serait une évasion).
+        var peine = plugin.etats() != null ? plugin.etats().peine(playerId) : null;
+        com.reborn.shinobicore.ko.zone.TrainingZone prisonZ = peine != null && peine.zone() != null && plugin.trainingZones() != null
+                ? plugin.trainingZones().get(peine.zone()) : null;
+        HospitalBeds.Bed bed = prisonZ == null && plugin.beds() != null ? plugin.beds().claim(village, playerId) : null;
+        Location dest = bed != null ? bed.location() : prisonZ != null ? entrance(prisonZ) : null;
+        boolean onBed = bed != null;
         if (dest == null && plugin.beds() != null) {
             var hz = plugin.beds().hospitalFor(village);
             if (hz != null) dest = entrance(hz);
@@ -763,8 +782,10 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
         // Darkness instead of blindness: the body still sees, the vision pulses.
         p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS,
                 60, 0, true, false, false));
-        // À terre : lent mais mobile. Inconscient : paralysé.
-        p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
+        // À terre : lent mais mobile. Inconscient : paralysé. Depuis l'étape 5 d'ETATS_JOUEUR, l'applicateur des états
+        // pose la vitesse (×0,7 / 0) et le saut (0) d'après la matrice ; la lenteur vanilla ne reste qu'en repli.
+        boolean applicateur = com.reborn.shinobicore.etat.Applicateur.actif();
+        if (!applicateur) p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
                 40, downed ? 1 : 6, true, false, false));
         // Crawl on the ground / lie unconscious.
         if (!p.isInsideVehicle() && (plugin.corps() == null || !plugin.corps().isHeld(p.getUniqueId()))) {
@@ -772,7 +793,7 @@ public final class KoManager implements com.reborn.shinobicore.api.KoService {
             if (p.getPose() != want) p.setPose(want, true);
         }
         AttributeInstance jump = p.getAttribute(Attribute.JUMP_STRENGTH);
-        if (jump != null && jump.getModifier(noJumpKey) == null) {
+        if (!applicateur && jump != null && jump.getModifier(noJumpKey) == null) {
             jump.addTransientModifier(new AttributeModifier(noJumpKey, -1.0,
                     AttributeModifier.Operation.MULTIPLY_SCALAR_1, EquipmentSlotGroup.ANY));
         }

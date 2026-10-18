@@ -118,6 +118,27 @@ public final class ModificateurRegistry implements ModificateurService, Listener
                 if (t != null) types.put(id.toLowerCase(Locale.ROOT), TypeModificateur.lire(id.toLowerCase(Locale.ROOT), t));
             }
         }
+        // Types des états du joueur (menottes, défenses, effets de techniques, épuisement… — ETATS_JOUEUR étapes 7-8) :
+        // section « modificateurs » d'etats.yml (disque, sinon le jar) ; config.yml garde la priorité sur un même id.
+        try {
+            File f = new File(plugin.getDataFolder(), "etats.yml");
+            YamlConfiguration y = f.exists() ? YamlConfiguration.loadConfiguration(f) : null;
+            YamlConfiguration jar = null;
+            try (var in = plugin.getResource("etats.yml")) {
+                if (in != null) jar = YamlConfiguration.loadConfiguration(new java.io.InputStreamReader(in, StandardCharsets.UTF_8));
+            }
+            for (YamlConfiguration src : new YamlConfiguration[] {y, jar}) {
+                ConfigurationSection es = src == null ? null : src.getConfigurationSection("modificateurs");
+                if (es == null) continue;
+                for (String id : es.getKeys(false)) {
+                    String k = id.toLowerCase(Locale.ROOT);
+                    ConfigurationSection t = es.getConfigurationSection(id);
+                    if (t != null && !types.containsKey(k)) types.put(k, TypeModificateur.lire(k, t));
+                }
+            }
+        } catch (Exception ex) {
+            plugin.getLogger().warning("[modificateurs] types d'etats.yml illisibles : " + ex.getMessage());
+        }
         syncMs = Math.max(2, plugin.getConfig().getInt("modificateurs.sync-secondes", 10)) * 1000L;
     }
 
@@ -214,6 +235,25 @@ public final class ModificateurRegistry implements ModificateurService, Listener
         TypeModificateur t = type(typeId);
         if (pid == null || t == null) return false;
         long d = dureeMs > 0 ? dureeMs : t.dureeMs();
+        Map<String, Modif> l0 = parPerso.get(pid);
+        // Immunités (ETATS_JOUEUR §4.4) : un modificateur actif peut refuser une famille ou un type.
+        if (l0 != null) {
+            for (Modif x : l0.values()) {
+                TypeModificateur ti = types.get(x.type);
+                if (ti != null && (ti.immunise().contains(t.famille()) || ti.immunise().contains(t.id().toUpperCase(Locale.ROOT)))) {
+                    Journal.entree(Categorie.ETAT, "DEFENSE").cible(p)
+                            .detail(t.nom() + " refusé · immunité " + ti.nom() + " · " + source).ecrire();
+                    return false;
+                }
+            }
+        }
+        // Résistances et vetos des add-ons (ModificateurPoseEvent, §8).
+        var ev = new com.reborn.shinobicore.api.event.ModificateurPoseEvent(p, t.id(), t.famille(), intensite, d,
+                source == null ? "?" : source);
+        Bukkit.getPluginManager().callEvent(ev);
+        if (ev.isCancelled()) return false;
+        intensite = ev.intensite();
+        d = ev.dureeMs() > 0 ? ev.dureeMs() : d;
         Map<String, Modif> l = parPerso.computeIfAbsent(pid, k -> new ConcurrentHashMap<>());
         Modif ex = l.get(t.id());
         long now = System.currentTimeMillis();
@@ -270,6 +310,8 @@ public final class ModificateurRegistry implements ModificateurService, Listener
         }
         disque = true;
         envoyer(p);
+        Bukkit.getPluginManager().callEvent(new com.reborn.shinobicore.api.event.ModificateurRetireEvent(p, m.type,
+                source != null && source.startsWith("dissipé") ? "dissipe" : "retire"));
     }
 
     /** Retire tous les bonus « perdus au KO » (appelé à l'entrée en KO). */
@@ -277,11 +319,17 @@ public final class ModificateurRegistry implements ModificateurService, Listener
         UUID pid = perso(p.getUniqueId());
         Map<String, Modif> l = pid == null ? null : parPerso.get(pid);
         if (l == null) return;
+        List<String> partis = new ArrayList<>();
         boolean ch = l.values().removeIf(m -> {
             TypeModificateur t = types.get(m.type);
-            return t == null || t.perduAuKo();
+            boolean part = t == null || t.perduAuKo();
+            if (part) partis.add(m.type);
+            return part;
         });
         if (ch) { disque = true; envoyer(p); }
+        for (String x : partis) {
+            Bukkit.getPluginManager().callEvent(new com.reborn.shinobicore.api.event.ModificateurRetireEvent(p, x, "ko"));
+        }
     }
 
     /* ================================================================ tick */
@@ -312,6 +360,7 @@ public final class ModificateurRegistry implements ModificateurService, Listener
                 if (t != null && t.journal()) {
                     Journal.entree(Categorie.JOUEUR, "MODIF_FIN").cible(p).detail(t.nom()).ecrire();
                 }
+                Bukkit.getPluginManager().callEvent(new com.reborn.shinobicore.api.event.ModificateurRetireEvent(p, f, "fin"));
                 if (t != null && t.ensuite() != null && m != null && type(t.ensuite()) != null) {
                     poser(p, t.ensuite(), 1.0, 0, "contrecoup · " + t.nom());
                 }

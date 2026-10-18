@@ -68,6 +68,15 @@ public abstract class MouseInteractionMixin {
             ci.cancel();
             return;
         }
+        // ÉTAT DU SERVEUR : FRAPPER refusé (douleur, à terre, étourdi, porté, entravé…) — pas de coup dans le vide sur
+        // une cible visée. Seulement une ENTITÉ visée : casser un bloc, cliquer dans le vide restent libres.
+        if (button.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && Minecraft.getInstance().gui.screen() == null
+                && fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("fra")
+                && Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.EntityHitResult) {
+            ci.cancel();
+            return;
+        }
         if (!InteractionMode.INSTANCE.isCapturing()) return;
         if (button.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW.GLFW_PRESS) {

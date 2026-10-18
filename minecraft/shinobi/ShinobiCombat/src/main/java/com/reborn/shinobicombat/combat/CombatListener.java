@@ -197,6 +197,12 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private final Map<UUID, Long> stunnedUntil = new ConcurrentHashMap<>();
     // Sacoche (surcharge), résolue au premier besoin.
     private com.reborn.shinobicore.api.InventoryService inventory;
+    /** Service des états de ShinobiCore (ETATS_JOUEUR, 17/10), résolu paresseusement ; null = repli. */
+    private com.reborn.shinobicore.api.EtatService etats;
+    private long etatsCherche;
+    /** Verrou de garde après une garde brisée (ETATS_JOUEUR §5.1) : pas de nouvelle garde avant cette date. */
+    private final Map<UUID, Long> gardeVerrou = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long GARDE_VERROU_MS = 1000L;
     /** Immobilité serveur (modificateurs nommés, transitoires : rien dans le NBT, et le Kai ne les retire pas). */
     private final NamespacedKey cleEtourdiVitesse, cleEtourdiSaut, cleGardeVitesse, cleGardeSaut;
 
@@ -368,6 +374,8 @@ public final class CombatListener implements Listener, PluginMessageListener {
         // Feedback client + particules + son de deflect « métallique ».
         CombatChannel.sendParry(plugin, victim, CombatChannel.PARRY_ROLE_SUCCESS);
         CombatChannel.sendParry(plugin, attacker, CombatChannel.PARRY_ROLE_BROKEN);
+        // Coup de garde du défenseur, vu par les joueurs proches (le défenseur le joue lui-même à TYPE_PARRY).
+        CombatChannel.sendAnim(plugin, nearbyPlayers(victim), victim.getEntityId(), CombatChannel.ANIM_PARRY);
         spawnImpactParticles(victim, true);
         victim.getWorld().playSound(victim.getLocation(), org.bukkit.Sound.BLOCK_ANVIL_LAND,
                 SoundCategory.PLAYERS, 0.5f, 1.9f);
@@ -505,7 +513,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
-        if (immobile(id)) return;   // étourdi ou en garde : immobile (décisions du 14/10)
+        if (immobile(id) || mobiliteRefusee(id)) return;   // étourdi, en garde, ou l'état refuse (ATA, douleur, gel…)
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
@@ -537,7 +545,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
-        if (immobile(id)) return;
+        if (immobile(id) || mobiliteRefusee(id)) return;
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
@@ -574,7 +582,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
-        if (immobile(id)) return;
+        if (immobile(id) || mobiliteRefusee(id)) return;
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
@@ -611,7 +619,7 @@ public final class CombatListener implements Listener, PluginMessageListener {
         UUID id = player.getUniqueId();
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
-        if (immobile(id)) return;
+        if (immobile(id) || mobiliteRefusee(id)) return;
         if (surcharge(id)) return;   // sacoche trop lourde : ni dash ni bond (palier « Surchargé »)
 
         long now = System.currentTimeMillis();
@@ -642,9 +650,17 @@ public final class CombatListener implements Listener, PluginMessageListener {
         if (characters.getActive(id) == null) return;
         if (ko != null && ko.isKo(id)) return;
         if (isStunned(id)) return;     // étourdi : ni garde ni parade
-        if (!blocking.add(id)) return; // déjà en garde
-        // Garde = immobile (décision du 14/10) : imposé aussi par le serveur, plus seulement par le mod.
-        figer(player, cleGardeVitesse, cleGardeSaut);
+        Long verrou = gardeVerrou.get(id);
+        if (verrou != null && verrou > System.currentTimeMillis()) return;   // garde brisée : souffle d'abord
+        var es = etats();
+        if (es != null && !es.peut(id, com.reborn.shinobicore.api.etat.Capacite.GARDER)) return;   // douleur, porté…
+        if (blocking.contains(id)) return; // déjà en garde
+        // Étape 4 d'ETATS_JOUEUR : la garde est une valeur de la couche Contrôle, posée par l'API (veto possible).
+        if (es != null && !es.transition(player, com.reborn.shinobicore.api.etat.Couche.CONTROLE, "GARDE",
+                com.reborn.shinobicore.api.etat.Source.systeme("garde"), null).ok()) return;
+        blocking.add(id);
+        // Garde = immobile (décision du 14/10). Avec l'applicateur des états, c'est la ligne controle.GARDE.
+        if (es == null || !es.appliqueEffetsPhysiques()) figer(player, cleGardeVitesse, cleGardeSaut);
         // Horodate le début de garde → ouvre la fenêtre de parade timée.
         blockStartMs.put(id, System.currentTimeMillis());
         CombatChannel.sendAnim(plugin, nearbyPlayers(player),
@@ -655,6 +671,11 @@ public final class CombatListener implements Listener, PluginMessageListener {
     private void stopBlocking(Player player, boolean guardBroken) {
         blockStartMs.remove(player.getUniqueId());
         liberer(player, cleGardeVitesse, cleGardeSaut);
+        var es = etats();
+        if (es != null) es.transition(player, com.reborn.shinobicore.api.etat.Couche.CONTROLE, "-GARDE",
+                com.reborn.shinobicore.api.etat.Source.systeme("garde"), null);
+        if (guardBroken) gardeVerrou.put(player.getUniqueId(),
+                System.currentTimeMillis() + GUARD_BREAK_STUN_TICKS * 50L + GARDE_VERROU_MS);
         if (!blocking.remove(player.getUniqueId()) && !guardBroken) return;
         CombatChannel.sendAnim(plugin, nearbyPlayers(player),
                 player.getEntityId(), CombatChannel.ANIM_BLOCK_OFF);
@@ -719,7 +740,12 @@ public final class CombatListener implements Listener, PluginMessageListener {
         long fin = System.currentTimeMillis() + ticks * 50L;
         stunnedUntil.merge(pv.getUniqueId(), fin, Math::max);
         if (blocking.contains(pv.getUniqueId())) stopBlocking(pv, false);
-        figer(pv, cleEtourdiVitesse, cleEtourdiSaut);
+        // Étape 4 d'ETATS_JOUEUR : l'étourdi est une valeur de la couche Contrôle (durée), posée par l'API ; avec
+        // l'applicateur des états, l'immobilité est la ligne controle.ETOURDI (plus de modificateur ici).
+        var es = etats();
+        if (es != null) es.transition(pv, com.reborn.shinobicore.api.etat.Couche.CONTROLE, "ETOURDI",
+                com.reborn.shinobicore.api.etat.Source.systeme("combat"), null, ticks * 50L);
+        if (es == null || !es.appliqueEffetsPhysiques()) figer(pv, cleEtourdiVitesse, cleEtourdiSaut);
         planifierFinEtourdi(pv, ticks);
     }
 
@@ -740,6 +766,22 @@ public final class CombatListener implements Listener, PluginMessageListener {
             liberer(p, new NamespacedKey(plugin, "etourdi_vitesse"), new NamespacedKey(plugin, "etourdi_saut"));
             liberer(p, new NamespacedKey(plugin, "garde_vitesse"), new NamespacedKey(plugin, "garde_saut"));
         }
+    }
+
+    /** Le service des états, ou null (ShinobiCore trop ancien / pas encore prêt : repli sur les anciens tests). */
+    private com.reborn.shinobicore.api.EtatService etats() {
+        long now = System.currentTimeMillis();
+        if (etats == null && now > etatsCherche) {
+            etats = com.reborn.shinobicore.api.EtatService.get();
+            if (etats == null) etatsCherche = now + 10_000L;
+        }
+        return etats;
+    }
+
+    /** Déplacement de combat refusé par l'état (douleur, ATA, gel, porté, entravé, menotté…) — §2.2 d. */
+    private boolean mobiliteRefusee(UUID id) {
+        var es = etats();
+        return es != null && !es.peut(id, com.reborn.shinobicore.api.etat.Capacite.MOBILITE);
     }
 
     /** Étourdi ou en garde : aucun déplacement de combat (dash, bond, keriox, esquive). */
@@ -838,6 +880,22 @@ public final class CombatListener implements Listener, PluginMessageListener {
     @EventHandler
     public void onKo(com.reborn.shinobicore.event.KoEnterEvent e) {
         if (blocking.contains(e.player().getUniqueId())) stopBlocking(e.player(), false);
+        // Le KO rompt l'étourdi (ETATS_JOUEUR §5.2 règle 1) : il ne survit plus au réveil.
+        stunnedUntil.remove(e.player().getUniqueId());
+        liberer(e.player(), cleEtourdiVitesse, cleEtourdiSaut);
+    }
+
+    /** Changement de personnage : ni garde ni étourdi ne passent à l'autre personnage (§2.4 n° 18). */
+    @EventHandler
+    public void onSwitch(com.reborn.shinobicore.api.event.CharacterSwitchEvent e) {
+        Player p = e.player();
+        if (blocking.contains(p.getUniqueId())) stopBlocking(p, false);
+        stunnedUntil.remove(p.getUniqueId());
+        gardeVerrou.remove(p.getUniqueId());
+        liberer(p, cleEtourdiVitesse, cleEtourdiSaut);
+        var es = etats();
+        if (es != null) es.transition(p, com.reborn.shinobicore.api.etat.Couche.CONTROLE, "-ETOURDI",
+                com.reborn.shinobicore.api.etat.Source.systeme("changement de personnage"), null);
     }
 
     /** Le taïjutsu a besoin du PvP vanilla : l'{@link EntityDamageByEntityEvent}

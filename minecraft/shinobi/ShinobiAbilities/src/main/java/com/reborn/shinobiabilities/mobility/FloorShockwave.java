@@ -160,8 +160,13 @@ public final class FloorShockwave {
 
         for (Entity e : p.getWorld().getNearbyEntities(p.getLocation(), radius, radius / 2, radius)) {
             if (!(e instanceof LivingEntity le) || e == p) continue;
-            // ni staff, ni invisible, ni faux corps, ni corps KO (ETATS_JOUEUR §2.4 n° 17, test n° 27)
-            if (com.reborn.shinobicore.etat.Verrous.horsCible(e)
+            // ni staff, ni invisible, ni faux corps, ni corps KO (ETATS_JOUEUR §2.4 n° 17, test n° 27) — par l'API
+            var etats = com.reborn.shinobicore.api.EtatService.get();
+            if (etats != null) {
+                if (!etats.peutCibler(p, e, java.util.Set.of(com.reborn.shinobicore.api.etat.Etiquette.ZONE,
+                        com.reborn.shinobicore.api.etat.Etiquette.PHYSIQUE))) continue;
+                if (e instanceof Player vp && etats.etat(vp).ko()) continue;
+            } else if (com.reborn.shinobicore.etat.Verrous.horsCible(e)
                     || com.reborn.shinobicore.etat.Verrous.ko(e.getUniqueId())) continue;
             le.damage(damage, p);
             Vector away = le.getLocation().toVector().subtract(p.getLocation().toVector());
@@ -169,8 +174,20 @@ public final class FloorShockwave {
             if (away.lengthSquared() < 0.01) away = new Vector(0.4, 0, 0.4);
             le.setVelocity(away.normalize().multiply(knockback * 0.35).setY(0.35));
             int ticks = (int) Math.max(1, victimStun * 20);
-            le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 5, false, false));
-            le.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, ticks, 0, false, false));
+            // Étapes 4 et 7 d'ETATS_JOUEUR : sur un joueur, un vrai étourdi (couche Contrôle, durée) et une cécité
+            // nommée — plus des potions que l'étourdi ne voyait pas. Les mobs gardent les potions.
+            if (le instanceof Player vp && etats != null) {
+                etats.transition(vp, com.reborn.shinobicore.api.etat.Couche.CONTROLE, "ETOURDI",
+                        com.reborn.shinobicore.api.etat.Source.technique("onde au sol", p.getUniqueId()), null, ticks * 50L);
+                if (!etats.poser(vp, new com.reborn.shinobicore.api.etat.ModificateurSpec("jutsu_aveugle", 1.0, ticks * 50L),
+                        com.reborn.shinobicore.api.etat.Source.technique("onde au sol", p.getUniqueId()))) {
+                    le.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, ticks, 0, false, false));
+                }
+                if (!etats.appliqueEffetsPhysiques()) le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 5, false, false));
+            } else {
+                le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 5, false, false));
+                le.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, ticks, 0, false, false));
+            }
         }
         int userTicks = (int) Math.max(1, userStun * 20);
         p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, userTicks, 3, false, false));

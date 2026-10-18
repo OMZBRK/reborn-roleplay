@@ -123,7 +123,7 @@ public final class DeathScene implements Listener {
         var ch = plugin.characters().getActive(p.getUniqueId());
         scenes.put(p.getUniqueId(), new Scene(at, name, System.currentTimeMillis(), ch != null ? ch.appearance() : "",
                 ch != null ? ch.id() : null));
-        p.setInvulnerable(true);
+        if (!com.reborn.shinobicore.etat.Applicateur.actif()) p.setInvulnerable(true);   // sinon : mort RP = non ciblable (porte des dégâts)
         p.closeInventory();
         p.setPose(Pose.SLEEPING, true);
         p.playSound(p.getLocation(), Sound.ENTITY_WARDEN_HEARTBEAT, 1f, 0.5f);

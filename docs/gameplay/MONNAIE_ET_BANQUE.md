@@ -1,6 +1,6 @@
 # Monnaie et banque — la bourse, le compte, le guichet
 
-> **Statut : décidé le 15/10 (réponses aux 12 questions, §14), codé le 15/10, publié sur le dev le 15/10 (hud 0.4.179, manifest 3.1.135).** Game Plan n° 19 (Monnaie)
+> **Statut : décidé le 15/10 (réponses aux 12 questions, §14), codé le 15/10, publié sur le dev le 15/10 (hud 0.4.179, manifest 3.1.135). Recette du 17/10 : **bourse validée en jeu** ; **banque pas encore testée** (guichet, compte, coffre à paliers, virement, échange garanti : §20).** Game Plan n° 19 (Monnaie)
 > et n° 20 (Banque). Ce qui est codé, le protocole, les réglages, les objets à modéliser et ce qui reste : §15 à §20.
 > Proposition d'origine (14/10) gardée ci-dessous comme spécification, corrigée là où les décisions l'ont changée.
 >
@@ -423,7 +423,7 @@ d'un cran dans le code.
 | `monnaie/MonnaieConfig` | Réglages, **tous les défauts dans le code** (sections `monnaie` et `banque` de `config.yml` facultatives, §17) |
 | `monnaie/Bourse` | L'objet : `PAPER` + item_model `reborn:bourse_plate\|garnie\|lourde` selon le montant, PDC `reborn:ryo` (montant), `reborn:bourse_id` (anti-doublon), poids 0, une pile ; nom « Bourse », lignes « 1 240 ryo », gestes ; au sol / au coffre : « Bourse · 250 ryo » |
 | `monnaie/BourseService` | Trouver (barre puis sac), créditer / débiter (fil principal), **une seule bourse** (fusion toutes les 2 s ; deux bourses au même identifiant = alerte « bourse en double »), **poser** (« Combien ? », 30 min au sol, journal `PERTE` à l'expiration), **ramasser** (touche F via `Ramassage`, fusion dans sa bourse, alerte ≥ 5 000 ramassée par un autre), **coffres posés** (clic sur sa bourse → « Combien veux-tu ranger ? » ; clic sur la bourse du coffre → tout reprendre ; la bourse ne passe jamais par le curseur), payer l'échoppe |
-| `monnaie/FouilleService` | « Fouiller » : 3 s immobile (bouger ou être frappé interrompt ; la victime voit « On te fouille »), puis la **sacoche du corps** : barre, sac, bourse ; prendre un objet (marqué « volé », `reborn:vole_a`) ; « Prendre combien ? » plafonné à **30 %** ; corps laissé au sol (mannequin) fouillable même joueur parti ; alerte `vol` ≥ 1 000 |
+| `monnaie/FouilleService` | « Fouiller » : 3 s immobile — une **action longue** du service des états depuis le 17/10 (`OCCUPE(fouille)` : bouger, être frappé, tomber, être étourdi ou porté interrompt ; pendant ce temps ni technique ni coup ; ETATS_JOUEUR §9) ; la victime voit « On te fouille », puis la **sacoche du corps** : barre, sac, bourse ; prendre un objet (marqué « volé », `reborn:vole_a`) ; « Prendre combien ? » plafonné à **30 %** ; corps laissé au sol (mannequin) fouillable même joueur parti ; alerte `vol` ≥ 1 000 |
 | `monnaie/RyoCommand` | `/ryo` (§15.5) |
 | `monnaie/MonnaieCanal` | Canaux `reborn:monnaie` et `reborn:banque` (§16) |
 | `banque/BanqueService` | Comptes, **migration**, dépôt, retrait, virement, paliers, coffre (objets refusés), gel, contre-passation, trésors, **succession** (gel 7 j → trésor ou héritiers), masse monétaire, section Économie du Poste de garde |
@@ -437,7 +437,9 @@ d'un cran dans le code.
 Branchements dans l'existant (modifications minimales) : `ShopManager` et l'onglet Vivres paient avec la **bourse**
 (« Pas assez dans ta bourse — passe au guichet ») ; `TendreService` (« Donner des ryo », bourse en main tendue entière) ;
 `InventoryManager` (montant dans le JSON des objets, `drop:` d'une bourse = la poser, accès au sac d'un personnage non
-joué) ; `Ramassage` (une bourse rejoint la bourse) ; `CorpsService` (« fouiller » → `FouilleService`, `corps:<uuid>`) ;
+joué) ; `Ramassage` (une bourse rejoint la bourse) ; `CorpsService` (« fouiller » → `FouilleService`, `corps:<uuid>` ; depuis le
+18/10 **toujours** la sacoche RP, l'ancien coffre vanilla `FouillerScreen` n'est plus ouvert : sans le canal `reborn:monnaie`,
+« La fouille demande le mod Reborn à jour. ») ;
 `StaffPanel` (alertes `economie`, section `eco` de la fiche ; le ryo quitte la ligne ping) ; `GestionPerso` (remise à
 zéro : compte à 0, coffre aux saisies) ; `VoirSac` (bourse et compte) ; `Entreprise.Type.BANQUE`.
 
@@ -579,6 +581,9 @@ Catalogue Nexo : `minecraft/server-config/nexo/items/reborn_monnaie.yml`.
 - **Missions** (sources de ryo) : à venir (GAMEPLAN §22) ; aujourd'hui l'argent naît du staff (`/ryo donner`, trésor).
 
 ## 20. À tester (à deux comptes A et B, après publication)
+
+> **17/10** : la **bourse** est validée en jeu (porter, poser, tendre, payer à l'échoppe) ; la **banque** (guichet,
+> compte, coffre à paliers, virement, échange garanti, guichetier, testament, solde) reste **à tester**.
 
 Préparation (A staff, sur le dev) : viser un comptoir, `/banque guichet ajouter konoha "Banque de Konoha"` ;
 `/banque tresor konoha ajouter 20000 "test"` ; pour tester sans attendre : `banque.mort-rp.gel-jours: 0` et

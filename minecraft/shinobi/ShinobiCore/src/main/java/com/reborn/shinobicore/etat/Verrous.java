@@ -11,10 +11,9 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 /**
- * <b>Verrous d'état</b> — le lot de correctifs urgents (docs/technique/ETATS_JOUEUR.md §9 étape 0) : un seul endroit
- * qui dit « non » aux actions qui servaient d'évasion ou d'exploit (grappin d'un KO, sélection de personnage qui
- * téléporte un gelé, technique d'un étourdi…), en attendant le service d'états de l'étape 1, qui remplacera ces
- * méthodes par {@code peut(joueur, capacité)}.
+ * <b>Verrous d'état</b> — né du lot de correctifs urgents (docs/technique/ETATS_JOUEUR.md §9 étape 0). Depuis le
+ * 17/10 (étape 2), les refus <b>délèguent au service des états</b> ({@link EtatServiceImpl} : « peut-il X ? » d'après
+ * la matrice d'{@code etats.yml}) ; les anciens tests restent en <b>repli</b> si le service n'est pas encore démarré.
  *
  * <p>Chaque méthode renvoie la <b>raison du refus</b> (phrase courte, tutoiement) ou {@code null} si l'action est
  * permise. Lecture seule : rien n'est écrit ici. Tout tourne sur le thread principal.
@@ -24,6 +23,33 @@ public final class Verrous {
     private Verrous() { }
 
     private static ShinobiCore core() { return ShinobiCore.get(); }
+
+    /** Le service des états, ou null (pas encore démarré, mode build). */
+    static EtatServiceImpl svc() {
+        ShinobiCore c = core();
+        return c == null ? null : c.etats();
+    }
+
+    /** Raison du refus de la capacité selon la matrice, ou null (permis, ou service absent). */
+    public static String refus(UUID id, com.reborn.shinobicore.api.etat.Capacite cap) {
+        EtatServiceImpl s = svc();
+        if (s == null || id == null) return null;
+        String r = s.verifier(id, cap, null).refus();
+        return r == null || r.isEmpty() ? null : r;
+    }
+
+    /**
+     * Ce que l'acteur veut faire SUR la cible ({@code ETRE_PORTE}, {@code ETRE_EXECUTE}, {@code ETRE_FOUILLE}) : raison
+     * du refus côté cible, ou null. Ignoré quand l'acteur est déjà le lien de la cible (passer de la gorge au portage).
+     */
+    public static String refusSur(UUID acteur, UUID cible, com.reborn.shinobicore.api.etat.Capacite cap) {
+        EtatServiceImpl s = svc();
+        if (s == null || cible == null) return null;
+        var e = s.calculer(cible);
+        if (e.lien() != null && acteur != null && acteur.equals(e.lien().source())) return null;
+        String r = e.verdict(cap).refus();
+        return r == null || r.isEmpty() ? null : r;
+    }
 
     /* ================================================================ lectures */
 
@@ -127,6 +153,8 @@ public final class Verrous {
      * garde = immobile, sans technique).
      */
     public static String technique(UUID id) {
+        EtatServiceImpl s = svc();
+        if (s != null && id != null) return s.verifier(id, com.reborn.shinobicore.api.etat.Capacite.TECHNIQUE, Boolean.TRUE).refus();
         String r = corpsIndisponible(id);
         if (r != null) return r;
         if (etourdi(id)) return "Étourdi !";
@@ -136,6 +164,8 @@ public final class Verrous {
 
     /** Kit de mobilité (ShinobiAbilities), grappin, tyrolienne, course ninja, Voie du Flux. */
     public static String mobilite(UUID id) {
+        EtatServiceImpl s = svc();
+        if (s != null && id != null) return refus(id, com.reborn.shinobicore.api.etat.Capacite.MOBILITE);
         String r = corpsIndisponible(id);
         if (r != null) return r;
         if (horsJeu(id)) return "Mode staff : aucune mécanique RP.";
@@ -151,6 +181,8 @@ public final class Verrous {
      * une évasion (gel, KO, combat, porté…).
      */
     public static String changementPerso(UUID id) {
+        EtatServiceImpl s = svc();
+        if (s != null && id != null) return refus(id, com.reborn.shinobicore.api.etat.Capacite.CHANGER_PERSO);
         String r = corpsIndisponible(id);
         if (r != null) return r;
         if (douleur(id)) return "Tu es à bout de forces.";
@@ -163,6 +195,8 @@ public final class Verrous {
 
     /** Téléportation demandée par le joueur (départ d'un parcours d'entraînement…). */
     public static String teleportation(UUID id) {
+        EtatServiceImpl s = svc();
+        if (s != null && id != null) return refus(id, com.reborn.shinobicore.api.etat.Capacite.TELEPORTE_PAR_COMMANDE);
         String r = changementPerso(id);
         if (r != null) return r;
         if (ata(id)) return "Trop blessé.";
@@ -181,6 +215,8 @@ public final class Verrous {
      */
     public static boolean horsCible(Entity e) {
         if (e == null) return true;
+        EtatServiceImpl s = svc();
+        if (s != null) return s.horsCible(e);
         if (e instanceof ArmorStand) return true;
         if (!(e instanceof Player p)) return false;
         UUID id = p.getUniqueId();

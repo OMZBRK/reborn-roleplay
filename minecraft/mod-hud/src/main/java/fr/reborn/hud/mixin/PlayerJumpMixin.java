@@ -24,6 +24,10 @@ public abstract class PlayerJumpMixin {
         if (ChakraJump.INSTANCE.suppressesJump()
                 || fr.reborn.hud.combat.CombatInput.INSTANCE.isBlocking()) {
             ci.cancel();
+            return;
         }
+        // ÉTAT DU SERVEUR : SAUTER refusé (à terre, inconscient, étourdi, garde, surchargé…) — pas de saut fantôme.
+        // La Volonté (Espace à terre) lit la touche brute (GLFW) : elle n'est pas touchée.
+        if (fr.reborn.hud.etat.EtatClient.enJeu() && fr.reborn.hud.etat.EtatClient.refuse("sau")) ci.cancel();
     }
 }

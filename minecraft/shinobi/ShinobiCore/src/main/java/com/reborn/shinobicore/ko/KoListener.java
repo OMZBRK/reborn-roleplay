@@ -123,6 +123,8 @@ public final class KoListener implements Listener {
             com.reborn.shinobicore.event.ShinobiDamageEvent sde =
                     new com.reborn.shinobicore.event.ShinobiDamageEvent(
                             p, inferOrigin(p, ev), ev.getCause(), ev.getFinalDamage(), lethal);
+            // Contexte de la porte des dégâts (étiquettes, technique, défense — ETATS_JOUEUR §6.3).
+            sde.contexte(com.reborn.shinobicore.etat.PorteDegats.contexte(ev));
             org.bukkit.Bukkit.getPluginManager().callEvent(sde);
             if (sde.isCancelled()) { ev.setCancelled(true); return; }
         }
@@ -157,8 +159,8 @@ public final class KoListener implements Listener {
     private void triggerKo(Player p, EntityDamageEvent ev) {
         ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
         UUID charId = c != null ? c.id() : null;
-        plugin.ko().enterKo(p, charId,
-                com.reborn.shinobicore.ko.KoState.Cause.HP);
+        // null = l'entrée en KO a été refusée (veto d'un plugin, ex. le bijū) : ni KO, ni blessure.
+        if (plugin.ko().enterKo(p, charId, com.reborn.shinobicore.ko.KoState.Cause.HP) == null) return;
         if (c != null) {
             Injury inj = diagnose(p, c, ev);
             if (inj != null) {

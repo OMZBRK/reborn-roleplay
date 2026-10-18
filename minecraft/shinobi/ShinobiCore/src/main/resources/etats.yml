@@ -1,0 +1,510 @@
+# ----------------------------------------------------------------------
+# ÉTATS DU JOUEUR — la matrice (docs/technique/ETATS_JOUEUR.md §4.5-4.6)
+#
+# Une ligne par valeur de couche (vital.*, controle.*, cadre.*), par
+# modificateur dérivé (mod.*) et par contexte (ctx.*). Le service
+# (EtatService) active les lignes vraies pour un joueur, DANS L'ORDRE de
+# ce fichier, et la matrice calcule « peut-il X ? » :
+#   - refuse: [...]        capacités refusées (niveau 0) ; sauf: [...] en retire
+#   - limite: {CAP: 1}     capacités limitées (chuchoter, ramper, lecture…)
+#   - raison / raisons     texte du refus (tutoiement), global ou par capacité
+#   - accorde / force      spéciales accordées / exception au refus
+#   - si-vital: [...]      ligne active seulement dans ces valeurs du vital
+#   - vitesse / saut       multiplicateurs (0 = immobile / pas de saut)
+#   - faim-tenue           faim tenue à 6 : pas de sprint vanilla (douleur, ATA)
+# Le refus l'emporte toujours ; la raison est celle de la PREMIÈRE ligne
+# qui refuse (d'où l'ordre : celui de l'état principal, §4.3).
+# Groupes : TOUT, FRAPPER (mains, arme, projectile), DEPLACEMENT, SACOCHE.
+# Rechargé par /sc reload et /etats recharger.
+# ----------------------------------------------------------------------
+vitesse-plancher: 0.25        # produit des lenteurs, jamais sous ce plancher (sauf une ligne à 0)
+sync: true                    # paquet reborn:etat (S2C) au mod
+journal: true                 # catégorie ETAT du journal universel (transitions seulement)
+applicateur: true             # étape 5 : vitesse / saut / faim posés par le service seul
+
+lignes:
+
+  # ================================================================ cadre (prioritaire)
+  cadre.STAFF:
+    raison: "Mode staff : aucune mécanique RP."
+    refuse: [MOBILITE, FRAPPER, GARDER, TECHNIQUE, CANALISER, UTILISER_OBJET, MODIFIER_SACOCHE, LACHER, RAMASSER,
+             CONSOMMER, DEGAINER, PORTER, EXECUTER, SOIGNER, FOUILLER, ETRE_PORTE, ETRE_FOUILLE, ETRE_EXECUTE,
+             CIBLABLE, VISIBLE, TOMBE_KO, BLESSURES, XP_COMBAT, RADIO, DUEL, TELEPORTE_PAR_COMMANDE]
+    limite: {INTERAGIR: 1}
+    raisons:
+      TECHNIQUE: "Mode staff : aucune technique."
+      DUEL: "Pas en mode staff."
+    force: [VOLER]
+
+  cadre.HORS_JEU.CINEMATIQUE:
+    raison: "Cinématique en cours."
+    refuse: [TOUT]
+    sauf: [MODE_STAFF]
+
+  cadre.HORS_JEU:
+    raison: "Hors jeu."
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, CANALISER, UTILISER_OBJET, OUVRIR_SACOCHE, MODIFIER_SACOCHE,
+             LACHER, RAMASSER, CONSOMMER, DEGAINER, INTERAGIR, PORTER, EXECUTER, SOIGNER, FOUILLER, ETRE_PORTE,
+             ETRE_FOUILLE, ETRE_EXECUTE, CIBLABLE, VISIBLE, TOMBE_KO, BLESSURES, XP_COMBAT, RADIO, DUEL,
+             TELEPORTE_PAR_COMMANDE]           # MODE_STAFF permis : un staff sans personnage entre en mode staff
+
+  # ================================================================ vital MORT
+  vital.MORT:
+    raison: "Ton personnage est mort."
+    refuse: [TOUT]
+    sauf: [ETRE_PORTE, ETRE_FOUILLE]   # le corps se porte et se fouille
+    raisons:
+      MODE_STAFF: "ton personnage est mort (scène en cours)."
+    vitesse: 0
+    saut: 0
+
+  # ================================================================ contrôle PORTÉ
+  controle.PORTE.GORGE:
+    raison: "On te tient."
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, CANALISER, MODIFIER_SACOCHE, LACHER, RAMASSER, CONSOMMER,
+             DEGAINER, INTERAGIR, PORTER, EXECUTER, SOIGNER, FOUILLER, ETRE_PORTE, CHANGER_PERSO,
+             TELEPORTE_PAR_COMMANDE, DUEL, RADIO]
+    raisons:
+      MODE_STAFF: "on te tient."
+      ETRE_PORTE: "déjà tenu"
+    vitesse: 0
+
+  controle.PORTE:
+    raison: "On te porte."
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, CANALISER, MODIFIER_SACOCHE, LACHER, RAMASSER, CONSOMMER,
+             DEGAINER, INTERAGIR, PORTER, EXECUTER, SOIGNER, FOUILLER, ETRE_PORTE, CHANGER_PERSO,
+             TELEPORTE_PAR_COMMANDE, DUEL, MODE_STAFF]
+    raisons:
+      MODE_STAFF: "on te porte."
+      ETRE_PORTE: "déjà porté"
+
+  ctx.se_debattre:               # porté en douleur : Espace pour se débattre
+    si-vital: [DOULEUR]
+    accorde: [SE_DEBATTRE]
+
+  controle.CONTROLE:
+    raison: "Ton corps ne t'obéit plus."
+    refuse: [TOUT]
+    sauf: [ETRE_PORTE, ETRE_FOUILLE, ETRE_EXECUTE, CIBLABLE, VISIBLE, NOM_VISIBLE, TOMBE_KO, BLESSURES, XP_COMBAT,
+           SE_DECONNECTER_SANS_SUITE, COMMANDES]
+    limite: {COMMANDES: 1}
+    accorde: [ROMPRE_LIEN]
+
+  # ================================================================ vital KO
+  vital.INCONSCIENT:
+    raison: "Tu es inconscient."
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, CANALISER, UTILISER_OBJET, MODIFIER_SACOCHE, LACHER, RAMASSER,
+             CONSOMMER, DEGAINER, INTERAGIR, PORTER, EXECUTER, SOIGNER, FOUILLER, EMOTE, CHANGER_PERSO,
+             TELEPORTE_PAR_COMMANDE, DUEL, MODE_STAFF, SE_DECONNECTER_SANS_SUITE]
+    limite: {PARLER: 1, VOCAL: 1, RADIO: 0, COMMANDES: 1}
+    raisons:
+      PARLER: "Tu ne peux que chuchoter."
+      MODE_STAFF: "ton personnage est à terre (KO)."
+      DUEL: "Tu es à terre."
+    vitesse: 0
+    saut: 0
+
+  vital.A_TERRE:
+    raison: "Tu es à terre."
+    refuse: [TROTTER, SPRINTER, SAUTER, MOBILITE, FRAPPER, GARDER, TECHNIQUE, CANALISER, UTILISER_OBJET,
+             MODIFIER_SACOCHE, LACHER, RAMASSER, CONSOMMER, DEGAINER, INTERAGIR, PORTER, EXECUTER, SOIGNER, FOUILLER,
+             CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, DUEL, MODE_STAFF, SE_DECONNECTER_SANS_SUITE]
+    limite: {BOUGER: 1, PARLER: 1, VOCAL: 1, RADIO: 1, COMMANDES: 1}
+    raisons:
+      BOUGER: "Tu rampes."
+      PARLER: "Tu ne peux que chuchoter."
+      RADIO: "à terre · haché"
+      MODE_STAFF: "ton personnage est à terre (KO)."
+    vitesse: 0.7                 # lenteur II (ramper)
+    saut: 0
+
+  ctx.volonte:                   # à terre, la Volonté apprise : Espace pour se relever
+    si-vital: [A_TERRE]
+    accorde: [VOLONTE]
+
+  ctx.hopital:                   # inconscient depuis 5 min : /hopital proposé
+    si-vital: [INCONSCIENT]
+    accorde: [HOPITAL]
+
+  # ================================================================ staff : gel (modificateur du compte)
+  mod.gel_staff:
+    raison: "Tu es gelé par le staff."
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, CANALISER, MODIFIER_SACOCHE, LACHER, RAMASSER, INTERAGIR,
+             PORTER, EXECUTER, SOIGNER, FOUILLER, ETRE_PORTE, ETRE_FOUILLE, ETRE_EXECUTE, CHANGER_PERSO,
+             TELEPORTE_PAR_COMMANDE, DUEL]
+    raisons:
+      ETRE_PORTE: "gelé par le staff"
+      ETRE_FOUILLE: "gelé par le staff"
+      ETRE_EXECUTE: "gelé par le staff"
+
+  # ================================================================ contrôle ENTRAVE / CORPS_VIDE
+  controle.ENTRAVE.EXECUTION:    # victime d'une exécution en cours
+    raison: "On te tient."
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, CANALISER, MODIFIER_SACOCHE, LACHER, RAMASSER, INTERAGIR,
+             PORTER, EXECUTER, SOIGNER, FOUILLER, ETRE_PORTE, CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, DUEL, MODE_STAFF]
+    raisons:
+      MODE_STAFF: "on te tient."
+      ETRE_PORTE: "une exécution est en cours"
+    vitesse: 0
+    saut: 0
+
+  controle.ENTRAVE:
+    raison: "Tu es entravé."
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, CANALISER, MODIFIER_SACOCHE, LACHER, RAMASSER, INTERAGIR, PORTER,
+             EXECUTER, SOIGNER, FOUILLER, ETRE_PORTE, CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, DUEL]
+    limite: {TECHNIQUE: 1}       # techniques sans mudra seulement
+    raisons:
+      TECHNIQUE: "Entravé : pas de mudra."
+      ETRE_PORTE: "déjà tenu par une technique"
+    accorde: [ROMPRE_LIEN]
+    vitesse: 0
+    saut: 0
+
+  controle.CORPS_VIDE.MONDE_INTERIEUR:   # jinchūriki dans son monde intérieur : le corps est un faux corps
+    raison: "Ton esprit est ailleurs."
+    refuse: [TOUT]
+    sauf: [TOMBE_KO, BLESSURES]
+    vitesse: 0
+    saut: 0
+
+  controle.CORPS_VIDE:           # lanceur d'un transfert d'esprit : le corps est vulnérable
+    raison: "Ton esprit est ailleurs."
+    refuse: [TOUT]
+    sauf: [CIBLABLE, VISIBLE, NOM_VISIBLE, ETRE_PORTE, ETRE_FOUILLE, ETRE_EXECUTE, TOMBE_KO, BLESSURES, XP_COMBAT]
+    vitesse: 0
+    saut: 0
+
+  mod.tient.EXECUTION:           # exécute quelqu'un (touche F maintenue)
+    raison: "Tu tiens quelqu'un."
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, MOBILITE, PORTER, EXECUTER, CHANGER_PERSO,
+             TELEPORTE_PAR_COMMANDE, DUEL]
+    vitesse: 0                   # figé le temps de l'exécution
+
+  mod.tient.GORGE:               # tient quelqu'un à la gorge
+    raison: "Tu tiens quelqu'un."
+    refuse: [SPRINTER, MOBILITE, TECHNIQUE, CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, DUEL]
+    # (porter ou exécuter celui qu'on tient reste permis : c'est la suite de la prise)
+    vitesse: 0.55                # comme une lenteur III
+
+  # ================================================================ contrôle ÉTOURDI
+  controle.ETOURDI:
+    raison: "Étourdi !"
+    refuse: [DEPLACEMENT, FRAPPER, GARDER, TECHNIQUE, CANALISER, MODIFIER_SACOCHE, LACHER, RAMASSER, INTERAGIR,
+             PORTER, EXECUTER, SOIGNER, FOUILLER, TELEPORTE_PAR_COMMANDE]
+    vitesse: 0
+    saut: 0
+
+  # ================================================================ vital DOULEUR
+  vital.DOULEUR:
+    raison: "Tu es à bout de forces."
+    refuse: [TROTTER, SPRINTER, MOBILITE, FRAPPER, GARDER, TECHNIQUE, PORTER, EXECUTER, CHANGER_PERSO,
+             TELEPORTE_PAR_COMMANDE, DUEL]
+    raisons:
+      MOBILITE: "Trop blessé."
+      TECHNIQUE: "Trop blessé pour une technique."
+      FRAPPER_MAINS: "À bout de forces : tu ne peux plus frapper."
+      FRAPPER_ARME: "À bout de forces : tu ne peux plus frapper."
+      FRAPPER_PROJECTILE: "À bout de forces : tu ne peux plus frapper."
+      DUEL: "Trop blessé pour un duel."
+    vitesse: 0.6                 # ko.douleur.vitesse (la valeur de config.yml l'emporte)
+    faim-tenue: true
+
+  # ================================================================ modificateurs dérivés (corps)
+  mod.ata:
+    raison: "Trop blessé."
+    refuse: [TROTTER, SPRINTER, MOBILITE, FRAPPER_ARME, FRAPPER_PROJECTILE, TECHNIQUE, TELEPORTE_PAR_COMMANDE, DUEL]
+    limite: {FRAPPER_MAINS: 1}   # mains nues, ×0,5 (AtaManager)
+    raisons:
+      TECHNIQUE: "Trop blessé pour une technique."
+      FRAPPER_ARME: "Trop blessé : seulement des coups à mains nues."
+      FRAPPER_PROJECTILE: "Trop blessé : seulement des coups à mains nues."
+      DUEL: "Trop blessé pour un duel (ATA)."
+    vitesse: 0.85                # lenteur I
+    faim-tenue: true
+
+  # ================================================================ contrôle GARDE
+  controle.GARDE:
+    raison: "En garde."
+    refuse: [DEPLACEMENT, FRAPPER, TECHNIQUE, RAMASSER, INTERAGIR, PORTER, EXECUTER]
+    raisons:
+      TECHNIQUE: "En garde : pas de technique."
+    vitesse: 0
+    saut: 0
+
+  mod.porteur:                   # porte quelqu'un sur les épaules
+    raison: "Tu portes quelqu'un."
+    refuse: [SPRINTER, MOBILITE, PORTER, EXECUTER, CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, DUEL]
+    raisons:
+      CHANGER_PERSO: "Dépose d'abord la personne que tu portes."
+      TELEPORTE_PAR_COMMANDE: "Dépose d'abord la personne que tu portes."
+      DUEL: "Dépose d'abord la personne que tu portes."
+    vitesse: 0.7                 # comme une lenteur II
+
+  # ================================================================ cadre PRISON + menottes
+  cadre.PRISON:
+    raison: "Tu es en prison."
+    refuse: [MOBILITE, TECHNIQUE, CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, DUEL, MODE_STAFF]
+    raisons:
+      TECHNIQUE: "Pas de technique en prison."
+      MODE_STAFF: "ton personnage est en prison."
+
+  mod.menottes:                  # menottes anti-chakra (type « menottes » du registre)
+    raison: "Tu es menotté."
+    refuse: [SPRINTER, MOBILITE, FRAPPER_ARME, FRAPPER_PROJECTILE, GARDER, TECHNIQUE, CANALISER, MODIFIER_SACOCHE,
+             RAMASSER, DEGAINER, PORTER, EXECUTER, SOIGNER, FOUILLER, CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, DUEL]
+    limite: {INTERAGIR: 1}
+
+  # ================================================================ cadre construction / duel / entraînement
+  cadre.CONSTRUCTION:
+    raison: "Mode construction."
+    refuse: [FRAPPER, GARDER, TECHNIQUE, INTERAGIR, PORTER, EXECUTER, FOUILLER, ETRE_PORTE, ETRE_FOUILLE, ETRE_EXECUTE,
+             CIBLABLE, TOMBE_KO, BLESSURES, XP_COMBAT, DUEL]
+    raisons:
+      DUEL: "Pas pendant le mode construction."
+
+  cadre.DUEL:
+    raison: "Tu es en duel."
+    refuse: [TOMBE_KO, BLESSURES, XP_COMBAT, CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, ETRE_PORTE, ETRE_EXECUTE, DUEL]
+    raisons:
+      ETRE_PORTE: "en duel"
+      ETRE_EXECUTE: "en duel"
+      DUEL: "Tu es déjà en duel."
+
+  ctx.duel_technique:            # compte à rebours, ou duel.techniques: false
+    raison: "{x}"
+    refuse: [TECHNIQUE]
+
+  cadre.ENTRAINEMENT:
+    raison: "Terrain d'entraînement."
+    refuse: [TOMBE_KO, BLESSURES, DUEL]
+    raisons:
+      DUEL: "Sur un terrain d'entraînement, le combat est déjà libre : pas besoin de duel."
+
+  # ================================================================ occupations, combat, poids
+  mod.occupe:                    # action longue : exécuter, fouiller, voler, séance, soin tenu, concentration…
+    raison: "Tu es occupé ({x})."
+    refuse: [TROTTER, SPRINTER, SAUTER, MOBILITE, FRAPPER, GARDER, TECHNIQUE, RAMASSER, INTERAGIR, PORTER, EXECUTER,
+             CHANGER_PERSO, TELEPORTE_PAR_COMMANDE, DUEL]
+    limite: {BOUGER: 1}
+
+  mod.en_combat:                 # 15 s après un coup donné ou reçu entre joueurs (combat.duree-secondes)
+    raison: "Tu es en combat (encore {x} s)."
+    refuse: [CHANGER_PERSO, TELEPORTE_PAR_COMMANDE]
+    # Note ⁹ de la matrice (ni fouille, ni soin tenu, ni séance, ni vol en combat) : NON branchée — elle
+    # changerait la fouille juste après un KO ; à décider (ETATS_JOUEUR §11).
+
+  mod.surcharge_3:
+    raison: "Trop lourd."
+    refuse: [BOUGER, TROTTER, SPRINTER, SAUTER, MOBILITE]
+    vitesse: 0
+    saut: 0
+
+  mod.surcharge_2:
+    raison: "Tu es surchargé."
+    refuse: [SPRINTER, SAUTER, MOBILITE]
+
+  mod.surcharge_1:
+    raison: "Tu es chargé."
+    refuse: [SPRINTER]
+
+  mod.invisible:                 # vanish du staff (sans mode staff)
+    raison: "Invisible."
+    refuse: [CIBLABLE, VISIBLE, DUEL]
+
+  # ================================================================ lignes réservées (types à venir)
+  mod.enracine:                  # entrave courte d'une technique (« racine ») — type à venir
+    raison: "Enraciné."
+    refuse: [SPRINTER, MOBILITE]
+  mod.tenketsu:                  # points de chakra fermés (Jūken) — type à venir
+    raison: "Points de chakra fermés."
+    refuse: [MOBILITE]
+
+# ----------------------------------------------------------------------
+# TYPES DE MODIFICATEURS des états (registre des modificateurs, ETATS_JOUEUR
+# §4.4, §4.7) — mêmes clés que modificateurs.types de config.yml (qui garde
+# la priorité sur un même id). En plus : etat-ligne (ligne de la matrice
+# activée), potions (effets vanilla courts rafraîchis par l'applicateur, sur
+# le JOUEUR seulement ; les mobs gardent les potions), defense (§6),
+# immunise (familles / types dont la pose est refusée).
+# Effets « vitesse » / « saut » : multiplicateurs composés par l'applicateur.
+# ----------------------------------------------------------------------
+modificateurs:
+
+  # ---------------------------------------------------- prison et police (étape 8)
+  menottes:
+    nom: "Menotté"
+    famille: SOCIAL
+    bonus: false
+    icone: menottes
+    persistance: GELE
+    au-ko: GARDE
+    visible: STAFF
+    journal: true
+    duree-secondes: 86400          # jusqu'à ce qu'on les retire (/etats lever <joueur> menottes)
+    etat-ligne: mod.menottes       # pas de technique ni de mobilité de chakra ; défenses de chakra coupées
+
+  # ---------------------------------------------------- défense absolue (étape 8, exemple Hōzuki)
+  hydratation:
+    nom: "Hydratation"
+    famille: DEFENSE
+    bonus: true
+    icone: endurance
+    persistance: PERDU
+    visible: STAFF
+    journal: true
+    duree-secondes: 30
+    defense:
+      type: INTANGIBLE
+      contre: [PHYSIQUE]
+      sauf: [RAITON, ANTI_CHAKRA, SENJUTSU]
+      faiblesse: {RAITON: 1.5}
+      conditions: [CHAKRA_POSITIF, PAS_MENOTTE, PAS_DESHYDRATE]
+  deshydrate:
+    nom: "Déshydraté"
+    famille: CORPS
+    bonus: false
+    icone: fatigue
+    persistance: CONTINUE
+    au-ko: GARDE
+    visible: STAFF
+    duree-secondes: 120
+
+  # ---------------------------------------------------- effets des techniques sur un joueur (étape 7)
+  jutsu_revele:
+    nom: "Révélé"
+    famille: DISCRETION
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 2
+    potions: ["GLOWING:0"]
+  jutsu_aveugle:
+    nom: "Aveuglé"
+    famille: ESPRIT
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 4
+    potions: ["BLINDNESS:0"]
+  jutsu_nausee:
+    nom: "Vertige"
+    famille: ESPRIT
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 6
+    potions: ["NAUSEA:0"]
+  jutsu_poison:
+    nom: "Empoisonné"
+    famille: CORPS
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 4
+    potions: ["POISON:0"]
+  jutsu_affaibli:
+    nom: "Affaibli"
+    famille: CORPS
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 6
+    potions: ["WEAKNESS:1"]
+  jutsu_faiblesse:
+    nom: "Affaibli"
+    famille: CORPS
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 4
+    potions: ["WEAKNESS:0"]
+  jutsu_fatigue:
+    nom: "Points de chakra touchés"
+    famille: CHAKRA
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 4
+    potions: ["MINING_FATIGUE:1"]
+  jutsu_gel:
+    nom: "Glacé"
+    famille: CORPS
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 3.5
+    effets: {vitesse: 0.7}           # comme une lenteur II
+  jutsu_racine_bois:
+    nom: "Racines"
+    famille: MOBILITE
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 4.5
+    effets: {vitesse: 0.55}          # comme une lenteur III
+  jutsu_racine_sceau:
+    nom: "Racine de scellement"
+    famille: MOBILITE
+    bonus: false
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 5
+    effets: {vitesse: 0.25}          # comme une lenteur V (la faiblesse : jutsu_faiblesse)
+  jutsu_vitesse:
+    nom: "Substitution"
+    famille: MOBILITE
+    bonus: true
+    persistance: CONTINUE
+    visible: AUCUN
+    duree-secondes: 1.5
+    effets: {vitesse: 1.4}           # comme une vitesse II
+
+  # ---------------------------------------------------- épuisement du chakra (dette), terrain d'entraînement
+  epuisement_1:
+    nom: "Épuisement"
+    famille: CHAKRA
+    bonus: false
+    persistance: PERDU
+    visible: AUCUN
+    duree-secondes: 2
+    potions: ["SLOWNESS:0", "WEAKNESS:0", "MINING_FATIGUE:1"]
+  epuisement_2:
+    nom: "Épuisement"
+    famille: CHAKRA
+    bonus: false
+    persistance: PERDU
+    visible: AUCUN
+    duree-secondes: 2
+    potions: ["SLOWNESS:1", "WEAKNESS:1", "MINING_FATIGUE:2"]
+  epuisement_3:
+    nom: "Épuisement"
+    famille: CHAKRA
+    bonus: false
+    persistance: PERDU
+    visible: AUCUN
+    duree-secondes: 2
+    potions: ["SLOWNESS:2", "WEAKNESS:2", "MINING_FATIGUE:2", "NAUSEA:0"]
+  epuisement_4:
+    nom: "Épuisement"
+    famille: CHAKRA
+    bonus: false
+    persistance: PERDU
+    visible: AUCUN
+    duree-secondes: 2
+    potions: ["SLOWNESS:2", "WEAKNESS:2", "MINING_FATIGUE:2", "NAUSEA:0", "BLINDNESS:0"]
+  defaite:
+    nom: "Défait"
+    famille: CORPS
+    bonus: false
+    persistance: PERDU
+    visible: AUCUN
+    duree-secondes: 3
+    potions: ["SLOWNESS:3"]
+  defaite_cecite:
+    nom: "Défait"
+    famille: CORPS
+    bonus: false
+    persistance: PERDU
+    visible: AUCUN
+    duree-secondes: 1.5
+    potions: ["BLINDNESS:0"]

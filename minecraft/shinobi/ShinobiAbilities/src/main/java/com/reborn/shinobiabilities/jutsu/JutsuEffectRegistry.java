@@ -111,7 +111,7 @@ public final class JutsuEffectRegistry {
         register("raiton_shiden", (plugin, caster, def) -> {
             Effects.forwardCone(caster, 8, Particle.ELECTRIC_SPARK, 150);
             Effects.damageCone(caster, 8, 2.5, scaledDamage(def, 0.42));
-            affectCone(caster, 8, le -> le.addPotionEffect(new PotionEffect(
+            affectCone(caster, 8, le -> afflict(le, new PotionEffect(
                     PotionEffectType.GLOWING, 40, 0, false, false)));
             sound(caster, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.7f, 1.6f);
         });
@@ -132,9 +132,9 @@ public final class JutsuEffectRegistry {
         register("genjutsu_kasumi", (plugin, caster, def) -> {
             LivingEntity target = Effects.nearestEntity(caster, 9);
             if (target != null) {
-                target.addPotionEffect(new PotionEffect(
+                afflict(target, new PotionEffect(
                         PotionEffectType.BLINDNESS, 80, 0, false, false));
-                target.addPotionEffect(new PotionEffect(
+                afflict(target, new PotionEffect(
                         PotionEffectType.NAUSEA, 120, 0, false, false));
                 target.getWorld().spawnParticle(Particle.WITCH,
                         target.getEyeLocation(), 25, 0.4, 0.4, 0.4, 0);
@@ -179,7 +179,7 @@ public final class JutsuEffectRegistry {
             at.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, at, 24, 0.3, 0.8, 0.3, 0.05);
             at.getWorld().spawnParticle(Particle.LARGE_SMOKE, at, 16, 0.3, 0.6, 0.3, 0.01);
             sound(caster, Sound.BLOCK_WOOD_BREAK, 1f, 0.8f);
-            caster.addPotionEffect(new PotionEffect(
+            afflict(caster, new PotionEffect(
                     PotionEffectType.SPEED, 30, 1, false, false));
         });
     }
@@ -214,7 +214,7 @@ public final class JutsuEffectRegistry {
         register("generic_hyoton", (plugin, caster, def) -> {
             Effects.forwardCone(caster, 8, Particle.SNOWFLAKE, 110);
             Effects.damageCone(caster, 8, 2.6, scaledDamage(def, 0.34));
-            affectCone(caster, 8, le -> le.addPotionEffect(new PotionEffect(
+            affectCone(caster, 8, le -> afflict(le, new PotionEffect(
                     PotionEffectType.SLOWNESS, 70, 1, false, false)));
             sound(caster, Sound.BLOCK_GLASS_BREAK, 0.8f, 1.6f);
         });
@@ -223,7 +223,7 @@ public final class JutsuEffectRegistry {
         register("generic_futton", (plugin, caster, def) -> {
             Effects.forwardCone(caster, 7, Particle.SPORE_BLOSSOM_AIR, 120);
             Effects.damageCone(caster, 7, 2.6, scaledDamage(def, 0.30));
-            affectCone(caster, 7, le -> le.addPotionEffect(new PotionEffect(
+            affectCone(caster, 7, le -> afflict(le, new PotionEffect(
                     PotionEffectType.POISON, 80, 0, false, false)));
             sound(caster, Sound.BLOCK_BREWING_STAND_BREW, 1f, 0.7f);
         });
@@ -257,7 +257,7 @@ public final class JutsuEffectRegistry {
         register("generic_mokuton", (plugin, caster, def) -> {
             Effects.forwardCone(caster, 8, Particle.HAPPY_VILLAGER, 90);
             Effects.damageCone(caster, 8, 2.8, scaledDamage(def, 0.34));
-            affectCone(caster, 8, le -> le.addPotionEffect(new PotionEffect(
+            affectCone(caster, 8, le -> afflict(le, new PotionEffect(
                     PotionEffectType.SLOWNESS, 90, 2, false, false)));
             sound(caster, Sound.BLOCK_AZALEA_LEAVES_PLACE, 1f, 0.7f);
         });
@@ -276,9 +276,9 @@ public final class JutsuEffectRegistry {
         register("generic_fuinjutsu", (plugin, caster, def) -> {
             LivingEntity target = Effects.nearestEntity(caster, 8);
             if (target != null) {
-                target.addPotionEffect(new PotionEffect(
+                afflict(target, new PotionEffect(
                         PotionEffectType.SLOWNESS, 100, 4, false, false));
-                target.addPotionEffect(new PotionEffect(
+                afflict(target, new PotionEffect(
                         PotionEffectType.WEAKNESS, 100, 0, false, false));
                 Effects.spawnRing(target.getLocation(), Particle.REVERSE_PORTAL, 1.4, 24);
             }
@@ -302,7 +302,7 @@ public final class JutsuEffectRegistry {
         register("generic_genjutsu", (plugin, caster, def) -> {
             LivingEntity target = Effects.nearestEntity(caster, 9);
             if (target != null) {
-                target.addPotionEffect(new PotionEffect(
+                afflict(target, new PotionEffect(
                         PotionEffectType.BLINDNESS, 70, 0, false, false));
                 target.getWorld().spawnParticle(Particle.WITCH,
                         target.getEyeLocation(), 20, 0.4, 0.4, 0.4, 0);
@@ -322,7 +322,7 @@ public final class JutsuEffectRegistry {
         register("generic_juinjutsu", (plugin, caster, def) -> {
             LivingEntity target = Effects.nearestEntity(caster, 8);
             if (target != null) {
-                target.addPotionEffect(new PotionEffect(
+                afflict(target, new PotionEffect(
                         PotionEffectType.WEAKNESS, 120, 1, false, false));
                 target.damage(scaledDamage(def, 0.26), caster);
                 Effects.spawnRing(target.getLocation(), Particle.WITCH, 1.2, 18);
@@ -356,7 +356,7 @@ public final class JutsuEffectRegistry {
             LivingEntity target = Effects.nearestEntity(caster, 7);
             if (target != null) {
                 target.damage(scaledDamage(def, 0.34), caster);
-                target.addPotionEffect(new PotionEffect(
+                afflict(target, new PotionEffect(
                         PotionEffectType.POISON, 90, 0, false, false));
                 target.getWorld().spawnParticle(Particle.SPORE_BLOSSOM_AIR,
                         target.getEyeLocation(), 16, 0.3, 0.3, 0.3, 0);
@@ -389,11 +389,11 @@ public final class JutsuEffectRegistry {
             LivingEntity target = Effects.nearestEntity(caster, 3.5);
             if (target != null) {
                 target.damage(scaledDamage(def, 0.36), caster);
-                target.addPotionEffect(new PotionEffect(
+                afflict(target, new PotionEffect(
                         PotionEffectType.WEAKNESS, 80, 0, false, false));
                 if (target instanceof Player tp) {
                     // Gentle Fist drains chakra-bearing foes' will to act.
-                    tp.addPotionEffect(new PotionEffect(
+                    afflict(tp, new PotionEffect(
                             PotionEffectType.MINING_FATIGUE, 80, 1, false, false));
                 }
                 target.getWorld().spawnParticle(Particle.ENCHANTED_HIT,
@@ -429,7 +429,7 @@ public final class JutsuEffectRegistry {
         for (Entity e : caster.getWorld().getNearbyEntities(
                 caster.getLocation(), range, range / 2, range)) {
             if (e instanceof LivingEntity le && e != caster && !com.reborn.shinobicore.etat.Verrous.horsCible(e)) {
-                le.addPotionEffect(new PotionEffect(
+                afflict(le, new PotionEffect(
                         PotionEffectType.GLOWING, durationTicks, 0, false, false));
             }
         }
@@ -486,5 +486,41 @@ public final class JutsuEffectRegistry {
 
     private static void sound(Player caster, Sound s, float vol, float pitch) {
         caster.getWorld().playSound(caster.getLocation(), s, vol, pitch);
+    }
+
+    /* ================================================================ états du joueur (étape 7) */
+
+    /**
+     * Pose l'effet d'une technique. Sur un <b>joueur</b> : un modificateur nommé du registre (ETATS_JOUEUR étape 7 —
+     * {@code jutsu_*} d'etats.yml), dont l'applicateur des états pose l'effet et qu'il retire par sa source (un Kai,
+     * un réveil ne lèvent plus l'effet d'un autre) ; rien sur un joueur non ciblable (mode staff, invisible, mort en
+     * scène, monde intérieur). Mob, ou service absent : la potion d'avant.
+     */
+    static void afflict(LivingEntity le, PotionEffect pe) {
+        if (le instanceof Player p) {
+            var etats = com.reborn.shinobicore.api.EtatService.get();
+            if (etats != null) {
+                if (!etats.peutCibler(null, p, java.util.Set.of(com.reborn.shinobicore.api.etat.Etiquette.TECHNIQUE))) return;
+                String type = typeDe(pe);
+                if (type != null && etats.poser(p, new com.reborn.shinobicore.api.etat.ModificateurSpec(type, 1.0,
+                        pe.getDuration() * 50L), com.reborn.shinobicore.api.etat.Source.systeme("technique"))) return;
+            }
+        }
+        le.addPotionEffect(pe);
+    }
+
+    /** Potion → type de modificateur (etats.yml, section modificateurs), ou null (potion gardée). */
+    private static String typeDe(PotionEffect pe) {
+        PotionEffectType t = pe.getType();
+        int a = pe.getAmplifier();
+        if (t.equals(PotionEffectType.GLOWING)) return "jutsu_revele";
+        if (t.equals(PotionEffectType.BLINDNESS)) return "jutsu_aveugle";
+        if (t.equals(PotionEffectType.NAUSEA)) return "jutsu_nausee";
+        if (t.equals(PotionEffectType.POISON)) return "jutsu_poison";
+        if (t.equals(PotionEffectType.MINING_FATIGUE)) return "jutsu_fatigue";
+        if (t.equals(PotionEffectType.WEAKNESS)) return a >= 1 ? "jutsu_affaibli" : "jutsu_faiblesse";
+        if (t.equals(PotionEffectType.SPEED)) return "jutsu_vitesse";
+        if (t.equals(PotionEffectType.SLOWNESS)) return a >= 4 ? "jutsu_racine_sceau" : a >= 2 ? "jutsu_racine_bois" : "jutsu_gel";
+        return null;
     }
 }

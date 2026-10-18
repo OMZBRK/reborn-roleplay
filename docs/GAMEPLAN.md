@@ -20,7 +20,7 @@
 > **États** : ✅ fait · ✍🏻 en cours ou partiel · ❌ pas commencé. Quand un état est incertain, il est noté ✍🏻 avec
 > la raison. **Priorités** : 🔴 Critique · 🟠 Important · 🟡 Secondaire · 🟢 Plus tard.
 >
-> Mis à jour le **2026-10-14**. Aucun secret, aucune adresse de serveur dans ce document (dépôt public).
+> Mis à jour le **2026-10-17** (§54 et tableaux de phase). Aucun secret, aucune adresse de serveur dans ce document (dépôt public).
 
 ---
 
@@ -74,7 +74,7 @@ codés et attendent leurs tests à deux comptes.
 
 > Chaque système de la feuille de route RedLine, **dans leurs quatre phases**, avec son **équivalent Reborn**, puis
 > les systèmes de leur document absents de leur feuille de route, puis les **systèmes propres à Reborn** (§53).
-> Colonne « État » = **vérité du dépôt** (fiches, `CHANTIERS.md`, `ETAT_DES_LIEUX.md`, code) au 13/10.
+> Colonne « État » = **vérité du dépôt** (fiches, `CHANTIERS.md`, `ETAT_DES_LIEUX.md`, code) au 13/10, recalée le 17/10 pour les systèmes livrés depuis.
 > « Cible » : **validé 13/10** ou **proposition**.
 
 ---
@@ -83,9 +83,9 @@ codés et attendent leurs tests à deux comptes.
 
 | Système RedLine | Équivalent Reborn | Priorité | Dépend de | État | Cible | § |
 |---|---|---|---|---|---|---|
-| Player ID System | **Compte Reborn** (Microsoft + Discord) + **N° de personnage** ; états du personnage ; onboarding launcher | 🔴 Critique | — | ✍🏻 compte et UUID de perso ✅ ; N° court ❌ ; état unique ❌ ; onboarding en cours (non commité) | validé 13/10 | §1 |
+| Player ID System | **Compte Reborn** (Microsoft + Discord) + **N° de personnage** ; états du personnage ; onboarding launcher | 🔴 Critique | — | ✅ compte, N° de personnage, onboarding (14/10) ; état unique ✍🏻 en cours (17/10) | validé 13/10 | §1 |
 | Inventory + Hotbar | **Sacoche « inrō »** : barre de 9 + sacs à paliers | 🔴 Critique | Player ID | ✅ | validé 13/10 | §2 |
-| Item System (pickup, drop, weight) | Ramassage **manuel**, **aura de rareté**, disparition ; poids et surcharge | 🔴 Critique | Sacoche | ✍🏻 poids, surcharge progressive et jeter ✅ ; ramassage manuel, aura, disparition ❌ | validé 13/10 | §3 |
+| Item System (pickup, drop, weight) | Ramassage **manuel**, **aura de rareté**, disparition ; poids et surcharge | 🔴 Critique | Sacoche | ✅ (14/10) | validé 13/10 | §3 |
 | Equipment System (weapon, head) | Emplacements **Tête** et **Arme** (arme visible sur le corps) + cosmétiques | 🔴 Critique | Sacoche | ✍🏻 emplacements cosmétiques ✅ ; Tête / Arme ❌ | validé 13/10 | §2 |
 | Basic HUD (HP, stamina, hunger, compass) | Vitals PV / chakra / endurance, HUD combat, éditeur de HUD | 🔴 Critique | Player ID | ✅ vitals ; boussole, zone d'effets, notifications ❌ | proposition | §4 |
 | Staff commands | **Poste de garde** + commandes staff | 🟠 Important | Player ID, états | ✍🏻 tp, ramener, geler, observer, réveiller, sanctions ✅ ; annonces, écran noir, voir la sacoche, tenue forcée, notes, reset ❌ | proposition | §5 |
@@ -98,25 +98,25 @@ codés et attendent leurs tests à deux comptes.
 
 | Système RedLine | Équivalent Reborn | Priorité | Dépend de | État | Cible | § |
 |---|---|---|---|---|---|---|
-| Player movements | **Marche** par défaut, **trot** (sprint maintenu), **sprint** (double appui, endurance), Naruto run | 🟠 Important | — | ✍🏻 trois allures codées 14/10 (non publiées) | validé 14/10 | §7 |
+| Player movements | **Marche** par défaut, **trot** (sprint maintenu), **sprint** (double appui, endurance), Naruto run | 🟠 Important | — | ✅ trois allures (14/10) | validé 14/10 | §7 |
 | Advanced Movement (dash, double jump) | Dash, double saut, saut de chakra, mur, escalade, voies de mobilité | 🟠 Important | Déplacements | ✅ ; 3 styles de course ❌ (Sprint 2) ; dégâts de chute désactivés | proposition | §7 |
 | Combat — Brawler / Swordsman | **Taïjutsu / Kenjutsu** : M1, garde, parade, endurance | 🟠 Important | Interaction, équipement | ✍🏻 M1, parade, garde brisée ✅ ; jauge de garde, clash, coup chargé ❌ ; 39 techniques Sprints 2-3 | proposition (lot B) | §9 |
 | Combat — Sniper | **Armes de jet** (kunai, shuriken) | 🟠 Important | Interaction, équipement | ❌ objets et effets de techniques seulement, pas de lancer | proposition | §10 |
 | KO / Pain System | **KO, ATA, mort RP** | 🟠 Important | Combat | ✅ à tester à deux comptes | nos décisions + 1 ajout | §11 |
-| Player State System (KO, combat, Logia, Haki, Granite) | **8 états** + modificateurs ; « contournements » (§34) | 🟠 Important | Déplacements | ✍🏻 états éclatés ; prison ❌ | validé 13/10 (liste) | §13 |
+| Player State System (KO, combat, Logia, Haki, Granite) | **8 états** + modificateurs ; « contournements » (§34) | 🟠 Important | Déplacements | ✍🏻 refonte en cours de code (17/10) ; prison ❌ | validé 13/10 (liste) | §13 |
 | Interaction System (E key) | **Mode interaction R** | 🟠 Important | Phase 1 | ✍🏻 menus joueur et corps ✅ ; entrées sans commande serveur (échanger, cadenas…) ; masque, volume vocal ❌ | proposition | §14 |
 | Skill Tree (skills) | **Progression** : 6 stats, XP invisible, grades, parchemins | 🟠 Important | Combat | ✅ (Mérite, bonus de grade ❓) | nos décisions + 2 ajouts | §32 |
-| Bank System | **Compte au guichet du village** | 🟠 Important | Sacoche, Faction | ❌ | proposition maquettée 14/10 | §20 |
-| Economy | **Ryo** (+ RBCoins de compte) | 🟠 Important | Sacoche | ✍🏻 solde et échoppe ✅ ; aucune source de gain, bourse-objet ❌ | proposition maquettée 14/10 | §19 |
+| Bank System | **Compte au guichet du village** | 🟠 Important | Sacoche, Faction | ✍🏻 livrée 15/10, pas encore testée | décidé 15/10 | §20 |
+| Economy | **Ryo** (+ RBCoins de compte) | 🟠 Important | Sacoche | ✅ bourse-objet livrée 15/10, validée en jeu 17/10 | décidé 15/10 | §19 |
 | Robbery System | **Vols** (parchemins, puis points de vol) | 🟠 Important | Interaction | ✍🏻 vol de parchemins ✅ ; points de vol configurés ❌ | proposition | §48 |
 | Legal Jobs (blacksmith, medic, merchant) | **Spécialisations** de section + **missions de rang D** | 🟠 Important | Économie | ✍🏻 médic ✅ ; missions ❌ | proposition | §21 |
 | Illegal Activities (smuggling, contraband) | **Contrebande** (pilules interdites, receleurs) | 🟠 Important | Économie | ❌ | après la beta | §31 |
-| Letter system | **Volière** (missives par corbeau) + **cloche du village** | 🟠 Important | Player ID, Faction | ❌ | proposition maquettée (16/10), Q6-Q8 | §30 |
-| Storage System | **Coffres configurables** (+ bibliothèques) | 🟠 Important | Player ID | ✍🏻 bibliothèques ✅ ; coffres ❌ | proposition (F5) | §29 |
+| Letter system | **Volière** (missives par corbeau) + **cloche du village** | 🟠 Important | Player ID, Faction | ✅ livré 16/10, validé en jeu 17/10 | décidé 16/10 | §30 |
+| Storage System | **Coffres configurables** (+ bibliothèques) | 🟠 Important | Player ID | ✍🏻 bibliothèques ✅ ; coffres de section ❌ (validés à coder 17/10) | validé 17/10 | §29 |
 | Treasure System | **Caches, reliques, coffre porté** | 🟠 Important | Sacoche, économie | ❌ | après la beta | §35 |
-| Faction / Crew System | **Faction** (villages, organisations, sections, grades de section) | 🟠 Important | Player ID | ✍🏻 proposition v3 maquettée (16/10) ; escouades Genin ✅ | v3 soumise, Q1-Q5 | §37 |
+| Faction / Crew System | **Faction** (villages, organisations, sections, grades de section) | 🟠 Important | Player ID | ✅ socle livré 16/10, validé en jeu 17/10 ; coffres et portes à clé ❌ | v3 validée 16/10 | §37 |
 | Proximity Chat | **PlasmoVoice** + chat RP en panneau | 🟠 Important | Player ID | ✍🏻 vocal + icône ✅ ; portées, volume par joueur ❌ | proposition | §17 |
-| DenDen Mushi system | **Appel de service** (système à part) + **radio = escouades** (oreillettes) | 🟠 Important | Chat de proximité | ✍🏻 `/aide` seulement | radio décidée 14/10, maquettes v3 ([`RADIO.md`](./gameplay/RADIO.md)) ; appel de service à concevoir | §18 |
+| DenDen Mushi system | **Appel de service** (système à part) + **radio = escouades** (oreillettes) | 🟠 Important | Chat de proximité | ✅ radio livrée 15/10, validée en jeu 17/10 ; appel de service ❌ | radio décidée 14/10, maquettes v3 ([`RADIO.md`](./gameplay/RADIO.md)) ; appel de service à concevoir | §18 |
 | Medic Job | **Médical** (médics, paume, bandages, hôpitaux) | 🟠 Important | Déplacements | ✍🏻 base ✅ ; verrou de combat, `MedicalService` ❌ | proposition | §26 |
 | Journalist & Camera System | **Avis de recherche-objet**, photo-preuve | 🟠 Important | Déplacements | ✍🏻 mode photo client ✅ ; objets ❌ | proposition | §46 |
 | Island capture system | **Conflit territorial** | 🟠 Important | Économie, combat, carte | ❌ | après la beta | §41 |
@@ -125,8 +125,8 @@ codés et attendent leurs tests à deux comptes.
 
 | Système RedLine | Équivalent Reborn | Priorité | Dépend de | État | Cible | § |
 |---|---|---|---|---|---|---|
-| Nourriture / satiété / régénération | **Un cuisinier joueur** prépare et donne de la main à la main ; manger prend du temps ; pilules seules portables | 🟠 Important | États, sacoche, monnaie | ❌ (faim mal neutralisée) | principe validé 14/10, maquettes v3 | §12 |
-| Duel System | **Duel consenti n'importe où** | 🟠 Important | Combat, KO | ✍🏻 codé le 13/10, non publié | décidé 13/10 | §15 |
+| Nourriture / satiété / régénération | **Un cuisinier joueur** prépare et donne de la main à la main ; manger prend du temps ; pilules seules portables | 🟠 Important | États, sacoche, monnaie | ✅ (14/10) | principe validé 14/10 | §12 |
+| Duel System | **Duel consenti n'importe où** | 🟠 Important | Combat, KO | ✅ (14/10) | décidé 13/10 | §15 |
 | Trading system | **Fenêtre d'échange** | 🟠 Important | Interaction, monnaie | ❌ | proposition | §16 |
 | Spell Deck System | **Presets de techniques** | 🟠 Important | Progression | ✍🏻 5 liaisons par objet ✅ ; presets ❌ | proposition | §33 |
 | Miner / Lumberjack / Blacksmith / Cook | Gisements, artisanat, ingrédients rares | 🟡 Secondaire | Économie | ❌ | après la beta | §23-§27 |
@@ -2031,42 +2031,42 @@ Minecraft, Nexo et le menu R.
 
 | # | Point | § | Statut | Ce qu'il reste à trancher |
 |---|---|---|---|---|
-| 1 | **Player ID** : compte + N° de personnage, états, onboarding | §1 | **validé 13/10** | Format du N° (5 chiffres séquentiels ?) ; visible du joueur ? ; ban = compte + Microsoft + Discord ? ; ATA / duel en modificateurs ? ; reprendre l'onboarding en cours |
-| 2 | **Inventaire** : sacoche, Tête, Arme, surcharge, notifications | §2 | **validé 13/10** | Arme en étui + dégainer, ou emplacement = arme en main ? ; Kenjutsu exige une arme ? ; maquette des notifications en bas à droite |
-| 3 | **Ramassage** : manuel, aura, disparition | §3 | **validé 13/10** | Touche (F ? R + clic ?) ; couleurs d'aura ; délai (10 min ?) ; objets uniques jamais détruits ? |
+| 1 | **Player ID** : compte + N° de personnage, états, onboarding | §1 | ✅ **livré 14/10** (N°, `/pid`, accueil Microsoft + Discord) | Ban compte + Microsoft + Discord ? ; ATA / duel en modificateurs ? |
+| 2 | **Inventaire** : sacoche, Tête, Arme, surcharge, notifications | §2 | ✅ **livré 14/10** | Kenjutsu exige une arme ? |
+| 3 | **Ramassage** : manuel, aura, disparition | §3 | ✅ **livré 14/10** (F, aura de rareté pixel art 15/10) | — |
 | 4 | HUD | §4 | proposition | Boussole facultative ; zone d'effets ; ryo hors HUD |
-| 5 | Commandes staff | §5 | proposition | Annonces, écran noir, voir la sacoche, tenue forcée, reset / suppression, notes staff, cible par N° |
-| 6 | Journaux | §6 | proposition | Journal par personnage (économie + objets) ; remontée au panel web |
-| 7 | Déplacements | §7 | proposition | Rétablir les dégâts de chute (seuil + roulade) ? |
+| 5 | Commandes staff | §5 | ✍🏻 commandes RedLine + modes staff / animation livrés 14/10 | Écran noir, tenue forcée, notes staff |
+| 6 | Journaux | §6 | ✅ journal universel livré 14/10 (tout est tracé) | Remontée au panel web |
+| 7 | Déplacements | §7 | ✅ allures 14/10, marche sur l'eau 15/10 (**validée en jeu 17/10**), course de chakra sur X 16/10 | Rétablir les dégâts de chute (seuil + roulade) ? |
 | 8 | Combat (logique d'arme) | §8 | proposition | Pas de mode combat ; techniques liées à l'arme |
 | 9 | Corps à corps (Taï / Ken) | §9 | proposition | Lot B : jauge de garde, parade parfaite qui renvoie, avantage au premier coup, clash, coup chargé, taille en course (décision n° 12) |
 | 10 | Armes de jet | §10 | proposition | Lancer de kunai / shuriken, munitions = sacoche, renvoi à la parade |
-| 11 | KO / mort | §11 | nos décisions | Compte à rebours remis à zéro à la reconnexion ? ; technique `volonte` (n° 3) |
-| 12 | Nourriture → consommables | §12 | proposition | Modèle d'effet générique ; pas de consommable 30 s après un coup |
-| 13 | États du joueur | §13 | validé 13/10 (liste) | Service unique ; prison ; menottes anti-chakra |
+| 11 | KO / mort | §11 | ✍🏻 chaîne KO v2 livrée 14/10, en recette | Compte à rebours remis à zéro à la reconnexion ? ; technique `volonte` (n° 3) |
+| 12 | Nourriture → consommables | §12 | ✅ nourriture v3 + entreprises livrées 14/10 | Modèle d'effet générique |
+| 13 | **États du joueur** | §13 | ✍🏻 **en cours de code (17/10)** : étape 0 livrée 14/10, étapes 1 à 9 validées | [`technique/ETATS_JOUEUR.md`](./technique/ETATS_JOUEUR.md) ; prison, menottes anti-chakra |
 | 14 | Interaction (R) | §14 | proposition | Entrées mortes du menu ; porter / fouiller un conscient ; masque ; volume vocal |
-| 15 | Duel | §15 | décidé 13/10 | Publier puis tester à deux comptes |
+| 15 | Duel | §15 | ✅ livré 14/10 | Tester à deux comptes |
 | 16 | Échange | §16 | proposition | Fenêtre d'échange (objets + ryo, 3-2-1) |
 | 17 | Chat de proximité | §17 | proposition | Trois portées ; indicateur ; outils staff |
-| 18 | Transmissions | §18 | radio décidée (14/10), maquettes v3 | Radio = escouades (oreillette, ajout à côté, persistante, vol, écoute staff) ; appel de service à part, à concevoir ; fiche `gameplay/RADIO.md` |
-| 19 | Monnaie | §19 | proposition maquettée (14/10) | Bourse-objet : migration du solde, poids, plafond de fouille, mort RP — [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) §14 |
-| 20 | Banque | §20 | proposition maquettée (14/10) | Guichet PNJ / guichetier joueur, échange garanti, paliers, objets refusés, virement (Faction Q7, Q9) — même fiche §14 |
+| 18 | Transmissions | §18 | ✅ radio en escouades livrée 15/10, **validée en jeu 17/10** | Appel de service à part, à concevoir — [`gameplay/RADIO.md`](./gameplay/RADIO.md) |
+| 19 | Monnaie | §19 | ✅ livrée 15/10 ; **bourse validée en jeu 17/10** | — [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) |
+| 20 | Banque | §20 | ✍🏻 livrée 15/10, **pas encore testée en jeu** | Recette de la fiche §20 (guichet, coffre à paliers, virement, échange garanti) |
 | 21 | Professions et petits boulots | §21 | proposition | Spécialisations = fonctions de section |
 | 22 | Missions de rang D | §22 | proposition | Bureau des missions (décision n° 13) |
 | 23-28 | Mineur, bûcheron, forgeron, médecin, cuisinier, cartographe | §23-§28 | proposition (médecin) / après la beta (le reste) | Verrou de combat sur les soins ; bandage du médic |
-| 29 | Stockage et coffres | §29 | proposition | Coffres configurables, liste centrale (Faction F5) |
-| 30 | Volière et cloche | §30 | proposition maquettée (16/10) | Q6 à Q8 de [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) §9 (alerte d'arrivée, délais et coûts, visiteurs et seuil de la cloche) |
+| 29 | Stockage et coffres | §29 | **coffres de section validés à coder (17/10)**, après les états | Coffres configurables, liste centrale (Faction F5) ; portes = verrou à clé, crochetage / casse |
+| 30 | Volière et cloche | §30 | ✅ livrées 16/10 (hud 0.4.184 → 0.4.186), **validées en jeu 17/10** | — [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) |
 | 31 | Contrebande | §31 | après la beta | — |
 | 32 | Progression | §32 | nos décisions | Classement staff ; plafond d'XP 24 h ; Mérite (n° 4), bonus de grade (n° 5), plafond des stats (n° 7) |
 | 33 | Deck de techniques | §33 | proposition | Presets + recharge globale |
 | 34 | Équivalents chakra (Logia, Haki, granite) | §34 | après la beta | Étiquette « contourne X » |
 | 35 | Caches et reliques | §35 | après la beta | Coffre porté, lâché si frappé |
 | 36 | Carte | §36 | proposition | Marqueur + boussole, zones survolables, brouillard des pays étrangers ? |
-| 37 | **Faction** | §37 | proposition v3 maquettée (16/10) | Q1 à Q5 de [`gameplay/FACTION.md`](./gameplay/FACTION.md) §14 (figure publique, création des sections, une section par personnage, taxe, tenue) |
+| 37 | **Faction** | §37 | ✅ socle livré 16/10 (hud 0.4.184), **validé en jeu 17/10** | Coffres de section et portes à clé (aucune zone inaccessible) ; mécaniques par section **plus tard** — [`gameplay/FACTION.md`](./gameplay/FACTION.md) |
 | 38 | Caractéristiques | §38 | proposition | Lié à la décision n° 5 |
 | 39 | Boutique en argent réel | §39 | proposition maquettée (15/10) | Boutique de compte depuis l'Échap ; abonnement « Soutien » ; slot de personnage payant acceptable ? ; vente des exécutions et jetons (n° 8) — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) §12 |
 | 40-41 | Voyages entre pays, conflit territorial | §40-§41 | après la beta | KO réel ou d'entraînement dans un conflit ? |
-| 42 | Boutique en jeu → **le tailleur** (lieu) | §42 | proposition maquettée (15/10) | Caméra dans le monde, estrade, garde-robe hors boutique, bazar, prix, conditions — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) §12 |
+| 42 | Boutique en jeu → **le tailleur** (lieu) | §42 | ✅ livrée 15/10 (hud 0.4.181), **validée en jeu 17/10** | Visuels de la carte BOUTIQUE de l'Échap — [`gameplay/BOUTIQUES.md`](./gameplay/BOUTIQUES.md) |
 | 43-45 | Création, éditeur, sélection | §43-§45 | fait + ajouts | Cinématique d'arrivée ; kit de départ ; frange / arrière ; formes d'iris ; journal RP |
 | 46 | Avis de recherche, preuves | §46 | proposition | Avis-objet, photo-objet |
 | 47 | Launcher | §47 | fait + validé 13/10 | Délai et blocage des candidatures ; « Copier le lien » (n° 9) |
@@ -2074,5 +2074,6 @@ Minecraft, Nexo et le menu R.
 | 49-51 | Orientation, KO « WIP », exploration | §49-§51 | proposition | Kit de départ chiffré |
 | 52-53 | Systèmes sans section, systèmes propres à Reborn | §52-§53 | — | Revue d'état (ShinobiTail, ShinobiLearning à auditer) |
 
-**Prochain point à traiter : n° 1 (Player ID)**, puis 2 et 3, déjà validés dans leurs grandes lignes : il reste à
-trancher leurs ❓ avant de passer aux maquettes et au code.
+**Au 17/10 — prochain point : n° 13 (États du joueur), en cours de code**, puis **n° 29 / 37 : coffres de section et
+portes à clé** (verrou + clé seulement ; une porte verrouillée se crochète ou se casse ; aucune zone inaccessible).
+Le combat (n° 8 à 10) reste repoussé (décision du 14/10) ; les mécaniques par section viendront plus tard.

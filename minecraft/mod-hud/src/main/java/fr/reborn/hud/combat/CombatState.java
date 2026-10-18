@@ -88,6 +88,10 @@ public final class CombatState {
     public void onParry(int role, long now) {
         this.lastParryMs = now;
         this.parryRole = role;
+        // Parade réussie (rôle 0) : coup de garde sur son propre avatar. Les autres le reçoivent par
+        // TYPE_ANIM 7 (ShinobiCombat), que la réception ignore pour soi (anti-double).
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (role == 0 && mc.player != null) CombatAnimations.INSTANCE.play(mc.player, CombatAnimations.ANIM_PARRY);
     }
 
     /** Intensité du flash de parade [0..1] (0 = plus de flash). */
