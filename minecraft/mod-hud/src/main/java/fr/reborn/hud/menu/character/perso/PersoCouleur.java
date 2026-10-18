@@ -19,10 +19,14 @@ import static fr.reborn.hud.menu.character.perso.PersoArt.*;
  * luminosité, barre de teinte, aperçu, champ hexadécimal. Le carré est une texture recalculée seulement quand la
  * teinte change (128×128), la barre de teinte une texture faite une fois : rien n'est calculé par pixel à chaque
  * image. Chaque changement est appliqué tout de suite au personnage (via {@code applique}).
+ *
+ * <p><b>Public depuis le 18/10</b> (teinture du bandeau, {@code menu/cosmetic/TeintureScreen}) : réutilisable hors de la
+ * création de personnage (titre, couleur de départ, rappel à chaque changement) ; l'API n'a pas changé, seulement sa
+ * visibilité.
  */
-final class PersoCouleur {
+public final class PersoCouleur {
 
-    static final int W = 236, H = 166;
+    public static final int W = 236, H = 166;
     private static final int SQ = 100, BAR = 12;
     private static final Identifier SV = Identifier.fromNamespaceAndPath("reborn", "perso/couleur_sv"),
         TEINTE = Identifier.fromNamespaceAndPath("reborn", "perso/couleur_teinte");
@@ -37,9 +41,9 @@ final class PersoCouleur {
     private float h, s, v;
     private String hex;
     private int drag;           // 1 carré, 2 teinte
-    int x, y;                   // coin (GUI, repère de l'écran)
+    public int x, y;            // coin (GUI, repère de l'écran)
 
-    PersoCouleur(String titre, int argb, IntConsumer applique) {
+    public PersoCouleur(String titre, int argb, IntConsumer applique) {
         this.titre = titre;
         this.initial = argb & 0xFFFFFF;
         this.applique = applique;
@@ -50,14 +54,14 @@ final class PersoCouleur {
         hex = String.format(Locale.ROOT, "%06X", initial);
     }
 
-    int couleur() { return SkinSpec.hsvToArgb(h, s, v) & 0xFFFFFF; }
+    public int couleur() { return SkinSpec.hsvToArgb(h, s, v) & 0xFFFFFF; }
 
-    void annuler() { applique.accept(initial); }
+    public void annuler() { applique.accept(initial); }
 
     /* ------------------------------------------------------------------ saisie */
 
     /** Vrai si le clic est pris (dans le panneau) ; {@code fermer[0]} = vrai si OK. */
-    boolean clic(double mx, double my, boolean[] fermer) {
+    public boolean clic(double mx, double my, boolean[] fermer) {
         if (!dans(mx, my, x, y, W, H)) return false;
         if (dans(mx, my, x + 12, y + 30, SQ, SQ)) { drag = 1; glisser(mx, my); return true; }
         if (dans(mx, my, x + 12 + SQ + 8, y + 30, BAR, SQ)) { drag = 2; glisser(mx, my); return true; }
@@ -66,7 +70,7 @@ final class PersoCouleur {
         return true;
     }
 
-    boolean glisser(double mx, double my) {
+    public boolean glisser(double mx, double my) {
         if (drag == 1) {
             s = (float) Math.max(0, Math.min(1, (mx - x - 12) / (SQ - 1)));
             v = (float) Math.max(0, Math.min(1, 1 - (my - y - 30) / (SQ - 1)));
@@ -80,15 +84,15 @@ final class PersoCouleur {
         return true;
     }
 
-    boolean relacher() {
+    public boolean relacher() {
         boolean b = drag != 0;
         drag = 0;
         return b;
     }
 
-    boolean glisse() { return drag != 0; }
+    public boolean glisse() { return drag != 0; }
 
-    boolean car(char c) {
+    public boolean car(char c) {
         if (Character.digit(c, 16) < 0) return false;
         if (hex.length() >= 6) hex = "";
         hex += Character.toUpperCase(c);
@@ -103,7 +107,7 @@ final class PersoCouleur {
         return true;
     }
 
-    void effacer() { if (!hex.isEmpty()) hex = hex.substring(0, hex.length() - 1); }
+    public void effacer() { if (!hex.isEmpty()) hex = hex.substring(0, hex.length() - 1); }
 
     private void majHex() { hex = String.format(Locale.ROOT, "%06X", couleur()); }
 
@@ -111,7 +115,7 @@ final class PersoCouleur {
 
     /* ------------------------------------------------------------------ dessin */
 
-    void dessiner(GuiGraphicsExtractor g, Font f, int mx, int my, long now) {
+    public void dessiner(GuiGraphicsExtractor g, Font f, int mx, int my, long now) {
         textures();
         // panneau laqué, double filet or, losanges aux coins
         g.fill(x - 2, y - 2, x + W + 2, y + H + 2, 0xC0000000);

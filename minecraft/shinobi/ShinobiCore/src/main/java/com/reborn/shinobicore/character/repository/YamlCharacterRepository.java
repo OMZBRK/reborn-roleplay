@@ -306,6 +306,11 @@ public class YamlCharacterRepository implements CharacterRepository {
         c.setOeilGauche(com.reborn.shinobicore.medic.yeux.Oeil.fromYaml(s.getConfigurationSection("yeux.gauche")));
         c.setOeilDroit(com.reborn.shinobicore.medic.yeux.Oeil.fromYaml(s.getConfigurationSection("yeux.droit")));
         c.setYeuxBandes(s.getBoolean("yeux.bandage", false));
+        // Couleur d'aura de méditation (#RRGGBB) : absente = celle du serveur.
+        String aura = s.getString("aura-meditation");
+        if (aura != null) {
+            try { c.setAuraCouleur(Integer.parseInt(aura.trim().replace("#", ""), 16)); } catch (NumberFormatException ignored) { }
+        }
 
         // Skills & unspent points (the /sc roll system).
         c.setSkillPoints(s.getInt("skill-points", 0));
@@ -505,6 +510,8 @@ public class YamlCharacterRepository implements CharacterRepository {
         com.reborn.shinobicore.medic.yeux.Oeil.toYaml(cfg, key + ".yeux.gauche", c.oeilGauche());
         com.reborn.shinobicore.medic.yeux.Oeil.toYaml(cfg, key + ".yeux.droit", c.oeilDroit());
         if (c.yeuxBandes()) cfg.set(key + ".yeux.bandage", true);
+        cfg.set(key + ".aura-meditation", c.auraCouleur() >= 0
+                ? String.format(java.util.Locale.ROOT, "#%06X", c.auraCouleur()) : null);
 
         // Skills & unspent points (the /sc roll system).
         cfg.set(key + ".skill-points", c.skillPoints() > 0 ? c.skillPoints() : null);

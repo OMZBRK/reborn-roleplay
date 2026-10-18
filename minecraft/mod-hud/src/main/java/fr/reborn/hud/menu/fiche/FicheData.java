@@ -33,7 +33,8 @@ public final class FicheData {
 
     record Dojutsu(String nom, int stade, String txt) {}
 
-    /** {@code rang} : lettre D…S d'une mission (clé {@code rang} du serveur) ; {@code kj} : kanji imposé (facultatif). */
+    /** {@code rang} : lettre D…S d'une mission (clé {@code rang} du serveur) ; {@code kj} : ancien kanji imposé, lu mais plus affiché
+     *  (18/10, aucun kanji décoratif). */
     record Service(String type, String kj, String rang, String txt, String date) {}
 
     record Lignee(Dojutsu dojutsu, Integer meritePalier, String meriteTxt, List<Service> service, int serviceTotal) {}
@@ -335,7 +336,7 @@ public final class FicheData {
            "merite":{"palier":1,"txt":"Reconnu par ton village"},
            "service":[{"type":"ENREGISTREMENT","txt":"Enregistré à Konohagakure","date":"4 septembre"},
                       {"type":"PROMOTION","txt":"Promu Genin, sur examen","date":"28 septembre"},
-                      {"type":"AUTRE","kj":"伝","txt":"Jūken transmis par le clan","date":"9 octobre"}],
+                      {"type":"AUTRE","txt":"Jūken transmis par le clan","date":"9 octobre"}],
            "serviceTotal":3},
          "apprentissage":[
            {"id":"hakkesho_kaiten","name":"Hakkeshō Kaiten","letter":"B","nature":"NONE","cat":"taijutsu/juken","done":2,"total":6,"etat":"REPOS","txt":"séance demain"},

@@ -100,8 +100,6 @@ public class ScreenshotDetailScreen extends Screen {
         }
         Da.outline(g, ix - 1, iy - 1, iw + 2, ih + 2, 0xFF96826A);
         DaKit.inter7(g, f, DaKit.inter(GalleryScreen.dateOf(e)), ix + 1, iy + ih + 12, 0xFF64503C, 0);
-        // sceau 撮 (celui du mode photo)
-        DaKit.blit(g, DaKit.tex("photo", "cartouche"), fx + fw - 34, iy + ih + 3, 7, 7, 20, 20, 164, 38);
         DaKit.inter7(g, f, DaKit.inter((index + 1) + " / " + entries.size()), fx + fw, fy - 6, DaKit.DOUX, 2);
 
         // Flèches.

@@ -121,6 +121,26 @@ Après publication : mettre à jour `docs/ETAT_DES_LIEUX.md` (version + numéro 
   « radio » enregistrées dans Plasmo Voice.` puis `ShinobiRadio activé — 0 escouade(s), voix radio prête.`
 - Vérifier aussi le YAML de `ShinobiRadio/src/main/resources/plugin.yml` et `config.yml` (et ceux du jar), §1.4.
 
+**Teinture du bandeau (18/10)** — le bandeau de l'utilisateur (`bandeau_ninja`, son modèle Blockbench), trois
+morceaux à livrer ensemble :
+- **Pack Nexo** → `plugins/Nexo/`, **trois fichiers seulement** (ils remplacent ceux du serveur) :
+  - `items/reborn_cosmetiques_ninja.yml` (copie du serveur + `color: "#302C32"` sur `bandeau_ninja` ; le reste du
+    fichier est identique octet pour octet à la version serveur du 18/10) ;
+  - `pack/assets/reborn/models/item/bandeau.json` (le modèle de l'utilisateur + `"tintindex": 0` sur les faces du tissu,
+    forme inchangée) ;
+  - `pack/assets/reborn/textures/item/texturebandeau.png` (tissu en gris clair, plaque inchangée).
+  Puis `/nexo reload all`. Sans teinte choisie, le bandeau rend comme avant ; les bandeaux déjà distribués aussi.
+- **À NE PAS déployer** : `items/reborn_cosmetiques.yml` (identique au serveur, rien à envoyer) ;
+  `pack/assets/reborn/textures/item/texturebandeau_origine.png` (sauvegarde de l'original, sert à revenir en arrière :
+  inutile sur le serveur) ; aucun fichier `bandeau_konoha.*` (le modèle provisoire de la première version a été
+  retiré — s'il avait été copié sur le serveur, le supprimer : `pack/assets/reborn/{items,models/item}/bandeau_konoha.json`,
+  `textures/item/bandeau_konoha.png`).
+- **ShinobiCore** (commande `cos:dye` de la sacoche, `dye` / `teinte` dans le JSON, journal `TEINTURE`, clé
+  `inventaire.teinture.ids: [bandeau_ninja]`) ; **reborn-hud** (écran Teinture, rendu de la teinte sur soi et sur les
+  autres).
+- Ordre libre : un mod ancien ignore `dye` (bandeau d'origine pour tous, la teinte par défaut du modèle le garantit) ;
+  un serveur ancien ignore `cos:dye` (rien ne change).
+
 **Incidents connus** : SFTP et port de jeu muets en même temps = panne réseau ou hôte, pas les identifiants.
 Le serveur **prod** n'est pas sur les mêmes accès que le dev — vérifier `server.properties` avant de toucher à
 quoi que ce soit.

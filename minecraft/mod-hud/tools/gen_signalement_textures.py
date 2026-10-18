@@ -4,7 +4,7 @@ gen_signalement_textures.py — textures du signalement en jeu (menu/widget/Repo
 au niveau de la fiche shinobi (DA §4.1, §6), version épurée.
 
 Signature de l'écran : la boîte à doléances (目安箱, meyasubako) — petit coffre de bois à toit, fente sur le
-dessus, plaquette crème au kanji 訴 (« doléance »), posé en tête de la planche laquée. Le formulaire (catégorie, sujet, message)
+dessus, plaquette crème nue (plus de kanji depuis le 18/10, DA §3), posé en tête de la planche laquée. Le formulaire (catégorie, sujet, message)
 est sur la planche ; le jeu reste visible derrière, sous un voile.
 
 1 texel = 1 GUI. Le texte est posé par le code (DaKit).
@@ -51,10 +51,9 @@ def boite():
     for (x, y) in ((5, 14), (36, 14), (5, 35), (36, 35)):
         rect(im, x, y, 3, 3, hexc(R_OR[4]))
         rect(im, x + 1, y + 1, 1, 1, hexc(R_OR[7]))
-    # plaquette crème 目安箱
+    # plaquette crème (nue)
     kit.washi(im, 13, 16, 18, 20, "creme", seed=2, bords="nets", ombre=False, fibres=False, taches=False)
     rect(im, 13, 16, 18, 1, hexc("8E1628"))
-    gf.kj_px(im, 22, 19, "訴", hexc("2A1A10"))
     S.sauver("boite.png", im, (44, 40))
 
 

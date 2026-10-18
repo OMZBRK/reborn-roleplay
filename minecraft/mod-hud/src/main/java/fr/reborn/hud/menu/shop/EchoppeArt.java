@@ -33,7 +33,7 @@ public final class EchoppeArt {
         }
     }
 
-    /** Noren sur toute la largeur : hampe, lés balancés d'1 GUI, blason 商 au centre. {@code nh} = bas du noren. */
+    /** Noren sur toute la largeur : hampe, lés balancés d'1 GUI, blason (pièce de ryo) au centre. {@code nh} = bas du noren. */
     public static void noren(GuiGraphicsExtractor g, int w, int nh, float time) {
         int y0 = nh - 36;
         // une frise de ~70 blits : un seul élément GUI (cf. LotBlit)

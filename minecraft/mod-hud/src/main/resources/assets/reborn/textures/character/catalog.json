@@ -11,7 +11,8 @@
     "  resout n'importe quel id sans restriction (un perso garde son apparence meme si non-eligible).",
     "MASQUE RGBA : si <id>_Mask.png existe ET que des zones sont declarees, chaque canal (R/G/B/A) devient",
     "  une zone recoloree en HSL (teinte+saturation du picker, luminance de la texture preservee = ombrage garde).",
-    "  Sans masque/zones : la texture est affichee TELLE QUE PEINTE (couleurs fixes)."
+    "  Sans masque/zones : la texture est affichee TELLE QUE PEINTE (couleurs fixes).",
+    "SOURCILS (brows, 18/10) : calque en niveaux de gris (tint=all) pose apres les yeux ; couleur = SkinSpec.effectiveBrowColor() (comme les cheveux par defaut)."
   ],
   "hair": [
     {
@@ -518,6 +519,13 @@
       "name": "Style 1",
       "tint": "red",
       "split": 11
+    }
+  ],
+  "brows": [
+    {
+      "id": "Sourcils_Base",
+      "name": "Naturels",
+      "tint": "all"
     }
   ],
   "facial": [],

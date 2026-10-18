@@ -455,10 +455,22 @@ def perche(px, x0, x1, y, bout="d"):
     liseret(px, cx_, y - 1, 6, 7)
 
 
+def _masque(texte):
+    """Masque bool d'un texte posé en pixel : ArcadePix x2 rogné à l'encre si le texte est ASCII (règle du 14/10 :
+    plus de kanji décoratif), sinon glyphe unifont 16 (ancien chemin, gardé pour les maquettes d'archives)."""
+    if all(ord(c) < 0x80 for c in texte):
+        m = kit.arcade_masque(texte, 20)
+        rows, cols = np.where(m.any(axis=1))[0], np.where(m.any(axis=0))[0]
+        return m[rows[0]:rows[-1] + 1, cols[0]:cols[-1] + 1] if len(rows) else m
+    return kit._glyphe_kanji_ligne(texte, 16, "unifont")
+
+
 def kj_px(img, cx, y, texte, couleur, ombre=None, contour=None, ancre="c"):
     """Kanji de la police du jeu (unifont 16 px) posé sur la COUCHE PIXEL : 1 px de glyphe =
-    1 GUI = 2x2 px écran, blit entier sans lissage. ombre : couleur d'ombre portée (1 GUI)."""
-    g = kit._glyphe_kanji_ligne(texte, 16, "unifont")
+    1 GUI = 2x2 px écran, blit entier sans lissage. ombre : couleur d'ombre portée (1 GUI).
+    Texte ASCII (chiffres, lettres) : ArcadePix x2 (14 GUI de haut) — c'est ce que posent les textures depuis que
+    les kanji décoratifs sont retirés (18/10)."""
+    g = _masque(texte)
     h, w = g.shape
     x = int(round(cx - w / 2)) if ancre == "c" else (int(round(cx - w)) if ancre == "d" else int(round(cx)))
     y = int(round(y))
@@ -501,7 +513,7 @@ def hanko_px(img, cx, cy, kj, taille=20, ton=None, forme="carre", seed=0, encre=
     lt = b & ((xx + yy) < T - 1)
     p[b] = R[0]
     p[lt] = R[n - 2]
-    g = kit._glyphe_kanji(kj, 16, "unifont")
+    g = _masque(kj)
     gh, gw = g.shape
     gx, gy = int(round(c0 - gw / 2 + 0.5)), int(round(c0 - gh / 2 + 0.5))
     ink = np.zeros((T, T), bool)
@@ -644,8 +656,8 @@ def planche(m, x, y, w, h, titre=None, gland="bd", seed=0, opacite=0.92, ancrage
 
 
 def bouton(m, x, y, libelle, etat="normal", kj=None, ton="noir", h=20, w=None):
-    """Bouton-plaque : laque à reflet, liseré or biseauté, ferrures 3x3, kanji pixel 16 GUI à
-    gauche, libellé ArcadePix x0,5. etat : normal | survol | actif | inactif | neutre.
+    """Bouton-plaque : laque à reflet, liseré or biseauté, ferrures 3x3, (kanji pixel 16 GUI à
+    gauche : plus utilisé depuis le 18/10) libellé ArcadePix x0,5. etat : normal | survol | actif | inactif | neutre.
     w : largeur réservée (position fixe quel que soit le libellé). Renvoie (x, y, w, h)."""
     lw = kit.arcade_largeur(libelle, 10) / 2
     w = w or int(math.ceil(lw)) + (20 if kj else 0) + 14
@@ -664,7 +676,7 @@ def bouton(m, x, y, libelle, etat="normal", kj=None, ton="noir", h=20, w=None):
            intensite={"survol": 1.8, "normal": 1.1, "neutre": 0.8}.get(etat, 0.4))
     liseret(px, x, y, w, h, terne=inactif or neutre)
     ferrures3(px, x, y, w, h, terne=inactif or neutre)
-    tx = x + 7
+    tx = x + 7 if kj else x + (w - lw) / 2      # sans kanji : libellé centré (comme le mod)
     if kj:
         kc = {"inactif": hexc("4A3C38"), "neutre": hexc(R_OR[3])}.get(etat, OR_CLAIR if ton == "rouge" else OR)
         kj_px(px, tx + 8, y + (h - 16) // 2, kj, kc, ombre=hexc("140608") if not inactif else None)
@@ -904,7 +916,6 @@ def village_konoha(m, bg, seed=7):
         rect(bg, tx + tw - 1, y, 1, 1, hexc("12060A"))
     _toit(bg, tx - 5, ttop - 10, tw + 10, 10, hexc("120A10"), rim)
     rect(bg, tx + tw // 2 - 1, ttop - 14, 2, 4, hexc("120A10"))
-    kj_px(bg, tx + tw // 2, ttop + 6, "火", hexc("5A2A22"))
     for k in range(5):                                     # anneau de fenêtres
         wx = tx + 4 + k * 7
         _px_set(bg, wx, ttop + 26, mix(K, (255, 230, 190), 0.3), 0.85)
@@ -979,7 +990,6 @@ def village_suna(m, bg, seed=7):
         dome(cx, r, b)
     # dôme du Kazekage : le plus grand, 風 qui luit
     dome(592, 26, 300, corps="342428", lum="7A5C50", haut=18)
-    kj_px(bg, 592, 262, "風", mix(K, (60, 40, 30), 0.25))
     halo_px(m, 592, 270, 18, K, force=0.08, niveaux=2)
     for k in range(5):
         _px_set(bg, 574 + k * 9, 292, mix(K, (255, 240, 210), 0.35), 0.95)
@@ -1168,8 +1178,9 @@ def chevron(px, cx, y):
         rect(px, cx + dx, y + dy, 1, 1, hexc(cc))
 
 
-ETAPES = [("VILLAGE", "里"), ("CLAN", "血"), ("SEXE", "性"), ("NOM", "名"), ("AGE", "齢"), ("TAILLE", "丈"),
-          ("APPARENCE", "貌"), ("SCEAU", "印")]
+# Étapes de la création et la marque de leur sceau : le NUMÉRO de l'étape (ArcadePix), plus de kanji depuis le 18/10.
+ETAPES = [("VILLAGE", "1"), ("CLAN", "2"), ("SEXE", "3"), ("NOM", "4"), ("AGE", "5"), ("TAILLE", "6"),
+          ("APPARENCE", "7"), ("SCEAU", "8")]
 
 
 XS_ETAPES = [int(round(480 - 3.5 * 62 + i * 62)) for i in range(8)]

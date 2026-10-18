@@ -18,7 +18,7 @@ Contrat :
 - champ.png 260×18 : champ de recherche (rainure laquée, liseré or éteint) 256×14 en (1, 1), coupe horizontale
   capD 6.
 - fiche.png 336×180 : carte de washi 328×172 en (2, 2) (ombre comprise), bande vermillon ; coupe capD = capB = 14.
-- pieces.png 96×32 : sceau 名 20×20 (1, 1) ; marqueurs 9×9 : soi (24, 0), staff (34, 0), ami (44, 0),
+- pieces.png 96×32 : (case (1, 1) 20×20 vide : plus de sceau kanji depuis le 18/10) ; marqueurs 9×9 : soi (24, 0), staff (34, 0), ami (44, 0),
   connaissance (54, 0) ; barres de ping 15×9 : 4 crans (64, 0) (64, 10) (64, 20) et vide (80, 0) ;
   rail 4×20 (24, 12) ; curseur 6×12 (30, 12).
 """
@@ -100,7 +100,6 @@ def fiche():
 
 def pieces():
     im = nouveau(96, 32)
-    gf.hanko_px(im, 11, 11, "名", 20, fa.R_VERM, seed=3, usure=0.06)
     # marqueurs 9×9
     def spr(ox, rows, pal):
         for j, row in enumerate(rows):

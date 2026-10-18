@@ -30,15 +30,19 @@ Contrat (texels ↔ GUI de la fenêtre de référence 960×540, cx = W/2, d = H 
 - plaque_titre.png 340×50 : « CHOIX DU SHINOBI » ; texel (170, 0) = (cx, 0).
 - progression.png 560×32 : fil kumihimo et cordelettes des 8 sceaux ; texel (280, 0) = (cx, 0).
 - sceaux.png 240×102 : 8 colonnes (étapes) × 3 rangées (apposé, en cours, à venir), cellules 30×34 ;
-  texel (15, 0) = (x de l'étape, 10).
+  texel (15, 0) = (x de l'étape, 10). Marque = numéro de l'étape (ArcadePix ×2), plus de kanji (18/10).
+- sceau_registre.png 96×32 : tampon du récapitulatif, NON tourné (cf. sceau_registre) : cellules 32×32 = tampon sans
+  marque, variante 認, masque d'usure ; le mod y réserve l'emblème du village (ou du clan) et le penche (18/10).
+  Seul : python tools/gen_personnage_textures.py sceau
 - chip.png 32×16 : plaquettes 14×14 (+ombre) : croche, onde (voix).
 - perche.png 300×16 : rangées 0-7 perche gauche (embout à droite), 8-15 perche droite (embout à gauche) ;
   rangée 1 du bloc = y de la perche (96).
 - panneau_<nom>.png (w+8)×(16+h+28) : planche w×h, texel (4, 16) = coin haut gauche (cordelettes depuis la
-  perche à y 96) ; contenu fixe cuit (séparateurs, réglettes, washi…).
+  perche à y 96) ; contenu fixe cuit (séparateurs, réglettes, washi…) ; titre seul dans le bandeau (sans kanji).
 - plaque_nom.png 366×71 : plaque de saisie du nom 360×64, texel (2, 2) = coin.
 - tuiles_<nom>.png : cellules (w+4)×(h+5), tuile en (1, 1) : normal, survol, actif (, verrou pour les clans).
-- boutons.png : rangées de 24 (BOUTONS), cellules (w+4)×24, bouton en (1, 1) : normal, survol, inactif ; kanji cuit.
+- boutons.png : rangées de 24 (BOUTONS), cellules (w+4)×24, bouton en (1, 1) : normal, survol, inactif ; plaque nue
+  (plus de kanji depuis le 18/10 ; le mod centre le libellé, largeurs inchangées).
 - fleches.png 44×23 : ◀ ▶ (normal) puis 44..88 survol ; bouton 20×20 en (1, 1).
 - curseurs.png 64×16 : curseur de réglette (12×14, texel (5, 6) = (X, y haut)) ; plaquette de toise
   (46×16 en x 16, texel (20, 7) = (bx, Y)).
@@ -77,7 +81,6 @@ GUI_PAR_CM = 240.0 / 172.0   # 7,5 GUI/texel : un adulte de 172 cm mesure 240 GU
 VILLAGES = ["konoha", "suna", "kiri", "kumo", "iwa", "ame"]
 VCOL = {"konoha": hexc("F2A548"), "suna": hexc("E8C88A"), "kiri": hexc("9ED8EA"), "kumo": hexc("F4EC8C"),
         "iwa": hexc("D39B6A"), "ame": hexc("A9B8DA")}
-KANJI_VILLAGE = {"konoha": "火", "suna": "風", "kiri": "水", "kumo": "雷", "iwa": "土", "ame": "雨"}
 
 # ───────────────────────── palettes des quatre villages absents de la maquette ─────────────────────────
 pa.CIELS.update({
@@ -248,7 +251,6 @@ def village_kiri(m, bg, seed=7):
         rect(bg, bx - bw // 2, y, 1, 1, hexc("3A4C60"))
         rect(bg, bx + bw // 2 - 1, y, 1, 1, hexc("0A0E14"))
     _dome(bg, bx, bw // 2, btop, "1E2C3A", "4A5E74")
-    pa.kj_px(bg, bx, btop + 8, "水", mix(K, (40, 60, 80), 0.45))
     for k in range(6):
         pa._px_set(bg, bx - 25 + k * 10, btop + 30, mix(K, (255, 255, 255), 0.35), 0.9)
     pa.halo_px(m, bx, btop + 14, 18, K, force=0.07, niveaux=2)
@@ -283,7 +285,6 @@ def village_kumo(m, bg, seed=7):
     bx, bw, btop = 500, 30, 196
     _tour_ronde(bg, bx, bw, btop, Y_HOR, "2A2636", "5A5470", "121020")
     _dome(bg, bx, bw // 2 + 2, btop, "3A3648", "8A86A0")
-    pa.kj_px(bg, bx, btop + 10, "雷", mix(K, (60, 50, 30), 0.4))
     pa.halo_px(m, bx, btop + 16, 18, K, force=0.08, niveaux=2)
     for k in range(4):
         pa._px_set(bg, bx - 11 + k * 7, btop + 34, mix(K, (255, 255, 230), 0.4), 0.95)
@@ -335,7 +336,6 @@ def village_iwa(m, bg, seed=7):
         rect(bg, bx - half, y, 2 * half, 1, mix("32262A", "1E161A", t))
         rect(bg, bx - half, y, 1, 1, hexc("5A443E"))
     _dome(bg, bx, 12, btop, "3A2C2E", "6A5248")
-    pa.kj_px(bg, bx, btop + 6, "土", mix(K, (60, 40, 30), 0.35))
     pa.halo_px(m, bx, btop + 12, 16, K, force=0.08, niveaux=2)
     _fenetres(bg, fen, K, rs)
     pa.lumiere(bg, 480, Y_HOR - 6, 250, K, force=0.09, ry=46, niveaux=4, tramage=0.35)
@@ -374,7 +374,6 @@ def village_ame(m, bg, seed=7):
     for (dx, sgn) in ((-12, -1), (12, 1)):         # cornes
         for k in range(16):
             rect(bg, bx + dx + sgn * (k // 3), btop - k, 3, 1, hexc("1C212A"))
-    pa.kj_px(bg, bx, btop + 8, "雨", mix(K, (40, 50, 70), 0.4))
     pa.halo_px(m, bx, btop + 14, 18, K, force=0.07, niveaux=2)
     # tuyaux horizontaux
     for (xa, xb, y) in ((262, 470, 292), (520, 700, 284)):
@@ -629,6 +628,67 @@ def sceaux():
     return out
 
 
+def sceau_registre():
+    """Tampon du registre (récapitulatif), 96×32, trois cellules 32×32, sceau 30×30 en (1, 1), NON tourné :
+    0 = tampon vermillon sans marque (encre inégale, bords un peu mangés, quelques bavures, filet réservé à 3 px) ;
+    1 = même tampon avec l'ancien 認 (variante, unifont 16 comme avant le 18/10) ; 2 = masque d'usure (blanc = manque
+    d'encre sur la marque). Le mod (PersoEmblemes.sceau) le double (×2), y réserve l'emblème du village ou du clan à
+    la demi-texel, le penche de 5° et pose l'ombre — l'emblème n'est jamais cuit ici."""
+    S, C = 30, 32
+    V = [hexc(c) for c in pa.R_VERM]
+    n = len(V)
+    yy, xx = np.mgrid[0:C, 0:C].astype(float)
+    mk = np.zeros((C, C), bool)
+    mk[1:1 + S, 1:1 + S] = True
+    for (a, b) in ((1, 1), (1, S), (S, 1), (S, S)):
+        mk[a, b] = False
+    rs = np.random.RandomState(77)
+    mk &= ~(pa._bord(mk) & (rs.rand(C, C) < 0.08))              # bords un peu mangés
+    bav = pa._dilate(mk, 1) & ~mk & (rs.rand(C, C) < 0.05)       # bavures d'1 px
+    bav[0, :] = bav[-1, :] = False
+    bav[:, 0] = bav[:, -1] = False
+    mk |= bav
+    nz = kit.bruit(C, C, 4, 82, 2)
+    nz2 = kit.bruit(C, C, 6, 86, 2)
+    v = 0.55 - 0.18 * (yy / C) + (nz - 0.5) * 0.30
+    idx = np.clip((v * (n - 2)).astype(int) + 1, 1, n - 2)
+    idx = np.where(nz2 > 0.74, np.minimum(idx + 2, n - 1), idx)  # encre moins chargée par plaques
+    p = np.zeros((C, C, 4), np.uint8)
+    p[mk] = np.array(V, np.uint8)[idx[mk]]
+    b = pa._bord(mk)
+    p[b] = V[0]
+    p[b & ((xx + yy) < C - 1)] = V[n - 2]
+    champ = mk & ~b
+    f = np.zeros((C, C), bool)                                   # filet réservé, rompu par endroits
+    a0, a1 = 4, S - 3
+    f[a0, a0:a1 + 1] = f[a1, a0:a1 + 1] = True
+    f[a0:a1 + 1, a0] = f[a0:a1 + 1, a1] = True
+    f &= champ & ~(nz2 > 0.80) & (rs.rand(C, C) > 0.07)
+    p[f] = pa.CREME_KJ
+    o = np.zeros_like(f)
+    o[1:, 1:] = f[:-1, :-1]
+    p[o & champ & ~f] = V[0]
+    usure = rs.rand(C, C) < 0.07
+    kj = p.copy()                                                # variante 認
+    g = kit._glyphe_kanji("認", 16, "unifont")
+    gh, gw = g.shape
+    ink = np.zeros((C, C), bool)
+    gx, gy = (C - gw) // 2, (C - gh) // 2
+    ink[gy:gy + gh, gx:gx + gw] = g
+    ink &= champ
+    om = np.zeros_like(ink)
+    om[1:, 1:] = ink[:-1, :-1]
+    kj[om & champ & ~ink] = V[0]
+    kj[ink & ~usure] = pa.CREME_KJ
+    out = np.zeros((C, 3 * C, 4), np.uint8)
+    out[:, 0:C] = p
+    out[:, C:2 * C] = kj
+    u = np.zeros((C, C, 4), np.uint8)
+    u[usure] = (255, 255, 255, 255)
+    out[:, 2 * C:3 * C] = u
+    return out
+
+
 def chip():
     img = nouveau(32, 16)
     pa.plaquette(img, 0, 0, 14, 14, "noir", seed=7)
@@ -660,28 +720,28 @@ def regle_fond(px, x, y, w, vmin, vmax, pas_grand=10, fin=False):
             rect(px, X, y + 1, 1, hh, hexc(R_OR[5] if grand else (R_OR[3] if moyen else "6A4A2A")))
 
 
-# planches : nom -> (w, h, titre, kanji, gland, seed)
+# planches : nom -> (w, h, titre, gland, seed) ; titre seul dans le bandeau (plus de kanji depuis le 18/10)
 PLANCHES = {
-    "village": (240, 300, "VILLAGE", "里", "bd", 3),
-    "clan": (240, 330, "CLAN", "血", "bd", 6),
-    "sexe": (240, 232, "SEXE", "性", "bd", 8),
-    "age": (240, 184, "AGE", "齢", "bd", 9),
-    "taille": (240, 172, "TAILLE", "丈", "bd", 10),
-    "apparence": (286, 352, "APPARENCE", "貌", "bd", 12),
-    "tenue": (276, 352, "TENUE", "衣", "bg", 13),
-    "dossier": (240, 254, "DOSSIER", "影", "bd", 14),
-    "registre": (240, 214, "TON REGISTRE", "籍", "bg", 4),
-    "registre_recap": (240, 262, "TON REGISTRE", "籍", "bg", 4),
+    "village": (240, 300, "VILLAGE", "bd", 3),
+    "clan": (240, 330, "CLAN", "bd", 6),
+    "sexe": (240, 232, "SEXE", "bd", 8),
+    "age": (240, 184, "AGE", "bd", 9),
+    "taille": (240, 172, "TAILLE", "bd", 10),
+    "apparence": (286, 352, "APPARENCE", "bd", 12),
+    "tenue": (276, 352, "TENUE", "bg", 13),
+    "dossier": (240, 254, "DOSSIER", "bd", 14),
+    "registre": (240, 214, "TON REGISTRE", "bg", 4),
+    "registre_recap": (240, 262, "TON REGISTRE", "bg", 4),
 }
 
 
 def planche_tex(nom):
-    w, h, titre, kj, gland, seed = PLANCHES[nom]
+    w, h, titre, gland, seed = PLANCHES[nom]
     x, y = 24, YP_C + 12
     img = nouveau(960, 540)
     m = Calque(img)
     pa.Y_PERCHE = YP_C
-    pa.planche(m, x, y, w, h, titre, gland=gland, seed=seed, kanji_titre=kj, ancrages=(x + 34, x + w - 36))
+    pa.planche(m, x, y, w, h, titre, gland=gland, seed=seed, kanji_titre=None, ancrages=(x + 34, x + w - 36))
     X, WL = x + 14, w - 28
     if nom in ("age", "taille"):
         yy = y + 50
@@ -704,8 +764,6 @@ def planche_tex(nom):
         for k in range(6):
             rect(img, X, int(yy + 12), WL, 1, pa.SEP)
             yy += 24
-        if nom == "registre_recap":
-            pa.hanko_px(img, x + w - 52, y + 222, "認", 30, pa.R_VERM, seed=77, usure=0.18)
     return img.crop((x - 4, y - 16, x + w + 4, y + h + 28))
 
 
@@ -714,7 +772,7 @@ def plaque_nom():
     m = Calque(img)
     x, y, w, h = 300, 388, 360, 64
     pa.panneau(img, x, y, w, h, seed=13)
-    pa.bandeau_titre(m, x, y, w, "NOM ET PRENOM", "名")
+    pa.bandeau_titre(m, x, y, w, "NOM ET PRENOM")
     rect(img, x + 20, y + 51, w - 40, 1, hexc(R_OR[3]))
     return img.crop((x - 2, y - 2, x + w + 4, y + h + 5))
 
@@ -749,20 +807,21 @@ def tuiles(nom):
     return out
 
 
-# boutons : (clé, libellé, kanji, ton, largeur)
+# boutons : (clé, libellé, kanji, ton, largeur) — kanji None partout depuis le 18/10 (plaque nue, libellé centré par
+# le mod) ; les largeurs gardent la place de l'ancien kanji (+20) pour ne rien décaler dans les écrans.
 def _lb(t):
     return pa.largeur_bouton(t)
 
 
 BOUTONS = [
-    ("retour", "RETOUR", "戻", "noir", _lb("RETOUR")),
-    ("suivant", "SUIVANT", "進", "rouge", _lb("SUIVANT") + 10),
-    ("entrer", "ENTRER EN JEU", "入", "rouge", _lb("ENTRER EN JEU") + 16),
-    ("creer", "CREER", "新", "rouge", _lb("ENTRER EN JEU") + 16),
-    ("oui", "OUI, C'EST MOI", "是", "rouge", _lb("OUI, C'EST MOI") + 10),
-    ("hasard", "AU HASARD", "運", "noir", _lb("AU HASARD")),
-    ("large", "LARGE", "剛", "rouge", 70),
-    ("fine", "FINE", "柔", "rouge", 70),
+    ("retour", "RETOUR", None, "noir", _lb("RETOUR")),
+    ("suivant", "SUIVANT", None, "rouge", _lb("SUIVANT") + 10),
+    ("entrer", "ENTRER EN JEU", None, "rouge", _lb("ENTRER EN JEU") + 16),
+    ("creer", "CREER", None, "rouge", _lb("ENTRER EN JEU") + 16),
+    ("oui", "OUI, C'EST MOI", None, "rouge", _lb("OUI, C'EST MOI") + 10),
+    ("hasard", "AU HASARD", None, "noir", _lb("AU HASARD")),
+    ("large", "LARGE", None, "rouge", 70),
+    ("fine", "FINE", None, "rouge", 70),
 ]
 
 
@@ -950,6 +1009,8 @@ def main():
         sauver("cartouche.png", cartouche())
         print("boutons : cellule", wmax, "largeurs", {k: w for (k, _, _, _, w) in BOUTONS})
         print("toise : sommet texel", top)
+    if veut("ui") or veut("sceau"):
+        sauver("sceau_registre.png", sceau_registre())
     print("clans :", clans)
     total = 0
     for (nom, taille, octets) in ECRITS:

@@ -18,30 +18,37 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import java.nio.ByteBuffer;
 
 /**
- * <b>Halo de méditation</b>, côté client (18/10) — reprise native de l'effet Photon « meditation1 » (référence vidéo du
- * 17/10) : sous chaque joueur qui médite, un <b>disque de lumière</b> qui épouse le sol et respire lentement, et de
- * petites lueurs qui montent. Vu de tous les joueurs proches.
+ * <b>Halo de méditation</b>, côté client (v2 du 18/10, refait sur la vidéo de référence du 17/10) : sous chaque joueur
+ * qui médite, un <b>disque sombre</b> net entouré d'une <b>couronne de lumière</b> qui éclaire le sol et s'estompe vers
+ * l'extérieur (respiration lente), de petites <b>étincelles</b> qui scintillent autour du corps et la <b>pose en
+ * tailleur</b> ({@link MeditationAnimation}). Vu de tous les
+ * joueurs proches, à la <b>couleur d'aura choisie par le joueur</b> (formes et teintes : {@link Aura}).
  *
- * <p>Qui médite : canal {@code reborn:meditation} (ShinobiCore {@code MeditationManager}) — liste des méditants à
- * moins de 48 blocs, identifiant réseau + couleur (vert de la référence, ou la nature de chakra si le serveur
- * l'active). Ici : jusqu'à {@value #CAPACITE} méditants suivis, fondu d'apparition / de disparition, et à chaque tick
- * le relevé du sol sous chacun (une colonne par bloc couvert : hauteur du dessus de la forme de collision, emprise
- * horizontale ; rien sous l'eau ni à travers un mur). Le rendu est dans {@link MeditationRendu}.
+ * <p>Canal {@code reborn:meditation} (ShinobiCore {@code MeditationManager}) — serveur → client : type 0, la liste des
+ * méditants à moins de 48 blocs (identifiant réseau + couleur d'aura) ; type 1, la couleur d'aura du personnage actif.
+ * Client → serveur : 1 demander sa couleur, 2 l'enregistrer (+ RGB), 3 la remettre par défaut. Ici : jusqu'à
+ * {@value #CAPACITE} méditants suivis, fondu d'apparition / de disparition, et à chaque tick le relevé du sol sous
+ * chacun (une colonne par bloc couvert : hauteur du dessus de la forme de collision, emprise horizontale, lumière du
+ * lieu ; rien sous l'eau ni à travers un mur). Le rendu est dans {@link MeditationRendu}.
  *
  * <p>Rien n'est calculé ni dessiné quand personne ne médite. Tableaux préalloués, aucune allocation par tick.
  */
 public final class MeditationClient {
 
     static final int CAPACITE = 16;
-    /** Colonnes de sol par méditant (rayon 1,25 : au plus 4 × 4 blocs). */
+    /** Colonnes de sol par méditant (rayon 1,1 : au plus 3 × 3 blocs, 4 × 4 au pire). */
     static final int COLONNES = 16;
-    /** Rayon du disque (blocs) : 20 texels de 1/16. */
-    static final float RAYON = 1.25f;
+    /** Rayon de l'effet au sol (blocs) : disque sombre puis couronne jusqu'à {@link Aura#R_HALO}. */
+    static final float RAYON = Aura.R_HALO;
     /** Au-delà, ni relevé ni rendu (blocs) ; fondu sur les derniers blocs. */
     static final double PORTEE = 40, PORTEE_FONDU = 30;
     static final double FONDU_ENTREE = 1.2, FONDU_SORTIE = 1.4;
-    /** Vert doux de la référence (lumière de chakra) si le serveur n'envoie pas de couleur. */
-    static final int VERT = 0x86F59E;
+    /** Menthe de la référence si le serveur n'envoie pas de couleur. */
+    static final int VERT = Aura.DEFAUT;
+
+    /** Couleur d'aura du personnage actif (réponse du serveur, type 1) et vrai si le joueur l'a choisie. */
+    private static int maCouleur = Aura.DEFAUT;
+    private static boolean maCouleurChoisie, maCouleurConnue;
 
     static final boolean[] ACTIF = new boolean[CAPACITE];
     static final int[] ID = new int[CAPACITE], RGB = new int[CAPACITE];
@@ -51,6 +58,8 @@ public final class MeditationClient {
     static final double[] CX = new double[CAPACITE], CY = new double[CAPACITE], CZ = new double[CAPACITE];
     /** Luminosité du lieu 0..1 (ciel ou blocs) : la nuit, le halo se voit davantage. */
     static final float[] LUM = new float[CAPACITE];
+    /** Lumière du lieu, coordonnées de lightmap (le disque sombre est éclairé comme le sol). */
+    static final int[] LUMIERE = new int[CAPACITE];
     static final int[] NQ = new int[CAPACITE];
     static final float[] QX0 = new float[CAPACITE * COLONNES], QX1 = new float[CAPACITE * COLONNES],
             QZ0 = new float[CAPACITE * COLONNES], QZ1 = new float[CAPACITE * COLONNES], QY = new float[CAPACITE * COLONNES];
@@ -67,11 +76,14 @@ public final class MeditationClient {
 
     public static void init() {
         PayloadTypeRegistry.clientboundPlay().register(MeditationPayload.ID, MeditationPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(MeditationPayload.ID, MeditationPayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(MeditationPayload.ID,
                 (payload, context) -> context.client().execute(() -> recevoir(payload.data())));
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> vider());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> { vider(); maCouleurConnue = false; });
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(MeditationRendu::prechauffer));
         ClientTickEvents.END_CLIENT_TICK.register(MeditationClient::tick);
         LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(MeditationRendu::apresTranslucide);
+        MeditationAnimation.register();
         MeditationDebug.init();
     }
 
@@ -86,12 +98,20 @@ public final class MeditationClient {
         for (int i = 0; i < CAPACITE; i++) { ACTIF[i] = false; VISIBLE[i] = false; }
         actifs = 0;
         MeditationRendu.viderParticules();
+        MeditationAnimation.vider();
     }
 
     static void recevoir(byte[] d) {
         if (d == null || d.length < 5) return;
         ByteBuffer b = ByteBuffer.wrap(d);
-        if (b.get() != 0) return;
+        byte type = b.get();
+        if (type == 1) {                                                // la couleur d'aura du personnage actif
+            maCouleur = b.getInt() & 0xFFFFFF;
+            maCouleurChoisie = b.remaining() > 0 && b.get() != 0;
+            maCouleurConnue = true;
+            return;
+        }
+        if (type != 0) return;
         int n = b.getInt();
         double now = temps();
         // tout ce qui n'est plus dans la liste s'éteint en fondu
@@ -100,6 +120,50 @@ public final class MeditationClient {
             int id = b.getInt(), rgb = b.getInt();
             definir(id, rgb == 0 ? VERT : rgb & 0xFFFFFF, true, now);
         }
+    }
+
+    /* ------------------------------------------------------------------ couleur d'aura (choix du joueur) */
+
+    /** Couleur d'aura du personnage actif telle que connue (défaut tant que le serveur n'a pas répondu). */
+    public static int maCouleur() { return maCouleur; }
+
+    /** Vrai si le serveur a répondu (type 1) depuis la connexion. */
+    public static boolean maCouleurConnue() { return maCouleurConnue; }
+
+    /** Vrai si le joueur a choisi sa couleur (sinon : celle du serveur par défaut). */
+    public static boolean maCouleurChoisie() { return maCouleurChoisie; }
+
+    /** Vrai si le serveur connaît le canal (ShinobiCore à jour) : sinon le choix ne peut pas être enregistré. */
+    public static boolean serveurPret() { return ClientPlayNetworking.canSend(MeditationPayload.ID); }
+
+    /** Demande au serveur la couleur d'aura du personnage actif (réponse : type 1). */
+    public static void demanderCouleur() {
+        if (serveurPret()) ClientPlayNetworking.send(new MeditationPayload(new byte[]{1}));
+    }
+
+    /** Enregistre la couleur d'aura du personnage (serveur : type 2), ou la remet par défaut ({@code rgb < 0}, type 3). */
+    public static void choisirCouleur(int rgb) {
+        if (!serveurPret()) return;
+        byte[] d;
+        if (rgb < 0) {
+            d = new byte[]{3};
+        } else {
+            d = ByteBuffer.allocate(5).put((byte) 2).putInt(rgb & 0xFFFFFF).array();
+            maCouleur = rgb & 0xFFFFFF;
+            maCouleurChoisie = true;
+        }
+        ClientPlayNetworking.send(new MeditationPayload(d));
+    }
+
+    /**
+     * Aperçu en direct pendant le choix : si le joueur médite, son halo prend tout de suite la couleur essayée (le
+     * serveur renverra la couleur enregistrée à la prochaine liste).
+     */
+    public static void essayer(int rgb) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        int id = mc.player.getId();
+        for (int i = 0; i < CAPACITE; i++) if (ACTIF[i] && ID[i] == id && Double.isNaN(FIN[i])) RGB[i] = rgb & 0xFFFFFF;
     }
 
     /** Ajoute (ou relance) / éteint le halo d'une entité. Utilisé par le canal et par le banc. */
@@ -163,6 +227,7 @@ public final class MeditationClient {
             if (dx * dx + dy * dy + dz * dz > PORTEE * PORTEE) { VISIBLE[i] = false; continue; }
             releverSol(level, i, e);
         }
+        MeditationAnimation.tick(level);                                 // la pose en tailleur, sur chacun
     }
 
     /**
@@ -208,6 +273,7 @@ public final class MeditationClient {
         NQ[i] = n;
         M.set((int) Math.floor(cx), (int) Math.floor(base + 0.5), (int) Math.floor(cz));
         LUM[i] = level.getMaxLocalRawBrightness(M) / 15f;
+        LUMIERE[i] = net.minecraft.util.LightCoordsUtil.getLightCoords(level, M);
         VISIBLE[i] = true;
     }
 }

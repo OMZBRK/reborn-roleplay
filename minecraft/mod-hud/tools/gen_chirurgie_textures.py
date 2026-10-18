@@ -28,7 +28,8 @@ Contrat (texels ↔ GUI) — sortie dans src/main/resources/assets/reborn/textur
 - jauge_h.png 176×9 : cadre de jauge horizontale ; intérieur (2, 2) 172×5, repères aux quarts.
 - pions.png 60×12 : cellules 12×12 : 0 erreur (vide), 1 erreur (sceau rouge), 2 perle vide, 3 perle pleine,
   4 coupe à faire (losange).
-- resultat.png 248×112 : carte laquée 240×104 en (4, 2) ; hanko 成 / 失 : resultat_sceaux.png 52×26 (2 × 26).
+- resultat.png 248×112 : carte laquée 240×104 en (4, 2) ; sceaux réussite (coche) / échec (croix) : resultat_sceaux.png
+  52×26 (2 × 26) ; aucun kanji (18/10, DA §3).
 - bouton.png 184×20 : FERMER 90×18 en (1, 1) des cellules 92×20 (repos, survol).
 - cabochon.png 42×12 (touche) ; vignette.png 64×36 (lisse, étirée) ; cecite_bord.png 64×4 (rampe lisse de la
   cécité, opaque à gauche, étirée).
@@ -47,6 +48,7 @@ sys.path.insert(0, ICI)
 import fiche_art as fa  # noqa: E402
 import gen_fiche_textures as gf  # noqa: E402
 from fiche_art import kit, hexc, rect, arcade, R_OR, R_LAQUE, R_LAQUE_ROUGE  # noqa: E402
+import pictos  # noqa: E402  (aucun kanji décoratif, 18/10)
 
 SORTIE = os.path.join(ICI, "..", "src", "main", "resources", "assets", "reborn", "textures", "gui", "yeux")
 ECRITS = []
@@ -281,14 +283,14 @@ def fiole():
     for k in range(9):
         px_set(face, NX1 + 2 + (k // 3), 23 + k, R_OR[5] if k % 2 else R_OR[4])
     fa.gland3(face, NX1 + 5, 32, 8)
-    # bandelette de papier scellé (washi) en travers du bouchon, marque vermillon 封
+    # bandelette de papier scellé (washi) en travers du bouchon, petit cachet vermillon carré (plus de kanji, 18/10)
     for y in range(6, 34):
         for x in range(29, 35):
             c = "EFE4CC" if (x + y) % 5 else "E2D4B4"
             px_set(face, x, y, c)
         px_set(face, 28, y, "B8A888", 160)
-    for (x, y) in ((30, 12), (31, 12), (32, 12), (33, 12), (31, 13), (31, 14), (30, 15), (31, 15), (32, 15),
-                   (33, 14), (33, 15), (33, 16), (30, 17), (31, 17), (32, 17), (33, 17), (32, 18), (33, 19)):
+    for (x, y) in ((30, 13), (31, 13), (32, 13), (33, 13), (30, 14), (33, 14), (30, 15), (31, 15), (32, 15),
+                   (33, 15), (30, 16), (33, 16), (30, 17), (31, 17), (32, 17), (33, 17)):
         px_set(face, x, y, "B5281E")
     # couvercle de laque au-dessus de la cire
     for x in range(NX0 - 2, NX1 + 2):
@@ -450,8 +452,8 @@ def resultat():
         for (dx, dy, c) in ((0, -1, R_OR[6]), (-1, 0, R_OR[5]), (1, 0, R_OR[4]), (0, 1, R_OR[3]), (0, 0, R_OR[7])):
             rect(im, X + dx, 36 + dy, 1, 1, hexc(c))
     sc = nouveau(52, 26)
-    gf.hanko_px(sc, 13, 13, "成", taille=22, seed=8)
-    gf.hanko_px(sc, 39, 13, "失", taille=22, seed=9,
+    gf.hanko_px(sc, 13, 13, pictos.encre_px(22, "reussi"), taille=22, seed=8)
+    gf.hanko_px(sc, 39, 13, pictos.encre_px(22, "echoue"), taille=22, seed=9,
                 ton=["1A0608", "2A0D10", "3A1016", "4A141C", "5A1A22", "6A2028", "7A2630"])
     return im, sc
 

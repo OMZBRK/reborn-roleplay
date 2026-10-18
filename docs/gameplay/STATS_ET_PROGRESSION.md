@@ -45,11 +45,25 @@ plus deux ressources. Genjutsu absent de la beta.
 - **Endurance max** = 100 + eff(Vigueur) × 8 + eff(Taïjutsu) × 4.
 - **Régénération du chakra** (par 10 s, en méditant — seule source de régénération) = chakra max × (1 % +
   0,15 % × eff(Contrôle)).
-  - *Visuel de la méditation (18/10)* : `/meditation` assoit le joueur ; sous lui, un **halo** — disque de lumière
-    vert doux qui épouse le sol, respire lentement, apparaît et s'éteint en fondu — et de petites lueurs qui
-    montent, vus de **tous les joueurs à moins de 48 blocs** (canal `reborn:meditation`, mod `meditation/`). Couleur
-    `meditation.halo.couleur` ; `meditation.halo.par-nature: true` teinte le halo selon la nature de chakra
-    principale (katon orangé, suiton bleu, fūton vert pâle, doton ocre, raiton jaune ; désactivé par défaut).
+  - *Visuel de la méditation (v2 du 18/10, refait sur la vidéo de référence)* : `/meditation` assoit le joueur ;
+    au sol, un **disque sombre** net et rond (≈ 0,5 bloc de rayon) entouré d'une **couronne de lumière** qui teinte et
+    éclaire le sol, la plus vive au bord du disque et éteinte vers 1,1 bloc, qui respire lentement ; autour du corps, de
+    petites **étincelles** qui scintillent (≈ 8 à la fois) ; le personnage prend la **pose de la vidéo** (v4 du
+    18/10, faite dans Blender sur le rig d'Emotecraft et **calée automatiquement sur 8 images de la vidéo**, contrôlée
+    en jeu aux mêmes angles) : assis très bas en tailleur, jambes repliées en une masse sombre devant et sous le buste,
+    genoux écartés, bras croisés haut sur la poitrine (mains devant le haut du buste, coudes près du corps), dos
+    rond, tête baissée ; respiration lente (4 s : buste qui se redresse un peu, épaules qui montent) et léger
+    balancement de côté (8 s), en boucle sans à-coup ;
+    apparition et extinction en fondu ; vu de **tous les
+    joueurs à moins de 48 blocs** (canal `reborn:meditation`, mod `meditation/`).
+  - *Couleur de l'aura* : **choisie par le joueur**, par personnage — Réglages Reborn › Interface › Méditation ›
+    « Choisir la couleur de l'aura » (sélecteur de la création de personnage, « Par défaut » + 5 auras toutes faites,
+    aperçu herbe / pierre / nuit ; si le
+    joueur médite, son halo change en direct derrière l'écran), ou `/meditation aura #RRGGBB` / `defaut`. Le staff :
+    `/meditation aura <joueur> <#RRGGBB|defaut>`. Défaut : le **menthe** de la vidéo (`#8CFFC2`,
+    `meditation.halo.couleur-defaut`). Une couleur donne les trois teintes : la teinte et la lumière de la couronne, le voile du
+    disque (assombri) et les étincelles (teinte tournée de 70° : le menthe redonne le bleu `#6F9FF8` de la vidéo).
+    `meditation.halo.par-nature: true` teinte selon la nature de chakra **ceux qui n'ont rien choisi** (désactivé).
 - **Coût d'une technique** : fixé par son **rang**, réduit de 3 % par point effectif de Contrôle.
 
 | Rang | E | D | C | B | A | S (et Hiden) |

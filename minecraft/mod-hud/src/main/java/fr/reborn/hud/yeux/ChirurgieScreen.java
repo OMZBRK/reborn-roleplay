@@ -16,7 +16,7 @@ import java.util.Random;
 
 /**
  * Chirurgie des yeux, en deux gestes jouables, habillée au niveau de la fiche shinobi (DA §4.1) : en-tête suspendu,
- * étapes en plaques à kanji, planche PATIENT et planche FIOLE / TROUSSE pendues aux perches, l'œil en gros plan sur
+ * étapes en plaques numérotées (1, 2, 3 ; plus de kanji depuis le 18/10), planche PATIENT et planche FIOLE / TROUSSE pendues aux perches, l'œil en gros plan sur
  * son plateau laqué ; le jeu reste visible sous un voile. Décor en textures ({@link ChirurgieArt},
  * {@code tools/gen_chirurgie_textures.py}) ; le code ne dessine que ce qui bouge (lame, marques, sceau, anneaux,
  * jauges, texte).
@@ -385,7 +385,7 @@ public final class ChirurgieScreen extends Screen {
 
     /* ---------------------------------------------------------- en-tête et étapes */
 
-    private static final String[] KJ_PRELEVEMENT = {"切", "抜", "封"}, KJ_GREFFE = {"切", "繋", "縫"};
+    private static final Component[] NUM = {ChirurgieArt.arcade("1"), ChirurgieArt.arcade("2"), ChirurgieArt.arcade("3")};
     private static final String[] LIB_PRELEVEMENT = {"INCISER", "DETACHER", "SCELLER"},
             LIB_GREFFE = {"INCISION", "CHAKRA", "SUTURES"};
 
@@ -396,7 +396,6 @@ public final class ChirurgieScreen extends Screen {
         g.pose().translate(0, dy);
         ChirurgieArt.blit(g, mode == Mode.GREFFE ? ChirurgieArt.ENTETE_GREFFE : ChirurgieArt.ENTETE_PRELEVEMENT,
                 L.cx - 160, 0, 320, 48);
-        String[] kj = mode == Mode.GREFFE ? KJ_GREFFE : KJ_PRELEVEMENT;
         String[] lib = mode == Mode.GREFFE ? LIB_GREFFE : LIB_PRELEVEMENT;
         int failedAt = failed ? Math.min(lastPhase, 2) : -1;
         for (int i = 0; i < 3; i++) {
@@ -410,7 +409,8 @@ public final class ChirurgieScreen extends Screen {
                 case 3 -> 0xFFB04040;
                 default -> ChirurgieArt.R_OR[4];
             };
-            ChirurgieArt.kanji16(g, f, kj[i], tx, ty + 3, col, cell == 1 || cell == 2 ? 0xFF1A0608 : 0);
+            // numéro d'étape (ArcadePix) au centre de la plaque, comme les étapes de la création de personnage
+            ChirurgieArt.arcadeX1(g, f, NUM[i], tx, ty + 8, col, 1, cell == 1 || cell == 2);
             ChirurgieArt.arcFin(g, f, ChirurgieArt.arcade(lib[i]), tx, ty + 22 + 4,
                     cell == 1 ? ChirurgieArt.CREME : cell == 2 ? ChirurgieArt.CREME_VAL : ChirurgieArt.REPOS, 1, cell == 1);
         }
@@ -424,7 +424,6 @@ public final class ChirurgieScreen extends Screen {
     private void patient(GuiGraphicsExtractor g, Font f, Layout L) {
         int x = L.panG, y = PAN_Y;
         ChirurgieArt.planche(g, ChirurgieArt.P_PATIENT, x, ChirurgieArt.H_PATIENT);
-        ChirurgieArt.kanji16(g, f, "患", x + ChirurgieArt.PW - 20, y + 8, ChirurgieArt.R_OR[6], ChirurgieArt.OMBRE_KJ);
         if (nomPatient == null) {
             nomPatient = ChirurgieArt.arcade(patient.isBlank() ? "Inconnu" : patient);
             String side = left ? "Œil gauche" : "Œil droit";
@@ -481,7 +480,6 @@ public final class ChirurgieScreen extends Screen {
     private void panneauFiole(GuiGraphicsExtractor g, Font f, Layout L, long n) {
         int x = L.panD, y = PAN_Y;
         ChirurgieArt.planche(g, ChirurgieArt.P_FIOLE, x, ChirurgieArt.H_DROITE);
-        ChirurgieArt.kanji16(g, f, "封", x + ChirurgieArt.PW - 20, y + 8, ChirurgieArt.R_OR[6], ChirurgieArt.OMBRE_KJ);
         int fx = x + ChirurgieArt.PW / 2, fy = y + ChirurgieArt.H_DROITE - 8 - ChirurgieArt.FIOLE_H;
         ChirurgieArt.blit(g, ChirurgieArt.FIOLE_FOND, fx - 32, fy, ChirurgieArt.FIOLE_W, ChirurgieArt.FIOLE_H);
         double k = Px.gs();
@@ -518,7 +516,6 @@ public final class ChirurgieScreen extends Screen {
     private void panneauTrousse(GuiGraphicsExtractor g, Font f, Layout L) {
         int x = L.panD, y = PAN_Y;
         ChirurgieArt.planche(g, ChirurgieArt.P_TROUSSE, x, ChirurgieArt.H_DROITE);
-        ChirurgieArt.kanji16(g, f, "具", x + ChirurgieArt.PW - 20, y + 8, ChirurgieArt.R_OR[6], ChirurgieArt.OMBRE_KJ);
         int tx = x + ChirurgieArt.PW / 2 - ChirurgieArt.TROUSSE_W / 2;
         int ty = y + 30 + (ChirurgieArt.H_DROITE - 38 - ChirurgieArt.TROUSSE_H) / 2;
         ChirurgieArt.blit(g, ChirurgieArt.TROUSSE, tx, ty, ChirurgieArt.TROUSSE_W, ChirurgieArt.TROUSSE_H);

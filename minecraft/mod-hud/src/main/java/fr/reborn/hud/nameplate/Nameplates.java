@@ -112,17 +112,17 @@ public final class Nameplates {
         float sy = (1f - (ndcY * 0.5f + 0.5f)) * gh;
         float alpha = (float) Math.max(0.45, 1.0 - dist / (MAX_DIST + 2.0));
 
-        // État KO (14/10) intégré au nom : nom teinté et petit glyphe accolé à droite (douleur, à terre,
-        // inconscient, mort) — plus de ligne séparée au-dessus.
+        // État KO (14/10) intégré au nom : nom teinté et petit mot accolé à droite (douleur, à terre,
+        // inconscient, mort) — plus de ligne séparée au-dessus ; plus de kanji depuis le 18/10 (DA §3).
         fr.reborn.hud.ko.CorpsClient.Body etat = fr.reborn.hud.ko.CorpsClient.body(e.getUUID());
         String glyphe = null;
         int glypheCol = 0xFFE26474;
         if (etat != null) {
             switch (etat.phase()) {
-                case fr.reborn.hud.ko.CorpsClient.PHASE_DOULEUR -> { glyphe = "痛"; teinte = 0xFFEBC2BC; }
-                case 1 -> { glyphe = "倒"; teinte = 0xFFEBC2BC; }
-                case 2 -> { glyphe = "気絶"; teinte = 0xFFB4ACA2; glypheCol = 0xFFB4ACA2; }
-                case 3 -> { glyphe = "屍"; teinte = 0xFF8E867C; glypheCol = 0xFF8E867C; }
+                case fr.reborn.hud.ko.CorpsClient.PHASE_DOULEUR -> { glyphe = "douleur"; teinte = 0xFFEBC2BC; }
+                case 1 -> { glyphe = "à terre"; teinte = 0xFFEBC2BC; }
+                case 2 -> { glyphe = "inconscient"; teinte = 0xFFB4ACA2; glypheCol = 0xFFB4ACA2; }
+                case 3 -> { glyphe = "mort"; teinte = 0xFF8E867C; glypheCol = 0xFF8E867C; }
                 default -> { }
             }
         }
@@ -137,16 +137,16 @@ public final class Nameplates {
             teinte = 0;
         }
         if (glyphe != null) {
-            // petit glyphe accolé à droite du nom (police du jeu : l'ArcadePix n'a pas de kanji), même hauteur
+            // petit mot accolé à droite du nom (Inter de Reborn, minuscules), même hauteur
             int style = Math.floorMod(RebornPrefs.INSTANCE.nameplateStyle, 4);
             String s = name != null ? name : (style == 2 ? "Inconnu" : "???");
             float w = Da.width(font, s, Da.title());
             float gx = sx + w / 2f + (style == 0 ? 10 : style == 2 ? 13 : 6);
-            float gy = sy - (style == 0 ? 8 * Da.title() + 2 : style == 2 ? 13 : 14) - 1;
+            float gy = sy - (style == 0 ? 8 * Da.title() + 2 : style == 2 ? 13 : 14) + 1;   // mot Inter : 2 GUI plus bas que l'ancien glyphe
             ctx.pose().pushMatrix();
             ctx.pose().translate(gx, gy);
             ctx.pose().scale(0.75f, 0.75f);
-            ctx.text(font, net.minecraft.network.chat.Component.literal(glyphe), 0, 0, fade(glypheCol, alpha), true);
+            ctx.text(font, fr.reborn.hud.ui.DaKit.inter(glyphe), 0, 0, fade(glypheCol, alpha), true);
             ctx.pose().popMatrix();
         }
     }

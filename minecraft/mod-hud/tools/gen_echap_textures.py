@@ -689,8 +689,8 @@ CHARMES = ("DC5AC8", "468CDC", "46AA64", "965AF0", "E6B43C")
 
 
 def omamori():
-    """Amulettes de brocart (24×40) : cordon et boucle, sachet aux épaules arrondies, motif tissé, étiquette 守
-    et nœud d'or."""
+    """Amulettes de brocart (24×40) : cordon et boucle, sachet aux épaules arrondies, motif tissé, étiquette de
+    washi à petit losange vermillon (plus de kanji depuis le 18/10, DA §3) et nœud d'or."""
     im = nouveau(120, 40)
     for i, col in enumerate(CHARMES):
         ox = i * 24
@@ -716,14 +716,16 @@ def omamori():
         rect(im, ox + 9, 9, 7, 2, hexc(R_OR[5]))
         rect(im, ox + 9, 9, 7, 1, hexc(R_OR[7]))
         rect(im, ox + 9, 11, 7, 1, hexc(R_OR[2]))
-        # étiquette de washi 守
+        # étiquette de washi, petit losange vermillon au centre
         lx, ly = ox + 7, 14
         lab = np.zeros((18, 10, 4), np.uint8)
         lab[:, :] = hexc("ECE2C8")
         lab[0, :] = hexc("F8F0DE"); lab[:, 0] = hexc("F8F0DE")
         lab[-1, :] = hexc("B6A07A"); lab[:, -1] = hexc("B6A07A")
         coller(im, lab, lx, ly)
-        kit.kanji(im, lx + 5, ly + 4, "守", 10, police="gothic", couleur=hexc("8E1628"), ancre="c")
+        for dy in range(-2, 3):
+            hw = 2 - abs(dy)
+            rect(im, lx + 5 - hw, ly + 9 + dy, 2 * hw + 1, 1, hexc("8E1628" if dy < 1 else "6E0E1E"))
     S.sauver("omamori.png", im, (120, 40))
 
 

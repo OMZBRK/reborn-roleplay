@@ -256,6 +256,8 @@ inventaire:
     vanilla: true                 # épées, haches, trident, masse
   cases-cachees:
     balayage: true                # range chaque seconde ce qui tombe dans les cases 9-35 de Minecraft
+  teinture:                       # (18/10) sacoche › clic droit sur le cosmétique porté › Teinture… (libre, sans coût)
+    ids: [bandeau_ninja]          # ids Nexo teintables (+ tout id bandeau_*) ; leur modèle doit teinter le tissu (dye)
 
 # Rareté des objets (COMMUN, PEU_COMMUN, RARE, EPIQUE, LEGENDAIRE) par id Nexo / id de modèle. Ordre de
 # résolution : clé reborn:rarete posée sur l'objet → cette table → rang du parchemin (D → S) → rareté vanilla → Commun.
@@ -317,13 +319,15 @@ meditation:
   # Spawns an invisible marker armor stand so the player visually "sits"
   # on top of the block (not inside it).
   use-armor-stand-seat: true
-  # Halo de méditation (18/10, mod reborn-hud) : disque de lumière au sol + lueurs qui montent,
-  # vu des joueurs proches (canal reborn:meditation).
+  # Halo de méditation (18/10 v2, mod reborn-hud) : disque sombre au sol, couronne de lumière, étincelles,
+  # vu des joueurs proches (canal reborn:meditation). Couleur = celle choisie par le joueur (Réglages ›
+  # Interface › Méditation, ou /meditation aura #RRGGBB ; staff : /meditation aura <joueur> <couleur|defaut>),
+  # sinon celle-ci.
   halo:
     enabled: true
     portee: 48.0                  # blocs : au-delà, le halo n'est pas envoyé
-    couleur: "#86F59E"            # vert doux de la référence
-    par-nature: false             # true = teinte de la nature de chakra principale (ci-dessous)
+    couleur-defaut: "#8CFFC2"     # menthe de la vidéo de référence
+    par-nature: false             # true = teinte de la nature de chakra principale (ci-dessous) si rien n'est choisi
     natures:
       katon: "#FFA36C"
       suiton: "#7DB8FF"

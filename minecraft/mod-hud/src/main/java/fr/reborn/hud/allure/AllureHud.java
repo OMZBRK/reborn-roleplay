@@ -2,14 +2,12 @@ package fr.reborn.hud.allure;
 
 import fr.reborn.hud.ui.DaKit;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.network.chat.Component;
 
 /**
  * Barre d'endurance du <b>sprint</b> (RedLine : « sous le personnage, au-dessus de la barre d'action, n'apparaît qu'en
- * sprint ») dans la règle 9 de la DA (HUD en jeu subtil) : un filet de 2 pixels écran sur un voile nuit, un minuscule
- * kanji, rien d'autre. Visible pendant le sprint puis pendant la récupération, fondu d'entrée et de sortie ; vermillon
+ * sprint ») dans la règle 9 de la DA (HUD en jeu subtil) : un filet de 2 pixels écran sur un voile nuit, rien d'autre
+ * (plus de kanji depuis le 18/10, DA règle 10). Visible pendant le sprint puis pendant la récupération, fondu d'entrée et de sortie ; vermillon
  * quand le personnage est essoufflé (plus de sprint avant 30 %). Le trot et la marche n'affichent rien.
  */
 public final class AllureHud {
@@ -19,9 +17,6 @@ public final class AllureHud {
     /** Hauteur au-dessus du bas de l'écran (la barre d'action fait 22). */
     private static final int AU_DESSUS = 30;
     private static final int VERM = 0xFFE0563C;
-
-    private static final Component KJ_SPRINT = Component.literal("疾");
-    private static final Component KJ_SOUFFLE = Component.literal("息");
 
     private static float alpha;
     private static float affiche = 1f;
@@ -46,7 +41,6 @@ public final class AllureHud {
         affiche += (a.endurance() - affiche) * Math.min(1f, dt * 10f);
         if (alpha <= 0.01f) return;
 
-        Font f = mc.font;
         int gw = mc.getWindow().getGuiScaledWidth();
         int gh = mc.getWindow().getGuiScaledHeight();
         float x0 = (gw - LARGEUR) / 2f;
@@ -58,12 +52,6 @@ public final class AllureHud {
             float pulse = 0.65f + 0.35f * (float) Math.sin(now / 160.0);
             col = DaKit.alpha(col, pulse);
         }
-
-        // kanji minuscule à gauche : 疾 (sprint) ou 息 (souffle, récupération)
-        Component kj = sprint ? KJ_SPRINT : KJ_SOUFFLE;
-        float s = 0.75f;
-        float kw = f.width(kj) * s;
-        DaKit.texteEchelle(g, f, kj, x0 - kw - 3, y - 2.5f, DaKit.alpha(sprint ? DaKit.CREME : DaKit.DOUX, alpha), s);
 
         // filet de 2 px écran : voile nuit + remplissage
         int k = DaKit.echelleGui();

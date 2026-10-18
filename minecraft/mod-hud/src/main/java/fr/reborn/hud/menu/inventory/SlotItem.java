@@ -33,6 +33,10 @@ public final class SlotItem {
     public boolean unique;
     /** Bourse (15/10) : montant en ryo, −1 si ce n'est pas une bourse. */
     public long ryo = -1;
+    /** Teinture (18/10) : couleur RGB du composant {@code dyed_color} ({@code "dye"} du serveur), −1 = aucune. */
+    public int dye = -1;
+    /** Le tissu de l'objet se teint (bandeaux) — décidé par le serveur ({@code "teinte"}) : propose « Teinture… ». */
+    public boolean teintable;
 
     private ItemStack cached;
 
@@ -82,8 +86,21 @@ public final class SlotItem {
             fr.reborn.hud.monnaie.BourseClient.marquer(s, ryo);
             s.set(DataComponents.MAX_STACK_SIZE, 1);
         }
+        // Teinture : la source de teinte minecraft:dye du modèle lit ce composant (sinon sa couleur par défaut).
+        if (dye >= 0) s.set(DataComponents.DYED_COLOR, new net.minecraft.world.item.component.DyedItemColor(dye & 0xFFFFFF));
         cached = s;
         return s;
+    }
+
+    /** Copie avec une autre teinte ({@code -1} = couleur d'origine du modèle) — MAJ optimiste après « Teinture… ». */
+    public SlotItem avecTeinte(int rgb) {
+        SlotItem c = new SlotItem(mat, model, count, name, weight, desc, rarity, actionId, actionLabel);
+        c.arme = arme;
+        c.unique = unique;
+        c.ryo = ryo;
+        c.teintable = teintable;
+        c.dye = rgb < 0 ? -1 : rgb & 0xFFFFFF;
+        return c;
     }
 
     /** Nom du tier de sac si cet item est un objet-sac équipable, sinon null. */

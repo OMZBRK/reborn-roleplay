@@ -22,14 +22,13 @@ final class OngletIdentite implements Onglet {
 
     private record Nat(int idx, Component nom, int x) {}
 
-    private record Entree(int col, String kj, String rang, Component txt, Component date, int cy) {}
-
-    private static final String SERVICE_KJ = "登昇降任功記伝";
+    /** Entrée du fil de service : sceau de rang (D…S) pour une mission notée, sinon une perle sur le fil (18/10 : plus
+     *  de hanko kanji ; le {@code kj} envoyé par le serveur est ignoré). */
+    private record Entree(String rang, Component txt, Component date, int cy) {}
 
     private final List<Ligne> registre = new ArrayList<>();
-    private int clanCol, villageIdx, clanY = -1, villageY = -1, gradeY = -1;
+    private int villageIdx, clanY = -1, villageY = -1, gradeY = -1;
     private Component clanNom, villageNom, gradeNom;
-    private String gradeKj = "";
     private int naturesY = -1;
     private final List<Nat> natures = new ArrayList<>();
     private Component naturesVide;
@@ -86,7 +85,6 @@ final class OngletIdentite implements Onglet {
         int X = L.panG + 14, CV = 76, WL = FicheArt.PW - 28, P = 20;
         int yy = L.panY + 46;
         clanY = yy;
-        clanCol = FicheTextes.colClan(sn.clan());
         clanNom = FicheArt.inter(sn.clan().isBlank() ? "Sans clan" : sn.clan());
         registre.add(new Ligne(FicheArt.etiq(f, "CLAN"), yy, null, yy + P / 2));
         yy += P;
@@ -97,7 +95,6 @@ final class OngletIdentite implements Onglet {
         yy += P;
         gradeY = yy;
         gradeNom = FicheArt.inter(sn.rank());
-        gradeKj = FicheTextes.kanjiGrade(d.rankId(), sn.rank());
         registre.add(new Ligne(FicheArt.etiq(f, "GRADE"), yy, null, yy + P / 2));
         yy += P;
         FicheData.Identite id = d.identite();
@@ -162,7 +159,7 @@ final class OngletIdentite implements Onglet {
         int palier = li != null && li.meritePalier() != null ? li.meritePalier()
             : d.merit() != null ? d.merit() / 3 : 0;
         String mt = li != null && li.meriteTxt() != null ? li.meriteTxt() : FicheTextes.merite(palier);
-        meriteTxt = FicheArt.paragraphe(f, mt, WL - CVL - 26, 1f, 12, 2, false);
+        meriteTxt = FicheArt.paragraphe(f, mt, WL - CVL, 1f, 12, 2, false);
         yy += 30;
         serviceY = yy;
         service.clear();
@@ -177,15 +174,9 @@ final class OngletIdentite implements Onglet {
             List<FicheData.Service> vis = sv.subList(Math.max(0, sv.size() - place), sv.size());
             for (int k = 0; k < vis.size(); k++) {
                 FicheData.Service e = vis.get(k);
-                String kj = e.kj() != null && !e.kj().isBlank() ? e.kj() : null;
-                // Mission avec rang : le sceau de rang (D…S) remplace le hanko générique.
-                String rang = kj == null && "MISSION".equals(e.type()) && !FicheArt.rangDeBase(e.rang()) ? e.rang() : null;
-                int col = FicheTextes.colService(e.type());
-                if (kj != null) {
-                    int ix = SERVICE_KJ.indexOf(kj);
-                    if (ix >= 0 && kj.length() == 1) { col = ix; kj = null; } else col = FicheArt.H_SERVICE_VIERGE;
-                }
-                service.add(new Entree(col, kj, rang, FicheArt.inter(FicheArt.ellipse(f, e.txt(), WL - 26)),
+                // Mission avec rang : le sceau de rang (D…S) remplace la perle du fil.
+                String rang = "MISSION".equals(e.type()) && !FicheArt.rangDeBase(e.rang()) ? e.rang() : null;
+                service.add(new Entree(rang, FicheArt.inter(FicheArt.ellipse(f, e.txt(), WL - 26)),
                     FicheArt.inter(e.date() == null ? "" : e.date()), yj + k * pas));
             }
             filTop = yj;
@@ -234,7 +225,6 @@ final class OngletIdentite implements Onglet {
         ctx.pose().pushMatrix();
         ctx.pose().translate(0, s.dyPanneau(0));
         FicheArt.panneau(ctx, FicheArt.P_REGISTRE, x0, L.panY, hReg);
-        FicheArt.kanjiTitre(ctx, f, "籍", x0, L.panY);
         ctx.enableScissor(x0, L.panY + 30, x0 + FicheArt.PW, L.panY + hReg - 4);
         int X = x0 + 14, CV = 76;
         for (Ligne l : registre) {
@@ -242,12 +232,10 @@ final class OngletIdentite implements Onglet {
             if (l.valeur() != null) FicheArt.inter9(ctx, f, l.valeur(), X + CV, l.yy(), FicheArt.CREME, 0);
             if (l.sepY() >= 0) ctx.fill(X, l.sepY(), X + WL, l.sepY() + 1, FicheArt.SEP);
         }
-        FicheArt.hanko(ctx, clanCol, FicheArt.H_CLANS, X + CV + 9, clanY);
-        FicheArt.inter9(ctx, f, clanNom, X + CV + 22, clanY, FicheArt.CREME, 0);
+        FicheArt.inter9(ctx, f, clanNom, X + CV, clanY, FicheArt.CREME, 0);
         if (villageIdx >= 0) FicheArt.embleme(ctx, villageIdx, X + CV + 1, villageY - 7, 16, FicheArt.CREME);
         FicheArt.inter9(ctx, f, villageNom, X + CV + (villageIdx >= 0 ? 22 : 0), villageY, FicheArt.CREME, 0);
-        int wg = FicheArt.inter9(ctx, f, gradeNom, X + CV, gradeY, FicheArt.CREME, 0);
-        if (!gradeKj.isEmpty()) FicheArt.kanji16g(ctx, f, gradeKj, X + CV + wg + 6, gradeY - 8, FicheArt.R_OR[3], 0);
+        FicheArt.inter9(ctx, f, gradeNom, X + CV, gradeY, FicheArt.CREME, 0);
         for (Nat n : natures) {
             // icône peinte de la nature (décision du 14/10), plus de sceau kanji
             fr.reborn.hud.ui.NatureIcones.dessiner(ctx, FicheTextes.NATURES.get(n.idx()).icone(), n.x() + 1, naturesY - 8, 16);
@@ -264,7 +252,6 @@ final class OngletIdentite implements Onglet {
         ctx.pose().pushMatrix();
         ctx.pose().translate(0, s.dyPanneau(1));
         FicheArt.panneau(ctx, FicheArt.P_LIGNEE, x1, L.panY, hLig);
-        FicheArt.kanjiTitre(ctx, f, "系", x1, L.panY);
         ctx.enableScissor(x1, L.panY + 30, x1 + FicheArt.PW, L.panY + hLig - 4);
         int XL = x1 + 14, CVL = 66;
         if (dojutsuY >= 0) {
@@ -274,9 +261,8 @@ final class OngletIdentite implements Onglet {
             ctx.fill(XL, dojutsuSep, XL + WL, dojutsuSep + 1, FicheArt.SEP);
         }
         FicheArt.etiq(ctx, f, eMerite, XL, meriteY, FicheArt.OR_ETIQ);
-        FicheArt.plaqueMerite(ctx, XL + CVL, meriteY - 10);
-        FicheArt.kanji16(ctx, f, "功", XL + CVL + 10, meriteY - 8, FicheArt.OR_CLAIR, 0xFF3A0A12);
-        meriteTxt.dessiner(ctx, f, XL + CVL + 26, meriteY - 7, FicheArt.CREME);
+        meriteTxt.dessiner(ctx, f, XL + CVL, meriteY - (meriteTxt.lignes().size() > 1 ? 7 : FicheArt.INTER9_MIL),
+            FicheArt.CREME);
         ctx.fill(XL, meriteY + 15, XL + WL, meriteY + 16, FicheArt.SEP);
         FicheArt.arcadeX1(ctx, f, titreService, XL, serviceY - 3, FicheArt.OR_MOYEN, false);
         if (histoire != null) {
@@ -290,8 +276,7 @@ final class OngletIdentite implements Onglet {
                 if (e.rang() != null) {
                     FicheArt.sceauRang(ctx, e.rang(), XL + 10, e.cy());
                 } else {
-                    FicheArt.hanko(ctx, e.col(), FicheArt.H_SERVICE, XL + 10, e.cy());
-                    if (e.kj() != null) FicheArt.kanji16(ctx, f, e.kj(), XL + 10, e.cy() - 8, FicheArt.CREME_KJ, 0xFF4E0C0B);
+                    FicheArt.ornementCentre(ctx, FicheArt.ORN_ANNEAU, XL + 10, e.cy());
                 }
                 FicheArt.inter9(ctx, f, e.txt(), XL + 24, e.cy() - 4, FicheArt.CREME, 0);
                 FicheArt.inter7(ctx, f, e.date(), XL + 24, e.cy() + 7, FicheArt.DOUX, 0);

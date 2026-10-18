@@ -74,6 +74,14 @@ public class InventoryScreen extends Screen {
         lastTab = equipement ? TAB_EQUIP : TAB_COSM;
     }
 
+    /** Banc d'essai (REBORN_TEINTURE_DEBUG) : ouvre le panneau d'actions d'un cosmétique porté, comme un clic droit. */
+    public void bancPanneauCosmetique(CosmeticSlot cs) {
+        SlotItem it = snap == null || cs == null ? null : snap.equipped().get(cs);
+        if (it == null) return;
+        int[] p = cosmPos(cs);
+        openPanel("C" + cs.name(), it.toStack(), it, p[0], p[1]);
+    }
+
     private InventoryData.Snapshot snap;
     private String tierDisplay;
     private int extraSlots;
@@ -997,6 +1005,12 @@ public class InventoryScreen extends Screen {
                     fr.reborn.hud.cosmetic.CosmeticFeatureRenderer.anchorForSlot(cs);
                 mc.setScreenAndShow(new fr.reborn.hud.menu.cosmetic.RepositionScreen(id, cs.label, anchor));
             }));
+            if (cosmItem != null && cosmItem.teintable) {   // teinture du tissu (bandeaux, 18/10)
+                panelButtons.add(new Btn("Teinture", false, () -> {
+                    closePanel();
+                    Minecraft.getInstance().setScreenAndShow(new fr.reborn.hud.menu.cosmetic.TeintureScreen(cs, cosmItem));
+                }));
+            }
             panelButtons.add(new Btn("Retirer", true, () -> {
                 if (cs != null) send("cos:unequip:" + cs.name());
                 closePanel();

@@ -26,6 +26,8 @@ public final class PersoDebug {
 
     private static final int STEP = 44, STEP_PERF = 160;
     private static final List<Shot> SHOTS = new ArrayList<>();
+    /** Banc « clans » : clan choisi (index dans les clans du village) par capture. */
+    private static final java.util.Map<String, Integer> CLAN = new java.util.HashMap<>();
     private static int t = -1;
     private static boolean perf;
     private static final StringBuilder RAPPORT = new StringBuilder();
@@ -34,6 +36,47 @@ public final class PersoDebug {
     public static void init() {
         String v = System.getenv("REBORN_PERSO_DEBUG");
         if (v == null || v.isBlank()) return;
+        String dirLive = System.getenv("REBORN_CREATOR_ASSETS");
+        if (dirLive != null && !dirLive.isBlank()) liveDir = java.nio.file.Path.of(dirLive.trim());
+        if ("coupes".equalsIgnoreCase(v.trim())) {
+            // Coiffures (bundle + assets live du serveur) et sourcils, 18/10 : 1920×1080 sauf mention.
+            SHOTS.add(new Shot("perso_10a_toutes_mod_seul", 116, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_10a2_live_arrive_ecran_ouvert", 126, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_10b_apparence_live", 6, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_10c_toutes_haut", 86, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_10d_toutes_bas", 96, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_10e_coupe_live_portee", 106, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_10f_toutes_1366", 86, 0, 2, 1366, 768));
+            SHOTS.add(new Shot("perso_11a_sourcils_comme", 36, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_11b_sourcils_noirs", 46, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_11c_sourcils_bruns", 56, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_11d_sourcils_roux", 66, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_11e_sourcils_libre", 76, 0, 2, 1920, 1080));
+            ClientTickEvents.END_CLIENT_TICK.register(PersoDebug::tick);
+            return;
+        }
+        if ("clans".equalsIgnoreCase(v.trim())) {
+            // Blasons dessinés et sceau du registre, 18/10 : grilles de clans, puis récapitulatif par village,
+            // variante 認 (étape 207) et marque du clan (307). 1920×1080.
+            String[][] grilles = {{"konoha", "0", "10"}, {"suna", "1", "1"}, {"kiri", "2", "1"}, {"iwa", "4", "1"}};
+            for (String[] gr : grilles) {
+                SHOTS.add(new Shot("perso_12_clans_" + gr[0], 1, Integer.parseInt(gr[1]), 2, 1920, 1080));
+                CLAN.put("perso_12_clans_" + gr[0], Integer.parseInt(gr[2]));
+            }
+            String[][] recaps = {{"konoha", "0", "2"}, {"suna", "1", "0"}, {"kiri", "2", "1"}, {"kumo", "3", "0"},
+                {"iwa", "4", "1"}, {"ame", "5", "0"}};
+            for (String[] rc : recaps) {
+                SHOTS.add(new Shot("perso_13_sceau_" + rc[0], 7, Integer.parseInt(rc[1]), 2, 1920, 1080));
+                CLAN.put("perso_13_sceau_" + rc[0], Integer.parseInt(rc[2]));
+            }
+            SHOTS.add(new Shot("perso_13_sceau_variante_kanji", 207, 0, 2, 1920, 1080));
+            SHOTS.add(new Shot("perso_13_sceau_variante_clan_suna", 307, 1, 2, 1920, 1080));
+            CLAN.put("perso_13_sceau_variante_clan_suna", 0);
+            SHOTS.add(new Shot("perso_13_sceau_1366_kiri", 7, 2, 2, 1366, 768));
+            CLAN.put("perso_13_sceau_1366_kiri", 1);
+            ClientTickEvents.END_CLIENT_TICK.register(PersoDebug::tick);
+            return;
+        }
         boolean vite = "vite".equalsIgnoreCase(v.trim());
         perf = "perf".equalsIgnoreCase(v.trim());
         if (perf) {
@@ -99,6 +142,7 @@ public final class PersoDebug {
             return;
         }
         Shot s = SHOTS.get(i);
+        if (liveDir != null && !liveInjecte && (s.etape() == 126 ? k == 20 : k == 1 && s.etape() != 116)) injecterLive(liveDir);
         if (perf) {
             mc.getFramerateLimitTracker().onInputReceived();
             if (k == 0) {
@@ -142,9 +186,21 @@ public final class PersoDebug {
                 if (s.etape() >= 0) {
                     PersoSons.voixCoupee = true;
                     sc.debugEtat(s.village(), s.village() == 0 ? 2 : 0, 0, "Ren Hyūga", 16, 172, 4, 0, 1, 2, 0);
+                    Integer ci = CLAN.get(s.nom());
+                    if (ci != null) sc.debugEtat(-1, ci, 0, "Ren", 16, 172, 4, 0, 1, 2, 0);
+                    PersoEmblemes.sceauMode = s.etape() / 100 == 2 ? "kanji" : s.etape() / 100 == 3 ? "clan" : "village";
                     sc.debugEtape(s.etape() % 10);
                     if (s.etape() == 16) sc.debugCouleurLibre(0x2E8A9A);
                     if (s.etape() / 10 == 2) sc.debugAccessoire();
+                    int var = s.etape() / 10;
+                    if (var >= 3 && var <= 7) {                 // sourcils : Konoha « Autre » (palette libre), blond
+                        sc.debugEtat(0, 11, 0, "Ren", 16, 172, 3, 0, 4, 0, 13);
+                        sc.debugEtape(6);
+                        sc.debugCoiffure("Cheveux_Court");
+                        sc.debugSourcils(var == 3 ? -1 : var == 4 ? 0 : var == 5 ? 2 : var == 6 ? 6 : -2, 0xD9D9D9);
+                    }
+                    if (var == 8 || var == 9 || var == 11) sc.debugToutes(var == 9);
+                    if (var == 10) sc.debugCoiffureLive();
                     PersoSons.voixCoupee = !PersoSons.VOIX;
                 }
             }
@@ -174,10 +230,91 @@ public final class PersoDebug {
         } catch (java.io.IOException ignored) { }
     }
 
+    /* ------------------------------------------------------------- assets live du serveur (banc) */
+
+    private static java.nio.file.Path liveDir;
+    private static boolean liveInjecte;
+
+    /**
+     * Rejoue la diffusion {@code reborn:creatorpack} de ShinobiCore ({@code CreatorAssetManager.reload/sendPack}) à partir
+     * d'une copie locale de {@code plugins/ShinobiCore/creator-assets/} : même corps (UTF dossier, UTF id, UTF méta, int
+     * + PNG, int + masque), mêmes morceaux de 24 000 octets, même point d'entrée client ({@code CreatorAssets.registerChunk}).
+     */
+    private static void injecterLive(java.nio.file.Path dir) {
+        liveInjecte = true;
+        org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger("reborn-perso-banc");
+        Minecraft mc = Minecraft.getInstance();
+        try {
+            com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(
+                java.nio.file.Files.readString(dir.resolve("catalog.json"))).getAsJsonObject();
+            // skin d'un joueur composé AVANT l'arrivée du pack (cas du join) avec une coiffure live : doit être refait
+            java.util.UUID u = mc.player.getUUID();
+            String premier = root.getAsJsonArray("hair").get(0).getAsJsonObject().get("id").getAsString();
+            SkinSpec sp = new SkinSpec();
+            sp.hairId = premier;
+            sp.hairColor = 0xFFC23B3B;
+            fr.reborn.hud.skin.RebornSkins.applySpec(u, sp);
+            log.info("[perso-banc] skin {} composé avant le pack : sommet du crâne = {}", premier, pixelCrane(u));
+            int n = 0, sautes = 0;
+            for (String cat : new String[]{"hair", "outfit", "eyes", "facial", "tattoo", "accessory", "underwear"}) {
+                if (!root.has(cat) || !root.get(cat).isJsonArray()) continue;
+                for (com.google.gson.JsonElement el : root.getAsJsonArray(cat)) {
+                    if (!el.isJsonObject()) continue;
+                    com.google.gson.JsonObject o = el.getAsJsonObject();
+                    String id = o.has("id") ? o.get("id").getAsString() : "";
+                    java.nio.file.Path png = dir.resolve(cat).resolve(id + ".png");
+                    if (id.isBlank() || !java.nio.file.Files.isRegularFile(png)) { sautes++; continue; }
+                    java.nio.file.Path mask = dir.resolve(cat).resolve(id + "_Mask.png");
+                    byte[] pb = java.nio.file.Files.readAllBytes(png);
+                    byte[] mb = java.nio.file.Files.isRegularFile(mask) ? java.nio.file.Files.readAllBytes(mask) : new byte[0];
+                    java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+                    try (java.io.DataOutputStream out = new java.io.DataOutputStream(b)) {
+                        out.writeUTF(cat);
+                        out.writeUTF(id);
+                        out.writeUTF(o.toString());
+                        out.writeInt(pb.length);
+                        out.write(pb);
+                        out.writeInt(mb.length);
+                        if (mb.length > 0) out.write(mb);
+                    }
+                    byte[] corps = b.toByteArray();
+                    int total = Math.max(1, (corps.length + 23999) / 24000);
+                    for (int idx = 0; idx < total; idx++) {
+                        int deb = idx * 24000, len = Math.min(24000, corps.length - deb);
+                        fr.reborn.hud.skin.CreatorAssets.INSTANCE.registerChunk(cat + "/" + id, idx, total,
+                            java.util.Arrays.copyOfRange(corps, deb, deb + len));
+                    }
+                    n++;
+                }
+            }
+            log.info("[perso-banc] assets live rejoués : {} (sans PNG : {}) ; coiffures au catalogue : {} dont {} live ;"
+                    + " proposées Homme {} / Femme {}",
+                n, sautes, fr.reborn.hud.skin.CharacterCatalog.all("hair").size(),
+                fr.reborn.hud.skin.CharacterCatalog.liveCount("hair"),
+                fr.reborn.hud.skin.CharacterCatalog.available("hair", false, "", false).size(),
+                fr.reborn.hud.skin.CharacterCatalog.available("hair", true, "", false).size());
+            log.info("[perso-banc] après le pack : sommet du crâne = {}", pixelCrane(u));
+            fr.reborn.hud.skin.RebornSkins.clear(u);
+        } catch (Exception e) {
+            log.warn("[perso-banc] assets live illisibles ({}) : {}", dir, e.toString());
+        }
+    }
+
+    /** Pixel (12, 4) du skin composé du joueur (dessus du crâne : peau sans coiffure, cheveux sinon). */
+    private static String pixelCrane(java.util.UUID u) {
+        try {
+            var t = Minecraft.getInstance().getTextureManager().getTexture(
+                fr.reborn.hud.skin.RebornSkins.overrideFor(u));
+            if (t instanceof net.minecraft.client.renderer.texture.DynamicTexture dt && dt.getPixels() != null) {
+                return String.format("%08X", dt.getPixels().getPixel(12, 4));
+            }
+        } catch (RuntimeException ignored) { }
+        return "?";
+    }
+
     private static String look(boolean female, int skin, String hair, int hairColor, int eye, String outfit) {
         SkinSpec l = new SkinSpec();
         l.female = female;
-        l.slim = female;
         l.skinColor = SkinSpec.skinRamp(skin / 11f);
         l.hairId = hair;
         l.hairColor = hairColor;

@@ -47,6 +47,11 @@ public class InterfaceTab extends SectionedTab {
                 RebornPrefs.INSTANCE.aurasSol,
                 v -> { RebornPrefs.INSTANCE.aurasSol = v; RebornPrefs.INSTANCE.save(); }));
 
+        section("Méditation");
+        labelRow("Couleur de l'aura", "Le halo autour de ton personnage quand il médite, vu de tous");
+        actionButton("→ Choisir la couleur de l'aura",
+            () -> open(new fr.reborn.hud.menu.character.perso.PersoAura(parent)));
+
         section("Noms au-dessus des têtes");
         row("Style", "Apparence du nom RP des autres joueurs",
             (cx, cy, cw) -> new SegmentedControl(cx, cy, cw, 24,

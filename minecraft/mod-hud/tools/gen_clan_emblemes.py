@@ -15,9 +15,11 @@ blanc ; le reste (fond, aplats décoratifs) devient transparent. Le dessin est c
 ramené à l'épaisseur des villages (≈ 2,8 px) par dilatation/érosion d'un disque, puis réduit en LANCZOS.
 Les aplats pleins du canon restent pleins.
 
-Clans sans blason canon (vérifié sur Narutopedia, oct. 2026) : symbole le plus proche du canon, signalé
-dans STATUT — kanji du chapeau de Kage de la famille, symbole des Unités médicales pour les Hōki (clan de
-médecins), kanji 鮫 pour les Hoshigaki (Kisame 鬼鮫, Samehada 鮫肌).
+Clans sans blason canon (vérifié sur Narutopedia, oct. 2026 puis 18/10) : emblème DESSINÉ (section « dessins »),
+sobre, sans aucune écriture (règle du 14/10 : plus de kanji décoratif) — Hōki (feuilles et goutte : clan de
+médecins), Hoshigaki (aileron de requin), Terumi (goutte qui bout : eau, vapeur, lave), Ōnoki (montagne), Sabaku
+(gourde de Gaara), Kamizuru (abeille : le « Kamizuru_Symbol.svg » de Narutopedia est un placeholder de fan, le nom
+上水流 en écriture sigillaire). Jusqu'au 18/10 ces clans avaient un kanji cerclé (医 鮫 水 土 風) ou ce sceau.
 """
 from __future__ import annotations
 
@@ -42,11 +44,11 @@ K = 8                  # suréchantillonnage
 EP = 2.8               # épaisseur du trait (px finaux) — mesurée sur village_ame / suna / iwa
 CADRE = 46             # plus grande dimension du dessin (px finaux) — les villages vont de 44 à 48
 NARUTOPEDIA = "https://naruto.fandom.com/wiki/File:"
-POLICE_KANJI = r"C:\Windows\Fonts\YuGothB.ttc"
 
 # id -> recette. svg : fichier de clans_canon ; encre : "encre" (tout ce qui n'est pas blanc) ou "noir"
 # (le noir seul : l'aplat rouge de l'Uzumaki est un fond) ; ep : épaisseur visée (None = celle du canon,
-# mise à l'échelle) ; fins : (seuil, ajout) épaissit les traits plus fins que 2 x seuil ; gras : dilatation finale (px) ; kanji : symbole de remplacement dans un cercle.
+# mise à l'échelle) ; fins : (seuil, ajout) épaissit les traits plus fins que 2 x seuil ; gras : dilatation finale (px) ;
+# fn : emblème dessiné (DESSINS, section « dessins ») pour les clans sans blason canon — jamais d'écriture.
 CLANS = {
     "senju":     dict(svg="senju.svg", src=NARUTOPEDIA + "Senju_Symbol.svg", ep=2.2, statut="canon"),
     "uchiha":    dict(svg="uchiha.svg", src=NARUTOPEDIA + "Uchiha_Symbol.svg", statut="canon"),
@@ -61,26 +63,26 @@ CLANS = {
     "hatake":    dict(svg="hatake.svg", src=NARUTOPEDIA + "Hatake_Symbol.svg", ep=3.4, statut="canon (guide Michi)"),
     "yamanaka":  dict(svg="yamanaka.svg", src=NARUTOPEDIA + "Yamanaka_Symbol.svg", statut="canon (chapitre 533)"),
     "kurama":    dict(svg="kurama.svg", src=NARUTOPEDIA + "Kurama_Symbol.svg", ep=2.0, statut="canon (anime)"),
-    "sabaku":    dict(kanji="風", src="aucun blason (Clan du Kazekage)",
-                      statut="SANS BLASON CANON : 風 du chapeau de Kazekage"),
-    "hoki":      dict(svg="medical.svg", src=NARUTOPEDIA + "Medical_Teams_Symbol.svg",
-                      statut="SANS BLASON CANON : 医 cerclé des Unités médicales (Hōki = médecins)"),
+    "sabaku":    dict(fn="sabaku", src="aucun blason (Clan du Kazekage, manga/roman)",
+                      statut="CRÉATION (aucun blason canon) : la gourde de sable de Gaara, cordon et sangle"),
+    "hoki":      dict(fn="hoki", src="aucun blason (Famille Hōki, roman Gaara Hiden)",
+                      statut="CRÉATION (aucun blason canon) : deux feuilles et une goutte, clan de médecins"),
     "hozuki":    dict(svg="hozuki.svg", src=NARUTOPEDIA + "H%C5%8Dzuki_Symbol.svg", ep=2.3,
                       statut="symbole Narutopedia (lanterne hōzuki), pas de blason canon"),
-    "hoshigaki": dict(kanji="鮫", src="aucun blason (clan anime)",
-                      statut="SANS BLASON CANON : 鮫 (Kisame 鬼鮫, Samehada 鮫肌)"),
+    "hoshigaki": dict(fn="hoshigaki", src="aucun blason (Clan Hoshigaki : symbole de Kiri seulement)",
+                      statut="CRÉATION (aucun blason canon) : aileron de requin sur deux vagues (Kisame)"),
     "kaguya":    dict(svg="kaguya.svg", src=NARUTOPEDIA + "Kaguya_Symbol.svg", ep=None, gras=2.0,
                       statut="canon : marques frontales du clan (Kimimaro)"),
     "yuki":      dict(svg="yuki.svg", src=NARUTOPEDIA + "Yuki_Symbol.svg",
                       statut="symbole Narutopedia (flocon), pas de blason canon"),
-    "terumi":    dict(kanji="水", src="aucun blason",
-                      statut="SANS BLASON CANON : 水 du chapeau de Mizukage (Mei Terumi)"),
+    "terumi":    dict(fn="terumi", src="aucun blason (pas de page de clan)",
+                      statut="CRÉATION (aucun blason canon) : goutte qui bout, eau, vapeur et lave de Mei"),
     "yotsuki":   dict(svg="yotsuki.svg", src=NARUTOPEDIA + "Yotsuki_Symbol.svg", ep=None, fins=(0.8, 0.7),
                       statut="symbole Narutopedia (lune et nuages = 夜月), pas de blason canon"),
-    "kamizuru":  dict(svg="kamizuru.svg", src=NARUTOPEDIA + "Kamizuru_Symbol.svg", ep=None,
-                      statut="symbole Narutopedia (sceau 上水流), pas de blason canon"),
-    "onoki":     dict(kanji="土", src="aucun blason (anime : famille Kamizuru)",
-                      statut="SANS BLASON CANON : 土 du chapeau de Tsuchikage"),
+    "kamizuru":  dict(fn="kamizuru", src="aucun blason (Kamizuru_Symbol.svg = placeholder de fan, nom en sigillaire)",
+                      statut="CRÉATION (aucun blason canon) : l'abeille du clan des abeilles d'Iwa"),
+    "onoki":     dict(fn="onoki", src="aucun blason (lignée du Tsuchikage)",
+                      statut="CRÉATION (aucun blason canon) : la montagne enneigée, lignée de la Terre"),
     "autre":     dict(fn="autre", src="—", statut="générique (aucun clan)"),
 }
 VILLAGES = ["konoha", "suna", "kiri", "kumo", "iwa", "ame"]
@@ -164,33 +166,6 @@ def recadre(m, cadre=CADRE):
     return np.asarray(out) > 127, s
 
 
-def masque_kanji(car):
-    """Kanji (Yu Gothic Bold) dans un cercle, à la manière du 医 cerclé des Unités médicales."""
-    N = T * K
-    f = ImageFont.truetype(POLICE_KANJI, int(N * 0.62))
-    g = Image.new("L", (N, N), 0)
-    ImageDraw.Draw(g).text((N / 2, N / 2), car, font=f, fill=255, anchor="mm")
-    gm = np.asarray(g) > 127
-    ys, xs = np.nonzero(gm)
-    gm = gm[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
-    cote = 26 * K                               # le kanji tient dans un carré de 26 px (cercle de 46)
-    h, w = gm.shape
-    s = cote / max(h, w)
-    im = Image.fromarray((gm * 255).astype(np.uint8), "L").resize((round(w * s), round(h * s)), Image.LANCZOS)
-    kj = np.zeros((N, N), bool)
-    km = np.asarray(im) > 127
-    y0, x0 = (N - km.shape[0]) // 2, (N - km.shape[1]) // 2
-    kj[y0:y0 + km.shape[0], x0:x0 + km.shape[1]] = km
-    return kj
-
-
-def anneau(r_ext, ep):
-    N = T * K
-    yy, xx = np.mgrid[0:N, 0:N]
-    d = np.hypot(xx - N / 2 + 0.5, yy - N / 2 + 0.5)
-    return (d <= r_ext * K) & (d >= (r_ext - ep) * K)
-
-
 # ───────────────────────────── les emblèmes ─────────────────────────────
 def masque_clan(cle):
     r = CLANS[cle]
@@ -209,29 +184,191 @@ def masque_clan(cle):
         if r.get("gras"):                       # grossit tout le dessin (les deux points des Kaguya)
             m = _dilate(m, _disque(r["gras"] * K))
         return m
-    if "kanji" in r:
-        kj = masque_kanji(r["kanji"])
-        kj = ajuste(kj, epaisseur(kj), r.get("ep_kanji", 2.4) * K)
-        return kj | anneau(23, EP)
-    return MAISON()
+    return DESSINS[r["fn"]]()
 
 
-def MAISON():
-    """« Autre » : maison au toit à pignon (une famille, un nom à écrire) — pas de clan, pas de canon."""
-    N = T * K
-    im = Image.new("L", (N, N), 0)
-    d = ImageDraw.Draw(im)
-    w = int(round(EP * K))
+# ───────────────────────────── dessins (clans sans blason canon) ─────────────────────────────
+# Coordonnées en px finaux (grille 48), tracées en x K ; trait EP comme les villages ; réserves (vides) d'au moins
+# 1,1 px pour rester lisibles à 24 px. Aucune écriture.
+N = T * K
 
-    def ligne(pts):
+
+class Toile:
+    def __init__(self):
+        self.im = Image.new("L", (N, N), 0)
+        self.d = ImageDraw.Draw(self.im)
+
+    def m(self):
+        return np.asarray(self.im) > 127
+
+    def poly(self, pts, fill=255):
+        self.d.polygon([(x * K, y * K) for x, y in pts], fill=fill)
+
+    def trait(self, pts, ep=EP, fill=255, ferme=False):
+        w = int(round(ep * K))
         q = [(x * K, y * K) for x, y in pts]
-        d.line(q, fill=255, width=w, joint="curve")
-        for x, y in q:
-            d.ellipse((x - w / 2, y - w / 2, x + w / 2, y + w / 2), fill=255)
-    ligne([(3.5, 21), (24, 6.5), (44.5, 21)])
-    ligne([(10, 21), (10, 44), (38, 44), (38, 21)])
-    ligne([(20, 44), (20, 31), (28, 31), (28, 44)])
-    return np.asarray(im) > 127
+        if ferme:
+            q = q + [q[0]]
+        self.d.line(q, fill=fill, width=w, joint="curve")
+        for x, y in (q if not ferme else q[:-1]):
+            self.d.ellipse((x - w / 2, y - w / 2, x + w / 2, y + w / 2), fill=fill)
+
+    def disque(self, cx, cy, r, fill=255):
+        self.d.ellipse(((cx - r) * K, (cy - r) * K, (cx + r) * K, (cy + r) * K), fill=fill)
+
+
+def bez(p0, p1, p2, p3, n=48):
+    out = []
+    for i in range(n + 1):
+        t = i / n
+        a, b, c, d = (1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t * t, t ** 3
+        out.append((a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0], a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1]))
+    return out
+
+
+def ellipse_pts(cx, cy, rx, ry, ang=0.0, n=72):
+    ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    return [(cx + rx * math.cos(2 * math.pi * i / n) * ca - ry * math.sin(2 * math.pi * i / n) * sa,
+             cy + rx * math.cos(2 * math.pi * i / n) * sa + ry * math.sin(2 * math.pi * i / n) * ca) for i in range(n)]
+
+
+def vague(x0, x1, y, amp, periode, n=80):
+    return [(x0 + (x1 - x0) * i / n, y + amp * math.sin(2 * math.pi * ((x1 - x0) * i / n) / periode)) for i in range(n + 1)]
+
+
+def goutte(cx, cy, r, tip, n=72):
+    """Contour d'une goutte : pointe (cx, tip), arc de cercle (cx, cy, r) par le bas."""
+    a = math.asin(r / (cy - tip))
+    ph = np.linspace(-(math.pi / 2 - a), math.pi + (math.pi / 2 - a), n)
+    return [(cx, tip)] + [(cx + r * math.cos(p), cy + r * math.sin(p)) for p in ph]
+
+
+def creuse(m, autre, marge):
+    """m privé de autre dilaté de marge (px finaux)."""
+    if marge <= 0:
+        return m & ~autre
+    return m & ~_dilate(autre, _disque(marge * K))
+
+
+# ─────────────── Sabaku : la gourde de sable ───────────────
+def sabaku():
+    t = Toile()
+    t.disque(24, 32.5, 13.0)             # panse
+    t.disque(24, 14.0, 8.2)              # tête de la gourde
+    t.poly([(19.5, 20.5), (28.5, 20.5), (29.5, 23.5), (18.5, 23.5)])
+    corps = t.m()
+    # cordon noué à l'étranglement (réserve de part et d'autre)
+    c = Toile(); c.poly([(16.8, 21.0), (31.2, 21.0), (31.2, 24.0), (16.8, 24.0)]); cm = c.m()
+    m = creuse(corps, cm, 1.1) | cm
+    # sangle de Gaara : deux filets réservés en écharpe, sur la panse seulement
+    r = Toile(); r.trait([(10, 27.5), (38, 41.5)], ep=1.3); r.trait([(10, 32.0), (35.5, 44.8)], ep=1.3)
+    m &= ~r.m()
+    s = Toile(); s.poly([(21.6, 1.8), (26.4, 1.8), (26.9, 5.2), (21.1, 5.2)]); sm = s.m()
+    m = creuse(m, sm, 1.2) | sm
+    return m
+
+
+# ─────────────── Hoshigaki : l'aileron du requin ───────────────
+def hoshigaki():
+    t = Toile()
+    ar = bez((9, 31), (14, 20), (22, 9), (33, 5))
+    fu = bez((33, 5), (29, 12), (29, 23), (37, 31))
+    t.poly(ar + fu)
+    m = t.m()
+    v = Toile(); v.trait(vague(3, 45, 32.5, 1.6, 10.5)); vm = v.m()
+    m = creuse(m, vm, 1.3) | vm
+    v2 = Toile(); v2.trait(vague(8, 40, 40.5, 1.6, 10.5)); m |= v2.m()
+    return m
+
+
+# ─────────────── Terumi : la goutte qui bout ───────────────
+def terumi():
+    t = Toile()
+    pts = goutte(24, 29.5, 14.5, 3)
+    t.trait(pts, ferme=True)
+    contour = t.m()
+    plein = Toile(); plein.poly(pts); interieur = plein.m() & ~contour
+    interieur = _erode(interieur, _disque(1.4 * K))
+    nv = Toile(); nv.poly(vague(4, 44, 27.5, 1.7, 9.5) + [(44, 48), (4, 48)]); bas = nv.m()
+    m = contour | (interieur & bas)
+    bu = Toile(); bu.disque(21.5, 20.5, 2.0); bu.disque(26.2, 15.5, 1.5); m |= bu.m() & interieur
+    return m
+
+
+# ─────────────── Ōnoki : la montagne ───────────────
+def onoki():
+    t = Toile(); t.poly([(27, 6), (44, 39), (10, 39)]); grand = t.m()
+    nei = Toile(); nei.trait([(19.6, 20.5), (23.2, 17.0), (26.2, 20.6), (29.4, 16.6), (33.6, 21.0)], ep=2.0); nm = nei.m()
+    grand &= ~nm
+    p = Toile(); p.trait([(4, 39), (14, 21), (22, 33)]); petit = p.m()
+    m = creuse(petit, grand, 1.4) | grand
+    sol = Toile(); sol.trait([(3, 43.5), (45, 43.5)]); m |= sol.m()
+    return m
+
+
+# ─────────────── Hōki : les feuilles qui soignent ───────────────
+def feuille(base, tip, larg):
+    bx, by = base; tx, ty = tip
+    dx, dy = tx - bx, ty - by
+    L = math.hypot(dx, dy); nx, ny = -dy / L, dx / L
+    c1 = (bx + dx * 0.3 + nx * larg, by + dy * 0.3 + ny * larg)
+    c2 = (bx + dx * 0.75 + nx * larg * 0.8, by + dy * 0.75 + ny * larg * 0.8)
+    c3 = (bx + dx * 0.75 - nx * larg * 0.8, by + dy * 0.75 - ny * larg * 0.8)
+    c4 = (bx + dx * 0.3 - nx * larg, by + dy * 0.3 - ny * larg)
+    return bez(base, c1, c2, tip) + bez(tip, c3, c4, base)
+
+
+def hoki():
+    t = Toile()
+    t.poly(feuille((22.5, 41), (5, 17), 7.5))
+    t.poly(feuille((25.5, 41), (43, 17), 7.5))
+    m = t.m()
+    nerv = Toile(); nerv.trait([(21, 37.5), (11, 24)], ep=1.6); nerv.trait([(27, 37.5), (37, 24)], ep=1.6)
+    m &= ~nerv.m()
+    tige = Toile(); tige.trait([(24, 39), (24, 45)]); m |= tige.m()
+    gt = Toile(); gt.poly(goutte(24, 22.5, 5.2, 9.5)); gm = gt.m()
+    m = creuse(m, gm, 1.3) | gm
+    return m
+
+
+# ─────────────── Kamizuru : l'abeille ───────────────
+def kamizuru():
+    t = Toile()
+    t.disque(24, 10.5, 3.6)
+    t.poly(ellipse_pts(24, 19.2, 5.0, 4.6))
+    t.poly(ellipse_pts(24, 33, 7.2, 10.6))
+    t.poly([(22.6, 42.5), (25.4, 42.5), (24, 46.5)])
+    m = t.m()
+    r = Toile()
+    for y in (29.0, 34.4):
+        r.trait([(14, y), (34, y)], ep=1.7)
+    r.trait([(14, 23.6), (34, 23.6)], ep=1.4)
+    r.trait([(14, 14.4), (34, 14.4)], ep=1.2)
+    m &= ~r.m()
+    ai = Toile()
+    ai.trait(ellipse_pts(12.5, 19.5, 9.2, 4.8, -28), ep=2.4, ferme=True)
+    ai.trait(ellipse_pts(35.5, 19.5, 9.2, 4.8, 28), ep=2.4, ferme=True)
+    am = ai.m()
+    m = m | creuse(am, t.m(), 1.3)
+    an = Toile()
+    an.trait(bez((22.4, 8), (21, 5), (19, 3.6), (16.5, 3.2)), ep=1.8)
+    an.trait(bez((25.6, 8), (27, 5), (29, 3.6), (31.5, 3.2)), ep=1.8)
+    m |= an.m()
+    return m
+
+
+# « Autre » : maison au toit à pignon (une famille, un nom à écrire) — pas de clan, pas de canon.
+def autre():
+    t = Toile()
+    t.trait([(3.5, 21), (24, 6.5), (44.5, 21)])
+    t.trait([(10, 21), (10, 44), (38, 44), (38, 21)])
+    t.trait([(20, 44), (20, 31), (28, 31), (28, 44)])
+    return t.m()
+
+
+DESSINS = dict(hoki=hoki, hoshigaki=hoshigaki, terumi=terumi, onoki=onoki, sabaku=sabaku, kamizuru=kamizuru,
+               autre=autre)
+
 
 
 def rendu(m) -> Image.Image:
@@ -260,9 +397,8 @@ def planche(chemin_png, ims, refs=None):
     try:
         f = ImageFont.truetype(r"C:\Windows\Fonts\consola.ttf", 13)
         fk = ImageFont.truetype(r"C:\Windows\Fonts\YuGothB.ttc", 15)
-        fg = ImageFont.truetype(POLICE_KANJI, 70)
     except OSError:
-        f = fk = fg = ImageFont.load_default()
+        f = fk = ImageFont.load_default()
     cw, ch, cols = 400, 236, 4
     items = [("v", v) for v in VILLAGES] + [("c", k) for k in CLANS]
     rows = math.ceil(len(items) / cols)
@@ -302,11 +438,9 @@ def planche(chemin_png, ims, refs=None):
         if ref is None:
             ref = Image.new("RGBA", (144, 144), papier)
             rd = ImageDraw.Draw(ref)
-            if genre == "c" and "kanji" in CLANS[k]:
-                rd.text((72, 66), CLANS[k]["kanji"], font=fg, fill=(20, 20, 20), anchor="mm")
-                rd.text((72, 128), "(pas de blason)", font=f, fill=(120, 40, 40), anchor="mm")
-            else:
-                rd.text((72, 72), "pas de blason", font=f, fill=(120, 40, 40), anchor="mm")
+            rd.text((72, 62), "pas de blason", font=f, fill=(120, 40, 40), anchor="mm")
+            if genre == "c" and "fn" in CLANS[k] and k != "autre":
+                rd.text((72, 82), "création Reborn", font=f, fill=(60, 60, 60), anchor="mm")
         W.alpha_composite(ref, (x, y))
         # droite : nous
         W.alpha_composite(teinte(im, creme).resize((144, 144), Image.NEAREST), (x + 152, y))
@@ -327,7 +461,7 @@ def planche(chemin_png, ims, refs=None):
                 else:
                     cur = (cur + " " + mot).strip()
             lignes.append(cur)
-            col = (230, 120, 110) if st.startswith("SANS") or "pas de blason" in st else gris
+            col = (150, 200, 150) if st.startswith("CRÉATION") else gris
             for j, l in enumerate(lignes[:3]):
                 d.text((x, y + 168 + j * 18), l, font=fk, fill=col)
     W.save(chemin_png)

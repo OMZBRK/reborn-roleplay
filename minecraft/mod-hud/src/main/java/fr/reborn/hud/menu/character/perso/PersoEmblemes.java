@@ -55,7 +55,113 @@ final class PersoEmblemes {
     static int nbClans() { pret(); return clans.size(); }
 
     /** Force la reconstruction (rechargement des ressources). */
-    static void invalider() { pret = false; }
+    static void invalider() { pret = false; sceauxPret = false; }
+
+    /* ------------------------------------------------------------- sceau du registre (récapitulatif) */
+
+    private static final Identifier SCEAUX = Identifier.fromNamespaceAndPath("reborn", "perso/sceaux_registre");
+    /** Cellule d'un sceau : 80 texels = 40 GUI (le sceau est composé à la demi-texel GUI). */
+    static final int SCEAU_TEX = 80, SCEAU_GUI = 40;
+    /** Pente du tampon (degrés, sens trigonométrique à l'écran : le coin haut droit remonte). */
+    private static final double PENTE = -5;
+    private static int sceauxW = SCEAU_TEX;
+    private static boolean sceauxPret;
+    /** Marque du sceau : « village » (défaut), « clan » ou « kanji » (l'ancien 認) ; -Dreborn.sceauRegistre, banc. */
+    static String sceauMode = System.getProperty("reborn.sceauRegistre", "village");
+
+    static Identifier sceaux() { sceauxPret(); return SCEAUX; }
+
+    static int sceauxW() { sceauxPret(); return sceauxW; }
+
+    /** Cellule du sceau : index d'emblème (villages puis clans, comme l'atlas) ; {@link #sceauKanji()} pour 認. */
+    static int sceauKanji() { pret(); return VILLAGES.length + clans.size(); }
+
+    private static String chemin(int k) {
+        return k < VILLAGES.length ? "textures/gui/esc/village_" + VILLAGES[k] + ".png"
+            : "textures/gui/clans/clan_" + clans.get(k - VILLAGES.length) + ".png";
+    }
+
+    /**
+     * Sceaux du registre, construits au lancement comme les emblèmes : tampon vermillon de
+     * {@code personnage/sceau_registre.png} (cellule 0 sans marque, 1 avec l'ancien 認, 2 masque d'usure ; 32×32,
+     * sceau 30×30 non tourné, tools/gen_personnage_textures.py) doublé, emblème du village ou du clan réservé couleur
+     * papier (40 texels = 20 GUI, échantillonné 4×4 dans le repère penché : traits nets), ombre de la réserve, manques
+     * d'encre, pente de 5°, ombre portée. Une cellule 80×80 par emblème, puis la variante 認.
+     */
+    private static void sceauxPret() {
+        if (sceauxPret) return;
+        sceauxPret = true;
+        pret();
+        Minecraft mc = Minecraft.getInstance();
+        ResourceManager rm = mc.getResourceManager();
+        int n = VILLAGES.length + clans.size();
+        sceauxW = SCEAU_TEX * (n + 1);
+        NativeImage im = new NativeImage(sceauxW, SCEAU_TEX, true);
+        vider(im);
+        float[][] tex = lireBrut(rm, PersoArt.tex("sceau_registre"));
+        if (tex != null && Math.round(tex[0][0]) >= 96 && Math.round(tex[0][1]) >= 32) {
+            for (int k = 0; k <= n; k++) {
+                float[][] emb = k < n ? lire(rm, Identifier.fromNamespaceAndPath("reborn", chemin(k))) : null;
+                sceau(im, k * SCEAU_TEX, tex, k < n ? 0 : 32, emb);
+            }
+        }
+        mc.getTextureManager().register(SCEAUX, new DynamicTexture(() -> "reborn-sceaux-registre", im));
+    }
+
+    private static void sceau(NativeImage im, int x0, float[][] tex, int cellU, float[][] emb) {
+        int tw = Math.round(tex[0][0]), D = SCEAU_TEX;
+        double th = Math.toRadians(PENTE), ca = Math.cos(th), sa = Math.sin(th), cs = 32, cd = D / 2.0;
+        // champ (dans le sceau, hors bord biseauté) sur la grille 32×32 de la cellule
+        boolean[] dedans = new boolean[32 * 32];
+        for (int y = 0; y < 32; y++) for (int x = 0; x < 32; x++) dedans[y * 32 + x] = tex[1 + y * tw + cellU + x][3] > 0;
+        int[] col = new int[D * D];
+        boolean[] champ = new boolean[D * D], usure = new boolean[D * D], encre = new boolean[D * D];
+        int ew = emb == null ? 0 : Math.round(emb[0][0]), eh = emb == null ? 0 : Math.round(emb[0][1]);
+        double e = 40, o = 32 - e / 2;
+        for (int y = 0; y < D; y++) {
+            for (int x = 0; x < D; x++) {
+                double dx = x + 0.5 - cd, dy = y + 0.5 - cd;
+                int ix = (int) Math.floor(ca * dx + sa * dy + cs), iy = (int) Math.floor(-sa * dx + ca * dy + cs);
+                int i = y * D + x;
+                if (ix >= 0 && ix < 64 && iy >= 0 && iy < 64) {
+                    int tx = ix >> 1, ty = iy >> 1;
+                    float[] p = tex[1 + ty * tw + cellU + tx];
+                    if (p[3] > 0) col[i] = argb(p);
+                    champ[i] = dedans[ty * 32 + tx] && tx > 0 && ty > 0 && tx < 31 && ty < 31
+                        && dedans[ty * 32 + tx - 1] && dedans[ty * 32 + tx + 1]
+                        && dedans[(ty - 1) * 32 + tx] && dedans[(ty + 1) * 32 + tx];
+                    usure[i] = tex[1 + ty * tw + 64 + tx][3] > 0;
+                }
+                if (emb == null) continue;
+                float cov = 0;
+                for (int j = 0; j < 4; j++) {
+                    for (int k = 0; k < 4; k++) {
+                        double qx = x + (k + 0.5) / 4 - cd, qy = y + (j + 0.5) / 4 - cd;
+                        double sx = ca * qx + sa * qy + cs, sy = -sa * qx + ca * qy + cs;
+                        int ex = (int) Math.floor((sx - o) / e * ew), ey = (int) Math.floor((sy - o) / e * eh);
+                        if (ex >= 0 && ex < ew && ey >= 0 && ey < eh) cov += emb[1 + ey * ew + ex][3];
+                    }
+                }
+                encre[i] = cov / 16f >= 0.45f;
+            }
+        }
+        for (int i = 0; i < D * D; i++) encre[i] &= champ[i];
+        for (int y = 0; y < D; y++) {
+            for (int x = 0; x < D; x++) {
+                int i = y * D + x;
+                if (encre[i]) { if (!usure[i]) col[i] = 0xFFF2E6CC; continue; }
+                boolean ombre = x > 0 && y > 0 && encre[i - D - 1] || x > 1 && y > 1 && encre[i - 2 * D - 2];
+                if (ombre && champ[i]) col[i] = 0xFF4E0C0B;
+            }
+        }
+        for (int y = 0; y < D; y++) {
+            for (int x = 0; x < D; x++) {
+                int c = col[y * D + x];
+                if ((c >>> 24) == 0 && x > 1 && y > 1 && (col[(y - 2) * D + x - 2] >>> 24) == 0xFF) c = 0x8C040203;
+                if (c != 0) im.setPixel(x0 + x, y, c);
+            }
+        }
+    }
 
     private static void pret() {
         if (pret) return;

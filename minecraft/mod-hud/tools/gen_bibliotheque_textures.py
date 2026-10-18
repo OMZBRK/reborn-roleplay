@@ -3,8 +3,8 @@
 gen_bibliotheque_textures.py — textures de la bibliothèque à tirage, de la lecture d'un rouleau et des
 réglages staff (parchemin/BibliothequeScreen, LectureScreen, BibliothequeStaffScreen), au niveau de la fiche.
 
-Signature de l'écran : le meuble à casiers (tansu) de bois sombre, linteau de laque noire et plaque 書庫,
-ferrures d'or ; chaque rouleau (modèle 3D SNR, dessiné par le code) couché dans son casier, son étiquette
+Signature de l'écran : le meuble à casiers (tansu) de bois sombre, linteau de laque noire au cordon d'or,
+ferrures d'or (aucun kanji depuis le 18/10, DA §3) ; chaque rouleau (modèle 3D SNR, dessiné par le code) couché dans son casier, son étiquette
 de rang (fuda) pendue au coin. Survol : fiche du rouleau sur washi. Lecture : makimono de washi entre deux
 baguettes, brocart à la couleur du rang. Réglages : planche laquée, plaques-boutons, réglettes d'or.
 
@@ -23,11 +23,12 @@ Contrat (1 texel = 1 GUI) — bibliothèque :
 - brocart.png 440×40 : rangées de 8 (D C B A S), brocart seigaiha à lisières d'or.
 - pieces.png 210×50 : trait de pinceau vermillon 160×4 (0, 0) ; cabochon 42×12 (0, 6) ;
   jauge 204×12 (0, 20) ; remplissage or 196×6 (0, 34) ; remplissage laque 196×6 (0, 42).
-- reglages.png 104×38 : 4 cellules 26×38 (設 repos, 設 survol, 記 repos, 記 survol), plaque 22×22 en (2, 12).
+- reglages.png 104×38 : 4 cellules 26×38 (réglages repos / survol, journal repos / survol : pictos roue et
+  registre), plaque 22×22 en (2, 12).
 Bibliothèques v2 :
 - onglets.png 140×70 : onglets pendus, rangées de 20 (repos, survol, actif), plaque 136×16 en (1, 1)
   (coupe horizontale, capD 6) ; perche de bambou laqué 140×7 en (0, 61) (coupe horizontale, capD 6).
-- acces.png 84×28 : sceau 秘 « réservé aux membres » 24×24 centré en (14, 14) vermillon (non-membre),
+- acces.png 84×28 : sceau à cadenas « réservé aux membres » 24×24 centré en (14, 14) vermillon (non-membre),
   en (42, 14) laque noire et or (membre) ; cadenas 9×11 en (58, 0) vermillon (fermé), en (70, 0) or (ouvert).
 - registre.png 336×268 : washi 328×260 en (2, 2) (coupe, capD 8, capB 16) — dépôt et journal.
 - toast.png 264×20 : plaquette 260×16 (coupe horizontale, capD 8).
@@ -35,7 +36,6 @@ Bibliothèques v2 :
 Lecture :
 - rouleau.png 448×232 : washi 440×220 en (4, 4) ; le brocart (8 de haut) est posé par le code.
 - baguettes.png 28×244 : cellules 14×244 (bois et embouts sombres ; embouts d'or pour A et S).
-- kanji.png 352×44 : 火 水 土 風 雷 体 剣 忍 à l'encre sumi, cellules 44×44.
 - perles.png 30×17 : 9×9 (fait, à faire, prochaine) en y 0 ; 7×7 en y 10.
 - signe.png 120×12 : étiquette de signe (coupe horizontale, capD 4).
 - bouton.png 112×66 : cellules 112×22 (prêt, survol, inactif), bouton 110×20 en (0, 0) (capD 6).
@@ -58,6 +58,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ecrans_art as ea  # noqa: E402
 from ecrans_art import fa, gf, kit, hexc, rect, arcade, coller, R_OR, R_LAQUE, nouveau  # noqa: E402
+import pictos  # noqa: E402  (aucun kanji décoratif, 18/10)
 
 S = ea.Sortie("bibliotheque", budget=600_000)
 RANGS = ea.RANGS
@@ -159,13 +160,13 @@ def meuble():
     rect(im, 0, 28, 372, 1, hexc("0A0506"))
     for X in (0, 372 - 10):
         fa.kanagus(im, X, 0, 10, 28, deborde=0)
-    # plaque 書庫 laquée rouge, au centre du linteau
-    gf.plaquette4(im, 186 - 24, 4, 48, 20, "rouge", seed=9)
-    fa.ferrures3(im, 186 - 24, 4, 48, 20)
-    gf.kj_px(im, 186, 6, "書庫", ea.CREME_KJ, ombre=hexc("3A0A12"))
-    # cordons et losanges de part et d'autre de la plaque
+    # cordon d'or continu sur le linteau, petit losange d'or au centre (plus de plaque à kanji, 18/10)
+    for (dx, dy, c) in ((0, -2, R_OR[6]), (-1, -1, R_OR[6]), (0, -1, R_OR[7]), (1, -1, R_OR[5]), (-2, 0, R_OR[5]),
+                        (-1, 0, R_OR[6]), (0, 0, R_OR[7]), (1, 0, R_OR[5]), (2, 0, R_OR[4]), (-1, 1, R_OR[4]),
+                        (0, 1, R_OR[5]), (1, 1, R_OR[3]), (0, 2, R_OR[3])):
+        rect(im, 186 + dx, 14 + dy, 1, 1, hexc(c))
     for sgn in (-1, 1):
-        x0 = 186 + sgn * 32
+        x0 = 186 + sgn * 5
         x1 = 186 + sgn * 150
         rect(im, min(x0, x1), 14, abs(x1 - x0), 1, hexc(R_OR[2]))
         gf.losange_or(im, x1 - 1, 13)
@@ -310,7 +311,7 @@ def pieces():
 
 def reglages():
     im = nouveau(104, 38)
-    for k, kj in enumerate("設記"):
+    for k, ic in enumerate(("reglages", "journal")):
         for i in range(2):
             cell = nouveau(26, 38)
             fa.corde_v(cell, 13, 0, 12, "or", ep=1)
@@ -318,7 +319,7 @@ def reglages():
             fa.lq(cell, 3, 13, 20, 20, "noir", seed=4 + k, intensite=1.8 if i else 1.0)
             fa.liseret(cell, 2, 12, 22, 22)
             kit.anneau_metal(cell, 13, 12, 1)
-            gf.kj_px(cell, 13, 15, kj, ea.OR_CLAIR if i else ea.OR, ombre=hexc("050304"))
+            pictos.ico_milieu(cell, 13, 23, ic, ea.OR_CLAIR if i else ea.OR, ombre=hexc("050304"))
             im.paste(cell, ((2 * k + i) * 26, 0))
     S.sauver("reglages.png", im, (104, 38))
 
@@ -364,8 +365,8 @@ def cadenas(im, x, y, cols, ouvert=False):
 
 def acces():
     im = nouveau(84, 28)
-    gf.hanko_px(im, 14, 14, "秘", taille=24, seed=31, usure=0.10)
-    gf.hanko_px(im, 42, 14, "秘", taille=24, ton=kit.R_LAQUE[1:8], seed=32, encre=ea.OR_CLAIR, usure=0.04)
+    gf.hanko_px(im, 14, 14, pictos.encre_px(24, "cadenas"), taille=24, seed=31, usure=0.10)
+    gf.hanko_px(im, 42, 14, pictos.encre_px(24, "cadenas"), taille=24, ton=kit.R_LAQUE[1:8], seed=32, encre=ea.OR_CLAIR, usure=0.04)
     fa.liseret(im, 30, 2, 24, 24)
     cadenas(im, 58, 0, ("4E0C0B", "AE2C21", "E0705A", "2A0606"))
     cadenas(im, 70, 0, ("4A3518", "B08442", "F2D59A", "2E2210"), ouvert=True)
@@ -412,25 +413,6 @@ def baguettes():
                 fa.lq(im, X + 1, y0, 12, h, "noir", seed=y0, intensite=1.4)
                 rect(im, X + 1, y0, 12, 1, hexc(R_OR[3])); rect(im, X + 1, y0 + h - 1, 12, 1, hexc(R_OR[1]))
     S.sauver("baguettes.png", im, (28, 244))
-
-
-def kanji_natures():
-    im = nouveau(352, 44)
-    for i, kj in enumerate("火水土風雷体剣忍"):
-        g = kit._glyphe_kanji(kj, 40, "gras")
-        h, w = g.shape
-        p = np.zeros((h, w, 4), np.uint8)
-        rs = np.random.RandomState(i)
-        enc = np.where(rs.rand(h, w) < 0.12, 1, 0)
-        p[g] = (34, 22, 16, 230)
-        p[g & (enc == 1)] = (58, 40, 30, 200)
-        # bavure : 1 px d'encre diluée autour du trait
-        d = np.zeros_like(g)
-        d[1:, :] |= g[:-1, :]; d[:-1, :] |= g[1:, :]; d[:, 1:] |= g[:, :-1]; d[:, :-1] |= g[:, 1:]
-        d &= ~g
-        p[d] = (60, 44, 30, 46)
-        coller(im, p, i * 44 + (44 - w) // 2, (44 - h) // 2)
-    S.sauver("kanji.png", im, (352, 44))
 
 
 def perle(im, x, y, t, etat):
@@ -570,7 +552,6 @@ if __name__ == "__main__":
     toast()
     rouleau()
     baguettes()
-    kanji_natures()
     perles()
     signe()
     bouton()

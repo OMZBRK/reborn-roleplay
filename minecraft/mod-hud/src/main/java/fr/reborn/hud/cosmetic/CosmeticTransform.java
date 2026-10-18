@@ -82,17 +82,32 @@ public final class CosmeticTransform {
      * est réduite pour tenir sur la partie du corps visée, la position dans l'espace
      * de l'os (Y vers le BAS après {@code translateAndRotate}). À affiner ensuite en
      * direct via le menu de repositionnement.
+     *
+     * <p><b>Tête = casque vanilla</b> (18/10) : voir {@link #casque()}.
      */
     public static CosmeticTransform defaultFor(Anchor anchor) {
         Anchor a = anchor != null ? anchor : Anchor.HEAD;
         return switch (a) {
-            case HEAD       -> new CosmeticTransform(a, 0.0f, 0.15f, -0.10f, 0f, 0f, 0f, 0.75f);
+            case HEAD       -> casque();
             case NECK       -> new CosmeticTransform(a, 0.0f, 0.10f, -0.05f, 0f, 0f, 0f, 0.65f);
             case TORSO      -> new CosmeticTransform(a, 0.0f, 0.00f,  0.00f, 0f, 0f, 0f, 0.90f);
             case PELVIS     -> new CosmeticTransform(a, 0.0f, 0.00f,  0.00f, 0f, 0f, 0f, 0.80f);
             case RIGHT_ARM, LEFT_ARM   -> new CosmeticTransform(a, 0.0f, 0.35f, 0f, 0f, 0f, 0f, 0.55f);
             case RIGHT_HAND, LEFT_HAND -> new CosmeticTransform(a, 0.0f, 0.45f, 0f, 0f, 0f, 0f, 0.50f);
         };
+    }
+
+    /**
+     * Placement d'un objet porté sur la tête comme dans l'emplacement casque vanilla ({@code CustomHeadLayer} :
+     * 0,25 bloc au-dessus du pivot du cou, retournement 180° sur Y puis échelle 0,625 / −0,625 / −0,625, soit 180° sur X
+     * et sur Y). Le rendu cosmétique passe ensuite en {@code ItemDisplayContext.HEAD}, donc la transformation
+     * {@code display.head} du modèle s'applique : un modèle réglé dans Blockbench pour la tête vanilla (bandeau, masque,
+     * chapeau…) tombe pile, sans réglage. L'ancrage {@code HEAD} décale déjà de 0,15 vers le haut ({@code anchorPose}),
+     * d'où −0,1 ici. Avant le 18/10, le défaut tête (sans retournement, échelle 0,75) posait ces modèles sur la
+     * poitrine, à l'envers.
+     */
+    public static CosmeticTransform casque() {
+        return new CosmeticTransform(Anchor.HEAD, 0.0f, -0.10f, 0.0f, 180f, 180f, 0f, 0.625f);
     }
 
     /**

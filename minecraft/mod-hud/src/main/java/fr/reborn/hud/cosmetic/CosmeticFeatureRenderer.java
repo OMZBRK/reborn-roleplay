@@ -68,6 +68,13 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
      */
     public static final Map<CosmeticSlot, SlotItem> ESSAI = new ConcurrentHashMap<>();
 
+    /**
+     * Aperçu de teinture (18/10, {@code TeintureScreen}) : couleur RGB posée sur le cosmétique porté par le joueur LOCAL,
+     * pour lui seul, le temps de l'écran ({@link #ORIGINE} = sans teinte : couleur par défaut du modèle). Jamais diffusé.
+     */
+    public static final Map<CosmeticSlot, Integer> APERCU_TEINTE = new ConcurrentHashMap<>();
+    public static final int ORIGINE = -2;
+
     public CosmeticFeatureRenderer(RenderLayerParent<AvatarRenderState, PlayerModel> parent,
                                    EntityModelSet models) {
         super(parent);
@@ -105,11 +112,29 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
         return CosmeticTransform.defaultFor(anchorForSlot(slot));
     }
 
-    /** Transform live d'un cosmétique, avec le défaut propre à son emplacement (étui). */
+    /**
+     * Défaut propre à un modèle, avant celui de l'emplacement (18/10). Les emplacements de tête prennent le placement
+     * du casque vanilla ({@link CosmeticTransform#casque()}) : bon d'office pour tout modèle réglé pour
+     * {@code display.head} (bandeau_ninja, masque_hannya, akatsuki_hat). L'oreillette radio (générée par script, centrée
+     * dans son bloc) irait au milieu de la tête : elle est posée sur l'oreille droite. Un repositionnement enregistré
+     * par le joueur reste prioritaire (local : {@code loadApplied} ; autres joueurs : transform diffusé).
+     */
+    private static CosmeticTransform defautModele(String id) {
+        if (id == null) return null;
+        String chemin = id.substring(id.indexOf(':') + 1);
+        if (chemin.equals("oreillette") || chemin.equals("item/oreillette")) {
+            return new CosmeticTransform(CosmeticTransform.Anchor.HEAD, -0.27f, -0.05f, 0.0f, 180f, 180f, 0f, 0.625f);
+        }
+        return null;
+    }
+
+    /** Transform live d'un cosmétique, avec le défaut propre à son modèle puis à son emplacement (étui, tête). */
     public static CosmeticTransform live(String id, CosmeticSlot slot) {
         return LIVE.computeIfAbsent(id, k -> {
             CosmeticTransform applied = CosmeticPresets.loadApplied(k);
-            return applied != null ? applied : defautPour(slot);
+            if (applied != null) return applied;
+            CosmeticTransform modele = defautModele(k);
+            return modele != null ? modele : defautPour(slot);
         });
     }
 
@@ -120,7 +145,9 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
     public static CosmeticTransform live(String id, CosmeticTransform.Anchor defaultAnchor) {
         return LIVE.computeIfAbsent(id, k -> {
             CosmeticTransform applied = CosmeticPresets.loadApplied(k);
-            return applied != null ? applied : CosmeticTransform.defaultFor(defaultAnchor);
+            if (applied != null) return applied;
+            CosmeticTransform modele = defautModele(k);
+            return modele != null ? modele : CosmeticTransform.defaultFor(defaultAnchor);
         });
     }
 
@@ -151,8 +178,11 @@ public class CosmeticFeatureRenderer extends RenderLayer<AvatarRenderState, Play
             if (equipped == null || equipped.isEmpty()) return;
             for (Map.Entry<CosmeticSlot, SlotItem> e : equipped.entrySet()) {
                 if (ESSAI.containsKey(e.getKey())) continue;   // la pièce essayée remplace celle de l'emplacement
+                SlotItem porte = e.getValue();
+                Integer apercu = APERCU_TEINTE.isEmpty() || porte == null ? null : APERCU_TEINTE.get(e.getKey());
+                if (apercu != null) porte = porte.avecTeinte(apercu == ORIGINE ? -1 : apercu);
                 renderCosmetic(poseStack, collector, light, state, model, resolver, living,
-                    e.getKey(), e.getValue(), null);
+                    e.getKey(), porte, null);
             }
             return;
         }

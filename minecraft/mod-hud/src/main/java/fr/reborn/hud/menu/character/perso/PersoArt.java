@@ -20,7 +20,7 @@ import java.util.Locale;
  * Textures de la sélection et de la création de personnage ({@code textures/gui/personnage/*}, générées par
  * {@code tools/gen_personnage_textures.py} d'après les maquettes validées) et outils de dessin : blits à échelle
  * entière (1 texel = 1 GUI), emblèmes à la résolution écran, halos, texte (ArcadePix ×1 / ×1,5 / ×0,5, Inter 7 à 16,
- * petites capitales, kanji 16 GUI). Même typographie que la fiche shinobi.
+ * petites capitales). Aucun kanji décoratif (règle du 14/10, retirés de la création le 18/10).
  */
 final class PersoArt {
 
@@ -150,7 +150,10 @@ final class PersoArt {
         blit(g, t.id(), x - 1, y + haut, u, ch - bas - 4, cw, bas + 4, tw, ch);
     }
 
-    /** Bouton-plaque (kanji cuit) + libellé ArcadePix ×0,5 ; etat 0 normal, 1 survol, 2 inactif. */
+    /**
+     * Bouton-plaque (sans kanji depuis le 18/10 : plaque nue) + libellé ArcadePix ×0,5 centré ; etat 0 normal,
+     * 1 survol, 2 inactif.
+     */
     static void bouton(GuiGraphicsExtractor g, Font f, int b, int etat, int x, int y, String libelle) {
         blit(g, BOUTONS, x - 1, y - 1, etat * 104, b * 24, B_W[b] + 4, 24, 312, 192);
         int col;
@@ -158,10 +161,11 @@ final class PersoArt {
         else if (etat == 2) col = 0xFF6A5C52;
         else col = (B_ROUGE[b] || etat == 1) ? CREME : 0xFFD8CCB0;
         String lib = libelle == null ? B_LIB[b] : libelle;
+        float cx = x + B_W[b] / 2f;
         if (Minecraft.getInstance().getWindow().getGuiScale() == 1) {
-            inter(g, f, interGras(sansAccents(lib)), x + 27, y + 10, 7, col, 0);   // place comptée pour ×0,5
+            inter(g, f, interGras(sansAccents(lib)), cx, y + 10, 7, col, 1);
         } else {
-            arcFin(g, f, arcade(lib), x + 27, y + 10 - 1.75f, col, 0, etat != 2);
+            arcFin(g, f, arcade(lib), cx, y + 10 - 1.75f, col, 1, etat != 2);
         }
     }
 
@@ -192,6 +196,16 @@ final class PersoArt {
 
     static void emblemeCentre(GuiGraphicsExtractor g, int index, float cx, float cy, int t, int argb) {
         embleme(g, index, cx - t / 2f, cy - t / 2f, t, argb);
+    }
+
+    /**
+     * Sceau vermillon du registre (récapitulatif), penché, centré en (cx, cy) : l'emblème d'index {@code index}
+     * (village ou clan, comme {@link #embleme}) réservé dans le tampon ; {@link PersoEmblemes#sceauKanji()} = l'ancien 認.
+     */
+    static void sceauRegistre(GuiGraphicsExtractor g, int index, int cx, int cy) {
+        int t = PersoEmblemes.SCEAU_GUI, r = PersoEmblemes.SCEAU_TEX;
+        etire(g, PersoEmblemes.sceaux(), cx - t / 2, cy - t / 2, t, t, index * r, 0, r, r, PersoEmblemes.sceauxW(), r,
+            0xFFFFFFFF);
     }
 
     /* ---- ornements ---- */
@@ -395,17 +409,6 @@ final class PersoArt {
             xx += f.width(c) * k + 0.6f;
         }
         return Math.max(0, xx - x - 0.6f);
-    }
-
-    /** Kanji 16 GUI (police du jeu ×2), centré en x, haut en y ; ombre d'1 GUI (0 = sans). */
-    static void kanji16(GuiGraphicsExtractor g, Font f, String kj, float cx, float yHaut, int col, int ombre) {
-        Component c = Component.literal(kj);
-        float w = f.width(c) * 2f;
-        float x = Math.round(cx - w / 2f);
-        LotGui.Textes t = LotGui.textes(g);                 // texte + ombre : un seul élément GUI
-        if (ombre != 0) texteEchelle(t, g, f, c, x + 1, Math.round(yHaut) + 1, ombre, 2f);
-        texteEchelle(t, g, f, c, x, Math.round(yHaut), col, 2f);
-        t.fermer();
     }
 
     /* ================================================================ aides (cabochons) */

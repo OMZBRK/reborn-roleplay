@@ -10,7 +10,8 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * {@code /meditation} — toggle meditation for the player. Implementation
+ * {@code /meditation} — toggle meditation for the player ; {@code /meditation aura [#RRGGBB|defaut]} (staff :
+ * {@code /meditation aura <joueur> <couleur>}) règle la couleur de l'aura. Implementation
  * lives in {@link com.reborn.shinobicore.character.MeditationManager};
  * this class is just the Bukkit command shim.
  */
@@ -25,6 +26,8 @@ public class MeditationCommand implements CommandExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd,
                              @NotNull String label, @NotNull String[] args) {
+        // /meditation aura … : couleur de l'aura (soi ; staff : un autre joueur).
+        if (plugin.meditation().commandeAura(sender, args)) return true;
         if (!(sender instanceof Player p)) {
             sender.sendMessage(Component.text("Réservé aux joueurs.", NamedTextColor.RED));
             return true;

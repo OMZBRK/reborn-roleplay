@@ -2,10 +2,8 @@
 """
 gen_duel_textures.py — textures du duel consenti (duel/DuelHud.java), version « HUD subtil » (retour du
 13/10 : « c'est gros, faut que ce soit subtil ») : plus de plaques ni de gros boutons, seulement trois
-petites pièces ; tout le reste est du texte posé par le code.
+petites pièces (deux depuis le 18/10 : le sceau kanji est retiré) ; tout le reste est du texte posé par le code.
 
-- sceau.png 12×12 : petit sceau vermillon carré (laque, biseau, ombre d'1 texel), sans kanji — le code
-  y pose 決 avec la police du jeu (8 unités), crème.
 - voile.png 64×16 : voile nuit très léger, lisse (dégradé d'alpha vers les bords), ÉTIRÉ au blit sous
   l'invitation et l'indicateur pour garder le texte lisible sur un ciel clair (DA §6 : étirement
   réservé aux textures lisses).
@@ -30,12 +28,6 @@ from ecrans_art import gf, hexc, rect, R_OR, nouveau  # noqa: E402
 S = ea.Sortie("duel", budget=40_000)
 
 
-def sceau():
-    im = nouveau(12, 12)
-    gf.hanko_px(im, 5, 5, None, 11, ea.R_VERM, seed=41, usure=0.04)
-    S.sauver("sceau.png", im, (12, 12))
-
-
 def voile():
     w, h = 64, 16
     x = (np.arange(w) + 0.5) / w
@@ -57,7 +49,6 @@ def pieces():
 
 
 if __name__ == "__main__":
-    sceau()
     voile()
     pieces()
     S.bilan()

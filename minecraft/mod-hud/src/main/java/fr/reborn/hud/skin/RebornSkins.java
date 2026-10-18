@@ -38,7 +38,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * </ul>
  *
  * <h3>Ordre des calques</h3>
- * peau → tatouage → tenue (Complet/Haut/Bas) → yeux → pilosité → <b>cheveux</b>.
+ * peau → tatouage → tenue (Complet/Haut/Bas) → yeux → <b>sourcils</b> → pilosité → <b>cheveux</b>.
+ * Sourcils (18/10) : calque {@code brows/Sourcils_Base} en niveaux de gris teinté par
+ * {@link SkinSpec#effectiveBrowColor()} ; les sourcils cuits du gabarit de peau sont repeints en peau.
  * Les cheveux passent en dernier : ils recouvrent le col de la tenue (logique RP).
  */
 public final class RebornSkins {
@@ -52,6 +54,9 @@ public final class RebornSkins {
 
     /** UUID joueur → identifiant de la texture composée enregistrée. */
     private static final Map<UUID, Identifier> overrides = new ConcurrentHashMap<>();
+
+    /** UUID joueur → apparence composée (pour recomposer quand un asset live arrive après coup). */
+    private static final Map<UUID, SkinSpec> specs = new ConcurrentHashMap<>();
 
     /** UUID joueur → carrure du perso composé ({@code true} = Alex/slim). */
     private static final Map<UUID, Boolean> slimModel = new ConcurrentHashMap<>();
@@ -115,7 +120,31 @@ public final class RebornSkins {
             return;
         }
         register(uuid, compose(spec));
-        slimModel.put(uuid, spec.slim);
+        slimModel.put(uuid, true);   // carrure fine (Alex) pour tous les persos composés depuis le 18/10
+        specs.put(uuid, spec);
+    }
+
+    /**
+     * Recompose les skins qui portent l'asset {@code folder/id} (reçu du serveur après leur composition). Thread
+     * client. Sans effet si personne ne le porte.
+     */
+    public static void recomposeUsing(String folder, String id) {
+        if (folder == null || id == null) return;
+        for (Map.Entry<UUID, SkinSpec> e : specs.entrySet()) {
+            SkinSpec s = e.getValue();
+            String porte = switch (folder) {
+                case "hair" -> s.hairId;
+                case "outfit" -> s.outfitId;
+                case "eyes" -> s.eyeId;
+                case "facial" -> s.facialId;
+                case "accessory" -> s.accessoryId;
+                default -> null;
+            };
+            if (!id.equals(porte)) continue;
+            // texture du joueur remplacée en place ; un override prêté (écrans de sélection) n'est pas touché
+            Minecraft.getInstance().getTextureManager().register(textureId(e.getKey()),
+                new DynamicTexture(() -> "reborn-skin", compose(s)));
+        }
     }
 
     /**
@@ -138,6 +167,8 @@ public final class RebornSkins {
         // 2) Yeux — iris (rouge) teinté 2 teintes, split gauche/droite (hétérochromie).
         overlayAsset(img, CharacterCatalog.byId("eyes", spec.eyeId),
             new int[] { spec.eyeColor, spec.eyeColorRight });
+        // 2 bis) Sourcils — calque gris teinté (couleur des cheveux par défaut), sous pilosité et frange.
+        overlayAsset(img, browLayer(), new int[] { spec.effectiveBrowColor() });
         // 3) Pilosité faciale.
         overlayAsset(img, CharacterCatalog.byId("facial", spec.facialId), new int[] { spec.facialColor });
         // 4) Cheveux — par-dessus le col de la tenue + la frange sur le front.
@@ -149,10 +180,18 @@ public final class RebornSkins {
         return img;
     }
 
+    /** Id du calque de sourcils (catalogue {@code brows}). */
+    public static final String BROW_ID = "Sourcils_Base";
+
+    /** Calque de sourcils du catalogue, ou {@code null} (repli : sourcils cuits repeints d'un aplat). */
+    private static Asset browLayer() { return CharacterCatalog.byId("brows", BROW_ID); }
+
     /**
      * Peau de base : recolore le <b>template de luminance</b> ({@code <genre>/N.png})
      * par {@link SkinSpec#skinColor} en préservant l'ombrage (facteur = luma /
-     * luma_médiane), et recolore les <b>sourcils cuits</b> par {@link SkinSpec#browColor}.
+     * luma_médiane). Les <b>sourcils cuits</b> du gabarit sont repeints en peau (luma du
+     * pixel au-dessus) : le calque {@code brows} les redessine ensuite ; sans ce calque,
+     * repli sur l'ancien aplat de {@link SkinSpec#effectiveBrowColor()}.
      * L'image est redécodée à neuf (mutable) puis mutée en place (alpha préservé).
      */
     private static NativeImage composeSkinBase(SkinSpec spec) {
@@ -165,19 +204,22 @@ public final class RebornSkins {
         NativeImage img;
         try {
             img = NativeImage.read(new ByteArrayInputStream(t.bytes));
+            BrasFins.versFin(img);   // gabarit peint en bras de 4 px → bras fins (3 px)
         } catch (Exception e) {
             NativeImage fb = new NativeImage(64, 64, false);
             fb.fillRect(0, 0, 64, 64, spec.skinColor);
             return fb;
         }
         int w = img.getWidth(), h = img.getHeight();
+        boolean calque = browLayer() != null;
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 int argb = img.getPixel(x, y);
                 if (((argb >>> 24) & 0xFF) == 0) continue;
                 int idx = y * 64 + x;
                 if (idx < t.brow.length && t.brow[idx]) {
-                    img.setPixel(x, y, spec.browColor);
+                    img.setPixel(x, y, calque ? tintSkin(spec.skinColor, t.browLum[idx], t.refLuma)
+                        : spec.effectiveBrowColor());
                 } else {
                     float lum = 0.299f * ((argb >> 16) & 0xFF)
                         + 0.587f * ((argb >> 8) & 0xFF) + 0.114f * (argb & 0xFF);
@@ -308,6 +350,8 @@ public final class RebornSkins {
 
     private static final Map<String, Tex> texCache = new ConcurrentHashMap<>();
     private static final Map<String, Mask> maskCache = new ConcurrentHashMap<>();
+    /** Coupe « bras fins » appliquée à un calque peint en bras de 4 px (clé dossier:id), reprise pour son masque. */
+    private static final Map<String, int[]> coupes = new ConcurrentHashMap<>();
     /** Sentinelle « pas de masque » pour éviter de relire un fichier absent. */
     private static final Mask NO_MASK = new Mask(new int[0], 0, 0);
 
@@ -316,18 +360,27 @@ public final class RebornSkins {
     }
 
     /** Vide les caches d'assets (après purge/réinjection runtime). */
-    static void clearAssetCache() { texCache.clear(); maskCache.clear(); }
+    static void clearAssetCache() { texCache.clear(); maskCache.clear(); coupes.clear(); }
 
     /** Invalide le cache d'un asset précis (réinjection runtime du même id). */
     static void invalidate(String folder, String id) {
         texCache.remove(folder + ":" + id);
         maskCache.remove(folder + ":" + id);
+        coupes.remove(folder + ":" + id);
     }
 
     private static Tex decodeTex(Asset asset) {
         try (InputStream in = CharacterCatalog.openAsset(asset.texturePath())) {
             if (in == null) { LOGGER.warn("asset introuvable : {}", asset.texturePath()); return null; }
             NativeImage ni = NativeImage.read(in);
+            // calque peint en bras de 4 px (asset live du staff, ancien dessin) → bras fins, même coupe pour son masque
+            int[] coupe = BrasFins.versFin(ni);
+            if (coupe != null) {
+                coupes.put(asset.folder + ":" + asset.id, coupe);
+                LOGGER.info("asset {} : bras de 4 px convertis en bras fins (colonnes {}/{})", asset.id, coupe[0], coupe[1]);
+            } else {
+                coupes.remove(asset.folder + ":" + asset.id);
+            }
             List<int[]> ps = new ArrayList<>();
             float refLuma = 1f;
             int refRed = 1;
@@ -364,6 +417,7 @@ public final class RebornSkins {
         try (InputStream in = CharacterCatalog.openAsset(asset.maskPath())) {
             if (in == null) return NO_MASK; // pas de masque → tenue affichée telle que peinte
             NativeImage ni = NativeImage.read(in);
+            BrasFins.convertir(ni, coupes.get(asset.folder + ":" + asset.id));
             int w = ni.getWidth(), h = ni.getHeight();
             int[] grid = new int[w * h];
             for (int y = 0; y < h; y++)
@@ -379,8 +433,11 @@ public final class RebornSkins {
 
     // ── Template de peau (luminance + sourcils) ───────────────────────
 
-    /** Template de peau décodé : octets PNG (re-décodés à chaud), luma médiane, sourcils. */
-    private record SkinTemplate(byte[] bytes, float refLuma, boolean[] brow) {}
+    /**
+     * Template de peau décodé : octets PNG (re-décodés à chaud), luma médiane, sourcils et, pour chaque pixel de
+     * sourcil, la luma de la peau à poser à sa place (pixel au-dessus).
+     */
+    private record SkinTemplate(byte[] bytes, float refLuma, boolean[] brow, float[] browLum) {}
 
     private static final Map<String, SkinTemplate> skinTemplates = new ConcurrentHashMap<>();
 
@@ -424,9 +481,24 @@ public final class RebornSkins {
                     if (lum < browThresh) brow[y * 64 + x] = true;
                 }
             }
+            // Peau sous les sourcils : luma du premier pixel non-sourcil au-dessus (front), sinon la médiane.
+            float[] browLum = new float[64 * 64];
+            for (int y = 8; y < 16 && y < h; y++) {
+                for (int x = 8; x < 16 && x < w; x++) {
+                    if (!brow[y * 64 + x]) continue;
+                    float l = refLuma;
+                    for (int yy = y - 1; yy >= 8; yy--) {
+                        if (brow[yy * 64 + x]) continue;
+                        int a = ni.getPixel(x, yy);
+                        l = 0.299f * ((a >> 16) & 0xFF) + 0.587f * ((a >> 8) & 0xFF) + 0.114f * (a & 0xFF);
+                        break;
+                    }
+                    browLum[y * 64 + x] = l;
+                }
+            }
             ni.close();
             LOGGER.info("template peau {} (luma médiane={})", key, Math.round(refLuma));
-            return new SkinTemplate(bytes, refLuma, brow);
+            return new SkinTemplate(bytes, refLuma, brow, browLum);
         } catch (Exception e) {
             LOGGER.warn("décodage template peau {} échec : {}", key, e.getMessage());
             return null;
@@ -447,10 +519,13 @@ public final class RebornSkins {
     }
 
     /** Enregistre l'image composée comme texture dynamique et mémorise l'override. */
+    private static Identifier textureId(UUID uuid) {
+        return Identifier.fromNamespaceAndPath("reborn", "skins/" + uuid.toString().replace("-", ""));
+    }
+
     public static void register(UUID uuid, NativeImage composed) {
         Minecraft mc = Minecraft.getInstance();
-        Identifier id = Identifier.fromNamespaceAndPath(
-            "reborn", "skins/" + uuid.toString().replace("-", ""));
+        Identifier id = textureId(uuid);
         mc.getTextureManager().register(id, new DynamicTexture(() -> "reborn-skin", composed));
         overrides.put(uuid, id);
     }
@@ -472,11 +547,13 @@ public final class RebornSkins {
     public static void clear(UUID uuid) {
         overrides.remove(uuid);
         slimModel.remove(uuid);
+        specs.remove(uuid);
     }
 
     public static void clearAll() {
         overrides.clear();
         slimModel.clear();
+        specs.clear();
     }
 
     private static int clampIdx(int i, int len) {

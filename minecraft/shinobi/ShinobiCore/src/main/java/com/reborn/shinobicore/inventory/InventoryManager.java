@@ -52,7 +52,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Canal {@code reborn:inventory}. C2S : {@code open}, {@code swap:<A>:<B>} (A/B = {@code H0..H8} barre ou
  * {@code B0..Bn} sac), {@code bag:equip:<ref>} / {@code bag:unequip}, {@code cos:equip:<ref>:<SLOT>} /
- * {@code cos:unequip:<SLOT>}, {@code arme:equip:<ref>} / {@code arme:unequip} / {@code arme:basculer} (dégainer ou
+ * {@code cos:unequip:<SLOT>}, {@code cos:dye:<SLOT>:<RRGGBB|origine>} (teinture du tissu, 18/10), {@code arme:equip:<ref>} / {@code arme:unequip} / {@code arme:basculer} (dégainer ou
  * rengainer), {@code drop:<ref>}, {@code del:<ref>}, {@code use:<ref>}, {@code pick:<uuid de l'objet au sol>}. S2C :
  * JSON (capacité, contenu du sac, équipements, {@code ouvrir}, {@code lecture}, {@code palier}).
  *
@@ -443,8 +443,65 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         if (RareteItems.unique(s)) b.append(",\"unique\":true");
         if (com.reborn.shinobicore.monnaie.Bourse.est(s)) b.append(",\"ryo\":").append(com.reborn.shinobicore.monnaie.Bourse.montant(s));
         if (leaf) b.append(",\"action\":{\"id\":\"tirage\",\"label\":\"Faire le test\"}");
+        appendTeinture(b, s, true);
         b.append('}');
         return b.toString();
+    }
+
+    // ─────────── Teinture (18/10) ───────────
+    /**
+     * Ajoute la couleur du composant {@code minecraft:dyed_color} ({@code "dye":"RRGGBB"}) et, si {@code teintable},
+     * {@code "teinte":true} pour les objets dont le tissu se teint (bandeaux : {@code inventaire.teinture.ids}).
+     */
+    private void appendTeinture(StringBuilder b, ItemStack s, boolean teintable) {
+        int rgb = couleur(s);
+        if (rgb >= 0) b.append(",\"dye\":\"").append(String.format(Locale.ROOT, "%06X", rgb)).append('"');
+        if (teintable && InventaireConfig.get(plugin).teintable(RareteItems.itemId(s))) b.append(",\"teinte\":true");
+    }
+
+    /** Couleur RGB du composant dyed_color, ou −1. */
+    private static int couleur(ItemStack s) {
+        try {
+            if (s == null || !s.hasData(io.papermc.paper.datacomponent.DataComponentTypes.DYED_COLOR)) return -1;
+            io.papermc.paper.datacomponent.item.DyedItemColor d =
+                    s.getData(io.papermc.paper.datacomponent.DataComponentTypes.DYED_COLOR);
+            return d == null ? -1 : d.color().asRGB() & 0xFFFFFF;
+        } catch (Throwable t) {
+            return -1;
+        }
+    }
+
+    /**
+     * Teint le cosmétique porté dans {@code cs} : {@code valeur} = {@code RRGGBB}, ou {@code origine} (retire la teinte :
+     * le modèle reprend sa couleur par défaut). Libre (aucun coût, aucune teinture à posséder). Renvoie la ligne de
+     * journal, ou null si rien n'a changé (objet absent, non teintable, valeur invalide, même couleur).
+     */
+    private String teindre(Player p, RpBag b, CosmeticSlot cs, String valeur) {
+        ItemStack it = b.equipped().get(cs);
+        if (isEmpty(it) || !InventaireConfig.get(plugin).teintable(RareteItems.itemId(it))) return null;
+        int avant = couleur(it);
+        String apres;
+        try {
+            if ("origine".equalsIgnoreCase(valeur)) {
+                if (avant < 0) return null;
+                it.resetData(io.papermc.paper.datacomponent.DataComponentTypes.DYED_COLOR);
+                apres = "couleur d'origine";
+            } else {
+                String h = valeur.startsWith("#") ? valeur.substring(1) : valeur;
+                if (!h.matches("[0-9A-Fa-f]{6}")) return null;
+                int rgb = Integer.parseInt(h, 16);
+                if (rgb == avant) return null;
+                it.setData(io.papermc.paper.datacomponent.DataComponentTypes.DYED_COLOR,
+                        io.papermc.paper.datacomponent.item.DyedItemColor.dyedItemColor(org.bukkit.Color.fromRGB(rgb)));
+                apres = "#" + h.toUpperCase(Locale.ROOT);
+            }
+        } catch (Throwable t) {
+            plugin.getLogger().warning("Teinture impossible (" + cs + ") : " + t);
+            return null;
+        }
+        b.equipped().put(cs, it);
+        return RareteItems.nom(it) + " (" + cs.name().toLowerCase(Locale.ROOT) + ") : "
+                + (avant >= 0 ? String.format(Locale.ROOT, "#%06X", avant) : "couleur d'origine") + " → " + apres;
     }
 
     // ─────────── Diffusion des cosmétiques (S2C, visibles entre joueurs) ───────────
@@ -526,6 +583,7 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         b.append("{\"mat\":\"").append(esc(mat)).append('"');
         if (model != null) b.append(",\"model\":\"").append(esc(model)).append('"');
         if (tf != null && !tf.isEmpty()) b.append(",\"t\":\"").append(esc(tf)).append('"');
+        appendTeinture(b, s, false);   // couleur du tissu : les autres voient la même teinte
         b.append('}');
         return b.toString();
     }
@@ -608,6 +666,7 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         }
         // Journal universel : objet utilisé (nom lu avant l'action, qui peut le consommer).
         String utilise = cmd.equals("use") && parts.length >= 2 ? journalNom(refGet(p, b, parts[1])) : null;
+        String teinture = null;   // cos:dye:<SLOT>:<RRGGBB|origine> (18/10) : ligne de journal si la couleur a changé
         boolean changed = false;
         boolean touched = true; // repousse un snapshot frais après toute action (resync)
         switch (cmd) {
@@ -626,6 +685,10 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
                 } else if (parts.length >= 3 && parts[1].equals("unequip")) {
                     CosmeticSlot cs = CosmeticSlot.fromName(parts[2]);
                     if (cs != null) changed = unequipCos(p, b, cs);
+                } else if (parts.length >= 4 && parts[1].equals("dye")) {
+                    CosmeticSlot cs = CosmeticSlot.fromName(parts[2]);
+                    if (cs != null) teinture = teindre(p, b, cs, parts[3]);
+                    changed = teinture != null;
                 }
                 // Un cosmétique a changé → rediffuse à tous pour une MAJ live
                 // (visible entre joueurs sans reconnexion).
@@ -653,8 +716,8 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
         }
         if ((changed && (cmd.equals("bag") || cmd.equals("cos") || cmd.equals("arme"))) || utilise != null) {
             com.reborn.shinobicore.journal.Journal.entree(com.reborn.shinobicore.api.JournalService.Categorie.INVENTAIRE,
-                    utilise != null ? "UTILISE" : "EQUIPEMENT").acteur(p)
-                    .detail(utilise != null ? utilise : msg).lieu(p.getLocation()).ecrire();
+                    utilise != null ? "UTILISE" : teinture != null ? "TEINTURE" : "EQUIPEMENT").acteur(p)
+                    .detail(utilise != null ? utilise : teinture != null ? teinture : msg).lieu(p.getLocation()).ecrire();
         }
         if (changed) persist(p, b);
         if (touched) {

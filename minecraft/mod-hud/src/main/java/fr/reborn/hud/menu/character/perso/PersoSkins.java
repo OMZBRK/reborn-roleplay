@@ -40,7 +40,8 @@ final class PersoSkins {
 
     /** Idem avec la clé {@code spec.serialize()} déjà calculée. */
     Identifier get(String cle, SkinSpec spec, boolean mort) {
-        String key = (mort ? "m|" : "v|") + cle;
+        // génération du catalogue dans la clé : un skin composé avant l'arrivée des assets live est refait
+        String key = (mort ? "m|" : "v|") + fr.reborn.hud.skin.CharacterCatalog.generation() + "|" + cle;
         Identifier id = cache.get(key);
         if (id != null) return id;
         NativeImage img;

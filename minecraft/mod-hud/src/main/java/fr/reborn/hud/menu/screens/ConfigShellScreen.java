@@ -25,8 +25,8 @@ import java.util.List;
 /**
  * Écran Paramètres Reborn, au niveau de la fiche shinobi (DA §4.1, §6). Signature : le byōbu, paravent à feuilles
  * d'or déplié dans une pièce de laque, la nuit ; devant lui, la planche laquée des réglages. En-tête suspendu
- * « PARAMÈTRES », huit onglets pendus à kanji (Vidéo 映, Audio 音, Contrôles 操, Caméra 写, Interface 面, Discord 話,
- * Compte 名, Minecraft 箱), plaque 閉 pour revenir (ou Échap). Le contenu de la catégorie active défile dans la
+ * « PARAMÈTRES », huit onglets pendus (plaquette à picto pixel art, libellé dessous ; plus de kanji depuis le 18/10),
+ * plaque à croix pour revenir (ou Échap). Le contenu de la catégorie active défile dans la
  * planche.
  *
  * <p>Chaque catégorie ne propose que des réglages <b>réellement câblés</b> (client-side, via {@code mc.options} ou les
@@ -46,7 +46,7 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
     private static final int BOTTOM_MARGIN = 20;
     private static final int SCROLLBAR_MIN_THUMB = 24;
 
-    private record CategoryDef(String id, String label, String kanji, SettingsTab tab) {}
+    private record CategoryDef(String id, String label, SettingsTab tab) {}
 
     private int scrollY = 0;
     private List<AbstractWidget> contentWidgets = List.of();
@@ -65,14 +65,14 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
         this.parent = parent;
         RebornPrefs.INSTANCE.ensureLoaded();
         this.categories = new CategoryDef[] {
-            new CategoryDef("video", "Video", "映", new VideoTab(this)),
-            new CategoryDef("audio", "Audio", "音", new AudioTab()),
-            new CategoryDef("controls", "Controles", "操", new ControlsTab(this)),
-            new CategoryDef("camera", "Camera", "写", new CameraTab(this)),
-            new CategoryDef("interface", "Interface", "面", new InterfaceTab(this)),
-            new CategoryDef("discord", "Discord", "話", new DiscordTab()),
-            new CategoryDef("account", "Compte", "名", new AccountTab()),
-            new CategoryDef("minecraft", "Minecraft", "箱", new MinecraftTab(this)),
+            new CategoryDef("video", "Video", new VideoTab(this)),
+            new CategoryDef("audio", "Audio", new AudioTab()),
+            new CategoryDef("controls", "Controles", new ControlsTab(this)),
+            new CategoryDef("camera", "Camera", new CameraTab(this)),
+            new CategoryDef("interface", "Interface", new InterfaceTab(this)),
+            new CategoryDef("discord", "Discord", new DiscordTab()),
+            new CategoryDef("account", "Compte", new AccountTab()),
+            new CategoryDef("minecraft", "Minecraft", new MinecraftTab(this)),
         };
         this.activeIdx = Math.max(0, Math.min(categories.length - 1, initialIdx + ongletBanc()));
     }
@@ -182,7 +182,7 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
 
         ReglagesArt.planche(ctx, plancheX(), PLANCHE_Y, plancheW(), plancheH());
 
-        // Onglets pendus (sous l'en-tête) : plaquette à kanji, libellé ArcadePix ×0,5 dessous.
+        // Onglets pendus (sous l'en-tête) : plaquette à picto, libellé ArcadePix ×0,5 dessous.
         int hov = tabAt(mouseX, mouseY);
         hoveredTab = hov;
         for (int i = 0; i < categories.length; i++) {
@@ -190,15 +190,14 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
             boolean active = i == activeIdx, hot = i == hov && !active;
             ReglagesArt.onglet(ctx, tx, TAB_ATTACHE, active ? 2 : hot ? 1 : 0);
             int ty = TAB_ATTACHE + 8 + (active ? 2 : 0);
-            DaKit.kanji16(ctx, f, categories[i].kanji, tx, ty + 3, active ? DaKit.CREME_KJ : hot ? DaKit.OR_CLAIR : DaKit.OR,
-                active ? 0xFF140608 : 0);
+            ReglagesArt.ongletPicto(ctx, i, tx, ty + 3, active ? 2 : hot ? 1 : 0);
             DaKit.arcFin(ctx, f, DaKit.arcade(categories[i].label), tx, ty + 26, active ? DaKit.CREME : hot ? 0xFFE8DCC0
                 : 0xFFA88C5E, 1, active);
         }
         ReglagesArt.entete(ctx, cx);
         DaKit.arcX1(ctx, f, DaKit.arcade("Parametres"), cx, 19, DaKit.CREME, 1, true);
 
-        // Plaque 閉 (retour) en haut à droite, touche Échap dessous.
+        // Plaque à croix (retour) en haut à droite, touche Échap dessous.
         boolean backHover = overBack(mouseX, mouseY);
         ReglagesArt.fermer(ctx, fermerX(), backHover);
         DaKit.arcFin(ctx, f, DaKit.arcade("Echap"), fermerX(), 41, backHover ? DaKit.CREME : 0xFFA88C5E, 1, false);
@@ -270,7 +269,7 @@ public class ConfigShellScreen extends Screen implements fr.reborn.hud.ui.EcranO
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x(), mouseY = event.y(); int button = event.button();
         if (button == 0) {
-            // Plaque 閉 = retour.
+            // Plaque à croix = retour.
             if (overBack(mouseX, mouseY)) {
                 onClose();
                 return true;

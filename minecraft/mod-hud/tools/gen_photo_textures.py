@@ -4,7 +4,7 @@ gen_photo_textures.py — textures du mode photo (ui/PhotoModeScreen) au niveau 
 §6), version épurée. Le mode photo « façon viseur » a plu (DA §4) : on garde le viseur, on le dessine au kit.
 
 Signature de l'écran (conservée) : le viseur — équerres d'angle à l'encre et à l'or, grille des tiers, cercle
-central — et le déclencheur rond de laque vermillon cerclé d'or. Cartouche « Mode photo » au sceau 撮, panneau
+central — et le déclencheur rond de laque vermillon cerclé d'or. Cartouche « Mode photo » (sans sceau), panneau
 laqué étroit des réglages à droite, tirages des dernières photos en bas à gauche.
 
 1 texel = 1 GUI. Le texte est posé par le code (DaKit).
@@ -13,8 +13,8 @@ Usage (depuis minecraft/mod-hud) :  python tools/gen_photo_textures.py
 
 Contrat :
 - panneau.png 108×230 : panneau laqué 100×222 en (2, 2).
-- cartouche.png 164×38 : plaque 156×30 en (2, 2), sceau 撮 20×20 centré en (17, 17) ; texte posé par le code à
-  partir de x 32.
+- cartouche.png 164×38 : plaque 156×30 en (2, 2), sans sceau (aucun kanji depuis le 18/10, DA §3) ; texte posé
+  par le code à partir de x 12.
 - declencheur.png 72×36 : 2 cellules 36×36 (repos, survol), centre en (18, 18) de chaque cellule, rayon 15.
 - coins.png 64×16 : équerre d'angle 16×16 haut gauche (0, 0), haut droit (16, 0), bas gauche (32, 0), bas droit
   (48, 0).
@@ -43,7 +43,6 @@ def cartouche():
     im = nouveau(164, 38)
     fa.panneau_opacite(im, 2, 2, 156, 30, 0.94, seed=72, kanagu_=False, eclats=False)
     fa.ferrures3(im, 2, 2, 156, 30)
-    gf.hanko_px(im, 17, 17, "撮", 20, fa.R_VERM, seed=4, usure=0.06)
     S.sauver("cartouche.png", im, (164, 38))
 
 

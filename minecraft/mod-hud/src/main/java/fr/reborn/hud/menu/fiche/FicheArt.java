@@ -106,13 +106,14 @@ final class FicheArt {
     static final Identifier MAT = tex("mat");
     static final Identifier SEUIL = tex("seuil");
     static final Identifier ORNEMENTS = tex("ornements");
-    static final Identifier PLAQUES = tex("plaques");
     static final Identifier LIGNE_CHOISIE = tex("ligne_choisie");
     static final Identifier CARTE_BLESSURE = tex("carte_blessure");
     static final Identifier MECHES = tex("meches");
     static final Identifier KUMIHIMO = tex("kumihimo");
     static final Identifier CABOCHON = tex("cabochon");
     static final Identifier HANKO = tex("hanko");
+    /** Pictos des onglets (identité, attributs, techniques, état) × état : cellules 16×16, u = (onglet·3 + état)·16. */
+    static final Identifier ONGLETS_PICTOS = tex("onglets_pictos");
 
     /** Crans d'éclat pré-dessinés des lanternes (colonnes des atlas lanternes_s / lanternes_l). */
     static final float[] CRANS = {0.45f, 0.70f, 0.80f, 0.875f, 0.94f, 1.00f};
@@ -155,23 +156,18 @@ final class FicheArt {
         blit(ctx, ORNEMENTS, cx - 8, y, 64, 0, 16, 5, 80, 8);
     }
 
-    /* ---- plaques.png ---- */
-    static void plaqueMudra(GuiGraphicsExtractor ctx, int x, int y) { blit(ctx, PLAQUES, x, y, 0, 0, 23, 23, 64, 24); }
-
-    static void plaqueMerite(GuiGraphicsExtractor ctx, int x, int y) { blit(ctx, PLAQUES, x, y, 24, 0, 21, 21, 64, 24); }
-
-    static void plaqueMaitre(GuiGraphicsExtractor ctx, int x, int y) { blit(ctx, PLAQUES, x, y, 46, 0, 13, 13, 64, 24); }
-
     /* ---- hanko.png : sceaux 18×18 (cellules 20×20) ---- */
-    static final int H_CLANS = 0, H_NATURES = 1, H_SERVICE = 2, H_STATS = 3, H_BLESSURES = 4;
-    static final int H_SERVICE_VIERGE = 11, H_RANG_D = 6, H_BASE = 11;
+    /** Rangées utilisées depuis le 18/10 (plus aucun kanji) : 3 = rangs D…S + technique de base, 4 = pictos de
+     *  blessure. Les rangées 0-2 (clans, natures et titres d'état, service) sont vides. */
+    static final int H_STATS = 3, H_BLESSURES = 4;
+    static final int H_RANG_D = 6, H_BASE = 11;
 
     /** Sceau de l'atlas centré sur (cx, cy) (le sceau de 18 GUI occupe cx−9 … cx+8). */
     static void hanko(GuiGraphicsExtractor ctx, int col, int row, int cx, int cy) {
         blit(ctx, HANKO, cx - 9, cy - 9, col * 20, row * 20, 20, 20, 240, 100);
     }
 
-    /** Sceau de rang (D, C, B, A, S, sinon 基) centré. */
+    /** Sceau de rang (D, C, B, A, S, sinon le sceau papier « de base ») centré. */
     static void sceauRang(GuiGraphicsExtractor ctx, String lettre, int cx, int cy) {
         int col = switch (lettre == null ? "" : lettre) {
             case "D" -> 6;
@@ -313,11 +309,6 @@ final class FicheArt {
         blit(ctx, p.id(), x - 4, y - 84, 0, 0, tw, haut, tw, th);
         int vBas = haut + coupe;
         blit(ctx, p.id(), x - 4, y - 84 + haut, 0, vBas, tw, th - vBas, tw, th);
-    }
-
-    /** Kanji du bandeau-titre d'une planche (16 GUI, or, ombré), à droite. */
-    static void kanjiTitre(GuiGraphicsExtractor ctx, Font f, String kj, int x, int y) {
-        kanji16(ctx, f, kj, x + PW - 20, y + 8, R_OR[6], 0xFF3A0A12);
     }
 
     /** Perches de bambou : gauche de 0 à xd (embout à droite), droite de xg à w (embout à gauche), y 55. */
@@ -524,37 +515,6 @@ final class FicheArt {
             texteEchelle(ctx, f, e.lettres()[i], x + e.dx()[i], ymil - INTER7_MIL, col, S7);
         }
         return e.w();
-    }
-
-    /** Kanji 16 GUI (police du jeu ×2 : 1 px d'unifont = 1 GUI), centré en x, haut en y ; ombre d'1 GUI (0 = sans). */
-    static void kanji16(GuiGraphicsExtractor ctx, Font f, String kj, float cx, float yHaut, int col, int ombre) {
-        if (kj == null || kj.isEmpty()) return;
-        Component c = Component.literal(kj);
-        float w = f.width(c) * 2f;
-        float x = Math.round(cx - w / 2f);
-        if (ombre != 0) texteEchelle(ctx, f, c, x + 1, Math.round(yHaut) + 1, ombre, 2f);
-        texteEchelle(ctx, f, c, x, Math.round(yHaut), col, 2f);
-    }
-
-    /** Kanji 16 GUI calé à gauche ; renvoie la largeur. */
-    static float kanji16g(GuiGraphicsExtractor ctx, Font f, String kj, float x, float yHaut, int col, int ombre) {
-        if (kj == null || kj.isEmpty()) return 0;
-        Component c = Component.literal(kj);
-        float w = f.width(c) * 2f;
-        if (ombre != 0) texteEchelle(ctx, f, c, Math.round(x) + 1, Math.round(yHaut) + 1, ombre, 2f);
-        texteEchelle(ctx, f, c, Math.round(x), Math.round(yHaut), col, 2f);
-        return w;
-    }
-
-    /** Kanji 8 GUI (police du jeu), centré en x, haut en y. */
-    static void kanji(GuiGraphicsExtractor ctx, Font f, String kj, float cx, float yHaut, int col) {
-        if (kj == null || kj.isEmpty()) return;
-        Component c = Component.literal(kj);
-        float w = f.width(c);
-        ctx.pose().pushMatrix();
-        ctx.pose().translate(cale(cx - w / 2f), cale(yHaut));
-        ctx.text(f, c, 0, 0, col, false);
-        ctx.pose().popMatrix();
     }
 
     /** Paragraphe découpé (calculé une fois) : lignes Inter à l'échelle s, interligne en GUI. */

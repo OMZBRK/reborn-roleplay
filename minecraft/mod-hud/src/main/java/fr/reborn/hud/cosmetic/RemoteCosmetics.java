@@ -70,7 +70,9 @@ public final class RemoteCosmetics {
                 String model = strOr(io, "model", null);
                 String tf = strOr(io, "t", null);
                 CosmeticTransform transform = tf != null ? CosmeticTransform.deserialize(tf) : null;
-                map.put(cs, new Remote(new SlotItem(mat, model, 1, null, 0.0), transform));
+                SlotItem item = new SlotItem(mat, model, 1, null, 0.0);
+                item.dye = fr.reborn.hud.menu.inventory.InventoryData.teinte(strOr(io, "dye", null));   // teinture (18/10)
+                map.put(cs, new Remote(item, transform));
             }
             if (map.isEmpty()) REMOTE.remove(id);
             else REMOTE.put(id, map);

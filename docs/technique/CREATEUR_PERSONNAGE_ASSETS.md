@@ -28,6 +28,33 @@ jamais : un perso garde son apparence même si redevenu non-éligible. Défauts 
 tenues `Complet_*Uchiha*/Sasuke/Obito` → clan **Uchiha** ; `Complet_Sakura/Tsunade`
 + cheveux `Cheveux_Tsunade/SakuraAgee` → **femmes**. Modifiable en 1 ligne dans le JSON.
 
+### Bras fins pour tous (18/10) — règle pour le staff : **dessiner les bras en 3 px**
+Depuis le 18/10 **tous** les personnages composés (Homme comme Femme, nouveaux et existants) sont en **carrure fine
+(modèle Alex, bras de 3 px)** ; le choix Large/Steve n'existe plus (`SkinSpec.slim` vaut toujours vrai, une apparence
+enregistrée « large » est relue en fine, `serialize()` écrit toujours `1`). **Tout nouveau calque (tenue, haut,
+sous-vêtement, tatouage…) se dessine sur le gabarit Alex** : sur chaque bras (bras droit `40,16`, gauche `32,48`,
+manches `40,32` et `48,48`) — dessus `4..6`, dessous `7..9`, côté extérieur `0..3`, avant `4..6`, côté intérieur
+`7..10`, arrière `11..13` ; colonnes `14-15` (et `10-11` des 4 rangées du haut) **laissées vides**.
+- **Filet de sécurité** : un calque peint en bras de 4 px (gabarit Steve) est reconnu (colonnes 14-15 remplies autant
+  que 12-13) et **converti à la volée** par le compositeur (`skin/BrasFins.java`, appelé par `RebornSkins` au décodage
+  du gabarit de peau, de chaque asset — live du serveur compris — et de son `_Mask`) : une colonne du milieu (1 ou 2 vue
+  de face, la moins utile, la même pour le bras et sa manche, la colonne miroir à l'arrière) est retirée des faces
+  avant, dessus, dessous et arrière. Le log client l'annonce (`asset <id> : bras de 4 px convertis en bras fins`).
+  Pour un rendu soigné, mieux vaut redessiner en 3 px : la conversion ne choisit pas les détails à garder.
+- **Exception** : un dessin déjà fin dont la zone inutilisée est bouchée d'**une seule couleur unie** (habitude des
+  skins Alex « élargis » à la couleur de peau, ex. `Complet_Ceremonie2`) n'est pas converti.
+- **Script hors ligne, même règle** : `minecraft/mod-hud/tools/bras_fins.py` (`--dry-run` pour lister ; sans argument :
+  tout `assets/reborn/textures/character`) ; originaux gardés dans `tools/bras_fins_originaux/`. Le 18/10 il a converti
+  les **20 gabarits de peau** (`skin/male/0..9`, `skin/female/0..9`, peints en 4 px) ; les 59 tenues du mod et les
+  coiffures live du serveur étaient déjà au gabarit fin (aucune n'a perdu de pixel utile).
+- Banc : `REBORN_SLIM_DEBUG=<étiquette>` (+ `REBORN_CREATOR_ASSETS=<dossier>` pour rejouer un asset live), captures
+  `Maquettes/gameplan/homme_slim/`.
+
+### Sourcils (`brows`, 18/10)
+Calque unique `brows/Sourcils_Base.png` (`tools/gen_sourcils.py`, niveaux de gris, `tint: all`), posé après les yeux,
+teint par `SkinSpec.effectiveBrowColor()` (couleur des cheveux si `browFollowHair`). Pas de choix de forme pour l'instant
+(non diffusé par `creator-assets/`). Détail : [`../gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md) §4 bis.
+
 ### Ordre des calques (`RebornSkins.compose`)
 peau → tatouage → **tenue** → yeux → pilosité → **cheveux (dernier)**. Les cheveux
 passent **par-dessus la tenue** (col) et par-dessus les yeux (frange) — conforme à
@@ -191,7 +218,8 @@ Réf `d:/REBORN - PJ/REF - ALL/renduselectioncaractere.png`. Problèmes actuels 
 - **Peau = cycleur de style** (plus de color-picker) : `SkinSpec.skinStyle` (0..9),
   `SKIN_TONES=10`. `facetHasColor(cat 0)=false`, `facetHasStyle(cat 0)=true`.
 - **Genre → dossier** : `SkinSpec.female` choisit `male/` ou `female/`.
-- **Carrure (Classique/Alex)** = `SkinSpec.slim`. **Indépendante du genre côté Homme**
+- ~~**Carrure (Classique/Alex)**~~ (remplacé le 18/10 : carrure fine pour tous, voir « Bras fins pour tous » plus
+  haut). Historique : `SkinSpec.slim`. **Indépendante du genre côté Homme**
   (toggle « CARRURE » dans l'éditeur Corps, touche **S**) ; **Femme = Alex imposé**.
   Les PNG slim (`speau*`) livrés par le user sont **byte-identiques** aux classiques →
   **une seule texture/genre suffit** ; « slim » ne change **que le modèle** du

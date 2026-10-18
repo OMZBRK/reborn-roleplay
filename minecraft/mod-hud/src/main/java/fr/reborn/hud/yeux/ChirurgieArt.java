@@ -18,7 +18,7 @@ import java.util.Locale;
  * Habillage de la chirurgie des yeux au niveau de la fiche shinobi (DA §4.1) : textures {@code textures/gui/yeux/*}
  * générées par {@code tools/gen_chirurgie_textures.py} (contrat des tailles et ancres en tête du script), affichées
  * à 1 texel = 1 GUI en un blit ; et la typographie de la fiche (ArcadePix ×1 et ×0,5, Inter 9 / 8 / 7, étiquettes en
- * petites capitales, kanji 16 GUI, touches en cabochons). Le code ne dessine que ce qui bouge.
+ * petites capitales, touches en cabochons ; aucun kanji depuis le 18/10). Le code ne dessine que ce qui bouge.
  */
 final class ChirurgieArt {
 
@@ -28,7 +28,7 @@ final class ChirurgieArt {
 
     static final int OR = 0xFFD9A95E, OR_CLAIR = 0xFFF2D08A, OR_ETEINT = 0xFF8E6A30, OR_ETIQ = 0xFFA8844A;
     static final int CREME = 0xFFF5E9D0, CREME_VAL = 0xFFE8DCC0, DOUX = 0xFFC2B59A, ROUGE = 0xFFA0182B;
-    static final int ROUGE_VIF = 0xFFE04848, SEP = 0xFF2D181C, REPOS = 0xFFA88C5E, OMBRE_KJ = 0xFF3A0A12;
+    static final int ROUGE_VIF = 0xFFE04848, SEP = 0xFF2D181C, REPOS = 0xFFA88C5E;
     static final int[] R_OR = {0xFF2E2210, 0xFF4A3518, 0xFF6A4E24, 0xFF8E6A30, 0xFFB08442, 0xFFD9A95E, 0xFFE8C27A,
         0xFFF2D59A, 0xFFFFF2C8};
 
@@ -205,16 +205,6 @@ final class ChirurgieArt {
             xx += f.width(l) * S7 + 0.6f;
         }
         return xx - x;
-    }
-
-    /** Kanji 16 GUI (police du jeu ×2), centré en x, haut en y ; ombre d'1 GUI (0 = sans). */
-    static void kanji16(GuiGraphicsExtractor g, Font f, String kj, float cx, float yHaut, int col, int ombre) {
-        if (kj == null || kj.isEmpty()) return;
-        Component c = Component.literal(kj);
-        float w = f.width(c) * 2f;
-        float x = Math.round(cx - w / 2f);
-        if (ombre != 0) texteEchelle(g, f, c, x + 1, Math.round(yHaut) + 1, ombre, 2f);
-        texteEchelle(g, f, c, x, Math.round(yHaut), col, 2f);
     }
 
     /** Touche dessinée (cabochon laqué) ; lettre ArcadePix ×0,5 or clair. Renvoie la largeur. */

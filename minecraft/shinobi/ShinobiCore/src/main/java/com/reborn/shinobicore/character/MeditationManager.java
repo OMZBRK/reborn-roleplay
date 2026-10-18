@@ -56,9 +56,13 @@ public class MeditationManager implements Listener {
 
     public MeditationManager(ShinobiCore plugin) {
         this.plugin = plugin;
-        // Halo de méditation (18/10) : qui médite, envoyé aux mods proches (canal reborn:meditation).
+        // Halo de méditation (18/10, v2) : qui médite et sa couleur d'aura, envoyé aux mods proches (canal reborn:meditation).
         var m = Bukkit.getMessenger();
         if (!m.isOutgoingChannelRegistered(plugin, CANAL_HALO)) m.registerOutgoingPluginChannel(plugin, CANAL_HALO);
+        // Couleur d'aura choisie par le joueur (mod : Réglages › Interface › Méditation) : 1 demander, 2 + RGB, 3 défaut.
+        if (!m.isIncomingChannelRegistered(plugin, CANAL_HALO)) {
+            m.registerIncomingPluginChannel(plugin, CANAL_HALO, (canal, joueur, data) -> recevoirAura(joueur, data));
+        }
         Bukkit.getScheduler().runTaskTimer(plugin, this::synchroHalo, 20L, 10L);
     }
 
@@ -230,6 +234,7 @@ public class MeditationManager implements Listener {
     public void onQuit(PlayerQuitEvent e) {
         stopInternal(e.getPlayer().getUniqueId(), null);
         haloEnvoye.remove(e.getPlayer().getUniqueId());
+        dernierChoix.remove(e.getPlayer().getUniqueId());
     }
 
     /* ------------------------------------------------- halo (reborn:meditation) */
@@ -274,13 +279,119 @@ public class MeditationManager implements Listener {
         }
     }
 
+    /* ------------------------------------------------- couleur d'aura (choix du joueur) */
+
+    /** Menthe de la vidéo de référence (mod : {@code meditation/Aura#DEFAUT}). */
+    public static final int AURA_DEFAUT = 0x8CFFC2;
+    private final Map<UUID, Long> dernierChoix = new ConcurrentHashMap<>();
+
+    /** Message du mod sur {@code reborn:meditation} : 1 demander sa couleur, 2 + int RGB l'enregistrer, 3 la remettre par défaut. */
+    private void recevoirAura(Player p, byte[] data) {
+        if (data == null || data.length < 1) return;
+        byte type = data[0];
+        if (type != 1 && type != 2 && type != 3) return;
+        Bukkit.getScheduler().runTask(plugin, () -> {               // les messages peuvent arriver hors du fil principal
+            if (!p.isOnline()) return;
+            ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
+            if (c != null && type != 1) {
+                long now = System.currentTimeMillis();
+                Long avant = dernierChoix.get(p.getUniqueId());
+                if (avant != null && now - avant < 500) { envoyerAura(p, c); return; }   // pas de rafale
+                dernierChoix.put(p.getUniqueId(), now);
+                if (type == 2 && data.length >= 5) {
+                    c.setAuraCouleur(java.nio.ByteBuffer.wrap(data, 1, 4).getInt() & 0xFFFFFF);
+                } else if (type == 3) {
+                    c.setAuraCouleur(-1);
+                }
+                appliquerAura(p, c);
+            }
+            envoyerAura(p, c);
+        });
+    }
+
+    /** Envoie au mod la couleur d'aura du personnage actif : 1, int RGB, octet « choisie ». */
+    private void envoyerAura(Player p, ShinobiCharacter c) {
+        if (!p.getListeningPluginChannels().contains(CANAL_HALO)) return;
+        byte[] d = java.nio.ByteBuffer.allocate(6).put((byte) 1).putInt(couleurHalo(c))
+                .put((byte) (c != null && c.auraCouleur() >= 0 ? 1 : 0)).array();
+        try {
+            p.sendPluginMessage(plugin, CANAL_HALO, d);
+        } catch (Exception ignored) { /* client sans le mod */ }
+    }
+
+    /** Si le joueur médite, son halo prend tout de suite la nouvelle couleur (chez tous). */
+    private void appliquerAura(Player p, ShinobiCharacter c) {
+        Session s = sessions.get(p.getUniqueId());
+        if (s == null) return;
+        s.couleur = couleurHalo(c);
+        synchroHalo();
+    }
+
     /**
-     * Couleur du halo : {@code meditation.halo.couleur} (vert doux de la référence), ou celle de la nature de chakra
-     * principale du personnage si {@code meditation.halo.par-nature} est vrai (teintes sobres en config).
+     * {@code /meditation aura [#RRGGBB|defaut]} pour soi ; {@code /meditation aura <joueur> <#RRGGBB|defaut>} pour le
+     * staff ({@code shinobicore.staff}). Renvoie vrai si la commande était une commande d'aura.
+     */
+    public boolean commandeAura(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length == 0 || !args[0].equalsIgnoreCase("aura")) return false;
+        Player cible;
+        String valeur;
+        if (args.length >= 3) {
+            if (!sender.hasPermission("shinobicore.staff")) {
+                sender.sendMessage(Component.text("Réservé au staff.", NamedTextColor.RED));
+                return true;
+            }
+            cible = Bukkit.getPlayerExact(args[1]);
+            valeur = args[2];
+        } else if (sender instanceof Player p) {
+            cible = p;
+            valeur = args.length >= 2 ? args[1] : null;
+        } else {
+            sender.sendMessage(Component.text("Usage : /meditation aura <joueur> <#RRGGBB|defaut>", NamedTextColor.RED));
+            return true;
+        }
+        if (cible == null) {
+            sender.sendMessage(Component.text("Joueur introuvable.", NamedTextColor.RED));
+            return true;
+        }
+        ShinobiCharacter c = plugin.characters().getActive(cible.getUniqueId());
+        if (c == null) {
+            sender.sendMessage(Component.text("Aucun personnage actif.", NamedTextColor.RED));
+            return true;
+        }
+        if (valeur == null) {
+            sender.sendMessage(Component.text("Couleur de l'aura : " + hex(couleurHalo(c))
+                    + (c.auraCouleur() >= 0 ? "" : " (par défaut)") + " — /meditation aura <#RRGGBB|defaut>", NamedTextColor.GOLD));
+            return true;
+        }
+        if (valeur.equalsIgnoreCase("defaut") || valeur.equalsIgnoreCase("défaut") || valeur.equalsIgnoreCase("reset")) {
+            c.setAuraCouleur(-1);
+        } else {
+            String h = valeur.trim().replace("#", "");
+            if (!h.matches("[0-9a-fA-F]{6}")) {
+                sender.sendMessage(Component.text("Couleur attendue : #RRGGBB (ex. #8CFFC2) ou defaut.", NamedTextColor.RED));
+                return true;
+            }
+            c.setAuraCouleur(Integer.parseInt(h, 16));
+        }
+        appliquerAura(cible, c);
+        envoyerAura(cible, c);
+        sender.sendMessage(Component.text("Aura de " + cible.getName() + " : " + hex(couleurHalo(c)), NamedTextColor.GOLD));
+        return true;
+    }
+
+    private static String hex(int rgb) {
+        return String.format(java.util.Locale.ROOT, "#%06X", rgb & 0xFFFFFF);
+    }
+
+    /**
+     * Couleur du halo : celle choisie par le joueur pour ce personnage ; sinon {@code meditation.halo.couleur-defaut}
+     * (menthe de la référence), ou celle de la nature de chakra principale si {@code meditation.halo.par-nature} est
+     * vrai (teintes sobres en config).
      */
     private int couleurHalo(ShinobiCharacter c) {
         var cfg = plugin.getConfig();
-        int defaut = rgb(cfg.getString("meditation.halo.couleur", "#86F59E"), 0x86F59E);
+        if (c != null && c.auraCouleur() >= 0) return c.auraCouleur();
+        int defaut = rgb(cfg.getString("meditation.halo.couleur-defaut", "#8CFFC2"), AURA_DEFAUT);
         if (c == null || !cfg.getBoolean("meditation.halo.par-nature", false)) return defaut;
         ChakraAffinity a = c.primaryChakraAffinity();
         if (a == null || a == ChakraAffinity.NONE) return defaut;

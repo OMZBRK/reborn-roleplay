@@ -12,15 +12,15 @@ import net.minecraft.resources.Identifier;
 
 /**
  * Affichage du duel consenti — version <b>HUD subtil</b> (retour du 13/10 : « c'est gros, faut que ce soit subtil »,
- * DA §6) : aucune plaque, aucun gros bouton. Du texte petit sur un voile nuit très léger, un minuscule sceau 決, un fil
- * d'or d'un pixel. Trois petites textures ({@code tools/gen_duel_textures.py}) ; tout le reste est du texte. Dessiné en
+ * DA §6) : aucune plaque, aucun gros bouton. Du texte petit sur un voile nuit très léger et un fil d'or d'un pixel
+ * (plus de sceau kanji depuis le 18/10, DA §3). Deux petites textures ({@code tools/gen_duel_textures.py}) ; tout le reste est du texte. Dessiné en
  * unités menu ({@link DaKit#echelleMenu}).
  * <ul>
- *   <li><b>Invitation</b> : deux lignes au-dessus de la barre d'action — « 決 Kazuki Uchiha te propose un duel », puis
+ *   <li><b>Invitation</b> : deux lignes au-dessus de la barre d'action — « Kazuki Uchiha te propose un duel », puis
  *       « Entrée accepter · Retour refuser » en petit ; fil d'or d'1 px qui se vide. En mode interaction (R), les mots
  *       « accepter » / « refuser » se cliquent (soulignés au survol).</li>
  *   <li><b>Attente</b> (proposant) : une ligne grise.</li>
- *   <li><b>Pendant le duel</b> : indicateur fin en haut au centre « 決 Kazuki Uchiha · 4:56 · abandon » ; il passe en rouge
+ *   <li><b>Pendant le duel</b> : indicateur fin en haut au centre « Kazuki Uchiha · 4:56 · abandon » ; il passe en rouge
  *       pâle quand on s'éloigne ; « abandon » se clique en mode interaction.</li>
  *   <li><b>Compte à rebours</b> : chiffres sobres en fondu, puis « COMBAT » bref.</li>
  *   <li><b>Fin</b> : un mot centré en fondu, un filet d'or fin, la raison en petit gris.</li>
@@ -28,8 +28,7 @@ import net.minecraft.resources.Identifier;
  */
 public final class DuelHud {
 
-    private static final Identifier SCEAU = DaKit.tex("duel", "sceau"), VOILE = DaKit.tex("duel", "voile"),
-        PIECES = DaKit.tex("duel", "pieces");
+    private static final Identifier VOILE = DaKit.tex("duel", "voile"), PIECES = DaKit.tex("duel", "pieces");
 
     private static final long FIN_MS = 2800;
     private static final int GRIS = 0xFFB4A88E, GRIS_DOUX = 0xFF8C826E, ROUGE_PALE = 0xFFE8A0A2;
@@ -87,10 +86,10 @@ public final class DuelHud {
         float a = Math.min(1f, (now - inv.at()) / 250f);
         float left = inv.left(now);
 
-        // ligne 1 : sceau · « Nom te propose un duel »
+        // ligne 1 : « Nom te propose un duel »
         Component nom = DaKit.interGras(DaKit.ellipse(f, inv.fromName(), 110));
         Component suite = DaKit.inter(" te propose un duel");
-        float w1 = 11 + 4 + DaKit.largeur8(f, nom) + DaKit.largeur8(f, suite);
+        float w1 = DaKit.largeur8(f, nom) + DaKit.largeur8(f, suite);
         // ligne 2 : touches et mots (petit, gris)
         Component kA = DaKit.inter(touche(HudKeybinds.DUEL_ACCEPT, "Entrée")), mA = DaKit.inter(" accepter");
         Component kR = DaKit.inter(touche(HudKeybinds.DUEL_REFUSE, "Retour")), mR = DaKit.inter(" refuser");
@@ -105,8 +104,6 @@ public final class DuelHud {
 
         // ligne 1
         float x = cx - w1 / 2f;
-        sceau(g, f, Math.round(x), Math.round(y1) - 6, a);
-        x += 15;
         x += DaKit.inter8(g, f, nom, x, y1, DaKit.alpha(DaKit.OR_CLAIR, a), 0);
         DaKit.inter8(g, f, suite, x, y1, DaKit.alpha(DaKit.CREME_VAL, a), 0);
 
@@ -158,13 +155,11 @@ public final class DuelHud {
         Component sep = DaKit.inter("  ·  "), tc = DaKit.inter(temps), ab = DaKit.inter("abandon");
         Component mains = d.techniques ? null : DaKit.inter("mains nues  ·  ");
         float wSep = DaKit.largeur7(f, sep);
-        float w = 11 + 5 + DaKit.largeur8(f, nom) + wSep + (mains != null ? DaKit.largeur7(f, mains) : 0)
+        float w = DaKit.largeur8(f, nom) + wSep + (mains != null ? DaKit.largeur7(f, mains) : 0)
             + DaKit.largeur8(f, tc) + wSep + DaKit.largeur7(f, ab);
         float x = cx - w / 2f, ym = 9;
         DaKit.etire(g, VOILE, Math.round(x) - 18, 1, Math.round(w) + 36, 17, 64, 16, DaKit.blanc(0.85f * a));
         int texte = loin ? ROUGE_PALE : DaKit.CREME_VAL;
-        sceau(g, f, Math.round(x), Math.round(ym) - 6, a);
-        x += 16;
         x += DaKit.inter8(g, f, nom, x, ym, DaKit.alpha(texte, a), 0);
         x += DaKit.inter7(g, f, sep, x, ym, DaKit.alpha(GRIS_DOUX, a), 0);
         if (mains != null) x += DaKit.inter7(g, f, mains, x, ym, DaKit.alpha(GRIS, a), 0);
@@ -237,14 +232,6 @@ public final class DuelHud {
     }
 
     /* ================================================================ pièces communes */
-
-    /** Petit sceau 決 (11 unités) : texture laquée + kanji de la police du jeu, crème. */
-    private static void sceau(GuiGraphicsExtractor g, Font f, int x, int y, float a) {
-        DaKit.blit(g, SCEAU, x, y, 0, 0, 12, 12, 12, 12, DaKit.blanc(a));
-        Component k = Component.literal("決");
-        float kw = f.width(k);
-        DaKit.texteEchelle(g, f, k, x + 5.5f - kw / 2f, y + 1.5f, DaKit.alpha(0xFFF2E6CC, a), 1f);
-    }
 
     /** Fil d'or d'1 px écran sur la largeur w (unités) à la hauteur y : piste éteinte, part vive centrée (frac). */
     private static void fil(GuiGraphicsExtractor g, int x0, int w, int y, float frac, float a) {

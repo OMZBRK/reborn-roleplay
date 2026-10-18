@@ -164,7 +164,6 @@ public final class ScenePreview {
     private static String look(boolean female, int skin, String hair, int hairColor, int eye, String outfit) {
         fr.reborn.hud.skin.SkinSpec l = new fr.reborn.hud.skin.SkinSpec();
         l.female = female;
-        l.slim = female;
         l.skinColor = fr.reborn.hud.skin.SkinSpec.skinRamp(skin / 10f);
         l.hairId = hair;
         l.hairColor = hairColor;

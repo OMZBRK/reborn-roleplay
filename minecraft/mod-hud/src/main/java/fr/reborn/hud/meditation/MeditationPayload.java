@@ -6,10 +6,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
 /**
- * Canal {@code reborn:meditation} (ShinobiCore {@code character/MeditationManager}), octets bruts, serveur → client :
- * {@code 0} liste des joueurs proches qui méditent (le destinataire compris) : nombre (int), puis pour chacun
- * l'identifiant réseau de l'entité (int) et la couleur du halo (int RGB). La liste remplace la précédente (vide = plus
- * personne). Lu par {@link MeditationClient#recevoir}.
+ * Canal {@code reborn:meditation} (ShinobiCore {@code character/MeditationManager}), octets bruts, dans les deux sens.
+ * Serveur → client : {@code 0} liste des joueurs proches qui méditent (le destinataire compris) : nombre (int), puis
+ * pour chacun l'identifiant réseau de l'entité (int) et sa couleur d'aura (int RGB) — la liste remplace la précédente
+ * (vide = plus personne) ; {@code 1} la couleur d'aura du personnage actif (int RGB, puis 1 octet : choisie ou non).
+ * Client → serveur : {@code 1} demander sa couleur, {@code 2} + int RGB l'enregistrer, {@code 3} la remettre par
+ * défaut. Lu par {@link MeditationClient#recevoir}.
  */
 public record MeditationPayload(byte[] data) implements CustomPacketPayload {
 

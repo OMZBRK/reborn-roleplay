@@ -24,7 +24,7 @@ import java.util.Locale;
  * Décor : {@code textures/gui/photo/*} ({@code tools/gen_photo_textures.py}).
  * <ul>
  *   <li>Viseur : repères d'angle, grille des tiers en pointillés, cercle central.</li>
- *   <li>Plaque en haut à gauche : sceau 撮, « Mode photo », FOV / inclinaison / vitesse en direct.</li>
+ *   <li>Plaque en haut à gauche : « Mode photo » (plus de sceau kanji depuis le 18/10), FOV / inclinaison / vitesse en direct.</li>
  *   <li>Panneau laqué à droite : réglettes Vitesse, Champ de vision, Inclinaison, Flou ; filtres
  *       (naturel, encre, sépia, nuit) ; cadre appliqué au fichier (aucun, makimono, polaroïd) ; recentrer.</li>
  *   <li>Déclencheur rond en bas au centre, dernières photos en bas à gauche.</li>
@@ -205,9 +205,9 @@ public class PhotoModeScreen extends Screen {
         PhotoMode p = PhotoMode.INSTANCE;
         int x = 24, y = 22;
         DaKit.blit(g, CARTOUCHE, x - 2, y - 2, 0, 0, 164, 38, 164, 38);
-        DaKit.arcX1(g, f, DaKit.arcade("Mode photo"), x + 32, y + 7, DaKit.OR_CLAIR, 0, true);
+        DaKit.arcX1(g, f, DaKit.arcade("Mode photo"), x + 12, y + 7, DaKit.OR_CLAIR, 0, true);
         DaKit.inter7(g, f, DaKit.inter(String.format(Locale.FRANCE, "Champ %d°  ·  inclinaison %d°  ·  ×%.1f",
-            Math.round(p.fov()), Math.round(p.roll()), p.getCameraSpeed() / 0.35f)), x + 32, y + 21, DaKit.CREME_VAL, 0);
+            Math.round(p.fov()), Math.round(p.roll()), p.getCameraSpeed() / 0.35f)), x + 12, y + 21, DaKit.CREME_VAL, 0);
     }
 
     /** Panneau droit ; renvoie l'id survolé (-1 = aucun). */

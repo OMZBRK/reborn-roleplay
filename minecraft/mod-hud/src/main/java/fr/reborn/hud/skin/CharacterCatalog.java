@@ -47,7 +47,7 @@ public final class CharacterCatalog {
 
     /** Un cosmétique. {@code folder} + {@code id} → chemin PNG ; {@code id}+{@code _Mask} → masque. */
     public static final class Asset {
-        public final String folder;      // hair / outfit / eyes / facial / tattoo
+        public final String folder;      // hair / outfit / eyes / brows / facial / tattoo
         public final String id;          // = nom de fichier (sans .png)
         public final String name;        // libellé FR
         public final String gender;      // "male" / "female" / null (tous)
@@ -92,6 +92,11 @@ public final class CharacterCatalog {
     private static volatile Map<String, List<Asset>> byCategory;
     // "folder:id" → asset (résolution O(1), toutes catégories confondues).
     private static volatile Map<String, Asset> index;
+    /** Génération du catalogue : +1 à chaque asset live reçu ou purgé (les caches d'aperçus s'y recalent). */
+    private static volatile int generation;
+
+    /** Génération courante (voir {@link #generation}). */
+    public static int generation() { return generation; }
 
     private static void ensureLoaded() {
         if (byCategory != null) return;
@@ -105,7 +110,7 @@ public final class CharacterCatalog {
                 } else {
                     JsonObject root = JsonParser.parseReader(
                         new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
-                    for (String cat : new String[] { "hair", "outfit", "eyes", "facial", "tattoo", "accessory", "underwear" }) {
+                    for (String cat : new String[] { "hair", "outfit", "eyes", "brows", "facial", "tattoo", "accessory", "underwear" }) {
                         List<Asset> list = new ArrayList<>();
                         if (root.has(cat) && root.get(cat).isJsonArray()) {
                             for (JsonElement el : root.getAsJsonArray(cat)) {
@@ -183,6 +188,18 @@ public final class CharacterCatalog {
     /** Fichiers PNG/masque reçus du serveur : chemin classpath → octets. */
     private static final Map<String, byte[]> runtimeFiles = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Vrai si l'asset vient du serveur (assets live {@code creator-assets/}), pas du catalogue bundlé. */
+    public static boolean isLive(Asset a) {
+        return a != null && runtimeFiles.containsKey(a.texturePath());
+    }
+
+    /** Nombre d'assets live reçus du serveur dans une catégorie (banc, diagnostic). */
+    public static int liveCount(String category) {
+        int n = 0;
+        for (Asset a : all(category)) if (isLive(a)) n++;
+        return n;
+    }
+
     /**
      * Ouvre un asset par son chemin classpath : d'abord les octets RUNTIME (poussés par
      * le serveur), sinon la ressource bundlée du jar. Utilisé par {@link RebornSkins}.
@@ -228,6 +245,7 @@ public final class CharacterCatalog {
         byCategory = cats;
         index = idx;
         RebornSkins.invalidate(category, a.id); // au cas où un id bundlé serait remplacé
+        generation++;
         LOGGER.info("asset runtime injecté : {}:{} ({})", category, a.id, a.name);
         return true;
     }
@@ -236,6 +254,7 @@ public final class CharacterCatalog {
     public static synchronized void clearRuntime() {
         if (runtimeFiles.isEmpty()) return;
         runtimeFiles.clear();
+        generation++;
         byCategory = null; // force un rechargement propre depuis le jar au prochain accès
         index = null;
         RebornSkins.clearAssetCache();

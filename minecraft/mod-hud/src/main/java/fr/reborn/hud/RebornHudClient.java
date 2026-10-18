@@ -711,6 +711,7 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "notifs"),
             (ctx, tickCounter) -> fr.reborn.hud.notif.NotifHud.render(ctx));
         fr.reborn.hud.audit.InventaireDebug.init();
+        fr.reborn.hud.cosmetic.TeintureDebug.init();   // banc de la teinture du bandeau (REBORN_TEINTURE_DEBUG, dev)
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler, client) -> fr.reborn.hud.ko.CorpsClient.clear());
         // Concentration du chakra (ShinobiAbilities, canal reborn:parchemin {"t":"conc"}) : plaque au-dessus de la barre d'action.
@@ -739,6 +740,7 @@ public final class RebornHudClient implements ClientModInitializer {
         fr.reborn.hud.menu.character.SceneMockups.init();
         fr.reborn.hud.menu.character.scene.ScenePreview.init();
         fr.reborn.hud.menu.character.perso.PersoDebug.init();
+        fr.reborn.hud.menu.character.perso.SlimDebug.init();   // banc carrure fine Homme (REBORN_SLIM_DEBUG, dev)
         // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
         // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
         fr.reborn.hud.byakugan.ByakuganDebug.init();

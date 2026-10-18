@@ -22,7 +22,7 @@ import java.util.Locale;
 
 /**
  * <b>Échoppe</b> (Boutique du menu ÉCHAP) — tenues et cartes, dans une échoppe de nuit :
- * noren indigo au blason 商, chōchin rouges qui se balancent, mur de planches. Le
+ * noren indigo au blason (pièce de ryo), chōchin rouges qui se balancent, mur de planches. Le
  * personnage est présenté sur une estrade éclairée (rotation libre au clic droit maintenu),
  * le catalogue est un tableau d'étiquettes de papier en onglets : TENUES / CARTES / VIVRES (rations, paniers
  * d'ingrédients des cuisiniers : C2S {@code buyvivre:<id>}, nourriture du 14/10).

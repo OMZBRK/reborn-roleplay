@@ -69,6 +69,9 @@ public final class CreatorAssets {
             byte[] mask = maskLen > 0 ? new byte[maskLen] : null;
             if (mask != null) in.readFully(mask);
             boolean ok = CharacterCatalog.registerRuntimeAsset(folder, meta, png, mask);
+            // Un skin composé AVANT l'arrivée de l'asset (diffusion reborn:skins au join, pack ~2 s après) l'a
+            // ignoré (coiffure live absente) : on recompose ceux qui le portent.
+            if (ok) RebornSkins.recomposeUsing(folder, id);
             if (ok) LOG.info("asset creator serveur enregistré : {}/{} ({} o png)", folder, id, png.length);
         } catch (Throwable t) {
             LOG.warn("décodage asset creator échoué ({})", t.toString());

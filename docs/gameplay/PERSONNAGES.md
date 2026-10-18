@@ -120,11 +120,19 @@ Maquettes validées : `Maquettes/personnage/01_selection … 09_creation_recapit
   couleur à adapter.
 - **Banc** : `REBORN_PERSO_DEBUG=1|vite` (captures), `REBORN_PERSO_DEBUG=perf` (FPS, temps d'extraction, nombre
   d'éléments GUI par écran → `run/perso_perf.txt`).
-- **Création** : fil de 8 sceaux, registre qui se remplit, emblèmes de clan (`gui/clans/clan_<slug>.png`) dans la
+- **Création** : fil de 8 sceaux numérotés 1 à 8 (voir « Sans kanji » au §3), registre qui se remplit, emblèmes de clan (`gui/clans/clan_<slug>.png`) dans la
   grille, gravés sur le dais, dans le registre et le dossier ; taille ADULTE au cm (153–207, pas de 1 cm), taille
   actuelle selon l'âge, toise ; apparence en vignettes directes (peau, coiffures en têtes, palette de couleurs et
-  d'yeux **par clan**, tenues en corps entiers, carrure, « au hasard »), plus aucune flèche ; nom 3 à 20 lettres
+  d'yeux **par clan**, tenues en corps entiers, « au hasard »), plus aucune flèche ; nom 3 à 20 lettres
   (espaces, apostrophe), « Nom libre » ; plaque de nom au-dessus de la tête.
+- **Carrure fine pour tous** (18/10, « mets aussi le skin homme en Alex… supprime le Steve ») : Homme comme Femme sont
+  en **modèle Alex (bras de 3 px)** partout — création, sélection, en jeu chez soi et chez les autres, corps au sol,
+  poupées et vignettes, main à la première personne, bout de bras du Test de la Feuille. La rangée **Carrure**
+  (Large / Fine) a disparu de la création (et du créateur de repli : boutons Classique / Alex, touche S). Les persos
+  déjà créés passent en fine **sans rien refaire** (la carrure enregistrée est ignorée). Les gabarits de peau ont été
+  redessinés au bras de 3 px ; un calque encore peint en 4 px est converti à la volée — règle pour le staff :
+  [`../technique/CREATEUR_PERSONNAGE_ASSETS.md`](../technique/CREATEUR_PERSONNAGE_ASSETS.md) « Bras fins pour tous ».
+  Le **skin Minecraft personnel** (« Mon skin ») garde le modèle choisi chez Mojang.
 - **Sons** (2026-10-13) : **pas de musique**, des **ambiances** de nuit au bord de l'étang faites de sons vanilla en
   petites touches aléatoires (catégorie Ambiance, `PersoSons`) : clapotis (`block.water.ambient`), insectes
   (`block.firefly_bush.idle`), vent (`block.dry_grass.ambient`), grenouilles (`entity.frog.ambient`) ; sable à Suna,
@@ -154,6 +162,40 @@ Maquettes validées : `Maquettes/personnage/01_selection … 09_creation_recapit
   chakra. » et « APPUIE SUR UNE TOUCHE » qui clignote en bas. (L'écran titre « REBORN » intermédiaire a été retiré.)
 - Même message serveur et mêmes règles que l'ancien créateur.
 - **Police** : celle des menus de base (celle des noms de village et des questions), à garder.
+- **Sans kanji** (18/10, règle DA du 14/10, non publié) : le fil d'étapes porte le **numéro** de l'étape (ArcadePix,
+  mêmes trois états : apposé vermillon, en cours laqué rouge, à venir éteint) ; les bandeaux des planches (Village,
+  Clan, Sexe, Âge, Taille, Apparence, Tenue, Dossier, Ton registre) et la plaque « Nom et prénom » n'ont plus que leur
+  titre ; le registre du récapitulatif garde son **sceau**, désormais à l'**emblème du village** (voir « Sceau du
+  registre » ci-dessous) ; les tuiles Homme /
+  Femme n'ont plus que leur libellé ; les boutons-plaques (Retour, Suivant, Entrer en jeu, Créer, Oui c'est moi, Au
+  hasard, Large, Fine, et « Valider » du sélecteur de couleur) sont des plaques nues au **libellé centré**, mêmes
+  largeurs (aucun écran décalé). Textures : `tools/gen_personnage_textures.py ui` (`sceaux`, `panneau_*`,
+  `plaque_nom`, `boutons`). Captures avant / après : `Maquettes/gameplan/creation_sans_kanji/`.
+- **Blasons dessinés** (18/10, non publiés) : les 6 clans dont le blason était de l'écriture ont un **emblème dessiné**,
+  sans aucun caractère, au format des autres (`gui/clans/clan_<slug>.png`, 48×48 blanc, trait 2,8 px ; dessins dans
+  `tools/gen_clan_emblemes.py`, section « dessins ») — vérifié sur Narutopedia, **aucun n'a de blason canon** :
+
+  | Clan | Avant | Après | Source |
+  |---|---|---|---|
+  | Hōki (Suna) | 医 cerclé (Unités médicales) | deux feuilles en coupe et une goutte (clan de médecins) | création : la « Famille Hōki » n'existe que dans le roman *Gaara Hiden*, sans symbole |
+  | Hoshigaki (Kiri) | 鮫 cerclé | aileron de requin sur deux vagues (Kisame) | création : la page du clan n'a que le symbole de Kiri |
+  | Terumi (Kiri) | 水 cerclé | goutte à demi pleine, bulles : l'eau qui bout (eau, vapeur, lave de Mei) | création : pas de page de clan |
+  | Ōnoki (Iwa) | 土 cerclé | montagne enneigée, petit pic en contour, ligne de sol | création : lignée du Tsuchikage sans symbole |
+  | Sabaku (Suna) | 風 cerclé | gourde de sable de Gaara, cordon et sangle | création : « Clan du Kazekage » sans symbole (manga, roman) |
+  | Kamizuru (Iwa) | nom 上水流 en sigillaire | abeille vue de dessus (clan des abeilles) | création : le `Kamizuru_Symbol.svg` de Narutopedia est un **placeholder de fan** (ShounenSuki), pas un canon |
+
+  **Kurama** n'a pas changé : son blason est le **canon de l'anime** (`Kurama_Symbol.svg`, Narutopedia, ShounenSuki,
+  CC BY-SA 3.0), un dessin sans écriture — c'est Kamizuru que l'inventaire du 18/10 décrivait comme « sceau stylisé ».
+  Les blasons ne sont lus que par les écrans de création / sélection (grille, dais, registre, dossier) ; rien côté
+  serveur, la fiche affiche un hanko générique. Planche : `Maquettes/gameplan/clans_sceau/planche_blasons_tous.png`.
+- **Sceau du registre** (18/10, non publié ; « c'était bien ») : le tampon vermillon du récapitulatif revient au même
+  endroit (centre `xD + 188, y0 + 222`), **penché de 5°**, encre inégale, bords un peu mangés, filet réservé — avec
+  l'**emblème du village** choisi en réserve couleur papier au lieu de 認. Base `personnage/sceau_registre.png`
+  (`tools/gen_personnage_textures.py sceau` : tampon sans marque, variante 認, masque d'usure) ; emblème composé au
+  lancement par `PersoEmblemes.sceaux()` depuis les vraies textures (jamais cuit), à la demi-texel GUI (40 × 40 GUI).
+  Variantes : `-Dreborn.sceauRegistre=clan` (emblème du clan), `=kanji` (l'ancien 認). Banc :
+  `REBORN_PERSO_DEBUG=clans` → `perso_12_clans_*`, `perso_13_sceau_*` ; captures avant / après et planche :
+  `Maquettes/gameplan/clans_sceau/`. L'ancien créateur de repli reste sans tampon.
 - Repli sur les anciens écrans : `-Dreborn.classicCharacterScreens=true` (non testé).
 
 ## 4. L'apparence et les skins
@@ -166,6 +208,42 @@ Maquettes validées : `Maquettes/personnage/01_selection … 09_creation_recapit
   [`../technique/CREATEUR_PERSONNAGE_ASSETS.md`](../technique/CREATEUR_PERSONNAGE_ASSETS.md).
 - Assets disponibles : peau (rampe), sous-vêtements, ~5 tenues (Uchiha), coiffures, yeux. Assets wave 1 du Sprint 1
   (3 clans complets) **pas terminée** : seulement les tenues Uchiha.
+
+## 4 bis. Sourcils et coiffures live (18/10, non publiés)
+
+**Sourcils.** Avant : six pixels sombres cuits dans le gabarit de peau (`skin/<genre>/4.png`, ligne 12) repeints d'un
+aplat `browColor` qu'aucun écran « au bord de l'étang » ne proposait (toujours brun foncé). Maintenant :
+
+- **Calque à part** `character/brows/Sourcils_Base.png` (niveaux de gris, mêmes pixels ; `tools/gen_sourcils.py`),
+  catégorie `brows` du `catalog.json`, teint comme les cheveux (`tint: all`) ; le compositeur repeint les pixels cuits en
+  peau et pose le calque après les yeux, avant pilosité et cheveux (une frange peut le couvrir).
+- **Choix** : étape Apparence › rangée COULEUR › onglet **SOURCILS** (à côté de CHEVEUX) : pastille « = » **comme les
+  cheveux** (défaut), la palette du clan, la pipette (même sélecteur de couleur libre ; Échap rend l'état d'avant).
+- **Stockage** : dans l'apparence (`SkinSpec`, blob opaque côté ShinobiCore, aucun changement serveur) ; nouvelle dernière
+  ligne `browFollowHair` (« 1 » = comme les cheveux, la couleur suit aussi une teinture ultérieure) et `browColor` porte
+  la couleur effective (un client plus ancien affiche la même). Apparence antérieure sans cette ligne : sourcils restés à
+  la couleur par défaut → comme les cheveux ; couleur choisie (ancien créateur) → gardée.
+- Pas de réglage staff ni chirurgie des sourcils (le Poste de garde ne touche pas à l'apparence ; la chirurgie ne
+  concerne que les yeux).
+
+**Coiffures live du serveur.** Le staff alimente `plugins/ShinobiCore/creator-assets/` (catalog.json + `hair/*.png`,
+`/creator reload`) : 59 coupes au catalogue le 18/10, dont **58 diffusées** (`coupe15` : PNG absent, ignorée par le
+serveur). La diffusion (`reborn:creatorpack`, ~2 s après la connexion) et l'injection dans le catalogue du mod n'avaient
+pas changé, mais la création refaite le 13/10 les rendait introuvables : liste = 35 coupes du mod **puis** les coupes du
+serveur, quatre vignettes par rangée et deux rangées visibles (une seule en 1366 × 768) → il fallait 9 crans de molette
+(23 en petit écran) pour en voir une. Et un skin composé avant l'arrivée du pack (personnages de la sélection, autres
+joueurs diffusés au join) restait **sans la coupe** jusqu'à sa prochaine mise à jour. Corrigé :
+
+- coupes du serveur **en tête** de la liste, puis celles du mod ; bouton **« Tout voir (n) »** : grille de toutes les
+  coupes (9 × 6, molette), losange sur celles du serveur, nom au survol ;
+- choix gardé par **id** (la liste peut grandir écran ouvert) ; vignettes, aperçus et skins des écrans perso refaits à
+  chaque asset reçu (génération du catalogue) ; skins des joueurs **recomposés** quand l'asset qu'ils portent arrive ;
+- filtres du catalogue respectés : les coupes du serveur n'ont pas de `gender` (proposées à tous) ; côté mod, 12 coupes
+  sont réservées aux femmes et 4 aux hommes (tags posés à la génération du 13/10, sans décision : à trancher) → un
+  homme voit 81 coupes, une femme 89. Pour réserver une coupe du serveur : `"gender": "female"` dans son entrée.
+- Banc : `REBORN_PERSO_DEBUG=coupes` (+ `REBORN_CREATOR_ASSETS=<copie locale de creator-assets>` : rejoue la diffusion
+  du serveur octet pour octet) → `run/screenshots/perso_10*` (grille, arrivée écran ouvert, coupe portée, 1366 × 768),
+  `perso_11*` (sourcils) ; copies `Maquettes/gameplan/perso_sourcils_coupes/`.
 
 ## 5. Pièges connus
 
@@ -181,9 +259,11 @@ Maquettes validées : `Maquettes/personnage/01_selection … 09_creation_recapit
 |---|---|
 | **Palettes par clan** (couleurs de cheveux / peau / yeux définies par clan, « sinon trop de fantaisiste ») | demandé, à faire |
 | Vignettes de coiffures trop petites | à agrandir |
-| Hétérochromie, sourcils, pilosité, accessoires, zones de couleur des tenues | absents de l'étape Apparence |
+| Hétérochromie, pilosité, zones de couleur des tenues | absents de l'étape Apparence (sourcils et accessoires faits) |
 | Assets wave 1 : 3 clans starter complets (Uchiha, Hyuga, Neutre) | 5 tenues Uchiha seulement |
 | Décors 3D éventuels (au lieu du vide sombre) | idée, non tranchée |
+| Blasons de clan faits d'écriture (Hōki, Hoshigaki, Terumi, Ōnoki, Sabaku, Kamizuru) | **fait 18/10** (non publié) : emblèmes dessinés, §3 « Blasons dessinés » ; à valider en jeu |
+| Sceau du registre : marque par défaut (village / clan / 認) | **village** câblé 18/10 ; variantes `-Dreborn.sceauRegistre=clan` ou `=kanji` — choix de l'utilisateur |
 
 ## 7. Retours joueurs (2026-10-13) — à traiter dans la refonte au niveau « fiche shinobi »
 

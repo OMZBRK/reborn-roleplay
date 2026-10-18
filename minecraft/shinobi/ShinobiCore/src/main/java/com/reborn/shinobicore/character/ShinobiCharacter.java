@@ -228,6 +228,8 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     private com.reborn.shinobicore.medic.yeux.Oeil oeilDroit;
     /** Bandage posé sur les orbites ({@code /bandage}). */
     private boolean yeuxBandes;
+    /** Couleur d'aura de méditation choisie (RGB), ou -1 = celle du serveur (halo du mod, {@code MeditationManager}). */
+    private int auraCouleur = -1;
     /** Origine et date d'apprentissage des techniques, par id. Absent = inconnu. */
     private final Map<String, LearnMeta> learnMeta = new HashMap<>();
 
@@ -904,6 +906,17 @@ public class ShinobiCharacter implements com.reborn.shinobicore.data.CharacterDa
     public boolean yeuxBandes() { return yeuxBandes; }
 
     public void setYeuxBandes(boolean v) { this.yeuxBandes = v; touch(); }
+
+    /** Couleur d'aura de méditation (RGB), ou -1 si le joueur n'en a pas choisi. */
+    public int auraCouleur() { return auraCouleur; }
+
+    /** Couleur d'aura (RGB) ; négatif = revenir à la couleur du serveur. */
+    public void setAuraCouleur(int rgb) {
+        int v = rgb < 0 ? -1 : rgb & 0xFFFFFF;
+        if (v == auraCouleur) return;
+        this.auraCouleur = v;
+        touch();
+    }
 
     /** Unmodifiable view of the known-ability ids. */
     public Set<String> knownAbilities() {

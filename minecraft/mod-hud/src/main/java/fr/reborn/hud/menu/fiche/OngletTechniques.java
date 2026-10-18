@@ -46,14 +46,14 @@ final class OngletTechniques implements Onglet {
 
     // ---- détail (recalculé au choix)
     private Component dTitre, dMeta, dOrigine, dMaitrise, dSeances;
-    private String dLettre, dNatKj;
-    /** Nature de la technique affichée : son icône remplace le kanji du coin du panneau (14/10). */
+    private String dLettre;
+    /** Nature de la technique affichée : son icône au coin du panneau (14/10) ; rien sans nature (18/10). */
     private fr.reborn.hud.ui.NatureIcones.Nature dNat;
     private int dMaitriseN = -1, dFaites, dTotal;
+    /** Signes des mains nommés en français (« Tigre · Bélier · Rat ») : plus de plaquettes à kanji (18/10). */
     private final List<String> dMudras = new ArrayList<>();
-    private final List<Component> dMudrasNoms = new ArrayList<>();
+    private FicheArt.Paragraphe dMudrasTxt = FicheArt.VIDE;
     private FicheArt.Paragraphe dDesc = FicheArt.VIDE, dCout = FicheArt.VIDE, dNourrie = FicheArt.VIDE;
-    private final List<StatDef> dStats = new ArrayList<>();
     private FicheArt.Etiq eOrigine, eMaitrise, eMudras, eSeances;
 
     @Override
@@ -195,9 +195,7 @@ final class OngletTechniques implements Onglet {
         Font f = s.police();
         int i = ligneDe(choix);
         dMudras.clear();
-        dMudrasNoms.clear();
-        dStats.clear();
-        dDesc = dCout = dNourrie = FicheArt.VIDE;
+        dDesc = dCout = dNourrie = dMudrasTxt = FicheArt.VIDE;
         dOrigine = dMaitrise = dSeances = null;
         dMaitriseN = -1;
         int X1 = FicheArt.PW - 28;
@@ -206,7 +204,6 @@ final class OngletTechniques implements Onglet {
             dTitre = FicheArt.arcade("TECHNIQUES");
             dMeta = FicheArt.inter("Aucune technique apprise.");
             dLettre = "";
-            dNatKj = "術";
             dNat = null;
             for (int k = 0; k < 6; k++) couronne[k] = lanterne(s, k, false);
             return;
@@ -224,7 +221,6 @@ final class OngletTechniques implements Onglet {
             String grp = p != null && p.groupe() != null ? p.groupe() : FicheTextes.groupe(t.category(), t.rank());
             int nat = FicheTextes.nature(t.nature());
             dNat = nat >= 0 ? FicheTextes.NATURES.get(nat).icone() : null;
-            dNatKj = FicheTextes.GROUPES_KJ[groupeIdx(grp)];
             String meta = (FicheArt.rangDeBase(dLettre) ? "Fondamentale" : "Rang " + dLettre) + "  ·  "
                 + FicheTextes.groupeNom(grp) + (nat >= 0 ? "  ·  " + FicheTextes.NATURES.get(nat).nom() : "");
             dMeta = FicheArt.inter(FicheArt.ellipse(f, meta, X1 - 24));
@@ -235,9 +231,9 @@ final class OngletTechniques implements Onglet {
             if (p != null && p.mudras() != null) {
                 for (String m : p.mudras()) {
                     if (dMudras.size() >= 4) break;
-                    dMudras.add(FicheTextes.kanjiMudra(m));
-                    dMudrasNoms.add(FicheArt.inter(m));
+                    dMudras.add(m);
                 }
+                if (!dMudras.isEmpty()) dMudrasTxt = FicheArt.paragraphe(f, String.join("  ·  ", dMudras), X1 - 70, false, 12, 2);
             }
             if (p != null && p.desc() != null) dDesc = FicheArt.paragraphe(f, p.desc(), X1, false, 13, 3);
             if (t.castable()) {
@@ -247,9 +243,8 @@ final class OngletTechniques implements Onglet {
             }
             List<Map.Entry<StatDef, String>> tri = new ArrayList<>(t.scaling().entrySet());
             tri.sort((a, b) -> FicheTextes.poidsGrade(b.getValue()) - FicheTextes.poidsGrade(a.getValue()));
-            dStats.addAll(trier(t.scaling()));
             String nour = FicheTextes.nourrie(tri);
-            if (nour != null) dNourrie = FicheArt.paragraphe(f, nour, X1 - 18 * dStats.size() - 3, true, 10, 2);
+            if (nour != null) dNourrie = FicheArt.paragraphe(f, nour, X1 - 10, true, 10, 2);
             for (int k = 0; k < 6; k++) {
                 allumees[k] = t.scaling().containsKey(StatDef.values()[k]);
                 couronne[k] = lanterne(s, k, allumees[k]);
@@ -259,7 +254,6 @@ final class OngletTechniques implements Onglet {
             String grp = FicheTextes.groupe(a.cat(), a.letter());
             int nat = FicheTextes.nature(a.nature());
             dNat = nat >= 0 ? FicheTextes.NATURES.get(nat).icone() : null;
-            dNatKj = FicheTextes.GROUPES_KJ[groupeIdx(grp)];
             dMeta = FicheArt.inter((dLettre.isEmpty() ? "" : "Rang " + dLettre + "  ·  ") + FicheTextes.groupeNom(grp)
                 + (nat >= 0 ? "  ·  " + FicheTextes.NATURES.get(nat).nom() : ""));
             dSeances = FicheArt.inter(FicheTextes.avancement(a.done(), a.total()));
@@ -271,11 +265,6 @@ final class OngletTechniques implements Onglet {
     }
 
     private static FicheData.Donnees d(FicheScreen s) { return s.data(); }
-
-    private static int groupeIdx(String g) {
-        for (int i = 0; i < FicheTextes.GROUPES.length; i++) if (FicheTextes.GROUPES[i].equals(g)) return i;
-        return FicheTextes.GROUPES.length - 1;
-    }
 
     private FicheScreen.LanterneCouronne lanterne(FicheScreen s, int k, boolean on) {
         int[][] pos = s.lay().arc();
@@ -343,7 +332,8 @@ final class OngletTechniques implements Onglet {
         ctx.pose().popMatrix();
     }
 
-    private static int couleurKj(StatDef st) {
+    /** Couleur de la pastille de stat (losange de la liste, du « nourrie par »). */
+    private static int couleurStat(StatDef st) {
         return FicheArt.opaque(FicheArt.desat(FicheArt.mix(st.color, 0xF0E6D2, 0.15f), 0.8f));
     }
 
@@ -354,7 +344,6 @@ final class OngletTechniques implements Onglet {
         FicheArt.panneau(ctx, FicheArt.P_DETAIL, x0, y0, hDetail);
         FicheArt.arcadeX1(ctx, f, dTitre, x0 + 14, y0 + 13, FicheArt.OR_CLAIR, true);
         if (dNat != null) fr.reborn.hud.ui.NatureIcones.dessiner(ctx, dNat, x0 + FicheArt.PW - 28, y0 + 8, 16);
-        else FicheArt.kanjiTitre(ctx, f, dNatKj, x0, y0);
         ctx.enableScissor(x0, y0 + 30, x0 + FicheArt.PW, y0 + hDetail - 4);
         int X = x0 + 14, X1 = x0 + FicheArt.PW - 14;
         int yy = y0 + 46;
@@ -379,21 +368,9 @@ final class OngletTechniques implements Onglet {
             yy += 24;
         }
         if (!dMudras.isEmpty()) {
-            FicheArt.etiq(ctx, f, eMudras, X, yy, FicheArt.OR_ETIQ);
-            int pas = dMudras.size() > 3 ? 36 : 42;
-            for (int k = 0; k < dMudras.size(); k++) {
-                int cx = X + 92 + k * pas;
-                FicheArt.plaqueMudra(ctx, cx - 11, yy - 11);
-                FicheArt.kanji16(ctx, f, dMudras.get(k), cx, yy - 8, FicheArt.CREME_KJ, 0xFF050304);
-                FicheArt.inter7(ctx, f, dMudrasNoms.get(k), cx, yy + 19, FicheArt.DOUX, 1);
-                if (k < dMudras.size() - 1) {
-                    int xs = cx + pas / 2;
-                    ctx.fill(xs, yy - 1, xs + 1, yy, FicheArt.OR_ETEINT);
-                    ctx.fill(xs - 1, yy, xs + 2, yy + 1, FicheArt.OR_ETEINT);
-                    ctx.fill(xs, yy + 1, xs + 1, yy + 2, FicheArt.OR_ETEINT);
-                }
-            }
-            yy += 32;
+            ligne(ctx, f, X, X1, yy + Math.max(0, dMudrasTxt.hauteur() - 12), eMudras);
+            dMudrasTxt.dessiner(ctx, f, X + 70, yy - FicheArt.INTER9_MIL, FicheArt.CREME);
+            yy += 12 + dMudrasTxt.hauteur();
         } else {
             yy += 4;
         }
@@ -415,12 +392,8 @@ final class OngletTechniques implements Onglet {
             yy += Math.max(16, dCout.hauteur()) + 6;
         }
         if (!dNourrie.lignes().isEmpty()) {
-            int xx = X;
-            for (StatDef st : dStats) {
-                FicheArt.kanji16(ctx, f, KJ[st.ordinal()], xx + 8, yy - 3, couleurKj(st), 0xFF070405);
-                xx += 18;
-            }
-            dNourrie.dessiner(ctx, f, xx + 3, yy, FicheArt.DOUX);
+            FicheArt.ornementCoin(ctx, FicheArt.ORN_LOSANGE, X + 2, yy + 3);
+            dNourrie.dessiner(ctx, f, X + 12, yy, FicheArt.DOUX);
         }
         ctx.disableScissor();
     }
@@ -430,7 +403,17 @@ final class OngletTechniques implements Onglet {
         ctx.fill(X, yy + 9, X1, yy + 10, FicheArt.SEP);
     }
 
-    static final String[] KJ = {"体", "剣", "忍", "制", "力", "気"};
+    /** Losange plein 7×7 (demi-diagonale 3) à la couleur de la stat, bord sombre d'1 GUI, centré en (cx, cy). */
+    private static void losange(GuiGraphicsExtractor ctx, int cx, int cy, int col) {
+        for (int dy = -4; dy <= 4; dy++) {
+            int hw = 4 - Math.abs(dy);
+            ctx.fill(cx - hw, cy + dy, cx + hw + 1, cy + dy + 1, 0xFF070405);
+        }
+        for (int dy = -3; dy <= 3; dy++) {
+            int hw = 3 - Math.abs(dy);
+            ctx.fill(cx - hw, cy + dy, cx + hw + 1, cy + dy + 1, col);
+        }
+    }
 
     /** Perles de séances (10 au plus : au-delà, une perle vaut plusieurs séances). */
     private static void perles(GuiGraphicsExtractor ctx, int x, int y, int faites, int total) {
@@ -446,7 +429,6 @@ final class OngletTechniques implements Onglet {
         Font f = s.police();
         int x0 = L.listeX, y0 = L.panY, w = FicheArt.PW;
         FicheArt.panneau(ctx, FicheArt.P_TECHNIQUES, x0, y0, hListe);
-        FicheArt.kanjiTitre(ctx, f, "術", x0, y0);
         int X0 = x0 + 12, X1 = x0 + w - 16;
         int cRang = X0 + 9, cNom = X0 + 22, cSt = x0 + 166, cMot = x0 + 182;
         int clipTop = y0 + 32, clipBas = y0 + hListe - 4;
@@ -482,7 +464,7 @@ final class OngletTechniques implements Onglet {
             else if (sv) ctx.fill(x0 + 6, yc - 11, x0 + w - 16, yc + 11, 0x14F2D08A);
             FicheArt.sceauRang(ctx, l.lettre(), cRang, yc);
             FicheArt.inter9(ctx, f, l.nom(), cNom, yc, FicheArt.CREME, 0);
-            FicheArt.kanji16(ctx, f, KJ[l.stat().ordinal()], cSt, yc - 8, couleurKj(l.stat()), 0xFF070405);
+            losange(ctx, cSt, yc, couleurStat(l.stat()));
             if (l.type() == Type.APPR) {
                 int yp = yc + 16;
                 FicheArt.tampon(ctx, cNom, yp, l.or());

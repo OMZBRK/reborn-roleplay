@@ -2,7 +2,7 @@
 """
 gen_echoppe_textures.py — textures de l'Échoppe (menu/widget/ShopScreen) au niveau de la fiche shinobi.
 
-Signature conservée : l'échoppe de nuit — noren indigo au blason 商 sous sa hampe, chōchin rouges qui se balancent,
+Signature conservée : l'échoppe de nuit — noren indigo au blason (pièce de ryo, sans kanji depuis le 18/10) sous sa hampe, chōchin rouges qui se balancent,
 mur de planches, le personnage sur une estrade éclairée, le catalogue en étiquettes de papier (fuda) dans un tableau
 laqué, deux onglets pendus (TENUES / CARTES), la bourse en ryo.
 
@@ -14,8 +14,8 @@ Contrat :
 - mur.png 1280×720 : planches + sol ; posé centré en x, CALÉ EN BAS (texel (640, 720) = (W/2, H)). Le plancher
   occupe les 64 dernières rangées (arête du sol en y 656 du texel, soit H − 64).
 - noren.png 96×40 : un lé 80×36 en (0, 0) (répété, balancé d'1 GUI par le code) ; hampe 16×5 en (80, 0)
-  (répétée) ; blason 商 26×26 en (0, ... ) → cf. blason.png.
-- blason.png 28×28 : disque blanc cerné, 商 indigo ; centre (14, 14).
+  (répétée) ; blason 26×26 en (0, ... ) → cf. blason.png.
+- blason.png 28×28 : disque blanc cerné, pièce de ryo indigo à trou carré ; centre (14, 14).
 - chochin.png 48×38 : 2 images 24×38 (repos, plus vive) ; attache au texel (12, 0).
 - halo.png 64×64 : halo en crans (blanc, l'alpha porte le niveau), teint et posé à 64 × m.
 - enseigne.png 156×62 : plaque suspendue 140×30 en (8, 12) ; cordons depuis la hampe (y 0) ; agemaki et
@@ -27,8 +27,8 @@ Contrat :
   coupe horizontale capD 8 ; œillet en (6, 9).
 - boutons.png 340×120 : 5 rangées de 24 (normal, survol, rouge, rouge survol, inactif) ; bouton 336×20 en (1, 1),
   coupe horizontale capD 6.
-- icones.png 96×16 : robe 14×14 (0, 0), carte roulée 14×14 (16, 0), pièce ryo 10×10 (32, 0), sceau 済 14×14
-  (44, 0), sceau 着 14×14 (60, 0), petit cadenas 9×10 (76, 0).
+- icones.png 96×16 : robe 14×14 (0, 0), carte roulée 14×14 (16, 0), pièce ryo 10×10 (32, 0), sceau « à toi » (coche) 14×14
+  (44, 0), sceau « porté » (tenue) 14×14 (60, 0), petit cadenas 9×10 (76, 0).
 - estrade.png 184×34 : estrade 176×30 en (4, 2) ; le centre des pieds au texel (92, 12).
 - pieces.png 420×64 : cabochon 42×12 (0, 0) ; rail de défilement 4×40 (404, 0) ; curseur 6×16 (410, 0) ;
   toast washi 400×18 (0, 20) coupe horizontale capD 6 ; bourse 160×18 (0, 42) coupe horizontale capD 6.
@@ -48,6 +48,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ecrans_art as ea  # noqa: E402
 from ecrans_art import fa, gf, kit, hexc, rect, coller, R_OR, R_LAQUE, R_LAQUE_ROUGE, nouveau  # noqa: E402
+import pictos  # noqa: E402  (aucun kanji décoratif, 18/10)
 
 S = ea.Sortie("echoppe", budget=900_000)
 R_IND = ["0C1020", "121A30", "1A2442", "223056", "2C3C68", "3A4C7C", "4C5E90", "6476A0", "8C9CC0", "C8D0E4"]
@@ -147,7 +148,13 @@ def noren():
     p[m & (d > 11.4)] = hexc("B8AC94")
     p[m & (d > 12.0)] = hexc("1A2442")
     coller(b, p, 0, 0)
-    kit.kanji(b, 14, 6, "商", 16, police="gras", couleur=hexc("1F2848"), ancre="c")
+    # blason : une pièce de ryo indigo à trou carré (plus de kanji depuis le 18/10, DA §3)
+    rm = disque(28, 7.6)
+    trou = (np.abs(xx - 13.5) <= 2.5) & (np.abs(yy - 13.5) <= 2.5)
+    q = np.zeros((28, 28, 4), np.uint8)
+    q[rm & ~trou] = hexc("1F2848")
+    q[rm & ~trou & (d > 5.9) & (d <= 6.6)] = hexc("3A4A78")
+    coller(b, q, 0, 0)
     S.sauver("blason.png", b, (28, 28))
 
 
@@ -175,7 +182,6 @@ def chochin():
             rect(im, ox + 12 - ww // 2, j0, ww, 1, hexc("4A2E35"))
         rect(im, ox + 11, 0, 2, 2, hexc(R_OR[4]))
         rect(im, ox + 11, 0, 1, 1, hexc(R_OR[7]))
-        kit.kanji(im, ox + 12, 13, "店", 12, police="gothic", couleur=hexc("1E0A0A"), ancre="c")
     S.sauver("chochin.png", im, (48, 38))
 
 
@@ -334,9 +340,10 @@ def icones():
     p[3:7, 3:7] = hexc(R_OR[2])
     p[4:6, 4:6] = 0
     coller(im, p, 32, 0)
-    # sceaux 済 et 着
-    for ox, kj, ton in ((44, "済", fa.R_VERM), (60, "着", ["1E3A2A", "264638", "345C4A", "467560", "5E8E78", "7CAA94", "9CC4B0"])):
-        gf.hanko_px(im, ox + 7, 7, kj, 14, ton, seed=ord(kj) % 5, usure=0.08)
+    # sceaux « déjà à toi » (coche) et « porté » (tenue) : pictos, plus de kanji (18/10, DA §3)
+    for k, (ox, enc, ton) in enumerate(((44, "reussi", fa.R_VERM),
+                                        (60, "tenue", ["1E3A2A", "264638", "345C4A", "467560", "5E8E78", "7CAA94", "9CC4B0"]))):
+        gf.hanko_px(im, ox + 7, 7, pictos.encre_px(14, enc), 14, ton, seed=2 + k, usure=0.08)
     # cadenas 9×10
     cad = [".aaaaa...", "a.....a..", "a.....a..", "bbbbbbbb.", "bcccccb..", "bcc.ccb..", "bcc.ccb..", "bcccccb..",
            "bbbbbbb.."]

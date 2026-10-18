@@ -16,7 +16,8 @@ import java.util.Locale;
 
 /**
  * Pile de <b>notifications en bas à droite</b> (maquette 03_notifications, DA §6 règle 9) : une ligne de texte petit
- * (Inter 7), une petite icône (objet 8 unités ou sceau kanji), un voile nuit très léger, un filet d'or d'1 px. Pas de
+ * (Inter 7), une petite icône (objet 8 unités, picto d'effet ou petit carré d'accent ; plus de sceau kanji depuis le
+ * 18/10 : le {@code kj} envoyé par le serveur devient ce carré), un voile nuit très léger, un filet d'or d'1 px. Pas de
  * cadre, pas de bouton.
  * <ul>
  *   <li>4 lignes au plus, la plus récente en bas, les anciennes pâlissent ;</li>
@@ -42,9 +43,10 @@ public final class NotifHud {
         int q;
         final List<Morceau> morceaux = new ArrayList<>();
         ItemStack icone;
-        String kanji;
-        int kanjiCol;
-        /** Picto d'effet ({@code textures/gui/effets/<nom>.png}, nourriture) à la place d'un kanji. */
+        /** Petit carré d'accent (vermillon / ambre / or) quand le serveur demandait un sceau ({@code kj}). */
+        boolean marque;
+        int marqueCol;
+        /** Picto d'effet ({@code textures/gui/effets/<nom>.png}, nourriture) à la place du carré. */
         String picto;
         float largeur = -1;
 
@@ -90,12 +92,12 @@ public final class NotifHud {
         }
     }
 
-    /** Une ligne simple : sceau kanji, mot en gras, suite (« Plus assez de place — libère une case »). */
+    /** Une ligne simple : marque, mot en gras, suite (« Plus assez de place — libère une case »). */
     public static void message(String ton, String kanji, String gras, String texte) {
         message(ton, kanji, gras, texte, null);
     }
 
-    /** Idem avec un petit picto d'effet ({@code "ic"} : regeneration, ryo, faim…) au lieu d'un kanji. */
+    /** Idem avec un petit picto d'effet ({@code "ic"} : regeneration, ryo, faim…) au lieu de la marque. */
     public static void message(String ton, String kanji, String gras, String texte, String picto) {
         long now = System.currentTimeMillis();
         String cle = "msg|" + ton + "|" + gras + "|" + texte;
@@ -110,8 +112,8 @@ public final class NotifHud {
                 default -> DaKit.OR;
             };
             int colGras = "palier".equals(ton) ? AMBRE : DaKit.CREME;
-            l.kanji = picto != null ? null : kanji;
-            l.kanjiCol = accent;
+            l.marque = picto == null && kanji != null && !kanji.isBlank();   // le caractère lui-même n'est jamais dessiné
+            l.marqueCol = accent;
             l.picto = picto;
             if (gras != null) l.morceaux.add(new Morceau(DaKit.interGras(gras), colGras));
             if (texte != null) l.morceaux.add(new Morceau(DaKit.inter((gras != null ? "— " : "") + texte),
@@ -173,8 +175,7 @@ public final class NotifHud {
             for (Morceau m : l.morceaux) w += DaKit.largeur7(f, m.c()) + 2;
             l.largeur = w;
         }
-        boolean icone = l.icone != null || l.kanji != null || l.picto != null;
-        float W = l.largeur + (icone ? 10 : 0) + 13;
+        float W = l.largeur + (l.icone != null || l.picto != null ? 10 : l.marque ? 6 : 0) + 13;
         int x0 = Math.round(xr - W);
         DaKit.etire(g, VOILE, x0, Math.round(ym) - 6, Math.round(W), 12, 64, 16, DaKit.blanc(a));
         // filet d'or d'1 px écran, à droite
@@ -198,11 +199,20 @@ public final class NotifHud {
             g.pose().popMatrix();
         } else if (l.picto != null) {
             fr.reborn.hud.nourriture.EffetsIcones.poser(g, l.picto, x - 10, ym - 4.5f, 9, DaKit.blanc(a));
-        } else if (l.kanji != null) {
-            Component kj = Component.literal(l.kanji);
-            float kw = f.width(kj) * 0.875f;
-            DaKit.texteEchelle(g, f, kj, x - 1 - kw, ym - 3.5f, DaKit.alpha(l.kanjiCol, a), 0.875f);
+        } else if (l.marque) {
+            int k2 = DaKit.echelleGui();
+            DaKit.debutPx(g);
+            int mx = Math.round((x - 4) * k2), my = Math.round(ym * k2), c = Math.max(2, k2 * 3 / 2);
+            g.fill(mx - c, my - c, mx + c, my + c, DaKit.alpha(marqueOmbre(l.marqueCol), a));
+            g.fill(mx - c + 1, my - c + 1, mx + c - 1, my + c - 1, DaKit.alpha(l.marqueCol, a));
+            DaKit.finPx(g);
         }
+    }
+
+    /** Bord sombre de la marque (accent assombri de moitié). */
+    private static int marqueOmbre(int col) {
+        int r = (col >> 16 & 0xFF) / 2, v = (col >> 8 & 0xFF) / 2, b = (col & 0xFF) / 2;
+        return 0xFF000000 | r << 16 | v << 8 | b;
     }
 
     static String fmt(double v) {

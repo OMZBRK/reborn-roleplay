@@ -15,7 +15,9 @@ Contrat (ancres en texels ↔ coordonnées GUI de la fenêtre 960×540, d = H �
 - fond_*.png 1280×540 : texel x = x_GUI − cx + 640 ; posé en (cx − 640, d).
 - entete.png 320×48 : texel (160, 0) = (cx, 0).
 - onglets.png 78×36 : 3 cellules 26×36 (repos, survol, actif) ; texel (13, 0) = (TAB_X, 36).
-- fermer.png 52×38 : 2 cellules 26×38 (repos, survol) ; texel (13, 0) = (W − 40, 0).
+- onglets_pictos.png 192×16 : pictos 16×16 des onglets (identité, attributs, techniques, état) × état (repos,
+  survol, actif) : u = (onglet·3 + état)·16 ; posé en (TAB_X − 8, y plaquette + 3). Aucun kanji (18/10, DA §3).
+- fermer.png 52×38 : 2 cellules 26×38 (repos, survol), plaque à croix ; texel (13, 0) = (W − 40, 0).
 - perche.png 300×16 : rangées 0-7 perche gauche (embout à droite), 8-15 perche droite (embout à
   gauche) ; rangée 0 du bloc = y 55.
 - panneau_*.png (w+8)×(84+h+28), w = 240 : texel (4, 84) = coin haut gauche de la planche ;
@@ -24,12 +26,11 @@ Contrat (ancres en texels ↔ coordonnées GUI de la fenêtre 960×540, d = H �
 - infobulle.png 226×44 : planche 218 en (4, 2) ; HAUT 0-15 / MILIEU 16-23 / BAS 24-43.
 - lanternes_s.png 180×288 (30×48), lanternes_l.png 204×312 (34×52) : colonnes = CRANS, rangées =
   stats ; flammes_s / flammes_l : 6 calques plein format (grande ×2, moyenne ×2, braise ×2).
-- hanko.png 240×100 : cellules 20×20, sceau 18×18 en (0, 0) (ombre +1) ; rangées : 0 clans,
-  1 natures (0-4) + titres d'état (5-10), 2 service (0-6, 11 = vierge), 3 stats (0-5) + rangs
-  D C B A S (6-10) + 基 (11), 4 blessures.
+- hanko.png 240×100 : cellules 20×20, sceau 18×18 en (0, 0) (ombre +1) ; depuis le 18/10 (aucun kanji) seules
+  servent la rangée 3 (rangs D C B A S en 6-10, sceau papier « de base » à losange en 11) et la rangée 4 (pictos
+  de blessure : contusion, brûlure, fracture, plaie, infection) ; les rangées 0-2 et 3 (0-5) sont vides.
 - ornements.png 80×8 : anneau, perle, pastille, petit anneau, losange, tampon plein, tampon vide,
   nœud ; soucoupe 16×5 en (64, 0).
-- plaques.png 64×24 : plaquette de mudra 22 (0, 0), plaquette Mérite 20 (24, 0), 師 12 (46, 0).
 - ema.png 576×168 : cellules 96×84 (repos, survol) ; texel (48, 0) = (LAN_X, 360) : piquet, ema
   92×56, cordelette, anneau, nom de la stat.
 - chevilles.png 80×10 : − actif, − inactif, + actif, + inactif, − survol, + survol, − pressé, + pressé.
@@ -39,7 +40,7 @@ Contrat (ancres en texels ↔ coordonnées GUI de la fenêtre 960×540, d = H �
 - barre.png 368×36 : barre d'actions 360×28 en (2, 2).
 - boutons.png 348×104 : rangées de 26 : RÉINITIALISER 82 (neutre, survol, inactif, armé),
   ANNULER 70 (normal, survol, inactif), compteur 94, VALIDER 82 (actif, inactif, survol) ; bouton
-  en (1, 1) de chaque cellule, kanji cuit.
+  en (1, 1) de chaque cellule, plaque nue (libellé centré posé par le code).
 - ligne_choisie.png 228×24 : texel (3, 0) = (x0, yc − 11).
 - carte_blessure.png 448×44 : 2 cellules 224×44, carte 218×38 en (1, 1).
 - meches.png 18×8 (vive, vacillante, faible) ; kumihimo.png 32×2 ; cabochon.png 42×12.
@@ -60,6 +61,7 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ICI)
 import fiche_art as fa  # noqa: E402
 from fiche_art import kit, hexc, rect, arcade, coller, R_OR, R_LAQUE, R_LAQUE_ROUGE, STATS, PAL  # noqa: E402
+import pictos  # noqa: E402  (pictogrammes : plus aucun kanji décoratif, 18/10)
 
 SORTIE = os.path.join(ICI, "..", "src", "main", "resources", "assets", "reborn", "textures", "gui", "fiche")
 TEX_ESC = os.path.join(ICI, "..", "src", "main", "resources", "assets", "reborn", "textures", "gui", "esc")
@@ -439,12 +441,15 @@ def hanko_px(img, cx, cy, kj, taille=18, ton=None, forme="carre", seed=0, encre=
     lt = b & ((xx + yy) < T - 1)
     p[b] = R[0]
     p[lt] = R[n - 2]
-    if kj:
-        g = kit._glyphe_kanji(kj, 16, "unifont")
-        gh, gw = g.shape
-        gx, gy = int(round(c0 - gw / 2 + 0.5)), int(round(c0 - gh / 2 + 0.5))
-        ink = np.zeros((T, T), bool)
-        ink[max(0, gy):gy + gh, max(0, gx):gx + gw] = g[max(0, -gy):T - gy, max(0, -gx):T - gx]
+    if isinstance(kj, np.ndarray) or kj:
+        if isinstance(kj, np.ndarray):           # encre fournie (picto, tools/pictos.py) : masque T×T
+            ink = kj.copy()
+        else:
+            g = kit._glyphe_kanji(kj, 16, "unifont")
+            gh, gw = g.shape
+            gx, gy = int(round(c0 - gw / 2 + 0.5)), int(round(c0 - gh / 2 + 0.5))
+            ink = np.zeros((T, T), bool)
+            ink[max(0, gy):gy + gh, max(0, gx):gx + gw] = g[max(0, -gy):T - gy, max(0, -gx):T - gx]
         ink &= mk & ~b
         col = hexc(encre or CREME_KJ)
         p[ink] = col
@@ -490,7 +495,7 @@ def tampon_palier(px, x, yc, plein=True):
 
 def sceau_rang4(px, cx, cy, r, taille=18):
     if r is None:
-        hanko_px(px, cx, cy, "基", taille, ["3A2E1E", "6A5A40", "C2B28E", "C8B894", "CCBC98", "E2D6B6"],
+        hanko_px(px, cx, cy, pictos.encre_px(taille, "base"), taille, ["3A2E1E", "6A5A40", "C2B28E", "C8B894", "CCBC98", "E2D6B6"],
                  seed=3, encre=hexc("3A2414"), usure=0.0)
         return
     R = [tuple(int(v) for v in c[:3]) for c in kit.rampe(RANG_COL[r], 6, ombre=0.30, lumiere=0.35)]
@@ -996,9 +1001,16 @@ def entete_onglets_fermer():
         fa.corde_v(cell, 13, 0, 12, "rouge", ep=2)
         fa.plaquette22(cell, 2, 12, "fermer_survol" if i else "fermer")
         kit.anneau_metal(cell, 13, 12, 1)
-        kj_px(cell, 13, 15, "閉", CREME_KJ, ombre=hexc("050304"))
+        pictos.ico_px(cell, 13, 18, "fermer", CREME_KJ, ombre=hexc("050304"))
         im.paste(cell, (i * 26, 0))
     sauver("fermer.png", im, (52, 38))
+
+    im = nouveau(192, 16)
+    for o, ic in enumerate(("identite", "attributs", "techniques", "etat")):
+        for e in range(3):
+            col = OR_CLAIR if e == 2 else (OR if e == 1 else hexc(R_OR[4]))
+            pictos.ico_milieu(im, (o * 3 + e) * 16 + 8, 8, ic, col, ombre=hexc("1A0608") if e == 2 else hexc("050304"))
+    sauver("onglets_pictos.png", im, (192, 16))
 
     im = nouveau(300, 16)
     g = nouveau(300 + 2, 8)
@@ -1064,7 +1076,7 @@ def lanternes():
         im = nouveau(6 * W, 6 * H)
         for st in range(6):
             for c, L in enumerate(CRANS_L):
-                kit.coller(im, lanterne_sprite4(st, W, H, L, True, seed=st), c * W, st * H)
+                kit.coller(im, lanterne_sprite4(st, W, H, L, False, seed=st), c * W, st * H)
         sauver(nom, im, (6 * W, 6 * H))
     for nom, (W, H) in (("flammes_s.png", (30, 48)), ("flammes_l.png", (34, 52))):
         im = nouveau(6 * W, H)
@@ -1135,13 +1147,13 @@ def attributs():
     for k, etat in enumerate(("neutre", "survol", "inactif", "arme")):
         c = nouveau(87, 26)
         if etat == "arme":
-            bouton4(c, 1, 1, "actif", "戻", ton="rouge", w=82)
+            bouton4(c, 1, 1, "actif", ton="rouge", w=82)
         else:
-            bouton4(c, 1, 1, etat, "戻", w=82)
+            bouton4(c, 1, 1, etat, w=82)
         im.paste(c, (k * 87, 0))
     for k, etat in enumerate(("normal", "survol", "inactif")):
         c = nouveau(75, 26)
-        bouton4(c, 1, 1, etat, "消", w=70)
+        bouton4(c, 1, 1, etat, w=70)
         im.paste(c, (k * 75, 26))
     c = nouveau(99, 26)
     fa.lq(c, 1, 1, 94, 20, "rouge", seed=5, intensite=1.0)
@@ -1149,7 +1161,7 @@ def attributs():
     im.paste(c, (0, 52))
     for k, etat in enumerate(("actif", "inactif", "survol")):
         c = nouveau(87, 26)
-        bouton4(c, 1, 1, etat, "決", ton="rouge", w=82)
+        bouton4(c, 1, 1, etat, ton="rouge", w=82)
         im.paste(c, (k * 87, 78))
     sauver("boutons.png", im, (348, 104))
 
@@ -1171,13 +1183,6 @@ def pieces():
     petit_noeud(im, 57, 1)
     soucoupe(im, 72, 0)
     sauver("ornements.png", im, (80, 8))
-
-    im = nouveau(64, 24)
-    plaquette4(im, 0, 0, 22, 22, "noir", seed=0)
-    fa.ferrures3(im, 0, 0, 22, 22)
-    plaquette4(im, 24, 0, 20, 20, "rouge", seed=9)
-    plaquette4(im, 46, 0, 12, 12, "or", seed=3)
-    sauver("plaques.png", im, (64, 24))
 
     im = nouveau(228, 24)
     bx, by, bw, bh = 9, 0, 218, 22
@@ -1222,36 +1227,22 @@ def pieces():
 
 
 # ═════════════════════════════════════ sceaux (résolution GUI) ═════════════════════════════════════
-CLANS = ["日", "扇", "千", "奈", "猿", "渦", "油", "秋", "旗", "山", "鞍", "族"]
-NATURES = [("水", R_IND), ("風", R_JADE), ("火", R_VERM), ("雷", R_ORL), ("土", R_BRUN)]
-CORPS = [("健", R_JADE), ("傷", R_VERM), ("重", ["3A0610", "5A0A18", "7A1020", "9A1A2A", "B82A38", "D04A4E", "E07078"]),
-         ("待", R_ORL), ("倒", R_BRUN), ("眠", R_IND)]
-SERVICE = ["登", "昇", "降", "任", "功", "記", "伝"]
-BLESSURES = ["傷", "火", "骨", "刃", "毒"]
+BLESSURES = ["contusion", "brulure", "fracture", "plaie", "infection"]
 
 
 def hanko_atlas():
+    """Sceaux de la fiche, sans aucun kanji (18/10, DA §3) : rangs D…S (lettres), sceau papier « de base » à
+    losange, pictos de blessure. Les autres cellules restent vides (contrat inchangé)."""
     im = nouveau(240, 100)
 
     def c(col, row):
         return col * 20 + 9, row * 20 + 9
 
-    for i, kj in enumerate(CLANS):
-        hanko_px(im, *c(i, 0), kj, 18, R_VERM, seed=5 + 11 * i)
-    for i, (kj, ton) in enumerate(NATURES):
-        hanko_px(im, *c(i, 1), kj, 18, ton, forme="rond", seed=7 + i)
-    for i, (kj, ton) in enumerate(CORPS):
-        hanko_px(im, *c(5 + i, 1), kj, 18, ton, seed=42 + i)
-    for i, kj in enumerate(SERVICE):
-        hanko_px(im, *c(i, 2), kj, 18, R_VERM, seed=20 + i)
-    hanko_px(im, *c(11, 2), None, 18, R_VERM, seed=29)
-    for st in range(6):
-        hanko_px(im, *c(st, 3), STATS[st][4], 18, ton_stat(st), seed=31)
     for i, r in enumerate(["D", "C", "B", "A", "S"]):
         sceau_rang4(im, *c(6 + i, 3), r)
     sceau_rang4(im, *c(11, 3), None)
-    for i, kj in enumerate(BLESSURES):
-        hanko_px(im, *c(i, 4), kj, 18, R_VERM, seed=ord(kj) % 7)
+    for i, nom in enumerate(BLESSURES):
+        hanko_px(im, *c(i, 4), pictos.encre_px(18, nom), 18, R_VERM, seed=i + 3)
     sauver("hanko.png", im, (240, 100))
 
 

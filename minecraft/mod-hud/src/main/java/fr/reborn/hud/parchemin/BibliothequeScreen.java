@@ -17,15 +17,15 @@ import java.util.Locale;
 
 /**
  * Bibliothèque, côté joueur (bibliothèques v2, docs/gameplay/APPRENTISSAGE.md §3). Motif de l'écran : un meuble à
- * casiers (tansu) de bois sombre, linteau laqué et plaque 書庫, chaque rouleau (modèle 3D SNR) couché dans son casier,
+ * casiers (tansu) de bois sombre, linteau laqué au cordon d'or, chaque rouleau (modèle 3D SNR) couché dans son casier,
  * son étiquette de rang (fuda) pendue au coin. Deux étagères, deux onglets pendus à une perche de bambou :
  * <b>Fonds</b> (rouleaux déposés, permanents) et <b>Arrivages</b> (tirage au sort). En-tête : nom, type et
- * propriétaire ; à droite, le sceau 秘 quand la bibliothèque est réservée à ses membres (survol : explication). Un
+ * propriétaire ; à droite, le sceau au cadenas quand la bibliothèque est réservée à ses membres (survol : explication). Un
  * non-membre voit sans pouvoir prendre (petit cadenas sur chaque rouleau) ; si la bibliothèque le permet, il peut
  * <b>voler</b> : clic = fouille de quelques secondes (barre vermillon sur le casier, le reste de l'étagère s'éteint),
  * immobile, Échap pour renoncer. Dépôt : bouton « Déposer » sous le meuble sur toutes les bibliothèques (grisé, avec
  * la raison, quand on ne peut pas), ou clic sur une case vide du fonds, puis choix d'un rouleau de la sacoche.
- * Journal (記) pour le propriétaire et le staff.
+ * Journal pour le propriétaire et le staff (aucun kanji depuis le 18/10, DA §3).
  * Habillage : textures de {@code tools/gen_bibliotheque_textures.py} (cf. {@link BiblioArt}).
  */
 public final class BibliothequeScreen extends Screen {
@@ -373,7 +373,7 @@ public final class BibliothequeScreen extends Screen {
         }
         BiblioArt.aides(g, font, width, height, aide.toArray(new String[0][]));
 
-        // boutons suspendus en haut à droite : 設 réglages (staff), 記 journal (propriétaire, staff)
+        // boutons suspendus en haut à droite : réglages (staff, picto roue), journal (propriétaire, staff, picto registre)
         int bx = width - 40;
         if (staff) {
             boolean hb = DaKit.dans(mx, my, bx + 2, 12, 22, 22);
@@ -423,7 +423,7 @@ public final class BibliothequeScreen extends Screen {
 
     private boolean sealHover(int mx, int my) { return DaKit.dans(mx, my, sealX() - 12, sealY() - 12, 24, 24); }
 
-    /** Perche et onglets pendus à gauche ; à droite, l'état de l'étagère et le sceau 秘 (accès « membres »). */
+    /** Perche et onglets pendus à gauche ; à droite, l'état de l'étagère et le sceau au cadenas (accès « membres »). */
     private void bandeau(GuiGraphicsExtractor g, int x, int y, int mx, int my) {
         int py = y - 32, ty = y - 21;
         int tx = x + 22;

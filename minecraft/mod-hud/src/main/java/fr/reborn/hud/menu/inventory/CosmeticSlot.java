@@ -9,33 +9,32 @@ package fr.reborn.hud.menu.inventory;
  *
  * <p>{@code side} : 0 = colonne gauche, 1 = colonne droite, 2 = onglet Équipement (étui). {@code icon} = texture
  * de fond du slot vide (les emplacements pas encore illustrés retombent sur
- * {@code cadre_reborn_none}, le cadre « à faire »).
+ * {@code cadre_reborn_none}, le cadre « à faire »). Case vide : picto de l'emplacement (sacoche/kanji.png, nom
+ * historique ; aucun kanji depuis le 15/10).
  */
 public enum CosmeticSlot {
     // ── Colonne GAUCHE (tête → torse) ──
-    CHAPEAU("Chapeau", "笠", "cadre_reborn_none", 0),
-    BANDEAU("Bandeau", "額", "slot_bandeau", 0),
-    MASQUE("Masque", "面", "slot_masque", 0),
-    BOUCLE("Boucle d'oreille", "耳", "cadre_reborn_none", 0),
-    MANTEAU("Manteau", "衣", "slot_manteau", 0),
+    CHAPEAU("Chapeau", "cadre_reborn_none", 0),
+    BANDEAU("Bandeau", "slot_bandeau", 0),
+    MASQUE("Masque", "slot_masque", 0),
+    BOUCLE("Boucle d'oreille", "cadre_reborn_none", 0),
+    MANTEAU("Manteau", "slot_manteau", 0),
     // ── Colonne DROITE (torse → jambes) ──
-    HAUT("Haut", "上", "cadre_reborn_none", 1),
-    TENUE("Tenue", "装", "cadre_reborn_none", 1),
-    CEINTURE("Ceinture", "帯", "cadre_reborn_none", 1),
-    BAS("Bas", "下", "cadre_reborn_none", 1),
-    DOS("Dos", "背", "slot_dos", 1),
+    HAUT("Haut", "cadre_reborn_none", 1),
+    TENUE("Tenue", "cadre_reborn_none", 1),
+    CEINTURE("Ceinture", "cadre_reborn_none", 1),
+    BAS("Bas", "cadre_reborn_none", 1),
+    DOS("Dos", "slot_dos", 1),
     // ── Onglet ÉQUIPEMENT (pas un cosmétique) : l'ÉTUI. L'arme rangée ici se voit à la ceinture (diffusée comme un
     //    cosmétique sur reborn:cosmetics), on la dégaine dans la barre (touche Z) et on la rengaine (13/10). ──
-    ARME("Arme", "刀", "cadre_reborn_none", 2);
+    ARME("Arme", "cadre_reborn_none", 2);
 
     public final String label;
-    public final String kanji;
     public final String icon;
     public final int side;
 
-    CosmeticSlot(String label, String kanji, String icon, int side) {
+    CosmeticSlot(String label, String icon, int side) {
         this.label = label;
-        this.kanji = kanji;
         this.icon = icon;
         this.side = side;
     }

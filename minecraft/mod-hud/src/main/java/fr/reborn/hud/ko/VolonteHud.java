@@ -10,21 +10,20 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import org.lwjgl.glfw.GLFW;
 
 /**
  * KO-5 — QTE « Volonté », côté client. À terre, la touche Saut demande au serveur de tenter la relève. Le serveur
- * envoie la séquence (instants, touches, fenêtre) ; un cercle se referme sur chaque sceau, il faut frapper la touche
+ * envoie la séquence (instants, touches, fenêtre) ; un cercle se referme sur chaque repère (losange d'or, plus de
+ * signe kanji depuis le 18/10), il faut frapper la touche
  * affichée (Espace, clic gauche, clic droit) au moment où il se pose. Les appuis horodatés repartent au serveur,
  * qui tranche. Lecture des touches directement au clavier/souris (indépendante des actions du jeu).
  */
 public final class VolonteHud {
 
     private static final String[] KEY_LABEL = {"Espace", "Clic gauche", "Clic droit"};
-    private static final String[] SEALS = {"子", "丑", "寅", "卯", "辰", "巳", "午"};
     private static final long APPROACH = 750;
 
     private static boolean active, ended, success;
@@ -196,15 +195,14 @@ public final class VolonteHud {
         g.fill(0, 0, w, h, 0x48000000);
         fr.reborn.hud.ui.DaKit.arcX1(g, font, fr.reborn.hud.ui.DaKit.arcade("Volonté"), cx, cy - 52,
             fr.reborn.hud.ui.DaKit.OR, 1, true);
-        // sceaux de la séquence, sous le cercle
+        // repères de la séquence (petits losanges), sous le cercle
         int n = keys.length;
         for (int i = 0; i < n; i++) {
             int sx = cx + (int) Math.round((i - (n - 1) / 2.0) * 18);
             int sy = cy + 38;
             boolean done = i < step, cur = i == step;
             int col = done ? fr.reborn.hud.ui.DaKit.OR : cur ? fr.reborn.hud.ui.DaKit.CREME : 0x806E6050;
-            Component k = Component.literal(SEALS[i % SEALS.length]);
-            g.text(font, k, sx - font.width(k) / 2, sy, col, true);
+            fr.reborn.hud.ui.DaKit.losange(g, sx, sy + 4, 2, col, a(0xFF0A0608, ((col >>> 24) & 0xFF) / 255f * 0.6f));
             if (cur) g.fill(sx - 3, sy + 10, sx + 3, sy + 11, fr.reborn.hud.ui.DaKit.OR);
         }
         if (step >= n) return;
@@ -222,13 +220,8 @@ public final class VolonteHud {
             ring(g, cx * px, cy * px, r * px, 1.1f * px, col);
         }
         g.pose().popMatrix();
-        // le sceau à frapper au centre, la touche juste dessous
-        Component seal = Component.literal(SEALS[step % SEALS.length]);
-        g.pose().pushMatrix();
-        g.pose().translate(cx, cy);
-        g.pose().scale(2f, 2f);
-        g.text(font, seal, -font.width(seal) / 2, -4, p > 0.85f ? 0xFFF6E7B0 : Colors.FOREGROUND, true);
-        g.pose().popMatrix();
+        // le repère à frapper au centre (losange), la touche juste dessous
+        fr.reborn.hud.ui.DaKit.losange(g, cx, cy, 4, p > 0.85f ? 0xFFF6E7B0 : Colors.FOREGROUND, 0x990A0608);
         fr.reborn.hud.ui.DaKit.inter8(g, font, fr.reborn.hud.ui.DaKit.inter(KEY_LABEL[keys[step]]), cx, cy + 24,
             fr.reborn.hud.ui.DaKit.OR_CLAIR, 1);
     }

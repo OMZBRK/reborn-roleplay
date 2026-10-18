@@ -15,7 +15,7 @@
 - **Thème Akatsuki** : laque noire et rouge profond (`#A0182B`), or (`#D9A95E`), crème, bois, washi (papier),
   ciel de nuit sur un village. Palette du code : `menu/Colors.java`.
 - **Le kit** : plaque laquée **suspendue** par des cordelettes et bordée d'or, **onglets pendus** sous la plaque,
-  parchemin, bois veiné et ferrures, sceaux kanji. Police **réduite**, contenu **centré**, écrans **aérés**.
+  parchemin, bois veiné et ferrures, sceaux à picto (plus de kanji, §3). Police **réduite**, contenu **centré**, écrans **aérés**.
 - **Chaque écran a sa signature** : un **objet** posé dans le décor commun (lanternes = fiche de stats, inrō =
   sacoche, tokonoma = Échap…). *Le Poste de garde et l'Infirmerie ont quitté le kit (v3 du 14/10, §4.2) : volet
   sobre nuit / or, sans plaquettes fuda ni tanzaku.* **On ne réutilise pas la
@@ -51,6 +51,22 @@
 | Refonte de l'accueil du launcher en tableau de bord | « pas besoin » | Accueil inchangé |
 | Écrans des menus principal et de chargement proposés | « j'aime pas » | Non intégrés |
 | Kanji et sceaux décoratifs (titres, onglets, lignes de HUD, pièces de section) — 14/10, écran de la radio | « arrête avec les écritures chinoises/japonaises, y'a pas besoin et ça fait ringard » | **Aucun kanji décoratif** ; texte français, écrans **centrés, épurés**, peu d'éléments |
+
+Application de la règle « aucun kanji décoratif » (précisée le 18/10, création de personnage) : un repère d'étape
+porte un **numéro** (ArcadePix) au lieu d'un caractère ; un bandeau de titre n'a que son titre ; un bouton-plaque est
+une plaque nue au libellé centré ; un choix déjà nommé (Homme / Femme) n'a pas besoin de signe ; un tampon décoratif
+est retiré plutôt que remplacé. Les **blasons canoniques** (villages, clans, natures) restent des symboles ; les
+blasons de clan faits d'un simple kanji faute de canon sont à trancher (PERSONNAGES §6).
+
+Étendue au reste du mod le 18/10 (même jour) : **onglet pendu = plaquette à picto pixel art** (comme la sacoche :
+fiche, réglages ; pictos communs dans `tools/pictos.py`) ; **plaque de fermeture = croix** ; **sceau à sens = picto**
+dans la laque (blessures, résultat de la chirurgie, accès « membres » au cadenas, cible du menu d'interaction, « à toi » /
+« porté » de l'échoppe) ; **signe dans une séquence = losange** (Volonté) ou **numéro** (étapes de la chirurgie) ; état
+d'un joueur sur sa plaque de nom = **mot** ; signes des mains = **noms français** ; tampon de coin de planche, sceau de
+titre, kanji de grade ou de mérite = **retirés**, le texte se recale. Aucun caractère chinois ou japonais n'est plus
+posé par le code ni cuit par les générateurs (hors blasons canoniques). Restent, comme symboles : les blasons de clan
+(dont les 6 faits d'un kanji, à trancher), les symboles canoniques des natures, les tours des Kage peintes dans les
+anciens fonds de création.
 
 ## 4. Ce qui a plu (références de style)
 

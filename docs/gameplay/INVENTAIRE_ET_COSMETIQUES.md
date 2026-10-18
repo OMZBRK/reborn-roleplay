@@ -231,6 +231,62 @@ Les dons des plugins (bibliothèque, test de la Feuille, soins, carte…) s'anno
   les objets 3D (parchemins, cosmétiques, sacs) vivent dans le pack Nexo (`minecraft/server-config/nexo/`), jamais
   dans les assets du mod.
 
+### 10 bis. Teinture du bandeau (18/10, codé, non publié)
+
+« Est-ce possible de modifier la couleur du bandeau ninja ? » → oui, **libre** (aucun coût, aucune teinture à posséder ;
+à revoir si l'on veut en faire un service payant ou un objet « teinture »).
+
+- **Où** : sacoche (E) › onglet Cosmétique › **clic droit sur le bandeau porté › « Teinture »**. Le personnage reste
+  debout dans le monde, caméra en orbite de face (comme « Repositionner » : glisser pour tourner autour, molette pour le
+  zoom) ; le tissu change **en direct** sur soi.
+- **Quel bandeau** : **le bandeau de l'utilisateur**, modélisé par lui dans Blockbench et déjà sur le serveur dev :
+  objet Nexo `bandeau_ninja` (« Bandeau de Ninja », `nexo/items/reborn_cosmetiques_ninja.yml`, modèle
+  `reborn:item/bandeau`, texture `texturebandeau.png` : tissu presque noir + plaque de métal). Sa **forme ne change
+  pas**. (Une première version du 18/10 visait par erreur `bandeau_konoha` avec un modèle provisoire fait par script :
+  retirée, voir DECISIONS.)
+- **Choix** : 8 couleurs proposées — **nuit (d'origine, `#302C32`)**, bleu marine, gris, blanc, rouge, vert, violet, sable — et une
+  **couleur libre** au sélecteur de la création de personnage (carré teinte / saturation, code hexadécimal à 6
+  chiffres). « Origine » remet la couleur de départ, « Annuler » / Échap ne change rien, « Appliquer » / Entrée valide.
+- **Ce qui change** : seul le **tissu** (bande, nœud, pans) ; la **plaque de métal** garde sa couleur. Sans teinte
+  choisie, le bandeau rend **exactement comme avant** (écart ≤ 1/255 par canal).
+- **Où c'est stocké** : sur l'**objet** lui-même (composant `minecraft:dyed_color`) : la couleur suit le bandeau (rangé,
+  donné, volé, perdu à la mort RP), persistée avec la sacoche du personnage. Rien sur la fiche du personnage.
+- **Vu des autres** : la couleur part dans la diffusion `reborn:cosmetics` (`"dye"`) ; le rendu porté
+  (`CosmeticFeatureRenderer`) passe par le rendu d'objet de Minecraft, qui applique la source de teinte du modèle.
+- **Serveur** : `cos:dye:<EMPLACEMENT>:<RRGGBB|origine>` sur `reborn:inventory` ; refusé si l'objet porté n'est pas
+  teintable (`inventaire.teinture.ids`, défaut `[bandeau_ninja]`, plus tout id `bandeau_*`) ou en lecture seule (KO,
+  porté, étourdi…) ; journal `INVENTAIRE` / `TEINTURE` (« Bandeau de Ninja (bandeau) : #302C32 → #9E2A2E »).
+- **Pack Nexo** (aucune forme modifiée) :
+  - `color: "#302C32"` sur `bandeau_ninja` : Nexo pose cette couleur sur l'objet (`dyed_color`) et génère la définition
+    `nexo:bandeau_ninja` avec une source de teinte `minecraft:dye` (défaut = cette couleur) — vérifié dans le jar Nexo
+    (`ModelGenerator` : `color` présent → `TintSource.dye(color)` ; l'`ItemUpdater` recopie la couleur de l'ancien
+    objet, une teinte choisie n'est donc pas écrasée par un `/nexo reload`).
+  - `models/item/bandeau.json` (le modèle Blockbench) : `"tintindex": 0` ajouté aux 60 faces des 10 éléments du tissu ;
+    rien sur les 5 éléments du groupe `metal` (la plaque).
+  - `textures/item/texturebandeau.png` : les pixels du tissu passés en **gris clair** (165 → 240, ombrage relatif
+    gardé ; le jeu multiplie ce gris par la couleur) ; la plaque et le reste de l'atlas inchangés. L'original est gardé
+    dans `texturebandeau_origine.png`.
+  - Outil : `mod-hud/tools/teinture_bandeau_nexo.py` (repart toujours de l'original, affiche la valeur de `color:`).
+    **Après un nouvel export Blockbench** du bandeau : déposer le nouvel original, supprimer
+    `texturebandeau_origine.png`, relancer l'outil. `--retirer` remet le bandeau non teintable.
+- **Autres bandeaux** : `bandeau_konoha` (`reborn_cosmetiques.yml`, sans modèle à ce jour) est teintable d'office
+  (préfixe `bandeau_`) dès qu'il aura un modèle qui suit la même règle et un `color:`. Le **bandeau peint sur le skin**
+  (accessoire « Bandeau frontal de Konoha » de la création de personnage) reste en couleur fixe.
+- **Placement par défaut des cosmétiques de tête (corrigé le 18/10, non publié)** : le bandeau (et le masque Hannya,
+  le chapeau d'Akatsuki) est modélisé pour l'emplacement tête vanilla (`display.head`). Le rendu cosmétique applique
+  bien `display.head` (contexte `HEAD`), mais son défaut « tête » (sans retournement, échelle 0,75, posé au pivot du
+  cou) ignorait le retournement que le jeu fait pour un casque : le bandeau tombait sur la **poitrine, à l'envers**.
+  Désormais le défaut des emplacements **Chapeau, Bandeau, Masque, Boucle d'oreille** = **placement du casque vanilla**
+  (`CosmeticTransform.casque()` : 180° en X et en Y, échelle 0,625, 0,25 bloc au-dessus du cou) : tout modèle réglé
+  pour `display.head` tombe pile sur la tête et suit ses mouvements, sans « Repositionner ». Exception par modèle :
+  l'**oreillette** radio (centrée dans son bloc) est posée sur l'**oreille droite**. Un placement enregistré par le
+  joueur (« Appliquer » dans « Repositionner ») reste prioritaire, chez lui et chez les autres (transform diffusé) ;
+  les autres joueurs sans placement enregistré prennent le même défaut. Aucun changement serveur ni pack.
+- Banc : `REBORN_TEINTURE_DEBUG=1` (`cosmetic/TeintureDebug` v3 : aucun placement posé, bandeau sans teinte et teint,
+  masque, chapeau, oreillette ; face, profil, dos, tête tournée, sur soi et sur un mannequin ; contrôle du transform
+  diffusé prioritaire ; sacoche › clic droit › Teinture après rechargement des ressources), captures dans
+  `Maquettes/gameplan/bandeau_teinture/v3/` (v2 : `…/v2/`, placement posé à la main par le banc).
+
 ---
 
 ## 11. Ce qui reste (propositions GAMEPLAN, non codées)

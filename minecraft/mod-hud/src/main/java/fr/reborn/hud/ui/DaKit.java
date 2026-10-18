@@ -325,14 +325,18 @@ public final class DaKit {
         return e.w();
     }
 
-    /** Kanji 16 GUI (police du jeu ×2), centré en x, haut en y ; ombre d'1 GUI (0 = sans). */
-    public static void kanji16(GuiGraphicsExtractor ctx, Font f, String kj, float cx, float yHaut, int col, int ombre) {
-        if (kj == null || kj.isEmpty()) return;
-        Component c = Component.literal(kj);
-        float w = f.width(c) * 2f;
-        float x = Math.round(cx - w / 2f);
-        if (ombre != 0) texteEchelle(ctx, f, c, x + 1, Math.round(yHaut) + 1, ombre, 2f);
-        texteEchelle(ctx, f, c, x, Math.round(yHaut), col, 2f);
+    /**
+     * Petit losange plein (demi-diagonale {@code r} GUI) centré en (cx, cy), ombre d'1 GUI en bas à droite (0 = sans).
+     * Repère sobre à la place des anciens signes kanji (Volonté, 18/10, DA §3).
+     */
+    public static void losange(GuiGraphicsExtractor ctx, int cx, int cy, int r, int col, int ombre) {
+        for (int pass = ombre != 0 ? 0 : 1; pass < 2; pass++) {
+            int o = pass == 0 ? 1 : 0, c = pass == 0 ? ombre : col;
+            for (int dy = -r; dy <= r; dy++) {
+                int hw = r - Math.abs(dy);
+                ctx.fill(cx - hw + o, cy + dy + o, cx + hw + 1 + o, cy + dy + 1 + o, c);
+            }
+        }
     }
 
     /** Paragraphe découpé une fois : lignes Inter à l'échelle s, interligne en GUI. */

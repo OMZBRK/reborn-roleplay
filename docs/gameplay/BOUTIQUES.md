@@ -472,7 +472,8 @@ est activé le temps du banc. Monde, position, mode de jeu, heure, météo, pack
 - **Hauts, bas, manteaux vides** : les 59 tenues du mod sont toutes des tenues complètes et le pack Nexo n'a ni haut,
   ni bas, ni manteau ; un comptoir « hauts » affiche « Rien de cette catégorie au catalogue pour l'instant » jusqu'à
   l'arrivée des assets (une ligne par pièce dans `boutique-catalogue.yml`).
-- **Masque ANBU et bandeau de Konoha** n'ont pas encore de modèle dans le pack Nexo (seulement leur entrée d'objet) ;
+- **Masque ANBU** n'a pas encore de modèle dans le pack Nexo (seulement son entrée d'objet) ; le **bandeau de Konoha** a
+  un modèle provisoire teintable depuis le 18/10 ([`INVENTAIRE_ET_COSMETIQUES.md`](./INVENTAIRE_ET_COSMETIQUES.md) §10 bis) ;
   un cosmétique 3D sans placement réglé (« Repositionner ») s'essaie à sa taille par défaut, souvent trop grande (le
   masque Hannya couvre le buste) — même rendu que s'il était porté.
 - **Se changer hors boutique** depuis la sacoche (3 s, hors combat, décision par défaut) : **non codé** ; on porte et

@@ -1,0 +1,14 @@
+{
+ "name": "meditation_fin",
+ "title": "Méditation — fin",
+ "author": "Reborn",
+ "description": "Retour des membres en position neutre quand la méditation s'arrête (joué en fondu de 0,3 s depuis la pose)",
+ "fps": 20,
+ "length": 0.3,
+ "loop": false,
+ "easing": "sine",
+ "seat_px": 0,
+ "ik": {},
+ "pose": {},
+ "keys": {"0": {}, "0.3": {}}
+}

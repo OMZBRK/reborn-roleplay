@@ -371,12 +371,12 @@ final class OngletAttributs implements Onglet {
         boolean reiOk = r.canRespec() && r.respecUsable();
         int reiE = !reiOk ? 2 : r.respecArme() ? 3 : boutonSurvol == 2 ? 1 : 0;
         FicheArt.bouton(ctx, FicheArt.BTN_REI, reiE, reiX, yb);
-        libelle(ctx, f, reiLib, reiX, reiE == 2 ? FicheArt.INACTIF : reiE == 0 ? FicheArt.NEUTRE_TXT : FicheArt.CREME, reiE != 2);
+        libelle(ctx, f, reiLib, reiX, REI_W, reiE == 2 ? FicheArt.INACTIF : reiE == 0 ? FicheArt.NEUTRE_TXT : FicheArt.CREME, reiE != 2);
 
         int p = r.pendingTotal();
         int annE = p <= 0 ? 2 : boutonSurvol == 1 ? 1 : 0;
         FicheArt.bouton(ctx, FicheArt.BTN_ANN, annE, annX, yb);
-        libelle(ctx, f, annLib, annX, annE == 2 ? FicheArt.INACTIF : annE == 1 ? FicheArt.CREME : FicheArt.BOUTON_TXT, annE != 2);
+        libelle(ctx, f, annLib, annX, ANN_W, annE == 2 ? FicheArt.INACTIF : annE == 1 ? FicheArt.CREME : FicheArt.BOUTON_TXT, annE != 2);
 
         FicheArt.bouton(ctx, FicheArt.BTN_CPT, 0, cptX, yb);
         if (cptVide) {
@@ -391,11 +391,12 @@ final class OngletAttributs implements Onglet {
 
         int valE = p <= 0 ? 1 : boutonSurvol == 0 ? 2 : 0;
         FicheArt.bouton(ctx, FicheArt.BTN_VAL, valE, valX, yb);
-        libelle(ctx, f, valLib, valX, valE == 1 ? FicheArt.INACTIF : FicheArt.CREME, valE != 1);
+        libelle(ctx, f, valLib, valX, VAL_W, valE == 1 ? FicheArt.INACTIF : FicheArt.CREME, valE != 1);
     }
 
-    private void libelle(GuiGraphicsExtractor ctx, Font f, Component lib, int x, int col, boolean ombre) {
-        FicheArt.arcFin(ctx, f, lib, x + 27, yb + 10 - 1.75f, col, 0, ombre);
+    /** Libellé centré sur le bouton (plaque nue depuis le 18/10 : plus de kanji cuit à gauche). */
+    private void libelle(GuiGraphicsExtractor ctx, Font f, Component lib, int x, int w, int col, boolean ombre) {
+        FicheArt.arcFin(ctx, f, lib, x + w / 2f, yb + 10 - 1.75f, col, 1, ombre);
     }
 
     private boolean dansBouton(double mx, double my, int x, int w) {

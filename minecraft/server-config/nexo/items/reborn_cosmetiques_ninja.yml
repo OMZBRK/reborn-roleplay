@@ -1,47 +1,63 @@
 # Reborn — Cosmétiques ninja (pack test, modèles maison). Catégorie: Cosmétiques.
 
 masque_hannya:
-  itemname: "<light_purple>Masque Hannya"
+  itemname: <light_purple>Masque Hannya
   material: PAPER
   lore:
-    - "<gray>Cosmétique ninja"
-    - "<light_purple>Épique"
+  - <gray>Cosmétique ninja
+  - <light_purple>Épique
   Pack:
     model: reborn:item/masque_hannya
 
 rouleau_jaune:
-  itemname: "<yellow>Rouleau Jaune"
-  material: PAPER
+  itemname: <yellow>Rouleau Jaune
+  material: SUGAR
   lore:
-    - "<gray>Cosmétique ninja"
-    - "<yellow>Peu commun"
+  - <gray>Cosmétique ninja
+  - <yellow>Peu commun
   Pack:
     model: reborn:item/rouleau_jaune
+    custom_model_data: 2
 
 rouleau_vert:
-  itemname: "<green>Rouleau Vert"
+  itemname: <green>Rouleau Vert
   material: PAPER
   lore:
-    - "<gray>Cosmétique ninja"
-    - "<green>Peu commun"
+  - <gray>Cosmétique ninja
+  - <green>Peu commun
   Pack:
     model: reborn:item/rouleau_vert
 
 rouleau_violet:
-  itemname: "<light_purple>Rouleau Violet"
+  itemname: <light_purple>Rouleau Violet
   material: PAPER
   lore:
-    - "<gray>Cosmétique ninja"
-    - "<light_purple>Peu commun"
+  - <gray>Cosmétique ninja
+  - <light_purple>Peu commun
   Pack:
     model: reborn:item/rouleau_violet
 
 akatsuki_hat:
-  itemname: "<red>Chapeau d'Akatsuki"
+  itemname: <red>Chapeau d'Akatsuki
   material: PAPER
   lore:
-    - "<gray>Cosmétique ninja"
-    - "<red>Légendaire"
+  - <gray>Cosmétique ninja
+  - <red>Légendaire
   Pack:
     model: reborn:item/akatsuki_hat
+
+# Teinture (18/10) : « color » = couleur du tissu par défaut (celle du bandeau d'origine : rendu identique). Nexo génère
+# la définition nexo:bandeau_ninja avec une source de teinte minecraft:dye (défaut = cette couleur) ; seules les faces
+# tintindex 0 du modèle (le tissu, peint en gris clair) la prennent, la plaque (groupe « metal ») reste telle quelle.
+# Le joueur change la couleur dans la sacoche (clic droit sur le bandeau porté › Teinture…) : ShinobiCore réécrit
+# dyed_color. Après un nouvel export Blockbench : relancer mod-hud/tools/teinture_bandeau_nexo.py (affiche la valeur).
+bandeau_ninja:
+  itemname: <gray>Bandeau de Ninja
+  material: PAPER
+  color: "#302C32"
+  lore:
+  - <gray>Cosmétique ninja
+  - <blue>Commun
+  Pack:
+    model: reborn:item/bandeau
 

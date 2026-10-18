@@ -46,39 +46,12 @@ final class FicheTextes {
 
     /* ---------------------------------------------------------------- grades, mérite */
 
-    /** Kanji du grade : par rankId, sinon par le nom affiché, sinon rien. */
-    static String kanjiGrade(String rankId, String rank) {
-        String k = rankId != null ? rankId.toUpperCase(Locale.ROOT) : "";
-        String r = FicheArt.cle(rank).replace(' ', '_').replace('-', '_').toUpperCase(Locale.ROOT);
-        String id = !k.isEmpty() ? k : r;
-        return switch (id) {
-            case "ACADEMICIEN", "ACADEMICIENNE", "ETUDIANT" -> "学";
-            case "GENIN", "GENIN_CONFIRME" -> "下忍";
-            case "CHUNIN" -> "中忍";
-            case "KONIN" -> "高忍";
-            case "TOKUBETSU_JONIN" -> "特上";
-            case "JONIN", "COMMANDANT_JONIN" -> "上忍";
-            case "KAGE", "HOKAGE", "KAZEKAGE", "MIZUKAGE", "RAIKAGE", "TSUCHIKAGE" -> "影";
-            default -> "";
-        };
-    }
-
     static final String[] MERITE = {"Pas encore remarqué", "Reconnu par ton village", "Estimé de ton village",
         "Honoré par ton village", "Une figure de ton village", "Une légende de ton village"};
 
     static String merite(int palier) { return MERITE[Math.max(0, Math.min(5, palier))]; }
 
     /* ---------------------------------------------------------------- clans, villages, natures */
-
-    private static final String[] CLANS = {"hyuga", "uchiha", "senju", "nara", "sarutobi", "uzumaki", "aburame",
-        "akimichi", "hatake", "yamanaka", "kurama"};
-
-    /** Colonne du clan dans la rangée 0 de hanko (11 = clan inconnu). */
-    static int colClan(String clan) {
-        String c = FicheArt.cle(clan);
-        for (int i = 0; i < CLANS.length; i++) if (c.equals(CLANS[i]) || c.startsWith(CLANS[i])) return i;
-        return 11;
-    }
 
     private static final String[][] VILLAGES = {
         {"konoha", "konohagakure"}, {"suna", "sunagakure"}, {"kiri", "kirigakure"},
@@ -127,15 +100,6 @@ final class FicheTextes {
 
     /* ---------------------------------------------------------------- techniques */
 
-    static final String[] MUDRAS = {"Rat", "Buffle", "Tigre", "Lièvre", "Dragon", "Serpent", "Cheval", "Bélier",
-        "Singe", "Coq", "Chien", "Sanglier"};
-    static final String[] MUDRAS_KJ = {"子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"};
-
-    static String kanjiMudra(String nom) {
-        String c = FicheArt.cle(nom);
-        for (int i = 0; i < MUDRAS.length; i++) if (FicheArt.cle(MUDRAS[i]).equals(c)) return MUDRAS_KJ[i];
-        return "印";
-    }
 
     /** Lettre de rang affichée : E → base ; Hiden → S. */
     static String lettre(String rank) {
@@ -159,7 +123,6 @@ final class FicheTextes {
     }
 
     static final String[] GROUPES = {"NINJUTSU", "TAIJUTSU", "KENJUTSU", "FONDAMENTAUX", "AUTRES"};
-    static final String[] GROUPES_KJ = {"忍", "体", "剣", "基", "術"};
 
     static String groupeNom(String g) {
         return switch (g) {
@@ -256,18 +219,6 @@ final class FicheTextes {
 
     static final String[] TITRES = {"INDEMNE", "BLESSE", "GRAVE", "ATA", "A_TERRE", "INCONSCIENT"};
 
-    /** Colonne hanko (rangée 1) du titre d'état : 5 健 … 10 眠. */
-    static int colTitre(String titre) {
-        return switch (titre == null ? "" : titre) {
-            case "BLESSE" -> 6;
-            case "GRAVE" -> 7;
-            case "ATA" -> 8;
-            case "A_TERRE" -> 9;
-            case "INCONSCIENT" -> 10;
-            default -> 5;
-        };
-    }
-
     static String titreTxt(String titre) {
         return switch (titre == null ? "" : titre) {
             case "BLESSE" -> "BLESSE";
@@ -306,18 +257,4 @@ final class FicheTextes {
     static final String SANS_DOULEUR = "Aucune douleur : ton corps ne se plaint de rien.";
     static final String AUTRES_DOULEURS = "Et d'autres douleurs…";
     static final String HISTOIRE = "Ton histoire reste à écrire.";
-
-    /* ---------------------------------------------------------------- service */
-
-    /** Colonne hanko (rangée 2) d'un état de service. */
-    static int colService(String type) {
-        return switch (type == null ? "" : type) {
-            case "ENREGISTREMENT" -> 0;
-            case "PROMOTION" -> 1;
-            case "RETROGRADATION" -> 2;
-            case "MISSION" -> 3;
-            case "DISTINCTION" -> 4;
-            default -> 5;
-        };
-    }
 }

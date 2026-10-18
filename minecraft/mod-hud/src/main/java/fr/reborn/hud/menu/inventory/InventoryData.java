@@ -141,10 +141,35 @@ public final class InventoryData {
             si.arme = o.has("arme") && o.get("arme").getAsBoolean();
             si.unique = o.has("unique") && o.get("unique").getAsBoolean();
             si.ryo = o.has("ryo") ? o.get("ryo").getAsLong() : -1;   // bourse (15/10) : montant
+            si.dye = teinte(str(o, "dye", null));                     // teinture (18/10) : dyed_color
+            si.teintable = o.has("teinte") && o.get("teinte").getAsBoolean();
             return si;
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** {@code "RRGGBB"} (ou {@code #RRGGBB}) → RGB, sinon −1. */
+    public static int teinte(String hex) {
+        if (hex == null) return -1;
+        String h = hex.startsWith("#") ? hex.substring(1) : hex;
+        if (h.length() != 6) return -1;
+        try {
+            return Integer.parseInt(h, 16) & 0xFFFFFF;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /** Copie du snapshot avec un cosmétique remplacé (MAJ optimiste de la teinture, avant la réponse du serveur). */
+    public static void remplacerPorte(CosmeticSlot cs, SlotItem item) {
+        Snapshot s = snapshot;
+        if (s == null || cs == null || item == null || s.equipped() == null) return;
+        Map<CosmeticSlot, SlotItem> eq = new EnumMap<>(CosmeticSlot.class);
+        eq.putAll(s.equipped());
+        eq.put(cs, item);
+        snapshot = new Snapshot(s.bagTier(), s.baseSlots(), s.extraSlots(), s.maxWeight(), s.curWeight(), s.bagItem(),
+            s.bag(), eq, s.hotbar(), s.lecture(), s.palier(), s.poidsMax(), s.armeDegainee(), false);
     }
 
     private static JsonObject getObj(JsonObject o, String k) {

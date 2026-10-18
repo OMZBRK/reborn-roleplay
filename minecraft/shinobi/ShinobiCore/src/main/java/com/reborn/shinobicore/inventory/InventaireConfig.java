@@ -42,6 +42,9 @@ public final class InventaireConfig {
     public final boolean armeVanilla;
     // ─── cases vanilla 9-35 ───
     public final boolean balayerCasesCachees;
+    // ─── teinture des cosmétiques (18/10) ───
+    /** Ids Nexo teintables (le tissu du modèle porte une source de teinte minecraft:dye) ; tout id bandeau_* l'est aussi. */
+    public final Set<String> teintureIds;
     // ─── rareté ───
     public final Map<String, RpRarity> rareteParId;
 
@@ -79,6 +82,8 @@ public final class InventaireConfig {
 
         balayerCasesCachees = c == null || c.getBoolean("inventaire.cases-cachees.balayage", true);
 
+        teintureIds = ids(c, "inventaire.teinture.ids", List.of("bandeau_ninja"));
+
         Map<String, RpRarity> t = new HashMap<>(defautsRarete());
         ConfigurationSection s = c == null ? null : c.getConfigurationSection("rarete.par-id");
         if (s != null) {
@@ -88,6 +93,11 @@ public final class InventaireConfig {
             }
         }
         rareteParId = Map.copyOf(t);
+    }
+
+    /** Objet teintable (bandeau…) : id listé dans {@code inventaire.teinture.ids}, ou tout id {@code bandeau_*}. */
+    public boolean teintable(String id) {
+        return id != null && (teintureIds.contains(id) || id.startsWith("bandeau_"));
     }
 
     /** Table par défaut (objets Nexo du pack de test) — complétée / remplacée par {@code rarete.par-id}. */

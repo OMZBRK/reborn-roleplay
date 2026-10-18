@@ -45,7 +45,7 @@ public final class InteractionMode {
         SURVOL = DaKit.tex("interaction", "survol"),
         PIECES = DaKit.tex("interaction", "pieces"),
         ETIQUETTE = DaKit.tex("interaction", "etiquette");
-    /** Sceau du bandeau : 0 人 joueur, 1 屍 corps, 2 己 soi, 3 物 bloc ou chose. */
+    /** Sceau du bandeau (picto) : 0 joueur, 1 corps, 2 soi, 3 bloc ou chose. */
     private int sceau = 0;
     private Component titleC = Component.empty();
 

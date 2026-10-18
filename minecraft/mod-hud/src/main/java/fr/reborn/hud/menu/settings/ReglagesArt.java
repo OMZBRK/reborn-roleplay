@@ -17,7 +17,8 @@ public final class ReglagesArt {
 
     public static final Identifier FOND = tex("fond"), ENTETE = tex("entete"), ONGLETS = tex("onglets"),
         FERMER = tex("fermer"), PLANCHE = tex("planche"), REGLETTE = tex("reglette"), INTERRUPTEUR = tex("interrupteur"),
-        SEGMENTS = tex("segments"), BOUTONS = tex("boutons"), PIECES = tex("pieces"), VIGNETTE = tex("vignette");
+        SEGMENTS = tex("segments"), BOUTONS = tex("boutons"), PIECES = tex("pieces"), VIGNETTE = tex("vignette"),
+        ONGLETS_PICTOS = tex("onglets_pictos");
 
     public static final int FOND_W = 1280, FOND_H = 720;
 
@@ -37,7 +38,12 @@ public final class ReglagesArt {
         DaKit.blit(g, ONGLETS, tx - 13, y, etat * 26, 0, 26, 36, 78, 36);
     }
 
-    /** Plaque 閉 (cellule 26×38, attache en (tx, 0)). */
+    /** Picto 16×16 de l'onglet {@code i} (0 vidéo … 7 Minecraft), état 0 repos, 1 survol, 2 actif ; centré en (tx, haut y). */
+    public static void ongletPicto(GuiGraphicsExtractor g, int i, int tx, int y, int etat) {
+        DaKit.blit(g, ONGLETS_PICTOS, tx - 8, y, (i * 3 + etat) * 16, 0, 16, 16, 384, 16);
+    }
+
+    /** Plaque de fermeture à croix (cellule 26×38, attache en (tx, 0)). */
     public static void fermer(GuiGraphicsExtractor g, int tx, boolean survol) {
         DaKit.blit(g, FERMER, tx - 13, 0, survol ? 26 : 0, 0, 26, 38, 52, 38);
     }

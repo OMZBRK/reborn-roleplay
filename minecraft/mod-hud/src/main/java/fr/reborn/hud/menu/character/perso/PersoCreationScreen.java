@@ -51,7 +51,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     private static final String[] PAYS = {"Pays du Feu", "Pays du Vent", "Pays de l'Eau", "Pays de la Foudre",
         "Pays de la Terre", "Pays de la Pluie"};
     private static final int A_SUIVANT = -1, A_RETOUR = -2, A_VOIX = -4, A_HASARD = -5, A_MOINS = -6, A_PLUS = -7,
-        A_LIBRE_CHEVEUX = -8, A_LIBRE_YEUX = -9;
+        A_LIBRE_CHEVEUX = -8, A_LIBRE_YEUX = -9, A_ONGLET_CHEVEUX = -10, A_ONGLET_SOURCILS = -11, A_SOURCILS_COMME = -12,
+        A_LIBRE_SOURCILS = -13, A_TOUT_VOIR = -14;
 
     /* ------------------------------------------------------------- état */
     private int step;
@@ -61,7 +62,6 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     private double size = 172 / 180.0;
     private final SkinSpec look = new SkinSpec();
     private int skinIdx = 4, hairIdx, hairColorIdx = 1, eyeIdx, outfitIdx;
-    private boolean maleSlim;
     private int hairScroll, outfitScroll, accScroll;
     /** Rangées de tenues affichées (dépend de la hauteur et de la rangée Accessoire), zone de la rangée Accessoire. */
     private int rangeesTenues = 3;
@@ -83,9 +83,25 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     private String figureCle = "", lookCle = "";
     private long figureAt;
     private final java.util.Map<String, Identifier> variantes = new java.util.HashMap<>();
+    private int genApercus = -1;
     /** Couleur libre (pipette) : sélecteur ouvert, couleurs libres choisies (-1 = aucune). */
     private PersoCouleur picker;
     private int hairLibreC = -1, eyeLibreC = -1;
+    /**
+     * Sourcils (18/10) : onglet SOURCILS de la rangée COULEUR (même palette, même pipette que les cheveux). « Comme les
+     * cheveux » = {@code look.browFollowHair} (défaut) ; sinon {@code browIdx} ≥ 0 palette du clan, -1 couleur libre.
+     */
+    private boolean ongletSourcils;
+    private int browIdx, browLibreC = -1;
+    /** Cible du sélecteur libre ouvert (0 cheveux, 1 yeux, 2 sourcils) et état des sourcils à rendre si on annule. */
+    private int libreCible;
+    private boolean avantSuit;
+    private int avantBrowIdx, avantBrowLibre;
+    /** Grille « toutes les coiffures » (bundle du mod + assets live du serveur), rangée du haut affichée. */
+    private boolean toutes;
+    private int toutesScroll;
+    private final List<int[]> hitsToutes = new ArrayList<>();
+    private int[] zoneToutes = new int[4];
     private final List<int[]> hits = new ArrayList<>();
     private int[] regle;            // {x, w, vmin, vmax} de la réglette visible
     private int[] zoneFigure = new int[4];
@@ -140,6 +156,14 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     }
 
     private boolean isCustomClan() { return "Autre".equals(clanBrut()); }
+
+    /** Marque du sceau du registre : emblème du village (défaut), du clan, ou l'ancien 認 (-Dreborn.sceauRegistre). */
+    private int indexSceau() {
+        String m = PersoEmblemes.sceauMode;
+        if ("kanji".equalsIgnoreCase(m)) return PersoEmblemes.sceauKanji();
+        if ("clan".equalsIgnoreCase(m) && !clanBrut().isEmpty()) return idxClan(CharacterRules.slug(clanBrut()));
+        return idxVillage(village);
+    }
 
     private String sexe() { return sexeIdx == 1 ? "Femme" : "Homme"; }
 
@@ -250,14 +274,28 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         eyeIdx = Math.min(eyeIdx, p.yeux().length - 1);
         look.hairColor = 0xFF000000 | (hairColorIdx < 0 ? hairLibreC : p.cheveux()[hairColorIdx]);
         look.eyeColor = look.eyeColorRight = 0xFF000000 | (eyeIdx < 0 ? eyeLibreC : p.yeux()[eyeIdx]);
+        if (browIdx < 0 && browLibreC < 0) browIdx = 0;
+        browIdx = Math.min(browIdx, p.cheveux().length - 1);
+        look.browColor = 0xFF000000 | (browIdx < 0 ? browLibreC : p.cheveux()[browIdx]);
     }
 
     private boolean glisseCouleur() { return picker != null; }
 
-    /** Ouvre le sélecteur de couleur libre (0 cheveux, 1 yeux) sur la couleur actuelle. */
+    /** Ouvre le sélecteur de couleur libre (0 cheveux, 1 yeux, 2 sourcils) sur la couleur actuelle. */
     private void ouvrirLibre(int cible) {
         SceneSounds.tick();
-        if (cible == 0) {
+        libreCible = cible;
+        if (cible == 2) {
+            avantSuit = look.browFollowHair;
+            avantBrowIdx = browIdx;
+            avantBrowLibre = browLibreC;
+            picker = new PersoCouleur("COULEUR LIBRE - SOURCILS", look.effectiveBrowColor(), rgb -> {
+                browLibreC = rgb & 0xFFFFFF;
+                browIdx = -1;
+                look.browFollowHair = false;
+                appliquerPalette();
+            });
+        } else if (cible == 0) {
             picker = new PersoCouleur("COULEUR LIBRE - CHEVEUX", look.hairColor, rgb -> {
                 hairLibreC = rgb & 0xFFFFFF;
                 hairColorIdx = -1;
@@ -274,7 +312,15 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     private void fermerLibre(boolean garder) {
         if (picker == null) return;
-        if (!garder) picker.annuler();
+        if (!garder) {
+            picker.annuler();
+            if (libreCible == 2) {                          // annuler rend aussi « comme les cheveux »
+                look.browFollowHair = avantSuit;
+                browIdx = avantBrowIdx;
+                browLibreC = avantBrowLibre;
+                appliquerPalette();
+            }
+        }
         picker = null;
         SceneSounds.tick();
     }
@@ -293,7 +339,10 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     private void applyLists() {
         List<CharacterCatalog.Asset> h = hairs(), o = outfits();
-        look.hairId = h.isEmpty() ? "" : h.get(Math.min(hairIdx, h.size() - 1)).id;
+        // coiffure gardée par son id (la liste grandit quand les assets live du serveur arrivent, écran ouvert)
+        int k = indexOf(h, look.hairId);
+        if (k >= 0) hairIdx = k;
+        else look.hairId = h.isEmpty() ? "" : h.get(Math.max(0, Math.min(hairIdx, h.size() - 1))).id;
         look.outfitId = o.isEmpty() ? "" : o.get(Math.min(outfitIdx, o.size() - 1)).id;
         // accessoire : retiré s'il n'est plus proposé (changement de sexe ou de clan)
         if (look.accessoryId != null && !look.accessoryId.isBlank()
@@ -310,7 +359,33 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         return null;
     }
 
-    private List<CharacterCatalog.Asset> hairs() { return available("hair", look.female); }
+    /**
+     * Coiffures proposées : catalogue fusionné, filtres genre / clan du catalogue respectés. D'abord les assets live du
+     * serveur ({@code plugins/ShinobiCore/creator-assets/}, alimentés par le staff), puis celles du mod : depuis la
+     * refonte du 13/10 les coupes du serveur arrivaient après les 35 du mod et ne se voyaient qu'après 9 crans de
+     * molette (18/10).
+     */
+    private List<CharacterCatalog.Asset> hairs() {
+        List<CharacterCatalog.Asset> l = available("hair", look.female), out = new ArrayList<>(l.size());
+        for (CharacterCatalog.Asset a : l) if (CharacterCatalog.isLive(a)) out.add(a);
+        for (CharacterCatalog.Asset a : l) if (!CharacterCatalog.isLive(a)) out.add(a);
+        return out;
+    }
+
+    private static int indexOf(List<CharacterCatalog.Asset> l, String id) {
+        if (id == null || id.isEmpty()) return -1;
+        for (int i = 0; i < l.size(); i++) if (l.get(i).id.equals(id)) return i;
+        return -1;
+    }
+
+    /** Choisit la i-ème coiffure de la liste courante. */
+    private void choisirCoiffure(int i) {
+        List<CharacterCatalog.Asset> h = hairs();
+        if (h.isEmpty()) return;
+        hairIdx = Math.max(0, Math.min(i, h.size() - 1));
+        look.hairId = h.get(hairIdx).id;
+        applyLists();
+    }
 
     private List<CharacterCatalog.Asset> outfits() { return available("outfit", look.female); }
 
@@ -352,6 +427,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     public void setStep(int s) {
         picker = null;
+        toutes = false;
         step = Math.max(0, Math.min(STEPS - 1, s));
         stepAt = System.currentTimeMillis();
         error = "";
@@ -419,7 +495,6 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         if (s != sexeIdx) SceneSounds.tick();
         sexeIdx = s;
         look.female = s == 1;
-        look.slim = look.female || maleSlim;
         hairIdx = outfitIdx = 0;
         hairScroll = outfitScroll = 0;
         applyLists();
@@ -443,7 +518,9 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         look.skinColor = SkinSpec.skinRamp(skinIdx / 11f);
         int nh = hairs().size(), no = outfits().size();
         hairIdx = nh > 0 ? r.nextInt(nh) : 0;
+        look.hairId = nh > 0 ? hairs().get(hairIdx).id : "";
         outfitIdx = no > 0 ? r.nextInt(no) : 0;
+        look.browFollowHair = true;                         // au hasard : sourcils comme les cheveux
         Palette p = pal();
         hairColorIdx = r.nextInt(p.cheveux().length);
         eyeIdx = r.nextInt(p.yeux().length);
@@ -451,7 +528,6 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         List<CharacterCatalog.Asset> al = accessoires();
         look.accessoryId = al.isEmpty() || r.nextInt(2) == 0 ? "" : al.get(r.nextInt(al.size())).id;
         picker = null;
-        if (!look.female) { maleSlim = r.nextBoolean(); look.slim = maleSlim; }
         appliquerPalette();
         applyLists();
         SceneSounds.tick();
@@ -488,6 +564,10 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             if (k == GLFW.GLFW_KEY_ESCAPE) fermerLibre(false);
             else if (k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) fermerLibre(true);
             else if (k == GLFW.GLFW_KEY_BACKSPACE) picker.effacer();
+            return true;
+        }
+        if (toutes) {
+            if (k == GLFW.GLFW_KEY_ESCAPE || k == GLFW.GLFW_KEY_ENTER || k == GLFW.GLFW_KEY_KP_ENTER) fermerToutes();
             return true;
         }
         boolean typing = step == S_NOM || (step == S_CLAN && isCustomClan());
@@ -558,6 +638,17 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             if (!picker.clic(mx, my, ok) || ok[0]) fermerLibre(true);
             return true;
         }
+        if (toutes) {
+            for (int[] r : hitsToutes) {
+                if (!dans(mx, my, r[0], r[1], r[2], r[3])) continue;
+                choisirCoiffure(r[4]);
+                SceneSounds.tick();
+                fermerToutes();
+                return true;
+            }
+            if (!dans(mx, my, zoneToutes[0], zoneToutes[1], zoneToutes[2], zoneToutes[3])) fermerToutes();
+            return true;
+        }
         if (regle != null && mx >= regle[0] - 4 && mx < regle[0] + regle[1] + 4 && my >= regle[4] - 7 && my < regle[4] + 14) {
             drag = 1;
             glisserRegle(mx);
@@ -588,19 +679,22 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             case A_HASARD -> hasard();
             case A_LIBRE_CHEVEUX -> ouvrirLibre(0);
             case A_LIBRE_YEUX -> ouvrirLibre(1);
+            case A_LIBRE_SOURCILS -> ouvrirLibre(2);
+            case A_ONGLET_CHEVEUX -> { if (ongletSourcils) { ongletSourcils = false; SceneSounds.tick(); } }
+            case A_ONGLET_SOURCILS -> { if (!ongletSourcils) { ongletSourcils = true; SceneSounds.tick(); } }
+            case A_SOURCILS_COMME -> { look.browFollowHair = true; SceneSounds.tick(); }
+            case A_TOUT_VOIR -> { toutes = true; toutesScroll = Math.max(0, hairIdx / colsToutes() - 1); SceneSounds.tick(); }
             case A_MOINS -> { if (step == S_AGE) setAge(age - 1); else setCm(cmAdulte() - 1); }
             case A_PLUS -> { if (step == S_AGE) setAge(age + 1); else setCm(cmAdulte() + 1); }
             default -> {
-                if (a >= 1100) { choisirAccessoire(a - 1100); SceneSounds.tick(); }
+                if (a >= 1200) { browIdx = a - 1200; look.browFollowHair = false; appliquerPalette(); SceneSounds.tick(); }
+                else if (a >= 1100) { choisirAccessoire(a - 1100); SceneSounds.tick(); }
                 else if (a >= 1000) { vue = a - 1000; lacetCible = vue == 0 ? 0 : vue == 1 ? 90 : 180; SceneSounds.tick(); }
                 else if (a >= 900) { outfitIdx = a - 900; applyLists(); SceneSounds.tick(); }
                 else if (a >= 800) { eyeIdx = a - 800; appliquerPalette(); SceneSounds.tick(); }
                 else if (a >= 700) { hairColorIdx = a - 700; appliquerPalette(); SceneSounds.tick(); }
-                else if (a >= 600) { hairIdx = a - 600; applyLists(); SceneSounds.tick(); }
+                else if (a >= 600) { choisirCoiffure(a - 600); SceneSounds.tick(); }
                 else if (a >= 500) { skinIdx = a - 500; look.skinColor = SkinSpec.skinRamp(skinIdx / 11f); SceneSounds.tick(); }
-                else if (a >= 400) {
-                    if (!look.female) { maleSlim = a == 401; look.slim = maleSlim; SceneSounds.tick(); }
-                }
                 else if (a >= 300) {
                     int[][] tr = {{10, 12}, {13, 16}, {17, 60}};
                     int[] t = tr[a - 300];
@@ -643,6 +737,11 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
 
     @Override
     public boolean mouseScrolled(double mx, double my, double h, double v) {
+        if (toutes && v != 0) {
+            int max = Math.max(0, (hairs().size() + colsToutes() - 1) / colsToutes() - rangsToutes());
+            toutesScroll = Math.max(0, Math.min(max, toutesScroll + (v > 0 ? -1 : 1)));
+            return true;
+        }
         if (step == S_LOOK && v != 0) {
             if (mx < width / 2.0) {
                 int max = Math.max(0, (hairs().size() + 3) / 4 - lignesCheveux());
@@ -687,6 +786,12 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     /* ------------------------------------------------------------- aperçus */
 
     private void majApercus(long now) {
+        int gen = CharacterCatalog.generation();
+        if (gen != genApercus) {                           // assets live arrivés : aperçus et vignettes refaits
+            genApercus = gen;
+            figureTex = null;
+            variantes.clear();
+        }
         String cle = look.serialize();
         if (figureTex == null || (!cle.equals(figureCle) && (now - figureAt >= 60 || !glisseCouleur()))) {
             figureCle = cle;
@@ -834,6 +939,7 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             PersoArt.panneau(g, P_REGISTRE_RECAP, xD, y0, 262);
             PersoUi.registre(g, f, xD, y0, valeurs(), -1, 1f);
             inter(g, f, inter("Le registre sera scellé."), xD + 16, y0 + 228, 7, DOUX, 0);
+            sceauRegistre(g, indexSceau(), xD + 188, y0 + 222);        // à la place de l'ancien tampon 認 (18/10)
         } else if (step != S_LOOK) {
             PersoArt.panneau(g, P_REGISTRE, xD, y0, 214);
             PersoUi.registre(g, f, xD, y0, valeurs(), step, 1f);
@@ -877,6 +983,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             default -> new String[][]{{"ENTREE", "valider"}, {"ECHAP", "modifier"}};
         };
         aides(g, f, aides, width - 24, 509 + B);
+        if (toutes && step == S_LOOK) dessinerToutes(g, f, mx, my);
+        else hitsToutes.clear();
         float noir = leaveAt >= 0 ? Math.min(1f, Math.max(0f, (now - leaveAt - 1100) / 1100f)) : 0f;
         if (noir > 0) g.fill(0, 0, width, height, argb(0, noir));
     }
@@ -1002,17 +1110,16 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         PersoArt.panneau(g, P_SEXE, x, y0, h);
         int cw = 104;
         int gx = x + (240 - 2 * cw - 8) / 2;
-        String[] lib = {"HOMME", "FEMME"}, kj = {"男", "女"};
+        String[] lib = {"HOMME", "FEMME"};   // plus de kanji décoratif sur la tuile (18/10) : le libellé suffit
         for (int i = 0; i < 2; i++) {
             int tx = gx + i * (cw + 8), ty = y0 + 36;
             boolean sel = i == sexeIdx;
             boolean sur = !sel && dans(mx, my, tx, ty, cw, ch);
             tuile(g, T_SEXE, sel ? ACTIF : sur ? SURVOL : NORMAL, tx, ty, ch);
             if (sel) halo(g, tx + cw / 2f, ty + ch * 0.48f, 50, 1.4f, desat(scene.couleur(), 0.8f), 0.08f, 2);
-            boolean fem = i == 1, fin = fem || maleSlim;
+            boolean fem = i == 1;
             Identifier vt = variante("sexe" + i, sp -> {
                 sp.female = fem;
-                sp.slim = fin;
                 if (sp.female != look.female) {
                     List<CharacterCatalog.Asset> hl = available("hair", fem), ol = available("outfit", fem);
                     sp.hairId = hl.isEmpty() ? "" : hl.get(0).id;
@@ -1021,9 +1128,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
             });
             float s = Math.min(3.1f, (ch - 50) / 32f);
             g.enableScissor(tx + 1, ty + 1, tx + cw - 1, ty + ch - 1);
-            PersoPoupee.dessiner(g, skins, vt, fin, tx + cw / 2f, ty + ch - 30, s, i == 0 ? 16 : -16, 5, 0xFFFFFFFF);
+            PersoPoupee.dessiner(g, skins, vt, true, tx + cw / 2f, ty + ch - 30, s, i == 0 ? 16 : -16, 5, 0xFFFFFFFF);
             g.disableScissor();
-            kanji16(g, f, kj[i], tx + 16, ty + 8, sel ? OR_CLAIR : 0xFF8A7458, 0xFF140608);
             arcFin(g, f, arcade(lib[i]), tx + cw / 2f, ty + ch - 18, sel ? CREME : 0xFFC8B898, 1, sel);
             hit(tx, ty, cw, ch, 200 + i);
         }
@@ -1167,19 +1273,8 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         PersoArt.panneau(g, P_APPARENCE, GX, y0, hG);
         int X = GX + 14, WL = 258;
         float yy = y0 + 46;
-        // carrure
-        etiq(g, f, "CARRURE", X, yy, OR_ETIQ);
-        for (int i = 0; i < 2; i++) {
-            int bx = X + 64 + i * 76, by = Math.round(yy) - 10;
-            boolean choisi = (i == 1) == look.slim;
-            boolean dis = look.female && i == 0;
-            boolean sur = !choisi && !dis && dans(mx, my, bx, by, 70, 20);
-            bouton(g, f, i == 0 ? B_LARGE : B_FINE, choisi ? 2 : sur ? 1 : 0, bx, by, null);
-            if (dis) g.fill(bx, by, bx + 70, by + 20, 0x700A0608);
-            if (!dis) hit(bx, by, 70, 20, 400 + i);
-        }
-        // peau
-        yy += 30;
+        // peau (plus de rangée Carrure depuis le 18/10 : tout le monde est en carrure fine)
+        yy += 10;
         etiq(g, f, "PEAU", X, yy, OR_ETIQ);
         String[] tons = {"Très clair", "Très clair", "Clair", "Clair", "Clair", "Mat", "Mat", "Hâlé", "Hâlé", "Brun", "Foncé", "Très foncé"};
         inter(g, f, inter(tons[skinIdx]), X + WL, yy, 7, DOUX, 2);
@@ -1191,18 +1286,29 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         }
         peaux.fermer();
         if (skinIdx >= 0 && skinIdx < 12) pointe(g, X + 2 + skinIdx * 21 + 15 / 2, Math.round(yy) + 10 + 15 + 4);
-        // cheveux : têtes rendues avec la coiffure
+        // cheveux : têtes rendues avec la coiffure (assets live du serveur d'abord), « Tout voir » ouvre la grille
         yy += 46;
         List<CharacterCatalog.Asset> hl = hairs();
-        etiq(g, f, "CHEVEUX", X, yy, OR_ETIQ);
-        String hn = hl.isEmpty() ? "—" : hl.get(Math.min(hairIdx, hl.size() - 1)).name;
+        float wl = etiq(g, f, "CHEVEUX", X, yy, OR_ETIQ);
+        int tvx = Math.round(X + wl + 9);
+        Component tv = inter("Tout voir (" + hl.size() + ")");
+        int tvw = Math.round(largeur(f, tv, 7));
+        boolean tvSur = dans(mx, my, tvx - 4, Math.round(yy) - 6, tvw + 8, 12);
+        g.fill(tvx - 4, Math.round(yy) - 6, tvx + tvw + 4, Math.round(yy) + 6, tvSur ? R_OR[4] : R_OR[2]);
+        g.fill(tvx - 3, Math.round(yy) - 5, tvx + tvw + 3, Math.round(yy) + 5, tvSur ? 0xFF2A1A12 : 0xFF1A0F12);
+        inter(g, f, tv, tvx, yy, 7, tvSur ? CREME : OR_CLAIR, 0);
+        hit(tvx - 4, Math.round(yy) - 6, tvw + 8, 12, A_TOUT_VOIR);
+        int ih = indexOf(hl, look.hairId);
+        String hn = ih < 0 ? "—" : hl.get(ih).name;
+        float place = X + WL - (tvx + tvw + 10);
+        while (hn.length() > 4 && largeur(f, inter(hn), 7) > place) hn = hn.substring(0, hn.length() - 2) + "…";
         inter(g, f, inter(hn), X + WL, yy, 7, DOUX, 2);
         int tw = 60, th = 46;
         for (int k = 0; k < 4 * lc; k++) {
             int i = hairScroll * 4 + k;
             if (i >= hl.size()) break;
             int tx = X + (k % 4) * (tw + 4), ty = Math.round(yy) + 9 + (k / 4) * (th + 4);
-            boolean sel = i == hairIdx;
+            boolean sel = i == ih;
             boolean sur = !sel && dans(mx, my, tx, ty, tw, th);
             tuile(g, T_CHEVEUX, sel ? ACTIF : sur ? SURVOL : NORMAL, tx, ty, th);
             String hid = hl.get(i).id;
@@ -1215,24 +1321,55 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         if ((hl.size() + 3) / 4 > lc) {
             inter(g, f, inter("Molette · " + (hairScroll + 1) + " / " + ((hl.size() + 3) / 4 - lc + 1)), X + WL, yy + 9 + lc * (th + 4) + 4, 7, DOUX, 2);
         }
-        // couleur des cheveux : palette du clan
+        // couleur : onglets CHEVEUX / SOURCILS, palette du clan et pipette
         yy += lc * (th + 4) + 26;
         Palette p = pal();
-        etiq(g, f, "COULEUR", X, yy, OR_ETIQ);
-        puceClan(g, f, X + WL, yy, hairColorIdx < 0 ? "Couleur libre" : p.nom());
-        int nc = p.cheveux().length, pasC = Math.min(26, (WL - 4) / Math.max(1, nc + 1));
-        LotGui teintes = LotGui.ouvrir(g);                  // pastilles et pipette : un seul élément GUI
-        for (int i = 0; i < nc; i++) {
-            int px = X + 2 + i * pasC, py = Math.round(yy) + 10;
-            pastille(teintes, px, py, p.cheveux()[i], i == hairColorIdx, 17);
-            hit(px - 2, py - 2, 21, 21, 700 + i);
+        float wc = etiq(g, f, "COULEUR", X, yy, OR_ETIQ);
+        int ox = Math.round(X + wc + 9);
+        ox = onglet(g, f, "CHEVEUX", ox, yy, !ongletSourcils, mx, my, A_ONGLET_CHEVEUX) + 9;
+        onglet(g, f, "SOURCILS", ox, yy, ongletSourcils, mx, my, A_ONGLET_SOURCILS);
+        int nc = p.cheveux().length;
+        if (!ongletSourcils) {
+            puceClan(g, f, X + WL, yy, hairColorIdx < 0 ? "Couleur libre" : p.nom());
+            int pasC = Math.min(26, (WL - 4) / Math.max(1, nc + 1));
+            LotGui teintes = LotGui.ouvrir(g);              // pastilles et pipette : un seul élément GUI
+            for (int i = 0; i < nc; i++) {
+                int px = X + 2 + i * pasC, py = Math.round(yy) + 10;
+                pastille(teintes, px, py, p.cheveux()[i], i == hairColorIdx, 17);
+                hit(px - 2, py - 2, 21, 21, 700 + i);
+            }
+            int lx = X + 2 + nc * pasC, ly = Math.round(yy) + 10;
+            pipette(teintes, lx, ly, hairLibreC, hairColorIdx < 0, 17, dans(mx, my, lx - 2, ly - 2, 21, 21));
+            teintes.fermer();
+            if (hairColorIdx >= 0 && hairColorIdx < nc) pointe(g, X + 2 + hairColorIdx * pasC + 17 / 2, ly + 17 + 4);
+            else if (hairColorIdx < 0) pointe(g, lx + 17 / 2, ly + 17 + 4);
+            hit(lx - 2, ly - 2, 21, 21, A_LIBRE_CHEVEUX);
+        } else {
+            // sourcils : « comme les cheveux » (défaut), la même palette, la même pipette
+            boolean suit = look.browFollowHair;
+            puceClan(g, f, X + WL, yy, suit ? "Comme les cheveux" : browIdx < 0 ? "Couleur libre" : p.nom());
+            int pasC = Math.min(26, (WL - 4) / Math.max(1, nc + 2));
+            int py = Math.round(yy) + 10;
+            LotGui teintes = LotGui.ouvrir(g);
+            pastille(teintes, X + 2, py, look.hairColor, suit, 17);
+            int mcx = X + 2 + 17 / 2, mcy = py + 17 / 2;            // marque « = » : même couleur que les cheveux
+            teintes.fill(mcx - 4, mcy - 3, mcx + 4, mcy + 4, 0xC0120A0C);
+            teintes.fill(mcx - 3, mcy - 2, mcx + 3, mcy - 1, 0xFFF5E9D0);
+            teintes.fill(mcx - 3, mcy + 1, mcx + 3, mcy + 2, 0xFFF5E9D0);
+            hit(X, py - 2, 21, 21, A_SOURCILS_COMME);
+            for (int i = 0; i < nc; i++) {
+                int px = X + 2 + (i + 1) * pasC;
+                pastille(teintes, px, py, p.cheveux()[i], !suit && i == browIdx, 17);
+                hit(px - 2, py - 2, 21, 21, 1200 + i);
+            }
+            int lx = X + 2 + (nc + 1) * pasC;
+            pipette(teintes, lx, py, browLibreC, !suit && browIdx < 0, 17, dans(mx, my, lx - 2, py - 2, 21, 21));
+            teintes.fermer();
+            if (suit) pointe(g, X + 2 + 17 / 2, py + 17 + 4);
+            else if (browIdx >= 0 && browIdx < nc) pointe(g, X + 2 + (browIdx + 1) * pasC + 17 / 2, py + 17 + 4);
+            else pointe(g, lx + 17 / 2, py + 17 + 4);
+            hit(lx - 2, py - 2, 21, 21, A_LIBRE_SOURCILS);
         }
-        int lx = X + 2 + nc * pasC, ly = Math.round(yy) + 10;
-        pipette(teintes, lx, ly, hairLibreC, hairColorIdx < 0, 17, dans(mx, my, lx - 2, ly - 2, 21, 21));
-        teintes.fermer();
-        if (hairColorIdx >= 0 && hairColorIdx < nc) pointe(g, X + 2 + hairColorIdx * pasC + 17 / 2, ly + 17 + 4);
-        else if (hairColorIdx < 0) pointe(g, lx + 17 / 2, ly + 17 + 4);
-        hit(lx - 2, ly - 2, 21, 21, A_LIBRE_CHEVEUX);
         // yeux
         yy += 46;
         etiq(g, f, "YEUX", X, yy, OR_ETIQ);
@@ -1339,6 +1476,97 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         if (n > 4) {
             inter(g, f, inter("Molette · " + (accScroll + 1) + " / " + ((n + 3) / 4)), WD, ty + th + 7, 7, DOUX, 2);
         }
+    }
+
+    /** Onglet d'étiquette (CHEVEUX / SOURCILS) : actif = or clair souligné ; renvoie le bord droit. */
+    private int onglet(GuiGraphicsExtractor g, Font f, String nom, int x, float ymil, boolean actif, int mx, int my, int a) {
+        int y = Math.round(ymil);
+        float w = largeurEtiq(f, nom);
+        boolean sur = !actif && dans(mx, my, x - 3, y - 6, Math.round(w) + 6, 13);
+        etiq(g, f, nom, x, ymil, actif ? OR_CLAIR : sur ? CREME : 0xFF8E7A5E);
+        if (actif) g.fill(x, y + 5, Math.round(x + w), y + 6, R_OR[5]);
+        hit(x - 3, y - 6, Math.round(w) + 6, 13, a);
+        return Math.round(x + w);
+    }
+
+    /** Largeur d'une étiquette {@link PersoArt#etiq} (sans la dessiner). */
+    private static float largeurEtiq(Font f, String s) {
+        String t = sansAccents(s);
+        float w = 0, k = 7f / 9f;
+        for (int i = 0; i < t.length(); i++) w += f.width(interGras(String.valueOf(t.charAt(i)))) * k + 0.6f;
+        return w;
+    }
+
+    /* ------------------------------------------------------------- grille « toutes les coiffures » */
+
+    private int colsToutes() { return Math.max(4, Math.min(9, (width - 60) / 64)); }
+
+    private int rangsToutes() { return Math.max(2, Math.min(6, (height - 150) / 50)); }
+
+    private void fermerToutes() {
+        toutes = false;
+        int n = hairs().size(), lc = lignesCheveux();
+        hairScroll = Math.max(0, Math.min(Math.max(0, (n + 3) / 4 - lc), hairIdx / 4));
+    }
+
+    /**
+     * Toutes les coiffures proposées (catalogue fusionné : assets live du serveur marqués d'un losange, puis celles du
+     * mod), neuf par rangée, molette au-delà. Au plus six vignettes nouvelles par image (rendu logiciel des poupées) :
+     * la grille se remplit en quelques images, sans à-coup.
+     */
+    private void dessinerToutes(GuiGraphicsExtractor g, Font f, int mx, int my) {
+        hitsToutes.clear();
+        List<CharacterCatalog.Asset> hl = hairs();
+        int cols = colsToutes(), rows = rangsToutes(), tw = 60, th = 46;
+        int n = hl.size(), maxScroll = Math.max(0, (n + cols - 1) / cols - rows);
+        toutesScroll = Math.max(0, Math.min(maxScroll, toutesScroll));
+        int W = 28 + cols * (tw + 4) - 4, H = 40 + rows * (th + 4) - 4 + 30;
+        int x = (width - W) / 2, y = Math.max(12, (height - H) / 2 - 10);
+        zoneToutes = new int[]{x, y, W, H};
+        g.fill(0, 0, width, height, 0xA0000000);
+        g.fill(x - 2, y - 2, x + W + 2, y + H + 2, 0xC0000000);
+        g.fill(x, y, x + W, y + H, R_OR[3]);
+        g.fill(x + 1, y + 1, x + W - 1, y + H - 1, 0xFF140B0D);
+        g.fill(x + 3, y + 3, x + W - 3, y + H - 3, R_OR[1]);
+        g.fill(x + 4, y + 4, x + W - 4, y + H - 4, 0xFF1A0F12);
+        losange(g, x + 2, y + 2);
+        losange(g, x + W - 5, y + 2);
+        losange(g, x + 2, y + H - 5);
+        losange(g, x + W - 5, y + H - 5);
+        etiq(g, f, "TOUTES LES COIFFURES", x + 14, y + 16, OR_CLAIR);
+        int live = 0;
+        for (CharacterCatalog.Asset a : hl) if (CharacterCatalog.isLive(a)) live++;
+        String compte = n + " coiffure" + (n > 1 ? "s" : "") + (live > 0 ? " · " + live + " du serveur" : "");
+        inter(g, f, inter(compte), x + W - 14, y + 16, 7, DOUX, 2);
+        g.fill(x + 12, y + 23, x + W - 12, y + 24, alpha(R_OR[3], 0.8f));
+        int ih = indexOf(hl, look.hairId), survol = -1, nouveaux = 0;
+        for (int k = 0; k < cols * rows; k++) {
+            int i = toutesScroll * cols + k;
+            if (i >= n) break;
+            int tx = x + 14 + (k % cols) * (tw + 4), ty = y + 32 + (k / cols) * (th + 4);
+            boolean sel = i == ih, sur = dans(mx, my, tx, ty, tw, th);
+            if (sur) survol = i;
+            tuile(g, T_CHEVEUX, sel ? ACTIF : sur ? SURVOL : NORMAL, tx, ty, th);
+            CharacterCatalog.Asset a = hl.get(i);
+            String hid = a.id, cle = "hair:" + hid;
+            if (variantes.containsKey(cle) || nouveaux++ < 6) {
+                Identifier vt = variante(cle, sp -> sp.hairId = hid);
+                g.enableScissor(tx + 2, ty + 2, tx + tw - 2, ty + th - 2);
+                PersoPoupee.dessiner(g, skins, vt, look.slim, tx + tw / 2f, ty + 6 + 32 * 3.5f, 3.5f, 18, 4, 0xFFFFFFFF);
+                g.disableScissor();
+            }
+            if (CharacterCatalog.isLive(a)) losange(g, tx + tw - 7, ty + 4);
+            hitsToutes.add(new int[]{tx, ty, tw, th, i});
+        }
+        int yb = y + H - 15;
+        int iNom = survol >= 0 ? survol : ih;
+        if (iNom >= 0 && iNom < n) {
+            CharacterCatalog.Asset a = hl.get(iNom);
+            inter(g, f, inter(a.name + (CharacterCatalog.isLive(a) ? "  · serveur" : "")), x + 14, yb, 8,
+                survol >= 0 ? CREME : OR_CLAIR, 0);
+        }
+        String aide = "Clic : choisir · Échap : fermer" + (maxScroll > 0 ? " · Molette " + (toutesScroll + 1) + " / " + (maxScroll + 1) : "");
+        inter(g, f, inter(aide), x + W - 14, yb, 7, DOUX, 2);
     }
 
     private void puceClan(GuiGraphicsExtractor g, Font f, int xd, float ymil, String texte) {
@@ -1500,13 +1728,14 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
         if (clan >= 0) this.clanIdx = clan;
         this.sexeIdx = sexe;
         look.female = sexe == 1;
-        look.slim = look.female;
         if (nom != null) this.name = nom;
         this.age = age;
         this.size = cm / 180.0;
         this.skinIdx = skin;
         look.skinColor = SkinSpec.skinRamp(skin / 11f);
         this.hairIdx = hair;
+        List<CharacterCatalog.Asset> hl = hairs();
+        if (!hl.isEmpty()) look.hairId = hl.get(Math.min(hair, hl.size() - 1)).id;
         this.hairColorIdx = hairColor;
         this.eyeIdx = eye;
         this.outfitIdx = outfit;
@@ -1523,6 +1752,35 @@ public final class PersoCreationScreen extends Screen implements MenuScale.Planc
     void debugCouleurLibre(int rgb) {
         ouvrirLibre(0);
         for (char c : String.format(Locale.ROOT, "%06X", rgb & 0xFFFFFF).toCharArray()) picker.car(c);
+    }
+
+    /** Onglet SOURCILS : -1 comme les cheveux, i ≥ 0 i-ème teinte de la palette, -2 couleur libre {@code rgb} (sélecteur ouvert). */
+    void debugSourcils(int mode, int rgb) {
+        ongletSourcils = true;
+        if (mode == -1) look.browFollowHair = true;
+        else if (mode >= 0) { browIdx = mode; look.browFollowHair = false; appliquerPalette(); }
+        else {
+            ouvrirLibre(2);
+            for (char c : String.format(Locale.ROOT, "%06X", rgb & 0xFFFFFF).toCharArray()) picker.car(c);
+        }
+    }
+
+    /** Ouvre la grille « toutes les coiffures » (fin = défilée jusqu'en bas). */
+    void debugToutes(boolean fin) {
+        toutes = true;
+        toutesScroll = fin ? Integer.MAX_VALUE / 2 : 0;
+    }
+
+    /** Porte la coiffure {@code id} si elle est proposée. */
+    void debugCoiffure(String id) {
+        int k = indexOf(hairs(), id);
+        if (k >= 0) choisirCoiffure(k);
+    }
+
+    /** Porte la première coiffure live du serveur (s'il y en a). */
+    void debugCoiffureLive() {
+        List<CharacterCatalog.Asset> h = hairs();
+        if (!h.isEmpty() && CharacterCatalog.isLive(h.get(0))) choisirCoiffure(0);
     }
 
     /** Porte le premier accessoire du catalogue (capture « bandeau porté »). */

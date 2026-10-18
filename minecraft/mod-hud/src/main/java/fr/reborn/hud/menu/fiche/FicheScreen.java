@@ -33,7 +33,6 @@ public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque 
     private static int dernierOnglet = IDENTITE;
 
     static final String[] TAB_LIB = {"IDENTITE", "ATTRIBUTS", "TECHNIQUES", "ETAT"};
-    static final String[] TAB_KJ = {"名", "灯", "術", "身"};
 
     /** Variante « jeu voilé » (maquette 06) : le monde visible sous un voile, sans décor. */
     public boolean fondJeu = false;
@@ -272,8 +271,8 @@ public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque 
             int cell = ac ? 2 : sv ? 1 : 0;
             FicheArt.blit(ctx, FicheArt.ONGLETS, tx - 13, 36, cell * 26, 0, 26, 36, 78, 36);
             int ty = ac ? 46 : 44;
-            FicheArt.kanji16(ctx, f, TAB_KJ[i], tx, ty + 3, ac ? FicheArt.OR_CLAIR : sv ? FicheArt.OR : FicheArt.R_OR[4],
-                ac ? 0xFF1A0608 : 0);
+            // picto pixel art de l'onglet (18/10 : plus de kanji d'onglet, comme la sacoche)
+            FicheArt.blit(ctx, FicheArt.ONGLETS_PICTOS, tx - 8, ty + 3, (i * 3 + cell) * 16, 0, 16, 16, 192, 16);
             FicheArt.arcFin(ctx, f, tabLib[i], tx, ty + 22 + 4, ac ? FicheArt.CREME : sv ? FicheArt.CREME_VAL
                 : FicheArt.ONGLET_REPOS, 1, ac);
             if (i == 1 && rep.remaining() > 0) FicheArt.ornementCoin(ctx, FicheArt.ORN_PASTILLE, tx + 7, ty - 2);
@@ -493,8 +492,7 @@ public class FicheScreen extends Screen implements fr.reborn.hud.ui.EcranOpaque 
         }
         int X = x + 14;
         int yy = y + 14;
-        FicheArt.hanko(ctx, b.stat.ordinal(), FicheArt.H_STATS, X + 9, yy + 8);
-        FicheArt.arcadeX1(ctx, f, FicheArt.arcade(b.stat.arcadeLabel), X + 24, yy + 5, FicheArt.CREME, true);
+        FicheArt.arcadeX1(ctx, f, FicheArt.arcade(b.stat.arcadeLabel), X, yy + 5, FicheArt.CREME, true);
         yy += 22;
         b.devise.dessiner(ctx, f, X, yy + 3 - FicheArt.INTER7_MIL, FicheArt.DOUX);
         yy += 13 + Math.max(0, b.devise.lignes().size() - 1) * 10;

@@ -100,24 +100,12 @@ public final class LectureScreen extends Screen {
         super.extractRenderState(g, mx, my, delta);
     }
 
-    private static int kanjiIndex(Technique t) {
-        return switch (t.nature()) {
-            case "Katon" -> 0;
-            case "Suiton" -> 1;
-            case "Doton" -> 2;
-            case "Fūton" -> 3;
-            case "Raiton" -> 4;
-            default -> t.branch().startsWith("Tai") ? 5 : t.branch().startsWith("Ken") ? 6 : 7;
-        };
-    }
-
     private void content(GuiGraphicsExtractor g, int x, int top, long now, int mx, int my) {
-        // colonne de droite : grand kanji de la nature et sceau du rang (la lecture commence ici)
+        // colonne de droite : symbole de la nature et sceau du rang (la lecture commence ici)
         int rx = x + PW - 76;
-        // nature : son icône peinte (14/10) ; sinon le sceau de la branche
+        // nature : son symbole canonique (14/10) ; sans nature, rien (18/10 : plus de grand kanji de branche)
         fr.reborn.hud.ui.NatureIcones.Nature nat = fr.reborn.hud.ui.NatureIcones.parse(t.nature());
         if (nat != null) fr.reborn.hud.ui.NatureIcones.dessiner(g, nat, rx + 14, top + 32, 32);
-        else DaKit.blit(g, BiblioArt.KANJI, rx + 8, top + 26, kanjiIndex(t) * 44, 0, 44, 44, 352, 44);
         BiblioArt.sceau26(g, rx + 30, top + 96, t.rank());
         g.fill(rx - 6, top + 24, rx - 5, top + PH - 22, 0x38462810);
 

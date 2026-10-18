@@ -50,6 +50,7 @@ public final class SceneJourneyScreen extends Screen {
             0xFFC23B3B, 0xFFE58AB8, 0xFF3A4FA0, 0xFF2E6B4A};
     private static final int[] EYE_COLORS = {0xFF5A3A1E, 0xFF1E1A16, 0xFF3A6EA5, 0xFF4E8A4A, 0xFF9A9A9A, 0xFFB8A6D8,
             0xFFC01E35, 0xFFD9A95E};
+    /** Rangée 0 (« CARRURE ») masquée depuis le 18/10 : tout le monde est en carrure fine ; indices inchangés. */
     private static final String[] LOOK_ROWS = {"CARRURE", "PEAU", "CHEVEUX", "COULEUR", "YEUX", "TENUE"};
 
     private final Vec3 feet;
@@ -60,9 +61,8 @@ public final class SceneJourneyScreen extends Screen {
     private int age = 14;
     private double size = 1.0;
     private final SkinSpec look = new SkinSpec();
-    private int lookRow, hairIdx, hairColorIdx = 1, eyeIdx, outfitIdx;
+    private int lookRow = 1, hairIdx, hairColorIdx = 1, eyeIdx, outfitIdx;
     private float skinT = 0.35f;
-    private boolean maleSlim;
     private long openedAt, stepAt, leaveAt = -1, questionsAt;
     private int prevStep = -1, cursor;
     private float selY;
@@ -244,7 +244,6 @@ public final class SceneJourneyScreen extends Screen {
         if (s != sexeIdx) SceneSounds.tick();
         sexeIdx = s;
         look.female = s == 1;
-        look.slim = look.female || maleSlim;
         hairIdx = outfitIdx = 0;
         applyLists();
         if (actor != null) SceneActors.reskin(actor, look);
@@ -257,7 +256,6 @@ public final class SceneJourneyScreen extends Screen {
     public void tweak(int row, int dir) {
         lookRow = row;
         switch (row) {
-            case 0 -> { if (!look.female) { maleSlim = !maleSlim; look.slim = maleSlim; } }
             case 1 -> { skinT = Math.max(0f, Math.min(1f, skinT + dir * 0.1f)); look.skinColor = SkinSpec.skinRamp(skinT); }
             case 2 -> hairIdx = SkinSpec.cycle(hairIdx, Math.max(1, hairs().size()), dir);
             case 3 -> { hairColorIdx = SkinSpec.cycle(hairColorIdx, HAIR_COLORS.length, dir); look.hairColor = HAIR_COLORS[hairColorIdx]; }
@@ -275,7 +273,7 @@ public final class SceneJourneyScreen extends Screen {
     }
 
     public void selectLookRow(int row) {
-        int nr = Math.max(0, Math.min(LOOK_ROWS.length - 1, row));
+        int nr = Math.max(1, Math.min(LOOK_ROWS.length - 1, row));
         if (nr != lookRow) { SceneSounds.tick(); lookScroll = 0; }
         lookRow = nr;
         if (lookRow == 3 || lookRow == 4) syncHsv();
@@ -426,7 +424,6 @@ public final class SceneJourneyScreen extends Screen {
             int act = r[4];
             if (act == -1) { if (step == S_RECAP) submit(); else next(); }
             else if (act == -3) setStep(0);
-            else if (act >= 5000) { if (!look.female) { maleSlim = act == 5001; look.slim = maleSlim; reskin(); } }
             else if (act >= 4000) {
                 int[] pr = lookRow == 3 ? HAIR_COLORS : EYE_COLORS;
                 int ci = act - 4000;
@@ -600,9 +597,9 @@ public final class SceneJourneyScreen extends Screen {
                         + (age < 17 ? " — pour l'instant, tu fais " + cm + " cm." : ".")), qx, y0 + 50, a(SUB, a), 1f);
             }
             case S_LOOK -> {
-                selected(g, qx, Math.round(y0 + selY * 24), 92, a);
-                for (int i = 0; i < LOOK_ROWS.length; i++) {
-                    int y = y0 + i * 24;
+                selected(g, qx, Math.round(y0 + (selY - 1) * 24), 92, a);
+                for (int i = 1; i < LOOK_ROWS.length; i++) {
+                    int y = y0 + (i - 1) * 24;
                     text(g, RebornFont.display(LOOK_ROWS[i]), qx + 4, y, a(i == lookRow ? CREAM : MUTED, a), 1f);
                     if (live) hits.add(new int[]{qx - 8, y - 6, 100, 22, i});
                 }
@@ -688,17 +685,6 @@ public final class SceneJourneyScreen extends Screen {
     private void drawLookPanel(GuiGraphicsExtractor g, int cat, int x, int y, int pw, float a, boolean live) {
         if (live) bars.clear();
         switch (cat) {
-            case 0 -> {
-                String[] o = {"LARGE", "FINE"};
-                int cur = look.slim ? 1 : 0;
-                for (int i = 0; i < 2; i++) {
-                    int yy = y + i * 26;
-                    boolean dis = look.female && i == 0;
-                    if (i == cur) selected(g, x, yy, 150, a);
-                    text(g, RebornFont.display(o[i]), x + 6, yy, a(dis ? LOCKED : i == cur ? CREAM : MUTED, a), 1.1f);
-                    if (live && !dis) hits.add(new int[]{x - 8, yy - 6, 158, 22, 5000 + i});
-                }
-            }
             case 1 -> {
                 int by = y + 4;
                 for (int i = 0; i < pw; i++) {

@@ -25,8 +25,8 @@ import java.util.Locale;
  * <p>v1 : données <b>mockées</b> ({@link MockTablist}). v2 : flux serveur
  * {@code reborn:tablist} (ShinobiCore).
  *
- * <p>Habillage au niveau de la fiche (DA §4.1, §6) : le registre (名簿) — planche laquée à 90 % posée
- * sur le jeu, sceau vermillon, onglets laqués, lignes à filets, fiche du joueur sur washi. Textures
+ * <p>Habillage au niveau de la fiche (DA §4.1, §6) : le registre (meibo) — planche laquée à 90 % posée
+ * sur le jeu (sans sceau kanji depuis le 18/10), onglets laqués, lignes à filets, fiche du joueur sur washi. Textures
  * {@code textures/gui/tablist/*} ({@code tools/gen_tablist_textures.py}), texte {@link DaKit}.
  */
 public class TablistScreen extends Screen {
@@ -185,8 +185,7 @@ public class TablistScreen extends Screen {
                                    int online, String searchText, String rpDate, boolean interactive) {
         int cx = g.px() + g.pw() / 2;
         Component title = DaKit.arcade("Reborn Roleplay");
-        int tw = DaKit.arcX1(ctx, tr, title, cx, g.py() + 11, DaKit.CREME, 1, true);
-        DaKit.blit(ctx, PIECES, cx - tw / 2 - 28, g.py() + 7, 0, 0, 22, 22, 96, 32);
+        DaKit.arcX1(ctx, tr, title, cx, g.py() + 11, DaKit.CREME, 1, true);
         DaKit.inter7(ctx, tr, DaKit.inter("play.reborn-rp.fr"), cx, g.py() + 26, DaKit.argb(0xC2B59A, 0.8f), 1);
 
         // Compteur + date RP (calendrier lore) à droite.

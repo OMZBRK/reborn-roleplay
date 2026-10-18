@@ -1,0 +1,186 @@
+{
+ "name": "meditation",
+ "title": "Méditation — assis en tailleur, bras croisés",
+ "author": "Reborn",
+ "description": "v4 du 18/10, rig Emotecraft + Blender, calée automatiquement sur 8 images de la vidéo de référence (tools/emotes, calage) : assis très bas en tailleur, jambes repliées en masse compacte devant le buste, bras croisés haut sur la poitrine, dos rond, tête baissée ; respiration 4 s et léger balancement 8 s",
+ "fps": 20,
+ "length": 8.0,
+ "loop": true,
+ "easing": "bezier",
+ "seat_px": -9.6,
+ "ik": {
+  "leftLeg": 1,
+  "rightLeg": 1,
+  "leftArm": 1,
+  "rightArm": 1
+ },
+ "pose": {
+  "body_control": {
+   "loc": [
+    0,
+    0,
+    1.35
+   ]
+  },
+  "waist": {
+   "rot": [
+    15.0,
+    -2.25,
+    0.75
+   ]
+  },
+  "head": {
+   "rot": [
+    5,
+    -6.0,
+    0.0
+   ]
+  },
+  "left_leg_ik_goal": {
+   "at": [
+    1.25,
+    2.25,
+    8.5
+   ]
+  },
+  "right_leg_ik_goal": {
+   "at": [
+    -4.5,
+    2.12,
+    9.75
+   ]
+  },
+  "leftLeg_ik_pole": {
+   "at": [
+    7.5,
+    3.0,
+    3
+   ]
+  },
+  "rightLeg_ik_pole": {
+   "at": [
+    -15.5,
+    3.0,
+    3
+   ]
+  },
+  "left_arm_ik_goal": {
+   "at": [
+    0.5,
+    6,
+    7.55
+   ]
+  },
+  "right_arm_ik_goal": {
+   "at": [
+    1.25,
+    8.65,
+    7.15
+   ]
+  },
+  "leftArm_ik_pole": {
+   "at": [
+    14,
+    0.5,
+    0
+   ]
+  },
+  "rightArm_ik_pole": {
+   "at": [
+    -14,
+    3.0,
+    0
+   ]
+  }
+ },
+ "keys": {
+  "0": {
+   "add": {
+    "waist": {
+     "rot": [
+      0,
+      0,
+      -1.2
+     ]
+    }
+   }
+  },
+  "2": {
+   "add": {
+    "waist": {
+     "rot": [
+      -1.5,
+      0,
+      0
+     ]
+    },
+    "head": {
+     "rot": [
+      -1.5,
+      0,
+      0
+     ]
+    },
+    "body_control": {
+     "loc": [
+      0,
+      0,
+      0.25
+     ]
+    }
+   }
+  },
+  "4": {
+   "add": {
+    "waist": {
+     "rot": [
+      0,
+      0,
+      1.2
+     ]
+    }
+   }
+  },
+  "6": {
+   "add": {
+    "waist": {
+     "rot": [
+      -1.5,
+      0,
+      0
+     ]
+    },
+    "head": {
+     "rot": [
+      -1.5,
+      0,
+      0
+     ]
+    },
+    "body_control": {
+     "loc": [
+      0,
+      0,
+      0.25
+     ]
+    }
+   }
+  },
+  "8": {
+   "add": {
+    "waist": {
+     "rot": [
+      0,
+      0,
+      -1.2
+     ]
+    }
+   }
+  }
+ },
+ "preview_times": [
+  0.0,
+  2.0,
+  4.0
+ ]
+}

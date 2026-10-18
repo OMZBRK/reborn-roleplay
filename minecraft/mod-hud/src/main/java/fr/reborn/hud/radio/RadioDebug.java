@@ -246,7 +246,6 @@ public final class RadioDebug {
     private static SkinSpec look(boolean female, int skin, String hair, int hairColor, int eye, String outfit) {
         SkinSpec l = new SkinSpec();
         l.female = female;
-        l.slim = female;
         l.skinColor = SkinSpec.skinRamp(skin / 11f);
         l.hairId = hair;
         l.hairColor = hairColor;

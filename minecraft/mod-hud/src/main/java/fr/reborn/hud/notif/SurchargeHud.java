@@ -7,7 +7,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 /**
- * Indicateur de <b>surcharge</b> sous les vitals (maquette 02_surpoids) : un kanji, un mot, un pourcentage, et une
+ * Indicateur de <b>surcharge</b> sous les vitals (maquette 02_surpoids) : un mot, un pourcentage, et une
  * jauge d'un pixel écran à paliers (0 → 130 %, repères à 100, 115 et 130 %). Rien d'autre, et seulement quand le
  * personnage est au moins « Chargé » (DA §6 règle 9). Les vitals eux-mêmes ne changent pas.
  *
@@ -16,11 +16,10 @@ import net.minecraft.network.chat.Component;
 public final class SurchargeHud {
 
     private static final String[] MOT = {"", "Chargé", "Surchargé", "Immobile"};
-    private static final String[] KANJI = {"", "軽", "重", "止"};
     private static final int[] COL = {DaKit.CREME, 0xFFE8C27A, NotifHud.AMBRE, NotifHud.VERM};
 
     private static int cPalier = -1, cPct = -1;
-    private static Component cMot, cPctC, cKanji;
+    private static Component cMot, cPctC;
 
     private SurchargeHud() {}
 
@@ -42,16 +41,13 @@ public final class SurchargeHud {
             cPct = pct;
             cMot = DaKit.interGras(MOT[pal]);
             cPctC = DaKit.inter(pct + " %");
-            cKanji = Component.literal(KANJI[pal]);
         }
         int col = COL[pal];
         g.pose().pushMatrix();
         g.pose().translate(x, y);
         if (scale != 1f) g.pose().scale(scale, scale);
         float ym = 4;
-        float kw = f.width(cKanji) * 0.875f;
-        DaKit.texteEchelle(g, f, cKanji, 2, ym - 3.5f, col, 0.875f);
-        float tx = 2 + kw + 3;
+        float tx = 0;
         tx += DaKit.inter7o(g, f, cMot, tx, ym, col, 0) + 3;
         DaKit.inter7o(g, f, cPctC, tx, ym, DaKit.CREME_VAL, 0);
         // jauge d'1 px écran : fond nuit, remplissage à la couleur du palier, repères 100 / 115 / 130 %

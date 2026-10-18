@@ -123,13 +123,10 @@ public final class ConcentrationHud {
         }
         DaKit.finPx(g);
 
-        // texte et sceaux, en unités menu
+        // texte et sceau de rang, en unités menu (plus de kanji au centre de l'ensō depuis le 18/10 : le mot
+        // « Chakra concentré / dispersé » au-dessus suffit)
         DaKit.unites(g, km);
         float ucx = cx / (float) km, ucy = cy / (float) km;
-        if (!running) {
-            DaKit.kanji16(g, font, ok ? "集" : "散", ucx, ucy - 8, DaKit.alpha(ok ? DaKit.OR_CLAIR : DaKit.ROUGE_CLAIR, alpha),
-                DaKit.argb(0x0A0608, 0.8f * alpha));
-        }
         int rx = Math.round(ucx + TRAIT / 2f + 4), ry = Math.round(ucy - 7);
         int col = Math.max(0, "DCBAS".indexOf(rank.isEmpty() ? 'D' : rank.charAt(0)));
         DaKit.blit(g, SCEAUX, rx, ry, col * 16, 0, 16, 16, 80, 16, DaKit.blanc(alpha));

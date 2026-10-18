@@ -75,15 +75,24 @@ public final class SkinSpec {
     /** Genre → template de peau + jeux d'assets ({@code male/} ou {@code female/}). */
     public boolean female = false;
     /**
-     * Carrure : {@code true} = modèle Alex (bras 3px), {@code false} = classique
-     * (Steve, 4px). Indépendante du genre côté Homme ; imposée à {@code true} pour
-     * Femme. La texture est la même — seul le modèle du {@code PlayerSkin} change.
+     * Carrure : toujours {@code true} = modèle Alex (bras de 3 px), Homme comme Femme, depuis le 18/10 (le choix
+     * Large/Steve est supprimé). Gardé dans la sérialisation pour les anciens clients ; une apparence enregistrée en
+     * « large » est relue en fine ({@link #deserialize}). Les calques peints en bras de 4 px sont convertis par
+     * {@link BrasFins}.
      */
-    public boolean slim = false;
+    public boolean slim = true;
     /** Couleur de peau (ARGB) — choisie sur la rampe {@link #skinRamp}. */
     public int skinColor = DEFAULT_SKIN;
-    /** Couleur des sourcils (ARGB) — recolore les sourcils cuits du template. */
+    /**
+     * Couleur des sourcils (ARGB) choisie : teint le calque {@code brows/Sourcils_Base} (niveaux de gris). Ignorée
+     * tant que {@link #browFollowHair} est vrai (les sourcils prennent alors la couleur des cheveux).
+     */
     public int browColor = DEFAULT_BROW;
+    /** Sourcils « comme les cheveux » (défaut depuis le 18/10) : leur couleur suit {@link #hairColor}. */
+    public boolean browFollowHair = true;
+
+    /** Couleur réellement posée sur les sourcils : celle des cheveux si {@link #browFollowHair}, sinon {@link #browColor}. */
+    public int effectiveBrowColor() { return browFollowHair ? hairColor : browColor; }
 
     /** Id d'asset cheveux ({@code ""} = chauve). */
     public String hairId = DEFAULT_HAIR_ID;
@@ -161,21 +170,24 @@ public final class SkinSpec {
     /**
      * Queue sérialisée ajoutée à la commande {@code create} (une valeur par ligne)
      * pour que ShinobiCore stocke + rediffuse l'apparence (blob opaque). Couleurs en
-     * hex RRGGBB. Ordre (v2) : useOwnSkin, female, slim, skinStyle, hairId, hairColor,
-     * eyeId, eyeColor, eyeColorRight, facialId, facialColor, outfitId, oz0..oz3.
+     * hex RRGGBB. Ordre (v2) : useOwnSkin, female, slim, skinColor, browColor, hairId, hairColor,
+     * eyeId, eyeColor, eyeColorRight, facialId, facialColor, outfitId, oz0..oz3, accessoryId,
+     * accessoryColor, browFollowHair (18/10, « 1 » = comme les cheveux). {@code browColor} porte la couleur
+     * <b>effective</b> : un client plus ancien, qui ignore la dernière ligne, montre la même couleur.
      */
     public String serialize() {
         return (useOwnSkin ? "1" : "0")
             + "\n" + (female ? "1" : "0")
-            + "\n" + (slim ? "1" : "0")
-            + "\n" + hex(skinColor) + "\n" + hex(browColor)
+            + "\n1"                              // carrure : toujours fine (18/10)
+            + "\n" + hex(skinColor) + "\n" + hex(effectiveBrowColor())
             + "\n" + nz(hairId) + "\n" + hex(hairColor)
             + "\n" + nz(eyeId) + "\n" + hex(eyeColor) + "\n" + hex(eyeColorRight)
             + "\n" + nz(facialId) + "\n" + hex(facialColor)
             + "\n" + nz(outfitId)
             + "\n" + hex(outfitZone[0]) + "\n" + hex(outfitZone[1])
             + "\n" + hex(outfitZone[2]) + "\n" + hex(outfitZone[3])
-            + "\n" + nz(accessoryId) + "\n" + hex(accessoryColor);
+            + "\n" + nz(accessoryId) + "\n" + hex(accessoryColor)
+            + "\n" + (browFollowHair ? "1" : "0");
     }
 
     private static String hex(int argb) {
@@ -187,17 +199,21 @@ public final class SkinSpec {
     /**
      * Reconstruit une spec depuis la queue {@link #serialize()} (rediffusée par
      * ShinobiCore dans le roster). Robuste : un blob vide/partiel retombe sur les
-     * valeurs par défaut pour les champs manquants.
+     * valeurs par défaut pour les champs manquants. Sans la ligne {@code browFollowHair} (apparence antérieure au
+     * 18/10), les sourcils suivent les cheveux s'ils avaient gardé la couleur par défaut (jamais choisie : la création
+     * « au bord de l'étang » ne la proposait pas) ; une couleur choisie est gardée.
      */
     public static SkinSpec deserialize(String blob) {
         SkinSpec s = new SkinSpec();
         if (blob == null || blob.isBlank()) return s;
+        boolean suitLu = false;
         String[] p = blob.split("\n", -1);
         try {
             int i = 0;
             s.useOwnSkin    = "1".equals(p[i++].trim());
             s.female        = "1".equals(p[i++].trim());
-            s.slim          = "1".equals(p[i++].trim());
+            i++;                            // carrure enregistrée ignorée : tout le monde est en carrure fine (18/10)
+            s.slim          = true;
             s.skinColor     = pc(p[i++]);
             s.browColor     = pc(p[i++]);
             s.hairId        = p[i++].trim();
@@ -211,9 +227,11 @@ public final class SkinSpec {
             for (int z = 0; z < OUTFIT_ZONES && i < p.length; z++) s.outfitZone[z] = pc(p[i++]);
             if (i < p.length) s.accessoryId = p[i++].trim();
             if (i < p.length) s.accessoryColor = pc(p[i++]);
+            if (i < p.length && !p[i].isBlank()) { s.browFollowHair = "1".equals(p[i++].trim()); suitLu = true; }
         } catch (RuntimeException ignored) {
             // blob tronqué → on garde ce qui a pu être lu + défauts sur le reste.
         }
+        if (!suitLu) s.browFollowHair = (s.browColor & 0xFFFFFF) == (DEFAULT_BROW & 0xFFFFFF);
         return s;
     }
 

@@ -199,7 +199,6 @@ public final class FactionDebug {
     private static SkinSpec look(boolean female, int skin, String hair, int hairColor, String outfit) {
         SkinSpec l = new SkinSpec();
         l.female = female;
-        l.slim = female;
         l.skinColor = SkinSpec.skinRamp(skin / 11f);
         l.hairId = hair;
         l.hairColor = hairColor;

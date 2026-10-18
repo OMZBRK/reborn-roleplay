@@ -10,7 +10,8 @@ textures (`.png`) restent à créer/importer (Blockbench), voir plus bas.
 | Fichier | Contenu |
 |---|---|
 | `items/reborn_sacs.yml` | 4 sacs : `sac_sacoche`, `sac_bandouliere`, `sac_dos`, `sac_lourd` |
-| `items/reborn_cosmetiques.yml` | 2 cosmétiques d'exemple : `masque_anbu`, `bandeau_konoha` |
+| `items/reborn_cosmetiques.yml` | 2 cosmétiques d'exemple : `masque_anbu`, `bandeau_konoha` (sans modèle) |
+| `items/reborn_cosmetiques_ninja.yml` | cosmétiques modélisés par l'utilisateur (copie du serveur dev, 18/10) : `masque_hannya`, rouleaux, `akatsuki_hat`, `bandeau_ninja` (le bandeau, **teintable**) |
 
 ## 1. Où poser ces fichiers sur le serveur live
 
@@ -46,9 +47,10 @@ exactement sur `assets/reborn/models/item/sac_sacoche.json`.
 > sont déjà présents sous `pack/assets/reborn/` (des pochettes en cuir, taille
 > croissante par tier). Ils prouvent toute la chaîne dès l'install — à
 > **remplacer** par les vrais modèles **Blockbench** (export "Java Block/Item"
-> en `.json`) quand ils seront prêts. Les cosmétiques (`masque_anbu`,
-> `bandeau_konoha`) n'ont pas encore de modèle → cube « manquant » tant qu'on
-> ne les modélise pas, mais l'item Nexo existe et se donne quand même.
+> en `.json`) quand ils seront prêts. `masque_anbu` n'a pas encore de modèle
+> → cube « manquant », mais l'item Nexo existe et se donne quand même.
+> `bandeau_konoha` n'a pas de modèle. Le bandeau porté en jeu est `bandeau_ninja`
+> (modèle Blockbench de l'utilisateur `models/item/bandeau.json`), teintable : voir § 7.
 
 ### Test rapide (une fois Nexo installé)
 
@@ -123,3 +125,33 @@ Pack:
 (Le passage depuis un ancien mode CustomModelData se fait via
 `/nexo reset_custom_model_data` puis `/nexo reload` — inutile sur une
 install neuve.)
+
+## 7. Objets teintables (bandeau, 18/10)
+
+Un objet Nexo dont une partie se teint (ex. le tissu du bandeau, pas sa plaque) :
+
+- YAML : `color: "#RRGGBB"` sur l'objet (couleur par défaut). Nexo pose cette couleur
+  sur l'objet (composant `minecraft:dyed_color`) et génère la définition
+  `nexo:<id>` avec une source de teinte `minecraft:dye` (défaut = cette couleur).
+- Modèle : `"tintindex": 0` sur **chaque face** à teindre, rien sur le reste ; les
+  faces teintes sont peintes en **gris clair** (le jeu multiplie ce gris par la
+  couleur). Pour que le défaut rende comme l'original, `color` = couleur d'origine
+  du tissu ÷ (gris / 255).
+- En jeu : sacoche › clic droit sur le bandeau porté › « Teinture » (ShinobiCore
+  réécrit `dyed_color` ; ids teintables : `inventaire.teinture.ids` + tout `bandeau_*`).
+  Le staff peut aussi tester avec `/nexo dye <couleur>` sur l'objet en main.
+
+**Le bandeau** = `bandeau_ninja` (modèle Blockbench de l'utilisateur, forme inchangée) :
+`color: "#302C32"` (le tissu presque noir d'origine), `tintindex 0` sur les 10 éléments
+du tissu, rien sur le groupe `metal` (la plaque) ; tissu de `texturebandeau.png` en gris
+clair, original gardé dans `texturebandeau_origine.png`. Outil :
+`mod-hud/tools/teinture_bandeau_nexo.py` — **à relancer après chaque nouvel export
+Blockbench du bandeau** (déposer le nouvel original, supprimer `texturebandeau_origine.png`,
+relancer : l'outil remet les `tintindex`, refait le gris et affiche la valeur de `color:`).
+
+Fichiers du bandeau à déployer dans `plugins/Nexo/` (rien d'autre) :
+`items/reborn_cosmetiques_ninja.yml`, `pack/assets/reborn/models/item/bandeau.json`,
+`pack/assets/reborn/textures/item/texturebandeau.png` ; puis `/nexo reload all`.
+Ne pas déployer `texturebandeau_origine.png` (sauvegarde). Les bandeaux déjà distribués
+**sans** `color` gardent leur aspect (la teinte par défaut du modèle est la couleur
+d'origine) et se teignent quand même.

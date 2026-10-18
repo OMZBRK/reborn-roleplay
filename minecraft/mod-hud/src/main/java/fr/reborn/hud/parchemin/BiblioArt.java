@@ -26,7 +26,7 @@ final class BiblioArt {
     static final Identifier ENTETE = tex("entete"), MEUBLE = tex("meuble"), CASIERS = tex("casiers"),
         FUDAS = tex("fudas"), SCEAUX = tex("sceaux"), CARTE = tex("carte"), BROCART = tex("brocart"),
         PIECES = tex("pieces"), REGLAGES = tex("reglages"), TOAST = tex("toast"), VIGNETTE = tex("vignette"),
-        ROULEAU = tex("rouleau"), BAGUETTES = tex("baguettes"), KANJI = tex("kanji"), PERLES = tex("perles"),
+        ROULEAU = tex("rouleau"), BAGUETTES = tex("baguettes"), PERLES = tex("perles"),
         SIGNE = tex("signe"), BOUTON = tex("bouton"), PANNEAU = tex("panneau"), PLAQUES = tex("plaques"),
         REGLETTE = tex("reglette"), CHEVILLES = tex("chevilles"), CHAMP = tex("champ"), MINI = tex("mini"),
         ONGLETS = tex("onglets"), ACCES = tex("acces"), REGISTRE = tex("registre");
@@ -204,7 +204,7 @@ final class BiblioArt {
         for (int y = y0; y < y1; y++) l.fill(x, y, x + 1, y + 1, (y & 1) == 0 ? 0xFFE8C27A : 0xFFC8A05A);
     }
 
-    /** Sceau 秘 « réservé aux membres » (24 GUI) centré en (cx, cy) : vermillon (non-membre) ou laque et or (membre). */
+    /** Sceau au cadenas « réservé aux membres » (24 GUI) centré en (cx, cy) : vermillon (non-membre) ou laque et or (membre). */
     static void sceauAcces(GuiGraphicsExtractor g, int cx, int cy, boolean membre) {
         DaKit.blit(g, ACCES, cx - 14, cy - 14, membre ? 28 : 0, 0, 28, 28, 84, 28);
     }
@@ -223,9 +223,9 @@ final class BiblioArt {
         DaKit.coupe(g, REGISTRE, x - 2, y - 2, w + 8, h + 8, 0, 0, 336, 268, 8, 16, 336, 268);
     }
 
-    /** Petit bouton suspendu (設 réglages = 0, 記 journal = 1), cellule 26×38 posée en (x, 0). */
-    static void bouton26(GuiGraphicsExtractor g, int x, int kanji, boolean survol) {
-        DaKit.blit(g, REGLAGES, x, 0, (kanji * 2 + (survol ? 1 : 0)) * 26, 0, 26, 38, 104, 38);
+    /** Petit bouton suspendu (réglages = 0, journal = 1 : pictos), cellule 26×38 posée en (x, 0). */
+    static void bouton26(GuiGraphicsExtractor g, int x, int picto, boolean survol) {
+        DaKit.blit(g, REGLAGES, x, 0, (picto * 2 + (survol ? 1 : 0)) * 26, 0, 26, 38, 104, 38);
     }
 
     /** Cheville − / + (12×11). */

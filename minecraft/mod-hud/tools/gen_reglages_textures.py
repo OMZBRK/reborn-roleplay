@@ -5,7 +5,7 @@ niveau de la fiche shinobi (DA §4.1, §6).
 
 Signature de l'écran : le byōbu — un grand paravent à feuilles d'or (kinpaku), brumes et monts peints, déplié dans
 une pièce de laque noire, la nuit ; devant lui, la planche laquée des réglages. En-tête suspendu « PARAMÈTRES »,
-huit onglets pendus (plaquettes à kanji), plaque 閉 pour fermer. Contrôles : réglettes d'or, interrupteurs
+huit onglets pendus (plaquettes à picto), plaque à croix pour fermer (aucun kanji depuis le 18/10, DA §3). Contrôles : réglettes d'or, interrupteurs
 laqués à cheville d'or, plaques segmentées, boutons-plaques.
 
 1 texel = 1 GUI (échelle « menu » : 960×540 en 1080p). Le texte est posé par le code (DaKit).
@@ -17,8 +17,10 @@ Contrat :
 - entete.png 540×48 : plaque laquée 520×28 en (10, 8), cordons depuis le haut, agemaki + glands ; titre posé
   par le code (haut des capitales y 19, centré).
 - onglets.png 78×36 : 3 cellules 26×36 (repos, survol, actif) ; texel (13, 0) = point d'attache ; plaquette
-  22×22 en (2, 8) (actif : (2, 10)) ; kanji posé par le code.
-- fermer.png 52×38 : 2 cellules 26×38 (repos, survol), 閉 cuit ; texel (13, 0) = point d'attache.
+  22×22 en (2, 8) (actif : (2, 10)).
+- onglets_pictos.png 384×16 : pictos 16×16 (vidéo, audio, contrôles, caméra, interface, discord, compte, minecraft)
+  × état (repos, survol, actif) : u = (onglet·3 + état)·16 ; posé en (tx − 8, y plaquette + 3).
+- fermer.png 52×38 : 2 cellules 26×38 (repos, survol), plaque à croix ; texel (13, 0) = point d'attache.
 - planche.png 624×656 : panneau laqué 616×648 en (2, 2) (ombre comprise) ; coupe capD = capB = 18.
 - reglette.png 304×30 : rainure 304×10 (0, 0) coupe horizontale capD 6 ; remplissage or 300×4 (2, 12) ;
   curseur 7×12 (0, 18), survolé (8, 18).
@@ -44,6 +46,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ecrans_art as ea  # noqa: E402
 from ecrans_art import fa, gf, kit, hexc, rect, coller, R_OR, R_LAQUE, R_LAQUE_ROUGE, nouveau  # noqa: E402
+import pictos  # noqa: E402  (aucun kanji décoratif, 18/10)
 
 S = ea.Sortie("reglages", budget=900_000)
 
@@ -168,9 +171,16 @@ def entete():
         fa.corde_v(cell, 13, 0, 12, "rouge", ep=2)
         fa.plaquette22(cell, 2, 12, "fermer_survol" if i else "fermer")
         kit.anneau_metal(cell, 13, 12, 1)
-        gf.kj_px(cell, 13, 15, "閉", gf.CREME_KJ, ombre=hexc("050304"))
+        pictos.ico_px(cell, 13, 18, "fermer", gf.CREME_KJ, ombre=hexc("050304"))
         im.paste(cell, (i * 26, 0))
     S.sauver("fermer.png", im, (52, 38))
+
+    im = nouveau(384, 16)
+    for o, ic in enumerate(("video", "audio", "controles", "camera", "interface", "discord", "compte", "minecraft")):
+        for e in range(3):
+            col = ea.OR_CLAIR if e == 2 else (ea.OR if e == 1 else hexc(R_OR[4]))
+            pictos.ico_milieu(im, (o * 3 + e) * 16 + 8, 8, ic, col, ombre=hexc("1A0608") if e == 2 else hexc("050304"))
+    S.sauver("onglets_pictos.png", im, (384, 16))
 
 
 def planche():

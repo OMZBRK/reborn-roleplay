@@ -259,12 +259,10 @@ final class OngletEtat implements Onglet {
         ctx.pose().pushMatrix();
         ctx.pose().translate(0, s.dyPanneau(0));
         FicheArt.panneau(ctx, FicheArt.P_CORPS, x0, L.panY, hCorps);
-        FicheArt.kanjiTitre(ctx, f, "身", x0, L.panY);
         ctx.enableScissor(x0, L.panY + 30, x0 + FicheArt.PW, L.panY + hCorps - 4);
         int X = x0 + 14, WL = FicheArt.PW - 28, CV = 82;
         int yy = L.panY + 48;
-        FicheArt.hanko(ctx, FicheTextes.colTitre(titre), FicheArt.H_NATURES, X + 9, yy);
-        FicheArt.arcadeX1(ctx, f, titreTxt, X + 24, yy - 3, FicheArt.CREME, true);
+        FicheArt.arcadeX1(ctx, f, titreTxt, X, yy - 3, FicheArt.CREME, true);
         sousTxt.dessiner(ctx, f, X, yy + 17 - FicheArt.INTER7_MIL, FicheArt.DOUX);
         ctx.fill(X, yy + 26, X + WL, yy + 27, FicheArt.SEP);
         yy += 42;
@@ -291,7 +289,6 @@ final class OngletEtat implements Onglet {
         ctx.pose().pushMatrix();
         ctx.pose().translate(0, s.dyPanneau(1));
         FicheArt.panneau(ctx, grand ? FicheArt.P_RESSENS_GRAND : FicheArt.P_RESSENS, x1, L.panY, hRessens);
-        FicheArt.kanjiTitre(ctx, f, "感", x1, L.panY);
         ctx.enableScissor(x1 - 2, L.panY + 30, x1 + FicheArt.PW + 2, L.panY + hRessens - 4);
         for (int i = 0; i < cartes.size(); i++) {
             Carte c = cartes.get(i);
