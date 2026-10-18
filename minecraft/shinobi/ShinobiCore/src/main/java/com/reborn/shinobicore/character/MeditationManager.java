@@ -293,7 +293,9 @@ public class MeditationManager implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> {               // les messages peuvent arriver hors du fil principal
             if (!p.isOnline()) return;
             ShinobiCharacter c = plugin.characters().getActive(p.getUniqueId());
-            if (c != null && type != 1) {
+            // 19/10 : la couleur d'aura devient un article de boutique (RBCoins) — plus de choix libre côté joueur,
+            // seul le staff l'attribue (/meditation aura <joueur> <couleur>) ; le mod reçoit juste la couleur actuelle.
+            if (c != null && type != 1 && p.hasPermission("shinobicore.staff")) {
                 long now = System.currentTimeMillis();
                 Long avant = dernierChoix.get(p.getUniqueId());
                 if (avant != null && now - avant < 500) { envoyerAura(p, c); return; }   // pas de rafale
@@ -328,8 +330,10 @@ public class MeditationManager implements Listener {
     }
 
     /**
-     * {@code /meditation aura [#RRGGBB|defaut]} pour soi ; {@code /meditation aura <joueur> <#RRGGBB|defaut>} pour le
-     * staff ({@code shinobicore.staff}). Renvoie vrai si la commande était une commande d'aura.
+     * {@code /meditation aura} affiche sa couleur ; l'attribution est réservée au staff ({@code shinobicore.staff}) :
+     * {@code /meditation aura <joueur> <#RRGGBB|defaut>}, ou {@code /meditation aura <#RRGGBB|defaut>} pour soi. La
+     * couleur d'aura est destinée à la boutique de compte (RBCoins), qui passera par cette attribution. Renvoie vrai si
+     * la commande était une commande d'aura.
      */
     public boolean commandeAura(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length == 0 || !args[0].equalsIgnoreCase("aura")) return false;
@@ -360,7 +364,11 @@ public class MeditationManager implements Listener {
         }
         if (valeur == null) {
             sender.sendMessage(Component.text("Couleur de l'aura : " + hex(couleurHalo(c))
-                    + (c.auraCouleur() >= 0 ? "" : " (par défaut)") + " — /meditation aura <#RRGGBB|defaut>", NamedTextColor.GOLD));
+                    + (c.auraCouleur() >= 0 ? "" : " (par défaut)"), NamedTextColor.GOLD));
+            return true;
+        }
+        if (!sender.hasPermission("shinobicore.staff")) {
+            sender.sendMessage(Component.text("Les couleurs d'aura s'obtiendront à la boutique (RBCoins).", NamedTextColor.RED));
             return true;
         }
         if (valeur.equalsIgnoreCase("defaut") || valeur.equalsIgnoreCase("défaut") || valeur.equalsIgnoreCase("reset")) {

@@ -17,8 +17,8 @@ commands:
     aliases: [char, characters]
     permission: shinobicore.use
   meditation:
-    description: S'asseoir et régénérer du chakra ; « aura » règle la couleur du halo.
-    usage: "/<command> [aura [#RRGGBB|defaut]]"
+    description: "S'asseoir et régénérer du chakra ; « aura » affiche la couleur du halo (le staff l'attribue)."
+    usage: "/<command> [aura [joueur] [#RRGGBB|defaut]]"
     aliases: [meditate, med]
     permission: shinobicore.use
   testfeuille:

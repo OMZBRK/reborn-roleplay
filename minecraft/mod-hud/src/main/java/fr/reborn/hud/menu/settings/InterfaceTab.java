@@ -47,10 +47,9 @@ public class InterfaceTab extends SectionedTab {
                 RebornPrefs.INSTANCE.aurasSol,
                 v -> { RebornPrefs.INSTANCE.aurasSol = v; RebornPrefs.INSTANCE.save(); }));
 
-        section("Méditation");
-        labelRow("Couleur de l'aura", "Le halo autour de ton personnage quand il médite, vu de tous");
-        actionButton("→ Choisir la couleur de l'aura",
-            () -> open(new fr.reborn.hud.menu.character.perso.PersoAura(parent)));
+        // Couleur de l'aura de méditation : plus de choix libre ici depuis le 19/10, elle deviendra un article de la
+        // boutique de compte (RBCoins) ; en attendant, le staff l'attribue (/meditation aura <joueur> <couleur>).
+        // L'écran de choix (perso/PersoAura) est gardé pour la boutique.
 
         section("Noms au-dessus des têtes");
         row("Style", "Apparence du nom RP des autres joueurs",

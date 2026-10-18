@@ -56,11 +56,12 @@ plus deux ressources. Genjutsu absent de la beta.
     balancement de côté (8 s), en boucle sans à-coup ;
     apparition et extinction en fondu ; vu de **tous les
     joueurs à moins de 48 blocs** (canal `reborn:meditation`, mod `meditation/`).
-  - *Couleur de l'aura* : **choisie par le joueur**, par personnage — Réglages Reborn › Interface › Méditation ›
-    « Choisir la couleur de l'aura » (sélecteur de la création de personnage, « Par défaut » + 5 auras toutes faites,
-    aperçu herbe / pierre / nuit ; si le
-    joueur médite, son halo change en direct derrière l'écran), ou `/meditation aura #RRGGBB` / `defaut`. Le staff :
-    `/meditation aura <joueur> <#RRGGBB|defaut>`. Défaut : le **menthe** de la vidéo (`#8CFFC2`,
+  - *Couleur de l'aura* : par personnage, **article de la boutique de compte (RBCoins)** — décision du 19/10 : « fais
+    une commande, j'veux que cela devienne un truc de boutique avec les RB coins ». Le choix libre (Réglages › Interface ›
+    Méditation, 18/10) est **retiré** ; en attendant la boutique, **seul le staff l'attribue** :
+    `/meditation aura <joueur> <#RRGGBB|defaut>` (ou `/meditation aura <#RRGGBB|defaut>` pour soi). Le joueur voit sa
+    couleur par `/meditation aura` ; le serveur refuse le choix envoyé par le mod (types 2 et 3) hors staff. L'écran de
+    choix (`perso/PersoAura` : « Par défaut » + 5 auras, aperçu herbe / pierre / nuit) est gardé pour la boutique. Défaut : le **menthe** de la vidéo (`#8CFFC2`,
     `meditation.halo.couleur-defaut`). Une couleur donne les trois teintes : la teinte et la lumière de la couronne, le voile du
     disque (assombri) et les étincelles (teinte tournée de 70° : le menthe redonne le bleu `#6F9FF8` de la vidéo).
     `meditation.halo.par-nature: true` teinte selon la nature de chakra **ceux qui n'ont rien choisi** (désactivé).

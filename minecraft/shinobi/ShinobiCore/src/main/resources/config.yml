@@ -320,9 +320,8 @@ meditation:
   # on top of the block (not inside it).
   use-armor-stand-seat: true
   # Halo de méditation (18/10 v2, mod reborn-hud) : disque sombre au sol, couronne de lumière, étincelles,
-  # vu des joueurs proches (canal reborn:meditation). Couleur = celle choisie par le joueur (Réglages ›
-  # Interface › Méditation, ou /meditation aura #RRGGBB ; staff : /meditation aura <joueur> <couleur|defaut>),
-  # sinon celle-ci.
+  # vu des joueurs proches (canal reborn:meditation). Couleur = celle attribuée au personnage (19/10 : réservée
+  # au staff, /meditation aura <joueur> <#RRGGBB|defaut> ; destinée à la boutique RBCoins), sinon celle-ci.
   halo:
     enabled: true
     portee: 48.0                  # blocs : au-delà, le halo n'est pas envoyé

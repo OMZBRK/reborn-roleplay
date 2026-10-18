@@ -56,7 +56,7 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/stats` | `fiche`, `statistiques` | tous / staff | `shinobicore.use` | Fiche shinobi : répartir ses points, réinitialiser, jeton ; staff `give`, `set`, `reset` |
 | `/xp` | — | staff | `shinobicore.staff` | `voir`, `donner`, `retirer`, `niveau <joueur> <n>` — l'XP est invisible pour le joueur |
 | `/grade` | — | tous / gradés / staff | `shinobicore.use` | Voir son grade ; promouvoir ou rétrograder selon son propre grade |
-| `/meditation` | `meditate`, `med` | tous ; `aura <joueur> …` : `shinobicore.staff` | `shinobicore.use` | S'asseoir, régénérer du chakra, avancer le repos ATA ; `aura [#RRGGBB\|defaut]` : couleur de l'aura du personnage (18/10, aussi dans Réglages › Interface › Méditation) ; staff : `aura <joueur> <#RRGGBB\|defaut>` |
+| `/meditation` | `meditate`, `med` | tous ; `aura <joueur> …` : `shinobicore.staff` | `shinobicore.use` | S'asseoir, régénérer du chakra, avancer le repos ATA ; `aura` : affiche la couleur de l'aura du personnage ; staff seulement (19/10, futur article RBCoins) : `aura [joueur] <#RRGGBB\|defaut>` |
 | `/testfeuille` | `feuille`, `leaftest` | tous | `shinobicore.use` | Test de la feuille : révèle la nature de chakra |
 | `/me` | `action`, `act` | tous | `shinobicore.use` | Action RP avec le nom du personnage |
 | `/rencontrer` | `meet`, `introduce` | tous | `shinobicore.use` | Se présenter à la personne regardée |

@@ -57,6 +57,7 @@
 |---|---|
 | 2026-09-08 | **Ryo** (gagné en jeu) + **RBCoins** (acheté ou Bug Bounty), sans conversion — [ADR 0006](../adr/0006-monnaies-ryo-et-rbcoins.md) |
 | 2026-10-03 | Les récompenses d'activation (boost Discord, pseudo, bio, stream…) rapportent des **RBCoins**, pas des ryo |
+| 2026-10-19 | La **couleur d'aura de méditation** devient un **article de boutique en RBCoins** (« fais une commande, j'veux que cela devienne un truc de boutique avec les RB coins ») : plus de choix libre dans les Réglages ; en attendant la boutique de compte, attribuée par le staff (`/meditation aura <joueur> <couleur>`) — [`../gameplay/STATS_ET_PROGRESSION.md`](../gameplay/STATS_ET_PROGRESSION.md) §1 |
 
 ## Stats et progression — [`../gameplay/STATS_ET_PROGRESSION.md`](../gameplay/STATS_ET_PROGRESSION.md)
 
