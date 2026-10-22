@@ -4,6 +4,8 @@ import { commands } from "./commands/index.js";
 import { dispatchComponentInteraction } from "./interactions/index.js";
 import { startWebhookServer } from "./webhook-server.js";
 import { startThreadListener } from "./thread-listener.js";
+import { startBienvenue } from "./joueurs/bienvenue.js";
+import { startPiege } from "./joueurs/piege.js";
 
 const client = new Client({
   intents: [
@@ -21,6 +23,9 @@ client.once(Events.ClientReady, (ready) => {
   );
   startWebhookServer(ready);
   startThreadListener(ready);
+  // Discord joueurs (désactivés tant que leurs variables d'env sont vides).
+  startBienvenue(ready);
+  startPiege(ready);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

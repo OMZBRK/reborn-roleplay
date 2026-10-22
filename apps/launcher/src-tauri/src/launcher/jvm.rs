@@ -281,12 +281,12 @@ mod tests {
     fn dev_server_and_staff_flag_emitted_when_set() {
         let mut cfg = sample_cfg();
         cfg.dev_server = Some(ServerAddress {
-            host: "91.197.6.51".into(),
+            host: "203.0.113.10".into(),
             port: 26547,
         });
         cfg.is_staff = true;
         let argv = build_command(&cfg);
-        assert!(argv.iter().any(|a| a == "-Dreborn.server.dev.host=91.197.6.51"));
+        assert!(argv.iter().any(|a| a == "-Dreborn.server.dev.host=203.0.113.10"));
         assert!(argv.iter().any(|a| a == "-Dreborn.server.dev.port=26547"));
         assert!(argv.iter().any(|a| a == "-Dreborn.staff=true"));
     }

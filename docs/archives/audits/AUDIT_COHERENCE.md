@@ -167,7 +167,7 @@ Autres résidus Zenkai à statuer :
 |---|---|---|---|
 | 5.1 | `PLAN` §10 | `https://api.reborn-rp.**fr**/v1/` | `https://api.reborn-rp.**com**/v1` |
 | 5.2 | `docs/DEPLOY.md`, `docs/STAFF_BETA.md` | `api./panel.reborn-rp.**fr**` | `.com` |
-| 5.3 | `docs/STAFF_BETA.md` §3 | VPS Hetzner CX22 4 €/mois | OVH VPS-1 Gravelines, `ubuntu@91.134.136.120` |
+| 5.3 | `docs/STAFF_BETA.md` §3 | VPS Hetzner CX22 4 €/mois | OVH VPS-1 Gravelines, `ubuntu@<IP_VPS>` |
 
 `STAFF_BETA.md` et `DEPLOY.md` sont des guides « from scratch » : garder des exemples
 génériques est légitime, mais ils doivent **dire explicitement** qu'ils ne décrivent

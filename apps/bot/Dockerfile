@@ -43,6 +43,8 @@ RUN addgroup -S reborn && adduser -S reborn -G reborn
 COPY --from=builder --chown=reborn:reborn /repo/node_modules ./node_modules
 COPY --from=builder --chown=reborn:reborn /repo/apps/bot/node_modules ./apps/bot/node_modules
 COPY --from=builder --chown=reborn:reborn /repo/apps/bot/dist ./apps/bot/dist
+# Bannière de l'accueil du Discord joueurs (src/joueurs/bienvenue.ts la lit en ../../assets).
+COPY --from=builder --chown=reborn:reborn /repo/apps/bot/assets ./apps/bot/assets
 COPY --from=builder --chown=reborn:reborn /repo/apps/bot/package.json ./apps/bot/
 COPY --from=builder --chown=reborn:reborn /repo/package.json /repo/pnpm-workspace.yaml ./
 

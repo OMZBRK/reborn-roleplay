@@ -16,13 +16,13 @@ Lis-le en premier quand tu veux changer quelque chose en prod.
 
 | Domaine | Valeur |
 |---|---|
-| VPS | `ubuntu@91.134.136.120` (OVH VPS-1 Gravelines) |
+| VPS | `ubuntu@<IP_VPS>` (OVH VPS-1 Gravelines) |
 | Repo SSH path | `/opt/reborn` |
 | Domaine | `reborn-rp.com` |
 | API publique | `https://api.reborn-rp.com/v1` |
 | Panel | `https://panel.reborn-rp.com` |
-| Serveur MC **prod** | `play.reborn-rp.com:27106` (`91.197.6.152:27106`, Minestrator) |
-| Serveur MC **dev** | `91.197.6.60:25606` (Purpur 26.2) |
+| Serveur MC **prod** | `play.reborn-rp.com:27106` (`<IP_PROD>:27106`, Minestrator) |
+| Serveur MC **dev** | `<IP_DEV>:25606` (Purpur 26.2) |
 | Repo GitHub | `OMZBRK/reborn-roleplay` |
 | Mods release tag | `mods-v3.1.x` (dernier : `mods-v3.1.90`) |
 | Launcher release tag | `v0.3.x` (dernier : `v0.3.42`) |
@@ -36,14 +36,14 @@ Tous les secrets vivent dans `/opt/reborn/.env.prod` (VPS) + `secrets/`
 ## 1. Connexion SSH au VPS
 
 ```pwsh
-ssh ubuntu@91.134.136.120
+ssh ubuntu@<IP_VPS>
 # password : généré par OVH, dans tes mails
 ```
 
 Pour copier un fichier local vers le VPS :
 
 ```pwsh
-scp .\fichier.txt ubuntu@91.134.136.120:/opt/reborn/
+scp .\fichier.txt ubuntu@<IP_VPS>:/opt/reborn/
 ```
 
 ---
@@ -160,7 +160,7 @@ calculé contre le nouveau manifest :
 Rôles disponibles : `PLAYER` < `HELPER` < `MODERATOR` < `ADMIN` < `OWNER`.
 
 ```bash
-ssh ubuntu@91.134.136.120
+ssh ubuntu@<IP_VPS>
 cd /opt/reborn
 
 # Voir les users
@@ -185,7 +185,7 @@ Le gate `LAUNCHER_BETA_GATE=HELPER` empêche les non-staffs de login.
 ### Ouvrir temporairement (pour qu'un nouveau staff puisse créer son compte)
 
 ```bash
-ssh ubuntu@91.134.136.120
+ssh ubuntu@<IP_VPS>
 cd /opt/reborn
 
 # Désactive le gate
@@ -207,7 +207,7 @@ sudo docker compose -f infra/docker-compose.prod.yml up -d --force-recreate api
 Exemple : changer le serveur MC pointé par la sidebar du launcher.
 
 ```bash
-ssh ubuntu@91.134.136.120
+ssh ubuntu@<IP_VPS>
 cd /opt/reborn
 sudo nano .env.prod
 # Edite la valeur (ex: REBORN_SERVER_PORT=27106 → 27999)
@@ -388,7 +388,7 @@ auto au prochain démarrage.
 ### API NestJS (le plus utile)
 
 ```bash
-ssh ubuntu@91.134.136.120
+ssh ubuntu@<IP_VPS>
 sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml logs -f --tail=50 api
 ```
 
@@ -438,13 +438,13 @@ sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml restart
 ## 10. Backup de la base de données
 
 ```bash
-ssh ubuntu@91.134.136.120
+ssh ubuntu@<IP_VPS>
 sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml exec postgres \
   pg_dump -U reborn -d reborn > /tmp/reborn-backup-$(date +%F).sql
 
 # Récupère sur ta machine locale :
 exit  # quitte SSH
-scp ubuntu@91.134.136.120:/tmp/reborn-backup-*.sql .
+scp ubuntu@<IP_VPS>:/tmp/reborn-backup-*.sql .
 ```
 
 À automatiser plus tard via cron (cf `docs/operations/DEPLOY.md`).
@@ -456,7 +456,7 @@ scp ubuntu@91.134.136.120:/tmp/reborn-backup-*.sql .
 Quand tu push une modif côté API/bot/admin :
 
 ```bash
-ssh ubuntu@91.134.136.120
+ssh ubuntu@<IP_VPS>
 cd /opt/reborn
 sudo git pull
 sudo docker compose -f infra/docker-compose.prod.yml up -d --build api

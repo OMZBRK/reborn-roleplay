@@ -228,7 +228,7 @@ Sur la machine où le launcher version `N` (< X.Y.Z) est installé :
 - **Version comparison failed** : si `current` >= version DB, retour 204.
   Vérifier en DB :
   ```bash
-  ssh ubuntu@91.134.136.120
+  ssh ubuntu@<IP_VPS>
   sudo docker compose -f /opt/reborn/infra/docker-compose.prod.yml exec postgres \
     psql -U reborn -d reborn -c 'SELECT version, target, channel, url FROM "LauncherRelease" ORDER BY "publishedAt" DESC LIMIT 5;'
   ```

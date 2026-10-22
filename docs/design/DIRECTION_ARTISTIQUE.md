@@ -50,6 +50,7 @@
 | Icônes de chat dessinées à la main | « gros problème au niveau des icônes » | Icônes Lucide (licence ISC) |
 | Refonte de l'accueil du launcher en tableau de bord | « pas besoin » | Accueil inchangé |
 | Écrans des menus principal et de chargement proposés | « j'aime pas » | Non intégrés |
+| Bannières Discord joueurs « façon Ketto » (rouge laque, nuages génériques, fleurs de prunier, titre pinceau procédural) — 19/10 | « je vois que c'est fait avec l'IA, j'aime pas trop » | Identité tirée du **logo** (§7) |
 | Kanji et sceaux décoratifs (titres, onglets, lignes de HUD, pièces de section) — 14/10, écran de la radio | « arrête avec les écritures chinoises/japonaises, y'a pas besoin et ça fait ringard » | **Aucun kanji décoratif** ; texte français, écrans **centrés, épurés**, peu d'éléments |
 
 Application de la règle « aucun kanji décoratif » (précisée le 18/10, création de personnage) : un repère d'étape
@@ -246,3 +247,47 @@ L'utilisateur veut rester en pixel art, **sans coût de performance**. Règles d
    bouton-plaque : un choix cliquable est un **mot souligné au survol**. Rien ne couvre plus que nécessaire, rien de
    plus large qu'environ **1/4 de l'écran** (hors texte), fondu d'entrée et de sortie. Les plaques laquées restent
    pour les **menus** (écrans ouverts). Référence : `duel/DuelHud.java` v2.
+
+## 7. Identité de marque Reborn : logo, palette, typo, gabarit réseaux (19/10, v3 violet du 22/10)
+
+Pour la **communication** (Discord, réseaux, invitation), pas pour les écrans du mod : le thème Akatsuki laque / or
+du §1 reste celui du jeu. Demande de l'utilisateur : « calque-toi sur notre logo et fais un truc qualitatif » ; la
+série rouge laque « façon Ketto » (nuages génériques, fleurs de prunier, titre pinceau procédural) a été rejetée
+comme « faite avec l'IA ». La v1 (Shippori Mincho + Tenor Sans, volute en ombre) a été jugée « bien dans l'ensemble »
+mais **police pas aimée** et **un peu fade** : v2 (Reggae One, validée le 22/10). Le 22/10, la série passe **en violet**,
+la couleur de l'avatar du bot Discord (v3 ci-dessous). Planche complète, avec les 4 pistes typographiques :
+`Maquettes/communication/identite_reborn/00_planche_identite.png`.
+
+- **Logo** : l'emblème de nuages en volutes peint au pinceau, fourni par l'utilisateur (blanc cassé sur bleu nuit,
+  et sa déclinaison crayon rose poudré). Il est **extrait tel quel** du fichier fourni (seuil sur le canal rouge,
+  frange sèche du pinceau et texture de touche conservées, poussières retirées) : jamais redessiné, déformé,
+  recoloré hors palette, ni doté d'ombre portée ou de lueur. Zone de protection : ¼ de sa hauteur ; taille mini 24 px.
+- **Palette v3** (calée sur l'avatar du bot, logo blanc cassé sur violet ; remplace ~~les bleus nuit de la v2~~) :
+  Nuit violette `#260830` (bords, vignettage, ombre des volutes), Prune `#3F0F4B` (fond courant), Violet Reborn
+  `#571B61` (cœur de la lumière, derrière l'emblème), Violet vif `#6A2177` (barre des cadres du bot), **Blanc pur**
+  `#FFFFFF` (titres seulement), Blanc cassé `#FCF6F4` (emblème), Lilas `#D0B9CC` (lignes) et `#C99BD2` (volutes des
+  visuels de marque), Rose poudré `#EEB8A2` (**touche principale** : surtitre, filet de 3 px, filets de l'arrivée).
+  **Accents de salon**, discrets et accordés au violet (teinte de la grande volute + point devant la ligne) :
+  bienvenue rose `#EEB8A2`, informations pervenche `#9DB4F0`, whitelist menthe `#8FD3B6`, règlement corail `#F09A8A`,
+  annonces or pâle `#EBCB86`, réseaux glycine `#C7A6F0`, recrutement turquoise `#84D0D0`, spoils abricot `#F2B07A`
+  (volute à 17 %). Pas de violet criard, pas de dégradé vif ni de lueur : la lumière est le halo du logo derrière
+  l'emblème ; le relief vient des volutes, du vignettage et du grain.
+- **Typographie** (SIL Open Font License 1.1, téléchargées depuis `github.com/google/fonts`, licences jointes dans
+  `_sources/fonts/`). Quatre pistes comparées sur le même gabarit : A Dela Gothic One (capitale display large),
+  B Big Shoulders Display Black (grotesque condensée), **C Reggae One (trait d'encre dessiné, retenue)**, D Fraunces
+  Black (serif à fort contraste). **Reggae One** (Fontworks) pour les titres : fûts qui s'effilent en pointe comme les
+  volutes du pinceau, caractère ninja sans faux pinceau ni kanji, lisible à 50 % ; capitales, approche +3 %, blanc pur.
+  **Archivo** (variable) pour le surtitre (largeur 115, graisse 700, capitales, approche +26 %, rose) et les lignes
+  (graisse 500). Changer de piste : `PISTE` dans `_sources/marque.py`, puis `python generer.py`.
+- **Gabarit des bannières de salon** (1200 × 340, export @2x 2400 × 680, rendu natif en @2x) : emblème 206 px à
+  gauche (marge 76 px), filet rose 3 px à 46 px, bloc texte à 42 px du filet, centré sur l'emblème (surtitre
+  REBORN ROLEPLAY / titre 84 px, corps commun à la série / point couleur du salon + ligne 23 px), et dans le tiers
+  droit **une volute du logo agrandie 2,35× à la couleur du salon**, avec son ombre décalée, qui sort du cadre.
+  D'une bannière à l'autre ne changent **que le titre, la ligne, la volute et l'accent**. Texte lisible à 50 %.
+- **Image d'arrivée** du bot (même format) : composition centrée, petit emblème, grand BIENVENUE, « SUR REBORN
+  ROLEPLAY » en rose entre deux filets, volutes lilas de part et d'autre.
+- **Serveur** : icône 512 = l'avatar du bot refait net (emblème à 70 % sur le violet, bords sombres, sûre dans la
+  découpe ronde), bannière 960 × 540 et fond d'invitation 1920 × 1080 (emblème + logotype REBORN / — ROLEPLAY —,
+  volutes lilas).
+- **Sources** : `Maquettes/communication/identite_reborn/_sources/` (`python generer.py`, Pillow + numpy, aucune
+  IA générative) ; livré dans `apps/bot/assets/bienvenue.png` et `Discord/posts/joueurs/img/`.

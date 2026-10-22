@@ -13,6 +13,8 @@
  *      "blocs": [ { "texte": "## Titre\n…" }, { "images": ["img/a.jpg", "img/b.jpg"] },
  *                 { "separateur": true }, { "liens": [ { "libelle": "Télécharger", "url": "https://…", "emoji": "⬇️" } ] } ] }
  *  Les chemins d'images sont relatifs au fichier JSON. Aucune mention ne notifie (allowedMentions vide).
+ *  Option `"banniere": "img/x.png"` : bannière posée AU-DESSUS du cadre, hors barre de couleur (façon Ketto
+ *  `informations` / `tuto-whitelist`, Discord joueurs : docs/operations/DISCORD_JOUEURS.md §4).
  *
  *  Garde-fous : SIMULATION par défaut (`--envoyer` pour poster) ; idempotent par `cle` (état dans
  *  Discord\posts\postes.json) ; `--refaire` supprime d'abord le message que CE script a posté pour cette clé.
@@ -21,10 +23,13 @@
  * ============================================================================
  */
 import {
+  AttachmentBuilder,
   ChannelType,
   Client,
   Events,
   GatewayIntentBits,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
   type ForumChannel,
   type TextBasedChannel,
 } from "discord.js";
@@ -56,6 +61,8 @@ interface Spec extends CadreSpec {
   salon: string;
   /** Pour un forum : titre du post créé. */
   titreForum?: string;
+  /** Bannière au-dessus du cadre (hors barre de couleur), chemin relatif au fichier JSON. */
+  banniere?: string;
 }
 
 const argv = process.argv.slice(2);
@@ -96,6 +103,18 @@ function imageDepuisFichier(rel: string): { nom: string; donnees: string } {
   return { nom: basename(p), donnees: p };
 }
 
+/** Ajoute la bannière (galerie d'une image) au-dessus du cadre. */
+function avecBanniere(p: ReturnType<typeof payloadCadre>, ref: string) {
+  const { nom, donnees } = imageDepuisFichier(ref);
+  if (p.files.some((f) => f.name === nom)) throw new Error(`bannière « ${nom} » : nom déjà pris par une image du cadre`);
+  if (p.files.length + 1 > 10) throw new Error("trop d'images (max 10 par message, bannière comprise)");
+  return {
+    ...p,
+    components: [new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${nom}`)), ...p.components],
+    files: [new AttachmentBuilder(donnees, { name: nom }), ...p.files],
+  };
+}
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.once(Events.ClientReady, async (ready) => {
   let code = 0;
@@ -110,7 +129,7 @@ client.once(Events.ClientReady, async (ready) => {
       image: imageDepuisFichier,
       texte: (md) => resoudreMentions(guild, md),
     });
-    console.log(`${envoyer ? "ENVOI" : "SIMULATION"} — « ${spec.cle} » → « ${ch.name} » (${ChannelType[ch.type]}), ${files.length} image(s)`);
+    console.log(`${envoyer ? "ENVOI" : "SIMULATION"} — « ${spec.cle} » → « ${ch.name} » (${ChannelType[ch.type]}), ${files.length} image(s)${spec.banniere ? " + bannière" : ""}`);
     if (state[spec.cle] && !refaire) {
       console.log(`  = déjà posté (--refaire pour remplacer)`);
       return;
@@ -127,7 +146,8 @@ client.once(Events.ClientReady, async (ready) => {
         if (m && m.author.id === ready.user.id) await m.delete();
       }
     }
-    const payload = payloadCadre(container, files);
+    const base = payloadCadre(container, files);
+    const payload = spec.banniere ? avecBanniere(base, spec.banniere) : base;
     if (ch.type === ChannelType.GuildForum) {
       const th = await (ch as ForumChannel).threads.create({ name: spec.titreForum ?? spec.cle, message: payload });
       state[spec.cle] = { channelId: ch.id, messageId: th.id, thread: true, at: new Date().toISOString() };

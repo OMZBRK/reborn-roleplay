@@ -21,6 +21,12 @@ if (envPath) {
   console.warn("[bot] aucun .env trouve, lecture depuis process.env uniquement");
 }
 
+/** Entier positif lu dans l'env, `defaut` si absent ou invalide. */
+function entier(key: string, defaut: number): number {
+  const n = Number(process.env[key]);
+  return Number.isFinite(n) && n >= 0 && process.env[key]?.trim() ? Math.floor(n) : defaut;
+}
+
 function require_(key: string): string {
   const value = process.env[key];
   if (!value) {
@@ -70,4 +76,33 @@ export const config = {
   staffApercuChannelId: process.env.DISCORD_STAFF_APERCU_CHANNEL_ID ?? "",
   /** Optionnel : rôle pingé par « @Testeur » en dev-updates. Vide = rôle nommé « Testeur ». */
   staffTesteurRoleId: process.env.DISCORD_STAFF_TESTEUR_ROLE_ID ?? "",
+
+  // -------------------------------------------------------------------------------------------
+  // Discord JOUEURS (« façon Ketto », docs/operations/DISCORD_JOUEURS.md §5). Tout est optionnel :
+  // sans DISCORD_JOUEURS_GUILD_ID, rien ne tourne ; le Discord staff n'est jamais concerné.
+  // -------------------------------------------------------------------------------------------
+  /** Serveur Discord joueurs. Vide = accueil et salon piège désactivés. */
+  joueursGuildId: process.env.DISCORD_JOUEURS_GUILD_ID ?? "",
+  /** Salon `🪵` : un message par arrivée. Vide = accueil désactivé. */
+  bienvenueChannelId: process.env.DISCORD_BIENVENUE_CHANNEL_ID ?? "",
+  /** Optionnel : émoji du pied (« <:reborn:id> » pour le logo en émoji du serveur). Vide = pas d'émoji. */
+  bienvenueEmoji: process.env.DISCORD_BIENVENUE_EMOJI ?? "",
+  /** Couleur de la barre du cadre d'accueil : celle de l'avatar du bot (violet Reborn) par défaut. */
+  bienvenueCouleur: process.env.DISCORD_BIENVENUE_COULEUR || "#6A2177",
+  /** Au-delà de N arrivées sur 60 s, les arrivées sont regroupées en un message par minute (sans ping). */
+  bienvenueSeuilGroupe: entier("DISCORD_BIENVENUE_SEUIL_GROUPE", 8),
+  /** Au-delà de N arrivées sur 60 s (raid probable), l'accueil est suspendu 10 min et le journal alerte. */
+  bienvenueSeuilRaid: entier("DISCORD_BIENVENUE_SEUIL_RAID", 25),
+  /** Optionnel : salon staff du serveur joueurs où le bot écrit son journal (arrivées massives, piège). */
+  joueursLogChannelId: process.env.DISCORD_JOUEURS_LOG_CHANNEL_ID ?? "",
+  /** Optionnel : rôle « Staff » du serveur joueurs, jamais sanctionné par le piège. */
+  joueursStaffRoleId: process.env.DISCORD_JOUEURS_STAFF_ROLE_ID ?? "",
+  /** Salon piège `⚠️・ne-pas-écrire` (comptes piratés). Vide = piège désactivé (défaut). */
+  piegeChannelId: process.env.DISCORD_PIEGE_CHANNEL_ID ?? "",
+  /** Durée du bannissement du piège, en jours (0 = définitif). */
+  piegeJours: entier("DISCORD_PIEGE_JOURS", 7),
+  /** Messages du compte effacés partout au bannissement, en secondes (max 604800 = 7 j). */
+  piegePurgeSecondes: Math.min(entier("DISCORD_PIEGE_PURGE_SECONDES", 3600), 604800),
+  /** « 1 » = simulation : le message est effacé et journalisé, personne n'est banni. */
+  piegeSimulation: ["1", "true", "oui"].includes((process.env.DISCORD_PIEGE_SIMULATION ?? "").trim().toLowerCase()),
 };

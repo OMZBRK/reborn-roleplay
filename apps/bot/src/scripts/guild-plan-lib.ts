@@ -140,6 +140,11 @@ export interface Plan {
   source?: string;
   everyone: { key: "everyone"; permissions: PermName[]; note?: string };
   roles: PlanRole[];
+  /**
+   * Salons HORS catégorie, tout en haut de la liste (ex. `⛩・bienvenue`, salon piège), dans cet ordre.
+   * Jamais synchronisés (pas de catégorie) : leurs `overwrites` sont appliqués tels quels.
+   */
+  topChannels?: PlanChannel[];
   categories: PlanCategory[];
 }
 
@@ -166,6 +171,13 @@ export function validatePlan(plan: Plan): string[] {
       for (const p of [...o.allow, ...o.deny]) checkPerm(p, where);
     }
   };
+  for (const ch of plan.topChannels ?? []) {
+    if (keys.has(ch.key)) errors.push(`clé en double : ${ch.key}`);
+    keys.add(ch.key);
+    if (ch.sync) errors.push(`salon ${ch.key} : hors catégorie, « sync » doit valoir false`);
+    checkOw(ch.overwrites ?? [], `salon ${ch.key}`);
+    if (ch.name.length < 1 || ch.name.length > 100) errors.push(`salon ${ch.key} : nom de 1 à 100 caractères`);
+  }
   for (const c of plan.categories) {
     if (keys.has(c.key)) errors.push(`clé en double : ${c.key}`);
     keys.add(c.key);
@@ -480,6 +492,7 @@ export function matchPlan(plan: Plan, snap: Snapshot): Matching {
   const channels = new Map<string, SnapChannel>();
   const usedCh = new Set<string>();
   const all: { key: string; name: string; origin: PlanOrigin | null; type: number }[] = [];
+  for (const ch of plan.topChannels ?? []) all.push({ key: ch.key, name: ch.name, origin: ch.origin, type: TYPE_CODE[ch.type] });
   for (const c of plan.categories) {
     all.push({ key: c.key, name: c.name, origin: c.origin, type: ChannelType.GuildCategory });
     for (const ch of c.channels) all.push({ key: ch.key, name: ch.name, origin: ch.origin, type: TYPE_CODE[ch.type] });
@@ -731,11 +744,14 @@ export function computeDiff(plan: Plan, snap: Snapshot, opts: DiffOptions): Diff
 
   // ------------------------------------------------------------ (e) catégories et salons
   const parentKeyOf = new Map<string, string | null>(); // clé salon -> clé catégorie
+  const top = plan.topChannels ?? [];
+  for (const ch of top) parentKeyOf.set(ch.key, null);
   for (const c of plan.categories) {
     parentKeyOf.set(c.key, null);
     for (const ch of c.channels) parentKeyOf.set(ch.key, c.key);
   }
   const chanByKey = new Map<string, { name: string; type: number; topic: string | null }>();
+  for (const ch of top) chanByKey.set(ch.key, { name: ch.name, type: TYPE_CODE[ch.type], topic: ch.topic ?? null });
   for (const c of plan.categories) {
     chanByKey.set(c.key, { name: c.name, type: ChannelType.GuildCategory, topic: null });
     for (const ch of c.channels) chanByKey.set(ch.key, { name: ch.name, type: TYPE_CODE[ch.type], topic: ch.topic ?? null });
@@ -747,7 +763,7 @@ export function computeDiff(plan: Plan, snap: Snapshot, opts: DiffOptions): Diff
   const curParentLabel = (id: string | null) => (id ? (snapChanById.get(id)?.name ?? id) : "(hors catégorie)");
 
   const salonOps: Op[] = [];
-  const orderedKeys: string[] = [];
+  const orderedKeys: string[] = top.map((ch) => ch.key);
   for (const c of plan.categories) {
     orderedKeys.push(c.key);
     for (const ch of c.channels) orderedKeys.push(ch.key);
@@ -800,6 +816,14 @@ export function computeDiff(plan: Plan, snap: Snapshot, opts: DiffOptions): Diff
       };
     }).sort((x, y) => x.target.localeCompare(y.target));
   const owOps: Op[] = [];
+  for (const ch of top) {
+    const want = desiredOw(ch.overwrites ?? []);
+    const cur = m.channels.get(ch.key);
+    const before = cur ? currentOw(cur) : [];
+    if (!cur || normOw(before) !== normOw(want)) {
+      owOps.push({ lot: "overwrites", kind: "channel.overwrites", key: ch.key, id: cur?.id ?? null, label: ch.name, sync: false, before, after: want });
+    }
+  }
   for (const c of plan.categories) {
     const catWant = desiredOw(c.overwrites);
     const catCur = m.channels.get(c.key);
@@ -823,7 +847,11 @@ export function computeDiff(plan: Plan, snap: Snapshot, opts: DiffOptions): Diff
 
   // ------------------------------------------------------------ (g) ordre des salons
   {
-    const target: string[] = [];
+    // Hors catégorie d'abord (Discord les affiche au-dessus des catégories), textes puis vocaux.
+    const target: string[] = [
+      ...top.filter((ch) => !isVoiceLike(TYPE_CODE[ch.type])).map((ch) => ch.key),
+      ...top.filter((ch) => isVoiceLike(TYPE_CODE[ch.type])).map((ch) => ch.key),
+    ];
     for (const c of plan.categories) {
       target.push(c.key);
       const texts = c.channels.filter((ch) => !isVoiceLike(TYPE_CODE[ch.type])).map((ch) => ch.key);
@@ -968,6 +996,14 @@ export function simulateAccess(plan: Plan, snap: Snapshot, opts: DiffOptions): A
       return r ? [{ id: r.id, allow: bitsOf(o.allow), deny: bitsOf(o.deny) }] : [];
     });
   const chans: { name: string; before: Ow[] | null; after: Ow[] }[] = [];
+  for (const ch of plan.topChannels ?? []) {
+    const cur = m.channels.get(ch.key);
+    chans.push({
+      name: ch.name,
+      before: cur ? cur.overwrites.filter((o) => o.type === "role").map((o) => ({ id: o.id, allow: BigInt(o.allow), deny: BigInt(o.deny) })) : null,
+      after: resolveOw(ch.overwrites ?? []),
+    });
+  }
   for (const c of plan.categories) {
     const catOw = resolveOw(c.overwrites);
     for (const ch of c.channels) {
@@ -1024,6 +1060,7 @@ export function renderDiffMarkdown(diff: Diff, plan: Plan, snap: Snapshot, fp: s
   const m = matchPlan(plan, snap);
   const roleByKey = new Map(plan.roles.map((r) => [r.key, r]));
   const chanName = new Map<string, string>();
+  for (const ch of plan.topChannels ?? []) chanName.set(ch.key, ch.name);
   for (const c of plan.categories) {
     chanName.set(c.key, c.name);
     for (const ch of c.channels) chanName.set(ch.key, ch.name);

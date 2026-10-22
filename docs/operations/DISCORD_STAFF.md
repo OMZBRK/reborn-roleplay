@@ -369,6 +369,9 @@ travail restent dans `🧱・build` et `🗺️・map`.
 
 ### 5.2 Discord JOUEURS
 
+> **Remplacé le 19/10** par la proposition v3 « façon Ketto » : [`DISCORD_JOUEURS.md`](./DISCORD_JOUEURS.md). Le tableau ci-dessous
+> reste comme première ébauche (14/10).
+
 | Catégorie | Salons |
 |---|---|
 | **· Accueil** | `📜·règlement` (règles du serveur, écran d'adhésion Discord), `👋·bienvenue` (arrivées, bot), `💎·booster` |

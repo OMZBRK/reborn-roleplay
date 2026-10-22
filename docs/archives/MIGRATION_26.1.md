@@ -32,7 +32,7 @@
   purpur-api `26.1.2.build.2592-stable`, Java 25. Fixes : attributs `GENERIC_*`→sans préfixe,
   `Material.CHAIN`→`IRON_CHAIN`, `Sound.ENTITY_LEASH_KNOT_PLACE`→`ITEM_LEAD_TIED`,
   shade `3.6.2` + ASM `9.9.1` (bytecode Java 25 = class major 69).
-- Serveur DEV = `91.197.6.60:25606` (maj récente ; avant `.51:26547`). Purpur 26.1.2.
+- Serveur DEV = `<IP_DEV>:25606` (maj récente ; avant `.51:26547`). Purpur 26.1.2.
 
 **✅ Launcher (Tauri) — PUBLIÉ v0.3.24** (prod, isCurrent windows-x86_64/stable)
 - `runtime.rs` JRE `java-runtime-epsilon` (Java 25), `game.rs` MC défaut `26.1.2`.
@@ -40,7 +40,7 @@
   du manifest, rien d'autre (retire les vieux mods 1.21.1). + `mods.rs::constraint_accepts`
   gère le saut 1.21→26.1 (contraintes composées `>=1.21 <1.21.2` en AND).
 - **Retry updater** (`use-updater.ts`) débloqué après coupure réseau.
-- Env `_BUILD` bakées depuis `.env` (serveur prod `91.197.6.152:27106`, dev `91.197.6.60:25606`).
+- Env `_BUILD` bakées depuis `.env` (serveur prod `<IP_PROD>:27106`, dev `<IP_DEV>:25606`).
 - Publish = `scripts/publish-launcher.ps1` (build NSIS + sign `secrets/tauri-updater.key` +
   release GitHub `v0.3.24` + POST `/v1/admin/releases`). Détails/pièges : voir mémoire
   `modpack-26.1-publish-state`.

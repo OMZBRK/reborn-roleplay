@@ -386,6 +386,13 @@ async function runLot(guild: Guild, snap: Snapshot, lot: Lot, ops: Op[]): Promis
         const s = await freshSnap(guild);
         const m = matchPlan(plan, s);
         const positions: { channel: string; position: number }[] = [];
+        // Salons hors catégorie (en tête) : Discord les range au-dessus des catégories, seul leur ordre compte.
+        (plan.topChannels ?? []).forEach((x, j) => {
+          const ch = m.channels.get(x.key);
+          if (!ch) throw new Refus(`Salon « ${x.name} » introuvable : appliquer d'abord le lot « salons ».`);
+          if (ch.parentId) throw new Refus(`« ${ch.name} » est encore dans une catégorie : appliquer d'abord le lot « salons ».`);
+          positions.push({ channel: ch.id, position: j });
+        });
         plan.categories.forEach((c, i) => {
           const cat = m.channels.get(c.key);
           if (!cat) throw new Refus(`Catégorie « ${c.name} » introuvable : appliquer d'abord le lot « salons ».`);
