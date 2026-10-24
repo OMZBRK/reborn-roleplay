@@ -91,6 +91,7 @@ public final class CharacterDisplay {
         if (subject == null) return Component.empty();
         if (viewer == null) return styledName(subject);
         if (subject.id().equals(viewer.id())) return styledName(subject);
+        if (Masques.porte(subject.ownerId())) return unknown();   // masque porté : inconnu pour tous (§14)
 
         ShinobiCharacter.KnownName known = viewer.knownNameOf(subject.id());
         if (known == null) return unknown();

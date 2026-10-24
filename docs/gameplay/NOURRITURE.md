@@ -51,8 +51,28 @@ reste (commander, le prix, l'ardoise, le repas offert, la conversation au compto
 - **Régénération** : satiété ≥ 90 %, aucun dégât depuis 30 s, ni KO ni douleur ; **0,25 % des PV/s**, jusqu'à 100 %
   hors ATA, **30 % pendant l'ATA** (le KO garde son médic ou son repos). Pause après un coup : icône grise et
   minuteur ; vie qui remonte : lueur douce sur la barre rouge.
-- Sous 20 % : **affamé** (icône ambre) ; **0 % : FAIM** — plus de sprint ni de course ninja, récupération
-  d'endurance −50 %, pas de régénération, **jamais de dégâts**.
+- Sous ~~20 %~~ **15 %** (19/10) : **affamé** (icône ambre, alerte discrète) ; **0 % : FAIM** — ni sprint, ni course
+  ninja, **ni dash** (19/10), récupération d'endurance −50 %, pas de régénération, caméra qui tangue (19/10), **jamais
+  de dégâts**. Détail au §3 bis.
+
+## 3 bis. Faim punitive (GAMEPLAN §4, décision du 19/10)
+
+On garde la satiété RP (§3) **et** on ajoute le punitif de RedLine, **sans aucun malus de dégâts** (ni dégâts infligés
+réduits, ni dégâts subis, ni perte de vie liée à la faim — correction de l'utilisateur le 19/10).
+
+| Palier | Seuil (`config.yml`) | Effet | Où |
+|---|---|---|---|
+| Affamé | sous `nourriture.faim.affame-seuil` = **15 %** (remplace `satiete.affame` = 20, ignorée) | alerte discrète « Affamé — va manger » en bas à droite au passage du seuil + icône ambre dans la zone d'effets ; **rien d'autre** | `SatieteService.palier` = 1, modificateur dérivé `affame` de `reborn:etat` |
+| FAIM | **0 %** | **ni sprint ni dash** (ligne `mod.faim` d'`etats.yml` : `SPRINTER`, `MOBILITE` refusés, « Tu as trop faim. ») ; course ninja refusée (contributeur) ; récupération d'endurance ×`faim.endurance-recuperation` = **0,5** ; pas de régénération ; **caméra qui tangue** (≈ 0,9° de lacet, 0,55° de tangage, 5 à 7 s, entrée et sortie en 2 s) ; alerte « Faim — ni sprint ni dash » + icône vermillon | `SatieteService.palier` = 2, dérivé `faim`, mod `FaimCamera` + `CameraFaimMixin` |
+
+- **La satiété baisse bien avec le temps** (vérifié le 19/10) : `SatieteService.tick` chaque seconde, 0,0125 %/s ×
+  activité (§3), figée en KO, porté, AFK 5 min, mode staff, créatif — de 80 % (départ) à 15 % ≈ 1 h 25 de marche, à
+  0 % ≈ 20 min de plus. `display.auto-saturation` ne touche que la faim **vanilla** (gardée pleine), pas la satiété RP.
+- Le **dash** est refusé par le serveur (ShinobiCombat lit `MOBILITE`) et bloqué en avance par le mod (`CombatInput.dash`
+  lit `mob` de `reborn:etat` : ni recharge fantôme ni traînée) ; le sprint par l'allure (`SPRINTER`) et le mod (`spr`).
+- La caméra qui tangue suit le réglage d'accessibilité vanilla **« Effets de distorsion »** (0 = coupée, proportionnel
+  sinon), comme le ressenti du KO ; rien sous un voile imposé (KO, mort).
+- Captures et MP4 : `Maquettes/gameplan/04_hud/` (`hud4_06` à `hud4_08`, `hud4_faim_0_camera.mp4`).
 
 ## 4. Le cuisinier
 
@@ -143,7 +163,8 @@ reste (commander, le prix, l'ardoise, le repas offert, la conversation au compto
 | Durée d'un repas | 30 s à 1 min (÷2 assis) | 3 s |
 | Plat chaud (si A) | 10 min, puis effets ÷2 | — |
 | Effets au KO | bonus perdus, malus gardés | tous perdus |
-| FAIM (0 %) | plus de sprint, endurance −50 %, pas de dégâts | plus de sprint, endurance −50 % |
+| Affamé | sous 15 % (19/10, avant 20 %) : alerte + icône, aucun malus | 15 % : malus de dégâts (non repris) |
+| FAIM (0 %) | ni sprint ni dash, endurance −50 %, caméra qui tangue, pas de dégâts | plus de sprint ni de dash, caméra qui tangue |
 | Pilule du soldat | 1 s, une toutes les 10 min, contrecoup | — |
 
 ## 12. Questions — tranchées le 14/10

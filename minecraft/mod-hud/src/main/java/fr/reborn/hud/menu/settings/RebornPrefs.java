@@ -103,6 +103,10 @@ public final class RebornPrefs {
     /** Raccourci « couper le micro » de Plasmo Voice (M, conflit avec la carte) déjà migré. */
     public boolean touchesPv = false;
 
+    // ────────────────── Images par seconde ──────
+    /** Réglages d'images par seconde déjà migrés ({@code runtime/FpsDefauts.VERSION}) : 0 = jamais. */
+    public int fpsVersion = 0;
+
     private boolean loaded = false;
 
     private RebornPrefs() {}
@@ -191,5 +195,6 @@ public final class RebornPrefs {
         this.radioToutEscouade = other.radioToutEscouade;
         this.touchesVersion = other.touchesVersion;
         this.touchesPv = other.touchesPv;
+        this.fpsVersion = other.fpsVersion;
     }
 }

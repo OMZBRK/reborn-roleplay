@@ -743,6 +743,9 @@ lore:
 # back to the last voluntary disconnect. Set to 0 to disable.
 character:
   auto-save-seconds: 60
+  # GAMEPLAN §14 (24/10) : un masque porté (emplacement Masque de la sacoche) cache l'identité ; les autres voient
+  # « Inconnu » (plaque, liste des joueurs, tchat, /me), même ceux qui connaissent le personnage.
+  masque-cache-nom: true
 
 # ------------------------------------------------------------
 # Tab list
@@ -999,14 +1002,14 @@ nourriture:
     vitesse-sprint: 5.8           # blocs/s au-delà desquels on compte un sprint
     combat-secondes: 10           # « en combat » après un coup donné ou reçu
     afk-secondes: 300             # satiété figée au-delà (regard immobile)
-    affame: 20                    # sous ce seuil : « Affamé » (icône ambre)
   regeneration:
     seuil: 90
     pv-pourcent-par-seconde: 0.25
     pause-apres-coup-secondes: 30
     plafond-ata: 30
-  faim:
-    endurance-recuperation: 0.5   # à 0 % : récupération d'endurance ×0,5, plus de sprint, jamais de dégâts
+  faim:                           # faim punitive (GAMEPLAN §4, 19/10) — aucun malus de dégâts
+    affame-seuil: 15              # % : sous ce seuil, « Affamé » (alerte discrète + icône ambre), rien d'autre
+    endurance-recuperation: 0.5   # à 0 % : récupération d'endurance ×0,5 ; ni sprint ni dash (ligne mod.faim d'etats.yml)
   cuisine:
     preparation-secondes: 15
     plats-par-panier: 2

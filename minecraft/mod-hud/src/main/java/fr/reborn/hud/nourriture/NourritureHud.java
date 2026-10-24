@@ -57,7 +57,7 @@ public final class NourritureHud {
         float yFilet = barre - 12;
         if (act != null) action(g, f, act, sw / 2f, yFilet, now);
         float bas = act != null ? yFilet - 16 : barre - 8;
-        if (offre && !DuelClient.hasInvite()) offre(g, f, NourritureClient.offre, sw / 2f, bas, now);
+        if (offre && !DuelClient.hasInvite() && fr.reborn.hud.ko.CorpsClient.demande() == null) offre(g, f, NourritureClient.offre, sw / 2f, bas, now);
         else if (att != null) DaKit.inter7o(g, f, DaKit.inter("Tu tends " + att.quoi() + " à " + att.a() + " — "
             + (int) Math.ceil(att.reste(now)) + " s"), sw / 2f, bas - 6, DaKit.alpha(GRIS, 0.9f), 1);
         DaKit.finUnites(g);

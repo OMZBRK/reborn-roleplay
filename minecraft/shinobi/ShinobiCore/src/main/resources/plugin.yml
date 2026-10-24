@@ -61,8 +61,8 @@ commands:
     permission: shinobicore.staff
     usage: "/<command> [voir|donner|retirer|niveau] …"
   corps:
-    description: "Actions sur un corps à terre ou une personne en douleur (menu d'interaction du mod)."
-    usage: "/<command> porter|gorge|fouiller|rpk|achever|executer <joueur> [exécution] · annuler · quitter"
+    description: "Actions sur un corps à terre ou une personne en douleur, demandes d'accord (menu d'interaction du mod)."
+    usage: "/<command> porter|gorge|fouiller|rpk|achever|executer <joueur> [exécution] · demander porter|fouiller <joueur> · accepter · refuser · annuler · quitter"
   execution:
     description: "Exécutions possédées (staff : donner, retirer, liste, recharger, forcer, douleur, annuler)."
     usage: "/<command> [donner|retirer <joueur> <id>|liste [joueur]|recharger|forcer|douleur|annuler <joueur>]"

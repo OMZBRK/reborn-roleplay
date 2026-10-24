@@ -514,6 +514,11 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
      * L'arme à l'étui y figure comme emplacement {@code ARME} (portée à la ceinture).
      */
     public void broadcastCosmetics(Player p) {
+        // Masque porté = identité cachée (GAMEPLAN §14) : tenu à jour ici, à chaque changement de cosmétique.
+        RpBag mb = bagFor(p);
+        ItemStack masque = mb == null ? null : mb.equipped().get(CosmeticSlot.MASQUE);
+        com.reborn.shinobicore.character.Masques.definir(p.getUniqueId(), masque != null && !masque.getType().isAir()
+                && plugin.getConfig().getBoolean("character.masque-cache-nom", true));
         if (!Bukkit.getMessenger().isOutgoingChannelRegistered(plugin, COSMETICS_CHANNEL)) return;
         byte[] mine = cosmeticsPayload(p);
         for (Player other : Bukkit.getOnlinePlayers()) {
@@ -525,6 +530,7 @@ public class InventoryManager implements Listener, PluginMessageListener, Comman
 
     /** Diffuse un « clear » des cosmétiques de {@code id} à tous les autres (déconnexion). */
     public void broadcastCosmeticsClear(UUID id) {
+        com.reborn.shinobicore.character.Masques.definir(id, false);
         if (!Bukkit.getMessenger().isOutgoingChannelRegistered(plugin, COSMETICS_CHANNEL)) return;
         byte[] clear = (id + "\n").getBytes(StandardCharsets.UTF_8);
         for (Player other : Bukkit.getOnlinePlayers()) {

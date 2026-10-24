@@ -197,7 +197,7 @@ public class InventoryScreen extends Screen {
         SlotItem arme = snap.equipped().get(CosmeticSlot.ARME);
         this.nomArme = arme != null && arme.name != null ? DaKit.arcade(DaKit.ellipse(fo, arme.name, 110))
             : snap.armeDegainee() ? DEGAINEE : DaKit.arcade("-");
-        String l = verrou();
+        String l = fouille != null && fouille.lecture() ? "fouille consentie" : verrou();
         this.lecture = l == null ? null : DaKit.inter("Lecture seule — " + switch (l) {
             case "mort" -> "scène de mort";
             default -> l;
@@ -614,11 +614,13 @@ public class InventoryScreen extends Screen {
         // crête). On l'agrandit de la même marge en haut et en bas (et sur les côtés) : le personnage ne bouge pas.
         int my = modelSize * 3 / 4, mxg = modelSize / 2;   // ¾ de bloc au-dessus de la tête : coiffures 3D comprises
         net.minecraft.world.entity.LivingEntity qui = mc.player;
-        if (fouille != null && mc.level != null) {
+        if (fouille != null) {   // en fouille : la personne fouillée (ou son corps), jamais soi-même
+            qui = null;
             try {
-                var e = mc.level.getEntity(java.util.UUID.fromString(fouille.uuid()));
+                var e = mc.level == null ? null : mc.level.getEntity(java.util.UUID.fromString(fouille.uuid()));
                 if (e instanceof net.minecraft.world.entity.LivingEntity le) qui = le;
             } catch (RuntimeException ignored) { }
+            if (qui == null) return;
         }
         net.minecraft.client.gui.screens.inventory.InventoryScreen.extractEntityInInventoryFollowsMouse(ctx,
             modelX1 - mxg, modelY1 - my, modelX2 + mxg, modelY2 + my, modelSize, 0f, mouseX, (modelY1 + modelY2) / 2f,
@@ -782,6 +784,7 @@ public class InventoryScreen extends Screen {
             DaKit.etiq(ctx, f, etiqBourse != null ? etiqBourse : (etiqBourse = DaKit.etiq(f, "Bourse")), trayX + 14, ym, DaKit.OR_ETIQ);
             String v = fr.reborn.hud.monnaie.BourseClient.fmt(fouille.bourse()) + " ryo" + (fouille.plafond()
                 ? " · " + fr.reborn.hud.monnaie.BourseClient.fmt(fouille.reste()) + " à prendre au plus" : " · mort RP : sans plafond");
+            if (fouille.lecture()) v = fr.reborn.hud.monnaie.BourseClient.fmt(fouille.bourse()) + " ryo";
             DaKit.inter8(ctx, f, DaKit.inter(v), trayX + TRAY_W - 14, ym, fr.reborn.hud.monnaie.BourseClient.OR, 2);
             return;
         }
@@ -841,7 +844,7 @@ public class InventoryScreen extends Screen {
     private void surToi(GuiGraphicsExtractor ctx, Font f) {
         float xd = obiX + 270, ym = obiY + 34 + 13;
         if (fouille != null) {
-            DaKit.inter7o(ctx, f, DaKit.inter("Tu prends, tu ne poses rien · touche "
+            DaKit.inter7o(ctx, f, DaKit.inter(fouille.lecture() ? "Tu regardes, tu ne prends rien" : "Tu prends, tu ne poses rien · touche "
                 + fr.reborn.hud.keybind.HudKeybinds.nom(Minecraft.getInstance().options.keyDrop, "Q") + " bloquée"), xd, ym, DaKit.argb(0xE8DCC0, 0.62f), 2);
             return;
         }
@@ -894,7 +897,8 @@ public class InventoryScreen extends Screen {
     }
 
     private void drawHint(GuiGraphicsExtractor ctx, Font f) {
-        String[][] items = fouille != null ? new String[][] {{"Clic", "prendre"}, {"Echap", "fermer"}}
+        String[][] items = fouille != null && !fouille.lecture() ? new String[][] {{"Clic", "prendre"}, {"Echap", "fermer"}}
+            : fouille != null ? new String[][] {{"Lecture seule", null}, {"Echap", "fermer"}}
             : lectureSeule()
             ? new String[][] {{"Lecture seule", null}, {"Echap", "fermer"}}
             : carriedStack != null
@@ -1110,7 +1114,7 @@ public class InventoryScreen extends Screen {
                 if (t >= 0) { filter = t; return true; }
             }
             String ref = slotAt(mx, my);
-            if (ref != null) return clicFouille(ref);
+            if (ref != null && !fouille.lecture()) return clicFouille(ref);
             return true;
         }
         // Lecture seule (KO, porté, étourdi, scène de mort) : on regarde, on ferme ; rien ne bouge.

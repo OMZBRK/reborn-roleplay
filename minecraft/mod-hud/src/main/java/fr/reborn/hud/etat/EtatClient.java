@@ -51,6 +51,17 @@ public final class EtatClient {
 
     private static volatile Etat etat;
 
+    /**
+     * Un modificateur d'état reçu dans {@code mods} (dérivés : ata, faim, affame, prison, en_combat, surcharge… et les
+     * états du registre montrés au joueur : menottes). {@code finA} : époque locale de fin, 0 = sans fin connue.
+     */
+    public record Mod(String id, double n, long finA) {
+        /** Secondes restantes (décomptées localement), -1 sans fin connue. */
+        public int resteS() { return finA <= 0 ? -1 : (int) Math.max(0, (finA - System.currentTimeMillis() + 999) / 1000); }
+    }
+
+    private static volatile java.util.List<Mod> mods = java.util.List.of();
+
     private EtatClient() {}
 
     public static void init() {
@@ -60,7 +71,7 @@ public final class EtatClient {
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clear());
     }
 
-    public static void clear() { etat = null; }
+    public static void clear() { etat = null; mods = java.util.List.of(); }
 
     /** Point d'entrée commun (réseau et bancs d'essai). */
     public static void recevoir(String json) {
@@ -85,6 +96,18 @@ public final class EtatClient {
         if (o.has("raison") && o.get("raison").isJsonObject()) {
             for (var e : o.getAsJsonObject("raison").entrySet()) raisons.put(e.getKey(), e.getValue().getAsString());
         }
+        java.util.List<Mod> ms = new java.util.ArrayList<>();
+        if (o.has("mods") && o.get("mods").isJsonArray()) {
+            long now = System.currentTimeMillis();
+            for (var el : o.getAsJsonArray("mods")) {
+                try {
+                    JsonObject m = el.getAsJsonObject();
+                    long fin = m.has("fin") ? m.get("fin").getAsLong() : 0;
+                    ms.add(new Mod(m.get("id").getAsString(), m.has("n") ? m.get("n").getAsDouble() : 1, fin > 0 ? now + fin : 0));
+                } catch (Exception ignored) { }
+            }
+        }
+        mods = java.util.List.copyOf(ms);
         JsonObject c = o.has("c") && o.get("c").isJsonObject() ? o.getAsJsonObject("c") : new JsonObject();
         etat = new Etat(str(o, "p", "LIBRE"), str(c, "vital", "VALIDE"), str(c, "ctrl", "LIBRE"), str(c, "cadre", "MONDE"),
                 Map.copyOf(cap), sac, dbl(o, "vit", 1), dbl(o, "saut", 1), Map.copyOf(raisons), seq);
@@ -94,6 +117,15 @@ public final class EtatClient {
     public static boolean actif() { return etat != null; }
 
     public static Etat etat() { return etat; }
+
+    /** Modificateurs d'état reçus (vide tant qu'aucun paquet). */
+    public static java.util.List<Mod> mods() { return mods; }
+
+    /** Le modificateur d'état {@code id}, ou null. */
+    public static Mod mod(String id) {
+        for (Mod m : mods) if (m.id().equals(id)) return m;
+        return null;
+    }
 
     /** Niveau d'une capacité (2 si inconnue ou pas d'état reçu). */
     public static int niveau(String code) {

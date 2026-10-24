@@ -47,6 +47,12 @@ public record HudElementBounds(int x, int y, int width, int height) {
             // défaut validé le 14/10 ; il est vide en silence, donc ne gêne pas les recharges quand personne ne parle).
             case ESCOUADE -> new HudElementBounds(11, 68, fr.reborn.hud.radio.RadioHud.LARGEUR,
                 fr.reborn.hud.radio.RadioHud.HAUTEUR);
+            // Zone d'effets (GAMEPLAN §4, 19/10) : là où les vitals la posaient (sous les barres, x +56, y +57 à ×0,80).
+            case EFFETS -> new HudElementBounds(68, 67, fr.reborn.hud.nourriture.EffetsHud.LARGEUR,
+                fr.reborn.hud.nourriture.EffetsHud.HAUTEUR);
+            // Boussole horizontale, centrée en haut (facultative).
+            case BOUSSOLE -> new HudElementBounds(screenWidth / 2 - fr.reborn.hud.boussole.BoussoleHud.LARGEUR / 2, 3,
+                fr.reborn.hud.boussole.BoussoleHud.LARGEUR, fr.reborn.hud.boussole.BoussoleHud.HAUTEUR);
         };
     }
 

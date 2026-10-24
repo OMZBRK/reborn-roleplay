@@ -69,6 +69,8 @@ public final class PorterManager implements Listener {
     private final Map<UUID, Double> struggle = new HashMap<>();
     private final Map<UUID, Long> lastStruggle = new HashMap<>();
     private final Map<UUID, Boolean> jumpHeld = new HashMap<>();
+    /** Portés <b>de plein gré</b> (demande acceptée, GAMEPLAN §14, 24/10) : Espace les fait descendre. */
+    private final java.util.Set<UUID> consentis = new java.util.HashSet<>();
     /** dégagé → instant jusqu'auquel on ne peut pas le reprendre. */
     private final Map<UUID, Long> noCarryUntil = new HashMap<>();
     private final Map<UUID, Long> lastWarn = new HashMap<>();
@@ -146,6 +148,35 @@ public final class PorterManager implements Listener {
         return true;
     }
 
+    /**
+     * Porter une personne <b>consciente qui a accepté</b> ({@link DemandeService}) : blessé qui ne peut plus marcher,
+     * scène RP. Mêmes garde-fous que {@link #carry} ; elle descend quand elle veut (Espace).
+     */
+    public boolean carryConsenti(Player carrier, Player target) {
+        if (carrier == null || target == null || carrier.getUniqueId().equals(target.getUniqueId())) return false;
+        if (byCarrier.containsKey(carrier.getUniqueId()) || byCarried.containsKey(target.getUniqueId())) return false;
+        if (target.getVehicle() != null || carrier.getVehicle() != null) return false;
+        if (plugin.ko().isKo(carrier.getUniqueId()) || isPain(carrier.getUniqueId())) return false;
+        if (plugin.ko().isKo(target.getUniqueId())
+                || (plugin.deathScene() != null && plugin.deathScene().isDead(target.getUniqueId()))) return false;
+        if (refuse(carrier, target)) return false;
+        carrier.addPassenger(target);
+        if (!com.reborn.shinobicore.etat.Applicateur.actif()) com.reborn.shinobicore.util.Effets.lenteur(carrier, LENTEUR_PORTEUR, 2);
+        else com.reborn.shinobicore.etat.Applicateur.reappliquer(plugin, carrier);
+        byCarrier.put(carrier.getUniqueId(), target.getUniqueId());
+        byCarried.put(target.getUniqueId(), carrier.getUniqueId());
+        consentis.add(target.getUniqueId());
+        carrier.sendActionBar(Component.text("Tu la portes. Accroupis-toi pour la déposer.", NamedTextColor.GRAY));
+        if (plugin.koHud() == null || !plugin.koHud().modded(target)) {
+            target.sendMessage(Component.text("On te porte. Espace pour descendre.", NamedTextColor.GRAY));
+        }
+        KoJournal.log(plugin, carrier, "Porte", KoJournal.who(plugin, target) + " (avec son accord)");
+        return true;
+    }
+
+    /** Porté de plein gré (demande acceptée) ? */
+    public boolean consenti(UUID bodyId) { return bodyId != null && consentis.contains(bodyId); }
+
     private boolean isPain(UUID id) {
         return plugin.douleur() != null && plugin.douleur().isInPain(id);
     }
@@ -187,6 +218,7 @@ public final class PorterManager implements Listener {
         if (bodyId == null) return;
         byCarried.remove(bodyId);
         struggle.remove(bodyId);
+        consentis.remove(bodyId);
 
         Player carrier = Bukkit.getPlayer(carrierId);
         Player body    = Bukkit.getPlayer(bodyId);
@@ -326,6 +358,13 @@ public final class PorterManager implements Listener {
         boolean was = Boolean.TRUE.equals(jumpHeld.put(id, jump));
         if (!jump || was) return;
         UUID carrierId = byCarried.get(id);
+        if (carrierId != null && consentis.contains(id) && !plugin.ko().isKo(id)) {   // porté de plein gré : il descend
+            release(carrierId);
+            Player c = Bukkit.getPlayer(carrierId);
+            if (c != null) c.sendActionBar(Component.text("Il descend.", NamedTextColor.GRAY));
+            KoJournal.log(plugin, body, "Descend", "porté avec son accord");
+            return;
+        }
         if (carrierId == null || !struggle.containsKey(id) || !isPain(id)) return;
         long now = System.currentTimeMillis();
         double v = decayed(id, now) + 1.0 / presses();
@@ -408,6 +447,7 @@ public final class PorterManager implements Listener {
                 continue;
             }
             boolean dead = plugin.deathScene() != null && plugin.deathScene().isDead(bodyId);
+            if (consentis.contains(bodyId)) continue;   // porté de plein gré : rien à vérifier de plus
             if (!dead && !isPain(bodyId)) {
                 // il a repris des forces (soin) : on ne porte pas un conscient sans son accord
                 release(carrierId);

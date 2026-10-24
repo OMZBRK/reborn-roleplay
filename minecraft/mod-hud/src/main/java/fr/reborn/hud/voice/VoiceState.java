@@ -68,6 +68,34 @@ public final class VoiceState {
         } catch (Throwable t) { return false; }
     }
 
+    // ── Volume d'un joueur (menu R, GAMEPLAN §14, 24/10) ───────────
+    /** Volume de la voix d'un joueur chez moi seulement : 1 = normal ; on baisse, on ne coupe jamais. */
+    public static double playerVolume(UUID id) {
+        Double d = DEBUG_VOLUMES.get(id);
+        if (d != null) return d;
+        PlasmoVoiceClient c = client();
+        try {
+            if (c == null) return 1.0;
+            Object v = c.getConfig().getVoice().getVolumes().getPlayerVolume(id).value();
+            return v instanceof Number n ? n.doubleValue() : 1.0;
+        } catch (Throwable t) { return 1.0; }
+    }
+
+    /** Règle le volume (borné à 25 %… 100 %, jamais 0) et enregistre la config de Plasmo Voice. */
+    public static void setPlayerVolume(UUID id, double volume) {
+        double v = Math.max(0.25, Math.min(1.0, volume));
+        PlasmoVoiceClient c = client();
+        try {
+            if (c == null) return;
+            c.getConfig().getVoice().getVolumes().setPlayerVolume(id, v);
+            Object cfg = c.getConfig();
+            cfg.getClass().getMethod("save", boolean.class).invoke(cfg, true);   // hors API, comme RadioVoix
+        } catch (Throwable ignored) { }
+    }
+
+    /** Banc d'essai : volumes imposés (aucune écriture dans la config de Plasmo Voice). */
+    public static final java.util.Map<UUID, Double> DEBUG_VOLUMES = new java.util.concurrent.ConcurrentHashMap<>();
+
     // ── Qui parle autour (bulle de parole) ─────────────────────────
     /**
      * Entity ids des joueurs/entités dont une source audio est active (= parlent).

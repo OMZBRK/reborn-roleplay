@@ -91,9 +91,10 @@ public final class RebornHudClient implements ClientModInitializer {
                 float sc = st.scale();
                 fr.reborn.hud.notif.SurchargeHud.render(ctx, b.x() + 56 * sc, b.y() + (fr.reborn.hud.runtime.VitalsHud.HEIGHT + 1) * sc,
                     fr.reborn.hud.runtime.VitalsHud.WIDTH - 59, sc);
-                // Effets (modificateurs) et état de la satiété : petites icônes + minuteur, sous les vitals (nourriture).
-                fr.reborn.hud.nourriture.EffetsHud.render(ctx, b.x() + 56 * sc, b.y() + (fr.reborn.hud.runtime.VitalsHud.HEIGHT + 1) * sc, sc);
             });
+        // Zone d'effets et boussole (GAMEPLAN §4, 19/10) : éléments EFFETS et BOUSSOLE de l'éditeur de HUD.
+        fr.reborn.hud.nourriture.EffetsHud.init();
+        fr.reborn.hud.boussole.BoussoleHud.init();
 
         // Overlay tablist en mode Hold (maintenir la touche liste-joueurs).
         // Rendu HUD fiable — même en solo où Minecraft ne rend PAS le
@@ -684,6 +685,7 @@ public final class RebornHudClient implements ClientModInitializer {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("reborn-hud", "nourriture"),
             (ctx, tickCounter) -> fr.reborn.hud.nourriture.NourritureHud.render(ctx));
         fr.reborn.hud.nourriture.NourritureDebug.init();
+        fr.reborn.hud.boussole.HudQuatreDebug.init();
         // Monnaie et banque (15/10) : canaux reborn:monnaie (bourse, « Combien ? », fouille d'un corps) et reborn:banque
         // (guichet) ; montant de la bourse en or sur la case (mixin ItemCountBourseMixin) ; filet « Fouille de… ».
         fr.reborn.hud.monnaie.MonnaieClient.init();
@@ -744,6 +746,9 @@ public final class RebornHudClient implements ClientModInitializer {
         // Test local (dev uniquement, variable d'environnement REBORN_BYAKUGAN_DEBUG=1) : active le Byakugan
         // dans un monde solo, fait apparaître des cibles et prend des captures dans run/screenshots/.
         fr.reborn.hud.byakugan.ByakuganDebug.init();
+        fr.reborn.hud.interaction.InteractionDebug.init();   // banc du menu R (REBORN_INTERACTION_DEBUG, dev)
+        fr.reborn.hud.audit.FpsDebug.init();   // banc de FPS (REBORN_FPS_DEBUG, dev)
+        fr.reborn.hud.runtime.FpsDefauts.init();   // 120 i/s + VSync + 30 i/s « AFK » levés une fois (24/10)
         // Trajet vers le serveur (15/10) : scène « nuit de pleine lune » (connexion, pack serveur, monde), fondu vers
         // le jeu, banc REBORN_CHARGEMENT_DEBUG.
         fr.reborn.hud.menu.connect.ChargementScene.init();

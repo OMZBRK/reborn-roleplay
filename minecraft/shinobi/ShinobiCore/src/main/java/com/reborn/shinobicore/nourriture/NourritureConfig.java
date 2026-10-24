@@ -63,7 +63,8 @@ public final class NourritureConfig {
         n.pertePs = c.getDouble(r + "satiete.perte-par-seconde", 0.0125);
         n.techniqueParDix = c.getDouble(r + "satiete.technique-par-10-chakra", 0.2);
         n.vitesseSprint = c.getDouble(r + "satiete.vitesse-sprint", 5.8);
-        n.affame = c.getDouble(r + "satiete.affame", 20);
+        // 19/10 (GAMEPLAN §4) : seuil « Affamé » à 15 % (RedLine), nouvelle clé : l'ancienne satiete.affame (20) est ignorée
+        n.affame = c.getDouble(r + "faim.affame-seuil", 15);
         n.fAssis = c.getDouble(r + "satiete.activite.assis", 0.5);
         n.fMarche = c.getDouble(r + "satiete.activite.marche", 1.0);
         n.fTrot = c.getDouble(r + "satiete.activite.trot", 1.5);

@@ -51,6 +51,8 @@ public final class KoHud {
             else if (s.ata() > 0) ata(ctx, font, s, w, h);
         }
         if (!ko && CorpsClient.porte() && CorpsClient.lutte() >= 0f) porte(ctx, font, w, h);
+        else if (!ko && CorpsClient.consenti())   // porté de plein gré (14 · 24/10) : une ligne, pas de jauge
+            DaKit.inter7o(ctx, font, DaKit.inter("Espace · descendre"), w / 2f, Math.round(h * 0.62f) + 8, GRIS, 1);
         CorpsClient.Exe x = CorpsClient.exe();
         if (x != null && x.role() == 1) victime(ctx, font, x, w, h);
         ExecuterClient.render(ctx, font, w, h);

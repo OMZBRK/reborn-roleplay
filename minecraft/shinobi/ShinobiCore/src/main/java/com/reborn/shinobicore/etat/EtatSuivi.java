@@ -46,6 +46,9 @@ public final class EtatSuivi implements Listener {
 
     public static final String CHANNEL = "reborn:etat";
 
+    /** Types du registre envoyés quand même dans {@code mods} (états vécus par le joueur, montrés dans la zone d'effets). */
+    static final Set<String> ETAT_ICONES = Set.of("menottes");
+
     private final ShinobiCore plugin;
     private final EtatServiceImpl service;
     private final Applicateur applicateur;
@@ -214,7 +217,9 @@ public final class EtatSuivi implements Listener {
         }
         JsonArray mods = new JsonArray();
         for (Modificateur m : e.modificateurs()) {
-            if (!m.derive()) continue;   // les modificateurs du registre ont leur canal (reborn:modifs, icônes)
+            // les modificateurs du registre ont leur canal (reborn:modifs, icônes) ; sauf les états du registre que le
+            // joueur doit voir bien qu'ils soient « visible: STAFF » (menottes : icône de la zone d'effets, 19/10)
+            if (!m.derive() && !ETAT_ICONES.contains(m.id())) continue;
             JsonObject j = new JsonObject();
             j.addProperty("id", m.id());
             j.addProperty("n", m.intensite());

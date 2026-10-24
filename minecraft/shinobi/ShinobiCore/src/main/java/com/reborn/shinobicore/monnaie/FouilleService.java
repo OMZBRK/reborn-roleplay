@@ -69,6 +69,8 @@ public final class FouilleService implements Listener {
         Location depart;
         long debut;
         boolean ouverte, mort;
+        /** Fouille <b>consentie</b> d'une personne consciente (GAMEPLAN §14, 24/10) : on regarde, on ne prend rien. */
+        boolean lecture;
         /** Action longue OCCUPE(fouille) du service des états (ETATS_JOUEUR étape 4), ou null. */
         com.reborn.shinobicore.api.EtatService.Occupation occ;
     }
@@ -106,6 +108,27 @@ public final class FouilleService implements Listener {
         if (!lancer(p, f)) return;
         Notifs.msg(t, "etat", null, "On te fouille", null);
         AutoMe.broadcast(plugin, p, "fouille les affaires de " + f.nom + ".");
+    }
+
+    /**
+     * Fouille <b>consentie</b> ({@link com.reborn.shinobicore.ko.action.DemandeService}) : la personne a accepté,
+     * elle reste debout ; la sacoche s'ouvre en lecture seule (contrôle, poste-frontière). Le pillage reste réservé aux
+     * corps à terre.
+     */
+    public void commencerConsentie(Player p, Player t) {
+        ShinobiCharacter c = plugin.characters().getActive(t.getUniqueId());
+        if (c == null) { p.sendActionBar(net.kyori.adventure.text.Component.text("Rien à fouiller.")); return; }
+        Fouille f = new Fouille();
+        f.looter = p.getUniqueId();
+        f.cibleJoueur = t.getUniqueId();
+        f.perso = c.id();
+        f.owner = t.getUniqueId();
+        f.nom = c.name();
+        f.etat = "avec son accord";
+        f.lecture = true;
+        if (!lancer(p, f)) return;
+        Notifs.msg(t, "etat", null, "On te fouille", "avec ton accord");
+        AutoMe.broadcast(plugin, p, "fouille les affaires de " + f.nom + ", avec son accord.");
     }
 
     /** {@code /corps fouiller corps:<uuid>} : corps laissé au sol (mannequin), joueur parti. */
@@ -195,7 +218,7 @@ public final class FouilleService implements Listener {
         } else {
             Player t = Bukkit.getPlayer(f.cibleJoueur);
             if (t == null) return "La cible est partie.";
-            boolean ok = plugin.ko().isKo(t.getUniqueId())
+            boolean ok = f.lecture || plugin.ko().isKo(t.getUniqueId())
                     || (plugin.deathScene() != null && plugin.deathScene().isDead(t.getUniqueId()));
             ShinobiCharacter c = plugin.characters().getActive(t.getUniqueId());
             if (!ok || c == null || !c.id().equals(f.perso)) return "La cible s'est relevée.";
@@ -317,7 +340,7 @@ public final class FouilleService implements Listener {
         module.canal().envoyer(p, new MonnaieCanal.J().s("t", "fouille").s("cible", f.nom).s("etat", f.etat)
                 .s("uuid", f.cibleJoueur != null ? f.cibleJoueur.toString() : f.mannequin.toString())
                 .n("bourse", bourse).n("reste", reste).b("plafond", plafond).n("pourcent", MonnaieConfig.get().volPourcent)
-                .n("extraSlots", bag.size()).a("hotbar", hot).a("bag", bag));
+                .n("extraSlots", bag.size()).b("lecture", f.lecture).a("hotbar", hot).a("bag", bag));
     }
 
     /* ================================================================ prendre */
@@ -325,7 +348,7 @@ public final class FouilleService implements Listener {
     /** Prendre l'objet d'une case du corps (pas la bourse : « Prendre combien ? »). */
     public void prendre(Player p, String ref) {
         Fouille f = fouilles.get(p.getUniqueId());
-        if (f == null || !f.ouverte || ref == null || ref.length() < 2) return;
+        if (f == null || !f.ouverte || f.lecture || ref == null || ref.length() < 2) return;
         BourseService.Emplacements e = source(f);
         ItemStack s = e.lire(ref);
         if (s == null || s.getType().isAir()) return;
@@ -357,7 +380,7 @@ public final class FouilleService implements Listener {
     /** « Prendre combien ? » dans la bourse du corps. */
     public void voler(Player p, long n) {
         Fouille f = fouilles.get(p.getUniqueId());
-        if (f == null || !f.ouverte || n <= 0) return;
+        if (f == null || !f.ouverte || f.lecture || n <= 0) return;
         BourseService.Emplacements e = source(f);
         long bourse = BourseService.total(e);
         long reste = reste(f, bourse);

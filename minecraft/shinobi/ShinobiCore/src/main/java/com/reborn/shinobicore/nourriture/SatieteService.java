@@ -42,7 +42,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *       AFK, mode staff, créatif / spectateur, et hors ligne ;</li>
  *   <li><b>régénération</b> dès 90 %, 30 s sans coup, ni KO, ni douleur, ni duel, hors terrain d'entraînement :
  *       {@code 0,25 %} des PV/s × modificateurs {@code regen}, jusqu'à 100 % (30 % pendant l'ATA) ;</li>
- *   <li><b>FAIM</b> à 0 % : plus de sprint ni de course ninja, récupération d'endurance −50 %, jamais de dégâts
+ *   <li><b>Affamé</b> sous {@code faim.affame-seuil} (15 %) : une alerte discrète et une icône, rien d'autre (décision
+ *       du 19/10 : aucun malus de dégâts) ;</li>
+ *   <li><b>FAIM</b> à 0 % : ni sprint, ni course ninja, ni dash (ligne {@code mod.faim} de la matrice des états, via
+ *       {@link #palier}), récupération d'endurance −50 %, caméra qui tangue côté client, jamais de dégâts
  *       (contributeur du registre des modificateurs).</li>
  * </ul>
  * Persistance : {@code plugins/ShinobiCore/satiete.yml} (par personnage).
@@ -113,6 +116,17 @@ public final class SatieteService implements Listener, ModificateurRegistry.Cont
     }
 
     public boolean faim(UUID compte) { return satiete(compte) <= 0.0001; }
+
+    /**
+     * Palier de faim du personnage actif, lu par la matrice des états (GAMEPLAN §4, 19/10) : {@code 0} normal,
+     * {@code 1} affamé (sous {@code faim.affame-seuil}), {@code 2} FAIM (0 %). Toujours 0 sans personnage ou module
+     * coupé.
+     */
+    public int palier(UUID compte) {
+        if (compte == null || !cfg().actif || plugin.characters().getActive(compte) == null) return 0;
+        double s = satiete(compte);
+        return s <= 0.0001 ? 2 : s < cfg().affame ? 1 : 0;
+    }
 
     /** Régénération figée par un coup récent (et le reste des conditions remplies) : secondes restantes, 0 sinon. */
     public int pauseRegen(UUID compte) {

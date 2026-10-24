@@ -307,6 +307,10 @@ lignes:
     raison: "Tu es chargé."
     refuse: [SPRINTER]
 
+  mod.faim:                      # satiété à 0 % (nourriture, GAMEPLAN §4 du 19/10) : ni sprint ni dash, aucun dégât
+    raison: "Tu as trop faim."
+    refuse: [SPRINTER, MOBILITE]
+
   mod.invisible:                 # vanish du staff (sans mode staff)
     raison: "Invisible."
     refuse: [CIBLABLE, VISIBLE, DUEL]

@@ -213,8 +213,10 @@ public class TabListManager implements Listener {
             boolean self  = other.getUniqueId().equals(viewerId);
             boolean staff = other.hasPermission("shinobicore.staff");
 
-            boolean isFriend = oc != null && friendIds.contains(oc.id());
-            boolean isKnown  = oc != null && viewerChar != null && viewerChar.knows(oc.id());
+            // Masque porté (GAMEPLAN §14, 24/10) : inconnu pour tous, amis compris, tant qu'il le garde.
+            boolean masque = !self && com.reborn.shinobicore.character.Masques.porte(other.getUniqueId());
+            boolean isFriend = !masque && oc != null && friendIds.contains(oc.id());
+            boolean isKnown  = !masque && oc != null && viewerChar != null && viewerChar.knows(oc.id());
             String relation = self ? "SOI" : isFriend ? "AMI" : isKnown ? "CONNAISSANCE" : "INCONNU";
 
             // On ne révèle l'identité RP (nom, grade, clan…) que si le viewer

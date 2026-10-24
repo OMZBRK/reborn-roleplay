@@ -111,7 +111,7 @@ public final class HudConfig {
         Map<String, HudElementState> p = getPresets().get(id);
         if (p == null) return;
         for (HudElement e : HudElement.values()) {
-            HudElementState s = p.getOrDefault(e.id(), HudElementState.DEFAULT);
+            HudElementState s = p.getOrDefault(e.id(), e.defaultState());   // élément récent : son défaut (boussole masquée)
             setState(e, s);
         }
         this.activePreset = id;

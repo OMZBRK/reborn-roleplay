@@ -67,7 +67,15 @@ public final class CorpsClient {
     private static final Map<UUID, Body> bodies = new HashMap<>();
     private static List<Exec> execs = List.of();
     /** Mon état : en douleur, porté, jauge de lutte (-1 = pas de lutte), exécution en cours. */
-    private static volatile boolean douleur, porte;
+    private static volatile boolean douleur, porte, consenti;
+    /** Demande reçue (porter / fouiller une personne consciente, GAMEPLAN §14, 24/10), ou null. */
+    private static volatile Demande demande;
+
+    /** « Kazuki veut te porter » : {@code quoi} = porter | fouiller ; {@code secs} = délai pour répondre. */
+    public record Demande(String de, String nom, String quoi, long at, int secs) {
+        public float left(long now) { return Math.max(0f, secs - (now - at) / 1000f); }
+        public String phrase() { return "fouiller".equals(quoi) ? " veut te fouiller" : " veut te porter"; }
+    }
     private static volatile float lutte = -1f;
     private static volatile Exe exe;
     /** mannequin (corps au sol) → skin Reborn composé. */
@@ -128,6 +136,9 @@ public final class CorpsClient {
                         o.has("min") ? o.get("min").getAsInt() : 60));
             }
             case "fin" -> endScene();
+            case "demande" -> demande = new Demande(o.get("de").getAsString(), o.get("nom").getAsString(),
+                    o.has("quoi") ? o.get("quoi").getAsString() : "porter", System.currentTimeMillis(), o.has("s") ? o.get("s").getAsInt() : 15);
+            case "demande_fin" -> demande = null;
             default -> { }
         }
     }
@@ -135,6 +146,7 @@ public final class CorpsClient {
     private static void readMe(JsonObject me) {
         douleur = me.has("d") && me.get("d").getAsInt() == 1;
         porte = me.has("c");
+        consenti = me.has("v");
         lutte = me.has("s") ? me.get("s").getAsFloat() : -1f;
         if (me.has("x")) {
             JsonObject x = me.getAsJsonObject("x");
@@ -150,6 +162,40 @@ public final class CorpsClient {
 
     /** Suis-je porté (sur les épaules de quelqu'un) ? */
     public static boolean porte() { return porte; }
+
+    /** Porté de plein gré (demande acceptée) : Espace me fait descendre. */
+    public static boolean consenti() { return porte && consenti; }
+
+    /** Demande en attente (non expirée), ou null. */
+    public static Demande demande() {
+        Demande d = demande;
+        if (d != null && d.left(System.currentTimeMillis()) <= 0) demande = d = null;
+        return d;
+    }
+
+    /** Entrée : accepte la demande. Faux s'il n'y en a pas. */
+    public static boolean accepterDemande() {
+        if (demande() == null) return false;
+        demande = null;
+        commande("corps accepter");
+        return true;
+    }
+
+    /** Retour : refuse la demande. Faux s'il n'y en a pas. */
+    public static boolean refuserDemande() {
+        if (demande() == null) return false;
+        demande = null;
+        commande("corps refuser");
+        return true;
+    }
+
+    /** Banc d'essai : retire la demande affichée. */
+    public static void debugEffacerDemande() { demande = null; }
+
+    private static void commande(String c) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() != null) mc.getConnection().sendCommand(c);
+    }
 
     /** Jauge de lutte quand je suis porté en douleur (0..1), -1 sinon. */
     public static float lutte() { return lutte; }

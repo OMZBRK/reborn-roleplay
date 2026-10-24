@@ -35,6 +35,8 @@ public final class DuelHud {
 
     /** Mots cliquables posés à l'image précédente (unités menu {x, y, w, h}), pour le clic en mode interaction. */
     private static int[] rAccept, rRefuse, rAbandon;
+    /** L'invitation affichée est une demande (porter / fouiller, {@link fr.reborn.hud.ko.CorpsClient}), pas un duel. */
+    private static boolean enDemande;
     /** Banc d'essai : survol forcé (0 accepter, 1 refuser, 2 abandon, -1 aucun). */
     public static int debugHover = -1;
 
@@ -44,7 +46,8 @@ public final class DuelHud {
         rAccept = rRefuse = rAbandon = null;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.gui.hud.isHidden()) return;
-        boolean any = DuelClient.hasInvite() || DuelClient.waiting != null || DuelClient.duel != null || DuelClient.end != null;
+        fr.reborn.hud.ko.CorpsClient.Demande dem = fr.reborn.hud.ko.CorpsClient.demande();
+        boolean any = DuelClient.hasInvite() || dem != null || DuelClient.waiting != null || DuelClient.duel != null || DuelClient.end != null;
         if (!any) return;
         long now = System.currentTimeMillis();
         var win = mc.getWindow();
@@ -61,8 +64,14 @@ public final class DuelHud {
         // bas de la zone libre au-dessus des cœurs / de la barre d'action
         int bas = (int) Math.floor((win.getGuiScaledHeight() - 39) * gs / (double) km) - 4;
         DaKit.unites(g, km);
-        if (DuelClient.hasInvite()) invitation(g, f, DuelClient.invite, sw / 2, bas, mx, my, souris, now);
-        else if (DuelClient.waiting != null && DuelClient.duel == null) {
+        enDemande = false;
+        if (DuelClient.hasInvite()) {
+            DuelClient.Invite inv = DuelClient.invite;
+            invitation(g, f, inv.fromName(), " te propose un duel", inv.at(), inv.secs(), inv.left(now), sw / 2, bas, mx, my, now);
+        } else if (dem != null) {   // même gabarit pour « Kazuki veut te porter / te fouiller » (GAMEPLAN §14, 24/10)
+            enDemande = true;
+            invitation(g, f, dem.nom(), dem.phrase(), dem.at(), dem.secs(), dem.left(now), sw / 2, bas, mx, my, now);
+        } else if (DuelClient.waiting != null && DuelClient.duel == null) {
             if (DuelClient.waiting.left(now) <= 0) DuelClient.waiting = null;
             else attente(g, f, DuelClient.waiting, sw / 2, bas, now);
         }
@@ -81,14 +90,13 @@ public final class DuelHud {
 
     /* ================================================================ invitation */
 
-    private static void invitation(GuiGraphicsExtractor g, Font f, DuelClient.Invite inv, int cx, int bas,
-                                   double mx, double my, boolean souris, long now) {
-        float a = Math.min(1f, (now - inv.at()) / 250f);
-        float left = inv.left(now);
+    private static void invitation(GuiGraphicsExtractor g, Font f, String de, String phrase, long at, int secs, float left,
+                                   int cx, int bas, double mx, double my, long now) {
+        float a = Math.min(1f, (now - at) / 250f);
 
-        // ligne 1 : « Nom te propose un duel »
-        Component nom = DaKit.interGras(DaKit.ellipse(f, inv.fromName(), 110));
-        Component suite = DaKit.inter(" te propose un duel");
+        // ligne 1 : « Nom te propose un duel » (ou « Nom veut te porter »)
+        Component nom = DaKit.interGras(DaKit.ellipse(f, de, 110));
+        Component suite = DaKit.inter(phrase);
         float w1 = DaKit.largeur8(f, nom) + DaKit.largeur8(f, suite);
         // ligne 2 : touches et mots (petit, gris)
         Component kA = DaKit.inter(touche(HudKeybinds.DUEL_ACCEPT, "Entrée")), mA = DaKit.inter(" accepter");
@@ -118,7 +126,7 @@ public final class DuelHud {
         DaKit.inter7(g, f, tps, x, y2, DaKit.alpha(left < 8 ? ROUGE_PALE : GRIS_DOUX, a), 0);
 
         // fil d'or d'1 px écran qui se vide vers le centre, losanges aux bouts
-        fil(g, x0, w, bas - 2, Math.min(1f, left / Math.max(1, inv.secs())), a);
+        fil(g, x0, w, bas - 2, Math.min(1f, left / Math.max(1, secs)), a);
     }
 
     /** Touche (or terne) + mot (gris ; crème souligné au survol). Renvoie le x de fin. */
@@ -262,8 +270,14 @@ public final class DuelHud {
         int gs = Math.max(1, mc.getWindow().getGuiScale());
         int km = DaKit.echelleMenu();
         double mx = guiX * gs / km, my = guiY * gs / km;
-        if (rAccept != null && DaKit.dans(mx, my, rAccept[0], rAccept[1], rAccept[2], rAccept[3])) { DuelClient.accept(); return true; }
-        if (rRefuse != null && DaKit.dans(mx, my, rRefuse[0], rRefuse[1], rRefuse[2], rRefuse[3])) { DuelClient.refuse(); return true; }
+        if (rAccept != null && DaKit.dans(mx, my, rAccept[0], rAccept[1], rAccept[2], rAccept[3])) {
+            if (enDemande) fr.reborn.hud.ko.CorpsClient.accepterDemande(); else DuelClient.accept();
+            return true;
+        }
+        if (rRefuse != null && DaKit.dans(mx, my, rRefuse[0], rRefuse[1], rRefuse[2], rRefuse[3])) {
+            if (enDemande) fr.reborn.hud.ko.CorpsClient.refuserDemande(); else DuelClient.refuse();
+            return true;
+        }
         if (rAbandon != null && DaKit.dans(mx, my, rAbandon[0], rAbandon[1], rAbandon[2], rAbandon[3])) { DuelClient.forfeit(); return true; }
         return false;
     }

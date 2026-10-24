@@ -268,6 +268,17 @@ public class HudEditScreen extends Screen {
             HudElementBounds eb = HudElementBounds.currentFor(HudElement.ESCOUADE, esc, this.width, this.height);
             fr.reborn.hud.radio.RadioHud.apercu(ctx, eb.x(), eb.y(), esc.scale());
         }
+        // 1ter) Zone d'effets et boussole (GAMEPLAN §4, 19/10) : des effets d'exemple, la bande au cap nord-est.
+        HudElementState eff = config.stateOf(HudElement.EFFETS);
+        if (eff.visible()) {
+            HudElementBounds fb = HudElementBounds.currentFor(HudElement.EFFETS, eff, this.width, this.height);
+            fr.reborn.hud.nourriture.EffetsHud.apercu(ctx, fb.x(), fb.y(), eff.scale());
+        }
+        HudElementState bou = config.stateOf(HudElement.BOUSSOLE);
+        if (bou.visible()) {
+            HudElementBounds bb = HudElementBounds.currentFor(HudElement.BOUSSOLE, bou, this.width, this.height);
+            fr.reborn.hud.boussole.BoussoleHud.apercu(ctx, bb.x(), bb.y(), bou.scale());
+        }
 
         // 2) Boîtes HUD (dessinées avant le panneau : le panneau opaque couvre
         //    tout débordement à droite).

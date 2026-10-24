@@ -334,6 +334,20 @@ public final class EtatServiceImpl implements EtatService {
             actives.put("mod.en_combat", String.valueOf(combat / 1000 + 1));
             mods.add(new Modificateur("en_combat", "En combat", 1, combat, "combat", true));
         }
+        // Satiété (GAMEPLAN §4, 19/10) : « Affamé » sous le seuil = alerte seule ; FAIM à 0 % = ni sprint ni dash.
+        var nour = plugin.nourriture();
+        int faim = c == null || nour == null || nour.satiete() == null ? 0 : nour.satiete().palier(id);
+        if (faim == 2) {
+            actives.put("mod.faim", null);
+            mods.add(new Modificateur("faim", "Faim", 2, 0, "satiété", true));
+        } else if (faim == 1) {
+            mods.add(new Modificateur("affame", "Affamé", 1, 0, "satiété", true));
+        }
+        // Prison : la peine en cours, avec son temps restant (icône et minuteur de la zone d'effets du mod).
+        if (c != null && cadre == Cadre.PRISON) {
+            var peine = prison.peine(c.id());
+            mods.add(new Modificateur("prison", "En prison", 1, peine != null ? peine.resteMs() : 0, "peine", true));
+        }
         boolean modeStaff = o != null && o.mode().horsJeu(id);
         if (!modeStaff && plugin.vanish() != null && plugin.vanish().isVanished(id)) {
             actives.put("mod.invisible", null);

@@ -89,6 +89,8 @@ public final class CorpsService implements Listener, TabExecutor {
     private final Map<UUID, String> lastSent = new ConcurrentHashMap<>();
     private BukkitTask task;
     private long ticks;
+    /** Porter / fouiller une personne consciente avec son accord (GAMEPLAN §14, 24/10). */
+    private final DemandeService demandes;
 
     /** {@code lethal} : mort RP (cible KO + RPK) ; sinon mise hors de combat d'une cible en douleur. */
     private record Run(UUID victim, Executions.Def def, Location killerAt, long startTick, boolean lethal) {}
@@ -96,6 +98,7 @@ public final class CorpsService implements Listener, TabExecutor {
     public CorpsService(ShinobiCore plugin) {
         this.plugin = plugin;
         this.executions = new Executions(plugin);
+        this.demandes = new DemandeService(plugin, this);
         var m = Bukkit.getMessenger();
         if (!m.isOutgoingChannelRegistered(plugin, CHANNEL)) m.registerOutgoingPluginChannel(plugin, CHANNEL);
     }
@@ -190,6 +193,7 @@ public final class CorpsService implements Listener, TabExecutor {
             if (t >= run.def().durationTicks()) finish(k);
         }
         if (ticks % 10 == 0) broadcastBodies();
+        if (ticks % 20 == 0) demandes.tick();
     }
 
     /** L'instant du coup : mort RP, ou mise hors de combat. */
@@ -276,6 +280,7 @@ public final class CorpsService implements Listener, TabExecutor {
         if (pain(id)) me.addProperty("d", 1);
         if (plugin.porter().carrierOf(id) != null) {
             me.addProperty("c", 1);
+            if (plugin.porter().consenti(id)) me.addProperty("v", 1);   // de plein gré : « Espace · descendre »
             double s = plugin.porter().struggleOf(id);
             if (s >= 0) me.addProperty("s", Math.round(s * 100) / 100.0);
         }
@@ -309,6 +314,13 @@ public final class CorpsService implements Listener, TabExecutor {
         // touche Exécuter relâchée avant la fin de la canalisation (mod) : on renonce
         if (act.equals("annuler")) {
             if (running.containsKey(p.getUniqueId())) abort(p, "Tu renonces.");
+            return true;
+        }
+        // Demandes d'accord (14 · 24/10) : Entrée / Retour côté mod.
+        if (act.equals("accepter")) { demandes.accepter(p); return true; }
+        if (act.equals("refuser")) { demandes.refuser(p); return true; }
+        if (act.equals("demander")) {
+            if (args.length >= 3) demandes.demander(p, args[1].toLowerCase(Locale.ROOT), args[2]);
             return true;
         }
         if (args.length < 2) return true;

@@ -33,6 +33,7 @@
     "CameraPhotoMixin",
     "CameraSeismeMixin",
     "CameraKoMixin",
+    "CameraFaimMixin",
     "SoundEngineKoMixin",
     "CameraRepositionMixin",
     "KeyboardInputPhotoMixin",

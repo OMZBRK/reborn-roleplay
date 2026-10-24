@@ -49,7 +49,7 @@ public final class InteractionMenus {
     public static List<InteractionItem> forPlayer(String name, java.util.UUID id) {
         fr.reborn.hud.ko.CorpsClient.Body b = fr.reborn.hud.ko.CorpsClient.body(id);
         if (b != null && b.phase() == fr.reborn.hud.ko.CorpsClient.PHASE_DOULEUR) return forPain(name);
-        return b != null ? forBody(name, b) : forPlayer(name);
+        return b != null ? forBody(name, b) : conscient(name, id);
     }
 
     /** Je suis moi-même en douleur : porter, attraper, exécuter me sont fermés. */
@@ -166,10 +166,25 @@ public final class InteractionMenus {
         return InteractionItem.action("Proposer un duel", () -> sendCommand("duel proposer " + name));
     }
 
+    /** Menu d'une personne consciente, par son pseudo (bancs d'essai) : l'UUID est cherché dans le monde. */
     public static List<InteractionItem> forPlayer(String name) {
+        return conscient(name, uuidDe(name));
+    }
+
+    private static java.util.UUID uuidDe(String name) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) for (var p : mc.level.players()) if (p.getGameProfile().name().equals(name)) return p.getUUID();
+        return java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Personne consciente. Porter et fouiller se <b>demandent</b> (GAMEPLAN §14, 24/10) : l'autre accepte (Entrée) ou
+     * refuse (Retour) ; on la porte jusqu'à ce qu'elle descende (Espace) ; la fouille est en lecture seule. Le serveur
+     * revérifie tout (états, distance) et journalise. Le sous-menu Staff n'apparaît qu'au staff.
+     */
+    private static List<InteractionItem> conscient(String name, java.util.UUID id) {
         // NB : les commandes ShinobiCore /rencontrer /amitier /osculter ciblent
-        // « la personne regardée » (pas d'argument) → fonctionnent si la cible est
-        // à peu près devant. Les autres (porter/fouiller…) attendent un plugin.
+        // « la personne regardée » (pas d'argument) → fonctionnent si la cible est à peu près devant.
         java.util.List<InteractionItem> l = new java.util.ArrayList<>();
         // Banque (15/10) : le guichetier en service ouvre le compte de son client (le client valide lui-même).
         if (fr.reborn.hud.monnaie.MonnaieClient.guichetier())
@@ -187,9 +202,8 @@ public final class InteractionMenus {
             InteractionItem.action("Message privé…", () -> openChat("/msg " + name + " ")),
             InteractionItem.action("Demander en ami", () -> sendCommand("amitier")),
             InteractionItem.action("Ausculter (état)", () -> sendCommand("osculter")),
-            // porter / fouiller une personne consciente : pas encore de demande d'accord (RedLine) — grisés
-            InteractionItem.disabled("Porter", "à terre ou en douleur"),
-            InteractionItem.disabled("Fouiller", "à terre"),
+            InteractionItem.action("Porter (avec son accord)", () -> sendCommand("corps demander porter " + name)),
+            InteractionItem.action("Fouiller (avec son accord)", () -> sendCommand("corps demander fouiller " + name)),
             duel(name),
             soinsDesYeux(name),
             InteractionItem.submenu("Animations", List.of(
@@ -200,14 +214,33 @@ public final class InteractionMenus {
                 InteractionItem.action("Toutes les emotes…", InteractionMenus::openEmoteMenu),
                 InteractionItem.action("Arrêter", () -> sendCommand("stopemote"))
             )),
-            InteractionItem.submenu("Staff", List.of(
-                InteractionItem.action("Informations", () -> sendCommand("staff lookup " + name)),
-                InteractionItem.action("Téléporter à", () -> sendCommand("tp " + name)),
-                InteractionItem.action("Geler", () -> sendCommand("freeze " + name)),
-                InteractionItem.action("Sanctionner", () -> sendCommand("sanction " + name))
-            ))
+            volume(id)
         ));
+        if (fr.reborn.hud.menu.tablist.TablistData.selfStaff()) l.add(InteractionItem.submenu("Staff", List.of(
+            InteractionItem.action("Fiche (Poste de garde)", () -> fr.reborn.hud.staff.StaffClient.ouvrirFiche(id)),
+            InteractionItem.action("Aller à", () -> sendCommand("aller " + name)),
+            InteractionItem.action("Ramener", () -> sendCommand("ramener " + name)),
+            InteractionItem.action("Geler", () -> sendCommand("geler " + name))
+        )));
         return l;
+    }
+
+    /** Niveaux proposés : on baisse une voix, on ne la coupe jamais (le RP doit rester audible). */
+    private static final int[] VOLUMES = {100, 75, 50, 25};
+
+    /** « Volume de sa voix » : chez moi seulement, réglé dans Plasmo Voice. */
+    static InteractionItem volume(java.util.UUID id) {
+        int actuel = (int) Math.round(fr.reborn.hud.voice.VoiceState.playerVolume(id) * 100);
+        java.util.List<InteractionItem> l = new java.util.ArrayList<>();
+        for (int v : VOLUMES) {
+            if (Math.abs(v - actuel) < 5) l.add(InteractionItem.disabled(v + " %", "actuel"));
+            else l.add(InteractionItem.action(v + " %", () -> {
+                fr.reborn.hud.voice.VoiceState.setPlayerVolume(id, v / 100.0);
+                info("Sa voix est réglée à §e" + v + " %§r chez toi.");
+            }));
+        }
+        l.add(InteractionItem.disabled("Jamais coupée", "on baisse, on ne coupe pas"));
+        return InteractionItem.submenu("Volume de sa voix", l);
     }
 
     /**
@@ -272,8 +305,6 @@ public final class InteractionMenus {
                 info("§e" + BuiltInRegistries.BLOCK.getKey(bs.getBlock())
                     + " §7@ " + pos.toShortString());
             }),
-            InteractionItem.action("Verrouiller / Cadenas", () -> sendCommand("lock")),
-            InteractionItem.action("Gestion", () -> sendCommand("manage")),
             InteractionItem.action("Copier les coordonnées",
                 () -> copy(pos.getX() + " " + pos.getY() + " " + pos.getZ())),
             InteractionItem.submenu("Outils de debug", List.of(

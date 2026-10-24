@@ -87,7 +87,7 @@ codés et attendent leurs tests à deux comptes.
 | Inventory + Hotbar | **Sacoche « inrō »** : barre de 9 + sacs à paliers | 🔴 Critique | Player ID | ✅ | validé 13/10 | §2 |
 | Item System (pickup, drop, weight) | Ramassage **manuel**, **aura de rareté**, disparition ; poids et surcharge | 🔴 Critique | Sacoche | ✅ (14/10) | validé 13/10 | §3 |
 | Equipment System (weapon, head) | Emplacements **Tête** et **Arme** (arme visible sur le corps) + cosmétiques | 🔴 Critique | Sacoche | ✍🏻 emplacements cosmétiques ✅ ; Tête / Arme ❌ | validé 13/10 | §2 |
-| Basic HUD (HP, stamina, hunger, compass) | Vitals PV / chakra / endurance, HUD combat, éditeur de HUD | 🔴 Critique | Player ID | ✅ vitals ; boussole, zone d'effets, notifications ❌ | proposition | §4 |
+| Basic HUD (HP, stamina, hunger, compass) | Vitals PV / chakra / endurance, HUD combat, éditeur de HUD | 🔴 Critique | Player ID | ✅ vitals ; ✍🏻 boussole (option), zone d'effets, faim punitive codées 19/10 (non publiées) ; notifications génériques ❌ | validé 19/10 | §4 |
 | Staff commands | **Poste de garde** + commandes staff | 🟠 Important | Player ID, états | ✍🏻 tp, ramener, geler, observer, réveiller, sanctions ✅ ; annonces, écran noir, voir la sacoche, tenue forcée, notes, reset ❌ | proposition | §5 |
 | Logs System | Journaux par personnage | 🔴 Critique | Player ID | ✍🏻 staff, agressions, RPK, duels, bibliothèques ✅ ; économie et objets ❌ | proposition | §6 |
 | Staff Tools (tp, freeze, logs) | Poste de garde, Infirmerie, `/vanish` | 🔴 Critique | Player ID | ✅ (gel en mémoire seulement) | — | §5 |
@@ -515,9 +515,10 @@ parchemin unique serait perdu pour tout le serveur.
 
 # 🖥️ 4. HUD
 
-> RedLine : *Basic HUD & Exploration*. **Proposition, à valider point par point.**
+> RedLine : *Basic HUD & Exploration*. **Validé le 19/10 et codé le même jour (non publié)** — décisions §4.5, code
+> §4.6. Captures : `Maquettes/gameplan/04_hud/`.
 
-## 4.1 Aujourd'hui chez Reborn
+## 4.1 Aujourd'hui chez Reborn (avant le 19/10)
 
 - **Vitals de base** (PV, chakra, endurance) : **inchangés** par décision du 08/10.
 - **HUD combat discret** : endurance en ensō autour du viseur, chiffres de dégâts, combo, icônes de recharge
@@ -552,7 +553,40 @@ personnel** posé sur la carte (§36) et la direction d'un objet d'orientation (
 soin §26), au style du HUD subtil.
 → **Ryo** : pas d'affichage permanent ; le montant se voit dans la sacoche (ou au survol de la bourse, §19).
 → **Niveau** : jamais affiché (décision du 10/10).
-→ **Faim** : voir §12 (proposition : pas de faim punitive, des consommables à effets).
+→ **Faim** : voir §12 (proposition : pas de faim punitive, des consommables à effets). *Remplacé le 19/10 (§4.5).*
+
+## 4.5 Décisions de l'utilisateur (19/10)
+
+1. **Boussole horizontale** en haut de l'écran : **élément facultatif de l'éditeur de HUD, masqué par défaut** ; fine,
+   subtile (pas de plaque), lettres N E S O (pas de kanji), graduations, **marqueur personnel** posé sur la carte (M)
+   — la carte n'en pose pas encore : l'API est prête pour §36 — et des repères sobres (lieux de la carte proches).
+2. **Zone d'effets** sous les vitals : icônes de 10 px + minuteur discret, élément **déplaçable / masquable** dans
+   l'éditeur, alimentée par le serveur (refonte des états : `reborn:etat`, modificateurs avec durée et source).
+3. **Ryo** : **pas d'affichage permanent** (sacoche, survol de la bourse). Rien à coder.
+4. **Faim** : on garde notre satiété (effets de la nourriture) **et** on ajoute le punitif de RedLine — **15 %** :
+   alerte discrète « Affamé » + icône, **aucun malus de dégâts** (correction du même jour : ni infligés, ni subis, ni
+   perte de vie) ; **0 %** : **ni sprint ni dash**, **caméra qui tangue** légèrement (coupée par « Effets de
+   distorsion »). Détail : [`gameplay/NOURRITURE.md`](./gameplay/NOURRITURE.md) §3 bis.
+
+## 4.6 Ce qui est codé (19/10, non publié)
+
+- **Boussole** (`mod-hud/…/boussole/BoussoleHud`, élément `BOUSSOLE`, en haut au centre, 150 × 21 GUI) : filet d'1 px
+  écran qui s'efface vers les bords, graduations tous les 15° (plus hautes aux intercardinaux), N (or) E S O, chevron
+  d'or du cap sous le filet ; cap = la caméra (épaule et regard libre compris). Dessus : le **marqueur personnel**
+  (losange d'or sur le filet, distance écrite dessous quand on le regarde à ±12°, collé au bord s'il est derrière),
+  les **repères** d'autres systèmes, les **lieux et portes de la carte à moins de 250 blocs** (un point, le nom et la
+  distance seulement quand on le regarde à ±5°). API pour §36 / §49 : `boussole/Reperes` (`poserMarqueur`,
+  `effacerMarqueur`, `poser`, `retirer` ; local au client, par dimension, oublié à la déconnexion).
+- **Zone d'effets** (`nourriture/EffetsHud`, élément `EFFETS`, défaut à sa place d'avant sous les barres, ×0,80) :
+  sources **état du serveur** (douleur, ATA, prison + minuteur de la peine, menottes, étourdi, gel du staff,
+  Affamé / Faim), satiété (pause de la régénération, plat chaud / froid) et **modificateurs** (repas, pilule, poison,
+  fatigue, méditation…) ; or = bonus, vermillon = malus, gris = pause ; nom 3 s à l'apparition puis au survol (mode
+  interaction) ; descend sous la ligne « Chargé » des vitals quand elle s'affiche. Nouvelles icônes 10 px
+  (`tools/gen_etats_icones.py`) : `ata`, `menottes`, `prison`, `etourdi`, `douleur`, `soin`.
+- **Serveur** (ShinobiCore) : modificateurs dérivés `affame`, `faim`, `prison` dans l'état ; ligne `mod.faim` de la
+  matrice (`SPRINTER`, `MOBILITE`) ; `menottes` envoyé au joueur dans `reborn:etat` ; `nourriture.faim.affame-seuil`
+  (15). Paquet : [`technique/PLUGINS_REFERENCE.md`](./technique/PLUGINS_REFERENCE.md) §4 quater.
+- **Banc** : `REBORN_HUD4_DEBUG=1` ([`technique/MOD_HUD.md`](./technique/MOD_HUD.md) §5).
 
 ---
 
@@ -993,6 +1027,25 @@ tension) ; le pillage reste réservé aux corps KO.
 → **Volume vocal par joueur** (baisser, jamais couper) dans le menu R et les réglages, avec la phrase d'avertissement.
 → Inviter dans sa faction / section (§37).
 → Conditions : interaction refusée en KO, Porté, Étourdi (§1.5) ; tout est validé et journalisé côté serveur.
+
+## 14.4 Validé et codé le 24/10 (non publié)
+
+L'utilisateur : « ok pour tout ». Captures : `Maquettes/gameplan/14_interaction/code/` (banc `REBORN_INTERACTION_DEBUG`).
+
+- **Porter / fouiller avec son accord** : menu R › « Porter (avec son accord) », « Fouiller (avec son accord) » →
+  `/corps demander porter|fouiller <joueur>` ; la personne voit « X veut te porter » (même gabarit que le duel), Entrée
+  accepte, Retour refuse, 15 s ; tout est revérifié à l'acceptation (3,5 blocs, KO, douleur, porté, gel, mode staff,
+  matrice PORTER / FOUILLER, ETRE_PORTE / ETRE_FOUILLE) et journalisé (`ko.action.DemandeService`).
+- **Porté de plein gré** : « Espace · descendre » (une ligne) ; le porteur dépose en s'accroupissant ; en douleur, on
+  garde « Porter (sans accord) » et la lutte.
+- **Fouille consentie** : la sacoche de la personne en **lecture seule** (« Tu regardes, tu ne prends rien »), la
+  personne fouillée affichée à gauche ; le pillage reste réservé aux corps à terre.
+- **Masque** : un objet dans l'emplacement Masque cache l'identité — plaque « ??? », liste des joueurs, tchat et `/me`
+  en « Inconnu », amis compris (`character.masque-cache-nom`, `character/Masques`). Les autres écrans qui lisent le
+  nom connu (banque, duel, factions…) ne sont pas encore masqués.
+- **Volume de sa voix** : 100 / 75 / 50 / 25 %, jamais coupée, chez soi seulement (config de Plasmo Voice).
+- **Staff** : sous-menu visible du staff seulement — Fiche (Poste de garde ouvert sur le joueur), Aller à, Ramener,
+  Geler. Entrées mortes retirées (cadenas, gestion, `staff lookup`, `tp`, `freeze`, `sanction`).
 
 ---
 
@@ -2034,8 +2087,8 @@ Minecraft, Nexo et le menu R.
 | 1 | **Player ID** : compte + N° de personnage, états, onboarding | §1 | ✅ **livré 14/10** (N°, `/pid`, accueil Microsoft + Discord) | Ban compte + Microsoft + Discord ? ; ATA / duel en modificateurs ? |
 | 2 | **Inventaire** : sacoche, Tête, Arme, surcharge, notifications | §2 | ✅ **livré 14/10** | Kenjutsu exige une arme ? |
 | 3 | **Ramassage** : manuel, aura, disparition | §3 | ✅ **livré 14/10** (F, aura de rareté pixel art 15/10) | — |
-| 4 | HUD | §4 | proposition | Boussole facultative ; zone d'effets ; ryo hors HUD |
-| 5 | Commandes staff | §5 | ✍🏻 commandes RedLine + modes staff / animation livrés 14/10 | Écran noir, tenue forcée, notes staff |
+| 4 | HUD | §4 | ✍🏻 **validé et codé 19/10** (non publié) : boussole facultative, zone d'effets, faim punitive | Marqueur personnel posé depuis la carte (§36) ; objet d'orientation (§49) |
+| 5 | Commandes staff | §5 | ✅ **clos le 24/10** : commandes RedLine, modes staff / animation, annonce, écran noir, séisme, notes (écrans du mod faits) | Plus tard : tenue forcée en apparence de skin, grades synchronisés avec le panel |
 | 6 | Journaux | §6 | ✅ journal universel livré 14/10 (tout est tracé) | Remontée au panel web |
 | 7 | Déplacements | §7 | ✅ allures 14/10, marche sur l'eau 15/10 (**validée en jeu 17/10**), course de chakra sur X 16/10 | Rétablir les dégâts de chute (seuil + roulade) ? |
 | 8 | Combat (logique d'arme) | §8 | proposition | Pas de mode combat ; techniques liées à l'arme |
@@ -2044,9 +2097,9 @@ Minecraft, Nexo et le menu R.
 | 11 | KO / mort | §11 | ✍🏻 chaîne KO v2 livrée 14/10, en recette | Compte à rebours remis à zéro à la reconnexion ? ; technique `volonte` (n° 3) |
 | 12 | Nourriture → consommables | §12 | ✅ nourriture v3 + entreprises livrées 14/10 | Modèle d'effet générique |
 | 13 | **États du joueur** | §13 | ✍🏻 **en cours de code (17/10)** : étape 0 livrée 14/10, étapes 1 à 9 validées | [`technique/ETATS_JOUEUR.md`](./technique/ETATS_JOUEUR.md) ; prison, menottes anti-chakra |
-| 14 | Interaction (R) | §14 | proposition | Entrées mortes du menu ; porter / fouiller un conscient ; masque ; volume vocal |
+| 14 | Interaction (R) | §14 | ✍🏻 **validé et codé 24/10** (non publié) : porter / fouiller avec accord, masque = inconnu, volume vocal, Staff réservé au staff | §14.4 |
 | 15 | Duel | §15 | ✅ livré 14/10 | Tester à deux comptes |
-| 16 | Échange | §16 | proposition | Fenêtre d'échange (objets + ryo, 3-2-1) |
+| 16 | Échange | §16 | ✅ **clos le 24/10** : « Tendre » et « Donner des ryo » au menu R (14/10) ; échange garanti à la banque (§20) | — |
 | 17 | Chat de proximité | §17 | proposition | Trois portées ; indicateur ; outils staff |
 | 18 | Transmissions | §18 | ✅ radio en escouades livrée 15/10, **validée en jeu 17/10** | Appel de service à part, à concevoir — [`gameplay/RADIO.md`](./gameplay/RADIO.md) |
 | 19 | Monnaie | §19 | ✅ livrée 15/10 ; **bourse validée en jeu 17/10** | — [`gameplay/MONNAIE_ET_BANQUE.md`](./gameplay/MONNAIE_ET_BANQUE.md) |
@@ -2074,6 +2127,6 @@ Minecraft, Nexo et le menu R.
 | 49-51 | Orientation, KO « WIP », exploration | §49-§51 | proposition | Kit de départ chiffré |
 | 52-53 | Systèmes sans section, systèmes propres à Reborn | §52-§53 | — | Revue d'état (ShinobiTail, ShinobiLearning à auditer) |
 
-**Au 17/10 — prochain point : n° 13 (États du joueur), en cours de code**, puis **n° 29 / 37 : coffres de section et
+**Au 24/10 — n° 13 livré le 18/10, n° 4 et n° 14 codés (à publier ensemble) ; prochain point : n° 17 (chat de proximité), puis la porte animée (proposition du 24/10).** Ancienne note du 17/10 : **n° 29 / 37 : coffres de section et
 portes à clé** (verrou + clé seulement ; une porte verrouillée se crochète ou se casse ; aucune zone inaccessible).
 Le combat (n° 8 à 10) reste repoussé (décision du 14/10) ; les mécaniques par section viendront plus tard.

@@ -79,8 +79,12 @@ public final class StaffClient {
         Minecraft mc = Minecraft.getInstance();
         switch (t) {
             case "open" -> {
-                if (mc.gui.screen() instanceof GardeScreen g) { if (g.onKo()) g.show("alerts"); }
-                else mc.setScreenAndShow(new GardeScreen("alerts"));
+                GardeScreen g;
+                if (mc.gui.screen() instanceof GardeScreen cur) { g = cur; if (g.onKo()) g.show("alerts"); }
+                else mc.setScreenAndShow(g = new GardeScreen("alerts"));
+                String fiche = ficheDemandee;
+                ficheDemandee = null;
+                if (fiche != null) g.openProfile(fiche);
             }
             case "snap" -> {
                 nouvellesAlertes(o, mc);
@@ -180,6 +184,15 @@ public final class StaffClient {
         if (s.startsWith("#")) s = s.substring(1);
         s = s.replaceFirst("^0+(?=.)", "");
         return s;
+    }
+
+    /** Fiche demandée depuis le menu R (« Staff › Fiche »), ouverte dès que le Poste de garde s'ouvre. */
+    private static volatile String ficheDemandee;
+
+    /** Ouvre le Poste de garde sur la fiche de ce joueur (le serveur revérifie le grade à l'ouverture). */
+    public static void ouvrirFiche(java.util.UUID id) {
+        ficheDemandee = id.toString();
+        send("open");
     }
 
     public static void send(String action) {

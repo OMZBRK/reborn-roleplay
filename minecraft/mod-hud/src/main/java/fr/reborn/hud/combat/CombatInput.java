@@ -107,6 +107,8 @@ public final class CombatInput {
         if (p == null || mc.level == null || mc.gui.screen() != null) return;
         // Pas de dash sous garde/parade : le joueur est immobilisé.
         if (blocking) return;
+        // L'état du serveur refuse la mobilité (FAIM, douleur, ATA, menottes…) : pas de dash fantôme ni de recharge.
+        if (fr.reborn.hud.etat.EtatClient.refuse("mob")) return;
         long now = System.currentTimeMillis();
         if (now - lastDashMs < DASH_CD_MS) return;
 

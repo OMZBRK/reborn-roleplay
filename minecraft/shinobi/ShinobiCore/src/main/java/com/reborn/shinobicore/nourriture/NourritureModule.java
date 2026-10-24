@@ -188,7 +188,7 @@ public final class NourritureModule implements Listener {
 
     void passageAffame(Player p) { NourritureCanal.notif(p, "palier", "affame", "Affamé", "va manger"); }
 
-    void passageFaim(Player p) { NourritureCanal.notif(p, "refus", "faim", "Faim", "plus de sprint"); }
+    void passageFaim(Player p) { NourritureCanal.notif(p, "refus", "faim", "Faim", "ni sprint ni dash"); }
 
     /** Un coup reçu : repas figé, préparation interrompue. */
     void coupRecu(Player p) {

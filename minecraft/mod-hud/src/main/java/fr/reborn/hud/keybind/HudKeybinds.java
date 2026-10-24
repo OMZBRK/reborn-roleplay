@@ -287,15 +287,18 @@ public final class HudKeybinds {
             while (FACTION.consumeClick()) fr.reborn.hud.faction.FactionClient.appuiJ();
             while (DUEL_ACCEPT.consumeClick()) {
                 if (Minecraft.getInstance().gui.screen() != null) continue;
-                // Entrée : l'invitation radio d'abord (10 s), puis celle d'une section (Faction), sinon le duel proposé.
+                // Entrée : l'invitation radio d'abord (10 s), puis celle d'une section (Faction), une demande (porter, fouiller),
+                // sinon le duel proposé.
                 if (fr.reborn.hud.radio.RadioClient.accepter()) continue;
-                if (!fr.reborn.hud.faction.FactionClient.accepter()) fr.reborn.hud.duel.DuelClient.accept();
+                if (fr.reborn.hud.faction.FactionClient.accepter()) continue;
+                if (!fr.reborn.hud.ko.CorpsClient.accepterDemande()) fr.reborn.hud.duel.DuelClient.accept();
             }
             while (DUEL_REFUSE.consumeClick()) {
                 if (Minecraft.getInstance().gui.screen() != null) continue;
                 // Retour : refuse l'invitation radio, sinon le duel proposé, sinon ce qu'on me tend (nourriture, 14/10).
                 if (fr.reborn.hud.radio.RadioClient.refuser()) continue;
                 if (fr.reborn.hud.faction.FactionClient.refuser()) continue;
+                if (fr.reborn.hud.ko.CorpsClient.refuserDemande()) continue;   // porter / fouiller (14 · 24/10)
                 if (fr.reborn.hud.duel.DuelClient.hasInvite()) fr.reborn.hud.duel.DuelClient.refuse();
                 else fr.reborn.hud.nourriture.NourritureClient.refuser();
             }

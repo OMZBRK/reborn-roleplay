@@ -35,7 +35,11 @@ public enum HudElement {
     COOLDOWNS     ("cooldowns",       "Cooldowns",    "Icônes de cooldown (dash, sauts…)",        HudAnchor.TOP_LEFT, 0, 0, 1.00f),
     // Radio en escouades (14/10, RADIO.md §5) : tête du skin → nom de ceux qui parlent ; défaut validé : sous les
     // vitals, à gauche (maquette v3/02). Option « Afficher toute l'escouade » dans l'inspecteur.
-    ESCOUADE      ("escouade",        "Escouade radio", "Têtes et noms de ceux qui parlent à la radio", HudAnchor.TOP_LEFT, 0, 0, 1.00f);
+    ESCOUADE      ("escouade",        "Escouade radio", "Têtes et noms de ceux qui parlent à la radio", HudAnchor.TOP_LEFT, 0, 0, 1.00f),
+    // GAMEPLAN §4 (19/10) : zone d'effets sous les vitals (icônes 10 px + minuteur), à la place qu'elle avait dans les
+    // vitals (×0,80 comme eux) ; boussole horizontale en haut, facultative, MASQUÉE par défaut.
+    EFFETS        ("effets",          "Effets",       "Icônes des effets et états, avec minuteur",  HudAnchor.TOP_LEFT, 0, 0, 0.80f),
+    BOUSSOLE      ("boussole",        "Boussole",     "Boussole horizontale (cap, marqueur, lieux)", HudAnchor.TOP_CENTER, 0, 0, 1.00f, false);
 
     private final String id;
     private final String displayName;
@@ -44,6 +48,8 @@ public enum HudElement {
     /** Placement/taille par défaut (offset depuis l'anchor + échelle). */
     private final int defX, defY;
     private final float defScale;
+    /** Visible par défaut (faux pour les éléments facultatifs : boussole). */
+    private final boolean defVisible;
 
     HudElement(String id, String displayName, String description, HudAnchor defaultAnchor) {
         this(id, displayName, description, defaultAnchor, 0, 0, 1.0f);
@@ -51,6 +57,11 @@ public enum HudElement {
 
     HudElement(String id, String displayName, String description, HudAnchor defaultAnchor,
                int defX, int defY, float defScale) {
+        this(id, displayName, description, defaultAnchor, defX, defY, defScale, true);
+    }
+
+    HudElement(String id, String displayName, String description, HudAnchor defaultAnchor,
+               int defX, int defY, float defScale, boolean defVisible) {
         this.id            = id;
         this.displayName   = displayName;
         this.description   = description;
@@ -58,11 +69,12 @@ public enum HudElement {
         this.defX          = defX;
         this.defY          = defY;
         this.defScale      = defScale;
+        this.defVisible    = defVisible;
     }
 
     /** État par défaut (placement + taille) proposé pour cet élément aux nouveaux joueurs. */
     public HudElementState defaultState() {
-        return new HudElementState(defX, defY, defScale, true, null);
+        return new HudElementState(defX, defY, defScale, defVisible, null);
     }
 
     /** Identifiant stable utilisé dans le JSON de config — ne JAMAIS renommer. */

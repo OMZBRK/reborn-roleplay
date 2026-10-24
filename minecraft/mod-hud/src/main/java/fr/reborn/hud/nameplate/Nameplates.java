@@ -92,7 +92,8 @@ public final class Nameplates {
     private static void drawFor(GuiGraphicsExtractor ctx, Font font, net.minecraft.world.entity.Entity e, Vec3 camPos,
                                 Matrix4f vp, int gw, int gh, double dist, float pt) {
         TablistData.RpName rp = TablistData.rpNameFor(e.getUUID());
-        if (rp == null && debugAvatars) rp = new TablistData.RpName("Ren Hyūga", TabEntry.Relation.CONNAISSANCE, 0x5577DD, "Hyūga", "Konoha");
+        if (rp == null && debugAvatars) rp = new TablistData.RpName("Ren Hyūga",
+            debugInconnu ? TabEntry.Relation.INCONNU : TabEntry.Relation.CONNAISSANCE, 0x5577DD, "Hyūga", "Konoha");
         boolean known = rp != null && rp.relation() != TabEntry.Relation.INCONNU
             && rp.name() != null && !rp.name().isBlank();
         String name = known ? rp.name() : null;
@@ -153,6 +154,8 @@ public final class Nameplates {
 
     /** Banc d'essai (KoDebug) : plaques aussi sur les mannequins. */
     public static boolean debugAvatars;
+    /** Banc d'essai : le mannequin est vu comme un inconnu (masque porté, GAMEPLAN §14). */
+    public static boolean debugInconnu;
     /** Teinte du nom pendant le dessin d'une plaque (état KO ; 0 = crème). */
     private static int teinte;
 
