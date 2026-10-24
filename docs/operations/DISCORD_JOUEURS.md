@@ -33,7 +33,7 @@
 4. **Pas de Douane, pas de salon tickets, pas de rôle Candidat** : candidature, réservation d'oral et tickets se font
    **dans le launcher**, le staff les traite dans le **panel web** (et les fils du bot, salon privé). Le `tickets` de
    Ketto est remplacé par `📜・règlement` (exigé par la Communauté Discord).
-5. **Un seul rôle joueur : `| Whitelisté`**, posé par le bot à l'acceptation (à coder, §7 C).
+5. **Rôle de base : `Membre`** (tout arrivant). Le rôle `| Whitelisté` se verra **depuis le launcher** (mécanique à définir plus tard, décision du 24/10) ; les messages postés n'en parlent plus.
 6. **Chaque salon d'information = bannière au-dessus + message en cadre** (format Ketto `informations` /
    `tuto-whitelist`). Nouvelle série de bannières « façon Ketto » : titre au pinceau blanc, trait laque, nuages pleins
    et fleurs de prunier sur les côtés, sans personnage ni kanji (`bienvenue_ketto\06_bannieres.png`).
@@ -56,7 +56,7 @@ salon texte Discord ne peut pas contenir d'espace). Ketto nomme son salon d'accu
 | | `🧭・recrutement` | texte | bot | Postes staff ouverts, candidature dans le launcher | `recrutement` |
 | | `👀・spoils` | texte | Direction | Avant-goûts, feuille de route | `spoil` |
 | **💬 \| Communauté** | `💬・général` · `🎨・créations` | texte | membres | Discussion, fan-arts | `général`, `créations` |
-| | `📷・médias` · `🎬・clips` | texte | **whitelistés** (+ staff) | Captures et clips en jeu | `médias`, `clips` |
+| | `📷・médias` · `🎬・clips` | texte | **Membre** (+ whitelistés, staff) — 24/10 | Captures et clips en jeu | `médias`, `clips` |
 | | `❔・questions` | forum | membres | Entraide | `questions` |
 | | `⏳・Attente oral` | vocal | tous (muets) | Le candidat attend à l'heure de son oral | `attente-m…` |
 | **🛡️ \| Staff** (masquée, rôle `Staff`) | `📥・candidatures` | texte | bot, staff | Fils du bot (candidatures, tickets) | — |
@@ -73,7 +73,7 @@ Du plus haut au plus bas ; « séparé » = groupé dans la liste des membres, c
 
 | Rôle | Couleur | Séparé | Permissions serveur |
 |---|---|---|---|
-| `🔒 \| Bot(s)` | — | oui | Rôle du bot, réglé à la main (tout en haut ; à terme sans Administrateur : gérer rôles, salons, fils, messages, déplacer) |
+| `🔒 \| Bot(s)` | — | oui | Rôle du bot, réglé à la main (tout en haut, **garde Administrateur** — décision du 22/10) |
 | `\| Fondateur` | or `#D9A95E` | oui | **Administrateur** (le seul) |
 | `\| Direction` | rouge `#F06A78` | oui | Gérer salons, rôles, pseudos, événements ; logs ; expulser, bannir, exclure ; messages, fils, épingles ; vocal ; @everyone ; sondages |
 | `\| Head of Reborn` | vermillon `#F28A5C` | oui | Gérer rôles et pseudos ; événements ; logs ; expulser, exclure ; messages, fils, épingles ; déplacer, muet |
@@ -83,7 +83,7 @@ Du plus haut au plus bas ; « séparé » = groupé dans la liste des membres, c
 | `\| Maître du jeu` · `\| Développement` | terre `#D9A27E` · jade `#8FC7AE` | oui | aucune |
 | `Staff` | — | non | aucune — socle porté par tout le staff, ouvre `🛡️ \| Staff` |
 | `Server Booster` | natif | oui | géré par Discord (apparaît au premier boost) |
-| `\| Whitelisté` | violet `#8B5CF6` | non | aucune — écrire dans `médias` et `clips` ; **posé par le bot** à l'acceptation |
+| `\| Whitelisté` | violet `#8B5CF6` | non | aucune — écrire dans `médias` et `clips` ; se verra depuis le launcher (à définir) |
 
 Mêmes noms et couleurs que le Discord staff ([`DISCORD_STAFF.md`](./DISCORD_STAFF.md) §4 bis), en plus court.
 
@@ -93,7 +93,7 @@ Mêmes noms et couleurs que le Discord staff ([`DISCORD_STAFF.md`](./DISCORD_STA
 | `🪵` | lire | = | = | = (le bot écrit) |
 | `⚠️・ne-pas-écrire` (option) | lire, **écrire = ban 7 j** | = | = | exempté |
 | `général`, `créations`, `questions` | lire | écrire | = | + modérer |
-| `médias`, `clips` | lire | lire | **écrire, images** | écrire |
+| `médias`, `clips` | lire | **écrire, images** (24/10) | = | écrire |
 | `⏳・Attente oral` | rejoindre, muet | = | = | parler, déplacer |
 | `🛡️ \| Staff` · `🗄️ \| Archives` | — | — | — | voir (Archives : Direction) |
 
@@ -125,15 +125,16 @@ nouveau serveur). 2FA exigée pour la modération, AutoMod (invitations, mention
 
 ## 4. Messages fixes (bannière au-dessus + cadre, postés par le bot)
 
-Un message par salon, **remplacé** à chaque mise à jour (`post:message --refaire`), jamais en double. Fichiers prêts,
-**non envoyés**, dans `Reborn - Gestion\Discord\posts\joueurs\` (format de `post-message.ts`, nouvelle option
+Un message par salon, **remplacé** à chaque mise à jour (`post:message --refaire`), jamais en double. **Postés le 24/10** :
+`ne-pas-écrire`, `règlement`, `informations`, `nous-rejoindre` (version **fermée**), `recrutement`, `réseaux`, `spoils`. Fichiers dans `Reborn - Gestion\Discord\posts\joueurs\` (format de `post-message.ts`, nouvelle option
 `"banniere"` = image posée **au-dessus** du cadre, hors barre de couleur, comme chez Ketto ; images dans `img\`). Les
 liens réels remplacent les `A-REMPLIR` au moment de poster, jamais dans le dépôt. Vérifiés hors ligne par `validerCadre`.
 
 | Fichier | Salon | Contenu |
 |---|---|---|
-| `informations.json` | `ℹ️・informations` | Bannière INFORMATIONS · `## Nos réseaux` · une ligne par réseau « icône \| nom : lien » (site / launcher, YouTube, TikTok, X, Twitch, invitation officielle) · mention « non officiel, non approuvé par Mojang ou Microsoft » |
-| `nous-rejoindre.json` / `nous-rejoindre-fermee.json` | `🚪・nous-rejoindre` | Bannière WHITELIST · `## » STATUT WHITELIST : OUVERTE 🟢` (ou FERMÉE 🔴, réouverture annoncée dans annonces) · `### 📜 Procédure à suivre` : 1️⃣ télécharge le launcher (bouton **Télécharger**) · 2️⃣ connecte-toi Microsoft + lie Discord · 3️⃣ candidature (onglet Whitelist ; refus → le lendemain) · 4️⃣ oral (première whitelist : créneau puis `⏳・Attente oral`) · 5️⃣ à toi de jouer (`\| Whitelisté` + Jouer) · ligne Clans. Même clé : `--refaire` passe de l'un à l'autre |
+| `informations.json` | `ℹ️・informations` | Bannière INFORMATIONS · `## Reborn Roleplay` + « Que des joueurs. » · trois piliers (Liberté, Conséquence, Immersion) · accès (whitelist + launcher) · « Nos réseaux : bientôt » · mention « non officiel ». Le champ `salon` porte le nom exact `ℹ️・informations` (ℹ compte comme une lettre pour `normaliser`). Les liens réseaux remplaceront « bientôt » (`--refaire`) |
+| `recrutement.json` · `reseaux.json` · `spoils.json` | `🧭・recrutement` · `🌐・réseaux` · `👀・spoils` | RECRUTEMENT STAFF : FERMÉ 🔴 + pôles + attentes · créateurs et partenaires (programme à l'ouverture) · présentation des spoils |
+| `nous-rejoindre.json` / `nous-rejoindre-fermee.json` | `🚪・nous-rejoindre` | Bannière WHITELIST · `## » STATUT WHITELIST : OUVERTE 🟢` (ou FERMÉE 🔴, réouverture annoncée dans annonces) · `### 📜 Procédure à suivre` : 1️⃣ télécharge le launcher (bouton **Télécharger**) · 2️⃣ connecte-toi Microsoft + lie Discord · 3️⃣ candidature (onglet Whitelist) · 4️⃣ oral (première whitelist : créneau puis `⏳・Attente oral`) · 5️⃣ à toi de jouer (Jouer s'active ; rôle et délai de re-candidature retirés le 24/10, pas encore codés) · ligne Clans. Même clé : `--refaire` passe de l'un à l'autre |
 | `reglement.json` | `📜・règlement` | Bannière RÈGLEMENT · 7 règles (respect, tout public, pas de pub, RP en jeu, spoils, un compte, le staff tranche par ticket launcher) · sanctions. Les 7 règles vont aussi dans l'écran de règles de la Communauté |
 | `piege.json` | `⚠️・ne-pas-écrire` | Cadre **rouge** bilingue FR / EN (façon SAO) : piège de sécurité, ban automatique de 7 jours, changer de mot de passe + 2FA |
 
@@ -143,9 +144,8 @@ pnpm --filter @reborn/bot post:message --guild <ID> --fichier "…\Discord\posts
 pnpm --filter @reborn/bot post:message --guild <ID> --fichier "…\Discord\posts\joueurs\informations.json" --envoyer
 ```
 
-`📣・annonces` : pas de message fixe, chaque annonce en cadre. `🧭・recrutement`, `👀・spoils`, `🌐・réseaux` : même
-gabarit plus tard (bannières RECRUTEMENT, SPOILS, RÉSEAUX déjà générées). `🪵` : aucun message fixe, seulement
-les messages d'arrivée.
+`📣・annonces` : pas de message fixe, chaque annonce en cadre. `🪵` : aucun message fixe, seulement les messages
+d'arrivée. Communauté : pas de message fixe.
 
 ## 5. Le bot : accueil, piège, existant
 
@@ -210,10 +210,10 @@ plan ni apply n'a été lancé sur le nouveau serveur.**
 **Ce que l'utilisateur fait** (dans l'ordre) :
 1. **Inviter le bot** sur le nouveau serveur : portail développeur → OAuth2 → URL Generator, scopes `bot` +
    `applications.commands`. Pour appliquer le plan (créer rôles et salons, poser un rôle Administrateur), cocher
-   **Administrateur** (permissions `8`), comme sur le Discord staff ; une fois le plan appliqué, retirer Administrateur
-   au rôle du bot et garder : Voir, Écrire, Intégrer, Joindre, Historique, Réactions, Émojis externes, Gérer les
-   messages, Gérer les fils, Fils publics et privés, Écrire dans les fils, Gérer les rôles, Gérer les salons, **Bannir**
-   (piège), Déplacer, Se connecter (entier `395423640660`).
+   **Administrateur** (permissions `8`), comme sur le Discord staff. **Décision du 22/10 : le bot garde Administrateur**
+   (pas de réduction ; si un jour on la fait, la liste minimale est : Voir, Écrire, Intégrer, Joindre, Historique,
+   Réactions, Émojis externes, Gérer les messages, Gérer les fils, Fils publics et privés, Écrire dans les fils, Gérer
+   les rôles, Gérer les salons, **Bannir** (piège), Déplacer, Se connecter — entier `395423640660`).
 2. Vérifier l'intent **Server Members** (§5.3). Activer la **Communauté** du serveur (salon des règles et des mises à
    jour : ceux par défaut, le plan les renomme).
 3. Donner l'**ID du serveur** (mode développeur → clic droit sur le serveur → Copier l'identifiant).
@@ -264,7 +264,7 @@ Avec 3 comptes (sans rôle, whitelisté, staff), en comparant aux maquettes `bie
   « Piège (simulation) » au journal, pas de ban ; un compte staff y écrit → rien ; sans simulation : ban + MP, le
   bannissement apparaît avec le motif `[piège Reborn] fin=…` (le lever à la main pour le test) ;
 - sans rôle : `🍥 | Reborn` et `💬 | Communauté` visibles, rien à écrire, barre « Terminer » ; après « Terminer » :
-  écrit dans `général` et `questions`, pas dans `médias` ;
+  écrit dans `général`, `questions`, `médias` et `clips` (rôle `Membre`) ;
 - whitelisté : écrit et poste une image dans `médias` et `clips` ; ne voit ni Staff ni Archives ;
 - staff : voit `📥・candidatures` avec les fils du bot ; déplace un compte de `⏳・Attente oral` vers `🎙️・Oral 1` (le
   candidat ne peut pas y entrer seul) ;
