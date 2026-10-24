@@ -13,9 +13,11 @@ export function HomeHeader() {
   const user = useAuthStore((s) => s.user);
   const pseudo = user?.displayName ?? user?.minecraftUsername ?? "Joueur";
 
+  // Tolerant : en mode navigateur (invoke no-op) ou sur une reponse
+  // partielle, le store peut ne pas porter d'objet complet.
   const badges = useBadgesStore((s) => s.badges);
-  const coins = badges.coins;
-  const hasUnreadNotif = badges.unreadTickets + badges.unreadPatchnotes > 0;
+  const coins = badges?.coins ?? 0;
+  const hasUnreadNotif = (badges?.unreadTickets ?? 0) + (badges?.unreadPatchnotes ?? 0) > 0;
 
   return (
     <header className="reborn-home-header">

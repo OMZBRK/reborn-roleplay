@@ -1,38 +1,99 @@
-//! Tauri commands fines pour les endpoints "contenu" cote API :
-//! patchnotes, reglement, whitelist, etc. Tous lisent le JWT depuis le
+//! Tauri commands fines pour les endpoints "contenu" côté API :
+//! patchnotes, règlement, whitelist, etc. Tous lisent le JWT depuis le
 //! keyring et passent par api::ApiClient — le frontend ne fait jamais
 //! d'appel HTTP direct (cf PLAN §3.1).
+
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value as Json;
 use tauri::{AppHandle, Runtime, State};
 use tauri_plugin_opener::OpenerExt;
 
-use crate::api::{ApiUser, ShotView};
+use crate::api::{ApiError, ApiUser, ShotView};
 use crate::auth::AuthState;
 use crate::launcher::paths::game_dir;
+use crate::storage::describe_io_error;
 use crate::storage::prefs::{self, Preferences};
-use crate::storage::secrets::SecretKey;
+use crate::storage::secrets::{SecretKey, StorageError};
+use crate::tray::TrayState;
 
-#[derive(Debug, thiserror::Error, Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+/// Erreur des commandes "contenu". Traverse l'IPC sous la forme
+/// `{ kind, message }` (cf `Serialize` plus bas) : `message` est une phrase
+/// française complète, `kind` une catégorie stable pour le front.
+#[derive(Debug, thiserror::Error)]
 pub enum ContentError {
-    #[error("non authentifie")]
+    #[error("Tu n'es pas connecté : connecte-toi avec Microsoft.")]
     NotAuthenticated,
-    #[error("api : {message}")]
-    Api { message: String },
-    #[error("io : {message}")]
+    /// Erreur API Reborn : le message porte déjà la cause (message NestJS +
+    /// code HTTP, ou cause réseau).
+    #[error(transparent)]
+    Api(#[from] ApiError),
+    #[error(transparent)]
+    Storage(#[from] StorageError),
+    /// Erreur disque / système, message complet (chemin + cause OS).
+    #[error("{message}")]
     Io { message: String },
+    /// Paramètre refusé avant tout appel (nom de fichier, encodage…).
+    #[error("{message}")]
+    InvalidInput { message: String },
+}
+
+impl ContentError {
+    /// Kinds émis : `not_authenticated`, `storage`, `io`, `invalid_input`,
+    /// et pour l'API ceux de [`ApiError::kind`] (`session_expired`,
+    /// `forbidden`, `not_found`, `conflict`, `rate_limited`, `server_error`,
+    /// `network`, `unexpected_response`, `api`, `internal`).
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::NotAuthenticated => "not_authenticated",
+            Self::Api(e) => e.kind(),
+            Self::Storage(_) => "storage",
+            Self::Io { .. } => "io",
+            Self::InvalidInput { .. } => "invalid_input",
+        }
+    }
+
+    fn io(action: &str, path: &Path, err: &std::io::Error) -> Self {
+        Self::Io {
+            message: describe_io_error(action, path, err),
+        }
+    }
+
+    fn invalid_file_name(name: &str) -> Self {
+        Self::InvalidInput {
+            message: format!("Nom de fichier invalide : « {name} »."),
+        }
+    }
+}
+
+impl Serialize for ContentError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut s = serializer.serialize_struct("ContentError", 2)?;
+        s.serialize_field("kind", self.kind())?;
+        s.serialize_field("message", &self.to_string())?;
+        s.end()
+    }
 }
 
 async fn jwt(state: &AuthState) -> Result<String, ContentError> {
     state
         .store
-        .get(SecretKey::RebornAccessToken)
-        .map_err(|e| ContentError::Io {
-            message: e.to_string(),
-        })?
+        .get(SecretKey::RebornAccessToken)?
         .ok_or(ContentError::NotAuthenticated)
+}
+
+/// Dossier du jeu, avec un message clair si l'OS ne le fournit pas.
+fn game_dir_or_err() -> Result<PathBuf, ContentError> {
+    game_dir().map_err(|e| ContentError::Io {
+        message: format!("Dossier du jeu introuvable : {e}"),
+    })
+}
+
+/// Refuse tout nom qui tenterait de sortir du dossier des captures.
+fn is_safe_file_name(name: &str) -> bool {
+    !name.is_empty() && !name.contains('/') && !name.contains('\\') && !name.contains("..")
 }
 
 // ──────────────────────────────────────────────────────
@@ -84,9 +145,7 @@ pub async fn patchnotes_list(
         .api
         .get_json(&token, &format!("/patchnotes?page={page}&size={size}"))
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
@@ -99,9 +158,7 @@ pub async fn patchnotes_detail(
         .api
         .get_json(&token, &format!("/patchnotes/{id}"))
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 // ──────────────────────────────────────────────────────
@@ -123,9 +180,7 @@ pub async fn rules_current(state: State<'_, AuthState>) -> Result<RulesDocument,
         .api
         .get_json(&token, "/rules/current")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 // ──────────────────────────────────────────────────────
@@ -147,9 +202,7 @@ pub async fn lore_current(state: State<'_, AuthState>) -> Result<LoreDocument, C
         .api
         .get_json(&token, "/lore/current")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 // ──────────────────────────────────────────────────────
@@ -223,17 +276,10 @@ pub struct SubmitWhitelistRequest {
 #[tauri::command]
 pub async fn whitelist_me(state: State<'_, AuthState>) -> Result<WhitelistStatus, ContentError> {
     let token = jwt(state.inner()).await?;
-    let resp: Json = state
-        .api
-        .get_json(&token, "/whitelist/me")
-        .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })?;
-    // L'API retourne soit l'application, soit { application: null }.
-    Ok(serde_json::from_value(resp).map_err(|e| ContentError::Api {
-        message: format!("parse whitelist : {e}"),
-    })?)
+    // L'API retourne `{ application: … | null }`. Un champ `application`
+    // absent donne `None` (Option) : pas besoin de passer par un Json
+    // intermédiaire, et une réponse inattendue remonte avec sa cause serde.
+    Ok(state.api.get_json(&token, "/whitelist/me").await?)
 }
 
 // ── L5 : créneaux de test oral (pool global) ─────────────────────────
@@ -266,9 +312,7 @@ pub async fn whitelist_oral_slots(
         .api
         .get_json(&token, "/whitelist/me/oral-slots")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 /// Réserve un créneau libre. Renvoie le créneau réservé (JSON brut).
@@ -286,9 +330,7 @@ pub async fn whitelist_book_slot(
             &serde_json::json!({}),
         )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 /// Annule sa propre réservation → le créneau repasse libre.
@@ -302,9 +344,7 @@ pub async fn whitelist_cancel_slot(
         .api
         .delete_no_content(&token, &format!("/whitelist/oral-slots/{id}/book"))
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
@@ -344,9 +384,7 @@ pub async fn whitelist_submit(
             },
         )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
@@ -386,9 +424,7 @@ pub async fn whitelist_resubmit(
             },
         )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
@@ -398,9 +434,7 @@ pub async fn whitelist_withdraw(state: State<'_, AuthState>) -> Result<(), Conte
         .api
         .delete_no_content(&token, "/whitelist/me")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 /// Demande au backend de liberer le staff actuellement assigne sur la
@@ -413,9 +447,7 @@ pub async fn whitelist_reclaim(state: State<'_, AuthState>) -> Result<Json, Cont
         .api
         .post_json::<_, Json>(&token, "/whitelist/me/reclaim", &serde_json::json!({}))
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 // ── Messages whitelist (chat staff↔candidat via thread Discord) ──────
@@ -455,9 +487,7 @@ pub async fn whitelist_messages_list(
         .api
         .get_json(&token, "/whitelist/me/messages")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
@@ -478,9 +508,7 @@ pub async fn whitelist_messages_post(
             },
         )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 // ──────────────────────────────────────────────────────
@@ -555,9 +583,7 @@ pub async fn tickets_list(state: State<'_, AuthState>) -> Result<Vec<TicketSumma
         .api
         .get_json(&token, "/tickets")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
@@ -570,9 +596,7 @@ pub async fn tickets_detail(
         .api
         .get_json(&token, &format!("/tickets/{id}"))
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
@@ -595,9 +619,7 @@ pub async fn tickets_create(
             },
         )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
@@ -619,24 +641,17 @@ pub async fn tickets_post_message(
             },
         )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[tauri::command]
-pub async fn tickets_delete(
-    state: State<'_, AuthState>,
-    id: String,
-) -> Result<(), ContentError> {
+pub async fn tickets_delete(state: State<'_, AuthState>, id: String) -> Result<(), ContentError> {
     let token = jwt(state.inner()).await?;
     state
         .api
         .delete_no_content(&token, &format!("/tickets/{id}"))
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 /// Idem whitelist_reclaim mais pour un ticket precis. L'API verifie
@@ -655,9 +670,7 @@ pub async fn tickets_reclaim(
             &serde_json::json!({}),
         )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 // ──────────────────────────────────────────────────────
@@ -684,13 +697,11 @@ pub async fn discord_link_start<R: Runtime>(
         .api
         .get_json(&token, "/auth/discord/start")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })?;
+        .map_err(ContentError::from)?;
     app.opener()
         .open_url(&resp.url, None::<String>)
         .map_err(|e| ContentError::Io {
-            message: format!("impossible d'ouvrir le navigateur : {e}"),
+            message: format!("Impossible d'ouvrir ton navigateur pour lier Discord : {e}."),
         })?;
     Ok(resp)
 }
@@ -702,13 +713,9 @@ pub async fn discord_unlink(state: State<'_, AuthState>) -> Result<(), ContentEr
         .api
         .delete_no_content(&token, "/auth/discord/unlink")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
-/// Refresh l'objet User cote frontend (utile apres une liaison Discord
-/// completee dans le navigateur). Hit /v1/auth/me + met a jour le cache
 // ──────────────────────────────────────────────────────
 // Server status (ping Minecraft via API)
 // ──────────────────────────────────────────────────────
@@ -739,9 +746,7 @@ pub async fn server_status(state: State<'_, AuthState>) -> Result<ServerStatus, 
         .api
         .get_json_public("/server/status")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 // ──────────────────────────────────────────────────────
@@ -763,16 +768,15 @@ pub async fn upload_attachment(
     let token = jwt(state.inner()).await?;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(data_base64.as_bytes())
-        .map_err(|e| ContentError::Io {
-            message: format!("base64 invalide : {e}"),
+        .map_err(|e| ContentError::InvalidInput {
+            message: format!(
+                "Pièce jointe « {file_name} » illisible (encodage base64 invalide : {e})."
+            ),
         })?;
     let resp = state
         .api
         .upload_file(&token, &file_name, &mime_type, bytes)
-        .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })?;
+        .await?;
     Ok(resp.url)
 }
 
@@ -795,9 +799,7 @@ pub async fn me_badges(state: State<'_, AuthState>) -> Result<Badges, ContentErr
         .api
         .get_json(&token, "/me/badges")
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 #[derive(Debug, Serialize)]
@@ -814,45 +816,52 @@ pub async fn me_mark_read(
     let token = jwt(state.inner()).await?;
     state
         .api
-        .post_json(&token, "/me/badges/read", &MarkReadRequest { scope: &scope })
+        .post_json(
+            &token,
+            "/me/badges/read",
+            &MarkReadRequest { scope: &scope },
+        )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
+/// Refresh l'objet User côté frontend (utile après une liaison Discord
+/// complétée dans le navigateur). Hit /v1/auth/me + met à jour le cache
 /// in-memory du backend.
 #[tauri::command]
 pub async fn auth_me(state: State<'_, AuthState>) -> Result<ApiUser, ContentError> {
     let token = jwt(state.inner()).await?;
-    let user: ApiUser = state
-        .api
-        .get_json(&token, "/auth/me")
-        .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })?;
+    let user: ApiUser = state.api.get_json(&token, "/auth/me").await?;
     state.set_user(Some(user.clone())).await;
     Ok(user)
 }
 
 // ──────────────────────────────────────────────────────
-// Preferences locales
+// Préférences locales
 // ──────────────────────────────────────────────────────
 
 #[tauri::command]
 pub async fn prefs_get() -> Result<Preferences, ContentError> {
     prefs::load().await.map_err(|e| ContentError::Io {
-        message: e.to_string(),
+        message: format!("Impossible de lire tes préférences : {e}"),
     })
 }
 
 #[tauri::command]
-pub async fn prefs_set(value: Preferences) -> Result<Preferences, ContentError> {
-    prefs::save(&value).await.map_err(|e| ContentError::Io {
-        message: e.to_string(),
-    })?;
-    Ok(value)
+pub async fn prefs_set(
+    value: Preferences,
+    tray: State<'_, TrayState>,
+) -> Result<Preferences, ContentError> {
+    // Les champs internes (trayHintShown) restent ceux du disque : le front
+    // ne les gère pas.
+    let saved = prefs::update(|current| *current = value.with_internal_fields_of(current))
+        .await
+        .map_err(|e| ContentError::Io {
+            message: format!("Impossible d'enregistrer tes préférences : {e}"),
+        })?;
+    // « Fermer = cacher » suit le réglage tout de suite, sans relire le disque.
+    tray.apply_prefs(&saved);
+    Ok(saved)
 }
 
 // ──────────────────────────────────────────────────────
@@ -883,23 +892,18 @@ pub struct ScreenshotItem {
     pub favorite: bool,
 }
 
-fn screenshots_dir() -> Result<std::path::PathBuf, ContentError> {
-    Ok(game_dir()
-        .map_err(|e| ContentError::Io {
-            message: e.to_string(),
-        })?
-        .join("screenshots"))
+fn screenshots_dir() -> Result<PathBuf, ContentError> {
+    Ok(game_dir_or_err()?.join("screenshots"))
 }
 
-fn favorites_file() -> Result<std::path::PathBuf, ContentError> {
-    Ok(game_dir()
-        .map_err(|e| ContentError::Io {
-            message: e.to_string(),
-        })?
+fn favorites_file() -> Result<PathBuf, ContentError> {
+    Ok(game_dir_or_err()?
         .join("reborn")
         .join("screenshots-fav.json"))
 }
 
+/// Favoris partagés avec la galerie in-game. Absent ou corrompu = aucun
+/// favori (le fichier est réécrit proprement au prochain basculement).
 fn read_favorites() -> Vec<String> {
     let Ok(path) = favorites_file() else {
         return Vec::new();
@@ -908,6 +912,28 @@ fn read_favorites() -> Vec<String> {
         return Vec::new();
     };
     serde_json::from_str::<Vec<String>>(&raw).unwrap_or_default()
+}
+
+/// Réécrit le fichier de favoris (crée `reborn/` au besoin).
+fn write_favorites(favorites: &[String]) -> Result<(), ContentError> {
+    let path = favorites_file()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| ContentError::io("créer le dossier", parent, &e))?;
+    }
+    let json = serde_json::to_string(favorites).map_err(|e| ContentError::Io {
+        message: format!("Impossible d'encoder la liste des favoris : {e}"),
+    })?;
+    std::fs::write(&path, json).map_err(|e| ContentError::io("écrire", &path, &e))
+}
+
+/// MIME d'une capture d'après son extension (PNG par défaut côté jeu).
+fn image_mime(file_name: &str) -> &'static str {
+    if file_name.to_ascii_lowercase().ends_with(".png") {
+        "image/png"
+    } else {
+        "image/jpeg"
+    }
 }
 
 /// Dimensions d'un PNG via son en-tête IHDR (largeur @16, hauteur @20,
@@ -932,7 +958,8 @@ pub async fn screenshots_list() -> Result<Vec<ScreenshotItem>, ContentError> {
     let entries = match std::fs::read_dir(&dir) {
         Ok(e) => e,
         // Dossier absent = pas encore de capture : liste vide, pas une erreur.
-        Err(_) => return Ok(items),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(items),
+        Err(e) => return Err(ContentError::io("lire le dossier", &dir, &e)),
     };
 
     for entry in entries.flatten() {
@@ -983,7 +1010,7 @@ pub async fn screenshots_list() -> Result<Vec<ScreenshotItem>, ContentError> {
         });
     }
 
-    items.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms));
+    items.sort_by_key(|i| std::cmp::Reverse(i.modified_ms));
     Ok(items)
 }
 
@@ -991,13 +1018,14 @@ pub async fn screenshots_list() -> Result<Vec<ScreenshotItem>, ContentError> {
 #[tauri::command]
 pub async fn screenshots_open_folder<R: Runtime>(app: AppHandle<R>) -> Result<(), ContentError> {
     let dir = screenshots_dir()?;
-    std::fs::create_dir_all(&dir).map_err(|e| ContentError::Io {
-        message: e.to_string(),
-    })?;
+    std::fs::create_dir_all(&dir).map_err(|e| ContentError::io("créer le dossier", &dir, &e))?;
     app.opener()
         .open_path(dir.to_string_lossy().to_string(), None::<String>)
         .map_err(|e| ContentError::Io {
-            message: format!("impossible d'ouvrir le dossier : {e}"),
+            message: format!(
+                "Impossible d'ouvrir « {} » dans l'explorateur : {e}.",
+                dir.display()
+            ),
         })
 }
 
@@ -1011,42 +1039,30 @@ pub async fn screenshots_toggle_favorite(file_name: String) -> Result<Vec<String
     } else {
         favorites.push(file_name);
     }
-    let path = favorites_file()?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| ContentError::Io {
-            message: e.to_string(),
-        })?;
-    }
-    let json = serde_json::to_string(&favorites).map_err(|e| ContentError::Io {
-        message: e.to_string(),
-    })?;
-    std::fs::write(&path, json).map_err(|e| ContentError::Io {
-        message: e.to_string(),
-    })?;
+    write_favorites(&favorites)?;
     Ok(favorites)
 }
 
 /// Supprime une capture du disque (+ la retire des favoris si besoin).
+/// Idempotent : une capture déjà absente n'est pas une erreur.
 #[tauri::command]
 pub async fn screenshots_delete(file_name: String) -> Result<(), ContentError> {
-    // Garde-fou : refuse tout nom qui tenterait de sortir du dossier.
-    if file_name.contains('/') || file_name.contains('\\') || file_name.contains("..") {
-        return Err(ContentError::Io {
-            message: "nom de fichier invalide".into(),
-        });
+    if !is_safe_file_name(&file_name) {
+        return Err(ContentError::invalid_file_name(&file_name));
     }
     let path = screenshots_dir()?.join(&file_name);
-    std::fs::remove_file(&path).map_err(|e| ContentError::Io {
-        message: e.to_string(),
-    })?;
-    // Nettoie l'entrée favori éventuelle (best-effort).
+    match std::fs::remove_file(&path) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(ContentError::io("supprimer", &path, &e)),
+    }
+    // Nettoie l'entrée favori éventuelle (best-effort : la capture est déjà
+    // supprimée, un échec ici ne doit pas faire croire le contraire).
     let mut favorites = read_favorites();
     if let Some(pos) = favorites.iter().position(|f| f == &file_name) {
         favorites.remove(pos);
-        if let Ok(fav_path) = favorites_file() {
-            if let Ok(json) = serde_json::to_string(&favorites) {
-                let _ = std::fs::write(&fav_path, json);
-            }
+        if let Err(e) = write_favorites(&favorites) {
+            tracing::warn!("favoris non mis à jour après suppression : {e}");
         }
     }
     Ok(())
@@ -1060,28 +1076,16 @@ pub async fn screenshots_share(
     file_name: String,
     caption: Option<String>,
 ) -> Result<ShotView, ContentError> {
-    if file_name.contains('/') || file_name.contains('\\') || file_name.contains("..") {
-        return Err(ContentError::Io {
-            message: "nom de fichier invalide".into(),
-        });
+    if !is_safe_file_name(&file_name) {
+        return Err(ContentError::invalid_file_name(&file_name));
     }
     let token = jwt(state.inner()).await?;
     let path = screenshots_dir()?.join(&file_name);
-    let bytes = std::fs::read(&path).map_err(|e| ContentError::Io {
-        message: e.to_string(),
-    })?;
-    let mime = if file_name.to_ascii_lowercase().ends_with(".png") {
-        "image/png"
-    } else {
-        "image/jpeg"
-    };
-    state
+    let bytes = std::fs::read(&path).map_err(|e| ContentError::io("lire", &path, &e))?;
+    Ok(state
         .api
-        .upload_shot(&token, &file_name, mime, bytes, caption)
-        .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .upload_shot(&token, &file_name, image_mime(&file_name), bytes, caption)
+        .await?)
 }
 
 /// Une demande de partage en attente, écrite par le mod-hud in-game dans
@@ -1100,11 +1104,8 @@ pub struct PendingSharesResult {
     pub failed: u32,
 }
 
-fn pending_shares_file() -> Result<std::path::PathBuf, ContentError> {
-    Ok(game_dir()
-        .map_err(|e| ContentError::Io {
-            message: e.to_string(),
-        })?
+fn pending_shares_file() -> Result<PathBuf, ContentError> {
+    Ok(game_dir_or_err()?
         .join("reborn")
         .join("pending-shares.json"))
 }
@@ -1120,11 +1121,19 @@ pub async fn screenshots_process_pending_shares(
     let path = pending_shares_file()?;
     let raw = match std::fs::read_to_string(&path) {
         Ok(r) => r,
-        Err(_) => return Ok(PendingSharesResult { shared: 0, failed: 0 }),
+        Err(_) => {
+            return Ok(PendingSharesResult {
+                shared: 0,
+                failed: 0,
+            })
+        }
     };
     let queue: Vec<PendingShare> = serde_json::from_str(&raw).unwrap_or_default();
     if queue.is_empty() {
-        return Ok(PendingSharesResult { shared: 0, failed: 0 });
+        return Ok(PendingSharesResult {
+            shared: 0,
+            failed: 0,
+        });
     }
 
     let token = jwt(state.inner()).await?;
@@ -1134,7 +1143,7 @@ pub async fn screenshots_process_pending_shares(
 
     for item in queue {
         // Garde-fou path traversal.
-        if item.file.contains('/') || item.file.contains('\\') || item.file.contains("..") {
+        if !is_safe_file_name(&item.file) {
             continue;
         }
         let file_path = dir.join(&item.file);
@@ -1143,35 +1152,35 @@ pub async fn screenshots_process_pending_shares(
             // Fichier disparu : on abandonne l'entrée (pas de retry infini).
             Err(_) => continue,
         };
-        let mime = if item.file.to_ascii_lowercase().ends_with(".png") {
-            "image/png"
-        } else {
-            "image/jpeg"
-        };
-        let caption = if item.caption.trim().is_empty() {
-            None
-        } else {
-            Some(item.caption.clone())
-        };
+        let caption = Some(item.caption.clone()).filter(|c| !c.trim().is_empty());
         match state
             .api
-            .upload_shot(&token, &item.file, mime, bytes, caption)
+            .upload_shot(&token, &item.file, image_mime(&item.file), bytes, caption)
             .await
         {
             Ok(_) => shared += 1,
             // Échec réseau/API : on garde l'entrée pour un prochain passage.
-            Err(_) => remaining.push(serde_json::json!({
-                "file": item.file,
-                "caption": item.caption,
-            })),
+            Err(e) => {
+                tracing::warn!("partage en attente « {} » non envoyé : {e}", item.file);
+                remaining.push(serde_json::json!({
+                    "file": item.file,
+                    "caption": item.caption,
+                }));
+            }
         }
     }
 
-    // Réécrit (ou supprime) la file selon ce qui reste.
-    if remaining.is_empty() {
-        let _ = std::fs::remove_file(&path);
-    } else if let Ok(json) = serde_json::to_string(&remaining) {
-        let _ = std::fs::write(&path, json);
+    // Réécrit (ou supprime) la file selon ce qui reste. Best-effort : un
+    // échec ici renverrait juste les mêmes partages au prochain passage.
+    let rewrite = if remaining.is_empty() {
+        std::fs::remove_file(&path)
+    } else {
+        serde_json::to_string(&remaining)
+            .map_err(std::io::Error::other)
+            .and_then(|json| std::fs::write(&path, json))
+    };
+    if let Err(e) = rewrite {
+        tracing::warn!("{}", describe_io_error("mettre à jour", &path, &e));
     }
 
     Ok(PendingSharesResult {
@@ -1187,17 +1196,20 @@ pub async fn shots_feed(
     cursor: Option<String>,
 ) -> Result<Json, ContentError> {
     let token = jwt(state.inner()).await?;
+    // Le curseur vient de l'API mais on l'encode quand même : un `&` ou un
+    // `#` casserait la query string.
     let path = match cursor {
-        Some(c) => format!("/shots/feed?cursor={c}"),
+        Some(c) => format!(
+            "/shots/feed?cursor={}",
+            url::form_urlencoded::byte_serialize(c.as_bytes()).collect::<String>()
+        ),
         None => "/shots/feed".to_string(),
     };
     state
         .api
         .get_json(&token, &path)
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 /// Toggle like sur un screenshot du feed.
@@ -1211,11 +1223,13 @@ pub async fn shots_toggle_like(
     // qui rejette les primitives JSON (null) → 400. L'endpoint ignore le body.
     state
         .api
-        .post_json(&token, &format!("/shots/{shot_id}/like"), &serde_json::json!({}))
+        .post_json(
+            &token,
+            &format!("/shots/{shot_id}/like"),
+            &serde_json::json!({}),
+        )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
 }
 
 // ──────────────────────────────────────────────────────
@@ -1251,7 +1265,48 @@ pub async fn update_display_name(
             },
         )
         .await
-        .map_err(|e| ContentError::Api {
-            message: e.to_string(),
-        })
+        .map_err(ContentError::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialise_kind_et_message_pour_chaque_variante() {
+        let json = serde_json::to_value(ContentError::NotAuthenticated).unwrap();
+        assert_eq!(json["kind"], "not_authenticated");
+        assert_eq!(
+            json["message"],
+            "Tu n'es pas connecté : connecte-toi avec Microsoft."
+        );
+
+        let api = ContentError::from(ApiError::Status {
+            status: 403,
+            body: r#"{"statusCode":403,"message":"Candidature non acceptée","error":"Forbidden"}"#
+                .into(),
+        });
+        let json = serde_json::to_value(&api).unwrap();
+        assert_eq!(json["kind"], "forbidden");
+        assert_eq!(
+            json["message"],
+            "Accès refusé : Candidature non acceptée (HTTP 403)."
+        );
+
+        let json = serde_json::to_value(ContentError::invalid_file_name("../x.png")).unwrap();
+        assert_eq!(json["kind"], "invalid_input");
+        assert_eq!(json["message"], "Nom de fichier invalide : « ../x.png ».");
+
+        // Exactement deux champs : le front ne doit pas dépendre d'autre chose.
+        assert_eq!(json.as_object().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn noms_de_fichier_dangereux_refuses() {
+        assert!(is_safe_file_name("2026-07-01_23.42.15.png"));
+        assert!(!is_safe_file_name(""));
+        assert!(!is_safe_file_name("../secret.png"));
+        assert!(!is_safe_file_name("a/b.png"));
+        assert!(!is_safe_file_name("a\\b.png"));
+    }
 }

@@ -12,7 +12,7 @@ use notify::{
     EventKind, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use tauri::{AppHandle, Emitter, Runtime};
@@ -24,14 +24,17 @@ pub struct TamperingEvent {
     pub paths: Vec<String>,
 }
 
+/// Les noms sérialisés (`file_added`, `file_modified`, `file_removed`) sont
+/// un contrat avec le front (`lib/launcher.ts`) : le préfixe commun est voulu.
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TamperingKind {
-    /// Nouveau fichier detecte dans le repertoire surveille.
+    /// Nouveau fichier détecté dans le répertoire surveillé.
     FileAdded,
-    /// Fichier existant modifie (donnees, pas juste mtime).
+    /// Fichier existant modifié (données, pas juste mtime).
     FileModified,
-    /// Fichier supprime.
+    /// Fichier supprimé.
     FileRemoved,
 }
 
@@ -63,7 +66,7 @@ pub fn spawn_watcher<R: Runtime>(
     for path in &paths {
         if path.exists() {
             watcher.watch(path, RecursiveMode::Recursive)?;
-            tracing::info!("FS watcher armed on {}", path.display());
+            tracing::info!("FS watcher armé sur {}", path.display());
         }
     }
 
@@ -94,7 +97,7 @@ pub fn spawn_watcher<R: Runtime>(
                     .collect(),
             };
             tracing::warn!(
-                "tampering detecte ({:?}) sur {} fichier(s)",
+                "tampering détecté ({:?}) sur {} fichier(s)",
                 payload.kind,
                 payload.paths.len()
             );
@@ -120,9 +123,4 @@ fn classify(kind: &EventKind) -> Option<TamperingKind> {
         // ModifyKind::Metadata, Access(*) → on ignore
         _ => None,
     }
-}
-
-#[allow(dead_code)]
-fn paths_under(root: &Path) -> bool {
-    root.is_dir()
 }

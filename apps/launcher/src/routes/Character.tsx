@@ -32,7 +32,7 @@ export function Character() {
         {/* État vide honnête : aucune donnée liée pour l'instant. */}
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border/60 bg-surface/40 px-8 py-10 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border-strong bg-surface-elevated">
-            <UserRound className="h-6 w-6 text-foreground-muted" />
+            <UserRound className="h-6 w-6 text-foreground-muted" aria-hidden />
           </div>
           <div>
             <h2 className="font-display text-[18px] tracking-wide text-foreground">
@@ -49,10 +49,10 @@ export function Character() {
         {/* Aperçu de la fiche cible (ghostée) pour montrer la forme du roster. */}
         <div className="mt-8">
           <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-foreground-muted">
-            <Sparkles size={13} />
+            <Sparkles size={13} aria-hidden />
             Aperçu d'une fiche à venir
           </div>
-          <div className="grid grid-cols-1 gap-4 opacity-45 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-4 opacity-45" aria-hidden>
             <GhostCharacterCard
               name="Personnage"
               village="Village"

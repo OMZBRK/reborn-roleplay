@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckSquare, ExternalLink } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -18,6 +18,15 @@ export function PrerequisitesModal({ onCancel, onStart }: Props) {
   const [c4, setC4] = useState(false);
   const allChecked = c1 && c2 && c3 && c4;
 
+  // Échap ferme la modale (comme « Annuler »).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
   return (
     <motion.div
       className="wl-modal-backdrop"
@@ -27,6 +36,9 @@ export function PrerequisitesModal({ onCancel, onStart }: Props) {
     >
       <motion.div
         className="wl-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wl-prereq-title"
         initial={{ scale: 0.92, opacity: 0, y: 12 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
@@ -36,7 +48,9 @@ export function PrerequisitesModal({ onCancel, onStart }: Props) {
             <CheckSquare size={20} />
           </div>
           <div>
-            <h2 className="wl-modal-title">Avant de commencer</h2>
+            <h2 className="wl-modal-title" id="wl-prereq-title">
+              Avant de commencer
+            </h2>
             <p className="wl-modal-subtitle">
               Confirme avoir pris connaissance des éléments suivants avant de
               démarrer ta candidature.

@@ -1,42 +1,52 @@
+import type { ButtonHTMLAttributes } from "react";
 import { Minus, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "../../lib/tauri";
 
-// Window controls compacts, rapproches, top-right (style Reborn). Pas de
-// "maximize" : la fenetre est resizable:false (cf tauri.conf.json), une
-// bascule plein-ecran/restore n'a pas de sens.
+// Contrôles fenêtre top-right (style Reborn). Pas de "maximize" : la
+// fenêtre est resizable:false (cf tauri.conf.json), une bascule
+// plein-écran/restore n'a pas de sens.
 //
-// Empile au-dessus du drag-region via z-index + position absolute. Les
+// Empilés au-dessus du drag-region via z-index + position absolute. Les
 // boutons portent .no-drag pour rester cliquables, le reste de la bande
-// haute (.drag-region rendue par AuthenticatedLayout) intercepte le drag
-// de la fenetre.
+// haute (.drag-region rendue par App.tsx) intercepte le drag de la fenêtre.
 //
-// Dimensions deliberement petites (24x20 boutons, icones 10px) pour le
-// look "app desktop" condense vs le chrome browser standard (46x32).
+// 32×28 par bouton (icônes 12px) : cible confortable à la souris et au
+// clavier, tout en restant dans la bande de 32px. Les pages gardent leur
+// contenu hors de cette zone (top 4 → 32px, 72px depuis la droite).
+//
+// Fermer : win.close() passe par CloseRequested côté Rust (src-tauri/src/
+// tray.rs), comme Alt+F4. Préférence closeToTray active (défaut) : la
+// fenêtre est cachée dans la zone de notification ; sinon le launcher quitte.
 export function WindowControls() {
-  async function handleMinimize() {
+  async function run(action: "minimize" | "close") {
     if (!isTauri) return;
-    await getCurrentWindow().minimize();
-  }
-
-  async function handleClose() {
-    if (!isTauri) return;
-    await getCurrentWindow().close();
+    try {
+      const win = getCurrentWindow();
+      await (action === "minimize" ? win.minimize() : win.close());
+    } catch (e) {
+      console.warn(`[fenêtre] ${action === "minimize" ? "réduction" : "fermeture"} impossible :`, e);
+    }
   }
 
   return (
-    <div className="no-drag absolute right-2 top-2 z-50 flex items-center gap-0.5">
-      <WindowButton onClick={handleMinimize} aria-label="Reduire">
-        <Minus className="h-2.5 w-2.5" strokeWidth={2.5} />
+    <div className="no-drag absolute right-1.5 top-1 z-50 flex items-center gap-0.5">
+      <WindowButton onClick={() => void run("minimize")} aria-label="Réduire" title="Réduire">
+        <Minus className="h-3 w-3" strokeWidth={2.5} aria-hidden />
       </WindowButton>
-      <WindowButton onClick={handleClose} aria-label="Fermer" variant="danger">
-        <X className="h-2.5 w-2.5" strokeWidth={2.5} />
+      <WindowButton
+        onClick={() => void run("close")}
+        aria-label="Fermer le launcher"
+        title="Fermer"
+        variant="danger"
+      >
+        <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />
       </WindowButton>
     </div>
   );
 }
 
-type WindowButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+type WindowButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "danger";
 };
 
@@ -45,10 +55,10 @@ function WindowButton({ children, variant, ...rest }: WindowButtonProps) {
     <button
       type="button"
       className={[
-        "flex h-5 w-6 items-center justify-center rounded-[3px] text-[var(--color-foreground-muted)] transition-colors",
+        "flex h-7 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-foreground-muted)] transition-colors focus-visible:outline-offset-[-2px]",
         variant === "danger"
-          ? "hover:bg-[var(--color-danger)] hover:text-white"
-          : "hover:bg-white/8 hover:text-[var(--color-foreground)]",
+          ? "hover:bg-[var(--color-danger)] hover:text-white focus-visible:bg-[var(--color-danger)] focus-visible:text-white"
+          : "hover:bg-white/8 hover:text-[var(--color-foreground)] focus-visible:bg-white/8 focus-visible:text-[var(--color-foreground)]",
       ].join(" ")}
       {...rest}
     >

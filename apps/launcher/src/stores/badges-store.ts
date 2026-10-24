@@ -20,7 +20,9 @@ export const useBadgesStore = create<BadgesState>((set) => ({
   refresh: async () => {
     try {
       const b = await fetchBadges();
-      set({ badges: b });
+      // Hors Tauri (vite navigateur), invoke renvoie undefined : on garde
+      // la dernière valeur au lieu de casser la sidebar et le header.
+      if (b && typeof b === "object") set({ badges: b });
     } catch {
       // Hors-ligne / non authentifié : on conserve la valeur courante.
     }
@@ -28,7 +30,7 @@ export const useBadgesStore = create<BadgesState>((set) => ({
   markRead: async (scope) => {
     try {
       const b = await apiMarkRead(scope);
-      set({ badges: b });
+      if (b && typeof b === "object") set({ badges: b });
     } catch {
       // Best-effort : si le marquage échoue, le prochain refresh corrigera.
     }

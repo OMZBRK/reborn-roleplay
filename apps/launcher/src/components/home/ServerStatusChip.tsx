@@ -1,46 +1,37 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Wifi, WifiOff } from "lucide-react";
 import { fetchServerStatus, type ServerStatus } from "../../lib/content";
+import { formatIpcError } from "../../lib/errors";
+import { usePolling } from "../../hooks/use-polling";
 
-// Chip de statut serveur LIVE dans le hero. Remplace l'ancien chip statique
-// "VPS connecté". Poll l'endpoint public /v1/server/status (SLP côté API)
-// toutes les 20s + une fois au montage. Affiche le nombre de joueurs en
-// ligne quand le serveur répond, "Serveur hors-ligne" sinon. Toute erreur
-// IPC/réseau est traitée comme un état inconnu (offline) — jamais de throw
-// visible à l'utilisateur.
+// Chip de statut serveur LIVE dans le hero. Sonde l'endpoint public
+// /v1/server/status (SLP cote API) toutes les 20 s + une fois au montage,
+// en pause pendant une partie (le launcher est reduit). Affiche le nombre
+// de joueurs en ligne quand le serveur repond, « Serveur hors-ligne »
+// sinon ; la vraie cause d'un echec est dans l'infobulle.
 const POLL_MS = 20_000;
 
 export function ServerStatusChip() {
   const [status, setStatus] = useState<ServerStatus | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function poll() {
-      try {
-        const s = await fetchServerStatus();
-        if (cancelled) return;
-        setStatus(s);
-        setFailed(false);
-      } catch {
-        if (cancelled) return;
-        setFailed(true);
-      }
+  usePolling(async (signal) => {
+    try {
+      const s = await fetchServerStatus();
+      if (signal.aborted) return;
+      setStatus(s ?? null);
+      setFailure(s ? null : "Statut du serveur indisponible hors du launcher.");
+    } catch (err) {
+      if (signal.aborted) return;
+      setFailure(formatIpcError(err, "Statut du serveur indisponible"));
     }
+  }, POLL_MS);
 
-    void poll();
-    const id = setInterval(poll, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
+  const failed = failure !== null;
   const online = !!status?.online && !failed;
   const pending = !status && !failed;
   const label = (() => {
-    // Premier poll en cours : ne pas afficher « hors-ligne » a tort.
+    // Premier sondage en cours : ne pas afficher « hors-ligne » a tort.
     if (pending) return "Connexion…";
     if (failed || !status || !status.online) return "Serveur hors-ligne";
     const { online: on, max } = status.players;
@@ -48,17 +39,19 @@ export function ServerStatusChip() {
     return max > 0 ? `${on}/${max} en ligne` : `${on} ${who} en ligne`;
   })();
 
+  const title = failed
+    ? failure
+    : [
+        status?.version && `Serveur ${status.version}`,
+        status?.latencyMs != null && `Latence ${status.latencyMs} ms`,
+      ]
+        .filter(Boolean)
+        .join(" · ") || undefined;
+
   return (
     <span
       className="reborn-home-hero-chip"
-      title={
-        [
-          status?.version && `Serveur ${status.version}`,
-          status?.latencyMs != null && `Latence ${status.latencyMs} ms`,
-        ]
-          .filter(Boolean)
-          .join(" · ") || undefined
-      }
+      title={title ?? undefined}
       style={online || pending ? undefined : { opacity: 0.7 }}
     >
       {online ? (

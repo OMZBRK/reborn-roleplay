@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Boxes,
+  Check,
   Cpu,
   Film,
   Eye,
@@ -18,21 +19,31 @@ import {
   ShieldOff,
   Smile,
   Sparkles,
+  X,
   ZoomIn,
 } from "lucide-react";
 import {
   listMods,
   listOptionalMods,
-  onModsPurged,
   purgeIncompatibleMods,
   setModPref,
   type ModEntry,
-  type ModsPurgedEvent,
   type OptionalMod,
 } from "../lib/launcher";
+import { formatIpcError } from "../lib/errors";
+import { useTauriEvent } from "../hooks/use-tauri-event";
 import { ModCard } from "../components/mods/ModCard";
 import { ModsTabs, type ModsTab } from "../components/mods/ModsTabs";
 import { useAuthStore } from "../stores/auth-store";
+import { useGameRunning } from "../stores/game-store";
+
+const FOCUS_RING =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]";
+
+function formatMb(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Mo`;
+}
 
 // Grades « staff » — aligné avec is_staff_role() côté Rust (launcher/game.rs)
 // et STAFF_ROLES de BuilderButton. Sert à masquer les mods optionnels
@@ -64,58 +75,70 @@ function isStaffOnlyOptional(filename: string): boolean {
 // aussi l'etat reel des mods installes + peut purger les incompatibles.
 //
 // Lifecycle :
-//   - mount → listMods()
-//   - event mods:purged (emis par le Rust quand purge_incompatible_mods
-//     tourne au launch ou manuellement) → re-fetch
-//   - clic bouton "Purger incompatibles" → purgeIncompatibleMods() puis
-//     re-fetch
+//   - mount → listMods() + listOptionalMods()
+//   - event mods:purged (purge des incompatibles au lancement, ou des
+//     orphelins par la verification des fichiers) → re-fetch
+//   - clic « Purger les mods incompatibles » → purgeIncompatibleMods() puis
+//     re-fetch ; refuse par le backend pendant une partie (bouton grise).
 export function Mods() {
   const [tab, setTab] = useState<ModsTab>("mods");
   const [query, setQuery] = useState("");
   const [mods, setMods] = useState<ModEntry[]>([]);
   const [optionals, setOptionals] = useState<OptionalMod[]>([]);
   const [loading, setLoading] = useState(true);
+  // Erreur de lecture du dossier mods/ (bloque la liste) et erreur d'une
+  // action (purge, bascule d'un optionnel) affichees separement : le
+  // « Reessayer » de la premiere relit bien le dossier.
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [purging, setPurging] = useState(false);
   const [togglingFile, setTogglingFile] = useState<string | null>(null);
-  const [optionalsError, setOptionalsError] = useState(false);
+  const [optionalsError, setOptionalsError] = useState<string | null>(null);
   const user = useAuthStore((s) => s.user);
   const isStaff = !!user && STAFF_ROLES.includes(user.role);
+  const gameRunning = useGameRunning();
 
+  const refreshSeq = useRef(0);
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeq.current;
     setLoading(true);
     setError(null);
     try {
-      // listOptionalMods peut planter si non-authentifie (fetch_manifest
-      // exige le JWT). On le tolere : on garde la liste optionnels vide
-      // au lieu d'effacer toute la page.
+      // listOptionalMods peut echouer (session, reseau : il lit le manifest
+      // du serveur). On le tolere : la liste des mods installes reste
+      // affichee, la section optionnels montre la vraie cause.
+      let optError: unknown = null;
       const [list, opt] = await Promise.all([
         listMods(),
-        listOptionalMods().catch((e) => {
-          console.warn("[mods] listOptionalMods failed:", e);
+        listOptionalMods().catch((e: unknown) => {
+          optError = e ?? "erreur inconnue";
           return null;
         }),
       ]);
-      setMods(list);
+      if (seq !== refreshSeq.current) return;
+      setMods(Array.isArray(list) ? list : []);
       // Echec transitoire (API lente, token en cours de refresh) : on garde
       // la derniere liste connue au lieu de faire disparaitre la section.
       if (opt) {
         setOptionals(opt);
-        setOptionalsError(false);
-      } else {
-        setOptionalsError(true);
+        setOptionalsError(null);
+      } else if (optError) {
+        setOptionalsError(
+          formatIpcError(optError, "Impossible de récupérer les mods optionnels depuis le serveur"),
+        );
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Impossible de lire le dossier des mods.",
-      );
+      if (seq !== refreshSeq.current) return;
+      setError(formatIpcError(err, "Impossible de lire le dossier des mods"));
     } finally {
-      setLoading(false);
+      if (seq === refreshSeq.current) setLoading(false);
     }
   }, []);
 
   async function handleToggleOptional(filename: string, nextEnabled: boolean) {
     setTogglingFile(filename);
+    setActionError(null);
     // Optimistic update : flip immediatement la valeur, refetch en fond.
     setOptionals((prev) =>
       prev.map((m) => (m.filename === filename ? { ...m, enabled: nextEnabled } : m)),
@@ -129,10 +152,9 @@ export function Mods() {
       setOptionals((prev) =>
         prev.map((m) => (m.filename === filename ? { ...m, enabled: !nextEnabled } : m)),
       );
-      setError(
-        err instanceof Error
-          ? `Impossible de basculer ${filename} : ${err.message}`
-          : `Impossible de basculer ${filename}.`,
+      const label = lookupModMeta(filename).label;
+      setActionError(
+        formatIpcError(err, `Impossible ${nextEnabled ? "d'activer" : "de désactiver"} ${label}`),
       );
     } finally {
       setTogglingFile(null);
@@ -141,31 +163,31 @@ export function Mods() {
 
   useEffect(() => {
     void refresh();
-
-    let unlisten: (() => void) | null = null;
-    onModsPurged((event: ModsPurgedEvent) => {
-      // Le Rust a purge des mods (au launch typiquement) → on rafraichit
-      // la liste. Pas de toast ici, le DiagnosticToast s'en charge en
-      // amont avec un message MOD_MC_VERSION_MISMATCH.
-      void event;
-      void refresh();
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => {
-      if (unlisten) unlisten();
-    };
   }, [refresh]);
+
+  // Le Rust a purge des mods (au lancement ou a la verification) → on
+  // rafraichit la liste. Le toast global (DiagnosticToast) previent deja.
+  useTauriEvent("mods:purged", () => void refresh());
 
   async function handlePurge() {
     setPurging(true);
+    setActionError(null);
+    setNotice(null);
     try {
-      await purgeIncompatibleMods();
+      const removed = await purgeIncompatibleMods();
+      // Le backend renvoie des noms de fichiers ; on tolere d'anciens chemins.
+      const names = (Array.isArray(removed) ? removed : []).map(
+        (p) => p.split(/[\\/]/).pop() ?? p,
+      );
+      const s = names.length > 1 ? "s" : "";
+      setNotice(
+        names.length === 0
+          ? "Aucun mod incompatible à supprimer."
+          : `${names.length} mod${s} supprimé${s} : ${names.join(", ")}.`,
+      );
       await refresh();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Échec de la purge des mods incompatibles.",
-      );
+      setActionError(formatIpcError(err, "Échec de la purge des mods incompatibles"));
     } finally {
       setPurging(false);
     }
@@ -188,7 +210,6 @@ export function Mods() {
 
   const incompatibleCount = mods.filter((m) => m.incompatibleWithTarget).length;
   const totalSizeBytes = mods.reduce((acc, m) => acc + m.sizeBytes, 0);
-  const totalSizeMb = (totalSizeBytes / (1024 * 1024)).toFixed(1);
 
   return (
     <div className="reborn-mods-page reborn-radial-bg-strong reborn-pattern-overlay">
@@ -239,29 +260,68 @@ export function Mods() {
                   className="reborn-mods-main-inner"
                 >
                   {error && (
-                    <div className="reborn-mods-error">
+                    <div className="reborn-mods-error" role="alert">
                       <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                      <span>{error}</span>
+                      <span className="min-w-0 flex-1 leading-relaxed">{error}</span>
                       <button
                         type="button"
                         onClick={() => void refresh()}
-                        className="reborn-mods-reset-btn"
+                        disabled={loading}
+                        className={`reborn-mods-reset-btn flex-shrink-0 ${FOCUS_RING}`}
                       >
-                        <RefreshCw className="h-3 w-3" />
+                        <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
                         Réessayer
                       </button>
                     </div>
                   )}
-                  {loading && mods.length === 0 ? (
+                  {actionError && (
+                    <div className={`reborn-mods-error ${error ? "mt-2" : ""}`} role="alert">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                      <span className="min-w-0 flex-1 leading-relaxed">{actionError}</span>
+                      <button
+                        type="button"
+                        onClick={() => setActionError(null)}
+                        aria-label="Masquer l'erreur"
+                        className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded opacity-70 hover:opacity-100 ${FOCUS_RING}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  {notice && (
+                    <div
+                      role="status"
+                      className={`flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-success)]/40 bg-[var(--color-success-soft)]/50 px-3 py-2.5 text-xs text-[var(--color-foreground)] ${error || actionError ? "mt-2" : ""}`}
+                    >
+                      <Check className="h-4 w-4 flex-shrink-0 text-[var(--color-success)]" />
+                      <span className="min-w-0 flex-1 break-words leading-relaxed">{notice}</span>
+                      <button
+                        type="button"
+                        onClick={() => setNotice(null)}
+                        aria-label="Masquer"
+                        className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-[var(--color-foreground-muted)] hover:text-[var(--color-foreground)] ${FOCUS_RING}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  {loading && mods.length === 0 && !error ? (
                     <div className="reborn-mods-loading">
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       <span>Chargement des mods installés…</span>
                     </div>
                   ) : filteredMods.length === 0 && mods.length === 0 ? (
-                    <ModsEmpty />
+                    error ? null : <ModsEmpty />
                   ) : filteredMods.length === 0 ? (
                     <div className="reborn-mods-empty-filter">
-                      Aucun mod ne correspond à la recherche.
+                      Aucun mod ne correspond à « {query} ».{" "}
+                      <button
+                        type="button"
+                        onClick={() => setQuery("")}
+                        className={`underline underline-offset-2 hover:text-[var(--color-foreground)] ${FOCUS_RING}`}
+                      >
+                        Effacer la recherche
+                      </button>
                     </div>
                   ) : (
                     <div className="reborn-mods-grid">
@@ -272,17 +332,16 @@ export function Mods() {
                   )}
 
                   {optionalsError && visibleOptionals.length === 0 && (
-                    <div className="reborn-mods-error mt-6">
+                    <div className="reborn-mods-error mt-6" role="alert">
                       <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                      <span>
-                        Impossible de récupérer les mods optionnels depuis le serveur.
-                      </span>
+                      <span className="min-w-0 flex-1 leading-relaxed">{optionalsError}</span>
                       <button
                         type="button"
                         onClick={() => void refresh()}
-                        className="reborn-mods-reset-btn"
+                        disabled={loading}
+                        className={`reborn-mods-reset-btn flex-shrink-0 ${FOCUS_RING}`}
                       >
-                        <RefreshCw className="h-3 w-3" />
+                        <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
                         Réessayer
                       </button>
                     </div>
@@ -385,18 +444,20 @@ export function Mods() {
               </span>
             )}
             <span className="reborn-mods-stat reborn-mods-stat--muted">
-              {totalSizeMb} MB
+              {formatMb(totalSizeBytes)}
             </span>
           </div>
           <button
             type="button"
             onClick={() => void handlePurge()}
-            disabled={purging || incompatibleCount === 0}
-            className="reborn-mods-reset-btn"
+            disabled={purging || incompatibleCount === 0 || gameRunning}
+            className={`reborn-mods-reset-btn ${FOCUS_RING}`}
             title={
-              incompatibleCount === 0
-                ? "Aucun mod incompatible à purger"
-                : "Supprime du dossier mods/ les .jar incompatibles avec la version MC ciblée"
+              gameRunning
+                ? "Ferme le jeu avant de purger les mods (Minecraft utilise ces fichiers)"
+                : incompatibleCount === 0
+                  ? "Aucun mod incompatible à purger"
+                  : "Supprime du dossier mods/ les .jar incompatibles avec la version de Minecraft ciblée"
             }
           >
             {purging ? (
@@ -533,7 +594,6 @@ function OptionalModCard({
 }) {
   const meta = lookupModMeta(mod.filename);
   const Icon = meta.icon;
-  const sizeMb = (mod.sizeBytes / (1024 * 1024)).toFixed(1);
 
   return (
     <div
@@ -575,12 +635,12 @@ function OptionalModCard({
             </span>
           </div>
           <div className="mt-0.5 truncate text-[10.5px] text-[var(--color-foreground-muted)]">
-            {sizeMb} MB
+            {formatMb(mod.sizeBytes)}
             {mod.installed && mod.enabled && (
               <span className="ml-2 text-[var(--color-success)]">● Installé</span>
             )}
             {!mod.installed && mod.enabled && (
-              <span className="ml-2 text-[var(--color-accent)]">● Au prochain launch</span>
+              <span className="ml-2 text-[var(--color-accent)]">● Au prochain lancement</span>
             )}
             {mod.installed && !mod.enabled && (
               <span className="ml-2 text-[var(--color-warning)]">● Sera retiré</span>
@@ -594,11 +654,12 @@ function OptionalModCard({
             type="button"
             role="switch"
             aria-checked={mod.enabled}
-            aria-label={`Activer ${meta.label}`}
+            aria-label={meta.label}
+            title={mod.enabled ? `Désactiver ${meta.label}` : `Activer ${meta.label}`}
             disabled={disabled}
             onClick={() => onToggle(!mod.enabled)}
             className={[
-              "relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors",
+              `relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors ${FOCUS_RING}`,
               mod.enabled
                 ? "bg-[var(--color-accent)]"
                 : "bg-[var(--color-surface-elevated)] hover:bg-[var(--color-border-strong)]",
@@ -628,9 +689,9 @@ function ModsEmpty() {
       </div>
       <div className="reborn-mods-locked-title">AUCUN MOD INSTALLÉ</div>
       <div className="reborn-mods-locked-desc">
-        Lance le jeu une fois depuis l'accueil — le launcher téléchargera les
-        mods déclarés dans le manifest serveur. Tu retrouveras la liste ici
-        après le premier launch.
+        Lance le jeu une fois depuis l'accueil : le launcher téléchargera les
+        mods déclarés par le serveur. Tu retrouveras la liste ici après le
+        premier lancement.
       </div>
     </div>
   );

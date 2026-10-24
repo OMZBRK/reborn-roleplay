@@ -1,25 +1,30 @@
 import { invoke } from "./tauri";
 import type { LauncherUser } from "../stores/auth-store";
 
-/** Reponse Rust de auth_login_microsoft / auth_resume_session. */
+/** Reponse Rust de auth_login_microsoft / auth_resume_session. Le JWT
+ *  Reborn ne traverse pas l'IPC : il reste dans le coffre Windows, cote Rust. */
 export type AuthSession = {
   user: LauncherUser;
-  accessToken: string;
 };
 
-/** Forme serialisee de l'erreur Rust (cf auth/error.rs). */
+/** Forme serialisee de l'erreur Rust (cf auth/error.rs). `message` est une
+ *  phrase complete : l'afficher via formatIpcError (lib/errors.ts). `code` =
+ *  code Xbox/XSTS, erreur OAuth (ex. invalid_grant) ou statut HTTP. */
 export type AuthErrorPayload = {
   kind:
     | "config"
     | "http"
     | "io"
     | "microsoft_response"
+    | "minecraft_services"
     | "xbox"
     | "xsts"
     | "no_minecraft_license"
     | "user_canceled"
     | "timeout"
     | "storage"
+    | "api"
+    | "browser"
     | "internal"
     // Emis par auth_login_with_saved_account uniquement — le handler frontend
     // bascule sur loginWithMicrosoft() (OAuth interactif) quand on voit ces
@@ -60,9 +65,10 @@ export async function resumeSession(): Promise<AuthSession | null> {
 }
 
 /** Keepalive : fait tourner l'access token API (TTL 15 min) cote Rust.
- *  Appele periodiquement par AuthenticatedLayout. */
-export async function refreshAccess(): Promise<void> {
-  await invoke<void>("auth_refresh_access");
+ *  Appele periodiquement par AuthenticatedLayout. Renvoie le compte a jour
+ *  (son grade a pu changer : whitelist acceptee pendant la session). */
+export async function refreshAccess(): Promise<LauncherUser | null> {
+  return (await invoke<LauncherUser | null | undefined>("auth_refresh_access")) ?? null;
 }
 
 export async function logout(): Promise<void> {
@@ -83,45 +89,4 @@ export async function startDiscordLink(): Promise<{ url: string; state: string }
 
 export async function unlinkDiscord(): Promise<void> {
   await invoke<void>("discord_unlink");
-}
-
-/** Convertit l'erreur opaque renvoyee par invoke() en payload type. */
-export function asAuthError(err: unknown): AuthErrorPayload {
-  if (err && typeof err === "object" && "kind" in err && "message" in err) {
-    return err as AuthErrorPayload;
-  }
-  return {
-    kind: "internal",
-    message: typeof err === "string" ? err : "Erreur inconnue.",
-    code: null,
-  };
-}
-
-/** Texte affichable selon le type d'erreur. */
-export function explainAuthError(err: AuthErrorPayload): string {
-  switch (err.kind) {
-    case "user_canceled":
-      return "Connexion annulee. Reessaie quand tu veux.";
-    case "no_minecraft_license":
-      return "Aucune licence Minecraft Java n'est associee a ce compte Microsoft.";
-    case "xsts":
-      return err.message;
-    case "xbox":
-      return `Xbox Live a refuse l'authentification. ${err.message}`;
-    case "config":
-      return "Le launcher n'est pas configure (Client ID Microsoft manquant). Contacte le staff.";
-    case "timeout":
-      return "Aucune redirection Microsoft recue. Verifie que tu as bien valide la connexion.";
-    case "http":
-    case "io":
-      return "Probleme reseau pendant la connexion. Verifie ta connexion Internet.";
-    case "no_stored_credentials":
-    case "stored_credentials_expired":
-      // Ces deux kinds ne devraient jamais arriver jusqu'a l'utilisateur : le
-      // handler du carousel bascule sur OAuth interactif avant. Texte de
-      // secours au cas ou.
-      return "Reconnexion requise. Ouverture de la fenetre Microsoft…";
-    default:
-      return err.message;
-  }
 }

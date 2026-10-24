@@ -3,10 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
     <title>Reborn Launcher</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Polices auto-hébergées (public/fonts, déclarées en @font-face dans
+         globals.css) : plus aucun appel à Google Fonts, le launcher s'affiche
+         pareil hors ligne. Préchargées pour que le splash et la première
+         page peignent directement dans la bonne police. -->
+    <link rel="preload" href="/fonts/inter-variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/bebas-neue.ttf" as="font" type="font/ttf" crossorigin />
     <!-- Inline pre-React styles : on évite le flash blanc avant que Vite + React aient mounté.
          La couleur de fond doit matcher var(--color-background) dans globals.css. -->
     <style>
@@ -98,14 +102,27 @@
         from { opacity: 0; transform: translateY(8px); }
         to { opacity: 1; transform: translateY(0); }
       }
+      /* Animations réduites (réglage Windows) : barre figée au centre, pas
+         de glissé d'entrée. */
+      @media (prefers-reduced-motion: reduce) {
+        .reborn-preload-title,
+        .reborn-preload-tagline,
+        .reborn-preload-bar {
+          animation: none;
+        }
+        .reborn-preload-bar::after {
+          animation: none;
+          transform: translateX(75%);
+        }
+      }
     </style>
   </head>
   <body>
-    <!-- Preload splash : visible avant que React mount. main.tsx l'enleve une fois React pret. -->
+    <!-- Preload splash : visible avant que React mount. main.tsx l'enlève une fois React prêt. -->
     <div id="reborn-preload">
       <h1 class="reborn-preload-title">REBORN</h1>
       <p class="reborn-preload-tagline">Roleplay · Initialisation</p>
-      <div class="reborn-preload-bar" role="progressbar" aria-label="Chargement"></div>
+      <div class="reborn-preload-bar" role="progressbar" aria-label="Chargement du launcher"></div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

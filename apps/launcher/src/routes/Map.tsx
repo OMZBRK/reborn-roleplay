@@ -1,17 +1,18 @@
 import { Layers, Lock, Map as MapIcon, MapPin } from "lucide-react";
 
-// Page Map — stub visuel pour annoncer la fonctionnalite a venir.
-// Pas de scan FS ni de vrai rendu : on affiche un apercu mock + une
-// roadmap des 3 etapes de developpement.
+// Page Map — stub visuel pour annoncer la fonctionnalité à venir.
+// Pas de scan FS ni de vrai rendu : on affiche un aperçu figé + une
+// roadmap des 3 étapes de développement. L'aperçu est purement décoratif
+// (masqué aux lecteurs d'écran, contrôles hors de l'ordre de tabulation).
 //
 // TODO(map): brancher le vrai rendu sur un endpoint /v1/map/tiles ou
-// integrer un viewer Leaflet/MapLibre quand l'asset tileset sera dispo.
+// intégrer un viewer Leaflet/MapLibre quand l'asset tileset sera dispo.
 export function Map() {
   return (
     <div className="reborn-map-page reborn-radial-bg-strong reborn-pattern-overlay">
       <div className="reborn-map-stub">
         <div className="reborn-map-stub-icon">
-          <MapIcon className="h-9 w-9" />
+          <MapIcon className="h-9 w-9" aria-hidden />
         </div>
         <div className="reborn-map-stub-tag">v1.1 — EN COURS DE DÉVELOPPEMENT</div>
         <h1 className="reborn-map-stub-title">Carte du monde</h1>
@@ -21,13 +22,17 @@ export function Map() {
           temps réel.
         </p>
 
-        <div className="reborn-map-preview">
+        <div className="reborn-map-preview" aria-hidden>
           <div className="reborn-map-preview-bg" />
           <div className="reborn-map-preview-overlay">
             <div className="reborn-map-preview-controls">
-              <button type="button" className="reborn-map-ctrl">+</button>
-              <button type="button" className="reborn-map-ctrl">−</button>
-              <button type="button" className="reborn-map-ctrl">
+              <button type="button" className="reborn-map-ctrl" tabIndex={-1}>
+                +
+              </button>
+              <button type="button" className="reborn-map-ctrl" tabIndex={-1}>
+                −
+              </button>
+              <button type="button" className="reborn-map-ctrl" tabIndex={-1}>
                 <Layers className="h-3 w-3" />
               </button>
             </div>
@@ -65,11 +70,11 @@ export function Map() {
           </div>
         </div>
 
-        <div className="reborn-map-roadmap">
+        <div className="reborn-map-roadmap" role="list" aria-label="Étapes de développement">
           <RoadmapStep state="done" title="Cartographie initiale" sub="Capture des chunks principaux" />
-          <div className="reborn-map-roadmap-line" />
+          <div className="reborn-map-roadmap-line" aria-hidden />
           <RoadmapStep state="active" title="Pins RP" sub="Villages, clans, événements" />
-          <div className="reborn-map-roadmap-line" />
+          <div className="reborn-map-roadmap-line" aria-hidden />
           <RoadmapStep state="todo" title="Tracking live" sub="Positions des shinobis" />
         </div>
       </div>
@@ -87,10 +92,15 @@ function RoadmapStep({
   sub: string;
 }) {
   return (
-    <div className={`reborn-map-roadmap-step reborn-map-roadmap-step--${state}`}>
-      <span className="reborn-map-roadmap-dot" />
+    <div className={`reborn-map-roadmap-step reborn-map-roadmap-step--${state}`} role="listitem">
+      <span className="reborn-map-roadmap-dot" aria-hidden />
       <div>
-        <div className="reborn-map-roadmap-title">{title}</div>
+        <div className="reborn-map-roadmap-title">
+          {title}
+          <span className="reborn-sr-only">
+            {state === "done" ? " (terminé)" : state === "active" ? " (en cours)" : " (à venir)"}
+          </span>
+        </div>
         <div className="reborn-map-roadmap-sub">{sub}</div>
       </div>
     </div>

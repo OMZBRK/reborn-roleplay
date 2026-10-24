@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -13,7 +13,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import type { ScreenshotRecord } from "../../lib/screenshots-mock";
+import type { ScreenshotRecord } from "../../lib/screenshots-types";
 import { shotBackground } from "../../lib/screenshots";
 import { Portal } from "../system/Portal";
 
@@ -27,14 +27,16 @@ type Props = {
   onShare?: (shot: ScreenshotRecord) => void;
   onDelete?: (shot: ScreenshotRecord) => void;
   onToggleFavorite?: (shot: ScreenshotRecord) => void;
+  /** Vrai quand une modale s'ouvre par-dessus (partage) : le clavier est à elle. */
+  paused?: boolean;
 };
 
-// Lightbox plein-ecran : navigation prev/next via boutons + fleches clavier
-// + ESC pour fermer. Filmstrip cliquable de 9 vignettes centree sur la
-// capture courante (pas les 8 premieres de la liste).
+// Lightbox plein écran : navigation prev/next via boutons + flèches clavier
+// + Échap pour fermer. Filmstrip cliquable de 9 vignettes centrée sur la
+// capture courante (pas les 8 premières de la liste).
 //
-// La nav clavier est interceptee uniquement quand `shot` n'est pas null
-// pour eviter d'avaler les fleches sur les autres pages.
+// La nav clavier est interceptée uniquement quand `shot` n'est pas null
+// (et que rien n'est ouvert par-dessus) pour ne pas avaler les flèches.
 export function ScreenshotLightbox({
   shot,
   shots,
@@ -45,12 +47,21 @@ export function ScreenshotLightbox({
   onShare,
   onDelete,
   onToggleFavorite,
+  paused = false,
 }: Props) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const isOpen = shot !== null;
+
+  // Focus sur « Fermer » à l'ouverture (pas à chaque capture suivante).
   useEffect(() => {
-    if (!shot) return;
+    if (isOpen) closeRef.current?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!shot || paused) return;
     const onKey = (e: KeyboardEvent) => {
-      // La modale de partage s'ouvre par-dessus : ne pas lui voler ESC ni
-      // les fleches pendant la saisie de la legende.
+      // Saisie en cours (légende, recherche) : ne pas voler Échap ni les
+      // flèches au champ texte.
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT")) return;
       if (e.key === "Escape") onClose();
@@ -59,7 +70,7 @@ export function ScreenshotLightbox({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [shot, onClose, onPrev, onNext]);
+  }, [shot, paused, onClose, onPrev, onNext]);
 
   const index = shot ? shots.findIndex((s) => s.id === shot.id) : -1;
   const STRIP = 9;
@@ -72,6 +83,9 @@ export function ScreenshotLightbox({
         {shot && (
           <motion.div
             className="reborn-shots-lightbox"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Capture ${shot.title}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -86,41 +100,41 @@ export function ScreenshotLightbox({
               <button
                 type="button"
                 className="reborn-shots-lightbox-btn"
-                aria-label={shot.pinned ? "Retirer des favoris" : "Ajouter aux favoris"}
+                aria-pressed={shot.pinned}
                 onClick={() => onToggleFavorite?.(shot)}
               >
                 <Star
                   className="h-3.5 w-3.5"
                   fill={shot.pinned ? "currentColor" : "none"}
                   style={shot.pinned ? { color: "var(--color-warning)" } : undefined}
+                  aria-hidden
                 />
-                {shot.pinned ? "Favori" : "Favoris"}
+                {shot.pinned ? "Favori" : "Mettre en favori"}
               </button>
               <button
                 type="button"
                 className="reborn-shots-lightbox-btn"
-                aria-label="Partager"
                 onClick={() => onShare?.(shot)}
               >
-                <Share2 className="h-3.5 w-3.5" />
+                <Share2 className="h-3.5 w-3.5" aria-hidden />
                 Partager
               </button>
               <button
                 type="button"
                 className="reborn-shots-lightbox-btn"
-                aria-label="Supprimer"
                 onClick={() => onDelete?.(shot)}
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3.5 w-3.5" aria-hidden />
                 Supprimer
               </button>
               <button
+                ref={closeRef}
                 type="button"
                 onClick={onClose}
                 className="reborn-shots-lightbox-btn"
-                aria-label="Fermer"
+                aria-label="Fermer la grande vue"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5" aria-hidden />
                 Fermer
               </button>
             </div>
@@ -130,9 +144,9 @@ export function ScreenshotLightbox({
                 type="button"
                 onClick={onPrev}
                 className="reborn-shots-lightbox-nav reborn-shots-lightbox-nav--prev"
-                aria-label="Précédent"
+                aria-label="Capture précédente"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-5 w-5" aria-hidden />
               </button>
               {shot.src ? (
                 <motion.img
@@ -159,9 +173,9 @@ export function ScreenshotLightbox({
                 type="button"
                 onClick={onNext}
                 className="reborn-shots-lightbox-nav reborn-shots-lightbox-nav--next"
-                aria-label="Suivant"
+                aria-label="Capture suivante"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-5 w-5" aria-hidden />
               </button>
             </div>
 
@@ -169,11 +183,25 @@ export function ScreenshotLightbox({
               <div className="min-w-0">
                 <h3 className="reborn-shots-lightbox-title">{shot.title}</h3>
                 <div className="reborn-shots-lightbox-meta">
-                  <span><Server className="h-3 w-3" /> {shot.server}</span>
-                  <span><User className="h-3 w-3" /> {shot.player}</span>
-                  <span><Clock className="h-3 w-3" /> {shot.date} · {shot.time}</span>
-                  <span><Maximize2 className="h-3 w-3" /> {shot.resolution}</span>
-                  <span><ImageIcon className="h-3 w-3" /> {shot.size}</span>
+                  {shot.server && (
+                    <span>
+                      <Server className="h-3 w-3" aria-hidden /> {shot.server}
+                    </span>
+                  )}
+                  {shot.player && (
+                    <span>
+                      <User className="h-3 w-3" aria-hidden /> {shot.player}
+                    </span>
+                  )}
+                  <span>
+                    <Clock className="h-3 w-3" aria-hidden /> {shot.date} · {shot.time}
+                  </span>
+                  <span>
+                    <Maximize2 className="h-3 w-3" aria-hidden /> {shot.resolution}
+                  </span>
+                  <span>
+                    <ImageIcon className="h-3 w-3" aria-hidden /> {shot.size}
+                  </span>
                 </div>
               </div>
               <div className="reborn-shots-lightbox-strip">
@@ -185,7 +213,8 @@ export function ScreenshotLightbox({
                     data-active={s.id === shot.id}
                     style={shotBackground(s)}
                     onClick={() => onSelect?.(s)}
-                    aria-label={s.title}
+                    aria-label={`Afficher ${s.title}`}
+                    aria-current={s.id === shot.id ? "true" : undefined}
                   />
                 ))}
               </div>

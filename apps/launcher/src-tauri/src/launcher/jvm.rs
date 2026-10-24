@@ -1,12 +1,21 @@
 //! Construction de la commande JVM.
 //!
-//! Reference : PLAN_CONCEPTION_LAUNCHER.md §8.2.
+//! Référence : PLAN_CONCEPTION_LAUNCHER.md §8.2 ; profil JVM « client »
+//! détaillé et justifié dans docs/technique/LAUNCHER_JVM.md §1.
 //!
 //! Le but est de produire un argv complet (sans le binaire java) qu'on
-//! pourra spawn via `tokio::process::Command`. La fonction est PURE pour
-//! pouvoir l'unit-tester sans toucher au filesystem.
+//! pourra spawn via `tokio::process::Command`. La construction (`build_args`)
+//! est PURE pour pouvoir l'unit-tester ; `build_command` y ajoute seulement
+//! la RAM totale du système (lue une fois) pour plafonner `-Xmx`.
 
-use std::path::Path;
+use crate::hardware;
+
+/// Classe principale vanilla, remplacée par celle de Fabric au lancement.
+pub const VANILLA_MAIN_CLASS: &str = "net.minecraft.client.main.Main";
+
+/// Plancher de `-Xms` (Mo) : en dessous, le tas grossit par à-coups dès le
+/// chargement des mods.
+const MIN_INITIAL_HEAP_MB: u32 = 1024;
 
 #[derive(Debug, Clone)]
 pub struct LaunchConfig {
@@ -17,7 +26,7 @@ pub struct LaunchConfig {
     pub mc_access_token: String,
     /// Chemin absolu vers le natives directory (libraries natives extraites).
     pub natives_dir: String,
-    /// Liste de chemins absolus vers les jars (separes par `;` Windows ou `:` Unix dans la cmd).
+    /// Liste de chemins absolus vers les jars (séparés par `;` Windows ou `:` Unix dans la cmd).
     pub library_jars: Vec<String>,
     /// Chemin absolu vers le client jar Minecraft.
     pub client_jar: String,
@@ -27,9 +36,10 @@ pub struct LaunchConfig {
     pub assets_dir: String,
     /// Asset index version (ex: "17", "16", …).
     pub asset_index: String,
-    /// RAM allouee a la JVM en Mo (cf onglet Settings → Jeu, defaut 4096).
+    /// RAM demandée pour la JVM en Mo (onglet Settings → Jeu, défaut 4096).
+    /// Bornée au lancement à [2048, RAM système − 2 Go] (cf `hardware::clamp_ram_mb`).
     pub ram_mb: u32,
-    /// Resolution X / Y de la fenetre de jeu.
+    /// Résolution X / Y de la fenêtre de jeu.
     pub width: u32,
     pub height: u32,
     /// Adresse du serveur Reborn passée au mod HUD via sysprops
@@ -48,7 +58,7 @@ pub struct LaunchConfig {
     /// (sélecteur de serveur, 2e instance). Les joueurs normaux ne voient rien.
     pub is_staff: bool,
     /// Chemin absolu vers le fichier contenant le play-token (lu par le mod
-    /// Reborn Integrity au boot pour s'attester aupres du plugin Guardian).
+    /// Reborn Integrity au boot pour s'attester auprès du plugin Guardian).
     /// None = pas d'attestation (dev local sans plugin).
     pub play_token_path: Option<String>,
     /// URL de base de l'API Reborn (ex: `https://api.reborn-rp.com/v1`) passée
@@ -64,52 +74,53 @@ pub struct ServerAddress {
     pub port: u16,
 }
 
-/// Genere les arguments JVM a passer a `java.exe`. Pas de path validation
-/// ici — l'appelant est suppose avoir verifie l'existence des fichiers.
+/// Génère les arguments JVM à passer à `java.exe`. Pas de validation de
+/// chemins ici — l'appelant est supposé avoir vérifié l'existence des fichiers.
 pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
-    let mut args = Vec::with_capacity(64);
+    build_args(cfg, hardware::total_ram_mb())
+}
 
-    // Memoire + GC G1 (profile Aikar deja eprouve sur les serveurs Paper, transposable client).
-    args.push(format!("-Xmx{}M", cfg.ram_mb));
-    args.push("-Xms512M".into());
-    args.push("-XX:+UseG1GC".into());
-    args.push("-XX:+ParallelRefProcEnabled".into());
-    args.push("-XX:MaxGCPauseMillis=200".into());
-    args.push("-XX:+UnlockExperimentalVMOptions".into());
-    args.push("-XX:+DisableExplicitGC".into());
-    args.push("-XX:+AlwaysPreTouch".into());
-    args.push("-XX:G1NewSizePercent=30".into());
-    args.push("-XX:G1MaxNewSizePercent=40".into());
-    args.push("-XX:G1HeapRegionSize=8M".into());
-    args.push("-XX:G1ReservePercent=20".into());
-    args.push("-XX:G1HeapWastePercent=5".into());
-    args.push("-XX:G1MixedGCCountTarget=4".into());
-    args.push("-XX:InitiatingHeapOccupancyPercent=15".into());
-    args.push("-XX:G1MixedGCLiveThresholdPercent=90".into());
-    args.push("-XX:G1RSetUpdatingPauseTimePercent=5".into());
-    args.push("-XX:SurvivorRatio=32".into());
-    args.push("-XX:+PerfDisableSharedMem".into());
-    args.push("-XX:MaxTenuringThreshold=1".into());
+/// Cœur pur de [`build_command`] : la RAM totale du système est un paramètre.
+fn build_args(cfg: &LaunchConfig, total_ram_mb: Option<u64>) -> Vec<String> {
+    let xmx_mb = hardware::clamp_ram_mb(cfg.ram_mb, total_ram_mb);
+    if xmx_mb != cfg.ram_mb {
+        tracing::warn!(
+            "RAM demandée {} Mo ramenée à {xmx_mb} Mo (RAM système {} Mo, 2 Go réservés au système, plancher 2 Go)",
+            cfg.ram_mb,
+            total_ram_mb.map_or_else(|| "inconnue".to_string(), |t| t.to_string())
+        );
+    }
+
+    let mut args = Vec::with_capacity(64);
+    args.extend(heap_and_gc_flags(xmx_mb));
+
+    // Sorties standard en UTF-8 : elles sont redirigées vers le launcher (pas
+    // de console), et la JVM Windows écrirait sinon en Cp1252 — les accents
+    // (chemins, pseudos, traductions) casseraient la lecture côté Rust.
+    args.push("-Dstdout.encoding=UTF-8".into());
+    args.push("-Dstderr.encoding=UTF-8".into());
 
     // macOS : GLFW ne peut tourner que sur le thread principal du process.
-    // Sans ce flag, glfwInit() leve "GLFW may only be used on the main thread
+    // Sans ce flag, glfwInit() lève "GLFW may only be used on the main thread
     // and that thread must be the first thread in the process" et le client
-    // crash a l'init du rendu (RenderSystem::initBackendSystem), apres avoir
-    // pourtant charge auth, manifest et mods. Aucun effet sur Windows/Linux,
-    // ou le flag n'existe pas et ferait echouer le demarrage de la JVM.
+    // crashe à l'init du rendu (RenderSystem::initBackendSystem), après avoir
+    // pourtant chargé auth, manifest et mods. Aucun effet sur Windows/Linux,
+    // où le flag n'existe pas et ferait échouer le démarrage de la JVM.
     if cfg!(target_os = "macos") {
         args.push("-XstartOnFirstThread".into());
     }
 
     args.push(format!("-Djava.library.path={}", cfg.natives_dir));
     args.push("-Dminecraft.launcher.brand=reborn-launcher".into());
-    args.push(format!("-Dminecraft.launcher.version={}", cfg.launcher_version));
+    args.push(format!(
+        "-Dminecraft.launcher.version={}",
+        cfg.launcher_version
+    ));
     if let Some(path) = cfg.play_token_path.as_deref() {
         // Le mod Reborn Integrity lit ce path et envoie son contenu via
         // custom payload `reborn:auth` au serveur (cf plugin Guardian).
-        // Sysprop pointant vers un fichier plutot que le token brut : evite
-        // que la valeur fuite dans `ps` / Task Manager (le path est court
-        // et inoffensif).
+        // Sysprop pointant vers un fichier plutôt que le token brut : évite
+        // que la valeur fuite dans `ps` / le Gestionnaire des tâches.
         args.push(format!("-Dreborn.playTokenPath={path}"));
     }
     if let Some(api) = cfg.api_url.as_deref() {
@@ -117,11 +128,10 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
         args.push(format!("-Dreborn.apiUrl={api}"));
     }
     if let Some(server) = cfg.auto_connect.as_ref() {
-        // Adresse du serveur transmise au mod HUD. Le main menu Reborn
-        // lit ces sysprops et connecte le joueur quand il appuie sur
-        // Espace — on ne passe volontairement PAS `--quickPlayMultiplayer`
-        // pour laisser le menu principal s'afficher au lieu de se
-        // connecter directement.
+        // Adresse du serveur transmise au mod HUD. Le main menu Reborn lit
+        // ces sysprops et connecte le joueur quand il appuie sur Espace — on
+        // ne passe volontairement PAS `--quickPlayMultiplayer` pour laisser
+        // le menu principal s'afficher au lieu de se connecter directement.
         args.push(format!("-Dreborn.server.host={}", server.host));
         args.push(format!("-Dreborn.server.port={}", server.port));
     }
@@ -136,48 +146,37 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
     }
 
     // Classpath = libraries + client jar
-    let cp_separator = if cfg!(target_os = "windows") { ";" } else { ":" };
+    let cp_separator = if cfg!(target_os = "windows") {
+        ";"
+    } else {
+        ":"
+    };
     let mut cp = cfg.library_jars.clone();
     cp.push(cfg.client_jar.clone());
     args.push("-cp".into());
     args.push(cp.join(cp_separator));
 
-    // Main class
-    args.push("net.minecraft.client.main.Main".into());
+    // Main class (remplacée par celle de Fabric dans game.rs).
+    args.push(VANILLA_MAIN_CLASS.into());
 
     // Game args
-    args.push("--username".into());
-    args.push(cfg.minecraft_username.clone());
-
-    args.push("--version".into());
-    args.push(format!("Reborn {}", cfg.minecraft_version));
-
-    args.push("--gameDir".into());
-    args.push(cfg.game_dir.clone());
-
-    args.push("--assetsDir".into());
-    args.push(cfg.assets_dir.clone());
-
-    args.push("--assetIndex".into());
-    args.push(cfg.asset_index.clone());
-
-    args.push("--uuid".into());
-    args.push(cfg.minecraft_uuid.clone());
-
-    args.push("--accessToken".into());
-    args.push(cfg.mc_access_token.clone());
-
-    args.push("--userType".into());
-    args.push("msa".into());
-
-    args.push("--versionType".into());
-    args.push("release".into());
-
-    args.push("--width".into());
-    args.push(cfg.width.to_string());
-
-    args.push("--height".into());
-    args.push(cfg.height.to_string());
+    let game_args = [
+        ("--username", cfg.minecraft_username.clone()),
+        ("--version", format!("Reborn {}", cfg.minecraft_version)),
+        ("--gameDir", cfg.game_dir.clone()),
+        ("--assetsDir", cfg.assets_dir.clone()),
+        ("--assetIndex", cfg.asset_index.clone()),
+        ("--uuid", cfg.minecraft_uuid.clone()),
+        ("--accessToken", cfg.mc_access_token.clone()),
+        ("--userType", "msa".into()),
+        ("--versionType", "release".into()),
+        ("--width", cfg.width.to_string()),
+        ("--height", cfg.height.to_string()),
+    ];
+    for (flag, value) in game_args {
+        args.push(flag.into());
+        args.push(value);
+    }
 
     // NB : plus de `--quickPlayMultiplayer` ici. On veut afficher le main
     // menu Reborn au lancement plutôt que de connecter directement le
@@ -188,21 +187,43 @@ pub fn build_command(cfg: &LaunchConfig) -> Vec<String> {
     args
 }
 
-/// Helper : retourne `true` si le path donne ressemble a `java`/`javaw`.
-pub fn looks_like_java_executable(path: &Path) -> bool {
-    path.file_stem()
-        .and_then(|s| s.to_str())
-        .map(|s| s == "java" || s == "javaw")
-        .unwrap_or(false)
+/// Profil mémoire + GC « client » (justification flag par flag dans
+/// docs/technique/LAUNCHER_JVM.md §1). Minecraft client = beaucoup d'objets
+/// très courts (rendu, maillage des chunks) et une exigence de pauses brèves
+/// (une pause de 50 ms ≈ 3 images à 60 FPS) ; rien à voir avec un serveur.
+fn heap_and_gc_flags(xmx_mb: u32) -> Vec<String> {
+    // Xms = Xmx/2 : évite les redimensionnements du tas au chargement sans
+    // réserver toute la RAM d'entrée (cible : machines 4-8 Go).
+    let xms_mb = (xmx_mb / 2).max(MIN_INITIAL_HEAP_MB).min(xmx_mb);
+    vec![
+        format!("-Xmx{xmx_mb}M"),
+        format!("-Xms{xms_mb}M"),
+        "-XX:+UseG1GC".into(),
+        "-XX:MaxGCPauseMillis=50".into(),
+        // G1NewSizePercent est « expérimental » : le déverrouillage doit précéder.
+        "-XX:+UnlockExperimentalVMOptions".into(),
+        "-XX:G1NewSizePercent=20".into(),
+        "-XX:G1ReservePercent=20".into(),
+        "-XX:G1HeapRegionSize=8M".into(),
+        "-XX:+ParallelRefProcEnabled".into(),
+        "-XX:+DisableExplicitGC".into(),
+        "-XX:+UseStringDeduplication".into(),
+        // Produit (plus expérimental) depuis Java 25 (JEP 519).
+        "-XX:+UseCompactObjectHeaders".into(),
+        "-XX:+PerfDisableSharedMem".into(),
+    ]
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Machine de test confortable (32 Go) : pas de plafonnement parasite.
+    const BIG_MACHINE: Option<u64> = Some(32_768);
+
     fn sample_cfg() -> LaunchConfig {
         LaunchConfig {
-            minecraft_version: "26.1.2".into(),
+            minecraft_version: "26.2".into(),
             launcher_version: "0.1.0".into(),
             minecraft_username: "OMZ".into(),
             minecraft_uuid: "069a79f4-44e9-4726-a5be-fca90e38aaf5".into(),
@@ -227,45 +248,50 @@ mod tests {
         }
     }
 
+    fn argv(cfg: &LaunchConfig) -> Vec<String> {
+        build_args(cfg, BIG_MACHINE)
+    }
+
+    fn has(argv: &[String], flag: &str) -> bool {
+        argv.iter().any(|a| a == flag)
+    }
+
     #[test]
     fn play_token_path_emitted_as_sysprop() {
         let mut cfg = sample_cfg();
         cfg.play_token_path = Some("C:/game/.reborn-play-token".into());
-        let argv = build_command(&cfg);
+        let argv = argv(&cfg);
         assert!(
-            argv.iter()
-                .any(|a| a == "-Dreborn.playTokenPath=C:/game/.reborn-play-token"),
+            has(&argv, "-Dreborn.playTokenPath=C:/game/.reborn-play-token"),
             "argv must carry the play-token sysprop"
         );
     }
 
     #[test]
     fn no_play_token_path_omits_sysprop() {
-        let argv = build_command(&sample_cfg());
-        assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.playTokenPath=")));
+        let argv = argv(&sample_cfg());
+        assert!(!argv
+            .iter()
+            .any(|a| a.starts_with("-Dreborn.playTokenPath=")));
     }
 
     #[test]
     fn includes_main_class_after_classpath() {
-        let argv = build_command(&sample_cfg());
+        let argv = argv(&sample_cfg());
         let cp_idx = argv.iter().position(|a| a == "-cp").unwrap();
-        let main_idx = argv
-            .iter()
-            .position(|a| a == "net.minecraft.client.main.Main")
-            .unwrap();
-        assert!(main_idx == cp_idx + 2);
+        let main_idx = argv.iter().position(|a| a == VANILLA_MAIN_CLASS).unwrap();
+        assert_eq!(main_idx, cp_idx + 2);
     }
 
     #[test]
     fn server_hint_emitted_as_sysprops() {
-        let argv = build_command(&sample_cfg());
+        let argv = argv(&sample_cfg());
         assert!(
-            argv.iter()
-                .any(|a| a == "-Dreborn.server.host=play.reborn-rp.fr"),
+            has(&argv, "-Dreborn.server.host=play.reborn-rp.fr"),
             "argv doit porter le sysprop host"
         );
         assert!(
-            argv.iter().any(|a| a == "-Dreborn.server.port=25565"),
+            has(&argv, "-Dreborn.server.port=25565"),
             "argv doit porter le sysprop port"
         );
     }
@@ -273,8 +299,7 @@ mod tests {
     #[test]
     fn no_quick_play_multiplayer_ever() {
         // On ne connecte jamais automatiquement — le menu Reborn s'affiche.
-        let argv = build_command(&sample_cfg());
-        assert!(!argv.iter().any(|a| a == "--quickPlayMultiplayer"));
+        assert!(!has(&argv(&sample_cfg()), "--quickPlayMultiplayer"));
     }
 
     #[test]
@@ -285,33 +310,115 @@ mod tests {
             port: 26547,
         });
         cfg.is_staff = true;
-        let argv = build_command(&cfg);
-        assert!(argv.iter().any(|a| a == "-Dreborn.server.dev.host=203.0.113.10"));
-        assert!(argv.iter().any(|a| a == "-Dreborn.server.dev.port=26547"));
-        assert!(argv.iter().any(|a| a == "-Dreborn.staff=true"));
+        let argv = argv(&cfg);
+        assert!(has(&argv, "-Dreborn.server.dev.host=203.0.113.10"));
+        assert!(has(&argv, "-Dreborn.server.dev.port=26547"));
+        assert!(has(&argv, "-Dreborn.staff=true"));
     }
 
     #[test]
     fn no_dev_server_no_staff_flag_by_default() {
-        let argv = build_command(&sample_cfg());
+        let argv = argv(&sample_cfg());
         assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.server.dev.")));
-        assert!(!argv.iter().any(|a| a == "-Dreborn.staff=true"));
+        assert!(!has(&argv, "-Dreborn.staff=true"));
     }
 
     #[test]
     fn no_server_hint_omits_sysprops() {
         let mut cfg = sample_cfg();
         cfg.auto_connect = None;
-        let argv = build_command(&cfg);
+        let argv = argv(&cfg);
         assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.server.host=")));
         assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.server.port=")));
     }
 
     #[test]
-    fn ram_is_propagated_in_xmx() {
+    fn ram_is_propagated_in_xmx_and_xms_is_half() {
         let mut cfg = sample_cfg();
         cfg.ram_mb = 8192;
-        let argv = build_command(&cfg);
-        assert!(argv.contains(&"-Xmx8192M".to_string()));
+        let argv = argv(&cfg);
+        assert!(has(&argv, "-Xmx8192M"));
+        assert!(has(&argv, "-Xms4096M"));
+    }
+
+    #[test]
+    fn xms_never_below_floor() {
+        let mut cfg = sample_cfg();
+        cfg.ram_mb = 2048;
+        let argv = argv(&cfg);
+        assert!(has(&argv, "-Xmx2048M"));
+        assert!(has(&argv, "-Xms1024M"));
+    }
+
+    #[test]
+    fn ram_capped_to_system_minus_reserve() {
+        let mut cfg = sample_cfg();
+        cfg.ram_mb = 8192;
+        let argv = build_args(&cfg, Some(8_192));
+        assert!(has(&argv, "-Xmx6144M"), "{argv:?}");
+        assert!(has(&argv, "-Xms3072M"), "{argv:?}");
+    }
+
+    #[test]
+    fn ram_floor_applies_to_tiny_choices() {
+        let mut cfg = sample_cfg();
+        cfg.ram_mb = 1024;
+        assert!(has(&argv(&cfg), "-Xmx2048M"));
+    }
+
+    #[test]
+    fn client_gc_profile() {
+        let argv = argv(&sample_cfg());
+        for flag in [
+            "-XX:+UseG1GC",
+            "-XX:MaxGCPauseMillis=50",
+            "-XX:+ParallelRefProcEnabled",
+            "-XX:+DisableExplicitGC",
+            "-XX:+UseStringDeduplication",
+            "-XX:+UseCompactObjectHeaders",
+        ] {
+            assert!(has(&argv, flag), "flag manquant : {flag}");
+        }
+        // Flags pensés serveur (profil Aikar) : retirés du profil client.
+        for banned in [
+            "-XX:+AlwaysPreTouch",
+            "-XX:InitiatingHeapOccupancyPercent=15",
+            "-XX:MaxTenuringThreshold=1",
+            "-XX:SurvivorRatio=32",
+        ] {
+            assert!(!has(&argv, banned), "flag serveur présent : {banned}");
+        }
+    }
+
+    #[test]
+    fn unlock_precedes_experimental_flags() {
+        let argv = argv(&sample_cfg());
+        let unlock = argv
+            .iter()
+            .position(|a| a == "-XX:+UnlockExperimentalVMOptions")
+            .unwrap();
+        let experimental = argv
+            .iter()
+            .position(|a| a.starts_with("-XX:G1NewSizePercent="))
+            .unwrap();
+        assert!(unlock < experimental);
+    }
+
+    #[test]
+    fn stdio_forced_to_utf8() {
+        let argv = argv(&sample_cfg());
+        assert!(has(&argv, "-Dstdout.encoding=UTF-8"));
+        assert!(has(&argv, "-Dstderr.encoding=UTF-8"));
+    }
+
+    #[test]
+    fn jvm_options_precede_main_class() {
+        // Tout ce qui commence par -X / -D doit être avant la main class,
+        // sinon java le passe au jeu au lieu de la JVM.
+        let argv = argv(&sample_cfg());
+        let main_idx = argv.iter().position(|a| a == VANILLA_MAIN_CLASS).unwrap();
+        assert!(argv[main_idx..]
+            .iter()
+            .all(|a| !a.starts_with("-X") && !a.starts_with("-D")));
     }
 }

@@ -39,7 +39,7 @@ export function NewsCard({
       transition={{ duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -3 }}
       onClick={onClick}
-      className={`reborn-news-card reborn-news-card--${size}`}
+      className={`reborn-news-card reborn-news-card--${size} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]`}
       role={isInteractive ? "button" : undefined}
       tabIndex={isInteractive ? 0 : undefined}
       onKeyDown={(e) => {

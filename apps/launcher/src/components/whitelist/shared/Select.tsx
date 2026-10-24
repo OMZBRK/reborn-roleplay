@@ -21,11 +21,28 @@ export function Select({ value, options, placeholder, onChange }: Props) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
+  function choose(opt: string) {
+    onChange(opt);
+    setOpen(false);
+  }
+
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div
+      ref={ref}
+      style={{ position: "relative" }}
+      onKeyDown={(e) => {
+        // Échap referme la liste sans rien choisir.
+        if (e.key === "Escape" && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
+    >
       <button
         type="button"
         className={`wl-select${open ? " open" : ""}${value ? " has-value" : ""}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
         <span>{value || placeholder}</span>
@@ -35,6 +52,7 @@ export function Select({ value, options, placeholder, onChange }: Props) {
         {open && (
           <motion.div
             className="wl-select-menu"
+            role="listbox"
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
@@ -43,10 +61,16 @@ export function Select({ value, options, placeholder, onChange }: Props) {
             {options.map((opt) => (
               <div
                 key={opt}
-                className={`wl-select-option${value === opt ? " selected" : ""}`}
-                onClick={() => {
-                  onChange(opt);
-                  setOpen(false);
+                role="option"
+                aria-selected={value === opt}
+                tabIndex={0}
+                className={`wl-select-option${value === opt ? " selected" : ""} focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring`}
+                onClick={() => choose(opt)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    choose(opt);
+                  }
                 }}
               >
                 <span>{opt}</span>

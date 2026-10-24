@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -9,13 +9,11 @@ import {
   Loader2,
   MessageSquare,
   Mic,
-  Paperclip,
-  Send,
   Trash2,
-  X,
 } from "lucide-react";
 import { useWhitelistStore } from "../../stores/whitelist-store";
 import { formatDateFr } from "../../lib/whitelist-validation";
+import { formatIpcError } from "../../lib/errors";
 import {
   bookOralSlot,
   cancelOralSlot,
@@ -24,21 +22,37 @@ import {
   fetchWhitelistMessages,
   postWhitelistMessage,
   reclaimWhitelist,
-  uploadAttachment,
   type OralSlot,
   type OralSlotsResponse,
   type WhitelistAppStatus,
+  type WhitelistMeResponse,
   type WhitelistMessage,
 } from "../../lib/content";
+import {
+  ChatThread,
+  FOCUS_RING,
+  SyncIndicator,
+  useChatFeed,
+  type ChatMessage,
+} from "../chat/ChatThread";
 import { RecapField } from "./RecapField";
 
 const RECLAIM_AFTER_MS = 4 * 60 * 60 * 1000;
+const STATUS_POLL_MS = 30_000;
+
+type StatusData = { slots: OralSlotsResponse; me: WhitelistMeResponse };
+
+/** Avancement de la candidature : statuts HRP/RP + créneaux du test oral. */
+async function loadStatus(): Promise<StatusData> {
+  const [slots, me] = await Promise.all([fetchOralSlots(), fetchWhitelistMe()]);
+  return { slots, me };
+}
 
 /**
- * Hook qui ramene une struct prete a render pour le bandeau
+ * Hook qui ramène une struct prête à render pour le bandeau
  * d'assignation : phrase "Pris par @X depuis Yh" + flag canReclaim
- * (vrai si l'assignation a + de 4h). Rafraichit chaque minute pour que
- * le compteur reste vivant sans qu'on ait a forcer un re-render.
+ * (vrai si l'assignation a + de 4h). Rafraîchit chaque minute pour que
+ * le compteur reste vivant sans qu'on ait à forcer un re-render.
  */
 function useAssignmentInfo(
   assigneeName: string | null,
@@ -71,71 +85,81 @@ type Props = {
   withdrawing?: boolean;
 };
 
-type LocalAttachment = {
-  id: string;
-  name: string;
-  size: number;
-  // URL publique une fois l'upload terminé (POST /v1/upload via le backend
-  // Rust). Tant que `uploading` est vrai, l'envoi du message est bloqué.
-  url?: string;
-  uploading?: boolean;
-};
-
-const POLL_INTERVAL_MS = 5000;
+function toChatMessage(m: WhitelistMessage): ChatMessage {
+  return {
+    id: m.id,
+    author: m.authorType === "USER" ? "me" : m.authorType === "STAFF" ? "staff" : "system",
+    authorName: m.authorName,
+    content: m.content,
+    attachments: m.attachments,
+    createdAt: m.createdAt,
+  };
+}
 
 // Page Statut + Chat (state 7).
 //
 // Le chat affiche les messages réellement persistés côté API (POST
 // /v1/whitelist/me/messages côté user, /v1/staff/whitelist/:id/messages
-// côté bot après messageCreate). Polling toutes les 5s en attendant SSE.
+// côté bot après messageCreate). Sondage toutes les 5 s en attendant SSE
+// (components/chat/ChatThread : pause pendant une partie, coupures
+// signalées dans le fil). Les pièces jointes (images) sont uploadées dès
+// la sélection via POST /v1/upload.
 //
 // Onglets :
 //  - "Chat" : conversation avec le staff
+//  - "Test oral" : réservation du créneau (une fois l'HRP validé)
 //  - "Ma candidature" : récap des champs HRP + RP soumis (read-only)
-//
-// Limitation actuelle : les pièces jointes ne sont pas uploadées (pas
-// d'endpoint d'upload côté API). On les affiche localement dans le draft
-// mais elles ne sont pas envoyées avec le message tant que l'URL n'est
-// pas resolvable. À implémenter en phase suivante.
 export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
   const draft = useWhitelistStore((s) => s.draft);
   const applicationId = useWhitelistStore((s) => s.applicationId);
   const assigneeName = useWhitelistStore((s) => s.assigneeName);
   const assignedAt = useWhitelistStore((s) => s.assignedAt);
-  const hydrateFromServer = useWhitelistStore((s) => s.hydrateFromServer);
+  const hydrateFromApplication = useWhitelistStore((s) => s.hydrateFromApplication);
   const [tab, setTab] = useState<Tab>("chat");
-  const [draftMsg, setDraftMsg] = useState("");
-  const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
-  const [messages, setMessages] = useState<WhitelistMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [reclaiming, setReclaiming] = useState(false);
-  const [reclaimMsg, setReclaimMsg] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [reclaimMsg, setReclaimMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // L5 — données du test oral (créneaux + statuts HRP/RP) pour l'onglet dédié.
-  const [oral, setOral] = useState<OralSlotsResponse | null>(null);
-  const [hrpStatus, setHrpStatus] = useState<WhitelistAppStatus | null>(null);
-  const [rpStatus, setRpStatus] = useState<WhitelistAppStatus | null>(null);
+  // Chat : sondé tant que l'onglet est affiché (au retour sur l'onglet, un
+  // tour part tout de suite). Sans candidature côté serveur, rien à charger.
+  const feed = useChatFeed(() => fetchWhitelistMessages(), {
+    enabled: !!applicationId && tab === "chat",
+  });
+  const messages = useMemo(() => (feed.data ?? []).map(toChatMessage), [feed.data]);
+
+  async function handleSend(content: string, attachmentUrls?: string[]) {
+    const created = await postWhitelistMessage(content, attachmentUrls);
+    feed.mutate((prev) => {
+      const list = prev ?? [];
+      return list.some((m) => m.id === created.id) ? list : [...list, created];
+    });
+    feed.refresh();
+  }
+
+  // L5 — avancement (statuts HRP/RP + créneaux du test oral), sondé toutes
+  // les 30 s : le staff valide une étape ou ouvre des créneaux sans que la
+  // page ait besoin d'être rouverte, et un échec se répare tout seul.
+  const status = useChatFeed(loadStatus, {
+    intervalMs: STATUS_POLL_MS,
+    context: "Avancement de ta candidature non actualisé",
+  });
+  const oral = status.data?.slots ?? null;
+  const hrpStatus: WhitelistAppStatus | null = status.data?.me.application?.hrpStatus ?? null;
+  const rpStatus: WhitelistAppStatus | null = status.data?.me.application?.rpStatus ?? null;
   const [oralBusy, setOralBusy] = useState<string | null>(null);
   const [oralErr, setOralErr] = useState<string | null>(null);
   const autoTabDone = useRef(false);
 
-  const refreshOral = useCallback(async () => {
-    try {
-      const [slots, me] = await Promise.all([fetchOralSlots(), fetchWhitelistMe()]);
-      setOral(slots);
-      setHrpStatus(me.application?.hrpStatus ?? null);
-      setRpStatus(me.application?.rpStatus ?? null);
-    } catch {
-      // silencieux (dev sans API)
-    }
-  }, []);
-
+  // Après une demande de reprise uniquement, la réponse suivante
+  // resynchronise aussi le store (assignation, décision) — pas à chaque
+  // tour, pour ne pas écraser l'écran choisi depuis le menu dev.
+  const syncStoreRef = useRef(false);
   useEffect(() => {
-    void refreshOral();
-  }, [refreshOral]);
+    const app = status.data?.me.application;
+    if (syncStoreRef.current && app) {
+      syncStoreRef.current = false;
+      hydrateFromApplication(app);
+    }
+  }, [status.data, hydrateFromApplication]);
 
   const mineSlot = oral?.mine ?? null;
   const openSlots = oral?.open ?? [];
@@ -154,20 +178,33 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
     }
   }, [oralPhase]);
 
-  async function oralAct(id: string, fn: (id: string) => Promise<unknown>) {
+  async function oralAct(
+    id: string,
+    fn: (id: string) => Promise<unknown>,
+    failure: string,
+  ) {
     setOralBusy(id);
     setOralErr(null);
     try {
       await fn(id);
-      await refreshOral();
     } catch (e) {
-      setOralErr(typeof e === "string" ? e : (e as { message?: string }).message ?? "Échec");
+      setOralErr(formatIpcError(e, failure));
+      setOralBusy(null);
+      return;
+    }
+    // Action réussie : on recharge l'avancement avant de rendre la main,
+    // pour que la carte réservée / annulée bascule sans clignoter.
+    try {
+      const fresh = await loadStatus();
+      status.mutate(() => fresh);
+    } catch {
+      status.refresh(); // l'échec s'affichera dans l'indicateur
     } finally {
       setOralBusy(null);
     }
   }
 
-  // Calcul du delai pour le bouton "Demander une reprise".
+  // Calcul du délai pour le bouton "Demander une reprise".
   const assignmentInfo = useAssignmentInfo(assigneeName, assignedAt);
 
   async function handleReclaim() {
@@ -175,151 +212,39 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
     setReclaimMsg(null);
     try {
       await reclaimWhitelist();
-      const res = await fetchWhitelistMe();
-      if (res.application) {
-        hydrateFromServer({
-          applicationId: res.application.id,
-          status: res.application.status === "PENDING"
-            ? "pending"
-            : res.application.status === "APPROVED"
-              ? "accepted"
-              : res.application.status === "REJECTED"
-                ? "rejected"
-                : "pending",
-          reviewNotes: res.application.reviewNotes,
-          draft: {
-            dob: res.application.dob,
-            motivation: res.application.motivation,
-            experience: res.application.experience,
-            availability: res.application.availability,
-            firstName: res.application.firstName,
-            lastName: res.application.lastName,
-            village: res.application.village,
-            support: res.application.support ?? "",
-            history: res.application.history,
-            appearance: res.application.appearance,
-            objectives: res.application.objectives,
-          },
-          assigneeName: res.application.assignee?.username ?? null,
-          assignedAt: res.application.assignedAt,
-        });
-      }
-      setReclaimMsg("Reprise demandee — un autre staff peut reprendre.");
+      setReclaimMsg({
+        ok: true,
+        text: "Reprise demandée — un autre membre du staff peut maintenant prendre ta candidature.",
+      });
+      syncStoreRef.current = true;
+      status.refresh();
     } catch (err) {
-      const msg = typeof err === "string" ? err : (err as { message?: string }).message ?? "Echec";
-      setReclaimMsg(msg);
+      setReclaimMsg({ ok: false, text: formatIpcError(err, "Impossible de demander une reprise") });
     } finally {
       setReclaiming(false);
     }
   }
 
-  // Polling : on fetch au mount + toutes les 5s tant que l'onglet est ouvert.
-  // On n'autorise le poll que si on a un applicationId — sinon ce serait
-  // un appel inutile (le serveur retournerait toujours []).
+  function openTab(next: Tab) {
+    setTab(next);
+    // Les créneaux bougent (le staff en ouvre, d'autres candidats en
+    // prennent) : on les recharge à chaque ouverture de l'onglet.
+    if (next === "oral") status.refresh();
+  }
+
+  // Sur l'onglet Chat, si le fil signale déjà la coupure, inutile de la
+  // répéter dans l'en-tête.
+  const showStatusSync = !!status.sync.error && !(tab === "chat" && feed.sync.error);
+
+  // Le fil (5 s) voit le retour du réseau avant l'avancement (30 s) : on
+  // relance alors l'avancement tout de suite s'il était en échec.
+  const chatError = feed.sync.error;
+  const statusError = status.sync.error;
+  const refreshStatus = status.refresh;
   useEffect(() => {
-    if (!applicationId) {
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    let timer: number | undefined;
-
-    async function poll() {
-      try {
-        const list = await fetchWhitelistMessages();
-        if (!cancelled) {
-          setMessages(list);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          // En dev local sans API, on log mais on n'affiche pas pour ne pas
-          // polluer la UI à chaque tick.
-          console.warn("[whitelist-chat] fetch failed:", err);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-          timer = window.setTimeout(poll, POLL_INTERVAL_MS);
-        }
-      }
-    }
-
-    poll();
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [applicationId]);
-
-  async function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    if (files.length === 0) return;
-
-    // L'API n'accepte que des images. On filtre + signale le reste.
-    const images = files.filter((f) => f.type.startsWith("image/"));
-    if (images.length < files.length) {
-      setError("Seules les images peuvent être jointes.");
-    }
-
-    for (const f of images) {
-      const id = `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`;
-      setAttachments((prev) => [
-        ...prev,
-        { id, name: f.name, size: f.size, uploading: true },
-      ]);
-      try {
-        const url = await uploadAttachment(f);
-        setAttachments((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, url, uploading: false } : a)),
-        );
-      } catch (err) {
-        // Échec : on retire la chip et on affiche l'erreur.
-        setAttachments((prev) => prev.filter((a) => a.id !== id));
-        setError(
-          typeof err === "string"
-            ? err
-            : (err as { message?: string }).message ?? "Upload échoué",
-        );
-      }
-    }
-  }
-
-  function removeAttachment(id: string) {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
-  }
-
-  async function handleSend() {
-    const trimmed = draftMsg.trim();
-    // Contenu textuel requis ; on n'envoie pas tant qu'une pièce jointe est
-    // encore en cours d'upload (son URL ne serait pas prête).
-    if (!trimmed || attachments.some((a) => a.uploading)) {
-      return;
-    }
-    setSending(true);
-    setError(null);
-    try {
-      const urls = attachments
-        .map((a) => a.url)
-        .filter((u): u is string => !!u);
-      const created = await postWhitelistMessage(trimmed, urls.length > 0 ? urls : undefined);
-      setMessages((prev) => [...prev, created]);
-      setDraftMsg("");
-      setAttachments([]);
-    } catch (err) {
-      setError(typeof err === "string" ? err : (err as { message?: string }).message ?? "Envoi échoué");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      void handleSend();
-    }
-  }
+    if (!chatError && statusError) refreshStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatError]);
 
   return (
     <div className="wl-status-page">
@@ -367,7 +292,7 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
               {assignmentInfo.canReclaim && (
                 <button
                   type="button"
-                  className="wl-btn-mini-ghost"
+                  className={`wl-btn-mini-ghost ${FOCUS_RING}`}
                   onClick={handleReclaim}
                   disabled={reclaiming}
                   style={{
@@ -384,17 +309,33 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
             </div>
           )}
           {reclaimMsg && (
-            <div className="mt-2 text-xs" style={{ color: "var(--color-foreground-subtle)" }}>
-              {reclaimMsg}
+            <div
+              role={reclaimMsg.ok ? "status" : "alert"}
+              className="mt-2 text-xs"
+              style={{
+                color: reclaimMsg.ok ? "var(--color-foreground-subtle)" : "var(--color-danger)",
+              }}
+            >
+              {reclaimMsg.text}
             </div>
+          )}
+          {showStatusSync && (
+            <SyncIndicator
+              variant="block"
+              className="mt-3"
+              sync={status.sync}
+              onRetry={status.refresh}
+            />
           )}
         </div>
 
-        <div className="wl-status-tabs">
+        <div className="wl-status-tabs" role="tablist">
           <button
             type="button"
-            className={`wl-tab${tab === "chat" ? " wl-tab-active wl-tab-warning" : ""}`}
-            onClick={() => setTab("chat")}
+            role="tab"
+            aria-selected={tab === "chat"}
+            className={`wl-tab${tab === "chat" ? " wl-tab-active wl-tab-warning" : ""} ${FOCUS_RING}`}
+            onClick={() => openTab("chat")}
           >
             {tab === "chat" ? (
               <span className="wl-tab-pulse" />
@@ -414,36 +355,40 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
           {oralPhase && (
             <button
               type="button"
-              className={`wl-tab${tab === "oral" ? " wl-tab-active wl-tab-oral" : ""}`}
-              onClick={() => setTab("oral")}
+              role="tab"
+              aria-selected={tab === "oral"}
+              className={`wl-tab${tab === "oral" ? " wl-tab-active wl-tab-oral" : ""} ${FOCUS_RING}`}
+              onClick={() => openTab("oral")}
             >
               <Mic size={14} /> Test oral
             </button>
           )}
           <button
             type="button"
-            className={`wl-tab${tab === "application" ? " wl-tab-active wl-tab-warning" : ""}`}
-            onClick={() => setTab("application")}
+            role="tab"
+            aria-selected={tab === "application"}
+            className={`wl-tab${tab === "application" ? " wl-tab-active wl-tab-warning" : ""} ${FOCUS_RING}`}
+            onClick={() => openTab("application")}
           >
             <FileText size={14} /> Ma candidature
           </button>
         </div>
 
         {tab === "chat" ? (
-          <ChatPanel
+          <ChatThread
             messages={messages}
-            loading={loading}
-            error={error}
-            sending={sending}
-            draftMsg={draftMsg}
-            attachments={attachments}
-            onDraftChange={setDraftMsg}
-            onKeyDown={handleKeyDown}
+            loading={feed.loading}
+            sync={feed.sync}
+            onRetry={feed.refresh}
             onSend={handleSend}
-            onPickClick={() => fileInputRef.current?.click()}
-            onRemoveAttachment={removeAttachment}
-            fileInputRef={fileInputRef}
-            onFiles={handlePickFiles}
+            meLabel="Vous"
+            placeholder="Envoyez un message (Ctrl+Entrée pour envoyer)"
+            intro={
+              <>
+                Votre candidature a été soumise avec succès. Un membre du staff va
+                l'examiner prochainement.
+              </>
+            }
           />
         ) : tab === "oral" ? (
           <div className="wl-status-scroll">
@@ -454,8 +399,8 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
               rp={rpStatus}
               busy={oralBusy}
               err={oralErr}
-              onBook={(id) => oralAct(id, bookOralSlot)}
-              onCancel={(id) => oralAct(id, cancelOralSlot)}
+              onBook={(id) => oralAct(id, bookOralSlot, "Réservation du créneau impossible")}
+              onCancel={(id) => oralAct(id, cancelOralSlot, "Changement de créneau impossible")}
             />
           </div>
         ) : (
@@ -469,260 +414,6 @@ export function StatusChatPage({ onWithdraw, withdrawing = false }: Props) {
         )}
       </div>
     </div>
-  );
-}
-
-function ChatPanel({
-  messages,
-  loading,
-  error,
-  sending,
-  draftMsg,
-  attachments,
-  onDraftChange,
-  onKeyDown,
-  onSend,
-  onPickClick,
-  onRemoveAttachment,
-  fileInputRef,
-  onFiles,
-}: {
-  messages: WhitelistMessage[];
-  loading: boolean;
-  error: string | null;
-  sending: boolean;
-  draftMsg: string;
-  attachments: LocalAttachment[];
-  onDraftChange: (v: string) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  onSend: () => void;
-  onPickClick: () => void;
-  onRemoveAttachment: (id: string) => void;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-  onFiles: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}) {
-  return (
-    <>
-      <div className="wl-chat">
-        <motion.div
-          className="wl-msg-system"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <em>
-            Votre candidature a été soumise avec succès. Un membre du staff va
-            l'examiner prochainement.
-          </em>
-        </motion.div>
-
-        {loading && messages.length === 0 && (
-          <div className="flex items-center justify-center gap-2 py-4 text-xs text-foreground-muted">
-            <Loader2 size={14} className="animate-spin" />
-            Chargement des messages…
-          </div>
-        )}
-
-        {messages.map((m) => (
-          <ChatBubble key={m.id} message={m} />
-        ))}
-      </div>
-
-      {error && (
-        <div className="mb-3 flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
-          <AlertTriangle size={14} />
-          {error}
-        </div>
-      )}
-
-      <div className="wl-chat-input-wrap">
-        <textarea
-          className="wl-chat-input"
-          placeholder="Envoyez un message (Ctrl+Entrée pour envoyer)"
-          rows={1}
-          value={draftMsg}
-          onChange={(e) => onDraftChange(e.target.value)}
-          onKeyDown={onKeyDown}
-          disabled={sending}
-        />
-        {attachments.length > 0 && (
-          <div className="wl-chat-pending-attachments">
-            {attachments.map((a) => (
-              <span key={a.id} className="wl-attachment-chip">
-                {a.uploading ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Paperclip size={12} />
-                )}
-                <span className="truncate">{a.name}</span>
-                <span className="wl-attachment-size">
-                  {a.uploading ? "envoi…" : formatBytes(a.size)}
-                </span>
-                <button
-                  type="button"
-                  className="wl-attachment-remove"
-                  onClick={() => onRemoveAttachment(a.id)}
-                  aria-label={`Retirer ${a.name}`}
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="wl-chat-actions">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            style={{ display: "none" }}
-            onChange={onFiles}
-          />
-          <button
-            type="button"
-            className="wl-chat-icon-btn"
-            onClick={onPickClick}
-            aria-label="Joindre un fichier"
-            disabled={sending}
-          >
-            <Paperclip size={16} />
-          </button>
-          <button
-            type="button"
-            className="wl-chat-send"
-            aria-label="Envoyer"
-            onClick={onSend}
-            disabled={
-              sending ||
-              draftMsg.trim().length === 0 ||
-              attachments.some((a) => a.uploading)
-            }
-          >
-            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// Bulle individuelle. Un message USER s'affiche aligné à droite avec
-// l'auteur "Vous" ; un message STAFF aligné à gauche avec un avatar +
-// badge violet "Staff" + nom Discord ; un message SYSTEM en bandeau central.
-function ChatBubble({ message }: { message: WhitelistMessage }) {
-  const time = formatTime(message.createdAt);
-
-  if (message.authorType === "SYSTEM") {
-    return (
-      <motion.div
-        className="wl-msg-system"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <em>{message.content}</em>
-      </motion.div>
-    );
-  }
-
-  if (message.authorType === "STAFF") {
-    return (
-      <motion.div
-        className="wl-msg wl-msg-staff"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div
-          className="wl-msg-avatar"
-          style={{ background: "linear-gradient(135deg,#8b5cf6,#a78bfa)" }}
-        >
-          {(message.authorName ?? "S").charAt(0).toUpperCase()}
-        </div>
-        <div className="wl-msg-body">
-          <div className="wl-msg-meta">
-            <span className="wl-msg-author">{message.authorName ?? "Staff"}</span>
-            <span
-              className="wl-role-badge"
-              style={{ ["--role-color" as string]: "var(--color-role-staff)" }}
-            >
-              Staff
-            </span>
-            <span
-              style={{
-                color: "var(--color-foreground-muted)",
-                fontSize: 11,
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              {time}
-            </span>
-          </div>
-          <div className="wl-msg-bubble wl-msg-bubble-staff">{message.content}</div>
-          {message.attachments.length > 0 && (
-            <div className="wl-msg-attachments">
-              {message.attachments.map((a, i) => (
-                <a
-                  key={i}
-                  href={a.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="wl-attachment-chip"
-                >
-                  <Paperclip size={12} />
-                  <span className="truncate">{shortenUrl(a.url)}</span>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-      </motion.div>
-    );
-  }
-
-  // USER
-  return (
-    <motion.div
-      className="wl-msg wl-msg-me"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="wl-msg-body">
-        <div className="wl-msg-meta" style={{ justifyContent: "flex-end" }}>
-          <span
-            style={{
-              color: "var(--color-foreground-muted)",
-              fontSize: 11,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            {time}
-          </span>
-          <span className="wl-msg-author">Vous</span>
-        </div>
-        {message.content && (
-          <div className="wl-msg-bubble wl-msg-bubble-me">{message.content}</div>
-        )}
-        {message.attachments.length > 0 && (
-          <div className="wl-msg-attachments">
-            {message.attachments.map((a, i) => (
-              <a
-                key={i}
-                href={a.url}
-                target="_blank"
-                rel="noreferrer"
-                className="wl-attachment-chip"
-              >
-                <Paperclip size={12} />
-                <span className="truncate">{shortenUrl(a.url)}</span>
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
-    </motion.div>
   );
 }
 
@@ -812,14 +503,14 @@ function ApplicationPanel({
             className="text-xs leading-relaxed mt-2"
             style={{ color: "var(--color-foreground-subtle)" }}
           >
-            Retirer ta candidature te ramene a l'ecran d'accueil. Tu pourras
-            en soumettre une nouvelle. Action irreversible — tes echanges
+            Retirer ta candidature te ramène à l'écran d'accueil. Tu pourras
+            en soumettre une nouvelle. Action irréversible — tes échanges
             avec le staff seront perdus.
           </p>
           <div className="mt-3">
             <button
               type="button"
-              className="wl-btn-mini-ghost"
+              className={`wl-btn-mini-ghost ${FOCUS_RING}`}
               onClick={onWithdraw}
               disabled={withdrawing}
               style={{
@@ -876,7 +567,11 @@ function OralFullView({
         <StatusPill label="RP" status={rp} />
       </div>
 
-      {err && <div className="wl-oral-err">{err}</div>}
+      {err && (
+        <div className="wl-oral-err" role="alert">
+          {err}
+        </div>
+      )}
 
       {mine ? (
         <BookedView mine={mine} busy={busy} onCancel={onCancel} />
@@ -926,7 +621,7 @@ function ChooseView({
             <button
               key={s.id}
               type="button"
-              className="wl-oral-cardslot"
+              className={`wl-oral-cardslot ${FOCUS_RING}`}
               disabled={busy === s.id}
               onClick={() => onBook(s.id)}
             >
@@ -999,7 +694,7 @@ function BookedView({
         <div className="wl-oral-booked-actions">
           <button
             type="button"
-            className="wl-oral-btn-secondary"
+            className={`wl-oral-btn-secondary ${FOCUS_RING}`}
             disabled={busy === mine.id}
             onClick={() => onCancel(mine.id)}
           >
@@ -1063,27 +758,4 @@ function formatSlotEnd(iso: string, durationMin: number): string {
 
 function formatSlotRange(iso: string, durationMin: number): string {
   return `${formatSlotTime(iso)} – ${formatSlotEnd(iso, durationMin)}`;
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} o`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} ko`;
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} Mo`;
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} Go`;
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-function shortenUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    const parts = u.pathname.split("/").filter(Boolean);
-    return parts[parts.length - 1] ?? u.host;
-  } catch {
-    return url.slice(0, 32);
-  }
 }

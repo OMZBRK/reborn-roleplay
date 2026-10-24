@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import type { WhitelistApplication, WhitelistAppStatus } from "../lib/content";
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -91,6 +92,9 @@ type WhitelistState = {
   // Hydrate intégralement le store depuis la réponse de fetchWhitelistMe.
   // Passe null pour signifier "aucune candidature côté serveur" → status="draft".
   hydrateFromServer: (data: HydrateInput | null) => void;
+  // Raccourci : hydrate directement depuis la candidature renvoyée par l'API
+  // (fetchWhitelistMe().application, submit, resubmit).
+  hydrateFromApplication: (app: WhitelistApplication | null) => void;
   reset: () => void;
 };
 
@@ -103,12 +107,52 @@ export type HydrateInput = {
   assignedAt: string | null;
 };
 
+// Mappe le statut serveur (PENDING/APPROVED/...) → status local (4 valeurs)
+// utilisé par la sidebar et le mapping écran. NEEDS_REVISION retombe sur
+// "rejected" : design v2 ne distingue pas les deux côté UI (l'utilisateur
+// peut refaire dans les deux cas), seul le message diffère via reviewNotes.
+export function mapServerStatus(s: WhitelistAppStatus): WhitelistStatus {
+  switch (s) {
+    case "PENDING":
+      return "pending";
+    case "APPROVED":
+      return "accepted";
+    case "REJECTED":
+    case "NEEDS_REVISION":
+      return "rejected";
+  }
+}
+
+/** Candidature API → données d'hydratation du store (source unique). */
+export function applicationToHydrate(app: WhitelistApplication): HydrateInput {
+  return {
+    applicationId: app.id,
+    status: mapServerStatus(app.status),
+    reviewNotes: app.reviewNotes,
+    draft: {
+      dob: app.dob,
+      motivation: app.motivation,
+      experience: app.experience,
+      availability: app.availability,
+      firstName: app.firstName,
+      lastName: app.lastName,
+      village: app.village,
+      support: app.support ?? "",
+      history: app.history,
+      appearance: app.appearance,
+      objectives: app.objectives,
+    },
+    assigneeName: app.assignee?.username ?? null,
+    assignedAt: app.assignedAt,
+  };
+}
+
 // On utilise localStorage (via zustand/middleware) en attendant tauri-plugin-store —
 // suffisant pour la phase actuelle, le draft survit aux reload mais pas aux migrations
 // de machine. Quand le plugin Tauri sera setup, swap le storage adapter ici.
 export const useWhitelistStore = create<WhitelistState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       draft: EMPTY_DRAFT,
       status: "draft",
       applicationId: null,
@@ -140,6 +184,8 @@ export const useWhitelistStore = create<WhitelistState>()(
           assignedAt: data.assignedAt,
         });
       },
+      hydrateFromApplication: (app) =>
+        get().hydrateFromServer(app ? applicationToHydrate(app) : null),
       reset: () =>
         set({
           draft: EMPTY_DRAFT,

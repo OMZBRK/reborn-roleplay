@@ -41,7 +41,7 @@ export function DownloadModal({ open, progress, version, bytesTotal }: Props) {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.96, y: 8 }}
               transition={{ duration: 0.2 }}
-              className="w-[480px] rounded-[--radius-card] border border-border bg-surface-elevated p-8"
+              className="w-[480px] rounded-card border border-border bg-surface-elevated p-8"
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent">

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { AnimatePresence } from "framer-motion";
 import {
@@ -34,7 +34,11 @@ type SidebarItem = {
   route: string;
   icon: ComponentType<{ size?: number; className?: string }>;
   badge?: string;
+  /** Texte lu par les lecteurs d'écran pour le badge (« 3 non lus »). */
+  badgeLabel?: string;
   dotBadge?: boolean;
+  /** Texte lu pour la pastille (« candidature en attente »). */
+  dotLabel?: string;
 };
 
 type SidebarGroup = {
@@ -50,9 +54,24 @@ export function Sidebar() {
   const whitelistStatus = useWhitelistStore((s) => s.status);
   const updateAvailable = useUpdateStore((s) => s.available);
   const requestUpdateOpen = useUpdateStore((s) => s.requestOpen);
-  const unreadTickets = useBadgesStore((s) => s.badges.unreadTickets);
-  const unreadPatchnotes = useBadgesStore((s) => s.badges.unreadPatchnotes);
+  // `?? 0` : un backend absent (vite dev navigateur) ou une réponse vide ne
+  // doit pas faire tomber la sidebar.
+  const unreadTickets = useBadgesStore((s) => s.badges?.unreadTickets ?? 0);
+  const unreadPatchnotes = useBadgesStore((s) => s.badges?.unreadPatchnotes ?? 0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const userBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Échap ferme le menu utilisateur et rend le focus à la carte.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMenuOpen(false);
+      userBtnRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   const groups = useMemo<SidebarGroup[]>(() => {
     return [
@@ -68,6 +87,7 @@ export function Sidebar() {
             route: "/whitelist",
             icon: FileText,
             dotBadge: whitelistStatus === "pending",
+            dotLabel: "candidature en attente",
           },
           { id: "rp", label: "RP", route: "/rp", icon: Drama },
         ],
@@ -85,6 +105,7 @@ export function Sidebar() {
             route: "/patchnotes",
             icon: Sparkles,
             dotBadge: unreadPatchnotes > 0,
+            dotLabel: "nouveautés non lues",
           },
           { id: "docs", label: "Documentation", route: "/docs", icon: FileQuestion },
         ],
@@ -98,7 +119,11 @@ export function Sidebar() {
             label: "Tickets",
             route: "/tickets",
             icon: LifeBuoy,
-            badge: unreadTickets > 0 ? String(Math.min(unreadTickets, 9)) : undefined,
+            badge: unreadTickets > 0 ? (unreadTickets > 9 ? "9+" : String(unreadTickets)) : undefined,
+            badgeLabel:
+              unreadTickets > 0
+                ? `${unreadTickets} réponse${unreadTickets > 1 ? "s" : ""} non lue${unreadTickets > 1 ? "s" : ""}`
+                : undefined,
           },
         ],
       },
@@ -133,7 +158,7 @@ export function Sidebar() {
             ? "Mise à jour disponible — clic pour l'installer"
             : "Accueil"
         }
-        aria-label="Accueil"
+        aria-label={updateAvailable ? "Accueil — mise à jour du launcher disponible" : "Accueil"}
         className="reborn-rail-brand"
       >
         <span
@@ -165,18 +190,26 @@ export function Sidebar() {
                   type="button"
                   onClick={() => navigate(it.route)}
                   data-active={active ? "true" : undefined}
+                  aria-current={active ? "page" : undefined}
                   className="reborn-rail-item"
                 >
-                  <span className="reborn-rail-item-icon">
+                  <span className="reborn-rail-item-icon" aria-hidden>
                     <Icon size={18} />
                   </span>
                   <span className="reborn-rail-item-label">{it.label}</span>
                   {it.badge ? (
-                    <span className="reborn-rail-item-badge">{it.badge}</span>
+                    <span className="reborn-rail-item-badge">
+                      <span aria-hidden>{it.badge}</span>
+                      {it.badgeLabel && <span className="reborn-sr-only">, {it.badgeLabel}</span>}
+                    </span>
                   ) : it.dotBadge ? (
-                    <span className="reborn-rail-item-dot" />
+                    <span className="reborn-rail-item-dot">
+                      {it.dotLabel && <span className="reborn-sr-only">, {it.dotLabel}</span>}
+                    </span>
                   ) : (
-                    active && <ChevronRight size={14} className="reborn-rail-item-chev" />
+                    active && (
+                      <ChevronRight size={14} className="reborn-rail-item-chev" aria-hidden />
+                    )
                   )}
                 </button>
               );
@@ -187,14 +220,21 @@ export function Sidebar() {
 
       <div className="reborn-rail-foot">
         <button
+          ref={userBtnRef}
           type="button"
+          // Menu ouvert : le clic sur la carte doit le FERMER. Sans ça, le
+          // mousedown « hors popover » le fermait puis le clic le rouvrait.
+          onMouseDown={(e) => {
+            if (menuOpen) e.stopPropagation();
+          }}
           onClick={() => setMenuOpen((v) => !v)}
-          aria-label="Menu utilisateur"
+          aria-label={`Menu utilisateur de ${pseudo}`}
+          aria-haspopup="true"
           aria-expanded={menuOpen}
           data-open={menuOpen ? "true" : undefined}
           className="reborn-rail-user"
         >
-          <span className="reborn-rail-user-avatar">
+          <span className="reborn-rail-user-avatar" aria-hidden>
             {initial}
             <span className="reborn-rail-user-status" />
           </span>

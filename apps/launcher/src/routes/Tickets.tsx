@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -15,6 +14,7 @@ import {
   MessageSquare,
   Paperclip,
   Plus,
+  RefreshCw,
   Send,
   ShieldAlert,
   Ticket as TicketIcon,
@@ -38,67 +38,67 @@ import {
   type TicketStatus,
   type TicketSummary,
 } from "../lib/content";
+import { formatIpcError } from "../lib/errors";
 import { useBadgesStore } from "../stores/badges-store";
+import {
+  ChatThread,
+  FOCUS_RING,
+  IMAGE_ACCEPT,
+  InlineError,
+  isAllowedImage,
+  rejectedFilesMessage,
+  SyncIndicator,
+  useChatFeed,
+  type ChatMessage,
+} from "../components/chat/ChatThread";
 
 // Flow inspiré des maquettes Reborn (accent crimson, pas bleu) :
 //  - "hub"    : page d'accueil 2 cartes (Ouvrir un ticket / Mes tickets)
 //  - "create" : formulaire plein écran (catégorie + titre + message + fichier)
 //  - "list"   : master-detail (sidebar liste + chat), atteint via « Mes tickets »
 // Le hub et le form sont pleine page (sans sidebar) ; seul le mode list garde
-// le layout 2-panes historique.
+// le layout 2-panes historique. Liste et conversation sont sondées toutes
+// les 5 s (useChatFeed : pause pendant une partie, erreurs visibles).
 
-const POLL_INTERVAL_MS = 5000;
+/** Délai d'assignation au-delà duquel le joueur peut demander une reprise. */
+const RECLAIM_AFTER_MS = 4 * 60 * 60 * 1000;
+const NO_TICKETS: TicketSummary[] = [];
 
 type Mode =
   | { kind: "hub" }
   | { kind: "create" }
   | { kind: "list"; id: string | null };
 
+function summaryOf(t: TicketDetail): TicketSummary {
+  return {
+    id: t.id,
+    category: t.category,
+    subject: t.subject,
+    status: t.status,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    lastMessagePreview: t.messages[0]?.content.slice(0, 140) ?? null,
+  };
+}
+
 export function Tickets() {
   const [mode, setMode] = useState<Mode>({ kind: "hub" });
-  const [list, setList] = useState<TicketSummary[]>([]);
-  const [listError, setListError] = useState<string | null>(null);
-  const [listLoading, setListLoading] = useState(true);
+  // Échec d'envoi des pièces jointes d'un ticket qu'on vient de créer :
+  // affiché dans sa conversation (le ticket, lui, existe bien).
+  const [createdNotice, setCreatedNotice] = useState<{ id: string; message: string } | null>(
+    null,
+  );
 
   // Ouvrir la page tickets = tout marquer comme lu (efface le badge sidebar).
   useEffect(() => {
     void useBadgesStore.getState().markRead("tickets");
   }, []);
 
-  // Polling de la liste : on rafraîchit aussi pour catcher les nouveaux
-  // status (staff change OPEN → IN_PROGRESS → RESOLVED) et les nouveaux
-  // last-message previews qui arrivent depuis Discord.
-  useEffect(() => {
-    let cancelled = false;
-    let timer: number | undefined;
-    async function poll() {
-      try {
-        const items = await fetchTickets();
-        if (!cancelled) {
-          setList(items);
-          setListError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setListError(
-            typeof err === "string"
-              ? err
-              : (err as { message?: string }).message ?? "Erreur",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setListLoading(false);
-          timer = window.setTimeout(poll, POLL_INTERVAL_MS);
-        }
-      }
-    }
-    poll();
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, []);
+  // Sondage de la liste : récupère aussi les changements de statut côté
+  // staff (OPEN → IN_PROGRESS → RESOLVED) et les aperçus de derniers
+  // messages qui arrivent depuis Discord.
+  const listFeed = useChatFeed(() => fetchTickets());
+  const list = listFeed.data ?? NO_TICKETS;
 
   // En mode list sans sélection mais avec des tickets : auto-sélectionne le
   // plus récent pour ne pas rester sur un pane vide.
@@ -113,24 +113,16 @@ export function Tickets() {
     (t) => t.status === "OPEN" || t.status === "IN_PROGRESS",
   ).length;
 
-  function handleCreated(t: TicketDetail) {
-    setList((prev) => [
-      {
-        id: t.id,
-        category: t.category,
-        subject: t.subject,
-        status: t.status,
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt,
-        lastMessagePreview: t.messages[0]?.content.slice(0, 140) ?? null,
-      },
-      ...prev,
-    ]);
+  function handleCreated(t: TicketDetail, attachmentError?: string) {
+    listFeed.mutate((prev) => [summaryOf(t), ...(prev ?? []).filter((x) => x.id !== t.id)]);
+    listFeed.refresh();
+    setCreatedNotice(attachmentError ? { id: t.id, message: attachmentError } : null);
     setMode({ kind: "list", id: t.id });
   }
 
   function handleDeleted(id: string) {
-    setList((prev) => prev.filter((t) => t.id !== id));
+    listFeed.mutate((prev) => (prev ?? []).filter((t) => t.id !== id));
+    listFeed.refresh();
     setMode({ kind: "list", id: null });
   }
 
@@ -155,13 +147,14 @@ export function Tickets() {
 
   // mode.kind === "list" → master-detail
   const selectedId = mode.id;
+  const listError = listFeed.sync.error;
   return (
     <div className="tk-shell">
       <aside className="tk-sidebar">
         <div className="tk-sidebar-header">
           <button
             type="button"
-            className="tk-back"
+            className={`tk-back ${FOCUS_RING}`}
             onClick={() => setMode({ kind: "hub" })}
           >
             <ArrowLeft size={15} />
@@ -169,7 +162,7 @@ export function Tickets() {
           </button>
           <button
             type="button"
-            className="tk-new-btn"
+            className={`tk-new-btn ${FOCUS_RING}`}
             onClick={() => setMode({ kind: "create" })}
           >
             <Plus size={14} />
@@ -178,18 +171,24 @@ export function Tickets() {
         </div>
 
         <div className="tk-list">
-          {listError && (
-            <div className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
-              {listError}
-            </div>
+          {/* Échec sans aucune donnée : bandeau complet. Avec une liste déjà
+              affichée : indicateur discret, elle reste utilisable. */}
+          {listError && list.length === 0 && (
+            <InlineError
+              message={`Impossible de charger tes tickets. ${listError}`}
+              onRetry={listFeed.refresh}
+            />
           )}
-          {listLoading && list.length === 0 && (
+          {listError && list.length > 0 && (
+            <SyncIndicator variant="block" sync={listFeed.sync} onRetry={listFeed.refresh} />
+          )}
+          {listFeed.loading && list.length === 0 && (
             <div className="tk-list-empty">
               <Loader2 size={18} className="mx-auto mb-2 animate-spin opacity-60" />
               Chargement…
             </div>
           )}
-          {!listLoading && list.length === 0 && !listError && (
+          {!listFeed.loading && list.length === 0 && !listError && (
             <div className="tk-list-empty">
               <MessageSquare size={28} className="mx-auto mb-3 opacity-40" />
               Aucun ticket pour le moment.
@@ -210,8 +209,14 @@ export function Tickets() {
 
       <section className="tk-pane">
         {selectedId ? (
+          // key : changer de ticket remonte le pane (brouillon, pièces
+          // jointes et sondage repartent de zéro, aucun mélange possible).
           <ChatPane
+            key={selectedId}
             ticketId={selectedId}
+            notice={createdNotice?.id === selectedId ? createdNotice.message : null}
+            onDismissNotice={() => setCreatedNotice(null)}
+            onChanged={listFeed.refresh}
             onDeleted={() => handleDeleted(selectedId)}
           />
         ) : (
@@ -253,14 +258,14 @@ function TicketsHub({
       </header>
 
       <div className="tk-hub-cards">
-        <button type="button" className="tk-hub-card" onClick={onOpen}>
+        <button type="button" className={`tk-hub-card ${FOCUS_RING}`} onClick={onOpen}>
           <div className="tk-hub-card-body">
             <h2 className="tk-hub-card-title">Ouvrir un ticket</h2>
           </div>
           <MessagesSquare className="tk-hub-card-art" size={132} strokeWidth={1.1} />
         </button>
 
-        <button type="button" className="tk-hub-card" onClick={onList}>
+        <button type="button" className={`tk-hub-card ${FOCUS_RING}`} onClick={onList}>
           <div className="tk-hub-card-body">
             <h2 className="tk-hub-card-title">Mes tickets</h2>
             <span className="tk-hub-card-count">
@@ -291,7 +296,8 @@ function TicketListItem({
     <button
       type="button"
       onClick={onClick}
-      className={`tk-item${active ? " is-active" : ""}`}
+      aria-current={active ? "true" : undefined}
+      className={`tk-item${active ? " is-active" : ""} ${FOCUS_RING}`}
     >
       <div className="tk-item-row">
         <CategoryBadge category={ticket.category} />
@@ -327,7 +333,7 @@ function EmptyPane({ onNew }: { onNew: () => void }) {
       <p className="text-sm text-foreground-subtle">
         Choisis une conversation à gauche ou ouvre-en une nouvelle.
       </p>
-      <button type="button" className="wl-btn-primary glow" onClick={onNew}>
+      <button type="button" className={`wl-btn-primary glow ${FOCUS_RING}`} onClick={onNew}>
         <Plus size={16} />
         Nouveau ticket
       </button>
@@ -343,7 +349,7 @@ function CreateView({
   onCreated,
   onCancel,
 }: {
-  onCreated: (t: TicketDetail) => void;
+  onCreated: (t: TicketDetail, attachmentError?: string) => void;
   onCancel: () => void;
 }) {
   const [category, setCategory] = useState<TicketCategory>("OTHER");
@@ -355,6 +361,7 @@ function CreateView({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting) return;
     setError(null);
     setSubmitting(true);
     const payload: CreateTicketInput = {
@@ -363,25 +370,38 @@ function CreateView({
       message: message.trim(),
     };
     try {
-      const created = await createTicket(payload);
-      // Le create n'accepte pas d'attachments : on les uploade puis on les
-      // poste en message de suivi sur le ticket fraîchement créé.
+      let created: TicketDetail;
+      try {
+        created = await createTicket(payload);
+      } catch (err) {
+        setError(formatIpcError(err, "Impossible de créer le ticket"));
+        return;
+      }
+      // Le create n'accepte pas de pièces jointes : on les uploade puis on
+      // les poste en message de suivi. Le ticket existe déjà : un échec ici
+      // ne doit pas laisser le formulaire ouvert (un nouvel envoi créerait
+      // un doublon), on ouvre la conversation avec l'erreur.
+      let attachmentError: string | undefined;
       if (files.length > 0) {
         const urls: string[] = [];
-        for (const f of files) urls.push(await uploadAttachment(f));
-        await postTicketMessage(
-          created.id,
-          `${files.length} pièce${files.length > 1 ? "s" : ""} jointe${files.length > 1 ? "s" : ""}`,
-          urls,
-        );
+        try {
+          for (const f of files) {
+            try {
+              urls.push(await uploadAttachment(f));
+            } catch (err) {
+              throw new Error(formatIpcError(err, `Envoi de « ${f.name} » impossible`));
+            }
+          }
+          await postTicketMessage(
+            created.id,
+            `${files.length} pièce${files.length > 1 ? "s" : ""} jointe${files.length > 1 ? "s" : ""}`,
+            urls,
+          );
+        } catch (err) {
+          attachmentError = `Ticket créé, mais les pièces jointes n'ont pas été envoyées. ${formatIpcError(err)} Tu peux les joindre depuis la conversation.`;
+        }
       }
-      onCreated(created);
-    } catch (err) {
-      setError(
-        typeof err === "string"
-          ? err
-          : (err as { message?: string }).message ?? "Erreur",
-      );
+      onCreated(created, attachmentError);
     } finally {
       setSubmitting(false);
     }
@@ -392,7 +412,7 @@ function CreateView({
       <header className="tk-create-head">
         <button
           type="button"
-          className="tk-back-round"
+          className={`tk-back-round ${FOCUS_RING}`}
           onClick={onCancel}
           disabled={submitting}
           aria-label="Retour"
@@ -410,8 +430,11 @@ function CreateView({
       <form onSubmit={handleSubmit} className="tk-create-form">
         <div className="tk-create-grid">
           <div className="wl-field">
-            <label className="wl-field-label">Choisir votre catégorie</label>
+            <label className="wl-field-label" htmlFor="tk-category">
+              Choisir votre catégorie
+            </label>
             <select
+              id="tk-category"
               value={category}
               onChange={(e) => setCategory(e.target.value as TicketCategory)}
               className="wl-input tk-create-select"
@@ -425,10 +448,11 @@ function CreateView({
           </div>
 
           <div className="wl-field">
-            <label className="wl-field-label">
+            <label className="wl-field-label" htmlFor="tk-subject">
               Titre du ticket<span className="wl-required">*</span>
             </label>
             <input
+              id="tk-subject"
               required
               minLength={4}
               maxLength={120}
@@ -441,10 +465,11 @@ function CreateView({
         </div>
 
         <div className="wl-field">
-          <label className="wl-field-label">
+          <label className="wl-field-label" htmlFor="tk-message">
             Message<span className="wl-required">*</span>
           </label>
           <textarea
+            id="tk-message"
             required
             minLength={10}
             maxLength={4000}
@@ -456,19 +481,21 @@ function CreateView({
           />
         </div>
 
-        <FileDrop files={files} setFiles={setFiles} disabled={submitting} />
+        <FileDrop
+          files={files}
+          setFiles={setFiles}
+          onRejected={setError}
+          disabled={submitting}
+        />
 
         {error && (
-          <div className="flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
+          <InlineError message={error} onDismiss={() => setError(null)} />
         )}
 
         <div className="tk-create-actions">
           <button
             type="button"
-            className="tk-btn-cancel"
+            className={`tk-btn-cancel ${FOCUS_RING}`}
             onClick={onCancel}
             disabled={submitting}
           >
@@ -476,7 +503,7 @@ function CreateView({
           </button>
           <button
             type="submit"
-            className="tk-btn-submit"
+            className={`tk-btn-submit ${FOCUS_RING}`}
             disabled={submitting || !subject.trim() || message.length < 10}
           >
             {submitting ? (
@@ -502,10 +529,13 @@ function CreateView({
 function FileDrop({
   files,
   setFiles,
+  onRejected,
   disabled,
 }: {
   files: File[];
   setFiles: React.Dispatch<React.SetStateAction<File[]>>;
+  /** Fichiers refusés (pas des images acceptées par l'API) : message à afficher. */
+  onRejected: (message: string) => void;
   disabled?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -513,13 +543,33 @@ function FileDrop({
 
   function add(fl: FileList | null) {
     if (!fl || fl.length === 0) return;
-    setFiles((prev) => [...prev, ...Array.from(fl)]);
+    const all = Array.from(fl);
+    const rejected = all.filter((f) => !isAllowedImage(f));
+    if (rejected.length > 0) onRejected(rejectedFilesMessage(rejected));
+    const images = all.filter(isAllowedImage);
+    if (images.length > 0) setFiles((prev) => [...prev, ...images]);
+  }
+
+  function browse() {
+    if (!disabled) inputRef.current?.click();
   }
 
   return (
     <div
-      className={`tk-drop${drag ? " is-drag" : ""}`}
-      onClick={() => !disabled && inputRef.current?.click()}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled || undefined}
+      aria-label="Importer des images (PNG, JPEG, WebP ou GIF)"
+      className={`tk-drop${drag ? " is-drag" : ""} ${FOCUS_RING}`}
+      onClick={browse}
+      onKeyDown={(e) => {
+        // Seulement sur la zone elle-même (pas sur les boutons « Retirer »).
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          browse();
+        }
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         if (!disabled) setDrag(true);
@@ -534,10 +584,14 @@ function FileDrop({
       <input
         ref={inputRef}
         type="file"
+        accept={IMAGE_ACCEPT}
         multiple
         hidden
         disabled={disabled}
-        onChange={(e) => add(e.target.files)}
+        onChange={(e) => {
+          add(e.target.files);
+          e.target.value = "";
+        }}
       />
       <div className="tk-drop-text">
         <div className="tk-drop-title">Importer un fichier</div>
@@ -556,7 +610,9 @@ function FileDrop({
               <span className="tk-drop-chip-name">{f.name}</span>
               <button
                 type="button"
-                aria-label="Retirer"
+                aria-label={`Retirer ${f.name}`}
+                className={FOCUS_RING}
+                disabled={disabled}
                 onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
               >
                 <X size={11} />
@@ -573,33 +629,42 @@ function FileDrop({
 // Chat pane
 // ──────────────────────────────────────────────────────────
 
-type LocalAttachment = {
-  id: string;
-  name: string;
-  size: number;
-  url?: string;
-  uploading?: boolean;
-};
+function toChatMessage(m: TicketMessage): ChatMessage {
+  return {
+    id: m.id,
+    author: m.isStaff ? "staff" : "me",
+    authorName: m.authorName,
+    content: m.content,
+    attachments: m.attachments,
+    createdAt: m.createdAt,
+  };
+}
 
 function ChatPane({
   ticketId,
+  notice,
+  onDismissNotice,
+  onChanged,
   onDeleted,
 }: {
   ticketId: string;
+  /** Erreur venue de la création (pièces jointes) à afficher dans le fil. */
+  notice: string | null;
+  onDismissNotice: () => void;
+  /** Un message a été envoyé : la liste peut se rafraîchir (aperçu). */
+  onChanged: () => void;
   onDeleted: () => void;
 }) {
-  const [ticket, setTicket] = useState<TicketDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-  const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
-  const [sending, setSending] = useState(false);
+  // Sondage 5 s du détail (récupère les nouveaux messages staff).
+  const feed = useChatFeed(() => fetchTicket(ticketId));
+  const ticket = feed.data;
+  const messages = useMemo(() => (ticket?.messages ?? []).map(toChatMessage), [ticket?.messages]);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [reclaiming, setReclaiming] = useState(false);
-  const [reclaimMsg, setReclaimMsg] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // Refresh chaque minute pour que la duree "depuis Xh" reste fraiche
-  // sans dependre du polling 5s qui peut ne pas changer la ref ticket.
+  const [reclaimMsg, setReclaimMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Refresh chaque minute pour que la durée « depuis Xh » reste fraîche
+  // sans dépendre du sondage (qui ne re-rend que si le ticket change).
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!ticket?.assignedAt) return;
@@ -612,122 +677,29 @@ function ChatPane({
     setReclaimMsg(null);
     try {
       await reclaimTicket(ticketId);
-      const detail = await fetchTicket(ticketId);
-      setTicket(detail);
-      setReclaimMsg("Reprise demandee — un autre staff peut reprendre.");
+      feed.refresh();
+      setReclaimMsg({
+        ok: true,
+        text: "Reprise demandée — un autre membre du staff peut maintenant prendre ton ticket.",
+      });
     } catch (err) {
-      setReclaimMsg(
-        typeof err === "string"
-          ? err
-          : (err as { message?: string }).message ?? "Echec",
-      );
+      setReclaimMsg({ ok: false, text: formatIpcError(err, "Impossible de demander une reprise") });
     } finally {
       setReclaiming(false);
     }
   }
 
-  // Reset le draft + attachments quand on change de ticket sélectionné.
-  useEffect(() => {
-    setDraft("");
-    setAttachments([]);
-    setLoading(true);
-    setTicket(null);
-    setError(null);
-  }, [ticketId]);
-
-  // Polling 5s sur le détail (récupère les nouveaux messages staff).
-  useEffect(() => {
-    let cancelled = false;
-    let timer: number | undefined;
-    async function poll() {
-      try {
-        const detail = await fetchTicket(ticketId);
-        if (!cancelled) {
-          setTicket(detail);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            typeof err === "string"
-              ? err
-              : (err as { message?: string }).message ?? "Erreur",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-          timer = window.setTimeout(poll, POLL_INTERVAL_MS);
-        }
-      }
-    }
-    poll();
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [ticketId]);
-
-  async function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    if (files.length === 0) return;
-
-    const images = files.filter((f) => f.type.startsWith("image/"));
-    if (images.length < files.length) {
-      setError("Seules les images peuvent être jointes.");
-    }
-
-    for (const f of images) {
-      const id = `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`;
-      setAttachments((prev) => [
-        ...prev,
-        { id, name: f.name, size: f.size, uploading: true },
-      ]);
-      try {
-        const url = await uploadAttachment(f);
-        setAttachments((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, url, uploading: false } : a)),
-        );
-      } catch (err) {
-        setAttachments((prev) => prev.filter((a) => a.id !== id));
-        setError(
-          typeof err === "string"
-            ? err
-            : (err as { message?: string }).message ?? "Upload échoué",
-        );
-      }
-    }
-  }
-
-  function removeAttachment(id: string) {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
-  }
-
-  async function handleSend() {
-    const trimmed = draft.trim();
-    if (!trimmed || attachments.some((a) => a.uploading)) return;
-    setSending(true);
-    setError(null);
-    try {
-      const urls = attachments
-        .map((a) => a.url)
-        .filter((u): u is string => !!u);
-      await postTicketMessage(ticketId, trimmed, urls.length > 0 ? urls : undefined);
-      setDraft("");
-      setAttachments([]);
-      // Refetch immédiatement plutôt que d'attendre le prochain tick.
-      const detail = await fetchTicket(ticketId);
-      setTicket(detail);
-    } catch (err) {
-      setError(
-        typeof err === "string"
-          ? err
-          : (err as { message?: string }).message ?? "Erreur",
-      );
-    } finally {
-      setSending(false);
-    }
+  async function handleSend(content: string, attachmentUrls?: string[]) {
+    const created = await postTicketMessage(ticketId, content, attachmentUrls);
+    // Le message envoyé apparaît tout de suite ; le tour relancé juste
+    // après apporte la version serveur (et les éventuelles réponses).
+    feed.mutate((prev) =>
+      prev && !prev.messages.some((m) => m.id === created.id)
+        ? { ...prev, messages: [...prev.messages, created] }
+        : prev,
+    );
+    feed.refresh();
+    onChanged();
   }
 
   async function handleDelete() {
@@ -737,29 +709,18 @@ function ChatPane({
       return;
     }
     setDeleting(true);
-    setError(null);
+    setDeleteError(null);
     try {
       await deleteTicket(ticketId);
       onDeleted();
     } catch (err) {
-      setError(
-        typeof err === "string"
-          ? err
-          : (err as { message?: string }).message ?? "Erreur",
-      );
+      setDeleteError(formatIpcError(err, "Impossible de supprimer le ticket"));
     } finally {
       setDeleting(false);
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      void handleSend();
-    }
-  }
-
-  if (loading && !ticket) {
+  if (feed.loading && !ticket) {
     return (
       <div className="tk-pane-empty">
         <Loader2 className="animate-spin" />
@@ -770,8 +731,24 @@ function ChatPane({
 
   if (!ticket) {
     return (
-      <div className="tk-pane-empty">
-        <p className="text-sm text-danger">{error ?? "Ticket introuvable."}</p>
+      <div className="tk-pane-empty" role="alert">
+        <AlertTriangle className="text-danger" />
+        <p className="max-w-md text-center text-sm text-danger">
+          {feed.sync.error
+            ? `Impossible d'ouvrir ce ticket. ${feed.sync.error}`
+            : "Ticket introuvable."}
+        </p>
+        <p className="text-xs text-foreground-muted">
+          Nouvel essai automatique toutes les 5 secondes.
+        </p>
+        <button
+          type="button"
+          className={`wl-btn-mini-ghost ${FOCUS_RING}`}
+          onClick={feed.refresh}
+        >
+          <RefreshCw size={13} />
+          Réessayer
+        </button>
       </div>
     );
   }
@@ -802,7 +779,7 @@ function ChatPane({
         {canDelete && (
           <button
             type="button"
-            className="wl-btn-mini-ghost"
+            className={`wl-btn-mini-ghost ${FOCUS_RING}`}
             onClick={handleDelete}
             disabled={deleting}
             style={{
@@ -822,7 +799,6 @@ function ChatPane({
 
       {ticket.assignee && ticket.assignedAt && (() => {
         const elapsed = Date.now() - new Date(ticket.assignedAt).getTime();
-        const RECLAIM_AFTER_MS = 4 * 60 * 60 * 1000;
         const canReclaim = elapsed >= RECLAIM_AFTER_MS && !isClosed && ticket.status !== "RESOLVED";
         const minutes = Math.max(1, Math.floor(elapsed / 60_000));
         const hours = Math.floor(minutes / 60);
@@ -851,7 +827,7 @@ function ChatPane({
             {canReclaim && (
               <button
                 type="button"
-                className="wl-btn-mini-ghost"
+                className={`wl-btn-mini-ghost ${FOCUS_RING}`}
                 onClick={handleReclaim}
                 disabled={reclaiming}
                 style={{
@@ -870,232 +846,55 @@ function ChatPane({
       })()}
       {reclaimMsg && (
         <div
+          role={reclaimMsg.ok ? "status" : "alert"}
           className="mx-3 mb-2 text-xs"
-          style={{ color: "var(--color-foreground-subtle)" }}
+          style={{
+            color: reclaimMsg.ok ? "var(--color-foreground-subtle)" : "var(--color-danger)",
+          }}
         >
-          {reclaimMsg}
+          {reclaimMsg.text}
         </div>
       )}
 
       <div className="tk-chat-area">
-        <div className="wl-chat">
-          <motion.div
-            className="wl-msg-system"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <em>
+        <ChatThread
+          messages={messages}
+          sync={feed.sync}
+          onRetry={feed.refresh}
+          onSend={handleSend}
+          meLabel="Toi"
+          placeholder="Écris ta réponse (Ctrl+Entrée pour envoyer)"
+          intro={
+            <>
               Conversation reliée à un thread Discord. Les réponses du staff
               arrivent ici automatiquement.
-            </em>
-          </motion.div>
-
-          {ticket.messages.map((m) => (
-            <ChatBubble key={m.id} message={m} />
-          ))}
-        </div>
-
-        {error && (
-          <div className="mb-3 flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
-            <AlertTriangle size={14} />
-            {error}
-          </div>
-        )}
-
-        {isClosed ? (
-          <div className="mb-5 flex items-center gap-2 rounded-md border border-border bg-surface-elevated p-4 text-sm text-foreground-subtle">
-            <Lock className="h-4 w-4" />
-            Ce ticket est fermé. Ouvre un nouveau ticket si besoin.
-          </div>
-        ) : (
-          <div className="wl-chat-input-wrap">
-            <textarea
-              className="wl-chat-input"
-              placeholder="Écris ta réponse (Ctrl+Entrée pour envoyer)"
-              rows={1}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={sending}
-            />
-            {attachments.length > 0 && (
-              <div className="wl-chat-pending-attachments">
-                {attachments.map((a) => (
-                  <span key={a.id} className="wl-attachment-chip">
-                    {a.uploading ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Paperclip size={12} />
-                    )}
-                    <span className="truncate">{a.name}</span>
-                    <span className="wl-attachment-size">
-                      {a.uploading ? "envoi…" : formatBytes(a.size)}
-                    </span>
-                    <button
-                      type="button"
-                      className="wl-attachment-remove"
-                      onClick={() => removeAttachment(a.id)}
-                      aria-label={`Retirer ${a.name}`}
-                    >
-                      <X size={11} />
-                    </button>
-                  </span>
-                ))}
+            </>
+          }
+          extra={
+            <>
+              {notice && (
+                <InlineError className="mb-3" message={notice} onDismiss={onDismissNotice} />
+              )}
+              {deleteError && (
+                <InlineError
+                  className="mb-3"
+                  message={deleteError}
+                  onDismiss={() => setDeleteError(null)}
+                />
+              )}
+            </>
+          }
+          closedNotice={
+            isClosed ? (
+              <div className="mb-5 flex items-center gap-2 rounded-md border border-border bg-surface-elevated p-4 text-sm text-foreground-subtle">
+                <Lock className="h-4 w-4" />
+                Ce ticket est fermé. Ouvre un nouveau ticket si besoin.
               </div>
-            )}
-            <div className="wl-chat-actions">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                style={{ display: "none" }}
-                onChange={handlePickFiles}
-              />
-              <button
-                type="button"
-                className="wl-chat-icon-btn"
-                onClick={() => fileInputRef.current?.click()}
-                aria-label="Joindre un fichier"
-                disabled={sending}
-              >
-                <Paperclip size={16} />
-              </button>
-              <button
-                type="button"
-                className="wl-chat-send"
-                aria-label="Envoyer"
-                onClick={handleSend}
-                disabled={
-                  sending ||
-                  draft.trim().length === 0 ||
-                  attachments.some((a) => a.uploading)
-                }
-              >
-                {sending ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Send size={16} />
-                )}
-              </button>
-            </div>
-          </div>
-        )}
+            ) : undefined
+          }
+        />
       </div>
     </>
-  );
-}
-
-// ──────────────────────────────────────────────────────────
-// Bulle de message (réutilise wl-msg-* pour rester cohérent
-// visuellement avec StatusChatPage).
-// ──────────────────────────────────────────────────────────
-
-function ChatBubble({ message }: { message: TicketMessage }) {
-  const time = formatTime(message.createdAt);
-
-  if (message.isStaff) {
-    return (
-      <motion.div
-        className="wl-msg wl-msg-staff"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div
-          className="wl-msg-avatar"
-          style={{ background: "linear-gradient(135deg,#8b5cf6,#a78bfa)" }}
-        >
-          {(message.authorName ?? "S").charAt(0).toUpperCase()}
-        </div>
-        <div className="wl-msg-body">
-          <div className="wl-msg-meta">
-            <span className="wl-msg-author">{message.authorName ?? "Staff"}</span>
-            <span
-              className="wl-role-badge"
-              style={{ ["--role-color" as string]: "var(--color-role-staff)" }}
-            >
-              Staff
-            </span>
-            <span
-              style={{
-                color: "var(--color-foreground-muted)",
-                fontSize: 11,
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              {time}
-            </span>
-          </div>
-          {message.content && (
-            <div className="wl-msg-bubble wl-msg-bubble-staff">
-              {message.content}
-            </div>
-          )}
-          {message.attachments.length > 0 && (
-            <div className="wl-msg-attachments">
-              {message.attachments.map((a, i) => (
-                <a
-                  key={i}
-                  href={a.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="wl-attachment-chip"
-                >
-                  <Paperclip size={12} />
-                  <span className="truncate">{shortenUrl(a.url)}</span>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-      </motion.div>
-    );
-  }
-
-  // USER (toi)
-  return (
-    <motion.div
-      className="wl-msg wl-msg-me"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="wl-msg-body">
-        <div className="wl-msg-meta" style={{ justifyContent: "flex-end" }}>
-          <span
-            style={{
-              color: "var(--color-foreground-muted)",
-              fontSize: 11,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            {time}
-          </span>
-          <span className="wl-msg-author">Toi</span>
-        </div>
-        {message.content && (
-          <div className="wl-msg-bubble wl-msg-bubble-me">{message.content}</div>
-        )}
-        {message.attachments.length > 0 && (
-          <div className="wl-msg-attachments">
-            {message.attachments.map((a, i) => (
-              <a
-                key={i}
-                href={a.url}
-                target="_blank"
-                rel="noreferrer"
-                className="wl-attachment-chip"
-              >
-                <Paperclip size={12} />
-                <span className="truncate">{shortenUrl(a.url)}</span>
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
-    </motion.div>
   );
 }
 
@@ -1143,26 +942,3 @@ const STATUS_META: Record<
   RESOLVED: { label: "Résolu", Icon: CheckCircle2 },
   CLOSED: { label: "Fermé", Icon: XCircle },
 };
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} o`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} ko`;
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} Mo`;
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} Go`;
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-function shortenUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    const parts = u.pathname.split("/").filter(Boolean);
-    return parts[parts.length - 1] ?? u.host;
-  } catch {
-    return url.slice(0, 32);
-  }
-}

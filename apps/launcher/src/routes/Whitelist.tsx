@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router";
 import {
@@ -6,14 +6,10 @@ import {
   submitWhitelist,
   resubmitWhitelist,
   withdrawWhitelist,
-  type WhitelistApplication,
-  type WhitelistAppStatus,
 } from "../lib/content";
-import {
-  useWhitelistStore,
-  type WhitelistDraft,
-  type WhitelistStatus,
-} from "../stores/whitelist-store";
+import { formatIpcError } from "../lib/errors";
+import { useWhitelistStore, type WhitelistStatus } from "../stores/whitelist-store";
+import { InlineError, SyncIndicator, useChatFeed } from "../components/chat/ChatThread";
 import { PrerequisitesModal } from "../components/whitelist/PrerequisitesModal";
 import { IntroStepsPage } from "../components/whitelist/IntroStepsPage";
 import { Step1HRP } from "../components/whitelist/steps/Step1HRP";
@@ -43,22 +39,6 @@ export type WizardStage =
   | "rejected"
   | "accepted";
 
-// Mappe le statut serveur (PENDING/APPROVED/...) → status local (4 valeurs)
-// utilisé par la sidebar et le mapping écran. NEEDS_REVISION retombe sur
-// "rejected" : design v2 ne distingue pas les deux côté UI (l'utilisateur
-// peut refaire dans les deux cas), seul le message diffère via reviewNotes.
-function mapServerStatus(s: WhitelistAppStatus): WhitelistStatus {
-  switch (s) {
-    case "PENDING":
-      return "pending";
-    case "APPROVED":
-      return "accepted";
-    case "REJECTED":
-    case "NEEDS_REVISION":
-      return "rejected";
-  }
-}
-
 // Mappe le statut → écran à afficher. Le wizard (intro/hrp/rp/valid) reste
 // piloté par l'état local de la route ; ce mapping ne concerne que les
 // écrans "post-soumission" et la landing par défaut.
@@ -76,30 +56,6 @@ function stageFromStatus(status: WhitelistStatus): WizardStage {
   }
 }
 
-function applicationToHydrate(app: WhitelistApplication) {
-  const draft: WhitelistDraft = {
-    dob: app.dob,
-    motivation: app.motivation,
-    experience: app.experience,
-    availability: app.availability,
-    firstName: app.firstName,
-    lastName: app.lastName,
-    village: app.village,
-    support: app.support ?? "",
-    history: app.history,
-    appearance: app.appearance,
-    objectives: app.objectives,
-  };
-  return {
-    applicationId: app.id,
-    status: mapServerStatus(app.status),
-    reviewNotes: app.reviewNotes,
-    draft,
-    assigneeName: app.assignee?.username ?? null,
-    assignedAt: app.assignedAt,
-  };
-}
-
 export function Whitelist() {
   const status = useWhitelistStore((s) => s.status);
   const draft = useWhitelistStore((s) => s.draft);
@@ -107,39 +63,49 @@ export function Whitelist() {
   const reviewNotes = useWhitelistStore((s) => s.reviewNotes);
   const setStatus = useWhitelistStore((s) => s.setStatus);
   const reset = useWhitelistStore((s) => s.reset);
-  const hydrateFromServer = useWhitelistStore((s) => s.hydrateFromServer);
+  const hydrateFromApplication = useWhitelistStore((s) => s.hydrateFromApplication);
   const navigate = useNavigate();
 
   const [stage, setStage] = useState<WizardStage>(() => stageFromStatus(status));
   const [modalOpen, setModalOpen] = useState(false);
   // Bloque les actions concurrentes (submit/withdraw) pendant un round-trip API.
   const [busy, setBusy] = useState(false);
-  // Erreur API affichée dans une bannière sur l'écran courant.
+  // Erreur d'une action (envoi, retrait) affichée dans une bannière sur
+  // l'écran courant.
   const [apiError, setApiError] = useState<string | null>(null);
+  // Bascule différée « Candidature envoyée » → chat (annulée au démontage).
+  const chatTimerRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (chatTimerRef.current !== null) window.clearTimeout(chatTimerRef.current);
+    },
+    [],
+  );
 
   // Au mount : on hydrate depuis le serveur. Le draft local reste valide pour
   // un user qui n'a jamais soumis (status="draft"), sinon on overwrite avec
-  // ce que le serveur connaît (source of truth).
-  useEffect(() => {
-    let cancelled = false;
-    fetchWhitelistMe()
-      .then((res) => {
-        if (cancelled) return;
-        if (res.application) {
-          hydrateFromServer(applicationToHydrate(res.application));
-        } else {
-          hydrateFromServer(null);
-        }
-      })
-      .catch((err) => {
-        // L'API peut être down (dev local). On log mais on ne bloque pas le
-        // user — il peut continuer à éditer son brouillon offline.
-        console.warn("[whitelist] fetchWhitelistMe failed:", err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [hydrateFromServer]);
+  // ce que le serveur connaît (source of truth). Un échec ne bloque pas
+  // (le brouillon reste éditable hors ligne) : il est signalé par un
+  // indicateur discret et retenté toutes les 15 s jusqu'à la première
+  // réussite.
+  const [serverSynced, setServerSynced] = useState(false);
+  // Incrémenté à chaque action locale (envoi, retrait) : une réponse partie
+  // avant ne doit pas écraser son résultat.
+  const actionGenRef = useRef(0);
+  const server = useChatFeed(
+    async () => {
+      const gen = actionGenRef.current;
+      const res = await fetchWhitelistMe();
+      if (gen === actionGenRef.current) hydrateFromApplication(res.application);
+      setServerSynced(true);
+      return res;
+    },
+    {
+      enabled: !serverSynced,
+      intervalMs: 15_000,
+      context: "État de ta candidature non synchronisé (ton brouillon reste modifiable)",
+    },
+  );
 
   // Quand le statut change (hydrate ou setStatus côté dev), on reflète sur le
   // stage. Le user peut être en train de remplir le wizard (stage hrp/rp/valid)
@@ -178,16 +144,9 @@ export function Whitelist() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Centralise la gestion d'erreur API : extrait un message lisible.
-  function errMessage(err: unknown): string {
-    if (typeof err === "string") return err;
-    if (err && typeof err === "object" && "message" in err) {
-      return String((err as { message?: unknown }).message ?? "Erreur API");
-    }
-    return "Erreur API inconnue";
-  }
-
   async function handleSubmit() {
+    if (busy) return;
+    actionGenRef.current += 1;
     setApiError(null);
     setBusy(true);
     try {
@@ -210,14 +169,17 @@ export function Whitelist() {
       const result = applicationId
         ? await resubmitWhitelist(payload)
         : await submitWhitelist(payload);
-      hydrateFromServer(applicationToHydrate(result));
+      hydrateFromApplication(result);
+      setServerSynced(true);
       setStage("submitted");
       // Après ~2.5s on bascule sur le chat (status="pending" côté server).
-      window.setTimeout(() => {
+      if (chatTimerRef.current !== null) window.clearTimeout(chatTimerRef.current);
+      chatTimerRef.current = window.setTimeout(() => {
+        chatTimerRef.current = null;
         setStage("chat");
       }, 2500);
     } catch (err) {
-      setApiError(errMessage(err));
+      setApiError(formatIpcError(err, "Impossible d'envoyer ta candidature"));
     } finally {
       setBusy(false);
     }
@@ -231,6 +193,7 @@ export function Whitelist() {
     ) {
       return;
     }
+    actionGenRef.current += 1;
     setApiError(null);
     setBusy(true);
     try {
@@ -238,13 +201,13 @@ export function Whitelist() {
       reset();
       setStage("intro");
     } catch (err) {
-      setApiError(errMessage(err));
+      setApiError(formatIpcError(err, "Impossible de retirer ta candidature"));
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleRetry() {
+  function handleRetry() {
     // Refus → l'utilisateur peut refaire une candidature. Le draft sur
     // l'écran "rejected" est encore celui qui a été refusé (hydraté par
     // applicationToHydrate). On ne reset PAS pour qu'il puisse repartir du
@@ -309,10 +272,22 @@ export function Whitelist() {
 
   return (
     <div className="relative flex h-full w-full flex-col">
+      {/* Sur l'écran Chat, StatusChatPage signale déjà la coupure. */}
+      {stage !== "chat" && (
+        <SyncIndicator
+          variant="block"
+          className="mx-9 mt-4"
+          sync={server.sync}
+          onRetry={server.refresh}
+        />
+      )}
       {apiError && (
-        <div className="mx-9 mt-4 rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
-          {apiError}
-        </div>
+        <InlineError
+          large
+          className="mx-9 mt-4"
+          message={apiError}
+          onDismiss={() => setApiError(null)}
+        />
       )}
 
       <div

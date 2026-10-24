@@ -1,8 +1,9 @@
-import { Cpu, Layers } from "lucide-react";
+import { Cpu, Layers, ScrollText } from "lucide-react";
 import { PlayButton } from "./PlayButton";
 import { SecondInstanceButton } from "./SecondInstanceButton";
 import { ServerStatusChip } from "./ServerStatusChip";
 import { useMcVersion } from "../../hooks/use-mc-version";
+import { openLogsPanel } from "../game-log/logs-panel-store";
 
 // Bloc hero principal : texte branding a gauche + PlayButton existant a
 // droite. Reutilise integralement le PlayButton v2 qui porte deja toute
@@ -42,7 +43,16 @@ export function HeroLaunchCard() {
         <div className="reborn-home-hero-right">
           <div className="flex flex-col items-center gap-4">
             <PlayButton />
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={openLogsPanel}
+                title="Journal de la partie en cours ou de la dernière partie (filtres, recherche, export)"
+                className="inline-flex items-center gap-2 rounded-lg border border-border-strong bg-surface-elevated px-4 py-2 text-[11px] uppercase tracking-[0.14em] text-foreground-subtle transition-colors hover:border-accent/60 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+              >
+                <ScrollText className="h-3.5 w-3.5" />
+                Journal du jeu
+              </button>
               <SecondInstanceButton />
             </div>
           </div>

@@ -1,24 +1,29 @@
 //! Inspection et nettoyage du dossier `mods/` du game directory.
 //!
-//! Pour chaque .jar present, on lit `fabric.mod.json` (au format Fabric)
-//! pour extraire (id, version, depends.minecraft). Si la contrainte de
-//! version Minecraft ne correspond pas a la version cible du launcher,
-//! le jar est marque comme incompatible et peut etre supprime.
+//! Pour chaque .jar présent, on lit `fabric.mod.json` (format Fabric) pour
+//! extraire (id, version, depends.minecraft). Si la contrainte de version
+//! Minecraft ne correspond pas à la version cible du launcher, le jar est
+//! marqué comme incompatible et peut être supprimé.
 //!
-//! Cette logique est volontairement conservative : si on ne peut pas
-//! parser la contrainte, on **ne supprime pas** (mode "don't be too smart").
+//! Cette logique est volontairement conservatrice : si on ne peut pas
+//! parser la contrainte, on **ne supprime pas** (mode « don't be too smart »).
 //! L'utilisateur peut toujours nettoyer manuellement.
 
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use super::mojang::describe_io_error;
+
+/// Le message ne porte que la cause disque (chemin compris) : le contexte
+/// (« Impossible de lire le dossier des mods ») est ajouté par l'écran.
 #[derive(Debug, thiserror::Error)]
 pub enum ModsError {
-    #[error("io : {0}")]
-    Io(#[from] std::io::Error),
-    #[error("zip : {0}")]
-    Zip(#[from] zip::result::ZipError),
+    #[error("{}", describe_io_error(.path, .source))]
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -28,12 +33,12 @@ pub struct ModEntry {
     pub absolute_path: String,
     pub mod_id: Option<String>,
     pub mod_version: Option<String>,
-    /// Contrainte sur Minecraft, telle qu'ecrite dans fabric.mod.json
+    /// Contrainte sur Minecraft, telle qu'écrite dans fabric.mod.json
     /// (ex: ">=1.21.1-", "1.21.x", "[1.21,1.22)").
     pub minecraft_constraint: Option<String>,
     pub size_bytes: u64,
-    /// Vrai si on a pu determiner avec certitude que ce mod ne supporte
-    /// pas la version Minecraft cible. Faux par defaut (incertitude →
+    /// Vrai si on a pu déterminer avec certitude que ce mod ne supporte
+    /// pas la version Minecraft cible. Faux par défaut (incertitude →
     /// on ne marque pas).
     pub incompatible_with_target: bool,
 }
@@ -43,12 +48,19 @@ pub fn inspect_mods_folder(
     mods_dir: &Path,
     target_mc_version: &str,
 ) -> Result<Vec<ModEntry>, ModsError> {
+    let io_err = |path: &Path| {
+        let path = path.to_path_buf();
+        move |source| ModsError::Io { path, source }
+    };
     let mut entries = Vec::new();
-    if !mods_dir.exists() {
-        return Ok(entries);
-    }
-    for dirent in std::fs::read_dir(mods_dir)? {
-        let dirent = dirent?;
+    let dir = match std::fs::read_dir(mods_dir) {
+        Ok(dir) => dir,
+        // Pas encore de dossier mods (premier lancement) : rien à inspecter.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(entries),
+        Err(e) => return Err(io_err(mods_dir)(e)),
+    };
+    for dirent in dir {
+        let dirent = dirent.map_err(io_err(mods_dir))?;
         let path = dirent.path();
         if path.extension().and_then(|s| s.to_str()) != Some("jar") {
             continue;
@@ -58,8 +70,8 @@ pub fn inspect_mods_folder(
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_string();
-        let size = dirent.metadata()?.len();
-        let info = read_fabric_metadata(&path).ok();
+        let size = dirent.metadata().map_err(io_err(&path))?.len();
+        let info = read_fabric_metadata(&path);
         let constraint = info.as_ref().and_then(|m| m.minecraft_constraint.clone());
         let incompatible = constraint
             .as_deref()
@@ -78,24 +90,23 @@ pub fn inspect_mods_folder(
     Ok(entries)
 }
 
-/// Supprime tous les .jar marques `incompatible_with_target = true`.
-/// Retourne la liste des fichiers supprimes (chemins absolus).
+/// Supprime tous les .jar marqués `incompatible_with_target = true`.
+/// Retourne les **noms de fichiers** supprimés (même forme que la purge des
+/// orphelins du manifest, pour l'événement `mods:purged`). Un jar impossible
+/// à supprimer (verrouillé…) est journalisé sans bloquer le lancement.
 pub fn purge_incompatible_mods(
     mods_dir: &Path,
     target_mc_version: &str,
 ) -> Result<Vec<String>, ModsError> {
     let entries = inspect_mods_folder(mods_dir, target_mc_version)?;
     let mut removed = Vec::new();
-    for entry in entries {
-        if !entry.incompatible_with_target {
-            continue;
-        }
+    for entry in entries.into_iter().filter(|e| e.incompatible_with_target) {
         let path = PathBuf::from(&entry.absolute_path);
         match std::fs::remove_file(&path) {
-            Ok(()) => removed.push(entry.absolute_path),
+            Ok(()) => removed.push(entry.file_name),
             Err(e) => tracing::warn!(
-                "impossible de supprimer mod incompatible {} : {e}",
-                entry.absolute_path
+                "mod incompatible non supprimé : {}",
+                describe_io_error(&path, &e)
             ),
         }
     }
@@ -117,39 +128,23 @@ struct FabricModJson {
     depends: Option<serde_json::Value>,
 }
 
-fn read_fabric_metadata(jar_path: &Path) -> Result<FabricModMetadata, ModsError> {
-    let f = std::fs::File::open(jar_path)?;
-    let mut zip = zip::ZipArchive::new(f)?;
-    let mut entry = match zip.by_name("fabric.mod.json") {
-        Ok(e) => e,
-        Err(_) => {
-            return Ok(FabricModMetadata {
-                id: None,
-                version: None,
-                minecraft_constraint: None,
-            })
-        }
-    };
+/// Lit `fabric.mod.json` dans le jar. `None` si le jar est illisible ou
+/// n'est pas un mod Fabric : on ne sait pas, donc on ne marque rien.
+fn read_fabric_metadata(jar_path: &Path) -> Option<FabricModMetadata> {
+    let f = std::fs::File::open(jar_path).ok()?;
+    let mut zip = zip::ZipArchive::new(f).ok()?;
+    let mut entry = zip.by_name("fabric.mod.json").ok()?;
     let mut bytes = Vec::with_capacity(entry.size() as usize);
-    entry.read_to_end(&mut bytes)?;
-    let parsed: FabricModJson = match serde_json::from_slice(&bytes) {
-        Ok(v) => v,
-        Err(_) => {
-            return Ok(FabricModMetadata {
-                id: None,
-                version: None,
-                minecraft_constraint: None,
-            })
-        }
-    };
+    entry.read_to_end(&mut bytes).ok()?;
+    let parsed: FabricModJson = serde_json::from_slice(&bytes).ok()?;
     let mc_constraint = parsed.depends.and_then(|d| {
         d.get("minecraft").and_then(|v| match v {
             serde_json::Value::String(s) => Some(s.clone()),
-            // Fabric autorise un tableau de contraintes (semantique OR).
+            // Fabric autorise un tableau de contraintes (sémantique OR).
             // On encode toutes les branches en "a||b||c" ; constraint_accepts
-            // les evalue en OR. Prendre seulement la premiere (ancien code)
-            // purgeait a tort un mod dont la version active n'etait pas en
-            // tete du tableau (ex: DistantHorizons ["26.1.0","26.1.1","26.1.2"]
+            // les évalue en OR. Prendre seulement la première (ancien code)
+            // purgeait à tort un mod dont la version active n'était pas en
+            // tête du tableau (ex: DistantHorizons ["26.1.0","26.1.1","26.1.2"]
             // avec la cible 26.1.2).
             serde_json::Value::Array(arr) => {
                 let joined = arr
@@ -157,16 +152,12 @@ fn read_fabric_metadata(jar_path: &Path) -> Result<FabricModMetadata, ModsError>
                     .filter_map(|x| x.as_str())
                     .collect::<Vec<_>>()
                     .join("||");
-                if joined.is_empty() {
-                    None
-                } else {
-                    Some(joined)
-                }
+                (!joined.is_empty()).then_some(joined)
             }
             _ => None,
         })
     });
-    Ok(FabricModMetadata {
+    Some(FabricModMetadata {
         id: parsed.id,
         version: parsed.version,
         minecraft_constraint: mc_constraint,
@@ -228,7 +219,10 @@ fn constraint_accepts(constraint: &str, target: &str) -> bool {
     if let Some(rest) = constraint.strip_prefix("<") {
         return cmp_versions(&parse_version(rest.trim()), &target_parts).is_gt();
     }
-    if let Some(rest) = constraint.strip_prefix('~').or_else(|| constraint.strip_prefix('^')) {
+    if let Some(rest) = constraint
+        .strip_prefix('~')
+        .or_else(|| constraint.strip_prefix('^'))
+    {
         let cv = parse_version(rest.trim());
         return cv.0 == target_parts.0 && cv.1 == target_parts.1;
     }
@@ -246,14 +240,22 @@ fn constraint_accepts(constraint: &str, target: &str) -> bool {
             } else {
                 let min = parse_version(min_str);
                 let ord = cmp_versions(&target_parts, &min);
-                if incl_min { ord.is_ge() } else { ord.is_gt() }
+                if incl_min {
+                    ord.is_ge()
+                } else {
+                    ord.is_gt()
+                }
             };
             let ok_max = if max_str.is_empty() {
                 true
             } else {
                 let max = parse_version(max_str);
                 let ord = cmp_versions(&target_parts, &max);
-                if incl_max { ord.is_le() } else { ord.is_lt() }
+                if incl_max {
+                    ord.is_le()
+                } else {
+                    ord.is_lt()
+                }
             };
             return ok_min && ok_max;
         }
@@ -274,10 +276,7 @@ fn constraint_accepts(constraint: &str, target: &str) -> bool {
         })
         .collect();
     let t_segs = [target_parts.0, target_parts.1, target_parts.2];
-    c_segs
-        .iter()
-        .zip(t_segs.iter())
-        .all(|(c, t)| c == t)
+    c_segs.iter().zip(t_segs.iter()).all(|(c, t)| c == t)
 }
 
 fn parse_version(s: &str) -> (u32, u32, u32) {

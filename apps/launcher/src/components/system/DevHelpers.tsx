@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { invoke } from "../../lib/tauri";
+import { pingHealth } from "../../lib/network-status";
 import { useNetworkStore } from "../../stores/network-store";
 import { useUpdateStore } from "../../stores/update-store";
 import { useCrashStore, type GameCrashReport } from "../../stores/crash-store";
 import { useLaunchStore } from "../../stores/launch-store";
+import { useLogsStore } from "../../stores/logs-store";
+import { closeLogsPanel, openLogsPanel } from "../game-log/logs-panel-store";
 
 // Helpers DevTools exposes sous window.__reborn en dev uniquement.
 // Permet d'inspecter / forcer les states systeme depuis la console sans
@@ -18,6 +20,8 @@ import { useLaunchStore } from "../../stores/launch-store";
 //   window.__reborn.crash.close()
 //   window.__reborn.download.demo(10)              // faux telechargement (barre liquide)
 //   window.__reborn.download.set(0.6)              // fige la barre a 60% (null = off)
+//   window.__reborn.logs.open()                    // ouvre le panneau « Journal du jeu »
+//   window.__reborn.logs.demo(3000)                // injecte 3000 fausses lignes
 //
 // Tout est gated par import.meta.env.DEV → totalement removed en release.
 
@@ -41,6 +45,12 @@ type RebornDevApi = {
     /** Rejoue un faux telechargement (paquets irreguliers) sur la barre liquide. */
     demo: (seconds?: number) => void;
     set: (progress: number | null) => void;
+  };
+  logs: {
+    open: () => void;
+    close: () => void;
+    /** Ajoute `count` fausses lignes (niveaux melanges) au tampon front. */
+    demo: (count?: number) => void;
   };
 };
 
@@ -77,10 +87,10 @@ export function DevHelpers() {
           useNetworkStore.getState().setStatus(status);
         },
         async pingNow() {
-          const ok = await invoke<boolean>("network_ping_health");
+          const { ok, cause } = await pingHealth();
           // Met a jour le store en plus de retourner — utile pour
           // tester l'enchainement complet depuis la console.
-          useNetworkStore.getState().setStatus(ok ? "online" : "offline");
+          useNetworkStore.getState().setStatus(ok ? "online" : "offline", { cause });
           return ok;
         },
       },
@@ -118,6 +128,28 @@ export function DevHelpers() {
         },
         set(progress) {
           useLaunchStore.getState().setDemoProgress(progress);
+        },
+      },
+      logs: {
+        open: openLogsPanel,
+        close: closeLogsPanel,
+        demo(count = 2000) {
+          const now = Date.now();
+          const levels = ["info", "info", "info", "warn", "error", "debug"] as const;
+          useLogsStore.getState().append(
+            Array.from({ length: count }, (_, i) => {
+              const level = levels[i % levels.length];
+              return {
+                t: now - (count - i) * 40,
+                stream: level === "error" ? ("err" as const) : ("out" as const),
+                level,
+                text:
+                  i % 12 === 5
+                    ? `\tat net.minecraft.client.Main.main(Main.java:${i})`
+                    : `[Render thread/${level.toUpperCase()}]: Ligne de démonstration n°${i} — accents éàçù`,
+              };
+            }),
+          );
         },
       },
     };

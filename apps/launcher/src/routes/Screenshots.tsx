@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FolderOpen, Loader2, RefreshCw } from "lucide-react";
-import type { ScreenshotRecord } from "../lib/screenshots-mock";
+import type { ScreenshotRecord } from "../lib/screenshots-types";
 import {
   deleteScreenshot,
   listScreenshots,
@@ -9,6 +9,7 @@ import {
   toRecord,
   toggleScreenshotFavorite,
 } from "../lib/screenshots";
+import { formatIpcError } from "../lib/errors";
 import {
   ScreenshotsToolbar,
   type ScreenshotView,
@@ -26,6 +27,14 @@ import { ShareCaptionModal } from "../components/screenshots/ShareCaptionModal";
 // commandes Tauri `screenshots_*` (cf lib/screenshots.ts). Les captures et
 // les favoris sont partagés avec la galerie in-game du mod-hud (même dossier
 // de jeu). Le filtre / tri / recherche restent côté frontend.
+// Chaque échec affiche la cause réelle renvoyée par le Rust (chemin, erreur
+// Windows, réponse de l'API…) : écran d'erreur + Réessayer si la lecture du
+// dossier échoue, message éphémère pour les actions.
+
+const FLASH_MS = 2600;
+const FLASH_ERROR_MS = 8000;
+
+const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
 function sizeBytesOf(s: ScreenshotRecord): number {
   return s.sizeBytes ?? 0;
@@ -38,8 +47,10 @@ function sortKey(s: ScreenshotRecord): number {
 export function Screenshots() {
   const [records, setRecords] = useState<ScreenshotRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ text: string; error: boolean } | null>(null);
+  const flashTimer = useRef<number | null>(null);
 
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ScreenshotView>("grid");
@@ -48,24 +59,37 @@ export function Screenshots() {
   const [openShot, setOpenShot] = useState<ScreenshotRecord | null>(null);
   const [sharingShot, setSharingShot] = useState<ScreenshotRecord | null>(null);
 
+  const toast = useCallback((text: string, error = false) => {
+    setFlash({ text, error });
+    if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlash(null), error ? FLASH_ERROR_MS : FLASH_MS);
+  }, []);
+  useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
       const items = await listScreenshots();
       setRecords(items.map(toRecord));
+      setLoadError(null);
+    } catch (e) {
+      const msg = formatIpcError(e, "Impossible de lire le dossier des captures");
+      // Des captures déjà affichées restent visibles : simple message.
+      setLoadError(msg);
+      toast(msg, true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
-
-  function toast(msg: string) {
-    setFlash(msg);
-    window.setTimeout(() => setFlash((cur) => (cur === msg ? null : cur)), 2600);
-  }
 
   const filtered = useMemo<ScreenshotRecord[]>(() => {
     let next = records.slice();
@@ -131,7 +155,8 @@ export function Screenshots() {
     );
     try {
       await toggleScreenshotFavorite(shot.fileName);
-    } catch {
+    } catch (e) {
+      toast(formatIpcError(e, "Favori non enregistré"), true);
       void reload(); // rollback via la source de vérité disque
     }
   }
@@ -147,7 +172,7 @@ export function Screenshots() {
       setOpenShot((cur) => (cur && cur.id === shot.id ? null : cur));
       toast("Capture supprimée");
     } catch (e) {
-      toast(`Échec suppression : ${String(e)}`);
+      toast(formatIpcError(e, `Impossible de supprimer « ${shot.title} »`), true);
     } finally {
       setBusy(null);
     }
@@ -164,10 +189,10 @@ export function Screenshots() {
     setBusy(shot.id);
     try {
       await shareScreenshot(shot.fileName, caption || undefined);
-      toast("Partagé sur le feed 🎉");
+      toast("Capture partagée sur le feed");
       setSharingShot(null);
     } catch (e) {
-      toast(`Échec du partage : ${String(e)}`);
+      toast(formatIpcError(e, "Partage impossible"), true);
     } finally {
       setBusy(null);
     }
@@ -177,11 +202,11 @@ export function Screenshots() {
     try {
       await openScreenshotsFolder();
     } catch (e) {
-      toast(`Impossible d'ouvrir le dossier : ${String(e)}`);
+      toast(formatIpcError(e, "Impossible d'ouvrir le dossier des captures"), true);
     }
   }
 
-  const isFresh = !loading && records.length === 0;
+  const isFresh = !loading && !loadError && records.length === 0;
   const isFiltered = filtered.length === 0 && !isFresh && !loading;
 
   return (
@@ -192,18 +217,28 @@ export function Screenshots() {
             <h1 className="font-display text-4xl tracking-wide">Screenshots</h1>
             <div className="reborn-shots-subhead">
               <span>Tes captures in-game</span>
-              <span className="reborn-shots-subhead-dot" />
+              <span className="reborn-shots-subhead-dot" aria-hidden />
               <span>Synchronisées avec la galerie du jeu</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {flash && <span className="reborn-shots-flash">{flash}</span>}
+          <div className="flex min-w-0 items-center gap-2">
+            {/* Toujours présent (vide au repos) : la région « status » doit
+                exister avant le message pour que les lecteurs d'écran le lisent. */}
+            <span
+              className="reborn-shots-flash"
+              data-error={flash?.error || undefined}
+              data-empty={flash ? undefined : true}
+              role="status"
+              aria-live="polite"
+            >
+              {flash?.text}
+            </span>
             <button
               type="button"
               className="reborn-shots-head-btn"
               onClick={handleOpenFolder}
             >
-              <FolderOpen className="h-3 w-3" />
+              <FolderOpen className="h-3 w-3" aria-hidden />
               Ouvrir le dossier
             </button>
             <button
@@ -213,9 +248,9 @@ export function Screenshots() {
               disabled={loading}
             >
               {loading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
               ) : (
-                <RefreshCw className="h-3 w-3" />
+                <RefreshCw className="h-3 w-3" aria-hidden />
               )}
               Actualiser
             </button>
@@ -223,12 +258,19 @@ export function Screenshots() {
         </header>
 
         {loading && records.length === 0 ? (
-          <div className="reborn-shots-loading">
-            <Loader2 className="h-5 w-5 animate-spin" />
+          <div className="reborn-shots-loading" role="status">
+            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
             <span>Lecture des captures…</span>
           </div>
+        ) : loadError && records.length === 0 ? (
+          <ScreenshotsEmpty
+            variant="error"
+            message={loadError}
+            onRetry={() => void reload()}
+            onOpenFolder={handleOpenFolder}
+          />
         ) : isFresh ? (
-          <ScreenshotsEmpty variant="fresh" />
+          <ScreenshotsEmpty variant="fresh" onOpenFolder={handleOpenFolder} />
         ) : (
           <div className="reborn-shots-layout">
             <div className="min-w-0">
@@ -292,15 +334,19 @@ export function Screenshots() {
                   <div className="reborn-shots-footer">
                     <div className="reborn-shots-stats">
                       <span>
-                        <b>{filtered.length}</b> captures
+                        <b>{plural(filtered.length, "capture", "captures")}</b>
                       </span>
-                      <span className="opacity-40">·</span>
-                      <span>
-                        <b>{totalSizeMb} MB</b> au total
+                      <span className="opacity-40" aria-hidden>
+                        ·
                       </span>
-                      <span className="opacity-40">·</span>
                       <span>
-                        <b>{pinnedCount}</b> favoris
+                        <b>{totalSizeMb} Mo</b> au total
+                      </span>
+                      <span className="opacity-40" aria-hidden>
+                        ·
+                      </span>
+                      <span>
+                        <b>{plural(pinnedCount, "favori", "favoris")}</b>
                       </span>
                     </div>
                   </div>
@@ -311,12 +357,6 @@ export function Screenshots() {
             <ScreenshotsFilters
               sort={sort}
               setSort={setSort}
-              players={[]}
-              selectedPlayers={[]}
-              togglePlayer={() => {}}
-              servers={[]}
-              selectedServers={[]}
-              toggleServer={() => {}}
               onlyFavorites={onlyFavorites}
               setOnlyFavorites={setOnlyFavorites}
               onReset={reset}
@@ -335,6 +375,7 @@ export function Screenshots() {
         onShare={handleShare}
         onDelete={handleDelete}
         onToggleFavorite={handleToggleFavorite}
+        paused={sharingShot !== null}
       />
 
       <ShareCaptionModal

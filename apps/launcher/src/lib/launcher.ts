@@ -1,5 +1,9 @@
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { invoke } from "./tauri";
+import { invoke, onTauriEvent, type UnlistenFn } from "./tauri";
+
+// Wrappers types des commandes et evenements du lancement. Les erreurs
+// rejetees par ces fonctions sont des objets { kind, message } : les
+// afficher avec formatIpcError (lib/errors.ts), jamais `err.message ?? ...`.
+// Les logs du jeu (game:log-batch, snapshot, export) vivent dans lib/logs.ts.
 
 export type PlanReason = "missing" | "hash_mismatch";
 
@@ -66,17 +70,25 @@ export async function setModPref(filename: string, enabled: boolean): Promise<vo
 export async function onDownloadProgress(
   callback: (p: DownloadProgress) => void,
 ): Promise<UnlistenFn> {
-  return listen<DownloadProgress>("manifest:progress", (e) => callback(e.payload));
+  return onTauriEvent("manifest:progress", callback);
 }
 
 // ──────────────────────────────────────────────────────
 //  Lancement du jeu (Semaine 4)
 // ──────────────────────────────────────────────────────
 
+/** Retour de launcher_launch_game / launcher_launch_second_instance, et
+ *  payload de l'event `game:started` (LaunchResult cote Rust). */
 export type LaunchedGame = {
   pid: number;
   javaPath: string;
+  minecraftVersion: string;
+  fabricVersion: string;
 };
+
+/** Payload de `game:window-ready` : vide, emis une fois quand la fenetre
+ *  Minecraft est reellement ouverte (detectee dans les logs). */
+export type GameWindowReadyEvent = Record<string, never>;
 
 export type TamperingEvent = {
   kind: "file_added" | "file_modified" | "file_removed";
@@ -108,9 +120,10 @@ export async function launchSecondInstance(altUuid: string): Promise<LaunchedGam
 export async function onLaunchProgress(
   cb: (p: LaunchProgress) => void,
 ): Promise<UnlistenFn> {
-  return listen<LaunchProgress>("launch:progress", (e) => cb(e.payload));
+  return onTauriEvent("launch:progress", cb);
 }
 
+/** Tue le jeu en cours (arret volontaire : pas de rapport de crash). */
 export async function stopGame(): Promise<void> {
   await invoke<void>("launcher_stop_game");
 }
@@ -118,20 +131,27 @@ export async function stopGame(): Promise<void> {
 export async function onGameStarted(
   cb: (g: LaunchedGame) => void,
 ): Promise<UnlistenFn> {
-  return listen<LaunchedGame>("game:started", (e) => cb(e.payload));
+  return onTauriEvent("game:started", cb);
 }
 
+export async function onGameWindowReady(cb: () => void): Promise<UnlistenFn> {
+  return onTauriEvent("game:window-ready", () => cb());
+}
+
+/** `code` = code de sortie de la JVM (-1 si illisible). */
 export async function onGameExited(cb: (code: number) => void): Promise<UnlistenFn> {
-  return listen<number>("game:exited", (e) => cb(e.payload));
+  return onTauriEvent("game:exited", cb);
 }
 
 /** Payload de l'event `game:crashed` (JVM sortie non-zero non sollicitee). */
 export type GameCrashedEvent = {
   /** Code de sortie, ou null si tue par signal / illisible. */
   exitCode: number | null;
-  /** Chemin du fichier last-stderr.txt complet. */
+  /** Journal complet de la partie (stdout + stderr) : logs/last-crash.log,
+   *  ou last-stderr.txt si le journal etait vide. */
   stderrPath: string;
-  /** Dernieres ~100 lignes de stderr, pour affichage immediat. */
+  /** ~100 dernieres lignes du journal, stdout ET stderr (le rapport de crash
+   *  Minecraft sort sur stdout), pour affichage immediat. */
   stderrTail: string;
 };
 
@@ -139,24 +159,19 @@ export type GameCrashedEvent = {
 export async function onGameCrashed(
   cb: (c: GameCrashedEvent) => void,
 ): Promise<UnlistenFn> {
-  return listen<GameCrashedEvent>("game:crashed", (e) => cb(e.payload));
+  return onTauriEvent("game:crashed", cb);
 }
 
-/** Lit le contenu (plafonne a 200 Ko, fin du fichier) d'un log de crash. */
-export async function readCrashLog(path: string): Promise<string> {
-  return invoke<string>("read_crash_log", { path });
-}
+/** Etat de la partie cote backend : sert a se resynchroniser si la WebView
+ *  est rechargee en pleine partie (les events game:* deja emis sont perdus). */
+export type GameStatus = { running: boolean; pid: number | null };
 
-export async function onGameStdout(cb: (line: string) => void): Promise<UnlistenFn> {
-  return listen<string>("game:stdout", (e) => cb(e.payload));
-}
-
-export async function onGameStderr(cb: (line: string) => void): Promise<UnlistenFn> {
-  return listen<string>("game:stderr", (e) => cb(e.payload));
+export async function getGameStatus(): Promise<GameStatus | undefined> {
+  return invoke<GameStatus | undefined>("launcher_game_status");
 }
 
 export async function onTampering(cb: (t: TamperingEvent) => void): Promise<UnlistenFn> {
-  return listen<TamperingEvent>("integrity:tampering", (e) => cb(e.payload));
+  return onTauriEvent("integrity:tampering", cb);
 }
 
 // ──────────────────────────────────────────────────────
@@ -172,9 +187,12 @@ export type GameDiagnostic = {
     | "JVM_OUT_OF_MEMORY"
     | "JVM_MAIN_CLASS_NOT_FOUND"
     | "SERVER_UNREACHABLE"
+    | "MC_INVALID_UUID"
     | "MC_AUTH_INVALID"
+    | "MC_CRASH_REPORT"
+    | "AUDIO_UNAVAILABLE"
     | "GPU_DRIVER_ISSUE"
-    | string;
+    | (string & {});
   severity: DiagnosticSeverity;
   message: string;
   hint: string | null;
@@ -191,6 +209,8 @@ export type ModEntry = {
   incompatibleWithTarget: boolean;
 };
 
+/** Payload de `mods:purged` (meme forme pour toutes les purges : mods
+ *  incompatibles avec la version MC et orphelins du manifest). */
 export type ModsPurgedEvent = {
   removed: string[];
   targetMcVersion: string;
@@ -199,13 +219,13 @@ export type ModsPurgedEvent = {
 export async function onGameDiagnostic(
   cb: (d: GameDiagnostic) => void,
 ): Promise<UnlistenFn> {
-  return listen<GameDiagnostic>("game:diagnostic", (e) => cb(e.payload));
+  return onTauriEvent("game:diagnostic", cb);
 }
 
 export async function onModsPurged(
   cb: (e: ModsPurgedEvent) => void,
 ): Promise<UnlistenFn> {
-  return listen<ModsPurgedEvent>("mods:purged", (e) => cb(e.payload));
+  return onTauriEvent("mods:purged", cb);
 }
 
 export async function listMods(): Promise<ModEntry[]> {
@@ -234,6 +254,12 @@ export async function openInstallDir(): Promise<void> {
 
 export async function reinstallAll(): Promise<void> {
   await invoke<void>("launcher_reinstall_all");
+}
+
+/** « Réparer » : efface les témoins de vérification ; le « Jouer » suivant
+ *  revérifie par hash Java, bibliothèques, ressources et Fabric. */
+export async function requestFullVerify(): Promise<void> {
+  await invoke<void>("launcher_repair");
 }
 
 export type CleanResult = { removed: string[]; freedMb: number };

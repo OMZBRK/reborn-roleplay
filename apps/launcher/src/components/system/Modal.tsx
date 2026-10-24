@@ -73,6 +73,10 @@ export function Modal({ open, onClose, variant = "info", size = "md", children }
                 size === "sm" ? "w-[340px] p-5" : "w-[420px] p-6",
               ].join(" ")}
               style={{
+                // Petits ecrans (fenetre zoomee) : la carte defile au lieu de
+                // deborder hors de la fenetre.
+                maxHeight: "calc(100vh - 32px)",
+                overflowY: "auto",
                 borderColor: "var(--color-border-strong)",
                 boxShadow: `0 12px 32px -4px rgba(0,0,0,.6), 0 0 0 1px ${ringColor}`,
               }}

@@ -5,6 +5,7 @@ import type { Update } from "@tauri-apps/plugin-updater";
 import { Modal } from "./Modal";
 import type { UpdaterState } from "../../hooks/use-updater";
 import { isTauri } from "../../lib/tauri";
+import { formatIpcError } from "../../lib/errors";
 
 type Props = {
   state: UpdaterState;
@@ -15,6 +16,9 @@ type Props = {
 
 // h-10 (40) + gap-1.5 (6) + h-7 (28) : bouton principal + lien secondaire.
 const ACTION_ZONE_H = 74;
+
+const FOCUS_RING =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]";
 
 // Modale auto-update style Reborn : card compacte (340px), titre a gauche +
 // X discret a droite, carte ACTUELLE -> NOUVELLE side-by-side.
@@ -59,8 +63,9 @@ export function UpdateModal({
           ? "Installation…"
           : "Échec de la mise à jour";
 
+  // Erreur : message reel du plugin updater, mis en forme (jamais vide).
   const bannerText = isError
-    ? state.message
+    ? formatIpcError(state.message)
     : isDownloading
       ? "La mise à jour s'installera dès la fin du téléchargement."
       : isInstalling
@@ -173,7 +178,7 @@ export function UpdateModal({
             <button
               type="button"
               onClick={onInstall}
-              className="flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-md bg-[var(--color-accent)] text-[13px] font-semibold tracking-wide text-white shadow-sm transition-colors hover:bg-[var(--color-accent-hover)]"
+              className={`flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-md bg-[var(--color-accent)] text-[13px] font-semibold tracking-wide text-white shadow-sm transition-colors hover:bg-[var(--color-accent-hover)] ${FOCUS_RING}`}
             >
               {isError ? (
                 <RefreshCw className="h-4 w-4" strokeWidth={2.4} />
@@ -185,7 +190,7 @@ export function UpdateModal({
             <button
               type="button"
               onClick={isError ? onIgnoreVersion : onPostpone}
-              className="h-7 flex-shrink-0 text-[11px] text-[var(--color-foreground-muted)] transition-colors hover:text-[var(--color-foreground)]"
+              className={`h-7 flex-shrink-0 rounded text-[11px] text-[var(--color-foreground-muted)] transition-colors hover:text-[var(--color-foreground)] ${FOCUS_RING}`}
             >
               {isError ? "Ignorer cette version" : "Plus tard"}
             </button>
@@ -206,7 +211,7 @@ export function UpdateModal({
             <div className="flex h-7 flex-shrink-0 items-center justify-between text-[10.5px] text-[var(--color-foreground-subtle)]">
               {isDownloading ? (
                 <>
-                  <span className="font-medium tabular-nums">{percent}%</span>
+                  <span className="font-medium tabular-nums">{percent} %</span>
                   {state.total > 0 && (
                     <span className="font-mono tabular-nums">
                       {formatBytes(state.downloaded)} / {formatBytes(state.total)}
@@ -228,9 +233,9 @@ export function UpdateModal({
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
 // Hook utilitaire : recupere la version du launcher (Cargo.toml ->

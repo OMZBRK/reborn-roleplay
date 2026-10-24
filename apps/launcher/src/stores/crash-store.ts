@@ -11,6 +11,9 @@ export type GameCrashReport = {
   exitCode: number | null;
   /** Message court rendu en sous-titre du modal. */
   summary: string;
+  /** Exception brute qui a fermé le jeu (`java.lang.Foo: …`), affichée en
+   *  police fixe sous le résumé. Absente ou null si inconnue. */
+  details?: string | null;
   /** Mod incrimine par le LogAnalyzer (filename + version), ou null. */
   suspectedMod: { filename: string; reason: string } | null;
   /** Chemin du fichier log complet (last-stderr.txt) — pour Copier / Voir. */

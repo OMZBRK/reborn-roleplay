@@ -31,7 +31,6 @@ async function getStore(): Promise<Store> {
 
 type AuthState = {
   user: LauncherUser | null;
-  accessToken: string | null;
   isAuthenticated: boolean;
   isResuming: boolean;
   isLoading: boolean;
@@ -41,7 +40,7 @@ type AuthState = {
    *  OAuth Discord configure). Jamais mis a true en build release. */
   discordGateSkipped: boolean;
   setDiscordGateSkipped: (v: boolean) => void;
-  setSession: (session: { user: LauncherUser; accessToken: string } | null) => void;
+  setSession: (session: { user: LauncherUser } | null) => void;
   setUser: (user: LauncherUser) => void;
   setResuming: (v: boolean) => void;
   setLoading: (v: boolean) => void;
@@ -53,7 +52,6 @@ type AuthState = {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  accessToken: null,
   isAuthenticated: false,
   isResuming: true,
   isLoading: false,
@@ -65,7 +63,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSession: (session) =>
     set({
       user: session?.user ?? null,
-      accessToken: session?.accessToken ?? null,
       isAuthenticated: !!session,
     }),
   setUser: (user) => set({ user }),

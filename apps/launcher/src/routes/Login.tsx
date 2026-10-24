@@ -6,14 +6,13 @@ import pkg from "../../package.json";
 import { useAuthStore } from "../stores/auth-store";
 import type { LauncherUser } from "../stores/auth-store";
 import {
-  asAuthError,
   devLogin,
-  explainAuthError,
   forgetAccount,
   loginWithMicrosoft,
   loginWithSavedAccount,
   logout,
 } from "../lib/auth";
+import { formatIpcError, isIpcErrorKind } from "../lib/errors";
 import { MicrosoftLoginButton } from "../components/login/MicrosoftLoginButton";
 import { SavedAccountsCarousel } from "../components/login/SavedAccountsCarousel";
 import { MinecraftHead } from "../components/login/MinecraftHead";
@@ -97,8 +96,12 @@ export function Login() {
       await persistAccount(session.user, addSavedAccount);
       setSession(session);
     } catch (err) {
-      const parsed = asAuthError(err);
-      setError(parsed.kind === "user_canceled" ? null : explainAuthError(parsed));
+      // Fenêtre Microsoft fermée volontairement : pas une erreur à afficher.
+      setError(
+        isIpcErrorKind(err, "user_canceled")
+          ? null
+          : formatIpcError(err, "Connexion Microsoft impossible"),
+      );
     } finally {
       setLoading(false);
     }
@@ -112,7 +115,7 @@ export function Login() {
       await persistAccount(session.user, addSavedAccount);
       setSession(session);
     } catch (err) {
-      setError(explainAuthError(asAuthError(err)));
+      setError(formatIpcError(err, "Connexion de développement impossible"));
     } finally {
       setLoading(false);
     }
@@ -126,7 +129,11 @@ export function Login() {
     } catch {
       // Slots déjà vides ou keyring inaccessible : on retire quand même la puce.
     }
-    await removeSavedAccount(account.pseudo);
+    try {
+      await removeSavedAccount(account.pseudo);
+    } catch (err) {
+      setError(formatIpcError(err, `Impossible de retirer ${account.pseudo} de la liste`));
+    }
   }
 
   async function handlePickSaved(account: SavedAccount) {
@@ -138,17 +145,13 @@ export function Login() {
       await persistAccount(session.user, addSavedAccount);
       setSession(session);
     } catch (err) {
-      const parsed = asAuthError(err);
-      if (
-        parsed.kind === "no_stored_credentials" ||
-        parsed.kind === "stored_credentials_expired"
-      ) {
+      if (isIpcErrorKind(err, "no_stored_credentials", "stored_credentials_expired")) {
         // Pas de refresh utilisable → OAuth interactif.
         setLoading(false);
         await runInteractiveLogin();
         return;
       }
-      setError(explainAuthError(parsed));
+      setError(formatIpcError(err, `Reconnexion de ${account.pseudo} impossible`));
     } finally {
       setLoading(false);
     }
@@ -160,6 +163,10 @@ export function Login() {
     discord.setError(null);
     try {
       await logout();
+    } catch (err) {
+      // Révocation côté serveur ratée (hors ligne…) : la session locale est
+      // effacée quand même, on n'empêche pas de changer de compte.
+      console.warn("[auth] déconnexion incomplète :", err);
     } finally {
       setSession(null);
     }
@@ -287,8 +294,9 @@ export function Login() {
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="rb-welcome-error"
+                role="alert"
               >
-                <AlertCircle className="mt-px h-3.5 w-3.5 flex-shrink-0" />
+                <AlertCircle className="mt-px h-3.5 w-3.5 flex-shrink-0" aria-hidden />
                 <span>{error}</span>
               </motion.p>
             )}

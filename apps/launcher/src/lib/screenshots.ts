@@ -6,7 +6,7 @@
 import type { CSSProperties } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { invoke } from "./tauri";
-import type { ScreenshotRecord } from "./screenshots-mock";
+import type { ScreenshotRecord } from "./screenshots-types";
 
 // ── Types miroir des structs Rust ────────────────────────────────────
 

@@ -8,6 +8,8 @@ import {
 } from "@tauri-apps/plugin-notification";
 import { useUpdateStore } from "../stores/update-store";
 import { useLaunchStore } from "../stores/launch-store";
+import { useGameStore } from "../stores/game-store";
+import { formatIpcError } from "../lib/errors";
 
 // Poll toutes les 30min — meme cadence que la version v1 de UpdateChecker
 // (qui etait une toast bottom-right). Le check echoue silencieusement si
@@ -36,6 +38,26 @@ export type UseUpdater = {
 //   - "Plus tard"          : silence SNOOZE_MS sur cette version ;
 //   - "Ignorer la version" : silence jusqu'a la sortie d'une version plus recente.
 // Dans les deux cas la pulse du logo sidebar reste comme rappel doux.
+/** Erreurs du plugin updater (souvent en anglais, cf tauri-plugin-updater)
+ *  traduites en phrase française ; le texte d'origine reste en fin de phrase
+ *  pour le staff. */
+function describeUpdaterError(err: unknown, context?: string): string {
+  const raw = (err instanceof Error ? err.message : typeof err === "string" ? err : "").trim();
+  const known: [RegExp, string][] = [
+    [/signature|minisign|public key/i, "La signature de la mise à jour est invalide : ne l'installe pas et préviens le staff."],
+    [/platform .* not found|platforms/i, "Aucune mise à jour publiée pour ce système : préviens le staff."],
+    [/status:?\s*404|not found/i, "Le fichier de mise à jour est introuvable sur le serveur Reborn : réessaie plus tard."],
+    [/status:?\s*5\d\d/i, "Le serveur de mises à jour a un problème : réessaie plus tard."],
+    [/timed? ?out|timeout/i, "Le serveur de mises à jour met trop de temps à répondre : vérifie ta connexion puis réessaie."],
+    [/error sending request|connect|dns|network|tcp|tls|certificate/i, "Impossible de joindre le serveur de mises à jour : vérifie ta connexion puis réessaie."],
+    [/access is denied|accès refusé|permission|os error 5(?!\d)/i, "Windows a refusé l'installation (accès refusé) : ferme le jeu et vérifie que ton antivirus ne bloque pas le launcher, puis réessaie."],
+  ];
+  const hit = known.find(([re]) => re.test(raw));
+  if (!hit) return formatIpcError(err, context);
+  const ctx = context ? `${context}. ` : "";
+  return `${ctx}${hit[1]}${raw ? ` (${raw.length > 160 ? `${raw.slice(0, 159)}…` : raw})` : ""}`;
+}
+
 const SNOOZE_KEY = "reborn:updater:snooze"; // JSON { version, until }
 const IGNORED_VERSION_KEY = "reborn:updater:ignored-version";
 const SNOOZE_MS = 24 * 60 * 60 * 1000;
@@ -85,7 +107,7 @@ async function maybeNotifyOs(update: Update): Promise<void> {
 
     sendNotification({
       title: "Reborn Launcher",
-      body: `Mise a jour disponible ${update.version}\nUne nouvelle version est prete a etre telechargee.`,
+      body: `Mise à jour disponible : ${update.version}\nUne nouvelle version du launcher est prête à être installée.`,
     });
     localStorage.setItem(NOTIFIED_VERSION_KEY, update.version);
   } catch (err) {
@@ -116,7 +138,8 @@ export function useUpdater(): UseUpdater {
         setAvailable(true);
         // Version mise en "plus tard"/"ignoree", ou jeu en cours : pas de
         // modale, la pulse du logo suffit. Le poll suivant reessaiera.
-        const inGame = useLaunchStore.getState().phase === "running";
+        const inGame =
+          useGameStore.getState().running || useLaunchStore.getState().phase === "running";
         if (isSilenced(update.version) || inGame) {
           setIgnored(true);
           return;
@@ -181,8 +204,7 @@ export function useUpdater(): UseUpdater {
       try {
         update = await check();
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        setState({ kind: "error", message: `Vérification impossible : ${message}` });
+        setState({ kind: "error", message: describeUpdaterError(err, "Vérification impossible") });
         return;
       }
       if (!update) {
@@ -212,8 +234,7 @@ export function useUpdater(): UseUpdater {
       // jamais (relaunch ferme le process actuel).
       await relaunch();
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setState({ kind: "error", message });
+      setState({ kind: "error", message: describeUpdaterError(err, "Mise à jour impossible") });
     }
   }
 

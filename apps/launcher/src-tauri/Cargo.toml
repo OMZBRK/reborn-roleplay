@@ -1,6 +1,6 @@
 [package]
 name = "launcher"
-version = "0.3.46"
+version = "0.3.47"
 description = "Reborn Roleplay launcher (Tauri 2 backend)"
 authors = ["Reborn Roleplay"]
 edition = "2021"
@@ -13,7 +13,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
+# tray-icon : icône dans la zone de notification Windows (src/tray.rs).
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
 tauri-plugin-opener = "2"
 # Auto-update du launcher : verifie la signature Ed25519 du release,
 # telecharge l'installer + restart. Endpoint + pubkey dans tauri.conf.json.
@@ -81,3 +82,11 @@ discord-rich-presence = "0.2"
 # Disable les features qui ne nous interessent pas (process listing, disks,
 # networks, components) pour reduire le binaire — on ne lit que RAM + CPU.
 sysinfo = { version = "0.32", default-features = false, features = ["system", "disk"] }
+
+# Build release : binaire plus petit et plus rapide (LTO complète, une seule
+# unité de codegen, symboles retirés). panic reste à « unwind » (défaut) :
+# un panic dans une commande Tauri ne doit pas tuer tout le launcher.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

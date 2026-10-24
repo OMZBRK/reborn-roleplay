@@ -20,6 +20,7 @@ use discord_rich_presence::{
     DiscordIpc, DiscordIpcClient,
 };
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 // État partagé du client RPC (un seul client par instance launcher).
@@ -69,11 +70,14 @@ impl DiscordRpcState {
             });
         let Some(client_id) = client_id else {
             tracing::debug!(
-                "DISCORD_RICH_PRESENCE_CLIENT_ID + DISCORD_CLIENT_ID absents — Rich Presence desactivee"
+                "DISCORD_RICH_PRESENCE_CLIENT_ID + DISCORD_CLIENT_ID absents — Rich Presence désactivée"
             );
             return;
         };
-        tracing::info!("Discord RPC : connexion (client_id={}…)", &client_id[..client_id.len().min(8)]);
+        tracing::info!(
+            "Discord RPC : connexion (client_id={}…)",
+            client_id.chars().take(8).collect::<String>()
+        );
 
         let inner = self.inner.clone();
         let mc_version = mc_version.to_string();
@@ -83,13 +87,15 @@ impl DiscordRpcState {
             let mut client = match DiscordIpcClient::new(&client_id) {
                 Ok(c) => c,
                 Err(e) => {
-                    tracing::warn!("Discord RPC client init echec : {e}");
+                    tracing::warn!("Discord RPC : initialisation impossible ({e})");
                     return;
                 }
             };
 
             if let Err(e) = client.connect() {
-                tracing::warn!("Discord RPC connect echec : {e}");
+                tracing::warn!(
+                    "Discord RPC : client Discord injoignable ({e}) — Discord est-il ouvert ?"
+                );
                 return;
             }
 
@@ -123,7 +129,7 @@ impl DiscordRpcState {
                 .assets(assets);
 
             if let Err(e) = client.set_activity(activity) {
-                tracing::warn!("Discord RPC set_activity echec : {e}");
+                tracing::warn!("Discord RPC : statut refusé ({e})");
                 let _ = client.close();
                 return;
             }
@@ -141,14 +147,44 @@ impl DiscordRpcState {
     /// le jeu se termine (game:exited). No-op si aucun client n'est actif.
     pub async fn stop(&self) {
         let inner = self.inner.clone();
-        tokio::task::spawn_blocking(move || {
-            let mut guard = inner.blocking_lock();
-            if let Some(mut client) = guard.take() {
-                let _ = client.clear_activity();
-                let _ = client.close();
-                tracing::info!("Discord RPC ferme");
+        tokio::task::spawn_blocking(move || close_client(&inner));
+    }
+
+    /// Variante bloquante de [`Self::stop`] pour la sortie du launcher : une
+    /// tâche détachée n'aurait pas le temps de tourner avant la fin du
+    /// processus. Attend au plus `timeout` (le client Discord peut ne pas
+    /// répondre). Fil dédié : utilisable hors de tout contexte tokio.
+    pub fn stop_blocking(&self, timeout: Duration) {
+        let inner = self.inner.clone();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let spawned = std::thread::Builder::new()
+            .name("discord-rpc-stop".into())
+            .spawn(move || {
+                close_client(&inner);
+                let _ = done_tx.send(());
+            });
+        match spawned {
+            Ok(_) => {
+                if done_rx.recv_timeout(timeout).is_err() {
+                    tracing::warn!(
+                        "Discord RPC : fermeture non confirmée après {} ms",
+                        timeout.as_millis()
+                    );
+                }
             }
-        });
+            Err(e) => tracing::warn!("Discord RPC : fermeture impossible ({e})"),
+        }
+    }
+}
+
+/// Efface le statut et ferme l'IPC (bloquant : hors runtime tokio, ou dans
+/// `spawn_blocking`).
+fn close_client(inner: &Mutex<Option<DiscordIpcClient>>) {
+    let mut guard = inner.blocking_lock();
+    if let Some(mut client) = guard.take() {
+        let _ = client.clear_activity();
+        let _ = client.close();
+        tracing::info!("Discord RPC fermé");
     }
 }
 

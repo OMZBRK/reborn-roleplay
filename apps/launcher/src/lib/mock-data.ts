@@ -97,7 +97,7 @@ export const NEWS_RP_CARD = {
   kicker: "Actu RP",
   title: "Calendrier RP",
   excerpt:
-    "Les événements RP en jeu seront annoncés ici — tournoi des chûnin, examen jônin, raids de clan.",
+    "Les événements RP en jeu seront annoncés ici — tournoi des chūnin, examen jōnin, raids de clan.",
   link: "Voir le règlement",
   href: "/rules",
   icon: Calendar,

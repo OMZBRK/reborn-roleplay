@@ -1,48 +1,56 @@
-//! Telechargement de l'asset index + des asset objects.
+//! Téléchargement de l'asset index + des asset objects.
 //!
-//! Reference : PLAN_CONCEPTION_LAUNCHER.md §8.1 etape [4].
+//! Référence : PLAN_CONCEPTION_LAUNCHER.md §8.1 étape [4].
 //!
-//! Les "assets" Minecraft (textures, sons, langues) sont stockes par
-//! Mojang dans un CAS hash-adresse :
+//! Les « assets » Minecraft (textures, sons, langues) sont stockés par
+//! Mojang dans un CAS adressé par hash :
 //!
 //! ```text
 //! assets/indexes/<asset_index_id>.json
-//! assets/objects/<aa>/<aabbccdd...>            ← fichier nomme par son sha1
+//! assets/objects/<aa>/<aabbccdd...>            ← fichier nommé par son sha1
 //! ```
 //!
-//! L'asset index liste tous les hashs + tailles ; on telecharge en
-//! parallele avec verification.
+//! L'index liste tous les hashs + tailles. Après une première vérification
+//! complète, un témoin (`.reborn-verify/assets-<id>.json`) permet de sauter
+//! le hachage des ~5000 objets tant qu'ils sont tous présents à la bonne
+//! taille (cf `mojang::ensure_file_set`).
 
-use futures::stream::{FuturesUnordered, StreamExt};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tokio::fs;
-use tokio::sync::Semaphore;
 
-use super::mojang::{download_with_sha1, AssetIndexRef, MojangError};
+use super::mojang::{
+    download_file, ensure_file_set, io_at, AssetIndexRef, MojangError, RemoteFile,
+};
 
 // Plus on monte, plus le risque de saturation TCP/DNS Windows + de blocage par
-// un AV (real-time scanning) augmente. 8 reste rapide tout en evitant les
-// avalanches d'erreurs reseau qu'on voit sur des reseaux residentiels.
+// un AV (real-time scanning) augmente. 8 reste rapide tout en évitant les
+// avalanches d'erreurs réseau qu'on voit sur des réseaux résidentiels.
 const MAX_CONCURRENT: usize = 8;
 const RESOURCES_BASE: &str = "https://resources.download.minecraft.net";
 
 #[derive(Debug, thiserror::Error)]
 pub enum AssetsError {
-    #[error("mojang : {0}")]
+    #[error(transparent)]
     Mojang(#[from] MojangError),
-    #[error("io : {0}")]
-    Io(#[from] std::io::Error),
-    #[error("schema : {0}")]
-    Schema(String),
-    #[error("interne : {0}")]
-    Internal(String),
+    #[error(
+        "Index des ressources « {path} » illisible : {detail} — lance « Réparer » pour le \
+         retélécharger."
+    )]
+    Index { path: String, detail: String },
+}
+
+impl AssetsError {
+    /// Vrai si la cause est réseau (cf [`MojangError::is_network`]).
+    pub(crate) fn is_network(&self) -> bool {
+        matches!(self, Self::Mojang(e) if e.is_network())
+    }
 }
 
 #[derive(Debug, Deserialize)]
 struct AssetIndexFile {
-    objects: std::collections::HashMap<String, AssetObject>,
+    objects: HashMap<String, AssetObject>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,18 +59,18 @@ struct AssetObject {
     size: u64,
 }
 
-/// Result du download : chemin du dossier `assets/` (a passer en
-/// `--assetsDir` au launch) + l'id de l'asset index (`--assetIndex`).
+/// Résultat : chemin du dossier `assets/` (à passer en `--assetsDir` au
+/// launch) + l'id de l'asset index (`--assetIndex`).
 #[derive(Debug, Clone)]
 pub struct AssetSetup {
     pub assets_dir: PathBuf,
     pub asset_index: String,
 }
 
-/// `on_progress(completed, total)` est appele au fil de l'eau (throttle a
-/// ~1% pres) pendant le download des objects, pour que l'UI puisse afficher
-/// une vraie barre de progression au lieu d'un "En jeu" fige (cf etape [4]
-/// du launch, la plus longue au premier lancement : ~3900 petits fichiers).
+/// `on_progress(completed, total)` est appelé au fil de l'eau (~1 % près)
+/// pendant la vérification des objets, pour que l'UI affiche une vraie barre
+/// de progression (étape [4], la plus longue au premier lancement). Sur le
+/// chemin rapide (témoin à jour), un seul appel `(total, total)`.
 pub async fn ensure_assets(
     http: &reqwest::Client,
     game_dir: &Path,
@@ -70,56 +78,50 @@ pub async fn ensure_assets(
     on_progress: impl Fn(usize, usize),
 ) -> Result<AssetSetup, AssetsError> {
     let assets_dir = game_dir.join("assets");
-    let indexes_dir = assets_dir.join("indexes");
     let objects_dir = assets_dir.join("objects");
-    fs::create_dir_all(&indexes_dir).await?;
-    fs::create_dir_all(&objects_dir).await?;
 
-    // 1. Asset index JSON.
-    let index_path = indexes_dir.join(format!("{}.json", asset_ref.id));
-    download_with_sha1(http, &asset_ref.url, &asset_ref.sha1, &index_path).await?;
-
-    let bytes = fs::read(&index_path).await?;
+    // 1. Asset index JSON : petit (~500 Ko), re-haché à chaque lancement —
+    //    c'est la racine de confiance de tous les objets.
+    let index_path = assets_dir
+        .join("indexes")
+        .join(format!("{}.json", asset_ref.id));
+    download_file(http, &asset_ref.url, Some(&asset_ref.sha1), &index_path).await?;
+    let bytes = fs::read(&index_path).await.map_err(io_at(&index_path))?;
+    let index_error = |detail: String| AssetsError::Index {
+        path: index_path.display().to_string(),
+        detail,
+    };
     let index: AssetIndexFile =
-        serde_json::from_slice(&bytes).map_err(|e| AssetsError::Schema(e.to_string()))?;
+        serde_json::from_slice(&bytes).map_err(|e| index_error(e.to_string()))?;
 
-    // 2. Objects en parallele.
-    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT));
-    let mut tasks = FuturesUnordered::new();
-
-    for object in index.objects.values() {
+    // 2. Objets (dédupliqués par chemin dans ensure_file_set : plusieurs noms
+    //    d'assets pointent parfois vers le même hash).
+    let mut files = Vec::with_capacity(index.objects.len());
+    for (name, object) in index.objects {
+        if object.hash.len() != 40 || !object.hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(index_error(format!(
+                "hash invalide « {} » pour l'asset « {name} »",
+                object.hash
+            )));
+        }
         let prefix = &object.hash[..2];
-        let url = format!("{RESOURCES_BASE}/{prefix}/{}", object.hash);
-        let dest = objects_dir.join(prefix).join(&object.hash);
-
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
-        let http = http.clone();
-        let sha1 = object.hash.clone();
-        tasks.push(tokio::spawn(async move {
-            let _permit = permit;
-            download_with_sha1(&http, &url, &sha1, &dest).await
-        }));
+        files.push(RemoteFile {
+            url: format!("{RESOURCES_BASE}/{prefix}/{}", object.hash),
+            dest: objects_dir.join(prefix).join(&object.hash),
+            sha1: Some(object.hash),
+            size: Some(object.size),
+        });
     }
 
-    let mut completed = 0usize;
-    let total = tasks.len();
-    // Throttle des events : on en emet ~100 max sur tout le batch (1% de pas),
-    // pour ne pas inonder l'IPC Tauri avec 3900 events.
-    let emit_every = (total / 100).max(1);
-    on_progress(0, total);
-    while let Some(joined) = tasks.next().await {
-        joined
-            .map_err(|e| AssetsError::Internal(format!("task : {e}")))?
-            .map_err(AssetsError::Mojang)?;
-        completed += 1;
-        if completed % emit_every == 0 || completed == total {
-            on_progress(completed, total);
-        }
-        if completed % 200 == 0 {
-            tracing::info!("assets : {completed}/{total}");
-        }
-    }
-    tracing::info!("assets : {completed}/{total} (termine)");
+    ensure_file_set(
+        http,
+        game_dir,
+        &format!("assets-{}", asset_ref.id),
+        files,
+        MAX_CONCURRENT,
+        on_progress,
+    )
+    .await?;
 
     Ok(AssetSetup {
         assets_dir,

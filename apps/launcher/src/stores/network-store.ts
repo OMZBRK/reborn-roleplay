@@ -14,7 +14,12 @@ type NetworkState = {
   /** Permet a l'utilisateur de masquer le banner offline sans l'aide d'un
    *  reset reseau. Reset si on rebascule offline plus tard. */
   dismissed: boolean;
-  setStatus: (status: NetworkStatus, opts?: { justRecovered?: boolean }) => void;
+  /** Cause du dernier echec (« délai dépassé », « HTTP 502… »), null sinon. */
+  cause: string | null;
+  setStatus: (
+    status: NetworkStatus,
+    opts?: { justRecovered?: boolean; cause?: string | null },
+  ) => void;
   setDismissed: (v: boolean) => void;
 };
 
@@ -23,11 +28,13 @@ export const useNetworkStore = create<NetworkState>((set) => ({
   lastCheckedAt: null,
   justRecovered: false,
   dismissed: false,
+  cause: null,
   setStatus: (status, opts) =>
     set((s) => ({
       status,
       lastCheckedAt: Date.now(),
       justRecovered: opts?.justRecovered ?? false,
+      cause: status === "offline" ? (opts?.cause ?? s.cause) : null,
       // Quand on retombe offline, on ressuscite la possibilite d'afficher
       // le banner meme si l'utilisateur l'avait dismiss precedemment.
       // Sinon (online ou checking), on preserve la valeur courante.

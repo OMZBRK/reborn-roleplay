@@ -1,30 +1,35 @@
-//! Orchestrateur du flow de mise a jour + lancement Minecraft.
+//! Orchestrateur du flow de mise à jour + lancement Minecraft.
 //!
-//! Reference : PLAN_CONCEPTION_LAUNCHER.md §8.1.
+//! Référence : PLAN_CONCEPTION_LAUNCHER.md §8.1.
 //!
-//! Aujourd'hui (semaine 3) on couvre les etapes [1]..[4] : fetch du
-//! manifest signe, verification Ed25519, diff et telechargement.
-//! Le spawn JVM (etapes [5]..[12]) est laisse en TODO pour la semaine 4.
+//! Ce module couvre les étapes [1]..[4] (manifeste signé : fetch,
+//! vérification Ed25519 + fraîcheur, diff et téléchargement) et l'onglet
+//! Paramètres › Jeu. Le lancement de la JVM vit dans `game.rs`, son journal
+//! dans `logs.rs`.
 
 pub mod assets;
+pub mod clock;
 pub mod diagnostics;
 pub mod fabric;
 pub mod game;
 pub mod jvm;
 pub mod libraries;
+pub mod logs;
 pub mod mods;
 pub mod mojang;
 pub mod paths;
 pub mod runtime;
 
-pub use game::{launcher_launch_game, launcher_stop_game, GameState};
-pub use paths::game_dir;
+pub use game::GameState;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime, State};
 
 use crate::auth::AuthState;
-use crate::manifest::{compute_plan_export, download_plan, purge_orphan_mods, verify_signature, PlanItem};
+use crate::manifest::{
+    self, compute_plan_export, download_plan, purge_orphan_mods, DownloadError,
+    ManifestVerifyError, PlanItem, SignedManifest,
+};
 use crate::storage::secrets::SecretKey;
 
 #[derive(Debug, Serialize)]
@@ -32,16 +37,13 @@ use crate::storage::secrets::SecretKey;
 pub enum UpdateStatus {
     /// Le manifest est valide et tous les fichiers locaux matchent.
     UpToDate { version: String },
-    /// Une fois le download termine, le launcher est pret.
+    /// Une fois le download terminé, le launcher est prêt.
     Updated {
         version: String,
         files_downloaded: usize,
     },
     /// Le launcher courant est trop vieux pour ce manifest.
-    LauncherOutdated {
-        current: String,
-        required: String,
-    },
+    LauncherOutdated { current: String, required: String },
 }
 
 #[derive(Debug, Serialize)]
@@ -56,68 +58,247 @@ pub struct UpdatePreview {
     pub launcher_outdated: bool,
 }
 
-#[derive(Debug, thiserror::Error, Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+/// Forme IPC commune des erreurs renvoyées au front : `{ kind, message }`
+/// (même contrat que `auth/error.rs`). `message` est une phrase complète.
+pub(crate) fn serialize_ipc_error<S: serde::Serializer>(
+    serializer: S,
+    kind: &str,
+    message: &str,
+) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeStruct;
+    let mut s = serializer.serialize_struct("IpcError", 2)?;
+    s.serialize_field("kind", kind)?;
+    s.serialize_field("message", message)?;
+    s.end()
+}
+
+/// Payload de l'event `mods:purged` (même forme pour toutes les purges).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModsPurgedPayload {
+    pub removed: Vec<String>,
+    pub target_mc_version: String,
+}
+
+pub(crate) fn emit_mods_purged<R: Runtime>(
+    app: &AppHandle<R>,
+    removed: Vec<String>,
+    target_mc_version: &str,
+) {
+    let _ = app.emit(
+        "mods:purged",
+        ModsPurgedPayload {
+            removed,
+            target_mc_version: target_mc_version.to_string(),
+        },
+    );
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum LauncherError {
-    #[error("non authentifie")]
+    #[error("Tu n'es pas connecté : reconnecte-toi pour vérifier les mises à jour du jeu.")]
     NotAuthenticated,
-    #[error("manifest indisponible : {message}")]
+    #[error("Impossible de récupérer le manifeste des mods — {message}")]
     Manifest { message: String },
-    #[error("signature manifest invalide : {message}")]
+    #[error("Manifeste des mods refusé : {message}.")]
     Signature { message: String },
-    #[error("io : {message}")]
+    #[error("{message}")]
+    ManifestExpired { message: String },
+    #[error("{message}")]
+    ManifestRollback { message: String },
+    #[error("{message}")]
     Io { message: String },
-    #[error("telechargement : {message}")]
+    /// Message complet construit par [`download_failure`] selon la cause.
+    #[error("{message}")]
     Download { message: String },
+    #[error("Ferme le jeu avant de {action}.")]
+    GameRunning { action: &'static str },
+}
+
+impl LauncherError {
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::NotAuthenticated => "not_authenticated",
+            Self::Manifest { .. } => "manifest",
+            Self::Signature { .. } => "signature",
+            Self::ManifestExpired { .. } => "manifest_expired",
+            Self::ManifestRollback { .. } => "manifest_rollback",
+            Self::Io { .. } => "io",
+            Self::Download { .. } => "download",
+            Self::GameRunning { .. } => "game_running",
+        }
+    }
+}
+
+impl Serialize for LauncherError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serialize_ipc_error(serializer, self.kind(), &self.to_string())
+    }
+}
+
+impl From<ManifestVerifyError> for LauncherError {
+    fn from(e: ManifestVerifyError) -> Self {
+        match e {
+            ManifestVerifyError::Expired { .. } => Self::ManifestExpired {
+                message: e.to_string(),
+            },
+            ManifestVerifyError::Rollback { .. } => Self::ManifestRollback {
+                message: e.to_string(),
+            },
+            _ => Self::Signature {
+                message: e.to_string(),
+            },
+        }
+    }
+}
+
+/// Texte d'une cause, sans point final (on l'insère au milieu d'une phrase).
+fn cause(e: impl std::fmt::Display) -> String {
+    e.to_string().trim_end().trim_end_matches('.').to_string()
+}
+
+/// Échec du téléchargement du modpack, une seule consigne par cause :
+/// - réseau : le message interne (fichier, tentatives, cause) + « relance
+///   Jouer » ; « vérifie ta connexion » seulement s'il ne le dit pas déjà ;
+/// - fichier corrompu : le message interne tel quel (il a sa consigne, rien
+///   à voir avec la connexion) ;
+/// - disque / tâche interrompue : le message interne, avec le contexte.
+fn download_failure(e: DownloadError) -> LauncherError {
+    const KEPT: &str = "les fichiers déjà reçus sont conservés";
+    let text = cause(&e);
+    let message = match e {
+        DownloadError::Http { .. } if text.contains(" — ") => {
+            format!("{text}. Relance « Jouer » : {KEPT}.")
+        }
+        DownloadError::Http { .. } => {
+            format!("{text}. Vérifie ta connexion puis relance « Jouer » : {KEPT}.")
+        }
+        DownloadError::HashMismatch { .. } => format!("{text}."),
+        DownloadError::Io { .. } | DownloadError::Internal(_) => format!(
+            "Téléchargement des fichiers du jeu interrompu : {}.",
+            mojang::lower_first(&text)
+        ),
+    };
+    LauncherError::Download { message }
+}
+
+fn data_dir() -> Result<std::path::PathBuf, LauncherError> {
+    game::data_dir().map_err(|e| LauncherError::Io {
+        message: e.to_string(),
+    })
+}
+
+async fn load_mod_prefs() -> Result<crate::storage::mod_prefs::ModPrefs, LauncherError> {
+    crate::storage::mod_prefs::load()
+        .await
+        .map_err(|e| LauncherError::Io {
+            message: format!(
+                "Lecture de tes choix de mods optionnels impossible : {}.",
+                cause(e)
+            ),
+        })
 }
 
 const LAUNCHER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Etapes [1]..[3] : recupere le manifest, verifie la signature, calcule
-/// le diff, retourne un preview que l'UI peut afficher avant de declencher
-/// le download.
-#[tauri::command]
-pub async fn launcher_check_update<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<'_, AuthState>,
-) -> Result<UpdatePreview, LauncherError> {
+/// Récupère le manifeste courant et ne le rend que s'il est digne de
+/// confiance : signature Ed25519 valide, pas expiré, pas plus ancien que le
+/// dernier accepté (anti-retour). Factorise le triplet jeton + fetch +
+/// vérification autrefois recopié dans chaque commande.
+pub(crate) async fn fetch_verified_manifest(
+    state: &AuthState,
+) -> Result<SignedManifest, LauncherError> {
     let token = state
         .store
         .get(SecretKey::RebornAccessToken)
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?
+        .map_err(|e| LauncherError::Io {
+            message: format!(
+                "Lecture de ta session dans le coffre de Windows impossible ({}) : déconnecte-toi puis reconnecte-toi.",
+                cause(e)
+            ),
+        })?
         .ok_or(LauncherError::NotAuthenticated)?;
 
     let manifest = state
         .api
         .fetch_manifest(&token)
         .await
-        .map_err(|e| LauncherError::Manifest { message: e.to_string() })?;
+        .map_err(|e| LauncherError::Manifest {
+            message: e.to_string(),
+        })?;
 
-    verify_signature(&manifest).map_err(|e| LauncherError::Signature { message: e.to_string() })?;
+    manifest::verify_signature(&manifest)?;
 
-    let outdated = launcher_is_outdated(LAUNCHER_VERSION, &manifest.min_launcher_version);
+    // Fraîcheur : la signature prouve l'origine, pas l'actualité. Sans ces
+    // deux contrôles, un vieux manifeste signé (rejoué par un proxy ou un
+    // miroir) réinstallerait d'anciennes versions des mods.
+    let api = state.api.base_url.as_str();
+    let last_accepted = manifest::last_accepted_issued_at(api).await;
+    manifest::check_freshness(&manifest, clock::now_ms(), last_accepted.as_deref())?;
+    if let Err(e) = manifest::remember_issued_at(api, &manifest.issued_at).await {
+        tracing::warn!("mémorisation de la date du manifeste impossible : {e}");
+    }
+    Ok(manifest)
+}
 
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let mod_prefs = crate::storage::mod_prefs::load()
-        .await
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let plan = compute_plan_export(&manifest, &dir, &mod_prefs)
-        .await
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
-
-    // Purge les orphans des le check : si l'utilisateur est deja a jour
-    // (plan vide), apply_update ne sera pas appele et la purge ne s'executerait
-    // pas. On la fait ici a la place pour garantir que les jars d'une
-    // version anterieure du manifest sont retires des le prochain "Jouer".
-    match purge_orphan_mods(&manifest, &dir, &mod_prefs).await {
+/// Purge les .jar de mods/ absents du manifeste courant. Non bloquant : on
+/// log seulement, le launch peut continuer même si la purge a échoué.
+async fn purge_orphans<R: Runtime>(
+    app: &AppHandle<R>,
+    manifest: &SignedManifest,
+    dir: &std::path::Path,
+    mod_prefs: &crate::storage::mod_prefs::ModPrefs,
+    context: &str,
+) {
+    match purge_orphan_mods(manifest, dir, mod_prefs).await {
         Ok(removed) if !removed.is_empty() => {
-            tracing::info!(?removed, "check_update: orphan mods supprimes");
-            let _ = app.emit("mods:purged", &removed);
+            tracing::info!(?removed, "{context} : mods orphelins supprimés");
+            emit_mods_purged(app, removed, &manifest.minecraft_version);
         }
         Ok(_) => {}
-        Err(e) => {
-            tracing::warn!(error = ?e, "check_update: purge orphans failed");
-        }
+        Err(e) => tracing::warn!("{context} : purge des mods orphelins impossible : {e}"),
+    }
+}
+
+async fn compute_plan(
+    manifest: &SignedManifest,
+    dir: &std::path::Path,
+    mod_prefs: &crate::storage::mod_prefs::ModPrefs,
+) -> Result<Vec<PlanItem>, LauncherError> {
+    compute_plan_export(manifest, dir, mod_prefs)
+        .await
+        .map_err(|e| LauncherError::Io {
+            message: format!(
+                "Analyse des fichiers du jeu dans {} impossible : {}.",
+                dir.display(),
+                cause(e)
+            ),
+        })
+}
+
+/// Étapes [1]..[3] : récupère le manifeste, le vérifie, calcule le diff,
+/// retourne un preview que l'UI peut afficher avant de déclencher le
+/// download.
+#[tauri::command]
+pub async fn launcher_check_update<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AuthState>,
+    game: State<'_, GameState>,
+) -> Result<UpdatePreview, LauncherError> {
+    let manifest = fetch_verified_manifest(&state).await?;
+    let outdated = launcher_is_outdated(LAUNCHER_VERSION, &manifest.min_launcher_version);
+
+    let dir = data_dir()?;
+    let mod_prefs = load_mod_prefs().await?;
+    let plan = compute_plan(&manifest, &dir, &mod_prefs).await?;
+
+    // Purge les orphelins dès le check : si l'utilisateur est déjà à jour
+    // (plan vide), apply_update ne sera pas appelé et la purge ne
+    // s'exécuterait pas. On la fait ici pour garantir que les jars d'une
+    // version antérieure du manifeste sont retirés dès le prochain "Jouer".
+    // Pas pendant une partie : les jars sont chargés par la JVM.
+    if !game.is_busy() {
+        purge_orphans(&app, &manifest, &dir, &mod_prefs, "check_update").await;
     }
 
     let bytes_total = plan.iter().map(|p| p.file.size).sum();
@@ -133,27 +314,22 @@ pub async fn launcher_check_update<R: Runtime>(
     })
 }
 
-/// Etape [4] : execute le plan calcule precedemment. Emet
-/// `manifest:progress` au fil de l'eau.
+/// Étape [4] : exécute le plan. Émet `manifest:progress` au fil de l'eau.
 #[tauri::command]
 pub async fn launcher_apply_update<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AuthState>,
+    game: State<'_, GameState>,
 ) -> Result<UpdateStatus, LauncherError> {
-    let token = state
-        .store
-        .get(SecretKey::RebornAccessToken)
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?
-        .ok_or(LauncherError::NotAuthenticated)?;
+    // Jeu lancé = jars verrouillés par Windows : la mise à jour échouerait
+    // au milieu (« accès refusé ») et laisserait un mods/ incohérent.
+    if game.is_busy() {
+        return Err(LauncherError::GameRunning {
+            action: "mettre à jour les fichiers du jeu",
+        });
+    }
 
-    let manifest = state
-        .api
-        .fetch_manifest(&token)
-        .await
-        .map_err(|e| LauncherError::Manifest { message: e.to_string() })?;
-
-    verify_signature(&manifest).map_err(|e| LauncherError::Signature { message: e.to_string() })?;
-
+    let manifest = fetch_verified_manifest(&state).await?;
     if launcher_is_outdated(LAUNCHER_VERSION, &manifest.min_launcher_version) {
         return Ok(UpdateStatus::LauncherOutdated {
             current: LAUNCHER_VERSION.to_string(),
@@ -161,39 +337,26 @@ pub async fn launcher_apply_update<R: Runtime>(
         });
     }
 
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let mod_prefs = crate::storage::mod_prefs::load()
-        .await
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let plan = compute_plan_export(&manifest, &dir, &mod_prefs)
-        .await
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let dir = data_dir()?;
+    let mod_prefs = load_mod_prefs().await?;
+    let plan = compute_plan(&manifest, &dir, &mod_prefs).await?;
 
-    // Purge les .jar dans mods/ qui ne sont plus dans le manifest courant
-    // (typique : ancienne version d'un mod laissee orpheline apres bump de
-    // version manifest, sinon Fabric charge les 2 et c'est la collision).
-    // Idempotent : retourne [] si rien a purger. Erreur non bloquante : on
-    // log seulement, le launch peut continuer meme si la purge a foire.
-    match purge_orphan_mods(&manifest, &dir, &mod_prefs).await {
-        Ok(removed) if !removed.is_empty() => {
-            tracing::info!(?removed, "manifest sync: orphan mods supprimes");
-            let _ = app.emit("mods:purged", &removed);
-        }
-        Ok(_) => {}
-        Err(e) => {
-            tracing::warn!(error = ?e, "manifest sync: purge orphans failed");
-        }
-    }
+    // Purge les .jar de mods/ qui ne sont plus dans le manifeste courant
+    // (typique : ancienne version d'un mod laissée orpheline après bump du
+    // manifeste, sinon Fabric charge les 2 et c'est la collision).
+    purge_orphans(&app, &manifest, &dir, &mod_prefs, "manifest sync").await;
 
     // Nettoyage auto des résidus obsolètes (caches MCEF, vieilles versions MC,
-    // crash dumps) — cf clean_obsolete_files. Best-effort, ne bloque pas.
-    let clean = clean_obsolete_files();
-    if !clean.removed.is_empty() {
-        tracing::info!(
-            removed = ?clean.removed,
-            freed_mb = clean.freed_mb,
-            "cleanup: résidus obsolètes supprimés"
-        );
+    // crash dumps) — cf clean_obsolete_files. Best-effort, hors du runtime
+    // async (parcours disque bloquant).
+    if let Ok(clean) = tokio::task::spawn_blocking(clean_obsolete_files).await {
+        if !clean.removed.is_empty() {
+            tracing::info!(
+                removed = ?clean.removed,
+                freed_mb = clean.freed_mb,
+                "cleanup: résidus obsolètes supprimés"
+            );
+        }
     }
 
     if plan.is_empty() {
@@ -205,7 +368,7 @@ pub async fn launcher_apply_update<R: Runtime>(
     let count = plan.len();
     download_plan(&app, &state.download_http, plan, &dir)
         .await
-        .map_err(|e| LauncherError::Download { message: e.to_string() })?;
+        .map_err(download_failure)?;
 
     Ok(UpdateStatus::Updated {
         version: manifest.version,
@@ -214,17 +377,15 @@ pub async fn launcher_apply_update<R: Runtime>(
 }
 
 /// Retourne la map enabled actuelle des mods optionnels du user.
-/// Cle = filename (ex "iris-fabric-1.8.8+mc1.21.1.jar"). Valeur = bool.
-/// Cles absentes = false (opt-in).
+/// Clé = filename (ex "iris-fabric-1.8.8+mc1.21.1.jar"). Valeur = bool.
+/// Clés absentes = false (opt-in).
 #[tauri::command]
-pub async fn launcher_get_mod_prefs() -> Result<std::collections::HashMap<String, bool>, LauncherError> {
-    let prefs = crate::storage::mod_prefs::load()
-        .await
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    Ok(prefs.enabled)
+pub async fn launcher_get_mod_prefs(
+) -> Result<std::collections::HashMap<String, bool>, LauncherError> {
+    Ok(load_mod_prefs().await?.enabled)
 }
 
-/// Description d'un mod optionnel exposee a l'UI pour la liste cocher.
+/// Description d'un mod optionnel exposée à l'UI pour la liste à cocher.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OptionalMod {
@@ -234,52 +395,34 @@ pub struct OptionalMod {
     pub installed: bool,
 }
 
-/// Retourne la liste des mods optionnels du manifest courant (flag
-/// required:false), avec leur etat enabled (depuis ModPrefs) + installed
-/// (fichier present dans mods/). UI : Mods.tsx affiche un toggle par
-/// entree, le clic appelle launcher_set_mod_pref puis re-fetch.
+/// Retourne la liste des mods optionnels du manifeste courant (flag
+/// required:false), avec leur état enabled (depuis ModPrefs) + installed
+/// (fichier présent dans mods/). UI : Mods.tsx affiche un toggle par
+/// entrée, le clic appelle launcher_set_mod_pref puis re-fetch.
 #[tauri::command]
 pub async fn launcher_list_optional_mods(
     state: State<'_, AuthState>,
 ) -> Result<Vec<OptionalMod>, LauncherError> {
-    let token = state
-        .store
-        .get(SecretKey::RebornAccessToken)
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?
-        .ok_or(LauncherError::NotAuthenticated)?;
-
-    let manifest = state
-        .api
-        .fetch_manifest(&token)
-        .await
-        .map_err(|e| LauncherError::Manifest { message: e.to_string() })?;
-    verify_signature(&manifest).map_err(|e| LauncherError::Signature { message: e.to_string() })?;
-
-    let prefs = crate::storage::mod_prefs::load()
-        .await
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
+    let manifest = fetch_verified_manifest(&state).await?;
+    let prefs = load_mod_prefs().await?;
+    let dir = data_dir()?;
 
     let mut out = Vec::new();
-    for f in &manifest.files {
-        if f.required {
-            continue;
-        }
-        let filename = std::path::Path::new(&f.path)
+    for f in manifest.files.iter().filter(|f| !f.required) {
+        let Some(filename) = std::path::Path::new(&f.path)
             .file_name()
             .and_then(|n| n.to_str())
-            .map(|s| s.to_string())
-            .unwrap_or_default();
-        if filename.is_empty() {
+            .filter(|n| !n.is_empty())
+        else {
             continue;
-        }
+        };
         let installed = tokio::fs::try_exists(dir.join(&f.path))
             .await
             .unwrap_or(false);
         out.push(OptionalMod {
-            filename: filename.clone(),
+            filename: filename.to_string(),
             size_bytes: f.size,
-            enabled: prefs.is_enabled(&filename),
+            enabled: prefs.is_enabled(filename),
             installed,
         });
     }
@@ -287,25 +430,24 @@ pub async fn launcher_list_optional_mods(
     Ok(out)
 }
 
-/// Toggle (ou set explicite) un mod optionnel a enabled=true|false.
+/// Toggle (ou set explicite) un mod optionnel à enabled=true|false.
 /// L'effet (DL ou purge du jar) s'applique au prochain `launcher_check_update`
 /// — typiquement quand l'utilisateur arrive sur Home ou clique Jouer.
 #[tauri::command]
-pub async fn launcher_set_mod_pref(
-    filename: String,
-    enabled: bool,
-) -> Result<(), LauncherError> {
-    let mut prefs = crate::storage::mod_prefs::load()
-        .await
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
+pub async fn launcher_set_mod_pref(filename: String, enabled: bool) -> Result<(), LauncherError> {
+    let mut prefs = load_mod_prefs().await?;
     prefs.set(filename, enabled);
     crate::storage::mod_prefs::save(&prefs)
         .await
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    Ok(())
+        .map_err(|e| LauncherError::Io {
+            message: format!(
+                "Enregistrement de tes choix de mods optionnels impossible : {}.",
+                cause(e)
+            ),
+        })
 }
 
-/// Comparaison naive de versions semver "x.y.z". Retourne `true` si `current < min`.
+/// Comparaison naïve de versions semver "x.y.z". Retourne `true` si `current < min`.
 fn launcher_is_outdated(current: &str, min: &str) -> bool {
     let to_tuple = |s: &str| -> (u32, u32, u32) {
         let mut parts = s.split('.').map(|p| p.parse::<u32>().unwrap_or(0));
@@ -316,19 +458,6 @@ fn launcher_is_outdated(current: &str, min: &str) -> bool {
         )
     };
     to_tuple(current) < to_tuple(min)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn version_compare() {
-        assert!(launcher_is_outdated("0.1.0", "1.0.0"));
-        assert!(launcher_is_outdated("1.0.0", "1.0.1"));
-        assert!(!launcher_is_outdated("1.0.0", "1.0.0"));
-        assert!(!launcher_is_outdated("2.0.0", "1.99.99"));
-    }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -348,8 +477,7 @@ pub struct GameInfo {
 /// Chemin d'installation + version MC + espace disque du volume hôte.
 #[tauri::command]
 pub async fn launcher_game_info() -> Result<GameInfo, LauncherError> {
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let mc_version = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.2".into());
+    let dir = data_dir()?;
 
     // Volume contenant le game dir : mount point le plus long qui préfixe le chemin.
     let disks = sysinfo::Disks::new_with_refreshed_list();
@@ -364,7 +492,7 @@ pub async fn launcher_game_info() -> Result<GameInfo, LauncherError> {
     }
     Ok(GameInfo {
         install_dir: dir.display().to_string(),
-        mc_version,
+        mc_version: game::minecraft_version(),
         disk_free_gb: free as f64 / 1_000_000_000.0,
         disk_total_gb: total as f64 / 1_000_000_000.0,
     })
@@ -374,25 +502,49 @@ pub async fn launcher_game_info() -> Result<GameInfo, LauncherError> {
 #[tauri::command]
 pub async fn launcher_open_install_dir<R: Runtime>(app: AppHandle<R>) -> Result<(), LauncherError> {
     use tauri_plugin_opener::OpenerExt;
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    let _ = std::fs::create_dir_all(&dir);
+    let dir = data_dir()?;
+    let _ = tokio::fs::create_dir_all(&dir).await;
     app.opener()
         .open_path(dir.to_string_lossy().to_string(), None::<&str>)
-        .map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    Ok(())
+        .map_err(|e| LauncherError::Io {
+            message: format!(
+                "Ouverture du dossier {} impossible : {}.",
+                dir.display(),
+                cause(e)
+            ),
+        })
 }
 
 /// Réinstallation complète : supprime les dossiers téléchargeables (mods,
-/// libraries, versions, assets) — préserve saves/config/options/reborn. Le
-/// prochain check-update + lancement re-télécharge tout.
+/// libraries, versions, assets, Java) et les témoins de vérification —
+/// préserve saves/config/options/reborn. Le prochain check-update +
+/// lancement re-télécharge tout.
 #[tauri::command]
-pub async fn launcher_reinstall_all() -> Result<(), LauncherError> {
-    let dir = paths::game_dir().map_err(|e| LauncherError::Io { message: e.to_string() })?;
-    for sub in ["mods", "libraries", "versions", "assets"] {
+pub async fn launcher_reinstall_all(game: State<'_, GameState>) -> Result<(), LauncherError> {
+    if game.is_busy() {
+        return Err(LauncherError::GameRunning {
+            action: "tout réinstaller",
+        });
+    }
+    let dir = data_dir()?;
+    // `runtime` (Java) et `.reborn-verify` (témoins) aussi : sans eux, un
+    // JRE abîmé à taille égale repasserait par le chemin rapide du témoin.
+    for sub in [
+        "mods",
+        "libraries",
+        "versions",
+        "assets",
+        "runtime",
+        ".reborn-verify",
+    ] {
         let p = dir.join(sub);
-        if p.exists() {
-            std::fs::remove_dir_all(&p)
-                .map_err(|e| LauncherError::Io { message: format!("{sub}: {e}") })?;
+        if tokio::fs::try_exists(&p).await.unwrap_or(false) {
+            tokio::fs::remove_dir_all(&p).await.map_err(|e| LauncherError::Io {
+                message: format!(
+                    "Suppression de {} impossible ({e}) : un fichier est peut-être ouvert par un autre programme (antivirus, explorateur). Réessaie dans un instant.",
+                    p.display()
+                ),
+            })?;
         }
     }
     Ok(())
@@ -426,12 +578,15 @@ fn dir_size(p: &std::path::Path) -> u64 {
 
 /// Supprime les résidus obsolètes du game dir : caches MCEF (abandonné),
 /// anciennes versions MC, crash dumps JVM. Préserve saves/config utiles/mods.
+/// Bloquant (parcours disque) : à appeler via `spawn_blocking`.
 pub fn clean_obsolete_files() -> CleanResult {
     let mut removed = Vec::new();
     let mut freed = 0u64;
-    let dir = match paths::game_dir() {
-        Ok(d) => d,
-        Err(_) => return CleanResult { removed, freed_mb: 0.0 },
+    let Ok(dir) = paths::game_dir() else {
+        return CleanResult {
+            removed,
+            freed_mb: 0.0,
+        };
     };
 
     // 1. Dossiers obsolètes fixes (MCEF + vieux caches Reborn).
@@ -452,7 +607,7 @@ pub fn clean_obsolete_files() -> CleanResult {
     }
 
     // 2. Anciennes versions MC (on garde seulement la courante).
-    let current = std::env::var("REBORN_MC_VERSION").unwrap_or_else(|_| "26.2".into());
+    let current = game::minecraft_version();
     if let Ok(entries) = std::fs::read_dir(dir.join("versions")) {
         for e in entries.flatten() {
             let name = e.file_name().to_string_lossy().to_string();
@@ -486,6 +641,82 @@ pub fn clean_obsolete_files() -> CleanResult {
 
 /// Commande exposée : nettoyage manuel (bouton Paramètres › Jeu).
 #[tauri::command]
-pub async fn launcher_clean_obsolete() -> Result<CleanResult, LauncherError> {
-    Ok(clean_obsolete_files())
+pub async fn launcher_clean_obsolete(
+    game: State<'_, GameState>,
+) -> Result<CleanResult, LauncherError> {
+    if game.is_busy() {
+        return Err(LauncherError::GameRunning {
+            action: "nettoyer les fichiers obsolètes",
+        });
+    }
+    tokio::task::spawn_blocking(clean_obsolete_files)
+        .await
+        .map_err(|e| LauncherError::Io {
+            message: format!("Le nettoyage s'est interrompu : {}.", cause(e)),
+        })
+}
+
+/// Bouton « Réparer » (Paramètres › Jeu) : efface les témoins de
+/// vérification (`<game_dir>/.reborn-verify/`) pour que le « Jouer » suivant
+/// revérifie par hash Java, les bibliothèques, les ressources et Fabric, et
+/// retélécharge ce qui est abîmé. Le modpack, lui, est resynchronisé tout de
+/// suite par `launcher_apply_update` (appelé juste après par le front).
+#[tauri::command]
+pub async fn launcher_repair(game: State<'_, GameState>) -> Result<(), LauncherError> {
+    if game.is_busy() {
+        return Err(LauncherError::GameRunning {
+            action: "réparer les fichiers du jeu",
+        });
+    }
+    let dir = data_dir()?;
+    mojang::force_full_verify(&dir)
+        .await
+        .map_err(|e| LauncherError::Io {
+            message: format!(
+                "Réinitialisation de la vérification des fichiers impossible : {}.",
+                cause(e)
+            ),
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn version_compare() {
+        assert!(launcher_is_outdated("0.1.0", "1.0.0"));
+        assert!(launcher_is_outdated("1.0.0", "1.0.1"));
+        assert!(!launcher_is_outdated("1.0.0", "1.0.0"));
+        assert!(!launcher_is_outdated("2.0.0", "1.99.99"));
+    }
+
+    #[test]
+    fn mods_purged_payload_shape() {
+        let v = serde_json::to_value(ModsPurgedPayload {
+            removed: vec!["mods/old.jar".into()],
+            target_mc_version: "26.2".into(),
+        })
+        .unwrap();
+        assert_eq!(v["removed"][0], "mods/old.jar");
+        assert_eq!(v["targetMcVersion"], "26.2");
+    }
+
+    #[test]
+    fn launcher_errors_serialize_as_kind_and_message() {
+        let v = serde_json::to_value(LauncherError::GameRunning {
+            action: "tout réinstaller",
+        })
+        .unwrap();
+        assert_eq!(v["kind"], "game_running");
+        assert_eq!(v["message"], "Ferme le jeu avant de tout réinstaller.");
+        let expired: LauncherError = ManifestVerifyError::Expired {
+            expires_at: "01/01/2026 à 00:00 UTC".into(),
+        }
+        .into();
+        assert_eq!(
+            serde_json::to_value(&expired).unwrap()["kind"],
+            "manifest_expired"
+        );
+    }
 }
