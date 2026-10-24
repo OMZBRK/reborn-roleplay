@@ -115,6 +115,7 @@ nouveau serveur). 2FA exigée pour la modération, AutoMod (invitations, mention
    candidat rejoint `⏳・Attente oral`, un `| Recrutement` le déplace en `🎙️・Oral 1`.
 5. **Acceptation** (bouton du fil, `/whitelist accept` ou panel, existent) → rôle Reborn `WHITELISTED` (existe) → le bot
    pose **`| Whitelisté`** (à coder) + MP (existe) → « Jouer » s'active.
+   **Remplacé le 24/10** : rôle whitelist visible depuis le launcher, à définir ; voir [`CANDIDATURE_ET_DOUANE.md`](../gameplay/CANDIDATURE_ET_DOUANE.md).
 
 | Règle | Valeur | État du code |
 |---|---|---|
@@ -187,7 +188,7 @@ utile tant que le serveur est fermé ou presque vide.
 | Tickets launcher → fil staff, relais des messages | ✅ existe |
 | Cadres (`post:message`, option `banniere` ajoutée le 19/10), `audit:guild`, `plan:guild`, `apply:guild` (salons **hors catégorie** `topChannels` ajoutés le 19/10) | ✅ existe |
 | Accueil par arrivée (§5.1), salon piège (§5.2) | ✅ codé le 19/10, **à activer** (variables d'env) |
-| **Pose de `\| Whitelisté` à l'acceptation**, retrait si le rôle Reborn redescend | ⏳ à coder (§7 C) |
+| **Pose de `\| Whitelisté` à l'acceptation**, retrait si le rôle Reborn redescend | ⏳ à coder (§7 C) — **Remplacé le 24/10** : rôle whitelist visible depuis le launcher, à définir ; voir [`CANDIDATURE_ET_DOUANE.md`](../gameplay/CANDIDATURE_ET_DOUANE.md). |
 
 **Variables** (`.env` racine et `infra/docker-compose.prod.yml`, vides = désactivé ; détails dans `.env.example`) :
 `DISCORD_JOUEURS_GUILD_ID`, `DISCORD_BIENVENUE_CHANNEL_ID`, `DISCORD_BIENVENUE_EMOJI`, `DISCORD_BIENVENUE_COULEUR`,
@@ -245,6 +246,8 @@ plan ni apply n'a été lancé sur le nouveau serveur.**
   au personnage (ShinobiCore — commande ou synchro API, à définir).
 
 **C. Pose du rôle `| Whitelisté` par le bot**
+> **Remplacé le 24/10** : rôle whitelist visible depuis le launcher, à définir ; voir [`CANDIDATURE_ET_DOUANE.md`](../gameplay/CANDIDATURE_ET_DOUANE.md).
+
 - API : à l'acceptation (`StaffService`, là où le rôle passe à `WHITELISTED`) et à toute redescente vers `PLAYER`
   (`/role set`), webhook HMAC `POST /webhooks/discord-role` `{discordUserId, role, action}` (ignoré si Discord non lié).
 - Bot : route du serveur de webhooks → `guild.members.fetch(id)` → `roles.add/remove` ; variable

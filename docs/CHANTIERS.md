@@ -173,6 +173,7 @@ lieux placés « à l'œil », à corriger en jeu (`/carte set`).
 |---|---|---|
 | **Poste de garde** (panel staff en jeu) + Infirmerie | ✅ en prod (0.4.157 → 0.4.160) ; ⏳ casier dans l'API, synchro des grades staff panel → jeu | [`staff/GUIDE_STAFF_EN_JEU.md`](./staff/GUIDE_STAFF_EN_JEU.md) |
 | **Sélection / création de personnage en scène** | ✅ 0.4.167-0.4.168 ; ❓ palettes par clan ; vignettes de coiffures à agrandir | [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) |
+| **Candidature v2, douane en jeu, « Mes personnages »** | ❓ proposition du 24/10, relue (34 corrections), rien n'est codé ni maquetté ; 13 questions en attente (Q1 à Q13) ; vérification n° 0 (Guardian actif, `white-list` vanilla) avant tout code | [`gameplay/CANDIDATURE_ET_DOUANE.md`](./gameplay/CANDIDATURE_ET_DOUANE.md) |
 | **Missions / entraînements** | 💡 idées consolidées, pas de système en jeu (hors roadmap beta) | [`gameplay/MISSIONS.md`](./gameplay/MISSIONS.md) |
 | **Benchmark mods et serveurs RP** | ✅ étude du 12/10 (Nydo, Ninshu, Solve/FSC/Ketto/Zenkai) ; lots A→E proposés, ❓ décisions 11-16 ci-dessous | [`etudes/BENCHMARK_MODS_ET_SERVEURS.md`](./etudes/BENCHMARK_MODS_ET_SERVEURS.md) |
 | **Carte du monde, échoppe, Échap, sacoche** | ✅ ; ⏳ solde RBCoins réel et activations (boost Discord, stream…) ; liens X / YouTube à confirmer | [`technique/MOD_HUD.md`](./technique/MOD_HUD.md) |
