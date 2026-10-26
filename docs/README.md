@@ -30,7 +30,7 @@
 | [`gameplay/APPRENTISSAGE.md`](./gameplay/APPRENTISSAGE.md) | Parchemins, bibliothèques à tirage, séances, concentration du chakra, slots du rang S |
 | [`gameplay/STATS_ET_PROGRESSION.md`](./gameplay/STATS_ET_PROGRESSION.md) | 6 stats, XP invisible, grades, points de Mérite |
 | [`gameplay/PERSONNAGES.md`](./gameplay/PERSONNAGES.md) | Sélection et création en scène, apparence |
-| [`gameplay/CANDIDATURE_ET_DOUANE.md`](./gameplay/CANDIDATURE_ET_DOUANE.md) | **Proposition** (24/10, relue, non maquettée) : candidature du launcher en six onglets façon Ketto, oral en jeu dans une douane façon Elderwood (séances avec capacité, hall, bureaux, examinateur), création pré-remplie, « Mes personnages », Discord dans le launcher et le client ; Q1 à Q13 |
+| [`gameplay/CANDIDATURE_ET_DOUANE.md`](./gameplay/CANDIDATURE_ET_DOUANE.md) | **Codé le 25/10, non publié** : candidature du launcher en onglets façon Ketto (nouveau format seul), oral en jeu dans une douane façon Elderwood (séances avec capacité, hall, bureaux, examinateur), création pré-remplie et verrouillée, « Mes personnages » ; Q1 à Q13 tranchées |
 | [`gameplay/FACTION.md`](./gameplay/FACTION.md) | **Proposition v3** (16/10, maquettée, retours de l'utilisateur sur la v2) : volet à droite sur J, visibilité par profil et seulement les gens connus, ANBU = « ? », sections créées par le chef, grades de section, places, tenue, caisse par section et taxe, invitation menu R ou panneau ; Q1 à Q5 |
 | [`gameplay/CLOCHE_ET_MISSIVES.md`](./gameplay/CLOCHE_ET_MISSIVES.md) | **Proposition** (16/10, maquettée) : cloche d'annonces du village (texte, type, sections, grades, signée) ; missives par corbeau vers des volières (délai, coût, palais du Kage, prise par n'importe qui, scellée / descellée) ; objets Nexo à modéliser ; Q6 à Q8 |
 | [`gameplay/SERRURES_ET_COFFRES.md`](./gameplay/SERRURES_ET_COFFRES.md) | **Proposition** (17/10, maquettée) : serrures à clé posées par le staff, clés tenues par la section (tailler, révoquer), crocheter (mini-jeu) ou forcer (bruit, porte enfoncée) — aucune zone inaccessible ; coffres de section (droits par grade, quota, journal, vol plafonné) ; lots S1 à S6 ; 8 questions |
@@ -65,6 +65,7 @@
 | [`technique/AUDIT_TECHNIQUES_ET_CREATOR.md`](./technique/AUDIT_TECHNIQUES_ET_CREATOR.md) | Système de techniques et Technique Creator |
 | [`technique/CREATEUR_PERSONNAGE_ASSETS.md`](./technique/CREATEUR_PERSONNAGE_ASSETS.md) | Pipeline des skins (catalogue, masques de couleur) |
 | [`technique/MCP_OUTILLAGE.md`](./technique/MCP_OUTILLAGE.md) | Faisabilité MCP : Blockbench, Discord, Blender |
+| [`technique/STATISTIQUES.md`](./technique/STATISTIQUES.md) | **Conception (non codée)** des statistiques du serveur : schéma d'événements, 12 KPI, cohortes, intervalles de Wilson, Kaplan-Meier |
 | [`../CLAUDE.md`](../CLAUDE.md) | Architecture du launcher, de l'API et du bot (anglais) |
 | [`../PLAN_CONCEPTION_LAUNCHER.md`](../PLAN_CONCEPTION_LAUNCHER.md) | Conception d'origine (le *pourquoi*) ; §11 et §18 historiques |
 
@@ -90,6 +91,7 @@
 |---|---|
 | [`design/DIRECTION_ARTISTIQUE.md`](./design/DIRECTION_ARTISTIQUE.md) | **Les règles de DA** et tout ce qui a été rejeté |
 | [`design/MODELES_3D.md`](./design/MODELES_3D.md) | bbforge, modèles produits, règles de texture, plugins Blockbench |
+| [`design/PANEL_V2.md`](./design/PANEL_V2.md) | Panel staff v2 (validé le 25/10) : écrans, capacités par grade, accès des devs et modélisateurs |
 | [`design/REBORN_ASEPRITE_PALETTE.md`](./design/REBORN_ASEPRITE_PALETTE.md), [`design/reborn-akatsuki.gpl`](./design/reborn-akatsuki.gpl) | Palette Akatsuki |
 | [`design/refs/`](./design/refs/) | Images de référence |
 

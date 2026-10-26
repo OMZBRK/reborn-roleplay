@@ -1187,6 +1187,21 @@ Pas de maquette pour Échap et Options › Discord : seul le lien change.
 
 ## 7. Questions ouvertes
 
+> **Tranché le 24/10 par l'utilisateur** (prime sur les recommandations du tableau ci-dessous) :
+> Q1 15 ans · Q2 voix obligatoire, effacée 30 jours après la décision · **Q3 type Ninja / Civil présent dès la beta**
+> (comme Ketto) · **Q4 tous les clans passent par une session de clan** : à la première candidature, le personnage est
+> « sans clan » (pas de choix de clan dans la candidature) · Q5 séances avec capacité · Q6 monde dédié vide · Q7 « À
+> revoir » le lendemain, « Refusé » 1 jour puis candidature complète · Q8 2ᵉ personnage libre · Q9 oral hors jeu de
+> secours sur décision de l'examinateur · Q10 histoire 150 à 12 000 caractères, mots indicatifs · Q11 aucun délai annoncé ·
+> Q12 pas de limite de séances manquées · **Q13 prénom pré-rempli modifiable ; village, clan et âge verrouillés, le sexe
+> reste libre**. **Discord** : pas d'entrée dans le menu principal du mod, seulement dans l'Échap (et la carte du launcher).
+> **Complément du 24/10** : l'oral se passant en jeu, la candidature écrite **retire** « Ton expérience du roleplay »,
+> « Pourquoi Reborn ? » (onglet Vous) et « Caractère et apparence » (onglet Personnage) ; le **nom de famille libre** est
+> pré-rempli et **modifiable** en jeu, comme le prénom.
+> **Complément du 25/10** : **plus de voie « ancien format »** : l'API refuse une candidature sans `formVersion` 2 avec
+> « Mets ton launcher à jour » ; l'API et le launcher de la candidature v2 sont donc publiés ensemble. **Voix d'un
+> brouillon abandonné** (jamais envoyée) : effacée après **30 jours sans activité** sur le brouillon.
+
 Q1 à Q8 : questions de conception. Q9 : le secours. Q10 à Q13 : des règles que la première version de cette fiche
 avait posées sans que personne ne les demande ; elles attendent une décision.
 

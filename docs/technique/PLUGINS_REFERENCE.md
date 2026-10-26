@@ -23,7 +23,7 @@
 | **ShinobiSense** | `minecraft/shinobi/ShinobiSense` | Maven | ShinobiCore, ShinobiAbilities, ShinobiTail | Perception : radar de chakra, genjutsu, dōjutsu (Byakugan) |
 | **ShinobiTail** | `minecraft/shinobi/ShinobiTail` | Maven | ShinobiCore | Démons à queues : rage, corruption, monde intérieur, transformation |
 | **ShinobiRadio** | `minecraft/shinobi/ShinobiRadio` | Maven | **`depend`** : ShinobiCore, **PlasmoVoice** (plugin serveur `spigot-2.1.17`) | Radio en escouades (14/10) : oreillette, escouades persistantes, addon serveur Plasmo Voice (activation et ligne « radio »), écoute staff — [`../gameplay/RADIO.md`](../gameplay/RADIO.md) |
-| **RebornGuardian** | `minecraft/plugin-guardian` | Gradle | — | Vérifie le play-token au JOIN, kick sinon |
+| **RebornGuardian** | `minecraft/plugin-guardian` | Gradle | — | Vérifie le play-token au JOIN (signature, UUID, portée `play` / `douane`, serveur visé `aud`), kick sinon ; pose la marque `reborn.scope` ; mode fermé sans secret — §5.4 |
 | **RebornOst** | `minecraft/plugin-ost` | Gradle | — | Diffusion des musiques (OST), zones, late-join |
 
 > ⚠️ **Si ShinobiCore ne se charge pas, tous les autres plugins Shinobi tombent** en
@@ -111,6 +111,8 @@ permission déclarée ; « — » = aucune (la commande vérifie elle-même ce q
 | `/tendre` | `donner` | Joueur | `shinobicore.use` | **Tendre** (14/10) : `/tendre <joueur>` (objet en main), `/tendre <joueur> ryo <montant>`, `/tendre prendre\|refuser` (touches F / Retour du mod) ; journal `DON` — [`../gameplay/NOURRITURE.md`](../gameplay/NOURRITURE.md) §5 |
 | `/nourriture` | `satiete` | Joueur : son état ; Modérateur (ou `shinobicore.nourriture.staff`) | `shinobicore.use` | `etat [cible]`, `satiete <cible> <0-100>`, `donner <cible> <plat:id\|panier:id\|ration\|bol> [n] [froid]`, `effet <cible> <type> <intensité> <secondes>`, `retirer <cible> <type>` ; journal Staff |
 | `/modeanim` | `modeanimation` | Animateur / MJ | `reborn.staff.animation` | **Mode animation** (14/10) : incarner un personnage pour un event — visible, mécaniques RP permises, **tout journalisé** (entrée / sortie, commandes, tchat, coups) ; exclusif avec le mode staff ; tombe à la déconnexion (§4 bis.7) |
+| `/douane` | — | candidat ; examinateur, staff Helper+ | `shinobicore.use` | **Douane** (25/10) : candidat, son statut ; examinateur : `aller`, `quitter`, `file`, `appeler`, `renvoyer`, `retirer`, `dossier`, `question`, `notes`, `decision` — §4 decies.1 |
+| `/modeexaminateur` | `modeexam` | Helper+ | `reborn.douane.examinateur` | Mode examinateur de la douane : visible, plaque « Examinateur », aucune mécanique RP, tout journalisé — §4 decies.1 |
 | `/faction` | `factions` | Joueur ; staff : `admin` | `shinobicore.use` | **Faction et sections** (16/10) : sans argument = le volet J ; `info`, `inviter <joueur>` (face à face, 3 blocs — ce qu'envoie le menu R), `accepter`, `refuser`, `quitter`, `annoncer [section] <texte>`, au guichet (6 blocs) `verser <montant> [motif]`, `prime <#N°\|nom> <montant> <motif>`, `doter <section> <montant> [motif]` ; staff `admin liste`, `info <tag>`, `creer <tag> <village\|organisation> <motif…> nom=<nom>` (Admin), `chef <tag> <#N°\|aucun> <motif…>` (Modo), `section <tag> <modèle\|libre> <#N° chef> <motif…> [nom=<nom>]` (Modo), `cacher <section> <oui\|non> <motif…>` (Modo), `dissoudre <section> <motif…>` (Admin), `caisse <section> <ajouter\|retirer\|fixer> <n> <motif…>` (Admin) ; journal `FACTION` — [`../gameplay/FACTION.md`](../gameplay/FACTION.md) §15 |
 | `/cloche` · `/voliere` (`volieres`) · `/missive` | — | Staff | `shinobicore.use` (grade staff vérifié dans le code) | **Cloche du village et volières** (16/10, staff, journal `STAFF`) : `/cloche poser <village> [rayon] ["lieu"]` (Modo, vise le meuble à 6 blocs), `liste` (Helper), `retirer <id>`, `taire <village> [minutes]` (Modo, 0 = rendre la parole, retire la ligne en cours) ; `/voliere poser "<nom>" <petite\|grande\|tour\|palais> <village>` (Modo, vise le perchoir), `liste` (Helper), `vider <id> "<motif>"`, `retirer <id> "<motif>"` (Admin) ; `/missive lire <id> "<motif>"` (Admin, motif obligatoire). Les joueurs n'ont pas de commande : menu R ou clic droit sur le meuble — [`../gameplay/CLOCHE_ET_MISSIVES.md`](../gameplay/CLOCHE_ET_MISSIVES.md) §10 |
 
@@ -217,6 +219,7 @@ Admin. Qui sonne, qui écrit au palais, qui prend à une volière : seuils et dr
 |---|---|
 | `shinobicore.staff` | Statut staff général (commandes staff, messages RPK) |
 | `reborn.staff.animation` | Mode animation `/modeanim` (animateur, MJ ; OP par défaut ; pas besoin d'un grade staff) |
+| `reborn.douane.examinateur` (op) | Examinateur de la douane : mode examinateur, appels, questions, décisions, onglet Douane ; exige **aussi** un grade `reborn.staff.*` Helper au minimum (§4 decies.1) |
 | `shinobicore.admin`, `shinobiabilities.admin` | Contourne les vérifications (techniques non apprises, prérequis) |
 | `shinobicore.medic` | Médic rang 1 : paume jusqu'à 60 % des PV, reçoit les `/aide` |
 | `shinobicore.medic.expert` | Médic rang 2 : paume jusqu'à 100 %, lève toute ATA |
@@ -294,6 +297,7 @@ Convention : charge utile = **JSON UTF-8 brut** (sans préfixe de longueur), sau
 | `reborn:annonce` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` | Annonce globale ou personnelle (§4 bis.3) |
 | `reborn:ecran` | S → C | `staff.outils.EffetsStaff` | `staff/EffetsStaff` (+ `mixin/CameraSeismeMixin`) | Écran noir forcé, séisme (§4 bis.4) |
 | `reborn:plaques` | S → C | `staff.outils.ModeStaff` | `staff/PlaquesStaff` | Plaques staff au-dessus des têtes, en mode staff (§4 bis.5) |
+| `reborn:douane` | ⇄ | `douane.DouaneCanal` | lot E (à venir) | Douane : ligne d'attente, écran neutre, appel, question, Bienvenue, résultat, plaques (candidat) ; onglet Douane du Poste de garde (examinateur) (§4 decies.4 à .6) |
 | `reborn:radio` | S → C | `shinobiradio.Canal` (ShinobiRadio) | `radio/RadioClient` | Radio en escouades : état, qui parle, invitation, écoute staff (§4 quater) |
 
 ---
@@ -554,6 +558,235 @@ pas la garde ni l'étourdi), `ETAT_CADRE` (sauf connexion), `VETO`, `LIEN_ROMPU`
 combat et par défense), `PRISON`, `PRISON_FIN`, `EVASION`, et les simples passages de la chaîne KO (`DOULEUR`,
 `FIN_DE_DOULEUR`, `AGONIE_…`, `INCONSCIENT…`, `REVEIL`, `SECOND_SOUFFLE`, `PORTE`, `DEPOSE`, `SE_DEGAGE`) ; `STAFF`
 `ETATS_POSER`, `ETATS_LEVER`, `ETATS_PRISON`. Poste de garde : alerte « Évasion ».
+
+---
+
+## 4 decies. Douane — aiguillage, routes signées, protocole `reborn:douane` (25/10)
+
+> ShinobiCore `douane/` (lot D) ⇄ API `apps/api/src/game/` (lot B, contrat dans `game-signature.ts`) ⇄ mod (lot E).
+> Conception : [`../gameplay/CANDIDATURE_ET_DOUANE.md`](../gameplay/CANDIDATURE_ET_DOUANE.md) §3. **Coupée par défaut**
+> (`douane.enabled: false`) : la connexion mène alors à la sélection comme avant. JSON UTF-8 brut, champs inconnus
+> ignorés des deux côtés. Tout est revérifié côté serveur (grade, permission, mode, bureau) ; le client ne fait
+> qu'afficher et demander.
+
+### 4 decies.1 Réglages, commandes, fichiers
+
+**`config.yml`**
+
+| Clé | Défaut | Rôle |
+|---|---|---|
+| `reborn.server-id` | `''` | Identifiant de ce serveur (`prod`, `dev`, `build`…), **même valeur** que `server-id` de Guardian et que l'API. Vide : variable d'environnement `REBORN_SERVER_ID` |
+| `reborn.game-secret` | `''` | Secret propre au jeu, 32 caractères au moins, un par serveur. La variable d'environnement `REBORN_GAME_SECRET` passe avant. Jamais écrit au journal |
+| `douane.enabled` | `false` | Aiguillage à la connexion et douane. Lu au démarrage seulement |
+| `douane.monde`, `creer-monde` | `douane`, `true` | Monde dédié, créé vide s'il manque (générateur vide, sans mobs, paisible, temps et météo figés). Lu au démarrage |
+| `douane.heure-fixe`, `fuseau` | `6000`, `Europe/Paris` | Heure figée du monde ; fuseau des heures de convocation affichées |
+| `douane.hall-provisoire` | `false` | Pose une fois un hall en blocs simples et les bureaux, aux positions de la config (rien si le sol du hall existe) |
+| `douane.hall.point`, `rayon` / `zone` | `0.5 65 0.5`, `16` | Point d'arrivée ; zone autorisée : cylindre de ce rayon, ou pavé `zone: {min: {x,y,z}, max: {x,y,z}}` |
+| `douane.bureaux.<id>` | `b1` (x 150), `b2` (x −150) | `candidat` et `examinateur` (x, y, z, yaw, pitch), `rayon` (zone du candidat autour du milieu) ou `zone`. Écart conseillé : deux fois la portée vocale de Plasmo |
+| `douane.delais.*` | 10 s, 2 500 ms, 10 min, 20 min, 5 min, 30 s, 48 h, 8 s, 3 s | `preuve-secondes` (sans preuve : expulsion ; **10 à 30** : Guardian peut attester jusqu'à 8 s après l'arrivée), `http-ms` (1 000 à 3 000), `reprise-minutes` (place gardée après une coupure), `report-minutes` (convocation + ce délai : séance reportée…), `report-grace-minutes` (… seulement si le hall est fermé **sans interruption** depuis ce délai, 1 à 30), `renvoi-secondes`, `abandon-heures` (file d'envoi), `expulsion-secondes`, `bienvenue-secondes` |
+| `douane.voix.couper`, `rendre` | `''` | Commandes console pour couper puis rendre la voix (`{joueur}` = pseudo) : candidat au hall fermé, joueur en attente neutre. **Les deux sont obligatoires** pour ouvrir la douane. Vides avec `enabled: true`, la douane reste **fermée** : erreur au journal (« Douane FERMÉE »), monde de la douane non chargé, mais l'aiguillage reste actif (refus par défaut, `play` → sélection) et toute preuve `douane` est expulsée (« La douane est fermée pour le moment. Réessaie plus tard. »). Jamais de retour à la sélection directe. Remplir puis **redémarrer** (`/sc reload` ne l'ouvre pas, et refuse de vider les commandes d'une douane ouverte). À vérifier sur le serveur (Plasmo) |
+| `douane.voix.non-coupee-acceptee` | `false` | Active la douane **sans** coupure de la voix (le §3.4 de la fiche la demande) ; avertissement à chaque démarrage. À n'utiliser qu'en connaissance de cause |
+| `douane.questions` | 30 mises en situation | Banque tirée au hasard |
+
+`/sc reload` relit tout sauf `enabled` et `monde`. Les questions déjà tirées sont gardées par leur **texte** :
+modifier `douane.questions` en pleine séance ne change ni la question affichée à l'examinateur, ni l'exclusion des
+questions déjà posées à un candidat. `etats.yml` gagne la ligne `cadre.HORS_JEU.DOUANE` (avant `cadre.HORS_JEU`) :
+les refus de `HORS_JEU`, sauf déplacement, visibilité, voix et tchat.
+
+**Commandes** (`plugin.yml`)
+
+| Commande | Pour | Perm. | Ce qu'elle fait |
+|---|---|---|---|
+| `/douane` | candidat / staff | `shinobicore.use` | Candidat : sa ligne (« DOUANE · En attente · 3ᵉ ») et sa convocation, rien d'autre. Staff : hall ouvert ou fermé, file, bureaux, décisions en attente d'envoi |
+| `/douane aller` · `quitter` | examinateur, staff Helper+ | — | Au hall sans passer par la file (point de retour mémorisé) / retour. `aller` est refusé dans un état bloquant (KO, mort, porté, tenu, prison, exécution, gel), comme le mode staff : la téléportation sortirait de la scène |
+| `/douane file` | idem | — | La file dans l'ordre de passage (attente, convocation, village, 2ᵉ passage) |
+| `/douane appeler [suivant\|joueur]` | examinateur en mode | — | Prend le bureau où il se trouve (libre, ou déjà le sien), sinon le sien, sinon le premier libre ; candidat et examinateur y sont téléportés ; dossier chargé. Une décision au premier essai d'envoi (3 s au plus) fait patienter ; une décision en attente d'envoi ne bloque plus le bureau (le candidat est déjà sorti, voir `decision`) |
+| `/douane renvoyer` | idem | — | Le candidat du bureau retourne au hall, **en tête** de file |
+| `/douane retirer <joueur> <motif…>` | examinateur | — | Expulsion de la douane, sans décision, motif montré au joueur. **Refus local** pour cette place jusqu'à la fin de sa fenêtre d'entrée (au moins `reprise-minutes` ; 2 h si la place est inconnue) : il ne revient pas au hall ; une autre réservation passe. Remonté à l'API par la présence `depart`, puis `retrait` (motif, examinateur) : la place passe `CANCELLED` avec le motif, sans pénalité, et le candidat est prévenu (fil du launcher, MP Discord s'il est lié). L'API exige un examinateur reconnu (rôle web Relecteur whitelist ou plus, ce compte Minecraft lié), sinon 403 : la place reste alors `BOOKED` (à gérer au panel) et le refus local, en mémoire, tombe au redémarrage de ShinobiCore. Même repli face à une API d'avant le 25/10, qui refuse `retrait` (400) |
+| `/douane dossier [joueur]` | examinateur | — | Fiche résumée (`GET /game/douane/dossier`, lecture inscrite à l'audit de l'API) |
+| `/douane question [montrer\|masquer]` | examinateur en mode | — | Tirage au hasard (montré à l'examinateur seul) / affichage chez le candidat |
+| `/douane notes <texte…>` · `-` | idem | — | Notes privées jointes à la décision (4 000 caractères au plus) |
+| `/douane decision accepter\|revoir\|refuser [motif…]` | idem | — | Motif obligatoire hors acceptation (2 000 au plus), visible du joueur. API muette : la décision reste dans la file d'envoi, et **dès le premier échec réseau** le candidat sort (écran puis expulsion « La douane est terminée. Résultat sous peu dans ton launcher. ») et le bureau se libère ; s'il revient avant l'envoi, l'aiguillage le refuse avec le même texte |
+| `/modeexaminateur` (`modeexam`) | Helper+ | `reborn.douane.examinateur` (op) | Mode examinateur : visible, plaque « Examinateur », mode Aventure, aucune mécanique RP (cadre `HORS_JEU.DOUANE`), aucune commande RP. Mène au hall et ramène au point de départ. Refusé dans les mêmes états que le mode staff (KO, mort, porté, tenu, prison, exécution) et gelé. Exclusif avec le mode staff et le mode animation ; tombe à la déconnexion (retour **avant** la sauvegarde du personnage), à la sortie du monde, et dès que le joueur perd ses droits d'examinateur (grade ou permission retirés, vérifié chaque seconde) |
+
+Droits d'examinateur : grade `reborn.staff.*` **Helper au minimum** ET `reborn.douane.examinateur`. Côté API, la
+décision exige en plus le rôle web `WHITELIST_REVIEWER` ou plus avec le même compte Minecraft.
+
+**Fichiers** : `douane-envois.yml` (décisions en attente d'envoi, reprises au démarrage). Il contient les **notes privées de l'examinateur** : à ne jamais partager.
+
+**Journal** : `JOUEUR` — `DOUANE_ARRIVEE`, `DOUANE_DEPART`, `DOUANE_ACCEPTE`, `DOUANE_A_REVOIR`, `DOUANE_REFUSE`,
+`DOUANE_RESULTAT_DIFFERE` (sorti, décision en attente d'envoi), `DOUANE_REPORT`, `ACCES_REFUSE` (expulsion à l'aiguillage, avec la raison), `ACCES_GUARDIAN` (jeu normal sur la seule
+attestation, API muette) ; `STAFF` — `MODE_EXAMINATEUR` (entrée, sortie et durée), `DOUANE_ALLER`, `DOUANE_APPEL`,
+`DOUANE_RENVOI`, `DOUANE_RETRAIT`, `DOUANE_DOSSIER`, `DOUANE_QUESTION`, `DOUANE_QUESTION_MONTREE`, `DOUANE_DECISION`
+(envoyée), `DOUANE_DECISION_OK`, `DOUANE_DECISION_REFUSEE` ; `SYSTEME` — `DOUANE_OUVERTE`, `DOUANE_FERMEE`. Poste de
+garde : alerte `douane` « Candidat arrivé à la douane · pseudo », retirée à l'appel, au départ ou à la décision.
+
+### 4 decies.2 Aiguillage à la connexion (`douane.enabled: true`, douane ouverte ou fermée)
+
+1. **Pré-login** (asynchrone) : `GET /v1/game/acces/:mcUuid`, délai `http-ms`. `portee: "aucune"` → connexion refusée
+   tout de suite avec le `message` de l'API (sauf un op, qui passe à l'étape 2). `portee: "douane"` pour une place dont
+   le candidat a été retiré ou reporté (refus local) → refusée aussi, avec le même texte.
+2. **Arrivée** (un tick après le JOIN, avant toute sélection ; du JOIN à ce tick, le joueur est figé : ni tchat, ni
+   commande, ni téléportation, ni interaction) :
+   - membre du staff en jeu (op, `reborn.staff.*`, `shinobicore.staff`) → **sélection**, jamais le hall ;
+   - preuve `play` (API, ou marque `reborn.scope` posée par l'**instance chargée et active** de RebornGuardian,
+     comparée par identité : tout autre propriétaire, même nommé « RebornGuardian », est ignoré) → **sélection** ;
+   - preuve `douane` → **hall** ; si les deux sources divergent, la plus restrictive gagne. Douane **fermée** (voix
+     du hall fermé non réglée, §4 decies.1) : expulsion « La douane est fermée pour le moment. Réessaie plus tard. » ;
+     décision de l'oral encore en attente d'envoi : expulsion « La douane est terminée. Résultat sous peu dans ton
+     launcher. » ;
+   - aucune preuve → **attente neutre** : écran opaque « Vérification de l'accès… », immobile, caché des autres (et
+     de ceux qui se connectent ensuite), voix coupée (`douane.voix.*`), sans tchat ni commande ni interaction ; la
+     marque de Guardian aiguille dès qu'elle arrive ; au bout de `preuve-secondes` : expulsion « Accès non vérifié.
+     Réessaie dans un instant. » ;
+   - retiré ou reporté de cette place (refus local, même sans réponse de l'API) → expulsion, avant toute admission.
+3. **Refus par défaut** : la sélection ne s'ouvre (ni à la connexion, ni par la touche du mod, ni par l'ancienne GUI)
+   qu'après une preuve positive de `play` ou l'acceptation à la douane. API muette **et** Guardian absent = expulsion.
+4. **Contrôle tardif** : aiguillé sur la seule réponse `play` de l'API, un joueur dont la marque Guardian arrive en
+   `douane` est expulsé (« Accès à revérifier »). Surveillance de `preuve-secondes` ; jamais pour le staff. Pendant
+   la surveillance, la sélection s'ouvre mais le **choix** d'un personnage (sélection, création, ancienne GUI) ne
+   s'applique pas : il est retenu et rejoué dès la marque `play` (moins d'une seconde avec Guardian 0.2.0) ou à la
+   fin du délai ; une marque `douane` l'annule et expulse.
+5. **Rechargement à chaud** : seuls le staff et les porteurs de la marque `play` de Guardian restent en jeu ; les
+   autres (candidats, joueurs en attente : la file est perdue) sont expulsés (« Accès à revérifier »). À l'arrêt du
+   plugin, candidats et joueurs figés sont expulsés (« La douane redémarre. Reconnecte-toi dans un instant. »).
+
+Douane coupée (`douane.enabled: false`) : sélection directe, mais une marque `douane` de Guardian expulse (« La
+douane n'est pas ouverte sur ce serveur. ») : tout de suite si elle est déjà là à l'arrivée, sinon dès qu'elle arrive
+dans les `preuve-secondes`. Pendant ce délai, le choix d'un personnage attend la fin du contrôle, comme au point 4 :
+un candidat n'arrive jamais en jeu normal, même si `accept-douane-tokens` est activé par erreur. Le staff n'est
+jamais surveillé. Voix du hall fermé non réglée avec `enabled: true` : ce n'est **pas** la douane coupée, mais la
+douane fermée (aiguillage ci-dessus, aucune admission au hall).
+
+**Au hall** : Aventure, aucun dégât, faim figée, inventaire vanilla vide, skin Minecraft, **pseudo** sur la plaque et
+au tchat. Le hall n'est **ouvert** qu'avec un encadrant dans le monde (examinateur en mode qui a encore ses droits,
+ou staff Helper+) ;
+fermé : écran opaque « DOUANE · Ouverture dès l'arrivée d'un examinateur », immobile, tchat coupé, voix coupée (sauf
+`douane.voix.non-coupee-acceptee`). Confinement : hors zone → retour au point ; aucune téléportation qui ne vienne pas de la
+douane ; seule `/douane` répond ; sacoche, fiche, techniques n'ont rien à ouvrir (aucun personnage). Tchat de la douane
+**par salle** : le hall, et chaque bureau (son candidat et son examinateur) ; rien ne passe du hall au bureau ni du
+bureau au hall ; le staff en mode staff lit tout. Le tchat du monde n'y entre pas : ni candidats, ni examinateurs
+en mode, ni staff venu par `/douane aller` hors mode staff ne le lisent. Tout autre occupant du monde hors
+mode staff (staff venu par `/douane aller`) est aussi dans le cadre `HORS_JEU.DOUANE` : aucune mécanique RP, sauf en
+mode construction. File : en tête (renvoyés, examinateur parti), puis heure de convocation, puis arrivée ; présence
+`arrivee` / `appel` / `depart` remontée à l'API (plus `retrait` et `report`, §4 decies.3). Coupure : côté
+ShinobiCore, place gardée `reprise-minutes` (retour au bureau si l'examinateur y est encore ; rang en tête et
+questions déjà tirées repris). Le retour exige que l'API accorde encore la portée `douane` (jeton du launcher et
+`GET /v1/game/acces`) : après H + 30, il dépend de la reprise après coupure côté API (fiche §3.3) ; sans elle, seule
+la fenêtre d'entrée compte. Hall fermé **sans interruption** depuis
+`report-grace-minutes`, et `report-minutes` passées depuis la convocation : expulsion « Séance reportée… » et refus
+local pour cette place (comme un retrait) ; jamais pour un candidat déjà appelé ou remis en tête. À toute sortie
+(décision, retrait, report, déconnexion, y compris pendant l'écran Bienvenue ou de résultat), le mode de jeu par
+défaut du serveur est rendu : l'Aventure de la douane ne reste pas sur le compte.
+
+### 4 decies.3 Routes signées (ShinobiCore → API)
+
+En-têtes `X-Reborn-Server` (= `reborn.server-id`), `X-Reborn-Timestamp` (secondes Unix), `X-Reborn-Nonce` (UUID neuf),
+`X-Reborn-Signature` = hex minuscule de HMAC-SHA256(secret, chaîne). Chaîne (UTF-8, `\n`, pas de `\n` final) :
+`REBORN-GAME-V1`, méthode, chemin brut (`/v1/…`, requête comprise), serveur, horodatage, nonce, corps brut (vide pour
+un GET). Corps POST en `application/json; charset=utf-8`, mêmes octets que ceux signés. Implémentation :
+`douane/SignatureJeu` (vérifiée octet pour octet contre `chaineASigner` / `signer` de l'API) et `douane/DouaneClient`.
+
+| Route | Quand | Si l'API ne répond pas |
+|---|---|---|
+| `GET /v1/game/acces/:mcUuid` | Pré-login ; relue après l'arrivée si la place est inconnue ; relue après l'acceptation (bloc `candidature` → création) | Pas de preuve API : attente de Guardian |
+| `GET /v1/game/douane/dossier/:mcUuid?examinateur=` | Appel, `/douane dossier` | Message à l'examinateur |
+| `POST /v1/game/douane/decision` | Décision | **File locale** (`douane-envois.yml`) : renvoi toutes les `renvoi-secondes` (ou `Retry-After`) sur délai, 429 ou 5xx ; un autre 4xx est définitif (message à l'examinateur). Le joueur n'est **jamais** promu sans un 200 ; `dejaTraitee: true` vaut succès |
+| `POST /v1/game/douane/presence` | `arrivee`, `appel` (avec `mcUuidExaminateur`), `depart`. Au retrait et au report : `depart`, puis `retrait` (`motif` ≤ 2 000 obligatoire, `mcUuidExaminateur` d'un examinateur reconnu, sinon 400 / 403) ou `report` (sans motif) : l'API passe la place `CANCELLED` avec son motif (« Séance reportée : aucun examinateur présent » pour un report), sans pénalité, et prévient le candidat. Une API d'avant le 25/10 refuse ces deux événements (400, sans suite) | Ignoré |
+| `POST /v1/game/characters/sync` | Personnages du serveur (§4 decies.8) | File de reprise (`synchro-personnages.json`) |
+
+**Côté API** (`.env` en local ; en prod, `.env.prod` lu à travers `infra/docker-compose.prod.yml`, où ces variables
+sont câblées)
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `REBORN_GAME_SECRETS` | vide | **Prioritaire.** Un secret par serveur, `id:secret` séparés par des virgules ; l'identifiant est le même que `server-id` de Guardian et `reborn.server-id` de ShinobiCore. 32 caractères au moins, jamais égal au secret du bot ni à celui du jeton de jeu |
+| `REBORN_GAME_SECRET` | vide | Repli : un seul secret pour tous les serveurs (signalé au démarrage de l'API). Les deux vides : `/v1/game/acces`, `/v1/game/douane/*` et `/v1/game/characters/sync` répondent 503, aucune décision ne part et seul Guardian aiguille les joueurs |
+| `ADMIN_BASE_URL` | vide | Adresse du panel. Vide : `lienPanel` vaut null dans le dossier et « Ouvrir dans le panel » disparaît |
+| `REBORN_CHARACTERS_SERVER_IDS` | `prod` | Serveurs montrés dans « Mes personnages » du launcher (§4 decies.8), séparés par des virgules. Jamais l'identifiant du dev : ses personnages de test arrivent dans la même base |
+
+**Mise en service, avant `REBORN_DOUANE_ENABLED=true`** (§5.4, transition, étape 4)
+1. Secret du jeu posé **des deux côtés** : `REBORN_GAME_SECRETS` (ou `REBORN_GAME_SECRET`) sur l'API, et
+   `REBORN_GAME_SECRET` (ou `reborn.game-secret`) pour ShinobiCore.
+2. `reborn.server-id` renseigné (ou `REBORN_SERVER_ID`), même valeur que `server-id` de Guardian.
+3. `douane.voix.couper` et `douane.voix.rendre` remplies.
+4. Au démarrage, relever la ligne « [douane] active … routes du jeu : prêtes (serveur …) ». « FERMÉE » ou un motif à
+   la place de « prêtes » : corriger avant d'activer le drapeau.
+
+### 4 decies.4 Canal `reborn:douane` — vers le candidat (S → C)
+
+Chaque message S → C porte `"v":1`.
+
+| `t` | Champs | Affichage attendu (DA : subtil, aucun kanji, style du Poste de garde v3) |
+|---|---|---|
+| `ligne` | `etat` (`attente` \| `ferme` \| `bureau`), `texte`, `rang` et `total` (en attente seulement) | Une seule ligne fine en haut, Inter 7 sur un voile léger, filet d'or d'1 px : « DOUANE · En attente · 3ᵉ », « DOUANE · Ouverture dès l'arrivée d'un examinateur », « DOUANE · Entretien en cours ». Envoyée à chaque changement et toutes les 10 s |
+| `attente` | `on`, `texte` | Écran **opaque** neutre (jamais le monde derrière), texte centré : « Vérification de l'accès… » ou hall fermé. `on:false` = l'effacer |
+| `appel` | `texte` (« Un examinateur t'appelle »), `fondu` (ticks, 10) | Ligne d'appel puis fondu de 0,5 s ; la téléportation au bureau suit côté serveur (≈ 10 ticks) |
+| `question` | `texte` (vide = effacer) | Une ligne en haut : « Question · … » |
+| `bienvenue` | `titre` (« Bienvenue sur Reborn »), `s` (3) | Écran opaque, nuit, titre or et filet ; la sélection s'ouvre ensuite (roster sur `reborn:character`) |
+| `resultat` | `resultat` (`NEEDS_REVISION` \| `REJECTED` \| `PENDING`), `texte`, `s` (8) | Écran court avec `texte`, puis expulsion avec le même texte : « La douane n'est pas validée aujourd'hui. Le commentaire de l'examinateur est dans ton launcher. », ou, pour `PENDING` (décision en attente d'envoi, API muette), « La douane est terminée. Résultat sous peu dans ton launcher. » |
+| `plaques` | `examinateurs` (UUID des examinateurs en mode dans le monde) | Plaque « Examinateur » au-dessus de ces joueurs ; au-dessus des autres occupants du monde de la douane, le **pseudo** du profil à la place d'« Inconnu » (`reborn:tablist` ne change pas). Envoyé à tous les occupants qui écoutent le canal, à chaque changement et toutes les 10 s. Vaut jusqu'à `fin` ou jusqu'au changement de monde |
+| `fin` | — | Sortie de la douane : tout effacer (ligne, question, écran) et cesser d'appliquer les `plaques`. Envoyé aussi à tout joueur qui quitte le monde de la douane (staff, examinateur) |
+| `toast` | `m`, `erreur` | Notification courte (aussi pour l'examinateur) |
+
+Le serveur n'envoie **aucun roster** à un candidat : l'écran de sélection ne s'ouvre pas (`RebornHudClient`).
+
+### 4 decies.5 Canal `reborn:douane` — onglet Douane du Poste de garde (S → C)
+
+Envoyé aux seuls joueurs qui ont les droits d'examinateur (grade Helper+ et `reborn.douane.examinateur`) et qui
+écoutent le canal.
+
+| `t` | Champs |
+|---|---|
+| `etat` | `actif`, `ouvert`, `mode` (le spectateur est en mode examinateur), `peut` ; `file` : `[{u, pseudo, rang, attenteMin, convocation ("21:00"), convocationAt (ms), village, deuxiemePassage, enTete}]` ; `bureaux` : `[{id, libre, examinateur, examinateurPseudo, candidat, candidatPseudo, absent, envoi ("aucun" \| "attente")}]` ; `monBureau` (id ou null) ; `question` `{texte, montree}` si le spectateur a un bureau et une question tirée ; `enAttente` (compteur de l'onglet) ; `envoisEnAttente`. Envoyé dans la seconde qui suit un changement, toutes les 5 s, et tout de suite sur demande (`a: "etat"`) |
+| `dossier` | `u` (candidat) et `dossier` = la réponse de `GET /game/douane/dossier` **telle quelle** (`candidat`, `personnage`, `extraits`, `noteEcrit`, `voix`, `passage`, `lienPanel`), ou `erreur`. Volet élargi ; « Ouvrir dans le panel » ouvre `lienPanel` côté client |
+| `tirage` | `texte`, `montree`, `reste` (questions jamais tirées pour ce candidat) |
+| `envoi` | `etat` (`en_cours` \| `attente` \| `ok` \| `erreur`), `resultat`, `texte` (« Décision en attente d'envoi… », message de l'API…) |
+| `mode` | `examinateur` (booléen) : ligne fine en haut à droite, comme le mode animation |
+
+### 4 decies.6 Canal `reborn:douane` — demandes du Poste de garde (C → S)
+
+32 Kio au plus ; ignorées sans les droits d'examinateur. Mêmes contrôles que les commandes.
+
+| `a` | Champs | Équivalent |
+|---|---|---|
+| `etat` | — | instantané `etat` |
+| `mode` | — | `/modeexaminateur` |
+| `aller` · `quitter` | — | `/douane aller` · `quitter` |
+| `appeler` | `u` facultatif (UUID ou pseudo ; absent = le suivant) | `/douane appeler` |
+| `renvoyer` | — | `/douane renvoyer` |
+| `retirer` | `u`, `motif` | `/douane retirer` |
+| `dossier` | `u` facultatif (absent = le candidat du bureau) | `/douane dossier` |
+| `question` · `montrer` · `masquer` | — | `/douane question [montrer\|masquer]` |
+| `notes` | `texte` | `/douane notes` |
+| `decision` | `resultat` (`APPROVED` \| `NEEDS_REVISION` \| `REJECTED`), `motif` (≤ 2 000, obligatoire hors `APPROVED`), `notes` facultatif (≤ 4 000 ; absent = celles de `/douane notes`) | `/douane decision` |
+
+### 4 decies.7 Sans le mod (client qui n'écoute pas `reborn:douane`)
+
+Ligne → barre d'action toutes les 2 s ; écran d'attente → écran noir de `reborn:ecran` (§4 bis.4) s'il est écouté,
+sinon titre ; Cécité et Obscurité infinies dans tous les cas pendant l'attente et hall fermé ; appel, Bienvenue,
+résultat → titres ; question → ligne de tchat ; dossier → résumé au tchat avec un lien cliquable vers le panel ; envois
+et refus → tchat.
+
+### 4 decies.8 Synchronisation des personnages (lot J, 25/10)
+
+> ShinobiCore `character/sync/` (`SynchroPersonnages`, `PhotoPersonnage`) → API `POST /v1/game/characters/sync`
+> (contrat complet en tête de `apps/api/src/game/game-personnages.service.ts`), lu par `GET /v1/me/characters`
+> (« Mes personnages » du launcher). Conception : [`../gameplay/CANDIDATURE_ET_DOUANE.md`](../gameplay/CANDIDATURE_ET_DOUANE.md) §4.5.
+
+- **Signature** : la même que les routes de la douane (§4 decies.3), avec `reborn.server-id` et le secret du jeu ;
+  le serveur est celui de `X-Reborn-Server`, jamais lu dans le corps. 120 envois par minute et par serveur au plus.
+- **Corps** : `{ "characters": [ … ] }`, 1 à 200 **photos complètes** (tout le personnage, temps de jeu compris) ;
+  chaque photo porte `snapshotAt`, et l'API n'écrase jamais une photo plus récente.
+- **Déclencheurs** : création, changement de personnage, déconnexion, suppression (photo `deleted`), et chaque
+  minute tout personnage chargé dont le contenu a changé (mort RP, actions du staff, grade…) ; le temps de jeu seul
+  part au plus toutes les 5 min. **Rattrapage complet** de `characters/*.yml` au démarrage.
+- **Réponse** : un résultat par photo (`cree`, `maj`, `perime`, `refuse`, `conflit` de N°) ; aucun n'est renvoyé.
+  Renvoi seulement sur erreur réseau, 404, 429, 5xx, ou 401 / 403 (espacé de 10 min) ; 400 / 413 : lot abandonné.
+- **Réglage** : `reborn.sync-personnages` (vrai par défaut ; le temps de jeu par personnage est compté même à
+  `false`). **Fichier** : `synchro-personnages.json`, file de reprise gardée entre deux démarrages.
+- **Temps de jeu** : `play-minutes` et `last-seen-at` dans le YAML du personnage, comptés depuis cette version ; le
+  passé ne se reconstitue pas (« compté depuis le JJ/MM » dans le launcher).
 
 ---
 
@@ -891,7 +1124,8 @@ remplace `satiete.affame` = 20, désormais ignorée ; alerte seule, **aucun malu
 | `mobility` | Naruto run, sauts, dash, grappin, tyrolienne, escalade | — |
 | `character-select` | point de sélection des persos | [`gameplay/PERSONNAGES.md`](../gameplay/PERSONNAGES.md) |
 | `tablist`, `lore`, `cinematic`, `optimization`, `no-character-lockdown`, `character`, `shop` | divers | — |
-| `reborn`, `panel-bridge` | URL de l'API, secrets HMAC du pont panel | **ne jamais commiter de vraie valeur** |
+| `douane` | aiguillage à la connexion, monde, hall, bureaux, délais, voix, banque de questions | §4 decies.1 |
+| `reborn`, `panel-bridge` | URL de l'API, secrets HMAC du pont panel ; `reborn.server-id` et `reborn.game-secret` (routes signées de la douane, §4 decies.1) ; `reborn.sync-personnages` (§4 decies.8) | **ne jamais commiter de vraie valeur** |
 
 > **Une config existante sur le serveur n'est jamais réécrite** par une nouvelle version du plugin. Une clé
 > ajoutée dans le code prend sa **valeur par défaut du code** tant qu'elle n'est pas dans le fichier du
@@ -920,6 +1154,88 @@ remplace `satiete.affame` = 20, désormais ignorée ; alerte seule, **aucun malu
   `porte-hache` vrai), `staff` (`ecoute-minutes-defaut` 10, `ecoute-minutes-max` 60, `coupure-minutes-defaut` 30),
   `journal` (`emissions` vrai, `emission-min-secondes` 1).
 
+### 5.4 RebornGuardian — `config.yml`, jeton de jeu, mode fermé (25/10, version 0.2.0)
+
+Guardian vérifie le **jeton de jeu** que le mod `reborn-integrity` envoie sur `reborn:auth` au JOIN. Sans
+attestation valide dans les 8 s, le joueur est expulsé. Conception :
+[`gameplay/CANDIDATURE_ET_DOUANE.md`](../gameplay/CANDIDATURE_ET_DOUANE.md) §3.3 et §3.12.
+
+**Clés de `plugins/RebornGuardian/config.yml`.** Le fichier est créé au premier démarrage. Un ancien fichier est
+complété des clés manquantes, sans toucher aux valeurs déjà posées. Un fichier **illisible** (YAML invalide, par
+exemple un « : » non quoté) n'est jamais réécrit ni remplacé par les valeurs par défaut : mode fermé, bannière ERROR
+« config.yml ILLISIBLE » avec la ligne et la colonne (jamais l'extrait du fichier). Clés `true` / `false` : une
+valeur présente mais qui n'est pas un booléen (`'false'` entre guillemets, faute de frappe) est signalée en ERROR au
+démarrage et remplacée par la plus prudente : `false` pour `accept-tokens-without-aud` et `accept-douane-tokens`,
+`true` pour `closed-mode`.
+
+| Clé | Défaut | Rôle |
+|---|---|---|
+| `play-token-secret` | `''` | Secret HMAC, même valeur que `REBORN_PLAY_TOKEN_SECRET` de l'API, 32 caractères minimum. Pour les hébergeurs sans variable d'environnement. Si la variable `REBORN_PLAY_TOKEN_SECRET` est posée sur le serveur, elle passe avant, même invalide : pas de repli silencieux sur la config |
+| `server-id` | `''` | Identifiant de ce serveur (`prod`, `dev`, `build`…), comparé à la claim `aud`. Même valeur que côté API, casse comprise. Vide : `aud` n'est pas contrôlée, la douane est refusée, avertissement au démarrage |
+| `accept-tokens-without-aud` | `true` | Transition : accepte un jeton `play` sans `aud`. Ne joue que si `server-id` est renseigné |
+| `accept-douane-tokens` | `false` | Accepte la portée `douane`. À activer **seulement** quand ShinobiCore (lot D) aiguille les candidats vers le hall sur ce serveur : sinon un candidat arriverait en jeu normal |
+| `closed-mode` | `true` | Sans secret valide, refuse tout joueur qui n'est ni op ni staff. `false` : le plugin se désactive et **plus rien n'est vérifié** |
+| `closed-mode-staff-permissions` | `reborn.staff.helper`, `.modo`, `.admin`, `.owner` | Ce qui désigne le staff pendant le mode fermé, en plus des op |
+
+**Mode fermé** (secret absent ou de moins de 32 caractères, ou `config.yml` illisible) : bannière ERROR au
+démarrage, rappel ERROR toutes les 10 min, chaque refus au journal. Le joueur refusé lit « le serveur est fermé pour
+le moment ». Le staff entre, sans vérification de jeton, et reçoit un message rouge qui dit quoi corriger. Aucune
+marque `reborn.scope` n'est posée. Avec un `config.yml` illisible, le mode fermé s'impose (`closed-mode` ne peut pas
+être lu) et le staff est reconnu par les permissions par défaut du jar. Pour en sortir : poser le secret, ou corriger
+le fichier, puis redémarrer le serveur. Si la variable `REBORN_PLAY_TOKEN_SECRET` du serveur est posée mais trop
+courte, c'est elle qu'il faut corriger ou retirer : elle passe avant `config.yml` (la bannière le dit).
+
+**Jeton** (`apps/api/src/play/play.service.ts`) : `base64url(JSON).base64url(HMAC-SHA256(clé, partie 1))`. Clé :
+le secret brut pour `play` (ou sans `scope`) ; pour `douane`, la clé dérivée `HMAC-SHA256(secret, "reborn-douane-v1")`.
+La clé qui signe fixe la portée : un payload `douane` signé avec le secret brut, ou l'inverse, est refusé (signature
+invalide). Un Guardian 0.1.0, qui ignore `scope`, refuse donc tout jeton douane au lieu de l'admettre en jeu normal.
+
+| Claim | Valeurs | Si absente |
+|---|---|---|
+| `sub`, `mcUuid`, `mcUsername`, `iat`, `exp` | Inchangées ; `exp` = `iat` + 300 s | Sans `exp` : refusé |
+| `scope` | `play` : whitelisté ou staff. `douane` : compte `PLAYER`, écrit accepté, réservation dans sa fenêtre d'entrée (H − 15 min à H + `DOUANE_RETARD_MAX_MIN`, 30 min par défaut), `REBORN_DOUANE_ENABLED` actif | Vaut `play` (jetons d'avant le 25/10). Toute autre valeur est refusée |
+| `aud` | Identifiant du serveur visé | En `play` : accepté seulement si `accept-tokens-without-aud` (ou `server-id` vide). En `douane` : toujours refusé |
+
+**Contrôles, dans l'ordre** : signature (comparaison en temps constant, clé accordée à la portée) → expiration → UUID du jeton = UUID du joueur
+→ portée connue → douane acceptée par ce serveur et `server-id` renseigné → `aud` = `server-id`. Une seule
+attestation par connexion : une seconde est ignorée et la portée ne change plus. Le kick, l'annulation du kick
+différé et la marque passent par le fil principal.
+
+**Marque `reborn.scope`** (contrat pour ShinobiCore, lot D)
+- Métadonnée Bukkit transitoire, valeur `play` ou `douane`, posée **après** une attestation valide, effacée au JOIN
+  (priorité LOWEST) et au QUIT : les métadonnées de joueur survivent sinon à la déconnexion.
+- Lecture : `player.getMetadata("reborn.scope")`, en ne gardant que la valeur dont `getOwningPlugin()` est
+  l'**instance chargée et active** de RebornGuardian (`getPluginManager().getPlugin("RebornGuardian")`, comparée par
+  identité, pas par nom). Guardian absent ou désactivé : aucune marque ne compte.
+- Absente = aucune preuve (attestation pas encore reçue, jusqu'à 8 s après le JOIN, ou mode fermé). Jamais
+  l'équivalent de `play`.
+- Pas une permission : un op ou le joker `*` de LuckPerms l'auraient.
+
+**Côté API** (`.env` en local ; en prod, `.env.prod` lu à travers `infra/docker-compose.prod.yml`, où ces
+variables sont câblées : une variable absente de ce fichier n'atteint pas le conteneur)
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `REBORN_SERVER_ID` | vide | `aud` des jetons quand le launcher ne précise rien. Vide : pas de `aud` (ancien comportement) |
+| `REBORN_SERVER_IDS` | vide | Serveurs qu'un launcher peut demander, séparés par des virgules : `POST /v1/play/session` avec le corps `{ "serveur": "dev" }`. Serveur inconnu : 400. Les launchers actuels n'envoient pas de corps |
+| `REBORN_DOUANE_ENABLED` | `false` | Émet la portée `douane`. Vaut pour **tous** les serveurs : une seule API les sert |
+| `DOUANE_RETARD_MAX_MIN` | 30 | Retard maximal après l'heure de convocation H, en minutes, de 5 à 120 (hors bornes : 30). Une seule règle (`douane/douane.regles.ts`) pour le bouton du launcher, le passage en « manquée » et le jeton. L'entrée ouvre toujours à H − 15 min (fixe). Les anciens noms `REBORN_DOUANE_RETARD_MAX_MIN` et `REBORN_DOUANE_AVANCE_MIN` ne sont plus lus |
+
+La réponse de `POST /v1/play/session` porte aussi `scope` et `aud`, pour le launcher ; le jeton fait foi.
+
+**Transition, dans l'ordre**
+1. Publier Guardian 0.2.0 sur chaque serveur, avec le secret (variable ou `play-token-secret`) et `server-id`. Au
+   démarrage, lire « Secret play-token chargé » et la ligne `server-id`. Sans secret : mode fermé, bannière ERROR.
+2. Poser `REBORN_SERVER_ID` sur l'API **seulement si un seul serveur reçoit des joueurs**, ou une fois que le
+   launcher envoie `serveur` (lot F2) avec `REBORN_SERVER_IDS`. Sinon, un jeton émis pour la prod serait refusé par
+   le dev, et inversement.
+3. Quand tous les jetons portent `aud` : passer `accept-tokens-without-aud: false` sur chaque serveur.
+4. Douane : `accept-douane-tokens: true` sur un serveur seulement quand ShinobiCore (lot D) y est publié et mis en
+   service (§4 decies.3, « Mise en service » : secret du jeu des deux côtés, `reborn.server-id`, `douane.voix.*`,
+   ligne « routes du jeu : prêtes » au démarrage), puis `REBORN_DOUANE_ENABLED=true` sur l'API. Avant d'activer le drapeau, relever « Reborn Guardian 0.2.0 démarre » sur
+   chaque serveur, build compris : un Guardian 0.1.0 oublié refuse les candidats (signature invalide), il ne les
+   laisse plus entrer en jeu normal. Tester d'abord sur le dev exige le lot F2 (jetons « douane » pour le dev).
+
 ---
 
 ## 6. Fichiers de données (dossier du plugin sur le serveur)
@@ -943,6 +1259,7 @@ remplace `satiete.affame` = 20, désormais ignorée ; alerte seule, **aucun malu
 | `player-ids.yml` | Core | **Player ID** : `next` (prochain N°) + `index` `'00042'` → `n`, `character` (UUID perso), `owner` (UUID compte), `name`, `deleted`. Un N° n'est **jamais réutilisé** (supprimé = `deleted: true`). Écriture atomique (`.tmp` + renommage), compteur écrit avant d'attribuer. Chaque personnage porte aussi `playerId: 42` dans `characters/<compte>.yml`. Migration idempotente au démarrage (ordre : UUID du compte puis UUID du perso) |
 | `logs/<categorie>-AAAA-MM-JJ.log` | Core | **Journal universel** (14/10) : un fichier par catégorie (`joueur`, `inventaire`, `objet`, `combat`, `ko`, `duel`, `economie`, `interaction`, `bibliotheque`, `staff`, `commande`, `chat`, `systeme`) et par jour, une ligne par entrée : `AAAA-MM-JJ HH:mm:ss \| CAT \| ACTION \| #00042 Pseudo (Nom RP) [Grade] \| cible \| détail \| monde x y z` (`—` = vide). Rétention `journal.retention-jours`. Remplace `aggression-log.txt` (→ `combat`), `kill-log.txt` et `ko-log.txt` (→ `ko`), `duel-log.txt` (→ `duel`) ; les anciens fichiers restent sur le disque, plus alimentés |
 | `gels.yml` | Core | Gels staff persistants, par compte : `par`, `motif`, `le`, `nom` |
+| `douane-envois.yml` | Core | Décisions de la douane en attente d'envoi à l'API (§4 decies.3), reprises au démarrage. Contient les **notes privées de l'examinateur** : à ne jamais partager |
 | `boutiques.yml` | Core | Boutiques-lieux (15/10) : `nom`, `genre` (tailleur / bazar), `village`, `entreprise`, `ouverte`, `camera.distance` / `camera.hauteur`, `cree-le`, `cree-par`, `comptoirs` (`type` bloc / entite, `monde`, `x`, `y`, `z`, `entite`? UUID du PNJ, `libelle`, `categories`, `articles`), `estrades` (`monde`, `x`, `y`, `z`, `yaw`), `prix` (id → ryo), `exclus` |
 | `boutique-catalogue.yml` | Core | Catalogue des boutiques (copié du jar au premier démarrage, relu par `/boutique recharger`) : `articles.<id>` → `nom`, `categorie`, `genre` (tenue / objet), `nexo`, `emplacement`, `prix`, `conditions` |
 | `entreprises.yml` | Core | Entreprises (14/10) : `nom`, `type`, `responsable` (UUID perso), `cree-le`, `cree-par`, `membres` (`perso`, `compte`, `nom`, `numero`, `role`), `postes` (`monde`, `x`, `y`, `z`, `libelle`) |
