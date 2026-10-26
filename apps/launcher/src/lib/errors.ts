@@ -95,6 +95,24 @@ const KINDS: Record<string, KindText> = {
     text: "Ta candidature whitelist n'est pas encore acceptée.",
     hint: "Suis son avancement dans l'onglet Whitelist.",
   },
+  // Barriere d'acces par la phase de la candidature (content/candidature.rs).
+  candidature_required: {
+    text: "Ta candidature doit être acceptée avant de rejoindre le serveur.",
+    hint: "Suis son avancement dans l'onglet Whitelist.",
+  },
+  douane_hors_jeu: {
+    text: "Ton oral se passe hors du jeu pour le moment.",
+    hint: "Suis les consignes du staff dans l'onglet Whitelist.",
+  },
+  douane_not_open: {
+    text: "L'entrée de ta séance de douane n'est pas encore ouverte.",
+    hint: "Relance le jeu 15 min avant ta convocation.",
+  },
+  douane_closed: {
+    text: "L'heure d'entrée de ta séance de douane est passée.",
+    hint: "Réserve une autre séance dans l'onglet Whitelist.",
+  },
+  access_check: { text: "Vérification de ta candidature impossible.", hint: NET_HINT },
   not_staff: { text: "Action réservée au staff (grade Helper ou supérieur)." },
   already_running: { text: "Le jeu est déjà lancé.", hint: "Ferme Minecraft avant de le relancer." },
   not_running: { text: "Aucune partie n'est en cours." },
@@ -189,7 +207,7 @@ function fold(s: string): string {
 // Teste sur le texte en minuscules AVEC accents : sur un texte replie,
 // « ce ticket est fermé » passait pour la consigne « ferme ».
 const ACTION_RE =
-  /(?:^|[^\p{L}])(v[eé]rifie|r[eé]essaie|reconnecte|connecte-toi|relance|red[eé]marre|contacte|pr[eé]viens|signale|ouvre|ferme|lib[eè]re|patiente|attends|installe|d[eé]sinstalle|choisis|suis son|mets [aà] jour|d[eé]sactive|autorise|envoie|exporte|actualise|corrige|termine|lance|utilise|clique|supprime|ajoute|ne lance pas)(?![\p{L}])/u;
+  /(?:^|[^\p{L}])(v[eé]rifie|r[eé]essaie|reconnecte|connecte-toi|relance|red[eé]marre|contacte|pr[eé]viens|signale|ouvre|ferme|lib[eè]re|patiente|attends|installe|d[eé]sinstalle|choisis|suis son|suis les|mets [aà] jour|d[eé]sactive|autorise|envoie|exporte|actualise|corrige|termine|lance|utilise|clique|supprime|ajoute|r[eé]serve|refais|ne lance pas)(?![\p{L}])/u;
 
 const USELESS = new Set(["", "erreur", "error", "echec", "undefined", "null", "[object object]", "unknown error", "erreur inconnue"]);
 

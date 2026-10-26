@@ -39,7 +39,9 @@ export const PATCH_CARD_ERROR = {
   link: "Réessayer",
 };
 
-// Slot Whitelist — branché sur fetchWhitelistMe
+// Slot Candidature — branché sur lireCandidature : la carte suit la PHASE
+// calculée par l'API (CANDIDATURE_ET_DOUANE §1.2), textes dans routes/Home.tsx.
+// Aucun délai de relecture promis (Q11).
 export const WHITELIST_CARD: HomeCardSlotConfig = {
   icon: ShieldCheck,
   gradient: HOME_CARD_GRADIENTS.green,
@@ -49,47 +51,23 @@ export const WHITELIST_CARD: HomeCardSlotConfig = {
 
 export const WHITELIST_CARD_STATES = {
   loading: {
-    kicker: "Whitelist",
+    kicker: "Candidature",
     title: "Chargement...",
-    excerpt: "Récupération de ton statut.",
+    excerpt: "Récupération de ta candidature.",
     link: "Voir les détails",
   },
   error: {
-    kicker: "Whitelist",
+    kicker: "Candidature",
     title: "Indisponible",
-    excerpt: "Impossible de récupérer ton statut de whitelist.",
+    excerpt: "Impossible de récupérer l'état de ta candidature.",
     link: "Réessayer",
-  },
-  none: {
-    kicker: "Whitelist",
-    title: "Statut : non postulé",
-    excerpt: "Tu n'as pas encore déposé ta candidature RP. Postule pour rejoindre le serveur.",
-    link: "Postuler",
-  },
-  PENDING: {
-    kicker: "Whitelist",
-    title: "Statut : en attente",
-    excerpt: "Le staff examine ta candidature. Réponse sous 48h.",
-    link: "Voir ma candidature",
   },
   APPROVED: (characterName: string) => ({
     kicker: "Whitelist",
-    title: `Bienvenue, ${characterName}`,
+    title: characterName ? `Bienvenue, ${characterName}` : "Accès validé",
     excerpt: "Ta whitelist est validée. Tu peux te connecter au serveur.",
     link: "Voir les détails",
   }),
-  REJECTED: {
-    kicker: "Whitelist",
-    title: "Statut : refusée",
-    excerpt: "Le staff a refusé ta candidature. Tu peux la modifier et la resoumettre.",
-    link: "Modifier & resoumettre",
-  },
-  NEEDS_REVISION: {
-    kicker: "Whitelist",
-    title: "Statut : révision demandée",
-    excerpt: "Le staff demande des modifications avant validation.",
-    link: "Modifier & resoumettre",
-  },
 } as const;
 
 // Slot Actu RP — TODO: brancher sur API quand calendrier RP dispo (mock pour l'instant)

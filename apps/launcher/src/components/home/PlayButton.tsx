@@ -1,11 +1,31 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { AlertTriangle, Download, Lock, LogIn, Play, RefreshCw, Square, X } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarPlus,
+  Clock,
+  DoorOpen,
+  Download,
+  FileText,
+  Lock,
+  LogIn,
+  Play,
+  RefreshCw,
+  Square,
+  X,
+} from "lucide-react";
 import { LiquidProgress } from "./LiquidProgress";
+import { actualiserAcces, useAccesJeu } from "./acces-jeu";
+import { dateDe, duree, heure, jourLong, jourRelatif } from "../whitelist/format";
+import { useMaintenant } from "../whitelist/horloge";
+import type { AccesJeu, PhaseCandidature } from "../../lib/candidature";
+import { onTauriEvent } from "../../lib/tauri";
+import "./douane.css";
 import { Modal } from "../system/Modal";
 import { useLaunchStore } from "../../stores/launch-store";
 import { useAuthStore } from "../../stores/auth-store";
 import { useDiagnosticsStore } from "../../stores/diagnostics-store";
+import { useMcVersion } from "../../hooks/use-mc-version";
 import { useGameRunning, useGameStore, useGameWindowReady } from "../../stores/game-store";
 import { useUpdateStore } from "../../stores/update-store";
 import { logout } from "../../lib/auth";
@@ -14,6 +34,7 @@ import {
   applyUpdate,
   checkUpdate,
   launchGame,
+  prepareGame,
   stopGame,
   type UpdatePreview,
 } from "../../lib/launcher";
@@ -33,6 +54,96 @@ function formatBytes(n: number): string {
 }
 
 const BUSY_PHASES = new Set(["blocked", "running", "launching", "downloading", "checking"]);
+
+/** Refus de lancement qui tiennent a la candidature : l'acces est relu. */
+const ACCES_KINDS = new Set([
+  "candidature_required",
+  "douane_hors_jeu",
+  "douane_not_open",
+  "douane_closed",
+  "not_whitelisted",
+  "access_check",
+]);
+
+/** Portee du jeton de la partie en cours (game:started) : « douane » = hall
+ *  de la douane. Gardee hors du composant : elle survit a un aller-retour
+ *  hors de l'accueil pendant la partie. */
+let porteePartie: "play" | "douane" | null = null;
+
+/** Version de Minecraft deja preparee par « Preparer le jeu » (candidat
+ *  avant sa seance de douane), gardee sur ce PC. Commodite d'affichage : le
+ *  lancement reverifie tout de toute facon. */
+const CLE_JEU_PREPARE = "reborn:jeu-prepare";
+
+function lireJeuPrepare(): string | null {
+  try {
+    return window.localStorage.getItem(CLE_JEU_PREPARE);
+  } catch {
+    return null;
+  }
+}
+
+function ecrireJeuPrepare(version: string) {
+  try {
+    window.localStorage.setItem(CLE_JEU_PREPARE, version);
+  } catch {
+    // Stockage indisponible : « Préparer le jeu » restera proposé, sans gravité.
+  }
+}
+
+/** Legende d'un candidat qui ne peut pas encore jouer, selon la phase. */
+function legendePhase(phase: PhaseCandidature | null): string {
+  switch (phase) {
+    case "BROUILLON":
+      return "Candidature à terminer";
+    case "ECRIT_EN_ATTENTE":
+      return "Écrit en cours de relecture";
+    case "ECRIT_A_REVOIR":
+      return "Candidature à corriger";
+    case "DOUANE_A_RESERVER":
+      return "Écrit accepté · réserve ta douane";
+    case "DOUANE_A_REVOIR":
+      return "Douane à revoir · nouvelle séance";
+    case "REFUSE":
+      return "Candidature refusée";
+    case "DOUANE_RESERVEE":
+      // Arrivé au hall, entrée fermée : la décision de l'examinateur suit.
+      return "Douane passée · décision à venir";
+    case "ACCEPTE":
+      // Accès validé mais compte encore PLAYER : l'API refuserait le jeton.
+      return "Accès validé · compte à mettre à jour";
+    default:
+      return "Candidature whitelist requise";
+  }
+}
+
+/** Vue du bouton pour un candidat (compte PLAYER), d'apres l'acces lu dans l'API. */
+type VueCandidat =
+  | { kind: "verification" }
+  | { kind: "erreur"; message: string }
+  | { kind: "douane"; convocation: Date | null; ouvre: Date | null; ferme: Date | null }
+  | { kind: "avant"; convocation: Date | null; ouvre: Date | null }
+  | { kind: "manquee"; convocation: Date | null; ferme: Date | null }
+  | { kind: "hors-jeu" }
+  | { kind: "candidature"; phase: PhaseCandidature | null };
+
+function vueCandidat(acces: AccesJeu | null, erreur: string | null): VueCandidat | null {
+  if (!acces) return erreur ? { kind: "erreur", message: erreur } : { kind: "verification" };
+  const convocation = dateDe(acces.convocationAt);
+  const ouvre = dateDe(acces.ouvreAt);
+  const ferme = dateDe(acces.fermeAt);
+  if (acces.autorise) return acces.portee === "douane" ? { kind: "douane", convocation, ouvre, ferme } : null;
+  switch (acces.refus?.kind) {
+    case "douane_not_open":
+      return { kind: "avant", convocation, ouvre };
+    case "douane_closed":
+      return { kind: "manquee", convocation, ferme };
+    case "douane_hors_jeu":
+      return { kind: "hors-jeu" };
+    default:
+      return { kind: "candidature", phase: acces.phase };
+  }
+}
 
 /** Erreur affichee sous le bouton, avec son `kind` IPC (null si ce n'est pas
  *  une erreur IPC) : il decide du bouton d'action de l'encadre. */
@@ -78,15 +189,42 @@ export function PlayButton() {
   // CrashStub) : ils survivent a un aller-retour hors de l'accueil.
   const progress = useLaunchStore((s) => s.downloadProgress);
   const launch = useLaunchStore((s) => s.launchProgress);
-  const user = useAuthStore((s) => s.user);
   const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
   const gameRunning = useGameRunning();
   const windowReady = useGameWindowReady();
-  // role === PLAYER = compte cree mais whitelist non acceptee. Le backend
-  // refusera launch_game (GameError::NotWhitelisted), on bloque ici aussi
-  // pour eviter un clic perdu et afficher le bon libelle.
-  const isWhitelistGated = user?.role === "PLAYER";
+  // Compte PLAYER : la barriere lit la PHASE de la candidature (meme
+  // decision que launch_game, cf acces-jeu.ts). Whiteliste ou staff : jeu
+  // normal. Candidat dans la fenetre de sa seance : « Passer la douane ».
+  // Sinon le bouton est grise avec la raison (clic perdu evite).
+  const { acces, erreur: erreurAcces, estCandidat } = useAccesJeu();
+  const candidat = estCandidat ? vueCandidat(acces, erreurAcces) : null;
+  const enDouane = candidat?.kind === "douane";
+  const mcVersion = useMcVersion();
+  const [versionPreparee, setVersionPreparee] = useState(lireJeuPrepare);
+  const jeuPrepare = versionPreparee === mcVersion;
+  // Horloge de la fenetre d'entree (compte a rebours, curseur), relue pile
+  // a l'ouverture et a la fermeture.
+  const now = useMaintenant(enDouane || candidat?.kind === "avant" ? 15_000 : 60_000, [
+    acces?.ouvreAt ? Date.parse(acces.ouvreAt) : null,
+    acces?.fermeAt ? Date.parse(acces.fermeAt) : null,
+  ]);
+  const [portee, setPortee] = useState(porteePartie);
+  useEffect(() => {
+    let off: (() => void) | null = null;
+    let mort = false;
+    void onTauriEvent("game:started", (g) => {
+      porteePartie = g.scope ?? null;
+      setPortee(porteePartie);
+    }).then((u) => {
+      if (mort) u();
+      else off = u;
+    });
+    return () => {
+      mort = true;
+      off?.();
+    };
+  }, []);
 
   const [preview, setPreview] = useState<UpdatePreview | null>(null);
   const [error, setError] = useState<ShownError | null>(null);
@@ -95,6 +233,14 @@ export function PlayButton() {
   const [checkFailed, setCheckFailed] = useState(false);
   const [stopConfirm, setStopConfirm] = useState(false);
   const [stopping, setStopping] = useState(false);
+
+  // La fenêtre d'entrée de la douane ne garde que le jeton et le démarrage
+  // (quelques secondes) : un candidat peut toujours mettre ses mods à jour,
+  // et, avant sa séance, « Préparer le jeu » (Java, ressources, Fabric) pour
+  // ne pas tout télécharger dans les 45 min de la fenêtre.
+  const hasUpdate = !!preview && preview.plan.length > 0;
+  const preparer = candidat?.kind === "avant" && !jeuPrepare;
+  const isWhitelistGated = candidat !== null && !enDouane && !hasUpdate && !preparer;
 
   const mounted = useRef(true);
   useEffect(() => {
@@ -203,6 +349,24 @@ export function PlayButton() {
     tryPendingRelaunch();
   }, [relaunchNonce, phase, tryPendingRelaunch]);
 
+  // « Préparer le jeu » : étapes 1 à 5 du lancement, sans jeton ni démarrage.
+  async function preparerJeu() {
+    useLaunchStore.getState().setLaunchProgress(null);
+    setPhase("launching");
+    try {
+      const fait = await prepareGame();
+      const version = fait?.minecraftVersion || mcVersion;
+      ecrireJeuPrepare(version);
+      if (mounted.current) setVersionPreparee(version);
+      useLaunchStore.getState().setPhase("ready");
+    } catch (err) {
+      const shown = shownError(err);
+      useLaunchStore.getState().setPhase("ready");
+      if (mounted.current) setError(shown);
+      else stashedError = shown;
+    }
+  }
+
   async function handleClick() {
     if (isWhitelistGated) return;
     if (useGameStore.getState().running || BUSY_PHASES.has(useLaunchStore.getState().phase)) return;
@@ -211,6 +375,12 @@ export function PlayButton() {
       return;
     }
     setError(null);
+    // Candidat hors de sa fenêtre, mods à jour : seulement « Préparer le jeu »
+    // (le lancement, lui, attend la fenêtre d'entrée).
+    if (preview.plan.length === 0 && candidat && !enDouane) {
+      if (preparer) await preparerJeu();
+      return;
+    }
     // Nouvelle partie : on oublie le diagnostic mod d'une partie precedente
     // pour ne pas le correler par erreur a un eventuel crash de celle-ci.
     useDiagnosticsStore.getState().clear();
@@ -221,7 +391,11 @@ export function PlayButton() {
       useLaunchStore.getState().setLaunchProgress(null);
       setPhase("launching");
       try {
-        await launchGame();
+        const lance = await launchGame();
+        if (lance) {
+          porteePartie = lance.scope ?? null;
+          setPortee(porteePartie);
+        }
         window.setTimeout(() => {
           if (
             useLaunchStore.getState().phase === "launching" &&
@@ -233,6 +407,8 @@ export function PlayButton() {
       } catch (err) {
         const shown = shownError(err);
         const store = useLaunchStore.getState();
+        // Refus lie a la candidature (fenetre fermee entre-temps…) : on relit l'acces.
+        if (shown.kind && ACCES_KINDS.has(shown.kind)) actualiserAcces();
         if (shown.kind === "already_running") {
           // Le backend a deja une partie (fenetre rechargee pendant le jeu) :
           // on affiche l'etat « en jeu » pour pouvoir l'arreter.
@@ -319,7 +495,6 @@ export function PlayButton() {
   const isDownloading = phase === "downloading";
   const isLaunching = phase === "launching" && !isRunning;
   const isChecking = phase === "checking" && !isRunning;
-  const hasUpdate = !!preview && preview.plan.length > 0;
 
   const percent = progress
     ? Math.min(
@@ -353,14 +528,11 @@ export function PlayButton() {
   const needsRelogin = !!error?.kind && RELOGIN_KINDS.has(error.kind);
 
   const caption = (() => {
-    if (isWhitelistGated) return "Candidature whitelist requise";
-    if (isRunning) return windowReady || !gameRunning ? "Partie en cours" : "Ouverture de Minecraft…";
-    if (isBlocked) return "Launcher trop ancien, mise à jour requise";
-    if (isChecking) return "Vérification des fichiers…";
-    // Avant « prêt à lancer » ou « Vérification impossible », qui
-    // contrediraient l'encadré « session expirée » juste en dessous.
-    if (needsRelogin) return "Reconnexion requise";
-    if (checkFailed) return "Vérification impossible";
+    if (isRunning) {
+      if (!windowReady && gameRunning) return "Ouverture de Minecraft…";
+      return portee === "douane" ? "Partie en cours · hall de la douane" : "Partie en cours";
+    }
+    // Téléchargement et préparation : leur progression d'abord, candidat compris.
     if (isDownloading) {
       const dl = progress ? formatBytes(progress.bytesDownloaded) : "0 Mo";
       const tot = progress
@@ -375,7 +547,41 @@ export function PlayButton() {
       const pct = launchPercent != null ? ` ${launchPercent} %` : "…";
       return `Étape ${launch.step}/${launch.totalSteps} · ${launch.label}${pct}`;
     }
+    if (candidat) {
+      if (hasUpdate && preview && candidat.kind !== "douane") {
+        return `Mise à jour ${preview.version} · ${formatBytes(preview.bytesTotal)}`;
+      }
+      switch (candidat.kind) {
+        case "verification":
+          return "Vérification de ta candidature…";
+        case "erreur":
+          return "Vérification impossible";
+        case "avant":
+          return candidat.convocation
+            ? `Ta séance : ${jourRelatif(candidat.convocation, now)} ${heure(candidat.convocation)}`
+            : "Ta séance de douane";
+        case "manquee":
+          return candidat.convocation
+            ? `Convocation de ${heure(candidat.convocation)}${candidat.ferme ? ` · entrée fermée à ${heure(candidat.ferme)}` : ""}`
+            : "Entrée de la séance fermée";
+        case "hors-jeu":
+          return "Oral hors du jeu pour le moment";
+        case "candidature":
+          return legendePhase(candidat.phase);
+        case "douane":
+          break;
+      }
+    }
+    if (isBlocked) return "Launcher trop ancien, mise à jour requise";
+    if (isChecking) return "Vérification des fichiers…";
+    // Avant « prêt à lancer » ou « Vérification impossible », qui
+    // contrediraient l'encadré « session expirée » juste en dessous.
+    if (needsRelogin) return "Reconnexion requise";
+    if (checkFailed) return "Vérification impossible";
     if (hasUpdate && preview) return `Mise à jour ${preview.version} · ${formatBytes(preview.bytesTotal)}`;
+    if (candidat?.kind === "douane" && candidat.convocation) {
+      return `Convocation ${heure(candidat.convocation)} · ${jourLong(candidat.convocation)}`;
+    }
     if (preview) return `v${preview.version} · prêt à lancer`;
     return " ";
   })();
@@ -385,10 +591,95 @@ export function PlayButton() {
     : checkFailed
       ? "RÉESSAYER"
       : isRunning
-        ? "EN JEU"
+        ? portee === "douane"
+          ? "EN DOUANE"
+          : "EN JEU"
         : hasUpdate
           ? "METTRE À JOUR"
-          : "JOUER";
+          : preparer
+            ? "PRÉPARER LE JEU"
+            : enDouane
+              ? "PASSER LA DOUANE"
+              : "JOUER";
+
+  const lockedLabel = !candidat
+    ? "Inaccessible"
+    : candidat.kind === "avant"
+      ? "PASSER LA DOUANE"
+      : candidat.kind === "manquee"
+        ? "SÉANCE MANQUÉE"
+        : candidat.kind === "verification"
+          ? "VÉRIFICATION"
+          : candidat.kind === "hors-jeu"
+            ? "ORAL HORS JEU"
+            : "Whitelist requise";
+
+  // Emplacement fixe sous la legende pour un candidat (quand rien d'autre
+  // ne l'occupe) : fenetre d'entree, heure d'ouverture, lien vers la
+  // candidature ou la reservation.
+  const emplacementCandidat = (() => {
+    if (!candidat || isRunning) return null;
+    switch (candidat.kind) {
+      case "douane":
+        return candidat.ouvre && candidat.ferme ? (
+          <FenetreEntree ouvre={candidat.ouvre} ferme={candidat.ferme} convocation={candidat.convocation} now={now} />
+        ) : null;
+      case "avant":
+        return candidat.ouvre ? (
+          <Encart icone={<Clock className="h-3.5 w-3.5" />}>
+            {jeuPrepare ? "Jeu prêt · entrée" : "Entrée"} possible à partir de <b>{heure(candidat.ouvre)}</b>
+            {candidat.ouvre.getTime() > now.getTime() ? `, dans ${duree(candidat.ouvre.getTime() - now.getTime())}` : ""}.
+          </Encart>
+        ) : null;
+      case "manquee":
+        return (
+          <SecondaryLink icon={<CalendarPlus className="h-3.5 w-3.5" />} accent onClick={() => navigate("/whitelist?vue=douane")}>
+            Réserver une autre séance
+          </SecondaryLink>
+        );
+      case "candidature": {
+        if (candidat.phase === "ACCEPTE") {
+          return (
+            <SecondaryLink icon={<FileText className="h-3.5 w-3.5" />} onClick={() => navigate("/tickets")}>
+              Ouvrir un ticket
+            </SecondaryLink>
+          );
+        }
+        const douane = candidat.phase === "DOUANE_A_RESERVER" || candidat.phase === "DOUANE_A_REVOIR";
+        return (
+          <SecondaryLink
+            icon={<FileText className="h-3.5 w-3.5" />}
+            onClick={() => navigate(douane ? "/whitelist?vue=douane" : "/whitelist")}
+          >
+            {douane ? "Réserver ma séance" : "Ma candidature"}
+          </SecondaryLink>
+        );
+      }
+      case "hors-jeu":
+        return (
+          <SecondaryLink icon={<FileText className="h-3.5 w-3.5" />} onClick={() => navigate("/whitelist")}>
+            Voir les consignes
+          </SecondaryLink>
+        );
+      case "erreur":
+        return (
+          <div
+            role="alert"
+            className="flex w-full items-start gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-left text-xs leading-snug text-danger"
+          >
+            <AlertTriangle className="mt-px h-3.5 w-3.5 flex-shrink-0" />
+            <span className="line-clamp-2 min-w-0 flex-1 break-words" title={candidat.message}>
+              {candidat.message}
+            </span>
+            <ErrorAction icon={<RefreshCw className="h-3 w-3" />} onClick={actualiserAcces}>
+              Réessayer
+            </ErrorAction>
+          </div>
+        );
+      default:
+        return null;
+    }
+  })();
 
   // w-full : la pile prend la largeur (fixe) de la colonne d'action de
   // l'accueil ; légende et encadré d'erreur s'y bornent et reviennent à la
@@ -401,7 +692,7 @@ export function PlayButton() {
         {demoProgress != null ? (
           <LiquidProgress progress={demoProgress} title="Téléchargement" />
         ) : isBlocked && !isRunning ? (
-          <LockedButton label={isWhitelistGated ? "Whitelist requise" : "Inaccessible"} />
+          <LockedButton label={isWhitelistGated ? lockedLabel : "Inaccessible"} />
         ) : isDownloading ? (
           <LiquidProgress progress={percent / 100} title="Téléchargement" />
         ) : isLaunching ? (
@@ -411,6 +702,13 @@ export function PlayButton() {
             label={label}
             disabled={isChecking || isRunning}
             checking={isChecking}
+            icon={
+              (enDouane && !hasUpdate && !checkFailed) || (isRunning && portee === "douane") ? (
+                <DoorOpen className="h-[26px] w-[26px]" strokeWidth={2} />
+              ) : preparer && !hasUpdate && !checkFailed && !isRunning ? (
+                <Download className="h-[26px] w-[26px]" strokeWidth={2} />
+              ) : undefined
+            }
             onClick={() => void handleClick()}
           />
         )}
@@ -482,6 +780,8 @@ export function PlayButton() {
             )}
             {stopping ? "Arrêt en cours…" : "Arrêter le jeu"}
           </button>
+        ) : emplacementCandidat ? (
+          emplacementCandidat
         ) : phase === "blocked" && !isWhitelistGated ? (
           <button
             type="button"
@@ -578,13 +878,19 @@ function PrimaryButton({
   label,
   disabled,
   checking,
+  icon,
   onClick,
 }: {
   label: string;
   disabled: boolean;
   checking: boolean;
+  /** Icone a la place du triangle « lecture » (porte de la douane). */
+  icon?: ReactNode;
   onClick: () => void;
 }) {
+  // Libelle long (« PASSER LA DOUANE ») : marges elargies pour ne pas
+  // toucher l'icone, qui reste en absolu a gauche.
+  const marges = label.length > 8 ? "px-[60px]" : "px-12";
   // Icone absolute-positioned a gauche pour ne pas decaler le centrage du
   // texte. Sans ca, "Créer mon personnage" (21 chars) tirait le label
   // hors-centre vs "JOUER" (5 chars) qui paraissait centre.
@@ -593,7 +899,7 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`reborn-pulse-glow group relative flex items-center justify-center rounded-[14px] px-12 py-4 font-display text-[28px] tracking-[0.08em] text-white transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-80 disabled:hover:translate-y-0 ${FOCUS_RING} focus-visible:outline-[var(--color-gold-bright)]`}
+      className={`reborn-pulse-glow group relative flex items-center justify-center rounded-[14px] ${marges} py-4 font-display text-[28px] tracking-[0.08em] text-white transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-80 disabled:hover:translate-y-0 ${FOCUS_RING} focus-visible:outline-[var(--color-gold-bright)]`}
       style={{
         background: "linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%)",
         border: "1px solid rgba(255,255,255,0.08)",
@@ -604,10 +910,87 @@ function PrimaryButton({
         {checking ? (
           <RefreshCw className="h-[26px] w-[26px] animate-spin" strokeWidth={2} />
         ) : (
-          <Play className="h-[26px] w-[26px]" strokeWidth={2} fill="currentColor" />
+          (icon ?? <Play className="h-[26px] w-[26px]" strokeWidth={2} fill="currentColor" />)
         )}
       </span>
       <span className="text-center">{label}</span>
+    </button>
+  );
+}
+
+/**
+ * Fenetre d'entree de la douane : H − 15 → H + 30 (bornes lues dans l'API),
+ * repere de l'heure de convocation et curseur « maintenant ». Tient dans
+ * l'emplacement de 52 px sous la legende.
+ */
+function FenetreEntree({
+  ouvre,
+  ferme,
+  convocation,
+  now,
+}: {
+  ouvre: Date;
+  ferme: Date;
+  convocation: Date | null;
+  now: Date;
+}) {
+  const span = Math.max(1, ferme.getTime() - ouvre.getTime());
+  const pct = (t: number) => `${Math.max(0, Math.min(100, ((t - ouvre.getTime()) / span) * 100))}%`;
+  const reste = ferme.getTime() - now.getTime();
+  return (
+    <div className="reborn-douane-fenetre" role="group" aria-label="Fenêtre d'entrée de la douane">
+      <div className="reborn-douane-fenetre-tete">
+        <span>
+          Entrée ouverte <b>{heure(ouvre)} → {heure(ferme)}</b>
+        </span>
+        {reste > 0 && <span className="reborn-douane-fenetre-reste">ferme dans {duree(reste)}</span>}
+      </div>
+      <div className="reborn-douane-fenetre-piste" aria-hidden>
+        <span className="reborn-douane-fenetre-rempli" style={{ width: pct(now.getTime()) }} />
+        {convocation && (
+          <span
+            className="reborn-douane-fenetre-h"
+            style={{ left: pct(convocation.getTime()) }}
+            title={`Convocation : ${heure(convocation)}`}
+          />
+        )}
+        <span className="reborn-douane-fenetre-curseur" style={{ left: pct(now.getTime()) }} />
+      </div>
+    </div>
+  );
+}
+
+function Encart({ icone, children }: { icone: ReactNode; children: ReactNode }) {
+  return (
+    <div className="reborn-douane-encart">
+      <span className="reborn-douane-encart-icone">{icone}</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
+/** Bouton secondaire de l'emplacement (meme dessin que « Journal du jeu »). */
+function SecondaryLink({
+  icon,
+  accent,
+  onClick,
+  children,
+}: {
+  icon: ReactNode;
+  accent?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 rounded-lg border bg-surface-elevated px-4 py-2 text-[11px] uppercase tracking-[0.14em] transition-colors hover:text-white ${
+        accent ? "border-gold/50 text-gold hover:border-gold" : "border-border-strong text-foreground-subtle hover:border-accent/60"
+      } ${FOCUS_RING}`}
+    >
+      {icon}
+      {children}
     </button>
   );
 }

@@ -1,0 +1,262 @@
+/* ============================================================
+   Carte « Discord officiel » de l'accueil (CANDIDATURE_ET_DOUANE §5.3).
+   Reprise fidèle de la maquette validée L10 (dev/maquettes/accueil,
+   classes mqa-discord-*). Couleurs = jetons du launcher ; seul le violet
+   de la marque (DA §7) est local à la carte.
+   ============================================================ */
+
+/* Conteneur de requête : la carte s'adapte à sa propre largeur. */
+.reborn-discord-cadre {
+  container-type: inline-size;
+}
+
+.reborn-discord {
+  --reborn-discord-violet: #6a2177;
+  --reborn-discord-violet-clair: #7e2b8d;
+  --reborn-discord-prune: #3f0f4b;
+  --reborn-discord-rose: #eeb8a2;
+  position: relative;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr) auto;
+  min-height: 136px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 55% 160% at 14% 50%, rgba(106, 33, 119, 0.32) 0%, transparent 62%),
+    linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+.reborn-discord:hover {
+  border-color: rgba(201, 155, 210, 0.42);
+  box-shadow: var(--shadow-lg), 0 18px 40px -22px rgba(106, 33, 119, 0.75);
+}
+/* Filet rose de la marque, en haut à gauche */
+.reborn-discord::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--reborn-discord-rose) 0%,
+    rgba(238, 184, 162, 0.25) 30%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+.reborn-discord-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: -48px;
+  padding-right: 48px;
+  background-color: var(--reborn-discord-prune);
+  background-position: center;
+  background-size: cover;
+  /* Fondu par masque vers le fond de la carte : pas de bord net entre la
+     bannière violette et le texte. */
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 52%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0%, #000 52%, transparent 100%);
+}
+/* Vignettage */
+.reborn-discord-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 42% 50%, rgba(87, 27, 97, 0) 0%, rgba(38, 8, 48, 0.4) 72%);
+  pointer-events: none;
+}
+.reborn-discord-icone {
+  position: relative;
+  z-index: 1;
+  width: 76px;
+  height: 76px;
+  border-radius: 24px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 0 0 5px rgba(38, 8, 48, 0.45),
+    0 14px 28px -8px rgba(0, 0, 0, 0.75),
+    0 0 40px -6px rgba(201, 155, 210, 0.5);
+}
+.reborn-discord-corps {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 18px 16px 18px 24px;
+}
+.reborn-discord-surtitre {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--reborn-discord-rose);
+}
+.reborn-discord-logo {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.reborn-discord-logo--sm {
+  width: 13px;
+  height: 13px;
+}
+.reborn-discord-titre {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.reborn-discord-desc {
+  max-width: 470px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+}
+.reborn-discord-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-discord-stats b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground);
+}
+.reborn-discord-sep {
+  color: var(--color-foreground-muted);
+}
+.reborn-discord-enligne {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.reborn-discord-pastille {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.14), 0 0 8px rgba(74, 222, 128, 0.6);
+}
+.reborn-discord-stats--off {
+  gap: 6px;
+  color: var(--color-foreground-muted);
+}
+/* Squelette de chargement : indicateur « ça travaille », il tourne aussi
+   pendant une partie (cf globals.css, Jeu en cours). */
+.reborn-discord-squelette {
+  display: inline-block;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    90deg,
+    rgba(247, 236, 214, 0.05) 0%,
+    rgba(247, 236, 214, 0.14) 50%,
+    rgba(247, 236, 214, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: reborn-discord-scintille 1.4s ease-in-out infinite;
+}
+@keyframes reborn-discord-scintille {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.reborn-discord-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 26px 18px 8px;
+}
+.reborn-discord-bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  background: linear-gradient(
+    180deg,
+    var(--reborn-discord-violet-clair) 0%,
+    var(--reborn-discord-violet) 100%
+  );
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 20px -8px rgba(106, 33, 119, 0.9);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    filter var(--duration-fast) var(--ease-out);
+}
+.reborn-discord-bouton:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 24px -8px rgba(106, 33, 119, 0.95),
+    0 0 26px -6px rgba(201, 155, 210, 0.6);
+}
+.reborn-discord-bouton:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.reborn-discord-lien {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-foreground-muted);
+}
+.reborn-discord-lien--erreur {
+  max-width: 180px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--color-warning);
+}
+
+/* Fenêtre étroite (le launcher descend à 640 px) : la bannière s'efface,
+   le bouton passe sous le texte. */
+@container (max-width: 620px) {
+  .reborn-discord {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reborn-discord-art {
+    display: none;
+  }
+  .reborn-discord-action {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 0 24px 18px;
+  }
+}

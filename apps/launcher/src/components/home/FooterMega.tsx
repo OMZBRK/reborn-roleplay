@@ -1,15 +1,18 @@
 import { ExternalLink } from "lucide-react";
 import pkg from "../../../package.json";
 import { useMcVersion } from "../../hooks/use-mc-version";
+import { DISCORD_INVITE_URL } from "../../lib/content";
+import { openDiscordInvite } from "./DiscordCard";
 
 // Mega-footer de la Home : brand + tech stack + social + links.
 //
-// Volontairement statique pour cette PR :
+// Encore en partie statique :
 //   - les ancres "Site web" / "Status serveur" sont des # (no nav)
-//   - le bloc social pointe vers des # (icones SVG inline car lucide n'a
-//     pas Discord/Twitch officiellement dans son set core, on dessine
-//     des glyphs simples)
-// TODO(links): brancher les ancres sur les vrais URLs quand le site
+//   - le bloc social : seul Discord est branché (invitation officielle,
+//     ouverte par tauri-plugin-opener) ; TikTok, YouTube et X pointent
+//     vers des # (icones SVG inline car lucide n'a pas Discord/Twitch
+//     officiellement dans son set core, on dessine des glyphs simples)
+// TODO(links): brancher les autres ancres sur les vrais URLs quand le site
 // public + status page seront en ligne.
 export function FooterMega() {
   const mcVersion = useMcVersion();
@@ -57,7 +60,7 @@ export function FooterMega() {
       <div className="reborn-home-footer-col">
         <div className="reborn-home-footer-col-title">Communauté</div>
         <div className="reborn-home-footer-socials">
-          <SocialLink label="Discord">
+          <SocialLink label="Discord" href={DISCORD_INVITE_URL}>
             <DiscordGlyph />
           </SocialLink>
           <SocialLink label="TikTok">
@@ -97,11 +100,34 @@ export function FooterMega() {
 
 function SocialLink({
   label,
+  href,
   children,
 }: {
   label: string;
+  /** Invitation Discord à ouvrir ; absent = lien pas encore branché. */
+  href?: string;
   children: React.ReactNode;
 }) {
+  if (href) {
+    return (
+      <a
+        href={href}
+        onClick={(e) => {
+          e.preventDefault();
+          // Échec d'ouverture (navigateur introuvable) : la carte Discord de
+          // l'accueil affiche le lien en clair, inutile d'alerter ici.
+          openDiscordInvite(href).catch((err: unknown) =>
+            console.warn(`[footer] ouverture de ${href} impossible :`, err),
+          );
+        }}
+        aria-label={label}
+        title={`${label} : ${href.replace(/^https?:\/\//, "")}`}
+        className="reborn-home-footer-social"
+      >
+        {children}
+      </a>
+    );
+  }
   return (
     <a
       href="#"

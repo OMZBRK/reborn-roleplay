@@ -1,0 +1,763 @@
+/* ============================================================
+   « Mes personnages » (CANDIDATURE_ET_DOUANE §4.6, lot J).
+   Reprise fidèle de la maquette validée L11 (dev/maquettes/accueil,
+   classes mqa-perso-*, mqa-carte-*, mqa-detail-*). Couleurs = jetons du
+   launcher. Ajouts du vrai écran : chargement, erreur, état « Supprimé »
+   et mise en page étroite (fenêtre réduite, 640 px au minimum).
+   ============================================================ */
+
+/* Conteneur de requête : la page s'adapte à la largeur de la zone de contenu. */
+.reborn-perso-cadre {
+  height: 100%;
+  container-type: inline-size;
+}
+
+.reborn-perso-page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 24px;
+  padding: 44px 56px 40px;
+  overflow-y: auto;
+}
+.reborn-perso-tete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
+.reborn-perso-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-kicker--or {
+  letter-spacing: 0.2em;
+  color: var(--color-gold);
+}
+.reborn-perso-titre {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--color-foreground);
+}
+.reborn-perso-sous {
+  max-width: 580px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-resume {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.reborn-perso-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: rgba(48, 24, 29, 0.6);
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--color-foreground-subtle);
+  box-shadow: inset 0 1px 0 var(--color-hairline);
+}
+.reborn-perso-chip--or {
+  padding: 3px 9px;
+  border-color: rgba(224, 176, 106, 0.4);
+  background: rgba(58, 44, 20, 0.45);
+  font-size: 10.5px;
+  color: var(--color-gold-bright);
+}
+.reborn-perso-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-note--alerte {
+  color: var(--color-warning);
+}
+
+/* Maître-détail : liste et fiche défilent chacune dans la hauteur restante. */
+.reborn-perso-grille {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) 392px;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+.reborn-perso-liste {
+  display: flex;
+  max-height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  margin: -6px;
+  padding: 6px;
+  overflow-y: auto;
+}
+
+/* ---------- Carte personnage ---------- */
+.reborn-perso-carte {
+  position: relative;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-spring);
+}
+.reborn-perso-carte:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+}
+.reborn-perso-carte[data-choisi="true"] {
+  border-color: rgba(176, 28, 50, 0.7);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 1px rgba(176, 28, 50, 0.3),
+    0 16px 36px -20px var(--color-accent-glow-strong);
+}
+.reborn-perso-carte[data-choisi="true"]::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: -1px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--color-accent-bright), var(--color-gold));
+  box-shadow: 0 0 8px var(--color-accent-glow-strong);
+}
+.reborn-perso-carte-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.reborn-perso-carte-zone:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.reborn-perso-carte-haut {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 16px;
+  padding: 16px 18px 14px;
+  pointer-events: none;
+}
+.reborn-perso-carte-identite {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.reborn-perso-carte-ligne1 {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+.reborn-perso-carte-nom {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.reborn-perso-carte-nom span {
+  color: var(--color-gold);
+}
+.reborn-perso-carte-meta {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-carte-meta--doux {
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-carte .reborn-perso-chip--or {
+  margin-top: 6px;
+}
+.reborn-perso-carte[data-eteint="true"] .reborn-perso-carte-nom {
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-carte[data-eteint="true"] .reborn-perso-carte-nom span {
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-etat {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.reborn-perso-etat--vivant {
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  background: rgba(74, 222, 128, 0.08);
+  color: var(--color-success);
+}
+.reborn-perso-etat--mort {
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.08);
+  color: #f19090;
+}
+.reborn-perso-etat--supprime {
+  border: 1px solid var(--color-border-strong);
+  background: rgba(247, 236, 214, 0.04);
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-carte-bas {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  padding: 10px 18px 12px;
+  border-top: 1px solid var(--color-border);
+  pointer-events: none;
+}
+.reborn-perso-donnee {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 18px;
+  border-left: 1px solid var(--color-border);
+}
+.reborn-perso-donnee:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.reborn-perso-donnee-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-donnee-valeur {
+  font-size: 12.5px;
+  color: var(--color-foreground);
+}
+.reborn-perso-donnee-valeur--doux {
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-numero-ligne {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.reborn-perso-numero-valeur {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--color-gold-bright);
+}
+.reborn-perso-numero-copier {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  background: var(--color-surface);
+  font-size: 10.5px;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-perso-numero-copier:hover {
+  border-color: rgba(224, 176, 106, 0.6);
+  color: var(--color-foreground);
+}
+.reborn-perso-numero-copier:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* Emplacement libre */
+.reborn-perso-libre {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: rgba(23, 9, 12, 0.4);
+}
+.reborn-perso-libre-icone {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 12px;
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-libre-titre {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-libre-texte {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+
+/* Blason : tuile laquée, blason du clan teinté or, médaillon du village */
+.reborn-perso-blason {
+  --reborn-perso-t: var(--reborn-perso-taille, 64px);
+  position: relative;
+  display: flex;
+  width: var(--reborn-perso-t);
+  height: var(--reborn-perso-t);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(224, 176, 106, 0.35);
+  border-radius: calc(var(--reborn-perso-t) * 0.22);
+  background:
+    radial-gradient(ellipse 80% 70% at 30% 18%, rgba(224, 176, 106, 0.16) 0%, transparent 60%),
+    linear-gradient(145deg, #2b1418 0%, #160a0d 100%);
+  color: var(--color-gold);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 3px rgba(10, 6, 8, 0.45),
+    0 6px 14px -6px rgba(0, 0, 0, 0.7);
+}
+.reborn-perso-blason-clan {
+  position: absolute;
+  inset: 12.5%;
+  background: linear-gradient(180deg, var(--color-gold-bright) 0%, var(--color-gold) 100%);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.reborn-perso-blason-village {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: flex;
+  width: calc(var(--reborn-perso-t) * 0.42);
+  height: calc(var(--reborn-perso-t) * 0.42);
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: #1a0b0e;
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+.reborn-perso-blason-village > span {
+  width: 72%;
+  height: 72%;
+  background: var(--color-foreground-subtle);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.reborn-perso-blason[data-eteint="true"] {
+  opacity: 0.6;
+  filter: grayscale(1);
+}
+
+/* ---------- Panneau de détail ---------- */
+.reborn-perso-detail {
+  display: flex;
+  max-height: 100%;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 80% 40% at 100% 0%, rgba(224, 176, 106, 0.08) 0%, transparent 60%),
+    linear-gradient(170deg, var(--color-surface-elevated) 0%, var(--color-surface) 75%);
+  box-shadow: var(--shadow-md);
+}
+.reborn-perso-detail-tete {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.reborn-perso-detail-nom {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.reborn-perso-detail-sous {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-detail-sous-doux {
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-detail-identite {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: rgba(10, 6, 8, 0.35);
+}
+.reborn-perso-detail-identite dt {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-detail-identite dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  color: var(--color-foreground);
+}
+.reborn-perso-detail-identite dd.reborn-perso-mono {
+  font-family: var(--font-mono);
+  color: var(--color-gold-bright);
+}
+.reborn-perso-detail-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.reborn-perso-section h3 {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+.reborn-perso-section p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-line;
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-section p[data-replie="true"] {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.reborn-perso-lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-accent-bright);
+  cursor: pointer;
+}
+.reborn-perso-lien:hover {
+  text-decoration: underline;
+}
+.reborn-perso-lien:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.reborn-perso-detail-vide {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-detail-pied {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-detail-pied > span {
+  flex: 1 1 260px;
+}
+.reborn-perso-detail-pied .reborn-perso-lien {
+  margin: 0 0 0 22px;
+}
+
+/* ---------- État vide ---------- */
+.reborn-perso-vide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: 20px;
+}
+.reborn-perso-vide-carte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 44px 32px 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(176, 28, 50, 0.14) 0%, transparent 70%),
+    linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
+  text-align: center;
+}
+.reborn-perso-vide-icone {
+  display: flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-vide-titre {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.reborn-perso-vide-texte {
+  max-width: 440px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+.reborn-perso-vide-bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 42px;
+  margin-top: 10px;
+  padding: 0 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-accent);
+}
+.reborn-perso-vide-bouton:disabled {
+  cursor: default;
+  opacity: 0.55;
+  box-shadow: none;
+}
+.reborn-perso-vide-bouton:focus-visible {
+  outline: 2px solid var(--color-gold-bright);
+  outline-offset: 2px;
+}
+.reborn-perso-etapes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin: 18px 0 0;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--color-border);
+  list-style: none;
+  text-align: left;
+}
+.reborn-perso-etapes li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: rgba(10, 6, 8, 0.35);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-foreground-muted);
+}
+.reborn-perso-etapes b {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.reborn-perso-etape-num {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+  border: 1px solid rgba(224, 176, 106, 0.45);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-gold-bright);
+}
+
+/* ---------- Chargement et erreur ---------- */
+.reborn-perso-squelette {
+  height: 156px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
+}
+.reborn-perso-squelette--detail {
+  height: 420px;
+}
+.reborn-perso-erreur {
+  display: flex;
+  max-width: 560px;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 24px auto 0;
+  padding: 36px 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
+  text-align: center;
+}
+.reborn-perso-erreur .reborn-perso-vide-texte {
+  max-width: 460px;
+}
+.reborn-perso-bouton-second {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  margin-top: 6px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 9px;
+  background: var(--color-surface-elevated);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.reborn-perso-bouton-second:hover {
+  border-color: rgba(224, 176, 106, 0.6);
+}
+.reborn-perso-bouton-second:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- Fenêtre réduite ---------- */
+/* Une colonne : la fiche passe sous la liste, la page défile d'un bloc. */
+@container (max-width: 900px) {
+  .reborn-perso-grille,
+  .reborn-perso-vide {
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .reborn-perso-liste,
+  .reborn-perso-detail {
+    max-height: none;
+    overflow: visible;
+  }
+}
+@container (max-width: 620px) {
+  .reborn-perso-page {
+    padding: 32px 20px 28px;
+  }
+  .reborn-perso-titre {
+    font-size: 32px;
+  }
+  .reborn-perso-resume {
+    align-items: flex-start;
+  }
+  .reborn-perso-detail-identite {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .reborn-perso-etapes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reborn-perso-donnee {
+    padding: 0 12px;
+  }
+}

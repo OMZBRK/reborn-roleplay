@@ -1,15 +1,15 @@
 import type { KeyboardEvent } from "react";
-import { Image, Lock, Map as MapIcon, User, Users } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Image, Lock, Map as MapIcon, Users } from "lucide-react";
+import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useAuthStore } from "../stores/auth-store";
 import { cn } from "../lib/cn";
-import { Character } from "./Character";
 import { Map } from "./Map";
 import { Screenshots } from "./Screenshots";
 import { Feed } from "./Feed";
 
+// « Mon personnage » a quitté cet onglet : « Mes personnages » a sa propre
+// entrée dans la barre latérale (/personnages, CANDIDATURE_ET_DOUANE §4.6).
 const TABS = [
-  { id: "character", label: "Mon personnage", icon: User, gated: false },
   { id: "map", label: "Carte", icon: MapIcon, gated: false },
   { id: "screenshots", label: "Screenshots", icon: Image, gated: true },
   { id: "feed", label: "Feed communautaire", icon: Users, gated: true },
@@ -29,7 +29,7 @@ function readLastTab(): string | null {
 }
 
 /**
- * Onglet « RP » — regroupe le personnage, la carte, les screenshots et le feed
+ * Onglet « RP » — regroupe la carte, les screenshots et le feed
  * communautaire. Screenshots + feed sont réservés aux joueurs ayant le statut
  * whitelist minimum ({@code role !== "PLAYER"}).
  */
@@ -40,7 +40,7 @@ export function Rp() {
   // précédent retombe sur le même onglet au lieu de repartir du personnage.
   const [params, setParams] = useSearchParams();
   const raw = params.get("tab") ?? readLastTab();
-  const tab: RpTab = TABS.some((t) => t.id === raw) ? (raw as RpTab) : "character";
+  const tab: RpTab = TABS.some((t) => t.id === raw) ? (raw as RpTab) : "map";
   const setTab = (id: RpTab) => {
     try {
       sessionStorage.setItem(LAST_TAB_KEY, id);
@@ -64,6 +64,9 @@ export function Rp() {
     setTab(TABS[next].id);
     document.getElementById(`rp-tab-${TABS[next].id}`)?.focus();
   };
+
+  // Ancien lien vers l'onglet du personnage (/character, ?tab=character).
+  if (params.get("tab") === "character") return <Navigate to="/personnages" replace />;
 
   return (
     <div className="flex h-full flex-col">
@@ -118,7 +121,6 @@ export function Rp() {
         id="rp-panel"
         aria-labelledby={`rp-tab-${tab}`}
       >
-        {tab === "character" && <Character />}
         {tab === "map" && <Map />}
         {tab === "screenshots" && (whitelisted ? <Screenshots /> : <WhitelistGate feature="les screenshots" />)}
         {tab === "feed" && (whitelisted ? <Feed /> : <WhitelistGate feature="le feed communautaire" />)}

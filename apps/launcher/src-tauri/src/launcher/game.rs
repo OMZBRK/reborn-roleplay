@@ -9,7 +9,8 @@
 //! 4. Asset index + assets
 //! 5. Fabric Loader (override main class + libs supplémentaires)
 //! 6. Play-token + build du LaunchConfig + spawn java avec argv complet
-//! 7. FS watcher + journal (cf logs.rs) + lifecycle events Tauri
+//! 7. FS watcher + journal (cf logs.rs) + rafraîchissement des jetons de jeu
+//!    (cf play_tokens.rs) + lifecycle events Tauri
 //!
 //! Cycle de vie : le `Child` appartient à la tâche [`await_game_end`], qui
 //! l'attend hors de tout verrou. `launcher_stop_game` lui envoie une demande
@@ -29,9 +30,12 @@ use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
 
+use crate::api::PlaySession;
 use crate::auth::{AuthError, AuthState};
+use crate::content::candidature;
 use crate::discord_rpc::DiscordRpcState;
 use crate::integrity::{spawn_watcher, TamperingEvent, WatcherHandle};
+use crate::launcher::play_tokens::{self, JwtSource, TokenRefresher, TokenTarget};
 use crate::launcher::{
     assets, emit_mods_purged, fabric, jvm, libraries, logs, mods as mods_inspect, mojang, paths,
     runtime, serialize_ipc_error,
@@ -83,6 +87,8 @@ pub struct RunningGame {
     pid: u32,
     kill_tx: mpsc::Sender<KillAck>,
     _watcher: WatcherHandle,
+    /// Rafraîchissement des jetons de jeu, arrêté avec la partie.
+    _play_tokens: TokenRefresher,
 }
 
 impl GameState {
@@ -135,6 +141,15 @@ pub enum GameError {
     NotAuthenticated,
     #[error("Ta candidature whitelist n'a pas encore été acceptée : tu pourras rejoindre le serveur dès qu'elle le sera.")]
     NotWhitelisted,
+    /// Lancement refusé d'après la phase de la candidature (cf
+    /// `content::candidature::decider_acces`). `kind` : `candidature_required`,
+    /// `douane_hors_jeu`, `douane_not_open`, `douane_closed`, `not_whitelisted`
+    /// face à une API d'avant la candidature v2, ou `session_expired`.
+    #[error("{message}")]
+    Acces { kind: &'static str, message: String },
+    /// Phase de la candidature illisible (réseau, session expirée…).
+    #[error("Vérification de ta candidature impossible : {message}.")]
+    AccesInverifiable { message: String },
     #[error("Réservé au staff (grade Helper ou supérieur).")]
     NotStaff,
     #[error("Le jeu est déjà lancé ou en cours de lancement : attends qu'il s'ouvre, ou ferme-le avant de relancer.")]
@@ -187,6 +202,8 @@ impl GameError {
         match self {
             Self::NotAuthenticated => "not_authenticated",
             Self::NotWhitelisted => "not_whitelisted",
+            Self::Acces { kind, .. } => kind,
+            Self::AccesInverifiable { .. } => "access_check",
             Self::NotStaff => "not_staff",
             Self::AlreadyRunning => "already_running",
             Self::NotRunning => "not_running",
@@ -253,6 +270,11 @@ pub struct LaunchResult {
     pub java_path: String,
     pub minecraft_version: String,
     pub fabric_version: String,
+    /// Portée du jeton de jeu du serveur principal, `play` ou `douane`, telle
+    /// que l'API l'a émise (`None` : API d'avant le 25/10).
+    pub scope: Option<String>,
+    /// Serveur visé par ce jeton (claim `aud`), `None` si l'API n'en émet pas.
+    pub server_id: Option<String>,
 }
 
 /// Payload de l'event `game:crashed`, émis quand la JVM se termine avec un
@@ -286,9 +308,12 @@ pub struct LaunchProgress {
 }
 
 const LAUNCH_TOTAL_STEPS: u8 = 6;
+/// « Préparer le jeu » : les étapes 1 à 5 seulement (ni jeton ni démarrage).
+const PREPARE_TOTAL_STEPS: u8 = 5;
 
-fn emit_launch<R: Runtime>(
+fn emit_steps<R: Runtime>(
     app: &AppHandle<R>,
+    total_steps: u8,
     step: u8,
     label: &str,
     current: Option<usize>,
@@ -298,12 +323,84 @@ fn emit_launch<R: Runtime>(
         "launch:progress",
         LaunchProgress {
             step,
-            total_steps: LAUNCH_TOTAL_STEPS,
+            total_steps,
             label: label.to_string(),
             current,
             total,
         },
     );
+}
+
+fn emit_launch<R: Runtime>(
+    app: &AppHandle<R>,
+    step: u8,
+    label: &str,
+    current: Option<usize>,
+    total: Option<usize>,
+) {
+    emit_steps(app, LAUNCH_TOTAL_STEPS, step, label, current, total);
+}
+
+/// Étape 0 du lancement et de la préparation : retire les mods qui ne ciblent
+/// pas la version MC active. Quand on bouge entre versions (ex: 1.21.4 ->
+/// 1.21.1), des jars Sodium / Iris / etc. d'une autre version restent et
+/// plantent Fabric Loader au boot. Cf launcher/diagnostics.rs::parse_mod_version_mismatch.
+fn purge_before_install<R: Runtime>(app: &AppHandle<R>, dir: &Path, mc_version: &str) {
+    match mods_inspect::purge_incompatible_mods(&dir.join("mods"), mc_version) {
+        Ok(removed) if !removed.is_empty() => {
+            tracing::info!(
+                "nettoyage mods : {} jar(s) incompatible(s) supprimé(s) : {removed:?}",
+                removed.len()
+            );
+            emit_mods_purged(app, removed, mc_version);
+        }
+        Ok(_) => {}
+        Err(e) => tracing::warn!("inspection mods impossible : {e}"),
+    }
+}
+
+/// Retour de `launcher_prepare_game`.
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PreparedGame {
+    pub minecraft_version: String,
+    pub fabric_version: String,
+}
+
+/// « Préparer le jeu » : installe tout ce que demande un lancement (Java,
+/// bibliothèques, ~3 900 ressources, Fabric), SANS jeton de jeu ni démarrage.
+///
+/// Pour un candidat avant sa séance de douane : le premier téléchargement se
+/// fait hors de la fenêtre d'entrée (H − 15 min à H + 30 min), qui ne garde
+/// que le dernier pas (jeton et démarrage, quelques secondes). Aucune
+/// barrière d'accès ici : rien n'est lancé, et le lancement relit l'accès.
+/// Même progression que le lancement (`launch:progress`), sur 5 étapes.
+#[tauri::command]
+pub async fn launcher_prepare_game<R: Runtime>(
+    app: AppHandle<R>,
+    auth: State<'_, AuthState>,
+    game: State<'_, GameState>,
+) -> Result<PreparedGame, GameError> {
+    let _launching = LaunchGuard::acquire(&game)?;
+    auth.current_user()
+        .await
+        .ok_or(GameError::NotAuthenticated)?;
+    let dir = data_dir()?;
+    let mc_version = minecraft_version();
+
+    purge_before_install(&app, &dir, &mc_version);
+    let setup = prepare_install(&auth, &dir, &mc_version, |step, label, current, total| {
+        emit_steps(&app, PREPARE_TOTAL_STEPS, step, label, current, total)
+    })
+    .await?;
+    tracing::info!(
+        "jeu préparé : Minecraft {mc_version}, Fabric {}",
+        setup.fabric.loader_version
+    );
+    Ok(PreparedGame {
+        minecraft_version: mc_version,
+        fabric_version: setup.fabric.loader_version,
+    })
 }
 
 #[tauri::command]
@@ -323,14 +420,41 @@ pub async fn launcher_launch_game<R: Runtime>(
         .await
         .ok_or(GameError::NotAuthenticated)?;
 
-    // Gate whitelist : seul un user dont la candidature a été acceptée
-    // (rôle promu à WHITELISTED ou supérieur par staff.service) peut
-    // rejoindre le serveur. Côté serveur, le plugin Reborn Guardian
-    // applique la même règle ; le check ici évite juste d'avoir un user
-    // qui se fait kick par le serveur 3s après le lancement.
-    if user.role == "PLAYER" {
-        return Err(GameError::NotWhitelisted);
+    // Barrière d'accès, lue AVANT l'installation (qui peut durer plusieurs
+    // minutes) : par la PHASE de la candidature, plus seulement le rôle
+    // (CANDIDATURE_ET_DOUANE.md §3.3). Whitelisté ou staff : jeu normal.
+    // Candidat dont l'écrit est accepté, dans la fenêtre d'entrée de sa
+    // séance (H − 15 min à H + 30 min) : lancement en portée « douane ».
+    // Sinon : message selon la phase. L'API reste l'autorité (jeton refusé
+    // en 403 sinon), Guardian et ShinobiCore aussi côté serveur.
+    let access_jwt = reborn_jwt(&auth)?;
+    let acces = candidature::controler_acces(&auth, &access_jwt, &user.role)
+        .await
+        .map_err(|e| match e.status() {
+            // Session expirée : même `kind` que les autres commandes, pour
+            // que le front renouvelle la session ou renvoie à la connexion.
+            Some(401) => GameError::Acces {
+                kind: e.kind(),
+                message: e.to_string(),
+            },
+            _ => GameError::AccesInverifiable {
+                message: mojang::lower_first(&cause(e)),
+            },
+        })?;
+    if let Some(refus) = acces.refus {
+        return Err(GameError::Acces {
+            kind: refus.kind,
+            message: refus.message,
+        });
     }
+    // Rôle relu par le contrôle (promotion après l'oral) : sert au drapeau
+    // staff du mod et au jeton du serveur de dev.
+    let user = auth.current_user().await.unwrap_or(user);
+    tracing::info!(
+        "accès au jeu : phase {}, portée attendue {:?}",
+        acces.phase.as_deref().unwrap_or("?"),
+        acces.portee
+    );
 
     let mc_access_token = resolve_mc_token(&auth).await?;
     let dir = data_dir()?;
@@ -338,20 +462,7 @@ pub async fn launcher_launch_game<R: Runtime>(
     let mc_version = minecraft_version();
 
     // Étape 0 : nettoie les mods qui ne ciblent pas la version MC active.
-    // Quand on bouge entre versions (ex: 1.21.4 -> 1.21.1), des jars Sodium
-    // / Iris / etc. d'une autre version restent et plantent Fabric Loader
-    // au boot. Cf launcher/diagnostics.rs::parse_mod_version_mismatch.
-    match mods_inspect::purge_incompatible_mods(&dir.join("mods"), &mc_version) {
-        Ok(removed) if !removed.is_empty() => {
-            tracing::info!(
-                "nettoyage mods : {} jar(s) incompatible(s) supprimé(s) : {removed:?}",
-                removed.len()
-            );
-            emit_mods_purged(&app, removed, &mc_version);
-        }
-        Ok(_) => {}
-        Err(e) => tracing::warn!("inspection mods impossible : {e}"),
-    }
+    purge_before_install(&app, &dir, &mc_version);
 
     // Étapes 1..5 : runtime, metadata, libraries, assets, Fabric.
     let setup = prepare_install(&auth, &dir, &mc_version, |step, label, current, total| {
@@ -366,23 +477,31 @@ pub async fn launcher_launch_game<R: Runtime>(
     );
     emit_launch(&app, 6, "Démarrage du jeu", None, None);
 
-    // Play-token : signé HMAC par l'API, lu par le mod Reborn Integrity au
-    // boot et poussé au serveur via custom payload `reborn:auth`. Sans ça,
-    // le plugin Guardian kick le joueur à T+8s du JOIN. Demandé ICI, juste
-    // avant le spawn, et non en tête : il ne vit que 5 min, et un premier
-    // lancement (JRE + ~3900 assets) dépasse souvent ce délai.
-    let reborn_token = auth
-        .store
-        .get(SecretKey::RebornAccessToken)
-        .map_err(|e| GameError::Storage { message: cause(e) })?
-        .ok_or(GameError::NotAuthenticated)?;
-    let play_token_path = dir.join(".reborn-play-token");
-    write_play_token(&auth, &reborn_token, &play_token_path).await?;
+    // Play-token : signé HMAC par l'API, relu par le mod Reborn Integrity à
+    // chaque connexion à un serveur et poussé via custom payload
+    // `reborn:auth`. Sans ça, le plugin Guardian kick le joueur à T+8s du
+    // JOIN. Demandé ICI, juste avant le spawn, et non en tête : il ne vit
+    // que 5 min, et un premier lancement (JRE + ~3900 assets) dépasse souvent
+    // ce délai ; ensuite, `play_tokens` le réécrit pendant toute la partie.
+    // Jeton relu dans le coffre : le front a pu renouveler la session
+    // entre-temps.
+    let reborn_token = reborn_jwt(&auth)?;
+    let is_staff = is_staff_role(&user.role);
+    let mut tokens =
+        write_play_tokens(&auth, &reborn_token, &dir, ".reborn-play-token", is_staff).await?;
+    if acces.portee == Some(candidature::Portee::Douane)
+        && tokens.scope.as_deref() != Some("douane")
+    {
+        tracing::warn!(
+            "portée attendue « douane », jeton émis en {:?} (l'API fait foi)",
+            tokens.scope
+        );
+    }
 
     let identity = Identity {
         username: &user.minecraft_username,
         uuid: &user.minecraft_uuid,
-        is_staff: is_staff_role(&user.role),
+        is_staff,
     };
     let argv = build_argv(
         &setup,
@@ -391,7 +510,7 @@ pub async fn launcher_launch_game<R: Runtime>(
         &user_prefs,
         &identity,
         mc_access_token.clone(),
-        &play_token_path,
+        &tokens,
         &auth.api.base_url,
     );
 
@@ -452,11 +571,22 @@ pub async fn launcher_launch_game<R: Runtime>(
         },
     );
 
+    // Jetons tenus à jour tant que la partie tourne (5 min de validité, lus
+    // par le mod à la connexion, qui peut venir bien plus tard).
+    let refresher = play_tokens::spawn_refresher(
+        app.clone(),
+        JwtSource::Session {
+            mc_uuid: user.minecraft_uuid.clone(),
+        },
+        std::mem::take(&mut tokens.targets),
+    );
+
     let (kill_tx, kill_rx) = mpsc::channel::<KillAck>(4);
     *game.running_lock() = Some(RunningGame {
         pid,
         kill_tx,
         _watcher: watcher,
+        _play_tokens: refresher,
     });
 
     let result = LaunchResult {
@@ -464,6 +594,8 @@ pub async fn launcher_launch_game<R: Runtime>(
         java_path: setup.java_path.display().to_string(),
         minecraft_version: mc_version,
         fabric_version: setup.fabric.loader_version.clone(),
+        scope: tokens.scope.clone(),
+        server_id: tokens.server_id.clone(),
     };
     tracing::info!("Minecraft lancé (pid {pid})");
     let _ = app.emit("game:started", result.clone());
@@ -494,7 +626,8 @@ pub async fn launcher_launch_game<R: Runtime>(
 /// de vie de l'instance principale (pas de `game.running`, pas d'events
 /// `game:started/exited/crashed`, pas de Rich Presence, pas de bouton stop, pas
 /// de watcher). Le staff ferme la fenêtre à la main. Ça garantit ZÉRO impact
-/// sur le launch normal des joueurs.
+/// sur le launch normal des joueurs. Seule une tâche de fond lui reste
+/// attachée : le rafraîchissement de ses jetons de jeu, jusqu'à sa fermeture.
 ///
 /// `alt_uuid` = UUID Minecraft du compte alternatif (déjà sauvegardé dans le
 /// carousel : il faut ses refresh tokens MS + Reborn per-uuid). Le compte doit
@@ -502,7 +635,7 @@ pub async fn launcher_launch_game<R: Runtime>(
 /// Guardian. L'appelant (compte courant) doit être staff.
 #[tauri::command]
 pub async fn launcher_launch_second_instance<R: Runtime>(
-    _app: AppHandle<R>,
+    app: AppHandle<R>,
     auth: State<'_, AuthState>,
     alt_uuid: String,
 ) -> Result<LaunchResult, GameError> {
@@ -552,15 +685,17 @@ pub async fn launcher_launch_second_instance<R: Runtime>(
     // téléchargé) → quasi instantané. Aucune progression émise.
     let setup = prepare_install(&auth, &dir, &mc_version, |_, _, _, _| {}).await?;
 
-    // Play-token du compte alt (fichier séparé pour ne pas écraser celui de
-    // l'instance principale).
-    let play_token_path = dir.join(".reborn-play-token-alt");
-    write_play_token(&auth, &alt.reborn_jwt, &play_token_path).await?;
+    // Play-tokens du compte alt, dans des fichiers propres à ce compte : ni
+    // ceux de l'instance principale, ni ceux d'une autre 2e instance lancée
+    // avec un autre compte ne sont écrasés.
+    let alt_is_staff = is_staff_role(&alt.user.role);
+    let stem = alt_token_stem(&alt.user.minecraft_uuid);
+    let mut tokens = write_play_tokens(&auth, &alt.reborn_jwt, &dir, &stem, alt_is_staff).await?;
 
     let identity = Identity {
         username: &alt.user.minecraft_username,
         uuid: &alt.user.minecraft_uuid,
-        is_staff: is_staff_role(&alt.user.role),
+        is_staff: alt_is_staff,
     };
     let argv = build_argv(
         &setup,
@@ -569,7 +704,7 @@ pub async fn launcher_launch_second_instance<R: Runtime>(
         &user_prefs,
         &identity,
         alt.mc_access_token.clone(),
-        &play_token_path,
+        &tokens,
         &auth.api.base_url,
     );
 
@@ -590,9 +725,11 @@ pub async fn launcher_launch_second_instance<R: Runtime>(
         ),
     })?;
 
-    // Détaché : on ne conserve pas le Child (tokio n'a pas kill_on_drop par
-    // défaut → le process survit au drop). Le staff ferme la fenêtre à la main.
-    let child = Command::new(&setup.java_path)
+    // Détaché : le Child n'est gardé que par la tâche qui rafraîchit les
+    // jetons de l'instance, le temps qu'elle tourne (tokio n'a pas
+    // kill_on_drop par défaut → le process survit au drop, sortie du
+    // launcher comprise). Le staff ferme la fenêtre à la main.
+    let mut child = Command::new(&setup.java_path)
         .args(&argv)
         .stdout(Stdio::from(log_out))
         .stderr(Stdio::from(log_err))
@@ -601,7 +738,22 @@ pub async fn launcher_launch_second_instance<R: Runtime>(
         .spawn()
         .map_err(|e| spawn_error(&setup.java_path, &e))?;
     let pid = child.id().unwrap_or(0);
-    drop(child);
+    let refresher = play_tokens::spawn_refresher(
+        app,
+        JwtSource::Alt {
+            mc_uuid: alt.user.minecraft_uuid.clone(),
+            jwt: alt.reborn_jwt.clone(),
+        },
+        std::mem::take(&mut tokens.targets),
+    );
+    tokio::spawn(async move {
+        // Rafraîchissement arrêté (drop) à la fermeture de la 2e instance.
+        let _refresher = refresher;
+        match child.wait().await {
+            Ok(status) => tracing::info!("2e instance fermée (pid {pid}, {status})"),
+            Err(e) => tracing::warn!("attente de la fin de la 2e instance impossible : {e}"),
+        }
+    });
 
     tracing::info!(
         "2e instance (dev) lancée : {} (pid {}), logs → {}",
@@ -615,6 +767,8 @@ pub async fn launcher_launch_second_instance<R: Runtime>(
         java_path: setup.java_path.display().to_string(),
         minecraft_version: mc_version,
         fabric_version: setup.fabric.loader_version,
+        scope: tokens.scope,
+        server_id: tokens.server_id,
     })
 }
 
@@ -787,7 +941,7 @@ fn build_argv(
     user_prefs: &Preferences,
     identity: &Identity<'_>,
     mc_access_token: String,
-    play_token_path: &Path,
+    tokens: &PlayTokens,
     api_url: &str,
 ) -> Vec<String> {
     // Classpath = libs vanilla + libs Fabric, dédupliqué sur group:artifact.
@@ -817,7 +971,8 @@ fn build_argv(
         auto_connect: resolve_auto_connect(),
         dev_server: resolve_dev_server(),
         is_staff: identity.is_staff,
-        play_token_path: Some(play_token_path.display().to_string()),
+        play_token_path: Some(tokens.main.display().to_string()),
+        play_token_dev_path: tokens.dev.as_ref().map(|p| p.display().to_string()),
         api_url: Some(api_url.to_string()),
     };
 
@@ -875,19 +1030,151 @@ async fn resolve_mc_token(auth: &AuthState) -> Result<String, GameError> {
     }
 }
 
-/// Demande un play-token à l'API et l'écrit dans `path` (lu par le mod
-/// Reborn Integrity via `-Dreborn.playTokenPath`).
-async fn write_play_token(
+/// JWT Reborn lu dans le coffre de Windows.
+fn reborn_jwt(auth: &AuthState) -> Result<String, GameError> {
+    auth.store
+        .get(SecretKey::RebornAccessToken)
+        .map_err(|e| GameError::Storage { message: cause(e) })?
+        .ok_or(GameError::NotAuthenticated)
+}
+
+/// Identifiant du serveur de dev (sélecteur Build/Dev du mod, staff), envoyé
+/// à `POST /play/session` (claim `aud`, comparée à la clé `server-id` de
+/// Guardian).
+///
+/// Le serveur PRINCIPAL, lui, n'est pas nommé : le jeton principal part sans
+/// `serveur`, et l'API applique `REBORN_SERVER_ID`, le serveur des launchers
+/// qui ne précisent rien. « Build » n'est que le libellé du sélecteur du mod,
+/// pas l'identifiant d'un serveur (il en existe un vrai, celui des builders).
+const SERVEUR_DEV: &str = "dev";
+
+/// Identifiant de serveur : minuscules, chiffres et tirets, 32 caractères au
+/// plus (même règle que l'API et Guardian).
+fn is_server_id(id: &str) -> bool {
+    let mut chars = id.chars();
+    id.len() <= 32
+        && chars
+            .next()
+            .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+/// Identifiant de serveur lu dans une variable d'environnement (tests : un
+/// launcher de dev dont `REBORN_SERVER_HOST` pointe sur le serveur de dev
+/// pose `REBORN_PLAY_SERVER_ID=dev`). Absente ou vide : `None`. Invalide :
+/// ignorée, avec un avertissement.
+fn server_id_override(variable: &str) -> Option<String> {
+    let brut = std::env::var(variable).ok()?;
+    let v = brut.trim();
+    if v.is_empty() {
+        None
+    } else if is_server_id(v) {
+        Some(v.to_string())
+    } else {
+        tracing::warn!("{variable} « {v} » invalide : ignorée");
+        None
+    }
+}
+
+/// Identifiant de serveur, avec un remplacement possible par variable
+/// d'environnement (cf [`server_id_override`]).
+fn server_id_from_env(variable: &str, defaut: &'static str) -> String {
+    server_id_override(variable).unwrap_or_else(|| defaut.to_string())
+}
+
+/// Jetons de jeu écrits pour une partie (fichiers lus par Reborn Integrity).
+struct PlayTokens {
+    /// Serveur principal (`-Dreborn.playTokenPath`).
+    main: PathBuf,
+    /// Serveur de dev, pour un staff avec un serveur dev configuré
+    /// (`-Dreborn.playTokenPath.dev`). Le fichier peut manquer (jeton refusé
+    /// au lancement) : le rafraîchissement le redemande pendant la partie.
+    dev: Option<PathBuf>,
+    /// Portée et serveur du jeton principal, tels que l'API les a émis.
+    scope: Option<String>,
+    server_id: Option<String>,
+    /// Fichiers à tenir à jour pendant la partie (cf `play_tokens`), avec le
+    /// serveur demandé pour chacun.
+    targets: Vec<TokenTarget>,
+}
+
+/// Écrit les jetons de jeu d'une partie dans `<dir>/<stem>` (serveur
+/// principal) et, pour un staff avec un serveur de dev configuré,
+/// `<dir>/<stem>-dev` : le sélecteur Build/Dev du mod se choisit après le
+/// lancement, chaque cible doit donc avoir son jeton (claim `aud`).
+///
+/// Jeton principal : obligatoire, demandé SANS serveur (l'API applique
+/// `REBORN_SERVER_ID`). Seul `REBORN_PLAY_SERVER_ID` (lancement de dev) le
+/// nomme ; si l'API ne connaît pas cet identifiant (400), il est redemandé
+/// sans serveur plutôt que de bloquer le lancement, avec un avertissement au
+/// journal. Jeton dev : facultatif, un échec n'empêche pas de jouer sur le
+/// serveur principal (le mod y envoie alors le jeton principal) ; son chemin
+/// est fourni quand même, le rafraîchissement le réessaie.
+async fn write_play_tokens(
     auth: &AuthState,
     reborn_jwt: &str,
-    path: &Path,
-) -> Result<(), GameError> {
-    let session = auth
-        .api
-        .fetch_play_token(reborn_jwt)
-        .await
-        .map_err(|e| GameError::PlayToken { message: cause(e) })?;
-    tokio::fs::write(path, session.play_token.as_bytes())
+    dir: &Path,
+    stem: &str,
+    is_staff: bool,
+) -> Result<PlayTokens, GameError> {
+    let main_path = dir.join(stem);
+    // Serveur réellement demandé : le rafraîchissement redemande le même.
+    let (session, main_serveur) = match server_id_override("REBORN_PLAY_SERVER_ID") {
+        None => (auth.api.fetch_play_token(reborn_jwt, None).await, None),
+        Some(main_id) => match auth.api.fetch_play_token(reborn_jwt, Some(&main_id)).await {
+            Err(e) if e.status() == Some(400) => {
+                tracing::warn!(
+                    "serveur « {main_id} » refusé par l'API ({e}) : jeton demandé pour le serveur par défaut"
+                );
+                (auth.api.fetch_play_token(reborn_jwt, None).await, None)
+            }
+            other => (other, Some(main_id)),
+        },
+    };
+    let session = session.map_err(|e| GameError::PlayToken { message: cause(e) })?;
+    write_token_file(&main_path, &session).await?;
+    let mut targets = vec![TokenTarget::new(main_path.clone(), main_serveur, true)];
+
+    let dev_path = dir.join(format!("{stem}-dev"));
+    let mut dev = None;
+    if is_staff && resolve_dev_server().is_some() {
+        let dev_id = server_id_from_env("REBORN_PLAY_SERVER_DEV_ID", SERVEUR_DEV);
+        let written = match auth.api.fetch_play_token(reborn_jwt, Some(&dev_id)).await {
+            Ok(dev_session) => match write_token_file(&dev_path, &dev_session).await {
+                Ok(()) => true,
+                Err(e) => {
+                    tracing::warn!("jeton du serveur de dev non écrit : {e}");
+                    false
+                }
+            },
+            Err(e) => {
+                tracing::warn!("jeton du serveur « {dev_id} » refusé par l'API : {e}");
+                false
+            }
+        };
+        if !written {
+            // Jeton dev d'une partie précédente : expiré ou d'un autre compte.
+            let _ = tokio::fs::remove_file(&dev_path).await;
+        }
+        targets.push(TokenTarget::new(dev_path.clone(), Some(dev_id), written));
+        dev = Some(dev_path);
+    } else {
+        // Plus de serveur dev pour ce compte : ancien jeton retiré.
+        let _ = tokio::fs::remove_file(&dev_path).await;
+    }
+
+    Ok(PlayTokens {
+        main: main_path,
+        dev,
+        scope: session.scope,
+        server_id: session.aud,
+        targets,
+    })
+}
+
+/// Écrit un jeton de jeu dans `path` (atomique, cf `play_tokens`).
+async fn write_token_file(path: &Path, session: &PlaySession) -> Result<(), GameError> {
+    play_tokens::write_token_atomic(path, &session.play_token)
         .await
         .map_err(|e| GameError::Io {
             message: format!(
@@ -896,8 +1183,10 @@ async fn write_play_token(
             ),
         })?;
     tracing::info!(
-        "play-token écrit ({} octets), expire à {}",
+        "play-token écrit ({} octets, portée {}, serveur {}), expire à {}",
         session.play_token.len(),
+        session.scope.as_deref().unwrap_or("non précisée"),
+        session.aud.as_deref().unwrap_or("non précisé"),
         session.expires_at
     );
     Ok(())
@@ -1104,7 +1393,7 @@ fn is_staff_role(role: &str) -> bool {
 /// Compare deux UUID Minecraft en ignorant les tirets et la casse (les entrées
 /// du carousel peuvent stocker l'un avec tirets, l'autre sans → sinon un même
 /// compte passe pour un compte « alt » distinct).
-fn uuid_eq(a: &str, b: &str) -> bool {
+pub(super) fn uuid_eq(a: &str, b: &str) -> bool {
     let norm = |s: &str| {
         s.chars()
             .filter(|c| *c != '-')
@@ -1112,6 +1401,22 @@ fn uuid_eq(a: &str, b: &str) -> bool {
             .collect::<String>()
     };
     norm(a) == norm(b)
+}
+
+/// Nom des fichiers de jeton d'une 2e instance (`<nom>`, `<nom>-dev` et
+/// leurs `.tmp`), propre à son compte. Deux 2es instances lancées avec deux
+/// comptes différents ont chacune leur tâche de rafraîchissement : avec un
+/// nom fixe, elles réécrivaient tour à tour les mêmes fichiers, et comme le
+/// mod relit le fichier à chaque connexion, l'une envoyait le jeton de
+/// l'autre (refusé par Guardian). L'UUID vient de l'API : seuls ses
+/// caractères alphanumériques entrent dans le nom de fichier.
+fn alt_token_stem(mc_uuid: &str) -> String {
+    let id: String = mc_uuid
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .map(|c| c.to_ascii_lowercase())
+        .collect();
+    format!(".reborn-play-token-alt-{id}")
 }
 
 /// Tâche propriétaire du processus : attend sa fin (ou une demande d'arrêt),
@@ -1271,6 +1576,27 @@ mod tests {
     }
 
     #[test]
+    fn alt_token_files_are_named_after_the_account() {
+        // Même compte, quelle que soit la forme de l'UUID : mêmes fichiers.
+        assert_eq!(
+            alt_token_stem("0123ABCD-0000-0000-0000-00000000000F"),
+            ".reborn-play-token-alt-0123abcd00000000000000000000000f"
+        );
+        assert_eq!(
+            alt_token_stem("0123abcd00000000000000000000000f"),
+            alt_token_stem("0123ABCD-0000-0000-0000-00000000000F")
+        );
+        // Deux comptes : deux noms.
+        assert_ne!(
+            alt_token_stem("0123abcd000000000000000000000000"),
+            alt_token_stem("0123abcd000000000000000000000001")
+        );
+        // Jamais de séparateur de chemin dans le nom.
+        let nom = alt_token_stem("../..\\x");
+        assert!(!nom.contains('/') && !nom.contains('\\') && !nom.contains(".."));
+    }
+
+    #[test]
     fn classpath_keeps_last_version_and_natives() {
         let jars = vec![
             PathBuf::from("/g/libraries/org/ow2/asm/asm/9.6/asm-9.6.jar"),
@@ -1305,6 +1631,45 @@ mod tests {
              Vérifie ta connexion puis relance."
         );
         assert_eq!(v.as_object().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn access_refusals_keep_their_kind_and_message() {
+        let v = serde_json::to_value(GameError::Acces {
+            kind: candidature::REFUS_PAS_OUVERTE,
+            message: "L'entrée de ta séance de douane ouvre dans 12 min.".into(),
+        })
+        .unwrap();
+        assert_eq!(v["kind"], "douane_not_open");
+        assert_eq!(
+            v["message"],
+            "L'entrée de ta séance de douane ouvre dans 12 min."
+        );
+        let v = serde_json::to_value(GameError::AccesInverifiable {
+            message: "impossible de joindre le serveur Reborn (délai dépassé)".into(),
+        })
+        .unwrap();
+        assert_eq!(v["kind"], "access_check");
+        assert_eq!(
+            v["message"],
+            "Vérification de ta candidature impossible : impossible de joindre le serveur Reborn (délai dépassé)."
+        );
+    }
+
+    #[test]
+    fn server_ids_follow_guardian_rule() {
+        for ok in ["build", "dev", "prod", "build-2", "0dev"] {
+            assert!(is_server_id(ok), "{ok}");
+        }
+        for ko in ["", "Build", "-dev", "dev server", "dév", &"a".repeat(33)] {
+            assert!(!is_server_id(ko), "{ko}");
+        }
+        assert_eq!(SERVEUR_DEV, "dev");
+        // Sans variable : aucun remplacement (le jeton principal part sans serveur).
+        assert_eq!(
+            server_id_override("REBORN_PLAY_SERVER_ID_TEST_ABSENTE"),
+            None
+        );
     }
 
     #[test]

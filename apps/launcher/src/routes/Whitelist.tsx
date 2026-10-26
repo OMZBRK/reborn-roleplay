@@ -1,338 +1,254 @@
-import { useEffect, useRef, useState } from "react";
-import { AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
+import { RefreshCw, WifiOff } from "lucide-react";
 import {
-  fetchWhitelistMe,
-  submitWhitelist,
-  resubmitWhitelist,
-  withdrawWhitelist,
-} from "../lib/content";
-import { formatIpcError } from "../lib/errors";
-import { useWhitelistStore, type WhitelistStatus } from "../stores/whitelist-store";
-import { InlineError, SyncIndicator, useChatFeed } from "../components/chat/ChatThread";
-import { PrerequisitesModal } from "../components/whitelist/PrerequisitesModal";
-import { IntroStepsPage } from "../components/whitelist/IntroStepsPage";
-import { Step1HRP } from "../components/whitelist/steps/Step1HRP";
-import { Step2RP } from "../components/whitelist/steps/Step2RP";
-import { Step3Validation } from "../components/whitelist/steps/Step3Validation";
-import { SubmittedPage } from "../components/whitelist/SubmittedPage";
-import { StatusChatPage } from "../components/whitelist/StatusChatPage";
-import { RejectedPage } from "../components/whitelist/RejectedPage";
-import { AcceptedPage } from "../components/whitelist/AcceptedPage";
-import { WhitelistDevToolbar } from "../components/whitelist/WhitelistDevToolbar";
+  lireCandidature,
+  lireDouane,
+  lireOptions,
+  type CandidatureOptions,
+} from "../lib/candidature";
+import { useAuthStore } from "../stores/auth-store";
+import { useWhitelistStore } from "../stores/whitelist-store";
+import { SyncIndicator, useChatFeed } from "../components/chat/ChatThread";
+import { BarreCandidature } from "../components/whitelist/Barre";
+import { DossierCandidature } from "../components/whitelist/Dossier";
+import { DouaneSeances } from "../components/whitelist/Douane";
+import { FormulaireCandidature } from "../components/whitelist/Formulaire";
+import { douaneOuverte, OngletsSuivi, SuiviCandidature, type VueSuivi } from "../components/whitelist/Suivi";
+import { ONGLETS, OPTIONS_DEFAUT, type OngletId } from "../components/whitelist/regles";
+import { EnTete } from "../components/whitelist/ui";
 
-// Étapes du module whitelist :
-// — intro     : "En Trois Étapes" (landing). "Let's go" ouvre la modal "Avant
-//               de commencer" en surcouche (overlay au-dessus d'intro).
-// — hrp/rp/valid : wizard 3 étapes
-// — submitted : confirmation après envoi
-// — chat      : statut + chat staff (status="pending")
-// — rejected  : candidature refusée (status="rejected" / "needs_revision")
-// — accepted  : candidature acceptée (status="accepted")
-export type WizardStage =
-  | "intro"
-  | "hrp"
-  | "rp"
-  | "valid"
-  | "submitted"
-  | "chat"
-  | "rejected"
-  | "accepted";
+// Onglet Whitelist : la candidature v2 et la douane
+// (docs/gameplay/CANDIDATURE_ET_DOUANE.md §1.2, §2, §3.3). L'écran suit la
+// PHASE calculée par l'API (GET /whitelist/me › suivi.phase), jamais le rôle :
+//   - BROUILLON : le formulaire à six onglets ;
+//   - ECRIT_A_REVOIR : le suivi, puis le formulaire avec les seules parties
+//     rouvertes (« Corriger ma candidature ») ;
+//   - REFUSE : le suivi avec le compte à rebours, puis une nouvelle
+//     candidature complète qui repart du dossier précédent ;
+//   - les autres : suivi (frise, état, fil), « Mon dossier », « Douane ».
+// La phase est relue toutes les 15 s (décision du staff, écrit accepté) et
+// les séances toutes les 30 s quand elles comptent.
+//
+// Liens directs : ?onglet=vous|personnage|village|histoire|voix|envoi ouvre
+// le formulaire sur cet onglet ; ?vue=dossier|douane ouvre cette vue du suivi.
 
-// Mappe le statut → écran à afficher. Le wizard (intro/hrp/rp/valid) reste
-// piloté par l'état local de la route ; ce mapping ne concerne que les
-// écrans "post-soumission" et la landing par défaut.
-function stageFromStatus(status: WhitelistStatus): WizardStage {
-  switch (status) {
-    case "pending":
-      return "chat";
-    case "accepted":
-      return "accepted";
-    case "rejected":
-      return "rejected";
-    case "draft":
-    default:
-      return "intro";
-  }
-}
+/** Relecture du suivi. */
+const SUIVI_POLL_MS = 15_000;
+const DOUANE_POLL_MS = 30_000;
+
+type Edition = null | "revoir" | "refaire";
 
 export function Whitelist() {
-  const status = useWhitelistStore((s) => s.status);
-  const draft = useWhitelistStore((s) => s.draft);
-  const applicationId = useWhitelistStore((s) => s.applicationId);
-  const reviewNotes = useWhitelistStore((s) => s.reviewNotes);
-  const setStatus = useWhitelistStore((s) => s.setStatus);
-  const reset = useWhitelistStore((s) => s.reset);
-  const hydrateFromApplication = useWhitelistStore((s) => s.hydrateFromApplication);
-  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const setPhase = useWhitelistStore((s) => s.setPhase);
+  const compte = useAuthStore((s) => s.user?.id ?? null);
+  const aUneCopie = useWhitelistStore((s) => !!s.copieLocale && s.copieLocale.compte === compte);
 
-  const [stage, setStage] = useState<WizardStage>(() => stageFromStatus(status));
-  const [modalOpen, setModalOpen] = useState(false);
-  // Bloque les actions concurrentes (submit/withdraw) pendant un round-trip API.
-  const [busy, setBusy] = useState(false);
-  // Erreur d'une action (envoi, retrait) affichée dans une bannière sur
-  // l'écran courant.
-  const [apiError, setApiError] = useState<string | null>(null);
-  // Bascule différée « Candidature envoyée » → chat (annulée au démontage).
-  const chatTimerRef = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (chatTimerRef.current !== null) window.clearTimeout(chatTimerRef.current);
-    },
-    [],
-  );
-
-  // Au mount : on hydrate depuis le serveur. Le draft local reste valide pour
-  // un user qui n'a jamais soumis (status="draft"), sinon on overwrite avec
-  // ce que le serveur connaît (source of truth). Un échec ne bloque pas
-  // (le brouillon reste éditable hors ligne) : il est signalé par un
-  // indicateur discret et retenté toutes les 15 s jusqu'à la première
-  // réussite.
-  const [serverSynced, setServerSynced] = useState(false);
-  // Incrémenté à chaque action locale (envoi, retrait) : une réponse partie
-  // avant ne doit pas écraser son résultat.
-  const actionGenRef = useRef(0);
-  const server = useChatFeed(
-    async () => {
-      const gen = actionGenRef.current;
-      const res = await fetchWhitelistMe();
-      if (gen === actionGenRef.current) hydrateFromApplication(res.application);
-      setServerSynced(true);
-      return res;
-    },
-    {
-      enabled: !serverSynced,
-      intervalMs: 15_000,
-      context: "État de ta candidature non synchronisé (ton brouillon reste modifiable)",
-    },
-  );
-
-  // Quand le statut change (hydrate ou setStatus côté dev), on reflète sur le
-  // stage. Le user peut être en train de remplir le wizard (stage hrp/rp/valid)
-  // sans que le statut serveur soit "pending" — dans ce cas on garde le stage
-  // courant. On ne force que pour les transitions "vers" un état serveur.
+  // Listes fermées et bornes de l'API ; les mêmes valeurs en repli tant
+  // qu'elles ne sont pas arrivées (le formulaire reste utilisable hors ligne).
+  const [options, setOptions] = useState<CandidatureOptions>(OPTIONS_DEFAUT);
   useEffect(() => {
-    if (status === "pending" || status === "accepted" || status === "rejected") {
-      setStage(stageFromStatus(status));
-    } else if (status === "draft") {
-      // Si on revient à "draft" depuis pending/accepted/rejected (ex: withdraw),
-      // on retombe sur intro. Mais si l'utilisateur est déjà sur un wizard step,
-      // pas la peine de l'éjecter.
-      if (
-        stage === "submitted" ||
-        stage === "chat" ||
-        stage === "rejected" ||
-        stage === "accepted"
-      ) {
-        setStage("intro");
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
-
-  // Dev menu : Ctrl+Shift+W pour le toggle (debug-only, gated import.meta.env.DEV).
-  const [devOpen, setDevOpen] = useState(false);
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && (e.key === "W" || e.key === "w")) {
-        e.preventDefault();
-        setDevOpen((v) => !v);
-      }
+    let annule = false;
+    lireOptions()
+      .then((o) => {
+        if (!annule && o && o.formVersion === 2 && Array.isArray(o.villages) && o.bornes) setOptions(o);
+      })
+      .catch((e: unknown) => console.warn("[candidature] options indisponibles, valeurs par défaut :", e));
+    return () => {
+      annule = true;
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  async function handleSubmit() {
-    if (busy) return;
-    actionGenRef.current += 1;
-    setApiError(null);
-    setBusy(true);
-    try {
-      // Si une application existait (status="rejected" et l'utilisateur a
-      // cliqué "Refaire une candidature"), on PATCH /whitelist/me. Sinon
-      // POST /whitelist pour créer.
-      const payload = {
-        dob: draft.dob,
-        motivation: draft.motivation,
-        experience: draft.experience,
-        availability: draft.availability,
-        firstName: draft.firstName,
-        lastName: draft.lastName,
-        village: draft.village,
-        support: draft.support === "" ? null : draft.support,
-        history: draft.history,
-        appearance: draft.appearance,
-        objectives: draft.objectives,
-      };
-      const result = applicationId
-        ? await resubmitWhitelist(payload)
-        : await submitWhitelist(payload);
-      hydrateFromApplication(result);
-      setServerSynced(true);
-      setStage("submitted");
-      // Après ~2.5s on bascule sur le chat (status="pending" côté server).
-      if (chatTimerRef.current !== null) window.clearTimeout(chatTimerRef.current);
-      chatTimerRef.current = window.setTimeout(() => {
-        chatTimerRef.current = null;
-        setStage("chat");
-      }, 2500);
-    } catch (err) {
-      setApiError(formatIpcError(err, "Impossible d'envoyer ta candidature"));
-    } finally {
-      setBusy(false);
+  const me = useChatFeed(() => lireCandidature(), {
+    intervalMs: SUIVI_POLL_MS,
+    context: "État de ta candidature non synchronisé",
+  });
+  const phase = me.data?.suivi.phase ?? null;
+  useEffect(() => {
+    if (phase) setPhase(phase);
+  }, [phase, setPhase]);
+
+  const avecDouane = phase !== null && douaneOuverte(phase);
+  const douane = useChatFeed(() => lireDouane(), {
+    enabled: avecDouane,
+    intervalMs: DOUANE_POLL_MS,
+    context: "Séances de douane non synchronisées",
+  });
+
+  const [edition, setEdition] = useState<Edition>(null);
+  const [vue, setVue] = useState<VueSuivi>(() => {
+    const v = params.get("vue");
+    return v === "douane" || v === "dossier" ? v : "suivi";
+  });
+  // Onglet demandé par l'adresse, lu à l'ouverture seulement.
+  const [ongletInitial] = useState<OngletId | undefined>(
+    () => ONGLETS.find((o) => o.id === params.get("onglet"))?.id,
+  );
+  const [horsLigne, setHorsLigne] = useState(false);
+
+  const { refresh: relireSuivi } = me;
+  const { refresh: relireDouane } = douane;
+  const toutRelire = useCallback(() => {
+    relireSuivi();
+    relireDouane();
+  }, [relireSuivi, relireDouane]);
+
+  // La phase a changé (décision, envoi depuis un autre PC) : on sort de l'édition.
+  useEffect(() => {
+    if (edition === "revoir" && phase !== "ECRIT_A_REVOIR") setEdition(null);
+    if (edition === "refaire" && phase !== "REFUSE") setEdition(null);
+  }, [edition, phase]);
+
+  const apresEnvoi = useCallback(() => {
+    setEdition(null);
+    setVue("suivi");
+    setHorsLigne(false);
+    relireSuivi();
+  }, [relireSuivi]);
+
+  // ── Premier chargement ─────────────────────────────────────
+  if (!me.data) {
+    if (horsLigne) {
+      // Clé propre : quand le suivi revient, le formulaire de la phase se
+      // remonte et rejoue l'ouverture (lecture du brouillon serveur) au lieu
+      // de pousser la copie de ce PC par-dessus.
+      return (
+        <FormulaireCandidature
+          key="hors-ligne"
+          mode="nouvelle"
+          application={null}
+          partiesRouvertes={[]}
+          options={options}
+          ongletInitial={ongletInitial}
+          onEnvoye={apresEnvoi}
+          onPhaseChangee={relireSuivi}
+        />
+      );
     }
+    return (
+      <BarreCandidature onglets={null}>
+        <EnTete
+          surtitre="Candidature whitelist"
+          titre="Ma candidature"
+          chapo={me.loading ? "Chargement de ta candidature…" : "Ta candidature n'a pas pu être chargée."}
+        />
+        {me.loading ? (
+          <div className="cand-chargement" role="status">
+            <RefreshCw size={14} className="animate-spin" aria-hidden /> Chargement…
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <SyncIndicator variant="block" sync={me.sync} onRetry={me.refresh} />
+            {aUneCopie && (
+              <div className="cand-card">
+                <div className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                  <WifiOff size={14} aria-hidden /> Ton brouillon est gardé sur ce PC
+                </div>
+                <p className="mb-0 mt-1 text-[12.5px] leading-relaxed text-foreground-muted">
+                  Tu peux continuer à le remplir hors ligne : il partira sur le serveur dès que la connexion revient.
+                  L'envoi, lui, attend la connexion.
+                </p>
+                <button type="button" className="cand-btn mt-3" onClick={() => setHorsLigne(true)}>
+                  Continuer mon brouillon
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </BarreCandidature>
+    );
   }
 
-  async function handleWithdraw() {
-    if (
-      !window.confirm(
-        "Retirer ta candidature ? Ton brouillon sera vidé et tu pourras en soumettre une nouvelle.",
-      )
-    ) {
-      return;
-    }
-    actionGenRef.current += 1;
-    setApiError(null);
-    setBusy(true);
-    try {
-      await withdrawWhitelist();
-      reset();
-      setStage("intro");
-    } catch (err) {
-      setApiError(formatIpcError(err, "Impossible de retirer ta candidature"));
-    } finally {
-      setBusy(false);
-    }
+  const { application, suivi } = me.data;
+
+  // ── Formulaire ─────────────────────────────────────────────
+  if (suivi.phase === "BROUILLON") {
+    return (
+      <FormulaireCandidature
+        key="nouvelle"
+        mode="nouvelle"
+        application={null}
+        partiesRouvertes={[]}
+        options={options}
+        ongletInitial={ongletInitial}
+        onEnvoye={apresEnvoi}
+        onPhaseChangee={relireSuivi}
+      />
+    );
+  }
+  if (edition === "revoir" && suivi.phase === "ECRIT_A_REVOIR" && application) {
+    return (
+      <FormulaireCandidature
+        key="revoir"
+        mode="revoir"
+        application={application}
+        partiesRouvertes={suivi.partiesRouvertes}
+        options={options}
+        onEnvoye={apresEnvoi}
+        onRetour={() => setEdition(null)}
+        onPhaseChangee={relireSuivi}
+      />
+    );
+  }
+  if (edition === "refaire" && suivi.phase === "REFUSE") {
+    return (
+      <FormulaireCandidature
+        key="refaire"
+        mode="nouvelle"
+        application={application}
+        partiesRouvertes={[]}
+        options={options}
+        onEnvoye={apresEnvoi}
+        onRetour={() => setEdition(null)}
+        onPhaseChangee={relireSuivi}
+      />
+    );
   }
 
-  function handleRetry() {
-    // Refus → l'utilisateur peut refaire une candidature. Le draft sur
-    // l'écran "rejected" est encore celui qui a été refusé (hydraté par
-    // applicationToHydrate). On ne reset PAS pour qu'il puisse repartir du
-    // contenu existant et corriger ; le PATCH gérera le resubmit.
-    setStage("intro");
-  }
-
-  function renderStage() {
-    switch (stage) {
-      case "intro":
-        return <IntroStepsPage onStart={() => setModalOpen(true)} />;
-      case "hrp":
-        return (
-          <Step1HRP
-            onCancel={() => setStage("intro")}
-            onNext={() => setStage("rp")}
-          />
-        );
-      case "rp":
-        return (
-          <Step2RP
-            onPrev={() => setStage("hrp")}
-            onNext={() => setStage("valid")}
-          />
-        );
-      case "valid":
-        return (
-          <Step3Validation
-            onPrev={() => setStage("rp")}
-            onSubmit={handleSubmit}
-            submitting={busy}
-          />
-        );
-      case "submitted":
-        return <SubmittedPage />;
-      case "chat":
-        return <StatusChatPage onWithdraw={handleWithdraw} withdrawing={busy} />;
-      case "rejected":
-        return (
-          <RejectedPage
-            onRetry={handleRetry}
-            onWithdraw={handleWithdraw}
-            withdrawing={busy}
-            reason={reviewNotes ?? undefined}
-          />
-        );
-      case "accepted":
-        return (
-          <AcceptedPage
-            onCreate={() => navigate("/character")}
-            staffNote={reviewNotes ?? undefined}
-          />
-        );
-    }
-  }
-
-  // Les wizards (hrp/rp/valid) ont leur layout interne (max-width 980px,
-  // centrage), il leur faut un wrapper avec padding adapté. Les autres
-  // écrans gèrent leur propre layout — on les laisse fill le main.
-  const isWizardScreen = stage === "hrp" || stage === "rp" || stage === "valid";
-  const showModal = modalOpen && stage === "intro";
+  // ── Suivi, dossier, douane ─────────────────────────────────
+  const vueEffective: VueSuivi =
+    vue === "douane" && avecDouane ? "douane" : vue === "dossier" && application ? "dossier" : "suivi";
 
   return (
-    <div className="relative flex h-full w-full flex-col">
-      {/* Sur l'écran Chat, StatusChatPage signale déjà la coupure. */}
-      {stage !== "chat" && (
-        <SyncIndicator
-          variant="block"
-          className="mx-9 mt-4"
-          sync={server.sync}
-          onRetry={server.refresh}
+    <BarreCandidature
+      cle={vueEffective}
+      onglets={
+        <OngletsSuivi
+          actif={vueEffective}
+          douaneOuverte={avecDouane}
+          avecDossier={!!application}
+          onChoisir={setVue}
         />
+      }
+    >
+      {vueEffective !== "douane" && (
+        <SyncIndicator variant="block" className="mb-4" sync={me.sync} onRetry={me.refresh} />
       )}
-      {apiError && (
-        <InlineError
-          large
-          className="mx-9 mt-4"
-          message={apiError}
-          onDismiss={() => setApiError(null)}
+      {vueEffective === "dossier" && application ? (
+        <DossierCandidature application={application} options={options} />
+      ) : vueEffective === "douane" ? (
+        <DouaneSeances
+          douane={douane.data}
+          chargement={douane.loading}
+          sync={douane.sync}
+          onActualiser={douane.refresh}
+          onChange={toutRelire}
         />
-      )}
-
-      <div
-        className={
-          isWizardScreen
-            ? "flex-1 overflow-y-auto px-9 py-7"
-            : "flex min-h-0 flex-1 flex-col"
-        }
-      >
-        <AnimatePresence mode="wait">{renderStage()}</AnimatePresence>
-      </div>
-
-      <AnimatePresence>
-        {showModal && (
-          <PrerequisitesModal
-            onCancel={() => setModalOpen(false)}
-            onStart={() => {
-              setModalOpen(false);
-              setStage("hrp");
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      {import.meta.env.DEV && devOpen && (
-        <WhitelistDevToolbar
-          stage={stage}
-          modalOpen={modalOpen}
-          onStageChange={(s) => {
-            setStage(s);
-            setModalOpen(false);
-            // Synchroniser le statut store avec l'écran sélectionné côté dev,
-            // pour que la sidebar / les transitions reflètent l'état choisi.
-            if (s === "chat" || s === "submitted") setStatus("pending");
-            else if (s === "accepted") setStatus("accepted");
-            else if (s === "rejected") setStatus("rejected");
-            else setStatus("draft");
+      ) : (
+        <SuiviCandidature
+          me={me.data}
+          douane={avecDouane ? douane.data : null}
+          onCorriger={() => setEdition("revoir")}
+          onRefaire={() => setEdition("refaire")}
+          onDouane={() => setVue("douane")}
+          onRetire={() => {
+            useWhitelistStore.getState().oublierCopieLocale();
+            setVue("suivi");
+            toutRelire();
           }}
-          onModalToggle={(open) => {
-            if (open) setStage("intro");
-            setModalOpen(open);
-          }}
-          onClose={() => setDevOpen(false)}
         />
       )}
-    </div>
+    </BarreCandidature>
   );
 }

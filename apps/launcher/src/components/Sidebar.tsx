@@ -13,6 +13,7 @@ import {
   Package,
   ShoppingBag,
   Sparkles,
+  UsersRound,
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth-store";
 import { useWhitelistStore } from "../stores/whitelist-store";
@@ -89,6 +90,8 @@ export function Sidebar() {
             dotBadge: whitelistStatus === "pending",
             dotLabel: "candidature en attente",
           },
+          // « Mes personnages » (CANDIDATURE_ET_DOUANE §4.6).
+          { id: "personnages", label: "Personnages", route: "/personnages", icon: UsersRound },
           { id: "rp", label: "RP", route: "/rp", icon: Drama },
         ],
       },

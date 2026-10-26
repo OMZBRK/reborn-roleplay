@@ -57,10 +57,27 @@ pub struct LaunchConfig {
     /// au mod via `-Dreborn.staff=true` pour déverrouiller les features dev
     /// (sélecteur de serveur, 2e instance). Les joueurs normaux ne voient rien.
     pub is_staff: bool,
-    /// Chemin absolu vers le fichier contenant le play-token (lu par le mod
-    /// Reborn Integrity au boot pour s'attester auprès du plugin Guardian).
-    /// None = pas d'attestation (dev local sans plugin).
+    /// Chemin absolu vers le fichier contenant le play-token, relu par le mod
+    /// Reborn Integrity à chaque connexion à un serveur pour s'attester
+    /// auprès du plugin Guardian. Le launcher le réécrit pendant toute la
+    /// partie (jeton de 5 min, cf `play_tokens.rs`). None = pas d'attestation
+    /// (dev local sans plugin). Jeton du serveur principal (claim `aud` =
+    /// serveur par défaut de l'API, `REBORN_SERVER_ID`).
     pub play_token_path: Option<String>,
+    /// Jeton du serveur de DEV (claim `aud` = `dev`), pour un staff avec un
+    /// serveur dev configuré : le sélecteur Build/Dev du mod se choisit APRÈS
+    /// le lancement, le launcher fournit donc les deux jetons
+    /// (`-Dreborn.playTokenPath.dev`). None = pas de serveur dev pour ce
+    /// compte. Le fichier peut manquer (jeton refusé au lancement) : le
+    /// launcher le redemande pendant la partie.
+    ///
+    /// Lu par Reborn Integrity 0.3.2+ quand l'adresse rejointe est celle de
+    /// `reborn.server.dev.*` (fichier absent : jeton principal, comme avant).
+    /// Les versions précédentes ignorent ce fichier et envoient le jeton
+    /// principal au dev : le mod doit être publié AVANT que l'API émette des
+    /// `aud` pour le dev (`REBORN_SERVER_IDS`), sinon le Guardian du dev
+    /// refuse le staff (PLUGINS_REFERENCE §5.4, étape 2).
+    pub play_token_dev_path: Option<String>,
     /// URL de base de l'API Reborn (ex: `https://api.reborn-rp.com/v1`) passée
     /// au mod HUD via `-Dreborn.apiUrl`. Le mod l'utilise pour alimenter le
     /// menu ÉCHAP (compteur Discord, patch notes, streams) via l'endpoint
@@ -117,11 +134,16 @@ fn build_args(cfg: &LaunchConfig, total_ram_mb: Option<u64>) -> Vec<String> {
         cfg.launcher_version
     ));
     if let Some(path) = cfg.play_token_path.as_deref() {
-        // Le mod Reborn Integrity lit ce path et envoie son contenu via
-        // custom payload `reborn:auth` au serveur (cf plugin Guardian).
+        // Le mod Reborn Integrity relit ce path à chaque connexion et envoie
+        // son contenu via custom payload `reborn:auth` au serveur (cf plugin
+        // Guardian).
         // Sysprop pointant vers un fichier plutôt que le token brut : évite
         // que la valeur fuite dans `ps` / le Gestionnaire des tâches.
         args.push(format!("-Dreborn.playTokenPath={path}"));
+    }
+    if let Some(path) = cfg.play_token_dev_path.as_deref() {
+        // Jeton du serveur de dev (staff), même principe que ci-dessus.
+        args.push(format!("-Dreborn.playTokenPath.dev={path}"));
     }
     if let Some(api) = cfg.api_url.as_deref() {
         // Le menu ÉCHAP du mod HUD fetch /menu/panel sur cette base.
@@ -244,6 +266,7 @@ mod tests {
             dev_server: None,
             is_staff: false,
             play_token_path: None,
+            play_token_dev_path: None,
             api_url: None,
         }
     }
@@ -270,9 +293,23 @@ mod tests {
     #[test]
     fn no_play_token_path_omits_sysprop() {
         let argv = argv(&sample_cfg());
-        assert!(!argv
-            .iter()
-            .any(|a| a.starts_with("-Dreborn.playTokenPath=")));
+        assert!(!argv.iter().any(|a| a.starts_with("-Dreborn.playTokenPath")));
+    }
+
+    #[test]
+    fn dev_play_token_path_emitted_when_set() {
+        let mut cfg = sample_cfg();
+        cfg.play_token_path = Some("C:/game/.reborn-play-token".into());
+        cfg.play_token_dev_path = Some("C:/game/.reborn-play-token-dev".into());
+        let argv = argv(&cfg);
+        assert!(has(
+            &argv,
+            "-Dreborn.playTokenPath.dev=C:/game/.reborn-play-token-dev"
+        ));
+        assert!(has(
+            &argv,
+            "-Dreborn.playTokenPath=C:/game/.reborn-play-token"
+        ));
     }
 
     #[test]

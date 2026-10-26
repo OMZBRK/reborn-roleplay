@@ -66,8 +66,9 @@ export async function fetchLore(): Promise<LoreDocument> {
 
 export type WhitelistAppStatus = "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_REVISION";
 
-// Schéma riche v2 — chaque champ correspond à un input du wizard 2 étapes
-// (cf stores/whitelist-store.ts WhitelistDraft + apps/api Prisma model).
+// Forme d'avant la candidature v2 (whitelist_me). L'écran de la candidature
+// lit lib/candidature.ts ; l'ancien envoi (submitWhitelist, sans
+// formVersion) et les créneaux d'oral ont été retirés le 25/10.
 export type WhitelistApplication = {
   id: string;
   status: WhitelistAppStatus;
@@ -106,32 +107,6 @@ export async function fetchWhitelistMe(): Promise<WhitelistMeResponse> {
   return invoke<WhitelistMeResponse>("whitelist_me");
 }
 
-// ── L5 : créneaux de test oral ────────────────────────────────────
-export type OralSlot = {
-  id: string;
-  startAt: string;
-  durationMin: number;
-  status?: "OPEN" | "BOOKED" | "DONE" | "CANCELLED" | null;
-  notes?: string | null;
-};
-
-export type OralSlotsResponse = {
-  open: OralSlot[];
-  mine: OralSlot | null;
-};
-
-export async function fetchOralSlots(): Promise<OralSlotsResponse> {
-  return invoke<OralSlotsResponse>("whitelist_oral_slots");
-}
-
-export async function bookOralSlot(id: string): Promise<OralSlot> {
-  return invoke<OralSlot>("whitelist_book_slot", { id });
-}
-
-export async function cancelOralSlot(id: string): Promise<void> {
-  await invoke<void>("whitelist_cancel_slot", { id });
-}
-
 /**
  * Libere l'assignation staff si elle date de plus de 4h et que la
  * candidature n'est pas decidee. L'API refuse avec 400 si pas eligible.
@@ -140,32 +115,6 @@ export async function cancelOralSlot(id: string): Promise<void> {
  */
 export async function reclaimWhitelist(): Promise<void> {
   await invoke("whitelist_reclaim");
-}
-
-export type WhitelistSubmitInput = {
-  dob: string;
-  motivation: string;
-  experience: string;
-  availability: string;
-  firstName: string;
-  lastName: string;
-  village: string;
-  support: string | null;
-  history: string;
-  appearance: string;
-  objectives: string;
-};
-
-export async function submitWhitelist(
-  input: WhitelistSubmitInput,
-): Promise<WhitelistApplication> {
-  return invoke<WhitelistApplication>("whitelist_submit", input);
-}
-
-export async function resubmitWhitelist(
-  input: WhitelistSubmitInput,
-): Promise<WhitelistApplication> {
-  return invoke<WhitelistApplication>("whitelist_resubmit", input);
 }
 
 export async function withdrawWhitelist(): Promise<void> {
@@ -355,6 +304,27 @@ export type ServerStatus = {
 
 export async function fetchServerStatus(): Promise<ServerStatus> {
   return invoke<ServerStatus>("server_status");
+}
+
+// ──────────────────────────────────────────────────────
+// Communauté : Discord des joueurs (CANDIDATURE_ET_DOUANE §5.3)
+// ──────────────────────────────────────────────────────
+
+/** Invitation officielle (DECISIONS.md) : lien de repli si l'API n'en donne pas. */
+export const DISCORD_INVITE_URL = "https://discord.gg/Nw7jpjJ6dg";
+
+/** Compteur du Discord des joueurs (endpoint public /menu/panel, cache API). */
+export type DiscordCommunity = {
+  members: number;
+  online: number;
+  /** Invitation renvoyée par l'API (déjà filtrée côté Rust), sinon null. */
+  inviteUrl: string | null;
+  name: string | null;
+};
+
+/** null = compteur indisponible côté API (ou hors du launcher). */
+export async function fetchDiscordCommunity(): Promise<DiscordCommunity | null> {
+  return (await invoke<DiscordCommunity | null>("community_discord")) ?? null;
 }
 
 // ── Profil : modifier le nom d'affichage RP ────────────────────────

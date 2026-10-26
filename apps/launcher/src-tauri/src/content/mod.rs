@@ -18,6 +18,15 @@ use crate::storage::prefs::{self, Preferences};
 use crate::storage::secrets::{SecretKey, StorageError};
 use crate::tray::TrayState;
 
+/// Compteur Discord de l'accueil (endpoint public `/menu/panel`).
+pub mod communaute;
+
+/// Candidature v2, brouillon, voix, séances de douane et accès au jeu.
+pub mod candidature;
+
+/// « Mes personnages » : personnages du compte sur le serveur de prod.
+pub mod personnages;
+
 /// Erreur des commandes "contenu". Traverse l'IPC sous la forme
 /// `{ kind, message }` (cf `Serialize` plus bas) : `message` est une phrase
 /// française complète, `kind` une catégorie stable pour le front.
@@ -209,9 +218,11 @@ pub async fn lore_current(state: State<'_, AuthState>) -> Result<LoreDocument, C
 // Whitelist
 // ──────────────────────────────────────────────────────
 
-// Schéma riche v2 : aligné sur le wizard 2-étapes du launcher
-// (cf src/stores/whitelist-store.ts WhitelistDraft) et le DTO API
-// (cf apps/api/src/whitelist/whitelist.service.ts WhitelistApplicationDto).
+// Lecture de la forme d'avant la v2 (`whitelist_me`). L'écran de la
+// candidature v2 passe par `content::candidature` (`candidature_me`…) ;
+// l'ancien envoi (`whitelist_submit`, sans `formVersion`) et les créneaux
+// d'oral ont été retirés (complément du 25/10 : plus de voie « ancien
+// format »). Les champs de l'ancien formulaire valent "" en v2.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WhitelistApplicationDto {
@@ -257,22 +268,6 @@ pub struct WhitelistStatus {
     pub application: Option<WhitelistApplicationDto>,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SubmitWhitelistRequest {
-    pub dob: String,
-    pub motivation: String,
-    pub experience: String,
-    pub availability: String,
-    pub first_name: String,
-    pub last_name: String,
-    pub village: String,
-    pub support: Option<String>,
-    pub history: String,
-    pub appearance: String,
-    pub objectives: String,
-}
-
 #[tauri::command]
 pub async fn whitelist_me(state: State<'_, AuthState>) -> Result<WhitelistStatus, ContentError> {
     let token = jwt(state.inner()).await?;
@@ -280,151 +275,6 @@ pub async fn whitelist_me(state: State<'_, AuthState>) -> Result<WhitelistStatus
     // absent donne `None` (Option) : pas besoin de passer par un Json
     // intermédiaire, et une réponse inattendue remonte avec sa cause serde.
     Ok(state.api.get_json(&token, "/whitelist/me").await?)
-}
-
-// ── L5 : créneaux de test oral (pool global) ─────────────────────────
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct OralSlotDto {
-    pub id: String,
-    pub start_at: String,
-    pub duration_min: i64,
-    #[serde(default)]
-    pub status: Option<String>,
-    #[serde(default)]
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct OralSlotsResponse {
-    pub open: Vec<OralSlotDto>,
-    pub mine: Option<OralSlotDto>,
-}
-
-/// Créneaux ouverts à venir + la réservation du candidat le cas échéant.
-#[tauri::command]
-pub async fn whitelist_oral_slots(
-    state: State<'_, AuthState>,
-) -> Result<OralSlotsResponse, ContentError> {
-    let token = jwt(state.inner()).await?;
-    state
-        .api
-        .get_json(&token, "/whitelist/me/oral-slots")
-        .await
-        .map_err(ContentError::from)
-}
-
-/// Réserve un créneau libre. Renvoie le créneau réservé (JSON brut).
-#[tauri::command]
-pub async fn whitelist_book_slot(
-    state: State<'_, AuthState>,
-    id: String,
-) -> Result<Json, ContentError> {
-    let token = jwt(state.inner()).await?;
-    state
-        .api
-        .post_json::<_, Json>(
-            &token,
-            &format!("/whitelist/oral-slots/{id}/book"),
-            &serde_json::json!({}),
-        )
-        .await
-        .map_err(ContentError::from)
-}
-
-/// Annule sa propre réservation → le créneau repasse libre.
-#[tauri::command]
-pub async fn whitelist_cancel_slot(
-    state: State<'_, AuthState>,
-    id: String,
-) -> Result<(), ContentError> {
-    let token = jwt(state.inner()).await?;
-    state
-        .api
-        .delete_no_content(&token, &format!("/whitelist/oral-slots/{id}/book"))
-        .await
-        .map_err(ContentError::from)
-}
-
-#[tauri::command]
-#[allow(clippy::too_many_arguments)]
-pub async fn whitelist_submit(
-    state: State<'_, AuthState>,
-    dob: String,
-    motivation: String,
-    experience: String,
-    availability: String,
-    first_name: String,
-    last_name: String,
-    village: String,
-    support: Option<String>,
-    history: String,
-    appearance: String,
-    objectives: String,
-) -> Result<WhitelistApplicationDto, ContentError> {
-    let token = jwt(state.inner()).await?;
-    state
-        .api
-        .post_json(
-            &token,
-            "/whitelist",
-            &SubmitWhitelistRequest {
-                dob,
-                motivation,
-                experience,
-                availability,
-                first_name,
-                last_name,
-                village,
-                support,
-                history,
-                appearance,
-                objectives,
-            },
-        )
-        .await
-        .map_err(ContentError::from)
-}
-
-#[tauri::command]
-#[allow(clippy::too_many_arguments)]
-pub async fn whitelist_resubmit(
-    state: State<'_, AuthState>,
-    dob: String,
-    motivation: String,
-    experience: String,
-    availability: String,
-    first_name: String,
-    last_name: String,
-    village: String,
-    support: Option<String>,
-    history: String,
-    appearance: String,
-    objectives: String,
-) -> Result<WhitelistApplicationDto, ContentError> {
-    let token = jwt(state.inner()).await?;
-    state
-        .api
-        .patch_json(
-            &token,
-            "/whitelist/me",
-            &SubmitWhitelistRequest {
-                dob,
-                motivation,
-                experience,
-                availability,
-                first_name,
-                last_name,
-                village,
-                support,
-                history,
-                appearance,
-                objectives,
-            },
-        )
-        .await
-        .map_err(ContentError::from)
 }
 
 #[tauri::command]

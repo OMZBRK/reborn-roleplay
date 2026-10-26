@@ -1,212 +1,101 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { WhitelistApplication, WhitelistAppStatus } from "../lib/content";
+import type { DonneesBrouillon, PhaseCandidature } from "../lib/candidature";
+
+// État de la candidature côté launcher (candidature v2,
+// docs/gameplay/CANDIDATURE_ET_DOUANE.md §1.2 et §2.5) :
+//   - `phase` : dernière phase lue dans GET /whitelist/me (l'onglet Whitelist
+//     la relit à chaque ouverture) ;
+//   - `status` : la même chose en quatre valeurs, pour la pastille du rail
+//     (Sidebar, WhitelistBadge) et la relecture du rôle après l'acceptation
+//     (AuthenticatedLayout) ;
+//   - `copieLocale` : le brouillon gardé sur CE PC, en plus du brouillon
+//     serveur. Il sert hors ligne et quand le serveur n'a pas pu enregistrer ;
+//     à l'ouverture, la version la plus récente des deux gagne (§2.5). Il est
+//     lié au compte : un autre compte sur le même PC ne le voit pas.
+//
+// localStorage (zustand/middleware) : ni secret ni donnée de santé, seulement
+// les réponses du formulaire, effacées à l'envoi et au retrait.
 
 // ──────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────
 
-// Statut côté client. "draft" = candidature pas encore soumise (form en cours).
-// Les 3 autres viennent du serveur (mappés depuis WhitelistStatus côté API).
-// "needs_revision" est volontairement absent : côté UI design v2, on retombe
-// sur "rejected" (l'utilisateur peut refaire une candidature).
+/** Statut pour la pastille du rail. « draft » : rien d'envoyé, ou une
+ *  correction à faire (à revoir) ; « pending » : en attente du staff ou de la
+ *  douane ; « accepted » : whitelisté ; « rejected » : refusé. */
 export type WhitelistStatus = "draft" | "pending" | "accepted" | "rejected";
 
-// Forme du brouillon stocké localement entre les 3 étapes du wizard.
-// Aligné sur MOCK_DATA / EMPTY_DATA dans whitelist-app.jsx (artefact design).
-export type WhitelistDraft = {
-  // Étape 1 — HRP
-  dob: string;            // ISO YYYY-MM-DD
-  motivation: string;
-  experience: string;
-  availability: string;
-  // Étape 2 — RP
-  firstName: string;
-  lastName: string;
-  village: string;
-  support: string;        // optionnel
-  history: string;
-  appearance: string;
-  objectives: string;
+/** Brouillon gardé sur ce PC (formes du brouillon serveur). */
+export type CopieLocale = {
+  /** Identifiant du compte Reborn propriétaire. */
+  compte: string;
+  data: DonneesBrouillon;
+  /** Dernière modification sur ce PC (ISO). */
+  majLe: string;
 };
 
-export const EMPTY_DRAFT: WhitelistDraft = {
-  dob: "",
-  motivation: "",
-  experience: "",
-  availability: "",
-  firstName: "",
-  lastName: "",
-  village: "",
-  support: "",
-  history: "",
-  appearance: "",
-  objectives: "",
-};
-
-// Mock data Reborn (Hikami Nara, Konoha) — équivalent du MOCK_DATA de l'artefact.
-// Utilisé par le menu dev (Ctrl+Shift+W) pour pré-remplir le formulaire.
-export const MOCK_DRAFT: WhitelistDraft = {
-  dob: "2004-01-10",
-  motivation:
-    "Reborn m'a été recommandé par un ami croisé sur un autre serveur, et j'avoue que l'univers travaillé autour du Pays du Feu m'a immédiatement parlé. Je cherche depuis plusieurs mois un RP exigeant où l'écriture compte vraiment, pas juste un terrain de jeu PvP — et la lecture du lore m'a confirmé que c'était le cas ici. J'ai envie de m'investir sur du long terme, de tisser des relations avec d'autres joueurs et de voir mon personnage évoluer au fil des intrigues.",
-  experience:
-    "Je fais du RP textuel depuis environ six ans. J'ai principalement joué sur des serveurs MC (deux campagnes longues sur des univers médiévaux dérivés), un GN annuel, et plus récemment un FoundryVTT entre potes. J'ai déjà tenu un personnage sur 14 mois IRL, ce qui m'a beaucoup appris sur la patience narrative et l'arc évolutif. J'aime particulièrement les scènes politiques et les huis-clos de tension, beaucoup moins les combats à rallonge.",
-  availability:
-    "Soirs en semaine (19h-23h), week-ends plus larges. Disponible sur Discord la journée pour les briefings.",
-  firstName: "Hikami",
-  lastName: "Nara",
-  village: "Konohagakure",
-  support: "",
-  history:
-    "Hikami est né dans une branche cadette du clan Nara, à la lisière du Pays du Feu. Sa mère, archiviste au sanctuaire de Kuroyama, lui a transmis très tôt le goût des textes anciens et la prudence des stratèges. À douze ans, lors d'une expédition vers les frontières d'Ame, il a perdu son frère aîné dans une embuscade non revendiquée — un événement dont il ne parle jamais ouvertement, mais qui structure tout son rapport au combat et à la confiance.",
-  appearance:
-    "Silhouette mince, presque longiligne. Cheveux noirs attachés bas, mèches courtes encadrant un visage anguleux. Il porte presque toujours une veste sombre brodée du blason des Nara à l'épaule. Réservé, observateur, parle peu mais écoute beaucoup — au point que certains le trouvent froid. Sous cette retenue se cache un humour sec et une curiosité difficile à rassasier, surtout pour tout ce qui touche aux écritures perdues.",
-  objectives:
-    "À court terme, Hikami veut être assigné à des missions de reconnaissance pour cartographier les zones grises entre Konoha et les pays voisins. Il a besoin de comprendre comment les frontières se sont déplacées depuis la dernière guerre. À moyen terme, il cherche à reprendre l'enquête laissée inachevée par son frère sur l'embuscade — sans ressentiment, mais avec méthode. À long terme, il aimerait s'approcher des cercles d'archives ANBU non par ambition militaire mais pour accéder aux dossiers verrouillés. Il rêve aussi, plus secrètement, de voir si les théories de sa mère sur la convergence des techniques de clan tiennent debout sur le terrain. Il sait que ces objectifs peuvent le mener loin de Konoha — il l'accepte.",
-};
+/** Phase → statut du rail. */
+export function statutDePhase(phase: PhaseCandidature | null): WhitelistStatus {
+  switch (phase) {
+    case "ACCEPTE":
+      return "accepted";
+    case "REFUSE":
+      return "rejected";
+    case "ECRIT_EN_ATTENTE":
+    case "DOUANE_A_RESERVER":
+    case "DOUANE_RESERVEE":
+    case "DOUANE_A_REVOIR":
+      return "pending";
+    default:
+      return "draft";
+  }
+}
 
 // ──────────────────────────────────────────────────────────────
 // Store
 // ──────────────────────────────────────────────────────────────
 
 type WhitelistState = {
-  draft: WhitelistDraft;
   status: WhitelistStatus;
-  // ID serveur de la candidature courante quand status !== "draft" (sert
-  // notamment à savoir si on doit POST /whitelist ou PATCH /whitelist/me).
-  applicationId: string | null;
-  // Note du staff renvoyée par le serveur lors d'un rejet/acceptation.
-  // Affichée par RejectedPage / AcceptedPage quand non-null.
-  reviewNotes: string | null;
-  // Cf C5 — assignation staff. Affiche dans StatusChatPage "Pris par
-  // @X depuis Yh" et debloque le bouton "Demander une reprise" apres 4h.
-  assigneeName: string | null;
-  assignedAt: string | null;
+  phase: PhaseCandidature | null;
+  copieLocale: CopieLocale | null;
 
-  // Actions
-  updateField: <K extends keyof WhitelistDraft>(key: K, value: WhitelistDraft[K]) => void;
-  setDraft: (draft: WhitelistDraft) => void;
-  applyMockData: () => void;
-  setStatus: (status: WhitelistStatus) => void;
-  // Hydrate intégralement le store depuis la réponse de fetchWhitelistMe.
-  // Passe null pour signifier "aucune candidature côté serveur" → status="draft".
-  hydrateFromServer: (data: HydrateInput | null) => void;
-  // Raccourci : hydrate directement depuis la candidature renvoyée par l'API
-  // (fetchWhitelistMe().application, submit, resubmit).
-  hydrateFromApplication: (app: WhitelistApplication | null) => void;
+  /** Phase lue dans GET /whitelist/me (met aussi à jour `status`). */
+  setPhase: (phase: PhaseCandidature | null) => void;
+  /** Garde le formulaire sur ce PC (à chaque modification). */
+  garderLocalement: (compte: string, data: DonneesBrouillon) => void;
+  /** Efface la copie de ce PC (envoi réussi, retrait, autre version choisie). */
+  oublierCopieLocale: () => void;
   reset: () => void;
 };
 
-export type HydrateInput = {
-  applicationId: string;
-  status: WhitelistStatus;
-  reviewNotes: string | null;
-  draft: WhitelistDraft;
-  assigneeName: string | null;
-  assignedAt: string | null;
-};
-
-// Mappe le statut serveur (PENDING/APPROVED/...) → status local (4 valeurs)
-// utilisé par la sidebar et le mapping écran. NEEDS_REVISION retombe sur
-// "rejected" : design v2 ne distingue pas les deux côté UI (l'utilisateur
-// peut refaire dans les deux cas), seul le message diffère via reviewNotes.
-export function mapServerStatus(s: WhitelistAppStatus): WhitelistStatus {
-  switch (s) {
-    case "PENDING":
-      return "pending";
-    case "APPROVED":
-      return "accepted";
-    case "REJECTED":
-    case "NEEDS_REVISION":
-      return "rejected";
-  }
-}
-
-/** Candidature API → données d'hydratation du store (source unique). */
-export function applicationToHydrate(app: WhitelistApplication): HydrateInput {
-  return {
-    applicationId: app.id,
-    status: mapServerStatus(app.status),
-    reviewNotes: app.reviewNotes,
-    draft: {
-      dob: app.dob,
-      motivation: app.motivation,
-      experience: app.experience,
-      availability: app.availability,
-      firstName: app.firstName,
-      lastName: app.lastName,
-      village: app.village,
-      support: app.support ?? "",
-      history: app.history,
-      appearance: app.appearance,
-      objectives: app.objectives,
-    },
-    assigneeName: app.assignee?.username ?? null,
-    assignedAt: app.assignedAt,
-  };
-}
-
-// On utilise localStorage (via zustand/middleware) en attendant tauri-plugin-store —
-// suffisant pour la phase actuelle, le draft survit aux reload mais pas aux migrations
-// de machine. Quand le plugin Tauri sera setup, swap le storage adapter ici.
 export const useWhitelistStore = create<WhitelistState>()(
   persist(
-    (set, get) => ({
-      draft: EMPTY_DRAFT,
+    (set) => ({
       status: "draft",
-      applicationId: null,
-      reviewNotes: null,
-      assigneeName: null,
-      assignedAt: null,
-      updateField: (key, value) =>
-        set((s) => ({ draft: { ...s.draft, [key]: value } })),
-      setDraft: (draft) => set({ draft }),
-      applyMockData: () => set({ draft: MOCK_DRAFT }),
-      setStatus: (status) => set({ status }),
-      hydrateFromServer: (data) => {
-        if (!data) {
-          set({
-            status: "draft",
-            applicationId: null,
-            reviewNotes: null,
-            assigneeName: null,
-            assignedAt: null,
-          });
-          return;
-        }
-        set({
-          applicationId: data.applicationId,
-          status: data.status,
-          reviewNotes: data.reviewNotes,
-          draft: data.draft,
-          assigneeName: data.assigneeName,
-          assignedAt: data.assignedAt,
-        });
-      },
-      hydrateFromApplication: (app) =>
-        get().hydrateFromServer(app ? applicationToHydrate(app) : null),
-      reset: () =>
-        set({
-          draft: EMPTY_DRAFT,
-          status: "draft",
-          applicationId: null,
-          reviewNotes: null,
-          assigneeName: null,
-          assignedAt: null,
-        }),
+      phase: null,
+      copieLocale: null,
+      setPhase: (phase) => set({ phase, status: statutDePhase(phase) }),
+      garderLocalement: (compte, data) =>
+        set({ copieLocale: { compte, data, majLe: new Date().toISOString() } }),
+      oublierCopieLocale: () => set({ copieLocale: null }),
+      reset: () => set({ status: "draft", phase: null, copieLocale: null }),
     }),
     {
       name: "reborn:whitelist",
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({
-        draft: s.draft,
-        status: s.status,
-        applicationId: s.applicationId,
-        reviewNotes: s.reviewNotes,
-        assigneeName: s.assigneeName,
-        assignedAt: s.assignedAt,
-      }),
+      // v2 : candidature v2. L'ancien brouillon (date de naissance,
+      // motivation…) ne se reprend pas : ses champs n'existent plus.
+      version: 2,
+      migrate: (persisted, version) => {
+        const ancien = (persisted ?? {}) as Partial<WhitelistState>;
+        if (version < 2) {
+          return { status: ancien.status ?? "draft", phase: null, copieLocale: null };
+        }
+        return ancien as WhitelistState;
+      },
+      partialize: (s) => ({ status: s.status, phase: s.phase, copieLocale: s.copieLocale }),
     },
   ),
 );

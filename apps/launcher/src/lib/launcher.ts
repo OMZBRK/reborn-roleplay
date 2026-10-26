@@ -84,6 +84,12 @@ export type LaunchedGame = {
   javaPath: string;
   minecraftVersion: string;
   fabricVersion: string;
+  /** Portee du jeton de jeu emis par l'API : "douane" = hall de la douane
+   *  seulement (candidat), "play" = jeu normal ; null = API d'avant le 25/10. */
+  scope: "play" | "douane" | null;
+  /** Serveur vise par le jeton (claim `aud` : "prod", "dev"…), null si
+   *  l'API n'en emet pas. */
+  serverId: string | null;
 };
 
 /** Payload de `game:window-ready` : vide, emis une fois quand la fenetre
@@ -105,8 +111,29 @@ export type LaunchProgress = {
   total: number | null;
 };
 
+/** Lance le jeu. La barriere d'acces lit la PHASE de la candidature (cf
+ *  lib/candidature.ts › lireAccesJeu, meme decision) : whiteliste ou staff →
+ *  jeu normal ; candidat dans la fenetre d'entree de sa seance → douane ;
+ *  sinon rejet { kind, message } avec kind = candidature_required,
+ *  douane_hors_jeu, douane_not_open, douane_closed, access_check (phase
+ *  illisible), session_expired, ou not_whitelisted (API d'avant la
+ *  candidature v2). */
 export async function launchGame(): Promise<LaunchedGame> {
   return invoke<LaunchedGame>("launcher_launch_game");
+}
+
+/** Retour de launcher_prepare_game (PreparedGame cote Rust). */
+export type PreparedGame = {
+  minecraftVersion: string;
+  fabricVersion: string;
+};
+
+/** « Préparer le jeu » : installe Java, bibliothèques, ressources et Fabric
+ *  SANS jeton ni démarrage (candidat avant sa séance de douane : le premier
+ *  téléchargement se fait hors de la fenêtre d'entrée). Progression sur
+ *  `launch:progress`, en 5 étapes. */
+export async function prepareGame(): Promise<PreparedGame> {
+  return invoke<PreparedGame>("launcher_prepare_game");
 }
 
 /** Lance une 2e instance de jeu (dev, staff-only) avec un autre compte

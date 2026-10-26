@@ -1,0 +1,141 @@
+/* Accueil d'un candidat en phase « douane réservée » (CANDIDATURE_ET_DOUANE
+   §3.3), repris de la maquette validée L10 (src/dev/maquettes/accueil) :
+   mini-frise du bloc hero, fenêtre d'entrée H − 15 → H + 30 et encart sous
+   le bouton (emplacement fixe de 52 px du PlayButton). Discret : petit,
+   fin, pas de grosse plaque. */
+
+/* ---------- Mini-frise Écrit · Douane · Bienvenue ---------- */
+.reborn-douane-frise {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--color-foreground-muted);
+}
+.reborn-douane-frise li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.reborn-douane-frise li + li::before {
+  content: "";
+  width: 20px;
+  height: 1px;
+  margin: 0 8px 0 10px;
+  background: var(--color-border-strong);
+}
+.reborn-douane-frise-pt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+}
+.reborn-douane-frise li[data-etat="fait"] {
+  color: var(--color-foreground-subtle);
+}
+.reborn-douane-frise li[data-etat="fait"] .reborn-douane-frise-pt {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-background);
+}
+.reborn-douane-frise li[data-etat="encours"] {
+  font-weight: 600;
+  color: var(--color-gold-bright);
+}
+.reborn-douane-frise li[data-etat="encours"]::before {
+  background: linear-gradient(90deg, var(--color-success), var(--color-gold));
+}
+.reborn-douane-frise li[data-etat="encours"] .reborn-douane-frise-pt {
+  border-color: var(--color-gold);
+  background: radial-gradient(circle, var(--color-gold) 0 3px, transparent 3.5px);
+  box-shadow: 0 0 0 3px rgba(224, 176, 106, 0.14);
+}
+
+/* ---------- Fenêtre d'entrée (emplacement de 52 px) ---------- */
+.reborn-douane-fenetre {
+  width: 100%;
+  padding: 8px 12px 10px;
+  border: 1px solid rgba(224, 176, 106, 0.3);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(58, 44, 20, 0.38), rgba(58, 44, 20, 0.16));
+}
+.reborn-douane-fenetre-tete {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--color-foreground-subtle);
+}
+.reborn-douane-fenetre-tete b {
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.reborn-douane-fenetre-reste {
+  font-weight: 600;
+  color: var(--color-gold-bright);
+  white-space: nowrap;
+}
+.reborn-douane-fenetre-piste {
+  position: relative;
+  height: 4px;
+  margin-top: 9px;
+  border-radius: var(--radius-full);
+  background: rgba(247, 236, 214, 0.1);
+}
+.reborn-douane-fenetre-rempli {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-gold) 0%, var(--color-accent-bright) 100%);
+}
+.reborn-douane-fenetre-h {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 10px;
+  background: rgba(247, 236, 214, 0.55);
+}
+.reborn-douane-fenetre-curseur {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: var(--color-foreground);
+  transform: translateY(-50%);
+  box-shadow: 0 0 0 3px rgba(230, 57, 80, 0.35), 0 0 10px rgba(230, 57, 80, 0.7);
+}
+
+/* ---------- Encart neutre (avant la fenêtre, oral hors jeu) ---------- */
+.reborn-douane-encart {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface-elevated);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-foreground-subtle);
+}
+.reborn-douane-encart b {
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.reborn-douane-encart-icone {
+  margin-top: 1px;
+  color: var(--color-gold);
+}

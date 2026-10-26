@@ -1,0 +1,1779 @@
+/* MAQUETTES — candidature v2 (dev seulement, chargé avec les maquettes).
+   Préfixe mqc- : aucun conflit avec globals.css. Couleurs et polices : les
+   jetons du launcher (--color-*, Bebas Neue, Inter). */
+
+/* ============================================================
+   Coque : rail + zone principale
+   ============================================================ */
+.mqc-coque {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+.mqc-main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- Barre du haut : titre de page + onglets numérotés + actions --- */
+.mqc-topbar {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  flex-shrink: 0;
+  height: 80px;
+  padding: 0 36px;
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 1px 0 0 var(--color-hairline);
+  background: linear-gradient(180deg, rgba(23, 9, 12, 0.55) 0%, rgba(23, 9, 12, 0) 100%);
+}
+.mqc-topbar-title {
+  padding-bottom: 16px;
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--color-foreground);
+  white-space: nowrap;
+}
+.mqc-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+.mqc-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px 17px;
+  background: none;
+  border: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  color: var(--color-foreground-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.mqc-tab:hover:not(:disabled) {
+  color: var(--color-foreground-subtle);
+}
+.mqc-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.mqc-tab[data-active="true"] {
+  color: var(--color-foreground);
+}
+.mqc-tab[data-active="true"]::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-accent-bright);
+  box-shadow: 0 0 12px var(--color-accent-glow-strong);
+}
+.mqc-tab-num {
+  color: inherit;
+  opacity: 0.8;
+}
+.mqc-tab[data-complet="true"] .mqc-tab-num {
+  color: var(--color-success);
+  opacity: 1;
+}
+.mqc-tab-check {
+  color: var(--color-success);
+}
+.mqc-tab-pill {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 1px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--color-gold-bright);
+  background: var(--color-gold-soft);
+  box-shadow: inset 0 0 0 1px rgba(224, 176, 106, 0.35);
+}
+.mqc-tab-pill[data-ton="danger"] {
+  color: #fecaca;
+  background: var(--color-danger-soft);
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.45);
+}
+.mqc-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+
+/* --- Zone de contenu (colonne centrée, largeur fixe) --- */
+.mqc-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+.mqc-col {
+  width: 760px;
+  max-width: calc(100% - 64px);
+  margin: 0 auto;
+  padding: 28px 0 64px;
+}
+
+/* --- Pied : aides clavier dans leur propre barre, sous la zone qui défile :
+       elles ne recouvrent jamais un champ (comme chez Ketto, en bas à droite). --- */
+.mqc-keys {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  height: 42px;
+  padding: 0 28px;
+  border-top: 1px solid var(--color-hairline);
+  background: rgba(10, 6, 8, 0.55);
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+  pointer-events: none;
+}
+.mqc-keys span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.mqc-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 19px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground-subtle);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+}
+
+/* ============================================================
+   En-tête de page
+   ============================================================ */
+.mqc-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+.mqc-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+.mqc-eyebrow-sep {
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.5;
+}
+.mqc-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+}
+.mqc-lead {
+  max-width: 560px;
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+
+/* --- Indicateur d'enregistrement --- */
+.mqc-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 3px;
+  font-size: 11.5px;
+  color: var(--color-foreground-muted);
+  white-space: nowrap;
+}
+.mqc-save[data-etat="hors-ligne"] {
+  color: var(--color-warning);
+}
+.mqc-save[data-etat="echec"] {
+  color: var(--color-danger);
+}
+
+/* --- Section (Ketto : « ▾ Personnage ») --- */
+.mqc-section {
+  margin: 0 0 22px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.mqc-section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--color-gold-bright);
+}
+.mqc-section-lead {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--color-foreground-muted);
+}
+
+/* ============================================================
+   Champs
+   ============================================================ */
+.mqc-field {
+  margin-bottom: 28px;
+}
+.mqc-field.mqc-flush {
+  margin-bottom: 0;
+}
+.mqc-field-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 9px;
+}
+.mqc-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.mqc-optional {
+  font-size: 11.5px;
+  color: var(--color-foreground-muted);
+}
+.mqc-help {
+  margin-top: 7px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--color-foreground-muted);
+}
+.mqc-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #f87171;
+}
+.mqc-error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* --- Compteur min / max (+ mots) --- */
+.mqc-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground-muted);
+  white-space: nowrap;
+}
+.mqc-counter-words {
+  font-weight: 500;
+  color: var(--color-foreground-muted);
+}
+.mqc-counter-max {
+  font-weight: 500;
+  opacity: 0.75;
+}
+.mqc-counter[data-etat="vide"],
+.mqc-counter[data-etat="court"],
+.mqc-counter[data-etat="proche"] {
+  color: var(--color-gold);
+}
+.mqc-counter[data-etat="ok"] {
+  color: var(--color-foreground-subtle);
+}
+.mqc-counter[data-etat="ok"] svg {
+  color: var(--color-success);
+}
+.mqc-counter[data-etat="trop"] {
+  color: #f87171;
+}
+
+/* --- Saisie --- */
+.mqc-input,
+.mqc-textarea,
+.mqc-select {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--color-foreground);
+  background: rgba(10, 6, 8, 0.55);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out), background-color var(--duration-fast);
+}
+.mqc-input {
+  height: 42px;
+  padding: 0 14px;
+}
+.mqc-textarea {
+  display: block;
+  padding: 12px 14px;
+  resize: none;
+  overflow-y: hidden;
+}
+/* Zone au plafond (60 % de la fenêtre) : elle défile, et ça se voit.
+   globals.css masque toutes les barres (scrollbar-width: none) ; on revient
+   à « auto » pour que Chromium applique les pseudo-éléments -webkit- (une
+   valeur thin donnerait la barre native de Windows, avec ses flèches). */
+.mqc-textarea[data-defile="true"],
+.mqc-defile {
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
+}
+.mqc-textarea[data-defile="true"]::-webkit-scrollbar,
+.mqc-defile::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+.mqc-textarea[data-defile="true"]::-webkit-scrollbar-track,
+.mqc-defile::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mqc-textarea[data-defile="true"]::-webkit-scrollbar-thumb,
+.mqc-defile::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 3px;
+}
+.mqc-input::placeholder,
+.mqc-textarea::placeholder {
+  color: var(--color-foreground-muted);
+  opacity: 0.8;
+}
+.mqc-input:hover,
+.mqc-textarea:hover,
+.mqc-select:hover {
+  border-color: var(--color-border-strong);
+}
+.mqc-input:focus,
+.mqc-textarea:focus,
+.mqc-select:focus {
+  outline: none;
+  border-color: rgba(224, 176, 106, 0.7);
+  background: rgba(10, 6, 8, 0.75);
+  box-shadow: 0 0 0 3px rgba(224, 176, 106, 0.1);
+}
+.mqc-input[aria-invalid="true"],
+.mqc-textarea[aria-invalid="true"] {
+  border-color: rgba(239, 68, 68, 0.7);
+}
+.mqc-input[aria-invalid="true"]:focus,
+.mqc-textarea[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+.mqc-input[readonly] {
+  color: var(--color-foreground-subtle);
+}
+
+/* --- Nombre (âge) : pas de calendrier, flèches maison --- */
+.mqc-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.mqc-number-box {
+  position: relative;
+  width: 84px;
+}
+.mqc-number-box .mqc-input {
+  padding: 0 28px 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mqc-number-steps {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  width: 18px;
+}
+.mqc-number-steps button {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  color: var(--color-foreground-muted);
+  cursor: pointer;
+}
+.mqc-number-steps button:hover {
+  color: var(--color-foreground);
+  background: var(--color-surface-overlay);
+}
+.mqc-number-range {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-gold);
+}
+.mqc-number-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-gold-bright);
+  background: var(--color-gold-soft);
+  box-shadow: inset 0 0 0 1px rgba(224, 176, 106, 0.3);
+}
+
+/* --- Segments --- */
+.mqc-segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(10, 6, 8, 0.55);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.mqc-segment {
+  padding: 8px 15px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+  transition: background-color var(--duration-fast), color var(--duration-fast);
+}
+.mqc-segment:hover {
+  color: var(--color-foreground);
+  background: var(--color-surface-overlay);
+}
+.mqc-segment[aria-checked="true"] {
+  color: var(--color-gold-bright);
+  background: rgba(224, 176, 106, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(224, 176, 106, 0.4);
+}
+
+/* --- Liste déroulante --- */
+.mqc-select-wrap {
+  position: relative;
+  width: 360px;
+}
+.mqc-select {
+  height: 42px;
+  padding: 0 38px 0 14px;
+  appearance: none;
+  cursor: pointer;
+}
+.mqc-select option {
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground);
+}
+.mqc-select-wrap svg {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-foreground-muted);
+  pointer-events: none;
+}
+
+/* --- Ligne en lecture seule (Discord lié, clan choisi) --- */
+.mqc-readonly {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 8px 14px;
+  background: rgba(23, 9, 12, 0.5);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--color-foreground-subtle);
+}
+.mqc-readonly strong {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+
+/* --- Case à cocher --- */
+.mqc-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+}
+.mqc-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.mqc-check-box {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-strong);
+  background: rgba(10, 6, 8, 0.55);
+  color: transparent;
+  transition: all var(--duration-fast);
+}
+.mqc-check input:checked + .mqc-check-box {
+  color: #1a0e05;
+  border-color: var(--color-gold);
+  background: var(--color-gold);
+}
+.mqc-check input:focus-visible + .mqc-check-box {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.mqc-check strong {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Boutons de bas de page
+   ============================================================ */
+.mqc-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 38px;
+}
+.mqc-prev {
+  padding: 10px 6px;
+  background: none;
+  border: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+}
+.mqc-prev:hover {
+  color: var(--color-foreground);
+}
+.mqc-cta {
+  min-width: 170px;
+}
+.mqc-cta:disabled {
+  opacity: 1 !important;
+  color: rgba(255, 255, 255, 0.45);
+  background: #4a1620 !important;
+  box-shadow: none !important;
+}
+.mqc-actions-note {
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+
+/* --- Liens et petits boutons --- */
+.mqc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-gold);
+  cursor: pointer;
+}
+.mqc-link:hover {
+  color: var(--color-gold-bright);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mqc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.mqc-btn:hover:not(:disabled) {
+  background: var(--color-surface-overlay);
+  border-color: rgba(224, 176, 106, 0.45);
+}
+.mqc-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.mqc-btn[data-ton="rec"] {
+  border-color: rgba(230, 57, 80, 0.55);
+  background: rgba(176, 28, 50, 0.16);
+}
+.mqc-btn[data-ton="rec"]:hover:not(:disabled) {
+  background: rgba(176, 28, 50, 0.28);
+  border-color: var(--color-accent-bright);
+}
+
+/* --- Encadrés --- */
+.mqc-card {
+  padding: 18px 20px;
+  background: rgba(23, 9, 12, 0.6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 0 var(--color-hairline);
+}
+.mqc-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--color-foreground-subtle);
+  background: rgba(224, 176, 106, 0.05);
+  border: 1px solid rgba(224, 176, 106, 0.18);
+}
+.mqc-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-gold);
+}
+.mqc-note[data-ton="danger"] {
+  background: rgba(239, 68, 68, 0.07);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+.mqc-note[data-ton="danger"] svg {
+  color: #f87171;
+}
+.mqc-note[data-ton="warning"] {
+  background: rgba(245, 158, 11, 0.07);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+.mqc-note[data-ton="warning"] svg {
+  color: var(--color-warning);
+}
+
+/* ============================================================
+   Onglet Faction : villages et clans
+   ============================================================ */
+.mqc-villages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.mqc-village {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 14px 14px 12px;
+  text-align: left;
+  background: rgba(10, 6, 8, 0.5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.mqc-village:hover {
+  border-color: var(--color-border-strong);
+  background: rgba(35, 17, 21, 0.7);
+}
+.mqc-village[aria-checked="true"] {
+  border-color: rgba(224, 176, 106, 0.6);
+  background: linear-gradient(135deg, rgba(224, 176, 106, 0.1), rgba(224, 176, 106, 0.02));
+  box-shadow: inset 0 0 0 1px rgba(224, 176, 106, 0.25), 0 8px 24px -12px rgba(224, 176, 106, 0.3);
+}
+.mqc-village-emblem {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--color-border);
+}
+.mqc-emblem {
+  display: inline-block;
+  flex-shrink: 0;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+.mqc-village-emblem,
+.mqc-clan-emblem {
+  color: var(--color-foreground-subtle);
+}
+.mqc-village[aria-checked="true"] .mqc-village-emblem {
+  border-color: rgba(224, 176, 106, 0.55);
+}
+.mqc-village[aria-checked="true"] .mqc-village-emblem,
+.mqc-clan[aria-checked="true"] .mqc-clan-emblem {
+  color: var(--color-gold-bright);
+}
+.mqc-village-name {
+  font-family: var(--font-display);
+  font-size: 21px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.mqc-village-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--color-foreground-muted);
+}
+.mqc-village-desc {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--color-foreground-subtle);
+}
+.mqc-village-tick,
+.mqc-clan-tick {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #1a0e05;
+  background: var(--color-gold);
+}
+
+.mqc-clans {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.mqc-clan {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 9px 10px;
+  text-align: left;
+  background: rgba(10, 6, 8, 0.5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.mqc-clan:hover {
+  border-color: var(--color-border-strong);
+  background: rgba(35, 17, 21, 0.7);
+}
+.mqc-clan[aria-checked="true"] {
+  border-color: rgba(224, 176, 106, 0.6);
+  background: rgba(224, 176, 106, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(224, 176, 106, 0.25);
+}
+.mqc-clan[data-session="true"] {
+  border-style: dashed;
+  background: transparent;
+}
+.mqc-clan[data-session="true"] .mqc-clan-emblem {
+  color: rgba(201, 189, 162, 0.3);
+}
+.mqc-clan[data-session="true"] .mqc-clan-name {
+  color: var(--color-foreground-muted);
+}
+.mqc-clan[data-session="true"][data-refuse="true"] {
+  border-color: rgba(239, 68, 68, 0.6);
+}
+.mqc-clan-emblem {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+}
+.mqc-clan-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.mqc-clan-trait {
+  margin-top: 1px;
+  font-size: 10.5px;
+  color: var(--color-foreground-muted);
+}
+.mqc-clan-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+.mqc-clan[data-sans="true"] {
+  border-style: dashed;
+}
+
+/* ============================================================
+   Onglet Histoire : éditeur
+   ============================================================ */
+.mqc-editor {
+  background: rgba(10, 6, 8, 0.55);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+.mqc-editor:focus-within {
+  border-color: rgba(224, 176, 106, 0.7);
+  box-shadow: 0 0 0 3px rgba(224, 176, 106, 0.1);
+}
+.mqc-editor[data-invalid="true"] {
+  border-color: rgba(239, 68, 68, 0.7);
+}
+.mqc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(35, 17, 21, 0.55);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.mqc-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 9px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+}
+.mqc-tool:hover {
+  color: var(--color-foreground);
+  background: var(--color-surface-overlay);
+}
+.mqc-tool[aria-pressed="true"] {
+  color: var(--color-gold-bright);
+  background: rgba(224, 176, 106, 0.12);
+}
+.mqc-tool-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--color-border);
+}
+.mqc-editor .mqc-textarea {
+  border: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  padding: 16px 18px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.mqc-editor-preview {
+  padding: 14px 18px 18px;
+  min-height: 300px;
+}
+.mqc-editor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 11px;
+  color: var(--color-foreground-muted);
+}
+
+/* ============================================================
+   Onglet Voix
+   ============================================================ */
+.mqc-voice-step {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 14px;
+}
+.mqc-voice-num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--color-gold-bright);
+  background: var(--color-gold-soft);
+  box-shadow: inset 0 0 0 1px rgba(224, 176, 106, 0.35);
+}
+.mqc-voice-num[data-ok="true"] {
+  color: #052e16;
+  background: var(--color-success);
+  box-shadow: none;
+}
+.mqc-meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 26px;
+}
+.mqc-meter i {
+  display: block;
+  width: 6px;
+  border-radius: 1px;
+  background: var(--color-border-strong);
+  transition: height 90ms linear, background-color 90ms linear;
+}
+.mqc-meter i[data-on="true"] {
+  background: var(--color-success);
+}
+.mqc-meter i[data-on="true"][data-haut="true"] {
+  background: var(--color-gold);
+}
+.mqc-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 46px;
+  flex: 1;
+}
+.mqc-wave i {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 2px;
+  background: rgba(201, 189, 162, 0.3);
+}
+.mqc-wave i[data-vide="true"] {
+  background: rgba(201, 189, 162, 0.12);
+}
+.mqc-wave i[data-lu="true"] {
+  background: var(--color-gold);
+}
+.mqc-play {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(224, 176, 106, 0.5);
+  background: rgba(224, 176, 106, 0.1);
+  color: var(--color-gold-bright);
+  cursor: pointer;
+}
+.mqc-play:hover {
+  background: rgba(224, 176, 106, 0.18);
+}
+.mqc-timer {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground-subtle);
+}
+.mqc-timer strong {
+  color: var(--color-foreground);
+}
+.mqc-rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-bright);
+  animation: mqc-blink 1s steps(2, start) infinite;
+}
+@keyframes mqc-blink {
+  to {
+    visibility: hidden;
+  }
+}
+.mqc-progress {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.mqc-progress > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--color-gold);
+}
+.mqc-progress > b {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--color-foreground-muted);
+}
+
+/* ============================================================
+   Onglet Envoi : reste à compléter, relecture
+   ============================================================ */
+.mqc-todo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.mqc-todo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 8px 0 13px;
+  background: rgba(10, 6, 8, 0.55);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.mqc-todo-chip:hover {
+  border-color: rgba(224, 176, 106, 0.55);
+  background: rgba(224, 176, 106, 0.06);
+}
+.mqc-todo-chip svg {
+  color: var(--color-foreground-muted);
+}
+.mqc-review {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.mqc-review + .mqc-review {
+  margin-top: 8px;
+}
+.mqc-review-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  background: rgba(23, 9, 12, 0.6);
+  border: 0;
+  font-family: inherit;
+  text-align: left;
+  color: var(--color-foreground);
+  cursor: pointer;
+}
+.mqc-review-head:hover {
+  background: rgba(35, 17, 21, 0.75);
+}
+.mqc-review-title {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.04em;
+}
+.mqc-review-state {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.mqc-review-body {
+  padding: 4px 16px 14px;
+  background: rgba(10, 6, 8, 0.35);
+  border-top: 1px solid var(--color-border);
+}
+.mqc-review-row {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(58, 33, 39, 0.6);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.mqc-review-row:last-child {
+  border-bottom: 0;
+}
+.mqc-review-key {
+  color: var(--color-foreground-muted);
+}
+.mqc-review-val {
+  color: var(--color-foreground-subtle);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Histoire mise en forme : le HTML du Markdown ne garde pas les sauts de
+   ligne du source (sinon une ligne vide de plus entre chaque bloc). */
+.mqc-review-val .mqc-md {
+  white-space: normal;
+}
+.mqc-review-val[data-vide="true"] {
+  color: #f87171;
+  font-style: italic;
+}
+.mqc-part-label {
+  margin: 22px 0 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+
+/* --- Bandeau d'erreur de l'API --- */
+.mqc-api {
+  margin-bottom: 26px;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(58, 20, 20, 0.7), rgba(58, 20, 20, 0.35));
+  overflow: hidden;
+}
+.mqc-api-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px 10px;
+}
+.mqc-api-head svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #f87171;
+}
+.mqc-api-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fecaca;
+}
+.mqc-api-lead {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--color-foreground-subtle);
+}
+.mqc-api-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 16px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(239, 68, 68, 0.18);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+}
+.mqc-api-where {
+  flex-shrink: 0;
+  width: 150px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.mqc-api-raw {
+  margin: 4px 16px 14px;
+  font-size: 11.5px;
+  color: var(--color-foreground-muted);
+}
+.mqc-api-raw summary {
+  cursor: pointer;
+}
+.mqc-api-raw pre {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--color-foreground-subtle);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ============================================================
+   Suivi : frise
+   ============================================================ */
+.mqc-frise {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 26px;
+}
+.mqc-frise-step {
+  position: relative;
+  padding-top: 40px;
+  padding-right: 10px;
+}
+.mqc-frise-step::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 30px;
+  right: 0;
+  height: 2px;
+  background: var(--color-border);
+}
+.mqc-frise-step:last-child::before {
+  display: none;
+}
+.mqc-frise-step[data-etat="fait"]::before {
+  background: linear-gradient(90deg, var(--color-success), rgba(74, 222, 128, 0.35));
+}
+.mqc-frise-dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--color-foreground-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+}
+.mqc-frise-step[data-etat="fait"] .mqc-frise-dot {
+  color: #052e16;
+  background: var(--color-success);
+  border-color: transparent;
+}
+.mqc-frise-step[data-etat="courant"] .mqc-frise-dot {
+  color: var(--color-gold-bright);
+  background: var(--color-gold-soft);
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 4px rgba(224, 176, 106, 0.12), 0 0 18px rgba(224, 176, 106, 0.3);
+}
+.mqc-frise-step[data-etat="refus"] .mqc-frise-dot {
+  color: #fff;
+  background: var(--color-danger);
+  border-color: transparent;
+}
+.mqc-frise-step[data-etat="revoir"] .mqc-frise-dot {
+  color: #1a0e05;
+  background: var(--color-warning);
+  border-color: transparent;
+}
+.mqc-frise-label {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground-muted);
+}
+.mqc-frise-step[data-etat="fait"] .mqc-frise-label,
+.mqc-frise-step[data-etat="courant"] .mqc-frise-label,
+.mqc-frise-step[data-etat="refus"] .mqc-frise-label,
+.mqc-frise-step[data-etat="revoir"] .mqc-frise-label {
+  color: var(--color-foreground);
+}
+.mqc-frise-date {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--color-foreground-muted);
+}
+.mqc-frise-step[data-etat="courant"] .mqc-frise-date {
+  color: var(--color-gold);
+}
+
+/* --- Carte de statut --- */
+.mqc-status {
+  position: relative;
+  padding: 20px 22px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: rgba(23, 9, 12, 0.65);
+  overflow: hidden;
+}
+.mqc-status::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--mqc-ton, var(--color-gold));
+}
+.mqc-status-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mqc-ton, var(--color-gold));
+}
+.mqc-status-title {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+}
+.mqc-status-text {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+.mqc-quote {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(10, 6, 8, 0.55);
+  border: 1px solid var(--color-border);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-foreground);
+}
+.mqc-quote-who {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.mqc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-foreground-subtle);
+  background: rgba(10, 6, 8, 0.55);
+  border: 1px solid var(--color-border);
+}
+.mqc-chip[data-ton="ok"] {
+  color: #bbf7d0;
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(15, 58, 34, 0.5);
+}
+.mqc-chip[data-ton="gold"] {
+  color: var(--color-gold-bright);
+  border-color: rgba(224, 176, 106, 0.4);
+  background: rgba(58, 44, 20, 0.5);
+}
+.mqc-chip[data-ton="warning"] {
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(58, 42, 10, 0.5);
+}
+.mqc-chip[data-ton="danger"] {
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(58, 20, 20, 0.5);
+}
+.mqc-chip[data-ton="lock"] {
+  color: var(--color-foreground-muted);
+  border-style: dashed;
+}
+.mqc-thread {
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+  margin-top: 10px;
+}
+/* Capture en longueur : tout le fil, du message d'ouverture à la décision. */
+:root[data-maquette-pleine] .mqc-thread {
+  height: auto;
+}
+:root[data-maquette-pleine] .mqc-thread .wl-chat {
+  flex: none;
+  overflow: visible;
+}
+
+/* ============================================================
+   Séance de douane
+   ============================================================ */
+.mqc-days {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.mqc-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 92px;
+  padding: 10px 0 9px;
+  background: rgba(10, 6, 8, 0.5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.mqc-day:hover {
+  border-color: var(--color-border-strong);
+}
+.mqc-day[aria-checked="true"] {
+  border-color: rgba(224, 176, 106, 0.6);
+  background: rgba(224, 176, 106, 0.08);
+  color: var(--color-foreground);
+}
+.mqc-day-dow {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--color-foreground-muted);
+}
+.mqc-day-num {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+}
+.mqc-day-count {
+  font-size: 10.5px;
+  color: var(--color-foreground-muted);
+}
+.mqc-day[aria-checked="true"] .mqc-day-count {
+  color: var(--color-gold);
+}
+.mqc-seance {
+  display: grid;
+  grid-template-columns: 150px 1fr auto;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 18px;
+  background: rgba(23, 9, 12, 0.6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-fast);
+}
+.mqc-seance + .mqc-seance {
+  margin-top: 8px;
+}
+.mqc-seance[data-choisie="true"] {
+  border-color: rgba(224, 176, 106, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(224, 176, 106, 0.2);
+}
+.mqc-seance[data-complet="true"] {
+  opacity: 0.6;
+}
+.mqc-seance-time {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+}
+.mqc-seance-sub {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--color-foreground-muted);
+}
+.mqc-places {
+  font-size: 12.5px;
+  color: var(--color-foreground-subtle);
+}
+.mqc-places strong {
+  color: var(--color-foreground);
+}
+.mqc-places-bar {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+}
+.mqc-places-bar i {
+  flex: 1;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--color-border-strong);
+}
+.mqc-places-bar i[data-libre="true"] {
+  background: var(--color-gold);
+}
+.mqc-convoc {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 16px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-border);
+}
+.mqc-convoc > div {
+  padding: 12px 14px;
+  background: rgba(17, 8, 10, 0.95);
+}
+.mqc-convoc-key {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.mqc-convoc-val {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--color-foreground);
+}
+.mqc-convoc-sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--color-foreground-muted);
+}
+.mqc-play-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 280px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  color: rgba(247, 236, 214, 0.5);
+  background: linear-gradient(180deg, #4a1620, #3a1119);
+  border: 1px solid rgba(230, 57, 80, 0.25);
+}
+
+/* --- Sélecteur d'écrans (facultatif, au-dessus du rail) --- */
+.mqc-picker {
+  position: fixed;
+  left: 12px;
+  bottom: 78px;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: 208px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: rgba(10, 6, 8, 0.92);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: var(--shadow-lg);
+}
+.mqc-picker button {
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+}
+.mqc-picker button[aria-pressed="true"] {
+  color: #1a0e05;
+  background: var(--color-gold);
+  border-color: var(--color-gold);
+}
+
+/* ============================================================
+   Onglet Personnage : « En jeu, ton personnage s'appellera … »
+   ============================================================ */
+.mqc-nameplate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin: -8px 0 28px;
+  padding: 11px 16px;
+  border-left: 2px solid var(--color-gold);
+  background: linear-gradient(90deg, rgba(224, 176, 106, 0.08), rgba(224, 176, 106, 0) 70%);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.mqc-nameplate-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  color: var(--color-gold-bright);
+}
+.mqc-nameplate-lead {
+  font-size: 13px;
+  color: var(--color-foreground-subtle);
+}
+.mqc-nameplate[data-incomplet] .mqc-nameplate-name {
+  color: var(--color-foreground-muted);
+}
+.mqc-nameplate-meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+
+/* ============================================================
+   Onglet Village : « Et le clan ? » (Q4, information, aucun choix)
+   ============================================================ */
+.mqc-clanbox {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  background: rgba(23, 9, 12, 0.6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 0 var(--color-hairline);
+}
+.mqc-clanbox-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.mqc-clanbox-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--color-gold);
+  background: var(--color-gold-soft);
+  box-shadow: inset 0 0 0 1px rgba(224, 176, 106, 0.3);
+}
+.mqc-clanbox-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.mqc-clanbox-text {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+.mqc-clanbox-text strong {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+.mqc-clanbox-list {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.mqc-clanbox-label {
+  margin-bottom: 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.mqc-clanchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mqc-clanchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 11px 0 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--color-border-strong);
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+.mqc-clanchip .mqc-emblem {
+  color: var(--color-foreground-muted);
+  opacity: 0.85;
+}
+
+/* ============================================================
+   Capture en longueur (?pleine=1) : la fenêtre prend la hauteur de son
+   contenu, rien ne défile (index.tsx mesure, Edge photographie).
+   ============================================================ */
+:root[data-maquette-pleine] .mqc-coque {
+  height: auto;
+  min-height: 800px;
+  overflow: visible;
+}
+:root[data-maquette-pleine] .mqc-coque > .reborn-rail {
+  height: auto;
+}
+:root[data-maquette-pleine] .mqc-main,
+:root[data-maquette-pleine] .mqc-scroll {
+  overflow: visible;
+}
+:root[data-maquette-pleine] .mqc-scroll {
+  flex: 1 0 auto;
+}

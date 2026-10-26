@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- MAQUETTES L10 / L11 : page d'aperçu autonome, servie par vite dev
+     uniquement (le build de production ne prend que index.html).
+     http://localhost:1420/src/dev/maquettes/accueil/apercu.html
+     ?ecran=<id>   un écran (liste dans index.tsx, ECRANS_ACCUEIL)
+     &pleine=1     fenêtre de la hauteur de son contenu (capture longue) -->
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Maquettes · accueil et personnages</title>
+    <link rel="preload" href="/fonts/inter-variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/bebas-neue.ttf" as="font" type="font/ttf" crossorigin />
+    <style>
+      /* globals.css bloque le défilement (fenêtre fixe du launcher) : la page
+         d'aperçu, elle, doit défiler pour les captures longues. */
+      html.mqa-apercu,
+      html.mqa-apercu body,
+      html.mqa-apercu #root {
+        height: auto !important;
+        min-height: 100%;
+        overflow: auto !important;
+        background: #0a0608;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./apercu.tsx"></script>
+  </body>
+</html>

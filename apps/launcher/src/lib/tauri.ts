@@ -34,6 +34,26 @@ export async function invoke<T = unknown>(
   return tauriInvoke<T>(cmd, args);
 }
 
+/**
+ * Commande qui recoit des OCTETS BRUTS : le corps de la requete IPC est le
+ * `Uint8Array` lui-meme (cote Rust : tauri::ipc::Request, InvokeBody::Raw),
+ * jamais un tableau JSON de nombres, trois a quatre fois plus lourd. Les
+ * metadonnees voyagent dans `headers` (en-tetes de la requete IPC ; le
+ * Content-Type est reserve a Tauri). Exemple : l'enregistrement vocal de la
+ * candidature (lib/candidature.ts › deposerVoix).
+ */
+export async function invokeRaw<T = unknown>(
+  cmd: string,
+  body: Uint8Array,
+  headers: Record<string, string>,
+): Promise<T> {
+  if (!isTauriRuntime) {
+    console.warn(`[tauri] invoke('${cmd}') ignored : not running in Tauri.`);
+    return undefined as T;
+  }
+  return tauriInvoke<T>(cmd, body, { headers });
+}
+
 export const isTauri = isTauriRuntime;
 
 export type { UnlistenFn };

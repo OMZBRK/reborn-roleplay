@@ -18,6 +18,7 @@ pub mod logs;
 pub mod mods;
 pub mod mojang;
 pub mod paths;
+pub mod play_tokens;
 pub mod runtime;
 
 pub use game::GameState;

@@ -29,6 +29,7 @@ const Login = page(() => import("./routes/Login"), "Login");
 const Home = page(() => import("./routes/Home"), "Home");
 const Whitelist = page(() => import("./routes/Whitelist"), "Whitelist");
 const Rp = page(() => import("./routes/Rp"), "Rp");
+const Personnages = page(() => import("./routes/Personnages"), "Personnages");
 const Mods = page(() => import("./routes/Mods"), "Mods");
 const Rules = page(() => import("./routes/Rules"), "Rules");
 const RuleDetail = page(() => import("./routes/RuleDetail"), "RuleDetail");
@@ -38,7 +39,7 @@ const Patchnotes = page(() => import("./routes/Patchnotes"), "Patchnotes");
 const Tickets = page(() => import("./routes/Tickets"), "Tickets");
 const Settings = page(() => import("./routes/Settings"), "Settings");
 
-const IDLE_PAGES = [Whitelist, Rp, Mods, Rules, RuleDetail, Lore, LoreDetail, Patchnotes, Tickets, Settings];
+const IDLE_PAGES = [Whitelist, Personnages, Rp, Mods, Rules, RuleDetail, Lore, LoreDetail, Patchnotes, Tickets, Settings];
 
 /** Précharge les pages restantes quand le fil principal est libre. */
 function preloadWhenIdle(): () => void {
@@ -153,11 +154,13 @@ export function App() {
                     <Route path="/home" element={<Home />} />
                     <Route path="/shop" element={<PlaceholderPage title="Boutique" />} />
                     <Route path="/whitelist" element={<Whitelist />} />
+                    <Route path="/personnages" element={<Personnages />} />
                     <Route path="/rp" element={<Rp />} />
-                    {/* Anciennes adresses : le personnage, la carte, les
-                        captures et le feed vivent dans l'onglet RP (même
-                        barre d'onglets, même garde whitelist). */}
-                    <Route path="/character" element={<Navigate to="/rp?tab=character" replace />} />
+                    {/* Anciennes adresses : le personnage a sa page (« Mes
+                        personnages ») ; la carte, les captures et le feed
+                        vivent dans l'onglet RP (même barre d'onglets, même
+                        garde whitelist). */}
+                    <Route path="/character" element={<Navigate to="/personnages" replace />} />
                     <Route path="/map" element={<Navigate to="/rp?tab=map" replace />} />
                     <Route path="/screenshots" element={<Navigate to="/rp?tab=screenshots" replace />} />
                     <Route path="/feed" element={<Navigate to="/rp?tab=feed" replace />} />

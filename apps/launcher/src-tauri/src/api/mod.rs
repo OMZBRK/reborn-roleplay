@@ -158,6 +158,14 @@ pub struct ShotAuthor {
 pub struct PlaySession {
     pub play_token: String,
     pub expires_at: String,
+    /// Portée du jeton, `play` ou `douane` (CANDIDATURE_ET_DOUANE.md §3.3).
+    /// Absente des réponses d'une API d'avant le 25/10. Le jeton fait foi
+    /// côté serveur : ce champ ne sert qu'à l'affichage et au journal.
+    #[serde(default)]
+    pub scope: Option<String>,
+    /// Serveur visé (claim `aud`), ou `None` si l'API n'en émet pas.
+    #[serde(default)]
+    pub aud: Option<String>,
 }
 
 impl std::fmt::Debug for PlaySession {
@@ -165,8 +173,18 @@ impl std::fmt::Debug for PlaySession {
         f.debug_struct("PlaySession")
             .field("play_token", &"<masqué>")
             .field("expires_at", &self.expires_at)
+            .field("scope", &self.scope)
+            .field("aud", &self.aud)
             .finish()
     }
+}
+
+/// Corps de `POST /play/session` : le serveur que le launcher va rejoindre
+/// (même valeur que la clé `server-id` de Guardian). Sans `serveur`, aucun
+/// corps n'est envoyé : l'API vise son serveur par défaut.
+#[derive(Debug, Serialize)]
+struct PlaySessionRequest<'a> {
+    serveur: &'a str,
 }
 
 // ──────────────────────────────────────────────────────
@@ -258,7 +276,12 @@ fn describe_status(status: u16, body: &str) -> String {
             "{} (HTTP 409).",
             api.unwrap_or_else(|| "Conflit : cette action a déjà été faite ou n'est plus possible".into())
         ),
-        413 => "Fichier trop volumineux pour le serveur Reborn (HTTP 413) : choisis une image plus légère ou réduis-la avant de l'envoyer.".to_string(),
+        // L'API dit elle-même quoi faire quand elle le peut (enregistrement
+        // vocal trop lourd, brouillon trop gros) ; sinon, cas d'une image.
+        413 => match api {
+            Some(m) => format!("{m} (HTTP 413)."),
+            None => "Fichier trop volumineux pour le serveur Reborn (HTTP 413) : choisis une image plus légère ou réduis-la avant de l'envoyer.".to_string(),
+        },
         429 => "Trop de requêtes, réessaie dans un instant (HTTP 429).".to_string(),
         500..=599 => match api {
             Some(m) => format!(
@@ -426,6 +449,27 @@ pub fn extract_api_message(body: &str) -> Option<String> {
     }
 }
 
+/// Tous les messages d'un corps d'erreur NestJS (`message` en chaîne ou en
+/// tableau), sans troncature : pour les refus de validation champ par champ
+/// (« history: Encore 38 caractères… »), que l'écran range sous chaque champ.
+/// Vide si le corps n'a pas ce format.
+pub fn api_messages(body: &str) -> Vec<String> {
+    let Ok(Json::Object(map)) = serde_json::from_str::<Json>(body.trim()) else {
+        return Vec::new();
+    };
+    match map.get("message") {
+        Some(Json::String(s)) if !s.trim().is_empty() => vec![s.trim().to_string()],
+        Some(Json::Array(items)) => items
+            .iter()
+            .filter_map(Json::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// `message` NestJS : chaîne, ou tableau de chaînes (erreurs de validation
 /// class-validator) qu'on joint par « ; ».
 fn message_from_value(v: &Json) -> Option<String> {
@@ -572,15 +616,26 @@ impl ApiClient {
 
     /// Demande un play-token court (~5 min) signé HMAC par l'API. Sera
     /// passé à la JVM via sysprop, puis poussé au serveur par le mod
-    /// Reborn Integrity au JOIN. L'API gate sur role != PLAYER, donc cet
-    /// appel échoue (403) si le user n'est pas whitelisté.
-    pub async fn fetch_play_token(&self, access_token: &str) -> Result<PlaySession, ApiError> {
-        let resp = self
+    /// Reborn Integrity au JOIN.
+    ///
+    /// `serveur` : identifiant du serveur visé (`build`, `dev`…), recopié par
+    /// l'API dans la claim `aud` ; `None` = serveur par défaut de l'API.
+    /// L'API décide de la portée : `play` pour un compte whitelisté ou staff,
+    /// `douane` pour un candidat dans la fenêtre d'entrée de sa séance, sinon
+    /// 403 avec un message selon la phase (400 si `serveur` est inconnu).
+    pub async fn fetch_play_token(
+        &self,
+        access_token: &str,
+        serveur: Option<&str>,
+    ) -> Result<PlaySession, ApiError> {
+        let mut req = self
             .http
             .post(self.url("/play/session"))
-            .bearer_auth(access_token)
-            .send()
-            .await?;
+            .bearer_auth(access_token);
+        if let Some(serveur) = serveur {
+            req = req.json(&PlaySessionRequest { serveur });
+        }
+        let resp = req.send().await?;
         read_json(resp).await
     }
 
@@ -591,6 +646,17 @@ impl ApiClient {
         access_token: &str,
     ) -> Result<crate::manifest::SignedManifest, ApiError> {
         self.get_json(access_token, "/manifest/current").await
+    }
+
+    /// « Mes personnages » (`GET /me/characters`, CANDIDATURE_ET_DOUANE §4.6) :
+    /// personnages du compte sur le serveur de prod, avec leur N° (vue du
+    /// propriétaire seulement). Cartes brutes, relues une à une par
+    /// `content::personnages`.
+    pub async fn fetch_my_characters(
+        &self,
+        access_token: &str,
+    ) -> Result<crate::content::personnages::MesPersonnagesApi, ApiError> {
+        self.get_json(access_token, "/me/characters").await
     }
 
     /// GET générique authentifié. Le caller désérialise. Centralise la
@@ -714,6 +780,81 @@ impl ApiClient {
             .await?;
         read_json(resp).await
     }
+
+    /// PUT générique authentifié avec body JSON (brouillon de candidature…).
+    pub async fn put_json<B: Serialize, T: for<'de> Deserialize<'de>>(
+        &self,
+        access_token: &str,
+        path: &str,
+        body: &B,
+    ) -> Result<T, ApiError> {
+        let resp = self
+            .http
+            .put(self.url(path))
+            .bearer_auth(access_token)
+            .json(body)
+            .send()
+            .await?;
+        read_json(resp).await
+    }
+
+    /// DELETE générique authentifié dont la réponse porte un corps JSON
+    /// (`{ ok: true }`…), à la différence de [`Self::delete_no_content`].
+    pub async fn delete_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        access_token: &str,
+        path: &str,
+    ) -> Result<T, ApiError> {
+        let resp = self
+            .http
+            .delete(self.url(path))
+            .bearer_auth(access_token)
+            .send()
+            .await?;
+        read_json(resp).await
+    }
+
+    /// POST authentifié d'octets bruts (corps de la requête tel quel, avec
+    /// son `Content-Type`), réponse JSON. `timeout` remplace le délai global
+    /// du client (15 s) : un envoi de plus d'un Mo sur une connexion
+    /// résidentielle lente peut le dépasser.
+    pub async fn post_raw<T: for<'de> Deserialize<'de>>(
+        &self,
+        access_token: &str,
+        path: &str,
+        content_type: &str,
+        bytes: Vec<u8>,
+        timeout: std::time::Duration,
+    ) -> Result<T, ApiError> {
+        let resp = self
+            .http
+            .post(self.url(path))
+            .bearer_auth(access_token)
+            .header(reqwest::header::CONTENT_TYPE, content_type)
+            .timeout(timeout)
+            .body(bytes)
+            .send()
+            .await?;
+        read_json(resp).await
+    }
+
+    /// GET authentifié d'un fichier privé (enregistrement vocal…) : octets
+    /// bruts. Le type est connu de l'appelant par ailleurs (`mimeType`).
+    pub async fn get_bytes(
+        &self,
+        access_token: &str,
+        path: &str,
+        timeout: std::time::Duration,
+    ) -> Result<Vec<u8>, ApiError> {
+        let resp = self
+            .http
+            .get(self.url(path))
+            .bearer_auth(access_token)
+            .timeout(timeout)
+            .send()
+            .await?;
+        Ok(ensure_success(resp).await?.bytes().await?.to_vec())
+    }
 }
 
 #[cfg(test)]
@@ -747,6 +888,24 @@ mod tests {
             extract_api_message(body).as_deref(),
             Some("displayName must be shorter than or equal to 32 characters ; displayName should not be empty")
         );
+    }
+
+    #[test]
+    fn tous_les_messages_de_validation_sans_troncature() {
+        let long = "é".repeat(400);
+        let body = format!(
+            r#"{{"statusCode":400,"message":["history: {long}"," firstName: Lettres. "],"error":"Bad Request"}}"#
+        );
+        let messages = api_messages(&body);
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0], format!("history: {long}"));
+        assert_eq!(messages[1], "firstName: Lettres.");
+        assert_eq!(
+            api_messages(r#"{"message":"Ta candidature est déjà acceptée."}"#),
+            vec!["Ta candidature est déjà acceptée.".to_string()]
+        );
+        assert!(api_messages("<html>502</html>").is_empty());
+        assert!(api_messages(r#"{"message":42}"#).is_empty());
     }
 
     #[test]

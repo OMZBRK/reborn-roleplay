@@ -1,0 +1,1105 @@
+/* ============================================================
+   MAQUETTES L10 / L11 (développement uniquement).
+   Préfixe « mqa- » (maquette accueil) : aucune collision avec globals.css
+   ni avec les autres maquettes. Couleurs = jetons du launcher ; seul le
+   violet de la marque (DA §7) est local, pour la carte Discord.
+   ============================================================ */
+
+/* ---------- Coque : fenêtre 1280 × 800 ---------- */
+.mqa-fenetre {
+  display: flex;
+  width: 1280px;
+  height: 800px;
+  flex-shrink: 0;
+  overflow: hidden;
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+.mqa-fenetre[data-pleine="true"] {
+  height: auto;
+  min-height: 800px;
+}
+.mqa-fenetre-main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mqa-fenetre-vue {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  animation: reborn-route-in 160ms var(--ease-out) both;
+}
+/* height: 100 % ne s'étire pas dans un parent de hauteur auto : on rend le
+   rail à « auto » pour que le flex l'étire sur toute la capture. */
+.mqa-fenetre[data-pleine="true"] > .reborn-rail {
+  height: auto;
+}
+.mqa-fenetre[data-pleine="true"] .mqa-fenetre-main,
+.mqa-fenetre[data-pleine="true"] .mqa-fenetre-vue {
+  overflow: visible;
+}
+
+/* ---------- Hero douane : mini-frise ---------- */
+.mqa-frise {
+  display: flex;
+  align-items: center;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--color-foreground-muted);
+}
+.mqa-frise li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.mqa-frise li + li::before {
+  content: "";
+  width: 20px;
+  height: 1px;
+  margin: 0 8px 0 10px;
+  background: var(--color-border-strong);
+}
+.mqa-frise-pt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+}
+.mqa-frise li[data-etat="fait"] {
+  color: var(--color-foreground-subtle);
+}
+.mqa-frise li[data-etat="fait"] .mqa-frise-pt {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-background);
+}
+.mqa-frise li[data-etat="encours"] {
+  font-weight: 600;
+  color: var(--color-gold-bright);
+}
+.mqa-frise li[data-etat="encours"]::before {
+  background: linear-gradient(90deg, var(--color-success), var(--color-gold));
+}
+.mqa-frise li[data-etat="encours"] .mqa-frise-pt {
+  border-color: var(--color-gold);
+  background: radial-gradient(circle, var(--color-gold) 0 3px, transparent 3.5px);
+  box-shadow: 0 0 0 3px rgba(224, 176, 106, 0.14);
+}
+
+/* ---------- Hero douane : fenêtre d'entrée (emplacement de 52 px) ---------- */
+.mqa-fenetre-entree {
+  width: 100%;
+  padding: 8px 12px 10px;
+  border: 1px solid rgba(224, 176, 106, 0.3);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(58, 44, 20, 0.38), rgba(58, 44, 20, 0.16));
+}
+.mqa-fenetre-entree-tete {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--color-foreground-subtle);
+}
+.mqa-fenetre-entree-tete b {
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.mqa-fenetre-entree-reste {
+  font-weight: 600;
+  color: var(--color-gold-bright);
+}
+.mqa-fenetre-entree-piste {
+  position: relative;
+  height: 4px;
+  margin-top: 9px;
+  border-radius: var(--radius-full);
+  background: rgba(247, 236, 214, 0.1);
+}
+.mqa-fenetre-entree-rempli {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-gold) 0%, var(--color-accent-bright) 100%);
+}
+.mqa-fenetre-entree-h {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 10px;
+  background: rgba(247, 236, 214, 0.55);
+}
+.mqa-fenetre-entree-curseur {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: var(--color-foreground);
+  transform: translateY(-50%);
+  box-shadow: 0 0 0 3px rgba(230, 57, 80, 0.35), 0 0 10px rgba(230, 57, 80, 0.7);
+}
+
+/* Encart neutre (avant la fenêtre) */
+.mqa-encart {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface-elevated);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-foreground-subtle);
+}
+.mqa-encart b {
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.mqa-encart-icone {
+  margin-top: 1px;
+  color: var(--color-gold);
+}
+
+/* ---------- Carte Discord ---------- */
+.mqa-discord {
+  --mqa-violet: #6a2177;
+  --mqa-violet-clair: #7e2b8d;
+  --mqa-prune: #3f0f4b;
+  --mqa-nuit-violette: #260830;
+  --mqa-rose: #eeb8a2;
+  --mqa-lilas: #c99bd2;
+  position: relative;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr) auto;
+  min-height: 136px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 55% 160% at 14% 50%, rgba(106, 33, 119, 0.32) 0%, transparent 62%),
+    linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+.mqa-discord:hover {
+  border-color: rgba(201, 155, 210, 0.42);
+  box-shadow: var(--shadow-lg), 0 18px 40px -22px rgba(106, 33, 119, 0.75);
+}
+/* Filet rose de la marque, en haut à gauche */
+.mqa-discord::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: 1px;
+  background: linear-gradient(90deg, var(--mqa-rose) 0%, rgba(238, 184, 162, 0.25) 30%, transparent 60%);
+  pointer-events: none;
+}
+.mqa-discord-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: -48px;
+  padding-right: 48px;
+  background-color: var(--mqa-prune);
+  background-position: center;
+  background-size: cover;
+  /* Fondu par masque vers le fond de la carte : plus de bord net entre
+     la bannière violette et le texte. */
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 52%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0%, #000 52%, transparent 100%);
+}
+/* Vignettage */
+.mqa-discord-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 42% 50%, rgba(87, 27, 97, 0) 0%, rgba(38, 8, 48, 0.4) 72%);
+  pointer-events: none;
+}
+.mqa-discord-icone {
+  position: relative;
+  z-index: 1;
+  width: 76px;
+  height: 76px;
+  border-radius: 24px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 0 0 5px rgba(38, 8, 48, 0.45),
+    0 14px 28px -8px rgba(0, 0, 0, 0.75),
+    0 0 40px -6px rgba(201, 155, 210, 0.5);
+}
+.mqa-discord-corps {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 18px 16px 18px 24px;
+}
+.mqa-discord-surtitre {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--mqa-rose);
+}
+.mqa-discord-logo {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.mqa-discord-logo--sm {
+  width: 13px;
+  height: 13px;
+}
+.mqa-discord-titre {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.mqa-discord-desc {
+  max-width: 470px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+}
+.mqa-discord-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-foreground-subtle);
+}
+.mqa-discord-stats b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground);
+}
+.mqa-discord-sep {
+  color: var(--color-foreground-muted);
+}
+.mqa-discord-enligne {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mqa-pastille-verte {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.14), 0 0 8px rgba(74, 222, 128, 0.6);
+}
+.mqa-discord-stats--off {
+  gap: 6px;
+  color: var(--color-foreground-muted);
+}
+.mqa-squelette {
+  display: inline-block;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    90deg,
+    rgba(247, 236, 214, 0.05) 0%,
+    rgba(247, 236, 214, 0.14) 50%,
+    rgba(247, 236, 214, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: mqa-scintille 1.4s ease-in-out infinite;
+}
+@keyframes mqa-scintille {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+.mqa-discord-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 26px 18px 8px;
+}
+.mqa-discord-bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  background: linear-gradient(180deg, var(--mqa-violet-clair) 0%, var(--mqa-violet) 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 20px -8px rgba(106, 33, 119, 0.9);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    filter var(--duration-fast) var(--ease-out);
+}
+.mqa-discord-bouton:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 24px -8px rgba(106, 33, 119, 0.95),
+    0 0 26px -6px rgba(201, 155, 210, 0.6);
+}
+.mqa-discord-bouton:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.mqa-discord-lien {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-foreground-muted);
+}
+
+/* ---------- Mes personnages : page ---------- */
+.mqa-perso-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 24px;
+  padding: 44px 56px 40px;
+  overflow-y: auto;
+}
+.mqa-perso-tete {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.mqa-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.mqa-kicker--or {
+  letter-spacing: 0.2em;
+  color: var(--color-gold);
+}
+.mqa-perso-titre {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--color-foreground);
+}
+.mqa-perso-sous {
+  max-width: 580px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-foreground-subtle);
+}
+.mqa-perso-resume {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.mqa-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: rgba(48, 24, 29, 0.6);
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--color-foreground-subtle);
+  box-shadow: inset 0 1px 0 var(--color-hairline);
+}
+.mqa-chip--or {
+  padding: 3px 9px;
+  border-color: rgba(224, 176, 106, 0.4);
+  background: rgba(58, 44, 20, 0.45);
+  font-size: 10.5px;
+  color: var(--color-gold-bright);
+}
+.mqa-perso-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--color-foreground-muted);
+}
+/* Fenêtre de 800 px : liste et fiche défilent chacune dans la hauteur
+   restante (maître-détail). En capture longue (hauteur auto), la ligne de
+   grille prend la taille du contenu et rien ne défile. */
+.mqa-perso-grille {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) 392px;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+.mqa-perso-liste {
+  display: flex;
+  max-height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  margin: -6px;
+  padding: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+/* ---------- Carte personnage ---------- */
+.mqa-carte {
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-spring);
+}
+.mqa-carte:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+}
+.mqa-carte[data-choisi="true"] {
+  border-color: rgba(176, 28, 50, 0.7);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 1px rgba(176, 28, 50, 0.3),
+    0 16px 36px -20px var(--color-accent-glow-strong);
+}
+.mqa-carte[data-choisi="true"]::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: -1px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--color-accent-bright), var(--color-gold));
+  box-shadow: 0 0 8px var(--color-accent-glow-strong);
+}
+.mqa-carte-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.mqa-carte-zone:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.mqa-carte-haut {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 16px;
+  padding: 16px 18px 14px;
+  pointer-events: none;
+}
+.mqa-carte-identite {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.mqa-carte-ligne1 {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mqa-carte-nom {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.mqa-carte-nom span {
+  color: var(--color-gold);
+}
+.mqa-carte-meta {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-foreground-subtle);
+}
+.mqa-carte-meta--doux {
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+.mqa-carte .mqa-chip--or {
+  margin-top: 6px;
+}
+.mqa-carte[data-mort="true"] .mqa-carte-nom {
+  color: var(--color-foreground-subtle);
+}
+.mqa-carte[data-mort="true"] .mqa-carte-nom span {
+  color: var(--color-foreground-muted);
+}
+.mqa-etat {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.mqa-etat--vivant {
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  background: rgba(74, 222, 128, 0.08);
+  color: var(--color-success);
+}
+.mqa-etat--mort {
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.08);
+  color: #f19090;
+}
+.mqa-carte-bas {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  padding: 10px 18px 12px;
+  border-top: 1px solid var(--color-border);
+  pointer-events: none;
+}
+.mqa-donnee {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 18px;
+  border-left: 1px solid var(--color-border);
+}
+.mqa-donnee:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.mqa-donnee-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.mqa-donnee-valeur {
+  font-size: 12.5px;
+  color: var(--color-foreground);
+}
+.mqa-numero-ligne {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.mqa-numero-valeur {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--color-gold-bright);
+}
+.mqa-numero-copier {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  background: var(--color-surface);
+  font-size: 10.5px;
+  color: var(--color-foreground-subtle);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.mqa-numero-copier:hover {
+  border-color: rgba(224, 176, 106, 0.6);
+  color: var(--color-foreground);
+}
+.mqa-numero-copier:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* Emplacement libre */
+.mqa-libre {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: rgba(23, 9, 12, 0.4);
+}
+.mqa-libre-icone {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 12px;
+  color: var(--color-foreground-subtle);
+}
+.mqa-libre-titre {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground-subtle);
+}
+.mqa-libre-texte {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--color-foreground-muted);
+}
+
+/* Blason : tuile laquée, blason du clan teinté or, médaillon du village */
+.mqa-blason {
+  --mqa-t: var(--mqa-taille, 64px);
+  position: relative;
+  width: var(--mqa-t);
+  height: var(--mqa-t);
+  flex-shrink: 0;
+  border: 1px solid rgba(224, 176, 106, 0.35);
+  border-radius: calc(var(--mqa-t) * 0.22);
+  background:
+    radial-gradient(ellipse 80% 70% at 30% 18%, rgba(224, 176, 106, 0.16) 0%, transparent 60%),
+    linear-gradient(145deg, #2b1418 0%, #160a0d 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 3px rgba(10, 6, 8, 0.45),
+    0 6px 14px -6px rgba(0, 0, 0, 0.7);
+}
+.mqa-blason-clan {
+  position: absolute;
+  inset: 12.5%;
+  background: linear-gradient(180deg, var(--color-gold-bright) 0%, var(--color-gold) 100%);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.mqa-blason-village {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: flex;
+  width: calc(var(--mqa-t) * 0.42);
+  height: calc(var(--mqa-t) * 0.42);
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: #1a0b0e;
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+.mqa-blason-village > span {
+  width: 72%;
+  height: 72%;
+  background: var(--color-foreground-subtle);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.mqa-blason[data-mort="true"] {
+  opacity: 0.6;
+  filter: grayscale(1);
+}
+
+/* ---------- Panneau de détail ---------- */
+.mqa-detail {
+  display: flex;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 80% 40% at 100% 0%, rgba(224, 176, 106, 0.08) 0%, transparent 60%),
+    linear-gradient(170deg, var(--color-surface-elevated) 0%, var(--color-surface) 75%);
+  box-shadow: var(--shadow-md);
+}
+.mqa-detail-tete {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.mqa-detail-nom {
+  margin: 5px 0 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.mqa-detail-sous {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-foreground-subtle);
+}
+.mqa-detail-sous-doux {
+  color: var(--color-foreground-muted);
+}
+.mqa-detail-identite {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: rgba(10, 6, 8, 0.35);
+}
+.mqa-detail-identite dt {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted);
+}
+.mqa-detail-identite dd {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--color-foreground);
+}
+.mqa-detail-identite dd.mqa-mono {
+  font-family: var(--font-mono);
+  color: var(--color-gold-bright);
+}
+.mqa-detail-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mqa-section h3 {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+.mqa-section p {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-line;
+  color: var(--color-foreground-subtle);
+}
+.mqa-section p[data-replie="true"] {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.mqa-lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-accent-bright);
+  cursor: pointer;
+}
+.mqa-lien:hover {
+  text-decoration: underline;
+}
+.mqa-lien:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.mqa-detail-vide {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+.mqa-detail-pied {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-foreground-muted);
+}
+.mqa-detail-pied > span {
+  flex: 1 1 260px;
+}
+.mqa-detail-pied .mqa-lien {
+  margin: 0 0 0 22px;
+}
+
+/* ---------- État vide ---------- */
+.mqa-vide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: 20px;
+}
+.mqa-vide-carte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 44px 32px 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(176, 28, 50, 0.14) 0%, transparent 70%),
+    linear-gradient(160deg, var(--color-surface-elevated) 0%, var(--color-surface) 70%);
+  text-align: center;
+}
+.mqa-vide-icone {
+  display: flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-surface-elevated);
+  color: var(--color-foreground-muted);
+}
+.mqa-vide-titre {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground);
+}
+.mqa-vide-texte {
+  max-width: 440px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-foreground-subtle);
+}
+.mqa-vide-bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 42px;
+  margin-top: 10px;
+  padding: 0 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-accent);
+}
+.mqa-vide-bouton:focus-visible {
+  outline: 2px solid var(--color-gold-bright);
+  outline-offset: 2px;
+}
+
+.mqa-etapes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin: 18px 0 0;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--color-border);
+  list-style: none;
+  text-align: left;
+}
+.mqa-etapes li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: rgba(10, 6, 8, 0.35);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-foreground-muted);
+}
+.mqa-etapes b {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.mqa-etape-num {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+  border: 1px solid rgba(224, 176, 106, 0.45);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-gold-bright);
+}
+
+/* ---------- Planche des états ---------- */
+.mqa-planche {
+  position: relative;
+  display: flex;
+  width: 1280px;
+  min-height: 800px;
+  flex-direction: column;
+  gap: 30px;
+  padding: 40px 56px 56px;
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(ellipse 90% 40% at 12% -4%, rgba(176, 28, 50, 0.16) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 40% at 100% 104%, rgba(224, 176, 106, 0.07) 0%, transparent 55%);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+.mqa-planche-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mqa-planche-grille {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+.mqa-planche-pile {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.mqa-planche-cas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+.mqa-planche-cas figcaption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mqa-planche-cas-titre {
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.05em;
+  color: var(--color-foreground);
+}
+.mqa-planche-cas-heure {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-foreground-muted);
+}
+.mqa-planche-hero.reborn-home-hero {
+  display: flex;
+  min-height: 0;
+  justify-content: center;
+  padding: 22px 0 20px;
+  animation: none;
+}
+.mqa-planche-hero-col {
+  width: 410px;
+}
+.mqa-planche-regle {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--color-foreground-subtle);
+}

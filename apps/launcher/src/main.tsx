@@ -13,6 +13,8 @@ async function start(): Promise<void> {
   // Ce mode rend sans StrictMode : ses effets montés deux fois n'existent
   // pas en production et fausseraient les écrans photographiés.
   let strict = true;
+  // ?demo=maquette : écran de maquette rendu à la place de l'application.
+  let tree: React.ReactNode = null;
   if (import.meta.env.DEV) {
     let wanted = new URLSearchParams(window.location.search).has("demo");
     try {
@@ -20,16 +22,21 @@ async function start(): Promise<void> {
     } catch {
       // Stockage indisponible : seul le paramètre d'adresse compte.
     }
-    if (wanted) strict = !(await import("./dev/demo")).demoActive;
+    if (wanted) {
+      const demo = await import("./dev/demo");
+      strict = !demo.demoActive;
+      tree = await demo.maquette();
+    }
   }
 
-  const { App } = await import("./App");
-
-  const tree = (
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  );
+  if (tree === null) {
+    const { App } = await import("./App");
+    tree = (
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    );
+  }
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     strict ? <React.StrictMode>{tree}</React.StrictMode> : tree,
   );
